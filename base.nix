@@ -8,7 +8,7 @@
   userProfile =
     if builtins.pathExists ./profiles/${username}
     then import ./profiles/${username} {inherit lib config pkgs username;}
-    else import ./profiles/dummy-profile.nix;
+    else import ./profiles/dummy.nix;
 in {
   imports = [
     ./hardware-configuration.nix
