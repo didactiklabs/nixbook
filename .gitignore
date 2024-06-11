@@ -1,0 +1,4 @@
+.env
+.swp
+hardware-configuration.nix
+configuration.nix
