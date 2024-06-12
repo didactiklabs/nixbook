@@ -23,7 +23,14 @@
         vim.enable = true;
         vscode.enable = true;
         pywalConfig.enable = false;
-        rofiConfig.enable = true;
+        # https://github.com/adi1090x/rofi
+        rofiConfig = {
+          enable = true;
+          launcher = {
+            type = "type-1";
+            style = "style-1";
+          };
+        };
       };
     };
   };

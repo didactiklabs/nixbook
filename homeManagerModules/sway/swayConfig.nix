@@ -15,6 +15,8 @@
   waybar = "${pkgs.waybar}/bin/waybar";
   loginctl = "${pkgs.systemd}/bin/loginctl";
   rofi-wayland = "${pkgs.rofi-wayland}/bin/rofi";
+  rofiLauncherType = "${cfg.rofiConfig.launcher.type}";
+  rofiLauncherStyle = "${cfg.rofiConfig.launcher.style}";
   playerctl = "${pkgs.playerctl}/bin/playerctl";
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
   pactl = "${pkgs.pulseaudio}/bin/pactl";
@@ -367,7 +369,7 @@ in {
 
           "${mod}+l" = "exec ${loginctl} lock-session $XDG_SESSION_ID";
           "${mod}+d" = lib.mkIf cfg.rofiConfig.enable ''
-            exec "${rofi-wayland} -show drun -theme-str 'element-icon { size: 3.2ch;}'"
+            exec "${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/${rofiLauncherType}/${rofiLauncherStyle}"
           '';
 
           # Brightness
