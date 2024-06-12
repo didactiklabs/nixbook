@@ -248,11 +248,11 @@ in {
         gaps = {
           #  bottom = 5;
           #  horizontal = 5;
-          #  inner = 5;
+          inner = 5;
           #  left = 5;
-          #  outer = 5;
+          outer = 5;
           #  right = 5;
-          smartBorders = "on";
+          smartBorders = "off";
           smartGaps = false;
           #  top = 5;
           #  vertical = 5;
