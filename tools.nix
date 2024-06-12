@@ -31,5 +31,6 @@
     spotify
     openvpn
     geeqie # image viewer
+    mpv
   ];
 }

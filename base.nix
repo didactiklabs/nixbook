@@ -55,7 +55,11 @@ in {
     "fs.protected_regular" = 2;
   };
   # Docker
-  virtualisation.docker.enable = false;
+  virtualisation.docker.enable = true;
+  virtualisation.docker.rootless = {
+    enable = true;
+    setSocketVariable = true;
+  };
 
   # Bootloader.
   boot.kernelParams = [
@@ -114,7 +118,7 @@ in {
   users.users.${username} = {
     isNormalUser = true;
     description = "${username}";
-    extraGroups = ["wheel" "docker"];
+    extraGroups = ["wheel"];
   };
   # Allow unfree packages
   nixpkgs.config.allowUnfreePredicate = pkg: true;

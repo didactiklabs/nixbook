@@ -13,7 +13,6 @@ in {
     ./thunar.nix
     ./waybarConfig.nix
     ./waybarStyle.nix
-    ./wofiConfig.nix
   ];
 
   config = {
