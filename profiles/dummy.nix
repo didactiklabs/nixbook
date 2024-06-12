@@ -30,6 +30,7 @@
             type = "type-1";
             style = "style-1";
           };
+          color = "onedark";
         };
       };
     };

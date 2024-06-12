@@ -42,8 +42,9 @@
           enable = true;
           launcher = {
             type = "type-3";
-            style = "style-1";
+            style = "style-4";
           };
+          color = "cyberpunk";
         };
       };
       imports = [
