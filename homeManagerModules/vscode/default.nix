@@ -107,7 +107,7 @@ in {
           "explorer.openEditors.visible" = 0;
           "editor.occurrencesHighlight" = "singleFile";
           "workbench.iconTheme" = "material-icon-theme";
-          "workbench.colorTheme" = lib.mkIf (!cfg.stylixConfig.enable) "Solarized Dark";
+          "workbench.colorTheme" = lib.mkForce "Ayu Dark";
 
           ## bracket color stuff
           "editor.bracketPairColorization.enabled" = true;

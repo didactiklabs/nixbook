@@ -19,12 +19,6 @@
       sha256 = "03ii58jpvmbl5kwq34cmx0f2x08rla75sn32fv0xns5jprjxaaiy";
     }
     {
-      name = "wal-theme";
-      publisher = "dlasagno";
-      version = "1.2.0";
-      sha256 = "17130z04jg8hhj1k62q3d3lni10hajrckf1y95bbnm2d57j8spjz";
-    }
-    {
       name = "shell-format";
       publisher = "foxundermoon";
       version = "7.2.5";
