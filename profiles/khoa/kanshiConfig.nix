@@ -40,9 +40,9 @@ in {
           profile.outputs = [
             {
               criteria = "eDP-1";
-              position = "0,634";
+              position = "254,431";
               mode = "2880x1800@60.002Hz";
-              scale = 1.7;
+              scale = 2.0;
             }
             {
               criteria = "DP-8";

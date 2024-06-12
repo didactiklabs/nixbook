@@ -380,7 +380,7 @@ in {
 
           "${mod}+l" = "exec ${loginctl} lock-session $XDG_SESSION_ID";
           "${mod}+d" = lib.mkIf cfg.rofiConfig.enable ''
-            exec "${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/${rofiLauncherType}/${rofiLauncherStyle}"
+            exec "${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/${rofiLauncherType}/${rofiLauncherStyle}.rasi"
           '';
 
           # Brightness

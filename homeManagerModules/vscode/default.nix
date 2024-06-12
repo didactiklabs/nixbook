@@ -104,7 +104,7 @@ in {
           "window.zoomLevel" = 1;
           "explorer.confirmDelete" = false;
           "explorer.confirmDragAndDrop" = false;
-          "explorer.openEditors.visible" = 0;
+          "explorer.openEditors.visible" = 1;
           "editor.occurrencesHighlight" = "singleFile";
           "workbench.iconTheme" = "material-icon-theme";
           "workbench.colorTheme" = lib.mkForce "Ayu Dark";

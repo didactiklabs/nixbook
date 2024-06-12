@@ -43,7 +43,7 @@
           enable = true;
           launcher = {
             type = "type-3";
-            style = "style-4";
+            style = "style-10";
           };
           color = "cyberpunk";
         };
