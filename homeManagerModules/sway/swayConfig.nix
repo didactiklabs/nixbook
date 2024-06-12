@@ -180,6 +180,7 @@ in {
       swaynag.enable = true;
       xwayland = true;
       extraSessionCommands = ''
+        layer_effects waybar blur enable
         export CLUTTER_BACKEND="wayland"
         export SDL_VIDEODRIVER="wayland"
         export QT_QPA_PLATFORM="wayland"
@@ -260,7 +261,7 @@ in {
 
         window.commands = [
           {
-            command = "opacity 0.85, blur enable, blur_passes 4, blur_radius 4, corner_radius 10";
+            command = "opacity 0.85, shadows enable, blur enable, blur_passes 4, blur_radius 4, corner_radius 10";
             criteria = {
               class = ".*";
             };

@@ -15,14 +15,14 @@
       profileCustomization = {
         mainWallpaper = let
           image = pkgs.fetchurl {
-            url = "https://w.wallhaven.cc/full/gp/wallhaven-gpl8d3.jpg";
-            sha256 = "sha256-t5f3VOHHZcaiGasyTyFh8eL87c0mq2FCsPVNNj20gqg=";
+            url = "https://w.wallhaven.cc/full/ex/wallhaven-exzrmw.png";
+            sha256 = "sha256-E8xvHLciXUKjXCzR9AlUWpT7B5+3c5qYkgpdbU0e03E=";
           };
         in "${image}";
         lockWallpaper = let
           image = pkgs.fetchurl {
-            url = "https://w.wallhaven.cc/full/yx/wallhaven-yx35z7.jpg";
-            sha256 = "sha256-bHNsg9ftOSJRxChC5jnvb1U+4oGwr118gCFcCn8/YQU=";
+            url = "https://w.wallhaven.cc/full/6o/wallhaven-6okd5l.png";
+            sha256 = "sha256-uofSasQgDYmvuS7ZQJxY1oLht0X4o/Sq0ZrHACh01AQ=";
           };
         in "${image}";
       };
