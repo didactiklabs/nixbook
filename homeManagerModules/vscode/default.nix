@@ -87,7 +87,7 @@ in {
           "terminal.integrated.profiles.linux" = {
             "bash" = {
               "path" = "${pkgs.zsh}/bin/zsh";
-              "icon" = "terminal-zsh";
+              "icon" = "terminal-bash";
             };
             "tmux" = {
               "path" = "${pkgs.tmux}/bin/tmux";
@@ -99,40 +99,22 @@ in {
           "terminal.integrated.fontFamily" = "'Hack Nerd Font', 'Ubuntu Mono', 'Cascadia Mono', 'DejaVu Sans Mono', 'Font Awesome 5 Brands', 'Font Awesome 5 Free', 'Font Awesome 5 Free Solid'";
           "terminal.integrated.fontSize" = 12;
           "terminal.integrated.fontWeight" = "bold";
-
+          "terminal.integrated.copyOnSelection" = true;
+          "window.menuBarVisibility" = "toggle";
           "window.zoomLevel" = 1;
           "explorer.confirmDelete" = false;
           "explorer.confirmDragAndDrop" = false;
           "explorer.openEditors.visible" = 0;
           "editor.occurrencesHighlight" = "singleFile";
-          "editor.rulers" = [
-            {
-              "column" = 80;
-              "color" = "#ff9900";
-            }
-            {
-              "column" = 120;
-              "color" = "#ff4081";
-            }
-          ];
           "workbench.iconTheme" = "material-icon-theme";
-          "workbench.colorTheme" = "Atom One Dark";
+          "workbench.colorTheme" = "Wal";
 
           ## bracket color stuff
           "editor.bracketPairColorization.enabled" = true;
           "editor.guides.bracketPairs" = false;
           "editor.guides.bracketPairsHorizontal" = true;
           "editor.guides.highlightActiveBracketPair" = true;
-          "workbench.colorCustomizations" = {
-            "editorRuler.foreground" = "#ff4081";
-            "editorBracketHighlight.foreground1" = "#ffd700";
-            "editorBracketHighlight.foreground2" = "#ff6600";
-            "editorBracketHighlight.foreground3" = "#ff3232";
-            "editorBracketHighlight.foreground4" = "#c934c4";
-            "editorBracketHighlight.foreground5" = "#5680f3";
-            "editorBracketHighlight.foreground6" = "#1db954";
-            "editorBracketHighlight.unexpectedBracket.foreground" = "#ff0000";
-          };
+
           "files.associations" = {
             "config" = "properties";
             "i3_config" = "properties";

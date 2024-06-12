@@ -125,6 +125,7 @@ in {
       pkgs_swayProp
       pkgs.wlprop
       pkgs.wf-recorder
+      pkgs.copyq
       ## TODO https://github.com/milgra/sov
       #(pkgs.callPackage ./sov.nix {inherit inputs;})
     ];
@@ -366,7 +367,7 @@ in {
 
           "${mod}+l" = "exec ${loginctl} lock-session $XDG_SESSION_ID";
           "${mod}+d" = ''
-            exec "${rofi-wayland} -show drun -theme-str 'element-icon { size: 2.2ch;}'"
+            exec "${rofi-wayland} -show drun -theme-str 'element-icon { size: 3.2ch;}'"
           '';
 
           ## gopass wrapper https://github.com/gopasspw/gopass/blob/master/docs/setup.md#dmenu--rofi-support
@@ -427,6 +428,7 @@ in {
           "${mod}+Shift+t" = ''mode "${modeSystem}"'';
           #"${mod}+Shift+v" = "exec ${swayProp}";
           "${mod}+Shift+v" = "exec ${pkgs.wlprop}/bin/wlprop";
+          "${mod}+q" = "exec ${pkgs.copyq}/bin/copyq toggle";
         };
 
         assigns = {

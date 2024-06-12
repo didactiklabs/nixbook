@@ -62,7 +62,7 @@ in {
         ./homeManagerModules/starshipConfig.nix
         ./homeManagerModules/vimConfig.nix
         ./homeManagerModules/bluetoothConfig.nix
-        #./homeManagerModules/stylixConfig.nix
+        ./homeManagerModules/pywalConfig.nix
       ];
       options.profileCustomization = {
         mainWallpaper = lib.mkOption {

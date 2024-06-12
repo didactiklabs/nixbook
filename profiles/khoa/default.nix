@@ -36,6 +36,7 @@
         starship.enable = true;
         vim.enable = true;
         vscode.enable = true;
+        pywalConfig.enable = true;
       };
       imports = [
         ./kanshiConfig.nix

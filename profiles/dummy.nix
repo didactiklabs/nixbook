@@ -1,7 +1,29 @@
 {
   config,
   pkgs,
+  lib,
+  username,
   ...
 }: {
+  customNixOSModules = {
+    laptopProfile.enable = true;
+    networkManager.enable = true;
+  };
+  networking.hostName = lib.mkForce "dummy-profile";
+  home-manager = {
+    users."${username}" = {
+      customHomeManagerModules = {
+        bluetooth.enable = true;
+        fontConfig.enable = true;
+        gitConfig.enable = true;
+        gtkConfig.enable = true;
+        sway.enable = true;
+        sshConfig.enable = true;
+        starship.enable = true;
+        vim.enable = true;
+        vscode.enable = true;
+        pywalConfig.enable = true;
+      };
+    };
+  };
 }
-

@@ -1,12 +1,6 @@
 {
   extensions = [
     {
-      name = "vscode-theme-onedark";
-      publisher = "akamud";
-      version = "2.3.0";
-      sha256 = "1km3hznw8k0jk9sp3r81c89fxa311lc6gw20fqikd899pvhayqgh";
-    }
-    {
       name = "highlight-line-vscode";
       publisher = "cliffordfajardo";
       version = "0.0.1";
@@ -21,8 +15,14 @@
     {
       name = "vscode-eslint";
       publisher = "dbaeumer";
-      version = "3.0.5";
-      sha256 = "1cmkgi1i5c7qkrr8cif36i803yl6mrv87y9gmzfb701pcfg8yxx9";
+      version = "3.0.7";
+      sha256 = "03ii58jpvmbl5kwq34cmx0f2x08rla75sn32fv0xns5jprjxaaiy";
+    }
+    {
+      name = "wal-theme";
+      publisher = "dlasagno";
+      version = "1.2.0";
+      sha256 = "17130z04jg8hhj1k62q3d3lni10hajrckf1y95bbnm2d57j8spjz";
     }
     {
       name = "shell-format";
@@ -33,8 +33,8 @@
     {
       name = "go";
       publisher = "golang";
-      version = "0.41.2";
-      sha256 = "13fdnwgci87x1rdz1hwq52ling81c3l67cqvmckcjzri2r8gsgvq";
+      version = "0.41.4";
+      sha256 = "03gxgcvjk5plzkk7gjsrrck1kszzbzswkbcr33m3qlkyz4iw9nly";
     }
     {
       name = "nix-ide";
@@ -51,8 +51,8 @@
     {
       name = "bash-ide-vscode";
       publisher = "mads-hartmann";
-      version = "1.39.0";
-      sha256 = "1zand96p0wdpf8jjfpl53xjvzd1mgz33gfxdq941d7cil5kldnpj";
+      version = "1.41.0";
+      sha256 = "0gc4fk9j202xgahj1jy9p20fqxkfbldy4d0gbir5x3i7hq2ahml2";
     }
     {
       name = "marp-vscode";
@@ -75,8 +75,8 @@
     {
       name = "vscode-docker";
       publisher = "ms-azuretools";
-      version = "1.29.0";
-      sha256 = "0rz32qwdf7a5hn3nnhxviaf8spwsszfrxmhnbbskspi5r9b6qm4r";
+      version = "1.29.1";
+      sha256 = "0zba6g0cw2h42gfvrlx0x2axlj61hkrfjfg5kyd14fqzi4n9jmxs";
     }
     {
       name = "vsliveshare";
@@ -93,8 +93,8 @@
     {
       name = "material-icon-theme";
       publisher = "pkief";
-      version = "4.34.0";
-      sha256 = "1ahshxw66436mc9jpiyfac0hinnqm3s0g3akybjrda13yd9884y7";
+      version = "5.3.0";
+      sha256 = "1gpbnwmqw0mxa6ald73ir44diyvlz4r8dar3jb5f9jqlmak92a28";
     }
     {
       name = "material-product-icons";
@@ -102,12 +102,11 @@
       version = "1.7.0";
       sha256 = "1d0bz1yj09vsyv2k78xxx460n0zikb3g6w9w57l93mis2j82xaqp";
     }
-
     {
       name = "vscode-yaml";
       publisher = "redhat";
-      version = "1.14.0";
-      sha256 = "0pww9qndd2vsizsibjsvscz9fbfx8srrj67x4vhmwr581q674944";
+      version = "1.15.0";
+      sha256 = "0hqbfqwszfwxia2flh92z70zd57azpl5i3zapy8s5j3bh8sln69n";
     }
     {
       name = "jinjahtml";
@@ -142,8 +141,8 @@
     {
       name = "vscode-icons";
       publisher = "vscode-icons-team";
-      version = "12.7.0";
-      sha256 = "1w30gd0chf2c26a9c426ghs7gmss9dk9yzlrab51ydwhfkkd4hxb";
+      version = "12.8.0";
+      sha256 = "04rb6r7hv1d3gn62rfldz29bzxdpiikgdh188179q2zx0b89zrfv";
     }
     {
       name = "jinja";

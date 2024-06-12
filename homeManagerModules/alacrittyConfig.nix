@@ -1,8 +1,11 @@
 {
   config,
   pkgs,
+  lib,
   ...
-}: {
+}: let
+  cfg = config.customHomeManagerModules;
+in {
   #home.file.".config/alacritty/alacritty.yml".source = ./alacritty.yml;
   programs.alacritty = {
     enable = true;
@@ -34,7 +37,7 @@
         }
       ];
       selection.save_to_clipboard = true;
-      colors = {
+      colors = lib.mkIf (!cfg.pywalConfig.enable) {
         draw_bold_text_with_bright_colors = true;
         # Default colors
         primary.background = "0x280412";

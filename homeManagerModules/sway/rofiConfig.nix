@@ -15,7 +15,10 @@ in {
       enable = true;
       package = pkgs.rofi-wayland;
       font = "Hack Nerd Font Bold 9";
-      theme = "purple";
+      theme =
+        if cfg.pywalConfig.enable
+        then lib.mkForce "${config.xdg.cacheHome}/wal/colors-rofi-light.rasi"
+        else "purple";
 
       extraConfig = {
         modi = "drun";

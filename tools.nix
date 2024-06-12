@@ -25,7 +25,6 @@
     neofetch
 
     # apps
-    copyq # clipboard manager
     wdisplays # display manager
     vesktop # discord
     firefox

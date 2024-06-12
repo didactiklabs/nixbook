@@ -131,6 +131,8 @@ in {
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = [
+    pkgs.tailscale
+    pkgs.update-systemd-resolved
   ];
   security.sudo.extraRules = [
     {
