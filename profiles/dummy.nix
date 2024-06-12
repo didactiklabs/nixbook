@@ -22,7 +22,8 @@
         starship.enable = true;
         vim.enable = true;
         vscode.enable = true;
-        pywalConfig.enable = true;
+        pywalConfig.enable = false;
+        rofiConfig.enable = true;
       };
     };
   };

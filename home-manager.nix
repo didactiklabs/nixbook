@@ -63,6 +63,7 @@ in {
         ./homeManagerModules/vimConfig.nix
         ./homeManagerModules/bluetoothConfig.nix
         ./homeManagerModules/pywalConfig.nix
+        ./homeManagerModules/rofiConfig.nix
       ];
       options.profileCustomization = {
         mainWallpaper = lib.mkOption {

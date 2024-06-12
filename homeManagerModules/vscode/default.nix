@@ -107,7 +107,7 @@ in {
           "explorer.openEditors.visible" = 0;
           "editor.occurrencesHighlight" = "singleFile";
           "workbench.iconTheme" = "material-icon-theme";
-          "workbench.colorTheme" = "Wal";
+          "workbench.colorTheme" = "Solarized Dark";
 
           ## bracket color stuff
           "editor.bracketPairColorization.enabled" = true;

@@ -366,13 +366,9 @@ in {
           "${mod}+Shift+Right" = "move right";
 
           "${mod}+l" = "exec ${loginctl} lock-session $XDG_SESSION_ID";
-          "${mod}+d" = ''
+          "${mod}+d" = lib.mkIf cfg.rofiConfig.enable ''
             exec "${rofi-wayland} -show drun -theme-str 'element-icon { size: 3.2ch;}'"
           '';
-
-          ## gopass wrapper https://github.com/gopasspw/gopass/blob/master/docs/setup.md#dmenu--rofi-support
-          "${mod}+g" = "exec ${gopass} ls --flat | ${rofi-wayland} -dmenu | ${xargs} --no-run-if-empty ${gopass} show -c";
-          "${mod}+Shift+g" = "exec ${gopass} ls --flat | ${rofi-wayland} -dmenu | ${xargs} --no-run-if-empty ${gopass} show -f | ${head} -n 1 | ${xdotool} type --clearmodifiers --file -";
 
           # Brightness
           "XF86MonBrightnessDown" = "exec ${brightnessctl} set 10%-";

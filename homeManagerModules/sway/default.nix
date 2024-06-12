@@ -9,7 +9,6 @@
 in {
   imports = [
     ./makoConfig.nix
-    ./rofiConfig.nix
     ./swayConfig.nix
     ./thunar.nix
     ./waybarConfig.nix
