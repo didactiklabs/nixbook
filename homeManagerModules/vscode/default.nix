@@ -4,7 +4,7 @@
   lib,
   ...
 }: let
-  cfg = config.customHomeManagerModules.vscode;
+  cfg = config.customHomeManagerModules;
   jsonFormat = pkgs.formats.json {};
 in {
   options.customHomeManagerModules.vscode = {
@@ -27,7 +27,7 @@ in {
     };
   };
 
-  config = lib.mkIf cfg.enable {
+  config = lib.mkIf cfg.vscode.enable {
     home.packages = [
       pkgs.exercism
     ];
@@ -39,7 +39,7 @@ in {
     };
 
     programs.vscode = {
-      enable = cfg.enable;
+      enable = cfg.vscode.enable;
 
       extensions =
         import ./mkAllExtensions.nix {inherit pkgs;};
@@ -71,7 +71,7 @@ in {
 
           "extensions.autoUpdate" = false;
           "extensions.autoCheckUpdates" = false;
-          "editor.fontFamily" = "'Hack Nerd Font', 'Ubuntu Mono', 'Cascadia Mono', 'DejaVu Sans Mono', 'Font Awesome 5 Brands', 'Font Awesome 5 Free', 'Font Awesome 5 Free Solid'";
+          "editor.fontFamily" = lib.mkIf (!cfg.stylixConfig.enable) "'Hack Nerd Font', 'Ubuntu Mono', 'Cascadia Mono', 'DejaVu Sans Mono', 'Font Awesome 5 Brands', 'Font Awesome 5 Free', 'Font Awesome 5 Free Solid'";
           "editor.fontLigatures" = true;
           "editor.fontSize" = 11;
           "editor.fontWeight" = "bold";
@@ -96,7 +96,7 @@ in {
           };
           "terminal.integrated.defaultProfile.linux" = "zsh";
           "terminal.external.linuxExec" = "alacritty";
-          "terminal.integrated.fontFamily" = "'Hack Nerd Font', 'Ubuntu Mono', 'Cascadia Mono', 'DejaVu Sans Mono', 'Font Awesome 5 Brands', 'Font Awesome 5 Free', 'Font Awesome 5 Free Solid'";
+          "terminal.integrated.fontFamily" = lib.mkForce "'Hack Nerd Font', 'Ubuntu Mono', 'Cascadia Mono', 'DejaVu Sans Mono', 'Font Awesome 5 Brands', 'Font Awesome 5 Free', 'Font Awesome 5 Free Solid'";
           "terminal.integrated.fontSize" = 12;
           "terminal.integrated.fontWeight" = "bold";
           "terminal.integrated.copyOnSelection" = true;
@@ -107,7 +107,7 @@ in {
           "explorer.openEditors.visible" = 0;
           "editor.occurrencesHighlight" = "singleFile";
           "workbench.iconTheme" = "material-icon-theme";
-          "workbench.colorTheme" = "Solarized Dark";
+          "workbench.colorTheme" = lib.mkIf (!cfg.stylixConfig.enable) "Solarized Dark";
 
           ## bracket color stuff
           "editor.bracketPairColorization.enabled" = true;
@@ -219,7 +219,7 @@ in {
           "update.mode" = "none";
           "vsicons.dontShowNewVersionMessage" = true;
         }
-        // cfg.extraUserSettings;
+        // cfg.vscode.extraUserSettings;
     };
   };
 }

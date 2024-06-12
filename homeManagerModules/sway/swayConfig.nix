@@ -172,6 +172,7 @@ in {
     ## https://wiki.archlinux.org/title/Sway#Manage_Sway-specific_daemons_with_systemd
     ## https://nix-community.github.io/home-manager/options.html#opt-wayland.windowManager.sway.enable
     wayland.windowManager.sway = {
+      package = pkgs.swayfx;
       enable = true;
       wrapperFeatures.base = true;
       wrapperFeatures.gtk = true;
@@ -257,48 +258,57 @@ in {
           #  vertical = 5;
         };
 
+        window.commands = [
+          {
+            command = "opacity 0.85, blur enable, blur_passes 4, blur_radius 4, corner_radius 10";
+            criteria = {
+              class = ".*";
+            };
+          }
+        ];
+
         fonts = {
           names = ["Hack Nerd Font" "FontAwesome"];
           style = "Bold";
-          size = 9.0;
+          size = lib.mkForce 9.0;
         };
 
         colors = {
-          background = "${colorWhite}";
+          background = lib.mkIf (!cfg.stylixConfig.enable) "${colorWhite}";
           focused = {
-            background = "${colorLightGrey}";
-            border = "${colorBlack}";
-            childBorder = "${colorLightGrey}";
-            indicator = "${colorGreen}";
-            text = "${colorWhite}";
+            background = lib.mkForce "${colorLightGrey}";
+            border = lib.mkForce "${colorBlack}";
+            childBorder = lib.mkForce "${colorLightGrey}";
+            indicator = lib.mkIf (!cfg.stylixConfig.enable) "${colorGreen}";
+            text = lib.mkIf (!cfg.stylixConfig.enable) "${colorWhite}";
           };
           focusedInactive = {
-            background = "${colorDarkGrey}";
-            border = "${colorBlack}";
-            childBorder = "${colorDarkGrey}";
-            indicator = "${colorGreen}";
-            text = "${colorWhite}";
+            background = lib.mkIf (!cfg.stylixConfig.enable) "${colorDarkGrey}";
+            border = lib.mkForce "${colorBlack}";
+            childBorder = lib.mkForce "${colorDarkGrey}";
+            indicator = lib.mkIf (!cfg.stylixConfig.enable) "${colorGreen}";
+            text = lib.mkIf (!cfg.stylixConfig.enable) "${colorWhite}";
           };
           unfocused = {
-            background = "${colorDarkGrey}";
-            border = "${colorBlack}";
-            childBorder = "${colorDarkGrey}";
-            indicator = "${colorGreen}";
-            text = "${colorWhite}";
+            background = lib.mkIf (!cfg.stylixConfig.enable) "${colorDarkGrey}";
+            border = lib.mkForce "${colorBlack}";
+            childBorder = lib.mkForce "${colorDarkGrey}";
+            indicator = lib.mkIf (!cfg.stylixConfig.enable) "${colorGreen}";
+            text = lib.mkIf (!cfg.stylixConfig.enable) "${colorWhite}";
           };
           urgent = {
-            background = "${colorRed}";
-            border = "${colorRed}";
-            childBorder = "${colorDarkGrey}";
-            indicator = "${colorGreen}";
-            text = "${colorWhite}";
+            background = lib.mkIf (!cfg.stylixConfig.enable) "${colorRed}";
+            border = lib.mkForce "${colorRed}";
+            childBorder = lib.mkForce "${colorDarkGrey}";
+            indicator = lib.mkIf (!cfg.stylixConfig.enable) "${colorGreen}";
+            text = lib.mkIf (!cfg.stylixConfig.enable) "${colorWhite}";
           };
           placeholder = {
-            background = "${colorBlack}";
-            border = "${colorBlack}";
-            childBorder = "${colorDarkGrey}";
-            indicator = "${colorBlack}";
-            text = "${colorWhite}";
+            background = lib.mkIf (!cfg.stylixConfig.enable) "${colorBlack}";
+            border = lib.mkForce "${colorBlack}";
+            childBorder = lib.mkForce "${colorDarkGrey}";
+            indicator = lib.mkIf (!cfg.stylixConfig.enable) "${colorBlack}";
+            text = lib.mkIf (!cfg.stylixConfig.enable) "${colorWhite}";
           };
         };
 

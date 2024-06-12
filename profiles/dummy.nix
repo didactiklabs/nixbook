@@ -23,6 +23,7 @@
         vim.enable = true;
         vscode.enable = true;
         pywalConfig.enable = false;
+        stylixConfig.enable = true;
         # https://github.com/adi1090x/rofi
         rofiConfig = {
           enable = true;

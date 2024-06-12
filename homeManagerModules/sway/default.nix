@@ -4,7 +4,7 @@
   lib,
   ...
 }: let
-  cfg = config.customHomeManagerModules.sway;
+  cfg = config.customHomeManagerModules;
   cfgcust = config.profileCustomization;
 in {
   imports = [

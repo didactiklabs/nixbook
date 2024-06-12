@@ -6,6 +6,12 @@
   ...
 }: let
   home-manager = builtins.fetchTarball "https://github.com/nix-community/home-manager/archive/release-24.05.tar.gz";
+  stylix = pkgs.fetchFromGitHub {
+    owner = "danth";
+    repo = "stylix";
+    rev = "release-24.05";
+    sha256 = "sha256-A+dBkSwp8ssHKV/WyXb9uqIYrHBqHvtSedU24Lq9lqw=";
+  };
 in {
   imports = [
     (import "${home-manager}/nixos")
@@ -17,7 +23,7 @@ in {
     enable = true;
     settings = rec {
       initial_session = {
-        command = "${pkgs.sway}/bin/sway";
+        command = "${pkgs.swayfx}/bin/sway";
         user = "${username}";
       };
       default_session = initial_session;
@@ -25,8 +31,10 @@ in {
   };
   ## sway on home-manager
   security.polkit.enable = true;
-  programs.sway.enable = true;
-  #programs.sway.checkConfig = false;
+  programs.sway = {
+    enable = true;
+    package = pkgs.swayfx;
+  };
   programs.zsh.enable = true;
   users.users."${username}".shell = pkgs.zsh;
   home-manager = {
@@ -38,11 +46,12 @@ in {
       ...
     }: {
       config = {
+        dconf.settings."org/gnome/desktop/interface".font-name = lib.mkForce "DejaVu Sans 10";
         home = {
           stateVersion = "23.11";
           username = "${username}";
           homeDirectory = "/home/${username}";
-          packages = [pkgs.bat pkgs.dconf];
+          packages = [pkgs.bat];
           sessionVariables = {
             NIXPKGS_ALLOW_UNFREE = 1;
           };
@@ -51,6 +60,8 @@ in {
       };
       # Let Home Manager install and manage itself.
       imports = [
+        (import stylix).homeManagerModules.stylix
+        ./homeManagerModules/stylixConfig.nix
         ./homeManagerModules/sway
         ./homeManagerModules/vscode
         ./homeManagerModules/alacrittyConfig.nix

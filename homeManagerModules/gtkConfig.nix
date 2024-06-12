@@ -5,7 +5,7 @@
   username,
   ...
 }: let
-  cfg = config.customHomeManagerModules.gtkConfig;
+  cfg = config.customHomeManagerModules;
 in {
   options.customHomeManagerModules.gtkConfig = {
     enable = lib.mkOption {
@@ -17,7 +17,7 @@ in {
     };
   };
 
-  config = lib.mkIf cfg.enable {
+  config = lib.mkIf cfg.gtkConfig.enable {
     home.packages = [
       pkgs.numix-gtk-theme
       pkgs.numix-icon-theme-square
@@ -28,7 +28,7 @@ in {
     ## https://nixos.wiki/wiki/Cursor_Themes
     ## also https://gist.github.com/themattchan/55d21a524955111913afd7e1e22ce811
     ## https://github.com/NixOS/nixpkgs/issues/22652
-    home.file.".icons/default".source = "${pkgs.numix-cursor-theme}/share/icons/Numix-Cursor";
+    #home.file.".icons/default".source = "${pkgs.numix-cursor-theme}/share/icons/Numix-Cursor";
     #xresources.properties = { "Xcursor.theme" = "Numix-Cursor"; };
     #xsession.pointerCursor = {
     #  package = pkgs.numix-cursor-theme;
@@ -38,12 +38,12 @@ in {
 
     gtk = {
       enable = true;
-      theme.package = pkgs.numix-gtk-theme;
-      theme.name = "Numix";
+      theme.package = lib.mkIf (!cfg.stylixConfig.enable) pkgs.numix-gtk-theme;
+      theme.name = lib.mkIf (!cfg.stylixConfig.enable) "Numix";
       iconTheme.package = pkgs.numix-icon-theme-square;
       iconTheme.name = "Numix-Square";
-      font.name = "Hack Nerd Font Bold 10";
-      font.size = 10;
+      font.name = lib.mkIf (!cfg.stylixConfig.enable) "Hack Nerd Font Bold 10";
+      font.size = lib.mkForce 10;
       gtk3.extraConfig = {
         gtk-cursor-theme-size = 10;
         gtk-application-prefer-dark-theme = 1;

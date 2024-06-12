@@ -3,13 +3,15 @@
   config,
   pkgs,
   ...
-}: {
+}: let
+  cfg = config.customHomeManagerModules;
+in {
   programs.bat = {
     enable = true;
     ## cf https://github.com/sharkdp/bat#customization
     config = {
       map-syntax = ["*.jenkinsfile:Groovy" "*.props:Java Properties"];
-      theme = "ansi";
+      theme = lib.mkIf (!cfg.stylixConfig.enable) "ansi";
     };
   };
 
