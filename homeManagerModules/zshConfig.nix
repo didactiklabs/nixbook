@@ -27,6 +27,11 @@ in {
       # alias
       alias vpn="sudo /run/current-system/sw/bin/openvpn --up ${pkgs.update-systemd-resolved}/libexec/openvpn/update-systemd-resolved --down ${pkgs.update-systemd-resolved}/libexec/openvpn/update-systemd-resolved"
       alias k=kubectl
+      alias cat='bat -p'
+      alias top='btop'
+      alias ll='eza -lTs old -L 2'
+      alias l='eza -las old'
+      alias df='duf'
       complete -o default -F __start_kubectl k
     '';
     oh-my-zsh = {

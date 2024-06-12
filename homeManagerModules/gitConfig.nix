@@ -55,6 +55,7 @@ in {
       };
       ## https://nix-community.github.io/home-manager/options.html#opt-programs.git.extraConfig
       extraConfig = {
+        pull.rebase = true;
         init = {
           defaultBranch = "main";
         };

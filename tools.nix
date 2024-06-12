@@ -23,6 +23,9 @@
     tree
     pciutils
     neofetch
+    btop # top replacer
+    eza # ls replacer
+    duf # df replacer
 
     # apps
     wdisplays # display manager
@@ -31,6 +34,6 @@
     spotify
     openvpn
     geeqie # image viewer
-    mpv
+    mpv # video player
   ];
 }
