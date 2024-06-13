@@ -130,12 +130,6 @@ in {
   # SSH Agent
   programs.gnupg.agent.enableSSHSupport = false;
   programs.ssh.startAgent = true;
-  programs.ydotool = {
-    enable = true; # clipboard prerequisite
-  };
-  systemd.services.ydotoold = {
-    enable = true;
-  };
   # New versions of OpenSSH seem to default to disallowing all `ssh-add -s`
   # calls when no whitelist is provided, so this becomes necessary.
   # programs.ssh.agentPKCS11Whitelist = "${pkgs.opensc}/lib/opensc-pkcs11.so";

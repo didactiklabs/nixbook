@@ -32,6 +32,12 @@ in {
       default_session = initial_session;
     };
   };
+  programs.ydotool = {
+    enable = true; # clipboard prerequisite
+  };
+  systemd.services.ydotoold = {
+    enable = true;
+  };
   programs.zsh.enable = true;
   users.users."${username}" = {
     shell = pkgs.zsh;

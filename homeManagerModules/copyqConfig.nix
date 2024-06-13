@@ -225,7 +225,7 @@
   '';
 in {
   # https://github.com/adi1090x/rofi
-  config = lib.mkIf cfg.rofiConfig.enable {
+  config = lib.mkIf cfg.copyqConfig.enable {
     home.packages = [
       pkgs.copyq
       pkgs.grim
