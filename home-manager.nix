@@ -33,10 +33,14 @@ in {
     };
   };
   programs.zsh.enable = true;
-  users.users."${username}".shell = pkgs.zsh;
+  users.users."${username}" = {
+    shell = pkgs.zsh;
+    extraGroups = ["ydotool"];
+  };
   home-manager = {
     useUserPackages = true;
     useGlobalPkgs = true;
+    backupFileExtension = "rebuild";
     users.${username} = {
       pkgs,
       config,
@@ -49,6 +53,7 @@ in {
           username = "${username}";
           homeDirectory = "/home/${username}";
           sessionVariables = {
+            YDOTOOL_SOCKET = "/run/ydotoold/socket";
             NIXPKGS_ALLOW_UNFREE = 1;
           };
         };
@@ -71,6 +76,7 @@ in {
         ./homeManagerModules/bluetoothConfig.nix
         ./homeManagerModules/pywalConfig.nix
         ./homeManagerModules/rofiConfig.nix
+        ./homeManagerModules/copyqConfig.nix
       ];
       options.profileCustomization = {
         mainWallpaper = lib.mkOption {

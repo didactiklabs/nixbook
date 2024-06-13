@@ -35,6 +35,7 @@
             style = "style-1"; #(1 - 5) # type-1 only
           };
           color = "onedark";
+          copyqConfig.enable = true;
         };
       };
     };

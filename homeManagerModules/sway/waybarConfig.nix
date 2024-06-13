@@ -259,7 +259,7 @@ in {
           "custom/print" = {
             format = "";
             on-click = ''
-              ${pkgs.grim}/bin/grim -g "$(${pkgs.slurp}/bin/slurp)" - | ${pkgs.swappy}/bin/swappy -f -
+              ${pkgs.sway-contrib.grimshot}/bin/grimshot --notify copy area
             '';
             tooltip = false;
           };

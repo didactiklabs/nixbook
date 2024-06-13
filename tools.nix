@@ -28,7 +28,6 @@
     duf # df replacer
     grim # screenshot/copyq
     slurp # select wayland zone/copyq
-    ydotool # copyq
 
     # apps
     wdisplays # display manager

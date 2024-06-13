@@ -50,6 +50,7 @@
           };
           color = "cyberpunk";
         };
+        copyqConfig.enable = true;
       };
       imports = [
         ./kanshiConfig.nix

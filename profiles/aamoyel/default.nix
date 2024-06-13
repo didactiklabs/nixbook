@@ -37,6 +37,7 @@
         vim.enable = true;
         vscode.enable = true;
         rofiConfig.enable = true;
+        copyqConfig.enable = true;
       };
       imports = [
         ./kanshiConfig.nix

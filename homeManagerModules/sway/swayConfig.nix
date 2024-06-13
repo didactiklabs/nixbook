@@ -23,6 +23,7 @@
   pactl = "${pkgs.pulseaudio}/bin/pactl";
   wpctl = "${pkgs.wireplumber}/bin/wpctl";
   grim = "${pkgs.grim}/bin/grim";
+  grimshot = "${pkgs.sway-contrib.grimshot}/bin/grimshot";
   slurp = "${pkgs.slurp}/bin/slurp";
   swappy = "${pkgs.swappy}/bin/swappy";
   systemctl = "${pkgs.systemd}/bin/systemctl";
@@ -130,6 +131,7 @@ in {
       pkgs.wf-recorder
       pkgs.copyq
       pkgs.slurp
+      pkgs.sway-contrib.grimshot
       ## TODO https://github.com/milgra/sov
       #(pkgs.callPackage ./sov.nix {inherit inputs;})
     ];
@@ -268,6 +270,12 @@ in {
               class = ".*";
             };
           }
+          {
+            command = "floating enable, sticky enable, resize set height 600px width 550px, move position cursor, move down 330";
+            criteria = {
+              app_id = "copyq";
+            };
+          }
         ];
 
         fonts = {
@@ -403,7 +411,7 @@ in {
           "--locked XF86AudioLowerVolume" = "exec ${wpctl} set-volume @DEFAULT_SINK@ 3%- && ${notify-send} '󰕾 -3%'";
           "--locked XF86AudioMute" = "exec ${wpctl} set-mute @DEFAULT_SINK@ toggle";
           "Print" = ''
-            exec ${grim} -g "$(${slurp})" - | ${swappy} -f -
+            exec ${grimshot} --notify copy area
           '';
           "${mod}+ampersand" = "workspace $workspace1";
           "${mod}+eacute" = "workspace $workspace2";
@@ -441,7 +449,7 @@ in {
           "${mod}+Shift+t" = ''mode "${modeSystem}"'';
           #"${mod}+Shift+v" = "exec ${swayProp}";
           "${mod}+Shift+v" = "exec ${pkgs.wlprop}/bin/wlprop";
-          "${mod}+q" = "exec ${pkgs.copyq}/bin/copyq toggle";
+          "${mod}+q" = lib.mkIf cfg.copyqConfig.enable "exec ${pkgs.copyq}/bin/copyq toggle";
         };
 
         assigns = {
