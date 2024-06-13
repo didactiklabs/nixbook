@@ -224,6 +224,7 @@ in {
         terminal = "${terminal}";
         input = {
           "type:keyboard" = {
+            xkb_numlock = "enabled";
             xkb_layout = "fr";
           };
           "type:touchpad" = {
@@ -241,12 +242,6 @@ in {
             bg = "${mainWallpaper} fill";
             subpixel = "rgb";
             #adaptive_sync = "on";
-          };
-          "HDMI-A-1" = {pos = "0 0";};
-          "DP-1" = {pos = "1920 0";};
-          ## for my framework
-          "eDP-1" = {
-            scale = "1.0";
           };
         };
 

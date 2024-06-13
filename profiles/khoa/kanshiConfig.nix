@@ -25,38 +25,47 @@ in {
       systemdTarget = "";
       settings = [
         {
-          profile.name = "undocked";
-          profile.outputs = [
-            {
-              criteria = "eDP-1";
-              position = "0,0";
-              mode = "2880x1800@60.002Hz";
-              scale = 1.7;
-            }
-          ];
+          profile = {
+            name = "undocked";
+            outputs = [
+              {
+                criteria = "eDP-1";
+                position = "0,0";
+                mode = "2880x1800@60.002Hz";
+                scale = 1.7;
+              }
+            ];
+          };
         }
         {
-          profile.name = "home-docked";
-          profile.outputs = [
-            {
-              criteria = "eDP-1";
-              position = "254,431";
-              mode = "2880x1800@60.002Hz";
-              scale = 2.0;
-            }
-            {
-              criteria = "DP-8";
-              position = "1694,0";
-              mode = "1920x1080@60.002Hz";
-              scale = 1.0;
-            }
-            {
-              criteria = "DP-9";
-              position = "3614,0";
-              mode = "1920x1080@60.002Hz";
-              scale = 1.0;
-            }
-          ];
+          profile = {
+            name = "home-docked";
+            outputs = [
+              {
+                criteria = "eDP-1";
+                position = "254,431";
+                mode = "2880x1800@60.002Hz";
+                scale = 2.0;
+              }
+              {
+                criteria = "DP-8";
+                position = "1694,0";
+                mode = "1920x1080@60.002Hz";
+                scale = 1.0;
+              }
+              {
+                criteria = "DP-9";
+                position = "3614,0";
+                mode = "1920x1080@60.002Hz";
+                scale = 1.0;
+              }
+            ];
+            exec = [
+              "${pkgs.swayfx}/bin/swaymsg workspace 1, move workspace to eDP-1"
+              "${pkgs.swayfx}/bin/swaymsg workspace 2, move workspace to DP-8"
+              "${pkgs.swayfx}/bin/swaymsg workspace 3, move workspace to DP-9"
+            ];
+          };
         }
       ];
     };

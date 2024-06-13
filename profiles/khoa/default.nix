@@ -12,6 +12,9 @@
   networking.hostName = lib.mkForce "nixsus";
   home-manager = {
     users."${username}" = {
+      home.packages = [
+        pkgs.jellyfin-mpv-shim
+      ];
       profileCustomization = {
         mainWallpaper = let
           image = pkgs.fetchurl {
