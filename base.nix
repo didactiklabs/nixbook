@@ -68,6 +68,7 @@ in {
   ];
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
+  boot.kernelPackages = pkgs.linuxPackages_latest;
   networking.hostName = "nixos"; # Define your hostname.
   # Enable networking
   networking.networkmanager.enable = true;
@@ -92,7 +93,6 @@ in {
   xdg.portal.enable = true;
   # Use Wayland
   xdg.portal.wlr.enable = true;
-  xdg.portal.extraPortals = [pkgs.xdg-desktop-portal-gtk];
   # Configure keymap in X10
   services.xserver = {
     xkb.layout = "fr";
@@ -108,6 +108,7 @@ in {
   sound.enable = true;
   hardware.pulseaudio.enable = false;
   security.rtkit.enable = true;
+  security.polkit.enable = true;
   services.pipewire = {
     enable = true;
     alsa.enable = true;

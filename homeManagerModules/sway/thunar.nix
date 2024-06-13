@@ -22,13 +22,7 @@ in {
       pkgs.ntfs3g
       pkgs.gparted
       pkgs.gnome.file-roller
-      ## image preview looks bugged atm
-      (pkgs.ranger.override {
-        imagePreviewSupport = true;
-      })
     ];
-
-    #services.udiskie.enable = true;
     home.file = {
       ".config/xfce4/helpers.rc".text = ''
         TerminalEmulator=alacritty
@@ -36,11 +30,3 @@ in {
     };
   };
 }
-###
-###        ${if (sysConfig.networking.hostName == "olp00002988"
-###          || sysConfig.networking.hostName == "desktop") then ''
-###            smb://oscaroad.com/partages/
-###            smb://oscaroad.com/partages/Infra/Exploitation/3_KP/
-###          '' else
-###          ""}
-

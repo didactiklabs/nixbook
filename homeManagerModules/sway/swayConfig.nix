@@ -128,6 +128,7 @@ in {
       pkgs.wlprop
       pkgs.wf-recorder
       pkgs.copyq
+      pkgs.slurp
       ## TODO https://github.com/milgra/sov
       #(pkgs.callPackage ./sov.nix {inherit inputs;})
     ];

@@ -62,7 +62,6 @@ in {
             interval = "once";
             tooltip = false;
           };
-
           ## https://github.com/Alexays/Waybar/wiki/Module:-Workspaces
           "sway/workspaces" = {
             disable-scroll = true;

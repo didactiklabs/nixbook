@@ -18,7 +18,10 @@ in {
     ./nixosModules/laptopProfile.nix
     (import ./nixosModules/networkManager.nix {inherit lib config pkgs username;})
   ];
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  programs.sway = {
+    enable = true;
+    package = pkgs.swayfx;
+  };
   services.greetd = {
     enable = true;
     settings = rec {
@@ -28,12 +31,6 @@ in {
       };
       default_session = initial_session;
     };
-  };
-  ## sway on home-manager
-  security.polkit.enable = true;
-  programs.sway = {
-    enable = true;
-    package = pkgs.swayfx;
   };
   programs.zsh.enable = true;
   users.users."${username}".shell = pkgs.zsh;
@@ -51,7 +48,6 @@ in {
           stateVersion = "23.11";
           username = "${username}";
           homeDirectory = "/home/${username}";
-          packages = [pkgs.bat];
           sessionVariables = {
             NIXPKGS_ALLOW_UNFREE = 1;
           };

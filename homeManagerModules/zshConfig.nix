@@ -14,12 +14,10 @@ in {
       theme = lib.mkIf (!cfg.stylixConfig.enable) "ansi";
     };
   };
-
   programs.fzf = {
     enable = true;
     enableZshIntegration = true;
   };
-
   programs.zsh = {
     enable = true;
     initExtra = ''
@@ -38,10 +36,4 @@ in {
       enable = true;
     };
   };
-  programs.bash = {
-    enable = false;
-  };
-  home.packages = [
-    pkgs.shellcheck
-  ];
 }

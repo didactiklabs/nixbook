@@ -20,6 +20,10 @@ in {
       enable = true;
       polarity = "dark";
       image = config.profileCustomization.mainWallpaper;
+      cursor = {
+        package = pkgs.phinger-cursors;
+        name = "phinger-cursors-light";
+      };
     };
   };
 }
