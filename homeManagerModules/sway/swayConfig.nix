@@ -17,6 +17,7 @@
   rofi-wayland = "${pkgs.rofi-wayland}/bin/rofi";
   rofiLauncherType = "${cfg.rofiConfig.launcher.type}";
   rofiLauncherStyle = "${cfg.rofiConfig.launcher.style}";
+  rofiPowermenuStyle = "${cfg.rofiConfig.powermenu.style}";
   playerctl = "${pkgs.playerctl}/bin/playerctl";
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
   pactl = "${pkgs.pulseaudio}/bin/pactl";
@@ -379,7 +380,9 @@ in {
           "${mod}+Shift+Up" = "move up";
           "${mod}+Shift+Right" = "move right";
 
-          "${mod}+l" = "exec ${loginctl} lock-session $XDG_SESSION_ID";
+          "${mod}+l" = lib.mkIf cfg.rofiConfig.enable ''
+            exec $HOME/.config/rofiScripts/rofiLockScript.sh ${rofiPowermenuStyle} "${loginctl} lock-session $XDG_SESSION_ID"
+          '';
           "${mod}+d" = lib.mkIf cfg.rofiConfig.enable ''
             exec "${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/${rofiLauncherType}/${rofiLauncherStyle}.rasi"
           '';

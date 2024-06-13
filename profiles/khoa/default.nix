@@ -45,6 +45,9 @@
             type = "type-3";
             style = "style-10";
           };
+          powermenu = {
+            style = "style-1"; #(1 - 5) # type-1 only
+          };
           color = "cyberpunk";
         };
       };

@@ -43,7 +43,7 @@ in {
       ...
     }: {
       config = {
-        dconf.settings."org/gnome/desktop/interface".font-name = lib.mkForce "DejaVu Sans 10";
+        dconf.settings."org/gnome/desktop/interface".font-name = lib.mkForce "Hack Nerd Font";
         home = {
           stateVersion = "23.11";
           username = "${username}";

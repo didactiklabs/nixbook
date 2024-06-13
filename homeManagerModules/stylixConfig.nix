@@ -24,6 +24,10 @@ in {
         package = pkgs.phinger-cursors;
         name = "phinger-cursors-light";
       };
+      fonts.monospace = {
+        name = "Hack Nerd Font";
+        package = pkgs.nerdfonts;
+      };
     };
   };
 }

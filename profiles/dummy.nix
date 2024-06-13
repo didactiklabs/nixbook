@@ -31,6 +31,9 @@
             type = "type-1";
             style = "style-1";
           };
+          powermenu = {
+            style = "style-1"; #(1 - 5) # type-1 only
+          };
           color = "onedark";
         };
       };
