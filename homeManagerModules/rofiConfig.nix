@@ -9,7 +9,7 @@
     #!/usr/bin/env bash
     ## Available Styles
     ## style-1   style-2   style-3   style-4   style-5
-
+    # usage runscript <style> <lock command>
     # Current Theme
     dir="$HOME/.config/rofi/powermenu/type-1"
     theme=$1

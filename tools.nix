@@ -8,7 +8,6 @@
     python3
     kubectl
     k9s
-    kubeswitch
     kubevirt
     dig
     git
@@ -26,8 +25,6 @@
     btop # top replacer
     eza # ls replacer
     duf # df replacer
-    grim # screenshot/copyq
-    slurp # select wayland zone/copyq
 
     # apps
     wdisplays # display manager
