@@ -23,6 +23,13 @@ in {
       enable = true;
       enableZshIntegration = true;
     };
+    programs.eza = {
+      enable = true;
+      enableZshIntegration = true;
+    };
+    programs.ripgrep = {
+      enable = true;
+    };
     home.packages = [];
     programs.zsh = {
       autosuggestion.enable = true;
@@ -53,14 +60,14 @@ in {
         vpn = "sudo ${pkgs.openvpn}/bin/openvpn --up ${pkgs.update-systemd-resolved}/libexec/openvpn/update-systemd-resolved --down ${pkgs.update-systemd-resolved}/libexec/openvpn/update-systemd-resolved --config";
         k = "kubectl";
         top = "btop";
-        ll = "eza -lTs old -L 2";
-        ls = "eza -as old";
-        l = "eza -las old";
         df = "duf";
         dig = "dog";
         cd = "z";
+        neofetch = "fastfetch";
+        grep = "rg";
       };
       initExtra = ''
+        fastfetch
       '';
       oh-my-zsh = {
         enable = true;

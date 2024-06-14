@@ -79,6 +79,7 @@ in {
         ./homeManagerModules/pywalConfig.nix
         ./homeManagerModules/rofiConfig.nix
         ./homeManagerModules/copyqConfig.nix
+        ./homeManagerModules/fastfetchConfig.nix
       ];
       options.profileCustomization = {
         mainWallpaper = lib.mkOption {

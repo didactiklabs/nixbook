@@ -14,6 +14,7 @@
     users."${username}" = {
       home.packages = [
         pkgs.jellyfin-mpv-shim
+        pkgs.nextcloud-client
       ];
       profileCustomization = {
         mainWallpaper = let
@@ -54,6 +55,7 @@
           color = "cyberpunk";
         };
         copyqConfig.enable = true;
+        fastfetchConfig.enable = true;
       };
       imports = [
         ./kanshiConfig.nix

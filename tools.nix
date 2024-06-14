@@ -18,10 +18,9 @@
     go
     tree
     pciutils
-    neofetch
     btop # top replacer
-    eza # ls replacer
     duf # df replacer
+    sd # sd alternative
 
     # clouds
     kcl-cli
