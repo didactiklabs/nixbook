@@ -11,18 +11,6 @@ in {
     programs.git = {
       userName = "Alan Amoyel";
       userEmail = "alanamoyel06@gmail.com";
-      extraConfig = {
-        init = {
-          defaultBranch = "main";
-        };
-        core = {
-          editor = "vim";
-          excludesFile = "";
-        };
-        remote = {
-          prune = true;
-        };
-      };
     };
   };
 }

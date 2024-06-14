@@ -113,7 +113,7 @@ in {
   # Configure console keymap
   console.keyMap = "fr";
   # Enable CUPS to print documents.
-  services.printing.enable = false;
+  services.printing.enable = true;
   # Bluetooth enable
   hardware.bluetooth.enable = true;
   # Enable sound with pipewire.
@@ -131,7 +131,7 @@ in {
   users.users.${username} = {
     isNormalUser = true;
     description = "${username}";
-    extraGroups = ["wheel"];
+    extraGroups = ["wheel" "storage"];
   };
   # Allow unfree packages
   nixpkgs.config.allowUnfreePredicate = pkg: true;
@@ -148,6 +148,9 @@ in {
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = [
+    pkgs.usbutils
+    pkgs.udiskie
+    pkgs.udisks
     pkgs.tailscale
     pkgs.update-systemd-resolved
   ];

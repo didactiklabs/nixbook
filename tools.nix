@@ -6,10 +6,6 @@
   environment.defaultPackages = with pkgs; [
     # tools
     python3
-    kubectl
-    k9s
-    kubevirt
-    fluxcd
     nix-eval-jobs
     dogdns
     git
@@ -17,7 +13,6 @@
     yq-go
     file
     unzip
-    usbutils
     vim
     docker-client
     go
@@ -27,6 +22,15 @@
     btop # top replacer
     eza # ls replacer
     duf # df replacer
+
+    # clouds
+    kcl-cli
+    kubectl
+    k9s
+    kubevirt
+    fluxcd
+    kind
+    kubebuilder
 
     # apps
     wdisplays # display manager

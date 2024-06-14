@@ -23,6 +23,10 @@ in {
       default_session = initial_session;
     };
   };
+  # Enable automount usb
+  services.gvfs.enable = true;
+  services.udisks2.enable = true;
+  services.devmon.enable = true;
   programs.ydotool = {
     enable = true; # clipboard prerequisite
   };
@@ -44,6 +48,7 @@ in {
       ...
     }: {
       config = {
+        services.udiskie.enable = true;
         dconf.settings."org/gnome/desktop/interface".font-name = lib.mkForce "Hack Nerd Font";
         home = {
           stateVersion = "${nixOS_version}";
