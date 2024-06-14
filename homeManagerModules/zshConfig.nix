@@ -7,6 +7,10 @@
   cfg = config.customHomeManagerModules;
 in {
   config = {
+    programs.zoxide = {
+      enable = true;
+      enableZshIntegration = true;
+    };
     programs.bat = {
       enable = true;
       ## cf https://github.com/sharkdp/bat#customization
@@ -46,7 +50,7 @@ in {
       ];
       enable = true;
       shellAliases = {
-        vpn = "sudo /run/current-system/sw/bin/openvpn --up ${pkgs.update-systemd-resolved}/libexec/openvpn/update-systemd-resolved --down ${pkgs.update-systemd-resolved}/libexec/openvpn/update-systemd-resolved --config";
+        vpn = "sudo ${pkgs.openvpn}/bin/openvpn --up ${pkgs.update-systemd-resolved}/libexec/openvpn/update-systemd-resolved --down ${pkgs.update-systemd-resolved}/libexec/openvpn/update-systemd-resolved --config";
         k = "kubectl";
         top = "btop";
         ll = "eza -lTs old -L 2";
@@ -54,6 +58,7 @@ in {
         l = "eza -las old";
         df = "duf";
         dig = "dog";
+        cd = "z";
       };
       initExtra = ''
       '';
