@@ -53,6 +53,7 @@ in {
         ls = "eza -as old";
         l = "eza -las old";
         df = "duf";
+        dig = "dog";
       };
       initExtra = ''
       '';

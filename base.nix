@@ -5,6 +5,14 @@
   lib,
   ...
 }: let
+  nixOS_version = "24.05";
+  stylix = pkgs.fetchFromGitHub {
+    owner = "danth";
+    repo = "stylix";
+    rev = "release-${nixOS_version}";
+    sha256 = "sha256-A+dBkSwp8ssHKV/WyXb9uqIYrHBqHvtSedU24Lq9lqw=";
+  };
+  home-manager = builtins.fetchTarball "https://github.com/nix-community/home-manager/archive/release-${nixOS_version}.tar.gz";
   userProfile =
     if builtins.pathExists ./profiles/${username}
     then import ./profiles/${username} {inherit lib config pkgs username;}
@@ -13,12 +21,16 @@ in {
   imports = [
     ./hardware-configuration.nix
     ./tools.nix
+    ./nixosModules/laptopProfile.nix
+    (import ./nixosModules/networkManager.nix {inherit lib config pkgs username;})
+    (import "${home-manager}/nixos")
     ({
       config,
       pkgs,
       ...
     }:
-      import ./home-manager.nix {inherit lib config pkgs username;})
+      import
+      ./home-manager.nix {inherit lib config pkgs username stylix home-manager nixOS_version;})
     userProfile
   ];
   boot.kernel.sysctl = {
@@ -139,19 +151,14 @@ in {
     pkgs.tailscale
     pkgs.update-systemd-resolved
   ];
-  security.sudo.extraRules = [
-    {
-      users = ["${username}"];
-      commands = [
-        #{ command = "/run/current-system/sw/bin/openvpn"; options = [ "NOPASSWD" ]; }
-      ];
-    }
-  ];
+  environment.variables = {
+    EDITOR = "vim";
+  };
   services.resolved.enable = true;
   # List services that you want to enable:
   services.tailscale.enable = true;
   # Disable the OpenSSH daemon.
   services.openssh.enable = false;
   networking.firewall.enable = false;
-  system.stateVersion = "23.11";
+  system.stateVersion = "${nixOS_version}";
 }

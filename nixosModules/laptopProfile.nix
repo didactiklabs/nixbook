@@ -15,29 +15,24 @@ in {
       '';
     };
   };
-
   config = lib.mkIf cfg.enable {
     ## not sure why i have to enforce it to false :shrug:
     services.power-profiles-daemon.enable = false;
-
     services.fwupd.enable = true;
     services.thermald.enable = true;
-
     hardware = {
       enableAllFirmware = true;
       enableRedistributableFirmware = true;
       cpu.intel.updateMicrocode = true;
     };
-
     powerManagement = lib.mkForce {
       enable = true;
-      powertop.enable = false;
+      powertop.enable = false; # to false else, it will shut your mouse down too often
       #cpuFreqGovernor = lib.mkDefault "powersave";
       #cpuFreqGovernor = lib.mkDefault "ondemand";
     };
     # https://github.com/AdnanHodzic/auto-cpufreq
     #services.auto-cpufreq.enable = true;
-
     ## https://linrunner.de/tlp/settings/index.html
     services.tlp = lib.mkForce {
       enable = true;
@@ -60,7 +55,6 @@ in {
         STOP_CHARGE_THRESH_BAT0 = 80;
       };
     };
-
     #services.upower.enable = true;
     environment.systemPackages = [
       pkgs.powertop

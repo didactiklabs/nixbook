@@ -3,21 +3,12 @@
   pkgs,
   username,
   lib,
+  stylix,
+  home-manager,
+  nixOS_version,
   ...
 }: let
-  home-manager = builtins.fetchTarball "https://github.com/nix-community/home-manager/archive/release-24.05.tar.gz";
-  stylix = pkgs.fetchFromGitHub {
-    owner = "danth";
-    repo = "stylix";
-    rev = "release-24.05";
-    sha256 = "sha256-A+dBkSwp8ssHKV/WyXb9uqIYrHBqHvtSedU24Lq9lqw=";
-  };
 in {
-  imports = [
-    (import "${home-manager}/nixos")
-    ./nixosModules/laptopProfile.nix
-    (import ./nixosModules/networkManager.nix {inherit lib config pkgs username;})
-  ];
   programs.sway = {
     enable = true;
     package = pkgs.swayfx;
@@ -55,7 +46,7 @@ in {
       config = {
         dconf.settings."org/gnome/desktop/interface".font-name = lib.mkForce "Hack Nerd Font";
         home = {
-          stateVersion = "23.11";
+          stateVersion = "${nixOS_version}";
           username = "${username}";
           homeDirectory = "/home/${username}";
           sessionVariables = {

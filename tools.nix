@@ -9,7 +9,9 @@
     kubectl
     k9s
     kubevirt
-    dig
+    fluxcd
+    nix-eval-jobs
+    dogdns
     git
     jq
     yq-go
@@ -33,6 +35,7 @@
     spotify
     openvpn
     geeqie # image viewer
+    ranger # file manager, terminal cli
     mpv # video player
   ];
 }
