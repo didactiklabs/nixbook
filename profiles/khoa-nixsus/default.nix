@@ -3,13 +3,13 @@
   pkgs,
   lib,
   username,
+  hostname,
   ...
 }: {
   customNixOSModules = {
     laptopProfile.enable = true;
     networkManager.enable = true;
   };
-  networking.hostName = lib.mkForce "nixsus";
   home-manager = {
     users."${username}" = {
       home.packages = [

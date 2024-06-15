@@ -2,6 +2,7 @@
   config,
   pkgs,
   username,
+  hostname ? "nixos",
   lib,
   ...
 }: let
@@ -14,8 +15,8 @@
   };
   home-manager = builtins.fetchTarball "https://github.com/nix-community/home-manager/archive/release-${nixOS_version}.tar.gz";
   userProfile =
-    if builtins.pathExists ./profiles/${username}
-    then import ./profiles/${username} {inherit lib config pkgs username;}
+    if builtins.pathExists ./profiles/${username}-${hostname}
+    then import ./profiles/${username}-${hostname} {inherit lib config pkgs username hostname;}
     else import ./profiles/dummy.nix;
 in {
   imports = [
@@ -81,7 +82,7 @@ in {
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
   boot.kernelPackages = pkgs.linuxPackages_latest;
-  networking.hostName = "nixos"; # Define your hostname.
+  networking.hostName = "${hostname}"; # Define your hostname.
   # Enable networking
   networking.networkmanager.enable = true;
   # Set your time zone.

@@ -38,7 +38,6 @@
     spotify
     openvpn
     geeqie # image viewer
-    ranger # file manager, terminal cli
     mpv # video player
   ];
 }
