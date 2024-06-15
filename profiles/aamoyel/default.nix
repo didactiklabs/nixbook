@@ -32,10 +32,10 @@
         gitConfig.enable = true;
         gtkConfig.enable = true;
         sway.enable = true;
+        hyprland.enable = false;
         sshConfig.enable = true;
         starship.enable = true;
         vim.enable = true;
-        vscode.enable = true;
         rofiConfig.enable = true;
         copyqConfig.enable = true;
         desktopApps.enable = true;

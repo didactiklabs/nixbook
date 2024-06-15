@@ -7,11 +7,7 @@
   cfg = config.customHomeManagerModules;
 in {
   imports = [
-    ./makoConfig.nix
     ./swayConfig.nix
-    ./thunar.nix
-    ./waybarConfig.nix
-    ./waybarStyle.nix
   ];
   config = lib.mkIf cfg.sway.enable {
     wayland.windowManager.sway.config.startup = [

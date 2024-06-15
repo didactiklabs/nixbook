@@ -18,16 +18,6 @@
     '';
   };
 in {
-  services.greetd = {
-    enable = true;
-    settings = rec {
-      initial_session = {
-        command = "${pkgs.swayfx}/bin/sway";
-        user = "${username}";
-      };
-      default_session = initial_session;
-    };
-  };
   # Enable automount usb
   services.gvfs.enable = true;
   services.udisks2.enable = true;
@@ -71,6 +61,7 @@ in {
         (import stylix).homeManagerModules.stylix
         ./homeManagerModules/stylixConfig.nix
         ./homeManagerModules/sway
+        ./homeManagerModules/hyprland
         ./homeManagerModules/vscode
         ./homeManagerModules/alacrittyConfig.nix
         ./homeManagerModules/zshConfig.nix
@@ -85,6 +76,10 @@ in {
         ./homeManagerModules/copyqConfig.nix
         ./homeManagerModules/fastfetchConfig.nix
         ./homeManagerModules/desktopApps.nix
+        ./homeManagerModules/thunarConfig.nix
+        ./homeManagerModules/makoConfig.nix
+        ./homeManagerModules/waybarConfig.nix
+        ./homeManagerModules/waybarStyle.nix
       ];
       options.profileCustomization = {
         mainWallpaper = lib.mkOption {

@@ -10,7 +10,7 @@ in {
   ## https://www.nerdfonts.com/cheat-sheet
   ## https://www.reddit.com/r/swaywm/comments/ni0vso/waybar_spotify_tracktitle/
 
-  config = lib.mkIf cfg.sway.enable {
+  config = lib.mkIf (cfg.sway.enable || cfg.hyprland.enable) {
     home.packages = [
       pkgs.pavucontrol
       pkgs.pulseaudio
