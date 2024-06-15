@@ -6,24 +6,29 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+wget -q --spider http://google.com
+if [ ! $? -eq 0 ]; then
+    echo "We are offline, this installation won't work choom !"
+fi
+
 echo '''
-    ⠀⢀⣣⠏⠀⠀⠀⠀⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⠃⠀⠀⠀⣧⣀⡀
-    ⠀⢼⠏⠀⠀⠀⠀⢠⡃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠐⣗⠀⠀⠀⣰⡟⠀⠀
-    ⠀⡾⠀⢀⣀⣰⣤⣼⣷⣼⣿⣷⣮⣕⡒⠤⠀⠀⠀⠀⠀⠀⠙⣦⣤⣴⡟⠀⠀⢠
-    ⢰⡇⢐⣿⠏⠉⠉⠉⠙⠙⠋⠉⠁⠀⠈⠢⣄⡉⠑⠲⠶⣶⣾⣿⣿⣿⣿⣄⣠⣿
-    ⢸⡇⣿⡿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⠷⣶⣮⣭⣽⣿⣿⣿⣿⣿⣿⣿
-    ⢸⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠹⣿⣿⣿⣿⠿⢿⠟⢁⣭
-    ⢸⣿⣿⡇⣀⠠⠀⡀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣄⣀⠀⡠⠨⡙⠻⣿⣿⠏⢠⣏⠳
-    ⠘⢿⣿⣿⠀⢱⢉⠿⠳⣆⠀⠀⠀⠀⠩⠋⢲⡿⠈⢙⣶⠄⠘⢆⢹⡟⠀⣿⢿⠀
-    ⠀⠈⠻⣿⡇⠈⠄⢿⣤⣬⠀⠀⠀⠀⠀⢀⡈⠻⠶⢾⡟⠀⠀⡸⠀⠀⢔⠅⢚⣴
-    ⣄⣴⣾⣿⣿⠀⠀⢑⠒⠋⠀⠀⠀⠀⠀⠀⠀⠉⢏⠀⠀⠀⠔⠀⠀⠀⠁⡤⢿⣿
-    ⠿⢿⣿⣿⣿⣷⢴⠟⠀⠀⢀⡀⠀⠀⠀⠀⠀⠀⠙⠵⠤⠊⠀⠀⣼⣿⡏⢀⠔⠁
-    ⠀⠀⠹⣿⣿⠟⢮⠀⠀⠀⠈⠉⠁⠀⠀⠀⠀⠀⠀⠁⠀⠀⣠⣾⣿⣿⡷⠉⠀⠀
-    ⣆⠀⠀⢿⡇⠀⠀⢱⣤⡀⠀⠉⠛⠋⠉⠁⠀⠀⠀⢀⣴⣾⣿⣿⠟⠛⠢⡄⠀⠀
-    ⠈⠀⠀⠸⣿⣆⠀⠀⢿⣿⣦⣀⠀⠀⠀⠀⣀⢤⣾⣿⣿⡿⠟⠁⠀⠀⠀⠹⡄⠀
-    ⠀⠀⠀⠀⠀⠈⠀⠀⠀⠛⠛⠿⠷⠒⠒⠯⠀⠀⠶⠾⠋⠀⠀⠀⠀⠀⠀⠀⠿⠄
+    ⣿⣿⣿⣿⠻⢿⡛⠋⠉⠉⠙⠉⠉⠋⠛⠷⠻⠿⠒⠉⠛⠿⠿⢉⣉⠉⡻⢿⣿⣿
+    ⣿⣿⣿⡷⡀⢠⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡞⠉⢻⣏⣾⡿
+    ⣿⣿⣿⠷⡜⠃⠀⢀⡴⠾⠹⠷⣄⠀⠀⠀⠀⠀⣠⣴⢶⣢⡀⠀⠑⡤⣪⡗⢿⡇
+    ⣿⣿⣿⡆⡄⠀⠰⠋⢀⣠⣤⣦⠠⡀⠀⠀⠀⠀⣀⠀⠀⠀⠙⢆⠀⠘⠁⡇⠀⠀
+    ⣿⣿⣿⢟⠃⠀⠀⡴⠋⠀⣀⠙⣿⣷⠀⠀⠀⠞⡿⠛⠛⠓⢦⡀⠀⠸⢊⡇⠀⠀
+    ⣿⣿⣿⣿⠀⠀⠘⡅⠀⠺⣿⠇⡸⠉⠀⠀⠀⢸⠀⣾⣷⠀⠀⢻⠄⢰⢹⡧⡀⠀
+    ⣿⣯⣎⢻⠀⠀⠀⠸⠶⠤⠤⠾⠋⠀⠀⠀⠀⠀⠢⣈⠁⣀⣠⠏⠀⠸⢊⡴⢾⠀
+    ⣿⣿⣟⣧⠆⠀⠀⠀⠀⠀⠀⠀⠀⢀⣤⣀⡀⠀⠀⠀⠉⠈⠁⠀⠀⢠⣯⡇⢸⠇
+    ⣿⣿⡿⣿⣄⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⣼⠟⢁⠎⠀
+    ⣿⣿⣷⡄⠁⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠃⣠⠊⠀⠀
+    ⣿⣿⣿⡟⠻⣱⠀⠀⠀⠀⠀⣠⠄⠒⠒⠒⠀⢄⠀⠀⠀⠀⠀⢀⠶⡐⠁⠀⠀⠀
+    ⣿⡿⠛⠋⠀⠈⢃⠀⠀⠀⠀⠉⠁⠀⠀⠉⠉⠙⠀⠀⠀⠀⠀⣎⠀⠀⠀⠀⠀⠀
+    ⠂⠈⢉⣽⣉⣉⣿⣷⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣾⠗⠒⠢⠤⢤⣀⠀
+    ⠉⠉⣻⣿⣿⣿⢿⡗⠟⠙⠗⢤⣀⠀⠀⠀⢀⣀⢤⠾⣟⣡⢻⣿⣿⣶⣦⣤⣀⣉
+    ⠉⠉⠁⠀⠀⠀⢸⠀⠀⠀⠀⠀⠘⠛⠂⠘⠋⠛⢀⣀⡴⠃⡜⠉⠙⠛⠻⠿⢿⣿
 '''
-echo "Welcome to Nixbook installation script !"
+echo "Welcome to the nova Nixbook installation script choom !"
 echo ""
 read -p "Enter your desired main username: " username
 if [[ -z "$username" ]]; then
@@ -94,10 +99,12 @@ else
     mkdir -p "$nixos_dir"
 fi
 
+echo "Removing old /etc/nixos configuration link..."
 rm -rf /etc/nixos || {
     echo "Failed to remove /etc/nixos"
     exit 1
 }
+echo "Regenerating hardware configuration files..."
 nixos-generate-config --show-hardware-config >$nixos_dir/hardware-configuration.nix
 
 if [ ! -f "$config_tpl" ]; then
@@ -105,11 +112,13 @@ if [ ! -f "$config_tpl" ]; then
     exit 1
 fi
 
+echo "Configuring hostname & username..."
 sed "s/%USERNAME%/$username/g" "$config_tpl" | sed "s/%HOSTNAME%/$hostname/g" >"$config_file" || {
     echo "Failed to create configuration.nix"
     exit 1
 }
 
+echo "Copying nixos configuration to user directory..."
 cp -r ./* "$nixos_dir" || {
     echo "Failed to copy files to $nixos_dir"
     exit 1
@@ -120,21 +129,40 @@ cp -r ./.* "$nixos_dir" || {
 }
 cd $nixos_dir
 
+echo "Linking nixos directory to /etc/nixos ..."
 ln -sfn "$nixos_dir" /etc/nixos || {
     echo "Failed to create symlink to /etc/nixos"
     exit 1
 }
 
+echo "Reconfiguring nixos..."
 nixos-rebuild boot || {
     echo "nixos-rebuild boot failed"
     exit 1
 }
-
 nixos-rebuild switch || {
     echo "nixos-rebuild switch failed"
     exit 1
 }
-
+echo '''
+    ⠀⢀⣣⠏⠀⠀⠀⠀⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⠃⠀⠀⠀⣧⣀⡀
+    ⠀⢼⠏⠀⠀⠀⠀⢠⡃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠐⣗⠀⠀⠀⣰⡟⠀⠀
+    ⠀⡾⠀⢀⣀⣰⣤⣼⣷⣼⣿⣷⣮⣕⡒⠤⠀⠀⠀⠀⠀⠀⠙⣦⣤⣴⡟⠀⠀⢠
+    ⢰⡇⢐⣿⠏⠉⠉⠉⠙⠙⠋⠉⠁⠀⠈⠢⣄⡉⠑⠲⠶⣶⣾⣿⣿⣿⣿⣄⣠⣿
+    ⢸⡇⣿⡿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⠷⣶⣮⣭⣽⣿⣿⣿⣿⣿⣿⣿
+    ⢸⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠹⣿⣿⣿⣿⠿⢿⠟⢁⣭
+    ⢸⣿⣿⡇⣀⠠⠀⡀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣄⣀⠀⡠⠨⡙⠻⣿⣿⠏⢠⣏⠳
+    ⠘⢿⣿⣿⠀⢱⢉⠿⠳⣆⠀⠀⠀⠀⠩⠋⢲⡿⠈⢙⣶⠄⠘⢆⢹⡟⠀⣿⢿⠀
+    ⠀⠈⠻⣿⡇⠈⠄⢿⣤⣬⠀⠀⠀⠀⠀⢀⡈⠻⠶⢾⡟⠀⠀⡸⠀⠀⢔⠅⢚⣴
+    ⣄⣴⣾⣿⣿⠀⠀⢑⠒⠋⠀⠀⠀⠀⠀⠀⠀⠉⢏⠀⠀⠀⠔⠀⠀⠀⠁⡤⢿⣿
+    ⠿⢿⣿⣿⣿⣷⢴⠟⠀⠀⢀⡀⠀⠀⠀⠀⠀⠀⠙⠵⠤⠊⠀⠀⣼⣿⡏⢀⠔⠁
+    ⠀⠀⠹⣿⣿⠟⢮⠀⠀⠀⠈⠉⠁⠀⠀⠀⠀⠀⠀⠁⠀⠀⣠⣾⣿⣿⡷⠉⠀⠀
+    ⣆⠀⠀⢿⡇⠀⠀⢱⣤⡀⠀⠉⠛⠋⠉⠁⠀⠀⠀⢀⣴⣾⣿⣿⠟⠛⠢⡄⠀⠀
+    ⠈⠀⠀⠸⣿⣆⠀⠀⢿⣿⣦⣀⠀⠀⠀⠀⣀⢤⣾⣿⣿⡿⠟⠁⠀⠀⠀⠹⡄⠀
+    ⠀⠀⠀⠀⠀⠈⠀⠀⠀⠛⠛⠿⠷⠒⠒⠯⠀⠀⠶⠾⠋⠀⠀⠀⠀⠀⠀⠀⠿⠄
+'''
+echo "Installation Complete choom !"
+echo ""
 while true; do
     read -p "Do you wish to reboot now? (yes/no) " yn
     case $yn in
