@@ -37,31 +37,31 @@ in {
         }
       ];
       selection.save_to_clipboard = true;
-      colors = lib.mkIf (!cfg.pywalConfig.enable && !cfg.stylixConfig.enable) {
+      colors = lib.mkIf (!cfg.stylixConfig.enable) {
         draw_bold_text_with_bright_colors = true;
         # Default colors
-        primary.background = "0x280412";
-        primary.foreground = "0xb7b8b9";
+        primary.background = "#0A0E14";
+        primary.foreground = "#B3B1AD";
         # Normal colors
         normal = {
-          black = "0x0c0d0e";
-          red = "0xe31a1c";
-          green = "0x22bb55";
-          yellow = "0xddaa00";
-          blue = "0x0066ff";
-          magenta = "0x7566bb";
-          cyan = "0x00bbff";
-          white = "0xb7b8b9";
+          black = "#01060E";
+          red = "#EA6C73";
+          green = "#91B362";
+          yellow = "#F9AF4F";
+          blue = "#53BDFA";
+          magenta = "#FAE994";
+          cyan = "#90E1C6";
+          white = "#C7C7C7";
         };
         bright = {
-          black = "0x737475";
-          red = "0xe31a1c";
-          green = "0x22bb55";
-          yellow = "0xddaa00";
-          blue = "0x0066ff";
-          magenta = "0x7566bb";
-          cyan = "0x00bbff";
-          white = "0xfcfdfe";
+          black = "#686868";
+          red = "#F07178";
+          green = "#C2D94C";
+          yellow = "#FFB454";
+          blue = "#59C2FF";
+          magenta = "#FFEE99";
+          cyan = "#95E6CB";
+          white = "#FFFFFF";
         };
       };
     };

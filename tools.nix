@@ -8,7 +8,6 @@
     python3
     nix-eval-jobs
     dogdns
-    git
     jq
     yq-go
     file
