@@ -36,6 +36,7 @@
           color = "onedark";
           copyqConfig.enable = true;
           fastfetchConfig.enable = true;
+          desktopApps.enable = true;
         };
       };
     };

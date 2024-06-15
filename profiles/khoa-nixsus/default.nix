@@ -55,6 +55,7 @@
         };
         copyqConfig.enable = true;
         fastfetchConfig.enable = true;
+        desktopApps.enable = true;
       };
       imports = [
         ./kanshiConfig.nix

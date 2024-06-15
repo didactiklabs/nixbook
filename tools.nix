@@ -17,6 +17,7 @@
     go
     tree
     pciutils
+    openvpn
     btop # top replacer
     duf # df replacer
     sd # sd alternative
@@ -29,14 +30,5 @@
     fluxcd
     kind
     kubebuilder
-
-    # apps
-    wdisplays # display manager
-    vesktop # discord
-    firefox
-    spotify
-    openvpn
-    geeqie # image viewer
-    mpv # video player
   ];
 }

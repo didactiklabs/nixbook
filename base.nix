@@ -108,7 +108,9 @@ in {
   xdg.portal.wlr.enable = true;
   xdg.portal.config.sway.default = lib.mkDefault ["wlr" "gtk"];
   security.pam.services.swaylock = {}; # allow unlock with swaylock
+  programs.dconf.enable = true; # required for gtk # https://askubuntu.com/questions/22313/what-is-dconf-what-is-its-function-and-how-do-i-use-it
   # Configure keymap in X10
+  # required for greeter
   services.xserver = {
     xkb.layout = "fr";
     xkb.variant = "oss_latin9";

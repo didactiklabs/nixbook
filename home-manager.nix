@@ -84,6 +84,7 @@ in {
         ./homeManagerModules/rofiConfig.nix
         ./homeManagerModules/copyqConfig.nix
         ./homeManagerModules/fastfetchConfig.nix
+        ./homeManagerModules/desktopApps.nix
       ];
       options.profileCustomization = {
         mainWallpaper = lib.mkOption {

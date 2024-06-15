@@ -38,6 +38,7 @@
         vscode.enable = true;
         rofiConfig.enable = true;
         copyqConfig.enable = true;
+        desktopApps.enable = true;
       };
       imports = [
         ./kanshiConfig.nix

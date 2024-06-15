@@ -41,6 +41,7 @@ in {
           ];
           modules-right = [
             "clock"
+            "custom/separator"
             "temperature"
             #"cpu#usage"
             "cpu#load"
