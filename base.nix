@@ -106,7 +106,8 @@ in {
   xdg.portal.enable = true;
   # Use Wayland
   xdg.portal.wlr.enable = true;
-  xdg.portal.config.common.default = "*";
+  xdg.portal.config.sway.default = lib.mkDefault ["wlr" "gtk"];
+  security.pam.services.swaylock = {}; # allow unlock with swaylock
   # Configure keymap in X10
   services.xserver = {
     xkb.layout = "fr";

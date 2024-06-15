@@ -22,6 +22,7 @@ in {
       pkgs.numix-gtk-theme
       pkgs.numix-icon-theme-square
       pkgs.numix-cursor-theme
+      pkgs.dconf
     ];
 
     ## regarding cursor

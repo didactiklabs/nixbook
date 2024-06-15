@@ -23,7 +23,7 @@ in {
     settings = rec {
       initial_session = {
         command = "${pkgs.swayfx}/bin/sway";
-        user = "${username}";
+        user = "khoa";
       };
       default_session = initial_session;
     };
@@ -75,7 +75,7 @@ in {
         ./homeManagerModules/alacrittyConfig.nix
         ./homeManagerModules/zshConfig.nix
         ./homeManagerModules/fontConfig.nix
-        (import ./homeManagerModules/gitConfig.nix {inherit lib config pkgs username;})
+        ./homeManagerModules/gitConfig.nix
         (import ./homeManagerModules/gtkConfig.nix {inherit lib config pkgs username;})
         ./homeManagerModules/sshConfig.nix
         ./homeManagerModules/starshipConfig.nix

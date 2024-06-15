@@ -21,6 +21,13 @@ Everything as code and reproductible thanks to Nix.
 
 </p>
 
+#### - Modern Zsh shell:
+<p align=left>
+
+A bunch of plugins and GNU cli replacers are pre-installed.
+
+</p>
+
 #### - Profiles:
 <p align=left>
 
