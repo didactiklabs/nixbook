@@ -12,6 +12,10 @@ in {
         command = "${pkgs.jellyfin-mpv-shim}/bin/jellyfin-mpv-shim";
         always = false;
       }
+      {
+        command = "${pkgs.nextcloud-client}/bin/nextcloud";
+        always = false;
+      }
     ];
     wayland.windowManager.sway.config.keybindings =
       lib.filterAttrsRecursive (name: value: value != null) {
