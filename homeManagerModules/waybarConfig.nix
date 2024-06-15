@@ -50,6 +50,7 @@ in {
             "disk"
             "battery#BAT0"
             "battery#BAT1"
+            "battery#BATT"
             "custom/separator"
             #"network"
             #"custom/separator"
@@ -189,6 +190,19 @@ in {
           ## TODO need to add charging status
           "battery#BAT0" = {
             bat = "BAT0";
+            adapter = "AC";
+            interval = 60;
+            states = {
+              warning = 30;
+              critical = 15;
+            };
+            format = "{icon} : {capacity}%";
+            format-icons = [" " " " " " " " " "];
+            max-length = 25;
+            tooltip = false;
+          };
+          "battery#BATT" = {
+            bat = "BATT";
             adapter = "AC";
             interval = 60;
             states = {
