@@ -2,7 +2,6 @@
   config,
   pkgs,
   lib,
-  username,
   ...
 }: let
   cfg = config.customHomeManagerModules.gitConfig;
@@ -32,6 +31,11 @@ in {
     programs.git = {
       package = pkgs.gitFull;
       enable = true;
+      signing = {
+        signByDefault = true;
+        gpgPath = "${pkgs.gnupg}/bin/gpg2";
+        key = null;
+      };
       lfs.enable = true;
       difftastic.enable = true;
       ignores = ["*.vscode" "*.direnv"];

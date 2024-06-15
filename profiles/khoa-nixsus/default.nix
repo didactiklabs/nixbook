@@ -3,13 +3,13 @@
   pkgs,
   lib,
   username,
+  hostname,
   ...
 }: {
   customNixOSModules = {
     laptopProfile.enable = true;
     networkManager.enable = true;
   };
-  networking.hostName = lib.mkForce "nixsus";
   home-manager = {
     users."${username}" = {
       home.packages = [
@@ -35,12 +35,10 @@
         fontConfig.enable = true;
         gitConfig.enable = true;
         gtkConfig.enable = true;
-        sway.enable = true;
         sshConfig.enable = true;
         starship.enable = true;
+        sway.enable = true;
         vim.enable = true;
-        vscode.enable = true;
-        pywalConfig.enable = false;
         stylixConfig.enable = true;
         # https://github.com/adi1090x/rofi
         rofiConfig = {
@@ -56,6 +54,7 @@
         };
         copyqConfig.enable = true;
         fastfetchConfig.enable = true;
+        desktopApps.enable = true;
       };
       imports = [
         ./kanshiConfig.nix

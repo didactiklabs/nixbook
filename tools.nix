@@ -8,7 +8,6 @@
     python3
     nix-eval-jobs
     dogdns
-    git
     jq
     yq-go
     file
@@ -18,6 +17,7 @@
     go
     tree
     pciutils
+    openvpn
     btop # top replacer
     duf # df replacer
     sd # sd alternative
@@ -30,15 +30,5 @@
     fluxcd
     kind
     kubebuilder
-
-    # apps
-    wdisplays # display manager
-    vesktop # discord
-    firefox
-    spotify
-    openvpn
-    geeqie # image viewer
-    ranger # file manager, terminal cli
-    mpv # video player
   ];
 }

@@ -6,7 +6,7 @@
 }: let
   cfg = config.customHomeManagerModules;
 in {
-  config = lib.mkIf cfg.sway.enable {
+  config = lib.mkIf cfg.desktopApps.enable {
     home.packages = [
       (
         pkgs.xfce.thunar.override {

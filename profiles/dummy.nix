@@ -18,12 +18,11 @@
         gitConfig.enable = true;
         gtkConfig.enable = true;
         sway.enable = true;
+        hyprland.enable = false;
         sshConfig.enable = true;
         starship.enable = true;
         vim.enable = true;
-        vscode.enable = true;
-        pywalConfig.enable = false;
-        stylixConfig.enable = true;
+        stylixConfig.enable = false;
         # https://github.com/adi1090x/rofi
         rofiConfig = {
           enable = true;
@@ -37,6 +36,7 @@
           color = "onedark";
           copyqConfig.enable = true;
           fastfetchConfig.enable = true;
+          desktopApps.enable = true;
         };
       };
     };

@@ -22,6 +22,7 @@ in {
       pkgs.numix-gtk-theme
       pkgs.numix-icon-theme-square
       pkgs.numix-cursor-theme
+      pkgs.dconf
     ];
 
     ## regarding cursor
@@ -44,6 +45,9 @@ in {
       iconTheme.name = "Numix-Square";
       font.name = lib.mkIf (!cfg.stylixConfig.enable) "Hack Nerd Font Bold 10";
       font.size = lib.mkForce 10;
+      gtk4.extraConfig = {
+        gtk-application-prefer-dark-theme = 1;
+      };
       gtk3.extraConfig = {
         gtk-cursor-theme-size = 10;
         gtk-application-prefer-dark-theme = 1;
@@ -78,6 +82,7 @@ in {
         "file:///home/${username}/Videos"
       ];
       gtk2.extraConfig = ''
+        gtk-application-prefer-dark-theme=1
         gtk-cursor-theme-name="Numix-Cursor"
         gtk-cursor-theme-size=10
         gtk-toolbar-style=GTK_TOOLBAR_BOTH_HORIZ

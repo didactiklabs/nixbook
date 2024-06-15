@@ -2,6 +2,7 @@
   config,
   pkgs,
   username,
+  hostname ? "nixos",
   lib,
   ...
 }: let
@@ -14,8 +15,8 @@
   };
   home-manager = builtins.fetchTarball "https://github.com/nix-community/home-manager/archive/release-${nixOS_version}.tar.gz";
   userProfile =
-    if builtins.pathExists ./profiles/${username}
-    then import ./profiles/${username} {inherit lib config pkgs username;}
+    if builtins.pathExists ./profiles/${username}-${hostname}
+    then import ./profiles/${username}-${hostname} {inherit lib config pkgs username hostname;}
     else import ./profiles/dummy.nix;
 in {
   imports = [
@@ -23,6 +24,7 @@ in {
     ./tools.nix
     ./nixosModules/laptopProfile.nix
     (import ./nixosModules/networkManager.nix {inherit lib config pkgs username;})
+    (import ./nixosModules/greetd.nix {inherit lib config pkgs username;})
     (import "${home-manager}/nixos")
     ({
       config,
@@ -81,7 +83,7 @@ in {
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
   boot.kernelPackages = pkgs.linuxPackages_latest;
-  networking.hostName = "nixos"; # Define your hostname.
+  networking.hostName = "${hostname}"; # Define your hostname.
   # Enable networking
   networking.networkmanager.enable = true;
   # Set your time zone.
@@ -105,7 +107,11 @@ in {
   xdg.portal.enable = true;
   # Use Wayland
   xdg.portal.wlr.enable = true;
+  xdg.portal.config.sway.default = lib.mkDefault ["wlr" "gtk"];
+  security.pam.services.swaylock = {}; # allow unlock with swaylock
+  programs.dconf.enable = true; # required for gtk # https://askubuntu.com/questions/22313/what-is-dconf-what-is-its-function-and-how-do-i-use-it
   # Configure keymap in X10
+  # required for greeter
   services.xserver = {
     xkb.layout = "fr";
     xkb.variant = "oss_latin9";

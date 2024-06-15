@@ -4,12 +4,16 @@
   lib,
   ...
 }: let
-  cfg = config.customHomeManagerModules.sway;
+  cfg = config.customHomeManagerModules;
 in {
-  config = lib.mkIf cfg.enable {
+  config = lib.mkIf cfg.sway.enable {
     wayland.windowManager.sway.config.startup = [
       {
         command = "${pkgs.jellyfin-mpv-shim}/bin/jellyfin-mpv-shim";
+        always = false;
+      }
+      {
+        command = "${pkgs.nextcloud-client}/bin/nextcloud";
         always = false;
       }
     ];

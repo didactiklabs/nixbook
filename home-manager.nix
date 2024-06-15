@@ -8,21 +8,16 @@
   nixOS_version,
   ...
 }: let
+  defaultWallpaper = pkgs.stdenv.mkDerivation {
+    name = "database";
+    src = ./assets/images;
+    phases = ["unpackPhase" "installPhase"];
+    installPhase = ''
+      mkdir -p $out
+      cp $src/* $out
+    '';
+  };
 in {
-  programs.sway = {
-    enable = true;
-    package = pkgs.swayfx;
-  };
-  services.greetd = {
-    enable = true;
-    settings = rec {
-      initial_session = {
-        command = "${pkgs.swayfx}/bin/sway";
-        user = "${username}";
-      };
-      default_session = initial_session;
-    };
-  };
   # Enable automount usb
   services.gvfs.enable = true;
   services.udisks2.enable = true;
@@ -66,42 +61,37 @@ in {
         (import stylix).homeManagerModules.stylix
         ./homeManagerModules/stylixConfig.nix
         ./homeManagerModules/sway
+        ./homeManagerModules/hyprland
         ./homeManagerModules/vscode
         ./homeManagerModules/alacrittyConfig.nix
         ./homeManagerModules/zshConfig.nix
         ./homeManagerModules/fontConfig.nix
-        (import ./homeManagerModules/gitConfig.nix {inherit lib config pkgs username;})
+        ./homeManagerModules/gitConfig.nix
         (import ./homeManagerModules/gtkConfig.nix {inherit lib config pkgs username;})
         ./homeManagerModules/sshConfig.nix
         ./homeManagerModules/starshipConfig.nix
         ./homeManagerModules/vimConfig.nix
         ./homeManagerModules/bluetoothConfig.nix
-        ./homeManagerModules/pywalConfig.nix
         ./homeManagerModules/rofiConfig.nix
         ./homeManagerModules/copyqConfig.nix
         ./homeManagerModules/fastfetchConfig.nix
+        ./homeManagerModules/desktopApps.nix
+        ./homeManagerModules/thunarConfig.nix
+        ./homeManagerModules/makoConfig.nix
+        ./homeManagerModules/waybarConfig.nix
+        ./homeManagerModules/waybarStyle.nix
       ];
       options.profileCustomization = {
         mainWallpaper = lib.mkOption {
           type = lib.types.str;
-          default = let
-            image = pkgs.fetchurl {
-              url = "https://unsplash.com/photos/phIFdC6lA4E/download?ixid=M3wxMjA3fDB8MXxzZWFyY2h8M3x8bW91bnRhaW58ZW58MHx8fHwxNzE4MTE3NzQ5fDA&force=true&w=2400";
-              sha256 = "sha256-8HfHaa7ZLRP9YAgkgOkTDgf27iq36iY10axnXBZXND0=";
-            };
-          in "${image}";
+          default = "${defaultWallpaper}/nixos-wallpaper.png";
           description = ''
             Image to set as main wallpaper.
           '';
         };
         lockWallpaper = lib.mkOption {
           type = lib.types.str;
-          default = let
-            image = pkgs.fetchurl {
-              url = "https://unsplash.com/photos/zAhAUSdRLJ8/download?ixid=M3wxMjA3fDB8MXxzZWFyY2h8MzR8fGxvY2t8ZW58MHx8fHwxNzE4MDY1NjM5fDA&force=true&w=2400";
-              sha256 = "sha256-W0ecv2YENdG7mu1ORMnKUnhpvnCWFN0ZJrmcFexb+Qs=";
-            };
-          in "${image}";
+          default = "${defaultWallpaper}/nixos-wallpaper.png";
           description = ''
             Image to set as lock wallpaper.
           '';

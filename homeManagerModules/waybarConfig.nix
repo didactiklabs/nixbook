@@ -10,7 +10,7 @@ in {
   ## https://www.nerdfonts.com/cheat-sheet
   ## https://www.reddit.com/r/swaywm/comments/ni0vso/waybar_spotify_tracktitle/
 
-  config = lib.mkIf cfg.sway.enable {
+  config = lib.mkIf (cfg.sway.enable || cfg.hyprland.enable) {
     home.packages = [
       pkgs.pavucontrol
       pkgs.pulseaudio
@@ -31,30 +31,30 @@ in {
           height = 5;
           modules-left = [
             "sway/workspaces"
-            "sway/window"
+            #"sway/window"
           ];
           modules-center = [
+            "tray"
             "sway/mode"
             "custom/spotify"
             #"clock"
           ];
           modules-right = [
             "clock"
+            "custom/separator"
             "temperature"
             #"cpu#usage"
             "cpu#load"
             "memory#ram"
-            "memory#swap"
+            #"memory#swap"
             "disk"
-            "custom/separator"
             "battery#BAT0"
             "battery#BAT1"
-            "network"
             "custom/separator"
+            #"network"
+            #"custom/separator"
             "pulseaudio"
             "idle_inhibitor"
-            "custom/print"
-            "tray"
           ];
 
           "custom/separator" = {
