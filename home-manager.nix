@@ -18,10 +18,6 @@
     '';
   };
 in {
-  programs.sway = {
-    enable = true;
-    package = pkgs.swayfx;
-  };
   services.greetd = {
     enable = true;
     settings = rec {

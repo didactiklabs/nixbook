@@ -106,6 +106,7 @@ in {
   xdg.portal.enable = true;
   # Use Wayland
   xdg.portal.wlr.enable = true;
+  xdg.portal.config.common.default = "*";
   # Configure keymap in X10
   services.xserver = {
     xkb.layout = "fr";

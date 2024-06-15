@@ -45,6 +45,7 @@ else
         case $yn in
         [Yy]*)
             echo "Continuing installation..."
+            break
             ;;
         [Nn]*)
             echo "Aborted installation..."
@@ -63,6 +64,11 @@ config_file="./configuration.nix"
 
 if [ -d "$nixos_dir" ]; then
     echo "The directory $nixos_dir exists. A previous configuration might already be installed, please delete it to install this one !"
+    if [ $PWD == "$nixos_dir" ]; then
+        echo ""
+        echo "!!! WARNING !!! ----> You are trying to configure NixOS from a pre-existing configuration."
+        echo "You should copy this repo somewhere else before deleting it and running the script !!"
+    fi
     exit 0
 else
     echo "The directory $nixos_dir does not exist, creating it..."
