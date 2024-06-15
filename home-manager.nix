@@ -23,7 +23,7 @@ in {
     settings = rec {
       initial_session = {
         command = "${pkgs.swayfx}/bin/sway";
-        user = "khoa";
+        user = "${username}";
       };
       default_session = initial_session;
     };
