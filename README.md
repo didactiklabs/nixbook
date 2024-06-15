@@ -1,6 +1,5 @@
 # All pray the NixOS gods !
 
-
 ## 🔍 Description:
 
 <p align=left>
@@ -57,3 +56,7 @@ By default, if no directory exists named with your `username` and `hostname`, it
 
 You can use the `dummy.nix` as `default.nix` and customize it on top of it. It should contains default parameters.
 </p>
+
+
+#### - Screenshot:
+<img src="./assets/images/screenshot-demo.png" alt="alt text" width="500">
