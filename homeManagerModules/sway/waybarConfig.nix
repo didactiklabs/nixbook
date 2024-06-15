@@ -31,9 +31,10 @@ in {
           height = 5;
           modules-left = [
             "sway/workspaces"
-            "sway/window"
+            #"sway/window"
           ];
           modules-center = [
+            "tray"
             "sway/mode"
             "custom/spotify"
             #"clock"
@@ -44,17 +45,15 @@ in {
             #"cpu#usage"
             "cpu#load"
             "memory#ram"
-            "memory#swap"
+            #"memory#swap"
             "disk"
-            "custom/separator"
             "battery#BAT0"
             "battery#BAT1"
-            "network"
             "custom/separator"
+            #"network"
+            #"custom/separator"
             "pulseaudio"
             "idle_inhibitor"
-            "custom/print"
-            "tray"
           ];
 
           "custom/separator" = {
