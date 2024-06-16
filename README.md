@@ -8,7 +8,7 @@ In this project lies the NixOS configuration files leading to our own custom con
 
 It has for objective to be flexible with opt-in/opt-out options while still being able to mutualize some of it.
 
-### Wayland/Sway only for now !
+### Wayland/Sway with UEFI BOOT only for now !
 
 </p>
 
@@ -39,6 +39,20 @@ In this project, it's possible to add Nix code on top the base to customize your
 <p align=left>
 
 You only need to install the base NixOS iso, clone the project in it then run the provided `install.sh`.
+
+```
+Usage: install.sh [USERNAME] [HOSTNAME] [--help]
+
+This script installs and configures a NixOS server.
+
+Arguments:
+  USERNAME      The desired main username. If not provided, you will be prompted to enter it.
+  HOSTNAME      The desired hostname. If not provided, you will be prompted to enter it.
+  --help        Display this help message and exit.
+
+Example:
+  install.sh myuser myhost
+```
 
 Customization is done via the `profiles` directories.
 
