@@ -16,7 +16,6 @@ in {
       ## cf https://github.com/sharkdp/bat#customization
       config = {
         map-syntax = ["*.jenkinsfile:Groovy" "*.props:Java Properties"];
-        theme = lib.mkIf (!cfg.stylixConfig.enable) "ansi";
       };
     };
     programs.fzf = {
