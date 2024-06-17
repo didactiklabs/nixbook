@@ -21,14 +21,5 @@
     btop # top replacer
     duf # df replacer
     sd # sd alternative
-
-    # clouds
-    kcl-cli
-    kubectl
-    k9s
-    kubevirt
-    fluxcd
-    kind
-    kubebuilder
   ];
 }

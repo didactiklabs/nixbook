@@ -80,6 +80,7 @@ in {
         ./homeManagerModules/makoConfig.nix
         ./homeManagerModules/waybarConfig.nix
         ./homeManagerModules/waybarStyle.nix
+        ./homeManagerModules/kubeTools.nix
       ];
       options.profileCustomization = {
         mainWallpaper = lib.mkOption {
