@@ -5,6 +5,7 @@
   ...
 }: let
   cfg = config.customHomeManagerModules;
+  swaymsg = "${pkgs.sway}/bin/swaymsg";
 in {
   config = lib.mkIf cfg.sway.enable {
     wayland.windowManager.sway.config.keybindings =
