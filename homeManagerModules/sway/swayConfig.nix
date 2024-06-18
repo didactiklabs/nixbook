@@ -318,7 +318,7 @@ in {
           };
         };
 
-        bars = [
+        bars = lib.mkIf cfg.waybar.enable [
           {
             position = "top";
             command = "${waybar}";
