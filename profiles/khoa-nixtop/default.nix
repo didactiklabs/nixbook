@@ -32,7 +32,7 @@
         mainWallpaper = let
           image = pkgs.fetchurl {
             url = "https://w.wallhaven.cc/full/6k/wallhaven-6k2ogx.jpg";
-            sha256 = "sha256-E8xvHLciXUKjXCzR9AlUWpT7B5+3c5qYkgpdbU0e03E=";
+            sha256 = "sha256-9CwiVA30Er2lX+MJMKp7fOtmnpZzVAYSLVjKK2X9G0A=";
           };
         in "${image}";
         lockWallpaper = let
