@@ -69,6 +69,7 @@
         fastfetchConfig.enable = true;
         desktopApps.enable = false;
         kubeTools.enable = false;
+        waybar.enable = false;
       };
       imports = [
         ./gitConfig.nix

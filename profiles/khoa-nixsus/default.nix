@@ -57,6 +57,7 @@
         fastfetchConfig.enable = true;
         desktopApps.enable = true;
         kubeTools.enable = true;
+        waybar.enable = true;
       };
       imports = [
         ./kanshiConfig.nix
