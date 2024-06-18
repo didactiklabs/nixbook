@@ -9,12 +9,14 @@
   customNixOSModules = {
     laptopProfile.enable = true;
     networkManager.enable = true;
+    sunshine.enable = false;
   };
   home-manager = {
     users."${username}" = {
       home.packages = [
         pkgs.jellyfin-mpv-shim
         pkgs.nextcloud-client
+        pkgs.moonlight-qt
       ];
       profileCustomization = {
         mainWallpaper = let
@@ -56,6 +58,7 @@
         fastfetchConfig.enable = true;
         desktopApps.enable = true;
         kubeTools.enable = true;
+        waybar.enable = true;
       };
       imports = [
         ./kanshiConfig.nix

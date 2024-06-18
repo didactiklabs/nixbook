@@ -79,7 +79,6 @@ in {
         ./homeManagerModules/thunarConfig.nix
         ./homeManagerModules/makoConfig.nix
         ./homeManagerModules/waybarConfig.nix
-        ./homeManagerModules/waybarStyle.nix
         ./homeManagerModules/kubeTools.nix
       ];
       options.profileCustomization = {

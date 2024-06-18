@@ -184,13 +184,13 @@ in {
       swaynag.enable = true;
       xwayland = true;
       extraSessionCommands = ''
-        layer_effects waybar blur enable
         export CLUTTER_BACKEND="wayland"
         export SDL_VIDEODRIVER="wayland"
         export QT_QPA_PLATFORM="wayland"
         export QT_WAYLAND_DISABLE_WINDOWDECORATION="1"
         export _JAVA_AWT_WM_NONREPARENTING="1"
         export MOZ_ENABLE_WAYLAND="1"
+        export DESKTOP_SESSION="sway"
         export XDG_SESSION_TYPE="wayland"
         export XDG_SESSION_DESKTOP="sway"
         export XDG_CURRENT_DESKTOP="sway"
@@ -210,7 +210,7 @@ in {
         set $workspace8  ${workspace8}
         set $workspace9  ${workspace9}
         set $workspace10 ${workspace10}
-
+        layer_effects waybar blur enable
         include /etc/sway/config.d/*
       '';
       config = {
@@ -318,7 +318,7 @@ in {
           };
         };
 
-        bars = [
+        bars = lib.mkIf cfg.waybar.enable [
           {
             position = "top";
             command = "${waybar}";

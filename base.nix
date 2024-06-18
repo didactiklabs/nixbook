@@ -25,6 +25,7 @@ in {
     ./nixosModules/laptopProfile.nix
     (import ./nixosModules/networkManager.nix {inherit lib config pkgs username;})
     (import ./nixosModules/greetd.nix {inherit lib config pkgs username;})
+    (import ./nixosModules/sunshine.nix {inherit lib config pkgs username;})
     (import "${home-manager}/nixos")
     ({
       config,
@@ -167,7 +168,6 @@ in {
   # List services that you want to enable:
   services.tailscale.enable = true;
   # Disable the OpenSSH daemon.
-  services.openssh.enable = false;
   networking.firewall.enable = false;
   system.stateVersion = "${nixOS_version}";
 }

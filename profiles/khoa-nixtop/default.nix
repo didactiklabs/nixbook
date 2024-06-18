@@ -7,20 +7,20 @@
   ...
 }: {
   customNixOSModules = {
-    laptopProfile.enable = true;
+    laptopProfile.enable = false;
     networkManager.enable = true;
+    sunshine.enable = true;
   };
+  services.openssh.enable = true;
   home-manager = {
     users."${username}" = {
       home.packages = [
-        pkgs.jellyfin-mpv-shim
-        pkgs.nextcloud-client
       ];
       profileCustomization = {
         mainWallpaper = let
           image = pkgs.fetchurl {
-            url = "https://w.wallhaven.cc/full/ex/wallhaven-exzrmw.png";
-            sha256 = "sha256-E8xvHLciXUKjXCzR9AlUWpT7B5+3c5qYkgpdbU0e03E=";
+            url = "https://w.wallhaven.cc/full/6k/wallhaven-6k2ogx.jpg";
+            sha256 = "sha256-9CwiVA30Er2lX+MJMKp7fOtmnpZzVAYSLVjKK2X9G0A=";
           };
         in "${image}";
         lockWallpaper = let
@@ -31,7 +31,7 @@
         in "${image}";
       };
       customHomeManagerModules = {
-        bluetooth.enable = true;
+        bluetooth.enable = false;
         fontConfig.enable = true;
         gitConfig.enable = true;
         gtkConfig.enable = true;
@@ -52,14 +52,16 @@
           };
           color = "cyberpunk";
         };
-        copyqConfig.enable = true;
+        copyqConfig.enable = false;
         fastfetchConfig.enable = true;
-        desktopApps.enable = true;
-        kubeTools.enable = true;
+        desktopApps.enable = false;
+        kubeTools.enable = false;
+        waybar.enable = true;
       };
       imports = [
         ./gitConfig.nix
         ./swayConfig.nix
+        ./sunshine.nix
       ];
     };
   };
