@@ -45,7 +45,7 @@
       };
       customHomeManagerModules = {
         bluetooth.enable = false;
-        fontConfig.enable = false;
+        fontConfig.enable = true;
         gitConfig.enable = true;
         gtkConfig.enable = true;
         sshConfig.enable = true;
