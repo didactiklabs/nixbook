@@ -10,6 +10,10 @@
     laptopProfile.enable = true;
     networkManager.enable = true;
   };
+  programs.steam = {
+    enable = true;
+    gamescopeSession.enable = true;
+  };
   boot.kernelModules = ["uinput"];
   security.wrappers.sunshine = {
     owner = "root";
