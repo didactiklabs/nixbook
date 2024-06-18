@@ -31,7 +31,7 @@
       profileCustomization = {
         mainWallpaper = let
           image = pkgs.fetchurl {
-            url = "https://w.wallhaven.cc/full/ex/wallhaven-exzrmw.png";
+            url = "https://w.wallhaven.cc/full/6k/wallhaven-6k2ogx.jpg";
             sha256 = "sha256-E8xvHLciXUKjXCzR9AlUWpT7B5+3c5qYkgpdbU0e03E=";
           };
         in "${image}";
@@ -51,7 +51,7 @@
         starship.enable = true;
         sway.enable = true;
         vim.enable = true;
-        stylixConfig.enable = false;
+        stylixConfig.enable = true;
         # https://github.com/adi1090x/rofi
         rofiConfig = {
           enable = true;
@@ -68,7 +68,7 @@
         fastfetchConfig.enable = true;
         desktopApps.enable = false;
         kubeTools.enable = false;
-        waybar.enable = false;
+        waybar.enable = true;
       };
       imports = [
         ./gitConfig.nix
