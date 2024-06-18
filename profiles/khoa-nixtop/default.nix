@@ -45,8 +45,8 @@ in {
         in "${image}";
         lockWallpaper = let
           image = pkgs.fetchurl {
-            url = "https://w.wallhaven.cc/full/6o/wallhaven-6okd5l.png";
-            sha256 = "sha256-uofSasQgDYmvuS7ZQJxY1oLht0X4o/Sq0ZrHACh01AQ=";
+            url = "https://w.wallhaven.cc/full/5g/wallhaven-5gp535.png";
+            sha256 = "sha256-Ip4Kox49zJxYIGxtisI0qcWcc/MSzeeEdsxJIiHUcvg=";
           };
         in "${image}";
       };
