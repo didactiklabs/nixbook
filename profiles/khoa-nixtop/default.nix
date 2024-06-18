@@ -17,6 +17,9 @@
     source = "${pkgs.sunshine}/bin/sunshine";
   };
   services.openssh.enable = true;
+  users.users."${username}" = {
+    extraGroups = ["input"];
+  };
   home-manager = {
     users."${username}" = {
       home.packages = [
