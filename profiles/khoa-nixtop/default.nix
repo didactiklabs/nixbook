@@ -10,14 +10,15 @@
     laptopProfile.enable = true;
     networkManager.enable = true;
   };
+  security.wrappers.sunshine = {
+    owner = "root";
+    group = "root";
+    capabilities = "cap_sys_admin+p";
+    source = "${pkgs.sunshine}/bin/sunshine";
+  };
   home-manager = {
     services.openssh.enable = true;
-    security.wrappers.sunshine = {
-      owner = "root";
-      group = "root";
-      capabilities = "cap_sys_admin+p";
-      source = "${pkgs.sunshine}/bin/sunshine";
-    };
+
     users."${username}" = {
       home.packages = [
         pkgs.jellyfin-mpv-shim
