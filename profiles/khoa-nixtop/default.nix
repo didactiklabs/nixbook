@@ -10,6 +10,7 @@
     laptopProfile.enable = true;
     networkManager.enable = true;
   };
+  boot.kernelModules = ["uinput"];
   security.wrappers.sunshine = {
     owner = "root";
     group = "root";
