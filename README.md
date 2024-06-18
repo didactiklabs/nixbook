@@ -81,3 +81,7 @@ You can use the `dummy.nix` as `default.nix` and customize it on top of it. It s
 
 #### - Screenshot:
 <img src="./assets/images/screenshot-demo.png" alt="alt text" width="500">
+
+with headless sunshine/moonlight configuration (remote desktop):
+
+<img src="./assets/images/screenshot-demo-2.png" alt="alt text" width="500">
