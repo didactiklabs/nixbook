@@ -5,11 +5,31 @@
   username,
   hostname,
   ...
-}: {
+}: let
+  mainIf = "enp34s0";
+in {
   customNixOSModules = {
     laptopProfile.enable = false;
     networkManager.enable = true;
     sunshine.enable = true;
+  };
+  ## wake with sunshine
+  networking.interfaces."${mainIf}".wakeOnLan = {
+    enable = true;
+    policy = ["magic"];
+  };
+  systemd.services.wol-custom = {
+    description = "Wake-on-lan Hack (module doesn't work).";
+    partOf = ["default.target"];
+    requires = ["default.target"];
+    after = ["default.target"];
+    wantedBy = ["default.target"];
+    serviceConfig = {
+      User = "root";
+      Group = "root";
+      ExecStart = "${pkgs.ethtool}/bin/ethtool -s ${mainIf} wol g";
+      Restart = "always";
+    };
   };
   services.openssh.enable = true;
   home-manager = {
@@ -62,6 +82,7 @@
         ./gitConfig.nix
         ./swayConfig.nix
         ./sunshine.nix
+        ./fastfetchConfig.nix
       ];
     };
   };

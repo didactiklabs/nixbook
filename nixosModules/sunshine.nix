@@ -17,6 +17,19 @@ in {
     };
   };
   config = lib.mkIf cfg.enable {
+    systemd.user.services.sunshine = {
+      description = "Sunshine Gamestreaming server.";
+      partOf = ["graphical-session.target"];
+      requires = ["graphical-session.target"];
+      after = ["graphical-session.target"];
+
+      wantedBy = ["graphical-session.target"];
+      serviceConfig = {
+        ExecStart = "${pkgs.sunshine}/bin/sunshine";
+        Restart = "always";
+      };
+    };
+
     programs.steam = {
       enable = true;
     };
