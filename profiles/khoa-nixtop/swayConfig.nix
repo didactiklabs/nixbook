@@ -11,8 +11,8 @@ in {
     wayland.windowManager.sway.config.keybindings =
       lib.filterAttrsRecursive (name: value: value != null) {
       };
-    wayland.windowManager.sway.config.extraConfig = ''
-      ${swaymsg} create_output HEADLESS-1
+    wayland.windowManager.sway.extraConfig = ''
+      exec ${swaymsg} create_output HEADLESS-1
     '';
   };
 }
