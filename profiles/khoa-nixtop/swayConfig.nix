@@ -28,6 +28,12 @@ in {
           class = ".*";
         };
       }
+      {
+        command = "opacity 0.8";
+        criteria = {
+          app_id = "Alacritty";
+        };
+      }
     ];
   };
 }
