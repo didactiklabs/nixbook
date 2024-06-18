@@ -28,8 +28,6 @@
   home-manager = {
     users."${username}" = {
       home.packages = [
-        pkgs.jellyfin-mpv-shim
-        pkgs.nextcloud-client
       ];
       profileCustomization = {
         mainWallpaper = let
@@ -75,6 +73,7 @@
       imports = [
         ./gitConfig.nix
         ./swayConfig.nix
+        ./sunshinx.nix
       ];
     };
   };
