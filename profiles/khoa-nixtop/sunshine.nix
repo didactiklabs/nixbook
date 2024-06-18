@@ -27,8 +27,6 @@
 in {
   config = {
     home.packages = [pkgs.sunshine];
-    home.file.".config/rofi".source = "${rofi-themes}/files";
-    # Define the Nix derivation to create the script file
     home.file.".config/sunshine/apps.json" = {
       text = sunshineAppsJson;
     };
