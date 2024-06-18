@@ -9,6 +9,7 @@
   customNixOSModules = {
     laptopProfile.enable = true;
     networkManager.enable = true;
+    sunshine.enable = false;
   };
   home-manager = {
     users."${username}" = {

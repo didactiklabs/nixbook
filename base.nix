@@ -25,6 +25,7 @@ in {
     ./nixosModules/laptopProfile.nix
     (import ./nixosModules/networkManager.nix {inherit lib config pkgs username;})
     (import ./nixosModules/greetd.nix {inherit lib config pkgs username;})
+    (import ./nixosModules/sunshine.nix {inherit lib config pkgs username;})
     (import "${home-manager}/nixos")
     ({
       config,

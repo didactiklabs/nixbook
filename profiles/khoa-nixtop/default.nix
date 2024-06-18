@@ -9,21 +9,9 @@
   customNixOSModules = {
     laptopProfile.enable = false;
     networkManager.enable = true;
-  };
-  programs.steam = {
-    enable = true;
-  };
-  boot.kernelModules = ["uinput"];
-  security.wrappers.sunshine = {
-    owner = "root";
-    group = "root";
-    capabilities = "cap_sys_admin+p";
-    source = "${pkgs.sunshine}/bin/sunshine";
+    sunshine.enable = true;
   };
   services.openssh.enable = true;
-  users.users."${username}" = {
-    extraGroups = ["input"];
-  };
   home-manager = {
     users."${username}" = {
       home.packages = [
