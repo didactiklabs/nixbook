@@ -16,5 +16,9 @@ in {
       exec ${swaymsg} create_output HEADLESS-1
       exec ${sunshine}
     '';
+    extraSessionCommands = ''
+      export WLR_BACKENDS="headless,libinput"
+      export WLR_LIBINPUT_NO_DEVICES="1"
+    '';
   };
 }
