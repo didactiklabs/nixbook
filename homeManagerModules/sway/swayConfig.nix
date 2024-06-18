@@ -184,7 +184,6 @@ in {
       swaynag.enable = true;
       xwayland = true;
       extraSessionCommands = ''
-        layer_effects waybar blur enable
         export CLUTTER_BACKEND="wayland"
         export SDL_VIDEODRIVER="wayland"
         export QT_QPA_PLATFORM="wayland"
@@ -197,7 +196,6 @@ in {
         export WLR_NO_HARDWARE_CURSORS="1"
         #export NIXOS_OZONE_WL="1"
         #export GTK_USE_PORTAL="1"
-        ${swaymsg} create_output HEADLESS-1
       '';
       extraConfig = ''
         ## Custom Workspace
@@ -211,7 +209,7 @@ in {
         set $workspace8  ${workspace8}
         set $workspace9  ${workspace9}
         set $workspace10 ${workspace10}
-
+        layer_effects waybar blur enable
         include /etc/sway/config.d/*
       '';
       config = {

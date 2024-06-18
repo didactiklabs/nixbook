@@ -15,6 +15,7 @@
       home.packages = [
         pkgs.jellyfin-mpv-shim
         pkgs.nextcloud-client
+        pkgs.moonlight-qt
       ];
       profileCustomization = {
         mainWallpaper = let
