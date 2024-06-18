@@ -271,6 +271,12 @@ in {
               app_id = "copyq";
             };
           }
+          {
+            command = "opacity 1.0";
+            criteria = {
+              app_id = "com.moonlight_stream.Moonlight";
+            };
+          }
         ];
 
         fonts = {
