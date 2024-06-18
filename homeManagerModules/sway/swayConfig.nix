@@ -197,6 +197,7 @@ in {
         export WLR_NO_HARDWARE_CURSORS="1"
         #export NIXOS_OZONE_WL="1"
         #export GTK_USE_PORTAL="1"
+        ${swaymsg} create_output HEADLESS-1
       '';
       extraConfig = ''
         ## Custom Workspace
