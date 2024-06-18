@@ -7,12 +7,11 @@
   ...
 }: {
   customNixOSModules = {
-    laptopProfile.enable = true;
+    laptopProfile.enable = false;
     networkManager.enable = true;
   };
   programs.steam = {
     enable = true;
-    gamescopeSession.enable = true;
   };
   boot.kernelModules = ["uinput"];
   security.wrappers.sunshine = {
