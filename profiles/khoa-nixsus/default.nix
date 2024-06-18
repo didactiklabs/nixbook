@@ -64,6 +64,7 @@
         ./kanshiConfig.nix
         ./gitConfig.nix
         ./swayConfig.nix
+        ./fastfetchConfig.nix
       ];
     };
   };
