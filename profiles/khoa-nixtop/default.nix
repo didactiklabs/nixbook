@@ -46,15 +46,15 @@
         in "${image}";
       };
       customHomeManagerModules = {
-        bluetooth.enable = true;
-        fontConfig.enable = true;
+        bluetooth.enable = false;
+        fontConfig.enable = false;
         gitConfig.enable = true;
         gtkConfig.enable = true;
         sshConfig.enable = true;
         starship.enable = true;
         sway.enable = true;
         vim.enable = true;
-        stylixConfig.enable = true;
+        stylixConfig.enable = false;
         # https://github.com/adi1090x/rofi
         rofiConfig = {
           enable = true;
@@ -67,10 +67,10 @@
           };
           color = "cyberpunk";
         };
-        copyqConfig.enable = true;
+        copyqConfig.enable = false;
         fastfetchConfig.enable = true;
-        desktopApps.enable = true;
-        kubeTools.enable = true;
+        desktopApps.enable = false;
+        kubeTools.enable = false;
       };
       imports = [
         ./gitConfig.nix

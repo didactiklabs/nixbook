@@ -23,5 +23,13 @@ in {
     wayland.windowManager.sway.extraSessionCommands = ''
       export WLR_BACKENDS="headless,libinput"
     '';
+    wayland.windowManager.sway.window.commands = [
+      {
+        command = "opacity 1.0";
+        criteria = {
+          class = ".*";
+        };
+      }
+    ];
   };
 }
