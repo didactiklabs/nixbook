@@ -16,9 +16,8 @@
     capabilities = "cap_sys_admin+p";
     source = "${pkgs.sunshine}/bin/sunshine";
   };
+  services.openssh.enable = true;
   home-manager = {
-    services.openssh.enable = true;
-
     users."${username}" = {
       home.packages = [
         pkgs.jellyfin-mpv-shim
