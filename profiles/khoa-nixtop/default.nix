@@ -73,7 +73,7 @@
       imports = [
         ./gitConfig.nix
         ./swayConfig.nix
-        ./sunshinx.nix
+        ./sunshine.nix
       ];
     };
   };
