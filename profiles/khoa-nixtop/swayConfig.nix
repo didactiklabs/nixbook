@@ -9,6 +9,9 @@
   sunshine = "${pkgs.sunshine}/bin/sunshine";
 in {
   config = lib.mkIf cfg.sway.enable {
+    services.swayidle = {
+      enable = false;
+    };
     wayland.windowManager.sway.config.keybindings =
       lib.filterAttrsRecursive (name: value: value != null) {
       };
