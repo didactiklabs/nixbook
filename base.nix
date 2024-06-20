@@ -20,6 +20,7 @@ in {
     ./hardware-configuration.nix
     ./tools.nix
     ./nixosModules/laptopProfile.nix
+    ./nixosModules/greetd.nix
     (import ./nixosModules/networkManager.nix {inherit lib config pkgs;})
     (import ./nixosModules/sunshine.nix {inherit lib config pkgs;})
     (import "${home-manager}/nixos")

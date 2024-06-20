@@ -23,6 +23,7 @@ in {
     laptopProfile.enable = true;
     networkManager.enable = true;
     sunshine.enable = false;
+    greetd.enable = true;
   };
   imports = [
     (mkUser {

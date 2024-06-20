@@ -42,16 +42,6 @@
     services.gvfs.enable = true;
     services.udisks2.enable = true;
     services.devmon.enable = true;
-    services.greetd = {
-      enable = true;
-      settings = rec {
-        initial_session = {
-          command = "${pkgs.swayfx}/bin/sway";
-          user = "${username}";
-        };
-        default_session = initial_session;
-      };
-    };
     programs.ydotool = {
       enable = true; # clipboard prerequisite
     };

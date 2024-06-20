@@ -38,11 +38,23 @@ in {
       Restart = "always";
     };
   };
+  services.greetd = {
+    # force start with my user, no greeter/login
+    enable = true;
+    settings = rec {
+      initial_session = {
+        command = "${pkgs.swayfx}/bin/sway";
+        user = "khoa";
+      };
+      default_session = initial_session;
+    };
+  };
   services.openssh.enable = true;
   customNixOSModules = {
     laptopProfile.enable = true;
     networkManager.enable = true;
     sunshine.enable = true;
+    greetd.enable = false;
   };
   imports = [
     (mkUser {
