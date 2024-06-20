@@ -2,7 +2,6 @@
   config,
   pkgs,
   lib,
-  username,
   ...
 }: let
   cfg = config.customNixOSModules.networkManager;
@@ -31,11 +30,6 @@ in {
       serviceConfig = {
         ExecStart = ["" "${pkgs.networkmanager}/bin/nm-online -q"];
       };
-    };
-    users.users."${username}" = {
-      extraGroups = [
-        "networkmanager"
-      ];
     };
   };
 }

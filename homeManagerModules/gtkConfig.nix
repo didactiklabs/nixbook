@@ -25,26 +25,10 @@ in {
       pkgs.dconf
     ];
 
-    ## regarding cursor
-    ## https://nixos.wiki/wiki/Cursor_Themes
-    ## also https://gist.github.com/themattchan/55d21a524955111913afd7e1e22ce811
-    ## https://github.com/NixOS/nixpkgs/issues/22652
-    #home.file.".icons/default".source = "${pkgs.numix-cursor-theme}/share/icons/Numix-Cursor";
-    #xresources.properties = { "Xcursor.theme" = "Numix-Cursor"; };
-    #xsession.pointerCursor = {
-    #  package = pkgs.numix-cursor-theme;
-    #  name = "Numix-Cursor";
-    #  size = 10;
-    #};
-
     gtk = {
       enable = true;
-      theme.package = lib.mkIf (!cfg.stylixConfig.enable) pkgs.numix-gtk-theme;
-      theme.name = lib.mkIf (!cfg.stylixConfig.enable) "Numix";
       iconTheme.package = pkgs.numix-icon-theme-square;
       iconTheme.name = "Numix-Square";
-      font.name = lib.mkIf (!cfg.stylixConfig.enable) "Hack Nerd Font Bold 10";
-      font.size = lib.mkForce 10;
       gtk4.extraConfig = {
         gtk-application-prefer-dark-theme = 1;
       };
@@ -72,15 +56,6 @@ in {
           -gkt-icon-theme: "Numix Square";
         }
       '';
-      gtk3.bookmarks = [
-        "file:///home/${username}/Documents"
-        "file:///home/${username}/Downloads"
-        "file:///home/${username}/Music"
-        "file:///home/${username}/Pictures"
-        "file:///home/${username}/Public"
-        "file:///home/${username}/Templates"
-        "file:///home/${username}/Videos"
-      ];
       gtk2.extraConfig = ''
         gtk-application-prefer-dark-theme=1
         gtk-cursor-theme-name="Numix-Cursor"

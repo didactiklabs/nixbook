@@ -2,7 +2,6 @@
   config,
   pkgs,
   lib,
-  username,
   ...
 }: let
   cfg = config.customNixOSModules.sunshine;
@@ -22,7 +21,6 @@ in {
       partOf = ["graphical-session.target"];
       requires = ["graphical-session.target"];
       after = ["graphical-session.target"];
-
       wantedBy = ["graphical-session.target"];
       serviceConfig = {
         ExecStart = "${pkgs.sunshine}/bin/sunshine";
@@ -39,9 +37,6 @@ in {
       group = "root";
       capabilities = "cap_sys_admin+p";
       source = "${pkgs.sunshine}/bin/sunshine";
-    };
-    users.users."${username}" = {
-      extraGroups = ["input"];
     };
   };
 }

@@ -1,8 +1,7 @@
 {
   config,
   pkgs,
-  username,
-  hostname ? "nixos",
+  hostname,
   lib,
   ...
 }: let
@@ -13,28 +12,18 @@
     rev = "release-${nixOS_version}";
     sha256 = "sha256-A+dBkSwp8ssHKV/WyXb9uqIYrHBqHvtSedU24Lq9lqw=";
   };
+  pkgs = import (fetchTarball "https://github.com/NixOS/nixpkgs/archive/nixos-${nixOS_version}.tar.gz") {};
   home-manager = builtins.fetchTarball "https://github.com/nix-community/home-manager/archive/release-${nixOS_version}.tar.gz";
-  userProfile =
-    if builtins.pathExists ./profiles/${username}-${hostname}
-    then import ./profiles/${username}-${hostname} {inherit lib config pkgs username hostname;}
-    else import ./profiles/dummy.nix;
+  hostProfile = import ./profiles/${hostname} {inherit lib config pkgs hostname home-manager stylix;};
 in {
   imports = [
     ./hardware-configuration.nix
     ./tools.nix
     ./nixosModules/laptopProfile.nix
-    (import ./nixosModules/networkManager.nix {inherit lib config pkgs username;})
-    (import ./nixosModules/greetd.nix {inherit lib config pkgs username;})
-    (import ./nixosModules/sunshine.nix {inherit lib config pkgs username;})
+    (import ./nixosModules/networkManager.nix {inherit lib config pkgs;})
+    (import ./nixosModules/sunshine.nix {inherit lib config pkgs;})
     (import "${home-manager}/nixos")
-    ({
-      config,
-      pkgs,
-      ...
-    }:
-      import
-      ./home-manager.nix {inherit lib config pkgs username stylix home-manager nixOS_version;})
-    userProfile
+    hostProfile
   ];
   boot.kernel.sysctl = {
     # ANSSI R9
@@ -133,12 +122,6 @@ in {
     alsa.enable = true;
     alsa.support32Bit = true;
     pulse.enable = true;
-  };
-  # Define a user account. Don't forget to set a password with `passwd`.
-  users.users.${username} = {
-    isNormalUser = true;
-    description = "${username}";
-    extraGroups = ["wheel" "storage"];
   };
   # Allow unfree packages
   nixpkgs.config.allowUnfreePredicate = pkg: true;
