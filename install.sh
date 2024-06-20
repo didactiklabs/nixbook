@@ -4,12 +4,11 @@ set -euo pipefail
 git_repo="https://github.com/didactiklabs/nixOS-server.git"
 
 print_help() {
-    echo "Usage: $(basename "$0") [USERNAME] [HOSTNAME] [--help]"
+    echo "Usage: $(basename "$0")[HOSTNAME] [--help]"
     echo ""
     echo "This script installs and configures a NixOS server."
     echo ""
     echo "Arguments:"
-    echo "  USERNAME      The desired main username. If not provided, you will be prompted to enter it."
     echo "  HOSTNAME      The desired hostname. If not provided, you will be prompted to enter it."
     echo "  --help        Display this help message and exit."
     echo ""
@@ -52,24 +51,13 @@ echo '''
 echo "Welcome to the nova Nixbook installation script choom !"
 echo ""
 
-username=${1:-}
 hostname=${2:-}
 
 skip_prompts=false
 
-if [[ -n "$username" && -n "$hostname" ]]; then
+if [[ -n "$hostname" ]]; then
     skip_prompts=true
 fi
-
-if [[ -z "$username" ]]; then
-    read -p "Enter your desired main username: " username
-    if [[ -z "$username" ]]; then
-        echo "Username cannot be empty"
-        exit 1
-    fi
-fi
-echo "Your username is: $username"
-echo ""
 
 if [[ -z "$hostname" ]]; then
     read -p "Enter your desired hostname: " hostname
@@ -81,7 +69,7 @@ fi
 echo "Your hostname is: $hostname"
 echo ""
 
-profile_dir="./profiles/$username-$hostname"
+profile_dir="./profiles/$hostname"
 
 if [ ! -d "$profile_dir" ]; then
     if [ "$skip_prompts" = false ]; then
@@ -128,7 +116,8 @@ else
     fi
 fi
 
-nixos_dir="/home/$username/Documents/nixos"
+mkdir -p /opt/
+nixos_dir="/opt/nixos"
 config_tpl="./configuration.nix.tpl"
 config_file="./configuration.nix"
 
@@ -158,8 +147,8 @@ if [ ! -f "$config_tpl" ]; then
     exit 1
 fi
 
-echo "Configuring hostname & username..."
-sed "s/%USERNAME%/$username/g" "$config_tpl" | sed "s/%HOSTNAME%/$hostname/g" >"$config_file" || {
+echo "Configuring hostname..."
+sed "s/%HOSTNAME%/$hostname/g" >"$config_file" || {
     echo "Failed to create configuration.nix"
     exit 1
 }
@@ -170,7 +159,6 @@ cp -r ./* "$nixos_dir" || {
     exit 1
 }
 cd $nixos_dir
-chown $username $nixos_dir -R
 
 echo "Linking nixos directory to /etc/nixos ..."
 ln -sfn "$nixos_dir" /etc/nixos || {
