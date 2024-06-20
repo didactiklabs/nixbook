@@ -27,7 +27,6 @@ in {
         Restart = "always";
       };
     };
-
     programs.steam = {
       enable = true;
     };

@@ -19,8 +19,8 @@ in {
   profileCustomization = {
     mainWallpaper = let
       image = pkgs.fetchurl {
-        url = "https://w.wallhaven.cc/full/ex/wallhaven-exzrmw.png";
-        sha256 = "sha256-E8xvHLciXUKjXCzR9AlUWpT7B5+3c5qYkgpdbU0e03E=";
+        url = "https://w.wallhaven.cc/full/6d/wallhaven-6d65zq.jpg";
+        sha256 = "sha256-1lB28nl2jqki1xXI7nmuw2kVQ5jYxmDuLPagJ6dCUdQ=";
       };
     in "${image}";
     lockWallpaper = let

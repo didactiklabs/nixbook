@@ -9,7 +9,7 @@ in {
   options.customNixOSModules.networkManager = {
     enable = lib.mkOption {
       type = lib.types.bool;
-      default = false;
+      default = true;
       description = ''
         whether to enable networkManager globally or not
       '';

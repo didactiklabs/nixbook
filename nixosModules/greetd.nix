@@ -9,7 +9,7 @@ in {
   options.customNixOSModules.greetd = {
     enable = lib.mkOption {
       type = lib.types.bool;
-      default = false;
+      default = true;
       description = ''
         whether to enable greeter globally or not.
       '';
@@ -22,7 +22,6 @@ in {
       settings = {
         default_session.command = ''
           ${pkgs.greetd.tuigreet}/bin/tuigreet \
-            --issue \
             --time \
             --remember-session \
             --remember \
