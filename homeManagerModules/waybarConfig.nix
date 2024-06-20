@@ -297,6 +297,15 @@ in {
       };
     };
     programs.waybar.style = ''
+
+      /* The whole bar */
+      #waybar {
+          background: transparent;
+          color: white;
+          background-color: rgba(0,0,0,0);
+          font-family: UbuntuMono;
+          font-size: 14px;
+      }
       * {
         border: none;
         font-family: Hack Nerd Font;
@@ -310,7 +319,6 @@ in {
       }
 
       #workspaces {
-        background-color: #1e222a;
         margin: 1px 2px 2px 2px;
         border-radius: 10px;
         background-clip: padding-box;
@@ -334,7 +342,6 @@ in {
 
       #workspaces button.focused {
         color: #1DB954;
-        background-color: #12151d;
       }
 
       #workspaces button.urgent {
@@ -342,8 +349,7 @@ in {
       }
 
       window#waybar {
-        background-color: #12151d;
-        border-bottom: 3px solid #12151d;
+        background-color: rgba(0,0,0,0);
         color: #abb2bf;
         transition-property: background-color;
         transition-duration: .5s;
@@ -355,7 +361,6 @@ in {
 
       #mode {
         color: #12151d;
-        background-color: #e06c75;
         padding: 0 10px;
         margin: 1px 2px 2px 2px;
         border-radius: 10px;
@@ -366,7 +371,6 @@ in {
         padding: 0 10px;
         margin: 1px 2px 2px 2px;
         border-radius: 10px;
-        background-color: #1e222a;
       }
 
       #custom-spotify.Playing {
@@ -384,22 +388,18 @@ in {
       #disk,
       #network,
       #battery {
-        background-color: #12151d;
         padding: 0 3px;
         margin: 1px;
-        border: 1px solid #12151d;
       }
 
       #clock {
         padding: 0 10px;
         margin: 1px 2px 2px 2px;
         border-radius: 10px;
-        background-color: #1e222a;
         color: #c678dd;
       }
 
       #window {
-        background-color: #12151d;
       }
 
       #temperature {
@@ -426,16 +426,13 @@ in {
         color: #1DB954;
       }
       #battery.charging {
-        background-color: #1e222a;
         color: #61afef
       }
       #battery.plugged {
-        background-color: #1e222a;
         color: #1DB954;
       }
       #battery.critical:not(.charging) {
-        background-color: #e06c75;
-        color: #1e222a;
+        color: #e06c75;
         animation-name: blink;
         animation-duration: 0.5s;
         animation-timing-function: linear;
@@ -447,7 +444,6 @@ in {
         color: #1DB954
       }
       #network.disconnected {
-        background-color: #e06c75;
         color: #1e222a;
       }
 
@@ -457,7 +453,7 @@ in {
       #tray {
         margin: 1px 0;
         padding: 0 5px;
-        background-color: #1e222a;
+        background-color: rgba(0,0,0,0);
       }
 
       #pulseaudio {
@@ -466,7 +462,6 @@ in {
         border-bottom-left-radius: 10px;
       }
       #pulseaudio.muted {
-        background-color: #1e222a;
         color: #e06c75;
       }
 
@@ -477,11 +472,9 @@ in {
       }
 
       #idle_inhibitor.activated {
-        background-color: #1e222a;
         color: #abb2bf;
       }
       #idle_inhibitor.deactivated {
-        background-color: #1e222a;
         color: #e06c75;
       }
 
@@ -489,9 +482,6 @@ in {
         margin-right: 1px;
         border-top-right-radius: 10px;
         border-bottom-right-radius: 10px;
-      }
-      #tray > .needs-attention {
-        background-color: #e06c75;
       }
     '';
   };
