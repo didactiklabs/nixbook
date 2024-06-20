@@ -260,7 +260,7 @@ in {
 
         window.commands = [
           {
-            command = "opacity 0.8, shadows enable, blur enable, blur_passes 4, blur_radius 5, corner_radius 10";
+            command = "opacity 0.8, shadows enable, blur enable, blur_passes 5, blur_radius 6, corner_radius 10";
             criteria = {
               class = ".*";
             };
