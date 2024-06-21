@@ -10,6 +10,7 @@
     dogdns
     jq
     yq-go
+    tig
     file
     unzip
     vim
