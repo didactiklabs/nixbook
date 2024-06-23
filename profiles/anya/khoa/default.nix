@@ -34,7 +34,7 @@ in {
     gtkConfig.enable = true;
     sshConfig.enable = true;
     starship.enable = true;
-    sway.enable = true;
+    swayConfig.enable = true;
     vim.enable = true;
     stylixConfig.enable = true;
     # https://github.com/adi1090x/rofi

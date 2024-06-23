@@ -40,6 +40,7 @@ in {
           height = 5;
           modules-left = [
             "sway/workspaces"
+            "hyprland/workspaces"
             #"sway/window"
           ];
           modules-center = [
@@ -73,21 +74,41 @@ in {
             tooltip = false;
           };
           ## https://github.com/Alexays/Waybar/wiki/Module:-Workspaces
+          "hyprland/workspaces" = {
+            disable-scroll = true;
+            all-outputs = true;
+            format = "{icon}";
+            format-icons = {
+              "1" = "1";
+              "2" = "2";
+              "3" = "3";
+              "4" = "4";
+              "5" = "5";
+              "6" = "6";
+              "7" = "7";
+              "8" = "8";
+              "9" = "9";
+              "10" = "10";
+              #focused = "";
+              #urgent = "";
+              #default = "";
+            };
+          };
           "sway/workspaces" = {
             disable-scroll = true;
             all-outputs = true;
-            format = "{icon} ";
+            format = "{icon}";
             format-icons = {
-              "1:Term " = "1: ";
-              "2:Web " = "2: ";
-              "3:IDE " = "3: ";
-              "4:Steam " = "4: ";
-              "5:Files " = "5: ";
-              "6:Virt  /" = "6:  /";
-              "7:Kindle 立" = "7: 立";
-              "8:Mail " = "8: ";
-              "9:WORK " = "9: ";
-              "10:Media " = "10: ";
+              "1" = "1";
+              "2" = "2";
+              "3" = "3";
+              "4" = "4";
+              "5" = "5";
+              "6" = "6";
+              "7" = "7";
+              "8" = "8";
+              "9" = "9";
+              "10" = "10";
               #focused = "";
               #urgent = "";
               #default = "";

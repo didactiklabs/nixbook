@@ -9,7 +9,7 @@
     #!/usr/bin/env bash
     ## Available Styles
     ## style-1   style-2   style-3   style-4   style-5
-    # usage runscript <style> <lock command>
+    # usage runscript <style>
     # Current Theme
     dir="$HOME/.config/rofi/powermenu/type-1"
     theme=$1
@@ -22,6 +22,7 @@
     shutdown=' Shutdown'
     reboot=' Reboot'
     lock=' Lock'
+    logout=' Logout'
     yes=' Yes'
     no=' No'
 
@@ -51,7 +52,7 @@
     }
     # Pass variables to rofi dmenu
     run_rofi() {
-    	echo -e "$lock\n$reboot\n$shutdown" | rofi_cmd
+    	echo -e "$lock\n$logout\n$reboot\n$shutdown" | rofi_cmd
     }
     # Execute Command
     run_cmd() {
@@ -76,7 +77,10 @@
     	run_cmd --reboot
     	;;
     $lock)
-    	$2
+      loginctl lock-session $XDG_SESSION_ID
+      ;;
+    $logout)
+    	loginctl terminate-session self
     	;;
     esac
   '';
@@ -103,10 +107,7 @@
 in {
   # https://github.com/adi1090x/rofi
   config = lib.mkIf cfg.rofiConfig.enable {
-    home.packages =
-      if cfg.sway.enable
-      then [pkgs.rofi-wayland]
-      else [pkgs.rofi];
+    home.packages = [pkgs.rofi-wayland];
     home.file.".config/rofi".source = "${rofi-themes}/files";
     # Define the Nix derivation to create the script file
     home.file.".config/rofiScripts/rofiLockScript.sh" = {

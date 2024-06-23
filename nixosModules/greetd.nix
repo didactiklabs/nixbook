@@ -4,7 +4,7 @@
   lib,
   ...
 }: let
-  cfg = config.customNixOSModules.greetd;
+  cfg = config.customNixOSModules;
 in {
   options.customNixOSModules.greetd = {
     enable = lib.mkOption {
@@ -15,7 +15,7 @@ in {
       '';
     };
   };
-  config = lib.mkIf cfg.enable {
+  config = lib.mkIf cfg.greetd.enable {
     services.greetd = {
       enable = true;
       vt = 7; ## tty to skip startup msgs
@@ -26,13 +26,9 @@ in {
             --remember-session \
             --remember \
             --asterisks \
-            --user-menu \
-            --cmd ${pkgs.swayfx}/bin/sway
+            --user-menu
         '';
       };
     };
-    environment.etc."greetd/environments".text = ''
-      ${pkgs.swayfx}/bin/sway
-    '';
   };
 }

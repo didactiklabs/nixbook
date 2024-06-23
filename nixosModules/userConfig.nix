@@ -17,11 +17,10 @@
   };
   defaultConfig = {
     extraGroups = [
-      "networkmanager"
-      "wheel"
       "ydotool"
       "storage"
       "input"
+      "wheel"
     ];
     customHomeManagerModules = {
       gitConfig.enable = true;
@@ -64,6 +63,43 @@
           services.udiskie.enable = true;
           dconf.settings."org/gnome/desktop/interface".font-name = lib.mkForce "Hack Nerd Font";
           customHomeManagerModules = mergedConfig.customHomeManagerModules;
+          ## https://nix-community.github.io/home-manager/options.html#opt-services.gnome-keyring.enable
+          services.gnome-keyring.enable = true;
+          systemd.user.services.polkit-gnome = {
+            Unit = {
+              Description = "PolicyKit Authentication Agent";
+              After = ["graphical-session-pre.target"];
+              PartOf = ["graphical-session.target"];
+            };
+            Service = {
+              ExecStart = "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1";
+            };
+            Install = {
+              WantedBy = ["graphical-session.target"];
+            };
+          };
+          home.packages = [
+            pkgs.pavucontrol
+            pkgs.pulseaudio
+            pkgs.numix-cursor-theme
+            pkgs.playerctl
+            pkgs.wev
+            pkgs.jq
+            pkgs.wlprop
+            pkgs.wf-recorder
+            pkgs.copyq
+            pkgs.slurp
+            pkgs.sway-contrib.grimshot
+          ];
+          services.gammastep = {
+            enable = true;
+            dawnTime = "6:00-7:45";
+            duskTime = "18:35-20:45";
+            latitude = 48.9;
+            longitude = 2.26;
+            provider = "manual";
+            tray = true;
+          };
           home = {
             stateVersion = "24.05";
             username = "${username}";

@@ -31,7 +31,6 @@
   xargs = "${pkgs.findutils}/bin/xargs";
   head = "${pkgs.coreutils}/bin/head";
   xdotool = "${pkgs.xdotool}/bin/xdotool";
-  swayProp = "${pkgs_swayProp}/bin/swayProp";
 
   waylandEnv = {
     CLUTTER_BACKEND = "wayland";
@@ -52,16 +51,16 @@
   modeResize = "Resize";
   ## Custom Workspace
   ## cf https://fontawesome.com/cheatsheet
-  workspace1 = "1:Term ";
-  workspace2 = "2:Web ";
-  workspace3 = "3:IDE ";
-  workspace4 = "4:Steam ";
-  workspace5 = "5:Files ";
-  workspace6 = "6:Virt  /";
-  workspace7 = "7:Kindle 立";
-  workspace8 = "8:Mail ";
-  workspace9 = "9:WORK ";
-  workspace10 = "10:Media ";
+  workspace1 = "1";
+  workspace2 = "2";
+  workspace3 = "3";
+  workspace4 = "4";
+  workspace5 = "5";
+  workspace6 = "6";
+  workspace7 = "7";
+  workspace8 = "8";
+  workspace9 = "9";
+  workspace10 = "10";
   colorLightBlack = "#2f343f";
   colorBlack = "#000000";
   colorLightGrey = "#525865";
@@ -69,85 +68,12 @@
   colorRed = "#bb0000";
   colorWhite = "#f3f4f5";
   colorGreen = "#00ff00";
-
-  pkgs_swayProp = pkgs.writeShellScriptBin "swayProp" ''
-    ## cf https://gitlab.com/wef/dotfiles/-/blob/master/bin/sway-prop
-    PROG=$( basename $0 )
-
-    case "$1" in
-        -h|--help)
-            echo "Usage: $PROG"
-            echo
-            echo 'shows the properties of the focused window
-
-    best bindings:
-    bindsym  $mod+question exec sway-prop
-    bindsym $a+$c+question exec sway-prop
-
-    but if running from a terminal rather than a sway key binding:
-    sleep 2; sway-prop'
-            exit 0
-            ;;
-    esac
-
-    TMP=/tmp/sway-prop.tmp
-
-    trap "rm $TMP" EXIT
-
-    ${swaymsg} -t get_tree | jq '.. | select(.type?) | select(.focused==true)' > "$TMP"
-    ${terminal} --class floating -e bash -c "less $TMP"
-  '';
 in {
-  config = lib.mkIf cfg.sway.enable {
+  config = lib.mkIf cfg.swayConfig.enable {
     ## shrug https://github.com/nix-community/home-manager/issues/5311#issuecomment-2068042917
     wayland.windowManager.sway.checkConfig = false;
 
-    ## https://nix-community.github.io/home-manager/options.html#opt-services.gnome-keyring.enable
-    services.gnome-keyring.enable = true;
-
-    systemd.user.services.polkit-gnome = {
-      Unit = {
-        Description = "PolicyKit Authentication Agent";
-        After = ["graphical-session-pre.target"];
-        PartOf = ["graphical-session.target"];
-      };
-      Service = {
-        ExecStart = "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1";
-      };
-      Install = {
-        WantedBy = ["graphical-session.target"];
-      };
-    };
-
-    home.packages = [
-      pkgs.pavucontrol
-      pkgs.pulseaudio
-      pkgs.numix-cursor-theme
-      pkgs.playerctl
-      pkgs.wev
-      pkgs.jq
-      pkgs_swayProp
-      pkgs.wlprop
-      pkgs.wf-recorder
-      pkgs.copyq
-      pkgs.slurp
-      pkgs.sway-contrib.grimshot
-      ## TODO https://github.com/milgra/sov
-      #(pkgs.callPackage ./sov.nix {inherit inputs;})
-    ];
     home.sessionVariables = waylandEnv;
-
-    services.gammastep = {
-      enable = true;
-      dawnTime = "6:00-7:45";
-      duskTime = "18:35-20:45";
-      latitude = 48.9;
-      longitude = 2.26;
-      provider = "manual";
-      tray = true;
-      ## https://nix-community.github.io/home-manager/options.html#opt-services.gammastep.settings
-      #settings
-    };
     ## https://git.sbruder.de/simon/nixos-config/src/branch/master/users/simon/modules/sway/default.nix#L242
     ## https://wiki.archlinux.org/title/Sway#Input_devices
     ## https://wiki.archlinux.org/title/Sway#Idle
@@ -374,23 +300,13 @@ in {
           "${mod}+Up" = "focus up";
           "${mod}+Right" = "focus right";
 
-          #"${mod}+j" = "focus left";
-          #"${mod}+k" = "focus down";
-          #"${mod}+i" = "focus up";
-          #"${mod}+l" = "focus right";
-
-          #"${mod}+Shift+j" = "move left";
-          #"${mod}+Shift+k" = "move down";
-          #"${mod}+Shift+i" = "move up";
-          #"${mod}+Shift+l" = "move right";
-
           "${mod}+Shift+Left" = "move left";
           "${mod}+Shift+Down" = "move down";
           "${mod}+Shift+Up" = "move up";
           "${mod}+Shift+Right" = "move right";
 
           "${mod}+l" = lib.mkIf cfg.rofiConfig.enable ''
-            exec $HOME/.config/rofiScripts/rofiLockScript.sh ${rofiPowermenuStyle} "${loginctl} lock-session $XDG_SESSION_ID"
+            exec $HOME/.config/rofiScripts/rofiLockScript.sh ${rofiPowermenuStyle}
           '';
           "${mod}+d" = lib.mkIf cfg.rofiConfig.enable ''
             exec "${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/${rofiLauncherType}/${rofiLauncherStyle}.rasi"
@@ -448,7 +364,6 @@ in {
           "${mod}+x" = "move workspace to output right";
           "${mod}+r" = ''mode "${modeResize}"'';
           "${mod}+Shift+t" = ''mode "${modeSystem}"'';
-          #"${mod}+Shift+v" = "exec ${swayProp}";
           "${mod}+Shift+v" = "exec ${pkgs.wlprop}/bin/wlprop";
           "${mod}+q" = lib.mkIf cfg.copyqConfig.enable "exec ${pkgs.copyq}/bin/copyq toggle";
         };

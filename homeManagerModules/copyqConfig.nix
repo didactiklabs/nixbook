@@ -226,6 +226,25 @@
 in {
   # https://github.com/adi1090x/rofi
   config = lib.mkIf cfg.copyqConfig.enable {
+    systemd.user.services.copyq = {
+      Unit = {
+        Description = "CopyQ";
+      };
+      Install = {
+        WantedBy = ["graphical-session.target"];
+      };
+      Unit = {
+        After = ["graphical-session.target"];
+      };
+      Service = {
+        ExecStart = "${pkgs.copyq}/bin/copyq";
+        Restart = "always";
+        Environment = [
+          "PATH=${pkgs.ydotool}/bin:${pkgs.slurp}/bin:${pkgs.grim}/bin,"
+          "YDOTOOL_SOCKET=/run/ydotoold/socket"
+        ];
+      };
+    };
     home.packages = [
       pkgs.copyq
       pkgs.grim
