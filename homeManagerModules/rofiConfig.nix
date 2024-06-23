@@ -102,7 +102,16 @@
       cp -r ${rofi-repo}/files/powermenu $out/files
       cp -r ${rofi-repo}/files/scripts $out/files
       cp -r ${rofi-repo}/files/config.rasi $out/files
-      cp -r ${rofi-repo}/files/colors/${cfg.rofiConfig.color}.rasi $out/files/colors/onedark.rasi
+      cat > $out/files/colors/onedark.rasi <<EOF
+        * {
+          background:     rgba(0,0,0,0.3);
+          background-alt: #282A36FF;
+          foreground:     #FFFFFFFF;
+          selected:       #BD93F9FF;
+          active:         #50FA7BFF;
+          urgent:         #FF5555FF;
+        }
+      EOF
     '';
 in {
   # https://github.com/adi1090x/rofi
@@ -143,13 +152,6 @@ in {
       default = "style-1";
       description = ''
         Select powermenu style.
-      '';
-    };
-    color = lib.mkOption {
-      type = lib.types.str;
-      default = "onedark";
-      description = ''
-        Select color.
       '';
     };
   };

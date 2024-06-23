@@ -108,6 +108,14 @@ in {
       };
       layerrule = [
         "blur,waybar"
+        "blur,rofi"
+        "dimaround,rofi"
+      ];
+
+      windowrulev2 = [
+        "float,class:(com.github.hluk.copyq)"
+        "center 1,class:(com.github.hluk.copyq)"
+        "size 40% 60%, class:(com.github.hluk.copyq)"
       ];
 
       monitor = [
