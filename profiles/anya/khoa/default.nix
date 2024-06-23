@@ -47,7 +47,6 @@ in {
       powermenu = {
         style = "style-1"; #(1 - 5) # type-1 only
       };
-      color = "cyberpunk";
     };
     copyqConfig.enable = false;
     fastfetchConfig.enable = true;
