@@ -9,7 +9,7 @@ in {
   imports = [
     ./gitConfig.nix
     ./kanshiConfig.nix
-    ./swayConfig.nix
+    ./config.nix
   ];
   home.packages = [
     pkgs.jellyfin-mpv-shim
