@@ -8,7 +8,7 @@ In this project lies the NixOS configuration files leading to our own custom con
 
 It has for objective to be flexible with opt-in/opt-out options while still being able to mutualize some of it.
 
-### Wayland/Sway with UEFI BOOT only for now !
+### Wayland with UEFI BOOT only for now !
 
 </p>
 
@@ -85,3 +85,7 @@ You can use the `dummy.nix` as `default.nix` and customize it on top of it. It s
 with headless sunshine/moonlight configuration (remote desktop):
 
 <img src="./assets/images/screenshot-demo-2.png" alt="alt text" width="500">
+
+with hyprland:
+
+<img src="./assets/images/screenshot-demo-3.png" alt="alt text" width="500">

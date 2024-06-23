@@ -6,7 +6,7 @@
 }: let
   cfg = config.customHomeManagerModules;
 in {
-  config = lib.mkIf cfg.sway.enable {
+  config = lib.mkIf cfg.swayConfig.enable {
     wayland.windowManager.sway.config.startup = [
       {
         command = "${pkgs.jellyfin-mpv-shim}/bin/jellyfin-mpv-shim";

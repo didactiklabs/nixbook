@@ -4,15 +4,14 @@
   lib,
   ...
 }: let
-  cfg = config.customHomeManagerModules;
+  cfg = config.customNixOSModules;
 in {
   imports = [
-    ./hyprlandConfig.nix
   ];
-  config =
-    lib.mkIf (cfg.hyprlandConfig.enable) {
-    };
-  options.customHomeManagerModules.hyprlandConfig = {
+  config = lib.mkIf (cfg.hyprland.enable) {
+    programs.hyprland.enable = true;
+  };
+  options.customNixOSModules.hyprland = {
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;

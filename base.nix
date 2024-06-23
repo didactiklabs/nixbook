@@ -21,6 +21,8 @@ in {
     ./tools.nix
     ./nixosModules/laptopProfile.nix
     ./nixosModules/greetd.nix
+    ./nixosModules/sway.nix
+    ./nixosModules/hyprland.nix
     (import ./nixosModules/networkManager.nix {inherit lib config pkgs;})
     (import ./nixosModules/sunshine.nix {inherit lib config pkgs;})
     (import "${home-manager}/nixos")
@@ -98,9 +100,6 @@ in {
   xdg.portal.enable = true;
   # Use Wayland
   xdg.portal.wlr.enable = true;
-  xdg.portal.config.sway.default = lib.mkDefault ["wlr" "gtk"];
-  security.pam.services.swaylock = {}; # allow unlock with swaylock
-  programs.dconf.enable = true; # required for gtk # https://askubuntu.com/questions/22313/what-is-dconf-what-is-its-function-and-how-do-i-use-it
   # Configure keymap in X10
   # required for greeter
   services.xserver = {

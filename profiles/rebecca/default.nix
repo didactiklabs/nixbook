@@ -24,6 +24,8 @@ in {
     networkManager.enable = true;
     sunshine.enable = false;
     greetd.enable = true;
+    sway.enable = true;
+    hyprland.enable = true;
   };
   imports = [
     (mkUser {

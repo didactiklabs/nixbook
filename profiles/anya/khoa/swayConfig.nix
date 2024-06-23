@@ -7,7 +7,7 @@
   cfg = config.customHomeManagerModules;
   swaymsg = "${pkgs.sway}/bin/swaymsg";
 in {
-  config = lib.mkIf cfg.sway.enable {
+  config = lib.mkIf cfg.swayConfig.enable {
     services.swayidle = {
       enable = lib.mkForce false;
     };
