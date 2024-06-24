@@ -53,6 +53,16 @@ in {
       misc = {
         disable_hyprland_logo = true;
       };
+      plugin = {
+        hy3 = {
+          tabs = {
+            "rounding" = 20;
+            "col.active" = "rgb(${config.lib.stylix.colors.base02})"; # to move to stylix module
+            "col.text.active" = "rgb(${config.lib.stylix.colors.base07})";
+            "col.urgent" = "rgb(${config.lib.stylix.colors.base04})";
+          };
+        };
+      };
       general = {
         # See https://wiki.hyprland.org/Configuring/Variables/ for more
         gaps_in = 5;
@@ -69,8 +79,8 @@ in {
         dim_strength = 0.2;
         blur = {
           enabled = true;
-          size = 6;
-          passes = 2;
+          size = 9;
+          passes = 1;
           new_optimizations = true;
           ignore_opacity = true;
         };
