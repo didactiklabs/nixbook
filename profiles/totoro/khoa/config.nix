@@ -18,7 +18,6 @@ in {
         After = ["graphical-session.target"];
       };
       Service = {
-        ExecStartPre = "${pkgs.coreutils}/sleep 30";
         ExecStart = "${pkgs.jellyfin-mpv-shim}/bin/jellyfin-mpv-shim";
         Restart = "always";
       };
@@ -34,7 +33,6 @@ in {
         After = ["graphical-session.target"];
       };
       Service = {
-        ExecStartPre = "${pkgs.coreutils}/sleep 30";
         ExecStart = "${pkgs.nextcloud-client}/bin/nextcloud";
         Restart = "always";
       };
