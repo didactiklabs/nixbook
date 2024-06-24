@@ -105,11 +105,11 @@
       cat > $out/files/colors/onedark.rasi <<EOF
         * {
           background:     rgba(0,0,0,0.3);
-          background-alt: #282A36FF;
-          foreground:     #FFFFFFFF;
-          selected:       #BD93F9FF;
-          active:         #50FA7BFF;
-          urgent:         #FF5555FF;
+          background-alt: #${config.lib.stylix.colors.base01};
+          foreground:     #${config.lib.stylix.colors.base07};
+          selected:       #${config.lib.stylix.colors.base05};
+          active:         #${config.lib.stylix.colors.base03};
+          urgent:         #${config.lib.stylix.colors.base04};
         }
       EOF
     '';
