@@ -14,7 +14,7 @@ in {
       import = ["~/.config/alacritty/custom.toml"];
       font = {
         size = lib.mkForce 10.0;
-        normal.family = lib.mkForce "Hack Nerd Font";
+        normal.family = lib.mkDefault "Hack Nerd Font";
         normal.style = lib.mkForce "Bold";
         bold.family = "Hack Nerd Font";
         bold.style = "Bold";
@@ -25,7 +25,7 @@ in {
       };
       window.padding.x = 2;
       window.padding.y = 2;
-      window.opacity = lib.mkIf (!cfg.stylixConfig.enable) 0.8;
+      window.opacity = lib.mkDefault 0.8;
       scrolling.history = 100000;
       scrolling.multiplier = 3;
       env = {"TERM" = "xterm-256color";};
@@ -37,7 +37,7 @@ in {
         }
       ];
       selection.save_to_clipboard = true;
-      colors = lib.mkIf (!cfg.stylixConfig.enable) {
+      colors = lib.mkDefault {
         draw_bold_text_with_bright_colors = true;
         # Default colors
         primary.background = "#0A0E14";

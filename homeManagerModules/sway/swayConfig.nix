@@ -212,41 +212,41 @@ in {
         };
 
         colors = {
-          background = lib.mkIf (!cfg.stylixConfig.enable) "${colorWhite}";
+          background = lib.mkDefault "${colorWhite}";
           focused = {
             background = lib.mkForce "${colorLightGrey}";
             border = lib.mkForce "${colorBlack}";
             childBorder = lib.mkForce "${colorLightGrey}";
-            indicator = lib.mkIf (!cfg.stylixConfig.enable) "${colorGreen}";
-            text = lib.mkIf (!cfg.stylixConfig.enable) "${colorWhite}";
+            indicator = lib.mkDefault "${colorGreen}";
+            text = lib.mkDefault "${colorWhite}";
           };
           focusedInactive = {
-            background = lib.mkIf (!cfg.stylixConfig.enable) "${colorDarkGrey}";
+            background = lib.mkDefault "${colorDarkGrey}";
             border = lib.mkForce "${colorBlack}";
             childBorder = lib.mkForce "${colorDarkGrey}";
-            indicator = lib.mkIf (!cfg.stylixConfig.enable) "${colorGreen}";
-            text = lib.mkIf (!cfg.stylixConfig.enable) "${colorWhite}";
+            indicator = lib.mkDefault "${colorGreen}";
+            text = lib.mkDefault "${colorWhite}";
           };
           unfocused = {
-            background = lib.mkIf (!cfg.stylixConfig.enable) "${colorDarkGrey}";
+            background = lib.mkDefault "${colorDarkGrey}";
             border = lib.mkForce "${colorBlack}";
             childBorder = lib.mkForce "${colorDarkGrey}";
-            indicator = lib.mkIf (!cfg.stylixConfig.enable) "${colorGreen}";
-            text = lib.mkIf (!cfg.stylixConfig.enable) "${colorWhite}";
+            indicator = lib.mkDefault "${colorGreen}";
+            text = lib.mkDefault "${colorWhite}";
           };
           urgent = {
-            background = lib.mkIf (!cfg.stylixConfig.enable) "${colorRed}";
+            background = lib.mkDefault "${colorRed}";
             border = lib.mkForce "${colorRed}";
             childBorder = lib.mkForce "${colorDarkGrey}";
-            indicator = lib.mkIf (!cfg.stylixConfig.enable) "${colorGreen}";
-            text = lib.mkIf (!cfg.stylixConfig.enable) "${colorWhite}";
+            indicator = lib.mkDefault "${colorGreen}";
+            text = lib.mkDefault "${colorWhite}";
           };
           placeholder = {
-            background = lib.mkIf (!cfg.stylixConfig.enable) "${colorBlack}";
+            background = lib.mkDefault "${colorBlack}";
             border = lib.mkForce "${colorBlack}";
             childBorder = lib.mkForce "${colorDarkGrey}";
-            indicator = lib.mkIf (!cfg.stylixConfig.enable) "${colorBlack}";
-            text = lib.mkIf (!cfg.stylixConfig.enable) "${colorWhite}";
+            indicator = lib.mkDefault "${colorBlack}";
+            text = lib.mkDefault "${colorWhite}";
           };
         };
 
