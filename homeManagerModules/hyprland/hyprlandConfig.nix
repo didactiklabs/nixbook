@@ -109,9 +109,6 @@ in {
 
       monitor = [
         ",preferred,auto,1"
-        "eDP-1,preferred,0x587,2.0"
-        "DP-8,1920x1080,1440x0,auto"
-        "DP-9,1920x1080,3360x0,auto"
       ];
       env = [
         "XDG_CURRENT_DESKTOP,Hyprland"

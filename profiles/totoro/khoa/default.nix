@@ -10,6 +10,7 @@ in {
     ./gitConfig.nix
     ./kanshiConfig.nix
     ./config.nix
+    ./hyprlandConfig.nix
   ];
   home.packages = [
     pkgs.jellyfin-mpv-shim
