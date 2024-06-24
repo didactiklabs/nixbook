@@ -21,6 +21,6 @@
     openvpn
     btop # top replacer
     duf # df replacer
-    sd # sd alternative
+    sd # sed alternative
   ];
 }

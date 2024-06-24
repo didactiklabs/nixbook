@@ -21,17 +21,6 @@
   swaylock = "${pkgs.swaylock}/bin/swaylock";
   hyprctl = "${pkgs.hyprland}/bin/hyprctl";
   grimshot = "${pkgs.grimblast}/bin/grimblast";
-
-  workspace1 = "1";
-  workspace2 = "2";
-  workspace3 = "3";
-  workspace4 = "4";
-  workspace5 = "5";
-  workspace6 = "6";
-  workspace7 = "7";
-  workspace8 = "8";
-  workspace9 = "9";
-  workspace10 = "10";
 in {
   config = lib.mkIf cfg.hyprlandConfig.enable {
     services.swayidle = {
