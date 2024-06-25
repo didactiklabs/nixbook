@@ -8,14 +8,6 @@
       command = "Neotree action=show";
     }
 
-    {
-      event = "BufWritePre";
-      pattern = [
-        "*"
-      ];
-      command = "lua vim.lsp.buf.format()";
-    }
-
     # Enable spellcheck for some filetypes
     {
       event = "FileType";

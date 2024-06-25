@@ -1,5 +1,15 @@
 {pkgs, ...}: {
   config = {
+    programs.zathura.enable = true;
+    programs.imv.enable = true;
+    programs.ranger = {
+      enable = true;
+      extraConfig = ''
+        set preview_images true
+        set preview_images_method ueberzug
+        set preview_files true
+      '';
+    };
     programs.zoxide = {
       enable = true;
       enableZshIntegration = true;
@@ -22,7 +32,9 @@
     programs.ripgrep = {
       enable = true;
     };
-    home.packages = [];
+    home.packages = [
+      pkgs.ueberzugpp # for image preview ranger
+    ];
     programs.zsh = {
       autosuggestion.enable = true;
       plugins = [
