@@ -58,6 +58,7 @@ in {
             "memory#ram"
             #"memory#swap"
             "disk"
+            "custom/separator"
             "battery#BAT0"
             "battery#BAT1"
             "battery#BATT"

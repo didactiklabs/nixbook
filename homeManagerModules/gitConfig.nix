@@ -64,7 +64,6 @@ in {
           defaultBranch = "main";
         };
         core = {
-          editor = "vim";
           excludesFile = "";
         };
         remote = {

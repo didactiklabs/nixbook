@@ -4,6 +4,7 @@
   home-manager,
   lib,
   stylix,
+  nixvim,
   overrides ? {},
 }: let
   defaultWallpaper = pkgs.stdenv.mkDerivation {
@@ -23,11 +24,6 @@
       "wheel"
     ];
     customHomeManagerModules = {
-      gitConfig.enable = true;
-      sshConfig.enable = true;
-      starship.enable = true;
-      vim.enable = true;
-      fastfetchConfig.enable = true;
     };
   };
 
@@ -116,6 +112,8 @@
           [
             (import stylix).homeManagerModules.stylix
             ../homeManagerModules/stylixConfig.nix
+            (import nixvim).homeManagerModules.nixvim
+            ../homeManagerModules/nixvim
             ../homeManagerModules/sway
             ../homeManagerModules/hyprland
             ../homeManagerModules/vscode
@@ -126,7 +124,6 @@
             ../homeManagerModules/gtkConfig.nix
             ../homeManagerModules/sshConfig.nix
             ../homeManagerModules/starshipConfig.nix
-            ../homeManagerModules/vimConfig.nix
             ../homeManagerModules/bluetoothConfig.nix
             ../homeManagerModules/rofiConfig.nix
             ../homeManagerModules/copyqConfig.nix

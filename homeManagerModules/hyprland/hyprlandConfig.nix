@@ -45,6 +45,7 @@ in {
       ];
     };
     wayland.windowManager.hyprland.enable = true;
+    wayland.windowManager.hyprland.xwayland.enable = false;
     wayland.windowManager.hyprland.plugins = [
       pkgs.hyprlandPlugins.hy3
     ];
@@ -52,6 +53,7 @@ in {
       "$mod" = "SUPER";
       misc = {
         disable_hyprland_logo = true;
+        vfr = true;
       };
       plugin = {
         hy3 = {
