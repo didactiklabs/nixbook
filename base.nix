@@ -144,6 +144,7 @@ in {
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = [
+    pkgs.gnupg
     pkgs.usbutils
     pkgs.udiskie
     pkgs.udisks
