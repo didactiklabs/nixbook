@@ -1,13 +1,4 @@
-{
-  config,
-  pkgs,
-  lib,
-  username,
-  hostname,
-  ...
-}: let
-  mainIf = "enp34s0";
-in {
+{pkgs, ...}: {
   imports = [
     ./gitConfig.nix
     ./swayConfig.nix

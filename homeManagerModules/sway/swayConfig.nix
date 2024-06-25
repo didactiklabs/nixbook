@@ -2,35 +2,25 @@
   config,
   pkgs,
   lib,
-  username,
   ...
 }: let
   cfg = config.customHomeManagerModules;
   mainWallpaper = "${config.profileCustomization.mainWallpaper}";
   lockWallpaper = "${config.profileCustomization.lockWallpaper}";
-  gopass = "${pkgs.gopass}/bin/gopass";
   swaylock = "${pkgs.swaylock}/bin/swaylock";
   swaymsg = "${pkgs.sway}/bin/swaymsg";
   terminal = "${pkgs.alacritty}/bin/alacritty";
   waybar = "${pkgs.waybar}/bin/waybar";
-  loginctl = "${pkgs.systemd}/bin/loginctl";
   rofi-wayland = "${pkgs.rofi-wayland}/bin/rofi";
   rofiLauncherType = "${cfg.rofiConfig.launcher.type}";
   rofiLauncherStyle = "${cfg.rofiConfig.launcher.style}";
   rofiPowermenuStyle = "${cfg.rofiConfig.powermenu.style}";
   playerctl = "${pkgs.playerctl}/bin/playerctl";
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
-  pactl = "${pkgs.pulseaudio}/bin/pactl";
   wpctl = "${pkgs.wireplumber}/bin/wpctl";
-  grim = "${pkgs.grim}/bin/grim";
   grimshot = "${pkgs.sway-contrib.grimshot}/bin/grimshot";
-  slurp = "${pkgs.slurp}/bin/slurp";
-  swappy = "${pkgs.swappy}/bin/swappy";
   systemctl = "${pkgs.systemd}/bin/systemctl";
   notify-send = "${pkgs.libnotify}/bin/notify-send";
-  xargs = "${pkgs.findutils}/bin/xargs";
-  head = "${pkgs.coreutils}/bin/head";
-  xdotool = "${pkgs.xdotool}/bin/xdotool";
 
   waylandEnv = {
     CLUTTER_BACKEND = "wayland";
@@ -61,7 +51,6 @@
   workspace8 = "8";
   workspace9 = "9";
   workspace10 = "10";
-  colorLightBlack = "#2f343f";
   colorBlack = "#000000";
   colorLightGrey = "#525865";
   colorDarkGrey = "#222222";

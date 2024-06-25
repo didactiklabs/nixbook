@@ -1,6 +1,5 @@
 {
   config,
-  pkgs,
   lib,
   ...
 }: let
@@ -8,7 +7,7 @@
 in {
   imports = [
   ];
-  config = lib.mkIf (cfg.hyprland.enable) {
+  config = lib.mkIf cfg.hyprland.enable {
     programs.hyprland.enable = true;
   };
   options.customNixOSModules.hyprland = {

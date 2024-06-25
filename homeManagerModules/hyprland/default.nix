@@ -1,6 +1,5 @@
 {
   config,
-  pkgs,
   lib,
   ...
 }: let
@@ -10,7 +9,7 @@ in {
     ./hyprlandConfig.nix
   ];
   config =
-    lib.mkIf (cfg.hyprlandConfig.enable) {
+    lib.mkIf cfg.hyprlandConfig.enable {
     };
   options.customHomeManagerModules.hyprlandConfig = {
     enable = lib.mkOption {

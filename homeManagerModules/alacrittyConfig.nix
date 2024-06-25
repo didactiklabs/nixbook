@@ -1,11 +1,4 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
-}: let
-  cfg = config.customHomeManagerModules;
-in {
+{lib, ...}: {
   #home.file.".config/alacritty/alacritty.yml".source = ./alacritty.yml;
   programs.alacritty = {
     enable = true;

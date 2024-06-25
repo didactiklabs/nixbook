@@ -1,11 +1,4 @@
-{
-  lib,
-  config,
-  pkgs,
-  ...
-}: let
-  cfg = config.customHomeManagerModules;
-in {
+{pkgs, ...}: {
   config = {
     programs.zoxide = {
       enable = true;
