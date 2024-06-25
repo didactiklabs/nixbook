@@ -1,8 +1,6 @@
 {
   config,
-  pkgs,
   lib,
-  username,
   ...
 }: let
   cfg = config.customHomeManagerModules.gitConfig;

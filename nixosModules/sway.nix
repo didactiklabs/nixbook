@@ -1,6 +1,5 @@
 {
   config,
-  pkgs,
   lib,
   ...
 }: let
@@ -8,7 +7,7 @@
 in {
   imports = [
   ];
-  config = lib.mkIf (cfg.sway.enable) {
+  config = lib.mkIf cfg.sway.enable {
     programs.sway.enable = true;
   };
   options.customNixOSModules.sway = {

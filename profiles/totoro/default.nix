@@ -1,8 +1,6 @@
 {
-  config,
   pkgs,
   lib,
-  home-manager,
   stylix,
   nixvim,
   ...
@@ -15,7 +13,7 @@
     ];
   };
   userConfig = import ../../nixosModules/userConfig.nix {
-    inherit lib pkgs home-manager stylix nixvim config;
+    inherit lib pkgs stylix nixvim;
     overrides = overrides;
   };
   mkUser = userConfig.mkUser;

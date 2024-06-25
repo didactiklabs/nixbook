@@ -2,7 +2,6 @@
   config,
   pkgs,
   lib,
-  username,
   ...
 }: let
   cfg = config.customHomeManagerModules;
@@ -13,7 +12,6 @@
   rofiLauncherType = "${cfg.rofiConfig.launcher.type}";
   rofiLauncherStyle = "${cfg.rofiConfig.launcher.style}";
   rofiPowermenuStyle = "${cfg.rofiConfig.powermenu.style}";
-  loginctl = "${pkgs.systemd}/bin/loginctl";
   waybar = "${pkgs.waybar}/bin/waybar";
   wpctl = "${pkgs.wireplumber}/bin/wpctl";
   notify-send = "${pkgs.libnotify}/bin/notify-send";
