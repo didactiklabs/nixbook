@@ -40,7 +40,6 @@ in {
     starship.enable = true;
     swayConfig.enable = true;
     hyprlandConfig.enable = true;
-    vim.enable = true;
     stylixConfig.enable = true;
     # https://github.com/adi1090x/rofi
     rofiConfig = {
@@ -58,5 +57,6 @@ in {
     desktopApps.enable = true;
     kubeTools.enable = true;
     waybar.enable = true;
+    nixvimConfig.enable = true;
   };
 }

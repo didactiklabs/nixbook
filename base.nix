@@ -6,6 +6,12 @@
   ...
 }: let
   nixOS_version = "24.05";
+  nixvim = pkgs.fetchFromGitHub {
+    owner = "nix-community";
+    repo = "nixvim";
+    rev = "nixos-${nixOS_version}";
+    sha256 = "sha256-rtcRg/aaZ72Fb7NCFz87ATvmS7LyHKbkY9gwJRqhJK8=";
+  };
   stylix = pkgs.fetchFromGitHub {
     owner = "danth";
     repo = "stylix";
@@ -14,7 +20,7 @@
   };
   pkgs = import (fetchTarball "https://github.com/NixOS/nixpkgs/archive/nixos-${nixOS_version}.tar.gz") {};
   home-manager = builtins.fetchTarball "https://github.com/nix-community/home-manager/archive/release-${nixOS_version}.tar.gz";
-  hostProfile = import ./profiles/${hostname} {inherit lib config pkgs hostname home-manager stylix;};
+  hostProfile = import ./profiles/${hostname} {inherit lib config pkgs hostname home-manager stylix nixvim;};
 in {
   imports = [
     ./hardware-configuration.nix
@@ -146,7 +152,7 @@ in {
     pkgs.update-systemd-resolved
   ];
   environment.variables = {
-    EDITOR = "vim";
+    NIXOS_OZONE_WL = "1";
   };
   services.resolved.enable = true;
   # List services that you want to enable:

@@ -13,7 +13,6 @@
     tig
     file
     unzip
-    vim
     docker-client
     go
     tree
