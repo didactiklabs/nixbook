@@ -43,7 +43,7 @@ in {
       ];
     };
     wayland.windowManager.hyprland.enable = true;
-    wayland.windowManager.hyprland.xwayland.enable = false;
+    wayland.windowManager.hyprland.xwayland.enable = true;
     wayland.windowManager.hyprland.plugins = [
       pkgs.hyprlandPlugins.hy3
     ];
