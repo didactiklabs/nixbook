@@ -25,7 +25,6 @@ in {
       pkgs.pulseaudio
       pkgs.networkmanagerapplet
     ];
-    #services.network-manager-applet.enable = true;
 
     programs.waybar = {
       enable = true;

@@ -22,7 +22,6 @@ in {
       vesktop # discord
       firefox
       spotify
-      mpv # video player
     ];
   };
 }

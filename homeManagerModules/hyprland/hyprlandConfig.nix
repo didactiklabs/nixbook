@@ -87,7 +87,6 @@ in {
       };
       animations = {
         enabled = true;
-
         bezier = [
           "wind, 0.05, 0.9, 0.1, 1.05"
           "winIn, 0.1, 1.1, 0.1, 1.1"
@@ -115,6 +114,8 @@ in {
         "float,class:(com.github.hluk.copyq)"
         "center 1,class:(com.github.hluk.copyq)"
         "size 40% 60%, class:(com.github.hluk.copyq)"
+        "opaque, class:(mpv)"
+        "opaque, class:(imv)"
       ];
 
       monitor = [

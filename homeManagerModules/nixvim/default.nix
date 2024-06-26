@@ -44,7 +44,7 @@ in {
       extraPlugins = with pkgs.vimPlugins; [
         #vim-nix
         #vim-addon-nix
-        vim-airline
+        #vim-airline
         vim-better-whitespace
       ];
       extraConfigVim = ''

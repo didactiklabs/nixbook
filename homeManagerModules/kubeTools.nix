@@ -35,6 +35,7 @@ in {
       kind
       kubebuilder
       kubeswitch
+      kustomize
     ];
     home.file.".kube/switch-config.yaml" = {
       text = kubeswitchConfig;

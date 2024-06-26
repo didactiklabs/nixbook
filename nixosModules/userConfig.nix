@@ -131,6 +131,7 @@
             ../homeManagerModules/makoConfig.nix
             ../homeManagerModules/waybarConfig.nix
             ../homeManagerModules/kubeTools.nix
+            ../homeManagerModules/mpvConfig.nix
           ]
           userImports
         ];
