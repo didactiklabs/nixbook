@@ -19,8 +19,8 @@
     in "${image}";
     lockWallpaper = let
       image = pkgs.fetchurl {
-        url = "https://w.wallhaven.cc/full/48/wallhaven-48m6ky.jpg";
-        sha256 = "sha256-XzwhvsTYITK3etpFYG5xAhnbNwX0ewe7iz0XeVpuSrI=";
+        url = "https://w.wallhaven.cc/full/z8/wallhaven-z8y7jo.png";
+        sha256 = "sha256-wRtvsEFggeEjJj/mf1TsrDAIXcc0+Ot8DkTcUCGWemY=";
       };
     in "${image}";
   };
@@ -31,7 +31,7 @@
     gtkConfig.enable = true;
     sshConfig.enable = true;
     starship.enable = true;
-    swayConfig.enable = true;
+    swayConfig.enable = false;
     hyprlandConfig.enable = true;
     stylixConfig.enable = true;
     # https://github.com/adi1090x/rofi

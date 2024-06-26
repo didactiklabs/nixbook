@@ -74,17 +74,23 @@ in {
   };
 
   # Bootloader.
-  boot.kernelParams = [
-    "intel_iommu=on"
-    "iommu=pt"
-  ];
-  boot.plymouth.enable = true;
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
-  boot.kernelPackages = pkgs.linuxPackages_latest;
-  networking.hostName = "${hostname}"; # Define your hostname.
-  # Enable networking
-  networking.networkmanager.enable = true;
+  boot = {
+    kernelParams = [
+      "intel_iommu=on"
+      "iommu=pt"
+    ];
+    kernelPackages = pkgs.linuxPackages_latest;
+    plymouth.enable = true;
+    loader = {
+      systemd-boot.enable = true;
+      efi.canTouchEfiVariables = true;
+    };
+  };
+  networking = {
+    hostName = "${hostname}"; # Define your hostname.
+    networkmanager.enable = true;
+    firewall.enable = false;
+  };
   # Set your time zone.
   time.timeZone = "Europe/Paris";
   # Select internationalisation properties.
@@ -101,48 +107,41 @@ in {
     LC_TIME = "fr_FR.UTF-8";
     LC_ALL = "C.UTF-8";
   };
-  # Enable the X11 windowing system.
-  services.xserver.enable = true;
-  xdg.portal.enable = true;
-  # Use Wayland
-  xdg.portal.wlr.enable = true;
-  # Configure keymap in X10
-  # required for greeter
-  services.xserver = {
-    xkb.layout = "fr";
-    xkb.variant = "oss_latin9";
+  services = {
+    xserver = {
+      enable = true;
+      xkb.layout = "fr";
+      xkb.variant = "oss_latin9";
+    };
+    printing.enable = true;
+    pipewire = {
+      enable = true;
+      alsa.enable = true;
+      alsa.support32Bit = true;
+      pulse.enable = true;
+    };
+    tailscale.enable = true;
+    resolved.enable = true;
   };
-  # Configure console keymap
+  xdg = {
+    portal.enable = true;
+    portal.wlr.enable = true;
+  };
+
   console.keyMap = "fr";
-  # Enable CUPS to print documents.
-  services.printing.enable = true;
-  # Bluetooth enable
   hardware.bluetooth.enable = true;
-  # Enable sound with pipewire.
   sound.enable = true;
   hardware.pulseaudio.enable = false;
   security.rtkit.enable = true;
   security.polkit.enable = true;
-  services.pipewire = {
-    enable = true;
-    alsa.enable = true;
-    alsa.support32Bit = true;
-    pulse.enable = true;
-  };
-  # Allow unfree packages
   nixpkgs.config.allowUnfreePredicate = pkg: true;
   nixpkgs.config.allowUnfree = true;
   nix.extraOptions = ''
     experimental-features = nix-command flakes
   '';
-  # SSH Agent
   programs.gnupg.agent.enableSSHSupport = false;
   programs.ssh.startAgent = true;
-  # New versions of OpenSSH seem to default to disallowing all `ssh-add -s`
-  # calls when no whitelist is provided, so this becomes necessary.
-  # programs.ssh.agentPKCS11Whitelist = "${pkgs.opensc}/lib/opensc-pkcs11.so";
-  # List packages installed in system profile. To search, run:
-  # $ nix search wget
+
   environment.systemPackages = [
     pkgs.gnupg
     pkgs.usbutils
@@ -154,10 +153,5 @@ in {
   environment.variables = {
     NIXOS_OZONE_WL = "1";
   };
-  services.resolved.enable = true;
-  # List services that you want to enable:
-  services.tailscale.enable = true;
-  # Disable the OpenSSH daemon.
-  networking.firewall.enable = false;
   system.stateVersion = "${nixOS_version}";
 }

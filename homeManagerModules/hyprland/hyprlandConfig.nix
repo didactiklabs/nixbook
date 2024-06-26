@@ -6,7 +6,7 @@
 }: let
   cfg = config.customHomeManagerModules;
   mainWallpaper = "${config.profileCustomization.mainWallpaper}";
-  lockWallpaper = "${config.profileCustomization.lockWallpaper}";
+  # lockWallpaper = "${config.profileCustomization.lockWallpaper}";
   terminal = "${pkgs.alacritty}/bin/alacritty";
   rofi-wayland = "${pkgs.rofi-wayland}/bin/rofi";
   rofiLauncherType = "${cfg.rofiConfig.launcher.type}";
@@ -16,32 +16,32 @@
   wpctl = "${pkgs.wireplumber}/bin/wpctl";
   notify-send = "${pkgs.libnotify}/bin/notify-send";
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
-  swaylock = "${pkgs.swaylock}/bin/swaylock";
-  hyprctl = "${pkgs.hyprland}/bin/hyprctl";
+  # swaylock = "${pkgs.swaylock}/bin/swaylock";
+  # hyprctl = "${pkgs.hyprland}/bin/hyprctl";
   grimshot = "${pkgs.grimblast}/bin/grimblast";
 in {
   config = lib.mkIf cfg.hyprlandConfig.enable {
-    services.swayidle = {
-      enable = true;
-      systemdTarget = "hyprland-session.target";
-      events = [
-        {
-          event = "lock";
-          command = "${swaylock} -f --image '${lockWallpaper}'";
-        }
-      ];
-      timeouts = [
-        {
-          timeout = 60;
-          command = "${swaylock} -f --image '${lockWallpaper}'";
-        }
-        {
-          timeout = 300;
-          command = "${hyprctl} dispatch dpms off";
-          resumeCommand = "${hyprctl} dispatch dpms on";
-        }
-      ];
-    };
+    # services.swayidle = {
+    #   enable = true;
+    #   systemdTarget = "hyprland-session.target";
+    #   events = [
+    #     {
+    #       event = "lock";
+    #       command = "${swaylock} -f --image '${lockWallpaper}'";
+    #     }
+    #   ];
+    #   timeouts = [
+    #     {
+    #       timeout = 60;
+    #       command = "${swaylock} -f --image '${lockWallpaper}'";
+    #     }
+    #     {
+    #       timeout = 300;
+    #       command = "${hyprctl} dispatch dpms off";
+    #       resumeCommand = "${hyprctl} dispatch dpms on";
+    #     }
+    #   ];
+    # };
     wayland.windowManager.hyprland.enable = true;
     wayland.windowManager.hyprland.xwayland.enable = true;
     wayland.windowManager.hyprland.plugins = [

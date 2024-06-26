@@ -23,7 +23,7 @@ in {
     networkManager.enable = true;
     sunshine.enable = false;
     greetd.enable = true;
-    sway.enable = true;
+    sway.enable = false;
     hyprland.enable = true;
   };
   imports = [

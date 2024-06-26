@@ -7,6 +7,7 @@
 in {
   imports = [
     ./hyprlandConfig.nix
+    ./hyprlockConfig.nix
   ];
   config =
     lib.mkIf cfg.hyprlandConfig.enable {

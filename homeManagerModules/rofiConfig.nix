@@ -5,6 +5,7 @@
   ...
 }: let
   cfg = config.customHomeManagerModules;
+  loginctl = "${pkgs.systemd}/bin/loginctl";
   rofiLockScript = ''
     #!/usr/bin/env bash
     ## Available Styles
@@ -77,10 +78,10 @@
     	run_cmd --reboot
     	;;
     $lock)
-      loginctl lock-session $XDG_SESSION_ID
+      ${loginctl} lock-session $XDG_SESSION_ID
       ;;
     $logout)
-    	loginctl terminate-session self
+    	${loginctl} terminate-session self
     	;;
     esac
   '';

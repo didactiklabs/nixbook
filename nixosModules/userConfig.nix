@@ -132,6 +132,7 @@
             ../homeManagerModules/waybarConfig.nix
             ../homeManagerModules/kubeTools.nix
             ../homeManagerModules/mpvConfig.nix
+            ../homeManagerModules/k9sConfig.nix
           ]
           userImports
         ];

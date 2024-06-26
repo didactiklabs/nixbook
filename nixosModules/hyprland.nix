@@ -8,7 +8,10 @@ in {
   imports = [
   ];
   config = lib.mkIf cfg.hyprland.enable {
-    programs.hyprland.enable = true;
+    programs = {
+      hyprland.enable = true;
+    };
+    security.pam.services.hyprlock = {};
   };
   options.customNixOSModules.hyprland = {
     enable = lib.mkOption {
