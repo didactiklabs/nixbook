@@ -3,7 +3,7 @@
     ./treesitter.nix
     ./oil.nix
     ./trim.nix
-    #./startify.nix
+    ./startify.nix
     ./comment.nix
     ./barbar.nix
     ./neo-tree.nix
@@ -12,5 +12,6 @@
     ./none-ls.nix
     ./markdown-preview.nix
     ./telescope.nix
+    ./which-key.nix
   ];
 }

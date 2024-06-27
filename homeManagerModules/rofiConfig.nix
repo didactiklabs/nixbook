@@ -20,12 +20,13 @@
     host=$(hostname)
 
     # Options
-    shutdown=' Shutdown'
-    reboot=' Reboot'
-    lock=' Lock'
-    logout=' Logout'
-    yes=' Yes'
-    no=' No'
+    shutdown='  Shutdown'
+    reboot='  Reboot'
+    suspend='  Suspend'
+    lock='  Lock'
+    logout='  Logout'
+    yes='  Yes'
+    no='  No'
 
     # Rofi CMD
     rofi_cmd() {
@@ -53,7 +54,7 @@
     }
     # Pass variables to rofi dmenu
     run_rofi() {
-    	echo -e "$lock\n$logout\n$reboot\n$shutdown" | rofi_cmd
+    	echo -e "$lock\n$suspend\n$logout\n$reboot\n$shutdown" | rofi_cmd
     }
     # Execute Command
     run_cmd() {
@@ -63,6 +64,8 @@
     			systemctl poweroff
     		elif [[ $1 == '--reboot' ]]; then
     			systemctl reboot
+            elif [[ $1 == '--suspend' ]]; then
+                systemctl suspend
     		fi
     	else
     		exit 0
@@ -78,11 +81,14 @@
     	run_cmd --reboot
     	;;
     $lock)
-      ${loginctl} lock-session $XDG_SESSION_ID
-      ;;
+        ${loginctl} lock-session $XDG_SESSION_ID
+        ;;
     $logout)
     	${loginctl} terminate-session self
     	;;
+    $suspend)
+        run_cmd --suspend
+        ;;
     esac
   '';
   rofi-repo = pkgs.fetchFromGitHub {

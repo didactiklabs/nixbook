@@ -35,13 +35,13 @@ in {
       defaultTimeout = 5000;
       extraConfig = ''
         [urgency=low]
-        border-color=#1E2029
+        border-color=#${config.lib.stylix.colors.base03}
 
         [urgency=normal]
-        border-color=#1E2029
+        border-color=#${config.lib.stylix.colors.base02}
 
         [urgency=high]
-        border-color=#cc6666
+        border-color=#${config.lib.stylix.colors.base01}
         default-timeout=0
       '';
     };

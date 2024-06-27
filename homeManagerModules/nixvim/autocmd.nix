@@ -1,7 +1,7 @@
 {
   programs.nixvim.autoCmd = [
     {
-      event = "VimEnter";
+      event = "BufRead";
       pattern = [
         "*"
       ];
