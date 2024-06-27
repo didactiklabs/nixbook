@@ -67,7 +67,6 @@
           k = "kubectl";
           top = "btop";
           df = "duf";
-          dig = "dog";
           cd = "z";
           neofetch = "fastfetch";
           grep = "rg";

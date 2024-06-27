@@ -5,10 +5,12 @@
   ...
 }: let
   cfg = config.customHomeManagerModules;
-  fontSize = "font='9'";
+  betterTransition = "all 0.3s cubic-bezier(.55,-0.68,.48,1.682)";
+  rofi-wayland = "${pkgs.rofi-wayland}/bin/rofi";
+  rofiLauncherType = "${cfg.rofiConfig.launcher.type}";
+  rofiLauncherStyle = "${cfg.rofiConfig.launcher.style}";
+  rofiPowermenuStyle = "${cfg.rofiConfig.powermenu.style}";
 in {
-  ## https://www.nerdfonts.com/cheat-sheet
-  ## https://www.reddit.com/r/swaywm/comments/ni0vso/waybar_spotify_tracktitle/
   options.customHomeManagerModules.waybar = {
     enable = lib.mkOption {
       type = lib.types.bool;
@@ -20,124 +22,149 @@ in {
   };
 
   config = lib.mkIf cfg.waybar.enable {
-    home.packages = [
-      pkgs.pavucontrol
-      pkgs.pulseaudio
-      pkgs.networkmanagerapplet
-    ];
-
     programs.waybar = {
       enable = true;
-      ## see https://github.com/NixOS/nixpkgs/blob/nixos-unstable/pkgs/applications/misc/waybar/default.nix#L46
-      ## https://github.com/NixOS/nixpkgs/issues/14097#issuecomment-199088116
-      #package = pkgs.waybar.override { withMediaPlayer = true; };
       package = pkgs.waybar;
-      settings = {
-        mainBar = {
+      settings = [
+        {
           layer = "top";
           position = "top";
-          height = 5;
+          modules-center = ["hyprland/workspaces" "sway/workspaces"];
           modules-left = [
-            "sway/workspaces"
-            "hyprland/workspaces"
-            #"sway/window"
-          ];
-          modules-center = [
-            "tray"
-            "sway/mode"
-            "custom/spotify"
-            #"clock"
-          ];
-          modules-right = [
-            "clock"
-            "custom/separator"
-            "temperature"
-            #"cpu#usage"
-            "cpu#load"
-            "memory#ram"
-            #"memory#swap"
-            "disk"
-            "custom/separator"
-            "battery#BAT0"
-            "battery#BAT1"
-            "battery#BATT"
-            "custom/separator"
-            #"network"
-            #"custom/separator"
+            "custom/startmenu"
+            "hyprland/window"
             "pulseaudio"
+            "custom/spotify"
             "idle_inhibitor"
           ];
+          modules-right = [
+            #"custom/hyprbindings"
+            "cpu"
+            "memory"
+            "battery"
+            "tray"
+            "custom/notification"
+            "custom/exit"
+            "clock"
+          ];
 
-          "custom/separator" = {
-            format = "|";
-            interval = "once";
-            tooltip = false;
-          };
-          ## https://github.com/Alexays/Waybar/wiki/Module:-Workspaces
           "hyprland/workspaces" = {
-            disable-scroll = true;
-            all-outputs = true;
-            format = "{icon}";
+            format = "{name}";
             format-icons = {
-              "1" = "1";
-              "2" = "2";
-              "3" = "3";
-              "4" = "4";
-              "5" = "5";
-              "6" = "6";
-              "7" = "7";
-              "8" = "8";
-              "9" = "9";
-              "10" = "10";
-              #focused = "";
-              #urgent = "";
-              #default = "";
+              default = " ";
+              active = " ";
+              urgent = " ";
             };
+            on-scroll-up = "hyprctl dispatch workspace e+1";
+            on-scroll-down = "hyprctl dispatch workspace e-1";
           };
           "sway/workspaces" = {
-            disable-scroll = true;
-            all-outputs = true;
-            format = "{icon}";
+            format = "{name}";
             format-icons = {
-              "1" = "1";
-              "2" = "2";
-              "3" = "3";
-              "4" = "4";
-              "5" = "5";
-              "6" = "6";
-              "7" = "7";
-              "8" = "8";
-              "9" = "9";
-              "10" = "10";
-              #focused = "";
-              #urgent = "";
-              #default = "";
+              default = " ";
+              active = " ";
+              urgent = " ";
+            };
+            # on-scroll-up = "hyprctl dispatch workspace e+1";
+            # on-scroll-down = "hyprctl dispatch workspace e-1";
+          };
+
+          "clock" = {
+            format = '' {:L%H:%M}'';
+            tooltip = true;
+            tooltip-format = "<big>{:%A, %d.%B %Y }</big>\n<tt><small>{calendar}</small></tt>";
+          };
+          "hyprland/window" = {
+            max-length = 22;
+            separate-outputs = false;
+            rewrite = {
+              "" = " 🙈 No Windows? ";
             };
           };
-
-          ## https://github.com/Alexays/Waybar/wiki/Module:-Sway#window
-          "sway/window" = {
-            format = "{}";
+          "memory" = {
+            interval = 5;
+            format = " {}%";
+            tooltip = true;
+          };
+          "cpu" = {
+            interval = 5;
+            format = " {usage:2}%";
+            tooltip = true;
+          };
+          "disk" = {
+            format = " {free}";
+            tooltip = true;
+          };
+          "network" = {
+            format-icons = [
+              "󰤯"
+              "󰤟"
+              "󰤢"
+              "󰤥"
+              "󰤨"
+            ];
+            format-ethernet = " {bandwidthDownOctets}";
+            format-wifi = "{icon} {signalStrength}%";
+            format-disconnected = "󰤮";
             tooltip = false;
           };
-
-          ## https://github.com/Alexays/Waybar/wiki/Module:-Sway#mode
-          "sway/mode" = {
-            format = "{}";
-            max-length = 200;
-            tooltip = false;
+          "tray" = {
+            spacing = 12;
           };
-
-          ## https://github.com/Alexays/Waybar/wiki/Module:-Custom#spotify
-          ## https://github.com/Alexays/Waybar/wiki/Module:-Custom#module-custom-config-return-type
-          ## https://github.com/Alexays/Waybar/wiki/Module:-Custom#style
+          "pulseaudio" = {
+            format = "{icon} {volume}% {format_source}";
+            format-bluetooth = "{volume}% {icon} {format_source}";
+            format-bluetooth-muted = " {icon} {format_source}";
+            format-muted = " {format_source}";
+            format-source = " {volume}%";
+            format-source-muted = "";
+            format-icons = {
+              headphone = "";
+              hands-free = "";
+              headset = "";
+              phone = "";
+              portable = "";
+              car = "";
+              default = [
+                ""
+                ""
+                ""
+              ];
+            };
+            on-click = "sleep 0.1 && ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_SINK@ toggle";
+            on-click-middle = "${pkgs.pavucontrol}/bin/pavucontrol";
+          };
+          "custom/exit" = {
+            tooltip = false;
+            format = "";
+            on-click = "sleep 0.1 && $HOME/.config/rofiScripts/rofiLockScript.sh ${rofiPowermenuStyle}";
+          };
+          "custom/startmenu" = {
+            tooltip = false;
+            format = "";
+            # exec = "rofi -show drun";
+            on-click = "sleep 0.1 && ${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/${rofiLauncherType}/${rofiLauncherStyle}.rasi";
+          };
+          "custom/hyprbindings" = {
+            tooltip = false;
+            format = "󱕴";
+            on-click = "sleep 0.1 && list-hypr-bindings";
+          };
+          "idle_inhibitor" = {
+            format = "{icon}";
+            format-icons = {
+              activated = "";
+              deactivated = "";
+            };
+            tooltip = "true";
+          };
           "custom/spotify" = {
             exec = ''
               ${pkgs.playerctl}/bin/playerctl --player=spotify metadata --format '{ "alt": "{{ status }}", "class": "{{ status }}", "text": "{{ artist }} - {{ title }}", "tooltip": "{{ artist }} - {{ title }}" }'  2> /dev/null
             '';
             return-type = "json";
             exec-if = "${pkgs.procps}/bin/pgrep spotify";
-            format = "<span ${fontSize}> :</span>{icon} {}";
+            format = "<span> :</span>{icon} {}";
             format-icons = {
               Playing = "";
               Paused = "";
@@ -149,361 +176,152 @@ in {
             on-click-middle = "${pkgs.playerctl}/bin/playerctl --player=spotify play-pause";
             on-click-right = "${pkgs.playerctl}/bin/playerctl --player=spotify next";
           };
-
-          ## https://github.com/Alexays/Waybar/wiki/Module:-Clock
-          clock = {
-            timezone = "Europe/Paris";
-            format = "<span ${fontSize}> :</span> {:%H:%M}";
-            tooltip-format = ''
-              <big>{:%Y %B}</big>
-              <tt><small>{calendar}</small></tt>
-            '';
-            format-alt = "<span ${fontSize}>󰸘 :</span> {:%A, %d %B %Y | %H:%M}";
-            calendar = {
-              "mode" = "year";
-              "mode-mon-col" = 3;
-              "weeks-pos" = "right";
-              "on-scroll" = 1;
-              "on-click-right" = "mode";
-              "format" = {
-                "months" = "<span color='#ffead3'><b>{}</b></span>";
-                "days" = "<span color='#ecc6d9'><b>{}</b></span>";
-                "weeks" = "<span color='#99ffdd'><b>W{}</b></span>";
-                "weekdays" = "<span color='#ffcc66'><b>{}</b></span>";
-                "today" = "<span color='#ff6699'><b><u>{}</u></b></span>";
-              };
-            };
-          };
-
-          ## https://github.com/Alexays/Waybar/issues/350#issuecomment-495508523
-          ## https://github.com/Alexays/Waybar/wiki/Module:-Temperature
-          temperature = {
-            thermal-zone = 4;
-            critical-threshold = 70;
-            format-critical = "<span ${fontSize}>:</span> {temperatureC}°C";
-            format = "<span ${fontSize}>:</span> {temperatureC}°C";
-          };
-
-          ## https://github.com/Alexays/Waybar/wiki/Module:-CPU
-          "cpu#usage" = {
-            format = "<span ${fontSize}>::</span> {usage}%";
-            #tooltip = false;
-          };
-
-          ## https://github.com/Alexays/Waybar/wiki/Module:-CPU
-          "cpu#load" = {
-            format = "<span ${fontSize}> :</span> {load}";
+          "custom/notification" = {
             tooltip = false;
-          };
-
-          ## https://github.com/Alexays/Waybar/wiki/Module:-Memory
-          "memory#ram" = {
-            format = "<span ${fontSize}> :</span> {used:0.1f}G/{total:0.1f}G";
-            max-length = 30;
-          };
-
-          ## https://github.com/Alexays/Waybar/wiki/Module:-Memory
-          "memory#swap" = {
-            format = "<span ${fontSize}></span> : {swapUsed:0.1f}G";
-            max-length = 30;
-            tooltip = false;
-          };
-
-          ## https://github.com/Alexays/Waybar/wiki/Module:-Disk
-          disk = {
-            interval = 30;
-            format = "<span ${fontSize}> :</span> {percentage_used}%";
-            path = "/";
-          };
-
-          ## https://github.com/Alexays/Waybar/wiki/Module:-Battery
-          ## TODO need to add charging status
-          "battery#BAT0" = {
-            bat = "BAT0";
-            adapter = "AC";
-            interval = 60;
-            states = {
-              warning = 30;
-              critical = 15;
-            };
-            format = "{icon} : {capacity}%";
-            format-icons = [" " " " " " " " " "];
-            max-length = 25;
-            tooltip = false;
-          };
-          "battery#BATT" = {
-            bat = "BATT";
-            adapter = "AC";
-            interval = 60;
-            states = {
-              warning = 30;
-              critical = 15;
-            };
-            format = "{icon} : {capacity}%";
-            format-icons = [" " " " " " " " " "];
-            max-length = 25;
-            tooltip = false;
-          };
-
-          "battery#BAT1" = {
-            bat = "BAT1";
-            interval = 60;
-            states = {
-              warning = 30;
-              critical = 15;
-            };
-            format = "{icon} : {capacity}%";
-            format-icons = [" " " " " " " " " "];
-            max-length = 25;
-            tooltip = false;
-          };
-
-          ## https://github.com/Alexays/Waybar/wiki/Module:-Network
-          network = {
-            format-wifi = "<span ${fontSize}> </span>: {ipaddr}/{cidr}";
-            format-ethernet = "<span ${fontSize}> </span>: {ipaddr}/{cidr}";
-            format-linked = "{ifname} (No IP) <span ${fontSize}></span>";
-            format-disconnected = "<span ${fontSize}>睊 </span>: Not connected";
-            tooltip-format = "{essid} {signalStrength}%";
-            on-click-middle = "${pkgs.networkmanagerapplet}/bin/nm-connection-editor";
-            tooltip = true;
-            interval = 1;
-          };
-
-          ## https://github.com/Alexays/Waybar/wiki/Module:-PulseAudio
-          pulseaudio = {
-            format = "<span ${fontSize}>{icon}</span> : {volume}%";
-            format-bluetooth = "<span ${fontSize}>{icon} </span> : {volume}%";
-            format-muted = "<span ${fontSize}>󰖁</span> : {volume}%";
+            format = "{icon} {}";
             format-icons = {
-              headphone = "";
-              hands-free = "";
-              headset = "";
-              phone = "";
-              portable = "";
-              car = "";
-              default = ["" "" ""];
+              notification = "<span foreground='red'><sup></sup></span>";
+              none = "";
+              dnd-notification = "<span foreground='red'><sup></sup></span>";
+              dnd-none = "";
+              inhibited-notification = "<span foreground='red'><sup></sup></span>";
+              inhibited-none = "";
+              dnd-inhibited-notification = "<span foreground='red'><sup></sup></span>";
+              dnd-inhibited-none = "";
             };
-            scroll-step = 1;
-            on-click = "${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_SINK@ toggle";
-            on-click-middle = "${pkgs.pavucontrol}/bin/pavucontrol";
+            return-type = "json";
+            exec-if = "which swaync-client";
+            exec = "swaync-client -swb";
+            on-click = "sleep 0.1 && ${pkgs.swaynotificationcenter}/bin/swaync-client -t &";
+            escape = true;
           };
-
-          ## https://github.com/Alexays/Waybar/wiki/Module:-Idle-Inhibitor
-          idle_inhibitor = {
-            format = "{icon}";
-            format-icons = {
-              activated = "";
-              deactivated = "";
+          "battery" = {
+            states = {
+              warning = 30;
+              critical = 15;
             };
-            #on-click = "systemctl --user stop swayidle.service";
-            #on-click-right = "systemctl --user start swayidle.service";
-          };
-
-          "custom/print" = {
-            format = "";
-            on-click = ''
-              ${pkgs.sway-contrib.grimshot}/bin/grimshot --notify copy area
-            '';
+            format = "{icon} {capacity}%";
+            format-charging = "󰂄 {capacity}%";
+            format-plugged = "󱘖 {capacity}%";
+            format-icons = [
+              "󰁺"
+              "󰁻"
+              "󰁼"
+              "󰁽"
+              "󰁾"
+              "󰁿"
+              "󰂀"
+              "󰂁"
+              "󰂂"
+              "󰁹"
+            ];
+            on-click = "";
             tooltip = false;
           };
-
-          ## https://github.com/Alexays/Waybar/wiki/Module%3A-Tray
-          tray = {
-            icon-size = 16;
-            spacing = 5;
-            tooltip = false;
-          };
-        };
-      };
+        }
+      ];
+      style = lib.concatStrings [
+        ''
+          * {
+            font-family: Hack Nerd Font;
+            font-size: 9.5px;
+            font-weight: bold;
+            border-radius: 0px;
+            border: none;
+            min-height: 0px;
+          }
+          window#waybar {
+            background: rgba(0,0,0,0);
+          }
+          #workspaces {
+            color: #${config.stylix.base16Scheme.base00};
+            background: #${config.stylix.base16Scheme.base01};
+            margin: 4px 4px;
+            padding: 5px 5px;
+            border-radius: 16px;
+          }
+          #workspaces button {
+            font-weight: bold;
+            padding: 0px 5px;
+            margin: 0px 3px;
+            border-radius: 16px;
+            color: #${config.stylix.base16Scheme.base00};
+            background: linear-gradient(45deg, #${config.stylix.base16Scheme.base08}, #${config.stylix.base16Scheme.base0D});
+            opacity: 0.5;
+            transition: ${betterTransition};
+          }
+          #workspaces button.active {
+            font-weight: bold;
+            padding: 0px 5px;
+            margin: 0px 3px;
+            border-radius: 16px;
+            color: #${config.stylix.base16Scheme.base00};
+            background: linear-gradient(45deg, #${config.stylix.base16Scheme.base08}, #${config.stylix.base16Scheme.base0D});
+            transition: ${betterTransition};
+            opacity: 1.0;
+            min-width: 40px;
+          }
+          #workspaces button:hover {
+            font-weight: bold;
+            border-radius: 16px;
+            color: #${config.stylix.base16Scheme.base00};
+            background: linear-gradient(45deg, #${config.stylix.base16Scheme.base08}, #${config.stylix.base16Scheme.base0D});
+            opacity: 0.8;
+            transition: ${betterTransition};
+          }
+          tooltip {
+            background: #${config.stylix.base16Scheme.base00};
+            border: 1px solid #${config.stylix.base16Scheme.base08};
+            border-radius: 12px;
+          }
+          tooltip label {
+            color: #${config.stylix.base16Scheme.base08};
+          }
+          #window, #pulseaudio, #idle_inhibitor {
+            font-weight: bold;
+            margin: 4px 0px;
+            margin-left: 7px;
+            padding: 0px 18px;
+            background: #${config.stylix.base16Scheme.base04};
+            color: #${config.stylix.base16Scheme.base00};
+            border-radius: 24px 10px 24px 10px;
+          }
+          #custom-spotify {
+            font-weight: bold;
+            margin: 4px 0px;
+            margin-left: 7px;
+            padding: 0px 18px;
+            background: #${config.stylix.base16Scheme.base04};
+            border-radius: 24px 10px 24px 10px;
+          }
+          #custom-startmenu {
+            color: #${config.stylix.base16Scheme.base0B};
+            background: #${config.stylix.base16Scheme.base02};
+            font-size: 28px;
+            margin: 0px;
+            padding: 0px 30px 0px 15px;
+            border-radius: 0px 0px 40px 0px;
+          }
+          #custom-hyprbindings, #network, #battery,
+          #custom-notification, #tray, #custom-exit, #cpu, #memory {
+            font-weight: bold;
+            background: #${config.stylix.base16Scheme.base0F};
+            color: #${config.stylix.base16Scheme.base00};
+            margin: 4px 0px;
+            margin-right: 7px;
+            border-radius: 10px 24px 10px 24px;
+            padding: 0px 18px;
+          }
+          #clock {
+            font-weight: bold;
+            color: #0D0E15;
+            background: linear-gradient(90deg, #${config.stylix.base16Scheme.base0E}, #${config.stylix.base16Scheme.base0C});
+            margin: 0px;
+            padding: 0px 15px 0px 30px;
+            border-radius: 0px 0px 0px 40px;
+          }
+        ''
+      ];
     };
-    programs.waybar.style = ''
-
-      /* The whole bar */
-      #waybar {
-          background: transparent;
-          color: white;
-          background-color: rgba(0,0,0,0);
-          font-family: UbuntuMono;
-          font-size: 14px;
-      }
-      * {
-        border: none;
-        font-family: Hack Nerd Font;
-        font-size: 12px;
-        font-weight: bold;
-      }
-
-      #custom-separator {
-        color: #abb2bf;
-        margin: 0 1px;
-      }
-
-      #workspaces {
-        margin: 1px 2px 2px 2px;
-        border-radius: 10px;
-        background-clip: padding-box;
-      }
-
-      #workspaces button {
-        color: #abb2bf;
-      }
-
-      #workspaces button:first-child {
-        padding-left: 10px;
-      }
-
-      #workspaces button:last-child {
-        padding-right: 10px;
-      }
-
-      #workspaces button:hover {
-        background-color: rgba(0, 0, 0, 0.2)
-      }
-
-      #workspaces button.focused {
-        color: #1DB954;
-      }
-
-      #workspaces button.urgent {
-        color: #e06c75;
-      }
-
-      window#waybar {
-        background-color: rgba(0,0,0,0);
-        color: #abb2bf;
-        transition-property: background-color;
-        transition-duration: .5s;
-      }
-
-      window#waybar.hidden {
-        opacity: 0.2;
-      }
-
-      #mode {
-        color: #12151d;
-        padding: 0 10px;
-        margin: 1px 2px 2px 2px;
-        border-radius: 10px;
-        background-clip: padding-box;
-      }
-
-      #custom-spotify {
-        padding: 0 10px;
-        margin: 1px 2px 2px 2px;
-        border-radius: 10px;
-      }
-
-      #custom-spotify.Playing {
-          color: #1DB954;
-      }
-
-      #custom-spotify.Paused {
-          color: #e06c75;
-      }
-
-      #window,
-      #temperature,
-      #cpu,
-      #memory,
-      #disk,
-      #network,
-      #battery {
-        padding: 0 3px;
-        margin: 1px;
-      }
-
-      #clock {
-        padding: 0 10px;
-        margin: 1px 2px 2px 2px;
-        border-radius: 10px;
-        color: #c678dd;
-      }
-
-      #window {
-      }
-
-      #temperature {
-        color: #61afef;
-      }
-      #temperature.critical {
-        background-color: #e06c75;
-        color: #1e222a;
-      }
-
-      #cpu {
-        color: #d19a66;
-      }
-
-      #memory {
-        color: #d19a66;
-      }
-
-      #disk {
-        color: #d19a66;
-      }
-
-      #battery {
-        color: #1DB954;
-      }
-      #battery.charging {
-        color: #61afef
-      }
-      #battery.plugged {
-        color: #1DB954;
-      }
-      #battery.critical:not(.charging) {
-        color: #e06c75;
-        animation-name: blink;
-        animation-duration: 0.5s;
-        animation-timing-function: linear;
-        animation-iteration-count: infinite;
-        animation-direction: alternate;
-      }
-
-      #network {
-        color: #1DB954
-      }
-      #network.disconnected {
-        color: #1e222a;
-      }
-
-      #pulseaudio,
-      #idle_inhibitor,
-      #custom-print,
-      #tray {
-        margin: 1px 0;
-        padding: 0 5px;
-        background-color: rgba(0,0,0,0);
-      }
-
-      #pulseaudio {
-        margin-left: 1px;
-        border-top-left-radius: 10px;
-        border-bottom-left-radius: 10px;
-      }
-      #pulseaudio.muted {
-        color: #e06c75;
-      }
-
-      #idle_inhibitor,
-      #custom-print {
-        padding-left: 9px;
-        padding-right: 9px;
-      }
-
-      #idle_inhibitor.activated {
-        color: #abb2bf;
-      }
-      #idle_inhibitor.deactivated {
-        color: #e06c75;
-      }
-
-      #tray {
-        margin-right: 1px;
-        border-top-right-radius: 10px;
-        border-bottom-right-radius: 10px;
-      }
-    '';
   };
 }

@@ -1,4 +1,8 @@
-{pkgs, ...}: let
+{
+  pkgs,
+  lib,
+  ...
+}: let
   volume = pkgs.writeShellScriptBin "volume" ''
       #!/bin/bash
 
@@ -54,7 +58,7 @@
 
     # Notify
     notify_user() {
-      ${pkgs.libnotify}/bin/notify-send -e -h string:x-canonical-private-synchronous:sys-notify -u "$(get_urgency)" -i "$(get_icon)" -t 555 -h  int:value:"$(get_volume)" "Volume : $(get_volume)%"
+      ${pkgs.libnotify}/bin/notify-send -e -h string:x-canonical-private-synchronous:sys-notify -u "$(get_urgency)" -i "$(get_icon)" -t 555 -h  int:value:"$(get_volume)" "    Volume : $(get_volume)%"
     }
 
     # Increase Volume
@@ -127,5 +131,11 @@ in {
       ",XF86AudioLowerVolume, exec, ${volume}/bin/volume --dec"
       ",XF86AudioMute, exec, ${volume}/bin/volume --toggle"
     ];
+  };
+  wayland.windowManager.sway.config.keybindings = lib.filterAttrsRecursive (name: value: value != null) {
+    # Volume
+    "--locked XF86AudioRaiseVolume" = "exec ${volume}/bin/volume --inc";
+    "--locked XF86AudioLowerVolume" = "exec ${volume}/bin/volume --dec";
+    "--locked XF86AudioMute" = "exec ${volume}/bin/volume --toggle";
   };
 }

@@ -3,16 +3,13 @@
     # tools
     python3
     nix-eval-jobs
-    dogdns
+    dig
     jq
     yq-go
     tig
-    file
     unzip
-    docker-client
     go
     tree
-    pciutils
     openvpn
     btop # top replacer
     duf # df replacer
