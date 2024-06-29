@@ -163,6 +163,7 @@ in {
           "$mod, RETURN, exec, ${terminal}"
           "$mod, A, killactive"
           ", PRINT, exec, ${grimshot} --notify copy area"
+          "$mod, N, exec, ${pkgs.swaynotificationcenter}/bin/swaync-client -t"
 
           # ",XF86AudioRaiseVolume, exec, ${wpctl} set-volume @DEFAULT_SINK@ 3%+ && ${notify-send} '󰕾 +3%'"
           # ",XF86AudioLowerVolume, exec, ${wpctl} set-volume @DEFAULT_SINK@ 3%- && ${notify-send} '󰕾 -3%'"

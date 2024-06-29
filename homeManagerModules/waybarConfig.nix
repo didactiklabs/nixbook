@@ -137,13 +137,13 @@ in {
           "custom/exit" = {
             tooltip = false;
             format = "";
-            on-click = "sleep 0.1 && $HOME/.config/rofiScripts/rofiLockScript.sh ${rofiPowermenuStyle}";
+            on-click = lib.mkIf cfg.rofiConfig.enable "sleep 0.1 && $HOME/.config/rofiScripts/rofiLockScript.sh ${rofiPowermenuStyle}";
           };
           "custom/startmenu" = {
             tooltip = false;
             format = "";
             # exec = "rofi -show drun";
-            on-click = "sleep 0.1 && ${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/${rofiLauncherType}/${rofiLauncherStyle}.rasi";
+            on-click = lib.mkIf cfg.rofiConfig.enable "sleep 0.1 && ${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/${rofiLauncherType}/${rofiLauncherStyle}.rasi";
           };
           "custom/hyprbindings" = {
             tooltip = false;
@@ -215,7 +215,6 @@ in {
               "󰂂"
               "󰁹"
             ];
-            on-click = "";
             tooltip = false;
           };
         }
@@ -293,6 +292,19 @@ in {
             padding: 0px 18px;
             background: #${config.stylix.base16Scheme.base04};
             border-radius: 24px 10px 24px 10px;
+          }
+          #custom-spotify.Playing {
+            background: #77DD77;
+            color: #FFFFFF;
+          }
+          #custom-spotify:hover, #pulseaudio:hover, #idle_inhibitor:hover, #custom-startmenu:hover,
+          #custom-notification:hover, #custom-exit:hover, #custom-hyprbindings:hover{
+            transition: ${betterTransition};
+            opacity: 0.8;
+          }
+          #custom-spotify.Paused {
+            background: #FF6961;
+            color: #FFFFFF;
           }
           #custom-startmenu {
             color: #${config.stylix.base16Scheme.base0B};

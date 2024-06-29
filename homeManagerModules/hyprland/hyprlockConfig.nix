@@ -13,7 +13,7 @@
   loginctl = "${pkgs.systemd}/bin/loginctl";
   hyprctl = "${pkgs.hyprland}/bin/hyprctl";
   whatsong = pkgs.writeShellScriptBin "whatsong" ''
-    song_info=$(${pkgs.playerctl}/bin/playerctl metadata --format '{{title}}  {{artist}}')
+    song_info=$(${pkgs.playerctl}/bin/playerctl metadata --format '{{title}}   {{artist}}')
     echo "$song_info"
   '';
 in {
