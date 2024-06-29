@@ -22,6 +22,7 @@ in {
     wayland.windowManager.hyprland.xwayland.enable = true;
     wayland.windowManager.hyprland.plugins = [
       pkgs.hyprlandPlugins.hy3
+      pkgs.hyprlandPlugins.hyprexpo
     ];
     wayland.windowManager.hyprland.settings = {
       "$mod" = "SUPER";
@@ -37,6 +38,16 @@ in {
             "col.text.active" = "rgb(${config.lib.stylix.colors.base07})";
             "col.urgent" = "rgb(${config.lib.stylix.colors.base04})";
           };
+        };
+        hyprexpo = {
+          columns = 4;
+          gap_size = 5;
+          #bg_col = rgb(111111);
+          workspace_method = "center current"; # [center/first] [workspace] e.g. first 1 or center m+1
+          enable_gesture = true; # laptop touchpad
+          gesture_fingers = 3; # 3 or 4
+          gesture_distance = 300; # how far is the "max"
+          gesture_positive = true; # positive = swipe down. Negative = swipe up.
         };
       };
       general = {
@@ -125,6 +136,7 @@ in {
       };
       bind =
         [
+          "$mod, TAB, hyprexpo:expo, toggle"
           "$mod, Z, hy3:changegroup, toggletab"
           "$mod, E, hy3:changegroup, opposite"
 
