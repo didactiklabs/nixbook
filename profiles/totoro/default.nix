@@ -25,6 +25,10 @@ in {
     greetd.enable = true;
     sway.enable = false;
     hyprland.enable = true;
+    caCertificates = {
+      bealv.enable = true;
+      didactiklabs.enable = true;
+    };
   };
   imports = [
     (mkUser {

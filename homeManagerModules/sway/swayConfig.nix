@@ -312,10 +312,6 @@ in {
           "--locked XF86AudioNext" = "exec ${playerctl} next";
           "--locked XF86AudioPrev" = "exec ${playerctl} previous";
           "--locked XF86AudioPlay" = "exec ${playerctl} play-pause";
-          # Volume
-          "--locked XF86AudioRaiseVolume" = "exec ${wpctl} set-volume @DEFAULT_SINK@ 3%+ && ${notify-send} '󰕾 +3%'";
-          "--locked XF86AudioLowerVolume" = "exec ${wpctl} set-volume @DEFAULT_SINK@ 3%- && ${notify-send} '󰕾 -3%'";
-          "--locked XF86AudioMute" = "exec ${wpctl} set-mute @DEFAULT_SINK@ toggle";
           "Print" = ''
             exec ${grimshot} --notify copy area
           '';
@@ -341,7 +337,6 @@ in {
           "${mod}+Shift+agrave" = "move container to workspace $workspace10";
 
           "${mod}+Shift+p" = "move scratchpad";
-          "${mod}+p" = "scratchpad show";
           "${mod}+a" = "kill";
           "${mod}+c" = "reload";
           "${mod}+s" = "layout stacking";

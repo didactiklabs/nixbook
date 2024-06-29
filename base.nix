@@ -24,6 +24,7 @@ in {
   imports = [
     ./hardware-configuration.nix
     ./tools.nix
+    ./nixosModules/caCertificates.nix
     ./nixosModules/laptopProfile.nix
     ./nixosModules/greetd.nix
     ./nixosModules/sway.nix
