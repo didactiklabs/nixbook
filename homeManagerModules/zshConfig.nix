@@ -2,6 +2,7 @@
   config = {
     home.packages = [
       pkgs.ueberzugpp # for image preview ranger
+      pkgs.any-nix-shell
     ];
     programs = {
       zathura.enable = true;
@@ -72,7 +73,8 @@
           grep = "rg";
         };
         initExtra = ''
-          fastfetch
+          #fastfetch
+          any-nix-shell zsh --info-right | source /dev/stdin
         '';
         oh-my-zsh = {
           enable = true;
