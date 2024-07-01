@@ -34,6 +34,7 @@ in {
             "custom/startmenu"
             "hyprland/window"
             "pulseaudio"
+            "backlight"
             "custom/spotify"
             "idle_inhibitor"
           ];
@@ -110,6 +111,11 @@ in {
           };
           "tray" = {
             spacing = 12;
+          };
+          "backlight" = {
+            "device" = "intel_backlight";
+            "format" = "{percent}% {icon}";
+            "format-icons" = ["" ""];
           };
           "pulseaudio" = {
             format = "{icon} {volume}% {format_source}";
@@ -276,7 +282,7 @@ in {
           tooltip label {
             color: #${config.stylix.base16Scheme.base08};
           }
-          #window, #pulseaudio, #idle_inhibitor {
+          #window, #pulseaudio, #backlight, #idle_inhibitor {
             font-weight: bold;
             margin: 4px 0px;
             margin-left: 7px;

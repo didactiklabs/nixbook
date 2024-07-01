@@ -128,6 +128,9 @@ in {
       ];
       exec = [
         "${pkgs.swaybg}/bin/swaybg -m fill -i ${mainWallpaper}"
+        "${pkgs.swaynotificationcenter}/bin/swaync-client --reload-css"
+        "${pkgs.swaynotificationcenter}/bin/swaync-client --reload-config"
+
         "killall -SIGUSR2 waybar"
       ];
       input = {

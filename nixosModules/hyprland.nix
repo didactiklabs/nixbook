@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }: let
   cfg = config.customNixOSModules;
@@ -9,7 +10,10 @@ in {
   ];
   config = lib.mkIf cfg.hyprland.enable {
     programs = {
-      hyprland.enable = true;
+      hyprland = {
+        enable = true;
+        portalPackage = pkgs.xdg-desktop-portal-wlr;
+      };
     };
     security.pam.services.hyprlock = {};
   };
