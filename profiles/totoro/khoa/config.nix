@@ -1,12 +1,6 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
-}: let
-  cfg = config.customHomeManagerModules;
+{pkgs, ...}: let
 in {
-  config = lib.mkIf cfg.swayConfig.enable {
+  config = {
     systemd.user.services.jellyfin-mpv-shim = {
       Unit = {
         Description = "Jellyfin mpv";

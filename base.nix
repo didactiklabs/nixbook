@@ -86,6 +86,10 @@ in {
       systemd-boot.enable = true;
       efi.canTouchEfiVariables = true;
     };
+    tmp = {
+      useTmpfs = true;
+      tmpfsSize = "30%";
+    };
   };
   networking = {
     hostName = "${hostname}"; # Define your hostname.
