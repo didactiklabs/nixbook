@@ -27,6 +27,7 @@ in {
   config = lib.mkIf cfg.kubeTools.enable {
     home.packages = with pkgs; [
       # clouds
+      dive
       kcl-cli
       kubectl
       k9s

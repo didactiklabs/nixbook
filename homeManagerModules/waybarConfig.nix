@@ -229,7 +229,7 @@ in {
         ''
           * {
             font-family: Hack Nerd Font;
-            font-size: 9.5px;
+            font-size: 8px;
             font-weight: bold;
             border-radius: 0px;
             border: none;

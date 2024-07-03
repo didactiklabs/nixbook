@@ -13,8 +13,8 @@
   profileCustomization = {
     mainWallpaper = let
       image = pkgs.fetchurl {
-        url = "https://w.wallhaven.cc/full/r7/wallhaven-r7937j.jpg";
-        sha256 = "sha256-ts6lsP/IrGtiP/AgIMGFbyLlJ/yAS8WaSnIHTyv+Bdc=";
+        url = "https://wallhalla.com/wallpaper/56/variant/preview/xl";
+        sha256 = "sha256-zgNgGDGr5ZiHehZg/Q2uO6MSLJp5uiekWdcVnw00740=";
       };
     in "${image}";
     lockWallpaper = let
