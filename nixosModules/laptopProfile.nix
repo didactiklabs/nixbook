@@ -32,7 +32,7 @@ in {
       #cpuFreqGovernor = lib.mkDefault "ondemand";
     };
     # https://github.com/AdnanHodzic/auto-cpufreq
-    #services.auto-cpufreq.enable = true;
+    services.auto-cpufreq.enable = true;
     ## https://linrunner.de/tlp/settings/index.html
     services.tlp = lib.mkForce {
       enable = true;

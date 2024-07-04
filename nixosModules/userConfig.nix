@@ -129,12 +129,12 @@
             ../homeManagerModules/desktopApps.nix
             ../homeManagerModules/thunarConfig.nix
             #../homeManagerModules/makoConfig.nix
-            ../homeManagerModules/swayncConfig.nix
             ../homeManagerModules/waybarConfig.nix
             ../homeManagerModules/kubeTools.nix
             ../homeManagerModules/mpvConfig.nix
             ../homeManagerModules/k9sConfig.nix
             ../homeManagerModules/scripts
+            ../homeManagerModules/swayncConfig.nix
           ]
           userImports
         ];

@@ -12,14 +12,13 @@
   rofiLauncherStyle = "${cfg.rofiConfig.launcher.style}";
   rofiPowermenuStyle = "${cfg.rofiConfig.powermenu.style}";
   waybar = "${pkgs.waybar}/bin/waybar";
-  wpctl = "${pkgs.wireplumber}/bin/wpctl";
-  notify-send = "${pkgs.libnotify}/bin/notify-send";
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
   grimshot = "${pkgs.grimblast}/bin/grimblast";
+  pidof = "${pkgs.sysvtools}/bin/pidof";
 in {
   config = lib.mkIf cfg.hyprlandConfig.enable {
     wayland.windowManager.hyprland.enable = true;
-    wayland.windowManager.hyprland.xwayland.enable = true;
+    wayland.windowManager.hyprland.xwayland.enable = false;
     wayland.windowManager.hyprland.plugins = [
       pkgs.hyprlandPlugins.hy3
       pkgs.hyprlandPlugins.hyprexpo
@@ -124,7 +123,7 @@ in {
       exec-once = [
         "systemctl --user import-environment XDG_SESSION_TYPE XDG_CURRENT_DESKTOP"
         "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
-        "${waybar}"
+        "${pidof} ${waybar} || ${waybar}"
       ];
       exec = [
         "${pkgs.swaybg}/bin/swaybg -m fill -i ${mainWallpaper}"
