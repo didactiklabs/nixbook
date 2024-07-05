@@ -33,6 +33,9 @@
       };
       tmux = {
         enable = true;
+        extraConfig = ''
+          set -g mouse on
+        '';
       };
       eza = {
         enable = true;
