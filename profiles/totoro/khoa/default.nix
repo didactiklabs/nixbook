@@ -13,8 +13,8 @@
   profileCustomization = {
     mainWallpaper = let
       image = pkgs.fetchurl {
-        url = "https://wallhalla.com/wallpaper/83/variant/desktop/3840x2160?dl=true";
-        sha256 = "sha256-l+De7L2i1506XjN9rOq3HQweEjXUjIZdhNt5qUs1nGw=";
+        url = "https://images8.alphacoders.com/136/1363709.png";
+        sha256 = "sha256-MMZxInaiOSkzO3f77RUS1Ol4BVGBO2HZGwF6jZI697Q=";
       };
     in "${image}";
     lockWallpaper = let
@@ -33,7 +33,6 @@
     starship.enable = true;
     swayConfig.enable = false;
     hyprlandConfig.enable = true;
-    stylixConfig.enable = true;
     # https://github.com/adi1090x/rofi
     rofiConfig = {
       enable = true;

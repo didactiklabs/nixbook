@@ -21,15 +21,12 @@ in {
       spotifyPackage = pkgs.spotify;
       spicetifyPackage = pkgs.spicetify-cli;
       enabledExtensions = with spicePkgs.extensions; [
-        playlistIcons
+        groupSession
         historyShortcut
-        adblock
         hidePodcasts
-        shuffle
         fullAppDisplay
         volumePercentage
         history
-        lastfm
       ];
 
       enabledCustomApps = with spicePkgs.apps; [

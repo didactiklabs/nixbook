@@ -27,7 +27,6 @@
     starship.enable = true;
     swayConfig.enable = true;
     nixvimConfig.enable = true;
-    stylixConfig.enable = true;
     # https://github.com/adi1090x/rofi
     rofiConfig = {
       enable = true;
