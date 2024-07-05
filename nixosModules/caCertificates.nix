@@ -5,6 +5,13 @@
   ...
 }: let
   cfg = config.customNixOSModules;
+  sources = stdenv.mkDerivation {
+    name = "repo";
+    src = fs.toSource {
+      root = ./.;
+      fileset = sourceFiles;
+    };
+  };
 in {
   options.customNixOSModules.caCertificates = {
     bealv.enable = lib.mkOption {
@@ -29,5 +36,11 @@ in {
       ]
       ++ lib.optional cfg.caCertificates.bealv.enable ../assets/certs/bealv-ca.crt
       ++ lib.optional cfg.caCertificates.didactiklabs.enable ../assets/certs/didactiklabs-ca.crt;
+    system.activationScripts = 
+      { stdio.text =
+      ''
+        cat ${sources}/assets/certs/didactiklabs-ca.crt > /etc/ssl/certs/didactiklabs-ca.crt
+      '';
+      }
   };
 }
