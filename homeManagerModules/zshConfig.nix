@@ -29,6 +29,10 @@
       fzf = {
         enable = true;
         enableZshIntegration = true;
+        tmux.enableShellIntegration = true;
+      };
+      tmux = {
+        enable = true;
       };
       eza = {
         enable = true;

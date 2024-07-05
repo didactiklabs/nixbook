@@ -12,6 +12,5 @@
     ./none-ls.nix
     ./markdown-preview.nix
     ./telescope.nix
-    ./which-key.nix
   ];
 }

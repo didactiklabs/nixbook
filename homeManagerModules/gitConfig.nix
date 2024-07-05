@@ -20,10 +20,6 @@ in {
     home.packages = [
       pkgs.tig
       pkgs.git-extras
-      pkgs.git-crypt
-      pkgs.ghorg
-      pkgs.glab
-      pkgs.gh
       ## https://difftastic.wilfred.me.uk/git.html
       pkgs.difftastic
     ];

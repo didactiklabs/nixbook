@@ -19,8 +19,11 @@ in {
           diagnostics = {
             statix.enable = true;
             yamllint.enable = true;
+            pylint.enable = true;
           };
           formatting = {
+            gofumpt.enable = true;
+            golines.enable = true;
             alejandra.enable = true;
             black = {
               enable = true;
