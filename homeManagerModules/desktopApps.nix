@@ -21,7 +21,6 @@ in {
       wdisplays # display manager
       vesktop # discord
       firefox
-      spotify
     ];
   };
 }

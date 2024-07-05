@@ -112,6 +112,7 @@
             ../homeManagerModules/stylixConfig.nix
             (import nixvim).homeManagerModules.nixvim
             ../homeManagerModules/nixvim
+            ../homeManagerModules/spicetifyConfig.nix
             ../homeManagerModules/sway
             ../homeManagerModules/hyprland
             ../homeManagerModules/vscode

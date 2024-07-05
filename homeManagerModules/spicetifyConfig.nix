@@ -1,0 +1,68 @@
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
+  flake-compat = builtins.fetchTarball "https://github.com/edolstra/flake-compat/archive/master.tar.gz";
+  spicetify-nix =
+    (import flake-compat {
+      src = builtins.fetchTarball "https://github.com/the-argus/spicetify-nix/archive/master.tar.gz";
+    })
+    .defaultNix;
+  spicePkgs = spicetify-nix.packages.${pkgs.system}.default;
+  palette = config.lib.stylix.colors;
+  cfg = config.customHomeManagerModules;
+in {
+  imports = [spicetify-nix.homeManagerModule];
+  config = lib.mkIf cfg.desktopApps.enable {
+    programs.spicetify = {
+      enable = true;
+      spotifyPackage = pkgs.spotify;
+      spicetifyPackage = pkgs.spicetify-cli;
+      enabledExtensions = with spicePkgs.extensions; [
+        playlistIcons
+        historyShortcut
+        adblock
+        hidePodcasts
+        shuffle
+        fullAppDisplay
+        volumePercentage
+        history
+        lastfm
+      ];
+
+      enabledCustomApps = with spicePkgs.apps; [
+      ];
+
+      theme = spicePkgs.themes.Dribbblish;
+      colorScheme = "custom";
+      customColorScheme = {
+        text = "${palette.base0B}";
+        subtext = "${palette.base0B}";
+        main = "${palette.base00}";
+        main-elevated = "${palette.base00}";
+        main-transition = "${palette.base00}";
+        highlight = "${palette.base01}";
+        highlight-elevated = "${palette.base00}";
+        sidebar = "${palette.base00}";
+        player = "${palette.base00}";
+        card = "${palette.base05}";
+        shadow = "${palette.base00}";
+        selected-row = "${palette.base0B}";
+        button = "${palette.base04}";
+        button-active = "${palette.base07}";
+        button-disabled = "${palette.base03}";
+        tab-active = "${palette.base07}";
+        notification = "${palette.base0B}";
+        notification-error = "${palette.base06}";
+        misc = "${palette.base02}";
+        progress-fg = "${palette.base07}";
+        progress-bg = "${palette.base00}";
+        heart = "${palette.base07}";
+        pagelink-active = "${palette.base04}";
+        radio-btn-active = "${palette.base04}";
+      };
+    };
+  };
+}
