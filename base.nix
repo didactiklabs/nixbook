@@ -9,7 +9,7 @@
     owner = "nix-community";
     repo = "nixvim";
     rev = "nixos-${nixOS_version}";
-    sha256 = "sha256-3uCk0WXaUZPErNGUNCCbOg+DgZIjA6OgyqFYJwfZ4+0=";
+    sha256 = "sha256-/hfE2x9NbT13d53o9uq6MuMipV19pJUQzpsZIhlvsiM=";
   };
   stylix = pkgs.fetchFromGitHub {
     owner = "danth";
