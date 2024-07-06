@@ -29,6 +29,7 @@ in {
     ./nixosModules/greetd.nix
     ./nixosModules/sway.nix
     ./nixosModules/hyprland.nix
+    ./nixosModules/powertune.nix
     (import ./nixosModules/networkManager.nix {inherit lib config pkgs;})
     (import ./nixosModules/sunshine.nix {inherit lib config pkgs;})
     (import "${home-manager}/nixos")
