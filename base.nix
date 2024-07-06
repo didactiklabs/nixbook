@@ -87,7 +87,7 @@ in {
       efi.canTouchEfiVariables = true;
     };
     tmp = {
-      useTmpfs = true;
+      useTmpfs = false;
       tmpfsSize = "30%";
     };
   };

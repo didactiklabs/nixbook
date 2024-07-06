@@ -9,7 +9,7 @@
     {
       "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
     	"logo": {
-    		"source": "~/.config/fastfetch/ascsiiArt",
+    		"source": "~/.config/fastfetch/asciiArt",
 
     		"type": "file",
     		"padding": {

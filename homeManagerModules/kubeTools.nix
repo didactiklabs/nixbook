@@ -15,18 +15,25 @@
          - ~/.kube/configs
   '';
 in {
-  options.customHomeManagerModules.kubeTools = {
-    enable = lib.mkOption {
+  options.customHomeManagerModules = {
+    kubeTools.enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
       description = ''
         whether to enable desktopApps globally or not
       '';
     };
+    kubeConfig.didactiklabs.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+      '';
+    };
   };
   config = lib.mkIf cfg.kubeTools.enable {
     home.packages = with pkgs; [
       # clouds
+      kubelogin-oidc
       dive
       kcl-cli
       kubectl
@@ -40,6 +47,9 @@ in {
     ];
     home.file.".kube/switch-config.yaml" = {
       text = kubeswitchConfig;
+    };
+    home.file.".kube/configs/didactiklabs/oidc@didactiklabs.kubeconfig" = lib.mkIf cfg.kubeConfig.didactiklabs.enable {
+      source = ../assets/kubeconfigs/oidc-didactiklabs.kubeconfig;
     };
     programs.zsh.initExtra = ''
       source <(switcher init zsh) # kubeswitch

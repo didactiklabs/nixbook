@@ -25,7 +25,7 @@
   '';
 in {
   config = lib.mkIf cfg.fastfetchConfig.enable {
-    home.file.".config/fastfetch/ascsiiArt" = {
+    home.file.".config/fastfetch/asciiArt" = {
       text = lib.mkForce asciiArt;
     };
   };
