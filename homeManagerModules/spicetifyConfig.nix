@@ -21,9 +21,6 @@ in {
       spotifyPackage = pkgs.spotify;
       spicetifyPackage = pkgs.spicetify-cli;
       enabledExtensions = with spicePkgs.extensions; [
-        groupSession
-        historyShortcut
-        hidePodcasts
         fullAppDisplay
         volumePercentage
         history
