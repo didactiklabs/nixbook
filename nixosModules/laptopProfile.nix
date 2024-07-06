@@ -28,8 +28,6 @@ in {
     powerManagement = lib.mkForce {
       enable = true;
       powertop.enable = false; # to false else, it will shut your mouse down too often
-      #cpuFreqGovernor = lib.mkDefault "powersave";
-      #cpuFreqGovernor = lib.mkDefault "ondemand";
     };
     # https://github.com/AdnanHodzic/auto-cpufreq
     services.auto-cpufreq.enable = true;

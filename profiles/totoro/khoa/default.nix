@@ -49,6 +49,7 @@
     desktopApps.enable = true;
     kubeTools.enable = true;
     kubeConfig.didactiklabs.enable = true;
+    kubeConfig.bealv.enable = true;
     waybar.enable = true;
     nixvimConfig.enable = true;
   };
