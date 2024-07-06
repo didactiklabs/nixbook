@@ -1,11 +1,10 @@
 {
   config,
-  pkgs,
   lib,
   ...
 }: let
   cfg = config.customHomeManagerModules;
-  ascsiiArt = ''
+  asciiArt = ''
 
     ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣼⣿⡄⠀⠀⠀⠀⠀⠀⠀⣠⣄⠀⠀⠀⠀⠀
     ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⣿⣿⡇⠀⠀⠀⠀⠀⠀⢰⣿⣿⡄⠀⠀⠀⠀
@@ -26,7 +25,7 @@
 in {
   config = lib.mkIf cfg.fastfetchConfig.enable {
     home.file.".config/fastfetch/ascsiiArt" = {
-      text = lib.mkForce ascsiiArt;
+      text = lib.mkForce asciiArt;
     };
   };
 }

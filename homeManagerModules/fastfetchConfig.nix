@@ -95,7 +95,7 @@
       ]
     }
   '';
-  ascsiiArt = ''
+  asciiArt = ''
 
 
     ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⠀⡀⠀⠀⠀⠀⠀⠀⠀
@@ -121,7 +121,7 @@ in {
       text = fastfetchConfig;
     };
     home.file.".config/fastfetch/ascsiiArt" = {
-      text = ascsiiArt;
+      text = asciiArt;
     };
   };
 
