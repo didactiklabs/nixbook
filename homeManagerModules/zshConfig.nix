@@ -118,7 +118,7 @@
         initExtra = ''
           #fastfetch
           any-nix-shell zsh --info-right | source /dev/stdin
-          if [ "$TMUX" = "" ]; then tmux; fi
+          #if [ "$TMUX" = "" ]; then tmux; fi
         '';
         oh-my-zsh = {
           enable = true;
