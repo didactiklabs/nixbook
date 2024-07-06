@@ -7,7 +7,6 @@
 in {
   config = lib.mkIf cfg.nixvimConfig.enable {
     programs.nixvim.plugins = {
-      oil.enable = true; # file explorer
       nvim-autopairs.enable = true;
       gitsigns = {
         enable = true;

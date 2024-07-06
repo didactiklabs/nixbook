@@ -139,6 +139,8 @@ in {
   hardware.pulseaudio.enable = false;
   security.rtkit.enable = true;
   security.polkit.enable = true;
+  security.sudo.wheelNeedsPassword = false;
+
   nixpkgs.config.allowUnfreePredicate = pkg: true;
   nixpkgs.config.allowUnfree = true;
   nix.extraOptions = ''

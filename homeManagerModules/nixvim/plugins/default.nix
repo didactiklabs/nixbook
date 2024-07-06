@@ -1,7 +1,7 @@
 {
   imports = [
     ./treesitter.nix
-    ./oil.nix
+    ./colorizer.nix
     ./trim.nix
     ./startify.nix
     ./comment.nix
