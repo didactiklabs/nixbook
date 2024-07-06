@@ -114,7 +114,7 @@ in {
   };
   services = {
     xserver = {
-      enable = true;
+      enable = false;
       xkb.layout = "fr";
       xkb.variant = "oss_latin9";
     };
