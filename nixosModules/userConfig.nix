@@ -129,7 +129,6 @@
             ../homeManagerModules/fastfetchConfig.nix
             ../homeManagerModules/desktopApps.nix
             ../homeManagerModules/thunarConfig.nix
-            #../homeManagerModules/makoConfig.nix
             ../homeManagerModules/waybarConfig.nix
             ../homeManagerModules/kubeTools.nix
             ../homeManagerModules/mpvConfig.nix

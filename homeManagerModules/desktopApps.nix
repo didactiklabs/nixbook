@@ -21,6 +21,7 @@ in {
       wdisplays # display manager
       vesktop # discord
       firefox
+      thunderbird
     ];
   };
 }

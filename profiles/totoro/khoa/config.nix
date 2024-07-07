@@ -1,5 +1,4 @@
-{pkgs, ...}: let
-in {
+{pkgs, ...}: {
   config = {
     systemd.user.services.jellyfin-mpv-shim = {
       Unit = {
