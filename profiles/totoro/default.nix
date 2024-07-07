@@ -29,7 +29,6 @@ in {
       bealv.enable = true;
       didactiklabs.enable = true;
     };
-    powertune.enable = true;
   };
   imports = [
     (mkUser {
