@@ -136,6 +136,7 @@ in {
 
   console.keyMap = "fr";
   hardware.bluetooth.enable = true;
+  hardware.bluetooth.powerOnBoot = false;
   sound.enable = true;
   hardware.pulseaudio.enable = false;
   security.rtkit.enable = true;
