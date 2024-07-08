@@ -120,7 +120,7 @@ in {
     home.file.".config/fastfetch/config.jsonc" = {
       text = fastfetchConfig;
     };
-    home.file.".config/fastfetch/ascsiiArt" = {
+    home.file.".config/fastfetch/asciiArt" = {
       text = asciiArt;
     };
   };
