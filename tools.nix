@@ -12,8 +12,5 @@
     tree
     openvpn
     nixos-generators
-    btop # top replacer
-    duf # df replacer
-    sd # sed alternative
   ];
 }

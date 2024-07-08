@@ -3,6 +3,9 @@
     home.packages = [
       pkgs.ueberzugpp # for image preview ranger
       pkgs.any-nix-shell
+      pkgs.btop # top replacer
+      pkgs.duf # df replacer
+      pkgs.sd # sed alternative
     ];
     programs = {
       zathura.enable = true;

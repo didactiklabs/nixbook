@@ -35,6 +35,8 @@ in {
     home.file."${config.xdg.configHome}/nvim/spell/fr.utf-8.sug".source = nvim-spell-fr-utf8-suggestions;
     home.file."${config.xdg.configHome}/nvim/spell/fr.latin1.spl".source = nvim-spell-fr-latin1-dictionary;
     home.file."${config.xdg.configHome}/nvim/spell/fr.latin1.sug".source = nvim-spell-fr-latin1-suggestions;
+    home.packages = [
+    ];
     programs.nixvim = {
       enable = true;
       defaultEditor = true;
@@ -56,6 +58,9 @@ in {
         let g:strip_whitespace_on_save=1
         let g:strip_whitelines_at_eof=1
         let g:show_spaces_that_precede_tabs=1
+        let g:neovide_remember_window_size = v:false
+        let g:neovide_scale_factor = 0.8
+        let g:neovide_fullscreen = v:false
       '';
     };
   };
