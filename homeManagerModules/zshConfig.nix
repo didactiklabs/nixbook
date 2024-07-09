@@ -1,10 +1,4 @@
-{
-  pkgs,
-  lib,
-  ...
-}: let
-  goji = import ../customPkgs/goji.nix {inherit pkgs lib;};
-in {
+{pkgs, ...}: {
   config = {
     home.packages = [
       pkgs.ueberzugpp # for image preview ranger
@@ -12,7 +6,6 @@ in {
       pkgs.btop # top replacer
       pkgs.duf # df replacer
       pkgs.sd # sed alternative
-      goji
     ];
     programs = {
       zathura.enable = true;

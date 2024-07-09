@@ -135,6 +135,7 @@
             ../homeManagerModules/k9sConfig.nix
             ../homeManagerModules/scripts
             ../homeManagerModules/swayncConfig.nix
+            ../homeManagerModules/goji.nix
           ]
           userImports
         ];

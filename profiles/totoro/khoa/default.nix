@@ -52,5 +52,6 @@
     kubeConfig.bealv.enable = true;
     waybar.enable = true;
     nixvimConfig.enable = true;
+    gojiConfig.enable = true;
   };
 }
