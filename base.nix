@@ -134,14 +134,17 @@ in {
   };
 
   console.keyMap = "fr";
-  hardware.bluetooth.enable = true;
-  hardware.bluetooth.powerOnBoot = false;
+  hardware = {
+    bluetooth.enable = true;
+    bluetooth.powerOnBoot = false;
+  };
   sound.enable = true;
   hardware.pulseaudio.enable = false;
-  security.rtkit.enable = true;
-  security.polkit.enable = true;
-  security.sudo.wheelNeedsPassword = false;
-
+  security = {
+    rtkit.enable = true;
+    polkit.enable = true;
+    sudo.wheelNeedsPassword = false;
+  };
   nixpkgs.config.allowUnfreePredicate = pkg: true;
   nixpkgs.config.allowUnfree = true;
   nix.extraOptions = ''

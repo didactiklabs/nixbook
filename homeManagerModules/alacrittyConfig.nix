@@ -16,9 +16,11 @@
         bold_italic.family = "Hack Nerd Font";
         bold_italic.style = "Bold Italic";
       };
-      window.padding.x = 2;
-      window.padding.y = 2;
-      window.opacity = lib.mkDefault 0.8;
+      window = {
+        padding.x = 2;
+        padding.y = 2;
+        opacity = lib.mkDefault 0.8;
+      };
       scrolling.history = 100000;
       scrolling.multiplier = 3;
       env = {"TERM" = "xterm-256color";};

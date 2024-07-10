@@ -5,7 +5,6 @@
   ...
 }: let
   cfg = config.customHomeManagerModules;
-  jsonFormat = pkgs.formats.json {};
 in {
   config = lib.mkIf cfg.desktopApps.enable {
     home.packages = [

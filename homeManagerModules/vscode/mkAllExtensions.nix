@@ -1,7 +1,4 @@
-{
-  pkgs,
-  lib ? pkgs.lib,
-}: let
+{pkgs}: let
   inherit (import ./extensionsList.nix) extensions;
 
   ## Returns a list with derivations for extensions not in nixpkgs

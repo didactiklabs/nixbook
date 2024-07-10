@@ -14,5 +14,6 @@
     ./telescope.nix
     ./git-conflict.nix
     ./cmp.nix
+    ./trouble.nix
   ];
 }
