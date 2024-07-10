@@ -12,5 +12,6 @@
     ./none-ls.nix
     ./markdown-preview.nix
     ./telescope.nix
+    ./git-conflict.nix
   ];
 }
