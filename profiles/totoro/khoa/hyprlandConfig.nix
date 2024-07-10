@@ -1,7 +1,6 @@
 {
   config,
   lib,
-  pkgs,
   ...
 }: let
   cfg = config.customHomeManagerModules;
@@ -17,6 +16,9 @@ in {
         "DP-11,1920x1080,3360x0,auto"
       ];
       windowrulev2 = [
+        "workspace 1 silent,class:(thunderbird)"
+        "workspace 1 silent,class:(vesktop)"
+        "workspace 1 silent,title:(Spotify Premium)"
       ];
       exec-once = [
         "[workspace 1 silent] spotify"
