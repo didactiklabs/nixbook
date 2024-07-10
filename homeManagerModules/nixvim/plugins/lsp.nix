@@ -1,11 +1,15 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }: let
   cfg = config.customHomeManagerModules;
 in {
   config = lib.mkIf cfg.nixvimConfig.enable {
+    home.packages = [
+      pkgs.golangci-lint
+    ];
     programs.nixvim = {
       plugins = {
         lsp-format = {
@@ -45,7 +49,7 @@ in {
             yamlls.enable = true;
             gopls.enable = true;
             golangci-lint-ls.enable = true;
-            helm-ls.enable =true;
+            helm-ls.enable = true;
             html.enable = true;
             htmx.enable = true;
             jsonls.enable = true;

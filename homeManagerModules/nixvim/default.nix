@@ -40,6 +40,7 @@ in {
     programs.nixvim = {
       enable = true;
       defaultEditor = true;
+      opts.completeopt = ["menu" "menuone" "noselect"];
       viAlias = true;
       vimAlias = true;
       luaLoader.enable = true;

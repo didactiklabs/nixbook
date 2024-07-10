@@ -13,5 +13,6 @@
     ./markdown-preview.nix
     ./telescope.nix
     ./git-conflict.nix
+    ./cmp.nix
   ];
 }
