@@ -7,14 +7,6 @@
       ];
       command = "Neotree action=show";
     }
-    {
-      event = "BufRead";
-      pattern = [
-        "*"
-      ];
-      command = "Trouble focus=false";
-    }
-
     # Enable spellcheck for some filetypes
     {
       event = "FileType";
