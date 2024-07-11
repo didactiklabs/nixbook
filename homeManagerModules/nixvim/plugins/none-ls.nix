@@ -20,10 +20,18 @@ in {
             statix.enable = true;
             yamllint.enable = true;
             pylint.enable = true;
+            golangci_lint.enable = true;
+            ansiblelint.enable = true;
+            markdownlint.enable = true;
+            hadolint.enable = true;
           };
           formatting = {
+            terraform_fmt.enable = true;
+            hclfmt.enable = true;
             gofumpt.enable = true;
             golines.enable = true;
+            gofmt.enable = true;
+            goimports_reviser.enable = true;
             alejandra.enable = true;
             black = {
               enable = true;
@@ -44,6 +52,7 @@ in {
             };
             stylua.enable = true;
             yamlfmt.enable = true;
+            nixfmt.enable = true;
           };
         };
       };

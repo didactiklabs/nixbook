@@ -49,21 +49,21 @@ in {
           source = ../assets/kubeconfigs/oidc-bealv.kubeconfig;
         };
       };
+      packages = with pkgs; [
+        # clouds
+        kubelogin-oidc
+        dive
+        kcl-cli
+        kubectl
+        k9s
+        kubevirt
+        fluxcd
+        kind
+        kubebuilder
+        kubeswitch
+        kustomize
+      ];
     };
-    packages = with pkgs; [
-      # clouds
-      kubelogin-oidc
-      dive
-      kcl-cli
-      kubectl
-      k9s
-      kubevirt
-      fluxcd
-      kind
-      kubebuilder
-      kubeswitch
-      kustomize
-    ];
     programs.zsh.initExtra = ''
       source <(switcher init zsh) # kubeswitch
     '';
