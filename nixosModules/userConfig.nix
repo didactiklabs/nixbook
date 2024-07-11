@@ -32,9 +32,11 @@
     userImports ? [],
   }: {
     # Enable automount usb
-    services.gvfs.enable = true;
-    services.udisks2.enable = true;
-    services.devmon.enable = true;
+    services = {
+      gvfs.enable = true;
+      udisks2.enable = true;
+      devmon.enable = true;
+    };
     programs.ydotool = {
       enable = true; # clipboard prerequisite
     };
@@ -54,11 +56,13 @@
       backupFileExtension = "rebuild";
       users.${username} = {
         config = {
-          services.udiskie.enable = true;
+          services = {
+            udiskie.enable = true;
+            gnome-keyring.enable = true;
+          };
           dconf.settings."org/gnome/desktop/interface".font-name = lib.mkForce "Hack Nerd Font";
           customHomeManagerModules = mergedConfig.customHomeManagerModules;
           ## https://nix-community.github.io/home-manager/options.html#opt-services.gnome-keyring.enable
-          services.gnome-keyring.enable = true;
           systemd.user.services.polkit-gnome = {
             Unit = {
               Description = "PolicyKit Authentication Agent";

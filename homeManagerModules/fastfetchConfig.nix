@@ -114,14 +114,16 @@
   '';
 in {
   config = lib.mkIf cfg.fastfetchConfig.enable {
-    home.packages = [
-      pkgs.fastfetch
-    ];
-    home.file.".config/fastfetch/config.jsonc" = {
-      text = fastfetchConfig;
-    };
-    home.file.".config/fastfetch/asciiArt" = {
-      text = asciiArt;
+    home = {
+      packages = [
+        pkgs.fastfetch
+      ];
+      file.".config/fastfetch/config.jsonc" = {
+        text = fastfetchConfig;
+      };
+      file.".config/fastfetch/asciiArt" = {
+        text = asciiArt;
+      };
     };
   };
 

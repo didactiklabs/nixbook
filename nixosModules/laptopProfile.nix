@@ -26,9 +26,11 @@ in {
   };
   config = lib.mkIf cfg.enable {
     ## not sure why i have to enforce it to false :shrug:
-    services.power-profiles-daemon.enable = false;
-    services.fwupd.enable = true;
-    services.thermald.enable = true;
+    services = {
+      power-profiles-daemon.enable = false;
+      fwupd.enable = true;
+      thermald.enable = true;
+    };
     hardware = {
       enableAllFirmware = true;
       enableRedistributableFirmware = true;

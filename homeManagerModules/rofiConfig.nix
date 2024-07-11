@@ -123,15 +123,16 @@
 in {
   # https://github.com/adi1090x/rofi
   config = lib.mkIf cfg.rofiConfig.enable {
-    home.packages = [pkgs.rofi-wayland];
-    home.file.".config/rofi".source = "${rofi-themes}/files";
-    # Define the Nix derivation to create the script file
-    home.file.".config/rofiScripts/rofiLockScript.sh" = {
-      text = rofiLockScript;
-      executable = true;
+    home = {
+      packages = [pkgs.rofi-wayland];
+      file.".config/rofi".source = "${rofi-themes}/files";
+      # Define the Nix derivation to create the script file
+      file.".config/rofiScripts/rofiLockScript.sh" = {
+        text = rofiLockScript;
+        executable = true;
+      };
     };
   };
-
   options.customHomeManagerModules.rofiConfig = {
     enable = lib.mkOption {
       type = lib.types.bool;

@@ -37,7 +37,20 @@ in {
     };
   };
   config = lib.mkIf cfg.kubeTools.enable {
-    home.packages = with pkgs; [
+    home = {
+      file = {
+        ".kube/switch-config.yaml" = {
+          text = kubeswitchConfig;
+        };
+        ".kube/configs/didactiklabs/oidc@didactiklabs.kubeconfig" = lib.mkIf cfg.kubeConfig.didactiklabs.enable {
+          source = ../assets/kubeconfigs/oidc-didactiklabs.kubeconfig;
+        };
+        ".kube/configs/bealv/oidc@bealv.kubeconfig" = lib.mkIf cfg.kubeConfig.bealv.enable {
+          source = ../assets/kubeconfigs/oidc-bealv.kubeconfig;
+        };
+      };
+    };
+    packages = with pkgs; [
       # clouds
       kubelogin-oidc
       dive
@@ -51,15 +64,6 @@ in {
       kubeswitch
       kustomize
     ];
-    home.file.".kube/switch-config.yaml" = {
-      text = kubeswitchConfig;
-    };
-    home.file.".kube/configs/didactiklabs/oidc@didactiklabs.kubeconfig" = lib.mkIf cfg.kubeConfig.didactiklabs.enable {
-      source = ../assets/kubeconfigs/oidc-didactiklabs.kubeconfig;
-    };
-    home.file.".kube/configs/bealv/oidc@bealv.kubeconfig" = lib.mkIf cfg.kubeConfig.bealv.enable {
-      source = ../assets/kubeconfigs/oidc-bealv.kubeconfig;
-    };
     programs.zsh.initExtra = ''
       source <(switcher init zsh) # kubeswitch
     '';

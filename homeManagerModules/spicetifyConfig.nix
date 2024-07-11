@@ -25,10 +25,6 @@ in {
         volumePercentage
         history
       ];
-
-      enabledCustomApps = with spicePkgs.apps; [
-      ];
-
       theme = spicePkgs.themes.Dribbblish;
       colorScheme = "custom";
       customColorScheme = {
