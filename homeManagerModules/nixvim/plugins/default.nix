@@ -15,5 +15,7 @@
     ./git-conflict.nix
     ./cmp.nix
     ./trouble.nix
+    ./lualine.nix
+    ./noice.nix
   ];
 }
