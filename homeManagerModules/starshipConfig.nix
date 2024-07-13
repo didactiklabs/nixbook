@@ -1,9 +1,5 @@
-{
-  config,
-  lib,
-  ...
-}: let
-  cfg = config.customHomeManagerModules.starship;
+{ config, lib, ... }:
+let cfg = config.customHomeManagerModules.starship;
 in {
   options.customHomeManagerModules.starship = {
     enable = lib.mkOption {
@@ -28,7 +24,6 @@ in {
         format = ''
           (\[ $nix_shell \] )(\[ $kubernetes \])(\[ $kubernetes_ns \])(\[ $git_branch $git_metrics \])\[ $character $directory \]
           \[ $username@$hostname \] $time \$ '';
-
         # https://starship.rs/config/#nix-shell
         nix_shell = {
           disabled = false;
@@ -53,7 +48,7 @@ in {
           symbol = "";
           format = "[$symbol]($style) : [$branch]($style)";
           style = "bold purple";
-          ignore_branches = ["remotes/origin/renovate/*"];
+          ignore_branches = [ "remotes/origin/renovate/*" ];
         };
 
         # https://starship.rs/config/#git-metrics
@@ -90,7 +85,7 @@ in {
         package.disabled = true;
 
         # https://starship.rs/config/#python
-        python = {disabled = true;};
+        python = { disabled = true; };
 
         # https://starship.rs/config/#username
         username = {
