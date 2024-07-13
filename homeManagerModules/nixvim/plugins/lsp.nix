@@ -1,24 +1,13 @@
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}: let
-  cfg = config.customHomeManagerModules;
+{ config, lib, pkgs, ... }:
+let cfg = config.customHomeManagerModules;
 in {
   config = lib.mkIf cfg.nixvimConfig.enable {
-    home.packages = [
-      pkgs.golangci-lint
-    ];
+    home.packages = [ pkgs.golangci-lint ];
     programs.nixvim = {
       plugins = {
         lsp-format = {
           enable = true;
-          setup = {
-            type = {
-              sync = true;
-            };
-          };
+          setup = { type = { sync = true; }; };
         };
         lsp = {
           enable = true;
