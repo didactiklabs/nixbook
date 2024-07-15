@@ -161,6 +161,7 @@ in {
 
   environment.systemPackages = [
     pkgs.gnupg
+    pkgs.pinentry-tty
     pkgs.usbutils
     pkgs.udiskie
     pkgs.udisks
