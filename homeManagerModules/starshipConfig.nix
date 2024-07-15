@@ -75,7 +75,6 @@ in {
         directory = {
           disabled = false;
           style = "bg:#${config.lib.stylix.colors.base02}";
-          #truncation_length = 5;
           format = "[ $path ]($style)";
           truncation_length = 3;
           truncation_symbol = "…/";
