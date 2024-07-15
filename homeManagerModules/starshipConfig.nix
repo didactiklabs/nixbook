@@ -22,39 +22,46 @@ in {
         command_timeout = 5000;
         # https://starship.rs/config/#prompt
         format = ''
-          (\[ $nix_shell \] )(\[ $kubernetes \])(\[ $kubernetes_ns \])(\[ $git_branch $git_metrics \])\[ $character $directory \]
-          \[ $username@$hostname \] $time \$ '';
-        # https://starship.rs/config/#nix-shell
+          [](#${config.lib.stylix.colors.base01})$nix_shell$username$hostname[](bg:#${config.lib.stylix.colors.base08} fg:#${config.lib.stylix.colors.base01})$kubernetes[](bg:#${config.lib.stylix.colors.base02} fg:#${config.lib.stylix.colors.base08})$directory[](fg:#${config.lib.stylix.colors.base02} bg:#${config.lib.stylix.colors.base03})$git_branch$git_metrics[](fg:#${config.lib.stylix.colors.base03} bg:#${config.lib.stylix.colors.base04})$time[ ](fg:#${config.lib.stylix.colors.base04})
+        '';
         nix_shell = {
           disabled = false;
-          format = "[$symbol]($style) : [$name]($style)";
+          format = "[$symbol ]($style)";
           impure_msg = "[impure](bold red)";
           pure_msg = "[pure](bold green)";
           symbol = "";
-          style = "bold cyan";
+          style = "bg:#${config.lib.stylix.colors.base01}";
         };
 
         # https://starship.rs/config/#kubernetes
         kubernetes = {
           disabled = false;
           symbol = "☸";
-          format = "[☸]($style) [$context]($style) [$namespace]($style)";
-          style = "bold blue";
+          format = "[ ☸ ]($style)[$context ]($style)";
+          style = "bg:#${config.lib.stylix.colors.base08}";
         };
 
         # https://starship.rs/config/#git-branch
         git_branch = {
           disabled = false;
           symbol = "";
-          format = "[$symbol]($style) : [$branch]($style)";
-          style = "bold purple";
+          format = "[ $symbol $branch ]($style)";
+          style = "bg:#${config.lib.stylix.colors.base03}";
           ignore_branches = [ "remotes/origin/renovate/*" ];
+        };
+        git_status = {
+          disabled = false;
+          format = "[$all_status$ahead_behind ]($style)";
+          style = "bg:#${config.lib.stylix.colors.base03}";
         };
 
         # https://starship.rs/config/#git-metrics
         git_metrics = {
+          added_style = "bg:#${config.lib.stylix.colors.base03}";
+          deleted_style = "bg:#${config.lib.stylix.colors.base03}";
           disabled = false;
-          format = "[+$added]($added_style) / [-$deleted]($deleted_style)";
+          format =
+            "[+$added]($added_style)[ / ](bg:#${config.lib.stylix.colors.base03})[-$deleted ]($deleted_style)";
         };
 
         # https://starship.rs/config/#character
@@ -67,17 +74,18 @@ in {
         # https://starship.rs/config/#directory
         directory = {
           disabled = false;
-          truncate_to_repo = false;
-          use_logical_path = true;
-          style = "bold green";
+          style = "bg:#${config.lib.stylix.colors.base02}";
           #truncation_length = 5;
-          format = "[$path]($style)[$lock_symbol]($lock_style)";
+          format = "[ $path ]($style)";
+          truncation_length = 3;
+          truncation_symbol = "…/";
         };
 
         # https://starship.rs/config/#time
         time = {
           disabled = false;
-          format = "[$time]($style)";
+          format = "[ ♥ $time ]($style)";
+          style = "bg:#${config.lib.stylix.colors.base04}";
           time_format = "%H:%M";
         };
 
@@ -91,8 +99,8 @@ in {
         username = {
           disabled = false;
           show_always = true;
-          style_user = "bold green";
-          style_root = "bold red";
+          style_user = "bg:#${config.lib.stylix.colors.base01}";
+          style_root = "bg:#${config.lib.stylix.colors.base01}";
           format = "[$user]($style)";
         };
 
@@ -100,9 +108,9 @@ in {
         hostname = {
           disabled = false;
           ssh_only = false;
-          format = "[$hostname]($style)";
+          format = "[@$hostname ]($style)";
           trim_at = "-";
-          style = "bold yellow";
+          style = "bg:#${config.lib.stylix.colors.base01}";
         };
       };
     };
