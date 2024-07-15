@@ -1,9 +1,5 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
-}: let
+{ config, pkgs, lib, ... }:
+let
   cfg = config.customHomeManagerModules;
   mainWallpaper = "${config.profileCustomization.mainWallpaper}";
   terminal = "${pkgs.alacritty}/bin/alacritty";
@@ -17,12 +13,11 @@
   pidof = "${pkgs.sysvtools}/bin/pidof";
 in {
   config = lib.mkIf cfg.hyprlandConfig.enable {
+    home.packages = [ pkgs.hyprlandPlugins.hy3 pkgs.hyprlandPlugins.hyprexpo ];
     wayland.windowManager.hyprland.enable = true;
     wayland.windowManager.hyprland.xwayland.enable = false;
-    wayland.windowManager.hyprland.plugins = [
-      pkgs.hyprlandPlugins.hy3
-      pkgs.hyprlandPlugins.hyprexpo
-    ];
+    wayland.windowManager.hyprland.plugins =
+      [ pkgs.hyprlandPlugins.hy3 pkgs.hyprlandPlugins.hyprexpo ];
     wayland.windowManager.hyprland.settings = {
       "$mod" = "SUPER";
       misc = {
@@ -33,7 +28,8 @@ in {
         hy3 = {
           tabs = {
             "rounding" = 20;
-            "col.active" = "rgb(${config.lib.stylix.colors.base02})"; # to move to stylix module
+            "col.active" =
+              "rgb(${config.lib.stylix.colors.base02})"; # to move to stylix module
             "col.text.active" = "rgb(${config.lib.stylix.colors.base07})";
             "col.urgent" = "rgb(${config.lib.stylix.colors.base04})";
           };
@@ -42,7 +38,8 @@ in {
           columns = 4;
           gap_size = 5;
           #bg_col = rgb(111111);
-          workspace_method = "center current"; # [center/first] [workspace] e.g. first 1 or center m+1
+          workspace_method =
+            "center current"; # [center/first] [workspace] e.g. first 1 or center m+1
           enable_gesture = true; # laptop touchpad
           gesture_fingers = 3; # 3 or 4
           gesture_distance = 300; # how far is the "max"
@@ -90,11 +87,7 @@ in {
           "workspaces, 1, 5, wind"
         ];
       };
-      layerrule = [
-        "blur,waybar"
-        "blur,rofi"
-        "dimaround,rofi"
-      ];
+      layerrule = [ "blur,waybar" "blur,rofi" "dimaround,rofi" ];
 
       windowrulev2 = [
         "float,class:(com.github.hluk.copyq)"
@@ -104,9 +97,7 @@ in {
         "opaque, class:(imv)"
       ];
 
-      monitor = [
-        ",preferred,auto,1"
-      ];
+      monitor = [ ",preferred,auto,1" ];
       env = [
         "XDG_CURRENT_DESKTOP,Hyprland"
         "XDG_SESSION_TYPE,wayland"
@@ -136,73 +127,64 @@ in {
         kb_layout = "fr";
         numlock_by_default = true;
       };
-      bind =
-        [
-          "$mod, TAB, hyprexpo:expo, toggle"
-          "$mod, Z, hy3:changegroup, toggletab"
-          "$mod, E, hy3:changegroup, opposite"
+      bind = [
+        "$mod, TAB, hyprexpo:expo, toggle"
+        "$mod, Z, hy3:changegroup, toggletab"
+        "$mod, E, hy3:changegroup, opposite"
 
-          "$mod, ampersand, workspace, 1"
-          "$mod, eacute, workspace, 2"
-          "$mod, quotedbl, workspace, 3"
-          "$mod, apostrophe, workspace, 4"
-          "$mod, parenleft, workspace, 5"
-          "$mod, minus, workspace, 6"
-          "$mod, egrave, workspace, 7"
-          "$mod, underscore, workspace, 8"
-          "$mod, ccedilla, workspace, 9"
-          "$mod, agrave, workspace, 10"
+        "$mod, ampersand, workspace, 1"
+        "$mod, eacute, workspace, 2"
+        "$mod, quotedbl, workspace, 3"
+        "$mod, apostrophe, workspace, 4"
+        "$mod, parenleft, workspace, 5"
+        "$mod, minus, workspace, 6"
+        "$mod, egrave, workspace, 7"
+        "$mod, underscore, workspace, 8"
+        "$mod, ccedilla, workspace, 9"
+        "$mod, agrave, workspace, 10"
 
-          "$mod SHIFT, ampersand, movetoworkspace, 1"
-          "$mod SHIFT, eacute, movetoworkspace, 2"
-          "$mod SHIFT, quotedbl, movetoworkspace, 3"
-          "$mod SHIFT, apostrophe, movetoworkspace, 4"
-          "$mod SHIFT, parenleft, movetoworkspace, 5"
-          "$mod SHIFT, minus, movetoworkspace, 6"
-          "$mod SHIFT, egrave, movetoworkspace, 7"
-          "$mod SHIFT, underscore, movetoworkspace, 8"
-          "$mod SHIFT, ccedilla, movetoworkspace, 9"
-          "$mod SHIFT, agrave, movetoworkspace, 10"
+        "$mod SHIFT, ampersand, movetoworkspace, 1"
+        "$mod SHIFT, eacute, movetoworkspace, 2"
+        "$mod SHIFT, quotedbl, movetoworkspace, 3"
+        "$mod SHIFT, apostrophe, movetoworkspace, 4"
+        "$mod SHIFT, parenleft, movetoworkspace, 5"
+        "$mod SHIFT, minus, movetoworkspace, 6"
+        "$mod SHIFT, egrave, movetoworkspace, 7"
+        "$mod SHIFT, underscore, movetoworkspace, 8"
+        "$mod SHIFT, ccedilla, movetoworkspace, 9"
+        "$mod SHIFT, agrave, movetoworkspace, 10"
 
-          "$mod, left, hy3:movefocus, l"
-          "$mod, right, hy3:movefocus, r"
-          "$mod, up, hy3:movefocus, u"
-          "$mod, down, hy3:movefocus, d"
+        "$mod, left, hy3:movefocus, l"
+        "$mod, right, hy3:movefocus, r"
+        "$mod, up, hy3:movefocus, u"
+        "$mod, down, hy3:movefocus, d"
 
-          "$mod SHIFT, left, hy3:movewindow, l"
-          "$mod SHIFT, right, hy3:movewindow, r"
-          "$mod SHIFT, up, hy3:movewindow, u"
-          "$mod SHIFT, down, hy3:movewindow, d"
+        "$mod SHIFT, left, hy3:movewindow, l"
+        "$mod SHIFT, right, hy3:movewindow, r"
+        "$mod SHIFT, up, hy3:movewindow, u"
+        "$mod SHIFT, down, hy3:movewindow, d"
 
-          "$mod, RETURN, exec, ${terminal}"
-          "$mod, A, killactive"
-          ", PRINT, exec, ${grimshot} --notify copy area"
-          "$mod, N, exec, ${pkgs.swaynotificationcenter}/bin/swaync-client -t"
+        "$mod, RETURN, exec, ${terminal}"
+        "$mod, A, killactive"
+        ", PRINT, exec, ${grimshot} --notify copy area"
+        "$mod, N, exec, ${pkgs.swaynotificationcenter}/bin/swaync-client -t"
 
-          # ",XF86AudioRaiseVolume, exec, ${wpctl} set-volume @DEFAULT_SINK@ 3%+ && ${notify-send} '󰕾 +3%'"
-          # ",XF86AudioLowerVolume, exec, ${wpctl} set-volume @DEFAULT_SINK@ 3%- && ${notify-send} '󰕾 -3%'"
-          # ",XF86AudioMute, exec, ${wpctl} set-mute @DEFAULT_SINK@ toggle"
-          # ",XF86AudioMicMute, exec, ${wpctl} set-mute @DEFAULT_SINK@ toggle"
-          ",XF86MonBrightnessDown, exec, ${brightnessctl} set 10%-"
-          ",XF86MonBrightnessUp, exec, ${brightnessctl} set +10%"
-        ]
-        ++ (
-          if cfg.copyqConfig.enable
-          then [
-            "$mod, Q, exec, ${pkgs.copyq}/bin/copyq toggle"
-          ]
-          else []
-        )
-        ++ (
-          if cfg.rofiConfig.enable
-          then [
-            "$mod, D, exec, ${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/${rofiLauncherType}/${rofiLauncherStyle}.rasi"
-            ''
-              $mod, L, exec, $HOME/.config/rofiScripts/rofiLockScript.sh ${rofiPowermenuStyle}
-            ''
-          ]
-          else []
-        );
+        # ",XF86AudioRaiseVolume, exec, ${wpctl} set-volume @DEFAULT_SINK@ 3%+ && ${notify-send} '󰕾 +3%'"
+        # ",XF86AudioLowerVolume, exec, ${wpctl} set-volume @DEFAULT_SINK@ 3%- && ${notify-send} '󰕾 -3%'"
+        # ",XF86AudioMute, exec, ${wpctl} set-mute @DEFAULT_SINK@ toggle"
+        # ",XF86AudioMicMute, exec, ${wpctl} set-mute @DEFAULT_SINK@ toggle"
+        ",XF86MonBrightnessDown, exec, ${brightnessctl} set 10%-"
+        ",XF86MonBrightnessUp, exec, ${brightnessctl} set +10%"
+      ] ++ (if cfg.copyqConfig.enable then
+        [ "$mod, Q, exec, ${pkgs.copyq}/bin/copyq toggle" ]
+      else
+        [ ]) ++ (if cfg.rofiConfig.enable then [
+          "$mod, D, exec, ${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/${rofiLauncherType}/${rofiLauncherStyle}.rasi"
+          ''
+            $mod, L, exec, $HOME/.config/rofiScripts/rofiLockScript.sh ${rofiPowermenuStyle}
+          ''
+        ] else
+          [ ]);
     };
   };
 }
