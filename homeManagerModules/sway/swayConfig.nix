@@ -1,9 +1,5 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
-}: let
+{ config, pkgs, lib, ... }:
+let
   cfg = config.customHomeManagerModules;
   mainWallpaper = "${config.profileCustomization.mainWallpaper}";
   lockWallpaper = "${config.profileCustomization.lockWallpaper}";
@@ -17,11 +13,8 @@
   rofiPowermenuStyle = "${cfg.rofiConfig.powermenu.style}";
   playerctl = "${pkgs.playerctl}/bin/playerctl";
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
-  wpctl = "${pkgs.wireplumber}/bin/wpctl";
   grimshot = "${pkgs.sway-contrib.grimshot}/bin/grimshot";
   systemctl = "${pkgs.systemd}/bin/systemctl";
-  notify-send = "${pkgs.libnotify}/bin/notify-send";
-
   waylandEnv = {
     CLUTTER_BACKEND = "wayland";
     SDL_VIDEODRIVER = "wayland";
@@ -37,7 +30,8 @@
     #GTK_USE_PORTAL = "1";
   };
   mod = "Mod4";
-  modeSystem = "System (l) lock, (e) logout, (s) suspend, (h) hibernate, (r) reboot, (Shift+s) shutdown, (Shift+r) BIOS";
+  modeSystem =
+    "System (l) lock, (e) logout, (s) suspend, (h) hibernate, (r) reboot, (Shift+s) shutdown, (Shift+r) BIOS";
   modeResize = "Resize";
   ## Custom Workspace
   ## cf https://fontawesome.com/cheatsheet
@@ -69,12 +63,10 @@ in {
     ## https://nix-community.github.io/home-manager/options.html#opt-services.swayidle.events
     services.swayidle = {
       enable = true;
-      events = [
-        {
-          event = "lock";
-          command = "${swaylock} -f --image '${lockWallpaper}'";
-        }
-      ];
+      events = [{
+        event = "lock";
+        command = "${swaylock} -f --image '${lockWallpaper}'";
+      }];
       timeouts = [
         {
           timeout = 60;
@@ -129,12 +121,16 @@ in {
         include /etc/sway/config.d/*
       '';
       config = {
-        floating.modifier = "Mod4";
-        window.hideEdgeBorders = "none";
-        window.titlebar = false;
-        window.border = 2;
-        floating.titlebar = true;
-        floating.border = 2;
+        floating = {
+          modifier = "Mod4";
+          titlebar = true;
+          border = 2;
+        };
+        window = {
+          hideEdgeBorders = "none";
+          titlebar = false;
+          border = 2;
+        };
         defaultWorkspace = "${workspace1}";
         terminal = "${terminal}";
         input = {
@@ -146,7 +142,8 @@ in {
             tap = "enabled";
             #natural_scroll = "disabled";
             #dwt = "enabled";
-            accel_profile = "adaptive"; # disable mouse acceleration (enabled by default; to set it manually, use "adaptive" instead of "flat")
+            accel_profile =
+              "adaptive"; # disable mouse acceleration (enabled by default; to set it manually, use "adaptive" instead of "flat")
             pointer_accel = "0.3"; # set mouse sensitivity (between -1 and 1)
           };
         };
@@ -175,27 +172,23 @@ in {
 
         window.commands = [
           {
-            command = "opacity 0.8, shadows enable, blur enable, blur_passes 5, blur_radius 6, corner_radius 10";
-            criteria = {
-              class = ".*";
-            };
+            command =
+              "opacity 0.8, shadows enable, blur enable, blur_passes 5, blur_radius 6, corner_radius 10";
+            criteria = { class = ".*"; };
           }
           {
-            command = "floating enable, sticky enable, resize set height 600px width 550px, move position cursor, move down 330";
-            criteria = {
-              app_id = "copyq";
-            };
+            command =
+              "floating enable, sticky enable, resize set height 600px width 550px, move position cursor, move down 330";
+            criteria = { app_id = "copyq"; };
           }
           {
             command = "opacity 1.0";
-            criteria = {
-              app_id = "com.moonlight_stream.Moonlight";
-            };
+            criteria = { app_id = "com.moonlight_stream.Moonlight"; };
           }
         ];
 
         fonts = {
-          names = ["Hack Nerd Font" "FontAwesome"];
+          names = [ "Hack Nerd Font" "FontAwesome" ];
           style = "Bold";
           size = lib.mkForce 9.0;
         };
@@ -239,46 +232,44 @@ in {
           };
         };
 
-        bars = lib.mkIf cfg.waybar.enable [
-          {
-            position = "top";
-            command = "${waybar}";
-            fonts = {
-              names = ["Hack Nerd Font" "FontAwesome"];
-              style = "Bold";
-              size = 9.0;
-            };
-            colors = {
+        bars = lib.mkIf cfg.waybar.enable [{
+          position = "top";
+          command = "${waybar}";
+          fonts = {
+            names = [ "Hack Nerd Font" "FontAwesome" ];
+            style = "Bold";
+            size = 9.0;
+          };
+          colors = {
+            background = "${colorDarkGrey}";
+            separator = "${colorWhite}";
+            activeWorkspace = {
               background = "${colorDarkGrey}";
-              separator = "${colorWhite}";
-              activeWorkspace = {
-                background = "${colorDarkGrey}";
-                border = "${colorDarkGrey}";
-                text = "${colorWhite}";
-              };
-              inactiveWorkspace = {
-                background = "${colorDarkGrey}";
-                border = "${colorDarkGrey}";
-                text = "${colorWhite}";
-              };
-              focusedWorkspace = {
-                background = "${colorLightGrey}";
-                border = "${colorDarkGrey}";
-                text = "${colorWhite}";
-              };
-              bindingMode = {
-                background = "${colorRed}";
-                border = "${colorRed}";
-                text = "${colorWhite}";
-              };
-              urgentWorkspace = {
-                background = "${colorRed}";
-                border = "${colorRed}";
-                text = "${colorWhite}";
-              };
+              border = "${colorDarkGrey}";
+              text = "${colorWhite}";
             };
-          }
-        ];
+            inactiveWorkspace = {
+              background = "${colorDarkGrey}";
+              border = "${colorDarkGrey}";
+              text = "${colorWhite}";
+            };
+            focusedWorkspace = {
+              background = "${colorLightGrey}";
+              border = "${colorDarkGrey}";
+              text = "${colorWhite}";
+            };
+            bindingMode = {
+              background = "${colorRed}";
+              border = "${colorRed}";
+              text = "${colorWhite}";
+            };
+            urgentWorkspace = {
+              background = "${colorRed}";
+              border = "${colorRed}";
+              text = "${colorWhite}";
+            };
+          };
+        }];
 
         keybindings = lib.filterAttrsRecursive (name: value: value != null) {
           #lib.mkOptionDefault {
@@ -349,39 +340,36 @@ in {
           "${mod}+r" = ''mode "${modeResize}"'';
           "${mod}+Shift+t" = ''mode "${modeSystem}"'';
           "${mod}+Shift+v" = "exec ${pkgs.wlprop}/bin/wlprop";
-          "${mod}+q" = lib.mkIf cfg.copyqConfig.enable "exec ${pkgs.copyq}/bin/copyq toggle";
+          "${mod}+q" = lib.mkIf cfg.copyqConfig.enable
+            "exec ${pkgs.copyq}/bin/copyq toggle";
         };
 
         assigns = {
-          "${workspace1}" = [
-          ];
-          "${workspace2}" = [
-          ];
-          "${workspace3}" = [
-          ];
-          "${workspace4}" = [
-          ];
-          "${workspace5}" = [
-          ];
-          "${workspace6}" = [
-          ];
-          "${workspace8}" = [
-          ];
-          "${workspace9}" = [
-          ];
-          "${workspace10}" = [
-          ];
+          "${workspace1}" = [ ];
+          "${workspace2}" = [ ];
+          "${workspace3}" = [ ];
+          "${workspace4}" = [ ];
+          "${workspace5}" = [ ];
+          "${workspace6}" = [ ];
+          "${workspace8}" = [ ];
+          "${workspace9}" = [ ];
+          "${workspace10}" = [ ];
         };
 
         modes = {
           "${modeSystem}" = {
-            "l" = ''exec --no-startup-id ${swaylock} --color '${colorDarkGrey}', mode "default"'';
+            "l" = ''
+              exec --no-startup-id ${swaylock} --color '${colorDarkGrey}', mode "default"'';
             "e" = ''exec --no-startup-id ${swaymsg} exit, mode "default"'';
-            "s" = ''exec --no-startup-id ${swaylock} --color '${colorDarkGrey}' && sleep 1 && ${systemctl} suspend, mode "default"'';
-            "h" = ''exec --no-startup-id ${systemctl} hibernate, mode "default"'';
+            "s" = ''
+              exec --no-startup-id ${swaylock} --color '${colorDarkGrey}' && sleep 1 && ${systemctl} suspend, mode "default"'';
+            "h" =
+              ''exec --no-startup-id ${systemctl} hibernate, mode "default"'';
             "r" = ''exec --no-startup-id ${systemctl} reboot, mode "default"'';
-            "Shift+s" = ''exec --no-startup-id ${systemctl} poweroff -i, mode "default"'';
-            "Shift+r" = ''exec --no-startup-id ${systemctl} reboot --firmware-setup, mode "default"'';
+            "Shift+s" =
+              ''exec --no-startup-id ${systemctl} poweroff -i, mode "default"'';
+            "Shift+r" = ''
+              exec --no-startup-id ${systemctl} reboot --firmware-setup, mode "default"'';
             # back to normal: Enter or Escape
             "Return" = ''mode "default"'';
             "Escape" = ''mode "default"'';

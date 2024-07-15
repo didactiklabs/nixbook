@@ -1,15 +1,11 @@
-{
-  config,
-  hostname,
-  lib,
-  ...
-}: let
+{ config, hostname, lib, ... }:
+let
   nixOS_version = "24.05";
   nixvim = pkgs.fetchFromGitHub {
     owner = "nix-community";
     repo = "nixvim";
     rev = "nixos-${nixOS_version}";
-    sha256 = "sha256-/hfE2x9NbT13d53o9uq6MuMipV19pJUQzpsZIhlvsiM=";
+    sha256 = "sha256-dQGvOK+t45unF7DTp5bfO37hY0NkDUw6X3MH5CCTEAs=";
   };
   stylix = pkgs.fetchFromGitHub {
     owner = "danth";
@@ -17,9 +13,14 @@
     rev = "release-${nixOS_version}";
     sha256 = "sha256-A+dBkSwp8ssHKV/WyXb9uqIYrHBqHvtSedU24Lq9lqw=";
   };
-  pkgs = import (fetchTarball "https://github.com/NixOS/nixpkgs/archive/nixos-${nixOS_version}.tar.gz") {};
-  home-manager = builtins.fetchTarball "https://github.com/nix-community/home-manager/archive/release-${nixOS_version}.tar.gz";
-  hostProfile = import ./profiles/${hostname} {inherit lib config pkgs hostname home-manager stylix nixvim;};
+  pkgs = import (fetchTarball
+    "https://github.com/NixOS/nixpkgs/archive/nixos-${nixOS_version}.tar.gz")
+    { };
+  home-manager = builtins.fetchTarball
+    "https://github.com/nix-community/home-manager/archive/release-${nixOS_version}.tar.gz";
+  hostProfile = import ./profiles/${hostname} {
+    inherit lib config pkgs hostname home-manager stylix nixvim;
+  };
 in {
   imports = [
     ./hardware-configuration.nix
@@ -29,8 +30,8 @@ in {
     ./nixosModules/greetd.nix
     ./nixosModules/sway.nix
     ./nixosModules/hyprland.nix
-    (import ./nixosModules/networkManager.nix {inherit lib config pkgs;})
-    (import ./nixosModules/sunshine.nix {inherit lib config pkgs;})
+    (import ./nixosModules/networkManager.nix { inherit lib config pkgs; })
+    (import ./nixosModules/sunshine.nix { inherit lib config pkgs; })
     (import "${home-manager}/nixos")
     hostProfile
   ];
@@ -76,10 +77,7 @@ in {
 
   # Bootloader.
   boot = {
-    kernelParams = [
-      "intel_iommu=on"
-      "iommu=pt"
-    ];
+    kernelParams = [ "intel_iommu=on" "iommu=pt" ];
     kernelPackages = pkgs.linuxPackages_latest;
     plymouth.enable = true;
     loader = {
@@ -161,8 +159,6 @@ in {
     pkgs.tailscale
     pkgs.update-systemd-resolved
   ];
-  environment.variables = {
-    NIXOS_OZONE_WL = "1";
-  };
+  environment.variables = { NIXOS_OZONE_WL = "1"; };
   system.stateVersion = "${nixOS_version}";
 }
