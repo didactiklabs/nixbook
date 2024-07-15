@@ -143,8 +143,12 @@ in {
     polkit.enable = true;
     sudo.wheelNeedsPassword = false;
   };
-  nixpkgs.config.allowUnfreePredicate = pkg: true;
-  nixpkgs.config.allowUnfree = true;
+  nixpkgs = {
+    config = {
+      allowUnfreePredicate = pkg: true;
+      allowUnfree = true;
+    };
+  };
   nix.extraOptions = ''
     experimental-features = nix-command flakes
   '';
