@@ -38,13 +38,19 @@ In this project, it's possible to add Nix code on top the base to customize your
 
 </p>
 
-#### - Easy Install:
+#### - Easy Install and upgrades:
 
 <p align=left>
 
 You only need to install the base NixOS iso.
 
 Customization is done via the `profiles` directories.
+
+Install or upgrade with a simple command:
+
+```bash
+sudo nixos-rebuild switch -I nixos-config=./profiles/<PROFILE_NAME>/configuration.nix
+```
 
 </p>
 

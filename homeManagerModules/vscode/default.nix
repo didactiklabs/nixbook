@@ -51,9 +51,11 @@ in {
         "editor.fontWeight" = "bold";
         "editor.formatOnSave" = true;
         "editor.renderWhitespace" = "all";
+        "editor.minimap.enabled" = false;
         "files.insertFinalNewline" = true;
         "files.trimFinalNewlines" = true;
         "files.trimTrailingWhitespace" = true;
+        "files.autoSave" = "afterDelay";
         "trailing-spaces.trimOnSave" = true;
         "highlightLine.borderColor" = "#abb2bf";
         "highlightLine.borderStyle" = "solid";
