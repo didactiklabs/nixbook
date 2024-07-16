@@ -7,6 +7,7 @@
         copy_on_select = true;
         font_size = lib.mkForce "10.0";
         font_family = "Hack Nerd Font Bold";
+        confirm_os_window_close = 0;
       };
     };
     ranger = {
