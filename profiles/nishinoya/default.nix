@@ -1,8 +1,13 @@
-{ pkgs, lib, stylix, nixvim, ... }:
-let
+{
+  pkgs,
+  lib,
+  stylix,
+  nixvim,
+  ...
+}: let
   overrides = {
-    customHomeManagerModules = { };
-    imports = [ ./fastfetchConfig.nix ];
+    customHomeManagerModules = {};
+    imports = [./fastfetchConfig.nix];
   };
   userConfig = import ../../nixosModules/userConfig.nix {
     inherit lib pkgs stylix nixvim;
@@ -17,12 +22,15 @@ in {
     greetd.enable = true;
     sway.enable = false;
     hyprland.enable = true;
-    caCertificates = { didactiklabs.enable = true; };
+    caCertificates = {
+      didactiklabs.enable = true;
+      logicmg.enable = true;
+    };
   };
   imports = [
     (mkUser {
       username = "aamoyel";
-      userImports = [ ./aamoyel ];
+      userImports = [./aamoyel];
     })
   ];
 }

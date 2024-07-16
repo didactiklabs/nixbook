@@ -35,6 +35,12 @@ in {
       description = ''
       '';
     };
+    kubeConfig.logicmg.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+      '';
+    };
   };
   config = lib.mkIf cfg.kubeTools.enable {
     home = {
@@ -47,6 +53,9 @@ in {
         };
         ".kube/configs/bealv/oidc@bealv.kubeconfig" = lib.mkIf cfg.kubeConfig.bealv.enable {
           source = ../assets/kubeconfigs/oidc-bealv.kubeconfig;
+        };
+        ".kube/configs/logicmg/oidc@logicmg.kubeconfig" = lib.mkIf cfg.kubeConfig.logicmg.enable {
+          source = ../assets/kubeconfigs/oidc-logicmg.kubeconfig;
         };
       };
       packages = with pkgs; [
