@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, ... }:
 let cfg = config.customHomeManagerModules.gitConfig;
 in {
   config = lib.mkIf cfg.enable {

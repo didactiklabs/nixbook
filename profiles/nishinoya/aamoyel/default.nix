@@ -1,9 +1,5 @@
-{pkgs, ...}: {
-  imports = [
-    ./gitConfig.nix
-    ./kanshiConfig.nix
-    ./hyprlandConfig.nix
-  ];
+{ pkgs, ... }: {
+  imports = [ ./gitConfig.nix ./kanshiConfig.nix ./hyprlandConfig.nix ];
   home.packages = [
     # pkgs.jellyfin-mpv-shim
     # pkgs.nextcloud-client
@@ -40,7 +36,7 @@
         style = "style-10";
       };
       powermenu = {
-        style = "style-1"; #(1 - 5) # type-1 only
+        style = "style-1"; # (1 - 5) # type-1 only
       };
     };
     copyqConfig.enable = true;

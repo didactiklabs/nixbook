@@ -1,16 +1,8 @@
-{
-  pkgs,
-  lib,
-  stylix,
-  nixvim,
-  ...
-}: let
+{ pkgs, lib, stylix, nixvim, ... }:
+let
   overrides = {
-    customHomeManagerModules = {
-    };
-    imports = [
-      ./fastfetchConfig.nix
-    ];
+    customHomeManagerModules = { };
+    imports = [ ./fastfetchConfig.nix ];
   };
   userConfig = import ../../nixosModules/userConfig.nix {
     inherit lib pkgs stylix nixvim;
@@ -33,9 +25,7 @@ in {
   imports = [
     (mkUser {
       username = "khoa";
-      userImports = [
-        ./khoa
-      ];
+      userImports = [ ./khoa ];
     })
   ];
 }

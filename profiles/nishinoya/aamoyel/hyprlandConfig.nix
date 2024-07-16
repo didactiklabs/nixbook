@@ -1,9 +1,5 @@
-{
-  config,
-  lib,
-  ...
-}: let
-  cfg = config.customHomeManagerModules;
+{ config, lib, ... }:
+let cfg = config.customHomeManagerModules;
 in {
   config = lib.mkIf cfg.hyprlandConfig.enable {
     wayland.windowManager.hyprland.settings = {
@@ -19,10 +15,8 @@ in {
         "workspace 1 silent,class:(vesktop)"
         "workspace 1 silent,title:(Spotify Premium)"
       ];
-      exec-once = [
-        "[workspace 1 silent] spotify"
-        "[workspace 1 silent] vesktop"
-      ];
+      exec-once =
+        [ "[workspace 1 silent] spotify" "[workspace 1 silent] vesktop" ];
     };
   };
 }
