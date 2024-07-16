@@ -5,7 +5,7 @@ let
   lockWallpaper = "${config.profileCustomization.lockWallpaper}";
   swaylock = "${pkgs.swaylock}/bin/swaylock";
   swaymsg = "${pkgs.sway}/bin/swaymsg";
-  terminal = "${pkgs.alacritty}/bin/alacritty";
+  terminal = "${pkgs.kitty}/bin/kitty";
   waybar = "${pkgs.waybar}/bin/waybar";
   rofi-wayland = "${pkgs.rofi-wayland}/bin/rofi";
   rofiLauncherType = "${cfg.rofiConfig.launcher.type}";

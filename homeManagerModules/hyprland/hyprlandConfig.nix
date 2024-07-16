@@ -2,7 +2,7 @@
 let
   cfg = config.customHomeManagerModules;
   mainWallpaper = "${config.profileCustomization.mainWallpaper}";
-  terminal = "${pkgs.alacritty}/bin/alacritty";
+  terminal = "${pkgs.kitty}/bin/kitty";
   rofi-wayland = "${pkgs.rofi-wayland}/bin/rofi";
   rofiLauncherType = "${cfg.rofiConfig.launcher.type}";
   rofiLauncherStyle = "${cfg.rofiConfig.launcher.style}";

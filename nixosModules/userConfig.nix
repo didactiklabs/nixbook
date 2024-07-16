@@ -1,36 +1,22 @@
-{
-  pkgs,
-  lib,
-  stylix,
-  nixvim,
-  overrides ? {},
-}: let
+{ pkgs, lib, stylix, nixvim, overrides ? { }, }:
+let
   defaultWallpaper = pkgs.stdenv.mkDerivation {
     name = "defaultWallpaper";
     src = ../assets/images;
-    phases = ["unpackPhase" "installPhase"];
+    phases = [ "unpackPhase" "installPhase" ];
     installPhase = ''
       mkdir -p $out
       cp $src/* $out
     '';
   };
   defaultConfig = {
-    extraGroups = [
-      "ydotool"
-      "storage"
-      "input"
-      "wheel"
-    ];
-    customHomeManagerModules = {
-    };
+    extraGroups = [ "ydotool" "storage" "input" "wheel" ];
+    customHomeManagerModules = { };
   };
 
   mergedConfig = lib.recursiveUpdate defaultConfig overrides;
 
-  mkUser = {
-    username,
-    userImports ? [],
-  }: {
+  mkUser = { username, userImports ? [ ], }: {
     # Enable automount usb
     services = {
       gvfs.enable = true;
@@ -40,9 +26,7 @@
     programs.ydotool = {
       enable = true; # clipboard prerequisite
     };
-    systemd.services.ydotoold = {
-      enable = true;
-    };
+    systemd.services.ydotoold = { enable = true; };
     programs.zsh.enable = true;
     users.users."${username}" = {
       shell = pkgs.zsh;
@@ -60,21 +44,21 @@
             udiskie.enable = true;
             gnome-keyring.enable = true;
           };
-          dconf.settings."org/gnome/desktop/interface".font-name = lib.mkForce "Hack Nerd Font";
+          dconf.settings."org/gnome/desktop/interface".font-name =
+            lib.mkForce "Hack Nerd Font";
           customHomeManagerModules = mergedConfig.customHomeManagerModules;
           ## https://nix-community.github.io/home-manager/options.html#opt-services.gnome-keyring.enable
           systemd.user.services.polkit-gnome = {
             Unit = {
               Description = "PolicyKit Authentication Agent";
-              After = ["graphical-session-pre.target"];
-              PartOf = ["graphical-session.target"];
+              After = [ "graphical-session-pre.target" ];
+              PartOf = [ "graphical-session.target" ];
             };
             Service = {
-              ExecStart = "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1";
+              ExecStart =
+                "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1";
             };
-            Install = {
-              WantedBy = ["graphical-session.target"];
-            };
+            Install = { WantedBy = [ "graphical-session.target" ]; };
           };
           home.packages = [
             pkgs.pavucontrol
@@ -120,7 +104,7 @@
             ../homeManagerModules/sway
             ../homeManagerModules/hyprland
             ../homeManagerModules/vscode
-            ../homeManagerModules/alacrittyConfig.nix
+            ../homeManagerModules/kittyConfig.nix
             ../homeManagerModules/zshConfig.nix
             ../homeManagerModules/fontConfig.nix
             ../homeManagerModules/gitConfig.nix
@@ -162,4 +146,4 @@
       };
     };
   };
-in {inherit mkUser;}
+in { inherit mkUser; }

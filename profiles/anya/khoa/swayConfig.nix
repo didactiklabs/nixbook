@@ -22,7 +22,7 @@ in {
         }
         {
           command = "opacity 0.8";
-          criteria = { app_id = "Alacritty"; };
+          criteria = { app_id = "Kitty"; };
         }
       ];
     };

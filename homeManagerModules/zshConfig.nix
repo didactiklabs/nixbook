@@ -1,7 +1,6 @@
-{pkgs, ...}: {
+{ pkgs, ... }: {
   config = {
     home.packages = [
-      pkgs.ueberzugpp # for image preview ranger
       pkgs.any-nix-shell
       pkgs.btop # top replacer
       pkgs.duf # df replacer
@@ -14,7 +13,7 @@
         enable = true;
         extraConfig = ''
           set preview_images true
-          set preview_images_method ueberzug
+          set preview_images_method kitty
           set preview_files true
         '';
       };
@@ -26,7 +25,7 @@
         enable = true;
         ## cf https://github.com/sharkdp/bat#customization
         config = {
-          map-syntax = ["*.jenkinsfile:Groovy" "*.props:Java Properties"];
+          map-syntax = [ "*.jenkinsfile:Groovy" "*.props:Java Properties" ];
         };
       };
       fzf = {
@@ -80,9 +79,7 @@
         enable = true;
         enableZshIntegration = true;
       };
-      ripgrep = {
-        enable = true;
-      };
+      ripgrep = { enable = true; };
 
       zsh = {
         autosuggestion.enable = true;
@@ -110,7 +107,8 @@
         ];
         enable = true;
         shellAliases = {
-          vpn = "sudo ${pkgs.openvpn}/bin/openvpn --up ${pkgs.update-systemd-resolved}/libexec/openvpn/update-systemd-resolved --down ${pkgs.update-systemd-resolved}/libexec/openvpn/update-systemd-resolved --config";
+          vpn =
+            "sudo ${pkgs.openvpn}/bin/openvpn --up ${pkgs.update-systemd-resolved}/libexec/openvpn/update-systemd-resolved --down ${pkgs.update-systemd-resolved}/libexec/openvpn/update-systemd-resolved --config";
           k = "kubectl";
           top = "btop";
           df = "duf";
@@ -123,9 +121,7 @@
           any-nix-shell zsh --info-right | source /dev/stdin
           #if [ "$TMUX" = "" ]; then tmux; fi
         '';
-        oh-my-zsh = {
-          enable = true;
-        };
+        oh-my-zsh = { enable = true; };
       };
     };
   };
