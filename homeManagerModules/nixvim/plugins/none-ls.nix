@@ -1,9 +1,5 @@
-{
-  config,
-  lib,
-  ...
-}: let
-  cfg = config.customHomeManagerModules;
+{ config, lib, ... }:
+let cfg = config.customHomeManagerModules;
 in {
   config = lib.mkIf cfg.nixvimConfig.enable {
     programs.nixvim.plugins = {
@@ -18,7 +14,6 @@ in {
           };
           diagnostics = {
             statix.enable = true;
-            yamllint.enable = true;
             pylint.enable = true;
             golangci_lint.enable = true;
             ansiblelint.enable = true;
