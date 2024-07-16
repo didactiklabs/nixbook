@@ -152,7 +152,11 @@ in {
   nix.extraOptions = ''
     experimental-features = nix-command flakes
   '';
-  programs.gnupg.agent.enableSSHSupport = false;
+  programs.gnupg.agent = {
+    enable = true;
+    enableSSHSupport = false;
+    pinentryPackage = pkgs.pinentry-tty;
+  };
   programs.ssh.startAgent = true;
 
   environment.systemPackages = [
