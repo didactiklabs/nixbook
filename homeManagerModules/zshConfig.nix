@@ -9,14 +9,7 @@
     programs = {
       zathura.enable = true;
       imv.enable = true;
-      ranger = {
-        enable = true;
-        extraConfig = ''
-          set preview_images true
-          set preview_images_method kitty
-          set preview_files true
-        '';
-      };
+      ranger = { enable = true; };
       zoxide = {
         enable = true;
         enableZshIntegration = true;
