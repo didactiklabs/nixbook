@@ -9,6 +9,7 @@ in {
     programs.git = {
       userName = "Alan Amoyel";
       userEmail = "alanamoyel06@gmail.com";
+      signing = { signByDefault = lib.mkForce true; };
     };
   };
 }
