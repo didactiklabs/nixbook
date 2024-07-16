@@ -5,11 +5,7 @@ in {
     programs.git = {
       userName = "Victor Hang";
       userEmail = "vhvictorhang@gmail.com";
-      signing = {
-        signByDefault = true;
-        gpgPath = "${pkgs.gnupg}/bin/gpg2";
-        key = null;
-      };
+      signing = { signByDefault = lib.mkForce true; };
     };
   };
 }
