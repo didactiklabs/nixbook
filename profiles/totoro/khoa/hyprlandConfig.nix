@@ -1,9 +1,5 @@
-{
-  config,
-  lib,
-  ...
-}: let
-  cfg = config.customHomeManagerModules;
+{ config, lib, ... }:
+let cfg = config.customHomeManagerModules;
 in {
   config = lib.mkIf cfg.hyprlandConfig.enable {
     wayland.windowManager.hyprland.settings = {

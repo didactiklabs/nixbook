@@ -1,9 +1,5 @@
-{pkgs, ...}: {
-  imports = [
-    ./gitConfig.nix
-    ./swayConfig.nix
-    ./sunshine.nix
-  ];
+{ pkgs, ... }: {
+  imports = [ ./gitConfig.nix ./swayConfig.nix ./sunshine.nix ];
   profileCustomization = {
     mainWallpaper = let
       image = pkgs.fetchurl {
@@ -35,7 +31,7 @@
         style = "style-10";
       };
       powermenu = {
-        style = "style-1"; #(1 - 5) # type-1 only
+        style = "style-1"; # (1 - 5) # type-1 only
       };
     };
     copyqConfig.enable = false;

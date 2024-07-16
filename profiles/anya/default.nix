@@ -1,17 +1,9 @@
-{
-  pkgs,
-  lib,
-  nixvim,
-  stylix,
-  ...
-}: let
+{ pkgs, lib, nixvim, stylix, ... }:
+let
   mainIf = "enp34s0";
   overrides = {
-    customHomeManagerModules = {
-    };
-    imports = [
-      ./fastfetchConfig.nix
-    ];
+    customHomeManagerModules = { };
+    imports = [ ./fastfetchConfig.nix ];
   };
   userConfig = import ../../nixosModules/userConfig.nix {
     inherit lib pkgs nixvim stylix;
@@ -22,14 +14,14 @@ in {
   ## wake with sunshine
   networking.interfaces."${mainIf}".wakeOnLan = {
     enable = true;
-    policy = ["magic"];
+    policy = [ "magic" ];
   };
   systemd.services.wol-custom = {
     description = "Wake-on-lan Hack (module doesn't work).";
-    partOf = ["default.target"];
-    requires = ["default.target"];
-    after = ["default.target"];
-    wantedBy = ["default.target"];
+    partOf = [ "default.target" ];
+    requires = [ "default.target" ];
+    after = [ "default.target" ];
+    wantedBy = [ "default.target" ];
     serviceConfig = {
       User = "root";
       Group = "root";
@@ -59,9 +51,7 @@ in {
   imports = [
     (mkUser {
       username = "khoa";
-      userImports = [
-        ./khoa
-      ];
+      userImports = [ ./khoa ];
     })
   ];
 }

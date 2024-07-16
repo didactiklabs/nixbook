@@ -1,25 +1,17 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
-}: let
-  cfg = config.customHomeManagerModules;
+{ config, pkgs, lib, ... }:
+let cfg = config.customHomeManagerModules;
 in {
   config = {
     ## we will need to override it someday or make a new pr in nixpkgs
     ## https://github.com/NixOS/nixpkgs/blob/nixos-unstable/pkgs/tools/graphics/wdisplays/default.nix#L19
     ## https://github.com/luispabon/wdisplays
     ## the new repository is here https://github.com/artizirk/wdisplays
-    wayland.windowManager.sway.config.startup = lib.mkIf cfg.swayConfig.enable [
-      {
+    wayland.windowManager.sway.config.startup =
+      lib.mkIf cfg.swayConfig.enable [{
         command = "${pkgs.systemd}/bin/systemctl --user restart kanshi";
         always = true;
-      }
-    ];
-    home.packages = [
-      pkgs.kanshi
-    ];
+      }];
+    home.packages = [ pkgs.kanshi ];
     services.kanshi = {
       enable = true;
       systemdTarget = "";
@@ -27,14 +19,12 @@ in {
         {
           profile = {
             name = "undocked";
-            outputs = [
-              {
-                criteria = "eDP-1";
-                position = "0,0";
-                mode = "2880x1800@60.002Hz";
-                scale = 1.7;
-              }
-            ];
+            outputs = [{
+              criteria = "eDP-1";
+              position = "0,0";
+              mode = "2880x1800@60.002Hz";
+              scale = 1.7;
+            }];
           };
         }
         {

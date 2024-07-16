@@ -1,4 +1,5 @@
-{pkgs, ...}: let
+{ pkgs, ... }:
+let
   sunshineAppsJson = ''
     {
       "env": {
@@ -21,9 +22,9 @@
   '';
 in {
   config = {
-    home.packages = [pkgs.sunshine];
-    home.file.".config/sunshine/apps.json" = {
-      text = sunshineAppsJson;
+    home = {
+      packages = [ pkgs.sunshine ];
+      file.".config/sunshine/apps.json" = { text = sunshineAppsJson; };
     };
   };
 }
