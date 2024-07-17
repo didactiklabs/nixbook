@@ -10,7 +10,7 @@ let
     '';
   };
   defaultConfig = {
-    extraGroups = [ "ydotool" "storage" "input" "wheel" ];
+    extraGroups = [ "ydotool" "storage" "input" "wheel" "scanner" "lp" ];
     customHomeManagerModules = { };
   };
 

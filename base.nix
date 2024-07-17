@@ -24,7 +24,6 @@ let
 in {
   imports = [
     ./hardware-configuration.nix
-    ./tools.nix
     ./nixosModules/caCertificates.nix
     ./nixosModules/laptopProfile.nix
     ./nixosModules/greetd.nix
@@ -135,6 +134,10 @@ in {
   hardware = {
     bluetooth.enable = true;
     bluetooth.powerOnBoot = false;
+    sane = {
+      enable = true;
+      extraBackends = [ pkgs.sane-airscan ];
+    };
   };
   sound.enable = true;
   hardware.pulseaudio.enable = false;
@@ -159,14 +162,26 @@ in {
   };
   programs.ssh.startAgent = true;
 
-  environment.systemPackages = [
-    pkgs.gnupg
-    pkgs.pinentry-tty
-    pkgs.usbutils
-    pkgs.udiskie
-    pkgs.udisks
-    pkgs.tailscale
-    pkgs.update-systemd-resolved
+  environment.systemPackages = with pkgs; [
+    python3
+    nix-eval-jobs
+    dig
+    jq
+    yq-go
+    tig
+    unzip
+    go
+    tree
+    openvpn
+    nixos-generators
+    gnome.simple-scan
+    gnupg
+    pinentry-tty
+    usbutils
+    udiskie
+    udisks
+    tailscale
+    update-systemd-resolved
   ];
   environment.variables = { NIXOS_OZONE_WL = "1"; };
   system.stateVersion = "${nixOS_version}";
