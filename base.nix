@@ -139,6 +139,11 @@ in {
       extraBackends = [ pkgs.sane-airscan ];
     };
   };
+  services = {
+    ipp-usb.enable = true;
+    avahi.enable = true;
+    avahi.nssmdns4 = true;
+  };
   sound.enable = true;
   hardware.pulseaudio.enable = false;
   security = {
