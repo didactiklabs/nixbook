@@ -1,20 +1,16 @@
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}: let
-  flake-compat = builtins.fetchTarball "https://github.com/edolstra/flake-compat/archive/master.tar.gz";
-  spicetify-nix =
-    (import flake-compat {
-      src = builtins.fetchTarball "https://github.com/the-argus/spicetify-nix/archive/master.tar.gz";
-    })
-    .defaultNix;
+{ config, lib, pkgs, ... }:
+let
+  flake-compat = builtins.fetchTarball
+    "https://github.com/edolstra/flake-compat/archive/master.tar.gz";
+  spicetify-nix = (import flake-compat {
+    src = builtins.fetchTarball
+      "https://github.com/the-argus/spicetify-nix/archive/master.tar.gz";
+  }).defaultNix;
   spicePkgs = spicetify-nix.packages.${pkgs.system}.default;
   palette = config.lib.stylix.colors;
   cfg = config.customHomeManagerModules;
 in {
-  imports = [spicetify-nix.homeManagerModule];
+  imports = [ spicetify-nix.homeManagerModule ];
   config = lib.mkIf cfg.desktopApps.enable {
     programs.spicetify = {
       enable = true;

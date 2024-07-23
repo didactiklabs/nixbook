@@ -1,9 +1,5 @@
-{
-  config,
-  lib,
-  ...
-}: let
-  cfg = config.customHomeManagerModules;
+{ config, lib, ... }:
+let cfg = config.customHomeManagerModules;
 in {
   config = lib.mkIf cfg.desktopApps.enable {
     services.swaync = {
@@ -31,16 +27,15 @@ in {
         hide-on-clear = false;
         hide-on-action = true;
         script-fail-notify = true;
-        widgets = ["title" "mpris" "volume" "backlight" "dnd" "notifications"];
+        widgets =
+          [ "title" "mpris" "volume" "backlight" "dnd" "notifications" ];
         widget-config = {
           title = {
             text = "Notification Center";
             clear-all-button = true;
             button-text = "󰆴 Clear All";
           };
-          dnd = {
-            text = "Do Not Disturb";
-          };
+          dnd = { text = "Do Not Disturb"; };
           label = {
             max-lines = 1;
             text = "Notification Center";
@@ -49,12 +44,8 @@ in {
             image-size = 96;
             image-radius = 7;
           };
-          volume = {
-            label = "󰕾";
-          };
-          backlight = {
-            label = "󰃟";
-          };
+          volume = { label = "󰕾"; };
+          backlight = { label = "󰃟"; };
         };
       };
     };

@@ -1,10 +1,5 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
-}: let
-  cfg = config.customNixOSModules.sunshine;
+{ config, pkgs, lib, ... }:
+let cfg = config.customNixOSModules.sunshine;
 in {
   options.customNixOSModules.sunshine = {
     enable = lib.mkOption {
@@ -18,19 +13,17 @@ in {
   config = lib.mkIf cfg.enable {
     systemd.user.services.sunshine = {
       description = "Sunshine Gamestreaming server.";
-      partOf = ["graphical-session.target"];
-      requires = ["graphical-session.target"];
-      after = ["graphical-session.target"];
-      wantedBy = ["graphical-session.target"];
+      partOf = [ "graphical-session.target" ];
+      requires = [ "graphical-session.target" ];
+      after = [ "graphical-session.target" ];
+      wantedBy = [ "graphical-session.target" ];
       serviceConfig = {
         ExecStart = "${pkgs.sunshine}/bin/sunshine";
         Restart = "always";
       };
     };
-    programs.steam = {
-      enable = true;
-    };
-    boot.kernelModules = ["uinput"];
+    programs.steam = { enable = true; };
+    boot.kernelModules = [ "uinput" ];
     security.wrappers.sunshine = {
       owner = "root";
       group = "root";

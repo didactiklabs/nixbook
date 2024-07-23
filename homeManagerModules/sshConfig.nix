@@ -1,9 +1,5 @@
-{
-  config,
-  lib,
-  ...
-}: let
-  cfg = config.customHomeManagerModules.sshConfig;
+{ config, lib, ... }:
+let cfg = config.customHomeManagerModules.sshConfig;
 in {
   options.customHomeManagerModules.sshConfig = {
     enable = lib.mkOption {

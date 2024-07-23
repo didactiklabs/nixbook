@@ -1,9 +1,5 @@
-{
-  config,
-  lib,
-  ...
-}: let
-  cfg = config.customHomeManagerModules;
+{ config, lib, ... }:
+let cfg = config.customHomeManagerModules;
 in {
   config = lib.mkIf cfg.nixvimConfig.enable {
     programs.nixvim.plugins.startify = {
@@ -28,17 +24,13 @@ in {
         # be used instead.
         use_unicode = true;
 
-        lists = [
-          {
-            type = "dir";
-            header = ["   Recent Files"];
-          }
-        ];
+        lists = [{
+          type = "dir";
+          header = [ "   Recent Files" ];
+        }];
         files_number = 10;
 
-        skiplist = [
-          "flake.lock"
-        ];
+        skiplist = [ "flake.lock" ];
       };
     };
   };

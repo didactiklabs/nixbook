@@ -1,10 +1,5 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
-}: let
-  cfg = config.customHomeManagerModules;
+{ config, pkgs, lib, ... }:
+let cfg = config.customHomeManagerModules;
 in {
   options.customHomeManagerModules.gtkConfig = {
     enable = lib.mkOption {
@@ -28,9 +23,7 @@ in {
       enable = true;
       iconTheme.package = pkgs.numix-icon-theme-square;
       iconTheme.name = "Numix-Square";
-      gtk4.extraConfig = {
-        gtk-application-prefer-dark-theme = 1;
-      };
+      gtk4.extraConfig = { gtk-application-prefer-dark-theme = 1; };
       gtk3.extraConfig = {
         gtk-cursor-theme-size = 10;
         gtk-application-prefer-dark-theme = 1;

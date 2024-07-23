@@ -1,9 +1,5 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
-}: let
+{ config, pkgs, lib, ... }:
+let
   cfg = config.customHomeManagerModules;
   loginctl = "${pkgs.systemd}/bin/loginctl";
   rofiLockScript = ''
@@ -99,9 +95,7 @@
   };
 
   rofi-themes =
-    pkgs.runCommand "rofi-themes" {
-      buildInputs = [rofi-repo];
-    } ''
+    pkgs.runCommand "rofi-themes" { buildInputs = [ rofi-repo ]; } ''
       mkdir -p $out/files/colors
       cp -r ${rofi-repo}/files/applets $out/files
       cp -r ${rofi-repo}/files/images $out/files
@@ -124,7 +118,7 @@ in {
   # https://github.com/adi1090x/rofi
   config = lib.mkIf cfg.rofiConfig.enable {
     home = {
-      packages = [pkgs.rofi-wayland];
+      packages = [ pkgs.rofi-wayland ];
       file.".config/rofi".source = "${rofi-themes}/files";
       # Define the Nix derivation to create the script file
       file.".config/rofiScripts/rofiLockScript.sh" = {

@@ -1,9 +1,5 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
-}: let
+{ config, pkgs, lib, ... }:
+let
   powertune = pkgs.writeShellScriptBin "powertune" ''
     #!/bin/bash
     ${pkgs.powertop}/bin/powertop --auto-tune
@@ -38,7 +34,8 @@ in {
     };
     powerManagement = lib.mkForce {
       enable = true;
-      powertop.enable = false; # to false else, it will shut your mouse down too often
+      powertop.enable =
+        false; # to false else, it will shut your mouse down too often
     };
     # https://github.com/AdnanHodzic/auto-cpufreq
     services.auto-cpufreq.enable = true;
@@ -54,15 +51,12 @@ in {
     };
     systemd.services.powertune = {
       description = "Powertune.";
-      wantedBy = ["default.target"];
+      wantedBy = [ "default.target" ];
       serviceConfig = {
         ExecStart = "${powertune}/bin/powertune";
         Restart = "always";
       };
     };
-    environment.systemPackages = [
-      powertune
-      pkgs.powertop
-    ];
+    environment.systemPackages = [ powertune pkgs.powertop ];
   };
 }

@@ -1,9 +1,5 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
-}: let
+{ config, pkgs, lib, ... }:
+let
   cfg = config.customHomeManagerModules;
   kubeswitchConfig = ''
     kind: SwitchConfig
@@ -26,37 +22,35 @@ in {
     kubeConfig.didactiklabs.enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = ''
-      '';
+      description = "";
     };
     kubeConfig.bealv.enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = ''
-      '';
+      description = "";
     };
     kubeConfig.logicmg.enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = ''
-      '';
+      description = "";
     };
   };
   config = lib.mkIf cfg.kubeTools.enable {
     home = {
       file = {
-        ".kube/switch-config.yaml" = {
-          text = kubeswitchConfig;
-        };
-        ".kube/configs/didactiklabs/oidc@didactiklabs.kubeconfig" = lib.mkIf cfg.kubeConfig.didactiklabs.enable {
-          source = ../assets/kubeconfigs/oidc-didactiklabs.kubeconfig;
-        };
-        ".kube/configs/bealv/oidc@bealv.kubeconfig" = lib.mkIf cfg.kubeConfig.bealv.enable {
-          source = ../assets/kubeconfigs/oidc-bealv.kubeconfig;
-        };
-        ".kube/configs/logicmg/oidc@logicmg.kubeconfig" = lib.mkIf cfg.kubeConfig.logicmg.enable {
-          source = ../assets/kubeconfigs/oidc-logicmg.kubeconfig;
-        };
+        ".kube/switch-config.yaml" = { text = kubeswitchConfig; };
+        ".kube/configs/didactiklabs/oidc@didactiklabs.kubeconfig" =
+          lib.mkIf cfg.kubeConfig.didactiklabs.enable {
+            source = ../assets/kubeconfigs/oidc-didactiklabs.kubeconfig;
+          };
+        ".kube/configs/bealv/oidc@bealv.kubeconfig" =
+          lib.mkIf cfg.kubeConfig.bealv.enable {
+            source = ../assets/kubeconfigs/oidc-bealv.kubeconfig;
+          };
+        ".kube/configs/logicmg/oidc@logicmg.kubeconfig" =
+          lib.mkIf cfg.kubeConfig.logicmg.enable {
+            source = ../assets/kubeconfigs/oidc-logicmg.kubeconfig;
+          };
       };
       packages = with pkgs; [
         # clouds

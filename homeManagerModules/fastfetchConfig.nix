@@ -1,9 +1,5 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
-}: let
+{ config, pkgs, lib, ... }:
+let
   cfg = config.customHomeManagerModules;
   fastfetchConfig = ''
     {
@@ -115,15 +111,9 @@
 in {
   config = lib.mkIf cfg.fastfetchConfig.enable {
     home = {
-      packages = [
-        pkgs.fastfetch
-      ];
-      file.".config/fastfetch/config.jsonc" = {
-        text = fastfetchConfig;
-      };
-      file.".config/fastfetch/asciiArt" = {
-        text = asciiArt;
-      };
+      packages = [ pkgs.fastfetch ];
+      file.".config/fastfetch/config.jsonc" = { text = fastfetchConfig; };
+      file.".config/fastfetch/asciiArt" = { text = asciiArt; };
     };
   };
 

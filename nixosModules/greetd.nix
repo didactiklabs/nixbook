@@ -1,10 +1,5 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
-}: let
-  cfg = config.customNixOSModules;
+{ config, pkgs, lib, ... }:
+let cfg = config.customNixOSModules;
 in {
   options.customNixOSModules.greetd = {
     enable = lib.mkOption {
@@ -18,7 +13,7 @@ in {
   config = lib.mkIf cfg.greetd.enable {
     services.greetd = {
       enable = true;
-      vt = 7; ## tty to skip startup msgs
+      vt = 7; # # tty to skip startup msgs
       settings = {
         default_session.command = ''
           ${pkgs.greetd.tuigreet}/bin/tuigreet \

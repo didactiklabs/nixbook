@@ -1,11 +1,7 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
-}: let
+{ config, pkgs, lib, ... }:
+let
   cfg = config.customHomeManagerModules;
-  goji = import ../customPkgs/goji.nix {inherit pkgs lib;};
+  goji = import ../customPkgs/goji.nix { inherit pkgs lib; };
   gojiJson = ''
     {
       "noemoji": false,
@@ -84,12 +80,8 @@
   '';
 in {
   config = lib.mkIf cfg.gojiConfig.enable {
-    home.packages = [
-      goji
-    ];
-    home.file.".goji.json" = {
-      text = gojiJson;
-    };
+    home.packages = [ goji ];
+    home.file.".goji.json" = { text = gojiJson; };
   };
 
   options.customHomeManagerModules.gojiConfig = {

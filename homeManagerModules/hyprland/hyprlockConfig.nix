@@ -1,9 +1,5 @@
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}: let
+{ config, lib, pkgs, ... }:
+let
   cfg = config.customHomeManagerModules;
   lockWallpaper = "${config.profileCustomization.lockWallpaper}";
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
@@ -18,41 +14,47 @@
   '';
 in {
   config = lib.mkIf cfg.hyprlandConfig.enable {
-    home.packages = [
-      whatsong
-    ];
+    home.packages = [ whatsong ];
     services.hypridle = {
       enable = true;
       settings = {
         general = {
-          lock_cmd = "${pidof} ${hyprlock} || ${hyprlock}"; # avoid starting multiple hyprlock instances.
+          lock_cmd =
+            "${pidof} ${hyprlock} || ${hyprlock}"; # avoid starting multiple hyprlock instances.
           before_sleep_cmd = "${loginctl} lock-session"; # lock before suspend.
-          after_sleep_cmd = "${hyprctl} dispatch dpms on"; # to avoid having to press a key twice to turn on the display.
+          after_sleep_cmd =
+            "${hyprctl} dispatch dpms on"; # to avoid having to press a key twice to turn on the display.
         };
 
         listener = [
           {
             timeout = 30;
-            on-timeout = "${brightnessctl} -s set 10"; # set monitor backlight to minimum, avoid 0 on OLED monitor.
+            on-timeout =
+              "${brightnessctl} -s set 10"; # set monitor backlight to minimum, avoid 0 on OLED monitor.
             on-resume = "${brightnessctl} -r"; # monitor backlight restore.
           }
 
           # turn off keyboard backlight, comment out this section if you dont have a keyboard backlight.
           {
             timeout = 30;
-            on-timeout = "${brightnessctl} -sd rgb:kbd_backlight set 0"; # turn off keyboard backlight.
-            on-resume = "${brightnessctl} -rd rgb:kbd_backlight"; # turn on keyboard backlight.
+            on-timeout =
+              "${brightnessctl} -sd rgb:kbd_backlight set 0"; # turn off keyboard backlight.
+            on-resume =
+              "${brightnessctl} -rd rgb:kbd_backlight"; # turn on keyboard backlight.
           }
 
           {
             timeout = 60;
-            on-timeout = "${loginctl} lock-session"; # lock screen when timeout has passed
+            on-timeout =
+              "${loginctl} lock-session"; # lock screen when timeout has passed
           }
 
           {
             timeout = 300;
-            on-timeout = "${hyprctl} dispatch dpms off"; # screen off when timeout has passed
-            on-resume = "${hyprctl} dispatch dpms on"; # screen on when activity is detected after timeout has fired.
+            on-timeout =
+              "${hyprctl} dispatch dpms off"; # screen off when timeout has passed
+            on-resume =
+              "${hyprctl} dispatch dpms on"; # screen on when activity is detected after timeout has fired.
           }
 
           {
@@ -73,34 +75,30 @@ in {
           no_fade_in = false;
         };
 
-        background = [
-          {
-            path = "${lockWallpaper}";
-            blur_passes = 0;
-            blur_size = 8;
-          }
-        ];
-        input-field = [
-          {
-            size = "250, 60";
-            outline_thickness = 2;
-            dots_size = 0.2; # Scale of input-field height, 0.2 - 0.8
-            dots_spacing = 0.2; # Scale of dots' absolute size, 0.0 - 1.0
-            dots_center = true;
-            outer_color = "rgba(0, 0, 0, 0)";
-            inner_color = "rgba(0, 0, 0, 0.5)";
-            font_color = "rgb(200, 200, 200)";
-            fade_on_empty = false;
-            font_family = "JetBrains Mono Nerd Font Mono";
-            placeholder_text = ''
-              <i><span foreground="##cdd6f4">Input Password...</span></i>
-            '';
-            hide_input = false;
-            position = "0, -120";
-            halign = "center";
-            valign = "center";
-          }
-        ];
+        background = [{
+          path = "${lockWallpaper}";
+          blur_passes = 0;
+          blur_size = 8;
+        }];
+        input-field = [{
+          size = "250, 60";
+          outline_thickness = 2;
+          dots_size = 0.2; # Scale of input-field height, 0.2 - 0.8
+          dots_spacing = 0.2; # Scale of dots' absolute size, 0.0 - 1.0
+          dots_center = true;
+          outer_color = "rgba(0, 0, 0, 0)";
+          inner_color = "rgba(0, 0, 0, 0.5)";
+          font_color = "rgb(200, 200, 200)";
+          fade_on_empty = false;
+          font_family = "JetBrains Mono Nerd Font Mono";
+          placeholder_text = ''
+            <i><span foreground="##cdd6f4">Input Password...</span></i>
+          '';
+          hide_input = false;
+          position = "0, -120";
+          halign = "center";
+          valign = "center";
+        }];
         label = [
           {
             text = ''

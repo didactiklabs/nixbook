@@ -1,10 +1,5 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
-}: let
-  cfg = config.customHomeManagerModules;
+{ config, pkgs, lib, ... }:
+let cfg = config.customHomeManagerModules;
 in {
   options.customHomeManagerModules.desktopApps = {
     enable = lib.mkOption {

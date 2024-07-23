@@ -1,8 +1,5 @@
-{
-  config,
-  lib,
-  ...
-}: let
+{ config, lib, ... }:
+let
   cfg = config.customHomeManagerModules;
   configYaml = ''
     k9s:
@@ -99,8 +96,6 @@ in {
     home.file.".config/k9s/skins/transparent.yaml" = {
       text = transparentYaml;
     };
-    home.file.".config/k9s/config.yaml" = {
-      text = configYaml;
-    };
+    home.file.".config/k9s/config.yaml" = { text = configYaml; };
   };
 }

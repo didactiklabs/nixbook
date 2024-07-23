@@ -1,10 +1,5 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
-}: let
-  cfg = config.customHomeManagerModules.bluetooth;
+{ config, pkgs, lib, ... }:
+let cfg = config.customHomeManagerModules.bluetooth;
 in {
   options.customHomeManagerModules.bluetooth = {
     enable = lib.mkOption {
@@ -18,8 +13,6 @@ in {
 
   config = lib.mkIf cfg.enable {
     services.blueman-applet.enable = true;
-    home.packages = [
-      pkgs.blueman
-    ];
+    home.packages = [ pkgs.blueman ];
   };
 }
