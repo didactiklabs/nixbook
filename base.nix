@@ -69,6 +69,7 @@ in {
   };
   # Podman
   virtualisation = {
+    oci-containers.backend = "podman";
     podman = {
       enable = true;
       # Create a `docker` alias for podman, to use it as a drop-in replacement
@@ -191,6 +192,8 @@ in {
     udisks
     tailscale
     update-systemd-resolved
+    podman
+    podman-compose
   ];
   environment.variables = { NIXOS_OZONE_WL = "1"; };
   system.stateVersion = "${nixOS_version}";
