@@ -34,6 +34,10 @@ in {
       ++ lib.optional cfg.caCertificates.logicmg.enable
       ../assets/certs/logicmg-ca.crt;
     environment.etc = {
+      "ssl/certs/ca-certs.crt" = {
+        source = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+        mode = "0644";
+      };
       "ssl/certs/didactiklabs-ca.crt" = {
         source = ../assets/certs/didactiklabs-ca.crt;
         mode = "0644";
