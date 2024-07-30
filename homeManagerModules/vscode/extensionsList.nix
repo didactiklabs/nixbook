@@ -144,5 +144,11 @@
       version = "0.0.8";
       sha256 = "1ln9gly5bb7nvbziilnay4q448h9npdh7sd9xy277122h0qawkci";
     }
+    {
+      name = "kcl-vscode-extension";
+      publisher = "kcl";
+      version = "0.2.1";
+      sha256 = "sha256-JqNIJQk6zDDsrlcvCVQXQTK7WTHKdmoWWzb7N4Cbd3s=";
+    }
   ];
 }

@@ -65,6 +65,7 @@ in {
         kubebuilder
         kubeswitch
         kustomize
+        kcl-cli
       ];
     };
     programs.zsh.initExtra = ''
