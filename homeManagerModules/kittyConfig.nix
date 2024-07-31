@@ -17,6 +17,11 @@
         set preview_files true
       '';
     };
-    zsh.shellAliases = { ssh = "kitten ssh"; };
+    zsh.shellAliases = {
+      ssh = "kitten ssh";
+      sshs = ''
+        sshs --template "kitty +kitten ssh {{#if user}}{{user}}@{{/if}}{{destination}}{{#if port}} -p{{port}}{{/if}}"
+      '';
+    };
   };
 }
