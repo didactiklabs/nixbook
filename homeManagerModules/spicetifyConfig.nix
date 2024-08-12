@@ -4,13 +4,13 @@ let
     "https://github.com/edolstra/flake-compat/archive/master.tar.gz";
   spicetify-nix = (import flake-compat {
     src = builtins.fetchTarball
-      "https://github.com/the-argus/spicetify-nix/archive/master.tar.gz";
+      "https://github.com/Gerg-L/spicetify-nix/archive/master.tar.gz";
   }).defaultNix;
-  spicePkgs = spicetify-nix.packages.${pkgs.system}.default;
+  spicePkgs = spicetify-nix.legacyPackages.${pkgs.system};
   palette = config.lib.stylix.colors;
   cfg = config.customHomeManagerModules;
 in {
-  imports = [ spicetify-nix.homeManagerModule ];
+  imports = [ spicetify-nix.homeManagerModules.default ];
   config = lib.mkIf cfg.desktopApps.enable {
     programs.spicetify = {
       enable = true;
@@ -21,7 +21,7 @@ in {
         volumePercentage
         history
       ];
-      theme = spicePkgs.themes.Dribbblish;
+      theme = spicePkgs.themes.dribbblish;
       colorScheme = "custom";
       customColorScheme = {
         text = "${palette.base0B}";
