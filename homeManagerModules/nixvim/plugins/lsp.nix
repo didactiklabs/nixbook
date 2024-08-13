@@ -4,6 +4,7 @@ in {
   config = lib.mkIf cfg.nixvimConfig.enable {
     home.packages = [ pkgs.golangci-lint ];
     programs.nixvim = {
+      filetype.extension.templ = "templ";
       plugins = {
         lsp-format = {
           enable = true;
@@ -28,6 +29,10 @@ in {
             };
           };
           servers = {
+            templ = {
+              enable = true;
+              filetypes = [ "templ" ];
+            };
             bashls.enable = true;
             cmake.enable = true;
             csharp-ls.enable = true;

@@ -181,6 +181,7 @@ in {
       tig
       unzip
       go
+      templ
       tree
       openvpn
       nixos-generators
