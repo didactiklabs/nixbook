@@ -10,6 +10,13 @@ let
        paths:
          - ~/.kube/configs
   '';
+  kclRepo = pkgs.fetchFromGitHub {
+    owner = "Banh-Canh";
+    repo = "kcl-nix";
+    rev = "f9a403c78eaeb1b198e30285b8d27bbec50db55a";
+    sha256 = "sha256-xT01suXdvIH4o32jQ/4K1Jp/SdBWIX+FKZBcSWL39L4=";
+  };
+  kcl = pkgs.callPackage "${kclRepo}/kcl.nix" { };
 in {
   options.customHomeManagerModules = {
     kubeTools.enable = lib.mkOption {
@@ -56,7 +63,7 @@ in {
         # clouds
         kubelogin-oidc
         dive
-        kcl-cli
+        # kcl-cli
         kubectl
         k9s
         kubevirt
@@ -65,7 +72,7 @@ in {
         kubebuilder
         kubeswitch
         kustomize
-        kcl-cli
+        kcl
       ];
     };
     programs.zsh.initExtra = ''
