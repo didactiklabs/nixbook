@@ -110,9 +110,8 @@
           grep = "rg";
         };
         initExtra = ''
-          #fastfetch
           any-nix-shell zsh --info-right | source /dev/stdin
-          #if [ "$TMUX" = "" ]; then tmux; fi
+          [[ "$TERM" == "xterm-kitty" ]] && alias ssh="TERM=xterm-256color ssh"
         '';
         oh-my-zsh = { enable = true; };
       };
