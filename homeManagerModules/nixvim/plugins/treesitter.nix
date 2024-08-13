@@ -38,12 +38,17 @@ in {
           jq
           javascript
           java
+          properties
           ini
           http
           html
+          htmldjango
           helm
           hcl
           go
+          gotmpl
+          gosum
+          gomod
           gitignore
           git_rebase
           git_config
@@ -57,6 +62,17 @@ in {
           bash
           awk
           angular
+          comment
+          fish
+          diff
+          csv
+          jsonnet
+          jsonc
+          json
+          hyprlang
+          matlab
+          zig
+          toml
         ];
         languageRegister = { templ = "templ"; };
       };
