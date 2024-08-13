@@ -5,12 +5,12 @@ in {
     programs.nixvim.plugins = {
       treesitter = {
         enable = true;
-
         nixvimInjections = true;
         nixGrammars = true;
         folding = true;
         indent = true;
         grammarPackages = with pkgs.vimPlugins.nvim-treesitter.builtGrammars; [
+          regex
           c
           lua
           vimdoc
