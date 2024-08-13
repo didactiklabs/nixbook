@@ -33,7 +33,6 @@ in {
       "${config.xdg.configHome}/nvim/spell/fr.latin1.sug".source =
         nvim-spell-fr-latin1-suggestions;
     };
-    home.packages = [ ];
     programs.nixvim = {
       enable = true;
       defaultEditor = true;

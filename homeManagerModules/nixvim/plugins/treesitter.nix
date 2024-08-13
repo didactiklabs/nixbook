@@ -2,6 +2,7 @@
 let cfg = config.customHomeManagerModules;
 in {
   config = lib.mkIf cfg.nixvimConfig.enable {
+    home.packages = [ pkgs.gcc ];
     programs.nixvim.plugins = {
       treesitter = {
         enable = true;

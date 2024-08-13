@@ -73,7 +73,7 @@
         enableZshIntegration = true;
       };
       ripgrep = { enable = true; };
-
+      fd = { enable = true; };
       zsh = {
         autosuggestion.enable = true;
         plugins = [
