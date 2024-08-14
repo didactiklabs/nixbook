@@ -181,6 +181,7 @@ in {
       tig
       unzip
       go
+      gnumake
       templ
       tree
       openvpn
