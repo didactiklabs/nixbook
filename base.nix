@@ -29,6 +29,8 @@ in {
     ./nixosModules/greetd.nix
     ./nixosModules/sway.nix
     ./nixosModules/hyprland.nix
+    ./nixosModules/printTools.nix
+    ./nixosModules/workTools.nix
     (import ./nixosModules/networkManager.nix { inherit lib config pkgs; })
     (import ./nixosModules/sunshine.nix { inherit lib config pkgs; })
     (import "${home-manager}/nixos")
@@ -83,17 +85,6 @@ in {
       tmpfsSize = "30%";
     };
   };
-  # Podman
-  virtualisation = {
-    oci-containers.backend = "podman";
-    podman = {
-      enable = true;
-      # Create a `docker` alias for podman, to use it as a drop-in replacement
-      dockerCompat = true;
-      # Required for containers under podman-compose to be able to talk to each other.
-      defaultNetwork.settings.dns_enabled = true;
-    };
-  };
   networking = {
     hostName = "${hostname}"; # Define your hostname.
     networkmanager.enable = true;
@@ -117,15 +108,11 @@ in {
   };
   console.keyMap = "fr";
   services = {
-    ipp-usb.enable = true;
-    avahi.enable = true;
-    avahi.nssmdns4 = true;
     xserver = {
       enable = false;
       xkb.layout = "fr";
       xkb.variant = "oss_latin9";
     };
-    printing.enable = true;
     pipewire = {
       enable = true;
       alsa.enable = true;
@@ -142,10 +129,6 @@ in {
   hardware = {
     bluetooth.enable = true;
     bluetooth.powerOnBoot = false;
-    sane = {
-      enable = true;
-      extraBackends = [ pkgs.sane-airscan ];
-    };
   };
   sound.enable = true;
   hardware.pulseaudio.enable = false;
@@ -173,29 +156,13 @@ in {
   };
   environment = {
     systemPackages = with pkgs; [
-      python3
-      nix-eval-jobs
-      dig
-      jq
-      yq-go
-      tig
-      unzip
-      go
-      gnumake
-      templ
-      tree
-      openvpn
-      nixos-generators
-      gnome.simple-scan
+      tailscale
+      update-systemd-resolved
       gnupg
       pinentry-tty
       usbutils
       udiskie
       udisks
-      tailscale
-      update-systemd-resolved
-      podman
-      podman-compose
     ];
     variables = { NIXOS_OZONE_WL = "1"; };
   };

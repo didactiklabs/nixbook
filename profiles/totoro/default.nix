@@ -11,11 +11,10 @@ let
   mkUser = userConfig.mkUser;
 in {
   customNixOSModules = {
+    workTools.enable = true;
     laptopProfile.enable = true;
     networkManager.enable = true;
-    sunshine.enable = false;
     greetd.enable = true;
-    sway.enable = false;
     hyprland.enable = true;
     caCertificates = {
       bealv.enable = true;
