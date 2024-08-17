@@ -41,6 +41,7 @@ in {
         gnome.simple-scan
         podman
         podman-compose
+        google-cloud-sdk
       ];
     };
   };
