@@ -68,7 +68,6 @@ in {
         k9s
         kubevirt
         fluxcd
-        kind
         kubebuilder
         kubeswitch
         kustomize

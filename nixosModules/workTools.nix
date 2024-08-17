@@ -25,6 +25,7 @@ in {
     # workTools
     environment = {
       systemPackages = with pkgs; [
+        kind
         python3
         nix-eval-jobs
         dig
