@@ -26,20 +26,22 @@ in {
         whether to enable desktopApps globally or not
       '';
     };
-    kubeConfig.didactiklabs.enable = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
-      description = "";
-    };
-    kubeConfig.bealv.enable = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
-      description = "";
-    };
-    kubeConfig.logicmg.enable = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
-      description = "";
+    kubeConfig = {
+      didactiklabs.enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "";
+      };
+      bealv.enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "";
+      };
+      logicmg.enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "";
+      };
     };
   };
   config = lib.mkIf cfg.kubeTools.enable {
