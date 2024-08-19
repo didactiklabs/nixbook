@@ -22,6 +22,20 @@ in {
         defaultNetwork.settings.dns_enabled = true;
       };
     };
+    boot = {
+      kernelModules = [
+        "ip6_tables"
+        "ip6table_nat"
+        "ip_tables"
+        "iptable_nat"
+        "nf_conntrack"
+        "nf_conntrack_ipv4"
+        "ip_vs"
+        "ip_vs_rr"
+        "ip_vs_wrr"
+        "ip_vs_sh"
+      ];
+    };
     # workTools
     environment = {
       systemPackages = with pkgs; [

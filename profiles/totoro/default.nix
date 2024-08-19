@@ -10,6 +10,7 @@ let
   };
   mkUser = userConfig.mkUser;
 in {
+  networking.hosts = { "100.111.17.126" = [ "gitea" "git.s3ns.internal" ]; };
   customNixOSModules = {
     workTools.enable = true;
     laptopProfile.enable = true;
