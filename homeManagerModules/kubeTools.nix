@@ -13,8 +13,8 @@ let
   kclRepo = pkgs.fetchFromGitHub {
     owner = "Banh-Canh";
     repo = "kcl-nix";
-    rev = "f9a403c78eaeb1b198e30285b8d27bbec50db55a";
-    sha256 = "sha256-xT01suXdvIH4o32jQ/4K1Jp/SdBWIX+FKZBcSWL39L4=";
+    rev = "f3c917cb6d7b31d73d5275d7f01c09bb4667abbc";
+    sha256 = "sha256-Ar6yvyYpIzyuavbURbdP6uyBpc0MPoFifVbx/1wEz0E=";
   };
   kcl = pkgs.callPackage "${kclRepo}/kcl.nix" { };
 in {
