@@ -1,4 +1,4 @@
-{ lib, pkgs, }:
+{ pkgs }:
 pkgs.buildGoModule rec {
   pname = "goji";
   version = "0.1.2";
@@ -16,7 +16,7 @@ pkgs.buildGoModule rec {
 
   ldflags = [ "-s" "-w" "-X github.com/muandane/goji/cmd.version=${version}" ];
 
-  meta = with lib; {
+  meta = {
     homepage = "https://github.com/muandane/goji";
     description =
       " Commitizen-like Emoji Commit Tool written in Go (think cz-emoji and other commitizen adapters but in go) 🚀 ";

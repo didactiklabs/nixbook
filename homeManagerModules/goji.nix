@@ -1,7 +1,7 @@
 { config, pkgs, lib, ... }:
 let
   cfg = config.customHomeManagerModules;
-  goji = import ../customPkgs/goji.nix { inherit pkgs lib; };
+  goji = import ../customPkgs/goji.nix { inherit pkgs; };
   gojiJson = ''
     {
       "noemoji": false,
