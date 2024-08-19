@@ -15,6 +15,7 @@ in {
         enable = true;
         userDefaultOptions.names = false;
       };
+      which-key = { enable = true; };
     };
   };
 }

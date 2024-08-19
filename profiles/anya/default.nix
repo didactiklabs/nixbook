@@ -45,7 +45,6 @@ in {
     laptopProfile.enable = true;
     networkManager.enable = true;
     sunshine.enable = true;
-    greetd.enable = false;
     sway.enable = true;
   };
   imports = [

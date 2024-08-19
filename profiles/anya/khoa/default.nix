@@ -15,7 +15,6 @@
     in "${image}";
   };
   customHomeManagerModules = {
-    bluetooth.enable = false;
     fontConfig.enable = true;
     gitConfig.enable = true;
     gtkConfig.enable = true;
@@ -34,10 +33,7 @@
         style = "style-1"; # (1 - 5) # type-1 only
       };
     };
-    copyqConfig.enable = false;
     fastfetchConfig.enable = true;
-    desktopApps.enable = false;
-    kubeTools.enable = false;
     waybar.enable = true;
   };
 }
