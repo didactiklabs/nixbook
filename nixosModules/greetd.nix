@@ -1,10 +1,15 @@
-{ config, pkgs, lib, ... }:
-let cfg = config.customNixOSModules;
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}: let
+  cfg = config.customNixOSModules;
 in {
   options.customNixOSModules.greetd = {
     enable = lib.mkOption {
       type = lib.types.bool;
-      default = true;
+      default = false;
       description = ''
         whether to enable greeter globally or not.
       '';

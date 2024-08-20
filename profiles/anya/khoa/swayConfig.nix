@@ -15,7 +15,7 @@ in {
       extraSessionCommands = ''
         export WLR_BACKENDS="headless,libinput"
       '';
-      sway.config.window.commands = [
+      config.window.commands = [
         {
           command = "opacity 1.0";
           criteria = { class = ".*"; };
