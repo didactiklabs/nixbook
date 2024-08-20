@@ -69,6 +69,8 @@ in {
         kubebuilder
         kubeswitch
         kustomize
+        kubectl-view-secret
+        kubectl-explore
         kcl
       ];
     };
