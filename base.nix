@@ -2,6 +2,7 @@
 let
   sources = import ./npins;
   pkgs = import sources.nixpkgs { };
+  inherit (sources) lix-module lix;
   hostProfile =
     import ./profiles/${hostname} { inherit lib config pkgs hostname sources; };
 in {
@@ -17,7 +18,7 @@ in {
     (import ./nixosModules/networkManager.nix { inherit lib config pkgs; })
     (import ./nixosModules/sunshine.nix { inherit lib config pkgs; })
     (import "${sources.home-manager}/nixos")
-    (import "${sources.lix-module}/module.nix" { lix = sources.lix; })
+    (import "${lix-module}/module.nix" { inherit lix; })
     hostProfile
   ];
   # Bootloader.

@@ -6,10 +6,8 @@ let
     imports = [ ./fastfetchConfig.nix ];
   };
   userConfig = import ../../nixosModules/userConfig.nix {
-    inherit lib pkgs sources;
-    overrides = overrides;
+    inherit lib pkgs sources overrides;
   };
-  mkUser = userConfig.mkUser;
 in {
   ## wake with sunshine
   networking.interfaces."${mainIf}".wakeOnLan = {
@@ -48,7 +46,7 @@ in {
     sway.enable = true;
   };
   imports = [
-    (mkUser {
+    (userConfig.mkUser {
       username = "khoa";
       userImports = [ ./khoa ];
     })

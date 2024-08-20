@@ -5,10 +5,8 @@ let
     imports = [ ./fastfetchConfig.nix ];
   };
   userConfig = import ../../nixosModules/userConfig.nix {
-    inherit lib pkgs sources;
-    overrides = overrides;
+    inherit lib pkgs sources overrides;
   };
-  mkUser = userConfig.mkUser;
 in {
   networking.hosts = { "100.111.17.126" = [ "gitea" "git.s3ns.internal" ]; };
   customNixOSModules = {
@@ -23,7 +21,7 @@ in {
     };
   };
   imports = [
-    (mkUser {
+    (userConfig.mkUser {
       username = "khoa";
       userImports = [ ./khoa ];
     })

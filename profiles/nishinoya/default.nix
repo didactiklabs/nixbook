@@ -5,10 +5,8 @@ let
     imports = [ ./fastfetchConfig.nix ];
   };
   userConfig = import ../../nixosModules/userConfig.nix {
-    inherit lib pkgs sources;
-    overrides = overrides;
+    inherit lib pkgs sources overrides;
   };
-  mkUser = userConfig.mkUser;
 in {
   customNixOSModules = {
     workTools.enable = true;
@@ -22,7 +20,7 @@ in {
     };
   };
   imports = [
-    (mkUser {
+    (userConfig.mkUser {
       username = "aamoyel";
       userImports = [ ./aamoyel ];
     })
