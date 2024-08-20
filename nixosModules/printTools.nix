@@ -11,6 +11,7 @@ in {
     };
   };
   config = lib.mkIf cfg.printTools.enable {
+    environment = { systemPackages = with pkgs; [ gnome.simple-scan ]; };
     services = {
       ipp-usb.enable = true;
       avahi.enable = true;

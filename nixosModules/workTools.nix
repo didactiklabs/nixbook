@@ -53,7 +53,6 @@ in {
         tree
         openvpn
         nixos-generators
-        gnome.simple-scan
         podman
         podman-compose
         google-cloud-sdk
