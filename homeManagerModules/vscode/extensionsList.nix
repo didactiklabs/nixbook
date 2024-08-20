@@ -43,6 +43,12 @@
       sha256 = "1cpfckh6zg8byi6x1llkdls24w9b0fvxx4qybi9zfcy5gc60r6nk";
     }
     {
+      name = "nixfmt-vscode";
+      publisher = "brettm12345";
+      version = "0.0.1";
+      sha256 = "sha256-8yglQDUc0CXG2EMi2/HXDJsxmXJ4YHvjNjTMnQwrgx8=";
+    }
+    {
       name = "alejandra";
       publisher = "kamadorueda";
       version = "1.0.0";

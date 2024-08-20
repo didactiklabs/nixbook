@@ -2,7 +2,7 @@
 let cfg = config.customHomeManagerModules;
 in {
   config = lib.mkIf cfg.desktopApps.enable {
-    home.packages = [ pkgs.exercism pkgs.golines ];
+    home.packages = [ pkgs.exercism pkgs.golines pkgs.nixfmt ];
     programs.go = {
       enable = true;
       goPath = "Documents/go";
@@ -14,10 +14,16 @@ in {
       mutableExtensionsDir = false;
       userSettings = {
         "emeraldwalk.runonsave" = {
-          "commands" = [{
-            "match" = "\\.go$";
-            "cmd" = "golines \${file} -w";
-          }];
+          "commands" = [
+            {
+              "match" = "\\.go$";
+              "cmd" = "golines \${file} -w";
+            }
+            {
+              "match" = "\\.nix$";
+              "cmd" = "nixfmt \${file}";
+            }
+          ];
         };
         "ansible.ansible.useFullyQualifiedCollectionNames" = true;
         "ansible.ansibleLint.enabled" = true;
