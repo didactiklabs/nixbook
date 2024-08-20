@@ -27,8 +27,6 @@ let
     url = "https://git.lix.systems/lix-project/lix/archive/2.91.0.tar.gz";
     sha256 = "sha256-Rosl9iA9MybF5Bud4BTAQ9adbY81aGmPfV8dDBGl34s=";
   };
-  nixos-cli = builtins.getFlake
-    "github:water-sucks/nixos/33e4f76758f241d85cbc65c37bcef3a8170d2d78";
   home-manager = builtins.fetchTarball
     "https://github.com/nix-community/home-manager/archive/release-${nixOS_version}.tar.gz";
   hostProfile = import ./profiles/${hostname} {
@@ -48,13 +46,8 @@ in {
     (import ./nixosModules/sunshine.nix { inherit lib config pkgs; })
     (import "${home-manager}/nixos")
     (import "${module}/module.nix" { lix = lixSrc; })
-    nixos-cli.nixosModules.nixos-cli
     hostProfile
   ];
-  services.nixos-cli = {
-    enable = true;
-    package = nixos-cli.packages.${pkgs.system}.nixosLegacy;
-  };
   # Bootloader.
   boot = {
     kernel = {
