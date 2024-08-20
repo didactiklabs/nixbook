@@ -25,6 +25,12 @@
       sha256 = "0a874423xw7z6zjj7gzzl39jahrrqcf2r16zbcvncw23483m3yli";
     }
     {
+      name = "runonsave";
+      publisher = "emeraldwalk";
+      version = "0.2.0";
+      sha256 = "sha256-nPm9bTEnNHzb5omGoEh0e8Wp+XTLW2UTtr/OuSBd99g=";
+    }
+    {
       name = "go";
       publisher = "golang";
       version = "0.41.4";
