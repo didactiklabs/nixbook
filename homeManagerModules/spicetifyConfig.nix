@@ -1,10 +1,9 @@
 { config, lib, pkgs, ... }:
 let
-  flake-compat = builtins.fetchTarball
-    "https://github.com/edolstra/flake-compat/archive/master.tar.gz";
+  sources = import ../npins;
+  flake-compat = sources.flake-compat;
   spicetify-nix = (import flake-compat {
-    src = builtins.fetchTarball
-      "https://github.com/Gerg-L/spicetify-nix/archive/master.tar.gz";
+    src = sources.spicetify-nix;
   }).defaultNix;
   spicePkgs = spicetify-nix.legacyPackages.${pkgs.system};
   palette = config.lib.stylix.colors;

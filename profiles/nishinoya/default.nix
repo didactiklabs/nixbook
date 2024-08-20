@@ -1,11 +1,11 @@
-{ pkgs, lib, stylix, nixvim, ... }:
+{ pkgs, lib, sources, ... }:
 let
   overrides = {
     customHomeManagerModules = { };
     imports = [ ./fastfetchConfig.nix ];
   };
   userConfig = import ../../nixosModules/userConfig.nix {
-    inherit lib pkgs stylix nixvim;
+    inherit lib pkgs sources;
     overrides = overrides;
   };
   mkUser = userConfig.mkUser;

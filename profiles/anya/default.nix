@@ -1,4 +1,4 @@
-{ pkgs, lib, nixvim, stylix, ... }:
+{ pkgs, lib, sources, ... }:
 let
   mainIf = "enp34s0";
   overrides = {
@@ -6,7 +6,7 @@ let
     imports = [ ./fastfetchConfig.nix ];
   };
   userConfig = import ../../nixosModules/userConfig.nix {
-    inherit lib pkgs nixvim stylix;
+    inherit lib pkgs sources;
     overrides = overrides;
   };
   mkUser = userConfig.mkUser;

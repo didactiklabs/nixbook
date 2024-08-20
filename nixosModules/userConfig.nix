@@ -1,4 +1,4 @@
-{ pkgs, lib, stylix, nixvim, overrides ? { }, }:
+{ pkgs, lib, sources, overrides ? { }, }:
 let
   defaultWallpaper = pkgs.stdenv.mkDerivation {
     name = "defaultWallpaper";
@@ -96,9 +96,9 @@ let
         imports = lib.concatLists [
           mergedConfig.imports
           [
-            (import stylix).homeManagerModules.stylix
+            (import sources.stylix).homeManagerModules.stylix
             ../homeManagerModules/stylixConfig.nix
-            (import nixvim).homeManagerModules.nixvim
+            (import sources.nixvim).homeManagerModules.nixvim
             ../homeManagerModules/nixvim
             ../homeManagerModules/spicetifyConfig.nix
             ../homeManagerModules/sway

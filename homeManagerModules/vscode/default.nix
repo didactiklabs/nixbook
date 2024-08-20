@@ -2,7 +2,7 @@
 let cfg = config.customHomeManagerModules;
 in {
   config = lib.mkIf cfg.desktopApps.enable {
-    home.packages = [ pkgs.exercism pkgs.golines pkgs.nixfmt ];
+    home.packages = [ pkgs.exercism pkgs.golines pkgs.nixfmt-rfc-style ];
     programs.go = {
       enable = true;
       goPath = "Documents/go";

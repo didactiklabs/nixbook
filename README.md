@@ -52,6 +52,12 @@ Install or upgrade with a simple command:
 sudo nixos-rebuild switch -I nixos-config=./profiles/<PROFILE_NAME>/configuration.nix
 ```
 
+To upgrade dependencies, run:
+
+```bash
+npins update
+```
+
 </p>
 
 #### - Screenshot:

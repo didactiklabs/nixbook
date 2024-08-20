@@ -1,37 +1,9 @@
 { config, hostname, lib, ... }:
 let
-  nixOS_version = "24.05";
-  nixvim = pkgs.fetchFromGitHub {
-    owner = "nix-community";
-    repo = "nixvim";
-    rev = "nixos-${nixOS_version}";
-    sha256 = "sha256-dQGvOK+t45unF7DTp5bfO37hY0NkDUw6X3MH5CCTEAs=";
-  };
-  stylix = pkgs.fetchFromGitHub {
-    owner = "danth";
-    repo = "stylix";
-    rev = "release-${nixOS_version}";
-    sha256 = "sha256-A+dBkSwp8ssHKV/WyXb9uqIYrHBqHvtSedU24Lq9lqw=";
-  };
-  pkgs = import (fetchTarball
-    "https://github.com/NixOS/nixpkgs/archive/nixos-${nixOS_version}.tar.gz")
-    { };
-  module = fetchTarball {
-    name = "source";
-    url =
-      "https://git.lix.systems/lix-project/nixos-module/archive/2.91.0.tar.gz";
-    sha256 = "sha256-zNW/rqNJwhq2lYmQf19wJerRuNimjhxHKmzrWWFJYts=";
-  };
-  lixSrc = fetchTarball {
-    name = "source";
-    url = "https://git.lix.systems/lix-project/lix/archive/2.91.0.tar.gz";
-    sha256 = "sha256-Rosl9iA9MybF5Bud4BTAQ9adbY81aGmPfV8dDBGl34s=";
-  };
-  home-manager = builtins.fetchTarball
-    "https://github.com/nix-community/home-manager/archive/release-${nixOS_version}.tar.gz";
-  hostProfile = import ./profiles/${hostname} {
-    inherit lib config pkgs hostname home-manager stylix nixvim;
-  };
+  sources = import ./npins;
+  pkgs = import sources.nixpkgs { };
+  hostProfile =
+    import ./profiles/${hostname} { inherit lib config pkgs hostname sources; };
 in {
   imports = [
     ./hardware-configuration.nix
@@ -44,8 +16,8 @@ in {
     ./nixosModules/workTools.nix
     (import ./nixosModules/networkManager.nix { inherit lib config pkgs; })
     (import ./nixosModules/sunshine.nix { inherit lib config pkgs; })
-    (import "${home-manager}/nixos")
-    (import "${module}/module.nix" { lix = lixSrc; })
+    (import "${sources.home-manager}/nixos")
+    (import "${sources.lix-module}/module.nix" { lix = sources.lix; })
     hostProfile
   ];
   # Bootloader.
@@ -155,9 +127,13 @@ in {
       allowUnfree = true;
     };
   };
-  nix.extraOptions = ''
-    experimental-features = nix-command flakes
-  '';
+  nix = {
+    settings = {
+      nix-path =
+        [ "nixpkgs=${sources.nixpkgs}" "home-manager=${sources.home-manager}" ];
+      experimental-features = [ "nix-command" "flakes" ];
+    };
+  };
   programs = {
     gnupg.agent = {
       enable = true;
@@ -168,6 +144,7 @@ in {
   };
   environment = {
     systemPackages = with pkgs; [
+      npins
       tailscale
       update-systemd-resolved
       gnupg
@@ -178,5 +155,5 @@ in {
     ];
     variables = { NIXOS_OZONE_WL = "1"; };
   };
-  system.stateVersion = "${nixOS_version}";
+  system.stateVersion = "24.05";
 }

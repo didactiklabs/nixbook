@@ -10,12 +10,8 @@ let
        paths:
          - ~/.kube/configs
   '';
-  kclRepo = pkgs.fetchFromGitHub {
-    owner = "Banh-Canh";
-    repo = "kcl-nix";
-    rev = "f3c917cb6d7b31d73d5275d7f01c09bb4667abbc";
-    sha256 = "sha256-Ar6yvyYpIzyuavbURbdP6uyBpc0MPoFifVbx/1wEz0E=";
-  };
+  sources = import ../npins;
+  kclRepo = sources.kcl-nix;
   kcl = pkgs.callPackage "${kclRepo}/kcl.nix" { };
 in {
   options.customHomeManagerModules = {

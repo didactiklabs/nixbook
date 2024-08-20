@@ -1,0 +1,117 @@
+{
+  "pins": {
+    "flake-compat": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "edolstra",
+        "repo": "flake-compat"
+      },
+      "branch": "master",
+      "revision": "0f9255e01c2351cc7d116c072cb317785dd33b33",
+      "url": "https://github.com/edolstra/flake-compat/archive/0f9255e01c2351cc7d116c072cb317785dd33b33.tar.gz",
+      "hash": "0m9grvfsbwmvgwaxvdzv6cmyvjnlww004gfxjvcl806ndqaxzy4j"
+    },
+    "goji": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "muandane",
+        "repo": "goji"
+      },
+      "branch": "main",
+      "revision": "f33a73bcd5145741fb5b7fd46fc5a62dfc41abbd",
+      "url": "https://github.com/muandane/goji/archive/f33a73bcd5145741fb5b7fd46fc5a62dfc41abbd.tar.gz",
+      "hash": "0z0hd603sq4f4pcv0si8szc59z0543z3dpdsfa8jqqwwb772v3yz"
+    },
+    "home-manager": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "nix-community",
+        "repo": "home-manager"
+      },
+      "branch": "release-24.05",
+      "revision": "e1391fb22e18a36f57e6999c7a9f966dc80ac073",
+      "url": "https://github.com/nix-community/home-manager/archive/e1391fb22e18a36f57e6999c7a9f966dc80ac073.tar.gz",
+      "hash": "0c83di08nhkzq0cwc3v7aax3x8y5m7qahyzxppinzwxi3r8fnjq3"
+    },
+    "kcl-nix": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "Banh-Canh",
+        "repo": "kcl-nix"
+      },
+      "branch": "master",
+      "revision": "f3c917cb6d7b31d73d5275d7f01c09bb4667abbc",
+      "url": "https://github.com/Banh-Canh/kcl-nix/archive/f3c917cb6d7b31d73d5275d7f01c09bb4667abbc.tar.gz",
+      "hash": "0hfg0ifgzwangmi82ghcrnjq3v7a9yvlbm7ndap3q8r94szv5gh2"
+    },
+    "lix": {
+      "type": "Git",
+      "repository": {
+        "type": "Git",
+        "url": "https://git.lix.systems/lix-project/lix.git"
+      },
+      "branch": "main",
+      "revision": "f1533160aaa0b2ecd0bb26d6445808593ecb0726",
+      "url": null,
+      "hash": "1hgi4nkxjsdd85kb83kydi0188vly3wz3pxgrdr0zwb836g2z9na"
+    },
+    "lix-module": {
+      "type": "Git",
+      "repository": {
+        "type": "Git",
+        "url": "https://git.lix.systems/lix-project/nixos-module.git"
+      },
+      "branch": "main",
+      "revision": "cecf70b77539c1a593f60ec9d0305b5e537ab6a9",
+      "url": null,
+      "hash": "0dk8x931mvbkn4smfxr5gdrhdvwpdxqxd1gwc8v7p4naan8wwgxd"
+    },
+    "nixpkgs": {
+      "type": "Channel",
+      "name": "nixos-24.05",
+      "url": "https://releases.nixos.org/nixos/24.05/nixos-24.05.3999.c42fcfbdfeae/nixexprs.tar.xz",
+      "hash": "0ibs048d6ijgrd2nv3wpcf2jx0al5rpr7ignma9nmrsyla5bfi0s"
+    },
+    "nixvim": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "nix-community",
+        "repo": "nixvim"
+      },
+      "branch": "nixos-24.05",
+      "revision": "3187749816b3549cf46c5ca85e6736d0ed4a5aa0",
+      "url": "https://github.com/nix-community/nixvim/archive/3187749816b3549cf46c5ca85e6736d0ed4a5aa0.tar.gz",
+      "hash": "0gl8ifzy9iv28i5v19zhxlkfl6d4429a5g3pzdaky0vkdadjnlyj"
+    },
+    "spicetify-nix": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "Gerg-L",
+        "repo": "spicetify-nix"
+      },
+      "branch": "master",
+      "revision": "94195e44cd5d267256cb3e5d5eae30f1cca6fdd1",
+      "url": "https://github.com/Gerg-L/spicetify-nix/archive/94195e44cd5d267256cb3e5d5eae30f1cca6fdd1.tar.gz",
+      "hash": "0mfcpzzhi0i2gdlphvckw0xv9bwwd4lzz6q73366ksq2n2mp14yr"
+    },
+    "stylix": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "danth",
+        "repo": "stylix"
+      },
+      "branch": "release-24.05",
+      "revision": "e59d2c1725b237c362e4a62f5722f5b268d566c7",
+      "url": "https://github.com/danth/stylix/archive/e59d2c1725b237c362e4a62f5722f5b268d566c7.tar.gz",
+      "hash": "1b4npnxf0dnmg59gn7kaf2n1i8mszmvckmjz543wpwi95j8l3rq3"
+    }
+  },
+  "version": 3
+}
