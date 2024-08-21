@@ -9,13 +9,6 @@ let
         {
           "name": "Desktop",
           "image-path": "desktop.png"
-        },
-        {
-          "name": "Steam Big Picture",
-          "detached": [
-            "setsid steam steam://open/bigpicture"
-          ],
-          "image-path": "steam.png"
         }
       ]
     }
