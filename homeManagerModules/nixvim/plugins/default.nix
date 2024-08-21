@@ -1,5 +1,6 @@
 {
   imports = [
+    ./neocord.nix
     ./treesitter.nix
     ./colorizer.nix
     ./trim.nix
