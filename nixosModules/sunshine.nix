@@ -22,7 +22,6 @@ in {
         Restart = "always";
       };
     };
-    programs.steam = { enable = true; };
     security.wrappers.sunshine = {
       owner = "root";
       group = "root";

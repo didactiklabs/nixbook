@@ -38,6 +38,18 @@ in {
       default_session = initial_session;
     };
   };
+  systemd.user.services.steamBigPicture = {
+    description = "SteamBigPicture";
+    partOf = [ "graphical-session.target" ];
+    requires = [ "graphical-session.target" ];
+    after = [ "graphical-session.target" ];
+    wantedBy = [ "graphical-session.target" ];
+    serviceConfig = {
+      ExecStart = "${pkgs.steam}/bin/steam steam://open/bigpicture";
+      Restart = "always";
+    };
+  };
+  programs.steam = { enable = true; };
   services.openssh.enable = true;
   customNixOSModules = {
     laptopProfile.enable = true;

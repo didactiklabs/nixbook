@@ -155,6 +155,15 @@ in {
     };
   };
   nix = {
+    gc = {
+      automatic = true;
+      dates = "weekly";
+      options = "--delete-older-than 7d";
+    };
+    optimise = {
+      automatic = true;
+      dates = [ "03:45" ];
+    };
     settings = {
       nix-path =
         [ "nixpkgs=${sources.nixpkgs}" "home-manager=${sources.home-manager}" ];
