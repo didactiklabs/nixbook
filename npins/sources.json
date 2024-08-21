@@ -55,9 +55,9 @@
         "url": "https://git.lix.systems/lix-project/lix.git"
       },
       "branch": "main",
-      "revision": "f1533160aaa0b2ecd0bb26d6445808593ecb0726",
+      "revision": "ac6974777efdaa85715cf7838fe878665061f86c",
       "url": null,
-      "hash": "1hgi4nkxjsdd85kb83kydi0188vly3wz3pxgrdr0zwb836g2z9na"
+      "hash": "1yj26j91nayf6ir58p5l7hxb990jl17rj2sd4gsf0h0ydcak95z4"
     },
     "lix-module": {
       "type": "Git",
@@ -73,8 +73,8 @@
     "nixpkgs": {
       "type": "Channel",
       "name": "nixos-24.05",
-      "url": "https://releases.nixos.org/nixos/24.05/nixos-24.05.3999.c42fcfbdfeae/nixexprs.tar.xz",
-      "hash": "0ibs048d6ijgrd2nv3wpcf2jx0al5rpr7ignma9nmrsyla5bfi0s"
+      "url": "https://releases.nixos.org/nixos/24.05/nixos-24.05.4031.f1bad50880ba/nixexprs.tar.xz",
+      "hash": "1fc0ynyfjf7h41snx8l1pgab743w0sqgx4620z9n8n5qk9vxv198"
     },
     "nixvim": {
       "type": "Git",
@@ -96,9 +96,9 @@
         "repo": "spicetify-nix"
       },
       "branch": "master",
-      "revision": "94195e44cd5d267256cb3e5d5eae30f1cca6fdd1",
-      "url": "https://github.com/Gerg-L/spicetify-nix/archive/94195e44cd5d267256cb3e5d5eae30f1cca6fdd1.tar.gz",
-      "hash": "0mfcpzzhi0i2gdlphvckw0xv9bwwd4lzz6q73366ksq2n2mp14yr"
+      "revision": "24285dbcf8f0769c7af50a0b6e38ec4fd841389e",
+      "url": "https://github.com/Gerg-L/spicetify-nix/archive/24285dbcf8f0769c7af50a0b6e38ec4fd841389e.tar.gz",
+      "hash": "06c5yi9pa5464pfgqb4wlbj4xz51g4q8gdpwdxrfs2d0hvab11fq"
     },
     "stylix": {
       "type": "Git",
