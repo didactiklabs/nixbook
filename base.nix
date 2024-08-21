@@ -122,15 +122,26 @@ in {
     pulseaudio.enable = false;
     uinput.enable = true;
   };
-  systemd.user.services.ds4drv = {
-    description = "Controller Support.";
-    serviceConfig = {
-      ExecStart =
-        "${pkgs.python312Packages.ds4drv}/bin/ds4drv --hidraw --emulate-xpad";
-      Restart = "always";
+  systemd = {
+    # Create a separate slice for nix-daemon that is
+    # memory-managed by the userspace systemd-oomd killer
+    slices."nix-daemon".sliceConfig = {
+      ManagedOOMMemoryPressure = "kill";
+      ManagedOOMMemoryPressureLimit = "50%";
+    };
+    services."nix-daemon".serviceConfig.Slice = "nix-daemon.slice";
+    # If a kernel-level OOM event does occur anyway,
+    # strongly prefer killing nix-daemon child processes
+    services."nix-daemon".serviceConfig.OOMScoreAdjust = 1000;
+    user.services.ds4drv = {
+      description = "Controller Support.";
+      serviceConfig = {
+        ExecStart =
+          "${pkgs.python312Packages.ds4drv}/bin/ds4drv --hidraw --emulate-xpad";
+        Restart = "always";
+      };
     };
   };
-
   sound.enable = true;
   security = {
     rtkit.enable = true;

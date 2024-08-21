@@ -55,9 +55,9 @@
         "url": "https://git.lix.systems/lix-project/lix.git"
       },
       "branch": "main",
-      "revision": "ac6974777efdaa85715cf7838fe878665061f86c",
+      "revision": "e38410799b5b78b2fc2b0c9e4b1dc0dfc5801097",
       "url": null,
-      "hash": "1yj26j91nayf6ir58p5l7hxb990jl17rj2sd4gsf0h0ydcak95z4"
+      "hash": "0f11imlv1m2blghnziyb51pry31xmxfxv9zq9pn2sp3gymd0csh0"
     },
     "lix-module": {
       "type": "Git",
