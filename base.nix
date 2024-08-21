@@ -23,6 +23,7 @@ in {
   ];
   # Bootloader.
   boot = {
+    kernelModules = [ "uinput" ];
     kernel = {
       sysctl = {
         # ANSSI R9
@@ -93,6 +94,7 @@ in {
   };
   console.keyMap = "fr";
   services = {
+    udev = { packages = with pkgs; [ game-devices-udev-rules ]; };
     xserver = {
       enable = false;
       xkb.layout = "fr";
@@ -112,11 +114,24 @@ in {
     portal.wlr.enable = true;
   };
   hardware = {
-    bluetooth.enable = true;
-    bluetooth.powerOnBoot = false;
+    bluetooth = {
+      enable = true;
+      powerOnBoot = false;
+      package = pkgs.bluez;
+    };
+    pulseaudio.enable = false;
+    uinput.enable = true;
   };
+  systemd.user.services.ds4drv = {
+    description = "Controller Support.";
+    serviceConfig = {
+      ExecStart =
+        "${pkgs.python312Packages.ds4drv}/bin/ds4drv --hidraw --emulate-xpad";
+      Restart = "always";
+    };
+  };
+
   sound.enable = true;
-  hardware.pulseaudio.enable = false;
   security = {
     rtkit.enable = true;
     polkit.enable = true;
