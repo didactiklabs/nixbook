@@ -2,9 +2,8 @@
 let
   sources = import ../npins;
   flake-compat = sources.flake-compat;
-  spicetify-nix = (import flake-compat {
-    src = sources.spicetify-nix;
-  }).defaultNix;
+  spicetify-nix =
+    (import flake-compat { src = sources.spicetify-nix; }).defaultNix;
   spicePkgs = spicetify-nix.legacyPackages.${pkgs.system};
   palette = config.lib.stylix.colors;
   cfg = config.customHomeManagerModules;

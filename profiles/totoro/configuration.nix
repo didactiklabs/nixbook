@@ -1,5 +1,5 @@
-args @ {...}: let
-  base = import ../../base.nix (args // {inherit hostname;});
+args@{ ... }:
+let
+  base = import ../../base.nix (args // { inherit hostname; });
   hostname = "totoro";
-in
-  base
+in base

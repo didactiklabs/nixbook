@@ -1,17 +1,8 @@
-{
-  config,
-  lib,
-  ...
-}: let
-  cfg = config.customHomeManagerModules;
+{ config, lib, ... }:
+let cfg = config.customHomeManagerModules;
 in {
-  imports = [
-    ./hyprlandConfig.nix
-    ./hyprlockConfig.nix
-  ];
-  config =
-    lib.mkIf cfg.hyprlandConfig.enable {
-    };
+  imports = [ ./hyprlandConfig.nix ./hyprlockConfig.nix ];
+  config = lib.mkIf cfg.hyprlandConfig.enable { };
   options.customHomeManagerModules.hyprlandConfig = {
     enable = lib.mkOption {
       type = lib.types.bool;
