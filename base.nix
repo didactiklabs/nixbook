@@ -150,7 +150,7 @@ in {
   };
   nixpkgs = {
     config = {
-      allowUnfreePredicate = pkg: true;
+      allowUnfreePredicate = _: true;
       allowUnfree = true;
     };
   };
