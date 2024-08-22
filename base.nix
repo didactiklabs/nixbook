@@ -189,10 +189,7 @@ in {
       udiskie
       udisks
     ];
-    variables = {
-      NIXOS_OZONE_WL = "1";
-      NIXPKGS_ALLOW_UNFREE = "1";
-    };
+    variables = { NIXOS_OZONE_WL = "1"; };
   };
   system.stateVersion = "24.05";
 }
