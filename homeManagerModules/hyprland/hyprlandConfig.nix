@@ -95,6 +95,7 @@ in {
           "size 40% 60%, class:(com.github.hluk.copyq)"
           "opaque, class:(mpv)"
           "opaque, class:(imv)"
+          "opaque, class:(com.moonlight_stream.Moonlight)"
         ];
 
         monitor = [ ",preferred,auto,1" ];
