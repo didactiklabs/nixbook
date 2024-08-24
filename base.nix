@@ -189,7 +189,10 @@ in {
       udiskie
       udisks
     ];
-    variables = { NIXOS_OZONE_WL = "1"; };
+    variables = {
+      NIXOS_OZONE_WL = "1";
+      WINEDLLOVERRIDES = "version,dxgi=n,b";
+    };
   };
   system.stateVersion = "24.05";
 }
