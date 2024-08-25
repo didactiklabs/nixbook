@@ -96,6 +96,10 @@ in {
           "opaque, class:(mpv)"
           "opaque, class:(imv)"
           "opaque, class:(com.moonlight_stream.Moonlight)"
+          "opaque, title:(ranger)"
+          "opaque, title:(.*)(Immich — Mozilla Firefox)$"
+          "opaque, title:(.*)(YouTube — Mozilla Firefox)$"
+          "opaque, title:(.*)(Jellyfin — Mozilla Firefox)$"
         ];
 
         monitor = [ ",preferred,auto,1" ];
