@@ -100,6 +100,9 @@ in {
           "opaque, title:(.*)(Immich — Mozilla Firefox)$"
           "opaque, title:(.*)(YouTube — Mozilla Firefox)$"
           "opaque, title:(.*)(Jellyfin — Mozilla Firefox)$"
+          "opaque, title:(.*)(Facebook — Mozilla Firefox)$"
+          "opaque, title:(.*)(Instagram — Mozilla Firefox)$"
+          "opaque, title:(.*)(Nexus - Mods and community — Mozilla Firefox)$"
         ];
 
         monitor = [ ",preferred,auto,1" ];
