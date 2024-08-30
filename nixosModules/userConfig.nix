@@ -70,8 +70,6 @@ let
             pkgs.jq
             pkgs.wlprop
             pkgs.wf-recorder
-            pkgs.copyq
-            pkgs.slurp
             pkgs.sway-contrib.grimshot
           ];
           services.gammastep = {
