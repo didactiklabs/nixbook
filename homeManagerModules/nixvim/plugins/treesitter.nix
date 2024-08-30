@@ -9,7 +9,7 @@ in {
         nixvimInjections = true;
         nixGrammars = true;
         folding = true;
-        indent = true;
+        settings = { indent.enable = true; };
         grammarPackages = with pkgs.vimPlugins.nvim-treesitter.builtGrammars; [
           regex
           c

@@ -6,7 +6,7 @@ in {
       none-ls = {
         enable = true;
         enableLspFormat = true;
-        updateInInsert = false;
+        settings = { updateInInsert = false; };
         sources = {
           code_actions = {
             gitsigns.enable = true;
@@ -32,7 +32,7 @@ in {
             alejandra.enable = true;
             black = {
               enable = true;
-              withArgs = ''
+              settings = ''
                 {
                   extra_args = { "--fast" },
                 }
@@ -41,7 +41,7 @@ in {
             prettier = {
               enable = true;
               disableTsServerFormatter = true;
-              withArgs = ''
+              settings = ''
                 {
                   extra_args = { "--no-semi", "--single-quote" },
                 }
