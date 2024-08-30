@@ -55,9 +55,9 @@
         "url": "https://git.lix.systems/lix-project/lix.git"
       },
       "branch": "main",
-      "revision": "869666cb651f97cdce3a6aabf62073bfe1130cbb",
+      "revision": "e55ec75619b775bf0f5dd60e3da8de9bc8235f68",
       "url": null,
-      "hash": "0zi72ypxngsznfg78176yahv1lplg5zv7z6zrk21f2w0rrjg8byd"
+      "hash": "1jcchfvh0wzv1dmm57vxl42gc7jr6a9sy8srrhdrrbw4v6333a8d"
     },
     "lix-module": {
       "type": "Git",
@@ -87,6 +87,18 @@
       "revision": "d150ce320e4eda99d8865bbd4c74ee8c47a88097",
       "url": "https://github.com/nix-community/nixvim/archive/d150ce320e4eda99d8865bbd4c74ee8c47a88097.tar.gz",
       "hash": "0jvghik2m4s37h87j7qp0l2lcrvpgly02wdvxry6ls74qhzb4zbq"
+    },
+    "rofi": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "adi1090x",
+        "repo": "rofi"
+      },
+      "branch": "master",
+      "revision": "45241fd31313e7f3653e9e0bfdb837b45ed3e17c",
+      "url": "https://github.com/adi1090x/rofi/archive/45241fd31313e7f3653e9e0bfdb837b45ed3e17c.tar.gz",
+      "hash": "0k2ba4naziy3nyda97s240r57srhawck9zhp4w75pasvhv400yqv"
     },
     "spicetify-nix": {
       "type": "Git",
