@@ -14,6 +14,7 @@
       };
     in "${image}";
   };
+  home.packages = [ pkgs.immich-go ];
   customHomeManagerModules = {
     fontConfig.enable = true;
     gitConfig.enable = true;
