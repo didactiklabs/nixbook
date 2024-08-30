@@ -14,6 +14,25 @@ in {
     enable = true;
     policy = [ "magic" ];
   };
+  systemd.user = {
+    services.immich-cyberpunk = {
+      description = "Run my command";
+      serviceConfig = {
+        ExecStart =
+          "${pkgs.bash}/bin/bash -c '${pkgs.immich-go}/bin/immich-go -no-ui -key $(cat /home/khoa/.immich-token) -server https://photos.didactiklabs.io upload /home/khoa/.steam/steam/steamapps/compatdata/1091500/pfx/drive_c/users/steamuser/Pictures/Cyberpunk\\ 2077/ && ${pkgs.coreutils}/bin/rm -fr /home/khoa/.steam/steam/steamapps/compatdata/1091500/pfx/drive_c/users/steamuser/Pictures/Cyberpunk\\ 2077/*'";
+      };
+    };
+
+    timers.immich-cyberpunk-timer = {
+      description = "Timer to run myService every 5 minutes";
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnUnitActiveSec = "5min";
+        Persistent = true;
+        Unit = "immich-cyberpunk.service";
+      };
+    };
+  };
   systemd.services.wol-custom = {
     description = "Wake-on-lan Hack (module doesn't work).";
     partOf = [ "default.target" ];
