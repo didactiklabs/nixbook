@@ -137,7 +137,9 @@ in {
     # strongly prefer killing nix-daemon child processes
     services."nix-daemon".serviceConfig.OOMScoreAdjust = 1000;
     user.services.ds4drv = {
+      enable = true;
       description = "Controller Support.";
+      wantedBy = [ "default.target" ];
       serviceConfig = {
         ExecStart =
           "${pkgs.python312Packages.ds4drv}/bin/ds4drv --hidraw --emulate-xpad";
