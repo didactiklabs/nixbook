@@ -70,12 +70,16 @@ in {
   };
   programs.steam = {
     enable = true;
+    package =
+      pkgs.steam.override { extraPkgs = pkgs: with pkgs; [ gamemode ]; };
     remotePlay.openFirewall = true;
+    extraCompatPackages = with pkgs; [ proton-ge-bin ];
+    extest.enable = true;
   };
+  programs.gamemode.enable = true;
   hardware.steam-hardware.enable = true;
   services.openssh.enable = true;
   customNixOSModules = {
-    laptopProfile.enable = true;
     networkManager.enable = true;
     sunshine.enable = true;
     sway.enable = true;

@@ -10,8 +10,17 @@ let
     '';
   };
   defaultConfig = {
-    extraGroups =
-      [ "ydotool" "storage" "input" "wheel" "scanner" "lp" "video" "audio" ];
+    extraGroups = [
+      "ydotool"
+      "storage"
+      "input"
+      "wheel"
+      "scanner"
+      "lp"
+      "video"
+      "audio"
+      "gamemode"
+    ];
     customHomeManagerModules = { };
   };
 
