@@ -14,7 +14,7 @@ in {
       })
       pkgs.ntfs3g
       pkgs.gparted
-      pkgs.file-roller
+      pkgs.gnome.file-roller
     ];
     home.file = {
       ".config/xfce4/helpers.rc".text = ''

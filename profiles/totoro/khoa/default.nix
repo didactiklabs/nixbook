@@ -1,12 +1,8 @@
 { pkgs, ... }: {
   imports =
     [ ./gitConfig.nix ./kanshiConfig.nix ./config.nix ./hyprlandConfig.nix ];
-  home.packages = [
-    pkgs.jellyfin-mpv-shim
-    pkgs.nextcloud-client
-    pkgs.moonlight-qt
-    pkgs.immich-go
-  ];
+  home.packages =
+    [ pkgs.jellyfin-mpv-shim pkgs.nextcloud-client pkgs.moonlight-qt ];
   profileCustomization = {
     mainWallpaper = let
       image = pkgs.fetchurl {
