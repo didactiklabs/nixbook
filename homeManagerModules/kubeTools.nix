@@ -11,8 +11,7 @@ let
          - ~/.kube/configs
   '';
   sources = import ../npins;
-  kclRepo = sources.kcl-nix;
-  kcl = pkgs.callPackage "${kclRepo}/kcl.nix" { };
+  pkgs-unstable = import sources.nixpkgs-unstable { };
 in {
   options.customHomeManagerModules = {
     kubeTools.enable = lib.mkOption {
@@ -61,7 +60,7 @@ in {
         # clouds
         kubelogin-oidc
         dive
-        # kcl-cli
+        pkgs-unstable.kcl
         kubectl
         k9s
         kubevirt
@@ -71,7 +70,6 @@ in {
         kustomize
         kubectl-view-secret
         kubectl-explore
-        kcl
       ];
     };
     programs.zsh.initExtra = ''

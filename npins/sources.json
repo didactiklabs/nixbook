@@ -36,18 +36,6 @@
       "url": "https://github.com/nix-community/home-manager/archive/e1391fb22e18a36f57e6999c7a9f966dc80ac073.tar.gz",
       "hash": "0c83di08nhkzq0cwc3v7aax3x8y5m7qahyzxppinzwxi3r8fnjq3"
     },
-    "kcl-nix": {
-      "type": "Git",
-      "repository": {
-        "type": "GitHub",
-        "owner": "Banh-Canh",
-        "repo": "kcl-nix"
-      },
-      "branch": "master",
-      "revision": "f3c917cb6d7b31d73d5275d7f01c09bb4667abbc",
-      "url": "https://github.com/Banh-Canh/kcl-nix/archive/f3c917cb6d7b31d73d5275d7f01c09bb4667abbc.tar.gz",
-      "hash": "0hfg0ifgzwangmi82ghcrnjq3v7a9yvlbm7ndap3q8r94szv5gh2"
-    },
     "lix": {
       "type": "Git",
       "repository": {
