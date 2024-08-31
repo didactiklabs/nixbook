@@ -8,6 +8,8 @@ let
   userConfig = import ../../nixosModules/userConfig.nix {
     inherit lib pkgs sources overrides;
   };
+  cyberPicturePath =
+    "/home/khoa/.steam/steam/steamapps/compatdata/1091500/pfx/drive_c/users/steamuser/Pictures/Cyberpunk\\ 2077/*";
 in {
   ## wake with sunshine
   networking.interfaces."${mainIf}".wakeOnLan = {
@@ -15,14 +17,39 @@ in {
     policy = [ "magic" ];
   };
   systemd.user = {
-    services.immich-cyberpunk = {
-      description = "Run my command";
-      serviceConfig = {
-        ExecStart =
-          "${pkgs.bash}/bin/bash -c '${pkgs-unstable.immich-go}/bin/immich-go -no-ui -key $(cat /home/khoa/.immich-token) -server https://photos.didactiklabs.io upload -album Gaming /home/khoa/.steam/steam/steamapps/compatdata/1091500/pfx/drive_c/users/steamuser/Pictures/Cyberpunk\\ 2077/ && ${pkgs.coreutils}/bin/rm -fr /home/khoa/.steam/steam/steamapps/compatdata/1091500/pfx/drive_c/users/steamuser/Pictures/Cyberpunk\\ 2077/*'";
+    services = {
+      immich-cyberpunk = {
+        description = "Run my command";
+        serviceConfig = {
+          ExecStart =
+            "${pkgs.bash}/bin/bash -c '${pkgs-unstable.immich-go}/bin/immich-go -no-ui -key $(cat /home/khoa/.immich-token) -server https://photos.didactiklabs.io upload -album Gaming ${cyberPicturePath}/ && ${pkgs.coreutils}/bin/rm -fr ${cyberPicturePath}/*'";
+        };
+      };
+      wol-custom = {
+        description = "Wake-on-lan Hack (module doesn't work).";
+        partOf = [ "default.target" ];
+        requires = [ "default.target" ];
+        after = [ "default.target" ];
+        wantedBy = [ "default.target" ];
+        serviceConfig = {
+          User = "root";
+          Group = "root";
+          ExecStart = "${pkgs.ethtool}/bin/ethtool -s ${mainIf} wol g";
+          Restart = "always";
+        };
+      };
+      steamBigPicture = {
+        description = "SteamBigPicture";
+        partOf = [ "graphical-session.target" ];
+        requires = [ "graphical-session.target" ];
+        after = [ "graphical-session.target" ];
+        wantedBy = [ "graphical-session.target" ];
+        serviceConfig = {
+          ExecStart = "${pkgs.steam}/bin/steam steam://open/bigpicture";
+          Restart = "always";
+        };
       };
     };
-
     timers.immich-cyberpunk-timer = {
       description = "Timer to run myService every 5 minutes";
       wantedBy = [ "timers.target" ];
@@ -31,19 +58,6 @@ in {
         Persistent = true;
         Unit = "immich-cyberpunk.service";
       };
-    };
-  };
-  systemd.services.wol-custom = {
-    description = "Wake-on-lan Hack (module doesn't work).";
-    partOf = [ "default.target" ];
-    requires = [ "default.target" ];
-    after = [ "default.target" ];
-    wantedBy = [ "default.target" ];
-    serviceConfig = {
-      User = "root";
-      Group = "root";
-      ExecStart = "${pkgs.ethtool}/bin/ethtool -s ${mainIf} wol g";
-      Restart = "always";
     };
   };
   services.greetd = {
@@ -55,17 +69,6 @@ in {
         user = "khoa";
       };
       default_session = initial_session;
-    };
-  };
-  systemd.user.services.steamBigPicture = {
-    description = "SteamBigPicture";
-    partOf = [ "graphical-session.target" ];
-    requires = [ "graphical-session.target" ];
-    after = [ "graphical-session.target" ];
-    wantedBy = [ "graphical-session.target" ];
-    serviceConfig = {
-      ExecStart = "${pkgs.steam}/bin/steam steam://open/bigpicture";
-      Restart = "always";
     };
   };
   programs.steam = {
