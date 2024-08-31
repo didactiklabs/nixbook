@@ -8,8 +8,9 @@ let
   userConfig = import ../../nixosModules/userConfig.nix {
     inherit lib pkgs sources overrides;
   };
+  immichServer = "photos.didactiklabs.io";
   cyberPicturePath =
-    "/home/khoa/.steam/steam/steamapps/compatdata/1091500/pfx/drive_c/users/steamuser/Pictures/Cyberpunk\\ 2077/*";
+    "$HOME/.steam/steam/steamapps/compatdata/1091500/pfx/drive_c/users/steamuser/Pictures/Cyberpunk\\ 2077";
 in {
   ## wake with sunshine
   networking.interfaces."${mainIf}".wakeOnLan = {
@@ -22,10 +23,18 @@ in {
         description = "Run my command";
         serviceConfig = {
           ExecStart =
-            "${pkgs.bash}/bin/bash -c '${pkgs-unstable.immich-go}/bin/immich-go -no-ui -key $(cat /home/khoa/.immich-token) -server https://photos.didactiklabs.io upload -album Gaming ${cyberPicturePath}/ && ${pkgs.coreutils}/bin/rm -fr ${cyberPicturePath}/*'";
+            "${pkgs.bash}/bin/bash -c '${pkgs-unstable.immich-go}/bin/immich-go -no-ui -key $(${pkgs.coreutils}/bin/cat $HOME/.immich-token) -server https://${immichServer} upload -album Gaming ${cyberPicturePath}/ && ${pkgs.coreutils}/bin/rm -fr ${cyberPicturePath}/*'";
+        };
+      };
+      immich-pictures = {
+        description = "Run my command";
+        serviceConfig = {
+          ExecStart =
+            "${pkgs.bash}/bin/bash -c '${pkgs-unstable.immich-go}/bin/immich-go -no-ui -key $(${pkgs.coreutils}/bin/cat $HOME/.immich-token) -server https://${immichServer} upload -album Gaming $HOME/Pictures/ && ${pkgs.coreutils}/bin/rm -fr $HOME/Pictures/*'";
         };
       };
       wol-custom = {
+        enable = true;
         description = "Wake-on-lan Hack (module doesn't work).";
         partOf = [ "default.target" ];
         requires = [ "default.target" ];
@@ -39,6 +48,7 @@ in {
         };
       };
       steamBigPicture = {
+        enable = true;
         description = "SteamBigPicture";
         partOf = [ "graphical-session.target" ];
         requires = [ "graphical-session.target" ];
@@ -51,12 +61,23 @@ in {
       };
     };
     timers.immich-cyberpunk-timer = {
+      enable = true;
       description = "Timer to run myService every 5 minutes";
       wantedBy = [ "timers.target" ];
       timerConfig = {
         OnUnitActiveSec = "5min";
         Persistent = true;
         Unit = "immich-cyberpunk.service";
+      };
+    };
+    timers.immich-pictures-timer = {
+      enable = true;
+      description = "Timer to run myService every 5 minutes";
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnUnitActiveSec = "5min";
+        Persistent = true;
+        Unit = "immich-pictures.service";
       };
     };
   };
