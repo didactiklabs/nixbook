@@ -2,9 +2,12 @@
 let
   sources = import ./npins;
   pkgs = import sources.nixpkgs { config = { allowUnfree = true; }; };
+  pkgs-unstable =
+    import sources.nixpkgs-unstable { config = { allowUnfree = true; }; };
   inherit (sources) lix-module lix;
-  hostProfile =
-    import ./profiles/${hostname} { inherit lib config pkgs hostname sources; };
+  hostProfile = import ./profiles/${hostname} {
+    inherit lib config pkgs pkgs-unstable hostname sources;
+  };
 in {
   imports = [
     ./hardware-configuration.nix

@@ -31,10 +31,10 @@
         "owner": "nix-community",
         "repo": "home-manager"
       },
-      "branch": "master",
-      "revision": "c2cd2a52e02f1dfa1c88f95abeb89298d46023be",
-      "url": "https://github.com/nix-community/home-manager/archive/c2cd2a52e02f1dfa1c88f95abeb89298d46023be.tar.gz",
-      "hash": "1wq1cn8r4igs5bb3fgcn8ima65rk427kkxkl25a0n6adabg35nah"
+      "branch": "release-24.05",
+      "revision": "e1391fb22e18a36f57e6999c7a9f966dc80ac073",
+      "url": "https://github.com/nix-community/home-manager/archive/e1391fb22e18a36f57e6999c7a9f966dc80ac073.tar.gz",
+      "hash": "0c83di08nhkzq0cwc3v7aax3x8y5m7qahyzxppinzwxi3r8fnjq3"
     },
     "kcl-nix": {
       "type": "Git",
@@ -72,6 +72,12 @@
     },
     "nixpkgs": {
       "type": "Channel",
+      "name": "nixos-24.05",
+      "url": "https://releases.nixos.org/nixos/24.05/nixos-24.05.4396.ae2fc9e0e42c/nixexprs.tar.xz",
+      "hash": "1zf7gd89l3vpl1hbgsbz6m7cavnvjlhcl6vfgs7d9jk99rpzcls9"
+    },
+    "nixpkgs-unstable": {
+      "type": "Channel",
       "name": "nixos-unstable",
       "url": "https://releases.nixos.org/nixos/unstable/nixos-24.11pre672439.71e91c409d1e/nixexprs.tar.xz",
       "hash": "01j8zdhqalf4iq6zx9ldg795nz3kkq1c8dkpcs9rcjr6chgrkf4h"
@@ -83,10 +89,10 @@
         "owner": "nix-community",
         "repo": "nixvim"
       },
-      "branch": "main",
-      "revision": "56208f9e3f46f034353636fa651df8663ec57fa3",
-      "url": "https://github.com/nix-community/nixvim/archive/56208f9e3f46f034353636fa651df8663ec57fa3.tar.gz",
-      "hash": "0q0b3y6awiicybkcwzr04b9ds3nm5dxsjmrx5k4gi334hzz9p81m"
+      "branch": "nixos-24.05",
+      "revision": "d150ce320e4eda99d8865bbd4c74ee8c47a88097",
+      "url": "https://github.com/nix-community/nixvim/archive/d150ce320e4eda99d8865bbd4c74ee8c47a88097.tar.gz",
+      "hash": "0jvghik2m4s37h87j7qp0l2lcrvpgly02wdvxry6ls74qhzb4zbq"
     },
     "rofi": {
       "type": "Git",
@@ -119,10 +125,10 @@
         "owner": "danth",
         "repo": "stylix"
       },
-      "branch": "master",
-      "revision": "6c895c6b42ca205017abe72a7263baf36a197972",
-      "url": "https://github.com/danth/stylix/archive/6c895c6b42ca205017abe72a7263baf36a197972.tar.gz",
-      "hash": "1l1fslah8zz7nh0y0bpfc5al83pkdlnwpair9pih52n4fq27zzbc"
+      "branch": "release-24.05",
+      "revision": "e59d2c1725b237c362e4a62f5722f5b268d566c7",
+      "url": "https://github.com/danth/stylix/archive/e59d2c1725b237c362e4a62f5722f5b268d566c7.tar.gz",
+      "hash": "1b4npnxf0dnmg59gn7kaf2n1i8mszmvckmjz543wpwi95j8l3rq3"
     }
   },
   "version": 3

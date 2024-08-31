@@ -1,4 +1,8 @@
-{ pkgs, ... }: {
+{ pkgs, ... }:
+let
+  sources = import ../../../npins;
+  pkgs-unstable = import sources.nixpkgs-unstable { };
+in {
   imports = [ ./gitConfig.nix ./swayConfig.nix ./sunshine.nix ];
   profileCustomization = {
     mainWallpaper = let
@@ -14,7 +18,7 @@
       };
     in "${image}";
   };
-  home.packages = [ pkgs.immich-go ];
+  home.packages = [ pkgs-unstable.immich-go ];
   customHomeManagerModules = {
     fontConfig.enable = true;
     gitConfig.enable = true;
