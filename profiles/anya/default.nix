@@ -1,4 +1,4 @@
-{ pkgs, lib, sources, ... }:
+{ pkgs, pkgs-unstable, lib, sources, ... }:
 let
   mainIf = "enp34s0";
   overrides = {
@@ -19,7 +19,7 @@ in {
       description = "Run my command";
       serviceConfig = {
         ExecStart =
-          "${pkgs.bash}/bin/bash -c '${pkgs.immich-go}/bin/immich-go -no-ui -key $(cat /home/khoa/.immich-token) -server https://photos.didactiklabs.io upload /home/khoa/.steam/steam/steamapps/compatdata/1091500/pfx/drive_c/users/steamuser/Pictures/Cyberpunk\\ 2077/ && ${pkgs.coreutils}/bin/rm -fr /home/khoa/.steam/steam/steamapps/compatdata/1091500/pfx/drive_c/users/steamuser/Pictures/Cyberpunk\\ 2077/*'";
+          "${pkgs.bash}/bin/bash -c '${pkgs-unstable.immich-go}/bin/immich-go -no-ui -key $(cat /home/khoa/.immich-token) -server https://photos.didactiklabs.io upload /home/khoa/.steam/steam/steamapps/compatdata/1091500/pfx/drive_c/users/steamuser/Pictures/Cyberpunk\\ 2077/ && ${pkgs.coreutils}/bin/rm -fr /home/khoa/.steam/steam/steamapps/compatdata/1091500/pfx/drive_c/users/steamuser/Pictures/Cyberpunk\\ 2077/*'";
       };
     };
 
