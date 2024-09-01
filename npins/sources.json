@@ -43,9 +43,9 @@
         "url": "https://git.lix.systems/lix-project/lix.git"
       },
       "branch": "main",
-      "revision": "e55ec75619b775bf0f5dd60e3da8de9bc8235f68",
+      "revision": "d75df91f74b6819f674f0733143fdf32580af183",
       "url": null,
-      "hash": "1jcchfvh0wzv1dmm57vxl42gc7jr6a9sy8srrhdrrbw4v6333a8d"
+      "hash": "0mdm4zhaidnnnrkmy77022z1c97sbk5ahj7ls0nhm8ij3vcsqy9a"
     },
     "lix-module": {
       "type": "Git",
@@ -61,8 +61,8 @@
     "nixpkgs": {
       "type": "Channel",
       "name": "nixos-24.05",
-      "url": "https://releases.nixos.org/nixos/24.05/nixos-24.05.4396.ae2fc9e0e42c/nixexprs.tar.xz",
-      "hash": "1zf7gd89l3vpl1hbgsbz6m7cavnvjlhcl6vfgs7d9jk99rpzcls9"
+      "url": "https://releases.nixos.org/nixos/24.05/nixos-24.05.4469.6e99f2a27d60/nixexprs.tar.xz",
+      "hash": "103wiavbv2m4lkfz517javswjp6xyhhy60v1x083qb0dzw05xzap"
     },
     "nixpkgs-unstable": {
       "type": "Channel",
@@ -78,9 +78,9 @@
         "repo": "nixvim"
       },
       "branch": "nixos-24.05",
-      "revision": "d150ce320e4eda99d8865bbd4c74ee8c47a88097",
-      "url": "https://github.com/nix-community/nixvim/archive/d150ce320e4eda99d8865bbd4c74ee8c47a88097.tar.gz",
-      "hash": "0jvghik2m4s37h87j7qp0l2lcrvpgly02wdvxry6ls74qhzb4zbq"
+      "revision": "7cae6d0202140ec322e18b65b63d03b423d595f7",
+      "url": "https://github.com/nix-community/nixvim/archive/7cae6d0202140ec322e18b65b63d03b423d595f7.tar.gz",
+      "hash": "0m27a18msdx5829vqxjhdjnnfdz16dck5wkr4kdgr2c5czw7717k"
     },
     "rofi": {
       "type": "Git",
@@ -102,9 +102,9 @@
         "repo": "spicetify-nix"
       },
       "branch": "master",
-      "revision": "0965e58aa38245b2105fec2949a9463fe34e3f05",
-      "url": "https://github.com/Gerg-L/spicetify-nix/archive/0965e58aa38245b2105fec2949a9463fe34e3f05.tar.gz",
-      "hash": "02blc78lnvbsvqk0n4z4d9har27f56vg61i9jq34l1d6xkg2qjlz"
+      "revision": "be4c6a86cd30f29c847412cf4d3463c3113e3c30",
+      "url": "https://github.com/Gerg-L/spicetify-nix/archive/be4c6a86cd30f29c847412cf4d3463c3113e3c30.tar.gz",
+      "hash": "02p9l9fvk7vx3bfkxlqkny9lj3lr65nl9nbraxi87hp32z3yshvy"
     },
     "stylix": {
       "type": "Git",
