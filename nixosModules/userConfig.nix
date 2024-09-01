@@ -96,6 +96,10 @@ let
               pkgs.wf-recorder
               pkgs.sway-contrib.grimshot
             ];
+            programs.go = {
+              enable = true;
+              goPath = ".local/go";
+            };
             services.gammastep = {
               enable = true;
               dawnTime = "6:00-7:45";

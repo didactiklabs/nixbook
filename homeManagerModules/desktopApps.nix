@@ -18,6 +18,10 @@ in
     };
   };
   config = lib.mkIf cfg.desktopApps.enable {
+    programs = {
+      zathura.enable = true;
+      imv.enable = true;
+    };
     home.packages = with pkgs; [
       # apps
       wdisplays # display manager

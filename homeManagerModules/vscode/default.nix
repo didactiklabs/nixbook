@@ -14,11 +14,6 @@ in
       pkgs.golines
       pkgs.nixfmt-rfc-style
     ];
-    programs.go = {
-      enable = true;
-      goPath = "Documents/go";
-      goBin = "Documents/go/bin";
-    };
     programs.vscode = {
       enable = true;
       extensions = import ./mkAllExtensions.nix { inherit pkgs; };

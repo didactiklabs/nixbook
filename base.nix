@@ -30,7 +30,7 @@ let
 in
 {
   imports = [
-    ./hardware-configuration.nix
+    /etc/nixos/hardware-configuration.nix
     ./nixosModules/caCertificates.nix
     ./nixosModules/laptopProfile.nix
     ./nixosModules/greetd.nix
@@ -225,7 +225,6 @@ in
     ];
     variables = {
       NIXOS_OZONE_WL = "1";
-      WINEDLLOVERRIDES = "version,dxgi=n,b";
     };
   };
   system.stateVersion = "24.05";

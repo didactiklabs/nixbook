@@ -8,8 +8,11 @@
       pkgs.sd # sed alternative
     ];
     programs = {
-      zathura.enable = true;
-      imv.enable = true;
+      atuin = {
+        enable = true; # history
+        enableZshIntegration = true;
+        flags = [ "--disable-up-arrow" ];
+      };
       ranger = {
         enable = true;
       };

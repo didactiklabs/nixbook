@@ -54,7 +54,6 @@ in
         yq-go
         tig
         unzip
-        go
         gnumake
         templ
         tree
