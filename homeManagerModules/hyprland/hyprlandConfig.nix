@@ -107,12 +107,14 @@ in
           "opaque, class:(imv)"
           "opaque, class:(com.moonlight_stream.Moonlight)"
           "opaque, title:(ranger)"
-          "opaque, title:(.*)(Immich — Mozilla Firefox)$"
-          "opaque, title:(.*)(YouTube — Mozilla Firefox)$"
-          "opaque, title:(.*)(Jellyfin — Mozilla Firefox)$"
-          "opaque, title:(.*)(Facebook — Mozilla Firefox)$"
-          "opaque, title:(.*)(Instagram — Mozilla Firefox)$"
-          "opaque, title:(.*)(Nexus - Mods and community — Mozilla Firefox)$"
+          "opaque, title:(.*)(Immich — Mozilla Firefox)"
+          "opaque, title:(.*)(YouTube — Mozilla Firefox)"
+          "opaque, title:(.*)(Jellyfin — Mozilla Firefox)"
+          "opaque, title:(.*)(Facebook — Mozilla Firefox)"
+          "opaque, title:(.*)(Instagram — Mozilla Firefox)"
+          "opaque, title:(.*)(Nexus - Mods and community — Mozilla Firefox)"
+          "opaque, title:(.*)(Imgur: The magic of the Internet — Mozilla Firefox)"
+          "opaque, title:(.*)(Reddit - Dive into anything — Mozilla Firefox)"
         ];
 
         monitor = [ ",preferred,auto,1" ];
