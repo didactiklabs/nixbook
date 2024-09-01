@@ -90,15 +90,49 @@ let
           colonColor: default
           valueColor: default
   '';
+  pluginsYaml = ''
+    plugins:
+      #--- Create debug container for selected pod in current namespace
+      # See https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/#ephemeral-container
+      debug:
+        shortCut: Shift-D
+        description: Add debug container
+        dangerous: true
+        scopes:
+          - containers
+        command: bash
+        background: false
+        confirm: true
+        args:
+          - -c
+          - "kubectl debug -it --context $CONTEXT -n=$NAMESPACE $POD --target=$NAME --image=nicolaka/netshoot:v0.12 --share-processes -- bash"
+      dive:
+        shortCut: d
+        confirm: false
+        description: "Dive image"
+        scopes:
+          - containers
+        command: dive
+        background: false
+        args:
+          - $COL-IMAGE
+          - --source
+          - podman
+  '';
 in
 {
   # https://github.com/adi1090x/rofi
   config = lib.mkIf cfg.kubeTools.enable {
-    home.file.".config/k9s/skins/transparent.yaml" = {
-      text = transparentYaml;
-    };
-    home.file.".config/k9s/config.yaml" = {
-      text = configYaml;
+    home.file = {
+      ".config/k9s/skins/transparent.yaml" = {
+        text = transparentYaml;
+      };
+      ".config/k9s/config.yaml" = {
+        text = configYaml;
+      };
+      ".config/k9s/plugins.yaml" = {
+        text = pluginsYaml;
+      };
     };
   };
 }
