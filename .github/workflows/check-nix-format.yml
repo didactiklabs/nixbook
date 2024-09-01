@@ -1,0 +1,66 @@
+name: Check that Nix files are formatted
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+permissions:
+  contents: read
+jobs:
+  nixos:
+    name: nixfmt-check
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.pull_request.title, '[skip treewide]')"
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          fetch-depth: 2
+      - name: Checking out base branch
+        run: |
+          base=$(mktemp -d)
+          baseRev=$(git rev-parse HEAD^1)
+          git worktree add "$base" "$baseRev"
+          echo "baseRev=$baseRev" >> "$GITHUB_ENV"
+          echo "base=$base" >> "$GITHUB_ENV"
+      - name: Get Nixpkgs revision for nixfmt
+        run: |
+          # This should not be a URL, because it would allow PRs to run arbitrary code in CI!
+          rev=$(jq -r .rev ci/pinned-nixpkgs.json)
+          echo "url=https://github.com/NixOS/nixpkgs/archive/$rev.tar.gz" >> "$GITHUB_ENV"
+      - uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          # explicitly enable sandbox
+          extra_nix_config: sandbox = true
+          nix_path: nixpkgs=${{ env.url }}
+      - name: Install nixfmt
+        run: "nix-env -f '<nixpkgs>' -iAP nixfmt-rfc-style"
+      - name: Check that Nix files are formatted according to the RFC style
+        run: |
+          unformattedFiles=()
+          # Loop through all Nix files touched by the PR
+          while readarray -d '' -n 2 entry && (( ${#entry[@]} != 0 )); do
+            type=${entry[0]}
+            file=${entry[1]}
+            case $type in
+              A*)
+                source=""
+                dest=$file
+                ;;
+              M*)
+                source=$file
+                dest=$file
+                ;;
+              C*|R*)
+                source=$file
+                read -r -d '' dest
+                ;;
+              *)
+                echo "Ignoring file $file with type $type"
+                continue
+            esac
+          done < <(git diff -z --name-status ${{ env.baseRev }} -- '*.nix')
+          if (( "${#unformattedFiles[@]}" > 0 )); then
+            echo "Some new/changed Nix files are not properly formatted"
+            echo "Please go to the Nixpkgs root directory, run \`nix-shell\`, then:"
+            echo "nixfmt ${unformattedFiles[*]@Q}"
+            exit 1
+          fi
