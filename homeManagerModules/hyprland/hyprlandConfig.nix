@@ -114,7 +114,6 @@ in
           "opaque, title:(.*)(Instagram — Mozilla Firefox)"
           "opaque, title:(.*)(Nexus - Mods and community — Mozilla Firefox)"
           "opaque, title:(.*)(Imgur: The magic of the Internet — Mozilla Firefox)"
-          "opaque, title:(.*)(Reddit - Dive into anything — Mozilla Firefox)"
         ];
 
         monitor = [ ",preferred,auto,1" ];

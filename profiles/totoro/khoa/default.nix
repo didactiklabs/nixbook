@@ -5,9 +5,9 @@
     ./kanshiConfig.nix
     ./config.nix
     ./hyprlandConfig.nix
+    ./ytfzfConfig.nix
   ];
   home.packages = [
-    pkgs.jellyfin-mpv-shim
     pkgs.nextcloud-client
     pkgs.moonlight-qt
   ];

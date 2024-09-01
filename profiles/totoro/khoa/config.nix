@@ -1,6 +1,8 @@
 { pkgs, ... }:
 let
   bealvVpnConf = ../../../assets/openvpn/bealv.ovpn;
+  sources = import ../../../npins;
+  pkgs-unstable = import sources.nixpkgs-unstable { };
 in
 {
   config = {
@@ -46,7 +48,7 @@ in
               After = [ "graphical-session.target" ];
             };
             Service = {
-              ExecStart = "${pkgs.jellyfin-mpv-shim}/bin/jellyfin-mpv-shim";
+              ExecStart = "${pkgs-unstable.jellyfin-mpv-shim}/bin/jellyfin-mpv-shim";
               Restart = "always";
             };
           };
