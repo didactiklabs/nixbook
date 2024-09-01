@@ -1,6 +1,13 @@
-{ config, pkgs, lib, ... }:
-let cfg = config.customNixOSModules.sunshine;
-in {
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
+let
+  cfg = config.customNixOSModules.sunshine;
+in
+{
   options.customNixOSModules.sunshine = {
     enable = lib.mkOption {
       type = lib.types.bool;

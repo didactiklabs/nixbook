@@ -1,4 +1,9 @@
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 let
   cfg = config.customHomeManagerModules;
   goji = import ../customPkgs/goji.nix { inherit pkgs; };
@@ -78,10 +83,13 @@ let
       ]
     }
   '';
-in {
+in
+{
   config = lib.mkIf cfg.gojiConfig.enable {
     home.packages = [ goji ];
-    home.file.".goji.json" = { text = gojiJson; };
+    home.file.".goji.json" = {
+      text = gojiJson;
+    };
   };
 
   options.customHomeManagerModules.gojiConfig = {

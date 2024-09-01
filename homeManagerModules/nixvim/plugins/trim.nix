@@ -1,6 +1,8 @@
 { config, lib, ... }:
-let cfg = config.customHomeManagerModules;
-in {
+let
+  cfg = config.customHomeManagerModules;
+in
+{
   config = lib.mkIf cfg.nixvimConfig.enable {
     programs.nixvim.plugins = {
       trim = {
@@ -8,8 +10,13 @@ in {
         settings = {
           highlight = true;
           trim_on_write = true;
-          ft_blocklist =
-            [ "checkhealth" "floaterm" "lspinfo" "neo-tree" "TelescopePrompt" ];
+          ft_blocklist = [
+            "checkhealth"
+            "floaterm"
+            "lspinfo"
+            "neo-tree"
+            "TelescopePrompt"
+          ];
         };
       };
     };

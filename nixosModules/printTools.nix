@@ -1,6 +1,13 @@
-{ config, pkgs, lib, ... }:
-let cfg = config.customNixOSModules;
-in {
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
+let
+  cfg = config.customNixOSModules;
+in
+{
   options.customNixOSModules.printTools = {
     enable = lib.mkOption {
       type = lib.types.bool;
@@ -11,7 +18,9 @@ in {
     };
   };
   config = lib.mkIf cfg.printTools.enable {
-    environment = { systemPackages = with pkgs; [ gnome.simple-scan ]; };
+    environment = {
+      systemPackages = with pkgs; [ gnome.simple-scan ];
+    };
     services = {
       ipp-usb.enable = true;
       avahi.enable = true;

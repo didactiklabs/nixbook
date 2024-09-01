@@ -1,4 +1,9 @@
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 let
   cfg = config.customHomeManagerModules;
   kubeswitchConfig = ''
@@ -12,7 +17,8 @@ let
   '';
   sources = import ../npins;
   pkgs-unstable = import sources.nixpkgs-unstable { };
-in {
+in
+{
   options.customHomeManagerModules = {
     kubeTools.enable = lib.mkOption {
       type = lib.types.bool;
@@ -42,19 +48,18 @@ in {
   config = lib.mkIf cfg.kubeTools.enable {
     home = {
       file = {
-        ".kube/switch-config.yaml" = { text = kubeswitchConfig; };
+        ".kube/switch-config.yaml" = {
+          text = kubeswitchConfig;
+        };
         ".kube/configs/didactiklabs/oidc@didactiklabs.kubeconfig" =
-          lib.mkIf cfg.kubeConfig.didactiklabs.enable {
-            source = ../assets/kubeconfigs/oidc-didactiklabs.kubeconfig;
-          };
-        ".kube/configs/bealv/oidc@bealv.kubeconfig" =
-          lib.mkIf cfg.kubeConfig.bealv.enable {
-            source = ../assets/kubeconfigs/oidc-bealv.kubeconfig;
-          };
-        ".kube/configs/logicmg/oidc@logicmg.kubeconfig" =
-          lib.mkIf cfg.kubeConfig.logicmg.enable {
-            source = ../assets/kubeconfigs/oidc-logicmg.kubeconfig;
-          };
+          lib.mkIf cfg.kubeConfig.didactiklabs.enable
+            { source = ../assets/kubeconfigs/oidc-didactiklabs.kubeconfig; };
+        ".kube/configs/bealv/oidc@bealv.kubeconfig" = lib.mkIf cfg.kubeConfig.bealv.enable {
+          source = ../assets/kubeconfigs/oidc-bealv.kubeconfig;
+        };
+        ".kube/configs/logicmg/oidc@logicmg.kubeconfig" = lib.mkIf cfg.kubeConfig.logicmg.enable {
+          source = ../assets/kubeconfigs/oidc-logicmg.kubeconfig;
+        };
       };
       packages = with pkgs; [
         # clouds

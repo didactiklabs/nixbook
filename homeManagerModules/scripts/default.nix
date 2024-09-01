@@ -1,1 +1,6 @@
-{ ... }: let in { imports = [ ./volume.nix ]; }
+{ ... }:
+let
+in
+{
+  imports = [ ./volume.nix ];
+}

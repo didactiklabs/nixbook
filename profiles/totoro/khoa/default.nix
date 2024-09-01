@@ -1,21 +1,33 @@
-{ pkgs, ... }: {
-  imports =
-    [ ./gitConfig.nix ./kanshiConfig.nix ./config.nix ./hyprlandConfig.nix ];
-  home.packages =
-    [ pkgs.jellyfin-mpv-shim pkgs.nextcloud-client pkgs.moonlight-qt ];
+{ pkgs, ... }:
+{
+  imports = [
+    ./gitConfig.nix
+    ./kanshiConfig.nix
+    ./config.nix
+    ./hyprlandConfig.nix
+  ];
+  home.packages = [
+    pkgs.jellyfin-mpv-shim
+    pkgs.nextcloud-client
+    pkgs.moonlight-qt
+  ];
   profileCustomization = {
-    mainWallpaper = let
-      image = pkgs.fetchurl {
-        url = "https://w.wallhaven.cc/full/9d/wallhaven-9dp28d.jpg";
-        sha256 = "sha256-GfoKhPcll++4NnR9c9Jq9hXA/4b5o65OZBFGQW1oPIE=";
-      };
-    in "${image}";
-    lockWallpaper = let
-      image = pkgs.fetchurl {
-        url = "https://w.wallhaven.cc/full/z8/wallhaven-z8y7jo.png";
-        sha256 = "sha256-wRtvsEFggeEjJj/mf1TsrDAIXcc0+Ot8DkTcUCGWemY=";
-      };
-    in "${image}";
+    mainWallpaper =
+      let
+        image = pkgs.fetchurl {
+          url = "https://w.wallhaven.cc/full/9d/wallhaven-9dp28d.jpg";
+          sha256 = "sha256-GfoKhPcll++4NnR9c9Jq9hXA/4b5o65OZBFGQW1oPIE=";
+        };
+      in
+      "${image}";
+    lockWallpaper =
+      let
+        image = pkgs.fetchurl {
+          url = "https://w.wallhaven.cc/full/z8/wallhaven-z8y7jo.png";
+          sha256 = "sha256-wRtvsEFggeEjJj/mf1TsrDAIXcc0+Ot8DkTcUCGWemY=";
+        };
+      in
+      "${image}";
   };
   customHomeManagerModules = {
     bluetooth.enable = true;

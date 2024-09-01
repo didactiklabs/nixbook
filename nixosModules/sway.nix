@@ -1,6 +1,13 @@
-{ config, lib, pkgs, ... }:
-let cfg = config.customNixOSModules;
-in {
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  cfg = config.customNixOSModules;
+in
+{
   imports = [ ];
   config = lib.mkIf cfg.sway.enable {
     programs.sway = {

@@ -13,11 +13,14 @@ let
       ]
     }
   '';
-in {
+in
+{
   config = {
     home = {
       packages = [ pkgs.sunshine ];
-      file.".config/sunshine/apps.json" = { text = sunshineAppsJson; };
+      file.".config/sunshine/apps.json" = {
+        text = sunshineAppsJson;
+      };
     };
   };
 }

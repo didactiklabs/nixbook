@@ -1,6 +1,8 @@
 { config, lib, ... }:
-let cfg = config.customHomeManagerModules;
-in {
+let
+  cfg = config.customHomeManagerModules;
+in
+{
   config = lib.mkIf cfg.nixvimConfig.enable {
     programs.nixvim.plugins = {
       luasnip.enable = true;
@@ -14,8 +16,7 @@ in {
             "<C-Space>" = "cmp.mapping.complete()";
             "<C-e>" = "cmp.mapping.close()";
             "<Tab>" = "cmp.mapping(cmp.mapping.select_next_item(), {'i', 's'})";
-            "<S-Tab>" =
-              "cmp.mapping(cmp.mapping.select_prev_item(), {'i', 's'})";
+            "<S-Tab>" = "cmp.mapping(cmp.mapping.select_prev_item(), {'i', 's'})";
             "<CR>" = "cmp.mapping.confirm({ select = true })";
           };
           sources = [
@@ -30,8 +31,7 @@ in {
             }
             { name = "neorg"; }
           ];
-          snippet.expand =
-            "function(args) require('luasnip').lsp_expand(args.body) end";
+          snippet.expand = "function(args) require('luasnip').lsp_expand(args.body) end";
         };
         autoEnableSources = true;
       };

@@ -90,12 +90,15 @@ let
           colonColor: default
           valueColor: default
   '';
-in {
+in
+{
   # https://github.com/adi1090x/rofi
   config = lib.mkIf cfg.kubeTools.enable {
     home.file.".config/k9s/skins/transparent.yaml" = {
       text = transparentYaml;
     };
-    home.file.".config/k9s/config.yaml" = { text = configYaml; };
+    home.file.".config/k9s/config.yaml" = {
+      text = configYaml;
+    };
   };
 }

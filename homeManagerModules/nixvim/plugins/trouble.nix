@@ -1,6 +1,8 @@
 { config, lib, ... }:
-let cfg = config.customHomeManagerModules;
-in {
+let
+  cfg = config.customHomeManagerModules;
+in
+{
   config = lib.mkIf cfg.nixvimConfig.enable {
     programs.nixvim = {
       keymaps = [
@@ -17,7 +19,9 @@ in {
           options.silent = true;
         }
       ];
-      plugins.trouble = { enable = true; };
+      plugins.trouble = {
+        enable = true;
+      };
     };
   };
 }

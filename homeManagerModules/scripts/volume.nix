@@ -117,10 +117,10 @@ let
       get_volume & notify_user
     fi
   '';
-in {
+in
+{
   home.packages = [ volume ];
-  home.file.".config/assets/images/volume-icons".source =
-    ../../assets/images/volume-icons;
+  home.file.".config/assets/images/volume-icons".source = ../../assets/images/volume-icons;
   wayland.windowManager.hyprland.settings = {
     bindle = [
       ",XF86AudioRaiseVolume, exec, ${volume}/bin/volume --inc"
@@ -129,10 +129,11 @@ in {
     bindl = [ ",XF86AudioMute, exec, ${volume}/bin/volume --toggle" ];
   };
   wayland.windowManager.sway.config.keybindings =
-    lib.filterAttrsRecursive (name: value: value != null) {
-      # Volume
-      "--locked XF86AudioRaiseVolume" = "exec ${volume}/bin/volume --inc";
-      "--locked XF86AudioLowerVolume" = "exec ${volume}/bin/volume --dec";
-      "--locked XF86AudioMute" = "exec ${volume}/bin/volume --toggle";
-    };
+    lib.filterAttrsRecursive (name: value: value != null)
+      {
+        # Volume
+        "--locked XF86AudioRaiseVolume" = "exec ${volume}/bin/volume --inc";
+        "--locked XF86AudioLowerVolume" = "exec ${volume}/bin/volume --dec";
+        "--locked XF86AudioMute" = "exec ${volume}/bin/volume --toggle";
+      };
 }

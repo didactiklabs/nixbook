@@ -1,7 +1,13 @@
 { config, lib, ... }:
-let cfg = config.customHomeManagerModules;
-in {
+let
+  cfg = config.customHomeManagerModules;
+in
+{
   config = lib.mkIf cfg.nixvimConfig.enable {
-    programs.nixvim.plugins = { lualine = { enable = true; }; };
+    programs.nixvim.plugins = {
+      lualine = {
+        enable = true;
+      };
+    };
   };
 }

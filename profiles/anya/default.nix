@@ -1,4 +1,10 @@
-{ pkgs, pkgs-unstable, lib, sources, ... }:
+{
+  pkgs,
+  pkgs-unstable,
+  lib,
+  sources,
+  ...
+}:
 let
   mainIf = "enp34s0";
   overrides = {
@@ -6,12 +12,17 @@ let
     imports = [ ./fastfetchConfig.nix ];
   };
   userConfig = import ../../nixosModules/userConfig.nix {
-    inherit lib pkgs sources overrides;
+    inherit
+      lib
+      pkgs
+      sources
+      overrides
+      ;
   };
   immichServer = "photos.didactiklabs.io";
-  cyberPicturePath =
-    "$HOME/.steam/steam/steamapps/compatdata/1091500/pfx/drive_c/users/steamuser/Pictures/Cyberpunk\\ 2077";
-in {
+  cyberPicturePath = "$HOME/.steam/steam/steamapps/compatdata/1091500/pfx/drive_c/users/steamuser/Pictures/Cyberpunk\\ 2077";
+in
+{
   ## wake with sunshine
   networking.interfaces."${mainIf}".wakeOnLan = {
     enable = true;
@@ -22,15 +33,13 @@ in {
       immich-cyberpunk = {
         description = "Run my command";
         serviceConfig = {
-          ExecStart =
-            "${pkgs.bash}/bin/bash -c '${pkgs-unstable.immich-go}/bin/immich-go -no-ui -key $(${pkgs.coreutils}/bin/cat $HOME/.immich-token) -server https://${immichServer} upload -album Gaming ${cyberPicturePath}/ && ${pkgs.coreutils}/bin/rm -fr ${cyberPicturePath}/*'";
+          ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs-unstable.immich-go}/bin/immich-go -no-ui -key $(${pkgs.coreutils}/bin/cat $HOME/.immich-token) -server https://${immichServer} upload -album Gaming ${cyberPicturePath}/ && ${pkgs.coreutils}/bin/rm -fr ${cyberPicturePath}/*'";
         };
       };
       immich-pictures = {
         description = "Run my command";
         serviceConfig = {
-          ExecStart =
-            "${pkgs.bash}/bin/bash -c '${pkgs-unstable.immich-go}/bin/immich-go -no-ui -key $(${pkgs.coreutils}/bin/cat $HOME/.immich-token) -server https://${immichServer} upload -album Gaming $HOME/Pictures/ && ${pkgs.coreutils}/bin/rm -fr $HOME/Pictures/*'";
+          ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs-unstable.immich-go}/bin/immich-go -no-ui -key $(${pkgs.coreutils}/bin/cat $HOME/.immich-token) -server https://${immichServer} upload -album Gaming $HOME/Pictures/ && ${pkgs.coreutils}/bin/rm -fr $HOME/Pictures/*'";
         };
       };
       wol-custom = {

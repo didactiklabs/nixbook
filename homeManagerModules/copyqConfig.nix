@@ -1,4 +1,9 @@
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 let
   cfg = config.customHomeManagerModules;
   copyqCommandsConfig = ''
@@ -219,13 +224,20 @@ let
     9\Name=Show/hide main window
     size=9
   '';
-in {
+in
+{
   # https://github.com/adi1090x/rofi
   config = lib.mkIf cfg.copyqConfig.enable {
     systemd.user.services.copyq = {
-      Unit = { Description = "CopyQ"; };
-      Install = { WantedBy = [ "graphical-session.target" ]; };
-      Unit = { After = [ "graphical-session.target" ]; };
+      Unit = {
+        Description = "CopyQ";
+      };
+      Install = {
+        WantedBy = [ "graphical-session.target" ];
+      };
+      Unit = {
+        After = [ "graphical-session.target" ];
+      };
       Service = {
         ExecStart = "${pkgs.copyq}/bin/copyq";
         Restart = "always";
@@ -235,7 +247,11 @@ in {
         ];
       };
     };
-    home.packages = [ pkgs.copyq pkgs.grim pkgs.slurp ];
+    home.packages = [
+      pkgs.copyq
+      pkgs.grim
+      pkgs.slurp
+    ];
     home.file.".config/copyq/copyq-commands.ini" = {
       text = copyqCommandsConfig;
     };

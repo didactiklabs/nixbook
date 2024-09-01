@@ -1,6 +1,8 @@
 { config, lib, ... }:
-let cfg = config.customHomeManagerModules.starship;
-in {
+let
+  cfg = config.customHomeManagerModules.starship;
+in
+{
   options.customHomeManagerModules.starship = {
     enable = lib.mkOption {
       type = lib.types.bool;
@@ -60,8 +62,7 @@ in {
           added_style = "bg:#${config.lib.stylix.colors.base03}";
           deleted_style = "bg:#${config.lib.stylix.colors.base03}";
           disabled = false;
-          format =
-            "[+$added]($added_style)[ / ](bg:#${config.lib.stylix.colors.base03})[-$deleted ]($deleted_style)";
+          format = "[+$added]($added_style)[ / ](bg:#${config.lib.stylix.colors.base03})[-$deleted ]($deleted_style)";
         };
 
         # https://starship.rs/config/#character
@@ -92,7 +93,9 @@ in {
         package.disabled = true;
 
         # https://starship.rs/config/#python
-        python = { disabled = true; };
+        python = {
+          disabled = true;
+        };
 
         # https://starship.rs/config/#username
         username = {

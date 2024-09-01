@@ -1,4 +1,9 @@
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 let
   cfg = config.customHomeManagerModules;
   loginctl = "${pkgs.systemd}/bin/loginctl";
@@ -110,7 +115,8 @@ let
       }
     EOF
   '';
-in {
+in
+{
   # https://github.com/adi1090x/rofi
   config = lib.mkIf cfg.rofiConfig.enable {
     home = {

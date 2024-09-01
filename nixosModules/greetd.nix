@@ -1,6 +1,13 @@
-{ config, pkgs, lib, ... }:
-let cfg = config.customNixOSModules;
-in {
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
+let
+  cfg = config.customNixOSModules;
+in
+{
   options.customNixOSModules.greetd = {
     enable = lib.mkOption {
       type = lib.types.bool;

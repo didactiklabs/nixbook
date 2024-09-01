@@ -1,8 +1,19 @@
-{ config, pkgs, lib, ... }:
-let cfg = config.customHomeManagerModules;
-in {
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
+let
+  cfg = config.customHomeManagerModules;
+in
+{
   config = lib.mkIf cfg.desktopApps.enable {
-    home.packages = [ pkgs.exercism pkgs.golines pkgs.nixfmt-rfc-style ];
+    home.packages = [
+      pkgs.exercism
+      pkgs.golines
+      pkgs.nixfmt-rfc-style
+    ];
     programs.go = {
       enable = true;
       goPath = "Documents/go";
@@ -31,11 +42,9 @@ in {
         "python.analysis.completeFunctionParens" = true;
         "python.autoComplete.addBrackets" = true;
         "python.formatting.provider" = "black";
-        "python.formatting.blackPath" =
-          "${pkgs.python3Packages.black}/bin/black";
+        "python.formatting.blackPath" = "${pkgs.python3Packages.black}/bin/black";
         "python.linting.pylintEnabled" = true;
-        "python.linting.pylintPath" =
-          "${pkgs.python3Packages.pylint}/bin/pylint";
+        "python.linting.pylintPath" = "${pkgs.python3Packages.pylint}/bin/pylint";
         "python.linting.enabled" = true;
         "python.languageServer" = "Pylance";
 
@@ -51,8 +60,9 @@ in {
 
         "extensions.autoUpdate" = false;
         "extensions.autoCheckUpdates" = false;
-        "editor.fontFamily" = lib.mkOverride 3000
-          "'Hack Nerd Font', 'Ubuntu Mono', 'Cascadia Mono', 'DejaVu Sans Mono', 'Font Awesome 5 Brands', 'Font Awesome 5 Free', 'Font Awesome 5 Free Solid'";
+        "editor.fontFamily" =
+          lib.mkOverride 3000
+            "'Hack Nerd Font', 'Ubuntu Mono', 'Cascadia Mono', 'DejaVu Sans Mono', 'Font Awesome 5 Brands', 'Font Awesome 5 Free', 'Font Awesome 5 Free Solid'";
         "editor.fontLigatures" = true;
         "editor.fontSize" = 11;
         "editor.fontWeight" = "bold";
@@ -79,8 +89,9 @@ in {
         };
         "terminal.integrated.defaultProfile.linux" = "zsh";
         "terminal.external.linuxExec" = "kitty";
-        "terminal.integrated.fontFamily" = lib.mkOverride 3000
-          "'Hack Nerd Font', 'Ubuntu Mono', 'Cascadia Mono', 'DejaVu Sans Mono', 'Font Awesome 5 Brands', 'Font Awesome 5 Free', 'Font Awesome 5 Free Solid'";
+        "terminal.integrated.fontFamily" =
+          lib.mkOverride 3000
+            "'Hack Nerd Font', 'Ubuntu Mono', 'Cascadia Mono', 'DejaVu Sans Mono', 'Font Awesome 5 Brands', 'Font Awesome 5 Free', 'Font Awesome 5 Free Solid'";
         "terminal.integrated.fontSize" = 12;
         "terminal.integrated.fontWeight" = "bold";
         "terminal.integrated.copyOnSelection" = true;
@@ -134,7 +145,9 @@ in {
           "*.sh" = "shellscript";
         };
         "security.workspace.trust.untrustedFiles" = "open";
-        "files.exclude" = { "**/.git" = false; };
+        "files.exclude" = {
+          "**/.git" = false;
+        };
         "settingsSync.keybindingsPerPlatform" = false;
         "nix.enableLanguageServer" = false;
         "shellformat.path" = "${pkgs.shfmt}/bin/shfmt";
@@ -156,7 +169,9 @@ in {
           "editor.autoIndent" = "full";
           "editor.formatOnSave" = true;
         };
-        "[markdown]" = { "editor.formatOnSave" = false; };
+        "[markdown]" = {
+          "editor.formatOnSave" = false;
+        };
         "markdown.marp.toggleMarpFeature" = true;
         "[nix]" = {
           "editor.insertSpaces" = true;

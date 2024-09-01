@@ -1,9 +1,17 @@
-{ pkgs, lib, sources, overrides ? { }, }:
+{
+  pkgs,
+  lib,
+  sources,
+  overrides ? { },
+}:
 let
   defaultWallpaper = pkgs.stdenv.mkDerivation {
     name = "defaultWallpaper";
     src = ../assets/images;
-    phases = [ "unpackPhase" "installPhase" ];
+    phases = [
+      "unpackPhase"
+      "installPhase"
+    ];
     installPhase = ''
       mkdir -p $out
       cp $src/* $out
@@ -26,132 +34,142 @@ let
 
   mergedConfig = lib.recursiveUpdate defaultConfig overrides;
 
-  mkUser = { username, userImports ? [ ], }: {
-    # Enable automount usb
-    services = {
-      gvfs.enable = true;
-      udisks2.enable = true;
-      devmon.enable = true;
-    };
-    programs.ydotool = {
-      enable = true; # clipboard prerequisite
-    };
-    systemd.services.ydotoold = { enable = true; };
-    programs.zsh.enable = true;
-    users.users."${username}" = {
-      shell = pkgs.zsh;
-      extraGroups = mergedConfig.extraGroups;
-      isNormalUser = true;
-      description = "${username}";
-    };
-    home-manager = {
-      useUserPackages = true;
-      useGlobalPkgs = true;
-      backupFileExtension = "rebuild";
-      users.${username} = {
-        config = {
-          services = {
-            udiskie.enable = true;
-            gnome-keyring.enable = true;
-          };
-          dconf.settings."org/gnome/desktop/interface".font-name =
-            lib.mkForce "Hack Nerd Font";
-          customHomeManagerModules = mergedConfig.customHomeManagerModules;
-          ## https://nix-community.github.io/home-manager/options.html#opt-services.gnome-keyring.enable
-          systemd.user.services.polkit-gnome = {
-            Unit = {
-              Description = "PolicyKit Authentication Agent";
-              After = [ "graphical-session-pre.target" ];
-              PartOf = [ "graphical-session.target" ];
+  mkUser =
+    {
+      username,
+      userImports ? [ ],
+    }:
+    {
+      # Enable automount usb
+      services = {
+        gvfs.enable = true;
+        udisks2.enable = true;
+        devmon.enable = true;
+      };
+      programs.ydotool = {
+        enable = true; # clipboard prerequisite
+      };
+      systemd.services.ydotoold = {
+        enable = true;
+      };
+      programs.zsh.enable = true;
+      users.users."${username}" = {
+        shell = pkgs.zsh;
+        extraGroups = mergedConfig.extraGroups;
+        isNormalUser = true;
+        description = "${username}";
+      };
+      home-manager = {
+        useUserPackages = true;
+        useGlobalPkgs = true;
+        backupFileExtension = "rebuild";
+        users.${username} = {
+          config = {
+            services = {
+              udiskie.enable = true;
+              gnome-keyring.enable = true;
             };
-            Service = {
-              ExecStart =
-                "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1";
+            dconf.settings."org/gnome/desktop/interface".font-name = lib.mkForce "Hack Nerd Font";
+            customHomeManagerModules = mergedConfig.customHomeManagerModules;
+            ## https://nix-community.github.io/home-manager/options.html#opt-services.gnome-keyring.enable
+            systemd.user.services.polkit-gnome = {
+              Unit = {
+                Description = "PolicyKit Authentication Agent";
+                After = [ "graphical-session-pre.target" ];
+                PartOf = [ "graphical-session.target" ];
+              };
+              Service = {
+                ExecStart = "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1";
+              };
+              Install = {
+                WantedBy = [ "graphical-session.target" ];
+              };
             };
-            Install = { WantedBy = [ "graphical-session.target" ]; };
+            home.packages = [
+              pkgs.pavucontrol
+              pkgs.pulseaudio
+              pkgs.numix-cursor-theme
+              pkgs.playerctl
+              pkgs.wev
+              pkgs.jq
+              pkgs.wlprop
+              pkgs.wf-recorder
+              pkgs.sway-contrib.grimshot
+            ];
+            services.gammastep = {
+              enable = true;
+              dawnTime = "6:00-7:45";
+              duskTime = "18:35-20:45";
+              latitude = 48.9;
+              longitude = 2.26;
+              provider = "manual";
+              tray = true;
+            };
+            home = {
+              stateVersion = "24.05";
+              username = "${username}";
+              homeDirectory = "/home/${username}";
+              sessionVariables = {
+                YDOTOOL_SOCKET = "/run/ydotoold/socket";
+                NIXPKGS_ALLOW_UNFREE = 1;
+              };
+            };
+            programs.home-manager.enable = true;
           };
-          home.packages = [
-            pkgs.pavucontrol
-            pkgs.pulseaudio
-            pkgs.numix-cursor-theme
-            pkgs.playerctl
-            pkgs.wev
-            pkgs.jq
-            pkgs.wlprop
-            pkgs.wf-recorder
-            pkgs.sway-contrib.grimshot
+          imports = lib.concatLists [
+            mergedConfig.imports
+            [
+              (import sources.stylix).homeManagerModules.stylix
+              ../homeManagerModules/stylixConfig.nix
+              (import sources.nixvim).homeManagerModules.nixvim
+              ../homeManagerModules/nixvim
+              ../homeManagerModules/spicetifyConfig.nix
+              ../homeManagerModules/sway
+              ../homeManagerModules/hyprland
+              ../homeManagerModules/vscode
+              ../homeManagerModules/kittyConfig.nix
+              ../homeManagerModules/zshConfig.nix
+              ../homeManagerModules/fontConfig.nix
+              ../homeManagerModules/gitConfig.nix
+              ../homeManagerModules/gtkConfig.nix
+              ../homeManagerModules/sshConfig.nix
+              ../homeManagerModules/starshipConfig.nix
+              ../homeManagerModules/bluetoothConfig.nix
+              ../homeManagerModules/rofiConfig.nix
+              ../homeManagerModules/copyqConfig.nix
+              ../homeManagerModules/fastfetchConfig.nix
+              ../homeManagerModules/desktopApps.nix
+              ../homeManagerModules/thunarConfig.nix
+              ../homeManagerModules/waybarConfig.nix
+              ../homeManagerModules/kubeTools.nix
+              ../homeManagerModules/mpvConfig.nix
+              ../homeManagerModules/k9sConfig.nix
+              ../homeManagerModules/scripts
+              ../homeManagerModules/swayncConfig.nix
+              ../homeManagerModules/goji.nix
+            ]
+            userImports
           ];
-          services.gammastep = {
-            enable = true;
-            dawnTime = "6:00-7:45";
-            duskTime = "18:35-20:45";
-            latitude = 48.9;
-            longitude = 2.26;
-            provider = "manual";
-            tray = true;
-          };
-          home = {
-            stateVersion = "24.05";
-            username = "${username}";
-            homeDirectory = "/home/${username}";
-            sessionVariables = {
-              YDOTOOL_SOCKET = "/run/ydotoold/socket";
-              NIXPKGS_ALLOW_UNFREE = 1;
+          options.profileCustomization = {
+            mainWallpaper = lib.mkOption {
+              type = lib.types.str;
+              default = "${defaultWallpaper}/nixos-wallpaper.png";
+              description = ''
+                Image to set as main wallpaper.
+              '';
             };
-          };
-          programs.home-manager.enable = true;
-        };
-        imports = lib.concatLists [
-          mergedConfig.imports
-          [
-            (import sources.stylix).homeManagerModules.stylix
-            ../homeManagerModules/stylixConfig.nix
-            (import sources.nixvim).homeManagerModules.nixvim
-            ../homeManagerModules/nixvim
-            ../homeManagerModules/spicetifyConfig.nix
-            ../homeManagerModules/sway
-            ../homeManagerModules/hyprland
-            ../homeManagerModules/vscode
-            ../homeManagerModules/kittyConfig.nix
-            ../homeManagerModules/zshConfig.nix
-            ../homeManagerModules/fontConfig.nix
-            ../homeManagerModules/gitConfig.nix
-            ../homeManagerModules/gtkConfig.nix
-            ../homeManagerModules/sshConfig.nix
-            ../homeManagerModules/starshipConfig.nix
-            ../homeManagerModules/bluetoothConfig.nix
-            ../homeManagerModules/rofiConfig.nix
-            ../homeManagerModules/copyqConfig.nix
-            ../homeManagerModules/fastfetchConfig.nix
-            ../homeManagerModules/desktopApps.nix
-            ../homeManagerModules/thunarConfig.nix
-            ../homeManagerModules/waybarConfig.nix
-            ../homeManagerModules/kubeTools.nix
-            ../homeManagerModules/mpvConfig.nix
-            ../homeManagerModules/k9sConfig.nix
-            ../homeManagerModules/scripts
-            ../homeManagerModules/swayncConfig.nix
-            ../homeManagerModules/goji.nix
-          ]
-          userImports
-        ];
-        options.profileCustomization = {
-          mainWallpaper = lib.mkOption {
-            type = lib.types.str;
-            default = "${defaultWallpaper}/nixos-wallpaper.png";
-            description = ''
-              Image to set as main wallpaper.
-            '';
-          };
-          lockWallpaper = lib.mkOption {
-            type = lib.types.str;
-            default = "${defaultWallpaper}/nixos-wallpaper.png";
-            description = ''
-              Image to set as lock wallpaper.
-            '';
+            lockWallpaper = lib.mkOption {
+              type = lib.types.str;
+              default = "${defaultWallpaper}/nixos-wallpaper.png";
+              description = ''
+                Image to set as lock wallpaper.
+              '';
+            };
           };
         };
       };
     };
-  };
-in { inherit mkUser; }
+in
+{
+  inherit mkUser;
+}

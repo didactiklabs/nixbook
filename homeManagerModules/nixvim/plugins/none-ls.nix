@@ -1,6 +1,13 @@
-{ config, lib, ... }:
-let cfg = config.customHomeManagerModules;
-in {
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  cfg = config.customHomeManagerModules;
+in
+{
   config = lib.mkIf cfg.nixvimConfig.enable {
     programs.nixvim.plugins = {
       none-ls = {
@@ -27,10 +34,10 @@ in {
             hclfmt.enable = true;
             gofumpt.enable = true;
             golines.enable = true;
-            gofmt.enable = true;
             goimports_reviser.enable = true;
             alejandra.enable = true;
             black = {
+              # python
               enable = true;
               withArgs = ''
                 {
@@ -49,7 +56,10 @@ in {
             };
             stylua.enable = true;
             yamlfmt.enable = true;
-            nixfmt.enable = true;
+            nixfmt = {
+              enable = true;
+              package = pkgs.nixfmt-rfc-style;
+            };
           };
         };
       };

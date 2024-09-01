@@ -1,13 +1,24 @@
-{ pkgs, lib, sources, ... }:
+{
+  pkgs,
+  lib,
+  sources,
+  ...
+}:
 let
   overrides = {
     customHomeManagerModules = { };
     imports = [ ./fastfetchConfig.nix ];
   };
   userConfig = import ../../nixosModules/userConfig.nix {
-    inherit lib pkgs sources overrides;
+    inherit
+      lib
+      pkgs
+      sources
+      overrides
+      ;
   };
-in {
+in
+{
   customNixOSModules = {
     workTools.enable = true;
     laptopProfile.enable = true;

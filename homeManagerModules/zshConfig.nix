@@ -1,4 +1,5 @@
-{ pkgs, ... }: {
+{ pkgs, ... }:
+{
   config = {
     home.packages = [
       pkgs.any-nix-shell
@@ -9,7 +10,9 @@
     programs = {
       zathura.enable = true;
       imv.enable = true;
-      ranger = { enable = true; };
+      ranger = {
+        enable = true;
+      };
       zoxide = {
         enable = true;
         enableZshIntegration = true;
@@ -18,7 +21,10 @@
         enable = true;
         ## cf https://github.com/sharkdp/bat#customization
         config = {
-          map-syntax = [ "*.jenkinsfile:Groovy" "*.props:Java Properties" ];
+          map-syntax = [
+            "*.jenkinsfile:Groovy"
+            "*.props:Java Properties"
+          ];
         };
       };
       fzf = {
@@ -72,8 +78,12 @@
         enable = true;
         enableZshIntegration = true;
       };
-      ripgrep = { enable = true; };
-      fd = { enable = true; };
+      ripgrep = {
+        enable = true;
+      };
+      fd = {
+        enable = true;
+      };
       zsh = {
         autosuggestion.enable = true;
         plugins = [
@@ -100,8 +110,7 @@
         ];
         enable = true;
         shellAliases = {
-          vpn =
-            "sudo ${pkgs.openvpn}/bin/openvpn --up ${pkgs.update-systemd-resolved}/libexec/openvpn/update-systemd-resolved --down ${pkgs.update-systemd-resolved}/libexec/openvpn/update-systemd-resolved --config";
+          vpn = "sudo ${pkgs.openvpn}/bin/openvpn --up ${pkgs.update-systemd-resolved}/libexec/openvpn/update-systemd-resolved --down ${pkgs.update-systemd-resolved}/libexec/openvpn/update-systemd-resolved --config";
           k = "kubectl";
           top = "btop";
           df = "duf";
@@ -113,7 +122,9 @@
           any-nix-shell zsh --info-right | source /dev/stdin
           [[ "$TERM" == "xterm-kitty" ]] && alias ssh="TERM=xterm-256color ssh"
         '';
-        oh-my-zsh = { enable = true; };
+        oh-my-zsh = {
+          enable = true;
+        };
       };
     };
   };

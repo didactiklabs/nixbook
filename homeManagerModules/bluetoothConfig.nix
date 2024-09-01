@@ -1,6 +1,13 @@
-{ config, pkgs, lib, ... }:
-let cfg = config.customHomeManagerModules.bluetooth;
-in {
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
+let
+  cfg = config.customHomeManagerModules.bluetooth;
+in
+{
   options.customHomeManagerModules.bluetooth = {
     enable = lib.mkOption {
       type = lib.types.bool;

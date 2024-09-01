@@ -1,4 +1,9 @@
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 let
   powertune = pkgs.writeShellScriptBin "powertune" ''
     #!/bin/bash
@@ -10,7 +15,8 @@ let
     done
   '';
   cfg = config.customNixOSModules.laptopProfile;
-in {
+in
+{
   options.customNixOSModules.laptopProfile = {
     enable = lib.mkOption {
       type = lib.types.bool;
@@ -34,8 +40,7 @@ in {
     };
     powerManagement = lib.mkForce {
       enable = true;
-      powertop.enable =
-        false; # to false else, it will shut your mouse down too often
+      powertop.enable = false; # to false else, it will shut your mouse down too often
     };
     # https://github.com/AdnanHodzic/auto-cpufreq
     services.auto-cpufreq.enable = true;
@@ -57,6 +62,9 @@ in {
         Restart = "always";
       };
     };
-    environment.systemPackages = [ powertune pkgs.powertop ];
+    environment.systemPackages = [
+      powertune
+      pkgs.powertop
+    ];
   };
 }

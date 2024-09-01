@@ -2,21 +2,30 @@
 let
   sources = import ../../../npins;
   pkgs-unstable = import sources.nixpkgs-unstable { };
-in {
-  imports = [ ./gitConfig.nix ./swayConfig.nix ./sunshine.nix ];
+in
+{
+  imports = [
+    ./gitConfig.nix
+    ./swayConfig.nix
+    ./sunshine.nix
+  ];
   profileCustomization = {
-    mainWallpaper = let
-      image = pkgs.fetchurl {
-        url = "https://w.wallhaven.cc/full/5g/wallhaven-5gp535.png";
-        sha256 = "sha256-Ip4Kox49zJxYIGxtisI0qcWcc/MSzeeEdsxJIiHUcvg=";
-      };
-    in "${image}";
-    lockWallpaper = let
-      image = pkgs.fetchurl {
-        url = "https://w.wallhaven.cc/full/5g/wallhaven-5gp535.png";
-        sha256 = "sha256-Ip4Kox49zJxYIGxtisI0qcWcc/MSzeeEdsxJIiHUcvg=";
-      };
-    in "${image}";
+    mainWallpaper =
+      let
+        image = pkgs.fetchurl {
+          url = "https://w.wallhaven.cc/full/5g/wallhaven-5gp535.png";
+          sha256 = "sha256-Ip4Kox49zJxYIGxtisI0qcWcc/MSzeeEdsxJIiHUcvg=";
+        };
+      in
+      "${image}";
+    lockWallpaper =
+      let
+        image = pkgs.fetchurl {
+          url = "https://w.wallhaven.cc/full/5g/wallhaven-5gp535.png";
+          sha256 = "sha256-Ip4Kox49zJxYIGxtisI0qcWcc/MSzeeEdsxJIiHUcvg=";
+        };
+      in
+      "${image}";
   };
   home.packages = [ pkgs-unstable.immich-go ];
   customHomeManagerModules = {

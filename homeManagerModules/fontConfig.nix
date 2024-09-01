@@ -1,6 +1,13 @@
-{ config, pkgs, lib, ... }:
-let cfg = config.customHomeManagerModules.fontConfig;
-in {
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
+let
+  cfg = config.customHomeManagerModules.fontConfig;
+in
+{
   options.customHomeManagerModules.fontConfig = {
     enable = lib.mkOption {
       type = lib.types.bool;
@@ -15,6 +22,9 @@ in {
     # cf https://github.com/nix-community/home-manager/blob/master/modules/misc/fontconfig.nix#blob-path
     # cf https://nixos.wiki/wiki/Fonts
     fonts.fontconfig.enable = true;
-    home.packages = [ pkgs.nerdfonts pkgs.font-awesome ];
+    home.packages = [
+      pkgs.nerdfonts
+      pkgs.font-awesome
+    ];
   };
 }

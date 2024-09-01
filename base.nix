@@ -1,14 +1,34 @@
-{ config, hostname, lib, ... }:
+{
+  config,
+  hostname,
+  lib,
+  ...
+}:
 let
   sources = import ./npins;
-  pkgs = import sources.nixpkgs { config = { allowUnfree = true; }; };
-  pkgs-unstable =
-    import sources.nixpkgs-unstable { config = { allowUnfree = true; }; };
+  pkgs = import sources.nixpkgs {
+    config = {
+      allowUnfree = true;
+    };
+  };
+  pkgs-unstable = import sources.nixpkgs-unstable {
+    config = {
+      allowUnfree = true;
+    };
+  };
   inherit (sources) lix-module lix;
   hostProfile = import ./profiles/${hostname} {
-    inherit lib config pkgs pkgs-unstable hostname sources;
+    inherit
+      lib
+      config
+      pkgs
+      pkgs-unstable
+      hostname
+      sources
+      ;
   };
-in {
+in
+{
   imports = [
     ./hardware-configuration.nix
     ./nixosModules/caCertificates.nix
@@ -62,7 +82,10 @@ in {
         "fs.protected_regular" = 2;
       };
     };
-    kernelParams = [ "intel_iommu=on" "iommu=pt" ];
+    kernelParams = [
+      "intel_iommu=on"
+      "iommu=pt"
+    ];
     kernelPackages = pkgs.linuxPackages_latest;
     plymouth.enable = true;
     loader = {
@@ -97,7 +120,9 @@ in {
   };
   console.keyMap = "fr";
   services = {
-    udev = { packages = with pkgs; [ game-devices-udev-rules ]; };
+    udev = {
+      packages = with pkgs; [ game-devices-udev-rules ];
+    };
     xserver = {
       enable = false;
       xkb.layout = "fr";
@@ -141,8 +166,7 @@ in {
       description = "Controller Support.";
       wantedBy = [ "default.target" ];
       serviceConfig = {
-        ExecStart =
-          "${pkgs.python312Packages.ds4drv}/bin/ds4drv --hidraw --emulate-xpad";
+        ExecStart = "${pkgs.python312Packages.ds4drv}/bin/ds4drv --hidraw --emulate-xpad";
         Restart = "always";
       };
     };
@@ -170,9 +194,14 @@ in {
       dates = [ "03:45" ];
     };
     settings = {
-      nix-path =
-        [ "nixpkgs=${sources.nixpkgs}" "home-manager=${sources.home-manager}" ];
-      experimental-features = [ "nix-command" "flakes" ];
+      nix-path = [
+        "nixpkgs=${sources.nixpkgs}"
+        "home-manager=${sources.home-manager}"
+      ];
+      experimental-features = [
+        "nix-command"
+        "flakes"
+      ];
     };
   };
   programs = {

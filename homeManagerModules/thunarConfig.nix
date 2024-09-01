@@ -1,6 +1,13 @@
-{ config, pkgs, lib, ... }:
-let cfg = config.customHomeManagerModules;
-in {
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
+let
+  cfg = config.customHomeManagerModules;
+in
+{
   config = lib.mkIf cfg.desktopApps.enable {
     home.packages = [
       (pkgs.xfce.thunar.override {

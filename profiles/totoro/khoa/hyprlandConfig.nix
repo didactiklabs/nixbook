@@ -1,6 +1,8 @@
 { config, lib, ... }:
-let cfg = config.customHomeManagerModules;
-in {
+let
+  cfg = config.customHomeManagerModules;
+in
+{
   config = lib.mkIf cfg.hyprlandConfig.enable {
     wayland.windowManager.hyprland.settings = {
       monitor = lib.mkForce [

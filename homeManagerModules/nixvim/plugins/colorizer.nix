@@ -1,6 +1,8 @@
 { config, lib, ... }:
-let cfg = config.customHomeManagerModules;
-in {
+let
+  cfg = config.customHomeManagerModules;
+in
+{
   config = lib.mkIf cfg.nixvimConfig.enable {
     programs.nixvim.plugins = {
       nvim-autopairs.enable = true;
@@ -15,7 +17,9 @@ in {
         enable = true;
         userDefaultOptions.names = false;
       };
-      which-key = { enable = true; };
+      which-key = {
+        enable = true;
+      };
     };
   };
 }

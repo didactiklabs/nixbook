@@ -1,4 +1,9 @@
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 let
   cfg = config.customHomeManagerModules;
   nvim-spell-fr-utf8-dictionary = builtins.fetchurl {
@@ -20,33 +25,37 @@ let
     url = "http://ftp.vim.org/vim/runtime/spell/fr.latin1.sug";
     sha256 = "5cb2c97901b9ca81bf765532099c0329e2223c139baa764058822debd2e0d22a";
   };
-in {
-  imports = [ ./options.nix ./autocmd.nix ./plugins ];
+in
+{
+  imports = [
+    ./options.nix
+    ./autocmd.nix
+    ./plugins
+  ];
   config = lib.mkIf cfg.nixvimConfig.enable {
     home.file = {
-      "${config.xdg.configHome}/nvim/spell/fr.utf-8.spl".source =
-        nvim-spell-fr-utf8-dictionary;
-      "${config.xdg.configHome}/nvim/spell/fr.utf-8.sug".source =
-        nvim-spell-fr-utf8-suggestions;
-      "${config.xdg.configHome}/nvim/spell/fr.latin1.spl".source =
-        nvim-spell-fr-latin1-dictionary;
-      "${config.xdg.configHome}/nvim/spell/fr.latin1.sug".source =
-        nvim-spell-fr-latin1-suggestions;
+      "${config.xdg.configHome}/nvim/spell/fr.utf-8.spl".source = nvim-spell-fr-utf8-dictionary;
+      "${config.xdg.configHome}/nvim/spell/fr.utf-8.sug".source = nvim-spell-fr-utf8-suggestions;
+      "${config.xdg.configHome}/nvim/spell/fr.latin1.spl".source = nvim-spell-fr-latin1-dictionary;
+      "${config.xdg.configHome}/nvim/spell/fr.latin1.sug".source = nvim-spell-fr-latin1-suggestions;
     };
     programs.nixvim = {
       enable = true;
       defaultEditor = true;
-      opts.completeopt = [ "menu" "menuone" "noselect" ];
+      opts.completeopt = [
+        "menu"
+        "menuone"
+        "noselect"
+      ];
       viAlias = true;
       vimAlias = true;
       luaLoader.enable = true;
-      extraPlugins = with pkgs.vimPlugins;
-        [
-          #vim-nix
-          #vim-addon-nix
-          #vim-airline
-          vim-better-whitespace
-        ];
+      extraPlugins = with pkgs.vimPlugins; [
+        #vim-nix
+        #vim-addon-nix
+        #vim-airline
+        vim-better-whitespace
+      ];
       extraConfigVim = ''
         syntax on
         "set listchars=eol:¬,tab:>·,trail:~,extends:>,precedes:<,space:.

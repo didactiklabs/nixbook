@@ -1,6 +1,13 @@
-{ config, lib, pkgs, ... }:
-let cfg = config.customHomeManagerModules;
-in {
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  cfg = config.customHomeManagerModules;
+in
+{
   config = lib.mkIf cfg.nixvimConfig.enable {
     home.packages = [ pkgs.gcc ];
     programs.nixvim.plugins = {
@@ -75,7 +82,9 @@ in {
           zig
           toml
         ];
-        languageRegister = { templ = "templ"; };
+        languageRegister = {
+          templ = "templ";
+        };
       };
 
       treesitter-refactor = {
