@@ -151,6 +151,7 @@ let
               ../homeManagerModules/scripts
               ../homeManagerModules/swayncConfig.nix
               ../homeManagerModules/goji.nix
+              ../homeManagerModules/mangaTuiConfig.nix
             ]
             userImports
           ];

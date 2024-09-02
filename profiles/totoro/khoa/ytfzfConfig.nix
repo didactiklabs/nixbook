@@ -8,6 +8,7 @@ let
     https://www.youtube.com/channel/UCWnfDPdZw6A23UtuBpYBbAg # Dr Nozman
     https://www.youtube.com/channel/UCOGJ1pFCYj65_kDgAlHRH8w # Thao Huynh
     https://www.youtube.com/channel/UCfz8x0lVzJpb_dgWm9kPVrw # DevOps Toolkit
+    https://www.youtube.com/channel/UCZgt6AzoyjslHTC9dz0UoTw # ByteByteGo
   '';
 in
 {

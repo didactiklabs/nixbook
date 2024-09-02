@@ -2,11 +2,32 @@ let
   goreadUrls = ''
     categories:
       - name: News
-        desc: News from around the world
+        desc: General News
         subscriptions:
-          - name: BBC
-            desc: News from the BBC
-            url: http://feeds.bbci.co.uk/news/rss.xml
+          - name: ArsTechnica
+            desc: News from ArsTechnica
+            url: https://feeds.arstechnica.com/arstechnica/index
+      - name: IT Tech
+        desc: Tech, IT stuffs
+        subscriptions:
+          - name: Zwindler Blog
+            desc: News from Zwindler
+            url: https://blog.zwindler.fr/index.xml
+          - name: Hacker News
+            desc: Hacker News
+            url: https://hnrss.org/frontpage
+          - name: ByteByteGo
+            desc: News from ByteByteGo
+            url: https://blog.bytebytego.com/feed
+          - name: Terminal Trove
+            desc: News from Terminal Trove
+            url: https://terminaltrove.com/new.xml
+          - name: r/selfhosted
+            desc: News from r/selfhosted
+            url: https://old.reddit.com/r/selfhosted/.rss
+          - name: r/coolgithubprojects
+            desc: News from r/coolgithubprojects
+            url: https://old.reddit.com/r/coolgithubprojects/.rss
       - name: Anime
         desc: Anime News
         subscriptions:
