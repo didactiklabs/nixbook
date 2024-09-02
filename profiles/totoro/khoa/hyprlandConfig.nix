@@ -14,9 +14,10 @@ in
         "DP-11,1920x1080,3360x0,auto"
       ];
       windowrulev2 = [
-        "workspace 1 silent,class:(thunderbird)"
-        "workspace 1 silent,class:(vesktop)"
-        "workspace 1 silent,title:(Spotify Premium)"
+        "workspace 1 silent,fullscreen 1,class:(thunderbird)"
+        "workspace 1 silent,fullscreen 1,class:(vesktop)"
+        "workspace 1 silent,fullscreen 1,title:(Spotify Premium)"
+        "workspace 3 silent,fullscreen 1,class:(mpv)"
       ];
       exec-once = [
         "[workspace 1 silent] spotify"

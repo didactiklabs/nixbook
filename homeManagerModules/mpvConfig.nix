@@ -16,6 +16,7 @@ let
     sub_link_count=10000
     search_region=FR
     fancy_subs=1
+    is_detach=1
   '';
   mpvScripts = with pkgs.mpvScripts; [
     thumbfast

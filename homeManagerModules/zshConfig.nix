@@ -1,4 +1,8 @@
 { pkgs, ... }:
+let
+  goread = import ../customPkgs/goread.nix { inherit pkgs; };
+  todoCli = import ../customPkgs/todocli.nix { inherit pkgs; };
+in
 {
   config = {
     home.packages = [
@@ -6,6 +10,8 @@
       pkgs.btop # top replacer
       pkgs.duf # df replacer
       pkgs.sd # sed alternative
+      todoCli
+      goread
     ];
     programs = {
       atuin = {
