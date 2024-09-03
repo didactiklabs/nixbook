@@ -1,12 +1,9 @@
 let
   goreadUrls = ''
     categories:
-      - name: News
-        desc: General News
-        subscriptions:
-          - name: ArsTechnica
-            desc: News from ArsTechnica
-            url: https://feeds.arstechnica.com/arstechnica/index
+      # - name: News
+      #   desc: General News
+      #   subscriptions:
       - name: IT Tech French
         desc: Tech, IT stuffs
         subscriptions:
@@ -28,9 +25,15 @@ let
           - name: Hacker News
             desc: Hacker News
             url: https://hnrss.org/frontpage
+          - name: LifeHacker News
+            desc: LifeHacker News
+            url: https://lifehacker.com/feed/rss
           - name: ByteByteGo
             desc: News from ByteByteGo
             url: https://blog.bytebytego.com/feed
+          - name: ArsTechnica
+            desc: News from ArsTechnica
+            url: https://feeds.arstechnica.com/arstechnica/index
           - name: Terminal Trove
             desc: News from Terminal Trove
             url: https://terminaltrove.com/new.xml
@@ -43,6 +46,27 @@ let
           - name: r/coolgithubprojects
             desc: News from r/coolgithubprojects
             url: https://old.reddit.com/r/coolgithubprojects/.rss
+      - name: Sciences
+        desc: About Sciences
+        subscriptions:
+          - name: Popular Sciences
+            desc: News from Popular Sciences
+            url: https://www.popsci.com/rss.xml
+          - name: DamnInteresting
+            desc: News from DamnInteresting
+            url: https://feeds.feedburner.com/damninteresting/all
+          - name: xkcd What if ?
+            desc: xkcd What if ?
+            url: https://what-if.xkcd.com/feed.atom
+      - name: Travels
+        desc: About Travels
+        subscriptions:
+          - name: ThePointsGuy
+            desc: News from ThePointsGuy
+            url: https://thepointsguy.com/feed/
+          - name: LonelyPlanet
+            desc: News from LonelyPlanet
+            url: https://www.lonelyplanet.com/articles/feature/feed
       - name: Anime French
         desc: Anime News
         subscriptions:
@@ -67,6 +91,15 @@ let
       - name: Gaming
         desc: Gaming News
         subscriptions:
+          - name: IGN News
+            desc: News from IGN
+            url: https://www.ign.com/rss/articles/feed?tags=games
+          - name: Cooptimus News
+            desc: News from Cooptimus
+            url: https://feeds.feedburner.com/Co-optimus
+          - name: RockPaperShotGun News
+            desc: News from RockPaperShotGun
+            url: https://www.rockpapershotgun.com/feed/
           - name: Valve News
             desc: News from Valve
             url: https://store.steampowered.com/feeds/news/

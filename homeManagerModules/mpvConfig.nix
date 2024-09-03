@@ -16,7 +16,8 @@ let
     sub_link_count=10000
     search_region=FR
     fancy_subs=1
-    is_detach=1
+    is_detach=0
+    url_handler_opts="--vo=kitty --vo-kitty-use-shm=yes --profile=sw-fast"
   '';
   mpvScripts = with pkgs.mpvScripts; [
     thumbfast
@@ -30,11 +31,13 @@ in
       mpv = {
         enable = true;
         scripts = mpvScripts;
+        config = { };
       };
       zsh = {
         shellAliases = {
           yt = "ytfzf";
           yts = "ytfzf -c youtube-subscriptions --sort";
+          yth = "ytfzf -H";
           ytt = "ytfzf -c youtube-trending";
         };
       };
@@ -45,7 +48,9 @@ in
           text = ytfzfConfig;
         };
       };
-      packages = [ (pkgs.ytfzf.override { mpv = pkgs.mpv.override { scripts = mpvScripts; }; }) ];
+      packages = [
+        (pkgs.ytfzf.override { mpv = pkgs.mpv.override { scripts = [ pkgs.mpvScripts.mpris ]; }; })
+      ];
     };
   };
 }
