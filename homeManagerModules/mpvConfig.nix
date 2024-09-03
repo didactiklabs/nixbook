@@ -17,7 +17,7 @@ let
     search_region=FR
     fancy_subs=1
     is_detach=0
-    url_handler_opts="--vo=kitty --vo-kitty-use-shm=yes --profile=sw-fast"
+    url_handler_opts="--vo=kitty --vo-kitty-use-shm=yes --profile=sw-fast --vf-add=fps=24:round=near"
   '';
   mpvScripts = with pkgs.mpvScripts; [
     thumbfast

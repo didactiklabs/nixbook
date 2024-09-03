@@ -28,13 +28,13 @@
       "type": "Git",
       "repository": {
         "type": "GitHub",
-        "owner": "Banh-Canh",
+        "owner": "TypicalAM",
         "repo": "goread"
       },
-      "branch": "fix/ro-urls",
-      "revision": "030f58f4821877c79f8819df8364881665838bc0",
-      "url": "https://github.com/Banh-Canh/goread/archive/030f58f4821877c79f8819df8364881665838bc0.tar.gz",
-      "hash": "02xk03x1aszwzkagzlxpjghfhm09d3yzbjx0zsw1wmfqjfid9jm5"
+      "branch": "main",
+      "revision": "be9fd7c20732cad7d060adc12fbbb0a5bbd3b3b4",
+      "url": "https://github.com/TypicalAM/goread/archive/be9fd7c20732cad7d060adc12fbbb0a5bbd3b3b4.tar.gz",
+      "hash": "0jxha0g0361919zj762phcrw2wic2988nm7k2znf9q3k3s192zyv"
     },
     "home-manager": {
       "type": "Git",

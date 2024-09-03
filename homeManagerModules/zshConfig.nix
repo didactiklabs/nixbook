@@ -124,7 +124,7 @@ in
           cd = "z";
           neofetch = "fastfetch";
           grep = "rg";
-          feed = "goread --readonly_config";
+          feed = "goread --urls_readonly";
         };
         initExtra = ''
           any-nix-shell zsh --info-right | source /dev/stdin
