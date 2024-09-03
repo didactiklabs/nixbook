@@ -55,9 +55,6 @@ let
           - name: DamnInteresting
             desc: News from DamnInteresting
             url: https://feeds.feedburner.com/damninteresting/all
-          - name: xkcd What if ?
-            desc: xkcd What if ?
-            url: https://what-if.xkcd.com/feed.atom
       - name: Travels
         desc: About Travels
         subscriptions:

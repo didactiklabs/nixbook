@@ -119,13 +119,12 @@ in
         ];
         enable = true;
         shellAliases = {
-          vpn = "sudo ${pkgs.openvpn}/bin/openvpn --up ${pkgs.update-systemd-resolved}/libexec/openvpn/update-systemd-resolved --down ${pkgs.update-systemd-resolved}/libexec/openvpn/update-systemd-resolved --config";
-          k = "kubectl";
           top = "btop";
           df = "duf";
           cd = "z";
           neofetch = "fastfetch";
           grep = "rg";
+          feed = "goread --readonly_config";
         };
         initExtra = ''
           any-nix-shell zsh --info-right | source /dev/stdin

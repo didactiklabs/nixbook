@@ -32,9 +32,9 @@
         "repo": "goread"
       },
       "branch": "fix/ro-urls",
-      "revision": "53d87071800f2c5cd4dd5cad81e4030485b1e819",
-      "url": "https://github.com/Banh-Canh/goread/archive/53d87071800f2c5cd4dd5cad81e4030485b1e819.tar.gz",
-      "hash": "1795v8q5pchf50sgiymkg7alqifz9jv6fx71jnq5kbzf62yx8w6m"
+      "revision": "030f58f4821877c79f8819df8364881665838bc0",
+      "url": "https://github.com/Banh-Canh/goread/archive/030f58f4821877c79f8819df8364881665838bc0.tar.gz",
+      "hash": "02xk03x1aszwzkagzlxpjghfhm09d3yzbjx0zsw1wmfqjfid9jm5"
     },
     "home-manager": {
       "type": "Git",

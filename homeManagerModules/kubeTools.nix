@@ -77,8 +77,13 @@ in
         kubectl-explore
       ];
     };
-    programs.zsh.initExtra = ''
-      source <(switcher init zsh) # kubeswitch
-    '';
+    programs.zsh = {
+      initExtra = ''
+        source <(switcher init zsh) # kubeswitch
+      '';
+      shellAliases = {
+        k = "kubectl";
+      };
+    };
   };
 }
