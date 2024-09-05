@@ -141,6 +141,18 @@
       "revision": "7f1420d2a345286248006c3219906c422223a0b0",
       "url": "https://github.com/Banh-Canh/todocli/archive/7f1420d2a345286248006c3219906c422223a0b0.tar.gz",
       "hash": "0lbsl4sm7rpfqv7j03n86axvrn0j9ybpjxx5b0hi6q7wm64d7krk"
+    },
+    "ytfzf": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "pystardust",
+        "repo": "ytfzf"
+      },
+      "branch": "master",
+      "revision": "0857c7409e8ba8307bfe9e1b218f4fbbd4b1db07",
+      "url": "https://github.com/pystardust/ytfzf/archive/0857c7409e8ba8307bfe9e1b218f4fbbd4b1db07.tar.gz",
+      "hash": "05zcs0avyjn1dlxxsrc47ld3iddls22g1bc4mk0g8ldxvcwra05g"
     }
   },
   "version": 3

@@ -5,19 +5,23 @@
   ...
 }:
 let
+  sources = import ../npins;
+  ytfzfSrc = sources.ytfzf;
   cfg = config.customHomeManagerModules;
+  ytfzfExtensions = "${ytfzfSrc}/addons/extensions";
   ytfzfConfig = ''
     thumbnail_viewer=kitty
     show_thumbnails=1
-    search_again=1
+    thumbnail_quality=hqdefault
     scrape=youtube
-    async_thumbnails=1
-    pages_to_scrape=10
-    sub_link_count=10000
+    async_thumbnails=0
+    pages_to_scrape=3
+    sub_link_count=20
     search_region=FR
-    fancy_subs=1
     is_detach=0
+    invidious_instance=https://yt.didactiklabs.io
     url_handler_opts="--vo=kitty --vo-kitty-use-shm=yes --profile=sw-fast --vf-add=fps=24:round=near"
+    load_extension smart-thumb-download
   '';
   mpvScripts = with pkgs.mpvScripts; [
     thumbfast
@@ -35,10 +39,10 @@ in
       };
       zsh = {
         shellAliases = {
-          yt = "ytfzf";
-          yts = "ytfzf -c youtube-subscriptions --sort";
-          yth = "ytfzf -H";
-          ytt = "ytfzf -c youtube-trending";
+          yt = "ytfzf -l";
+          yts = "ytfzf -l -c youtube-subscriptions --sort";
+          yth = "ytfzf -l -H";
+          ytt = "ytfzf -l -c youtube-trending";
         };
       };
     };
@@ -47,10 +51,14 @@ in
         ".config/ytfzf/conf.sh" = {
           text = ytfzfConfig;
         };
+        ".config/ytfzf/thumbnails/.keep" = {
+          text = "";
+        };
+        ".config/ytfzf/extensions" = {
+          source = ytfzfExtensions;
+        };
       };
-      packages = [
-        (pkgs.ytfzf.override { mpv = pkgs.mpv.override { scripts = [ pkgs.mpvScripts.mpris ]; }; })
-      ];
+      packages = [ pkgs.ytfzf ];
     };
   };
 }
