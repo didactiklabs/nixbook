@@ -23,7 +23,7 @@ in
           "commands" = [
             {
               "match" = "\\.go$";
-              "cmd" = "golines \${file} -w";
+              "cmd" = "golines \${file} -w --max-len=140";
             }
             {
               "match" = "\\.nix$";

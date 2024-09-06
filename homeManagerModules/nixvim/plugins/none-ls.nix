@@ -33,7 +33,14 @@ in
             terraform_fmt.enable = true;
             hclfmt.enable = true;
             gofumpt.enable = true;
-            golines.enable = true;
+            golines = {
+              enable = true;
+              withArgs = ''
+                {
+                  extra_args = { "--max-len=140" },
+                }
+              '';
+            };
             goimports_reviser.enable = true;
             alejandra.enable = true;
             black = {
