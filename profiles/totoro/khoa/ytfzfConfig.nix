@@ -10,6 +10,7 @@ let
     https://www.youtube.com/channel/UCfz8x0lVzJpb_dgWm9kPVrw # DevOps Toolkit
     https://www.youtube.com/channel/UCZgt6AzoyjslHTC9dz0UoTw # ByteByteGo
     https://www.youtube.com/channel/UCHnyfMqiRRG1u-2MsSQLbXA # Veritasium
+    https://www.youtube.com/channel/UC2t5bjwHdUX4vM2g8TRDq5g # League Of Legends
   '';
 in
 {

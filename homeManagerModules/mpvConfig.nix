@@ -16,10 +16,9 @@ let
     scrape=youtube
     async_thumbnails=0
     pages_to_scrape=3
-    sub_link_count=20
+    sub_link_count=500
     search_region=FR
     is_detach=0
-    invidious_instance=https://yt.didactiklabs.io
     url_handler_opts="--vo=kitty --vo-kitty-use-shm=yes --profile=sw-fast --vf-add=fps=24:round=near"
     load_extension smart-thumb-download
   '';
