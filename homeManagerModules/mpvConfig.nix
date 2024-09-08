@@ -16,15 +16,14 @@ let
     scrape=youtube
     async_thumbnails=0
     pages_to_scrape=3
-    sub_link_count=500
+    sub_link_count=1000
     search_region=FR
-    is_detach=0
-    url_handler_opts="--vo=kitty --vo-kitty-use-shm=yes --profile=sw-fast --vf-add=fps=24:round=near"
+    is_detach=1
+    # url_handler_opts="--vo=kitty --vo-kitty-use-shm=yes --profile=sw-fast --vf-add=fps=24:round=near"
     load_extension smart-thumb-download
   '';
   mpvScripts = with pkgs.mpvScripts; [
     thumbfast
-    modernx
     mpris
   ];
 in
@@ -57,7 +56,7 @@ in
           source = ytfzfExtensions;
         };
       };
-      packages = [ pkgs.ytfzf ];
+      packages = [ (pkgs.ytfzf.override { mpv = pkgs.mpv.override { scripts = mpvScripts; }; }) ];
     };
   };
 }

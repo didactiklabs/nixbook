@@ -42,6 +42,7 @@ in
               '';
             };
             goimports_reviser.enable = true;
+            goimports.enable = true;
             alejandra.enable = true;
             black = {
               # python
