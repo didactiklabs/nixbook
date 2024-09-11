@@ -107,7 +107,6 @@ in
           "opaque, class:(imv)"
           "opaque, class:(com.moonlight_stream.Moonlight)"
           "opaque, title:(ranger)"
-          "opaque, class:(kitty),title:^(yt)(.*)"
           "opaque, title:(.*)(Immich — Mozilla Firefox)"
           "opaque, title:(.*)(YouTube — Mozilla Firefox)"
           "opaque, title:(.*)(Jellyfin — Mozilla Firefox)"

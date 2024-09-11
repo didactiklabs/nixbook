@@ -10,8 +10,6 @@ in
       pkgs.btop # top replacer
       pkgs.duf # df replacer
       pkgs.sd # sed alternative
-      todoCli
-      goread
     ];
     programs = {
       atuin = {

@@ -66,6 +66,7 @@ in
         kubelogin-oidc
         dive
         pkgs-unstable.kcl
+        pkgs-unstable.netfetch
         kubectl
         k9s
         kubevirt

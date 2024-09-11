@@ -25,6 +25,7 @@ let
   mpvScripts = with pkgs.mpvScripts; [
     thumbfast
     mpris
+    modernx
   ];
 in
 {

@@ -6,7 +6,6 @@
     ./config.nix
     ./hyprlandConfig.nix
     ./ytfzfConfig.nix
-    ./goreadConfig.nix
   ];
   home.packages = [
     pkgs.nextcloud-client

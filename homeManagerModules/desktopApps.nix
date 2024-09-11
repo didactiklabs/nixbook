@@ -24,6 +24,7 @@ in
     };
     home.packages = with pkgs; [
       # apps
+      obs-studio
       wdisplays # display manager
       vesktop # discord
       firefox
