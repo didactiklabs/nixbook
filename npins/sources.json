@@ -129,6 +129,18 @@
       "revision": "0857c7409e8ba8307bfe9e1b218f4fbbd4b1db07",
       "url": "https://github.com/pystardust/ytfzf/archive/0857c7409e8ba8307bfe9e1b218f4fbbd4b1db07.tar.gz",
       "hash": "05zcs0avyjn1dlxxsrc47ld3iddls22g1bc4mk0g8ldxvcwra05g"
+    },
+    "ytui": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "banh-canh",
+        "repo": "ytui"
+      },
+      "branch": "main",
+      "revision": "9ec7f1dbe604829598a76f06935bd9314efed03b",
+      "url": "https://github.com/banh-canh/ytui/archive/9ec7f1dbe604829598a76f06935bd9314efed03b.tar.gz",
+      "hash": "1w9sjqdkk7y18xwg0rnmaxksb3yxj7ljkplkdyaj5mvlm46d4qkd"
     }
   },
   "version": 3

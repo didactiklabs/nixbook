@@ -7,6 +7,7 @@
 let
   sources = import ../npins;
   ytfzfSrc = sources.ytfzf;
+  ytui = import ../customPkgs/ytui.nix { inherit pkgs; };
   cfg = config.customHomeManagerModules;
   ytfzfExtensions = "${ytfzfSrc}/addons/extensions";
   ytfzfConfig = ''
@@ -57,7 +58,10 @@ in
           source = ytfzfExtensions;
         };
       };
-      packages = [ (pkgs.ytfzf.override { mpv = pkgs.mpv.override { scripts = mpvScripts; }; }) ];
+      packages = [
+        ytui
+        (pkgs.ytfzf.override { mpv = pkgs.mpv.override { scripts = mpvScripts; }; })
+      ];
     };
   };
 }
