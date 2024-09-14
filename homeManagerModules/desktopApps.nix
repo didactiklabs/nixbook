@@ -24,6 +24,7 @@ in
     };
     home.packages = with pkgs; [
       # apps
+      signal-desktop
       obs-studio
       wdisplays # display manager
       vesktop # discord
