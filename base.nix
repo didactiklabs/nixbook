@@ -178,10 +178,7 @@ in
     sudo.wheelNeedsPassword = false;
   };
   nixpkgs = {
-    config = {
-      allowUnfreePredicate = _: true;
-      allowUnfree = true;
-    };
+    inherit pkgs;
   };
   nix = {
     gc = {
