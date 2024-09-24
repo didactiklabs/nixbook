@@ -5,7 +5,6 @@
     ./kanshiConfig.nix
     ./config.nix
     ./hyprlandConfig.nix
-    ./ytfzfConfig.nix
   ];
   home.packages = [
     pkgs.nextcloud-client

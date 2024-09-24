@@ -47,7 +47,10 @@ in
     services.auto-cpufreq.settings = {
       battery = {
         governor = "powersave";
+        min_freq = "400MHz"; # Set if you know your CPU's capabilities
+        max_freq = "2GHz"; # Set if you know your CPU's capabilities
         turbo = "never";
+        energy_performance_preference = "power";
       };
       charger = {
         governor = "performance";
@@ -59,7 +62,7 @@ in
       wantedBy = [ "default.target" ];
       serviceConfig = {
         ExecStart = "${powertune}/bin/powertune";
-        Restart = "always";
+        Restart = "on-failure";
       };
     };
     environment.systemPackages = [

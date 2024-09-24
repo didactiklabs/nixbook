@@ -186,7 +186,7 @@ in
               Paused = "";
             };
             max-length = 55;
-            interval = 1;
+            interval = 5;
             tooltip = false;
             on-click = "${pkgs.playerctl}/bin/playerctl --player=spotify previous";
             on-click-middle = "${pkgs.playerctl}/bin/playerctl --player=spotify play-pause";

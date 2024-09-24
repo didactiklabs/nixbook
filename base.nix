@@ -171,7 +171,6 @@ in
       };
     };
   };
-  # sound.enable = true;
   security = {
     rtkit.enable = true;
     polkit.enable = true;
