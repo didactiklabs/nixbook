@@ -6,10 +6,7 @@
     ./config.nix
     ./hyprlandConfig.nix
   ];
-  home.packages = [
-    pkgs.nextcloud-client
-    pkgs.moonlight-qt
-  ];
+  home.packages = [ pkgs.moonlight-qt ];
   profileCustomization = {
     mainWallpaper =
       let

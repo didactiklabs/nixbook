@@ -27,7 +27,11 @@ in
       in
       "${image}";
   };
-  home.packages = [ pkgs-unstable.immich-go ];
+  home.packages = [
+    pkgs-unstable.immich-go
+    pkgs.wineWowPackages.waylandFull
+    pkgs.firefox
+  ];
   customHomeManagerModules = {
     fontConfig.enable = true;
     gitConfig.enable = true;
