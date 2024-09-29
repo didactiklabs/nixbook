@@ -23,7 +23,12 @@ in
     # cf https://nixos.wiki/wiki/Fonts
     fonts.fontconfig.enable = true;
     home.packages = [
-      pkgs.nerdfonts
+      (pkgs.nerdfonts.override {
+        fonts = [
+          "FiraCode"
+          "Hack"
+        ];
+      })
       pkgs.font-awesome
     ];
   };

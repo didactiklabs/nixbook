@@ -198,6 +198,7 @@ in
         "nix-command"
         "flakes"
       ];
+      substituters = [ "https://didactiklabs.cachix.org" ];
     };
   };
   programs = {
