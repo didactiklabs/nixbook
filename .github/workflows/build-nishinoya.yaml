@@ -1,0 +1,85 @@
+name: Build Nishinoya
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+      - uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+        with:
+          nix_path: nixpkgs=channel:nixos-24.05
+      - uses: cachix/cachix-action@v15
+        with:
+          name: didactiklabs
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Create /etc/nixos and copy hardware config
+        run: |
+          sudo mkdir -p /etc/nixos
+          sudo sh -c 'cat > /etc/nixos/hardware-configuration.nix <<EOF
+          {
+            config,
+            lib,
+            pkgs,
+            modulesPath,
+            ...
+          }:
+
+          {
+            imports = [ (modulesPath + "/installer/scan/not-detected.nix") ];
+
+            boot.initrd.availableKernelModules = [
+              "nvme"
+              "xhci_pci"
+              "usb_storage"
+              "sd_mod"
+            ];
+            boot.initrd.kernelModules = [ ];
+            boot.kernelModules = [ "kvm-amd" ];
+            boot.extraModulePackages = [ ];
+
+            fileSystems."/" = {
+              device = "/dev/disk/by-uuid/98a7284e-e47f-410d-b5d2-0987bc26ddf5";
+              fsType = "ext4";
+            };
+
+            boot.initrd.luks.devices."luks-c1ace451-8976-4ffe-80d8-d55f38369e36".device = "/dev/disk/by-uuid/c1ace451-8976-4ffe-80d8-d55f38369e36";
+
+            fileSystems."/boot" = {
+              device = "/dev/disk/by-uuid/D044-D503";
+              fsType = "vfat";
+              options = [
+                "fmask=0022"
+                "dmask=0022"
+              ];
+            };
+
+            swapDevices = [ ];
+
+            networking.useDHCP = lib.mkDefault true;
+            nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
+            hardware.cpu.amd.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
+          }
+          EOF'
+      - name: Build
+        run: nix-build '<nixpkgs/nixos>' -A config.system.build.toplevel -I nixos-config=profiles/nishinoya/configuration.nix
+      - name: Push
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cachix push didactiklabs ./result
