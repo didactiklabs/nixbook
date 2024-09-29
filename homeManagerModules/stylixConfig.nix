@@ -11,7 +11,12 @@
       };
       fonts.monospace = {
         name = "Hack Nerd Font";
-        package = pkgs.nerdfonts;
+        package = pkgs.nerdfonts.override {
+          fonts = [
+            "FiraCode"
+            "Hack"
+          ];
+        };
       };
     };
   };
