@@ -15,6 +15,8 @@
           fonts = [
             "FiraCode"
             "Hack"
+            "Iosevka"
+            "JetBrainsMono"
           ];
         };
       };

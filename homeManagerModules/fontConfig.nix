@@ -27,6 +27,8 @@ in
         fonts = [
           "FiraCode"
           "Hack"
+          "Iosevka"
+          "JetBrainsMono"
         ];
       })
       pkgs.font-awesome
