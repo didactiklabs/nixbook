@@ -198,6 +198,7 @@ in
         "flakes"
       ];
       substituters = [ "https://didactiklabs.cachix.org" ];
+      trusted-public-keys = [ "didactiklabs.cachix.org-1:HYJV+l+6uSwJIAm4wdqVP/TuclEptn6oI2dzLqHq88k=" ];
     };
   };
   programs = {
