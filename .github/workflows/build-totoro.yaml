@@ -20,15 +20,20 @@ jobs:
           large-packages: true
           docker-images: true
           swap-storage: true
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Get Nixpkgs revision for nixfmt
+        run: |
+          # This should not be a URL, because it would allow PRs to run arbitrary code in CI!
+          url=$(jq -r .pins.nixpkgs.url npins/sources.json)
+          echo "url=$url" >> "$GITHUB_ENV"
       - uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
         with:
-          nix_path: nixpkgs=channel:nixos-24.05
+          nix_path: nixpkgs=${{ env.url }}
       - uses: cachix/cachix-action@v15
         with:
           name: didactiklabs
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-      - name: Checkout code
-        uses: actions/checkout@v3
       - name: Create /etc/nixos and copy hardware config
         run: |
           sudo mkdir -p /etc/nixos

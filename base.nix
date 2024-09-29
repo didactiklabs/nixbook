@@ -16,7 +16,6 @@ let
       allowUnfree = true;
     };
   };
-  inherit (sources) lix-module lix;
   hostProfile = import ./profiles/${hostname} {
     inherit
       lib
@@ -41,7 +40,6 @@ in
     (import ./nixosModules/networkManager.nix { inherit lib config pkgs; })
     (import ./nixosModules/sunshine.nix { inherit lib config pkgs; })
     (import "${sources.home-manager}/nixos")
-    (import "${lix-module}/module.nix" { inherit lix; })
     hostProfile
   ];
   # Bootloader.
@@ -180,6 +178,7 @@ in
     inherit pkgs;
   };
   nix = {
+    package = pkgs.lix;
     gc = {
       automatic = true;
       dates = "weekly";
