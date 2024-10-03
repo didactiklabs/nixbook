@@ -9,11 +9,13 @@ let
   pkgs = import sources.nixpkgs {
     config = {
       allowUnfree = true;
+      allowUnfreePredicate = true;
     };
   };
   pkgs-unstable = import sources.nixpkgs-unstable {
     config = {
       allowUnfree = true;
+      allowUnfreePredicate = true;
     };
   };
   hostProfile = import ./profiles/${hostname} {
@@ -96,7 +98,6 @@ in
     };
   };
   networking = {
-    hostName = "${hostname}"; # Define your hostname.
     networkmanager.enable = true;
     firewall.enable = false;
   };
@@ -174,9 +175,7 @@ in
     polkit.enable = true;
     sudo.wheelNeedsPassword = false;
   };
-  nixpkgs = {
-    inherit pkgs;
-  };
+  nixpkgs.config.allowUnfree = true;
   nix = {
     package = pkgs.lix;
     gc = {
@@ -211,6 +210,7 @@ in
   };
   environment = {
     systemPackages = with pkgs; [
+      colmena
       npins
       tailscale
       update-systemd-resolved

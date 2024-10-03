@@ -1,6 +1,6 @@
-# All pray the NixOS gods !
+# All pray the NixOS gods
 
-## 🔍 Description:
+## 🔍 Description
 
 <p align=left>
 
@@ -8,13 +8,13 @@ In this project lies the NixOS configuration files leading to our own custom con
 
 It has for objective to be flexible with opt-in/opt-out options while still being able to mutualize some of it.
 
-### Wayland with UEFI BOOT only for now !
+### Wayland with UEFI BOOT only for now
 
 </p>
 
-## 🚀 Main Features:
+## 🚀 Main Features
 
-#### - Reproductibility:
+#### - Reproductibility
 
 <p align=left>
 
@@ -22,7 +22,7 @@ Everything as code and reproductible thanks to Nix.
 
 </p>
 
-#### - Modern Zsh shell:
+#### - Modern Zsh shell
 
 <p align=left>
 
@@ -30,7 +30,7 @@ A bunch of plugins and GNU cli replacers are pre-installed.
 
 </p>
 
-#### - Profiles:
+#### - Profiles
 
 <p align=left>
 
@@ -38,7 +38,7 @@ In this project, it's possible to add Nix code on top the base to customize your
 
 </p>
 
-#### - Easy Install and upgrades:
+#### - Easy Install and upgrades
 
 <p align=left>
 
@@ -49,8 +49,10 @@ Customization is done via the `profiles` directories.
 Install or upgrade with a simple command:
 
 ```bash
-sudo nixos-rebuild switch -I nixos-config=./profiles/<PROFILE_NAME>/configuration.nix
+colmena apply-local --sudo  -v switch
 ```
+
+Profile selected is based on the output of `hostname`.
 
 To upgrade dependencies, run:
 
@@ -60,7 +62,7 @@ npins update
 
 </p>
 
-#### - Screenshot:
+#### - Screenshot
 
 with hyprland v2:
 
