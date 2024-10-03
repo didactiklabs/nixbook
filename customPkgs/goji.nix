@@ -9,7 +9,7 @@ pkgs.buildGoModule rec {
 
   src = gojiSrc;
 
-  vendorHash = "sha256-qgFpC559JN+BneAcgrOE7WSXO2cG32+eu8sjk5P5EFI=";
+  vendorHash = "sha256-nnjMRf7YLwoPbjyZM1HD3iQKe6rqfLvGOJ14eluvLPI=";
 
   subPackages = [ "." ];
 
