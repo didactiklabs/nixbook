@@ -46,7 +46,10 @@ in
   ];
   # Bootloader.
   boot = {
-    kernelModules = [ "uinput" ];
+    kernelModules = [
+      "uinput"
+      "usbhid"
+    ];
     kernel = {
       sysctl = {
         # ANSSI R9
@@ -119,8 +122,12 @@ in
   };
   console.keyMap = "fr";
   services = {
+    pcscd.enable = true; # yubikey smart card mode
     udev = {
-      packages = with pkgs; [ game-devices-udev-rules ];
+      packages = with pkgs; [
+        game-devices-udev-rules
+        yubikey-personalization
+      ];
     };
     xserver = {
       enable = false;
@@ -174,6 +181,11 @@ in
     rtkit.enable = true;
     polkit.enable = true;
     sudo.wheelNeedsPassword = false;
+    pam.services = {
+      # yubikey login
+      login.u2fAuth = true;
+      sudo.u2fAuth = true;
+    };
   };
   nixpkgs.config.allowUnfree = true;
   nix = {
@@ -203,22 +215,29 @@ in
   programs = {
     gnupg.agent = {
       enable = true;
-      enableSSHSupport = false;
+      enableSSHSupport = true; # yubikey ssh
       pinentryPackage = pkgs.pinentry-tty;
     };
-    ssh.startAgent = true;
   };
   environment = {
     systemPackages = with pkgs; [
+      # global
       colmena
       npins
       tailscale
       update-systemd-resolved
       gnupg
       pinentry-tty
+      # usb mount auto
       usbutils
       udiskie
       udisks
+      # yubikey
+      yubico-piv-tool
+      yubico-pam
+      yubioath-flutter
+      yubikey-personalization
+      yubikey-manager-qt
     ];
     variables = {
       NIXOS_OZONE_WL = "1";
