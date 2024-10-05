@@ -93,7 +93,7 @@ in
             fade_on_empty = false;
             font_family = "JetBrains Mono Nerd Font Mono";
             placeholder_text = ''
-              <i><span foreground="##cdd6f4">Input Password...</span></i>
+              <i><span foreground="##cdd6f4">Enter Password or Press Enter (Yubikey)</span></i>
             '';
             hide_input = false;
             position = "0, -120";

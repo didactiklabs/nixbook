@@ -25,18 +25,12 @@ in
       "git.s3ns.internal"
     ];
   };
-  security.pam.yubico = {
-    enable = true;
-    debug = true;
-    mode = "challenge-response";
-    id = [ "29513678" ];
-  };
   services.udev.extraRules = ''
     ACTION=="remove",\
-     ENV{ID_BUS}=="usb",\
-     ENV{ID_MODEL_ID}=="0407",\
-     ENV{ID_VENDOR_ID}=="1050",\
-     ENV{ID_VENDOR}=="Yubico",\
+     ENV{PRODUCT}=="1050/406/571",\
+     RUN+="${pkgs.systemd}/bin/loginctl lock-sessions"
+    ACTION=="remove",\
+     ENV{PRODUCT}=="1050/402/543",\
      RUN+="${pkgs.systemd}/bin/loginctl lock-sessions"
   '';
   customNixOSModules = {

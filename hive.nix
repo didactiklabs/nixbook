@@ -11,7 +11,8 @@ let
     deployment = {
       # Allow local deployment with `colmena apply-local`
       allowLocalDeployment = true;
-
+      targetUser = builtins.getEnv "USER";
+      buildOnTarget = true;
       # Disable SSH deployment.
       targetHost = null;
     };

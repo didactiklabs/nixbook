@@ -186,6 +186,9 @@ in
       login.u2fAuth = true;
       sudo.u2fAuth = true;
     };
+    pam.u2f = {
+      enable = true;
+    };
   };
   nixpkgs.config.allowUnfree = true;
   nix = {

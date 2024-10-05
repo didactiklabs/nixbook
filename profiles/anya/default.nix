@@ -114,6 +114,14 @@ in
     sunshine.enable = true;
     sway.enable = true;
   };
+  nix = {
+    settings = {
+      trusted-users = [
+        "root"
+        "@wheel"
+      ];
+    };
+  };
   imports = [
     (userConfig.mkUser {
       username = "khoa";

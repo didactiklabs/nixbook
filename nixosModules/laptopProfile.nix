@@ -55,6 +55,8 @@ in
       charger = {
         governor = "performance";
         turbo = "auto";
+        # https://github.com/AdnanHodzic/auto-cpufreq/issues/661#issuecomment-2063197922
+        energy_performance_preference = "performance";
       };
     };
     systemd.services.powertune = {
