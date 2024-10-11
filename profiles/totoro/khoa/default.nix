@@ -11,16 +11,16 @@
     mainWallpaper =
       let
         image = pkgs.fetchurl {
-          url = "https://i.imgur.com/FW4X5tf.jpeg";
-          sha256 = "sha256-4zn/NhrX9x83/V0v/r5AHW85QpNdpxXUZ5ky0Vfjtq0=";
+          url = "https://images4.alphacoders.com/120/thumb-1920-120624.jpg";
+          sha256 = "sha256-FfTtWM6+F/eIr2EbpQFO4TR9BctsKI7royWccAGmfEY=";
         };
       in
       "${image}";
     lockWallpaper =
       let
         image = pkgs.fetchurl {
-          url = "https://w.wallhaven.cc/full/z8/wallhaven-z8y7jo.png";
-          sha256 = "sha256-wRtvsEFggeEjJj/mf1TsrDAIXcc0+Ot8DkTcUCGWemY=";
+          url = "https://images6.alphacoders.com/602/thumb-1920-602926.jpg";
+          sha256 = "sha256-7dcqeWJsQV21BuxqNI0ViqqgnTjrvBFE9OBoTmUyc2U=";
         };
       in
       "${image}";
