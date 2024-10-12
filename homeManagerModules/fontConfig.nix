@@ -31,6 +31,7 @@ in
           "JetBrainsMono"
         ];
       })
+      pkgs.inter
       pkgs.font-awesome
     ];
   };

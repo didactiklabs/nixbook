@@ -76,7 +76,7 @@ in
           };
 
           "clock" = {
-            format = " {:L%H:%M}";
+            format = "  {:L%H:%M}";
             tooltip = true;
             tooltip-format = ''
               <big>{:%A, %d.%B %Y }</big>
@@ -91,12 +91,12 @@ in
           };
           "memory" = {
             interval = 5;
-            format = " {}%";
+            format = "  {}%";
             tooltip = true;
           };
           "cpu" = {
             interval = 5;
-            format = " {usage:2}%";
+            format = "  {usage:2}%";
             tooltip = true;
           };
           "disk" = {
@@ -128,11 +128,11 @@ in
             ];
           };
           "pulseaudio" = {
-            format = "{icon} {volume}% {format_source}";
+            format = "{icon}  {volume}% {format_source}";
             format-bluetooth = "{volume}% {icon} {format_source}";
             format-bluetooth-muted = " {icon} {format_source}";
             format-muted = " {format_source}";
-            format-source = " {volume}%";
+            format-source = "  {volume}%";
             format-source-muted = "";
             format-icons = {
               headphone = "";
@@ -180,7 +180,7 @@ in
             '';
             return-type = "json";
             exec-if = "${pkgs.procps}/bin/pgrep spotify";
-            format = "<span> :</span>{icon} {}";
+            format = "<span>  : </span>{icon} {}";
             format-icons = {
               Playing = "";
               Paused = "";
@@ -216,7 +216,7 @@ in
               warning = 30;
               critical = 15;
             };
-            format = "{icon} {capacity}%";
+            format = "{icon}  {capacity}%";
             format-charging = "󰂄 {capacity}%";
             format-plugged = "󱘖 {capacity}%";
             format-icons = [
@@ -238,7 +238,7 @@ in
       style = lib.concatStrings [
         ''
           * {
-            font-family: Hack Nerd Font;
+            font-family: Inter Display Black;
             font-size: 8px;
             font-weight: bold;
             border-radius: 0px;
