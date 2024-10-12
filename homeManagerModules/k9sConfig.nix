@@ -3,6 +3,7 @@ let
   cfg = config.customHomeManagerModules;
   configYaml = ''
     k9s:
+      cluster: kubernetes
       liveViewAutoRefresh: false
       refreshRate: 2
       maxConnRetry: 5
@@ -97,7 +98,7 @@ let
       debug:
         shortCut: Shift-D
         description: Add debug container
-        dangerous: true
+        dangerous: false
         scopes:
           - containers
         command: bash
@@ -119,6 +120,21 @@ let
           - --source
           - podman
   '';
+  didactiklabsConfYaml = ''
+    k9s:
+      cluster: kubernetes
+      readOnly: true
+      namespace:
+        active: all
+        lockFavorites: false
+        favorites:
+        - all
+        - kube-system
+        - default
+      view:
+        active: pods
+      portForwardAddress: localhost
+  '';
 in
 {
   # https://github.com/adi1090x/rofi
@@ -126,6 +142,9 @@ in
     home.file = {
       ".config/k9s/skins/transparent.yaml" = {
         text = transparentYaml;
+      };
+      ".local/share/k9s/clusters/kubernetes/kubernetes-admin@didactik.labs/config.yaml" = {
+        text = didactiklabsConfYaml;
       };
       ".config/k9s/config.yaml" = {
         text = configYaml;

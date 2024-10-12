@@ -6,7 +6,6 @@
       pkgs.btop # top replacer
       pkgs.duf # df replacer
       pkgs.sd # sed alternative
-      pkgs.ffmpegthumbnailer
     ];
     programs = {
       atuin = {
