@@ -76,7 +76,7 @@ in
           };
 
           "clock" = {
-            format = "  {:L%H:%M}";
+            format = "         {:L%H:%M}";
             tooltip = true;
             tooltip-format = ''
               <big>{:%A, %d.%B %Y }</big>
@@ -91,16 +91,16 @@ in
           };
           "memory" = {
             interval = 5;
-            format = "  {}%";
+            format = "       {}%";
             tooltip = true;
           };
           "cpu" = {
             interval = 5;
-            format = "  {usage:2}%";
+            format = "          {usage:2}%";
             tooltip = true;
           };
           "disk" = {
-            format = " {free}";
+            format = "          {free}";
             tooltip = true;
           };
           "network" = {
@@ -111,9 +111,9 @@ in
               "󰤥"
               "󰤨"
             ];
-            format-ethernet = " {bandwidthDownOctets}";
-            format-wifi = "{icon} {signalStrength}%";
-            format-disconnected = "󰤮";
+            format-ethernet = "         {bandwidthDownOctets}";
+            format-wifi = "{icon}        {signalStrength}%";
+            format-disconnected = "󰤮 ";
             tooltip = false;
           };
           "tray" = {
@@ -121,30 +121,30 @@ in
           };
           "backlight" = {
             "device" = "intel_backlight";
-            "format" = "{percent}% {icon}";
+            "format" = "{percent}%   {icon}";
             "format-icons" = [
               ""
               ""
             ];
           };
           "pulseaudio" = {
-            format = "{icon}  {volume}% {format_source}";
-            format-bluetooth = "{volume}% {icon} {format_source}";
-            format-bluetooth-muted = " {icon} {format_source}";
-            format-muted = " {format_source}";
-            format-source = "  {volume}%";
-            format-source-muted = "";
+            format = "{icon}       {volume}% {format_source}";
+            format-bluetooth = "{volume}%      {icon}  {format_source}";
+            format-bluetooth-muted = "{icon}      {format_source}";
+            format-muted = "     {format_source}";
+            format-source = "      {volume}%";
+            format-source-muted = "  ";
             format-icons = {
-              headphone = "";
-              hands-free = "";
-              headset = "";
-              phone = "";
-              portable = "";
-              car = "";
+              headphone = " ";
+              hands-free = " ";
+              headset = " ";
+              phone = " ";
+              portable = " ";
+              car = " ";
               default = [
-                ""
-                ""
-                ""
+                " "
+                " "
+                " "
               ];
             };
             on-click = "sleep 0.1 && ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_SINK@ toggle";
@@ -152,25 +152,25 @@ in
           };
           "custom/exit" = {
             tooltip = false;
-            format = "";
+            format = " ";
             on-click = lib.mkIf cfg.rofiConfig.enable "sleep 0.1 && $HOME/.config/rofiScripts/rofiLockScript.sh ${rofiPowermenuStyle}";
           };
           "custom/startmenu" = {
             tooltip = false;
-            format = "";
+            format = " ";
             # exec = "rofi -show drun";
             on-click = lib.mkIf cfg.rofiConfig.enable "sleep 0.1 && ${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/${rofiLauncherType}/${rofiLauncherStyle}.rasi";
           };
           "custom/hyprbindings" = {
             tooltip = false;
-            format = "󱕴";
+            format = "󱕴 ";
             on-click = "sleep 0.1 && list-hypr-bindings";
           };
           "idle_inhibitor" = {
-            format = "{icon}";
+            format = "{icon} ";
             format-icons = {
-              activated = "";
-              deactivated = "";
+              activated = " ";
+              deactivated = " ";
             };
             tooltip = "true";
           };
@@ -194,7 +194,7 @@ in
           };
           "custom/notification" = {
             tooltip = false;
-            format = "{icon} {}";
+            format = "{icon}  {}";
             format-icons = {
               notification = "<span foreground='red'><sup></sup></span>";
               none = "";
@@ -238,7 +238,7 @@ in
       style = lib.concatStrings [
         ''
           * {
-            font-family: Inter Display Black;
+            font-family: Inter Display;
             font-size: 8px;
             font-weight: bold;
             border-radius: 0px;
