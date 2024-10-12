@@ -1,8 +1,4 @@
 { pkgs, ... }:
-let
-  goread = import ../customPkgs/goread.nix { inherit pkgs; };
-  todoCli = import ../customPkgs/todocli.nix { inherit pkgs; };
-in
 {
   config = {
     home.packages = [
@@ -10,6 +6,7 @@ in
       pkgs.btop # top replacer
       pkgs.duf # df replacer
       pkgs.sd # sed alternative
+      pkgs.ffmpegthumbnailer
     ];
     programs = {
       atuin = {
@@ -17,8 +14,9 @@ in
         enableZshIntegration = true;
         flags = [ "--disable-up-arrow" ];
       };
-      ranger = {
+      yazi = {
         enable = true;
+        enableZshIntegration = true;
       };
       zoxide = {
         enable = true;
@@ -117,12 +115,12 @@ in
         ];
         enable = true;
         shellAliases = {
+          y = "yazi";
           top = "btop";
           df = "duf";
           cd = "z";
           neofetch = "fastfetch";
           grep = "rg";
-          feed = "goread --urls_readonly";
         };
         initExtra = ''
           any-nix-shell zsh --info-right | source /dev/stdin

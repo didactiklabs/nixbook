@@ -57,7 +57,6 @@ in
             helm-ls.enable = true;
             html.enable = true;
             htmx.enable = true;
-            jsonls.enable = true;
             nginx-language-server.enable = true;
             sqls.enable = true;
             terraformls.enable = true;

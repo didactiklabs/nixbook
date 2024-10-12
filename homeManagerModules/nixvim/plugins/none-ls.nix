@@ -23,7 +23,6 @@ in
             statix.enable = true;
             pylint.enable = true;
             ansiblelint.enable = true;
-            # markdownlint.enable = true;
             staticcheck.enable = true;
             stylelint.enable = true;
             hadolint.enable = true;

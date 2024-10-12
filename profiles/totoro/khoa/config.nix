@@ -7,6 +7,21 @@ in
     systemd = {
       user = {
         services = {
+          nextcloud-client = {
+            Unit = {
+              Description = "Nextcloud";
+            };
+            Install = {
+              WantedBy = [ "graphical-session.target" ];
+            };
+            Unit = {
+              After = [ "graphical-session.target" ];
+            };
+            Service = {
+              ExecStart = "${pkgs.nextcloud-client}/bin/nextcloud";
+              Restart = "always";
+            };
+          };
           bealvVpn = {
             Unit = {
               Description = "Bealv VPN";

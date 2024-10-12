@@ -32,5 +32,11 @@ in
         '';
       };
     };
+    security = {
+      pam.services = {
+        # yubikey login
+        greetd.u2fAuth = true;
+      };
+    };
   };
 }
