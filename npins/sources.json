@@ -36,28 +36,6 @@
       "url": "https://github.com/nix-community/home-manager/archive/2f23fa308a7c067e52dfcc30a0758f47043ec176.tar.gz",
       "hash": "00wp0s9b5nm5rsbwpc1wzfrkyxxmqjwsc1kcibjdbfkh69arcpsn"
     },
-    "lix": {
-      "type": "Git",
-      "repository": {
-        "type": "Git",
-        "url": "https://git.lix.systems/lix-project/lix.git"
-      },
-      "branch": "main",
-      "revision": "775292766025380d04004e42fefbdb8ca40b3fa3",
-      "url": null,
-      "hash": "1ak1cayghrrl296v8mr2ykhhnach558p16d666j0hbjnksiq7f3w"
-    },
-    "lix-module": {
-      "type": "Git",
-      "repository": {
-        "type": "Git",
-        "url": "https://git.lix.systems/lix-project/nixos-module.git"
-      },
-      "branch": "main",
-      "revision": "fd186f535a4ac7ae35d98c1dd5d79f0a81b7976d",
-      "url": null,
-      "hash": "0jxpqaz12lqibg03iv36sa0shfvamn2yhg937llv3kl4csijd34f"
-    },
     "nixpkgs": {
       "type": "Channel",
       "name": "nixos-24.05",
