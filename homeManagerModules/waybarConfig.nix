@@ -212,6 +212,7 @@ in
             escape = true;
           };
           "battery" = {
+            interval = 5;
             states = {
               warning = 30;
               critical = 15;
@@ -318,6 +319,9 @@ in
             transition: ${betterTransition};
             opacity: 0.8;
           }
+          #idle_inhibitor.activated {
+            background-color: #1DB954;
+          }
           #custom-spotify.Paused {
             background: #FF6961;
             color: #FFFFFF;
@@ -339,6 +343,39 @@ in
             margin-right: 7px;
             border-radius: 10px 24px 10px 24px;
             padding: 0px 18px;
+          }
+          #battery.charging {
+            background-color: #1DB954;
+          }
+          #battery.plugged {
+            background-color: #1DB954;
+          }
+          #battery.warning:not(.charging) {
+            background-color: #e0ad75;
+            animation-name: blink;
+            animation-duration: 1.5s;
+            animation-timing-function: linear;
+            animation-iteration-count: infinite;
+            animation-direction: alternate;
+          }
+          #battery.critical:not(.charging) {
+            background-color: #e06c75;
+            animation-name: blink;
+            animation-duration: 0.5s;
+            animation-timing-function: linear;
+            animation-iteration-count: infinite;
+            animation-direction: alternate;
+          }
+          @keyframes blink {
+            0% {
+              opacity: 1;
+            }
+            50% {
+              opacity: 0.5;
+            }
+            100% {
+              opacity: 1;
+            }
           }
           #clock {
             font-weight: bold;

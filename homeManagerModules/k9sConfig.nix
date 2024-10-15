@@ -123,7 +123,7 @@ let
   didactiklabsConfYaml = ''
     k9s:
       cluster: kubernetes
-      readOnly: true
+      readOnly: false
       namespace:
         active: all
         lockFavorites: false
