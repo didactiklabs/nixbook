@@ -65,6 +65,12 @@ let
         backupFileExtension = "rebuild";
         users.${username} = {
           config = {
+            xdg.mimeApps = {
+              enable = true;
+              defaultApplications = {
+                "application/pdf" = "zathura.desktop"; # Set zathura as default for PDF
+              };
+            };
             services = {
               udiskie.enable = true;
               gnome-keyring.enable = true;
