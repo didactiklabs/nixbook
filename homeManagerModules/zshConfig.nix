@@ -6,6 +6,7 @@
       pkgs.btop # top replacer
       pkgs.duf # df replacer
       pkgs.sd # sed alternative
+      pkgs.viddy # watch alternative
     ];
     programs = {
       atuin = {
@@ -114,6 +115,7 @@
         ];
         enable = true;
         shellAliases = {
+          watch = "viddy";
           y = "yazi";
           top = "btop";
           df = "duf";
