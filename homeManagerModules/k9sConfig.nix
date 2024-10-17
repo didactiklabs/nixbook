@@ -3,7 +3,6 @@ let
   cfg = config.customHomeManagerModules;
   configYaml = ''
     k9s:
-      cluster: kubernetes
       liveViewAutoRefresh: false
       refreshRate: 2
       maxConnRetry: 5
@@ -93,8 +92,18 @@ let
   '';
   pluginsYaml = ''
     plugins:
-      #--- Create debug container for selected pod in current namespace
-      # See https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/#ephemeral-container
+      debug-node:
+        shortCut: Shift-D
+        description: Add debug container for nodes
+        dangerous: false
+        scopes:
+          - nodes
+        command: bash
+        background: false
+        confirm: true
+        args:
+          - -c
+          - "kubectl debug node/$COL-NAME -it --image=busybox --profile=sysadmin"
       debug:
         shortCut: Shift-D
         description: Add debug container
@@ -103,7 +112,7 @@ let
           - containers
         command: bash
         background: false
-        confirm: true
+        confirm: false
         args:
           - -c
           - "kubectl debug -it --context $CONTEXT -n=$NAMESPACE $POD --target=$NAME --image=nicolaka/netshoot:v0.12 --share-processes -- bash"
@@ -113,12 +122,33 @@ let
         description: "Dive image"
         scopes:
           - containers
-        command: dive
+        command: bash
         background: false
         args:
-          - $COL-IMAGE
-          - --source
-          - podman
+          - -c
+          - "docker pull $COL-IMAGE && dive $COL-IMAGE --source=podman"
+      kustomizationsuspend:
+        shortCut: s
+        confirm: true
+        description: "Fluxcd kustomization suspend"
+        scopes:
+          - kustomizations
+        command: bash
+        background: false
+        args:
+          - -c
+          - "flux suspend kustomization -n $NAMESPACE $COL-NAME"
+      kustomizationresume:
+        shortCut: r
+        confirm: true
+        description: "Fluxcd kustomization resume"
+        scopes:
+          - kustomizations
+        command: bash
+        background: false
+        args:
+          - -c
+          - "flux resume kustomization -n $NAMESPACE $COL-NAME"
   '';
   didactiklabsConfYaml = ''
     k9s:
