@@ -12,6 +12,12 @@ in
           action = ":Neotree action=focus reveal<CR>";
           options.silent = true;
         }
+        {
+          mode = "n";
+          key = "<leader>c";
+          action = ":Neotree toggle<CR>";
+          options.silent = true;
+        }
       ];
 
       plugins.neo-tree = {
