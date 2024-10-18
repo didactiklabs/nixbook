@@ -216,6 +216,7 @@ in
     };
   };
   programs = {
+    yubikey-touch-detector.enable = true;
     gnupg.agent = {
       enable = true;
       enableSSHSupport = true; # yubikey ssh
