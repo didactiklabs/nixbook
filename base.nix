@@ -85,6 +85,7 @@ in
         "fs.protected_regular" = 2;
       };
     };
+    tmp.cleanOnBoot = true;
     kernelParams = [
       "intel_iommu=on"
       "iommu=pt"
