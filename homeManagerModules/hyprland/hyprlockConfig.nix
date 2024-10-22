@@ -115,7 +115,7 @@ in
             valign = "top";
           }
           {
-            text = "Hi there, $USER";
+            text = "Logged in as $USER";
             # color = "$foreground";
             #color = rgba(255, 255, 255, 0.6)
             font_size = 25;

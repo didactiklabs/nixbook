@@ -187,7 +187,7 @@ in
 
             "$mod, RETURN, exec, ${terminal}"
             "$mod, A, killactive"
-            ", PRINT, exec, ${grimshot} --notify copy area"
+            ", PRINT, exec, ${grimshot} --notify savecopy area"
             "$mod, N, exec, ${pkgs.swaynotificationcenter}/bin/swaync-client -t"
 
             ",XF86MonBrightnessDown, exec, ${brightnessctl} set 10%-"

@@ -20,9 +20,9 @@
         "repo": "goji"
       },
       "branch": "main",
-      "revision": "944fcb9ef725ee0e4c4004393e4c5e00501252dd",
-      "url": "https://github.com/muandane/goji/archive/944fcb9ef725ee0e4c4004393e4c5e00501252dd.tar.gz",
-      "hash": "1nxj7v1hc6r2n3bqm7xm79y7lckhzb5vnag82kan2gvi6nqdgmyv"
+      "revision": "e10f3381fc81c28ca3c8d99dcb7ff4b366a39ca1",
+      "url": "https://github.com/muandane/goji/archive/e10f3381fc81c28ca3c8d99dcb7ff4b366a39ca1.tar.gz",
+      "hash": "1jlg1476njzgqyscqn2z7mq42cj1d11xrxmcvb0hwb2nn508jhba"
     },
     "home-manager": {
       "type": "Git",
@@ -39,14 +39,14 @@
     "nixpkgs": {
       "type": "Channel",
       "name": "nixos-24.05",
-      "url": "https://releases.nixos.org/nixos/24.05/nixos-24.05.5744.dc2e0028d274/nixexprs.tar.xz",
-      "hash": "1b76461vyd5cx3zrfl7sbvcvy3a1xgp0fnvrf18wx3as4q44dp10"
+      "url": "https://releases.nixos.org/nixos/24.05/nixos-24.05.5860.89172919243d/nixexprs.tar.xz",
+      "hash": "1qp432qas7wkkr2bdvi33bcsabp3ivpgl39kkchmbdrj8am52hbk"
     },
     "nixpkgs-unstable": {
       "type": "Channel",
       "name": "nixos-unstable",
-      "url": "https://releases.nixos.org/nixos/unstable/nixos-24.11pre692963.a3c0b3b21515/nixexprs.tar.xz",
-      "hash": "0qxfp0vn0fklmp5h4x86gdjnc8bz1c7dcv3f5pl39f04158ksmdr"
+      "url": "https://releases.nixos.org/nixos/unstable/nixos-24.11pre695081.1997e4aa5143/nixexprs.tar.xz",
+      "hash": "0i9d7bzl4iwg1raxkk2y67x1qxb82smlyq5fd7kwf5wbl0p8slca"
     },
     "nixvim": {
       "type": "Git",
@@ -80,9 +80,9 @@
         "repo": "spicetify-nix"
       },
       "branch": "master",
-      "revision": "f5bb3bd8cb92ee6a37510be477cbfb2fd6a682c1",
-      "url": "https://github.com/Gerg-L/spicetify-nix/archive/f5bb3bd8cb92ee6a37510be477cbfb2fd6a682c1.tar.gz",
-      "hash": "061ig42sdv6923j6mm8kc0i40p7mwpdkzb587qr7gd95rmmbr0ii"
+      "revision": "96cf0aad6fe67a31567a51e54dc6b9fcbe90626a",
+      "url": "https://github.com/Gerg-L/spicetify-nix/archive/96cf0aad6fe67a31567a51e54dc6b9fcbe90626a.tar.gz",
+      "hash": "09cnvisqnx09mb4gq1x8924n43xqj1d1553li8w32rkgqn2gb641"
     },
     "stylix": {
       "type": "Git",
@@ -104,9 +104,9 @@
         "repo": "ytui"
       },
       "branch": "main",
-      "revision": "87df5d69323bbabd02e591f947adf345e9c3567e",
-      "url": "https://github.com/banh-canh/ytui/archive/87df5d69323bbabd02e591f947adf345e9c3567e.tar.gz",
-      "hash": "1k6llx4gqkm80j7abw0jq78ygpqjvcsbhyyl5sirm86zvfmcjqja"
+      "revision": "791587417abf4d4989af6bde58218a2ba556356f",
+      "url": "https://github.com/banh-canh/ytui/archive/791587417abf4d4989af6bde58218a2ba556356f.tar.gz",
+      "hash": "0w1mh5cl0l3sx5cid7fqx8c20qjmlmh3m8kndyvag27prxy5sw1k"
     }
   },
   "version": 3

@@ -11,16 +11,16 @@
     mainWallpaper =
       let
         image = pkgs.fetchurl {
-          url = "https://images4.alphacoders.com/120/thumb-1920-120624.jpg";
-          sha256 = "sha256-FfTtWM6+F/eIr2EbpQFO4TR9BctsKI7royWccAGmfEY=";
+          url = "https://images8.alphacoders.com/738/thumb-1920-738090.png";
+          sha256 = "sha256-DGffuB2MCSkpVfgzeUEreRCTMN3oyf92nam1AAa3kJM=";
         };
       in
       "${image}";
     lockWallpaper =
       let
         image = pkgs.fetchurl {
-          url = "https://images6.alphacoders.com/602/thumb-1920-602926.jpg";
-          sha256 = "sha256-7dcqeWJsQV21BuxqNI0ViqqgnTjrvBFE9OBoTmUyc2U=";
+          url = "https://4kwallpapers.com/images/wallpapers/shoyo-hinata-3840x2160-14065.png";
+          sha256 = "sha256-gwCrD4ABHfIyFhRMqbz7tHQ+KKJ8qFcJO3kYLIrShdc=";
         };
       in
       "${image}";
