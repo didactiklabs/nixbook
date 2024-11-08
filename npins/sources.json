@@ -39,8 +39,8 @@
     "nixpkgs": {
       "type": "Channel",
       "name": "nixos-24.05",
-      "url": "https://releases.nixos.org/nixos/24.05/nixos-24.05.6206.d063c1dd113c/nixexprs.tar.xz",
-      "hash": "0x24mqf6vgzxb5mjfcgi7ha6k129hmxz2kvfdhdg4qj6zc5lyqs3"
+      "url": "https://releases.nixos.org/nixos/24.05/nixos-24.05.6258.dba414932936/nixexprs.tar.xz",
+      "hash": "09l11pcp7wm6wi2hr68vgi3wqd95xwg92kl97h4cm7033vbh9mw4"
     },
     "nixpkgs-unstable": {
       "type": "Channel",
@@ -80,9 +80,9 @@
         "repo": "spicetify-nix"
       },
       "branch": "master",
-      "revision": "396cf13f9310aa82c1a5da24a5213e7170d40642",
-      "url": "https://github.com/Gerg-L/spicetify-nix/archive/396cf13f9310aa82c1a5da24a5213e7170d40642.tar.gz",
-      "hash": "0a90dmj2n82cf1cqb6qdf0fladn5vqfy44bq2lqk2wabjzwczz6h"
+      "revision": "26b8b1dbcd22c452c1b52828eb0e283b37da2974",
+      "url": "https://github.com/Gerg-L/spicetify-nix/archive/26b8b1dbcd22c452c1b52828eb0e283b37da2974.tar.gz",
+      "hash": "18vi1grihz4gnrs9m54mh7jp0bhv1b25nvr1ifdqhqkzm40wkrvl"
     },
     "stylix": {
       "type": "Git",
@@ -104,9 +104,9 @@
         "repo": "ytui"
       },
       "branch": "main",
-      "revision": "791587417abf4d4989af6bde58218a2ba556356f",
-      "url": "https://github.com/banh-canh/ytui/archive/791587417abf4d4989af6bde58218a2ba556356f.tar.gz",
-      "hash": "0w1mh5cl0l3sx5cid7fqx8c20qjmlmh3m8kndyvag27prxy5sw1k"
+      "revision": "0668d273b66cd6f125b0c53ff8c92a7eccf9c9f8",
+      "url": "https://github.com/banh-canh/ytui/archive/0668d273b66cd6f125b0c53ff8c92a7eccf9c9f8.tar.gz",
+      "hash": "1prki5gyfrkadd4p9031ly627d4jpvsqliyvakk694056g8mpraq"
     }
   },
   "version": 3

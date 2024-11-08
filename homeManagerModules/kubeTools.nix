@@ -76,6 +76,7 @@ in
         kustomize
         kubectl-view-secret
         kubectl-explore
+        paralus-cli
       ];
     };
     programs.zsh = {
@@ -84,6 +85,7 @@ in
       '';
       shellAliases = {
         k = "kubectl";
+        pctl = "cli";
       };
     };
   };
