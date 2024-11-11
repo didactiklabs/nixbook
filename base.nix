@@ -227,6 +227,7 @@ in
   environment = {
     systemPackages = with pkgs; [
       # global
+      efibootmgr
       colmena
       npins
       tailscale
