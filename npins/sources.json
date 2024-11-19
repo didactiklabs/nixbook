@@ -20,9 +20,9 @@
         "repo": "goji"
       },
       "branch": "main",
-      "revision": "e10f3381fc81c28ca3c8d99dcb7ff4b366a39ca1",
-      "url": "https://github.com/muandane/goji/archive/e10f3381fc81c28ca3c8d99dcb7ff4b366a39ca1.tar.gz",
-      "hash": "1jlg1476njzgqyscqn2z7mq42cj1d11xrxmcvb0hwb2nn508jhba"
+      "revision": "54aa2102e09be8386c7cace01a1f16a09dadd02c",
+      "url": "https://github.com/muandane/goji/archive/54aa2102e09be8386c7cace01a1f16a09dadd02c.tar.gz",
+      "hash": "1b426idjz0lgw6nkz3c0g3hqsj4m7jfxs55j32b88jpi7vrja44z"
     },
     "home-manager": {
       "type": "Git",
@@ -39,14 +39,14 @@
     "nixpkgs": {
       "type": "Channel",
       "name": "nixos-24.05",
-      "url": "https://releases.nixos.org/nixos/24.05/nixos-24.05.6258.dba414932936/nixexprs.tar.xz",
-      "hash": "09l11pcp7wm6wi2hr68vgi3wqd95xwg92kl97h4cm7033vbh9mw4"
+      "url": "https://releases.nixos.org/nixos/24.05/nixos-24.05.6668.e8c38b73aeb2/nixexprs.tar.xz",
+      "hash": "0lhh36z3fvd3b64dz7an08y3c3shb67aj17ny9z28bs21i3dc5yh"
     },
     "nixpkgs-unstable": {
       "type": "Channel",
       "name": "nixos-unstable",
-      "url": "https://releases.nixos.org/nixos/unstable/nixos-24.11pre703931.4aa36568d413/nixexprs.tar.xz",
-      "hash": "1z0ljvlgqcrrm62wzp44lr0qlxy43xxn6q0wf7pb3hzxx5546bb3"
+      "url": "https://releases.nixos.org/nixos/unstable/nixos-25.05beta708622.5e4fbfb6b3de/nixexprs.tar.xz",
+      "hash": "18zd6qnn1zmz3pgq2q484lmdk486ncxyp8r5g9c71r9dc8jr5dnc"
     },
     "nixvim": {
       "type": "Git",
@@ -56,9 +56,9 @@
         "repo": "nixvim"
       },
       "branch": "nixos-24.05",
-      "revision": "91c06026075f08a3c865fdc46cc6db8e2af35a1e",
-      "url": "https://github.com/nix-community/nixvim/archive/91c06026075f08a3c865fdc46cc6db8e2af35a1e.tar.gz",
-      "hash": "0y7slabjc709ydkzc1cjjy76axic0a55f3saai761z5hdav6gjys"
+      "revision": "8d29728abfcc2e4207afb3fd8606feff17c15cec",
+      "url": "https://github.com/nix-community/nixvim/archive/8d29728abfcc2e4207afb3fd8606feff17c15cec.tar.gz",
+      "hash": "00p3id0bclajmc6lg1003c1invq0wdpn49axhvrnbgl26qqspg26"
     },
     "rofi": {
       "type": "Git",
@@ -80,9 +80,9 @@
         "repo": "spicetify-nix"
       },
       "branch": "master",
-      "revision": "26b8b1dbcd22c452c1b52828eb0e283b37da2974",
-      "url": "https://github.com/Gerg-L/spicetify-nix/archive/26b8b1dbcd22c452c1b52828eb0e283b37da2974.tar.gz",
-      "hash": "18vi1grihz4gnrs9m54mh7jp0bhv1b25nvr1ifdqhqkzm40wkrvl"
+      "revision": "3dc8f170802b3e4a33bcdf581fb8540dc53df1c2",
+      "url": "https://github.com/Gerg-L/spicetify-nix/archive/3dc8f170802b3e4a33bcdf581fb8540dc53df1c2.tar.gz",
+      "hash": "1a194sg8smdd1cppwbib13r2r731dvjpr2zv47629rkzl753ymhh"
     },
     "stylix": {
       "type": "Git",

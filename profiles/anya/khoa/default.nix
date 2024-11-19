@@ -8,6 +8,7 @@ in
     ./gitConfig.nix
     ./swayConfig.nix
     ./sunshine.nix
+    ./zshConfig.nix
   ];
   profileCustomization = {
     mainWallpaper =
