@@ -9,7 +9,7 @@ pkgs.buildGoModule rec {
 
   src = ytuiSrc;
 
-  vendorHash = "sha256-cjw31yOHZ8y//iCd3acr4VHW0H9rdbO8UgHVZQYd/Hk=";
+  vendorHash = "sha256-+465QAOEZD5TiC/f73lYU83hgZnSZlh+QiR27VHKZ+0=";
 
   subPackages = [ "." ];
 

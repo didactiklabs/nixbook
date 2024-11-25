@@ -31,6 +31,7 @@ in
       vesktop # discord
       firefox
       thunderbird
+      spotify
     ];
   };
 }

@@ -45,8 +45,8 @@
     "nixpkgs-unstable": {
       "type": "Channel",
       "name": "nixos-unstable",
-      "url": "https://releases.nixos.org/nixos/unstable/nixos-25.05beta708622.5e4fbfb6b3de/nixexprs.tar.xz",
-      "hash": "18zd6qnn1zmz3pgq2q484lmdk486ncxyp8r5g9c71r9dc8jr5dnc"
+      "url": "https://releases.nixos.org/nixos/unstable/nixos-25.05beta710087.23e89b7da85c/nixexprs.tar.xz",
+      "hash": "0b695yx17sarr7d3ypb9z6njd0qhiga1682wjxidl053lvx6g33b"
     },
     "nixvim": {
       "type": "Git",
@@ -56,9 +56,9 @@
         "repo": "nixvim"
       },
       "branch": "nixos-24.05",
-      "revision": "8d29728abfcc2e4207afb3fd8606feff17c15cec",
-      "url": "https://github.com/nix-community/nixvim/archive/8d29728abfcc2e4207afb3fd8606feff17c15cec.tar.gz",
-      "hash": "00p3id0bclajmc6lg1003c1invq0wdpn49axhvrnbgl26qqspg26"
+      "revision": "07f23a60fdd0ea402bb0d0b6c4c9df89fa638c81",
+      "url": "https://github.com/nix-community/nixvim/archive/07f23a60fdd0ea402bb0d0b6c4c9df89fa638c81.tar.gz",
+      "hash": "1x1pfxa22qbza315523d3i8f3hxqazkljjgkymzcy9qdd3gzjzch"
     },
     "rofi": {
       "type": "Git",
@@ -80,9 +80,9 @@
         "repo": "spicetify-nix"
       },
       "branch": "master",
-      "revision": "3dc8f170802b3e4a33bcdf581fb8540dc53df1c2",
-      "url": "https://github.com/Gerg-L/spicetify-nix/archive/3dc8f170802b3e4a33bcdf581fb8540dc53df1c2.tar.gz",
-      "hash": "1a194sg8smdd1cppwbib13r2r731dvjpr2zv47629rkzl753ymhh"
+      "revision": "4841814c6e22958aff9dd8c68fd2153237fbf15e",
+      "url": "https://github.com/Gerg-L/spicetify-nix/archive/4841814c6e22958aff9dd8c68fd2153237fbf15e.tar.gz",
+      "hash": "1zfbq9wkfv5zpci2q7p70lyyqrqyh34vzis53yn7famm2fjxvdyj"
     },
     "stylix": {
       "type": "Git",
@@ -104,9 +104,9 @@
         "repo": "ytui"
       },
       "branch": "main",
-      "revision": "0668d273b66cd6f125b0c53ff8c92a7eccf9c9f8",
-      "url": "https://github.com/banh-canh/ytui/archive/0668d273b66cd6f125b0c53ff8c92a7eccf9c9f8.tar.gz",
-      "hash": "1prki5gyfrkadd4p9031ly627d4jpvsqliyvakk694056g8mpraq"
+      "revision": "8bd9e51f53db9397edce433c7b96827dc728534b",
+      "url": "https://github.com/banh-canh/ytui/archive/8bd9e51f53db9397edce433c7b96827dc728534b.tar.gz",
+      "hash": "0d0f5wwxv19fwzjdd34y3qj8hvd3r8381cg0wv94gla5a04m0xly"
     }
   },
   "version": 3
