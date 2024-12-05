@@ -182,13 +182,15 @@ in
     rtkit.enable = true;
     polkit.enable = true;
     sudo.wheelNeedsPassword = false;
-    pam.services = {
-      # yubikey login
-      login.u2fAuth = true;
-      sudo.u2fAuth = true;
-    };
-    pam.u2f = {
-      enable = true;
+    pam = {
+      services = {
+        # yubikey login
+        login.u2fAuth = true;
+        sudo.u2fAuth = true;
+      };
+      u2f = {
+        enable = true;
+      };
     };
   };
   nixpkgs.config.allowUnfree = true;

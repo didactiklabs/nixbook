@@ -13,7 +13,9 @@ in
       none-ls = {
         enable = true;
         enableLspFormat = true;
-        updateInInsert = false;
+        settings = {
+          update_in_insert = false;
+        };
         sources = {
           code_actions = {
             gitsigns.enable = true;
@@ -33,7 +35,7 @@ in
             gofumpt.enable = true;
             golines = {
               enable = true;
-              withArgs = ''
+              settings = ''
                 {
                   extra_args = { "--max-len=140" },
                 }
@@ -45,7 +47,7 @@ in
             black = {
               # python
               enable = true;
-              withArgs = ''
+              settings = ''
                 {
                   extra_args = { "--fast" },
                 }
@@ -54,7 +56,7 @@ in
             prettier = {
               enable = true;
               disableTsServerFormatter = true;
-              withArgs = ''
+              settings = ''
                 {
                   extra_args = { "--no-semi", "--single-quote" },
                 }

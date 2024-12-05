@@ -16,7 +16,9 @@ in
         nixvimInjections = true;
         nixGrammars = true;
         folding = true;
-        indent = true;
+        settings = {
+          indent.enable = false;
+        };
         grammarPackages = with pkgs.vimPlugins.nvim-treesitter.builtGrammars; [
           regex
           c
