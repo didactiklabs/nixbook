@@ -1,4 +1,13 @@
 { pkgs, ... }:
+let
+  sources = import ../../../npins;
+  pkgs-master = import sources.nixpkgs-master {
+    config = {
+      allowUnfree = true;
+      allowUnfreePredicate = true;
+    };
+  };
+in
 {
   imports = [
     ./gitConfig.nix
@@ -6,21 +15,24 @@
     ./config.nix
     ./hyprlandConfig.nix
   ];
-  home.packages = [ pkgs.moonlight-qt ];
+  home.packages = [
+    pkgs.moonlight-qt
+    pkgs-master.ankama-launcher
+  ];
   profileCustomization = {
     mainWallpaper =
       let
         image = pkgs.fetchurl {
-          url = "https://images8.alphacoders.com/738/thumb-1920-738090.png";
-          sha256 = "sha256-DGffuB2MCSkpVfgzeUEreRCTMN3oyf92nam1AAa3kJM=";
+          url = "https://i.imgur.com/RnshrNY.jpeg";
+          sha256 = "sha256-ExW9AS3LrsxzqdRzME5a5Nqa3qKmNtUsKayYxj+8+1g=";
         };
       in
       "${image}";
     lockWallpaper =
       let
         image = pkgs.fetchurl {
-          url = "https://4kwallpapers.com/images/wallpapers/shoyo-hinata-3840x2160-14065.png";
-          sha256 = "sha256-gwCrD4ABHfIyFhRMqbz7tHQ+KKJ8qFcJO3kYLIrShdc=";
+          url = "https://w.wallhaven.cc/full/g7/wallhaven-g71w1e.jpg";
+          sha256 = "sha256-L2MWwr70Zcz9+M1XpRhWMxhhNF0iscghOrh3yiK67Fo=";
         };
       in
       "${image}";

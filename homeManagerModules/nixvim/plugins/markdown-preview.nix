@@ -1,4 +1,8 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  ...
+}:
 let
   cfg = config.customHomeManagerModules;
 in
@@ -9,7 +13,7 @@ in
         enable = true;
 
         settings = {
-          auto_close = false;
+          auto_close = 0;
           theme = "dark";
         };
       };

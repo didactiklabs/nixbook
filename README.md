@@ -75,3 +75,7 @@ with sway v1:
 with headless sunshine/moonlight configuration (remote desktop) v1:
 
 <img src="./assets/images/screenshot-demo-sunshine.png" alt="alt text" width="500">
+
+with headless sunshine/moonlight configuration (remote desktop) v2, running windows:
+
+<img src="./assets/images/screenshot-demo-sunshine-windows.png" alt="alt text" width="500">

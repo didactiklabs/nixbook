@@ -15,7 +15,7 @@ in
       plugins = {
         lsp-format = {
           enable = true;
-          setup = {
+          settings = {
             type = {
               sync = true;
             };
@@ -46,18 +46,18 @@ in
             };
             bashls.enable = true;
             cmake.enable = true;
-            csharp-ls.enable = true;
+            csharp_ls.enable = true;
             cssls.enable = true;
             dagger.enable = true;
             nixd.enable = true;
-            nil-ls.enable = true;
+            nil_ls.enable = true;
             yamlls.enable = true;
             gopls.enable = true;
-            golangci-lint-ls.enable = true;
-            helm-ls.enable = true;
+            golangci_lint_ls.enable = true;
+            helm_ls.enable = true;
             html.enable = true;
             htmx.enable = true;
-            nginx-language-server.enable = true;
+            nginx_language_server.enable = true;
             sqls.enable = true;
             terraformls.enable = true;
           };

@@ -19,6 +19,5 @@
     ./lualine.nix
     ./noice.nix
     ./notify.nix
-    ./copilot.nix
   ];
 }

@@ -73,34 +73,30 @@ in
           no_fade_in = false;
         };
 
-        background = [
-          {
-            path = "${lockWallpaper}";
-            blur_passes = 0;
-            blur_size = 8;
-          }
-        ];
-        input-field = [
-          {
-            size = "250, 60";
-            outline_thickness = 2;
-            dots_size = 0.2; # Scale of input-field height, 0.2 - 0.8
-            dots_spacing = 0.2; # Scale of dots' absolute size, 0.0 - 1.0
-            dots_center = true;
-            outer_color = "rgba(0, 0, 0, 0)";
-            inner_color = "rgba(0, 0, 0, 0.5)";
-            font_color = "rgb(200, 200, 200)";
-            fade_on_empty = false;
-            font_family = "JetBrains Mono Nerd Font Mono";
-            placeholder_text = ''
-              <i><span foreground="##cdd6f4">Enter Password or Press Enter (Yubikey)</span></i>
-            '';
-            hide_input = false;
-            position = "0, -120";
-            halign = "center";
-            valign = "center";
-          }
-        ];
+        background = {
+          path = lib.mkForce "${lockWallpaper}";
+          blur_passes = 0;
+          blur_size = 8;
+        };
+        input-field = {
+          size = "250, 60";
+          outline_thickness = 2;
+          dots_size = 0.2; # Scale of input-field height, 0.2 - 0.8
+          dots_spacing = 0.2; # Scale of dots' absolute size, 0.0 - 1.0
+          dots_center = true;
+          outer_color = lib.mkForce "rgba(0, 0, 0, 0)";
+          inner_color = lib.mkForce "rgba(0, 0, 0, 0.5)";
+          font_color = lib.mkForce "rgb(200, 200, 200)";
+          fade_on_empty = false;
+          font_family = "JetBrains Mono Nerd Font Mono";
+          placeholder_text = ''
+            <i><span foreground="##cdd6f4">Enter Password or Press Enter (Yubikey)</span></i>
+          '';
+          hide_input = false;
+          position = "0, -120";
+          halign = "center";
+          valign = "center";
+        };
         label = [
           {
             text = ''

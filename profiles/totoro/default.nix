@@ -25,14 +25,14 @@ in
       "git.s3ns.internal"
     ];
   };
-  services.udev.extraRules = ''
-    ACTION=="remove",\
-     ENV{PRODUCT}=="1050/406/571",\
-     RUN+="${pkgs.systemd}/bin/loginctl lock-sessions"
-    ACTION=="remove",\
-     ENV{PRODUCT}=="1050/402/543",\
-     RUN+="${pkgs.systemd}/bin/loginctl lock-sessions"
-  '';
+  # services.udev.extraRules = ''
+  #   ACTION=="remove",\
+  #    ENV{PRODUCT}=="1050/406/571",\
+  #    RUN+="${pkgs.systemd}/bin/loginctl lock-sessions"
+  #   ACTION=="remove",\
+  #    ENV{PRODUCT}=="1050/402/543",\
+  #    RUN+="${pkgs.systemd}/bin/loginctl lock-sessions"
+  # '';
   customNixOSModules = {
     workTools.enable = true;
     laptopProfile.enable = true;
