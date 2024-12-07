@@ -109,7 +109,7 @@
               owner = "fdellwing";
               repo = "zsh-bat";
               rev = "master";
-              sha256 = "sha256-7TL47mX3eUEPbfK8urpw0RzEubGF2x00oIpRKR1W43k=";
+              sha256 = "sha256-TTuYZpev0xJPLgbhK5gWUeGut0h7Gi3b+e00SzFvSGo=";
             };
           }
         ];
