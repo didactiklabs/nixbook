@@ -214,8 +214,8 @@ in
         "nix-command"
         "flakes"
       ];
-      substituters = [ "https://didactiklabs.cachix.org" ];
-      trusted-public-keys = [ "didactiklabs.cachix.org-1:HYJV+l+6uSwJIAm4wdqVP/TuclEptn6oI2dzLqHq88k=" ];
+      substituters = [ "https://attic.didactiklabs.io/didactiklabs" ];
+      trusted-public-keys = [ "didactiklabs:JPEuM88eBt7rgEJ7kM0+pAkUnSH/jMRRENIf8FoIqwA=" ];
     };
   };
   programs = {

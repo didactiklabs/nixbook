@@ -21,7 +21,7 @@ in
   config = lib.mkIf cfg.hyprlandConfig.enable {
     wayland.windowManager.hyprland = {
       enable = true;
-      xwayland.enable = false;
+      # xwayland.enable = false;
       plugins = [
         pkgs.hyprlandPlugins.hy3
         pkgs.hyprlandPlugins.hyprexpo

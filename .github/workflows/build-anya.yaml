@@ -30,10 +30,6 @@ jobs:
       - uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
         with:
           nix_path: nixpkgs=${{ env.url }}
-      - uses: cachix/cachix-action@v15
-        with:
-          name: didactiklabs
-          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
       - name: Create /etc/nixos and copy hardware config
         run: |
           sudo mkdir -p /etc/nixos
@@ -45,8 +41,14 @@ jobs:
             };
           }
           EOF'
+      - name: Setup Attic cache
+        uses: ryanccn/attic-action@v0
+        with:
+          endpoint: ${{ secrets.ATTIC_ENDPOINT }}
+          cache: ${{ secrets.ATTIC_CACHE }}
+          token: ${{ secrets.ATTIC_TOKEN }}
       - name: Build
         run: nix-build '<nixpkgs/nixos>' -A config.system.build.toplevel -I nixos-config=profiles/anya/configuration.nix
       - name: Push
         run: |
-          cachix push didactiklabs ./result
+          attic push didactiklabs ./result
