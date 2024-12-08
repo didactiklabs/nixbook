@@ -50,15 +50,15 @@
         "repo": "nixpkgs"
       },
       "branch": "master",
-      "revision": "80391c8b50de8530c7c3b0c3da36acba798f9186",
-      "url": "https://github.com/NixOS/nixpkgs/archive/80391c8b50de8530c7c3b0c3da36acba798f9186.tar.gz",
-      "hash": "139hqa10m40z7qcnhlhv40wdk35hajh83cjdcrd9hagawk9fh45c"
+      "revision": "db8159c1d6674e3658db03014238bba65c6f0310",
+      "url": "https://github.com/NixOS/nixpkgs/archive/db8159c1d6674e3658db03014238bba65c6f0310.tar.gz",
+      "hash": "0wv0k9h722w5736krz3ya7qvaschh6vrdwy7qily7d3dkqrrxxpp"
     },
     "nixpkgs-unstable": {
       "type": "Channel",
       "name": "nixos-unstable",
-      "url": "https://releases.nixos.org/nixos/unstable/nixos-25.05beta717074.d0797a04b81c/nixexprs.tar.xz",
-      "hash": "1c4fbj5fkfyzqyckmybcq4w4203mpih4l5y9qz7j5x9pqhk1il7w"
+      "url": "https://releases.nixos.org/nixos/unstable/nixos-25.05beta718224.22c3f2cf41a0/nixexprs.tar.xz",
+      "hash": "0w8426zrj58rj3y2w65l079j0gdzwhzkhnw7hgnldym5gddzhsxa"
     },
     "nixvim": {
       "type": "Git",
