@@ -25,7 +25,12 @@ in
         volumePercentage
         history
       ];
-      enabledCustomApps = [ spicePkgs.apps.lyricsPlus ];
+      enabledCustomApps = with spicePkgs.apps; [
+        lyricsPlus
+        historyInSidebar
+        betterLibrary
+        newReleases
+      ];
     };
   };
 }
