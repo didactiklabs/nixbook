@@ -17,6 +17,7 @@ let
   '';
   sources = import ../npins;
   pkgs-unstable = import sources.nixpkgs-unstable { };
+  kl = import ../customPkgs/kl.nix { inherit pkgs; };
 in
 {
   options.customHomeManagerModules = {
@@ -63,6 +64,7 @@ in
       };
       packages = with pkgs; [
         # clouds
+        kl
         kubelogin-oidc
         dive
         pkgs-unstable.kcl

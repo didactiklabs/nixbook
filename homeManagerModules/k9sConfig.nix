@@ -1,4 +1,8 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  ...
+}:
 let
   cfg = config.customHomeManagerModules;
   configYaml = ''
@@ -92,6 +96,30 @@ let
   '';
   pluginsYaml = ''
     plugins:
+      vmconsole:
+        shortCut: Shift-C
+        description: Enter VM console
+        dangerous: false
+        scopes:
+          - virtualmachines
+        command: bash
+        background: false
+        confirm: false
+        args:
+          - -c
+          - "virtctl console $COL-NAME -n $NAMESPACE"
+      kl:
+        shortCut: Shift-L
+        description: Logs with kl
+        dangerous: false
+        scopes:
+          - pods
+        command: bash
+        background: false
+        confirm: false
+        args:
+          - -c
+          - "kl -n $NAMESPACE"
       debug-node:
         shortCut: Shift-D
         description: Add debug container for nodes
