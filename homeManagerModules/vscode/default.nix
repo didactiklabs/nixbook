@@ -56,10 +56,8 @@ in
         "extensions.autoUpdate" = false;
         "extensions.autoCheckUpdates" = false;
         "editor.fontFamily" =
-          lib.mkOverride 3000
-            "'Hack Nerd Font', 'Ubuntu Mono', 'Cascadia Mono', 'DejaVu Sans Mono', 'Font Awesome 5 Brands', 'Font Awesome 5 Free', 'Font Awesome 5 Free Solid'";
+          lib.mkOverride 3000 "'Hack Nerd Font', 'Ubuntu Mono', 'Cascadia Mono', 'DejaVu Sans Mono', 'Font Awesome 5 Brands', 'Font Awesome 5 Free', 'Font Awesome 5 Free Solid'";
         "editor.fontLigatures" = true;
-        "editor.fontSize" = 11;
         "editor.fontWeight" = "bold";
         "editor.formatOnSave" = true;
         "editor.renderWhitespace" = "all";
@@ -85,9 +83,7 @@ in
         "terminal.integrated.defaultProfile.linux" = "zsh";
         "terminal.external.linuxExec" = "kitty";
         "terminal.integrated.fontFamily" =
-          lib.mkOverride 3000
-            "'Hack Nerd Font', 'Ubuntu Mono', 'Cascadia Mono', 'DejaVu Sans Mono', 'Font Awesome 5 Brands', 'Font Awesome 5 Free', 'Font Awesome 5 Free Solid'";
-        "terminal.integrated.fontSize" = 12;
+          lib.mkOverride 3000 "'Hack Nerd Font', 'Ubuntu Mono', 'Cascadia Mono', 'DejaVu Sans Mono', 'Font Awesome 5 Brands', 'Font Awesome 5 Free', 'Font Awesome 5 Free Solid'";
         "terminal.integrated.fontWeight" = "bold";
         "terminal.integrated.copyOnSelection" = true;
         "window.menuBarVisibility" = "toggle";
