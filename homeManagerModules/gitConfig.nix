@@ -103,6 +103,7 @@ in
         };
         ## https://nix-community.github.io/home-manager/options.html#opt-programs.git.extraConfig
         extraConfig = {
+          push.autoSetupRemote = true;
           pull.rebase = true;
           init = {
             defaultBranch = "main";

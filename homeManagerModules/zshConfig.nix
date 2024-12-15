@@ -2,6 +2,7 @@
 {
   config = {
     home.packages = [
+      pkgs.trippy # debug network
       pkgs.any-nix-shell
       pkgs.btop # top replacer
       pkgs.duf # df replacer
