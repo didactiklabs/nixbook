@@ -96,6 +96,42 @@ let
   '';
   pluginsYaml = ''
     plugins:
+      httproutes:
+        shortCut: Shift-O
+        description: Open in Browser
+        dangerous: false
+        scopes:
+          - httproutes
+        command: bash
+        background: false
+        confirm: false
+        args:
+          - -c
+          - for host in $(echo "$COL-HOSTNAMES" | tr -d '[]' | tr ',' ' '); do echo "Opening https://$host"; xdg-open "https://$host" & sleep 1; done
+      ingress:
+        shortCut: Shift-O
+        description: Open in Browser
+        dangerous: false
+        scopes:
+          - ingresses
+        command: bash
+        background: false
+        confirm: false
+        args:
+          - -c
+          - "xdg-open https://$COL-HOSTS"
+      neat:
+        shortCut: Shift-Y
+        description: Clean yaml
+        dangerous: false
+        scopes:
+          - all
+        command: bash
+        background: false
+        confirm: false
+        args:
+          - -c
+          - "kubectl get $RESOURCE_NAME $COL-NAME -n $NAMESPACE -o yaml | kubectl neat | vim"
       vmconsole:
         shortCut: Shift-C
         description: Enter VM console

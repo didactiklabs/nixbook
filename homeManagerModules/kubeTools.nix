@@ -65,6 +65,7 @@ in
       packages = with pkgs; [
         # clouds
         kl
+        kubectl-neat
         kubelogin-oidc
         dive
         pkgs-unstable.kcl
