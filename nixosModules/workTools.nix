@@ -50,6 +50,7 @@ in
     # workTools
     environment = {
       systemPackages = with pkgs; [
+        minio-client
         kind
         python3
         nix-eval-jobs
