@@ -11,6 +11,7 @@ in
   config = lib.mkIf cfg.nixvimConfig.enable {
     home.packages = [ pkgs.gcc ];
     programs.nixvim.plugins = {
+      cmp-treesitter.enable = true;
       treesitter = {
         enable = true;
         nixvimInjections = true;

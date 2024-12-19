@@ -1,4 +1,8 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  ...
+}:
 let
   cfg = config.customHomeManagerModules;
 in
@@ -20,16 +24,15 @@ in
             "<CR>" = "cmp.mapping.confirm({ select = true })";
           };
           sources = [
-            { name = "nvim_lsp"; }
             { name = "path"; }
             { name = "luasnip"; }
             { name = "cmp_tabby"; }
+            { name = "treesitter"; }
             {
               name = "buffer";
               # Words from other open buffers can also be suggested.
               option.get_bufnrs.__raw = "vim.api.nvim_list_bufs";
             }
-            { name = "neorg"; }
           ];
           snippet.expand = "function(args) require('luasnip').lsp_expand(args.body) end";
         };
