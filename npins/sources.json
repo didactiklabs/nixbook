@@ -65,9 +65,9 @@
         "repo": "nixpkgs"
       },
       "branch": "master",
-      "revision": "dd1a79b6a947809a86fd1abfc81b09d5e2f8d43e",
-      "url": "https://github.com/NixOS/nixpkgs/archive/dd1a79b6a947809a86fd1abfc81b09d5e2f8d43e.tar.gz",
-      "hash": "0n1ha4m4rwrl8hhy3bagalzbd9ljd2gm9lryc3cl4px8lwz6hb35"
+      "revision": "6f0f5f43f33cb9bb067cee408de22e1a91d78e56",
+      "url": "https://github.com/NixOS/nixpkgs/archive/6f0f5f43f33cb9bb067cee408de22e1a91d78e56.tar.gz",
+      "hash": "1sicwcds1r46259c8077by6vx7xamr2gng0ff6nin3jv2sv4zxv2"
     },
     "nixpkgs-unstable": {
       "type": "Channel",
@@ -107,9 +107,9 @@
         "repo": "spicetify-nix"
       },
       "branch": "master",
-      "revision": "5b15daf10de2ce488771e6aabf72a7400b8500fc",
-      "url": "https://github.com/Gerg-L/spicetify-nix/archive/5b15daf10de2ce488771e6aabf72a7400b8500fc.tar.gz",
-      "hash": "006lgyg1kwpdlbp7rdkdhbl7c9ycd4prz5sdcvly5gxkqrd1y9rn"
+      "revision": "9df915be725751fccde78f2dfe59025bb1bfbb14",
+      "url": "https://github.com/Gerg-L/spicetify-nix/archive/9df915be725751fccde78f2dfe59025bb1bfbb14.tar.gz",
+      "hash": "0yz83n8sq1l7n9x44asmbhzqbr5my8fzgbq08w4v5z05g0zjr7l6"
     },
     "stylix": {
       "type": "Git",
@@ -131,9 +131,9 @@
         "repo": "ytui"
       },
       "branch": "main",
-      "revision": "8816274f724741a4f95b52036a99b439cede67f3",
-      "url": "https://github.com/banh-canh/ytui/archive/8816274f724741a4f95b52036a99b439cede67f3.tar.gz",
-      "hash": "1l7qcsjzp2d7z3i1h48virwvxb5c8l4zx9qz00gbpi4hkzh4j9fq"
+      "revision": "7c1ab00e73ebc395f7c5f84a9bdc3dc6c5af3d75",
+      "url": "https://github.com/banh-canh/ytui/archive/7c1ab00e73ebc395f7c5f84a9bdc3dc6c5af3d75.tar.gz",
+      "hash": "0zhg2zi4gkdvb1p2g6wr1i1k6nvz00syj9aq9l2sja243m3zgmvp"
     }
   },
   "version": 3
