@@ -1,4 +1,4 @@
-name: Build Nishinoya
+name: Build nishinoya
 on:
   push:
     branches:
@@ -30,6 +30,9 @@ jobs:
       - uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
         with:
           nix_path: nixpkgs=${{ env.url }}
+          extra_nix_config: |
+            trusted-public-keys = didactiklabs-nixcache:PxLKN0+ZkP07M8g8/B6xbP6A4MYpqQg6LH7V3muiy/0= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+            extra-substituters = https://s3.didactiklabs.io/nix-cache https://cache.nixos.org/
       - name: Create /etc/nixos and copy hardware config
         run: |
           sudo mkdir -p /etc/nixos
@@ -41,14 +44,13 @@ jobs:
             };
           }
           EOF'
-      - name: Setup Attic cache
-        uses: ryanccn/attic-action@v0
-        with:
-          endpoint: ${{ secrets.ATTIC_ENDPOINT }}
-          cache: ${{ secrets.ATTIC_CACHE }}
-          token: ${{ secrets.ATTIC_TOKEN }}
-      - name: Build
-        run: nix-build '<nixpkgs/nixos>' -A config.system.build.toplevel -I nixos-config=profiles/nishinoya/configuration.nix
-      - name: Push
+      - name: Auth to s3 cache
         run: |
-          attic push didactiklabs ./result
+          aws --profile default configure set aws_access_key_id "${{ secrets.AWS_ACCESS_KEY_ID }}"
+          aws --profile default configure set aws_secret_access_key "${{ secrets.AWS_SECRET_ACCESS_KEY_ID }}"
+      - name: Build and Push
+        run: |
+          echo '${{ secrets.CACHE_PRIVATE_KEY }}' > cache-priv.pem
+          build=$(nix-build '<nixpkgs/nixos>' -A config.system.build.toplevel -I nixos-config=profiles/nishinoya/configuration.nix)
+          nix store sign -k cache-priv.pem $build
+          nix copy --to 's3://nix-cache?profile=default&scheme=https&endpoint=s3.didactiklabs.io' $build
