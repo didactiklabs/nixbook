@@ -52,10 +52,16 @@
       "hash": "12x5fw4kx1bdbzq1mpwbzmwf29qygxpgrrr9gd7ynf26z0zqq01a"
     },
     "nixpkgs": {
-      "type": "Channel",
-      "name": "nixos-24.11",
-      "url": "https://releases.nixos.org/nixos/24.11/nixos-24.11.711349.394571358ce8/nixexprs.tar.xz",
-      "hash": "0nvd0nfv7ayw4gn916r4bgxk76np6w41w72izich6zvygdn8agwp"
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "NixOS",
+        "repo": "nixpkgs"
+      },
+      "branch": "nixos-24.11",
+      "revision": "394571358ce82dff7411395829aa6a3aad45b907",
+      "url": "https://github.com/NixOS/nixpkgs/archive/394571358ce82dff7411395829aa6a3aad45b907.tar.gz",
+      "hash": "1cb6dmpfsz4zyk41b6z07nhrf20c8b6ryb103kc6088c2vm63ycv"
     },
     "nixpkgs-master": {
       "type": "Git",
@@ -70,10 +76,16 @@
       "hash": "1sicwcds1r46259c8077by6vx7xamr2gng0ff6nin3jv2sv4zxv2"
     },
     "nixpkgs-unstable": {
-      "type": "Channel",
-      "name": "nixos-unstable",
-      "url": "https://releases.nixos.org/nixos/unstable/nixos-25.05beta723344.d3c42f187194/nixexprs.tar.xz",
-      "hash": "0kwwzcza46ygfvrhhbnc7x02z3qw3zkyrjaxcdxmza0jzdv8gydj"
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "NixOS",
+        "repo": "nixpkgs"
+      },
+      "branch": "nixos-unstable",
+      "revision": "d3c42f187194c26d9f0309a8ecc469d6c878ce33",
+      "url": "https://github.com/NixOS/nixpkgs/archive/d3c42f187194c26d9f0309a8ecc469d6c878ce33.tar.gz",
+      "hash": "0bmnxsn9r4qfslg4mahsl9y9719ykifbazpxxn1fqf47zbbanxkh"
     },
     "nixvim": {
       "type": "Git",
