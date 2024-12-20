@@ -32,7 +32,7 @@ conditions:
 # Defines "targets" which need to be updated if different than "source" information.
 targets:
   default:
-    name: NpinsUpdate
+    name: npins nixpkgs-unstable update
     kind: shell
     scmid: 'default'
     spec:
