@@ -1,5 +1,5 @@
 # manifest.yaml
-name: Nixpkgs Update
+name: stylix Update
 scms:
   default:
     kind: 'github'
@@ -18,7 +18,7 @@ sources:
     kind: json
     spec:
       file: npins/sources.json
-      key: pins.nixpkgs.revision
+      key: pins.stylix.revision
 # Defines "conditions" required to update targets
 conditions:
   default:
@@ -28,7 +28,7 @@ conditions:
     spec:
       environments:
         - name: PATH
-      command: test $(git ls-remote https://github.com/NixOS/nixpkgs nixos-24.11 | head -n 1 | awk '{print $1}') !=
+      command: test $(git ls-remote https://github.com/danth/stylix release-24.11 | head -n 1 | awk '{print $1}') !=
 # Defines "targets" which need to be updated if different than "source" information.
 targets:
   default:
@@ -39,7 +39,7 @@ targets:
       environments:
         - name: PATH
         - name: NIX_PATH
-      command: nix-shell -p npins --command "npins update nixpkgs" && echo
+      command: nix-shell -p npins --command "npins update stylix" && echo
 # Define action configurations if one needs to be created
 actions:
   default:
@@ -47,6 +47,6 @@ actions:
     scmid: 'default'
     spec:
       automerge: false
-      description: 'Update Nixpkgs npins.'
+      description: 'Update stylix npins.'
       draft: false
-      title: 'UPDATECLI: Update Nixpkgs'
+      title: 'UPDATECLI: Update stylix'
