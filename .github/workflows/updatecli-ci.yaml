@@ -28,5 +28,5 @@ jobs:
       - name: Run Updatecli in apply mode
         run: 'updatecli apply --config ./updatecli/updatecli.d --values updatecli/values.yaml'
         env:
-          UPDATECLI_GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
-          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          UPDATECLI_GITHUB_TOKEN: '${{ secrets.UPDATECLI_TOKEN }}'
+          GITHUB_TOKEN: '${{ secrets.UPDATECLI_TOKEN }}'
