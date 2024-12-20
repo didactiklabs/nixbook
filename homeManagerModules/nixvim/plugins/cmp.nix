@@ -27,7 +27,7 @@ in
             { name = "path"; }
             { name = "luasnip"; }
             { name = "cmp_tabby"; }
-            { name = "treesitter"; }
+            # { name = "treesitter"; }
             {
               name = "buffer";
               # Words from other open buffers can also be suggested.
