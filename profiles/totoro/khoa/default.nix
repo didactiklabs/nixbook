@@ -17,7 +17,7 @@ in
   ];
   home.packages = [
     pkgs.moonlight-qt
-    pkgs-master.ankama-launcher
+    pkgs.ankama-launcher
   ];
   profileCustomization = {
     mainWallpaper =
