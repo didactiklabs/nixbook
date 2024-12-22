@@ -83,9 +83,9 @@
         "repo": "nixpkgs"
       },
       "branch": "master",
-      "revision": "9e9e145f4038912e406f9579b131d2252fb7fb0d",
-      "url": "https://github.com/NixOS/nixpkgs/archive/9e9e145f4038912e406f9579b131d2252fb7fb0d.tar.gz",
-      "hash": "11gz3ic49ckbf5ypg4635nnxfafacfgfcjr0icxckrj4f2r6cr9g"
+      "revision": "b1e0f3ed8998affbdac2f01f8b26cec023954dac",
+      "url": "https://github.com/NixOS/nixpkgs/archive/b1e0f3ed8998affbdac2f01f8b26cec023954dac.tar.gz",
+      "hash": "125iybjpak6lvrllamnqcmlz05p35nkgq0lrzy45b1a8pzksqf8d"
     },
     "nixpkgs-unstable": {
       "type": "Git",
