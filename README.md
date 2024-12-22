@@ -1,4 +1,4 @@
-# All pray the NixOS gods
+# Nixbook
 
 ## 🔍 Description
 
@@ -46,19 +46,19 @@ You only need to install the base NixOS iso.
 
 Customization is done via the `profiles` directories.
 
-Install or upgrade with a simple command:
+If it's your first install run (we assume you have colmena installed):
 
 ```bash
 colmena apply-local --sudo  -v switch
 ```
 
-Profile selected is based on the output of `hostname`.
-
-To upgrade dependencies, run:
+To update:
 
 ```bash
-npins update
+ginx --source https://github.com/didactiklabs/nixbook -b main --now -- colmena apply-local --sudo
 ```
+
+Profile selected is based on the output of `hostname`.
 
 </p>
 
