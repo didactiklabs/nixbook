@@ -1,7 +1,11 @@
 { pkgs, ... }:
+let
+  ginx = import ../customPkgs/ginx.nix { inherit pkgs; };
+in
 {
   config = {
     home.packages = [
+      ginx
       pkgs.trippy # debug network
       pkgs.any-nix-shell
       pkgs.btop # top replacer

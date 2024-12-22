@@ -1,13 +1,4 @@
 { pkgs, ... }:
-let
-  sources = import ../../../npins;
-  pkgs-master = import sources.nixpkgs-master {
-    config = {
-      allowUnfree = true;
-      allowUnfreePredicate = true;
-    };
-  };
-in
 {
   imports = [
     ./gitConfig.nix
