@@ -43,6 +43,10 @@ in
         settings = {
           prSections = [
             {
+              title = "DidactikLabs Org Pull Requests";
+              filters = "is:open org:didactiklabs";
+            }
+            {
               title = "My Pull Requests";
               filters = "is:open author:@me";
             }
