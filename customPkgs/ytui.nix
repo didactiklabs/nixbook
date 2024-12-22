@@ -16,7 +16,7 @@ pkgs.buildGoModule rec {
   ldflags = [
     "-s"
     "-w"
-    "-X github.com/muandane/goji/cmd.version=${version}"
+    "-X github.com/banh-canh/ytui/cmd.version=${version}"
   ];
 
   meta = {
