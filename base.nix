@@ -28,6 +28,7 @@ let
       sources
       ;
   };
+  ginx = import ./customPkgs/ginx.nix { inherit pkgs; };
 in
 {
   imports = [
@@ -228,6 +229,7 @@ in
   environment = {
     systemPackages = with pkgs; [
       # global
+      ginx
       efibootmgr
       colmena
       npins
