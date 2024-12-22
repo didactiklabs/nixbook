@@ -46,7 +46,7 @@ actions:
     kind: 'github/pullrequest'
     scmid: 'default'
     spec:
-      automerge: false
+      automerge: true
       description: 'Update Nixpkgs Unstable using npins.'
       draft: false
       title: 'UPDATECLI: Update Nixpkgs Unstable'
