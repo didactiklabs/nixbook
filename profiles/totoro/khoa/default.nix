@@ -1,4 +1,8 @@
-{ pkgs, ... }:
+{
+  pkgs,
+  lib,
+  ...
+}:
 {
   imports = [
     ./gitConfig.nix
@@ -10,6 +14,11 @@
     pkgs.moonlight-qt
     pkgs.ankama-launcher
   ];
+  programs.go = {
+    enable = true;
+    goPath = lib.mkForce ".local/go";
+  };
+
   profileCustomization = {
     mainWallpaper =
       let

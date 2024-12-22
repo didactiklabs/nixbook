@@ -104,7 +104,7 @@ let
             ];
             programs.go = {
               enable = true;
-              goPath = ".local/go";
+              goPath = "go";
             };
             services.gammastep = {
               enable = true;
