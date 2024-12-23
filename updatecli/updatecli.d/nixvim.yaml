@@ -46,6 +46,7 @@ actions:
     kind: 'github/pullrequest'
     scmid: 'default'
     spec:
+      mergemethod: 'rebase'
       automerge: true
       description: 'Update nixvim npins.'
       draft: false
