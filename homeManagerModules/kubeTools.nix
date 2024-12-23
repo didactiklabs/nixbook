@@ -6,15 +6,32 @@
 }:
 let
   cfg = config.customHomeManagerModules;
-  kubeswitchConfig = ''
-    kind: SwitchConfig
-    version: v1alpha1
-    kubeconfigStores:
-     - kind: filesystem
-       kubeconfigName: "*.kubeconfig"
-       paths:
-         - ~/.kube/configs
+  homeDir = config.home.homeDirectory;
+  didactiklabsPart = lib.optionalString cfg.kubeConfig.didactiklabs.enable ''
+    - kind: capi
+      config:
+        kubeconfigPath: '${homeDir}/.kube/configs/didactiklabs/oidc@didactiklabs.kubeconfig'
   '';
+  kubeswitch = pkgs.kubeswitch.overrideAttrs (old: {
+    version = "master";
+    src = pkgs.fetchFromGitHub {
+      owner = "danielfoehrKn";
+      repo = "kubeswitch";
+      rev = "master";
+      hash = "sha256-IQwGMa2q29r8Jn5e5ApngefBgksIQlf9Hut0CHn/yiU=";
+    };
+  });
+  kubeswitchConfig =
+    ''
+      kind: SwitchConfig
+      version: v1alpha1
+      kubeconfigStores:
+      - kind: filesystem
+        kubeconfigName: "*.kubeconfig"
+        paths:
+        - ~/.kube/configs
+    ''
+    + didactiklabsPart;
   sources = import ../npins;
   pkgs-unstable = import sources.nixpkgs-unstable { };
   kl = import ../customPkgs/kl.nix { inherit pkgs; };
@@ -74,8 +91,8 @@ in
         k9s
         kubevirt
         fluxcd
-        kubebuilder
         kubeswitch
+        kubebuilder
         kustomize
         kubectl-view-secret
         kubectl-explore
