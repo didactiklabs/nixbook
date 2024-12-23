@@ -9,7 +9,7 @@ on:
 jobs:
   pre_job:
     # continue-on-error: true # Uncomment once integration is finished
-    runs-on: didactiklabs-runners
+    runs-on: ubuntu-latest
     # Map a step output to a job output
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
@@ -25,7 +25,7 @@ jobs:
   build:
     needs: pre_job
     if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
-    runs-on: didactiklabs-runners
+    runs-on: ubuntu-latest
     steps:
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@main
@@ -33,9 +33,9 @@ jobs:
           tool-cache: false
           android: true
           dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
+          haskell: false
+          large-packages: false
+          docker-images: false
           swap-storage: true
       - name: Checkout code
         uses: actions/checkout@v3
@@ -69,5 +69,5 @@ jobs:
         run: |
           echo '${{ secrets.CACHE_PRIVATE_KEY }}' > cache-priv.pem
           build=$(nix-build '<nixpkgs/nixos>' -A config.system.build.toplevel -I nixos-config=profiles/nishinoya/configuration.nix)
-          nix store sign -k cache-priv.pem $build
+          nix store sign -r -k cache-priv.pem $build
           nix copy --to 's3://nix-cache?profile=default&scheme=https&endpoint=s3.didactiklabs.io' $build
