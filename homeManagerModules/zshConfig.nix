@@ -126,7 +126,6 @@ in
           df = "duf";
           cd = "z";
           neofetch = "fastfetch";
-          grep = "rg";
         };
         initExtra = ''
           any-nix-shell zsh --info-right | source /dev/stdin
