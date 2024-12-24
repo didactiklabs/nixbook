@@ -168,6 +168,19 @@ let
         args:
           - -c
           - "kubectl debug node/$COL-NAME -it --image=busybox --profile=sysadmin"
+      debugpod:
+        shortCut: Shift-D
+        description: Add debug pod
+        dangerous: false
+        scopes:
+          - pods
+        command: bash
+        background: false
+        confirm: false
+        args:
+          - -c
+          - >-
+            kubectl run -n=$NAMESPACE --overrides='{"spec": {"nodeName": "$COL-NODE"}}' --image=nicolaka/netshoot:v0.12 debug -- bash
       debug:
         shortCut: Shift-D
         description: Add debug container
