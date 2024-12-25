@@ -168,7 +168,7 @@ let
         args:
           - -c
           - "kubectl debug node/$COL-NAME -it --image=busybox --profile=sysadmin"
-      debugpod:
+      debug-pod:
         shortCut: Shift-D
         description: Add debug pod
         dangerous: false
@@ -180,7 +180,7 @@ let
         args:
           - -c
           - >-
-            kubectl run -n=$NAMESPACE --overrides='{"spec": {"nodeName": "$COL-NODE"}}' --image=nicolaka/netshoot:v0.12 debug -- bash
+            kubectl run -n=$NAMESPACE --overrides='{"spec": {"nodeName": "$COL-NODE"}}' --image=nicolaka/netshoot:v0.12 debug-$COL-NODE -- sleep infinity
       debug:
         shortCut: Shift-D
         description: Add debug container
