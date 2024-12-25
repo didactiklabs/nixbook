@@ -10,13 +10,14 @@ let
     {
       "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
     	"logo": {
-    		"source": "~/.config/fastfetch/asciiArt",
+    		"source": "~/.config/fastfetch/logo",
 
-    		"type": "file",
+    		"type": "auto",
     		"padding": {
-    			"top": 0,
+    			"top": 2,
     			"left": 0
-    		}
+    		},
+            "height": 12
     	},
       "display": {
         "separator": "    "
@@ -96,33 +97,45 @@ let
       ]
     }
   '';
-  asciiArt = ''
+  logo = pkgs.writeTextFile {
+    name = "logo";
+    text = ''
 
 
-    ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⠀⡀⠀⠀⠀⠀⠀⠀⠀
-    ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣼⣾⣟⠳⢾⣷⡤⡀⠀⠀⠀⠀
-    ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠨⣿⣿⣿⣆⢙⢤⢺⠻⣿⣾⡖⠀⠀⠀
-    ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣿⣟⣿⣿⣯⣾⣿⣿⣾⣿⡟⠀⠀⠀
-    ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⢿⣿⣿⡟⠟⣿⣿⢏⣿⡟⠀⠀⠀⠀
-    ⠀⠀⠀⠀⢀⣀⣤⣤⣴⢾⠁⢜⣿⣷⣦⠹⡉⠓⠁⠈⡡⣻⣷⣄⡀⠀⠀⠀
-    ⠀⠀⠀⠀⠈⢪⣇⣼⣿⣎⣱⡦⠔⠉⠑⡆⠀⠁⣀⢥⣿⣿⣿⡿⠷⣄⠀⠀
-    ⠀⡀⠀⠀⠀⠀⢹⣿⣿⣿⡏⠀⠀⠀⡠⠀⣴⢊⣡⢿⢟⣿⣾⣷⣀⠹⣦⠀
-    ⡌⡄⠀⠀⠀⠀⠈⣻⣿⣱⡇⢀⠠⠀⠀⢸⣿⣿⣿⣽⣿⣝⢿⣖⢺⡠⣿⡄
-    ⣷⡀⠀⠀⠀⠀⠐⣪⣿⣷⣌⢃⠀⠀⠀⠀⢹⣿⣾⣿⣿⣿⣿⣿⣿⣻⡿⣿
-    ⠸⣧⡀⠀⠀⠠⢮⣿⣿⣶⡿⠁⠀⠀⠀⠀⠀⢻⣿⣿⣿⣿⣿⣿⣿⣿⣧⣿
-    ⠀⠈⠻⠶⣤⣤⠾⢿⣿⡿⠃⠀⠀⠀⠀⠀⠀⠀⢻⣿⣿⣿⣿⣿⣿⣿⡿⠃
-    ⠀⠀⠀⠀⠀⠀⠀⣈⢻⣃⠀⠀⠀⠀⠀⠀⠀⣴⣾⣿⣿⣿⣿⣿⣉⡉⠀⠀
-  '';
+      ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⠀⡀⠀⠀⠀⠀⠀⠀⠀
+      ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣼⣾⣟⠳⢾⣷⡤⡀⠀⠀⠀⠀
+      ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠨⣿⣿⣿⣆⢙⢤⢺⠻⣿⣾⡖⠀⠀⠀
+      ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣿⣟⣿⣿⣯⣾⣿⣿⣾⣿⡟⠀⠀⠀
+      ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⢿⣿⣿⡟⠟⣿⣿⢏⣿⡟⠀⠀⠀⠀
+      ⠀⠀⠀⠀⢀⣀⣤⣤⣴⢾⠁⢜⣿⣷⣦⠹⡉⠓⠁⠈⡡⣻⣷⣄⡀⠀⠀⠀
+      ⠀⠀⠀⠀⠈⢪⣇⣼⣿⣎⣱⡦⠔⠉⠑⡆⠀⠁⣀⢥⣿⣿⣿⡿⠷⣄⠀⠀
+      ⠀⡀⠀⠀⠀⠀⢹⣿⣿⣿⡏⠀⠀⠀⡠⠀⣴⢊⣡⢿⢟⣿⣾⣷⣀⠹⣦⠀
+      ⡌⡄⠀⠀⠀⠀⠈⣻⣿⣱⡇⢀⠠⠀⠀⢸⣿⣿⣿⣽⣿⣝⢿⣖⢺⡠⣿⡄
+      ⣷⡀⠀⠀⠀⠀⠐⣪⣿⣷⣌⢃⠀⠀⠀⠀⢹⣿⣾⣿⣿⣿⣿⣿⣿⣻⡿⣿
+      ⠸⣧⡀⠀⠀⠠⢮⣿⣿⣶⡿⠁⠀⠀⠀⠀⠀⢻⣿⣿⣿⣿⣿⣿⣿⣿⣧⣿
+      ⠀⠈⠻⠶⣤⣤⠾⢿⣿⡿⠃⠀⠀⠀⠀⠀⠀⠀⢻⣿⣿⣿⣿⣿⣿⣿⡿⠃
+      ⠀⠀⠀⠀⠀⠀⠀⣈⢻⣃⠀⠀⠀⠀⠀⠀⠀⣴⣾⣿⣿⣿⣿⣿⣉⡉⠀⠀
+    '';
+  };
 in
 {
   config = lib.mkIf cfg.fastfetchConfig.enable {
     home = {
-      packages = [ pkgs.fastfetch ];
+      packages = [
+        pkgs.fastfetch
+        pkgs.imagemagick
+      ];
       file.".config/fastfetch/config.jsonc" = {
         text = fastfetchConfig;
       };
-      file.".config/fastfetch/asciiArt" = {
-        text = asciiArt;
+      file.".config/fastfetch/logo" = {
+        source = logo;
+      };
+    };
+    programs.zsh = {
+      shellAliases = {
+        fastfetch = "echo '' && fastfetch";
+        neofetch = "fastfetch";
       };
     };
   };
