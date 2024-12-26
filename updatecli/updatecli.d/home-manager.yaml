@@ -35,11 +35,12 @@ targets:
     name: npins home-manager update
     kind: shell
     scmid: 'default'
+    disablesourceinput: true
     spec:
       environments:
         - name: PATH
         - name: NIX_PATH
-      command: nix-shell -p npins --command "npins update home-manager" && echo
+      command: nix-shell -p npins --command "npins update home-manager"
 # Define action configurations if one needs to be created
 actions:
   default:
