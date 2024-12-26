@@ -24,6 +24,15 @@ in
       "gitea"
       "git.s3ns.internal"
     ];
+    "10.254.0.5" = [
+      "frieren"
+    ];
+    "10.207.7.1" = [
+      "anya"
+    ];
+    "10.207.7.2" = [
+      "gojo"
+    ];
   };
   # services.udev.extraRules = ''
   #   ACTION=="remove",\

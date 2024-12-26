@@ -23,16 +23,16 @@
     mainWallpaper =
       let
         image = pkgs.fetchurl {
-          url = "https://i.imgur.com/RnshrNY.jpeg";
-          sha256 = "sha256-ExW9AS3LrsxzqdRzME5a5Nqa3qKmNtUsKayYxj+8+1g=";
+          url = "https://i.imgur.com/2ck3nKs.jpeg";
+          sha256 = "sha256-rLcsHaUmW/JcPxofYBI68SlrsLBhJOURjLae6Fr3kdE=";
         };
       in
       "${image}";
     lockWallpaper =
       let
         image = pkgs.fetchurl {
-          url = "https://w.wallhaven.cc/full/g7/wallhaven-g71w1e.jpg";
-          sha256 = "sha256-L2MWwr70Zcz9+M1XpRhWMxhhNF0iscghOrh3yiK67Fo=";
+          url = "https://i.imgur.com/2A57JH9.jpeg";
+          sha256 = "sha256-SSqK0hAcnl2bsZgVfqnOigDV3/5Xy5QvyRqef1Nbl1s=";
         };
       in
       "${image}";
