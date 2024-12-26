@@ -134,6 +134,7 @@ in
         exec-once = [
           "systemctl --user import-environment XDG_SESSION_TYPE XDG_CURRENT_DESKTOP"
           "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
+          "${pkgs.mpg123}/bin/mpg123 ${../../assets/sounds/startup.mp3}"
           "${pidof} ${waybar} || ${waybar}"
         ];
         exec = [

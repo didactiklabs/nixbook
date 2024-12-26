@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 let
@@ -11,6 +12,12 @@ in
     services.swaync = {
       enable = true;
       settings = {
+        scripts = {
+          sound = {
+            exec = "${pkgs.mpg123}/bin/mpg123 ${../assets/sounds/notifications.mp3}";
+            app-name = ".*";
+          };
+        };
         positionX = "right";
         positionY = "top";
         control-center-margin-top = 10;

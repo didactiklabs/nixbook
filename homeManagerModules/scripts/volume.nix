@@ -1,4 +1,8 @@
-{ pkgs, lib, ... }:
+{
+  pkgs,
+  lib,
+  ...
+}:
 let
   volume = pkgs.writeShellScriptBin "volume" ''
       #!/bin/bash
@@ -10,7 +14,7 @@ let
     # https://github.com/JaKooLit/Ja_HyprLanD-dots/blob/main/config/hypr/scripts/volume
 
     iDIR="$HOME/.config/assets/images/volume-icons"
-    play="${pkgs.libcanberra-gtk3}/bin/canberra-gtk-play -i audio-volume-change"
+    play="" #"${pkgs.libcanberra-gtk3}/bin/canberra-gtk-play -i audio-volume-change"
     # any of those will work:
     # "canberra-gtk-play -i audio-volume-change"
     # "play --volume 0.15 $HOME/.config/hypr/sounds/volume_notif.wav"
