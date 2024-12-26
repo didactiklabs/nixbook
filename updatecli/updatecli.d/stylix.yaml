@@ -35,11 +35,12 @@ targets:
     name: stylix npins update
     kind: shell
     scmid: 'default'
+    disablesourceinput: true
     spec:
       environments:
         - name: PATH
         - name: NIX_PATH
-      command: nix-shell -p npins --command "npins update stylix" && echo
+      command: nix-shell -p npins --command "npins update stylix"
 # Define action configurations if one needs to be created
 actions:
   default:
