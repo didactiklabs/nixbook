@@ -6,6 +6,11 @@
 }:
 let
   cfg = config.customHomeManagerModules;
+  soundNotification = pkgs.writeShellScriptBin "soundNotification" ''
+    if [ $(${pkgs.swaynotificationcenter}/bin/swaync-client -D) == 'false' ]; then
+      ${pkgs.mpg123}/bin/mpg123 ${../assets/sounds/notifications.mp3};
+    fi
+  '';
 in
 {
   config = lib.mkIf cfg.desktopApps.enable {
@@ -14,7 +19,7 @@ in
       settings = {
         scripts = {
           sound = {
-            exec = "${pkgs.mpg123}/bin/mpg123 ${../assets/sounds/notifications.mp3}";
+            exec = "${soundNotification}/bin/soundNotification";
             app-name = ".*";
           };
         };
