@@ -157,6 +157,7 @@ let
               ../homeManagerModules/scripts
               ../homeManagerModules/swayncConfig.nix
               ../homeManagerModules/goji.nix
+              ../homeManagerModules/ghostty.nix
             ]
             userImports
           ];

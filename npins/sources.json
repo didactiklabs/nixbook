@@ -12,6 +12,18 @@
       "url": "https://github.com/edolstra/flake-compat/archive/ff81ac966bb2cae68946d5ed5fc4994f96d0ffec.tar.gz",
       "hash": "19d2z6xsvpxm184m41qrpi1bplilwipgnzv9jy17fgw421785q1m"
     },
+    "ghostty": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "jcollie",
+        "repo": "nixpkgs"
+      },
+      "branch": "ghostty-init-1.0.0",
+      "revision": "6573bb3d5ed112e5416f3b92dd6153b9ebbb180f",
+      "url": "https://github.com/jcollie/nixpkgs/archive/6573bb3d5ed112e5416f3b92dd6153b9ebbb180f.tar.gz",
+      "hash": "0is3bhfsxl77r42q52l4blwh173wspv5i3b060i1jpm3gl1plhp7"
+    },
     "ginx": {
       "type": "Git",
       "repository": {
