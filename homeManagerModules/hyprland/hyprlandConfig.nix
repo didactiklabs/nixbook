@@ -7,6 +7,7 @@
 let
   cfg = config.customHomeManagerModules;
   mainWallpaper = "${config.profileCustomization.mainWallpaper}";
+  startup_audio = "${config.profileCustomization.startup_audio}";
   terminal = "${pkgs.kitty}/bin/kitty";
   rofi-wayland = "${pkgs.rofi-wayland}/bin/rofi";
   rofiLauncherType = "${cfg.rofiConfig.launcher.type}";
@@ -166,7 +167,7 @@ in
         exec-once = [
           "systemctl --user import-environment XDG_SESSION_TYPE XDG_CURRENT_DESKTOP"
           "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
-          "${pkgs.mpg123}/bin/mpg123 ${../../assets/sounds/startup.mp3}"
+          "${pkgs.mpg123}/bin/mpg123 ${startup_audio}"
           "${pidof} ${waybar} || ${waybar}"
         ];
         exec = [
