@@ -173,6 +173,7 @@ in
               deactivated = " ";
             };
             tooltip = "true";
+            on-click = "${pkgs.libnotify}/bin/notify-send 'idle inhibitor toggled' ";
           };
           "custom/spotify" = {
             exec = ''
