@@ -1,4 +1,8 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  ...
+}:
 let
   cfg = config.customHomeManagerModules;
 in
@@ -7,11 +11,11 @@ in
     wayland.windowManager.hyprland.settings = {
       monitor = lib.mkForce [
         ",preferred,auto,1"
-        "eDP-1,preferred,0x587,2.0"
-        "DP-8,1920x1080,1440x0,auto"
-        "DP-9,1920x1080,3360x0,auto"
-        "DP-10,1920x1080,1440x0,auto"
-        "DP-11,1920x1080,3360x0,auto"
+        "eDP-1,preferred,0x755,1.6"
+        "DP-8,1920x1080,1800x230,auto"
+        "DP-9,2560x1440,3720x0,auto"
+        "DP-10,1920x1080,1800x0,auto"
+        "DP-11,1920x1080,3720x0,auto"
       ];
       windowrulev2 = [
         "workspace 1 silent,fullscreen 1,class:(thunderbird)"
