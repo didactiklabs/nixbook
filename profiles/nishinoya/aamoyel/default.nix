@@ -14,8 +14,8 @@
     mainWallpaper =
       let
         image = pkgs.fetchurl {
-          url = "https://w.wallhaven.cc/full/x8/wallhaven-x8p6kv.jpg";
-          sha256 = "sha256-nTb4frBX6c6qHgx0o2wWFJPqxUiAX+5b6RltDR+IwEo=";
+          url = "https://wallpapers-clan.com/wp-content/uploads/2024/04/haikyuu-yuu-nishinoya-blue-sky-desktop-wallpaper-preview.jpg";
+          sha256 = "sha256-AQxLXpcMLZK1rmPujYLde9XNdQ/PfyFv8WdBNJdXSe4=";
         };
       in
       "${image}";
