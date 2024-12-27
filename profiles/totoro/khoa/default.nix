@@ -36,6 +36,10 @@
         };
       in
       "${image}";
+    startup_audio = pkgs.fetchurl {
+      url = "https://github.com/didactiklabs/misc-assets/raw/refs/heads/main/assets/sounds/startup_totoro.mp3";
+      sha256 = "sha256-CWl7PBtj6EghkTZ/QafUindrIOr1bD8Riyx6YAqeJns=";
+    };
   };
   customHomeManagerModules = {
     bluetooth.enable = true;

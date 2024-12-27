@@ -5,9 +5,21 @@
   overrides ? { },
 }:
 let
-  defaultWallpaper = pkgs.stdenv.mkDerivation {
-    name = "defaultWallpaper";
+  defaultImagePath = pkgs.stdenv.mkDerivation {
+    name = "defaultImagePath";
     src = ../assets/images;
+    phases = [
+      "unpackPhase"
+      "installPhase"
+    ];
+    installPhase = ''
+      mkdir -p $out
+      cp $src/* $out
+    '';
+  };
+  defaultSoundPath = pkgs.stdenv.mkDerivation {
+    name = "defaultSoundPath";
+    src = ../assets/sounds;
     phases = [
       "unpackPhase"
       "installPhase"
@@ -163,16 +175,23 @@ let
           options.profileCustomization = {
             mainWallpaper = lib.mkOption {
               type = lib.types.str;
-              default = "${defaultWallpaper}/nixos-wallpaper.png";
+              default = "${defaultImagePath}/nixos-wallpaper.png";
               description = ''
                 Image to set as main wallpaper.
               '';
             };
             lockWallpaper = lib.mkOption {
               type = lib.types.str;
-              default = "${defaultWallpaper}/nixos-wallpaper.png";
+              default = "${defaultImagePath}/nixos-wallpaper.png";
               description = ''
                 Image to set as lock wallpaper.
+              '';
+            };
+            startup_audio = lib.mkOption {
+              type = lib.types.path;
+              default = "${defaultSoundPath}/startup.mp3";
+              description = ''
+                path to startup sound that hyprland play on startup
               '';
             };
           };
