@@ -6,9 +6,10 @@
 }:
 let
   cfg = config.customHomeManagerModules;
+  notification_audio = "${config.profileCustomization.notification_audio}";
   soundNotification = pkgs.writeShellScriptBin "soundNotification" ''
     if [ $(${pkgs.swaynotificationcenter}/bin/swaync-client -D) == 'false' ]; then
-      ${pkgs.mpg123}/bin/mpg123 ${../assets/sounds/notifications.mp3};
+      ${pkgs.mpg123}/bin/mpg123 ${notification_audio};
     fi
   '';
 in

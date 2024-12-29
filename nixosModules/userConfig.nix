@@ -194,6 +194,13 @@ let
                 path to startup sound that hyprland play on startup
               '';
             };
+            notification_audio = lib.mkOption {
+              type = lib.types.path;
+              default = "${defaultSoundPath}/notifications.mp3";
+              description = ''
+                path to startup sound that hyprland play on notifications
+              '';
+            };
           };
         };
       };
