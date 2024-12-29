@@ -32,9 +32,9 @@
         "repo": "ginx"
       },
       "branch": "main",
-      "revision": "79a18ce5fc2266d3956f6456464e45e1a042aa6d",
-      "url": "https://github.com/didactiklabs/ginx/archive/79a18ce5fc2266d3956f6456464e45e1a042aa6d.tar.gz",
-      "hash": "0lnp04qv8nsxxjb574i5dv6dbb6r9hq5c5whw512v71hnhissgb3"
+      "revision": "10bc73002e781a1352315894ca72528702091a37",
+      "url": "https://github.com/didactiklabs/ginx/archive/10bc73002e781a1352315894ca72528702091a37.tar.gz",
+      "hash": "1ih02ahrm9zi265zwwn16z1grixysjvdvym3gc6czss0rccjxmi2"
     },
     "goji": {
       "type": "Git",
@@ -56,9 +56,9 @@
         "repo": "home-manager"
       },
       "branch": "release-24.11",
-      "revision": "80b0fdf483c5d1cb75aaad909bd390d48673857f",
-      "url": "https://github.com/nix-community/home-manager/archive/80b0fdf483c5d1cb75aaad909bd390d48673857f.tar.gz",
-      "hash": "0b41b251gxbrfrqplp2dkxv00x8ls5x5b3n5izs4nxkcbhkjjadz"
+      "revision": "613691f285dad87694c2ba1c9e6298d04736292d",
+      "url": "https://github.com/nix-community/home-manager/archive/613691f285dad87694c2ba1c9e6298d04736292d.tar.gz",
+      "hash": "1lvws93d1hq36lf1j1cfq6lzh1cgjrad8jhjw7vr987my5cfv450"
     },
     "kl": {
       "type": "GitRelease",
@@ -83,9 +83,9 @@
         "repo": "nixpkgs"
       },
       "branch": "nixos-24.11",
-      "revision": "4005c3ff7505313cbc21081776ad0ce5dfd7a3ce",
-      "url": "https://github.com/NixOS/nixpkgs/archive/4005c3ff7505313cbc21081776ad0ce5dfd7a3ce.tar.gz",
-      "hash": "01mh1hx90ajvm2pk70r0yfj6j02cza841w0jk8dw26bapl32702l"
+      "revision": "d49da4c08359e3c39c4e27c74ac7ac9b70085966",
+      "url": "https://github.com/NixOS/nixpkgs/archive/d49da4c08359e3c39c4e27c74ac7ac9b70085966.tar.gz",
+      "hash": "02g0ivn1nd8kpzrfc4lpzjbrcixi3p8iysshnrdy46pnwnjmf1rj"
     },
     "nixpkgs-unstable": {
       "type": "Git",
@@ -95,9 +95,9 @@
         "repo": "nixpkgs"
       },
       "branch": "nixos-unstable",
-      "revision": "d70bd19e0a38ad4790d3913bf08fcbfc9eeca507",
-      "url": "https://github.com/NixOS/nixpkgs/archive/d70bd19e0a38ad4790d3913bf08fcbfc9eeca507.tar.gz",
-      "hash": "1968wcqnb5gb947js0kv17hy15nc5817ra66nj33nc532d342ig0"
+      "revision": "634fd46801442d760e09493a794c4f15db2d0cbb",
+      "url": "https://github.com/NixOS/nixpkgs/archive/634fd46801442d760e09493a794c4f15db2d0cbb.tar.gz",
+      "hash": "0lr38mngan7rwbr63xzz22zqnb2ciys02adc3c5mnvmy9q1mr19m"
     },
     "nixvim": {
       "type": "Git",
@@ -107,9 +107,9 @@
         "repo": "nixvim"
       },
       "branch": "nixos-24.11",
-      "revision": "334947672f1eb05488e69657b9c412230bd658b4",
-      "url": "https://github.com/nix-community/nixvim/archive/334947672f1eb05488e69657b9c412230bd658b4.tar.gz",
-      "hash": "1g481300friyp31ywyddd6j04x1g5l37s0rqb7wkr9g3rcnpiamr"
+      "revision": "c8fa65c6ac35dba157de0873d645ab398c370123",
+      "url": "https://github.com/nix-community/nixvim/archive/c8fa65c6ac35dba157de0873d645ab398c370123.tar.gz",
+      "hash": "10b6brw5lcv38w6qap9pb2kazj8nf6hgzxxnkf0xy46lnc1kkjnx"
     },
     "rofi": {
       "type": "Git",

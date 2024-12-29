@@ -45,7 +45,7 @@ in
                 criteria = "eDP-1";
                 position = "3000,0";
                 mode = "1920x1080@60.033Hz";
-                scale = 1.0;
+                scale = 2.0;
               }
               {
                 criteria = "DP-6";
