@@ -70,6 +70,14 @@ in
         let g:neovide_scale_factor = 0.8
         let g:neovide_fullscreen = v:false
       '';
+      keymaps = [
+        {
+          mode = "n";
+          key = "<leader>ca";
+          action = ":lua vim.lsp.buf.code_action()<CR>";
+          options.silent = true;
+        }
+      ];
     };
   };
 

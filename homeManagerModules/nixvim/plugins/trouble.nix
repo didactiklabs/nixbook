@@ -1,4 +1,8 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  ...
+}:
 let
   cfg = config.customHomeManagerModules;
 in
@@ -9,13 +13,13 @@ in
         {
           mode = "n";
           key = "<leader>t";
-          action = ":TroubleToggle<CR>";
+          action = ":Trouble diagnostics toggle<CR>";
           options.silent = true;
         }
         {
           mode = "n";
           key = "<leader>y";
-          action = ":Trouble<CR>";
+          action = ":Trouble diagnostics focus<CR>";
           options.silent = true;
         }
       ];
