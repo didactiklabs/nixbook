@@ -31,7 +31,7 @@ let
   ginx = import ./customPkgs/ginx.nix { inherit pkgs; };
   osupdate = pkgs.writeShellScriptBin "osupdate" ''
     set -euo pipefail
-    ${ginx} --source https://github.com/didactiklabs/nixbook -b main --now -- ${pkgs.colmena}/bin/colmena apply-local --sudo
+    ${ginx}/bin/ginx --source https://github.com/didactiklabs/nixbook -b main --now -- ${pkgs.colmena}/bin/colmena apply-local --sudo
     nix-collect-garbage --delete-older-than 30d
   '';
 in
