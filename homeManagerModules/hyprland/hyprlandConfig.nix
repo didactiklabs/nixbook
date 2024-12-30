@@ -127,7 +127,6 @@ in
           ];
         };
         layerrule = [
-          "blur,waybar"
           "blur,rofi"
           "dimaround,rofi"
         ];
@@ -223,6 +222,7 @@ in
             "$mod, A, killactive"
             ", PRINT, exec, ${grimshot} --notify copy area"
             "$mod, N, exec, ${pkgs.swaynotificationcenter}/bin/swaync-client -t"
+            "$mod, B, exec, ${pkgs.toybox}/bin/pkill -SIGUSR1 'waybar'"
 
             ",XF86MonBrightnessDown, exec, ${brightnessctl} set 10%-"
             ",XF86MonBrightnessUp, exec, ${brightnessctl} set +10%"
