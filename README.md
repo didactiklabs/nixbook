@@ -62,6 +62,12 @@ To update:
 ginx --source https://github.com/didactiklabs/nixbook -b main --now -- colmena apply-local --sudo
 ```
 
+or run the alias, effectively doing the same:
+
+```bash
+osupdate
+```
+
 Profile selected is based on the output of `hostname`.
 
 </p>
