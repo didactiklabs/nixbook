@@ -5,6 +5,7 @@ in
 {
   config = lib.mkIf cfg.hyprlandConfig.enable {
     wayland.windowManager.hyprland.settings = {
+      decoration.blur.passes = lib.mkForce 3;
       monitor = lib.mkForce [
         ",preferred,auto,1"
         "eDP-1,preferred,3000x0,1.666667"
