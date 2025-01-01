@@ -32,7 +32,7 @@ let
   osupdate = pkgs.writeShellScriptBin "osupdate" ''
     set -euo pipefail
     echo last applied revisions: $(${pkgs.jq}/bin/jq .rev /etc/nixos/version)
-    echo applying revision: $(${pkgs.git}/bin/git ls-remote https://github.com/didactiklabs/nixbook HEAD | awk '{print $1}')...
+    echo applying revision: "$(${pkgs.git}/bin/git ls-remote https://github.com/didactiklabs/nixbook HEAD | awk '{print $1}')"...
 
     echo Running ginx...
     ${ginx}/bin/ginx --source https://github.com/didactiklabs/nixbook -b main --now -- ${pkgs.colmena}/bin/colmena apply-local --sudo
@@ -81,8 +81,35 @@ let
   };
 in
 {
-  environment.etc = {
-    "nixos/version".source = pkgs.writeText "projectGit.json" jsonFile;
+  environment = {
+    etc = {
+      "nixos/version".source = pkgs.writeText "projectGit.json" jsonFile;
+    };
+    systemPackages = with pkgs; [
+      # global
+      ginx
+      osupdate
+      efibootmgr
+      colmena
+      npins
+      tailscale
+      update-systemd-resolved
+      gnupg
+      pinentry-tty
+      # usb mount auto
+      usbutils
+      udiskie
+      udisks
+      # yubikey
+      yubico-piv-tool
+      yubico-pam
+      yubioath-flutter
+      yubikey-personalization
+      yubikey-manager-qt
+    ];
+    variables = {
+      NIXOS_OZONE_WL = "1";
+    };
   };
 
   imports = [
@@ -278,33 +305,6 @@ in
       enable = true;
       enableSSHSupport = true; # yubikey ssh
       pinentryPackage = pkgs.pinentry-tty;
-    };
-  };
-  environment = {
-    systemPackages = with pkgs; [
-      # global
-      ginx
-      osupdate
-      efibootmgr
-      colmena
-      npins
-      tailscale
-      update-systemd-resolved
-      gnupg
-      pinentry-tty
-      # usb mount auto
-      usbutils
-      udiskie
-      udisks
-      # yubikey
-      yubico-piv-tool
-      yubico-pam
-      yubioath-flutter
-      yubikey-personalization
-      yubikey-manager-qt
-    ];
-    variables = {
-      NIXOS_OZONE_WL = "1";
     };
   };
   system.stateVersion = "24.05";
