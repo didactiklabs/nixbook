@@ -33,8 +33,13 @@ let
     set -euo pipefail
     ${ginx}/bin/ginx --source https://github.com/didactiklabs/nixbook -b main --now -- ${pkgs.colmena}/bin/colmena apply-local --sudo
   '';
+  projectGit = builtins.fetchGit ./.;
 in
 {
+  environment.etc = {
+    "nixbook/revision".text = "${projectGit.rev}";
+  };
+
   imports = [
     /etc/nixos/hardware-configuration.nix
     ./nixosModules/caCertificates.nix
