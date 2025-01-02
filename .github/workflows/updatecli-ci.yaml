@@ -28,6 +28,7 @@ jobs:
         with:
           nix_path: nixpkgs=${{ env.url }}
           extra_nix_config: |
+            fallback = true
             trusted-public-keys = didactiklabs-nixcache:PxLKN0+ZkP07M8g8/B6xbP6A4MYpqQg6LH7V3muiy/0= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
             substituters = https://s3.didactiklabs.io/nix-cache https://cache.nixos.org/
       - name: Run Updatecli in apply mode
