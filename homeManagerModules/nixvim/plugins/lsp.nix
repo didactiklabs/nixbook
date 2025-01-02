@@ -49,8 +49,8 @@ in
             csharp_ls.enable = true;
             cssls.enable = true;
             dagger.enable = true;
-            nixd.enable = true;
-            nil_ls.enable = true;
+            # nixd.enable = true;
+            # nil_ls.enable = true;
             yamlls.enable = true;
             gopls.enable = true;
             golangci_lint_ls.enable = true;

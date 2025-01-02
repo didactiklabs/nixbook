@@ -284,6 +284,10 @@ in
       dates = [ "03:45" ];
     };
     settings = {
+      trusted-users = [
+        "root"
+        "@wheel"
+      ];
       nix-path = [
         "nixpkgs=${sources.nixpkgs}"
         "home-manager=${sources.home-manager}"
