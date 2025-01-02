@@ -1,4 +1,8 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  ...
+}:
 let
   cfg = config.customHomeManagerModules;
 in
@@ -8,7 +12,7 @@ in
       trim = {
         enable = true; # This plugin trims trailing whitespace and lines.
         settings = {
-          highlight = true;
+          # highlight = true;
           trim_on_write = true;
           ft_blocklist = [
             "checkhealth"

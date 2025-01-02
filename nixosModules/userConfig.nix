@@ -67,7 +67,7 @@ let
       programs.zsh.enable = true;
       users.users."${username}" = {
         shell = pkgs.zsh;
-        extraGroups = mergedConfig.extraGroups;
+        inherit (mergedConfig) extraGroups;
         isNormalUser = true;
         description = "${username}";
       };
@@ -88,7 +88,7 @@ let
               gnome-keyring.enable = true;
             };
             dconf.settings."org/gnome/desktop/interface".font-name = lib.mkForce "Hack Nerd Font";
-            customHomeManagerModules = mergedConfig.customHomeManagerModules;
+            inherit (mergedConfig) customHomeManagerModules;
             ## https://nix-community.github.io/home-manager/options.html#opt-services.gnome-keyring.enable
             systemd.user.services.polkit-gnome = {
               Unit = {

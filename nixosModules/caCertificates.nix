@@ -42,8 +42,12 @@ in
         source = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
         mode = "0644";
       };
-      "ssl/certs/didactiklabs-ca.crt" = {
+      "ssl/certs/didactiklabs-ca.crt" = lib.mkIf cfg.caCertificates.didactiklabs.enable {
         source = ../assets/certs/didactiklabs-ca.crt;
+        mode = "0644";
+      };
+      "ssl/certs/bealv-ca.crt" = lib.mkIf cfg.caCertificates.bealv.enable {
+        source = ../assets/certs/bealv-ca.crt;
         mode = "0644";
       };
     };
