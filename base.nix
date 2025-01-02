@@ -111,7 +111,6 @@ in
       NIXOS_OZONE_WL = "1";
     };
   };
-
   imports = [
     /etc/nixos/hardware-configuration.nix
     ./nixosModules/caCertificates.nix
