@@ -150,6 +150,7 @@ let
               ../homeManagerModules/hyprland
               ../homeManagerModules/vscode
               ../homeManagerModules/kittyConfig.nix
+              # ../homeManagerModules/ghosttyConfig.nix
               ../homeManagerModules/zshConfig.nix
               ../homeManagerModules/fontConfig.nix
               ../homeManagerModules/gitConfig.nix

@@ -71,5 +71,7 @@
     nixvimConfig.enable = true;
     gojiConfig.enable = true;
     atuinConfig.didactiklabs.enable = true;
+    # ghosttyConfig.enable = true;
+    kittyConfig.enable = true;
   };
 }

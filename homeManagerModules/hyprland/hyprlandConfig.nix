@@ -8,7 +8,6 @@ let
   cfg = config.customHomeManagerModules;
   mainWallpaper = "${config.profileCustomization.mainWallpaper}";
   startup_audio = "${config.profileCustomization.startup_audio}";
-  terminal = "${pkgs.kitty}/bin/kitty";
   rofi-wayland = "${pkgs.rofi-wayland}/bin/rofi";
   rofiLauncherType = "${cfg.rofiConfig.launcher.type}";
   rofiLauncherStyle = "${cfg.rofiConfig.launcher.style}";
@@ -218,7 +217,6 @@ in
             "$mod SHIFT, up, hy3:movewindow, u"
             "$mod SHIFT, down, hy3:movewindow, d"
 
-            "$mod, RETURN, exec, ${terminal}"
             "$mod, A, killactive"
             ", PRINT, exec, ${grimshot} --notify copy area"
             "$mod, N, exec, ${pkgs.swaynotificationcenter}/bin/swaync-client -t"

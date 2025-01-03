@@ -55,5 +55,6 @@ in
     fastfetchConfig.enable = true;
     waybar.enable = true;
     atuinConfig.didactiklabs.enable = true;
+    kittyConfig.enable = true;
   };
 }
