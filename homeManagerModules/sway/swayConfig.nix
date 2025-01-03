@@ -10,7 +10,6 @@ let
   lockWallpaper = "${config.profileCustomization.lockWallpaper}";
   swaylock = "${pkgs.swaylock}/bin/swaylock";
   swaymsg = "${pkgs.sway}/bin/swaymsg";
-  terminal = "${pkgs.kitty}/bin/kitty";
   waybar = "${pkgs.waybar}/bin/waybar";
   rofi-wayland = "${pkgs.rofi-wayland}/bin/rofi";
   rofiLauncherType = "${cfg.rofiConfig.launcher.type}";
@@ -139,7 +138,6 @@ in
           border = 2;
         };
         defaultWorkspace = "${workspace1}";
-        terminal = "${terminal}";
         input = {
           "type:keyboard" = {
             xkb_numlock = "enabled";
@@ -291,7 +289,6 @@ in
 
         keybindings = lib.filterAttrsRecursive (name: value: value != null) {
           #lib.mkOptionDefault {
-          "${mod}+Return" = "exec ${terminal}";
           # Focus
           "${mod}+Left" = "focus left";
           "${mod}+Down" = "focus down";
@@ -377,7 +374,8 @@ in
           "${modeSystem}" = {
             "l" = ''exec --no-startup-id ${swaylock} --color '${colorDarkGrey}', mode "default"'';
             "e" = ''exec --no-startup-id ${swaymsg} exit, mode "default"'';
-            "s" = ''exec --no-startup-id ${swaylock} --color '${colorDarkGrey}' && sleep 1 && ${systemctl} suspend, mode "default"'';
+            "s" =
+              ''exec --no-startup-id ${swaylock} --color '${colorDarkGrey}' && sleep 1 && ${systemctl} suspend, mode "default"'';
             "h" = ''exec --no-startup-id ${systemctl} hibernate, mode "default"'';
             "r" = ''exec --no-startup-id ${systemctl} reboot, mode "default"'';
             "Shift+s" = ''exec --no-startup-id ${systemctl} poweroff -i, mode "default"'';

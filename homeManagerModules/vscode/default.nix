@@ -81,7 +81,6 @@ in
           };
         };
         "terminal.integrated.defaultProfile.linux" = "zsh";
-        "terminal.external.linuxExec" = "kitty";
         "terminal.integrated.fontFamily" =
           lib.mkOverride 3000 "'Hack Nerd Font', 'Ubuntu Mono', 'Cascadia Mono', 'DejaVu Sans Mono', 'Font Awesome 5 Brands', 'Font Awesome 5 Free', 'Font Awesome 5 Free Solid'";
         "terminal.integrated.fontWeight" = "bold";

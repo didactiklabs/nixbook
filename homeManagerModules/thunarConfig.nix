@@ -23,10 +23,5 @@ in
       pkgs.gparted
       pkgs.file-roller
     ];
-    home.file = {
-      ".config/xfce4/helpers.rc".text = ''
-        TerminalEmulator=kitty
-      '';
-    };
   };
 }

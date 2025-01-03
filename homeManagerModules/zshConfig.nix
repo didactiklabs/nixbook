@@ -129,7 +129,6 @@ in
         };
         initExtra = ''
           any-nix-shell zsh --info-right | source /dev/stdin
-          [[ "$TERM" == "xterm-kitty" ]] && alias ssh="TERM=xterm-256color ssh"
         '';
         oh-my-zsh = {
           enable = true;
