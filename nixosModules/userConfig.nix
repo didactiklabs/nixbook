@@ -169,6 +169,7 @@ let
               ../homeManagerModules/scripts
               ../homeManagerModules/swayncConfig.nix
               ../homeManagerModules/goji.nix
+              ../homeManagerModules/atuinConfig.nix
             ]
             userImports
           ];

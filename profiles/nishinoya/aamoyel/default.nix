@@ -59,5 +59,6 @@
     waybar.enable = true;
     nixvimConfig.enable = true;
     gojiConfig.enable = true;
+    atuinConfig.didactiklabs.enable = true;
   };
 }
