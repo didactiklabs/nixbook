@@ -113,6 +113,10 @@ in
     networkManager.enable = true;
     sunshine.enable = true;
     sway.enable = true;
+    caCertificates = {
+      bealv.enable = true;
+      didactiklabs.enable = true;
+    };
   };
   nix = {
     settings = {
