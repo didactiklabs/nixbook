@@ -120,6 +120,7 @@ in
     ./nixosModules/hyprland.nix
     ./nixosModules/printTools.nix
     ./nixosModules/workTools.nix
+    ./nixosModules/tailscale-fix.nix
     (import ./nixosModules/networkManager.nix { inherit lib config pkgs; })
     (import ./nixosModules/sunshine.nix { inherit lib config pkgs; })
     (import "${sources.home-manager}/nixos")
