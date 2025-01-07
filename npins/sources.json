@@ -20,9 +20,9 @@
         "repo": "ginx"
       },
       "branch": "main",
-      "revision": "f6af92385cbe3bdf01519bb151b0214e37ec56c7",
-      "url": "https://github.com/didactiklabs/ginx/archive/f6af92385cbe3bdf01519bb151b0214e37ec56c7.tar.gz",
-      "hash": "1jmbmnk1hysq8hzk2f26vlijynxxfz21hifj6m9zfg5njwk9j2rm"
+      "revision": "bc70df214a390bb09880e1339b8cfb560b031295",
+      "url": "https://github.com/didactiklabs/ginx/archive/bc70df214a390bb09880e1339b8cfb560b031295.tar.gz",
+      "hash": "0ijklirgqi4ycyhvxzlkl2ajjvy2an2kkf1dxx5xmsays0jvc7kf"
     },
     "goji": {
       "type": "Git",
