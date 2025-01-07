@@ -221,7 +221,12 @@ in
       pulse.enable = true;
     };
     tailscale.enable = true;
-    resolved.enable = true;
+    resolved = {
+      enable = true;
+      extraConfig = ''
+        Cache=no
+      '';
+    };
   };
   xdg = {
     portal.enable = true;
