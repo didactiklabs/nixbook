@@ -50,6 +50,7 @@ in
     # workTools
     environment = {
       systemPackages = with pkgs; [
+        cobra-cli
         minio-client
         kind
         python3
