@@ -96,7 +96,7 @@ in
           rounding = 10;
           active_opacity = 0.85;
           inactive_opacity = 0.85;
-          dim_inactive = true;
+          dim_inactive = false;
           dim_strength = 0.2;
           blur = {
             enabled = true;
