@@ -12,7 +12,7 @@ concurrency:
 jobs:
   pre_job:
     # continue-on-error: true # Uncomment once integration is finished
-    runs-on: ubuntu-latest
+    runs-on: didactiklabs-runners
     # Map a step output to a job output
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
