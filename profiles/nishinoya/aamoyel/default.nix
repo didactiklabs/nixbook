@@ -9,6 +9,7 @@
     # pkgs.jellyfin-mpv-shim
     # pkgs.nextcloud-client
     pkgs.moonlight-qt
+    pkgs.google-chrome
   ];
   profileCustomization = {
     mainWallpaper =
