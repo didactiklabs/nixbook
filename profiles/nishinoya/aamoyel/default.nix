@@ -10,6 +10,7 @@
     # pkgs.nextcloud-client
     pkgs.moonlight-qt
     pkgs.google-chrome
+    pkgs.mattermost-desktop
   ];
   profileCustomization = {
     mainWallpaper =
