@@ -1,4 +1,8 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  ...
+}:
 let
   cfg = config.customHomeManagerModules.gitConfig;
 in
@@ -10,6 +14,12 @@ in
       signing = {
         signByDefault = lib.mkForce true;
       };
+      includes = [
+        {
+          condition = "gitdir:~/go/src/kubolabs/";
+          path = "~/go/src/kubolabs/.gitconfig";
+        }
+      ];
     };
   };
 }
