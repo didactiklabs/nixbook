@@ -3,11 +3,8 @@
   lib,
   ...
 }:
-let
-  cfg = config.customHomeManagerModules.gitConfig;
-in
 {
-  config = lib.mkIf cfg.enable {
+  config = {
     programs.ssh = {
       matchBlocks = {
         "gitlab.com" = {
