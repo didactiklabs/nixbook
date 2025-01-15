@@ -43,5 +43,6 @@ in
       username = "aamoyel";
       userImports = [ ./aamoyel ];
     })
+    ./extraConfigs.nix
   ];
 }
