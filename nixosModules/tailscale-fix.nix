@@ -12,7 +12,7 @@ let
       exit 1
     fi
 
-    tailnet_name=$(echo "$selected_tailnet" | awk '{gsub("\\*", "", $3); print $3}')
+    tailnet_name=$(echo "$selected_tailnet" | awk '{gsub("\\*", "", $2); print $2}')
     echo "$tailnet_name"
     echo "Switching to Tailnet: $tailnet_name..."
 
