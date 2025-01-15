@@ -79,6 +79,11 @@ let
         }
         .lastModifiedDate;
   };
+  extraConfig =
+    if builtins.pathExists /etc/nixos/extraConfiguration.nix then
+      [ /etc/nixos/extraConfiguration.nix ]
+    else
+      [ ];
 in
 {
   environment = {
@@ -125,7 +130,7 @@ in
     (import ./nixosModules/sunshine.nix { inherit lib config pkgs; })
     (import "${sources.home-manager}/nixos")
     hostProfile
-  ];
+  ] ++ extraConfig;
   # Bootloader.
   boot = {
     kernelModules = [
