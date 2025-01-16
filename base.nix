@@ -110,7 +110,6 @@ in
       yubico-pam
       yubioath-flutter
       yubikey-personalization
-      yubikey-manager-qt
     ];
     variables = {
       NIXOS_OZONE_WL = "1";
