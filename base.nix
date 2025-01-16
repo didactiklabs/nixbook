@@ -37,48 +37,6 @@ let
     echo Running ginx...
     ${ginx}/bin/ginx --source https://github.com/didactiklabs/nixbook -b main --now -- ${pkgs.colmena}/bin/colmena apply-local --sudo
   '';
-  jsonFile = builtins.toJSON {
-    url = builtins.readFile (
-      pkgs.runCommand "getRemoteUrl" { buildInputs = [ pkgs.git ]; } ''
-        if [ -d ${./.git} ]; then
-          grep -oP '(?<=url = ).*' ${./.git/config} | tr -d '\n' > $out;
-        else
-          echo "no remote URL" | tr -d '\n' > $out;
-        fi
-      ''
-    );
-    branch = builtins.readFile (
-      pkgs.runCommand "getBranch" { buildInputs = [ pkgs.git ]; } ''
-        if [ -d ${./.git} ]; then
-          cat ${./.git/HEAD} | awk '{print $2}' | tr -d '\n' > $out;
-        else
-          echo "unknown" | tr -d '\n' > $out;
-        fi
-      ''
-    );
-    rev =
-      if builtins.pathExists ./.git then
-        let
-          gitRepo = builtins.fetchGit ./.; # Fetch the Git repository
-        in
-        gitRepo.rev # Access the 'rev' attribute directly
-      else
-        {
-          rev = "unknown"; # Default value when there's no .git directory
-        }
-        .rev;
-    lastModifiedDate =
-      if builtins.pathExists ./.git then
-        let
-          gitRepo = builtins.fetchGit ./.; # Fetch the Git repository
-        in
-        gitRepo.lastModifiedDate
-      else
-        {
-          lastModifiedDate = "unknown";
-        }
-        .lastModifiedDate;
-  };
   extraConfig =
     if builtins.pathExists /etc/nixos/extraConfiguration.nix then
       [ /etc/nixos/extraConfiguration.nix ]
@@ -87,9 +45,6 @@ let
 in
 {
   environment = {
-    etc = {
-      "nixos/version".source = pkgs.writeText "projectGit.json" jsonFile;
-    };
     systemPackages = with pkgs; [
       # global
       ginx
@@ -125,6 +80,7 @@ in
     ./nixosModules/printTools.nix
     ./nixosModules/workTools.nix
     ./nixosModules/tailscale-fix.nix
+    ./nixosModules/getRevision.nix
     (import ./nixosModules/networkManager.nix { inherit lib config pkgs; })
     (import ./nixosModules/sunshine.nix { inherit lib config pkgs; })
     (import "${sources.home-manager}/nixos")
