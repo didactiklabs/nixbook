@@ -12,7 +12,7 @@
   ];
   home.packages = [
     pkgs.moonlight-qt
-    pkgs.ankama-launcher
+    pkgs.keyguard
   ];
   programs.go = {
     enable = true;
