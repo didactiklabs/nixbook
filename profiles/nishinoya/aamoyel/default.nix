@@ -12,6 +12,7 @@
     pkgs.moonlight-qt
     pkgs.google-chrome
     pkgs.mattermost-desktop
+    pkgs.bitwarden-desktop
   ];
   profileCustomization = {
     mainWallpaper =
