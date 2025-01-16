@@ -11,6 +11,50 @@ let
   rofiLauncherType = "${cfg.rofiConfig.launcher.type}";
   rofiLauncherStyle = "${cfg.rofiConfig.launcher.style}";
   rofiPowermenuStyle = "${cfg.rofiConfig.powermenu.style}";
+  tsWaybar = pkgs.writeShellScriptBin "tswaybar" ''
+      export PATH="$PATH:${
+        lib.makeBinPath (
+          with pkgs;
+          [
+            tailscale
+            jq
+          ]
+        )
+      }"
+    STATUS_KEY="BackendState"
+    RUNNING="Running"
+    tailscale_status () {
+        status="$(tailscale status --json | jq -r '.'$STATUS_KEY)"
+        if [ "$status" = $RUNNING ]; then
+            return 0
+        fi
+        return 1
+    }
+
+    toggle_status () {
+        if tailscale_status; then
+            tailscale down
+        else
+            tailscale up
+        fi
+        sleep 5
+    }
+    tailnet=$(tailscale switch --list | grep '*' | awk '{print $2}')
+    case $1 in
+        --status)
+            if tailscale_status; then
+                #TODO: find a way to format output
+                peers=$(echo "$(tailscale status)" | tr -d "\n")
+                printf "{\"text\":\"%s\",\"class\":\"connected\",\"alt\":\"connected\", \"tooltip\": \"%s\"}\n" "$tailnet" "$peers"
+            else
+                printf "{\"text\":\"%s\",\"class\":\"stopped\",\"alt\":\"stopped\"}\n" "$tailnet"
+            fi
+        ;;
+        --toggle)
+            toggle_status
+        ;;
+    esac
+  '';
 in
 {
   options.customHomeManagerModules.waybar = {
@@ -45,6 +89,7 @@ in
           ];
           modules-right = [
             #"custom/hyprbindings"
+            "custom/tailscale"
             "cpu"
             "memory"
             "battery"
@@ -53,7 +98,15 @@ in
             "custom/exit"
             "clock"
           ];
-
+          "custom/tailscale" = {
+            exec = "${tsWaybar}/bin/tswaybar --status";
+            exec-if = "${pkgs.procps}/bin/pgrep tailscaled";
+            on-click = "exec ${tsWaybar}/bin/tswaybar --toggle";
+            tooltip = true;
+            interval = 3;
+            format = "{}";
+            return-type = "json";
+          };
           "hyprland/workspaces" = {
             format = "{name}";
             format-icons = {
@@ -311,11 +364,11 @@ in
             background: #${config.stylix.base16Scheme.base04};
             border-radius: 24px 10px 24px 10px;
           }
-          #custom-spotify.Playing {
+          #custom-tailscale.connected, #custom-spotify.Playing {
             background: #77DD77;
             color: #FFFFFF;
           }
-          #custom-spotify:hover, #pulseaudio:hover, #idle_inhibitor:hover, #custom-startmenu:hover,
+          #custom-tailscale:hover, #custom-spotify:hover, #pulseaudio:hover, #idle_inhibitor:hover, #custom-startmenu:hover,
           #custom-notification:hover, #custom-exit:hover, #custom-hyprbindings:hover{
             transition: ${betterTransition};
             opacity: 0.8;
@@ -323,7 +376,7 @@ in
           #idle_inhibitor.activated {
             background-color: #1DB954;
           }
-          #custom-spotify.Paused {
+          #custom-tailscale.stopped, #custom-spotify.Paused {
             background: #FF6961;
             color: #FFFFFF;
           }
@@ -336,7 +389,7 @@ in
             border-radius: 0px 0px 40px 0px;
           }
           #custom-hyprbindings, #network, #battery,
-          #custom-notification, #tray, #custom-exit, #cpu, #memory {
+          #custom-notification, #tray, #custom-exit, #cpu, #memory, #custom-tailscale {
             font-weight: bold;
             background: #${config.stylix.base16Scheme.base0F};
             color: #${config.stylix.base16Scheme.base00};
