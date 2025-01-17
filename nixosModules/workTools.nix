@@ -68,6 +68,8 @@ in
         podman
         podman-compose
         google-cloud-sdk
+        openapi-tui
+        openapi-generator-cli
       ];
     };
   };
