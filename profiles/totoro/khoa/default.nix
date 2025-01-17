@@ -12,7 +12,6 @@
   ];
   home.packages = [
     pkgs.moonlight-qt
-    pkgs.keyguard
   ];
   programs.go = {
     enable = true;
