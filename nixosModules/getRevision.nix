@@ -2,10 +2,10 @@
 let
   jsonFile = builtins.toJSON {
     url =
-      if builtins.pathExists ./.git then
+      if builtins.pathExists ../.git then
         builtins.readFile (
           pkgs.runCommand "getRemoteUrl" { buildInputs = [ pkgs.git ]; } ''
-            grep -oP '(?<=url = ).*' ${./.git/config} | tr -d '\n' > $out;
+            grep -oP '(?<=url = ).*' ${../.git/config} | tr -d '\n' > $out;
           ''
         )
       else
@@ -13,18 +13,18 @@ let
           url = "unknown";
         };
     branch =
-      if builtins.pathExists ./.git then
+      if builtins.pathExists ../.git then
         builtins.readFile (
           pkgs.runCommand "getBranch" { buildInputs = [ pkgs.git ]; } ''
-            cat ${./.git/HEAD} | awk '{print $2}' | tr -d '\n' > $out;
+            cat ${../.git/HEAD} | awk '{print $2}' | tr -d '\n' > $out;
           ''
         )
       else
         { branch = "unknown"; };
     rev =
-      if builtins.pathExists ./.git then
+      if builtins.pathExists ../.git then
         let
-          gitRepo = builtins.fetchGit ./.; # Fetch the Git repository
+          gitRepo = builtins.fetchGit ../.; # Fetch the Git repository
         in
         gitRepo.rev # Access the 'rev' attribute directly
       else
@@ -33,9 +33,9 @@ let
         }
         .rev;
     lastModifiedDate =
-      if builtins.pathExists ./.git then
+      if builtins.pathExists ../.git then
         let
-          gitRepo = builtins.fetchGit ./.; # Fetch the Git repository
+          gitRepo = builtins.fetchGit ../.; # Fetch the Git repository
         in
         gitRepo.lastModifiedDate
       else
