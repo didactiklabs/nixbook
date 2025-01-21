@@ -143,7 +143,7 @@ let
         confirm: false
         args:
           - -c
-          - "virtctl console $COL-NAME -n $NAMESPACE"
+          - "virtctl ssh --local-ssh $COL-NAME -n $NAMESPACE"
       kl:
         shortCut: Shift-L
         description: Logs with kl
