@@ -133,8 +133,8 @@ let
           - -c
           - "kubectl get $RESOURCE_NAME $COL-NAME -n $NAMESPACE -o yaml | kubectl neat | vim"
       vmconsole:
-        shortCut: Shift-C
-        description: Enter VM console
+        shortCut: Shift-S
+        description: Connect by SSH to the VM
         dangerous: false
         scopes:
           - virtualmachines
