@@ -132,7 +132,7 @@ let
         args:
           - -c
           - "kubectl get $RESOURCE_NAME $COL-NAME -n $NAMESPACE -o yaml | kubectl neat | vim"
-      vmconsole:
+      vmssh:
         shortCut: Shift-S
         description: Connect by SSH to the VM
         dangerous: false
@@ -144,6 +144,18 @@ let
         args:
           - -c
           - "virtctl ssh --local-ssh $COL-NAME -n $NAMESPACE"
+      vmconsole:
+        shortCut: Shift-C
+        description: Enter VM console
+        dangerous: false
+        scopes:
+          - virtualmachines
+        command: bash
+        background: false
+        confirm: false
+        args:
+          - -c
+          - "virtctl console $COL-NAME -n $NAMESPACE"
       kl:
         shortCut: Shift-L
         description: Logs with kl
