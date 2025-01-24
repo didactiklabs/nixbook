@@ -56,6 +56,7 @@ in
       update-systemd-resolved
       gnupg
       pinentry-tty
+      wget
       # usb mount auto
       usbutils
       udiskie
