@@ -17,8 +17,8 @@ let
     src = pkgs.fetchFromGitHub {
       owner = "danielfoehrKn";
       repo = "kubeswitch";
-      rev = "master";
-      hash = "sha256-IQwGMa2q29r8Jn5e5ApngefBgksIQlf9Hut0CHn/yiU=";
+      rev = "1f26ecc0d544f6980c2626ae837732b0d5b3c9d4";
+      hash = "sha256-wUenvDg26pwGLgu8kSygh8dFOC3yTgj39avnxQZN/Tg=";
     };
   });
   kubeswitchConfig =
