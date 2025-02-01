@@ -29,6 +29,7 @@ in
   config = lib.mkIf cfg.enable {
     ## not sure why i have to enforce it to false :shrug:
     services = {
+      tlp.enable = true;
       power-profiles-daemon.enable = false;
       fwupd.enable = true;
       thermald.enable = true;
