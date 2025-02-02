@@ -28,7 +28,6 @@ in
       spotifyPackage = pkgs.spotify;
       spotifywmPackage = pkgs.spotifywm;
       windowManagerPatch = true;
-      spicetifyPackage = pkgs.spicetify-cli;
       enabledExtensions = with spicePkgs.extensions; [
         fullAppDisplay
         volumePercentage
