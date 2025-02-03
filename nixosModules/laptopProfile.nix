@@ -41,7 +41,6 @@ in
           START_CHARGE_THRESH_BATT = 75;
           STOP_CHARGE_THRESH_BATT = 80;
           RESTORE_THRESHOLDS_ON_BAT = 1;
-          DEVICES_TO_DISABLE_ON_STARTUP = "bluetooth wwan";
         };
       };
       power-profiles-daemon.enable = false;
