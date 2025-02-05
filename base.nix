@@ -271,8 +271,8 @@ in
     extraOptions = ''
       # Ensure we can still build when missing-server is not accessible
       fallback = true
-      min-free = ${toString (40960 * 1024 * 1024)}
-      max-free = ${toString (40960 * 1024 * 1024)}
+      min-free = ${toString (10240 * 1024 * 1024)}
+      max-free = ${toString (10240 * 1024 * 1024)}
     '';
   };
   programs = {
