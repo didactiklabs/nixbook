@@ -99,6 +99,21 @@
       "url": "https://github.com/nix-community/nixvim/archive/82440e1d4ed9d252d09c4cd9edc8c9ef23ce1f3a.tar.gz",
       "hash": "03ki8qml142yvc9hli3xm1mk88p1696vibw54cv43y37vpn32nm0"
     },
+    "pvmigrate": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "replicatedhq",
+        "repo": "pvmigrate"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": null,
+      "version": "v0.12.0",
+      "revision": "3e4fea5845599ce43893d1a7d89f298d9f4ee719",
+      "url": "https://api.github.com/repos/replicatedhq/pvmigrate/tarball/v0.12.0",
+      "hash": "0xyaw1871hvnihdssmhxhcnam4bcaxr5vn16g451rvifcs76rkiw"
+    },
     "rofi": {
       "type": "Git",
       "repository": {

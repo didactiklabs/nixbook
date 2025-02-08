@@ -35,6 +35,7 @@ let
   sources = import ../npins;
   pkgs-unstable = import sources.nixpkgs-unstable { };
   kl = import ../customPkgs/kl.nix { inherit pkgs; };
+  pvmigrate = import ../customPkgs/pvmigrate.nix { inherit pkgs; };
 in
 {
   options.customHomeManagerModules = {
@@ -82,6 +83,7 @@ in
       packages = with pkgs; [
         # clouds
         kl
+        pvmigrate
         kubectl-neat
         kubelogin-oidc
         dive
