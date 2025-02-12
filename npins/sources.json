@@ -95,9 +95,9 @@
         "repo": "nixvim"
       },
       "branch": "nixos-24.11",
-      "revision": "82440e1d4ed9d252d09c4cd9edc8c9ef23ce1f3a",
-      "url": "https://github.com/nix-community/nixvim/archive/82440e1d4ed9d252d09c4cd9edc8c9ef23ce1f3a.tar.gz",
-      "hash": "03ki8qml142yvc9hli3xm1mk88p1696vibw54cv43y37vpn32nm0"
+      "revision": "9f0cb35c26a7dbc0acce0658f73b08b2198487c6",
+      "url": "https://github.com/nix-community/nixvim/archive/9f0cb35c26a7dbc0acce0658f73b08b2198487c6.tar.gz",
+      "hash": "02alwxcf3ib4my966s65mgjrxgq6k9g13inbhzkmv2xc87pqg7gw"
     },
     "pvmigrate": {
       "type": "GitRelease",
