@@ -44,9 +44,9 @@
         "repo": "home-manager"
       },
       "branch": "release-24.11",
-      "revision": "bd65bc3cde04c16755955630b344bc9e35272c56",
-      "url": "https://github.com/nix-community/home-manager/archive/bd65bc3cde04c16755955630b344bc9e35272c56.tar.gz",
-      "hash": "15k41il0mvmwyv6jns4z8k6khhmb22jk5gpcqs1paym3l01g6abn"
+      "revision": "254d47082e23dbf72fdeca1da6fe1da420f478d8",
+      "url": "https://github.com/nix-community/home-manager/archive/254d47082e23dbf72fdeca1da6fe1da420f478d8.tar.gz",
+      "hash": "1dga3vsd60v9mfyhwgbil13mrchw5crbpgh4zjw9fghv1vyk89vq"
     },
     "kl": {
       "type": "GitRelease",
