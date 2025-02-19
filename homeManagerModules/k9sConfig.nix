@@ -238,6 +238,28 @@ let
         args:
           - -c
           - "flux resume kustomization -n $NAMESPACE $COL-NAME"
+      gitresume:
+        shortCut: r
+        confirm: true
+        description: "Fluxcd git resume"
+        scopes:
+          - gitrepositories
+        command: bash
+        background: false
+        args:
+          - -c
+          - "flux resume source git -n $NAMESPACE $COL-NAME"
+      gitsuspend:
+        shortCut: s
+        confirm: true
+        description: "Fluxcd git suspend"
+        scopes:
+          - gitrepositories
+        command: bash
+        background: false
+        args:
+          - -c
+          - "flux suspend source git -n $NAMESPACE $COL-NAME"
   '';
   didactiklabsConfYaml = ''
     k9s:
