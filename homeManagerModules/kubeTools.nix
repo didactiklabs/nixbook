@@ -13,14 +13,13 @@ let
         kubeconfigPath: '${homeDir}/.kube/configs/didactiklabs/oidc@didactiklabs.kubeconfig'
   '';
   kubeswitch = pkgs.kubeswitch.overrideAttrs (old: {
-    version = "master";
-    src = pkgs.fetchFromGitHub {
-      owner = "danielfoehrKn";
-      repo = "kubeswitch";
-      rev = "1f26ecc0d544f6980c2626ae837732b0d5b3c9d4";
-      hash = "sha256-wUenvDg26pwGLgu8kSygh8dFOC3yTgj39avnxQZN/Tg=";
-    };
+    src = sources.kubeswitch;
   });
+  k9s = pkgs.k9s.overrideAttrs (oldAttrs: {
+    src = sources.k9s;
+    vendorHash = "sha256-MOTDKPo433YU9mYg9olKSvbLqjIgmXI91593c1zXMVU=";
+  });
+
   kubeswitchConfig =
     ''
       kind: SwitchConfig
