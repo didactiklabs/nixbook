@@ -59,7 +59,7 @@ in
           lib.mkOverride 3000 "'Hack Nerd Font', 'Ubuntu Mono', 'Cascadia Mono', 'DejaVu Sans Mono', 'Font Awesome 5 Brands', 'Font Awesome 5 Free', 'Font Awesome 5 Free Solid'";
         "editor.fontLigatures" = true;
         "editor.fontWeight" = "bold";
-        "editor.formatOnSave" = true;
+        "editor.formatOnSave" = false;
         "editor.renderWhitespace" = "all";
         "editor.minimap.enabled" = false;
         "files.insertFinalNewline" = true;
@@ -92,7 +92,9 @@ in
         "explorer.openEditors.visible" = 1;
         "editor.occurrencesHighlight" = "singleFile";
         "workbench.iconTheme" = "material-icon-theme";
-        "workbench.colorTheme" = lib.mkOverride 3000 "Ayu Dark";
+        "workbench.colorTheme" = lib.mkForce "Dark Modern";
+        # Custom theme
+        #"workbench.colorTheme" = lib.mkOverride 3000 "Ayu Dark";
 
         ## bracket color stuff
         "editor.bracketPairColorization.enabled" = true;
