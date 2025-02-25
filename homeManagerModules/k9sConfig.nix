@@ -215,7 +215,7 @@ let
         background: false
         args:
           - -c
-          - "docker pull $COL-IMAGE && dive $COL-IMAGE --source=podman"
+          - "sou $COL-IMAGE"
       kustomizationsuspend:
         shortCut: s
         confirm: true
