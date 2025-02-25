@@ -34,6 +34,7 @@ let
   sources = import ../npins;
   pkgs-unstable = import sources.nixpkgs-unstable { };
   kl = import ../customPkgs/kl.nix { inherit pkgs; };
+  sou = import ../customPkgs/sou.nix { inherit pkgs; };
   pvmigrate = import ../customPkgs/pvmigrate.nix { inherit pkgs; };
 in
 {
@@ -86,6 +87,7 @@ in
         kubectl-neat
         kubelogin-oidc
         dive
+        sou
         pkgs-unstable.kcl
         pkgs-unstable.netfetch
         kubectl
