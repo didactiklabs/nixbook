@@ -168,5 +168,11 @@
       version = "1.27.0";
       sha256 = "sha256-09w/k1LlGYtyWWbVgoprJG/qB/zCuedF9Cu7kUXcNrE=";
     }
+	{
+	  name = "markdown-all-in-one";
+      publisher = "yzhang";
+      version = "3.6.2";
+      sha256 = "sha256-BIbgUkIuy8clq4G4x1Zd08M8k4u5ZPe80+z6fSAeLdk=";
+	}
   ];
 }
