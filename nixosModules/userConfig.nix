@@ -131,7 +131,10 @@ let
               stateVersion = "24.05";
               username = "${username}";
               homeDirectory = "/home/${username}";
-              sessionPath = [ "$HOME/go/bin" ];
+              sessionPath = [
+                "$HOME/go/bin"
+                "$HOME/.local/go/bin"
+              ];
               sessionVariables = {
                 YDOTOOL_SOCKET = "/run/ydotoold/socket";
                 NIXPKGS_ALLOW_UNFREE = 1;
