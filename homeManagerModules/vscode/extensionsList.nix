@@ -174,5 +174,11 @@
       version = "3.6.2";
       sha256 = "sha256-BIbgUkIuy8clq4G4x1Zd08M8k4u5ZPe80+z6fSAeLdk=";
 	}
+	{
+	  name = "excalidraw-editor";
+      publisher = "pomdtr";
+      version = "3.7.4";
+      sha256 = "sha256-hI+Qo8K+gLQuzKkaSq89D8vIxlYq9tMi31DgFiRzx0E=";
+	}
   ];
 }
