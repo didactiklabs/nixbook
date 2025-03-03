@@ -113,7 +113,7 @@ in
         "net.ipv4.conf.all.accept_source_route" = 0;
         "net.ipv4.conf.default.accept_source_route" = 0;
         "net.ipv4.conf.all.arp_filter" = 1;
-        "net.ipv4.conf.all.arp_ignore" = 2;
+        "net.ipv4.conf.all.arp_ignore" = 1;
         "net.ipv4.conf.default.rp_filter" = 1;
         "net.ipv4.conf.all.rp_filter" = 1;
         "net.ipv4.conf.default.send_redirects" = 0;
