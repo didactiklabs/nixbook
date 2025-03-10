@@ -56,9 +56,9 @@
         "repo": "k9s"
       },
       "branch": "master",
-      "revision": "4650c9aa5464ea3b921baaee645768a7172de691",
-      "url": "https://github.com/derailed/k9s/archive/4650c9aa5464ea3b921baaee645768a7172de691.tar.gz",
-      "hash": "1qnjb2z91i5647kzrbbi74jgnznla3hai13fsfby02x8i3hrlrcc"
+      "revision": "0320ba387b8ea03586f6253cad40cfe6f8bac088",
+      "url": "https://github.com/derailed/k9s/archive/0320ba387b8ea03586f6253cad40cfe6f8bac088.tar.gz",
+      "hash": "1gqm4g35pzw8vlf7nbqs1l26yzv7c2iax90cblxqhaq9rn3agpby"
     },
     "kl": {
       "type": "GitRelease",
