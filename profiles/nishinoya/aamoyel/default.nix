@@ -13,6 +13,9 @@
     pkgs.google-chrome
     pkgs.mattermost-desktop
     pkgs.bitwarden-desktop
+    (pkgs.google-cloud-sdk.withExtraComponents [
+      pkgs.google-cloud-sdk.components.gke-gcloud-auth-plugin
+    ])
   ];
   profileCustomization = {
     mainWallpaper =
