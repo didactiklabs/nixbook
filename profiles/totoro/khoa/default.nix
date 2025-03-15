@@ -12,6 +12,7 @@
   ];
   home.packages = [
     pkgs.moonlight-qt
+    pkgs.jellyfin-media-player
   ];
   programs.go = {
     enable = true;
