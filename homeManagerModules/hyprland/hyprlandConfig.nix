@@ -136,6 +136,7 @@ in
           "size 40% 60%, class:(com.github.hluk.copyq)"
           "opaque, class:(mpv)"
           "opaque, class:(imv)"
+          "opaque, class:(com.github.iwalton3.jellyfin-media-player)"
           "opaque, class:(com.moonlight_stream.Moonlight)"
           "opaque, title:(ranger)"
           "opaque, title:(.*)(Immich — Mozilla Firefox)"
