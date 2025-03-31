@@ -50,6 +50,7 @@ in
         pkgs.busybox
       ];
       wantedBy = [ "multi-user.target" ];
+      requires = [ "default.target" ];
       serviceConfig = {
         ExecStart = "${tailscale-fix-routes}/bin/tailscale-fix-routes";
         Restart = "always";
