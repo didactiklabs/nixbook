@@ -67,6 +67,7 @@ in
         nixos-generators
         podman
         podman-compose
+        regclient
         google-cloud-sdk
         openapi-generator-cli
       ];
