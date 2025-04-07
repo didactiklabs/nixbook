@@ -79,9 +79,16 @@ in
     ./nixosModules/sway.nix
     ./nixosModules/hyprland.nix
     ./nixosModules/printTools.nix
-    ./nixosModules/workTools.nix
     ./nixosModules/tailscale-fix.nix
     ./nixosModules/getRevision.nix
+    (import ./nixosModules/workTools.nix {
+      inherit
+        lib
+        config
+        pkgs
+        pkgs-unstable
+        ;
+    })
     (import ./nixosModules/networkManager.nix { inherit lib config pkgs; })
     (import ./nixosModules/sunshine.nix { inherit lib config pkgs; })
     (import "${sources.home-manager}/nixos")
