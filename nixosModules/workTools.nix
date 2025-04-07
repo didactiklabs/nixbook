@@ -1,6 +1,7 @@
 {
   config,
   pkgs,
+  pkgs-unstable,
   lib,
   ...
 }:
@@ -49,27 +50,30 @@ in
     };
     # workTools
     environment = {
-      systemPackages = with pkgs; [
-        cobra-cli
-        minio-client
-        kind
-        python3
-        nix-eval-jobs
-        dig
-        jq
-        yq-go
-        tig
-        unzip
-        gnumake
-        templ
-        tree
-        openvpn
-        nixos-generators
-        podman
-        podman-compose
-        google-cloud-sdk
-        openapi-generator-cli
-      ];
+      systemPackages =
+        (with pkgs; [
+          cobra-cli
+          minio-client
+          python3
+          nix-eval-jobs
+          dig
+          jq
+          yq-go
+          tig
+          unzip
+          gnumake
+          templ
+          tree
+          openvpn
+          nixos-generators
+          podman
+          podman-compose
+          google-cloud-sdk
+          openapi-generator-cli
+        ])
+        ++ (with pkgs-unstable; [
+          kind
+        ]);
     };
   };
 }
