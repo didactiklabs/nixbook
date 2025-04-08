@@ -73,14 +73,14 @@ in
         energy_performance_preference = "performance";
       };
     };
-    systemd.services.powertune = {
-      description = "Powertune.";
-      wantedBy = [ "default.target" ];
-      serviceConfig = {
-        ExecStart = "${powertune}/bin/powertune";
-        Restart = "on-failure";
-      };
-    };
+    # systemd.services.powertune = {
+    #   description = "Powertune.";
+    #   wantedBy = [ "default.target" ];
+    #   serviceConfig = {
+    #     ExecStart = "${powertune}/bin/powertune";
+    #     Restart = "on-failure";
+    #   };
+    # };
     environment.systemPackages = [
       powertune
       pkgs.powertop
