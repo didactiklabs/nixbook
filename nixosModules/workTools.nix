@@ -73,6 +73,7 @@ in
         ])
         ++ (with pkgs-unstable; [
           kind
+          sou
         ]);
     };
   };

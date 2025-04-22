@@ -150,18 +150,6 @@
       "url": "https://github.com/adi1090x/rofi/archive/2e0efe5054ac7eb502a585dd6b3575a65b80ce72.tar.gz",
       "hash": "0csvs6y7gxnq7i9ibfjy6crcbblh2nlnp1m14mysfrv06yhpnmjd"
     },
-    "sou": {
-      "type": "Git",
-      "repository": {
-        "type": "GitHub",
-        "owner": "knqyf263",
-        "repo": "sou"
-      },
-      "branch": "main",
-      "revision": "378cf9606fe23bdb47639e29a4fb525ed7645e09",
-      "url": "https://github.com/knqyf263/sou/archive/378cf9606fe23bdb47639e29a4fb525ed7645e09.tar.gz",
-      "hash": "1p5y6lwimm25yjqdy45yqm5zrnhb2w1qvvpan4gz2fmldsch4rmq"
-    },
     "spicetify-nix": {
       "type": "Git",
       "repository": {
