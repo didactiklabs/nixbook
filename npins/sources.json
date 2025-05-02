@@ -170,9 +170,9 @@
         "repo": "stylix"
       },
       "branch": "release-24.11",
-      "revision": "eb8366e23f7f4c779711965371c20da1279d9c20",
-      "url": "https://github.com/danth/stylix/archive/eb8366e23f7f4c779711965371c20da1279d9c20.tar.gz",
-      "hash": "1468nx5w1flqm0pixg8dv2zw3rpzy1qn7m2z0ga5wzdfi5yhay9i"
+      "revision": "20ace60f9cb5e179cb2256abaee505780df8e804",
+      "url": "https://github.com/danth/stylix/archive/20ace60f9cb5e179cb2256abaee505780df8e804.tar.gz",
+      "hash": "04kyxn8yvvg5yxaaqygn2dy201ykfbk4r5xfdcpla8jlla7dkjiv"
     },
     "ytui": {
       "type": "Git",
