@@ -158,9 +158,9 @@
         "repo": "spicetify-nix"
       },
       "branch": "master",
-      "revision": "a2bc0d49449fc61ca2eb364d6189179059394483",
-      "url": "https://github.com/Gerg-L/spicetify-nix/archive/a2bc0d49449fc61ca2eb364d6189179059394483.tar.gz",
-      "hash": "0ff2rabxz0yfgvmx5bfc641cq29v39wbhgkz4dd1lvlfddy974ss"
+      "revision": "f0595e3b59260457042450749eaec00a5a47db35",
+      "url": "https://github.com/Gerg-L/spicetify-nix/archive/f0595e3b59260457042450749eaec00a5a47db35.tar.gz",
+      "hash": "04dnrka8v7z7d11yyw4m923mm0paqp5qpbjwnp2q65rj911811pl"
     },
     "stylix": {
       "type": "Git",
