@@ -1,4 +1,8 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  ...
+}:
 let
   cfg = config.customHomeManagerModules;
 in
@@ -13,9 +17,11 @@ in
           change.text = "~";
         };
       };
-      nvim-colorizer = {
+      colorizer = {
         enable = true;
-        userDefaultOptions.names = false;
+        settings = {
+          user_default_options.names = false;
+        };
       };
       which-key = {
         enable = true;

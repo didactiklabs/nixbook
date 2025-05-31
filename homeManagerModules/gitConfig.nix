@@ -80,7 +80,7 @@ in
         enable = true;
         signing = {
           signByDefault = false;
-          gpgPath = "${pkgs.gnupg}/bin/gpg2";
+          signer = "${pkgs.gnupg}/bin/gpg2";
           key = null;
         };
         lfs.enable = true;

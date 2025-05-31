@@ -47,12 +47,12 @@ in
             sshs --template "kitty +kitten ssh {{#if user}}{{user}}@{{/if}}{{destination}}{{#if port}} -p{{port}}{{/if}}"
           '';
         };
-        initExtra = ''
+        initContent = ''
           [[ "$TERM" == "xterm-kitty" ]] && alias ssh="TERM=xterm-256color ssh"
         '';
       };
       vscode = {
-        userSettings = {
+        profiles.default.userSettings = {
           "terminal.external.linuxExec" = "kitty";
         };
       };
