@@ -145,7 +145,7 @@ let
           imports = lib.concatLists [
             mergedConfig.imports
             [
-              (import sources.stylix).homeManagerModules.stylix
+              (import sources.stylix).homeModules.stylix
               ../homeManagerModules/stylixConfig.nix
               (import sources.nixvim).homeManagerModules.nixvim
               ../homeManagerModules/nixvim

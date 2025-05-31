@@ -22,15 +22,11 @@ in
     # cf https://github.com/nix-community/home-manager/blob/master/modules/misc/fontconfig.nix#blob-path
     # cf https://nixos.wiki/wiki/Fonts
     fonts.fontconfig.enable = true;
-    home.packages = [
-      (pkgs.nerdfonts.override {
-        fonts = [
-          "FiraCode"
-          "Hack"
-          "Iosevka"
-          "JetBrainsMono"
-        ];
-      })
+    home.packages = with pkgs.nerd-fonts; [
+      fira-code
+      hack
+      iosevka
+      jetbrains-mono
       pkgs.inter
       pkgs.font-awesome
     ];
