@@ -83,9 +83,9 @@
         "repo": "kubeswitch"
       },
       "branch": "master",
-      "revision": "de12c1a5b984c29feb73a831e045cbf01b0b302c",
-      "url": "https://github.com/danielfoehrKn/kubeswitch/archive/de12c1a5b984c29feb73a831e045cbf01b0b302c.tar.gz",
-      "hash": "12xn2v6g1j89w9gixqvappm0vs3pny5xir2lxvvcy6p00c72kwi7"
+      "revision": "21becc509258bcd0e33fad690066d133a710cac4",
+      "url": "https://github.com/danielfoehrKn/kubeswitch/archive/21becc509258bcd0e33fad690066d133a710cac4.tar.gz",
+      "hash": "16jfyba92698xxf8bhcdp5zc4qf7idw6ncxx2m73dh768nyh1sam"
     },
     "nixpkgs": {
       "type": "Git",
