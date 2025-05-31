@@ -127,7 +127,7 @@ in
           cd = "z";
           neofetch = "fastfetch";
         };
-        initExtra = ''
+        initContent = ''
           any-nix-shell zsh --info-right | source /dev/stdin
         '';
         oh-my-zsh = {

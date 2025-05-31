@@ -16,9 +16,9 @@ in
     ];
     programs.vscode = {
       enable = true;
-      extensions = import ./mkAllExtensions.nix { inherit pkgs; };
+      profiles.default.extensions = import ./mkAllExtensions.nix { inherit pkgs; };
       mutableExtensionsDir = false;
-      userSettings = {
+      profiles.default.userSettings = {
         "emeraldwalk.runonsave" = {
           "commands" = [
             {

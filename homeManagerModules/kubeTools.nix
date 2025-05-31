@@ -101,7 +101,7 @@ in
       ];
     };
     programs.zsh = {
-      initExtra = ''
+      initContent = ''
         source <(switcher init zsh) # kubeswitch
       '';
       shellAliases = {

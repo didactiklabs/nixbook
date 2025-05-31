@@ -49,14 +49,6 @@ in
         gtk-cursor-theme-name = "Numix-Cursor";
         gtk-modules = "gail:atk-bridge";
       };
-      gtk3.extraCss = ''
-        .thunar {
-          font-family: Hack Nerd Font Bold;
-          font-size: 10pt;
-          font-weight: 600;
-          -gkt-icon-theme: "Numix Square";
-        }
-      '';
       gtk2.extraConfig = ''
         gtk-application-prefer-dark-theme=1
         gtk-cursor-theme-name="Numix-Cursor"
