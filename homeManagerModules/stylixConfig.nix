@@ -12,16 +12,12 @@
       cursor = {
         package = pkgs.phinger-cursors;
         name = "phinger-cursors-light";
+        size = 24;
       };
-      fonts.monospace = {
-        name = "Hack Nerd Font";
-        package = pkgs.nerdfonts.override {
-          fonts = [
-            "FiraCode"
-            "Hack"
-            "Iosevka"
-            "JetBrainsMono"
-          ];
+      fonts = {
+        monospace = {
+          name = "Hack Nerd Font";
+          package = pkgs.nerd-fonts.fira-code;
         };
       };
     };
