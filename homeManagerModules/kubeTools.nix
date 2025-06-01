@@ -15,10 +15,10 @@ let
   kubeswitch = pkgs.kubeswitch.overrideAttrs (old: {
     src = sources.kubeswitch;
   });
-  k9s = pkgs.k9s.overrideAttrs (oldAttrs: {
-    src = sources.k9s;
-    vendorHash = "sha256-MOTDKPo433YU9mYg9olKSvbLqjIgmXI91593c1zXMVU=";
-  });
+  # k9s = pkgs.k9s.overrideAttrs (oldAttrs: {
+  #   src = sources.k9s;
+  #   vendorHash = "sha256-MOTDKPo433YU9mYg9olKSvbLqjIgmXI91593c1zXMVU=";
+  # });
 
   kubeswitchConfig =
     ''
