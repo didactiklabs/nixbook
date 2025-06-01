@@ -9,7 +9,7 @@ pkgs.buildGoModule {
 
   src = klSrc;
 
-  vendorHash = "sha256-oetOkoXpXUFtkGEyWMx0mQiEq6L93Hmv4TFmTC0XDTo=";
+  vendorHash = "sha256-baXXNnK1UfFef/pFaSvhzmj4VzoaM0TmL8I79VFfdb8=";
 
   subPackages = [ "." ];
 
