@@ -208,7 +208,6 @@ in
     };
     uinput.enable = true;
   };
-  services.pulseaudio.enable = false;
   systemd = {
     # Create a separate slice for nix-daemon that is
     # memory-managed by the userspace systemd-oomd killer
