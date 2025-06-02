@@ -206,6 +206,7 @@ in
       powerOnBoot = false;
       package = pkgs.bluez;
     };
+    enableAllFirmware = true;
     uinput.enable = true;
   };
   services.pulseaudio.enable = false;
