@@ -201,6 +201,7 @@ in
     portal.wlr.enable = true;
   };
   hardware = {
+    enableAllFirmware = true;
     bluetooth = {
       enable = true;
       powerOnBoot = false;
@@ -208,6 +209,7 @@ in
     };
     uinput.enable = true;
   };
+  nixpkgs.config.allowUnfree = true;
   services.pulseaudio.enable = false;
   systemd = {
     # Create a separate slice for nix-daemon that is
