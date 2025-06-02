@@ -56,6 +56,7 @@ in
           minio-client
           python3
           nix-eval-jobs
+          terraform
           dig
           jq
           yq-go
