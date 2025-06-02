@@ -211,7 +211,6 @@ in
     uinput.enable = true;
   };
   nixpkgs.config.allowUnfree = true;
-  nixpkgs.useGlobalPackages = true;
   services.pulseaudio.enable = false;
   systemd = {
     # Create a separate slice for nix-daemon that is
