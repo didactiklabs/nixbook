@@ -206,10 +206,9 @@ in
       powerOnBoot = false;
       package = pkgs.bluez;
     };
-    enableAllFirmware = true;
-    enableRedistributableFirmware = true;
     uinput.enable = true;
   };
+  nixpkgs.config.allowUnfree = true;
   services.pulseaudio.enable = false;
   systemd = {
     # Create a separate slice for nix-daemon that is

@@ -52,7 +52,6 @@ jobs:
           aws --profile default configure set aws_secret_access_key "${{ secrets.AWS_SECRET_ACCESS_KEY_ID }}"
       - name: Build and Push
         run: |
-          export NIXPKGS_ALLOW_UNFREE=1
           echo '${{ secrets.CACHE_PRIVATE_KEY }}' > cache-priv.pem
           build=$(nix-build '<nixpkgs/nixos>' -A config.system.build.toplevel -I nixos-config=profiles/anya/configuration.nix)
           nix store sign -r -k cache-priv.pem $build
