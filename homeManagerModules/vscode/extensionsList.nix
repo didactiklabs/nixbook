@@ -180,5 +180,11 @@
       version = "3.7.4";
       sha256 = "sha256-hI+Qo8K+gLQuzKkaSq89D8vIxlYq9tMi31DgFiRzx0E=";
 	}
+    {
+      name = "gitlens";
+      publisher = "eamodio";
+      version = "17.1.1";
+      sha256 = "sha256-hlhq4bR3v0AqI3lxilgNEgjjEEBVL0xfvIWbV/Ronh4=";
+    }
   ];
 }
