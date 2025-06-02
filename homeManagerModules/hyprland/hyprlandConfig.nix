@@ -28,6 +28,9 @@ in
         # hyprfocus
       ];
       settings = {
+        debug = {
+          disable_logs = false;
+        };
         "$mod" = "SUPER";
         misc = {
           disable_hyprland_logo = true;
