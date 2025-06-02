@@ -41,7 +41,7 @@ in
       "${config.xdg.configHome}/nvim/spell/fr.latin1.sug".source = nvim-spell-fr-latin1-suggestions;
     };
     programs.nixvim = {
-      nixpkgs.useGlobalPackages = true;
+      nixpkgs.config.useGlobalPackages = true;
       enable = true;
       defaultEditor = true;
       opts.completeopt = [
