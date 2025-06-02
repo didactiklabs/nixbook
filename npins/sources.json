@@ -129,9 +129,9 @@
       },
       "branch": "nixos-25.05",
       "submodules": false,
-      "revision": "82fafc9f9f89b54e13cff3c51582b6c228ec8331",
-      "url": "https://github.com/nix-community/nixvim/archive/82fafc9f9f89b54e13cff3c51582b6c228ec8331.tar.gz",
-      "hash": "14pgy3sgsnh47hfq7xqkxs52d9m3i7f8gchs8j7hlp1h2np5qfx3"
+      "revision": "d14de7a243f9d99d1f48c569e156d756fc0e638d",
+      "url": "https://github.com/nix-community/nixvim/archive/d14de7a243f9d99d1f48c569e156d756fc0e638d.tar.gz",
+      "hash": "1pb71c1ilyy335v3fpm596s25blwznz4nqhf0vai9rfhib1nid2c"
     },
     "pvmigrate": {
       "type": "GitRelease",
