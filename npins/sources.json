@@ -8,9 +8,10 @@
         "repo": "flake-compat"
       },
       "branch": "master",
-      "revision": "ff81ac966bb2cae68946d5ed5fc4994f96d0ffec",
-      "url": "https://github.com/edolstra/flake-compat/archive/ff81ac966bb2cae68946d5ed5fc4994f96d0ffec.tar.gz",
-      "hash": "19d2z6xsvpxm184m41qrpi1bplilwipgnzv9jy17fgw421785q1m"
+      "submodules": false,
+      "revision": "9100a0f413b0c601e0533d1d94ffd501ce2e7885",
+      "url": "https://github.com/edolstra/flake-compat/archive/9100a0f413b0c601e0533d1d94ffd501ce2e7885.tar.gz",
+      "hash": "09m84vsz1py50giyfpx0fpc7a4i0r1xsb54dh0dpdg308lp4p188"
     },
     "ginx": {
       "type": "Git",
@@ -20,6 +21,7 @@
         "repo": "ginx"
       },
       "branch": "main",
+      "submodules": false,
       "revision": "9d6f1f042194089486c8711352173a0f210e5436",
       "url": "https://github.com/didactiklabs/ginx/archive/9d6f1f042194089486c8711352173a0f210e5436.tar.gz",
       "hash": "0m9n7qyn9i44fcjr4xlyrlavmqf8d0xnl34gwf4dzizlnsvx8a98"
@@ -32,9 +34,10 @@
         "repo": "goji"
       },
       "branch": "main",
-      "revision": "cb50221dfe9be88b78dc6909c3f19b0f65e8df6f",
-      "url": "https://github.com/muandane/goji/archive/cb50221dfe9be88b78dc6909c3f19b0f65e8df6f.tar.gz",
-      "hash": "1kfg5aclxm8jqins6cklzlygln0bnfdnjsf2zvl1ixkc0iwbn39z"
+      "submodules": false,
+      "revision": "aff7cab27ee83fdce178d7ab6a81fe9d94e9bb44",
+      "url": "https://github.com/muandane/goji/archive/aff7cab27ee83fdce178d7ab6a81fe9d94e9bb44.tar.gz",
+      "hash": "0kkp90293hvdan1amx7xmq3aybs099mz9x08463vq2n2gg49398z"
     },
     "home-manager": {
       "type": "Git",
@@ -44,9 +47,10 @@
         "repo": "home-manager"
       },
       "branch": "release-25.05",
-      "revision": "0d13ea58d565d3c1c1468ddae1f623316dc395d9",
-      "url": "https://github.com/nix-community/home-manager/archive/0d13ea58d565d3c1c1468ddae1f623316dc395d9.tar.gz",
-      "hash": "0a08pfiksckmzv0nlkzyw0i7m09a48a8cif1z9i7z86xn7zdrp3v"
+      "submodules": false,
+      "revision": "282e1e029cb6ab4811114fc85110613d72771dea",
+      "url": "https://github.com/nix-community/home-manager/archive/282e1e029cb6ab4811114fc85110613d72771dea.tar.gz",
+      "hash": "1v1r9igz2n7j65rhqspplsq5zg0g1ba4gbkq4042md4nyaf67j24"
     },
     "k9s": {
       "type": "Git",
@@ -56,9 +60,10 @@
         "repo": "k9s"
       },
       "branch": "master",
-      "revision": "4650c9aa5464ea3b921baaee645768a7172de691",
-      "url": "https://github.com/derailed/k9s/archive/4650c9aa5464ea3b921baaee645768a7172de691.tar.gz",
-      "hash": "1qnjb2z91i5647kzrbbi74jgnznla3hai13fsfby02x8i3hrlrcc"
+      "submodules": false,
+      "revision": "c2bbcd4c7220095ad441af456159da2813fc2114",
+      "url": "https://github.com/derailed/k9s/archive/c2bbcd4c7220095ad441af456159da2813fc2114.tar.gz",
+      "hash": "0r97m2dmg6dqaj50xzd4yqp7dkjpk0m031046jqzjfqg5a95hr0h"
     },
     "kl": {
       "type": "GitRelease",
@@ -70,10 +75,11 @@
       "pre_releases": false,
       "version_upper_bound": null,
       "release_prefix": null,
-      "version": "v0.4.0",
-      "revision": "58e164d460362ff4eed5c531923d85f8916d6c60",
-      "url": "https://api.github.com/repos/robinovitch61/kl/tarball/v0.4.0",
-      "hash": "12x5fw4kx1bdbzq1mpwbzmwf29qygxpgrrr9gd7ynf26z0zqq01a"
+      "submodules": false,
+      "version": "v0.6.0",
+      "revision": "eae8c1463edc10ef0419c264ae670ea7c677c04e",
+      "url": "https://api.github.com/repos/robinovitch61/kl/tarball/v0.6.0",
+      "hash": "1dha6gipp4wxf98s3x9ir3kmsjv8zk54y19cr88v33d6qfywh6yh"
     },
     "kubeswitch": {
       "type": "Git",
@@ -83,9 +89,10 @@
         "repo": "kubeswitch"
       },
       "branch": "master",
-      "revision": "de12c1a5b984c29feb73a831e045cbf01b0b302c",
-      "url": "https://github.com/danielfoehrKn/kubeswitch/archive/de12c1a5b984c29feb73a831e045cbf01b0b302c.tar.gz",
-      "hash": "12xn2v6g1j89w9gixqvappm0vs3pny5xir2lxvvcy6p00c72kwi7"
+      "submodules": false,
+      "revision": "21becc509258bcd0e33fad690066d133a710cac4",
+      "url": "https://github.com/danielfoehrKn/kubeswitch/archive/21becc509258bcd0e33fad690066d133a710cac4.tar.gz",
+      "hash": "16jfyba92698xxf8bhcdp5zc4qf7idw6ncxx2m73dh768nyh1sam"
     },
     "nixpkgs": {
       "type": "Git",
@@ -95,9 +102,10 @@
         "repo": "nixpkgs"
       },
       "branch": "nixos-25.05",
-      "revision": "7282cb574e0607e65224d33be8241eae7cfe0979",
-      "url": "https://github.com/NixOS/nixpkgs/archive/7282cb574e0607e65224d33be8241eae7cfe0979.tar.gz",
-      "hash": "0klkpy7ah033y3cwj51a0l96lwmkqqvwgfv3kid4z9x5g2rqr0l5"
+      "submodules": false,
+      "revision": "a59eb7800787c926045d51b70982ae285faa2346",
+      "url": "https://github.com/NixOS/nixpkgs/archive/a59eb7800787c926045d51b70982ae285faa2346.tar.gz",
+      "hash": "1dhllxcvq7lkscg4xrvlpbfwa4x8b6mqkx6idcb8m0jnfbccdj5b"
     },
     "nixpkgs-unstable": {
       "type": "Git",
@@ -107,9 +115,10 @@
         "repo": "nixpkgs"
       },
       "branch": "nixos-unstable",
-      "revision": "e06158e58f3adee28b139e9c2bcfcc41f8625b46",
-      "url": "https://github.com/NixOS/nixpkgs/archive/e06158e58f3adee28b139e9c2bcfcc41f8625b46.tar.gz",
-      "hash": "1bk0n27lzl8yfks4wdcm89pxqvjqcz2f1b8xyi8sd7mz59p96a9d"
+      "submodules": false,
+      "revision": "910796cabe436259a29a72e8d3f5e180fc6dfacc",
+      "url": "https://github.com/NixOS/nixpkgs/archive/910796cabe436259a29a72e8d3f5e180fc6dfacc.tar.gz",
+      "hash": "13xih2r8q1hk0c9silcjliqg8mjfmdqp7wnx9ybkp61535dapm2a"
     },
     "nixvim": {
       "type": "Git",
@@ -119,9 +128,10 @@
         "repo": "nixvim"
       },
       "branch": "nixos-25.05",
-      "revision": "cfea16cdbe4f13b5d39dfe3df747092448252c9d",
-      "url": "https://github.com/nix-community/nixvim/archive/cfea16cdbe4f13b5d39dfe3df747092448252c9d.tar.gz",
-      "hash": "0jqzmcx7x4cyxixqy4p0g96fzbac8w6jgqnpzqpjl6x798191cfm"
+      "submodules": false,
+      "revision": "82fafc9f9f89b54e13cff3c51582b6c228ec8331",
+      "url": "https://github.com/nix-community/nixvim/archive/82fafc9f9f89b54e13cff3c51582b6c228ec8331.tar.gz",
+      "hash": "14pgy3sgsnh47hfq7xqkxs52d9m3i7f8gchs8j7hlp1h2np5qfx3"
     },
     "pvmigrate": {
       "type": "GitRelease",
@@ -133,6 +143,7 @@
       "pre_releases": false,
       "version_upper_bound": null,
       "release_prefix": null,
+      "submodules": false,
       "version": "v0.12.0",
       "revision": "3e4fea5845599ce43893d1a7d89f298d9f4ee719",
       "url": "https://api.github.com/repos/replicatedhq/pvmigrate/tarball/v0.12.0",
@@ -146,9 +157,10 @@
         "repo": "rofi"
       },
       "branch": "master",
-      "revision": "2e0efe5054ac7eb502a585dd6b3575a65b80ce72",
-      "url": "https://github.com/adi1090x/rofi/archive/2e0efe5054ac7eb502a585dd6b3575a65b80ce72.tar.gz",
-      "hash": "0csvs6y7gxnq7i9ibfjy6crcbblh2nlnp1m14mysfrv06yhpnmjd"
+      "submodules": false,
+      "revision": "b76c16b2b7c465d7b082e11e5210fcd10c6683a7",
+      "url": "https://github.com/adi1090x/rofi/archive/b76c16b2b7c465d7b082e11e5210fcd10c6683a7.tar.gz",
+      "hash": "1l2grrxjl9vl2fjsmmd2d7sgp451agy8z63nrwvbp8nh24vw90gl"
     },
     "spicetify-nix": {
       "type": "Git",
@@ -158,9 +170,10 @@
         "repo": "spicetify-nix"
       },
       "branch": "master",
-      "revision": "a2bc0d49449fc61ca2eb364d6189179059394483",
-      "url": "https://github.com/Gerg-L/spicetify-nix/archive/a2bc0d49449fc61ca2eb364d6189179059394483.tar.gz",
-      "hash": "0ff2rabxz0yfgvmx5bfc641cq29v39wbhgkz4dd1lvlfddy974ss"
+      "submodules": false,
+      "revision": "0e03de40d5128eb2ad600c98f57cf5db2cdf3240",
+      "url": "https://github.com/Gerg-L/spicetify-nix/archive/0e03de40d5128eb2ad600c98f57cf5db2cdf3240.tar.gz",
+      "hash": "0skvaydac7id4dqb4da37y89jrs572rkvdv8qzahhl8gfzr38zbs"
     },
     "stylix": {
       "type": "Git",
@@ -170,9 +183,10 @@
         "repo": "stylix"
       },
       "branch": "release-25.05",
-      "revision": "79ec2e885e2b66f2fc6e6b6db15c49c81ebaf7d8",
-      "url": "https://github.com/danth/stylix/archive/79ec2e885e2b66f2fc6e6b6db15c49c81ebaf7d8.tar.gz",
-      "hash": "122vhx4y8fm92pgmr2m0im9vayli016q26qggzajzdag7n3y6ywy"
+      "submodules": false,
+      "revision": "275e1acae94a1c5495352fd317a87377322a5259",
+      "url": "https://github.com/danth/stylix/archive/275e1acae94a1c5495352fd317a87377322a5259.tar.gz",
+      "hash": "0cpxrcjgi93x5bmaw9qx3niall09phfx5c8b5rsl5bzm8kam3x8q"
     },
     "ytui": {
       "type": "Git",
@@ -182,10 +196,11 @@
         "repo": "ytui"
       },
       "branch": "main",
-      "revision": "7c1ab00e73ebc395f7c5f84a9bdc3dc6c5af3d75",
-      "url": "https://github.com/banh-canh/ytui/archive/7c1ab00e73ebc395f7c5f84a9bdc3dc6c5af3d75.tar.gz",
-      "hash": "0zhg2zi4gkdvb1p2g6wr1i1k6nvz00syj9aq9l2sja243m3zgmvp"
+      "submodules": false,
+      "revision": "bf378404ce818685cce1a05c348bed358fbc5aa1",
+      "url": "https://github.com/banh-canh/ytui/archive/bf378404ce818685cce1a05c348bed358fbc5aa1.tar.gz",
+      "hash": "09715q3fadm6y6nghafzmi7w558vp5qjvmc7ndabvk58fadqp75x"
     }
   },
-  "version": 3
+  "version": 5
 }
