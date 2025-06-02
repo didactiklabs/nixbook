@@ -42,6 +42,7 @@ in
     };
     programs.nixvim = {
       nixpkgs.config.useGlobalPackages = true;
+      enableMan = false;
       enable = true;
       defaultEditor = true;
       opts.completeopt = [
