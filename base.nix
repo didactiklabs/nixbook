@@ -207,6 +207,7 @@ in
       package = pkgs.bluez;
     };
     enableAllFirmware = true;
+    enableRedistributableFirmware = true;
     uinput.enable = true;
   };
   services.pulseaudio.enable = false;
