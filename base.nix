@@ -28,6 +28,9 @@ let
       sources
       ;
   };
+  ds4drv = pkgs.python313Packages.ds4drv.overrideAttrs (oldAttrs: {
+    src = sources.ds4drv;
+  });
   ginx = import ./customPkgs/ginx.nix { inherit pkgs; };
   osupdate = pkgs.writeShellScriptBin "osupdate" ''
     set -euo pipefail
@@ -49,6 +52,7 @@ in
       # global
       ginx
       osupdate
+      ds4drv
       efibootmgr
       colmena
       npins
@@ -177,6 +181,13 @@ in
         game-devices-udev-rules
         yubikey-personalization
       ];
+      extraRules = ''
+        KERNEL=="uinput", MODE="0666"
+        KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="05c4", MODE="0666"
+        KERNEL=="hidraw*", SUBSYSTEM=="hidraw", KERNELS=="0005:054C:05C4.*", MODE="0666"
+        KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="09cc", MODE="0666"
+        KERNEL=="hidraw*", SUBSYSTEM=="hidraw", KERNELS=="0005:054C:09CC.*", MODE="0666"
+      '';
     };
     xserver = {
       enable = false;
@@ -228,7 +239,7 @@ in
       description = "Controller Support.";
       wantedBy = [ "default.target" ];
       serviceConfig = {
-        ExecStart = "${pkgs.python312Packages.ds4drv}/bin/ds4drv --hidraw --emulate-xpad";
+        ExecStart = "${ds4drv}/bin/ds4drv --hidraw --emulate-xpad";
         Restart = "always";
       };
     };
