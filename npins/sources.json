@@ -1,5 +1,18 @@
 {
   "pins": {
+    "ds4drv": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "Banh-Canh",
+        "repo": "ds4drv"
+      },
+      "branch": "master",
+      "submodules": false,
+      "revision": "e9984f669221ede46f295acd0d215b148c4ff5e3",
+      "url": "https://github.com/Banh-Canh/ds4drv/archive/e9984f669221ede46f295acd0d215b148c4ff5e3.tar.gz",
+      "hash": "1wksvhs3rwcyhfssjmgkyqag4ngzb1dwcx3csxriz9n9gwsjs6xq"
+    },
     "flake-compat": {
       "type": "Git",
       "repository": {
