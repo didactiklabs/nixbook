@@ -116,9 +116,9 @@
       },
       "branch": "nixos-25.05",
       "submodules": false,
-      "revision": "88331c17ba434359491e8d5889cce872464052c2",
-      "url": "https://github.com/NixOS/nixpkgs/archive/88331c17ba434359491e8d5889cce872464052c2.tar.gz",
-      "hash": "1ix8rdabyf7zkrhzwjg5ns36aksjkgk6sz5ypflyni39h08h6vhl"
+      "revision": "fd487183437963a59ba763c0cc4f27e3447dd6dd",
+      "url": "https://github.com/NixOS/nixpkgs/archive/fd487183437963a59ba763c0cc4f27e3447dd6dd.tar.gz",
+      "hash": "0p381cq5b4x6l84h6xb6dy35l5cqgsdggm9vzmsvz60vwp4zyywq"
     },
     "nixpkgs-unstable": {
       "type": "Git",
@@ -142,9 +142,9 @@
       },
       "branch": "nixos-25.05",
       "submodules": false,
-      "revision": "168a51a36f3a10f0046dcec125ee9b3480dc622b",
-      "url": "https://github.com/nix-community/nixvim/archive/168a51a36f3a10f0046dcec125ee9b3480dc622b.tar.gz",
-      "hash": "17m3176viiam5150qdsdi0prnc52146p95b2lsmbki500liigmn7"
+      "revision": "88f452558ea37ab8ab2052cf45b5a5653a1e556b",
+      "url": "https://github.com/nix-community/nixvim/archive/88f452558ea37ab8ab2052cf45b5a5653a1e556b.tar.gz",
+      "hash": "1ld5y7kmdadjz51k7j4jkwxcaqgizwn4n5j477kpzdr0v51w7qsz"
     },
     "pvmigrate": {
       "type": "GitRelease",
@@ -197,9 +197,9 @@
       },
       "branch": "release-25.05",
       "submodules": false,
-      "revision": "82930e92e8990b6ac1be0a81c7727c7cd63220bd",
-      "url": "https://github.com/danth/stylix/archive/82930e92e8990b6ac1be0a81c7727c7cd63220bd.tar.gz",
-      "hash": "03kk9b14hn7n8a753n144jhqcg2424cyb41fw3c2h995g8dwr54q"
+      "revision": "e1cfc2b69432ac2abe95db133dcbdfc96cd3bedb",
+      "url": "https://github.com/danth/stylix/archive/e1cfc2b69432ac2abe95db133dcbdfc96cd3bedb.tar.gz",
+      "hash": "1dkrqhc7nqspp011kn14gmcmhmbnn3lmfnn32ccfrcq1ar793mf6"
     },
     "ytui": {
       "type": "Git",
