@@ -83,6 +83,7 @@ in
         # clouds
         kl
         pvmigrate
+        skopeo
         kubectl-neat
         kubelogin-oidc
         dive
