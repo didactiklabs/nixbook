@@ -48,6 +48,17 @@ let
           critical: 90
           warn: 70
   '';
+  viewsYaml = ''
+    views:
+      kustomize.toolkit.fluxcd.io/v1/kustomizations:
+        columns:
+          - NAMESPACE
+          - NAME
+          - READY
+          - SUSPEND:.spec.suspend
+          - STATUS
+          - AGE
+  '';
   transparentYaml = ''
     # -----------------------------------------------------------------------------
     # Transparent skin
@@ -283,6 +294,9 @@ in
     home.file = {
       ".config/k9s/skins/transparent.yaml" = {
         text = transparentYaml;
+      };
+      ".config/k9s/views.yaml" = {
+        text = viewsYaml;
       };
       ".local/share/k9s/clusters/kubernetes/kubernetes-admin@didactik.labs/config.yaml" = {
         text = didactiklabsConfYaml;
