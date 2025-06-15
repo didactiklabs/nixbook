@@ -15,12 +15,9 @@ in
     };
     wayland.windowManager.sway = {
       config.keybindings = lib.filterAttrsRecursive (name: value: value != null) { };
-      extraConfig = ''
-        exec ${swaymsg} create_output HEADLESS-1
-        exec ${swaymsg} output HEADLESS-1 pos 0 0 res 2560x1440@120Hz scale 1
-      '';
+      extraConfig = '''';
       extraSessionCommands = ''
-        export WLR_BACKENDS="headless,libinput"
+        export WLR_BACKENDS="libinput"
       '';
       config.window.commands = lib.mkForce [
         {
