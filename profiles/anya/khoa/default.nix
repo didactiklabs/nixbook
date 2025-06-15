@@ -34,6 +34,7 @@ in
     pkgs.firefox
   ];
   customHomeManagerModules = {
+    bluetooth.enable = true;
     fontConfig.enable = true;
     gitConfig.enable = true;
     gtkConfig.enable = true;
