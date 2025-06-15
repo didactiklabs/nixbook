@@ -28,7 +28,7 @@ conditions:
     spec:
       environments:
         - name: PATH
-      command: test $(git ls-remote https://github.com/NixOS/nixpkgs nixos-24.11 | head -n 1 | awk '{print $1}') !=
+      command: test $(git ls-remote https://github.com/NixOS/nixpkgs nixos-25.05 | head -n 1 | awk '{print $1}') !=
 # Defines "targets" which need to be updated if different than "source" information.
 targets:
   default:
