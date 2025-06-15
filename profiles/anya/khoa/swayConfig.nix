@@ -15,7 +15,9 @@ in
     };
     wayland.windowManager.sway = {
       config.keybindings = lib.filterAttrsRecursive (name: value: value != null) { };
-      extraConfig = '''';
+      extraConfig = ''
+        exec ${swaymsg} output HDMI-A-1 pos 0 0 res 3160x2540@120Hz scale 1
+      '';
       extraSessionCommands = ''
         export WLR_BACKENDS="libinput"
       '';
