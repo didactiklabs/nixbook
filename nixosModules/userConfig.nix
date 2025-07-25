@@ -119,13 +119,13 @@ let
               goPath = "go";
             };
             services.gammastep = {
-              enable = true;
+              enable = false;
               dawnTime = "6:00-7:45";
               duskTime = "18:35-20:45";
               latitude = 48.9;
               longitude = 2.26;
               provider = "manual";
-              tray = true;
+              tray = false;
             };
             home = {
               stateVersion = "24.05";
