@@ -22,6 +22,7 @@ in
         "workspace 1 silent,fullscreen 1,class:(vesktop)"
         "workspace 1 silent,fullscreen 1,title:(Spotify Premium)"
         "workspace 1 silent,fullscreen 1,class:(signal)"
+        "workspace 3 silent,fullscreen 1,class:(com.moonlight_stream.Moonlight)"
       ];
       exec-once = [
         # "[workspace 1 silent] spotify"
