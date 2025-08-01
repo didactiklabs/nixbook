@@ -64,7 +64,7 @@ in
       };
     };
     timers = {
-      "immich-cyberpunk-timer" = {
+      immich-cyberpunk-timer = {
         enable = true;
         description = "Timer to run myService every 5 minutes for CP2077";
         wantedBy = [ "timers.target" ];
