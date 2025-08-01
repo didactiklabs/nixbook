@@ -69,24 +69,26 @@ in
         };
       };
     };
-    timers.immich-cyberpunk-timer = {
-      enable = true;
-      description = "Timer to run myService every 5 minutes";
-      wantedBy = [ "timers.target" ];
-      timerConfig = {
-        OnUnitActiveSec = "5min";
-        Persistent = true;
-        Unit = "immich-cyberpunk.service";
+    timers = {
+      "immich-cyberpunk-timer" = {
+        enable = true;
+        description = "Timer to run myService every 5 minutes for CP2077";
+        wantedBy = [ "timers.target" ];
+        timerConfig = {
+          OnUnitActiveSec = "5min";
+          Persistent = true;
+          Unit = "immich-cyberpunk.service";
+        };
       };
-    };
-    timers.immich-pictures-timer = {
-      enable = true;
-      description = "Timer to run myService every 5 minutes";
-      wantedBy = [ "timers.target" ];
-      timerConfig = {
-        OnUnitActiveSec = "5min";
-        Persistent = true;
-        Unit = "immich-pictures.service";
+      "immich-pictures-timer" = {
+        enable = true;
+        description = "Timer to run myService every 5 minutes";
+        wantedBy = [ "timers.target" ];
+        timerConfig = {
+          OnUnitActiveSec = "5min";
+          Persistent = true;
+          Unit = "immich-pictures.service";
+        };
       };
     };
   };
