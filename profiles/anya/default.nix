@@ -33,7 +33,7 @@ in
       immich-cyberpunk = {
         description = "Run my command";
         serviceConfig = {
-          ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs-unstable.immich-go}/bin/immich-go -no-ui -key $(${pkgs.coreutils}/bin/cat $HOME/.immich-token) -server https://${immichServer} upload --into-album Gaming \"${cyberPicturePath}/\" && ${pkgs.coreutils}/bin/rm -fr \"${cyberPicturePath}/*\"'";
+          ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs-unstable.immich-go}/bin/immich-go upload from-folder --no-ui --api-key $(${pkgs.coreutils}/bin/cat $HOME/.immich-token) --server https://${immichServer} --into-album Gaming \"${cyberPicturePath}/\" && ${pkgs.coreutils}/bin/rm -fr \"${cyberPicturePath}/*\"'";
         };
       };
       immich-pictures = {
