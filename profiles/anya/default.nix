@@ -19,7 +19,7 @@ let
       overrides
       ;
   };
-  immichServer = "photos.didactiklabs.io";
+  immichServer = "immich.bealv.io";
   cyberPicturePath = "$HOME/.steam/steam/steamapps/compatdata/1091500/pfx/drive_c/users/steamuser/Pictures/Cyberpunk 2077";
 in
 {
@@ -33,7 +33,7 @@ in
       immich-cyberpunk = {
         description = "Run my command";
         serviceConfig = {
-          ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs-unstable.immich-go}/bin/immich-go -no-ui -key $(${pkgs.coreutils}/bin/cat $HOME/.immich-token) -server https://${immichServer} upload -album Gaming \"${cyberPicturePath}/\" && ${pkgs.coreutils}/bin/rm -fr \"${cyberPicturePath}/*\"'";
+          ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs-unstable.immich-go}/bin/immich-go --no-ui --api-key $(${pkgs.coreutils}/bin/cat $HOME/.immich-token) --server https://${immichServer} upload -album Gaming \"${cyberPicturePath}/\" && ${pkgs.coreutils}/bin/rm -fr \"${cyberPicturePath}/*\"'";
         };
       };
       immich-pictures = {
