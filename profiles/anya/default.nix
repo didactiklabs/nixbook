@@ -36,12 +36,6 @@ in
           ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs-unstable.immich-go}/bin/immich-go upload from-folder --no-ui --api-key $(${pkgs.coreutils}/bin/cat $HOME/.immich-token) --server https://${immichServer} --into-album Gaming \"${cyberPicturePath}/\" && ${pkgs.coreutils}/bin/rm -fr \"${cyberPicturePath}/*\"'";
         };
       };
-      immich-pictures = {
-        description = "Run my command";
-        serviceConfig = {
-          ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs-unstable.immich-go}/bin/immich-go -no-ui -key $(${pkgs.coreutils}/bin/cat $HOME/.immich-token) -server https://${immichServer} upload -album Gaming $HOME/Pictures/ && ${pkgs.coreutils}/bin/rm -fr $HOME/Pictures/*'";
-        };
-      };
       wol-custom = {
         enable = true;
         description = "Wake-on-lan Hack (module doesn't work).";
@@ -78,16 +72,6 @@ in
           OnUnitActiveSec = "5min";
           Persistent = true;
           Unit = "immich-cyberpunk.service";
-        };
-      };
-      "immich-pictures-timer" = {
-        enable = true;
-        description = "Timer to run myService every 5 minutes";
-        wantedBy = [ "timers.target" ];
-        timerConfig = {
-          OnUnitActiveSec = "5min";
-          Persistent = true;
-          Unit = "immich-pictures.service";
         };
       };
     };
