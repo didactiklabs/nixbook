@@ -36,6 +36,22 @@ in
 
       # use coredns
       addons.dns.enable = true;
+      addons.dns.corefile = ''
+        .:10053 {
+          errors
+          health :10054
+          kubernetes ${config.services.kubernetes.addons.dns.clusterDomain} in-addr.arpa ip6.arpa {
+            pods insecure
+            fallthrough in-addr.arpa ip6.arpa
+          }
+          prometheus :10055
+          forward . 10.207.0.1
+          cache 30
+          loop
+          reload
+          loadbalance
+        }
+      '';
 
       # needed if you use swap
       kubelet.extraOpts = "--fail-swap-on=false";
