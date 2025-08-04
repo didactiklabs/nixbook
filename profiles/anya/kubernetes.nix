@@ -59,7 +59,7 @@ in
     };
     nfs.server.enable = true;
     nfs.server.exports = ''
-      /data/nfs         ${kubeMasterIP}(rw,fsid=0,no_subtree_check)
+      /data/nfs/hdda         ${kubeMasterIP}(rw,async,no_subtree_check,no_root_squash,crossmnt)
     '';
   };
 }
