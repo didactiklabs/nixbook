@@ -40,6 +40,7 @@ in
 
       # needed if you use swap
       kubelet.extraOpts = "--fail-swap-on=false";
+      apiserver.extraOpts = "--allow-privileged=true";
     };
     nfs.server.enable = true;
     nfs.server.exports = ''
