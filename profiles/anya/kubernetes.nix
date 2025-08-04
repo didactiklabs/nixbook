@@ -36,7 +36,6 @@ in
 
       # use coredns
       addons.dns.enable = true;
-      flannel.enable = false;
 
       # needed if you use swap
       kubelet.extraOpts = "--fail-swap-on=false";
