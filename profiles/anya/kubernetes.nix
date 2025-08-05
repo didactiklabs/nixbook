@@ -32,6 +32,11 @@ in
       apiserver = {
         securePort = kubeMasterAPIServerPort;
         advertiseAddress = kubeMasterIP;
+        extraSANs = [
+          "10.0.0.1"
+          "anya"
+          "${kubeMasterIP}"
+        ];
       };
 
       # use coredns
