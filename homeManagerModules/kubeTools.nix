@@ -7,11 +7,11 @@
 let
   cfg = config.customHomeManagerModules;
   homeDir = config.home.homeDirectory;
-  didactiklabsPart = lib.optionalString cfg.kubeConfig.didactiklabs.enable ''
-    - kind: capi
-      config:
-        kubeconfigPath: '${homeDir}/.kube/configs/didactiklabs/oidc@didactiklabs.kubeconfig'
-  '';
+  # didactiklabsPart = lib.optionalString cfg.kubeConfig.didactiklabs.enable ''
+  #   - kind: capi
+  #     config:
+  #       kubeconfigPath: '${homeDir}/.kube/configs/didactiklabs/oidc@didactiklabs.kubeconfig'
+  # '';
   kubeswitch = pkgs.kubeswitch.overrideAttrs (old: {
     src = sources.kubeswitch;
   });
@@ -20,17 +20,16 @@ let
   #   vendorHash = "sha256-MOTDKPo433YU9mYg9olKSvbLqjIgmXI91593c1zXMVU=";
   # });
 
-  kubeswitchConfig =
-    ''
-      kind: SwitchConfig
-      version: v1alpha1
-      kubeconfigStores:
-      - kind: filesystem
-        kubeconfigName: "*.kubeconfig"
-        paths:
-        - ~/.kube/configs
-    ''
-    + didactiklabsPart;
+  kubeswitchConfig = ''
+    kind: SwitchConfig
+    version: v1alpha1
+    kubeconfigStores:
+    - kind: filesystem
+      kubeconfigName: "*.kubeconfig"
+      paths:
+      - ~/.kube/configs
+  '';
+  # + didactiklabsPart;
   sources = import ../npins;
   pkgs-unstable = import sources.nixpkgs-unstable { };
   kl = import ../customPkgs/kl.nix { inherit pkgs; };
