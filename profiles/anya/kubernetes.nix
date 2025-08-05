@@ -32,6 +32,7 @@ in
       apiserver = {
         securePort = kubeMasterAPIServerPort;
         advertiseAddress = kubeMasterIP;
+        serviceClusterIpRange = "10.244.0.0/16";
         extraSANs = [
           "10.0.0.1"
           "anya"
