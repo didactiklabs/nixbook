@@ -6,7 +6,7 @@
 }:
 let
   cfg = config.customHomeManagerModules;
-  homeDir = config.home.homeDirectory;
+  # homeDir = config.home.homeDirectory;
   # didactiklabsPart = lib.optionalString cfg.kubeConfig.didactiklabs.enable ''
   #   - kind: capi
   #     config:

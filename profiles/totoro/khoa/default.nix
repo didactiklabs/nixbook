@@ -3,6 +3,19 @@
   lib,
   ...
 }:
+let
+  sources = import ../../../npins;
+  pkgs-unstable = import sources.nixpkgs-unstable { };
+  sdl = pkgs.SDL2.overrideAttrs (oldAttrs: {
+    version = "2.32.54";
+    src = pkgs.fetchFromGitHub {
+      owner = "libsdl-org";
+      repo = "sdl2-compat";
+      rev = "main";
+      hash = "sha256-nWqP0ARX1qQOz8h1e3Mfpq77C2jah8yi1nW9GnBiDnU=";
+    };
+  });
+in
 {
   imports = [
     ./gitConfig.nix
@@ -11,6 +24,8 @@
     ./hyprlandConfig.nix
   ];
   home.packages = [
+    sdl
+    pkgs-unstable.sdl3
     pkgs.moonlight-qt
     pkgs.jellyfin-media-player
   ];
