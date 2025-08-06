@@ -26,8 +26,8 @@ in
         "master"
         "node"
       ];
-      masterAddress = kubeMasterHostname;
-      apiserverAddress = "https://${kubeMasterHostname}:${toString kubeMasterAPIServerPort}";
+      masterAddress = "${kubeMasterIP}";
+      apiserverAddress = "https://${kubeMasterIP}:${toString kubeMasterAPIServerPort}";
       easyCerts = true;
       apiserver = {
         securePort = kubeMasterAPIServerPort;
@@ -36,6 +36,7 @@ in
         extraSANs = [
           "10.0.0.1"
           "anya"
+          "10.244.0.1"
           "${kubeMasterIP}"
         ];
       };
