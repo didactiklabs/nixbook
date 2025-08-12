@@ -105,6 +105,7 @@ in
     programs.zsh = {
       initContent = ''
         source <(switcher init zsh) # kubeswitch
+        source <(songbird completion zsh)
       '';
       shellAliases = {
         k = "kubectl";
