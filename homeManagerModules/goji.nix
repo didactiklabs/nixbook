@@ -90,6 +90,11 @@ in
     home.file.".goji.json" = {
       text = gojiJson;
     };
+    programs.zsh = {
+      initContent = ''
+        source <(goji completion zsh)
+      '';
+    };
   };
 
   options.customHomeManagerModules.gojiConfig = {
