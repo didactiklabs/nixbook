@@ -175,6 +175,22 @@
       "url": "https://github.com/adi1090x/rofi/archive/093c1a79f58daab358199c4246de50357e5bf462.tar.gz",
       "hash": "0q6kdxww1s0s7h1y0ly70dicl7fld1v820xqfx3aplwywr1g8ic9"
     },
+    "songbird": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "banh-canh",
+        "repo": "songbird"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": null,
+      "submodules": false,
+      "version": "v0.1.1",
+      "revision": "8693f599d21eb90046dfdf334f04a7ebacc7cd69",
+      "url": "https://api.github.com/repos/banh-canh/songbird/tarball/v0.1.1",
+      "hash": "11v830l8k7vkqij1y5zfp7i2c3m5pq6bl1vqjs54ynf0bz8i91lp"
+    },
     "spicetify-nix": {
       "type": "Git",
       "repository": {

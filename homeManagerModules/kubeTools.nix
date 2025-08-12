@@ -33,6 +33,7 @@ let
   sources = import ../npins;
   pkgs-unstable = import sources.nixpkgs-unstable { };
   kl = import ../customPkgs/kl.nix { inherit pkgs; };
+  songbird = import ../customPkgs/songbird.nix { inherit pkgs; };
   pvmigrate = import ../customPkgs/pvmigrate.nix { inherit pkgs; };
 in
 {
@@ -80,6 +81,7 @@ in
       };
       packages = with pkgs; [
         # clouds
+        songbird
         kl
         pvmigrate
         skopeo
