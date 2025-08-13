@@ -129,9 +129,9 @@
       },
       "branch": "nixos-unstable",
       "submodules": false,
-      "revision": "85dbfc7aaf52ecb755f87e577ddbe6dbbdbc1054",
-      "url": "https://github.com/NixOS/nixpkgs/archive/85dbfc7aaf52ecb755f87e577ddbe6dbbdbc1054.tar.gz",
-      "hash": "1krzkmqdpv2w5hq9nvq4q91i0x7mhpn3fx32rg0p1yyq7zsj61w8"
+      "revision": "005433b926e16227259a1843015b5b2b7f7d1fc3",
+      "url": "https://github.com/NixOS/nixpkgs/archive/005433b926e16227259a1843015b5b2b7f7d1fc3.tar.gz",
+      "hash": "0wiimn8mw83g7gd7zysmfqzvkh88010fvpyv1ryclws1gzdysmr1"
     },
     "nixvim": {
       "type": "Git",
@@ -186,10 +186,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "v0.2.1",
-      "revision": "dcf2f41486a3f65fd35d498b4f60e0bb3d6e3a46",
-      "url": "https://api.github.com/repos/banh-canh/songbird/tarball/v0.2.1",
-      "hash": "0sdgma4gh3b8s3fcqncx2adxi52bakh24crrbnkgyb6hyg18rs5f"
+      "version": "v0.2.2",
+      "revision": "1b84041c9c6f3b53f68cae3bfa3d6946cd61f6e7",
+      "url": "https://api.github.com/repos/banh-canh/songbird/tarball/v0.2.2",
+      "hash": "12n322fnzqmnm5ssl1hw9b8ac0v2lv72cykpxpxryv0lsn80pfmp"
     },
     "spicetify-nix": {
       "type": "Git",
