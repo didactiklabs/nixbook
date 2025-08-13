@@ -57,6 +57,7 @@ let
           - READY
           - SUSPEND:.spec.suspend
           - STATUS
+          - UPDATED:.status.conditions[?(@.type=="Ready")].lastTransitionTime
           - AGE
   '';
   transparentYaml = ''
