@@ -1,25 +1,25 @@
 { pkgs }:
 let
   sources = import ../npins;
-  klSrc = sources.songbird;
+  klSrc = sources.okada;
   inherit (klSrc) version;
 in
 pkgs.buildGoModule {
-  pname = "songbird";
+  pname = "okada";
   version = "${version}";
 
   src = klSrc;
 
-  vendorHash = "sha256-oJVInUpbO49Whd/4P5GUmq0lQBxpaOGIFM4SkwnC+Qg=";
+  vendorHash = "sha256-m94dSfozBZMObZ+2C3Nkwcbi905aK+NaX2TphO4DXQk=";
   ldflags = [
     "-s"
     "-w"
-    "-X github.com/Banh-Canh/songbird/cmd.version=${version}"
+    "-X github.com/Banh-Canh/okada/cmd.version=${version}"
   ];
 
   subPackages = [ "." ];
 
   meta = {
-    mainProgram = "songbird";
+    mainProgram = "okada";
   };
 }
