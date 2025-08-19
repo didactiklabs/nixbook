@@ -216,9 +216,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "df1f5d4c0633040937358755defff9f07e9c0a73",
-      "url": "https://github.com/Gerg-L/spicetify-nix/archive/df1f5d4c0633040937358755defff9f07e9c0a73.tar.gz",
-      "hash": "1zi79ji1s2l9ba45a6163z660m5g6azylivsdvbkgmjbd3ll7wnj"
+      "revision": "df3f3ff6db7e1f553288592496f6293d32164d8a",
+      "url": "https://github.com/Gerg-L/spicetify-nix/archive/df3f3ff6db7e1f553288592496f6293d32164d8a.tar.gz",
+      "hash": "17ckzvr666rqq3gh4zzwgrk0x0mmbazxhcxg7b4bxbqhhhpzym21"
     },
     "stylix": {
       "type": "Git",
@@ -242,9 +242,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "bf378404ce818685cce1a05c348bed358fbc5aa1",
-      "url": "https://github.com/banh-canh/ytui/archive/bf378404ce818685cce1a05c348bed358fbc5aa1.tar.gz",
-      "hash": "09715q3fadm6y6nghafzmi7w558vp5qjvmc7ndabvk58fadqp75x"
+      "revision": "decb637af83b9f358087f2fd2d2fb4847e3996e4",
+      "url": "https://github.com/banh-canh/ytui/archive/decb637af83b9f358087f2fd2d2fb4847e3996e4.tar.gz",
+      "hash": "0222yh7glhn1d4wz8pbj0ibcg4gf8d311xx33jir8w4ycfd4g1hd"
     }
   },
   "version": 5
