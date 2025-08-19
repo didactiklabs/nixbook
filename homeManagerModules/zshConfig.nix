@@ -1,6 +1,7 @@
 { pkgs, ... }:
 let
   ginx = import ../customPkgs/ginx.nix { inherit pkgs; };
+  okada = import ../customPkgs/okada.nix { inherit pkgs; };
 in
 {
   config = {
@@ -12,6 +13,7 @@ in
       pkgs.duf # df replacer
       pkgs.sd # sed alternative
       pkgs.viddy # watch alternative
+      okada
     ];
     programs = {
       atuin = {
@@ -129,6 +131,7 @@ in
         };
         initContent = ''
           any-nix-shell zsh --info-right | source /dev/stdin
+          source <(okada completion zsh)
         '';
         oh-my-zsh = {
           enable = true;
