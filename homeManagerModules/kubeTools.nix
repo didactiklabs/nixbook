@@ -75,6 +75,9 @@ in
         ".kube/configs/bealv/oidc@bealv.kubeconfig" = lib.mkIf cfg.kubeConfig.bealv.enable {
           source = ../assets/kubeconfigs/oidc-bealv.kubeconfig;
         };
+        ".kube/configs/bealv/oidc@bealvprod.kubeconfig" = lib.mkIf cfg.kubeConfig.bealv.enable {
+          source = ../assets/kubeconfigs/oidc-bealvprod.kubeconfig;
+        };
         ".kube/configs/logicmg/oidc@logicmg.kubeconfig" = lib.mkIf cfg.kubeConfig.logicmg.enable {
           source = ../assets/kubeconfigs/oidc-logicmg.kubeconfig;
         };
