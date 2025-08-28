@@ -71,6 +71,8 @@ in
           podman-compose
           google-cloud-sdk
           openapi-generator-cli
+          bruno
+          bruno-cli
         ])
         ++ (with pkgs-unstable; [
           kind
