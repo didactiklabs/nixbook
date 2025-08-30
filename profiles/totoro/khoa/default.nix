@@ -12,7 +12,7 @@ let
       owner = "libsdl-org";
       repo = "sdl2-compat";
       rev = "main";
-      hash = "sha256-nWqP0ARX1qQOz8h1e3Mfpq77C2jah8yi1nW9GnBiDnU=";
+      hash = "sha256-u4iGtmtvQFA+6Z3GFnd+WA4YiQRXYceHzQ76PA16VnQ=";
     };
   });
 in
