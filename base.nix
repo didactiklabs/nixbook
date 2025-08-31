@@ -154,6 +154,7 @@ in
       tmpfsSize = "30%";
     };
   };
+  zramSwap.enable = true;
   networking = {
     networkmanager.enable = true;
     firewall.enable = false;
@@ -188,6 +189,7 @@ in
         KERNEL=="hidraw*", SUBSYSTEM=="hidraw", KERNELS=="0005:054C:05C4.*", MODE="0666"
         KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="09cc", MODE="0666"
         KERNEL=="hidraw*", SUBSYSTEM=="hidraw", KERNELS=="0005:054C:09CC.*", MODE="0666"
+        ACTION=="add|change", KERNEL=="sd[a-z]|nvme[0-9]*", ATTR{queue/scheduler}="mq-deadline"
       '';
     };
     xserver = {

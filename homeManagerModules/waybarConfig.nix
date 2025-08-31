@@ -1,7 +1,7 @@
 {
   config,
-  pkgs,
   lib,
+  pkgs,
   ...
 }:
 let
@@ -11,6 +11,36 @@ let
   rofiLauncherType = "${cfg.rofiConfig.launcher.type}";
   rofiLauncherStyle = "${cfg.rofiConfig.launcher.style}";
   rofiPowermenuStyle = "${cfg.rofiConfig.powermenu.style}";
+  playerctl = "${pkgs.playerctl}/bin/playerctl";
+
+  # Helper script to show a Play or Pause icon based on Spotify's status
+  spotify-playpause = pkgs.writeShellScriptBin "spotify-playpause" ''
+    #!/bin/sh
+    STATUS=$(${playerctl} --player=spotify status 2>/dev/null)
+    if [ "$STATUS" = "Playing" ]; then
+        printf '{"text": "", "tooltip": "Pause"}'
+    else
+        printf '{"text": "", "tooltip": "Play"}'
+    fi
+  '';
+
+  # Helper script to show song info and a text-based equalizer
+  spotify-info = pkgs.writeShellScriptBin "spotify-info" ''
+    #!/bin/sh
+    STATUS=$(${playerctl} --player=spotify status 2>/dev/null)
+    if [ "$STATUS" = "Playing" ]; then
+        ARTIST=$(${playerctl} --player=spotify metadata artist)
+        ARTIST_CLEANED=$(playerctl --player=spotify metadata artist | tr '[:punct:]' '-')
+        TITLE=$(${playerctl} --player=spotify metadata title)
+        TITLE_CLEANED=$(playerctl --player=spotify metadata title | tr '[:punct:]' '-')
+        printf '{"text": "%s - %s", "class": "playing", "tooltip": "%s - %s"}' "$ARTIST_CLEANED" "$TITLE_CLEANED" "$ARTIST_CLEANED" "$TITLE_CLEANED"
+    elif [ "$STATUS" = "Paused" ]; then
+        printf '{"text": "Paused", "class": "paused", "tooltip": "Music Paused"}'
+    else
+        printf '{"text": "Offline", "class": "stopped", "tooltip": "Spotify is not running"}'
+    fi
+  '';
+
   tsWaybar = pkgs.writeShellScriptBin "tswaybar" ''
       export PATH="$PATH:${
         lib.makeBinPath (
@@ -75,6 +105,7 @@ in
         {
           layer = "top";
           position = "top";
+          height = 40;
           modules-center = [
             "hyprland/workspaces"
             "sway/workspaces"
@@ -84,7 +115,11 @@ in
             "hyprland/window"
             "pulseaudio"
             "backlight"
-            "custom/spotify"
+            # Replaced the single spotify module with the new widget group
+            "custom/spotify-prev"
+            "custom/spotify-playpause"
+            "custom/spotify-info"
+            "custom/spotify-next"
             "idle_inhibitor"
           ];
           modules-right = [
@@ -98,6 +133,33 @@ in
             "custom/exit"
             "clock"
           ];
+
+          # New Spotify Widget Modules
+          "custom/spotify-prev" = {
+            format = "";
+            tooltip = true;
+            tooltip-format = "Previous";
+            on-click = "${playerctl} --player=spotify previous";
+          };
+          "custom/spotify-playpause" = {
+            exec = "${spotify-playpause}/bin/spotify-playpause";
+            return-type = "json";
+            interval = 1;
+            on-click = "${playerctl} --player=spotify play-pause";
+          };
+          "custom/spotify-info" = {
+            exec = "${spotify-info}/bin/spotify-info";
+            return-type = "json";
+            interval = 1; # Fast interval
+            max-length = 15;
+          };
+          "custom/spotify-next" = {
+            format = "";
+            tooltip = true;
+            tooltip-format = "Next";
+            on-click = "${playerctl} --player=spotify next";
+          };
+
           "custom/tailscale" = {
             exec = "${tsWaybar}/bin/tswaybar --status";
             exec-if = "${pkgs.procps}/bin/pgrep tailscaled";
@@ -124,10 +186,7 @@ in
               active = " ";
               urgent = " ";
             };
-            # on-scroll-up = "hyprctl dispatch workspace e+1";
-            # on-scroll-down = "hyprctl dispatch workspace e-1";
           };
-
           "clock" = {
             format = "         {:L%H:%M}";
             tooltip = true;
@@ -136,7 +195,7 @@ in
               <tt><small>{calendar}</small></tt>'';
           };
           "hyprland/window" = {
-            max-length = 22;
+            max-length = 15;
             separate-outputs = false;
             rewrite = {
               "" = " 🙈 No Windows? ";
@@ -211,7 +270,6 @@ in
           "custom/startmenu" = {
             tooltip = false;
             format = " ";
-            # exec = "rofi -show drun";
             on-click = lib.mkIf cfg.rofiConfig.enable "sleep 0.1 && ${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/${rofiLauncherType}/${rofiLauncherStyle}.rasi";
           };
           "custom/hyprbindings" = {
@@ -227,24 +285,6 @@ in
             };
             tooltip = "true";
             on-click = "${pkgs.libnotify}/bin/notify-send 'idle inhibitor toggled' ";
-          };
-          "custom/spotify" = {
-            exec = ''
-              ${pkgs.playerctl}/bin/playerctl --player=spotify metadata --format '{ "alt": "{{ status }}", "class": "{{ status }}", "text": "{{ artist }} - {{ title }}", "tooltip": "{{ artist }} - {{ title }}" }'  2> /dev/null
-            '';
-            return-type = "json";
-            exec-if = "${pkgs.procps}/bin/pgrep spotify";
-            format = "<span>  : </span>{icon} {}";
-            format-icons = {
-              Playing = "";
-              Paused = "";
-            };
-            max-length = 55;
-            interval = 5;
-            tooltip = false;
-            on-click = "${pkgs.playerctl}/bin/playerctl --player=spotify previous";
-            on-click-middle = "${pkgs.playerctl}/bin/playerctl --player=spotify play-pause";
-            on-click-right = "${pkgs.playerctl}/bin/playerctl --player=spotify next";
           };
           "custom/notification" = {
             tooltip = false;
@@ -292,153 +332,125 @@ in
       ];
       style = lib.concatStrings [
         ''
+          /* --- Global & Base Module Styles --- */
           * {
-            font-family: Inter Display;
-            font-size: 8px;
-            font-weight: bold;
-            border-radius: 0px;
-            border: none;
-            min-height: 0px;
+              font-family: Inter Display, FontAwesome, sans-serif;
+              font-weight: 500;
+              font-size: 13px;
+              border: none;
+              border-radius: 12px;
+              min-height: 0;
           }
           window#waybar {
-            background: rgba(0,0,0,0);
+              background: transparent;
+              color: #${config.stylix.base16Scheme.base05};
           }
+          #workspaces, #window, #pulseaudio, #backlight, #idle_inhibitor,
+          #custom-tailscale, #cpu, #memory, #battery, #tray, #custom-notification,
+          #custom-exit, #clock, #network, #custom-hyprbindings, #custom-startmenu {
+              background-color: alpha(#${config.stylix.base16Scheme.base00}, 0.7);
+              padding: 4px 15px;
+              margin: 6px 4px;
+              transition: ${betterTransition};
+          }
+
+          /* --- Spotify Widget Group Styling --- */
+          #custom-spotify-prev, #custom-spotify-playpause, #custom-spotify-info, #custom-spotify-next {
+              background-color: alpha(#${config.stylix.base16Scheme.base01}, 0.8);
+              color: #${config.stylix.base16Scheme.base05};
+              margin-top: 6px;
+              margin-bottom: 6px;
+          }
+          #custom-spotify-info.playing {
+              color: #${config.stylix.base16Scheme.base0B};
+          }
+          /* Remove space between modules to merge them */
+          #custom-spotify-prev {
+              margin-left: 4px;
+              margin-right: 0px;
+              padding: 4px 10px 4px 15px;
+              border-radius: 12px 0 0 12px;
+          }
+          #custom-spotify-playpause {
+              margin-left: 0px;
+              margin-right: 0px;
+              padding: 4px 10px;
+              font-size: 16px;
+              border-radius: 0;
+          }
+          #custom-spotify-info {
+              margin-left: 0px;
+              margin-right: 0px;
+              padding: 4px 10px;
+              border-radius: 0;
+          }
+          #custom-spotify-next {
+              margin-left: 0px;
+              margin-right: 4px;
+              padding: 4px 15px 4px 10px;
+              border-radius: 0 12px 12px 0;
+          }
+          #custom-spotify-prev:hover, #custom-spotify-playpause:hover, #custom-spotify-next:hover {
+              background-color: alpha(#${config.stylix.base16Scheme.base02}, 0.9);
+              color: #${config.stylix.base16Scheme.base0D};
+          }
+          /* End Spotify Widget Styling */
+
+          /* --- Other Module Styling --- */
           #workspaces {
-            color: #${config.stylix.base16Scheme.base00};
-            background: #${config.stylix.base16Scheme.base01};
-            margin: 4px 4px;
-            padding: 5px 5px;
-            border-radius: 16px;
+              background-color: alpha(#${config.stylix.base16Scheme.base01}, 0.8);
+              padding: 2px 5px;
           }
           #workspaces button {
-            font-weight: bold;
-            padding: 0px 5px;
-            margin: 0px 3px;
-            border-radius: 16px;
-            color: #${config.stylix.base16Scheme.base00};
-            background: linear-gradient(45deg, #${config.stylix.base16Scheme.base08}, #${config.stylix.base16Scheme.base0D});
-            opacity: 0.5;
-            transition: ${betterTransition};
+              background: transparent;
+              color: #${config.stylix.base16Scheme.base04};
+              padding: 5px;
+              margin: 2px 1px;
+              font-weight: bold;
           }
           #workspaces button.active {
-            font-weight: bold;
-            padding: 0px 5px;
-            margin: 0px 3px;
-            border-radius: 16px;
-            color: #${config.stylix.base16Scheme.base00};
-            background: linear-gradient(45deg, #${config.stylix.base16Scheme.base08}, #${config.stylix.base16Scheme.base0D});
-            transition: ${betterTransition};
-            opacity: 1.0;
-            min-width: 40px;
-          }
-          #workspaces button:hover {
-            font-weight: bold;
-            border-radius: 16px;
-            color: #${config.stylix.base16Scheme.base00};
-            background: linear-gradient(45deg, #${config.stylix.base16Scheme.base08}, #${config.stylix.base16Scheme.base0D});
-            opacity: 0.8;
-            transition: ${betterTransition};
-          }
-          tooltip {
-            background: #${config.stylix.base16Scheme.base00};
-            border: 1px solid #${config.stylix.base16Scheme.base08};
-            border-radius: 12px;
-          }
-          tooltip label {
-            color: #${config.stylix.base16Scheme.base08};
-          }
-          #window, #pulseaudio, #backlight, #idle_inhibitor {
-            font-weight: bold;
-            margin: 4px 0px;
-            margin-left: 7px;
-            padding: 0px 18px;
-            background: #${config.stylix.base16Scheme.base04};
-            color: #${config.stylix.base16Scheme.base00};
-            border-radius: 24px 10px 24px 10px;
-          }
-          #custom-spotify {
-            font-weight: bold;
-            margin: 4px 0px;
-            margin-left: 7px;
-            padding: 0px 18px;
-            background: #${config.stylix.base16Scheme.base04};
-            border-radius: 24px 10px 24px 10px;
-          }
-          #custom-tailscale.connected, #custom-spotify.Playing {
-            background: #77DD77;
-            color: #FFFFFF;
-          }
-          #custom-tailscale:hover, #custom-spotify:hover, #pulseaudio:hover, #idle_inhibitor:hover, #custom-startmenu:hover,
-          #custom-notification:hover, #custom-exit:hover, #custom-hyprbindings:hover{
-            transition: ${betterTransition};
-            opacity: 0.8;
-          }
-          #idle_inhibitor.activated {
-            background-color: #1DB954;
-          }
-          #custom-tailscale.stopped, #custom-spotify.Paused {
-            background: #FF6961;
-            color: #FFFFFF;
+              color: #${config.stylix.base16Scheme.base00};
+              background: #${config.stylix.base16Scheme.base0D};
           }
           #custom-startmenu {
-            color: #${config.stylix.base16Scheme.base0B};
-            background: #${config.stylix.base16Scheme.base02};
-            font-size: 28px;
-            margin: 0px;
-            padding: 0px 30px 0px 15px;
-            border-radius: 0px 0px 40px 0px;
-          }
-          #custom-hyprbindings, #network, #battery,
-          #custom-notification, #tray, #custom-exit, #cpu, #memory, #custom-tailscale {
-            font-weight: bold;
-            background: #${config.stylix.base16Scheme.base0F};
-            color: #${config.stylix.base16Scheme.base00};
-            margin: 4px 0px;
-            margin-right: 7px;
-            border-radius: 10px 24px 10px 24px;
-            padding: 0px 18px;
-          }
-          #battery.charging {
-            background-color: #1DB954;
-          }
-          #battery.plugged {
-            background-color: #1DB954;
-          }
-          #battery.warning:not(.charging) {
-            background-color: #e0ad75;
-            animation-name: blink;
-            animation-duration: 1.5s;
-            animation-timing-function: linear;
-            animation-iteration-count: infinite;
-            animation-direction: alternate;
-          }
-          #battery.critical:not(.charging) {
-            background-color: #e06c75;
-            animation-name: blink;
-            animation-duration: 0.5s;
-            animation-timing-function: linear;
-            animation-iteration-count: infinite;
-            animation-direction: alternate;
-          }
-          @keyframes blink {
-            0% {
-              opacity: 1;
-            }
-            50% {
-              opacity: 0.5;
-            }
-            100% {
-              opacity: 1;
-            }
+              color: #${config.stylix.base16Scheme.base00};
+              background-color: alpha(#${config.stylix.base16Scheme.base0B}, 0.85);
+              font-size: 18px;
           }
           #clock {
-            font-weight: bold;
-            color: #0D0E15;
-            background: linear-gradient(90deg, #${config.stylix.base16Scheme.base0E}, #${config.stylix.base16Scheme.base0C});
-            margin: 0px;
-            padding: 0px 15px 0px 30px;
-            border-radius: 0px 0px 0px 40px;
+              color: #${config.stylix.base16Scheme.base00};
+              background: alpha(#${config.stylix.base16Scheme.base0C}, 0.85);
           }
+          #custom-exit {
+              color: #${config.stylix.base16Scheme.base00};
+              background-color: alpha(#${config.stylix.base16Scheme.base08}, 0.85);
+          }
+          #custom-tailscale.connected {
+              background-color: alpha(#1DB954, 0.85);
+              color: #${config.stylix.base16Scheme.base00};
+          }
+          #idle_inhibitor.activated {
+              background-color: alpha(#${config.stylix.base16Scheme.base0B}, 0.85);
+              color: #${config.stylix.base16Scheme.base00};
+          }
+          #battery.charging, #battery.plugged {
+              background-color: alpha(#${config.stylix.base16Scheme.base0B}, 0.85);
+              color: #${config.stylix.base16Scheme.base00};
+          }
+          #battery.warning:not(.charging) {
+              background-color: alpha(#${config.stylix.base16Scheme.base0A}, 0.85);
+              color: #${config.stylix.base16Scheme.base00};
+          }
+          #battery.critical:not(.charging) {
+              background-color: alpha(#${config.stylix.base16Scheme.base08}, 0.85);
+              color: #${config.stylix.base16Scheme.base00};
+              animation-name: blink;
+              animation-duration: 0.8s;
+              animation-timing-function: linear;
+              animation-iteration-count: infinite;
+              animation-direction: alternate;
+          }
+          @keyframes blink { to { opacity: 0.6; } }
         ''
       ];
     };

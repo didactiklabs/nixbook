@@ -128,7 +128,7 @@ in
             #color = rgba(255, 255, 255, 0.6)
             font_size = 18;
             font_family = "Hack Nerd Font";
-            position = "0, 0";
+            position = "0, 10";
             halign = "center";
             valign = "bottom";
           }
