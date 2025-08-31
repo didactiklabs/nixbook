@@ -16,6 +16,16 @@ let
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
   grimshot = "${pkgs.grimblast}/bin/grimblast";
   pidof = "${pkgs.sysvtools}/bin/pidof";
+  sources = import ../../npins;
+  hyprfocusSrc = sources.hyprfocus;
+  hyprfocus-overridden = pkgs.hyprlandPlugins.hyprfocus.overrideAttrs (oldAttrs: {
+    meta = oldAttrs.meta // {
+      # By using '//', we merge our changes into the old 'meta' attribute set.
+      # This keeps the homepage, description, etc., while only changing 'broken'.
+      broken = false;
+    };
+    src = hyprfocusSrc;
+  });
 in
 {
   config = lib.mkIf cfg.hyprlandConfig.enable {
@@ -25,7 +35,7 @@ in
       plugins = with pkgs.hyprlandPlugins; [
         hy3
         hyprexpo
-        # hyprfocus
+        hyprfocus-overridden
       ];
       settings = {
         debug = {
@@ -45,37 +55,37 @@ in
               "col.urgent" = "rgb(${config.lib.stylix.colors.base04})";
             };
           };
-          # hyprfocus = {
-          #   enabled = "yes";
-          #   animate_floating = "yes";
-          #   animate_workspacechange = "yes";
-          #   focus_animation = "shrink";
-          #   # Beziers for focus animations
-          #   bezier = [
-          #     "bezIn, 0.5,0.0,1.0,0.5"
-          #     "bezOut, 0.0,0.5,0.5,1.0"
-          #     "overshot, 0.05, 0.9, 0.1, 1.05"
-          #     "smoothOut, 0.36, 0, 0.66, -0.56"
-          #     "smoothIn, 0.25, 1, 0.5, 1"
-          #     "realsmooth, 0.28,0.29,.69,1.08"
-          #   ];
-          #   # Flash settings
-          #   flash = {
-          #     flash_opacity = 0.95;
-          #     in_bezier = "realsmooth";
-          #     in_speed = 0.5;
-          #     out_bezier = "realsmooth";
-          #     out_speed = 3;
-          #   };
-          #   # Shrink settings
-          #   shrink = {
-          #     shrink_percentage = 0.99;
-          #     in_bezier = "realsmooth";
-          #     in_speed = 1;
-          #     out_bezier = "realsmooth";
-          #     out_speed = 2;
-          #   };
-          # };
+          hyprfocus = {
+            enabled = "yes";
+            animate_floating = "yes";
+            animate_workspacechange = "yes";
+            focus_animation = "shrink";
+            # Beziers for focus animations
+            bezier = [
+              "bezIn, 0.5,0.0,1.0,0.5"
+              "bezOut, 0.0,0.5,0.5,1.0"
+              "overshot, 0.05, 0.9, 0.1, 1.05"
+              "smoothOut, 0.36, 0, 0.66, -0.56"
+              "smoothIn, 0.25, 1, 0.5, 1"
+              "realsmooth, 0.28,0.29,.69,1.08"
+            ];
+            # Flash settings
+            flash = {
+              flash_opacity = 0.95;
+              in_bezier = "realsmooth";
+              in_speed = 0.5;
+              out_bezier = "realsmooth";
+              out_speed = 3;
+            };
+            # Shrink settings
+            shrink = {
+              shrink_percentage = 0.99;
+              in_bezier = "realsmooth";
+              in_speed = 1;
+              out_bezier = "realsmooth";
+              out_speed = 2;
+            };
+          };
           hyprexpo = {
             columns = 4;
             gap_size = 5;
@@ -183,64 +193,63 @@ in
           kb_layout = "fr";
           numlock_by_default = true;
         };
-        bind =
-          [
-            "$mod, TAB, hyprexpo:expo, toggle"
-            "$mod, Z, hy3:changegroup, toggletab"
-            "$mod, E, hy3:changegroup, opposite"
+        bind = [
+          "$mod, TAB, hyprexpo:expo, toggle"
+          "$mod, Z, hy3:changegroup, toggletab"
+          "$mod, E, hy3:changegroup, opposite"
 
-            "$mod, ampersand, workspace, 1"
-            "$mod, eacute, workspace, 2"
-            "$mod, quotedbl, workspace, 3"
-            "$mod, apostrophe, workspace, 4"
-            "$mod, parenleft, workspace, 5"
-            "$mod, minus, workspace, 6"
-            "$mod, egrave, workspace, 7"
-            "$mod, underscore, workspace, 8"
-            "$mod, ccedilla, workspace, 9"
-            "$mod, agrave, workspace, 10"
+          "$mod, ampersand, workspace, 1"
+          "$mod, eacute, workspace, 2"
+          "$mod, quotedbl, workspace, 3"
+          "$mod, apostrophe, workspace, 4"
+          "$mod, parenleft, workspace, 5"
+          "$mod, minus, workspace, 6"
+          "$mod, egrave, workspace, 7"
+          "$mod, underscore, workspace, 8"
+          "$mod, ccedilla, workspace, 9"
+          "$mod, agrave, workspace, 10"
 
-            "$mod SHIFT, ampersand, movetoworkspace, 1"
-            "$mod SHIFT, eacute, movetoworkspace, 2"
-            "$mod SHIFT, quotedbl, movetoworkspace, 3"
-            "$mod SHIFT, apostrophe, movetoworkspace, 4"
-            "$mod SHIFT, parenleft, movetoworkspace, 5"
-            "$mod SHIFT, minus, movetoworkspace, 6"
-            "$mod SHIFT, egrave, movetoworkspace, 7"
-            "$mod SHIFT, underscore, movetoworkspace, 8"
-            "$mod SHIFT, ccedilla, movetoworkspace, 9"
-            "$mod SHIFT, agrave, movetoworkspace, 10"
+          "$mod SHIFT, ampersand, movetoworkspace, 1"
+          "$mod SHIFT, eacute, movetoworkspace, 2"
+          "$mod SHIFT, quotedbl, movetoworkspace, 3"
+          "$mod SHIFT, apostrophe, movetoworkspace, 4"
+          "$mod SHIFT, parenleft, movetoworkspace, 5"
+          "$mod SHIFT, minus, movetoworkspace, 6"
+          "$mod SHIFT, egrave, movetoworkspace, 7"
+          "$mod SHIFT, underscore, movetoworkspace, 8"
+          "$mod SHIFT, ccedilla, movetoworkspace, 9"
+          "$mod SHIFT, agrave, movetoworkspace, 10"
 
-            "$mod, left, hy3:movefocus, l"
-            "$mod, right, hy3:movefocus, r"
-            "$mod, up, hy3:movefocus, u"
-            "$mod, down, hy3:movefocus, d"
+          "$mod, left, hy3:movefocus, l"
+          "$mod, right, hy3:movefocus, r"
+          "$mod, up, hy3:movefocus, u"
+          "$mod, down, hy3:movefocus, d"
 
-            "$mod SHIFT, left, hy3:movewindow, l"
-            "$mod SHIFT, right, hy3:movewindow, r"
-            "$mod SHIFT, up, hy3:movewindow, u"
-            "$mod SHIFT, down, hy3:movewindow, d"
+          "$mod SHIFT, left, hy3:movewindow, l"
+          "$mod SHIFT, right, hy3:movewindow, r"
+          "$mod SHIFT, up, hy3:movewindow, u"
+          "$mod SHIFT, down, hy3:movewindow, d"
 
-            "$mod, A, killactive"
-            ", PRINT, exec, ${grimshot} --notify copy area"
-            "$mod, N, exec, ${pkgs.swaynotificationcenter}/bin/swaync-client -t"
-            "$mod, B, exec, ${pkgs.toybox}/bin/pkill -SIGUSR1 'waybar'"
+          "$mod, A, killactive"
+          ", PRINT, exec, ${grimshot} --notify copy area"
+          "$mod, N, exec, ${pkgs.swaynotificationcenter}/bin/swaync-client -t"
+          "$mod, B, exec, ${pkgs.toybox}/bin/pkill -SIGUSR1 'waybar'"
 
-            ",XF86MonBrightnessDown, exec, ${brightnessctl} set 10%-"
-            ",XF86MonBrightnessUp, exec, ${brightnessctl} set +10%"
-          ]
-          ++ (if cfg.copyqConfig.enable then [ "$mod, Q, exec, ${pkgs.copyq}/bin/copyq toggle" ] else [ ])
-          ++ (
-            if cfg.rofiConfig.enable then
-              [
-                "$mod, D, exec, ${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/${rofiLauncherType}/${rofiLauncherStyle}.rasi"
-                ''
-                  $mod, L, exec, $HOME/.config/rofiScripts/rofiLockScript.sh ${rofiPowermenuStyle}
-                ''
-              ]
-            else
-              [ ]
-          );
+          ",XF86MonBrightnessDown, exec, ${brightnessctl} set 10%-"
+          ",XF86MonBrightnessUp, exec, ${brightnessctl} set +10%"
+        ]
+        ++ (if cfg.copyqConfig.enable then [ "$mod, Q, exec, ${pkgs.copyq}/bin/copyq toggle" ] else [ ])
+        ++ (
+          if cfg.rofiConfig.enable then
+            [
+              "$mod, D, exec, ${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/${rofiLauncherType}/${rofiLauncherStyle}.rasi"
+              ''
+                $mod, L, exec, $HOME/.config/rofiScripts/rofiLockScript.sh ${rofiPowermenuStyle}
+              ''
+            ]
+          else
+            [ ]
+        );
       };
     };
   };

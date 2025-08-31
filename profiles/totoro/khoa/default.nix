@@ -38,16 +38,16 @@ in
     mainWallpaper =
       let
         image = pkgs.fetchurl {
-          url = "https://i.imgur.com/2ck3nKs.jpeg";
-          sha256 = "sha256-rLcsHaUmW/JcPxofYBI68SlrsLBhJOURjLae6Fr3kdE=";
+          url = "https://i.imgur.com/sEZYXQp.jpeg";
+          sha256 = "sha256-uSQokHcEOCta68SBavE2QVItD4vLrC5i/BM9iriYnfU=";
         };
       in
       "${image}";
     lockWallpaper =
       let
         image = pkgs.fetchurl {
-          url = "https://i.imgur.com/2A57JH9.jpeg";
-          sha256 = "sha256-SSqK0hAcnl2bsZgVfqnOigDV3/5Xy5QvyRqef1Nbl1s=";
+          url = "https://i.imgur.com/KQgHVef.jpeg";
+          sha256 = "sha256-7ybKMprmJBNamRkIJNKLGdAPThI8h3jvBHjt9M0+PbY=";
         };
       in
       "${image}";

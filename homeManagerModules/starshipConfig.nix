@@ -1,4 +1,8 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  ...
+}:
 let
   cfg = config.customHomeManagerModules.starship;
 in
@@ -17,103 +21,89 @@ in
     programs.starship = {
       enable = true;
       enableZshIntegration = true;
-      # Configuration written to ~/.config/starship.toml
       settings = {
         add_newline = true;
         scan_timeout = 30;
         command_timeout = 5000;
-        # https://starship.rs/config/#prompt
+
         format = ''
-          [](#${config.lib.stylix.colors.base01})$nix_shell$username$hostname[](bg:#${config.lib.stylix.colors.base08} fg:#${config.lib.stylix.colors.base01})$kubernetes[](bg:#${config.lib.stylix.colors.base02} fg:#${config.lib.stylix.colors.base08})$directory[](fg:#${config.lib.stylix.colors.base02} bg:#${config.lib.stylix.colors.base03})$git_branch$git_metrics[](fg:#${config.lib.stylix.colors.base03} bg:#${config.lib.stylix.colors.base04})$time[ ](fg:#${config.lib.stylix.colors.base04})
-        '';
+          [╭─](bold #${config.lib.stylix.colors.base04})$nix_shell$username$hostname$kubernetes[ ](bold #${config.lib.stylix.colors.base04})$directory$git_branch$git_status
+          [╰─](bold #${config.lib.stylix.colors.base04})$character'';
+
+        line_break.disabled = false;
+
+        # UPDATED: The character module now uses an arrow symbol.
+        character = {
+          success_symbol = "[❯](bold #${config.lib.stylix.colors.base0B})";
+          error_symbol = "[❯](bold #${config.lib.stylix.colors.base08})";
+          vimcmd_symbol = "[❮](bold #${config.lib.stylix.colors.base0A})";
+        };
+
+        # Modules for the context (top) line.
         nix_shell = {
           disabled = false;
-          format = "[$symbol ]($style)";
-          impure_msg = "[impure](bold red)";
-          pure_msg = "[pure](bold green)";
-          symbol = "";
-          style = "bg:#${config.lib.stylix.colors.base01}";
+          format = "[ $state]($style) ";
+          impure_msg = "impure";
+          pure_msg = "pure";
+          style = "bold #${config.lib.stylix.colors.base0D}";
         };
 
-        # https://starship.rs/config/#kubernetes
-        kubernetes = {
-          disabled = false;
-          symbol = "☸";
-          format = "[ ☸ ]($style)[$context ]($style)";
-          style = "bg:#${config.lib.stylix.colors.base08}";
-        };
-
-        # https://starship.rs/config/#git-branch
-        git_branch = {
-          disabled = false;
-          symbol = "";
-          format = "[ $symbol $branch ]($style)";
-          style = "bg:#${config.lib.stylix.colors.base03}";
-          ignore_branches = [ "remotes/origin/renovate/*" ];
-        };
-        git_status = {
-          disabled = false;
-          format = "[$all_status$ahead_behind ]($style)";
-          style = "bg:#${config.lib.stylix.colors.base03}";
-        };
-
-        # https://starship.rs/config/#git-metrics
-        git_metrics = {
-          added_style = "bg:#${config.lib.stylix.colors.base03}";
-          deleted_style = "bg:#${config.lib.stylix.colors.base03}";
-          disabled = false;
-          format = "[+$added]($added_style)[ / ](bg:#${config.lib.stylix.colors.base03})[-$deleted ]($deleted_style)";
-        };
-
-        # https://starship.rs/config/#character
-        character = {
-          success_symbol = "[λ](bold blue)";
-          error_symbol = "[λ](bold red)";
-          format = "[$symbol]($style)";
-        };
-
-        # https://starship.rs/config/#directory
-        directory = {
-          disabled = false;
-          style = "bg:#${config.lib.stylix.colors.base02}";
-          format = "[ $path ]($style)";
-          truncation_length = 3;
-          truncation_symbol = "…/";
-        };
-
-        # https://starship.rs/config/#time
-        time = {
-          disabled = false;
-          format = "[ ♥ $time ]($style)";
-          style = "bg:#${config.lib.stylix.colors.base04}";
-          time_format = "%H:%M";
-        };
-
-        # https://starship.rs/config/#package-version
-        package.disabled = true;
-
-        # https://starship.rs/config/#python
-        python = {
-          disabled = true;
-        };
-
-        # https://starship.rs/config/#username
         username = {
-          disabled = false;
           show_always = true;
-          style_user = "bg:#${config.lib.stylix.colors.base01}";
-          style_root = "bg:#${config.lib.stylix.colors.base01}";
+          style_user = "bold #${config.lib.stylix.colors.base0E}";
+          style_root = "bold #${config.lib.stylix.colors.base08}";
           format = "[$user]($style)";
         };
 
-        # https://starship.rs/config/#hostname
         hostname = {
-          disabled = false;
           ssh_only = false;
-          format = "[@$hostname ]($style)";
-          trim_at = "-";
-          style = "bg:#${config.lib.stylix.colors.base01}";
+          format = "[@$hostname]($style)";
+          trim_at = ".";
+          style = "bold #${config.lib.stylix.colors.base0E}";
         };
+
+        kubernetes = {
+          disabled = false;
+          symbol = "☸";
+          format = "[ $symbol $context]($style)";
+          style = "bold #${config.lib.stylix.colors.base0C}";
+        };
+
+        directory = {
+          style = "bold #${config.lib.stylix.colors.base0B}";
+          format = "[in  $path]($style)[$read_only]($read_only_style) ";
+          truncation_length = 4;
+          truncation_symbol = "…/";
+          read_only = "🔒";
+          read_only_style = "bold #${config.lib.stylix.colors.base0A}";
+        };
+
+        git_branch = {
+          symbol = "";
+          format = "[on $symbol $branch]($style) ";
+          style = "bold #${config.lib.stylix.colors.base0A}";
+        };
+
+        git_status = {
+          format = ''([\[$all_status$ahead_behind\]]($style)) '';
+          style = "bold #${config.lib.stylix.colors.base0A}";
+          conflicted = "=";
+          ahead = "⇡";
+          behind = "⇣";
+          diverged = "⇕";
+          untracked = "?";
+          stashed = "";
+          modified = "!";
+          staged = "+";
+          renamed = "»";
+          deleted = "✘";
+        };
+
+        # Disabling modules that are not used in the new format.
+        time.disabled = true;
+        package.disabled = true;
+        python.disabled = true;
+        git_metrics.disabled = true;
       };
     };
   };
