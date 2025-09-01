@@ -13,7 +13,7 @@ in
       pkgs.duf # df replacer
       pkgs.sd # sed alternative
       pkgs.viddy # watch alternative
-      okada
+      # okada
     ];
     programs = {
       atuin = {
