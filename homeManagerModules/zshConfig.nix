@@ -131,7 +131,7 @@ in
         };
         initContent = ''
           any-nix-shell zsh --info-right | source /dev/stdin
-          source <(okada completion zsh)
+          # source <(okada completion zsh)
         '';
         oh-my-zsh = {
           enable = true;
