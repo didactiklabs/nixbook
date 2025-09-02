@@ -25,13 +25,16 @@ in
   ];
   home.packages = [
     sdl
+    pkgs-unstable.claude-code
     pkgs-unstable.sdl3
     pkgs.moonlight-qt
     pkgs.jellyfin-media-player
   ];
-  programs.go = {
-    enable = true;
-    goPath = lib.mkForce ".local/go";
+  programs = {
+    go = {
+      enable = true;
+      goPath = lib.mkForce ".local/go";
+    };
   };
 
   profileCustomization = {
