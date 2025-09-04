@@ -35,12 +35,13 @@ targets:
     name: nixvim npins update
     kind: shell
     scmid: 'default'
-    disablesourceinput: true
     spec:
       environments:
         - name: PATH
         - name: NIX_PATH
       command: nix-shell -p npins --command "npins update nixvim"
+      files:
+        - npins/sources.json
 # Define action configurations if one needs to be created
 actions:
   default:
