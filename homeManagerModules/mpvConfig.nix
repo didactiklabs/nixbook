@@ -6,6 +6,7 @@
 }:
 let
   ytui = import ../customPkgs/ytui.nix { inherit pkgs; };
+  jtui = import ../customPkgs/jtui.nix { inherit pkgs; };
   cfg = config.customHomeManagerModules;
   mpvScripts = with pkgs.mpvScripts; [
     thumbfast
@@ -24,6 +25,7 @@ in
     };
     home = {
       packages = [
+        jtui
         ytui
         pkgs.yt-dlp
       ];
