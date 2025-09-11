@@ -89,10 +89,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "v0.1.0",
-      "revision": "78be34c069b5b897fabe2cb143b6cae5cf278794",
-      "url": "https://api.github.com/repos/banh-canh/jtui/tarball/v0.1.0",
-      "hash": "00ihbblfd94fwi2w8mck8bhxbgg2scwj7hap49cmwdxywhafy85g"
+      "version": "v0.2.0",
+      "revision": "e7f4776b3fe110935bf1392b1b87514d33132c18",
+      "url": "https://api.github.com/repos/banh-canh/jtui/tarball/v0.2.0",
+      "hash": "0yhjbzvwp4rz5lsmxh2jmr0l4g16nybyc9ll9vgqg0kwzwjl2525"
     },
     "k9s": {
       "type": "Git",
