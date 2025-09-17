@@ -33,6 +33,7 @@ in
     networkManager.enable = true;
     greetd.enable = true;
     hyprland.enable = true;
+    niri.enable = true;
     caCertificates = {
       bealv.enable = true;
       didactiklabs.enable = true;

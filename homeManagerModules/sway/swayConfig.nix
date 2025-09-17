@@ -12,9 +12,6 @@ let
   swaymsg = "${pkgs.sway}/bin/swaymsg";
   waybar = "${pkgs.waybar}/bin/waybar";
   rofi-wayland = "${pkgs.rofi-wayland}/bin/rofi";
-  rofiLauncherType = "${cfg.rofiConfig.launcher.type}";
-  rofiLauncherStyle = "${cfg.rofiConfig.launcher.style}";
-  rofiPowermenuStyle = "${cfg.rofiConfig.powermenu.style}";
   playerctl = "${pkgs.playerctl}/bin/playerctl";
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
   grimshot = "${pkgs.sway-contrib.grimshot}/bin/grimshot";
@@ -301,10 +298,10 @@ in
           "${mod}+Shift+Right" = "move right";
 
           "${mod}+l" = lib.mkIf cfg.rofiConfig.enable ''
-            exec $HOME/.config/rofiScripts/rofiLockScript.sh ${rofiPowermenuStyle}
+            exec $HOME/.config/rofiScripts/rofiLockScript.sh style-1
           '';
           "${mod}+d" = lib.mkIf cfg.rofiConfig.enable ''
-            exec "${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/${rofiLauncherType}/${rofiLauncherStyle}.rasi"
+            exec "${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/type-1/style-landscape.rasi"
           '';
 
           # Brightness

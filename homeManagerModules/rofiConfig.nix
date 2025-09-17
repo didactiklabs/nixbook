@@ -93,20 +93,19 @@ let
     esac
   '';
 
-  sources = import ../npins;
-  rofi-repo = sources.rofi;
-
-  rofi-themes = pkgs.runCommand "rofi-themes" { } ''
-    mkdir -p $out/files/colors
-    cp -r ${rofi-repo}/files/applets $out/files
-    cp -r ${rofi-repo}/files/images $out/files
-    cp -r ${rofi-repo}/files/launchers $out/files
-    cp -r ${rofi-repo}/files/powermenu $out/files
-    cp -r ${rofi-repo}/files/scripts $out/files
-    cp -r ${rofi-repo}/files/config.rasi $out/files
+  # Local rofi themes - no external dependencies
+  rofi-themes = pkgs.runCommand "rofi-themes-5rows" { 
+    # Force rebuild when source changes
+    buildInputs = [ pkgs.coreutils ];
+  } ''
+    mkdir -p $out/files
+    cp -r ${../assets/rofi}/* $out/files/
+    
+    # Make files writable and update colors with stylix theme
+    chmod -R u+w $out/files
     cat > $out/files/colors/onedark.rasi <<EOF
       * {
-        background:     rgba(0,0,0,0.3);
+        background:     #${config.lib.stylix.colors.base00};
         background-alt: #${config.lib.stylix.colors.base01};
         foreground:     #${config.lib.stylix.colors.base07};
         selected:       #${config.lib.stylix.colors.base05};
@@ -117,7 +116,7 @@ let
   '';
 in
 {
-  # https://github.com/adi1090x/rofi
+  # Local rofi configuration - self-contained without external GitHub dependencies
   config = lib.mkIf cfg.rofiConfig.enable {
     home = {
       packages = [ pkgs.rofi-wayland ];
@@ -135,27 +134,6 @@ in
       default = false;
       description = ''
         Whether to enable Rofi config globally or not.
-      '';
-    };
-    launcher.type = lib.mkOption {
-      type = lib.types.str;
-      default = "type-1";
-      description = ''
-        Select launcher type.
-      '';
-    };
-    launcher.style = lib.mkOption {
-      type = lib.types.str;
-      default = "style-1";
-      description = ''
-        Select launcher style.
-      '';
-    };
-    powermenu.style = lib.mkOption {
-      type = lib.types.str;
-      default = "style-1";
-      description = ''
-        Select powermenu style.
       '';
     };
   };

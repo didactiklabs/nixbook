@@ -9,23 +9,11 @@ let
   mainWallpaper = "${config.profileCustomization.mainWallpaper}";
   startup_audio = "${config.profileCustomization.startup_audio}";
   rofi-wayland = "${pkgs.rofi-wayland}/bin/rofi";
-  rofiLauncherType = "${cfg.rofiConfig.launcher.type}";
-  rofiLauncherStyle = "${cfg.rofiConfig.launcher.style}";
-  rofiPowermenuStyle = "${cfg.rofiConfig.powermenu.style}";
   waybar = "${pkgs.waybar}/bin/waybar";
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
   grimshot = "${pkgs.grimblast}/bin/grimblast";
   pidof = "${pkgs.sysvtools}/bin/pidof";
   sources = import ../../npins;
-  hyprfocusSrc = sources.hyprfocus;
-  hyprfocus-overridden = pkgs.hyprlandPlugins.hyprfocus.overrideAttrs (oldAttrs: {
-    meta = oldAttrs.meta // {
-      # By using '//', we merge our changes into the old 'meta' attribute set.
-      # This keeps the homepage, description, etc., while only changing 'broken'.
-      broken = false;
-    };
-    src = hyprfocusSrc;
-  });
 in
 {
   config = lib.mkIf cfg.hyprlandConfig.enable {
@@ -35,7 +23,6 @@ in
       plugins = with pkgs.hyprlandPlugins; [
         hy3
         hyprexpo
-        hyprfocus-overridden
       ];
       settings = {
         debug = {
@@ -53,37 +40,6 @@ in
               "col.active" = "rgb(${config.lib.stylix.colors.base02})"; # to move to stylix module
               "col.text.active" = "rgb(${config.lib.stylix.colors.base07})";
               "col.urgent" = "rgb(${config.lib.stylix.colors.base04})";
-            };
-          };
-          hyprfocus = {
-            enabled = "yes";
-            animate_floating = "yes";
-            animate_workspacechange = "yes";
-            focus_animation = "shrink";
-            # Beziers for focus animations
-            bezier = [
-              "bezIn, 0.5,0.0,1.0,0.5"
-              "bezOut, 0.0,0.5,0.5,1.0"
-              "overshot, 0.05, 0.9, 0.1, 1.05"
-              "smoothOut, 0.36, 0, 0.66, -0.56"
-              "smoothIn, 0.25, 1, 0.5, 1"
-              "realsmooth, 0.28,0.29,.69,1.08"
-            ];
-            # Flash settings
-            flash = {
-              flash_opacity = 0.95;
-              in_bezier = "realsmooth";
-              in_speed = 0.5;
-              out_bezier = "realsmooth";
-              out_speed = 3;
-            };
-            # Shrink settings
-            shrink = {
-              shrink_percentage = 0.99;
-              in_bezier = "realsmooth";
-              in_speed = 1;
-              out_bezier = "realsmooth";
-              out_speed = 2;
             };
           };
           hyprexpo = {
@@ -242,9 +198,9 @@ in
         ++ (
           if cfg.rofiConfig.enable then
             [
-              "$mod, D, exec, ${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/${rofiLauncherType}/${rofiLauncherStyle}.rasi"
+              "$mod, D, exec, ${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/type-1/style-landscape.rasi"
               ''
-                $mod, L, exec, $HOME/.config/rofiScripts/rofiLockScript.sh ${rofiPowermenuStyle}
+                $mod, L, exec, $HOME/.config/rofiScripts/rofiLockScript.sh style-1
               ''
             ]
           else

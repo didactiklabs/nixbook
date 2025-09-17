@@ -1,0 +1,25 @@
+configuration {
+    font:                        "JetBrains Mono Nerd Font 10";
+    show-icons:                  true;
+    display-drun:                "";
+    drun-display-format:         "{name}";
+    disable-history:             false;
+    sidebar-mode:                false;
+    hover-select:                true;
+    eh:                          1;
+    auto-select:                 false;
+    parse-hosts:                 true;
+    parse-known-hosts:           true;
+    combi-modi:                  "window,run";
+    matching:                    "fuzzy";
+    sort:                        true;
+    case-sensitive:              false;
+    cycle:                       true;
+    sidebar-mode:                false;
+    eh:                          1;
+    auto-select:                 false;
+    parse-hosts:                 true;
+    parse-known-hosts:           true;
+}
+
+@import "colors/onedark.rasi"
