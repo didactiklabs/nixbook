@@ -47,16 +47,7 @@
     spicetifyConfig.enable = true;
     hyprlandConfig.enable = true;
     # https://github.com/adi1090x/rofi
-    rofiConfig = {
-      enable = true;
-      launcher = {
-        type = "type-3";
-        style = "style-10";
-      };
-      powermenu = {
-        style = "style-1"; # (1 - 5) # type-1 only
-      };
-    };
+    rofiConfig.enable = true;
     copyqConfig.enable = true;
     fastfetchConfig.enable = true;
     desktopApps.enable = true;

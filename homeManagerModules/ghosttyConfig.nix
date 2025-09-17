@@ -59,5 +59,12 @@ in
         };
       };
     };
+    programs.niri = {
+      settings = {
+        binds = {
+          "Mod+Return".action.spawn = [ "${pkgs.ghostty}/bin/ghostty" ];
+        };
+      };
+    };
   };
 }

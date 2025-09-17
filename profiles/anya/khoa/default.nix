@@ -44,16 +44,7 @@ in
     spicetifyConfig.enable = true;
     nixvimConfig.enable = true;
     # https://github.com/adi1090x/rofi
-    rofiConfig = {
-      enable = true;
-      launcher = {
-        type = "type-3";
-        style = "style-10";
-      };
-      powermenu = {
-        style = "style-1"; # (1 - 5) # type-1 only
-      };
-    };
+    rofiConfig.enable = true;
     fastfetchConfig.enable = true;
     waybar.enable = true;
     atuinConfig.didactiklabs.enable = true;

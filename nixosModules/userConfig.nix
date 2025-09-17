@@ -152,6 +152,7 @@ let
               ../homeManagerModules/spicetifyConfig.nix
               ../homeManagerModules/sway
               ../homeManagerModules/hyprland
+              ../homeManagerModules/niri
               ../homeManagerModules/vscode
               ../homeManagerModules/kittyConfig.nix
               # ../homeManagerModules/ghosttyConfig.nix

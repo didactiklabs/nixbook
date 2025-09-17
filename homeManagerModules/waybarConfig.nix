@@ -8,9 +8,6 @@ let
   cfg = config.customHomeManagerModules;
   betterTransition = "all 0.3s cubic-bezier(.55,-0.68,.48,1.682)";
   rofi-wayland = "${pkgs.rofi-wayland}/bin/rofi";
-  rofiLauncherType = "${cfg.rofiConfig.launcher.type}";
-  rofiLauncherStyle = "${cfg.rofiConfig.launcher.style}";
-  rofiPowermenuStyle = "${cfg.rofiConfig.powermenu.style}";
   playerctl = "${pkgs.playerctl}/bin/playerctl";
 
   # Helper script to show a Play or Pause icon based on Spotify's status
@@ -39,6 +36,74 @@ let
     else
         printf '{"text": "Offline", "class": "stopped", "tooltip": "Spotify is not running"}'
     fi
+  '';
+
+
+  # Niri vertical position script  
+  niri-vertical = pkgs.writeShellScriptBin "niri-vertical" ''
+    #!/bin/sh
+    export PATH="$PATH:${lib.makeBinPath [pkgs.jq]}"
+    
+    # Get current output from environment or parameter
+    OUTPUT="$1"
+    if [ -z "$OUTPUT" ]; then
+        OUTPUT=$(echo "$WAYBAR_OUTPUT_NAME")
+    fi
+    
+    # Get workspaces for this output
+    WORKSPACES=$(niri msg -j workspaces 2>/dev/null)
+    if [ $? -ne 0 ] || [ -z "$WORKSPACES" ]; then
+        printf '{"text": "?", "tooltip": "Niri not available"}'
+        exit 0
+    fi
+    
+    # Get workspace info for this output
+    OUTPUT_WORKSPACES=$(echo "$WORKSPACES" | jq -r --arg output "$OUTPUT" '
+      [.[] | select(.output == $output)] | sort_by(.idx)
+    ')
+    
+    CURRENT_WS=$(echo "$OUTPUT_WORKSPACES" | jq -r '.[] | select(.is_active == true) | .idx')
+    TOTAL_WS=$(echo "$OUTPUT_WORKSPACES" | jq -r 'length')
+    
+    if [ -z "$CURRENT_WS" ] || [ "$CURRENT_WS" = "null" ]; then
+        printf '{"text": "?", "tooltip": "No active workspace"}'
+        exit 0
+    fi
+    
+    # Calculate position in workspace list
+    POSITION=$(echo "$OUTPUT_WORKSPACES" | jq -r --arg current "$CURRENT_WS" '
+      [.[] | .idx] | to_entries | .[] | select(.value == ($current | tonumber)) | .key + 1
+    ')
+    
+    HAS_UP=false
+    HAS_DOWN=false
+    
+    if [ "$POSITION" -gt 1 ]; then
+        HAS_UP=true
+    fi
+    if [ "$POSITION" -lt "$TOTAL_WS" ]; then
+        HAS_DOWN=true
+    fi
+    
+    # Create display text with vertical layout
+    TEXT=""
+    if [ "$HAS_UP" = "true" ]; then
+        TEXT="▲\\n"
+    fi
+    TEXT="$TEXT$POSITION"
+    if [ "$HAS_DOWN" = "true" ]; then
+        TEXT="$TEXT\\n▼"
+    fi
+    
+    TOOLTIP="Workspace $POSITION/$TOTAL_WS on $OUTPUT"
+    if [ "$HAS_UP" = "true" ]; then
+        TOOLTIP="$TOOLTIP (workspaces above)"
+    fi
+    if [ "$HAS_DOWN" = "true" ]; then
+        TOOLTIP="$TOOLTIP (workspaces below)"
+    fi
+    
+    printf '{"text": "%s", "tooltip": "%s"}' "$TEXT" "$TOOLTIP"
   '';
 
   tsWaybar = pkgs.writeShellScriptBin "tswaybar" ''
@@ -265,12 +330,12 @@ in
           "custom/exit" = {
             tooltip = false;
             format = " ";
-            on-click = lib.mkIf cfg.rofiConfig.enable "sleep 0.1 && $HOME/.config/rofiScripts/rofiLockScript.sh ${rofiPowermenuStyle}";
+            on-click = lib.mkIf cfg.rofiConfig.enable "sleep 0.1 && $HOME/.config/rofiScripts/rofiLockScript.sh style-1";
           };
           "custom/startmenu" = {
             tooltip = false;
             format = " ";
-            on-click = lib.mkIf cfg.rofiConfig.enable "sleep 0.1 && ${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/${rofiLauncherType}/${rofiLauncherStyle}.rasi";
+            on-click = lib.mkIf cfg.rofiConfig.enable "sleep 0.1 && ${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/type-1/style-landscape.rasi";
           };
           "custom/hyprbindings" = {
             tooltip = false;
@@ -328,9 +393,32 @@ in
             ];
             tooltip = false;
           };
+
+        }
+      ] ++ lib.optionals cfg.niriConfig.enable [
+        # Vertical waybar for niri workspace position
+        {
+          layer = "top";
+          position = "left";
+          width = 50;
+          exclusive = false;
+          margin-top = 0;
+          margin-bottom = 0;
+          margin-left = 0;
+          margin-right = 0;
+          modules-center = [
+            "custom/niri-vertical"
+          ];
+          
+          "custom/niri-vertical" = {
+            exec = "${niri-vertical}/bin/niri-vertical";
+            return-type = "json";
+            interval = 1;
+            format = "{}";
+          };
         }
       ];
-      style = lib.concatStrings [
+      style = lib.concatStrings ([
         ''
           /* --- Global & Base Module Styles --- */
           * {
@@ -452,7 +540,28 @@ in
           }
           @keyframes blink { to { opacity: 0.6; } }
         ''
-      ];
+      ] ++ lib.optionals cfg.niriConfig.enable [
+        ''
+          /* --- Niri Module Styling --- */
+          #custom-niri-vertical {
+            background: linear-gradient(135deg, #${config.stylix.base16Scheme.base00} 0%, #${config.stylix.base16Scheme.base01} 100%);
+            color: #${config.stylix.base16Scheme.base05};
+            border: 2px solid #${config.stylix.base16Scheme.base0D};
+            border-radius: 8px;
+            padding: 8px 6px;
+            margin: 4px 2px;
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px #${config.stylix.base16Scheme.base00};
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            transition: ${betterTransition};
+          }
+          #custom-niri-vertical:hover {
+            background: linear-gradient(135deg, #${config.stylix.base16Scheme.base01} 0%, #${config.stylix.base16Scheme.base02} 100%);
+            border-color: #${config.stylix.base16Scheme.base0C};
+          }
+        ''
+      ]);
     };
   };
 }
