@@ -95,6 +95,9 @@ in
               "sleep 2 && ${pkgs.swaynotificationcenter}/bin/swaync-client --reload-css && ${pkgs.swaynotificationcenter}/bin/swaync-client --reload-config"
             ];
           }
+          {
+            command = [ "${pkgs.xwayland-satellite}/bin/xwayland-satellite" ];
+          }
         ];
 
         input = {

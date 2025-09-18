@@ -48,6 +48,10 @@ Kitty is configured with powerline-style tab bars, mouse support, cursor effects
 | `Alt+Right` | Navigate right | Move to right split |
 | `Alt+Up` | Navigate up | Move to split above |
 | `Alt+Down` | Navigate down | Move to split below |
+| `Shift+Left` | Move window left | Move current split left |
+| `Shift+Right` | Move window right | Move current split right |
+| `Shift+Up` | Move window up | Move current split up |
+| `Shift+Down` | Move window down | Move current split down |
 
 ### Default Kitty Shortcuts
 | Key Combination | Action | Description |
@@ -95,8 +99,8 @@ Kitty is configured with powerline-style tab bars, mouse support, cursor effects
 ```
 TERMINAL MANAGEMENT:
 Ctrl+Shift+T     - New Tab          Alt+Arrows      - Navigate Splits
-Ctrl+Shift+W     - Close Tab        Ctrl+Shift+Enter - New Split
-Ctrl+Shift+←/→   - Switch Tabs      
+Ctrl+Shift+W     - Close Tab        Shift+Arrows    - Move Splits
+Ctrl+Shift+←/→   - Switch Tabs      Ctrl+Shift+Enter - New Split
 
 SYSTEM:
 Ctrl+Shift+C     - Copy             Ctrl+Shift+F    - Search

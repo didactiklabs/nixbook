@@ -152,8 +152,8 @@ in
         notification-icon-size = 48;
         notification-body-image-height = 70;
         notification-body-image-width = 150;
-        timeout = 10;
-        timeout-low = 5;
+        timeout = 3;
+        timeout-low = 2;
         timeout-critical = 0;
         fit-to-screen = true;
         control-center-width = 500;
@@ -161,7 +161,7 @@ in
         notification-window-width = 500;
         keyboard-shortcuts = true;
         image-visibility = "when-available";
-        transition-time = 200;
+        transition-time = 100;
         hide-on-clear = false;
         hide-on-action = true;
         script-fail-notify = true;

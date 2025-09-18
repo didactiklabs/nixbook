@@ -59,6 +59,12 @@ in
           "alt+right" = "neighboring_window right";
           "alt+up" = "neighboring_window up";
           "alt+down" = "neighboring_window down";
+          
+          # Move/reorder split windows
+          "shift+left" = "move_window left";
+          "shift+right" = "move_window right";
+          "shift+up" = "move_window up";
+          "shift+down" = "move_window down";
         };
       };
       ranger = {

@@ -59,7 +59,7 @@ let
 
     # Notify
     notify_user() {
-      ${pkgs.libnotify}/bin/notify-send -e -h string:x-canonical-private-synchronous:sys-notify -u "$(get_urgency)" -i "$(get_icon)" -t 555 -h  int:value:"$(get_volume)" "    Volume : $(get_volume)%"
+      ${pkgs.libnotify}/bin/notify-send -e -h string:x-canonical-private-synchronous:sys-notify -u "$(get_urgency)" -i "$(get_icon)" -t 1500 -h  int:value:"$(get_volume)" "Volume: $(get_volume)%"
     }
 
     # Increase Volume
@@ -77,9 +77,9 @@ let
     # Toggle AUDIO Mute
     toggle_mute() {
       if [ "$(${pkgs.pamixer}/bin/pamixer --get-mute)" == "false" ]; then
-        ${pkgs.pamixer}/bin/pamixer -m && notify-send -h string:x-canonical-private-synchronous:sys-notify-audio -u low -i "$iDIR/volume-mute.png" "Volume Switched OFF"
+        ${pkgs.pamixer}/bin/pamixer -m && ${pkgs.libnotify}/bin/notify-send -h string:x-canonical-private-synchronous:sys-notify-audio -u low -i "$iDIR/volume-mute.png" -t 1500 "Volume: Muted"
       elif [ "$(${pkgs.pamixer}/bin/pamixer --get-mute)" == "true" ]; then
-        ${pkgs.pamixer}/bin/pamixer -u && notify-send -h string:x-canonical-private-synchronous:sys-notify-audio -u low -i "$(get_icon)" "Volume Switched ON" && $play
+        ${pkgs.pamixer}/bin/pamixer -u && ${pkgs.libnotify}/bin/notify-send -h string:x-canonical-private-synchronous:sys-notify-audio -u low -i "$(get_icon)" -t 1500 "Volume: $(get_volume)%" && $play
       fi
     }
 

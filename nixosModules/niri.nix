@@ -28,6 +28,7 @@ in
       wl-clipboard # clipboard utilities
       wlr-randr # display management
       libnotify # provides notify-send
+      xwayland-satellite # X11 support for Wayland
     ];
     
     # Add niri cachix

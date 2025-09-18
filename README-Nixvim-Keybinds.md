@@ -90,6 +90,7 @@ All leader-based shortcuts start with the spacebar.
 |------------------|--------|------|-------------|
 | `<leader>n` | `:Neotree action=focus reveal<CR>` | Normal | Focus file tree and reveal current file |
 | `<leader>c` | `:Neotree toggle<CR>` | Normal | Toggle file tree visibility |
+| `<leader>nt` | Lua function | Normal | Toggle neotree size between minimized (20) and expanded (40) |
 
 ### Fuzzy Finder (Telescope)
 **File**: `homeManagerModules/nixvim/plugins/telescope.nix`
@@ -133,6 +134,7 @@ All leader-based shortcuts start with the spacebar.
 - `<leader>b` - List buffers (Telescope)
 - `<leader>c` - Toggle file tree (Neo-tree)
 - `<leader>n` - Focus and reveal in file tree (Neo-tree)
+- `<leader>nt` - Toggle neotree size (Neo-tree)
 
 #### Code Operations
 - `<leader>ca` - LSP code actions

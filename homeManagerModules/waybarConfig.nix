@@ -398,10 +398,11 @@ in
       ] ++ lib.optionals cfg.niriConfig.enable [
         # Vertical waybar for niri workspace position
         {
-          layer = "top";
+          layer = "overlay";
           position = "left";
           width = 50;
           exclusive = false;
+          passthrough = true;
           margin-top = 0;
           margin-bottom = 0;
           margin-left = 0;
