@@ -21,6 +21,7 @@ in
     programs.starship = {
       enable = true;
       enableZshIntegration = true;
+      enableFishIntegration = config.customHomeManagerModules.fishConfig.enable or false;
       settings = {
         add_newline = true;
         scan_timeout = 30;

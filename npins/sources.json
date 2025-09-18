@@ -65,6 +65,19 @@
       "url": "https://github.com/nix-community/home-manager/archive/f21d9167782c086a33ad53e2311854a8f13c281e.tar.gz",
       "hash": "02j4a4df9z2zk95d985vcwb5i4vdriyrkx61ah9xwqyqjciw98rb"
     },
+    "home-manager-master": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "nix-community",
+        "repo": "home-manager"
+      },
+      "branch": "master",
+      "submodules": false,
+      "revision": "bf7056c6a2d893d80db18d06d7e730d6515aaae8",
+      "url": "https://github.com/nix-community/home-manager/archive/bf7056c6a2d893d80db18d06d7e730d6515aaae8.tar.gz",
+      "hash": "07dixj9vv5lxyw9ab2lgkzsyr0vydlbz7ahf379m43zwr1bb7rjc"
+    },
     "hyprfocus": {
       "type": "Git",
       "repository": {

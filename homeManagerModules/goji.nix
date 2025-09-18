@@ -95,6 +95,11 @@ in
         source <(goji completion zsh)
       '';
     };
+    programs.fish = lib.mkIf (config.customHomeManagerModules.fishConfig.enable or false) {
+      shellInit = ''
+        goji completion fish | source
+      '';
+    };
   };
 
   options.customHomeManagerModules.gojiConfig = {

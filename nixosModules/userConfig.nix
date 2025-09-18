@@ -50,6 +50,7 @@ let
     {
       username,
       userImports ? [ ],
+      shell ? pkgs.zsh,
     }:
     {
       # Enable automount usb
@@ -58,15 +59,18 @@ let
         udisks2.enable = true;
         devmon.enable = true;
       };
-      programs.ydotool = {
-        enable = true; # clipboard prerequisite
-      };
       systemd.services.ydotoold = {
         enable = true;
       };
-      programs.zsh.enable = true;
+      programs = {
+        ydotool = {
+          enable = true; # clipboard prerequisite
+        };
+        zsh.enable = true;
+        fish.enable = true;
+      };
       users.users."${username}" = {
-        shell = pkgs.zsh;
+        inherit shell;
         inherit (mergedConfig) extraGroups;
         isNormalUser = true;
         description = "${username}";
@@ -156,6 +160,8 @@ let
               ../homeManagerModules/kittyConfig.nix
               # ../homeManagerModules/ghosttyConfig.nix
               ../homeManagerModules/zshConfig.nix
+              ../homeManagerModules/fishConfig.nix
+              ../homeManagerModules/kubeswitchConfig.nix
               ../homeManagerModules/fontConfig.nix
               ../homeManagerModules/gitConfig.nix
               ../homeManagerModules/gtkConfig.nix

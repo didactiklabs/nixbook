@@ -22,6 +22,7 @@ in
       ghostty = {
         enable = true;
         enableZshIntegration = true;
+        enableFishIntegration = config.customHomeManagerModules.fishConfig.enable or false;
         installBatSyntax = true;
         installVimSyntax = true;
       };
