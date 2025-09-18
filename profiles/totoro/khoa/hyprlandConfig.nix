@@ -13,9 +13,9 @@ in
         ",preferred,auto,1"
         "eDP-1,preferred,0x755,1.6"
         "DP-8,1920x1080,1800x230,auto"
-        "DP-9,2560x1440,3720x0,auto"
-        "DP-10,1920x1080,1800x0,auto"
-        "DP-11,1920x1080,3720x0,auto"
+        "DP-9,2560x1440@143.91,3720x0,auto"
+        "DP-10,1920x1080@144,1800x0,auto"
+        "DP-11,2560x1440@143.91,3720x0,auto"
       ];
       windowrulev2 = [
         "workspace 1 silent,fullscreen 1,class:(thunderbird)"
