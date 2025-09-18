@@ -138,12 +138,6 @@ in
         neofetch = "fastfetch";
       };
     };
-    programs.fish = lib.mkIf (config.customHomeManagerModules.fishConfig.enable or false) {
-      shellAliases = {
-        fastfetch = "echo '' && fastfetch";
-        neofetch = "fastfetch";
-      };
-    };
   };
 
   options.customHomeManagerModules.fastfetchConfig = {

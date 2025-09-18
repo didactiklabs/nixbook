@@ -7,7 +7,7 @@
 let
   cfg = config.customHomeManagerModules.fishConfig;
   ginx = import ../customPkgs/ginx.nix { inherit pkgs; };
-  okada = import ../customPkgs/okada.nix { inherit pkgs; };
+  # okada = import ../customPkgs/okada.nix { inherit pkgs; };
 in
 {
   options.customHomeManagerModules.fishConfig = {
@@ -29,6 +29,10 @@ in
       pkgs.duf # df replacer
       pkgs.sd # sed alternative
       pkgs.viddy # watch alternative
+      pkgs.fishPlugins.autopair
+      pkgs.fishPlugins.sponge
+      pkgs.fishPlugins.plugin-sudope
+      pkgs.fishPlugins.fish-you-should-use
       # okada
     ];
     programs = {
@@ -128,53 +132,6 @@ in
           any-nix-shell fish --info-right | source
           # source (okada completion fish | psub)
         '';
-        plugins = [
-          {
-            name = "z";
-            src = pkgs.fetchFromGitHub {
-              owner = "jethrokuan";
-              repo = "z";
-              rev = "e0e1b9dfdba362f8ab1ae8c1afc7ccf62b89f7eb";
-              sha256 = "sha256-+FUBM7CodtZrYKqU542fQD+ZDGrd2438trKM0tIESs0=";
-            };
-          }
-          {
-            name = "fzf-fish";
-            src = pkgs.fetchFromGitHub {
-              owner = "PatrickF1";
-              repo = "fzf.fish";
-              rev = "8920367cf85eee5218cc25a11e209d46e2591e7a";
-              sha256 = "sha256-T8KYLA/r/gOKvAivKRoeqIwE2pINlxFQtZJHpOy9GMM=";
-            };
-          }
-          {
-            name = "autopair";
-            src = pkgs.fetchFromGitHub {
-              owner = "jorgebucaran";
-              repo = "autopair.fish";
-              rev = "4d1752ff5b39819ab58d7337c69220342e9de0e2";
-              sha256 = "sha256-qt3t1iKRRNuiLWiVoiAYOu+9E7jsyECyIqZJ/oRIT1A=";
-            };
-          }
-          {
-            name = "done";
-            src = pkgs.fetchFromGitHub {
-              owner = "franciscolourenco";
-              repo = "done";
-              rev = "eb32ade85c0f2c68cbfcff3036756bbf27a4f366";
-              sha256 = "sha256-DMIRKRAVOn7YEnuAtz4hIxrU93ULxNoQhW6juxCoh4o=";
-            };
-          }
-          {
-            name = "sponge";
-            src = pkgs.fetchFromGitHub {
-              owner = "meaningful-ooo";
-              repo = "sponge";
-              rev = "1.1.0";
-              sha256 = "sha256-MdcZUDRtNJdiyo2l9o5ma7nAX84xEJbGFhAVhK+Zm1w=";
-            };
-          }
-        ];
         functions = {
           fish_greeting = {
             description = "Greeting to show when starting a fish shell";

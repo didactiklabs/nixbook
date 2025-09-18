@@ -95,11 +95,11 @@ in
       # Apps that were on workspace 3 -> assign to secondary monitor (DP-10)
       {
         matches = [ { app-id = "^com\\.moonlight_stream\\.Moonlight$"; } ];
-        open-on-output = "DP-9";
+        open-on-output = "DP-11";
       }
       {
         matches = [ { app-id = "^mpv$"; } ];
-        open-on-output = "DP-9";
+        open-on-output = "DP-11";
       }
     ];
   };
