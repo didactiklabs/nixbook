@@ -84,5 +84,7 @@ in
     atuinConfig.didactiklabs.enable = true;
     # ghosttyConfig.enable = true;
     kittyConfig.enable = true;
+    fishConfig.enable = true;
+    kubeswitchConfig.enable = true;
   };
 }

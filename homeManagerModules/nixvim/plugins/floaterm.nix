@@ -16,6 +16,7 @@ in
         height = 0.9;
         title = "";
         keymap_toggle = "<leader>,";
+        shell = if (cfg.fishConfig.enable or false) then "fish" else "zsh";
       };
     };
   };

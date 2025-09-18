@@ -12,24 +12,14 @@ let
   #     config:
   #       kubeconfigPath: '${homeDir}/.kube/configs/didactiklabs/oidc@didactiklabs.kubeconfig'
   # '';
-  kubeswitch = pkgs.kubeswitch.overrideAttrs (old: {
-    src = sources.kubeswitch;
-  });
+  # kubeswitch = pkgs.kubeswitch.overrideAttrs (old: {
+  #   src = sources.kubeswitch;
+  # });
   # k9s = pkgs.k9s.overrideAttrs (oldAttrs: {
   #   src = sources.k9s;
   #   vendorHash = "sha256-MOTDKPo433YU9mYg9olKSvbLqjIgmXI91593c1zXMVU=";
   # });
 
-  kubeswitchConfig = ''
-    kind: SwitchConfig
-    version: v1alpha1
-    kubeconfigStores:
-    - kind: filesystem
-      kubeconfigName: "*.kubeconfig"
-      paths:
-      - ~/.kube/configs
-  '';
-  # + didactiklabsPart;
   sources = import ../npins;
   pkgs-unstable = import sources.nixpkgs-unstable { };
   kl = import ../customPkgs/kl.nix { inherit pkgs; };
@@ -66,9 +56,6 @@ in
   config = lib.mkIf cfg.kubeTools.enable {
     home = {
       file = {
-        ".kube/switch-config.yaml" = {
-          text = kubeswitchConfig;
-        };
         ".kube/configs/didactiklabs/oidc@didactiklabs.kubeconfig" =
           lib.mkIf cfg.kubeConfig.didactiklabs.enable
             { source = ../assets/kubeconfigs/oidc-didactiklabs.kubeconfig; };
@@ -105,14 +92,25 @@ in
         paralus-cli
       ];
     };
-    programs.zsh = {
-      initContent = ''
-        source <(switcher init zsh) # kubeswitch
-        source <(songbird completion zsh)
-      '';
-      shellAliases = {
-        k = "kubectl";
-        pctl = "cli";
+    programs = {
+      zsh = {
+        initContent = ''
+          source <(songbird completion zsh)
+          source <(kubectl completion zsh)
+        '';
+        shellAliases = {
+          k = "kubectl";
+          pctl = "cli";
+        };
+      };
+      fish = lib.mkIf (config.customHomeManagerModules.fishConfig.enable or false) {
+        shellInit = ''
+          songbird completion fish | source
+        '';
+        shellAliases = {
+          k = "kubectl";
+          pctl = "cli";
+        };
       };
     };
   };
