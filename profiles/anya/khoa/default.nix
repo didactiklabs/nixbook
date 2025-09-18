@@ -41,7 +41,6 @@ in
     sshConfig.enable = true;
     starship.enable = true;
     swayConfig.enable = true;
-    spicetifyConfig.enable = true;
     nixvimConfig.enable = true;
     # https://github.com/adi1090x/rofi
     rofiConfig.enable = true;

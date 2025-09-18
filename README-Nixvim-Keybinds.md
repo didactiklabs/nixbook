@@ -281,6 +281,16 @@ SPACE t   - Diagnostics         K         - Hover Info
 - **LSP Info**: `:LspInfo` shows language server status
 - **Plugin Status**: `:checkhealth` diagnoses configuration issues
 
+## Recent Updates
+
+### New Plugins Added
+- **Smear Cursor**: Animated cursor trail effects with exaggerated movement
+- **Neoscroll**: Smooth scrolling animations for all navigation
+
+### Enhanced Features
+- **Mouse Support**: Full mouse support with resize functionality for windows/buffers
+- **Cursor Styling**: Blinking cursor with smear trail effects
+
 ## Dependencies
 
 ### Required

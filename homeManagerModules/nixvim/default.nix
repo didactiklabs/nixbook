@@ -45,11 +45,13 @@ in
       enableMan = false;
       enable = true;
       defaultEditor = true;
-      opts.completeopt = [
-        "menu"
-        "menuone"
-        "noselect"
-      ];
+      opts = {
+        completeopt = [
+          "menu"
+          "menuone"
+          "noselect"
+        ];
+      };
       viAlias = true;
       vimAlias = true;
       luaLoader.enable = true;
