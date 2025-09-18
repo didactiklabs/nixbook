@@ -86,5 +86,6 @@ in
     kittyConfig.enable = true;
     fishConfig.enable = true;
     kubeswitchConfig.enable = true;
+    fcitx5Config.enable = true;
   };
 }

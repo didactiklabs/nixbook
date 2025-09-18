@@ -90,7 +90,12 @@ in
           {
             command = [ "${pkgs.xwayland-satellite}/bin/xwayland-satellite" ];
           }
-        ];
+        ]
+        ++ (lib.optionals cfg.fcitx5Config.enable [
+          {
+            command = [ "${pkgs.fcitx5}/bin/fcitx5" ];
+          }
+        ]);
 
         input = {
           keyboard = {
@@ -433,6 +438,12 @@ in
             "bash"
             "-c"
             "~/.config/rofiScripts/rofiLockScript.sh style-1"
+          ];
+        })
+        // (lib.optionalAttrs cfg.fcitx5Config.enable {
+          "Ctrl+Space".action.spawn = [
+            "${pkgs.fcitx5}/bin/fcitx5-remote"
+            "-t"
           ];
         });
       };
