@@ -38,7 +38,7 @@ in
         mode = {
           width = 2560;
           height = 1440;
-          refresh = 60.0;
+          refresh = 143.91;
         };
         position = {
           x = 3720;
@@ -49,7 +49,7 @@ in
         mode = {
           width = 1920;
           height = 1080;
-          refresh = 60.0;
+          refresh = 144.0;
         };
         position = {
           x = 1800;
@@ -58,9 +58,9 @@ in
       };
       "DP-11" = {
         mode = {
-          width = 1920;
-          height = 1080;
-          refresh = 60.0;
+          width = 2560;
+          height = 1440;
+          refresh = 143.91;
         };
         position = {
           x = 3720;
