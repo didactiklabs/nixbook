@@ -6,19 +6,11 @@
 }:
 let
   cfg = config.customHomeManagerModules;
-  sources = import ../../npins;
-  niri-flake-src = sources.niri-flake;
-  niri-flake =
-    (import sources.flake-compat {
-      src = niri-flake-src;
-    }).defaultNix;
   mainWallpaper = "${config.profileCustomization.mainWallpaper}";
   startup_audio = "${config.profileCustomization.startup_audio}";
   rofi-wayland = "${pkgs.rofi-wayland}/bin/rofi";
   waybar = "${pkgs.waybar}/bin/waybar";
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
-  grimshot = "${pkgs.grimblast}/bin/grimblast";
-  pidof = "${pkgs.sysvtools}/bin/pidof";
 
   # Use volume script from PATH (should be available when scripts module is enabled)
   # This assumes the scripts module is imported separately
