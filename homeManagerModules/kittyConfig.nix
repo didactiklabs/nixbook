@@ -32,6 +32,33 @@ in
           font_size = lib.mkForce "10.0";
           font_family = "Hack Nerd Font Bold";
           confirm_os_window_close = 0;
+          cursor_blink_interval = "0.5";
+          mouse_hide_wait = "3.0";
+          
+          # Tab bar configuration
+          tab_bar_edge = "bottom";
+          tab_bar_style = "powerline";
+          tab_powerline_style = "round";
+          tab_title_template = "{title}{' :{}:'.format(num_windows) if num_windows > 1 else ''}";
+          tab_bar_min_tabs = 1;  # Show tab bar even with single tab
+          
+          # Cursor trail effect
+          cursor_trail = 1;
+          cursor_trail_decay = "0.1 0.8";
+          cursor_trail_start_on = "key_or_mouse";
+        };
+        keybindings = {
+          # Tab management
+          "ctrl+shift+t" = "new_tab";
+          "ctrl+shift+w" = "close_tab";
+          "ctrl+shift+right" = "next_tab";
+          "ctrl+shift+left" = "previous_tab";
+          
+          # Window/split navigation
+          "alt+left" = "neighboring_window left";
+          "alt+right" = "neighboring_window right";
+          "alt+up" = "neighboring_window up";
+          "alt+down" = "neighboring_window down";
         };
       };
       ranger = {

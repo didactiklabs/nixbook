@@ -24,6 +24,7 @@ in
     };
     home.packages = with pkgs; [
       # apps
+      spotify
       signal-desktop
       obs-studio
       localsend # send files with other devices (android etc..) on LAN
@@ -31,6 +32,7 @@ in
       vesktop # discord
       firefox
       pinta # paint
+      neovide # GUI frontend for neovim
     ];
   };
 }

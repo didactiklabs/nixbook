@@ -262,19 +262,6 @@
       "url": "https://api.github.com/repos/banh-canh/songbird/tarball/v0.3.0",
       "hash": "18a7xmy227hda70n3b5z06kjhnalzxmb1s1w3ba7jaf5nhdxz94y"
     },
-    "spicetify-nix": {
-      "type": "Git",
-      "repository": {
-        "type": "GitHub",
-        "owner": "Gerg-L",
-        "repo": "spicetify-nix"
-      },
-      "branch": "master",
-      "submodules": false,
-      "revision": "d23584b2000b7f7a59a1764ff9ab93b89444bfd9",
-      "url": "https://github.com/Gerg-L/spicetify-nix/archive/d23584b2000b7f7a59a1764ff9ab93b89444bfd9.tar.gz",
-      "hash": "0cv2416ak60mghr4qqsnnrfacpca42wai83kp6065j9iqmrmn9bk"
-    },
     "stylix": {
       "type": "Git",
       "repository": {

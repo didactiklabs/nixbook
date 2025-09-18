@@ -149,7 +149,6 @@ let
               ../homeManagerModules/stylixConfig.nix
               (import sources.nixvim).homeManagerModules.nixvim
               ../homeManagerModules/nixvim
-              ../homeManagerModules/spicetifyConfig.nix
               ../homeManagerModules/sway
               ../homeManagerModules/hyprland
               ../homeManagerModules/niri

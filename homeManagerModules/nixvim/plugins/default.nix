@@ -19,5 +19,7 @@
     ./lualine.nix
     ./noice.nix
     ./notify.nix
+    ./smear-cursor.nix
+    ./neoscroll.nix
   ];
 }
