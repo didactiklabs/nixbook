@@ -20,12 +20,7 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    home.packages = common.commonPackages ++ [
-      pkgs.fishPlugins.autopair
-      pkgs.fishPlugins.sponge
-      pkgs.fishPlugins.plugin-sudope
-      pkgs.fishPlugins.fish-you-should-use
-    ];
+    home.packages = common.commonPackages;
     programs = common.commonPrograms // {
       atuin = common.commonPrograms.atuin // {
         enableFishIntegration = true;
@@ -47,6 +42,24 @@ in
       };
       fish = {
         enable = true;
+        plugins = [
+          {
+            name = "autopair";
+            inherit (pkgs.fishPlugins.autopair) src;
+          }
+          {
+            name = "sponge";
+            inherit (pkgs.fishPlugins.sponge) src;
+          }
+          {
+            name = "sudope";
+            inherit (pkgs.fishPlugins.plugin-sudope) src;
+          }
+          {
+            name = "fish-you-should-use";
+            inherit (pkgs.fishPlugins.fish-you-should-use) src;
+          }
+        ];
         shellAliases = common.commonShellAliases;
         shellInit = ''
           ${common.anyNixShellInit "fish"}

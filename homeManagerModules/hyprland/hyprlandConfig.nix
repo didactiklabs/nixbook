@@ -13,7 +13,6 @@ let
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
   grimshot = "${pkgs.grimblast}/bin/grimblast";
   pidof = "${pkgs.sysvtools}/bin/pidof";
-  sources = import ../../npins;
 in
 {
   config = lib.mkIf cfg.hyprlandConfig.enable {
@@ -137,9 +136,7 @@ in
           "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
           "${pkgs.mpg123}/bin/mpg123 ${startup_audio}"
           "${pidof} ${waybar} || ${waybar}"
-        ] ++ (lib.optionals cfg.fcitx5Config.enable [
-          "${pkgs.fcitx5}/bin/fcitx5"
-        ]);
+        ];
         exec = [
           "${pkgs.swaybg}/bin/swaybg -m fill -i ${mainWallpaper}"
           "${pkgs.swaynotificationcenter}/bin/swaync-client --reload-css"
@@ -207,8 +204,7 @@ in
             ]
           else
             [ ]
-        )
-        ++ (if cfg.fcitx5Config.enable then [ "CTRL, Space, exec, ${pkgs.fcitx5}/bin/fcitx5-remote -t" ] else [ ]);
+        );
       };
     };
   };
