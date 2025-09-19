@@ -57,7 +57,7 @@ in
         };
         keybindings = {
           # Tab management
-          "ctrl+shift+t" = "new_tab";
+          "ctrl+shift+t" = "new_tab_with_cwd";
           "ctrl+shift+w" = "close_tab";
           "ctrl+shift+right" = "next_tab";
           "ctrl+shift+left" = "previous_tab";
