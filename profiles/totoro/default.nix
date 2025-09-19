@@ -27,6 +27,12 @@ in
   #    ENV{PRODUCT}=="1050/402/543",\
   #    RUN+="${pkgs.systemd}/bin/loginctl lock-sessions"
   # '';
+  hardware = {
+    enableAllFirmware = true;
+    bluetooth = {
+      powerOnBoot = lib.mkForce true;
+    };
+  };
   customNixOSModules = {
     workTools.enable = true;
     laptopProfile.enable = true;
