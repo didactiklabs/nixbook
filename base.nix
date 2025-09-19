@@ -109,7 +109,7 @@ in
       size = 16 * 1024; # 16GB in MB
     }
   ];
-  
+
   boot = {
     kernelModules = [
       "uinput"
@@ -151,6 +151,9 @@ in
     kernelParams = [
       "intel_iommu=on"
       "iommu=pt"
+      "amdgpu.dcdebugmask=0x10"
+      "quiet"
+      "splash"
     ];
     kernelPackages = pkgs.linuxPackages_latest;
     plymouth.enable = true;
