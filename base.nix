@@ -102,6 +102,14 @@ in
   ]
   ++ extraConfig;
   # Bootloader.
+  # Swap configuration
+  swapDevices = [
+    {
+      device = "/swapfile";
+      size = 16 * 1024; # 16GB in MB
+    }
+  ];
+  
   boot = {
     kernelModules = [
       "uinput"
