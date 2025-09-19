@@ -353,7 +353,6 @@ in
           "${mod}+Shift+t" = ''mode "${modeSystem}"'';
           "${mod}+Shift+v" = "exec ${pkgs.wlprop}/bin/wlprop";
           "${mod}+q" = lib.mkIf cfg.copyqConfig.enable "exec ${pkgs.copyq}/bin/copyq toggle";
-          "Ctrl+space" = lib.mkIf cfg.fcitx5Config.enable "exec ${pkgs.fcitx5}/bin/fcitx5-remote -t";
         };
 
         assigns = {
@@ -367,10 +366,6 @@ in
           "${workspace9}" = [ ];
           "${workspace10}" = [ ];
         };
-
-        startup = lib.optionals cfg.fcitx5Config.enable [
-          { command = "${pkgs.fcitx5}/bin/fcitx5"; }
-        ];
 
         modes = {
           "${modeSystem}" = {

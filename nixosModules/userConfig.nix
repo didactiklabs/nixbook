@@ -175,7 +175,6 @@ let
               ../homeManagerModules/thunarConfig.nix
               ../homeManagerModules/waybarConfig.nix
               ../homeManagerModules/kubeTools.nix
-              ../homeManagerModules/fcitx5Config.nix
               ../homeManagerModules/mpvConfig.nix
               ../homeManagerModules/k9sConfig.nix
               ../homeManagerModules/scripts
