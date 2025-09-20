@@ -68,7 +68,7 @@ in
     sshConfig.enable = true;
     starship.enable = true;
     swayConfig.enable = false;
-    hyprlandConfig.enable = true;
+    hyprlandConfig.enable = false;
     niriConfig.enable = true;
     # https://github.com/adi1090x/rofi
     rofiConfig.enable = true;

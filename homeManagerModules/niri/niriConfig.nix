@@ -7,10 +7,20 @@
 let
   cfg = config.customHomeManagerModules;
   mainWallpaper = "${config.profileCustomization.mainWallpaper}";
+  lockWallpaper = "${config.profileCustomization.lockWallpaper}";
   startup_audio = "${config.profileCustomization.startup_audio}";
   rofi-wayland = "${pkgs.rofi-wayland}/bin/rofi";
   waybar = "${pkgs.waybar}/bin/waybar";
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
+  pidof = "${pkgs.sysvtools}/bin/pidof";
+  hyprlock = "${pkgs.hyprlock}/bin/hyprlock";
+  systemctl = "${pkgs.systemd}/bin/systemctl";
+  loginctl = "${pkgs.systemd}/bin/loginctl";
+  niri = "${pkgs.niri}/bin/niri";
+  whatsong = pkgs.writeShellScriptBin "whatsong" ''
+    song_info=$(${pkgs.playerctl}/bin/playerctl metadata --format '{{title}}   {{artist}}')
+    echo "$song_info"
+  '';
 
   # Use volume script from PATH (should be available when scripts module is enabled)
   # This assumes the scripts module is imported separately
@@ -39,6 +49,125 @@ let
 in
 {
   config = lib.mkIf cfg.niriConfig.enable {
+    home.packages = [ whatsong ];
+
+    # Enable hypridle for idle management (same as Hyprland config)
+    services.hypridle = {
+      enable = true;
+      settings = {
+        general = {
+          lock_cmd = "${pidof} ${hyprlock} || ${hyprlock}"; # avoid starting multiple hyprlock instances.
+          before_sleep_cmd = "${loginctl} lock-session"; # lock before suspend.
+          after_sleep_cmd = "${niri} msg action power-on-monitors"; # turn on monitors after sleep
+        };
+
+        listener = [
+          {
+            timeout = 30;
+            on-timeout = "${brightnessctl} -s set 10"; # set monitor backlight to minimum, avoid 0 on OLED monitor.
+            on-resume = "${brightnessctl} -r"; # monitor backlight restore.
+          }
+
+          # turn off keyboard backlight, comment out this section if you dont have a keyboard backlight.
+          {
+            timeout = 30;
+            on-timeout = "${brightnessctl} -sd rgb:kbd_backlight set 0"; # turn off keyboard backlight.
+            on-resume = "${brightnessctl} -rd rgb:kbd_backlight"; # turn on keyboard backlight.
+          }
+
+          {
+            timeout = 60;
+            on-timeout = "${loginctl} lock-session"; # lock screen when timeout has passed
+          }
+
+          {
+            timeout = 300;
+            on-timeout = "${niri} msg action power-off-monitors"; # screen off when timeout has passed
+            on-resume = "${niri} msg action power-on-monitors"; # screen on when activity is detected after timeout has fired.
+          }
+
+          {
+            timeout = 600;
+            on-timeout = "${systemctl} suspend"; # suspend pc
+          }
+        ];
+      };
+    };
+
+    # Enable hyprlock for screen locking (same styling as Hyprland config)
+    programs.hyprlock = {
+      enable = true;
+      settings = {
+        general = {
+          disable_loading_bar = false;
+          #grace = 300;
+          hide_cursor = true;
+          no_fade_in = false;
+        };
+
+        background = {
+          path = lib.mkForce "${lockWallpaper}";
+          blur_passes = 0;
+          blur_size = 8;
+        };
+        input-field = {
+          size = "250, 60";
+          outline_thickness = 2;
+          dots_size = 0.2; # Scale of input-field height, 0.2 - 0.8
+          dots_spacing = 0.2; # Scale of dots' absolute size, 0.0 - 1.0
+          dots_center = true;
+          outer_color = lib.mkForce "rgba(0, 0, 0, 0)";
+          inner_color = lib.mkForce "rgba(0, 0, 0, 0.5)";
+          font_color = lib.mkForce "rgb(200, 200, 200)";
+          fade_on_empty = false;
+          font_family = "JetBrains Mono Nerd Font Mono";
+          placeholder_text = ''
+            <i><span foreground="##cdd6f4">Enter Password or Press Enter (Yubikey)</span></i>
+          '';
+          hide_input = false;
+          position = "0, -120";
+          halign = "center";
+          valign = "center";
+        };
+        label = [
+          {
+            text = ''
+              cmd[update:1000] date +"%-I:%M%p"
+            '';
+            # color = "$foreground";
+            #color = rgba(255, 255, 255, 0.6)
+            font_size = 120;
+            font_family = "JetBrains Mono Nerd Font Mono ExtraBold";
+            position = "0, -300";
+            halign = "center";
+            valign = "top";
+          }
+          {
+            text = "Logged in as $USER";
+            # color = "$foreground";
+            #color = rgba(255, 255, 255, 0.6)
+            font_size = 25;
+            font_family = "JetBrains Mono Nerd Font Mono";
+            position = "0, -40";
+            halign = "center";
+            valign = "center";
+          }
+          {
+            text = ''
+              cmd[update:1000] echo "$(${whatsong}/bin/whatsong)"
+            '';
+            #color = "$foreground";
+            #color = rgba(255, 255, 255, 0.6)
+            font_size = 18;
+            font_family = "Hack Nerd Font";
+            position = "0, 10";
+            halign = "center";
+            valign = "bottom";
+          }
+        ];
+      };
+    };
+
     programs.niri = {
       settings = {
         prefer-no-csd = true;
@@ -148,12 +277,13 @@ in
           };
         };
 
-        layer-rules = [
-          {
-            matches = [ { namespace = "^wallpaper$"; } ];
-            place-within-backdrop = true;
-          }
-        ];
+
+        # layer-rules = [
+        #   {
+        #     matches = [ { namespace = "^wallpaper$"; } ];
+        #     place-within-backdrop = true;
+        #   }
+        # ];
 
         window-rules = [
           {
