@@ -85,7 +85,7 @@ let
         ${loginctl} lock-session $XDG_SESSION_ID
         ;;
     $logout)
-    	${loginctl} terminate-session self
+    	${loginctl} terminate-session $XDG_SESSION_ID
     	;;
     $suspend)
         run_cmd --suspend
