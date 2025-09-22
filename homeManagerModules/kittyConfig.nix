@@ -92,6 +92,18 @@ in
           [[ "$TERM" == "xterm-kitty" ]] && alias ssh="TERM=xterm-256color ssh"
         '';
       };
+      fish = {
+        shellAliases = {
+          sshs = ''
+            sshs --template "kitty +kitten ssh {{#if user}}{{user}}@{{/if}}{{destination}}{{#if port}} -p{{port}}{{/if}}"
+          '';
+        };
+        shellInit = ''
+          if test "$TERM" = "xterm-kitty"
+              alias ssh="env TERM=xterm-256color ssh"
+          end
+        '';
+      };
       vscode = {
         profiles.default.userSettings = {
           "terminal.external.linuxExec" = "kitty";
