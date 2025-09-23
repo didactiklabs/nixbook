@@ -162,6 +162,7 @@ let
               ../homeManagerModules/zshConfig.nix
               ../homeManagerModules/fishConfig.nix
               ../homeManagerModules/kubeswitchConfig.nix
+              ../homeManagerModules/leadrConfig.nix
               ../homeManagerModules/fontConfig.nix
               ../homeManagerModules/gitConfig.nix
               ../homeManagerModules/gtkConfig.nix

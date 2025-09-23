@@ -12,7 +12,7 @@ let
       owner = "libsdl-org";
       repo = "sdl2-compat";
       rev = "main";
-      hash = "sha256-u4iGtmtvQFA+6Z3GFnd+WA4YiQRXYceHzQ76PA16VnQ=";
+      hash = "sha256-IvzqE8YZgwAojIP2KOmnzwOiDXf2qaK31NEpi4HvmmM=";
     };
   });
 in
@@ -86,5 +86,6 @@ in
     kittyConfig.enable = true;
     fishConfig.enable = true;
     kubeswitchConfig.enable = true;
+    leadrConfig.enable = true;
   };
 }
