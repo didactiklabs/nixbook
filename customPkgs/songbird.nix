@@ -10,7 +10,7 @@ pkgs.buildGoModule {
 
   src = klSrc;
 
-  vendorHash = "sha256-oJVInUpbO49Whd/4P5GUmq0lQBxpaOGIFM4SkwnC+Qg=";
+  vendorHash = "sha256-mcbLV7HzDK0APJ+IPEBpHk3CH1Vm4a2Wjts/aElq3dw=";
   ldflags = [
     "-s"
     "-w"
