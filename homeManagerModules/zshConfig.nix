@@ -1,9 +1,25 @@
-{ pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
+  cfg = config.customHomeManagerModules.zshConfig;
   common = import ./commonShellConfig.nix { inherit pkgs; };
 in
 {
-  config = {
+  options.customHomeManagerModules.zshConfig = {
+    enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Whether to enable zsh configuration and shell integrations.
+      '';
+    };
+  };
+
+  config = lib.mkIf cfg.enable {
     home.packages = common.commonPackages;
     programs = common.commonPrograms // {
       atuin = common.commonPrograms.atuin // {
