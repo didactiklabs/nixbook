@@ -60,5 +60,6 @@
     gojiConfig.enable = true;
     atuinConfig.didactiklabs.enable = true;
     kittyConfig.enable = true;
+    zshConfig.enable = true;
   };
 }

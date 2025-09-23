@@ -57,6 +57,16 @@ in
       '';
 
       ".config/leadr/mappings.toml".text = ''
+        [ghm]
+        command = "gh pr create ; gh pr merge --auto"
+        description = "Github PR create && merge"
+        execute = true
+
+        [ghc]
+        command = "gh pr create"
+        description = "Github PR create"
+        execute = true
+
         [ga]
         command = "git add ."
         description = "Git add all"
