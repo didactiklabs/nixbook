@@ -87,7 +87,7 @@ in
         description = "Start a Git commit feat"
 
         [gfix]
-        command = 'goji -a -m "#CURSOR" -t feat'
+        command = 'goji -a -m "#CURSOR" -t fix'
         description = "Start a Git commit fix"
 
         [gdoc]
