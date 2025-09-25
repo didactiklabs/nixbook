@@ -67,6 +67,11 @@ in
         description = "Github PR create"
         execute = true
 
+        [gp]
+        command = "git push"
+        description = "Git push"
+        execute = true
+
         [ga]
         command = "git add ."
         description = "Git add all"
