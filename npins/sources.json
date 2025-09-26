@@ -150,20 +150,16 @@
       "hash": "16jfyba92698xxf8bhcdp5zc4qf7idw6ncxx2m73dh768nyh1sam"
     },
     "leadr": {
-      "type": "GitRelease",
+      "type": "Git",
       "repository": {
-        "type": "GitHub",
-        "owner": "ll-nick",
-        "repo": "leadr"
+        "type": "Git",
+        "url": "https://github.com/Banh-Canh/leadr"
       },
-      "pre_releases": false,
-      "version_upper_bound": null,
-      "release_prefix": null,
+      "branch": "feat/fish",
       "submodules": false,
-      "version": "v2.6.0",
-      "revision": "d7b9a9f0877e47d6912b98cdd158fe77553eef05",
-      "url": "https://api.github.com/repos/ll-nick/leadr/tarball/v2.6.0",
-      "hash": "13h9dqalsykqk4ns5026hl0ixr3a8xvaa2bvjyh19p5q5k4r9458"
+      "revision": "36e58d92c9d42d21d0ed32f4908f6c7415182f28",
+      "url": null,
+      "hash": "0y27f67l2dagp82wan6lg194ncfy10dvs9h62kcwqa56010vx578"
     },
     "niri-flake": {
       "type": "Git",
