@@ -238,6 +238,7 @@ in
 
           focus-follows-mouse = {
             enable = true;
+            max-scroll-amount = "10%";
           };
         };
 
@@ -276,7 +277,6 @@ in
             inactive.color = config.lib.stylix.colors.base03;
           };
         };
-
 
         # layer-rules = [
         #   {
