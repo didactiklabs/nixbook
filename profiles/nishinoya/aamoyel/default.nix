@@ -22,8 +22,8 @@
     mainWallpaper =
       let
         image = pkgs.fetchurl {
-          url = "https://w.wallhaven.cc/full/8x/wallhaven-8xey7y.png";
-          sha256 = "sha256-f5IgTBZ2v++aqUm23n1dwfjxitIkIS/Y+fEFcpeHStE=";
+          url = "https://w.wallhaven.cc/full/rq/wallhaven-rq7rmq.png";
+          sha256 = "sha256-RwkMghgAclV5DhQ5U/SpJF7YxhBPng895wgC8fh8OyU=";
         };
       in
       "${image}";
