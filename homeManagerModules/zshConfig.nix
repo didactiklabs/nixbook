@@ -22,7 +22,7 @@ in
   config = lib.mkIf cfg.enable {
     home.packages = common.commonPackages;
     programs = common.commonPrograms // {
-      atuin = common.commonPrograms.atuin // {
+      atuin = {
         enableZshIntegration = true;
         flags = [ "--disable-up-arrow" ];
       };
