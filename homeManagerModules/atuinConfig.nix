@@ -11,6 +11,7 @@ in
   config = lib.mkIf cfg.atuinConfig.didactiklabs.enable {
     programs = {
       atuin = {
+        enable = true;
         settings = {
           sync_address = "https://atuin.didactik.labs";
           enter_accept = true;
