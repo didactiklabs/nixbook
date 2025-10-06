@@ -38,7 +38,7 @@ in
         kubeconfigStores = [
           {
             kind = "filesystem";
-            kubeconfigName = "*.kubeconfig";
+            kubeconfigName = "*.*";
             paths = [ "~/.kube/configs" ];
           }
         ];
