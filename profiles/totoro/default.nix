@@ -49,7 +49,7 @@ in
     (userConfig.mkUser {
       username = "khoa";
       userImports = [ ./khoa ];
-      shell = pkgs.fish;
+      shell = pkgs.zsh;
     })
   ];
 }
