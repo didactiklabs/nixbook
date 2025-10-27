@@ -19,7 +19,10 @@ in
   ];
   config = lib.mkIf cfg.niri.enable {
     programs.niri.enable = true;
-    
+    systemd.user.services.niri-flake-polkit = {
+      enable = false;
+    };
+
     # Add essential tools for niri
     environment.systemPackages = with pkgs; [
       mako # notification daemon
@@ -30,7 +33,7 @@ in
       libnotify # provides notify-send
       xwayland-satellite # X11 support for Wayland
     ];
-    
+
     # Add niri cachix
     nix.settings = {
       substituters = [
