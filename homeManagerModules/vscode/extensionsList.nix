@@ -168,23 +168,35 @@
       version = "1.27.0";
       sha256 = "sha256-09w/k1LlGYtyWWbVgoprJG/qB/zCuedF9Cu7kUXcNrE=";
     }
-	{
-	  name = "markdown-all-in-one";
+    {
+      name = "markdown-all-in-one";
       publisher = "yzhang";
       version = "3.6.2";
       sha256 = "sha256-BIbgUkIuy8clq4G4x1Zd08M8k4u5ZPe80+z6fSAeLdk=";
-	}
-	{
-	  name = "excalidraw-editor";
+    }
+    {
+      name = "excalidraw-editor";
       publisher = "pomdtr";
       version = "3.7.4";
       sha256 = "sha256-hI+Qo8K+gLQuzKkaSq89D8vIxlYq9tMi31DgFiRzx0E=";
-	}
+    }
     {
       name = "gitlens";
       publisher = "eamodio";
       version = "17.1.1";
       sha256 = "sha256-hlhq4bR3v0AqI3lxilgNEgjjEEBVL0xfvIWbV/Ronh4=";
+    }
+    {
+      name = "copilot-chat";
+      publisher = "github";
+      version = "0.31.0";
+      sha256 = "sha256-jMy6mjPUxz3p1dvrveZ/9tyn+KZ6rBLJinZMBUUb9QY=";
+    }
+    {
+      name = "copilot";
+      publisher = "github";
+      version = "1.372.0";
+      sha256 = "sha256-1L4zE2waIjI1Z8hYFaeHbnSWX9g31Sre4uDNOiQ2Fz8=";
     }
   ];
 }
