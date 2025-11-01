@@ -22,7 +22,8 @@ in
     systemd.user.services.niri-flake-polkit = {
       enable = false;
     };
-
+    security.pam.services.sddm.enableGnomeKeyring = true;
+    services.gnome3.gnome-keyring.enable = true;
     # Add essential tools for niri
     environment.systemPackages = with pkgs; [
       mako # notification daemon
