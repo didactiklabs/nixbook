@@ -159,6 +159,7 @@ let
               ../homeManagerModules/vscode
               ../homeManagerModules/kittyConfig.nix
               # ../homeManagerModules/ghosttyConfig.nix
+              ../homeManagerModules/fcitx5Config.nix
               ../homeManagerModules/zshConfig.nix
               ../homeManagerModules/fishConfig.nix
               ../homeManagerModules/kubeswitchConfig.nix

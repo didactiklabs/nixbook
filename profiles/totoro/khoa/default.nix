@@ -6,15 +6,6 @@
 let
   sources = import ../../../npins;
   pkgs-unstable = import sources.nixpkgs-unstable { };
-  sdl = pkgs.SDL2.overrideAttrs (oldAttrs: {
-    version = "2.32.54";
-    src = pkgs.fetchFromGitHub {
-      owner = "libsdl-org";
-      repo = "sdl2-compat";
-      rev = "main";
-      hash = "sha256-9/jKb5GI+NRl+X+kBQL0fGxXY6iDBCWWyedkxWZuiL0=";
-    };
-  });
 in
 {
   imports = [
@@ -25,7 +16,6 @@ in
     ./niriConfig.nix
   ];
   home.packages = [
-    sdl
     pkgs-unstable.claude-code
     pkgs-unstable.sdl3
     pkgs.moonlight-qt
@@ -88,5 +78,6 @@ in
     zshConfig.enable = true;
     kubeswitchConfig.enable = true;
     leadrConfig.enable = true;
+    fcitx5Config.enable = true;
   };
 }
