@@ -136,10 +136,7 @@ in
           "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
           "${pkgs.mpg123}/bin/mpg123 ${startup_audio}"
           "${pidof} ${waybar} || ${waybar}"
-        ]
-        ++ (lib.optionals cfg.fcitx5Config.enable [
-          "${pkgs.fcitx5}/bin/fcitx5"
-        ]);
+        ];
         exec = [
           "${pkgs.swaybg}/bin/swaybg -m fill -i ${mainWallpaper}"
           "${pkgs.swaynotificationcenter}/bin/swaync-client --reload-css"

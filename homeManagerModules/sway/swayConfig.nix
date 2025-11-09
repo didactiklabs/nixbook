@@ -368,10 +368,6 @@ in
           "${workspace10}" = [ ];
         };
 
-        startup = lib.optionals cfg.fcitx5Config.enable [
-          { command = "${pkgs.fcitx5}/bin/fcitx5"; }
-        ];
-
         modes = {
           "${modeSystem}" = {
             "l" = ''exec --no-startup-id ${swaylock} --color '${colorDarkGrey}', mode "default"'';
