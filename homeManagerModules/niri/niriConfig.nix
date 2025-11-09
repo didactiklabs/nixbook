@@ -225,12 +225,7 @@ in
           {
             command = [ "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP" ];
           }
-        ]
-        ++ (lib.optionals cfg.fcitx5Config.enable [
-          {
-            command = [ "${pkgs.fcitx5}/bin/fcitx5" ];
-          }
-        ]);
+        ];
 
         input = {
           keyboard = {
