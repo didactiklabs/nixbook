@@ -74,9 +74,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "c053d701d64f0727f62e0269c7940da5805bc9bc",
-      "url": "https://github.com/nix-community/home-manager/archive/c053d701d64f0727f62e0269c7940da5805bc9bc.tar.gz",
-      "hash": "079qw4gcalhf76s4jqig5inkj2flazzpzfdvq867bnrdry6s4na9"
+      "revision": "827f2a23373a774a8805f84ca5344654c31f354b",
+      "url": "https://github.com/nix-community/home-manager/archive/827f2a23373a774a8805f84ca5344654c31f354b.tar.gz",
+      "hash": "18r687m153vzr2j98zjlhnjhkyb4i5jfkqiqbiysx3f0xzqcv0a5"
     },
     "hyprfocus": {
       "type": "Git",
@@ -116,9 +116,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "a13a8b58225b253f949f30d9add7442d779f2885",
-      "url": "https://github.com/derailed/k9s/archive/a13a8b58225b253f949f30d9add7442d779f2885.tar.gz",
-      "hash": "1959lwd9jmk0xl4ixwjpy0raw3w6822gxhx9gsm732rqfpal9fnr"
+      "revision": "2bf2f481ef9ae46b4ba8faca98652a0c7844f26d",
+      "url": "https://github.com/derailed/k9s/archive/2bf2f481ef9ae46b4ba8faca98652a0c7844f26d.tar.gz",
+      "hash": "068asahpbjrypjsc1ycbmwkb3jisyhfkzn8sd7q2y4dsgmyi8pw1"
     },
     "kl": {
       "type": "GitRelease",
@@ -170,9 +170,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "75bacb66302bca38fa6e0c180f1e5369a8115454",
-      "url": "https://github.com/sodiboo/niri-flake/archive/75bacb66302bca38fa6e0c180f1e5369a8115454.tar.gz",
-      "hash": "1hnv03q7wkpbs9jpys002ha772f70zzmb8lc858zlpj9ksng37q1"
+      "revision": "7920a7b0553e0bebce825b0d9deb575e26f6f6ac",
+      "url": "https://github.com/sodiboo/niri-flake/archive/7920a7b0553e0bebce825b0d9deb575e26f6f6ac.tar.gz",
+      "hash": "04jaz0qg4rdzq58wlhrjlki64n1iw8f6ldi7cz31wvpgrny42p2k"
     },
     "nixpkgs": {
       "type": "Git",
@@ -183,9 +183,9 @@
       },
       "branch": "nixos-25.05",
       "submodules": false,
-      "revision": "6faeb062ee4cf4f105989d490831713cc5a43ee1",
-      "url": "https://github.com/NixOS/nixpkgs/archive/6faeb062ee4cf4f105989d490831713cc5a43ee1.tar.gz",
-      "hash": "0dv03n4yd037f20hff5ykhy8ch5qf416b5glscf2l0ls005d43v6"
+      "revision": "c2448301fb856e351aab33e64c33a3fc8bcf637d",
+      "url": "https://github.com/NixOS/nixpkgs/archive/c2448301fb856e351aab33e64c33a3fc8bcf637d.tar.gz",
+      "hash": "1rcvx4x6kc652pan6jggpqfvrzydhfi9k3kpjkj55mc38dwl690y"
     },
     "nixpkgs-master": {
       "type": "Git",
@@ -196,9 +196,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "d00022ad9bbe741edd3f215dce58b25619982bd9",
-      "url": "https://github.com/NixOS/nixpkgs/archive/d00022ad9bbe741edd3f215dce58b25619982bd9.tar.gz",
-      "hash": "1dz0szgancvq7pjvm3yysk582rw4fv75hkcp4dc2r0ppig89034i"
+      "revision": "ea311446bcd1f8014576ad3349f175bb4d5d96f4",
+      "url": "https://github.com/NixOS/nixpkgs/archive/ea311446bcd1f8014576ad3349f175bb4d5d96f4.tar.gz",
+      "hash": "00bhbk1ik0k2gs2dvm6kj96kxjwqx4vnna7zip83i0p9p37hc627"
     },
     "nixpkgs-unstable": {
       "type": "Git",
@@ -209,9 +209,9 @@
       },
       "branch": "nixos-unstable",
       "submodules": false,
-      "revision": "b6a8526db03f735b89dd5ff348f53f752e7ddc8e",
-      "url": "https://github.com/NixOS/nixpkgs/archive/b6a8526db03f735b89dd5ff348f53f752e7ddc8e.tar.gz",
-      "hash": "117mzxz0a0r01nvmykdrvgfnxh1vwgg8rj2p0v3v1as1kp7ywxdd"
+      "revision": "9da7f1cf7f8a6e2a7cb3001b048546c92a8258b4",
+      "url": "https://github.com/NixOS/nixpkgs/archive/9da7f1cf7f8a6e2a7cb3001b048546c92a8258b4.tar.gz",
+      "hash": "04h7cq8rp8815xb4zglkah4w6p2r5lqp7xanv89yxzbmnv29np2a"
     },
     "nixvim": {
       "type": "Git",
@@ -222,9 +222,9 @@
       },
       "branch": "nixos-25.05",
       "submodules": false,
-      "revision": "87abad151f662238ce9946895850609c1ca42a68",
-      "url": "https://github.com/nix-community/nixvim/archive/87abad151f662238ce9946895850609c1ca42a68.tar.gz",
-      "hash": "0ndz8d44qp02j19dn3kyh1gn7936859f3plw0n3k0a522d32m5rv"
+      "revision": "b36fcf1d64e782488fc6296eaa4f26d6cae4e090",
+      "url": "https://github.com/nix-community/nixvim/archive/b36fcf1d64e782488fc6296eaa4f26d6cae4e090.tar.gz",
+      "hash": "0mndx4dmysimmgl1gsa5kjdgha53w7wz26zv78fxva432qf7v61a"
     },
     "okada": {
       "type": "GitRelease",
