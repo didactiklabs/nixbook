@@ -317,7 +317,6 @@ in
           }
           {
             matches = [ { app-id = "^mpv$"; } ];
-            block-out-from = "screen-capture";
             opacity = 1.0;
           }
           {
@@ -334,17 +333,14 @@ in
           }
           {
             matches = [ { app-id = "^imv$"; } ];
-            block-out-from = "screen-capture";
             opacity = 1.0;
           }
           {
             matches = [ { app-id = "^com\\.github\\.iwalton3\\.jellyfin-media-player$"; } ];
-            block-out-from = "screen-capture";
             opacity = 1.0;
           }
           {
             matches = [ { app-id = "^com\\.moonlight_stream\\.Moonlight$"; } ];
-            block-out-from = "screen-capture";
             opacity = 1.0;
           }
           {
