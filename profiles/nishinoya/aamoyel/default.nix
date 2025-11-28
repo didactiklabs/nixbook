@@ -56,7 +56,7 @@
       logicmg.enable = true;
     };
     waybar.enable = true;
-    nixvimConfig.enable = false;
+    nixvimConfig.enable = true;
     gojiConfig.enable = true;
     atuinConfig.didactiklabs.enable = true;
     kittyConfig.enable = true;
