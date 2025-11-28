@@ -1,22 +1,18 @@
-{ pkgs, ... }:
+{
+  pkgs,
+  lib,
+  ...
+}:
+let
+  sources = import ../../../npins;
+  pkgs-unstable = import sources.nixpkgs-unstable { };
+in
 {
   imports = [
     ./gitConfig.nix
     ./sshConfig.nix
     ./kanshiConfig.nix
     ./hyprlandConfig.nix
-  ];
-  home.packages = [
-    # pkgs.jellyfin-mpv-shim
-    # pkgs.nextcloud-client
-    pkgs.moonlight-qt
-    pkgs.google-chrome
-    pkgs.mattermost-desktop
-    pkgs.bitwarden-desktop
-    pkgs.gitkraken
-    (pkgs.google-cloud-sdk.withExtraComponents [
-      pkgs.google-cloud-sdk.components.gke-gcloud-auth-plugin
-    ])
   ];
   profileCustomization = {
     mainWallpaper =
@@ -36,6 +32,19 @@
       in
       "${image}";
   };
+  home.packages = [
+    # pkgs.jellyfin-mpv-shim
+    # pkgs.nextcloud-client
+    pkgs.moonlight-qt
+    pkgs-unstable.immich-go
+    pkgs.google-chrome
+    pkgs.bitwarden-desktop
+    pkgs-unstable.gitkraken
+    (pkgs.google-cloud-sdk.withExtraComponents [
+      pkgs.google-cloud-sdk.components.gke-gcloud-auth-plugin
+    ])
+    pkgs-unstable.kanidm_1_8
+  ];
   customHomeManagerModules = {
     bluetooth.enable = true;
     fontConfig.enable = true;
