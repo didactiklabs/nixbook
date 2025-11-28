@@ -29,7 +29,6 @@ in
       "${image}";
   };
   home.packages = [
-    pkgs-unstable.immich-go
     pkgs.wineWowPackages.waylandFull
     pkgs.firefox
   ];
