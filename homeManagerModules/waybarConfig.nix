@@ -7,7 +7,7 @@
 let
   cfg = config.customHomeManagerModules;
   betterTransition = "all 0.3s cubic-bezier(.55,-0.68,.48,1.682)";
-  rofi-wayland = "${pkgs.rofi-wayland}/bin/rofi";
+  rofi = "${pkgs.rofi}/bin/rofi";
   playerctl = "${pkgs.playerctl}/bin/playerctl";
 
   # Helper script to show a Play or Pause icon based on Spotify's status
@@ -38,53 +38,52 @@ let
     fi
   '';
 
-
-  # Niri vertical position script  
+  # Niri vertical position script
   niri-vertical = pkgs.writeShellScriptBin "niri-vertical" ''
     #!/bin/sh
-    export PATH="$PATH:${lib.makeBinPath [pkgs.jq]}"
-    
+    export PATH="$PATH:${lib.makeBinPath [ pkgs.jq ]}"
+
     # Get current output from environment or parameter
     OUTPUT="$1"
     if [ -z "$OUTPUT" ]; then
         OUTPUT=$(echo "$WAYBAR_OUTPUT_NAME")
     fi
-    
+
     # Get workspaces for this output
     WORKSPACES=$(niri msg -j workspaces 2>/dev/null)
     if [ $? -ne 0 ] || [ -z "$WORKSPACES" ]; then
         printf '{"text": "?", "tooltip": "Niri not available"}'
         exit 0
     fi
-    
+
     # Get workspace info for this output
     OUTPUT_WORKSPACES=$(echo "$WORKSPACES" | jq -r --arg output "$OUTPUT" '
       [.[] | select(.output == $output)] | sort_by(.idx)
     ')
-    
+
     CURRENT_WS=$(echo "$OUTPUT_WORKSPACES" | jq -r '.[] | select(.is_active == true) | .idx')
     TOTAL_WS=$(echo "$OUTPUT_WORKSPACES" | jq -r 'length')
-    
+
     if [ -z "$CURRENT_WS" ] || [ "$CURRENT_WS" = "null" ]; then
         printf '{"text": "?", "tooltip": "No active workspace"}'
         exit 0
     fi
-    
+
     # Calculate position in workspace list
     POSITION=$(echo "$OUTPUT_WORKSPACES" | jq -r --arg current "$CURRENT_WS" '
       [.[] | .idx] | to_entries | .[] | select(.value == ($current | tonumber)) | .key + 1
     ')
-    
+
     HAS_UP=false
     HAS_DOWN=false
-    
+
     if [ "$POSITION" -gt 1 ]; then
         HAS_UP=true
     fi
     if [ "$POSITION" -lt "$TOTAL_WS" ]; then
         HAS_DOWN=true
     fi
-    
+
     # Create display text with vertical layout
     TEXT=""
     if [ "$HAS_UP" = "true" ]; then
@@ -94,7 +93,7 @@ let
     if [ "$HAS_DOWN" = "true" ]; then
         TEXT="$TEXT\\n▼"
     fi
-    
+
     TOOLTIP="Workspace $POSITION/$TOTAL_WS on $OUTPUT"
     if [ "$HAS_UP" = "true" ]; then
         TOOLTIP="$TOOLTIP (workspaces above)"
@@ -102,7 +101,7 @@ let
     if [ "$HAS_DOWN" = "true" ]; then
         TOOLTIP="$TOOLTIP (workspaces below)"
     fi
-    
+
     printf '{"text": "%s", "tooltip": "%s"}' "$TEXT" "$TOOLTIP"
   '';
 
@@ -335,7 +334,7 @@ in
           "custom/startmenu" = {
             tooltip = false;
             format = " ";
-            on-click = lib.mkIf cfg.rofiConfig.enable "sleep 0.1 && ${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/type-1/style-landscape.rasi";
+            on-click = lib.mkIf cfg.rofiConfig.enable "sleep 0.1 && ${rofi} -show drun -theme $HOME/.config/rofi/launchers/type-1/style-landscape.rasi";
           };
           "custom/hyprbindings" = {
             tooltip = false;
@@ -395,7 +394,8 @@ in
           };
 
         }
-      ] ++ lib.optionals cfg.niriConfig.enable [
+      ]
+      ++ lib.optionals cfg.niriConfig.enable [
         # Vertical waybar for niri workspace position
         {
           layer = "overlay";
@@ -410,7 +410,7 @@ in
           modules-center = [
             "custom/niri-vertical"
           ];
-          
+
           "custom/niri-vertical" = {
             exec = "${niri-vertical}/bin/niri-vertical";
             return-type = "json";
@@ -419,150 +419,153 @@ in
           };
         }
       ];
-      style = lib.concatStrings ([
-        ''
-          /* --- Global & Base Module Styles --- */
-          * {
-              font-family: Inter Display, FontAwesome, sans-serif;
-              font-weight: 500;
-              font-size: 13px;
-              border: none;
-              border-radius: 12px;
-              min-height: 0;
-          }
-          window#waybar {
-              background: transparent;
-              color: #${config.stylix.base16Scheme.base05};
-          }
-          #workspaces, #window, #pulseaudio, #backlight, #idle_inhibitor,
-          #custom-tailscale, #cpu, #memory, #battery, #tray, #custom-notification,
-          #custom-exit, #clock, #network, #custom-hyprbindings, #custom-startmenu {
-              background-color: alpha(#${config.stylix.base16Scheme.base00}, 0.7);
-              padding: 4px 15px;
-              margin: 6px 4px;
-              transition: ${betterTransition};
-          }
+      style = lib.concatStrings (
+        [
+          ''
+            /* --- Global & Base Module Styles --- */
+            * {
+                font-family: Inter Display, FontAwesome, sans-serif;
+                font-weight: 500;
+                font-size: 13px;
+                border: none;
+                border-radius: 12px;
+                min-height: 0;
+            }
+            window#waybar {
+                background: transparent;
+                color: #${config.stylix.base16Scheme.base05};
+            }
+            #workspaces, #window, #pulseaudio, #backlight, #idle_inhibitor,
+            #custom-tailscale, #cpu, #memory, #battery, #tray, #custom-notification,
+            #custom-exit, #clock, #network, #custom-hyprbindings, #custom-startmenu {
+                background-color: alpha(#${config.stylix.base16Scheme.base00}, 0.7);
+                padding: 4px 15px;
+                margin: 6px 4px;
+                transition: ${betterTransition};
+            }
 
-          /* --- Spotify Widget Group Styling --- */
-          #custom-spotify-prev, #custom-spotify-playpause, #custom-spotify-info, #custom-spotify-next {
-              background-color: alpha(#${config.stylix.base16Scheme.base01}, 0.8);
+            /* --- Spotify Widget Group Styling --- */
+            #custom-spotify-prev, #custom-spotify-playpause, #custom-spotify-info, #custom-spotify-next {
+                background-color: alpha(#${config.stylix.base16Scheme.base01}, 0.8);
+                color: #${config.stylix.base16Scheme.base05};
+                margin-top: 6px;
+                margin-bottom: 6px;
+            }
+            #custom-spotify-info.playing {
+                color: #${config.stylix.base16Scheme.base0B};
+            }
+            /* Remove space between modules to merge them */
+            #custom-spotify-prev {
+                margin-left: 4px;
+                margin-right: 0px;
+                padding: 4px 10px 4px 15px;
+                border-radius: 12px 0 0 12px;
+            }
+            #custom-spotify-playpause {
+                margin-left: 0px;
+                margin-right: 0px;
+                padding: 4px 10px;
+                font-size: 16px;
+                border-radius: 0;
+            }
+            #custom-spotify-info {
+                margin-left: 0px;
+                margin-right: 0px;
+                padding: 4px 10px;
+                border-radius: 0;
+            }
+            #custom-spotify-next {
+                margin-left: 0px;
+                margin-right: 4px;
+                padding: 4px 15px 4px 10px;
+                border-radius: 0 12px 12px 0;
+            }
+            #custom-spotify-prev:hover, #custom-spotify-playpause:hover, #custom-spotify-next:hover {
+                background-color: alpha(#${config.stylix.base16Scheme.base02}, 0.9);
+                color: #${config.stylix.base16Scheme.base0D};
+            }
+            /* End Spotify Widget Styling */
+
+            /* --- Other Module Styling --- */
+            #workspaces {
+                background-color: alpha(#${config.stylix.base16Scheme.base01}, 0.8);
+                padding: 2px 5px;
+            }
+            #workspaces button {
+                background: transparent;
+                color: #${config.stylix.base16Scheme.base04};
+                padding: 5px;
+                margin: 2px 1px;
+                font-weight: bold;
+            }
+            #workspaces button.active {
+                color: #${config.stylix.base16Scheme.base00};
+                background: #${config.stylix.base16Scheme.base0D};
+            }
+            #custom-startmenu {
+                color: #${config.stylix.base16Scheme.base00};
+                background-color: alpha(#${config.stylix.base16Scheme.base0B}, 0.85);
+                font-size: 18px;
+            }
+            #clock {
+                color: #${config.stylix.base16Scheme.base00};
+                background: alpha(#${config.stylix.base16Scheme.base0C}, 0.85);
+            }
+            #custom-exit {
+                color: #${config.stylix.base16Scheme.base00};
+                background-color: alpha(#${config.stylix.base16Scheme.base08}, 0.85);
+            }
+            #custom-tailscale.connected {
+                background-color: alpha(#1DB954, 0.85);
+                color: #${config.stylix.base16Scheme.base00};
+            }
+            #idle_inhibitor.activated {
+                background-color: alpha(#${config.stylix.base16Scheme.base0B}, 0.85);
+                color: #${config.stylix.base16Scheme.base00};
+            }
+            #battery.charging, #battery.plugged {
+                background-color: alpha(#${config.stylix.base16Scheme.base0B}, 0.85);
+                color: #${config.stylix.base16Scheme.base00};
+            }
+            #battery.warning:not(.charging) {
+                background-color: alpha(#${config.stylix.base16Scheme.base0A}, 0.85);
+                color: #${config.stylix.base16Scheme.base00};
+            }
+            #battery.critical:not(.charging) {
+                background-color: alpha(#${config.stylix.base16Scheme.base08}, 0.85);
+                color: #${config.stylix.base16Scheme.base00};
+                animation-name: blink;
+                animation-duration: 0.8s;
+                animation-timing-function: linear;
+                animation-iteration-count: infinite;
+                animation-direction: alternate;
+            }
+            @keyframes blink { to { opacity: 0.6; } }
+          ''
+        ]
+        ++ lib.optionals cfg.niriConfig.enable [
+          ''
+            /* --- Niri Module Styling --- */
+            #custom-niri-vertical {
+              background: linear-gradient(135deg, #${config.stylix.base16Scheme.base00} 0%, #${config.stylix.base16Scheme.base01} 100%);
               color: #${config.stylix.base16Scheme.base05};
-              margin-top: 6px;
-              margin-bottom: 6px;
-          }
-          #custom-spotify-info.playing {
-              color: #${config.stylix.base16Scheme.base0B};
-          }
-          /* Remove space between modules to merge them */
-          #custom-spotify-prev {
-              margin-left: 4px;
-              margin-right: 0px;
-              padding: 4px 10px 4px 15px;
-              border-radius: 12px 0 0 12px;
-          }
-          #custom-spotify-playpause {
-              margin-left: 0px;
-              margin-right: 0px;
-              padding: 4px 10px;
+              border: 2px solid #${config.stylix.base16Scheme.base0D};
+              border-radius: 8px;
+              padding: 8px 6px;
+              margin: 4px 2px;
               font-size: 16px;
-              border-radius: 0;
-          }
-          #custom-spotify-info {
-              margin-left: 0px;
-              margin-right: 0px;
-              padding: 4px 10px;
-              border-radius: 0;
-          }
-          #custom-spotify-next {
-              margin-left: 0px;
-              margin-right: 4px;
-              padding: 4px 15px 4px 10px;
-              border-radius: 0 12px 12px 0;
-          }
-          #custom-spotify-prev:hover, #custom-spotify-playpause:hover, #custom-spotify-next:hover {
-              background-color: alpha(#${config.stylix.base16Scheme.base02}, 0.9);
-              color: #${config.stylix.base16Scheme.base0D};
-          }
-          /* End Spotify Widget Styling */
-
-          /* --- Other Module Styling --- */
-          #workspaces {
-              background-color: alpha(#${config.stylix.base16Scheme.base01}, 0.8);
-              padding: 2px 5px;
-          }
-          #workspaces button {
-              background: transparent;
-              color: #${config.stylix.base16Scheme.base04};
-              padding: 5px;
-              margin: 2px 1px;
               font-weight: bold;
-          }
-          #workspaces button.active {
-              color: #${config.stylix.base16Scheme.base00};
-              background: #${config.stylix.base16Scheme.base0D};
-          }
-          #custom-startmenu {
-              color: #${config.stylix.base16Scheme.base00};
-              background-color: alpha(#${config.stylix.base16Scheme.base0B}, 0.85);
-              font-size: 18px;
-          }
-          #clock {
-              color: #${config.stylix.base16Scheme.base00};
-              background: alpha(#${config.stylix.base16Scheme.base0C}, 0.85);
-          }
-          #custom-exit {
-              color: #${config.stylix.base16Scheme.base00};
-              background-color: alpha(#${config.stylix.base16Scheme.base08}, 0.85);
-          }
-          #custom-tailscale.connected {
-              background-color: alpha(#1DB954, 0.85);
-              color: #${config.stylix.base16Scheme.base00};
-          }
-          #idle_inhibitor.activated {
-              background-color: alpha(#${config.stylix.base16Scheme.base0B}, 0.85);
-              color: #${config.stylix.base16Scheme.base00};
-          }
-          #battery.charging, #battery.plugged {
-              background-color: alpha(#${config.stylix.base16Scheme.base0B}, 0.85);
-              color: #${config.stylix.base16Scheme.base00};
-          }
-          #battery.warning:not(.charging) {
-              background-color: alpha(#${config.stylix.base16Scheme.base0A}, 0.85);
-              color: #${config.stylix.base16Scheme.base00};
-          }
-          #battery.critical:not(.charging) {
-              background-color: alpha(#${config.stylix.base16Scheme.base08}, 0.85);
-              color: #${config.stylix.base16Scheme.base00};
-              animation-name: blink;
-              animation-duration: 0.8s;
-              animation-timing-function: linear;
-              animation-iteration-count: infinite;
-              animation-direction: alternate;
-          }
-          @keyframes blink { to { opacity: 0.6; } }
-        ''
-      ] ++ lib.optionals cfg.niriConfig.enable [
-        ''
-          /* --- Niri Module Styling --- */
-          #custom-niri-vertical {
-            background: linear-gradient(135deg, #${config.stylix.base16Scheme.base00} 0%, #${config.stylix.base16Scheme.base01} 100%);
-            color: #${config.stylix.base16Scheme.base05};
-            border: 2px solid #${config.stylix.base16Scheme.base0D};
-            border-radius: 8px;
-            padding: 8px 6px;
-            margin: 4px 2px;
-            font-size: 16px;
-            font-weight: bold;
-            text-shadow: 1px 1px 2px #${config.stylix.base16Scheme.base00};
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-            transition: ${betterTransition};
-          }
-          #custom-niri-vertical:hover {
-            background: linear-gradient(135deg, #${config.stylix.base16Scheme.base01} 0%, #${config.stylix.base16Scheme.base02} 100%);
-            border-color: #${config.stylix.base16Scheme.base0C};
-          }
-        ''
-      ]);
+              text-shadow: 1px 1px 2px #${config.stylix.base16Scheme.base00};
+              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+              transition: ${betterTransition};
+            }
+            #custom-niri-vertical:hover {
+              background: linear-gradient(135deg, #${config.stylix.base16Scheme.base01} 0%, #${config.stylix.base16Scheme.base02} 100%);
+              border-color: #${config.stylix.base16Scheme.base0C};
+            }
+          ''
+        ]
+      );
     };
   };
 }

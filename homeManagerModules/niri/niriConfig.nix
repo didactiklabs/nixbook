@@ -9,7 +9,7 @@ let
   mainWallpaper = "${config.profileCustomization.mainWallpaper}";
   lockWallpaper = "${config.profileCustomization.lockWallpaper}";
   startup_audio = "${config.profileCustomization.startup_audio}";
-  rofi-wayland = "${pkgs.rofi-wayland}/bin/rofi";
+  rofi = "${pkgs.rofi}/bin/rofi";
   waybar = "${pkgs.waybar}/bin/waybar";
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
   pidof = "${pkgs.sysvtools}/bin/pidof";
@@ -555,7 +555,7 @@ in
         })
         // (lib.optionalAttrs cfg.rofiConfig.enable {
           "Mod+D".action.spawn = [
-            "${rofi-wayland}"
+            "${rofi}"
             "-show"
             "drun"
             "-theme"

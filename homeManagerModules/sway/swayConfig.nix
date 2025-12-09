@@ -11,7 +11,7 @@ let
   swaylock = "${pkgs.swaylock}/bin/swaylock";
   swaymsg = "${pkgs.sway}/bin/swaymsg";
   waybar = "${pkgs.waybar}/bin/waybar";
-  rofi-wayland = "${pkgs.rofi-wayland}/bin/rofi";
+  rofi = "${pkgs.rofi}/bin/rofi";
   playerctl = "${pkgs.playerctl}/bin/playerctl";
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
   grimshot = "${pkgs.sway-contrib.grimshot}/bin/grimshot";
@@ -301,7 +301,7 @@ in
             exec $HOME/.config/rofiScripts/rofiLockScript.sh style-1
           '';
           "${mod}+d" = lib.mkIf cfg.rofiConfig.enable ''
-            exec "${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/type-1/style-landscape.rasi"
+            exec "${rofi} -show drun -theme $HOME/.config/rofi/launchers/type-1/style-landscape.rasi"
           '';
 
           # Brightness
