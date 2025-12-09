@@ -59,7 +59,7 @@ in
       tailscale
       update-systemd-resolved
       gnupg
-      pinentry-tty
+      pinentry-qt
       wget
       # usb mount auto
       usbutils
@@ -313,7 +313,7 @@ in
     gnupg.agent = {
       enable = true;
       enableSSHSupport = true; # yubikey ssh
-      pinentryPackage = pkgs.pinentry-tty;
+      pinentryPackage = pkgs.pinentry-qt;
     };
   };
   system.stateVersion = "24.05";
