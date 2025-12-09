@@ -151,7 +151,7 @@ let
             [
               (import sources.stylix).homeModules.stylix
               ../homeManagerModules/stylixConfig.nix
-              (import sources.nixvim).homeManagerModules.nixvim
+              (import sources.nixvim).homeModules.nixvim
               ../homeManagerModules/nixvim
               ../homeManagerModules/sway
               ../homeManagerModules/hyprland

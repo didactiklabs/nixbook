@@ -20,7 +20,6 @@ in
   config = lib.mkIf cfg.greetd.enable {
     services.greetd = {
       enable = true;
-      vt = 7; # # tty to skip startup msgs
       settings = {
         default_session.command = ''
           ${pkgs.greetd.tuigreet}/bin/tuigreet \
