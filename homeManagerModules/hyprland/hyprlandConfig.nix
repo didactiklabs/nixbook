@@ -8,7 +8,7 @@ let
   cfg = config.customHomeManagerModules;
   mainWallpaper = "${config.profileCustomization.mainWallpaper}";
   startup_audio = "${config.profileCustomization.startup_audio}";
-  rofi-wayland = "${pkgs.rofi-wayland}/bin/rofi";
+  rofi = "${pkgs.rofi}/bin/rofi";
   waybar = "${pkgs.waybar}/bin/waybar";
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
   grimshot = "${pkgs.grimblast}/bin/grimblast";
@@ -197,7 +197,7 @@ in
         ++ (
           if cfg.rofiConfig.enable then
             [
-              "$mod, D, exec, ${rofi-wayland} -show drun -theme $HOME/.config/rofi/launchers/type-1/style-landscape.rasi"
+              "$mod, D, exec, ${rofi} -show drun -theme $HOME/.config/rofi/launchers/type-1/style-landscape.rasi"
               ''
                 $mod, L, exec, $HOME/.config/rofiScripts/rofiLockScript.sh style-1
               ''

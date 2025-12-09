@@ -94,32 +94,35 @@ let
   '';
 
   # Local rofi themes - no external dependencies
-  rofi-themes = pkgs.runCommand "rofi-themes-5rows" { 
-    # Force rebuild when source changes
-    buildInputs = [ pkgs.coreutils ];
-  } ''
-    mkdir -p $out/files
-    cp -r ${../assets/rofi}/* $out/files/
-    
-    # Make files writable and update colors with stylix theme
-    chmod -R u+w $out/files
-    cat > $out/files/colors/onedark.rasi <<EOF
-      * {
-        background:     #${config.lib.stylix.colors.base00};
-        background-alt: #${config.lib.stylix.colors.base01};
-        foreground:     #${config.lib.stylix.colors.base07};
-        selected:       #${config.lib.stylix.colors.base05};
-        active:         #${config.lib.stylix.colors.base03};
-        urgent:         #${config.lib.stylix.colors.base04};
+  rofi-themes =
+    pkgs.runCommand "rofi-themes-5rows"
+      {
+        # Force rebuild when source changes
+        buildInputs = [ pkgs.coreutils ];
       }
-    EOF
-  '';
+      ''
+        mkdir -p $out/files
+        cp -r ${../assets/rofi}/* $out/files/
+
+        # Make files writable and update colors with stylix theme
+        chmod -R u+w $out/files
+        cat > $out/files/colors/onedark.rasi <<EOF
+          * {
+            background:     #${config.lib.stylix.colors.base00};
+            background-alt: #${config.lib.stylix.colors.base01};
+            foreground:     #${config.lib.stylix.colors.base07};
+            selected:       #${config.lib.stylix.colors.base05};
+            active:         #${config.lib.stylix.colors.base03};
+            urgent:         #${config.lib.stylix.colors.base04};
+          }
+        EOF
+      '';
 in
 {
   # Local rofi configuration - self-contained without external GitHub dependencies
   config = lib.mkIf cfg.rofiConfig.enable {
     home = {
-      packages = [ pkgs.rofi-wayland ];
+      packages = [ pkgs.rofi ];
       file.".config/rofi".source = "${rofi-themes}/files";
       # Define the Nix derivation to create the script file
       file.".config/rofiScripts/rofiLockScript.sh" = {

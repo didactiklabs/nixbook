@@ -16,8 +16,8 @@ in
       };
       includes = [
         {
-          condition = "gitdir:~/go/src/kubolabs/";
-          path = "~/go/src/kubolabs/.gitconfig";
+          condition = "gitdir:~/go/src/github.com/the-marshmallow-project/";
+          path = "~/go/src/github.com/the-marshmallow-project/.gitconfig";
         }
       ];
     };

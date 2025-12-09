@@ -10,7 +10,6 @@ in
 {
   imports = [
     ./gitConfig.nix
-    ./sshConfig.nix
     ./kanshiConfig.nix
     ./hyprlandConfig.nix
   ];
