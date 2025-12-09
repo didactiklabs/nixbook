@@ -43,6 +43,7 @@ in
     (pkgs.google-cloud-sdk.withExtraComponents [
       pkgs.google-cloud-sdk.components.gke-gcloud-auth-plugin
     ])
+    pkgs.slack
     pkgs-unstable.kanidm_1_8
     pkgs-unstable.oapi-codegen
   ];
