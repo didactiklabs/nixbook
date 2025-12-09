@@ -59,11 +59,11 @@
         "owner": "nix-community",
         "repo": "home-manager"
       },
-      "branch": "release-25.05",
+      "branch": "release-25.11",
       "submodules": false,
-      "revision": "44831a7eaba4360fb81f2acc5ea6de5fde90aaa3",
-      "url": "https://github.com/nix-community/home-manager/archive/44831a7eaba4360fb81f2acc5ea6de5fde90aaa3.tar.gz",
-      "hash": "07pk5m6mxi666dclaxdwf7xrinifv01vvgxn49bjr8rsbh31syaq"
+      "revision": "20561be440a11ec57a89715480717baf19fe6343",
+      "url": "https://github.com/nix-community/home-manager/archive/20561be440a11ec57a89715480717baf19fe6343.tar.gz",
+      "hash": "1n2l891p04y3xmd0sl5i3553ndgpxkinysg1bf8iiixmxhcm7i9v"
     },
     "home-manager-master": {
       "type": "Git",
@@ -181,11 +181,11 @@
         "owner": "NixOS",
         "repo": "nixpkgs"
       },
-      "branch": "nixos-25.05",
+      "branch": "nixos-25.11",
       "submodules": false,
-      "revision": "1c8ba8d3f7634acac4a2094eef7c32ad9106532c",
-      "url": "https://github.com/NixOS/nixpkgs/archive/1c8ba8d3f7634acac4a2094eef7c32ad9106532c.tar.gz",
-      "hash": "0kal9wdvh0f9kcgh0ya1dpiir9331ykmkvsdh6a37lq77ln6m3vm"
+      "revision": "d9bc5c7dceb30d8d6fafa10aeb6aa8a48c218454",
+      "url": "https://github.com/NixOS/nixpkgs/archive/d9bc5c7dceb30d8d6fafa10aeb6aa8a48c218454.tar.gz",
+      "hash": "1fmgk95zsz29nb5c2928yfbd619j4742qjpm7y0g49z3bwm4zd6b"
     },
     "nixpkgs-master": {
       "type": "Git",
@@ -220,11 +220,11 @@
         "owner": "nix-community",
         "repo": "nixvim"
       },
-      "branch": "nixos-25.05",
+      "branch": "nixos-25.11",
       "submodules": false,
-      "revision": "370eb3d69252fa07b81d8c9979cb1a537b74ebb7",
-      "url": "https://github.com/nix-community/nixvim/archive/370eb3d69252fa07b81d8c9979cb1a537b74ebb7.tar.gz",
-      "hash": "02x25qsl80w6a3rf5vm9k98n212gmzcrkv0kd7wwvkm6ljl77v1s"
+      "revision": "a9d0e063bcbb43f18f5baf42713ba240f3a8ab22",
+      "url": "https://github.com/nix-community/nixvim/archive/a9d0e063bcbb43f18f5baf42713ba240f3a8ab22.tar.gz",
+      "hash": "18n58ka6z42a2wmwikg7wzj6phhzj69pydk5ij4bakjq64m81rmw"
     },
     "okada": {
       "type": "GitRelease",
@@ -294,11 +294,11 @@
         "owner": "nix-community",
         "repo": "stylix"
       },
-      "branch": "release-25.05",
+      "branch": "release-25.11",
       "submodules": false,
-      "revision": "b9b8173a6e31c6d06f328307ddbdf7d6af82b7ad",
-      "url": "https://github.com/nix-community/stylix/archive/b9b8173a6e31c6d06f328307ddbdf7d6af82b7ad.tar.gz",
-      "hash": "190dymhs43yac5zn0n728cgmj9r6kk55zaiv5nld5jb7kvmwfwab"
+      "revision": "84d9d55885d463d461234f3aac07b2389a2577d8",
+      "url": "https://github.com/nix-community/stylix/archive/84d9d55885d463d461234f3aac07b2389a2577d8.tar.gz",
+      "hash": "01bwy7qgnd0i61m52gp3l6j4j91vv5415ix7cdnk9grwv4wfpfk9"
     },
     "ytui": {
       "type": "Git",
