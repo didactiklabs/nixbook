@@ -7,15 +7,8 @@
 let
   cfg = config.customHomeManagerModules.kubeswitchConfig;
   sources = import ../npins;
-
-  # Import the kubeswitch module from home-manager master
-  kubeswitchModule = import "${sources.home-manager-master}/modules/programs/kubeswitch.nix";
 in
 {
-  imports = [
-    kubeswitchModule
-  ];
-
   options.customHomeManagerModules.kubeswitchConfig = {
     enable = lib.mkOption {
       type = lib.types.bool;
