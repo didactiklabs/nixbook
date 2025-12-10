@@ -234,7 +234,12 @@ in
     };
     uinput.enable = true;
   };
-  nixpkgs.config.allowUnfree = true;
+  nixpkgs.config = {
+    allowUnfree = true;
+    permittedInsecurePackages = [
+      "qtwebengine-5.15.19"
+    ];
+  };
   services.pulseaudio.enable = false;
   systemd = {
     # Create a separate slice for nix-daemon that is
