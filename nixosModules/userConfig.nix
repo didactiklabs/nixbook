@@ -78,7 +78,7 @@ let
       home-manager = {
         useUserPackages = true;
         useGlobalPkgs = true;
-        backupFileExtension = "rebuild";
+        backupFileExtension = ".backup";
         users.${username} = {
           config = {
             xdg.mimeApps = {
