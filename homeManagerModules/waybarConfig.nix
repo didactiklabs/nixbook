@@ -352,7 +352,7 @@ in
           };
           "custom/notification" = {
             tooltip = false;
-            format = "{icon}  {}";
+            format = "{icon}  {text}";
             format-icons = {
               notification = "<span foreground='red'><sup></sup></span>";
               none = "";
@@ -392,7 +392,6 @@ in
             ];
             tooltip = false;
           };
-
         }
       ]
       ++ lib.optionals cfg.niriConfig.enable [
@@ -424,7 +423,7 @@ in
           ''
             /* --- Global & Base Module Styles --- */
             * {
-                font-family: Inter Display, FontAwesome, sans-serif;
+                font-family: Inter Display, "Font Awesome 7 Free", sans-serif;
                 font-weight: 500;
                 font-size: 13px;
                 border: none;
