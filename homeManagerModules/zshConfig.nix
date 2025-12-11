@@ -38,6 +38,11 @@ in
       eza = common.commonPrograms.eza // {
         enableZshIntegration = true;
       };
+      direnv = {
+        enable = true;
+        enableZshIntegration = true;
+        nix-direnv.enable = true;
+      };
       zsh = {
         autosuggestion.enable = true;
         plugins = [
