@@ -55,7 +55,7 @@ in
       ds4drv
       efibootmgr
       colmena
-      npins
+      pkgs-unstable.npins
       tailscale
       update-systemd-resolved
       gnupg
