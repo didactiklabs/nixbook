@@ -77,7 +77,6 @@ in
     # fishConfig.enable = true;
     zshConfig.enable = true;
     kubeswitchConfig.enable = true;
-    leadrConfig.enable = true;
     fcitx5Config.enable = true;
   };
 }
