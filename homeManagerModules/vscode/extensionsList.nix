@@ -198,5 +198,11 @@
       version = "1.388.0";
       sha256 = "sha256-7RjK8+PNI+rIuRQfCwpvswAiz991dacRO2qYhcv1vhk=";
     }
+    {
+      name = "terraform";
+      publisher = "hashicorp";
+      version = "2.37.6";
+      sha256 = "sha256-zTx3tDCsfPi3DhB5g6OVwZb0ei9TtG85dS3N6uDmdms=";
+    }
   ];
 }
