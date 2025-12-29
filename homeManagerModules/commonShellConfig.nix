@@ -2,6 +2,7 @@
 let
   ginx = import ../customPkgs/ginx.nix { inherit pkgs; };
   okada = import ../customPkgs/okada.nix { inherit pkgs; };
+  witr = import ../customPkgs/witr.nix { inherit pkgs; };
 in
 {
   commonPackages = [
@@ -12,6 +13,7 @@ in
     pkgs.duf # df replacer
     pkgs.sd # sed alternative
     pkgs.viddy # watch alternative
+    witr
     # okada
   ];
 
