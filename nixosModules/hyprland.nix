@@ -5,8 +5,6 @@
   ...
 }:
 let
-  sources = import ../npins;
-  pkgs-master = import sources.nixpkgs-master { };
   cfg = config.customNixOSModules;
 in
 {
@@ -16,7 +14,6 @@ in
       hyprland = {
         enable = true;
         portalPackage = pkgs.xdg-desktop-portal-wlr;
-        package = pkgs-master.hyprland;
       };
     };
     security = {
