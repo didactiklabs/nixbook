@@ -61,6 +61,8 @@ in
       gnupg
       pinentry-qt
       wget
+      devbox
+      go-task
       # usb mount auto
       usbutils
       udiskie
