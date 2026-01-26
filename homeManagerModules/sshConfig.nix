@@ -1,4 +1,8 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  ...
+}:
 let
   cfg = config.customHomeManagerModules.sshConfig;
 in
@@ -15,7 +19,7 @@ in
   config = lib.mkIf cfg.enable {
     programs.ssh = {
       enable = true;
-      compression = true;
+      compression = false;
       serverAliveInterval = 10;
       serverAliveCountMax = 2;
     };
