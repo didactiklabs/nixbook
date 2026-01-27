@@ -5,11 +5,10 @@ let
 in
 pkgs.buildGoModule rec {
   pname = "goji";
-  version = "0.1.2";
-
+  version = "0.2.1";
   src = gojiSrc;
 
-  vendorHash = "sha256-81yWKq3hn5tz5j+FmbrrlZe/y2IhLo2XdoVSGnEMOPg=";
+  vendorHash = "sha256-anusl9O/oMNEKxfkx3Lfr8wBKXeMH4UegprJZS/YtqA=";
 
   subPackages = [ "." ];
 
