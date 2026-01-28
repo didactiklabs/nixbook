@@ -48,9 +48,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "eaeee85c020947c259a83ec4fd89e0a42fc3b993",
-      "url": "https://github.com/muandane/goji/archive/eaeee85c020947c259a83ec4fd89e0a42fc3b993.tar.gz",
-      "hash": "sha256-QwTZjdJQgrCx/XS862T0/enHh2nF8A5G2zTwQYi8Jfs="
+      "revision": "c7a15a60e0110db73fa7e90eaf6a9ea72f8f0597",
+      "url": "https://github.com/muandane/goji/archive/c7a15a60e0110db73fa7e90eaf6a9ea72f8f0597.tar.gz",
+      "hash": "sha256-zqek95o5PrcrC28jk9YBDdEezgQvguO55ThLl5/V+EU="
     },
     "home-manager": {
       "type": "Git",
