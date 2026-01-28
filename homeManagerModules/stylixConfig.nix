@@ -7,6 +7,7 @@
   config = {
     stylix = {
       enable = true;
+      targets.gnome.enable = false; # https://github.com/nix-community/stylix/issues/2163
       polarity = "dark";
       image = config.profileCustomization.mainWallpaper;
       cursor = {
