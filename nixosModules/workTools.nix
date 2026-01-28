@@ -52,6 +52,7 @@ in
     environment = {
       systemPackages =
         (with pkgs; [
+          gemini-cli
           cobra-cli
           minio-client
           python3

@@ -105,6 +105,50 @@ let
     printf '{"text": "%s", "tooltip": "%s"}' "$TEXT" "$TOOLTIP"
   '';
 
+  nbWaybar = pkgs.writeShellScriptBin "nbwaybar" ''
+      export PATH="$PATH:${
+        lib.makeBinPath (
+          with pkgs;
+          [
+            netbird
+            jq
+            gawk
+            gnugrep
+          ]
+        )
+      }"
+    netbird_status() {
+        if netbird status 2>/dev/null | grep -q "Management: Connected"; then
+            return 0
+        fi
+        return 1
+    }
+
+    get_network() {
+        netbird networks list 2>/dev/null | grep -B 5 "Status: Selected" | grep "ID:" | head -n 1 | awk '{print $3}'
+    }
+
+    case $1 in
+        --status)
+            if netbird_status; then
+                netname=$(get_network)
+                if [ -z "$netname" ]; then netname="NetBird Active"; fi
+                tooltip=$(netbird status 2>/dev/null | jq -R -s '.')
+                printf "{\"text\":\"%s\",\"class\":\"connected\",\"alt\":\"connected\", \"tooltip\": %s}\n" "$netname" "$tooltip"
+            else
+                printf "{\"text\":\"NetBird Off\",\"class\":\"stopped\",\"alt\":\"stopped\", \"tooltip\": \"Disconnected\"}\n"
+            fi
+        ;;
+        --toggle)
+            if netbird_status; then
+                netbird down
+            else
+                netbird up
+            fi
+        ;;
+    esac
+  '';
+
   tsWaybar = pkgs.writeShellScriptBin "tswaybar" ''
       export PATH="$PATH:${
         lib.makeBinPath (
@@ -188,6 +232,7 @@ in
           ];
           modules-right = [
             #"custom/hyprbindings"
+            "custom/netbird"
             "custom/tailscale"
             "cpu"
             "memory"
@@ -224,12 +269,21 @@ in
             on-click = "${playerctl} --player=spotify next";
           };
 
+          "custom/netbird" = {
+            exec = "${nbWaybar}/bin/nbwaybar --status";
+            exec-if = "${pkgs.procps}/bin/pgrep netbird";
+            on-click = "exec ${nbWaybar}/bin/nbwaybar --toggle";
+            tooltip = true;
+            interval = 1;
+            format = "{}";
+            return-type = "json";
+          };
           "custom/tailscale" = {
             exec = "${tsWaybar}/bin/tswaybar --status";
             exec-if = "${pkgs.procps}/bin/pgrep tailscaled";
             on-click = "exec ${tsWaybar}/bin/tswaybar --toggle";
             tooltip = true;
-            interval = 3;
+            interval = 1;
             format = "{}";
             return-type = "json";
           };
@@ -435,7 +489,7 @@ in
                 color: #${config.stylix.base16Scheme.base05};
             }
             #workspaces, #window, #pulseaudio, #backlight, #idle_inhibitor,
-            #custom-tailscale, #cpu, #memory, #battery, #tray, #custom-notification,
+            #custom-netbird, #custom-tailscale, #cpu, #memory, #battery, #tray, #custom-notification,
             #custom-exit, #clock, #network, #custom-hyprbindings, #custom-startmenu {
                 background-color: alpha(#${config.stylix.base16Scheme.base00}, 0.7);
                 padding: 4px 15px;
@@ -513,6 +567,10 @@ in
             #custom-exit {
                 color: #${config.stylix.base16Scheme.base00};
                 background-color: alpha(#${config.stylix.base16Scheme.base08}, 0.85);
+            }
+            #custom-netbird.connected {
+                background-color: alpha(#F39C12, 0.85);
+                color: #${config.stylix.base16Scheme.base00};
             }
             #custom-tailscale.connected {
                 background-color: alpha(#1DB954, 0.85);
