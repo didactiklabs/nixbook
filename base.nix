@@ -87,6 +87,7 @@ in
     ./nixosModules/hyprland.nix
     ./nixosModules/printTools.nix
     ./nixosModules/tailscale-fix.nix
+    ./nixosModules/netbird-tools.nix
     ./nixosModules/getRevision.nix
     ./nixosModules/niri.nix
     (import ./nixosModules/workTools.nix {
