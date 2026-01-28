@@ -191,6 +191,7 @@ in
   console.keyMap = "fr";
   services = {
     pcscd.enable = true; # yubikey smart card mode
+    netbird.enable = true;
     udev = {
       packages = with pkgs; [
         game-devices-udev-rules
