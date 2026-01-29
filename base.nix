@@ -63,6 +63,7 @@ in
       wget
       devbox
       go-task
+      runme
       # usb mount auto
       usbutils
       udiskie
