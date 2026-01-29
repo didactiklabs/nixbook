@@ -41,11 +41,13 @@ in
 
       plugins.neo-tree = {
         enable = true;
-        enableRefreshOnWrite = true;
-        closeIfLastWindow = true;
-        window = {
-          width = 20;
-          autoExpandWidth = true;
+        settings = {
+          enable_refresh_on_write = true;
+          close_if_last_window = true;
+          window = {
+            width = 20;
+            auto_expand_width = true;
+          };
         };
       };
     };

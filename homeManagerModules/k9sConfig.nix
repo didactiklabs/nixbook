@@ -121,7 +121,7 @@ in
           };
         };
       };
-      plugin = {
+      plugins = {
         httproutes = {
           shortCut = "Shift-O";
           description = "Open in Browser";

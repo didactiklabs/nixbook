@@ -19,9 +19,12 @@ in
   config = lib.mkIf cfg.enable {
     programs.ssh = {
       enable = true;
-      compression = false;
-      serverAliveInterval = 10;
-      serverAliveCountMax = 2;
+      enableDefaultConfig = false;
+      matchBlocks."*" = {
+        compression = false;
+        serverAliveInterval = 10;
+        serverAliveCountMax = 2;
+      };
     };
   };
 }
