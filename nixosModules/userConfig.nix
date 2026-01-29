@@ -120,7 +120,7 @@ let
             ];
             programs.go = {
               enable = true;
-              goPath = "go";
+              env.GOPATH = "go";
             };
             services.gammastep = {
               enable = true;

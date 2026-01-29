@@ -5,8 +5,12 @@ in
 {
   config = lib.mkIf cfg.enable {
     programs.git = {
-      userName = "Victor Hang";
-      userEmail = "vhvictorhang@gmail.com";
+      settings = {
+        user = {
+          name = "Victor Hang";
+          email = "vhvictorhang@gmail.com";
+        };
+      };
       signing = {
         signByDefault = lib.mkForce true;
       };

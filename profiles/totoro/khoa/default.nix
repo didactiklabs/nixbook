@@ -1,6 +1,7 @@
 {
   pkgs,
   lib,
+  config,
   ...
 }:
 let
@@ -24,7 +25,7 @@ in
   programs = {
     go = {
       enable = true;
-      goPath = lib.mkForce ".local/go";
+      env.GOPATH = lib.mkForce "${config.home.homeDirectory}/.local/go";
     };
   };
 
