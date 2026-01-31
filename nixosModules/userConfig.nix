@@ -120,7 +120,7 @@ let
             ];
             programs.go = {
               enable = true;
-              env.GOPATH = "go";
+              env.GOPATH = "/home/${username}/go";
             };
             services.gammastep = {
               enable = true;
