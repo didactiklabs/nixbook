@@ -54,6 +54,7 @@ in
         (with pkgs; [
           gemini-cli
           cobra-cli
+          kubernetes-helm
           minio-client
           python3
           nix-eval-jobs
