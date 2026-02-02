@@ -205,22 +205,10 @@
       sha256 = "sha256-zTx3tDCsfPi3DhB5g6OVwZb0ei9TtG85dS3N6uDmdms=";
     }
     {
-      name = "devbox";
-      publisher = "jetpack-io";
-      version = "0.1.8";
-      sha256 = "sha256-2t18JIcjZT4+TDGPLGroLHujl9jtv0/DvOFKW0GNUc0=";
-    }
-    {
       name = "vscode-task";
       publisher = "task";
       version = "0.4.0";
       sha256 = "sha256-cbI8PVlkK6WQKkRMfvIJNKvzbar5D3DQUgpkv87G/48=";
-    }
-    {
-      name = "runme";
-      publisher = "stateful";
-      version = "3.16.1769407668";
-      sha256 = "sha256-mdh+sezGQaNw6TtnlPvk0tYRMKBcvtCFvf9A4ixsKUs=";
     }
   ];
 }
