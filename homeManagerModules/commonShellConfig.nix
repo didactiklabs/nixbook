@@ -18,6 +18,7 @@ in
   ];
 
   commonShellAliases = {
+    ks = "kswitch";
     watch = "viddy";
     y = "yazi";
     top = "btop";
