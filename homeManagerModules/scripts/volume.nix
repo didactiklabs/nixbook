@@ -124,7 +124,6 @@ let
 in
 {
   home.packages = [ volume ];
-  home.file.".config/assets/images/volume-icons".source = ../../assets/images/volume-icons;
   wayland.windowManager.hyprland.settings = {
     bindle = [
       ",XF86AudioRaiseVolume, exec, ${volume}/bin/volume --inc"
