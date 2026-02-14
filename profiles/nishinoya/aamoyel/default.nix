@@ -1,6 +1,6 @@
 {
   pkgs,
-  lib,
+  # lib,
   ...
 }:
 let
@@ -47,7 +47,6 @@ in
     pkgs-unstable.oapi-codegen
   ];
   customHomeManagerModules = {
-    bluetooth.enable = true;
     fontConfig.enable = true;
     gitConfig.enable = true;
     gtkConfig.enable = true;
@@ -60,12 +59,13 @@ in
     copyqConfig.enable = true;
     fastfetchConfig.enable = true;
     desktopApps.enable = true;
+    swayncConfig.enable = true;
     kubeTools.enable = true;
     kubeConfig = {
       didactiklabs.enable = true;
       logicmg.enable = true;
     };
-    waybar.enable = true;
+    waybarConfig.enable = true;
     nixvimConfig.enable = true;
     gojiConfig.enable = true;
     atuinConfig.didactiklabs.enable = true;

@@ -28,7 +28,6 @@ in
       dhcpcd.enable = false;
       useDHCP = false;
     };
-    programs.nm-applet.enable = true;
     ## cf https://github.com/NixOS/nixpkgs/issues/180175#issuecomment-1658731959
     systemd.services.NetworkManager-wait-online = {
       serviceConfig = {

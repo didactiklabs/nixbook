@@ -73,6 +73,7 @@ in
         let g:neovide_scale_factor = 0.8
         let g:neovide_fullscreen = v:false
       '';
+      extraConfigLua = "";
       keymaps = [
         {
           mode = "n";

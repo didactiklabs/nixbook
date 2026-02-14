@@ -1,6 +1,7 @@
 {
   config,
   pkgs,
+  lib,
   ...
 }:
 {
@@ -14,6 +15,7 @@
         name = "phinger-cursors-light";
         size = 24;
       };
+      autoEnable = true;
       targets.gtk.extraCss = ''
         .thunar {
           font-family: Hack Nerd Font Bold;
@@ -29,6 +31,9 @@
           package = pkgs.nerd-fonts.fira-code;
         };
       };
+    }
+    // lib.optionalAttrs (config.customHomeManagerModules.dmsConfig.enable or false) {
+      base16Scheme = "${pkgs.base16-schemes}/share/themes/dracula.yaml";
     };
   };
 }

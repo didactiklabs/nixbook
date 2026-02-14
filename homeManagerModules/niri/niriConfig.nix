@@ -56,7 +56,8 @@ in
       enable = true;
       settings = {
         general = {
-          lock_cmd = "${pidof} ${hyprlock} || ${hyprlock}"; # avoid starting multiple hyprlock instances.
+          lock_cmd =
+            if cfg.dmsConfig.enable then "dms ipc call lock lock" else "${pidof} ${hyprlock} || ${hyprlock}"; # avoid starting multiple hyprlock instances.
           before_sleep_cmd = "${loginctl} lock-session"; # lock before suspend.
           after_sleep_cmd = "${niri} msg action power-on-monitors"; # turn on monitors after sleep
         };
@@ -197,9 +198,13 @@ in
               startup_audio
             ];
           }
+        ]
+        ++ lib.optionals cfg.waybarConfig.enable [
           {
             command = [ "${waybar}" ];
           }
+        ]
+        ++ [
           {
             command = [
               "${pkgs.swaybg}/bin/swaybg"
@@ -209,6 +214,8 @@ in
               mainWallpaper
             ];
           }
+        ]
+        ++ lib.optionals cfg.swayncConfig.enable [
           {
             command = [
               "${pkgs.bash}/bin/bash"
@@ -216,6 +223,8 @@ in
               "sleep 2 && ${pkgs.swaynotificationcenter}/bin/swaync-client --reload-css && ${pkgs.swaynotificationcenter}/bin/swaync-client --reload-config"
             ];
           }
+        ]
+        ++ [
           {
             command = [ "${pkgs.xwayland-satellite}/bin/xwayland-satellite" ];
           }
@@ -503,11 +512,18 @@ in
           # "Mod+Shift+Plus".action.set-window-height = "+10%";
 
           # Screenshots (Wayland-compatible)
-          "Print".action.spawn = [
-            "bash"
-            "-c"
-            "grim -g \"$(slurp)\" - | wl-copy && ${pkgs.libnotify}/bin/notify-send -h string:x-canonical-private-synchronous:sys-notify -u low -t 555 'Screenshot' 'Area copied to clipboard'"
-          ];
+          "Print".action.spawn =
+            if cfg.dmsConfig.enable then
+              [
+                "dms"
+                "screenshot"
+              ]
+            else
+              [
+                "bash"
+                "-c"
+                "grim -g \"$(slurp)\" - | wl-copy && ${pkgs.libnotify}/bin/notify-send -h string:x-canonical-private-synchronous:sys-notify -u low -t 555 'Screenshot' 'Area copied to clipboard'"
+              ];
 
           "Mod+Shift+E".action.quit = { };
           "Mod+Shift+P".action.power-off-monitors = { };
@@ -536,44 +552,167 @@ in
             "${volume}/bin/volume-niri"
             "--toggle"
           ];
-
-          "Mod+N".action.spawn = [
-            "${pkgs.swaynotificationcenter}/bin/swaync-client"
-            "-t"
-          ];
-          "Mod+B".action.spawn = [
-            "${pkgs.toybox}/bin/pkill"
-            "-SIGUSR1"
-            "waybar"
-          ];
         }
-        // (lib.optionalAttrs cfg.copyqConfig.enable {
-          "Mod+Q".action.spawn = [
-            "${pkgs.copyq}/bin/copyq"
-            "toggle"
-          ];
-        })
-        // (lib.optionalAttrs cfg.rofiConfig.enable {
-          "Mod+D".action.spawn = [
-            "${rofi}"
-            "-show"
-            "drun"
-            "-theme"
-            ".config/rofi/launchers/type-1/style-landscape.rasi"
-          ];
-          "Mod+L".action.spawn = [
-            "bash"
-            "-c"
-            "~/.config/rofiScripts/rofiLockScript.sh style-1"
-          ];
-        })
+        // (
+          if cfg.dmsConfig.enable then
+            {
+              "Mod+N".action.spawn = [
+                "dms"
+                "ipc"
+                "call"
+                "notifications"
+                "toggle"
+              ];
+            }
+          else if cfg.swayncConfig.enable then
+            {
+              "Mod+N".action.spawn = [
+                "${pkgs.swaynotificationcenter}/bin/swaync-client"
+                "-t"
+              ];
+            }
+          else
+            { }
+        )
+        // (
+          if cfg.dmsConfig.enable then
+            {
+              "Mod+B".action.spawn = [
+                "dms"
+                "ipc"
+                "call"
+                "bar"
+                "toggle"
+                "index"
+                "0"
+              ];
+            }
+          else
+            lib.optionalAttrs cfg.waybarConfig.enable {
+              "Mod+B".action.spawn = [
+                "${pkgs.toybox}/bin/pkill"
+                "-SIGUSR1"
+                "waybar"
+              ];
+            }
+        )
+        // (
+          if cfg.dmsConfig.enable then
+            {
+              "Mod+Q".action.spawn = [
+                "dms"
+                "ipc"
+                "call"
+                "clipboard"
+                "toggle"
+              ];
+            }
+          else if cfg.copyqConfig.enable then
+            {
+              "Mod+Q".action.spawn = [
+                "${pkgs.copyq}/bin/copyq"
+                "toggle"
+              ];
+            }
+          else
+            { }
+        )
+        // (
+          if cfg.dmsConfig.enable then
+            {
+              "Mod+D".action.spawn = [
+                "dms"
+                "ipc"
+                "call"
+                "spotlight"
+                "toggle"
+              ];
+            }
+          else if cfg.rofiConfig.enable then
+            {
+              "Mod+D".action.spawn = [
+                "${rofi}"
+                "-show"
+                "drun"
+                "-theme"
+                ".config/rofi/launchers/type-1/style-landscape.rasi"
+              ];
+            }
+          else
+            { }
+        )
+        // (
+          if cfg.dmsConfig.enable then
+            {
+              "Mod+L".action.spawn = [
+                "dms"
+                "ipc"
+                "call"
+                "powermenu"
+                "toggle"
+              ];
+            }
+          else if cfg.rofiConfig.enable then
+            {
+              "Mod+L".action.spawn = [
+                "bash"
+                "-c"
+                "~/.config/rofiScripts/rofiLockScript.sh style-1"
+              ];
+            }
+          else
+            { }
+        )
         // (lib.optionalAttrs cfg.fcitx5Config.enable {
           "Ctrl+Space".action.spawn = [
             "${pkgs.fcitx5}/bin/fcitx5-remote"
 
             "-t"
           ];
-        });
+        })
+        // (
+          if cfg.dmsConfig.enable then
+            {
+              "Mod+I".action.spawn = [
+                "dms"
+                "ipc"
+                "call"
+                "inhibit"
+                "toggle"
+              ];
+            }
+          else
+            { }
+        )
+        // (
+          if cfg.dmsConfig.enable then
+            {
+              "Mod+W".action.spawn = [
+                "dms"
+                "ipc"
+                "call"
+                "dankdash"
+                "wallpaper"
+              ];
+            }
+          else
+            { }
+        )
+        // (
+          if cfg.dmsConfig.enable then
+            {
+              "Mod+O".action.spawn = [
+                "dms"
+                "ipc"
+                "call"
+                "dash"
+                "toggle"
+                "overview"
+              ];
+            }
+          else
+            { }
+        );
       };
     };
   };
