@@ -92,7 +92,10 @@ in
               "notificationButton"
               "battery"
               "controlCenterButton"
-              "power"
+              {
+                id = "powerMenuButton";
+                enabled = true;
+              }
             ];
             spacing = 4;
             innerPadding = 4;
