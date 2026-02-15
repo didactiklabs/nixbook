@@ -21,6 +21,10 @@ in
       '';
       extraSessionCommands = ''
         export WLR_BACKENDS="headless,libinput"
+        export PATH="$PATH:${pkgs.quickshell}/bin"
+        systemctl --user import-environment XDG_SESSION_TYPE XDG_CURRENT_DESKTOP PATH
+        dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP PATH
+        dbus-update-activation-environment --all
       '';
       config.window.commands = lib.mkForce [
         {

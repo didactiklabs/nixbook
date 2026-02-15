@@ -14,7 +14,7 @@ let
       targetUser = builtins.getEnv "USER";
       buildOnTarget = true;
       # Disable SSH deployment.
-      targetHost = null;
+      targetHost = parent.host;
     };
     imports = [ ./profiles/${parent.hostName}/configuration.nix ];
   };
@@ -24,6 +24,9 @@ in
     nixpkgs = pkgs;
   };
   totoro = createConfiguration { hostName = "totoro"; };
-  anya = createConfiguration { hostName = "anya"; };
+  anya = createConfiguration {
+    hostName = "anya";
+    host = "anya";
+  };
   nishinoya = createConfiguration { hostName = "nishinoya"; };
 }

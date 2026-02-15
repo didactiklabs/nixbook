@@ -54,8 +54,360 @@ let
 in
 {
   config = lib.mkIf cfg.swayConfig.enable {
-    ## shrug https://github.com/nix-community/home-manager/issues/5311#issuecomment-2068042917
-    wayland.windowManager.sway.checkConfig = false;
+    wayland = {
+      ## shrug https://github.com/nix-community/home-manager/issues/5311#issuecomment-2068042917
+      windowManager.sway.checkConfig = false;
+
+      ## https://wiki.archlinux.org/title/Sway#Manage_Sway-specific_daemons_with_systemd
+      ## https://nix-community.github.io/home-manager/options.html#opt-wayland.windowManager.sway.enable
+      windowManager.sway = {
+        package = pkgs.swayfx;
+        enable = true;
+        wrapperFeatures.base = true;
+        wrapperFeatures.gtk = true;
+        systemd.enable = true;
+        systemd.variables = [ "--all" ];
+        swaynag.enable = true;
+        xwayland = true;
+        extraSessionCommands = ''
+          export CLUTTER_BACKEND="wayland"
+          export SDL_VIDEODRIVER="wayland"
+          export QT_QPA_PLATFORM="wayland"
+          export QT_WAYLAND_DISABLE_WINDOWDECORATION="1"
+          export _JAVA_AWT_WM_NONREPARENTING="1"
+          export MOZ_ENABLE_WAYLAND="1"
+          export DESKTOP_SESSION="sway"
+          export XDG_SESSION_TYPE="wayland"
+          export XDG_SESSION_DESKTOP="sway"
+          export XDG_CURRENT_DESKTOP="sway"
+          export WLR_NO_HARDWARE_CURSORS="1"
+          #export NIXOS_OZONE_WL="1"
+          #export GTK_USE_PORTAL="1"
+
+          systemctl --user import-environment XDG_SESSION_TYPE XDG_CURRENT_DESKTOP
+          dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP
+        '';
+        extraConfig = ''
+          ## Custom Workspace
+          set $workspace1  ${workspace1}
+          set $workspace2  ${workspace2}
+          set $workspace3  ${workspace3}
+          set $workspace4  ${workspace4}
+          set $workspace5  ${workspace5}
+          set $workspace6  ${workspace6}
+          set $workspace7  ${workspace7}
+          set $workspace8  ${workspace8}
+          set $workspace9  ${workspace9}
+          set $workspace10 ${workspace10}
+          layer_effects waybar blur enable
+          include /etc/sway/config.d/*
+        '';
+        config = {
+          floating = {
+            modifier = "Mod4";
+            titlebar = true;
+            border = 2;
+          };
+          window = {
+            hideEdgeBorders = "none";
+            titlebar = false;
+            border = 2;
+          };
+          defaultWorkspace = "${workspace1}";
+          input = {
+            "type:keyboard" = {
+              xkb_numlock = "enabled";
+              xkb_layout = "fr";
+            };
+            "type:touchpad" = {
+              tap = "enabled";
+              #natural_scroll = "disabled";
+              #dwt = "enabled";
+              accel_profile = "adaptive"; # disable mouse acceleration (enabled by default; to set it manually, use "adaptive" instead of "flat")
+              pointer_accel = "0.3"; # set mouse sensitivity (between -1 and 1)
+            };
+          };
+
+          ## cf https://github.com/colemickens/nixcfg/blob/main/mixins/sway.nix
+          output = {
+            "*" = {
+              bg = "${mainWallpaper} fill";
+              subpixel = "rgb";
+              #adaptive_sync = "on";
+            };
+          };
+
+          gaps = {
+            #  bottom = 5;
+            #  horizontal = 5;
+            inner = 5;
+            #  left = 5;
+            outer = 5;
+            #  right = 5;
+            smartBorders = "off";
+            smartGaps = false;
+            #  top = 5;
+            #  vertical = 5;
+          };
+
+          window.commands = [
+            {
+              command = "opacity 0.8, shadows enable, blur enable, blur_passes 5, blur_radius 6, corner_radius 10";
+              criteria = {
+                class = ".*";
+              };
+            }
+            {
+              command = "floating enable, sticky enable, resize set height 600px width 550px, move position cursor, move down 330";
+              criteria = {
+                app_id = "copyq";
+              };
+            }
+            {
+              command = "opacity 1.0";
+              criteria = {
+                app_id = "com.moonlight_stream.Moonlight";
+              };
+            }
+          ];
+
+          fonts = {
+            names = [
+              "Hack Nerd Font"
+              "FontAwesome"
+            ];
+            style = "Bold";
+            size = lib.mkForce 9.0;
+          };
+
+          colors = {
+            background = lib.mkDefault "${colorWhite}";
+            focused = {
+              background = lib.mkForce "${colorLightGrey}";
+              border = lib.mkForce "${colorBlack}";
+              childBorder = lib.mkForce "${colorLightGrey}";
+              indicator = lib.mkDefault "${colorGreen}";
+              text = lib.mkDefault "${colorWhite}";
+            };
+            focusedInactive = {
+              background = lib.mkDefault "${colorDarkGrey}";
+              border = lib.mkForce "${colorBlack}";
+              childBorder = lib.mkForce "${colorDarkGrey}";
+              indicator = lib.mkDefault "${colorGreen}";
+              text = lib.mkDefault "${colorWhite}";
+            };
+            unfocused = {
+              background = lib.mkDefault "${colorDarkGrey}";
+              border = lib.mkForce "${colorBlack}";
+              childBorder = lib.mkForce "${colorDarkGrey}";
+              indicator = lib.mkDefault "${colorGreen}";
+              text = lib.mkDefault "${colorWhite}";
+            };
+            urgent = {
+              background = lib.mkDefault "${colorRed}";
+              border = lib.mkForce "${colorRed}";
+              childBorder = lib.mkForce "${colorDarkGrey}";
+              indicator = lib.mkDefault "${colorGreen}";
+              text = lib.mkDefault "${colorWhite}";
+            };
+            placeholder = {
+              background = lib.mkDefault "${colorBlack}";
+              border = lib.mkForce "${colorBlack}";
+              childBorder = lib.mkForce "${colorDarkGrey}";
+              indicator = lib.mkDefault "${colorBlack}";
+              text = lib.mkDefault "${colorWhite}";
+            };
+          };
+
+          bars = lib.mkIf cfg.waybarConfig.enable [
+            {
+              position = "top";
+              command = "${waybar}";
+              fonts = {
+                names = [
+                  "Hack Nerd Font"
+                  "FontAwesome"
+                ];
+                style = "Bold";
+                size = 9.0;
+              };
+              colors = {
+                background = "${colorDarkGrey}";
+                separator = "${colorWhite}";
+                activeWorkspace = {
+                  background = "${colorDarkGrey}";
+                  border = "${colorDarkGrey}";
+                  text = "${colorWhite}";
+                };
+                inactiveWorkspace = {
+                  background = "${colorDarkGrey}";
+                  border = "${colorDarkGrey}";
+                  text = "${colorWhite}";
+                };
+                focusedWorkspace = {
+                  background = "${colorLightGrey}";
+                  border = "${colorDarkGrey}";
+                  text = "${colorWhite}";
+                };
+                bindingMode = {
+                  background = "${colorRed}";
+                  border = "${colorRed}";
+                  text = "${colorWhite}";
+                };
+                urgentWorkspace = {
+                  background = "${colorRed}";
+                  border = "${colorRed}";
+                  text = "${colorWhite}";
+                };
+              };
+            }
+          ];
+
+          keybindings = lib.filterAttrsRecursive (name: value: value != null) {
+            #lib.mkOptionDefault {
+            # Focus
+            "${mod}+Left" = "focus left";
+            "${mod}+Down" = "focus down";
+            "${mod}+Up" = "focus up";
+            "${mod}+Right" = "focus right";
+
+            "${mod}+Shift+Left" = "move left";
+            "${mod}+Shift+Down" = "move down";
+            "${mod}+Shift+Up" = "move up";
+            "${mod}+Shift+Right" = "move right";
+
+            "${mod}+l" =
+              if cfg.dmsConfig.enable then
+                "exec dms ipc call powermenu toggle"
+              else
+                lib.mkIf cfg.rofiConfig.enable ''
+                  exec $HOME/.config/rofiScripts/rofiLockScript.sh style-1
+                '';
+            "${mod}+d" =
+              if cfg.dmsConfig.enable then
+                "exec dms ipc call spotlight toggle"
+              else
+                lib.mkIf cfg.rofiConfig.enable ''
+                  exec "${rofi} -show drun -theme $HOME/.config/rofi/launchers/type-1/style-landscape.rasi"
+                '';
+
+            # Brightness
+            "XF86MonBrightnessDown" = "exec ${brightnessctl} set 10%-";
+            "XF86MonBrightnessUp" = "exec ${brightnessctl} set +10%";
+
+            "${mod}+n" =
+              if cfg.dmsConfig.enable then
+                "exec dms ipc call notifications toggle"
+              else if cfg.swayncConfig.enable then
+                "exec ${pkgs.swaynotificationcenter}/bin/swaync-client -t"
+              else
+                null;
+
+            ## To allow a keybinding to be executed while the lockscreen is active add the --locked parameter to bindsym.
+            # Audio
+            "--locked ${mod}+equal" = "exec ${playerctl} next";
+            "--locked ${mod}+minus" = "exec ${playerctl} previous";
+            "--locked XF86AudioNext" = "exec ${playerctl} next";
+            "--locked XF86AudioPrev" = "exec ${playerctl} previous";
+            "--locked XF86AudioPlay" = "exec ${playerctl} play-pause";
+            "Print" =
+              if cfg.dmsConfig.enable then
+                "exec dms screenshot"
+              else
+                ''
+                  exec ${grimshot} --notify copy area
+                '';
+            "${mod}+ampersand" = "workspace $workspace1";
+            "${mod}+eacute" = "workspace $workspace2";
+            "${mod}+quotedbl" = "workspace $workspace3";
+            "${mod}+apostrophe" = "workspace $workspace4";
+            "${mod}+parenleft" = "workspace $workspace5";
+            "${mod}+minus" = "workspace $workspace6";
+            "${mod}+egrave" = "workspace $workspace7";
+            "${mod}+underscore" = "workspace $workspace8";
+            "${mod}+ccedilla" = "workspace $workspace9";
+            "${mod}+agrave" = "workspace $workspace10";
+            "${mod}+Shift+ampersand" = "move container to workspace $workspace1";
+            "${mod}+Shift+eacute" = "move container to workspace $workspace2";
+            "${mod}+Shift+quotedbl" = "move container to workspace $workspace3";
+            "${mod}+Shift+apostrophe" = "move container to workspace $workspace4";
+            "${mod}+Shift+parenleft" = "move container to workspace $workspace5";
+            "${mod}+Shift+minus" = "move container to workspace $workspace6";
+            "${mod}+Shift+egrave" = "move container to workspace $workspace7";
+            "${mod}+Shift+underscore" = "move container to workspace $workspace8";
+            "${mod}+Shift+ccedilla" = "move container to workspace $workspace9";
+            "${mod}+Shift+agrave" = "move container to workspace $workspace10";
+
+            "${mod}+Shift+p" = "move scratchpad";
+            "${mod}+a" = "kill";
+            "${mod}+c" = "reload";
+            "${mod}+s" = "layout stacking";
+            "${mod}+e" = "layout toggle split";
+            "${mod}+z" = "layout tabbed";
+            "${mod}+Shift+r" = "restart";
+            "${mod}+Shift+space" = "floating toggle";
+
+            "${mod}+x" = "move workspace to output right";
+            "${mod}+r" = ''mode "${modeResize}"'';
+            "${mod}+Shift+t" = ''mode "${modeSystem}"'';
+            "${mod}+Shift+v" = "exec ${pkgs.wlprop}/bin/wlprop";
+            "${mod}+q" =
+              if cfg.dmsConfig.enable then
+                "exec dms ipc call clipboard toggle"
+              else
+                lib.mkIf cfg.copyqConfig.enable "exec ${pkgs.copyq}/bin/copyq toggle";
+            "${mod}+i" = if cfg.dmsConfig.enable then "exec dms ipc call inhibit toggle" else null;
+            "${mod}+w" = if cfg.dmsConfig.enable then "exec dms ipc call dankdash wallpaper" else null;
+            "${mod}+o" = if cfg.dmsConfig.enable then "exec dms ipc call dash toggle overview" else null;
+            "${mod}+b" = if cfg.dmsConfig.enable then "exec dms ipc call bar toggle index 0" else null;
+            "Ctrl+space" = lib.mkIf cfg.fcitx5Config.enable "exec ${pkgs.fcitx5}/bin/fcitx5-remote -t";
+          };
+
+          assigns = {
+            "${workspace1}" = [ ];
+            "${workspace2}" = [ ];
+            "${workspace3}" = [ ];
+            "${workspace4}" = [ ];
+            "${workspace5}" = [ ];
+            "${workspace6}" = [ ];
+            "${workspace8}" = [ ];
+            "${workspace9}" = [ ];
+            "${workspace10}" = [ ];
+          };
+
+          modes = {
+            "${modeSystem}" = {
+              "l" = ''exec --no-startup-id ${swaylock} --color '${colorDarkGrey}', mode "default"'';
+              "e" = ''exec --no-startup-id ${swaymsg} exit, mode "default"'';
+              "s" =
+                ''exec --no-startup-id ${swaylock} --color '${colorDarkGrey}' && sleep 1 && ${systemctl} suspend, mode "default"'';
+              "h" = ''exec --no-startup-id ${systemctl} hibernate, mode "default"'';
+              "r" = ''exec --no-startup-id ${systemctl} reboot, mode "default"'';
+              "Shift+s" = ''exec --no-startup-id ${systemctl} poweroff -i, mode "default"'';
+              "Shift+r" = ''exec --no-startup-id ${systemctl} reboot --firmware-setup, mode "default"'';
+              # back to normal: Enter or Escape
+              "Return" = ''mode "default"'';
+              "Escape" = ''mode "default"'';
+            };
+            "${modeResize}" = {
+              "j" = "resize shrink width 10 px";
+              "k" = "resize grow height 10 px";
+              "i" = "resize shrink height 10 px";
+              "l" = "resize grow width 10 px ";
+              "Left" = "resize shrink width 10 px";
+              "Down" = "resize grow height 10 px ";
+              "Up" = "resize shrink height 10 px ";
+              "Right" = "resize grow width 10 px ";
+
+              # back to normal: Enter or Escape or $mod+r
+              "Return" = ''mode "default"'';
+              "Escape" = ''mode "default"'';
+              "${mod}+r" = ''mode "default"'';
+            };
+          };
+        };
+      };
+    };
 
     home.sessionVariables = waylandEnv;
     ## https://git.sbruder.de/simon/nixos-config/src/branch/master/users/simon/modules/sway/default.nix#L242
@@ -81,355 +433,6 @@ in
           resumeCommand = "${swaymsg} 'output * dpms on'";
         }
       ];
-    };
-
-    ## https://wiki.archlinux.org/title/Sway#Manage_Sway-specific_daemons_with_systemd
-    ## https://nix-community.github.io/home-manager/options.html#opt-wayland.windowManager.sway.enable
-    wayland.windowManager.sway = {
-      package = pkgs.swayfx;
-      enable = true;
-      wrapperFeatures.base = true;
-      wrapperFeatures.gtk = true;
-      systemd.enable = true;
-      swaynag.enable = true;
-      xwayland = true;
-      extraSessionCommands = ''
-        export CLUTTER_BACKEND="wayland"
-        export SDL_VIDEODRIVER="wayland"
-        export QT_QPA_PLATFORM="wayland"
-        export QT_WAYLAND_DISABLE_WINDOWDECORATION="1"
-        export _JAVA_AWT_WM_NONREPARENTING="1"
-        export MOZ_ENABLE_WAYLAND="1"
-        export DESKTOP_SESSION="sway"
-        export XDG_SESSION_TYPE="wayland"
-        export XDG_SESSION_DESKTOP="sway"
-        export XDG_CURRENT_DESKTOP="sway"
-        export WLR_NO_HARDWARE_CURSORS="1"
-        #export NIXOS_OZONE_WL="1"
-        #export GTK_USE_PORTAL="1"
-
-        systemctl --user import-environment XDG_SESSION_TYPE XDG_CURRENT_DESKTOP
-        dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP
-      '';
-      extraConfig = ''
-        ## Custom Workspace
-        set $workspace1  ${workspace1}
-        set $workspace2  ${workspace2}
-        set $workspace3  ${workspace3}
-        set $workspace4  ${workspace4}
-        set $workspace5  ${workspace5}
-        set $workspace6  ${workspace6}
-        set $workspace7  ${workspace7}
-        set $workspace8  ${workspace8}
-        set $workspace9  ${workspace9}
-        set $workspace10 ${workspace10}
-        layer_effects waybar blur enable
-        include /etc/sway/config.d/*
-      '';
-      config = {
-        floating = {
-          modifier = "Mod4";
-          titlebar = true;
-          border = 2;
-        };
-        window = {
-          hideEdgeBorders = "none";
-          titlebar = false;
-          border = 2;
-        };
-        defaultWorkspace = "${workspace1}";
-        input = {
-          "type:keyboard" = {
-            xkb_numlock = "enabled";
-            xkb_layout = "fr";
-          };
-          "type:touchpad" = {
-            tap = "enabled";
-            #natural_scroll = "disabled";
-            #dwt = "enabled";
-            accel_profile = "adaptive"; # disable mouse acceleration (enabled by default; to set it manually, use "adaptive" instead of "flat")
-            pointer_accel = "0.3"; # set mouse sensitivity (between -1 and 1)
-          };
-        };
-
-        ## cf https://github.com/colemickens/nixcfg/blob/main/mixins/sway.nix
-        output = {
-          "*" = {
-            bg = "${mainWallpaper} fill";
-            subpixel = "rgb";
-            #adaptive_sync = "on";
-          };
-        };
-
-        gaps = {
-          #  bottom = 5;
-          #  horizontal = 5;
-          inner = 5;
-          #  left = 5;
-          outer = 5;
-          #  right = 5;
-          smartBorders = "off";
-          smartGaps = false;
-          #  top = 5;
-          #  vertical = 5;
-        };
-
-        window.commands = [
-          {
-            command = "opacity 0.8, shadows enable, blur enable, blur_passes 5, blur_radius 6, corner_radius 10";
-            criteria = {
-              class = ".*";
-            };
-          }
-          {
-            command = "floating enable, sticky enable, resize set height 600px width 550px, move position cursor, move down 330";
-            criteria = {
-              app_id = "copyq";
-            };
-          }
-          {
-            command = "opacity 1.0";
-            criteria = {
-              app_id = "com.moonlight_stream.Moonlight";
-            };
-          }
-        ];
-
-        fonts = {
-          names = [
-            "Hack Nerd Font"
-            "FontAwesome"
-          ];
-          style = "Bold";
-          size = lib.mkForce 9.0;
-        };
-
-        colors = {
-          background = lib.mkDefault "${colorWhite}";
-          focused = {
-            background = lib.mkForce "${colorLightGrey}";
-            border = lib.mkForce "${colorBlack}";
-            childBorder = lib.mkForce "${colorLightGrey}";
-            indicator = lib.mkDefault "${colorGreen}";
-            text = lib.mkDefault "${colorWhite}";
-          };
-          focusedInactive = {
-            background = lib.mkDefault "${colorDarkGrey}";
-            border = lib.mkForce "${colorBlack}";
-            childBorder = lib.mkForce "${colorDarkGrey}";
-            indicator = lib.mkDefault "${colorGreen}";
-            text = lib.mkDefault "${colorWhite}";
-          };
-          unfocused = {
-            background = lib.mkDefault "${colorDarkGrey}";
-            border = lib.mkForce "${colorBlack}";
-            childBorder = lib.mkForce "${colorDarkGrey}";
-            indicator = lib.mkDefault "${colorGreen}";
-            text = lib.mkDefault "${colorWhite}";
-          };
-          urgent = {
-            background = lib.mkDefault "${colorRed}";
-            border = lib.mkForce "${colorRed}";
-            childBorder = lib.mkForce "${colorDarkGrey}";
-            indicator = lib.mkDefault "${colorGreen}";
-            text = lib.mkDefault "${colorWhite}";
-          };
-          placeholder = {
-            background = lib.mkDefault "${colorBlack}";
-            border = lib.mkForce "${colorBlack}";
-            childBorder = lib.mkForce "${colorDarkGrey}";
-            indicator = lib.mkDefault "${colorBlack}";
-            text = lib.mkDefault "${colorWhite}";
-          };
-        };
-
-        bars = lib.mkIf cfg.waybarConfig.enable [
-          {
-            position = "top";
-            command = "${waybar}";
-            fonts = {
-              names = [
-                "Hack Nerd Font"
-                "FontAwesome"
-              ];
-              style = "Bold";
-              size = 9.0;
-            };
-            colors = {
-              background = "${colorDarkGrey}";
-              separator = "${colorWhite}";
-              activeWorkspace = {
-                background = "${colorDarkGrey}";
-                border = "${colorDarkGrey}";
-                text = "${colorWhite}";
-              };
-              inactiveWorkspace = {
-                background = "${colorDarkGrey}";
-                border = "${colorDarkGrey}";
-                text = "${colorWhite}";
-              };
-              focusedWorkspace = {
-                background = "${colorLightGrey}";
-                border = "${colorDarkGrey}";
-                text = "${colorWhite}";
-              };
-              bindingMode = {
-                background = "${colorRed}";
-                border = "${colorRed}";
-                text = "${colorWhite}";
-              };
-              urgentWorkspace = {
-                background = "${colorRed}";
-                border = "${colorRed}";
-                text = "${colorWhite}";
-              };
-            };
-          }
-        ];
-
-        keybindings = lib.filterAttrsRecursive (name: value: value != null) {
-          #lib.mkOptionDefault {
-          # Focus
-          "${mod}+Left" = "focus left";
-          "${mod}+Down" = "focus down";
-          "${mod}+Up" = "focus up";
-          "${mod}+Right" = "focus right";
-
-          "${mod}+Shift+Left" = "move left";
-          "${mod}+Shift+Down" = "move down";
-          "${mod}+Shift+Up" = "move up";
-          "${mod}+Shift+Right" = "move right";
-
-          "${mod}+l" =
-            if cfg.dmsConfig.enable then
-              "exec dms ipc call powermenu toggle"
-            else
-              lib.mkIf cfg.rofiConfig.enable ''
-                exec $HOME/.config/rofiScripts/rofiLockScript.sh style-1
-              '';
-          "${mod}+d" =
-            if cfg.dmsConfig.enable then
-              "exec dms ipc call spotlight toggle"
-            else
-              lib.mkIf cfg.rofiConfig.enable ''
-                exec "${rofi} -show drun -theme $HOME/.config/rofi/launchers/type-1/style-landscape.rasi"
-              '';
-
-          # Brightness
-          "XF86MonBrightnessDown" = "exec ${brightnessctl} set 10%-";
-          "XF86MonBrightnessUp" = "exec ${brightnessctl} set +10%";
-
-          "${mod}+n" =
-            if cfg.dmsConfig.enable then
-              "exec dms ipc call notifications toggle"
-            else if cfg.swayncConfig.enable then
-              "exec ${pkgs.swaynotificationcenter}/bin/swaync-client -t"
-            else
-              null;
-
-          ## To allow a keybinding to be executed while the lockscreen is active add the --locked parameter to bindsym.
-          # Audio
-          "--locked ${mod}+equal" = "exec ${playerctl} next";
-          "--locked ${mod}+minus" = "exec ${playerctl} previous";
-          "--locked XF86AudioNext" = "exec ${playerctl} next";
-          "--locked XF86AudioPrev" = "exec ${playerctl} previous";
-          "--locked XF86AudioPlay" = "exec ${playerctl} play-pause";
-          "Print" =
-            if cfg.dmsConfig.enable then
-              "exec dms screenshot"
-            else
-              ''
-                exec ${grimshot} --notify copy area
-              '';
-          "${mod}+ampersand" = "workspace $workspace1";
-          "${mod}+eacute" = "workspace $workspace2";
-          "${mod}+quotedbl" = "workspace $workspace3";
-          "${mod}+apostrophe" = "workspace $workspace4";
-          "${mod}+parenleft" = "workspace $workspace5";
-          "${mod}+minus" = "workspace $workspace6";
-          "${mod}+egrave" = "workspace $workspace7";
-          "${mod}+underscore" = "workspace $workspace8";
-          "${mod}+ccedilla" = "workspace $workspace9";
-          "${mod}+agrave" = "workspace $workspace10";
-          "${mod}+Shift+ampersand" = "move container to workspace $workspace1";
-          "${mod}+Shift+eacute" = "move container to workspace $workspace2";
-          "${mod}+Shift+quotedbl" = "move container to workspace $workspace3";
-          "${mod}+Shift+apostrophe" = "move container to workspace $workspace4";
-          "${mod}+Shift+parenleft" = "move container to workspace $workspace5";
-          "${mod}+Shift+minus" = "move container to workspace $workspace6";
-          "${mod}+Shift+egrave" = "move container to workspace $workspace7";
-          "${mod}+Shift+underscore" = "move container to workspace $workspace8";
-          "${mod}+Shift+ccedilla" = "move container to workspace $workspace9";
-          "${mod}+Shift+agrave" = "move container to workspace $workspace10";
-
-          "${mod}+Shift+p" = "move scratchpad";
-          "${mod}+a" = "kill";
-          "${mod}+c" = "reload";
-          "${mod}+s" = "layout stacking";
-          "${mod}+e" = "layout toggle split";
-          "${mod}+z" = "layout tabbed";
-          "${mod}+Shift+r" = "restart";
-          "${mod}+Shift+space" = "floating toggle";
-
-          "${mod}+x" = "move workspace to output right";
-          "${mod}+r" = ''mode "${modeResize}"'';
-          "${mod}+Shift+t" = ''mode "${modeSystem}"'';
-          "${mod}+Shift+v" = "exec ${pkgs.wlprop}/bin/wlprop";
-          "${mod}+q" =
-            if cfg.dmsConfig.enable then
-              "exec dms ipc call clipboard toggle"
-            else
-              lib.mkIf cfg.copyqConfig.enable "exec ${pkgs.copyq}/bin/copyq toggle";
-          "${mod}+i" = if cfg.dmsConfig.enable then "exec dms ipc call inhibit toggle" else null;
-          "${mod}+w" = if cfg.dmsConfig.enable then "exec dms ipc call dankdash wallpaper" else null;
-          "${mod}+o" = if cfg.dmsConfig.enable then "exec dms ipc call dash toggle overview" else null;
-          "${mod}+b" = if cfg.dmsConfig.enable then "exec dms ipc call bar toggle index 0" else null;
-          "Ctrl+space" = lib.mkIf cfg.fcitx5Config.enable "exec ${pkgs.fcitx5}/bin/fcitx5-remote -t";
-        };
-
-        assigns = {
-          "${workspace1}" = [ ];
-          "${workspace2}" = [ ];
-          "${workspace3}" = [ ];
-          "${workspace4}" = [ ];
-          "${workspace5}" = [ ];
-          "${workspace6}" = [ ];
-          "${workspace8}" = [ ];
-          "${workspace9}" = [ ];
-          "${workspace10}" = [ ];
-        };
-
-        modes = {
-          "${modeSystem}" = {
-            "l" = ''exec --no-startup-id ${swaylock} --color '${colorDarkGrey}', mode "default"'';
-            "e" = ''exec --no-startup-id ${swaymsg} exit, mode "default"'';
-            "s" =
-              ''exec --no-startup-id ${swaylock} --color '${colorDarkGrey}' && sleep 1 && ${systemctl} suspend, mode "default"'';
-            "h" = ''exec --no-startup-id ${systemctl} hibernate, mode "default"'';
-            "r" = ''exec --no-startup-id ${systemctl} reboot, mode "default"'';
-            "Shift+s" = ''exec --no-startup-id ${systemctl} poweroff -i, mode "default"'';
-            "Shift+r" = ''exec --no-startup-id ${systemctl} reboot --firmware-setup, mode "default"'';
-            # back to normal: Enter or Escape
-            "Return" = ''mode "default"'';
-            "Escape" = ''mode "default"'';
-          };
-          "${modeResize}" = {
-            "j" = "resize shrink width 10 px";
-            "k" = "resize grow height 10 px";
-            "i" = "resize shrink height 10 px";
-            "l" = "resize grow width 10 px ";
-            "Left" = "resize shrink width 10 px";
-            "Down" = "resize grow height 10 px ";
-            "Up" = "resize shrink height 10 px ";
-            "Right" = "resize grow width 10 px ";
-
-            # back to normal: Enter or Escape or $mod+r
-            "Return" = ''mode "default"'';
-            "Escape" = ''mode "default"'';
-            "${mod}+r" = ''mode "default"'';
-          };
-        };
-      };
     };
   };
 }
