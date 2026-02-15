@@ -18,7 +18,6 @@ in
 {
   imports = [
     dmsFlake.defaultNix.homeModules.dank-material-shell
-    dmsFlake.defaultNix.homeModules.niri
     dmsPluginRegistryFlake.defaultNix.modules.default
   ];
 
@@ -34,13 +33,7 @@ in
     services.blueman-applet.enable = lib.mkForce false;
     programs.dank-material-shell = {
       enable = true;
-      niri = lib.mkIf config.customHomeManagerModules.niriConfig.enable {
-        enableSpawn = true; # Auto-start DMS with niri, if enabled
-        includes = {
-          enable = false;
-        };
-      };
-      systemd = lib.mkIf (!config.customHomeManagerModules.niriConfig.enable) {
+      systemd = {
         enable = true; # Systemd service for auto-start
         restartIfChanged = true; # Auto-restart dms.service when dms-shell changes
       };

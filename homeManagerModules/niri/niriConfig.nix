@@ -96,7 +96,7 @@ in
     };
 
     # Enable hyprlock for screen locking (same styling as Hyprland config)
-    programs.hyprlock = {
+    programs.hyprlock = lib.mkIf (!cfg.dmsConfig.enable) {
       enable = true;
       settings = {
         general = {
@@ -306,7 +306,7 @@ in
             opacity = 0.85;
             open-maximized = false;
             default-column-width = {
-              proportion = 4.0 / 5.0;
+              proportion = 1.0 / 2.0;
             };
             geometry-corner-radius = {
               top-left = 12.0;
@@ -540,14 +540,32 @@ in
           ];
 
           # Audio controls
-          "XF86AudioRaiseVolume".action.spawn = [
-            "${volume}/bin/volume-niri"
-            "--inc"
-          ];
-          "XF86AudioLowerVolume".action.spawn = [
-            "${volume}/bin/volume-niri"
-            "--dec"
-          ];
+          "XF86AudioRaiseVolume".action.spawn =
+            if cfg.dmsConfig.enable then
+              [
+                "${pkgs.wireplumber}/bin/wpctl"
+                "set-volume"
+                "@DEFAULT_SINK@"
+                "3%+"
+              ]
+            else
+              [
+                "${volume}/bin/volume-niri"
+                "--inc"
+              ];
+          "XF86AudioLowerVolume".action.spawn =
+            if cfg.dmsConfig.enable then
+              [
+                "${pkgs.wireplumber}/bin/wpctl"
+                "set-volume"
+                "@DEFAULT_SINK@"
+                "3%-"
+              ]
+            else
+              [
+                "${volume}/bin/volume-niri"
+                "--dec"
+              ];
           "XF86AudioMute".action.spawn = [
             "${volume}/bin/volume-niri"
             "--toggle"
