@@ -31,10 +31,6 @@ jobs:
             fallback = true
             trusted-public-keys = didactiklabs-nixcache:PxLKN0+ZkP07M8g8/B6xbP6A4MYpqQg6LH7V3muiy/0= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
             substituters = https://s3.didactiklabs.io/nix-cache https://cache.nixos.org/
-      - name: Install npins
-        run: |
-          nix profile install nixpkgs/nixos-unstable#npins --accept-flake-config
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Run Updatecli in apply mode
         run: 'updatecli apply --config ./updatecli/updatecli.d --values updatecli/values.yaml'
         env:
