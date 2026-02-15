@@ -27,6 +27,11 @@ in
       default = false;
       description = "";
     };
+    showDock = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Show the dock";
+    };
   };
 
   config = lib.mkIf config.customHomeManagerModules.dmsConfig.enable {
@@ -46,6 +51,17 @@ in
       dgop.package = pkgs-unstable.dgop;
       settings = {
         useAutoLocation = true;
+        currentThemeName = "dynamic";
+        matugenScheme = "scheme-vibrant";
+        osdAlwaysShowValue = true;
+        osdPowerProfileEnabled = true;
+        dockTransparency = 0.7;
+        dockBottomGap = -15;
+        dockMargin = 5;
+        dockIconSize = 35;
+        dockIndicatorStyle = "line";
+        dockIsolateDisplays = true;
+        inherit (config.customHomeManagerModules.dmsConfig) showDock;
         barConfigs = [
           {
             id = "default";
@@ -56,6 +72,7 @@ in
             showOnLastDisplay = true;
             leftWidgets = [
               "launcherButton"
+              "nixosUpdate"
               "workspaceSwitcher"
               "focusedWindow"
               "idleInhibitor"
@@ -75,6 +92,7 @@ in
               "notificationButton"
               "battery"
               "controlCenterButton"
+              "power"
             ];
             spacing = 4;
             innerPadding = 4;
@@ -122,6 +140,14 @@ in
         netbirdStatus = {
           enable = true;
           src = ../assets/dms/plugins/netbird-dms;
+        };
+        nixosUpdate = {
+          enable = true;
+          src = ../assets/dms/plugins/nixos-update;
+          settings = {
+            repoUrl = "https://github.com/didactiklabs/nixbook";
+            updateCommand = "osupdate";
+          };
         };
       };
     };

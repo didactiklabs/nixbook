@@ -1,0 +1,12 @@
+{
+  "id": "nixosUpdate",
+  "name": "NixOS Update Checker",
+  "description": "Checks for NixOS updates by comparing local revision with remote repository",
+  "version": "1.0.0",
+  "author": "Nixbook User",
+  "icon": "update",
+  "type": "widget",
+  "component": "./NixOSUpdate.qml",
+  "settings": "./UpdateSettings.qml",
+  "permissions": ["settings_read", "settings_write", "process"]
+}

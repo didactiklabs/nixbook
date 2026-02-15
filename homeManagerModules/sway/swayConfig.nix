@@ -359,7 +359,14 @@ in
             "${mod}+i" = if cfg.dmsConfig.enable then "exec dms ipc call inhibit toggle" else null;
             "${mod}+w" = if cfg.dmsConfig.enable then "exec dms ipc call dankdash wallpaper" else null;
             "${mod}+o" = if cfg.dmsConfig.enable then "exec dms ipc call dash toggle overview" else null;
-            "${mod}+b" = if cfg.dmsConfig.enable then "exec dms ipc call bar toggle index 0" else null;
+            "${mod}+b" =
+              if cfg.dmsConfig.enable then
+                if cfg.dmsConfig.showDock then
+                  "exec dms ipc call bar toggle index 0 && dms ipc call dock toggle"
+                else
+                  "exec dms ipc call bar toggle index 0"
+              else
+                null;
             "Ctrl+space" = lib.mkIf cfg.fcitx5Config.enable "exec ${pkgs.fcitx5}/bin/fcitx5-remote -t";
           };
 

@@ -206,7 +206,7 @@ in
           if cfg.dmsConfig.enable then
             [
               "$mod, B, exec, ${
-                if cfg.dmsConfig.enableDock then
+                if cfg.dmsConfig.showDock then
                   "dms ipc call bar toggle index 0 && dms ipc call dock toggle"
                 else
                   "dms ipc call bar toggle index 0"
