@@ -323,14 +323,14 @@
       "type": "Git",
       "repository": {
         "type": "GitHub",
-        "owner": "nix-community",
+        "owner": "danth",
         "repo": "stylix"
       },
-      "branch": "master",
+      "branch": "release-25.05",
       "submodules": false,
-      "revision": "db03fed72e5ca02be34e1d24789345a943329738",
-      "url": "https://github.com/nix-community/stylix/archive/db03fed72e5ca02be34e1d24789345a943329738.tar.gz",
-      "hash": "sha256-QHFYyngohNhih4w+3IqQty5DV+p1txsx1kkk6XJWar8="
+      "revision": "3756d1d62dbe7f9497d9fbb3d1a49c4e8676185a",
+      "url": "https://github.com/danth/stylix/archive/3756d1d62dbe7f9497d9fbb3d1a49c4e8676185a.tar.gz",
+      "hash": "sha256-lof6DgmEhRVt++kJPyJYdXBpwuz5clDzb773U8BIwC8="
     },
     "witr": {
       "type": "GitRelease",

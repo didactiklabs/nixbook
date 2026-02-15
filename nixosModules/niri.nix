@@ -7,6 +7,7 @@
 let
   sources = import ../npins;
   niri-flake-src = sources.niri-flake;
+  pkgs-unstable = import sources.nixpkgs-unstable { };
   niri-flake =
     (import sources.flake-compat {
       src = niri-flake-src;
@@ -19,6 +20,7 @@ in
   ];
   config = lib.mkIf cfg.niri.enable {
     programs.niri.enable = true;
+    programs.niri.package = pkgs-unstable.niri;
     systemd.user.services.niri-flake-polkit = {
       enable = false;
     };

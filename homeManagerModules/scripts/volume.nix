@@ -1,9 +1,11 @@
 {
   pkgs,
   lib,
+  config,
   ...
 }:
 let
+  cfg = config.customHomeManagerModules.dmsConfig;
   volume = pkgs.writeShellScriptBin "volume" ''
       #!/bin/bash
 
@@ -65,13 +67,11 @@ let
     # Increase Volume
     inc_volume() {
       ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%+ && notify_user && $play
-    # pamixer -i 5 && notify_user && $play    # an alternative to pactl, doesn't go beyond 100% tho
     }
 
     # Decrease Volume
     dec_volume() {
       ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%- && notify_user && $play
-      # pamixer -d 5 && notify_user && $play  # an alternative to pactl, doesn't go beyond 100% tho
     }
 
     # Toggle AUDIO Mute
@@ -125,18 +125,30 @@ in
 {
   home.packages = [ volume ];
   wayland.windowManager.hyprland.settings = {
-    bindle = [
-      ",XF86AudioRaiseVolume, exec, ${volume}/bin/volume --inc"
-      ",XF86AudioLowerVolume, exec, ${volume}/bin/volume --dec"
-    ];
+    bindle =
+      (lib.optionals (!cfg.enable) [
+        ",XF86AudioRaiseVolume, exec, ${volume}/bin/volume --inc"
+        ",XF86AudioLowerVolume, exec, ${volume}/bin/volume --dec"
+      ])
+      ++ (lib.optionals cfg.enable [
+        ",XF86AudioRaiseVolume, exec, ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%+"
+        ",XF86AudioLowerVolume, exec, ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%-"
+      ]);
     bindl = [ ",XF86AudioMute, exec, ${volume}/bin/volume --toggle" ];
   };
   wayland.windowManager.sway.config.keybindings =
     lib.filterAttrsRecursive (name: value: value != null)
       {
-        # Volume
-        "--locked XF86AudioRaiseVolume" = "exec ${volume}/bin/volume --inc";
-        "--locked XF86AudioLowerVolume" = "exec ${volume}/bin/volume --dec";
+        "--locked XF86AudioRaiseVolume" =
+          if cfg.enable then
+            "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%+"
+          else
+            "${volume}/bin/volume --inc";
+        "--locked XF86AudioLowerVolume" =
+          if cfg.enable then
+            "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%-"
+          else
+            "${volume}/bin/volume --dec";
         "--locked XF86AudioMute" = "exec ${volume}/bin/volume --toggle";
       };
 }

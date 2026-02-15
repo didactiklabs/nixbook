@@ -21,14 +21,30 @@ in
     services.greetd = {
       enable = true;
       settings = {
-        default_session.command = ''
-          ${pkgs.tuigreet}/bin/tuigreet \
-            --time \
-            --remember-session \
-            --remember \
-            --asterisks \
-            --user-menu
-        '';
+        default_session = {
+          command =
+            let
+              sessionPaths = lib.concatLists [
+                (lib.optionals cfg.niri.enable [ "${pkgs.niri}/share/wayland-sessions" ])
+                (lib.optionals cfg.sway.enable [ "${pkgs.swayfx}/share/wayland-sessions" ])
+                (lib.optionals cfg.hyprland.enable [ "${pkgs.hyprland}/share/wayland-sessions" ])
+              ];
+              sessionsArg = lib.optionalString (
+                sessionPaths != [ ]
+              ) "--sessions ${lib.concatStringsSep ":" sessionPaths}";
+              wrapperArg = lib.optionalString cfg.niri.enable "--session-wrapper '${pkgs.niri}/bin/niri-session'";
+            in
+            ''
+              ${pkgs.tuigreet}/bin/tuigreet \
+                --time \
+                --remember-session \
+                --remember \
+                --asterisks \
+                --user-menu \
+                ${sessionsArg} \
+                ${wrapperArg}
+            '';
+        };
       };
     };
     security = {
