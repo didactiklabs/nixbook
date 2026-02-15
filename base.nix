@@ -51,6 +51,7 @@ in
     systemPackages = with pkgs; [
       # global
       ginx
+      lsof
       osupdate
       ds4drv
       efibootmgr

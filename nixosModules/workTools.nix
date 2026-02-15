@@ -52,6 +52,7 @@ in
     environment = {
       systemPackages =
         (with pkgs; [
+          opencode
           gemini-cli
           cobra-cli
           kubernetes-helm

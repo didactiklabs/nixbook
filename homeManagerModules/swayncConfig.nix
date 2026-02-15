@@ -14,7 +14,11 @@ let
   '';
 in
 {
-  config = lib.mkIf cfg.desktopApps.enable {
+  options.customHomeManagerModules.swayncConfig = {
+    enable = lib.mkEnableOption "swaync configuration";
+  };
+
+  config = lib.mkIf cfg.swayncConfig.enable {
     services.swaync = {
       enable = true;
       # The `style` attribute is added here

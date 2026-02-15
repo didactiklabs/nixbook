@@ -14,7 +14,7 @@ let
     ];
     installPhase = ''
       mkdir -p $out
-      cp $src/* $out
+      cp -r $src/* $out
     '';
   };
   defaultSoundPath = pkgs.stdenv.mkDerivation {
@@ -26,7 +26,7 @@ let
     ];
     installPhase = ''
       mkdir -p $out
-      cp $src/* $out
+      cp -r $src/* $out
     '';
   };
   defaultConfig = {
@@ -169,7 +169,6 @@ let
               ../homeManagerModules/gtkConfig.nix
               ../homeManagerModules/sshConfig.nix
               ../homeManagerModules/starshipConfig.nix
-              ../homeManagerModules/bluetoothConfig.nix
               ../homeManagerModules/rofiConfig.nix
               ../homeManagerModules/copyqConfig.nix
               ../homeManagerModules/fastfetchConfig.nix
@@ -183,6 +182,8 @@ let
               ../homeManagerModules/swayncConfig.nix
               ../homeManagerModules/goji.nix
               ../homeManagerModules/atuinConfig.nix
+              ../homeManagerModules/dmsConfig.nix
+              ../homeManagerModules/networkManagerApplet.nix
             ]
             userImports
           ];

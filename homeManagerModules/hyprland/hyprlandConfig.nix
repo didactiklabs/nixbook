@@ -135,15 +135,16 @@ in
           "systemctl --user import-environment XDG_SESSION_TYPE XDG_CURRENT_DESKTOP"
           "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
           "${pkgs.mpg123}/bin/mpg123 ${startup_audio}"
-          "${pidof} ${waybar} || ${waybar}"
-        ];
+        ]
+        ++ lib.optionals cfg.waybarConfig.enable [ "${pidof} ${waybar} || ${waybar}" ];
         exec = [
           "${pkgs.swaybg}/bin/swaybg -m fill -i ${mainWallpaper}"
+        ]
+        ++ lib.optionals cfg.swayncConfig.enable [
           "${pkgs.swaynotificationcenter}/bin/swaync-client --reload-css"
           "${pkgs.swaynotificationcenter}/bin/swaync-client --reload-config"
-
-          "killall -SIGUSR2 waybar"
-        ];
+        ]
+        ++ lib.optionals cfg.waybarConfig.enable [ "killall -SIGUSR2 waybar" ];
         input = {
           kb_layout = "fr";
           numlock_by_default = true;
@@ -186,18 +187,52 @@ in
           "$mod SHIFT, down, hy3:movewindow, d"
 
           "$mod, A, killactive"
-          ", PRINT, exec, ${grimshot} --notify copy area"
-          "$mod, N, exec, ${pkgs.swaynotificationcenter}/bin/swaync-client -t"
-          "$mod, B, exec, ${pkgs.toybox}/bin/pkill -SIGUSR1 'waybar'"
+          ", PRINT, exec, ${
+            if cfg.dmsConfig.enable then "dms screenshot" else "${grimshot} --notify copy area"
+          }"
+          "$mod, N, exec, ${
+            if cfg.dmsConfig.enable then
+              "dms ipc call notifications toggle"
+            else if cfg.swayncConfig.enable then
+              "${pkgs.swaynotificationcenter}/bin/swaync-client -t"
+            else
+              ""
+          }"
 
           ",XF86MonBrightnessDown, exec, ${brightnessctl} set 10%-"
           ",XF86MonBrightnessUp, exec, ${brightnessctl} set +10%"
         ]
-        ++ (if cfg.copyqConfig.enable then [ "$mod, Q, exec, ${pkgs.copyq}/bin/copyq toggle" ] else [ ])
         ++ (
-          if cfg.rofiConfig.enable then
+          if cfg.dmsConfig.enable then
+            [
+              "$mod, B, exec, ${
+                if cfg.dmsConfig.enableDock then
+                  "dms ipc call bar toggle index 0 && dms ipc call dock toggle"
+                else
+                  "dms ipc call bar toggle index 0"
+              }"
+            ]
+          else
+            lib.optionals cfg.waybarConfig.enable [
+              "$mod, B, exec, ${pkgs.toybox}/bin/pkill -SIGUSR1 'waybar'"
+            ]
+        )
+
+        ++ (
+          if cfg.dmsConfig.enable then
+            [ "$mod, D, exec, dms ipc call spotlight toggle" ]
+          else if cfg.rofiConfig.enable then
             [
               "$mod, D, exec, ${rofi} -show drun -theme $HOME/.config/rofi/launchers/type-1/style-landscape.rasi"
+            ]
+          else
+            [ ]
+        )
+        ++ (
+          if cfg.dmsConfig.enable then
+            [ "$mod, L, exec, dms ipc call powermenu toggle" ]
+          else if cfg.rofiConfig.enable then
+            [
               ''
                 $mod, L, exec, $HOME/.config/rofiScripts/rofiLockScript.sh style-1
               ''
@@ -210,7 +245,10 @@ in
             [ "CTRL, Space, exec, ${pkgs.fcitx5}/bin/fcitx5-remote -t" ]
           else
             [ ]
-        );
+        )
+        ++ (if cfg.dmsConfig.enable then [ "$mod, I, exec, dms ipc call inhibit toggle" ] else [ ])
+        ++ (if cfg.dmsConfig.enable then [ "$mod, W, exec, dms ipc call dankdash wallpaper" ] else [ ])
+        ++ (if cfg.dmsConfig.enable then [ "$mod, O, exec, dms ipc call dash toggle overview" ] else [ ]);
       };
     };
   };

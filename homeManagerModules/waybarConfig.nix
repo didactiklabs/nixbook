@@ -195,7 +195,7 @@ let
   '';
 in
 {
-  options.customHomeManagerModules.waybar = {
+  options.customHomeManagerModules.waybarConfig = {
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -205,7 +205,7 @@ in
     };
   };
 
-  config = lib.mkIf cfg.waybar.enable {
+  config = lib.mkIf cfg.waybarConfig.enable {
     programs.waybar = {
       enable = true;
       package = pkgs.waybar;

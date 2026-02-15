@@ -1,8 +1,10 @@
 { pkgs, ... }:
 let
   ginx = import ../customPkgs/ginx.nix { inherit pkgs; };
-  okada = import ../customPkgs/okada.nix { inherit pkgs; };
+  # okada = import ../customPkgs/okada.nix { inherit pkgs; };
   witr = import ../customPkgs/witr.nix { inherit pkgs; };
+  sources = import ../npins;
+  pkgs-unstable = import sources.nixpkgs-unstable { };
 in
 {
   commonPackages = [
@@ -14,6 +16,7 @@ in
     pkgs.sd # sed alternative
     pkgs.viddy # watch alternative
     witr
+    pkgs-unstable.dgop
     # okada
   ];
 
@@ -21,7 +24,7 @@ in
     ks = "kswitch";
     watch = "viddy";
     y = "yazi";
-    top = "btop";
+    top = "dgop";
     df = "duf";
     cd = "z";
     neofetch = "fastfetch";

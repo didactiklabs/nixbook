@@ -240,7 +240,7 @@ in
           };
         };
 
-        bars = lib.mkIf cfg.waybar.enable [
+        bars = lib.mkIf cfg.waybarConfig.enable [
           {
             position = "top";
             command = "${waybar}";
@@ -297,16 +297,32 @@ in
           "${mod}+Shift+Up" = "move up";
           "${mod}+Shift+Right" = "move right";
 
-          "${mod}+l" = lib.mkIf cfg.rofiConfig.enable ''
-            exec $HOME/.config/rofiScripts/rofiLockScript.sh style-1
-          '';
-          "${mod}+d" = lib.mkIf cfg.rofiConfig.enable ''
-            exec "${rofi} -show drun -theme $HOME/.config/rofi/launchers/type-1/style-landscape.rasi"
-          '';
+          "${mod}+l" =
+            if cfg.dmsConfig.enable then
+              "exec dms ipc call powermenu toggle"
+            else
+              lib.mkIf cfg.rofiConfig.enable ''
+                exec $HOME/.config/rofiScripts/rofiLockScript.sh style-1
+              '';
+          "${mod}+d" =
+            if cfg.dmsConfig.enable then
+              "exec dms ipc call spotlight toggle"
+            else
+              lib.mkIf cfg.rofiConfig.enable ''
+                exec "${rofi} -show drun -theme $HOME/.config/rofi/launchers/type-1/style-landscape.rasi"
+              '';
 
           # Brightness
           "XF86MonBrightnessDown" = "exec ${brightnessctl} set 10%-";
           "XF86MonBrightnessUp" = "exec ${brightnessctl} set +10%";
+
+          "${mod}+n" =
+            if cfg.dmsConfig.enable then
+              "exec dms ipc call notifications toggle"
+            else if cfg.swayncConfig.enable then
+              "exec ${pkgs.swaynotificationcenter}/bin/swaync-client -t"
+            else
+              null;
 
           ## To allow a keybinding to be executed while the lockscreen is active add the --locked parameter to bindsym.
           # Audio
@@ -315,9 +331,13 @@ in
           "--locked XF86AudioNext" = "exec ${playerctl} next";
           "--locked XF86AudioPrev" = "exec ${playerctl} previous";
           "--locked XF86AudioPlay" = "exec ${playerctl} play-pause";
-          "Print" = ''
-            exec ${grimshot} --notify copy area
-          '';
+          "Print" =
+            if cfg.dmsConfig.enable then
+              "exec dms screenshot"
+            else
+              ''
+                exec ${grimshot} --notify copy area
+              '';
           "${mod}+ampersand" = "workspace $workspace1";
           "${mod}+eacute" = "workspace $workspace2";
           "${mod}+quotedbl" = "workspace $workspace3";
@@ -352,7 +372,15 @@ in
           "${mod}+r" = ''mode "${modeResize}"'';
           "${mod}+Shift+t" = ''mode "${modeSystem}"'';
           "${mod}+Shift+v" = "exec ${pkgs.wlprop}/bin/wlprop";
-          "${mod}+q" = lib.mkIf cfg.copyqConfig.enable "exec ${pkgs.copyq}/bin/copyq toggle";
+          "${mod}+q" =
+            if cfg.dmsConfig.enable then
+              "exec dms ipc call clipboard toggle"
+            else
+              lib.mkIf cfg.copyqConfig.enable "exec ${pkgs.copyq}/bin/copyq toggle";
+          "${mod}+i" = if cfg.dmsConfig.enable then "exec dms ipc call inhibit toggle" else null;
+          "${mod}+w" = if cfg.dmsConfig.enable then "exec dms ipc call dankdash wallpaper" else null;
+          "${mod}+o" = if cfg.dmsConfig.enable then "exec dms ipc call dash toggle overview" else null;
+          "${mod}+b" = if cfg.dmsConfig.enable then "exec dms ipc call bar toggle index 0" else null;
           "Ctrl+space" = lib.mkIf cfg.fcitx5Config.enable "exec ${pkgs.fcitx5}/bin/fcitx5-remote -t";
         };
 

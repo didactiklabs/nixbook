@@ -25,7 +25,7 @@ in
     security.pam.services.sddm.enableGnomeKeyring = true;
     # Add essential tools for niri
     environment.systemPackages = with pkgs; [
-      mako # notification daemon
+      # mako # notification daemon
       fuzzel # application launcher
       grimblast # screenshot tool
       wl-clipboard # clipboard utilities

@@ -33,7 +33,6 @@ in
     pkgs.firefox
   ];
   customHomeManagerModules = {
-    bluetooth.enable = true;
     fontConfig.enable = true;
     gitConfig.enable = true;
     gtkConfig.enable = true;
@@ -44,7 +43,7 @@ in
     # https://github.com/adi1090x/rofi
     rofiConfig.enable = true;
     fastfetchConfig.enable = true;
-    waybar.enable = true;
+    waybarConfig.enable = true;
     atuinConfig.didactiklabs.enable = true;
     kittyConfig.enable = true;
     zshConfig.enable = true;
