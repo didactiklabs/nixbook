@@ -32,6 +32,11 @@ in
       default = false;
       description = "Show the dock";
     };
+    nixosUpdate.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Enable NixOS update plugin";
+    };
   };
 
   config = lib.mkIf config.customHomeManagerModules.dmsConfig.enable {
@@ -72,7 +77,9 @@ in
             showOnLastDisplay = true;
             leftWidgets = [
               "launcherButton"
-              "nixosUpdate"
+            ]
+            ++ lib.optional config.customHomeManagerModules.dmsConfig.nixosUpdate.enable "nixosUpdate"
+            ++ [
               "workspaceSwitcher"
               "focusedWindow"
               "idleInhibitor"
@@ -145,7 +152,7 @@ in
           src = ../assets/dms/plugins/netbird-dms;
         };
         nixosUpdate = {
-          enable = true;
+          enable = config.customHomeManagerModules.dmsConfig.nixosUpdate.enable;
           src = ../assets/dms/plugins/nixos-update;
           settings = {
             repoUrl = "https://github.com/didactiklabs/nixbook";

@@ -48,5 +48,6 @@ in
     kittyConfig.enable = true;
     zshConfig.enable = true;
     dmsConfig.enable = true;
+    dmsConfig.nixosUpdate.enable = true;
   };
 }
