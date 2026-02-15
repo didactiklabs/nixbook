@@ -59,5 +59,6 @@ in
     fcitx5Config.enable = true;
     dmsConfig.enable = true;
     dmsConfig.showDock = true;
+    dmsConfig.nixosUpdate.enable = true;
   };
 }

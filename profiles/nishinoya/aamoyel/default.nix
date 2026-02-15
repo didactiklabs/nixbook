@@ -72,5 +72,6 @@ in
     kittyConfig.enable = true;
     kubeswitchConfig.enable = true;
     zshConfig.enable = true;
+    dmsConfig.nixosUpdate.enable = true;
   };
 }
