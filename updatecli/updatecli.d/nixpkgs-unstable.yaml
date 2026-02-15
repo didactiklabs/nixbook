@@ -38,7 +38,7 @@ targets:
     spec:
       environments:
         - name: PATH
-      command: npins update nixpkgs-unstable
+      command: nix run nixpkgs/nixos-unstable#npins -- update nixpkgs-unstable
       files:
         - npins/sources.json
 # Define action configurations if one needs to be created

@@ -38,7 +38,7 @@ targets:
     spec:
       environments:
         - name: PATH
-      command: npins update stylix
+      command: nix run nixpkgs/nixos-unstable#npins -- update stylix
       files:
         - npins/sources.json
 # Define action configurations if one needs to be created
