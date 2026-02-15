@@ -23,10 +23,16 @@ in
   meta = {
     nixpkgs = pkgs;
   };
-  totoro = createConfiguration { hostName = "totoro"; };
+  totoro = createConfiguration {
+    hostName = "totoro";
+    host = "totoro";
+  };
   anya = createConfiguration {
     hostName = "anya";
     host = "anya";
   };
-  nishinoya = createConfiguration { hostName = "nishinoya"; };
+  nishinoya = createConfiguration {
+    hostName = "nishinoya";
+    host = "nishinoya";
+  };
 }
