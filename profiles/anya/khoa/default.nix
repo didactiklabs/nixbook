@@ -41,11 +41,12 @@ in
     swayConfig.enable = true;
     nixvimConfig.enable = true;
     # https://github.com/adi1090x/rofi
-    rofiConfig.enable = true;
+    # rofiConfig.enable = true;
     fastfetchConfig.enable = true;
-    waybarConfig.enable = true;
+    # waybarConfig.enable = true;
     atuinConfig.didactiklabs.enable = true;
     kittyConfig.enable = true;
     zshConfig.enable = true;
+    dmsConfig.enable = true;
   };
 }
