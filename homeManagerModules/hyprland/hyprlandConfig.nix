@@ -217,7 +217,6 @@ in
               "$mod, B, exec, ${pkgs.toybox}/bin/pkill -SIGUSR1 'waybar'"
             ]
         )
-
         ++ (
           if cfg.dmsConfig.enable then
             [ "$mod, D, exec, dms ipc call spotlight toggle" ]
