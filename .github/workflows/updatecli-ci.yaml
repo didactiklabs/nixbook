@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Install Updatecli in the runner
         uses: updatecli/updatecli-action@v2
       - uses: actions/create-github-app-token@v1
@@ -31,6 +31,10 @@ jobs:
             fallback = true
             trusted-public-keys = didactiklabs-nixcache:PxLKN0+ZkP07M8g8/B6xbP6A4MYpqQg6LH7V3muiy/0= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
             substituters = https://s3.didactiklabs.io/nix-cache https://cache.nixos.org/
+      - name: Install npins
+        run: |
+          curl -sL https://github.com/andir/npins/releases/download/0.4.0/npins-x86_64-linux.tar.gz | tar xz -C /usr/local/bin npins
+          chmod +x /usr/local/bin/npins
       - name: Run Updatecli in apply mode
         run: 'updatecli apply --config ./updatecli/updatecli.d --values updatecli/values.yaml'
         env:

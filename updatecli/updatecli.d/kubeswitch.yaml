@@ -38,8 +38,7 @@ targets:
     spec:
       environments:
         - name: PATH
-        - name: NIX_PATH
-      command: bash -c "source /etc/profile && nix-shell -p npins --command 'npins update kubeswitch'"
+      command: npins update kubeswitch
       files:
         - npins/sources.json
 # Define action configurations if one needs to be created
