@@ -33,6 +33,7 @@ in
     services.blueman-applet.enable = lib.mkForce false;
     programs.dank-material-shell = {
       enable = true;
+      quickshell.package = pkgs.quickshell;
       systemd = {
         enable = true; # Systemd service for auto-start
         restartIfChanged = true; # Auto-restart dms.service when dms-shell changes
