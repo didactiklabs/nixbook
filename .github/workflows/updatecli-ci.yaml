@@ -33,8 +33,8 @@ jobs:
             substituters = https://s3.didactiklabs.io/nix-cache https://cache.nixos.org/
       - name: Install npins
         run: |
-          curl -sL https://github.com/andir/npins/releases/download/0.4.0/npins-x86_64-linux.tar.gz | tar xz -C /usr/local/bin npins
-          chmod +x /usr/local/bin/npins
+          nix profile install nixpkgs/nixos-unstable#npins --accept-flake-config
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Run Updatecli in apply mode
         run: 'updatecli apply --config ./updatecli/updatecli.d --values updatecli/values.yaml'
         env:
