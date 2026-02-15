@@ -68,6 +68,8 @@ in
             rightWidgets = [
               "systemTray"
               "clipboard"
+              "netbirdStatus"
+              "tailscale"
               "cpuUsage"
               "memUsage"
               "notificationButton"
@@ -116,6 +118,11 @@ in
       };
       plugins = {
         dankBatteryAlerts.enable = true;
+        tailscale.enable = true;
+        netbirdStatus = {
+          enable = true;
+          src = ../assets/dms/plugins/netbird-dms;
+        };
       };
     };
   };
