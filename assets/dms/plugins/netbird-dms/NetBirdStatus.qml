@@ -155,36 +155,34 @@ PluginComponent {
     layerNamespacePlugin: "netbird"
 
     horizontalBarPill: Component {
-        Row {
-            spacing: Theme.spacingS
+        MouseArea {
+            implicitWidth: icon.implicitWidth
+            implicitHeight: icon.implicitHeight
+            cursorShape: Qt.PointingHandCursor
+            onClicked: toggleConnection()
+
             DankIcon {
+                id: icon
                 name: root.isConnected ? "vpn_key" : "vpn_key_off"
                 size: root.iconSize
                 color: root.isConnected ? Theme.primary : Theme.surfaceVariantText
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            StyledText {
-                text: root.selectedNetwork || root.statusText
-                font.pixelSize: Theme.fontSizeSmall
-                color: Theme.surfaceText
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
     }
 
     verticalBarPill: Component {
-        Column {
-            spacing: Theme.spacingXS
+        MouseArea {
+            implicitWidth: icon.implicitWidth
+            implicitHeight: icon.implicitHeight
+            cursorShape: Qt.PointingHandCursor
+            onClicked: toggleConnection()
+
             DankIcon {
+                id: icon
                 name: root.isConnected ? "vpn_key" : "vpn_key_off"
                 size: root.iconSize
                 color: root.isConnected ? Theme.primary : Theme.surfaceVariantText
-                anchors.horizontalCenter: parent.horizontalCenter
-            }
-            StyledText {
-                text: root.selectedNetwork || root.statusText
-                font.pixelSize: Theme.fontSizeSmall
-                color: Theme.surfaceText
                 anchors.horizontalCenter: parent.horizontalCenter
             }
         }
