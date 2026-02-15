@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import qs.Common
@@ -15,7 +16,9 @@ PluginComponent {
     property string currentIP: ""
     property string selectedNetwork: ""
     property var availableNetworks: []
+    property var tempNetworks: []
     property bool showNetworkSelector: false
+    property var parsingNetwork: ({})
 
     Timer {
         interval: 5000
@@ -89,42 +92,78 @@ PluginComponent {
     }
 
     function refreshNetworks() {
-        availableNetworks = []
+        tempNetworks = []
+        parsingNetwork = {}
+        // Don't clear availableNetworks immediately to prevent flickering
         networksProcess.running = true
     }
 
     Process {
         id: networksProcess
+        command: ["netbird", "networks", "list"]
         stdout: SplitParser {
             onRead: line => {
                 var trimmed = line.trim()
                 if (trimmed.startsWith("- ID:")) {
+                    // Push previous network if exists
+                    if (root.parsingNetwork && root.parsingNetwork.id) {
+                        var list = root.tempNetworks
+                        list.push(root.parsingNetwork)
+                        root.tempNetworks = list
+                    }
+                    
+                    // Start parsing new network
                     var idMatch = trimmed.match(/- ID:\s*(.+)/)
+                    root.parsingNetwork = {
+                        id: idMatch ? idMatch[1].trim() : "",
+                        name: "",
+                        cidr: "",
+                        selected: trimmed.includes("Selected")
+                    }
+                } else if (root.parsingNetwork && root.parsingNetwork.id) {
+                    // Parse other fields
+                    var nameMatch = trimmed.match(/Name:\s*(.+)/)
+                    if (nameMatch) {
+                        root.parsingNetwork.name = nameMatch[1].trim()
+                    }
+                    
                     var networkMatch = trimmed.match(/Network:\s*([\d.]+\/\d+)/)
-                    var selectedMatch = trimmed.includes("Selected")
-
-                    if (idMatch) {
-                        var networkId = idMatch[1].trim()
-                        var networkCidr = networkMatch ? networkMatch[1].trim() : ""
-                        var isSelected = selectedMatch
-
-                        if (isSelected) {
-                            selectedNetwork = networkId
-                        }
-
-                        var networkObj = {
-                            id: networkId,
-                            cidr: networkCidr,
-                            selected: isSelected
-                        }
-
-                        var newNetworks = availableNetworks.concat([networkObj])
-                        availableNetworks = newNetworks
+                    if (networkMatch) {
+                        root.parsingNetwork.cidr = networkMatch[1].trim()
+                    }
+                    
+                    if (trimmed.includes("Selected")) {
+                        root.parsingNetwork.selected = true
                     }
                 }
             }
         }
         onExited: (code) => {
+            // Push the last network
+            if (root.parsingNetwork && root.parsingNetwork.id) {
+                var list = root.tempNetworks
+                list.push(root.parsingNetwork)
+                root.tempNetworks = list
+            }
+            
+            // Update the main list
+            root.availableNetworks = root.tempNetworks
+            
+            // Update selected network name
+            var foundSelected = false
+            for (var i = 0; i < root.availableNetworks.length; i++) {
+                var net = root.availableNetworks[i]
+                if (net.selected) {
+                    root.selectedNetwork = net.name || net.id
+                    foundSelected = true
+                    break
+                }
+            }
+            if (!foundSelected) {
+                root.selectedNetwork = ""
+            }
+            
+            root.parsingNetwork = {}
         }
     }
 
@@ -155,34 +194,36 @@ PluginComponent {
     layerNamespacePlugin: "netbird"
 
     horizontalBarPill: Component {
-        MouseArea {
-            implicitWidth: icon.implicitWidth
-            implicitHeight: icon.implicitHeight
-            cursorShape: Qt.PointingHandCursor
-            onClicked: toggleConnection()
-
+        Row {
+            spacing: Theme.spacingS
             DankIcon {
-                id: icon
                 name: root.isConnected ? "vpn_key" : "vpn_key_off"
                 size: root.iconSize
                 color: root.isConnected ? Theme.primary : Theme.surfaceVariantText
+                anchors.verticalCenter: parent.verticalCenter
+            }
+            StyledText {
+                text: root.selectedNetwork || root.statusText
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.surfaceText
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
     }
 
     verticalBarPill: Component {
-        MouseArea {
-            implicitWidth: icon.implicitWidth
-            implicitHeight: icon.implicitHeight
-            cursorShape: Qt.PointingHandCursor
-            onClicked: toggleConnection()
-
+        Column {
+            spacing: Theme.spacingXS
             DankIcon {
-                id: icon
                 name: root.isConnected ? "vpn_key" : "vpn_key_off"
                 size: root.iconSize
                 color: root.isConnected ? Theme.primary : Theme.surfaceVariantText
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
+            StyledText {
+                text: root.selectedNetwork || root.statusText
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.surfaceText
                 anchors.horizontalCenter: parent.horizontalCenter
             }
         }
@@ -261,10 +302,10 @@ PluginComponent {
                         color: Theme.surfaceText
                     }
 
-                    DankScrollView {
+                    ScrollView {
                         width: parent.width
                         height: 150
-                        DankGridView {
+                        GridView {
                             anchors.fill: parent
                             cellWidth: parent.width
                             cellHeight: 50
@@ -287,7 +328,7 @@ PluginComponent {
                                     Column {
                                         anchors.verticalCenter: parent.verticalCenter
                                         StyledText {
-                                            text: modelData.id
+                                            text: modelData.name || modelData.id
                                             font.pixelSize: Theme.fontSizeSmall
                                             font.weight: Font.Bold
                                             color: Theme.surfaceText

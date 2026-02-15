@@ -594,17 +594,26 @@ in
         )
         // (
           if cfg.dmsConfig.enable then
-            {
-              "Mod+B".action.spawn = [
-                "dms"
-                "ipc"
-                "call"
-                "bar"
-                "toggle"
-                "index"
-                "0"
-              ];
-            }
+            if cfg.dmsConfig.showDock then
+              {
+                "Mod+B".action.spawn = [
+                  "bash"
+                  "-c"
+                  "dms ipc call bar toggle index 0 && dms ipc call dock toggle"
+                ];
+              }
+            else
+              {
+                "Mod+B".action.spawn = [
+                  "dms"
+                  "ipc"
+                  "call"
+                  "bar"
+                  "toggle"
+                  "index"
+                  "0"
+                ];
+              }
           else
             lib.optionalAttrs cfg.waybarConfig.enable {
               "Mod+B".action.spawn = [
