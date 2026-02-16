@@ -497,8 +497,11 @@ in
           "Mod+Shift+U".action.move-workspace-down = { };
           "Mod+Shift+I".action.move-workspace-up = { };
 
-          "Mod+Comma".action.consume-window-into-column = { };
-          "Mod+Period".action.expel-window-from-column = { };
+          "Mod+E".action.consume-or-expel-window-left = { };
+
+          # Window navigation within column (up/down with Ctrl)
+          "Mod+Ctrl+Up".action.focus-window-up = { };
+          "Mod+Ctrl+Down".action.focus-window-down = { };
 
           "Mod+R".action.switch-preset-column-width = { };
           "Mod+Z".action.maximize-column = { };

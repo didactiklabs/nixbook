@@ -13,6 +13,7 @@ in
     ./gitConfig.nix
     ./kanshiConfig.nix
     ./hyprlandConfig.nix
+    ./niriConfig.nix
   ];
   home.packages = [
     pkgs-unstable.sdl3
