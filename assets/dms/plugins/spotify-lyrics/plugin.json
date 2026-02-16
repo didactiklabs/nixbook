@@ -1,0 +1,12 @@
+{
+  "id": "spotifyLyrics",
+  "name": "Spotify Lyrics",
+  "description": "Displays Spotify lyrics in the center of the desktop when playing",
+  "version": "1.0.0",
+  "author": "Nixbook User",
+  "icon": "music_note",
+  "type": "widget",
+  "component": "./SpotifyLyrics.qml",
+  "settings": "./Settings.qml",
+  "permissions": ["settings_read", "settings_write", "process"]
+}

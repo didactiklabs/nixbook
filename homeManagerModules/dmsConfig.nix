@@ -37,6 +37,11 @@ in
       default = false;
       description = "Enable NixOS update plugin";
     };
+    spotifyLyrics.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Enable Spotify Lyrics desktop widget";
+    };
   };
 
   config = lib.mkIf config.customHomeManagerModules.dmsConfig.enable {
@@ -150,6 +155,10 @@ in
         netbirdStatus = {
           enable = true;
           src = ../assets/dms/plugins/netbird-dms;
+        };
+        spotifyLyrics = {
+          enable = config.customHomeManagerModules.dmsConfig.spotifyLyrics.enable;
+          src = ../assets/dms/plugins/spotify-lyrics;
         };
         nixosUpdate = {
           enable = config.customHomeManagerModules.dmsConfig.nixosUpdate.enable;

@@ -49,5 +49,6 @@ in
     zshConfig.enable = true;
     dmsConfig.enable = true;
     dmsConfig.nixosUpdate.enable = true;
+    dmsConfig.spotifyLyrics.enable = true;
   };
 }

@@ -61,6 +61,7 @@ in
       enable = true;
       showDock = true;
       nixosUpdate.enable = true;
+      spotifyLyrics.enable = true;
     };
   };
 }
