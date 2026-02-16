@@ -25,9 +25,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "a94c7b882199b89c892ab2dc07959135aa27a2d6",
-      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/a94c7b882199b89c892ab2dc07959135aa27a2d6.tar.gz",
-      "hash": "sha256-vZ1P0WDridiH9TtC0xibNDj5nkTagZGPhn1cBG6IYmE="
+      "revision": "54ffd60e7695f8546f88671f95d653fd91cfbfe1",
+      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/54ffd60e7695f8546f88671f95d653fd91cfbfe1.tar.gz",
+      "hash": "sha256-RU+u90+3we5RxrPHLZvv/yfsYn66qlDa79oewq2DJBY="
     },
     "ds4drv": {
       "type": "Git",
@@ -77,9 +77,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "eaeee85c020947c259a83ec4fd89e0a42fc3b993",
-      "url": "https://github.com/muandane/goji/archive/eaeee85c020947c259a83ec4fd89e0a42fc3b993.tar.gz",
-      "hash": "sha256-QwTZjdJQgrCx/XS862T0/enHh2nF8A5G2zTwQYi8Jfs="
+      "revision": "9f63bbfc1fde28f2d9774dcdc299ac3650846b12",
+      "url": "https://github.com/muandane/goji/archive/9f63bbfc1fde28f2d9774dcdc299ac3650846b12.tar.gz",
+      "hash": "sha256-AMKe8Ss/91QUqw3bI4QUvZI3WjiP9LEGHmHSvo6Tppw="
     },
     "home-manager": {
       "type": "Git",
@@ -103,9 +103,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "ff5e5d882c51f9a032479595cbab40fd04f56399",
-      "url": "https://github.com/nix-community/home-manager/archive/ff5e5d882c51f9a032479595cbab40fd04f56399.tar.gz",
-      "hash": "sha256-e5NfW8NhC3qChR8bHVni/asrig/ZFzd1wzpq+cEE/tg="
+      "revision": "ae8003d8b61d0d373e7ca3da1a48f9c870d15df9",
+      "url": "https://github.com/nix-community/home-manager/archive/ae8003d8b61d0d373e7ca3da1a48f9c870d15df9.tar.gz",
+      "hash": "sha256-qLXxN/tPrZtnekaLBQuVtxQfvqqs5cT5WbyH4zZaTGI="
     },
     "hyprfocus": {
       "type": "Git",
@@ -199,9 +199,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "3f765c47870861fafe4c6ed2e631c052aa1e1660",
-      "url": "https://github.com/sodiboo/niri-flake/archive/3f765c47870861fafe4c6ed2e631c052aa1e1660.tar.gz",
-      "hash": "sha256-d9jSUIJa5MX+Y7+OMB6FgeHxS2YHT88IUl7HA5hK8FU="
+      "revision": "d4b632053ada7f646b93e2714ace9a1160e9d490",
+      "url": "https://github.com/sodiboo/niri-flake/archive/d4b632053ada7f646b93e2714ace9a1160e9d490.tar.gz",
+      "hash": "sha256-482qPcmmuH32EIneik7AGSbuKwDteg29MYXmpN4Srd0="
     },
     "nix-monitor": {
       "type": "GitRelease",
