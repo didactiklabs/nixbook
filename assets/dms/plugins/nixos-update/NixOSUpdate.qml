@@ -16,10 +16,12 @@ PluginComponent {
     property string repoUrl: "https://github.com/didactiklabs/nixbook"
     property string updateCmd: "osupdate"
     property string jsonBuffer: ""
+    property string updateOutput: ""
+    property bool updating: false
 
     layerNamespacePlugin: "nixosUpdate"
     popoutWidth: 320
-    popoutHeight: 300
+    popoutHeight: root.updateOutput !== "" ? 600 : 300
 
     Timer {
         interval: 300000 // Check every 5 minutes
@@ -91,8 +93,21 @@ PluginComponent {
     Process {
         id: updateProcess
         command: ["sh", "-c", root.updateCmd]
+        stdout: SplitParser {
+            onRead: line => {
+                root.updateOutput += line + "\n"
+            }
+        }
+        stderr: SplitParser {
+            onRead: line => {
+                root.updateOutput += line + "\n"
+            }
+        }
         onExited: (code) => {
+            root.updating = false
+            root.updateOutput += "\nProcess finished with exit code: " + code + "\n"
             console.log("Update command exited with code: " + code)
+            root.checkUpdate()
         }
     }
 
@@ -215,11 +230,46 @@ PluginComponent {
 
                 DankButton {
                     Layout.fillWidth: true
-                    text: "Execute Update"
-                    visible: root.updateAvailable
+                    text: root.updating ? "Updating..." : "Execute Update"
+                    visible: root.updateAvailable || root.updating
+                    enabled: !root.updating
                     onClicked: {
+                        root.updateOutput = ""
+                        root.updating = true
                         updateProcess.running = true
-                        popout.closePopout()
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.minimumHeight: 200
+                    visible: root.updateOutput !== ""
+                    color: Theme.surfaceVariant
+                    radius: Theme.radiusS
+                    
+                    Flickable {
+                        id: logFlickable
+                        anchors.fill: parent
+                        anchors.margins: Theme.spacingS
+                        contentWidth: logText.width
+                        contentHeight: logText.height
+                        clip: true
+
+                        StyledText {
+                            id: logText
+                            width: logFlickable.width
+                            text: root.updateOutput
+                            font.family: "Fira Code"
+                            font.pixelSize: Theme.fontSizeSmall
+                            color: Theme.surfaceText
+                            wrapMode: Text.WrapAnywhere
+                            onTextChanged: {
+                                if (logFlickable.contentHeight > logFlickable.height) {
+                                    logFlickable.contentY = logFlickable.contentHeight - logFlickable.height
+                                }
+                            }
+                        }
                     }
                 }
 
