@@ -8,6 +8,9 @@ let
 in
 {
   config = lib.mkIf cfg.niriConfig.enable {
+    # Touchpad configuration - override global setting
+    programs.niri.settings.input.touchpad.natural-scroll = lib.mkForce false;
+
     programs.niri.settings.window-rules = lib.mkAfter [
       {
         matches = [ { is-active = true; } ];
