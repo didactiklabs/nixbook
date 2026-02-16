@@ -87,6 +87,7 @@ in
         "terminal.integrated.copyOnSelection" = true;
         "window.menuBarVisibility" = "toggle";
         "window.zoomLevel" = 1;
+        "keyboard.dispatch" = "keyCode";
         "explorer.confirmDelete" = false;
         "explorer.confirmDragAndDrop" = false;
         "explorer.openEditors.visible" = 1;
