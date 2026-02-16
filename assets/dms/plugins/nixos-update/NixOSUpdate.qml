@@ -155,7 +155,11 @@ PluginComponent {
         }
         onExited: (code) => {
             root.updating = false
-            root.updateOutput += "\nProcess finished with exit code: " + code + "\n"
+            if (code === 0) {
+                root.updateOutput = ""
+            } else {
+                root.updateOutput += "\nProcess finished with exit code: " + code + "\n"
+            }
             console.log("Update command exited with code: " + code)
             root.checkUpdate()
         }
