@@ -280,7 +280,7 @@ PluginComponent {
 
                 ColumnLayout {
                     Layout.fillWidth: true
-                    visible: root.changelogText !== "" && root.updateOutput === ""
+                    visible: root.changelogText !== ""
                     spacing: Theme.spacingS
 
                     StyledText {
