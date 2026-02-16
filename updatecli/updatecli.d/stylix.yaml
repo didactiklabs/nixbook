@@ -2,19 +2,19 @@
 name: stylix Update
 scms:
   default:
-    kind: 'github'
+    kind: "github"
     spec:
-      email: 'updatecli@didactiklabs.io'
-      owner: 'didactiklabs'
-      repository: 'nixbook'
+      email: "updatecli@didactiklabs.io"
+      owner: "didactiklabs"
+      repository: "nixbook"
       token: '{{ requiredEnv "UPDATECLI_GITHUB_TOKEN" }}'
       username: '{{ requiredEnv "GITHUB_ACTOR" }}'
-      branch: 'main'
+      branch: "main"
 # Defines how to get "source" information such as Jenkins version
 sources:
   default:
     name: Get value from json
-    scmid: 'default'
+    scmid: "default"
     kind: json
     spec:
       file: npins/sources.json
@@ -23,18 +23,18 @@ sources:
 conditions:
   default:
     name: Check if revision is the same
-    scmid: 'default'
+    scmid: "default"
     kind: shell
     spec:
       environments:
         - name: PATH
-      command: test $(git ls-remote https://github.com/nix-community/stylix master | head -n 1 | awk '{print $1}') !=
+      command: test $(git ls-remote https://github.com/danth/stylix release-25.11 | head -n 1 | awk '{print $1}') !=
 # Defines "targets" which need to be updated if different than "source" information.
 targets:
   default:
     name: stylix npins update
     kind: shell
-    scmid: 'default'
+    scmid: "default"
     spec:
       environments:
         - name: PATH
@@ -44,11 +44,11 @@ targets:
 # Define action configurations if one needs to be created
 actions:
   default:
-    kind: 'github/pullrequest'
-    scmid: 'default'
+    kind: "github/pullrequest"
+    scmid: "default"
     spec:
-      mergemethod: 'rebase'
+      mergemethod: "rebase"
       automerge: true
-      description: 'Update stylix npins.'
+      description: "Update stylix npins."
       draft: false
-      title: 'UPDATECLI: Update stylix'
+      title: "UPDATECLI: Update stylix"
