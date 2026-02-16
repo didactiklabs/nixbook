@@ -1,6 +1,7 @@
 {
   pkgs,
-  # lib,
+  lib,
+  config,
   ...
 }:
 let
@@ -13,27 +14,8 @@ in
     ./kanshiConfig.nix
     ./hyprlandConfig.nix
   ];
-  profileCustomization = {
-    mainWallpaper =
-      let
-        image = pkgs.fetchurl {
-          url = "https://w.wallhaven.cc/full/rq/wallhaven-rq7rmq.png";
-          sha256 = "sha256-RwkMghgAclV5DhQ5U/SpJF7YxhBPng895wgC8fh8OyU=";
-        };
-      in
-      "${image}";
-    lockWallpaper =
-      let
-        image = pkgs.fetchurl {
-          url = "https://w.wallhaven.cc/full/8x/wallhaven-8xd7vj.jpg";
-          sha256 = "sha256-vAiZF7wYbf1CpuAS3gMvwX6KA+D39oJBIt3ffQ8FHVs=";
-        };
-      in
-      "${image}";
-  };
   home.packages = [
-    # pkgs.jellyfin-mpv-shim
-    # pkgs.nextcloud-client
+    pkgs-unstable.sdl3
     pkgs.moonlight-qt
     pkgs-unstable.immich-go
     pkgs.google-chrome
@@ -46,6 +28,9 @@ in
     pkgs-unstable.kanidm_1_8
     pkgs-unstable.oapi-codegen
   ];
+
+  profileCustomization = {
+  };
   customHomeManagerModules = {
     fontConfig.enable = true;
     gitConfig.enable = true;
@@ -53,25 +38,29 @@ in
     sshConfig.enable = true;
     starship.enable = true;
     swayConfig.enable = false;
-    hyprlandConfig.enable = true;
+    hyprlandConfig.enable = false;
+    niriConfig.enable = true;
     # https://github.com/adi1090x/rofi
-    rofiConfig.enable = true;
-    copyqConfig.enable = true;
+    rofiConfig.enable = false;
+    copyqConfig.enable = false;
     fastfetchConfig.enable = true;
     desktopApps.enable = true;
-    swayncConfig.enable = true;
+    swayncConfig.enable = false;
     kubeTools.enable = true;
     kubeConfig = {
       didactiklabs.enable = true;
       logicmg.enable = true;
     };
-    waybarConfig.enable = true;
+    waybarConfig.enable = false;
     nixvimConfig.enable = true;
     gojiConfig.enable = true;
     atuinConfig.didactiklabs.enable = true;
     kittyConfig.enable = true;
-    kubeswitchConfig.enable = true;
     zshConfig.enable = true;
+    kubeswitchConfig.enable = true;
+    fcitx5Config.enable = true;
+    dmsConfig.enable = true;
+    dmsConfig.showDock = false;
     dmsConfig.nixosUpdate.enable = true;
   };
 }

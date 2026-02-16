@@ -326,11 +326,11 @@
         "owner": "danth",
         "repo": "stylix"
       },
-      "branch": "release-25.05",
+      "branch": "release-25.11",
       "submodules": false,
-      "revision": "3756d1d62dbe7f9497d9fbb3d1a49c4e8676185a",
-      "url": "https://github.com/danth/stylix/archive/3756d1d62dbe7f9497d9fbb3d1a49c4e8676185a.tar.gz",
-      "hash": "sha256-lof6DgmEhRVt++kJPyJYdXBpwuz5clDzb773U8BIwC8="
+      "revision": "7e7fa955abac04a8e118b1cedf930a8fd41c34a6",
+      "url": "https://github.com/danth/stylix/archive/7e7fa955abac04a8e118b1cedf930a8fd41c34a6.tar.gz",
+      "hash": "sha256-7bx8Bn9B2g/loBaz+uLwdKI2rUW+RhDPyP/MqAgvrxU="
     },
     "witr": {
       "type": "GitRelease",
