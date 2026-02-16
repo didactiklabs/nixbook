@@ -26,15 +26,6 @@ in
     };
     security.pam.services.sddm.enableGnomeKeyring = true;
 
-    # XDG Desktop Portal configuration for file dialogs
-    xdg.portal = {
-      enable = true;
-      extraPortals = with pkgs; [
-        xdg-desktop-portal-gtk
-      ];
-      config.common.default = "*";
-    };
-
     # Add essential tools for niri
     environment.systemPackages = with pkgs; [
       # mako # notification daemon
