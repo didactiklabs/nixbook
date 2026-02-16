@@ -20,7 +20,7 @@ in
     ];
     programs.niri.settings.outputs = lib.mkForce {
       "*" = {
-        scale = 1.0;
+        scale = 1.5;
         position = {
           x = 0;
           y = 0;
