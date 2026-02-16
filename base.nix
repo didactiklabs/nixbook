@@ -193,6 +193,7 @@ in
   };
   console.keyMap = "fr";
   services = {
+    upower.enable = true;
     pcscd.enable = true; # yubikey smart card mode
     netbird.enable = true;
     udev = {
