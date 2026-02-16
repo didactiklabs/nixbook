@@ -93,7 +93,8 @@ in
               "music"
               "clock"
               "weather"
-            ];
+            ]
+            ++ lib.optional config.customHomeManagerModules.dmsConfig.spotifyLyrics.enable "spotifyLyrics";
             rightWidgets = [
               "systemTray"
               "clipboard"
