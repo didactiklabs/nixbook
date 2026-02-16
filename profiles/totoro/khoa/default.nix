@@ -57,8 +57,10 @@ in
     zshConfig.enable = true;
     kubeswitchConfig.enable = true;
     fcitx5Config.enable = true;
-    dmsConfig.enable = true;
-    dmsConfig.showDock = true;
-    dmsConfig.nixosUpdate.enable = true;
+    dmsConfig = {
+      enable = true;
+      showDock = true;
+      nixosUpdate.enable = true;
+    };
   };
 }
