@@ -28,7 +28,8 @@ in
       };
 
       # Configuration for Home bellow
-      "eDP-1" = {
+      # Framework laptop screen - BOE panel with scale 2
+      "BOE NE135A1M-NY1 Unknown" = {
         scale = 2;
         position = {
           x = 3000;
