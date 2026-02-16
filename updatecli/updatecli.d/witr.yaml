@@ -1,0 +1,54 @@
+# manifest.yaml
+name: witr Update
+scms:
+  default:
+    kind: 'github'
+    spec:
+      email: 'updatecli@didactiklabs.io'
+      owner: 'didactiklabs'
+      repository: 'nixbook'
+      token: '{{ requiredEnv "UPDATECLI_GITHUB_TOKEN" }}'
+      username: '{{ requiredEnv "GITHUB_ACTOR" }}'
+      branch: 'main'
+# Defines how to get "source" information such as Jenkins version
+sources:
+  default:
+    name: Get value from json
+    scmid: 'default'
+    kind: json
+    spec:
+      file: npins/sources.json
+      key: pins.witr.revision
+# Defines "conditions" required to update targets
+conditions:
+  default:
+    name: Check if revision is the same
+    scmid: 'default'
+    kind: shell
+    spec:
+      environments:
+        - name: PATH
+      command: test $(git ls-remote https://github.com/pranshuparmar/witr HEAD | head -n 1 | awk '{print $1}') !=
+# Defines "targets" which need to be updated if different than "source" information.
+targets:
+  default:
+    name: witr npins update
+    kind: shell
+    scmid: 'default'
+    spec:
+      environments:
+        - name: PATH
+      command: nix run nixpkgs/nixos-unstable#npins -- update witr
+      files:
+        - npins/sources.json
+# Define action configurations if one needs to be created
+actions:
+  default:
+    kind: 'github/pullrequest'
+    scmid: 'default'
+    spec:
+      mergemethod: 'rebase'
+      automerge: true
+      description: 'Update witr npins.'
+      draft: false
+      title: 'UPDATECLI: Update witr'
