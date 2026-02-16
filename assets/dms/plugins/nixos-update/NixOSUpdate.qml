@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
@@ -11,17 +12,22 @@ PluginComponent {
     id: root
 
     property string localRev: "Unknown"
+    property string localBranch: "Unknown"
     property string remoteRev: "Unknown"
     property bool updateAvailable: false
     property string repoUrl: "https://github.com/didactiklabs/nixbook"
+    property string repoOwner: "didactiklabs"
+    property string repoName: "nixbook"
     property string updateCmd: "osupdate"
     property string jsonBuffer: ""
     property string updateOutput: ""
+    property string changelogText: ""
+    property string changelogBuffer: ""
     property bool updating: false
 
     layerNamespacePlugin: "nixosUpdate"
     popoutWidth: 320
-    popoutHeight: root.updateOutput !== "" ? 600 : 300
+    popoutHeight: (root.updateOutput !== "" || root.changelogText !== "") ? 600 : 300
 
     Timer {
         interval: 300000 // Check every 5 minutes
@@ -54,6 +60,14 @@ PluginComponent {
                 try {
                     var data = JSON.parse(root.jsonBuffer)
                     root.localRev = data.rev || "Unknown"
+                    root.localBranch = data.branch || "Unknown"
+                    
+                    var urlParts = root.repoUrl.split('/')
+                    if (urlParts.length >= 5) {
+                        root.repoOwner = urlParts[3]
+                        root.repoName = urlParts[4]
+                    }
+
                     if (root.localRev !== "Unknown") {
                         remoteProcess.running = true
                     }
@@ -87,6 +101,42 @@ PluginComponent {
             root.updateAvailable = (root.localRev !== root.remoteRev)
         } else {
             root.updateAvailable = false
+        }
+        fetchChangelog()
+    }
+
+    function fetchChangelog() {
+        if (root.updateAvailable && root.localBranch === "refs/heads/main" && root.localRev !== "0000000000000000000000000000000000000000") {
+            root.changelogBuffer = ""
+            changelogProcess.running = true
+        } else {
+            root.changelogText = ""
+        }
+    }
+
+    Process {
+        id: changelogProcess
+        command: ["curl", "-s", "https://api.github.com/repos/" + root.repoOwner + "/" + root.repoName + "/compare/" + root.localRev + "..." + root.remoteRev]
+        stdout: SplitParser {
+            onRead: line => {
+                root.changelogBuffer += line
+            }
+        }
+        onExited: (code) => {
+            if (code === 0 && root.changelogBuffer.trim() !== "") {
+                try {
+                    var data = JSON.parse(root.changelogBuffer)
+                    var commits = data.commits || []
+                    var text = ""
+                    for (var i = 0; i < commits.length; i++) {
+                        var msg = commits[i].commit.message.split('\n')[0]
+                        text += "- " + msg + "\n"
+                    }
+                    root.changelogText = text
+                } catch (e) {
+                    console.log("Error parsing changelog: " + e)
+                }
+            }
         }
     }
 
@@ -224,6 +274,44 @@ PluginComponent {
                             hoverEnabled: true
                             onEntered: parent.text = root.remoteRev
                             onExited: parent.text = (root.remoteRev !== "Unknown" ? root.remoteRev.substring(0, 7) + "..." : "Unknown")
+                        }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    visible: root.changelogText !== "" && root.updateOutput === ""
+                    spacing: Theme.spacingS
+
+                    StyledText {
+                        text: "Changelog"
+                        font.pixelSize: Theme.fontSizeSmall
+                        color: Theme.surfaceVariantText
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 150
+                        color: Theme.surfaceVariant
+                        radius: Theme.radiusS
+                        
+                        Flickable {
+                            id: changelogFlickable
+                            anchors.fill: parent
+                            anchors.margins: Theme.spacingS
+                            contentWidth: width
+                            contentHeight: changelogLabel.paintedHeight
+                            clip: true
+                            ScrollBar.vertical: ScrollBar {}
+
+                            StyledText {
+                                id: changelogLabel
+                                width: parent.width
+                                text: root.changelogText
+                                font.pixelSize: Theme.fontSizeSmall
+                                color: Theme.surfaceText
+                                wrapMode: Text.Wrap
+                            }
                         }
                     }
                 }
