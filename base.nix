@@ -223,9 +223,6 @@ in
     tailscale.enable = true;
     resolved = {
       enable = true;
-      extraConfig = ''
-        Cache=no
-      '';
     };
   };
   xdg = {

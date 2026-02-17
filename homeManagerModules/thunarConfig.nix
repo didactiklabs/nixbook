@@ -10,13 +10,13 @@ in
 {
   config = lib.mkIf cfg.desktopApps.enable {
     home.packages = [
-      (pkgs.xfce.thunar.override {
+      (pkgs.thunar.override {
         thunarPlugins = [
-          pkgs.xfce.thunar-archive-plugin
-          pkgs.xfce.thunar-volman
-          pkgs.xfce.xfconf
-          pkgs.xfce.tumbler
-          pkgs.xfce.exo
+          pkgs.thunar-archive-plugin
+          pkgs.thunar-volman
+          pkgs.xfconf
+          pkgs.tumbler
+          pkgs.xfce4-exo
         ];
       })
       pkgs.ntfs3g
