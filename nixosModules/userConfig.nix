@@ -111,6 +111,7 @@ let
               pkgs.pavucontrol
               pkgs.pulseaudio
               pkgs.numix-cursor-theme
+              pkgs.hicolor-icon-theme
               pkgs.playerctl
               pkgs.wev
               pkgs.jq
