@@ -40,6 +40,7 @@ let
       "video"
       "audio"
       "gamemode"
+      "networkmanager"
     ];
     customHomeManagerModules = { };
   };
