@@ -44,6 +44,10 @@ in
       QS_ICON_THEME = "Numix-Square";
     };
     services.blueman-applet.enable = lib.mkForce false;
+    programs.dsearch = {
+      enable = true;
+      systemd.enable = true;
+    };
     programs.dank-material-shell = {
       enable = true;
       quickshell.package = pkgs.quickshell;
