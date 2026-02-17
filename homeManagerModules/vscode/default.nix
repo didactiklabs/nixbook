@@ -12,7 +12,7 @@ in
     home.packages = [
       pkgs.exercism
       pkgs.golines
-      pkgs.nixfmt-rfc-style
+      pkgs.nixfmt
     ];
     programs.vscode = {
       enable = true;

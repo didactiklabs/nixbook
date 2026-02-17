@@ -1,6 +1,6 @@
 {
   config,
-  # pkgs,
+  pkgs,
   lib,
   ...
 }:
@@ -12,7 +12,6 @@ let
   dmsPluginRegistryFlake = import sources.flake-compat {
     src = sources.dms-plugin-registry;
   };
-  pkgs = import sources.nixpkgs { };
   pkgs-unstable = import sources.nixpkgs-unstable { };
 in
 {
@@ -44,13 +43,8 @@ in
       QS_ICON_THEME = "Numix-Square";
     };
     services.blueman-applet.enable = lib.mkForce false;
-    programs.dsearch = {
-      enable = true;
-      systemd.enable = true;
-    };
     programs.dank-material-shell = {
       enable = true;
-      quickshell.package = pkgs.quickshell;
       systemd = {
         enable = true; # Systemd service for auto-start
         restartIfChanged = true; # Auto-restart dms.service when dms-shell changes
@@ -63,6 +57,7 @@ in
       dgop.package = pkgs-unstable.dgop;
       settings = {
         useAutoLocation = true;
+        launcherLogoMode = "os";
         currentThemeName = "dynamic";
         matugenScheme = "scheme-vibrant";
         osdAlwaysShowValue = true;
@@ -153,6 +148,7 @@ in
       };
       plugins = {
         dankBatteryAlerts.enable = true;
+        dankGifSearch.enable = true;
         tailscale.enable = false;
         tailscaleStatus = {
           enable = true;

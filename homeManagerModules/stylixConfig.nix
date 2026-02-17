@@ -16,6 +16,7 @@
         size = 24;
       };
       autoEnable = true;
+      targets.dank-material-shell.enable = false;
       targets.gtk.extraCss = ''
         .thunar {
           font-family: Hack Nerd Font Bold;

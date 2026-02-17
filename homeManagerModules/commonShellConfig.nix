@@ -39,6 +39,7 @@ in
     };
     yazi = {
       enable = true;
+      shellWrapperName = "y";
     };
     zoxide = {
       enable = true;

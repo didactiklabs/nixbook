@@ -16,7 +16,7 @@ in
         enable = true;
         nixvimInjections = true;
         nixGrammars = true;
-        folding = true;
+        folding.enable = true;
         settings = {
           indent.enable = false;
         };
@@ -78,7 +78,6 @@ in
           diff
           csv
           jsonnet
-          jsonc
           json
           hyprlang
           matlab
@@ -91,7 +90,7 @@ in
       };
 
       treesitter-refactor = {
-        enable = true;
+        enable = false;
         settings = {
           highlight_definitions = {
             enable = true;

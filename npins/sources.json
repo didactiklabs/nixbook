@@ -1,5 +1,21 @@
 {
   "pins": {
+    "danksearch": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "AvengeMedia",
+        "repo": "danksearch"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": null,
+      "submodules": false,
+      "version": "v0.1.2",
+      "revision": "30a68fe4ce6b0b473ef67e8604c6dc064302575d",
+      "url": "https://api.github.com/repos/AvengeMedia/danksearch/tarball/refs/tags/v0.1.2",
+      "hash": "sha256-mpXrzf2Dv0erDBUUeCAo+AtLQWcnqBhLfyisGopNiYo="
+    },
     "dms": {
       "type": "GitRelease",
       "repository": {
@@ -11,10 +27,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "v1.2.3",
-      "revision": "89c378d2f41621a39767ecb03a4569f6693c2629",
-      "url": "https://api.github.com/repos/AvengeMedia/DankMaterialShell/tarball/refs/tags/v1.2.3",
-      "hash": "sha256-P//moH3z9r4PXirTzXVsccQINsK5AIlF9RWOBwK3vLc="
+      "version": "v1.4.0",
+      "revision": "f945d7a7fc74703b43f616f6cfc996241d381de9",
+      "url": "https://api.github.com/repos/AvengeMedia/DankMaterialShell/tarball/refs/tags/v1.4.0",
+      "hash": "sha256-O9NIJqfuSjwY//7OyFH3FqxRHe5M0vmmsXcryOi/bAE="
     },
     "dms-plugin-registry": {
       "type": "Git",
@@ -25,9 +41,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "54ffd60e7695f8546f88671f95d653fd91cfbfe1",
-      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/54ffd60e7695f8546f88671f95d653fd91cfbfe1.tar.gz",
-      "hash": "sha256-RU+u90+3we5RxrPHLZvv/yfsYn66qlDa79oewq2DJBY="
+      "revision": "a71dcfd0a64ced30ead2b43a8111e2c821cd376e",
+      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/a71dcfd0a64ced30ead2b43a8111e2c821cd376e.tar.gz",
+      "hash": "sha256-WlHRxPZC4VbWw1VPZLcMKWbuGHOtsHuAyga4C3ZypA0="
     },
     "ds4drv": {
       "type": "Git",
@@ -88,11 +104,11 @@
         "owner": "nix-community",
         "repo": "home-manager"
       },
-      "branch": "release-25.11",
+      "branch": "master",
       "submodules": false,
-      "revision": "0d782ee42c86b196acff08acfbf41bb7d13eed5b",
-      "url": "https://github.com/nix-community/home-manager/archive/0d782ee42c86b196acff08acfbf41bb7d13eed5b.tar.gz",
-      "hash": "sha256-3iVX1+7YUIt23hBx1WZsUllhbmP2EnXrV8tCRbLxHc8="
+      "revision": "5f1d42a97b19803041434f66681d5c44c9ae62e3",
+      "url": "https://github.com/nix-community/home-manager/archive/5f1d42a97b19803041434f66681d5c44c9ae62e3.tar.gz",
+      "hash": "sha256-BZ31eN5F99YH6vkc4AhzKGE+tJgJ52kl8f01K7wCs8w="
     },
     "home-manager-master": {
       "type": "Git",
@@ -103,9 +119,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "ae8003d8b61d0d373e7ca3da1a48f9c870d15df9",
-      "url": "https://github.com/nix-community/home-manager/archive/ae8003d8b61d0d373e7ca3da1a48f9c870d15df9.tar.gz",
-      "hash": "sha256-qLXxN/tPrZtnekaLBQuVtxQfvqqs5cT5WbyH4zZaTGI="
+      "revision": "5f1d42a97b19803041434f66681d5c44c9ae62e3",
+      "url": "https://github.com/nix-community/home-manager/archive/5f1d42a97b19803041434f66681d5c44c9ae62e3.tar.gz",
+      "hash": "sha256-BZ31eN5F99YH6vkc4AhzKGE+tJgJ52kl8f01K7wCs8w="
     },
     "hyprfocus": {
       "type": "Git",
@@ -199,9 +215,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "d4b632053ada7f646b93e2714ace9a1160e9d490",
-      "url": "https://github.com/sodiboo/niri-flake/archive/d4b632053ada7f646b93e2714ace9a1160e9d490.tar.gz",
-      "hash": "sha256-482qPcmmuH32EIneik7AGSbuKwDteg29MYXmpN4Srd0="
+      "revision": "f3e98ba073bd7e2717a07d622f9b737c461a97b9",
+      "url": "https://github.com/sodiboo/niri-flake/archive/f3e98ba073bd7e2717a07d622f9b737c461a97b9.tar.gz",
+      "hash": "sha256-kb/4oSHB261GOLhVGgrzTOqo/ImeCi/WS25q2ujtHGc="
     },
     "nix-monitor": {
       "type": "GitRelease",
@@ -226,11 +242,11 @@
         "owner": "NixOS",
         "repo": "nixpkgs"
       },
-      "branch": "nixos-25.11",
+      "branch": "nixos-unstable",
       "submodules": false,
-      "revision": "3aadb7ca9eac2891d52a9dec199d9580a6e2bf44",
-      "url": "https://github.com/NixOS/nixpkgs/archive/3aadb7ca9eac2891d52a9dec199d9580a6e2bf44.tar.gz",
-      "hash": "sha256-O1XDr7EWbRp+kHrNNgLWgIrB0/US5wvw9K6RERWAj6I="
+      "revision": "a82ccc39b39b621151d6732718e3e250109076fa",
+      "url": "https://github.com/NixOS/nixpkgs/archive/a82ccc39b39b621151d6732718e3e250109076fa.tar.gz",
+      "hash": "sha256-gf2AmWVTs8lEq7z/3ZAsgnZDhWIckkb+ZnAo5RzSxJg="
     },
     "nixpkgs-unstable": {
       "type": "Git",
@@ -252,11 +268,11 @@
         "owner": "nix-community",
         "repo": "nixvim"
       },
-      "branch": "nixos-25.11",
+      "branch": "main",
       "submodules": false,
-      "revision": "b8f76bf5751835647538ef8784e4e6ee8deb8f95",
-      "url": "https://github.com/nix-community/nixvim/archive/b8f76bf5751835647538ef8784e4e6ee8deb8f95.tar.gz",
-      "hash": "sha256-h0Os2qqNyycDY1FyZgtbn28VF1ySP74/n0f+LDd8j+w="
+      "revision": "ed0424f0b08d303a7348f52f7850ad1b2704f9ba",
+      "url": "https://github.com/nix-community/nixvim/archive/ed0424f0b08d303a7348f52f7850ad1b2704f9ba.tar.gz",
+      "hash": "sha256-wyvBIhDuyCRyjB3yPg77qoyxrlgQtBR1rVW3c9knV3E="
     },
     "okada": {
       "type": "GitRelease",
@@ -289,6 +305,20 @@
       "revision": "1d0b3321dc2446e16592ca1592f5b3d60670b4cc",
       "url": "https://api.github.com/repos/replicatedhq/pvmigrate/tarball/v0.12.1",
       "hash": "sha256-gQe5ay9KZfPtMJ/c37He/rQVnojO6oFtwRhqcHwVHBE="
+    },
+    "quickshell": {
+      "type": "Git",
+      "repository": {
+        "type": "Forgejo",
+        "server": "https://git.outfoxxed.me/",
+        "owner": "quickshell",
+        "repo": "quickshell"
+      },
+      "branch": "master",
+      "submodules": false,
+      "revision": "dacfa9de829ac7cb173825f593236bf2c21f637e",
+      "url": "https://git.outfoxxed.me/quickshell/quickshell/archive/dacfa9de829ac7cb173825f593236bf2c21f637e.tar.gz",
+      "hash": "sha256-ngXnN5YXu+f45+QGYNN/VEBMQmcBCYGRCqwaK8cxY1s="
     },
     "rofi": {
       "type": "Git",
@@ -326,11 +356,11 @@
         "owner": "danth",
         "repo": "stylix"
       },
-      "branch": "release-25.11",
+      "branch": "master",
       "submodules": false,
-      "revision": "7e7fa955abac04a8e118b1cedf930a8fd41c34a6",
-      "url": "https://github.com/danth/stylix/archive/7e7fa955abac04a8e118b1cedf930a8fd41c34a6.tar.gz",
-      "hash": "sha256-7bx8Bn9B2g/loBaz+uLwdKI2rUW+RhDPyP/MqAgvrxU="
+      "revision": "fa45bf2d70517a8643a0edb44b02b8e6c0453d06",
+      "url": "https://github.com/danth/stylix/archive/fa45bf2d70517a8643a0edb44b02b8e6c0453d06.tar.gz",
+      "hash": "sha256-qBWXy3mSOEYjvZB/RZHT0joVPhNWU8GQZQljLzyMTq0="
     },
     "witr": {
       "type": "GitRelease",
