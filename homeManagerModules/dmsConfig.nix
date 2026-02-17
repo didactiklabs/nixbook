@@ -96,7 +96,7 @@ in
               "systemTray"
               "clipboard"
               "netbirdStatus"
-              "tailscale"
+              "tailscaleStatus"
               "cpuUsage"
               "memUsage"
               "notificationButton"
@@ -149,13 +149,17 @@ in
       };
       plugins = {
         dankBatteryAlerts.enable = true;
-        tailscale.enable = true;
+        tailscale.enable = false;
+        tailscaleStatus = {
+          enable = true;
+          src = ../assets/dms/plugins/tailscale-dms;
+        };
         netbirdStatus = {
           enable = true;
           src = ../assets/dms/plugins/netbird-dms;
         };
         nixosUpdate = {
-          enable = config.customHomeManagerModules.dmsConfig.nixosUpdate.enable;
+          inherit (config.customHomeManagerModules.dmsConfig.nixosUpdate) enable;
           src = ../assets/dms/plugins/nixos-update;
           settings = {
             repoUrl = "https://github.com/didactiklabs/nixbook";
