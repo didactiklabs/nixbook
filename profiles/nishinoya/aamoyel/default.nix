@@ -46,6 +46,7 @@ in
     copyqConfig.enable = false;
     fastfetchConfig.enable = true;
     desktopApps.enable = true;
+    vscode.enable = true;
     swayncConfig.enable = false;
     kubeTools.enable = true;
     kubeConfig = {

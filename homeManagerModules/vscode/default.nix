@@ -5,10 +5,20 @@
   ...
 }:
 let
-  cfg = config.customHomeManagerModules;
+  cfg = config.customHomeManagerModules.vscode;
 in
 {
-  config = lib.mkIf cfg.desktopApps.enable {
+  options.customHomeManagerModules.vscode = {
+    enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        whether to enable vscode globally or not
+      '';
+    };
+  };
+
+  config = lib.mkIf cfg.enable {
     home.packages = [
       pkgs.exercism
       pkgs.golines
