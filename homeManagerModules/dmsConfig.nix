@@ -68,6 +68,9 @@ in
         dockIconSize = 35;
         dockIndicatorStyle = "line";
         dockIsolateDisplays = true;
+        showOccupiedWorkspacesOnly = true;
+        runningAppsCompactMode = true;
+        focusedWindowCompactMode = true;
         inherit (config.customHomeManagerModules.dmsConfig) showDock;
         barConfigs = [
           {
@@ -149,13 +152,20 @@ in
       plugins = {
         dankBatteryAlerts.enable = true;
         dankGifSearch.enable = true;
+        dankStickerSearch.enable = true;
         tailscale.enable = false;
         tailscaleStatus = {
           enable = true;
+          settings = {
+            autoConnect = false;
+          };
           src = ../assets/dms/plugins/tailscale-dms;
         };
         netbirdStatus = {
           enable = true;
+          settings = {
+            autoConnect = false;
+          };
           src = ../assets/dms/plugins/netbird-dms;
         };
         nixosUpdate = {
