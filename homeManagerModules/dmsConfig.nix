@@ -96,11 +96,9 @@ in
             ];
             rightWidgets = [
               "systemTray"
-              "clipboard"
               "netbirdStatus"
               "tailscaleStatus"
               "cpuUsage"
-              "memUsage"
               "notificationButton"
               "battery"
               "controlCenterButton"
