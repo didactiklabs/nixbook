@@ -742,6 +742,21 @@ in
             }
           else
             { }
+        )
+        // (
+          if cfg.dmsConfig.enable then
+            {
+              "Mod+Space".action.spawn = [
+                "dms"
+                "ipc"
+                "call"
+                "widget"
+                "toggle"
+                "sathiAi"
+              ];
+            }
+          else
+            { }
         );
       };
     };

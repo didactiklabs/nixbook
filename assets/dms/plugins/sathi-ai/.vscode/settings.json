@@ -1,0 +1,11 @@
+{
+  "emeraldwalk.runonsave": {
+    "commands": [
+      {
+        // Run whenever html, css, or js files are saved
+        "match": "\\.(qml)$",
+        "cmd": "dms ipc call plugins reload sathi.ai",
+      },
+    ],
+  },
+}

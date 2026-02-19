@@ -103,6 +103,7 @@ in
     (import ./nixosModules/networkManager.nix { inherit lib config pkgs; })
     (import ./nixosModules/sunshine.nix { inherit lib config pkgs; })
     (import "${sources.home-manager}/nixos")
+    (import "${sources.agenix}/modules/age.nix")
     hostProfile
   ]
   ++ extraConfig;
