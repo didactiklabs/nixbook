@@ -45,6 +45,11 @@ in
       didactiklabs.enable = true;
     };
   };
+  age.secrets.gemini-api-key = {
+    file = ./khoa/secrets/gemini-api-key.age;
+    owner = "khoa";
+  };
+  age.identityPaths = [ "/home/khoa/.ssh/id_ed25519" ];
   imports = [
     (userConfig.mkUser {
       username = "khoa";

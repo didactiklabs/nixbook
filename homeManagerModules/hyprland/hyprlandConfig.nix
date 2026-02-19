@@ -247,7 +247,8 @@ in
         )
         ++ (if cfg.dmsConfig.enable then [ "$mod, I, exec, dms ipc call inhibit toggle" ] else [ ])
         ++ (if cfg.dmsConfig.enable then [ "$mod, W, exec, dms ipc call dankdash wallpaper" ] else [ ])
-        ++ (if cfg.dmsConfig.enable then [ "$mod, O, exec, dms ipc call dash toggle overview" ] else [ ]);
+        ++ (if cfg.dmsConfig.enable then [ "$mod, O, exec, dms ipc call dash toggle overview" ] else [ ])
+        ++ (if cfg.dmsConfig.enable then [ "$mod, space, exec, dms ipc call widget toggle sathiAi" ] else [ ]);
       };
     };
   };

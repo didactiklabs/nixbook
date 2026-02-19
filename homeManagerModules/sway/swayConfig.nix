@@ -359,6 +359,7 @@ in
             "${mod}+i" = if cfg.dmsConfig.enable then "exec dms ipc call inhibit toggle" else null;
             "${mod}+w" = if cfg.dmsConfig.enable then "exec dms ipc call dankdash wallpaper" else null;
             "${mod}+o" = if cfg.dmsConfig.enable then "exec dms ipc call dash toggle overview" else null;
+            "${mod}+space" = if cfg.dmsConfig.enable then "exec dms ipc call widget toggle sathiAi" else null;
             "${mod}+b" =
               if cfg.dmsConfig.enable then
                 if cfg.dmsConfig.showDock then

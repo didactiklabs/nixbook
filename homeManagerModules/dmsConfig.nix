@@ -36,6 +36,11 @@ in
       default = false;
       description = "Enable NixOS update plugin";
     };
+    sathiAi.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Enable Sathi AI plugin";
+    };
   };
 
   config = lib.mkIf config.customHomeManagerModules.dmsConfig.enable {
@@ -106,7 +111,8 @@ in
                 id = "powerMenuButton";
                 enabled = true;
               }
-            ];
+            ]
+            ++ lib.optional config.customHomeManagerModules.dmsConfig.sathiAi.enable "sathiAi";
             spacing = 4;
             innerPadding = 4;
             bottomGap = 0;
@@ -165,6 +171,10 @@ in
             autoConnect = false;
           };
           src = ../assets/dms/plugins/netbird-dms;
+        };
+        sathiAi = {
+          inherit (config.customHomeManagerModules.dmsConfig.sathiAi) enable;
+          src = lib.mkForce ../assets/dms/plugins/sathi-ai;
         };
         nixosUpdate = {
           inherit (config.customHomeManagerModules.dmsConfig.nixosUpdate) enable;
