@@ -175,9 +175,6 @@ in
         sathiAi = {
           inherit (config.customHomeManagerModules.dmsConfig.sathiAi) enable;
           src = lib.mkForce ../assets/dms/plugins/sathi-ai;
-          settings = {
-            resizeCorner = "left";
-          };
         };
         nixosUpdate = {
           inherit (config.customHomeManagerModules.dmsConfig.nixosUpdate) enable;
