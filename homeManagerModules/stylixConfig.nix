@@ -19,25 +19,26 @@
       targets.dank-material-shell.enable = false;
       targets.gtk.extraCss = ''
         .thunar {
-          font-family: Hack Nerd Font Bold;
+          font-family: Quicksand;
           font-size: 10pt;
           font-weight: 600;
+          -gtk-icon-theme: "Papirus-Dark";
           -gtk-icon-theme: "Numix Square";
         }
       '';
 
       fonts = {
         monospace = {
-          name = "Hack Nerd Font";
-          package = pkgs.nerd-fonts.hack;
+          name = "Quicksand";
+          package = pkgs.quicksand;
         };
         sansSerif = {
-          name = "Inter";
-          package = pkgs.inter;
+          name = "Quicksand";
+          package = pkgs.quicksand;
         };
         serif = {
-          name = "Inter";
-          package = pkgs.inter;
+          name = "Quicksand";
+          package = pkgs.quicksand;
         };
       };
     }

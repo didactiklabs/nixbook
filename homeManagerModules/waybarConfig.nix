@@ -477,7 +477,7 @@ in
           ''
             /* --- Global & Base Module Styles --- */
             * {
-                font-family: Inter Display, "Font Awesome 7 Free", sans-serif;
+                font-family: Quicksand, "Font Awesome 7 Free", sans-serif;
                 font-weight: 500;
                 font-size: 13px;
                 border: none;
