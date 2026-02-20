@@ -247,7 +247,10 @@ PluginComponent {
                 if (trimmed.startsWith("Found") || !trimmed) return
 
                 var selected = trimmed.startsWith("✓")
-                var name = selected ? trimmed.substring(1).trim() : trimmed.trim()
+                // Strip leading symbols (checkmark ✓, cross ✗, etc.) and whitespace
+                var name = trimmed.replace(/^[✓✗\s]+/, "").trim()
+                
+                console.log("NetBird: Parsing line: '" + trimmed + "' -> name: '" + name + "', selected: " + selected)
 
                 var profile = {
                     id: name,
@@ -281,14 +284,17 @@ PluginComponent {
     }
 
     function netbirdOnProfileClicked(profileName) {
+        console.log("NetBird: Selecting profile: " + profileName)
         netbirdProfileToSelect = profileName
+        netbirdSelectProfileProcess.command = ["netbird", "profile", "select", profileName]
         netbirdSelectProfileProcess.running = true
     }
 
     Process {
         id: netbirdSelectProfileProcess
-        command: ["netbird", "profile", "select", root.netbirdProfileToSelect]
+        // command is set dynamically in netbirdOnProfileClicked
         onExited: (code) => {
+            console.log("NetBird: Profile select process exited with code: " + code)
             if (code === 0) {
                 netbirdStatusProcess.running = true
                 netbirdRefreshProfiles()
