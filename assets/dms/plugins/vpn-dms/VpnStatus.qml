@@ -25,12 +25,12 @@ PluginComponent {
     property string netbirdStatusText: "Disconnected"
     property string netbirdPeerCount: "0"
     property string netbirdCurrentIP: ""
-    property string netbirdSelectedNetwork: ""
-    property var netbirdAvailableNetworks: []
-    property var netbirdTempNetworks: []
-    property bool netbirdShowNetworkSelector: false
-    property var netbirdParsingNetwork: ({})
-    property string netbirdNetworkIdToSelect: ""
+    property string netbirdSelectedProfile: ""
+    property var netbirdAvailableProfiles: []
+    property var netbirdTempProfiles: []
+    property bool netbirdShowProfileSelector: false
+    property var netbirdParsingProfile: ({})
+    property string netbirdProfileToSelect: ""
 
     Timer {
         interval: 5000
@@ -40,7 +40,7 @@ PluginComponent {
             tailscaleStatusProcess.running = true
             tailscaleNetworksProcess.running = true
             netbirdStatusProcess.running = true
-            netbirdRefreshNetworks()
+            netbirdRefreshProfiles()
         }
     }
 
@@ -48,7 +48,7 @@ PluginComponent {
         tailscaleStatusProcess.running = true
         tailscaleNetworksProcess.running = true
         netbirdStatusProcess.running = true
-        netbirdRefreshNetworks()
+        netbirdRefreshProfiles()
     }
 
     // --- Tailscale Logic ---
@@ -56,15 +56,15 @@ PluginComponent {
     Process {
         id: tailscaleStatusProcess
         command: ["tailscale", "status", "--json"]
-        
+
         property string accumulatedOutput: ""
-        
+
         stdout: SplitParser {
             onRead: line => {
                 tailscaleStatusProcess.accumulatedOutput += line
             }
         }
-        
+
         onExited: (code) => {
             if (code === 0 || tailscaleStatusProcess.accumulatedOutput.length > 0) {
                  root.tailscaleParseStatus(tailscaleStatusProcess.accumulatedOutput)
@@ -78,7 +78,7 @@ PluginComponent {
             var data = JSON.parse(output)
             var state = data.BackendState || "Stopped"
             tailscaleIsConnected = state === "Running"
-            
+
             if (tailscaleIsConnected) {
                 var ips = data.TailscaleIPs || []
                 tailscaleCurrentIP = ips.length > 0 ? ips[0] : ""
@@ -115,28 +115,28 @@ PluginComponent {
     function tailscaleParseNetworkLine(line) {
         var trimmed = line.trim()
         if (!trimmed || trimmed.startsWith("ID") || trimmed.startsWith("---")) return
-        
+
         var parts = trimmed.split(/\s+/)
         if (parts.length < 3) return
-        
+
         var id = parts[0]
         var tailnet = parts[1]
         var account = parts[2]
         var selected = false
-        
+
         if (account.endsWith("*")) {
             selected = true
             account = account.substring(0, account.length - 1)
             root.tailscaleSelectedNetworkName = tailnet
         }
-        
+
         var net = {
             id: id,
             name: tailnet,
             account: account,
             selected: selected
         }
-        
+
         var list = root.tailscaleTempNetworks
         list.push(net)
         root.tailscaleTempNetworks = list
@@ -158,12 +158,12 @@ PluginComponent {
             tailscaleStatusProcess.running = true
         }
     }
-    
+
     function tailscaleSwitchNetwork(networkName) {
         tailscaleNetworkToSwitch = networkName
         tailscaleSwitchNetworkProcess.running = true
     }
-    
+
     Process {
         id: tailscaleSwitchNetworkProcess
         command: ["tailscale", "switch", root.tailscaleNetworkToSwitch]
@@ -217,7 +217,7 @@ PluginComponent {
         netbirdStatusText = "Disconnected"
         netbirdPeerCount = "0"
         netbirdCurrentIP = ""
-        netbirdSelectedNetwork = ""
+        netbirdSelectedProfile = ""
     }
 
     function netbirdToggleConnection() {
@@ -232,84 +232,68 @@ PluginComponent {
         }
     }
 
-    function netbirdRefreshNetworks() {
-        netbirdTempNetworks = []
-        netbirdParsingNetwork = {}
-        netbirdNetworksProcess.running = true
+    function netbirdRefreshProfiles() {
+        netbirdTempProfiles = []
+        netbirdParsingProfile = {}
+        netbirdProfilesProcess.running = true
     }
 
     Process {
-        id: netbirdNetworksProcess
-        command: ["netbird", "networks", "list"]
+        id: netbirdProfilesProcess
+        command: ["netbird", "profile", "list"]
         stdout: SplitParser {
             onRead: line => {
                 var trimmed = line.trim()
-                if (trimmed.startsWith("- ID:")) {
-                    if (root.netbirdParsingNetwork && root.netbirdParsingNetwork.id) {
-                        var list = root.netbirdTempNetworks
-                        list.push(root.netbirdParsingNetwork)
-                        root.netbirdTempNetworks = list
-                    }
-                    var idMatch = trimmed.match(/- ID:\s*(.+)/)
-                    root.netbirdParsingNetwork = {
-                        id: idMatch ? idMatch[1].trim() : "",
-                        name: "",
-                        cidr: "",
-                        selected: trimmed.includes("Selected")
-                    }
-                } else if (root.netbirdParsingNetwork && root.netbirdParsingNetwork.id) {
-                    var nameMatch = trimmed.match(/Name:\s*(.+)/)
-                    if (nameMatch) {
-                        root.netbirdParsingNetwork.name = nameMatch[1].trim()
-                    }
-                    var networkMatch = trimmed.match(/Network:\s*([\d.]+\/\d+)/)
-                    if (networkMatch) {
-                        root.netbirdParsingNetwork.cidr = networkMatch[1].trim()
-                    }
-                    if (trimmed.includes("Selected")) {
-                        root.netbirdParsingNetwork.selected = true
-                    }
+                if (trimmed.startsWith("Found") || !trimmed) return
+
+                var selected = trimmed.startsWith("✓")
+                var name = selected ? trimmed.substring(1).trim() : trimmed.trim()
+
+                var profile = {
+                    id: name,
+                    name: name,
+                    selected: selected
                 }
+
+                var list = root.netbirdTempProfiles
+                list.push(profile)
+                root.netbirdTempProfiles = list
             }
         }
         onExited: (code) => {
-            if (root.netbirdParsingNetwork && root.netbirdParsingNetwork.id) {
-                var list = root.netbirdTempNetworks
-                list.push(root.netbirdParsingNetwork)
-                root.netbirdTempNetworks = list
-            }
-            root.netbirdAvailableNetworks = root.netbirdTempNetworks
-            
+            root.netbirdAvailableProfiles = root.netbirdTempProfiles
+
             var foundSelected = false
-            for (var i = 0; i < root.netbirdAvailableNetworks.length; i++) {
-                var net = root.netbirdAvailableNetworks[i]
-                if (net.selected) {
-                    root.netbirdSelectedNetwork = net.name || net.id
+            for (var i = 0; i < root.netbirdAvailableProfiles.length; i++) {
+                var prof = root.netbirdAvailableProfiles[i]
+                if (prof.selected) {
+                    root.netbirdSelectedProfile = prof.name
                     foundSelected = true
                     break
                 }
             }
             if (!foundSelected) {
-                root.netbirdSelectedNetwork = ""
+                root.netbirdSelectedProfile = ""
             }
-            root.netbirdParsingNetwork = {}
+            root.netbirdParsingProfile = {}
+            root.netbirdTempProfiles = []
         }
     }
 
-    function netbirdOnNetworkClicked(networkId) {
-        netbirdNetworkIdToSelect = networkId
-        netbirdSelectNetworkProcess.running = true
+    function netbirdOnProfileClicked(profileName) {
+        netbirdProfileToSelect = profileName
+        netbirdSelectProfileProcess.running = true
     }
 
     Process {
-        id: netbirdSelectNetworkProcess
-        command: ["netbird", "networks", "select", root.netbirdNetworkIdToSelect]
+        id: netbirdSelectProfileProcess
+        command: ["netbird", "profile", "select", root.netbirdProfileToSelect]
         onExited: (code) => {
             if (code === 0) {
                 netbirdStatusProcess.running = true
-                netbirdRefreshNetworks()
+                netbirdRefreshProfiles()
             }
-            netbirdShowNetworkSelector = false
+            netbirdShowProfileSelector = false
         }
     }
 
@@ -360,13 +344,13 @@ PluginComponent {
 
             Item {
                 width: parent.width
-                implicitHeight: (root.tailscaleShowNetworkSelector || root.netbirdShowNetworkSelector) ? 350 : contentColumn.height + Theme.spacingM
+                implicitHeight: (root.tailscaleShowNetworkSelector || root.netbirdShowProfileSelector) ? 350 : contentColumn.height + Theme.spacingM
 
                 Column {
                     id: contentColumn
                     width: parent.width
                     spacing: Theme.spacingL
-                    visible: !root.tailscaleShowNetworkSelector && !root.netbirdShowNetworkSelector
+                    visible: !root.tailscaleShowNetworkSelector && !root.netbirdShowProfileSelector
 
                     // --- Tailscale Section ---
                     Column {
@@ -454,7 +438,7 @@ PluginComponent {
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
                                 StyledText {
-                                    text: root.netbirdSelectedNetwork || root.netbirdStatusText
+                                    text: root.netbirdSelectedProfile || root.netbirdStatusText
                                     font.pixelSize: Theme.fontSizeSmall
                                     font.weight: Font.Bold
                                     color: Theme.surfaceText
@@ -477,10 +461,10 @@ PluginComponent {
                             }
                             DankButton {
                                 width: (parent.width - Theme.spacingS) / 2
-                                text: "Select Network"
+                                text: "Select Profile"
                                 onClicked: {
-                                    root.netbirdRefreshNetworks()
-                                    root.netbirdShowNetworkSelector = true
+                                    root.netbirdRefreshProfiles()
+                                    root.netbirdShowProfileSelector = true
                                 }
                             }
                         }
@@ -558,16 +542,16 @@ PluginComponent {
                     }
                 }
 
-                // --- NetBird Network Selector ---
+                // --- NetBird Profile Selector ---
                 Column {
-                    id: netbirdNetworkListColumn
+                    id: netbirdProfileListColumn
                     width: parent.width
                     spacing: Theme.spacingM
-                    visible: root.netbirdShowNetworkSelector
+                    visible: root.netbirdShowProfileSelector
 
                     StyledText {
                         width: parent.width
-                        text: "NetBird Networks"
+                        text: "NetBird Profiles"
                         font.pixelSize: Theme.fontSizeMedium
                         font.weight: Font.Bold
                         color: Theme.surfaceText
@@ -581,7 +565,7 @@ PluginComponent {
                             anchors.fill: parent
                             cellWidth: parent.width
                             cellHeight: 50
-                            model: root.netbirdAvailableNetworks
+                            model: root.netbirdAvailableProfiles
                             delegate: StyledRect {
                                 width: parent.width - 10
                                 height: 45
@@ -600,15 +584,10 @@ PluginComponent {
                                     Column {
                                         anchors.verticalCenter: parent.verticalCenter
                                         StyledText {
-                                            text: modelData.name || modelData.id
+                                            text: modelData.name
                                             font.pixelSize: Theme.fontSizeSmall
                                             font.weight: Font.Bold
                                             color: Theme.surfaceText
-                                        }
-                                        StyledText {
-                                            text: modelData.cidr
-                                            font.pixelSize: Theme.fontSizeSmall
-                                            color: Theme.surfaceVariantText
                                         }
                                     }
                                 }
@@ -617,7 +596,7 @@ PluginComponent {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: root.netbirdOnNetworkClicked(modelData.id)
+                                    onClicked: root.netbirdOnProfileClicked(modelData.name)
                                 }
                             }
                         }
@@ -625,7 +604,7 @@ PluginComponent {
 
                     DankButton {
                         text: "Back"
-                        onClicked: root.netbirdShowNetworkSelector = false
+                        onClicked: root.netbirdShowProfileSelector = false
                     }
                 }
             }
