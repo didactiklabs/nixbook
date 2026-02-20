@@ -101,8 +101,7 @@ in
             ];
             rightWidgets = [
               "systemTray"
-              "netbirdStatus"
-              "tailscaleStatus"
+              "vpnStatus"
               "cpuUsage"
               "notificationButton"
               "battery"
@@ -153,36 +152,22 @@ in
           }
         ];
       };
+      managePluginSettings = false;
       plugins = {
         dankBatteryAlerts.enable = true;
         dankGifSearch.enable = true;
         dankStickerSearch.enable = true;
         tailscale.enable = false;
-        tailscaleStatus = {
+        vpnStatus = {
           enable = true;
-          settings = {
-            autoConnect = false;
-          };
-          src = ../assets/dms/plugins/tailscale-dms;
-        };
-        netbirdStatus = {
-          enable = true;
-          settings = {
-            autoConnect = false;
-          };
-          src = ../assets/dms/plugins/netbird-dms;
+          src = ../assets/dms/plugins/vpn-dms;
         };
         sathiAi = {
           inherit (config.customHomeManagerModules.dmsConfig.sathiAi) enable;
-          src = lib.mkForce ../assets/dms/plugins/sathi-ai;
         };
         nixosUpdate = {
           inherit (config.customHomeManagerModules.dmsConfig.nixosUpdate) enable;
           src = ../assets/dms/plugins/nixos-update;
-          settings = {
-            repoUrl = "https://github.com/didactiklabs/nixbook";
-            updateCommand = "osupdate";
-          };
         };
       };
     };

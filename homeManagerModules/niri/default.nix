@@ -12,22 +12,6 @@ in
     ./niriConfig.nix
   ];
   config = lib.mkIf cfg.niriConfig.enable {
-    systemd.user.services.polkit-gnome = {
-      Unit = {
-        Description = "PolicyKit Authentication Agent";
-        After = [ "graphical-session-pre.target" ];
-        PartOf = [ "graphical-session.target" ];
-      };
-      Service = {
-        ExecStart = lib.mkForce "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1";
-      };
-      Install = {
-        WantedBy = [
-          "graphical-session.target"
-          "niri.service"
-        ];
-      };
-    };
   };
   options.customHomeManagerModules.niriConfig = {
     enable = lib.mkOption {

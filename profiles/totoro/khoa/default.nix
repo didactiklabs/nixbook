@@ -15,7 +15,6 @@ in
     ./config.nix
     ./hyprlandConfig.nix
     ./niriConfig.nix
-    ./dmsConfig.nix
   ];
   home.packages = [
     pkgs-unstable.claude-code
