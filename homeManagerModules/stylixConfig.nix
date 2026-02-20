@@ -22,14 +22,22 @@
           font-family: Hack Nerd Font Bold;
           font-size: 10pt;
           font-weight: 600;
-          -gkt-icon-theme: "Numix Square";
+          -gtk-icon-theme: "Numix Square";
         }
       '';
 
       fonts = {
         monospace = {
           name = "Hack Nerd Font";
-          package = pkgs.nerd-fonts.fira-code;
+          package = pkgs.nerd-fonts.hack;
+        };
+        sansSerif = {
+          name = "Inter";
+          package = pkgs.inter;
+        };
+        serif = {
+          name = "Inter";
+          package = pkgs.inter;
         };
       };
     }
