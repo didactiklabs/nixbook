@@ -190,6 +190,15 @@ in
           "editor.formatOnType" = false;
         };
         "alejandra.program" = "${pkgs.alejandra}/bin/alejandra";
+        "[go]" = {
+          "editor.insertSpaces" = false;
+          "editor.formatOnSave" = true;
+          "editor.codeActionsOnSave" = {
+            "source.organizeImports" = "explicit";
+          };
+        };
+        "go.useLanguageServer" = true;
+        "go.toolsManagement.autoUpdate" = true;
         "[terraform]" = {
           "editor.insertSpaces" = true;
           "editor.tabSize" = 2;
