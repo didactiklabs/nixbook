@@ -89,7 +89,7 @@ in
           inner_color = lib.mkForce "rgba(0, 0, 0, 0.5)";
           font_color = lib.mkForce "rgb(200, 200, 200)";
           fade_on_empty = false;
-          font_family = "JetBrains Mono Nerd Font Mono";
+          font_family = "Quicksand";
           placeholder_text = ''
             <i><span foreground="##cdd6f4">Enter Password or Press Enter (Yubikey)</span></i>
           '';
@@ -106,7 +106,7 @@ in
             # color = "$foreground";
             #color = rgba(255, 255, 255, 0.6)
             font_size = 120;
-            font_family = "JetBrains Mono Nerd Font Mono ExtraBold";
+            font_family = "Quicksand";
             position = "0, -300";
             halign = "center";
             valign = "top";
@@ -116,7 +116,7 @@ in
             # color = "$foreground";
             #color = rgba(255, 255, 255, 0.6)
             font_size = 25;
-            font_family = "JetBrains Mono Nerd Font Mono";
+            font_family = "Quicksand";
             position = "0, -40";
             halign = "center";
             valign = "center";
@@ -128,7 +128,7 @@ in
             #color = "$foreground";
             #color = rgba(255, 255, 255, 0.6)
             font_size = 18;
-            font_family = "Hack Nerd Font";
+            font_family = "Quicksand";
             position = "0, 10";
             halign = "center";
             valign = "bottom";

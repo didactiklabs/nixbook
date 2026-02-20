@@ -45,7 +45,7 @@ in
 
   config = lib.mkIf config.customHomeManagerModules.dmsConfig.enable {
     home.sessionVariables = {
-      QS_ICON_THEME = "Numix-Square";
+      QS_ICON_THEME = "Papirus-Dark";
     };
     services.blueman-applet.enable = lib.mkForce false;
     programs.dank-material-shell = {

@@ -92,7 +92,7 @@ let
               udiskie.enable = true;
               gnome-keyring.enable = true;
             };
-            dconf.settings."org/gnome/desktop/interface".font-name = lib.mkForce "Hack Nerd Font";
+            dconf.settings."org/gnome/desktop/interface".font-name = lib.mkForce "Quicksand";
             inherit (mergedConfig) customHomeManagerModules;
             ## https://nix-community.github.io/home-manager/options.html#opt-services.gnome-keyring.enable
             # systemd.user.services.polkit-gnome = {

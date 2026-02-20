@@ -21,6 +21,8 @@ in
   config = lib.mkIf cfg.gtkConfig.enable {
     home.packages = [
       pkgs.numix-gtk-theme
+      pkgs.papirus-icon-theme
+      pkgs.material-design-icons
       pkgs.numix-icon-theme-square
       pkgs.numix-cursor-theme
       pkgs.dconf
@@ -28,8 +30,8 @@ in
 
     gtk = {
       enable = true;
-      iconTheme.package = pkgs.numix-icon-theme-square;
-      iconTheme.name = "Numix-Square";
+      iconTheme.package = pkgs.papirus-icon-theme;
+      iconTheme.name = "Papirus-Dark";
       gtk4.extraConfig = {
         gtk-application-prefer-dark-theme = 1;
       };

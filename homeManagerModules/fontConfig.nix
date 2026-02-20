@@ -24,9 +24,9 @@ in
       # cf https://nixos.wiki/wiki/Fonts
       fontconfig.enable = true;
       fontconfig.defaultFonts = {
-        monospace = [ "Hack Nerd Font" ];
-        sansSerif = [ "Inter" ];
-        serif = [ "Inter" ];
+        monospace = [ "Quicksand" "Hack Nerd Font" ];
+        sansSerif = [ "Quicksand" ];
+        serif = [ "Quicksand" ];
         emoji = [ "Noto Color Emoji" ];
       };
     };
@@ -36,6 +36,7 @@ in
       iosevka
       jetbrains-mono
       pkgs.inter
+      pkgs.quicksand
       pkgs.font-awesome
     ];
   };
