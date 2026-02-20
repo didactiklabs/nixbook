@@ -319,6 +319,7 @@ in
     '';
   };
   programs = {
+    dsearch.enable = true;
     yubikey-touch-detector.enable = true;
     gnupg.agent = {
       enable = true;

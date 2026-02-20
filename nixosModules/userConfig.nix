@@ -95,19 +95,19 @@ let
             dconf.settings."org/gnome/desktop/interface".font-name = lib.mkForce "Hack Nerd Font";
             inherit (mergedConfig) customHomeManagerModules;
             ## https://nix-community.github.io/home-manager/options.html#opt-services.gnome-keyring.enable
-            systemd.user.services.polkit-gnome = {
-              Unit = {
-                Description = "PolicyKit Authentication Agent";
-                After = [ "graphical-session-pre.target" ];
-                PartOf = [ "graphical-session.target" ];
-              };
-              Service = {
-                ExecStart = "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1";
-              };
-              Install = {
-                WantedBy = [ "graphical-session.target" ];
-              };
-            };
+            # systemd.user.services.polkit-gnome = {
+            #   Unit = {
+            #     Description = "PolicyKit Authentication Agent";
+            #     After = [ "graphical-session-pre.target" ];
+            #     PartOf = [ "graphical-session.target" ];
+            #   };
+            #   Service = {
+            #     ExecStart = "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1";
+            #   };
+            #   Install = {
+            #     WantedBy = [ "graphical-session.target" ];
+            #   };
+            # };
             home.packages = [
               pkgs.pavucontrol
               pkgs.pulseaudio
@@ -186,6 +186,7 @@ let
               ../homeManagerModules/atuinConfig.nix
               ../homeManagerModules/dmsConfig.nix
               ../homeManagerModules/networkManagerApplet.nix
+              (import "${sources.agenix}/modules/age-home.nix")
             ]
             userImports
           ];

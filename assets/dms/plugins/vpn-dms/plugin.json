@@ -1,0 +1,12 @@
+{
+  "id": "vpnStatus",
+  "name": "VPN Status",
+  "description": "Shows Tailscale and NetBird VPN status",
+  "version": "1.0.0",
+  "author": "User",
+  "icon": "vpn_lock",
+  "type": "widget",
+  "component": "./VpnStatus.qml",
+  "settings": "./VpnSettings.qml",
+  "permissions": ["settings_read", "settings_write", "process"]
+}

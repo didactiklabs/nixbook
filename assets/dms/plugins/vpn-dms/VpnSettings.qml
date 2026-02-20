@@ -5,11 +5,11 @@ import qs.Widgets
 
 PluginSettings {
     id: root
-    pluginId: "netbirdStatus"
+    pluginId: "vpnStatus"
 
     StyledText {
         width: parent.width
-        text: "NetBird VPN Status"
+        text: "VPN Status"
         font.pixelSize: Theme.fontSizeLarge
         font.weight: Font.Bold
         color: Theme.surfaceText
@@ -17,16 +17,23 @@ PluginSettings {
 
     StyledText {
         width: parent.width
-        text: "Monitor and control your NetBird VPN connection"
+        text: "Monitor and control your Tailscale and NetBird VPN connections"
         font.pixelSize: Theme.fontSizeSmall
         color: Theme.surfaceVariantText
         wrapMode: Text.WordWrap
     }
 
     ToggleSetting {
-        settingKey: "autoConnect"
-        label: "Auto Connect"
-        description: "Automatically connect on startup"
+        settingKey: "tailscaleAutoConnect"
+        label: "Tailscale Auto Connect"
+        description: "Automatically connect Tailscale on startup"
+        defaultValue: false
+    }
+
+    ToggleSetting {
+        settingKey: "netbirdAutoConnect"
+        label: "NetBird Auto Connect"
+        description: "Automatically connect NetBird on startup"
         defaultValue: false
     }
 }
