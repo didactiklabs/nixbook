@@ -78,8 +78,7 @@ in
         kubectl-neat
         kubelogin-oidc
         dive
-        # pkgs-unstable.kcl
-        pkgs-unstable.netfetch
+        netfetch
         kubectl
         k9s
         kubevirt

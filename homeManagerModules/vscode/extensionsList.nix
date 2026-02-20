@@ -157,12 +157,6 @@
       sha256 = "1ln9gly5bb7nvbziilnay4q448h9npdh7sd9xy277122h0qawkci";
     }
     {
-      name = "kcl-vscode-extension";
-      publisher = "kcl";
-      version = "0.2.1";
-      sha256 = "sha256-JqNIJQk6zDDsrlcvCVQXQTK7WTHKdmoWWzb7N4Cbd3s=";
-    }
-    {
       name = "markdown-mermaid";
       publisher = "bierner";
       version = "1.27.0";
@@ -175,12 +169,6 @@
       sha256 = "sha256-BIbgUkIuy8clq4G4x1Zd08M8k4u5ZPe80+z6fSAeLdk=";
     }
     {
-      name = "excalidraw-editor";
-      publisher = "pomdtr";
-      version = "3.7.4";
-      sha256 = "sha256-hI+Qo8K+gLQuzKkaSq89D8vIxlYq9tMi31DgFiRzx0E=";
-    }
-    {
       name = "gitlens";
       publisher = "eamodio";
       version = "17.1.1";
@@ -189,14 +177,8 @@
     {
       name = "copilot-chat";
       publisher = "github";
-      version = "0.38.2026021905";
-      sha256 = "sha256-xZnjzPP1b+LinFso639DqjFx4l3Dpcz7dm+hZWGxf20=";
-    }
-    {
-      name = "copilot";
-      publisher = "github";
-      version = "1.388.0";
-      sha256 = "06dyyp5qb63a7c8sfxbmvz7j405kdw50n7qlp74fl8ydwgrwl67d";
+      version = "0.37.0";
+      sha256 = "sha256-Opgqa2R88A8l17tg77kFWXFtSisLy/YTeOjguf+29pE=";
     }
     {
       name = "terraform";
