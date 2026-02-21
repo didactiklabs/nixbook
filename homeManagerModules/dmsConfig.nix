@@ -52,6 +52,7 @@ in
       dgop.package = pkgs-unstable.dgop;
       settings = {
         useAutoLocation = true;
+        nightModeEnabled = true;
         launcherLogoMode = "os";
         currentThemeName = "dynamic";
         matugenScheme = "scheme-vibrant";

@@ -123,15 +123,15 @@ let
               enable = true;
               env.GOPATH = "/home/${username}/go";
             };
-            services.gammastep = {
-              enable = true;
-              dawnTime = "6:00-7:45";
-              duskTime = "18:35-20:45";
-              latitude = 48.9;
-              longitude = 2.26;
-              provider = "manual";
-              tray = true;
-            };
+            # services.gammastep = { # dms handle this
+            #   enable = true;
+            #   dawnTime = "6:00-7:45";
+            #   duskTime = "18:35-20:45";
+            #   latitude = 48.9;
+            #   longitude = 2.26;
+            #   provider = "manual";
+            #   tray = true;
+            # };
             home = {
               stateVersion = "24.05";
               username = "${username}";
