@@ -37,7 +37,6 @@ in
     home.sessionVariables = {
       QS_ICON_THEME = "Papirus-Dark";
     };
-    services.blueman-applet.enable = lib.mkForce false;
     programs.dank-material-shell = {
       enable = true;
       systemd = {
@@ -146,7 +145,7 @@ in
         dankBatteryAlerts.enable = true;
         dankGifSearch.enable = true;
         dankStickerSearch.enable = true;
-        tailscale.enable = false;
+        dankKDEConnect.enable = true;
         vpnStatus = {
           enable = true;
           src = ../assets/dms/plugins/vpn-dms;
