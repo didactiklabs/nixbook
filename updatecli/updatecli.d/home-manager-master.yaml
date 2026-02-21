@@ -2,21 +2,21 @@
 name: home-manager-master Update
 scms:
   default:
-    kind: 'github'
+    kind: "github"
     spec:
-      email: 'updatecli@didactiklabs.io'
-      owner: 'didactiklabs'
-      repository: 'nixbook'
+      email: "updatecli@didactiklabs.io"
+      owner: "didactiklabs"
+      repository: "nixbook"
       token: '{{ requiredEnv "UPDATECLI_GITHUB_TOKEN" }}'
       username: '{{ requiredEnv "GITHUB_ACTOR" }}'
-      branch: 'main'
+      branch: "main"
 # Defines how to get "source" information such as Jenkins version
 sources:
   default:
     name: Get latest revision from GitHub
     kind: shell
     spec:
-      command: git ls-remote https://github.com/nix-community/home-manager master | awk '{print $1}'
+      command: git ls-remote https://github.com/nix-community/home-manager master | awk '{print $1}' | head -n 1
 # Defines "conditions" required to update targets
 conditions: {}
 # Defines "targets" which need to be updated if different than "source" information.
@@ -24,7 +24,7 @@ targets:
   default:
     name: home-manager-master npins update
     kind: shell
-    scmid: 'default'
+    scmid: "default"
     spec:
       environments:
         - name: PATH
@@ -34,11 +34,11 @@ targets:
 # Define action configurations if one needs to be created
 actions:
   default:
-    kind: 'github/pullrequest'
-    scmid: 'default'
+    kind: "github/pullrequest"
+    scmid: "default"
     spec:
-      mergemethod: 'rebase'
+      mergemethod: "rebase"
       automerge: true
-      description: 'Update home-manager-master npins.'
+      description: "Update home-manager-master npins."
       draft: false
-      title: 'UPDATECLI: Update home-manager-master'
+      title: "UPDATECLI: Update home-manager-master"
