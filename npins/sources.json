@@ -25,9 +25,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "46d4288969e13dc3c869324120742f451ad46544",
-      "url": "https://github.com/AvengeMedia/DankMaterialShell/archive/46d4288969e13dc3c869324120742f451ad46544.tar.gz",
-      "hash": "sha256-tZGAFgdue41AfGAHd3+w2wGK5IbasV34qHFD34F7nRk="
+      "revision": "f983c67135b55854c210e024e755963f5073ad5e",
+      "url": "https://github.com/AvengeMedia/DankMaterialShell/archive/f983c67135b55854c210e024e755963f5073ad5e.tar.gz",
+      "hash": "sha256-PzHt2lYfpL8K9dAUmC5i1qMrLVEk/oANqMTb+4kMhlI="
     },
     "dms-plugin-registry": {
       "type": "Git",
@@ -116,9 +116,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "436b27742c996b75e2baf8e835e3b3eae0c9fbd4",
-      "url": "https://github.com/nix-community/home-manager/archive/436b27742c996b75e2baf8e835e3b3eae0c9fbd4.tar.gz",
-      "hash": "sha256-18liNHHwOmcaKCpOptE3wLW97fm5v7RTLiZBecX7km0="
+      "revision": "c6ed3eab64d23520bcbb858aa53fe2b533725d4a",
+      "url": "https://github.com/nix-community/home-manager/archive/c6ed3eab64d23520bcbb858aa53fe2b533725d4a.tar.gz",
+      "hash": "sha256-WxAEkAbo8dP7qiyPM6VN4ZGAxfuBVlNBNPkrqkrXVEc="
     },
     "home-manager-master": {
       "type": "Git",
@@ -129,9 +129,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "436b27742c996b75e2baf8e835e3b3eae0c9fbd4",
-      "url": "https://github.com/nix-community/home-manager/archive/436b27742c996b75e2baf8e835e3b3eae0c9fbd4.tar.gz",
-      "hash": "sha256-18liNHHwOmcaKCpOptE3wLW97fm5v7RTLiZBecX7km0="
+      "revision": "c6ed3eab64d23520bcbb858aa53fe2b533725d4a",
+      "url": "https://github.com/nix-community/home-manager/archive/c6ed3eab64d23520bcbb858aa53fe2b533725d4a.tar.gz",
+      "hash": "sha256-WxAEkAbo8dP7qiyPM6VN4ZGAxfuBVlNBNPkrqkrXVEc="
     },
     "hyprfocus": {
       "type": "Git",
@@ -358,10 +358,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "v0.2.7",
-      "revision": "1f4c450a7a54fc04f72b69859b3146d8fd9627ff",
-      "url": "https://api.github.com/repos/pranshuparmar/witr/tarball/refs/tags/v0.2.7",
-      "hash": "sha256-V7PKcqKFObA7M+Qd4hPm57bTYy6xcsAt0NSwd1kfTDg="
+      "version": "v0.3.0",
+      "revision": "ecb97de582fd7ebc0f743c4bac2171de8e848afa",
+      "url": "https://api.github.com/repos/pranshuparmar/witr/tarball/refs/tags/v0.3.0",
+      "hash": "sha256-XKFFVFuOJN2XtrckjiKkfWW+eRFG/Gk6eHzNvo75D2A="
     },
     "ytui": {
       "type": "Git",

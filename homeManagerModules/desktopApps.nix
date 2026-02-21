@@ -22,17 +22,6 @@ in
       zathura.enable = true;
       imv.enable = true;
     };
-    xdg.desktopEntries.imv = {
-      name = "imv";
-      exec = "imv %F";
-      type = "Application";
-      mimeType = [
-        "image/png"
-        "image/jpeg"
-        "image/gif"
-        "image/webp"
-      ];
-    };
     home.packages = with pkgs; [
       # apps
       spotify
