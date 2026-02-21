@@ -51,6 +51,7 @@ in
   environment = {
     systemPackages = with pkgs; [
       wlsunset
+      cups-pk-helper
       # global
       ginx
       lsof
@@ -196,6 +197,9 @@ in
   };
   console.keyMap = "fr";
   services = {
+    accounts-daemon = {
+      enable = true;
+    };
     upower.enable = true;
     pcscd.enable = true; # yubikey smart card mode
     netbird.enable = true;
