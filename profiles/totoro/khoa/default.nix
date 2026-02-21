@@ -15,6 +15,7 @@ in
     ./config.nix
     ./hyprlandConfig.nix
     ./niriConfig.nix
+    ./thunderbirdConfig.nix
   ];
   home.packages = [
     pkgs-unstable.claude-code
@@ -52,6 +53,7 @@ in
     zshConfig.enable = true;
     kubeswitchConfig.enable = true;
     fcitx5Config.enable = true;
+    thunderbirdConfig.enable = true;
     dmsConfig = {
       enable = true;
       showDock = true;

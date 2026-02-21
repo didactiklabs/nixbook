@@ -365,6 +365,10 @@ in
             matches = [ { title = "^Discord Popout"; } ];
             opacity = 1.0;
           }
+          {
+            matches = [ { app-id = "^thunderbird$"; } ];
+            opacity = 1.0;
+          }
         ];
 
         animations = {

@@ -235,8 +235,10 @@ in
     };
   };
   xdg = {
-    portal.enable = true;
-    portal.wlr.enable = true;
+    portal = {
+      enable = true;
+      wlr.enable = true;
+    };
   };
   hardware = {
     enableAllFirmware = true;
