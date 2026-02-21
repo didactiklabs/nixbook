@@ -50,6 +50,7 @@ in
   fonts.fontDir.enable = true;
   environment = {
     systemPackages = with pkgs; [
+      accountsservice
       wlsunset
       cups-pk-helper
       # global
