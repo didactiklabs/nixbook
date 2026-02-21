@@ -72,10 +72,10 @@ in
     # Port workspace assignments from hyprland to output assignments
     programs.niri.settings.window-rules = lib.mkAfter [
       # Apps that were on workspace 1 -> assign to main monitor (DP-9)
-      {
-        matches = [ { app-id = "^thunderbird$"; } ];
-        open-on-output = "eDP-1";
-      }
+      # {
+      #   matches = [ { app-id = "^thunderbird$"; } ];
+      #   open-on-output = "eDP-1";
+      # }
       {
         matches = [ { app-id = "^vesktop$"; } ];
         open-on-output = "eDP-1";

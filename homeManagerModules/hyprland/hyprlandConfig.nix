@@ -115,6 +115,7 @@ in
           "opaque, title:(.*)(Nexus - Mods and community — Mozilla Firefox)"
           "opaque, title:(.*)(Imgur: The magic of the Internet — Mozilla Firefox)"
           "opaque, initialTitle:(Discord Popout)"
+          "opaque, class:(thunderbird)"
         ];
 
         monitor = [ ",preferred,auto,1" ];

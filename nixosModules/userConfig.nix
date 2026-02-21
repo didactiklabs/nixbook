@@ -60,6 +60,26 @@ let
         udisks2.enable = true;
         devmon.enable = true;
       };
+      environment = {
+        systemPackages = with pkgs; [
+          libsForQt5.qt5ct
+          kdePackages.qt6ct
+          adwaita-qt
+        ];
+        sessionVariables = {
+          QT_QPA_PLATFORMTHEME = "qt5ct";
+        };
+        etc = {
+          "xdg/qt5ct/qt5ct.conf".text = ''
+            [Appearance]
+            style=adwaita-dark
+          '';
+          "xdg/qt6ct/qt6ct.conf".text = ''
+            [Appearance]
+            style=adwaita-dark
+          '';
+        };
+      };
       systemd.services.ydotoold = {
         enable = true;
       };
@@ -85,6 +105,20 @@ let
               enable = true;
               defaultApplications = {
                 "application/pdf" = "zathura.desktop"; # Set zathura as default for PDF
+                "image/png" = "imv.desktop";
+                "image/jpeg" = "imv.desktop";
+                "image/gif" = "imv.desktop";
+                "image/webp" = "imv.desktop";
+                "video/mp4" = "mpv.desktop";
+                "video/x-matroska" = "mpv.desktop";
+                "video/webm" = "mpv.desktop";
+                "video/quicktime" = "mpv.desktop";
+                "video/x-msvideo" = "mpv.desktop";
+                "video/x-flv" = "mpv.desktop";
+                "video/mpeg" = "mpv.desktop";
+                "video/ogg" = "mpv.desktop";
+                "video/3gpp" = "mpv.desktop";
+                "video/3gpp2" = "mpv.desktop";
                 "text/html" = "firefox.desktop";
                 "x-scheme-handler/http" = "firefox.desktop";
                 "x-scheme-handler/https" = "firefox.desktop";
@@ -125,10 +159,6 @@ let
               pkgs.wf-recorder
               pkgs.sway-contrib.grimshot
             ];
-            programs.go = {
-              enable = true;
-              env.GOPATH = "/home/${username}/go";
-            };
             # services.gammastep = { # dms handle this
             #   enable = true;
             #   dawnTime = "6:00-7:45";
@@ -151,7 +181,13 @@ let
                 NIXPKGS_ALLOW_UNFREE = 1;
               };
             };
-            programs.home-manager.enable = true;
+            programs = {
+              go = {
+                enable = true;
+                env.GOPATH = "/home/${username}/go";
+              };
+              home-manager.enable = true;
+            };
           };
           imports = lib.concatLists [
             mergedConfig.imports
@@ -184,6 +220,7 @@ let
               ../homeManagerModules/atuinConfig.nix
               ../homeManagerModules/dmsConfig.nix
               ../homeManagerModules/networkManagerApplet.nix
+              ../homeManagerModules/thunderbirdConfig.nix
               (import "${sources.agenix}/modules/age-home.nix")
             ]
             userImports

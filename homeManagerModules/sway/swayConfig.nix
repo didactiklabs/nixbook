@@ -160,6 +160,12 @@ in
                 app_id = "com.moonlight_stream.Moonlight";
               };
             }
+            {
+              command = "opacity 1.0";
+              criteria = {
+                app_id = "thunderbird";
+              };
+            }
           ];
 
           fonts = {

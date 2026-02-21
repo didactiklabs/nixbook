@@ -16,9 +16,10 @@
         size = 24;
       };
       autoEnable = true;
-      targets.dank-material-shell.enable = false;
-      targets.gtk.extraCss = ''
-      '';
+      targets = {
+        dank-material-shell.enable = false;
+        gtk.extraCss = "";
+      };
 
       fonts = {
         monospace = {

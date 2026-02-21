@@ -42,6 +42,19 @@
       "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/abb3d0e92265b7178f5d20c4c5f103072daf9483.tar.gz",
       "hash": "sha256-c6tOsL4XA40xja4kQj2mX4dpEu6lTjcUE0NGp9sx5+0="
     },
+    "dolphin-overlay": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "rumboon",
+        "repo": "dolphin-overlay"
+      },
+      "branch": "main",
+      "submodules": false,
+      "revision": "55fec3268972876890d6081d3d76a701c37c01d7",
+      "url": "https://github.com/rumboon/dolphin-overlay/archive/55fec3268972876890d6081d3d76a701c37c01d7.tar.gz",
+      "hash": "sha256-AHeavUWjnDPT/hffE5hM8RIew+mZJSSr9tUEiSvZW30="
+    },
     "ds4drv": {
       "type": "Git",
       "repository": {

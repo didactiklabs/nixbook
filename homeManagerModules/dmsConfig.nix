@@ -92,6 +92,7 @@ in
               "vpnStatus"
               "cpuUsage"
               "notificationButton"
+              "dankKDEConnect"
               "battery"
               "controlCenterButton"
               {
