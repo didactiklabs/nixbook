@@ -18,13 +18,6 @@
       autoEnable = true;
       targets.dank-material-shell.enable = false;
       targets.gtk.extraCss = ''
-        .thunar {
-          font-family: Roboto;
-          font-size: 10pt;
-          font-weight: 600;
-          -gtk-icon-theme: "Papirus-Dark";
-          -gtk-icon-theme: "Numix Square";
-        }
       '';
 
       fonts = {

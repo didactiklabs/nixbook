@@ -85,11 +85,17 @@ let
               enable = true;
               defaultApplications = {
                 "application/pdf" = "zathura.desktop"; # Set zathura as default for PDF
+                "text/html" = "firefox.desktop";
+                "x-scheme-handler/http" = "firefox.desktop";
+                "x-scheme-handler/https" = "firefox.desktop";
+                "inode/directory" = "org.kde.dolphin.desktop";
+                "x-scheme-handler/kdeconnect" = "org.kde.dolphin.desktop";
               };
             };
             services = {
               udiskie.enable = true;
               gnome-keyring.enable = true;
+              kdeconnect.enable = true;
             };
             dconf.settings."org/gnome/desktop/interface".font-name = lib.mkForce "Roboto";
             inherit (mergedConfig) customHomeManagerModules;
@@ -169,7 +175,7 @@ let
               ../homeManagerModules/starshipConfig.nix
               ../homeManagerModules/fastfetchConfig.nix
               ../homeManagerModules/desktopApps.nix
-              ../homeManagerModules/thunarConfig.nix
+              ../homeManagerModules/dolphinConfig.nix
               ../homeManagerModules/kubeTools.nix
               ../homeManagerModules/mpvConfig.nix
               ../homeManagerModules/k9sConfig.nix

@@ -55,6 +55,7 @@ in
       cups-pk-helper
       # global
       ginx
+      sshfs
       lsof
       osupdate
       ds4drv
@@ -326,6 +327,7 @@ in
     '';
   };
   programs = {
+    kdeconnect.enable = true;
     dsearch.enable = true;
     yubikey-touch-detector.enable = true;
     gnupg.agent = {
