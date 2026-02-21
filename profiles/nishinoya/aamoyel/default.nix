@@ -41,19 +41,14 @@ in
     swayConfig.enable = false;
     hyprlandConfig.enable = false;
     niriConfig.enable = true;
-    # https://github.com/adi1090x/rofi
-    rofiConfig.enable = false;
-    copyqConfig.enable = false;
     fastfetchConfig.enable = true;
     desktopApps.enable = true;
     vscode.enable = true;
-    swayncConfig.enable = false;
     kubeTools.enable = true;
     kubeConfig = {
       didactiklabs.enable = true;
       logicmg.enable = true;
     };
-    waybarConfig.enable = false;
     nixvimConfig.enable = true;
     gojiConfig.enable = true;
     atuinConfig.didactiklabs.enable = true;
@@ -61,8 +56,9 @@ in
     zshConfig.enable = true;
     kubeswitchConfig.enable = true;
     fcitx5Config.enable = true;
-    dmsConfig.enable = true;
-    dmsConfig.showDock = false;
-    dmsConfig.nixosUpdate.enable = true;
+    dmsConfig = {
+      enable = true;
+      showDock = false;
+    };
   };
 }

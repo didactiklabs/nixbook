@@ -113,5 +113,5 @@ in
 
   anyNixShellInit =
     shell:
-    "any-nix-shell ${shell} --info-right | source" + (if shell == "fish" then "" else " /dev/stdin");
+    "any-nix-shell ${shell} --info-right | source /dev/stdin";
 }

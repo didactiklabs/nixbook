@@ -7,7 +7,6 @@ let
   cfg = config.customHomeManagerModules;
 in
 {
-  # https://github.com/adi1090x/rofi
   config = lib.mkIf cfg.atuinConfig.didactiklabs.enable {
     programs = {
       atuin = {

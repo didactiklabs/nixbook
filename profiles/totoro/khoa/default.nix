@@ -40,16 +40,11 @@ in
     swayConfig.enable = false;
     hyprlandConfig.enable = false;
     niriConfig.enable = true;
-    # https://github.com/adi1090x/rofi
-    rofiConfig.enable = false;
-    copyqConfig.enable = false;
     fastfetchConfig.enable = true;
     desktopApps.enable = true;
-    swayncConfig.enable = false;
     kubeTools.enable = true;
     kubeConfig.didactiklabs.enable = true;
     kubeConfig.bealv.enable = true;
-    waybarConfig.enable = false;
     nixvimConfig.enable = true;
     gojiConfig.enable = true;
     atuinConfig.didactiklabs.enable = true;

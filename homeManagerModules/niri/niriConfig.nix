@@ -9,8 +9,6 @@ let
   mainWallpaper = "${config.profileCustomization.mainWallpaper}";
   lockWallpaper = "${config.profileCustomization.lockWallpaper}";
   startup_audio = "${config.profileCustomization.startup_audio}";
-  rofi = "${pkgs.rofi}/bin/rofi";
-  waybar = "${pkgs.waybar}/bin/waybar";
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
   pidof = "${pkgs.sysvtools}/bin/pidof";
   hyprlock = "${pkgs.hyprlock}/bin/hyprlock";
@@ -199,11 +197,6 @@ in
             ];
           }
         ]
-        ++ lib.optionals cfg.waybarConfig.enable [
-          {
-            command = [ "${waybar}" ];
-          }
-        ]
         ++ [
           {
             command = [
@@ -212,15 +205,6 @@ in
               "fill"
               "-i"
               mainWallpaper
-            ];
-          }
-        ]
-        ++ lib.optionals cfg.swayncConfig.enable [
-          {
-            command = [
-              "${pkgs.bash}/bin/bash"
-              "-c"
-              "sleep 2 && ${pkgs.swaynotificationcenter}/bin/swaync-client --reload-css && ${pkgs.swaynotificationcenter}/bin/swaync-client --reload-config"
             ];
           }
         ]
@@ -316,13 +300,6 @@ in
             };
             clip-to-geometry = true;
             draw-border-with-background = false;
-          }
-          {
-            matches = [ { app-id = "^com\\.github\\.hluk\\.copyq$"; } ];
-            default-column-width = {
-              proportion = 0.4;
-            };
-            open-floating = true;
           }
           {
             matches = [ { app-id = "^mpv$"; } ];
@@ -585,13 +562,6 @@ in
                 "toggle"
               ];
             }
-          else if cfg.swayncConfig.enable then
-            {
-              "Mod+N".action.spawn = [
-                "${pkgs.swaynotificationcenter}/bin/swaync-client"
-                "-t"
-              ];
-            }
           else
             { }
         )
@@ -618,13 +588,7 @@ in
                 ];
               }
           else
-            lib.optionalAttrs cfg.waybarConfig.enable {
-              "Mod+B".action.spawn = [
-                "${pkgs.toybox}/bin/pkill"
-                "-SIGUSR1"
-                "waybar"
-              ];
-            }
+            { }
         )
         // (
           if cfg.dmsConfig.enable then
@@ -634,13 +598,6 @@ in
                 "ipc"
                 "call"
                 "clipboard"
-                "toggle"
-              ];
-            }
-          else if cfg.copyqConfig.enable then
-            {
-              "Mod+Q".action.spawn = [
-                "${pkgs.copyq}/bin/copyq"
                 "toggle"
               ];
             }
@@ -658,16 +615,6 @@ in
                 "toggle"
               ];
             }
-          else if cfg.rofiConfig.enable then
-            {
-              "Mod+D".action.spawn = [
-                "${rofi}"
-                "-show"
-                "drun"
-                "-theme"
-                ".config/rofi/launchers/type-1/style-landscape.rasi"
-              ];
-            }
           else
             { }
         )
@@ -680,14 +627,6 @@ in
                 "call"
                 "powermenu"
                 "toggle"
-              ];
-            }
-          else if cfg.rofiConfig.enable then
-            {
-              "Mod+L".action.spawn = [
-                "bash"
-                "-c"
-                "~/.config/rofiScripts/rofiLockScript.sh style-1"
               ];
             }
           else

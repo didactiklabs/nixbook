@@ -10,8 +10,6 @@ let
   lockWallpaper = "${config.profileCustomization.lockWallpaper}";
   swaylock = "${pkgs.swaylock}/bin/swaylock";
   swaymsg = "${pkgs.sway}/bin/swaymsg";
-  waybar = "${pkgs.waybar}/bin/waybar";
-  rofi = "${pkgs.rofi}/bin/rofi";
   playerctl = "${pkgs.playerctl}/bin/playerctl";
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
   grimshot = "${pkgs.sway-contrib.grimshot}/bin/grimshot";
@@ -99,7 +97,6 @@ in
           set $workspace8  ${workspace8}
           set $workspace9  ${workspace9}
           set $workspace10 ${workspace10}
-          layer_effects waybar blur enable
           include /etc/sway/config.d/*
         '';
         config = {
@@ -158,12 +155,6 @@ in
               };
             }
             {
-              command = "floating enable, sticky enable, resize set height 600px width 550px, move position cursor, move down 330";
-              criteria = {
-                app_id = "copyq";
-              };
-            }
-            {
               command = "opacity 1.0";
               criteria = {
                 app_id = "com.moonlight_stream.Moonlight";
@@ -218,51 +209,7 @@ in
               text = lib.mkDefault "${colorWhite}";
             };
           };
-
-          bars = lib.mkIf cfg.waybarConfig.enable [
-            {
-              position = "top";
-              command = "${waybar}";
-              fonts = {
-                names = [
-                  "Roboto"
-                  "FontAwesome"
-                ];
-                style = "Bold";
-                size = 9.0;
-              };
-              colors = {
-                background = "${colorDarkGrey}";
-                separator = "${colorWhite}";
-                activeWorkspace = {
-                  background = "${colorDarkGrey}";
-                  border = "${colorDarkGrey}";
-                  text = "${colorWhite}";
-                };
-                inactiveWorkspace = {
-                  background = "${colorDarkGrey}";
-                  border = "${colorDarkGrey}";
-                  text = "${colorWhite}";
-                };
-                focusedWorkspace = {
-                  background = "${colorLightGrey}";
-                  border = "${colorDarkGrey}";
-                  text = "${colorWhite}";
-                };
-                bindingMode = {
-                  background = "${colorRed}";
-                  border = "${colorRed}";
-                  text = "${colorWhite}";
-                };
-                urgentWorkspace = {
-                  background = "${colorRed}";
-                  border = "${colorRed}";
-                  text = "${colorWhite}";
-                };
-              };
-            }
-          ];
-
+ 
           keybindings = lib.filterAttrsRecursive (name: value: value != null) {
             #lib.mkOptionDefault {
             # Focus
@@ -280,16 +227,12 @@ in
               if cfg.dmsConfig.enable then
                 "exec dms ipc call powermenu toggle"
               else
-                lib.mkIf cfg.rofiConfig.enable ''
-                  exec $HOME/.config/rofiScripts/rofiLockScript.sh style-1
-                '';
+                null;
             "${mod}+d" =
               if cfg.dmsConfig.enable then
                 "exec dms ipc call spotlight toggle"
               else
-                lib.mkIf cfg.rofiConfig.enable ''
-                  exec "${rofi} -show drun -theme $HOME/.config/rofi/launchers/type-1/style-landscape.rasi"
-                '';
+                null;
 
             # Brightness
             "XF86MonBrightnessDown" = "exec ${brightnessctl} set 10%-";
@@ -298,8 +241,6 @@ in
             "${mod}+n" =
               if cfg.dmsConfig.enable then
                 "exec dms ipc call notifications toggle"
-              else if cfg.swayncConfig.enable then
-                "exec ${pkgs.swaynotificationcenter}/bin/swaync-client -t"
               else
                 null;
 
@@ -355,7 +296,7 @@ in
               if cfg.dmsConfig.enable then
                 "exec dms ipc call clipboard toggle"
               else
-                lib.mkIf cfg.copyqConfig.enable "exec ${pkgs.copyq}/bin/copyq toggle";
+                null;
             "${mod}+i" = if cfg.dmsConfig.enable then "exec dms ipc call inhibit toggle" else null;
             "${mod}+w" = if cfg.dmsConfig.enable then "exec dms ipc call dankdash wallpaper" else null;
             "${mod}+o" = if cfg.dmsConfig.enable then "exec dms ipc call dash toggle overview" else null;
