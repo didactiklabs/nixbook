@@ -19,7 +19,7 @@
       targets.dank-material-shell.enable = false;
       targets.gtk.extraCss = ''
         .thunar {
-          font-family: Quicksand;
+          font-family: Roboto;
           font-size: 10pt;
           font-weight: 600;
           -gtk-icon-theme: "Papirus-Dark";
@@ -29,16 +29,16 @@
 
       fonts = {
         monospace = {
-          name = "Quicksand";
-          package = pkgs.quicksand;
+          name = "Roboto Mono";
+          package = pkgs.roboto-mono;
         };
         sansSerif = {
-          name = "Quicksand";
-          package = pkgs.quicksand;
+          name = "Roboto";
+          package = pkgs.roboto;
         };
         serif = {
-          name = "Quicksand";
-          package = pkgs.quicksand;
+          name = "Roboto Serif";
+          package = pkgs.roboto-serif;
         };
       };
     }

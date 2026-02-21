@@ -1,5 +1,5 @@
 configuration {
-    font:                        "JetBrains Mono Nerd Font 10";
+    font:                        "Roboto Mono 10";
     show-icons:                  true;
     display-drun:                "";
     drun-display-format:         "{name}";

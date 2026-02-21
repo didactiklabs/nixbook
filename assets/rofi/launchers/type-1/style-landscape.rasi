@@ -74,7 +74,7 @@ prompt {
     enabled:                     true;
     background-color:            inherit;
     text-color:                  @active-background;
-    font:                        "JetBrains Mono Nerd Font Bold 11";
+    font:                        "Roboto Mono Bold 11";
 }
 
 entry {
@@ -84,7 +84,7 @@ entry {
     cursor:                      text;
     placeholder:                 "Search applications...";
     placeholder-color:           @active-background;
-    font:                        "JetBrains Mono Nerd Font 11";
+    font:                        "Roboto Mono 11";
 }
 
 listview {
@@ -154,7 +154,7 @@ element-text {
     cursor:                      inherit;
     vertical-align:              0.5;
     horizontal-align:            0.5;
-    font:                        "JetBrains Mono Nerd Font 9";
+    font:                        "Roboto Mono 9";
 }
 
 scrollbar {
