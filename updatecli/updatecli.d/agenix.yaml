@@ -1,5 +1,5 @@
 # manifest.yaml
-name: hyprfocus Update
+name: agenix Update
 scms:
   default:
     kind: 'github'
@@ -13,22 +13,25 @@ scms:
 # Defines how to get "source" information such as Jenkins version
 sources:
   default:
-    name: Get latest revision from GitHub
-    kind: shell
+    name: Get latest release from GitHub
+    kind: githubrelease
     spec:
-      command: git ls-remote https://github.com/daxisunder/hyprfocus main | awk '{print $1}'
+      owner: ryantm
+      repository: agenix
+      token: '{{ requiredEnv "UPDATECLI_GITHUB_TOKEN" }}'
+      username: '{{ requiredEnv "GITHUB_ACTOR" }}'
 # Defines "conditions" required to update targets
 conditions: {}
 # Defines "targets" which need to be updated if different than "source" information.
 targets:
   default:
-    name: hyprfocus npins update
+    name: agenix npins update
     kind: shell
     scmid: 'default'
     spec:
       environments:
         - name: PATH
-      command: nix run nixpkgs/nixos-unstable#npins -- update hyprfocus
+      command: nix run nixpkgs/nixos-unstable#npins -- update agenix
       files:
         - npins/sources.json
 # Define action configurations if one needs to be created
@@ -39,6 +42,6 @@ actions:
     spec:
       mergemethod: 'rebase'
       automerge: true
-      description: 'Update hyprfocus npins.'
+      description: 'Update agenix npins.'
       draft: false
-      title: 'UPDATECLI: Update hyprfocus'
+      title: 'UPDATECLI: Update agenix'

@@ -13,22 +13,12 @@ scms:
 # Defines how to get "source" information such as Jenkins version
 sources:
   default:
-    name: Get value from json
-    scmid: 'default'
-    kind: json
-    spec:
-      file: npins/sources.json
-      key: pins.niri-flake.revision
-# Defines "conditions" required to update targets
-conditions:
-  default:
-    name: Check if revision is the same
-    scmid: 'default'
+    name: Get latest revision from GitHub
     kind: shell
     spec:
-      environments:
-        - name: PATH
-      command: test $(git ls-remote https://github.com/sodiboo/niri-flake main | head -n 1 | awk '{print $1}') !=
+      command: git ls-remote https://github.com/sodiboo/niri-flake main | awk '{print $1}'
+# Defines "conditions" required to update targets
+conditions: {}
 # Defines "targets" which need to be updated if different than "source" information.
 targets:
   default:
