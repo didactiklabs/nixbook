@@ -31,16 +31,6 @@ in
       default = false;
       description = "Show the dock";
     };
-    nixosUpdate.enable = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
-      description = "Enable NixOS update plugin";
-    };
-    sathiAi.enable = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
-      description = "Enable Sathi AI plugin";
-    };
   };
 
   config = lib.mkIf config.customHomeManagerModules.dmsConfig.enable {
@@ -87,9 +77,7 @@ in
             showOnLastDisplay = true;
             leftWidgets = [
               "launcherButton"
-            ]
-            ++ lib.optional config.customHomeManagerModules.dmsConfig.nixosUpdate.enable "nixosUpdate"
-            ++ [
+              "nixosUpdate"
               "workspaceSwitcher"
               "focusedWindow"
               "idleInhibitor"
@@ -110,8 +98,8 @@ in
                 id = "powerMenuButton";
                 enabled = true;
               }
-            ]
-            ++ lib.optional config.customHomeManagerModules.dmsConfig.sathiAi.enable "sathiAi";
+              "sathiAi"
+            ];
             spacing = 4;
             innerPadding = 4;
             bottomGap = 0;
@@ -163,10 +151,10 @@ in
           src = ../assets/dms/plugins/vpn-dms;
         };
         sathiAi = {
-          inherit (config.customHomeManagerModules.dmsConfig.sathiAi) enable;
+          enable = true;
         };
         nixosUpdate = {
-          inherit (config.customHomeManagerModules.dmsConfig.nixosUpdate) enable;
+          enable = true;
           src = ../assets/dms/plugins/nixos-update;
         };
       };
