@@ -24,6 +24,7 @@ PluginComponent {
     property string changelogText: ""
     property string changelogBuffer: ""
     property bool updating: false
+    property bool checking: false
 
     layerNamespacePlugin: "nixosUpdate"
     popoutWidth: 320
@@ -43,6 +44,8 @@ PluginComponent {
     }
 
     function checkUpdate() {
+        if (root.checking) return
+        root.checking = true
         jsonBuffer = ""
         versionProcess.running = true
     }
@@ -70,10 +73,15 @@ PluginComponent {
 
                     if (root.localRev !== "Unknown") {
                         remoteProcess.running = true
+                    } else {
+                        root.checking = false
                     }
                 } catch (e) {
                     console.log("Error parsing /etc/nixos/version: " + e)
+                    root.checking = false
                 }
+            } else {
+                root.checking = false
             }
         }
     }
@@ -92,6 +100,8 @@ PluginComponent {
         onExited: (code) => {
             if (code === 0) {
                 compareRevs()
+            } else {
+                root.checking = false
             }
         }
     }
@@ -111,6 +121,7 @@ PluginComponent {
             changelogProcess.running = true
         } else {
             root.changelogText = ""
+            root.checking = false
         }
     }
 
@@ -123,6 +134,7 @@ PluginComponent {
             }
         }
         onExited: (code) => {
+            root.checking = false
             if (code === 0 && root.changelogBuffer.trim() !== "") {
                 try {
                     var data = JSON.parse(root.changelogBuffer)
@@ -180,11 +192,16 @@ PluginComponent {
                     size: Theme.iconSize
                     color: root.updateAvailable ? Theme.primary : Theme.surfaceVariantText
                     anchors.verticalCenter: parent.verticalCenter
+                    RotationAnimator on rotation {
+                        from: 0; to: 360; duration: 1000
+                        loops: Animation.Infinite
+                        running: root.checking || root.updating
+                    }
                 }
                 
                 StyledText {
-                    visible: root.updateAvailable
-                    text: "Update"
+                    visible: root.updateAvailable || root.checking || root.updating
+                    text: root.updating ? "Updating" : (root.checking ? "Checking" : "Update")
                     font.pixelSize: Theme.fontSizeSmall
                     font.weight: Font.Bold
                     color: Theme.surfaceText
@@ -209,11 +226,16 @@ PluginComponent {
                     size: Theme.iconSize
                     color: root.updateAvailable ? Theme.primary : Theme.surfaceVariantText
                     anchors.horizontalCenter: parent.horizontalCenter
+                    RotationAnimator on rotation {
+                        from: 0; to: 360; duration: 1000
+                        loops: Animation.Infinite
+                        running: root.checking || root.updating
+                    }
                 }
                 
                 StyledText {
-                    visible: root.updateAvailable
-                    text: "Upd"
+                    visible: root.updateAvailable || root.checking || root.updating
+                    text: root.updating ? "Upd..." : (root.checking ? "Chk..." : "Upd")
                     font.pixelSize: Theme.fontSizeSmall
                     font.weight: Font.Bold
                     color: Theme.surfaceText
@@ -227,7 +249,7 @@ PluginComponent {
         PopoutComponent {
             id: popout
             headerText: "NixOS Update"
-            detailsText: root.updateAvailable ? "New version available" : "System up to date"
+            detailsText: root.updating ? "Updating system..." : (root.checking ? "Checking for updates..." : (root.updateAvailable ? "New version available" : "System up to date"))
             showCloseButton: true
 
             ColumnLayout {
@@ -252,6 +274,7 @@ PluginComponent {
                         MouseArea {
                             anchors.fill: parent
                             hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
                             onEntered: parent.text = root.localRev
                             onExited: parent.text = root.localRev.substring(0, 7) + "..."
                         }
@@ -276,6 +299,7 @@ PluginComponent {
                         MouseArea {
                             anchors.fill: parent
                             hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
                             onEntered: parent.text = root.remoteRev
                             onExited: parent.text = (root.remoteRev !== "Unknown" ? root.remoteRev.substring(0, 7) + "..." : "Unknown")
                         }
@@ -367,7 +391,8 @@ PluginComponent {
 
                 DankButton {
                     Layout.fillWidth: true
-                    text: "Check for Updates"
+                    text: root.checking ? "Checking..." : "Check for Updates"
+                    enabled: !root.checking && !root.updating
                     onClicked: {
                         root.checkUpdate()
                     }
