@@ -60,8 +60,6 @@ in
     dmsConfig = {
       enable = true;
       showDock = true;
-      nixosUpdate.enable = true;
-      sathiAi.enable = true;
     };
   };
 }
