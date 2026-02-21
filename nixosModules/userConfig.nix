@@ -68,7 +68,6 @@ let
           enable = true; # clipboard prerequisite
         };
         zsh.enable = true;
-        fish.enable = true;
       };
       users.users."${username}" = {
         inherit shell;
@@ -160,28 +159,21 @@ let
               ../homeManagerModules/niri
               ../homeManagerModules/vscode
               ../homeManagerModules/kittyConfig.nix
-              # ../homeManagerModules/ghosttyConfig.nix
               ../homeManagerModules/fcitx5Config.nix
               ../homeManagerModules/zshConfig.nix
-              ../homeManagerModules/fishConfig.nix
               ../homeManagerModules/kubeswitchConfig.nix
-              ../homeManagerModules/leadrConfig.nix
               ../homeManagerModules/fontConfig.nix
               ../homeManagerModules/gitConfig.nix
               ../homeManagerModules/gtkConfig.nix
               ../homeManagerModules/sshConfig.nix
               ../homeManagerModules/starshipConfig.nix
-              ../homeManagerModules/rofiConfig.nix
-              ../homeManagerModules/copyqConfig.nix
               ../homeManagerModules/fastfetchConfig.nix
               ../homeManagerModules/desktopApps.nix
               ../homeManagerModules/thunarConfig.nix
-              ../homeManagerModules/waybarConfig.nix
               ../homeManagerModules/kubeTools.nix
               ../homeManagerModules/mpvConfig.nix
               ../homeManagerModules/k9sConfig.nix
               ../homeManagerModules/scripts
-              ../homeManagerModules/swayncConfig.nix
               ../homeManagerModules/goji.nix
               ../homeManagerModules/atuinConfig.nix
               ../homeManagerModules/dmsConfig.nix

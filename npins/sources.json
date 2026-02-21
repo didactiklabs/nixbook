@@ -191,18 +191,6 @@
       "url": "https://github.com/danielfoehrKn/kubeswitch/archive/21becc509258bcd0e33fad690066d133a710cac4.tar.gz",
       "hash": "sha256-VekAvUXmwDZOFb0za3iLx2HCfrmNwYVc7ygZkdTyTpo="
     },
-    "leadr": {
-      "type": "Git",
-      "repository": {
-        "type": "Git",
-        "url": "https://github.com/Banh-Canh/leadr"
-      },
-      "branch": "feat/fish",
-      "submodules": false,
-      "revision": "fffa74e1b7598d18d2109ebe85fedbdc1ccff61c",
-      "url": null,
-      "hash": "sha256-QF0qufxb0CLhAFaOIhulbLAU/X35LT/tayAGSvxhfvM="
-    },
     "niri-flake": {
       "type": "Git",
       "repository": {
@@ -316,19 +304,6 @@
       "revision": "dacfa9de829ac7cb173825f593236bf2c21f637e",
       "url": "https://git.outfoxxed.me/quickshell/quickshell/archive/dacfa9de829ac7cb173825f593236bf2c21f637e.tar.gz",
       "hash": "sha256-ngXnN5YXu+f45+QGYNN/VEBMQmcBCYGRCqwaK8cxY1s="
-    },
-    "rofi": {
-      "type": "Git",
-      "repository": {
-        "type": "GitHub",
-        "owner": "adi1090x",
-        "repo": "rofi"
-      },
-      "branch": "master",
-      "submodules": false,
-      "revision": "093c1a79f58daab358199c4246de50357e5bf462",
-      "url": "https://github.com/adi1090x/rofi/archive/093c1a79f58daab358199c4246de50357e5bf462.tar.gz",
-      "hash": "sha256-iUX0Quae06tGd7gDgXZo1B3KYgPHU+ADPBrowHlv02A="
     },
     "songbird": {
       "type": "GitRelease",

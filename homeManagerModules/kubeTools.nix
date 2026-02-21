@@ -102,15 +102,6 @@ in
           pctl = "cli";
         };
       };
-      fish = lib.mkIf (config.customHomeManagerModules.fishConfig.enable or false) {
-        shellInit = ''
-          songbird completion fish | source
-        '';
-        shellAliases = {
-          k = "kubectl";
-          pctl = "cli";
-        };
-      };
     };
   };
 }

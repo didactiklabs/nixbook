@@ -28,14 +28,9 @@ in
         enable = true;
         shellIntegration = {
           enableZshIntegration = true;
-          enableFishIntegration = config.customHomeManagerModules.fishConfig.enable or false;
         };
         settings = {
-          shell =
-            if (config.customHomeManagerModules.fishConfig.enable or false) then
-              "${pkgs.fish}/bin/fish"
-            else
-              "${pkgs.zsh}/bin/zsh";
+          shell = "${pkgs.zsh}/bin/zsh";
           copy_on_select = true;
           font_size = lib.mkForce "10.0";
           font_family = "Roboto Mono";
@@ -94,18 +89,6 @@ in
         };
         initContent = ''
           [[ "$TERM" == "xterm-kitty" ]] && alias ssh="TERM=xterm-256color ssh"
-        '';
-      };
-      fish = {
-        shellAliases = {
-          sshs = ''
-            sshs --template "kitty +kitten ssh {{#if user}}{{user}}@{{/if}}{{destination}}{{#if port}} -p{{port}}{{/if}}"
-          '';
-        };
-        shellInit = ''
-          if test "$TERM" = "xterm-kitty"
-              alias ssh="env TERM=xterm-256color ssh"
-          end
         '';
       };
       vscode = {
