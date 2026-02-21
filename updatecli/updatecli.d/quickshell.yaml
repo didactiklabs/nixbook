@@ -1,5 +1,5 @@
 # manifest.yaml
-name: hyprfocus Update
+name: quickshell Update
 scms:
   default:
     kind: 'github'
@@ -13,22 +13,22 @@ scms:
 # Defines how to get "source" information such as Jenkins version
 sources:
   default:
-    name: Get latest revision from GitHub
+    name: Get latest revision from Forgejo
     kind: shell
     spec:
-      command: git ls-remote https://github.com/daxisunder/hyprfocus main | awk '{print $1}'
+      command: git ls-remote https://git.outfoxxed.me/quickshell/quickshell master | awk '{print $1}'
 # Defines "conditions" required to update targets
 conditions: {}
 # Defines "targets" which need to be updated if different than "source" information.
 targets:
   default:
-    name: hyprfocus npins update
+    name: quickshell npins update
     kind: shell
     scmid: 'default'
     spec:
       environments:
         - name: PATH
-      command: nix run nixpkgs/nixos-unstable#npins -- update hyprfocus
+      command: nix run nixpkgs/nixos-unstable#npins -- update quickshell
       files:
         - npins/sources.json
 # Define action configurations if one needs to be created
@@ -39,6 +39,6 @@ actions:
     spec:
       mergemethod: 'rebase'
       automerge: true
-      description: 'Update hyprfocus npins.'
+      description: 'Update quickshell npins.'
       draft: false
-      title: 'UPDATECLI: Update hyprfocus'
+      title: 'UPDATECLI: Update quickshell'

@@ -13,22 +13,15 @@ scms:
 # Defines how to get "source" information such as Jenkins version
 sources:
   default:
-    name: Get value from json
-    scmid: 'default'
-    kind: json
+    name: Get latest release from GitHub
+    kind: githubrelease
     spec:
-      file: npins/sources.json
-      key: pins.songbird.revision
+      owner: banh-canh
+      repository: songbird
+      token: '{{ requiredEnv "UPDATECLI_GITHUB_TOKEN" }}'
+      username: '{{ requiredEnv "GITHUB_ACTOR" }}'
 # Defines "conditions" required to update targets
-conditions:
-  default:
-    name: Check if revision is the same
-    scmid: 'default'
-    kind: shell
-    spec:
-      environments:
-        - name: PATH
-      command: test $(git ls-remote https://github.com/banh-canh/songbird main | head -n 1 | awk '{print $1}') !=
+conditions: {}
 # Defines "targets" which need to be updated if different than "source" information.
 targets:
   default:
