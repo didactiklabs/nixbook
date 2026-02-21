@@ -21,6 +21,24 @@ in
     programs = {
       zathura.enable = true;
       imv.enable = true;
+      vesktop = {
+        enable = true;
+        settings = {
+          discordBranch = "stable";
+          splashColor = "rgb(220, 220, 223)";
+          splashBackground = "rgb(0, 0, 0)";
+          splashTheming = true;
+          minimizeToTray = false;
+          checkUpdates = false;
+          arRPC = true;
+          spellCheckLanguages = [
+            "en-US"
+            "fr-FR"
+            "c"
+          ];
+          hardwareVideoAcceleration = true;
+        };
+      };
     };
     home.packages = with pkgs; [
       # apps
@@ -29,10 +47,8 @@ in
       obs-studio
       localsend # send files with other devices (android etc..) on LAN
       wdisplays # display manager
-      vesktop # discord
       firefox
       pinta # paint
-      neovide # GUI frontend for neovim
     ];
   };
 }
