@@ -297,7 +297,7 @@ PluginComponent {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 150
                         color: Theme.surfaceVariant
-                        radius: Theme.radiusS
+                        radius: Theme.cornerRadius
                         
                         Flickable {
                             id: changelogFlickable
@@ -338,7 +338,7 @@ PluginComponent {
                     Layout.minimumHeight: 200
                     visible: root.updateOutput !== ""
                     color: Theme.surfaceVariant
-                    radius: Theme.radiusS
+                    radius: Theme.cornerRadius
                     
                     Flickable {
                         id: logFlickable
