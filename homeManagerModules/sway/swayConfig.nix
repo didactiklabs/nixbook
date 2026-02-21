@@ -173,7 +173,7 @@ in
 
           fonts = {
             names = [
-              "Hack Nerd Font"
+              "Roboto"
               "FontAwesome"
             ];
             style = "Bold";
@@ -225,7 +225,7 @@ in
               command = "${waybar}";
               fonts = {
                 names = [
-                  "Hack Nerd Font"
+                  "Roboto"
                   "FontAwesome"
                 ];
                 style = "Bold";

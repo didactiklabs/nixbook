@@ -24,9 +24,9 @@ in
       # cf https://nixos.wiki/wiki/Fonts
       fontconfig.enable = true;
       fontconfig.defaultFonts = {
-        monospace = [ "Quicksand" "Hack Nerd Font" ];
-        sansSerif = [ "Quicksand" ];
-        serif = [ "Quicksand" ];
+        monospace = [ "Roboto Mono" ];
+        sansSerif = [ "Roboto" ];
+        serif = [ "Roboto Serif" ];
         emoji = [ "Noto Color Emoji" ];
       };
     };
@@ -36,7 +36,10 @@ in
       iosevka
       jetbrains-mono
       pkgs.inter
-      pkgs.quicksand
+      pkgs.roboto
+      pkgs.roboto-mono
+      pkgs.roboto-serif
+      pkgs.material-design-icons
       pkgs.font-awesome
     ];
   };

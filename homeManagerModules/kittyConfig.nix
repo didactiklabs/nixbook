@@ -38,7 +38,7 @@ in
               "${pkgs.zsh}/bin/zsh";
           copy_on_select = true;
           font_size = lib.mkForce "10.0";
-          font_family = "Quicksand Bold";
+          font_family = "Roboto Mono";
           confirm_os_window_close = 0;
           cursor_blink_interval = "0.5";
           mouse_hide_wait = "3.0";

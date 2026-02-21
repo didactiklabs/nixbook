@@ -131,8 +131,8 @@ in
             widgetOutlineOpacity = 1.0;
             widgetOutlineThickness = 1;
             fontScale = 1.0;
-            fontFamily = "Hack Nerd Font"; # Added to fix missing tray icons
-            monoFontFamily = "Fira Code";
+            fontFamily = "Roboto"; # Added to fix missing tray icons
+            monoFontFamily = "Roboto Mono";
             autoHide = false;
             autoHideDelay = 250;
             showOnWindowsOpen = false;

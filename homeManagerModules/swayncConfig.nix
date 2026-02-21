@@ -25,7 +25,7 @@ in
       style = ''
         /* --- General --- */
         * {
-            font-family: Quicksand, sans-serif;
+            font-family: Roboto, sans-serif;
             font-size: 14px;
             color: #${config.stylix.base16Scheme.base05};
         }
