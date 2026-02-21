@@ -6,8 +6,8 @@
 }:
 let
   cfg = config.customHomeManagerModules;
-  mainWallpaper = "${config.profileCustomization.mainWallpaper}";
-  lockWallpaper = "${config.profileCustomization.lockWallpaper}";
+  mainWallpaper = config.stylix.image;
+  lockWallpaper = config.stylix.image;
   startup_audio = "${config.profileCustomization.startup_audio}";
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
   pidof = "${pkgs.sysvtools}/bin/pidof";
@@ -277,12 +277,12 @@ in
           };
         };
 
-        # layer-rules = [
-        #   {
-        #     matches = [ { namespace = "^wallpaper$"; } ];
-        #     place-within-backdrop = true;
-        #   }
-        # ];
+        layer-rules = [
+          {
+            matches = [ { namespace = "^wallpaper$"; } ];
+            place-within-backdrop = true;
+          }
+        ];
 
         window-rules = [
           {
