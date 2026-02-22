@@ -24,30 +24,70 @@ let
 
     echo "🤖 Generating commit message with OpenCode AI..."
 
+    # Get valid types from config
+    TYPES=$(echo '${gojiJson}' | ${pkgs.jq}/bin/jq -r '.types[].name' | xargs | sed 's/ /, /g')
+
+    # Extract hints and filter arguments
+    TYPE_HINT=""
+    SCOPE_HINT=""
+    OTHER_ARGS=()
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        -t|--type) TYPE_HINT="$2"; shift 2 ;;
+        -s|--scope) SCOPE_HINT="$2"; shift 2 ;;
+        *) OTHER_ARGS+=("$1"); shift ;;
+      esac
+    done
+
+    HINTS=""
+    if [ -n "$TYPE_HINT" ]; then HINTS+="The user explicitly wants type: $TYPE_HINT. "; fi
+    if [ -n "$SCOPE_HINT" ]; then HINTS+="The user explicitly wants scope: $SCOPE_HINT. "; fi
+
     # Build the prompt
-    # We request a conventional commit format (type: description)
-    PROMPT="Analyze the following git diff and generate a concise conventional commit message.
-    Follow the conventional commits specification (e.g., feat: add login functionality).
-    Do not include emojis.
-    Output ONLY the commit message text, nothing else.
+    PROMPT="Analyze the following git diff and generate a conventional commit.
+    Available types: $TYPES
+    $HINTS
+
+    If type or scope are provided in 'HINTS', use them. Otherwise, determine the most appropriate ones from the diff.
+
+    Output a JSON object with exactly these fields:
+    - type: The commit type (must be one of the available types)
+    - scope: A short scope (optional, use null if no clear scope exists)
+    - subject: A concise description of the change
+
+    Output ONLY the JSON object, no markdown, no backticks.
 
     Diff:
     $DIFF"
 
-    # Call opencode run to get the message
-    # Use --format json for reliable parsing
-    COMMIT_MSG=$(opencode run "$PROMPT" --format json | ${pkgs.jq}/bin/jq -r 'select(.type=="text") | .part.text' | tr -d '\r' | xargs)
+    # Call opencode run
+    RESPONSE=$(opencode run "$PROMPT" --format json | ${pkgs.jq}/bin/jq -r 'select(.type=="text") | .part.text' | tr -d '\r')
 
-    if [ -z "$COMMIT_MSG" ]; then
-        echo "❌ Error: Failed to generate a commit message."
+    # Extract values
+    TYPE=$(echo "$RESPONSE" | ${pkgs.jq}/bin/jq -r '.type // empty')
+    SCOPE=$(echo "$RESPONSE" | ${pkgs.jq}/bin/jq -r '.scope // empty')
+    SUBJECT=$(echo "$RESPONSE" | ${pkgs.jq}/bin/jq -r '.subject // empty')
+
+    if [ -z "$SUBJECT" ] || [ "$SUBJECT" == "null" ]; then
+        echo "❌ Error: Failed to generate a valid commit message."
+        echo "AI Response: $RESPONSE"
         exit 1
     fi
 
-    echo "✨ Generated message: $COMMIT_MSG"
+    # Build goji command
+    GOJI_ARGS=("-m" "$SUBJECT" "-t" "$TYPE")
+    if [ -n "$SCOPE" ] && [ "$SCOPE" != "null" ]; then
+        GOJI_ARGS+=("-s" "$SCOPE")
+    fi
 
-    # Run goji with the generated message
-    # Any additional arguments passed to this script will be forwarded to goji
-    ${goji}/bin/goji -m "$COMMIT_MSG" "$@"
+    FULL_MSG="$TYPE"
+    [ -n "$SCOPE" ] && [ "$SCOPE" != "null" ] && FULL_MSG+="($SCOPE)"
+    FULL_MSG+=": $SUBJECT"
+
+    echo "✨ Generated: $FULL_MSG"
+
+    # Run goji
+    ${goji}/bin/goji "''${GOJI_ARGS[@]}" "''${OTHER_ARGS[@]}"
   '';
   gojiJson = ''
     {
