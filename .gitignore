@@ -2,3 +2,4 @@
 .swp
 hardware-configuration.nix
 result
+.*

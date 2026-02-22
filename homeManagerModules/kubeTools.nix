@@ -6,22 +6,6 @@
 }:
 let
   cfg = config.customHomeManagerModules;
-  # homeDir = config.home.homeDirectory;
-  # didactiklabsPart = lib.optionalString cfg.kubeConfig.didactiklabs.enable ''
-  #   - kind: capi
-  #     config:
-  #       kubeconfigPath: '${homeDir}/.kube/configs/didactiklabs/oidc@didactiklabs.kubeconfig'
-  # '';
-  # kubeswitch = pkgs.kubeswitch.overrideAttrs (old: {
-  #   src = sources.kubeswitch;
-  # });
-  # k9s = pkgs.k9s.overrideAttrs (oldAttrs: {
-  #   src = sources.k9s;
-  #   vendorHash = "sha256-MOTDKPo433YU9mYg9olKSvbLqjIgmXI91593c1zXMVU=";
-  # });
-
-  sources = import ../npins;
-  pkgs-unstable = import sources.nixpkgs-unstable { };
   kl = import ../customPkgs/kl.nix { inherit pkgs; };
   songbird = import ../customPkgs/songbird.nix { inherit pkgs; };
   pvmigrate = import ../customPkgs/pvmigrate.nix { inherit pkgs; };

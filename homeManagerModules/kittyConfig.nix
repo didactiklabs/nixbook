@@ -49,13 +49,13 @@ in
           cursor_trail = 1;
           cursor_trail_decay = "0.1 0.8";
           cursor_trail_start_on = "key_or_mouse";
+          enabled_layouts = "splits";
         };
 
         keybindings = {
           # Tab management
-          "ctrl+shift+enter" = "new_window_with_cwd";
-          "ctrl+shift+v" = "launch --location=vsplit --cwd=current";
-          "ctrl+shift+h" = "launch --location=hsplit --cwd=current";
+          "ctrl+shift+s" = "launch --location=vsplit --cwd=current";
+          "ctrl+shift+enter" = "launch --location=hsplit --cwd=current";
           "ctrl+shift+w" = "close_tab";
           "ctrl+shift+right" = "next_tab";
           "ctrl+shift+left" = "previous_tab";

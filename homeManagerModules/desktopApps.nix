@@ -30,12 +30,8 @@ in
       localsend # send files with other devices (android etc..) on LAN
       wdisplays # display manager
       vesktop # discord
-      (firefox.override {
-        nativeMessagingHosts = [
-          pkgs.tridactyl-native
-        ];
-      })
       pinta # paint
+      firefox
     ];
   };
 }
