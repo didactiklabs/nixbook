@@ -77,8 +77,44 @@ in
       keymaps = [
         {
           mode = "n";
-          key = "<leader>ca";
+          key = "<leader>a";
           action = ":lua vim.lsp.buf.code_action()<CR>";
+          options.silent = true;
+        }
+        {
+          mode = "n";
+          key = "<C-h>";
+          action = ":bprevious<CR>";
+          options.silent = true;
+        }
+        {
+          mode = "n";
+          key = "<C-l>";
+          action = ":bnext<CR>";
+          options.silent = true;
+        }
+        {
+          mode = "n";
+          key = "<C-Up>";
+          action = ":resize +2<CR>";
+          options.silent = true;
+        }
+        {
+          mode = "n";
+          key = "<C-Down>";
+          action = ":resize -2<CR>";
+          options.silent = true;
+        }
+        {
+          mode = "n";
+          key = "<C-Left>";
+          action = ":vertical resize -2<CR>";
+          options.silent = true;
+        }
+        {
+          mode = "n";
+          key = "<C-Right>";
+          action = ":vertical resize +2<CR>";
           options.silent = true;
         }
       ];
