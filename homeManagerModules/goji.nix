@@ -30,11 +30,15 @@ let
     # Extract hints and filter arguments
     TYPE_HINT=""
     SCOPE_HINT=""
+    IS_AMEND=false
+    IS_ADD=false
     OTHER_ARGS=()
     while [[ $# -gt 0 ]]; do
       case "$1" in
         -t|--type) TYPE_HINT="$2"; shift 2 ;;
         -s|--scope) SCOPE_HINT="$2"; shift 2 ;;
+        --amend) IS_AMEND=true; OTHER_ARGS+=("$1"); shift ;;
+        -a|--add) IS_ADD=true; OTHER_ARGS+=("$1"); shift ;;
         *) OTHER_ARGS+=("$1"); shift ;;
       esac
     done
@@ -42,6 +46,33 @@ let
     HINTS=""
     if [ -n "$TYPE_HINT" ]; then HINTS+="The user explicitly wants type: $TYPE_HINT. "; fi
     if [ -n "$SCOPE_HINT" ]; then HINTS+="The user explicitly wants scope: $SCOPE_HINT. "; fi
+
+    if [ "$IS_AMEND" = true ]; then
+        # For amend, we want to see changes relative to the parent of the commit being amended
+        # If -a is used, we include unstaged changes too
+        REF="HEAD~1"
+        if [ "$IS_ADD" = true ]; then
+            DIFF=$( ${pkgs.git}/bin/git diff $REF 2>/dev/null || ${pkgs.git}/bin/git diff --cached $REF 2>/dev/null || ${pkgs.git}/bin/git diff )
+        else
+            DIFF=$( ${pkgs.git}/bin/git diff --cached $REF 2>/dev/null || ${pkgs.git}/bin/git diff --cached )
+        fi
+        OLD_MSG=$( ${pkgs.git}/bin/git log -1 --format=%B 2>/dev/null)
+        HINTS+="This is an amendment to a previous commit. Previous message was: $OLD_MSG. "
+        echo "🔄 Amending last commit..."
+    else
+        if [ "$IS_ADD" = true ]; then
+            # Include both staged and unstaged changes
+            DIFF=$( ${pkgs.git}/bin/git diff HEAD 2>/dev/null || ${pkgs.git}/bin/git diff )
+        else
+            # Only staged changes
+            DIFF=$( ${pkgs.git}/bin/git diff --cached )
+        fi
+    fi
+
+    if [ -z "$DIFF" ]; then
+        echo "❌ No changes found to commit."
+        exit 1
+    fi
 
     # Build the prompt
     PROMPT="Analyze the following git diff and generate a conventional commit.
