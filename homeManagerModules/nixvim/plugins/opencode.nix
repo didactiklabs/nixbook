@@ -49,7 +49,7 @@ in
             "n"
             "t"
           ];
-          key = "<leader>o";
+          key = "<C-o>";
           action.__raw = ''function() require("opencode").toggle() end'';
           options.desc = "Toggle opencode";
         }
