@@ -3,8 +3,6 @@ let
   ginx = import ../customPkgs/ginx.nix { inherit pkgs; };
   # okada = import ../customPkgs/okada.nix { inherit pkgs; };
   witr = import ../customPkgs/witr.nix { inherit pkgs; };
-  sources = import ../npins;
-  pkgs-unstable = import sources.nixpkgs-unstable { };
 in
 {
   commonPackages = [
@@ -16,7 +14,7 @@ in
     pkgs.sd # sed alternative
     pkgs.viddy # watch alternative
     witr
-    pkgs-unstable.dgop
+    pkgs.dgop
     # okada
   ];
 
@@ -111,7 +109,5 @@ in
     };
   };
 
-  anyNixShellInit =
-    shell:
-    "any-nix-shell ${shell} --info-right | source /dev/stdin";
+  anyNixShellInit = shell: "any-nix-shell ${shell} --info-right | source /dev/stdin";
 }

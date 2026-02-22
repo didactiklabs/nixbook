@@ -133,20 +133,6 @@ let
             };
             dconf.settings."org/gnome/desktop/interface".font-name = lib.mkForce "Roboto";
             inherit (mergedConfig) customHomeManagerModules;
-            ## https://nix-community.github.io/home-manager/options.html#opt-services.gnome-keyring.enable
-            # systemd.user.services.polkit-gnome = {
-            #   Unit = {
-            #     Description = "PolicyKit Authentication Agent";
-            #     After = [ "graphical-session-pre.target" ];
-            #     PartOf = [ "graphical-session.target" ];
-            #   };
-            #   Service = {
-            #     ExecStart = "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1";
-            #   };
-            #   Install = {
-            #     WantedBy = [ "graphical-session.target" ];
-            #   };
-            # };
             home.packages = [
               pkgs.pavucontrol
               pkgs.pulseaudio
@@ -159,15 +145,6 @@ let
               pkgs.wf-recorder
               pkgs.sway-contrib.grimshot
             ];
-            # services.gammastep = { # dms handle this
-            #   enable = true;
-            #   dawnTime = "6:00-7:45";
-            #   duskTime = "18:35-20:45";
-            #   latitude = 48.9;
-            #   longitude = 2.26;
-            #   provider = "manual";
-            #   tray = true;
-            # };
             home = {
               stateVersion = "24.05";
               username = "${username}";
@@ -193,35 +170,9 @@ let
             mergedConfig.imports
             [
               (import sources.stylix).homeModules.stylix
-              ../homeManagerModules/stylixConfig.nix
               (import sources.nixvim).homeModules.nixvim
-              ../homeManagerModules/nixvim
-              ../homeManagerModules/sway
-              ../homeManagerModules/hyprland
-              ../homeManagerModules/niri
-              ../homeManagerModules/vscode
-              ../homeManagerModules/kittyConfig.nix
-              ../homeManagerModules/fcitx5Config.nix
-              ../homeManagerModules/zshConfig.nix
-              ../homeManagerModules/kubeswitchConfig.nix
-              ../homeManagerModules/fontConfig.nix
-              ../homeManagerModules/gitConfig.nix
-              ../homeManagerModules/gtkConfig.nix
-              ../homeManagerModules/sshConfig.nix
-              ../homeManagerModules/starshipConfig.nix
-              ../homeManagerModules/fastfetchConfig.nix
-              ../homeManagerModules/desktopApps.nix
-              ../homeManagerModules/dolphinConfig.nix
-              ../homeManagerModules/kubeTools.nix
-              ../homeManagerModules/mpvConfig.nix
-              ../homeManagerModules/k9sConfig.nix
-              ../homeManagerModules/scripts
-              ../homeManagerModules/goji.nix
-              ../homeManagerModules/atuinConfig.nix
-              ../homeManagerModules/dmsConfig.nix
-              ../homeManagerModules/networkManagerApplet.nix
-              ../homeManagerModules/thunderbirdConfig.nix
               (import "${sources.agenix}/modules/age-home.nix")
+              ../homeManagerModules
             ]
             userImports
           ];
