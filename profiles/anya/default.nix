@@ -42,13 +42,6 @@ in
           ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs.immich-go}/bin/immich-go upload from-folder --no-ui --api-key $(${pkgs.coreutils}/bin/cat $HOME/.immich-token) --server https://${immichServer} --into-album Gaming \"${cyberPicturePath}/\" && ${pkgs.coreutils}/bin/rm -fr \"${cyberPicturePath}/*\"'";
         };
       };
-      };
-      immich-cyberpunk = {
-        description = "Run my command";
-        serviceConfig = {
-          ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs.immich-go}/bin/immich-go upload from-folder --no-ui --api-key $(${pkgs.coreutils}/bin/cat $HOME/.immich-token) --server https://${immichServer} --into-album Gaming \"${cyberPicturePath}/\" && ${pkgs.coreutils}/bin/rm -fr \"${cyberPicturePath}/*\"'";
-        };
-      };
       wol-custom = {
         enable = true;
         description = "Wake-on-lan Hack (module doesn't work).";
