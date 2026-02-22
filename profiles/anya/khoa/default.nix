@@ -1,8 +1,4 @@
 { pkgs, ... }:
-let
-  sources = import ../../../npins;
-  pkgs-unstable = import sources.nixpkgs-unstable { };
-in
 {
   imports = [
     ./gitConfig.nix

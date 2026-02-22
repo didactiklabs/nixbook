@@ -1,0 +1,32 @@
+{ ... }:
+{
+  imports = [
+    ./atuinConfig.nix
+    ./desktopApps.nix
+    ./dmsConfig.nix
+    ./dolphinConfig.nix
+    ./fastfetchConfig.nix
+    ./fcitx5Config.nix
+    ./fontConfig.nix
+    ./gitConfig.nix
+    ./goji.nix
+    ./gtkConfig.nix
+    ./hyprland
+    ./k9sConfig.nix
+    ./kittyConfig.nix
+    ./kubeswitchConfig.nix
+    ./kubeTools.nix
+    ./mpvConfig.nix
+    ./networkManagerApplet.nix
+    ./niri
+    ./nixvim
+    ./scripts
+    ./sshConfig.nix
+    ./starshipConfig.nix
+    ./stylixConfig.nix
+    ./sway
+    ./thunderbirdConfig.nix
+    ./vscode
+    ./zshConfig.nix
+  ];
+}

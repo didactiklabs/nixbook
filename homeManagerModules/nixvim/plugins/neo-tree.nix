@@ -1,4 +1,8 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  ...
+}:
 let
   cfg = config.customHomeManagerModules;
 in
@@ -14,19 +18,13 @@ in
         }
         {
           mode = "n";
-          key = "<leader>c";
-          action = ":Neotree toggle<CR>";
-          options.silent = true;
-        }
-        {
-          mode = "n";
           key = "<leader>nt";
           action.__raw = ''
             function()
               local neotree = require("neo-tree.command")
               local manager = require("neo-tree.sources.manager")
               local renderer = require("neo-tree.ui.renderer")
-              
+
               local state = manager.get_state("filesystem")
               if state.winid and vim.api.nvim_win_is_valid(state.winid) then
                 local current_width = vim.api.nvim_win_get_width(state.winid)

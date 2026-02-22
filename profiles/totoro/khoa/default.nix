@@ -4,10 +4,6 @@
   config,
   ...
 }:
-let
-  sources = import ../../../npins;
-  pkgs-unstable = import sources.nixpkgs-unstable { };
-in
 {
   imports = [
     ./gitConfig.nix
@@ -18,8 +14,8 @@ in
     ./thunderbirdConfig.nix
   ];
   home.packages = [
-    pkgs-unstable.claude-code
-    pkgs-unstable.sdl3
+    pkgs.claude-code
+    pkgs.sdl3
     pkgs.moonlight-qt
     pkgs.jellyfin-media-player
   ];

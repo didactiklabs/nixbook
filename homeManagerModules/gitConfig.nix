@@ -5,8 +5,6 @@
   ...
 }:
 let
-  sources = import ../npins;
-  pkgs-unstable = import sources.nixpkgs-unstable { };
   cfg = config.customHomeManagerModules.gitConfig;
 in
 {
@@ -30,8 +28,8 @@ in
     programs = {
       gh = {
         enable = true;
-        package = pkgs-unstable.gh;
-        extensions = with pkgs-unstable; [
+        package = pkgs.gh;
+        extensions = with pkgs; [
           gh-eco
           gh-notify
           gh-poi

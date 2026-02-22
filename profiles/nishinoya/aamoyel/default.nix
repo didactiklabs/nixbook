@@ -4,10 +4,6 @@
   config,
   ...
 }:
-let
-  sources = import ../../../npins;
-  pkgs-unstable = import sources.nixpkgs-unstable { };
-in
 {
   imports = [
     ./gitConfig.nix
@@ -16,18 +12,18 @@ in
     ./niriConfig.nix
   ];
   home.packages = [
-    pkgs-unstable.sdl3
+    pkgs.sdl3
     pkgs.moonlight-qt
-    pkgs-unstable.immich-go
+    pkgs.immich-go
     pkgs.google-chrome
     pkgs.bitwarden-desktop
-    pkgs-unstable.gitkraken
+    pkgs.gitkraken
     (pkgs.google-cloud-sdk.withExtraComponents [
       pkgs.google-cloud-sdk.components.gke-gcloud-auth-plugin
     ])
     pkgs.slack
-    pkgs-unstable.kanidm_1_8
-    pkgs-unstable.oapi-codegen
+    pkgs.kanidm_1_8
+    pkgs.oapi-codegen
   ];
 
   profileCustomization = {
