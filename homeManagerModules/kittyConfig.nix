@@ -51,7 +51,7 @@ in
           cursor_trail_start_on = "key_or_mouse";
 
           # Enable remote control for opencode.nvim
-          allow_remote_control = true;
+          allow_remote_control = "yes";
           listen_on = "unix:@mykitty";
         };
         keybindings = {
@@ -96,6 +96,13 @@ in
           "terminal.external.linuxExec" = "kitty";
         };
       };
+      niri = {
+        settings = {
+          binds = {
+            "Mod+Return".action.spawn = [ "${pkgs.kitty}/bin/kitty" ];
+          };
+        };
+      };
     };
     wayland.windowManager.hyprland = {
       settings = {
@@ -109,13 +116,6 @@ in
         terminal = "${pkgs.kitty}/bin/kitty";
         keybindings = {
           "Mod4+Return" = "exec ${pkgs.kitty}/bin/kitty";
-        };
-      };
-    };
-    programs.niri = {
-      settings = {
-        binds = {
-          "Mod+Return".action.spawn = [ "${pkgs.kitty}/bin/kitty" ];
         };
       };
     };

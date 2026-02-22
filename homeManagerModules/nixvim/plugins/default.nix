@@ -21,6 +21,6 @@
     ./notify.nix
     ./smear-cursor.nix
     ./neoscroll.nix
-    # ./opencode.nix
+    ./opencode.nix
   ];
 }
