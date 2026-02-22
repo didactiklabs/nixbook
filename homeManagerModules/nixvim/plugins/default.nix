@@ -19,6 +19,7 @@
     ./lualine.nix
     ./noice.nix
     ./notify.nix
+    ./snacks.nix
     ./smear-cursor.nix
     ./neoscroll.nix
     ./opencode.nix

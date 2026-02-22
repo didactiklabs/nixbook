@@ -19,13 +19,7 @@ in
       extraConfigLua = ''
         vim.g.opencode_opts = {
           provider = {
-            enabled = "kitty",
-            kitty = {
-              -- Optional: Configuration for the kitty provider
-              -- For example, you can change the window type or focus behavior
-              -- window_type = "os", -- "os" or "tab" or "window"
-              -- focus = false,
-            }
+            enabled = "snacks",
           },
         }
         vim.o.autoread = true

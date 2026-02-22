@@ -49,11 +49,8 @@ in
           cursor_trail = 1;
           cursor_trail_decay = "0.1 0.8";
           cursor_trail_start_on = "key_or_mouse";
-
-          # Enable remote control for opencode.nvim
-          allow_remote_control = "yes";
-          listen_on = "unix:@mykitty";
         };
+
         keybindings = {
           # Tab management
           "ctrl+shift+enter" = "new_window_with_cwd";
