@@ -17,7 +17,6 @@
     ./kubeswitchConfig.nix
     ./kubeTools.nix
     ./mpvConfig.nix
-    ./networkManagerApplet.nix
     ./niri
     ./nixvim
     ./scripts
