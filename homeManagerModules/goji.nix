@@ -7,6 +7,48 @@
 let
   cfg = config.customHomeManagerModules;
   goji = import ../customPkgs/goji.nix { inherit pkgs; };
+  goji-ai = pkgs.writeShellScriptBin "goji-ai" ''
+    # Check if opencode is installed
+    if ! command -v opencode &> /dev/null; then
+        echo "❌ Error: opencode is not installed."
+        exit 1
+    fi
+
+    # Check for staged changes
+    DIFF=$( ${pkgs.git}/bin/git diff --cached)
+
+    if [ -z "$DIFF" ]; then
+        echo "❌ No staged changes found. Please stage your changes first (git add)."
+        exit 1
+    fi
+
+    echo "🤖 Generating commit message with OpenCode AI..."
+
+    # Build the prompt
+    # We request a conventional commit format (type: description)
+    PROMPT="Analyze the following git diff and generate a concise conventional commit message.
+    Follow the conventional commits specification (e.g., feat: add login functionality).
+    Do not include emojis.
+    Output ONLY the commit message text, nothing else.
+
+    Diff:
+    $DIFF"
+
+    # Call opencode run to get the message
+    # Use --format json for reliable parsing
+    COMMIT_MSG=$(opencode run "$PROMPT" --format json | ${pkgs.jq}/bin/jq -r 'select(.type=="text") | .part.text' | tr -d '\r' | xargs)
+
+    if [ -z "$COMMIT_MSG" ]; then
+        echo "❌ Error: Failed to generate a commit message."
+        exit 1
+    fi
+
+    echo "✨ Generated message: $COMMIT_MSG"
+
+    # Run goji with the generated message
+    # Any additional arguments passed to this script will be forwarded to goji
+    ${goji}/bin/goji -m "$COMMIT_MSG" "$@"
+  '';
   gojiJson = ''
     {
       "noemoji": false,
@@ -86,7 +128,10 @@ let
 in
 {
   config = lib.mkIf cfg.gojiConfig.enable {
-    home.packages = [ goji ];
+    home.packages = [
+      goji
+      goji-ai
+    ];
     home.file.".goji.json" = {
       text = gojiJson;
     };
