@@ -2,10 +2,10 @@ name: npins update
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *' # every 6 hours
+    - cron: "0 */6 * * *" # every 6 hours
 permissions:
-  contents: 'write'
-  pull-requests: 'write'
+  contents: "write"
+  pull-requests: "write"
 jobs:
   npins-update:
     runs-on: ubuntu-latest
@@ -46,4 +46,4 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
           pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
-          merge-method: squash
+          merge-method: rebase
