@@ -10,15 +10,15 @@ let
   goji-ai = pkgs.writeShellScriptBin "goji-ai" ''
     # Check if opencode is installed
     if ! command -v opencode &> /dev/null; then
-        echo "❌ Error: opencode is not installed."
+        echo "❌ Error: 'opencode' is not installed."
+        echo "Please install it first or add it to your environment."
         exit 1
     fi
 
-    # Check for staged changes
-    DIFF=$( ${pkgs.git}/bin/git diff --cached)
-
-    if [ -z "$DIFF" ]; then
-        echo "❌ No staged changes found. Please stage your changes first (git add)."
+    # Check if opencode is configured
+    if ! opencode auth list 2>/dev/null | grep -q "[1-9] credentials"; then
+        echo "❌ Error: 'opencode' is not configured."
+        echo "Please run 'opencode auth login' to set up a provider (e.g., Google, OpenRouter, etc.)."
         exit 1
     fi
 
@@ -43,30 +43,25 @@ let
       esac
     done
 
+    if [ "$IS_ADD" = true ]; then
+        echo "➕ Staging all changes..."
+        ${pkgs.git}/bin/git add -A
+    fi
+
     HINTS=""
     if [ -n "$TYPE_HINT" ]; then HINTS+="The user explicitly wants type: $TYPE_HINT. "; fi
     if [ -n "$SCOPE_HINT" ]; then HINTS+="The user explicitly wants scope: $SCOPE_HINT. "; fi
 
     if [ "$IS_AMEND" = true ]; then
         # For amend, we want to see changes relative to the parent of the commit being amended
-        # If -a is used, we include unstaged changes too
         REF="HEAD~1"
-        if [ "$IS_ADD" = true ]; then
-            DIFF=$( ${pkgs.git}/bin/git diff $REF 2>/dev/null || ${pkgs.git}/bin/git diff --cached $REF 2>/dev/null || ${pkgs.git}/bin/git diff )
-        else
-            DIFF=$( ${pkgs.git}/bin/git diff --cached $REF 2>/dev/null || ${pkgs.git}/bin/git diff --cached )
-        fi
+        DIFF=$( ${pkgs.git}/bin/git diff --cached $REF 2>/dev/null || ${pkgs.git}/bin/git diff --cached )
         OLD_MSG=$( ${pkgs.git}/bin/git log -1 --format=%B 2>/dev/null)
         HINTS+="This is an amendment to a previous commit. Previous message was: $OLD_MSG. "
         echo "🔄 Amending last commit..."
     else
-        if [ "$IS_ADD" = true ]; then
-            # Include both staged and unstaged changes
-            DIFF=$( ${pkgs.git}/bin/git diff HEAD 2>/dev/null || ${pkgs.git}/bin/git diff )
-        else
-            # Only staged changes
-            DIFF=$( ${pkgs.git}/bin/git diff --cached )
-        fi
+        # Only staged changes
+        DIFF=$( ${pkgs.git}/bin/git diff --cached )
     fi
 
     if [ -z "$DIFF" ]; then
