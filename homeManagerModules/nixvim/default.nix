@@ -83,14 +83,20 @@ in
         }
         {
           mode = "n";
-          key = "<C-h>";
+          key = "<S-h>";
           action = ":bprevious<CR>";
           options.silent = true;
         }
         {
           mode = "n";
-          key = "<C-l>";
+          key = "<S-l>";
           action = ":bnext<CR>";
+          options.silent = true;
+        }
+        {
+          mode = "n";
+          key = "<C-l>";
+          action = ":nohlsearch<CR>";
           options.silent = true;
         }
         {
