@@ -57,11 +57,12 @@ let
         REF="HEAD~1"
         DIFF=$( ${pkgs.git}/bin/git diff --cached $REF 2>/dev/null || ${pkgs.git}/bin/git diff --cached )
         OLD_MSG=$( ${pkgs.git}/bin/git log -1 --format=%B 2>/dev/null)
-        HINTS+="This is an amendment to a previous commit. Previous message was: $OLD_MSG. "
+        HINTS+="This is an amendment to a previous commit. The provided diff shows the changes that will be introduced by the new commit compared to its parent. The previous commit message was: $OLD_MSG. "
         echo "🔄 Amending last commit..."
     else
-        # Only staged changes
+        # Only staged changes for a new commit
         DIFF=$( ${pkgs.git}/bin/git diff --cached )
+        HINTS+="The provided diff shows the changes that will be introduced by this new commit. "
     fi
 
     if [ -z "$DIFF" ]; then

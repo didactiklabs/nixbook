@@ -7,7 +7,6 @@
 {
   boot = {
     # Bootloader.
-    loader.systemd-boot.configurationLimit = 10;
     kernelModules = [
       "uinput"
       "usbhid"
@@ -55,7 +54,11 @@
     kernelPackages = pkgs.linuxPackages_latest;
     plymouth.enable = true;
     loader = {
-      systemd-boot.enable = true;
+      systemd-boot = {
+        enable = true;
+        configurationLimit = 10;
+      };
+
       efi.canTouchEfiVariables = true;
     };
     tmp = {

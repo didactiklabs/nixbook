@@ -9,7 +9,6 @@ in
     ginx
     pkgs.trippy # debug network
     pkgs.any-nix-shell
-    pkgs.btop # top replacer
     pkgs.duf # df replacer
     pkgs.sd # sed alternative
     pkgs.viddy # watch alternative
