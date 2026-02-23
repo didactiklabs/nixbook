@@ -5,8 +5,9 @@
   ...
 }:
 {
-  # Bootloader.
   boot = {
+    # Bootloader.
+    loader.systemd-boot.configurationLimit = 10;
     kernelModules = [
       "uinput"
       "usbhid"
