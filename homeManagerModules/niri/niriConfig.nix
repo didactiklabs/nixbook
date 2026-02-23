@@ -342,6 +342,10 @@ in
             opacity = 1.0;
           }
           {
+            matches = [ { title = ".*Jellyfin.*"; } ];
+            opacity = 1.0;
+          }
+          {
             matches = [ { title = ".*Jellyfin — Mozilla Firefox"; } ];
             opacity = 1.0;
           }
