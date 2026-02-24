@@ -28,6 +28,13 @@
 
   profileCustomization = {
   };
+
+  xdg.mimeApps.defaultApplications = {
+    "text/html" = "google-chrome.desktop";
+    "x-scheme-handler/http" = "google-chrome.desktop";
+    "x-scheme-handler/https" = "google-chrome.desktop";
+  };
+
   customHomeManagerModules = {
     fontConfig.enable = true;
     gitConfig.enable = true;
