@@ -9,9 +9,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "6a64e0b2f4c7f1e3911db1f8318e5d7c68cb8dff",
-      "url": "https://github.com/ThePrimeagen/99/archive/6a64e0b2f4c7f1e3911db1f8318e5d7c68cb8dff.tar.gz",
-      "hash": "sha256-OOj2bnhxn3Ou7VQOmi3RVPcVs+CqolnJzEgfkXk2p5Q="
+      "revision": "34a81b09656d2daa87f1d689550742928a4eb709",
+      "url": "https://github.com/ThePrimeagen/99/archive/34a81b09656d2daa87f1d689550742928a4eb709.tar.gz",
+      "hash": "sha256-zgkicopAnEYnkAOJ8e77CCiRE2amSAEYRkhOrcSf7rg="
     },
     "agenix": {
       "type": "GitRelease",
@@ -38,9 +38,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "05eaf59c89c99c06554efee1ea43f991f920c11f",
-      "url": "https://github.com/AvengeMedia/DankMaterialShell/archive/05eaf59c89c99c06554efee1ea43f991f920c11f.tar.gz",
-      "hash": "sha256-aCNEG+Zh2WX7pI3/6IpzzQonc2imG6ZfQRX622OLSuA="
+      "revision": "ab211266a66b7bd2cef5ab5c1717e8dffa31394b",
+      "url": "https://github.com/AvengeMedia/DankMaterialShell/archive/ab211266a66b7bd2cef5ab5c1717e8dffa31394b.tar.gz",
+      "hash": "sha256-JN+1KF+zi7S4TxE1tSRG/TJ2P/63Rp9HKknPrEvhSTE="
     },
     "dms-plugin-registry": {
       "type": "Git",
@@ -51,9 +51,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "1a452ed6a020c54f9bbdf77a64bb0e5f982a1651",
-      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/1a452ed6a020c54f9bbdf77a64bb0e5f982a1651.tar.gz",
-      "hash": "sha256-4xfP+QaPsRAbTAWGk47T6KSCA7vnS6rvmPpZCoq3aD0="
+      "revision": "46ed44669dd3c9f2e42f25d2cd5d544dd8071bff",
+      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/46ed44669dd3c9f2e42f25d2cd5d544dd8071bff.tar.gz",
+      "hash": "sha256-CCMdL0IFJ5Vxqq9uit0vSeJnV5tRaKigd2idZzVd2f4="
     },
     "dolphin-overlay": {
       "type": "Git",
@@ -129,9 +129,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "9a4b494b1aa1b93d8edf167f46dc8e0c0011280c",
-      "url": "https://github.com/nix-community/home-manager/archive/9a4b494b1aa1b93d8edf167f46dc8e0c0011280c.tar.gz",
-      "hash": "sha256-gFgE6mGUftwseV3DUENMb0k0EiHd739lZexPo5O/sdQ="
+      "revision": "2a39b0828bbffce0d73769a61e46e780488d098b",
+      "url": "https://github.com/nix-community/home-manager/archive/2a39b0828bbffce0d73769a61e46e780488d098b.tar.gz",
+      "hash": "sha256-zRcwrZDeBfYipqv/7K7TqsfPb87LFU6b7JhoNUGSnvQ="
     },
     "home-manager-master": {
       "type": "Git",
@@ -142,9 +142,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "9a4b494b1aa1b93d8edf167f46dc8e0c0011280c",
-      "url": "https://github.com/nix-community/home-manager/archive/9a4b494b1aa1b93d8edf167f46dc8e0c0011280c.tar.gz",
-      "hash": "sha256-gFgE6mGUftwseV3DUENMb0k0EiHd739lZexPo5O/sdQ="
+      "revision": "2a39b0828bbffce0d73769a61e46e780488d098b",
+      "url": "https://github.com/nix-community/home-manager/archive/2a39b0828bbffce0d73769a61e46e780488d098b.tar.gz",
+      "hash": "sha256-zRcwrZDeBfYipqv/7K7TqsfPb87LFU6b7JhoNUGSnvQ="
     },
     "hyprfocus": {
       "type": "Git",
@@ -184,9 +184,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "89794126462ccf3ba590ad545e5f14394b0feba0",
-      "url": "https://github.com/derailed/k9s/archive/89794126462ccf3ba590ad545e5f14394b0feba0.tar.gz",
-      "hash": "sha256-LcSwK/+I2XAg5DiaGq8pWmsr+6ChQE0QNyg+Axmhm2Y="
+      "revision": "1533f4b1a0af3c2c264d84027a6888d53757af21",
+      "url": "https://github.com/derailed/k9s/archive/1533f4b1a0af3c2c264d84027a6888d53757af21.tar.gz",
+      "hash": "sha256-cNlhvGEVP8F1gNTQlgkaiF0Oowf24xYfG3lKwNHcsHU="
     },
     "kl": {
       "type": "GitRelease",
@@ -226,9 +226,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "673192ded8b7ac7f23b6a1a44957c0029cb81f62",
-      "url": "https://github.com/sodiboo/niri-flake/archive/673192ded8b7ac7f23b6a1a44957c0029cb81f62.tar.gz",
-      "hash": "sha256-rvXObttG6DWrYNPOVkGVK4/eP1wZuXTz7nUSRdvblLU="
+      "revision": "599b3f8d4215470dd50066119c81007b2670b6e1",
+      "url": "https://github.com/sodiboo/niri-flake/archive/599b3f8d4215470dd50066119c81007b2670b6e1.tar.gz",
+      "hash": "sha256-BdXKcWd1LE+APzyaJ/xszDXcA5KKPenjNyC5VOd3x4E="
     },
     "nix-monitor": {
       "type": "GitRelease",
@@ -255,9 +255,9 @@
       },
       "branch": "nixos-unstable",
       "submodules": false,
-      "revision": "0182a361324364ae3f436a63005877674cf45efb",
-      "url": "https://github.com/NixOS/nixpkgs/archive/0182a361324364ae3f436a63005877674cf45efb.tar.gz",
-      "hash": "sha256-0NBlEBKkN3lufyvFegY4TYv5mCNHbi5OmBDrzihbBMQ="
+      "revision": "2fc6539b481e1d2569f25f8799236694180c0993",
+      "url": "https://github.com/NixOS/nixpkgs/archive/2fc6539b481e1d2569f25f8799236694180c0993.tar.gz",
+      "hash": "sha256-0MAd+0mun3K/Ns8JATeHT1sX28faLII5hVLq0L3BdZU="
     },
     "nixvim": {
       "type": "Git",
@@ -299,10 +299,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "v0.12.1",
-      "revision": "1d0b3321dc2446e16592ca1592f5b3d60670b4cc",
-      "url": "https://api.github.com/repos/replicatedhq/pvmigrate/tarball/v0.12.1",
-      "hash": "sha256-gQe5ay9KZfPtMJ/c37He/rQVnojO6oFtwRhqcHwVHBE="
+      "version": "v0.12.2",
+      "revision": "5f9d7b61416ed119dc0505ec17a24f41ce291bb3",
+      "url": "https://api.github.com/repos/replicatedhq/pvmigrate/tarball/refs/tags/v0.12.2",
+      "hash": "sha256-Bmh1XPrVyPgadvGUo1SS4Dw2n8qidU6jpdK3GbxxNPE="
     },
     "quickshell": {
       "type": "Git",
@@ -314,9 +314,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "2cf57f43d5f2a5b139d1f1702c83e126e17f27f8",
-      "url": "https://git.outfoxxed.me/quickshell/quickshell/archive/2cf57f43d5f2a5b139d1f1702c83e126e17f27f8.tar.gz",
-      "hash": "sha256-ii717A9saVvTtn3WIYRV5WG171IL7AuVueUjwjKaLIo="
+      "revision": "cddb4f061bab495f4473ca5f2c571b6c710efef7",
+      "url": "https://git.outfoxxed.me/quickshell/quickshell/archive/cddb4f061bab495f4473ca5f2c571b6c710efef7.tar.gz",
+      "hash": "sha256-QbXuSLhiSxOq6ydBL3+KGe1aiYWBW+e3J6qjJZaRMq0="
     },
     "songbird": {
       "type": "GitRelease",
