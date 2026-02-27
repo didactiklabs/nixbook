@@ -9,7 +9,7 @@ pkgs.buildGoModule {
 
   src = pvmigrateSrc;
 
-  vendorHash = "sha256-yhbrrJYToVqbqTTBm5PC3aM734e8O02RXrsjy13/GvI=";
+  vendorHash = "sha256-BdP/58lUHOS0i/UUowZXAtXVwz7vGDZ/NfhRi9q8iEo=";
 
   subPackages = [ "cmd" ];
   postInstall = ''
