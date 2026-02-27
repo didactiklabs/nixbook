@@ -202,7 +202,8 @@
       "version": "v0.6.1",
       "revision": "03256efb300edd6cb1d11bbc5c2155abeef0693b",
       "url": "https://api.github.com/repos/robinovitch61/kl/tarball/v0.6.1",
-      "hash": "sha256-18CT9qCZynCG5jtL7JjIKNlrvE/9d8Kord/vRSQ8Bxo="
+      "hash": "sha256-18CT9qCZynCG5jtL7JjIKNlrvE/9d8Kord/vRSQ8Bxo=",
+      "frozen": true
     },
     "kubeswitch": {
       "type": "Git",
@@ -302,7 +303,8 @@
       "version": "v0.12.2",
       "revision": "5f9d7b61416ed119dc0505ec17a24f41ce291bb3",
       "url": "https://api.github.com/repos/replicatedhq/pvmigrate/tarball/refs/tags/v0.12.2",
-      "hash": "sha256-Bmh1XPrVyPgadvGUo1SS4Dw2n8qidU6jpdK3GbxxNPE="
+      "hash": "sha256-Bmh1XPrVyPgadvGUo1SS4Dw2n8qidU6jpdK3GbxxNPE=",
+      "frozen": true
     },
     "quickshell": {
       "type": "Git",
