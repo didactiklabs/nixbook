@@ -9,9 +9,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "34a81b09656d2daa87f1d689550742928a4eb709",
-      "url": "https://github.com/ThePrimeagen/99/archive/34a81b09656d2daa87f1d689550742928a4eb709.tar.gz",
-      "hash": "sha256-zgkicopAnEYnkAOJ8e77CCiRE2amSAEYRkhOrcSf7rg="
+      "revision": "7994a2c4c74d8adec6a26bd6112f3e96ec0fd792",
+      "url": "https://github.com/ThePrimeagen/99/archive/7994a2c4c74d8adec6a26bd6112f3e96ec0fd792.tar.gz",
+      "hash": "sha256-2+qISS633rTgbtJgcRpUW6cJiGD+yYcDR2mErSwbOVY="
     },
     "agenix": {
       "type": "GitRelease",
@@ -51,9 +51,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "46ed44669dd3c9f2e42f25d2cd5d544dd8071bff",
-      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/46ed44669dd3c9f2e42f25d2cd5d544dd8071bff.tar.gz",
-      "hash": "sha256-CCMdL0IFJ5Vxqq9uit0vSeJnV5tRaKigd2idZzVd2f4="
+      "revision": "c2e36523b5bebf9d3d679ea83c1f1bdaa82fddb4",
+      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/c2e36523b5bebf9d3d679ea83c1f1bdaa82fddb4.tar.gz",
+      "hash": "sha256-lHKJhQIyQVT9LtPwzXN2PeN8r4GaXJPleVzwckxK17Y="
     },
     "dolphin-overlay": {
       "type": "Git",
@@ -129,9 +129,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "2a39b0828bbffce0d73769a61e46e780488d098b",
-      "url": "https://github.com/nix-community/home-manager/archive/2a39b0828bbffce0d73769a61e46e780488d098b.tar.gz",
-      "hash": "sha256-zRcwrZDeBfYipqv/7K7TqsfPb87LFU6b7JhoNUGSnvQ="
+      "revision": "f3a30376bb9eb2f6f61816be7d6ed954b6d2a3b9",
+      "url": "https://github.com/nix-community/home-manager/archive/f3a30376bb9eb2f6f61816be7d6ed954b6d2a3b9.tar.gz",
+      "hash": "sha256-G8nArvOTZXU8DRvrzAdz3Elcj6kA/vMtvY9mrGLATtA="
     },
     "home-manager-master": {
       "type": "Git",
@@ -142,9 +142,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "2a39b0828bbffce0d73769a61e46e780488d098b",
-      "url": "https://github.com/nix-community/home-manager/archive/2a39b0828bbffce0d73769a61e46e780488d098b.tar.gz",
-      "hash": "sha256-zRcwrZDeBfYipqv/7K7TqsfPb87LFU6b7JhoNUGSnvQ="
+      "revision": "f3a30376bb9eb2f6f61816be7d6ed954b6d2a3b9",
+      "url": "https://github.com/nix-community/home-manager/archive/f3a30376bb9eb2f6f61816be7d6ed954b6d2a3b9.tar.gz",
+      "hash": "sha256-G8nArvOTZXU8DRvrzAdz3Elcj6kA/vMtvY9mrGLATtA="
     },
     "hyprfocus": {
       "type": "Git",
