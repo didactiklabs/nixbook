@@ -9,9 +9,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "7994a2c4c74d8adec6a26bd6112f3e96ec0fd792",
-      "url": "https://github.com/ThePrimeagen/99/archive/7994a2c4c74d8adec6a26bd6112f3e96ec0fd792.tar.gz",
-      "hash": "sha256-2+qISS633rTgbtJgcRpUW6cJiGD+yYcDR2mErSwbOVY="
+      "revision": "d485196b0a7956e9efb9f73eccfb126b95d113b3",
+      "url": "https://github.com/ThePrimeagen/99/archive/d485196b0a7956e9efb9f73eccfb126b95d113b3.tar.gz",
+      "hash": "sha256-2I0GxeyhWodO/ki3wiquQJBjIBSu9Pep2b/O6vgWW5o="
     },
     "agenix": {
       "type": "GitRelease",
@@ -38,9 +38,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "654f2ec7ad21720089c6227ffc463c505b4111aa",
-      "url": "https://github.com/AvengeMedia/DankMaterialShell/archive/654f2ec7ad21720089c6227ffc463c505b4111aa.tar.gz",
-      "hash": "sha256-eOSViq89JyoCSrkno81VfFXZRr2xj31/VznzeZRxt9g="
+      "revision": "9cb0d8baf2f5e8f479dba3f7401d102ad2722bb4",
+      "url": "https://github.com/AvengeMedia/DankMaterialShell/archive/9cb0d8baf2f5e8f479dba3f7401d102ad2722bb4.tar.gz",
+      "hash": "sha256-4Fy6zKrpBzM0MBzb8H8cI1DSOJJxwg8+beCy7GmNm1g="
     },
     "dms-plugin-registry": {
       "type": "Git",
@@ -51,9 +51,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "1563c1ee7c66047809c179edc062616542a7a0f5",
-      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/1563c1ee7c66047809c179edc062616542a7a0f5.tar.gz",
-      "hash": "sha256-ZD8Y3YSVIz7BKw9tewEEFP7I8bXxJ47Uh68mvQxys2A="
+      "revision": "af5a42dca6da311a7b28043401fb0cfda08e23a4",
+      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/af5a42dca6da311a7b28043401fb0cfda08e23a4.tar.gz",
+      "hash": "sha256-vfNuwWwYicI9jMVzqrIM7clA11D2qz/rVorP/5FHKmY="
     },
     "dolphin-overlay": {
       "type": "Git",
@@ -155,9 +155,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "84f7b33e02b9f1611ebadbcf9cdc32f1086c8efd",
-      "url": "https://github.com/daxisunder/hyprfocus/archive/84f7b33e02b9f1611ebadbcf9cdc32f1086c8efd.tar.gz",
-      "hash": "sha256-i+sSyc675J/d43mCjWY8kUtJPa28MfqMpjlNc0jQRMk="
+      "revision": "c1d04bb8b67f43cd96e2d70683c3cce3de49c5df",
+      "url": "https://github.com/daxisunder/hyprfocus/archive/c1d04bb8b67f43cd96e2d70683c3cce3de49c5df.tar.gz",
+      "hash": "sha256-sG+Swme3cubOTDMbIq1hLbkr0g15KcCJIFEisgH2gIU="
     },
     "jtui": {
       "type": "GitRelease",
@@ -227,9 +227,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "599b3f8d4215470dd50066119c81007b2670b6e1",
-      "url": "https://github.com/sodiboo/niri-flake/archive/599b3f8d4215470dd50066119c81007b2670b6e1.tar.gz",
-      "hash": "sha256-BdXKcWd1LE+APzyaJ/xszDXcA5KKPenjNyC5VOd3x4E="
+      "revision": "557374f9cd3649ab27b2621ae8117bec59969645",
+      "url": "https://github.com/sodiboo/niri-flake/archive/557374f9cd3649ab27b2621ae8117bec59969645.tar.gz",
+      "hash": "sha256-d6Wm7/+6iNtgdcp6mxayEBhjWisi1aj84Ob7VyEAW9Y="
     },
     "nix-monitor": {
       "type": "GitRelease",
@@ -256,9 +256,9 @@
       },
       "branch": "nixos-unstable",
       "submodules": false,
-      "revision": "2fc6539b481e1d2569f25f8799236694180c0993",
-      "url": "https://github.com/NixOS/nixpkgs/archive/2fc6539b481e1d2569f25f8799236694180c0993.tar.gz",
-      "hash": "sha256-0MAd+0mun3K/Ns8JATeHT1sX28faLII5hVLq0L3BdZU="
+      "revision": "dd9b079222d43e1943b6ebd802f04fd959dc8e61",
+      "url": "https://github.com/NixOS/nixpkgs/archive/dd9b079222d43e1943b6ebd802f04fd959dc8e61.tar.gz",
+      "hash": "sha256-I45esRSssFtJ8p/gLHUZ1OUaaTaVLluNkABkk6arQwE="
     },
     "nixvim": {
       "type": "Git",
@@ -345,9 +345,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "30054cca073b49b42a71289edec858f535b27fe9",
-      "url": "https://github.com/danth/stylix/archive/30054cca073b49b42a71289edec858f535b27fe9.tar.gz",
-      "hash": "sha256-Vg4bGwwenNYI8p3nJTl9FRyeIyrjATeZrZr+GyUSDrw="
+      "revision": "c4b8e80a1020e09a1f081ad0f98ce804a6e85acf",
+      "url": "https://github.com/danth/stylix/archive/c4b8e80a1020e09a1f081ad0f98ce804a6e85acf.tar.gz",
+      "hash": "sha256-pAtzPsgHRKw/2Kv8HgAjSJg450FDldHPWsP3AKG/Xj0="
     },
     "witr": {
       "type": "GitRelease",
