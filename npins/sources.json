@@ -227,9 +227,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "475eb9fc8d1ffa906ac215e78e758a29597fcd5e",
-      "url": "https://github.com/sodiboo/niri-flake/archive/475eb9fc8d1ffa906ac215e78e758a29597fcd5e.tar.gz",
-      "hash": "sha256-vMhspzhj6M4hfqM/wLgPG81xQh2sN5x0N6a3rHp5ZRo="
+      "revision": "62832e6abed7e060e832fd7be5413c07047dd6fd",
+      "url": "https://github.com/sodiboo/niri-flake/archive/62832e6abed7e060e832fd7be5413c07047dd6fd.tar.gz",
+      "hash": "sha256-qMdIWc5NrRR3tllBZgeaq3QJke3fsf08wl0e5f2RcFg="
     },
     "nix-monitor": {
       "type": "GitRelease",
@@ -316,9 +316,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "cdde4c63f4dd09e92a960e27f1202ca2e0d830d1",
-      "url": "https://git.outfoxxed.me/quickshell/quickshell/archive/cdde4c63f4dd09e92a960e27f1202ca2e0d830d1.tar.gz",
-      "hash": "sha256-0bSX6cRm/xY42k5TZm2pSjNOsBSXoohyddZ/+x/OUx0="
+      "revision": "a849a88893c71d409aecef0b999e6cc3d9b50034",
+      "url": "https://git.outfoxxed.me/quickshell/quickshell/archive/a849a88893c71d409aecef0b999e6cc3d9b50034.tar.gz",
+      "hash": "sha256-wc8tI7VKoH9f2GqAC4jnRWBrhgda/VnY5NAEqRcgeqg="
     },
     "songbird": {
       "type": "GitRelease",
