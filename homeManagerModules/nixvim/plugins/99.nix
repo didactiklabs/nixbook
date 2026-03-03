@@ -10,6 +10,9 @@ let
   plugin-99 = pkgs.vimUtils.buildVimPlugin {
     name = "99";
     src = sources."99";
+    nvimSkipModule = [
+      "99.editor.lsp"
+    ];
   };
 in
 {
