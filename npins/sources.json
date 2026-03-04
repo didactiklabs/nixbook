@@ -155,9 +155,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "3ccb8df8771d598e6976419b3b75de88fb2f4c8a",
-      "url": "https://github.com/daxisunder/hyprfocus/archive/3ccb8df8771d598e6976419b3b75de88fb2f4c8a.tar.gz",
-      "hash": "sha256-HpYAb4+3WoTYGtWLss4YTYgxvtHvlGRwwu9iU3VSZcc="
+      "revision": "05996d016dd5006e98786af48f86f671a9d2c1d2",
+      "url": "https://github.com/daxisunder/hyprfocus/archive/05996d016dd5006e98786af48f86f671a9d2c1d2.tar.gz",
+      "hash": "sha256-OXAzpa6oS8ex9mkk2QBDnsA/I/huCWHAL22EJYTGlFg="
     },
     "jtui": {
       "type": "GitRelease",
