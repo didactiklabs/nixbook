@@ -129,9 +129,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "924e61f5c2aeab38504028078d7091077744ab17",
-      "url": "https://github.com/nix-community/home-manager/archive/924e61f5c2aeab38504028078d7091077744ab17.tar.gz",
-      "hash": "sha256-bdr6ueeXO1Xg91sFkuvaysYF0mVdwHBpdyhTjBEWv+s="
+      "revision": "5a75730e6f21ee624cbf86f4915c6e7489c74acc",
+      "url": "https://github.com/nix-community/home-manager/archive/5a75730e6f21ee624cbf86f4915c6e7489c74acc.tar.gz",
+      "hash": "sha256-jl+DJB2DUx7EbWLRng+6HNWW/1/VQOnf0NsQB4PlA7I="
     },
     "home-manager-master": {
       "type": "Git",
@@ -142,9 +142,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "924e61f5c2aeab38504028078d7091077744ab17",
-      "url": "https://github.com/nix-community/home-manager/archive/924e61f5c2aeab38504028078d7091077744ab17.tar.gz",
-      "hash": "sha256-bdr6ueeXO1Xg91sFkuvaysYF0mVdwHBpdyhTjBEWv+s="
+      "revision": "5a75730e6f21ee624cbf86f4915c6e7489c74acc",
+      "url": "https://github.com/nix-community/home-manager/archive/5a75730e6f21ee624cbf86f4915c6e7489c74acc.tar.gz",
+      "hash": "sha256-jl+DJB2DUx7EbWLRng+6HNWW/1/VQOnf0NsQB4PlA7I="
     },
     "hyprfocus": {
       "type": "Git",
@@ -227,9 +227,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "7592181859ad2ab12913bbede47b45481b2b2938",
-      "url": "https://github.com/sodiboo/niri-flake/archive/7592181859ad2ab12913bbede47b45481b2b2938.tar.gz",
-      "hash": "sha256-d91kXM4t1G0KQ/MB0LTP514IslsDu6ZBt4HQE7hVvzs="
+      "revision": "110e61e49828860499ead8bc539470f1261896ae",
+      "url": "https://github.com/sodiboo/niri-flake/archive/110e61e49828860499ead8bc539470f1261896ae.tar.gz",
+      "hash": "sha256-wAHeBX+aSiA+cAlWtwe5NisjMfrJq6WxrtT+CE7/tFM="
     },
     "nix-monitor": {
       "type": "GitRelease",
