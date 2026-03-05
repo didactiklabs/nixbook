@@ -38,9 +38,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "27c26d35ab22cc69a0525aab0aa0da8b753284ec",
-      "url": "https://github.com/AvengeMedia/DankMaterialShell/archive/27c26d35ab22cc69a0525aab0aa0da8b753284ec.tar.gz",
-      "hash": "sha256-6P9VpAsT5ps/3IX/DY2IqDrKWUyXuCxFjYlOvU0Ztd4="
+      "revision": "32d16d067364e3181922bba5f5a5a4f2b0515a7b",
+      "url": "https://github.com/AvengeMedia/DankMaterialShell/archive/32d16d067364e3181922bba5f5a5a4f2b0515a7b.tar.gz",
+      "hash": "sha256-GF0+dP5GoagtYRuHwCyVFSj21R2JSUDT49Ew9gecSd8="
     },
     "dms-plugin-registry": {
       "type": "Git",
@@ -184,9 +184,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "d9b3cea9dd7aa7704905d7264eae4da92210b2ae",
-      "url": "https://github.com/derailed/k9s/archive/d9b3cea9dd7aa7704905d7264eae4da92210b2ae.tar.gz",
-      "hash": "sha256-5r+Epx/eBcIkpO0d/1DYN7l+8m5p/PPwYWIp1VwPodE="
+      "revision": "10722b9ba27baf998665440416b0c8c6000defe5",
+      "url": "https://github.com/derailed/k9s/archive/10722b9ba27baf998665440416b0c8c6000defe5.tar.gz",
+      "hash": "sha256-1QZwA0/fh1+EVcjh/kHLuiUe/fYzpBAyIJboOuiEzLE="
     },
     "kl": {
       "type": "GitRelease",
