@@ -54,6 +54,24 @@ let
       shell ? pkgs.zsh,
     }:
     {
+      # Set user avatar via accountsservice if ~/Pictures/<username> exists
+      system.activationScripts."setUserAvatar-${username}".text = ''
+        AVATAR="/home/${username}/Pictures/${username}"
+        if [ -f "$AVATAR" ]; then
+          mkdir -p /var/lib/AccountsService/icons
+          cp "$AVATAR" /var/lib/AccountsService/icons/${username}
+          chmod 644 /var/lib/AccountsService/icons/${username}
+          mkdir -p /var/lib/AccountsService/users
+          if [ ! -f /var/lib/AccountsService/users/${username} ]; then
+            echo '[User]' > /var/lib/AccountsService/users/${username}
+          fi
+          if ! grep -q '^Icon=' /var/lib/AccountsService/users/${username}; then
+            echo 'Icon=/var/lib/AccountsService/icons/${username}' >> /var/lib/AccountsService/users/${username}
+          else
+            ${pkgs.gnused}/bin/sed -i 's|^Icon=.*|Icon=/var/lib/AccountsService/icons/${username}|' /var/lib/AccountsService/users/${username}
+          fi
+        fi
+      '';
       # Enable automount usb
       services = {
         gvfs.enable = true;
