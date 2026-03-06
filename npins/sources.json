@@ -38,9 +38,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "32d16d067364e3181922bba5f5a5a4f2b0515a7b",
-      "url": "https://github.com/AvengeMedia/DankMaterialShell/archive/32d16d067364e3181922bba5f5a5a4f2b0515a7b.tar.gz",
-      "hash": "sha256-GF0+dP5GoagtYRuHwCyVFSj21R2JSUDT49Ew9gecSd8="
+      "revision": "1eca9b4c2cc1972d01bdb332a3e2668337c88459",
+      "url": "https://github.com/AvengeMedia/DankMaterialShell/archive/1eca9b4c2cc1972d01bdb332a3e2668337c88459.tar.gz",
+      "hash": "sha256-n9M5XYpSzmNY7jz8mftGQ3DYb2hFCKrfM/FqkwsUUfo="
     },
     "dms-plugin-registry": {
       "type": "Git",
@@ -155,9 +155,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "05996d016dd5006e98786af48f86f671a9d2c1d2",
-      "url": "https://github.com/daxisunder/hyprfocus/archive/05996d016dd5006e98786af48f86f671a9d2c1d2.tar.gz",
-      "hash": "sha256-OXAzpa6oS8ex9mkk2QBDnsA/I/huCWHAL22EJYTGlFg="
+      "revision": "126bfa4d528d08770807700f9fd65a6bef9420b4",
+      "url": "https://github.com/daxisunder/hyprfocus/archive/126bfa4d528d08770807700f9fd65a6bef9420b4.tar.gz",
+      "hash": "sha256-VNQ23Mq0lYXgYTWcMXHMxB8c89mws1GdKtgY0YZim4g="
     },
     "jtui": {
       "type": "GitRelease",
