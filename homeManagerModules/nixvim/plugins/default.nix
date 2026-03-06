@@ -23,6 +23,6 @@
     ./smear-cursor.nix
     ./neoscroll.nix
     ./opencode.nix
-    ./99.nix
+    # ./99.nix
   ];
 }
