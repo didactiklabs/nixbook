@@ -316,9 +316,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "5721955686a474b814c27bc0ec743f86e473ac4f",
-      "url": "https://git.outfoxxed.me/quickshell/quickshell/archive/5721955686a474b814c27bc0ec743f86e473ac4f.tar.gz",
-      "hash": "sha256-kS8IgyBauCuOIgUcX4ajko6Szn4FPLCfwcEGfTv7RDc="
+      "revision": "6bcd3d9bbf81efdd8620409b268b90310bc1374c",
+      "url": "https://git.outfoxxed.me/quickshell/quickshell/archive/6bcd3d9bbf81efdd8620409b268b90310bc1374c.tar.gz",
+      "hash": "sha256-jAmJlxVl+dy3OgF9zn0MVmeXSmblRaDMMV1X1hzRN5g="
     },
     "songbird": {
       "type": "GitRelease",
