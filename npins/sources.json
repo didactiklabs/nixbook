@@ -38,9 +38,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "caaee88654459fed62f2190fb2c788fe00481d59",
-      "url": "https://github.com/AvengeMedia/DankMaterialShell/archive/caaee88654459fed62f2190fb2c788fe00481d59.tar.gz",
-      "hash": "sha256-/RsqWKFUumrVR5fKzW2pes/nx2rswr6EOYrkYxAJbZ8="
+      "revision": "754bf8fa3cf98e96e62e6493e8900716737465ed",
+      "url": "https://github.com/AvengeMedia/DankMaterialShell/archive/754bf8fa3cf98e96e62e6493e8900716737465ed.tar.gz",
+      "hash": "sha256-X45DUAKLxyHKZCGHRko2nDmEYBUyA+OY3WefRbFcOh8="
     },
     "dms-plugin-registry": {
       "type": "Git",
@@ -129,9 +129,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "daa2c221320809f5514edde74d0ad0193ad54ed8",
-      "url": "https://github.com/nix-community/home-manager/archive/daa2c221320809f5514edde74d0ad0193ad54ed8.tar.gz",
-      "hash": "sha256-Qjw6ILt8cb2HQQpCmWNLMZZ63wEo1KjTQt+1BcQBr7k="
+      "revision": "27b93804fbef1544cb07718d3f0a451f4c4cd6c0",
+      "url": "https://github.com/nix-community/home-manager/archive/27b93804fbef1544cb07718d3f0a451f4c4cd6c0.tar.gz",
+      "hash": "sha256-Dp5Ir2u4jJDGCgeMRviHvEQDe+U37hMxp6RSNOoMMPc="
     },
     "home-manager-master": {
       "type": "Git",
@@ -142,9 +142,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "daa2c221320809f5514edde74d0ad0193ad54ed8",
-      "url": "https://github.com/nix-community/home-manager/archive/daa2c221320809f5514edde74d0ad0193ad54ed8.tar.gz",
-      "hash": "sha256-Qjw6ILt8cb2HQQpCmWNLMZZ63wEo1KjTQt+1BcQBr7k="
+      "revision": "27b93804fbef1544cb07718d3f0a451f4c4cd6c0",
+      "url": "https://github.com/nix-community/home-manager/archive/27b93804fbef1544cb07718d3f0a451f4c4cd6c0.tar.gz",
+      "hash": "sha256-Dp5Ir2u4jJDGCgeMRviHvEQDe+U37hMxp6RSNOoMMPc="
     },
     "hyprfocus": {
       "type": "Git",
