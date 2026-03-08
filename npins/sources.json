@@ -51,9 +51,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "740861847b193c099a2a7aff7300293c99528410",
-      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/740861847b193c099a2a7aff7300293c99528410.tar.gz",
-      "hash": "sha256-S8+Q/LGH9QL5vq8Tfa50OL1gPvIctdF0mcPuZ7uZ39c="
+      "revision": "547f10eae04b3cb3dbb16029d3ac38c45174f9e0",
+      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/547f10eae04b3cb3dbb16029d3ac38c45174f9e0.tar.gz",
+      "hash": "sha256-ViJzEi2rv0OPqKMWxxu1dR73EjuRoci1jxtp6O1PR+0="
     },
     "dolphin-overlay": {
       "type": "Git",
@@ -184,9 +184,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "10722b9ba27baf998665440416b0c8c6000defe5",
-      "url": "https://github.com/derailed/k9s/archive/10722b9ba27baf998665440416b0c8c6000defe5.tar.gz",
-      "hash": "sha256-1QZwA0/fh1+EVcjh/kHLuiUe/fYzpBAyIJboOuiEzLE="
+      "revision": "949faeeedd2358ec2bfc0630ac351c35e9b46253",
+      "url": "https://github.com/derailed/k9s/archive/949faeeedd2358ec2bfc0630ac351c35e9b46253.tar.gz",
+      "hash": "sha256-XuytFst70dOIG4SWY4ACQke8MUgO/QVmvQgHn21wgAQ="
     },
     "kl": {
       "type": "GitRelease",
@@ -316,9 +316,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "6bcd3d9bbf81efdd8620409b268b90310bc1374c",
-      "url": "https://git.outfoxxed.me/quickshell/quickshell/archive/6bcd3d9bbf81efdd8620409b268b90310bc1374c.tar.gz",
-      "hash": "sha256-jAmJlxVl+dy3OgF9zn0MVmeXSmblRaDMMV1X1hzRN5g="
+      "revision": "15a84097653593dd15fad59a56befc2b7bdc270d",
+      "url": "https://git.outfoxxed.me/quickshell/quickshell/archive/15a84097653593dd15fad59a56befc2b7bdc270d.tar.gz",
+      "hash": "sha256-mMoiXABDtkSJxCYDrkhJ/TrrJf5M46oUfIlJvv2gkZ0="
     },
     "songbird": {
       "type": "GitRelease",
