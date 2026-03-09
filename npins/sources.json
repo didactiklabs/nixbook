@@ -38,9 +38,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "baa956c3a1e1ba63a26d3b7380bb66376c066575",
-      "url": "https://github.com/AvengeMedia/DankMaterialShell/archive/baa956c3a1e1ba63a26d3b7380bb66376c066575.tar.gz",
-      "hash": "sha256-C6aYjsAVpmrdAtmCN150+6xeOgV47T87CWq1MfQpong="
+      "revision": "acf63c57e8bfe6caf8375904bfb778c0006af336",
+      "url": "https://github.com/AvengeMedia/DankMaterialShell/archive/acf63c57e8bfe6caf8375904bfb778c0006af336.tar.gz",
+      "hash": "sha256-w1j0fq1k7EZHJrYBoqzzR+P0GYMB5lOprMJGmypaiAI="
     },
     "dms-plugin-registry": {
       "type": "Git",
@@ -51,9 +51,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "547f10eae04b3cb3dbb16029d3ac38c45174f9e0",
-      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/547f10eae04b3cb3dbb16029d3ac38c45174f9e0.tar.gz",
-      "hash": "sha256-ViJzEi2rv0OPqKMWxxu1dR73EjuRoci1jxtp6O1PR+0="
+      "revision": "9bf7ae9d3b0fabd9aa9236c402c90dccf80b9e72",
+      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/9bf7ae9d3b0fabd9aa9236c402c90dccf80b9e72.tar.gz",
+      "hash": "sha256-wfcWZQlmwApAy7E/dkA669M/JwpJyuNDBAr20OYAn60="
     },
     "dolphin-overlay": {
       "type": "Git",
