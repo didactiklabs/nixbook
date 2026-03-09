@@ -51,9 +51,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "9bf7ae9d3b0fabd9aa9236c402c90dccf80b9e72",
-      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/9bf7ae9d3b0fabd9aa9236c402c90dccf80b9e72.tar.gz",
-      "hash": "sha256-wfcWZQlmwApAy7E/dkA669M/JwpJyuNDBAr20OYAn60="
+      "revision": "2c2709041a85e42661b921287cd169f43f782007",
+      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/2c2709041a85e42661b921287cd169f43f782007.tar.gz",
+      "hash": "sha256-uuiKOL3yK65i0VY1Cp33YGZo8PT7mFTukONZ8WdaQ7w="
     },
     "dolphin-overlay": {
       "type": "Git",
@@ -227,9 +227,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "3fc5b3670ef77356173ca5f1fa5015e01204bc33",
-      "url": "https://github.com/sodiboo/niri-flake/archive/3fc5b3670ef77356173ca5f1fa5015e01204bc33.tar.gz",
-      "hash": "sha256-nl1U1E9Kk9ZmxWdqcwBuFaljxknbrwq8/bY+utQSajk="
+      "revision": "2a4de8b0b82d7879dc733cecc7233674441f7087",
+      "url": "https://github.com/sodiboo/niri-flake/archive/2a4de8b0b82d7879dc733cecc7233674441f7087.tar.gz",
+      "hash": "sha256-wNuvInrOs6sivWkYoVPc3bLHAoYZ/3L3tBj0VDFNipc="
     },
     "nix-monitor": {
       "type": "GitRelease",
