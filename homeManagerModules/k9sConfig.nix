@@ -136,7 +136,7 @@ in
           ];
         };
         httproutes = {
-          shortCut = "Shift-O";
+          shortCut = "Shift-B";
           description = "Open in Browser";
           dangerous = false;
           scopes = [ "httproutes" ];
@@ -149,7 +149,7 @@ in
           ];
         };
         ingress = {
-          shortCut = "Shift-O";
+          shortCut = "Shift-B";
           description = "Open in Browser";
           dangerous = false;
           scopes = [ "ingresses" ];
