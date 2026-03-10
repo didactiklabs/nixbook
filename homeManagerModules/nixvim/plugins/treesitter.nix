@@ -20,7 +20,7 @@ in
         settings = {
           indent.enable = false;
         };
-        grammarPackages = with pkgs.vimPlugins.nvim-treesitter.builtGrammars; [
+        grammarPackages = with config.programs.nixvim.plugins.treesitter.package.builtGrammars; [
           regex
           c
           lua
