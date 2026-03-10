@@ -122,6 +122,19 @@ in
         };
       };
       plugins = {
+        crds = {
+          shortCut = "Shift-E";
+          description = "Explore spec";
+          dangerous = false;
+          scopes = [ "crds" ];
+          command = "bash";
+          background = false;
+          confirm = false;
+          args = [
+            "-c"
+            "crd-wizard tui --kind $COL-KIND"
+          ];
+        };
         httproutes = {
           shortCut = "Shift-O";
           description = "Open in Browser";
