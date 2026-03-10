@@ -29,6 +29,22 @@
       "url": "https://api.github.com/repos/ryantm/agenix/tarball/refs/tags/0.15.0",
       "hash": "sha256-ipqShkBmHKC9ft1ZAsA6aeKps32k7+XZSPwfxeHLsAU="
     },
+    "crd-wizard": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "pehlicd",
+        "repo": "crd-wizard"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": null,
+      "submodules": false,
+      "version": "v0.1.9",
+      "revision": "70f1a97810ef984ce632773dcb73ea2575b19720",
+      "url": "https://api.github.com/repos/pehlicd/crd-wizard/tarball/refs/tags/v0.1.9",
+      "hash": "sha256-nUbueHEXFPssHw4hGoIE91WidmFPeoA6Yk9V4HoZgXc="
+    },
     "dms": {
       "type": "Git",
       "repository": {

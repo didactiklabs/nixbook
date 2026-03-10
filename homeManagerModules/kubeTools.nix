@@ -9,6 +9,7 @@ let
   kl = import ../customPkgs/kl.nix { inherit pkgs; };
   songbird = import ../customPkgs/songbird.nix { inherit pkgs; };
   pvmigrate = import ../customPkgs/pvmigrate.nix { inherit pkgs; };
+  crd-wizard = import ../customPkgs/crd-wizard.nix { inherit pkgs; };
 in
 {
   options.customHomeManagerModules = {
@@ -73,6 +74,7 @@ in
         kubectl-view-secret
         kubectl-explore
         paralus-cli
+        crd-wizard
       ];
     };
     programs = {
