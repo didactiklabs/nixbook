@@ -51,9 +51,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "d3260fca96c373309025dbdc5e1c6426d22824ed",
-      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/d3260fca96c373309025dbdc5e1c6426d22824ed.tar.gz",
-      "hash": "sha256-T9BX2tCOO0gQ71WkMnb5hisLIPk6vRwG6SAbZRKSja0="
+      "revision": "08e551b79aef5bd534b3e97b032bd3b282d7c99c",
+      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/08e551b79aef5bd534b3e97b032bd3b282d7c99c.tar.gz",
+      "hash": "sha256-LCucRiPA3m6i7OM0rB+iT2oeFzIa008xxa4xkBkD/aU="
     },
     "dolphin-overlay": {
       "type": "Git",
@@ -227,9 +227,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "bea01afa1f6f618087b6883e14e6b708645aa224",
-      "url": "https://github.com/sodiboo/niri-flake/archive/bea01afa1f6f618087b6883e14e6b708645aa224.tar.gz",
-      "hash": "sha256-x7NuHzabvhAMV5jXWTW2u0YDcqz+r5pUdrS35f4kSPw="
+      "revision": "68e2bf48958f2d3553c2efdd518cab55a9236393",
+      "url": "https://github.com/sodiboo/niri-flake/archive/68e2bf48958f2d3553c2efdd518cab55a9236393.tar.gz",
+      "hash": "sha256-rp7A5sq1TlFOku9Hl71g3jXEv6MBV8WmwkuAYpbzps0="
     },
     "nix-monitor": {
       "type": "GitRelease",
@@ -316,9 +316,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "cf1a2aeb2d01e446346fcd37c4b8f4e7d40d6f2c",
-      "url": "https://git.outfoxxed.me/quickshell/quickshell/archive/cf1a2aeb2d01e446346fcd37c4b8f4e7d40d6f2c.tar.gz",
-      "hash": "sha256-54fcqz/u/2P1ITLEsfLjg288i6vKIXJxiPYRuXR93c4="
+      "revision": "bd6217927739a79c1c4ff279051f9625cd4b2b5e",
+      "url": "https://git.outfoxxed.me/quickshell/quickshell/archive/bd6217927739a79c1c4ff279051f9625cd4b2b5e.tar.gz",
+      "hash": "sha256-7G6x33z271v/jhBC5Le7NPOZhv9902+MfCkC9poMwf0="
     },
     "songbird": {
       "type": "GitRelease",
