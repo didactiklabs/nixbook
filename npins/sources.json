@@ -145,9 +145,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "32f78141a98098efed490842923b25ecb93b9b9f",
-      "url": "https://github.com/nix-community/home-manager/archive/32f78141a98098efed490842923b25ecb93b9b9f.tar.gz",
-      "hash": "sha256-uwFY0+UfaGEo6205ixeBjplZxHWr56UQef+MtmJ0PW0="
+      "revision": "7d06e0cefe6e4a1e85b2b3274dcb0b3da242a557",
+      "url": "https://github.com/nix-community/home-manager/archive/7d06e0cefe6e4a1e85b2b3274dcb0b3da242a557.tar.gz",
+      "hash": "sha256-+yFtmhOHterllxWmV6YbdevTXpJdGS0mS0UmJ0k9fh0="
     },
     "home-manager-master": {
       "type": "Git",
@@ -158,9 +158,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "32f78141a98098efed490842923b25ecb93b9b9f",
-      "url": "https://github.com/nix-community/home-manager/archive/32f78141a98098efed490842923b25ecb93b9b9f.tar.gz",
-      "hash": "sha256-uwFY0+UfaGEo6205ixeBjplZxHWr56UQef+MtmJ0PW0="
+      "revision": "7d06e0cefe6e4a1e85b2b3274dcb0b3da242a557",
+      "url": "https://github.com/nix-community/home-manager/archive/7d06e0cefe6e4a1e85b2b3274dcb0b3da242a557.tar.gz",
+      "hash": "sha256-+yFtmhOHterllxWmV6YbdevTXpJdGS0mS0UmJ0k9fh0="
     },
     "hyprfocus": {
       "type": "Git",
@@ -332,9 +332,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "bd6217927739a79c1c4ff279051f9625cd4b2b5e",
-      "url": "https://git.outfoxxed.me/quickshell/quickshell/archive/bd6217927739a79c1c4ff279051f9625cd4b2b5e.tar.gz",
-      "hash": "sha256-7G6x33z271v/jhBC5Le7NPOZhv9902+MfCkC9poMwf0="
+      "revision": "9a9c60525014bcdf83aace03db4b53c19168edcc",
+      "url": "https://git.outfoxxed.me/quickshell/quickshell/archive/9a9c60525014bcdf83aace03db4b53c19168edcc.tar.gz",
+      "hash": "sha256-9Odn+7x5l90HnXRY7MwVYcX+8CYAo+ldJ+GOVs7e2T8="
     },
     "songbird": {
       "type": "GitRelease",
