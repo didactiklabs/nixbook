@@ -1,12 +1,12 @@
 {
   pkgs,
   config,
+  lib,
   ...
 }:
 let
   sources = import ./npins;
   ginx = import ./customPkgs/ginx.nix { inherit pkgs; };
-  # Detect if disko config exists and import it
   diskoConfig = if builtins.pathExists ./disko-config.nix then ./disko-config.nix else null;
 in
 {
@@ -15,6 +15,10 @@ in
     (sources.disko + "/module.nix")
   ]
   ++ (if diskoConfig != null then [ diskoConfig ] else [ ]);
+
+  # When using disko, it provides fileSystems from disko.devices
+  # Make sure hardware-configuration.nix's (empty) fileSystems don't conflict
+  fileSystems = if diskoConfig != null then lib.mkForce { } else { };
 
   users.users.nixos = {
     isNormalUser = true;
@@ -27,6 +31,14 @@ in
     sleep 2
     export NIXPKGS_ALLOW_UNFREE=1
     ginx --source https://github.com/didactiklabs/nixbook -b main --now -- colmena apply-local --sudo
+
+    # After colmena apply, the system now has the final profile applied
+    # Regenerate hardware-configuration.nix to include fileSystems for the final boot
+    # This ensures the final profile can boot without needing disko-config.nix
+    echo "Regenerating hardware configuration with filesystems..."
+    sudo rm -rf /etc/nixos/hardware-configuration.nix
+    sudo nixos-generate-config --root /
+
     sleep 10
     sudo reboot
   '';
@@ -52,6 +64,7 @@ in
   boot = {
     initrd = {
       # Copy LUKS password file into initrd so it can be used during boot
+      # This is needed when the root partition is encrypted with LUKS
       secrets = {
         "/secrets/luks-pass" = "/etc/nixos/secrets/luks-pass";
       };
