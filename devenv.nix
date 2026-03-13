@@ -1,15 +1,8 @@
-{
-  pkgs,
-  lib,
-  config,
-  inputs,
-  ...
-}:
+{ pkgs, ... }:
 {
   # https://devenv.sh/basics/
   env.GREET = "Welcome to the Nixbook NixOS configuration environment!";
 
-  # https://devenv.sh/packages/
   packages = with pkgs; [
     git
     colmena

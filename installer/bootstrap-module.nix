@@ -1,8 +1,4 @@
-{
-  pkgs,
-  lib,
-  ...
-}:
+{ pkgs, ... }:
 let
   sources = import ./npins;
   ginx = import ./customPkgs/ginx.nix { inherit pkgs; };
