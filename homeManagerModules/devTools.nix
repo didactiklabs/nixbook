@@ -32,7 +32,9 @@ in
       # IaC and deployment
       terraform
       minio-client
-      google-cloud-sdk
+      (google-cloud-sdk.withExtraComponents [
+        google-cloud-sdk.components.gke-gcloud-auth-plugin
+      ])
 
       # API and code generation
       cobra-cli
