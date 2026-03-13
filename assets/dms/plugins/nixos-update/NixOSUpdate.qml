@@ -18,7 +18,6 @@ PluginComponent {
     property string repoUrl: "https://github.com/didactiklabs/nixbook"
     property string repoOwner: "didactiklabs"
     property string repoName: "nixbook"
-    property string updateCmd: "osupdate"
     property string changelogText: ""
     property bool updating: false
     property bool checking: false
@@ -169,7 +168,7 @@ PluginComponent {
         command: ["systemctl", "--user", "start", "--no-block", "nixos-upgrade-manual.service"]
         onExited: code => {
             // Using --no-block prevents systemctl from waiting for the job to finish.
-            // This avoids "D-Bus connection terminated" errors when the update 
+            // This avoids "D-Bus connection terminated" errors when the update
             // reloads the user session.
             if (code !== 0) {
                 updating = false
