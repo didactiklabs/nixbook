@@ -7,8 +7,26 @@ permissions:
   contents: "write"
   pull-requests: "write"
 jobs:
-  npins-update:
+  get-pins:
     runs-on: ubuntu-latest
+    outputs:
+      pins: ${{ steps.set-pins.outputs.pins }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - id: set-pins
+        run: |
+          PINS=$(jq -c '.pins | keys' npins/sources.json)
+          echo "pins=$PINS" >> "$GITHUB_OUTPUT"
+
+  npins-update:
+    needs: get-pins
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        pin: ${{ fromJson(needs.get-pins.outputs.pins) }}
+      fail-fast: false
+      max-parallel: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,16 +47,16 @@ jobs:
             trusted-public-keys = didactiklabs-nixcache:PxLKN0+ZkP07M8g8/B6xbP6A4MYpqQg6LH7V3muiy/0= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
             substituters = https://s3.didactiklabs.io/nix-cache https://cache.nixos.org/
       - name: Update npins
-        run: nix run nixpkgs#npins -- update
+        run: nix run nixpkgs#npins -- update ${{ matrix.pin }}
       - name: Create Pull Request
         id: cpr
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ steps.app-token.outputs.token }}
-          commit-message: "chore(deps): update npins sources"
-          title: "chore(deps): update npins sources"
-          body: "This PR updates the pinned sources using `npins update`."
-          branch: npins-update
+          commit-message: "chore(deps): update ${{ matrix.pin }}"
+          title: "chore(deps): update ${{ matrix.pin }}"
+          body: "This PR updates the pinned source `${{ matrix.pin }}` using `npins update ${{ matrix.pin }}`."
+          branch: "npins-update-${{ matrix.pin }}"
           delete-branch: true
       - name: Enable Pull Request Automerge
         if: steps.cpr.outputs.pull-request-operation == 'created'
