@@ -103,7 +103,7 @@ in
         echo "Passwords do not match or are empty. Please try again."
       done
 
-      USER_PASSWORD_HASH=$(openssl passwd -6 "$TARGET_PASSWORD")
+      USER_PASSWORD_HASH=$(openssl passwd -6 "$TARGET_PASSWORD" | tr -d '\n')
 
       #### PARTITION SELECTION
       echo "Let's configure your partitions (Logical Volumes). You must define at least a root (/) partition."
