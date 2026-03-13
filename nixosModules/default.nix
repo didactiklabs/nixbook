@@ -15,6 +15,5 @@
     ./sway.nix
     ./tailscale-fix.nix
     ./tools.nix
-    ./workTools.nix
   ];
 }

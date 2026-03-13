@@ -28,7 +28,6 @@ in
      RUN+="${pkgs.systemd}/bin/loginctl lock-sessions"
   '';
   customNixOSModules = {
-    workTools.enable = true;
     laptopProfile.enable = true;
     networkManager.enable = true;
     greetd.enable = true;
