@@ -215,7 +215,7 @@ in
               text = lib.mkDefault "${colorWhite}";
             };
           };
- 
+
           keybindings = lib.filterAttrsRecursive (name: value: value != null) {
             #lib.mkOptionDefault {
             # Focus
@@ -229,26 +229,14 @@ in
             "${mod}+Shift+Up" = "move up";
             "${mod}+Shift+Right" = "move right";
 
-            "${mod}+l" =
-              if cfg.dmsConfig.enable then
-                "exec dms ipc call powermenu toggle"
-              else
-                null;
-            "${mod}+d" =
-              if cfg.dmsConfig.enable then
-                "exec dms ipc call spotlight toggle"
-              else
-                null;
+            "${mod}+l" = if cfg.dmsConfig.enable then "exec dms ipc call powermenu toggle" else null;
+            "${mod}+d" = if cfg.dmsConfig.enable then "exec dms ipc call spotlight toggle" else null;
 
             # Brightness
             "XF86MonBrightnessDown" = "exec ${brightnessctl} set 10%-";
             "XF86MonBrightnessUp" = "exec ${brightnessctl} set +10%";
 
-            "${mod}+n" =
-              if cfg.dmsConfig.enable then
-                "exec dms ipc call notifications toggle"
-              else
-                null;
+            "${mod}+n" = if cfg.dmsConfig.enable then "exec dms ipc call notifications toggle" else null;
 
             ## To allow a keybinding to be executed while the lockscreen is active add the --locked parameter to bindsym.
             # Audio
@@ -298,11 +286,7 @@ in
             "${mod}+r" = ''mode "${modeResize}"'';
             "${mod}+Shift+t" = ''mode "${modeSystem}"'';
             "${mod}+Shift+v" = "exec ${pkgs.wlprop}/bin/wlprop";
-            "${mod}+q" =
-              if cfg.dmsConfig.enable then
-                "exec dms ipc call clipboard toggle"
-              else
-                null;
+            "${mod}+q" = if cfg.dmsConfig.enable then "exec dms ipc call clipboard toggle" else null;
             "${mod}+i" = if cfg.dmsConfig.enable then "exec dms ipc call inhibit toggle" else null;
             "${mod}+w" = if cfg.dmsConfig.enable then "exec dms ipc call dankdash wallpaper" else null;
             "${mod}+o" = if cfg.dmsConfig.enable then "exec dms ipc call dash toggle overview" else null;
