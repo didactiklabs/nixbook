@@ -18,35 +18,27 @@ let
   '';
 in
 {
+  # System packages - Core utilities only
+  # User-level packages should be in homeManagerModules (devTools, securityTools, systemTools, cliTools)
   environment.systemPackages = with pkgs; [
+    # GPG and SSH
+    gnupg
+    # Yubikey tools
+    yubico-piv-tool
+    yubico-pam
+    yubioath-flutter
+    yubikey-personalization
     accountsservice
     wlsunset
     cups-pk-helper
     ginx
-    sshfs
-    lsof
     osupdate
     ds4drv
     efibootmgr
     colmena
     tailscale
     update-systemd-resolved
-    gnupg
     pinentry-qt
-    wget
-    devbox
-    go-task
-    runme
-    # usb mount auto
-    usbutils
-    udiskie
-    udisks
-    # yubikey
-    yubico-piv-tool
-    yubico-pam
-    yubioath-flutter
-    yubikey-personalization
-    npins
   ];
 
   services.udev = {

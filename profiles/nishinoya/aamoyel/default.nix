@@ -36,12 +36,16 @@
   };
 
   customHomeManagerModules = {
+    cliTools.enable = true;
+    devTools.enable = true;
     fontConfig.enable = true;
     gitConfig.enable = true;
     gtkConfig.enable = true;
+    securityTools.enable = true;
     sshConfig.enable = true;
     starship.enable = true;
     swayConfig.enable = false;
+    systemTools.enable = true;
     hyprlandConfig.enable = false;
     niriConfig.enable = true;
     fastfetchConfig.enable = true;

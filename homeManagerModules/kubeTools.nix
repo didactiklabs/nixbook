@@ -75,6 +75,10 @@ in
         kubectl-explore
         paralus-cli
         crd-wizard
+        # Kubernetes package managers
+        kubernetes-helm
+        kind
+        sou
       ];
     };
     programs = {

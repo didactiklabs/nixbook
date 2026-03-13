@@ -29,12 +29,16 @@
     pkgs.firefox
   ];
   customHomeManagerModules = {
+    cliTools.enable = true;
+    devTools.enable = true;
     fontConfig.enable = true;
     gitConfig.enable = true;
     gtkConfig.enable = true;
+    securityTools.enable = true;
     sshConfig.enable = true;
     starship.enable = true;
     swayConfig.enable = true;
+    systemTools.enable = true;
     nixvimConfig.enable = true;
     fastfetchConfig.enable = true;
     atuinConfig.didactiklabs.enable = true;

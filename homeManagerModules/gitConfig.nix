@@ -19,11 +19,11 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    home.packages = [
-      pkgs.tig
-      pkgs.git-extras
+    home.packages = with pkgs; [
+      tig
+      git-extras
       ## https://difftastic.wilfred.me.uk/git.html
-      pkgs.difftastic
+      difftastic
     ];
     programs = {
       gh = {
