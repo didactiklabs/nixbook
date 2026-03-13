@@ -17,6 +17,14 @@
     ragenix
   ];
 
+  difftastic.enable = true;
+  treefmt = {
+    enable = true;
+    config.programs = {
+      nixfmt.enable = true;
+    };
+  };
+
   # https://devenv.sh/languages/
   # languages.nix.enable = true;
 
