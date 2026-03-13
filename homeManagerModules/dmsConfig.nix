@@ -88,6 +88,7 @@ in
               "music"
               "clock"
               "weather"
+              "claudeCodeUsage"
             ];
             rightWidgets = [
               "systemTray"
@@ -154,6 +155,9 @@ in
           src = ../assets/dms/plugins/vpn-dms;
         };
         sathiAi = {
+          enable = true;
+        };
+        claudeCodeUsage = {
           enable = true;
         };
         nixosUpdate = {
