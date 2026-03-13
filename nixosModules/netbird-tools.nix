@@ -1,34 +1,37 @@
 { pkgs, ... }:
 let
   nswitch = pkgs.writeShellScriptBin "nswitch" ''
-    # Get the list of available Networks
-    networks=$(netbird networks list 2>/dev/null | grep "ID:" | awk '{print $3}')
+    set -euo pipefail
+    PATH="${
+      pkgs.lib.makeBinPath [
+        pkgs.netbird
+        pkgs.fzf
+        pkgs.gawk
+      ]
+    }:$PATH"
+
+    # Get the list of available networks
+    networks=$(netbird networks list 2>/dev/null | awk '/ID:/ {print $3}')
 
     if [[ -z "$networks" ]]; then
-      echo "No Netbird networks found or netbird not running."
+      echo "Error: No Netbird networks found or netbird daemon not running." >&2
       exit 1
     fi
 
-    # Use fzf to select a Network
-    selected_network=$(echo "$networks" | ${pkgs.fzf}/bin/fzf --prompt="Select Netbird Network> ")
+    # Use fzf to select a network
+    selected=$(echo "$networks" | fzf --prompt="Select Netbird Network> ")
 
-    if [[ -z "$selected_network" ]]; then
-      echo "No Network selected. Exiting."
+    if [[ -z "$selected" ]]; then
+      echo "No network selected. Exiting."
       exit 1
     fi
 
-    echo "Switching to Network: $selected_network..."
+    echo "Switching to Network: $selected..."
 
-    if netbird network select "$selected_network"; then
-       echo "Selected $selected_network."
-       if netbird up; then
-         echo "Successfully brought up netbird."
-       else
-         echo "Failed to bring up netbird."
-         exit 1
-       fi
+    if netbird network select "$selected" && netbird up; then
+      echo "Successfully switched to $selected."
     else
-      echo "Failed to select $selected_network."
+      echo "Error: Failed to select or bring up $selected." >&2
       exit 1
     fi
   '';

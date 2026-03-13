@@ -19,296 +19,282 @@ PluginComponent {
     property string repoOwner: "didactiklabs"
     property string repoName: "nixbook"
     property string updateCmd: "osupdate"
-    property string jsonBuffer: ""
     property string updateOutput: ""
     property string changelogText: ""
-    property string changelogBuffer: ""
     property bool updating: false
     property bool checking: false
 
     layerNamespacePlugin: "nixosUpdate"
     popoutWidth: 320
-    popoutHeight: (root.updateOutput !== "" || root.changelogText !== "") ? 600 : 300
+    popoutHeight: (updateOutput || changelogText) ? 600 : 300
 
     Timer {
-        interval: 300000 // Check every 5 minutes
+        interval: 300000 // 5 minutes
         running: true
         repeat: true
-        onTriggered: {
-            checkUpdate()
-        }
+        onTriggered: checkUpdate()
     }
 
-    Component.onCompleted: {
-        checkUpdate()
-    }
+    Component.onCompleted: checkUpdate()
 
     function checkUpdate() {
-        if (root.checking) return
-        root.checking = true
-        jsonBuffer = ""
+        if (checking || updating) return
+        checking = true
         versionProcess.running = true
+    }
+
+    function parseRepoUrl() {
+        const parts = repoUrl.split('/')
+        if (parts.length >= 5) {
+            repoOwner = parts[3]
+            repoName = parts[4]
+        }
     }
 
     Process {
         id: versionProcess
         command: ["cat", "/etc/nixos/version"]
+        property string buffer: ""
         stdout: SplitParser {
-            onRead: line => {
-                root.jsonBuffer += line
-            }
+            onRead: line => versionProcess.buffer += line
         }
         onExited: (code) => {
-            if (code === 0 && root.jsonBuffer.trim() !== "") {
+            if (code === 0 && buffer.trim()) {
                 try {
-                    var data = JSON.parse(root.jsonBuffer)
-                    root.localRev = data.rev || "Unknown"
-                    root.localBranch = data.branch || "Unknown"
-                    
-                    var urlParts = root.repoUrl.split('/')
-                    if (urlParts.length >= 5) {
-                        root.repoOwner = urlParts[3]
-                        root.repoName = urlParts[4]
-                    }
+                    const data = JSON.parse(buffer)
+                    localRev = data.rev || "Unknown"
+                    localBranch = data.branch || "Unknown"
+                    parseRepoUrl()
 
-                    if (root.localRev !== "Unknown") {
+                    if (localRev !== "Unknown") {
                         remoteProcess.running = true
                     } else {
-                        root.checking = false
+                        checking = false
                     }
                 } catch (e) {
-                    console.log("Error parsing /etc/nixos/version: " + e)
-                    root.checking = false
+                    console.error("NixOSUpdate: Failed to parse version:", e)
+                    checking = false
                 }
             } else {
-                root.checking = false
+                checking = false
             }
+            buffer = ""
         }
     }
 
     Process {
         id: remoteProcess
-        command: ["git", "ls-remote", root.repoUrl, "refs/heads/main"]
+        command: ["git", "ls-remote", repoUrl, "refs/heads/main"]
         stdout: SplitParser {
             onRead: line => {
-                var parts = line.split('\t')
-                if (parts.length > 0) {
-                    root.remoteRev = parts[0].trim()
-                }
+                const parts = line.split('\t')
+                if (parts.length > 0) remoteRev = parts[0].trim()
             }
         }
-        onExited: (code) => {
+        onExited: code => {
             if (code === 0) {
                 compareRevs()
             } else {
-                root.checking = false
+                checking = false
             }
         }
     }
 
     function compareRevs() {
-        if (root.localRev !== "Unknown" && root.remoteRev !== "Unknown") {
-            root.updateAvailable = (root.localRev !== root.remoteRev)
-        } else {
-            root.updateAvailable = false
-        }
+        updateAvailable = (localRev !== "Unknown" && remoteRev !== "Unknown" && localRev !== remoteRev)
         fetchChangelog()
     }
 
     function fetchChangelog() {
-        if (root.updateAvailable && root.localBranch === "refs/heads/main" && root.localRev !== "0000000000000000000000000000000000000000") {
-            root.changelogBuffer = ""
+        if (updateAvailable && localBranch === "refs/heads/main" && localRev !== "0".repeat(40)) {
             changelogProcess.running = true
         } else {
-            root.changelogText = ""
-            root.checking = false
+            changelogText = ""
+            checking = false
         }
     }
 
     Process {
         id: changelogProcess
-        command: ["curl", "-s", "https://api.github.com/repos/" + root.repoOwner + "/" + root.repoName + "/compare/" + root.localRev + "..." + root.remoteRev]
+        command: ["curl", "-s", `https://api.github.com/repos/${repoOwner}/${repoName}/compare/${localRev}...${remoteRev}`]
+        property string buffer: ""
         stdout: SplitParser {
-            onRead: line => {
-                root.changelogBuffer += line
-            }
+            onRead: line => changelogProcess.buffer += line
         }
-        onExited: (code) => {
-            root.checking = false
-            if (code === 0 && root.changelogBuffer.trim() !== "") {
+        onExited: code => {
+            checking = false
+            if (code === 0 && buffer.trim()) {
                 try {
-                    var data = JSON.parse(root.changelogBuffer)
-                    var commits = data.commits || []
-                    var text = ""
-                    for (var i = 0; i < commits.length; i++) {
-                        var msg = commits[i].commit.message.split('\n')[0]
-                        text += "- " + msg + "\n"
-                    }
-                    root.changelogText = text
+                    const data = JSON.parse(buffer)
+                    changelogText = (data.commits || []).map(c => `- ${c.commit.message.split('\n')[0]}`).join('\n')
                 } catch (e) {
-                    console.log("Error parsing changelog: " + e)
+                    console.error("NixOSUpdate: Failed to parse changelog:", e)
                 }
             }
+            buffer = ""
         }
     }
 
     Process {
         id: updateProcess
-        command: ["sh", "-c", root.updateCmd]
+        command: ["sh", "-c", updateCmd]
         stdout: SplitParser {
-            onRead: line => {
-                root.updateOutput += line + "\n"
-            }
+            onRead: line => updateOutput += line + "\n"
         }
         stderr: SplitParser {
-            onRead: line => {
-                root.updateOutput += line + "\n"
-            }
+            onRead: line => updateOutput += line + "\n"
         }
-        onExited: (code) => {
-            root.updating = false
+        onExited: code => {
+            updating = false
             if (code === 0) {
-                root.updateOutput = ""
+                updateOutput = ""
             } else {
-                root.updateOutput += "\nProcess finished with exit code: " + code + "\n"
+                updateOutput += `\nProcess finished with exit code: ${code}\n`
             }
-            console.log("Update command exited with code: " + code)
-            root.checkUpdate()
+            checkUpdate()
         }
     }
 
-    horizontalBarPill: Component {
+    Component {
+        id: statusPillBase
         Item {
-            implicitWidth: row.implicitWidth + Theme.spacingM
-            implicitHeight: row.implicitHeight
+            property bool vertical: false
+            implicitWidth: content.implicitWidth + Theme.spacingM
+            implicitHeight: content.implicitHeight
 
-            Row {
-                id: row
-                spacing: Theme.spacingS
+            readonly property bool isActive: checking || updating || updateAvailable
+
+            QtObject {
+                id: d
+                readonly property string statusText: {
+                    if (updating) return vertical ? "Upd..." : "Updating"
+                    if (checking) return vertical ? "Chk..." : "Checking"
+                    return vertical ? "Upd" : "Update"
+                }
+            }
+
+            Loader {
+                id: content
                 anchors.centerIn: parent
+                sourceComponent: vertical ? verticalLayout : horizontalLayout
+            }
 
-                DankIcon {
-                    name: "sync"
-                    size: Theme.iconSize
-                    color: root.updateAvailable ? Theme.primary : Theme.surfaceVariantText
-                    anchors.verticalCenter: parent.verticalCenter
-                    RotationAnimator on rotation {
-                        from: 0; to: 360; duration: 1000
-                        loops: Animation.Infinite
-                        running: root.checking || root.updating
+            Component {
+                id: horizontalLayout
+                Row {
+                    spacing: Theme.spacingS
+                    DankIcon {
+                        name: "sync"
+                        size: Theme.iconSize
+                        color: updateAvailable ? Theme.primary : Theme.surfaceVariantText
+                        anchors.verticalCenter: parent.verticalCenter
+                        RotationAnimator on rotation {
+                            from: 0; to: 360; duration: 1000
+                            loops: Animation.Infinite
+                            running: checking || updating
+                        }
+                    }
+                    StyledText {
+                        visible: isActive
+                        text: d.statusText
+                        font.pixelSize: Theme.fontSizeSmall
+                        font.weight: Font.Bold
+                        color: Theme.surfaceText
+                        anchors.verticalCenter: parent.verticalCenter
                     }
                 }
-                
-                StyledText {
-                    visible: root.updateAvailable || root.checking || root.updating
-                    text: root.updating ? "Updating" : (root.checking ? "Checking" : "Update")
-                    font.pixelSize: Theme.fontSizeSmall
-                    font.weight: Font.Bold
-                    color: Theme.surfaceText
-                    anchors.verticalCenter: parent.verticalCenter
+            }
+
+            Component {
+                id: verticalLayout
+                Column {
+                    spacing: Theme.spacingS
+                    DankIcon {
+                        name: "sync"
+                        size: Theme.iconSize
+                        color: updateAvailable ? Theme.primary : Theme.surfaceVariantText
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        RotationAnimator on rotation {
+                            from: 0; to: 360; duration: 1000
+                            loops: Animation.Infinite
+                            running: checking || updating
+                        }
+                    }
+                    StyledText {
+                        visible: isActive
+                        text: d.statusText
+                        font.pixelSize: Theme.fontSizeSmall
+                        font.weight: Font.Bold
+                        color: Theme.surfaceText
+                        anchors.horizontalCenter: parent.horizontalCenter
+                    }
                 }
             }
         }
     }
 
-    verticalBarPill: Component {
-        Item {
-            implicitWidth: col.implicitWidth + Theme.spacingM
-            implicitHeight: col.implicitHeight
+    horizontalBarPill: Loader {
+        sourceComponent: statusPillBase
+        onLoaded: item.vertical = false
+    }
 
-            Column {
-                id: col
-                spacing: Theme.spacingS
-                anchors.centerIn: parent
-
-                DankIcon {
-                    name: "sync"
-                    size: Theme.iconSize
-                    color: root.updateAvailable ? Theme.primary : Theme.surfaceVariantText
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    RotationAnimator on rotation {
-                        from: 0; to: 360; duration: 1000
-                        loops: Animation.Infinite
-                        running: root.checking || root.updating
-                    }
-                }
-                
-                StyledText {
-                    visible: root.updateAvailable || root.checking || root.updating
-                    text: root.updating ? "Upd..." : (root.checking ? "Chk..." : "Upd")
-                    font.pixelSize: Theme.fontSizeSmall
-                    font.weight: Font.Bold
-                    color: Theme.surfaceText
-                    anchors.horizontalCenter: parent.horizontalCenter
-                }
-            }
-        }
+    verticalBarPill: Loader {
+        sourceComponent: statusPillBase
+        onLoaded: item.vertical = true
     }
 
     popoutContent: Component {
         PopoutComponent {
             id: popout
             headerText: "NixOS Update"
-            detailsText: root.updating ? "Updating system..." : (root.checking ? "Checking for updates..." : (root.updateAvailable ? "New version available" : "System up to date"))
+            detailsText: updating ? "Updating system..." : (checking ? "Checking for updates..." : (updateAvailable ? "New version available" : "System up to date"))
             showCloseButton: true
+
+            component VersionDisplay: ColumnLayout {
+                property string label: ""
+                property string version: ""
+                property bool highlight: false
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
+
+                StyledText {
+                    text: label
+                    font.pixelSize: Theme.fontSizeSmall
+                    color: Theme.surfaceVariantText
+                }
+                StyledText {
+                    text: ma.containsMouse ? version : (version !== "Unknown" ? version.substring(0, 7) + "..." : "Unknown")
+                    font.pixelSize: Theme.fontSizeMedium
+                    font.family: "Fira Code"
+                    Layout.fillWidth: true
+                    color: highlight ? Theme.primary : Theme.surfaceText
+                    MouseArea {
+                        id: ma
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                    }
+                }
+            }
 
             ColumnLayout {
                 width: parent.width
                 spacing: Theme.spacingM
 
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: Theme.spacingS
+                VersionDisplay {
+                    label: "Current Version"
+                    version: localRev
+                }
 
-                    StyledText {
-                        text: "Current Version"
-                        font.pixelSize: Theme.fontSizeSmall
-                        color: Theme.surfaceVariantText
-                    }
-                    StyledText {
-                        text: root.localRev.substring(0, 7) + "..."
-                        font.pixelSize: Theme.fontSizeMedium
-                        font.family: "Fira Code"
-                        Layout.fillWidth: true
-                        color: Theme.surfaceText
-                        MouseArea {
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onEntered: parent.text = root.localRev
-                            onExited: parent.text = root.localRev.substring(0, 7) + "..."
-                        }
-                    }
+                VersionDisplay {
+                    label: "Latest Version"
+                    version: remoteRev
+                    highlight: updateAvailable
                 }
 
                 ColumnLayout {
                     Layout.fillWidth: true
-                    spacing: Theme.spacingS
-
-                    StyledText {
-                        text: "Latest Version"
-                        font.pixelSize: Theme.fontSizeSmall
-                        color: Theme.surfaceVariantText
-                    }
-                    StyledText {
-                        text: root.remoteRev !== "Unknown" ? root.remoteRev.substring(0, 7) + "..." : "Unknown"
-                        font.pixelSize: Theme.fontSizeMedium
-                        font.family: "Fira Code"
-                        Layout.fillWidth: true
-                        color: root.updateAvailable ? Theme.primary : Theme.surfaceText
-                        MouseArea {
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onEntered: parent.text = root.remoteRev
-                            onExited: parent.text = (root.remoteRev !== "Unknown" ? root.remoteRev.substring(0, 7) + "..." : "Unknown")
-                        }
-                    }
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    visible: root.changelogText !== ""
+                    visible: changelogText !== ""
                     spacing: Theme.spacingS
 
                     StyledText {
@@ -335,7 +321,7 @@ PluginComponent {
                             StyledText {
                                 id: changelogLabel
                                 width: parent.width
-                                text: root.changelogText
+                                text: changelogText
                                 font.pixelSize: Theme.fontSizeSmall
                                 color: Theme.surfaceText
                                 wrapMode: Text.Wrap
@@ -346,12 +332,12 @@ PluginComponent {
 
                 DankButton {
                     Layout.fillWidth: true
-                    text: root.updating ? "Updating..." : "Execute Update"
-                    visible: root.updateAvailable || root.updating
-                    enabled: !root.updating
+                    text: updating ? "Updating..." : "Execute Update"
+                    visible: updateAvailable || updating
+                    enabled: !updating
                     onClicked: {
-                        root.updateOutput = ""
-                        root.updating = true
+                        updateOutput = ""
+                        updating = true
                         updateProcess.running = true
                     }
                 }
@@ -360,7 +346,7 @@ PluginComponent {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Layout.minimumHeight: 200
-                    visible: root.updateOutput !== ""
+                    visible: updateOutput !== ""
                     color: Theme.surfaceVariant
                     radius: Theme.cornerRadius
                     
@@ -375,7 +361,7 @@ PluginComponent {
                         StyledText {
                             id: logText
                             width: logFlickable.width
-                            text: root.updateOutput
+                            text: updateOutput
                             font.family: "Fira Code"
                             font.pixelSize: Theme.fontSizeSmall
                             color: Theme.surfaceText
@@ -391,11 +377,9 @@ PluginComponent {
 
                 DankButton {
                     Layout.fillWidth: true
-                    text: root.checking ? "Checking..." : "Check for Updates"
-                    enabled: !root.checking && !root.updating
-                    onClicked: {
-                        root.checkUpdate()
-                    }
+                    text: checking ? "Checking..." : "Check for Updates"
+                    enabled: !checking && !updating
+                    onClicked: checkUpdate()
                 }
             }
         }
