@@ -162,5 +162,26 @@ in
         };
       };
     };
+    systemd.user.services.nixos-upgrade-manual = {
+      Unit = {
+        Description = "Manual NixOS System Upgrade";
+      };
+      Service = {
+        Type = "oneshot";
+        ExecStart = "${pkgs.writeShellScript "nixos-upgrade-wrapper" ''
+          export PATH=$PATH:${
+            lib.makeBinPath [
+              pkgs.git
+              pkgs.jq
+              pkgs.colmena
+              pkgs.sudo
+            ]
+          }
+          exec osupdate
+        ''}";
+        StandardOutput = "journal";
+        StandardError = "journal";
+      };
+    };
   };
 }
