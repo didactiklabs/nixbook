@@ -10,11 +10,15 @@
 ## Key Statistics
 
 - **Total Size:** 4.5 GB
-- **Nix Files:** 132 files (~9,022 lines of code)
+- **Nix Files:** 133 files (~9,837 lines of code)
 - **Active Machines:** 3 (totoro, anya, nishinoya)
-- **Home Manager Modules:** 30+
-- **NixOS Modules:** 18
+- **Home Manager Modules:** 34 (21 main files + 13 plugin/config subdirectories)
+- **NixOS Modules:** 16 files
 - **Custom Packages:** 11
+- **CI/CD Workflows:** 4
+- **NixVim Plugins:** 25
+- **VSCode Extensions:** 200+
+- **Pinned Dependencies:** 35+
 
 ## Core Tools
 
@@ -53,60 +57,73 @@ hive.nix                          Colmena deployment config
 - `.github/workflows/` - GitHub Actions CI/CD for all 3 machines
 - `devenv.nix/.envrc` - Development environment with direnv integration
 
-## NixOS Modules (18 core modules)
+## NixOS Modules (16 files)
 
-| Module                                   | Purpose                                   |
-| ---------------------------------------- | ----------------------------------------- |
-| `core.nix`                               | Kernel, bootloader, systemd configuration |
-| `userConfig.nix`                         | User management framework                 |
-| `tools.nix`                              | Development and utility tools             |
-| `hyprland.nix`, `niri.nix`, `sway.nix`   | Wayland compositor configs                |
-| `greetd.nix`                             | Login manager configuration               |
-| `networkManager.nix`                     | Network connectivity                      |
-| `sunshine.nix`                           | Remote desktop streaming                  |
-| `printTools.nix`                         | Printing and scanner support              |
-| `laptopProfile.nix`                      | Laptop-specific optimizations             |
-| `caCertificates.nix`                     | Custom CA certificates                    |
-| `tailscale-fix.nix`, `netbird-tools.nix` | VPN clients                               |
+| Module | Lines | Purpose |
+|--------|-------|---------|
+| `userConfig.nix` | 209 | User management framework with mkUser helper |
+| `core.nix` | 201 | Bootloader (systemd-boot), kernel settings, systemd services |
+| `tools.nix` | 109 | Development and utility tools (git, direnv, treefmt, pre-commit) |
+| `niri.nix` | 61 | Niri scrollable tiling compositor setup |
+| `tailscale-fix.nix` | 60 | Tailscale VPN workaround/fixes |
+| `greetd.nix` | 57 | Login manager (greeter configuration) |
+| `caCertificates.nix` | 56 | Custom CA certificates (bealv, didactiklabs, logicmg) |
+| `getRevision.nix` | 54 | Git revision tracking for system |
+| `networkManager.nix` | 41 | Network connectivity and wifi management |
+| `netbird-tools.nix` | 41 | NetBird VPN client setup |
+| `sunshine.nix` | 39 | Remote desktop streaming configuration |
+| `hyprland.nix` | 39 | Hyprland dynamic tiling compositor |
+| `laptopProfile.nix` | 38 | Laptop-specific: power management, display scaling |
+| `printTools.nix` | 37 | Printing and scanner support (CUPS, SANE) |
+| `sway.nix` | 27 | Sway i3-like tiling compositor |
+| `default.nix` | 19 | Module imports aggregator |
 
-## Home Manager Modules (30+)
+## Home Manager Modules (34 files/subdirectories)
 
-**Desktop Environment & UI:**
-
-- Hyprland, Sway, Niri window managers with configs
-- Stylix declarative theming
-- GTK configuration
-- Font management
-- Rofi launcher theming
+**Core User Configuration:**
+- `entrypoint.nix` - Profile validation and MIME defaults
+- `commonShellConfig.nix` (118 LOC) - Shared shell environment
+- `zshConfig.nix` (80 LOC) - Zsh with fast-syntax-highlighting, autopair
+- `gitConfig.nix` (125 LOC) - Git configuration with user-specific overrides
 
 **Terminal & Shell:**
+- `kittyConfig.nix` (122 LOC) - Terminal emulator with themes
+- `starshipConfig.nix` (110 LOC) - Prompt with git info and nix integration
+- `atuinConfig.nix` - Shell history sync (per-environment support)
+- `cliTools.nix` - CLI utilities (bat, eza, ripgrep, etc.)
 
-- Zsh with plugins
-- Kitty terminal emulator
-- Starship prompt
-- Atuin shell history sync
+**Desktop Environments:**
+- `hyprland/` - Hyprland compositor (9,239 LOC config + 4,535 LOC lock)
+- `niri/` - Niri scrollable compositor (20,654 LOC config)
+- `sway/` - Sway i3-like compositor (14,772 LOC config)
+- `gtkConfig.nix` (72 LOC) - GTK appearance and theming
+- `fontConfig.nix` (46 LOC) - Font management
+- `stylixConfig.nix` (44 LOC) - Declarative theming system
+- Rofi launcher with OneDark color scheme
 
 **Development:**
+- `devTools.nix` (58 LOC) - Languages and dev tools
+- `goji.nix` (236 LOC) - AI-powered conventional commits
+- `nixvim/` - NeoVim with 25 plugins (LSP, Treesitter, Telescope, neo-tree, etc.)
 
-- NixVim (NeoVim in Nix) with plugins
-- VSCode with 200+ extensions
-- Git configuration and tools
-- Kubernetes tools (k9s, kubeswitch, kubectl, helm)
+**Kubernetes & DevOps:**
+- `k9sConfig.nix` (336 LOC) - K9s dashboard configuration
+- `kubeTools.nix` (97 LOC) - kubectl, helm, kubeswitch, k9s setup
+- `kubeswitchConfig.nix` (41 LOC) - Kubernetes context switcher
 
 **Applications:**
+- `dmsConfig.nix` (191 LOC) - DankMaterialShell (DMS) terminal UI
+- `fastfetchConfig.nix` (152 LOC) - System information display
+- `desktopApps.nix` (37 LOC) - Firefox, Dolphin, MPV setup
+- `dolphinConfig.nix` - File manager configuration
+- `mpvConfig.nix` - Media player configuration
+- `thunderbirdConfig.nix` - Email client configuration
 
-- Thunderbird email client
-- MPV media player
-- Dolphin file manager
-- Fcitx5 input method framework
-- DankMaterialShell (DMS) terminal UI
-- Fastfetch system information
-
-**Infrastructure:**
-
-- Goji AI-powered conventional commit helper
-- SSH configuration
-- Desktop apps registry
+**Infrastructure & Tools:**
+- `fcitx5Config.nix` (53 LOC) - Input method framework (CJK support)
+- `sshConfig.nix` - SSH key management
+- `vscode/` - VSCode with 200+ extensions (8,170 LOC default.nix + 5,400 LOC extensions list)
+- `scripts/` - Custom shell scripts (volume.nix: 6,398 LOC sophisticated volume control)
 
 ## Machine Profiles (3 machines)
 
@@ -114,24 +131,32 @@ hive.nix                          Colmena deployment config
 
 - **Location:** `profiles/totoro/`
 - **User:** khoa
-- **WM:** Niri (primary with Hyprland fallback)
-- **Modules:** Work tools, laptop profile
-- **Configs:** Git, Hyprland, Kanshi monitors, Niri, Thunderbird
+- **Primary WM:** Niri (with Hyprland fallback)
+- **Modules:** laptopProfile, networkManager, greetd, niri, caCertificates
+- **Special Features:** Dual monitor setup (kanshiConfig), Go development environment
+- **Work Environments:** didactiklabs, bealv kubeconfigs
+- **Home Manager Modules:** cliTools, devTools, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, fcitx5Config, thunderbirdConfig, dmsConfig
 
-### anya - Secondary/Deployment Machine
+### anya - Secondary/Deployment Machine (Gaming/Streaming)
 
 - **Location:** `profiles/anya/`
 - **User:** khoa
-- **WM:** Sway (primary)
-- **Modules:** Sunshine (remote desktop), work tools
-- **Features:** Kubernetes setup, streaming server
+- **Primary WM:** Sway
+- **Modules:** networkManager, sunshine, sway, caCertificates
+- **Special Features:** Wake-on-LAN, Steam Big Picture auto-launch, Proton GE, Immich photo sync timers
+- **Work Environments:** didactiklabs, bealv kubeconfigs
+- **Home Manager Modules:** cliTools, devTools, fontConfig, gitConfig, gtkConfig, securityTools, sshConfig, starship, swayConfig, systemTools, nixvimConfig, fastfetchConfig, atuinConfig, kittyConfig, zshConfig, dmsConfig
 
 ### nishinoya - Tertiary Machine
 
 - **Location:** `profiles/nishinoya/`
 - **User:** aamoyel
-- **WM:** Hyprland/Niri options
-- **Configs:** Git, Hyprland, Kanshi monitors, Niri
+- **Primary WM:** Niri (with Hyprland fallback)
+- **Modules:** laptopProfile, networkManager, greetd, niri, caCertificates
+- **Special Features:** Unprivileged port access, Yubico security key lock on removal
+- **Work Environments:** didactiklabs, logicmg kubeconfigs
+- **Extra Packages:** Google Chrome, Bitwarden, GitKraken, Google Cloud SDK, Slack, Kanidm
+- **Home Manager Modules:** cliTools, devTools, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, vscode, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, fcitx5Config, dmsConfig
 
 ## Key Features
 
@@ -252,15 +277,58 @@ npins/ → dependency sources
 
 ## Custom Packages (11 total)
 
-| Package                           | Purpose                     |
-| --------------------------------- | --------------------------- |
-| `ginx`                            | Run Nix code from git repos |
-| `goji`                            | Conventional commit with AI |
-| `ytui`                            | YouTube terminal UI         |
-| `jtui`                            | JSON viewer TUI             |
-| `crd-wizard`                      | Kubernetes CRD wizard       |
-| `pvmigrate`                       | Proxmox VM migration        |
-| `okada`, `songbird`, `witr`, `kl` | Custom utilities            |
+| Package | Purpose |
+|---------|---------|
+| `ginx` | Run Nix code from git repos |
+| `goji` | Conventional commits with AI/emoji support |
+| `ytui` | YouTube video query and playback TUI |
+| `jtui` | JSON viewer TUI (v1.0.0) |
+| `crd-wizard` | Kubernetes CRD visualization dashboard (v0.1.9) |
+| `pvmigrate` | Proxmox VM migration tool (v0.12.2) |
+| `okada` | Custom utility (v0.0.1) |
+| `songbird` | Custom utility (v0.4.0) |
+| `witr` | Custom utility (v0.3.0) |
+| `kl` | Custom utility (v0.6.1, frozen) |
+| `99` | Custom utility |
+
+## Dependencies & Pinning
+
+**Core Framework:**
+- `nixpkgs` - Branch: nixos-unstable
+- `home-manager` - Master branch
+- `agenix` (v0.15.0) - Age-based secrets management
+- `disko` (v1.13.0) - Declarative disk partitioning
+- `stylix` - Declarative theming system
+- `niri-flake` - Niri compositor flake
+
+**Pinned Dependencies:** 35+ packages managed via `npins/sources.json`
+
+## CI/CD Pipeline
+
+**GitHub Actions Workflows (4 total):**
+
+- `build-totoro.yaml` - Build & validate totoro configuration
+- `build-anya.yaml` - Build & validate anya configuration
+- `build-nishinoya.yaml` - Build & validate nishinoya configuration
+- `npins-update.yaml` - Automated dependency updates
+
+**Features:**
+- Self-hosted runner support
+- Cachix caching integration
+- Custom S3 cache (didactiklabs-nixcache)
+- nixfmt formatting checks
+- Concurrent job management
+
+## Assets
+
+**Includes (32 files):**
+- Custom CA certificates (bealv, didactiklabs, logicmg)
+- DMS plugins with custom widgets
+- System and theme images (wallpapers, volume control icons)
+- Rofi launcher theme (OneDark color scheme)
+- Kubernetes kubeconfigs (OIDC-based for 4 environments)
+- VPN configuration (bealv.ovpn)
+- Audio files (notification and startup sounds)
 
 ## For AI Agents
 
