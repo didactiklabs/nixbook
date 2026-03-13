@@ -7,7 +7,7 @@
 set -euxo pipefail
 shopt -s nullglob
 
-CURRENT_DIR="$(dirname ${BASH_SOURCE[0]})"
+CURRENT_DIR="$(dirname "${BASH_SOURCE[0]}")"
 
 # can be added to your configuration with the following command and snippet:
 # $ ./pkgs/misc/vscode-extensions/update_installed_exts.sh > extensions.nix
