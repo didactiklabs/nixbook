@@ -76,6 +76,7 @@ in
         bruno-cli
         kind
         sou
+        devenv
       ];
     };
   };
