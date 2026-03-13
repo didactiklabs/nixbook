@@ -87,18 +87,28 @@ let
     Diff:
     $DIFF"
 
-    # Call opencode run
-    RESPONSE=$(opencode run "$PROMPT" --format json | ${pkgs.jq}/bin/jq -r 'select(.type=="text") | .part.text' | tr -d '\r')
+    # Call opencode run and extract the AI response
+    OPENCODE_OUTPUT=$(opencode run "$PROMPT" --format json 2>/dev/null)
+    AI_TEXT=$(echo "$OPENCODE_OUTPUT" | ${pkgs.jq}/bin/jq -r 'select(.type=="text") | .part.text // empty' 2>/dev/null | tr -d '\r')
 
-    # Extract values
-    TYPE=$(echo "$RESPONSE" | ${pkgs.jq}/bin/jq -r '.type // empty')
-    SCOPE=$(echo "$RESPONSE" | ${pkgs.jq}/bin/jq -r '.scope // empty')
-    SUBJECT=$(echo "$RESPONSE" | ${pkgs.jq}/bin/jq -r '.subject // empty')
+    # Extract JSON from the response - handle markdown code blocks
+    RESPONSE=$(echo "$AI_TEXT" | sed -n '/```json/,/```/p' | sed '1d;$d')
 
+    # If no code block found, use the whole response
+    if [ -z "$RESPONSE" ]; then
+        RESPONSE="$AI_TEXT"
+    fi
+
+    # Extract values with fallbacks
+    TYPE=$(echo "$RESPONSE" | ${pkgs.jq}/bin/jq -r '.type // "feat"')
+    SCOPE=$(echo "$RESPONSE" | ${pkgs.jq}/bin/jq -r '.scope // ""')
+    SUBJECT=$(echo "$RESPONSE" | ${pkgs.jq}/bin/jq -r '.subject // "update"')
+
+    # If SUBJECT is still empty or "null", extract from plain text
     if [ -z "$SUBJECT" ] || [ "$SUBJECT" == "null" ]; then
-        echo "❌ Error: Failed to generate a valid commit message."
-        echo "AI Response: $RESPONSE"
-        exit 1
+        # Try to extract commit message from plain text
+        SUBJECT=$(echo "$AI_TEXT" | grep -i "subject:" | sed 's/.*subject:[[:space:]]*//i' | tr -d '\n' | head -c 100)
+        [ -z "$SUBJECT" ] && SUBJECT="update changes"
     fi
 
     # Build goji command

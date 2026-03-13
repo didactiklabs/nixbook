@@ -183,9 +183,11 @@ PluginComponent {
                 updateOutput += `\nFailed to trigger update service (code ${code}).\n`
                 updating = false
                 updateProcess.running = false
+                checkUpdate()
             } else {
                 updateOutput += "Update service successfully triggered. Monitoring logs...\n"
                 monitorProcess.running = true
+                checkUpdate()
             }
         }
     }
