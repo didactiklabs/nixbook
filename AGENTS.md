@@ -287,3 +287,4 @@ If you make changes, always present them for user review before committing.
 8. **Deployment** - Use `colmena apply-local --sudo` for local changes
 9. **Git Hooks** - Configured in `devenv.nix`, run automatically on commit
 10. **Documentation** - Keep `README.md` and `AGENTS.md` updated
+11. **AGENTS.md Updates** - Always update `AGENTS.md` after making changes to project structure, adding/removing machines, modules, packages, or features. This ensures the documentation stays accurate for future AI agents.
