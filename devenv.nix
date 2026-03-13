@@ -5,7 +5,6 @@
   inputs,
   ...
 }:
-
 {
   # https://devenv.sh/basics/
   env.GREET = "Welcome to the NixOS configuration environment!";
@@ -15,6 +14,7 @@
     git
     colmena
     npins
+    ragenix
   ];
 
   # https://devenv.sh/languages/
