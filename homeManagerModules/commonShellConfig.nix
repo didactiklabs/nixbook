@@ -100,6 +100,12 @@ in
     eza = {
       enable = true;
     };
+    direnv = {
+      config.global.hide_env_diff = true;
+      enable = true;
+      nix-direnv.enable = true;
+    };
+
     ripgrep = {
       enable = true;
     };
