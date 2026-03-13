@@ -1,6 +1,5 @@
 {
   disk ? null,
-  profile ? "totoro",
   ...
 }:
 let

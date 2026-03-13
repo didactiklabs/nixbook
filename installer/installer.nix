@@ -8,7 +8,7 @@ let
   nixbookSource = lib.cleanSource ../.;
 in
 {
-  config.system.build.scripts = rec {
+  config.system.build.scripts = {
     installer = pkgs.writeScriptBin "installer" ''
       set -euo pipefail
       export PATH="$PATH:${
@@ -96,7 +96,7 @@ in
       while true; do
         TARGET_PASSWORD=$(gum input --password --placeholder "Enter password for $TARGET_USER" || true)
         TARGET_PASSWORD_CONFIRM=$(gum input --password --placeholder "Confirm password for $TARGET_USER" || true)
-        
+
         if [ -n "$TARGET_PASSWORD" ] && [ "$TARGET_PASSWORD" = "$TARGET_PASSWORD_CONFIRM" ]; then
           break
         fi
@@ -268,7 +268,7 @@ in
 
       echo "Configuring user imperatively..."
       nixos-enter --root /mnt -c "useradd -m -G wheel \"$TARGET_USER\" || true"
-      nixos-enter --root /mnt -c "usermod -p '$USER_PASSWORD_HASH' \"$TARGET_USER\""
+      nixos-enter --root /mnt -c "echo \"$TARGET_USER:$USER_PASSWORD_HASH\" | chpasswd -e"
 
       echo "Installation complete!"
       gum confirm "Reboot now?" && reboot
