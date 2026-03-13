@@ -2,21 +2,32 @@
   username ? "khoa",
   profileName ? "totoro",
   shell ? pkgs.zsh,
-  pkgs ? import (import ../npins).nixpkgs {
+  pkgs ? import (import ./npins).nixpkgs {
     config = {
       allowUnfree = true;
       allowUnfreePredicate = _: true;
     };
   },
   lib ? pkgs.lib,
-  sources ? import ../npins,
+  sources ? import ./npins,
   extraHomeManagerModules ? [ ],
 }:
+let
+  # Validate profile path exists
+  userProfilePath = ./profiles/${profileName}/${username}/default.nix;
+  userProfileHomeManagerConfig =
+    if builtins.pathExists userProfilePath then
+      userProfilePath
+    else
+      builtins.error "Home Manager profile not found at: ${builtins.toString userProfilePath}";
+in
 {
   imports = [
     (import sources.stylix).homeModules.stylix
     (import sources.nixvim).homeModules.nixvim
-    (import "${sources.agenix}/modules/age-home.nix").userProfileHomeManagerConfig
+    (import "${sources.agenix}/modules/age-home.nix")
+    ../homeManagerModules
+    userProfileHomeManagerConfig
   ]
   ++ extraHomeManagerModules;
 
