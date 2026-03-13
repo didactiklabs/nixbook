@@ -19,14 +19,13 @@ PluginComponent {
     property string repoOwner: "didactiklabs"
     property string repoName: "nixbook"
     property string updateCmd: "osupdate"
-    property string updateOutput: ""
     property string changelogText: ""
     property bool updating: false
     property bool checking: false
 
     layerNamespacePlugin: "nixosUpdate"
     popoutWidth: 320
-    popoutHeight: (updateOutput || changelogText) ? 600 : 300
+    popoutHeight: changelogText ? 600 : 300
 
     Timer {
         interval: 300000 // 5 minutes
@@ -136,29 +135,11 @@ PluginComponent {
     }
 
     Process {
-        id: updateProcess
-        // Stream logs from the systemd service
-        command: ["journalctl", "--user", "-u", "nixos-upgrade-manual.service", "-f", "-n", "0", "--output=cat"]
-        stdout: SplitParser {
-            onRead: line => updateOutput += line + "\n"
-        }
-        stderr: SplitParser {
-            onRead: line => updateOutput += line + "\n"
-        }
-        onExited: code => {
-            if (updating) {
-                updateOutput += `\n[Log monitor exited with code ${code}]\n`
-            }
-        }
-    }
-
-    Process {
         id: monitorProcess
         command: ["systemctl", "--user","is-active", "--quiet", "nixos-upgrade-manual.service"]
         onExited: code => {
             if (code !== 0) { // Service stopped
                 updating = false
-                updateProcess.running = false
                 checkUpdate()
             } else {
                 monitorTimer.start()
@@ -180,13 +161,9 @@ PluginComponent {
             // This avoids "D-Bus connection terminated" errors when the update 
             // reloads the user session.
             if (code !== 0) {
-                updateOutput += `\nFailed to trigger update service (code ${code}).\n`
                 updating = false
-                updateProcess.running = false
                 checkUpdate()
             } else {
-                updateOutput += "Update service successfully triggered. Monitoring logs...\n"
-                updateProcess.running = true
                 monitorTimer.start()
                 checkUpdate()
             }
@@ -374,49 +351,8 @@ PluginComponent {
                     visible: updateAvailable || updating
                     enabled: !updating
                     onClicked: {
-                        updateOutput = ""
                         updating = true
-                        updateOutput += "Starting update service...\n"
                         startUpdateProcess.running = true
-                    }
-                }
-
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Layout.minimumHeight: 200
-                    visible: updateOutput !== ""
-                    color: Theme.surfaceVariant
-                    radius: Theme.cornerRadius
-
-                    Flickable {
-                        id: logFlickable
-                        anchors.fill: parent
-                        anchors.margins: Theme.spacingS
-                        contentWidth: logText.width
-                        contentHeight: logText.height
-                        clip: true
-
-                        Timer {
-                            id: scrollTimer
-                            interval: 50
-                            onTriggered: {
-                                if (logFlickable.contentHeight > logFlickable.height) {
-                                    logFlickable.contentY = logFlickable.contentHeight - logFlickable.height
-                                }
-                            }
-                        }
-
-                        StyledText {
-                            id: logText
-                            width: logFlickable.width
-                            text: updateOutput
-                            font.family: "Fira Code"
-                            font.pixelSize: Theme.fontSizeSmall
-                            color: Theme.surfaceText
-                            wrapMode: Text.WrapAnywhere
-                            onTextChanged: scrollTimer.start()
-                        }
                     }
                 }
 
