@@ -397,6 +397,16 @@ PluginComponent {
                         contentHeight: logText.height
                         clip: true
 
+                        Timer {
+                            id: scrollTimer
+                            interval: 50
+                            onTriggered: {
+                                if (logFlickable.contentHeight > logFlickable.height) {
+                                    logFlickable.contentY = logFlickable.contentHeight - logFlickable.height
+                                }
+                            }
+                        }
+
                         StyledText {
                             id: logText
                             width: logFlickable.width
@@ -405,11 +415,7 @@ PluginComponent {
                             font.pixelSize: Theme.fontSizeSmall
                             color: Theme.surfaceText
                             wrapMode: Text.WrapAnywhere
-                            onTextChanged: {
-                                if (logFlickable.contentHeight > logFlickable.height) {
-                                    logFlickable.contentY = logFlickable.contentHeight - logFlickable.height
-                                }
-                            }
+                            onTextChanged: scrollTimer.start()
                         }
                     }
                 }
