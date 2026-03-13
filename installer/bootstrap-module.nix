@@ -1,4 +1,8 @@
-{ pkgs, config, ... }:
+{
+  pkgs,
+  config,
+  ...
+}:
 let
   sources = import ./npins;
   ginx = import ./customPkgs/ginx.nix { inherit pkgs; };
@@ -21,8 +25,6 @@ in
   programs.bash.loginShellInit = ''
     echo "Starting final configuration..."
     sleep 2
-    sudo rm -rf /etc/nixos/hardware-configuration.nix
-    sudo nixos-generate-config
     export NIXPKGS_ALLOW_UNFREE=1
     ginx --source https://github.com/didactiklabs/nixbook -b main --now -- colmena apply-local --sudo
     sleep 10
