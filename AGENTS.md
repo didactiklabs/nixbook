@@ -265,7 +265,17 @@ npins/ → dependency sources
 
 ## For AI Agents
 
-When working with this project:
+### Important: Git Commit Policy
+
+**AI agents MUST NEVER commit anything to this repository unless explicitly requested by the user.** This includes:
+- Never creating commits automatically
+- Never amending commits
+- Never pushing to remote branches
+- Never making any git commit operations without explicit user instruction
+
+If you make changes, always present them for user review before committing.
+
+### When working with this project:
 
 1. **Configuration Files** - Always start with `base.nix`, `hive.nix`, and relevant profile
 2. **Module System** - Use `nixosModules/` for system features, `homeManagerModules/` for user configs
