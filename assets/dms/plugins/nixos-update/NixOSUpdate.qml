@@ -174,10 +174,13 @@ PluginComponent {
 
     Process {
         id: startUpdateProcess
-        command: ["systemctl","--user", "start", "nixos-upgrade-manual.service"]
+        command: ["systemctl", "--user", "start", "--no-block", "nixos-upgrade-manual.service"]
         onExited: code => {
+            // Using --no-block prevents systemctl from waiting for the job to finish.
+            // This avoids "D-Bus connection terminated" errors when the update 
+            // reloads the user session.
             if (code !== 0) {
-                updateOutput += `\nFailed to start update service (code ${code}). Ensure the service exists and you have permissions.\n`
+                updateOutput += `\nFailed to trigger update service (code ${code}).\n`
                 updating = false
                 updateProcess.running = false
             } else {
