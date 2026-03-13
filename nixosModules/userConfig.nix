@@ -177,7 +177,6 @@ let
                   hicolor-icon-theme
                   playerctl
                   wev
-                  jq
                   wlprop
                   wf-recorder
                   sway-contrib.grimshot
