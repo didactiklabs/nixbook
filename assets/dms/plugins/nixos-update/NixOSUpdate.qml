@@ -138,12 +138,17 @@ PluginComponent {
     Process {
         id: updateProcess
         // Stream logs from the systemd service
-        command: ["journalctl","--user", "-u", "nixos-upgrade-manual.service", "-f", "-n", "50"]
+        command: ["journalctl", "--user", "-u", "nixos-upgrade-manual.service", "-f", "-n", "0", "--output=cat"]
         stdout: SplitParser {
             onRead: line => updateOutput += line + "\n"
         }
         stderr: SplitParser {
             onRead: line => updateOutput += line + "\n"
+        }
+        onExited: code => {
+            if (updating) {
+                updateOutput += `\n[Log monitor exited with code ${code}]\n`
+            }
         }
     }
 
@@ -172,10 +177,11 @@ PluginComponent {
         command: ["systemctl","--user", "start", "nixos-upgrade-manual.service"]
         onExited: code => {
             if (code !== 0) {
-                updateOutput += `\nFailed to start service (code ${code}). Ensure the service exists and you have permissions.\n`
+                updateOutput += `\nFailed to start update service (code ${code}). Ensure the service exists and you have permissions.\n`
                 updating = false
+                updateProcess.running = false
             } else {
-                updateProcess.running = true
+                updateOutput += "Update service successfully triggered. Monitoring logs...\n"
                 monitorProcess.running = true
             }
         }
@@ -364,6 +370,8 @@ PluginComponent {
                     onClicked: {
                         updateOutput = ""
                         updating = true
+                        updateOutput += "Starting log monitor...\n"
+                        updateProcess.running = true
                         startUpdateProcess.running = true
                     }
                 }
