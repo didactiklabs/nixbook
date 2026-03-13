@@ -5,30 +5,17 @@
   overrides ? { },
 }:
 let
-  defaultImagePath = pkgs.stdenv.mkDerivation {
-    name = "defaultImagePath";
-    src = ../assets/images;
-    phases = [
-      "unpackPhase"
-      "installPhase"
-    ];
-    installPhase = ''
-      mkdir -p $out
-      cp -r $src/* $out
-    '';
-  };
-  defaultSoundPath = pkgs.stdenv.mkDerivation {
-    name = "defaultSoundPath";
-    src = ../assets/sounds;
-    phases = [
-      "unpackPhase"
-      "installPhase"
-    ];
-    installPhase = ''
-      mkdir -p $out
-      cp -r $src/* $out
-    '';
-  };
+  # Use runCommand for simple asset copying - faster evaluation than mkDerivation
+  defaultImagePath = pkgs.runCommand "default-images" { src = ../assets/images; } ''
+    mkdir -p $out
+    cp -r $src/* $out
+  '';
+
+  defaultSoundPath = pkgs.runCommand "default-sounds" { src = ../assets/sounds; } ''
+    mkdir -p $out
+    cp -r $src/* $out
+  '';
+
   defaultConfig = {
     extraGroups = [
       "ydotool"
@@ -43,6 +30,7 @@ let
       "networkmanager"
     ];
     customHomeManagerModules = { };
+    imports = [ ];
   };
 
   mergedConfig = lib.recursiveUpdate defaultConfig overrides;
@@ -60,6 +48,7 @@ let
         udisks2.enable = true;
         devmon.enable = true;
       };
+
       environment = {
         systemPackages = with pkgs; [
           libsForQt5.qt5ct
@@ -80,133 +69,138 @@ let
           '';
         };
       };
-      systemd.services.ydotoold = {
-        enable = true;
-      };
+
+      systemd.services.ydotoold.enable = true;
+
       programs = {
-        ydotool = {
-          enable = true; # clipboard prerequisite
-        };
+        ydotool.enable = true; # clipboard prerequisite
         zsh.enable = true;
       };
+
       users.users."${username}" = {
         inherit shell;
         inherit (mergedConfig) extraGroups;
         isNormalUser = true;
-        description = "${username}";
+        description = username;
       };
+
       home-manager = {
         useUserPackages = true;
         useGlobalPkgs = true;
         backupFileExtension = ".backup";
-        users.${username} = {
-          config = {
-            xdg.mimeApps = {
-              enable = true;
-              defaultApplications = {
-                "application/pdf" = "zathura.desktop"; # Set zathura as default for PDF
-                "image/png" = "imv.desktop";
-                "image/jpeg" = "imv.desktop";
-                "image/gif" = "imv.desktop";
-                "image/webp" = "imv.desktop";
-                "video/mp4" = "mpv.desktop";
-                "video/x-matroska" = "mpv.desktop";
-                "video/webm" = "mpv.desktop";
-                "video/quicktime" = "mpv.desktop";
-                "video/x-msvideo" = "mpv.desktop";
-                "video/x-flv" = "mpv.desktop";
-                "video/mpeg" = "mpv.desktop";
-                "video/ogg" = "mpv.desktop";
-                "video/3gpp" = "mpv.desktop";
-                "video/3gpp2" = "mpv.desktop";
-                "text/html" = "firefox.desktop";
-                "x-scheme-handler/http" = "firefox.desktop";
-                "x-scheme-handler/https" = "firefox.desktop";
-                "inode/directory" = "org.kde.dolphin.desktop";
-                "x-scheme-handler/kdeconnect" = "org.kde.dolphin.desktop";
-              };
-            };
-            services = {
-              udiskie.enable = true;
-              gnome-keyring.enable = true;
-              kdeconnect.enable = true;
-            };
-            dconf.settings."org/gnome/desktop/interface".font-name = lib.mkForce "Roboto";
-            inherit (mergedConfig) customHomeManagerModules;
-            home.packages = [
-              pkgs.pavucontrol
-              pkgs.pulseaudio
-              pkgs.numix-cursor-theme
-              pkgs.hicolor-icon-theme
-              pkgs.playerctl
-              pkgs.wev
-              pkgs.jq
-              pkgs.wlprop
-              pkgs.wf-recorder
-              pkgs.sway-contrib.grimshot
-            ];
-            home = {
-              stateVersion = "24.05";
-              username = "${username}";
-              homeDirectory = "/home/${username}";
-              sessionPath = [
-                "$HOME/go/bin"
-                "$HOME/.local/go/bin"
-              ];
-              sessionVariables = {
-                YDOTOOL_SOCKET = "/run/ydotoold/socket";
-                NIXPKGS_ALLOW_UNFREE = 1;
-              };
-            };
-            programs = {
-              go = {
-                enable = true;
-                env.GOPATH = "/home/${username}/go";
-              };
-              home-manager.enable = true;
-            };
-          };
-          imports = lib.concatLists [
-            mergedConfig.imports
-            [
+        users.${username} =
+          { ... }:
+          {
+            imports = [
               (import sources.stylix).homeModules.stylix
               (import sources.nixvim).homeModules.nixvim
               (import "${sources.agenix}/modules/age-home.nix")
               ../homeManagerModules
             ]
-            userImports
-          ];
-          options.profileCustomization = {
-            mainWallpaper = lib.mkOption {
-              type = lib.types.str;
-              default = "${defaultImagePath}/nixos-wallpaper.png";
-              description = ''
-                Image to set as main wallpaper.
-              '';
+            ++ mergedConfig.imports
+            ++ userImports;
+
+            options.profileCustomization = {
+              mainWallpaper = lib.mkOption {
+                type = lib.types.str;
+                default = "${defaultImagePath}/nixos-wallpaper.png";
+                description = "Image to set as main wallpaper.";
+              };
+              lockWallpaper = lib.mkOption {
+                type = lib.types.str;
+                default = "${defaultImagePath}/nixos-wallpaper.png";
+                description = "Image to set as lock wallpaper.";
+              };
+              startup_audio = lib.mkOption {
+                type = lib.types.path;
+                default = "${defaultSoundPath}/startup.mp3";
+                description = "Path to startup sound that hyprland plays on startup.";
+              };
+              notification_audio = lib.mkOption {
+                type = lib.types.path;
+                default = "${defaultSoundPath}/notifications.mp3";
+                description = "Path to sound that hyprland plays on notifications.";
+              };
             };
-            lockWallpaper = lib.mkOption {
-              type = lib.types.str;
-              default = "${defaultImagePath}/nixos-wallpaper.png";
-              description = ''
-                Image to set as lock wallpaper.
-              '';
-            };
-            startup_audio = lib.mkOption {
-              type = lib.types.path;
-              default = "${defaultSoundPath}/startup.mp3";
-              description = ''
-                path to startup sound that hyprland play on startup
-              '';
-            };
-            notification_audio = lib.mkOption {
-              type = lib.types.path;
-              default = "${defaultSoundPath}/notifications.mp3";
-              description = ''
-                path to startup sound that hyprland play on notifications
-              '';
+
+            config = {
+              xdg.mimeApps = {
+                enable = true;
+                defaultApplications =
+                  let
+                    browser = "firefox.desktop";
+                    images = "imv.desktop";
+                    video = "mpv.desktop";
+                    fileManager = "org.kde.dolphin.desktop";
+                  in
+                  {
+                    "application/pdf" = "zathura.desktop";
+                    "text/html" = browser;
+                    "x-scheme-handler/http" = browser;
+                    "x-scheme-handler/https" = browser;
+                    "inode/directory" = fileManager;
+                    "x-scheme-handler/kdeconnect" = fileManager;
+                  }
+                  // lib.genAttrs [ "image/png" "image/jpeg" "image/gif" "image/webp" ] (_: images)
+                  // lib.genAttrs [
+                    "video/mp4"
+                    "video/x-matroska"
+                    "video/webm"
+                    "video/quicktime"
+                    "video/x-msvideo"
+                    "video/x-flv"
+                    "video/mpeg"
+                    "video/ogg"
+                    "video/3gpp"
+                    "video/3gpp2"
+                  ] (_: video);
+              };
+
+              services = {
+                udiskie.enable = true;
+                gnome-keyring.enable = true;
+                kdeconnect.enable = true;
+              };
+
+              dconf.settings."org/gnome/desktop/interface".font-name = lib.mkForce "Roboto";
+
+              inherit (mergedConfig) customHomeManagerModules;
+
+              home = {
+                stateVersion = "24.05";
+                inherit username;
+                homeDirectory = "/home/${username}";
+                packages = with pkgs; [
+                  pavucontrol
+                  pulseaudio
+                  numix-cursor-theme
+                  hicolor-icon-theme
+                  playerctl
+                  wev
+                  jq
+                  wlprop
+                  wf-recorder
+                  sway-contrib.grimshot
+                ];
+                sessionPath = [
+                  "$HOME/go/bin"
+                  "$HOME/.local/go/bin"
+                ];
+                sessionVariables = {
+                  YDOTOOL_SOCKET = "/run/ydotoold/socket";
+                  NIXPKGS_ALLOW_UNFREE = 1;
+                };
+              };
+
+              programs = {
+                go = {
+                  enable = true;
+                  env.GOPATH = "/home/${username}/go";
+                };
+                home-manager.enable = true;
+              };
             };
           };
-        };
       };
     };
 in
