@@ -2,6 +2,8 @@
 .swp
 hardware-configuration.nix
 result
+*.qcow2
+*.iso
 .*
 
 # Devenv

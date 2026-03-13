@@ -45,6 +45,22 @@
       "url": "https://api.github.com/repos/pehlicd/crd-wizard/tarball/refs/tags/v0.1.9",
       "hash": "sha256-nUbueHEXFPssHw4hGoIE91WidmFPeoA6Yk9V4HoZgXc="
     },
+    "disko": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "nix-community",
+        "repo": "disko"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": null,
+      "submodules": false,
+      "version": "v1.13.0",
+      "revision": "56ef5e72fec74b993ad0973b2dfa4eadeb48ba41",
+      "url": "https://api.github.com/repos/nix-community/disko/tarball/refs/tags/v1.13.0",
+      "hash": "sha256-CNzzBsRhq7gg4BMBuTDObiWDH/rFYHEuDRVOwCcwXw4="
+    },
     "dms": {
       "type": "Git",
       "repository": {
