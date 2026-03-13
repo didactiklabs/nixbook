@@ -60,7 +60,6 @@ hive.nix                          Colmena deployment config
 | `core.nix`                               | Kernel, bootloader, systemd configuration |
 | `userConfig.nix`                         | User management framework                 |
 | `tools.nix`                              | Development and utility tools             |
-| `workTools.nix`                          | Kubernetes, Docker, DevOps tools          |
 | `hyprland.nix`, `niri.nix`, `sway.nix`   | Wayland compositor configs                |
 | `greetd.nix`                             | Login manager configuration               |
 | `networkManager.nix`                     | Network connectivity                      |
@@ -268,6 +267,7 @@ npins/ → dependency sources
 ### Important: Git Commit Policy
 
 **AI agents MUST NEVER commit anything to this repository unless explicitly requested by the user.** This includes:
+
 - Never creating commits automatically
 - Never amending commits
 - Never pushing to remote branches
@@ -275,7 +275,7 @@ npins/ → dependency sources
 
 If you make changes, always present them for user review before committing.
 
-### When working with this project:
+### When working with this project
 
 1. **Configuration Files** - Always start with `base.nix`, `hive.nix`, and relevant profile
 2. **Module System** - Use `nixosModules/` for system features, `homeManagerModules/` for user configs

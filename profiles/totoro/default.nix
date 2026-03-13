@@ -34,7 +34,6 @@ in
     };
   };
   customNixOSModules = {
-    workTools.enable = true;
     laptopProfile.enable = true;
     networkManager.enable = true;
     greetd.enable = true;
