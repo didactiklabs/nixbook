@@ -543,6 +543,7 @@ PluginComponent {
                     }
 
                     DankButton {
+                        width: parent.width
                         text: "Back"
                         onClicked: root.tailscaleShowNetworkSelector = false
                     }
@@ -609,6 +610,7 @@ PluginComponent {
                     }
 
                     DankButton {
+                        width: parent.width
                         text: "Back"
                         onClicked: root.netbirdShowProfileSelector = false
                     }
