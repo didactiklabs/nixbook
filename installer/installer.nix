@@ -249,11 +249,21 @@ in
       mkdir -p /mnt/etc/nixos
       nixos-generate-config --no-filesystems --root /mnt
 
-      echo "Copying bootstrap configuration..."
-      cp /tmp/disko.nix /mnt/etc/nixos/disko-config.nix
-      cp -r ${nixbookSource}/npins /mnt/etc/nixos/
-      cp -r ${nixbookSource}/customPkgs /mnt/etc/nixos/
-      cp ${nixbookSource}/installer/bootstrap-module.nix /mnt/etc/nixos/bootstrap-module.nix
+       echo "Copying bootstrap configuration..."
+       mkdir -p /mnt/etc/nixos/secrets
+       
+       # If LUKS is enabled, prepare password file for later use during boot
+       if [[ "$USE_LUKS" == "Yes"* ]]; then
+         cp /tmp/luks-pass /mnt/etc/nixos/secrets/luks-pass
+         chmod 600 /mnt/etc/nixos/secrets/luks-pass
+         # Update disko config to reference the secrets location that will be in initrd
+         sed -i 's|passwordFile = "/tmp/luks-pass"|passwordFile = "/secrets/luks-pass"|g' /tmp/disko.nix
+       fi
+       
+       cp /tmp/disko.nix /mnt/etc/nixos/disko-config.nix
+       cp -r ${nixbookSource}/npins /mnt/etc/nixos/
+       cp -r ${nixbookSource}/customPkgs /mnt/etc/nixos/
+       cp ${nixbookSource}/installer/bootstrap-module.nix /mnt/etc/nixos/bootstrap-module.nix
 
       echo "{ config, pkgs, ... }:
       {

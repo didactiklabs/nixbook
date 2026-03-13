@@ -1,14 +1,16 @@
-{ pkgs, ... }:
+{ pkgs, config, ... }:
 let
   sources = import ./npins;
   ginx = import ./customPkgs/ginx.nix { inherit pkgs; };
+  # Detect if disko config exists and import it
+  diskoConfig = if builtins.pathExists ./disko-config.nix then ./disko-config.nix else null;
 in
 {
   imports = [
     ./hardware-configuration.nix
-    ./disko-config.nix
     (sources.disko + "/module.nix")
-  ];
+  ]
+  ++ (if diskoConfig != null then [ diskoConfig ] else [ ]);
 
   users.users.nixos = {
     isNormalUser = true;
@@ -46,9 +48,19 @@ in
   networking.dhcpcd.enable = true;
 
   boot = {
+    initrd = {
+      # Copy LUKS password file into initrd so it can be used during boot
+      secrets = {
+        "/secrets/luks-pass" = "/etc/nixos/secrets/luks-pass";
+      };
+    };
     loader.systemd-boot.enable = true;
     loader.efi.canTouchEfiVariables = true;
   };
+
+  # Note: LUKS configuration is handled automatically by disko module
+  # when disko-config.nix contains luks partitions
+  # The password file is copied into the initrd via boot.initrd.secrets above
 
   hardware.enableRedistributableFirmware = true;
 
