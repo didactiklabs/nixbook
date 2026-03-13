@@ -186,6 +186,7 @@ PluginComponent {
                 checkUpdate()
             } else {
                 updateOutput += "Update service successfully triggered. Monitoring logs...\n"
+                updateProcess.running = true
                 monitorTimer.start()
                 checkUpdate()
             }
@@ -375,8 +376,7 @@ PluginComponent {
                     onClicked: {
                         updateOutput = ""
                         updating = true
-                        updateOutput += "Starting log monitor...\n"
-                        updateProcess.running = true
+                        updateOutput += "Starting update service...\n"
                         startUpdateProcess.running = true
                     }
                 }
