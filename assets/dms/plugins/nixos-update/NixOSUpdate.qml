@@ -34,7 +34,10 @@ PluginComponent {
         onTriggered: checkUpdate()
     }
 
-    Component.onCompleted: checkUpdate()
+    Component.onCompleted: {
+        monitorProcess.running = true
+        checkUpdate()
+    }
 
     function checkUpdate() {
         if (checking || updating) return
@@ -136,14 +139,22 @@ PluginComponent {
 
     Process {
         id: monitorProcess
-        command: ["systemctl", "--user","is-active", "--quiet", "nixos-upgrade-manual.service"]
+        command: ["systemctl", "--user", "show", "-p", "ActiveState", "--value", "nixos-upgrade-manual.service"]
+        property string state: ""
+        stdout: SplitParser {
+            onRead: line => monitorProcess.state = line.trim()
+        }
         onExited: code => {
-            if (code !== 0) { // Service stopped
-                updating = false
-                checkUpdate()
-            } else {
+            if (state === "active" || state === "activating") {
+                updating = true
                 monitorTimer.start()
+            } else {
+                if (updating) {
+                    updating = false
+                    checkUpdate()
+                }
             }
+            state = ""
         }
     }
 
