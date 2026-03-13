@@ -103,7 +103,7 @@ in
         echo "Passwords do not match or are empty. Please try again."
       done
 
-      USER_PASSWORD_HASH=$(openssl passwd -6 "$TARGET_PASSWORD" | tr -d '\n')
+       USER_PASSWORD_HASH=$(echo -n "$TARGET_PASSWORD" | openssl passwd -6 -stdin)
 
       #### PARTITION SELECTION
       echo "Let's configure your partitions (Logical Volumes). You must define at least a root (/) partition."
@@ -268,7 +268,7 @@ in
 
       echo "Configuring user imperatively..."
       nixos-enter --root /mnt -c "useradd -m -G wheel \"$TARGET_USER\" || true"
-      nixos-enter --root /mnt -c "echo \"$TARGET_USER:$USER_PASSWORD_HASH\" | chpasswd -e"
+       printf '%s:%s\n' "$TARGET_USER" "$USER_PASSWORD_HASH" | nixos-enter --root /mnt -c "chpasswd -e"
 
       echo "Installation complete!"
       gum confirm "Reboot now?" && reboot
