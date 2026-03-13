@@ -47,21 +47,5 @@ PluginSettings {
                 settings.repoUrl = text
             }
         }
-
-        StyledText {
-            text: "Update Command"
-            font.pixelSize: Theme.fontSizeMedium
-            color: Theme.surfaceText
-        }
-
-        TextField {
-            id: updateCommandField
-            Layout.fillWidth: true
-            placeholderText: root.defaultUpdateCommand
-            text: settings.updateCommand || root.defaultUpdateCommand
-            onEditingFinished: {
-                settings.updateCommand = text
-            }
-        }
     }
 }
