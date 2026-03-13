@@ -272,9 +272,9 @@
       },
       "branch": "nixos-unstable",
       "submodules": false,
-      "revision": "62dc67aa6a52b4364dd75994ec00b51fbf474e50",
-      "url": "https://github.com/NixOS/nixpkgs/archive/62dc67aa6a52b4364dd75994ec00b51fbf474e50.tar.gz",
-      "hash": "sha256-FIqHByVqxCprNjor1NqF80F2QQoiiyqanNNefdlvOg4="
+      "revision": "fe416aaedd397cacb33a610b33d60ff2b431b127",
+      "url": "https://github.com/NixOS/nixpkgs/archive/fe416aaedd397cacb33a610b33d60ff2b431b127.tar.gz",
+      "hash": "sha256-b/GV2ysM8mKHhinse2wz+uP37epUrSE+sAKXy/xvBY4="
     },
     "nixvim": {
       "type": "Git",
@@ -321,20 +321,6 @@
       "url": "https://api.github.com/repos/replicatedhq/pvmigrate/tarball/refs/tags/v0.12.2",
       "hash": "sha256-Bmh1XPrVyPgadvGUo1SS4Dw2n8qidU6jpdK3GbxxNPE=",
       "frozen": true
-    },
-    "quickshell": {
-      "type": "Git",
-      "repository": {
-        "type": "Forgejo",
-        "server": "https://git.outfoxxed.me/",
-        "owner": "quickshell",
-        "repo": "quickshell"
-      },
-      "branch": "master",
-      "submodules": false,
-      "revision": "706d6de7b0236cec2c25556e284b91104a4e834b",
-      "url": "https://git.outfoxxed.me/quickshell/quickshell/archive/706d6de7b0236cec2c25556e284b91104a4e834b.tar.gz",
-      "hash": "sha256-wH4EkAGRBmmSnn8CeryL82z4648KogtPlxi0med6WEQ="
     },
     "songbird": {
       "type": "GitRelease",

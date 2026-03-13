@@ -99,7 +99,10 @@
     accounts-daemon.enable = true;
     upower.enable = true;
     pcscd.enable = true; # yubikey smart card mode
-    netbird.enable = true;
+    netbird = {
+      enable = true;
+      ui.enable = false;
+    };
     pipewire = {
       enable = true;
       alsa.enable = true;
