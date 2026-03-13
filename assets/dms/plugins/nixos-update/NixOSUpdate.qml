@@ -186,7 +186,7 @@ PluginComponent {
                 checkUpdate()
             } else {
                 updateOutput += "Update service successfully triggered. Monitoring logs...\n"
-                monitorProcess.running = true
+                monitorTimer.start()
                 checkUpdate()
             }
         }
@@ -368,7 +368,7 @@ PluginComponent {
                 }
 
                 DankButton {
-                    Layout.fillWidth: true
+                    width: parent.width
                     text: updating ? "Updating..." : "Execute Update"
                     visible: updateAvailable || updating
                     enabled: !updating
@@ -415,7 +415,7 @@ PluginComponent {
                 }
 
                 DankButton {
-                    Layout.fillWidth: true
+                    width: parent.width
                     text: checking ? "Checking..." : "Check for Updates"
                     enabled: !checking && !updating
                     onClicked: checkUpdate()
