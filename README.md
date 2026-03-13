@@ -12,6 +12,10 @@ In this project lies the NixOS configuration files leading to our own custom con
 
 It has for objective to be flexible with opt-in/opt-out options while still being able to mutualize some of it.
 
+### Project Goals
+
+The primary goal of Nixbook is to provide a personal, highly customizable, and reproducible NixOS environment. It aims to offer a robust base configuration that can be easily extended and adapted to different machines and use cases, promoting the "everything as code" philosophy through Nix. This allows for consistent deployments and easy management of system configurations.
+
 ### Wayland with UEFI BOOT only for now
 
 </p>
@@ -74,13 +78,9 @@ Profile selected is based on the output of `hostname`.
 
 #### - Screenshot
 
-with hyprland v2:
+with niri:
 
-<img src="./assets/images/screenshot-demo-hyprland.png" alt="alt text" width="500">
-
-with sway v1:
-
-<img src="./assets/images/screenshot-demo-sway.png" alt="alt text" width="500">
+<img src="./assets/images/screenshot.png" alt="alt text" width="500">
 
 with headless sunshine/moonlight configuration (remote desktop) v1:
 
