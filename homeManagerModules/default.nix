@@ -2,7 +2,9 @@
 {
   imports = [
     ./atuinConfig.nix
+    ./cliTools.nix
     ./desktopApps.nix
+    ./devTools.nix
     ./dmsConfig.nix
     ./dolphinConfig.nix
     ./fastfetchConfig.nix
