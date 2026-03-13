@@ -137,21 +137,47 @@ PluginComponent {
 
     Process {
         id: updateProcess
-        command: ["sh", "-c", updateCmd]
+        // Stream logs from the systemd service
+        command: ["journalctl","--user", "-u", "nixos-upgrade-manual.service", "-f", "-n", "50"]
         stdout: SplitParser {
             onRead: line => updateOutput += line + "\n"
         }
         stderr: SplitParser {
             onRead: line => updateOutput += line + "\n"
         }
+    }
+
+    Process {
+        id: monitorProcess
+        command: ["systemctl", "--user","is-active", "--quiet", "nixos-upgrade-manual.service"]
         onExited: code => {
-            updating = false
-            if (code === 0) {
-                updateOutput = ""
+            if (code !== 0) { // Service stopped
+                updating = false
+                updateProcess.running = false
+                checkUpdate()
             } else {
-                updateOutput += `\nProcess finished with exit code: ${code}\n`
+                monitorTimer.start()
             }
-            checkUpdate()
+        }
+    }
+
+    Timer {
+        id: monitorTimer
+        interval: 2000
+        onTriggered: monitorProcess.running = true
+    }
+
+    Process {
+        id: startUpdateProcess
+        command: ["systemctl","--user", "start", "nixos-upgrade-manual.service"]
+        onExited: code => {
+            if (code !== 0) {
+                updateOutput += `\nFailed to start service (code ${code}). Ensure the service exists and you have permissions.\n`
+                updating = false
+            } else {
+                updateProcess.running = true
+                monitorProcess.running = true
+            }
         }
     }
 
@@ -308,7 +334,7 @@ PluginComponent {
                         Layout.preferredHeight: 150
                         color: Theme.surfaceVariant
                         radius: Theme.cornerRadius
-                        
+
                         Flickable {
                             id: changelogFlickable
                             anchors.fill: parent
@@ -338,7 +364,7 @@ PluginComponent {
                     onClicked: {
                         updateOutput = ""
                         updating = true
-                        updateProcess.running = true
+                        startUpdateProcess.running = true
                     }
                 }
 
@@ -349,7 +375,7 @@ PluginComponent {
                     visible: updateOutput !== ""
                     color: Theme.surfaceVariant
                     radius: Theme.cornerRadius
-                    
+
                     Flickable {
                         id: logFlickable
                         anchors.fill: parent

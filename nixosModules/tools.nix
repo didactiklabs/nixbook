@@ -63,6 +63,16 @@ in
     '';
   };
 
+  systemd.user.services.nixos-upgrade-manual = {
+    description = "Manual NixOS System Upgrade";
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${osupdate}/bin/osupdate";
+      StandardOutput = "journal";
+      StandardError = "journal";
+    };
+  };
+
   systemd.user.services.ds4drv = {
     enable = true;
     description = "Controller Support.";
