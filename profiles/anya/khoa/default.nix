@@ -25,7 +25,7 @@
       "${image}";
   };
   home.packages = [
-    pkgs.wineWowPackages.waylandFull
+    pkgs.wineWow64Packages.waylandFull
     pkgs.firefox
   ];
   customHomeManagerModules = {
