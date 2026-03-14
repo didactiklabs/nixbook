@@ -51,6 +51,7 @@
   };
 
   enterShell = ''
+    mkdir -p .tmp/
     hello
     echo ""
     echo "Available custom scripts:"
