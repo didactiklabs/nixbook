@@ -14,6 +14,7 @@ in
     pkgs.viddy # watch alternative
     witr
     pkgs.dgop
+    pkgs.devenv
     # okada
   ];
 
