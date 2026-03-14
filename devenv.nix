@@ -16,6 +16,7 @@
     # execute example shell from Markdown files
     mdsh.enable = true;
     nixfmt-rfc-style.enable = true;
+    prettier.enable = true;
   };
 
   difftastic.enable = true;
@@ -23,6 +24,17 @@
     enable = true;
     config.programs = {
       nixfmt.enable = true;
+      prettier = {
+        enable = true;
+        excludes = [
+          ".git"
+          ".devenv"
+        ];
+        settings = {
+          proseWrap = "preserve";
+        };
+      };
+      shfmt.enable = true;
     };
   };
   scripts = {
