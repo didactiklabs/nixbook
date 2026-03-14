@@ -16,9 +16,7 @@ in
   ]
   ++ (if diskoConfig != null then [ diskoConfig ] else [ ]);
 
-  # When using disko, it provides fileSystems from disko.devices
-  # Make sure hardware-configuration.nix's (empty) fileSystems don't conflict
-  fileSystems = if diskoConfig != null then lib.mkForce { } else { };
+  # Disko provides fileSystems and boot.initrd.luks.devices from disko-config.nix
 
   users.users.nixos = {
     isNormalUser = true;
@@ -30,14 +28,18 @@ in
     echo "Starting final configuration..."
     sleep 2
     export NIXPKGS_ALLOW_UNFREE=1
-    ginx --source https://github.com/didactiklabs/nixbook -b main --now -- colmena apply-local --sudo
 
-    # After colmena apply, the system now has the final profile applied
-    # Regenerate hardware-configuration.nix to include fileSystems for the final boot
-    # This ensures the final profile can boot without needing disko-config.nix
+    # IMPORTANT: Regenerate hardware-configuration.nix BEFORE running colmena
+    # The final profile (base.nix) imports /etc/nixos/hardware-configuration.nix
+    # which must contain fileSystems for the system to boot properly.
+    # This must happen before colmena apply since colmena builds the final config.
     echo "Regenerating hardware configuration with filesystems..."
     sudo rm -rf /etc/nixos/hardware-configuration.nix
     sudo nixos-generate-config --root /
+
+    # Now run colmena to apply the final profile
+    # The hardware-configuration.nix now contains proper fileSystems
+    ginx --source https://github.com/didactiklabs/nixbook -b main --now -- colmena apply-local --sudo
 
     sleep 10
     sudo reboot
@@ -63,19 +65,18 @@ in
 
   boot = {
     initrd = {
-      # Copy LUKS password file into initrd so it can be used during boot
-      # This is needed when the root partition is encrypted with LUKS
-      secrets = {
-        "/secrets/luks-pass" = "/etc/nixos/secrets/luks-pass";
-      };
+      # Ensure necessary kernel modules are available in initrd for disk access
+      availableKernelModules = [
+        "nvme"
+        "xhci_pci"
+        "ahci"
+        "usb_storage"
+        "sd_mod"
+      ];
     };
     loader.systemd-boot.enable = true;
     loader.efi.canTouchEfiVariables = true;
   };
-
-  # Note: LUKS configuration is handled automatically by disko module
-  # when disko-config.nix contains luks partitions
-  # The password file is copied into the initrd via boot.initrd.secrets above
 
   hardware.enableRedistributableFirmware = true;
 
