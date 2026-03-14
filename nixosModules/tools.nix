@@ -71,6 +71,7 @@ in
     tailscale
     update-systemd-resolved
     pinentry-qt
+    lsof
   ];
 
   services.udev = {
