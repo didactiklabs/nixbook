@@ -100,6 +100,7 @@ in
           include /etc/sway/config.d/*
         '';
         config = {
+          bars = [ ];
           floating = {
             modifier = "Mod4";
             titlebar = true;
