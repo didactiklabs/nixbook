@@ -51,6 +51,10 @@
     kubeswitchConfig.enable = true;
     fcitx5Config.enable = true;
     thunderbirdConfig.enable = true;
+    rtk = {
+      enable = true;
+      enableGlobalHook = true;
+    };
     dmsConfig = {
       enable = true;
       showDock = true;
