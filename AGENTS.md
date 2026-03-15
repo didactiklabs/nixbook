@@ -121,6 +121,7 @@ hive.nix                          Colmena deployment config
 
 **Infrastructure & Tools:**
 - `fcitx5Config.nix` (53 LOC) - Input method framework (CJK support)
+- `rtkConfig.nix` - RTK (Rust Token Killer) CLI proxy for LLM token optimization
 - `sshConfig.nix` - SSH key management
 - `vscode/` - VSCode with 200+ extensions (8,170 LOC default.nix + 5,400 LOC extensions list)
 - `scripts/` - Custom shell scripts (volume.nix: 6,398 LOC sophisticated volume control)
@@ -135,7 +136,7 @@ hive.nix                          Colmena deployment config
 - **Modules:** laptopProfile, networkManager, greetd, niri, caCertificates
 - **Special Features:** Dual monitor setup (kanshiConfig), Go development environment
 - **Work Environments:** didactiklabs, bealv kubeconfigs
-- **Home Manager Modules:** cliTools, devTools, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, fcitx5Config, thunderbirdConfig, dmsConfig
+- **Home Manager Modules:** cliTools, devTools, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, fcitx5Config, thunderbirdConfig, rtkConfig (with auto-rewrite hook), dmsConfig
 
 ### anya - Secondary/Deployment Machine (Gaming/Streaming)
 
@@ -194,6 +195,7 @@ hive.nix                          Colmena deployment config
 
 - Goji: AI-powered conventional commit messages
 - Atuin: Shell history sync and search
+- RTK: LLM token optimization with 60-90% reduction on dev commands
 - Pre-commit hooks for code quality
 - Treefmt for code formatting
 - Difftastic for enhanced diffs
@@ -275,10 +277,11 @@ customPkgs/ → base.nix
 npins/ → dependency sources
 ```
 
-## Custom Packages (11 total)
+## Custom Packages (12 total)
 
 | Package | Purpose |
 |---------|---------|
+| `rtk` | CLI proxy for 60-90% LLM token reduction (v0.29.0) |
 | `ginx` | Run Nix code from git repos |
 | `goji` | Conventional commits with AI/emoji support |
 | `ytui` | YouTube video query and playback TUI |
