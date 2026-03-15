@@ -91,17 +91,21 @@ in
         "ata_piix"
         "virtio_pci"
         "virtio_blk"
+        "dm_mod"
+        "dm_crypt"
+        "ext4"
+        "xfs"
+        "btrfs"
       ];
+      # Enable LVM in initrd for disko configurations
+      lvm.enable = true;
     };
     loader.systemd-boot.enable = true;
     loader.efi.canTouchEfiVariables = true;
   };
 
-  # Ensure the system can find and read disks identified by disko
-  # This is critical for systems using LVM, LUKS, or persistent device IDs
-  boot.kernelParams = [
-    "console=tty1"
-  ];
+  # Enable LUKS support at boot time if using encryption
+  boot.initrd.luks.enable = true;
 
   hardware.enableRedistributableFirmware = true;
 
