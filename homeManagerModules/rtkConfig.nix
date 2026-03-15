@@ -19,7 +19,7 @@ in
       '';
     };
 
-    enableGlobalHook = lib.mkOption {
+    enableOpencodeHook = lib.mkOption {
       type = lib.types.bool;
       default = false;
       description = ''
@@ -35,14 +35,13 @@ in
 
     # Initialize RTK with optional auto-rewrite hook
     home.activation.rtkInit = lib.hm.dag.entryAfter [ "writeBoundary" ] (
-      if cfg.enableGlobalHook then
+      if cfg.enableOpencodeHook then
         ''
-          ${rtk}/bin/rtk init --global --auto-patch || true
+          ${rtk}/bin/rtk init -g --opencode
         ''
       else
         ''
-          # RTK is installed but hook not auto-initialized
-          # Users can manually run: rtk init --global
+          ${rtk}/bin/rtk init --global
         ''
     );
   };
