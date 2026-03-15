@@ -7,16 +7,13 @@
 let
   sources = import ./npins;
   ginx = import ./customPkgs/ginx.nix { inherit pkgs; };
-  diskoConfig = if builtins.pathExists ./disko-config.nix then ./disko-config.nix else null;
 in
 {
   imports = [
     ./hardware-configuration.nix
-    (sources.disko + "/module.nix")
-  ]
-  ++ (if diskoConfig != null then [ diskoConfig ] else [ ]);
+  ];
 
-  # Disko provides fileSystems and boot.initrd.luks.devices from disko-config.nix
+  # hardware-configuration.nix provides fileSystems detected from the disko-formatted disk
 
   users.users.nixos = {
     isNormalUser = true;
