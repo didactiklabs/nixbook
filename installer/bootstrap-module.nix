@@ -29,16 +29,32 @@ in
     sleep 2
     export NIXPKGS_ALLOW_UNFREE=1
 
-    # IMPORTANT: Regenerate hardware-configuration.nix BEFORE running colmena
-    # The final profile (base.nix) imports /etc/nixos/hardware-configuration.nix
-    # which must contain fileSystems for the system to boot properly.
-    # This must happen before colmena apply since colmena builds the final config.
+    # CRITICAL: The hardware-configuration.nix must exist with proper fileSystems
+    # before any configuration rebuild. This is used by the bootloader.
     echo "Regenerating hardware configuration with filesystems..."
+
+    # Ensure disko-config.nix is still available for imports
+    if [ ! -f /etc/nixos/disko-config.nix ]; then
+      echo "ERROR: disko-config.nix not found. Cannot proceed without disk configuration."
+      exit 1
+    fi
+
+    # Remove old hardware config so nixos-generate-config regenerates it
     sudo rm -rf /etc/nixos/hardware-configuration.nix
+
+    # Generate hardware configuration - this will detect filesystems from disko
     sudo nixos-generate-config --root /
+
+    # Verify fileSystems were detected
+    if ! grep -q "fileSystems" /etc/nixos/hardware-configuration.nix; then
+      echo "ERROR: No fileSystems found in generated hardware-configuration.nix"
+      cat /etc/nixos/hardware-configuration.nix
+      exit 1
+    fi
 
     # Now run colmena to apply the final profile
     # The hardware-configuration.nix now contains proper fileSystems
+    echo "Applying final configuration via colmena..."
     ginx --source https://github.com/didactiklabs/nixbook -b main --now -- colmena apply-local --sudo
 
     sleep 10
@@ -72,11 +88,20 @@ in
         "ahci"
         "usb_storage"
         "sd_mod"
+        "ata_piix"
+        "virtio_pci"
+        "virtio_blk"
       ];
     };
     loader.systemd-boot.enable = true;
     loader.efi.canTouchEfiVariables = true;
   };
+
+  # Ensure the system can find and read disks identified by disko
+  # This is critical for systems using LVM, LUKS, or persistent device IDs
+  boot.kernelParams = [
+    "console=tty1"
+  ];
 
   hardware.enableRedistributableFirmware = true;
 
