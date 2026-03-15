@@ -53,7 +53,7 @@
     thunderbirdConfig.enable = true;
     rtk = {
       enable = true;
-      enableGlobalHook = true;
+      enableOpencodeHook = true;
     };
     dmsConfig = {
       enable = true;
