@@ -2,6 +2,7 @@
 {
   boot = {
     initrd = {
+      kernelModules = [ "dm-snapshot" ];
       postDeviceCommands = ''
         for KBD_BACKLIGHT_PATH in /sys/class/leds/*::kbd_backlight/brightness; do
           if [ -f "$KBD_BACKLIGHT_PATH" ]; then
