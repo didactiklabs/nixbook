@@ -11,9 +11,10 @@ pkgs.rustPlatform.buildRustPackage rec {
     sha256 = "sha256-QGHCa8rO4YBFXdrz78FhWKFxY7DmRxCXM8iYQv4yTYE=";
   };
 
-  # cargoHash is left as fakeHash placeholder - it will be computed on first build
-  # Run: nix-build to discover the actual hash, then replace below
-  cargoHash = pkgs.lib.fakeHash;
+  # Note: RTK only depends on crates.io packages, no git dependencies
+  # When building fails due to cargoHash, nix will report the correct hash
+  # Copy it below and remove the comment
+  cargoHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="; # TODO: Replace with actual hash from build output
 
   meta = with pkgs.lib; {
     homepage = "https://github.com/rtk-ai/rtk";
