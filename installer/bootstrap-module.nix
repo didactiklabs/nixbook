@@ -34,6 +34,10 @@ in
     # base.nix expects fileSystems in this file
     echo "Regenerating hardware configuration..."
     sudo nixos-generate-config --force
+    echo "=== Generated hardware-configuration.nix ==="
+    cat /etc/nixos/hardware-configuration.nix
+    echo "============================================="
+    sleep 5
 
     # Now run colmena to apply the final profile
     echo "Applying final configuration via colmena..."
