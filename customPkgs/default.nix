@@ -1,5 +1,11 @@
-{ pkgs, ... }:
 {
+  pkgs,
+  lib,
+  fetchFromGitHub,
+  ...
+}:
+{
+  rtk = import ./rtk.nix { inherit pkgs lib fetchFromGitHub; };
   goji = import ./goji.nix { inherit pkgs; };
   songbird = import ./songbird.nix { inherit pkgs; };
   okada = import ./okada.nix { inherit pkgs; };

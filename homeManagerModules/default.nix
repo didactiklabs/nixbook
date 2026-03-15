@@ -21,6 +21,7 @@
     ./mpvConfig.nix
     ./niri
     ./nixvim
+    ./rtkConfig.nix
     ./scripts
     ./sshConfig.nix
     ./starshipConfig.nix
