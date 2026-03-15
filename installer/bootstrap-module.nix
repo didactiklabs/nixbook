@@ -97,15 +97,10 @@ in
         "xfs"
         "btrfs"
       ];
-      # Enable LVM in initrd for disko configurations
-      lvm.enable = true;
     };
     loader.systemd-boot.enable = true;
     loader.efi.canTouchEfiVariables = true;
   };
-
-  # Enable LUKS support at boot time if using encryption
-  boot.initrd.luks.enable = true;
 
   hardware.enableRedistributableFirmware = true;
 
