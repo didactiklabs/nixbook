@@ -338,6 +338,22 @@
       "hash": "sha256-Bmh1XPrVyPgadvGUo1SS4Dw2n8qidU6jpdK3GbxxNPE=",
       "frozen": true
     },
+    "rtk": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "rtk-ai",
+        "repo": "rtk"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": null,
+      "submodules": false,
+      "version": "v0.29.0",
+      "revision": "188ec996b34806d0b5b72b527952c019d3766d8f",
+      "url": "https://api.github.com/repos/rtk-ai/rtk/tarball/refs/tags/v0.29.0",
+      "hash": "sha256-QGHCa8rO4YBFXdrz78FhWKFxY7DmRxCXM8iYQv4yTYE="
+    },
     "songbird": {
       "type": "GitRelease",
       "repository": {
