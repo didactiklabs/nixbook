@@ -6,6 +6,12 @@
       availableKernelModules = [
         "virtio_blk"
         "virtio_pci"
+        "nvme"
+        "xhci_pci"
+        "ahci"
+        "usb_storage"
+        "sd_mod"
+        "ata_piix"
       ];
       postDeviceCommands = ''
         for KBD_BACKLIGHT_PATH in /sys/class/leds/*::kbd_backlight/brightness; do
