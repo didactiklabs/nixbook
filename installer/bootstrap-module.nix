@@ -11,9 +11,12 @@ in
 {
   imports = [
     ./hardware-configuration.nix
+    (sources.disko + "/module.nix")
+    ./disko-config.nix
   ];
 
-  # hardware-configuration.nix provides fileSystems detected from the disko-formatted disk
+  # disko-config.nix provides fileSystems, LVM activation, and LUKS setup in initrd
+  # hardware-configuration.nix is generated with --no-filesystems to avoid conflicts
 
   users.users.nixos = {
     isNormalUser = true;
@@ -26,32 +29,15 @@ in
     sleep 2
     export NIXPKGS_ALLOW_UNFREE=1
 
-    # CRITICAL: The hardware-configuration.nix must exist with proper fileSystems
-    # before any configuration rebuild. This is used by the bootloader.
-    echo "Regenerating hardware configuration with filesystems..."
+     # Regenerate hardware-configuration.nix for hardware detection (kernel modules, etc.)
+     # Use --no-filesystems because base.nix imports hardware-configuration.nix
+     # and fileSystems are already defined there by nixos-generate-config (without --no-filesystems)
+     echo "Regenerating hardware configuration..."
+     sudo rm -rf /etc/nixos/hardware-configuration.nix
+     sudo nixos-generate-config --root /
 
-    # Ensure disko-config.nix is still available for imports
-    if [ ! -f /etc/nixos/disko-config.nix ]; then
-      echo "ERROR: disko-config.nix not found. Cannot proceed without disk configuration."
-      exit 1
-    fi
-
-    # Remove old hardware config so nixos-generate-config regenerates it
-    sudo rm -rf /etc/nixos/hardware-configuration.nix
-
-    # Generate hardware configuration - this will detect filesystems from disko
-    sudo nixos-generate-config --root /
-
-    # Verify fileSystems were detected
-    if ! grep -q "fileSystems" /etc/nixos/hardware-configuration.nix; then
-      echo "ERROR: No fileSystems found in generated hardware-configuration.nix"
-      cat /etc/nixos/hardware-configuration.nix
-      exit 1
-    fi
-
-    # Now run colmena to apply the final profile
-    # The hardware-configuration.nix now contains proper fileSystems
-    echo "Applying final configuration via colmena..."
+     # Now run colmena to apply the final profile
+     echo "Applying final configuration via colmena..."
     ginx --source https://github.com/didactiklabs/nixbook -b main --now -- colmena apply-local --sudo
 
     sleep 10

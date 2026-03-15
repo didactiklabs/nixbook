@@ -265,17 +265,10 @@ in
        cp -r ${nixbookSource}/customPkgs /mnt/etc/nixos/
        cp ${nixbookSource}/installer/bootstrap-module.nix /mnt/etc/nixos/bootstrap-module.nix
 
-       # Generate hardware-configuration.nix with current filesystems mounted at /mnt
-       # This ensures the system can boot with proper fileSystems configuration
-       echo "Generating hardware configuration from mounted filesystems..."
-       nixos-generate-config --root /mnt
-       
-       # Verify that fileSystems were detected
-       if ! grep -q "fileSystems" /mnt/etc/nixos/hardware-configuration.nix; then
-         echo "WARNING: No fileSystems found in hardware-configuration.nix"
-         echo "Contents of hardware-configuration.nix:"
-         cat /mnt/etc/nixos/hardware-configuration.nix
-       fi
+             # Generate hardware-configuration.nix for hardware detection only (kernel modules, etc.)
+             # Use --no-filesystems because disko-config.nix handles fileSystems, LVM, and LUKS
+             echo "Generating hardware configuration (no filesystems, handled by disko)..."
+             nixos-generate-config --no-filesystems --root /mnt
 
        echo "{ config, pkgs, ... }:
        {
