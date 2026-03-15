@@ -29,9 +29,9 @@ in
     sleep 2
     export NIXPKGS_ALLOW_UNFREE=1
 
-     # Regenerate hardware-configuration.nix with fileSystems included
-     # base.nix imports /etc/nixos/hardware-configuration.nix and expects fileSystems there
-     echo "Regenerating hardware configuration with filesystems..."
+     # Regenerate hardware-configuration.nix with fileSystems from mounted volumes
+     # This produces the same result as a manual install
+     echo "Regenerating hardware configuration..."
      sudo nixos-generate-config --force --root /
 
      # Now run colmena to apply the final profile
