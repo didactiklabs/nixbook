@@ -29,16 +29,14 @@ in
     sleep 2
     export NIXPKGS_ALLOW_UNFREE=1
 
-     # Regenerate hardware-configuration.nix for hardware detection (kernel modules, etc.)
-     # Use --no-filesystems because base.nix imports hardware-configuration.nix
-     # and fileSystems are already defined there by nixos-generate-config (without --no-filesystems)
-     echo "Regenerating hardware configuration..."
-     sudo rm -rf /etc/nixos/hardware-configuration.nix
-     sudo nixos-generate-config --root /
+     # Regenerate hardware-configuration.nix with fileSystems included
+     # base.nix imports /etc/nixos/hardware-configuration.nix and expects fileSystems there
+     echo "Regenerating hardware configuration with filesystems..."
+     sudo nixos-generate-config --force --root /
 
      # Now run colmena to apply the final profile
      echo "Applying final configuration via colmena..."
-    ginx --source https://github.com/didactiklabs/nixbook -b main --now -- colmena apply-local --sudo
+     ginx --source https://github.com/didactiklabs/nixbook -b main --now -- colmena apply-local --sudo
 
     sleep 10
     sudo reboot
