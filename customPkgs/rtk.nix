@@ -5,7 +5,7 @@ let
 in
 pkgs.rustPlatform.buildRustPackage rec {
   pname = "rtk";
-  version = "0.29.0";
+  version = "${rtkSrc.version}";
 
   src = rtkSrc;
 
