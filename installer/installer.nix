@@ -265,11 +265,11 @@ in
        cp -r ${nixbookSource}/customPkgs /mnt/etc/nixos/
        cp ${nixbookSource}/installer/bootstrap-module.nix /mnt/etc/nixos/bootstrap-module.nix
 
-             # Generate hardware-configuration.nix with fileSystems included
-             # At this point disks are mounted at /mnt so nixos-generate-config detects them correctly
-             # This file will be reused as-is by colmena (base.nix imports /etc/nixos/hardware-configuration.nix)
-             echo "Generating hardware configuration..."
-             nixos-generate-config --root /mnt
+             # Generate hardware-configuration.nix without fileSystems
+             # disko-config.nix handles fileSystems, LVM, and LUKS for the first boot
+             # The bootstrap login script will regenerate this WITH fileSystems before colmena
+             echo "Generating hardware configuration (no filesystems, handled by disko)..."
+             nixos-generate-config --no-filesystems --root /mnt
 
        echo "{ config, pkgs, ... }:
        {
