@@ -186,56 +186,66 @@ in
               fi
             done
 
-            echo "Generating disko configuration..."
+             echo "Generating disko configuration..."
+             
+             # Get persistent disk identifier (use by-id if available, otherwise use device path)
+             DISK_ID=$(ls -l /dev/disk/by-id/ 2>/dev/null | grep -v "part" | grep "$(basename $TARGET_DISK)" | awk '{print $NF}' | head -1 || true)
+             if [ -z "$DISK_ID" ]; then
+               DISK_ID="$TARGET_DISK"
+             else
+               DISK_ID="/dev/disk/by-id/$(basename $DISK_ID)"
+             fi
+             
+             echo "Using disk identifier: $DISK_ID"
 
-            echo "{
-              disko.devices = {
-                disk.main = {
-                  type = \"disk\";
-                  device = \"$TARGET_DISK\";
-                  content = {
-                    type = \"gpt\";
-                    partitions = {
-                      ESP = {
-                        size = \"512M\";
-                        type = \"EF00\";
-                        priority = 1;
-                        content = {
-                          type = \"filesystem\";
-                          format = \"vfat\";
-                          mountpoint = \"/boot\";
-                          mountOptions = [ \"defaults\" ];
-                          extraArgs = [ \"-n\" \"BOOT\" ];
-                        };
-                      };
-                      primary = {
-                        size = \"100%\";
-                        content = $(if [[ "$USE_LUKS" == "Yes"* ]]; then echo '{
-                          type = "luks";
-                          name = "crypted";
-                          passwordFile = "/tmp/luks-pass";
-                          content = {
-                            type = "lvm_pv";
-                            vg = "vg1";
-                          };
-                        }'; else echo '{
-                          type = "lvm_pv";
-                          vg = "vg1";
-                        }'; fi);
-                      };
-                    };
-                  };
-                };
-                lvm_vg = {
-                  vg1 = {
-                    type = \"lvm_vg\";
-                    lvs = {
-            $LVM_LVS
-                    };
-                  };
-                };
-              };
-            }" > /tmp/disko.nix
+             echo "{
+               disko.devices = {
+                 disk.main = {
+                   type = \"disk\";
+                   device = \"$DISK_ID\";
+                   content = {
+                     type = \"gpt\";
+                     partitions = {
+                       ESP = {
+                         size = \"512M\";
+                         type = \"EF00\";
+                         priority = 1;
+                         content = {
+                           type = \"filesystem\";
+                           format = \"vfat\";
+                           mountpoint = \"/boot\";
+                           mountOptions = [ \"defaults\" ];
+                           extraArgs = [ \"-n\" \"BOOT\" ];
+                         };
+                       };
+                       primary = {
+                         size = \"100%\";
+                         content = $(if [[ "$USE_LUKS" == "Yes"* ]]; then echo '{
+                           type = "luks";
+                           name = "crypted";
+                           passwordFile = "/tmp/luks-pass";
+                           content = {
+                             type = "lvm_pv";
+                             vg = "vg1";
+                           };
+                         }'; else echo '{
+                           type = "lvm_pv";
+                           vg = "vg1";
+                         }'; fi);
+                       };
+                     };
+                   };
+                 };
+                 lvm_vg = {
+                   vg1 = {
+                     type = \"lvm_vg\";
+                     lvs = {
+             $LVM_LVS
+                     };
+                   };
+                 };
+               };
+             }" > /tmp/disko.nix
 
             echo "Formatting and mounting disk..."
             # Unmount everything first just in case
