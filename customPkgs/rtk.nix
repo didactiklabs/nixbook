@@ -1,15 +1,13 @@
 { pkgs }:
-
+let
+  sources = import ../npins;
+  rtkSrc = sources.rtk;
+in
 pkgs.rustPlatform.buildRustPackage rec {
   pname = "rtk";
   version = "0.29.0";
 
-  src = pkgs.fetchFromGitHub {
-    owner = "rtk-ai";
-    repo = "rtk";
-    rev = "v${version}";
-    sha256 = "sha256-QGHCa8rO4YBFXdrz78FhWKFxY7DmRxCXM8iYQv4yTYE=";
-  };
+  src = rtkSrc;
 
   # Use importCargoLock for faster builds - avoids lengthy cargo hash verification
   # Cargo.lock is fetched from the source, allowing deterministic reproducible builds
@@ -25,13 +23,6 @@ pkgs.rustPlatform.buildRustPackage rec {
   meta = with pkgs.lib; {
     homepage = "https://github.com/rtk-ai/rtk";
     description = "CLI proxy that reduces LLM token consumption by 60-90% on common dev commands";
-    longDescription = ''
-      RTK (Rust Token Killer) is a high-performance CLI proxy that filters and
-      compresses command outputs before they reach your LLM context. It reduces
-      token consumption by 60-90% on common development commands with zero
-      dependencies and <10ms overhead.
-    '';
-    license = licenses.mit;
     mainProgram = "rtk";
     platforms = platforms.unix;
   };
