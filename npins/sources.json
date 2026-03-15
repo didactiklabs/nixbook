@@ -216,9 +216,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "949faeeedd2358ec2bfc0630ac351c35e9b46253",
-      "url": "https://github.com/derailed/k9s/archive/949faeeedd2358ec2bfc0630ac351c35e9b46253.tar.gz",
-      "hash": "sha256-XuytFst70dOIG4SWY4ACQke8MUgO/QVmvQgHn21wgAQ="
+      "revision": "ecbdfaa9ac5bbe9cb2b70502ca663973156338d1",
+      "url": "https://github.com/derailed/k9s/archive/ecbdfaa9ac5bbe9cb2b70502ca663973156338d1.tar.gz",
+      "hash": "sha256-GpBlhiR+al35+lKEz0HQ6dn0z5apkqxtDhh5ANAnMPY="
     },
     "kl": {
       "type": "GitRelease",
