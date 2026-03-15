@@ -72,6 +72,7 @@ in
         "xfs"
         "btrfs"
       ];
+      services.lvm.enable = true;
     };
     loader.systemd-boot.enable = true;
     loader.efi.canTouchEfiVariables = true;
