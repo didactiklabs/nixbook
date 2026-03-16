@@ -16,7 +16,10 @@
     # execute example shell from Markdown files
     mdsh.enable = true;
     nixfmt-rfc-style.enable = true;
-    prettier.enable = true;
+    prettier = {
+      enable = true;
+      excludes = [ "assets/dms/plugins/.*/translations\\.js" ];
+    };
   };
 
   difftastic.enable = true;
@@ -29,6 +32,7 @@
         excludes = [
           ".git"
           ".devenv"
+          "assets/dms/plugins/**/translations.js"
         ];
         settings = {
           proseWrap = "preserve";

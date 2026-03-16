@@ -1,0 +1,14 @@
+{
+  "id": "opencodeUsage",
+  "name": "OpenCode Usage",
+  "description": "Monitor your AI subscription usage with token tracking, estimated API costs, rate limits, and daily activity charts. Currently supports Anthropic via OpenCode credentials.",
+  "version": "1.0.0",
+  "author": "khoa",
+  "icon": "monitoring",
+  "type": "widget",
+  "capabilities": ["dankbar-widget"],
+  "component": "./OpenCodeUsageWidget.qml",
+  "settings": "./OpenCodeUsageSettings.qml",
+  "requires": ["jq", "curl"],
+  "permissions": ["settings_read", "settings_write"]
+}

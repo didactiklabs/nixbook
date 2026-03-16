@@ -88,7 +88,7 @@ in
               "music"
               "clock"
               "weather"
-              "claudeCodeUsage"
+              "opencodeUsage"
             ];
             rightWidgets = [
               "systemTray"
@@ -157,8 +157,9 @@ in
         sathiAi = {
           enable = true;
         };
-        claudeCodeUsage = {
+        opencodeUsage = {
           enable = true;
+          src = ../assets/dms/plugins/opencode-usage;
         };
         nixosUpdate = {
           enable = true;
