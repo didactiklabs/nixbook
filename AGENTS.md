@@ -336,7 +336,7 @@ npins/ → dependency sources
 **Includes (32 files):**
 
 - Custom CA certificates (bealv, didactiklabs, logicmg)
-- DMS plugins with custom widgets
+- DMS plugins with custom widgets (vpn-dms, nixos-update, opencode-usage)
 - System and theme images (wallpapers, volume control icons)
 - Rofi launcher theme (OneDark color scheme)
 - Kubernetes kubeconfigs (OIDC-based for 4 environments)

@@ -1,0 +1,395 @@
+#!/usr/bin/env bash
+set -eu
+
+# --- Configuration ---
+OPENCODE_DATA="${XDG_DATA_HOME:-$HOME/.local/share}/opencode"
+AUTH_FILE="${OPENCODE_DATA}/auth.json"
+MESSAGE_DIR="${OPENCODE_DATA}/storage/message"
+SESSION_DIR="${OPENCODE_DATA}/storage/session"
+CACHE_DIR="${HOME}/.cache/dms-opencode-usage"
+PRICING_CACHE="${CACHE_DIR}/pricing-cache.json"
+USAGE_CACHE="${CACHE_DIR}/usage-cache.json"
+USAGE_CACHE_TTL=120  # seconds
+LITELLM_URL="https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+ANTHROPIC_TOKEN_URL="https://console.anthropic.com/v1/oauth/token"
+
+TODAY=$(date +%Y-%m-%d)
+DOW=$(date +%u)  # 1=Monday, 7=Sunday
+WEEK_START=$(date -d "$((DOW - 1)) days ago" +%Y-%m-%d)
+MONTH_START=$(date +%Y-%m-01)
+
+mkdir -p "$CACHE_DIR"
+
+# --- Defaults ---
+SUBSCRIPTION_TYPE="unknown"
+RATE_LIMIT_TIER="unknown"
+FIVE_HOUR_UTIL=0
+FIVE_HOUR_RESET=""
+SEVEN_DAY_UTIL=0
+SEVEN_DAY_RESET=""
+EXTRA_USAGE_ENABLED="false"
+
+# Global
+WEEK_MESSAGES=0
+WEEK_SESSIONS=0
+ALLTIME_SESSIONS=0
+ALLTIME_MESSAGES=0
+FIRST_SESSION="unknown"
+USD_EUR_RATE="0"
+
+# Anthropic
+ANTHROPIC_WEEK_TOKENS=0
+ANTHROPIC_MONTH_TOKENS=0
+ANTHROPIC_TODAY_COST="0.00"
+ANTHROPIC_WEEK_COST="0.00"
+ANTHROPIC_MONTH_COST="0.00"
+ANTHROPIC_DAILY="0,0,0,0,0,0,0"
+ANTHROPIC_DAILY_COSTS="0,0,0,0,0,0,0"
+ANTHROPIC_MODELS=""
+
+# Gemini
+GEMINI_WEEK_TOKENS=0
+GEMINI_MONTH_TOKENS=0
+GEMINI_TODAY_COST="0.00"
+GEMINI_WEEK_COST="0.00"
+GEMINI_MONTH_COST="0.00"
+GEMINI_DAILY="0,0,0,0,0,0,0"
+GEMINI_DAILY_COSTS="0,0,0,0,0,0,0"
+GEMINI_MODELS=""
+
+# --- Pricing cache (refresh once per day from LiteLLM) ---
+PRICING_JSON=""
+refresh_pricing() {
+    local raw
+    raw=$(curl -s --max-time 10 "$LITELLM_URL" 2>/dev/null) || return 1
+    local result
+    result=$(echo "$raw" | jq -c '{
+        updated: "'"$TODAY"'",
+        models: ([to_entries[]
+            | select(.key | test("^(claude-|gemini-)"))
+            | select(.value.input_cost_per_token > 0)
+            | {
+                family: (if .key | test("^claude-") then (.key | split("-") | .[1]) else .key end),
+                key: .key,
+                value: .value
+              }
+        ] | group_by(.family)
+          | map(sort_by(.key) | last
+              | {key: .family, value: {
+                    input: .value.input_cost_per_token,
+                    output: .value.output_cost_per_token,
+                    cache_read: (.value.cache_read_input_token_cost // 0),
+                    cache_write: (.value.cache_creation_input_token_cost // 0)
+                }})
+          | from_entries)
+    }' 2>/dev/null) || return 1
+    local eur_rate
+    eur_rate=$(curl -s --max-time 5 "https://api.frankfurter.app/latest?from=USD&to=EUR" 2>/dev/null \
+        | jq -r '.rates.EUR // empty' 2>/dev/null) || eur_rate=""
+    if [ -n "$eur_rate" ] && [[ "$eur_rate" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+        result=$(echo "$result" | jq -c '. + {usd_eur_rate: '"$eur_rate"'}' 2>/dev/null)
+    fi
+    local check
+    check=$(echo "$result" | jq -r '.models | to_entries | length' 2>/dev/null) || return 1
+    [ "$check" -gt 0 ] 2>/dev/null && echo "$result" > "$PRICING_CACHE" && return 0
+    return 1
+}
+
+if [ -f "$PRICING_CACHE" ]; then
+    cached_date=$(jq -r '.updated // ""' "$PRICING_CACHE" 2>/dev/null || echo "")
+    if [ "$cached_date" != "$TODAY" ]; then
+        refresh_pricing || true
+    fi
+    PRICING_JSON=$(cat "$PRICING_CACHE")
+else
+    refresh_pricing || true
+    [ -f "$PRICING_CACHE" ] && PRICING_JSON=$(cat "$PRICING_CACHE")
+fi
+
+PRICING_AWK=""
+if [ -n "$PRICING_JSON" ]; then
+    PRICING_AWK=$(echo "$PRICING_JSON" | jq -r '
+        [.models | to_entries[] | "\(.key):\(.value.input):\(.value.output):\(.value.cache_read):\(.value.cache_write)"]
+        | join(",")' 2>/dev/null || echo "")
+    USD_EUR_RATE=$(echo "$PRICING_JSON" | jq -r '.usd_eur_rate // 0' 2>/dev/null || echo "0")
+fi
+
+# --- OAuth token management (Anthropic only) ---
+get_access_token() {
+    if [ ! -f "$AUTH_FILE" ]; then
+        echo ""
+        return 1
+    fi
+
+    local expires access refresh now_ms
+    expires=$(jq -r '.anthropic.expires // 0' "$AUTH_FILE" 2>/dev/null || echo 0)
+    access=$(jq -r '.anthropic.access // ""' "$AUTH_FILE" 2>/dev/null || echo "")
+    refresh=$(jq -r '.anthropic.refresh // ""' "$AUTH_FILE" 2>/dev/null || echo "")
+    now_ms=$(date +%s%3N 2>/dev/null || echo $(( $(date +%s) * 1000 )))
+
+    if [ -n "$access" ] && [ "$expires" -gt "$((now_ms + 60000))" ] 2>/dev/null; then
+        echo "$access"
+        return 0
+    fi
+
+    if [ -n "$refresh" ]; then
+        local resp new_access new_refresh new_expires
+        resp=$(curl -s --max-time 10 -X POST "$ANTHROPIC_TOKEN_URL" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "grant_type=refresh_token&refresh_token=${refresh}&client_id=a2a40798-e14c-4ef2-83de-42f23e03c001" \
+            2>/dev/null) || { echo "$access"; return 1; }
+
+        new_access=$(echo "$resp" | jq -r '.access_token // empty' 2>/dev/null)
+        new_refresh=$(echo "$resp" | jq -r '.refresh_token // empty' 2>/dev/null)
+        new_expires=$(echo "$resp" | jq -r '.expires_in // empty' 2>/dev/null)
+
+        if [ -n "$new_access" ]; then
+            local new_expires_ms
+            if [ -n "$new_expires" ]; then
+                new_expires_ms=$(( now_ms + new_expires * 1000 ))
+            else
+                new_expires_ms=$(( now_ms + 3600000 ))
+            fi
+
+            local tmp
+            tmp=$(mktemp)
+            jq --arg access "$new_access" \
+               --arg refresh "${new_refresh:-$refresh}" \
+               --argjson expires "$new_expires_ms" \
+               '.anthropic.access = $access | .anthropic.refresh = $refresh | .anthropic.expires = $expires' \
+               "$AUTH_FILE" > "$tmp" 2>/dev/null && mv "$tmp" "$AUTH_FILE"
+
+            echo "$new_access"
+            return 0
+        fi
+    fi
+
+    echo "$access"
+    return 1
+}
+
+# --- Anthropic Rate Limit Usage ---
+if [ -f "$AUTH_FILE" ]; then
+    TOKEN=$(get_access_token)
+
+    if [ -n "$TOKEN" ]; then
+        USE_CACHE=false
+        if [ -f "$USAGE_CACHE" ]; then
+            cache_ts=$(jq -r '.cached_at // 0' "$USAGE_CACHE" 2>/dev/null || echo 0)
+            now_ts=$(date +%s)
+            age=$(( now_ts - cache_ts ))
+            if [ "$age" -lt "$USAGE_CACHE_TTL" ]; then
+                USE_CACHE=true
+            fi
+        fi
+
+        if [ "$USE_CACHE" = true ]; then
+            API_RESPONSE=$(jq -r '.data' "$USAGE_CACHE" 2>/dev/null || echo '{}')
+        else
+            API_RESPONSE=$(curl -s --max-time 5 \
+                -H "Authorization: Bearer $TOKEN" \
+                -H "Accept: application/json" \
+                -H "Content-Type: application/json" \
+                -H "User-Agent: opencode/1.0" \
+                -H "anthropic-beta: oauth-2025-04-20" \
+                "https://api.anthropic.com/api/oauth/usage" 2>/dev/null || echo '{}')
+
+            if echo "$API_RESPONSE" | jq -e '.five_hour' >/dev/null 2>&1; then
+                jq -n --argjson data "$API_RESPONSE" '{cached_at: (now | floor), data: $data}' > "$USAGE_CACHE" 2>/dev/null
+            elif [ -f "$USAGE_CACHE" ]; then
+                API_RESPONSE=$(jq -r '.data' "$USAGE_CACHE" 2>/dev/null || echo '{}')
+            fi
+        fi
+
+        FIVE_HOUR_UTIL=$(echo "$API_RESPONSE" | jq -r '.five_hour.utilization // 0')
+        FIVE_HOUR_RESET=$(echo "$API_RESPONSE" | jq -r '.five_hour.resets_at // ""')
+        SEVEN_DAY_UTIL=$(echo "$API_RESPONSE" | jq -r '.seven_day.utilization // 0')
+        SEVEN_DAY_RESET=$(echo "$API_RESPONSE" | jq -r '.seven_day.resets_at // ""')
+        EXTRA_USAGE_ENABLED=$(echo "$API_RESPONSE" | jq -r '.extra_usage.is_enabled // false')
+
+        if echo "$API_RESPONSE" | jq -e '.five_hour' >/dev/null 2>&1; then
+            SUBSCRIPTION_TYPE="pro"
+            RATE_LIMIT_TIER=$(echo "$API_RESPONSE" | jq -r '.plan_type // "pro"' 2>/dev/null)
+            [ "$RATE_LIMIT_TIER" = "null" ] && RATE_LIMIT_TIER="pro"
+        fi
+    fi
+fi
+
+# --- Token consumption from OpenCode message storage ---
+if [ -d "$MESSAGE_DIR" ]; then
+    DAY_DATES=""
+    for i in $(seq 0 6); do
+        d=$(date -d "$WEEK_START + ${i} days" +%Y-%m-%d)
+        DAY_DATES="${DAY_DATES:+${DAY_DATES},}${d}"
+    done
+
+    while IFS='=' read -r key value; do
+        case "$key" in
+            WEEK_MESSAGES) WEEK_MESSAGES="$value" ;;
+            WEEK_SESSIONS) WEEK_SESSIONS="$value" ;;
+            ANTHROPIC_WEEK_TOKENS) ANTHROPIC_WEEK_TOKENS="$value" ;;
+            ANTHROPIC_MONTH_TOKENS) ANTHROPIC_MONTH_TOKENS="$value" ;;
+            ANTHROPIC_TODAY_COST) ANTHROPIC_TODAY_COST="$value" ;;
+            ANTHROPIC_WEEK_COST) ANTHROPIC_WEEK_COST="$value" ;;
+            ANTHROPIC_MONTH_COST) ANTHROPIC_MONTH_COST="$value" ;;
+            ANTHROPIC_DAILY) ANTHROPIC_DAILY="$value" ;;
+            ANTHROPIC_DAILY_COSTS) ANTHROPIC_DAILY_COSTS="$value" ;;
+            ANTHROPIC_MODELS) ANTHROPIC_MODELS="$value" ;;
+            GEMINI_WEEK_TOKENS) GEMINI_WEEK_TOKENS="$value" ;;
+            GEMINI_MONTH_TOKENS) GEMINI_MONTH_TOKENS="$value" ;;
+            GEMINI_TODAY_COST) GEMINI_TODAY_COST="$value" ;;
+            GEMINI_WEEK_COST) GEMINI_WEEK_COST="$value" ;;
+            GEMINI_MONTH_COST) GEMINI_MONTH_COST="$value" ;;
+            GEMINI_DAILY) GEMINI_DAILY="$value" ;;
+            GEMINI_DAILY_COSTS) GEMINI_DAILY_COSTS="$value" ;;
+            GEMINI_MODELS) GEMINI_MODELS="$value" ;;
+        esac
+    done < <(find "$MESSAGE_DIR" -name "*.json" -mtime -31 -exec cat {} + 2>/dev/null \
+        | jq -r 'select(.role == "assistant" and (.providerID == "anthropic" or .providerID == "google")) | "\((.time.created // 0) / 1000 | floor | todate | split("T")[0]) \(.providerID) \(.modelID // "unknown") \(.tokens.input // 0) \(.tokens.output // 0) \(.tokens.cache.read // 0) \(.tokens.cache.write // 0) \(.sessionID // "unknown")"' 2>/dev/null \
+        | awk -v week_start="$WEEK_START" -v month_start="$MONTH_START" -v today="$TODAY" -v day_dates="$DAY_DATES" -v pricing="$PRICING_AWK" '
+        BEGIN {
+            split(day_dates, dates, ",")
+            has_pricing = 0
+            if (pricing != "") {
+                n = split(pricing, pmodels, ",")
+                for (i = 1; i <= n; i++) {
+                    split(pmodels[i], pp, ":")
+                    price_in[pp[1]] = pp[2] + 0
+                    price_out[pp[1]] = pp[3] + 0
+                    price_cr[pp[1]] = pp[4] + 0
+                    price_cw[pp[1]] = pp[5] + 0
+                }
+                has_pricing = 1
+            }
+        }
+        {
+            date = $1; provider = $2; model = $3
+            inp = $4 + 0; out = $5 + 0; cr = $6 + 0; cw = $7 + 0
+            sess = $8
+            total = inp + out + cr + cw
+            
+            p = (provider == "google") ? "gemini" : "anthropic"
+
+            # Extract family for pricing
+            if (provider == "anthropic") {
+                n_parts = split(model, mparts, "-")
+                family = (n_parts >= 3 && mparts[1] == "claude") ? mparts[2] : model
+            } else if (provider == "google") {
+                family = model
+                if (has_pricing && !(family in price_in)) {
+                    if (match(family, "pro")) family = "gemini-2.5-pro"
+                    else if (match(family, "flash")) family = "gemini-2.5-flash"
+                }
+            }
+
+            day[p, date] += total
+            if (date >= week_start) {
+                display_model = model
+                if (provider == "anthropic") {
+                    n_parts = split(model, mparts, "-")
+                    display_model = (n_parts >= 3 && mparts[1] == "claude") ? mparts[2] : model
+                }
+                
+                week_model[p, display_model] += total
+                week_tokens[p] += total
+                week_msgs++
+                week_sess[sess] = 1
+            }
+            if (date >= month_start) month_tokens[p] += total
+
+            if (has_pricing && (family in price_in)) {
+                cost = inp * price_in[family] + out * price_out[family] + cr * price_cr[family] + cw * price_cw[family]
+                day_cost[p, date] += cost
+                if (date >= week_start) week_cost[p] += cost
+                if (date >= month_start) month_cost[p] += cost
+            }
+        }
+        END {
+            printf "WEEK_MESSAGES=%d\n", week_msgs + 0
+            n = 0; for (s in week_sess) n++
+            printf "WEEK_SESSIONS=%d\n", n
+
+            for (i=1; i<=2; i++) {
+                p = (i==1) ? "anthropic" : "gemini"
+                prefix = (p == "anthropic") ? "ANTHROPIC" : "GEMINI"
+                
+                printf "%s_WEEK_TOKENS=%d\n", prefix, week_tokens[p] + 0
+                printf "%s_MONTH_TOKENS=%d\n", prefix, month_tokens[p] + 0
+                printf "%s_TODAY_COST=%.4f\n", prefix, day_cost[p, today] + 0
+                printf "%s_WEEK_COST=%.4f\n", prefix, week_cost[p] + 0
+                printf "%s_MONTH_COST=%.4f\n", prefix, month_cost[p] + 0
+
+                daily = ""
+                daily_costs = ""
+                for (j = 1; j <= 7; j++) {
+                    d = dates[j]
+                    val = (p, d) in day ? day[p, d] : 0
+                    daily = daily (j > 1 ? "," : "") val + 0
+                    
+                    c_val = (p, d) in day_cost ? day_cost[p, d] : 0
+                    daily_costs = daily_costs (j > 1 ? "," : "") sprintf("%.4f", c_val)
+                }
+                printf "%s_DAILY=%s\n", prefix, daily
+                printf "%s_DAILY_COSTS=%s\n", prefix, daily_costs
+
+                models = ""
+                first = 1
+                for (key in week_model) {
+                    split(key, k, "\034")
+                    if (k[1] == p) {
+                        m = k[2]
+                        if (week_model[p, m] > 0) {
+                            models = models (first ? "" : ",") m ":" week_model[p, m]
+                            first = 0
+                        }
+                    }
+                }
+                printf "%s_MODELS=%s\n", prefix, models
+            }
+        }')
+fi
+
+if [ -d "$SESSION_DIR" ]; then
+    read -r ALLTIME_SESSIONS FIRST_SESSION < <(
+        find "$SESSION_DIR" -name "*.json" -exec cat {} + 2>/dev/null \
+        | jq -rs '[.[] | select(.id)] | length as $count | (sort_by(.time.created) | first | .time.created // 0) as $first | "\($count) \(if $first > 0 then ($first / 1000 | floor | todate | split("T")[0]) else "unknown" end)"' 2>/dev/null \
+        || echo "0 unknown"
+    )
+    [ -z "$ALLTIME_SESSIONS" ] && ALLTIME_SESSIONS=0
+    [ -z "$FIRST_SESSION" ] && FIRST_SESSION="unknown"
+
+    ALLTIME_MESSAGES=$(find "$MESSAGE_DIR" -name "*.json" 2>/dev/null | wc -l)
+fi
+
+echo "SUBSCRIPTION_TYPE=${SUBSCRIPTION_TYPE}"
+echo "RATE_LIMIT_TIER=${RATE_LIMIT_TIER}"
+echo "FIVE_HOUR_UTIL=${FIVE_HOUR_UTIL}"
+echo "FIVE_HOUR_RESET=${FIVE_HOUR_RESET}"
+echo "SEVEN_DAY_UTIL=${SEVEN_DAY_UTIL}"
+echo "SEVEN_DAY_RESET=${SEVEN_DAY_RESET}"
+echo "EXTRA_USAGE_ENABLED=${EXTRA_USAGE_ENABLED}"
+
+echo "WEEK_MESSAGES=${WEEK_MESSAGES}"
+echo "WEEK_SESSIONS=${WEEK_SESSIONS}"
+echo "ALLTIME_SESSIONS=${ALLTIME_SESSIONS}"
+echo "ALLTIME_MESSAGES=${ALLTIME_MESSAGES}"
+echo "FIRST_SESSION=${FIRST_SESSION}"
+echo "USD_EUR_RATE=${USD_EUR_RATE}"
+
+echo "ANTHROPIC_WEEK_TOKENS=${ANTHROPIC_WEEK_TOKENS}"
+echo "ANTHROPIC_MONTH_TOKENS=${ANTHROPIC_MONTH_TOKENS}"
+echo "ANTHROPIC_TODAY_COST=${ANTHROPIC_TODAY_COST}"
+echo "ANTHROPIC_WEEK_COST=${ANTHROPIC_WEEK_COST}"
+echo "ANTHROPIC_MONTH_COST=${ANTHROPIC_MONTH_COST}"
+echo "ANTHROPIC_DAILY=${ANTHROPIC_DAILY}"
+echo "ANTHROPIC_DAILY_COSTS=${ANTHROPIC_DAILY_COSTS}"
+echo "ANTHROPIC_MODELS=${ANTHROPIC_MODELS}"
+
+echo "GEMINI_WEEK_TOKENS=${GEMINI_WEEK_TOKENS}"
+echo "GEMINI_MONTH_TOKENS=${GEMINI_MONTH_TOKENS}"
+echo "GEMINI_TODAY_COST=${GEMINI_TODAY_COST}"
+echo "GEMINI_WEEK_COST=${GEMINI_WEEK_COST}"
+echo "GEMINI_MONTH_COST=${GEMINI_MONTH_COST}"
+echo "GEMINI_DAILY=${GEMINI_DAILY}"
+echo "GEMINI_DAILY_COSTS=${GEMINI_DAILY_COSTS}"
+echo "GEMINI_MODELS=${GEMINI_MODELS}"
