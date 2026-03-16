@@ -302,6 +302,10 @@ in
             draw-border-with-background = false;
           }
           {
+            matches = [ { app-id = "^qemu$"; } ];
+            opacity = 1.0;
+          }
+          {
             matches = [ { app-id = "^mpv$"; } ];
             opacity = 1.0;
           }
