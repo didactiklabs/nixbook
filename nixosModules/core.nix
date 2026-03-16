@@ -2,14 +2,7 @@
 {
   boot = {
     initrd = {
-      kernelModules = [
-        "dm-snapshot"
-        "dm-mod"
-        "dm-thin-pool"
-      ];
       availableKernelModules = [
-        "virtio_blk"
-        "virtio_pci"
         "nvme"
         "xhci_pci"
         "ahci"
