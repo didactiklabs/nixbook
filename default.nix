@@ -59,7 +59,9 @@ rec {
       -cdrom ${buildIso}/iso/*.iso \
       -drive file=.tmp/test-disk.qcow2,format=qcow2,if=virtio \
       -boot d \
-      -vga virtio \
+      -vga none \
+      -device virtio-gpu-gl \
+      -display gtk,gl=on \
       -device virtio-net,netdev=vmnic \
       -netdev user,id=vmnic,hostfwd=tcp::2222-:22 \
       "$@"

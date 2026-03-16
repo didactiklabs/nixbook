@@ -34,6 +34,34 @@ in
     # base.nix expects fileSystems in this file
     echo "Regenerating hardware configuration..."
     sudo nixos-generate-config --force
+
+    # Inject LUKS configuration because nixos-generate-config doesn't detect LVM-on-LUKS.
+    # It only checks the direct dm UUID of filesystem devices but LVM sits between
+    # the filesystem and the LUKS container, so the LUKS layer is invisible to it.
+    echo "Checking for LUKS devices..."
+    if [ -b /dev/mapper/crypted ]; then
+      echo "Found /dev/mapper/crypted, extracting backing device..."
+      LUKS_BACKING_DEV=$(sudo ${pkgs.cryptsetup}/bin/cryptsetup status crypted | ${pkgs.gawk}/bin/awk '/device:/ {print $2}')
+      echo "LUKS backing device: $LUKS_BACKING_DEV"
+      if [ -n "$LUKS_BACKING_DEV" ]; then
+        LUKS_UUID=$(sudo ${pkgs.util-linux}/bin/blkid -s UUID -o value "$LUKS_BACKING_DEV")
+        echo "LUKS partition UUID: $LUKS_UUID"
+        if [ -n "$LUKS_UUID" ]; then
+          echo "Injecting LUKS configuration into hardware-configuration.nix..."
+          # Remove the closing brace, append LUKS config, re-close
+          sudo ${pkgs.gnused}/bin/sed -i '/^}$/d' /etc/nixos/hardware-configuration.nix
+          echo '  boot.initrd.luks.devices."crypted".device = "/dev/disk/by-uuid/'"$LUKS_UUID"'";' | sudo tee -a /etc/nixos/hardware-configuration.nix >/dev/null
+          echo '}' | sudo tee -a /etc/nixos/hardware-configuration.nix >/dev/null
+        else
+          echo "WARNING: Could not determine LUKS UUID!"
+        fi
+      else
+        echo "WARNING: Could not determine LUKS backing device!"
+      fi
+    else
+      echo "No LUKS device found (no /dev/mapper/crypted), skipping LUKS injection."
+    fi
+
     echo "=== Generated hardware-configuration.nix ==="
     cat /etc/nixos/hardware-configuration.nix
     echo "============================================="
@@ -55,6 +83,8 @@ in
     ginx
     colmena
     git
+    cryptsetup
+    util-linux
   ];
 
   services.getty.autologinUser = "nixos";
