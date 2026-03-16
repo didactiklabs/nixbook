@@ -59,40 +59,43 @@ hive.nix                          Colmena deployment config
 
 ## NixOS Modules (16 files)
 
-| Module | Lines | Purpose |
-|--------|-------|---------|
-| `userConfig.nix` | 209 | User management framework with mkUser helper |
-| `core.nix` | 201 | Bootloader (systemd-boot), kernel settings, systemd services |
-| `tools.nix` | 109 | Development and utility tools (git, direnv, treefmt, pre-commit) |
-| `niri.nix` | 61 | Niri scrollable tiling compositor setup |
-| `tailscale-fix.nix` | 60 | Tailscale VPN workaround/fixes |
-| `greetd.nix` | 57 | Login manager (greeter configuration) |
-| `caCertificates.nix` | 56 | Custom CA certificates (bealv, didactiklabs, logicmg) |
-| `getRevision.nix` | 54 | Git revision tracking for system |
-| `networkManager.nix` | 41 | Network connectivity and wifi management |
-| `netbird-tools.nix` | 41 | NetBird VPN client setup |
-| `sunshine.nix` | 39 | Remote desktop streaming configuration |
-| `hyprland.nix` | 39 | Hyprland dynamic tiling compositor |
-| `laptopProfile.nix` | 38 | Laptop-specific: power management, display scaling |
-| `printTools.nix` | 37 | Printing and scanner support (CUPS, SANE) |
-| `sway.nix` | 27 | Sway i3-like tiling compositor |
-| `default.nix` | 19 | Module imports aggregator |
+| Module               | Lines | Purpose                                                          |
+| -------------------- | ----- | ---------------------------------------------------------------- |
+| `userConfig.nix`     | 209   | User management framework with mkUser helper                     |
+| `core.nix`           | 201   | Bootloader (systemd-boot), kernel settings, systemd services     |
+| `tools.nix`          | 109   | Development and utility tools (git, direnv, treefmt, pre-commit) |
+| `niri.nix`           | 61    | Niri scrollable tiling compositor setup                          |
+| `tailscale-fix.nix`  | 60    | Tailscale VPN workaround/fixes                                   |
+| `greetd.nix`         | 57    | Login manager (greeter configuration)                            |
+| `caCertificates.nix` | 56    | Custom CA certificates (bealv, didactiklabs, logicmg)            |
+| `getRevision.nix`    | 54    | Git revision tracking for system                                 |
+| `networkManager.nix` | 41    | Network connectivity and wifi management                         |
+| `netbird-tools.nix`  | 41    | NetBird VPN client setup                                         |
+| `sunshine.nix`       | 39    | Remote desktop streaming configuration                           |
+| `hyprland.nix`       | 39    | Hyprland dynamic tiling compositor                               |
+| `laptopProfile.nix`  | 38    | Laptop-specific: power management, display scaling               |
+| `printTools.nix`     | 37    | Printing and scanner support (CUPS, SANE)                        |
+| `sway.nix`           | 27    | Sway i3-like tiling compositor                                   |
+| `default.nix`        | 19    | Module imports aggregator                                        |
 
 ## Home Manager Modules (34 files/subdirectories)
 
 **Core User Configuration:**
+
 - `entrypoint.nix` - Profile validation and MIME defaults
 - `commonShellConfig.nix` (118 LOC) - Shared shell environment
 - `zshConfig.nix` (80 LOC) - Zsh with fast-syntax-highlighting, autopair
 - `gitConfig.nix` (125 LOC) - Git configuration with user-specific overrides
 
 **Terminal & Shell:**
+
 - `kittyConfig.nix` (122 LOC) - Terminal emulator with themes
 - `starshipConfig.nix` (110 LOC) - Prompt with git info and nix integration
 - `atuinConfig.nix` - Shell history sync (per-environment support)
 - `cliTools.nix` - CLI utilities (bat, eza, ripgrep, etc.)
 
 **Desktop Environments:**
+
 - `hyprland/` - Hyprland compositor (9,239 LOC config + 4,535 LOC lock)
 - `niri/` - Niri scrollable compositor (20,654 LOC config)
 - `sway/` - Sway i3-like compositor (14,772 LOC config)
@@ -102,16 +105,19 @@ hive.nix                          Colmena deployment config
 - Rofi launcher with OneDark color scheme
 
 **Development:**
+
 - `devTools.nix` (58 LOC) - Languages and dev tools
 - `goji.nix` (236 LOC) - AI-powered conventional commits
 - `nixvim/` - NeoVim with 25 plugins (LSP, Treesitter, Telescope, neo-tree, etc.)
 
 **Kubernetes & DevOps:**
+
 - `k9sConfig.nix` (336 LOC) - K9s dashboard configuration
 - `kubeTools.nix` (97 LOC) - kubectl, helm, kubeswitch, k9s setup
 - `kubeswitchConfig.nix` (41 LOC) - Kubernetes context switcher
 
 **Applications:**
+
 - `dmsConfig.nix` (191 LOC) - DankMaterialShell (DMS) terminal UI
 - `fastfetchConfig.nix` (152 LOC) - System information display
 - `desktopApps.nix` (37 LOC) - Firefox, Dolphin, MPV setup
@@ -120,6 +126,7 @@ hive.nix                          Colmena deployment config
 - `thunderbirdConfig.nix` - Email client configuration
 
 **Infrastructure & Tools:**
+
 - `fcitx5Config.nix` (53 LOC) - Input method framework (CJK support)
 - `rtkConfig.nix` - RTK (Rust Token Killer) CLI proxy for LLM token optimization
 - `sshConfig.nix` - SSH key management
@@ -279,24 +286,25 @@ npins/ → dependency sources
 
 ## Custom Packages (12 total)
 
-| Package | Purpose |
-|---------|---------|
-| `rtk` | CLI proxy for 60-90% LLM token reduction (v0.29.0) |
-| `ginx` | Run Nix code from git repos |
-| `goji` | Conventional commits with AI/emoji support |
-| `ytui` | YouTube video query and playback TUI |
-| `jtui` | JSON viewer TUI (v1.0.0) |
-| `crd-wizard` | Kubernetes CRD visualization dashboard (v0.1.9) |
-| `pvmigrate` | Proxmox VM migration tool (v0.12.2) |
-| `okada` | Custom utility (v0.0.1) |
-| `songbird` | Custom utility (v0.4.0) |
-| `witr` | Custom utility (v0.3.0) |
-| `kl` | Custom utility (v0.6.1, frozen) |
-| `99` | Custom utility |
+| Package      | Purpose                                            |
+| ------------ | -------------------------------------------------- |
+| `rtk`        | CLI proxy for 60-90% LLM token reduction (v0.29.0) |
+| `ginx`       | Run Nix code from git repos                        |
+| `goji`       | Conventional commits with AI/emoji support         |
+| `ytui`       | YouTube video query and playback TUI               |
+| `jtui`       | JSON viewer TUI (v1.0.0)                           |
+| `crd-wizard` | Kubernetes CRD visualization dashboard (v0.1.9)    |
+| `pvmigrate`  | Proxmox VM migration tool (v0.12.2)                |
+| `okada`      | Custom utility (v0.0.1)                            |
+| `songbird`   | Custom utility (v0.4.0)                            |
+| `witr`       | Custom utility (v0.3.0)                            |
+| `kl`         | Custom utility (v0.6.1, frozen)                    |
+| `99`         | Custom utility                                     |
 
 ## Dependencies & Pinning
 
 **Core Framework:**
+
 - `nixpkgs` - Branch: nixos-unstable
 - `home-manager` - Master branch
 - `agenix` (v0.15.0) - Age-based secrets management
@@ -316,6 +324,7 @@ npins/ → dependency sources
 - `npins-update.yaml` - Automated dependency updates
 
 **Features:**
+
 - Self-hosted runner support
 - Cachix caching integration
 - Custom S3 cache (didactiklabs-nixcache)
@@ -325,6 +334,7 @@ npins/ → dependency sources
 ## Assets
 
 **Includes (32 files):**
+
 - Custom CA certificates (bealv, didactiklabs, logicmg)
 - DMS plugins with custom widgets
 - System and theme images (wallpapers, volume control icons)
