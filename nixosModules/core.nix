@@ -9,6 +9,7 @@
         "usb_storage"
         "sd_mod"
         "ata_piix"
+        "dm_crypt"
       ];
       services.lvm.enable = true;
       postDeviceCommands = ''
