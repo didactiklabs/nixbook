@@ -14,4 +14,5 @@
   pvmigrate = import ./pvmigrate.nix { inherit pkgs; };
   jtui = import ./jtui.nix { inherit pkgs; };
   ytui = import ./ytui.nix { inherit pkgs; };
+  codexbar = import ./codexbar.nix { inherit pkgs; };
 }

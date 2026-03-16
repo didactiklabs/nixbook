@@ -42,9 +42,8 @@ in
     # Now run colmena to apply the final profile
     echo "Applying final configuration via colmena..."
     ginx --source https://github.com/didactiklabs/nixbook -b main --now -- colmena apply-local --sudo
-
-    sleep 10
-    sudo reboot
+    # sleep 10
+    # sudo reboot
   '';
 
   nixpkgs.config.allowUnfree = true;

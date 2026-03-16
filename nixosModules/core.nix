@@ -2,7 +2,11 @@
 {
   boot = {
     initrd = {
-      kernelModules = [ "dm-snapshot" ];
+      kernelModules = [
+        "dm-snapshot"
+        "dm-mod"
+        "dm-thin-pool"
+      ];
       availableKernelModules = [
         "virtio_blk"
         "virtio_pci"
@@ -13,6 +17,7 @@
         "sd_mod"
         "ata_piix"
       ];
+      services.lvm.enable = true;
       postDeviceCommands = ''
         for KBD_BACKLIGHT_PATH in /sys/class/leds/*::kbd_backlight/brightness; do
           if [ -f "$KBD_BACKLIGHT_PATH" ]; then
