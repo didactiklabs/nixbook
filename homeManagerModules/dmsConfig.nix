@@ -12,6 +12,7 @@ let
   dmsPluginRegistryFlake = import sources.flake-compat {
     src = sources.dms-plugin-registry;
   };
+  codexbar = import ../customPkgs/codexbar.nix { inherit pkgs; };
 in
 {
   imports = [
@@ -33,6 +34,7 @@ in
   };
 
   config = lib.mkIf config.customHomeManagerModules.dmsConfig.enable {
+    home.packages = [ codexbar ];
     home.sessionVariables = {
       QS_ICON_THEME = "Papirus-Dark";
     };
@@ -92,6 +94,7 @@ in
             ];
             rightWidgets = [
               "systemTray"
+              "codexBar"
               "vpnStatus"
               "cpuUsage"
               "notificationButton"
@@ -163,6 +166,9 @@ in
         nixosUpdate = {
           enable = true;
           src = ../assets/dms/plugins/nixos-update;
+        };
+        codexBar = {
+          enable = true;
         };
       };
     };
