@@ -15,5 +15,6 @@
     ./sway.nix
     ./tailscale-fix.nix
     ./tools.nix
+    ./vmSupport.nix
   ];
 }
