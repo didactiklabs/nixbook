@@ -55,6 +55,12 @@ in
   };
 
   config = lib.mkIf cfg.netbird-tools.enable {
+    service = {
+      netbird = {
+        enable = true;
+        ui.enable = false;
+      };
+    };
     environment.systemPackages = [ nswitch ];
   };
 }
