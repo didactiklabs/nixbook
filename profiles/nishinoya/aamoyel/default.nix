@@ -16,7 +16,6 @@
     pkgs.moonlight-qt
     pkgs.immich-go
     pkgs.google-chrome
-    pkgs.bitwarden-desktop
     pkgs.gitkraken
     pkgs.slack
     pkgs.kanidm_1_8
