@@ -55,7 +55,7 @@ in
   };
 
   config = lib.mkIf cfg.netbird-tools.enable {
-    service = {
+    services = {
       netbird = {
         enable = true;
         ui.enable = false;
