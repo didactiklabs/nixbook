@@ -61,7 +61,7 @@ in
         tailscale-switch
       ];
     };
-    service.tailscale.enable = true;
+    services.tailscale.enable = true;
     systemd = {
       services.tailscale-fix-routes = {
         enable = true;
