@@ -48,6 +48,11 @@ jobs:
             substituters = https://s3.didactiklabs.io/nix-cache https://cache.nixos.org/
       - name: Update npins
         run: nix run nixpkgs#npins -- update ${{ matrix.pin }}
+      - name: Sync devenv.yaml nixpkgs revision
+        if: matrix.pin == 'nixpkgs'
+        run: |
+          REV=$(jq -r '.pins.nixpkgs.revision' npins/sources.json)
+          sed -i "s|url: github:NixOS/nixpkgs/.*|url: github:NixOS/nixpkgs/${REV}|" devenv.yaml
       - name: Create Pull Request
         id: cpr
         uses: peter-evans/create-pull-request@v6
