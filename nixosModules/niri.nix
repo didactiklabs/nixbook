@@ -2,10 +2,12 @@
   config,
   lib,
   pkgs,
-  sources,
   ...
 }:
 let
+  # NOTE: Must use direct import here instead of the `sources` module arg,
+  # because this is used in `imports` which cannot depend on `config`/_module.args.
+  sources = import ../npins;
   niri-flake =
     (import sources.flake-compat {
       src = sources.niri-flake;
