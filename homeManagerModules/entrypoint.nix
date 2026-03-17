@@ -13,12 +13,23 @@
   extraHomeManagerModules ? [ ],
 }:
 {
-  imports = [
-    (import sources.stylix).homeModules.stylix
-    (import sources.nixvim).homeModules.nixvim
-    (import "${sources.agenix}/modules/age-home.nix").userProfileHomeManagerConfig
-  ]
-  ++ extraHomeManagerModules;
+  imports =
+    let
+      dmsFlake = import sources.flake-compat {
+        src = sources.dms;
+      };
+      dmsPluginRegistryFlake = import sources.flake-compat {
+        src = sources.dms-plugin-registry;
+      };
+    in
+    [
+      (import sources.stylix).homeModules.stylix
+      (import sources.nixvim).homeModules.nixvim
+      (import "${sources.agenix}/modules/age-home.nix").userProfileHomeManagerConfig
+      dmsFlake.defaultNix.homeModules.dank-material-shell
+      dmsPluginRegistryFlake.defaultNix.modules.default
+    ]
+    ++ extraHomeManagerModules;
 
   xdg.mimeApps = {
     enable = true;

@@ -1,7 +1,6 @@
 { pkgs, ... }:
 let
   ginx = import ../customPkgs/ginx.nix { inherit pkgs; };
-  # okada = import ../customPkgs/okada.nix { inherit pkgs; };
   witr = import ../customPkgs/witr.nix { inherit pkgs; };
 in
 {
@@ -15,7 +14,6 @@ in
     witr
     pkgs.dgop
     pkgs.devenv
-    # okada
   ];
 
   commonShellAliases = {

@@ -4,21 +4,7 @@
   lib,
   ...
 }:
-let
-  sources = import ../npins;
-  dmsFlake = import sources.flake-compat {
-    src = sources.dms;
-  };
-  dmsPluginRegistryFlake = import sources.flake-compat {
-    src = sources.dms-plugin-registry;
-  };
-in
 {
-  imports = [
-    dmsFlake.defaultNix.homeModules.dank-material-shell
-    dmsPluginRegistryFlake.defaultNix.modules.default
-  ];
-
   options.customHomeManagerModules.dmsConfig = {
     enable = lib.mkOption {
       type = lib.types.bool;
