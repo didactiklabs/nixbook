@@ -130,7 +130,6 @@ in
         alsa.support32Bit = true;
         pulse.enable = true;
       };
-      tailscale.enable = true;
       resolved.enable = true;
       xserver = {
         enable = false;

@@ -65,7 +65,7 @@ hive.nix                          Colmena deployment config
 | `core.nix`           | 201   | Bootloader (systemd-boot), kernel settings, systemd services     |
 | `tools.nix`          | 109   | Development and utility tools (git, direnv, treefmt, pre-commit) |
 | `niri.nix`           | 61    | Niri scrollable tiling compositor setup                          |
-| `tailscale-fix.nix`  | 60    | Tailscale VPN workaround/fixes                                   |
+| `tailscale.nix`      | 60    | Tailscale VPN workaround/fixes                                   |
 | `greetd.nix`         | 57    | Login manager (greeter configuration)                            |
 | `caCertificates.nix` | 56    | Custom CA certificates (bealv, didactiklabs, logicmg)            |
 | `getRevision.nix`    | 54    | Git revision tracking for system                                 |

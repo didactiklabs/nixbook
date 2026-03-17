@@ -43,7 +43,7 @@ let
   '';
 in
 {
-  options.customNixOSModules.tailscale-fix = {
+  options.customNixOSModules.tailscale = {
     enable = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -55,12 +55,13 @@ in
     };
   };
 
-  config = lib.mkIf cfg.tailscale-fix.enable {
+  config = lib.mkIf cfg.tailscale.enable {
     environment = {
       systemPackages = [
         tailscale-switch
       ];
     };
+    tailscale.enable = true;
     systemd = {
       services.tailscale-fix-routes = {
         enable = true;
