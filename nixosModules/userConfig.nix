@@ -91,14 +91,25 @@ let
         users.${username} =
           { ... }:
           {
-            imports = [
-              (import sources.stylix).homeModules.stylix
-              (import sources.nixvim).homeModules.nixvim
-              (import "${sources.agenix}/modules/age-home.nix")
-              ../homeManagerModules
-            ]
-            ++ mergedConfig.imports
-            ++ userImports;
+            imports =
+              let
+                dmsFlake = import sources.flake-compat {
+                  src = sources.dms;
+                };
+                dmsPluginRegistryFlake = import sources.flake-compat {
+                  src = sources.dms-plugin-registry;
+                };
+              in
+              [
+                (import sources.stylix).homeModules.stylix
+                (import sources.nixvim).homeModules.nixvim
+                (import "${sources.agenix}/modules/age-home.nix")
+                dmsFlake.defaultNix.homeModules.dank-material-shell
+                dmsPluginRegistryFlake.defaultNix.modules.default
+                ../homeManagerModules
+              ]
+              ++ mergedConfig.imports
+              ++ userImports;
 
             options.profileCustomization = {
               mainWallpaper = lib.mkOption {
@@ -179,7 +190,6 @@ let
                   wev
                   wlprop
                   wf-recorder
-                  sway-contrib.grimshot
                 ];
                 sessionPath = [
                   "$HOME/go/bin"

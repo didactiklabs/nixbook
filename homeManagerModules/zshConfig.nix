@@ -69,7 +69,6 @@ in
         shellAliases = common.commonShellAliases;
         initContent = ''
           ${common.anyNixShellInit "zsh"}
-          # source <(okada completion zsh)
         '';
         oh-my-zsh = {
           enable = true;

@@ -17,8 +17,8 @@ pkgs.buildGoModule {
   '';
 
   meta = {
-    homepage = "https://github.com/robinovitch61/kl";
-    description = "An interactive Kubernetes log viewer for your terminal.";
-    mainProgram = "kl";
+    homepage = "https://github.com/replicatedhq/pvmigrate";
+    description = "Migrate PersistentVolumeClaims between StorageClasses in Kubernetes.";
+    mainProgram = "pvmigrate";
   };
 }

@@ -1,14 +1,14 @@
 { pkgs }:
 let
   sources = import ../npins;
-  klSrc = sources.songbird;
-  inherit (klSrc) version;
+  songbirdSrc = sources.songbird;
+  inherit (songbirdSrc) version;
 in
 pkgs.buildGoModule {
   pname = "songbird";
   version = "${version}";
 
-  src = klSrc;
+  src = songbirdSrc;
 
   vendorHash = "sha256-mcbLV7HzDK0APJ+IPEBpHk3CH1Vm4a2Wjts/aElq3dw=";
   ldflags = [

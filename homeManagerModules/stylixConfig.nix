@@ -4,8 +4,21 @@
   lib,
   ...
 }:
+let
+  cfg = config.customHomeManagerModules;
+in
 {
-  config = {
+  options.customHomeManagerModules.stylixConfig = {
+    enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether to enable stylix theming configuration.
+      '';
+    };
+  };
+
+  config = lib.mkIf cfg.stylixConfig.enable {
     stylix = {
       enable = true;
       polarity = "dark";

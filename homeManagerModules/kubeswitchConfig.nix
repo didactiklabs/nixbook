@@ -6,7 +6,6 @@
 }:
 let
   cfg = config.customHomeManagerModules.kubeswitchConfig;
-  sources = import ../npins;
 in
 {
   options.customHomeManagerModules.kubeswitchConfig = {
