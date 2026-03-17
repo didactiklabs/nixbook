@@ -13,7 +13,7 @@
     ./printTools.nix
     ./sunshine.nix
     ./sway.nix
-    ./tailscale-fix.nix
+    ./tailscale.nix
     ./tools.nix
     ./vmSupport.nix
   ];
