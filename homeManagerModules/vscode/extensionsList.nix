@@ -177,8 +177,8 @@
     {
       name = "copilot-chat";
       publisher = "github";
-      version = "0.40.1";
-      sha256 = "sha256-wVxryUaW53xU4zZKU4t1pZaAB7BFIOkkcng91JnCLOk=";
+      version = "0.39.0";
+      sha256 = "sha256-HaXubczYtktFaFdY5wlhr+KhrOXsRZto1TG3C7canQg=";
     }
     {
       name = "terraform";
