@@ -23,6 +23,10 @@ in
   meta = {
     nixpkgs = pkgs;
   };
+  tanjiro = createConfiguration {
+    hostName = "tanjiro";
+    host = "tanjiro";
+  };
   totoro = createConfiguration {
     hostName = "totoro";
     host = "totoro";

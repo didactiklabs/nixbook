@@ -1,0 +1,60 @@
+{
+  pkgs,
+  lib,
+  config,
+  ...
+}:
+{
+  imports = [
+    ./gitConfig.nix
+    ./kanshiConfig.nix
+    ./config.nix
+    ./hyprlandConfig.nix
+    ./niriConfig.nix
+    ./thunderbirdConfig.nix
+  ];
+  home.packages = [
+    pkgs.sdl3
+    pkgs.moonlight-qt
+    pkgs.jellyfin-media-player
+  ];
+  programs = {
+    go = {
+      enable = true;
+      env.GOPATH = lib.mkForce "${config.home.homeDirectory}/.local/go";
+    };
+  };
+
+  profileCustomization = {
+  };
+  customHomeManagerModules = {
+    cliTools.enable = true;
+    devTools.enable = true;
+    fontConfig.enable = true;
+    gitConfig.enable = true;
+    gtkConfig.enable = true;
+    sshConfig.enable = true;
+    starship.enable = true;
+    niriConfig.enable = true;
+    fastfetchConfig.enable = true;
+    desktopApps.enable = true;
+    kubeTools.enable = true;
+    kubeConfig.didactiklabs.enable = true;
+    kubeConfig.bealv.enable = true;
+    nixvimConfig.enable = true;
+    gojiConfig.enable = true;
+    atuinConfig.didactiklabs.enable = true;
+    kittyConfig.enable = true;
+    zshConfig.enable = true;
+    kubeswitchConfig.enable = true;
+    thunderbirdConfig.enable = true;
+    rtk = {
+      enable = true;
+      enableOpencodeHook = true;
+    };
+    dmsConfig = {
+      enable = true;
+      showDock = true;
+    };
+  };
+}
