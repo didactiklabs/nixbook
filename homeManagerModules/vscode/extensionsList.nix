@@ -27,8 +27,8 @@
     {
       name = "runonsave";
       publisher = "emeraldwalk";
-      version = "1.1.5";
-      sha256 = "sha256-kN7oQPeLJyK9GXxnSchKcUF4XIXQ+Yd7dsSHwT/ua6k=";
+      version = "1.0.3";
+      sha256 = "sha256-xT9fIgSbnAEb4KQd9D3RJMhuPTyE65knfhucXgqnB44=";
     }
     {
       name = "go";
@@ -63,8 +63,8 @@
     {
       name = "marp-vscode";
       publisher = "marp-team";
-      version = "3.3.0";
-      sha256 = "sha256-Z/dhVvmyhyjEM3QUswLA2ExXeFIRzNOUn7Kd6s/C50k=";
+      version = "3.4.1";
+      sha256 = "sha256-SS9GMib7ixL/KuMbavUVcOW6EBxxLN83ujg+clrTKrs=";
     }
     {
       name = "dotenv";
@@ -171,14 +171,14 @@
     {
       name = "gitlens";
       publisher = "eamodio";
-      version = "17.11.0";
-      sha256 = "sha256-7EFCZZWRF4Ziq3h8ybfEhIZ6oQbvD0vdc0pbkQ/xHjs=";
+      version = "17.11.1";
+      sha256 = "sha256-ili2dj/sDltCrZ8mZVKO80KCHMuD+rGx0njVcm33YvA=";
     }
     {
       name = "copilot-chat";
       publisher = "github";
-      version = "0.37.9";
-      sha256 = "sha256-AGfjenshM1yQ/rHDpCbCU2HDSS4cPGIPxe8MQ7O0/Dc=";
+      version = "0.40.1";
+      sha256 = "sha256-wVxryUaW53xU4zZKU4t1pZaAB7BFIOkkcng91JnCLOk=";
     }
     {
       name = "terraform";
