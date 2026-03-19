@@ -189,11 +189,16 @@ in
        echo "Generating disko configuration..."
        
        # Get persistent disk identifier (use by-id if available, otherwise use device path)
-       DISK_ID=$(ls -l /dev/disk/by-id/ 2>/dev/null | grep -v "part" | grep "$(basename $TARGET_DISK)" | awk '{print $NF}' | head -1 || true)
+       DISK_ID=""
+       for link in /dev/disk/by-id/*; do
+         case "$link" in *-part*) continue;; esac
+         if [ "$(readlink -f "$link")" = "$(readlink -f "$TARGET_DISK")" ]; then
+           DISK_ID="$link"
+           break
+         fi
+       done
        if [ -z "$DISK_ID" ]; then
          DISK_ID="$TARGET_DISK"
-       else
-         DISK_ID="/dev/disk/by-id/$(basename $DISK_ID)"
        fi
        
        echo "Using disk identifier: $DISK_ID"
