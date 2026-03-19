@@ -252,10 +252,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "v0.30.1",
-      "revision": "48e53cb2c56ed99df35e225401f02bf94a812d02",
-      "url": "https://api.github.com/repos/rtk-ai/rtk/tarball/refs/tags/v0.30.1",
-      "hash": "sha256-SIUtQ2y4O5F5ib8N9GKmsrd07CCtYco+Q3DInEd0uSw="
+      "version": "v0.31.0",
+      "revision": "c85e348a91ee5c7afb5adc298e1e71d6782a594e",
+      "url": "https://api.github.com/repos/rtk-ai/rtk/tarball/refs/tags/v0.31.0",
+      "hash": "sha256-p4OX3SSDGKlHVLIWhgKpcme449wOHbfWbc3mxlCkaMI="
     },
     "songbird": {
       "type": "GitRelease",
