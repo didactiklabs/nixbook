@@ -12,7 +12,6 @@ in
 
   # First boot: disko-config.nix provides fileSystems, LVM activation, and LUKS in initrd
   # hardware-configuration.nix is generated with --no-filesystems to avoid conflicts
-
   users.users.nixos = {
     isNormalUser = true;
     extraGroups = [ "wheel" ];
@@ -65,8 +64,8 @@ in
     # Now run colmena to apply the final profile
     echo "Applying final configuration via colmena..."
     ginx --source https://github.com/didactiklabs/nixbook -b main --now -- colmena apply-local --sudo
-    # sleep 10
-    # sudo reboot
+    sleep 10
+    sudo reboot
   '';
 
   nixpkgs.config.allowUnfree = true;
@@ -83,11 +82,10 @@ in
   ];
 
   services.getty.autologinUser = "nixos";
-
   networking = {
     useDHCP = true;
+    dhcpcd.enable = true;
   };
-  networking.dhcpcd.enable = true;
 
   boot = {
     initrd = {
@@ -102,8 +100,10 @@ in
         "virtio_blk"
       ];
     };
-    loader.systemd-boot.enable = true;
-    loader.efi.canTouchEfiVariables = true;
+    loader = {
+      systemd-boot.enable = true;
+      efi.canTouchEfiVariables = true;
+    };
   };
 
   hardware.enableRedistributableFirmware = true;
