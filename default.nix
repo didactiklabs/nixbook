@@ -29,7 +29,7 @@ rec {
       modules = [
         (sources.nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix")
         {
-          isoImage.squashfsCompression = null;
+          isoImage.squashfsCompression = "zstd -Xcompression-level 6";
         }
       ];
     }).config.system.build.isoImage;
