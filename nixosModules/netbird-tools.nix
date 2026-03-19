@@ -1,5 +1,11 @@
-{ pkgs, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 let
+  cfg = config.customNixOSModules;
   nswitch = pkgs.writeShellScriptBin "nswitch" ''
     set -euo pipefail
     PATH="${
@@ -37,5 +43,24 @@ let
   '';
 in
 {
-  environment.systemPackages = [ nswitch ];
+  options.customNixOSModules.netbird-tools = {
+    enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether to enable the netbird tools module.
+        Provides the nswitch CLI tool for switching Netbird networks.
+      '';
+    };
+  };
+
+  config = lib.mkIf cfg.netbird-tools.enable {
+    services = {
+      netbird = {
+        enable = true;
+        ui.enable = false;
+      };
+    };
+    environment.systemPackages = [ nswitch ];
+  };
 }

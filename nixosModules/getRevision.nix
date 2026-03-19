@@ -1,5 +1,11 @@
-{ pkgs, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 let
+  cfg = config.customNixOSModules;
   jsonFile = builtins.toJSON {
     url =
       if builtins.pathExists ../.git then
@@ -46,9 +52,22 @@ let
   };
 in
 {
-  environment = {
-    etc = {
-      "nixos/version".source = pkgs.writeText "projectGit.json" jsonFile;
+  options.customNixOSModules.getRevision = {
+    enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether to enable git revision tracking.
+        Writes git metadata (url, branch, rev, lastModifiedDate) to /etc/nixos/version.
+      '';
+    };
+  };
+
+  config = lib.mkIf cfg.getRevision.enable {
+    environment = {
+      etc = {
+        "nixos/version".source = pkgs.writeText "projectGit.json" jsonFile;
+      };
     };
   };
 }

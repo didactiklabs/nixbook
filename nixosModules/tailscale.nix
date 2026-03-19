@@ -1,5 +1,11 @@
-{ pkgs, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 let
+  cfg = config.customNixOSModules;
   tailscale-switch = pkgs.writeShellScriptBin "tswitch" ''
     # Get the list of available Tailnets
     tailnet_list=$(tailscale switch --list | tail -n +2 2>/dev/null)
@@ -37,23 +43,38 @@ let
   '';
 in
 {
-  environment = {
-    systemPackages = [
-      tailscale-switch
-    ];
+  options.customNixOSModules.tailscale = {
+    enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether to enable tailscale fix routes and tswitch helper.
+        Provides a persistent systemd service to fix conflicting Tailscale routes
+        and a tswitch CLI tool for switching Tailnets.
+      '';
+    };
   };
-  systemd = {
-    services.tailscale-fix-routes = {
-      enable = true;
-      path = [
-        pkgs.iproute2
-        pkgs.busybox
+
+  config = lib.mkIf cfg.tailscale.enable {
+    environment = {
+      systemPackages = [
+        tailscale-switch
       ];
-      wantedBy = [ "multi-user.target" ];
-      requires = [ "default.target" ];
-      serviceConfig = {
-        ExecStart = "${tailscale-fix-routes}/bin/tailscale-fix-routes";
-        Restart = "always";
+    };
+    services.tailscale.enable = true;
+    systemd = {
+      services.tailscale-fix-routes = {
+        enable = true;
+        path = [
+          pkgs.iproute2
+          pkgs.busybox
+        ];
+        wantedBy = [ "multi-user.target" ];
+        requires = [ "default.target" ];
+        serviceConfig = {
+          ExecStart = "${tailscale-fix-routes}/bin/tailscale-fix-routes";
+          Restart = "always";
+        };
       };
     };
   };

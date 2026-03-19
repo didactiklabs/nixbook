@@ -5,11 +5,12 @@
   ...
 }:
 let
+  # NOTE: Must use direct import here instead of the `sources` module arg,
+  # because this is used in `imports` which cannot depend on `config`/_module.args.
   sources = import ../npins;
-  niri-flake-src = sources.niri-flake;
   niri-flake =
     (import sources.flake-compat {
-      src = niri-flake-src;
+      src = sources.niri-flake;
     }).defaultNix;
   cfg = config.customNixOSModules;
 in

@@ -5,7 +5,8 @@
   ...
 }:
 let
-  cfg = config.customHomeManagerModules.dmsConfig;
+  cfg = config.customHomeManagerModules;
+  dmsEnabled = cfg.dmsConfig.enable or false;
   volume = pkgs.writeShellScriptBin "volume" ''
       #!/bin/bash
 
@@ -123,32 +124,44 @@ let
   '';
 in
 {
-  home.packages = [ volume ];
-  wayland.windowManager.hyprland.settings = {
-    bindle =
-      (lib.optionals (!cfg.enable) [
-        ",XF86AudioRaiseVolume, exec, ${volume}/bin/volume --inc"
-        ",XF86AudioLowerVolume, exec, ${volume}/bin/volume --dec"
-      ])
-      ++ (lib.optionals cfg.enable [
-        ",XF86AudioRaiseVolume, exec, ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%+"
-        ",XF86AudioLowerVolume, exec, ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%-"
-      ]);
-    bindl = [ ",XF86AudioMute, exec, ${volume}/bin/volume --toggle" ];
+  options.customHomeManagerModules.volumeScript = {
+    enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether to enable the volume control script and keybindings.
+      '';
+    };
   };
-  wayland.windowManager.sway.config.keybindings =
-    lib.filterAttrsRecursive (name: value: value != null)
-      {
-        "--locked XF86AudioRaiseVolume" =
-          if cfg.enable then
-            "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%+"
-          else
-            "${volume}/bin/volume --inc";
-        "--locked XF86AudioLowerVolume" =
-          if cfg.enable then
-            "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%-"
-          else
-            "${volume}/bin/volume --dec";
-        "--locked XF86AudioMute" = "exec ${volume}/bin/volume --toggle";
-      };
+
+  config = lib.mkIf cfg.volumeScript.enable {
+    home.packages = [ volume ];
+    wayland.windowManager.hyprland.settings = {
+      bindle =
+        (lib.optionals (!dmsEnabled) [
+          ",XF86AudioRaiseVolume, exec, ${volume}/bin/volume --inc"
+          ",XF86AudioLowerVolume, exec, ${volume}/bin/volume --dec"
+        ])
+        ++ (lib.optionals dmsEnabled [
+          ",XF86AudioRaiseVolume, exec, ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%+"
+          ",XF86AudioLowerVolume, exec, ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%-"
+        ]);
+      bindl = [ ",XF86AudioMute, exec, ${volume}/bin/volume --toggle" ];
+    };
+    wayland.windowManager.sway.config.keybindings =
+      lib.filterAttrsRecursive (name: value: value != null)
+        {
+          "--locked XF86AudioRaiseVolume" =
+            if dmsEnabled then
+              "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%+"
+            else
+              "${volume}/bin/volume --inc";
+          "--locked XF86AudioLowerVolume" =
+            if dmsEnabled then
+              "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%-"
+            else
+              "${volume}/bin/volume --dec";
+          "--locked XF86AudioMute" = "exec ${volume}/bin/volume --toggle";
+        };
+  };
 }
