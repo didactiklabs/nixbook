@@ -48,6 +48,7 @@ in
       # AI assistants
       opencode
       gemini-cli
+      claude-code
 
       # Development utilities
       devbox

@@ -12,6 +12,17 @@
     ./installer.nix
   ];
 
+  boot.initrd.availableKernelModules = [
+    "nvme"
+    "xhci_pci"
+    "ahci"
+    "usb_storage"
+    "uas"
+    "sd_mod"
+    "thunderbolt"
+  ];
+  hardware.enableAllFirmware = true;
+
   services.getty.autologinUser = "nixos";
   console.keyMap = "fr";
   networking = {
