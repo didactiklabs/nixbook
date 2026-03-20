@@ -83,7 +83,6 @@ in
       ds4drv
       efibootmgr
       colmena
-      tailscale
       update-systemd-resolved
       pinentry-qt
       lsof

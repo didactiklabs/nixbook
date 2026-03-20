@@ -59,6 +59,7 @@ in
     environment = {
       systemPackages = [
         tailscale-switch
+        pkgs.tailscale
       ];
     };
     services.tailscale.enable = true;

@@ -19,19 +19,8 @@ let
   };
 in
 {
-  # services.udev.extraRules = ''
-  #   ACTION=="remove",\
-  #    ENV{PRODUCT}=="1050/406/571",\
-  #    RUN+="${pkgs.systemd}/bin/loginctl lock-sessions"
-  #   ACTION=="remove",\
-  #    ENV{PRODUCT}=="1050/402/543",\
-  #    RUN+="${pkgs.systemd}/bin/loginctl lock-sessions"
-  # '';
-  hardware = {
-    enableAllFirmware = true;
-    bluetooth = {
-      powerOnBoot = lib.mkForce true;
-    };
+  security = {
+    sudo.wheelNeedsPassword = false;
   };
   customNixOSModules = {
     laptopProfile.enable = true;
@@ -42,6 +31,8 @@ in
       bealv.enable = true;
       didactiklabs.enable = true;
     };
+    tailscale.enable = false;
+    netbird-tools.false = false;
   };
   imports = [
     (userConfig.mkUser {

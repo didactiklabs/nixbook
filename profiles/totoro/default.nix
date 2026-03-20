@@ -28,7 +28,6 @@ in
   #    RUN+="${pkgs.systemd}/bin/loginctl lock-sessions"
   # '';
   hardware = {
-    enableAllFirmware = true;
     bluetooth = {
       powerOnBoot = lib.mkForce true;
     };
