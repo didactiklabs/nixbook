@@ -41,9 +41,9 @@
     zshConfig.enable = true;
     kubeswitchConfig.enable = true;
     thunderbirdConfig.enable = true;
+    opencodeConfig.enable = true;
     rtk = {
       enable = true;
-      enableOpencodeHook = true;
     };
     dmsConfig = {
       enable = true;

@@ -144,7 +144,7 @@
           enable = true;
         };
         opencodeUsage = {
-          enable = true;
+          inherit (config.customHomeManagerModules.opencodeConfig) enable;
           src = ../assets/dms/plugins/opencode-usage;
         };
         nixosUpdate = {

@@ -13,7 +13,7 @@ in
       extraPackages = [ pkgs.opencode ];
 
       plugins.opencode = {
-        enable = true;
+        inherit (config.customHomeManagerModules.opencodeConfig) enable;
       };
 
       extraConfigLua = ''
