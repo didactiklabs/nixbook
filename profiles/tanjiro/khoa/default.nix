@@ -7,8 +7,8 @@
 {
   imports = [
     ../../totoro/khoa/gitConfig.nix
-    ../../niriConfig.nix
-    ../../thunderbirdConfig.nix
+    ../../totoro/niriConfig.nix
+    ../../totoro/thunderbirdConfig.nix
   ];
   home.packages = [
     pkgs.moonlight-qt
