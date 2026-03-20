@@ -165,7 +165,6 @@
               pkgs.git
               pkgs.jq
               pkgs.colmena
-              pkgs.sudo
             ]
           }
           exec osupdate
