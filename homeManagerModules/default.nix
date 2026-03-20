@@ -20,6 +20,7 @@
     ./kubeTools.nix
     ./mpvConfig.nix
     ./niri
+    ./opencodeConfig.nix
     ./nixvim
     ./rtkConfig.nix
     ./scripts

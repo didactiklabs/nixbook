@@ -46,7 +46,6 @@ in
       bruno-cli
 
       # AI assistants
-      opencode
       gemini-cli
       claude-code
 

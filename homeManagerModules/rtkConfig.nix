@@ -18,16 +18,6 @@ in
         consumption by 60-90% on common development commands.
       '';
     };
-
-    enableOpencodeHook = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
-      description = ''
-        Whether to automatically install the global command rewrite hook.
-        This transparently rewrites commands like `git status` to `rtk git status`
-        before execution, providing automatic token savings without manual intervention.
-      '';
-    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -35,7 +25,7 @@ in
 
     # Initialize RTK with optional auto-rewrite hook
     home.activation.rtkInit = lib.hm.dag.entryAfter [ "writeBoundary" ] (
-      if cfg.enableOpencodeHook then
+      if config.customHomeManagerModules.opencodeConfig.enable then
         ''
           ${rtk}/bin/rtk init -g --opencode
         ''
