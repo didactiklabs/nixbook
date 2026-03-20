@@ -22,6 +22,12 @@ in
   security = {
     sudo.wheelNeedsPassword = true;
   };
+  services = {
+    clamav = {
+      daemon.enable = true;
+      updater.enable = true;
+    };
+  };
   customNixOSModules = {
     laptopProfile.enable = true;
     networkManager.enable = true;
