@@ -32,8 +32,6 @@
     fastfetchConfig.enable = true;
     desktopApps.enable = true;
     kubeTools.enable = true;
-    kubeConfig.didactiklabs.enable = true;
-    kubeConfig.bealv.enable = true;
     nixvimConfig.enable = true;
     gojiConfig.enable = true;
     atuinConfig.didactiklabs.enable = true;
