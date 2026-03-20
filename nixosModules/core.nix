@@ -158,7 +158,7 @@ in
     security = {
       rtkit.enable = true;
       polkit.enable = true;
-      sudo.wheelNeedsPassword = false;
+      sudo.wheelNeedsPassword = lib.mkDefault false;
       pam = {
         services = {
           login.u2fAuth = true;

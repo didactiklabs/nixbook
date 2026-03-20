@@ -6,26 +6,18 @@
 }:
 {
   imports = [
-    ./gitConfig.nix
-    ./kanshiConfig.nix
-    ./config.nix
-    ./hyprlandConfig.nix
-    ./niriConfig.nix
-    ./thunderbirdConfig.nix
+    ../../totoro/khoa/gitConfig.nix
+    ../../niriConfig.nix
+    ../../thunderbirdConfig.nix
   ];
   home.packages = [
-    pkgs.sdl3
     pkgs.moonlight-qt
-    pkgs.jellyfin-media-player
   ];
   programs = {
     go = {
       enable = true;
       env.GOPATH = lib.mkForce "${config.home.homeDirectory}/.local/go";
     };
-  };
-
-  profileCustomization = {
   };
   customHomeManagerModules = {
     cliTools.enable = true;

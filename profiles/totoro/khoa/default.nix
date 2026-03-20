@@ -7,16 +7,12 @@
 {
   imports = [
     ./gitConfig.nix
-    ./kanshiConfig.nix
     ./config.nix
-    ./hyprlandConfig.nix
     ./niriConfig.nix
     ./thunderbirdConfig.nix
   ];
   home.packages = [
-    pkgs.sdl3
     pkgs.moonlight-qt
-    pkgs.jellyfin-media-player
   ];
   programs = {
     go = {
