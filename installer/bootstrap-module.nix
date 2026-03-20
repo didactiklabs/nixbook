@@ -61,21 +61,26 @@ in
     echo "============================================="
     sleep 5
 
-    # Now run colmena to apply the final profile
+    # Now run colmena to apply the final profile.
+    # After colmena switches to the production config, the nixos user loses sudo
+    # access (PAM U2F enforcement, user not declared in production config).
+    # So we run everything from here as root in a single sudo shell.
     echo "Applying final configuration via colmena..."
-    ginx --source https://github.com/didactiklabs/nixbook -b main --now -- colmena apply-local --sudo
+    sudo bash -c '
+      ginx --source https://github.com/didactiklabs/nixbook -b main --now -- colmena apply-local --sudo
 
-    # Cleanup bootstrap files from /etc/nixos
-    # Only hardware-configuration.nix is needed by base.nix after colmena applies
-    echo "Cleaning up bootstrap files..."
-    sudo rm -f /etc/nixos/configuration.nix
-    sudo rm -f /etc/nixos/bootstrap-module.nix
-    sudo rm -f /etc/nixos/disko-config.nix
-    sudo rm -rf /etc/nixos/npins
-    sudo rm -rf /etc/nixos/customPkgs
+      # Cleanup bootstrap files from /etc/nixos
+      # Only hardware-configuration.nix is needed by base.nix after colmena applies
+      echo "Cleaning up bootstrap files..."
+      rm -f /etc/nixos/configuration.nix
+      rm -f /etc/nixos/bootstrap-module.nix
+      rm -f /etc/nixos/disko-config.nix
+      rm -rf /etc/nixos/npins
+      rm -rf /etc/nixos/customPkgs
 
-    sleep 10
-    sudo reboot
+      sleep 10
+      reboot
+    '
   '';
 
   nixpkgs.config.allowUnfree = true;
