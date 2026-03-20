@@ -20,7 +20,7 @@ let
 in
 {
   security = {
-    sudo.wheelNeedsPassword = false;
+    sudo.wheelNeedsPassword = true;
   };
   customNixOSModules = {
     laptopProfile.enable = true;
