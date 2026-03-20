@@ -67,6 +67,7 @@ in
     # So we run everything from here as root in a single sudo shell.
     echo "Applying final configuration via colmena..."
     sudo bash -c '
+      export NIXPKGS_ALLOW_UNFREE=1
       ginx --source https://github.com/didactiklabs/nixbook -b main --now -- colmena apply-local --sudo
 
       # Cleanup bootstrap files from /etc/nixos
