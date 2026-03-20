@@ -84,6 +84,10 @@ let
         description = username;
       };
 
+      security.sudo.extraConfig = ''
+        Defaults env_keep += "NIXPKGS_ALLOW_UNFREE"
+      '';
+
       security.sudo.extraRules = [
         {
           users = [ username ];
