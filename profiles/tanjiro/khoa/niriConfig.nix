@@ -9,6 +9,13 @@ in
 {
   config = lib.mkIf cfg.niriConfig.enable {
     programs.niri.settings.outputs = lib.mkForce {
+      "eDP-1" = lib.mkForce {
+        scale = 1.40;
+        position = {
+          x = 0;
+          y = 603;
+        };
+      };
       "DP-9" = lib.mkForce {
         mode = {
           width = 1920;
@@ -16,8 +23,8 @@ in
           refresh = 60.0;
         };
         position = {
-          x = 1412;
-          y = 128;
+          x = 1613;
+          y = 120;
         };
       };
       "DP-10" = lib.mkForce {
@@ -27,7 +34,7 @@ in
           refresh = 143.91;
         };
         position = {
-          x = 3332;
+          x = 3533;
           y = 0;
         };
       };
