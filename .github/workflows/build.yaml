@@ -25,31 +25,17 @@ jobs:
           skip_after_successful_duplicate: "true"
           paths_ignore: '["**/README.md", "**/docs/**"]'
           do_not_skip: '["pull_request", "workflow_dispatch", "schedule"]'
-  setup:
-    runs-on: self-hosted
-    needs: pre_job
-    if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
-    outputs:
-      matrix: ${{ steps.detect.outputs.matrix }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Detect profiles
-        id: detect
-        run: |
-          matrix=$(ls -d profiles/*/ | xargs -I{} basename {} | jq -Rnc '{"profile":[inputs]}')
-          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
   build:
     timeout-minutes: 120
-    needs:
-      - pre_job
-      - setup
+    needs: pre_job
     if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
     runs-on: self-hosted
     strategy:
-      matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
+      matrix:
+        profile:
+          - totoro
+          - anya
+          - nishinoya
     steps:
       - name: Checkout
         uses: actions/checkout@v4
