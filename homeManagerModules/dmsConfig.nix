@@ -9,7 +9,7 @@
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = "";
+      description = "Whether to enable DankMaterialShell (DMS), a Quickshell-based desktop shell with system monitoring, dynamic theming, and custom widgets.";
     };
     showDock = lib.mkOption {
       type = lib.types.bool;

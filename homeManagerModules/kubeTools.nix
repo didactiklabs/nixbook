@@ -17,24 +17,24 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        whether to enable desktopApps globally or not
+        Whether to enable Kubernetes tools and utilities (kubectl, helm, k9s, kubeswitch, etc.).
       '';
     };
     kubeConfig = {
       didactiklabs.enable = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = "";
+        description = "Whether to enable the didactiklabs OIDC kubeconfig.";
       };
       bealv.enable = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = "";
+        description = "Whether to enable the bealv OIDC kubeconfigs.";
       };
       logicmg.enable = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = "";
+        description = "Whether to enable the logicmg OIDC kubeconfig.";
       };
     };
   };

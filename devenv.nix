@@ -52,6 +52,9 @@
     test-iso.exec = ''
       nix-build default.nix -A testVm "$@" && ./result/bin/test-iso-vm
     '';
+    generate-docs.exec = ''
+      nix-build docs/generate-docs.nix "$@" && cp result/MODULES.md docs/MODULES.md && echo "Documentation written to docs/MODULES.md"
+    '';
   };
 
   enterShell = ''
@@ -61,7 +64,8 @@
     echo "Available custom scripts:"
     echo "  hello     - Prints the greeting message"
     echo "  build-iso - Builds the installation ISO"
-    echo "  test-iso  - Builds and tests the installation ISO in a VM"
+    echo "  test-iso       - Builds and tests the installation ISO in a VM"
+    echo "  generate-docs  - Auto-generates module documentation to docs/MODULES.md"
   '';
 
   # https://devenv.sh/tests/
