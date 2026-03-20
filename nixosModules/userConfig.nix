@@ -84,6 +84,18 @@ let
         description = username;
       };
 
+      security.sudo.extraRules = [
+        {
+          users = [ username ];
+          commands = [
+            {
+              command = "${pkgs.colmena}/bin/colmena";
+              options = [ "NOPASSWD" ];
+            }
+          ];
+        }
+      ];
+
       home-manager = {
         useUserPackages = true;
         useGlobalPkgs = true;
