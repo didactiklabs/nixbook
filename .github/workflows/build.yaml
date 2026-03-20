@@ -36,6 +36,7 @@ jobs:
           - totoro
           - anya
           - nishinoya
+          - tanjiro
     steps:
       - name: Checkout
         uses: actions/checkout@v4
