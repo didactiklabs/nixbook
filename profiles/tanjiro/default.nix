@@ -32,7 +32,7 @@ in
       didactiklabs.enable = true;
     };
     tailscale.enable = false;
-    netbird-tools.false = false;
+    netbird-tools.enable = false;
   };
   imports = [
     (userConfig.mkUser {
