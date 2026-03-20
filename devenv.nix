@@ -15,11 +15,7 @@
     shellcheck.enable = true;
     # execute example shell from Markdown files
     mdsh.enable = true;
-    nixfmt-rfc-style.enable = true;
-    prettier = {
-      enable = true;
-      excludes = [ "assets/dms/plugins/.*/translations\\.js" ];
-    };
+    treefmt.enable = true;
   };
 
   difftastic.enable = true;

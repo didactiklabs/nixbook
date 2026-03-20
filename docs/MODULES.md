@@ -43,6 +43,7 @@
 - [kubeswitchConfig](#kubeswitchconfig)
 - [niriConfig](#niriconfig)
 - [nixvimConfig](#nixvimconfig)
+- [opencodeConfig](#opencodeconfig)
 - [rtk](#rtk)
 - [sshConfig](#sshconfig)
 - [starship](#starship)
@@ -457,6 +458,17 @@ whether to enable nixvimConfig globally or not
 
 ---
 
+## opencodeConfig
+
+### `customHomeManagerModules.opencodeConfig.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+whether to enable opencodeConfig or not
+
+---
+
 ## rtk
 
 ### `customHomeManagerModules.rtk.enable`
@@ -465,13 +477,6 @@ whether to enable nixvimConfig globally or not
 - **Default:** `false`
 
 Whether to enable RTK (Rust Token Killer) - a CLI proxy that reduces LLM token consumption by 60-90% on common development commands.
-
-### `customHomeManagerModules.rtk.enableOpencodeHook`
-
-- **Type:** `boolean`
-- **Default:** `false`
-
-Whether to automatically install the global command rewrite hook. This transparently rewrites commands like `git status` to `rtk git status` before execution, providing automatic token savings without manual intervention.
 
 ---
 
