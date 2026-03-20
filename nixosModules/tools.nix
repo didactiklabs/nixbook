@@ -17,7 +17,7 @@ let
     echo applying revision: "$(${pkgs.git}/bin/git ls-remote https://github.com/didactiklabs/nixbook HEAD | awk '{print $1}')"...
 
     echo Running ginx...
-    ${ginx}/bin/ginx --source https://github.com/didactiklabs/nixbook -b main --now -- ${pkgs.colmena}/bin/colmena apply-local --sudo
+    ${ginx}/bin/ginx --source https://github.com/didactiklabs/nixbook -b main --now -- ${pkgs.sudo}/bin/sudo ${pkgs.colmena}/bin/colmena apply-local
   '';
 in
 {
