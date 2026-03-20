@@ -4,7 +4,7 @@ hardware-configuration.nix
 result
 *.qcow2
 *.iso
-.*
+.tmp
 
 # Devenv
 .devenv*
