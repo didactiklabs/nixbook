@@ -98,25 +98,25 @@ in
         }
         {
           mode = "n";
-          key = "<C-Up>";
+          key = "<C-S-Up>";
           action = ":resize +2<CR>";
           options.silent = true;
         }
         {
           mode = "n";
-          key = "<C-Down>";
+          key = "<C-S-Down>";
           action = ":resize -2<CR>";
           options.silent = true;
         }
         {
           mode = "n";
-          key = "<C-Left>";
+          key = "<C-S-Left>";
           action = ":vertical resize -2<CR>";
           options.silent = true;
         }
         {
           mode = "n";
-          key = "<C-Right>";
+          key = "<C-S-Right>";
           action = ":vertical resize +2<CR>";
           options.silent = true;
         }
