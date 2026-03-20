@@ -81,6 +81,7 @@ let
         inherit shell;
         inherit (mergedConfig) extraGroups;
         isNormalUser = true;
+        createHome = true;
         description = username;
       };
 
@@ -181,6 +182,11 @@ let
                     "video/3gpp"
                     "video/3gpp2"
                   ] (_: video);
+              };
+
+              xdg.userDirs = {
+                enable = true;
+                createDirectories = true;
               };
 
               services = {
