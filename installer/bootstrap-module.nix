@@ -64,6 +64,16 @@ in
     # Now run colmena to apply the final profile
     echo "Applying final configuration via colmena..."
     ginx --source https://github.com/didactiklabs/nixbook -b main --now -- colmena apply-local --sudo
+
+    # Cleanup bootstrap files from /etc/nixos
+    # Only hardware-configuration.nix is needed by base.nix after colmena applies
+    echo "Cleaning up bootstrap files..."
+    sudo rm -f /etc/nixos/configuration.nix
+    sudo rm -f /etc/nixos/bootstrap-module.nix
+    sudo rm -f /etc/nixos/disko-config.nix
+    sudo rm -rf /etc/nixos/npins
+    sudo rm -rf /etc/nixos/customPkgs
+
     sleep 10
     sudo reboot
   '';

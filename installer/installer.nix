@@ -190,7 +190,7 @@ in
       done
 
        echo "Generating disko configuration..."
-       
+
        # Get persistent disk identifier (use by-id if available, otherwise use device path)
        DISK_ID=""
        for link in /dev/disk/by-id/*; do
@@ -203,7 +203,7 @@ in
        if [ -z "$DISK_ID" ]; then
          DISK_ID="$TARGET_DISK"
        fi
-       
+
        echo "Using disk identifier: $DISK_ID"
 
        echo "{
@@ -291,7 +291,7 @@ in
        mkdir -p /mnt/etc/nixos
 
        echo "Copying bootstrap configuration..."
-       
+
        cp /tmp/disko.nix /mnt/etc/nixos/disko-config.nix
        cp -r ${nixbookSource}/npins /mnt/etc/nixos/
        cp -r ${nixbookSource}/customPkgs /mnt/etc/nixos/
