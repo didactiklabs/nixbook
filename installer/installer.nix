@@ -11,6 +11,7 @@ in
   config.system.build.scripts = {
     installer = pkgs.writeScriptBin "installer" ''
       set -euo pipefail
+      set +H
       export PATH="$PATH:${
         lib.makeBinPath (
           with pkgs;
@@ -69,15 +70,17 @@ in
 
       #### ENCRYPTION
       USE_LUKS=$(gum choose "Yes, encrypt disk (LUKS)" "No, do not encrypt")
-      LUKS_PASSWORD=""
       if [[ "$USE_LUKS" == "Yes"* ]]; then
-        LUKS_PASSWORD=$(gum input --password --placeholder "Enter LUKS password")
-        LUKS_CONFIRM=$(gum input --password --placeholder "Confirm LUKS password")
-        if [ "$LUKS_PASSWORD" != "$LUKS_CONFIRM" ]; then
+        IFS= read -r -s -p "Enter LUKS password: " LUKS_PASS
+        echo
+        IFS= read -r -s -p "Confirm LUKS password: " LUKS_PASS_CONFIRM
+        echo
+        if [ "$LUKS_PASS" != "$LUKS_PASS_CONFIRM" ]; then
           echo "Passwords do not match. Exiting."
           exit 1
         fi
-        echo -n "$LUKS_PASSWORD" > /tmp/luks-pass
+        printf '%s' "$LUKS_PASS" > /tmp/luks-pass
+        unset LUKS_PASS LUKS_PASS_CONFIRM
         echo "Encryption enabled."
       else
         echo "Encryption disabled."
@@ -103,7 +106,7 @@ in
         echo "Passwords do not match or are empty. Please try again."
       done
 
-       USER_PASSWORD_HASH=$(echo -n "$TARGET_PASSWORD" | openssl passwd -6 -stdin)
+       USER_PASSWORD_HASH=$(printf '%s' "$TARGET_PASSWORD" | openssl passwd -6 -stdin)
 
       #### PARTITION SELECTION
       echo "Let's configure your partitions (Logical Volumes). You must define at least a root (/) partition."
@@ -225,18 +228,21 @@ in
                  };
                  primary = {
                    size = \"100%\";
-                   content = $(if [[ "$USE_LUKS" == "Yes"* ]]; then echo '{
-                     type = "luks";
-                     name = "crypted";
-                     passwordFile = "/tmp/luks-pass";
-                     content = {
-                       type = "lvm_pv";
-                       vg = "vg1";
-                     };
-                   }'; else echo '{
-                     type = "lvm_pv";
-                     vg = "vg1";
-                   }'; fi);
+                    content = $(if [[ "$USE_LUKS" == "Yes"* ]]; then echo '{
+                      type = "luks";
+                      name = "crypted";
+                      passwordFile = "/tmp/luks-pass";
+                      settings = {
+                        allowDiscards = true;
+                      };
+                      content = {
+                        type = "lvm_pv";
+                        vg = "vg1";
+                      };
+                    }'; else echo '{
+                      type = "lvm_pv";
+                      vg = "vg1";
+                    }'; fi);
                  };
                };
              };
@@ -256,7 +262,28 @@ in
       # Unmount everything first just in case
       umount -R /mnt || true
       swapoff -a || true
+
+      # Close any existing LUKS/LVM on this disk
+      for dm in /dev/mapper/vg1-*; do
+        [ -e "$dm" ] && dmsetup remove "$dm" || true
+      done
+      vgchange -an || true
+      [ -e /dev/mapper/crypted ] && cryptsetup close crypted || true
+
+      # Remove LVM volume groups that lived on this disk
+      for pv in $(pvs --noheadings -o pv_name,vg_name 2>/dev/null | grep "$TARGET_DISK" | awk '{print $2}' || true); do
+        [ -n "$pv" ] && vgremove -ff "$pv" || true
+      done
+      pvremove -ff "''${TARGET_DISK}"* || true
+
+      # Wipe all signatures, partition table, and zero entire disk
       wipefs -af "$TARGET_DISK" || true
+      for part in "''${TARGET_DISK}"p* "''${TARGET_DISK}"[0-9]*; do
+        [ -e "$part" ] && wipefs -af "$part" || true
+      done
+      sgdisk --zap-all "$TARGET_DISK" || true
+      blkdiscard "$TARGET_DISK" 2>/dev/null || dd if=/dev/zero of="$TARGET_DISK" bs=1M status=progress 2>/dev/null || true
+      partprobe "$TARGET_DISK" || true
 
        ${pkgs.disko}/bin/disko --mode disko /tmp/disko.nix
 
