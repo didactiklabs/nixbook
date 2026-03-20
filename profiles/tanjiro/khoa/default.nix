@@ -8,6 +8,7 @@
   imports = [
     ../../totoro/khoa/gitConfig.nix
     ../../totoro/khoa/niriConfig.nix
+    ./niriConfig.nix
     ../../totoro/khoa/thunderbirdConfig.nix
   ];
   home.packages = [
