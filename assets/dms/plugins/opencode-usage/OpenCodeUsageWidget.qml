@@ -75,6 +75,10 @@ PluginComponent {
     property real maxDailyGemini: Math.max.apply(null, geminiDaily) || 1
     property bool isLoading: true
 
+    // Hide the widget when no provider is connected (only after initial load)
+    _visibilityOverride: true
+    _visibilityOverrideValue: isLoading || rateLimitTier !== "" || anthropicMonthTokens > 0 || geminiMonthTokens > 0
+
     // Live countdown
     property real countdownNow: Date.now()
 
