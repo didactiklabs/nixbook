@@ -87,6 +87,8 @@ in
     dhcpcd.enable = true;
   };
 
+  console.keyMap = "fr";
+
   boot = {
     initrd = {
       availableKernelModules = [
@@ -98,7 +100,10 @@ in
         "ata_piix"
         "virtio_pci"
         "virtio_blk"
+        "thunderbolt"
+        "dm_crypt"
       ];
+      services.lvm.enable = true;
     };
     loader = {
       systemd-boot.enable = true;
