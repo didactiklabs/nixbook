@@ -45,6 +45,11 @@ in
     ./nixosModules
     (import "${sources.home-manager}/nixos")
     (import "${sources.agenix}/modules/age.nix")
+    (import "${sources.lanzaboote}" {
+      inherit pkgs;
+      crane = import "${sources.crane}" { inherit pkgs; };
+      inherit (sources) rust-overlay;
+    }).nixosModules.lanzaboote
     hostProfile
   ]
   ++ extraConfig;

@@ -29,6 +29,22 @@
       "url": "https://api.github.com/repos/ryantm/agenix/tarball/refs/tags/0.15.0",
       "hash": "sha256-ipqShkBmHKC9ft1ZAsA6aeKps32k7+XZSPwfxeHLsAU="
     },
+    "crane": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "ipetkov",
+        "repo": "crane"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": null,
+      "submodules": false,
+      "version": "v0.23.1",
+      "revision": "fe2df77bce0b8c492a09e34d281f0fb62d1bea43",
+      "url": "https://api.github.com/repos/ipetkov/crane/tarball/refs/tags/v0.23.1",
+      "hash": "sha256-aIlv7FRXF9q70DNJPI237dEDAznSKaXmL5lfK/Id/bI="
+    },
     "crd-wizard": {
       "type": "GitRelease",
       "repository": {
@@ -185,6 +201,22 @@
       "hash": "sha256-18CT9qCZynCG5jtL7JjIKNlrvE/9d8Kord/vRSQ8Bxo=",
       "frozen": true
     },
+    "lanzaboote": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "nix-community",
+        "repo": "lanzaboote"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": null,
+      "submodules": false,
+      "version": "v1.0.0",
+      "revision": "2fe211d9c0e2320ce23dc995a3f93666ca149d9a",
+      "url": "https://api.github.com/repos/nix-community/lanzaboote/tarball/refs/tags/v1.0.0",
+      "hash": "sha256-RJmgVDzjRI18BWVogG6wpsl1UCuV6ui8qr4DJ1LfWZ8="
+    },
     "niri-flake": {
       "type": "Git",
       "repository": {
@@ -269,6 +301,19 @@
       "revision": "c85e348a91ee5c7afb5adc298e1e71d6782a594e",
       "url": "https://api.github.com/repos/rtk-ai/rtk/tarball/refs/tags/v0.31.0",
       "hash": "sha256-p4OX3SSDGKlHVLIWhgKpcme449wOHbfWbc3mxlCkaMI="
+    },
+    "rust-overlay": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "oxalica",
+        "repo": "rust-overlay"
+      },
+      "branch": "master",
+      "submodules": false,
+      "revision": "c807e83cc2e32adc35f51138b3bdef722c0812ab",
+      "url": "https://github.com/oxalica/rust-overlay/archive/c807e83cc2e32adc35f51138b3bdef722c0812ab.tar.gz",
+      "hash": "sha256-ba3c+hS7KzEiwtZRGHagIAYdcmdY3rCSWVCyn64rx7s="
     },
     "songbird": {
       "type": "GitRelease",

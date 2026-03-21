@@ -39,6 +39,7 @@ in
     tailscale.enable = false;
     netbird-tools.enable = false;
     firewall.enable = true;
+    lanzaboote.enable = true;
   };
   imports = [
     "${sources.nixos-hardware}/framework/13-inch/amd-ai-300-series"
