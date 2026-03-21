@@ -38,6 +38,7 @@ in
     };
     tailscale.enable = false;
     netbird-tools.enable = false;
+    firewall.enable = true;
   };
   imports = [
     (userConfig.mkUser {
