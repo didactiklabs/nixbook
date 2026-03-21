@@ -8,6 +8,7 @@
     ./greetd.nix
     ./hyprland.nix
     ./laptopProfile.nix
+    ./lanzaboote.nix
     ./netbird-tools.nix
     ./niri.nix
     ./printTools.nix
