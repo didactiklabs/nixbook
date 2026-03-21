@@ -28,6 +28,7 @@ in
       updater.enable = true;
     };
   };
+  programs.kdeconnect.enable = false;
   customNixOSModules = {
     laptopProfile.enable = true;
     greetd.enable = true;
