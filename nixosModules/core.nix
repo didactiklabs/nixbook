@@ -200,6 +200,8 @@ in
       '';
     };
 
+    networking.networkmanager.enable = true;
+
     services.pulseaudio.enable = false;
 
     systemd = {

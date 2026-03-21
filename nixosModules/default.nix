@@ -8,7 +8,6 @@
     ./hyprland.nix
     ./laptopProfile.nix
     ./netbird-tools.nix
-    ./networkManager.nix
     ./niri.nix
     ./printTools.nix
     ./sunshine.nix

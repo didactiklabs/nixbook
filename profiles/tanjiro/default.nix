@@ -30,7 +30,6 @@ in
   };
   customNixOSModules = {
     laptopProfile.enable = true;
-    networkManager.enable = true;
     greetd.enable = true;
     niri.enable = true;
     caCertificates = {

@@ -112,7 +112,6 @@ in
   hardware.steam-hardware.enable = true;
   services.openssh.enable = true;
   customNixOSModules = {
-    networkManager.enable = true;
     sunshine.enable = true;
     sway.enable = true;
     caCertificates = {
