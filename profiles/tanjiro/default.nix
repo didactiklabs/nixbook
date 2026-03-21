@@ -41,6 +41,7 @@ in
     firewall.enable = true;
   };
   imports = [
+    "${sources.nixos-hardware}/framework/13-inch/amd-ai-300-series"
     (userConfig.mkUser {
       username = "khoa";
       userImports = [ ./khoa ];

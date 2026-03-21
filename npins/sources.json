@@ -198,6 +198,19 @@
       "url": "https://github.com/sodiboo/niri-flake/archive/63767d4572eb2e3da5e68f68de77d8f2cdeca8dd.tar.gz",
       "hash": "sha256-cu23CGP+mD2wKPKaoGM7evZ1dXfjd+cjryqqqx2HloE="
     },
+    "nixos-hardware": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "NixOS",
+        "repo": "nixos-hardware"
+      },
+      "branch": "master",
+      "submodules": false,
+      "revision": "2d4b4717b2534fad5c715968c1cece04a172b365",
+      "url": "https://github.com/NixOS/nixos-hardware/archive/2d4b4717b2534fad5c715968c1cece04a172b365.tar.gz",
+      "hash": "sha256-HHYEwK1A22aSaxv2ibhMMkKvrDGKGlA/qObG4smrSqc="
+    },
     "nixpkgs": {
       "type": "Git",
       "repository": {
