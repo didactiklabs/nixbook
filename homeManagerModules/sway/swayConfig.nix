@@ -246,6 +246,11 @@ in
             "--locked XF86AudioNext" = "exec ${playerctl} next";
             "--locked XF86AudioPrev" = "exec ${playerctl} previous";
             "--locked XF86AudioPlay" = "exec ${playerctl} play-pause";
+            "--locked XF86AudioRaiseVolume" =
+              "exec ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%+";
+            "--locked XF86AudioLowerVolume" =
+              "exec ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%-";
+            "--locked XF86AudioMute" = "exec ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_SINK@ toggle";
             "Print" =
               if cfg.dmsConfig.enable then
                 "exec dms screenshot"

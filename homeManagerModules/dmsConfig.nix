@@ -59,6 +59,21 @@
         dockBottomGap, dockMargin, dockIconSize, and dockIndicatorStyle settings.
       '';
     };
+    enableNixosUpdate = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether to enable the nixosUpdate DMS bar widget and the accompanying
+        nixos-upgrade-manual systemd oneshot service.
+
+        When true, the nixosUpdate plugin (from assets/dms/plugins/nixos-update) is
+        loaded into the bar and a systemd user service is registered so the widget
+        can trigger a system upgrade (via osupdate) without opening a terminal.
+
+        Disable this on machines where the widget is not desired or where the
+        osupdate script is unavailable.
+      '';
+    };
   };
 
   config = lib.mkIf config.customHomeManagerModules.dmsConfig.enable {
@@ -190,31 +205,33 @@
           inherit (config.customHomeManagerModules.opencodeConfig) enable;
           src = ../assets/dms/plugins/opencode-usage;
         };
-        nixosUpdate = {
+        nixosUpdate = lib.mkIf config.customHomeManagerModules.dmsConfig.enableNixosUpdate {
           enable = true;
           src = ../assets/dms/plugins/nixos-update;
         };
       };
     };
-    systemd.user.services.nixos-upgrade-manual = {
-      Unit = {
-        Description = "Manual NixOS System Upgrade";
-      };
-      Service = {
-        Type = "oneshot";
-        ExecStart = "${pkgs.writeShellScript "nixos-upgrade-wrapper" ''
-          export PATH=$PATH:${
-            lib.makeBinPath [
-              pkgs.git
-              pkgs.jq
-              pkgs.colmena
-            ]
-          }
-          exec osupdate
-        ''}";
-        StandardOutput = "journal";
-        StandardError = "journal";
-      };
-    };
+    systemd.user.services.nixos-upgrade-manual =
+      lib.mkIf config.customHomeManagerModules.dmsConfig.enableNixosUpdate
+        {
+          Unit = {
+            Description = "Manual NixOS System Upgrade";
+          };
+          Service = {
+            Type = "oneshot";
+            ExecStart = "${pkgs.writeShellScript "nixos-upgrade-wrapper" ''
+              export PATH=$PATH:${
+                lib.makeBinPath [
+                  pkgs.git
+                  pkgs.jq
+                  pkgs.colmena
+                ]
+              }
+              exec osupdate
+            ''}";
+            StandardOutput = "journal";
+            StandardError = "journal";
+          };
+        };
   };
 }

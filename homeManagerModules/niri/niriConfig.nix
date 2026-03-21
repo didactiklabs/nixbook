@@ -20,30 +20,7 @@ let
     echo "$song_info"
   '';
 
-  # Use volume script from PATH (should be available when scripts module is enabled)
-  # This assumes the scripts module is imported separately
-  volume = pkgs.writeShellScriptBin "volume-niri" ''
-    # Use the volume script from PATH or fall back to a simple implementation
-    if command -v volume >/dev/null 2>&1; then
-      exec volume "$@"
-    else
-      # Simple fallback using pamixer directly
-      case "$1" in
-        --inc)
-          ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%+
-          ;;
-        --dec)
-          ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%-
-          ;;
-        --toggle)
-          ${pkgs.pamixer}/bin/pamixer -t
-          ;;
-        *)
-          echo "Volume control: use --inc, --dec, or --toggle"
-          ;;
-      esac
-    fi
-  '';
+  wpctl = "${pkgs.wireplumber}/bin/wpctl";
 in
 {
   config = lib.mkIf cfg.niriConfig.enable {
@@ -532,35 +509,23 @@ in
           ];
 
           # Audio controls
-          "XF86AudioRaiseVolume".action.spawn =
-            if cfg.dmsConfig.enable then
-              [
-                "${pkgs.wireplumber}/bin/wpctl"
-                "set-volume"
-                "@DEFAULT_SINK@"
-                "3%+"
-              ]
-            else
-              [
-                "${volume}/bin/volume-niri"
-                "--inc"
-              ];
-          "XF86AudioLowerVolume".action.spawn =
-            if cfg.dmsConfig.enable then
-              [
-                "${pkgs.wireplumber}/bin/wpctl"
-                "set-volume"
-                "@DEFAULT_SINK@"
-                "3%-"
-              ]
-            else
-              [
-                "${volume}/bin/volume-niri"
-                "--dec"
-              ];
+          "XF86AudioRaiseVolume".action.spawn = [
+            "${wpctl}"
+            "set-volume"
+            "@DEFAULT_SINK@"
+            "3%+"
+          ];
+          "XF86AudioLowerVolume".action.spawn = [
+            "${wpctl}"
+            "set-volume"
+            "@DEFAULT_SINK@"
+            "3%-"
+          ];
           "XF86AudioMute".action.spawn = [
-            "${volume}/bin/volume-niri"
-            "--toggle"
+            "${wpctl}"
+            "set-mute"
+            "@DEFAULT_SINK@"
+            "toggle"
           ];
         }
         // (

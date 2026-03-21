@@ -50,7 +50,6 @@
 - [stylixConfig](#stylixconfig)
 - [swayConfig](#swayconfig)
 - [thunderbirdConfig](#thunderbirdconfig)
-- [volumeScript](#volumescript)
 - [vscode](#vscode)
 - [zshConfig](#zshconfig)
 
@@ -546,17 +545,6 @@ Whether to enable per-user Sway compositor configuration. Manages the full Sway 
 - **Default:** `false`
 
 Whether to enable Mozilla Thunderbird email client. Installs and manages the Thunderbird email/calendar client via Home Manager's programs.thunderbird module. Account configuration and profiles are managed manually through the Thunderbird UI (not declaratively, as mail credentials are sensitive). Used on: totoro, nishinoya.
-
----
-
-## volumeScript
-
-### `customHomeManagerModules.volumeScript.enable`
-
-- **Type:** `boolean`
-- **Default:** `true`
-
-Whether to enable the volume control script and media-key keybindings. Installs the `volume` shell script (originally by JaKooLit), a PipeWire/ pamixer-based volume manager that: - --inc / --dec : raise/lower default sink volume by 5%, capped at 100% - --toggle : toggle mute on the default sink - --toggle-mic : toggle mute on the default source (microphone) - --get-icon : print the appropriate volume icon name for notifications - --notify : send a libnotify desktop notification with current volume and icon (reads icon images from ~/.config/assets/images/volume-icons/) (no args) : print volume and send notification Compositor keybinding integration: - When dmsConfig is disabled: binds XF86AudioRaiseVolume/LowerVolume/Mute to the volume script for Hyprland (bindle) and Sway (keybindings) - When dmsConfig is enabled: uses wpctl directly (WirePlumber CLI) for raise/lower (+/-3%), keeping volume changes fast and DMS OSD-aware; mute still uses the volume script for the toggle notification Enabled by default.
 
 ---
 
