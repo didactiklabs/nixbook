@@ -192,7 +192,7 @@ let
               services = {
                 udiskie.enable = true;
                 gnome-keyring.enable = true;
-                kdeconnect.enable = lib.mkDefault true;
+                kdeconnect.enable = lib.mkDefault false;
               };
 
               dconf.settings."org/gnome/desktop/interface".font-name = lib.mkForce "Roboto";

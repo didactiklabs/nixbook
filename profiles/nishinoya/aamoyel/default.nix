@@ -59,4 +59,5 @@
       showDock = false;
     };
   };
+  services.kdeconnect.enable = true;
 }
