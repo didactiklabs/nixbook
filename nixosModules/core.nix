@@ -332,7 +332,17 @@ in
 
     security = {
       rtkit.enable = true;
-      polkit.enable = true;
+      polkit = {
+        enable = true;
+        extraConfig = ''
+          polkit.addRule(function(action, subject) {
+            if (action.id == "net.reactivated.fprint.device.enroll" &&
+                subject.isInGroup("wheel")) {
+              return polkit.Result.YES;
+            }
+          });
+        '';
+      };
       sudo.wheelNeedsPassword = lib.mkDefault false;
       pam = {
         services = {
