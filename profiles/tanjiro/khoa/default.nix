@@ -12,7 +12,6 @@
     ../../totoro/khoa/thunderbirdConfig.nix
   ];
   home.packages = [
-    pkgs.moonlight-qt
   ];
   programs = {
     go = {
