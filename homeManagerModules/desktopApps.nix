@@ -27,7 +27,6 @@ in
       spotify
       signal-desktop
       obs-studio
-      localsend # send files with other devices (android etc..) on LAN
       wdisplays # display manager
       vesktop # discord
       pinta # paint
