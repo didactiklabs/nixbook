@@ -25,7 +25,6 @@ in
     home.packages = with pkgs; [
       # apps
       spotify
-      signal-desktop
       obs-studio
       wdisplays # display manager
       vesktop # discord
