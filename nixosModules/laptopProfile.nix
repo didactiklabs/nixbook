@@ -18,6 +18,11 @@ in
     };
   };
   config = lib.mkIf cfg.enable {
+    services.logind.settings.Login = {
+      HandleLidSwitch = "suspend";
+      HandleLidSwitchExternalPower = "lock";
+      HandleLidSwitchDocked = "ignore";
+    };
     services = {
       power-profiles-daemon.enable = true;
       thermald.enable = true;
