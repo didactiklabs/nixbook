@@ -9,12 +9,12 @@
 
 - [caCertificates](#cacertificates)
 - [core](#core)
+- [firewall](#firewall)
 - [getRevision](#getrevision)
 - [greetd](#greetd)
 - [hyprland](#hyprland)
 - [laptopProfile](#laptopprofile)
 - [netbird-tools](#netbird-tools)
-- [networkManager](#networkmanager)
 - [niri](#niri)
 - [printTools](#printtools)
 - [sunshine](#sunshine)
@@ -94,6 +94,31 @@ Whether to enable the core NixOS module. Provides bootloader, kernel, audio, blu
 
 ---
 
+## firewall
+
+### `customNixOSModules.firewall.allowedTCPPorts`
+
+- **Type:** `list of 16 bit unsigned integer; between 0 and 65535 (both inclusive)`
+- **Default:** `[]`
+
+List of TCP ports to allow inbound.
+
+### `customNixOSModules.firewall.allowedUDPPorts`
+
+- **Type:** `list of 16 bit unsigned integer; between 0 and 65535 (both inclusive)`
+- **Default:** `[]`
+
+List of UDP ports to allow inbound.
+
+### `customNixOSModules.firewall.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to enable the firewall module. Enables the NixOS firewall with a deny-by-default policy, blocking all inbound connections unless explicitly allowed.
+
+---
+
 ## getRevision
 
 ### `customNixOSModules.getRevision.enable`
@@ -146,17 +171,6 @@ whether to enable laptopProfile globally or not
 - **Default:** `true`
 
 Whether to enable the netbird tools module. Provides the nswitch CLI tool for switching Netbird networks.
-
----
-
-## networkManager
-
-### `customNixOSModules.networkManager.enable`
-
-- **Type:** `boolean`
-- **Default:** `true`
-
-whether to enable networkManager globally or not
 
 ---
 
