@@ -36,6 +36,13 @@ in
   };
 
   config = lib.mkIf cfg.core.enable {
+    nixpkgs.config = {
+      allowUnfree = true;
+      permittedInsecurePackages = [
+        "qtwebengine-5.15.19"
+      ];
+    };
+
     boot = {
       initrd = {
         availableKernelModules = [
@@ -385,6 +392,15 @@ in
       '';
     };
 
+    # Swap configuration
+    swapDevices = [
+      {
+        device = "/swapfile";
+        size = 16 * 1024; # 16GB in MB
+      }
+    ];
+
+    networking.firewall.enable = lib.mkDefault false;
     networking.networkmanager.enable = true;
 
     systemd = {
