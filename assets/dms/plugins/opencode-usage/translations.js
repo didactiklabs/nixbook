@@ -35,6 +35,14 @@ var strings = {
         { fr: "Mod\u00e8les cette semaine" },
     "Since":
         { fr: "Depuis" },
+    "Not authenticated":
+        { fr: "Non authentifi\u00e9" },
+    "No provider data found. Run claude auth login to authenticate with Anthropic.":
+        { fr: "Aucune donn\u00e9e de fournisseur trouv\u00e9e. Lancez claude auth login pour vous authentifier aupr\u00e8s d'Anthropic." },
+    "Running...":
+        { fr: "En cours..." },
+    "claude auth login":
+        { fr: "claude auth login" },
     "Monitor your AI coding usage across providers. Currently tracks Anthropic rate limits, token consumption, and estimated costs via OpenCode credentials.":
         { fr: "Surveillez votre utilisation d'IA pour le code. Suit actuellement les limites Anthropic, la consommation de tokens et les co\u00fbts estim\u00e9s via les identifiants OpenCode." },
     "Refresh Interval":

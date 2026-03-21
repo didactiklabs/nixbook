@@ -124,6 +124,7 @@ PluginComponent {
     popoutWidth: 380
     popoutHeight: {
         var h = 120 // Header & Footer
+        if (root.noProviderData) h += 160
         if (root.rateLimitTier) h += 240
         if (root.anthropicMonthTokens > 0) h += 180 + (anthropicModels.count > 0 ? 50 + anthropicModels.count * 20 : 0)
         if (root.geminiMonthTokens > 0) h += 180 + (geminiModels.count > 0 ? 50 + geminiModels.count * 20 : 0)
@@ -226,6 +227,21 @@ PluginComponent {
         case "GEMINI_DAILY": geminiDaily = parseArray(val); break
         case "GEMINI_DAILY_COSTS": geminiDailyCosts = parseArray(val); break
         case "GEMINI_MODELS": fillModelList(geminiModels, val); break
+        }
+    }
+
+    // Claude auth login state
+    property bool claudeAuthRunning: false
+
+    Process {
+        id: claudeAuthProcess
+        command: ["kitty", "--hold", "-e", "claude", "auth", "login"]
+        running: false
+        onStarted: root.claudeAuthRunning = true
+        onExited: (exitCode, exitStatus) => {
+            root.claudeAuthRunning = false
+            if (!usageProcess.running)
+                usageProcess.running = true
         }
     }
 
@@ -765,6 +781,59 @@ PluginComponent {
                     width: parent.width - Theme.spacingM * 2
                     anchors.horizontalCenter: parent.horizontalCenter
                     spacing: Theme.spacingL
+
+                    // --- Not connected warning ---
+                    StyledRect {
+                        width: parent.width
+                        height: authWarningCol.implicitHeight + Theme.spacingM * 2
+                        color: Theme.surfaceContainerHigh
+                        visible: root.noProviderData
+
+                        Column {
+                            id: authWarningCol
+                            anchors.fill: parent
+                            anchors.margins: Theme.spacingM
+                            spacing: Theme.spacingM
+
+                            Row {
+                                spacing: Theme.spacingS
+                                width: parent.width
+
+                                DankIcon {
+                                    name: "warning"
+                                    size: 16
+                                    color: Theme.warning
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+
+                                StyledText {
+                                    text: root.tr("Not authenticated")
+                                    font.pixelSize: Theme.fontSizeMedium
+                                    font.weight: Font.DemiBold
+                                    color: Theme.surfaceText
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+
+                            StyledText {
+                                width: parent.width
+                                text: root.tr("No provider data found. Run claude auth login to authenticate with Anthropic.")
+                                font.pixelSize: Theme.fontSizeSmall
+                                color: Theme.surfaceVariantText
+                                wrapMode: Text.WordWrap
+                            }
+
+                            DankButton {
+                                width: parent.width
+                                text: root.claudeAuthRunning ? root.tr("Running...") : root.tr("claude auth login")
+                                enabled: !root.claudeAuthRunning
+                                onClicked: {
+                                    if (!root.claudeAuthRunning)
+                                        claudeAuthProcess.running = true
+                                }
+                            }
+                        }
+                    }
 
                     // --- Anthropic Limits ---
                     Column {
