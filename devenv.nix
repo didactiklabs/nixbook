@@ -15,7 +15,10 @@
     shellcheck.enable = true;
     # execute example shell from Markdown files
     mdsh.enable = true;
-    treefmt.enable = true;
+    treefmt = {
+      enable = true;
+      settings.fail-on-change = false;
+    };
   };
 
   difftastic.enable = true;
@@ -49,7 +52,7 @@
       nix-build default.nix -A testVm "$@" && ./result/bin/test-iso-vm
     '';
     generate-docs.exec = ''
-      nix-build docs/generate-docs.nix "$@" && cp result/MODULES.md docs/MODULES.md && echo "Documentation written to docs/MODULES.md"
+      nix-build docs/generate-docs.nix "$@" && cp result/MODULES.md docs/MODULES.md && treefmt docs/MODULES.md && echo "Documentation written to docs/MODULES.md"
     '';
   };
 
