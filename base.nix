@@ -57,5 +57,5 @@ in
     }
   ];
 
-  networking.firewall.enable = false;
+  networking.firewall.enable = lib.mkDefault false;
 }
