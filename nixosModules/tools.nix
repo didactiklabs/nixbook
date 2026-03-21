@@ -113,7 +113,7 @@ in
     };
 
     programs = {
-      kdeconnect.enable = true;
+      kdeconnect.enable = lib.mkDefault true;
       yubikey-touch-detector.enable = true;
       gnupg.agent = {
         enable = true;

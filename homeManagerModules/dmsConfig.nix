@@ -135,7 +135,7 @@
         dankBatteryAlerts.enable = true;
         dankGifSearch.enable = true;
         dankStickerSearch.enable = true;
-        dankKDEConnect.enable = true;
+        dankKDEConnect.enable = config.services.kdeconnect.enable;
         vpnStatus = {
           enable = true;
           src = ../assets/dms/plugins/vpn-dms;
