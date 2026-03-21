@@ -9,12 +9,55 @@
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = "Whether to enable DankMaterialShell (DMS), a Quickshell-based desktop shell with system monitoring, dynamic theming, and custom widgets.";
+      description = ''
+        Whether to enable DankMaterialShell (DMS) desktop shell.
+
+        DMS is a Quickshell-based desktop shell providing a customisable top bar
+        and optional dock.  It is compositor-agnostic (works with niri, sway,
+        hyprland) and integrates deeply with the rest of this configuration.
+
+        Features enabled:
+          - System monitoring widgets powered by dgop
+          - Dynamic wallpaper-based theming via matugen (scheme-vibrant)
+          - Audio wavelength visualiser via cava
+          - Calendar event integration via khal
+          - Systemd user service with auto-restart on config change
+
+        Bar layout (single "Main Bar" on all screens):
+          Left:   launcherButton, nixosUpdate, workspaceSwitcher,
+                  focusedWindow, idleInhibitor
+          Centre: music, clock, weather, opencodeUsage
+          Right:  systemTray, vpnStatus, cpuUsage, notificationButton,
+                  dankKDEConnect, battery, controlCenterButton,
+                  powerMenuButton, sathiAi
+
+        Plugins bundled:
+          - dankBatteryAlerts     — low battery notifications
+          - dankGifSearch         — GIF search widget
+          - dankStickerSearch     — sticker search widget
+          - dankKDEConnect        — KDE Connect integration (auto-enabled with kdeconnect)
+          - vpnStatus             — Tailscale/NetBird VPN indicator (custom, from assets/)
+          - sathiAi               — AI assistant widget
+          - opencodeUsage         — OpenCode token usage display (when opencodeConfig enabled)
+          - nixosUpdate           — NixOS update trigger widget (calls osupdate via systemd)
+
+        Also registers a nixos-upgrade-manual systemd oneshot service used by
+        the nixosUpdate bar widget to apply system updates without a terminal.
+
+        When dmsConfig is enabled, stylixConfig forces the tomorrow-night base16
+        scheme for colour consistency.
+      '';
     };
     showDock = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = "Show the dock";
+      description = ''
+        Whether to show the application dock below the bar.
+
+        When true, a dock with running/pinned application icons appears at the
+        bottom of the screen.  Dock appearance is controlled by the dockTransparency,
+        dockBottomGap, dockMargin, dockIconSize, and dockIndicatorStyle settings.
+      '';
     };
   };
 

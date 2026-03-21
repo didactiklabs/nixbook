@@ -13,7 +13,29 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        whether to enable font config globally or not
+        Whether to enable font installation and fontconfig defaults.
+
+        Installs a curated set of fonts and sets system-wide defaults:
+          Default font families (fontconfig):
+            - Monospace: Roboto Mono
+            - Sans-serif: Roboto
+            - Serif: Roboto Serif
+            - Emoji: Noto Color Emoji
+
+          Nerd Fonts (patched with icons for terminal use):
+            - FiraCode Nerd Font
+            - Hack Nerd Font
+            - Iosevka Nerd Font
+            - JetBrains Mono Nerd Font
+
+          Regular fonts:
+            - Inter                — clean sans-serif UI font
+            - Roboto / Roboto Mono / Roboto Serif — primary font family
+            - Material Design Icons — icon font used by DMS and other widgets
+            - Font Awesome         — icon font used by various bars and prompts
+
+        Enables fonts.fontconfig so the user-level fontconfig cache is managed
+        by Home Manager.
       '';
     };
   };

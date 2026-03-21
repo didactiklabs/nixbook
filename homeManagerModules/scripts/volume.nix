@@ -129,7 +129,26 @@ in
       type = lib.types.bool;
       default = true;
       description = ''
-        Whether to enable the volume control script and keybindings.
+        Whether to enable the volume control script and media-key keybindings.
+
+        Installs the `volume` shell script (originally by JaKooLit), a PipeWire/
+        pamixer-based volume manager that:
+          - --inc / --dec  : raise/lower default sink volume by 5%, capped at 100%
+          - --toggle       : toggle mute on the default sink
+          - --toggle-mic   : toggle mute on the default source (microphone)
+          - --get-icon     : print the appropriate volume icon name for notifications
+          - --notify       : send a libnotify desktop notification with current volume
+                             and icon (reads icon images from ~/.config/assets/images/volume-icons/)
+          (no args)        : print volume and send notification
+
+        Compositor keybinding integration:
+          - When dmsConfig is disabled: binds XF86AudioRaiseVolume/LowerVolume/Mute
+            to the volume script for Hyprland (bindle) and Sway (keybindings)
+          - When dmsConfig is enabled: uses wpctl directly (WirePlumber CLI) for
+            raise/lower (+/-3%), keeping volume changes fast and DMS OSD-aware;
+            mute still uses the volume script for the toggle notification
+
+        Enabled by default.
       '';
     };
   };

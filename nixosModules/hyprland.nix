@@ -32,7 +32,18 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        whether to enable hyprland config globally or not
+        Whether to enable the Hyprland dynamic tiling Wayland compositor.
+
+        Hyprland is a highly customisable compositor featuring animations, blur,
+        rounded corners, and rich IPC.
+
+        This module:
+        - Enables programs.hyprland with wlr XDG desktop portal for screen sharing
+        - Adds U2F PAM authentication support for hyprlock (screen locker)
+        - Registers the hyprland.cachix.org binary cache for fast builds
+
+        Used on: totoro (fallback), nishinoya (fallback).
+        See also: homeManagerModules/hyprland/ for per-user compositor configuration.
       '';
     };
   };

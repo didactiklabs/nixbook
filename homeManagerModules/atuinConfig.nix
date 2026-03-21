@@ -27,7 +27,18 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        Whether to enable atuinConfig config globally or not.
+        Whether to enable Atuin shell history sync against the DidactikLabs server.
+
+        Atuin replaces the standard shell history with a searchable, syncable
+        SQLite database.  The base atuin program is always enabled via
+        commonShellConfig; this option additionally configures:
+          - sync_address: https://atuin.didactik.labs (private DidactikLabs instance)
+          - enter_accept: pressing Enter on a selected history item runs it immediately
+          - sync.records: enables the newer record-based sync protocol
+
+        Enable this on machines that belong to the DidactikLabs environment and
+        where you want cross-machine shell history synchronisation.
+        Requires the Atuin account to be set up via `atuin register` / `atuin login`.
       '';
     };
   };

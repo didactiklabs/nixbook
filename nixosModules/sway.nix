@@ -20,7 +20,17 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        whether to enable sway config globally or not
+        Whether to enable the Sway i3-compatible tiling Wayland compositor.
+
+        Sway is a drop-in Wayland replacement for the i3 X11 window manager,
+        using the same configuration syntax and keyboard-driven workflow.
+
+        This module uses the SwayFX fork (programs.sway.package = pkgs.swayfx)
+        which adds visual effects (blur, rounded corners, shadows) on top of
+        vanilla Sway while remaining fully compatible with standard sway configs.
+
+        Used on: anya (primary).
+        See also: homeManagerModules/sway/ for per-user compositor configuration.
       '';
     };
   };

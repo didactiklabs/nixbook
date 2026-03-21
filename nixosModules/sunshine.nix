@@ -13,7 +13,20 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        whether to enable sunshine globally or not
+        Whether to enable the Sunshine game-streaming / remote-desktop server.
+
+        Sunshine is an open-source implementation of the NVIDIA GameStream
+        protocol, compatible with Moonlight clients on any device.
+
+        This module:
+        - Runs sunshine as a user systemd service tied to the graphical session
+          target (starts/stops with the desktop session, restarts on crash)
+        - Wraps the sunshine binary with cap_sys_admin capability so it can
+          capture the display and audio without running as root
+        - The web UI is available at https://localhost:47990 after first launch
+          to pair with Moonlight clients
+
+        Used on: anya (gaming/streaming machine).
       '';
     };
   };

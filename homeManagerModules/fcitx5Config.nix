@@ -13,7 +13,25 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        whether to enable fcitx5 with Japanese input support (mozc) or not
+        Whether to enable Fcitx5 input method framework with Japanese support.
+
+        Fcitx5 is a modern input method framework for CJK (Chinese, Japanese,
+        Korean) and other complex scripts on Linux.
+
+        This configuration:
+          - Input method type: fcitx5 with Wayland frontend
+          - Addons: fcitx5-mozc-ut (Japanese IME with extended dictionary),
+            fcitx5-gtk (GTK integration for application compatibility)
+          - Input group "Default":
+              Item 0: keyboard-us  (English/US layout, default)
+              Item 1: mozc         (Japanese input, toggled via Ctrl+Space)
+
+          Environment variables set:
+            - QT_IM_MODULE=fcitx   — Qt application input method
+            - XMODIFIERS=@im=fcitx — X11 input method (for XWayland apps)
+            - INPUT_METHOD=fcitx   — generic fallback
+
+        Used on: totoro, nishinoya (machines with Japanese input needs).
       '';
     };
   };

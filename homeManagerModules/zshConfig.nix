@@ -14,7 +14,29 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        Whether to enable zsh configuration and shell integrations.
+        Whether to enable Zsh with full shell integrations and common tooling.
+
+        Enables programs.zsh with:
+          - oh-my-zsh framework
+          - zsh-syntax-highlighting plugin (v0.8.0) — real-time command colouring
+          - zsh-bat plugin — replaces `cat` output with bat syntax highlighting
+          - Autosuggestions (fish-style inline suggestions)
+          - any-nix-shell integration: preserves the Zsh shell inside `nix shell`
+            and `nix develop` environments instead of dropping to bash
+
+        Shell integrations (from commonShellConfig):
+          - atuin    — shell history search/sync (up-arrow disabled, manual Ctrl-R)
+          - yazi     — terminal file manager (y alias)
+          - zoxide   — smarter `cd` replacement (cd aliased to `z`)
+          - fzf      — fuzzy finder with tmux integration
+          - eza      — modern `ls` replacement
+          - direnv   — per-directory environment loading (nix-direnv enabled)
+
+        Common packages installed: ginx, trippy, any-nix-shell, duf, sd, viddy, witr,
+        dgop, devenv (see commonShellConfig.nix for the full list).
+
+        Common aliases: ks=kswitch, watch=viddy, y=yazi, top=dgop, df=duf, cd=z,
+        neofetch=fastfetch, gfix/gfeat/gchore (goji shortcuts).
       '';
     };
   };

@@ -48,8 +48,18 @@ in
       type = lib.types.bool;
       default = true;
       description = ''
-        Whether to enable the netbird tools module.
-        Provides the nswitch CLI tool for switching Netbird networks.
+        Whether to enable NetBird VPN client with the nswitch helper.
+
+        NetBird is a WireGuard-based overlay network tool for connecting machines
+        across different networks without port-forwarding or static IPs.
+
+        This module:
+        - Enables services.netbird (daemon only, no systray UI)
+        - Installs nswitch: an fzf-based TUI that lists available NetBird network
+          IDs (via `netbird networks list`) and switches to the selected one with
+          `netbird network select && netbird up`
+
+        Enabled by default on all machines.
       '';
     };
   };

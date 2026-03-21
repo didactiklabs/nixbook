@@ -57,8 +57,21 @@ in
       type = lib.types.bool;
       default = true;
       description = ''
-        Whether to enable git revision tracking.
-        Writes git metadata (url, branch, rev, lastModifiedDate) to /etc/nixos/version.
+        Whether to embed git metadata about the applied configuration into the system.
+
+        At build time, reads the local .git directory (if present) and writes a JSON
+        file to /etc/nixos/version containing:
+          - url: the git remote URL (from .git/config)
+          - branch: the checked-out branch (from .git/HEAD)
+          - rev: the full commit SHA (via builtins.fetchGit)
+          - lastModifiedDate: the commit timestamp
+
+        This allows runtime inspection of exactly which nixbook commit is running,
+        e.g. via: jq . /etc/nixos/version
+        Also consumed by the osupdate script to show the "last applied revision"
+        before pulling a new one.
+
+        Enabled by default on all machines.
       '';
     };
   };

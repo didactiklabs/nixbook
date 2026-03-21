@@ -13,7 +13,36 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        whether to enable vscode globally or not
+        Whether to enable Visual Studio Code with a declarative extension set.
+
+        Manages VSCode entirely through Home Manager (mutableExtensionsDir = false),
+        ensuring the extension list is reproducible and version-pinned.
+
+        Extensions (200+, defined in extensionsList.nix):
+          Languages:     Go, Rust, Python (Pylance + pylint + black), TypeScript,
+                         Nix, Ansible, Terraform/OpenTofu, YAML, TOML, Markdown,
+                         Docker, Kubernetes, Helm, SQL, Java, C/C++, HTML/CSS
+          AI assistants: GitHub Copilot (inline + chat), Continue
+          Git:           GitLens, Git Graph, GitHub Pull Requests
+          Formatting:    Prettier, EditorConfig, run-on-save (golines for Go,
+                         nixfmt for Nix files)
+          UI/UX:         Material Theme, Material Icons, indent-rainbow,
+                         Error Lens, Project Manager, Todo Tree
+
+        User settings (profiles.default.userSettings):
+          - Go: golines formatter (max line length 140) on save
+          - Nix: nixfmt on save via emeraldwalk.runonsave
+          - Python: Pylance language server, pylint linter, black formatter
+          - Ansible: full OIDC collection names, lint enabled
+          - GitHub Copilot: inline suggestions (3), completions (10)
+          - kitty integration: sets kitty as external terminal
+
+        Extra packages installed alongside VSCode:
+          - exercism   — coding challenge CLI
+          - golines    — Go line-length formatter
+          - nixfmt     — Nix code formatter
+
+        Used on: nishinoya.
       '';
     };
   };
