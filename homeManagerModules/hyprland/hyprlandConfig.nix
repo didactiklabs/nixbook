@@ -252,6 +252,13 @@ in
         ++ (
           if cfg.dmsConfig.enable then [ "$mod, space, exec, dms ipc call widget toggle sathiAi" ] else [ ]
         );
+        bindle = [
+          ",XF86AudioRaiseVolume, exec, ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%+"
+          ",XF86AudioLowerVolume, exec, ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%-"
+        ];
+        bindl = [
+          ",XF86AudioMute, exec, ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_SINK@ toggle"
+        ];
       };
     };
   };
