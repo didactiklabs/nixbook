@@ -288,8 +288,8 @@ in
       LC_ALL = "C.UTF-8";
     };
     console.keyMap = "fr";
-
     services = {
+      fprintd.enable = true;
       accounts-daemon.enable = true;
       fwupd.enable = true;
       upower.enable = true;
@@ -306,6 +306,8 @@ in
         xkb.layout = "fr";
         xkb.variant = "oss_latin9";
       };
+
+      pulseaudio.enable = false;
     };
 
     xdg = {
@@ -374,8 +376,6 @@ in
     };
 
     networking.networkmanager.enable = true;
-
-    services.pulseaudio.enable = false;
 
     systemd = {
       # Create a separate slice for nix-daemon that is
