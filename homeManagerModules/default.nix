@@ -23,7 +23,6 @@
     ./opencodeConfig.nix
     ./nixvim
     ./rtkConfig.nix
-    ./scripts
     ./sshConfig.nix
     ./starshipConfig.nix
     ./stylixConfig.nix
