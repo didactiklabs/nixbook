@@ -29,7 +29,6 @@ in
   '';
   customNixOSModules = {
     laptopProfile.enable = true;
-    networkManager.enable = true;
     greetd.enable = true;
     hyprland.enable = false;
     niri.enable = true;
