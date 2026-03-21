@@ -45,6 +45,9 @@ in
   };
 
   config = lib.mkIf cfg.firewall.enable {
+    # Use nftables backend: atomic rule replacement, unified IPv4/IPv6 chains,
+    # no dependency on legacy iptables kernel modules.
+    networking.nftables.enable = true;
     networking.firewall = {
       enable = true;
       inherit (cfg.firewall) allowedTCPPorts;
