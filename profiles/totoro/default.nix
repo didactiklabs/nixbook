@@ -27,6 +27,7 @@ in
   #    ENV{PRODUCT}=="1050/402/543",\
   #    RUN+="${pkgs.systemd}/bin/loginctl lock-sessions"
   # '';
+  programs.kdeconnect.enable = true;
   hardware = {
     bluetooth = {
       powerOnBoot = lib.mkForce true;
