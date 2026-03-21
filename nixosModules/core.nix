@@ -122,6 +122,7 @@ in
 
     services = {
       accounts-daemon.enable = true;
+      fwupd.enable = true;
       upower.enable = true;
       pcscd.enable = true; # yubikey smart card mode
       pipewire = {
@@ -147,6 +148,9 @@ in
 
     hardware = {
       enableAllFirmware = true;
+      enableRedistributableFirmware = true;
+      cpu.intel.updateMicrocode = true;
+      cpu.amd.updateMicrocode = true;
       bluetooth = {
         enable = true;
         powerOnBoot = false;

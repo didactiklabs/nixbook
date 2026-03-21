@@ -20,13 +20,7 @@ in
   config = lib.mkIf cfg.enable {
     services = {
       power-profiles-daemon.enable = true;
-      fwupd.enable = true;
       thermald.enable = true;
-    };
-    hardware = {
-      enableAllFirmware = true;
-      enableRedistributableFirmware = true;
-      cpu.intel.updateMicrocode = true;
     };
     powerManagement = lib.mkForce {
       enable = true;
