@@ -75,9 +75,9 @@ PluginComponent {
     property real maxDailyGemini: Math.max.apply(null, geminiDaily) || 1
     property bool isLoading: true
 
-    // Hide the widget when no provider is connected (only after initial load)
+    // Always show the widget (disconnect icon when no data, normal content otherwise)
     _visibilityOverride: true
-    _visibilityOverrideValue: isLoading || rateLimitTier !== "" || anthropicMonthTokens > 0 || geminiMonthTokens > 0
+    _visibilityOverrideValue: true
 
     // Live countdown
     property real countdownNow: Date.now()
@@ -261,9 +261,21 @@ PluginComponent {
 
     // --- Taskbar pills ---
 
+    // True when no provider data is available (after initial load)
+    property bool noProviderData: !isLoading && rateLimitTier === "" && anthropicMonthTokens <= 0 && geminiMonthTokens <= 0
+
     horizontalBarPill: Component {
         Row {
             spacing: Theme.spacingM
+
+            // Disconnected icon: shown when no data is available
+            DankIcon {
+                name: "signal_disconnected"
+                size: 14
+                color: Theme.surfaceVariantText
+                anchors.verticalCenter: parent.verticalCenter
+                visible: root.noProviderData
+            }
 
             // Anthropic
             Row {
@@ -338,6 +350,15 @@ PluginComponent {
     verticalBarPill: Component {
         Column {
             spacing: Theme.spacingS
+
+            // Disconnected icon: shown when no data is available
+            DankIcon {
+                name: "signal_disconnected"
+                size: 14
+                color: Theme.surfaceVariantText
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: root.noProviderData
+            }
 
             // Anthropic
             Column {
