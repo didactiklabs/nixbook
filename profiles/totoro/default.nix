@@ -42,7 +42,6 @@ in
       bealv.enable = true;
       didactiklabs.enable = true;
     };
-    vmSupport.enable = true;
   };
   imports = [
     (userConfig.mkUser {

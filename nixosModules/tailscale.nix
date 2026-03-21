@@ -48,9 +48,21 @@ in
       type = lib.types.bool;
       default = true;
       description = ''
-        Whether to enable tailscale fix routes and tswitch helper.
-        Provides a persistent systemd service to fix conflicting Tailscale routes
-        and a tswitch CLI tool for switching Tailnets.
+        Whether to enable Tailscale VPN with route-conflict workarounds.
+
+        Tailscale is a mesh VPN built on WireGuard.  When multiple Tailnets are
+        configured, subnet routes can conflict with the host's default gateway,
+        breaking connectivity.  This module works around that by:
+
+        - tailscale-fix-routes service: a persistent systemd unit that monitors
+          the kernel route table via `ip monitor route` and removes conflicting
+          /16 and /24 Tailscale subnet routes from routing table 52 as soon as
+          they appear
+        - tswitch (fzf-based TUI): interactive CLI tool to list and switch between
+          Tailnets using `tailscale switch`, surfaced via fzf for fuzzy selection
+        - Installs the tailscale package and enables services.tailscale
+
+        Enabled by default on all machines.
       '';
     };
   };

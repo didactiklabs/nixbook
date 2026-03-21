@@ -13,7 +13,31 @@ in
       type = lib.types.bool;
       default = true;
       description = ''
-        Whether to enable stylix theming configuration.
+        Whether to enable Stylix declarative theming.
+
+        Stylix generates a consistent base16 colour palette from the wallpaper
+        image and applies it automatically to supported applications (terminals,
+        editors, bars, GTK, etc.).
+
+        This configuration:
+          - polarity: dark — always generates a dark colour scheme
+          - image: pulled from profileCustomization.mainWallpaper (set per profile)
+          - autoEnable: true — opt-in theming for all supported Stylix targets
+          - Disabled targets:
+              dank-material-shell — DMS manages its own theming via matugen
+              k9s                 — Stylix's k9s target causes schema errors
+          - Cursor: phinger-cursors-light, size 24
+
+          Fonts (shared with fontConfig):
+            - Monospace: Roboto Mono
+            - Sans-serif: Roboto
+            - Serif:      Roboto Serif
+
+          DMS override: when dmsConfig is enabled, forces the base16 scheme to
+          tomorrow-night.yaml (from base16-schemes) instead of the wallpaper-
+          derived palette, keeping DMS colours consistent.
+
+        Enabled by default — disable only if you want fully manual theming.
       '';
     };
   };

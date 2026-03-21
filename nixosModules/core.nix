@@ -14,7 +14,23 @@ in
       default = true;
       description = ''
         Whether to enable the core NixOS module.
-        Provides bootloader, kernel, audio, bluetooth, security, and nix daemon configuration.
+
+        This is the foundational system module that configures:
+        - Boot: systemd-boot UEFI loader, plymouth splash screen, latest kernel,
+          LVM support, LUKS dm-crypt modules, keyboard backlight on initrd, IOMMU
+        - Kernel hardening: sysctl security settings (restrict BPF, perf events,
+          ICMP redirects, source routing, suid dumps, etc.)
+        - Locale: Europe/Paris timezone, en_US locale with fr_FR LC_ settings,
+          French keyboard layout
+        - Audio: PipeWire with ALSA and PulseAudio compatibility (PulseAudio disabled)
+        - Hardware: firmware, Intel/AMD CPU microcode, Bluetooth (bluez), uinput
+        - Security: rtkit, polkit, U2F PAM (login + sudo), passwordless sudo for wheel
+        - XDG portals: wlr portal enabled for Wayland screen sharing
+        - Nix daemon: lix package, weekly GC (7d retention), store optimisation at 03:45,
+          nix-command + flakes features, custom S3 binary cache, OOM-managed nix-daemon slice
+        - Display: xserver disabled (Wayland-only), fonts dir enabled
+        - Env: NIXOS_OZONE_WL=1, NIXPKGS_ALLOW_UNFREE=1
+        - System state version: 24.05
       '';
     };
   };

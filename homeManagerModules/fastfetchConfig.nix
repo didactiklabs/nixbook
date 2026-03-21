@@ -145,7 +145,22 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        Whether to enable fastfetchConfig config globally or not.
+        Whether to enable Fastfetch system information display.
+
+        Fastfetch is a neofetch-style system info tool written in C, significantly
+        faster and more accurate than neofetch.
+
+        This configuration:
+          - Deploys a custom ~/.config/fastfetch/config.jsonc with a boxed layout:
+              ┏━━━━━━━━━━━━━━━━┓
+                OS, Kernel, Packages, WM, Terminal, Shell
+              ┣━━━━━━━━━━━━━━━━┫
+                Host, CPU, GPU, Memory, Disk
+              ┗━━━━━━━━━━━━━━━━┛
+          - Deploys a custom ASCII-art NixOS snowflake logo to ~/.config/fastfetch/logo
+          - Installs fastfetch and imagemagick (for image logo rendering)
+          - Adds shell aliases: `fastfetch` (prepends a blank line) and
+            `neofetch` → `fastfetch` (drop-in replacement)
       '';
     };
   };

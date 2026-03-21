@@ -13,7 +13,33 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        whether to enable gitConfig globally or not
+        Whether to enable Git configuration and related tooling.
+
+        Configures:
+          Core git (programs.git):
+            - gitFull package with LFS enabled
+            - GPG signing available but off by default (signByDefault = false)
+            - pull.rebase = true, push.autoSetupRemote = true
+            - defaultBranch = "main", remote.prune = true
+            - .vscode and .direnv added to global ignores
+            - Aliases: lg (graph log), d (diff), s (status), sw/swcr (switch),
+              save (add+commit), undo (reset HEAD~1), lazy (add+commit+push),
+              pushmr (branch+commit+push MR), purge (delete merged branches)
+
+          Difftastic (programs.difftastic):
+            - Structural diff tool that understands syntax, used as git's diff driver
+
+          GitHub CLI (programs.gh):
+            - Extensions: gh-eco, gh-notify, gh-poi, gh-f
+
+          gh-dash (programs.gh-dash):
+            - TUI GitHub dashboard with pre-configured PR/issue sections:
+              DidactikLabs org PRs, My PRs, Needs Review, Participating
+
+          Extra packages:
+            - tig          — ncurses git history browser
+            - git-extras   — collection of git utility scripts
+            - difftastic   — also available as a standalone binary
       '';
     };
   };

@@ -13,7 +13,14 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        whether to enable thunderbirdConfig globally or not
+        Whether to enable Mozilla Thunderbird email client.
+
+        Installs and manages the Thunderbird email/calendar client via
+        Home Manager's programs.thunderbird module.  Account configuration
+        and profiles are managed manually through the Thunderbird UI (not
+        declaratively, as mail credentials are sensitive).
+
+        Used on: totoro, nishinoya.
       '';
     };
   };

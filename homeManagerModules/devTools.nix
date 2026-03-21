@@ -13,7 +13,34 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        Whether to enable development tools
+        Whether to enable a curated set of development and DevOps tools.
+
+        Installs:
+          Language runtimes:
+            - python3
+
+          Build / Nix tooling:
+            - gnumake, devenv, nix-eval-jobs, nixos-generators
+
+          Infrastructure-as-Code / deployment:
+            - terraform, minio-client
+            - google-cloud-sdk (with gke-gcloud-auth-plugin for GKE access)
+
+          Code generation / API:
+            - cobra-cli    — Go CLI framework scaffolding
+            - openapi-generator-cli — OpenAPI client/server generator
+            - templ        — Go HTML templating compiler
+            - bruno / bruno-cli — open-source API client (Postman alternative)
+
+          AI assistants:
+            - gemini-cli   — Google Gemini CLI
+            - claude-code  — Anthropic Claude Code CLI
+
+          Developer utilities:
+            - devbox       — portable development environments via Nix
+            - go-task      — Makefile alternative (Taskfile)
+            - runme        — runnable Markdown notebooks
+            - npins        — Nix dependency pinning tool
       '';
     };
   };

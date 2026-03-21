@@ -12,7 +12,26 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        whether to enable starship globally or not
+        Whether to enable the Starship cross-shell prompt.
+
+        Starship is a fast, minimal, and infinitely customisable prompt written
+        in Rust.  This configuration uses a two-line layout with Stylix colour
+        integration (base16 palette pulled from config.lib.stylix.colors):
+
+          Top line:   [nix_shell] user@hostname [k8s context] in  path git_branch [status]
+          Bottom line: ❯ (green on success, red on error, ❮ in vi-mode)
+
+        Enabled modules:
+          - nix_shell   — shows "pure"/"impure" when inside a nix shell/develop env
+          - username    — always visible (not just on SSH)
+          - hostname    — always visible, trimmed at first dot
+          - kubernetes  — ☸ symbol + current context (never disabled)
+          - directory   — path truncated to 4 segments with …/ symbol, 🔒 for read-only
+          - git_branch  —  symbol + branch name
+          - git_status  — ⇡⇣⇕ ahead/behind/diverged, +!?✘»$ staged/modified/untracked/etc.
+
+        Disabled modules (for prompt speed): time, package, python, git_metrics.
+        Zsh integration enabled.
       '';
     };
   };

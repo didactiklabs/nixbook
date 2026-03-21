@@ -129,7 +129,44 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        whether to enable nixvimConfig globally or not
+        Whether to enable NixVim — a fully declarative Neovim configuration.
+
+        NixVim manages Neovim and all its plugins through the Nix module system,
+        ensuring reproducibility.  This configuration sets up a complete IDE-like
+        environment:
+
+        Core settings (options.nix):
+          - Space as leader/localleader key
+          - System clipboard via wl-copy (Wayland)
+          - Relative + absolute line numbers, scrolloff=8, cursorline/column
+          - Undo history persistence, incremental search, smart case
+          - 4-space tabs with auto-indent, no swap file
+          - Disabled providers: ruby, perl, python2
+
+        Plugins (plugins/):
+          LSP & completion:   lsp (gopls, nil, ts-ls, pylsp, lua-ls…),
+                              cmp (nvim-cmp with LSP/buffer/path sources),
+                              none-ls (formatters/linters)
+          Navigation:         telescope (fuzzy finder), neo-tree (file explorer),
+                              trouble (diagnostics list)
+          Editing:            comment, mini (surround, pairs, etc.),
+                              git-conflict, trim, vim-better-whitespace
+          UI:                 barbar (tabline), lualine (statusline),
+                              noice (cmdline/messages UI), notify,
+                              snacks, smear-cursor, neoscroll, colorizer,
+                              markdown-preview, floaterm, startify
+          Extras:             neocord (Discord Rich Presence),
+                              treesitter (syntax highlighting),
+                              opencode (AI coding assistant integration),
+                              99 (custom utility plugin)
+
+        French spell-check files (fr.utf-8 + fr.latin1) are pre-fetched and
+        deployed to ~/.config/nvim/spell/.
+
+        Keybindings: <leader>a (code action), Shift-H/L (prev/next buffer),
+        Ctrl-L (clear highlight), Ctrl-Shift-arrows (resize splits).
+
+        vi/vim aliases enabled, set as default editor.
       '';
     };
   };

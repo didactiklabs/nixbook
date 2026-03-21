@@ -13,7 +13,38 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        whether to enable kittyConfig globally or not
+        Whether to enable Kitty terminal emulator configuration.
+
+        Kitty is a GPU-accelerated terminal emulator with tiling support.
+
+        Configures:
+          Appearance & behaviour:
+            - Roboto Mono 10pt font, copy-on-select, no OS window close prompt
+            - Cursor blink interval 0.5s, cursor trail effect with smooth decay
+            - Bottom powerline tab bar (shown even for a single tab)
+            - Splits layout only (kitty's built-in window splitting, no tmux needed)
+
+          Keybindings:
+            - Ctrl+Shift+S / Ctrl+Shift+Enter — vertical / horizontal split
+            - Ctrl+Shift+W — close tab; Ctrl+Shift+←/→ — previous/next tab
+            - Alt+←/→/↑/↓ — navigate between splits
+            - Shift+←/→/↑/↓ — move/reorder splits
+
+          Compositor integration (spawn kitty on Mod+Return):
+            - Hyprland: $mod+RETURN keybind
+            - Niri: Mod+Return bind
+            - Sway: terminal = kitty, Mod4+Return keybind
+
+          Shell integration:
+            - Zsh integration enabled inside kitty
+            - `ssh` aliased to TERM=xterm-256color inside kitty (fixes remote terms)
+            - `sshs` alias uses kitty+kitten ssh for seamless remote kitty sessions
+
+          VSCode integration:
+            - Sets kitty as the external terminal (terminal.external.linuxExec)
+
+          ranger:
+            - Configures image previews via the kitty graphics protocol
       '';
     };
   };

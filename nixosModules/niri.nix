@@ -54,8 +54,23 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        Whether to enable Niri config globally or not.
-        Niri is a scrollable-tiling Wayland compositor.
+        Whether to enable the Niri scrollable-tiling Wayland compositor.
+
+        Niri is a modern Wayland compositor where windows are arranged in an
+        infinite horizontal scrollable strip rather than traditional workspaces.
+
+        This module:
+        - Imports the niri-flake NixOS module (sourced from npins, not nixpkgs)
+        - Enables programs.niri with the nixpkgs niri package
+        - Disables the niri-flake bundled polkit agent (the system polkit handles it)
+        - Enables GNOME keyring unlock via SDDM PAM integration
+        - Installs essential Wayland utilities: fuzzel (launcher), grimblast (screenshots),
+          wl-clipboard, wlr-randr (display management), libnotify, xwayland-satellite
+          (X11 app compatibility layer)
+        - Adds the niri.cachix.org binary cache for fast pre-built niri packages
+
+        Used on: totoro (primary), nishinoya (primary).
+        See also: homeManagerModules/niri/ for per-user compositor configuration.
       '';
     };
   };

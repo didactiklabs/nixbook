@@ -27,7 +27,23 @@ in
       default = true;
       description = ''
         Whether to enable the tools NixOS module.
-        Provides podman, yubikey tools, ds4 controller support, and system utilities.
+
+        Provides system-level tooling and services:
+        - Container runtime: Podman with Docker compatibility alias, DNS-enabled default
+          network, weekly auto-prune, and OCI container backend
+        - Kernel modules: netfilter (iptables/ip6tables, conntrack, ipvs) for container
+          networking
+        - System packages: openvpn, gnupg, yubikey tools (yubico-piv-tool, yubioath-flutter,
+          yubikey-personalization), podman/podman-compose, wlsunset, cups-pk-helper, ginx,
+          osupdate, ds4drv, efibootmgr, colmena, update-systemd-resolved, pinentry-qt, lsof
+        - YubiKey: udev rules, yubikey-touch-detector, GnuPG agent with SSH support
+        - DS4 controller: user systemd service running ds4drv in HID-raw + xpad emulation
+          mode for DualShock 4 controllers
+        - osupdate: shell script that applies the latest nixbook main branch via ginx +
+          colmena apply-local
+        - udev: game-devices rules and uinput (MODE=0666) for unprivileged input access
+
+        Note: User-level packages belong in homeManagerModules (devTools, cliTools, etc.).
       '';
     };
   };

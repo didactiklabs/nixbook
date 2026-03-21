@@ -13,7 +13,19 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        whether to enable greeter globally or not.
+        Whether to enable the greetd display manager with tuigreet.
+
+        Configures greetd to launch tuigreet, a TUI-based greeter that:
+        - Displays a clock and remembers the last session and user
+        - Shows an asterisk-masked password field
+        - Presents a user menu for multi-user machines
+        - Dynamically builds --sessions from whichever Wayland compositors are
+          enabled (niri, sway, hyprland), so only installed sessions appear
+        - Wraps niri sessions via niri-session for proper environment setup
+        - Enables U2F authentication in the greetd PAM service (YubiKey login)
+
+        Depends on at least one compositor module being enabled
+        (customNixOSModules.niri, .sway, or .hyprland).
       '';
     };
   };

@@ -13,7 +13,19 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        whether to enable laptopProfile globally or not
+        Whether to enable laptop-specific power and display optimisations.
+
+        Configures:
+        - logind lid-switch behaviour: suspend on close, lock when on external power,
+          ignore when docked
+        - power-profiles-daemon: dynamic CPU frequency scaling (performance / balanced /
+          power-saver profiles, switchable via e.g. the DMS control centre)
+        - thermald: Intel thermal management daemon to prevent CPU throttling
+        - powerManagement: general power management framework
+        - powertop: power consumption analyser available in the system PATH
+
+        Enable this on machines that are laptops (totoro, nishinoya).
+        Leave disabled on desktop/server machines (anya).
       '';
     };
   };

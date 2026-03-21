@@ -14,8 +14,22 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        Whether to enable RTK (Rust Token Killer) - a CLI proxy that reduces LLM token
-        consumption by 60-90% on common development commands.
+        Whether to enable RTK (Rust Token Killer).
+
+        RTK is a CLI proxy that transparently intercepts common development
+        commands (git, kubectl, terraform, etc.) and compresses / summarises
+        their output before passing it to an LLM, reducing token consumption
+        by 60–90% on typical dev workflows.
+
+        This module:
+          - Installs the rtk binary (custom package from customPkgs/rtk.nix)
+          - Runs `rtk init --global` on Home Manager activation to register
+            rtk's shell hooks globally (~/.config/rtk/)
+          - When opencodeConfig is enabled, runs `rtk init -g --opencode`
+            instead, which also wires up the opencode auto-rewrite hook so
+            that rtk automatically rewrites commands piped through opencode
+
+        Used on: totoro.
       '';
     };
   };

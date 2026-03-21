@@ -229,7 +229,30 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        Whether to enable gojiConfig config globally or not.
+        Whether to enable Goji conventional-commit tooling with AI assistance.
+
+        Goji is a TUI/CLI tool for writing Conventional Commits with emoji.
+        This module installs two tools:
+
+          goji — interactive commit helper that prompts for type, scope, and
+            subject, then formats the message as:
+              <emoji> <type>(<scope>): <subject>
+            Supported types: feat, fix, docs, refactor, chore, test, hotfix,
+            deprecate, perf, wip, package (configured via ~/.goji.json)
+
+          goji-ai — AI-powered wrapper that:
+            1. Runs `git diff --cached` to collect staged changes
+            2. Sends the diff to opencode (must be installed + authenticated)
+            3. Parses the JSON response to extract type/scope/subject
+            4. Invokes goji with the generated values
+            Supports -t/--type, -s/--scope, -a/--add, --amend flags
+            Requires opencode to be configured (opencodeConfig.enable = true)
+
+        Also installs Zsh completion for goji (`source <(goji completion zsh)`)
+        and Fish completion when fishConfig is enabled.
+
+        Shell aliases (from commonShellConfig): gfix, gfeat, gchore.
+        Used on: totoro, nishinoya.
       '';
     };
   };
