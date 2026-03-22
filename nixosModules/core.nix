@@ -441,24 +441,6 @@ in
         # strongly prefer killing nix-daemon child processes
         "nix-daemon".serviceConfig.OOMScoreAdjust = 1000;
         # Manual NixOS upgrade service triggered by the DMS nixosUpdate bar widget
-        "nixos-upgrade-manual" = {
-          description = "Manual NixOS System Upgrade";
-          serviceConfig = {
-            Type = "oneshot";
-            ExecStart = "${pkgs.writeShellScript "nixos-upgrade-wrapper" ''
-              export PATH=$PATH:${
-                lib.makeBinPath [
-                  pkgs.git
-                  pkgs.jq
-                  pkgs.colmena
-                ]
-              }
-              exec osupdate
-            ''}";
-            StandardOutput = "journal";
-            StandardError = "journal";
-          };
-        };
       };
     };
 
