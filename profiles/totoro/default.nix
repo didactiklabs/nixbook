@@ -45,6 +45,7 @@ in
     lanzaboote.enable = true;
   };
   imports = [
+    "${sources.nixos-hardware}/asus/zenbook/um6702"
     (userConfig.mkUser {
       username = "khoa";
       userImports = [ ./khoa ];
