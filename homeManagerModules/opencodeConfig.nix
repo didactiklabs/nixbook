@@ -39,7 +39,7 @@ in
       enable = true;
       settings = {
         plugin = [
-          "opencode-anthropic-auth"
+          "@ex-machina/opencode-anthropic-auth"
         ];
       };
     };
