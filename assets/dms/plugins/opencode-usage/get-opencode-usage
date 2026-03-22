@@ -183,6 +183,7 @@ if [ -f "$AUTH_FILE" ]; then
             fi
         fi
 
+        IS_RATE_LIMITED="false"
         if [ "$USE_CACHE" = true ]; then
             API_RESPONSE=$(jq -r '.data' "$USAGE_CACHE" 2>/dev/null || echo '{}')
         else
@@ -194,6 +195,8 @@ if [ -f "$AUTH_FILE" ]; then
                 -H "anthropic-beta: oauth-2025-04-20" \
                 "https://api.anthropic.com/api/oauth/usage" 2>/dev/null || echo '{}')
 
+            IS_RATE_LIMITED=$(echo "$API_RESPONSE" | jq -r 'if .error and .error.type == "rate_limit_error" then "true" else "false" end')
+
             if echo "$API_RESPONSE" | jq -e '.five_hour' >/dev/null 2>&1; then
                 jq -n --argjson data "$API_RESPONSE" '{cached_at: (now | floor), data: $data}' > "$USAGE_CACHE" 2>/dev/null
             elif [ -f "$USAGE_CACHE" ]; then
@@ -201,9 +204,15 @@ if [ -f "$AUTH_FILE" ]; then
             fi
         fi
 
-        FIVE_HOUR_UTIL=$(echo "$API_RESPONSE" | jq -r '.five_hour.utilization // 0')
+        if [ "$IS_RATE_LIMITED" = "true" ]; then
+            FIVE_HOUR_UTIL=100
+            SEVEN_DAY_UTIL=100
+        else
+            FIVE_HOUR_UTIL=$(echo "$API_RESPONSE" | jq -r '(.five_hour.utilization // 0) * 100')
+            SEVEN_DAY_UTIL=$(echo "$API_RESPONSE" | jq -r '(.seven_day.utilization // 0) * 100')
+        fi
+        
         FIVE_HOUR_RESET=$(echo "$API_RESPONSE" | jq -r '.five_hour.resets_at // ""')
-        SEVEN_DAY_UTIL=$(echo "$API_RESPONSE" | jq -r '.seven_day.utilization // 0')
         SEVEN_DAY_RESET=$(echo "$API_RESPONSE" | jq -r '.seven_day.resets_at // ""')
         EXTRA_USAGE_ENABLED=$(echo "$API_RESPONSE" | jq -r '.extra_usage.is_enabled // false')
 
