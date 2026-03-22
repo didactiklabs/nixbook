@@ -59,25 +59,25 @@ hive.nix                          Colmena deployment config
 
 ## NixOS Modules (17 files)
 
-| Module               | Lines | Purpose                                                          |
-| -------------------- | ----- | ---------------------------------------------------------------- |
-| `userConfig.nix`     | 209   | User management framework with mkUser helper                     |
-| `core.nix`           | 201   | Bootloader (systemd-boot), kernel settings, systemd services     |
-| `gamingConfig.nix`   | 152   | Gaming: Steam, AMD GPU tuning, GameMode, controller udev rules   |
-| `tools.nix`          | 109   | Development and utility tools (git, direnv, treefmt, pre-commit) |
-| `niri.nix`           | 61    | Niri scrollable tiling compositor setup                          |
-| `tailscale.nix`      | 60    | Tailscale VPN workaround/fixes                                   |
-| `greetd.nix`         | 57    | Login manager (greeter configuration)                            |
-| `caCertificates.nix` | 56    | Custom CA certificates (bealv, didactiklabs, logicmg)            |
-| `getRevision.nix`    | 54    | Git revision tracking for system                                 |
-| `networkManager.nix` | 41    | Network connectivity and wifi management                         |
-| `netbird-tools.nix`  | 41    | NetBird VPN client setup                                         |
-| `sunshine.nix`       | 39    | Remote desktop streaming configuration                           |
-| `hyprland.nix`       | 39    | Hyprland dynamic tiling compositor                               |
-| `laptopProfile.nix`  | 38    | Laptop-specific: power management, display scaling               |
-| `printTools.nix`     | 37    | Printing and scanner support (CUPS, SANE)                        |
-| `sway.nix`           | 27    | Sway i3-like tiling compositor                                   |
-| `default.nix`        | 20    | Module imports aggregator                                        |
+| Module               | Lines | Purpose                                                                            |
+| -------------------- | ----- | ---------------------------------------------------------------------------------- |
+| `userConfig.nix`     | 209   | User management framework with mkUser helper                                       |
+| `core.nix`           | 215   | Bootloader (systemd-boot), kernel settings, systemd services, nixos-upgrade-manual |
+| `gamingConfig.nix`   | 152   | Gaming: Steam, AMD GPU tuning, GameMode, controller udev rules                     |
+| `tools.nix`          | 109   | Development and utility tools (git, direnv, treefmt, pre-commit)                   |
+| `niri.nix`           | 61    | Niri scrollable tiling compositor setup                                            |
+| `tailscale.nix`      | 60    | Tailscale VPN workaround/fixes                                                     |
+| `greetd.nix`         | 57    | Login manager (greeter configuration)                                              |
+| `caCertificates.nix` | 56    | Custom CA certificates (bealv, didactiklabs, logicmg)                              |
+| `getRevision.nix`    | 54    | Git revision tracking for system                                                   |
+| `networkManager.nix` | 41    | Network connectivity and wifi management                                           |
+| `netbird-tools.nix`  | 41    | NetBird VPN client setup                                                           |
+| `sunshine.nix`       | 39    | Remote desktop streaming configuration                                             |
+| `hyprland.nix`       | 39    | Hyprland dynamic tiling compositor                                                 |
+| `laptopProfile.nix`  | 38    | Laptop-specific: power management, display scaling                                 |
+| `printTools.nix`     | 37    | Printing and scanner support (CUPS, SANE)                                          |
+| `sway.nix`           | 27    | Sway i3-like tiling compositor                                                     |
+| `default.nix`        | 20    | Module imports aggregator                                                          |
 
 ## Home Manager Modules (34 files/subdirectories)
 

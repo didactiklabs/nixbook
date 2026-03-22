@@ -138,7 +138,7 @@ PluginComponent {
 
     Process {
         id: monitorProcess
-        command: ["systemctl", "--user", "show", "-p", "ActiveState", "--value", "nixos-upgrade-manual.service"]
+        command: ["systemctl", "show", "-p", "ActiveState", "--value", "nixos-upgrade-manual.service"]
         property string state: ""
         stdout: SplitParser {
             onRead: line => monitorProcess.state = line.trim()
@@ -165,7 +165,7 @@ PluginComponent {
 
     Process {
         id: startUpdateProcess
-        command: ["systemctl", "--user", "start", "--no-block", "nixos-upgrade-manual.service"]
+        command: ["systemctl", "start", "--no-block", "nixos-upgrade-manual.service"]
         onExited: code => {
             // Using --no-block prevents systemctl from waiting for the job to finish.
             // This avoids "D-Bus connection terminated" errors when the update

@@ -366,6 +366,13 @@ in
               return polkit.Result.YES;
             }
           });
+          polkit.addRule(function(action, subject) {
+            if (action.id == "org.freedesktop.systemd1.manage-units" &&
+                action.lookup("unit") == "nixos-upgrade-manual.service" &&
+                subject.isInGroup("wheel")) {
+              return polkit.Result.YES;
+            }
+          });
         '';
       };
       sudo.wheelNeedsPassword = lib.mkDefault false;
@@ -428,10 +435,31 @@ in
         ManagedOOMMemoryPressure = "kill";
         ManagedOOMMemoryPressureLimit = "50%";
       };
-      services."nix-daemon".serviceConfig.Slice = "nix-daemon.slice";
-      # If a kernel-level OOM event does occur anyway,
-      # strongly prefer killing nix-daemon child processes
-      services."nix-daemon".serviceConfig.OOMScoreAdjust = 1000;
+      services = {
+        "nix-daemon".serviceConfig.Slice = "nix-daemon.slice";
+        # If a kernel-level OOM event does occur anyway,
+        # strongly prefer killing nix-daemon child processes
+        "nix-daemon".serviceConfig.OOMScoreAdjust = 1000;
+        # Manual NixOS upgrade service triggered by the DMS nixosUpdate bar widget
+        "nixos-upgrade-manual" = {
+          description = "Manual NixOS System Upgrade";
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = "${pkgs.writeShellScript "nixos-upgrade-wrapper" ''
+              export PATH=$PATH:${
+                lib.makeBinPath [
+                  pkgs.git
+                  pkgs.jq
+                  pkgs.colmena
+                ]
+              }
+              exec osupdate
+            ''}";
+            StandardOutput = "journal";
+            StandardError = "journal";
+          };
+        };
+      };
     };
 
     system.stateVersion = "24.05";
