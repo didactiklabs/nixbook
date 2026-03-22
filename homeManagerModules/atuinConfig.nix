@@ -11,6 +11,7 @@ in
     programs = {
       atuin = {
         enable = true;
+        daemon.enable = true;
         settings = {
           sync_address = "https://atuin.didactik.labs";
           enter_accept = true;
