@@ -55,10 +55,6 @@ in
               nix-eval-jobs
               nix-fast-build
               ;
-            colmena = prev.colmena.override {
-              nix = lixStable.lix;
-              inherit (lixStable) nix-eval-jobs;
-            };
           }
         )
       ];

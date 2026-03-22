@@ -4,6 +4,7 @@
     ./core.nix
     ./caCertificates.nix
     ./firewall.nix
+    ./gamingConfig.nix
     ./getRevision.nix
     ./greetd.nix
     ./hyprland.nix
