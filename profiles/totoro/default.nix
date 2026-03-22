@@ -33,7 +33,7 @@ in
     bluetooth = {
       powerOnBoot = lib.mkForce true;
     };
-    nvidia.enable = lib.mkForce false;
+    nvidia.enabled = lib.mkForce false;
   };
   customNixOSModules = {
     laptopProfile.enable = true;
