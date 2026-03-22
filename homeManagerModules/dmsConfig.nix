@@ -211,27 +211,5 @@
         };
       };
     };
-    systemd.user.services.nixos-upgrade-manual =
-      lib.mkIf config.customHomeManagerModules.dmsConfig.enableNixosUpdate
-        {
-          Unit = {
-            Description = "Manual NixOS System Upgrade";
-          };
-          Service = {
-            Type = "oneshot";
-            ExecStart = "${pkgs.writeShellScript "nixos-upgrade-wrapper" ''
-              export PATH=$PATH:${
-                lib.makeBinPath [
-                  pkgs.git
-                  pkgs.jq
-                  pkgs.colmena
-                ]
-              }
-              exec osupdate
-            ''}";
-            StandardOutput = "journal";
-            StandardError = "journal";
-          };
-        };
   };
 }
