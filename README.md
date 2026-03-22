@@ -103,6 +103,47 @@ After installation, the system reboots. On first boot, the bootstrap environment
 
 After this second reboot, the machine is fully configured.
 
+### Secure Boot (Lanzaboote)
+
+Nixbook supports UEFI Secure Boot via [lanzaboote](https://github.com/nix-community/lanzaboote) with fully automatic provisioning. No manual key generation or enrollment is required.
+
+#### Enabling Secure Boot
+
+In your machine profile (e.g. `profiles/tanjiro/default.nix`), enable the lanzaboote module:
+
+```nix
+customNixOSModules.lanzaboote.enable = true;
+```
+
+#### What happens automatically
+
+When lanzaboote is enabled, the following occurs over the first few boots after `colmena apply-local --sudo` (or after the installer's bootstrap applies your profile):
+
+1. **First boot under lanzaboote** -- a systemd service generates Secure Boot signing keys (PK, KEK, db) in `/var/lib/sbctl`.
+2. **Same boot** -- another service prepares EFI Authenticated Variables on the ESP, re-signs all boot artifacts, and triggers an automatic reboot.
+3. **Next boot** -- `systemd-boot` enrolls the keys into the UEFI firmware. Secure Boot enforcement begins.
+
+This is a trust-on-first-use model: the first boot is unsigned, subsequent boots are signed and verified. Microsoft keys are included by default for OptionROM and driver compatibility.
+
+#### Verifying Secure Boot
+
+After provisioning completes:
+
+```bash
+# Check that Secure Boot is active
+bootctl status
+# Should show: Secure Boot: enabled (user)
+
+# Verify all boot entries are signed
+sudo sbctl verify
+```
+
+#### Important notes
+
+- LUKS full-disk encryption is strongly recommended when using Secure Boot, since signing keys are stored locally in `/var/lib/sbctl`.
+- Setting a UEFI/BIOS password is also recommended to prevent disabling Secure Boot from the firmware.
+- The `autoEnrollKeys` and `autoGenerateKeys` services are idempotent -- they are no-ops once keys are generated and enrolled.
+
 ## 🐧 Using Home Manager on Non-NixOS Distributions
 
 Nixbook's Home Manager modules can be used on any Linux distribution (Ubuntu, Fedora, Arch, etc.) to manage your user-level configurations declaratively. This allows you to replicate your Nix-based dotfiles environment without installing NixOS.

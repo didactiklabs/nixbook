@@ -317,6 +317,7 @@ in
       nixos-enter --root /mnt -c "useradd -m -G wheel \"$TARGET_USER\" || true"
        printf '%s:%s\n' "$TARGET_USER" "$USER_PASSWORD_HASH" | nixos-enter --root /mnt -c "chpasswd -e"
 
+      echo ""
       echo "Installation complete!"
       gum confirm "Reboot now?" && reboot
     '';
