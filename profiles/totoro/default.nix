@@ -42,6 +42,7 @@ in
       bealv.enable = true;
       didactiklabs.enable = true;
     };
+    lanzaboote.enable = true;
   };
   imports = [
     (userConfig.mkUser {
