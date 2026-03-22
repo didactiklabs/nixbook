@@ -40,7 +40,8 @@ in
       settings = {
         plugin = [
           "opencode-gemini-auth"
-          "opencode-anthropic-oauth"
+          "opencode-anthropic-auth"
+          "op-anthropic-auth"
         ];
       };
     };
