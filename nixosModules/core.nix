@@ -44,14 +44,23 @@ in
         ];
       };
       overlays = [
-        (final: prev: {
-          inherit (prev.lixPackageSets.stable)
-            nixpkgs-review
-            nix-eval-jobs
-            nix-fast-build
-            ;
-          colmena = prev.colmena.override { nix = prev.lixPackageSets.stable.lix; };
-        })
+        (
+          final: prev:
+          let
+            lixStable = prev.lixPackageSets.stable;
+          in
+          {
+            inherit (lixStable)
+              nixpkgs-review
+              nix-eval-jobs
+              nix-fast-build
+              ;
+            colmena = prev.colmena.override {
+              nix = lixStable.lix;
+              inherit (lixStable) nix-eval-jobs;
+            };
+          }
+        )
       ];
     };
 
