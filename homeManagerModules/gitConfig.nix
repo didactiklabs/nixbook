@@ -104,6 +104,7 @@ in
         enable = true;
         signing = {
           signByDefault = false;
+          format = null;
           signer = "${pkgs.gnupg}/bin/gpg2";
           key = null;
         };

@@ -49,8 +49,8 @@ in
             nixpkgs-review
             nix-eval-jobs
             nix-fast-build
-            colmena
             ;
+          colmena = prev.colmena.override { nix = prev.lixPackageSets.stable.lix; };
         })
       ];
     };
