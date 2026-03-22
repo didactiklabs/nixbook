@@ -88,7 +88,7 @@ let
     $DIFF"
 
     # Call opencode run and extract the AI response
-    OPENCODE_OUTPUT=$(opencode run "$PROMPT" --format json --model big-pickle 2>/dev/null)
+    OPENCODE_OUTPUT=$(opencode run "$PROMPT" --format json --model opencode/big-pickle 2>/dev/null)
     AI_TEXT=$(echo "$OPENCODE_OUTPUT" | ${pkgs.jq}/bin/jq -r 'select(.type=="text") | .part.text // empty' 2>/dev/null | tr -d '\r')
 
     # Extract JSON from the response - handle markdown code blocks
