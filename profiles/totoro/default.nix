@@ -2,6 +2,7 @@
   pkgs,
   lib,
   sources,
+  config,
   ...
 }:
 let
@@ -32,7 +33,7 @@ in
     bluetooth = {
       powerOnBoot = lib.mkForce true;
     };
-    nvidia.enabled = false;
+    nvidia.enable = lib.mkForce false;
   };
   customNixOSModules = {
     laptopProfile.enable = true;
