@@ -257,8 +257,8 @@ PluginComponent {
         }
 
         onExited: (exitCode, exitStatus) => {
+            root.isLoading = false
             if (exitCode === 0) {
-                root.isLoading = false
                 root.refreshEpoch++
             }
         }
