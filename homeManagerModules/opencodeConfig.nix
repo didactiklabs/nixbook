@@ -40,6 +40,7 @@ in
       settings = {
         plugin = [
           "@ex-machina/opencode-anthropic-auth"
+          "opencode-gemini-auth"
         ];
       };
     };

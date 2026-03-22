@@ -117,14 +117,38 @@ in
         KERNEL=="hidraw*", SUBSYSTEM=="hidraw", KERNELS=="0005:054C:09CC.*", MODE="0666"
       '';
     };
-
-    systemd.user.services.ds4drv = {
-      enable = true;
-      description = "Controller Support.";
-      wantedBy = [ "default.target" ];
-      serviceConfig = {
-        ExecStart = "${ds4drv}/bin/ds4drv --hidraw --emulate-xpad";
-        Restart = "always";
+    systemd = {
+      user.services.ds4drv = {
+        enable = true;
+        description = "Controller Support.";
+        wantedBy = [ "default.target" ];
+        serviceConfig = {
+          ExecStart = "${ds4drv}/bin/ds4drv --hidraw --emulate-xpad";
+          Restart = "always";
+        };
+      };
+      services = {
+        "nixos-upgrade-manual" = {
+          description = "Manual NixOS System Upgrade";
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = "${pkgs.writeShellScript "nixos-upgrade-wrapper" ''
+              export NIXPKGS_ALLOW_UNFREE=1
+              export PATH=$PATH:${
+                lib.makeBinPath [
+                  pkgs.git
+                  pkgs.jq
+                  pkgs.colmena
+                  ginx
+                  osupdate
+                ]
+              }
+              exec osupdate
+            ''}";
+            StandardOutput = "journal";
+            StandardError = "journal";
+          };
+        };
       };
     };
 
