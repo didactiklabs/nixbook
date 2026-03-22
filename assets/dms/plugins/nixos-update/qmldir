@@ -1,0 +1,2 @@
+module NixOSUpdateModule
+singleton UpdateState 1.0 UpdateState.qml
