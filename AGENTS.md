@@ -13,7 +13,7 @@
 - **Nix Files:** 133 files (~9,837 lines of code)
 - **Active Machines:** 3 (totoro, anya, nishinoya)
 - **Home Manager Modules:** 34 (21 main files + 13 plugin/config subdirectories)
-- **NixOS Modules:** 16 files
+- **NixOS Modules:** 17 files
 - **Custom Packages:** 11
 - **CI/CD Workflows:** 4
 - **NixVim Plugins:** 25
@@ -39,7 +39,7 @@ profiles/{hostname}/              Machine-specific configurations
   ├── default.nix
   └── {username}/                 User-specific overrides
 
-nixosModules/                     System-level modules (18 files)
+nixosModules/                     System-level modules (19 files)
 homeManagerModules/               User-level modules (30+ files)
 base.nix                          Core entry point
 hive.nix                          Colmena deployment config
@@ -57,12 +57,13 @@ hive.nix                          Colmena deployment config
 - `.github/workflows/` - GitHub Actions CI/CD for all 3 machines
 - `devenv.nix/.envrc` - Development environment with direnv integration
 
-## NixOS Modules (16 files)
+## NixOS Modules (17 files)
 
 | Module               | Lines | Purpose                                                          |
 | -------------------- | ----- | ---------------------------------------------------------------- |
 | `userConfig.nix`     | 209   | User management framework with mkUser helper                     |
 | `core.nix`           | 201   | Bootloader (systemd-boot), kernel settings, systemd services     |
+| `gamingConfig.nix`   | 152   | Gaming: Steam, AMD GPU tuning, GameMode, controller udev rules   |
 | `tools.nix`          | 109   | Development and utility tools (git, direnv, treefmt, pre-commit) |
 | `niri.nix`           | 61    | Niri scrollable tiling compositor setup                          |
 | `tailscale.nix`      | 60    | Tailscale VPN workaround/fixes                                   |
@@ -76,7 +77,7 @@ hive.nix                          Colmena deployment config
 | `laptopProfile.nix`  | 38    | Laptop-specific: power management, display scaling               |
 | `printTools.nix`     | 37    | Printing and scanner support (CUPS, SANE)                        |
 | `sway.nix`           | 27    | Sway i3-like tiling compositor                                   |
-| `default.nix`        | 19    | Module imports aggregator                                        |
+| `default.nix`        | 20    | Module imports aggregator                                        |
 
 ## Home Manager Modules (34 files/subdirectories)
 
@@ -150,8 +151,8 @@ hive.nix                          Colmena deployment config
 - **Location:** `profiles/anya/`
 - **User:** khoa
 - **Primary WM:** Sway
-- **Modules:** networkManager, sunshine, sway, caCertificates
-- **Special Features:** Wake-on-LAN, Steam Big Picture auto-launch, Proton GE, Immich photo sync timers
+- **Modules:** gamingConfig, sunshine, sway, caCertificates
+- **Special Features:** Wake-on-LAN, Steam Big Picture auto-launch, Proton GE, GameMode, AMD GPU tuning, Immich photo sync timers
 - **Work Environments:** didactiklabs, bealv kubeconfigs
 - **Home Manager Modules:** cliTools, devTools, fontConfig, gitConfig, gtkConfig, securityTools, sshConfig, starship, swayConfig, systemTools, nixvimConfig, fastfetchConfig, atuinConfig, kittyConfig, zshConfig, dmsConfig
 
