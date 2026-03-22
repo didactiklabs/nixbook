@@ -36,10 +36,22 @@ in
   };
 
   config = lib.mkIf cfg.core.enable {
-    nixpkgs.config = {
-      allowUnfree = true;
-      permittedInsecurePackages = [
-        "qtwebengine-5.15.19"
+    nixpkgs = {
+      config = {
+        allowUnfree = true;
+        permittedInsecurePackages = [
+          "qtwebengine-5.15.19"
+        ];
+      };
+      overlays = [
+        (final: prev: {
+          inherit (prev.lixPackageSets.stable)
+            nixpkgs-review
+            nix-eval-jobs
+            nix-fast-build
+            colmena
+            ;
+        })
       ];
     };
 
@@ -362,7 +374,7 @@ in
     };
 
     nix = {
-      package = pkgs.lix;
+      package = pkgs.lixPackageSets.stable.lix;
       gc = {
         automatic = true;
         dates = "weekly";
