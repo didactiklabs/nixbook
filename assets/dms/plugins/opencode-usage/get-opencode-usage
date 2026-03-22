@@ -183,11 +183,11 @@ if [ -f "$AUTH_FILE" ]; then
             fi
         fi
 
-        IS_RATE_LIMITED="false"
         if [ "$USE_CACHE" = true ]; then
             API_RESPONSE=$(jq -r '.data' "$USAGE_CACHE" 2>/dev/null || echo '{}')
         else
-            API_RESPONSE=$(curl -s --max-time 5 \
+            TMP_HEADERS=$(mktemp)
+            API_RESPONSE=$(curl -s --max-time 5 -D "$TMP_HEADERS" \
                 -H "Authorization: Bearer $TOKEN" \
                 -H "Accept: application/json" \
                 -H "Content-Type: application/json" \
@@ -195,26 +195,29 @@ if [ -f "$AUTH_FILE" ]; then
                 -H "anthropic-beta: oauth-2025-04-20" \
                 "https://api.anthropic.com/api/oauth/usage" 2>/dev/null || echo '{}')
 
-            IS_RATE_LIMITED=$(echo "$API_RESPONSE" | jq -r 'if .error and .error.type == "rate_limit_error" then "true" else "false" end')
+            rm -f "$TMP_HEADERS"
 
             if echo "$API_RESPONSE" | jq -e '.five_hour' >/dev/null 2>&1; then
                 jq -n --argjson data "$API_RESPONSE" '{cached_at: (now | floor), data: $data}' > "$USAGE_CACHE" 2>/dev/null
             elif [ -f "$USAGE_CACHE" ]; then
+                # Usage API returned error (e.g. 429), fall back to cached data
                 API_RESPONSE=$(jq -r '.data' "$USAGE_CACHE" 2>/dev/null || echo '{}')
             fi
         fi
 
-        if [ "$IS_RATE_LIMITED" = "true" ]; then
-            FIVE_HOUR_UTIL=100
-            SEVEN_DAY_UTIL=100
-        else
+        if echo "$API_RESPONSE" | jq -e '.five_hour' >/dev/null 2>&1; then
             FIVE_HOUR_UTIL=$(echo "$API_RESPONSE" | jq -r '(.five_hour.utilization // 0) * 100')
             SEVEN_DAY_UTIL=$(echo "$API_RESPONSE" | jq -r '(.seven_day.utilization // 0) * 100')
+            FIVE_HOUR_RESET=$(echo "$API_RESPONSE" | jq -r '.five_hour.resets_at // ""')
+            SEVEN_DAY_RESET=$(echo "$API_RESPONSE" | jq -r '.seven_day.resets_at // ""')
+            EXTRA_USAGE_ENABLED=$(echo "$API_RESPONSE" | jq -r '.extra_usage.is_enabled // false')
+        else
+            FIVE_HOUR_UTIL="-1"
+            SEVEN_DAY_UTIL="-1"
+            FIVE_HOUR_RESET=""
+            SEVEN_DAY_RESET=""
+            EXTRA_USAGE_ENABLED="false"
         fi
-        
-        FIVE_HOUR_RESET=$(echo "$API_RESPONSE" | jq -r '.five_hour.resets_at // ""')
-        SEVEN_DAY_RESET=$(echo "$API_RESPONSE" | jq -r '.seven_day.resets_at // ""')
-        EXTRA_USAGE_ENABLED=$(echo "$API_RESPONSE" | jq -r '.extra_usage.is_enabled // false')
 
         if echo "$API_RESPONSE" | jq -e '.five_hour' >/dev/null 2>&1; then
             SUBSCRIPTION_TYPE="pro"
@@ -276,7 +279,7 @@ if [ -d "$MESSAGE_DIR" ]; then
             inp = $4 + 0; out = $5 + 0; cr = $6 + 0; cw = $7 + 0
             sess = $8
             total = inp + out + cr + cw
-            
+
             p = (provider == "google") ? "gemini" : "anthropic"
 
             # Extract family for pricing
@@ -298,7 +301,7 @@ if [ -d "$MESSAGE_DIR" ]; then
                     n_parts = split(model, mparts, "-")
                     display_model = (n_parts >= 3 && mparts[1] == "claude") ? mparts[2] : model
                 }
-                
+
                 week_model[p, display_model] += total
                 week_tokens[p] += total
                 week_msgs++
@@ -321,7 +324,7 @@ if [ -d "$MESSAGE_DIR" ]; then
             for (i=1; i<=2; i++) {
                 p = (i==1) ? "anthropic" : "gemini"
                 prefix = (p == "anthropic") ? "ANTHROPIC" : "GEMINI"
-                
+
                 printf "%s_WEEK_TOKENS=%d\n", prefix, week_tokens[p] + 0
                 printf "%s_MONTH_TOKENS=%d\n", prefix, month_tokens[p] + 0
                 printf "%s_TODAY_COST=%.4f\n", prefix, day_cost[p, today] + 0
@@ -334,7 +337,7 @@ if [ -d "$MESSAGE_DIR" ]; then
                     d = dates[j]
                     val = (p, d) in day ? day[p, d] : 0
                     daily = daily (j > 1 ? "," : "") val + 0
-                    
+
                     c_val = (p, d) in day_cost ? day_cost[p, d] : 0
                     daily_costs = daily_costs (j > 1 ? "," : "") sprintf("%.4f", c_val)
                 }
