@@ -33,7 +33,15 @@ in
     bluetooth = {
       powerOnBoot = lib.mkForce true;
     };
+    nvidia = {
+      prime.offload.enable = lib.mkForce false;
+      prime.offload.enableOffloadCmd = lib.mkForce false;
+      powerManagement.enable = lib.mkForce false;
+      powerManagement.finegrained = lib.mkForce false;
+      dynamicBoost.enable = lib.mkForce false;
+    };
   };
+  services.xserver.videoDrivers = lib.mkForce [ "modesetting" ];
   customNixOSModules = {
     laptopProfile.enable = true;
     greetd.enable = true;
