@@ -199,6 +199,7 @@ in
 
         input = {
           keyboard = {
+            numlock = true;
             xkb = {
               layout = "fr";
               options = "numpad:microsoft";
