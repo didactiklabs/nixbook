@@ -197,35 +197,35 @@ PluginComponent {
         var val = line.substring(idx + 1)
 
         switch (key) {
-        case "SUBSCRIPTION_TYPE": subscriptionType = val; break
-        case "RATE_LIMIT_TIER": rateLimitTier = val; break
-        case "FIVE_HOUR_UTIL": fiveHourUtil = parseFloat(val) || 0; break
-        case "FIVE_HOUR_RESET": fiveHourReset = val; break
-        case "SEVEN_DAY_UTIL": sevenDayUtil = parseFloat(val) || 0; break
-        case "SEVEN_DAY_RESET": sevenDayReset = val; break
-        case "WEEK_MESSAGES": weekMessages = parseInt(val) || 0; break
-        case "WEEK_SESSIONS": weekSessions = parseInt(val) || 0; break
-        case "ALLTIME_SESSIONS": alltimeSessions = parseInt(val) || 0; break
-        case "ALLTIME_MESSAGES": alltimeMessages = parseInt(val) || 0; break
-        case "FIRST_SESSION": firstSession = val; break
-        case "USD_EUR_RATE": usdEurRate = parseFloat(val) || 0; break
+        case "SUBSCRIPTION_TYPE": root.subscriptionType = val; break
+        case "RATE_LIMIT_TIER": root.rateLimitTier = val; break
+        case "FIVE_HOUR_UTIL": root.fiveHourUtil = parseFloat(val) || 0; break
+        case "FIVE_HOUR_RESET": root.fiveHourReset = val; break
+        case "SEVEN_DAY_UTIL": root.sevenDayUtil = parseFloat(val) || 0; break
+        case "SEVEN_DAY_RESET": root.sevenDayReset = val; break
+        case "WEEK_MESSAGES": root.weekMessages = parseInt(val) || 0; break
+        case "WEEK_SESSIONS": root.weekSessions = parseInt(val) || 0; break
+        case "ALLTIME_SESSIONS": root.alltimeSessions = parseInt(val) || 0; break
+        case "ALLTIME_MESSAGES": root.alltimeMessages = parseInt(val) || 0; break
+        case "FIRST_SESSION": root.firstSession = val; break
+        case "USD_EUR_RATE": root.usdEurRate = parseFloat(val) || 0; break
         
-        case "ANTHROPIC_WEEK_TOKENS": anthropicWeekTokens = parseFloat(val) || 0; break
-        case "ANTHROPIC_MONTH_TOKENS": anthropicMonthTokens = parseFloat(val) || 0; break
-        case "ANTHROPIC_TODAY_COST": anthropicTodayCost = parseFloat(val) || 0; break
-        case "ANTHROPIC_WEEK_COST": anthropicWeekCost = parseFloat(val) || 0; break
-        case "ANTHROPIC_MONTH_COST": anthropicMonthCost = parseFloat(val) || 0; break
-        case "ANTHROPIC_DAILY": anthropicDaily = parseArray(val); break
-        case "ANTHROPIC_DAILY_COSTS": anthropicDailyCosts = parseArray(val); break
+        case "ANTHROPIC_WEEK_TOKENS": root.anthropicWeekTokens = parseFloat(val) || 0; break
+        case "ANTHROPIC_MONTH_TOKENS": root.anthropicMonthTokens = parseFloat(val) || 0; break
+        case "ANTHROPIC_TODAY_COST": root.anthropicTodayCost = parseFloat(val) || 0; break
+        case "ANTHROPIC_WEEK_COST": root.anthropicWeekCost = parseFloat(val) || 0; break
+        case "ANTHROPIC_MONTH_COST": root.anthropicMonthCost = parseFloat(val) || 0; break
+        case "ANTHROPIC_DAILY": root.anthropicDaily = parseArray(val); break
+        case "ANTHROPIC_DAILY_COSTS": root.anthropicDailyCosts = parseArray(val); break
         case "ANTHROPIC_MODELS": fillModelList(anthropicModels, val); break
         
-        case "GEMINI_WEEK_TOKENS": geminiWeekTokens = parseFloat(val) || 0; break
-        case "GEMINI_MONTH_TOKENS": geminiMonthTokens = parseFloat(val) || 0; break
-        case "GEMINI_TODAY_COST": geminiTodayCost = parseFloat(val) || 0; break
-        case "GEMINI_WEEK_COST": geminiWeekCost = parseFloat(val) || 0; break
-        case "GEMINI_MONTH_COST": geminiMonthCost = parseFloat(val) || 0; break
-        case "GEMINI_DAILY": geminiDaily = parseArray(val); break
-        case "GEMINI_DAILY_COSTS": geminiDailyCosts = parseArray(val); break
+        case "GEMINI_WEEK_TOKENS": root.geminiWeekTokens = parseFloat(val) || 0; break
+        case "GEMINI_MONTH_TOKENS": root.geminiMonthTokens = parseFloat(val) || 0; break
+        case "GEMINI_TODAY_COST": root.geminiTodayCost = parseFloat(val) || 0; break
+        case "GEMINI_WEEK_COST": root.geminiWeekCost = parseFloat(val) || 0; break
+        case "GEMINI_MONTH_COST": root.geminiMonthCost = parseFloat(val) || 0; break
+        case "GEMINI_DAILY": root.geminiDaily = parseArray(val); break
+        case "GEMINI_DAILY_COSTS": root.geminiDailyCosts = parseArray(val); break
         case "GEMINI_MODELS": fillModelList(geminiModels, val); break
         }
     }
@@ -297,7 +297,7 @@ PluginComponent {
             Row {
                 spacing: Theme.spacingXS
                 anchors.verticalCenter: parent.verticalCenter
-                visible: root.fiveHourUtil > 0 || root.rateLimitTier !== ""
+                visible: root.fiveHourUtil !== 0 || root.rateLimitTier !== ""
 
                 Canvas {
                     id: hRing
@@ -333,9 +333,9 @@ PluginComponent {
                 }
 
                 StyledText {
-                    text: Math.round(root.fiveHourUtil) + "%"
+                    text: root.fiveHourUtil < 0 ? "N/A" : Math.round(root.fiveHourUtil) + "%"
                     font.pixelSize: Theme.fontSizeSmall
-                    color: Theme.surfaceText
+                    color: root.fiveHourUtil < 0 ? Theme.surfaceVariantText : Theme.surfaceText
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }
@@ -380,7 +380,7 @@ PluginComponent {
             Column {
                 spacing: Theme.spacingXS || 4
                 anchors.horizontalCenter: parent.horizontalCenter
-                visible: root.fiveHourUtil > 0 || root.rateLimitTier !== ""
+                visible: root.fiveHourUtil !== 0 || root.rateLimitTier !== ""
 
                 Canvas {
                     id: vRing
@@ -416,9 +416,9 @@ PluginComponent {
                 }
 
                 StyledText {
-                    text: Math.round(root.fiveHourUtil) + "%"
+                    text: root.fiveHourUtil < 0 ? "N/A" : Math.round(root.fiveHourUtil) + "%"
                     font.pixelSize: Theme.fontSizeSmall
-                    color: Theme.surfaceText
+                    color: root.fiveHourUtil < 0 ? Theme.surfaceVariantText : Theme.surfaceText
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
             }
@@ -839,7 +839,7 @@ PluginComponent {
                     Column {
                         width: parent.width
                         spacing: Theme.spacingM
-                        visible: root.fiveHourUtil > 0
+                        visible: root.fiveHourUtil !== 0
 
                         StyledRect {
                             width: parent.width
@@ -886,10 +886,10 @@ PluginComponent {
 
                                     StyledText {
                                         anchors.centerIn: parent
-                                        text: Math.round(root.fiveHourUtil) + "%"
+                                        text: root.fiveHourUtil < 0 ? "N/A" : Math.round(root.fiveHourUtil) + "%"
                                         font.pixelSize: Theme.fontSizeLarge
                                         font.weight: Font.DemiBold
-                                        color: Theme.surfaceText
+                                        color: root.fiveHourUtil < 0 ? Theme.surfaceVariantText : Theme.surfaceText
                                     }
                                 }
 
@@ -904,7 +904,7 @@ PluginComponent {
                                         color: Theme.surfaceText
                                     }
                                     StyledText {
-                                        text: root.fiveHourCountdown ? root.tr("Resets in") + " " + root.fiveHourCountdown : ""
+                                        text: root.fiveHourUtil < 0 ? root.tr("Data unavailable") : (root.fiveHourCountdown ? root.tr("Resets in") + " " + root.fiveHourCountdown : "")
                                         font.pixelSize: Theme.fontSizeSmall
                                         color: Theme.surfaceVariantText
                                     }
