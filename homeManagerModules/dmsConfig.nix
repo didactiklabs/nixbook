@@ -126,7 +126,6 @@
               "nixosUpdate"
               "workspaceSwitcher"
               "focusedWindow"
-              "idleInhibitor"
             ];
             centerWidgets = [
               "music"
@@ -140,12 +139,7 @@
               "cpuUsage"
               "notificationButton"
               "dankKDEConnect"
-              "battery"
               "controlCenterButton"
-              {
-                id = "powerMenuButton";
-                enabled = true;
-              }
               "sathiAi"
             ];
             spacing = 4;
@@ -185,6 +179,70 @@
             shadowColorMode = "text";
             shadowCustomColor = "#000000";
             clickThrough = false;
+          }
+        ];
+        controlCenterShowNetworkIcon = true;
+        controlCenterShowBluetoothIcon = true;
+        controlCenterShowAudioIcon = true;
+        controlCenterShowAudioPercent = true;
+        controlCenterShowVpnIcon = true;
+        controlCenterShowBrightnessIcon = true;
+        controlCenterShowBrightnessPercent = true;
+        controlCenterShowMicIcon = false;
+        controlCenterShowMicPercent = false;
+        controlCenterShowBatteryIcon = true;
+        controlCenterShowPrinterIcon = false;
+        controlCenterShowScreenSharingIcon = true;
+        controlCenterWidgets = [
+          {
+            id = "volumeSlider";
+            enabled = true;
+            width = 50;
+          }
+          {
+            id = "brightnessSlider";
+            enabled = true;
+            width = 50;
+          }
+          {
+            id = "wifi";
+            enabled = true;
+            width = 50;
+          }
+          {
+            id = "bluetooth";
+            enabled = true;
+            width = 50;
+          }
+          {
+            id = "audioOutput";
+            enabled = true;
+            width = 50;
+          }
+          {
+            id = "audioInput";
+            enabled = true;
+            width = 50;
+          }
+          {
+            id = "battery";
+            enabled = true;
+            width = 25;
+          }
+          {
+            id = "idleInhibitor";
+            enabled = true;
+            width = 25;
+          }
+          {
+            id = "nightMode";
+            enabled = true;
+            width = 25;
+          }
+          {
+            id = "darkMode";
+            enabled = true;
+            width = 25;
           }
         ];
       };
