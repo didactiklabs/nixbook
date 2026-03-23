@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**Nixbook** is a production-grade, reproducible NixOS configuration repository providing declarative system management for multiple machines using the Nix programming language.
+**Nixbook** is a reproducible NixOS configuration repository providing declarative system management for multiple machines using the Nix programming language.
 
 **Repository:** `git@github.com:didactiklabs/nixbook.git`
 **Primary Goal:** Create a robust, reproducible NixOS environment with modern Wayland display servers and UEFI boot support.
