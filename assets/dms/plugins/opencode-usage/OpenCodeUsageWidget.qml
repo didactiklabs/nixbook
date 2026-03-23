@@ -30,6 +30,7 @@ PluginComponent {
     property string fiveHourReset: ""
     property real sevenDayUtil: 0
     property string sevenDayReset: ""
+    property bool dataStale: false
 
     // Global
     property int weekMessages: 0
@@ -203,6 +204,9 @@ PluginComponent {
         case "FIVE_HOUR_RESET": root.fiveHourReset = val; break
         case "SEVEN_DAY_UTIL": root.sevenDayUtil = parseFloat(val) || 0; break
         case "SEVEN_DAY_RESET": root.sevenDayReset = val; break
+        case "EXTRA_USAGE_ENABLED": break
+        case "DATA_STALE": root.dataStale = val === "true"; break
+        case "CACHE_AGE": break
         case "WEEK_MESSAGES": root.weekMessages = parseInt(val) || 0; break
         case "WEEK_SESSIONS": root.weekSessions = parseInt(val) || 0; break
         case "ALLTIME_SESSIONS": root.alltimeSessions = parseInt(val) || 0; break
@@ -299,6 +303,14 @@ PluginComponent {
                 anchors.verticalCenter: parent.verticalCenter
                 visible: root.fiveHourUtil !== 0 || root.rateLimitTier !== ""
 
+                DankIcon {
+                    name: "warning"
+                    size: 12
+                    color: Theme.warning
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: root.dataStale
+                }
+
                 Canvas {
                     id: hRing
                     width: 20
@@ -336,6 +348,14 @@ PluginComponent {
                     text: root.fiveHourUtil < 0 ? "N/A" : Math.round(root.fiveHourUtil) + "%"
                     font.pixelSize: Theme.fontSizeSmall
                     color: root.fiveHourUtil < 0 ? Theme.surfaceVariantText : Theme.surfaceText
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+
+                StyledText {
+                    text: root.fiveHourCountdown ? "\u00b7 " + root.fiveHourCountdown : ""
+                    visible: root.fiveHourCountdown !== ""
+                    font.pixelSize: 9
+                    color: Theme.surfaceVariantText
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }
@@ -382,6 +402,14 @@ PluginComponent {
                 anchors.horizontalCenter: parent.horizontalCenter
                 visible: root.fiveHourUtil !== 0 || root.rateLimitTier !== ""
 
+                DankIcon {
+                    name: "warning"
+                    size: 12
+                    color: Theme.warning
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: root.dataStale
+                }
+
                 Canvas {
                     id: vRing
                     width: 20
@@ -419,6 +447,14 @@ PluginComponent {
                     text: root.fiveHourUtil < 0 ? "N/A" : Math.round(root.fiveHourUtil) + "%"
                     font.pixelSize: Theme.fontSizeSmall
                     color: root.fiveHourUtil < 0 ? Theme.surfaceVariantText : Theme.surfaceText
+                    anchors.horizontalCenter: parent.horizontalCenter
+                }
+
+                StyledText {
+                    text: root.fiveHourCountdown || ""
+                    visible: root.fiveHourCountdown !== ""
+                    font.pixelSize: 9
+                    color: Theme.surfaceVariantText
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
             }
@@ -835,6 +871,49 @@ PluginComponent {
                         }
                     }
 
+                    // --- Stale data warning ---
+                    StyledRect {
+                        width: parent.width
+                        height: staleWarningCol.implicitHeight + Theme.spacingM * 2
+                        color: Theme.surfaceContainerHigh
+                        visible: root.dataStale && !root.noProviderData
+
+                        Column {
+                            id: staleWarningCol
+                            anchors.fill: parent
+                            anchors.margins: Theme.spacingM
+                            spacing: Theme.spacingXS
+
+                            Row {
+                                spacing: Theme.spacingS
+                                width: parent.width
+
+                                DankIcon {
+                                    name: "schedule"
+                                    size: 16
+                                    color: Theme.warning
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+
+                                StyledText {
+                                    text: root.tr("Data outdated")
+                                    font.pixelSize: Theme.fontSizeMedium
+                                    font.weight: Font.DemiBold
+                                    color: Theme.warning
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+
+                            StyledText {
+                                width: parent.width
+                                text: root.tr("Usage data could not be refreshed. API may be unreachable or credentials expired.")
+                                font.pixelSize: Theme.fontSizeSmall
+                                color: Theme.surfaceVariantText
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+                    }
+
                     // --- Anthropic Limits ---
                     Column {
                         width: parent.width
@@ -904,9 +983,9 @@ PluginComponent {
                                         color: Theme.surfaceText
                                     }
                                     StyledText {
-                                        text: root.fiveHourUtil < 0 ? root.tr("Data unavailable") : (root.fiveHourCountdown ? root.tr("Resets in") + " " + root.fiveHourCountdown : "")
+                                        text: root.fiveHourUtil < 0 ? root.tr("Data unavailable") : (root.fiveHourCountdown ? root.tr("Resets in") + " " + root.fiveHourCountdown : root.dataStale ? root.tr("Data outdated") : "")
                                         font.pixelSize: Theme.fontSizeSmall
-                                        color: Theme.surfaceVariantText
+                                        color: root.fiveHourUtil < 0 || root.dataStale ? Theme.warning : Theme.surfaceVariantText
                                     }
                                 }
                             }
