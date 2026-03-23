@@ -9,13 +9,13 @@ SESSION_DIR="${OPENCODE_DATA}/storage/session"
 CACHE_DIR="${HOME}/.cache/dms-opencode-usage"
 PRICING_CACHE="${CACHE_DIR}/pricing-cache.json"
 USAGE_CACHE="${CACHE_DIR}/usage-cache.json"
-USAGE_CACHE_TTL=300  # seconds
+USAGE_CACHE_TTL=${1:-120}  # seconds, configurable via DMS refresh interval setting
 MAX_STALE_AGE=3600   # 1 hour — cache older than this is treated as invalid
 LITELLM_URL="https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
 ANTHROPIC_TOKEN_URL="https://console.anthropic.com/v1/oauth/token"
 
 TODAY=$(date +%Y-%m-%d)
-WEEK_START=$(date -d "6 days ago" +%Y-%m-%d)
+WEEK_START=$(date -d "$((DOW - 1)) days ago" +%Y-%m-%d)
 MONTH_START=$(date +%Y-%m-01)
 
 mkdir -p "$CACHE_DIR"

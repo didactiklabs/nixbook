@@ -289,7 +289,7 @@ PluginComponent {
 
     Process {
         id: usageProcess
-        command: ["bash", root.scriptPath]
+        command: ["bash", root.scriptPath, String(Math.floor(root.refreshInterval / 1000))]
         running: false
 
         stdout: SplitParser {
