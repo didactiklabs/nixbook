@@ -179,6 +179,9 @@ if [ -f "$AUTH_FILE" ]; then
         CACHE_AGE=-1
         if [ -f "$USAGE_CACHE" ]; then
             cache_ts=$(jq -r '.cached_at // 0' "$USAGE_CACHE" 2>/dev/null || echo 0)
+            if [ "$cache_ts" -le 0 ] 2>/dev/null; then
+                cache_ts=$(stat -c %Y "$USAGE_CACHE" 2>/dev/null || date +%s)
+            fi
             now_ts=$(date +%s)
             CACHE_AGE=$(( now_ts - cache_ts ))
             if [ "$CACHE_AGE" -ge "$MAX_STALE_AGE" ]; then
