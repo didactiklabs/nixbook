@@ -206,8 +206,8 @@ if [ -f "$AUTH_FILE" ]; then
         fi
 
         if echo "$API_RESPONSE" | jq -e '.five_hour' >/dev/null 2>&1; then
-            FIVE_HOUR_UTIL=$(echo "$API_RESPONSE" | jq -r '(.five_hour.utilization // 0) * 100')
-            SEVEN_DAY_UTIL=$(echo "$API_RESPONSE" | jq -r '(.seven_day.utilization // 0) * 100')
+            FIVE_HOUR_UTIL=$(echo "$API_RESPONSE" | jq -r '.five_hour.utilization // 0')
+            SEVEN_DAY_UTIL=$(echo "$API_RESPONSE" | jq -r '.seven_day.utilization // 0')
             FIVE_HOUR_RESET=$(echo "$API_RESPONSE" | jq -r '.five_hour.resets_at // ""')
             SEVEN_DAY_RESET=$(echo "$API_RESPONSE" | jq -r '.seven_day.resets_at // ""')
             EXTRA_USAGE_ENABLED=$(echo "$API_RESPONSE" | jq -r '.extra_usage.is_enabled // false')
