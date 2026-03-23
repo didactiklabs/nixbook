@@ -9,12 +9,12 @@ SESSION_DIR="${OPENCODE_DATA}/storage/session"
 CACHE_DIR="${HOME}/.cache/dms-opencode-usage"
 PRICING_CACHE="${CACHE_DIR}/pricing-cache.json"
 USAGE_CACHE="${CACHE_DIR}/usage-cache.json"
-USAGE_CACHE_TTL=120  # seconds
+USAGE_CACHE_TTL=${1:-120}  # seconds, configurable via DMS refresh interval setting
+MAX_STALE_AGE=3600   # 1 hour — cache older than this is treated as invalid
 LITELLM_URL="https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
 ANTHROPIC_TOKEN_URL="https://console.anthropic.com/v1/oauth/token"
 
 TODAY=$(date +%Y-%m-%d)
-DOW=$(date +%u)  # 1=Monday, 7=Sunday
 WEEK_START=$(date -d "$((DOW - 1)) days ago" +%Y-%m-%d)
 MONTH_START=$(date +%Y-%m-01)
 
@@ -28,6 +28,8 @@ FIVE_HOUR_RESET=""
 SEVEN_DAY_UTIL=0
 SEVEN_DAY_RESET=""
 EXTRA_USAGE_ENABLED="false"
+DATA_STALE="false"
+CACHE_AGE=-1
 
 # Global
 WEEK_MESSAGES=0
@@ -56,6 +58,16 @@ GEMINI_MONTH_COST="0.00"
 GEMINI_DAILY="0,0,0,0,0,0,0"
 GEMINI_DAILY_COSTS="0,0,0,0,0,0,0"
 GEMINI_MODELS=""
+
+# OpenCode
+OPENCODE_WEEK_TOKENS=0
+OPENCODE_MONTH_TOKENS=0
+OPENCODE_TODAY_COST="0.00"
+OPENCODE_WEEK_COST="0.00"
+OPENCODE_MONTH_COST="0.00"
+OPENCODE_DAILY="0,0,0,0,0,0,0"
+OPENCODE_DAILY_COSTS="0,0,0,0,0,0,0"
+OPENCODE_MODELS=""
 
 # --- Pricing cache (refresh once per day from LiteLLM) ---
 PRICING_JSON=""
@@ -170,21 +182,48 @@ get_access_token() {
 
 # --- Anthropic Rate Limit Usage ---
 if [ -f "$AUTH_FILE" ]; then
-    TOKEN=$(get_access_token)
+    TOKEN=$(get_access_token 2>/dev/null) || true
 
     if [ -n "$TOKEN" ]; then
-        USE_CACHE=false
+        CACHE_AGE=-1
         if [ -f "$USAGE_CACHE" ]; then
             cache_ts=$(jq -r '.cached_at // 0' "$USAGE_CACHE" 2>/dev/null || echo 0)
+            if [ "$cache_ts" -le 0 ] 2>/dev/null; then
+                cache_ts=$(stat -c %Y "$USAGE_CACHE" 2>/dev/null || date +%s)
+            fi
             now_ts=$(date +%s)
-            age=$(( now_ts - cache_ts ))
-            if [ "$age" -lt "$USAGE_CACHE_TTL" ]; then
+            CACHE_AGE=$(( now_ts - cache_ts ))
+            if [ "$CACHE_AGE" -ge "$MAX_STALE_AGE" ]; then
+                rm -f "$USAGE_CACHE"
+                CACHE_AGE=-1
+                DATA_STALE="true"
+            fi
+        fi
+
+        USE_CACHE=false
+        if [ "$CACHE_AGE" -ge 0 ] && [ "$CACHE_AGE" -lt "$USAGE_CACHE_TTL" ]; then
+            USE_CACHE=true
+        fi
+
+        # Check if we're in a Retry-After backoff period
+        RATE_LIMITED=false
+        if [ -f "${CACHE_DIR}/rate-limited" ]; then
+            retry_until=$(cat "${CACHE_DIR}/rate-limited" 2>/dev/null || echo 0)
+            if [ "$(date +%s)" -lt "$retry_until" ]; then
+                export RATE_LIMITED=true
                 USE_CACHE=true
+            else
+                rm -f "${CACHE_DIR}/rate-limited"
             fi
         fi
 
         if [ "$USE_CACHE" = true ]; then
-            API_RESPONSE=$(jq -r '.data' "$USAGE_CACHE" 2>/dev/null || echo '{}')
+            if [ -f "$USAGE_CACHE" ]; then
+                API_RESPONSE=$(jq -r '.data' "$USAGE_CACHE" 2>/dev/null || echo '{}')
+            else
+                API_RESPONSE="{}"
+                DATA_STALE="true"
+            fi
         else
             TMP_HEADERS=$(mktemp)
             API_RESPONSE=$(curl -s --max-time 5 -D "$TMP_HEADERS" \
@@ -195,13 +234,33 @@ if [ -f "$AUTH_FILE" ]; then
                 -H "anthropic-beta: oauth-2025-04-20" \
                 "https://api.anthropic.com/api/oauth/usage" 2>/dev/null || echo '{}')
 
+            HTTP_CODE=$(head -1 "$TMP_HEADERS" | awk '{print $2}')
+            RETRY_AFTER=$(grep -i '^Retry-After:' "$TMP_HEADERS" | awk '{print $2}' | tr -d '\r')
             rm -f "$TMP_HEADERS"
 
-            if echo "$API_RESPONSE" | jq -e '.five_hour' >/dev/null 2>&1; then
+            if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
+                rm -f "$USAGE_CACHE"
+                API_RESPONSE="{}"
+                DATA_STALE="true"
+            elif [ "$HTTP_CODE" = "429" ]; then
+                if [ -n "$RETRY_AFTER" ] && [[ "$RETRY_AFTER" =~ ^[0-9]+$ ]]; then
+                    echo "$(( $(date +%s) + RETRY_AFTER ))" > "${CACHE_DIR}/rate-limited"
+                else
+                    echo "$(( $(date +%s) + 60 ))" > "${CACHE_DIR}/rate-limited"
+                fi
+                if [ -f "$USAGE_CACHE" ]; then
+                    API_RESPONSE=$(jq -r '.data' "$USAGE_CACHE" 2>/dev/null || echo '{}')
+                else
+                    DATA_STALE="true"
+                fi
+            elif echo "$API_RESPONSE" | jq -e '.five_hour' >/dev/null 2>&1; then
                 jq -n --argjson data "$API_RESPONSE" '{cached_at: (now | floor), data: $data}' > "$USAGE_CACHE" 2>/dev/null
-            elif [ -f "$USAGE_CACHE" ]; then
-                # Usage API returned error (e.g. 429), fall back to cached data
-                API_RESPONSE=$(jq -r '.data' "$USAGE_CACHE" 2>/dev/null || echo '{}')
+                CACHE_AGE=0
+                rm -f "${CACHE_DIR}/rate-limited"
+            else
+                rm -f "$USAGE_CACHE"
+                API_RESPONSE="{}"
+                DATA_STALE="true"
             fi
         fi
 
@@ -255,9 +314,17 @@ if [ -d "$MESSAGE_DIR" ]; then
             GEMINI_DAILY) GEMINI_DAILY="$value" ;;
             GEMINI_DAILY_COSTS) GEMINI_DAILY_COSTS="$value" ;;
             GEMINI_MODELS) GEMINI_MODELS="$value" ;;
+            OPENCODE_WEEK_TOKENS) OPENCODE_WEEK_TOKENS="$value" ;;
+            OPENCODE_MONTH_TOKENS) OPENCODE_MONTH_TOKENS="$value" ;;
+            OPENCODE_TODAY_COST) OPENCODE_TODAY_COST="$value" ;;
+            OPENCODE_WEEK_COST) OPENCODE_WEEK_COST="$value" ;;
+            OPENCODE_MONTH_COST) OPENCODE_MONTH_COST="$value" ;;
+            OPENCODE_DAILY) OPENCODE_DAILY="$value" ;;
+            OPENCODE_DAILY_COSTS) OPENCODE_DAILY_COSTS="$value" ;;
+            OPENCODE_MODELS) OPENCODE_MODELS="$value" ;;
         esac
     done < <(find "$MESSAGE_DIR" -name "*.json" -mtime -31 -exec cat {} + 2>/dev/null \
-        | jq -r 'select(.role == "assistant" and (.providerID == "anthropic" or .providerID == "google")) | "\((.time.created // 0) / 1000 | floor | todate | split("T")[0]) \(.providerID) \(.modelID // "unknown") \(.tokens.input // 0) \(.tokens.output // 0) \(.tokens.cache.read // 0) \(.tokens.cache.write // 0) \(.sessionID // "unknown")"' 2>/dev/null \
+        | jq -r 'select(.role == "assistant" and (.providerID == "anthropic" or .providerID == "google" or .providerID == "opencode")) | "\((.time.created // 0) / 1000 | floor | todate | split("T")[0]) \(.providerID) \(.modelID // "unknown") \(.tokens.input // 0) \(.tokens.output // 0) \(.tokens.cache.read // 0) \(.tokens.cache.write // 0) \(.sessionID // "unknown")"' 2>/dev/null \
         | awk -v week_start="$WEEK_START" -v month_start="$MONTH_START" -v today="$TODAY" -v day_dates="$DAY_DATES" -v pricing="$PRICING_AWK" '
         BEGIN {
             split(day_dates, dates, ",")
@@ -280,7 +347,7 @@ if [ -d "$MESSAGE_DIR" ]; then
             sess = $8
             total = inp + out + cr + cw
 
-            p = (provider == "google") ? "gemini" : "anthropic"
+            p = (provider == "google") ? "gemini" : (provider == "opencode") ? "opencode" : "anthropic"
 
             # Extract family for pricing
             if (provider == "anthropic") {
@@ -321,9 +388,9 @@ if [ -d "$MESSAGE_DIR" ]; then
             n = 0; for (s in week_sess) n++
             printf "WEEK_SESSIONS=%d\n", n
 
-            for (i=1; i<=2; i++) {
-                p = (i==1) ? "anthropic" : "gemini"
-                prefix = (p == "anthropic") ? "ANTHROPIC" : "GEMINI"
+            for (i=1; i<=3; i++) {
+                p = (i==1) ? "anthropic" : (i==2) ? "gemini" : "opencode"
+                prefix = (p == "anthropic") ? "ANTHROPIC" : (p == "gemini") ? "GEMINI" : "OPENCODE"
 
                 printf "%s_WEEK_TOKENS=%d\n", prefix, week_tokens[p] + 0
                 printf "%s_MONTH_TOKENS=%d\n", prefix, month_tokens[p] + 0
@@ -380,6 +447,8 @@ echo "FIVE_HOUR_RESET=${FIVE_HOUR_RESET}"
 echo "SEVEN_DAY_UTIL=${SEVEN_DAY_UTIL}"
 echo "SEVEN_DAY_RESET=${SEVEN_DAY_RESET}"
 echo "EXTRA_USAGE_ENABLED=${EXTRA_USAGE_ENABLED}"
+echo "DATA_STALE=${DATA_STALE}"
+echo "CACHE_AGE=${CACHE_AGE}"
 
 echo "WEEK_MESSAGES=${WEEK_MESSAGES}"
 echo "WEEK_SESSIONS=${WEEK_SESSIONS}"
@@ -405,3 +474,12 @@ echo "GEMINI_MONTH_COST=${GEMINI_MONTH_COST}"
 echo "GEMINI_DAILY=${GEMINI_DAILY}"
 echo "GEMINI_DAILY_COSTS=${GEMINI_DAILY_COSTS}"
 echo "GEMINI_MODELS=${GEMINI_MODELS}"
+
+echo "OPENCODE_WEEK_TOKENS=${OPENCODE_WEEK_TOKENS}"
+echo "OPENCODE_MONTH_TOKENS=${OPENCODE_MONTH_TOKENS}"
+echo "OPENCODE_TODAY_COST=${OPENCODE_TODAY_COST}"
+echo "OPENCODE_WEEK_COST=${OPENCODE_WEEK_COST}"
+echo "OPENCODE_MONTH_COST=${OPENCODE_MONTH_COST}"
+echo "OPENCODE_DAILY=${OPENCODE_DAILY}"
+echo "OPENCODE_DAILY_COSTS=${OPENCODE_DAILY_COSTS}"
+echo "OPENCODE_MODELS=${OPENCODE_MODELS}"

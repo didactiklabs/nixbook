@@ -38,6 +38,11 @@ let
   nixosEval = import (sources.nixpkgs + "/nixos/lib/eval-config.nix") {
     system = "x86_64-linux";
     modules = [
+      (import "${sources.lanzaboote}" {
+        inherit pkgs;
+        crane = import "${sources.crane}" { inherit pkgs; };
+        inherit (sources) rust-overlay;
+      }).nixosModules.lanzaboote
       ../nixosModules
       {
         networking.hostName = "docs-eval";

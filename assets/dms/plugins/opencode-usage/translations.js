@@ -5,6 +5,10 @@ var strings = {
         { fr: "Utilisation OpenCode" },
     "Anthropic":
         { fr: "Anthropic" },
+    "Gemini":
+        { fr: "Gemini" },
+    "OpenCode":
+        { fr: "OpenCode" },
     "Subscription":
         { fr: "Abonnement" },
     "5h Rate Window":
@@ -15,6 +19,12 @@ var strings = {
         { fr: "R\u00e9initialise dans" },
     "Resetting...":
         { fr: "R\u00e9initialisation..." },
+    "Data unavailable":
+        { fr: "Donn\u00e9es indisponibles" },
+    "Data outdated":
+        { fr: "Donn\u00e9es obsol\u00e8tes" },
+    "Usage data could not be refreshed. API may be unreachable or credentials expired.":
+        { fr: "Les donn\u00e9es d'utilisation n'ont pas pu \u00eatre actualis\u00e9es. L'API est peut-\u00eatre injoignable ou les identifiants ont expir\u00e9." },
     "7-Day Usage":
         { fr: "Utilisation 7 jours" },
     "sessions":
