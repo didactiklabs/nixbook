@@ -170,7 +170,7 @@ get_access_token() {
 
 # --- Anthropic Rate Limit Usage ---
 if [ -f "$AUTH_FILE" ]; then
-    TOKEN=$(get_access_token)
+    TOKEN=$(get_access_token 2>/dev/null) || true
 
     if [ -n "$TOKEN" ]; then
         USE_CACHE=false
@@ -195,12 +195,19 @@ if [ -f "$AUTH_FILE" ]; then
                 -H "anthropic-beta: oauth-2025-04-20" \
                 "https://api.anthropic.com/api/oauth/usage" 2>/dev/null || echo '{}')
 
+            HTTP_CODE=$(head -1 "$TMP_HEADERS" | awk '{print $2}')
             rm -f "$TMP_HEADERS"
 
-            if echo "$API_RESPONSE" | jq -e '.five_hour' >/dev/null 2>&1; then
+            if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
+                rm -f "$USAGE_CACHE"
+                API_RESPONSE="{}"
+            elif [ "$HTTP_CODE" = "429" ]; then
+                if [ -f "$USAGE_CACHE" ]; then
+                    API_RESPONSE=$(jq -r '.data' "$USAGE_CACHE" 2>/dev/null || echo '{}')
+                fi
+            elif echo "$API_RESPONSE" | jq -e '.five_hour' >/dev/null 2>&1; then
                 jq -n --argjson data "$API_RESPONSE" '{cached_at: (now | floor), data: $data}' > "$USAGE_CACHE" 2>/dev/null
             elif [ -f "$USAGE_CACHE" ]; then
-                # Usage API returned error (e.g. 429), fall back to cached data
                 API_RESPONSE=$(jq -r '.data' "$USAGE_CACHE" 2>/dev/null || echo '{}')
             fi
         fi
