@@ -9,7 +9,8 @@ SESSION_DIR="${OPENCODE_DATA}/storage/session"
 CACHE_DIR="${HOME}/.cache/dms-opencode-usage"
 PRICING_CACHE="${CACHE_DIR}/pricing-cache.json"
 USAGE_CACHE="${CACHE_DIR}/usage-cache.json"
-USAGE_CACHE_TTL=120  # seconds
+USAGE_CACHE_TTL=300  # seconds
+MAX_STALE_AGE=3600   # 1 hour — cache older than this is treated as invalid
 LITELLM_URL="https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
 ANTHROPIC_TOKEN_URL="https://console.anthropic.com/v1/oauth/token"
 
@@ -28,6 +29,8 @@ FIVE_HOUR_RESET=""
 SEVEN_DAY_UTIL=0
 SEVEN_DAY_RESET=""
 EXTRA_USAGE_ENABLED="false"
+DATA_STALE="false"
+CACHE_AGE=-1
 
 # Global
 WEEK_MESSAGES=0
@@ -173,18 +176,42 @@ if [ -f "$AUTH_FILE" ]; then
     TOKEN=$(get_access_token 2>/dev/null) || true
 
     if [ -n "$TOKEN" ]; then
-        USE_CACHE=false
+        CACHE_AGE=-1
         if [ -f "$USAGE_CACHE" ]; then
             cache_ts=$(jq -r '.cached_at // 0' "$USAGE_CACHE" 2>/dev/null || echo 0)
             now_ts=$(date +%s)
-            age=$(( now_ts - cache_ts ))
-            if [ "$age" -lt "$USAGE_CACHE_TTL" ]; then
+            CACHE_AGE=$(( now_ts - cache_ts ))
+            if [ "$CACHE_AGE" -ge "$MAX_STALE_AGE" ]; then
+                rm -f "$USAGE_CACHE"
+                CACHE_AGE=-1
+                DATA_STALE="true"
+            fi
+        fi
+
+        USE_CACHE=false
+        if [ "$CACHE_AGE" -ge 0 ] && [ "$CACHE_AGE" -lt "$USAGE_CACHE_TTL" ]; then
+            USE_CACHE=true
+        fi
+
+        # Check if we're in a Retry-After backoff period
+        RATE_LIMITED=false
+        if [ -f "${CACHE_DIR}/rate-limited" ]; then
+            retry_until=$(cat "${CACHE_DIR}/rate-limited" 2>/dev/null || echo 0)
+            if [ "$(date +%s)" -lt "$retry_until" ]; then
+                export RATE_LIMITED=true
                 USE_CACHE=true
+            else
+                rm -f "${CACHE_DIR}/rate-limited"
             fi
         fi
 
         if [ "$USE_CACHE" = true ]; then
-            API_RESPONSE=$(jq -r '.data' "$USAGE_CACHE" 2>/dev/null || echo '{}')
+            if [ -f "$USAGE_CACHE" ]; then
+                API_RESPONSE=$(jq -r '.data' "$USAGE_CACHE" 2>/dev/null || echo '{}')
+            else
+                API_RESPONSE="{}"
+                DATA_STALE="true"
+            fi
         else
             TMP_HEADERS=$(mktemp)
             API_RESPONSE=$(curl -s --max-time 5 -D "$TMP_HEADERS" \
@@ -196,19 +223,32 @@ if [ -f "$AUTH_FILE" ]; then
                 "https://api.anthropic.com/api/oauth/usage" 2>/dev/null || echo '{}')
 
             HTTP_CODE=$(head -1 "$TMP_HEADERS" | awk '{print $2}')
+            RETRY_AFTER=$(grep -i '^Retry-After:' "$TMP_HEADERS" | awk '{print $2}' | tr -d '\r')
             rm -f "$TMP_HEADERS"
 
             if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
                 rm -f "$USAGE_CACHE"
                 API_RESPONSE="{}"
+                DATA_STALE="true"
             elif [ "$HTTP_CODE" = "429" ]; then
+                if [ -n "$RETRY_AFTER" ] && [[ "$RETRY_AFTER" =~ ^[0-9]+$ ]]; then
+                    echo "$(( $(date +%s) + RETRY_AFTER ))" > "${CACHE_DIR}/rate-limited"
+                else
+                    echo "$(( $(date +%s) + 60 ))" > "${CACHE_DIR}/rate-limited"
+                fi
                 if [ -f "$USAGE_CACHE" ]; then
                     API_RESPONSE=$(jq -r '.data' "$USAGE_CACHE" 2>/dev/null || echo '{}')
+                else
+                    DATA_STALE="true"
                 fi
             elif echo "$API_RESPONSE" | jq -e '.five_hour' >/dev/null 2>&1; then
                 jq -n --argjson data "$API_RESPONSE" '{cached_at: (now | floor), data: $data}' > "$USAGE_CACHE" 2>/dev/null
-            elif [ -f "$USAGE_CACHE" ]; then
-                API_RESPONSE=$(jq -r '.data' "$USAGE_CACHE" 2>/dev/null || echo '{}')
+                CACHE_AGE=0
+                rm -f "${CACHE_DIR}/rate-limited"
+            else
+                rm -f "$USAGE_CACHE"
+                API_RESPONSE="{}"
+                DATA_STALE="true"
             fi
         fi
 
@@ -387,6 +427,8 @@ echo "FIVE_HOUR_RESET=${FIVE_HOUR_RESET}"
 echo "SEVEN_DAY_UTIL=${SEVEN_DAY_UTIL}"
 echo "SEVEN_DAY_RESET=${SEVEN_DAY_RESET}"
 echo "EXTRA_USAGE_ENABLED=${EXTRA_USAGE_ENABLED}"
+echo "DATA_STALE=${DATA_STALE}"
+echo "CACHE_AGE=${CACHE_AGE}"
 
 echo "WEEK_MESSAGES=${WEEK_MESSAGES}"
 echo "WEEK_SESSIONS=${WEEK_SESSIONS}"
