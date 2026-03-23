@@ -10,9 +10,11 @@
 - [caCertificates](#cacertificates)
 - [core](#core)
 - [firewall](#firewall)
+- [gamingConfig](#gamingconfig)
 - [getRevision](#getrevision)
 - [greetd](#greetd)
 - [hyprland](#hyprland)
+- [lanzaboote](#lanzaboote)
 - [laptopProfile](#laptopprofile)
 - [netbird-tools](#netbird-tools)
 - [niri](#niri)
@@ -118,6 +120,17 @@ Whether to enable the NixOS stateful firewall (nftables/iptables). Configures a 
 
 ---
 
+## gamingConfig
+
+### `customNixOSModules.gamingConfig.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to enable the gaming-oriented NixOS configuration. This module provides a production-grade gaming setup inspired by Jovian-NixOS (Steam Deck / SteamOS). It bundles: - Steam with remote play, Proton GE compatibility, and extest - AMD GPU kernel boot parameters tuned for gaming (TDR timeouts, TTM page pool, scheduler submission depth, IOMMU off) - Early AMD GPU kernel modesetting with redistributable firmware - Gamepad / controller udev rules (uinput, Valve HID devices) - GameMode performance daemon - 32-bit graphics and driver support Used on: anya (gaming/streaming desktop). Reference: https://github.com/Jovian-Experiments/Jovian-NixOS
+
+---
+
 ## getRevision
 
 ### `customNixOSModules.getRevision.enable`
@@ -148,6 +161,17 @@ Whether to enable the greetd display manager with tuigreet. Configures greetd to
 - **Default:** `false`
 
 Whether to enable the Hyprland dynamic tiling Wayland compositor. Hyprland is a highly customisable compositor featuring animations, blur, rounded corners, and rich IPC. This module: - Enables programs.hyprland with wlr XDG desktop portal for screen sharing - Adds U2F PAM authentication support for hyprlock (screen locker) - Registers the hyprland.cachix.org binary cache for fast builds Used on: totoro (fallback), nishinoya (fallback). See also: homeManagerModules/hyprland/ for per-user compositor configuration.
+
+---
+
+## lanzaboote
+
+### `customNixOSModules.lanzaboote.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to enable lanzaboote for UEFI Secure Boot. Lanzaboote replaces systemd-boot and signs the kernel and initrd with a machine-specific key so that Secure Boot can verify them. Automatic provisioning is enabled by default: - On first boot, a systemd service generates signing keys. - Another service prepares Authenticated Variables on the ESP, re-signs all boot artifacts, and triggers a reboot. - On the next boot, systemd-boot enrolls the keys into the firmware and Secure Boot enforcement begins. This is a trust-on-first-use model: the first boot is unsigned, subsequent boots are signed and verified. After provisioning, verify with: bootctl status (should show Secure Boot: enabled) sudo sbctl verify (all boot entries should be signed) When this option is enabled: - boot.loader.systemd-boot.enable is forced to false (they are mutually exclusive). - boot.lanzaboote.enable is set to true with automatic key generation and enrollment. - The configurationLimit defaults to 10. Disable this option on machines that do not use Secure Boot.
 
 ---
 
@@ -304,6 +328,13 @@ Whether to enable a curated set of development and DevOps tools. Installs: Langu
 - **Default:** `false`
 
 Whether to enable DankMaterialShell (DMS) desktop shell. DMS is a Quickshell-based desktop shell providing a customisable top bar and optional dock. It is compositor-agnostic (works with niri, sway, hyprland) and integrates deeply with the rest of this configuration. Features enabled: - System monitoring widgets powered by dgop - Dynamic wallpaper-based theming via matugen (scheme-vibrant) - Audio wavelength visualiser via cava - Calendar event integration via khal - Systemd user service with auto-restart on config change Bar layout (single "Main Bar" on all screens): Left: launcherButton, nixosUpdate, workspaceSwitcher, focusedWindow, idleInhibitor Centre: music, clock, weather, opencodeUsage Right: systemTray, vpnStatus, cpuUsage, notificationButton, dankKDEConnect, battery, controlCenterButton, powerMenuButton, sathiAi Plugins bundled: - dankBatteryAlerts — low battery notifications - dankGifSearch — GIF search widget - dankStickerSearch — sticker search widget - dankKDEConnect — KDE Connect integration (auto-enabled with kdeconnect) - vpnStatus — Tailscale/NetBird VPN indicator (custom, from assets/) - sathiAi — AI assistant widget - opencodeUsage — OpenCode token usage display (when opencodeConfig enabled) - nixosUpdate — NixOS update trigger widget (calls osupdate via systemd) Also registers a nixos-upgrade-manual systemd oneshot service used by the nixosUpdate bar widget to apply system updates without a terminal. When dmsConfig is enabled, stylixConfig forces the tomorrow-night base16 scheme for colour consistency.
+
+### `customHomeManagerModules.dmsConfig.enableNixosUpdate`
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+Whether to enable the nixosUpdate DMS bar widget and the accompanying nixos-upgrade-manual systemd oneshot service. When true, the nixosUpdate plugin (from assets/dms/plugins/nixos-update) is loaded into the bar and a systemd user service is registered so the widget can trigger a system upgrade (via osupdate) without opening a terminal. Disable this on machines where the widget is not desired or where the osupdate script is unavailable.
 
 ### `customHomeManagerModules.dmsConfig.showDock`
 
