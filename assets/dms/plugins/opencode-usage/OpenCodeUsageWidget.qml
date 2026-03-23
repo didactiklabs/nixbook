@@ -60,9 +60,22 @@ PluginComponent {
     property var geminiDailyCosts: [0, 0, 0, 0, 0, 0, 0]
     ListModel { id: geminiModels }
 
+    // OpenCode State
+    property real opencodeWeekTokens: 0
+    property real opencodeMonthTokens: 0
+    property real opencodeTodayCost: 0
+    property real opencodeWeekCost: 0
+    property real opencodeMonthCost: 0
+    property var opencodeDaily: [0, 0, 0, 0, 0, 0, 0]
+    property var opencodeDailyCosts: [0, 0, 0, 0, 0, 0, 0]
+    ListModel { id: opencodeModels }
+    ListModel { id: tabModel }
+    property int selectedTab: 0
+
     // Chart hover state
     property int hoveredDayAnthropic: -1
     property int hoveredDayGemini: -1
+    property int hoveredDayOpenCode: -1
 
     // Today's index in the calendar week (0=Monday, 6=Sunday)
     property int todayIndex: {
@@ -74,6 +87,7 @@ PluginComponent {
     // Derived
     property real maxDailyAnthropic: Math.max.apply(null, anthropicDaily) || 1
     property real maxDailyGemini: Math.max.apply(null, geminiDaily) || 1
+    property real maxDailyOpenCode: Math.max.apply(null, opencodeDaily) || 1
     property bool isLoading: true
 
     // Always show the widget (disconnect icon when no data, normal content otherwise)
@@ -129,6 +143,7 @@ PluginComponent {
         if (root.rateLimitTier) h += 240
         if (root.anthropicMonthTokens > 0) h += 180 + (anthropicModels.count > 0 ? 50 + anthropicModels.count * 20 : 0)
         if (root.geminiMonthTokens > 0) h += 180 + (geminiModels.count > 0 ? 50 + geminiModels.count * 20 : 0)
+        if (root.opencodeMonthTokens > 0) h += 180 + (opencodeModels.count > 0 ? 50 + opencodeModels.count * 20 : 0)
         return Math.min(800, h)
     }
 
@@ -191,6 +206,18 @@ PluginComponent {
         return arr
     }
 
+    function updateTabs() {
+        tabModel.clear()
+        tabModel.append({ label: tr("Anthropic"), icon: "smart_toy", available: !!(root.rateLimitTier || root.anthropicWeekTokens > 0 || root.fiveHourUtil !== 0) })
+        tabModel.append({ label: tr("Gemini"), icon: "auto_awesome", available: root.geminiWeekTokens > 0 })
+        tabModel.append({ label: tr("OpenCode"), icon: "code", available: root.opencodeWeekTokens > 0 })
+        if (tabModel.count > 0 && !tabModel.get(root.selectedTab).available) {
+            for (var i = 0; i < tabModel.count; i++) {
+                if (tabModel.get(i).available) { root.selectedTab = i; break }
+            }
+        }
+    }
+
     function parseLine(line) {
         var idx = line.indexOf("=")
         if (idx < 0) return
@@ -231,6 +258,15 @@ PluginComponent {
         case "GEMINI_DAILY": root.geminiDaily = parseArray(val); break
         case "GEMINI_DAILY_COSTS": root.geminiDailyCosts = parseArray(val); break
         case "GEMINI_MODELS": fillModelList(geminiModels, val); break
+        
+        case "OPENCODE_WEEK_TOKENS": root.opencodeWeekTokens = parseFloat(val) || 0; break
+        case "OPENCODE_MONTH_TOKENS": root.opencodeMonthTokens = parseFloat(val) || 0; break
+        case "OPENCODE_TODAY_COST": root.opencodeTodayCost = parseFloat(val) || 0; break
+        case "OPENCODE_WEEK_COST": root.opencodeWeekCost = parseFloat(val) || 0; break
+        case "OPENCODE_MONTH_COST": root.opencodeMonthCost = parseFloat(val) || 0; break
+        case "OPENCODE_DAILY": root.opencodeDaily = parseArray(val); break
+        case "OPENCODE_DAILY_COSTS": root.opencodeDailyCosts = parseArray(val); break
+        case "OPENCODE_MODELS": fillModelList(opencodeModels, val); break
         }
     }
 
@@ -264,6 +300,7 @@ PluginComponent {
             root.isLoading = false
             if (exitCode === 0) {
                 root.refreshEpoch++
+                root.updateTabs()
             }
         }
     }
@@ -282,7 +319,7 @@ PluginComponent {
     // --- Taskbar pills ---
 
     // True when no provider data is available (after initial load)
-    property bool noProviderData: !isLoading && rateLimitTier === "" && anthropicMonthTokens <= 0 && geminiMonthTokens <= 0
+    property bool noProviderData: !isLoading && rateLimitTier === "" && anthropicMonthTokens <= 0 && geminiMonthTokens <= 0 && opencodeMonthTokens <= 0
 
     horizontalBarPill: Component {
         Row {
@@ -375,6 +412,27 @@ PluginComponent {
 
                 StyledText {
                     text: root.formatCost(root.geminiTodayCost)
+                    font.pixelSize: Theme.fontSizeSmall
+                    color: Theme.surfaceText
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+            }
+
+            // OpenCode
+            Row {
+                spacing: Theme.spacingXS
+                anchors.verticalCenter: parent.verticalCenter
+                visible: root.opencodeWeekTokens > 0
+
+                DankIcon {
+                    name: "code"
+                    size: 14
+                    color: Theme.primary
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+
+                StyledText {
+                    text: root.formatTokens(root.opencodeWeekTokens)
                     font.pixelSize: Theme.fontSizeSmall
                     color: Theme.surfaceText
                     anchors.verticalCenter: parent.verticalCenter
@@ -474,6 +532,27 @@ PluginComponent {
 
                 StyledText {
                     text: root.formatCost(root.geminiTodayCost)
+                    font.pixelSize: Theme.fontSizeSmall
+                    color: Theme.surfaceText
+                    anchors.horizontalCenter: parent.horizontalCenter
+                }
+            }
+
+            // OpenCode
+            Column {
+                spacing: Theme.spacingXS || 4
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: root.opencodeWeekTokens > 0
+
+                DankIcon {
+                    name: "code"
+                    size: 14
+                    color: Theme.primary
+                    anchors.horizontalCenter: parent.horizontalCenter
+                }
+
+                StyledText {
+                    text: root.formatTokens(root.opencodeWeekTokens)
                     font.pixelSize: Theme.fontSizeSmall
                     color: Theme.surfaceText
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -801,6 +880,7 @@ PluginComponent {
                 var parts = []
                 if (root.rateLimitTier) parts.push(root.tr("Anthropic") + " \u00b7 " + root.formatTier(root.rateLimitTier))
                 if (root.geminiMonthTokens > 0) parts.push(root.tr("Gemini"))
+                if (root.opencodeMonthTokens > 0) parts.push(root.tr("OpenCode"))
                 return parts.join("  |  ")
             }
             showCloseButton: true
@@ -914,125 +994,201 @@ PluginComponent {
                         }
                     }
 
-                    // --- Anthropic Limits ---
-                    Column {
+                    // --- Provider Tabs ---
+
+                    // Tab bar
+                    Row {
                         width: parent.width
-                        spacing: Theme.spacingM
-                        visible: root.fiveHourUtil !== 0
+                        spacing: 0
+                        visible: !root.noProviderData
 
-                        StyledRect {
-                            width: parent.width
-                            height: fiveHourContent.implicitHeight + Theme.spacingS * 2
-                            color: Theme.surfaceContainerHigh
+                        Repeater {
+                            model: tabModel
+                            delegate: Rectangle {
+                                width: parent.width / tabModel.count
+                                height: 36
+                                color: root.selectedTab === index ? Theme.surfaceContainerHigh : (tabHover.containsMouse ? Theme.surfaceContainerLow : "transparent")
+                                radius: Theme.cornerRadius
+                                opacity: model.available ? 1.0 : 0.35
 
-                            Row {
-                                id: fiveHourContent
-                                anchors.fill: parent
-                                anchors.margins: Theme.spacingS
-                                spacing: Theme.spacingM
+                                Behavior on color {
+                                    ColorAnimation { duration: 120 }
+                                }
 
-                                Canvas {
-                                    id: fiveHourRing
-                                    width: 80
-                                    height: 80
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    renderStrategy: Canvas.Cooperative
+                                Row {
+                                    anchors.centerIn: parent
+                                    spacing: Theme.spacingXS
 
-                                    property real percent: root.fiveHourUtil
-                                    onPercentChanged: requestPaint()
-
-                                    onPaint: {
-                                        var ctx = getContext("2d")
-                                        ctx.reset()
-                                        var cx = width / 2, cy = height / 2, r = 30, lw = 6
-
-                                        ctx.beginPath()
-                                        ctx.arc(cx, cy, r, 0, 2 * Math.PI)
-                                        ctx.lineWidth = lw
-                                        ctx.strokeStyle = Theme.surfaceVariant
-                                        ctx.stroke()
-
-                                        var pct = percent / 100
-                                        if (pct > 0) {
-                                            ctx.beginPath()
-                                            ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * Math.min(pct, 1))
-                                            ctx.lineWidth = lw
-                                            ctx.strokeStyle = root.progressColor(percent)
-                                            ctx.lineCap = "round"
-                                            ctx.stroke()
-                                        }
+                                    DankIcon {
+                                        name: model.icon
+                                        size: 14
+                                        color: root.selectedTab === index ? Theme.primary : Theme.surfaceVariantText
+                                        anchors.verticalCenter: parent.verticalCenter
                                     }
 
                                     StyledText {
-                                        anchors.centerIn: parent
-                                        text: root.fiveHourUtil < 0 ? "N/A" : Math.round(root.fiveHourUtil) + "%"
-                                        font.pixelSize: Theme.fontSizeLarge
-                                        font.weight: Font.DemiBold
-                                        color: root.fiveHourUtil < 0 ? Theme.surfaceVariantText : Theme.surfaceText
+                                        text: model.label
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        font.weight: root.selectedTab === index ? Font.DemiBold : Font.Normal
+                                        color: root.selectedTab === index ? Theme.primary : Theme.surfaceVariantText
+                                        anchors.verticalCenter: parent.verticalCenter
                                     }
                                 }
 
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: Theme.spacingXS
-
-                                    StyledText {
-                                        text: root.tr("5h Rate Window")
-                                        font.pixelSize: Theme.fontSizeMedium
-                                        font.weight: Font.Medium
-                                        color: Theme.surfaceText
-                                    }
-                                    StyledText {
-                                        text: root.fiveHourUtil < 0 ? root.tr("Data unavailable") : (root.fiveHourCountdown ? root.tr("Resets in") + " " + root.fiveHourCountdown : root.dataStale ? root.tr("Data outdated") : "")
-                                        font.pixelSize: Theme.fontSizeSmall
-                                        color: root.fiveHourUtil < 0 || root.dataStale ? Theme.warning : Theme.surfaceVariantText
-                                    }
+                                MouseArea {
+                                    id: tabHover
+                                    anchors.fill: parent
+                                    enabled: model.available
+                                    hoverEnabled: model.available
+                                    cursorShape: model.available ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                    onClicked: root.selectedTab = index
                                 }
                             }
                         }
                     }
 
-                    // --- Anthropic Stats ---
-                    ProviderStats {
-                        visible: root.anthropicMonthTokens > 0 || root.fiveHourUtil > 0
-                        providerName: root.tr("Anthropic")
-                        weekTokens: root.anthropicWeekTokens
-                        monthTokens: root.anthropicMonthTokens
-                        todayCost: root.anthropicTodayCost
-                        weekCost: root.anthropicWeekCost
-                        monthCost: root.anthropicMonthCost
-                        dailyTokens: root.anthropicDaily
-                        dailyCosts: root.anthropicDailyCosts
-                        maxDaily: root.maxDailyAnthropic
-                        modelsList: anthropicModels
-                        hoverDayProp: root.hoveredDayAnthropic
-                        onDayHovered: function(dayIndex) { root.hoveredDayAnthropic = dayIndex }
-                    }
+                    // Tab content
+                    Column {
+                        width: parent.width
+                        spacing: Theme.spacingM
+                        visible: !root.noProviderData
 
-                    // Divider
-                    Rectangle {
-                        width: parent.width - Theme.spacingXL * 2
-                        height: 1
-                        color: Theme.surfaceVariant
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        visible: root.anthropicMonthTokens > 0 && root.geminiMonthTokens > 0
-                    }
+                        // --- Anthropic Tab ---
+                        Column {
+                            width: parent.width
+                            spacing: Theme.spacingM
+                            visible: root.selectedTab === 0
 
-                    // --- Gemini Stats ---
-                    ProviderStats {
-                        visible: root.geminiMonthTokens > 0
-                        providerName: root.tr("Gemini")
-                        weekTokens: root.geminiWeekTokens
-                        monthTokens: root.geminiMonthTokens
-                        todayCost: root.geminiTodayCost
-                        weekCost: root.geminiWeekCost
-                        monthCost: root.geminiMonthCost
-                        dailyTokens: root.geminiDaily
-                        dailyCosts: root.geminiDailyCosts
-                        maxDaily: root.maxDailyGemini
-                        modelsList: geminiModels
-                        hoverDayProp: root.hoveredDayGemini
-                        onDayHovered: function(dayIndex) { root.hoveredDayGemini = dayIndex }
+                            // 5h rate window
+                            Column {
+                                width: parent.width
+                                spacing: Theme.spacingM
+                                visible: root.fiveHourUtil !== 0
+
+                                StyledRect {
+                                    width: parent.width
+                                    height: fiveHourContent.implicitHeight + Theme.spacingS * 2
+                                    color: Theme.surfaceContainerHigh
+
+                                    Row {
+                                        id: fiveHourContent
+                                        anchors.fill: parent
+                                        anchors.margins: Theme.spacingS
+                                        spacing: Theme.spacingM
+
+                                        Canvas {
+                                            id: fiveHourRing
+                                            width: 80
+                                            height: 80
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            renderStrategy: Canvas.Cooperative
+
+                                            property real percent: root.fiveHourUtil
+                                            onPercentChanged: requestPaint()
+
+                                            onPaint: {
+                                                var ctx = getContext("2d")
+                                                ctx.reset()
+                                                var cx = width / 2, cy = height / 2, r = 30, lw = 6
+
+                                                ctx.beginPath()
+                                                ctx.arc(cx, cy, r, 0, 2 * Math.PI)
+                                                ctx.lineWidth = lw
+                                                ctx.strokeStyle = Theme.surfaceVariant
+                                                ctx.stroke()
+
+                                                var pct = percent / 100
+                                                if (pct > 0) {
+                                                    ctx.beginPath()
+                                                    ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * Math.min(pct, 1))
+                                                    ctx.lineWidth = lw
+                                                    ctx.strokeStyle = root.progressColor(percent)
+                                                    ctx.lineCap = "round"
+                                                    ctx.stroke()
+                                                }
+                                            }
+
+                                            StyledText {
+                                                anchors.centerIn: parent
+                                                text: root.fiveHourUtil < 0 ? "N/A" : Math.round(root.fiveHourUtil) + "%"
+                                                font.pixelSize: Theme.fontSizeLarge
+                                                font.weight: Font.DemiBold
+                                                color: root.fiveHourUtil < 0 ? Theme.surfaceVariantText : Theme.surfaceText
+                                            }
+                                        }
+
+                                        Column {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            spacing: Theme.spacingXS
+
+                                            StyledText {
+                                                text: root.tr("5h Rate Window")
+                                                font.pixelSize: Theme.fontSizeMedium
+                                                font.weight: Font.Medium
+                                                color: Theme.surfaceText
+                                            }
+                                            StyledText {
+                                                text: root.fiveHourUtil < 0 ? root.tr("Data unavailable") : (root.fiveHourCountdown ? root.tr("Resets in") + " " + root.fiveHourCountdown : root.dataStale ? root.tr("Data outdated") : "")
+                                                font.pixelSize: Theme.fontSizeSmall
+                                                color: root.fiveHourUtil < 0 || root.dataStale ? Theme.warning : Theme.surfaceVariantText
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            ProviderStats {
+                                visible: root.anthropicMonthTokens > 0 || root.fiveHourUtil > 0
+                                providerName: root.tr("Anthropic")
+                                weekTokens: root.anthropicWeekTokens
+                                monthTokens: root.anthropicMonthTokens
+                                todayCost: root.anthropicTodayCost
+                                weekCost: root.anthropicWeekCost
+                                monthCost: root.anthropicMonthCost
+                                dailyTokens: root.anthropicDaily
+                                dailyCosts: root.anthropicDailyCosts
+                                maxDaily: root.maxDailyAnthropic
+                                modelsList: anthropicModels
+                                hoverDayProp: root.hoveredDayAnthropic
+                                onDayHovered: function(dayIndex) { root.hoveredDayAnthropic = dayIndex }
+                            }
+                        }
+
+                        // --- Gemini Tab ---
+                        ProviderStats {
+                            width: parent.width
+                            visible: root.selectedTab === 1
+                            providerName: root.tr("Gemini")
+                            weekTokens: root.geminiWeekTokens
+                            monthTokens: root.geminiMonthTokens
+                            todayCost: root.geminiTodayCost
+                            weekCost: root.geminiWeekCost
+                            monthCost: root.geminiMonthCost
+                            dailyTokens: root.geminiDaily
+                            dailyCosts: root.geminiDailyCosts
+                            maxDaily: root.maxDailyGemini
+                            modelsList: geminiModels
+                            hoverDayProp: root.hoveredDayGemini
+                            onDayHovered: function(dayIndex) { root.hoveredDayGemini = dayIndex }
+                        }
+
+                        // --- OpenCode Tab ---
+                        ProviderStats {
+                            width: parent.width
+                            visible: root.selectedTab === 2
+                            providerName: root.tr("OpenCode")
+                            weekTokens: root.opencodeWeekTokens
+                            monthTokens: root.opencodeMonthTokens
+                            todayCost: root.opencodeTodayCost
+                            weekCost: root.opencodeWeekCost
+                            monthCost: root.opencodeMonthCost
+                            dailyTokens: root.opencodeDaily
+                            dailyCosts: root.opencodeDailyCosts
+                            maxDaily: root.maxDailyOpenCode
+                            modelsList: opencodeModels
+                            hoverDayProp: root.hoveredDayOpenCode
+                            onDayHovered: function(dayIndex) { root.hoveredDayOpenCode = dayIndex }
+                        }
                     }
 
                     // --- All-time footer card ---
