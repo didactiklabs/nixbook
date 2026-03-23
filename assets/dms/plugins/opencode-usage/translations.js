@@ -5,6 +5,10 @@ var strings = {
         { fr: "Utilisation OpenCode" },
     "Anthropic":
         { fr: "Anthropic" },
+    "Gemini":
+        { fr: "Gemini" },
+    "OpenCode":
+        { fr: "OpenCode" },
     "Subscription":
         { fr: "Abonnement" },
     "5h Rate Window":

@@ -15,8 +15,7 @@ LITELLM_URL="https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices
 ANTHROPIC_TOKEN_URL="https://console.anthropic.com/v1/oauth/token"
 
 TODAY=$(date +%Y-%m-%d)
-DOW=$(date +%u)  # 1=Monday, 7=Sunday
-WEEK_START=$(date -d "$((DOW - 1)) days ago" +%Y-%m-%d)
+WEEK_START=$(date -d "6 days ago" +%Y-%m-%d)
 MONTH_START=$(date +%Y-%m-01)
 
 mkdir -p "$CACHE_DIR"
@@ -59,6 +58,16 @@ GEMINI_MONTH_COST="0.00"
 GEMINI_DAILY="0,0,0,0,0,0,0"
 GEMINI_DAILY_COSTS="0,0,0,0,0,0,0"
 GEMINI_MODELS=""
+
+# OpenCode
+OPENCODE_WEEK_TOKENS=0
+OPENCODE_MONTH_TOKENS=0
+OPENCODE_TODAY_COST="0.00"
+OPENCODE_WEEK_COST="0.00"
+OPENCODE_MONTH_COST="0.00"
+OPENCODE_DAILY="0,0,0,0,0,0,0"
+OPENCODE_DAILY_COSTS="0,0,0,0,0,0,0"
+OPENCODE_MODELS=""
 
 # --- Pricing cache (refresh once per day from LiteLLM) ---
 PRICING_JSON=""
@@ -305,9 +314,17 @@ if [ -d "$MESSAGE_DIR" ]; then
             GEMINI_DAILY) GEMINI_DAILY="$value" ;;
             GEMINI_DAILY_COSTS) GEMINI_DAILY_COSTS="$value" ;;
             GEMINI_MODELS) GEMINI_MODELS="$value" ;;
+            OPENCODE_WEEK_TOKENS) OPENCODE_WEEK_TOKENS="$value" ;;
+            OPENCODE_MONTH_TOKENS) OPENCODE_MONTH_TOKENS="$value" ;;
+            OPENCODE_TODAY_COST) OPENCODE_TODAY_COST="$value" ;;
+            OPENCODE_WEEK_COST) OPENCODE_WEEK_COST="$value" ;;
+            OPENCODE_MONTH_COST) OPENCODE_MONTH_COST="$value" ;;
+            OPENCODE_DAILY) OPENCODE_DAILY="$value" ;;
+            OPENCODE_DAILY_COSTS) OPENCODE_DAILY_COSTS="$value" ;;
+            OPENCODE_MODELS) OPENCODE_MODELS="$value" ;;
         esac
     done < <(find "$MESSAGE_DIR" -name "*.json" -mtime -31 -exec cat {} + 2>/dev/null \
-        | jq -r 'select(.role == "assistant" and (.providerID == "anthropic" or .providerID == "google")) | "\((.time.created // 0) / 1000 | floor | todate | split("T")[0]) \(.providerID) \(.modelID // "unknown") \(.tokens.input // 0) \(.tokens.output // 0) \(.tokens.cache.read // 0) \(.tokens.cache.write // 0) \(.sessionID // "unknown")"' 2>/dev/null \
+        | jq -r 'select(.role == "assistant" and (.providerID == "anthropic" or .providerID == "google" or .providerID == "opencode")) | "\((.time.created // 0) / 1000 | floor | todate | split("T")[0]) \(.providerID) \(.modelID // "unknown") \(.tokens.input // 0) \(.tokens.output // 0) \(.tokens.cache.read // 0) \(.tokens.cache.write // 0) \(.sessionID // "unknown")"' 2>/dev/null \
         | awk -v week_start="$WEEK_START" -v month_start="$MONTH_START" -v today="$TODAY" -v day_dates="$DAY_DATES" -v pricing="$PRICING_AWK" '
         BEGIN {
             split(day_dates, dates, ",")
@@ -330,7 +347,7 @@ if [ -d "$MESSAGE_DIR" ]; then
             sess = $8
             total = inp + out + cr + cw
 
-            p = (provider == "google") ? "gemini" : "anthropic"
+            p = (provider == "google") ? "gemini" : (provider == "opencode") ? "opencode" : "anthropic"
 
             # Extract family for pricing
             if (provider == "anthropic") {
@@ -371,9 +388,9 @@ if [ -d "$MESSAGE_DIR" ]; then
             n = 0; for (s in week_sess) n++
             printf "WEEK_SESSIONS=%d\n", n
 
-            for (i=1; i<=2; i++) {
-                p = (i==1) ? "anthropic" : "gemini"
-                prefix = (p == "anthropic") ? "ANTHROPIC" : "GEMINI"
+            for (i=1; i<=3; i++) {
+                p = (i==1) ? "anthropic" : (i==2) ? "gemini" : "opencode"
+                prefix = (p == "anthropic") ? "ANTHROPIC" : (p == "gemini") ? "GEMINI" : "OPENCODE"
 
                 printf "%s_WEEK_TOKENS=%d\n", prefix, week_tokens[p] + 0
                 printf "%s_MONTH_TOKENS=%d\n", prefix, month_tokens[p] + 0
@@ -457,3 +474,12 @@ echo "GEMINI_MONTH_COST=${GEMINI_MONTH_COST}"
 echo "GEMINI_DAILY=${GEMINI_DAILY}"
 echo "GEMINI_DAILY_COSTS=${GEMINI_DAILY_COSTS}"
 echo "GEMINI_MODELS=${GEMINI_MODELS}"
+
+echo "OPENCODE_WEEK_TOKENS=${OPENCODE_WEEK_TOKENS}"
+echo "OPENCODE_MONTH_TOKENS=${OPENCODE_MONTH_TOKENS}"
+echo "OPENCODE_TODAY_COST=${OPENCODE_TODAY_COST}"
+echo "OPENCODE_WEEK_COST=${OPENCODE_WEEK_COST}"
+echo "OPENCODE_MONTH_COST=${OPENCODE_MONTH_COST}"
+echo "OPENCODE_DAILY=${OPENCODE_DAILY}"
+echo "OPENCODE_DAILY_COSTS=${OPENCODE_DAILY_COSTS}"
+echo "OPENCODE_MODELS=${OPENCODE_MODELS}"
