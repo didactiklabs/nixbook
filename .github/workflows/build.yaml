@@ -64,4 +64,4 @@ jobs:
           echo '${{ secrets.CACHE_PRIVATE_KEY }}' > cache-priv.pem
           build=$(nix-build '<nixpkgs/nixos>' -A config.system.build.toplevel -I nixos-config=profiles/${{ matrix.profile }}/configuration.nix)
           nix store sign -r -k cache-priv.pem $build
-          nix copy --option http-connections 2 --to 's3://nix-cache?profile=default&scheme=https&endpoint=s3.didactiklabs.io&multipart-upload=false' $build
+          nix copy --option http-connections 1 --to 's3://nix-cache?profile=default&scheme=https&endpoint=s3.didactiklabs.io&multipart-upload=false' $build
