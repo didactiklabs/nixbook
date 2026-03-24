@@ -208,7 +208,7 @@ PluginComponent {
 
     function updateTabs() {
         tabModel.clear()
-        tabModel.append({ label: tr("Anthropic"), icon: "smart_toy", available: !!(root.rateLimitTier || root.anthropicWeekTokens > 0 || root.fiveHourUtil !== 0) })
+        tabModel.append({ label: tr("Anthropic"), icon: "smart_toy", available: !!(root.rateLimitTier || root.anthropicWeekTokens > 0 || root.fiveHourUtil > 0) })
         tabModel.append({ label: tr("Gemini"), icon: "auto_awesome", available: root.geminiWeekTokens > 0 })
         tabModel.append({ label: tr("OpenCode"), icon: "code", available: root.opencodeWeekTokens > 0 })
         if (tabModel.count > 0 && !tabModel.get(root.selectedTab).available) {
@@ -275,13 +275,14 @@ PluginComponent {
 
     Process {
         id: claudeAuthProcess
-        command: ["kitty", "--hold", "-e", "claude", "auth", "login"]
+        command: ["kitty", "--hold", "-e", "opencode", "auth", "login"]
         running: false
         onStarted: root.claudeAuthRunning = true
         onExited: (exitCode, exitStatus) => {
             root.claudeAuthRunning = false
-            if (!usageProcess.running)
-                usageProcess.running = true
+            root.isLoading = true
+            if (!forceRefreshProcess.running)
+                forceRefreshProcess.running = true
         }
     }
 
@@ -290,6 +291,24 @@ PluginComponent {
     Process {
         id: usageProcess
         command: ["bash", root.scriptPath, String(Math.floor(root.refreshInterval / 1000))]
+        running: false
+
+        stdout: SplitParser {
+            onRead: data => root.parseLine(data.trim())
+        }
+
+        onExited: (exitCode, exitStatus) => {
+            root.isLoading = false
+            if (exitCode === 0) {
+                root.refreshEpoch++
+                root.updateTabs()
+            }
+        }
+    }
+
+    Process {
+        id: forceRefreshProcess
+        command: ["bash", root.scriptPath, "0"]
         running: false
 
         stdout: SplitParser {
@@ -338,7 +357,7 @@ PluginComponent {
             Row {
                 spacing: Theme.spacingXS
                 anchors.verticalCenter: parent.verticalCenter
-                visible: root.fiveHourUtil !== 0 || root.rateLimitTier !== ""
+                visible: root.fiveHourUtil > 0 || root.rateLimitTier !== ""
 
                 DankIcon {
                     name: "warning"
@@ -458,7 +477,7 @@ PluginComponent {
             Column {
                 spacing: Theme.spacingXS || 4
                 anchors.horizontalCenter: parent.horizontalCenter
-                visible: root.fiveHourUtil !== 0 || root.rateLimitTier !== ""
+                visible: root.fiveHourUtil > 0 || root.rateLimitTier !== ""
 
                 DankIcon {
                     name: "warning"
@@ -898,6 +917,60 @@ PluginComponent {
                     anchors.horizontalCenter: parent.horizontalCenter
                     spacing: Theme.spacingL
 
+                    // --- Refresh button ---
+                    Row {
+                        width: parent.width
+                        layoutDirection: Qt.RightToLeft
+
+                        Rectangle {
+                            width: refreshRow.implicitWidth + Theme.spacingS * 2
+                            height: refreshRow.implicitHeight + Theme.spacingXS * 2
+                            radius: Theme.cornerRadius
+                            color: refreshArea.containsMouse ? Theme.surfaceContainerHigh : "transparent"
+
+                            Row {
+                                id: refreshRow
+                                anchors.centerIn: parent
+                                spacing: Theme.spacingXS
+
+                                DankIcon {
+                                    name: "refresh"
+                                    size: 14
+                                    color: root.isLoading ? Theme.primary : Theme.surfaceVariantText
+                                    anchors.verticalCenter: parent.verticalCenter
+
+                                    RotationAnimation on rotation {
+                                        running: root.isLoading
+                                        from: 0
+                                        to: 360
+                                        duration: 1000
+                                        loops: Animation.Infinite
+                                    }
+                                }
+
+                                StyledText {
+                                    text: root.isLoading ? root.tr("Refreshing...") : root.tr("Refresh")
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    color: Theme.surfaceVariantText
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+
+                            MouseArea {
+                                id: refreshArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                enabled: !root.isLoading
+                                onClicked: {
+                                    root.isLoading = true
+                                    if (!forceRefreshProcess.running)
+                                        forceRefreshProcess.running = true
+                                }
+                            }
+                        }
+                    }
+
                     // --- Not connected warning ---
                     StyledRect {
                         width: parent.width
@@ -933,7 +1006,7 @@ PluginComponent {
 
                             StyledText {
                                 width: parent.width
-                                text: root.tr("No provider data found. Run claude auth login to authenticate with Anthropic.")
+                                text: root.tr("No provider data found. Run opencode auth login to authenticate with Anthropic.")
                                 font.pixelSize: Theme.fontSizeSmall
                                 color: Theme.surfaceVariantText
                                 wrapMode: Text.WordWrap
@@ -941,7 +1014,7 @@ PluginComponent {
 
                             DankButton {
                                 width: parent.width
-                                text: root.claudeAuthRunning ? root.tr("Running...") : root.tr("claude auth login")
+                                text: root.claudeAuthRunning ? root.tr("Running...") : root.tr("opencode auth login")
                                 enabled: !root.claudeAuthRunning
                                 onClicked: {
                                     if (!root.claudeAuthRunning)
