@@ -15,6 +15,7 @@ LITELLM_URL="https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices
 ANTHROPIC_TOKEN_URL="https://console.anthropic.com/v1/oauth/token"
 
 TODAY=$(date +%Y-%m-%d)
+DOW=$(date +%u)
 WEEK_START=$(date -d "$((DOW - 1)) days ago" +%Y-%m-%d)
 MONTH_START=$(date +%Y-%m-01)
 
