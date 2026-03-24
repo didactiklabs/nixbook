@@ -40,10 +40,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "v0.23.1",
-      "revision": "fe2df77bce0b8c492a09e34d281f0fb62d1bea43",
-      "url": "https://api.github.com/repos/ipetkov/crane/tarball/refs/tags/v0.23.1",
-      "hash": "sha256-aIlv7FRXF9q70DNJPI237dEDAznSKaXmL5lfK/Id/bI="
+      "version": "v0.23.2",
+      "revision": "d01ed44f4c494d2e65a30c78249e00a4e2139619",
+      "url": "https://api.github.com/repos/ipetkov/crane/tarball/refs/tags/v0.23.2",
+      "hash": "sha256-BEp040fMklOW2+ttpNUKivlE0hzpv0AAP+0kG47uVCk="
     },
     "crd-wizard": {
       "type": "GitRelease",
