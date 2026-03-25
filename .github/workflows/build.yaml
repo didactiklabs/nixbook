@@ -64,6 +64,6 @@ jobs:
           export NIXPKGS_ALLOW_UNFREE=1
           echo '${{ secrets.CACHE_PRIVATE_KEY }}' > cache-priv.pem
           nix-shell -p colmena --run "colmena build --on '${{ matrix.profile }}' --no-build-on-target"
-          build=$(readlink -f result-${{ matrix.profile }})
+          build=$(nix-shell -p colmena jq --run "colmena eval --on '${{ matrix.profile }}' -E '{ nodes, ... }: nodes.\${{ matrix.profile }}.config.system.build.toplevel.outPath' | jq -r '.[\"${{ matrix.profile }}\"]'")
           nix store sign -r -k cache-priv.pem "$build"
           nix copy --option http-connections 1 --to 's3://nix-cache?profile=default&scheme=https&endpoint=s3.didactiklabs.io&multipart-upload=false' "$build"
