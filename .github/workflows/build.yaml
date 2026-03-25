@@ -31,6 +31,7 @@ jobs:
     if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
     runs-on: self-hosted
     strategy:
+      max-parallel: 1
       matrix:
         profile:
           - totoro
