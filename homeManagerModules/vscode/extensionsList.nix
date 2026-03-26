@@ -177,14 +177,14 @@
     {
       name = "copilot-chat";
       publisher = "github";
-      version = "0.39.0";
-      sha256 = "sha256-HaXubczYtktFaFdY5wlhr+KhrOXsRZto1TG3C7canQg=";
+      version = "0.40.0";
+      sha256 = "sha256-7iFLGF9lVNZDXnrJjoXdYz7gA6YDLciwZf4/lF8sYu4=";
     }
     {
       name = "terraform";
       publisher = "hashicorp";
-      version = "2.39.0";
-      sha256 = "sha256-GEeakigIY3ErXVfq0TqNw5lnL/jxoO3XtLfqnM1EfD4=";
+      version = "2.39.2";
+      sha256 = "sha256-Lb20IdQcroJ/9Jn+epcIDvciFb/GDmklR9pDzrC5JbQ=";
     }
     {
       name = "vscode-task";
