@@ -134,7 +134,6 @@ in
           stopIfChanged = false;
           serviceConfig = {
             Type = "oneshot";
-            RemainAfterExit = true;
             ExecStart = "${pkgs.writeShellScript "nixos-upgrade-wrapper" ''
               export NIXPKGS_ALLOW_UNFREE=1
               export PATH=$PATH:${
