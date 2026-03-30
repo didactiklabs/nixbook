@@ -67,16 +67,9 @@ jobs:
           nix store sign -r -k cache-priv.pem "$build"
           closure=$(nix-store -qR "$build")
           total=$(echo "$closure" | wc -w)
-          echo "Testing connectivity to cache.nixos.org..."
-          sample_hash=$(basename "$(echo "$closure" | head -1)" | cut -d- -f1)
-          curl -v --connect-timeout 5 --max-time 10 "https://cache.nixos.org/${sample_hash}.narinfo" 2>&1 | head -5 || true
           echo "Checking $total paths against cache.nixos.org..."
-          to_upload=$(echo "$closure" | xargs -P20 -I{} sh -c '
-            hash=$(basename "$1" | cut -d- -f1)
-            if ! curl -sf --connect-timeout 5 --max-time 10 "https://cache.nixos.org/${hash}.narinfo" 2>/dev/null | grep -q "^StorePath:"; then
-              echo "$1"
-            fi
-           ' _ {})
+          cached=$(echo "$closure" | xargs -n100 nix path-info --store https://cache.nixos.org 2>/dev/null || true)
+          to_upload=$(comm -23 <(echo "$closure" | sort) <(echo "$cached" | sort))
           upload_count=$(echo "$to_upload" | grep -c /nix/store || true)
           echo "Paths to upload: $upload_count / $total"
           if [ -n "$to_upload" ]; then
