@@ -51,14 +51,13 @@ in
     powerManagement = lib.mkForce {
       enable = true;
     };
-    # mem_sleep_default=deep: prefer S3 (suspend-to-RAM) over s2idle when available.
-    # S3 cuts power to nearly everything; s2idle keeps the CPU in a C-state loop
-    # and drains noticeably more battery overnight.
     # nvme.noacpi=1: let the NVMe driver manage the drive's power state directly
     # instead of deferring to ACPI, which is broken on many laptops and prevents
     # the drive from entering deep idle (PS3/PS4) during suspend.
+    # Note: mem_sleep_default=deep removed — modern AMD laptops (ZenBook UM6702,
+    # Framework 13 AMD) don't support S3 properly and freeze on resume. s2idle
+    # is the default and works correctly with these firmwares.
     boot.kernelParams = [
-      "mem_sleep_default=deep"
       "nvme.noacpi=1"
     ];
     environment.systemPackages = [
