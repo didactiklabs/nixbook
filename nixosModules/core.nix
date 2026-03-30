@@ -417,11 +417,17 @@ in
       '';
     };
 
-    # Swap configuration
+    # zram swap (compressed RAM) with disk fallback
+    zramSwap = {
+      enable = true;
+      algorithm = "zstd";
+      memoryPercent = 50;
+    };
     swapDevices = [
       {
         device = "/swapfile";
-        size = 16 * 1024; # 16GB in MB
+        size = 8 * 1024; # 8GB fallback in MB
+        priority = 0; # lower priority than zram
       }
     ];
 
