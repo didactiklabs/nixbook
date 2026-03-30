@@ -67,6 +67,9 @@ jobs:
           nix store sign -r -k cache-priv.pem "$build"
           closure=$(nix-store -qR "$build")
           total=$(echo "$closure" | wc -w)
+          echo "Testing connectivity to cache.nixos.org..."
+          sample_hash=$(basename "$(echo "$closure" | head -1)" | cut -d- -f1)
+          curl -v --connect-timeout 5 --max-time 10 "https://cache.nixos.org/${sample_hash}.narinfo" 2>&1 | head -5 || true
           echo "Checking $total paths against cache.nixos.org..."
           to_upload=$(echo "$closure" | xargs -P20 -I{} sh -c '
             hash=$(basename "$1" | cut -d- -f1)
