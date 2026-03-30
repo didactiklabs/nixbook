@@ -66,14 +66,16 @@ jobs:
           build=$(nix-shell -p colmena --run "colmena build --on '${{ matrix.profile }}' --no-build-on-target" 2>&1 | grep -oE '/nix/store/[a-z0-9]+-nixos-system-[^ "]+' | tail -n1)
           nix store sign -r -k cache-priv.pem "$build"
           closure=$(nix-store -qR "$build")
-          to_upload=""
-          for path in $closure; do
-            if ! nix path-info --store https://cache.nixos.org "$path" >/dev/null 2>&1; then
-              to_upload="$to_upload $path"
-            fi
-          done
-          echo "Paths in closure: $(echo "$closure" | wc -w)"
-          echo "Paths to upload: $(echo "$to_upload" | wc -w)"
+          total=$(echo "$closure" | wc -w)
+          echo "Checking $total paths against cache.nixos.org..."
+          to_upload=$(echo "$closure" | xargs -P20 -I{} bash -c '
+            hash=${1##*/}
+            hash=${hash%%-*}
+            code=$(curl -sf -o /dev/null -w "%{http_code}" --head "https://cache.nixos.org/${hash}.narinfo" 2>/dev/null)
+            [ "$code" != "200" ] && echo "$1"
+          ' _ {})
+          upload_count=$(echo "$to_upload" | grep -c /nix/store || true)
+          echo "Paths to upload: $upload_count / $total"
           if [ -n "$to_upload" ]; then
-            nix copy --option http-connections 1 --to 's3://nix-cache?profile=default&scheme=https&endpoint=s3.didactiklabs.io&multipart-upload=false' $to_upload
+            echo "$to_upload" | nix copy --stdin --option http-connections 1 --to 's3://nix-cache?profile=default&scheme=https&endpoint=s3.didactiklabs.io&multipart-upload=false'
           fi
