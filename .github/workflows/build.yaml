@@ -66,8 +66,14 @@ jobs:
           build=$(nix-shell -p colmena --run "colmena build --on '${{ matrix.profile }}' --no-build-on-target" 2>&1 | grep -oE '/nix/store/[a-z0-9]+-nixos-system-[^ "]+' | tail -n1)
           nix store sign -r -k cache-priv.pem "$build"
           closure=$(nix-store -qR "$build")
-          cached=$(nix path-info --store https://cache.nixos.org $closure 2>/dev/null || true)
-          to_upload=$(comm -23 <(echo "$closure" | sort) <(echo "$cached" | sort))
+          to_upload=""
+          for path in $closure; do
+            if ! nix path-info --store https://cache.nixos.org "$path" >/dev/null 2>&1; then
+              to_upload="$to_upload $path"
+            fi
+          done
+          echo "Paths in closure: $(echo "$closure" | wc -w)"
+          echo "Paths to upload: $(echo "$to_upload" | wc -w)"
           if [ -n "$to_upload" ]; then
-            nix copy --option http-connections 1 --to 's3://nix-cache?profile=default&scheme=https&endpoint=s3.didactiklabs.io&multipart-upload=false' $(echo "$to_upload")
+            nix copy --option http-connections 1 --to 's3://nix-cache?profile=default&scheme=https&endpoint=s3.didactiklabs.io&multipart-upload=false' $to_upload
           fi
