@@ -68,12 +68,12 @@ jobs:
           closure=$(nix-store -qR "$build")
           total=$(echo "$closure" | wc -w)
           echo "Checking $total paths against cache.nixos.org..."
-          to_upload=$(echo "$closure" | xargs -P20 -I{} bash -c '
-            hash=${1##*/}
-            hash=${hash%%-*}
-            code=$(curl -sf -o /dev/null -w "%{http_code}" --head "https://cache.nixos.org/${hash}.narinfo" 2>/dev/null)
-            [ "$code" != "200" ] && echo "$1"
-          ' _ {})
+          to_upload=$(echo "$closure" | xargs -P20 -I{} sh -c '
+            hash=$(basename "$1" | cut -d- -f1)
+            if ! curl -sf --connect-timeout 5 --max-time 10 "https://cache.nixos.org/${hash}.narinfo" 2>/dev/null | grep -q "^StorePath:"; then
+              echo "$1"
+            fi
+           ' _ {})
           upload_count=$(echo "$to_upload" | grep -c /nix/store || true)
           echo "Paths to upload: $upload_count / $total"
           if [ -n "$to_upload" ]; then
