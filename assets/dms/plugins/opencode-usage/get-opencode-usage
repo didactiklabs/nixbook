@@ -10,6 +10,7 @@ CACHE_DIR="${HOME}/.cache/dms-opencode-usage"
 PRICING_CACHE="${CACHE_DIR}/pricing-cache.json"
 USAGE_CACHE="${CACHE_DIR}/usage-cache.json"
 USAGE_CACHE_TTL=${1:-120}  # seconds, configurable via DMS refresh interval setting
+RATE_LIMIT_DATA_FILE="${CACHE_DIR}/rate-limit-data.json"
 MAX_STALE_AGE=3600   # 1 hour — cache older than this is treated as invalid
 LITELLM_URL="https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
 ANTHROPIC_TOKEN_URL="https://console.anthropic.com/v1/oauth/token"
@@ -210,7 +211,7 @@ if [ -f "$AUTH_FILE" ]; then
         # Skip backoff when TTL=0 (force-refresh from UI button)
         RATE_LIMITED=false
         if [ "$USAGE_CACHE_TTL" -gt 0 ] && [ -f "${CACHE_DIR}/rate-limited" ]; then
-            retry_until=$(cat "${CACHE_DIR}/rate-limited" 2>/dev/null || echo 0)
+            retry_until=$(jq -r '.retry_until // 0' "${CACHE_DIR}/rate-limited" 2>/dev/null || cat "${CACHE_DIR}/rate-limited" 2>/dev/null || echo 0)
             if [ "$(date +%s)" -lt "$retry_until" ]; then
                 export RATE_LIMITED=true
                 USE_CACHE=true
@@ -241,28 +242,52 @@ if [ -f "$AUTH_FILE" ]; then
             rm -f "$TMP_HEADERS"
 
             if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
-                rm -f "$USAGE_CACHE"
                 API_RESPONSE="{}"
                 DATA_STALE="true"
             elif [ "$HTTP_CODE" = "429" ]; then
                 if [ -n "$RETRY_AFTER" ] && [[ "$RETRY_AFTER" =~ ^[0-9]+$ ]]; then
-                    echo "$(( $(date +%s) + RETRY_AFTER ))" > "${CACHE_DIR}/rate-limited"
+                    retry_until_val=$(( $(date +%s) + RETRY_AFTER ))
                 else
-                    echo "$(( $(date +%s) + 60 ))" > "${CACHE_DIR}/rate-limited"
+                    retry_until_val=$(( $(date +%s) + 60 ))
                 fi
                 if [ -f "$USAGE_CACHE" ]; then
                     API_RESPONSE=$(jq -r '.data' "$USAGE_CACHE" 2>/dev/null || echo '{}')
-                else
+                fi
+                rl_data="{}"
+                if echo "$API_RESPONSE" | jq -e '.five_hour' >/dev/null 2>&1; then
+                    rl_data=$(echo "$API_RESPONSE" | jq -c '{five_hour: .five_hour, seven_day: .seven_day, extra_usage: .extra_usage, plan_type: (.plan_type // "pro")}')
+                fi
+                echo "{\"retry_until\": ${retry_until_val}, \"rate_limit_data\": ${rl_data}}" > "${CACHE_DIR}/rate-limited"
+                if [ ! -f "$USAGE_CACHE" ]; then
                     DATA_STALE="true"
                 fi
             elif echo "$API_RESPONSE" | jq -e '.five_hour' >/dev/null 2>&1; then
                 jq -n --argjson data "$API_RESPONSE" '{cached_at: (now | floor), data: $data}' > "$USAGE_CACHE" 2>/dev/null
+                echo "$API_RESPONSE" | jq -c '{five_hour: .five_hour, seven_day: .seven_day, extra_usage: .extra_usage, plan_type: (.plan_type // "pro")}' > "$RATE_LIMIT_DATA_FILE" 2>/dev/null
                 CACHE_AGE=0
                 rm -f "${CACHE_DIR}/rate-limited"
             else
                 rm -f "$USAGE_CACHE"
                 API_RESPONSE="{}"
                 DATA_STALE="true"
+            fi
+        fi
+
+        # If API_RESPONSE is empty, try to recover rate limit data from persistent files
+        if ! echo "$API_RESPONSE" | jq -e '.five_hour' >/dev/null 2>&1; then
+            # First: check rate-limited backoff file (429 scenario)
+            if [ "$RATE_LIMITED" = true ] && [ -f "${CACHE_DIR}/rate-limited" ]; then
+                rl_data=$(jq -r '.rate_limit_data // empty' "${CACHE_DIR}/rate-limited" 2>/dev/null || echo "")
+                if [ -n "$rl_data" ] && echo "$rl_data" | jq -e '.five_hour' >/dev/null 2>&1; then
+                    API_RESPONSE="$rl_data"
+                fi
+            fi
+            # Second: check persistent rate limit backup (auth failure scenario)
+            if ! echo "$API_RESPONSE" | jq -e '.five_hour' >/dev/null 2>&1 && [ -f "$RATE_LIMIT_DATA_FILE" ]; then
+                rl_data=$(cat "$RATE_LIMIT_DATA_FILE" 2>/dev/null || echo "")
+                if [ -n "$rl_data" ] && echo "$rl_data" | jq -e '.five_hour' >/dev/null 2>&1; then
+                    API_RESPONSE="$rl_data"
+                fi
             fi
         fi
 
