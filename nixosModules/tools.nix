@@ -130,8 +130,12 @@ in
       services = {
         "nixos-upgrade-manual" = {
           description = "Manual NixOS System Upgrade";
+          unitConfig = {
+            RefuseManualStop = true;
+          };
           serviceConfig = {
             Type = "oneshot";
+            RemainAfterExit = true;
             ExecStart = "${pkgs.writeShellScript "nixos-upgrade-wrapper" ''
               export NIXPKGS_ALLOW_UNFREE=1
               export PATH=$PATH:${
