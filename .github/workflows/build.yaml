@@ -68,7 +68,7 @@ jobs:
           closure=$(nix-store -qR "$build")
           total=$(echo "$closure" | wc -w)
           echo "Checking $total paths against cache.nixos.org..."
-          cached=$(echo "$closure" | xargs -n100 nix path-info --store https://cache.nixos.org 2>/dev/null || true)
+          cached=$(nix path-info --store https://cache.nixos.org $closure 2>/dev/null || true)
           to_upload=$(comm -23 <(echo "$closure" | sort) <(echo "$cached" | sort))
           upload_count=$(echo "$to_upload" | grep -c /nix/store || true)
           echo "Paths to upload: $upload_count / $total"
