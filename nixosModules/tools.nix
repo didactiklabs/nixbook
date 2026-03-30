@@ -130,9 +130,8 @@ in
       services = {
         "nixos-upgrade-manual" = {
           description = "Manual NixOS System Upgrade";
-          unitConfig = {
-            RefuseManualStop = true;
-          };
+          restartIfChanged = false;
+          stopIfChanged = false;
           serviceConfig = {
             Type = "oneshot";
             RemainAfterExit = true;
