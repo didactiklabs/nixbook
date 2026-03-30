@@ -63,6 +63,6 @@ jobs:
         run: |
           export NIXPKGS_ALLOW_UNFREE=1
           echo '${{ secrets.CACHE_PRIVATE_KEY }}' > cache-priv.pem
-          build=$(nix-shell -p colmena --run "colmena build --on '${{ matrix.profile }}' --no-build-on-target" 2>&1 | grep -oE '/nix/store/[a-z0-9]+-nixos-system-[^ "]+' | tail -n1)
+          build=$(nix-shell -p colmena --run "colmena build --on '${{ matrix.profile }}' --no-build-on-target" 2>&1 | tee /dev/stderr | grep -oE '/nix/store/[a-z0-9]+-nixos-system-[^ "]+' | tail -n1)
           nix store sign -r -k cache-priv.pem "$build"
           nix copy --option http-connections 1 --to 's3://nix-cache?profile=default&scheme=https&endpoint=s3.didactiklabs.io' "$build"
