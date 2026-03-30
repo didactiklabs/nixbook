@@ -65,13 +65,4 @@ jobs:
           echo '${{ secrets.CACHE_PRIVATE_KEY }}' > cache-priv.pem
           build=$(nix-shell -p colmena --run "colmena build --on '${{ matrix.profile }}' --no-build-on-target" 2>&1 | grep -oE '/nix/store/[a-z0-9]+-nixos-system-[^ "]+' | tail -n1)
           nix store sign -r -k cache-priv.pem "$build"
-          closure=$(nix-store -qR "$build")
-          total=$(echo "$closure" | wc -w)
-          echo "Checking $total paths against cache.nixos.org..."
-          cached=$(nix path-info --store https://cache.nixos.org $closure 2>/dev/null || true)
-          to_upload=$(comm -23 <(echo "$closure" | sort) <(echo "$cached" | sort))
-          upload_count=$(echo "$to_upload" | grep -c /nix/store || true)
-          echo "Paths to upload: $upload_count / $total"
-          if [ -n "$to_upload" ]; then
-            echo "$to_upload" | nix copy --stdin --option http-connections 1 --to 's3://nix-cache?profile=default&scheme=https&endpoint=s3.didactiklabs.io&multipart-upload=false'
-          fi
+          nix copy --option http-connections 1 --to 's3://nix-cache?profile=default&scheme=https&endpoint=s3.didactiklabs.io&multipart-upload=false' "$build"
