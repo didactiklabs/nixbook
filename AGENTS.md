@@ -9,7 +9,7 @@
 
 ## Key Statistics
 
-- **Nix Files:** 142 files (~11,687 lines of code)
+- **Nix Files:** 143 files (~11,700 lines of code)
 - **Active Machines:** 4 (totoro, anya, nishinoya, tanjiro)
 - **Home Manager Modules:** 32 (27 standalone files + 5 subdirectories)
 - **NixOS Modules:** 19 files
@@ -57,6 +57,7 @@ hive.nix                          Colmena deployment config
 - `installer/` - Interactive NixOS installer with LUKS encryption, LVM, and Disko support
 - `.github/workflows/` - GitHub Actions CI/CD for all 4 machines
 - `devenv.nix/.envrc` - Development environment with direnv integration
+- `devenvModules/` - Shared devenv config module imported by nixbook, hephaestus, and aletheia via npins
 - `docs/` - Auto-generated module documentation (generate-docs.nix, MODULES.md)
 
 ## NixOS Modules (19 files)
