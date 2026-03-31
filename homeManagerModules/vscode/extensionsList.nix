@@ -99,8 +99,8 @@
     {
       name = "material-icon-theme";
       publisher = "pkief";
-      version = "5.32.0";
-      sha256 = "sha256-0YR3IeVxD7OuYfybDHBdgjQXH0bxz3U9Q8/gQZZB7sM=";
+      version = "5.33.1";
+      sha256 = "sha256-GWHWEdi2kPkxS0RGAxFcy+njFCl1iiEBu41V/5sHqvc=";
     }
     {
       name = "material-product-icons";
@@ -177,8 +177,8 @@
     {
       name = "copilot-chat";
       publisher = "github";
-      version = "0.40.0";
-      sha256 = "sha256-7iFLGF9lVNZDXnrJjoXdYz7gA6YDLciwZf4/lF8sYu4=";
+      version = "0.41.2";
+      sha256 = "sha256-oXu2Uv6sNP9eV1kut/TBnbYX2GG1wg4o4XUf7G+Zj/8=";
     }
     {
       name = "terraform";
