@@ -51,6 +51,8 @@ in
     gamingConfig.enable = true;
     sunshine.enable = true;
     sway.enable = true;
+    tailscale.enable = false;
+    netbird-tools.enable = false;
     caCertificates = {
       bealv.enable = true;
       didactiklabs.enable = true;
