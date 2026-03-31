@@ -2,6 +2,7 @@
   config,
   pkgs,
   lib,
+  sources,
   ...
 }:
 let
@@ -386,6 +387,18 @@ in
     };
 
     nix = {
+      # Pin <nixpkgs> (used by nix-shell -p) to the npins-pinned revision
+      nixPath = [
+        "nixpkgs=${sources.nixpkgs}"
+      ];
+      # Pin the flake registry (used by nix shell nixpkgs#) to the same revision
+      registry.nixpkgs = {
+        exact = true;
+        to = {
+          type = "path";
+          path = "${sources.nixpkgs}";
+        };
+      };
       package = pkgs.lixPackageSets.stable.lix;
       gc = {
         automatic = true;
