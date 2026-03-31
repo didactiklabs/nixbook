@@ -1,5 +1,7 @@
 { pkgs, ... }:
 {
+  imports = [ ./devenvModules/devenv.nix ];
+
   # https://devenv.sh/basics/
   env.GREET = "Welcome to the Nixbook NixOS configuration environment!";
 
@@ -10,36 +12,10 @@
     ragenix
   ];
 
-  git-hooks.hooks = {
-    # lint shell scripts
-    shellcheck.enable = true;
-    # execute example shell from Markdown files
-    mdsh.enable = true;
-    treefmt = {
-      enable = true;
-      settings.fail-on-change = false;
-    };
-  };
+  treefmt.config.programs.prettier.excludes = [
+    "assets/dms/plugins/**/translations.js"
+  ];
 
-  difftastic.enable = true;
-  treefmt = {
-    enable = true;
-    config.programs = {
-      nixfmt.enable = true;
-      prettier = {
-        enable = true;
-        excludes = [
-          ".git"
-          ".devenv"
-          "assets/dms/plugins/**/translations.js"
-        ];
-        settings = {
-          proseWrap = "preserve";
-        };
-      };
-      shfmt.enable = true;
-    };
-  };
   scripts = {
     # https://devenv.sh/scripts/
     hello.exec = ''
