@@ -55,6 +55,8 @@ var strings = {
         { fr: "opencode auth login" },
     "Monitor your AI coding usage across providers. Currently tracks Anthropic rate limits, token consumption, and estimated costs via OpenCode credentials.":
         { fr: "Surveillez votre utilisation d'IA pour le code. Suit actuellement les limites Anthropic, la consommation de tokens et les co\u00fbts estim\u00e9s via les identifiants OpenCode." },
+    "Re-authenticate":
+        { fr: "Se r\u00e9-authentifier" },
     "Refresh Interval":
         { fr: "Intervalle de rafra\u00eechissement" },
     "How often to fetch usage data (minutes)":
