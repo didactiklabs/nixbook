@@ -15,6 +15,8 @@ QtObject {
     property string changelogText: ""
     property bool updating: false
     property bool checking: false
+    property bool viewingLogs: false
+    property string logText: ""
 
     function checkUpdate() {
         if (checking || updating) return
@@ -147,6 +149,34 @@ QtObject {
                 root.checkUpdate()
             }
         }
+    }
+
+    property Process logProcess: Process {
+        command: ["journalctl", "-u", "nixos-upgrade-manual", "-f", "--no-pager", "-o", "cat"]
+        stdout: SplitParser {
+            onRead: line => {
+                root.logText += line + "\n"
+                // Keep last 500 lines to avoid unbounded growth
+                const lines = root.logText.split("\n")
+                if (lines.length > 500) {
+                    root.logText = lines.slice(-500).join("\n")
+                }
+            }
+        }
+        onExited: code => {
+            root.viewingLogs = false
+        }
+    }
+
+    function startLogs() {
+        logText = ""
+        viewingLogs = true
+        logProcess.running = true
+    }
+
+    function stopLogs() {
+        logProcess.signal(15) // SIGTERM
+        viewingLogs = false
     }
 
     property Timer updateTimer: Timer {
