@@ -24,6 +24,7 @@ _: {
         };
       };
       shfmt.enable = true;
+      gofumpt.enable = true;
     };
   };
 }
