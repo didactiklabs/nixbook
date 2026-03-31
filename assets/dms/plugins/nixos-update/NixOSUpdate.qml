@@ -13,7 +13,7 @@ PluginComponent {
 
     layerNamespacePlugin: "nixosUpdate"
     popoutWidth: 320
-    popoutHeight: UpdateState.changelogText ? 600 : 300
+    popoutHeight: UpdateState.viewingLogs ? 700 : (UpdateState.changelogText ? 600 : 300)
 
     Component {
         id: statusPillBase
@@ -206,6 +206,60 @@ PluginComponent {
                     text: UpdateState.checking ? "Checking..." : "Check for Updates"
                     enabled: !UpdateState.checking && !UpdateState.updating
                     onClicked: UpdateState.checkUpdate()
+                }
+
+                DankButton {
+                    width: parent.width
+                    text: UpdateState.viewingLogs ? "Stop Logs" : "View Logs"
+                    onClicked: {
+                        if (UpdateState.viewingLogs) {
+                            UpdateState.stopLogs()
+                        } else {
+                            UpdateState.startLogs()
+                        }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    visible: UpdateState.viewingLogs
+                    spacing: Theme.spacingS
+
+                    StyledText {
+                        text: "Update Logs"
+                        font.pixelSize: Theme.fontSizeSmall
+                        color: Theme.surfaceVariantText
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 200
+                        color: Theme.surfaceVariant
+                        radius: Theme.cornerRadius
+
+                        Flickable {
+                            id: logFlickable
+                            anchors.fill: parent
+                            anchors.margins: Theme.spacingS
+                            contentWidth: width
+                            contentHeight: logLabel.paintedHeight
+                            clip: true
+                            ScrollBar.vertical: ScrollBar {}
+
+                            StyledText {
+                                id: logLabel
+                                width: parent.width
+                                text: UpdateState.logText || "Waiting for logs..."
+                                font.pixelSize: Theme.fontSizeSmall
+                                font.family: "Fira Code"
+                                color: Theme.surfaceText
+                                wrapMode: Text.Wrap
+                                onTextChanged: {
+                                    logFlickable.contentY = Math.max(0, logFlickable.contentHeight - logFlickable.height)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
