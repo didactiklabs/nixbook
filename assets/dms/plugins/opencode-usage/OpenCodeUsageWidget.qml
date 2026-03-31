@@ -1035,7 +1035,7 @@ PluginComponent {
                             id: staleWarningCol
                             anchors.fill: parent
                             anchors.margins: Theme.spacingM
-                            spacing: Theme.spacingXS
+                            spacing: Theme.spacingM
 
                             Row {
                                 spacing: Theme.spacingS
@@ -1063,6 +1063,16 @@ PluginComponent {
                                 font.pixelSize: Theme.fontSizeSmall
                                 color: Theme.surfaceVariantText
                                 wrapMode: Text.WordWrap
+                            }
+
+                            DankButton {
+                                width: parent.width
+                                text: root.claudeAuthRunning ? root.tr("Running...") : root.tr("Re-authenticate")
+                                enabled: !root.claudeAuthRunning
+                                onClicked: {
+                                    if (!root.claudeAuthRunning)
+                                        claudeAuthProcess.running = true
+                                }
                             }
                         }
                     }
