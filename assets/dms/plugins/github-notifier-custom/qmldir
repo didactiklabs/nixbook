@@ -1,0 +1,2 @@
+module GitHubNotifierCustomModule
+singleton GitHubNotifierCustomState 1.0 GitHubNotifierCustomState.qml
