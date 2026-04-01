@@ -24,6 +24,22 @@ in
     systemd.user.services.niri-flake-polkit.enable = false;
     security.pam.services.sddm.enableGnomeKeyring = true;
 
+    # Add GTK portal and route FileChooser to it (avoids Nautilus dependency from GNOME portal)
+    # Other settings match niri's shipped niri-portals.conf defaults
+    xdg.portal = {
+      extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+      config.niri = {
+        default = [
+          "gnome"
+          "gtk"
+        ];
+        "org.freedesktop.impl.portal.Access" = [ "gtk" ];
+        "org.freedesktop.impl.portal.FileChooser" = [ "gtk" ];
+        "org.freedesktop.impl.portal.Notification" = [ "gtk" ];
+        "org.freedesktop.impl.portal.Secret" = [ "gnome-keyring" ];
+      };
+    };
+
     # Ensure the GNOME portal backend auto-starts and restarts on crash
     systemd.user.services.xdg-desktop-portal-gnome = {
       wantedBy = [ "graphical-session.target" ];
@@ -69,6 +85,7 @@ in
         - Enables GNOME keyring unlock via SDDM PAM integration
         - Installs essential Wayland utilities: fuzzel (launcher), grimblast (screenshots),
           wl-clipboard, libnotify, xwayland-satellite (X11 app compatibility layer)
+        - Adds xdg-desktop-portal-gtk for FileChooser (avoids Nautilus dependency)
         - Ensures the GNOME portal backend auto-starts with the session and restarts on crash
         - Adds the niri.cachix.org binary cache for fast pre-built niri packages
 

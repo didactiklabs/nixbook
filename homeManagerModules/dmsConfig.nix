@@ -132,6 +132,7 @@
               "clock"
               "weather"
               "opencodeUsage"
+              "githubNotifierCustom"
             ];
             rightWidgets = [
               "systemTray"
@@ -262,8 +263,9 @@
         audioInhibit = {
           enable = true;
         };
-        discordVoice = {
+        githubNotifierCustom = {
           enable = true;
+          src = ../assets/dms/plugins/github-notifier-custom;
         };
         opencodeUsage = {
           inherit (config.customHomeManagerModules.opencodeConfig) enable;

@@ -5,7 +5,6 @@ import qs.Common
 import qs.Services
 import qs.Widgets
 import qs.Modules.Plugins
-import OpenCodeUsageModule
 import "translations.js" as Tr
 
 PluginComponent {
@@ -822,7 +821,7 @@ PluginComponent {
                             delegate: Rectangle {
                                 width: parent.width / tabModel.count
                                 height: 36
-                                color: OpenCodeUsageState.selectedTab === index ? Theme.surfaceContainerHigh : (tabHover.containsMouse ? Theme.surfaceContainerLow : "transparent")
+                                color: OpenCodeUsageState.selectedTab === index ? Theme.surfaceContainerHigh : (tabHover.containsMouse ? Theme.surfaceContainer : "transparent")
                                 radius: Theme.cornerRadius
                                 opacity: model.available ? 1.0 : 0.35
 

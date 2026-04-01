@@ -1,0 +1,14 @@
+{
+  "id": "discordVoiceCustom",
+  "name": "Discord Voice Widget",
+  "description": "Show Discord voice channel participants in DankBar with speaking/mute indicators and voice controls",
+  "version": "1.0.0",
+  "author": "PandorasFox",
+  "type": "widget",
+  "capabilities": ["dankbar-widget", "discord", "voice"],
+  "component": "./DiscordVoiceWidget.qml",
+  "icon": "headset_mic",
+  "settings": "./DiscordVoiceSettings.qml",
+  "requires": ["python3"],
+  "permissions": ["settings_read", "settings_write"]
+}

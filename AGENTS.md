@@ -18,7 +18,7 @@
 - **NixVim Plugins:** 25
 - **VSCode Extensions:** 32
 - **Pinned Dependencies:** 26
-- **Assets:** 39 files
+- **Assets:** 46 files
 
 ## Core Tools
 
@@ -358,7 +358,7 @@ npins/ → dependency sources
 ## Assets (39 files)
 
 - **Certificates (3):** bealv-ca.crt, didactiklabs-ca.crt, logicmg-ca.crt
-- **DMS Plugins (16 files):** vpn-dms, nixos-update, opencode-usage (widgets, settings, scripts)
+- **DMS Plugins (22 files):** vpn-dms, nixos-update, opencode-usage, github-notifier-custom, discord-voice-custom (widgets, settings, scripts)
 - **Images (10):** wallpapers, screenshots, volume control icons
 - **Kubernetes (4):** OIDC kubeconfigs (didactiklabs, bealv, bealvprod, logicmg)
 - **OpenVPN (1):** bealv.ovpn
