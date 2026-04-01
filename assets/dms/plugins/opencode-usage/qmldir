@@ -1,0 +1,2 @@
+module OpenCodeUsageModule
+singleton OpenCodeUsageState 1.0 OpenCodeUsageState.qml

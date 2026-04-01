@@ -5,6 +5,7 @@ import qs.Common
 import qs.Services
 import qs.Widgets
 import qs.Modules.Plugins
+import OpenCodeUsageModule
 import "translations.js" as Tr
 
 PluginComponent {
@@ -15,161 +16,38 @@ PluginComponent {
     function tr(key) { return Tr.tr(key, lang) }
 
     // Calendar week labels: Monday to Sunday (fixed order)
-    property int refreshEpoch: 0
     property var dayLabels: lang === "fr"
         ? ["Lu", "Ma", "Me", "Je", "Ve", "Sa", "Di"]
         : ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
 
-    // Settings
-    property int refreshInterval: (pluginData.refreshInterval || 2) * 60000
+    // Settings (push to singleton)
+    property int refreshIntervalSetting: (pluginData.refreshInterval || 2) * 60000
+    onRefreshIntervalSettingChanged: OpenCodeUsageState.refreshInterval = refreshIntervalSetting
 
-    // API usage data (Anthropic)
-    property string subscriptionType: ""
-    property string rateLimitTier: ""
-    property real fiveHourUtil: 0
-    property string fiveHourReset: ""
-    property real sevenDayUtil: 0
-    property string sevenDayReset: ""
-    property bool dataStale: false
-
-    // Global
-    property int weekMessages: 0
-    property int weekSessions: 0
-    property int alltimeSessions: 0
-    property int alltimeMessages: 0
-    property string firstSession: ""
-    property real usdEurRate: 0
-
-    // Anthropic State
-    property real anthropicWeekTokens: 0
-    property real anthropicMonthTokens: 0
-    property real anthropicTodayCost: 0
-    property real anthropicWeekCost: 0
-    property real anthropicMonthCost: 0
-    property var anthropicDaily: [0, 0, 0, 0, 0, 0, 0]
-    property var anthropicDailyCosts: [0, 0, 0, 0, 0, 0, 0]
-    ListModel { id: anthropicModels }
-
-    // Gemini State
-    property real geminiWeekTokens: 0
-    property real geminiMonthTokens: 0
-    property real geminiTodayCost: 0
-    property real geminiWeekCost: 0
-    property real geminiMonthCost: 0
-    property var geminiDaily: [0, 0, 0, 0, 0, 0, 0]
-    property var geminiDailyCosts: [0, 0, 0, 0, 0, 0, 0]
-    ListModel { id: geminiModels }
-
-    // OpenCode State
-    property real opencodeWeekTokens: 0
-    property real opencodeMonthTokens: 0
-    property real opencodeTodayCost: 0
-    property real opencodeWeekCost: 0
-    property real opencodeMonthCost: 0
-    property var opencodeDaily: [0, 0, 0, 0, 0, 0, 0]
-    property var opencodeDailyCosts: [0, 0, 0, 0, 0, 0, 0]
-    ListModel { id: opencodeModels }
+    // Tab model (UI-only, not shared)
     ListModel { id: tabModel }
-    property int selectedTab: 0
-
-    // Chart hover state
-    property int hoveredDayAnthropic: -1
-    property int hoveredDayGemini: -1
-    property int hoveredDayOpenCode: -1
-
-    // Today's index in the calendar week (0=Monday, 6=Sunday)
-    property int todayIndex: {
-        void(countdownNow)
-        var dow = new Date().getDay() // 0=Sunday, 6=Saturday
-        return dow === 0 ? 6 : dow - 1
-    }
-
-    // Derived
-    property real maxDailyAnthropic: Math.max.apply(null, anthropicDaily) || 1
-    property real maxDailyGemini: Math.max.apply(null, geminiDaily) || 1
-    property real maxDailyOpenCode: Math.max.apply(null, opencodeDaily) || 1
-    property bool isLoading: true
+    property int refreshEpoch: OpenCodeUsageState.refreshEpoch
 
     // Always show the widget (disconnect icon when no data, normal content otherwise)
     _visibilityOverride: true
     _visibilityOverrideValue: true
 
-    // Live countdown
-    property real countdownNow: Date.now()
-
-    property string fiveHourCountdown: {
-        if (!fiveHourReset) return ""
-        var resetMs = new Date(fiveHourReset).getTime()
-        var remaining = Math.max(0, resetMs - countdownNow)
-        if (remaining <= 0) return tr("Resetting...")
-        var hours = Math.floor(remaining / 3600000)
-        var mins = Math.floor((remaining % 3600000) / 60000)
-        return hours + "h " + (mins < 10 ? "0" : "") + mins + "m"
-    }
-
-    property string sevenDayCountdown: {
-        if (!sevenDayReset) return ""
-        var resetMs = new Date(sevenDayReset).getTime()
-        var remaining = Math.max(0, resetMs - countdownNow)
-        if (remaining <= 0) return tr("Resetting...")
-        var days = Math.floor(remaining / 86400000)
-        var hours = Math.floor((remaining % 86400000) / 3600000)
-        var mins = Math.floor((remaining % 3600000) / 60000)
-        if (days > 0) return days + "d " + hours + "h " + (mins < 10 ? "0" : "") + mins + "m"
-        return hours + "h " + (mins < 10 ? "0" : "") + mins + "m"
-    }
-
-    Timer {
-        interval: 60000
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: {
-            var now = Date.now()
-            var elapsed = now - root.countdownNow
-            root.countdownNow = now
-            if (elapsed > 120000 && !usageProcess.running) {
-                usageProcess.running = true
-            }
-        }
-    }
-
-    property string scriptPath: PluginService.pluginDirectory + "/opencodeUsage/get-opencode-usage"
-
+    // Derived popout sizing
     popoutWidth: 380
     popoutHeight: {
         var h = 120 // Header & Footer
-        if (root.noProviderData) h += 160
-        if (root.rateLimitTier) h += 240
-        if (root.anthropicMonthTokens > 0) h += 180 + (anthropicModels.count > 0 ? 50 + anthropicModels.count * 20 : 0)
-        if (root.geminiMonthTokens > 0) h += 180 + (geminiModels.count > 0 ? 50 + geminiModels.count * 20 : 0)
-        if (root.opencodeMonthTokens > 0) h += 180 + (opencodeModels.count > 0 ? 50 + opencodeModels.count * 20 : 0)
+        if (OpenCodeUsageState.noProviderData) h += 160
+        if (OpenCodeUsageState.rateLimitTier) h += 240
+        if (OpenCodeUsageState.anthropicMonthTokens > 0) h += 180 + (OpenCodeUsageState.anthropicModels.count > 0 ? 50 + OpenCodeUsageState.anthropicModels.count * 20 : 0)
+        if (OpenCodeUsageState.geminiMonthTokens > 0) h += 180 + (OpenCodeUsageState.geminiModels.count > 0 ? 50 + OpenCodeUsageState.geminiModels.count * 20 : 0)
+        if (OpenCodeUsageState.opencodeMonthTokens > 0) h += 180 + (OpenCodeUsageState.opencodeModels.count > 0 ? 50 + OpenCodeUsageState.opencodeModels.count * 20 : 0)
         return Math.min(800, h)
     }
 
-    // --- Helpers ---
-
-    function formatTokens(n) {
-        if (n >= 1000000000) return (n / 1000000000).toFixed(1) + "B"
-        if (n >= 1000000) return (n / 1000000).toFixed(1) + "M"
-        if (n >= 1000) return (n / 1000).toFixed(1) + "K"
-        return Math.round(n).toString()
-    }
-
-    function shortModelName(name) {
-        if (!name || name.length === 0) return name
-        return name.charAt(0).toUpperCase() + name.slice(1)
-    }
-
-    function progressColor(pct) {
-        if (pct > 80) return Theme.error
-        if (pct > 50) return Theme.warning
-        return Theme.primary
-    }
-
+    // EUR-aware cost formatting (needs lang context)
     function formatCost(usd) {
-        var useEur = lang === "fr" && usdEurRate > 0
-        var n = useEur ? usd * usdEurRate : usd
+        var useEur = lang === "fr" && OpenCodeUsageState.usdEurRate > 0
+        var n = useEur ? usd * OpenCodeUsageState.usdEurRate : usd
         var sym = useEur ? "" : "$"
         var suffix = useEur ? " \u20ac" : ""
         if (n >= 1000) return sym + (n / 1000).toFixed(1) + "K" + suffix
@@ -178,167 +56,21 @@ PluginComponent {
         return sym + n.toFixed(2) + suffix
     }
 
-    function formatTier(tier) {
-        if (tier.indexOf("max_20x") >= 0) return "Max 20x"
-        if (tier.indexOf("max_5x") >= 0) return "Max 5x"
-        if (tier.indexOf("pro") >= 0) return "Pro"
-        if (tier.indexOf("free") >= 0) return "Free"
-        return tier
-    }
-
-    function fillModelList(listModel, val) {
-        listModel.clear()
-        if (val && val.length > 0) {
-            var pairs = val.split(",")
-            for (var i = 0; i < pairs.length; i++) {
-                var kv = pairs[i].split(":")
-                if (kv.length === 2)
-                    listModel.append({ modelName: kv[0], modelTokens: parseInt(kv[1]) || 0 })
-            }
-        }
-    }
-
-    function parseArray(val) {
-        var parts = val.split(",")
-        var arr = []
-        for (var j = 0; j < 7; j++)
-            arr.push(j < parts.length ? (parseFloat(parts[j]) || 0) : 0)
-        return arr
-    }
-
     function updateTabs() {
         tabModel.clear()
-        tabModel.append({ label: tr("Anthropic"), icon: "smart_toy", available: !!(root.rateLimitTier || root.anthropicWeekTokens > 0 || root.fiveHourUtil > 0) })
-        tabModel.append({ label: tr("Gemini"), icon: "auto_awesome", available: root.geminiWeekTokens > 0 })
-        tabModel.append({ label: tr("OpenCode"), icon: "code", available: root.opencodeWeekTokens > 0 })
-        if (tabModel.count > 0 && !tabModel.get(root.selectedTab).available) {
+        tabModel.append({ label: tr("Anthropic"), icon: "smart_toy", available: !!(OpenCodeUsageState.rateLimitTier || OpenCodeUsageState.anthropicWeekTokens > 0 || OpenCodeUsageState.fiveHourUtil > 0) })
+        tabModel.append({ label: tr("Gemini"), icon: "auto_awesome", available: OpenCodeUsageState.geminiWeekTokens > 0 })
+        tabModel.append({ label: tr("OpenCode"), icon: "code", available: OpenCodeUsageState.opencodeWeekTokens > 0 })
+        if (tabModel.count > 0 && !tabModel.get(OpenCodeUsageState.selectedTab).available) {
             for (var i = 0; i < tabModel.count; i++) {
-                if (tabModel.get(i).available) { root.selectedTab = i; break }
+                if (tabModel.get(i).available) { OpenCodeUsageState.selectedTab = i; break }
             }
         }
     }
 
-    function parseLine(line) {
-        var idx = line.indexOf("=")
-        if (idx < 0) return
-        var key = line.substring(0, idx)
-        var val = line.substring(idx + 1)
-
-        switch (key) {
-        case "SUBSCRIPTION_TYPE": root.subscriptionType = val; break
-        case "RATE_LIMIT_TIER": root.rateLimitTier = val; break
-        case "FIVE_HOUR_UTIL": root.fiveHourUtil = parseFloat(val) || 0; break
-        case "FIVE_HOUR_RESET": root.fiveHourReset = val; break
-        case "SEVEN_DAY_UTIL": root.sevenDayUtil = parseFloat(val) || 0; break
-        case "SEVEN_DAY_RESET": root.sevenDayReset = val; break
-        case "EXTRA_USAGE_ENABLED": break
-        case "DATA_STALE": root.dataStale = val === "true"; break
-        case "CACHE_AGE": break
-        case "WEEK_MESSAGES": root.weekMessages = parseInt(val) || 0; break
-        case "WEEK_SESSIONS": root.weekSessions = parseInt(val) || 0; break
-        case "ALLTIME_SESSIONS": root.alltimeSessions = parseInt(val) || 0; break
-        case "ALLTIME_MESSAGES": root.alltimeMessages = parseInt(val) || 0; break
-        case "FIRST_SESSION": root.firstSession = val; break
-        case "USD_EUR_RATE": root.usdEurRate = parseFloat(val) || 0; break
-        
-        case "ANTHROPIC_WEEK_TOKENS": root.anthropicWeekTokens = parseFloat(val) || 0; break
-        case "ANTHROPIC_MONTH_TOKENS": root.anthropicMonthTokens = parseFloat(val) || 0; break
-        case "ANTHROPIC_TODAY_COST": root.anthropicTodayCost = parseFloat(val) || 0; break
-        case "ANTHROPIC_WEEK_COST": root.anthropicWeekCost = parseFloat(val) || 0; break
-        case "ANTHROPIC_MONTH_COST": root.anthropicMonthCost = parseFloat(val) || 0; break
-        case "ANTHROPIC_DAILY": root.anthropicDaily = parseArray(val); break
-        case "ANTHROPIC_DAILY_COSTS": root.anthropicDailyCosts = parseArray(val); break
-        case "ANTHROPIC_MODELS": fillModelList(anthropicModels, val); break
-        
-        case "GEMINI_WEEK_TOKENS": root.geminiWeekTokens = parseFloat(val) || 0; break
-        case "GEMINI_MONTH_TOKENS": root.geminiMonthTokens = parseFloat(val) || 0; break
-        case "GEMINI_TODAY_COST": root.geminiTodayCost = parseFloat(val) || 0; break
-        case "GEMINI_WEEK_COST": root.geminiWeekCost = parseFloat(val) || 0; break
-        case "GEMINI_MONTH_COST": root.geminiMonthCost = parseFloat(val) || 0; break
-        case "GEMINI_DAILY": root.geminiDaily = parseArray(val); break
-        case "GEMINI_DAILY_COSTS": root.geminiDailyCosts = parseArray(val); break
-        case "GEMINI_MODELS": fillModelList(geminiModels, val); break
-        
-        case "OPENCODE_WEEK_TOKENS": root.opencodeWeekTokens = parseFloat(val) || 0; break
-        case "OPENCODE_MONTH_TOKENS": root.opencodeMonthTokens = parseFloat(val) || 0; break
-        case "OPENCODE_TODAY_COST": root.opencodeTodayCost = parseFloat(val) || 0; break
-        case "OPENCODE_WEEK_COST": root.opencodeWeekCost = parseFloat(val) || 0; break
-        case "OPENCODE_MONTH_COST": root.opencodeMonthCost = parseFloat(val) || 0; break
-        case "OPENCODE_DAILY": root.opencodeDaily = parseArray(val); break
-        case "OPENCODE_DAILY_COSTS": root.opencodeDailyCosts = parseArray(val); break
-        case "OPENCODE_MODELS": fillModelList(opencodeModels, val); break
-        }
-    }
-
-    // Claude auth login state
-    property bool claudeAuthRunning: false
-
-    Process {
-        id: claudeAuthProcess
-        command: ["kitty", "--hold", "-e", "opencode", "auth", "login"]
-        running: false
-        onStarted: root.claudeAuthRunning = true
-        onExited: (exitCode, exitStatus) => {
-            root.claudeAuthRunning = false
-            root.isLoading = true
-            if (!forceRefreshProcess.running)
-                forceRefreshProcess.running = true
-        }
-    }
-
-    // --- Data fetching ---
-
-    Process {
-        id: usageProcess
-        command: ["bash", root.scriptPath, String(Math.floor(root.refreshInterval / 1000))]
-        running: false
-
-        stdout: SplitParser {
-            onRead: data => root.parseLine(data.trim())
-        }
-
-        onExited: (exitCode, exitStatus) => {
-            root.isLoading = false
-            if (exitCode === 0) {
-                root.refreshEpoch++
-                root.updateTabs()
-            }
-        }
-    }
-
-    Process {
-        id: forceRefreshProcess
-        command: ["bash", root.scriptPath, "0"]
-        running: false
-
-        stdout: SplitParser {
-            onRead: data => root.parseLine(data.trim())
-        }
-
-        onExited: (exitCode, exitStatus) => {
-            root.isLoading = false
-            if (exitCode === 0) {
-                root.refreshEpoch++
-                root.updateTabs()
-            }
-        }
-    }
-
-    Timer {
-        interval: root.refreshInterval
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: {
-            if (!usageProcess.running)
-                usageProcess.running = true
-        }
-    }
+    onRefreshEpochChanged: updateTabs()
 
     // --- Taskbar pills ---
-
-    // True when no provider data is available (after initial load)
-    property bool noProviderData: !isLoading && rateLimitTier === "" && anthropicMonthTokens <= 0 && geminiMonthTokens <= 0 && opencodeMonthTokens <= 0
 
     horizontalBarPill: Component {
         Row {
@@ -350,21 +82,21 @@ PluginComponent {
                 size: 14
                 color: Theme.surfaceVariantText
                 anchors.verticalCenter: parent.verticalCenter
-                visible: root.noProviderData
+                visible: OpenCodeUsageState.noProviderData
             }
 
             // Anthropic
             Row {
                 spacing: Theme.spacingXS
                 anchors.verticalCenter: parent.verticalCenter
-                visible: root.fiveHourUtil > 0 || root.rateLimitTier !== ""
+                visible: OpenCodeUsageState.fiveHourUtil > 0 || OpenCodeUsageState.rateLimitTier !== ""
 
                 DankIcon {
                     name: "warning"
                     size: 12
                     color: Theme.warning
                     anchors.verticalCenter: parent.verticalCenter
-                    visible: root.dataStale
+                    visible: OpenCodeUsageState.dataStale
                 }
 
                 Canvas {
@@ -374,7 +106,7 @@ PluginComponent {
                     anchors.verticalCenter: parent.verticalCenter
                     renderStrategy: Canvas.Cooperative
 
-                    property real percent: root.fiveHourUtil
+                    property real percent: OpenCodeUsageState.fiveHourUtil
                     onPercentChanged: requestPaint()
 
                     onPaint: {
@@ -393,7 +125,7 @@ PluginComponent {
                             ctx.beginPath()
                             ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * Math.min(pct, 1))
                             ctx.lineWidth = lw
-                            ctx.strokeStyle = root.progressColor(percent)
+                            ctx.strokeStyle = OpenCodeUsageState.progressColor(percent)
                             ctx.lineCap = "round"
                             ctx.stroke()
                         }
@@ -401,15 +133,15 @@ PluginComponent {
                 }
 
                 StyledText {
-                    text: root.fiveHourUtil < 0 ? "N/A" : Math.round(root.fiveHourUtil) + "%"
+                    text: OpenCodeUsageState.fiveHourUtil < 0 ? "N/A" : Math.round(OpenCodeUsageState.fiveHourUtil) + "%"
                     font.pixelSize: Theme.fontSizeSmall
-                    color: root.fiveHourUtil < 0 ? Theme.surfaceVariantText : Theme.surfaceText
+                    color: OpenCodeUsageState.fiveHourUtil < 0 ? Theme.surfaceVariantText : Theme.surfaceText
                     anchors.verticalCenter: parent.verticalCenter
                 }
 
                 StyledText {
-                    text: root.fiveHourCountdown ? "\u00b7 " + root.fiveHourCountdown : ""
-                    visible: root.fiveHourCountdown !== ""
+                    text: OpenCodeUsageState.fiveHourCountdown ? "\u00b7 " + OpenCodeUsageState.fiveHourCountdown : ""
+                    visible: OpenCodeUsageState.fiveHourCountdown !== ""
                     font.pixelSize: 9
                     color: Theme.surfaceVariantText
                     anchors.verticalCenter: parent.verticalCenter
@@ -420,7 +152,7 @@ PluginComponent {
             Row {
                 spacing: Theme.spacingXS
                 anchors.verticalCenter: parent.verticalCenter
-                visible: root.geminiWeekTokens > 0
+                visible: OpenCodeUsageState.geminiWeekTokens > 0
 
                 DankIcon {
                     name: "smart_toy"
@@ -430,7 +162,7 @@ PluginComponent {
                 }
 
                 StyledText {
-                    text: root.formatCost(root.geminiTodayCost)
+                    text: formatCost(OpenCodeUsageState.geminiTodayCost)
                     font.pixelSize: Theme.fontSizeSmall
                     color: Theme.surfaceText
                     anchors.verticalCenter: parent.verticalCenter
@@ -441,7 +173,7 @@ PluginComponent {
             Row {
                 spacing: Theme.spacingXS
                 anchors.verticalCenter: parent.verticalCenter
-                visible: root.opencodeWeekTokens > 0
+                visible: OpenCodeUsageState.opencodeWeekTokens > 0
 
                 DankIcon {
                     name: "code"
@@ -451,7 +183,7 @@ PluginComponent {
                 }
 
                 StyledText {
-                    text: root.formatTokens(root.opencodeWeekTokens)
+                    text: OpenCodeUsageState.formatTokens(OpenCodeUsageState.opencodeWeekTokens)
                     font.pixelSize: Theme.fontSizeSmall
                     color: Theme.surfaceText
                     anchors.verticalCenter: parent.verticalCenter
@@ -470,21 +202,21 @@ PluginComponent {
                 size: 14
                 color: Theme.surfaceVariantText
                 anchors.horizontalCenter: parent.horizontalCenter
-                visible: root.noProviderData
+                visible: OpenCodeUsageState.noProviderData
             }
 
             // Anthropic
             Column {
                 spacing: Theme.spacingXS || 4
                 anchors.horizontalCenter: parent.horizontalCenter
-                visible: root.fiveHourUtil > 0 || root.rateLimitTier !== ""
+                visible: OpenCodeUsageState.fiveHourUtil > 0 || OpenCodeUsageState.rateLimitTier !== ""
 
                 DankIcon {
                     name: "warning"
                     size: 12
                     color: Theme.warning
                     anchors.horizontalCenter: parent.horizontalCenter
-                    visible: root.dataStale
+                    visible: OpenCodeUsageState.dataStale
                 }
 
                 Canvas {
@@ -494,7 +226,7 @@ PluginComponent {
                     anchors.horizontalCenter: parent.horizontalCenter
                     renderStrategy: Canvas.Cooperative
 
-                    property real percent: root.fiveHourUtil
+                    property real percent: OpenCodeUsageState.fiveHourUtil
                     onPercentChanged: requestPaint()
 
                     onPaint: {
@@ -513,7 +245,7 @@ PluginComponent {
                             ctx.beginPath()
                             ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * Math.min(pct, 1))
                             ctx.lineWidth = lw
-                            ctx.strokeStyle = root.progressColor(percent)
+                            ctx.strokeStyle = OpenCodeUsageState.progressColor(percent)
                             ctx.lineCap = "round"
                             ctx.stroke()
                         }
@@ -521,15 +253,15 @@ PluginComponent {
                 }
 
                 StyledText {
-                    text: root.fiveHourUtil < 0 ? "N/A" : Math.round(root.fiveHourUtil) + "%"
+                    text: OpenCodeUsageState.fiveHourUtil < 0 ? "N/A" : Math.round(OpenCodeUsageState.fiveHourUtil) + "%"
                     font.pixelSize: Theme.fontSizeSmall
-                    color: root.fiveHourUtil < 0 ? Theme.surfaceVariantText : Theme.surfaceText
+                    color: OpenCodeUsageState.fiveHourUtil < 0 ? Theme.surfaceVariantText : Theme.surfaceText
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
 
                 StyledText {
-                    text: root.fiveHourCountdown || ""
-                    visible: root.fiveHourCountdown !== ""
+                    text: OpenCodeUsageState.fiveHourCountdown || ""
+                    visible: OpenCodeUsageState.fiveHourCountdown !== ""
                     font.pixelSize: 9
                     color: Theme.surfaceVariantText
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -540,7 +272,7 @@ PluginComponent {
             Column {
                 spacing: Theme.spacingXS || 4
                 anchors.horizontalCenter: parent.horizontalCenter
-                visible: root.geminiWeekTokens > 0
+                visible: OpenCodeUsageState.geminiWeekTokens > 0
 
                 DankIcon {
                     name: "smart_toy"
@@ -550,7 +282,7 @@ PluginComponent {
                 }
 
                 StyledText {
-                    text: root.formatCost(root.geminiTodayCost)
+                    text: formatCost(OpenCodeUsageState.geminiTodayCost)
                     font.pixelSize: Theme.fontSizeSmall
                     color: Theme.surfaceText
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -561,7 +293,7 @@ PluginComponent {
             Column {
                 spacing: Theme.spacingXS || 4
                 anchors.horizontalCenter: parent.horizontalCenter
-                visible: root.opencodeWeekTokens > 0
+                visible: OpenCodeUsageState.opencodeWeekTokens > 0
 
                 DankIcon {
                     name: "code"
@@ -571,7 +303,7 @@ PluginComponent {
                 }
 
                 StyledText {
-                    text: root.formatTokens(root.opencodeWeekTokens)
+                    text: OpenCodeUsageState.formatTokens(OpenCodeUsageState.opencodeWeekTokens)
                     font.pixelSize: Theme.fontSizeSmall
                     color: Theme.surfaceText
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -621,7 +353,7 @@ PluginComponent {
         }
         
         StyledText {
-            text: root.formatTokens(monthTokens) + " \u2022 " + root.formatCost(monthCost) + " / " + root.tr("Month")
+            text: OpenCodeUsageState.formatTokens(monthTokens) + " \u2022 " + formatCost(monthCost) + " / " + root.tr("Month")
             font.pixelSize: Theme.fontSizeSmall
             color: Theme.surfaceVariantText
         }
@@ -652,14 +384,14 @@ PluginComponent {
                             anchors.horizontalCenter: parent.horizontalCenter
                         }
                         StyledText {
-                            text: root.formatTokens(dailyTokens[root.todayIndex])
+                            text: OpenCodeUsageState.formatTokens(dailyTokens[OpenCodeUsageState.todayIndex])
                             font.pixelSize: Theme.fontSizeLarge
                             font.weight: Font.DemiBold
                             color: Theme.primary
                             anchors.horizontalCenter: parent.horizontalCenter
                         }
                         StyledText {
-                            text: root.formatCost(todayCost)
+                            text: formatCost(todayCost)
                             font.pixelSize: Theme.fontSizeSmall
                             color: Theme.surfaceVariantText
                             anchors.horizontalCenter: parent.horizontalCenter
@@ -678,14 +410,14 @@ PluginComponent {
                             anchors.horizontalCenter: parent.horizontalCenter
                         }
                         StyledText {
-                            text: root.formatTokens(weekTokens)
+                            text: OpenCodeUsageState.formatTokens(weekTokens)
                             font.pixelSize: Theme.fontSizeLarge
                             font.weight: Font.DemiBold
                             color: Theme.surfaceText
                             anchors.horizontalCenter: parent.horizontalCenter
                         }
                         StyledText {
-                            text: root.formatCost(weekCost)
+                            text: formatCost(weekCost)
                             font.pixelSize: Theme.fontSizeSmall
                             color: Theme.surfaceVariantText
                             anchors.horizontalCenter: parent.horizontalCenter
@@ -745,7 +477,7 @@ PluginComponent {
                                         radius: 2
                                         color: index === hoverDayProp
                                             ? Theme.primary
-                                            : index === root.todayIndex ? Theme.primary : Theme.surfaceVariant
+                                            : index === OpenCodeUsageState.todayIndex ? Theme.primary : Theme.surfaceVariant
                                         opacity: hoverDayProp >= 0 && index !== hoverDayProp ? 0.4 : 1.0
 
                                         Behavior on opacity {
@@ -768,7 +500,7 @@ PluginComponent {
                                     font.pixelSize: 10
                                     color: index === hoverDayProp
                                         ? Theme.primary
-                                        : index === root.todayIndex ? Theme.primary : Theme.surfaceVariantText
+                                        : index === OpenCodeUsageState.todayIndex ? Theme.primary : Theme.surfaceVariantText
                                     anchors.horizontalCenter: parent.horizontalCenter
                                 }
                             }
@@ -803,7 +535,7 @@ PluginComponent {
                     spacing: 1
 
                     StyledText {
-                        text: hoverDayProp >= 0 ? root.formatTokens(dailyTokens[hoverDayProp]) : ""
+                        text: hoverDayProp >= 0 ? OpenCodeUsageState.formatTokens(dailyTokens[hoverDayProp]) : ""
                         font.pixelSize: 11
                         font.weight: Font.DemiBold
                         color: Theme.surfaceText
@@ -812,7 +544,7 @@ PluginComponent {
 
                     StyledText {
                         visible: hoverDayProp >= 0 && dailyCosts[hoverDayProp] > 0
-                        text: hoverDayProp >= 0 ? root.formatCost(dailyCosts[hoverDayProp]) : ""
+                        text: hoverDayProp >= 0 ? formatCost(dailyCosts[hoverDayProp]) : ""
                         font.pixelSize: 11
                         color: Theme.surfaceVariantText
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -857,12 +589,12 @@ PluginComponent {
                                 spacing: Theme.spacingXS
 
                                 StyledText {
-                                    text: root.shortModelName(modelName)
+                                    text: OpenCodeUsageState.shortModelName(modelName)
                                     font.pixelSize: Theme.fontSizeSmall
                                     color: Theme.surfaceText
                                 }
                                 StyledText {
-                                    text: root.formatTokens(modelTokens)
+                                    text: OpenCodeUsageState.formatTokens(modelTokens)
                                     font.pixelSize: Theme.fontSizeSmall
                                     color: Theme.surfaceVariantText
                                 }
@@ -897,9 +629,9 @@ PluginComponent {
             headerText: root.tr("OpenCode Usage")
             detailsText: {
                 var parts = []
-                if (root.rateLimitTier) parts.push(root.tr("Anthropic") + " \u00b7 " + root.formatTier(root.rateLimitTier))
-                if (root.geminiMonthTokens > 0) parts.push(root.tr("Gemini"))
-                if (root.opencodeMonthTokens > 0) parts.push(root.tr("OpenCode"))
+                if (OpenCodeUsageState.rateLimitTier) parts.push(root.tr("Anthropic") + " \u00b7 " + OpenCodeUsageState.formatTier(OpenCodeUsageState.rateLimitTier))
+                if (OpenCodeUsageState.geminiMonthTokens > 0) parts.push(root.tr("Gemini"))
+                if (OpenCodeUsageState.opencodeMonthTokens > 0) parts.push(root.tr("OpenCode"))
                 return parts.join("  |  ")
             }
             showCloseButton: true
@@ -936,11 +668,11 @@ PluginComponent {
                                 DankIcon {
                                     name: "refresh"
                                     size: 14
-                                    color: root.isLoading ? Theme.primary : Theme.surfaceVariantText
+                                    color: OpenCodeUsageState.isLoading ? Theme.primary : Theme.surfaceVariantText
                                     anchors.verticalCenter: parent.verticalCenter
 
                                     RotationAnimation on rotation {
-                                        running: root.isLoading
+                                        running: OpenCodeUsageState.isLoading
                                         from: 0
                                         to: 360
                                         duration: 1000
@@ -949,7 +681,7 @@ PluginComponent {
                                 }
 
                                 StyledText {
-                                    text: root.isLoading ? root.tr("Refreshing...") : root.tr("Refresh")
+                                    text: OpenCodeUsageState.isLoading ? root.tr("Refreshing...") : root.tr("Refresh")
                                     font.pixelSize: Theme.fontSizeSmall
                                     color: Theme.surfaceVariantText
                                     anchors.verticalCenter: parent.verticalCenter
@@ -961,11 +693,11 @@ PluginComponent {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                enabled: !root.isLoading
+                                enabled: !OpenCodeUsageState.isLoading
                                 onClicked: {
-                                    root.isLoading = true
-                                    if (!forceRefreshProcess.running)
-                                        forceRefreshProcess.running = true
+                                    OpenCodeUsageState.isLoading = true
+                                    if (!OpenCodeUsageState.forceRefreshProcess.running)
+                                        OpenCodeUsageState.forceRefreshProcess.running = true
                                 }
                             }
                         }
@@ -976,7 +708,7 @@ PluginComponent {
                         width: parent.width
                         height: authWarningCol.implicitHeight + Theme.spacingM * 2
                         color: Theme.surfaceContainerHigh
-                        visible: root.noProviderData
+                        visible: OpenCodeUsageState.noProviderData
 
                         Column {
                             id: authWarningCol
@@ -1014,11 +746,11 @@ PluginComponent {
 
                             DankButton {
                                 width: parent.width
-                                text: root.claudeAuthRunning ? root.tr("Running...") : root.tr("opencode auth login")
-                                enabled: !root.claudeAuthRunning
+                                text: OpenCodeUsageState.claudeAuthRunning ? root.tr("Running...") : root.tr("opencode auth login")
+                                enabled: !OpenCodeUsageState.claudeAuthRunning
                                 onClicked: {
-                                    if (!root.claudeAuthRunning)
-                                        claudeAuthProcess.running = true
+                                    if (!OpenCodeUsageState.claudeAuthRunning)
+                                        OpenCodeUsageState.claudeAuthProcess.running = true
                                 }
                             }
                         }
@@ -1029,7 +761,7 @@ PluginComponent {
                         width: parent.width
                         height: staleWarningCol.implicitHeight + Theme.spacingM * 2
                         color: Theme.surfaceContainerHigh
-                        visible: root.dataStale && !root.noProviderData
+                        visible: OpenCodeUsageState.dataStale && !OpenCodeUsageState.noProviderData
 
                         Column {
                             id: staleWarningCol
@@ -1067,11 +799,11 @@ PluginComponent {
 
                             DankButton {
                                 width: parent.width
-                                text: root.claudeAuthRunning ? root.tr("Running...") : root.tr("Re-authenticate")
-                                enabled: !root.claudeAuthRunning
+                                text: OpenCodeUsageState.claudeAuthRunning ? root.tr("Running...") : root.tr("Re-authenticate")
+                                enabled: !OpenCodeUsageState.claudeAuthRunning
                                 onClicked: {
-                                    if (!root.claudeAuthRunning)
-                                        claudeAuthProcess.running = true
+                                    if (!OpenCodeUsageState.claudeAuthRunning)
+                                        OpenCodeUsageState.claudeAuthProcess.running = true
                                 }
                             }
                         }
@@ -1083,14 +815,14 @@ PluginComponent {
                     Row {
                         width: parent.width
                         spacing: 0
-                        visible: !root.noProviderData
+                        visible: !OpenCodeUsageState.noProviderData
 
                         Repeater {
                             model: tabModel
                             delegate: Rectangle {
                                 width: parent.width / tabModel.count
                                 height: 36
-                                color: root.selectedTab === index ? Theme.surfaceContainerHigh : (tabHover.containsMouse ? Theme.surfaceContainerLow : "transparent")
+                                color: OpenCodeUsageState.selectedTab === index ? Theme.surfaceContainerHigh : (tabHover.containsMouse ? Theme.surfaceContainerLow : "transparent")
                                 radius: Theme.cornerRadius
                                 opacity: model.available ? 1.0 : 0.35
 
@@ -1105,15 +837,15 @@ PluginComponent {
                                     DankIcon {
                                         name: model.icon
                                         size: 14
-                                        color: root.selectedTab === index ? Theme.primary : Theme.surfaceVariantText
+                                        color: OpenCodeUsageState.selectedTab === index ? Theme.primary : Theme.surfaceVariantText
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
 
                                     StyledText {
                                         text: model.label
                                         font.pixelSize: Theme.fontSizeSmall
-                                        font.weight: root.selectedTab === index ? Font.DemiBold : Font.Normal
-                                        color: root.selectedTab === index ? Theme.primary : Theme.surfaceVariantText
+                                        font.weight: OpenCodeUsageState.selectedTab === index ? Font.DemiBold : Font.Normal
+                                        color: OpenCodeUsageState.selectedTab === index ? Theme.primary : Theme.surfaceVariantText
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
                                 }
@@ -1124,7 +856,7 @@ PluginComponent {
                                     enabled: model.available
                                     hoverEnabled: model.available
                                     cursorShape: model.available ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                    onClicked: root.selectedTab = index
+                                    onClicked: OpenCodeUsageState.selectedTab = index
                                 }
                             }
                         }
@@ -1134,19 +866,19 @@ PluginComponent {
                     Column {
                         width: parent.width
                         spacing: Theme.spacingM
-                        visible: !root.noProviderData
+                        visible: !OpenCodeUsageState.noProviderData
 
                         // --- Anthropic Tab ---
                         Column {
                             width: parent.width
                             spacing: Theme.spacingM
-                            visible: root.selectedTab === 0
+                            visible: OpenCodeUsageState.selectedTab === 0
 
                             // 5h rate window
                             Column {
                                 width: parent.width
                                 spacing: Theme.spacingM
-                                visible: root.fiveHourUtil !== 0
+                                visible: OpenCodeUsageState.fiveHourUtil !== 0
 
                                 StyledRect {
                                     width: parent.width
@@ -1166,7 +898,7 @@ PluginComponent {
                                             anchors.verticalCenter: parent.verticalCenter
                                             renderStrategy: Canvas.Cooperative
 
-                                            property real percent: root.fiveHourUtil
+                                            property real percent: OpenCodeUsageState.fiveHourUtil
                                             onPercentChanged: requestPaint()
 
                                             onPaint: {
@@ -1185,7 +917,7 @@ PluginComponent {
                                                     ctx.beginPath()
                                                     ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * Math.min(pct, 1))
                                                     ctx.lineWidth = lw
-                                                    ctx.strokeStyle = root.progressColor(percent)
+                                                    ctx.strokeStyle = OpenCodeUsageState.progressColor(percent)
                                                     ctx.lineCap = "round"
                                                     ctx.stroke()
                                                 }
@@ -1193,10 +925,10 @@ PluginComponent {
 
                                             StyledText {
                                                 anchors.centerIn: parent
-                                                text: root.fiveHourUtil < 0 ? "N/A" : Math.round(root.fiveHourUtil) + "%"
+                                                text: OpenCodeUsageState.fiveHourUtil < 0 ? "N/A" : Math.round(OpenCodeUsageState.fiveHourUtil) + "%"
                                                 font.pixelSize: Theme.fontSizeLarge
                                                 font.weight: Font.DemiBold
-                                                color: root.fiveHourUtil < 0 ? Theme.surfaceVariantText : Theme.surfaceText
+                                                color: OpenCodeUsageState.fiveHourUtil < 0 ? Theme.surfaceVariantText : Theme.surfaceText
                                             }
                                         }
 
@@ -1211,9 +943,9 @@ PluginComponent {
                                                 color: Theme.surfaceText
                                             }
                                             StyledText {
-                                                text: root.fiveHourUtil < 0 ? root.tr("Data unavailable") : (root.fiveHourCountdown ? root.tr("Resets in") + " " + root.fiveHourCountdown : root.dataStale ? root.tr("Data outdated") : "")
+                                                text: OpenCodeUsageState.fiveHourUtil < 0 ? root.tr("Data unavailable") : (OpenCodeUsageState.fiveHourCountdown ? root.tr("Resets in") + " " + OpenCodeUsageState.fiveHourCountdown : OpenCodeUsageState.dataStale ? root.tr("Data outdated") : "")
                                                 font.pixelSize: Theme.fontSizeSmall
-                                                color: root.fiveHourUtil < 0 || root.dataStale ? Theme.warning : Theme.surfaceVariantText
+                                                color: OpenCodeUsageState.fiveHourUtil < 0 || OpenCodeUsageState.dataStale ? Theme.warning : Theme.surfaceVariantText
                                             }
                                         }
                                     }
@@ -1221,56 +953,56 @@ PluginComponent {
                             }
 
                             ProviderStats {
-                                visible: root.anthropicMonthTokens > 0 || root.fiveHourUtil > 0
+                                visible: OpenCodeUsageState.anthropicMonthTokens > 0 || OpenCodeUsageState.fiveHourUtil > 0
                                 providerName: root.tr("Anthropic")
-                                weekTokens: root.anthropicWeekTokens
-                                monthTokens: root.anthropicMonthTokens
-                                todayCost: root.anthropicTodayCost
-                                weekCost: root.anthropicWeekCost
-                                monthCost: root.anthropicMonthCost
-                                dailyTokens: root.anthropicDaily
-                                dailyCosts: root.anthropicDailyCosts
-                                maxDaily: root.maxDailyAnthropic
-                                modelsList: anthropicModels
-                                hoverDayProp: root.hoveredDayAnthropic
-                                onDayHovered: function(dayIndex) { root.hoveredDayAnthropic = dayIndex }
+                                weekTokens: OpenCodeUsageState.anthropicWeekTokens
+                                monthTokens: OpenCodeUsageState.anthropicMonthTokens
+                                todayCost: OpenCodeUsageState.anthropicTodayCost
+                                weekCost: OpenCodeUsageState.anthropicWeekCost
+                                monthCost: OpenCodeUsageState.anthropicMonthCost
+                                dailyTokens: OpenCodeUsageState.anthropicDaily
+                                dailyCosts: OpenCodeUsageState.anthropicDailyCosts
+                                maxDaily: OpenCodeUsageState.maxDailyAnthropic
+                                modelsList: OpenCodeUsageState.anthropicModels
+                                hoverDayProp: OpenCodeUsageState.hoveredDayAnthropic
+                                onDayHovered: function(dayIndex) { OpenCodeUsageState.hoveredDayAnthropic = dayIndex }
                             }
                         }
 
                         // --- Gemini Tab ---
                         ProviderStats {
                             width: parent.width
-                            visible: root.selectedTab === 1
+                            visible: OpenCodeUsageState.selectedTab === 1
                             providerName: root.tr("Gemini")
-                            weekTokens: root.geminiWeekTokens
-                            monthTokens: root.geminiMonthTokens
-                            todayCost: root.geminiTodayCost
-                            weekCost: root.geminiWeekCost
-                            monthCost: root.geminiMonthCost
-                            dailyTokens: root.geminiDaily
-                            dailyCosts: root.geminiDailyCosts
-                            maxDaily: root.maxDailyGemini
-                            modelsList: geminiModels
-                            hoverDayProp: root.hoveredDayGemini
-                            onDayHovered: function(dayIndex) { root.hoveredDayGemini = dayIndex }
+                            weekTokens: OpenCodeUsageState.geminiWeekTokens
+                            monthTokens: OpenCodeUsageState.geminiMonthTokens
+                            todayCost: OpenCodeUsageState.geminiTodayCost
+                            weekCost: OpenCodeUsageState.geminiWeekCost
+                            monthCost: OpenCodeUsageState.geminiMonthCost
+                            dailyTokens: OpenCodeUsageState.geminiDaily
+                            dailyCosts: OpenCodeUsageState.geminiDailyCosts
+                            maxDaily: OpenCodeUsageState.maxDailyGemini
+                            modelsList: OpenCodeUsageState.geminiModels
+                            hoverDayProp: OpenCodeUsageState.hoveredDayGemini
+                            onDayHovered: function(dayIndex) { OpenCodeUsageState.hoveredDayGemini = dayIndex }
                         }
 
                         // --- OpenCode Tab ---
                         ProviderStats {
                             width: parent.width
-                            visible: root.selectedTab === 2
+                            visible: OpenCodeUsageState.selectedTab === 2
                             providerName: root.tr("OpenCode")
-                            weekTokens: root.opencodeWeekTokens
-                            monthTokens: root.opencodeMonthTokens
-                            todayCost: root.opencodeTodayCost
-                            weekCost: root.opencodeWeekCost
-                            monthCost: root.opencodeMonthCost
-                            dailyTokens: root.opencodeDaily
-                            dailyCosts: root.opencodeDailyCosts
-                            maxDaily: root.maxDailyOpenCode
-                            modelsList: opencodeModels
-                            hoverDayProp: root.hoveredDayOpenCode
-                            onDayHovered: function(dayIndex) { root.hoveredDayOpenCode = dayIndex }
+                            weekTokens: OpenCodeUsageState.opencodeWeekTokens
+                            monthTokens: OpenCodeUsageState.opencodeMonthTokens
+                            todayCost: OpenCodeUsageState.opencodeTodayCost
+                            weekCost: OpenCodeUsageState.opencodeWeekCost
+                            monthCost: OpenCodeUsageState.opencodeMonthCost
+                            dailyTokens: OpenCodeUsageState.opencodeDaily
+                            dailyCosts: OpenCodeUsageState.opencodeDailyCosts
+                            maxDaily: OpenCodeUsageState.maxDailyOpenCode
+                            modelsList: OpenCodeUsageState.opencodeModels
+                            hoverDayProp: OpenCodeUsageState.hoveredDayOpenCode
+                            onDayHovered: function(dayIndex) { OpenCodeUsageState.hoveredDayOpenCode = dayIndex }
                         }
                     }
 
@@ -1279,7 +1011,7 @@ PluginComponent {
                         width: parent.width
                         height: allTimeRow.implicitHeight + Theme.spacingM * 2
                         color: Theme.surfaceContainerHigh
-                        visible: root.alltimeSessions > 0 || root.alltimeMessages > 0
+                        visible: OpenCodeUsageState.alltimeSessions > 0 || OpenCodeUsageState.alltimeMessages > 0
 
                         Row {
                             id: allTimeRow
@@ -1297,10 +1029,10 @@ PluginComponent {
                             StyledText {
                                 text: {
                                     var parts = []
-                                    if (root.firstSession && root.firstSession !== "unknown")
-                                        parts.push(root.tr("Since") + " " + root.firstSession)
-                                    parts.push(root.alltimeSessions + " " + root.tr("sessions"))
-                                    parts.push(root.alltimeMessages.toLocaleString() + " " + root.tr("msgs"))
+                                    if (OpenCodeUsageState.firstSession && OpenCodeUsageState.firstSession !== "unknown")
+                                        parts.push(root.tr("Since") + " " + OpenCodeUsageState.firstSession)
+                                    parts.push(OpenCodeUsageState.alltimeSessions + " " + root.tr("sessions"))
+                                    parts.push(OpenCodeUsageState.alltimeMessages.toLocaleString() + " " + root.tr("msgs"))
                                     return parts.join("  \u00b7  ")
                                 }
                                 font.pixelSize: Theme.fontSizeSmall
