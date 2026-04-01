@@ -20,6 +20,7 @@ PluginComponent {
 
     property bool showPRs: GitHubNotifierCustomState.asBool(pluginData.showPRs, true)
     property bool showIssues: GitHubNotifierCustomState.asBool(pluginData.showIssues, true)
+    property bool showReviewer: GitHubNotifierCustomState.asBool(pluginData.showReviewer, true)
 
     readonly property int totalCount: (showPRs ? GitHubNotifierCustomState.prCount : 0) + (showIssues ? GitHubNotifierCustomState.issuesCount : 0)
 
@@ -28,13 +29,14 @@ PluginComponent {
         running: true
         repeat: true
         triggeredOnStart: true
-        onTriggered: GitHubNotifierCustomState.refresh(root.ghBinary, root.org, root.showPRs, root.showIssues)
+        onTriggered: GitHubNotifierCustomState.refresh(root.ghBinary, root.org, root.showPRs, root.showIssues, root.showReviewer)
     }
 
-    onGhBinaryChanged: GitHubNotifierCustomState.refresh(root.ghBinary, root.org, root.showPRs, root.showIssues)
-    onOrgChanged: GitHubNotifierCustomState.refresh(root.ghBinary, root.org, root.showPRs, root.showIssues)
-    onShowPRsChanged: GitHubNotifierCustomState.refresh(root.ghBinary, root.org, root.showPRs, root.showIssues)
-    onShowIssuesChanged: GitHubNotifierCustomState.refresh(root.ghBinary, root.org, root.showPRs, root.showIssues)
+    onGhBinaryChanged: GitHubNotifierCustomState.refresh(root.ghBinary, root.org, root.showPRs, root.showIssues, root.showReviewer)
+    onOrgChanged: GitHubNotifierCustomState.refresh(root.ghBinary, root.org, root.showPRs, root.showIssues, root.showReviewer)
+    onShowPRsChanged: GitHubNotifierCustomState.refresh(root.ghBinary, root.org, root.showPRs, root.showIssues, root.showReviewer)
+    onShowIssuesChanged: GitHubNotifierCustomState.refresh(root.ghBinary, root.org, root.showPRs, root.showIssues, root.showReviewer)
+    onShowReviewerChanged: GitHubNotifierCustomState.refresh(root.ghBinary, root.org, root.showPRs, root.showIssues, root.showReviewer)
 
     function openUrl(url) {
         if (!url) return;
