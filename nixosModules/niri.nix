@@ -21,23 +21,26 @@ in
   config = lib.mkIf cfg.niri.enable {
     programs.niri.enable = true;
     programs.niri.package = pkgs.niri;
-    systemd.user.services.niri-flake-polkit = {
-      enable = false;
-    };
+    systemd.user.services.niri-flake-polkit.enable = false;
     security.pam.services.sddm.enableGnomeKeyring = true;
 
-    # Add essential tools for niri
+    # Ensure the GNOME portal backend auto-starts and restarts on crash
+    systemd.user.services.xdg-desktop-portal-gnome = {
+      wantedBy = [ "graphical-session.target" ];
+      serviceConfig = {
+        Restart = "on-failure";
+        RestartSec = 3;
+      };
+    };
+
     environment.systemPackages = with pkgs; [
-      # mako # notification daemon
-      fuzzel # application launcher
-      grimblast # screenshot tool
-      wl-clipboard # clipboard utilities
-      wlr-randr # display management
-      libnotify # provides notify-send
-      xwayland-satellite # X11 support for Wayland
+      fuzzel
+      grimblast
+      wl-clipboard
+      libnotify
+      xwayland-satellite
     ];
 
-    # Add niri cachix
     nix.settings = {
       substituters = [
         "https://cache.nixos.org/"
@@ -65,8 +68,8 @@ in
         - Disables the niri-flake bundled polkit agent (the system polkit handles it)
         - Enables GNOME keyring unlock via SDDM PAM integration
         - Installs essential Wayland utilities: fuzzel (launcher), grimblast (screenshots),
-          wl-clipboard, wlr-randr (display management), libnotify, xwayland-satellite
-          (X11 app compatibility layer)
+          wl-clipboard, libnotify, xwayland-satellite (X11 app compatibility layer)
+        - Ensures the GNOME portal backend auto-starts with the session and restarts on crash
         - Adds the niri.cachix.org binary cache for fast pre-built niri packages
 
         Used on: totoro (primary), nishinoya (primary).
