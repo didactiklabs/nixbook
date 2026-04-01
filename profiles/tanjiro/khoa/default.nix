@@ -12,6 +12,7 @@
     ../../totoro/khoa/thunderbirdConfig.nix
   ];
   home.packages = [
+    pkgs.slack
   ];
   programs = {
     go = {
@@ -47,5 +48,4 @@
       showDock = true;
     };
   };
-
 }
