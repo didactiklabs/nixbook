@@ -132,141 +132,70 @@ in
 
           # Hardens the BPF JIT compiler against JIT spraying attacks.
           # Value 2 = randomise JIT image addresses AND disable unprivileged JIT.
-          # Defends against: JIT spraying — an attacker floods the JIT cache with
-          # shellcode-containing BPF programs to create predictable ROP gadgets.
-          # Side effects: none for normal use; only affects eBPF program compilation.
           "net.core.bpf_jit_harden" = 2;
 
           # Disables acceptance of ICMP redirect messages on all interfaces.
-          # Defends against: ICMP redirect attacks where a rogue router on the local
-          # segment (e.g. coffee-shop WiFi) poisons your routing table to MITM traffic.
-          # Side effects: none — redirects are a legacy mechanism not needed on modern
-          # point-to-point or NATed networks.
           "net.ipv4.conf.all.accept_redirects" = 0;
           "net.ipv4.conf.default.accept_redirects" = 0;
 
           # Disables "secure" ICMP redirects (from known gateways only).
-          # Defends against: same redirect poisoning attack as above; the "secure"
-          # variant is still exploitable if the attacker controls a listed gateway.
-          # Side effects: none.
           "net.ipv4.conf.all.secure_redirects" = 0;
           "net.ipv4.conf.default.secure_redirects" = 0;
 
           # Disables shared-media assumption on interfaces.
-          # Defends against: ARP cache poisoning on non-broadcast links by preventing
-          # the kernel from assuming all peers share the same L2 segment.
-          # Side effects: none on typical Ethernet/WiFi setups.
           "net.ipv4.conf.all.shared_media" = 0;
           "net.ipv4.conf.default.shared_media" = 0;
 
           # Disables IP source routing (loose and strict).
-          # Defends against: source-routed packets that force traffic through an
-          # attacker-controlled path, bypassing firewalls and enabling MITM.
-          # Side effects: none — source routing is unused on modern networks.
           "net.ipv4.conf.all.accept_source_route" = 0;
           "net.ipv4.conf.default.accept_source_route" = 0;
 
-          # Enables ARP filtering: only reply to ARP requests for addresses assigned
-          # to the incoming interface.
-          # Defends against: ARP spoofing and IP address impersonation on multi-homed
-          # hosts (e.g. VPN + WiFi active simultaneously).
-          # Side effects: none on single-interface setups; may affect exotic
-          # multi-homed routing configurations.
+          # Enables ARP filtering: only reply to ARP requests for addresses
+          # assigned to the incoming interface.
           "net.ipv4.conf.all.arp_filter" = 1;
 
-          # Restricts ARP replies to requests targeting the exact address of the
-          # receiving interface (mode 1).
-          # Defends against: ARP-based host enumeration and IP takeover on shared
-          # networks — attackers cannot probe which IPs a multi-homed host owns.
-          # Side effects: none on typical setups; can break certain load-balancing
-          # configurations that rely on gratuitous ARP.
+          # Restricts ARP replies to requests targeting the exact address of
+          # the receiving interface (mode 1).
           "net.ipv4.conf.all.arp_ignore" = 1;
 
-          # Enables reverse-path filtering: drops packets whose source address is
-          # not reachable via the interface they arrived on.
-          # Defends against: IP spoofing and asymmetric routing exploits; packets
-          # with forged source IPs are silently dropped.
-          # Side effects: can break asymmetric routing setups (e.g. policy routing,
-          # some VPN split-tunnel configs). Set to 2 (loose) if that's a problem.
+          # Enables reverse-path filtering (strict mode).
           "net.ipv4.conf.default.rp_filter" = 1;
           "net.ipv4.conf.all.rp_filter" = 1;
 
           # Prevents the kernel from sending ICMP redirects to other hosts.
-          # Defends against: this host being abused as a redirect source in a
-          # multi-stage MITM attack; also avoids leaking network topology.
-          # Side effects: none — only routers need to send redirects.
           "net.ipv4.conf.default.send_redirects" = 0;
           "net.ipv4.conf.all.send_redirects" = 0;
 
-          # Silently discards ICMP error responses that violate RFC 1122
-          # (e.g. broadcast/multicast source addresses).
-          # Defends against: ICMP-based network mapping and some DoS amplification
-          # techniques that abuse malformed error messages.
-          # Side effects: none.
+          # Silently discards bogus ICMP error responses (RFC 1122).
           "net.ipv4.icmp_ignore_bogus_error_responses" = 1;
 
           # Protects against TCP TIME-WAIT assassination (RFC 1337).
-          # Defends against: an attacker sending forged RST/SYN packets to tear down
-          # or hijack connections in TIME-WAIT state.
-          # Side effects: none.
           "net.ipv4.tcp_rfc1337" = 1;
 
           # Prevents suid/sgid processes from dumping core files.
-          # Defends against: core dumps of privileged processes leaking secrets
-          # (private keys, passwords, tokens) into world-readable files.
-          # Side effects: you cannot post-mortem debug a crashed suid binary without
-          # temporarily setting this to 1 as root.
           "fs.suid_dumpable" = 0;
 
-          # Restricts creation of FIFOs in world-writable sticky directories
-          # (e.g. /tmp) to the directory owner or the FIFO owner only.
-          # Defends against: FIFO-based privilege escalation where an attacker
-          # pre-creates a named pipe in /tmp waiting for a privileged process to
-          # open it (classic tmp-race attacks).
-          # Side effects: none for normal use.
+          # Restricts creation of FIFOs in world-writable sticky directories.
           "fs.protected_fifos" = 2;
 
-          # Same restriction as protected_fifos but for regular files.
-          # Defends against: an attacker pre-creating a file in /tmp with a name a
-          # privileged process will later open for writing (e.g. log files, lock files).
-          # Side effects: none for normal use.
+          # Restricts creation of regular files in world-writable sticky directories.
           "fs.protected_regular" = 2;
 
           # Prevents creating hard links to files you do not own.
-          # Defends against: hardlink-based privilege escalation where an attacker
-          # creates a hard link to a suid binary inside a writable directory and waits
-          # for a race condition to exploit it.
-          # Side effects: none — legitimate hard links are always to files you own.
           "fs.protected_hardlinks" = 1;
 
-          # Prevents following symlinks in world-writable sticky directories unless
-          # the symlink owner matches the follower or the directory owner.
-          # Defends against: symlink-based TOCTOU attacks in /tmp (e.g. a process
-          # checks a path then a symlink is swapped in before the privileged open).
-          # Side effects: none for normal use; exotic setups that rely on cross-owner
-          # symlinks in /tmp may break.
+          # Prevents following symlinks in world-writable sticky directories
+          # unless the symlink owner matches the follower or directory owner.
           "fs.protected_symlinks" = 1;
 
-          # Restricts ptrace(2) to processes in a parent-child relationship (scope 1).
-          # Defends against: a compromised or malicious process attaching a debugger
-          # to your browser, password manager, or SSH agent to extract secrets from
-          # their memory without any privilege escalation.
-          # Side effects: `strace`/`gdb` on an already-running process requires root
-          # or that the target process is a direct child. Launching `gdb ./program`
-          # normally is unaffected.
+          # Restricts ptrace(2) to processes in a parent-child relationship.
           "kernel.yama.ptrace_scope" = 1;
 
-          # IPv6: disables ICMP redirect acceptance (mirrors IPv4 settings above).
-          # Defends against: the same redirect-poisoning attack on IPv6 networks —
-          # particularly relevant on dual-stack WiFi (hotels, conferences).
-          # Side effects: none.
+          # IPv6: disables ICMP redirect acceptance.
           "net.ipv6.conf.all.accept_redirects" = 0;
           "net.ipv6.conf.default.accept_redirects" = 0;
 
-          # IPv6: disables source routing (mirrors IPv4 settings above).
-          # Defends against: source-routed IPv6 packets forcing traffic through an
-          # attacker-controlled path.
-          # Side effects: none.
+          # IPv6: disables source routing.
           "net.ipv6.conf.all.accept_source_route" = 0;
           "net.ipv6.conf.default.accept_source_route" = 0;
         };

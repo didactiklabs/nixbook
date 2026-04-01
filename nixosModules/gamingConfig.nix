@@ -53,37 +53,40 @@ in
         enable32Bit = true;
       };
     };
+    boot = {
+      # --- AMD GPU boot parameters (from Jovian steamos/boot.nix) ---
+      kernelParams = [
+        # Increase kernel log buffer for GPU driver debug traces
+        "log_buf_len=4M"
 
-    # --- AMD GPU boot parameters (from Jovian steamos/boot.nix) ---
-    boot.kernelParams = [
-      # Increase kernel log buffer for GPU driver debug traces
-      "log_buf_len=4M"
+        # Bypass IOMMU for lower latency GPU access
+        "amd_iommu=off"
 
-      # Bypass IOMMU for lower latency GPU access
-      "amd_iommu=off"
+        # Valve-tuned TDR timeouts per ring:
+        #   GFX 5s, Compute 10s, SDMA 10s, Video 5s
+        "amdgpu.lockup_timeout=5000,10000,10000,5000"
 
-      # Valve-tuned TDR timeouts per ring:
-      #   GFX 5s, Compute 10s, SDMA 10s, Video 5s
-      "amdgpu.lockup_timeout=5000,10000,10000,5000"
+        # 8 GB TTM page pool (in 4K pages) -- minimum for decent gaming perf
+        "ttm.pages_min=2097152"
 
-      # 8 GB TTM page pool (in 4K pages) -- minimum for decent gaming perf
-      "ttm.pages_min=2097152"
+        # Raise hw submission queue depth to avoid GPU work bubbles
+        # 4 is the max supported across RDNA2 + RDNA3
+        "amdgpu.sched_hw_submission=4"
 
-      # Raise hw submission queue depth to avoid GPU work bubbles
-      # 4 is the max supported across RDNA2 + RDNA3
-      "amdgpu.sched_hw_submission=4"
+        # Work around black/white flashes when showing/hiding planes
+        "amdgpu.dcdebugmask=0x20000"
 
-      # Work around black/white flashes when showing/hiding planes
-      "amdgpu.dcdebugmask=0x20000"
+        # Disable kernel audit subsystem (not needed for gaming, saves cycles)
+        "audit=0"
+      ];
 
-      # Disable kernel audit subsystem (not needed for gaming, saves cycles)
-      "audit=0"
-    ];
+      # --- Early AMD GPU modesetting (from Jovian hardware/amd) ---
+      kernelModules = [ "ntsync" ];
 
-    # --- Early AMD GPU modesetting (from Jovian hardware/amd) ---
-    boot.initrd.kernelModules = [
-      "amdgpu"
-    ];
+      initrd.kernelModules = [
+        "amdgpu"
+      ];
+    };
 
     # --- Controller udev rules (from Jovian steamdeck/controller.nix) ---
     services.udev.extraRules = lib.optionalString (!config.hardware.steam-hardware.enable) ''
