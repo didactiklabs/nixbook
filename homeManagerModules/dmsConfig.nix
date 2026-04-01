@@ -259,6 +259,9 @@
         sathiAi = {
           enable = true;
         };
+        audioInhibit = {
+          enable = true;
+        };
         opencodeUsage = {
           inherit (config.customHomeManagerModules.opencodeConfig) enable;
           src = ../assets/dms/plugins/opencode-usage;
