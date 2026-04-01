@@ -17,7 +17,7 @@ PluginSettings {
 
     StyledText {
         width: parent.width
-        text: "Shows open PRs authored by you and issues assigned to you. Requires the gh CLI authenticated."
+        text: "Shows open PRs authored by or awaiting review from you, and issues assigned to you. Requires the gh CLI authenticated."
         font.pixelSize: Theme.fontSizeSmall
         color: Theme.surfaceVariantText
         wrapMode: Text.WordWrap
@@ -72,6 +72,17 @@ PluginSettings {
         settingKey: "showIssues"
         label: "Count Issues"
         description: "Include open issues assigned to you."
+        options: [
+            {label: "Yes", value: "true"},
+            {label: "No", value: "false"}
+        ]
+        defaultValue: "true"
+    }
+
+    SelectionSetting {
+        settingKey: "showReviewer"
+        label: "Count Review Requests"
+        description: "Include open PRs where you are requested as a reviewer."
         options: [
             {label: "Yes", value: "true"},
             {label: "No", value: "false"}

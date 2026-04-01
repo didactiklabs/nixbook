@@ -85,13 +85,46 @@ QtObject {
         } catch (e) {}
     }
 
+    function fillItemsFromJsonMerge(listModel, stdout) {
+        const raw = (stdout || "").trim();
+        if (!raw) return;
+
+        try {
+            const data = JSON.parse(raw);
+            if (Array.isArray(data)) {
+                for (var i = 0; i < data.length; i++) {
+                    if (data[i] && typeof data[i] === "object") {
+                        var repo = data[i].repository || {};
+                        var num = data[i].number || 0;
+                        var repoName = repo.nameWithOwner || "";
+                        var exists = false;
+                        for (var j = 0; j < listModel.count; j++) {
+                            if (listModel.get(j).itemNumber === num && listModel.get(j).itemRepo === repoName) {
+                                exists = true;
+                                break;
+                            }
+                        }
+                        if (!exists) {
+                            listModel.append({
+                                itemNumber: num,
+                                itemTitle: data[i].title || "",
+                                itemRepo: repoName
+                            });
+                        }
+                    }
+                }
+            }
+        } catch (e) {}
+    }
+
     // --- Command arguments ---
     property string _ghBinary: ""
     property string _org: ""
     property bool _showPRs: true
     property bool _showIssues: true
+    property bool _showReviewer: true
 
-    function refresh(ghBinary, org, showPRs, showIssues) {
+    function refresh(ghBinary, org, showPRs, showIssues, showReviewer) {
         root.loading = true;
         root.setError("");
         root.ghOk = true;
@@ -100,6 +133,7 @@ QtObject {
         root._org = (org || "").trim();
         root._showPRs = showPRs;
         root._showIssues = showIssues;
+        root._showReviewer = showReviewer;
 
         ghVersionProcess.command = [ghBinary, "--version"];
         ghVersionProcess.running = true;
@@ -163,7 +197,7 @@ QtObject {
         }
     }
 
-    // gh search prs
+    // gh search prs (author)
     property Process prListProcess: Process {
         command: []
         running: false
@@ -173,8 +207,38 @@ QtObject {
         onExited: (exitCode) => {
             if (exitCode === 0) {
                 root.fillItemsFromJson(root.prItems, prListProcess.stdout.text);
-                root.prCount = root.prItems.count;
             }
+            if (root._showReviewer) {
+                var prBase = [root._ghBinary, "search", "prs", "--reviewer=@me", "--state=open", "--json", "number,title,repository", "--", "archived:false"];
+                if (root._org) prBase.push("--owner=" + root._org);
+                prReviewerListProcess.command = prBase;
+                prReviewerListProcess.running = true;
+            } else {
+                root.prCount = root.prItems.count;
+                if (root._showIssues) {
+                    var issueBase = [root._ghBinary, "search", "issues", "--assignee=@me", "--state=open", "--json", "number,title,repository", "--", "archived:false"];
+                    if (root._org) issueBase.push("--owner=" + root._org);
+                    issueListProcess.command = issueBase;
+                    issueListProcess.running = true;
+                } else {
+                    root.loading = false;
+                }
+            }
+        }
+    }
+
+    // gh search prs (reviewer)
+    property Process prReviewerListProcess: Process {
+        command: []
+        running: false
+
+        stdout: StdioCollector {}
+
+        onExited: (exitCode) => {
+            if (exitCode === 0) {
+                root.fillItemsFromJsonMerge(root.prItems, prReviewerListProcess.stdout.text);
+            }
+            root.prCount = root.prItems.count;
             if (root._showIssues) {
                 var issueBase = [root._ghBinary, "search", "issues", "--assignee=@me", "--state=open", "--json", "number,title,repository", "--", "archived:false"];
                 if (root._org) issueBase.push("--owner=" + root._org);
