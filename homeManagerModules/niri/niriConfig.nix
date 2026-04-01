@@ -21,6 +21,7 @@ let
   '';
 
   wpctl = "${pkgs.wireplumber}/bin/wpctl";
+  pixelateAnimations = import ./pixelateAnimations.nix;
 in
 {
   config = lib.mkIf cfg.niriConfig.enable {
@@ -357,37 +358,13 @@ in
           }
         ];
 
-        animations = {
+        animations = pixelateAnimations.animations // {
           slowdown = 1.0;
-
-          window-open = {
-            kind.spring = {
-              damping-ratio = 0.8;
-              stiffness = 1000;
-              epsilon = 0.0001;
-            };
-          };
-
-          window-close = {
-            kind.spring = {
-              damping-ratio = 0.8;
-              stiffness = 1000;
-              epsilon = 0.0001;
-            };
-          };
 
           horizontal-view-movement = {
             kind.spring = {
               damping-ratio = 1.0;
               stiffness = 800;
-              epsilon = 0.0001;
-            };
-          };
-
-          workspace-switch = {
-            kind.spring = {
-              damping-ratio = 1.0;
-              stiffness = 1000;
               epsilon = 0.0001;
             };
           };
