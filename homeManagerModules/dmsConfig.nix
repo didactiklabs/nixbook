@@ -262,6 +262,9 @@
         audioInhibit = {
           enable = true;
         };
+        discordVoice = {
+          enable = true;
+        };
         opencodeUsage = {
           inherit (config.customHomeManagerModules.opencodeConfig) enable;
           src = ../assets/dms/plugins/opencode-usage;
