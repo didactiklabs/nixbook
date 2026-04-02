@@ -9,7 +9,7 @@ pkgs.buildGoModule rec {
 
   src = jtuiSrc;
 
-  vendorHash = "sha256-bAA8P8PnSXKro51tppx2rCiAJd09q/bgIp4VgW+M6DU=";
+  vendorHash = "sha256-pRTi+xnbDYPZl1EYaaxwe+TymX+Osir5Tg12z128NDs=";
 
   subPackages = [ "." ];
 
