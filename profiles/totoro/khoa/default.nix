@@ -13,6 +13,7 @@
   ];
   home.packages = [
     pkgs.moonlight-qt
+    pkgs.slack
   ];
   programs = {
     go = {
