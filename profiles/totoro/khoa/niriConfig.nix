@@ -81,6 +81,10 @@ in
         open-on-output = "eDP-1";
       }
       {
+        matches = [ { app-id = "^Slack$"; } ];
+        open-on-output = "eDP-1";
+      }
+      {
         matches = [ { title = "^Spotify Premium$"; } ];
         open-on-output = "eDP-1";
       }
