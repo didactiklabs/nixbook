@@ -209,7 +209,7 @@ QtObject {
                 root.fillItemsFromJson(root.prItems, prListProcess.stdout.text);
             }
             if (root._showReviewer) {
-                var prBase = [root._ghBinary, "search", "prs", "--reviewer=@me", "--state=open", "--json", "number,title,repository", "--", "archived:false"];
+                var prBase = [root._ghBinary, "search", "prs", "--review-requested=@me", "--state=open", "--json", "number,title,repository", "--", "archived:false"];
                 if (root._org) prBase.push("--owner=" + root._org);
                 prReviewerListProcess.command = prBase;
                 prReviewerListProcess.running = true;
