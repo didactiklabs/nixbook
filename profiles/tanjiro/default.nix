@@ -41,6 +41,7 @@ in
     firewall.enable = true;
     lanzaboote.enable = true;
   };
+  boot.blacklistedKernelModules = [ "amdxdna" ];
   imports = [
     "${sources.nixos-hardware}/framework/13-inch/amd-ai-300-series"
     (userConfig.mkUser {
