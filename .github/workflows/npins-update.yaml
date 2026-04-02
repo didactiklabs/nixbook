@@ -65,14 +65,15 @@ jobs:
       - name: Assign all org members as reviewers
         if: steps.cpr.outputs.pull-request-operation == 'created'
         run: |
-          MEMBERS=$(gh api orgs/didactiklabs/members --jq '[.[].login]' --paginate)
+          MEMBERS=$(gh api orgs/RPCU/members --jq '[.[].login]' --paginate)
           if [ "$MEMBERS" = "[]" ] || [ -z "$MEMBERS" ]; then
             echo "No org members found, skipping reviewer assignment"
             exit 0
           fi
-          gh api "repos/${{ github.repository }}/pulls/${{ steps.cpr.outputs.pull-request-number }}/requested_reviewers" \
-            --method POST \
-            --field reviewers="$MEMBERS"
+          jq -n --argjson members "$MEMBERS" '{"reviewers": $members}' | \
+            gh api "repos/${{ github.repository }}/pulls/${{ steps.cpr.outputs.pull-request-number }}/requested_reviewers" \
+              --method POST \
+              --input -
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
       - name: Enable Pull Request Automerge
