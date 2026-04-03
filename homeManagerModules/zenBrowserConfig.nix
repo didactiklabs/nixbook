@@ -54,7 +54,8 @@ in
         mods = [
           "3ff55ba7-4690-4f74-96a8-9e4416685e4e" # Colored container tab
           "2317fd93-c3ed-4f37-b55a-304c1816819e" # Audio Indicator Enhanced
-          "1b88a6d1-d931-45e8-b6c3-bfdca2c7e9d6"
+          "1b88a6d1-d931-45e8-b6c3-bfdca2c7e9d6" # remove tab x
+          "72f8f48d-86b9-4487-acea-eb4977b18f21" # better ctrl+tab
         ];
 
         # Containers matching current setup
