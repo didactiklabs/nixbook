@@ -176,43 +176,49 @@ PluginComponent {
             anchors.margins: Theme.spacingXS
             spacing: Theme.spacingM
 
-            Row {
+            Item {
                 width: parent.width
-                spacing: Theme.spacingM
+                height: Math.max(32, headerRow.implicitHeight)
 
-                StyledText {
-                    text: root.faGithubGlyph
-                    font.family: root.faFamily
-                    font.pixelSize: 26
-                    color: Theme.primary
+                Row {
+                    id: headerRow
+                    anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                }
-
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 2
+                    spacing: Theme.spacingM
 
                     StyledText {
-                        text: "GitHub Notifier"
-                        font.bold: true
-                        font.pixelSize: Theme.fontSizeLarge
-                        color: Theme.surfaceText
+                        text: root.faGithubGlyph
+                        font.family: root.faFamily
+                        font.pixelSize: 26
+                        color: Theme.primary
+                        anchors.verticalCenter: parent.verticalCenter
                     }
 
-                    StyledText {
-                        text: root.org ? ("Org: " + root.org) : "All repositories"
-                        font.pixelSize: Theme.fontSizeSmall
-                        color: Theme.surfaceVariantText
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 2
+
+                        StyledText {
+                            text: "GitHub Notifier"
+                            font.bold: true
+                            font.pixelSize: Theme.fontSizeLarge
+                            color: Theme.surfaceText
+                        }
+
+                        StyledText {
+                            text: root.org ? ("Org: " + root.org) : "All repositories"
+                            font.pixelSize: Theme.fontSizeSmall
+                            color: Theme.surfaceVariantText
+                        }
                     }
                 }
-
-                Item { Layout.fillWidth: true; width: 0; height: 1 }
 
                 Rectangle {
                     id: refreshButton
                     width: 32
                     height: 32
                     radius: 16
+                    anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     color: refreshMouse.containsMouse ? Theme.surfaceContainerHighest : "transparent"
 
