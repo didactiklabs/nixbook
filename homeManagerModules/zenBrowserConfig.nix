@@ -37,14 +37,14 @@ in
         DisableTelemetry = true;
         DontCheckDefaultBrowser = true;
         NoDefaultBookmarks = true;
-        OfferToSaveLogins = true;
+        OfferToSaveLogins = false;
         # Note: Tracking protection disabled to allow third-party cookies.
         # uBlock Origin handles ad/tracker blocking instead.
         EnableTrackingProtection = {
-          Value = false;
-          Locked = false;
-          Cryptomining = false;
-          Fingerprinting = false;
+          Value = true;
+          Locked = true;
+          Cryptomining = true;
+          Fingerprinting = true;
         };
       };
       profiles."default" = {
