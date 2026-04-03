@@ -295,6 +295,10 @@ in
             opacity = 1.0;
           }
           {
+            matches = [ { app-id = "^zen-twilight$"; } ];
+            opacity = 1.0;
+          }
+          {
             matches = [ { app-id = "^org\\.mozilla\\.firefox$"; } ];
             opacity = 1.0;
           }

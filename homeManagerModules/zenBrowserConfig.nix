@@ -25,6 +25,8 @@ in
   config = lib.mkIf cfg.zenBrowserConfig.enable {
     programs.zen-browser = {
       enable = true;
+      setAsDefaultBrowser = true;
+      # https://mozilla.github.io/policy-templates/
       policies = {
         AutofillAddressEnabled = true;
         AutofillCreditCardEnabled = false;
@@ -36,15 +38,76 @@ in
         DontCheckDefaultBrowser = true;
         NoDefaultBookmarks = true;
         OfferToSaveLogins = true;
+        # Note: Tracking protection disabled to allow third-party cookies.
+        # uBlock Origin handles ad/tracker blocking instead.
         EnableTrackingProtection = {
-          Value = true;
-          Locked = true;
-          Cryptomining = true;
-          Fingerprinting = true;
+          Value = false;
+          Locked = false;
+          Cryptomining = false;
+          Fingerprinting = false;
         };
       };
       profiles."default" = {
         isDefault = true;
+
+        # Zen mods from the theme store (by UUID)
+        mods = [
+          "3ff55ba7-4690-4f74-96a8-9e4416685e4e" # Colored container tab
+          "2317fd93-c3ed-4f37-b55a-304c1816819e" # Audio Indicator Enhanced
+        ];
+
+        # Containers matching current setup
+        containersForce = true;
+        containers = {
+          Personal = {
+            color = "blue";
+            icon = "fingerprint";
+            id = 1;
+          };
+          Work = {
+            color = "orange";
+            icon = "briefcase";
+            id = 2;
+          };
+          Banking = {
+            color = "green";
+            icon = "dollar";
+            id = 3;
+          };
+          Shopping = {
+            color = "pink";
+            icon = "cart";
+            id = 4;
+          };
+        };
+
+        # Workspaces matching current setup
+        spaces = {
+          "Default" = {
+            id = "5ff3d0e8-e140-44be-8c37-a8a02902a350";
+            icon = "🎮️";
+            container = 1; # Personal
+            position = 1000;
+          };
+          "Business" = {
+            id = "cb40b3b0-440e-4f00-aa84-249710108bea";
+            icon = "💸";
+            container = 4; # Shopping
+            position = 2000;
+          };
+          "Work" = {
+            id = "29617e20-9847-4e53-afe9-15a52c5e4c55";
+            icon = "💻️";
+            container = 2; # Work
+            position = 3000;
+          };
+        };
+
+        search = {
+          force = true;
+          default = "google";
+        };
+
         settings = {
           # Privacy & telemetry
           "toolkit.telemetry.enabled" = false;
@@ -53,19 +116,69 @@ in
           "datareporting.policy.dataSubmissionEnabled" = false;
           "browser.ping-centre.telemetry" = false;
           "app.shield.optoutstudies.enabled" = false;
+          "privacy.donottrackheader.enabled" = true;
+          "privacy.globalprivacycontrol.was_ever_enabled" = true;
+          "privacy.clearOnShutdown_v2.formdata" = true;
+
+          # Content blocking
+          "browser.contentblocking.category" = "custom";
+
+          # Homepage
+          # "browser.startup.homepage" = "https://home.bealv.io";
+          "browser.newtabpage.enabled" = false;
 
           # UX preferences
           "browser.tabs.warnOnClose" = false;
           "browser.download.panel.shown" = true;
+          "browser.download.useDownloadDir" = false;
           "general.smoothScroll" = true;
+          "general.autoScroll" = true;
+          "browser.toolbars.bookmarks.visibility" = "always";
+          "dom.disable_open_during_load" = false;
+          "browser.bookmarks.showMobileBookmarks" = true;
+
+          # URL bar
           "browser.urlbar.suggest.searches" = true;
           "browser.urlbar.suggest.history" = true;
           "browser.urlbar.suggest.bookmark" = true;
+          "browser.urlbar.suggest.engines" = false;
+          "browser.urlbar.suggest.openpage" = false;
+
+          # Language
+          "intl.accept_languages" = "en-US, en";
+          "intl.regional_prefs.use_os_locales" = true;
+          "browser.translations.neverTranslateLanguages" = "fr";
+
+          # Network & prefetch
+          "network.dns.disablePrefetch" = true;
+          "network.http.speculative-parallel-limit" = 0;
+          "network.prefetch-next" = false;
+
+          # Cookies - allow third-party cookies
+          "network.cookie.cookieBehavior" = 0;
 
           # Media & performance
           "media.ffmpeg.vaapi.enabled" = true;
           "gfx.webrender.all" = true;
           "layers.acceleration.force-enabled" = true;
+
+          # Sync settings
+          "services.sync.engine.history" = false;
+          "services.sync.engine.passwords" = false;
+          "services.sync.engine.addresses" = true;
+          "services.sync.declinedEngines" = "passwords,creditcards,forms,history";
+
+          # Zen-specific
+          "zen.view.compact.toolbar-flash-popup" = true;
+          "zen.view.use-single-toolbar" = false;
+          "zen.view.compact.enable-at-startup" = false;
+
+          # Audio Indicator Enhanced mod settings
+          "zen.mods.AudioIndicatorEnhanced.hoverScaleAnimationEnabled" = true;
+          "zen.mods.AudioIndicatorEnhanced.returnOldIcons" = true;
+          "zen.mods.AudioIndicatorEnhanced.reverseAudioIcons" = false;
+          "zen.mods.AudioIndicatorEnhanced.audioWave.enabled" = false;
+          "zen.mods.AudioIndicatorEnhanced.bigEssentialIcons.enabled" = false;
         };
       };
     };

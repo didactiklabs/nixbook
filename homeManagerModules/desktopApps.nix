@@ -50,14 +50,18 @@ in
       zathura.enable = true;
       imv.enable = true;
     };
-    home.packages = with pkgs; [
-      # apps
-      spotify
-      obs-studio
-      wdisplays # display manager
-      vesktop # discord
-      pinta # paint
-      firefox
-    ];
+    home.packages =
+      with pkgs;
+      [
+        # apps
+        spotify
+        obs-studio
+        wdisplays # display manager
+        vesktop # discord
+        pinta # paint
+      ]
+      ++ lib.optionals (!cfg.zenBrowserConfig.enable) [
+        firefox
+      ];
   };
 }
