@@ -177,9 +177,40 @@ in
           "zen.mods.AudioIndicatorEnhanced.hoverScaleAnimationEnabled" = true;
           "zen.mods.AudioIndicatorEnhanced.returnOldIcons" = true;
           "zen.mods.AudioIndicatorEnhanced.reverseAudioIcons" = false;
-          "zen.mods.AudioIndicatorEnhanced.audioWave.enabled" = false;
-          "zen.mods.AudioIndicatorEnhanced.bigEssentialIcons.enabled" = false;
+          "zen.mods.AudioIndicatorEnhanced.audioWave.enabled" = true;
+          "zen.mods.AudioIndicatorEnhanced.bigEssentialIcons.enabled" = true;
         };
+
+        keyboardShortcuts = [
+          # Workspace switching (Alt+1-5)
+          {
+            id = "zen-workspace-switch-1";
+            key = "1";
+            modifiers.alt = true;
+          }
+          {
+            id = "zen-workspace-switch-2";
+            key = "2";
+            modifiers.alt = true;
+          }
+          {
+            id = "zen-workspace-switch-3";
+            key = "3";
+            modifiers.alt = true;
+          }
+          {
+            id = "zen-workspace-switch-4";
+            key = "4";
+            modifiers.alt = true;
+          }
+          {
+            id = "zen-workspace-switch-5";
+            key = "5";
+            modifiers.alt = true;
+          }
+        ];
+
+        keyboardShortcutsVersion = 16;
       };
     };
 
