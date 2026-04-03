@@ -40,6 +40,7 @@
     kubeswitchConfig.enable = true;
     thunderbirdConfig.enable = true;
     opencodeConfig.enable = true;
+    zenBrowserConfig.enable = true;
     rtk = {
       enable = true;
     };

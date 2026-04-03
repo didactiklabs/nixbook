@@ -372,6 +372,19 @@
       "revision": "432fdb4cbe9a982c18954c5c7c72f12fcc01eae6",
       "url": "https://github.com/banh-canh/ytui/archive/432fdb4cbe9a982c18954c5c7c72f12fcc01eae6.tar.gz",
       "hash": "sha256-zLH1cDHDvh9ZmEBZ9ZkSpMwpCatpf/meq+sZ6tEkeSI="
+    },
+    "zen-browser-flake": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "0xc000022070",
+        "repo": "zen-browser-flake"
+      },
+      "branch": "main",
+      "submodules": false,
+      "revision": "9bf98d57ca82698483ec2d9211ce01669ba37820",
+      "url": "https://github.com/0xc000022070/zen-browser-flake/archive/9bf98d57ca82698483ec2d9211ce01669ba37820.tar.gz",
+      "hash": "sha256-0qt2cfUqfTbesQlvO3NeJLCqa7NoVxUK9vxs79prNHk="
     }
   },
   "version": 7
