@@ -25,7 +25,6 @@ in
   config = lib.mkIf cfg.zenBrowserConfig.enable {
     programs.zen-browser = {
       enable = true;
-      force = true;
       setAsDefaultBrowser = true;
       # https://mozilla.github.io/policy-templates/
       policies = {
