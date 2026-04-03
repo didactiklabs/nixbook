@@ -47,7 +47,7 @@
     zshConfig.enable = true;
     kubeswitchConfig.enable = true;
     fcitx5Config.enable = true;
-    thunderbirdConfig.enable = true;
+    thunderbirdConfig.enable = false;
     opencodeConfig.enable = true;
     zenBrowserConfig.enable = true;
     rtk = {

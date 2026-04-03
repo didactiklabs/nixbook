@@ -38,7 +38,7 @@
     kittyConfig.enable = true;
     zshConfig.enable = true;
     kubeswitchConfig.enable = true;
-    thunderbirdConfig.enable = true;
+    thunderbirdConfig.enable = false;
     opencodeConfig.enable = true;
     zenBrowserConfig.enable = true;
     rtk = {
