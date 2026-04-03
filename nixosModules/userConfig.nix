@@ -116,6 +116,9 @@ let
                 dmsPluginRegistryFlake = import sources.flake-compat {
                   src = sources.dms-plugin-registry;
                 };
+                zenBrowserFlake = import sources.flake-compat {
+                  src = sources.zen-browser-flake;
+                };
               in
               [
                 (import sources.stylix).homeModules.stylix
@@ -123,6 +126,7 @@ let
                 (import "${sources.agenix}/modules/age-home.nix")
                 dmsFlake.defaultNix.homeModules.dank-material-shell
                 dmsPluginRegistryFlake.defaultNix.modules.default
+                zenBrowserFlake.defaultNix.homeModules.twilight
                 ../homeManagerModules
               ]
               ++ mergedConfig.imports

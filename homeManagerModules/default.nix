@@ -29,6 +29,7 @@
     ./sway
     ./thunderbirdConfig.nix
     ./vscode
+    ./zenBrowserConfig.nix
     ./zshConfig.nix
   ];
 }

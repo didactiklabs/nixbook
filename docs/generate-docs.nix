@@ -25,6 +25,7 @@ let
   # -- External HM modules (same imports as userConfig.nix) ---------------------
   dmsFlake = import sources.flake-compat { src = sources.dms; };
   dmsPluginRegistryFlake = import sources.flake-compat { src = sources.dms-plugin-registry; };
+  zenBrowserFlake = import sources.flake-compat { src = sources.zen-browser-flake; };
 
   externalHmModules = [
     (import sources.stylix).homeModules.stylix
@@ -32,6 +33,7 @@ let
     (import "${sources.agenix}/modules/age-home.nix")
     dmsFlake.defaultNix.homeModules.dank-material-shell
     dmsPluginRegistryFlake.defaultNix.modules.default
+    zenBrowserFlake.defaultNix.homeModules.twilight
   ];
 
   # -- NixOS Modules -----------------------------------------------------------

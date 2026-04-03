@@ -21,6 +21,9 @@
       dmsPluginRegistryFlake = import sources.flake-compat {
         src = sources.dms-plugin-registry;
       };
+      zenBrowserFlake = import sources.flake-compat {
+        src = sources.zen-browser-flake;
+      };
     in
     [
       (import sources.stylix).homeModules.stylix
@@ -28,6 +31,7 @@
       (import "${sources.agenix}/modules/age-home.nix").userProfileHomeManagerConfig
       dmsFlake.defaultNix.homeModules.dank-material-shell
       dmsPluginRegistryFlake.defaultNix.modules.default
+      zenBrowserFlake.defaultNix.homeModules.twilight
     ]
     ++ extraHomeManagerModules;
 
