@@ -83,6 +83,7 @@ in
         };
 
         # Workspaces matching current setup
+        spacesForce = true;
         spaces = {
           "Default" = {
             id = "5ff3d0e8-e140-44be-8c37-a8a02902a350";
