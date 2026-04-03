@@ -65,7 +65,7 @@ jobs:
       - name: Assign all org members as reviewers
         if: steps.cpr.outputs.pull-request-operation == 'created'
         run: |
-          MEMBERS=$(gh api orgs/RPCU/members --jq '[.[].login]' --paginate)
+          MEMBERS=$(gh api orgs/didactiklabs/members --jq '[.[].login]' --paginate)
           if [ "$MEMBERS" = "[]" ] || [ -z "$MEMBERS" ]; then
             echo "No org members found, skipping reviewer assignment"
             exit 0
