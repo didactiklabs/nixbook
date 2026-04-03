@@ -295,6 +295,15 @@ in
             opacity = 1.0;
           }
           {
+            matches = [
+              {
+                app-id = "^vesktop$";
+                title = "^$";
+              }
+            ];
+            opacity = 1.0;
+          }
+          {
             matches = [ { app-id = "^zen-twilight$"; } ];
             opacity = 1.0;
           }
