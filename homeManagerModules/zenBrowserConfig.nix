@@ -25,6 +25,7 @@ in
   config = lib.mkIf cfg.zenBrowserConfig.enable {
     programs.zen-browser = {
       enable = true;
+      force = true;
       setAsDefaultBrowser = true;
       # https://mozilla.github.io/policy-templates/
       policies = {
@@ -107,7 +108,7 @@ in
 
         search = {
           force = true;
-          default = "DuckDuckGo";
+          default = "ddg";
         };
 
         settings = {
@@ -145,6 +146,7 @@ in
           "browser.urlbar.suggest.bookmark" = true;
           "browser.urlbar.suggest.engines" = false;
           "browser.urlbar.suggest.openpage" = false;
+          "browser.urlbar.placeholderName" = "DuckDuckGo";
 
           # Language
           "intl.accept_languages" = "en-US, en";
@@ -174,6 +176,8 @@ in
           "zen.view.compact.toolbar-flash-popup" = true;
           "zen.view.use-single-toolbar" = false;
           "zen.view.compact.enable-at-startup" = false;
+          "zen.urlbar.behavior" = "normal";
+          "mod.sameerasw.zen_urlbar_zoom_anim" = false;
 
           # Audio Indicator Enhanced mod settings
           "zen.mods.AudioIndicatorEnhanced.hoverScaleAnimationEnabled" = true;
