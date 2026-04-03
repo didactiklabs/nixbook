@@ -205,6 +205,43 @@ PluginComponent {
                         color: Theme.surfaceVariantText
                     }
                 }
+
+                Item { Layout.fillWidth: true; width: 0; height: 1 }
+
+                Rectangle {
+                    id: refreshButton
+                    width: 32
+                    height: 32
+                    radius: 16
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: refreshMouse.containsMouse ? Theme.surfaceContainerHighest : "transparent"
+
+                    DankIcon {
+                        id: refreshIcon
+                        name: "refresh"
+                        size: 20
+                        color: GitHubNotifierCustomState.loading ? Theme.surfaceVariantText : Theme.primary
+                        anchors.centerIn: parent
+
+                        RotationAnimator {
+                            target: refreshIcon
+                            from: 0
+                            to: 360
+                            duration: 800
+                            running: GitHubNotifierCustomState.loading
+                            loops: Animation.Infinite
+                        }
+                    }
+
+                    MouseArea {
+                        id: refreshMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        enabled: !GitHubNotifierCustomState.loading
+                        onClicked: GitHubNotifierCustomState.refresh(root.ghBinary, root.org, root.showPRs, root.showIssues, root.showReviewer)
+                    }
+                }
             }
 
             StyledRect {
