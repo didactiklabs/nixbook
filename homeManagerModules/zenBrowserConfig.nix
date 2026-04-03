@@ -54,6 +54,7 @@ in
         mods = [
           "3ff55ba7-4690-4f74-96a8-9e4416685e4e" # Colored container tab
           "2317fd93-c3ed-4f37-b55a-304c1816819e" # Audio Indicator Enhanced
+          "1b88a6d1-d931-45e8-b6c3-bfdca2c7e9d6"
         ];
 
         # Containers matching current setup
@@ -207,6 +208,52 @@ in
             id = "zen-workspace-switch-5";
             key = "5";
             modifiers.alt = true;
+          }
+          # Tab switching (Ctrl+1-8, Ctrl+9 for last tab)
+          {
+            id = "key_selectTab1";
+            key = "1";
+            modifiers.accel = true;
+          }
+          {
+            id = "key_selectTab2";
+            key = "2";
+            modifiers.accel = true;
+          }
+          {
+            id = "key_selectTab3";
+            key = "3";
+            modifiers.accel = true;
+          }
+          {
+            id = "key_selectTab4";
+            key = "4";
+            modifiers.accel = true;
+          }
+          {
+            id = "key_selectTab5";
+            key = "5";
+            modifiers.accel = true;
+          }
+          {
+            id = "key_selectTab6";
+            key = "6";
+            modifiers.accel = true;
+          }
+          {
+            id = "key_selectTab7";
+            key = "7";
+            modifiers.accel = true;
+          }
+          {
+            id = "key_selectTab8";
+            key = "8";
+            modifiers.accel = true;
+          }
+          {
+            id = "key_selectLastTab";
+            key = "9";
+            modifiers.accel = true;
           }
         ];
 
