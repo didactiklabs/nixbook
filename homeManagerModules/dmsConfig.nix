@@ -129,6 +129,7 @@
             ];
             centerWidgets = [
               "music"
+              "solidtime"
               "clock"
               "weather"
               "opencodeUsage"
@@ -274,6 +275,10 @@
         nixosUpdate = lib.mkIf config.customHomeManagerModules.dmsConfig.enableNixosUpdate {
           enable = true;
           src = ../assets/dms/plugins/nixos-update;
+        };
+        solidtime = {
+          enable = true;
+          src = ../assets/dms/plugins/solidtime;
         };
       };
     };

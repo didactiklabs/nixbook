@@ -1,0 +1,2 @@
+module SolidtimeModule
+singleton SolidtimeState 1.0 SolidtimeState.qml

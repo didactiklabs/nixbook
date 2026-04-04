@@ -1,0 +1,14 @@
+{
+  "id": "solidtime",
+  "name": "Solidtime",
+  "description": "Track time with Solidtime. Shows current/last timer in bar, popup lets you pick project and start/stop timers.",
+  "version": "1.0.0",
+  "author": "khoa",
+  "icon": "timer",
+  "type": "widget",
+  "capabilities": ["dankbar-widget"],
+  "component": "./SolidtimeWidget.qml",
+  "settings": "./SolidtimeSettings.qml",
+  "requires": ["curl", "jq"],
+  "permissions": ["settings_read", "settings_write", "process"]
+}
