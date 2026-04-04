@@ -122,6 +122,7 @@ in
           "privacy.donottrackheader.enabled" = true;
           "privacy.globalprivacycontrol.was_ever_enabled" = true;
           "privacy.clearOnShutdown_v2.formdata" = true;
+          "signon.rememberSignons" = false;
 
           # Content blocking
           "browser.contentblocking.category" = "custom";
