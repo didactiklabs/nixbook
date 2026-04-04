@@ -139,6 +139,7 @@ in
           "browser.toolbars.bookmarks.visibility" = "always";
           "dom.disable_open_during_load" = false;
           "browser.bookmarks.showMobileBookmarks" = true;
+          "browser.tabs.restorePinnedTabs.onStartup" = true;
 
           # URL bar
           "browser.urlbar.suggest.searches" = true;
@@ -176,6 +177,7 @@ in
           "zen.view.compact.toolbar-flash-popup" = true;
           "zen.view.use-single-toolbar" = false;
           "zen.view.compact.enable-at-startup" = false;
+          "zen.view.switchWorkspaceOnContainerTabOpen" = true;
           "zen.urlbar.behavior" = "normal";
           "mod.sameerasw.zen_urlbar_zoom_anim" = false;
 
