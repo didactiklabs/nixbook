@@ -4,6 +4,13 @@
   lib,
   ...
 }:
+let
+  sources = import ../npins;
+  quickshellOverlay = (import "${sources.quickshell}/overlay.nix") {
+    rev = sources.quickshell.revision;
+  };
+  quickshellPkg = (quickshellOverlay pkgs pkgs).quickshell;
+in
 {
   options.customHomeManagerModules.dmsConfig = {
     enable = lib.mkOption {
@@ -83,7 +90,7 @@
     programs.dank-material-shell = {
       enable = true;
       quickshell = {
-        package = pkgs.quickshell;
+        package = quickshellPkg;
       };
       systemd = {
         enable = true; # Systemd service for auto-start
