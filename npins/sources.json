@@ -286,6 +286,19 @@
       "hash": "sha256-Bmh1XPrVyPgadvGUo1SS4Dw2n8qidU6jpdK3GbxxNPE=",
       "frozen": true
     },
+    "quickshell": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "quickshell-mirror",
+        "repo": "quickshell"
+      },
+      "branch": "master",
+      "submodules": false,
+      "revision": "854088c48c4020f35019851137197b1112a9b9ee",
+      "url": "https://github.com/quickshell-mirror/quickshell/archive/854088c48c4020f35019851137197b1112a9b9ee.tar.gz",
+      "hash": "sha256-Ay3gu/FsbKkubA/76xgqYhdNZwUsgo1tPdBLsFwgt94="
+    },
     "rtk": {
       "type": "GitRelease",
       "repository": {
