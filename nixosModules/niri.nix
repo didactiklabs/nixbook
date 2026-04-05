@@ -22,7 +22,6 @@ in
     programs.niri.enable = true;
     programs.niri.package = pkgs.niri;
     systemd.user.services.niri-flake-polkit.enable = false;
-    security.pam.services.sddm.enableGnomeKeyring = true;
 
     # Add GTK portal and route FileChooser to it (avoids Nautilus dependency from GNOME portal)
     # Other settings match niri's shipped niri-portals.conf defaults
@@ -82,7 +81,6 @@ in
         - Imports the niri-flake NixOS module (sourced from npins, not nixpkgs)
         - Enables programs.niri with the nixpkgs niri package
         - Disables the niri-flake bundled polkit agent (the system polkit handles it)
-        - Enables GNOME keyring unlock via SDDM PAM integration
         - Installs essential Wayland utilities: fuzzel (launcher), grimblast (screenshots),
           wl-clipboard, libnotify, xwayland-satellite (X11 app compatibility layer)
         - Adds xdg-desktop-portal-gtk for FileChooser (avoids Nautilus dependency)

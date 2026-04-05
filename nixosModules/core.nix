@@ -303,14 +303,6 @@ in
               return polkit.Result.YES;
             }
           });
-          polkit.addRule(function(action, subject) {
-            if (action.id == "org.freedesktop.systemd1.manage-units" &&
-                (action.lookup("unit") == "clamav-daemon.service" ||
-                 action.lookup("unit") == "clamav-freshclam.service") &&
-                subject.isInGroup("wheel")) {
-              return polkit.Result.YES;
-            }
-          });
         '';
       };
       sudo.wheelNeedsPassword = lib.mkDefault false;
