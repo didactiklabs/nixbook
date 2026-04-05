@@ -61,9 +61,11 @@ in
     };
     security = {
       pam.services = {
-        greetd.u2fAuth = true;
-        greetd.fprintAuth = true;
-        greetd.enableGnomeKeyring = true;
+        greetd = {
+          u2fAuth = true;
+          fprintAuth = true;
+          enableGnomeKeyring = true;
+        };
       };
     };
   };
