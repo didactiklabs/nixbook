@@ -226,9 +226,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "d61ac998c61d65c354ecb4653dc4daeebd599969",
-      "url": "https://github.com/sodiboo/niri-flake/archive/d61ac998c61d65c354ecb4653dc4daeebd599969.tar.gz",
-      "hash": "sha256-JmRWkYnH6xHQh9TyHtC3Vgbc/F7e/bTtZ7e5xx5GLsE="
+      "revision": "b9f29e2ade937c5fc8ae2d3fe8c026698c32c044",
+      "url": "https://github.com/sodiboo/niri-flake/archive/b9f29e2ade937c5fc8ae2d3fe8c026698c32c044.tar.gz",
+      "hash": "sha256-HXWISaieWkm+zcZkBbqDgu6yxlFX3JHxnVRv7mBH8Og="
     },
     "nixos-hardware": {
       "type": "Git",
