@@ -54,6 +54,7 @@ in
       };
       autoEnable = true;
       targets = {
+        zen-browser.profileNames = [ "default" ];
         dank-material-shell.enable = false;
         k9s.enable = false; # enable this parameter cause this error in k9s: "load failed:Additional property ui is not allowed"
         gtk.extraCss = "";
