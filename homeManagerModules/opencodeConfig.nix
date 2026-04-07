@@ -37,11 +37,13 @@ in
   config = lib.mkIf cfg.enable {
     programs.opencode = {
       enable = true;
-      settings = {
-        plugin = [
-          "@ex-machina/opencode-anthropic-auth"
-          "opencode-gemini-auth"
-        ];
+      ui = {
+        settings = {
+          plugin = [
+            "@ex-machina/opencode-anthropic-auth"
+            "opencode-gemini-auth"
+          ];
+        };
       };
     };
   };
