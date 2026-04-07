@@ -13,6 +13,7 @@
   ];
   home.packages = [
     pkgs.slack
+    pkgs.jiratui
   ];
   programs = {
     go = {
