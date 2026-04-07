@@ -4,6 +4,9 @@
   config,
   ...
 }:
+let
+  lazyjira = import ../../../customPkgs/lazyjira.nix { inherit pkgs; };
+in
 {
   imports = [
     ../../totoro/khoa/gitConfig.nix
@@ -13,7 +16,7 @@
   ];
   home.packages = [
     pkgs.slack
-    pkgs.jiratui
+    lazyjira
     pkgs.openfortivpn
   ];
   programs = {
