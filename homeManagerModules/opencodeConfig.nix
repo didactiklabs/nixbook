@@ -37,7 +37,7 @@ in
   config = lib.mkIf cfg.enable {
     programs.opencode = {
       enable = true;
-      ui = {
+      tui = {
         settings = {
           plugin = [
             "@ex-machina/opencode-anthropic-auth"
