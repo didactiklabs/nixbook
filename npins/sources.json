@@ -217,6 +217,22 @@
       "url": "https://api.github.com/repos/nix-community/lanzaboote/tarball/refs/tags/v1.0.0",
       "hash": "sha256-RJmgVDzjRI18BWVogG6wpsl1UCuV6ui8qr4DJ1LfWZ8="
     },
+    "lazyjira": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "textfuel",
+        "repo": "lazyjira"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": null,
+      "submodules": false,
+      "version": "v2.7.2",
+      "revision": "a96e49f6592475e7156bea2b93362800749f91c9",
+      "url": "https://api.github.com/repos/textfuel/lazyjira/tarball/refs/tags/v2.7.2",
+      "hash": "sha256-GtcQRKCuY9Ez4bCy1Su/rFN1Ncn4I7YSOLFKiEkm/RM="
+    },
     "niri-flake": {
       "type": "Git",
       "repository": {
