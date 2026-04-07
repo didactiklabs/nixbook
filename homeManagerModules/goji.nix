@@ -77,10 +77,15 @@ let
 
     If type or scope are provided in 'HINTS', use them. Otherwise, determine the most appropriate ones from the diff.
 
+    When reading the diff:
+    - Lines starting with '+' (but not '+++') are ADDITIONS (new content being introduced)
+    - Lines starting with '-' (but not '---') are REMOVALS (existing content being deleted)
+    - Use this to accurately describe what is being added, removed, or changed
+
     Output a JSON object with exactly these fields:
     - type: The commit type (must be one of the available types)
     - scope: A short scope (optional, use null if no clear scope exists)
-    - subject: A concise description of the change
+    - subject: A concise description of the change, reflecting what was added and/or removed
 
     Output ONLY the JSON object, no markdown, no backticks.
 
