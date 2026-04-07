@@ -217,6 +217,32 @@ in
             key = "5";
             modifiers.alt = true;
           }
+          # Split view (Alt+G/V/H/U)
+          {
+            id = "zen-split-view-grid";
+            key = "g";
+            modifiers.alt = true;
+          }
+          {
+            id = "zen-split-view-vertical";
+            key = "v";
+            modifiers.alt = true;
+          }
+          {
+            id = "zen-split-view-horizontal";
+            key = "h";
+            modifiers.alt = true;
+          }
+          {
+            id = "zen-split-view-unsplit";
+            key = "u";
+            modifiers.alt = true;
+          }
+          {
+            id = "zen-new-empty-split-view";
+            key = "*";
+            modifiers.alt = true;
+          }
           # Tab switching (Ctrl+1-8, Ctrl+9 for last tab)
           {
             id = "key_selectTab1";
