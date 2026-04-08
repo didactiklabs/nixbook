@@ -15,6 +15,7 @@
     pkgs.slack
     pkgs.openfortivpn
     pkgs.jira-cli-go
+    pkgs.zoom-us
   ];
   programs = {
     go = {
@@ -49,6 +50,11 @@
     dmsConfig = {
       enable = true;
       showDock = true;
+    };
+    rbwConfig = {
+      enable = true;
+      email = "vhvictorhang@gmail.com";
+      baseUrl = "https://pass.bealv.io";
     };
   };
 }

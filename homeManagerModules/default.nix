@@ -31,5 +31,6 @@
     ./vscode
     ./zenBrowserConfig.nix
     ./zshConfig.nix
+    ./rbwConfig.nix
   ];
 }
