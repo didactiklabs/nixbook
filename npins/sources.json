@@ -168,22 +168,6 @@
       "url": "https://github.com/nix-community/home-manager/archive/527e47b78fe67213072f706bf933a9705a8c4974.tar.gz",
       "hash": "sha256-/yFxO+7oS1SymDfJ2iVO7K5vJKcYfe9XGIJ+quLqz0Q="
     },
-    "jiratui": {
-      "type": "GitRelease",
-      "repository": {
-        "type": "GitHub",
-        "owner": "whyisdifficult",
-        "repo": "jiratui"
-      },
-      "pre_releases": false,
-      "version_upper_bound": null,
-      "release_prefix": null,
-      "submodules": false,
-      "version": "v1.7.0",
-      "revision": "7e7db09c3fe122ca5676ab1200ccf7b37edeb5b8",
-      "url": "https://api.github.com/repos/whyisdifficult/jiratui/tarball/refs/tags/v1.7.0",
-      "hash": "sha256-1RJv1AYIEDcdOFbGYm3dJXvmEWHRlkFqlexK878Tg+I="
-    },
     "jtui": {
       "type": "GitRelease",
       "repository": {
