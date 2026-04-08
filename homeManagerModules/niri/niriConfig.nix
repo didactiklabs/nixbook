@@ -295,6 +295,10 @@ in
             opacity = 1.0;
           }
           {
+            matches = [ { app-id = "^zoom$"; } ];
+            opacity = 1.0;
+          }
+          {
             matches = [
               {
                 app-id = "^vesktop$";

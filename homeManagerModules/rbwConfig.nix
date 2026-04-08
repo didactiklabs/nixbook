@@ -35,6 +35,8 @@ in
       settings = {
         inherit (cfg) email;
         base_url = cfg.baseUrl;
+        pinentry = pkgs.pinentry-qt;
+        lock_timeout = 2629746;
       };
     };
   };
