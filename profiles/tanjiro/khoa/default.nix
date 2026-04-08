@@ -13,8 +13,8 @@
   ];
   home.packages = [
     pkgs.slack
-    pkgs.jiratui
     pkgs.openfortivpn
+    pkgs.jira-cli-go
   ];
   programs = {
     go = {

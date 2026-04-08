@@ -81,6 +81,7 @@ in
     # System packages - Core utilities only
     # User-level packages should be in homeManagerModules (devTools, securityTools, systemTools, cliTools)
     environment.systemPackages = with pkgs; [
+      libsecret
       openvpn
       podman
       podman-compose
