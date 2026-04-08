@@ -45,6 +45,7 @@ in
         ];
       };
       overlays = [
+        (import ./overlays.nix { inherit sources; })
         (
           final: prev:
           let
