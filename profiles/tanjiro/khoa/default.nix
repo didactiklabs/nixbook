@@ -22,6 +22,11 @@
       enable = true;
       env.GOPATH = lib.mkForce "${config.home.homeDirectory}/.local/go";
     };
+    zsh = {
+      shellAliases = {
+        vpn-humboldt = "sudo openfortivpn $(rbw get Humboldt -f url):$(rbw get Humboldt -f port) --username=$(rbw get Humboldt -f username) -p $(rbw get Humboldt)";
+      };
+    };
   };
   customHomeManagerModules = {
     cliTools.enable = true;
