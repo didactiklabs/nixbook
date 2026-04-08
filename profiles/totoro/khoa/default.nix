@@ -57,6 +57,11 @@
       enable = true;
       showDock = true;
     };
+    rbwConfig = {
+      enable = true;
+      email = "vhvictorhang@gmail.com";
+      baseUrl = "https://pass.bealv.io";
+    };
   };
   services.kdeconnect.enable = true;
 }
