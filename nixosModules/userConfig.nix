@@ -54,6 +54,7 @@ let
           libsForQt5.qt5ct
           kdePackages.qt6ct
           adwaita-qt
+          ffmpegthumbnailer
         ];
         sessionVariables = {
           QT_QPA_PLATFORMTHEME = "qt5ct";
