@@ -18,5 +18,6 @@
     ./tailscale.nix
     ./tools.nix
     ./vmSupport.nix
+    ./wolf.nix
   ];
 }
