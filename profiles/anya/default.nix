@@ -49,7 +49,8 @@ in
   services.openssh.enable = true;
   customNixOSModules = {
     gamingConfig.enable = true;
-    sunshine.enable = true;
+    sunshine.enable = false;
+    wolf.enable = true;
     sway.enable = true;
     tailscale.enable = false;
     netbird-tools.enable = false;
