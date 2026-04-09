@@ -95,7 +95,7 @@ in
         "/etc/wolf/:/etc/wolf:rw"
         "/run/udev:/run/udev:rw"
         "/tmp/sockets:/tmp/sockets:rw"
-        "/var/run/docker.sock:/var/run/docker.sock:rw"
+        "/run/podman/podman.sock:/var/run/docker.sock:rw"
         "/etc/localtime:/etc/localtime:ro"
         "${cfg.steamVolumePath}:${cfg.steamVolumePath}:rw"
         "/var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket"
