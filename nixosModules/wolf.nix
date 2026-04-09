@@ -72,6 +72,11 @@ in
       KERNEL=="uinput", MODE="0660", GROUP="docker", OPTIONS+="static_node=uinput"
     '';
 
+    systemd.tmpfiles.rules = [
+      "d /etc/wolf 0755 root root -"
+      "d /tmp/sockets 0755 root root -"
+    ];
+
     # Containers
     virtualisation.oci-containers.containers."wolf-wolf" = {
       image = "ghcr.io/games-on-whales/wolf:stable";
