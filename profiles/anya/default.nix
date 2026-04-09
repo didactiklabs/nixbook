@@ -19,22 +19,22 @@ let
   };
 in
 {
-  systemd.user = {
-    services = {
-      steamBigPicture = {
-        enable = true;
-        description = "SteamBigPicture";
-        partOf = [ "graphical-session.target" ];
-        requires = [ "graphical-session.target" ];
-        after = [ "graphical-session.target" ];
-        wantedBy = [ "graphical-session.target" ];
-        serviceConfig = {
-          ExecStart = "${pkgs.steam}/bin/steam steam://open/bigpicture";
-          Restart = "always";
-        };
-      };
-    };
-  };
+  # systemd.user = {
+  #   services = {
+  #     steamBigPicture = {
+  #       enable = true;
+  #       description = "SteamBigPicture";
+  #       partOf = [ "graphical-session.target" ];
+  #       requires = [ "graphical-session.target" ];
+  #       after = [ "graphical-session.target" ];
+  #       wantedBy = [ "graphical-session.target" ];
+  #       serviceConfig = {
+  #         ExecStart = "${pkgs.steam}/bin/steam steam://open/bigpicture";
+  #         Restart = "always";
+  #       };
+  #     };
+  #   };
+  # };
   services.greetd = {
     # force start with my user, no greeter/login
     enable = true;
