@@ -18,7 +18,7 @@ in
     };
     steamVolumePath = lib.mkOption {
       type = lib.types.str;
-      default = "/home/khoa/.local/share/Steam";
+      default = "/home/khoa/.steam/steam/ ";
       description = ''
         The path to the Steam directory on the host to mount into the Wolf container.
       '';
