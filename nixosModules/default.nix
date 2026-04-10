@@ -12,6 +12,7 @@
     ./lanzaboote.nix
     ./netbird-tools.nix
     ./niri.nix
+    ./ollama.nix
     ./printTools.nix
     ./sunshine.nix
     ./sway.nix
