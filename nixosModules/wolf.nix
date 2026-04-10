@@ -92,6 +92,7 @@ in
       tmpfiles.rules = [
         "d ${cfg.hostAppsStateFolder} 0755 root root -"
         "d /tmp/sockets 0755 root root -"
+        "d /var/run/wolf 0755 root root -"
       ]
       ++ [
         "d ${cfg.hostAppsStateFolder}/wolf-den 0755 root root -"
@@ -103,6 +104,7 @@ in
           RestartMaxDelaySec = lib.mkOverride 90 "1m";
           RestartSec = lib.mkOverride 90 "100ms";
           RestartSteps = lib.mkOverride 90 9;
+          ExecStopPost = lib.mkOverride 90 "-${pkgs.podman}/bin/podman rm -f wolf-wolf";
         };
         partOf = [
           "docker-compose-wolf-root.target"
@@ -117,6 +119,7 @@ in
           RestartMaxDelaySec = lib.mkOverride 90 "1m";
           RestartSec = lib.mkOverride 90 "100ms";
           RestartSteps = lib.mkOverride 90 9;
+          ExecStopPost = lib.mkOverride 90 "-${pkgs.podman}/bin/podman rm -f wolf-den";
         };
         after = [ "docker-wolf-wolf.service" ];
         partOf = [
