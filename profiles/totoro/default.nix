@@ -8,7 +8,10 @@
 let
   overrides = {
     customHomeManagerModules = { };
-    imports = [ ./fastfetchConfig.nix ];
+    imports = [
+      ./fastfetchConfig.nix
+      ./hosts.nix
+    ];
   };
   userConfig = import ../../nixosModules/userConfig.nix {
     inherit
