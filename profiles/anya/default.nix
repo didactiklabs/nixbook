@@ -50,7 +50,10 @@ in
   customNixOSModules = {
     gamingConfig.enable = true;
     sunshine.enable = false;
-    wolf.enable = true;
+    wolf = {
+      enable = true;
+      hostAppsStateFolder = "/data";
+    };
     sway.enable = true;
     tailscale.enable = false;
     netbird-tools.enable = false;
