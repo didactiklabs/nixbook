@@ -206,12 +206,11 @@ in
       environment = {
         "WOLF_SOCKET_PATH" = "/var/run/wolf/wolf.sock";
         "ASPNETCORE_URLS" = "http://0.0.0.0:${toString cfg.den.port}";
-        "HOST_APPS_STATE_FOLDER" = cfg.hostAppsStateFolder;
       };
       volumes = [
         "${cfg.hostAppsStateFolder}/wolf-den:/app/wolf-den/"
         "/var/run/wolf:/var/run/wolf"
-        "${cfg.hostAppsStateFolder}/covers:${cfg.hostAppsStateFolder}/covers"
+        "${cfg.hostAppsStateFolder}/covers:/etc/wolf/covers"
       ];
       log-driver = "journald";
       dependsOn = [ "wolf-wolf" ];
