@@ -291,7 +291,7 @@ in
           }
         ];
 
-        keyboardShortcutsVersion = 16;
+        keyboardShortcutsVersion = 17;
       };
     };
 
