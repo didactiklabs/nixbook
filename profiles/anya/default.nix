@@ -52,7 +52,7 @@ in
     sunshine.enable = false;
     wolf = {
       enable = true;
-      hostAppsStateFolder = "/data";
+      hostAppsStateFolder = "/data/wolf";
     };
     sway.enable = true;
     tailscale.enable = false;
