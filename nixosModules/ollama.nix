@@ -34,6 +34,7 @@ in
       enable = true;
       package = pkgs.ollama-rocm;
       loadModels = [ "gemma4:26b" ];
+      host = "0.0.0.0";
     };
   };
 }
