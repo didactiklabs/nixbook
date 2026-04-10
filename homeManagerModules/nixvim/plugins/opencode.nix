@@ -19,7 +19,7 @@ in
       extraConfigLua = ''
          vim.g.opencode_opts = {
           server = {
-            enabled = "snacks",
+            enabled = "kitty",
           },
         }
         vim.o.autoread = true

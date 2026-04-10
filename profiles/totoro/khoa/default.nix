@@ -13,7 +13,6 @@
   ];
   home.packages = [
     pkgs.moonlight-qt
-    pkgs.slack
   ];
   programs = {
     go = {
@@ -23,17 +22,6 @@
   };
 
   profileCustomization = {
-  };
-  programs.opencode.settings = {
-    provider = {
-      ollama = {
-        npm = "@ai-sdk/openai-compatible";
-        name = "Ollama (anya)";
-        options = {
-          baseURL = "http://anya:11434/v1";
-        };
-      };
-    };
   };
   customHomeManagerModules = {
     cliTools.enable = true;
@@ -59,7 +47,13 @@
     kubeswitchConfig.enable = true;
     fcitx5Config.enable = true;
     thunderbirdConfig.enable = false;
-    opencodeConfig.enable = true;
+    opencodeConfig = {
+      enable = true;
+      ollama = {
+        enable = true;
+        baseUrl = "http://anya:11434/v1";
+      };
+    };
     zenBrowserConfig.enable = true;
     rtk = {
       enable = true;

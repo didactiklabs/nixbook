@@ -6,6 +6,7 @@
 }:
 let
   cfg = config.customNixOSModules.ollama;
+  ollamaModels = import ./ollamaModels.nix;
 in
 {
   options.customNixOSModules.ollama = {
@@ -33,11 +34,7 @@ in
     services.ollama = {
       enable = true;
       package = pkgs.ollama-rocm;
-      loadModels = [
-        "gemma4:e2b"
-        "gemma4:e4b"
-        "gemma4:26b"
-      ];
+      loadModels = map (m: m.id) ollamaModels;
       host = "0.0.0.0";
     };
   };
