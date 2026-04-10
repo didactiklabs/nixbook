@@ -16,13 +16,6 @@ in
         whether to enable wolf globally or not
       '';
     };
-    steamVolumePath = lib.mkOption {
-      type = lib.types.str;
-      default = "/home/khoa/.local/share/Steam";
-      description = ''
-        The path to the Steam directory on the host to mount into the Wolf container.
-      '';
-    };
     hostAppsStateFolder = lib.mkOption {
       type = lib.types.str;
       default = "/etc/wolf";
