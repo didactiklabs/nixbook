@@ -203,12 +203,9 @@ in
     # Wolf Den - Web UI for managing Wolf
     virtualisation.oci-containers.containers."wolf-den" = {
       image = "ghcr.io/games-on-whales/wolf-den:stable";
-      ports = [
-        "${toString cfg.den.port}:8080"
-      ];
       environment = {
         "WOLF_SOCKET_PATH" = "/var/run/wolf/wolf.sock";
-        "ASPNETCORE_URLS" = "http://0.0.0.0:8080";
+        "ASPNETCORE_URLS" = "http://0.0.0.0:${toString cfg.den.port}";
       };
       volumes = [
         "${cfg.hostAppsStateFolder}/wolf-den:/app/wolf-den/"
@@ -217,6 +214,9 @@ in
       ];
       log-driver = "journald";
       dependsOn = [ "wolf-wolf" ];
+      extraOptions = [
+        "--network=host"
+      ];
     };
   };
 }
