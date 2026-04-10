@@ -120,11 +120,25 @@ in
         serviceConfig = {
           Restart = lib.mkOverride 90 "always";
           RestartMaxDelaySec = lib.mkOverride 90 "1m";
-          RestartSec = lib.mkOverride 90 "100ms";
+          RestartSec = lib.mkOverride 90 "5s";
           RestartSteps = lib.mkOverride 90 9;
+          ExecStartPre = lib.mkOverride 90 "${pkgs.writeShellScript "wait-wolf-socket" ''
+            timeout=30
+            elapsed=0
+            while [ ! -S /var/run/wolf/wolf.sock ]; do
+              if [ "$elapsed" -ge "$timeout" ]; then
+                echo "Timed out waiting for Wolf socket"
+                exit 1
+              fi
+              sleep 1
+              elapsed=$((elapsed + 1))
+            done
+            echo "Wolf socket is ready"
+          ''}";
           ExecStopPost = lib.mkOverride 90 "-${pkgs.podman}/bin/podman rm -f wolf-den";
         };
         after = [ "docker-wolf-wolf.service" ];
+        requires = [ "docker-wolf-wolf.service" ];
         partOf = [
           "docker-compose-wolf-root.target"
         ];
