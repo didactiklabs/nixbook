@@ -33,7 +33,7 @@ in
     services.ollama = {
       enable = true;
       package = pkgs.ollama-rocm;
-      loadModels = [ "gemma4:26b" ];
+      loadModels = [ "gemma4:latest" ];
       host = "0.0.0.0";
     };
   };
