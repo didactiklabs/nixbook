@@ -178,7 +178,6 @@ in
         "/tmp/sockets:/tmp/sockets:rw"
         "/run/podman/podman.sock:/var/run/docker.sock:rw"
         "/etc/localtime:/etc/localtime:ro"
-        "${cfg.steamVolumePath}:${cfg.steamVolumePath}:rw"
         "/var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket"
         "/run/systemd/system:/run/systemd/system"
         "/var/run/wolf:/var/run/wolf"
