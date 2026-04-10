@@ -48,19 +48,20 @@ in
       type = lib.types.bool;
       default = true;
       description = ''
-        Whether to enable Tailscale VPN with route-conflict workarounds.
+        Whether to enable Tailscale VPN with exit node support and native nftables.
 
-        Tailscale is a mesh VPN built on WireGuard.  When multiple Tailnets are
-        configured, subnet routes can conflict with the host's default gateway,
-        breaking connectivity.  This module works around that by:
+        Tailscale is a mesh VPN built on WireGuard.  This module configures:
 
-        - tailscale-fix-routes service: a persistent systemd unit that monitors
-          the kernel route table via `ip monitor route` and removes conflicting
-          /16 and /24 Tailscale subnet routes from routing table 52 as soon as
-          they appear
+        - services.tailscale with useRoutingFeatures = "both" for full exit node
+          and subnet router support
+        - Native nftables backend via TS_DEBUG_FIREWALL_MODE=nftables to avoid
+          iptables-compat translation layer issues
+        - IP forwarding (IPv4 + IPv6) and loose reverse-path filtering for exit
+          node traffic
+        - Firewall: trusts the tailscale0 interface and allows the Tailscale UDP
+          port through
         - tswitch (fzf-based TUI): interactive CLI tool to list and switch between
           Tailnets using `tailscale switch`, surfaced via fzf for fuzzy selection
-        - Installs the tailscale package and enables services.tailscale
 
         Enabled by default on all machines.
       '';
@@ -74,21 +75,28 @@ in
         pkgs.tailscale
       ];
     };
-    services.tailscale.enable = true;
-    systemd = {
-      # services.tailscale-fix-routes = {
-      #   enable = true;
-      #   path = [
-      #     pkgs.iproute2
-      #     pkgs.busybox
-      #   ];
-      #   wantedBy = [ "multi-user.target" ];
-      #   requires = [ "default.target" ];
-      #   serviceConfig = {
-      #     ExecStart = "${tailscale-fix-routes}/bin/tailscale-fix-routes";
-      #     Restart = "always";
-      #   };
-      # };
+    services.tailscale = {
+      enable = true;
     };
+    # Enable IP forwarding for exit node / subnet routing support.
+    boot.kernel.sysctl = {
+      "net.ipv4.ip_forward" = 1;
+      "net.ipv6.conf.all.forwarding" = 1;
+    };
+    networking.firewall = {
+      # Always allow traffic from the Tailscale network.
+      trustedInterfaces = [ "tailscale0" ];
+      # Allow the Tailscale UDP port through the firewall.
+      allowedUDPPorts = [ config.services.tailscale.port ];
+      # Loose reverse-path filtering: required because exit node traffic arrives
+      # on tailscale0 but replies leave via the physical interface, which strict
+      # rp_filter would drop.
+      checkReversePath = "loose";
+    };
+    # Force tailscaled to use native nftables instead of the iptables-compat
+    # translation layer. Critical for clean nftables-only systems.
+    systemd.services.tailscaled.serviceConfig.Environment = [
+      "TS_DEBUG_FIREWALL_MODE=nftables"
+    ];
   };
 }
