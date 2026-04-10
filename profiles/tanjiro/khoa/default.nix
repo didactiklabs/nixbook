@@ -47,7 +47,13 @@
     zshConfig.enable = true;
     kubeswitchConfig.enable = true;
     thunderbirdConfig.enable = false;
-    opencodeConfig.enable = true;
+    opencodeConfig = {
+      enable = true;
+      ollama = {
+        enable = true;
+        baseUrl = "http://anya:11434/v1";
+      };
+    };
     zenBrowserConfig.enable = true;
     rtk = {
       enable = true;
