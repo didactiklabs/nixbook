@@ -9,7 +9,6 @@ let
     customHomeManagerModules = { };
     imports = [
       ./fastfetchConfig.nix
-      ../totoro/hosts.nix
     ];
   };
   userConfig = import ../../nixosModules/userConfig.nix {
@@ -46,6 +45,7 @@ in
   };
   boot.blacklistedKernelModules = [ "amdxdna" ];
   imports = [
+    ../totoro/hosts.nix
     "${sources.nixos-hardware}/framework/13-inch/amd-ai-300-series"
     (userConfig.mkUser {
       username = "khoa";

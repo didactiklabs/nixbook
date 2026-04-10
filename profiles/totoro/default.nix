@@ -10,7 +10,6 @@ let
     customHomeManagerModules = { };
     imports = [
       ./fastfetchConfig.nix
-      ./hosts.nix
     ];
   };
   userConfig = import ../../nixosModules/userConfig.nix {
@@ -57,6 +56,7 @@ in
     lanzaboote.enable = true;
   };
   imports = [
+    ./hosts.nix
     "${sources.nixos-hardware}/asus/zenbook/um6702"
     "${sources.nixos-hardware}/common/gpu/nvidia/disable.nix"
     (userConfig.mkUser {
