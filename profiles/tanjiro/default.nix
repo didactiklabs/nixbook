@@ -36,7 +36,7 @@ in
       bealv.enable = true;
       didactiklabs.enable = true;
     };
-    tailscale.enable = false;
+    tailscale.enable = true;
     netbird-tools.enable = false;
     firewall.enable = true;
     lanzaboote.enable = true;
