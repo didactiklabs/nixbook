@@ -30,6 +30,13 @@ in
         The path to the Wolf application state folder on the host.
       '';
     };
+    den.port = lib.mkOption {
+      type = lib.types.port;
+      default = 8080;
+      description = ''
+        The port on which wolf-den web UI listens.
+      '';
+    };
   };
   config = lib.mkIf cfg.enable {
     networking.firewall = {
@@ -38,6 +45,9 @@ in
         47989
         47999
         48010
+      ]
+      ++ [
+        cfg.den.port
       ];
       allowedUDPPorts = [
         47998
@@ -82,6 +92,10 @@ in
       tmpfiles.rules = [
         "d ${cfg.hostAppsStateFolder} 0755 root root -"
         "d /tmp/sockets 0755 root root -"
+      ]
+      ++ [
+        "d ${cfg.hostAppsStateFolder}/wolf-den 0755 root root -"
+        "d ${cfg.hostAppsStateFolder}/covers 0755 root root -"
       ];
       services."docker-wolf-wolf" = {
         serviceConfig = {
@@ -90,6 +104,21 @@ in
           RestartSec = lib.mkOverride 90 "100ms";
           RestartSteps = lib.mkOverride 90 9;
         };
+        partOf = [
+          "docker-compose-wolf-root.target"
+        ];
+        wantedBy = [
+          "docker-compose-wolf-root.target"
+        ];
+      };
+      services."docker-wolf-den" = {
+        serviceConfig = {
+          Restart = lib.mkOverride 90 "always";
+          RestartMaxDelaySec = lib.mkOverride 90 "1m";
+          RestartSec = lib.mkOverride 90 "100ms";
+          RestartSteps = lib.mkOverride 90 9;
+        };
+        after = [ "docker-wolf-wolf.service" ];
         partOf = [
           "docker-compose-wolf-root.target"
         ];
@@ -121,6 +150,7 @@ in
         "WOLF_LOG_LEVEL" = "DEBUG";
         "LIBVA_DRIVER_NAME" = "radeonsi";
         "WOLF_DISABLE_HW_ACCEL" = "false";
+        "WOLF_SOCKET_PATH" = "/var/run/wolf/wolf.sock";
       };
       volumes = [
         "/dev/:/dev:rw"
@@ -132,6 +162,7 @@ in
         "${cfg.steamVolumePath}:${cfg.steamVolumePath}:rw"
         "/var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket"
         "/run/systemd/system:/run/systemd/system"
+        "/var/run/wolf:/var/run/wolf"
       ];
       log-driver = "journald";
       extraOptions = [
@@ -143,6 +174,24 @@ in
         "--cap-add=SYS_RESOURCE"
         "--env=LD_LIBRARY_PATH=/run/opengl-driver/lib:/run/opengl-driver-32/lib"
       ];
+    };
+
+    # Wolf Den - Web UI for managing Wolf
+    virtualisation.oci-containers.containers."wolf-den" = {
+      image = "ghcr.io/games-on-whales/wolf-den:stable";
+      ports = [
+        "${toString cfg.den.port}:8080"
+      ];
+      environment = {
+        "WOLF_SOCKET_PATH" = "/var/run/wolf/wolf.sock";
+      };
+      volumes = [
+        "${cfg.hostAppsStateFolder}/wolf-den:/app/wolf-den/"
+        "/var/run/wolf:/var/run/wolf"
+        "${cfg.hostAppsStateFolder}/covers:${cfg.hostAppsStateFolder}/covers"
+      ];
+      log-driver = "journald";
+      dependsOn = [ "wolf-wolf" ];
     };
   };
 }
