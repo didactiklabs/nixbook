@@ -98,12 +98,16 @@ in
         "d ${cfg.hostAppsStateFolder}/wolf-den 0755 root root -"
         "d ${cfg.hostAppsStateFolder}/covers 0755 root root -"
       ];
-      services."docker-wolf-wolf" = {
+      services."podman-wolf-wolf" = {
         serviceConfig = {
           Restart = lib.mkOverride 90 "always";
           RestartMaxDelaySec = lib.mkOverride 90 "1m";
-          RestartSec = lib.mkOverride 90 "100ms";
+          RestartSec = lib.mkOverride 90 "5s";
           RestartSteps = lib.mkOverride 90 9;
+          ExecStartPre = lib.mkOverride 90 [
+            "-${pkgs.podman}/bin/podman rm -f wolf-wolf"
+            "-${pkgs.podman}/bin/podman rm -f WolfPulseAudio"
+          ];
           ExecStopPost = lib.mkOverride 90 [
             "-${pkgs.podman}/bin/podman rm -f wolf-wolf"
             "-${pkgs.podman}/bin/podman rm -f WolfPulseAudio"
@@ -116,7 +120,7 @@ in
           "docker-compose-wolf-root.target"
         ];
       };
-      services."docker-wolf-den" = {
+      services."podman-wolf-den" = {
         serviceConfig = {
           Restart = lib.mkOverride 90 "always";
           RestartMaxDelaySec = lib.mkOverride 90 "1m";
@@ -137,8 +141,8 @@ in
           ''}";
           ExecStopPost = lib.mkOverride 90 "-${pkgs.podman}/bin/podman rm -f wolf-den";
         };
-        after = [ "docker-wolf-wolf.service" ];
-        requires = [ "docker-wolf-wolf.service" ];
+        after = [ "podman-wolf-wolf.service" ];
+        requires = [ "podman-wolf-wolf.service" ];
         partOf = [
           "docker-compose-wolf-root.target"
         ];
