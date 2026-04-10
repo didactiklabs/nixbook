@@ -91,6 +91,8 @@ in
     systemd = {
       tmpfiles.rules = [
         "d ${cfg.hostAppsStateFolder} 0755 root root -"
+        "d ${cfg.hostAppsStateFolder}/wolf-den 0755 root root -"
+        "d ${cfg.hostAppsStateFolder}/covers 0755 root root -"
         "d /tmp/sockets 0755 root root -"
         "d /var/run/wolf 0755 root root -"
       ]
