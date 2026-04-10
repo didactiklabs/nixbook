@@ -58,6 +58,7 @@ in
 
       # IaC and deployment
       terraform
+      ansible
       minio-client
       (google-cloud-sdk.withExtraComponents [
         google-cloud-sdk.components.gke-gcloud-auth-plugin
