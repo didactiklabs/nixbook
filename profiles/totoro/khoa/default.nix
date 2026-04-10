@@ -32,11 +32,6 @@
         options = {
           baseURL = "http://anya:11434/v1";
         };
-        models = {
-          "gemma4:26b" = {
-            name = "Gemma 4 26B";
-          };
-        };
       };
     };
   };
