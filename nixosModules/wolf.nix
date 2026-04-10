@@ -107,8 +107,8 @@ in
           RestartSec = lib.mkOverride 90 "5s";
           RestartSteps = lib.mkOverride 90 9;
           ExecStartPre = lib.mkOverride 90 [
-            "-${pkgs.podman}/bin/podman rm -f wolf-wolf"
-            "-${pkgs.podman}/bin/podman rm -f WolfPulseAudio"
+            "-${pkgs.podman}/bin/podman kill --all"
+            "-${pkgs.podman}/bin/podman rm --all -f"
           ];
           ExecStopPost = lib.mkOverride 90 [
             "-${pkgs.podman}/bin/podman rm -f wolf-wolf"
