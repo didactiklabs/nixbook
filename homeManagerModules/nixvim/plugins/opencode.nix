@@ -17,8 +17,8 @@ in
       };
 
       extraConfigLua = ''
-        vim.g.opencode_opts = {
-          provider = {
+         vim.g.opencode_opts = {
+          server = {
             enabled = "snacks",
           },
         }
