@@ -21,7 +21,7 @@
               ];
             };
             Service = {
-              ExecStart = "${pkgs.nextcloud-client}/bin/nextcloud";
+              ExecStart = "${pkgs.nextcloud-client}/bin/nextcloud --background";
               Restart = "always";
             };
           };
