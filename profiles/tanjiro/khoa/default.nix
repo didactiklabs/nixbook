@@ -12,6 +12,7 @@
     ../../totoro/khoa/thunderbirdConfig.nix
   ];
   home.packages = [
+    pkgs.moonlight-qt
     pkgs.slack
     pkgs.openfortivpn
     pkgs.jira-cli-go
