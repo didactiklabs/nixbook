@@ -35,33 +35,47 @@ let
         pkgs.iproute2
         pkgs.gawk
         pkgs.gnugrep
+        pkgs.coreutils
       ]
     }:$PATH"
 
-    # Get the default gateway that goes through a physical interface,
-    # explicitly excluding VPN tunnel interfaces (tailscale0, wt*).
-    get_physical_gateway_ip() {
-      ip -4 route show default \
-        | grep -vE 'dev (tailscale0|wt[^ ]*)' \
-        | awk 'NR==1 {print $3}'
+    # Collect all IPv4 subnets directly connected to physical interfaces,
+    # excluding VPN tunnels (tailscale0, wt*) and loopback.
+    get_local_subnets() {
+      ip -4 route show proto kernel \
+        | grep -vE 'dev (tailscale0|wt[^ ]*|lo) ' \
+        | awk '{print $1}' \
+        | grep '/'
     }
 
-    ip monitor route | while read -r line; do
-      # Only act on route events that mention tailscale0
-      echo "$line" | grep -q "dev tailscale0" || continue
-
-      GATEWAY=$(get_physical_gateway_ip)
-      if [[ -z "$GATEWAY" ]]; then
-        continue
+    # Remove any route in Tailscale's policy-routing table (52) on tailscale0
+    # that exactly matches a locally-connected subnet.
+    fix_routes() {
+      local local_subnets
+      local_subnets=$(get_local_subnets)
+      if [[ -z "$local_subnets" ]]; then
+        return
       fi
-      GATEWAY_PREFIX=$(echo "$GATEWAY" | cut -d. -f1-3)
 
-      for MASK in 16 24; do
-        SUBNET="''${GATEWAY_PREFIX}.0/$MASK"
-        if ip route show table 52 "$SUBNET" dev tailscale0 2>/dev/null | grep -q .; then
-          ip route del "$SUBNET" dev tailscale0 table 52
+      while read -r ts_route; do
+        # ts_route is a subnet like "10.0.0.0/24" from table 52 via tailscale0
+        local subnet
+        subnet=$(echo "$ts_route" | awk '{print $1}')
+        # Check if this tailscale route conflicts with a local subnet
+        if echo "$local_subnets" | grep -qxF "$subnet"; then
+          echo "Removing conflicting route $subnet dev tailscale0 from table 52"
+          ip route del "$subnet" dev tailscale0 table 52 2>/dev/null || true
         fi
-      done
+      done < <(ip route show table 52 dev tailscale0 2>/dev/null)
+    }
+
+    # Run once at startup to clean up any pre-existing conflicts
+    fix_routes
+
+    # Then monitor for route changes and re-check on every tailscale0 event
+    ip monitor route | while read -r line; do
+      echo "$line" | grep -q "dev tailscale0" || continue
+      fix_routes
     done
   '';
 in
