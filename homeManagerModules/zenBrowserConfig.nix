@@ -142,6 +142,9 @@ in
           "browser.bookmarks.showMobileBookmarks" = true;
           "browser.tabs.restorePinnedTabs.onStartup" = true;
 
+          # Golinks - treat "go" as a valid domain so go/foo resolves to http://go/foo
+          "browser.fixup.domainwhitelist.go" = true;
+
           # URL bar
           "browser.urlbar.suggest.searches" = true;
           "browser.urlbar.suggest.history" = true;
