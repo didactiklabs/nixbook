@@ -56,7 +56,7 @@ in
     };
     ollama.enable = true;
     sway.enable = true;
-    tailscale.enable = false;
+    tailscale.enable = true;
     netbird-tools.enable = false;
     caCertificates = {
       bealv.enable = true;
