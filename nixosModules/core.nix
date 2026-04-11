@@ -186,6 +186,9 @@ in
           # IPv6: disables source routing.
           "net.ipv6.conf.all.accept_source_route" = 0;
           "net.ipv6.conf.default.accept_source_route" = 0;
+
+          # Enable IPv4 forwarding for VPN subnet routing (Tailscale, NetBird).
+          "net.ipv4.ip_forward" = 1;
         };
       };
       tmp.cleanOnBoot = true;

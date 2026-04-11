@@ -75,10 +75,6 @@ in
     # Prevent NetworkManager from interfering with NetBird's WireGuard interface
     networking.networkmanager.unmanaged = [ "interface-name:wt*" ];
 
-    # NetBird routes traffic to remote subnets (e.g. Kubernetes pod/service CIDRs)
-    # through the WireGuard tunnel — IP forwarding must be enabled for this to work.
-    boot.kernel.sysctl."net.ipv4.ip_forward" = 1;
-
     environment.systemPackages = [ nswitch ];
   };
 }
