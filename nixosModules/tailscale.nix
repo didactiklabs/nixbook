@@ -28,19 +28,42 @@ let
       echo "Failed to switch to $tailnet_name."
     fi
   '';
-  # tailscale-fix-routes = pkgs.writeShellScriptBin "tailscale-fix-routes" ''
-  #   set -euo pipefail
-  #   ip monitor route | while read -r line; do
-  #       for MASK in 16 24; do
-  #           SUBNET=$(ip -4 route show default | awk '{print $3}' | cut -d. -f1-3).0/$MASK
-  #           if echo "$line" | grep -q "$SUBNET dev tailscale0"; then
-  #               if ip route show table 52 | grep -q "$SUBNET dev tailscale0"; then
-  #                   ip route del $SUBNET dev tailscale0 table 52
-  #               fi
-  #           fi
-  #       done
-  #   done
-  # '';
+  tailscale-fix-routes = pkgs.writeShellScriptBin "tailscale-fix-routes" ''
+    set -euo pipefail
+    PATH="${
+      pkgs.lib.makeBinPath [
+        pkgs.iproute2
+        pkgs.gawk
+        pkgs.gnugrep
+      ]
+    }:$PATH"
+
+    # Get the default gateway that goes through a physical interface,
+    # explicitly excluding VPN tunnel interfaces (tailscale0, wt*).
+    get_physical_gateway_ip() {
+      ip -4 route show default \
+        | grep -vE 'dev (tailscale0|wt[^ ]*)' \
+        | awk 'NR==1 {print $3}'
+    }
+
+    ip monitor route | while read -r line; do
+      # Only act on route events that mention tailscale0
+      echo "$line" | grep -q "dev tailscale0" || continue
+
+      GATEWAY=$(get_physical_gateway_ip)
+      if [[ -z "$GATEWAY" ]]; then
+        continue
+      fi
+      GATEWAY_PREFIX=$(echo "$GATEWAY" | cut -d. -f1-3)
+
+      for MASK in 16 24; do
+        SUBNET="''${GATEWAY_PREFIX}.0/$MASK"
+        if ip route show table 52 "$SUBNET" dev tailscale0 2>/dev/null | grep -q .; then
+          ip route del "$SUBNET" dev tailscale0 table 52
+        fi
+      done
+    done
+  '';
 in
 {
   options.customNixOSModules.tailscale = {
@@ -92,10 +115,27 @@ in
       # rp_filter would drop.
       checkReversePath = "loose";
     };
-    # Force tailscaled to use native nftables instead of the iptables-compat
-    # translation layer. Critical for clean nftables-only systems.
-    systemd.services.tailscaled.serviceConfig.Environment = [
-      "TS_DEBUG_FIREWALL_MODE=nftables"
-    ];
+    systemd.services = {
+      # Force tailscaled to use native nftables instead of the iptables-compat
+      # translation layer. Critical for clean nftables-only systems.
+      tailscaled.serviceConfig.Environment = [
+        "TS_DEBUG_FIREWALL_MODE=nftables"
+      ];
+      # Persistent route-fix daemon: monitors route changes and removes Tailscale
+      # routes (table 52) that conflict with the physical LAN subnet, scoped to
+      # the physical default gateway so NetBird (wt*) routes are left alone.
+      tailscale-fix-routes = {
+        enable = true;
+        after = [ "tailscaled.service" ];
+        bindsTo = [ "tailscaled.service" ];
+        partOf = [ "tailscaled.service" ];
+        wantedBy = [ "tailscaled.service" ];
+        serviceConfig = {
+          ExecStart = "${tailscale-fix-routes}/bin/tailscale-fix-routes";
+          Restart = "always";
+          RestartSec = 5;
+        };
+      };
+    };
   };
 }
