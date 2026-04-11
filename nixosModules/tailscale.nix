@@ -30,6 +30,7 @@ let
   '';
   tailscale-fix-routes = pkgs.writeShellScriptBin "tailscale-fix-routes" ''
     set -euo pipefail
+    # https://github.com/tailscale/tailscale/issues/1227
     PATH="${
       pkgs.lib.makeBinPath [
         pkgs.iproute2
