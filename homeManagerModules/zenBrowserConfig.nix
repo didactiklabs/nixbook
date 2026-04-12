@@ -143,7 +143,9 @@ in
           "browser.tabs.restorePinnedTabs.onStartup" = true;
 
           # Golinks - treat "go" as a valid domain so go/foo resolves to http://go/foo
-          "browser.fixup.domainwhitelist.go" = true;
+          "browser.fixup.domainwhitelist.g" = true;
+          "browser.fixup.domainwhitelist.b" = true;
+          "browser.fixup.domainwhitelist.w" = true;
 
           # URL bar
           "browser.urlbar.suggest.searches" = true;
