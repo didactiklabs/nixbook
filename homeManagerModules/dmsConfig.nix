@@ -6,6 +6,8 @@
 }:
 let
   sources = import ../npins;
+  dmsFlake = import sources.flake-compat { src = sources.dms; };
+  dmsPkg = dmsFlake.defaultNix.packages.${pkgs.stdenv.hostPlatform.system}.default;
   quickshellOverlay = (import "${sources.quickshell}/overlay.nix") {
     rev = sources.quickshell.revision;
   };
@@ -89,6 +91,9 @@ in
     };
     programs.dank-material-shell = {
       enable = true;
+      package = dmsPkg.overrideAttrs (old: {
+        patches = (old.patches or [ ]) ++ [ ../customPkgs/dms-enterprise-wifi.patch ];
+      });
       quickshell = {
         package = quickshellPkg;
       };
