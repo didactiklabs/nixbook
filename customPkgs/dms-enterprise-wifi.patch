@@ -1,0 +1,9 @@
+--- a/internal/server/network/backend_networkmanager_wifi.go
++++ b/internal/server/network/backend_networkmanager_wifi.go
+@@ -744,6 +744,8 @@
+ 			if req.Username != "" {
+ 				x["identity"] = req.Username
++			} else if req.Interactive {
++				x["identity"] = "pending-auth"
+ 			}
+ 			if req.Password != "" {
