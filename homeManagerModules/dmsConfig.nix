@@ -267,9 +267,6 @@ in
         sathiAi = {
           enable = true;
         };
-        audioInhibit = {
-          enable = true;
-        };
         githubNotifierCustom = {
           enable = true;
           src = ../assets/dms/plugins/github-notifier-custom;
