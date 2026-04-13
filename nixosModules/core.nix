@@ -214,27 +214,11 @@ in
         tmpfsSize = "30%";
       };
     };
-
-    # Set your time zone.
-    time.timeZone = "Europe/Paris";
-    services.chrony.enable = true;
-
-    # Select internationalisation properties.
-    i18n.defaultLocale = "en_US.UTF-8";
-    i18n.extraLocaleSettings = {
-      LC_ADDRESS = "fr_FR.UTF-8";
-      LC_IDENTIFICATION = "fr_FR.UTF-8";
-      LC_MEASUREMENT = "fr_FR.UTF-8";
-      LC_MONETARY = "fr_FR.UTF-8";
-      LC_NAME = "fr_FR.UTF-8";
-      LC_NUMERIC = "fr_FR.UTF-8";
-      LC_PAPER = "fr_FR.UTF-8";
-      LC_TELEPHONE = "fr_FR.UTF-8";
-      LC_TIME = "fr_FR.UTF-8";
-      LC_ALL = "C.UTF-8";
-    };
-    console.keyMap = "fr";
     services = {
+      # Auto-detect your time zone.
+      automatic-timezoned.enable = true;
+      chrony.enable = true;
+
       fprintd.enable = true;
       accounts-daemon.enable = true;
       fwupd.enable = true;
@@ -255,6 +239,22 @@ in
 
       pulseaudio.enable = false;
     };
+
+    # Select internationalisation properties.
+    i18n.defaultLocale = "en_US.UTF-8";
+    i18n.extraLocaleSettings = {
+      LC_ADDRESS = "fr_FR.UTF-8";
+      LC_IDENTIFICATION = "fr_FR.UTF-8";
+      LC_MEASUREMENT = "fr_FR.UTF-8";
+      LC_MONETARY = "fr_FR.UTF-8";
+      LC_NAME = "fr_FR.UTF-8";
+      LC_NUMERIC = "fr_FR.UTF-8";
+      LC_PAPER = "fr_FR.UTF-8";
+      LC_TELEPHONE = "fr_FR.UTF-8";
+      LC_TIME = "fr_FR.UTF-8";
+      LC_ALL = "C.UTF-8";
+    };
+    console.keyMap = "fr";
 
     xdg = {
       portal = {
