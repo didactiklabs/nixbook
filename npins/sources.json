@@ -164,9 +164,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "287f84846c1eb3b72c986f5f6bebcff0bd67440d",
-      "url": "https://github.com/nix-community/home-manager/archive/287f84846c1eb3b72c986f5f6bebcff0bd67440d.tar.gz",
-      "hash": "sha256-Wzc4nn07/0RL21ypPHRzNDQZcjhIC8LaYo7QJQjM5T4="
+      "revision": "2de7205ce6e10b031151033e69b7ef89708dc282",
+      "url": "https://github.com/nix-community/home-manager/archive/2de7205ce6e10b031151033e69b7ef89708dc282.tar.gz",
+      "hash": "sha256-VJMt3n9zGRzupzvlhcKIz4SpWflKh0rWfYTgmkmun0Q="
     },
     "jtui": {
       "type": "GitRelease",
