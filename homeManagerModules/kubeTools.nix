@@ -137,6 +137,7 @@ in
         kubernetes-helm
         kind
         sou
+        grafana-loki
       ];
     };
     programs = {
