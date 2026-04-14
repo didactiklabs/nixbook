@@ -24,6 +24,20 @@ PluginSettings {
     }
 
     ToggleSetting {
+        settingKey: "enableTailscale"
+        label: "Enable Tailscale"
+        description: "Show the Tailscale widget in the bar and popout"
+        defaultValue: true
+    }
+
+    ToggleSetting {
+        settingKey: "enableNetbird"
+        label: "Enable NetBird"
+        description: "Show the NetBird widget in the bar and popout"
+        defaultValue: true
+    }
+
+    ToggleSetting {
         settingKey: "tailscaleAutoConnect"
         label: "Tailscale Auto Connect"
         description: "Automatically connect Tailscale on startup"

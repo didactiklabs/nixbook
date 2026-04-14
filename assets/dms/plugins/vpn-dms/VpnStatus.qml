@@ -10,6 +10,10 @@ import qs.Modules.Plugins
 PluginComponent {
     id: root
 
+    // --- Settings ---
+    property bool enableTailscale: pluginData.enableTailscale !== undefined ? pluginData.enableTailscale : true
+    property bool enableNetbird: pluginData.enableNetbird !== undefined ? pluginData.enableNetbird : true
+
     // --- Tailscale Properties ---
     property bool tailscaleIsConnected: false
     property string tailscaleStatusText: "Disconnected"
@@ -37,18 +41,26 @@ PluginComponent {
         running: true
         repeat: true
         onTriggered: {
-            tailscaleStatusProcess.running = true
-            tailscaleNetworksProcess.running = true
-            netbirdStatusProcess.running = true
-            netbirdRefreshProfiles()
+            if (root.enableTailscale) {
+                tailscaleStatusProcess.running = true
+                tailscaleNetworksProcess.running = true
+            }
+            if (root.enableNetbird) {
+                netbirdStatusProcess.running = true
+                netbirdRefreshProfiles()
+            }
         }
     }
 
     Component.onCompleted: {
-        tailscaleStatusProcess.running = true
-        tailscaleNetworksProcess.running = true
-        netbirdStatusProcess.running = true
-        netbirdRefreshProfiles()
+        if (root.enableTailscale) {
+            tailscaleStatusProcess.running = true
+            tailscaleNetworksProcess.running = true
+        }
+        if (root.enableNetbird) {
+            netbirdStatusProcess.running = true
+            netbirdRefreshProfiles()
+        }
     }
 
     // --- Tailscale Logic ---
@@ -313,12 +325,14 @@ PluginComponent {
                 size: root.iconSize
                 color: root.tailscaleIsConnected ? Theme.primary : Theme.surfaceVariantText
                 anchors.verticalCenter: parent.verticalCenter
+                visible: root.enableTailscale
             }
             DankIcon {
                 name: "vpn_key"
                 size: root.iconSize
                 color: root.netbirdIsConnected ? Theme.primary : Theme.surfaceVariantText
                 anchors.verticalCenter: parent.verticalCenter
+                visible: root.enableNetbird
             }
         }
     }
@@ -331,12 +345,14 @@ PluginComponent {
                 size: root.iconSize
                 color: root.tailscaleIsConnected ? Theme.primary : Theme.surfaceVariantText
                 anchors.horizontalCenter: parent.horizontalCenter
+                visible: root.enableTailscale
             }
             DankIcon {
                 name: "vpn_key"
                 size: root.iconSize
                 color: root.netbirdIsConnected ? Theme.primary : Theme.surfaceVariantText
                 anchors.horizontalCenter: parent.horizontalCenter
+                visible: root.enableNetbird
             }
         }
     }
@@ -345,7 +361,7 @@ PluginComponent {
         PopoutComponent {
             id: popout
             headerText: "VPN Status"
-            detailsText: (root.tailscaleIsConnected ? "Tailscale: Connected " : "") + (root.netbirdIsConnected ? "NetBird: Connected" : "")
+            detailsText: (root.enableTailscale && root.tailscaleIsConnected ? "Tailscale: Connected " : "") + (root.enableNetbird && root.netbirdIsConnected ? "NetBird: Connected" : "")
             showCloseButton: true
 
             Item {
@@ -362,6 +378,7 @@ PluginComponent {
                     Column {
                         width: parent.width
                         spacing: Theme.spacingM
+                        visible: root.enableTailscale
 
                         StyledText {
                             text: "Tailscale"
@@ -424,6 +441,7 @@ PluginComponent {
                     Column {
                         width: parent.width
                         spacing: Theme.spacingM
+                        visible: root.enableNetbird
 
                         StyledText {
                             text: "NetBird"
