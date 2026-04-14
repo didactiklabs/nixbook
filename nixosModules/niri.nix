@@ -48,12 +48,30 @@ in
       };
     };
 
+    # Polkit authentication agent — required for privilege-escalation dialogs
+    # (e.g. NetworkManager adding system-wide connections, fwupd updates).
+    # The niri-flake bundled agent is disabled above; this replaces it.
+    systemd.user.services.polkit-gnome-authentication-agent-1 = {
+      description = "polkit-gnome-authentication-agent-1";
+      wantedBy = [ "graphical-session.target" ];
+      wants = [ "graphical-session.target" ];
+      after = [ "graphical-session.target" ];
+      serviceConfig = {
+        Type = "simple";
+        ExecStart = "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1";
+        Restart = "on-failure";
+        RestartSec = 1;
+        TimeoutStopSec = 10;
+      };
+    };
+
     environment.systemPackages = with pkgs; [
       fuzzel
       grimblast
       wl-clipboard
       libnotify
       xwayland-satellite
+      networkmanagerapplet # nm-applet (NM secret agent for WPA Enterprise) + nm-connection-editor
     ];
 
     nix.settings = {
@@ -80,14 +98,17 @@ in
         This module:
         - Imports the niri-flake NixOS module (sourced from npins, not nixpkgs)
         - Enables programs.niri with the nixpkgs niri package
-        - Disables the niri-flake bundled polkit agent (the system polkit handles it)
+        - Disables the niri-flake bundled polkit agent and replaces it with polkit-gnome
+          as a systemd user service (required for privilege-escalation dialogs)
         - Installs essential Wayland utilities: fuzzel (launcher), grimblast (screenshots),
           wl-clipboard, libnotify, xwayland-satellite (X11 app compatibility layer)
+        - Installs networkmanagerapplet (nm-applet + nm-connection-editor) for
+          WPA Enterprise credential prompts and advanced network configuration
         - Adds xdg-desktop-portal-gtk for FileChooser (avoids Nautilus dependency)
         - Ensures the GNOME portal backend auto-starts with the session and restarts on crash
         - Adds the niri.cachix.org binary cache for fast pre-built niri packages
 
-        Used on: totoro (primary), nishinoya (primary).
+        Used on: totoro (primary), tanjiro (primary), nishinoya (primary).
         See also: homeManagerModules/niri/ for per-user compositor configuration.
       '';
     };

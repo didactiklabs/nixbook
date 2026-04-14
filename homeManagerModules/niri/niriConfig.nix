@@ -198,6 +198,13 @@ in
               "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
             ];
           }
+          {
+            # NM secret agent — handles WPA Enterprise credential prompts and
+            # shows a tray icon for network status/connection management.
+            command = [
+              "${pkgs.networkmanagerapplet}/bin/nm-applet"
+            ];
+          }
         ];
 
         input = {
