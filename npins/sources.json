@@ -228,10 +228,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "v2.8.2",
-      "revision": "96349ed3e09cb2fc79b4eb93bcb28b1808b90fb8",
-      "url": "https://api.github.com/repos/textfuel/lazyjira/tarball/refs/tags/v2.8.2",
-      "hash": "sha256-Y1RoZ145VqM8oHrpqXiYyGMdpCovRlXyJ6x5mugwiPc="
+      "version": "v2.9.0",
+      "revision": "d6b84851ee44da805ea11a787f03c58184e7400f",
+      "url": "https://api.github.com/repos/textfuel/lazyjira/tarball/refs/tags/v2.9.0",
+      "hash": "sha256-FOMhaF/K4OKtzJeAtNZqlZ08BC7mmCUbPF/RQp+9JlU="
     },
     "niri-flake": {
       "type": "Git",
