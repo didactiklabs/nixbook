@@ -17,6 +17,7 @@
     pkgs.openfortivpn
     pkgs.jira-cli-go
     pkgs.zoom-us
+    pkgs.element-desktop
   ];
   programs = {
     go = {
