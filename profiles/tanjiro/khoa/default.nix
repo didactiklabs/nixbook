@@ -9,6 +9,7 @@
     ../../totoro/khoa/gitConfig.nix
     ../../totoro/khoa/niriConfig.nix
     ./niriConfig.nix
+    ./nixvimConfig.nix
     ../../totoro/khoa/thunderbirdConfig.nix
     ./jiraWorklog.nix
   ];
