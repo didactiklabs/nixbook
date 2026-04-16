@@ -29,8 +29,22 @@ let
     fi
   '';
   tailscale-fix-routes = pkgs.writeShellScriptBin "tailscale-fix-routes" ''
-    set -euo pipefail
     # https://github.com/tailscale/tailscale/issues/1227
+    #
+    # When using an exit node that also advertises the local LAN subnet
+    # (e.g. a router running Tailscale), Tailscale adds that subnet to its
+    # policy-routing table (52) pointing at tailscale0.  Since table 52 is
+    # consulted before the main table, LAN traffic — including DNS to the
+    # gateway — gets sucked into the tunnel and blackholed.
+    #
+    # Instead of deleting Tailscale's routes (which it immediately re-adds,
+    # creating a fight loop), we inject "throw" routes into table 52 for
+    # every locally-connected subnet.  A throw route tells the kernel
+    # "this destination is not in this table — try the next rule", so
+    # traffic falls through to the main table and uses the physical
+    # interface.  Throw routes coexist with Tailscale's device routes
+    # and the kernel prefers the throw (same prefix, but throw wins over
+    # unicast-via-device in route selection).
     PATH="${
       pkgs.lib.makeBinPath [
         pkgs.iproute2
@@ -46,11 +60,12 @@ let
       ip -4 route show proto kernel \
         | grep -vE 'dev (tailscale0|wt[^ ]*|lo) ' \
         | awk '{print $1}' \
-        | grep '/'
+        | grep '/' || true
     }
 
-    # Remove any route in Tailscale's policy-routing table (52) on tailscale0
-    # that exactly matches a locally-connected subnet.
+    # Ensure a throw route exists in table 52 for each local subnet.
+    # This makes traffic to local subnets skip table 52 and fall through
+    # to the main table, where the physical interface route lives.
     fix_routes() {
       local local_subnets
       local_subnets=$(get_local_subnets)
@@ -58,25 +73,25 @@ let
         return
       fi
 
-      while read -r ts_route; do
-        # ts_route is a subnet like "10.0.0.0/24" from table 52 via tailscale0
-        local subnet
-        subnet=$(echo "$ts_route" | awk '{print $1}')
-        # Check if this tailscale route conflicts with a local subnet
-        if echo "$local_subnets" | grep -qxF "$subnet"; then
-          echo "Removing conflicting route $subnet dev tailscale0 from table 52"
-          ip route del "$subnet" dev tailscale0 table 52 2>/dev/null || true
+      while IFS= read -r subnet; do
+        [[ -z "$subnet" ]] && continue
+        # Add throw route if not already present
+        if ! ip route show table 52 "$subnet" 2>/dev/null | grep -q "^throw"; then
+          echo "Adding throw route for $subnet in table 52"
+          ip route replace throw "$subnet" table 52 2>/dev/null || true
         fi
-      done < <(ip route show table 52 dev tailscale0 2>/dev/null)
+      done <<< "$local_subnets"
     }
 
-    # Run once at startup to clean up any pre-existing conflicts
+    # Run once at startup
     fix_routes
 
-    # Then monitor for route changes and re-check on every tailscale0 event
-    ip monitor route | while read -r line; do
-      echo "$line" | grep -q "dev tailscale0" || continue
-      fix_routes
+    # Re-check whenever a route changes on tailscale0 (e.g. Tailscale
+    # re-adds its subnet route after we threw it).
+    ip monitor route | while IFS= read -r line; do
+      case "$line" in
+        *tailscale0*) fix_routes ;;
+      esac
     done
   '';
 in
@@ -144,9 +159,9 @@ in
       tailscaled.serviceConfig.Environment = [
         "TS_DEBUG_FIREWALL_MODE=nftables"
       ];
-      # Persistent route-fix daemon: monitors route changes and removes Tailscale
-      # routes (table 52) that conflict with the physical LAN subnet, scoped to
-      # the physical default gateway so NetBird (wt*) routes are left alone.
+      # Persistent route-fix daemon: monitors route changes and injects "throw"
+      # routes into Tailscale's table 52 for locally-connected subnets, so LAN
+      # traffic bypasses the tunnel and uses the physical interface directly.
       tailscale-fix-routes = {
         enable = true;
         after = [ "tailscaled.service" ];
