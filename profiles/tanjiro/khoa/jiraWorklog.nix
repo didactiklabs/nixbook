@@ -50,8 +50,14 @@ let
           echo "No time entered."
           exit 1
         fi
-        ${pkgs.jira-cli-go}/bin/jira issue worklog add "$KEY" "$TIME"
-        echo "Logged $TIME on $KEY"
+        read -rp "Comment (optional, press Enter to skip): " WCOMMENT
+        if [ -n "$WCOMMENT" ]; then
+          ${pkgs.jira-cli-go}/bin/jira issue worklog add "$KEY" "$TIME" --comment "$WCOMMENT"
+          echo "Logged $TIME on $KEY with comment"
+        else
+          ${pkgs.jira-cli-go}/bin/jira issue worklog add "$KEY" "$TIME"
+          echo "Logged $TIME on $KEY"
+        fi
         ;;
       comment)
         select_issue
