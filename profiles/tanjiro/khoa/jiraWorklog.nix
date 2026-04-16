@@ -7,6 +7,7 @@ let
       echo "Usage: jw <command>"
       echo ""
       echo "Commands:"
+      echo "  list      List issues and open selected one"
       echo "  worklog   Log time spent on an issue"
       echo "  comment   Add a comment to an issue"
       exit 1
@@ -38,6 +39,10 @@ let
     shift
 
     case "$COMMAND" in
+      list)
+        select_issue
+        ${pkgs.jira-cli-go}/bin/jira open "$KEY"
+        ;;
       worklog)
         select_issue
         read -rp "Time spent (e.g. 1h, 30m, 1h30m): " TIME
