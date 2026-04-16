@@ -10,6 +10,7 @@
     ../../totoro/khoa/niriConfig.nix
     ./niriConfig.nix
     ./nixvimConfig.nix
+    ./gojiConfig.nix
     ../../totoro/khoa/thunderbirdConfig.nix
     ./jiraWorklog.nix
   ];
