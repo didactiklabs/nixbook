@@ -3,10 +3,10 @@ let
   jira-worklog = pkgs.writeShellScriptBin "jira-worklog" ''
     set -euo pipefail
 
-    # List issues assigned to me, pick one with fzf
+    # List issues assigned to me or where I'm in the engineers field
+    ME=$(${pkgs.jira-cli-go}/bin/jira me)
     ISSUE=$(${pkgs.jira-cli-go}/bin/jira issue list \
-      -a"$(${pkgs.jira-cli-go}/bin/jira me)" \
-      -q"project IS NOT EMPTY" \
+      -q"(assignee = '$ME' OR engineers = '$ME') AND project IS NOT EMPTY" \
       --plain \
       --no-headers \
       --columns KEY,SUMMARY 2>/dev/null \
