@@ -93,73 +93,75 @@ in
         "d ${cfg.hostAppsStateFolder}/wolf-den 0755 root root -"
         "d ${cfg.hostAppsStateFolder}/covers 0755 root root -"
       ];
-      services."podman-wolf-wolf" = {
-        serviceConfig = {
-          Restart = lib.mkOverride 90 "always";
-          RestartMaxDelaySec = lib.mkOverride 90 "1m";
-          RestartSec = lib.mkOverride 90 "5s";
-          RestartSteps = lib.mkOverride 90 9;
-          ExecStartPre = lib.mkOverride 90 [
-            "-${pkgs.podman}/bin/podman kill --all"
-            "-${pkgs.podman}/bin/podman rm --all -f"
+      services = {
+        "podman-wolf-wolf" = {
+          serviceConfig = {
+            Restart = lib.mkOverride 90 "always";
+            RestartMaxDelaySec = lib.mkOverride 90 "1m";
+            RestartSec = lib.mkOverride 90 "5s";
+            RestartSteps = lib.mkOverride 90 9;
+            ExecStartPre = lib.mkOverride 90 [
+              "-${pkgs.podman}/bin/podman kill --all"
+              "-${pkgs.podman}/bin/podman rm --all -f"
+            ];
+            ExecStopPost = lib.mkOverride 90 [
+              "-${pkgs.podman}/bin/podman rm -f wolf-wolf"
+              "-${pkgs.podman}/bin/podman rm -f WolfPulseAudio"
+            ];
+          };
+          partOf = [
+            "docker-compose-wolf-root.target"
           ];
-          ExecStopPost = lib.mkOverride 90 [
-            "-${pkgs.podman}/bin/podman rm -f wolf-wolf"
-            "-${pkgs.podman}/bin/podman rm -f WolfPulseAudio"
+          wantedBy = [
+            "docker-compose-wolf-root.target"
           ];
         };
-        partOf = [
-          "docker-compose-wolf-root.target"
-        ];
-        wantedBy = [
-          "docker-compose-wolf-root.target"
-        ];
-      };
-      services."podman-wolf-den" = {
-        serviceConfig = {
-          Restart = lib.mkOverride 90 "always";
-          RestartMaxDelaySec = lib.mkOverride 90 "1m";
-          RestartSec = lib.mkOverride 90 "5s";
-          RestartSteps = lib.mkOverride 90 9;
-          ExecStartPre = lib.mkOverride 90 "${pkgs.writeShellScript "wait-wolf-socket" ''
-            timeout=30
-            elapsed=0
-            while [ ! -S /var/run/wolf/wolf.sock ]; do
-              if [ "$elapsed" -ge "$timeout" ]; then
-                echo "Timed out waiting for Wolf socket"
-                exit 1
-              fi
-              sleep 1
-              elapsed=$((elapsed + 1))
-            done
-            echo "Wolf socket is ready"
-          ''}";
-          ExecStopPost = lib.mkOverride 90 "-${pkgs.podman}/bin/podman rm -f wolf-den";
+        "podman-wolf-den" = {
+          serviceConfig = {
+            Restart = lib.mkOverride 90 "always";
+            RestartMaxDelaySec = lib.mkOverride 90 "1m";
+            RestartSec = lib.mkOverride 90 "5s";
+            RestartSteps = lib.mkOverride 90 9;
+            ExecStartPre = lib.mkOverride 90 "${pkgs.writeShellScript "wait-wolf-socket" ''
+              timeout=30
+              elapsed=0
+              while [ ! -S /var/run/wolf/wolf.sock ]; do
+                if [ "$elapsed" -ge "$timeout" ]; then
+                  echo "Timed out waiting for Wolf socket"
+                  exit 1
+                fi
+                sleep 1
+                elapsed=$((elapsed + 1))
+              done
+              echo "Wolf socket is ready"
+            ''}";
+            ExecStopPost = lib.mkOverride 90 "-${pkgs.podman}/bin/podman rm -f wolf-den";
+          };
+          after = [ "podman-wolf-wolf.service" ];
+          requires = [ "podman-wolf-wolf.service" ];
+          partOf = [
+            "docker-compose-wolf-root.target"
+          ];
+          wantedBy = [
+            "docker-compose-wolf-root.target"
+          ];
         };
-        after = [ "podman-wolf-wolf.service" ];
-        requires = [ "podman-wolf-wolf.service" ];
-        partOf = [
-          "docker-compose-wolf-root.target"
-        ];
-        wantedBy = [
-          "docker-compose-wolf-root.target"
-        ];
-      };
 
-      services."podman-wolf-watchtower" = {
-        serviceConfig = {
-          Restart = lib.mkOverride 90 "always";
-          RestartMaxDelaySec = lib.mkOverride 90 "1m";
-          RestartSec = lib.mkOverride 90 "5s";
-          RestartSteps = lib.mkOverride 90 9;
-          ExecStopPost = lib.mkOverride 90 "-${pkgs.podman}/bin/podman rm -f wolf-watchtower";
+        "podman-wolf-watchtower" = {
+          serviceConfig = {
+            Restart = lib.mkOverride 90 "always";
+            RestartMaxDelaySec = lib.mkOverride 90 "1m";
+            RestartSec = lib.mkOverride 90 "5s";
+            RestartSteps = lib.mkOverride 90 9;
+            ExecStopPost = lib.mkOverride 90 "-${pkgs.podman}/bin/podman rm -f wolf-watchtower";
+          };
+          partOf = [
+            "docker-compose-wolf-root.target"
+          ];
+          wantedBy = [
+            "docker-compose-wolf-root.target"
+          ];
         };
-        partOf = [
-          "docker-compose-wolf-root.target"
-        ];
-        wantedBy = [
-          "docker-compose-wolf-root.target"
-        ];
       };
 
       # Root service
@@ -172,80 +174,84 @@ in
         wantedBy = [ "multi-user.target" ];
       };
     };
+    virtualisation = {
+      oci-containers = {
+        containers = {
+          # Containers
+          "wolf-wolf" = {
+            image = "ghcr.io/games-on-whales/wolf:stable";
+            environment = {
+              "HOST_APPS_STATE_FOLDER" = cfg.hostAppsStateFolder;
+              "XDG_RUNTIME_DIR" = "/tmp/sockets";
+              "TZ" = "Europe/Paris";
+              "WOLF_ENCODER_NODE" = "/dev/dri/renderD128";
+              "WOLF_RENDER_NODE" = "/dev/dri/renderD128";
+              "WOLF_LOG_LEVEL" = "DEBUG";
+              "LIBVA_DRIVER_NAME" = "radeonsi";
+              "WOLF_DISABLE_HW_ACCEL" = "false";
+              "WOLF_SOCKET_PATH" = "/var/run/wolf/wolf.sock";
+            };
+            volumes = [
+              "/dev/:/dev:rw"
+              "${cfg.hostAppsStateFolder}/:${cfg.hostAppsStateFolder}:rw"
+              "/run/udev:/run/udev:rw"
+              "/tmp/sockets:/tmp/sockets:rw"
+              "/run/podman/podman.sock:/var/run/docker.sock:rw"
+              "/etc/localtime:/etc/localtime:ro"
+              "/var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket"
+              "/run/systemd/system:/run/systemd/system"
+              "/var/run/wolf:/var/run/wolf"
+            ];
+            log-driver = "journald";
+            extraOptions = [
+              "--network=host"
+              "--privileged"
+              "--device-cgroup-rule=c 13:* rmw"
+              "--cap-add=NET_ADMIN"
+              "--cap-add=SYS_ADMIN"
+              "--cap-add=SYS_RESOURCE"
+              "--env=LD_LIBRARY_PATH=/run/opengl-driver/lib:/run/opengl-driver-32/lib"
+            ];
+          };
 
-    # Containers
-    virtualisation.oci-containers.containers."wolf-wolf" = {
-      image = "ghcr.io/games-on-whales/wolf:stable";
-      environment = {
-        "HOST_APPS_STATE_FOLDER" = cfg.hostAppsStateFolder;
-        "XDG_RUNTIME_DIR" = "/tmp/sockets";
-        "TZ" = "Europe/Paris";
-        "WOLF_ENCODER_NODE" = "/dev/dri/renderD128";
-        "WOLF_RENDER_NODE" = "/dev/dri/renderD128";
-        "WOLF_LOG_LEVEL" = "DEBUG";
-        "LIBVA_DRIVER_NAME" = "radeonsi";
-        "WOLF_DISABLE_HW_ACCEL" = "false";
-        "WOLF_SOCKET_PATH" = "/var/run/wolf/wolf.sock";
-      };
-      volumes = [
-        "/dev/:/dev:rw"
-        "${cfg.hostAppsStateFolder}/:${cfg.hostAppsStateFolder}:rw"
-        "/run/udev:/run/udev:rw"
-        "/tmp/sockets:/tmp/sockets:rw"
-        "/run/podman/podman.sock:/var/run/docker.sock:rw"
-        "/etc/localtime:/etc/localtime:ro"
-        "/var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket"
-        "/run/systemd/system:/run/systemd/system"
-        "/var/run/wolf:/var/run/wolf"
-      ];
-      log-driver = "journald";
-      extraOptions = [
-        "--network=host"
-        "--privileged"
-        "--device-cgroup-rule=c 13:* rmw"
-        "--cap-add=NET_ADMIN"
-        "--cap-add=SYS_ADMIN"
-        "--cap-add=SYS_RESOURCE"
-        "--env=LD_LIBRARY_PATH=/run/opengl-driver/lib:/run/opengl-driver-32/lib"
-      ];
-    };
+          # Wolf Den - Web UI for managing Wolf
+          "wolf-den" = {
+            image = "ghcr.io/games-on-whales/wolf-den:stable";
+            environment = {
+              "WOLF_SOCKET_PATH" = "/var/run/wolf/wolf.sock";
+              "ASPNETCORE_URLS" = "http://0.0.0.0:${toString cfg.den.port}";
+            };
+            volumes = [
+              "${cfg.hostAppsStateFolder}/wolf-den:/app/wolf-den/"
+              "/var/run/wolf:/var/run/wolf"
+              "${cfg.hostAppsStateFolder}/covers:/etc/wolf/covers"
+            ];
+            log-driver = "journald";
+            dependsOn = [ "wolf-wolf" ];
+            extraOptions = [
+              "--network=host"
+            ];
+          };
 
-    # Wolf Den - Web UI for managing Wolf
-    virtualisation.oci-containers.containers."wolf-den" = {
-      image = "ghcr.io/games-on-whales/wolf-den:stable";
-      environment = {
-        "WOLF_SOCKET_PATH" = "/var/run/wolf/wolf.sock";
-        "ASPNETCORE_URLS" = "http://0.0.0.0:${toString cfg.den.port}";
+          # Watchtower - Automatic container image updates
+          "wolf-watchtower" = {
+            image = "containrrr/watchtower:latest";
+            environment = {
+              "WATCHTOWER_CLEANUP" = "true";
+              "WATCHTOWER_POLL_INTERVAL" = "3600";
+              "WATCHTOWER_ROLLING_RESTART" = "true";
+              "TZ" = "Europe/Paris";
+            };
+            volumes = [
+              "/run/podman/podman.sock:/var/run/docker.sock:ro"
+            ];
+            log-driver = "journald";
+            extraOptions = [
+              "--network=host"
+            ];
+          };
+        };
       };
-      volumes = [
-        "${cfg.hostAppsStateFolder}/wolf-den:/app/wolf-den/"
-        "/var/run/wolf:/var/run/wolf"
-        "${cfg.hostAppsStateFolder}/covers:/etc/wolf/covers"
-      ];
-      log-driver = "journald";
-      dependsOn = [ "wolf-wolf" ];
-      extraOptions = [
-        "--network=host"
-      ];
-    };
-
-    # Watchtower - Automatic container image updates
-    virtualisation.oci-containers.containers."wolf-watchtower" = {
-      image = "containrrr/watchtower:latest";
-      environment = {
-        "WATCHTOWER_CLEANUP" = "true";
-        "WATCHTOWER_POLL_INTERVAL" = "3600";
-        "WATCHTOWER_ROLLING_RESTART" = "true";
-        "WATCHTOWER_INCLUDE_RESTARTING" = "true";
-        "TZ" = "Europe/Paris";
-      };
-      volumes = [
-        "/run/podman/podman.sock:/var/run/docker.sock:ro"
-      ];
-      log-driver = "journald";
-      extraOptions = [
-        "--network=host"
-      ];
     };
   };
 }
