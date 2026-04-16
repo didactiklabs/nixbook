@@ -10,6 +10,7 @@
     ../../totoro/khoa/niriConfig.nix
     ./niriConfig.nix
     ../../totoro/khoa/thunderbirdConfig.nix
+    ./jiraWorklog.nix
   ];
   home.packages = [
     pkgs.moonlight-qt
