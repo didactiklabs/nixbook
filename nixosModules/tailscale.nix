@@ -131,17 +131,9 @@ in
     services.tailscale = {
       enable = true;
     };
+    # Enable IPv6 forwarding for exit node / subnet routing support.
     boot.kernel.sysctl = {
-      # Enable IPv6 forwarding for exit node / subnet routing support.
       "net.ipv6.conf.all.forwarding" = 1;
-      # Override the strict rp_filter (= 1) set in core.nix.
-      # Linux takes max(all, per-interface) for rp_filter, so even though
-      # checkReversePath = "loose" sets per-interface values, the global
-      # all.rp_filter = 1 from core.nix wins and silently drops asymmetric
-      # return traffic — which is exactly what exit-node usage produces
-      # (packets arrive on tailscale0 but replies leave via the physical NIC).
-      "net.ipv4.conf.all.rp_filter" = lib.mkForce 2;
-      "net.ipv4.conf.default.rp_filter" = lib.mkForce 2;
     };
     networking.firewall = {
       # Always allow traffic from the Tailscale network.
