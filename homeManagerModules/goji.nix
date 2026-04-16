@@ -70,24 +70,24 @@ let
         exit 1
     fi
 
+    # Summarize the diff: list changed files and stats to give the AI quick context
+    DIFF_STAT=$( ${pkgs.git}/bin/git diff --cached --stat $( [ "$IS_AMEND" = true ] && echo "$REF" || true ) 2>/dev/null )
+
     # Build the prompt
-    PROMPT="Analyze the following git diff and generate a conventional commit.
-    Available types: $TYPES
-    $HINTS
+    PROMPT="You are a commit message generator. Read the diff below and produce a single JSON object.
 
-    If type or scope are provided in 'HINTS', use them. Otherwise, determine the most appropriate ones from the diff.
+    RULES:
+    1. In a unified diff, lines starting with '-' (not '---') are OLD/REMOVED lines. Lines starting with '+' (not '+++') are NEW/ADDED lines. Context lines have no prefix.
+    2. To determine what the commit does, compare old vs new: if a line moved from '-' to '+' with changes, it was MODIFIED. If only '-' lines exist, content was REMOVED. If only '+' lines exist, content was ADDED.
+    3. The subject must describe the net effect (what the codebase looks like after this commit), not list individual line changes.
+    4. Use one of these types: $TYPES
+    5. $HINTS
 
-    When reading the diff:
-    - Lines starting with '+' (but not '+++') are ADDITIONS (new content being introduced)
-    - Lines starting with '-' (but not '---') are REMOVALS (existing content being deleted)
-    - Use this to accurately describe what is being added, removed, or changed
+    Changed files summary:
+    $DIFF_STAT
 
-    Output a JSON object with exactly these fields:
-    - type: The commit type (must be one of the available types)
-    - scope: A short scope (optional, use null if no clear scope exists)
-    - subject: A concise description of the change, reflecting what was added and/or removed
-
-    Output ONLY the JSON object, no markdown, no backticks.
+    OUTPUT FORMAT (raw JSON only, no markdown, no backticks):
+    {\"type\": \"...\", \"scope\": \"...or null\", \"subject\": \"...\"}
 
     Diff:
     $DIFF"
