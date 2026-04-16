@@ -61,13 +61,27 @@ in
           "dm_crypt"
         ];
         services.lvm.enable = true;
-        postDeviceCommands = ''
-          for KBD_BACKLIGHT_PATH in /sys/class/leds/*::kbd_backlight/brightness; do
-            if [ -f "$KBD_BACKLIGHT_PATH" ]; then
-              echo 2 > "$KBD_BACKLIGHT_PATH"
-            fi
-          done
-        '';
+        systemd.services.kbd-backlight = {
+          description = "Set keyboard backlight brightness in initrd";
+          wantedBy = [ "initrd.target" ];
+          after = [ "systemd-udev-settle.service" ];
+          unitConfig.ConditionPathIsDirectory = "/sys/class/leds";
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            ExecStart =
+              let
+                script = pkgs.writeShellScript "kbd-backlight" ''
+                  for KBD_BACKLIGHT_PATH in /sys/class/leds/*::kbd_backlight/brightness; do
+                    if [ -f "$KBD_BACKLIGHT_PATH" ]; then
+                      echo 2 > "$KBD_BACKLIGHT_PATH"
+                    fi
+                  done
+                '';
+              in
+              "${script}";
+          };
+        };
       };
       # Bootloader.
       kernelModules = [
