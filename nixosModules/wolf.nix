@@ -146,6 +146,22 @@ in
         ];
       };
 
+      services."podman-wolf-watchtower" = {
+        serviceConfig = {
+          Restart = lib.mkOverride 90 "always";
+          RestartMaxDelaySec = lib.mkOverride 90 "1m";
+          RestartSec = lib.mkOverride 90 "5s";
+          RestartSteps = lib.mkOverride 90 9;
+          ExecStopPost = lib.mkOverride 90 "-${pkgs.podman}/bin/podman rm -f wolf-watchtower";
+        };
+        partOf = [
+          "docker-compose-wolf-root.target"
+        ];
+        wantedBy = [
+          "docker-compose-wolf-root.target"
+        ];
+      };
+
       # Root service
       # When started, this will automatically create all resources and start
       # the containers. When stopped, this will teardown all resources.
@@ -208,6 +224,25 @@ in
       ];
       log-driver = "journald";
       dependsOn = [ "wolf-wolf" ];
+      extraOptions = [
+        "--network=host"
+      ];
+    };
+
+    # Watchtower - Automatic container image updates
+    virtualisation.oci-containers.containers."wolf-watchtower" = {
+      image = "containrrr/watchtower:latest";
+      environment = {
+        "WATCHTOWER_CLEANUP" = "true";
+        "WATCHTOWER_POLL_INTERVAL" = "3600";
+        "WATCHTOWER_ROLLING_RESTART" = "true";
+        "WATCHTOWER_INCLUDE_RESTARTING" = "true";
+        "TZ" = "Europe/Paris";
+      };
+      volumes = [
+        "/run/podman/podman.sock:/var/run/docker.sock:ro"
+      ];
+      log-driver = "journald";
       extraOptions = [
         "--network=host"
       ];
