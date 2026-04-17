@@ -24,6 +24,13 @@ PluginComponent {
     property string tailscaleSelectedNetworkName: ""
     property string tailscaleNetworkToSwitch: ""
 
+    // --- Tailscale Exit Node Properties ---
+    property var tailscaleExitNodes: []
+    property string tailscaleCurrentExitNode: ""
+    property string tailscaleCurrentExitNodeIP: ""
+    property bool tailscaleShowExitNodeSelector: false
+    property string tailscaleExitNodeToSet: ""
+
     // --- NetBird Properties ---
     property bool netbirdIsConnected: false
     property string netbirdStatusText: "Disconnected"
@@ -95,8 +102,39 @@ PluginComponent {
                 var ips = data.TailscaleIPs || []
                 tailscaleCurrentIP = ips.length > 0 ? ips[0] : ""
                 tailscaleStatusText = "Connected"
+
+                // Parse exit nodes from peers
+                var exitNodes = []
+                var currentExit = ""
+                var currentExitIP = ""
+                var peers = data.Peer || {}
+                for (var key in peers) {
+                    var peer = peers[key]
+                    if (peer.ExitNodeOption) {
+                        var node = {
+                            hostname: peer.HostName || "",
+                            ip: (peer.TailscaleIPs && peer.TailscaleIPs.length > 0) ? peer.TailscaleIPs[0] : "",
+                            online: peer.Online || false,
+                            active: peer.ExitNode || false,
+                            os: peer.OS || "",
+                            country: (peer.Location && peer.Location.Country) ? peer.Location.Country : "",
+                            city: (peer.Location && peer.Location.City) ? peer.Location.City : ""
+                        }
+                        exitNodes.push(node)
+                        if (peer.ExitNode) {
+                            currentExit = peer.HostName || ""
+                            currentExitIP = node.ip
+                        }
+                    }
+                }
+                tailscaleExitNodes = exitNodes
+                tailscaleCurrentExitNode = currentExit
+                tailscaleCurrentExitNodeIP = currentExitIP
             } else {
                 tailscaleCurrentIP = ""
+                tailscaleExitNodes = []
+                tailscaleCurrentExitNode = ""
+                tailscaleCurrentExitNodeIP = ""
                 if (state !== "Stopped") {
                      tailscaleStatusText = state
                 } else {
@@ -183,6 +221,28 @@ PluginComponent {
             tailscaleStatusProcess.running = true
             tailscaleNetworksProcess.running = true
             root.tailscaleShowNetworkSelector = false
+        }
+    }
+
+    // --- Tailscale Exit Node Logic ---
+
+    function tailscaleSetExitNode(hostname) {
+        tailscaleExitNodeToSet = hostname
+        tailscaleSetExitNodeProcess.command = ["tailscale", "set", "--exit-node=" + hostname]
+        tailscaleSetExitNodeProcess.running = true
+    }
+
+    function tailscaleClearExitNode() {
+        tailscaleSetExitNodeProcess.command = ["tailscale", "set", "--exit-node="]
+        tailscaleSetExitNodeProcess.running = true
+    }
+
+    Process {
+        id: tailscaleSetExitNodeProcess
+        // command is set dynamically
+        onExited: (code) => {
+            tailscaleStatusProcess.running = true
+            root.tailscaleShowExitNodeSelector = false
         }
     }
 
@@ -366,13 +426,13 @@ PluginComponent {
 
             Item {
                 width: parent.width
-                implicitHeight: (root.tailscaleShowNetworkSelector || root.netbirdShowProfileSelector) ? 350 : contentColumn.height + Theme.spacingM
+                implicitHeight: (root.tailscaleShowNetworkSelector || root.netbirdShowProfileSelector || root.tailscaleShowExitNodeSelector) ? 350 : contentColumn.height + Theme.spacingM
 
                 Column {
                     id: contentColumn
                     width: parent.width
                     spacing: Theme.spacingL
-                    visible: !root.tailscaleShowNetworkSelector && !root.netbirdShowProfileSelector
+                    visible: !root.tailscaleShowNetworkSelector && !root.netbirdShowProfileSelector && !root.tailscaleShowExitNodeSelector
 
                     // --- Tailscale Section ---
                     Column {
@@ -409,6 +469,12 @@ PluginComponent {
                                     font.pixelSize: Theme.fontSizeSmall
                                     color: Theme.surfaceVariantText
                                 }
+                                StyledText {
+                                    text: "Exit: " + root.tailscaleCurrentExitNode
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    color: Theme.surfaceVariantText
+                                    visible: root.tailscaleIsConnected && root.tailscaleCurrentExitNode !== ""
+                                }
                             }
                         }
 
@@ -428,6 +494,12 @@ PluginComponent {
                                     root.tailscaleNetworksProcess.running = true
                                 }
                             }
+                        }
+
+                        DankButton {
+                            width: parent.width
+                            text: root.tailscaleCurrentExitNode ? ("Exit Node: " + root.tailscaleCurrentExitNode) : "Select Exit Node"
+                            onClicked: root.tailscaleShowExitNodeSelector = true
                         }
                     }
 
@@ -564,6 +636,116 @@ PluginComponent {
                         width: parent.width
                         text: "Back"
                         onClicked: root.tailscaleShowNetworkSelector = false
+                    }
+                }
+
+                // --- Tailscale Exit Node Selector ---
+                Column {
+                    id: tailscaleExitNodeListColumn
+                    width: parent.width
+                    spacing: Theme.spacingM
+                    visible: root.tailscaleShowExitNodeSelector
+
+                    StyledText {
+                        width: parent.width
+                        text: "Tailscale Exit Nodes"
+                        font.pixelSize: Theme.fontSizeMedium
+                        font.weight: Font.Bold
+                        color: Theme.surfaceText
+                    }
+
+                    StyledRect {
+                        width: parent.width
+                        height: 45
+                        radius: Theme.cornerRadius
+                        color: root.tailscaleCurrentExitNode === "" ? Theme.primaryContainer : (exitNoneMouse.containsMouse ? Theme.surfaceContainerHighest : Theme.surfaceContainerHigh)
+                        Row {
+                            spacing: Theme.spacingS
+                            anchors.fill: parent
+                            anchors.margins: Theme.spacingS
+                            DankIcon {
+                                name: root.tailscaleCurrentExitNode === "" ? "radio_button_checked" : "radio_button_unchecked"
+                                size: Theme.iconSize
+                                color: root.tailscaleCurrentExitNode === "" ? Theme.primary : Theme.surfaceVariantText
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                            StyledText {
+                                text: "None (Direct)"
+                                font.pixelSize: Theme.fontSizeSmall
+                                font.weight: Font.Bold
+                                color: Theme.surfaceText
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+                        MouseArea {
+                            id: exitNoneMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.tailscaleClearExitNode()
+                        }
+                    }
+
+                    ScrollView {
+                        width: parent.width
+                        height: 200
+                        clip: true
+                        GridView {
+                            anchors.fill: parent
+                            cellWidth: parent.width
+                            cellHeight: 50
+                            model: root.tailscaleExitNodes
+                            delegate: StyledRect {
+                                width: parent.width - 10
+                                height: 45
+                                radius: Theme.cornerRadius
+                                color: modelData.active ? Theme.primaryContainer : (exitNodeMouse.containsMouse ? Theme.surfaceContainerHighest : Theme.surfaceContainerHigh)
+                                Row {
+                                    spacing: Theme.spacingS
+                                    anchors.fill: parent
+                                    anchors.margins: Theme.spacingS
+                                    DankIcon {
+                                        name: modelData.active ? "radio_button_checked" : "radio_button_unchecked"
+                                        size: Theme.iconSize
+                                        color: modelData.active ? Theme.primary : Theme.surfaceVariantText
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        StyledText {
+                                            text: modelData.hostname
+                                            font.pixelSize: Theme.fontSizeSmall
+                                            font.weight: Font.Bold
+                                            color: Theme.surfaceText
+                                        }
+                                        StyledText {
+                                            text: {
+                                                var parts = []
+                                                if (modelData.city) parts.push(modelData.city)
+                                                if (modelData.country) parts.push(modelData.country)
+                                                var loc = parts.join(", ")
+                                                return loc ? loc : (modelData.online ? "Online" : "Offline")
+                                            }
+                                            font.pixelSize: Theme.fontSizeSmall
+                                            color: !modelData.online ? Theme.error : Theme.surfaceVariantText
+                                        }
+                                    }
+                                }
+                                MouseArea {
+                                    id: exitNodeMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.tailscaleSetExitNode(modelData.hostname)
+                                }
+                            }
+                        }
+                    }
+
+                    DankButton {
+                        width: parent.width
+                        text: "Back"
+                        onClicked: root.tailscaleShowExitNodeSelector = false
                     }
                 }
 
