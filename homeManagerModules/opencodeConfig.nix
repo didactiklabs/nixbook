@@ -71,6 +71,7 @@ in
         plugin = [
           "@ex-machina/opencode-anthropic-auth"
           "opencode-gemini-auth"
+          "op-anthropic-auth@0.1.1"
         ];
         provider = lib.mkIf cfg.ollama.enable {
           ollama = {
