@@ -63,6 +63,8 @@ in
       (google-cloud-sdk.withExtraComponents [
         google-cloud-sdk.components.gke-gcloud-auth-plugin
       ])
+      openstackclient
+      yaookctl
 
       # API and code generation
       cobra-cli
