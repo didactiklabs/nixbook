@@ -395,9 +395,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "ca7077bea5c830470437ea878da2a1940773324c",
-      "url": "https://github.com/0xc000022070/zen-browser-flake/archive/ca7077bea5c830470437ea878da2a1940773324c.tar.gz",
-      "hash": "sha256-ZmGY9XiOsuMS/THsSNkgp2fnc3asXQX/xRrQpWnY9nA="
+      "revision": "d453f29dbf13541981f8acd558fb6b88e5fd7af6",
+      "url": "https://github.com/0xc000022070/zen-browser-flake/archive/d453f29dbf13541981f8acd558fb6b88e5fd7af6.tar.gz",
+      "hash": "sha256-VOYDLF8/Jderf6riz3PyiCQhsCUfpd4S9NmDT/URgYI="
     }
   },
   "version": 7
