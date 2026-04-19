@@ -12,7 +12,6 @@ in
     pkgs.sd # sed alternative
     pkgs.viddy # watch alternative
     witr
-    pkgs.dgop
     pkgs.devenv
   ];
 
@@ -20,7 +19,6 @@ in
     ks = "kswitch";
     watch = "viddy";
     y = "yazi";
-    top = "dgop";
     df = "duf";
     cd = "z";
     neofetch = "fastfetch";
