@@ -9,6 +9,17 @@ let
 in
 {
   options.customNixOSModules.caCertificates = {
+    rpcu.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Whether to install the RPCU internal CA certificate system-wide.
+
+        Adds assets/certs/rpcu-ca.crt to the system PKI trust store and
+        exposes it at /etc/ssl/certs/rpcu-ca.crt so tools like curl, git,
+        and browsers trust internal RPCU HTTPS endpoints without warnings.
+      '';
+    };
     bealv.enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -49,6 +60,7 @@ in
     security.pki.certificateFiles = [
       "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
     ]
+    ++ lib.optional cfg.caCertificates.rpcu.enable ../assets/certs/rpcu-ca.crt
     ++ lib.optional cfg.caCertificates.bealv.enable ../assets/certs/bealv-ca.crt
     ++ lib.optional cfg.caCertificates.didactiklabs.enable ../assets/certs/didactiklabs-ca.crt
     ++ lib.optional cfg.caCertificates.logicmg.enable ../assets/certs/logicmg-ca.crt;
@@ -59,6 +71,10 @@ in
       };
       "ssl/certs/didactiklabs-ca.crt" = lib.mkIf cfg.caCertificates.didactiklabs.enable {
         source = ../assets/certs/didactiklabs-ca.crt;
+        mode = "0644";
+      };
+      "ssl/certs/rpcu-ca.crt" = lib.mkIf cfg.caCertificates.rpcu.enable {
+        source = ../assets/certs/bealv-ca.crt;
         mode = "0644";
       };
       "ssl/certs/bealv-ca.crt" = lib.mkIf cfg.caCertificates.bealv.enable {

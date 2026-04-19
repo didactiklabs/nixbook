@@ -50,6 +50,7 @@ in
     hyprland.enable = false;
     niri.enable = true;
     caCertificates = {
+      rpcu.enable = true;
       bealv.enable = true;
       didactiklabs.enable = true;
     };
