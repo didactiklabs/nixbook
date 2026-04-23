@@ -6,7 +6,7 @@
 }:
 {
   imports = [
-    ../../totoro/khoa/gitConfig.nix
+    ./gitConfig.nix
     ../../totoro/khoa/niriConfig.nix
     ./niriConfig.nix
     ./nixvimConfig.nix
