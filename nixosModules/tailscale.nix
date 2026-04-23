@@ -55,6 +55,25 @@ let
       ]
     }:$PATH"
 
+    # Track throw routes we've added so we can clean them up on exit.
+    ADDED_ROUTES=""
+
+    # Remove all throw routes we injected into table 52.
+    cleanup_routes() {
+      echo "Cleaning up throw routes from table 52..."
+      for subnet in $ADDED_ROUTES; do
+        if ip route show table 52 "$subnet" 2>/dev/null | grep -q "^throw"; then
+          echo "Removing throw route for $subnet from table 52"
+          ip route del throw "$subnet" table 52 2>/dev/null || true
+        fi
+      done
+      ADDED_ROUTES=""
+    }
+
+    # Clean up throw routes when the service stops (e.g. tailscaled goes
+    # down and systemd tears us down via bindsTo).
+    trap cleanup_routes EXIT TERM INT
+
     # Collect all IPv4 subnets directly connected to physical interfaces,
     # excluding VPN tunnels (tailscale0, wt*) and loopback.
     get_local_subnets() {
@@ -80,6 +99,11 @@ let
         if ! ip route show table 52 "$subnet" 2>/dev/null | grep -q "^throw"; then
           echo "Adding throw route for $subnet in table 52"
           ip route replace throw "$subnet" table 52 2>/dev/null || true
+          # Track for cleanup
+          case " $ADDED_ROUTES " in
+            *" $subnet "*) ;;  # already tracked
+            *) ADDED_ROUTES="$ADDED_ROUTES $subnet" ;;
+          esac
         fi
       done <<< "$local_subnets"
     }
