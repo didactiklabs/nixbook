@@ -69,9 +69,8 @@ in
       enable = true;
       settings = {
         plugin = [
-          "@ex-machina/opencode-anthropic-auth"
           "opencode-gemini-auth"
-          "op-anthropic-auth@0.1.1"
+          "opencode-claude-auth@latest"
         ];
         provider = lib.mkIf cfg.ollama.enable {
           ollama = {
