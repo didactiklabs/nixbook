@@ -21,9 +21,9 @@ let
   };
 in
 {
-  security = {
-    sudo.wheelNeedsPassword = true;
-  };
+  # security = {
+  #   sudo.wheelNeedsPassword = true;
+  # };
   services = {
     clamav = {
       daemon.enable = true;
@@ -39,7 +39,7 @@ in
       didactiklabs.enable = true;
     };
     tailscale.enable = true;
-    netbird-tools.enable = false;
+    netbird-tools.enable = true;
     firewall.enable = true;
     lanzaboote.enable = true;
   };

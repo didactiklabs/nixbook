@@ -51,6 +51,7 @@ let
         pkgs.gawk
         pkgs.gnugrep
         pkgs.coreutils
+        pkgs.tailscale
       ]
     }:$PATH"
 
@@ -82,6 +83,12 @@ let
         fi
       done <<< "$local_subnets"
     }
+
+    # Wait for Tailscale to be up before doing anything
+    while ! tailscale status >/dev/null 2>&1; do
+      echo "Waiting for Tailscale to come up..."
+      sleep 5
+    done
 
     # Run once at startup
     fix_routes
