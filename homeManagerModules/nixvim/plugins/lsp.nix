@@ -12,6 +12,12 @@ in
     home.packages = [ pkgs.golangci-lint ];
     programs.nixvim = {
       filetype.extension.templ = "templ";
+      filetype.pattern = {
+        ".*/templates/.*%.yaml" = "helm";
+        ".*/templates/.*%.yml" = "helm";
+        ".*/templates/.*%.tpl" = "helm";
+        "helmfile.*%.yaml" = "helm";
+      };
       plugins = {
         lsp-format = {
           enable = true;
@@ -51,10 +57,36 @@ in
             dagger.enable = true;
             # nixd.enable = true;
             nil_ls.enable = true;
-            yamlls.enable = true;
+            yamlls = {
+              enable = true;
+              settings = {
+                yaml = {
+                  format = {
+                    enable = false;
+                  };
+                };
+              };
+            };
             gopls.enable = true;
             golangci_lint_ls.enable = true;
-            helm_ls.enable = true;
+            helm_ls = {
+              enable = true;
+              settings = {
+                "helm-ls" = {
+                  yamlls = {
+                    enabled = true;
+                    path = "${pkgs.yaml-language-server}/bin/yaml-language-server";
+                    diagnosticsLimit = 50;
+                    showDiagnosticsDirectly = false;
+                    config = {
+                      schemas = { };
+                      completion = true;
+                      hover = true;
+                    };
+                  };
+                };
+              };
+            };
             html.enable = true;
             htmx.enable = true;
             nginx_language_server.enable = true;
