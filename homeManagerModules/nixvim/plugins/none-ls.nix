@@ -63,7 +63,6 @@ in
               '';
             };
             stylua.enable = true;
-            yamlfmt.enable = true;
             markdownlint.enable = true;
             nixfmt = {
               enable = true;
