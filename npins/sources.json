@@ -295,9 +295,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "783c953987dc56ff0601abe6845ed96f1d00495a",
-      "url": "https://github.com/quickshell-mirror/quickshell/archive/783c953987dc56ff0601abe6845ed96f1d00495a.tar.gz",
-      "hash": "sha256-lLbV66V3RMNp1l8/UelmR4YzoJ5ONtgvEtiUMJATH/o="
+      "revision": "11a71d233a566caba4ddffdca2e41d1fa79e45b1",
+      "url": "https://github.com/quickshell-mirror/quickshell/archive/11a71d233a566caba4ddffdca2e41d1fa79e45b1.tar.gz",
+      "hash": "sha256-bZoy6qxL6Dbptt6PABvuhGKbyjuoyI7SQ1tzxM9g/QM="
     },
     "rtk": {
       "type": "GitRelease",
