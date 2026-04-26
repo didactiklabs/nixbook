@@ -5,7 +5,7 @@ inputs:
       nixpkgs:
         follows: nixpkgs
   nixpkgs:
-    url: github:NixOS/nixpkgs/b12141ef619e0a9c1c84dc8c684040326f27cdcc
+    url: github:NixOS/nixpkgs/0726a0ecb6d4e08f6adced58726b95db924cef57
   treefmt-nix:
     url: github:numtide/treefmt-nix
     inputs:
