@@ -226,9 +226,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "1a42351b608237ccadb1bc0547b78d3acf6642ff",
-      "url": "https://github.com/sodiboo/niri-flake/archive/1a42351b608237ccadb1bc0547b78d3acf6642ff.tar.gz",
-      "hash": "sha256-KMnWd02aEd8oyxI7dxhSoGHZBST6lKy5wNTclxBjFkY="
+      "revision": "2bb22af2985e5f3cfd051b3d977ebfbf81126280",
+      "url": "https://github.com/sodiboo/niri-flake/archive/2bb22af2985e5f3cfd051b3d977ebfbf81126280.tar.gz",
+      "hash": "sha256-ooPmu+8tqOGh4kozPW4rJC7Y7WM/FHtEY3OK1PoNW7g="
     },
     "nixos-hardware": {
       "type": "Git",
@@ -265,9 +265,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "d404af65e951f648272d178a34cbb2292fb93689",
-      "url": "https://github.com/nix-community/nixvim/archive/d404af65e951f648272d178a34cbb2292fb93689.tar.gz",
-      "hash": "sha256-8juiX5HT2Bp4+qXLCFNRdIL10X8ySiAbgl/QhJDt+24="
+      "revision": "a67d9cd6ff725a763afe88727aac73208ded3bf4",
+      "url": "https://github.com/nix-community/nixvim/archive/a67d9cd6ff725a763afe88727aac73208ded3bf4.tar.gz",
+      "hash": "sha256-ALOqlq7bE30lsX4rA76hXeQ2aLLEpb44hS+D1+jWS88="
     },
     "pvmigrate": {
       "type": "GitRelease",
@@ -295,9 +295,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "11a71d233a566caba4ddffdca2e41d1fa79e45b1",
-      "url": "https://github.com/quickshell-mirror/quickshell/archive/11a71d233a566caba4ddffdca2e41d1fa79e45b1.tar.gz",
-      "hash": "sha256-bZoy6qxL6Dbptt6PABvuhGKbyjuoyI7SQ1tzxM9g/QM="
+      "revision": "055e384668d38987a0054169e4feb43645d9735b",
+      "url": "https://github.com/quickshell-mirror/quickshell/archive/055e384668d38987a0054169e4feb43645d9735b.tar.gz",
+      "hash": "sha256-1bfWUQu8cblaMVTF3C1kXC135Nf8g6Gvm0q3W6qxpXk="
     },
     "rtk": {
       "type": "GitRelease",
