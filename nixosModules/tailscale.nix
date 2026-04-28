@@ -55,19 +55,23 @@ let
       ]
     }:$PATH"
 
-    # Track throw routes we've added so we can clean them up on exit.
-    ADDED_ROUTES=""
-
-    # Remove all throw routes we injected into table 52.
+    # Remove ALL throw routes from table 52.  We are the only entity
+    # that adds throw routes there (Tailscale itself adds unicast/device
+    # routes), so a blanket cleanup is safe and avoids the need to track
+    # individual entries.  This also correctly cleans up stale routes
+    # left over from a previous service instance.
     cleanup_routes() {
       echo "Cleaning up throw routes from table 52..."
-      for subnet in $ADDED_ROUTES; do
-        if ip route show table 52 "$subnet" 2>/dev/null | grep -q "^throw"; then
+      local routes
+      routes=$(ip -4 route show table 52 2>/dev/null | grep "^throw " || true)
+      if [[ -n "$routes" ]]; then
+        while IFS= read -r route; do
+          local subnet
+          subnet=$(echo "$route" | awk '{print $2}')
           echo "Removing throw route for $subnet from table 52"
           ip route del throw "$subnet" table 52 2>/dev/null || true
-        fi
-      done
-      ADDED_ROUTES=""
+        done <<< "$routes"
+      fi
     }
 
     # Clean up throw routes when the service stops (e.g. tailscaled goes
@@ -75,12 +79,20 @@ let
     trap cleanup_routes EXIT TERM INT
 
     # Collect all IPv4 subnets directly connected to physical interfaces,
-    # excluding VPN tunnels (tailscale0, wt*) and loopback.
+    # excluding VPN tunnels and loopback.  NetBird's WireGuard interfaces
+    # (wt*) are explicitly excluded so our throw routes never cover
+    # NetBird-managed subnets.
     get_local_subnets() {
       ip -4 route show proto kernel \
         | grep -vE 'dev (tailscale0|wt[^ ]*|lo) ' \
         | awk '{print $1}' \
         | grep '/' || true
+    }
+
+    # Returns 0 if Tailscale is actively connected (not just daemon
+    # running).  Returns non-zero after `tailscale down`.
+    is_tailscale_active() {
+      tailscale status >/dev/null 2>&1
     }
 
     # Ensure a throw route exists in table 52 for each local subnet.
@@ -99,11 +111,6 @@ let
         if ! ip route show table 52 "$subnet" 2>/dev/null | grep -q "^throw"; then
           echo "Adding throw route for $subnet in table 52"
           ip route replace throw "$subnet" table 52 2>/dev/null || true
-          # Track for cleanup
-          case " $ADDED_ROUTES " in
-            *" $subnet "*) ;;  # already tracked
-            *) ADDED_ROUTES="$ADDED_ROUTES $subnet" ;;
-          esac
         fi
       done <<< "$local_subnets"
     }
@@ -118,12 +125,23 @@ let
     fix_routes
 
     # Re-check whenever a route changes on tailscale0 (e.g. Tailscale
-    # re-adds its subnet route after we threw it).
-    ip monitor route | while IFS= read -r line; do
+    # re-adds its subnet route after we threw it).  When Tailscale is
+    # disconnected (`tailscale down`), clean up throw routes so the
+    # routing table is left in a clean state for other VPNs (NetBird).
+    # Process substitution keeps the loop in the main shell so the EXIT
+    # trap has full access to cleanup_routes.
+    while IFS= read -r line; do
       case "$line" in
-        *tailscale0*) fix_routes ;;
+        *tailscale0*)
+          if is_tailscale_active; then
+            fix_routes
+          else
+            echo "Tailscale is inactive, removing throw routes"
+            cleanup_routes
+          fi
+          ;;
       esac
-    done
+    done < <(ip monitor route)
   '';
 in
 {
