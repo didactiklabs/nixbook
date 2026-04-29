@@ -80,6 +80,7 @@ in
       claude-code
 
       # Development utilities
+      git-crypt
       devbox
       go-task
       runme
