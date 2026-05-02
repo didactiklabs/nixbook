@@ -18,7 +18,7 @@
     pkgs.google-chrome
     pkgs.gitkraken
     pkgs.slack
-    pkgs.kanidm_1_8
+    pkgs.kanidm_1_9
     pkgs.oapi-codegen
   ];
 
