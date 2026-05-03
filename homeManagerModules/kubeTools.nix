@@ -135,6 +135,7 @@ in
         crd-wizard
         # Kubernetes package managers
         kubernetes-helm
+        clusterctl
         kind
         sou
         grafana-loki
