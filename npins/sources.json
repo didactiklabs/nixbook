@@ -9,9 +9,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "0172d3caae2d8b967c9d47aa7557295f1481e5df",
-      "url": "https://github.com/ThePrimeagen/99/archive/0172d3caae2d8b967c9d47aa7557295f1481e5df.tar.gz",
-      "hash": "sha256-ppFQaLSie9tSm2nlTrZPU47QyOaeqNMQjJf4vaIXgFo="
+      "revision": "4d229141546290746c82ac90f5afc2786865b5f3",
+      "url": "https://github.com/ThePrimeagen/99/archive/4d229141546290746c82ac90f5afc2786865b5f3.tar.gz",
+      "hash": "sha256-LQb5jqzTNWVyFNKlICjhnk25fTAmyC38s8/mrOKp//M="
     },
     "agenix": {
       "type": "GitRelease",
