@@ -232,24 +232,6 @@ in
               "--network=host"
             ];
           };
-
-          # Watchtower - Automatic container image updates
-          "wolf-watchtower" = {
-            image = "containrrr/watchtower:latest";
-            environment = {
-              "WATCHTOWER_CLEANUP" = "true";
-              "WATCHTOWER_POLL_INTERVAL" = "3600";
-              "WATCHTOWER_ROLLING_RESTART" = "true";
-              "TZ" = "Europe/Paris";
-            };
-            volumes = [
-              "/run/podman/podman.sock:/var/run/docker.sock:ro"
-            ];
-            log-driver = "journald";
-            extraOptions = [
-              "--network=host"
-            ];
-          };
         };
       };
     };
