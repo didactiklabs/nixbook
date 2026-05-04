@@ -19,22 +19,22 @@ let
   };
 in
 {
-  # systemd.user = {
-  #   services = {
-  #     steamBigPicture = {
-  #       enable = true;
-  #       description = "SteamBigPicture";
-  #       partOf = [ "graphical-session.target" ];
-  #       requires = [ "graphical-session.target" ];
-  #       after = [ "graphical-session.target" ];
-  #       wantedBy = [ "graphical-session.target" ];
-  #       serviceConfig = {
-  #         ExecStart = "${pkgs.steam}/bin/steam steam://open/bigpicture";
-  #         Restart = "always";
-  #       };
-  #     };
-  #   };
-  # };
+  systemd.user = {
+    services = {
+      steamBigPicture = {
+        enable = true;
+        description = "SteamBigPicture";
+        partOf = [ "graphical-session.target" ];
+        requires = [ "graphical-session.target" ];
+        after = [ "graphical-session.target" ];
+        wantedBy = [ "graphical-session.target" ];
+        serviceConfig = {
+          ExecStart = "${pkgs.steam}/bin/steam steam://open/bigpicture";
+          Restart = "always";
+        };
+      };
+    };
+  };
   services.greetd = {
     # force start with my user, no greeter/login
     enable = true;
@@ -49,14 +49,14 @@ in
   services.openssh.enable = true;
   customNixOSModules = {
     gamingConfig.enable = true;
-    sunshine.enable = false;
+    sunshine.enable = true;
     wolf = {
       enable = true;
       hostAppsStateFolder = "/data/wolf";
     };
     ollama.enable = true;
     sway.enable = true;
-    tailscale.enable = true;
+    tailscale.enable = false;
     netbird-tools.enable = false;
     caCertificates = {
       bealv.enable = true;
