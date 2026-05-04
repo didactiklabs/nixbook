@@ -146,22 +146,6 @@ in
             "docker-compose-wolf-root.target"
           ];
         };
-
-        "podman-wolf-watchtower" = {
-          serviceConfig = {
-            Restart = lib.mkOverride 90 "always";
-            RestartMaxDelaySec = lib.mkOverride 90 "1m";
-            RestartSec = lib.mkOverride 90 "5s";
-            RestartSteps = lib.mkOverride 90 9;
-            ExecStopPost = lib.mkOverride 90 "-${pkgs.podman}/bin/podman rm -f wolf-watchtower";
-          };
-          partOf = [
-            "docker-compose-wolf-root.target"
-          ];
-          wantedBy = [
-            "docker-compose-wolf-root.target"
-          ];
-        };
       };
 
       # Root service
