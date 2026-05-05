@@ -53,10 +53,10 @@ in
     hibernate.enable = false;
     hybrid-sleep.enable = false;
   };
-  services.logind.extraConfig = ''
-    IdleAction=ignore
-    IdleActionSec=0
-  '';
+  services.logind.settings.Login = {
+    IdleAction = "ignore";
+    IdleActionSec = 0;
+  };
   services.openssh.enable = true;
   customNixOSModules = {
     gamingConfig.enable = true;
