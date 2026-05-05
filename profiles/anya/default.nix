@@ -46,6 +46,17 @@ in
       default_session = initial_session;
     };
   };
+  # Disable all forms of sleep/suspend/hibernate
+  systemd.targets = {
+    sleep.enable = false;
+    suspend.enable = false;
+    hibernate.enable = false;
+    hybrid-sleep.enable = false;
+  };
+  services.logind.extraConfig = ''
+    IdleAction=ignore
+    IdleActionSec=0
+  '';
   services.openssh.enable = true;
   customNixOSModules = {
     gamingConfig.enable = true;
