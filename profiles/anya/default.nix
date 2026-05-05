@@ -35,17 +35,6 @@ in
       };
     };
   };
-  services.greetd = {
-    # force start with my user, no greeter/login
-    enable = true;
-    settings = rec {
-      initial_session = {
-        command = "${pkgs.swayfx}/bin/sway";
-        user = "khoa";
-      };
-      default_session = initial_session;
-    };
-  };
   # Disable all forms of sleep/suspend/hibernate
   systemd.targets = {
     sleep.enable = false;
@@ -53,14 +42,27 @@ in
     hibernate.enable = false;
     hybrid-sleep.enable = false;
   };
-  services.logind.settings.Login = {
-    IdleAction = "ignore";
-    IdleActionSec = 0;
+  services = {
+    greetd = {
+      # force start with my user, no greeter/login
+      enable = true;
+      settings = rec {
+        initial_session = {
+          command = "${pkgs.swayfx}/bin/sway";
+          user = "khoa";
+        };
+        default_session = initial_session;
+      };
+    };
+    logind.settings.Login = {
+      IdleAction = "ignore";
+      IdleActionSec = 0;
+    };
+    openssh.enable = true;
   };
-  services.openssh.enable = true;
   customNixOSModules = {
     gamingConfig.enable = true;
-    sunshine.enable = true;
+    sunshine.enable = false;
     wolf = {
       enable = true;
       hostAppsStateFolder = "/data/wolf";
