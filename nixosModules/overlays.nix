@@ -2,8 +2,12 @@
 final: prev:
 let
   lixStable = prev.lixPackageSets.stable;
+  pkgs-stable = import sources.nixpkgs-stable {
+    localSystem = prev.stdenv.hostPlatform.system;
+  };
 in
 {
+  bluez-stable = pkgs-stable.bluez;
   inherit (lixStable)
     nixpkgs-review
     nix-eval-jobs
