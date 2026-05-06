@@ -7,10 +7,6 @@
 }:
 let
   cfg = config.customNixOSModules;
-  pkgs-stable = import sources.nixpkgs-stable {
-    inherit (pkgs) system;
-    config = pkgs.config;
-  };
 in
 {
   options.customNixOSModules.core = {
@@ -268,7 +264,7 @@ in
       bluetooth = {
         enable = true;
         powerOnBoot = false;
-        package = pkgs-stable.bluez;
+        package = pkgs.bluez-stable;
       };
       uinput.enable = true;
     };
