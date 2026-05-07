@@ -211,6 +211,7 @@ let
                 inherit username;
                 homeDirectory = "/home/${username}";
                 packages = with pkgs; [
+                  seahorse
                   pavucontrol
                   pulseaudio
                   numix-cursor-theme
