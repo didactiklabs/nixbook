@@ -86,9 +86,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "5df2b5fc3389edaf7861d8b3ec2eb9faed302b78",
-      "url": "https://github.com/AvengeMedia/DankMaterialShell/archive/5df2b5fc3389edaf7861d8b3ec2eb9faed302b78.tar.gz",
-      "hash": "sha256-TTiFHSj+FBSS8iUO4Lf3agJlH7jbEYyqSZr3k3JlyqU="
+      "revision": "d8835f2bc6bef979c125d99e9ccea1add019c9a5",
+      "url": "https://github.com/AvengeMedia/DankMaterialShell/archive/d8835f2bc6bef979c125d99e9ccea1add019c9a5.tar.gz",
+      "hash": "sha256-lG/odoiEkyIE3SDxIoXF2krpaD7ItRdtICCy898QPg4="
     },
     "dms-plugin-registry": {
       "type": "Git",
@@ -99,9 +99,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "e8a2875133829e439b7f98c5b9ecb87d6eae47f9",
-      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/e8a2875133829e439b7f98c5b9ecb87d6eae47f9.tar.gz",
-      "hash": "sha256-pSIWrTxJjkOEBZVz4cSMCnzBX/Mb3MJkR/nrb2y3Dgc="
+      "revision": "91f5a9998db5b2810f7ee5623e1f2142b89de2ea",
+      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/91f5a9998db5b2810f7ee5623e1f2142b89de2ea.tar.gz",
+      "hash": "sha256-firHOQ20re/4yzut4lJyNp3QE5nFCtjF5vS475vJJ9A="
     },
     "ds4drv": {
       "type": "Git",
@@ -164,9 +164,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "e4419d3123b780d5f4c0bceeace450424387638c",
-      "url": "https://github.com/nix-community/home-manager/archive/e4419d3123b780d5f4c0bceeace450424387638c.tar.gz",
-      "hash": "sha256-dGM+QCstz/DyLB68+JK5GWyMx4QSqmOJEVgZmy63d/g="
+      "revision": "fdb2ccba9d5e1238d32e0c4a3ec1a277efa80c1d",
+      "url": "https://github.com/nix-community/home-manager/archive/fdb2ccba9d5e1238d32e0c4a3ec1a277efa80c1d.tar.gz",
+      "hash": "sha256-dhFgEjoeJMYN/7OY6xfxS799YB4IjbbYXTjyGIJyLpc="
     },
     "jtui": {
       "type": "GitRelease",
@@ -226,9 +226,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "6e900d2d23f32b88a1d97c38d1f24413cce66c90",
-      "url": "https://github.com/sodiboo/niri-flake/archive/6e900d2d23f32b88a1d97c38d1f24413cce66c90.tar.gz",
-      "hash": "sha256-M/FR4z0m6KyN1wJpHbUKrF1T/EJKP1qSXdJOujkS5SE="
+      "revision": "cb2fdda815a0c2c03f8a7fe7075c433d4ef37110",
+      "url": "https://github.com/sodiboo/niri-flake/archive/cb2fdda815a0c2c03f8a7fe7075c433d4ef37110.tar.gz",
+      "hash": "sha256-lzpzFAinsI1YriR+iVDIDZVkps2oQw1LG2QvFcDVYCk="
     },
     "nixos-hardware": {
       "type": "Git",
@@ -308,9 +308,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "b93d61385fa3478e039c56f9d69c8c749a4f0989",
-      "url": "https://github.com/quickshell-mirror/quickshell/archive/b93d61385fa3478e039c56f9d69c8c749a4f0989.tar.gz",
-      "hash": "sha256-sxY5HMSXCI4GtYrYZF+t+QIsdkDVrl0HxcXwklsXYik="
+      "revision": "d1760ed1f31c02a95b37a9bf4084129c829ebe7f",
+      "url": "https://github.com/quickshell-mirror/quickshell/archive/d1760ed1f31c02a95b37a9bf4084129c829ebe7f.tar.gz",
+      "hash": "sha256-6GFiP611nEJvtm+m03sMyfaVIJ9QOCi//hS+PPKyyPA="
     },
     "rtk": {
       "type": "GitRelease",
@@ -337,9 +337,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "592e5dedf04f0eaff1ed0f01ce5db7407d9fc7be",
-      "url": "https://github.com/oxalica/rust-overlay/archive/592e5dedf04f0eaff1ed0f01ce5db7407d9fc7be.tar.gz",
-      "hash": "sha256-hV9D8ET33kXjdoMXBT2bwM/j8WQM1SP/dVKZtjQKhAQ="
+      "revision": "bc83d66023d19fb301ee98772643b24b6129ef48",
+      "url": "https://github.com/oxalica/rust-overlay/archive/bc83d66023d19fb301ee98772643b24b6129ef48.tar.gz",
+      "hash": "sha256-iYINsX0BVDxTXd0z4FzDpBYHZ9fWUtwjG9cKSXwe9Tg="
     },
     "songbird": {
       "type": "GitRelease",
@@ -408,9 +408,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "e361aeff090333c005bc12b3bcf3c8b44d867a4f",
-      "url": "https://github.com/0xc000022070/zen-browser-flake/archive/e361aeff090333c005bc12b3bcf3c8b44d867a4f.tar.gz",
-      "hash": "sha256-RquiPUl5fViU+hHRjilVcy+5XUowINmvMfk2lNdIAg8="
+      "revision": "ea79f20a194de74504821ab53e93c0cf92690f00",
+      "url": "https://github.com/0xc000022070/zen-browser-flake/archive/ea79f20a194de74504821ab53e93c0cf92690f00.tar.gz",
+      "hash": "sha256-mhxT7KkmM0h/vgr84o2p6gkzm21b5/dCnIMVKaoXU+I="
     }
   },
   "version": 7
