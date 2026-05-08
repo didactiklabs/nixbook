@@ -43,6 +43,8 @@
     };
     Service = {
       ExecStart = "${lib.getExe config.programs.opencode.package} web";
+      WorkingDirectory = "/tmp/opencode-web";
+      ExecStartPre = "${pkgs.coreutils}/bin/mkdir -p /tmp/opencode-web";
       Restart = "always";
       RestartSec = 5;
     };
@@ -57,6 +59,13 @@
     server = {
       hostname = "0.0.0.0";
       port = 4096;
+    };
+    permission = {
+      bash = "deny";
+      edit = "deny";
+      read = "deny";
+      grep = "deny";
+      glob = "deny";
     };
   };
   customHomeManagerModules = {
