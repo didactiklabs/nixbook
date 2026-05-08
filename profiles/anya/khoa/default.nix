@@ -42,7 +42,6 @@
       WantedBy = [ "default.target" ];
     };
     Service = {
-      WorkingDirectory = "/tmp";
       ExecStart = "${lib.getExe config.programs.opencode.package} web";
       Restart = "always";
       RestartSec = 5;
