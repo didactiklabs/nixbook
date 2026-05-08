@@ -1,4 +1,9 @@
-{ pkgs, ... }:
+{
+  pkgs,
+  config,
+  lib,
+  ...
+}:
 {
   imports = [
     ./gitConfig.nix
@@ -28,6 +33,20 @@
     pkgs.wineWow64Packages.waylandFull
     pkgs.firefox
   ];
+  systemd.user.services.opencode-web = {
+    Unit = {
+      Description = "OpenCode Web Server";
+      After = [ "network-online.target" ];
+    };
+    Install = {
+      WantedBy = [ "default.target" ];
+    };
+    Service = {
+      ExecStart = "${lib.getExe config.programs.opencode.package} web";
+      Restart = "always";
+      RestartSec = 5;
+    };
+  };
   programs.opencode.settings = {
     mcp = {
       trek = {
