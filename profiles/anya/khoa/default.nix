@@ -28,6 +28,18 @@
     pkgs.wineWow64Packages.waylandFull
     pkgs.firefox
   ];
+  programs.opencode.settings = {
+    mcp = {
+      trek = {
+        type = "remote";
+        url = "https://trek.bealv.io/mcp";
+      };
+    };
+    server = {
+      hostname = "0.0.0.0";
+      port = 4096;
+    };
+  };
   customHomeManagerModules = {
     fontConfig.enable = true;
     gitConfig.enable = true;
@@ -41,5 +53,9 @@
     kittyConfig.enable = true;
     zshConfig.enable = true;
     dmsConfig.enable = true;
+    opencodeConfig = {
+      enable = true;
+      ollama.enable = true;
+    };
   };
 }

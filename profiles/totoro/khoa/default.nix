@@ -19,6 +19,12 @@
       enable = true;
       env.GOPATH = lib.mkForce "${config.home.homeDirectory}/.local/go";
     };
+    opencode.settings.mcp = {
+      trek = {
+        type = "remote";
+        url = "https://trek.bealv.io/mcp";
+      };
+    };
   };
 
   profileCustomization = {
