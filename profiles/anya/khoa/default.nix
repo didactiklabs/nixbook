@@ -43,8 +43,7 @@
     };
     Service = {
       ExecStart = "${lib.getExe config.programs.opencode.package} web";
-      WorkingDirectory = "/tmp/opencode-web";
-      ExecStartPre = "${pkgs.coreutils}/bin/mkdir -p /tmp/opencode-web";
+      WorkingDirectory = "/tmp";
       Restart = "always";
       RestartSec = 5;
     };
