@@ -42,8 +42,8 @@
       WantedBy = [ "default.target" ];
     };
     Service = {
-      ExecStart = "${lib.getExe config.programs.opencode.package} web";
       WorkingDirectory = "/tmp";
+      ExecStart = "${lib.getExe config.programs.opencode.package} web";
       Restart = "always";
       RestartSec = 5;
     };
@@ -60,7 +60,7 @@
       port = 4096;
     };
     permission = {
-      bash = "deny";
+      # bash = "deny";
       edit = "deny";
       read = "deny";
       grep = "deny";
