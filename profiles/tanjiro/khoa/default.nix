@@ -21,6 +21,7 @@
     pkgs.jira-cli-go
     pkgs.zoom-us
     pkgs.element-desktop
+    pkgs.ytmdesktop
   ];
   programs = {
     go = {

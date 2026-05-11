@@ -20,6 +20,7 @@
     pkgs.slack
     pkgs.kanidm_1_9
     pkgs.oapi-codegen
+    pkgs.spotify
   ];
 
   xdg.mimeApps.defaultApplications = {
