@@ -146,6 +146,7 @@ in
             ];
             rightWidgets = [
               "systemTray"
+              "markets"
               "vpnStatus"
               "cpuUsage"
               "notificationButton"
@@ -259,6 +260,7 @@ in
       };
       managePluginSettings = false;
       plugins = {
+        markets.enable = true;
         dankBatteryAlerts.enable = true;
         dankGifSearch.enable = true;
         dankStickerSearch.enable = true;
