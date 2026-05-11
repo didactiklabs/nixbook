@@ -37,6 +37,7 @@ in
           yubikey-personalization), podman/podman-compose, wlsunset, cups-pk-helper, ginx,
           osupdate, ds4drv, efibootmgr, colmena, update-systemd-resolved, pinentry-qt, lsof
         - YubiKey: udev rules, yubikey-touch-detector, GnuPG agent with SSH support
+        - FIDO2: libfido2 package and udev rules for SSH security keys (ed25519-sk/ecdsa-sk)
         - DS4 controller: user systemd service running ds4drv in HID-raw + xpad emulation
           mode for DualShock 4 controllers
         - osupdate: shell script that applies the latest nixbook main branch via ginx +
@@ -87,6 +88,8 @@ in
       podman-compose
       # GPG and SSH
       gnupg
+      # FIDO2 support for SSH security keys (ed25519-sk / ecdsa-sk)
+      libfido2
       # Yubikey tools
       yubico-piv-tool
       yubico-pam
@@ -109,6 +112,7 @@ in
       packages = with pkgs; [
         game-devices-udev-rules
         yubikey-personalization
+        libfido2 # FIDO2 device access rules for SSH security keys
       ];
       extraRules = ''
         KERNEL=="uinput", MODE="0666"

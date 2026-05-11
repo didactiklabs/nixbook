@@ -4,6 +4,9 @@
   config,
   ...
 }:
+let
+  actual-budget = import ../../../customPkgs/actual-budget.nix { inherit pkgs; };
+in
 {
   imports = [
     ./gitConfig.nix
@@ -14,6 +17,7 @@
   home.packages = [
     pkgs.moonlight-qt
     pkgs.ytmdesktop
+    actual-budget
   ];
   programs = {
     go = {

@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 let
@@ -23,9 +24,14 @@ in
         enableDefaultConfig = false so NixOS's generated defaults do not
         conflict with this configuration.
 
+        YubiKey SSH authentication is supported via two methods:
+          1. GPG-based: GnuPG agent with enableSSHSupport (nixosModules/tools.nix)
+             uses GPG authentication subkeys stored on the YubiKey smart card.
+          2. FIDO2-based: ed25519-sk / ecdsa-sk keys via libfido2
+             (nixosModules/tools.nix). Generate with: ssh-keygen -t ed25519-sk
+             For resident keys stored on YubiKey: ssh-keygen -t ed25519-sk -O resident
+
         SSH keys are managed separately via agenix secrets.
-        The GnuPG agent SSH socket (YubiKey SSH) is configured at the
-        system level in nixosModules/tools.nix.
       '';
     };
   };
@@ -33,6 +39,9 @@ in
     programs.ssh = {
       enable = true;
       enableDefaultConfig = false;
+      extraConfig = ''
+        SecurityKeyProvider ${pkgs.libfido2}/lib/libsk-libfido2.so
+      '';
       matchBlocks."*" = {
         compression = false;
         serverAliveInterval = 10;
