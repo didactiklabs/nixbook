@@ -1,7 +1,6 @@
 {
   config,
   lib,
-  pkgs,
   ...
 }:
 let
@@ -39,9 +38,6 @@ in
     programs.ssh = {
       enable = true;
       enableDefaultConfig = false;
-      extraConfig = ''
-        SecurityKeyProvider ${pkgs.libfido2}/lib/libsk-libfido2.so
-      '';
       matchBlocks."*" = {
         compression = false;
         serverAliveInterval = 10;
