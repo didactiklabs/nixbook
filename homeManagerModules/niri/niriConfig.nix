@@ -6,6 +6,13 @@
 }:
 let
   cfg = config.customHomeManagerModules;
+  # Import niri-flake for the validated-config-for function
+  # (same pattern as nixosModules/niri.nix)
+  sources = import ../../npins;
+  niri-flake =
+    (import sources.flake-compat {
+      src = sources.niri-flake;
+    }).defaultNix;
   mainWallpaper = config.stylix.image;
   lockWallpaper = config.stylix.image;
   startup_audio = "${config.profileCustomization.startup_audio}";
@@ -144,6 +151,36 @@ in
         ];
       };
     };
+
+    # Enable background blur by appending raw KDL to the validated niri config.
+    # The niri-flake module on main branch doesn't yet have blur options,
+    # so we use the validated-config-for escape hatch.
+    # Remove this override once niri-flake merges blur support (PR #1731).
+    # See: https://github.com/sodiboo/niri-flake/issues/1721
+    xdg.configFile.niri-config.source =
+      let
+        inherit (config.programs.niri) finalConfig package;
+      in
+      lib.mkForce (
+        niri-flake.lib.internal.validated-config-for pkgs package ''
+          ${finalConfig}
+
+          blur {
+              passes 3
+              offset 3.0
+              noise 0.02
+              saturation 1.5
+          }
+
+          window-rule {
+              background-effect {
+                  blur true
+                  xray false
+              }
+          }
+
+        ''
+      );
 
     programs.niri = {
       settings = {
