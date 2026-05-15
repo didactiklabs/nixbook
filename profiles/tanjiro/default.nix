@@ -39,7 +39,7 @@ in
       didactiklabs.enable = true;
     };
     tailscale.enable = true;
-    netbird-tools.enable = true;
+    netbird-tools.enable = false;
     firewall.enable = true;
     lanzaboote.enable = true;
   };
