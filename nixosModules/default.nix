@@ -14,6 +14,7 @@
     ./niri.nix
     ./ollama.nix
     ./printTools.nix
+    ./simracing.nix
     ./sunshine.nix
     ./sway.nix
     ./tailscale.nix
