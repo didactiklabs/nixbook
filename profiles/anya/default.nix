@@ -62,6 +62,7 @@ in
   };
   customNixOSModules = {
     gamingConfig.enable = true;
+    simracing.enable = true;
     sunshine.enable = false;
     wolf = {
       enable = true;
