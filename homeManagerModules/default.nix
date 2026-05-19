@@ -2,6 +2,7 @@
 {
   imports = [
     ./atuinConfig.nix
+    ./boxflatConfig.nix
     ./cliTools.nix
     ./desktopApps.nix
     ./devTools.nix
