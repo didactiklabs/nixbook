@@ -32,6 +32,7 @@
   home.packages = [
     pkgs.wineWow64Packages.waylandFull
     pkgs.firefox
+    pkgs.ytmdesktop
   ];
   systemd.user.services.opencode-web = {
     Unit = {
