@@ -129,6 +129,19 @@
       "url": "https://github.com/edolstra/flake-compat/archive/5edf11c44bc78a0d334f6334cdaf7d60d732daab.tar.gz",
       "hash": "sha256-vNpUSpF5Nuw8xvDLj2KCwwksIbjua2LZCqhV1LNRDns="
     },
+    "foxblat": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "giantorth",
+        "repo": "foxblat"
+      },
+      "branch": "main",
+      "submodules": false,
+      "revision": "f537c6bdb34e48733705d96b7e4badfe02a9ed4d",
+      "url": "https://github.com/giantorth/foxblat/archive/f537c6bdb34e48733705d96b7e4badfe02a9ed4d.tar.gz",
+      "hash": "sha256-Lle2NXvnJ2DQxPxdA9xaHjMThz4BD5qVNCXcWZq9yUo="
+    },
     "ginx": {
       "type": "Git",
       "repository": {

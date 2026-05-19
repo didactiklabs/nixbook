@@ -19,8 +19,8 @@ in
         wheelbases and sim racing peripherals, primarily targeting Moza
         Racing hardware:
 
-        - Moza udev rules for serial (Boxflat config), HID (FFB), and USB
-        - Boxflat — Linux Moza configuration tool (Pit House alternative)
+        - Moza udev rules for serial (Foxblat config), HID (FFB), and USB
+        - Foxblat — Linux Moza configuration tool (fork of boxflat, Pit House alt)
         - Oversteer — generic steering wheel manager (rotation, FFB gain,
           autocenter, combine pedals, etc.)
         - Joystick and FFB testing utilities (evtest, fftest, jstest)
@@ -32,16 +32,15 @@ in
 
         Used on: anya (gaming/streaming desktop).
         Reference: https://github.com/JacKeTUs/universal-pidff
-        Reference: https://github.com/Lawstorant/boxflat
+        Reference: https://github.com/giantorth/foxblat (fork of Lawstorant/boxflat)
       '';
     };
   };
 
   config = lib.mkIf cfg.enable {
     # --- Moza Racing & sim racing udev rules ---
-    # Include boxflat's own 99-boxflat.rules so it detects them at runtime
-    # (boxflat checks /etc/udev/rules.d/99-boxflat.rules by filename)
-    services.udev.packages = [ pkgs.boxflat ];
+    # Include foxblat's own 99-foxblat.rules so it detects devices at runtime
+    services.udev.packages = [ pkgs.foxblat ];
 
     # Additional Moza rules not covered by boxflat's own rules file
     services.udev.extraRules = ''
@@ -66,7 +65,7 @@ in
 
     # --- Sim racing packages ---
     environment.systemPackages = with pkgs; [
-      boxflat # Moza Racing configuration tool (Linux Pit House alternative)
+      foxblat # Moza Racing configuration tool (fork of boxflat, Linux Pit House alternative)
       oversteer # Generic steering wheel manager (rotation, FFB, autocenter)
       linuxConsoleTools # jstest, fftest — joystick and force feedback testing
       evtest # Input event monitor — useful for debugging HID devices

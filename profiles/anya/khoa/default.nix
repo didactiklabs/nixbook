@@ -67,7 +67,7 @@
     };
   };
   customHomeManagerModules = {
-    boxflatConfig.enable = true;
+    foxblatConfig.enable = true;
     fontConfig.enable = true;
     gitConfig.enable = true;
     gtkConfig.enable = true;
@@ -80,6 +80,7 @@
     kittyConfig.enable = true;
     zshConfig.enable = true;
     dmsConfig.enable = true;
+    desktopApps.enable = true;
     opencodeConfig = {
       enable = true;
       ollama.enable = true;
