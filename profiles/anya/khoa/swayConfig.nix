@@ -16,8 +16,8 @@ in
     wayland.windowManager.sway = {
       config.keybindings = lib.filterAttrsRecursive (name: value: value != null) { };
       extraConfig = ''
-        exec ${swaymsg} create_output HEADLESS-1
-        exec ${swaymsg} output HEADLESS-1 pos 0 0 res 2560x1440@60Hz scale 1
+        # exec ${swaymsg} create_output HEADLESS-1
+        # exec ${swaymsg} output HEADLESS-1 pos 0 0 res 2560x1440@60Hz scale 1
       '';
       extraSessionCommands = ''
         export WLR_BACKENDS="headless,libinput"
