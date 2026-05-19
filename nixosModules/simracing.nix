@@ -39,10 +39,12 @@ in
 
   config = lib.mkIf cfg.enable {
     # --- Moza Racing & sim racing udev rules ---
-    services.udev.extraRules = ''
-      # Moza Racing serial devices (Boxflat configuration via ttyACM)
-      SUBSYSTEM=="tty", KERNEL=="ttyACM*", ATTRS{idVendor}=="346e", ACTION=="add", MODE="0666", TAG+="uaccess"
+    # Include boxflat's own 99-boxflat.rules so it detects them at runtime
+    # (boxflat checks /etc/udev/rules.d/99-boxflat.rules by filename)
+    services.udev.packages = [ pkgs.boxflat ];
 
+    # Additional Moza rules not covered by boxflat's own rules file
+    services.udev.extraRules = ''
       # Moza Racing HID raw access (force feedback, device configuration)
       KERNEL=="hidraw*", ATTRS{idVendor}=="346e", MODE="0666", TAG+="uaccess"
 
