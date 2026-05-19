@@ -278,9 +278,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "72d07973badc9449733e4f7da2ba08e642943965",
-      "url": "https://github.com/nix-community/nixvim/archive/72d07973badc9449733e4f7da2ba08e642943965.tar.gz",
-      "hash": "sha256-SAjXRiPBeXyhPMIq+XPiLHNG0UW5a9E4Fcz7gxF43pk="
+      "revision": "13ba3f7ca9da3d49e959745f6d0d1e7a662c1984",
+      "url": "https://github.com/nix-community/nixvim/archive/13ba3f7ca9da3d49e959745f6d0d1e7a662c1984.tar.gz",
+      "hash": "sha256-8x/CeqkYNAAOY+Pa5Huyh0aiUmFcOUAyq3VdYxHb5K4="
     },
     "pvmigrate": {
       "type": "GitRelease",
