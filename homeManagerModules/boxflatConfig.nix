@@ -205,24 +205,41 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    xdg.configFile = {
-      "boxflat/presets/r9-ac.yml".source = mkPreset "r9-ac" acPreset;
-      "boxflat/presets/r9-acc.yml".source = mkPreset "r9-acc" accPreset;
-      "boxflat/presets/r9-forza-horizon.yml".source = mkPreset "r9-forza-horizon" fhPreset;
+    home.file = {
+      ".config/boxflat/presets/r9-ac.yml".source = mkPreset "r9-ac" acPreset;
+      ".config/boxflat/presets/r9-acc.yml".source = mkPreset "r9-acc" accPreset;
+      ".config/boxflat/presets/r9-forza-horizon.yml".source = mkPreset "r9-forza-horizon" fhPreset;
+
+      # XDG autostart: launch boxflat hidden in background on login so the
+      # ProcessObserver can auto-load presets when a linked game starts.
+      ".config/autostart/boxflat.desktop".text = ''
+        [Desktop Entry]
+        Type=Application
+        Name=Boxflat
+        Exec=boxflat --autostart
+        X-GNOME-Autostart-enabled=true
+      '';
     };
 
-    # Boxflat checks rules-version >= 2 in settings.yml before it stops
-    # showing the "update udev rules" dialog. Since NixOS manages rules via
-    # services.udev.packages, we stamp the version so boxflat stays quiet.
-    home.activation.boxflatRulesVersion = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    # Stamp settings.yml so boxflat:
+    #   - stops showing the "update udev rules" dialog (rules-version >= 2)
+    #   - starts hidden and stays alive after window close (background + autostart-hidden)
+    home.activation.boxflatSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       settings_file="''${XDG_CONFIG_HOME:-$HOME/.config}/boxflat/settings.yml"
       mkdir -p "$(dirname "$settings_file")"
       touch "$settings_file"
-      if ${lib.getExe pkgs.gnugrep} -q "^rules-version:" "$settings_file" 2>/dev/null; then
-        ${lib.getExe pkgs.gnused} -i 's/^rules-version:.*/rules-version: 2/' "$settings_file"
-      else
-        echo "rules-version: 2" >> "$settings_file"
-      fi
+
+      stamp_setting() {
+        if ${lib.getExe pkgs.gnugrep} -q "^$1:" "$settings_file" 2>/dev/null; then
+          ${lib.getExe pkgs.gnused} -i "s/^$1:.*/$1: $2/" "$settings_file"
+        else
+          echo "$1: $2" >> "$settings_file"
+        fi
+      }
+
+      stamp_setting "rules-version" "2"
+      stamp_setting "background" "1"
+      stamp_setting "autostart-hidden" "1"
     '';
   };
 }
