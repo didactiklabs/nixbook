@@ -63,7 +63,7 @@ in
   customNixOSModules = {
     gamingConfig.enable = true;
     simracing.enable = true;
-    sunshine.enable = false;
+    sunshine.enable = true;
     wolf = {
       enable = true;
       hostAppsStateFolder = "/data/wolf";
