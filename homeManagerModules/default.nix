@@ -2,7 +2,7 @@
 {
   imports = [
     ./atuinConfig.nix
-    ./boxflatConfig.nix
+    ./foxblatConfig.nix
     ./cliTools.nix
     ./desktopApps.nix
     ./devTools.nix

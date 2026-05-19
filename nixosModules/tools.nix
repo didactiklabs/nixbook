@@ -128,7 +128,7 @@ in
         description = "Controller Support.";
         wantedBy = [ "default.target" ];
         serviceConfig = {
-          ExecStart = "${ds4drv}/bin/ds4drv --hidraw --emulate-xpad";
+          ExecStart = "${ds4drv}/bin/ds4drv --hidraw";
           Restart = "always";
         };
       };
