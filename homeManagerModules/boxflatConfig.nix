@@ -9,12 +9,90 @@ let
 
   mkPreset = name: data: pkgs.writeText "${name}.yml" (builtins.toJSON data);
 
-  # --- Assetto Corsa Competizione ---
-  # Moza R9 (9 Nm). ACC provides high-fidelity physics FFB, so the base
-  # stays transparent: zero spring/damper/friction/inertia on the wheelbase
-  # side, let the sim drive everything through PIDFF.
+  # ---------------------------------------------------------------------------
+  # Shared pedal sections
+  # ---------------------------------------------------------------------------
   #
-  # Recommended in-game ACC FFB settings to pair with this preset:
+  # ACC/AC — Sim racing: linear throttle, progressive brake (load-cell biased),
+  # linear clutch. The brake curve is parabolic to simulate real pedal feel
+  # where the first half of travel is light and the last quarter is firm.
+  # brake-angle-ratio = 80 → heavily load-cell weighted (realistic for CRP).
+  #
+  simPedals = {
+    throttle-dir = 0;
+    throttle-min = 0;
+    throttle-max = 100;
+    throttle-y1 = 20;
+    throttle-y2 = 40;
+    throttle-y3 = 60;
+    throttle-y4 = 80;
+    throttle-y5 = 100;
+
+    brake-dir = 0;
+    brake-angle-ratio = 80;
+    brake-min = 0;
+    brake-max = 100;
+    # Progressive/parabolic brake curve — light initial bite, firm end
+    brake-y1 = 8;
+    brake-y2 = 20;
+    brake-y3 = 42;
+    brake-y4 = 70;
+    brake-y5 = 100;
+
+    clutch-dir = 0;
+    clutch-min = 0;
+    clutch-max = 100;
+    clutch-y1 = 20;
+    clutch-y2 = 40;
+    clutch-y3 = 60;
+    clutch-y4 = 80;
+    clutch-y5 = 100;
+  };
+
+  # Forza Horizon — Arcade: slightly exponential throttle for easier modulation,
+  # linear brake (no load cell simulation needed), standard clutch.
+  arcadePedals = {
+    throttle-dir = 0;
+    throttle-min = 0;
+    throttle-max = 100;
+    # Slightly exponential: easier to modulate in oversteer scenarios
+    throttle-y1 = 14;
+    throttle-y2 = 28;
+    throttle-y3 = 50;
+    throttle-y4 = 74;
+    throttle-y5 = 100;
+
+    brake-dir = 0;
+    brake-angle-ratio = 40;
+    brake-min = 0;
+    brake-max = 100;
+    # Linear brake — arcade feel
+    brake-y1 = 20;
+    brake-y2 = 40;
+    brake-y3 = 60;
+    brake-y4 = 80;
+    brake-y5 = 100;
+
+    clutch-dir = 0;
+    clutch-min = 0;
+    clutch-max = 100;
+    clutch-y1 = 20;
+    clutch-y2 = 40;
+    clutch-y3 = 60;
+    clutch-y4 = 80;
+    clutch-y5 = 100;
+  };
+
+  # ---------------------------------------------------------------------------
+  # Assetto Corsa Competizione
+  # ---------------------------------------------------------------------------
+  # Moza R9 (9 Nm). ACC provides high-fidelity physics FFB through PIDFF, so
+  # the base stays as transparent as possible. A small damper (5) and
+  # speed-damping (15) are added to prevent self-oscillation common on direct-
+  # drive wheels when the game sends low-frequency / low-amplitude signals.
+  # natural-inertia kept low (8) — ACC already models inertia itself.
+  #
+  # Recommended in-game ACC FFB settings:
   #   Gain:            70-80%
   #   Min force:       5%
   #   Dynamic damping: 60%
@@ -36,15 +114,15 @@ let
       road-sensitivity = 50;
       speed = 100;
       spring = 0;
-      damper = 0;
+      damper = 5;
       torque = 100;
       inertia = 0;
       friction = 0;
       protection = 50;
       protection-mode = 0;
-      natural-inertia = 15;
-      speed-damping = 0;
-      speed-damping-point = 0;
+      natural-inertia = 8;
+      speed-damping = 15;
+      speed-damping-point = 20;
       soft-limit-stiffness = 50;
       soft-limit-strength = 100;
       soft-limit-retain = 5;
@@ -62,15 +140,21 @@ let
       ffb-reverse = 0;
       ffb-curve-x1 = 0;
     };
+    pedals = simPedals;
   };
 
-  # --- Assetto Corsa (AC1) ---
+  # ---------------------------------------------------------------------------
+  # Assetto Corsa (AC1)
+  # ---------------------------------------------------------------------------
   # Moza R9 (9 Nm). AC1 has strong, detailed FFB but its default signal can
   # clip on a 9 Nm base. Slightly lower FFB strength than ACC to avoid
   # saturation with heavy cars/mods. AC1 benefits from a touch of filtering
   # since its FFB can be spiky with certain cars and track mods.
+  # damper = 5 and speed-damping = 10 suppress oscillation from spiky signals.
+  # natural-inertia = 5: AC1 doesn't model steering column inertia as well as
+  # ACC, so a small value adds physical realism without oscillation risk.
   #
-  # Recommended in-game AC FFB settings to pair with this preset:
+  # Recommended in-game AC FFB settings:
   #   Gain:              70%
   #   Filter:            0%
   #   Min force:         8%
@@ -95,15 +179,15 @@ let
       road-sensitivity = 40;
       speed = 100;
       spring = 0;
-      damper = 3;
+      damper = 5;
       torque = 100;
       inertia = 0;
       friction = 3;
       protection = 50;
       protection-mode = 0;
-      natural-inertia = 10;
-      speed-damping = 0;
-      speed-damping-point = 0;
+      natural-inertia = 5;
+      speed-damping = 10;
+      speed-damping-point = 20;
       soft-limit-stiffness = 50;
       soft-limit-strength = 100;
       soft-limit-retain = 5;
@@ -121,14 +205,19 @@ let
       ffb-reverse = 0;
       ffb-curve-x1 = 0;
     };
+    pedals = simPedals;
   };
 
-  # --- Forza Horizon 6 ---
+  # ---------------------------------------------------------------------------
+  # Forza Horizon 6
+  # ---------------------------------------------------------------------------
   # Moza R9 (9 Nm). Forza Horizon is arcade/simcade with aggressive, noisy
   # FFB. The base adds filtering and centering to smooth the experience,
   # with a slightly compressed FFB curve so subtle effects aren't lost.
+  # speed-damping = 20 helps absorb the noisy high-frequency signal Forza
+  # sends through the FFB stack.
   #
-  # Recommended in-game Forza Horizon FFB settings to pair with this preset:
+  # Recommended in-game Forza Horizon FFB settings:
   #   Vibration scale:      50%
   #   FFB scale:            70%
   #   Steering sensitivity: 50 (centre deadzone 0, outer deadzone 100)
@@ -157,8 +246,8 @@ let
       protection = 50;
       protection-mode = 0;
       natural-inertia = 5;
-      speed-damping = 10;
-      speed-damping-point = 50;
+      speed-damping = 20;
+      speed-damping-point = 40;
       soft-limit-stiffness = 50;
       soft-limit-strength = 100;
       soft-limit-retain = 5;
@@ -176,6 +265,7 @@ let
       ffb-reverse = 0;
       ffb-curve-x1 = 0;
     };
+    pedals = arcadePedals;
   };
 in
 {
@@ -190,9 +280,13 @@ in
         (alternative to Pit House). This module places game-specific FFB
         presets into ~/.config/boxflat/presets/ tuned for the Moza R9 (9 Nm):
 
-          - r9-ac.yml — Assetto Corsa (realistic, slight filtering for spiky FFB)
-          - r9-acc.yml — Assetto Corsa Competizione (realistic, transparent FFB)
+          - r9-acc.yml — Assetto Corsa Competizione (realistic, transparent FFB,
+                         small damper to prevent direct-drive oscillation)
+          - r9-ac.yml  — Assetto Corsa 1 (realistic, slight filtering for spiky FFB)
           - r9-forza-horizon.yml — Forza Horizon 6 (arcade, filtered/smoothed)
+
+        All presets include a pedals section with game-appropriate response
+        curves (progressive/parabolic for sim games, linear for arcade).
 
         Presets auto-load when the linked game process is detected.
         They are read-only Nix store symlinks; edit this module to change them.
