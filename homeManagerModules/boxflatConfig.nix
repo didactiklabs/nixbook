@@ -64,6 +64,65 @@ let
     };
   };
 
+  # --- Assetto Corsa (AC1) ---
+  # Moza R9 (9 Nm). AC1 has strong, detailed FFB but its default signal can
+  # clip on a 9 Nm base. Slightly lower FFB strength than ACC to avoid
+  # saturation with heavy cars/mods. AC1 benefits from a touch of filtering
+  # since its FFB can be spiky with certain cars and track mods.
+  #
+  # Recommended in-game AC FFB settings to pair with this preset:
+  #   Gain:              70%
+  #   Filter:            0%
+  #   Min force:         8%
+  #   Kerb effect:       15%
+  #   Road effect:       20%
+  #   Slip effect:       0%
+  #   Enhanced understeer: on
+  acPreset = {
+    BoxflatPresetVersion = "1";
+    linked-process = "acs.exe";
+    main = {
+      set-interpolation = 1;
+      set-spring-gain = 100;
+      set-damper-gain = 100;
+      set-inertia-gain = 100;
+      set-friction-gain = 100;
+    };
+    base = {
+      limit = 1;
+      max-angle = 900;
+      ffb-strength = 70;
+      road-sensitivity = 40;
+      speed = 100;
+      spring = 0;
+      damper = 3;
+      torque = 100;
+      inertia = 0;
+      friction = 3;
+      protection = 50;
+      protection-mode = 0;
+      natural-inertia = 10;
+      speed-damping = 0;
+      speed-damping-point = 0;
+      soft-limit-stiffness = 50;
+      soft-limit-strength = 100;
+      soft-limit-retain = 5;
+      equalizer1 = 50;
+      equalizer2 = 50;
+      equalizer3 = 50;
+      equalizer4 = 50;
+      equalizer5 = 50;
+      equalizer6 = 50;
+      ffb-curve-y1 = 20;
+      ffb-curve-y2 = 40;
+      ffb-curve-y3 = 60;
+      ffb-curve-y4 = 80;
+      ffb-curve-y5 = 100;
+      ffb-reverse = 0;
+      ffb-curve-x1 = 0;
+    };
+  };
+
   # --- Forza Horizon 6 ---
   # Moza R9 (9 Nm). Forza Horizon is arcade/simcade with aggressive, noisy
   # FFB. The base adds filtering and centering to smooth the experience,
@@ -131,8 +190,9 @@ in
         (alternative to Pit House). This module places game-specific FFB
         presets into ~/.config/boxflat/presets/ tuned for the Moza R9 (9 Nm):
 
-          - acc.yml — Assetto Corsa Competizione (realistic, transparent FFB)
-          - forza-horizon.yml — Forza Horizon 6 (arcade, filtered/smoothed)
+          - r9-ac.yml — Assetto Corsa (realistic, slight filtering for spiky FFB)
+          - r9-acc.yml — Assetto Corsa Competizione (realistic, transparent FFB)
+          - r9-forza-horizon.yml — Forza Horizon 6 (arcade, filtered/smoothed)
 
         Presets auto-load when the linked game process is detected.
         They are read-only Nix store symlinks; edit this module to change them.
@@ -146,8 +206,9 @@ in
 
   config = lib.mkIf cfg.enable {
     xdg.configFile = {
-      "boxflat/presets/acc.yml".source = mkPreset "acc" accPreset;
-      "boxflat/presets/forza-horizon.yml".source = mkPreset "forza-horizon" fhPreset;
+      "boxflat/presets/r9-ac.yml".source = mkPreset "r9-ac" acPreset;
+      "boxflat/presets/r9-acc.yml".source = mkPreset "r9-acc" accPreset;
+      "boxflat/presets/r9-forza-horizon.yml".source = mkPreset "r9-forza-horizon" fhPreset;
     };
 
     # Boxflat checks rules-version >= 2 in settings.yml before it stops
