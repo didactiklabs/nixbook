@@ -123,15 +123,15 @@ in
       '';
     };
     systemd = {
-      user.services.ds4drv = {
-        enable = true;
-        description = "Controller Support.";
-        wantedBy = [ "default.target" ];
-        serviceConfig = {
-          ExecStart = "${ds4drv}/bin/ds4drv --hidraw";
-          Restart = "always";
-        };
-      };
+      # user.services.ds4drv = {
+      #   enable = true;
+      #   description = "Controller Support.";
+      #   wantedBy = [ "default.target" ];
+      #   serviceConfig = {
+      #     ExecStart = "${ds4drv}/bin/ds4drv --hidraw";
+      #     Restart = "always";
+      #   };
+      # };
       services = {
         "nixos-upgrade-manual" = {
           description = "Manual NixOS System Upgrade";
