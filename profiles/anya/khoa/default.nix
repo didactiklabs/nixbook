@@ -30,6 +30,7 @@
       "${image}";
   };
   home.packages = [
+    pkgs.moonlight-qt
     pkgs.wineWow64Packages.waylandFull
     pkgs.firefox
     pkgs.ytmdesktop
