@@ -2,6 +2,8 @@
 .swp
 hardware-configuration.nix
 result
+version
+.claude
 *.qcow2
 *.iso
 .tmp

@@ -83,6 +83,7 @@
     zshConfig.enable = true;
     dmsConfig.enable = true;
     desktopApps.enable = true;
+    zenBrowserConfig.enable = true;
     opencodeConfig = {
       enable = true;
       ollama.enable = true;
