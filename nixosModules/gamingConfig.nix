@@ -6,13 +6,7 @@
 }:
 let
   cfg = config.customNixOSModules.gamingConfig;
-  # NOTE: Must use direct import here instead of the `sources` module arg,
-  # because this is used in `imports` which cannot depend on `config`/_module.args.
-  sources = import ../npins;
-  proton-cachyos =
-    (import sources.flake-compat {
-      src = sources.nix-proton-cachyos;
-    }).defaultNix.packages.${pkgs.stdenv.hostPlatform.system}.proton-cachyos;
+  proton-cachyos = import ../customPkgs/proton-cachyos.nix { inherit pkgs; };
 in
 {
   options.customNixOSModules.gamingConfig = {
