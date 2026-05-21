@@ -6,6 +6,13 @@
 }:
 let
   cfg = config.customNixOSModules.gamingConfig;
+  # NOTE: Must use direct import here instead of the `sources` module arg,
+  # because this is used in `imports` which cannot depend on `config`/_module.args.
+  sources = import ../npins;
+  proton-cachyos =
+    (import sources.flake-compat {
+      src = sources.nix-proton-cachyos;
+    }).defaultNix.packages.${pkgs.stdenv.hostPlatform.system}.proton-cachyos;
 in
 {
   options.customNixOSModules.gamingConfig = {
@@ -18,7 +25,7 @@ in
         This module provides a production-grade gaming setup inspired by
         Jovian-NixOS (Steam Deck / SteamOS). It bundles:
 
-        - Steam with remote play, Proton GE compatibility, and extest
+        - Steam with remote play, Proton GE and Proton CachyOS compatibility, and extest
         - AMD GPU kernel boot parameters tuned for gaming (TDR timeouts,
           TTM page pool, scheduler submission depth, IOMMU off)
         - Early AMD GPU kernel modesetting with redistributable firmware
@@ -37,7 +44,10 @@ in
     programs.steam = {
       enable = true;
       remotePlay.openFirewall = true;
-      extraCompatPackages = with pkgs; [ proton-ge-bin ];
+      extraCompatPackages = with pkgs; [
+        proton-ge-bin
+        proton-cachyos
+      ];
       extest.enable = true;
     };
     hardware = {
