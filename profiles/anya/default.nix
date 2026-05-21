@@ -29,7 +29,7 @@ in
         after = [ "graphical-session.target" ];
         wantedBy = [ "graphical-session.target" ];
         serviceConfig = {
-          ExecStart = "${pkgs.steam}/bin/steam steam://open/bigpicture";
+          ExecStart = "/run/current-system/sw/bin/steam steam://open/bigpicture";
           Restart = "always";
         };
       };

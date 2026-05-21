@@ -243,6 +243,19 @@
       "url": "https://github.com/sodiboo/niri-flake/archive/f539bec9083f42a406db82e3d974162281e69d12.tar.gz",
       "hash": "sha256-A8MBNRY+FDLVJ64HWjrcdbtahlAey3fvca/hu9q07yA="
     },
+    "nix-proton-cachyos": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "Shochraos",
+        "repo": "nix-proton-cachyos"
+      },
+      "branch": "main",
+      "submodules": false,
+      "revision": "403a6673d7cd218f51c8a2d499f46993274ec46d",
+      "url": "https://github.com/Shochraos/nix-proton-cachyos/archive/403a6673d7cd218f51c8a2d499f46993274ec46d.tar.gz",
+      "hash": "sha256-b/NLHwNeOABiPc1hjujI/Fp6Ud2lVPh6Q64T4W2f7tc="
+    },
     "nixos-hardware": {
       "type": "Git",
       "repository": {

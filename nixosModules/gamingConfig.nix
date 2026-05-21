@@ -6,7 +6,34 @@
 }:
 let
   cfg = config.customNixOSModules.gamingConfig;
-  proton-cachyos = import ../customPkgs/proton-cachyos.nix { inherit pkgs; };
+  # NOTE: Must use direct import here instead of the `sources` module arg,
+  # because this is used in `imports` which cannot depend on `config`/_module.args.
+  sources = import ../npins;
+  # The upstream package only installs to share/steam/compatibilitytools.d/ but
+  # NixOS's extraCompatPackages uses lib.makeSearchPathOutput "steamcompattool",
+  # requiring a dedicated "steamcompattool" output pointing directly at the tool
+  # directory — matching the pattern used by proton-ge-bin in nixpkgs.
+  proton-cachyos =
+    ((import sources.flake-compat {
+      src = sources.nix-proton-cachyos;
+    }).defaultNix.packages.${pkgs.stdenv.hostPlatform.system}.proton-cachyos
+    ).overrideAttrs
+      (old: {
+        outputs = [
+          "out"
+          "steamcompattool"
+        ];
+        installPhase = ''
+          runHook preInstall
+          tar -I zstd -xf $src
+          mkdir -p $steamcompattool
+          cp -r usr/share/steam/compatibilitytools.d/proton-cachyos-slr/* $steamcompattool/
+          echo "${
+            old.pname or "proton-cachyos-slr"
+          } should not be installed into environments. Use programs.steam.extraCompatPackages instead." > $out
+          runHook postInstall
+        '';
+      });
 in
 {
   options.customNixOSModules.gamingConfig = {
