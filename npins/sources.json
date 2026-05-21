@@ -243,6 +243,19 @@
       "url": "https://github.com/sodiboo/niri-flake/archive/f539bec9083f42a406db82e3d974162281e69d12.tar.gz",
       "hash": "sha256-A8MBNRY+FDLVJ64HWjrcdbtahlAey3fvca/hu9q07yA="
     },
+    "nix-proton-cachyos": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "kimjongbing",
+        "repo": "nix-proton-cachyos"
+      },
+      "branch": "main",
+      "submodules": false,
+      "revision": "bad753f8f8d19aecd753bef3f764562ad15d6a9b",
+      "url": "https://github.com/kimjongbing/nix-proton-cachyos/archive/bad753f8f8d19aecd753bef3f764562ad15d6a9b.tar.gz",
+      "hash": "sha256-opfBquff3X73DhLC4io2FqzhSrlnDOBLWrnBpGqLAHU="
+    },
     "nixos-hardware": {
       "type": "Git",
       "repository": {
