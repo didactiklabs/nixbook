@@ -239,9 +239,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "b5f81cf03d90bcf2efd20d12fe933a0790b4722b",
-      "url": "https://github.com/sodiboo/niri-flake/archive/b5f81cf03d90bcf2efd20d12fe933a0790b4722b.tar.gz",
-      "hash": "sha256-KMTwxpCYW1YjzDvRXOzTnfMxfBkeceyFM+21e4yQqYI="
+      "revision": "6a722c7c412614fde7b3b04f971a6cae9273125b",
+      "url": "https://github.com/sodiboo/niri-flake/archive/6a722c7c412614fde7b3b04f971a6cae9273125b.tar.gz",
+      "hash": "sha256-MnGPSPJl5zPXufqKB+fwMp8+A0PaTo22Mh5Mytle7Bg="
     },
     "nix-proton-cachyos": {
       "type": "Git",
