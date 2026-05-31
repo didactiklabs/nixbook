@@ -294,7 +294,7 @@ let
     pedals = {
       # Throttle: deadzone + steep start to prevent idle creep
       throttle-dir = 0;
-      throttle-min = 5;
+      throttle-min = 0;
       throttle-max = 100;
       throttle-y1 = 4;
       throttle-y2 = 14;
@@ -304,7 +304,7 @@ let
       # Brake: deadzone + steep start to prevent phantom braking
       brake-dir = 0;
       brake-angle-ratio = 40;
-      brake-min = 5;
+      brake-min = 0;
       brake-max = 100;
       brake-y1 = 4;
       brake-y2 = 14;
