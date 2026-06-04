@@ -49,7 +49,7 @@ in
 
     gtk = {
       enable = true;
-      gtk4.theme = null;
+      # gtk4.theme = null;
       iconTheme.package = pkgs.papirus-icon-theme;
       iconTheme.name = "Papirus-Dark";
       gtk4.extraConfig = {
