@@ -162,7 +162,7 @@ in
 
     programs = {
       kdeconnect.enable = lib.mkDefault false;
-      yubikey-touch-detector.enable = true;
+      # yubikey-touch-detector.enable = true;
       gnupg.agent = {
         enable = true;
         enableSSHSupport = true; # yubikey ssh
