@@ -38,6 +38,7 @@ jobs:
           - anya
           - nishinoya
           - tanjiro
+          - hanamichi
     steps:
       - name: Checkout
         uses: actions/checkout@v4

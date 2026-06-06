@@ -10,7 +10,7 @@
 ## Key Statistics
 
 - **Nix Files:** 143 files (~11,700 lines of code)
-- **Active Machines:** 4 (totoro, anya, nishinoya, tanjiro)
+- **Active Machines:** 5 (totoro, anya, nishinoya, tanjiro, hanamichi)
 - **Home Manager Modules:** 32 (27 standalone files + 5 subdirectories)
 - **NixOS Modules:** 19 files
 - **Custom Packages:** 10
@@ -55,7 +55,7 @@ hive.nix                          Colmena deployment config
 ### Installation & Deployment
 
 - `installer/` - Interactive NixOS installer with LUKS encryption, LVM, and Disko support
-- `.github/workflows/` - GitHub Actions CI/CD for all 4 machines
+- `.github/workflows/` - GitHub Actions CI/CD for all 5 machines
 - `devenv.nix/.envrc` - Development environment with direnv integration
 - `devenvModules/` - Shared devenv config module imported by nixbook, hephaestus, and aletheia via npins
 - `docs/` - Auto-generated module documentation (generate-docs.nix, MODULES.md)
@@ -67,7 +67,7 @@ hive.nix                          Colmena deployment config
 | `core.nix`           | 456   | Foundational system: systemd-boot UEFI, plymouth, latest kernel, LVM, LUKS, PipeWire audio, kernel sysctl hardening, security (rtkit, polkit, U2F PAM), Lix nix daemon with S3 cache, fprintd, chrony, fwupd, networkmanager |
 | `userConfig.nix`     | 241   | User management framework with mkUser helper, Home Manager integration, Qt theming, Go dev environment                                                                                                                       |
 | `tools.nix`          | 165   | System-level tooling: Podman with Docker compat, YubiKey support, system packages, DS4 controller service                                                                                                                    |
-| `gamingConfig.nix`   | 106   | Gaming: Steam with Proton GE, AMD GPU kernel params, controller udev rules, GameMode                                                                                                                                         |
+| `gamingConfig.nix`   | 125   | Gaming: Steam with Proton GE/CachyOS, GameMode, 32-bit graphics, controller udev rules. GPU-agnostic via `gpu` option ("amd" applies AMD kernel params + early modesetting; "nvidia"/"none" skip them)                       |
 | `tailscale.nix`      | 94    | Tailscale VPN with route-conflict workarounds, tswitch fzf-based TUI for Tailnet switching                                                                                                                                   |
 | `getRevision.nix`    | 86    | Git metadata embedding: writes JSON to /etc/nixos/version with remote, branch, commit, date                                                                                                                                  |
 | `niri.nix`           | 77    | Niri scrollable tiling compositor: fuzzel, grimblast, wl-clipboard, xwayland-satellite                                                                                                                                       |
@@ -139,7 +139,7 @@ hive.nix                          Colmena deployment config
 - `sshConfig.nix` (43 LOC) - SSH key management
 - `vscode/` - VSCode with 32 extensions (4 .nix + 2 .sh files, 982 LOC)
 
-## Machine Profiles (4 machines)
+## Machine Profiles (5 machines)
 
 ### totoro - Main Development Laptop
 
@@ -184,6 +184,16 @@ hive.nix                          Colmena deployment config
 - **Work Environments:** didactiklabs, logicmg kubeconfigs
 - **Extra Packages:** Google Chrome, GitKraken, Slack, Kanidm, Moonlight Qt, immich-go, oapi-codegen
 - **Home Manager Modules:** cliTools, devTools, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, vscode, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, fcitx5Config, dmsConfig
+
+### hanamichi - Gaming/Normal-Use Desktop (NVIDIA)
+
+- **Location:** `profiles/hanamichi/`
+- **User:** dieu
+- **Hardware:** NVIDIA RTX 3080 (Ampere) — proprietary driver, open kernel modules, modesetting enabled
+- **Primary WM:** Niri
+- **NixOS Modules:** greetd, niri, gamingConfig (gpu = "nvidia"), lanzaboote
+- **Special Features:** Regular desktop for everyday use + gaming. Steam/Proton/GameMode enabled but does NOT auto-launch Steam Big Picture on startup. No laptop/dev/work modules. No work CA certs or kubeconfigs.
+- **Home Manager Modules:** fontConfig, gtkConfig, starship, fastfetchConfig, niriConfig, dmsConfig, kittyConfig, zshConfig, atuinConfig, desktopApps, zenBrowserConfig, gitConfig
 
 ## Key Features
 
@@ -241,7 +251,7 @@ hive.nix                          Colmena deployment config
 
 **GitHub Actions Workflows (2 files):**
 
-- `build.yaml` - Build all 4 profiles (totoro, anya, nishinoya, tanjiro) via matrix strategy on push/PR to main. Self-hosted runner, Cachix/install-nix, S3 cache auth, 120min timeout.
+- `build.yaml` - Build all 5 profiles (totoro, anya, nishinoya, tanjiro, hanamichi) via matrix strategy on push/PR to main. Self-hosted runner, Cachix/install-nix, S3 cache auth, 120min timeout.
 - `npins-update.yaml` - Automated dependency updates every 6 hours or manual dispatch. Updates each pin independently (max 10 parallel), syncs devenv.yaml nixpkgs revision, creates PRs with auto-merge.
 
 **Features:**

@@ -1,0 +1,40 @@
+{
+  pkgs,
+  ...
+}:
+{
+  imports = [
+    ./gitConfig.nix
+    ./niriConfig.nix
+  ];
+
+  home.packages = [
+    pkgs.moonlight-qt
+    pkgs.ytmdesktop
+  ];
+
+  customHomeManagerModules = {
+    # Desktop / appearance
+    fontConfig.enable = true;
+    gtkConfig.enable = true;
+    starship.enable = true;
+    fastfetchConfig.enable = true;
+    niriConfig.enable = true;
+    dmsConfig = {
+      enable = true;
+      showDock = true;
+    };
+
+    # Terminal / shell
+    kittyConfig.enable = true;
+    zshConfig.enable = true;
+    atuinConfig.didactiklabs.enable = true;
+
+    # Everyday apps + browser + media
+    desktopApps.enable = true;
+    zenBrowserConfig.enable = true;
+
+    # Git (basic, not a dev box but handy)
+    gitConfig.enable = true;
+  };
+}
