@@ -106,6 +106,7 @@ in
       update-systemd-resolved
       pinentry-qt
       lsof
+      sshuttle
     ];
 
     services.udev = {

@@ -58,6 +58,7 @@ in
 
       # IaC and deployment
       terraform
+      opentofu
       ansible
       minio-client
       google-cloud-sdk
