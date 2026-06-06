@@ -62,6 +62,7 @@ in
   };
   customNixOSModules = {
     gamingConfig.enable = true;
+    gamingConfig.gpu = "amd";
     simracing.enable = true;
     sunshine.enable = true;
     wolf = {

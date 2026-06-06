@@ -47,15 +47,36 @@ in
         Jovian-NixOS (Steam Deck / SteamOS). It bundles:
 
         - Steam with remote play, Proton GE and Proton CachyOS compatibility, and extest
-        - AMD GPU kernel boot parameters tuned for gaming (TDR timeouts,
-          TTM page pool, scheduler submission depth, IOMMU off)
-        - Early AMD GPU kernel modesetting with redistributable firmware
-        - Gamepad / controller udev rules (uinput, Valve HID devices)
         - GameMode performance daemon
         - 32-bit graphics and driver support
+        - Gamepad / controller udev rules (uinput, Valve HID devices)
 
-        Used on: anya (gaming/streaming desktop).
+        GPU-specific tuning (AMD kernel boot parameters and early modesetting)
+        is gated behind the `gpu` option below, so this module is usable on
+        both AMD and NVIDIA machines.
+
+        Used on: anya (AMD gaming/streaming desktop), hanamichi (NVIDIA desktop).
         Reference: https://github.com/Jovian-Experiments/Jovian-NixOS
+      '';
+    };
+    gpu = lib.mkOption {
+      type = lib.types.enum [
+        "amd"
+        "nvidia"
+        "none"
+      ];
+      default = "amd";
+      description = ''
+        Which GPU vendor the machine uses. Controls vendor-specific tuning:
+
+        - "amd": applies AMD GPU kernel boot parameters (TDR timeouts, TTM page
+          pool, scheduler submission depth, IOMMU off) and early `amdgpu`
+          modesetting in initrd.
+        - "nvidia": skips all AMD-specific tuning. Configure the proprietary
+          driver (`hardware.nvidia`, `services.xserver.videoDrivers`) in the
+          machine profile.
+        - "none": GPU-agnostic; only the common gaming stack (Steam, GameMode,
+          32-bit graphics) is applied.
       '';
     };
   };
@@ -85,8 +106,12 @@ in
       };
     };
     boot = {
+      # ntsync improves Wine/Proton sync performance regardless of GPU vendor.
+      kernelModules = [ "ntsync" ];
+
       # --- AMD GPU boot parameters (from Jovian steamos/boot.nix) ---
-      kernelParams = [
+      # Only applied on AMD machines; NVIDIA tuning lives in the machine profile.
+      kernelParams = lib.mkIf (cfg.gpu == "amd") [
         # Increase kernel log buffer for GPU driver debug traces
         "log_buf_len=4M"
 
@@ -112,9 +137,7 @@ in
       ];
 
       # --- Early AMD GPU modesetting (from Jovian hardware/amd) ---
-      kernelModules = [ "ntsync" ];
-
-      initrd.kernelModules = [
+      initrd.kernelModules = lib.mkIf (cfg.gpu == "amd") [
         "amdgpu"
       ];
     };

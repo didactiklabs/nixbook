@@ -39,4 +39,8 @@ in
     hostName = "nishinoya";
     host = "nishinoya";
   };
+  hanamichi = createConfiguration {
+    hostName = "hanamichi";
+    host = "hanamichi";
+  };
 }
