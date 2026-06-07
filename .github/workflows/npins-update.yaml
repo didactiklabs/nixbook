@@ -7,7 +7,46 @@ permissions:
   contents: "write"
   pull-requests: "write"
 jobs:
+  npins-upgrade:
+    # Keeps the npins lock format in sync with the npins version shipped by the
+    # pinned nixpkgs. When npins bumps the sources.json format version (e.g. v7 -> v8),
+    # the vendored npins/default.nix can no longer read it and every build fails with
+    # "Version N is too old, you need to run upgrade". This job regenerates both
+    # npins/default.nix and sources.json to the current format and opens a single PR.
+    # It is a no-op (no PR) when the format is already up to date.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+      - name: Get Nixpkgs revision
+        run: |
+          url=$(jq -r .pins.nixpkgs.url npins/sources.json)
+          echo "url=$url" >> "$GITHUB_ENV"
+      - uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=${{ env.url }}
+          extra_nix_config: |
+            fallback = true
+            trusted-public-keys = didactiklabs-nixcache:PxLKN0+ZkP07M8g8/B6xbP6A4MYpqQg6LH7V3muiy/0= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+            substituters = https://s3.didactiklabs.io/nix-cache https://cache.nixos.org/
+      - name: Upgrade npins lock format
+        run: nix run nixpkgs#npins -- upgrade
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          commit-message: "chore(deps): upgrade npins lock format"
+          title: "chore(deps): upgrade npins lock format"
+          body: "This PR runs `npins upgrade` to keep `npins/default.nix` and `npins/sources.json` on the format version expected by the npins shipped with the pinned nixpkgs."
+          branch: "npins-upgrade-format"
+          delete-branch: true
   get-pins:
+    needs: npins-upgrade
     runs-on: ubuntu-latest
     outputs:
       pins: ${{ steps.set-pins.outputs.pins }}
