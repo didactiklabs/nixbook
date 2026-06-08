@@ -46,16 +46,18 @@ in
               ) "--sessions ${lib.concatStringsSep ":" sessionPaths}";
               wrapperArg = lib.optionalString cfg.niri.enable "--session-wrapper '${pkgs.niri}/bin/niri-session'";
             in
-            ''
-              ${pkgs.tuigreet}/bin/tuigreet \
-                --time \
-                --remember-session \
-                --remember \
-                --asterisks \
-                --user-menu \
-                ${sessionsArg} \
-                ${wrapperArg}
-            '';
+            lib.concatStringsSep " " (
+              lib.filter (s: s != "") [
+                "${pkgs.tuigreet}/bin/tuigreet"
+                "--time"
+                "--remember-session"
+                "--remember"
+                "--asterisks"
+                "--user-menu"
+                sessionsArg
+                wrapperArg
+              ]
+            );
         };
       };
     };
