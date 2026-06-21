@@ -52,13 +52,13 @@ in
     # AMD-specific GPU tuning.
     gamingConfig.enable = true;
     gamingConfig.gpu = "nvidia";
-    lanzaboote.enable = true;
+    lanzaboote.enable = false;
   };
 
   imports = [
     (userConfig.mkUser {
-      username = "dieu";
-      userImports = [ ./dieu ];
+      username = "chocomooncake";
+      userImports = [ ./chocomooncake ];
       shell = pkgs.zsh;
     })
   ];
