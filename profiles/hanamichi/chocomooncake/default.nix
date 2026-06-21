@@ -1,11 +1,8 @@
-{
-  pkgs,
-  ...
-}:
-{
+{ pkgs, ... }: {
   imports = [
     ./gitConfig.nix
     ./niriConfig.nix
+    ./fastfetchConfig.nix
   ];
 
   home.packages = [
