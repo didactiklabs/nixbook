@@ -19,5 +19,7 @@ in
   #     };
   #   };
   config = lib.mkIf cfg.niriConfig.enable {
+    # Override the shared niri default (French) with a US keyboard layout.
+    programs.niri.settings.input.keyboard.xkb.layout = lib.mkForce "us";
   };
 }

@@ -20,6 +20,13 @@ let
   };
 in
 {
+  # --- US keyboard layout (overrides the shared French default) ---
+  console.keyMap = lib.mkForce "us";
+  services.xserver.xkb = {
+    layout = lib.mkForce "us";
+    variant = lib.mkForce "";
+  };
+
   # --- NVIDIA RTX 3080 (Ampere) proprietary driver ---
   services.xserver.videoDrivers = [ "nvidia" ];
   hardware = {
