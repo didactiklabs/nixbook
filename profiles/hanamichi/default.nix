@@ -28,10 +28,10 @@ in
     AllowSuspendThenHibernate=no
   '';
   services = {
-    logind.extraConfig = ''
-      IdleAction=ignore
-      IdleActionSec=infinity
-    '';
+    logind.settings.Login = {
+      IdleAction = "ignore";
+      IdleActionSec = "infinity";
+    };
     xserver.xkb = {
       layout = lib.mkForce "us";
       variant = lib.mkForce "";
