@@ -158,6 +158,29 @@ let
             };
 
             config = {
+              # Open plain-text files with VSCode when it is installed, otherwise
+              # fall back to nvim launched inside a kitty terminal. The choice is
+              # made at runtime so this entry works on every machine regardless of
+              # whether the vscode module is enabled.
+              xdg.desktopEntries.editor-text = {
+                name = "Text Editor (VSCode or nvim)";
+                genericName = "Text Editor";
+                comment = "Edit text files with VSCode if available, else nvim";
+                exec = "${pkgs.writeShellScript "open-text-editor" ''
+                  if command -v code >/dev/null 2>&1; then
+                    exec code --new-window "$@"
+                  else
+                    exec ${pkgs.kitty}/bin/kitty ${pkgs.neovim}/bin/nvim "$@"
+                  fi
+                ''} %F";
+                mimeType = [ "text/plain" ];
+                categories = [
+                  "Utility"
+                  "TextEditor"
+                ];
+                terminal = false;
+              };
+
               xdg.mimeApps = {
                 enable = true;
                 defaultApplications =
@@ -170,6 +193,7 @@ let
                   {
                     "application/pdf" = "zathura.desktop";
                     "text/html" = browser;
+                    "text/plain" = "editor-text.desktop";
                     "x-scheme-handler/http" = browser;
                     "x-scheme-handler/https" = browser;
                     "inode/directory" = fileManager;
