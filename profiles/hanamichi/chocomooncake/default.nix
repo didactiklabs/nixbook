@@ -8,6 +8,7 @@
   home.packages = [
     pkgs.moonlight-qt
     pkgs.ytmdesktop
+    pkgs.anki
   ];
 
   customHomeManagerModules = {
