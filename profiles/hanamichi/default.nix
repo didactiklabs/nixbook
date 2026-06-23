@@ -20,15 +20,29 @@ let
   };
 in
 {
-  # --- US keyboard layout (overrides the shared French default) ---
-  console.keyMap = lib.mkForce "us";
-  services.xserver.xkb = {
-    layout = lib.mkForce "us";
-    variant = lib.mkForce "";
+  # --- Disable all sleep / suspend ---
+  systemd.sleep.extraConfig = ''
+    AllowSuspend=no
+    AllowHibernation=no
+    AllowHybridSleep=no
+    AllowSuspendThenHibernate=no
+  '';
+  services = {
+    logind.extraConfig = ''
+      IdleAction=ignore
+      IdleActionSec=infinity
+    '';
+    xserver.xkb = {
+      layout = lib.mkForce "us";
+      variant = lib.mkForce "";
+    };
+
+    # --- NVIDIA RTX 3080 (Ampere) proprietary driver ---
+    xserver.videoDrivers = [ "nvidia" ];
   };
 
-  # --- NVIDIA RTX 3080 (Ampere) proprietary driver ---
-  services.xserver.videoDrivers = [ "nvidia" ];
+  # --- US keyboard layout (overrides the shared French default) ---
+  console.keyMap = lib.mkForce "us";
   hardware = {
     bluetooth = {
       powerOnBoot = lib.mkForce true;
