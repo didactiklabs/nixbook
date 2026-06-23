@@ -156,20 +156,17 @@
       "hash": "sha256-UDcKdSuBJm7sN2eM+BR0GDnglhOKbI85ZzjufTKZCl4="
     },
     "globalprotect-openconnect": {
-      "type": "GitRelease",
+      "type": "Git",
       "repository": {
         "type": "GitHub",
         "owner": "yuezk",
         "repo": "GlobalProtect-openconnect"
       },
-      "pre_releases": false,
-      "version_upper_bound": null,
-      "release_prefix": null,
+      "branch": "main",
       "submodules": false,
-      "version": "v2.6.2",
-      "revision": "a708ce0115d33374e0e7d2a3613aafdfc0cb9e30",
-      "url": "https://api.github.com/repos/yuezk/GlobalProtect-openconnect/tarball/refs/tags/v2.6.2",
-      "hash": "sha256-1S9yIE9B+1o22ZPxYRu7xDKi+IbDPSyYF6GgDO6ITMA="
+      "revision": "10e94e0b81521a35b6164dd17a4b251efdb7f0a3",
+      "url": "https://github.com/yuezk/GlobalProtect-openconnect/archive/10e94e0b81521a35b6164dd17a4b251efdb7f0a3.tar.gz",
+      "hash": "sha256-ikqCb6jd+Do0g+WiD1j+JK+H5p+do3IrL8JhWI+7xMs="
     },
     "goji": {
       "type": "Git",

@@ -6,10 +6,12 @@
 }:
 let
   sources = import ../../../npins;
+  # Use the `fromSource` output: the `default`/`prebuilt` outputs download a
+  # release binary whose fixed-output hash is currently broken upstream.
   globalprotect-openconnect =
     (import sources.flake-compat {
       src = sources.globalprotect-openconnect;
-    }).defaultNix.packages.${pkgs.stdenv.hostPlatform.system}.default;
+    }).defaultNix.packages.${pkgs.stdenv.hostPlatform.system}.fromSource;
 in
 {
   imports = [
