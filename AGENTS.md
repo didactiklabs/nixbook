@@ -17,7 +17,7 @@
 - **CI/CD Workflows:** 2
 - **NixVim Plugins:** 25
 - **VSCode Extensions:** 32
-- **Pinned Dependencies:** 26
+- **Pinned Dependencies:** 27
 - **Assets:** 46 files
 
 ## Core Tools
@@ -159,7 +159,7 @@ hive.nix                          Colmena deployment config
 - **Hardware:** Framework 13-inch AMD AI 300 series (via nixos-hardware)
 - **Primary WM:** Niri
 - **NixOS Modules:** laptopProfile, greetd, niri, caCertificates (bealv + didactiklabs), lanzaboote, firewall
-- **Special Features:** ClamAV daemon + updater, sudo requires password, Tailscale/NetBird disabled
+- **Special Features:** ClamAV daemon + updater, sudo requires password, Tailscale/NetBird disabled, GlobalProtect-openconnect VPN client (gpclient/gpauth CLI, from upstream flake via npins since the nixpkgs package was removed)
 - **Work Environments:** didactiklabs, bealv kubeconfigs
 - **Home Manager Modules:** cliTools, devTools, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, thunderbirdConfig, opencodeConfig, rtk, dmsConfig
 
@@ -339,7 +339,7 @@ npins/ → dependency sources
 | `witr`       | v0.3.1  | Custom utility                                        |
 | `kl`         | v0.6.1  | Interactive Kubernetes log viewer (frozen)            |
 
-## Dependencies & Pinning (26 total)
+## Dependencies & Pinning (27 total)
 
 **Core Framework:**
 
@@ -357,6 +357,7 @@ npins/ → dependency sources
 
 **Application Sources:**
 
+- `globalprotect-openconnect` (v2.6.2) - GlobalProtect VPN client (Tauri rewrite); CLI tools gpclient/gpauth (tanjiro only)
 - `dms` - DankMaterialShell compositor shell
 - `dms-plugin-registry` - DMS plugin registry
 - `ds4drv` - DualShock 4 controller driver

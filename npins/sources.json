@@ -155,6 +155,22 @@
       "url": "https://github.com/didactiklabs/ginx/archive/3e8505c0cbb495d5e8b17f43947830b8edfb9001.tar.gz",
       "hash": "sha256-UDcKdSuBJm7sN2eM+BR0GDnglhOKbI85ZzjufTKZCl4="
     },
+    "globalprotect-openconnect": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "yuezk",
+        "repo": "GlobalProtect-openconnect"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": null,
+      "submodules": false,
+      "version": "v2.6.2",
+      "revision": "a708ce0115d33374e0e7d2a3613aafdfc0cb9e30",
+      "url": "https://api.github.com/repos/yuezk/GlobalProtect-openconnect/tarball/refs/tags/v2.6.2",
+      "hash": "sha256-1S9yIE9B+1o22ZPxYRu7xDKi+IbDPSyYF6GgDO6ITMA="
+    },
     "goji": {
       "type": "Git",
       "repository": {

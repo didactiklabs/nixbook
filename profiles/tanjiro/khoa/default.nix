@@ -4,6 +4,13 @@
   config,
   ...
 }:
+let
+  sources = import ../../../npins;
+  globalprotect-openconnect =
+    (import sources.flake-compat {
+      src = sources.globalprotect-openconnect;
+    }).defaultNix.packages.${pkgs.stdenv.hostPlatform.system}.default;
+in
 {
   imports = [
     ./gitConfig.nix
@@ -22,6 +29,7 @@
     pkgs.zoom-us
     pkgs.element-desktop
     pkgs.ytmdesktop
+    globalprotect-openconnect
   ];
   programs = {
     go = {
