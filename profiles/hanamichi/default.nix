@@ -27,6 +27,7 @@ in
     AllowHybridSleep = "no";
     AllowSuspendThenHibernate = "no";
   };
+  programs.kdeconnect.enable = true;
   services = {
     logind.settings.Login = {
       IdleAction = "ignore";
