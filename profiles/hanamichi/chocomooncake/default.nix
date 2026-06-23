@@ -18,6 +18,8 @@
     starship.enable = true;
     fastfetchConfig.enable = true;
     niriConfig.enable = true;
+    nixvimConfig.enable = true;
+    vscode.enable = true;
     dmsConfig = {
       enable = true;
       showDock = true;
