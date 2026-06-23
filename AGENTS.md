@@ -159,7 +159,7 @@ hive.nix                          Colmena deployment config
 - **Hardware:** Framework 13-inch AMD AI 300 series (via nixos-hardware)
 - **Primary WM:** Niri
 - **NixOS Modules:** laptopProfile, greetd, niri, caCertificates (bealv + didactiklabs), lanzaboote, firewall
-- **Special Features:** ClamAV daemon + updater, sudo requires password, Tailscale/NetBird disabled, GlobalProtect-openconnect VPN client (gpclient/gpauth CLI, from upstream flake via npins since the nixpkgs package was removed)
+- **Special Features:** ClamAV daemon + updater, sudo requires password, Tailscale/NetBird disabled, GlobalProtect-openconnect VPN client (gpclient/gpauth CLI, built from source via the upstream flake `fromSource` output pinned to main, since the nixpkgs package was removed and the prebuilt flake output has a broken upstream hash)
 - **Work Environments:** didactiklabs, bealv kubeconfigs
 - **Home Manager Modules:** cliTools, devTools, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, thunderbirdConfig, opencodeConfig, rtk, dmsConfig
 
@@ -357,7 +357,7 @@ npins/ → dependency sources
 
 **Application Sources:**
 
-- `globalprotect-openconnect` (v2.6.2) - GlobalProtect VPN client (Tauri rewrite); CLI tools gpclient/gpauth (tanjiro only)
+- `globalprotect-openconnect` (main) - GlobalProtect VPN client (Tauri rewrite), built from source (`fromSource` flake output; prebuilt output has a broken upstream hash); CLI tools gpclient/gpauth (tanjiro only)
 - `dms` - DankMaterialShell compositor shell
 - `dms-plugin-registry` - DMS plugin registry
 - `ds4drv` - DualShock 4 controller driver
