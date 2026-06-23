@@ -10,6 +10,7 @@
     pkgs.ytmdesktop
     pkgs.anki
   ];
+  services.kdeconnect.enable = true;
 
   customHomeManagerModules = {
     # Desktop / appearance
