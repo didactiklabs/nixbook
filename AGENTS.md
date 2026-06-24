@@ -157,7 +157,10 @@ hive.nix                          Colmena deployment config
 - **Hardware:** ASUS ZenBook UM6702 (NVIDIA disabled, modesetting-only)
 - **Primary WM:** Niri
 - **NixOS Modules:** laptopProfile, greetd, niri, caCertificates (bealv + didactiklabs), lanzaboote
-- **Special Features:** KDE Connect, Bluetooth, Nextcloud client systemd service, multi-monitor niri config, Moonlight Qt. fcitx5 input methods cycled with Ctrl+Space: French/AZERTY (base) → Vietnamese (Lotus, via `customNixOSModules.fcitx5-lotus`) → Japanese (Mozc). German umlauts via the Schnelle Umlaute hold-letter+Space gesture (no German XKB layout in the cycle)
+  <<<<<<< HEAD
+- # **Special Features:** KDE Connect, Bluetooth, Nextcloud client systemd service, multi-monitor niri config, Moonlight Qt. fcitx5 input methods cycled with Ctrl+Space: French/AZERTY (base) → Vietnamese (Lotus, via `customNixOSModules.fcitx5-lotus`) → Japanese (Mozc). German umlauts via the Schnelle Umlaute hold-letter+Space gesture (no German XKB layout in the cycle)
+- **Special Features:** Bluetooth, Nextcloud client systemd service, multi-monitor niri config, Moonlight Qt
+  > > > > > > > 8e0ac48 (feat: enable KDE Connect by default, add KEYBINDS.md docs, and add new modules (ollama, simracing, wolf, foxblat, rbw, zen-browser, rpcu-ca))
 - **Work Environments:** didactiklabs, bealv kubeconfigs
 - **Home Manager Modules:** cliTools, devTools, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, fcitx5Config, thunderbirdConfig, opencodeConfig, rtk, dmsConfig
 
@@ -189,7 +192,7 @@ hive.nix                          Colmena deployment config
 - **User:** aamoyel
 - **Primary WM:** Niri
 - **NixOS Modules:** laptopProfile, greetd, niri, caCertificates (didactiklabs + logicmg)
-- **Special Features:** KDE Connect, Yubico security key lock on removal, unprivileged port access (sysctl port_start=80)
+- **Special Features:** Yubico security key lock on removal, unprivileged port access (sysctl port_start=80)
 - **Work Environments:** didactiklabs, logicmg kubeconfigs
 - **Extra Packages:** Google Chrome, GitKraken, Slack, Kanidm, Moonlight Qt, immich-go, oapi-codegen
 - **Home Manager Modules:** cliTools, devTools, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, vscode, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, fcitx5Config, dmsConfig
@@ -244,7 +247,7 @@ hive.nix                          Colmena deployment config
 
 - Sunshine for game/desktop streaming
 - Moonlight Qt remote desktop client
-- KDE Connect device integration
+- KDE Connect device integration (enabled globally by default — system `programs.kdeconnect` via `nixosModules/tools.nix`, user daemon `services.kdeconnect` via `nixosModules/userConfig.nix` mkUser)
 
 ### Modern Tools & AI
 
@@ -413,3 +416,4 @@ If you make changes, always present them for user review before committing.
 9. **Git Hooks** - Configured in `devenv.nix`, run automatically on commit
 10. **Documentation** - Keep `README.md` and `AGENTS.md` updated; run `generate-docs` to update `docs/MODULES.md`
 11. **AGENTS.md Updates** - Always update `AGENTS.md` after making changes to project structure, adding/removing machines, modules, packages, or features. This ensures the documentation stays accurate for future AI agents.
+12. **Keybindings (`KEYBINDS.md`)** - Always check `KEYBINDS.md` when working with keybinds, and keep it up to date. Whenever you add, remove, or change a keyboard shortcut anywhere (compositor binds in `homeManagerModules/{niri,sway,hyprland}/`, terminal binds in `homeManagerModules/kittyConfig.nix`, Neovim mappings in `homeManagerModules/nixvim/`, or per-profile overrides in `profiles/*/*/`), update the matching table in `KEYBINDS.md` in the same change. Before assuming a key is free, grep these sources for the existing binding.

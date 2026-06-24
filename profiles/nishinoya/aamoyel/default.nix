@@ -66,5 +66,4 @@ in
     };
     moonfinConfig.enable = true;
   };
-  services.kdeconnect.enable = true;
 }
