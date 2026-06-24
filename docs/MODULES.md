@@ -18,12 +18,15 @@
 - [laptopProfile](#laptopprofile)
 - [netbird-tools](#netbird-tools)
 - [niri](#niri)
+- [ollama](#ollama)
 - [printTools](#printtools)
+- [simracing](#simracing)
 - [sunshine](#sunshine)
 - [sway](#sway)
 - [tailscale](#tailscale)
 - [tools](#tools)
 - [vmSupport](#vmsupport)
+- [wolf](#wolf)
 
 ### Home Manager Modules
 
@@ -35,6 +38,7 @@
 - [fastfetchConfig](#fastfetchconfig)
 - [fcitx5Config](#fcitx5config)
 - [fontConfig](#fontconfig)
+- [foxblatConfig](#foxblatconfig)
 - [gitConfig](#gitconfig)
 - [gojiConfig](#gojiconfig)
 - [gtkConfig](#gtkconfig)
@@ -46,6 +50,7 @@
 - [niriConfig](#niriconfig)
 - [nixvimConfig](#nixvimconfig)
 - [opencodeConfig](#opencodeconfig)
+- [rbwConfig](#rbwconfig)
 - [rtk](#rtk)
 - [sshConfig](#sshconfig)
 - [starship](#starship)
@@ -53,6 +58,7 @@
 - [swayConfig](#swayconfig)
 - [thunderbirdConfig](#thunderbirdconfig)
 - [vscode](#vscode)
+- [zenBrowserConfig](#zenbrowserconfig)
 - [zshConfig](#zshconfig)
 
 ---
@@ -81,6 +87,13 @@ Whether to install the DidactikLabs internal CA certificate system-wide. Adds as
 - **Default:** `false`
 
 Whether to install the LogicMG internal CA certificate system-wide. Adds assets/certs/logicmg-ca.crt to the system PKI trust store so all system tools trust internal LogicMG HTTPS endpoints. Used on: nishinoya (aamoyel's machine).
+
+### `customNixOSModules.caCertificates.rpcu.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to install the RPCU internal CA certificate system-wide. Adds assets/certs/rpcu-ca.crt to the system PKI trust store and exposes it at /etc/ssl/certs/rpcu-ca.crt so tools like curl, git, and browsers trust internal RPCU HTTPS endpoints without warnings.
 
 ---
 
@@ -127,7 +140,14 @@ Whether to enable the NixOS stateful firewall (nftables/iptables). Configures a 
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable the gaming-oriented NixOS configuration. This module provides a production-grade gaming setup inspired by Jovian-NixOS (Steam Deck / SteamOS). It bundles: - Steam with remote play, Proton GE compatibility, and extest - AMD GPU kernel boot parameters tuned for gaming (TDR timeouts, TTM page pool, scheduler submission depth, IOMMU off) - Early AMD GPU kernel modesetting with redistributable firmware - Gamepad / controller udev rules (uinput, Valve HID devices) - GameMode performance daemon - 32-bit graphics and driver support Used on: anya (gaming/streaming desktop). Reference: https://github.com/Jovian-Experiments/Jovian-NixOS
+Whether to enable the gaming-oriented NixOS configuration. This module provides a production-grade gaming setup inspired by Jovian-NixOS (Steam Deck / SteamOS). It bundles: - Steam with remote play, Proton GE and Proton CachyOS compatibility, and extest - GameMode performance daemon - 32-bit graphics and driver support - Gamepad / controller udev rules (uinput, Valve HID devices) GPU-specific tuning (AMD kernel boot parameters and early modesetting) is gated behind the `gpu` option below, so this module is usable on both AMD and NVIDIA machines. Used on: anya (AMD gaming/streaming desktop), hanamichi (NVIDIA desktop). Reference: https://github.com/Jovian-Experiments/Jovian-NixOS
+
+### `customNixOSModules.gamingConfig.gpu`
+
+- **Type:** `one of "amd", "nvidia", "none"`
+- **Default:** `"amd"`
+
+Which GPU vendor the machine uses. Controls vendor-specific tuning: - "amd": applies AMD GPU kernel boot parameters (TDR timeouts, TTM page pool, scheduler submission depth, IOMMU off) and early `amdgpu` modesetting in initrd. - "nvidia": skips all AMD-specific tuning. Configure the proprietary driver (`hardware.nvidia`, `services.xserver.videoDrivers`) in the machine profile. - "none": GPU-agnostic; only the common gaming stack (Steam, GameMode, 32-bit graphics) is applied.
 
 ---
 
@@ -204,7 +224,18 @@ Whether to enable NetBird VPN client with the nswitch helper. NetBird is a WireG
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable the Niri scrollable-tiling Wayland compositor. Niri is a modern Wayland compositor where windows are arranged in an infinite horizontal scrollable strip rather than traditional workspaces. This module: - Imports the niri-flake NixOS module (sourced from npins, not nixpkgs) - Enables programs.niri with the nixpkgs niri package - Disables the niri-flake bundled polkit agent (the system polkit handles it) - Enables GNOME keyring unlock via SDDM PAM integration - Installs essential Wayland utilities: fuzzel (launcher), grimblast (screenshots), wl-clipboard, wlr-randr (display management), libnotify, xwayland-satellite (X11 app compatibility layer) - Adds the niri.cachix.org binary cache for fast pre-built niri packages Used on: totoro (primary), nishinoya (primary). See also: homeManagerModules/niri/ for per-user compositor configuration.
+Whether to enable the Niri scrollable-tiling Wayland compositor. Niri is a modern Wayland compositor where windows are arranged in an infinite horizontal scrollable strip rather than traditional workspaces. This module: - Imports the niri-flake NixOS module (sourced from npins, not nixpkgs) - Enables programs.niri with the nixpkgs niri package - Disables the niri-flake bundled polkit agent and replaces it with polkit-gnome as a systemd user service (required for privilege-escalation dialogs) - Installs essential Wayland utilities: fuzzel (launcher), grimblast (screenshots), wl-clipboard, libnotify, xwayland-satellite (X11 app compatibility layer) - Installs networkmanagerapplet (nm-applet + nm-connection-editor) for WPA Enterprise credential prompts and advanced network configuration - Adds xdg-desktop-portal-gtk for FileChooser (avoids Nautilus dependency) - Ensures the GNOME portal backend auto-starts with the session and restarts on crash - Adds the niri.cachix.org binary cache for fast pre-built niri packages Used on: totoro (primary), tanjiro (primary), nishinoya (primary). See also: homeManagerModules/niri/ for per-user compositor configuration.
+
+---
+
+## ollama
+
+### `customNixOSModules.ollama.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to enable the Ollama local LLM inference server. Ollama is an open-source framework for running large language models locally. This module: - Runs Ollama as a systemd service (services.ollama) - Uses ROCm GPU acceleration for AMD GPUs - Preloads the Gemini Gemma 4 27B model on first start - Exposes the Ollama API at http://localhost:11434 Used on: anya (gaming/streaming desktop with AMD GPU). Reference: https://wiki.nixos.org/wiki/Ollama
 
 ---
 
@@ -216,6 +247,17 @@ Whether to enable the Niri scrollable-tiling Wayland compositor. Niri is a moder
 - **Default:** `false`
 
 Whether to enable printing and scanning support. Configures a full CUPS + SANE stack for local and network printers/scanners: - CUPS printing daemon (services.printing) - ipp-usb: IPP-over-USB daemon for driverless USB printer/scanner access - Avahi mDNS/DNS-SD (with nssmdns4) for auto-discovery of network printers - SANE scanner framework with the airscan backend for WiFi/IPP scanners - gnome.simple-scan: GTK scanning GUI Enable on machines that have a physical printer or scanner attached, or that need to discover network printers via mDNS.
+
+---
+
+## simracing
+
+### `customNixOSModules.simracing.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to enable sim racing hardware support. This module provides comprehensive configuration for direct-drive wheelbases and sim racing peripherals, primarily targeting Moza Racing hardware: - Moza udev rules for serial (Foxblat config), HID (FFB), and USB - Foxblat — Linux Moza configuration tool (fork of boxflat, Pit House alt) - Oversteer — generic steering wheel manager (rotation, FFB gain, autocenter, combine pedals, etc.) - Joystick and FFB testing utilities (evtest, fftest, jstest) - USB autosuspend disabled for Moza devices to prevent drops - CDC ACM kernel module for Moza serial communication The kernel PIDFF (PID Force Feedback) driver handles all FFB for Moza and other direct-drive wheelbases natively since kernel 6.15+. Used on: anya (gaming/streaming desktop). Reference: https://github.com/JacKeTUs/universal-pidff Reference: https://github.com/giantorth/foxblat (fork of Lawstorant/boxflat)
 
 ---
 
@@ -248,7 +290,7 @@ Whether to enable the Sway i3-compatible tiling Wayland compositor. Sway is a dr
 - **Type:** `boolean`
 - **Default:** `true`
 
-Whether to enable Tailscale VPN with route-conflict workarounds. Tailscale is a mesh VPN built on WireGuard. When multiple Tailnets are configured, subnet routes can conflict with the host's default gateway, breaking connectivity. This module works around that by: - tailscale-fix-routes service: a persistent systemd unit that monitors the kernel route table via `ip monitor route` and removes conflicting /16 and /24 Tailscale subnet routes from routing table 52 as soon as they appear - tswitch (fzf-based TUI): interactive CLI tool to list and switch between Tailnets using `tailscale switch`, surfaced via fzf for fuzzy selection - Installs the tailscale package and enables services.tailscale Enabled by default on all machines.
+Whether to enable Tailscale VPN with exit node support and native nftables. Tailscale is a mesh VPN built on WireGuard. This module configures: - services.tailscale with useRoutingFeatures = "both" for full exit node and subnet router support - Native nftables backend via TS_DEBUG_FIREWALL_MODE=nftables to avoid iptables-compat translation layer issues - IP forwarding (IPv4 + IPv6) and loose reverse-path filtering for exit node traffic - Firewall: trusts the tailscale0 interface and allows the Tailscale UDP port through - tswitch (fzf-based TUI): interactive CLI tool to list and switch between Tailnets using `tailscale switch`, surfaced via fzf for fuzzy selection Enabled by default on all machines.
 
 ---
 
@@ -259,7 +301,7 @@ Whether to enable Tailscale VPN with route-conflict workarounds. Tailscale is a 
 - **Type:** `boolean`
 - **Default:** `true`
 
-Whether to enable the tools NixOS module. Provides system-level tooling and services: - Container runtime: Podman with Docker compatibility alias, DNS-enabled default network, weekly auto-prune, and OCI container backend - Kernel modules: netfilter (iptables/ip6tables, conntrack, ipvs) for container networking - System packages: openvpn, gnupg, yubikey tools (yubico-piv-tool, yubioath-flutter, yubikey-personalization), podman/podman-compose, wlsunset, cups-pk-helper, ginx, osupdate, ds4drv, efibootmgr, colmena, update-systemd-resolved, pinentry-qt, lsof - YubiKey: udev rules, yubikey-touch-detector, GnuPG agent with SSH support - DS4 controller: user systemd service running ds4drv in HID-raw + xpad emulation mode for DualShock 4 controllers - osupdate: shell script that applies the latest nixbook main branch via ginx + colmena apply-local - udev: game-devices rules and uinput (MODE=0666) for unprivileged input access Note: User-level packages belong in homeManagerModules (devTools, cliTools, etc.).
+Whether to enable the tools NixOS module. Provides system-level tooling and services: - Container runtime: Podman with Docker compatibility alias, DNS-enabled default network, weekly auto-prune, and OCI container backend - Kernel modules: netfilter (iptables/ip6tables, conntrack, ipvs) for container networking - System packages: openvpn, gnupg, yubikey tools (yubico-piv-tool, yubioath-flutter, yubikey-personalization), podman/podman-compose, wlsunset, cups-pk-helper, ginx, osupdate, ds4drv, efibootmgr, colmena, update-systemd-resolved, pinentry-qt, lsof - YubiKey: udev rules, yubikey-touch-detector, GnuPG agent with SSH support - FIDO2: libfido2 package and udev rules for SSH security keys (ed25519-sk/ecdsa-sk) - DS4 controller: user systemd service running ds4drv in HID-raw + xpad emulation mode for DualShock 4 controllers - osupdate: shell script that applies the latest nixbook main branch via ginx + colmena apply-local - udev: game-devices rules and uinput (MODE=0666) for unprivileged input access Note: User-level packages belong in homeManagerModules (devTools, cliTools, etc.).
 
 ---
 
@@ -271,6 +313,31 @@ Whether to enable the tools NixOS module. Provides system-level tooling and serv
 - **Default:** `false`
 
 Whether to enable VirtIO paravirtual driver support in the initrd. Adds the following kernel modules to boot.initrd.availableKernelModules so the system can boot inside a QEMU/KVM or other virtio-based hypervisor: - virtio_pci — VirtIO PCI bus driver - virtio_blk — VirtIO block device (virtual disk) - virtio_scsi — VirtIO SCSI host controller - virtio_net — VirtIO network interface Enable this when building a VM image (e.g. via nixos-generators) or when testing the configuration with `test-iso` in QEMU. Not needed on bare-metal.
+
+---
+
+## wolf
+
+### `customNixOSModules.wolf.den.port`
+
+- **Type:** `16 bit unsigned integer; between 0 and 65535 (both inclusive)`
+- **Default:** `8080`
+
+The port on which wolf-den web UI listens.
+
+### `customNixOSModules.wolf.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+whether to enable wolf globally or not
+
+### `customNixOSModules.wolf.hostAppsStateFolder`
+
+- **Type:** `string`
+- **Default:** `"/etc/wolf"`
+
+The path to the Wolf application state folder on the host.
 
 ---
 
@@ -375,6 +442,17 @@ Whether to enable Fcitx5 input method framework with Japanese support. Fcitx5 is
 - **Default:** `false`
 
 Whether to enable font installation and fontconfig defaults. Installs a curated set of fonts and sets system-wide defaults: Default font families (fontconfig): - Monospace: Roboto Mono - Sans-serif: Roboto - Serif: Roboto Serif - Emoji: Noto Color Emoji Nerd Fonts (patched with icons for terminal use): - FiraCode Nerd Font - Hack Nerd Font - Iosevka Nerd Font - JetBrains Mono Nerd Font Regular fonts: - Inter — clean sans-serif UI font - Roboto / Roboto Mono / Roboto Serif — primary font family - Material Design Icons — icon font used by DMS and other widgets - Font Awesome — icon font used by various bars and prompts Enables fonts.fontconfig so the user-level fontconfig cache is managed by Home Manager.
+
+---
+
+## foxblatConfig
+
+### `customHomeManagerModules.foxblatConfig.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to enable Foxblat presets for Moza Racing wheelbases. Foxblat is a fork of Boxflat — the Linux configuration tool for Moza Racing hardware (alternative to Pit House). This module places game-specific FFB presets into ~/.config/foxblat/presets/ tuned for the Moza R9 (9 Nm): - r9-acc.yml — Assetto Corsa Competizione (transparent FFB, 15% damper, 25% friction for anti-oscillation on direct-drive) - r9-ac.yml — Assetto Corsa 1 (25% damper, 25% friction) - r9-cyberpunk2077.yml — Cyberpunk 2077 with cp2077-wheel-mod-moza (720°, mod-generated FFB at 250 Hz; spring/damper pass-through at 100%) All presets include pedal sections with game-appropriate response curves. All values are stored in raw wire format (what is sent to the hardware), not UI percentages. Key conversions: - ffb-strength, damper, friction, inertia, speed: wire = UI% _ 10 - natural-inertia: 1:1 (factory default KS/GS = 1100) - set-_-gain: wire = UI% \* 2.55 - equalizers: 1:1, neutral = 100 Requires customNixOSModules.simracing.enable = true on the machine. Used on: anya.
 
 ---
 
@@ -511,6 +589,45 @@ Whether to enable NixVim — a fully declarative Neovim configuration. NixVim ma
 
 Whether to enable OpenCode AI coding assistant configuration. OpenCode is an AI-powered terminal coding assistant that supports multiple LLM providers through a plugin system. This configuration enables programs.opencode with two authentication plugins: - opencode-gemini-auth — Google Gemini OAuth authentication - opencode-anthropic-oauth — Anthropic Claude OAuth authentication When enabled, other modules integrate with OpenCode: - rtkConfig: runs `rtk init -g --opencode` to wire up the RTK auto-rewrite hook for token optimisation - goji.nix: goji-ai uses `opencode run` to generate commit messages - dmsConfig: the opencodeUsage bar widget shows token consumption Requires `opencode auth login` after activation to authenticate with a provider.
 
+### `customHomeManagerModules.opencodeConfig.ollama.baseUrl`
+
+- **Type:** `string`
+- **Default:** `"http://localhost:11434/v1"`
+
+The base URL for the Ollama API endpoint.
+
+### `customHomeManagerModules.opencodeConfig.ollama.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to enable the Ollama provider for OpenCode. When enabled, configures an OpenAI-compatible Ollama provider with models defined in nixosModules/ollamaModels.nix.
+
+---
+
+## rbwConfig
+
+### `customHomeManagerModules.rbwConfig.baseUrl`
+
+- **Type:** `string`
+- **Default:** `"https://pass.bealv.io"`
+
+The base URL for the Bitwarden server.
+
+### `customHomeManagerModules.rbwConfig.email`
+
+- **Type:** `string`
+- **Default:** `*none*`
+
+The email address for the Bitwarden account.
+
+### `customHomeManagerModules.rbwConfig.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to enable rbw (Bitwarden CLI) with a selfhosted base url.
+
 ---
 
 ## rtk
@@ -531,7 +648,7 @@ Whether to enable RTK (Rust Token Killer). RTK is a CLI proxy that transparently
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable SSH client configuration. Configures programs.ssh with sensible keep-alive defaults applied to all hosts (Match \*): - compression: false — disabled to reduce CPU overhead on fast links - serverAliveInterval: 10s — send a keep-alive every 10 seconds - serverAliveCountMax: 2 — disconnect after 2 missed keep-alives (20s) enableDefaultConfig = false so NixOS's generated defaults do not conflict with this configuration. SSH keys are managed separately via agenix secrets. The GnuPG agent SSH socket (YubiKey SSH) is configured at the system level in nixosModules/tools.nix.
+Whether to enable SSH client configuration. Configures programs.ssh with sensible keep-alive defaults applied to all hosts (Match \*): - compression: false — disabled to reduce CPU overhead on fast links - serverAliveInterval: 10s — send a keep-alive every 10 seconds - serverAliveCountMax: 2 — disconnect after 2 missed keep-alives (20s) enableDefaultConfig = false so NixOS's generated defaults do not conflict with this configuration. YubiKey SSH authentication is supported via two methods: 1. GPG-based: GnuPG agent with enableSSHSupport (nixosModules/tools.nix) uses GPG authentication subkeys stored on the YubiKey smart card. 2. FIDO2-based: ed25519-sk / ecdsa-sk keys via libfido2 (nixosModules/tools.nix). Generate with: ssh-keygen -t ed25519-sk For resident keys stored on YubiKey: ssh-keygen -t ed25519-sk -O resident SSH keys are managed separately via agenix secrets.
 
 ---
 
@@ -587,6 +704,17 @@ Whether to enable Mozilla Thunderbird email client. Installs and manages the Thu
 - **Default:** `false`
 
 Whether to enable Visual Studio Code with a declarative extension set. Manages VSCode entirely through Home Manager (mutableExtensionsDir = false), ensuring the extension list is reproducible and version-pinned. Extensions (200+, defined in extensionsList.nix): Languages: Go, Rust, Python (Pylance + pylint + black), TypeScript, Nix, Ansible, Terraform/OpenTofu, YAML, TOML, Markdown, Docker, Kubernetes, Helm, SQL, Java, C/C++, HTML/CSS AI assistants: GitHub Copilot (inline + chat), Continue Git: GitLens, Git Graph, GitHub Pull Requests Formatting: Prettier, EditorConfig, run-on-save (golines for Go, nixfmt for Nix files) UI/UX: Material Theme, Material Icons, indent-rainbow, Error Lens, Project Manager, Todo Tree User settings (profiles.default.userSettings): - Go: golines formatter (max line length 140) on save - Nix: nixfmt on save via emeraldwalk.runonsave - Python: Pylance language server, pylint linter, black formatter - Ansible: full OIDC collection names, lint enabled - GitHub Copilot: inline suggestions (3), completions (10) - kitty integration: sets kitty as external terminal Extra packages installed alongside VSCode: - exercism — coding challenge CLI - golines — Go line-length formatter - nixfmt — Nix code formatter Used on: nishinoya.
+
+---
+
+## zenBrowserConfig
+
+### `customHomeManagerModules.zenBrowserConfig.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to enable the Zen Browser, a privacy-focused Firefox fork. Configures Zen Browser (twilight) via its Home Manager module with sensible defaults: telemetry and studies disabled, tracking protection enabled, Pocket disabled, and smooth scrolling turned on. When enabled, sets Zen as the default browser for http/https/html MIME types.
 
 ---
 

@@ -16,7 +16,6 @@ in
     moonfin
     pear-desktop
   ];
-  services.kdeconnect.enable = true;
 
   customHomeManagerModules = {
     # Desktop / appearance

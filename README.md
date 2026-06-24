@@ -28,6 +28,10 @@ Pre-configured with various plugins and GNU CLI replacements for an enhanced she
 
 Customize your setup per machine using profile configurations. Add custom Nix code for features like git configuration and opt-in/opt-out functionality.
 
+**Keybindings**
+
+All keyboard shortcuts (Niri, Sway, Hyprland, Kitty, and Neovim) are documented in [KEYBINDS.md](./KEYBINDS.md).
+
 **Easy Installation and Updates**
 
 After installing the base NixOS ISO, customize your system using profiles. Profile selection is automatic based on your hostname.
