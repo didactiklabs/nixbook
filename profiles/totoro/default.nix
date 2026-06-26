@@ -55,6 +55,13 @@ in
       didactiklabs.enable = true;
     };
     lanzaboote.enable = true;
+    # System-level support (uinput server, udev, per-user service) for the
+    # Lotus Vietnamese input method. The fcitx5 addon itself is enabled in
+    # the user's Home Manager fcitx5Config (lotus = true).
+    fcitx5-lotus = {
+      enable = true;
+      users = [ "khoa" ];
+    };
   };
   imports = [
     ./hosts.nix

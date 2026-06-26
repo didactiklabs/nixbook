@@ -60,29 +60,30 @@ hive.nix                          Colmena deployment config
 - `devenvModules/` - Shared devenv config module imported by nixbook, hephaestus, and aletheia via npins
 - `docs/` - Auto-generated module documentation (generate-docs.nix, MODULES.md)
 
-## NixOS Modules (19 files)
+## NixOS Modules (25 files)
 
-| Module               | Lines | Purpose                                                                                                                                                                                                                      |
-| -------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `core.nix`           | 456   | Foundational system: systemd-boot UEFI, plymouth, latest kernel, LVM, LUKS, PipeWire audio, kernel sysctl hardening, security (rtkit, polkit, U2F PAM), Lix nix daemon with S3 cache, fprintd, chrony, fwupd, networkmanager |
-| `userConfig.nix`     | 241   | User management framework with mkUser helper, Home Manager integration, Qt theming, Go dev environment                                                                                                                       |
-| `tools.nix`          | 165   | System-level tooling: Podman with Docker compat, YubiKey support, system packages, DS4 controller service                                                                                                                    |
-| `gamingConfig.nix`   | 125   | Gaming: Steam with Proton GE/CachyOS, GameMode, 32-bit graphics, controller udev rules. GPU-agnostic via `gpu` option ("amd" applies AMD kernel params + early modesetting; "nvidia"/"none" skip them)                       |
-| `tailscale.nix`      | 94    | Tailscale VPN with route-conflict workarounds, tswitch fzf-based TUI for Tailnet switching                                                                                                                                   |
-| `getRevision.nix`    | 86    | Git metadata embedding: writes JSON to /etc/nixos/version with remote, branch, commit, date                                                                                                                                  |
-| `niri.nix`           | 77    | Niri scrollable tiling compositor: fuzzel, grimblast, wl-clipboard, xwayland-satellite                                                                                                                                       |
-| `netbird-tools.nix`  | 76    | NetBird WireGuard VPN: daemon setup, nswitch fzf-based TUI for network selection                                                                                                                                             |
-| `lanzaboote.nix`     | 70    | UEFI Secure Boot via lanzaboote: replaces systemd-boot, auto-generates/enrolls signing keys, sbctl                                                                                                                           |
-| `caCertificates.nix` | 70    | Custom CA certificates: per-org enable options (bealv, didactiklabs, logicmg)                                                                                                                                                |
-| `greetd.nix`         | 69    | Login manager: tuigreet TUI greeter with clock, session memory, dynamic session list, U2F PAM auth                                                                                                                           |
-| `laptopProfile.nix`  | 68    | Laptop optimizations: lid-switch handling, power-profiles-daemon, thermald, SATA power mgmt, deep sleep                                                                                                                      |
-| `firewall.nix`       | 60    | NixOS stateful firewall: nftables backend, deny-by-default inbound, configurable ports. Disabled by default                                                                                                                  |
-| `sunshine.nix`       | 52    | Remote desktop streaming: Sunshine game-streaming server as user systemd service                                                                                                                                             |
-| `hyprland.nix`       | 50    | Hyprland dynamic tiling compositor: wlr portal, U2F PAM for hyprlock                                                                                                                                                         |
-| `printTools.nix`     | 47    | Printing/scanning: CUPS, ipp-usb, Avahi mDNS, SANE with airscan                                                                                                                                                              |
-| `sway.nix`           | 37    | Sway i3-like compositor using SwayFX fork (blur, rounded corners, shadows)                                                                                                                                                   |
-| `vmSupport.nix`      | 37    | VirtIO support: adds virtio kernel modules to initrd for QEMU/KVM. Disabled by default                                                                                                                                       |
-| `default.nix`        | 22    | Module imports aggregator                                                                                                                                                                                                    |
+| Module               | Lines | Purpose                                                                                                                                                                                                                                                                                       |
+| -------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core.nix`           | 456   | Foundational system: systemd-boot UEFI, plymouth, latest kernel, LVM, LUKS, PipeWire audio, kernel sysctl hardening, security (rtkit, polkit, U2F PAM), Lix nix daemon with S3 cache, fprintd, chrony, fwupd, networkmanager                                                                  |
+| `userConfig.nix`     | 241   | User management framework with mkUser helper, Home Manager integration, Qt theming, Go dev environment                                                                                                                                                                                        |
+| `tools.nix`          | 165   | System-level tooling: Podman with Docker compat, YubiKey support, system packages, DS4 controller service                                                                                                                                                                                     |
+| `gamingConfig.nix`   | 125   | Gaming: Steam with Proton GE/CachyOS, GameMode, 32-bit graphics, controller udev rules. GPU-agnostic via `gpu` option ("amd" applies AMD kernel params + early modesetting; "nvidia"/"none" skip them)                                                                                        |
+| `tailscale.nix`      | 94    | Tailscale VPN with route-conflict workarounds, tswitch fzf-based TUI for Tailnet switching                                                                                                                                                                                                    |
+| `getRevision.nix`    | 86    | Git metadata embedding: writes JSON to /etc/nixos/version with remote, branch, commit, date                                                                                                                                                                                                   |
+| `niri.nix`           | 77    | Niri scrollable tiling compositor: fuzzel, grimblast, wl-clipboard, xwayland-satellite                                                                                                                                                                                                        |
+| `netbird-tools.nix`  | 76    | NetBird WireGuard VPN: daemon setup, nswitch fzf-based TUI for network selection                                                                                                                                                                                                              |
+| `lanzaboote.nix`     | 70    | UEFI Secure Boot via lanzaboote: replaces systemd-boot, auto-generates/enrolls signing keys, sbctl                                                                                                                                                                                            |
+| `caCertificates.nix` | 70    | Custom CA certificates: per-org enable options (bealv, didactiklabs, logicmg)                                                                                                                                                                                                                 |
+| `greetd.nix`         | 69    | Login manager: tuigreet TUI greeter with clock, session memory, dynamic session list, U2F PAM auth                                                                                                                                                                                            |
+| `laptopProfile.nix`  | 68    | Laptop optimizations: lid-switch handling, power-profiles-daemon, thermald, SATA power mgmt, deep sleep                                                                                                                                                                                       |
+| `firewall.nix`       | 60    | NixOS stateful firewall: nftables backend, deny-by-default inbound, configurable ports. Disabled by default                                                                                                                                                                                   |
+| `sunshine.nix`       | 52    | Remote desktop streaming: Sunshine game-streaming server as user systemd service                                                                                                                                                                                                              |
+| `hyprland.nix`       | 50    | Hyprland dynamic tiling compositor: wlr portal, U2F PAM for hyprlock                                                                                                                                                                                                                          |
+| `printTools.nix`     | 47    | Printing/scanning: CUPS, ipp-usb, Avahi mDNS, SANE with airscan                                                                                                                                                                                                                               |
+| `sway.nix`           | 37    | Sway i3-like compositor using SwayFX fork (blur, rounded corners, shadows)                                                                                                                                                                                                                    |
+| `vmSupport.nix`      | 37    | VirtIO support: adds virtio kernel modules to initrd for QEMU/KVM. Disabled by default                                                                                                                                                                                                        |
+| `fcitx5-lotus.nix`   | 84    | System-level support for the Lotus Vietnamese fcitx5 input method: `uinput_proxy` user, udev rule for /dev/uinput access, and a per-user `fcitx5-lotus-server@<user>.service` (set `users`). The fcitx5 addon itself is enabled in Home Manager via `fcitx5Config.lotus`. Disabled by default |
+| `default.nix`        | 22    | Module imports aggregator                                                                                                                                                                                                                                                                     |
 
 ## Home Manager Modules (32 entries)
 
@@ -134,7 +135,7 @@ hive.nix                          Colmena deployment config
 
 **Infrastructure & Tools:**
 
-- `fcitx5Config.nix` (71 LOC) - Input method framework (CJK support)
+- `fcitx5Config.nix` (~210 LOC) - Input method framework with configurable layouts/IMEs; defaults to US + Japanese Mozc. Ctrl+Space cycles forward through all IMs in the group (EnumerateForwardKeys; Ctrl+Shift+Space cycles back). Optional addons: `schnelleUmlaute` (German ä/ö/ü/ß via hold-letter+Space gesture) and `lotus` (Vietnamese; also needs the `customNixOSModules.fcitx5-lotus` system module)
 - `rtkConfig.nix` (52 LOC) - RTK CLI proxy for LLM token optimization
 - `sshConfig.nix` (43 LOC) - SSH key management
 - `vscode/` - VSCode with 32 extensions (4 .nix + 2 .sh files, 982 LOC)
@@ -148,7 +149,7 @@ hive.nix                          Colmena deployment config
 - **Hardware:** ASUS ZenBook UM6702 (NVIDIA disabled, modesetting-only)
 - **Primary WM:** Niri
 - **NixOS Modules:** laptopProfile, greetd, niri, caCertificates (bealv + didactiklabs), lanzaboote
-- **Special Features:** KDE Connect, Bluetooth, Nextcloud client systemd service, multi-monitor niri config, Moonlight Qt
+- **Special Features:** KDE Connect, Bluetooth, Nextcloud client systemd service, multi-monitor niri config, Moonlight Qt. fcitx5 input methods cycled with Ctrl+Space: French/AZERTY (base) → Vietnamese (Lotus, via `customNixOSModules.fcitx5-lotus`) → Japanese (Mozc). German umlauts via the Schnelle Umlaute hold-letter+Space gesture (no German XKB layout in the cycle)
 - **Work Environments:** didactiklabs, bealv kubeconfigs
 - **Home Manager Modules:** cliTools, devTools, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, fcitx5Config, thunderbirdConfig, opencodeConfig, rtk, dmsConfig
 
@@ -192,8 +193,8 @@ hive.nix                          Colmena deployment config
 - **Hardware:** NVIDIA RTX 3080 (Ampere) — proprietary driver, open kernel modules, modesetting enabled
 - **Primary WM:** Niri
 - **NixOS Modules:** greetd, niri, gamingConfig (gpu = "nvidia"), lanzaboote
-- **Special Features:** Regular desktop for everyday use + gaming. Steam/Proton/GameMode enabled but does NOT auto-launch Steam Big Picture on startup. No laptop/dev/work modules. No work CA certs or kubeconfigs.
-- **Home Manager Modules:** fontConfig, gtkConfig, starship, fastfetchConfig, niriConfig, dmsConfig, kittyConfig, zshConfig, atuinConfig, desktopApps, zenBrowserConfig, gitConfig
+- **Special Features:** Regular desktop for everyday use + gaming. Steam/Proton/GameMode enabled but does NOT auto-launch Steam Big Picture on startup. No laptop/dev/work modules. No work CA certs or kubeconfigs. fcitx5 input method with US QWERTY + US-International (German umlauts via AltGr) layouts and Vietnamese Unikey (toggle with Ctrl+Space).
+- **Home Manager Modules:** fontConfig, gtkConfig, starship, fastfetchConfig, niriConfig, dmsConfig, kittyConfig, zshConfig, atuinConfig, desktopApps, zenBrowserConfig, gitConfig, fcitx5Config
 
 ## Key Features
 
