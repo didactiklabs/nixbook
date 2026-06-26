@@ -3,6 +3,7 @@
   imports = [
     ./core.nix
     ./caCertificates.nix
+    ./fcitx5-lotus.nix
     ./firewall.nix
     ./gamingConfig.nix
     ./getRevision.nix

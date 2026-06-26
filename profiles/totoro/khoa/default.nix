@@ -56,7 +56,26 @@ in
     kittyConfig.enable = true;
     zshConfig.enable = true;
     kubeswitchConfig.enable = true;
-    fcitx5Config.enable = true;
+    # Input methods cycled with Ctrl+Space: French/AZERTY (base, matches the
+    # physical key caps) → Vietnamese (Lotus) → Japanese (Mozc) → Schnelle
+    # Umlaute (German umlauts via hold-letter + Space gesture).
+    fcitx5Config = {
+      enable = true;
+      addons = with pkgs; [
+        fcitx5-mozc-ut
+        fcitx5-gtk
+      ];
+      inputMethods = [
+        "keyboard-fr"
+        "lotus"
+        "mozc"
+        "schnelle-umlaute"
+      ];
+      defaultLayout = "fr";
+      defaultIM = "keyboard-fr";
+      schnelleUmlaute = true;
+      lotus = true;
+    };
     thunderbirdConfig.enable = false;
     opencodeConfig = {
       enable = true;

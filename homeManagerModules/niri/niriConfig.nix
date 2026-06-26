@@ -650,13 +650,13 @@ in
           else
             { }
         )
-        // (lib.optionalAttrs cfg.fcitx5Config.enable {
-          "Ctrl+Space".action.spawn = [
-            "${pkgs.fcitx5}/bin/fcitx5-remote"
-
-            "-t"
-          ];
-        })
+        // (
+          # NOTE: Ctrl+Space is intentionally NOT bound here. fcitx5 handles
+          # it internally as "enumerate forward" to cycle through all input
+          # methods (see homeManagerModules/fcitx5Config.nix). Binding it at
+          # the compositor level would shadow that and only toggle fcitx
+          # on/off via `fcitx5-remote -t`.
+          { })
         // (
           if cfg.dmsConfig.enable then
             {

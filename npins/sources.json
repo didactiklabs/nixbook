@@ -116,6 +116,22 @@
       "url": "https://github.com/Banh-Canh/ds4drv/archive/e9984f669221ede46f295acd0d215b148c4ff5e3.tar.gz",
       "hash": "sha256-uBstNX/Jph9z12x0xltY/1nyFPbzVam1g57xPDTcevI="
     },
+    "fcitx5-lotus": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "LotusInputMethod",
+        "repo": "fcitx5-lotus"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": null,
+      "submodules": false,
+      "version": "v3.3.0",
+      "revision": "3909aacd2e557cd982bcb15b86190001887ea7d4",
+      "url": "https://api.github.com/repos/LotusInputMethod/fcitx5-lotus/tarball/refs/tags/v3.3.0",
+      "hash": "sha256-QYGG1MkdAm7wkSvlxm49Kk1sTYB2bg1eIHx6Truibik="
+    },
     "flake-compat": {
       "type": "Git",
       "repository": {
@@ -379,6 +395,19 @@
       "revision": "f59bc28dd0b89e9c0240d1b80195559fc79c2471",
       "url": "https://github.com/oxalica/rust-overlay/archive/f59bc28dd0b89e9c0240d1b80195559fc79c2471.tar.gz",
       "hash": "sha256-4XHdXp3MRa++XiGkltJChCtdbCmSlNTwQRfWQOhqbRw="
+    },
+    "schnelle-umlaute": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "Maik-0000FF",
+        "repo": "schnelle-umlaute"
+      },
+      "branch": "main",
+      "submodules": false,
+      "revision": "edbcbbcfacdab7db282790c19b0f1072aa8d2211",
+      "url": "https://github.com/Maik-0000FF/schnelle-umlaute/archive/edbcbbcfacdab7db282790c19b0f1072aa8d2211.tar.gz",
+      "hash": "sha256-fpB64OmV1kgScZ+llt0W/qYUBA+IWAo3C5DOfoYYvWU="
     },
     "songbird": {
       "type": "GitRelease",

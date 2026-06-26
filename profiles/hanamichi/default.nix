@@ -75,6 +75,12 @@ in
     gamingConfig.enable = true;
     gamingConfig.gpu = "nvidia";
     lanzaboote.enable = false;
+    # System-level support for the Lotus Vietnamese input method (the fcitx5
+    # addon is enabled in the user's Home Manager fcitx5Config: lotus = true).
+    fcitx5-lotus = {
+      enable = true;
+      users = [ "chocomooncake" ];
+    };
   };
 
   imports = [

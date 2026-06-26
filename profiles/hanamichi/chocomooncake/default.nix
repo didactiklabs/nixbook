@@ -31,6 +31,27 @@
     zshConfig.enable = true;
     atuinConfig.didactiklabs.enable = true;
 
+    # Input methods cycled with Ctrl+Space: US QWERTY (default) → Vietnamese
+    # (Lotus) → Japanese (Mozc) → Schnelle Umlaute (German umlauts via
+    # hold-letter + Space gesture).
+    fcitx5Config = {
+      enable = true;
+      addons = with pkgs; [
+        fcitx5-mozc-ut
+        fcitx5-gtk
+      ];
+      inputMethods = [
+        "keyboard-us"
+        "lotus"
+        "mozc"
+        "schnelle-umlaute"
+      ];
+      defaultLayout = "us";
+      defaultIM = "keyboard-us";
+      schnelleUmlaute = true;
+      lotus = true;
+    };
+
     # Everyday apps + browser + media
     desktopApps.enable = true;
     zenBrowserConfig.enable = true;
