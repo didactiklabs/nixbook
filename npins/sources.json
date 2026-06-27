@@ -405,9 +405,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "edbcbbcfacdab7db282790c19b0f1072aa8d2211",
-      "url": "https://github.com/Maik-0000FF/schnelle-umlaute/archive/edbcbbcfacdab7db282790c19b0f1072aa8d2211.tar.gz",
-      "hash": "sha256-fpB64OmV1kgScZ+llt0W/qYUBA+IWAo3C5DOfoYYvWU="
+      "revision": "df8e1ff501f37a9fdf7a1c1007e4238bc70a273e",
+      "url": "https://github.com/Maik-0000FF/schnelle-umlaute/archive/df8e1ff501f37a9fdf7a1c1007e4238bc70a273e.tar.gz",
+      "hash": "sha256-OQQJ/bSdZPldTk/ZbC6f7sPTSrhoBo8o0TwHs0MCVHM="
     },
     "songbird": {
       "type": "GitRelease",
@@ -449,10 +449,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "v0.3.2",
-      "revision": "053a0bdc01ea4b6d24a5faf08803e806a47bbf61",
-      "url": "https://api.github.com/repos/pranshuparmar/witr/tarball/refs/tags/v0.3.2",
-      "hash": "sha256-5T07uCTPQxtRGEmxfqL6pUJj7uVx+2o10WYLCdrLfRs="
+      "version": "v0.3.3",
+      "revision": "3e5d2e62cb9ff57eff9f1a8c0875183d48832093",
+      "url": "https://api.github.com/repos/pranshuparmar/witr/tarball/refs/tags/v0.3.3",
+      "hash": "sha256-kPAAYuWu9ImIb6ubegXbCUB8gbGGlCDes/oYwcIqKTE="
     },
     "ytui": {
       "type": "Git",
