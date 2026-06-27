@@ -419,6 +419,14 @@ in
             matches = [ { app-id = "^thunderbird$"; } ];
             opacity = 1.0;
           }
+          {
+            matches = [ { app-id = "^com\\.github\\.th_ch\\.youtube_music$"; } ];
+            opacity = 1.0;
+          }
+          {
+            matches = [ { app-id = "^org\\.moonfin\\.linux$"; } ];
+            opacity = 1.0;
+          }
         ];
 
         animations = pixelateAnimations.animations // {
