@@ -12,7 +12,7 @@ let
     (import sources.flake-compat {
       src = sources.globalprotect-openconnect;
     }).defaultNix.packages.${pkgs.stdenv.hostPlatform.system}.fromSource;
-  jellyfin-desktop = import ../../../customPkgs/jellyfin-desktop.nix { inherit pkgs; };
+  moonfin = import ../../../customPkgs/moonfin.nix { inherit pkgs; };
   pear-desktop = import ../../../customPkgs/pear-desktop.nix { inherit pkgs; };
 in
 {
@@ -34,7 +34,7 @@ in
     pkgs.element-desktop
     pkgs.ytmdesktop
     globalprotect-openconnect
-    jellyfin-desktop
+    moonfin
     pear-desktop
   ];
   programs = {
@@ -87,5 +87,6 @@ in
       email = "vhvictorhang@gmail.com";
       baseUrl = "https://pass.bealv.io";
     };
+    moonfinConfig.enable = true;
   };
 }

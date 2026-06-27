@@ -13,6 +13,19 @@
       "url": "https://github.com/ThePrimeagen/99/archive/c17422457027c913c76c75a921fca1e623d2678e.tar.gz",
       "hash": "sha256-iilpiG81kHIv7Y0qvPzZOanNA0lsPotlB18cvtmTy0o="
     },
+    "Moonfin-Core": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "Moonfin-Client",
+        "repo": "Moonfin-Core"
+      },
+      "branch": "main",
+      "submodules": false,
+      "revision": "ef7702eb8f6fea225f8dd449b35d8e307bf52026",
+      "url": "https://github.com/Moonfin-Client/Moonfin-Core/archive/ef7702eb8f6fea225f8dd449b35d8e307bf52026.tar.gz",
+      "hash": "sha256-cbT+XlKvIpyR1RF31W92e7WdzfZUJkjeo24SKWYpyrQ="
+    },
     "agenix": {
       "type": "GitRelease",
       "repository": {

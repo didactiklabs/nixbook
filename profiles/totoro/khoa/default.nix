@@ -6,7 +6,7 @@
 }:
 let
   actual-budget = import ../../../customPkgs/actual-budget.nix { inherit pkgs; };
-  jellyfin-desktop = import ../../../customPkgs/jellyfin-desktop.nix { inherit pkgs; };
+  moonfin = import ../../../customPkgs/moonfin.nix { inherit pkgs; };
   pear-desktop = import ../../../customPkgs/pear-desktop.nix { inherit pkgs; };
 in
 {
@@ -19,7 +19,7 @@ in
   home.packages = [
     pkgs.moonlight-qt
     actual-budget
-    jellyfin-desktop
+    moonfin
     pear-desktop
   ];
   programs = {
@@ -100,6 +100,7 @@ in
       email = "vhvictorhang@gmail.com";
       baseUrl = "https://pass.bealv.io";
     };
+    moonfinConfig.enable = true;
   };
   services.kdeconnect.enable = true;
 }

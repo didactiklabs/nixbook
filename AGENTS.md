@@ -130,6 +130,7 @@ hive.nix                          Colmena deployment config
 - `fastfetchConfig.nix` (167 LOC) - System information display with custom logo
 - `desktopApps.nix` (63 LOC) - Firefox, Dolphin, MPV, imv, zathura setup
 - `dolphinConfig.nix` (31 LOC) - File manager configuration
+- `moonfinConfig.nix` (~35 LOC) - Moonfin (Jellyfin/Emby client): deploys settings.json with pre-configured server URL (default: https://jellyfin.bealv.io). Flutter app with native Wayland support
 - `mpvConfig.nix` (34 LOC) - Media player configuration
 - `thunderbirdConfig.nix` (34 LOC) - Email client configuration
 
@@ -325,7 +326,7 @@ customPkgs/ → base.nix
 npins/ → dependency sources
 ```
 
-## Custom Packages (10 total)
+## Custom Packages (11 total)
 
 | Package      | Version | Purpose                                               |
 | ------------ | ------- | ----------------------------------------------------- |
@@ -339,6 +340,7 @@ npins/ → dependency sources
 | `songbird`   | v0.4.0  | Custom utility                                        |
 | `witr`       | v0.3.1  | Custom utility                                        |
 | `kl`         | v0.6.1  | Interactive Kubernetes log viewer (frozen)            |
+| `moonfin`    | v2.2.0  | Jellyfin & Emby media client (Flutter, Wayland)       |
 
 ## Dependencies & Pinning (27 total)
 
@@ -365,7 +367,7 @@ npins/ → dependency sources
 - `flake-compat` - Flake compatibility layer
 - `99` - ThePrimeagen's 99 NixVim plugin
 
-**Custom Package Sources:** ginx, goji, ytui, jtui, crd-wizard, pvmigrate (frozen), rtk, songbird, witr, kl (frozen), opencode-manager (main)
+**Custom Package Sources:** ginx, goji, ytui, jtui, crd-wizard, pvmigrate (frozen), rtk, songbird, witr, kl (frozen), opencode-manager (main), moonfin (built from source via npins Moonfin-Core pin, flutter344)
 
 ## Assets (39 files)
 
