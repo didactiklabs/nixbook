@@ -350,6 +350,22 @@
       "url": "https://github.com/nix-community/nixvim/archive/dbf9550dba8448b03e11d58e5695d6c44a464554.tar.gz",
       "hash": "sha256-kjsEECqhpPnJWqhooXp6tWh2qGQftCPAo2G1GvZtKdw="
     },
+    "pear-desktop": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "pear-devs",
+        "repo": "pear-desktop"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": null,
+      "submodules": false,
+      "version": "v3.11.0",
+      "revision": "721271d902ebff0bc5870b96b2b95deb0ebeb23e",
+      "url": "https://api.github.com/repos/pear-devs/pear-desktop/tarball/refs/tags/v3.11.0",
+      "hash": "sha256-M8YFpeauM55fpNyHSGQm8iZieV0oWqOieVThhglKKPE="
+    },
     "pvmigrate": {
       "type": "GitRelease",
       "repository": {

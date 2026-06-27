@@ -1,6 +1,7 @@
 { pkgs, ... }:
 let
   jellyfin-desktop = import ../../../customPkgs/jellyfin-desktop.nix { inherit pkgs; };
+  pear-desktop = import ../../../customPkgs/pear-desktop.nix { inherit pkgs; };
 in
 {
   imports = [
@@ -14,6 +15,7 @@ in
     pkgs.ytmdesktop
     pkgs.anki
     jellyfin-desktop
+    pear-desktop
   ];
   services.kdeconnect.enable = true;
 
