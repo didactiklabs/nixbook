@@ -43,6 +43,11 @@ in
     programs.nixvim = {
       enableMan = false;
       enable = true;
+      # Thread home-manager's pkgs into nixvim explicitly. Newer nixvim's
+      # `lsp` module forces full `pkgs` evaluation during config generation,
+      # which otherwise triggers an infinite recursion when nixvim tries to
+      # introspect/construct its own nixpkgs inside home-manager.
+      nixpkgs.pkgs = pkgs;
       defaultEditor = true;
       opts = {
         completeopt = [

@@ -127,7 +127,7 @@ let
                 (import sources.nixvim).homeModules.nixvim
                 (import "${sources.agenix}/modules/age-home.nix")
                 dmsFlake.defaultNix.homeModules.dank-material-shell
-                dmsPluginRegistryFlake.defaultNix.modules.default
+                dmsPluginRegistryFlake.defaultNix.homeModules.default
                 zenBrowserFlake.defaultNix.homeModules.twilight
                 ../homeManagerModules
               ]
