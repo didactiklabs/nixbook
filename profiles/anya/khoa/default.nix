@@ -6,6 +6,7 @@
 }:
 let
   jellyfin-desktop = import ../../../customPkgs/jellyfin-desktop.nix { inherit pkgs; };
+  pear-desktop = import ../../../customPkgs/pear-desktop.nix { inherit pkgs; };
 in
 {
   imports = [
@@ -38,6 +39,7 @@ in
     pkgs.firefox
     pkgs.ytmdesktop
     jellyfin-desktop
+    pear-desktop
   ];
   systemd.user.services.opencode-web = {
     Unit = {

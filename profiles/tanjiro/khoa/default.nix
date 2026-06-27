@@ -13,6 +13,7 @@ let
       src = sources.globalprotect-openconnect;
     }).defaultNix.packages.${pkgs.stdenv.hostPlatform.system}.fromSource;
   jellyfin-desktop = import ../../../customPkgs/jellyfin-desktop.nix { inherit pkgs; };
+  pear-desktop = import ../../../customPkgs/pear-desktop.nix { inherit pkgs; };
 in
 {
   imports = [
@@ -34,6 +35,7 @@ in
     pkgs.ytmdesktop
     globalprotect-openconnect
     jellyfin-desktop
+    pear-desktop
   ];
   programs = {
     go = {

@@ -26,7 +26,6 @@ in
     home = {
       packages = [
         jtui
-        pkgs.jellyfin-desktop
         ytui
         pkgs.yt-dlp
       ];

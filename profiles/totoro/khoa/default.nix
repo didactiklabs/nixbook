@@ -7,6 +7,7 @@
 let
   actual-budget = import ../../../customPkgs/actual-budget.nix { inherit pkgs; };
   jellyfin-desktop = import ../../../customPkgs/jellyfin-desktop.nix { inherit pkgs; };
+  pear-desktop = import ../../../customPkgs/pear-desktop.nix { inherit pkgs; };
 in
 {
   imports = [
@@ -19,6 +20,7 @@ in
     pkgs.moonlight-qt
     actual-budget
     jellyfin-desktop
+    pear-desktop
   ];
   programs = {
     go = {
