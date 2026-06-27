@@ -10,7 +10,23 @@ let
   sources = import ../npins;
   moonfinSrc = sources.Moonfin-Core;
   version = "2.2.0";
-  pubspecLock = pkgs.lib.importJSON ./moonfin-pubspec-lock.json;
+
+  # Convert the upstream pubspec.lock (YAML) to JSON at eval time so we don't
+  # have to vendor a separate moonfin-pubspec-lock.json. This uses IFD
+  # (import-from-derivation): the conversion runs in a tiny derivation and the
+  # result is read back into Nix. The dependency set is still fully pinned via
+  # the Moonfin-Core npins revision.
+  #
+  # sqlite3_flutter_libs 0.6.0+eol dropped Linux support; on Linux the sqlite3
+  # Dart package loads the system libsqlite3.so via FFI. We strip it from the
+  # lock (and from pubspec.yaml in postPatch) so the unsupported native plugin
+  # is never built.
+  pubspecLockJson =
+    pkgs.runCommand "moonfin-pubspec-lock.json" { nativeBuildInputs = [ pkgs.yq-go ]; }
+      ''
+        yq -o=json 'del(.packages.sqlite3_flutter_libs)' ${moonfinSrc}/pubspec.lock > "$out"
+      '';
+  pubspecLock = pkgs.lib.importJSON pubspecLockJson;
 in
 pkgs.flutter344.buildFlutterApplication rec {
   pname = "moonfin";
