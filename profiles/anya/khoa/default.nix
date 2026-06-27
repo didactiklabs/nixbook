@@ -5,7 +5,7 @@
   ...
 }:
 let
-  jellyfin-desktop = import ../../../customPkgs/jellyfin-desktop.nix { inherit pkgs; };
+  moonfin = import ../../../customPkgs/moonfin.nix { inherit pkgs; };
   pear-desktop = import ../../../customPkgs/pear-desktop.nix { inherit pkgs; };
 in
 {
@@ -38,7 +38,7 @@ in
     pkgs.wineWow64Packages.waylandFull
     pkgs.firefox
     pkgs.ytmdesktop
-    jellyfin-desktop
+    moonfin
     pear-desktop
   ];
   systemd.user.services.opencode-web = {
@@ -94,5 +94,6 @@ in
       enable = true;
       ollama.enable = true;
     };
+    moonfinConfig.enable = true;
   };
 }

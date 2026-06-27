@@ -1,6 +1,6 @@
 { pkgs, ... }:
 let
-  jellyfin-desktop = import ../../../customPkgs/jellyfin-desktop.nix { inherit pkgs; };
+  moonfin = import ../../../customPkgs/moonfin.nix { inherit pkgs; };
   pear-desktop = import ../../../customPkgs/pear-desktop.nix { inherit pkgs; };
 in
 {
@@ -14,7 +14,7 @@ in
     pkgs.moonlight-qt
     pkgs.ytmdesktop
     pkgs.anki
-    jellyfin-desktop
+    moonfin
     pear-desktop
   ];
   services.kdeconnect.enable = true;
@@ -65,5 +65,6 @@ in
 
     # Git (basic, not a dev box but handy)
     gitConfig.enable = true;
+    moonfinConfig.enable = true;
   };
 }
