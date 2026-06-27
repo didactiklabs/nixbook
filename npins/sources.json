@@ -210,6 +210,19 @@
       "url": "https://github.com/nix-community/home-manager/archive/8d8a6cc50ddc60748791a14ee1163c865ec57635.tar.gz",
       "hash": "sha256-CvOaUvJ+mXlxU3m2cPWKcOAhtKETsPUYhq+Xa5ewBp4="
     },
+    "jellyfin-desktop": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "xaltsc",
+        "repo": "jellyfin-desktop"
+      },
+      "branch": "main",
+      "submodules": true,
+      "revision": "60376611517fd7be2d620cbf67c95ed685700ee5",
+      "url": null,
+      "hash": "sha256-SEiNMAHydWvpjTpmIRI8OtPJfHoVsHOWHWS1yW+QyKQ="
+    },
     "jtui": {
       "type": "GitRelease",
       "repository": {

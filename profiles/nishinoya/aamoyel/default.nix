@@ -4,6 +4,9 @@
   config,
   ...
 }:
+let
+  jellyfin-desktop = import ../../../customPkgs/jellyfin-desktop.nix { inherit pkgs; };
+in
 {
   imports = [
     ./gitConfig.nix
@@ -21,6 +24,7 @@
     pkgs.kanidm_1_9
     pkgs.oapi-codegen
     pkgs.spotify
+    jellyfin-desktop
   ];
 
   xdg.mimeApps.defaultApplications = {
