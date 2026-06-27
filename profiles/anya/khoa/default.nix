@@ -4,6 +4,9 @@
   lib,
   ...
 }:
+let
+  jellyfin-desktop = import ../../../customPkgs/jellyfin-desktop.nix { inherit pkgs; };
+in
 {
   imports = [
     ./gitConfig.nix
@@ -34,6 +37,7 @@
     pkgs.wineWow64Packages.waylandFull
     pkgs.firefox
     pkgs.ytmdesktop
+    jellyfin-desktop
   ];
   systemd.user.services.opencode-web = {
     Unit = {

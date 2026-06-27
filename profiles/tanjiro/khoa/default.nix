@@ -12,6 +12,7 @@ let
     (import sources.flake-compat {
       src = sources.globalprotect-openconnect;
     }).defaultNix.packages.${pkgs.stdenv.hostPlatform.system}.fromSource;
+  jellyfin-desktop = import ../../../customPkgs/jellyfin-desktop.nix { inherit pkgs; };
 in
 {
   imports = [
@@ -32,6 +33,7 @@ in
     pkgs.element-desktop
     pkgs.ytmdesktop
     globalprotect-openconnect
+    jellyfin-desktop
   ];
   programs = {
     go = {

@@ -1,4 +1,8 @@
-{ pkgs, ... }: {
+{ pkgs, ... }:
+let
+  jellyfin-desktop = import ../../../customPkgs/jellyfin-desktop.nix { inherit pkgs; };
+in
+{
   imports = [
     ./gitConfig.nix
     ./niriConfig.nix
@@ -9,6 +13,7 @@
     pkgs.moonlight-qt
     pkgs.ytmdesktop
     pkgs.anki
+    jellyfin-desktop
   ];
   services.kdeconnect.enable = true;
 
