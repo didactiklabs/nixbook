@@ -449,10 +449,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "v0.3.2",
-      "revision": "053a0bdc01ea4b6d24a5faf08803e806a47bbf61",
-      "url": "https://api.github.com/repos/pranshuparmar/witr/tarball/refs/tags/v0.3.2",
-      "hash": "sha256-5T07uCTPQxtRGEmxfqL6pUJj7uVx+2o10WYLCdrLfRs="
+      "version": "v0.3.3",
+      "revision": "3e5d2e62cb9ff57eff9f1a8c0875183d48832093",
+      "url": "https://api.github.com/repos/pranshuparmar/witr/tarball/refs/tags/v0.3.3",
+      "hash": "sha256-kPAAYuWu9ImIb6ubegXbCUB8gbGGlCDes/oYwcIqKTE="
     },
     "ytui": {
       "type": "Git",
