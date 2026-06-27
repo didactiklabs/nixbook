@@ -32,7 +32,6 @@ in
     pkgs.jira-cli-go
     pkgs.zoom-us
     pkgs.element-desktop
-    pkgs.ytmdesktop
     globalprotect-openconnect
     moonfin
     pear-desktop

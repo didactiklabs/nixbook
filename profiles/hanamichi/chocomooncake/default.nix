@@ -12,7 +12,6 @@ in
 
   home.packages = [
     pkgs.moonlight-qt
-    pkgs.ytmdesktop
     pkgs.anki
     moonfin
     pear-desktop
