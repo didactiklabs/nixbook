@@ -19,6 +19,14 @@ let
     }).defaultNix.packages.${pkgs.stdenv.hostPlatform.system}.proton-cachyos
     ).overrideAttrs
       (old: {
+        # CachyOS rebuilt the proton-cachyos-slr tarball in place (same version
+        # number, new bytes), so the hash pinned in upstream's versions.json is
+        # stale and the fixed-output `src` fetch fails with a hash mismatch.
+        # Override the src fetch hash to the artifact the mirror currently serves
+        # until upstream bumps versions.json.
+        src = old.src.overrideAttrs (_: {
+          outputHash = "sha256-9yjERUgfJag40ipOWennnD9vCRC+pQ+o3czjUU2TlCQ=";
+        });
         outputs = [
           "out"
           "steamcompattool"
