@@ -387,10 +387,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "v3.11.0",
-      "revision": "721271d902ebff0bc5870b96b2b95deb0ebeb23e",
-      "url": "https://api.github.com/repos/pear-devs/pear-desktop/tarball/refs/tags/v3.11.0",
-      "hash": "sha256-M8YFpeauM55fpNyHSGQm8iZieV0oWqOieVThhglKKPE="
+      "version": "v3.12.0",
+      "revision": "3f599b42724be827db51cd4689996dc3e48a9561",
+      "url": "https://api.github.com/repos/pear-devs/pear-desktop/tarball/refs/tags/v3.12.0",
+      "hash": "sha256-RSQPwsED3YK5VScVAXH3f8Lz74v1b2448gro1Vo22hg="
     },
     "pvmigrate": {
       "type": "GitRelease",
