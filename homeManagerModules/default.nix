@@ -22,6 +22,7 @@
     ./mpvConfig.nix
     ./niri
     ./opencodeConfig.nix
+    ./oversteerConfig.nix
     ./nixvim
     ./rtkConfig.nix
     ./sshConfig.nix
