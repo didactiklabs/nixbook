@@ -17,12 +17,27 @@ in
       };
 
       extraConfigLua = ''
-         vim.g.opencode_opts = {
+        local opencode_cmd = "opencode --port"
+        local snacks_terminal_opts = {
+          win = {
+            position = "right",
+            enter = false,
+          },
+        }
+
+        ---@type opencode.Opts
+        vim.g.opencode_opts = {
           server = {
-            enabled = "kitty",
+            start = function()
+              require("snacks.terminal").open(opencode_cmd, snacks_terminal_opts)
+            end,
           },
         }
         vim.o.autoread = true
+
+        _G.opencode_toggle = function()
+          require("snacks.terminal").toggle(opencode_cmd, snacks_terminal_opts)
+        end
       '';
 
       keymaps = [
@@ -32,7 +47,7 @@ in
             "x"
           ];
           key = "<C-a>";
-          action.__raw = ''function() require("opencode").ask("@this: ", { submit = true }) end'';
+          action.__raw = ''function() require("opencode").ask("@this: ") end'';
           options.desc = "Ask opencode…";
         }
         {
@@ -50,7 +65,7 @@ in
             "t"
           ];
           key = "<C-o>";
-          action.__raw = ''function() require("opencode").toggle() end'';
+          action.__raw = "function() _G.opencode_toggle() end";
           options.desc = "Toggle opencode";
         }
         {
