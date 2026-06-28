@@ -51,6 +51,7 @@ in
     kubeConfig = {
       didactiklabs.enable = true;
       logicmg.enable = true;
+      rpcu.enable = true;
     };
     nixvimConfig.enable = true;
     gojiConfig.enable = true;

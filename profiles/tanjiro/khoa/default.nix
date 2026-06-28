@@ -59,6 +59,7 @@ in
     fastfetchConfig.enable = true;
     desktopApps.enable = true;
     kubeTools.enable = true;
+    kubeConfig.rpcu.enable = true;
     nixvimConfig.enable = true;
     gojiConfig.enable = true;
     atuinConfig.didactiklabs.enable = true;

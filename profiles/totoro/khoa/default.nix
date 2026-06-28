@@ -54,6 +54,7 @@ in
     kubeTools.enable = true;
     kubeConfig.didactiklabs.enable = true;
     kubeConfig.bealv.enable = true;
+    kubeConfig.rpcu.enable = true;
     nixvimConfig.enable = true;
     gojiConfig.enable = true;
     atuinConfig.didactiklabs.enable = true;

@@ -94,6 +94,17 @@ in
           Used on: nishinoya (aamoyel's machine).
         '';
       };
+      rpcu.enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Whether to deploy the RPCU (Zitadel OIDC) mgmt kubeconfig.
+
+          Copies assets/kubeconfigs/oidc-mgmt-rpcu.kubeconfig to
+          ~/.kube/configs/rpcu/oidc@mgmt.kubeconfig so kubeswitch can
+          discover it automatically.
+        '';
+      };
     };
   };
   config = lib.mkIf cfg.kubeTools.enable {
@@ -110,6 +121,9 @@ in
         };
         ".kube/configs/logicmg/oidc@logicmg.kubeconfig" = lib.mkIf cfg.kubeConfig.logicmg.enable {
           source = ../assets/kubeconfigs/oidc-logicmg.kubeconfig;
+        };
+        ".kube/configs/rpcu/oidc@mgmt.kubeconfig" = lib.mkIf cfg.kubeConfig.rpcu.enable {
+          source = ../assets/kubeconfigs/oidc-mgmt-rpcu.kubeconfig;
         };
       };
       packages = with pkgs; [
