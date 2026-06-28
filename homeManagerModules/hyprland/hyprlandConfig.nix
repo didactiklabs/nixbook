@@ -191,14 +191,7 @@ in
           ", PRINT, exec, ${
             if cfg.dmsConfig.enable then "dms screenshot" else "${grimshot} --notify copy area"
           }"
-          "$mod, N, exec, ${
-            if cfg.dmsConfig.enable then
-              "dms ipc call notifications toggle"
-            else if cfg.swayncConfig.enable then
-              "${pkgs.swaynotificationcenter}/bin/swaync-client -t"
-            else
-              ""
-          }"
+          "$mod, N, exec, ${pkgs.kitty}/bin/kitty ${pkgs.neovim}/bin/nvim"
 
           ",XF86MonBrightnessDown, exec, ${brightnessctl} set 10%-"
           ",XF86MonBrightnessUp, exec, ${brightnessctl} set +10%"

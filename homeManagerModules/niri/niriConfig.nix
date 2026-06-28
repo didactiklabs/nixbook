@@ -584,7 +584,7 @@ in
                 "dms"
                 "ipc"
                 "call"
-                "notifications"
+                "notepad"
                 "toggle"
               ];
             }
