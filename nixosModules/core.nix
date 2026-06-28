@@ -37,18 +37,6 @@ in
   };
 
   config = lib.mkIf cfg.core.enable {
-    nixpkgs = {
-      config = {
-        allowUnfree = true;
-        permittedInsecurePackages = [
-          "qtwebengine-5.15.19"
-        ];
-      };
-      overlays = [
-        (import ./overlays.nix { inherit sources; })
-      ];
-    };
-
     boot = {
       initrd = {
         availableKernelModules = [

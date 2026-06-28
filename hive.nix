@@ -4,7 +4,13 @@ let
     config = {
       allowUnfree = true;
       allowUnfreePredicate = true;
+      permittedInsecurePackages = [
+        "qtwebengine-5.15.19"
+      ];
     };
+    overlays = [
+      (import ./nixosModules/overlays.nix { inherit sources; })
+    ];
   };
   createConfiguration = parent: {
     networking.hostName = parent.hostName;
