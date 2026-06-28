@@ -20,6 +20,13 @@ let
   };
 in
 {
+  # --- Boot loader: keep only a few generations ---
+  # The ESP (/boot, sdb1) is a 200M partition shared with Windows on this
+  # dual-boot disk and cannot be grown without moving the Windows partitions.
+  # Cap NixOS generations so kernels + initrds fit alongside the Windows boot
+  # files (overrides the shared default of 10 in nixosModules/core.nix).
+  boot.loader.systemd-boot.configurationLimit = lib.mkForce 2;
+
   # --- Disable all sleep / suspend ---
   systemd.sleep.settings.Sleep = {
     AllowSuspend = "no";
