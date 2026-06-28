@@ -38,10 +38,10 @@ in
     programs.ssh = {
       enable = true;
       enableDefaultConfig = false;
-      matchBlocks."*" = {
-        compression = false;
-        serverAliveInterval = 10;
-        serverAliveCountMax = 2;
+      settings."*" = {
+        Compression = false;
+        ServerAliveInterval = 10;
+        ServerAliveCountMax = 2;
       };
     };
   };
