@@ -1,44 +1,33 @@
 {
   config,
   lib,
-  pkgs,
   ...
 }:
 let
   cfg = config.customHomeManagerModules;
+  # Shared terminal command + options used by both the server.start hook and the
+  # toggle keymap below.
+  opencodeCmd = ''"opencode --port"'';
+  snacksTerminalOpts = ''{ win = { position = "right", enter = false } }'';
 in
 {
   config = lib.mkIf cfg.nixvimConfig.enable {
     programs.nixvim = {
-      extraPackages = [ pkgs.opencode ];
-
+      # The native nixvim opencode module sets `vim.g.opencode_opts = settings`,
+      # installs the `opencode-nvim` plugin and pulls in the `opencode` package
+      # dependency, so no raw extraConfigLua / extraPackages is needed.
       plugins.opencode = {
         inherit (config.customHomeManagerModules.opencodeConfig) enable;
+        settings = {
+          server.start.__raw = ''
+            function()
+              require("snacks.terminal").open(${opencodeCmd}, ${snacksTerminalOpts})
+            end
+          '';
+        };
       };
 
-      extraConfigLua = ''
-        local opencode_cmd = "opencode --port"
-        local snacks_terminal_opts = {
-          win = {
-            position = "right",
-            enter = false,
-          },
-        }
-
-        ---@type opencode.Opts
-        vim.g.opencode_opts = {
-          server = {
-            start = function()
-              require("snacks.terminal").open(opencode_cmd, snacks_terminal_opts)
-            end,
-          },
-        }
-        vim.o.autoread = true
-
-        _G.opencode_toggle = function()
-          require("snacks.terminal").toggle(opencode_cmd, snacks_terminal_opts)
-        end
-      '';
+      opts.autoread = true;
 
       keymaps = [
         {
@@ -65,7 +54,11 @@ in
             "t"
           ];
           key = "<C-o>";
-          action.__raw = "function() _G.opencode_toggle() end";
+          action.__raw = ''
+            function()
+              require("snacks.terminal").toggle(${opencodeCmd}, ${snacksTerminalOpts})
+            end
+          '';
           options.desc = "Toggle opencode";
         }
         {
