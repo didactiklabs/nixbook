@@ -17,7 +17,7 @@
 - **CI/CD Workflows:** 2
 - **NixVim Plugins:** 25
 - **VSCode Extensions:** 32
-- **Pinned Dependencies:** 27
+- **Pinned Dependencies:** 28
 - **Assets:** 46 files
 
 ## Core Tools
@@ -132,7 +132,7 @@ hive.nix                          Colmena deployment config
 
 **Applications:**
 
-- `dmsConfig.nix` (273 LOC) - DankMaterialShell (DMS) desktop shell: Quickshell-based compositor-agnostic top bar and dock
+- `dmsConfig.nix` (326 LOC) - DankMaterialShell (DMS) desktop shell: Quickshell-based compositor-agnostic top bar and dock, plus DankCalendar (dcal) standalone calendar app integration
 - `fastfetchConfig.nix` (167 LOC) - System information display with custom logo
 - `desktopApps.nix` (63 LOC) - Firefox, Dolphin, MPV, imv, zathura setup
 - `dolphinConfig.nix` (31 LOC) - File manager configuration
@@ -369,6 +369,7 @@ npins/ → dependency sources
 - `globalprotect-openconnect` (main) - GlobalProtect VPN client (Tauri rewrite), built from source (`fromSource` flake output; prebuilt output has a broken upstream hash); CLI tools gpclient/gpauth (tanjiro only)
 - `dms` - DankMaterialShell compositor shell
 - `dms-plugin-registry` - DMS plugin registry
+- `dankcalendar` - DankCalendar standalone calendar app (Quickshell UI + Go backend)
 - `ds4drv` - DualShock 4 controller driver
 - `flake-compat` - Flake compatibility layer
 - `99` - ThePrimeagen's 99 NixVim plugin

@@ -74,6 +74,19 @@
       "url": "https://api.github.com/repos/pehlicd/crd-wizard/tarball/refs/tags/v0.1.9",
       "hash": "sha256-nUbueHEXFPssHw4hGoIE91WidmFPeoA6Yk9V4HoZgXc="
     },
+    "dankcalendar": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "AvengeMedia",
+        "repo": "dankcalendar"
+      },
+      "branch": "master",
+      "submodules": false,
+      "revision": "9596d9645002dcc6403bf2226445af2309edc6f4",
+      "url": "https://github.com/AvengeMedia/dankcalendar/archive/9596d9645002dcc6403bf2226445af2309edc6f4.tar.gz",
+      "hash": "sha256-W+tmdccdHqFL1v9WUmSIx12aXdzGsQDgtvvY7FLPhoE="
+    },
     "disko": {
       "type": "GitRelease",
       "repository": {
