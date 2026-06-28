@@ -60,10 +60,18 @@ in
 
     # Everyday apps + browser + media
     desktopApps.enable = true;
-    zenBrowserConfig.enable = true;
+    zenBrowserConfig = {
+      enable = true;
+      offerToSaveLogins = true;
+    };
 
     # Git (basic, not a dev box but handy)
     gitConfig.enable = true;
     moonfinConfig.enable = true;
+
+    # Sim racing: Oversteer profile for the Fanatec CSL DD / GT DD Pro
+    # (requires customNixOSModules.simracing.enable on the host). Base FFB tune
+    # (NDP/NFR/NIN/FEI) is set on the wheelbase OLED menu, not here.
+    oversteerConfig.enable = true;
   };
 }

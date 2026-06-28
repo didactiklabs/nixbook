@@ -21,6 +21,18 @@ in
         When enabled, sets Zen as the default browser for http/https/html MIME types.
       '';
     };
+    offerToSaveLogins = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Whether to let Zen Browser offer to save passwords.
+
+        When false (default), the OfferToSaveLogins policy and
+        signon.rememberSignons setting are disabled so the browser never
+        prompts to save logins. Set to true to enable the built-in password
+        manager and the "ask to save passwords" prompt.
+      '';
+    };
   };
   config = lib.mkIf cfg.zenBrowserConfig.enable {
     programs.zen-browser = {
@@ -37,7 +49,7 @@ in
         DisableTelemetry = true;
         DontCheckDefaultBrowser = true;
         NoDefaultBookmarks = true;
-        OfferToSaveLogins = false;
+        OfferToSaveLogins = cfg.zenBrowserConfig.offerToSaveLogins;
         # Note: Tracking protection disabled to allow third-party cookies.
         # uBlock Origin handles ad/tracker blocking instead.
         EnableTrackingProtection = {
@@ -122,7 +134,7 @@ in
           "privacy.donottrackheader.enabled" = true;
           "privacy.globalprivacycontrol.was_ever_enabled" = true;
           "privacy.clearOnShutdown_v2.formdata" = true;
-          "signon.rememberSignons" = false;
+          "signon.rememberSignons" = cfg.zenBrowserConfig.offerToSaveLogins;
 
           # Content blocking
           "browser.contentblocking.category" = "custom";

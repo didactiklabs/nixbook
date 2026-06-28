@@ -16,21 +16,23 @@ in
         Whether to enable sim racing hardware support.
 
         This module provides comprehensive configuration for direct-drive
-        wheelbases and sim racing peripherals, primarily targeting Moza
-        Racing hardware:
+        wheelbases and sim racing peripherals, targeting Moza Racing (VID
+        346e) and Fanatec (VID 0eb7) hardware:
 
-        - Moza udev rules for serial (Foxblat config), HID (FFB), and USB
+        - Moza & Fanatec udev rules for serial (Foxblat config), HID (FFB),
+          USB, and input device access
         - Foxblat — Linux Moza configuration tool (fork of boxflat, Pit House alt)
         - Oversteer — generic steering wheel manager (rotation, FFB gain,
-          autocenter, combine pedals, etc.)
+          autocenter, combine pedals, etc.); also supports Fanatec wheels
         - Joystick and FFB testing utilities (evtest, fftest, jstest)
-        - USB autosuspend disabled for Moza devices to prevent drops
+        - USB autosuspend disabled for Moza/Fanatec devices to prevent drops
         - CDC ACM kernel module for Moza serial communication
 
         The kernel PIDFF (PID Force Feedback) driver handles all FFB for
-        Moza and other direct-drive wheelbases natively since kernel 6.15+.
+        Moza, Fanatec, and other direct-drive wheelbases natively since
+        kernel 6.15+.
 
-        Used on: anya (gaming/streaming desktop).
+        Used on: anya (gaming/streaming desktop), hanamichi (gaming desktop).
         Reference: https://github.com/JacKeTUs/universal-pidff
         Reference: https://github.com/giantorth/foxblat (fork of Lawstorant/boxflat)
       '';
@@ -42,7 +44,7 @@ in
     # Include foxblat's own 99-foxblat.rules so it detects devices at runtime
     services.udev.packages = [ pkgs.foxblat ];
 
-    # Additional Moza rules not covered by boxflat's own rules file
+    # Additional Moza & Fanatec rules not covered by boxflat's own rules file
     services.udev.extraRules = ''
       # Moza Racing HID raw access (force feedback, device configuration)
       KERNEL=="hidraw*", ATTRS{idVendor}=="346e", MODE="0666", TAG+="uaccess"
@@ -55,6 +57,18 @@ in
 
       # Disable USB autosuspend for Moza devices (prevent connection drops mid-race)
       ACTION=="add", SUBSYSTEM=="usb", ATTRS{idVendor}=="346e", ATTR{power/autosuspend}="-1"
+
+      # Fanatec HID raw access (force feedback, device configuration)
+      KERNEL=="hidraw*", ATTRS{idVendor}=="0eb7", MODE="0666", TAG+="uaccess"
+
+      # Fanatec USB device access (wheelbases, pedals, shifters, handbrakes)
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="0eb7", MODE="0666", TAG+="uaccess"
+
+      # Fanatec input devices
+      SUBSYSTEM=="input", ATTRS{idVendor}=="0eb7", MODE="0666", TAG+="uaccess"
+
+      # Disable USB autosuspend for Fanatec devices (prevent connection drops mid-race)
+      ACTION=="add", SUBSYSTEM=="usb", ATTRS{idVendor}=="0eb7", ATTR{power/autosuspend}="-1"
     '';
 
     # --- Kernel modules for sim racing hardware ---

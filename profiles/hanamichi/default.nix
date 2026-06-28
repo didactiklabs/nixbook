@@ -74,6 +74,8 @@ in
     # AMD-specific GPU tuning.
     gamingConfig.enable = true;
     gamingConfig.gpu = "nvidia";
+    # Sim racing hardware support (Moza & Fanatec wheelbases, pedals, etc.).
+    simracing.enable = true;
     lanzaboote.enable = false;
     # System-level support for the Lotus Vietnamese input method (the fcitx5
     # addon is enabled in the user's Home Manager fcitx5Config: lotus = true).
