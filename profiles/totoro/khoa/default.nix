@@ -18,6 +18,7 @@ in
   ];
   home.packages = [
     pkgs.moonlight-qt
+    pkgs.anki
     actual-budget
     moonfin
     pear-desktop
