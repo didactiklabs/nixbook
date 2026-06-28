@@ -237,7 +237,7 @@ in
             "XF86MonBrightnessDown" = "exec ${brightnessctl} set 10%-";
             "XF86MonBrightnessUp" = "exec ${brightnessctl} set +10%";
 
-            "${mod}+n" = if cfg.dmsConfig.enable then "exec dms ipc call notifications toggle" else null;
+            "${mod}+n" = "exec ${pkgs.kitty}/bin/kitty ${pkgs.neovim}/bin/nvim";
 
             ## To allow a keybinding to be executed while the lockscreen is active add the --locked parameter to bindsym.
             # Audio

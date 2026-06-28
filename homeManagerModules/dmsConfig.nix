@@ -308,32 +308,6 @@ in
       quickshellPkg
     ];
 
-    xdg.desktopEntries.dankcalendar =
-      lib.mkIf config.customHomeManagerModules.dmsConfig.enableDankCalendar
-        {
-          name = "Dank Calendar";
-          genericName = "Calendar";
-          comment = "Local, Google, Microsoft, and CalDAV calendars for the dank desktop";
-          exec = "${dankcalendarPkg.dankcalendar}/bin/dcal show";
-          icon = "dankcalendar";
-          terminal = false;
-          categories = [
-            "Office"
-            "Calendar"
-            "Qt"
-          ];
-          mimeType = [
-            "x-scheme-handler/webcal"
-            "x-scheme-handler/webcals"
-          ];
-          startupNotify = true;
-          settings = {
-            Keywords = "calendar;events;agenda;schedule;caldav;ical;subscribe";
-            StartupWMClass = "com.danklinux.dankcalendar";
-            SingleMainWindow = "true";
-          };
-        };
-
     systemd.user.services.dcal = lib.mkIf config.customHomeManagerModules.dmsConfig.enableDankCalendar {
       Unit = {
         Description = "DankCalendar";
