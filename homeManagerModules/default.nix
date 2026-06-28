@@ -5,6 +5,7 @@
     ./foxblatConfig.nix
     ./cliTools.nix
     ./desktopApps.nix
+    ./desktopEntriesConfig.nix
     ./devTools.nix
     ./dmsConfig.nix
     ./dolphinConfig.nix
