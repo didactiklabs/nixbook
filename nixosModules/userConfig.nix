@@ -51,12 +51,33 @@ let
       };
 
       environment = {
-        systemPackages = with pkgs; [
-          libsForQt5.qt5ct
-          kdePackages.qt6ct
-          adwaita-qt
-          ffmpegthumbnailer
-        ];
+        systemPackages =
+          with pkgs;
+          let
+            # qt5ct/qt6ct are needed at the system level so QT_QPA_PLATFORMTHEME
+            # works, but their launcher entries only clutter the app menu. Hide
+            # them by appending NoDisplay=true to the system .desktop files
+            # (Home Manager's xdg.desktopEntries can only override the user
+            # profile copy, not this system-wide one).
+            hideDesktopEntry =
+              pkg: entry:
+              pkg.overrideAttrs (old: {
+                postInstall = (old.postInstall or "") + ''
+                  for f in "$out"/share/applications/${entry}.desktop \
+                           "''${!outputBin:-$out}"/share/applications/${entry}.desktop; do
+                    if [ -f "$f" ] && ! grep -q '^NoDisplay=true' "$f"; then
+                      printf '\nNoDisplay=true\n' >> "$f"
+                    fi
+                  done
+                '';
+              });
+          in
+          [
+            (hideDesktopEntry libsForQt5.qt5ct "qt5ct")
+            (hideDesktopEntry kdePackages.qt6ct "qt6ct")
+            adwaita-qt
+            ffmpegthumbnailer
+          ];
         sessionVariables = {
           QT_QPA_PLATFORMTHEME = "qt5ct";
         };
