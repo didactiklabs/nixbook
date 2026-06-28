@@ -22,9 +22,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "bd2d2e7604bc4c09ede1b522ea57dc166e034355",
-      "url": "https://github.com/Moonfin-Client/Moonfin-Core/archive/bd2d2e7604bc4c09ede1b522ea57dc166e034355.tar.gz",
-      "hash": "sha256-Grd+zRXhBX09Tneo+Wp77paYIYqAzkWw82a3Shg3CeE="
+      "revision": "26e571a4636aac48340d72aad716a014c3b75ef6",
+      "url": "https://github.com/Moonfin-Client/Moonfin-Core/archive/26e571a4636aac48340d72aad716a014c3b75ef6.tar.gz",
+      "hash": "sha256-qUBDco+qAsAJZeGRJrNV0+IlD1hh4Li9hJxl64Z/SUI="
     },
     "agenix": {
       "type": "GitRelease",
