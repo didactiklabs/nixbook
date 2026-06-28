@@ -12,6 +12,8 @@ let
     rev = sources.quickshell.revision;
   };
   quickshellPkg = (quickshellOverlay pkgs pkgs).quickshell;
+  dankcalendarFlake = import sources.flake-compat { src = sources.dankcalendar; };
+  dankcalendarPkg = dankcalendarFlake.defaultNix.lib.buildDcalPkgs pkgs;
 in
 {
   options.customHomeManagerModules.dmsConfig = {
@@ -81,6 +83,19 @@ in
 
         Disable this on machines where the widget is not desired or where the
         osupdate script is unavailable.
+      '';
+    };
+    enableDankCalendar = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether to enable DankCalendar, a standalone calendar application from
+        the Dank Linux Suite.  It supports Local, Google, Microsoft, CalDAV,
+        and iCloud calendars with a Quickshell-based UI.
+
+        When true, the dcal binary and quickshell UI are installed and a
+        systemd user service is registered to keep the calendar daemon running
+        in the background (sync + reminders).
       '';
     };
   };
@@ -285,6 +300,53 @@ in
           src = ../assets/dms/plugins/nixos-update;
         };
       };
+    };
+
+    # DankCalendar — standalone calendar app from the Dank Linux Suite
+    home.packages = lib.mkIf config.customHomeManagerModules.dmsConfig.enableDankCalendar [
+      dankcalendarPkg.dankcalendar
+      quickshellPkg
+    ];
+
+    xdg.desktopEntries.dankcalendar =
+      lib.mkIf config.customHomeManagerModules.dmsConfig.enableDankCalendar
+        {
+          name = "Dank Calendar";
+          genericName = "Calendar";
+          comment = "Local, Google, Microsoft, and CalDAV calendars for the dank desktop";
+          exec = "${dankcalendarPkg.dankcalendar}/bin/dcal show";
+          icon = "dankcalendar";
+          terminal = false;
+          categories = [
+            "Office"
+            "Calendar"
+            "Qt"
+          ];
+          mimeType = [
+            "x-scheme-handler/webcal"
+            "x-scheme-handler/webcals"
+          ];
+          startupNotify = true;
+          settings = {
+            Keywords = "calendar;events;agenda;schedule;caldav;ical;subscribe";
+            StartupWMClass = "com.danklinux.dankcalendar";
+            SingleMainWindow = "true";
+          };
+        };
+
+    systemd.user.services.dcal = lib.mkIf config.customHomeManagerModules.dmsConfig.enableDankCalendar {
+      Unit = {
+        Description = "DankCalendar";
+        PartOf = [ "graphical-session.target" ];
+        After = [ "graphical-session.target" ];
+      };
+      Service = {
+        ExecStart = "${dankcalendarPkg.dankcalendar}/bin/dcal run --session --hidden";
+        Restart = "on-failure";
+        RestartSec = 2;
+        Slice = "app.slice";
+      };
+      Install.WantedBy = [ "graphical-session.target" ];
     };
   };
 }
