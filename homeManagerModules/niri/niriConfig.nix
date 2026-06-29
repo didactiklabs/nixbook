@@ -528,6 +528,10 @@ in
           "Mod+F".action.fullscreen-window = { };
           "Mod+C".action.center-column = { };
 
+          # Floating window controls
+          "Mod+V".action.toggle-window-floating = { };
+          "Mod+Shift+V".action.switch-focus-between-floating-and-tiling = { };
+
           # "Mod+Minus".action.set-column-width = "-10%";
           # "Mod+Plus".action.set-column-width = "+10%";
 
