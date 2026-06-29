@@ -170,10 +170,10 @@ hive.nix                          Colmena deployment config
 - **User:** khoa
 - **Hardware:** Framework 13-inch AMD AI 300 series (via nixos-hardware)
 - **Primary WM:** Niri
-- **NixOS Modules:** laptopProfile, greetd, niri, caCertificates (bealv + didactiklabs), lanzaboote, firewall
-- **Special Features:** ClamAV daemon + updater, sudo requires password, Tailscale/NetBird disabled, GlobalProtect-openconnect VPN client (gpclient/gpauth CLI, built from source via the upstream flake `fromSource` output pinned to main, since the nixpkgs package was removed and the prebuilt flake output has a broken upstream hash)
+- **NixOS Modules:** laptopProfile, greetd, niri, caCertificates (bealv + didactiklabs), lanzaboote, firewall, fcitx5-lotus
+- **Special Features:** ClamAV daemon + updater, sudo requires password, Tailscale/NetBird disabled, GlobalProtect-openconnect VPN client (gpclient/gpauth CLI, built from source via the upstream flake `fromSource` output pinned to main, since the nixpkgs package was removed and the prebuilt flake output has a broken upstream hash). fcitx5 input methods cycled with Ctrl+Space: French/AZERTY (base) → Vietnamese (Lotus, via `customNixOSModules.fcitx5-lotus`) → Japanese (Mozc)
 - **Work Environments:** didactiklabs, bealv kubeconfigs
-- **Home Manager Modules:** cliTools, devTools, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, thunderbirdConfig, opencodeConfig, rtk, dmsConfig
+- **Home Manager Modules:** cliTools, devTools, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, fcitx5Config, thunderbirdConfig, opencodeConfig, rtk, dmsConfig
 
 ### anya - Gaming/Streaming Desktop
 
