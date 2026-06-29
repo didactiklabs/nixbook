@@ -266,6 +266,11 @@ in
           };
         };
 
+        gestures = {
+          # Disable triggering the overview when the mouse hits a screen corner.
+          hot-corners.enable = false;
+        };
+
         outputs = {
           "*" = {
             scale = 1.0;
