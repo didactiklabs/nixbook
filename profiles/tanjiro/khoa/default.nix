@@ -26,6 +26,7 @@ in
     ./jiraWorklog.nix
   ];
   home.packages = [
+    pkgs.anki
     pkgs.moonlight-qt
     pkgs.slack
     pkgs.openfortivpn
