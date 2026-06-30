@@ -52,10 +52,13 @@ in
         OfferToSaveLogins = cfg.zenBrowserConfig.offerToSaveLogins;
         # Note: Tracking protection disabled to allow third-party cookies.
         # uBlock Origin handles ad/tracker blocking instead.
+        # Tracking protection disabled globally so anti-bot captchas (e.g.
+        # Skyscanner's) aren't blocked. uBlock Origin handles ad/tracker
+        # blocking instead. Unlocked so it can still be toggled per-site.
         EnableTrackingProtection = {
-          Value = true;
-          Locked = true;
-          Cryptomining = true;
+          Value = false;
+          Locked = false;
+          Cryptomining = false;
           Fingerprinting = false;
         };
       };
