@@ -22,9 +22,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "66dfba5e7363ac9744e65a26bd10fa55b8b1727e",
-      "url": "https://github.com/Moonfin-Client/Moonfin-Core/archive/66dfba5e7363ac9744e65a26bd10fa55b8b1727e.tar.gz",
-      "hash": "sha256-7fqJBRX8QVLZ/j+4jnEOlonz+ZiupgVP18WM2cqLEV4="
+      "revision": "a1d7d123428792b43a3d541ce253f830bec5fcf2",
+      "url": "https://github.com/Moonfin-Client/Moonfin-Core/archive/a1d7d123428792b43a3d541ce253f830bec5fcf2.tar.gz",
+      "hash": "sha256-mxMYpwCc/t48k1YKqXyAyu/Z+0yNgMx/Qr1etwtd614="
     },
     "agenix": {
       "type": "GitRelease",
@@ -125,9 +125,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "add11f13a5814b90dacbbe896a4214a019473eda",
-      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/add11f13a5814b90dacbbe896a4214a019473eda.tar.gz",
-      "hash": "sha256-Dhn4Rc4YCpo7JBtY0uXpmUkB5uj+4Pz+imQVLZYTQa4="
+      "revision": "9fa716427ab5905845b2a10a01d67bee0b1e4c4b",
+      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/9fa716427ab5905845b2a10a01d67bee0b1e4c4b.tar.gz",
+      "hash": "sha256-Q2wPFsuDo1y6neZ3ttxxOOItupg/4+mPkyAZbC0+wfw="
     },
     "ds4drv": {
       "type": "Git",
@@ -245,9 +245,9 @@
       },
       "branch": "main",
       "submodules": true,
-      "revision": "bccc63fc64c20f691fea437d5d3a01f3b059fa93",
+      "revision": "66cfc38116759c56cbf1b56b466c83267120d69d",
       "url": null,
-      "hash": "sha256-CGYFaVHLbc6KgT1jDEBgUl2b8sm+zOz20kPbNx6I+eU="
+      "hash": "sha256-soVRwneBKFVBTPsru8OQg4pXCnAVk09uPBEGMcMGlgg="
     },
     "jtui": {
       "type": "GitRelease",
@@ -307,9 +307,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "9e26dfe0fb8d61475b6f9e8d63477fe92509f1db",
-      "url": "https://github.com/sodiboo/niri-flake/archive/9e26dfe0fb8d61475b6f9e8d63477fe92509f1db.tar.gz",
-      "hash": "sha256-kgINba6Ilpj3rdTi2BeKlQBs6ZxTdu3Gb49U5gDUVhg="
+      "revision": "aea1aaeffbf135445f76112f345b7185c27432fd",
+      "url": "https://github.com/sodiboo/niri-flake/archive/aea1aaeffbf135445f76112f345b7185c27432fd.tar.gz",
+      "hash": "sha256-RsObTWb8IfWFUHPUIrN681QCsBAgKyuJPliijjgeZwU="
     },
     "nix-proton-cachyos": {
       "type": "Git",
@@ -489,9 +489,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "a04ba47b73b4001f0eb93f05efa7fac9537c4a8f",
-      "url": "https://github.com/danth/stylix/archive/a04ba47b73b4001f0eb93f05efa7fac9537c4a8f.tar.gz",
-      "hash": "sha256-pAfvjZUCaKnWvGnP7lnhzCqXGcB9IYlJq2tT5UfVNgY="
+      "revision": "47571deb317bb1e53fbbe9c3cbf2a941cd94f794",
+      "url": "https://github.com/danth/stylix/archive/47571deb317bb1e53fbbe9c3cbf2a941cd94f794.tar.gz",
+      "hash": "sha256-1W5Oga37XF1fzjpUut98j32NS9XcLQ5HmZDuOqSSrrY="
     },
     "witr": {
       "type": "GitRelease",
