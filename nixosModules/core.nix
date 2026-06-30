@@ -18,7 +18,8 @@ in
 
         This is the foundational system module that configures:
         - Boot: systemd-boot UEFI loader, plymouth splash screen, latest kernel,
-          LVM support, LUKS dm-crypt modules, keyboard backlight on initrd, IOMMU
+          LVM support, LUKS dm-crypt modules, keyboard backlight on initrd, IOMMU,
+          NTFS + exFAT filesystem support for external drives
         - Kernel hardening: sysctl security settings (restrict BPF, perf events,
           ICMP redirects, source routing, suid dumps, etc.)
         - Locale: Europe/Paris timezone, en_US locale with fr_FR LC_ settings,
@@ -194,6 +195,13 @@ in
         useTmpfs = false;
         tmpfsSize = "30%";
       };
+      # Enable NTFS support so external hard drives / USB disks formatted with
+      # NTFS (e.g. Windows drives) can be read and written. Pulls in ntfs3g and
+      # the in-kernel ntfs3 driver, allowing udisks2/devmon to automount them.
+      supportedFilesystems = [
+        "ntfs"
+        "exfat"
+      ];
     };
     services = {
       # Auto-detect your time zone.
