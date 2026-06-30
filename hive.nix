@@ -6,6 +6,7 @@ let
       allowUnfreePredicate = true;
       permittedInsecurePackages = [
         "qtwebengine-5.15.19"
+        "pnpm-10.29.2"
       ];
     };
     overlays = [
