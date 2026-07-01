@@ -245,9 +245,9 @@
       },
       "branch": "main",
       "submodules": true,
-      "revision": "7bfdf80c0177deb57c6d1a5abdcb751b61735a22",
+      "revision": "e4296eb25a9279d8dc5013413eca3a7be5580156",
       "url": null,
-      "hash": "sha256-ZAWDeW4iLgk6js3wk7RYfKIG9SvWJE9fMMM7MHnW1J8="
+      "hash": "sha256-R+OmBuWvtcAqWxOOBcmCVfhsFOaijcuxJI0p5Sbjdsc="
     },
     "jtui": {
       "type": "GitRelease",
