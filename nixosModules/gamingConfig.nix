@@ -19,13 +19,16 @@ let
     }).defaultNix.packages.${pkgs.stdenv.hostPlatform.system}.proton-cachyos
     ).overrideAttrs
       (old: {
-        # CachyOS rebuilt the proton-cachyos-slr tarball in place (same version
-        # number, new bytes), so the hash pinned in upstream's versions.json is
+        # CachyOS rebuilds the proton-cachyos-slr tarball in place (same version
+        # number, new bytes), so the hash pinned in upstream's versions.json goes
         # stale and the fixed-output `src` fetch fails with a hash mismatch.
-        # Override the src fetch hash to the artifact the mirror currently serves
-        # until upstream bumps versions.json.
+        # Override the src fetch hash with the one tracked by the npins
+        # `proton-cachyos-slr` url pin (npins/sources.json) instead of hardcoding
+        # it here. To refresh: re-point that pin at the tarball the mirror
+        # currently serves (`npins add --name proton-cachyos-slr url <tarball>`),
+        # which records the new hash.
         src = old.src.overrideAttrs (_: {
-          outputHash = "sha256-9yjERUgfJag40ipOWennnD9vCRC+pQ+o3czjUU2TlCQ=";
+          outputHash = sources.proton-cachyos-slr.hash;
         });
         outputs = [
           "out"

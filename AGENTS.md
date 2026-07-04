@@ -17,7 +17,7 @@
 - **CI/CD Workflows:** 2
 - **NixVim Plugins:** 25
 - **VSCode Extensions:** 32
-- **Pinned Dependencies:** 28
+- **Pinned Dependencies:** 26
 - **Assets:** 46 files
 
 ## Core Tools
@@ -352,7 +352,7 @@ npins/ → dependency sources
 | `kl`         | v0.6.1  | Interactive Kubernetes log viewer (frozen)            |
 | `moonfin`    | v2.2.0  | Jellyfin & Emby media client (Flutter, Wayland)       |
 
-## Dependencies & Pinning (27 total)
+## Dependencies & Pinning (36 total)
 
 **Core Framework:**
 

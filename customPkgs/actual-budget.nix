@@ -1,11 +1,16 @@
 { pkgs }:
 let
+  sources = import ../npins;
+  # The AppImage release asset (URL + hash) is tracked by npins as a `url` pin
+  # in npins/sources.json. To bump the version, update that pin's URL (npins
+  # will refetch and record the new hash) — nothing here is hardcoded.
+  pin = sources.actual-budget;
   pname = "actual-budget";
-  version = "26.5.2";
-  src = pkgs.fetchurl {
-    url = "https://github.com/actualbudget/actual/releases/download/v${version}/Actual-linux-x86_64.AppImage";
-    hash = "sha256-gFJWmfZKCdbo+yohRMNB2EiNKq7RpcQTAFPMI9Z56IY=";
-  };
+  # Extract the version from the pinned asset URL (.../download/vX.Y.Z/...).
+  version = pkgs.lib.removePrefix "v" (
+    builtins.head (builtins.match ".*/download/([^/]+)/.*" pin.url)
+  );
+  src = pkgs.fetchurl { inherit (pin) url hash; };
   appimageContents = pkgs.appimageTools.extract { inherit pname version src; };
 in
 pkgs.appimageTools.wrapType2 {
