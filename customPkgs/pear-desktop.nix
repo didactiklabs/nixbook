@@ -1,11 +1,16 @@
 { pkgs }:
 let
+  sources = import ../npins;
+  # The AppImage release asset (URL + hash) is tracked by npins as a `url` pin
+  # in npins/sources.json. To bump the version, update that pin's URL (npins
+  # will refetch and record the new hash) — nothing here is hardcoded.
+  pin = sources.pear-desktop;
   pname = "pear-desktop";
-  version = "3.11.0";
-  src = pkgs.fetchurl {
-    url = "https://github.com/pear-devs/pear-desktop/releases/download/v${version}/YouTube-Music-${version}.AppImage";
-    hash = "sha256-z8Cg1b5iReLGW/5UN0c5m2v3wCpJzifharmdFDtoBW0=";
-  };
+  # Extract the version from the pinned asset URL (.../download/vX.Y.Z/...).
+  version = pkgs.lib.removePrefix "v" (
+    builtins.head (builtins.match ".*/download/([^/]+)/.*" pin.url)
+  );
+  src = pkgs.fetchurl { inherit (pin) url hash; };
   appimageContents = pkgs.appimageTools.extract { inherit pname version src; };
 in
 pkgs.appimageTools.wrapType2 {

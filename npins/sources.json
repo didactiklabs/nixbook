@@ -26,6 +26,12 @@
       "url": "https://github.com/Moonfin-Client/Moonfin-Core/archive/4fbf274ed5eb4820b40e75b8fe214a972d69186a.tar.gz",
       "hash": "sha256-VB0UvTVQLBJNF5a+UTQNxgDghNJNzoA2Wz30inKJLsw="
     },
+    "actual-budget": {
+      "type": "Url",
+      "url": "https://github.com/actualbudget/actual/releases/download/v26.5.2/Actual-linux-x86_64.AppImage",
+      "unpack": false,
+      "hash": "sha256-gFJWmfZKCdbo+yohRMNB2EiNKq7RpcQTAFPMI9Z56IY="
+    },
     "agenix": {
       "type": "GitRelease",
       "repository": {
@@ -236,19 +242,6 @@
       "url": "https://github.com/nix-community/home-manager/archive/b885baad531fa3d3beae2ba9a0712d22974d8016.tar.gz",
       "hash": "sha256-qMoZazubXlXUD9k/syJ/aiWC4X4g73mwVmZ7Z4+rdpM="
     },
-    "jellyfin-desktop": {
-      "type": "Git",
-      "repository": {
-        "type": "GitHub",
-        "owner": "xaltsc",
-        "repo": "jellyfin-desktop"
-      },
-      "branch": "main",
-      "submodules": true,
-      "revision": "a813302e017e2800609f482af48c228c2f903bdd",
-      "url": null,
-      "hash": "sha256-9b+hFZW1eC9/8oPpeaM5RGYA/mC6fvWq6PQTKI49CZg="
-    },
     "jtui": {
       "type": "GitRelease",
       "repository": {
@@ -377,20 +370,16 @@
       "hash": "sha256-nlnOw/zsD2H2NHSZ5oNWwcjuM17vipyAapfXsO78GjY="
     },
     "pear-desktop": {
-      "type": "GitRelease",
-      "repository": {
-        "type": "GitHub",
-        "owner": "pear-devs",
-        "repo": "pear-desktop"
-      },
-      "pre_releases": false,
-      "version_upper_bound": null,
-      "release_prefix": null,
-      "submodules": false,
-      "version": "v3.12.0",
-      "revision": "3f599b42724be827db51cd4689996dc3e48a9561",
-      "url": "https://api.github.com/repos/pear-devs/pear-desktop/tarball/refs/tags/v3.12.0",
-      "hash": "sha256-RSQPwsED3YK5VScVAXH3f8Lz74v1b2448gro1Vo22hg="
+      "type": "Url",
+      "url": "https://github.com/pear-devs/pear-desktop/releases/download/v3.11.0/YouTube-Music-3.11.0.AppImage",
+      "unpack": false,
+      "hash": "sha256-z8Cg1b5iReLGW/5UN0c5m2v3wCpJzifharmdFDtoBW0="
+    },
+    "proton-cachyos-slr": {
+      "type": "Url",
+      "url": "https://mirror.cachyos.org/repo/x86_64/cachyos/proton-cachyos-slr-1:11.0.20260602-3-x86_64.pkg.tar.zst",
+      "unpack": false,
+      "hash": "sha256-9yjERUgfJag40ipOWennnD9vCRC+pQ+o3czjUU2TlCQ="
     },
     "pvmigrate": {
       "type": "GitRelease",
