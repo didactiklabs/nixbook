@@ -232,9 +232,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "b2e4390ff35319c52935d6a700b615da4c0f204d",
-      "url": "https://github.com/nix-community/home-manager/archive/b2e4390ff35319c52935d6a700b615da4c0f204d.tar.gz",
-      "hash": "sha256-prQSM9PGnrfSaqknJOZ3DCQKbpMiXAWLVC5SHbjLcJ4="
+      "revision": "b885baad531fa3d3beae2ba9a0712d22974d8016",
+      "url": "https://github.com/nix-community/home-manager/archive/b885baad531fa3d3beae2ba9a0712d22974d8016.tar.gz",
+      "hash": "sha256-qMoZazubXlXUD9k/syJ/aiWC4X4g73mwVmZ7Z4+rdpM="
     },
     "jellyfin-desktop": {
       "type": "Git",
