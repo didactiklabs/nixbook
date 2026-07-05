@@ -373,6 +373,14 @@ in
             opacity = 1.0;
           }
           {
+            matches = [ { app-id = "^org\\.darktable\\.darktable$"; } ];
+            opacity = 1.0;
+          }
+          {
+            matches = [ { app-id = "^ansel$"; } ];
+            opacity = 1.0;
+          }
+          {
             matches = [ { app-id = "^com\\.github\\.iwalton3\\.jellyfin-media-player$"; } ];
             opacity = 1.0;
           }
