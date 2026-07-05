@@ -60,6 +60,13 @@ in
     };
     openssh.enable = true;
   };
+  # anya bypasses customNixOSModules.greetd (manual autologin above), so wire
+  # up the keyring PAM session module here. With a passwordless autologin PAM
+  # cannot unlock the keyring — it only auto-starts the daemon with its control
+  # socket. For fully silent operation the "login" keyring password must be
+  # blank (set once via seahorse); otherwise the gcr prompter (enabled globally
+  # in core.nix) asks on first Secret Service use.
+  security.pam.services.greetd.enableGnomeKeyring = true;
   customNixOSModules = {
     gamingConfig.enable = true;
     gamingConfig.gpu = "amd";

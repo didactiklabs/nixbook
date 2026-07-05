@@ -48,6 +48,17 @@ in
       };
     };
 
+    # The niri HM config (homeManagerModules/niri/niriConfig.nix) uses hyprlock
+    # as the fallback screen locker when DMS is disabled. hyprlock is installed
+    # via Home Manager, which cannot create the system PAM service — without
+    # /etc/pam.d/hyprlock, unlocking would always fail. Also re-unlocks the
+    # keyring on password screen-unlock (covers fingerprint/U2F greeter logins
+    # where PAM got no password and the keyring stayed locked).
+    security.pam.services.hyprlock = {
+      u2fAuth = true;
+      enableGnomeKeyring = true;
+    };
+
     # Polkit authentication agent — required for privilege-escalation dialogs
     # (e.g. NetworkManager adding system-wide connections, fwupd updates).
     # The niri-flake bundled agent is disabled above; this replaces it.

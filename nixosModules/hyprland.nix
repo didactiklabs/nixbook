@@ -18,10 +18,18 @@ in
     };
     security = {
       pam.services = {
-        # yubikey login
-        hyprlock.u2fAuth = true;
+        hyprlock = {
+          # yubikey login
+          u2fAuth = true;
+          # re-unlock the keyring on password screen-unlock (covers logins
+          # where PAM got no password, e.g. fingerprint/U2F at the greeter)
+          enableGnomeKeyring = true;
+        };
       };
     };
+    # Route the Secret portal to gnome-keyring for hyprland sessions
+    # (backend registered globally by services.gnome.gnome-keyring in core.nix).
+    xdg.portal.config.hyprland."org.freedesktop.impl.portal.Secret" = [ "gnome-keyring" ];
     nix.settings = {
       substituters = [ "https://hyprland.cachix.org" ];
       trusted-public-keys = [ "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc=" ];

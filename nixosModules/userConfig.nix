@@ -243,7 +243,16 @@ let
 
               services = {
                 udiskie.enable = true;
-                gnome-keyring.enable = true;
+                gnome-keyring = {
+                  enable = true;
+                  # Only PKCS#11 and Secret Service. The ssh component is
+                  # deliberately excluded: gpg-agent owns SSH_AUTH_SOCK
+                  # (programs.gnupg.agent.enableSSHSupport in nixosModules/tools.nix).
+                  components = [
+                    "pkcs11"
+                    "secrets"
+                  ];
+                };
                 kdeconnect.enable = lib.mkDefault true;
               };
 
