@@ -14,6 +14,14 @@ in
       enable = true;
       package = pkgs.swayfx;
     };
+    # The nixpkgs sway module routes every portal interface to "gtk", which
+    # does not implement the Secret portal. Route it to gnome-keyring
+    # (backend registered globally by services.gnome.gnome-keyring in core.nix).
+    xdg.portal.config.sway."org.freedesktop.impl.portal.Secret" = [ "gnome-keyring" ];
+    # Re-unlock the keyring when unlocking the screen with a password
+    # (covers sessions where login provided no password, e.g. autologin).
+    # The swaylock PAM service itself is created by the nixpkgs sway module.
+    security.pam.services.swaylock.enableGnomeKeyring = true;
   };
   options.customNixOSModules.sway = {
     enable = lib.mkOption {

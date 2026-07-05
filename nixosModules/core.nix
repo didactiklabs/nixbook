@@ -210,6 +210,18 @@ in
 
       fprintd.enable = true;
       accounts-daemon.enable = true;
+      # System-side GNOME Keyring support (Secret Service for all machines):
+      # - installs the org.freedesktop.secrets D-Bus activation files and the
+      #   gcr prompter (unlock dialogs when the keyring is locked, e.g. after
+      #   a fingerprint/U2F login where PAM gets no password)
+      # - registers the gnome-keyring Secret portal backend
+      #   (org.freedesktop.impl.portal.Secret), routed per-compositor in the
+      #   niri/sway/hyprland modules
+      # - unlocks the keyring on TTY password logins (PAM login service)
+      # - adds a cap_ipc_lock wrapper so the daemon can mlock() its memory
+      # The per-user daemon itself is started by Home Manager
+      # (services.gnome-keyring in nixosModules/userConfig.nix mkUser).
+      gnome.gnome-keyring.enable = true;
       fwupd.enable = true;
       upower.enable = true;
       pcscd.enable = true; # yubikey smart card mode
