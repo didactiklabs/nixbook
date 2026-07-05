@@ -54,6 +54,8 @@ in
       with pkgs;
       [
         # apps
+        darktable
+        ansel
         spotify
         obs-studio
         wdisplays # display manager
