@@ -65,6 +65,7 @@ in
         google-cloud-sdk.components.gke-gcloud-auth-plugin
       ])
       openstackclient
+      openstack-rs
       yaookctl
 
       # API and code generation
