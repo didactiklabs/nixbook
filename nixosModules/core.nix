@@ -195,14 +195,31 @@ in
         useTmpfs = false;
         tmpfsSize = "30%";
       };
-      # Enable NTFS support so external hard drives / USB disks formatted with
-      # NTFS (e.g. Windows drives) can be read and written. Pulls in ntfs3g and
-      # the in-kernel ntfs3 driver, allowing udisks2/devmon to automount them.
+      # Enable extra filesystems for external hard drives / USB disks:
+      # - ntfs (Windows): read + write via ntfs3g and the in-kernel ntfs3 driver.
+      # - exfat (cross-platform): read + write.
+      # - hfs / hfsplus (Mac OS Extended): read + write via the in-kernel driver.
+      #   Write access needs a clean journal; run `fsck.hfsplus -f` (from
+      #   hfsprogs, added below) if the drive was not ejected cleanly on macOS.
+      # - apfs (modern macOS, default since 2017): READ-ONLY via apfs-fuse
+      #   (added below). Linux has no reliable APFS write support.
+      # All of these are automounted by udisks2/devmon.
       supportedFilesystems = [
         "ntfs"
         "exfat"
+        "hfs"
+        "hfsplus"
+        "apfs"
       ];
     };
+    # Userspace tools for the Mac filesystems enabled above:
+    # - hfsprogs: fsck.hfsplus / mkfs.hfsplus (repair a dirty HFS+ journal so it
+    #   mounts read-write, or reformat as HFS+).
+    # - apfs-fuse: read-only FUSE driver for APFS volumes.
+    environment.systemPackages = with pkgs; [
+      hfsprogs
+      apfs-fuse
+    ];
     services = {
       # Auto-detect your time zone.
       automatic-timezoned.enable = true;
