@@ -37,6 +37,7 @@ in
     caCertificates = {
       bealv.enable = true;
       didactiklabs.enable = true;
+      rpcu.enable = true;
     };
     tailscale.enable = true;
     netbird-tools.enable = true;
