@@ -55,7 +55,9 @@ jobs:
         uses: actions/checkout@v4
       - id: set-pins
         run: |
-          PINS=$(jq -c '.pins | keys' npins/sources.json)
+          # Exclude frozen pins: `npins update <pin>` refuses to update a frozen
+          # pin and exits 1, which would fail that matrix leg on every run.
+          PINS=$(jq -c '.pins | to_entries | map(select(.value.frozen != true) | .key)' npins/sources.json)
           echo "pins=$PINS" >> "$GITHUB_OUTPUT"
   npins-update:
     needs: get-pins
