@@ -357,6 +357,15 @@ in
             opacity = 1.0;
           }
           {
+            matches = [
+              {
+                app-id = "^vesktop$";
+                is-floating = true;
+              }
+            ];
+            opacity = 1.0;
+          }
+          {
             matches = [ { app-id = "^zen-twilight$"; } ];
             opacity = 1.0;
           }
