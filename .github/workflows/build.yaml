@@ -31,6 +31,10 @@ jobs:
     if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
     runs-on: self-hosted
     strategy:
+      # Don't cancel the other profiles when one runner hiccups (e.g. a runner
+      # shutdown signal or a transient "SQLite database is busy" lock race on the
+      # shared self-hosted Nix store). Each profile's build is independent.
+      fail-fast: false
       max-parallel: 3
       matrix:
         profile:
