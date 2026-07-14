@@ -61,6 +61,7 @@ in
         wdisplays # display manager
         vesktop # discord
         pinta # paint
+        wifi-qr
       ]
       ++ lib.optionals (!cfg.zenBrowserConfig.enable) [
         firefox
