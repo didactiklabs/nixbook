@@ -203,8 +203,8 @@ hive.nix                          Colmena deployment config
 - **User:** dieu
 - **Hardware:** NVIDIA RTX 3080 (Ampere) — proprietary driver, open kernel modules, modesetting enabled
 - **Primary WM:** Niri
-- **NixOS Modules:** greetd, niri, gamingConfig (gpu = "nvidia"), simracing, lanzaboote
-- **Special Features:** Regular desktop for everyday use + gaming. Steam/Proton/GameMode enabled but does NOT auto-launch Steam Big Picture on startup. Sim racing hardware support (Moza & Fanatec wheelbases, pedals, etc.) via the simracing module. No laptop/dev/work modules. No work CA certs or kubeconfigs. fcitx5 input method with US QWERTY + US-International (German umlauts via AltGr) layouts and Vietnamese Unikey (toggle with Ctrl+Space).
+- **NixOS Modules:** greetd, niri, gamingConfig (gpu = "nvidia"), simracing, printTools, lanzaboote
+- **Special Features:** Regular desktop for everyday use + gaming. Steam/Proton/GameMode enabled but does NOT auto-launch Steam Big Picture on startup. Sim racing hardware support (Moza & Fanatec wheelbases, pedals, etc.) via the simracing module. Printing & scanning (CUPS + SANE + mDNS discovery) via the printTools module. No laptop/dev/work modules. No work CA certs or kubeconfigs. fcitx5 input method with US QWERTY + US-International (German umlauts via AltGr) layouts and Vietnamese Unikey (toggle with Ctrl+Space).
 - **Home Manager Modules:** fontConfig, gtkConfig, starship, fastfetchConfig, niriConfig, dmsConfig, kittyConfig, zshConfig, atuinConfig, desktopApps, zenBrowserConfig, gitConfig, fcitx5Config, oversteerConfig
 
 ## Key Features
