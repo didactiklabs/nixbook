@@ -13,6 +13,7 @@ let
       permittedInsecurePackages = [
         "qtwebengine-5.15.19"
         "pnpm-10.29.2"
+        "electron-40.10.5"
       ];
     };
     overlays = [
