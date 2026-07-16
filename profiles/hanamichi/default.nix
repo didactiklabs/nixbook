@@ -82,6 +82,8 @@ in
     gamingConfig.gpu = "nvidia";
     # Sim racing hardware support (Moza & Fanatec wheelbases, pedals, etc.).
     simracing.enable = true;
+    # Printing & scanning (CUPS, ipp-usb, Avahi mDNS discovery, SANE airscan).
+    printTools.enable = true;
     lanzaboote.enable = false;
     # System-level support for the Lotus Vietnamese input method (the fcitx5
     # addon is enabled in the user's Home Manager fcitx5Config: lotus = true).
