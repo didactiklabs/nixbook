@@ -20,7 +20,7 @@ in
         - ipp-usb: IPP-over-USB daemon for driverless USB printer/scanner access
         - Avahi mDNS/DNS-SD (with nssmdns4) for auto-discovery of network printers
         - SANE scanner framework with the airscan backend for WiFi/IPP scanners
-        - gnome.simple-scan: GTK scanning GUI
+        - simple-scan: GTK scanning GUI
 
         Enable on machines that have a physical printer or scanner attached,
         or that need to discover network printers via mDNS.
@@ -29,7 +29,7 @@ in
   };
   config = lib.mkIf cfg.printTools.enable {
     environment = {
-      systemPackages = with pkgs; [ gnome.simple-scan ];
+      systemPackages = with pkgs; [ simple-scan ];
     };
     services = {
       ipp-usb.enable = true;
