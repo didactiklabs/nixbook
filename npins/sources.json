@@ -377,9 +377,9 @@
     },
     "proton-cachyos-slr": {
       "type": "Url",
-      "url": "https://mirror.cachyos.org/repo/x86_64/cachyos/proton-cachyos-slr-1:11.0.20260602-3-x86_64.pkg.tar.zst",
+      "url": "https://mirror.cachyos.org/repo/x86_64/cachyos/proton-cachyos-slr-1:11.0.20260702-1-x86_64.pkg.tar.zst",
       "unpack": false,
-      "hash": "sha256-9yjERUgfJag40ipOWennnD9vCRC+pQ+o3czjUU2TlCQ="
+      "hash": "sha256-KohxHuynvab6yNQiUKs2W1FJIetc7DfxbN4e+ee7S6c="
     },
     "pvmigrate": {
       "type": "GitRelease",
