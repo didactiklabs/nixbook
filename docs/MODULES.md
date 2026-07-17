@@ -246,7 +246,7 @@ Whether to enable the Ollama local LLM inference server. Ollama is an open-sourc
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable printing and scanning support. Configures a full CUPS + SANE stack for local and network printers/scanners: - CUPS printing daemon (services.printing) - ipp-usb: IPP-over-USB daemon for driverless USB printer/scanner access - Avahi mDNS/DNS-SD (with nssmdns4) for auto-discovery of network printers - SANE scanner framework with the airscan backend for WiFi/IPP scanners - gnome.simple-scan: GTK scanning GUI Enable on machines that have a physical printer or scanner attached, or that need to discover network printers via mDNS.
+Whether to enable printing and scanning support. Configures a full CUPS + SANE stack for local and network printers/scanners: - CUPS printing daemon (services.printing) - ipp-usb: IPP-over-USB daemon for driverless USB printer/scanner access - Avahi mDNS/DNS-SD (with nssmdns4) for auto-discovery of network printers - SANE scanner framework with the airscan backend for WiFi/IPP scanners - simple-scan: GTK scanning GUI cups-browsed is explicitly disabled: modern CUPS does driverless / IPP-Everywhere discovery natively via Avahi/DNS-SD, and browsed's legacy "implicitclass://" auto-queues silently drop jobs when they can't resolve a destination host. Add discovered driverless printers directly through the CUPS web UI (http://localhost:631) instead. Enable on machines that have a physical printer or scanner attached, or that need to discover network printers via mDNS.
 
 ---
 
