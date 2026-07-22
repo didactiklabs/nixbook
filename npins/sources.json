@@ -465,9 +465,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "375ef8960c8edb8594aef047944a8c3f00814f0c",
-      "url": "https://github.com/Maik-0000FF/schnelle-umlaute/archive/375ef8960c8edb8594aef047944a8c3f00814f0c.tar.gz",
-      "hash": "sha256-At1mOzdCmhf0twWt3wGLJKbLsu2Sh/2eNM42HO+P2Aw="
+      "revision": "f302b525aa1ee4b1256093fa9bda70db41617a18",
+      "url": "https://github.com/Maik-0000FF/schnelle-umlaute/archive/f302b525aa1ee4b1256093fa9bda70db41617a18.tar.gz",
+      "hash": "sha256-lTyqghdj6zXd619t/+KYJMreL8aChccW+SzuEeF6794="
     },
     "songbird": {
       "type": "GitRelease",
