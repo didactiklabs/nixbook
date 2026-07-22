@@ -275,6 +275,22 @@
       "hash": "sha256-18CT9qCZynCG5jtL7JjIKNlrvE/9d8Kord/vRSQ8Bxo=",
       "frozen": true
     },
+    "kratix-cli": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "syntasso",
+        "repo": "kratix-cli"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": null,
+      "submodules": false,
+      "version": "v0.17.0",
+      "revision": "8ccc2dd4e94680a75e4e32bae86ca14073b418ed",
+      "url": "https://api.github.com/repos/syntasso/kratix-cli/tarball/refs/tags/v0.17.0",
+      "hash": "sha256-45cHpKePgHySvNHS3gWt9TCGTJ6y3YyblnTVJqyqzG4="
+    },
     "lanzaboote": {
       "type": "GitRelease",
       "repository": {

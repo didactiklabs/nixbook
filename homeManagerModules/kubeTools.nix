@@ -10,6 +10,7 @@ let
   songbird = import ../customPkgs/songbird.nix { inherit pkgs; };
   pvmigrate = import ../customPkgs/pvmigrate.nix { inherit pkgs; };
   crd-wizard = import ../customPkgs/crd-wizard.nix { inherit pkgs; };
+  kratix-cli = import ../customPkgs/kratix-cli.nix { inherit pkgs; };
 in
 {
   options.customHomeManagerModules = {
@@ -43,6 +44,7 @@ in
             - songbird  — custom cluster management utility
             - pvmigrate — Proxmox VM migration tool
             - crd-wizard — CRD visualisation dashboard (Shift-E in k9s)
+            - kratix-cli — CLI to build Kratix Promises (kratix)
             - sou       — container image analysis wrapper
 
           Others:
@@ -131,6 +133,7 @@ in
         songbird
         kl
         pvmigrate
+        kratix-cli
         skopeo
         kubectl-neat
         kubelogin-oidc
