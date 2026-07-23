@@ -40,6 +40,9 @@ in
   boot.kernel.sysctl = {
     "net.ipv4.ip_unprivileged_port_start" = 80;
   };
+  # Use upstream CppNix instead of Lix: Lix removed builtins.fetchClosure in
+  # 2.95.0, which devbox relies on to reference pre-built store paths.
+  nix.package = lib.mkForce pkgs.nixVersions.latest;
   imports = [
     (userConfig.mkUser {
       username = "aamoyel";
