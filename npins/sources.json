@@ -199,9 +199,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "3e8505c0cbb495d5e8b17f43947830b8edfb9001",
-      "url": "https://github.com/didactiklabs/ginx/archive/3e8505c0cbb495d5e8b17f43947830b8edfb9001.tar.gz",
-      "hash": "sha256-UDcKdSuBJm7sN2eM+BR0GDnglhOKbI85ZzjufTKZCl4="
+      "revision": "f27648be248970da0f184cc2c8d5d524be95df6b",
+      "url": "https://github.com/didactiklabs/ginx/archive/f27648be248970da0f184cc2c8d5d524be95df6b.tar.gz",
+      "hash": "sha256-6FCCBaCNBjpILmnrdWqok+TdS7VKnUFpMrQEycG4H80="
     },
     "globalprotect-openconnect": {
       "type": "Git",
