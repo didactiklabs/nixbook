@@ -10,7 +10,7 @@ pkgs.buildGoModule rec {
   src = ginxSrc;
 
   proxyVendor = true;
-  vendorHash = "sha256-Oljt4474096IgAUOepW5hSBwa1Ts1OJkQCNb9BdOhh4=";
+  vendorHash = "sha256-XU8KeBgshHHutp5wdyhKSZWjgUgp+m7gg4R96BjrL0o=";
 
   subPackages = [ "." ];
 
