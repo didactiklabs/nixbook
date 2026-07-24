@@ -6,9 +6,25 @@
 
 ## 🔍 Description
 
+Nixbook is a personal, declarative NixOS configuration repository that manages multiple machines from a single source of truth. Built entirely with Nix, it embraces the "everything as code" philosophy to deliver reproducible, composable, and easily maintainable system configurations.
+
+It ships modern Wayland compositors (Niri, Sway, and Hyprland), a fully-featured Zsh shell with GNU CLI replacements, a complete development and Kubernetes toolchain, and per-machine profiles selected automatically by hostname. Security is a first-class concern, with UEFI Secure Boot (Lanzaboote), LUKS disk encryption, agenix-managed secrets, and kernel hardening baked in. Deployment is handled by Colmena, dependencies are pinned with npins, and the whole system can be provisioned from a custom interactive installer ISO.
+
 ### Project Goals
 
-The primary goal of Nixbook is to provide a personal, highly customizable, and reproducible NixOS environment. It aims to offer a robust base configuration that can be easily extended and adapted to different machines and use cases, promoting the "everything as code" philosophy through Nix. This allows for consistent deployments and easy management of system configurations.
+The primary goal of Nixbook is to provide a personal, highly customizable, and reproducible NixOS environment that manages an entire fleet of machines from a single, version-controlled source of truth. Rather than configuring each system by hand, Nixbook treats the complete system state -- bootloader, kernel, drivers, display servers, user environments, secrets, and services -- as declarative Nix code, fully embracing the "everything as code" philosophy.
+
+At its core, Nixbook offers a robust, opinionated base configuration that is designed to be extended and adapted rather than rewritten. Shared functionality lives in reusable NixOS and Home Manager modules, each exposing opt-in/opt-out options, so features like gaming support, sim-racing hardware, VPNs, printing, or Secure Boot can be toggled per machine without duplicating code. Machine-specific behavior is layered on top through per-hostname profiles under `profiles/`, and further refined with per-user overrides, giving each device its own identity while still sharing the same tested foundation.
+
+This architecture yields several concrete benefits:
+
+- **Reproducibility** -- pinned dependencies (via npins) guarantee that the same commit builds the same system on any machine, at any time.
+- **Composability** -- modules can be mixed and matched, so new machines are assembled from existing building blocks instead of bespoke configuration.
+- **Consistency** -- shell environment, editor setup, theming, and development toolchain are identical everywhere, eliminating configuration drift between devices.
+- **Maintainability** -- a change made once in a shared module propagates to every machine that imports it, and updates are applied atomically and rolled back safely by NixOS generations.
+- **Safe experimentation** -- because the entire system is code, changes can be reviewed, tested (including in a VM), and reverted with confidence.
+
+The result is a workflow where provisioning a brand-new laptop or desktop is as simple as selecting a profile and running a single deployment command, with the assurance that the outcome will exactly match every other machine built from the same configuration.
 
 ### Wayland with UEFI Boot
 

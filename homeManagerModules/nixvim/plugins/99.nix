@@ -25,7 +25,7 @@ in
       extraConfigLua = ''
         require("99").setup({
           provider = require("99").Providers.OpenCodeProvider,
-          model = "google/gemini-3-flash-preview",
+          model = "anthropic/claude-opus-4-8-fast",
           completion = {
             source = "cmp",
           },
@@ -36,7 +36,7 @@ in
       keymaps = [
         {
           mode = "v";
-          key = "<leader>9v";
+          key = "<leader>9";
           action.__raw = ''function() require("99").visual() end'';
           options.desc = "99: Visual";
         }
