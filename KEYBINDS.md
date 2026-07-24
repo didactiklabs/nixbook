@@ -395,7 +395,7 @@ Sources: `homeManagerModules/nixvim/default.nix` and `homeManagerModules/nixvim/
 
 | Keybind      | Action                   |
 | ------------ | ------------------------ |
-| `<leader>9v` | 99: Visual (visual mode) |
+| `<leader>9`  | 99: Visual (visual mode) |
 | `<leader>9x` | 99: Stop all requests    |
 | `<leader>9s` | 99: Search               |
 | `<leader>9m` | 99: Select model         |
