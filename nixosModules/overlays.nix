@@ -14,15 +14,6 @@ in
     nix-fast-build
     ;
 
-  # nixpkgs bumped the default `libdisplay-info` to 0.4.0, but niri 26.04 (and
-  # even niri main) still constrains `libdisplay-info = "0.3.0"` in Cargo.toml,
-  # which via the `libdisplay-info-sys` crate requires the C library `< 0.4.0`.
-  # Building `pkgs.niri` therefore fails at the pkg-config check. nixpkgs keeps
-  # the compatible 0.2.0 around as the versioned attribute `libdisplay-info_0_2`
-  # (this is exactly what upstream niri-flake passes), so build niri against it.
-  # Remove once niri upstream supports libdisplay-info 0.4.0.
-  niri = prev.niri.override { libdisplay-info = final.libdisplay-info_0_2; };
-
   # Fix upstream hash mismatch: the GitHub-generated patch for PR #23326
   # changed content, breaking the pinned hash in nixpkgs.
   openapi-generator-cli = prev.openapi-generator-cli.overrideAttrs (oldAttrs: {
