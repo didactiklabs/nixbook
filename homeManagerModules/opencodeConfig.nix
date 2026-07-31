@@ -71,6 +71,7 @@ in
         plugin = [
           "opencode-gemini-auth"
           "opencode-claude-auth@latest"
+          "opencode-openai-codex-auth@latest"
         ];
         provider = lib.mkIf cfg.ollama.enable {
           ollama = {
