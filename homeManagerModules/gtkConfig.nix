@@ -39,7 +39,7 @@ in
 
   config = lib.mkIf cfg.gtkConfig.enable {
     home.packages = [
-      pkgs.numix-gtk-theme
+      # pkgs.numix-gtk-theme
       pkgs.papirus-icon-theme
       pkgs.material-design-icons
       pkgs.numix-icon-theme-square
