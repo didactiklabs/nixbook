@@ -19,6 +19,11 @@ let
   };
 in
 {
+  hardware = {
+    bluetooth = {
+      powerOnBoot = lib.mkForce true;
+    };
+  };
   systemd.user = {
     services = {
       steamBigPicture = {
