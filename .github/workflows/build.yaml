@@ -71,7 +71,6 @@ jobs:
           echo "build=$build" >> "$GITHUB_ENV"
       - name: Push to cache (${{ matrix.profile }})
         if: success()
-        continue-on-error: true
         run: |
           echo '${{ secrets.CACHE_PRIVATE_KEY }}' > cache-priv.pem
           nix store sign -r -k cache-priv.pem "$build"
