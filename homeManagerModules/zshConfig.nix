@@ -56,6 +56,7 @@ in
       };
       fzf = common.commonPrograms.fzf // {
         enableZshIntegration = true;
+        historyWidget.zsh.command = "";
       };
       eza = common.commonPrograms.eza // {
         enableZshIntegration = true;

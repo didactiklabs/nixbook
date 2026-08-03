@@ -309,7 +309,7 @@ in
           }
         ];
 
-        keyboardShortcutsVersion = 19;
+        keyboardShortcutsVersion = 20;
       };
     };
 

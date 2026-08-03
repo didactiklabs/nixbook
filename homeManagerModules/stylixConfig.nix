@@ -43,6 +43,8 @@ in
   };
 
   config = lib.mkIf cfg.stylixConfig.enable {
+    home.pointerCursor.enable = true;
+
     stylix = {
       enable = true;
       polarity = "dark";
