@@ -127,7 +127,7 @@ let
       home-manager = {
         useUserPackages = true;
         useGlobalPkgs = true;
-        backupFileExtension = ".backup";
+        backupCommand = "for b in $(ls -t $1.* 2>/dev/null | tail -n +4); do rm $b; done; cp $1 $1.$(date +%Y%m%d%H%M%S)";
         users.${username} =
           { ... }:
           {
