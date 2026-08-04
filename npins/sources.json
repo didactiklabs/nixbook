@@ -131,9 +131,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "bd0adca992b502178e70cc015f2a34f2b7031186",
-      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/bd0adca992b502178e70cc015f2a34f2b7031186.tar.gz",
-      "hash": "sha256-b2bNAN2mBCaSfYvn/ILpf23TVnVIIyvhMMYCE3QJ13U="
+      "revision": "f52c105137ed9d4007ef9ff26fd038af53f18b36",
+      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/f52c105137ed9d4007ef9ff26fd038af53f18b36.tar.gz",
+      "hash": "sha256-rr63wUQFrdcilIxf/ZyC9x/l7kRJkM40g7JwBVRxm7M="
     },
     "ds4drv": {
       "type": "Git",
@@ -494,9 +494,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "930b6d474221a2241dbecc6757b987db2484d9ba",
-      "url": "https://github.com/danth/stylix/archive/930b6d474221a2241dbecc6757b987db2484d9ba.tar.gz",
-      "hash": "sha256-W4/A/IblbnvsQNc8hE3+2mFJWF9YjGzVr91cwHeppEQ="
+      "revision": "cb5eb3a7343faba61fd694fac8040a326485a339",
+      "url": "https://github.com/danth/stylix/archive/cb5eb3a7343faba61fd694fac8040a326485a339.tar.gz",
+      "hash": "sha256-OqIrGVL7AX462ISyJFAqjbqTc1RZlBkVHCa4dwPEZU4="
     },
     "witr": {
       "type": "GitRelease",
