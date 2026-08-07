@@ -212,9 +212,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "0c2d4830b5717b1e0ba6313ba676365ba7dc0030",
-      "url": "https://github.com/yuezk/GlobalProtect-openconnect/archive/0c2d4830b5717b1e0ba6313ba676365ba7dc0030.tar.gz",
-      "hash": "sha256-Y86bf662A7ezU9mXvqWWdPPe6HKh/5+7COptetnizwM="
+      "revision": "d75e422c1d10e77c5e7c5af2ddd2cca6114912c9",
+      "url": "https://github.com/yuezk/GlobalProtect-openconnect/archive/d75e422c1d10e77c5e7c5af2ddd2cca6114912c9.tar.gz",
+      "hash": "sha256-dob3mJaLJOJgSJlKE/t5GN4WmlGkQeZLrYSSrFUritY="
     },
     "goji": {
       "type": "Git",
