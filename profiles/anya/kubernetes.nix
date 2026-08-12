@@ -107,7 +107,7 @@
       RestartSec = 10;
       Environment = [
         ''KUBELET_KUBECONFIG_ARGS="--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf"''
-        ''KUBELET_CONFIG_ARGS="--config=/var/lib/kubelet/config.yaml --container-runtime-endpoint=unix:///var/run/containerd/containerd.sock"''
+        ''KUBELET_CONFIG_ARGS="--config=/var/lib/kubelet/config.yaml --container-runtime-endpoint=unix:///var/run/containerd/containerd.sock --fail-swap-on=false"''
       ];
       # kubeadm writes kubeadm-flags.env during join; both files are optional.
       EnvironmentFile = [
