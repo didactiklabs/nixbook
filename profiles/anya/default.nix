@@ -105,6 +105,6 @@ in
       username = "khoa";
       userImports = [ ./khoa ];
     })
-    # ./kubernetes.nix
+    ./kubernetes.nix
   ];
 }
