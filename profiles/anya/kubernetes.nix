@@ -1,5 +1,6 @@
 {
   # config,
+  lib,
   pkgs,
   ...
 }:
@@ -20,6 +21,65 @@
     kubectl
     kubernetes
   ];
+
+  # --- kubeadm worker node prerequisites ---
+  # `kubeadm join` needs a CRI runtime (containerd with the CRI plugin)
+  # reachable at /var/run/containerd/containerd.sock, plus the kubelet
+  # binary/service and the usual kernel networking bits.
+
+  virtualisation.containerd = {
+    enable = true;
+    settings = {
+      version = 2;
+      plugins."io.containerd.grpc.v1.cri" = {
+        # kubeadm defaults to the systemd cgroup driver on cgroup v2
+        containerd.runtimes.runc.options.SystemdCgroup = true;
+        # sandbox (pause) image kubeadm expects
+        sandbox_image = "registry.k8s.io/pause:3.10";
+      };
+    };
+  };
+
+  # kubelet: provide the binary and the (kubeadm-managed) service.
+  # kubeadm writes the actual config/flags into
+  # /var/lib/kubelet and /etc/kubernetes, so we only give it a stub unit
+  # that is enabled but not started until kubeadm drops in its config.
+  systemd.services.kubelet = {
+    description = "Kubernetes Kubelet (managed by kubeadm)";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "containerd.service" ];
+    requires = [ "containerd.service" ];
+    path = with pkgs; [
+      kubernetes
+      util-linux
+      iproute2
+      ethtool
+      socat
+      iptables
+      conntrack-tools
+    ];
+    serviceConfig = {
+      ExecStart = "${pkgs.kubernetes}/bin/kubelet \\
+        --kubeconfig=/etc/kubernetes/kubelet.conf \\
+        --config=/var/lib/kubelet/config.yaml \\
+        --container-runtime-endpoint=unix:///var/run/containerd/containerd.sock";
+      Restart = "always";
+      RestartSec = "10s";
+    };
+    # Don't crash-loop before kubeadm has written the config files.
+    unitConfig.ConditionPathExists = "/var/lib/kubelet/config.yaml";
+  };
+
+  # Networking prerequisites for the pod network / kube-proxy.
+  boot.kernelModules = [
+    "br_netfilter"
+    "overlay"
+  ];
+  boot.kernel.sysctl = {
+    "net.bridge.bridge-nf-call-iptables" = 1;
+    "net.bridge.bridge-nf-call-ip6tables" = 1;
+    "net.ipv4.ip_forward" = 1;
+  };
   # services = {
   #   kubernetes = {
   #     roles = [
