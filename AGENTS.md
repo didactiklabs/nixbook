@@ -127,7 +127,7 @@ hive.nix                          Colmena deployment config
 **Kubernetes & DevOps:**
 
 - `k9sConfig.nix` (336 LOC) - K9s dashboard configuration
-- `kubeTools.nix` (155 LOC) - kubectl, helm, kubeswitch, k9s, kubeconfigs setup
+- `kubeTools.nix` (177 LOC) - kubectl, helm, kubeswitch, k9s, lfk, kubeconfigs setup
 - `kubeswitchConfig.nix` (55 LOC) - Kubernetes context switcher
 
 **Applications:**
@@ -336,21 +336,22 @@ customPkgs/ → base.nix
 npins/ → dependency sources
 ```
 
-## Custom Packages (11 total)
+## Custom Packages (12 total)
 
-| Package      | Version | Purpose                                               |
-| ------------ | ------- | ----------------------------------------------------- |
-| `rtk`        | v0.31.0 | CLI proxy for 60-90% LLM token reduction              |
-| `ginx`       | main    | Run Nix code from git repos                           |
-| `goji`       | 0.2.1   | Conventional commits with AI/emoji support            |
-| `ytui`       | main    | YouTube video query and playback TUI                  |
-| `jtui`       | v1.0.0  | JSON viewer TUI                                       |
-| `crd-wizard` | v0.1.9  | Kubernetes CRD visualization dashboard                |
-| `pvmigrate`  | v0.12.2 | Migrate PersistentVolumeClaims between StorageClasses |
-| `songbird`   | v0.4.0  | Custom utility                                        |
-| `witr`       | v0.3.1  | Custom utility                                        |
-| `kl`         | v0.6.1  | Interactive Kubernetes log viewer (frozen)            |
-| `moonfin`    | v2.2.0  | Jellyfin & Emby media client (Flutter, Wayland)       |
+| Package      | Version | Purpose                                                 |
+| ------------ | ------- | ------------------------------------------------------- |
+| `rtk`        | v0.31.0 | CLI proxy for 60-90% LLM token reduction                |
+| `ginx`       | main    | Run Nix code from git repos                             |
+| `goji`       | 0.2.1   | Conventional commits with AI/emoji support              |
+| `ytui`       | main    | YouTube video query and playback TUI                    |
+| `jtui`       | v1.0.0  | JSON viewer TUI                                         |
+| `crd-wizard` | v0.1.9  | Kubernetes CRD visualization dashboard                  |
+| `lfk`        | v0.17.0 | Lightning Fast Kubernetes navigator (yazi-inspired TUI) |
+| `pvmigrate`  | v0.12.2 | Migrate PersistentVolumeClaims between StorageClasses   |
+| `songbird`   | v0.4.0  | Custom utility                                          |
+| `witr`       | v0.3.1  | Custom utility                                          |
+| `kl`         | v0.6.1  | Interactive Kubernetes log viewer (frozen)              |
+| `moonfin`    | v2.2.0  | Jellyfin & Emby media client (Flutter, Wayland)         |
 
 ## Dependencies & Pinning (36 total)
 
@@ -378,7 +379,7 @@ npins/ → dependency sources
 - `flake-compat` - Flake compatibility layer
 - `99` - ThePrimeagen's 99 NixVim plugin
 
-**Custom Package Sources:** ginx, goji, ytui, jtui, crd-wizard, pvmigrate (frozen), rtk, songbird, witr, kl (frozen), opencode-manager (main), moonfin (built from source via npins Moonfin-Core pin, flutter344)
+**Custom Package Sources:** ginx, goji, ytui, jtui, crd-wizard, lfk, pvmigrate (frozen), rtk, songbird, witr, kl (frozen), opencode-manager (main), moonfin (built from source via npins Moonfin-Core pin, flutter344)
 
 ## Assets (39 files)
 
