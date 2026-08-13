@@ -307,6 +307,22 @@
       "url": "https://api.github.com/repos/nix-community/lanzaboote/tarball/refs/tags/v1.1.0",
       "hash": "sha256-hqijVSEETttmo8Okql9/LG0Ua34hdciKW1a5zzlj8mU="
     },
+    "lfk": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "janosmiko",
+        "repo": "lfk"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": null,
+      "submodules": false,
+      "version": "v0.17.0",
+      "revision": "5467ef360747bb888a12144eb1c1e9bef7e96017",
+      "url": "https://api.github.com/repos/janosmiko/lfk/tarball/refs/tags/v0.17.0",
+      "hash": "sha256-v55S9tVkkHKymfpO/JvkbNW0pBUt5bpUgeUrcbN9eX4="
+    },
     "niri-flake": {
       "type": "Git",
       "repository": {
