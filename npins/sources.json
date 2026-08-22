@@ -345,9 +345,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "33df3aef90cb488ccc3d37c58d4cdad65870d1f1",
-      "url": "https://github.com/Shochraos/nix-proton-cachyos/archive/33df3aef90cb488ccc3d37c58d4cdad65870d1f1.tar.gz",
-      "hash": "sha256-OEzrMvCee7AYV8b4Ablp+tM7qC6jIGPZ4j7CjVokLGY="
+      "revision": "3995b23a2600366c89eaa434afbe7dfbe7c3f2fe",
+      "url": "https://github.com/Shochraos/nix-proton-cachyos/archive/3995b23a2600366c89eaa434afbe7dfbe7c3f2fe.tar.gz",
+      "hash": "sha256-yqqY4EzdMqQwmPbh9l18282zvHPMK7ilnHE9Ka2WjMs="
     },
     "nixos-hardware": {
       "type": "Git",
