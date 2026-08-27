@@ -468,9 +468,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "494680f9ffa2b4bf9f2df0f442c7096e44adfa00",
-      "url": "https://github.com/oxalica/rust-overlay/archive/494680f9ffa2b4bf9f2df0f442c7096e44adfa00.tar.gz",
-      "hash": "sha256-ZRYTEvDb8QZLCHRoMyIZle9V3Bvw905m0teeo1RvI7M="
+      "revision": "dc2fd1acc537f3583744e1373597a5731ff7a6e3",
+      "url": "https://github.com/oxalica/rust-overlay/archive/dc2fd1acc537f3583744e1373597a5731ff7a6e3.tar.gz",
+      "hash": "sha256-jXSvqn04IOecJCvSvl8+g3PsbDVNP6qKs6dKUs/b16k="
     },
     "schnelle-umlaute": {
       "type": "Git",
