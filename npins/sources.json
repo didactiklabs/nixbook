@@ -318,10 +318,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "v0.17.0",
-      "revision": "5467ef360747bb888a12144eb1c1e9bef7e96017",
-      "url": "https://api.github.com/repos/janosmiko/lfk/tarball/refs/tags/v0.17.0",
-      "hash": "sha256-v55S9tVkkHKymfpO/JvkbNW0pBUt5bpUgeUrcbN9eX4="
+      "version": "v0.18.8",
+      "revision": "2967df85ee5389919a246ce9f19651337f640c2b",
+      "url": "https://api.github.com/repos/janosmiko/lfk/tarball/refs/tags/v0.18.8",
+      "hash": "sha256-HvVEQLBU5vrtCbzPrWQsYYug9ISbFsf/d9H+PK4a+eE="
     },
     "niri-flake": {
       "type": "Git",
