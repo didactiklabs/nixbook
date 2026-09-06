@@ -18,84 +18,102 @@ in
   imports = [
     niri-flake.nixosModules.niri
   ];
-  config = lib.mkIf cfg.niri.enable {
-    programs.niri.enable = true;
-    programs.niri.package = pkgs.niri;
-    systemd.user.services.niri-flake-polkit.enable = false;
+  config = lib.mkMerge [
+    {
+      # Set the niri package UNCONDITIONALLY (outside the enable guard).
+      #
+      # The niri-flake NixOS module injects its HM module into ALL users via
+      # `home-manager.sharedModules` and force-sets each user's
+      # `programs.niri.package` to this NixOS-level `programs.niri.package`
+      # (`mkForce cfg.package`), regardless of whether niri is enabled. Its
+      # default value is the flake-built `niri-stable`, whose `callPackage`
+      # references `libdisplay-info_0_2` — an attribute nixpkgs has since
+      # replaced with a throwing stub ("has been removed"). Evaluating it
+      # aborts, breaking machines that don't even use niri (e.g. anya/Sway).
+      #
+      # The nixpkgs niri already builds against the current libdisplay-info,
+      # so pin the package to it here so every user's forced HM package is
+      # safe to evaluate.
+      programs.niri.package = pkgs.niri;
+    }
+    (lib.mkIf cfg.niri.enable {
+      programs.niri.enable = true;
+      systemd.user.services.niri-flake-polkit.enable = false;
 
-    # Add GTK portal and route FileChooser to it (avoids Nautilus dependency from GNOME portal)
-    # Other settings match niri's shipped niri-portals.conf defaults
-    xdg.portal = {
-      extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
-      config.niri = {
-        default = [
-          "gnome"
-          "gtk"
+      # Add GTK portal and route FileChooser to it (avoids Nautilus dependency from GNOME portal)
+      # Other settings match niri's shipped niri-portals.conf defaults
+      xdg.portal = {
+        extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+        config.niri = {
+          default = [
+            "gnome"
+            "gtk"
+          ];
+          "org.freedesktop.impl.portal.Access" = [ "gtk" ];
+          "org.freedesktop.impl.portal.FileChooser" = [ "gtk" ];
+          "org.freedesktop.impl.portal.Notification" = [ "gtk" ];
+          "org.freedesktop.impl.portal.Secret" = [ "gnome-keyring" ];
+        };
+      };
+
+      # Ensure the GNOME portal backend auto-starts and restarts on crash
+      systemd.user.services.xdg-desktop-portal-gnome = {
+        wantedBy = [ "graphical-session.target" ];
+        serviceConfig = {
+          Restart = "on-failure";
+          RestartSec = 3;
+        };
+      };
+
+      # The niri HM config (homeManagerModules/niri/niriConfig.nix) uses hyprlock
+      # as the fallback screen locker when DMS is disabled. hyprlock is installed
+      # via Home Manager, which cannot create the system PAM service — without
+      # /etc/pam.d/hyprlock, unlocking would always fail. Also re-unlocks the
+      # keyring on password screen-unlock (covers fingerprint/U2F greeter logins
+      # where PAM got no password and the keyring stayed locked).
+      security.pam.services.hyprlock = {
+        u2fAuth = true;
+        enableGnomeKeyring = true;
+      };
+
+      # Polkit authentication agent — required for privilege-escalation dialogs
+      # (e.g. NetworkManager adding system-wide connections, fwupd updates).
+      # The niri-flake bundled agent is disabled above; this replaces it.
+      systemd.user.services.polkit-gnome-authentication-agent-1 = {
+        description = "polkit-gnome-authentication-agent-1";
+        wantedBy = [ "graphical-session.target" ];
+        wants = [ "graphical-session.target" ];
+        after = [ "graphical-session.target" ];
+        serviceConfig = {
+          Type = "simple";
+          ExecStart = "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1";
+          Restart = "on-failure";
+          RestartSec = 1;
+          TimeoutStopSec = 10;
+        };
+      };
+
+      environment.systemPackages = with pkgs; [
+        fuzzel
+        grimblast
+        wl-clipboard
+        libnotify
+        xwayland-satellite
+        networkmanagerapplet # nm-applet (NM secret agent for WPA Enterprise) + nm-connection-editor
+      ];
+
+      nix.settings = {
+        substituters = [
+          "https://cache.nixos.org/"
+          "https://niri.cachix.org/"
         ];
-        "org.freedesktop.impl.portal.Access" = [ "gtk" ];
-        "org.freedesktop.impl.portal.FileChooser" = [ "gtk" ];
-        "org.freedesktop.impl.portal.Notification" = [ "gtk" ];
-        "org.freedesktop.impl.portal.Secret" = [ "gnome-keyring" ];
+        trusted-public-keys = [
+          "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+          "niri.cachix.org-1:Wv0OmO7PsuocRKzfDoJ3mulSl7Z6oezYhGhR+3W2964="
+        ];
       };
-    };
-
-    # Ensure the GNOME portal backend auto-starts and restarts on crash
-    systemd.user.services.xdg-desktop-portal-gnome = {
-      wantedBy = [ "graphical-session.target" ];
-      serviceConfig = {
-        Restart = "on-failure";
-        RestartSec = 3;
-      };
-    };
-
-    # The niri HM config (homeManagerModules/niri/niriConfig.nix) uses hyprlock
-    # as the fallback screen locker when DMS is disabled. hyprlock is installed
-    # via Home Manager, which cannot create the system PAM service — without
-    # /etc/pam.d/hyprlock, unlocking would always fail. Also re-unlocks the
-    # keyring on password screen-unlock (covers fingerprint/U2F greeter logins
-    # where PAM got no password and the keyring stayed locked).
-    security.pam.services.hyprlock = {
-      u2fAuth = true;
-      enableGnomeKeyring = true;
-    };
-
-    # Polkit authentication agent — required for privilege-escalation dialogs
-    # (e.g. NetworkManager adding system-wide connections, fwupd updates).
-    # The niri-flake bundled agent is disabled above; this replaces it.
-    systemd.user.services.polkit-gnome-authentication-agent-1 = {
-      description = "polkit-gnome-authentication-agent-1";
-      wantedBy = [ "graphical-session.target" ];
-      wants = [ "graphical-session.target" ];
-      after = [ "graphical-session.target" ];
-      serviceConfig = {
-        Type = "simple";
-        ExecStart = "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1";
-        Restart = "on-failure";
-        RestartSec = 1;
-        TimeoutStopSec = 10;
-      };
-    };
-
-    environment.systemPackages = with pkgs; [
-      fuzzel
-      grimblast
-      wl-clipboard
-      libnotify
-      xwayland-satellite
-      networkmanagerapplet # nm-applet (NM secret agent for WPA Enterprise) + nm-connection-editor
-    ];
-
-    nix.settings = {
-      substituters = [
-        "https://cache.nixos.org/"
-        "https://niri.cachix.org/"
-      ];
-      trusted-public-keys = [
-        "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
-        "niri.cachix.org-1:Wv0OmO7PsuocRKzfDoJ3mulSl7Z6oezYhGhR+3W2964="
-      ];
-    };
-  };
+    })
+  ];
   options.customNixOSModules.niri = {
     enable = lib.mkOption {
       type = lib.types.bool;
