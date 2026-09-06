@@ -2,7 +2,7 @@ name: npins update
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 */6 * * *" # every 6 hours
+    - cron: "0 */72 * * *" # every 72 hours
 permissions:
   contents: "write"
   pull-requests: "write"
