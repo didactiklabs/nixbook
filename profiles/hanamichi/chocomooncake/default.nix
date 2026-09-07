@@ -1,6 +1,5 @@
 { pkgs, ... }:
 let
-  moonfin = import ../../../customPkgs/moonfin.nix { inherit pkgs; };
   pear-desktop = import ../../../customPkgs/pear-desktop.nix { inherit pkgs; };
 in
 {
@@ -13,7 +12,6 @@ in
   home.packages = [
     pkgs.moonlight-qt
     pkgs.anki
-    moonfin
     pear-desktop
   ];
 
@@ -66,7 +64,6 @@ in
 
     # Git (basic, not a dev box but handy)
     gitConfig.enable = true;
-    moonfinConfig.enable = true;
 
     # Sim racing: Oversteer profile for the Fanatec CSL DD / GT DD Pro
     # (requires customNixOSModules.simracing.enable on the host). Base FFB tune

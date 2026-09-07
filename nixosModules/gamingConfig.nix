@@ -9,42 +9,44 @@ let
   # NOTE: Must use direct import here instead of the `sources` module arg,
   # because this is used in `imports` which cannot depend on `config`/_module.args.
   sources = import ../npins;
-  # The upstream package only installs to share/steam/compatibilitytools.d/ but
-  # NixOS's extraCompatPackages uses lib.makeSearchPathOutput "steamcompattool",
-  # requiring a dedicated "steamcompattool" output pointing directly at the tool
-  # directory — matching the pattern used by proton-ge-bin in nixpkgs.
-  proton-cachyos =
-    ((import sources.flake-compat {
+  # Upstream (nix-proton-cachyos) fetches the immutable GitHub release tarball
+  # (proton-cachyos-<ver>-slr-<arch>.tar.xz) with the hash tracked in its own
+  # versions.json, and installs the tool to
+  #   $out/share/steam/compatibilitytools.d/proton-cachyos-slr
+  # with a single `out` output.
+  #
+  # NixOS's `programs.steam.extraCompatPackages` however consumes tools via
+  # `lib.makeSearchPathOutput "steamcompattool"`, so each package must expose a
+  # dedicated `steamcompattool` output pointing straight at the tool directory
+  # (the proton-ge-bin pattern). We therefore wrap the upstream package to add
+  # that output.
+  #
+  # NOTE: we deliberately do NOT override the src hash here anymore. A previous
+  # workaround re-pointed src at the mutable CachyOS pacman mirror
+  # (proton-cachyos-slr-*.pkg.tar.zst) via an npins url pin, but the mirror and
+  # the GitHub release are different artifacts with different hashes, so forcing
+  # the mirror's hash onto the GitHub-release fetch caused a fixed-output hash
+  # mismatch. The GitHub release is immutable, so upstream's pinned hash is
+  # stable and correct on its own.
+  proton-cachyos-upstream =
+    (import sources.flake-compat {
       src = sources.nix-proton-cachyos;
-    }).defaultNix.packages.${pkgs.stdenv.hostPlatform.system}.proton-cachyos
-    ).overrideAttrs
-      (old: {
-        # CachyOS rebuilds the proton-cachyos-slr tarball in place (same version
-        # number, new bytes), so the hash pinned in upstream's versions.json goes
-        # stale and the fixed-output `src` fetch fails with a hash mismatch.
-        # Override the src fetch hash with the one tracked by the npins
-        # `proton-cachyos-slr` url pin (npins/sources.json) instead of hardcoding
-        # it here. To refresh: re-point that pin at the tarball the mirror
-        # currently serves (`npins add --name proton-cachyos-slr url <tarball>`),
-        # which records the new hash.
-        src = old.src.overrideAttrs (_: {
-          outputHash = sources.proton-cachyos-slr.hash;
-        });
+    }).defaultNix.packages.${pkgs.stdenv.hostPlatform.system}.proton-cachyos;
+
+  proton-cachyos =
+    pkgs.runCommand "proton-cachyos-slr-${proton-cachyos-upstream.version}"
+      {
+        inherit (proton-cachyos-upstream) version;
         outputs = [
           "out"
           "steamcompattool"
         ];
-        installPhase = ''
-          runHook preInstall
-          tar -I zstd -xf $src
-          mkdir -p $steamcompattool
-          cp -r usr/share/steam/compatibilitytools.d/proton-cachyos-slr/* $steamcompattool/
-          echo "${
-            old.pname or "proton-cachyos-slr"
-          } should not be installed into environments. Use programs.steam.extraCompatPackages instead." > $out
-          runHook postInstall
-        '';
-      });
+        meta = proton-cachyos-upstream.meta or { };
+      }
+      ''
+        ln -s ${proton-cachyos-upstream}/share/steam/compatibilitytools.d/proton-cachyos-slr $steamcompattool
+        echo "proton-cachyos-slr should not be installed into environments. Use programs.steam.extraCompatPackages instead." > $out
+      '';
 in
 {
   options.customNixOSModules.gamingConfig = {
