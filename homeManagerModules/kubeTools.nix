@@ -12,6 +12,7 @@ let
   crd-wizard = import ../customPkgs/crd-wizard.nix { inherit pkgs; };
   kratix-cli = import ../customPkgs/kratix-cli.nix { inherit pkgs; };
   lfk = import ../customPkgs/lfk.nix { inherit pkgs; };
+  sofka = import ../customPkgs/sofka.nix { inherit pkgs; };
 in
 {
   options.customHomeManagerModules = {
@@ -47,6 +48,7 @@ in
             - crd-wizard — CRD visualisation dashboard (Shift-E in k9s)
             - kratix-cli — CLI to build Kratix Promises (kratix)
             - lfk        — Lightning Fast Kubernetes navigator (yazi-inspired TUI)
+            - sofka      — Kubernetes TUI reimagined in Rust (ki alias)
             - sou       — container image analysis wrapper
 
           Others:
@@ -56,6 +58,7 @@ in
 
         Also sets:
           - k=kubectl shell alias
+          - ki=sofka shell alias
           - pctl=cli shell alias
           - kubectl and songbird Zsh completions
 
@@ -153,6 +156,7 @@ in
         paralus-cli
         crd-wizard
         lfk
+        sofka
         # Kubernetes package managers
         kubernetes-helm
         clusterctl
@@ -169,6 +173,7 @@ in
         '';
         shellAliases = {
           k = "kubectl";
+          ki = "sofka";
           pctl = "cli";
         };
       };

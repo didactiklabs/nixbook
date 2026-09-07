@@ -137,7 +137,6 @@ hive.nix                          Colmena deployment config
 - `desktopApps.nix` (63 LOC) - Firefox, Dolphin, MPV, imv, zathura setup
 - `desktopEntriesConfig.nix` (~75 LOC) - Hides non-user-facing launcher entries via `NoDisplay=true` hiPrio desktop-item packages that shadow the originals in the user profile. Enabled by default. Hides kvantummanager, fcitx5 daemon/helpers/config GUIs (org.fcitx.Fcitx5, Lotus settings, qt5/qt6 wrappers, migrator, config-qt, configtool, wayland-launcher, kcm_fcitx5), KDE Connect daemon/handler/nonplasma/sms, geoclue demos, pinentry-qt, nm-connection-editor, nixos-manual, xdg-desktop-portal-gnome/gtk, khal, umpv, imv-dir, kbd-layout-viewer5, org.quickshell, schnelle-umlaute-editor. System-wide qt5ct/qt6ct are hidden separately in nixosModules/userConfig.nix
 - `dolphinConfig.nix` (31 LOC) - File manager configuration
-- `moonfinConfig.nix` (~35 LOC) - Moonfin (Jellyfin/Emby client): deploys settings.json with pre-configured server URL (default: https://jellyfin.bealv.io). Flutter app with native Wayland support
 - `mpvConfig.nix` (34 LOC) - Media player configuration
 - `thunderbirdConfig.nix` (34 LOC) - Email client configuration
 
@@ -351,7 +350,6 @@ npins/ → dependency sources
 | `songbird`   | v0.4.0  | Custom utility                                          |
 | `witr`       | v0.3.1  | Custom utility                                          |
 | `kl`         | v0.6.1  | Interactive Kubernetes log viewer (frozen)              |
-| `moonfin`    | v2.2.0  | Jellyfin & Emby media client (Flutter, Wayland)         |
 
 ## Dependencies & Pinning (36 total)
 
@@ -379,7 +377,7 @@ npins/ → dependency sources
 - `flake-compat` - Flake compatibility layer
 - `99` - ThePrimeagen's 99 NixVim plugin
 
-**Custom Package Sources:** ginx, goji, ytui, jtui, crd-wizard, lfk, pvmigrate (frozen), rtk, songbird, witr, kl (frozen), opencode-manager (main), moonfin (built from source via npins Moonfin-Core pin, flutter344)
+**Custom Package Sources:** ginx, goji, ytui, jtui, crd-wizard, lfk, pvmigrate (frozen), rtk, songbird, witr, kl (frozen), opencode-manager (main)
 
 ## Assets (39 files)
 

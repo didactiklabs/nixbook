@@ -5,7 +5,6 @@
   ...
 }:
 let
-  moonfin = import ../../../customPkgs/moonfin.nix { inherit pkgs; };
 in
 {
   imports = [
@@ -24,7 +23,6 @@ in
     pkgs.kanidm_1_9
     pkgs.oapi-codegen
     pkgs.spotify
-    moonfin
   ];
 
   xdg.mimeApps.defaultApplications = {
@@ -64,6 +62,5 @@ in
       enable = true;
       showDock = false;
     };
-    moonfinConfig.enable = true;
   };
 }

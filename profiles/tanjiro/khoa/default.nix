@@ -12,7 +12,6 @@ let
     (import sources.flake-compat {
       src = sources.globalprotect-openconnect;
     }).defaultNix.packages.${pkgs.stdenv.hostPlatform.system}.fromSource;
-  moonfin = import ../../../customPkgs/moonfin.nix { inherit pkgs; };
   pear-desktop = import ../../../customPkgs/pear-desktop.nix { inherit pkgs; };
 in
 {
@@ -34,7 +33,6 @@ in
     pkgs.zoom-us
     pkgs.element-desktop
     globalprotect-openconnect
-    moonfin
     pear-desktop
   ];
   programs = {
@@ -105,6 +103,5 @@ in
       email = "vhvictorhang@gmail.com";
       baseUrl = "https://pass.bealv.io";
     };
-    moonfinConfig.enable = true;
   };
 }
