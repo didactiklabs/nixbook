@@ -11,7 +11,6 @@ let
   pvmigrate = import ../customPkgs/pvmigrate.nix { inherit pkgs; };
   crd-wizard = import ../customPkgs/crd-wizard.nix { inherit pkgs; };
   kratix-cli = import ../customPkgs/kratix-cli.nix { inherit pkgs; };
-  lfk = import ../customPkgs/lfk.nix { inherit pkgs; };
   sofka = import ../customPkgs/sofka.nix { inherit pkgs; };
 in
 {
@@ -47,7 +46,6 @@ in
             - pvmigrate — Proxmox VM migration tool
             - crd-wizard — CRD visualisation dashboard (Shift-E in k9s)
             - kratix-cli — CLI to build Kratix Promises (kratix)
-            - lfk        — Lightning Fast Kubernetes navigator (yazi-inspired TUI)
             - sofka      — Kubernetes TUI reimagined in Rust (ki alias)
             - sou       — container image analysis wrapper
 
@@ -155,7 +153,6 @@ in
         kubectl-explore
         paralus-cli
         crd-wizard
-        lfk
         sofka
         # Kubernetes package managers
         kubernetes-helm
