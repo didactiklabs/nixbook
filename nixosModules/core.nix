@@ -289,7 +289,7 @@ in
       bluetooth = {
         enable = true;
         powerOnBoot = false;
-        package = pkgs.bluez-stable;
+        package = pkgs.bluez;
       };
       uinput.enable = true;
     };
