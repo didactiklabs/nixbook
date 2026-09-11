@@ -8,10 +8,10 @@ let
   sources = import ../../../npins;
   # Use the `fromSource` output: the `default`/`prebuilt` outputs download a
   # release binary whose fixed-output hash is currently broken upstream.
-  globalprotect-openconnect =
-    (import sources.flake-compat {
-      src = sources.globalprotect-openconnect;
-    }).defaultNix.packages.${pkgs.stdenv.hostPlatform.system}.fromSource;
+  # globalprotect-openconnect =
+  #   (import sources.flake-compat {
+  #     src = sources.globalprotect-openconnect;
+  #   }).defaultNix.packages.${pkgs.stdenv.hostPlatform.system}.fromSource;
   pear-desktop = import ../../../customPkgs/pear-desktop.nix { inherit pkgs; };
 in
 {
@@ -32,7 +32,7 @@ in
     pkgs.jira-cli-go
     pkgs.zoom-us
     pkgs.element-desktop
-    globalprotect-openconnect
+    # globalprotect-openconnect
     pear-desktop
   ];
   programs = {
