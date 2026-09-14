@@ -62,10 +62,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "v0.1.9",
-      "revision": "70f1a97810ef984ce632773dcb73ea2575b19720",
-      "url": "https://api.github.com/repos/pehlicd/crd-wizard/tarball/refs/tags/v0.1.9",
-      "hash": "sha256-nUbueHEXFPssHw4hGoIE91WidmFPeoA6Yk9V4HoZgXc="
+      "version": "v0.2.2",
+      "revision": "e7de4b5caa7bea9833525f25f310535443f9d22a",
+      "url": "https://api.github.com/repos/pehlicd/crd-wizard/tarball/refs/tags/v0.2.2",
+      "hash": "sha256-ZXN3ya2N3OGGsm2QB+Ph4bTIkzRzRO2NTO4h1d+3hD8="
     },
     "dankcalendar": {
       "type": "Git",
