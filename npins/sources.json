@@ -76,9 +76,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "2f811b14f973521a67af7c71a6a26a9cc42cdada",
-      "url": "https://github.com/AvengeMedia/dankcalendar/archive/2f811b14f973521a67af7c71a6a26a9cc42cdada.tar.gz",
-      "hash": "sha256-lpgXRZ3SUtTBBsk3/hqlRtva82aI7dHxzbQsunj7oIY="
+      "revision": "f4673822cd43bb3db1e75025c2412c85cc3c8ad0",
+      "url": "https://github.com/AvengeMedia/dankcalendar/archive/f4673822cd43bb3db1e75025c2412c85cc3c8ad0.tar.gz",
+      "hash": "sha256-IIGqpoDvkQflZOZ8aJIHfVR/kahk3Lix3mq6j/DvbhQ="
     },
     "disko": {
       "type": "GitRelease",
@@ -459,9 +459,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "793b8a2a53bc7cfe021bddc75b260f2b00c9672f",
-      "url": "https://github.com/nklmilojevic/sofka/archive/793b8a2a53bc7cfe021bddc75b260f2b00c9672f.tar.gz",
-      "hash": "sha256-BMevL6un7InPCrhWmyEgY4UlooHe6oVGL/jRu/FmCxo="
+      "revision": "de3b72927e636feae8be302283854505430c1c3f",
+      "url": "https://github.com/nklmilojevic/sofka/archive/de3b72927e636feae8be302283854505430c1c3f.tar.gz",
+      "hash": "sha256-sgUccRCWhZ+QcSyxDF4ZFqkgPjBMwJt+aBXHwEw8low="
     },
     "songbird": {
       "type": "GitRelease",
