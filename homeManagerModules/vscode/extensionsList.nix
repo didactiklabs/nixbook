@@ -15,8 +15,8 @@
     {
       name = "vscode-eslint";
       publisher = "dbaeumer";
-      version = "3.0.24";
-      sha256 = "sha256-ZQVzpSSLf3tpO4QtLjbCOje3L5/EqzT9A9IOssl6e54=";
+      version = "3.0.34";
+      sha256 = "sha256-ynCPFzne4YS4WNjQSmGky+e2IaE3SLxj6FkjKyLPcAs=";
     }
     {
       name = "shell-format";
@@ -33,14 +33,14 @@
     {
       name = "go";
       publisher = "golang";
-      version = "0.52.2";
-      sha256 = "sha256-8g+r4Mv06Bx1W3yAXWVbtz1B/gXPcRdmaV0tPkTP6Gk=";
+      version = "0.56.1";
+      sha256 = "sha256-RTZdpdEoTzUYspSfIYSB8envYiGz2Zmi4wgsy7Yeh0s=";
     }
     {
       name = "nix-ide";
       publisher = "jnoortheen";
-      version = "0.5.5";
-      sha256 = "sha256-epdEMPAkSo0IXsd+ozicI8bjPPquDKIzB3ONRUYWwn8=";
+      version = "0.5.13";
+      sha256 = "sha256-0pMMnYFX+Ghs42Tvfcv9QqwhrEhCjIa7+6xJ51Fa0Dk=";
     }
     {
       name = "nixfmt-vscode";
@@ -63,8 +63,8 @@
     {
       name = "marp-vscode";
       publisher = "marp-team";
-      version = "3.4.1";
-      sha256 = "sha256-SS9GMib7ixL/KuMbavUVcOW6EBxxLN83ujg+clrTKrs=";
+      version = "3.6.1";
+      sha256 = "sha256-+MGi8j/4PsmURnRTRi0Q4ogLsjEtiPm+FyuLlK3uK44=";
     }
     {
       name = "dotenv";
@@ -87,8 +87,8 @@
     {
       name = "vsliveshare";
       publisher = "ms-vsliveshare";
-      version = "1.0.5959";
-      sha256 = "sha256-MibP2zqTwlXXVsXQOSuoi5SO8BskJC/AihrhJFg8tac=";
+      version = "1.1.122";
+      sha256 = "sha256-XD8iLG8HA9u5Y4CKQKLnmeAN4IFf1LGDvhTKuroxkHg=";
     }
     {
       name = "color-highlight";
@@ -99,8 +99,8 @@
     {
       name = "material-icon-theme";
       publisher = "pkief";
-      version = "5.33.1";
-      sha256 = "sha256-GWHWEdi2kPkxS0RGAxFcy+njFCl1iiEBu41V/5sHqvc=";
+      version = "5.38.1";
+      sha256 = "sha256-+nUVgxotaLH3i9At5A+WJgv+dO+wOiOMK95wJl4EtpY=";
     }
     {
       name = "material-product-icons";
@@ -111,8 +111,8 @@
     {
       name = "vscode-yaml";
       publisher = "redhat";
-      version = "1.21.0";
-      sha256 = "sha256-55PBCTV6NJL+JVH+19vIoA5GKMDD8uB7z9OCOb+GjZM=";
+      version = "1.24.0";
+      sha256 = "sha256-Bmh1gxKn+mvtolnKWmhJ2QxdUZ32QV7b4kbBNeBtcWg=";
     }
     {
       name = "jinjahtml";
@@ -123,8 +123,8 @@
     {
       name = "trailing-spaces";
       publisher = "shardulm94";
-      version = "0.4.1";
-      sha256 = "sha256-pLE1bfLRxjlm/kgU9nmtiPBOnP05giQnWq6bexrrIZY=";
+      version = "0.4.4";
+      sha256 = "sha256-L2WM021Jyyovy8KElkIspXc0MdHC9APsbPdX5hK4CIM=";
     }
     {
       name = "even-better-toml";
@@ -135,8 +135,8 @@
     {
       name = "ayu";
       publisher = "teabyii";
-      version = "1.1.11";
-      sha256 = "sha256-0gfevhXxrZC2rpWIaZM7aNfZrh/KIjoDWkZreeVU+EI=";
+      version = "1.1.12";
+      sha256 = "sha256-pwLvik3GRMLyr6GeTmZh1MrkgH1MgbyoembNmQxg4I0=";
     }
     {
       name = "pdf";
@@ -147,8 +147,8 @@
     {
       name = "vscode-icons";
       publisher = "vscode-icons-team";
-      version = "12.17.0";
-      sha256 = "sha256-pNLj/Hv0XbcB2dCBVJJDNd8omUV3KIRpgeoHOkPpz1M=";
+      version = "12.19.0";
+      sha256 = "sha256-aJEJVFkjSAm5xRYYUPLavJGoCz7KLa9ZnQUKiLRV6WA=";
     }
     {
       name = "jinja";
@@ -159,8 +159,8 @@
     {
       name = "markdown-mermaid";
       publisher = "bierner";
-      version = "1.32.0";
-      sha256 = "sha256-1LlRTkskBAlYV+fq3GVyOUGYXbILvKIByBu2uKwTUUc=";
+      version = "1.32.1";
+      sha256 = "sha256-bH8JBZOfj2Km5/tfaiSzrkOl2kOU+XwZcuWOpU9iVEM=";
     }
     {
       name = "markdown-all-in-one";
@@ -171,20 +171,20 @@
     {
       name = "gitlens";
       publisher = "eamodio";
-      version = "17.11.1";
-      sha256 = "sha256-ili2dj/sDltCrZ8mZVKO80KCHMuD+rGx0njVcm33YvA=";
+      version = "19.1.0";
+      sha256 = "sha256-+J5WU7qfV//I8yqHcfWtnpYi0JCrOb3P2MFWJcrFaM4=";
     }
     {
       name = "copilot-chat";
       publisher = "github";
-      version = "0.41.2";
-      sha256 = "sha256-oXu2Uv6sNP9eV1kut/TBnbYX2GG1wg4o4XUf7G+Zj/8=";
+      version = "0.48.1";
+      sha256 = "sha256-eFLfYMFxvgtZtmwLsxfneMjD4jOg8/Uk0Eu/6+A6odY=";
     }
     {
       name = "terraform";
       publisher = "hashicorp";
-      version = "2.39.2";
-      sha256 = "sha256-Lb20IdQcroJ/9Jn+epcIDvciFb/GDmklR9pDzrC5JbQ=";
+      version = "2.40.0";
+      sha256 = "sha256-PXcKAo8YgF3f5If0uNNMEm6nmFQ+7w0IKx6qBmyZA8w=";
     }
     {
       name = "vscode-task";

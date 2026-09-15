@@ -6,6 +6,20 @@
 }:
 let
   cfg = config.customHomeManagerModules.vscode;
+  # nixpkgs-unstable's VSCode (>= 1.131) can't fetch its Oniguruma WASM in this
+  # environment, breaking ALL TextMate syntax highlighting. Pin VSCode to the last
+  # nixpkgs revision where it works (1.130.0, Copilot-compatible). Frozen fetchTarball
+  # so `npins update` can't bump it back. Revert to pkgs.vscode once upstream fixes it.
+  pkgsVscode =
+    import
+      (builtins.fetchTarball {
+        url = "https://github.com/NixOS/nixpkgs/archive/148bab9c1c3c53136ecb44a6ea356a0ed5b39b06.tar.gz";
+        sha256 = "130q3prp2m6863lzc7rhv6ak42g1xr4hhpn7mccp979aqk4fr11a";
+      })
+      {
+        inherit (pkgs.stdenv.hostPlatform) system;
+        config.allowUnfree = true;
+      };
 in
 {
   options.customHomeManagerModules.vscode = {
@@ -55,8 +69,12 @@ in
     ];
     programs.vscode = {
       enable = true;
+      package = pkgsVscode.vscode;
       profiles.default.extensions = import ./mkAllExtensions.nix { inherit pkgs; };
       mutableExtensionsDir = false;
+      # Write settings.json as a writable file so VSCode can persist runtime
+      # changes (avoids "EROFS: read-only file system" on the store symlink).
+      profiles.default.mutableUserSettings = true;
       profiles.default.userSettings = {
         "emeraldwalk.runonsave" = {
           "commands" = [
