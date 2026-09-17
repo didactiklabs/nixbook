@@ -225,9 +225,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "cda90fd8838825c689fde9d3f3b4e937937790df",
-      "url": "https://github.com/nix-community/home-manager/archive/cda90fd8838825c689fde9d3f3b4e937937790df.tar.gz",
-      "hash": "sha256-t+U1mijItLJ64xZOifpfQ17kpAL73nU7pDI48ScacVc="
+      "revision": "ac84366d68d5d79ea1bb8c2cec30917527f92fbd",
+      "url": "https://github.com/nix-community/home-manager/archive/ac84366d68d5d79ea1bb8c2cec30917527f92fbd.tar.gz",
+      "hash": "sha256-ICTfpiJGmdTqIak5YEmRwdATy1JqzpWhagmifpkUlgg="
     },
     "jtui": {
       "type": "GitRelease",
@@ -329,9 +329,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "d40fd26f323c898b0c195d41aa5efadd85f57832",
-      "url": "https://github.com/NixOS/nixos-hardware/archive/d40fd26f323c898b0c195d41aa5efadd85f57832.tar.gz",
-      "hash": "sha256-xV9fcqtH6jJLVBF3ocqBBwZkPKEke+BujhEwT4Ye9Tc="
+      "revision": "c9b56a2497c22c90884388ba476900cbe45de808",
+      "url": "https://github.com/NixOS/nixos-hardware/archive/c9b56a2497c22c90884388ba476900cbe45de808.tar.gz",
+      "hash": "sha256-Jd7AoNhd9EkvS1YqjwdwncTMFT/YMxmYYI2GsyEBVCo="
     },
     "nixpkgs": {
       "type": "Git",
@@ -420,9 +420,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "86b4275879b32bf58dc89035452313919cd89bd2",
-      "url": "https://github.com/quickshell-mirror/quickshell/archive/86b4275879b32bf58dc89035452313919cd89bd2.tar.gz",
-      "hash": "sha256-aTC/VZh0Qj7FN1ej9HGp31mGVA27T7BZ+vMhxDVY77U="
+      "revision": "c6a516096dd84d5255b409482eb4bf740b952f88",
+      "url": "https://github.com/quickshell-mirror/quickshell/archive/c6a516096dd84d5255b409482eb4bf740b952f88.tar.gz",
+      "hash": "sha256-J1n+c46qiTmV6gNDqndbhrfDR2R47QLXQNFrf1idTvM="
     },
     "rtk": {
       "type": "GitRelease",
@@ -449,9 +449,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "9c72e6db1fc10cdb18e5ef01e31c1f4951e197e0",
-      "url": "https://github.com/oxalica/rust-overlay/archive/9c72e6db1fc10cdb18e5ef01e31c1f4951e197e0.tar.gz",
-      "hash": "sha256-Slc8gCNYzyuq2f0NIACIYxl55ZeeGcy0SN6LAwixDkY="
+      "revision": "89e99bf0778a8f2cd18c9360c3f19c1ee47fc739",
+      "url": "https://github.com/oxalica/rust-overlay/archive/89e99bf0778a8f2cd18c9360c3f19c1ee47fc739.tar.gz",
+      "hash": "sha256-Aggle++fTyAifBy+QBPxjM+obO5iepKW/8MDxQtgGvI="
     },
     "schnelle-umlaute": {
       "type": "Git",
@@ -475,9 +475,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "de3b72927e636feae8be302283854505430c1c3f",
-      "url": "https://github.com/nklmilojevic/sofka/archive/de3b72927e636feae8be302283854505430c1c3f.tar.gz",
-      "hash": "sha256-sgUccRCWhZ+QcSyxDF4ZFqkgPjBMwJt+aBXHwEw8low="
+      "revision": "fa3e8684a0b9ebc7cf6ff8595a935093081f1832",
+      "url": "https://github.com/nklmilojevic/sofka/archive/fa3e8684a0b9ebc7cf6ff8595a935093081f1832.tar.gz",
+      "hash": "sha256-YnqqW9PP2akQZj0wG1A5dqqK9detqxT6Y9CYhkGIl5g="
     },
     "songbird": {
       "type": "GitRelease",
