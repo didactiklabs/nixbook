@@ -6,6 +6,7 @@
 }:
 let
   cfg = config.customHomeManagerModules.devTools;
+  openchoreo-cli = import ../customPkgs/openchoreo-cli.nix { inherit pkgs; };
 in
 {
   options.customHomeManagerModules.devTools = {
@@ -41,6 +42,7 @@ in
             - go-task      — Makefile alternative (Taskfile)
             - runme        — runnable Markdown notebooks
             - npins        — Nix dependency pinning tool
+            - openchoreo-cli — OpenChoreo internal developer platform CLI (occ)
       '';
     };
   };
@@ -87,6 +89,7 @@ in
       go-task
       runme
       npins
+      openchoreo-cli
     ];
   };
 }

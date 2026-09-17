@@ -372,6 +372,22 @@
       "url": "https://github.com/nix-community/nixvim/archive/afcfb8c1dc075881bbaa6fa5745aebbdb179f8b8.tar.gz",
       "hash": "sha256-ezmg5oQSZWYdmomx6K1J+/6w7dRc7bquDMggc8eAE28="
     },
+    "openchoreo": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "openchoreo",
+        "repo": "openchoreo"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": null,
+      "submodules": false,
+      "version": "v1.2.5",
+      "revision": "fdd3a9ae512e26908958fc05cd6136466bfaf17b",
+      "url": "https://api.github.com/repos/openchoreo/openchoreo/tarball/refs/tags/v1.2.5",
+      "hash": "sha256-oaIAW61L8nxJefmpGLZlcpAZ09BStuVxIhFINbc7Ioo="
+    },
     "pear-desktop": {
       "type": "Url",
       "url": "https://github.com/pear-devs/pear-desktop/releases/download/v3.11.0/YouTube-Music-3.11.0.AppImage",

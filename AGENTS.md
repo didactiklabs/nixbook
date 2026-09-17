@@ -114,7 +114,7 @@ hive.nix                          Colmena deployment config
 
 **Development:**
 
-- `devTools.nix` (86 LOC) - Languages and dev tools
+- `devTools.nix` (86 LOC) - Languages and dev tools (includes `occ`, the OpenChoreo platform CLI)
 - `goji.nix` (259 LOC) - AI-powered conventional commits with emoji support
 - `nixvim/` - NeoVim with 25 plugins (28 files, 1,249 LOC): LSP, Treesitter, Telescope, neo-tree, etc.
 - `opencodeConfig.nix` (48 LOC) - OpenCode AI coding assistant: gemini-auth + anthropic-oauth plugins
@@ -337,18 +337,19 @@ npins/ → dependency sources
 
 ## Custom Packages (12 total)
 
-| Package      | Version | Purpose                                               |
-| ------------ | ------- | ----------------------------------------------------- |
-| `rtk`        | v0.31.0 | CLI proxy for 60-90% LLM token reduction              |
-| `ginx`       | main    | Run Nix code from git repos                           |
-| `goji`       | 0.2.1   | Conventional commits with AI/emoji support            |
-| `ytui`       | main    | YouTube video query and playback TUI                  |
-| `jtui`       | v1.0.0  | JSON viewer TUI                                       |
-| `crd-wizard` | v0.1.9  | Kubernetes CRD visualization dashboard                |
-| `pvmigrate`  | v0.12.2 | Migrate PersistentVolumeClaims between StorageClasses |
-| `songbird`   | v0.4.0  | Custom utility                                        |
-| `witr`       | v0.3.1  | Custom utility                                        |
-| `kl`         | v0.6.1  | Interactive Kubernetes log viewer (frozen)            |
+| Package          | Version | Purpose                                               |
+| ---------------- | ------- | ----------------------------------------------------- |
+| `rtk`            | v0.31.0 | CLI proxy for 60-90% LLM token reduction              |
+| `ginx`           | main    | Run Nix code from git repos                           |
+| `goji`           | 0.2.1   | Conventional commits with AI/emoji support            |
+| `ytui`           | main    | YouTube video query and playback TUI                  |
+| `jtui`           | v1.0.0  | JSON viewer TUI                                       |
+| `crd-wizard`     | v0.1.9  | Kubernetes CRD visualization dashboard                |
+| `pvmigrate`      | v0.12.2 | Migrate PersistentVolumeClaims between StorageClasses |
+| `songbird`       | v0.4.0  | Custom utility                                        |
+| `witr`           | v0.3.1  | Custom utility                                        |
+| `kl`             | v0.6.1  | Interactive Kubernetes log viewer (frozen)            |
+| `openchoreo-cli` | v1.2.5  | OpenChoreo internal developer platform CLI (occ)      |
 
 ## Dependencies & Pinning (36 total)
 
@@ -376,7 +377,7 @@ npins/ → dependency sources
 - `flake-compat` - Flake compatibility layer
 - `99` - ThePrimeagen's 99 NixVim plugin
 
-**Custom Package Sources:** ginx, goji, ytui, jtui, crd-wizard, pvmigrate (frozen), rtk, songbird, witr, kl (frozen), opencode-manager (main)
+**Custom Package Sources:** ginx, goji, ytui, jtui, crd-wizard, pvmigrate (frozen), rtk, songbird, witr, kl (frozen), opencode-manager (main), openchoreo (v1.2.5)
 
 ## Assets (39 files)
 
