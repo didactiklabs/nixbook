@@ -33,22 +33,22 @@ in
           - Audio wavelength visualiser via cava
           - Calendar event integration via khal
           - Systemd user service with auto-restart on config change
+          - Native low (20%) / critical (10%) battery notifications
 
         Bar layout (single "Main Bar" on all screens):
-          Left:   launcherButton, nixosUpdate, workspaceSwitcher,
-                  focusedWindow, idleInhibitor
-          Centre: music, clock, weather, opencodeUsage
-          Right:  systemTray, vpnStatus, cpuUsage, notificationButton,
-                  dankKDEConnect, battery, controlCenterButton,
-                  powerMenuButton, sathiAi
+          Left:   launcherButton, nixosUpdate, workspaceSwitcher, focusedWindow
+          Centre: music, clock, weather, opencodeUsage, githubNotifierCustom
+          Right:  systemTray, markets, vpnStatus, cpuUsage, notificationButton,
+                  dankKDEConnect, controlCenterButton, sathiAi
 
         Plugins bundled:
-          - dankBatteryAlerts     — low battery notifications
+          - markets               — market ticker widget
           - dankGifSearch         — GIF search widget
           - dankStickerSearch     — sticker search widget
           - dankKDEConnect        — KDE Connect integration (auto-enabled with kdeconnect)
           - vpnStatus             — Tailscale/NetBird VPN indicator (custom, from assets/)
           - sathiAi               — AI assistant widget
+          - githubNotifierCustom  — GitHub notification indicator (custom, from assets/)
           - opencodeUsage         — OpenCode token usage display (when opencodeConfig enabled)
           - nixosUpdate           — NixOS update trigger widget (calls osupdate via systemd)
 
@@ -127,6 +127,13 @@ in
         matugenScheme = "scheme-vibrant";
         osdAlwaysShowValue = true;
         osdPowerProfileEnabled = true;
+        # Low/critical battery notifications. These are built into DMS core;
+        # the former dankBatteryAlerts registry plugin was removed upstream
+        # once the feature was merged into the shell itself.
+        batteryNotifyLow = true;
+        batteryLowThreshold = 20;
+        batteryNotifyCritical = true;
+        batteryCriticalThreshold = 10;
         dockTransparency = 0.7;
         dockBottomGap = -15;
         dockMargin = 5;
@@ -275,7 +282,6 @@ in
       managePluginSettings = false;
       plugins = {
         markets.enable = true;
-        dankBatteryAlerts.enable = true;
         dankGifSearch.enable = true;
         dankStickerSearch.enable = true;
         dankKDEConnect.enable = config.services.kdeconnect.enable;

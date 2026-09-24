@@ -11,7 +11,7 @@ pkgs.buildGoModule {
 
   src = openchoreoSrc;
 
-  vendorHash = "sha256-5MvPrLUqNdxbcHJUZlhsExqYOZix5UN6/Et21KmOkxs=";
+  vendorHash = "sha256-tls+RdK5XiuiImql+LHn+y+G9p+fsC6C4RDkW7f0/2M=";
 
   subPackages = [ "cmd/occ" ];
 
