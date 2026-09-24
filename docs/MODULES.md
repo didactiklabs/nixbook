@@ -9,6 +9,7 @@
 
 - [caCertificates](#cacertificates)
 - [core](#core)
+- [fcitx5-lotus](#fcitx5-lotus)
 - [firewall](#firewall)
 - [gamingConfig](#gamingconfig)
 - [getRevision](#getrevision)
@@ -33,6 +34,7 @@
 - [atuinConfig](#atuinconfig)
 - [cliTools](#clitools)
 - [desktopApps](#desktopapps)
+- [desktopEntriesConfig](#desktopentriesconfig)
 - [devTools](#devtools)
 - [dmsConfig](#dmsconfig)
 - [fastfetchConfig](#fastfetchconfig)
@@ -50,6 +52,7 @@
 - [niriConfig](#niriconfig)
 - [nixvimConfig](#nixvimconfig)
 - [opencodeConfig](#opencodeconfig)
+- [oversteerConfig](#oversteerconfig)
 - [rbwConfig](#rbwconfig)
 - [rtk](#rtk)
 - [sshConfig](#sshconfig)
@@ -104,7 +107,32 @@ Whether to install the RPCU internal CA certificate system-wide. Adds assets/cer
 - **Type:** `boolean`
 - **Default:** `true`
 
-Whether to enable the core NixOS module. This is the foundational system module that configures: - Boot: systemd-boot UEFI loader, plymouth splash screen, latest kernel, LVM support, LUKS dm-crypt modules, keyboard backlight on initrd, IOMMU - Kernel hardening: sysctl security settings (restrict BPF, perf events, ICMP redirects, source routing, suid dumps, etc.) - Locale: Europe/Paris timezone, en*US locale with fr_FR LC* settings, French keyboard layout - Audio: PipeWire with ALSA and PulseAudio compatibility (PulseAudio disabled) - Hardware: firmware, Intel/AMD CPU microcode, Bluetooth (bluez), uinput - Security: rtkit, polkit, U2F PAM (login + sudo), passwordless sudo for wheel - XDG portals: wlr portal enabled for Wayland screen sharing - Nix daemon: lix package, weekly GC (7d retention), store optimisation at 03:45, nix-command + flakes features, custom S3 binary cache, OOM-managed nix-daemon slice - Display: xserver disabled (Wayland-only), fonts dir enabled - Env: NIXOS_OZONE_WL=1, NIXPKGS_ALLOW_UNFREE=1 - System state version: 24.05
+Whether to enable the core NixOS module. This is the foundational system module that configures: - Boot: systemd-boot UEFI loader, plymouth splash screen, latest kernel, LVM support, LUKS dm-crypt modules, keyboard backlight on initrd, IOMMU, NTFS + exFAT filesystem support for external drives - Kernel hardening: sysctl security settings (restrict BPF, perf events, ICMP redirects, source routing, suid dumps, etc.) - Locale: Europe/Paris timezone, en*US locale with fr_FR LC* settings, French keyboard layout - Audio: PipeWire with ALSA and PulseAudio compatibility (PulseAudio disabled) - Hardware: firmware, Intel/AMD CPU microcode, Bluetooth (bluez), uinput - Security: rtkit, polkit, U2F PAM (login + sudo), passwordless sudo for wheel - XDG portals: wlr portal enabled for Wayland screen sharing - Nix daemon: lix package, weekly GC (7d retention), store optimisation at 03:45, nix-command + flakes features, custom S3 binary cache, OOM-managed nix-daemon slice - Display: xserver disabled (Wayland-only), fonts dir enabled - Env: NIXOS_OZONE_WL=1, NIXPKGS_ALLOW_UNFREE=1 - System state version: 24.05
+
+---
+
+## fcitx5-lotus
+
+### `customNixOSModules.fcitx5-lotus.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to enable Fcitx5 Lotus — an open-source Vietnamese input method for fcitx5. Unlike a plain fcitx5 addon, Lotus relies on a privileged uinput server that injects key events, so it needs system-level support: a udev rule granting the server access to /dev/uinput, a `uinput_proxy` system user, and a per-user `fcitx5-lotus-server@<user>.service` instance. Set `users` to the list of login users that should get a Lotus server. The Lotus fcitx5 addon is added to i18n.inputMethod.fcitx5.addons, so add "lotus" to the user's fcitx5 input-method group to use it. https://github.com/LotusInputMethod/fcitx5-lotus .
+
+### `customNixOSModules.fcitx5-lotus.package`
+
+- **Type:** `package`
+- **Default:** `"/nix/store/xxpxdq4ma5dh626dc2f040v9cx17nyxh-fcitx5-lotus-3.5.9"`
+
+The fcitx5-lotus package to install.
+
+### `customNixOSModules.fcitx5-lotus.users`
+
+- **Type:** `list of string`
+- **Default:** `[]`
+
+Login users to start a system-level fcitx5-lotus-server instance for. Each user gets one fcitx5-lotus-server@<user>.service.
 
 ---
 
@@ -257,7 +285,7 @@ Whether to enable printing and scanning support. Configures a full CUPS + SANE s
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable sim racing hardware support. This module provides comprehensive configuration for direct-drive wheelbases and sim racing peripherals, primarily targeting Moza Racing hardware: - Moza udev rules for serial (Foxblat config), HID (FFB), and USB - Foxblat — Linux Moza configuration tool (fork of boxflat, Pit House alt) - Oversteer — generic steering wheel manager (rotation, FFB gain, autocenter, combine pedals, etc.) - Joystick and FFB testing utilities (evtest, fftest, jstest) - USB autosuspend disabled for Moza devices to prevent drops - CDC ACM kernel module for Moza serial communication The kernel PIDFF (PID Force Feedback) driver handles all FFB for Moza and other direct-drive wheelbases natively since kernel 6.15+. Used on: anya (gaming/streaming desktop). Reference: https://github.com/JacKeTUs/universal-pidff Reference: https://github.com/giantorth/foxblat (fork of Lawstorant/boxflat)
+Whether to enable sim racing hardware support. This module provides comprehensive configuration for direct-drive wheelbases and sim racing peripherals, targeting Moza Racing (VID 346e) and Fanatec (VID 0eb7) hardware: - Moza & Fanatec udev rules for serial (Foxblat config), HID (FFB), USB, and input device access - Foxblat — Linux Moza configuration tool (fork of boxflat, Pit House alt) - Oversteer — generic steering wheel manager (rotation, FFB gain, autocenter, combine pedals, etc.); also supports Fanatec wheels - Joystick and FFB testing utilities (evtest, fftest, jstest) - USB autosuspend disabled for Moza/Fanatec devices to prevent drops - CDC ACM kernel module for Moza serial communication The kernel PIDFF (PID Force Feedback) driver handles all FFB for Moza, Fanatec, and other direct-drive wheelbases natively since kernel 6.15+. Used on: anya (gaming/streaming desktop), hanamichi (gaming desktop). Reference: https://github.com/JacKeTUs/universal-pidff Reference: https://github.com/giantorth/foxblat (fork of Lawstorant/boxflat)
 
 ---
 
@@ -376,6 +404,17 @@ Whether to enable a curated set of GUI desktop applications. Installs and config
 
 ---
 
+## desktopEntriesConfig
+
+### `customHomeManagerModules.desktopEntriesConfig.enable`
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+Whether to hide desktop launcher entries for non-user-facing utilities, settings tools, background daemons and duplicate launchers (e.g. kvantummanager, fcitx5 daemon/helpers/config GUIs, KDE Connect daemon entries, geoclue demos, pinentry, nm-connection-editor, xdg portals, khal, umpv, imv-dir, kbd-layout-viewer, quickshell, nixos-manual). Implemented via hiPrio desktop-item packages with NoDisplay=true that shadow the originals in the user profile. System-wide qt5ct/qt6ct are hidden separately in nixosModules/userConfig.nix.
+
+---
+
 ## devTools
 
 ### `customHomeManagerModules.devTools.enable`
@@ -383,7 +422,7 @@ Whether to enable a curated set of GUI desktop applications. Installs and config
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable a curated set of development and DevOps tools. Installs: Language runtimes: - python3 Build / Nix tooling: - gnumake, devenv, nix-eval-jobs, nixos-generators Infrastructure-as-Code / deployment: - terraform, minio-client - google-cloud-sdk (with gke-gcloud-auth-plugin for GKE access) Code generation / API: - cobra-cli — Go CLI framework scaffolding - openapi-generator-cli — OpenAPI client/server generator - templ — Go HTML templating compiler - bruno / bruno-cli — open-source API client (Postman alternative) AI assistants: - gemini-cli — Google Gemini CLI - claude-code — Anthropic Claude Code CLI Developer utilities: - devbox — portable development environments via Nix - go-task — Makefile alternative (Taskfile) - runme — runnable Markdown notebooks - npins — Nix dependency pinning tool
+Whether to enable a curated set of development and DevOps tools. Installs: Language runtimes: - python3 Build / Nix tooling: - gnumake, devenv, nix-eval-jobs, nixos-generators Infrastructure-as-Code / deployment: - terraform, minio-client - google-cloud-sdk (with gke-gcloud-auth-plugin for GKE access) Code generation / API: - cobra-cli — Go CLI framework scaffolding - openapi-generator-cli — OpenAPI client/server generator - templ — Go HTML templating compiler - bruno / bruno-cli — open-source API client (Postman alternative) AI assistants: - gemini-cli — Google Gemini CLI - claude-code — Anthropic Claude Code CLI Developer utilities: - devbox — portable development environments via Nix - go-task — Makefile alternative (Taskfile) - runme — runnable Markdown notebooks - npins — Nix dependency pinning tool - openchoreo-cli — OpenChoreo internal developer platform CLI (occ)
 
 ---
 
@@ -394,7 +433,14 @@ Whether to enable a curated set of development and DevOps tools. Installs: Langu
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable DankMaterialShell (DMS) desktop shell. DMS is a Quickshell-based desktop shell providing a customisable top bar and optional dock. It is compositor-agnostic (works with niri, sway, hyprland) and integrates deeply with the rest of this configuration. Features enabled: - System monitoring widgets powered by dgop - Dynamic wallpaper-based theming via matugen (scheme-vibrant) - Audio wavelength visualiser via cava - Calendar event integration via khal - Systemd user service with auto-restart on config change Bar layout (single "Main Bar" on all screens): Left: launcherButton, nixosUpdate, workspaceSwitcher, focusedWindow, idleInhibitor Centre: music, clock, weather, opencodeUsage Right: systemTray, vpnStatus, cpuUsage, notificationButton, dankKDEConnect, battery, controlCenterButton, powerMenuButton, sathiAi Plugins bundled: - dankBatteryAlerts — low battery notifications - dankGifSearch — GIF search widget - dankStickerSearch — sticker search widget - dankKDEConnect — KDE Connect integration (auto-enabled with kdeconnect) - vpnStatus — Tailscale/NetBird VPN indicator (custom, from assets/) - sathiAi — AI assistant widget - opencodeUsage — OpenCode token usage display (when opencodeConfig enabled) - nixosUpdate — NixOS update trigger widget (calls osupdate via systemd) Also registers a nixos-upgrade-manual systemd oneshot service used by the nixosUpdate bar widget to apply system updates without a terminal. When dmsConfig is enabled, stylixConfig forces the tomorrow-night base16 scheme for colour consistency.
+Whether to enable DankMaterialShell (DMS) desktop shell. DMS is a Quickshell-based desktop shell providing a customisable top bar and optional dock. It is compositor-agnostic (works with niri, sway, hyprland) and integrates deeply with the rest of this configuration. Features enabled: - System monitoring widgets powered by dgop - Dynamic wallpaper-based theming via matugen (scheme-vibrant) - Audio wavelength visualiser via cava - Calendar event integration via khal - Systemd user service with auto-restart on config change - Native low (20%) / critical (10%) battery notifications Bar layout (single "Main Bar" on all screens): Left: launcherButton, nixosUpdate, workspaceSwitcher, focusedWindow Centre: music, clock, weather, opencodeUsage, githubNotifierCustom Right: systemTray, markets, vpnStatus, cpuUsage, notificationButton, dankKDEConnect, controlCenterButton, sathiAi Plugins bundled: - markets — market ticker widget - dankGifSearch — GIF search widget - dankStickerSearch — sticker search widget - dankKDEConnect — KDE Connect integration (auto-enabled with kdeconnect) - vpnStatus — Tailscale/NetBird VPN indicator (custom, from assets/) - sathiAi — AI assistant widget - githubNotifierCustom — GitHub notification indicator (custom, from assets/) - opencodeUsage — OpenCode token usage display (when opencodeConfig enabled) - nixosUpdate — NixOS update trigger widget (calls osupdate via systemd) Also registers a nixos-upgrade-manual systemd oneshot service used by the nixosUpdate bar widget to apply system updates without a terminal. When dmsConfig is enabled, stylixConfig forces the tomorrow-night base16 scheme for colour consistency.
+
+### `customHomeManagerModules.dmsConfig.enableDankCalendar`
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+Whether to enable DankCalendar, a standalone calendar application from the Dank Linux Suite. It supports Local, Google, Microsoft, CalDAV, and iCloud calendars with a Quickshell-based UI. When true, the dcal binary and quickshell UI are installed and a systemd user service is registered to keep the calendar daemon running in the background (sync + reminders).
 
 ### `customHomeManagerModules.dmsConfig.enableNixosUpdate`
 
@@ -425,12 +471,54 @@ Whether to enable Fastfetch system information display. Fastfetch is a neofetch-
 
 ## fcitx5Config
 
+### `customHomeManagerModules.fcitx5Config.addons`
+
+- **Type:** `list of package`
+- **Default:** `["/nix/store/psxg9jx9ynz3fwfv2c8zy9n6904yzxn2-fcitx5-mozc-2.30.5544.102","/nix/store/0n3danf5wqdlqbxh39rd7299gkmfyvv5-fcitx5-gtk-5.1.7"]`
+
+Fcitx5 addon packages to install (IME engines and integrations). Defaults to the Japanese Mozc engine plus GTK integration.
+
+### `customHomeManagerModules.fcitx5Config.defaultIM`
+
+- **Type:** `string`
+- **Default:** `"keyboard-us"`
+
+Name of the input method activated by default (should be one of the entries in `inputMethods`).
+
+### `customHomeManagerModules.fcitx5Config.defaultLayout`
+
+- **Type:** `string`
+- **Default:** `"us"`
+
+XKB layout used as the group's default layout.
+
 ### `customHomeManagerModules.fcitx5Config.enable`
 
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable Fcitx5 input method framework with Japanese support. Fcitx5 is a modern input method framework for CJK (Chinese, Japanese, Korean) and other complex scripts on Linux. This configuration: - Input method type: fcitx5 with Wayland frontend - Addons: fcitx5-mozc-ut (Japanese IME with extended dictionary), fcitx5-gtk (GTK integration for application compatibility) - Input group "Default": Item 0: keyboard-us (English/US layout, default) Item 1: mozc (Japanese input, toggled via Ctrl+Space) Environment variables set: - QT_IM_MODULE=fcitx — Qt application input method - XMODIFIERS=@im=fcitx — X11 input method (for XWayland apps) - INPUT_METHOD=fcitx — generic fallback Used on: totoro, nishinoya (machines with Japanese input needs).
+Whether to enable Fcitx5 input method framework. Fcitx5 is a modern input method framework for CJK (Chinese, Japanese, Korean), Vietnamese and other complex scripts on Linux. This configuration: - Input method type: fcitx5 with Wayland frontend - Addons and input methods are configurable via the `addons`, `inputMethods`, `defaultLayout` and `defaultIM` options below. Environment variables set: - QT_IM_MODULE=fcitx — Qt application input method - XMODIFIERS=@im=fcitx — X11 input method (for XWayland apps) - INPUT_METHOD=fcitx — generic fallback Switch input methods at runtime with Ctrl+Space. The trigger key cycles forward through all input methods in the group (not just the last two), via globalOptions.Hotkey.EnumerateWithTriggerKeys. Used on: totoro, nishinoya (Japanese), hanamichi (German + Vietnamese).
+
+### `customHomeManagerModules.fcitx5Config.inputMethods`
+
+- **Type:** `list of string`
+- **Default:** `["keyboard-us","mozc"]`
+
+Ordered list of fcitx5 input-method engine names making up the "Default" input group. The first entry is used as the active default. Common values: - "keyboard-us" US/English XKB layout - "keyboard-de" German XKB layout - "keyboard-fr" French XKB layout - "mozc" Japanese - "unikey" Vietnamese (Telex/VNI)
+
+### `customHomeManagerModules.fcitx5Config.lotus`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to add the Fcitx5 Lotus Vietnamese input method addon. When enabled, the Lotus addon is appended to `addons`; add "lotus" to `inputMethods` to put it in the switch cycle. IMPORTANT: Lotus also needs system-level support (a uinput server, udev rule and per-user service). Enable the matching NixOS module on the host: customNixOSModules.fcitx5-lotus = { enable = true; users = [ "<username>" ]; }; https://github.com/LotusInputMethod/fcitx5-lotus
+
+### `customHomeManagerModules.fcitx5Config.schnelleUmlaute`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to install the "Schnelle Umlaute" fcitx5 addon, which types umlauts and eszett with a hold-letter + Space gesture, Telex-style: hold a + Space → ä hold o + Space → ö hold u + Space → ü hold s + Space → ß (Shift+letter + Space → uppercase Ä/Ö/Ü) Releasing the key without Space types the normal letter, so ordinary typing is unaffected. Mappings/leader keys can be tweaked with the bundled `schnelle-umlaute-editor` GUI. https://github.com/Maik-0000FF/schnelle-umlaute
 
 ---
 
@@ -534,6 +622,13 @@ Whether to deploy the DidactikLabs OIDC kubeconfig. Copies assets/kubeconfigs/oi
 
 Whether to deploy the LogicMG OIDC kubeconfig. Copies assets/kubeconfigs/oidc-logicmg.kubeconfig to ~/.kube/configs/logicmg/oidc@logicmg.kubeconfig. Used on: nishinoya (aamoyel's machine).
 
+### `customHomeManagerModules.kubeConfig.rpcu.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to deploy the RPCU (Zitadel OIDC) mgmt kubeconfig. Copies assets/kubeconfigs/oidc-mgmt-rpcu.kubeconfig to ~/.kube/configs/rpcu/oidc@mgmt.kubeconfig so kubeswitch can discover it automatically.
+
 ---
 
 ## kubeTools
@@ -543,7 +638,7 @@ Whether to deploy the LogicMG OIDC kubeconfig. Copies assets/kubeconfigs/oidc-lo
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable the full Kubernetes toolchain. Installs a comprehensive set of Kubernetes CLI tools and utilities: Core: - kubectl — Kubernetes CLI - kubernetes-helm — Helm package manager - k9s — TUI cluster dashboard (config in k9sConfig.nix) - kubeswitch — multi-kubeconfig context switcher (kswitch alias) - kubelogin-oidc — OIDC authentication plugin for kubectl - kustomize — Kubernetes overlay management Inspection & debugging: - kubectl-neat — strip noisy fields from kubectl YAML output - kubectl-view-secret — base64-decode secrets in-place - kubectl-explore — interactive resource browser - skopeo — inspect/copy container images without pulling - dive — explore container image layers - netfetch — network debugging tool - kubevirt — virtctl for KubeVirt VMs (SSH, console) - fluxcd — Flux GitOps CLI (flux) Custom packages: - kl — opinionated multi-pod log viewer - songbird — custom cluster management utility - pvmigrate — Proxmox VM migration tool - crd-wizard — CRD visualisation dashboard (Shift-E in k9s) - sou — container image analysis wrapper Others: - kubebuilder — Kubernetes controller scaffolding - kind — local Kubernetes clusters via Docker - paralus-cli — Paralus zero-trust access CLI Also sets: - k=kubectl shell alias - pctl=cli shell alias - kubectl and songbird Zsh completions See also: kubeConfig.\* options for OIDC kubeconfig file deployment, and k9sConfig.nix for k9s settings and plugins.
+Whether to enable the full Kubernetes toolchain. Installs a comprehensive set of Kubernetes CLI tools and utilities: Core: - kubectl — Kubernetes CLI - kubernetes-helm — Helm package manager - k9s — TUI cluster dashboard (config in k9sConfig.nix) - kubeswitch — multi-kubeconfig context switcher (kswitch alias) - kubelogin-oidc — OIDC authentication plugin for kubectl - kustomize — Kubernetes overlay management Inspection & debugging: - kubectl-neat — strip noisy fields from kubectl YAML output - kubectl-view-secret — base64-decode secrets in-place - kubectl-explore — interactive resource browser - skopeo — inspect/copy container images without pulling - dive — explore container image layers - netfetch — network debugging tool - kubevirt — virtctl for KubeVirt VMs (SSH, console) - fluxcd — Flux GitOps CLI (flux) Custom packages: - kl — opinionated multi-pod log viewer - songbird — custom cluster management utility - pvmigrate — Proxmox VM migration tool - crd-wizard — CRD visualisation dashboard (Shift-E in k9s) - kratix-cli — CLI to build Kratix Promises (kratix) - sofka — Kubernetes TUI reimagined in Rust (ki alias) - sou — container image analysis wrapper Others: - kubebuilder — Kubernetes controller scaffolding - kind — local Kubernetes clusters via Docker - paralus-cli — Paralus zero-trust access CLI Also sets: - k=kubectl shell alias - ki=sofka shell alias - pctl=cli shell alias - kubectl and songbird Zsh completions See also: kubeConfig.\* options for OIDC kubeconfig file deployment, and k9sConfig.nix for k9s settings and plugins.
 
 ---
 
@@ -554,7 +649,7 @@ Whether to enable the full Kubernetes toolchain. Installs a comprehensive set of
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable kubeswitch context-switcher configuration. kubeswitch (exposed as the `kswitch` command) is a terminal UI and CLI for switching between multiple kubeconfigs / contexts stored across many files. This replaces the traditional KUBECONFIG env-var juggling. Configuration: - commandName: kswitch (aliased as `ks` in the shell) - Zsh integration enabled (shell function injection) - Fish integration enabled when fishConfig is active - Store: filesystem, scanning ~/.kube/configs/\*_ for files matching _._ (picks up all kubeconfigs deployed by the kubeConfig._.enable options) - Kind: SwitchConfig v1alpha1 Requires kubeTools.enable = true to have the kubeswitch binary available. Used on: totoro, nishinoya.
+Whether to enable kubeswitch context-switcher configuration. kubeswitch (exposed as the `kswitch` command) is a terminal UI and CLI for switching between multiple kubeconfigs / contexts stored across many files. This replaces the traditional KUBECONFIG env-var juggling. Configuration: - commandName: kswitch (aliased as `ks` in the shell) - Zsh integration enabled (shell function injection) - Fish integration enabled when fishConfig is active - Store: filesystem, scanning ~/.kube/configs/\*_ for files matching *.* (picks up all kubeconfigs deployed by the kubeConfig._.enable options) - Kind: SwitchConfig v1alpha1 Requires kubeTools.enable = true to have the kubeswitch binary available. Used on: totoro, nishinoya.
 
 ---
 
@@ -602,6 +697,17 @@ The base URL for the Ollama API endpoint.
 - **Default:** `false`
 
 Whether to enable the Ollama provider for OpenCode. When enabled, configures an OpenAI-compatible Ollama provider with models defined in nixosModules/ollamaModels.nix.
+
+---
+
+## oversteerConfig
+
+### `customHomeManagerModules.oversteerConfig.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to deploy Oversteer wheel profiles for Fanatec hardware. Oversteer is the Linux steering-wheel manager (rotation range, overall FFB gain, autocenter, combine-pedals, spring/damper/friction levels) that talks to the kernel hid-fanatec / universal-pidff driver. This module ships a game profile into ~/.config/oversteer/profiles/ tuned for the Fanatec CSL DD / GT DD Pro: - acc.ini — Assetto Corsa Competizione (900° base range, autocenter off for direct drive, neutral mechanical effects) IMPORTANT: Oversteer (and Linux in general) cannot set the detailed Fanatec base tune — FFB strength, NDP/NFR/NIN/FEI, etc. Those live in the wheelbase firmware and must be set on the base/wheel OLED tuning menu. This is the key difference from Moza, where foxblat can push the full base tune declaratively. So there is no full ACC FFB preset here, only the oversteer-level settings. An XDG autostart entry applies the ACC profile on login. Profiles can also be applied manually at any time with: oversteer -p acc --apply Requires customNixOSModules.simracing.enable = true on the machine (which installs oversteer and the Fanatec udev rules). Used on: hanamichi. Reference: https://github.com/berarma/oversteer
 
 ---
 
@@ -715,6 +821,13 @@ Whether to enable Visual Studio Code with a declarative extension set. Manages V
 - **Default:** `false`
 
 Whether to enable the Zen Browser, a privacy-focused Firefox fork. Configures Zen Browser (twilight) via its Home Manager module with sensible defaults: telemetry and studies disabled, tracking protection enabled, Pocket disabled, and smooth scrolling turned on. When enabled, sets Zen as the default browser for http/https/html MIME types.
+
+### `customHomeManagerModules.zenBrowserConfig.offerToSaveLogins`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to let Zen Browser offer to save passwords. When false (default), the OfferToSaveLogins policy and signon.rememberSignons setting are disabled so the browser never prompts to save logins. Set to true to enable the built-in password manager and the "ask to save passwords" prompt.
 
 ---
 

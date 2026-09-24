@@ -132,7 +132,7 @@ hive.nix                          Colmena deployment config
 
 **Applications:**
 
-- `dmsConfig.nix` (326 LOC) - DankMaterialShell (DMS) desktop shell: Quickshell-based compositor-agnostic top bar and dock, plus DankCalendar (dcal) standalone calendar app integration
+- `dmsConfig.nix` (331 LOC) - DankMaterialShell (DMS) desktop shell: Quickshell-based compositor-agnostic top bar and dock, plus DankCalendar (dcal) standalone calendar app integration. Registry plugins (markets, dankGifSearch, dankStickerSearch, dankKDEConnect, sathiAi) get their `src` from the `dms-plugin-registry` home module — if upstream removes a plugin from the registry, referencing it here fails eval with "option `…plugins.<name>.src` was accessed but has no value defined". Low/critical battery notifications are DMS-native settings (`batteryNotifyLow`/`batteryNotifyCritical`), not a plugin
 - `fastfetchConfig.nix` (167 LOC) - System information display with custom logo
 - `desktopApps.nix` (63 LOC) - Firefox, Dolphin, MPV, imv, zathura setup
 - `desktopEntriesConfig.nix` (~75 LOC) - Hides non-user-facing launcher entries via `NoDisplay=true` hiPrio desktop-item packages that shadow the originals in the user profile. Enabled by default. Hides kvantummanager, fcitx5 daemon/helpers/config GUIs (org.fcitx.Fcitx5, Lotus settings, qt5/qt6 wrappers, migrator, config-qt, configtool, wayland-launcher, kcm_fcitx5), KDE Connect daemon/handler/nonplasma/sms, geoclue demos, pinentry-qt, nm-connection-editor, nixos-manual, xdg-desktop-portal-gnome/gtk, khal, umpv, imv-dir, kbd-layout-viewer5, org.quickshell, schnelle-umlaute-editor. System-wide qt5ct/qt6ct are hidden separately in nixosModules/userConfig.nix
@@ -349,7 +349,7 @@ npins/ → dependency sources
 | `songbird`       | v0.4.0  | Custom utility                                        |
 | `witr`           | v0.3.1  | Custom utility                                        |
 | `kl`             | v0.6.1  | Interactive Kubernetes log viewer (frozen)            |
-| `openchoreo-cli` | v1.2.5  | OpenChoreo internal developer platform CLI (occ)      |
+| `openchoreo-cli` | v1.3.0  | OpenChoreo internal developer platform CLI (occ)      |
 
 ## Dependencies & Pinning (36 total)
 
@@ -377,7 +377,7 @@ npins/ → dependency sources
 - `flake-compat` - Flake compatibility layer
 - `99` - ThePrimeagen's 99 NixVim plugin
 
-**Custom Package Sources:** ginx, goji, ytui, jtui, crd-wizard, pvmigrate (frozen), rtk, songbird, witr, kl (frozen), opencode-manager (main), openchoreo (v1.2.5)
+**Custom Package Sources:** ginx, goji, ytui, jtui, crd-wizard, pvmigrate (frozen), rtk, songbird, witr, kl (frozen), opencode-manager (main), openchoreo (v1.3.0)
 
 ## Assets (39 files)
 
