@@ -64,7 +64,16 @@ let
       fetchers =
         if pkgs == null then
           {
-            inherit (builtins) fetchTarball fetchurl;
+            inherit (builtins) fetchTarball;
+            fetchurl =
+              {
+                url,
+                sha256,
+              }:
+              builtins.fetchurl {
+                name = "source";
+                inherit url sha256;
+              };
             # Frustratingly, due to flakes and `fetchTree`, `fetchGit`
             # has a different signature than the other builtin
             # fetchers
@@ -81,7 +90,15 @@ let
                 inherit url sha256;
                 extension = "tar";
               };
-            inherit (pkgs) fetchurl;
+            fetchurl =
+              {
+                url,
+                sha256,
+              }:
+              pkgs.fetchurl {
+                name = "source";
+                inherit url sha256;
+              };
             fetchGit =
               {
                 url,
