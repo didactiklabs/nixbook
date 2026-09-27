@@ -11,6 +11,10 @@ LazyLoader {
     property Item hoverTarget
     default property Item contentItem
     property real popupBackgroundMargin: 0
+    // Extra slack around the popup that still counts as hovering it (and
+    // takes pointer input), capped at the window's own shadow padding.
+    property real hoverMargin: 0
+    readonly property bool hovered: root.item?.hovered ?? false
     active: root.hoverTarget && root.hoverTarget.containsMouse && Config.options.bar.tooltips.enable
 
     readonly property bool barVertical: Config.options.bar.vertical
@@ -56,8 +60,10 @@ LazyLoader {
             return Math.max(margin, Math.min(base, maxTop))
         }
 
+        readonly property bool hovered: popupHover.hovered
+
         mask: Region {
-            item: popupBackground
+            item: hoverArea
         }
         exclusionMode: ExclusionMode.Ignore
         exclusiveZone: 0
@@ -86,6 +92,10 @@ LazyLoader {
             id: slamLayer
             anchors.fill: parent
             property real t: Persona.motion ? 0 : 1
+            // Input only arrives inside the mask, so this is hover over hoverArea.
+            HoverHandler {
+                id: popupHover
+            }
             Component.onCompleted: if (Persona.motion) slamAnim.start()
             NumberAnimation {
                 id: slamAnim
@@ -114,6 +124,12 @@ LazyLoader {
                     x: -18 * (1 - slamLayer.t)
                 }
             ]
+
+        Item {
+            id: hoverArea
+            anchors.fill: popupBackground
+            anchors.margins: -Math.min(root.hoverMargin, Appearance.sizes.elevationMargin + popupWindow.personaPad)
+        }
 
         StyledRectangularShadow {
             visible: !Persona.shapes

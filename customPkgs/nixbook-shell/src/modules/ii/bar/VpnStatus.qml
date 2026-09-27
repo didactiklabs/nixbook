@@ -201,6 +201,53 @@ MouseArea {
         }
     }
 
+    // Hover tooltip: a quick status summary, hidden while the panel is open.
+    StyledPopup {
+        hoverTarget: root
+        active: !root.panelOpen && root.containsMouse && Config.options.bar.tooltips.enable
+
+        ColumnLayout {
+            spacing: 4
+
+            StyledPopupHeaderRow {
+                icon: "vpn_lock"
+                label: Translation.tr("VPN")
+            }
+
+            StyledPopupValueRow {
+                Layout.fillWidth: true
+                icon: VpnState.tsConnected ? "check_circle" : "cancel"
+                label: "Tailscale"
+                value: VpnState.tsConnected
+                    ? (VpnState.tsSelectedNetwork || VpnState.tsStatusText) + (VpnState.tsIp ? " — " + VpnState.tsIp : "")
+                    : VpnState.tsStatusText
+            }
+
+            StyledPopupValueRow {
+                Layout.fillWidth: true
+                visible: VpnState.tsConnected && VpnState.tsExitNode !== ""
+                icon: "output"
+                label: Translation.tr("Exit node")
+                value: VpnState.tsExitNode
+            }
+
+            StyledPopupValueRow {
+                Layout.fillWidth: true
+                icon: VpnState.nbConnected ? "check_circle" : "cancel"
+                label: "NetBird"
+                value: VpnState.nbConnected
+                    ? (VpnState.nbSelectedProfile || VpnState.nbStatusText) + (VpnState.nbIp ? " — " + VpnState.nbIp : "")
+                    : VpnState.nbStatusText
+            }
+
+            StyledText {
+                text: Translation.tr("Click to manage · right click to refresh")
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+            }
+        }
+    }
+
     StyledPopup {
         id: vpnPopup
         hoverTarget: root
