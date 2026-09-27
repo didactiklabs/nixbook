@@ -662,7 +662,7 @@ ContentPage {
                         Layout.margins: 8
                         wrapMode: Text.Wrap
                         textFormat: Text.StyledText
-                        text: Translation.tr("<b>Rules</b> — each comma-separated rule is checked on its own. Join terms with <b>+</b> to require all of them (<i>Victor + Instagram</i> needs both). <b>!</b> means absent (<i>Victor + !newsletter</i>). <b>app:</b>, <b>title:</b>, <b>body:</b> or <b>hint:</b> look in one field only (<i>app:Instagram + Victor</i>). Quotes match a whole word (<i>\"Diệu\"</i>), <b>^</b> the start of the field (<i>body:^You:</i>, a chat's sender). Case is ignored. Blacklist rules win over everything, critical included.")
+                        text: Translation.tr("<b>Rules</b> — each comma-separated rule is checked on its own. Join terms with <b>+</b> to require all of them (<i>Victor + Instagram</i> needs both). <b>!</b> means absent (<i>Victor + !newsletter</i>). <b>app:</b>, <b>title:</b>, <b>body:</b> or <b>hint:</b> look in one field only (<i>app:Instagram + Victor</i>). Quotes match a whole word (<i>\"Diệu\"</i>), <b>^</b> the start of the field (<i>last:^You:</i>: the last chat message is mine). <b>last:</b> is the last message of a chat thread, with its sender. Case is ignored. Blacklist rules win over everything, critical included.")
                         font.pixelSize: Appearance.font.pixelSize.small
                         color: Appearance.colors.colSubtext
                     }
