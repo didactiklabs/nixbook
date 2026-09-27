@@ -92,22 +92,28 @@ def p3r():
 
 def p4():
     defs = (
-        '<radialGradient id="tq" cx="0.1" cy="0.95" r="0.8">'
-        '<stop offset="0" stop-color="#1fd6c8" stop-opacity="0.35"/>'
-        '<stop offset="1" stop-color="#1fd6c8" stop-opacity="0"/></radialGradient>'
+        # Warm amber glow rising from the bottom-left (under the dialogue box).
+        '<radialGradient id="amber" cx="0.1" cy="0.95" r="0.85">'
+        '<stop offset="0" stop-color="#8a5a00" stop-opacity="0.45"/>'
+        '<stop offset="1" stop-color="#8a5a00" stop-opacity="0"/></radialGradient>'
+        # Gold light sweeping in from the right edge.
+        '<linearGradient id="sweep" x1="0" y1="0" x2="1" y2="0">'
+        '<stop offset="0" stop-color="#ffc21a" stop-opacity="0"/>'
+        '<stop offset="1" stop-color="#ffc21a" stop-opacity="0.34"/></linearGradient>'
     )
-    body = f'<rect width="{W}" height="{H}" fill="url(#tq)"/>'
-    # Yellow TV-style diagonal band across the top-right.
+    body = f'<rect width="{W}" height="{H}" fill="url(#amber)"/>'
+    body += f'<path d="M{f(W * 0.74)} -10 L{W + 10} -10 L{W + 10} {H + 10} L{f(W * 0.6)} {H + 10}Z" fill="url(#sweep)"/>'
+    # Thin gold TV stripes across the top-right.
     stripes = []
     for i in range(9):
-        x = W * 0.48 + i * 34
-        stripes.append(f"M{f(x)} -10 L{f(x + 17)} -10 L{f(x - 63)} {f(H * 0.3)} L{f(x - 80)} {f(H * 0.3)}Z")
-    body += f'<path d="{"".join(stripes)}" fill="#ffe11a" opacity="0.30"/>'
-    body += f'<path d="M{W * 0.40} {H * 0.3} L{W + 10} {H * 0.3} L{W + 10} {H * 0.3 + 3} L{W * 0.40 - 1} {H * 0.3 + 3}Z" fill="#ffe11a" opacity="0.6"/>'
+        x = W * 0.5 + i * 30
+        stripes.append(f"M{f(x)} -10 L{f(x + 8)} -10 L{f(x - 72)} {f(H * 0.3)} L{f(x - 80)} {f(H * 0.3)}Z")
+    body += f'<path d="{"".join(stripes)}" fill="#ffcf2e" opacity="0.18"/>'
+    body += f'<path d="M{W * 0.40} {H * 0.3} L{W + 10} {H * 0.3} L{W + 10} {H * 0.3 + 2} L{W * 0.40 - 1} {H * 0.3 + 2}Z" fill="#d9b12c" opacity="0.7"/>'
     # Scanlines
     lines = "".join(f"M0 {y}h{W}" for y in range(0, H, 4))
-    body += f'<path d="{lines}" stroke="#ffffff" stroke-width="1" opacity="0.035"/>'
-    body += halftone("#ffe11a", 0.12, 14, 4.0, lambda x, y: max(0.0, (y / H + (W - x) / W) / 2 - 0.45) * 1.8)
+    body += f'<path d="{lines}" stroke="#ffe9a0" stroke-width="1" opacity="0.03"/>'
+    body += halftone("#d9b12c", 0.12, 14, 4.0, lambda x, y: max(0.0, (y / H + (W - x) / W) / 2 - 0.45) * 1.8)
     return svg(body, defs)
 
 

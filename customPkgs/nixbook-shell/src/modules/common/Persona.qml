@@ -14,8 +14,8 @@ import Quickshell
  * Variants:
  *   p5  — Persona 5 Royal: black / white / red, hard red shadows, strong slant
  *   p3r — Persona 3 Reload: navy / cyan / white, smoother slant
- *   p4  — Persona 4 Revival (2026 remake): yellow-dominant with bright
- *         turquoise accents over dark, shadowy backgrounds
+ *   p4  — Persona 4 Revival (2026 remake): warm near-black / dark amber
+ *         panels with bright gold accents and metallic gold borders
  */
 Singleton {
     id: root
@@ -66,14 +66,17 @@ Singleton {
             bubble: "#dff6ff", bubbleText: "#07163a", tag: "#1450d8", tagText: "#ffffff", mugBorder: "#3fd4ff"
         },
         "p4": {
-            background: "#0c0f12", surface1: "#141a1f", surface2: "#1b2229", surface3: "#232c34", surface4: "#2c3640",
-            onSurface: "#fbfbf5", onSurfaceVariant: "#d3dbd9", outline: "#879794", outlineVariant: "#2f3b3f",
-            primary: "#ffe11a", onPrimary: "#15130a", primaryContainer: "#ffd400", onPrimaryContainer: "#15130a",
-            secondary: "#33e3d3", onSecondary: "#002b28", secondaryContainer: "#0d4a47", onSecondaryContainer: "#c9fff8",
-            tertiary: "#ffffff", onTertiary: "#0c0f12", tertiaryContainer: "#26343a", onTertiaryContainer: "#ffffff",
+            // Warm near-black / dark amber panels (the dialogue box), bright
+            // gold only as the accent (selected choice, stripes), metallic
+            // gold borders and a deep-gold hard shadow.
+            background: "#0d0a05", surface1: "#16110a", surface2: "#1e170c", surface3: "#281f10", surface4: "#332814",
+            onSurface: "#fbf5e2", onSurfaceVariant: "#d9cca6", outline: "#9e8c4a", outlineVariant: "#3b3017",
+            primary: "#ffe600", onPrimary: "#1a1300", primaryContainer: "#2b200b", onPrimaryContainer: "#ffe98c",
+            secondary: "#d9b12c", onSecondary: "#1a1300", secondaryContainer: "#3d2e0f", onSecondaryContainer: "#ffe7a3",
+            tertiary: "#fff4c0", onTertiary: "#15100a", tertiaryContainer: "#4a3a12", onTertiaryContainer: "#fff3c4",
             error: "#ff5449", onError: "#ffffff", errorContainer: "#93000a", onErrorContainer: "#ffdad6",
-            frame: "#11161a", frameBorder: "#ffe11a", shadow: "#1fd6c8", stripe: "#ffe11a", ink: "#fbfbf5",
-            bubble: "#ffe11a", bubbleText: "#15130a", tag: "#11161a", tagText: "#ffe11a", mugBorder: "#fbfbf5"
+            frame: "#120d06", frameBorder: "#d9b12c", shadow: "#7a5c00", stripe: "#ffe600", ink: "#fbf5e2",
+            bubble: "#241a0b", bubbleText: "#fbf5e2", tag: "#120d06", tagText: "#ffe600", mugBorder: "#d9b12c"
         }
     })
     readonly property var spec: root.specs[root.variant]

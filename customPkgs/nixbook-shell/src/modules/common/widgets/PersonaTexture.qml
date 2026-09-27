@@ -5,8 +5,8 @@ import qs.modules.common
 /**
  * Persona-style background art for a panel (original SVG textures in each
  * game's visual language: P5 red burst + halftone + slashes, P3R blue light
- * beams + bubbles + waves, P4 Revival yellow TV stripes + scanlines +
- * turquoise glow — assets/persona/generate.py). Drawn under the panel's
+ * beams + bubbles + waves, P4 Revival gold TV stripes + scanlines +
+ * amber glow — assets/persona/generate.py). Drawn under the panel's
  * content.
  *
  * Every panel uses one of three shared textures (Persona.textureShapes: tall
