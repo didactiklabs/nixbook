@@ -13,9 +13,15 @@
 
 `Mod` / `$mod` / `Mod4` / `SUPER` all refer to the **Super (Windows) key**.
 
-Many compositor binds are conditional on the `dmsConfig` (DankMaterialShell) module
-being enabled. The current profiles all enable DMS, so the DMS variants are the
-active ones; the non-DMS fallbacks are listed where they differ.
+Many compositor binds are conditional on which desktop shell is enabled. Two are
+available and they are mutually exclusive:
+
+- `dmsConfig` — DankMaterialShell (anya, tanjiro, nishinoya, hanamichi)
+- `nixbookShellConfig` — nixbook-shell, a Quickshell fork of illogical-impulse (totoro)
+
+DMS variants are listed as "(DMS)", nixbook-shell variants as "(nixbook-shell)"; the
+no-shell fallbacks are listed where they differ. nixbook-shell binds only exist for
+Niri, because under Hyprland the shell registers its own global shortcuts.
 
 Keyboards are configured for the **French (AZERTY)** layout. In Sway and Hyprland the
 workspace digit keys are therefore bound to their AZERTY symbol names
@@ -31,21 +37,28 @@ Niri is column/scroll based; it has no numbered workspaces (workspaces stack ver
 
 ### Applications & shell
 
-| Keybind      | Action                                                   |
-| ------------ | -------------------------------------------------------- |
-| `Mod+Return` | Launch Kitty terminal                                    |
-| `Mod+D`      | Spotlight app launcher (DMS)                             |
-| `Mod+Q`      | Toggle clipboard manager (DMS)                           |
-| `Mod+N`      | Toggle notification center (DMS)                         |
-| `Mod+B`      | Toggle top bar (+ dock when `showDock` is enabled) (DMS) |
-| `Mod+O`      | Toggle dash overview (DMS)                               |
-| `Mod+W`      | Open wallpaper picker / dankdash (DMS)                   |
-| `Mod+L`      | Power menu (DMS)                                         |
-| `Mod+Space`  | Toggle Sathi AI assistant widget (DMS)                   |
-| `Ctrl+Space` | Toggle fcitx5 input method (when `fcitx5Config` enabled) |
+| Keybind      | Action (DMS)                                             | Action (nixbook-shell)                        |
+| ------------ | -------------------------------------------------------- | --------------------------------------------- |
+| `Mod+Return` | Launch Kitty terminal                                    | Launch Kitty terminal                         |
+| `Mod+D`      | Spotlight app launcher                                   | Launcher / search overlay                     |
+| `Mod+Q`      | Toggle clipboard manager                                 | Launcher in clipboard-history mode            |
+| `Mod+N`      | Toggle notification center                               | Toggle right sidebar (notifications, toggles) |
+| `Mod+B`      | Toggle top bar (+ dock when `showDock` is enabled)       | Toggle top bar                                |
+| `Mod+O`      | Toggle dash overview                                     | Toggle workspaces overview                    |
+| `Mod+W`      | Open wallpaper picker / dankdash                         | Open wallpaper selector                       |
+| `Mod+L`      | Power menu                                               | Session screen (power menu)                   |
+| `Mod+Space`  | Toggle Sathi AI assistant widget                         | Toggle left sidebar (AI chat, translator)     |
+| `Mod+I`      | Toggle idle inhibitor                                    | Start/stop `hypridle` (idle inhibit)          |
+| `Mod+Escape` | —                                                        | Toggle Settings panel                         |
+| `Ctrl+Space` | Toggle fcitx5 input method (when `fcitx5Config` enabled) | same                                          |
 
-> Note: `Mod+I` is overloaded — it maps to **focus workspace up** _and_, when DMS is
-> enabled, also to **toggle idle inhibitor** (DMS). The DMS spawn bind is merged in last.
+nixbook-shell binds all spawn `nixbook-shell ipc call <target> <function>`; upstream's Hyprland
+`GlobalShortcut` handlers are inactive under Niri.
+
+> Note: `Mod+I` is overloaded — it maps to **focus workspace up** _and_ to **toggle idle
+> inhibitor**; the shell spawn bind is merged in last and wins. Under DMS that is
+> `dms ipc call inhibit toggle`; under nixbook-shell (which exposes no idle IPC) it starts/stops
+> the `hypridle` user service directly, which is what actually auto-locks and suspends.
 
 ### Window management
 
@@ -108,14 +121,14 @@ Niri is column/scroll based; it has no numbered workspaces (workspaces stack ver
 
 ### Media / brightness / screenshot
 
-| Keybind                 | Action                                                               |
-| ----------------------- | -------------------------------------------------------------------- |
-| `Print`                 | Screenshot: DMS screenshot tool, or area-to-clipboard via grim+slurp |
-| `XF86MonBrightnessUp`   | Brightness +10%                                                      |
-| `XF86MonBrightnessDown` | Brightness -10%                                                      |
-| `XF86AudioRaiseVolume`  | Volume +3%                                                           |
-| `XF86AudioLowerVolume`  | Volume -3%                                                           |
-| `XF86AudioMute`         | Toggle mute                                                          |
+| Keybind                 | Action                                                                                   |
+| ----------------------- | ---------------------------------------------------------------------------------------- |
+| `Print`                 | Screenshot: DMS tool, nixbook-shell region selector, or area-to-clipboard via grim+slurp |
+| `XF86MonBrightnessUp`   | Brightness +10%                                                                          |
+| `XF86MonBrightnessDown` | Brightness -10%                                                                          |
+| `XF86AudioRaiseVolume`  | Volume +3%                                                                               |
+| `XF86AudioLowerVolume`  | Volume -3%                                                                               |
+| `XF86AudioMute`         | Toggle mute                                                                              |
 
 ---
 

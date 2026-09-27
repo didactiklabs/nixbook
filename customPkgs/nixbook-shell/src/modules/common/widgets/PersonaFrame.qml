@@ -1,0 +1,78 @@
+import QtQuick
+import Quickshell
+import qs.modules.common
+
+/**
+ * Persona-style panel frame, drawn *behind* content (content stays straight
+ * and readable): slanted body (shear about the vertical center), hard
+ * accent-colored offset shadow, bold border, accent slash along the top edge
+ * and a halftone corner. Only rectangles + one tiled image, all static — no
+ * per-frame work.
+ *
+ * Fill the area the panel background would cover:
+ *   PersonaFrame { anchors.fill: popupBackground }
+ */
+Item {
+    id: root
+    property color color: Persona.frameColor
+    property color borderColor: Persona.frameBorderColor
+    property color shadowColor: Persona.shadowColor
+    property color accentColor: Persona.stripeColor
+    // Lean is capped in pixels so a tall frame stays inside its window margin.
+    property real maxLean: 12
+    readonly property real skew: {
+        const half = Math.max(1, root.height / 2);
+        const k = Persona.skew;
+        return Math.sign(k) * Math.min(Math.abs(k), root.maxLean / half);
+    }
+    property bool showShadow: true
+    property bool showStripe: true
+    property bool showHalftone: Persona.halftone
+
+    // Shear around the vertical center so the frame leans without drifting.
+    transform: Matrix4x4 {
+        matrix: Qt.matrix4x4(1, root.skew, 0, -root.skew * root.height / 2,
+                             0, 1, 0, 0,
+                             0, 0, 1, 0,
+                             0, 0, 0, 1)
+    }
+
+    Rectangle {
+        visible: root.showShadow
+        x: Persona.shadowOffset
+        y: Persona.shadowOffset
+        width: parent.width
+        height: parent.height
+        radius: Persona.corner
+        color: root.shadowColor
+    }
+
+    Rectangle {
+        id: body
+        anchors.fill: parent
+        radius: Persona.corner
+        color: root.color
+        border.width: Persona.borderWidth
+        border.color: root.borderColor
+        clip: true
+
+        PersonaTexture {
+            anchors.fill: parent
+            anchors.margins: Persona.borderWidth
+        }
+    }
+
+    // Accent slash along the top edge.
+    Rectangle {
+        visible: root.showStripe
+        anchors {
+            top: parent.top
+            left: parent.left
+            topMargin: -Persona.borderWidth
+            leftMargin: parent.width * 0.08
+        }
+        width: Math.max(28, parent.width * 0.28)
+        height: Persona.borderWidth * 2 + 2
+        color: root.accentColor
+    }
+}

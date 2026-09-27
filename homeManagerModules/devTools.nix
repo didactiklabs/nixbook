@@ -34,7 +34,8 @@ in
             - bruno / bruno-cli — open-source API client (Postman alternative)
 
           AI assistants:
-            - gemini-cli   — Google Gemini CLI
+            - antigravity-cli (`agy`) — Google's agent CLI (successor of gemini-cli,
+              which nixpkgs is removing)
             - claude-code  — Anthropic Claude Code CLI
 
           Developer utilities:
@@ -80,7 +81,7 @@ in
       bruno-cli
 
       # AI assistants
-      gemini-cli
+      antigravity-cli
       claude-code
 
       # Development utilities

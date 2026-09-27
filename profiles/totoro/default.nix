@@ -47,13 +47,21 @@ in
     laptopProfile.enable = true;
     greetd.enable = true;
     hyprland.enable = false;
-    niri.enable = true;
+    niri = {
+      enable = true;
+      # nixbook-shell ships its own polkit agent; running polkit-gnome as well just
+      # means the shell's never registers. See customNixOSModules.niri.polkitAgent.
+      polkitAgent = false;
+    };
     caCertificates = {
       rpcu.enable = true;
       bealv.enable = true;
       didactiklabs.enable = true;
     };
     lanzaboote.enable = true;
+    # Local assistant for the shell's Intelligence tab (keybinds, modules,
+    # packages of this machine): qwen2.5 1.5B on CPU at idle priority.
+    localLlm.enable = true;
     # System-level support (uinput server, udev, per-user service) for the
     # Lotus Vietnamese input method. The fcitx5 addon itself is enabled in
     # the user's Home Manager fcitx5Config (lotus = true).

@@ -16,6 +16,7 @@ in
     ./thunderbirdConfig.nix
   ];
   home.packages = [
+    pkgs.slack
     pkgs.moonlight-qt
     pkgs.anki
     actual-budget
@@ -50,9 +51,11 @@ in
     fastfetchConfig.enable = true;
     desktopApps.enable = true;
     kubeTools.enable = true;
-    kubeConfig.didactiklabs.enable = true;
-    kubeConfig.bealv.enable = true;
-    kubeConfig.rpcu.enable = true;
+    kubeConfig = {
+      didactiklabs.enable = true;
+      bealv.enable = true;
+      rpcu.enable = true;
+    };
     nixvimConfig.enable = true;
     gojiConfig.enable = true;
     atuinConfig.didactiklabs.enable = true;
@@ -91,9 +94,17 @@ in
     rtk = {
       enable = true;
     };
+    # Desktop shell. dmsConfig (DankMaterialShell) and nixbookShellConfig (nixbook-shell) are
+    # mutually exclusive — flip these two to switch back.
     dmsConfig = {
-      enable = true;
+      enable = false;
       showDock = true;
+    };
+    nixbookShellConfig = {
+      enable = true;
+      settings = {
+        appearance.persona.enable = true;
+      };
     };
     rbwConfig = {
       enable = true;

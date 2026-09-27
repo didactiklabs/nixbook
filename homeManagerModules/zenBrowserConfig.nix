@@ -148,6 +148,11 @@ in
 
           # UX preferences
           "browser.tabs.warnOnClose" = false;
+          # No preview card (page thumbnail) when hovering a tab: it covers
+          # the neighbouring tabs.
+          "browser.tabs.hoverPreview.enabled" = false;
+          "browser.tabs.hoverPreview.showThumbnails" = false;
+          "browser.tabs.groups.hoverPreview.enabled" = false;
           "browser.download.panel.shown" = true;
           "browser.download.useDownloadDir" = false;
           "general.smoothScroll" = true;

@@ -33,9 +33,16 @@ in
             - Sans-serif: Roboto
             - Serif:      Roboto Serif
 
-          DMS override: when dmsConfig is enabled, forces the base16 scheme to
-          tomorrow-night.yaml (from base16-schemes) instead of the wallpaper-
-          derived palette, keeping DMS colours consistent.
+          Desktop-shell override: when a Quickshell shell is in use (dmsConfig
+          or nixbookShellConfig), forces the base16 scheme to tomorrow-night.yaml (from
+          base16-schemes) instead of the wallpaper-derived palette.
+
+          This is not cosmetic. Stylix's auto-generated scheme is derived from
+          `image`, and for many wallpapers it collapses into a near-monochrome
+          palette — e.g. background #7e62f0 with color1..color6 all shades of
+          the same purple, which makes terminals unreadable. Both shells draw
+          their own Material You accent from the wallpaper anyway, so pinning a
+          stable, legible base16 here keeps the two layers from compounding.
 
         Enabled by default — disable only if you want fully manual theming.
       '';
@@ -55,8 +62,17 @@ in
         size = 24;
       };
       autoEnable = true;
+      # stylix's package overlays (nixos-icons, gtksourceview) are set via the
+      # Home Manager `nixpkgs.overlays`, which HM ignores under
+      # `home-manager.useGlobalPkgs` (and warns about). Stylix itself disables
+      # them the same way in its NixOS->HM integration.
+      overlays.enable = false;
       targets = {
         zen-browser.profileNames = [ "default" ];
+        # Nothing here enables rofi, and the pinned stylix still sets the
+        # renamed `programs.rofi.font` (evaluation warning) whenever the target
+        # is on.
+        rofi.enable = false;
         dank-material-shell.enable = false;
         k9s.enable = false; # enable this parameter cause this error in k9s: "load failed:Additional property ui is not allowed"
         gtk.extraCss = "";
@@ -77,8 +93,9 @@ in
         };
       };
     }
-    // lib.optionalAttrs (config.customHomeManagerModules.dmsConfig.enable or false) {
-      base16Scheme = "${pkgs.base16-schemes}/share/themes/tomorrow-night.yaml";
-    };
+    // lib.optionalAttrs (
+      (config.customHomeManagerModules.dmsConfig.enable or false)
+      || (config.customHomeManagerModules.nixbookShellConfig.enable or false)
+    ) { base16Scheme = "${pkgs.base16-schemes}/share/themes/tomorrow-night.yaml"; };
   };
 }

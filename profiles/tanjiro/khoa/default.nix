@@ -94,9 +94,15 @@ in
     rtk = {
       enable = true;
     };
-    dmsConfig = {
+    # dmsConfig = {
+    #   enable = true;
+    #   showDock = true;
+    # };
+    nixbookShellConfig = {
       enable = true;
-      showDock = true;
+      settings = {
+        appearance.persona.enable = true;
+      };
     };
     rbwConfig = {
       enable = true;
