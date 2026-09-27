@@ -896,6 +896,10 @@ Singleton {
                 property bool battery: false
                 property bool pomodoro: false
                 property string theme: "freedesktop"
+                // Chime on every incoming notification (not in Do Not Disturb).
+                // Empty notificationFile = the bundled Persona 5 tone.
+                property bool notification: true
+                property string notificationFile: ""
             }
 
             property JsonObject time: JsonObject {

@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 
 import qs.modules.common
 import qs
+import qs.services
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -207,10 +208,25 @@ Singleton {
                 newNotifObject.read = false;
                 root.unread++;
             }
+            root.playNotificationSound(notification);
             root.notify(newNotifObject);
             // console.log(notifToString(newNotifObject));
             notifFileView.setText(stringifyList(root.list));
         }
+    }
+
+    // Notification chime (Settings → General → Sounds). Skipped in Do Not
+    // Disturb, for senders asking for silence (`suppress-sound` hint) and
+    // within 300 ms of the last one so a burst doesn't stack up.
+    property real lastSoundTime: 0
+    function playNotificationSound(notification) {
+        if (!(Config.options?.sounds?.notification ?? false) || root.silent) return;
+        if (notification?.hints?.["suppress-sound"] ?? false) return;
+        const now = Date.now();
+        if (now - root.lastSoundTime < 300) return;
+        root.lastSoundTime = now;
+        const file = Config.options.sounds.notificationFile;
+        Audio.playSoundFile(file !== "" ? file : `${Directories.assetsPath}/sounds/persona5-notification.mp3`);
     }
 
     function markAllRead() {

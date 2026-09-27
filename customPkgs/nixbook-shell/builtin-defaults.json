@@ -726,6 +726,8 @@
   },
   "sounds": {
     "battery": false,
+    "notification": true,
+    "notificationFile": "",
     "pomodoro": false,
     "theme": "freedesktop"
   },

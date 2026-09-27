@@ -140,4 +140,15 @@ Singleton {
         ];
         Quickshell.execDetached(command);
     }
+
+    // Play an arbitrary audio file (absolute path or file:// URL).
+    function playSoundFile(path) {
+        Quickshell.execDetached([
+            "ffplay",
+            "-nodisp",
+            "-autoexit",
+            "-loglevel", "quiet",
+            path.replace(/^file:\/\//, "")
+        ]);
+    }
 }

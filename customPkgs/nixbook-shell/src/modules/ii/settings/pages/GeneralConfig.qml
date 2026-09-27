@@ -346,6 +346,16 @@ ContentPage {
                         Config.options.sounds.pomodoro = checked;
                     }
                 }
+                ConfigSwitch {
+                    configKey: "sounds.notification";
+                    enabled: !nixManaged;
+                    buttonIcon: "notifications_active"
+                    text: Translation.tr("Notifications")
+                    checked: Config.options.sounds.notification
+                    onCheckedChanged: {
+                        Config.options.sounds.notification = checked;
+                    }
+                }
             }
         }
 
