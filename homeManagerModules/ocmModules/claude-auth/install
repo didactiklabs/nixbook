@@ -40,4 +40,16 @@ fi
 chmod 600 "$new"
 mv -f "$new" "$creds"
 trap - EXIT
+
+# Without ~/.claude.json (a fresh workspace) Claude Code runs its first-start
+# onboarding, which ends in the login screen whatever the credentials hold.
+# Mark it done; other keys are left alone.
+config="$HOME/.claude.json"
+if [ "$(jq -r '.hasCompletedOnboarding // false' "$config" 2>/dev/null)" != "true" ]; then
+  tmp="$(mktemp "$HOME/.claude.json.XXXXXX")"
+  { jq '.hasCompletedOnboarding = true' "$config" 2>/dev/null || echo '{"hasCompletedOnboarding":true}'; } >"$tmp"
+  chmod 600 "$tmp"
+  mv -f "$tmp" "$config"
+fi
+
 echo "claude-auth: Claude credentials imported from the host"

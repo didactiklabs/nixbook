@@ -1,4 +1,6 @@
 #!/bin/sh
 # Nothing to undo: ocm recreates the container without the mount after this
-# runs, and the host's login is never touched.
+# runs, and the host's login is never touched. ~/.claude.json keeps
+# hasCompletedOnboarding, so Claude asks for a login rather than re-running its
+# first-start setup.
 echo "claude-auth-shared: the host login is no longer shared once the container is recreated"
