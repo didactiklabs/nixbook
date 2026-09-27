@@ -34,8 +34,14 @@ Item {
         return pageCache[key];
     }
 
+    // Give the current tab's input the keyboard (chat / translator field).
+    // Going through the page wrapper's onFocusChanged doesn't work when it
+    // already has focus, so the panel opened with keys going nowhere.
     function focusActiveItem() {
-        swipeView.currentItem.forceActiveFocus()
+        const page = swipeView.currentItem;
+        const item = page?.pageItem ?? page;
+        if (item?.inputField) item.inputField.forceActiveFocus();
+        else item?.forceActiveFocus();
     }
 
     Keys.onPressed: (event) => {
@@ -139,6 +145,7 @@ Item {
             Item {
                 id: pageRoot
                 property Component page
+                readonly property Item pageItem: pageLoader.item
                 readonly property bool isCurrent: SwipeView.isCurrentItem
                 readonly property bool isNeighbour: SwipeView.isNextItem || SwipeView.isPreviousItem
                 readonly property bool wantedNow: (isCurrent && (root.preloadReady || GlobalStates.sidebarLeftOpen))

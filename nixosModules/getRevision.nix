@@ -6,6 +6,10 @@
 }:
 let
   cfg = config.customNixOSModules;
+  gitRepo = if builtins.pathExists ../.git then builtins.fetchGit ../. else null;
+  # A tree with uncommitted changes has an all-zero `rev`; `dirtyRev` is
+  # "<commit>-dirty" (the commit the changes were made on).
+  dirty = gitRepo != null && gitRepo ? dirtyRev;
   jsonFile = builtins.toJSON {
     url =
       if builtins.pathExists ../.git then
@@ -27,22 +31,17 @@ let
         )
       else
         { branch = "unknown"; };
+    inherit dirty;
     rev =
-      if builtins.pathExists ../.git then
-        let
-          gitRepo = builtins.fetchGit ../.; # Fetch the Git repository
-        in
-        gitRepo.rev # Access the 'rev' attribute directly
+      if gitRepo != null then
+        if dirty then lib.removeSuffix "-dirty" gitRepo.dirtyRev else gitRepo.rev
       else
         {
           rev = "unknown"; # Default value when there's no .git directory
         }
         .rev;
     lastModifiedDate =
-      if builtins.pathExists ../.git then
-        let
-          gitRepo = builtins.fetchGit ../.; # Fetch the Git repository
-        in
+      if gitRepo != null then
         gitRepo.lastModifiedDate
       else
         {
@@ -63,7 +62,9 @@ in
         file to /etc/nixos/version containing:
           - url: the git remote URL (from .git/config)
           - branch: the checked-out branch (from .git/HEAD)
-          - rev: the full commit SHA (via builtins.fetchGit)
+          - rev: the full commit SHA (via builtins.fetchGit; for a tree with
+            uncommitted changes, the commit they were made on)
+          - dirty: whether the tree had uncommitted changes
           - lastModifiedDate: the commit timestamp
 
         This allows runtime inspection of exactly which nixbook commit is running,

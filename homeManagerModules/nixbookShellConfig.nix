@@ -122,10 +122,9 @@ let
         fi
       '';
 
-  # The same, as retrievable one-sentence facts for the *local* assistant
-  # (customNixOSModules.localLlm): services/ConfigAssistant.qml sends a small
-  # model only the facts matching each question and checks its answer against
-  # them (keys, enabled modules, installed packages). Built by
+  # The same, as retrievable one-sentence facts for the chat's config
+  # assistant (services/ConfigAssistant.qml, no AI: it answers from these —
+  # keys, enabled modules, installed packages, settings). Built by
   # customPkgs/nixbook-shell/scripts/assistant-facts.py.
   systemFactsFile =
     let
@@ -226,16 +225,10 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    customHomeManagerModules.nixbookShellConfig.settings = lib.mkMerge [
-      # Shared settings, as defaults so a profile's `settings` win key by key.
-      (lib.mapAttrsRecursive (_: lib.mkDefault) (import ./nixbookShellConfig/settings.nix))
-      # With the local assistant (customNixOSModules.localLlm), the
-      # Intelligence tab defaults to it (applied once when it becomes
-      # available; picking another model from the chat still sticks).
-      (lib.mkIf (osConfig != null && (osConfig.customNixOSModules.localLlm.enable or false)) {
-        ai.defaultModel = lib.mkDefault osConfig.customNixOSModules.localLlm.assistantName;
-      })
-    ];
+    # Shared settings, as defaults so a profile's `settings` win key by key.
+    customHomeManagerModules.nixbookShellConfig.settings = lib.mapAttrsRecursive (_: lib.mkDefault) (
+      import ./nixbookShellConfig/settings.nix
+    );
 
     assertions = [
       {

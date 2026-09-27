@@ -1,5 +1,6 @@
 import qs.services
 import qs.modules.common
+import qs.modules.common.functions
 import qs.modules.common.widgets
 import QtQuick
 import QtQuick.Effects
@@ -13,7 +14,7 @@ Canvas { // Visualizer
     property color color: Appearance.m3colors.m3primary
 
     property bool paintPending: false
-    readonly property bool onScreen: root.visible && (root.Window.window?.visible ?? false)
+    readonly property bool onScreen: ObjectUtils.shown(root)
     onOnScreenChanged: if (onScreen) root.requestPaint()
     onPointsChanged: {
         if (!root.onScreen)

@@ -286,7 +286,22 @@ Singleton {
     // - key_get_description: Description of pricing and how to get an API key
     // - api_format: The API format of the model. Can be "openai" or "gemini". Default is "openai".
     // - extraParams: Extra parameters to be passed to the model. This is a JSON object.
-    property var models: Config.options.policies.ai === 2 ? {} : {
+    // "Config assistant" is not a model: it answers from this machine's
+    // configuration (services/ConfigAssistant.qml) and never calls anything.
+    // First in the list, so it is the default; pick a real model with /model.
+    readonly property string configAssistantId: "config-assistant"
+    property var models: Object.assign({
+        "config-assistant": aiModelComponent.createObject(this, {
+            "name": Translation.tr("Config assistant"),
+            "icon": "nixos-symbolic",
+            "description": Translation.tr("Offline | Answers from this machine's configuration: shortcuts, modules, packages, settings. No AI"),
+            "homepage": "",
+            "endpoint": "",
+            "model": "config-assistant",
+            "requires_key": false,
+            "api_format": "openai",
+        }),
+    }, Config.options.policies.ai === 2 ? {} : {
         "gemini-2.5-flash": aiModelComponent.createObject(this, {
             "name": "Gemini 2.5 Flash",
             "icon": "google-gemini-symbolic",
@@ -326,9 +341,15 @@ Singleton {
             "key_get_description": Translation.tr("**Instructions**: Log into Mistral account, go to Keys on the sidebar, click Create new key"),
             "api_format": "mistral",
         }),
-    }
+    })
     property var modelList: Object.keys(root.models)
-    property var currentModelId: Persistent.states?.ai?.model || modelList[0]
+    // A remembered model that no longer exists (e.g. the removed local
+    // assistant) falls back to the first one, the config assistant.
+    property var currentModelId: {
+        const saved = Persistent.states?.ai?.model;
+        return (saved && root.models[saved]) ? saved : modelList[0];
+    }
+    readonly property bool usingConfigAssistant: root.currentModelId === root.configAssistantId
 
     property var apiStrategies: {
         "openai": openaiApiStrategy.createObject(this),
@@ -387,12 +408,14 @@ Singleton {
         });
     }
 
-    // Local Ollama models, through its HTTP API (the `ollama` CLI isn't on
-    // the shell's PATH). Retried while the default model isn't there yet:
-    // customNixOSModules.localLlm downloads it in the background after boot.
+    // Ollama models you run yourself, through its HTTP API (the `ollama` CLI
+    // isn't on the shell's PATH). Only when asked: `/model` with no argument.
+    function refreshLocalModels() {
+        if (!getOllamaModels.running) getOllamaModels.running = true;
+    }
     Process {
         id: getOllamaModels
-        running: true
+        running: false
         command: ["curl", "-sf", "--max-time", "3", "http://127.0.0.1:11434/api/tags"]
         stdout: StdioCollector {
             onStreamFinished: {
@@ -402,16 +425,11 @@ Singleton {
                 } catch (e) {
                     return; // Ollama not running
                 }
-                const want = Config.options?.ai?.defaultModel ?? "";
                 for (const model of names) {
-                    // The configured default local model (the config assistant).
-                    const assistant = want !== "" && model.split(":")[0] === want.split(":")[0];
                     root.addModel(root.safeModelName(model), {
-                        "name": assistant ? Translation.tr("Config assistant") : guessModelName(model),
+                        "name": guessModelName(model),
                         "icon": guessModelLogo(model),
-                        "description": assistant
-                            ? Translation.tr("Local assistant for this machine's configuration | %1").arg(model)
-                            : Translation.tr("Local Ollama model | %1").arg(model),
+                        "description": Translation.tr("Local Ollama model | %1").arg(model),
                         "homepage": `https://ollama.com/library/${model.split(":")[0]}`,
                         "endpoint": "http://localhost:11434/v1/chat/completions",
                         "model": model,
@@ -419,50 +437,8 @@ Singleton {
                     });
                 }
                 root.modelList = Object.keys(root.models);
-                root.applyDefaultModel();
             }
         }
-    }
-    Timer {
-        id: ollamaRetry
-        interval: 20000
-        repeat: true
-        property int attempts: 0
-        running: (Config.options?.ai?.defaultModel ?? "") !== "" && !root.defaultModelApplied && attempts < 90
-        onTriggered: {
-            attempts += 1;
-            getOllamaModels.running = true;
-        }
-    }
-    Connections {
-        target: GlobalStates
-        function onSidebarLeftOpenChanged() {
-            if (GlobalStates.sidebarLeftOpen && !getOllamaModels.running) getOllamaModels.running = true;
-        }
-    }
-
-    function isLocalModel(model) {
-        const endpoint = model?.endpoint ?? "";
-        return endpoint.includes("localhost") || endpoint.includes("127.0.0.1");
-    }
-
-    // ai.defaultModel (e.g. "nixbook-assistant", set by the Home Manager
-    // module with customNixOSModules.localLlm): selected once when it shows
-    // up, and again only if the configured value changes.
-    readonly property bool defaultModelApplied: (Config.options?.ai?.defaultModel ?? "") === ""
-        || Persistent.states?.ai?.appliedDefaultModel === Config.options.ai.defaultModel
-    function applyDefaultModel() {
-        const want = Config.options?.ai?.defaultModel ?? "";
-        if (want === "" || root.defaultModelApplied) return;
-        const candidates = [want, root.safeModelName(want), root.safeModelName(`${want}:latest`)].map(c => c.toLowerCase());
-        const id = candidates.find(c => root.modelList.indexOf(c) !== -1);
-        if (!id) return;
-        root.setModel(id, false, true);
-        Persistent.states.ai.appliedDefaultModel = want;
-    }
-    Connections {
-        target: Config.options?.ai ?? null
-        function onDefaultModelChanged() { root.applyDefaultModel() }
     }
 
     Process {
@@ -663,26 +639,9 @@ Singleton {
         property ApiStrategy currentStrategy
         property AiMessageData activeMessage
         property bool restartPending: false
-        // Question of the current local-assistant request ("" otherwise).
-        property string guardQuestion: ""
-        property string guardPrevious: ""
 
         function markDone() {
             if (!requester.activeMessage || requester.activeMessage.done) return;
-            if (requester.guardQuestion.length > 0) {
-                // A failing check must never break the reply: show it unchecked.
-                let checked = requester.activeMessage.content;
-                try {
-                    checked = ConfigAssistant.guard(requester.guardQuestion, requester.activeMessage.content, requester.guardPrevious);
-                } catch (e) {
-                    console.warn("[Ai] ConfigAssistant.guard failed:", e);
-                }
-                if (checked !== requester.activeMessage.content) {
-                    requester.activeMessage.content = checked;
-                    requester.activeMessage.rawContent = checked;
-                }
-                requester.guardQuestion = "";
-            }
             requester.activeMessage.done = true;
             requester.activeMessage.thinking = false;
             if (root.postResponseHook) {
@@ -695,6 +654,29 @@ Singleton {
 
         function makeRequest() {
             const model = models[currentModelId];
+
+            // The config assistant: answered here from the configuration, no request.
+            if (root.usingConfigAssistant) {
+                const turns = root.messageIDs.map(id => root.messageByID[id]).filter(m => m?.role === "user");
+                const question = turns[turns.length - 1]?.rawContent ?? "";
+                const previous = turns[turns.length - 2]?.rawContent ?? "";
+                let answer = Translation.tr("The configuration facts aren't loaded (~/.config/nixbook-shell/system-facts.json, generated by the Home Manager module).");
+                try {
+                    if (ConfigAssistant.ready) answer = ConfigAssistant.answer(question, previous);
+                } catch (e) {
+                    console.warn("[Ai] ConfigAssistant.answer failed:", e);
+                }
+                const reply = root.aiMessageComponent.createObject(root, {
+                    "role": "assistant", "model": currentModelId,
+                    "content": answer, "rawContent": answer, "thinking": false, "done": true,
+                });
+                const replyId = idForMessage(reply);
+                root.messageIDs = [...root.messageIDs, replyId];
+                root.messageByID[replyId] = reply;
+                root.saveChat("lastSession");
+                root.responseFinished();
+                return;
+            }
 
             // Fetch API keys if needed
             if (model?.requires_key && !KeyringStorage.loaded) KeyringStorage.fetchKeyringData();
@@ -709,42 +691,8 @@ Singleton {
             const endpoint = root.currentApiStrategy.buildEndpoint(model);
             const messageArray = root.messageIDs.map(id => root.messageByID[id]);
             const filteredMessageArray = messageArray.filter(message => message.role !== Ai.interfaceRole);
-            // Local models (the configuration assistant): a small prompt with
-            // only the facts matching the question, low temperature, no tools,
-            // and the answer checked when it is done (ConfigAssistant.guard).
-            const local = root.isLocalModel(model) && ConfigAssistant.ready
-                && (Config.options?.ai?.includeSystemContext ?? true);
-            const userTurns = filteredMessageArray.filter(m => m.role === "user");
-            const question = userTurns[userTurns.length - 1]?.rawContent ?? "";
-            const previous = userTurns[userTurns.length - 2]?.rawContent ?? "";
-            requester.guardQuestion = local ? question : "";
-            requester.guardPrevious = local ? previous : "";
-            // Greetings, listings ("show me all keybinds") and questions the
-            // configuration doesn't cover: answered right away, no model.
-            let quick = null;
-            try {
-                if (local) quick = ConfigAssistant.quickReply(question, previous);
-            } catch (e) {
-                console.warn("[Ai] ConfigAssistant.quickReply failed:", e);
-            }
-            if (quick !== null) {
-                const reply = root.aiMessageComponent.createObject(root, {
-                    "role": "assistant", "model": currentModelId,
-                    "content": quick, "rawContent": quick, "thinking": false, "done": true,
-                });
-                const replyId = idForMessage(reply);
-                root.messageIDs = [...root.messageIDs, replyId];
-                root.messageByID[replyId] = reply;
-                requester.guardQuestion = "";
-                root.saveChat("lastSession");
-                root.responseFinished();
-                return;
-            }
-            const data = root.currentApiStrategy.buildRequestData(model, filteredMessageArray,
-                local ? ConfigAssistant.promptFor(question, previous) : root.systemPrompt,
-                local ? 0.2 : root.temperature,
-                local ? [] : root.tools[model.api_format][root.currentTool],
-                root.pendingFilePath);
+            const data = root.currentApiStrategy.buildRequestData(model, filteredMessageArray, root.systemPrompt,
+                root.temperature, root.tools[model.api_format][root.currentTool], root.pendingFilePath);
             // console.log("[Ai] Request data: ", JSON.stringify(data, null, 2));
 
             let requestHeaders = {

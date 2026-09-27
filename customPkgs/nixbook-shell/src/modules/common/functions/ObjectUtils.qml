@@ -4,6 +4,20 @@ import Quickshell
 Singleton {
     id: root
 
+    // Whether `item` is actually drawn: its window is mapped and neither it
+    // nor any ancestor is hidden or fully transparent. Kept-mapped popups
+    // (sidebars, media controls, OSD…) stay mapped while closed and only
+    // fade their content to opacity 0, so `Window.window.visible` alone keeps
+    // continuous animations (wave sliders, position timers) running forever.
+    // Called from a binding, it re-evaluates when any of those change.
+    function shown(item) {
+        if (!item || !(item.Window?.window?.visible ?? false)) return false;
+        for (let it = item; it; it = it.parent) {
+            if (!it.visible || it.opacity <= 0) return false;
+        }
+        return true;
+    }
+
     function toPlainObject(qtObj) {
         if (qtObj === null || typeof qtObj !== "object") return qtObj;
 

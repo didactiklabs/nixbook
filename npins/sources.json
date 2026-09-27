@@ -388,6 +388,22 @@
       "url": "https://api.github.com/repos/openchoreo/openchoreo/tarball/refs/tags/v1.3.0",
       "hash": "sha256-KYDaRNZ9dnIWqojuzJQHIdGcNp+mkpbsnMfw4tdb2/s="
     },
+    "opencode-manager": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "Mickael-Roger",
+        "repo": "opencode-manager"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": null,
+      "submodules": false,
+      "version": "v2.5.1",
+      "revision": "29c307ee70feee807e6237ce4db7d1ec268137b2",
+      "url": "https://api.github.com/repos/Mickael-Roger/opencode-manager/tarball/refs/tags/v2.5.1",
+      "hash": "sha256-DuqVgdMuscePvGC9QwFxB9v6H1dgsVTu+v0U6DwLqwY="
+    },
     "pear-desktop": {
       "type": "Url",
       "url": "https://github.com/pear-devs/pear-desktop/releases/download/v3.11.0/YouTube-Music-3.11.0.AppImage",

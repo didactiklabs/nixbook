@@ -40,7 +40,7 @@ Rectangle {
     rotation: pullRotation + continuousRotation + leapRotation
 
     RotationAnimation on continuousRotation {
-        running: root.loading && root.visible && (root.Window.window?.visible ?? false)
+        running: root.loading && ObjectUtils.shown(root)
         duration: 12000
         easing.type: Easing.Linear
         loops: Animation.Infinite

@@ -12,7 +12,6 @@
     ./hyprland.nix
     ./laptopProfile.nix
     ./lanzaboote.nix
-    ./localLlm.nix
     ./netbird-tools.nix
     ./niri.nix
     ./ollama.nix

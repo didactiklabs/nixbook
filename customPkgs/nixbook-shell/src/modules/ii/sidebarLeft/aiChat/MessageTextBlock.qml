@@ -108,43 +108,39 @@ ColumnLayout {
     }
 
     spacing: 0
+    // The shown text in chunks (paragraphs / list items while fading in,
+    // else one). Delegates are keyed by position, so while an answer streams
+    // the growing last chunk updates its TextArea in place: keying them by
+    // the chunk strings (the old ScriptModel of strings) recreated that
+    // TextArea on every update — a flicker, and a full markdown re-layout of
+    // long answers each time. A new chunk fades in once when it appears.
+    readonly property list<string> chunks: root.fadeChunkSplitting
+        ? root.shownText.split(/\n\n(?= {0,2})|\n(?= {0,2}[-\*])/g).filter(line => line.trim() !== "")
+        : [root.shownText]
     Repeater {
         id: textLinesRepeater
-        property list<real> textLineOpacities: []
         model: ScriptModel {
-            // Split by either double newlines or single newlines in a list
-            values: root.fadeChunkSplitting ? root.shownText.split(/\n\n(?= {0,2})|\n(?= {0,2}[-\*])/g).filter(line => line.trim() !== "") : [root.shownText]
-            onValuesChanged: {
-                while (textLinesRepeater.textLineOpacities.length < values.length) {
-                    textLinesRepeater.textLineOpacities.push(root.messageData.done ? 1 : 0);
-                }
-            }
+            values: root.chunks.map((_, i) => i)
         }
         delegate: TextArea {
             id: textArea
             required property int index
-            required property string modelData
+            readonly property string chunk: root.chunks[index] ?? ""
 
-            // Fade in animation
-            visible: opacity > 0
-            opacity: fadeChunkSplitting ? (textLinesRepeater.textLineOpacities[index] ?? (root.messageData.done ? 1 : 0)) : 1
-            Connections {
-                target: root.messageData
-                function onDoneChanged() {
-                    if (root.messageData.done) {
-                        textLinesRepeater.textLineOpacities[textArea.index] = 1
-                    }
-                }
-            }
-            Connections {
-                target: textLinesRepeater.model
-                function onValuesChanged() {
-                    if (textLinesRepeater.model.values.length > textArea.index + 1) {
-                        textLinesRepeater.textLineOpacities[textArea.index] = 1
-                    }
+            // Fade in a chunk that appears while the answer streams: start
+            // hidden without animating, then animate in.
+            property bool revealed: true
+            property bool animateOpacity: false
+            opacity: revealed ? 1 : 0
+            Component.onCompleted: {
+                if (root.fadeChunkSplitting && !(root.messageData?.done ?? true)) {
+                    revealed = false;
+                    animateOpacity = true;
+                    Qt.callLater(() => textArea.revealed = true);
                 }
             }
             Behavior on opacity {
+                enabled: textArea.animateOpacity
                 animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
             }
 
@@ -165,7 +161,7 @@ ColumnLayout {
                 : Persona.shapes ? "white" : Appearance.colors.colOnLayer1
             font.weight: Persona.shapes ? Font.DemiBold : Font.Normal
             textFormat: renderMarkdown ? TextEdit.MarkdownText : TextEdit.PlainText
-            text: modelData
+            text: textArea.chunk
 
             onTextChanged: {
                 if (!root.editing) return

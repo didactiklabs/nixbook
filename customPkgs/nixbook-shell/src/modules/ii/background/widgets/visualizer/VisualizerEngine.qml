@@ -15,7 +15,8 @@ Item {
     property real maxValue: 1000
 
     readonly property int maxBands: 52
-    readonly property list<real> raw: GlobalStates.visualizerPoints
+    // Not bound while inactive: each cava update (60 Hz) would copy the list.
+    readonly property list<real> raw: root.active ? GlobalStates.visualizerPoints : []
     property int bandCount: 0
     property real time: 0
     property real bass: 0

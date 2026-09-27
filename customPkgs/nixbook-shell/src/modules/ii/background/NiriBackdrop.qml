@@ -22,7 +22,13 @@ Variants {
             id: backdrop
             screen: loader.modelData
 
-            property string wallpaperPath: Config.options.background.wallpaperPath
+            // A video wallpaper plays on the Bottom layer (live-wallpaper.sh):
+            // this Background-layer surface — what niri's xray blur samples —
+            // holds its still frame, so windows don't re-blur every frame.
+            readonly property bool video: Wallpapers.isVideo(Config.options.background.wallpaperPath)
+            property string wallpaperPath: video
+                ? Config.options.background.thumbnailPath
+                : Config.options.background.wallpaperPath
 
             WlrLayershell.layer: WlrLayer.Background
             WlrLayershell.namespace: "quickshell:wallpaper"
@@ -47,10 +53,14 @@ Variants {
                 asynchronous: true
                 cache: true
                 smooth: true
-                visible: false
+                // A video's still frame is shown sharp: it is what windows see
+                // through their (xray) blur, and niri's blur on top of this one
+                // left a flat colour — windows looked opaque.
+                visible: backdrop.video
             }
 
             FastBlur {
+                visible: !backdrop.video
                 anchors.fill: parent
                 source: sourceImage
                 radius: 48 // fixme variable

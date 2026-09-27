@@ -35,8 +35,8 @@ ContentPage {
     }
 
     ColumnLayout {
-        id: mainLayout 
-        Layout.fillWidth: true   
+        id: mainLayout
+        Layout.fillWidth: true
         Layout.fillHeight: true
         spacing: 20
 
@@ -60,7 +60,7 @@ ContentPage {
                     icon: "sports_esports"
                     currentValue: Config.options.appearance.persona.variant
                     options: [
-                        { "displayName": "Persona 5", "icon": "local_fire_department", "value": "p5" },
+                        { "displayName": "Persona 5 Royal", "icon": "local_fire_department", "value": "p5" },
                         { "displayName": "Persona 3 Reload", "icon": "water_drop", "value": "p3r" },
                         { "displayName": "Persona 4 Revival", "icon": "tv", "value": "p4" },
                     ]
@@ -151,9 +151,9 @@ ContentPage {
                             && !Config.options.appearance.transparency.automatic
                     from: 0; to: 1
                     stopIndicatorValues: [0.57]
-                    value: Config.options.appearance.transparency.contentTransparency 
+                    value: Config.options.appearance.transparency.contentTransparency
                     onValueChanged: {
-                        Config.options.appearance.transparency.contentTransparency = value  
+                        Config.options.appearance.transparency.contentTransparency = value
                     }
                 }
             }
@@ -193,12 +193,12 @@ ContentPage {
                     icon: "format_paint"
                     text: Translation.tr("Border Color")
                     options: ["primary", "secondary", "tertiary", "primaryContainer", "secondaryContainer", "tertiaryContainer", "layer0Border"]
-                    currentValue: Config.options.settings.borderColor 
+                    currentValue: Config.options.settings.borderColor
                     onSelected: newValue => {
                         Config.options.settings.borderColor = newValue
                     }
                 }
-            } 
+            }
         }
 
         ContentSection {
@@ -545,7 +545,7 @@ ContentPage {
                 }
             }
         }
-    
+
         ContentSection { // I see that for many the overview is important, I put it first why not
             visible: WM.compositor !== "niri"
             icon: "overview_key"
@@ -1005,7 +1005,7 @@ ContentPage {
                                 }
                             }
                         }
-                        
+
                         RowLayout {
                             Layout.fillWidth: true
                             StyledText {
@@ -1077,7 +1077,7 @@ ContentPage {
 
             ContentSubsection {
                 title: Translation.tr("Google Lens")
-                    
+
                 GroupedList {
                     ConfigSelectionArray {
                         configKey: "search.imageSearch.useCircleSelection";
@@ -1303,7 +1303,7 @@ ContentPage {
                             Config.options.wallpaperSelector.liveWallpapersPath = liveWallpapersPathField.value
                         }
                     }
-                } 
+                }
             }
         }
 

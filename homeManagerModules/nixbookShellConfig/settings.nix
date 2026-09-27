@@ -112,6 +112,8 @@
     # Persona style: full-screen cut-in for critical notifications and for
     # these keywords (app name, title, text or hints).
     cutIn.keywords = [
+      "Calendar"
+      "Reminder"
       "Google Calendar"
       "Google Agenda"
       "calendar.google.com"

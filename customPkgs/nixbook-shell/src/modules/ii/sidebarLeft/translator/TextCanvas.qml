@@ -1,3 +1,4 @@
+import qs
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
@@ -43,6 +44,9 @@ Rectangle {
                 padding: 15
                 background: null
                 onTextChanged: root.inputTextChanged()
+                Keys.onPressed: event => {
+                    if (GlobalStates.sidebarLeftKey(event)) event.accepted = true;
+                }
             }
         }
 

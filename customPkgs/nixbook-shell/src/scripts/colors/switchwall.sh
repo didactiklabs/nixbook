@@ -183,11 +183,9 @@ switch() {
         set_wallpaper_path "$imgpath"
 
         local video_path="$imgpath"
-        monitors=$(hyprctl monitors -j | jq -r '.[] | .name')
-        for monitor in $monitors; do
-          mpvpaper -o "$VIDEO_OPTS" "$monitor" "$video_path" &
-          sleep 0.1
-        done
+        # One mpvpaper per output, paused while hidden, from an optimized
+        # copy when there is one (see live-wallpaper.sh).
+        "$SCRIPT_DIR/live-wallpaper.sh" play "$video_path"
       fi
 
       thumbnail="$THUMBNAIL_DIR/$(basename "$imgpath").jpg"

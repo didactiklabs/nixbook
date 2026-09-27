@@ -178,21 +178,15 @@ in
               saturation 1.5
           }
 
+          // Every window, tiled or floating, uses xray blur: the wallpaper
+          // (Background layer) blurred once and cached, instead of re-blurring
+          // whatever is behind each window whenever it changes (measured: niri
+          // 41% -> 25% of the GPU with the shell's visualizer running). With a
+          // live wallpaper, windows show its blurred still frame (the video
+          // plays on the Bottom layer, see the shell's live-wallpaper.sh).
           window-rule {
               background-effect {
                   blur true
-                  xray false
-              }
-          }
-
-          // Tiled windows only ever sit on the wallpaper/background layers, so
-          // xray blur (computed once from those layers and cached) looks the
-          // same for them and is much cheaper whenever the background animates
-          // (measured: niri 41% -> 25% of the GPU with the shell's visualizer
-          // running). Floating windows keep true blur of what is behind them.
-          window-rule {
-              match is-floating=false
-              background-effect {
                   xray true
               }
           }

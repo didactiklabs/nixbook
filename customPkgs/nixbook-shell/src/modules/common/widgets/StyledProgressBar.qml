@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import qs.modules.common
+import qs.modules.common.functions
 import qs.modules.common.widgets
 import QtQuick
 import QtQuick.Controls
@@ -59,7 +60,7 @@ ProgressBar {
                     function onHighlightColorChanged() { wavyFill.requestPaint(); }
                 }
                 FrameAnimation {
-                    running: root.animateWave
+                    running: root.animateWave && ObjectUtils.shown(wavyFill)
                     onTriggered: {
                         wavyFill.requestPaint()
                     }

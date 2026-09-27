@@ -4,6 +4,7 @@ import qs.modules.common.widgets
 import qs.services
 import qs
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
@@ -165,8 +166,14 @@ MouseArea {
 
         ColumnLayout {
             id: panelContent
-            implicitWidth: 320
             spacing: 10
+
+            // Panel width (a ColumnLayout recomputes its own implicitWidth,
+            // so a zero-height row sets it): wider while a log is shown.
+            Item {
+                Layout.minimumWidth: (UpdateState.viewingLogs || failureCard.visible) ? 600 : 420
+                implicitHeight: 0
+            }
 
             HoverHandler {
                 id: popupHover
@@ -181,8 +188,17 @@ MouseArea {
                 text: UpdateState.updating ? Translation.tr("Updating system...")
                     : UpdateState.checking ? Translation.tr("Checking for updates...")
                     : UpdateState.updateAvailable
-                        ? Translation.tr("Update available: %1 \u2192 %2").arg(UpdateState.localRev.slice(0, 7)).arg(UpdateState.remoteRev.slice(0, 7))
-                        : Translation.tr("System up to date (%1)").arg(UpdateState.localRev.slice(0, 7))
+                        ? Translation.tr("Update available: %1 \u2192 %2").arg(root.shortRev(UpdateState.localRev)).arg(root.shortRev(UpdateState.remoteRev))
+                        : Translation.tr("System up to date (%1)").arg(root.shortRev(UpdateState.localRev))
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                visible: UpdateState.localDirty
+                wrapMode: Text.Wrap
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("Deployed from a local tree with uncommitted changes.")
             }
 
             RowLayout {
@@ -256,32 +272,91 @@ MouseArea {
                 }
             }
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 180
+            // The last run failed: its log, selectable, with a copy button.
+            LogView {
+                id: failureCard
+                visible: UpdateState.lastResult === "failed" && !UpdateState.updating && !UpdateState.viewingLogs
+                title: UpdateState.lastRunTime !== ""
+                    ? Translation.tr("Last update failed (%1)").arg(UpdateState.lastRunTime)
+                    : Translation.tr("Last update failed")
+                titleColor: Appearance.m3colors.m3error
+                log: UpdateState.lastRunLog
+            }
+
+            LogView {
                 visible: UpdateState.viewingLogs
-                clip: true
-                radius: Appearance.rounding.small
-                color: Appearance.colors.colLayer1
+                title: Translation.tr("Live log")
+                log: UpdateState.logText
+                placeholder: Translation.tr("Waiting for logs...")
+            }
+        }
+    }
 
-                Flickable {
-                    id: logFlickable
-                    anchors.fill: parent
-                    anchors.margins: 8
-                    contentWidth: width
-                    contentHeight: logLabel.paintedHeight
-                    clip: true
+    function shortRev(rev) {
+        return rev === "Unknown" ? Translation.tr("unknown") : rev.slice(0, 7)
+    }
 
-                    StyledText {
-                        id: logLabel
-                        width: parent.width
-                        text: UpdateState.logText || Translation.tr("Waiting for logs...")
-                        color: Appearance.colors.colOnLayer1
-                        wrapMode: Text.Wrap
-                        onTextChanged: {
-                            logFlickable.contentY = Math.max(0, logFlickable.contentHeight - logFlickable.height)
-                        }
-                    }
+    // Selectable log text (drag to select) + Copy (the selection, else all).
+    component LogView: ColumnLayout {
+        id: logView
+        property string title
+        property color titleColor: Appearance.colors.colOnLayer2
+        property string log
+        property string placeholder: ""
+        Layout.fillWidth: true
+        spacing: 6
+
+        // Show the end (where the error is), unless text is being selected.
+        function toEnd() {
+            if (logArea.selectedText !== "") return
+            const f = logScroll.contentItem
+            f.contentY = Math.max(0, f.contentHeight - f.height)
+        }
+        onVisibleChanged: if (visible) Qt.callLater(toEnd)
+
+        RowLayout {
+            Layout.fillWidth: true
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+                text: logView.title
+                color: logView.titleColor
+            }
+            RippleButtonWithIcon {
+                buttonRadius: Appearance.rounding.normal
+                materialIcon: "content_copy"
+                mainText: logArea.selectedText !== "" ? Translation.tr("Copy selection") : Translation.tr("Copy log")
+                enabled: logView.log !== ""
+                onClicked: {
+                    Quickshell.clipboardText = logArea.selectedText !== "" ? logArea.selectedText : logView.log
+                    Quickshell.execDetached(["notify-send", Translation.tr("Updates"), Translation.tr("Log copied to the clipboard"), "-a", "Shell"])
+                }
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 280
+            clip: true
+            radius: Appearance.rounding.small
+            color: Appearance.colors.colLayer1
+
+            ScrollView {
+                id: logScroll
+                anchors.fill: parent
+                anchors.margins: 4
+                StyledTextArea {
+                    id: logArea
+                    readOnly: true
+                    selectByMouse: true
+                    wrapMode: TextEdit.Wrap
+                    background: null
+                    color: Appearance.colors.colOnLayer1
+                    font.family: Appearance.font.family.monospace
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    text: logView.log
+                    placeholderText: logView.placeholder
+                    onImplicitHeightChanged: Qt.callLater(logView.toEnd)
                 }
             }
         }
