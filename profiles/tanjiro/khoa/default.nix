@@ -23,6 +23,7 @@ in
     ./gojiConfig.nix
     ../../totoro/khoa/thunderbirdConfig.nix
     ./jiraWorklog.nix
+    ../../totoro/khoa/nixbookShellConfig.nix
   ];
   home.packages = [
     pkgs.anki
@@ -101,9 +102,6 @@ in
     # };
     nixbookShellConfig = {
       enable = true;
-      settings = {
-        appearance.persona.enable = true;
-      };
     };
     rbwConfig = {
       enable = true;

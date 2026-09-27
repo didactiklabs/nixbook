@@ -123,13 +123,13 @@
     ];
     # Never a cut-in, whatever matched above: my own replies. The phone
     # updates the chat notification with the message I just sent and KDE
-    # Connect mirrors it (conversation name + my message), so it would match
-    # the friend's rule. Sent lines start with "You: …" (or the user's own
-    # name, in the profile).
+    # Connect mirrors it (the whole thread, my message last), so it would
+    # match the friend's rule. "last:" is that last message; mine start with
+    # "You: …" (or the user's own name, in the profile).
     cutIn.blacklist = [
-      "body:^\"You:\""
-      "body:^\"Vous:\""
-      "body:^\"Bạn:\""
+      "last:^\"You:\""
+      "last:^\"Vous:\""
+      "last:^\"Bạn:\""
     ];
   };
   overlay = {

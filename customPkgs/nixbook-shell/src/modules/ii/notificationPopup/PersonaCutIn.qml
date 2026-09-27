@@ -151,13 +151,14 @@ Scope {
         readonly property string fullBody: NotificationUtils.plainText(
             NotificationUtils.processNotificationBody(n?.body ?? "", n?.appName ?? "")).trim()
         // Phone chats mirrored by KDE Connect: title = the phone app or the
-        // conversation, body = "sender: message". The sender goes on the name
-        // tag, the title next to the app name.
-        readonly property var mirrored: (n?.appName ?? "") === "KDE Connect"
-            ? fullBody.match(/^([^:\n]{1,40}): ([\s\S]+)$/) : null
-        readonly property string bodyText: (mirrored ? mirrored[2].trim() : fullBody)
+        // conversation, body = "sender: message" lines (the whole thread). The
+        // last message's sender goes on the name tag, the title next to the
+        // app name.
+        readonly property var mirrored: (v => (n?.appName ?? "") === "KDE Connect" && v.sender !== "" && v.text !== "" ? v : null)(
+            NotificationUtils.lastMessage(fullBody))
+        readonly property string bodyText: (mirrored ? mirrored.text : fullBody)
             || NotificationUtils.plainText(n?.summary).trim()
-        readonly property string speaker: mirrored ? mirrored[1].trim()
+        readonly property string speaker: mirrored ? mirrored.sender
             : ((n?.body ? NotificationUtils.plainText(n?.summary) : n?.appName) || n?.appName || "")
         readonly property var replyMethod: n ? Notifications.replyMethod(n) : null
         property bool replying: false

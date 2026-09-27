@@ -13,6 +13,7 @@ in
     ./swayConfig.nix
     ./sunshine.nix
     ./zshConfig.nix
+    ../../totoro/khoa/nixbookShellConfig.nix
   ];
   profileCustomization = {
     mainWallpaper =
@@ -87,9 +88,6 @@ in
     # dmsConfig.enable = true;
     nixbookShellConfig = {
       enable = true;
-      settings = {
-        appearance.persona.enable = true;
-      };
     };
     desktopApps.enable = true;
     zenBrowserConfig.enable = true;
