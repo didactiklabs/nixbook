@@ -15,7 +15,7 @@ Item {
 
     readonly property bool nixManaged: NixManaged.isPinned("appearance.persona.variant")
     readonly property var variants: [
-        { value: "p5",  icon: "local_fire_department", name: Translation.tr("Persona 5") },
+        { value: "p5",  icon: "local_fire_department", name: Translation.tr("Persona 5 Royal") },
         { value: "p3r", icon: "water_drop",            name: Translation.tr("Persona 3 Reload") },
         { value: "p4",  icon: "tv",                    name: Translation.tr("Persona 4 Revival") },
     ]
