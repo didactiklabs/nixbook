@@ -772,6 +772,27 @@ Whether Claude Code in the workspaces also reads the shared `AGENTS.md`. ocm onl
 
 Whether to enable the opencode-manager (`ocm`) configuration. Writes `~/.config/opencode-manager/config.yaml` declaratively with: - `runtime` (podman by default — Podman is installed system-wide by `customNixOSModules.tools`, with the docker compatibility CLI) - the `baseImage` block that every workspace container is built from (see https://mickael-roger.github.io/opencode-manager/configuration/#base-image) The config file is a symlink into the Nix store, so `ocm config edit` cannot write it; remove `~/.config/opencode-manager/config.yaml` to take manual control of it again (it comes back on the next activation). Installs the opencode-manager package itself, so the module works on its own. Machines that already enable `devTools` get the same store path twice, which Home Manager merges without a collision. The built-in module catalogue is seeded into `~/.config/opencode-manager/modules` by the `devTools` activation, not by this module. Requires a container runtime on the host: `customNixOSModules.tools` provides Podman, which is what `runtime` defaults to.
 
+### `customHomeManagerModules.ocmConfig.kubeswitch.configPath`
+
+- **Type:** `string`
+- **Default:** `"/home/docs/.kube/switch-config.yaml"`
+
+SwitchConfig the host hooks read the kubeconfig stores from. Defaults to the file `kubeswitchConfig` writes.
+
+### `customHomeManagerModules.ocmConfig.kubeswitch.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to install the `kubeswitch` ocm module (`~/.config/opencode-manager/modules/infra/kubeswitch`). In a workspace's module editor it lists every context from the host's kubeswitch stores (as `kswitch` shows them, e.g. `configs/admin@prod`) and imports each selected one into the workspace `~/.kube/config`: - `list-contexts` and `resolve` run on the host with the host's kubeswitch and `kubeswitch.configPath`, so nothing is mounted and the container only ever receives the selected contexts - the context is exported minified and flattened (credentials inlined), with its context, cluster and user renamed to the kubeswitch name so same-named contexts from different kubeconfig files don't collide - `install` puts kubectl and kubelogin (`kubectl oidc-login`) in the container; OIDC contexts log in again from there, since the host token cache is not shared The files are copied on activation (ocm bind-mounts the module tree into the containers, where store links would dangle) and replaced whenever they differ from the Nix-built ones.
+
+### `customHomeManagerModules.ocmConfig.kubeswitch.package`
+
+- **Type:** `package`
+- **Default:** `"/nix/store/4qd1x27rnhqzcmi0iis0m27745bl6pgx-kubeswitch-0.9.3"`
+
+kubeswitch package whose `switcher` the host hooks run.
+
 ### `customHomeManagerModules.ocmConfig.nix.devenv`
 
 - **Type:** `boolean`
@@ -784,7 +805,7 @@ Whether to have that Nix install devenv into the workspace base image. Runs `nix
 - **Type:** `boolean`
 - **Default:** `true`
 
-Whether to install Nix into the workspace base image. Adds Debian's `nix` package to `baseImage.packages` (the package name `nix` resolves to `nix-setup-systemd`, which pulls in `nix-bin`) and adds the `baseImage.commands` needed to make it usable inside a container: - create `/nix`, which Debian normally only creates through a `tmpfiles.d` rule that needs systemd and therefore never runs here - write `/etc/nix/nix.conf` with `nix-command`/`flakes`, an empty `build-users-group` (Debian defaults to `nixbld`; keeping it empty makes every build a plain single-user one) and `sandbox = false` (nested user namespaces are not guaranteed under rootless Podman) - `chmod -R a+rwX /nix` last, so the workspace process — which runs under the host UID, not root — can add store paths to what was filled in as root during the image build. The container already grants passwordless sudo to every user, so this does not weaken its isolation.
+Whether to install Nix into the workspace base image. Adds Debian's `nix` package to `baseImage.packages` (the package name `nix` resolves to `nix-setup-systemd`, which pulls in `nix-bin`) and adds the `baseImage.commands` needed to make it usable inside a container: - create `/nix`, which Debian normally only creates through a `tmpfiles.d` rule that needs systemd and therefore never runs here - write `/etc/nix/nix.conf` with `nix-command`/`flakes`, an empty `build-users-group` (Debian defaults to `nixbld`; keeping it empty makes every build a plain single-user one) and `sandbox = false` (nested user namespaces are not guaranteed under rootless Podman) - `chmod -R a+rwX /nix` last, so the workspace process — which runs under the host UID, not root — can add store paths to what was filled in as root during the image build. The container already grants passwordless sudo to every user, so this does not weaken its isolation. - put `/nix/var/nix/{profiles,gcroots}/per-user` back to `0755`: Nix chmods them to that mode on every store open unless they already have it, which fails ("Operation not permitted") for the workspace user, who doesn't own them.
 
 ### `customHomeManagerModules.ocmConfig.nix.nixpkgs`
 

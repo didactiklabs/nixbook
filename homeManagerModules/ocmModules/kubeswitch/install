@@ -1,0 +1,70 @@
+#!/bin/sh
+# Runs inside the workspace container. Installs kubectl and the kubectl-oidc-login
+# plugin (if missing) and merges the single context produced by the host resolve
+# hook ($OCM_KUBECONFIG, base64) into ~/.kube/config.
+#
+# The resolve hook renames the context, its cluster and its user to the
+# kubeswitch name ($OCM_CONTEXT, e.g. "configs/admin@prod"), so kubeconfigs that
+# reuse the same names across files (common with kubeswitch stores) never
+# collide once merged.
+#
+# Idempotent: the tool installs are guarded and re-importing a context replaces
+# its entry, so reconcile can re-run this safely.
+set -e
+
+case "$(dpkg --print-architecture 2>/dev/null || echo amd64)" in
+  arm64 | aarch64) karch=arm64 ;;
+  *) karch=amd64 ;;
+esac
+
+if ! command -v curl >/dev/null 2>&1 || ! command -v unzip >/dev/null 2>&1; then
+  sudo apt-get update
+  sudo apt-get install -y --no-install-recommends curl ca-certificates unzip
+fi
+
+if ! command -v kubectl >/dev/null 2>&1; then
+  ver="$(curl -fsSL https://dl.k8s.io/release/stable.txt)"
+  curl -fsSL "https://dl.k8s.io/release/${ver}/bin/linux/${karch}/kubectl" -o /tmp/kubectl
+  sudo install -m 0755 /tmp/kubectl /usr/local/bin/kubectl
+  rm -f /tmp/kubectl
+fi
+
+# kubelogin provides "kubectl oidc-login", which the OIDC kubeconfigs in the
+# kubeswitch store use as their exec credential plugin.
+if ! command -v kubectl-oidc_login >/dev/null 2>&1; then
+  tmp="$(mktemp -d)"
+  curl -fsSL "https://github.com/int128/kubelogin/releases/latest/download/kubelogin_linux_${karch}.zip" -o "$tmp/kubelogin.zip"
+  unzip -q -o "$tmp/kubelogin.zip" -d "$tmp"
+  sudo install -m 0755 "$tmp/kubelogin" /usr/local/bin/kubectl-oidc_login
+  rm -rf "$tmp"
+fi
+
+mkdir -p "$HOME/.kube"
+chmod 700 "$HOME/.kube"
+
+if [ -z "$OCM_KUBECONFIG" ]; then
+  echo "kubeswitch: context '${OCM_CONTEXT:-?}' could not be resolved from the host (nothing written)"
+  exit 0
+fi
+
+cfg="$HOME/.kube/config"
+new="$(mktemp)"
+printf '%s' "$OCM_KUBECONFIG" | base64 -d >"$new"
+
+if [ -s "$cfg" ]; then
+  # kubectl merges first-file-wins, so the incoming file goes first to replace a
+  # stale copy of the same context; the existing current-context is kept.
+  current="$(kubectl --kubeconfig "$cfg" config current-context 2>/dev/null || true)"
+  merged="$(mktemp)"
+  KUBECONFIG="$new:$cfg" kubectl config view --flatten >"$merged"
+  mv "$merged" "$cfg"
+  rm -f "$new"
+  if [ -n "$current" ]; then
+    kubectl --kubeconfig "$cfg" config use-context "$current" >/dev/null
+  fi
+else
+  mv "$new" "$cfg"
+fi
+chmod 600 "$cfg"
+
+echo "kubeswitch context imported: $OCM_CONTEXT"

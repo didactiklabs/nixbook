@@ -44,6 +44,74 @@ let
 
   nixPackages = lib.optionals cfg.nix.enable [ "nix" ];
 
+  # Host-side hooks of the kubeswitch ocm module. ocm runs them on the host, so
+  # they can use the host's kubeswitch, its SwitchConfig and Nix store tools.
+  kubeswitchHookPath = lib.makeBinPath [
+    cfg.kubeswitch.package
+    pkgs.kubectl
+    pkgs.yq-go
+    pkgs.coreutils
+  ];
+
+  kubeswitchListContexts = pkgs.writeShellScript "ocm-kubeswitch-list-contexts" ''
+    # optionsCommand: one kubeswitch context ("<store dir>/<context>") per line.
+    # Silent on failure, so the picker just shows "No options available".
+    export PATH=${kubeswitchHookPath}:$PATH
+    switcher --config-path ${lib.escapeShellArg cfg.kubeswitch.configPath} list-contexts 2>/dev/null || true
+  '';
+
+  kubeswitchResolve = pkgs.writeShellScript "ocm-kubeswitch-resolve" ''
+    # resolve: turn the selected kubeswitch context ($OCM_CONTEXT) into a
+    # self-contained single-context kubeconfig, printed as "kubeconfig=<base64>".
+    # The context, cluster and user are renamed to the kubeswitch name so imports
+    # from different kubeconfig files never collide in the workspace config.
+    # Prints nothing when the context cannot be found.
+    set -u
+    export PATH=${kubeswitchHookPath}:$PATH
+    [ -n "''${OCM_CONTEXT:-}" ] || exit 0
+
+    # A throwaway state directory keeps these lookups out of the host's kswitch
+    # history; the kubeconfig copy kubeswitch writes is removed afterwards.
+    state="$(mktemp -d)"
+    trap 'rm -rf "$state"' EXIT
+    out="$(switcher --config-path ${lib.escapeShellArg cfg.kubeswitch.configPath} \
+      --state-directory "$state" set-context "$OCM_CONTEXT" 2>/dev/null)" || exit 0
+    tmp="''${out#__ }"
+    tmp="''${tmp%%,*}"
+    [ -f "$tmp" ] || exit 0
+
+    cfg="$(kubectl --kubeconfig "$tmp" config view --minify --flatten 2>/dev/null)"
+    rm -f "$tmp"
+    [ -n "$cfg" ] || exit 0
+
+    cfg="$(printf '%s' "$cfg" | NAME="$OCM_CONTEXT" yq '
+      (.clusters[].name) = strenv(NAME) |
+      (.users[].name) = strenv(NAME) |
+      (.contexts[].name) = strenv(NAME) |
+      (.contexts[].context.cluster) = strenv(NAME) |
+      (.contexts[].context | select(.user != null) | .user) = strenv(NAME) |
+      .["current-context"] = strenv(NAME)
+    ')" || exit 0
+
+    printf 'kubeconfig=%s\n' "$(printf '%s' "$cfg" | base64 -w0)"
+  '';
+
+  # Real files, not links into the store: the module tree is bind-mounted into
+  # every workspace, where host store paths do not exist.
+  kubeswitchModule = pkgs.runCommand "ocm-module-kubeswitch" { } ''
+    mkdir -p $out
+    cp ${./ocmModules/kubeswitch}/{module.yml,install,uninstall} $out/
+    cp ${kubeswitchListContexts} $out/list-contexts
+    cp ${kubeswitchResolve} $out/resolve
+    chmod 0755 $out/install $out/uninstall $out/list-contexts $out/resolve
+  '';
+
+  # category/name -> module directory, installed into ocm's primary moduleDir
+  # (the only one it runs resolve hooks from).
+  ocmModules = lib.optionalAttrs cfg.kubeswitch.enable {
+    "infra/kubeswitch" = kubeswitchModule;
+  };
+
   nixCommands =
     lib.optionals cfg.nix.enable [
       "mkdir -p /nix"
@@ -172,6 +240,54 @@ in
       '';
     };
 
+    kubeswitch = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = config.customHomeManagerModules.kubeswitchConfig.enable;
+        defaultText = lib.literalExpression "config.customHomeManagerModules.kubeswitchConfig.enable";
+        description = ''
+          Whether to install the `kubeswitch` ocm module
+          (`~/.config/opencode-manager/modules/infra/kubeswitch`).
+
+          In a workspace's module editor it lists every context from the host's
+          kubeswitch stores (as `kswitch` shows them, e.g. `configs/admin@prod`)
+          and imports each selected one into the workspace `~/.kube/config`:
+
+            - `list-contexts` and `resolve` run on the host with the host's
+              kubeswitch and `kubeswitch.configPath`, so nothing is mounted and
+              the container only ever receives the selected contexts
+            - the context is exported minified and flattened (credentials
+              inlined), with its context, cluster and user renamed to the
+              kubeswitch name so same-named contexts from different kubeconfig
+              files don't collide
+            - `install` puts kubectl and kubelogin (`kubectl oidc-login`) in the
+              container; OIDC contexts log in again from there, since the host
+              token cache is not shared
+
+          The files are copied on activation (ocm bind-mounts the module tree
+          into the containers, where store links would dangle) and replaced
+          whenever they differ from the Nix-built ones.
+        '';
+      };
+
+      package = lib.mkOption {
+        type = lib.types.package;
+        default = config.programs.kubeswitch.package;
+        defaultText = lib.literalExpression "config.programs.kubeswitch.package";
+        description = "kubeswitch package whose `switcher` the host hooks run.";
+      };
+
+      configPath = lib.mkOption {
+        type = lib.types.str;
+        default = "${config.home.homeDirectory}/.kube/switch-config.yaml";
+        defaultText = lib.literalExpression ''"''${config.home.homeDirectory}/.kube/switch-config.yaml"'';
+        description = ''
+          SwitchConfig the host hooks read the kubeconfig stores from. Defaults
+          to the file `kubeswitchConfig` writes.
+        '';
+      };
+    };
+
     nix = {
       enable = lib.mkOption {
         type = lib.types.bool;
@@ -248,6 +364,24 @@ in
         commands = nixCommands ++ claudeCommands ++ cfg.baseImage.commands;
       };
     };
+
+    # Copied, not linked (see kubeswitchModule). Only rewritten when it differs,
+    # and only the managed modules are touched.
+    home.activation.ocmModules = lib.mkIf (ocmModules != { }) (
+      lib.hm.dag.entryAfter [ "writeBoundary" ] (
+        lib.concatStrings (
+          lib.mapAttrsToList (path: src: ''
+            dest="$HOME/.config/opencode-manager/modules/${path}"
+            if ! diff -rq ${src} "$dest" >/dev/null 2>&1; then
+              $DRY_RUN_CMD mkdir -p "$(dirname "$dest")"
+              $DRY_RUN_CMD rm -rf "$dest"
+              $DRY_RUN_CMD cp -R ${src} "$dest"
+              $DRY_RUN_CMD chmod -R u+w "$dest"
+            fi
+          '') ocmModules
+        )
+      )
+    );
 
     # Copied, not linked: ocm rejects symlinks in the shared OpenCode tree.
     # Only rewritten when it differs, since every write triggers a sync.
