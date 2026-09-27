@@ -112,7 +112,7 @@ let
   # claudeCode.credentials.path, so it is generated here.
   claudeAuthSharedManifest = yamlFormat.generate "claude-auth-shared-module.yml" {
     name = "claude-auth-shared";
-    version = 1;
+    version = 2;
     description = "Share this host's Claude Code subscription login with the workspace (bind mount, so both refresh the same tokens). Adding or removing it recreates the container.";
     mounts = [
       {
