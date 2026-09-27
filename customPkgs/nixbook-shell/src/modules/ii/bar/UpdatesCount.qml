@@ -187,6 +187,64 @@ MouseArea {
         }
     }
 
+    // Hover tooltip: a quick status summary, hidden while the panel is open.
+    StyledPopup {
+        hoverTarget: root
+        active: !root.panelOpen && root.containsMouse && Config.options.bar.tooltips.enable
+
+        ColumnLayout {
+            spacing: 4
+
+            StyledPopupHeaderRow {
+                icon: "deployed_code_update"
+                label: Translation.tr("System updates")
+            }
+
+            StyledPopupValueRow {
+                Layout.fillWidth: true
+                icon: UpdateState.updating || UpdateState.checking ? "sync"
+                    : UpdateState.updateAvailable ? "upgrade" : "check_circle"
+                label: Translation.tr("Status")
+                value: UpdateState.updating ? Translation.tr("Updating...")
+                    : UpdateState.checking ? Translation.tr("Checking...")
+                    : UpdateState.updateAvailable ? Translation.tr("Update available")
+                    : Translation.tr("Up to date")
+            }
+
+            StyledPopupValueRow {
+                Layout.fillWidth: true
+                icon: "commit"
+                label: Translation.tr("Deployed")
+                value: root.shortRev(UpdateState.localRev)
+                    + (UpdateState.localBranch !== "Unknown" ? " (" + UpdateState.localBranch + ")" : "")
+                    + (UpdateState.localDirty ? " — " + Translation.tr("dirty") : "")
+            }
+
+            StyledPopupValueRow {
+                Layout.fillWidth: true
+                visible: UpdateState.updateAvailable
+                icon: "cloud_download"
+                label: Translation.tr("Latest")
+                value: root.shortRev(UpdateState.remoteRev)
+            }
+
+            StyledPopupValueRow {
+                Layout.fillWidth: true
+                visible: UpdateState.lastResult !== ""
+                icon: UpdateState.lastResult === "failed" ? "error" : "check_circle"
+                label: Translation.tr("Last update")
+                value: (UpdateState.lastResult === "failed" ? Translation.tr("Failed") : Translation.tr("Succeeded"))
+                    + (UpdateState.lastRunTime !== "" ? " — " + UpdateState.lastRunTime : "")
+            }
+
+            StyledText {
+                text: Translation.tr("Click to manage · right click to check")
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+            }
+        }
+    }
+
     StyledPopup {
         id: updatePopup
         hoverTarget: root
