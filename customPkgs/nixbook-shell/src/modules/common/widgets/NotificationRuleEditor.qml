@@ -6,7 +6,8 @@ import qs.modules.common.widgets
 
 /**
  * App chips + keyword field for a notification rule in
- * Config.options.notifications.<ruleKey> (`apps`, `keywords`): used by
+ * Config.options.notifications.<ruleKey> (`apps`, `keywords`, and
+ * `blacklist` when `blacklistLabel` is set): used by
  * Settings → Notifications for "Keep on screen" and "Persona cut-in".
  * The chips list every app seen in the notification history plus the ones
  * already chosen. Both lists honour Nix locks.
@@ -17,6 +18,9 @@ ColumnLayout {
     property string appsLabel: Translation.tr("For these apps")
     property string keywordsLabel: Translation.tr("For notifications containing")
     property string keywordsPlaceholder: ""
+    // Non-empty: also show a field for `blacklist` (words that veto the rule).
+    property string blacklistLabel: ""
+    property string blacklistPlaceholder: ""
     spacing: 0
 
     readonly property var rules: Config.options.notifications[root.ruleKey]
@@ -34,6 +38,12 @@ ColumnLayout {
         Config.options.notifications[root.ruleKey].apps = root.hasApp(app)
             ? apps.filter(a => a.toLowerCase() !== app.toLowerCase())
             : apps.concat([app]);
+    }
+    // Comma-separated field text → Config.options.notifications.<ruleKey>.<key>.
+    function saveWords(key, value) {
+        const words = value.split(",").map(w => w.trim()).filter(w => w.length > 0);
+        if (JSON.stringify(words) !== JSON.stringify(root.rules?.[key] ?? []))
+            Config.options.notifications[root.ruleKey][key] = words;
     }
 
     ColumnLayout {
@@ -124,11 +134,26 @@ ColumnLayout {
         Timer {
             id: keywordsTimer
             interval: 800
-            onTriggered: {
-                const words = keywords.value.split(",").map(w => w.trim()).filter(w => w.length > 0);
-                if (JSON.stringify(words) !== JSON.stringify(root.rules?.keywords ?? []))
-                    Config.options.notifications[root.ruleKey].keywords = words;
-            }
+            onTriggered: root.saveWords("keywords", keywords.value)
+        }
+    }
+
+    ConfigTextArea {
+        id: blacklist
+        visible: root.blacklistLabel !== ""
+        configKey: `notifications.${root.ruleKey}.blacklist`
+        Layout.fillWidth: true
+        buttonIcon: "block"
+        text: root.blacklistLabel
+        placeholderText: root.blacklistPlaceholder
+        fieldWidth: 360
+        fieldHeight: Math.max(40, textArea.contentHeight + 18)
+        value: (root.rules?.blacklist ?? []).join(", ")
+        onValueChanged: blacklistTimer.restart()
+        Timer {
+            id: blacklistTimer
+            interval: 800
+            onTriggered: if (blacklist.visible) root.saveWords("blacklist", blacklist.value)
         }
     }
 }

@@ -537,6 +537,77 @@ ContentPage {
                 }
             }
 
+            // Log of every notification, kept after it is dismissed
+            // (services/NotificationHistory.qml; sidebar → history button).
+            ContentSubsection {
+                id: historySection
+                title: Translation.tr("History")
+                property bool confirmClear: false
+                Timer {
+                    id: historyConfirmTimer
+                    interval: 3000
+                    onTriggered: historySection.confirmClear = false
+                }
+
+                GroupedList {
+                    ConfigSwitch {
+                        configKey: "notifications.history.enable"
+                        buttonIcon: "history"
+                        text: Translation.tr("Keep a notification history")
+                        checked: Config.options.notifications.history.enable
+                        onCheckedChanged: Config.options.notifications.history.enable = checked
+                    }
+                    ConfigSpinBox {
+                        configKey: "notifications.history.retentionDays"
+                        enabled: Config.options.notifications.history.enable
+                        icon: "auto_delete"
+                        text: Translation.tr("Keep for (days, 0 = forever)")
+                        value: Config.options.notifications.history.retentionDays
+                        from: 0
+                        to: 3650
+                        stepSize: 1
+                        onValueChanged: Config.options.notifications.history.retentionDays = value
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 8
+                        Layout.topMargin: 4
+                        text: Translation.tr("%1 notifications in history").arg(NotificationHistory.entries.length)
+                        color: Appearance.colors.colOnSecondaryContainer
+                    }
+                    Flow {
+                        Layout.fillWidth: true
+                        Layout.margins: 8
+                        spacing: 6
+                        Repeater {
+                            model: [7, 30]
+                            delegate: RippleButtonWithIcon {
+                                required property int modelData
+                                readonly property int count: NotificationHistory.countOlderThan(modelData)
+                                enabled: count > 0
+                                materialIcon: "auto_delete"
+                                mainText: Translation.tr("Older than %1 days (%2)").arg(modelData).arg(count)
+                                onClicked: NotificationHistory.deleteOlderThan(modelData)
+                            }
+                        }
+                        RippleButtonWithIcon {
+                            enabled: NotificationHistory.entries.length > 0
+                            materialIcon: "delete_forever"
+                            mainText: historySection.confirmClear ? Translation.tr("Click again to delete all") : Translation.tr("Delete all")
+                            onClicked: {
+                                if (!historySection.confirmClear) {
+                                    historySection.confirmClear = true;
+                                    historyConfirmTimer.restart();
+                                    return;
+                                }
+                                historySection.confirmClear = false;
+                                NotificationHistory.clear();
+                            }
+                        }
+                    }
+                }
+            }
+
             // Which notifications get the full-screen Persona cut-in
             // (modules/ii/notificationPopup/PersonaCutIn.qml).
             ContentSubsection {
@@ -549,7 +620,7 @@ ContentPage {
                         Layout.fillWidth: true
                         Layout.margins: 8
                         wrapMode: Text.Wrap
-                        text: Translation.tr("With the Persona style on, matching notifications take over the screen like an in-game dialogue. An app marks a notification critical itself (e.g. low battery, incoming calls, notify-send -u critical); critical ones show a \"!\" in the notification centre. Most chat apps send normal notifications — pick them below to get cut-ins for them too. Keywords also match the message text and hints.")
+                        text: Translation.tr("With the Persona style on, matching notifications take over the screen like an in-game dialogue. An app marks a notification critical itself (e.g. low battery, incoming calls, notify-send -u critical); critical ones show a \"!\" in the notification centre. Most chat apps send normal notifications — pick them below to get cut-ins for them too. Rules also match the message text and hints.")
                         font.pixelSize: Appearance.font.pixelSize.small
                         color: Appearance.colors.colSubtext
                     }
@@ -568,12 +639,38 @@ ContentPage {
                         checked: cutInSection.rules.critical
                         onCheckedChanged: Config.options.notifications.cutIn.critical = checked
                     }
+                    ConfigSwitch {
+                        configKey: "notifications.cutIn.sound"
+                        enabled: cutInSection.rules.enable
+                        buttonIcon: "music_note"
+                        text: Translation.tr("Play the Persona 5 cut-in effect")
+                        checked: cutInSection.rules.sound
+                        onCheckedChanged: Config.options.notifications.cutIn.sound = checked
+                    }
                     NotificationRuleEditor {
                         Layout.fillWidth: true
                         enabled: cutInSection.rules.enable
                         opacity: enabled ? 1 : 0.5
                         ruleKey: "cutIn"
-                        keywordsPlaceholder: Translation.tr("comma-separated, e.g. call, urgent, alarm")
+                        keywordsLabel: Translation.tr("For notifications matching")
+                        keywordsPlaceholder: Translation.tr("comma-separated rules, e.g. call, Victor + Instagram, app:Signal")
+                        blacklistLabel: Translation.tr("Never for notifications matching")
+                        blacklistPlaceholder: Translation.tr("comma-separated rules, e.g. newsletter, app:Instagram + !Victor")
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        Layout.margins: 8
+                        wrapMode: Text.Wrap
+                        textFormat: Text.StyledText
+                        text: Translation.tr("<b>Rules</b> — each comma-separated rule is checked on its own. Join terms with <b>+</b> to require all of them (<i>Victor + Instagram</i> needs both). <b>!</b> means absent (<i>Victor + !newsletter</i>). <b>app:</b>, <b>title:</b>, <b>body:</b> or <b>hint:</b> look in one field only (<i>app:Instagram + Victor</i>). Quotes match a whole word (<i>\"Diệu\"</i>). Case is ignored. Blacklist rules win over everything, critical included.")
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        color: Appearance.colors.colSubtext
+                    }
+                    CutInRuleTester {
+                        Layout.fillWidth: true
+                        Layout.margins: 8
+                        enabled: cutInSection.rules.enable
+                        opacity: enabled ? 1 : 0.5
                     }
 
                     RowLayout {
