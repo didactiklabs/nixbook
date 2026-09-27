@@ -786,6 +786,27 @@ Whether Claude Code in the workspaces also reads the shared `AGENTS.md`. ocm onl
 
 Whether to enable the opencode-manager (`ocm`) configuration. Writes `~/.config/opencode-manager/config.yaml` declaratively with: - `runtime` (podman by default — Podman is installed system-wide by `customNixOSModules.tools`, with the docker compatibility CLI) - the `baseImage` block that every workspace container is built from (see https://mickael-roger.github.io/opencode-manager/configuration/#base-image) The config file is a symlink into the Nix store, so `ocm config edit` cannot write it; remove `~/.config/opencode-manager/config.yaml` to take manual control of it again (it comes back on the next activation). Installs the opencode-manager package itself, so the module works on its own. Machines that already enable `devTools` get the same store path twice, which Home Manager merges without a collision. The built-in module catalogue is seeded into `~/.config/opencode-manager/modules` by the `devTools` activation, not by this module. Requires a container runtime on the host: `customNixOSModules.tools` provides Podman, which is what `runtime` defaults to.
 
+### `customHomeManagerModules.ocmConfig.hostDisplay.enable`
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+Whether to install the `tools/host-display` ocm module, which gives a workspace this host's graphical session so agents can launch GUI apps and capture screenshots of them. Installing it only makes it available: add it per workspace from the module editor. Its `mounts` bind-mount `hostDisplay.waylandSocket` onto `~/.cache/ocm-host-display/wayland-0` in the container (the directory becomes `XDG_RUNTIME_DIR`) and, unless `hostDisplay.x11Display` is `null`, the XWayland socket onto `/tmp/.X11-unix/X<n>`. Both are optional, so a workspace started without a session runs without them. Rootless Podman runs the container under the host UID (`--userns keep-id`), so it can connect to the sockets as is. The container `install` puts grim, wl-clipboard, x11-utils and imagemagick in the workspace, adds `ocm-screenshot [GEOMETRY]` (saves a PNG under `~/screenshots` and prints its path), and exports `XDG_RUNTIME_DIR`, `WAYLAND_DISPLAY`, `DISPLAY`, toolkit backend hints and `LIBGL_ALWAYS_SOFTWARE=1` (no GPU is passed through) in a marked `~/.env` block that `uninstall` removes. A workspace with it can capture the whole desktop (wlr-screencopy) and, on sway and Hyprland, send input through virtual-keyboard and virtual-pointer: add it only to workspaces you trust with that. The socket is bound by inode, so after the compositor restarts (a new login) restart the workspaces that have it.
+
+### `customHomeManagerModules.ocmConfig.hostDisplay.waylandSocket`
+
+- **Type:** `string`
+- **Default:** `"/run/user/1000/wayland-1"`
+
+Host Wayland socket to share, i.e. `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` in the host session. niri, sway and Hyprland name theirs `wayland-1` when it is free; users without an explicit UID get 1000 when they are the first normal user.
+
+### `customHomeManagerModules.ocmConfig.hostDisplay.x11Display`
+
+- **Type:** `null or (unsigned integer, meaning >=0)`
+- **Default:** `0`
+
+XWayland display number (`:0` → `0`, as xwayland-satellite usually takes) whose `/tmp/.X11-unix/X<n>` socket is also shared, for X11-only apps. `null` shares no X11 display.
+
 ### `customHomeManagerModules.ocmConfig.kubeswitch.configPath`
 
 - **Type:** `string`
@@ -827,6 +848,20 @@ Whether to install Nix into the workspace base image. Adds Debian's `nix` packag
 - **Default:** `"nixpkgs"`
 
 Flake reference `nix profile install` resolves `devenv` from. Defaults to the `nixpkgs` flake registry entry; pin a revision (for example `github:NixOS/nixpkgs/<rev>`) to make the base image rebuild reproducibly.
+
+### `customHomeManagerModules.ocmConfig.notificationHistory.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to install the `tools/notification-history` ocm module, which gives a workspace read-only, live access to nixbook-shell's notification history. Installing it only makes it available: add it per workspace from the module editor. The shell rewrites `notificationHistory.source` by rename, in a directory that also holds its notes, todos and AI chats, so neither the file nor its directory is mounted. A `ocm-notification-history` user path unit copies the file, whenever it changes, into `$XDG_STATE_HOME/ocm-notification-history/` (0700, the copy renamed into place), and the module's `mounts` bind that directory read-only onto `~/.local/share/host-notifications` (optional: skipped until the first copy exists). The container `install` adds `host-notifications [-n COUNT] [-a APP] [-s HOURS] [--json]` and a marked `~/.claude/CLAUDE.md` block that tells Claude Code where the history is; `uninstall` removes both.
+
+### `customHomeManagerModules.ocmConfig.notificationHistory.source`
+
+- **Type:** `string`
+- **Default:** `"/home/docs/.local/state/quickshell/user/notification-history.json"`
+
+Notification history file nixbook-shell writes (`Directories.notificationHistoryPath`).
 
 ### `customHomeManagerModules.ocmConfig.runtime`
 

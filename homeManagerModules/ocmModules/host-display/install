@@ -1,0 +1,77 @@
+#!/bin/sh
+# Runs inside the workspace container. The module's `mounts` (generated in
+# ocmConfig.nix) bind-mount the host compositor's Wayland socket onto
+# ~/.cache/ocm-host-display/wayland-0 and, when enabled, the XWayland socket onto
+# /tmp/.X11-unix/X<n>; both are optional, so a host without a running session
+# just starts without them. This installs screenshot/clipboard tools, an
+# `ocm-screenshot` helper, and exports the display variables through a marked
+# block in ~/.env. Idempotent: apt-get is a no-op for present packages and the
+# ~/.env block is rewritten in place. A marked ~/.claude/CLAUDE.md block tells
+# Claude Code about the display.
+set -e
+
+runtime_dir="$HOME/.cache/ocm-host-display"
+socket="$runtime_dir/wayland-0"
+
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends grim wl-clipboard x11-utils imagemagick
+
+sudo tee /usr/local/bin/ocm-screenshot >/dev/null <<'SCRIPT'
+#!/bin/sh
+# ocm-screenshot [GEOMETRY]: capture the host display (or the "X,Y WxH" region
+# GEOMETRY, as grim -g takes it) to ~/screenshots and print the PNG path.
+set -e
+out="$HOME/screenshots/$(date +%Y%m%d-%H%M%S).png"
+mkdir -p "$(dirname "$out")"
+if [ -n "$1" ]; then
+  grim -g "$*" "$out"
+else
+  grim "$out"
+fi
+echo "$out"
+SCRIPT
+sudo chmod 0755 /usr/local/bin/ocm-screenshot
+
+x11_display=
+for s in /tmp/.X11-unix/X*; do
+  [ -S "$s" ] && x11_display=":${s#/tmp/.X11-unix/X}" && break
+done
+
+ENV_FILE="$HOME/.env"
+touch "$ENV_FILE"
+sed -i '/# >>> ocm:host-display >>>/,/# <<< ocm:host-display <<</d' "$ENV_FILE"
+{
+  echo '# >>> ocm:host-display >>>'
+  echo "export XDG_RUNTIME_DIR=$runtime_dir"
+  echo 'export WAYLAND_DISPLAY=wayland-0'
+  [ -n "$x11_display" ] && echo "export DISPLAY=$x11_display"
+  echo "export GDK_BACKEND=wayland,x11"
+  echo "export QT_QPA_PLATFORM='wayland;xcb'"
+  echo 'export ELECTRON_OZONE_PLATFORM_HINT=auto'
+  echo 'export MOZ_ENABLE_WAYLAND=1'
+  # No GPU in the container: render in software.
+  echo 'export LIBGL_ALWAYS_SOFTWARE=1'
+  echo '# <<< ocm:host-display <<<'
+} >>"$ENV_FILE"
+
+memory="$HOME/.claude/CLAUDE.md"
+mkdir -p "$(dirname "$memory")"
+touch "$memory"
+sed -i '/<!-- >>> ocm:host-display >>> -->/,/<!-- <<< ocm:host-display <<< -->/d' "$memory"
+cat >>"$memory" <<'BLOCK'
+<!-- >>> ocm:host-display >>> -->
+## Host display
+
+This workspace shares the host's Wayland desktop (and XWayland when `DISPLAY`
+is set): GUI apps started here open on the user's screen. Capture it with
+`ocm-screenshot [GEOMETRY]` (grim `-g` syntax, e.g. `"0,0 1280x720"`), which
+prints the PNG path to read. The capture shows the user's whole desktop:
+close what you opened when done. No GPU: rendering is software.
+<!-- <<< ocm:host-display <<< -->
+BLOCK
+
+if [ -S "$socket" ]; then
+  echo "host-display: host Wayland display shared${x11_display:+ (X11 on $x11_display)}; capture with ocm-screenshot"
+else
+  echo "host-display: no host Wayland session yet; log in there and restart the workspace"
+fi

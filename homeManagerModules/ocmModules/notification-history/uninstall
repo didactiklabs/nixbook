@@ -1,0 +1,11 @@
+#!/bin/sh
+# Removes the host-notifications helper and the ~/.claude/CLAUDE.md block. ocm
+# recreates the container without the mount after this runs.
+set -e
+
+sudo rm -f /usr/local/bin/host-notifications
+
+memory="$HOME/.claude/CLAUDE.md"
+[ -f "$memory" ] && sed -i '/<!-- >>> ocm:notification-history >>> -->/,/<!-- <<< ocm:notification-history <<< -->/d' "$memory"
+
+echo "notification-history: the host history is no longer shared once the container is recreated"

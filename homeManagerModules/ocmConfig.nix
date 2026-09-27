@@ -154,6 +154,81 @@ let
     chmod 0755 $out/install $out/uninstall
   '';
 
+  hostDisplay = cfg.hostDisplay;
+
+  # module.yml of the host-display module: its mount sources are host paths
+  # (ocm expands no variables in them, only a leading "~/"), so it is generated
+  # here.
+  hostDisplayManifest = yamlFormat.generate "host-display-module.yml" {
+    name = "host-display";
+    version = 1;
+    description = "Give the workspace this host's Wayland display (and XWayland), plus grim and an ocm-screenshot helper, so agents can run GUI apps and capture screenshots. The agent can see the whole desktop. Adding or removing it recreates the container.";
+    mounts = [
+      {
+        source = hostDisplay.waylandSocket;
+        # Inside the home, so ocm creates the mount point (and its 0700 parent,
+        # used as XDG_RUNTIME_DIR) owned by the host user.
+        target = "/home/debian/.cache/ocm-host-display/wayland-0";
+        optional = true;
+      }
+    ]
+    ++ lib.optional (hostDisplay.x11Display != null) {
+      source = "/tmp/.X11-unix/X${toString hostDisplay.x11Display}";
+      target = "/tmp/.X11-unix/X${toString hostDisplay.x11Display}";
+      optional = true;
+    };
+  };
+
+  hostDisplayModule = pkgs.runCommand "ocm-module-host-display" { } ''
+    mkdir -p $out
+    cp ${hostDisplayManifest} $out/module.yml
+    cp ${./ocmModules/host-display}/{install,uninstall} $out/
+    chmod 0644 $out/module.yml
+    chmod 0755 $out/install $out/uninstall
+  '';
+
+  notificationHistory = cfg.notificationHistory;
+  # Host directory the mirror service keeps a copy of the history in: the
+  # shell's own directory also holds notes, todos and AI chats, and a mount of
+  # the file itself would go stale on the shell's atomic (rename) rewrites.
+  notificationHistoryMirror = "${config.xdg.stateHome}/ocm-notification-history";
+
+  notificationHistoryManifest = yamlFormat.generate "notification-history-module.yml" {
+    name = "notification-history";
+    version = 1;
+    description = "Share this host's nixbook-shell notification history (read-only, live) with the workspace, plus a host-notifications query helper. Adding or removing it recreates the container.";
+    mounts = [
+      {
+        source = notificationHistoryMirror;
+        target = "/home/debian/.local/share/host-notifications";
+        readOnly = true;
+        optional = true;
+      }
+    ];
+  };
+
+  notificationHistoryModule = pkgs.runCommand "ocm-module-notification-history" { } ''
+    mkdir -p $out
+    cp ${notificationHistoryManifest} $out/module.yml
+    cp ${./ocmModules/notification-history}/{install,uninstall} $out/
+    chmod 0644 $out/module.yml
+    chmod 0755 $out/install $out/uninstall
+  '';
+
+  notificationHistoryMirrorScript = pkgs.writeShellScript "ocm-notification-history-mirror" ''
+    # Copy the history next to its mirror, then rename it into place, so a
+    # workspace never reads a half-written file.
+    set -eu
+    export PATH=${lib.makeBinPath [ pkgs.coreutils ]}:$PATH
+    src=${lib.escapeShellArg notificationHistory.source}
+    dest=${lib.escapeShellArg notificationHistoryMirror}
+    [ -f "$src" ] || exit 0
+    mkdir -p -m 0700 "$dest"
+    cp "$src" "$dest/.notification-history.json.tmp"
+    chmod 0600 "$dest/.notification-history.json.tmp"
+    mv -f "$dest/.notification-history.json.tmp" "$dest/notification-history.json"
+  '';
+
   # category/name -> module directory, installed into ocm's primary moduleDir
   # (the only one it runs resolve hooks from).
   ocmModules =
@@ -163,6 +238,12 @@ let
     // lib.optionalAttrs claudeCredentials.enable {
       "tools/claude-auth" = claudeAuthModule;
       "tools/claude-auth-shared" = claudeAuthSharedModule;
+    }
+    // lib.optionalAttrs hostDisplay.enable {
+      "tools/host-display" = hostDisplayModule;
+    }
+    // lib.optionalAttrs notificationHistory.enable {
+      "tools/notification-history" = notificationHistoryModule;
     };
 
   nixCommands =
@@ -343,6 +424,95 @@ in
       };
     };
 
+    hostDisplay = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Whether to install the `tools/host-display` ocm module, which gives a
+          workspace this host's graphical session so agents can launch GUI apps
+          and capture screenshots of them. Installing it only makes it
+          available: add it per workspace from the module editor.
+
+          Its `mounts` bind-mount `hostDisplay.waylandSocket` onto
+          `~/.cache/ocm-host-display/wayland-0` in the container (the directory
+          becomes `XDG_RUNTIME_DIR`) and, unless `hostDisplay.x11Display` is
+          `null`, the XWayland socket onto `/tmp/.X11-unix/X<n>`. Both are
+          optional, so a workspace started without a session runs without them.
+          Rootless Podman runs the container under the host UID
+          (`--userns keep-id`), so it can connect to the sockets as is.
+
+          The container `install` puts grim, wl-clipboard, x11-utils and
+          imagemagick in the workspace, adds `ocm-screenshot [GEOMETRY]` (saves
+          a PNG under `~/screenshots` and prints its path), and exports
+          `XDG_RUNTIME_DIR`, `WAYLAND_DISPLAY`, `DISPLAY`, toolkit backend
+          hints and `LIBGL_ALWAYS_SOFTWARE=1` (no GPU is passed through) in a
+          marked `~/.env` block that `uninstall` removes.
+
+          A workspace with it can capture the whole desktop (wlr-screencopy)
+          and, on sway and Hyprland, send input through virtual-keyboard and
+          virtual-pointer: add it only to workspaces you trust with that. The
+          socket is bound by inode, so after the compositor restarts (a new
+          login) restart the workspaces that have it.
+        '';
+      };
+
+      waylandSocket = lib.mkOption {
+        type = lib.types.str;
+        default = "/run/user/1000/wayland-1";
+        description = ''
+          Host Wayland socket to share, i.e. `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY`
+          in the host session. niri, sway and Hyprland name theirs `wayland-1`
+          when it is free; users without an explicit UID get 1000 when they are
+          the first normal user.
+        '';
+      };
+
+      x11Display = lib.mkOption {
+        type = lib.types.nullOr lib.types.ints.unsigned;
+        default = 0;
+        description = ''
+          XWayland display number (`:0` → `0`, as xwayland-satellite usually
+          takes) whose `/tmp/.X11-unix/X<n>` socket is also shared, for X11-only
+          apps. `null` shares no X11 display.
+        '';
+      };
+    };
+
+    notificationHistory = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = config.customHomeManagerModules.nixbookShellConfig.enable;
+        defaultText = lib.literalExpression "config.customHomeManagerModules.nixbookShellConfig.enable";
+        description = ''
+          Whether to install the `tools/notification-history` ocm module, which
+          gives a workspace read-only, live access to nixbook-shell's
+          notification history. Installing it only makes it available: add it
+          per workspace from the module editor.
+
+          The shell rewrites `notificationHistory.source` by rename, in a
+          directory that also holds its notes, todos and AI chats, so neither
+          the file nor its directory is mounted. A `ocm-notification-history`
+          user path unit copies the file, whenever it changes, into
+          `$XDG_STATE_HOME/ocm-notification-history/` (0700, the copy renamed
+          into place), and the module's `mounts` bind that directory read-only
+          onto `~/.local/share/host-notifications` (optional: skipped until
+          the first copy exists).
+
+          The container `install` adds `host-notifications [-n COUNT] [-a APP]
+          [-s HOURS] [--json]` and a marked `~/.claude/CLAUDE.md` block that
+          tells Claude Code where the history is; `uninstall` removes both.
+        '';
+      };
+
+      source = lib.mkOption {
+        type = lib.types.str;
+        default = "${config.xdg.stateHome}/quickshell/user/notification-history.json";
+        defaultText = lib.literalExpression ''"''${config.xdg.stateHome}/quickshell/user/notification-history.json"'';
+        description = "Notification history file nixbook-shell writes (`Directories.notificationHistoryPath`).";
+      };
+    };
+
     kubeswitch = {
       enable = lib.mkOption {
         type = lib.types.bool;
@@ -485,6 +655,22 @@ in
         )
       )
     );
+
+    systemd.user.paths.ocm-notification-history = lib.mkIf notificationHistory.enable {
+      Unit.Description = "Mirror the nixbook-shell notification history for ocm workspaces";
+      Path.PathChanged = notificationHistory.source;
+      Install.WantedBy = [ "paths.target" ];
+    };
+
+    systemd.user.services.ocm-notification-history = lib.mkIf notificationHistory.enable {
+      Unit.Description = "Mirror the nixbook-shell notification history for ocm workspaces";
+      Service = {
+        Type = "oneshot";
+        ExecStart = "${notificationHistoryMirrorScript}";
+      };
+      # Also refresh once per login, whether or not the file changed since.
+      Install.WantedBy = [ "default.target" ];
+    };
 
     # Copied, not linked: ocm rejects symlinks in the shared OpenCode tree.
     # Only rewritten when it differs, since every write triggers a sync.
