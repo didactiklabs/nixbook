@@ -105,6 +105,52 @@ in
       enable = true;
       settings = {
         appearance.persona.enable = true;
+        # Personal Persona cut-in rules: these lists override the shared ones
+        # (homeManagerModules/nixbookShellConfig/settings.nix, set as defaults).
+        notifications.cutIn = {
+          keywords = [
+            # Calendar events
+            "Calendar"
+            "Reminder"
+            "Google Agenda"
+            # Family and friends
+            "Alesio"
+            "chocomooncake"
+            "choco mooncake"
+            "wolfey182"
+            "huyền"
+            "Huyen"
+            "\"Diệu\""
+            "Trang HANG"
+            "Tin Dinh"
+            "aamoyel"
+            "Alan Amoyel"
+            # About me: mentions and answers to my messages — only in the
+            # message text (a title or sender holding my name is my own
+            # conversation or message), and not in mail (newsletters say
+            # "Hi Victor" too).
+            "body:\"@vtk_hg\""
+            "body:\"@victortk\""
+            "body:Victor Tiến Khoa + !app:Thunderbird"
+            "body:Victor Hang + !app:Thunderbird"
+            "body:ビクタ + !app:Thunderbird"
+            "body:mentioned you"
+            "body:tagged you"
+            "body:replied to you"
+            "body:to your message"
+          ];
+          # My own messages: sent lines start with my name or handle.
+          blacklist = [
+            "body:^\"You:\""
+            "body:^\"Vous:\""
+            "body:^\"Bạn:\""
+            "body:^\"Victor Hang:\""
+            "body:^\"Victor Tiến Khoa Hang:\""
+            "body:^\"Victor Tiến Khoa:\""
+            "body:^\"vtk_hg:\""
+            "body:^\"victortk:\""
+          ];
+        };
       };
     };
     rbwConfig = {

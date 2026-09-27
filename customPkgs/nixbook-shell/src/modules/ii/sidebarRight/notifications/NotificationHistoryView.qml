@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.modules.common.functions
 import qs.services
 import QtQuick
 import QtQuick.Layouts
@@ -16,7 +17,7 @@ ColumnLayout {
     spacing: 5
 
     function plain(text) {
-        return `${text ?? ""}`.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+        return NotificationUtils.plainText(text).replace(/\s+/g, " ").trim();
     }
     function dayLabel(time) {
         const d = new Date(time);
