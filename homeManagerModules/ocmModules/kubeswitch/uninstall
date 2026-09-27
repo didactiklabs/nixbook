@@ -1,0 +1,22 @@
+#!/bin/sh
+# Removes a single imported kubeswitch context from the workspace ~/.kube/config.
+# The resolve hook named the context, its cluster and its user all after the
+# kubeswitch name, so they are removed together without touching other imports.
+# kubectl and kubelogin stay installed. Best-effort: a missing config is fine.
+set -e
+
+ctx="$OCM_CONTEXT"
+cfg="$HOME/.kube/config"
+[ -n "$ctx" ] || exit 0
+[ -f "$cfg" ] || exit 0
+
+command -v kubectl >/dev/null 2>&1 || { rm -f "$cfg"; echo "kubeswitch config removed"; exit 0; }
+
+if [ "$(kubectl --kubeconfig "$cfg" config current-context 2>/dev/null || true)" = "$ctx" ]; then
+  kubectl --kubeconfig "$cfg" config unset current-context >/dev/null 2>&1 || true
+fi
+kubectl --kubeconfig "$cfg" config delete-context "$ctx" >/dev/null 2>&1 || true
+kubectl --kubeconfig "$cfg" config delete-cluster "$ctx" >/dev/null 2>&1 || true
+kubectl --kubeconfig "$cfg" config delete-user "$ctx" >/dev/null 2>&1 || true
+
+echo "kubeswitch context removed: $ctx"

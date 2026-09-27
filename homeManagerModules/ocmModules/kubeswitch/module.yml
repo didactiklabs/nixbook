@@ -1,0 +1,14 @@
+name: kubeswitch
+version: 1
+description: Import kube contexts picked from the host kubeswitch stores (one entry per context). kubectl and the kubectl-oidc-login plugin are installed when the first context is added.
+# Multi-instance: one entry per kubeswitch context ("<store dir>/<context>").
+# Each install only writes ~/.kube/config and the kubectl binaries, nothing in
+# ~/.env, so it never bounces the OpenCode server.
+restartServer: false
+key: context
+prompts:
+  - name: context
+    label: kubeswitch context
+    type: string
+    required: true
+    optionsCommand: list-contexts
