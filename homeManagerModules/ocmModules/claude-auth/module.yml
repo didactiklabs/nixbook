@@ -1,0 +1,15 @@
+name: claude-auth
+version: 1
+description: Import a copy of this host's Claude Code subscription login (~/.claude/.credentials.json). Prefer claude-auth-shared, which shares the login instead of copying it.
+# Writes only ~/.claude/.credentials.json, which Claude Code re-reads when it
+# changes on disk; nothing in ~/.env, so it never bounces the OpenCode server.
+restartServer: false
+prompts:
+  - name: import_auth
+    label: Import Claude credentials from this host?
+    type: select
+    required: true
+    default: "yes"
+    options:
+      - "yes"
+      - "no"

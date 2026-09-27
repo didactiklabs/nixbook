@@ -758,6 +758,20 @@ Base image workspace containers are built from. Defaults to the published prebui
 
 Extra apt packages installed into the workspace base image, on top of anything the module adds itself (see `nix.enable`).
 
+### `customHomeManagerModules.ocmConfig.claudeCode.credentials.enable`
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+Whether to install the two ocm modules that give a workspace this host's Claude Code subscription login, so neither `claude` nor OpenCode's `opencode-claude-auth` plugin has to log in again inside it. Installing them only makes them available: each is added per workspace from the module editor, so you pick which workspaces get the login. `claude-auth-shared` (recommended) shares the login itself: the module declares an ocm `mounts` entry that bind-mounts `claudeCode.credentials.path` read-write onto `/home/debian/.claude/.credentials.json` in the containers of the workspaces that have it, so the host and those workspaces read and refresh one login (Claude Code notices when the file changes on disk). Adding or removing it recreates that workspace's container. The mount is optional: while the host has no login it is skipped, and it is added on the first start after you log in. A symlink would not do: Claude Code refuses a symlinked credentials file. `claude-auth` imports a copy instead. Its `resolve` hook runs on the host and reads `claudeCode.credentials.path`; the container `install` writes it to the workspace `~/.claude/.credentials.json` (mode 0600). Nothing is stored in `workspace.yaml`, and the hook re-runs on every add and reconcile, so the workspace picks up the host's current login. A workspace login that is already newer (by `claudeAiOauth.expiresAt`) is kept rather than rolled back. An imported copy refreshes its tokens on its own. OAuth refresh tokens rotate, so a copy and the host can end up invalidating each other's login, which `claude-auth-shared` avoids. When both are added, `claude-auth` sees the mount and leaves it alone.
+
+### `customHomeManagerModules.ocmConfig.claudeCode.credentials.path`
+
+- **Type:** `string`
+- **Default:** `"/home/docs/.claude/.credentials.json"`
+
+Host file holding Claude Code's subscription login. Claude Code writes it on Linux after `claude /login` (under `CLAUDE_CONFIG_DIR` when that is set).
+
 ### `customHomeManagerModules.ocmConfig.claudeCode.importAgentInstructions`
 
 - **Type:** `boolean`

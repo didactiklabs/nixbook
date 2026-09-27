@@ -1,0 +1,4 @@
+#!/bin/sh
+# Nothing to undo: ocm recreates the container without the mount after this
+# runs, and the host's login is never touched.
+echo "claude-auth-shared: the host login is no longer shared once the container is recreated"
