@@ -1,0 +1,66 @@
+#!/bin/sh
+# Runs inside the workspace container. The module's `mounts` (generated in
+# ocmConfig.nix) bind-mount, read-only, the host directory where a user service
+# mirrors nixbook-shell's notification history onto
+# ~/.local/share/host-notifications (optional: skipped until the host has
+# written it once). The mirror is replaced by rename on every new notification,
+# which a directory mount follows. This adds a `host-notifications` query helper
+# and tells Claude Code about it in a marked ~/.claude/CLAUDE.md block.
+# Idempotent: the helper is overwritten and the block rewritten in place.
+set -e
+
+if ! command -v jq >/dev/null 2>&1; then
+  sudo apt-get update
+  sudo apt-get install -y --no-install-recommends jq
+fi
+
+sudo tee /usr/local/bin/host-notifications >/dev/null <<'SCRIPT'
+#!/bin/sh
+# host-notifications [-n COUNT] [-a APP] [-s HOURS] [--json]
+# The host's notification history (nixbook-shell), newest last. Filters: last
+# COUNT entries (default 50), app name (case-insensitive substring), last HOURS.
+set -e
+file="$HOME/.local/share/host-notifications/notification-history.json"
+count=50 app= hours= json=
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -n) count="$2"; shift 2 ;;
+    -a) app="$2"; shift 2 ;;
+    -s) hours="$2"; shift 2 ;;
+    --json) json=1; shift ;;
+    *) echo "usage: host-notifications [-n COUNT] [-a APP] [-s HOURS] [--json]" >&2; exit 2 ;;
+  esac
+done
+[ -r "$file" ] || { echo "host-notifications: no history shared (is the notification-history module added and the host shell running?)" >&2; exit 1; }
+since=0
+[ -n "$hours" ] && since=$(( ($(date +%s) - hours * 3600) * 1000 ))
+filter='[.[] | select(.time >= ($since | tonumber)) | select($app == "" or (.appName // "" | ascii_downcase | contains($app | ascii_downcase)))] | .[-($count | tonumber):]'
+if [ -n "$json" ]; then
+  jq --arg since "$since" --arg app "$app" --arg count "$count" "$filter" "$file"
+else
+  jq -r --arg since "$since" --arg app "$app" --arg count "$count" "$filter"'
+    | .[] | "\(.time / 1000 | strflocaltime("%Y-%m-%d %H:%M")) [\(.appName)]\(if .urgency == "critical" then " !" else "" end) \(.summary)\(if (.body // "") != "" then ": \(.body | gsub("\\s+"; " "))" else "" end)"' "$file"
+fi
+SCRIPT
+sudo chmod 0755 /usr/local/bin/host-notifications
+
+memory="$HOME/.claude/CLAUDE.md"
+mkdir -p "$(dirname "$memory")"
+touch "$memory"
+sed -i '/<!-- >>> ocm:notification-history >>> -->/,/<!-- <<< ocm:notification-history <<< -->/d' "$memory"
+cat >>"$memory" <<'BLOCK'
+<!-- >>> ocm:notification-history >>> -->
+## Host notification history
+
+The host desktop's notification history (read-only, live) is at
+`~/.local/share/host-notifications/notification-history.json`: a JSON array,
+oldest first, of `{ id, time (ms), appName, appIcon, summary, body, urgency, cutIn }`.
+Query it with `host-notifications [-n COUNT] [-a APP] [-s HOURS] [--json]`.
+<!-- <<< ocm:notification-history <<< -->
+BLOCK
+
+if [ -r "$HOME/.local/share/host-notifications/notification-history.json" ]; then
+  echo "notification-history: host history shared; query it with host-notifications"
+else
+  echo "notification-history: no history on the host yet; restart the workspace once the host shell has recorded one"
+fi

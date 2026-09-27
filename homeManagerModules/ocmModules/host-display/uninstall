@@ -1,0 +1,16 @@
+#!/bin/sh
+# Removes the ocm-screenshot helper, the ~/.env block and the ~/.claude/CLAUDE.md
+# block. The packages stay
+# (another module may use them), and ocm recreates the container without the
+# display mounts after this runs, so access ends right away.
+set -e
+
+sudo rm -f /usr/local/bin/ocm-screenshot
+
+ENV_FILE="$HOME/.env"
+[ -f "$ENV_FILE" ] && sed -i '/# >>> ocm:host-display >>>/,/# <<< ocm:host-display <<</d' "$ENV_FILE"
+
+memory="$HOME/.claude/CLAUDE.md"
+[ -f "$memory" ] && sed -i '/<!-- >>> ocm:host-display >>> -->/,/<!-- <<< ocm:host-display <<< -->/d' "$memory"
+
+echo "host-display: the host display is no longer shared once the container is recreated"
