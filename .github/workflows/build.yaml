@@ -97,6 +97,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Evaluation fetches this repo as a git input, which Nix refuses on a
+          # shallow clone; must match the build job's checkout.
+          fetch-depth: 0
       - name: Pin nixpkgs for nix-shell
         run: |
           echo "NIX_PATH=nixpkgs=$(jq -r .pins.nixpkgs.url npins/sources.json)" >> "$GITHUB_ENV"
