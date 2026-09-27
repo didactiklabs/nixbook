@@ -411,6 +411,16 @@ npins/ → dependency sources
 
 If you make changes, always present them for user review before committing.
 
+### Important: Git Workflow
+
+All git operations must follow this workflow. **Always ask the user for validation before performing any git action** (creating a branch, committing, pushing, rebasing, creating a PR, merging) — never do it on your own initiative.
+
+1. **Branch** - Never commit on `main`. Always create a dedicated feature branch first (`git checkout -b <branch-name>` from `main`), with a descriptive branch name.
+2. **Commit** - Commit the changes on that branch (only after the user validated the changes).
+3. **PR** - Push the branch and open a Pull Request against `main` (`git push -u origin <branch-name>` then `gh pr create`).
+4. **Rebase** - Before updating the PR, rebase it on top of `main` and force-push (`git fetch origin && git rebase origin/main`, then `git push --force-with-lease`).
+5. **Merge (deploy)** - The PR is merged into `main` only when the user wants to deploy the change. Merging is the deployment trigger: it requires explicit user validation, and the PR must have been rebased on `main` first.
+
 ### When working with this project
 
 1. **Configuration Files** - Always start with `base.nix`, `hive.nix`, and relevant profile
