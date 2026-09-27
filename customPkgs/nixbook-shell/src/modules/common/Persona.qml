@@ -12,7 +12,7 @@ import Quickshell
  * (slam-in entrance).
  *
  * Variants:
- *   p5  — Persona 5: black / white / red, hard red shadows, strong slant
+ *   p5  — Persona 5 Royal: black / white / red, hard red shadows, strong slant
  *   p3r — Persona 3 Reload: navy / cyan / white, smoother slant
  *   p4  — Persona 4 Revival (2026 remake): yellow-dominant with bright
  *         turquoise accents over dark, shadowy backgrounds
