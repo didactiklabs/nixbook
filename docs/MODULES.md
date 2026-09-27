@@ -53,6 +53,7 @@
 - [niriConfig](#niriconfig)
 - [nixbookShellConfig](#nixbookshellconfig)
 - [nixvimConfig](#nixvimconfig)
+- [ocmConfig](#ocmconfig)
 - [opencodeConfig](#opencodeconfig)
 - [oversteerConfig](#oversteerconfig)
 - [rbwConfig](#rbwconfig)
@@ -134,7 +135,7 @@ Whether to install the RPCU internal CA certificate system-wide. Adds assets/cer
 - **Type:** `boolean`
 - **Default:** `true`
 
-Whether to enable the core NixOS module. This is the foundational system module that configures: - Boot: systemd-boot UEFI loader, plymouth splash screen, latest kernel, LVM support, LUKS dm-crypt modules, keyboard backlight on initrd, IOMMU, NTFS + exFAT filesystem support for external drives - Kernel hardening: sysctl security settings (restrict BPF, perf events, ICMP redirects, source routing, suid dumps, etc.) - Locale: Europe/Paris timezone, en*US locale with fr_FR LC* settings, French keyboard layout - Audio: PipeWire with ALSA and PulseAudio compatibility (PulseAudio disabled) - Hardware: firmware, Intel/AMD CPU microcode, Bluetooth (bluez), uinput - Security: rtkit, polkit, U2F PAM (login + sudo), passwordless sudo for wheel - XDG portals: wlr portal enabled for Wayland screen sharing - Nix daemon: lix package, weekly GC (7d retention), store optimisation at 03:45, nix-command + flakes features, custom S3 binary cache, OOM-managed nix-daemon slice - Display: xserver disabled (Wayland-only), fonts dir enabled - Env: NIXOS_OZONE_WL=1, NIXPKGS_ALLOW_UNFREE=1 - System state version: 24.05
+Whether to enable the core NixOS module. This is the foundational system module that configures: - Boot: systemd-boot UEFI loader, plymouth splash screen, latest kernel, LVM support, LUKS dm-crypt modules, keyboard backlight on initrd, IOMMU, NTFS + exFAT filesystem support for external drives - Kernel hardening: sysctl security settings (restrict BPF, perf events, ICMP redirects, source routing, suid dumps, etc.) - Locale: Europe/Paris timezone, en_US locale with fr_FR LC_ settings, French keyboard layout - Audio: PipeWire with ALSA and PulseAudio compatibility (PulseAudio disabled) - Hardware: firmware, Intel/AMD CPU microcode, Bluetooth (bluez), uinput - Security: rtkit, polkit, U2F PAM (login + sudo), passwordless sudo for wheel - XDG portals: wlr portal enabled for Wayland screen sharing - Nix daemon: lix package, weekly GC (7d retention), store optimisation at 03:45, nix-command + flakes features, custom S3 binary cache, OOM-managed nix-daemon slice - Display: xserver disabled (Wayland-only), fonts dir enabled - Env: NIXOS_OZONE_WL=1, NIXPKGS_ALLOW_UNFREE=1 - System state version: 24.05
 
 ---
 
@@ -574,7 +575,7 @@ Whether to enable font installation and fontconfig defaults. Installs a curated 
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable Foxblat presets for Moza Racing wheelbases. Foxblat is a fork of Boxflat — the Linux configuration tool for Moza Racing hardware (alternative to Pit House). This module places game-specific FFB presets into ~/.config/foxblat/presets/ tuned for the Moza R9 (9 Nm): - r9-acc.yml — Assetto Corsa Competizione (transparent FFB, 15% damper, 25% friction for anti-oscillation on direct-drive) - r9-ac.yml — Assetto Corsa 1 (25% damper, 25% friction) - r9-cyberpunk2077.yml — Cyberpunk 2077 with cp2077-wheel-mod-moza (720°, mod-generated FFB at 250 Hz; spring/damper pass-through at 100%) All presets include pedal sections with game-appropriate response curves. All values are stored in raw wire format (what is sent to the hardware), not UI percentages. Key conversions: - ffb-strength, damper, friction, inertia, speed: wire = UI% _ 10 - natural-inertia: 1:1 (factory default KS/GS = 1100) - set-_-gain: wire = UI% \* 2.55 - equalizers: 1:1, neutral = 100 Requires customNixOSModules.simracing.enable = true on the machine. Used on: anya.
+Whether to enable Foxblat presets for Moza Racing wheelbases. Foxblat is a fork of Boxflat — the Linux configuration tool for Moza Racing hardware (alternative to Pit House). This module places game-specific FFB presets into ~/.config/foxblat/presets/ tuned for the Moza R9 (9 Nm): - r9-acc.yml — Assetto Corsa Competizione (transparent FFB, 15% damper, 25% friction for anti-oscillation on direct-drive) - r9-ac.yml — Assetto Corsa 1 (25% damper, 25% friction) - r9-cyberpunk2077.yml — Cyberpunk 2077 with cp2077-wheel-mod-moza (720°, mod-generated FFB at 250 Hz; spring/damper pass-through at 100%) All presets include pedal sections with game-appropriate response curves. All values are stored in raw wire format (what is sent to the hardware), not UI percentages. Key conversions: - ffb-strength, damper, friction, inertia, speed: wire = UI% * 10 - natural-inertia: 1:1 (factory default KS/GS = 1100) - set-*-gain: wire = UI% * 2.55 - equalizers: 1:1, neutral = 100 Requires customNixOSModules.simracing.enable = true on the machine. Used on: anya.
 
 ---
 
@@ -672,7 +673,7 @@ Whether to deploy the RPCU (Zitadel OIDC) mgmt kubeconfig. Copies assets/kubecon
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable the full Kubernetes toolchain. Installs a comprehensive set of Kubernetes CLI tools and utilities: Core: - kubectl — Kubernetes CLI - kubernetes-helm — Helm package manager - k9s — TUI cluster dashboard (config in k9sConfig.nix) - kubeswitch — multi-kubeconfig context switcher (kswitch alias) - kubelogin-oidc — OIDC authentication plugin for kubectl - kustomize — Kubernetes overlay management Inspection & debugging: - kubectl-neat — strip noisy fields from kubectl YAML output - kubectl-view-secret — base64-decode secrets in-place - kubectl-explore — interactive resource browser - skopeo — inspect/copy container images without pulling - dive — explore container image layers - netfetch — network debugging tool - kubevirt — virtctl for KubeVirt VMs (SSH, console) - fluxcd — Flux GitOps CLI (flux) Custom packages: - kl — opinionated multi-pod log viewer - songbird — custom cluster management utility - pvmigrate — Proxmox VM migration tool - crd-wizard — CRD visualisation dashboard (Shift-E in k9s) - kratix-cli — CLI to build Kratix Promises (kratix) - sofka — Kubernetes TUI reimagined in Rust (ki alias) - sou — container image analysis wrapper Others: - kubebuilder — Kubernetes controller scaffolding - kind — local Kubernetes clusters via Docker - paralus-cli — Paralus zero-trust access CLI Also sets: - k=kubectl shell alias - ki=sofka shell alias - pctl=cli shell alias - kubectl and songbird Zsh completions See also: kubeConfig.\* options for OIDC kubeconfig file deployment, and k9sConfig.nix for k9s settings and plugins.
+Whether to enable the full Kubernetes toolchain. Installs a comprehensive set of Kubernetes CLI tools and utilities: Core: - kubectl — Kubernetes CLI - kubernetes-helm — Helm package manager - k9s — TUI cluster dashboard (config in k9sConfig.nix) - kubeswitch — multi-kubeconfig context switcher (kswitch alias) - kubelogin-oidc — OIDC authentication plugin for kubectl - kustomize — Kubernetes overlay management Inspection & debugging: - kubectl-neat — strip noisy fields from kubectl YAML output - kubectl-view-secret — base64-decode secrets in-place - kubectl-explore — interactive resource browser - skopeo — inspect/copy container images without pulling - dive — explore container image layers - netfetch — network debugging tool - kubevirt — virtctl for KubeVirt VMs (SSH, console) - fluxcd — Flux GitOps CLI (flux) Custom packages: - kl — opinionated multi-pod log viewer - songbird — custom cluster management utility - pvmigrate — Proxmox VM migration tool - crd-wizard — CRD visualisation dashboard (Shift-E in k9s) - kratix-cli — CLI to build Kratix Promises (kratix) - sofka — Kubernetes TUI reimagined in Rust (ki alias) - sou — container image analysis wrapper Others: - kubebuilder — Kubernetes controller scaffolding - kind — local Kubernetes clusters via Docker - paralus-cli — Paralus zero-trust access CLI Also sets: - k=kubectl shell alias - ki=sofka shell alias - pctl=cli shell alias - kubectl and songbird Zsh completions See also: kubeConfig.* options for OIDC kubeconfig file deployment, and k9sConfig.nix for k9s settings and plugins.
 
 ---
 
@@ -683,7 +684,7 @@ Whether to enable the full Kubernetes toolchain. Installs a comprehensive set of
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable kubeswitch context-switcher configuration. kubeswitch (exposed as the `kswitch` command) is a terminal UI and CLI for switching between multiple kubeconfigs / contexts stored across many files. This replaces the traditional KUBECONFIG env-var juggling. Configuration: - commandName: kswitch (aliased as `ks` in the shell) - Zsh integration enabled (shell function injection) - Fish integration enabled when fishConfig is active - Store: filesystem, scanning ~/.kube/configs/\*_ for files matching _._ (picks up all kubeconfigs deployed by the kubeConfig._.enable options) - Kind: SwitchConfig v1alpha1 Requires kubeTools.enable = true to have the kubeswitch binary available. Used on: totoro, nishinoya.
+Whether to enable kubeswitch context-switcher configuration. kubeswitch (exposed as the `kswitch` command) is a terminal UI and CLI for switching between multiple kubeconfigs / contexts stored across many files. This replaces the traditional KUBECONFIG env-var juggling. Configuration: - commandName: kswitch (aliased as `ks` in the shell) - Zsh integration enabled (shell function injection) - Fish integration enabled when fishConfig is active - Store: filesystem, scanning ~/.kube/configs/** for files matching _._ (picks up all kubeconfigs deployed by the kubeConfig.*.enable options) - Kind: SwitchConfig v1alpha1 Requires kubeTools.enable = true to have the kubeswitch binary available. Used on: totoro, nishinoya.
 
 ---
 
@@ -724,6 +725,66 @@ nixbook-shell settings (the dot-paths of `~/.config/nixbook-shell/config.json`, 
 - **Default:** `false`
 
 Whether to enable NixVim — a fully declarative Neovim configuration. NixVim manages Neovim and all its plugins through the Nix module system, ensuring reproducibility. This configuration sets up a complete IDE-like environment: Core settings (options.nix): - Space as leader/localleader key - System clipboard via wl-copy (Wayland) - Relative + absolute line numbers, scrolloff=8, cursorline/column - Undo history persistence, incremental search, smart case - 4-space tabs with auto-indent, no swap file - Disabled providers: ruby, perl, python2 Plugins (plugins/): LSP & completion: lsp (gopls, nil, ts-ls, pylsp, lua-ls…), cmp (nvim-cmp with LSP/buffer/path sources), none-ls (formatters/linters) Navigation: telescope (fuzzy finder), neo-tree (file explorer), trouble (diagnostics list) Editing: comment, mini (surround, pairs, etc.), git-conflict, trim, vim-better-whitespace UI: barbar (tabline), lualine (statusline), noice (cmdline/messages UI), notify, snacks, smear-cursor, neoscroll, colorizer, markdown-preview, floaterm, startify Extras: neocord (Discord Rich Presence), treesitter (syntax highlighting), opencode (AI coding assistant integration), 99 (custom utility plugin) French spell-check files (fr.utf-8 + fr.latin1) are pre-fetched and deployed to ~/.config/nvim/spell/. Keybindings: <leader>a (code action), Shift-H/L (prev/next buffer), Ctrl-L (clear highlight), Ctrl-Shift-arrows (resize splits). vi/vim aliases enabled, set as default editor.
+
+---
+
+## ocmConfig
+
+### `customHomeManagerModules.ocmConfig.baseImage.commands`
+
+- **Type:** `list of string`
+- **Default:** `[]`
+
+Extra shell commands run while the workspace base image is built, after `baseImage.packages` is installed. They are joined with `&&` and executed as a single build step as root, so a non-zero exit aborts the build. This module's own `nix`/`devenv` steps (see `nix.*`) run first; these are appended after them.
+
+### `customHomeManagerModules.ocmConfig.baseImage.name`
+
+- **Type:** `string`
+- **Default:** `"docker.io/mroger78/ocm-base:latest"`
+
+Base image workspace containers are built from. Defaults to the published prebuilt `ocm-base`, which already ships `npx`, `uvx`, `git`, `ripgrep`, `jq`, `opencode`, `claude` and the manager scripts, so it is pulled rather than built. Extra `packages` and `commands` add a thin local overlay on top of it.
+
+### `customHomeManagerModules.ocmConfig.baseImage.packages`
+
+- **Type:** `list of string`
+- **Default:** `[]`
+
+Extra apt packages installed into the workspace base image, on top of anything the module adds itself (see `nix.enable`).
+
+### `customHomeManagerModules.ocmConfig.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to enable the opencode-manager (`ocm`) configuration. Writes `~/.config/opencode-manager/config.yaml` declaratively with: - `runtime` (podman by default — Podman is installed system-wide by `customNixOSModules.tools`, with the docker compatibility CLI) - the `baseImage` block that every workspace container is built from (see https://mickael-roger.github.io/opencode-manager/configuration/#base-image) The config file is a symlink into the Nix store, so `ocm config edit` cannot write it; remove `~/.config/opencode-manager/config.yaml` to take manual control of it again (it comes back on the next activation). Installs the opencode-manager package itself, so the module works on its own. Machines that already enable `devTools` get the same store path twice, which Home Manager merges without a collision. The built-in module catalogue is seeded into `~/.config/opencode-manager/modules` by the `devTools` activation, not by this module. Requires a container runtime on the host: `customNixOSModules.tools` provides Podman, which is what `runtime` defaults to.
+
+### `customHomeManagerModules.ocmConfig.nix.devenv`
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+Whether to have that Nix install devenv into the workspace base image. Runs `nix profile install <nixpkgs>#devenv` into a shared profile under `/nix/var/nix/profiles` and symlinks its binaries into `/usr/local/bin`, which the base image already puts on every process's `PATH`, so `devenv` is available to the workspace user without any shell setup. Requires `nix.enable`.
+
+### `customHomeManagerModules.ocmConfig.nix.enable`
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+Whether to install Nix into the workspace base image. Adds Debian's `nix` package to `baseImage.packages` (the package name `nix` resolves to `nix-setup-systemd`, which pulls in `nix-bin`) and adds the `baseImage.commands` needed to make it usable inside a container: - create `/nix`, which Debian normally only creates through a `tmpfiles.d` rule that needs systemd and therefore never runs here - write `/etc/nix/nix.conf` with `nix-command`/`flakes`, an empty `build-users-group` (Debian defaults to `nixbld`; keeping it empty makes every build a plain single-user one) and `sandbox = false` (nested user namespaces are not guaranteed under rootless Podman) - `chmod -R a+rwX /nix` last, so the workspace process — which runs under the host UID, not root — can add store paths to what was filled in as root during the image build. The container already grants passwordless sudo to every user, so this does not weaken its isolation.
+
+### `customHomeManagerModules.ocmConfig.nix.nixpkgs`
+
+- **Type:** `string`
+- **Default:** `"nixpkgs"`
+
+Flake reference `nix profile install` resolves `devenv` from. Defaults to the `nixpkgs` flake registry entry; pin a revision (for example `github:NixOS/nixpkgs/<rev>`) to make the base image rebuild reproducibly.
+
+### `customHomeManagerModules.ocmConfig.runtime`
+
+- **Type:** `one of "docker", "podman"`
+- **Default:** `"podman"`
+
+Container runtime opencode-manager drives (`docker` or `podman`). Set to `podman` to match what nixbook installs system-wide through `customNixOSModules.tools`.
 
 ---
 
@@ -806,7 +867,7 @@ Whether to enable RTK (Rust Token Killer). RTK is a CLI proxy that transparently
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable SSH client configuration. Configures programs.ssh with sensible keep-alive defaults applied to all hosts (Match \*): - compression: false — disabled to reduce CPU overhead on fast links - serverAliveInterval: 10s — send a keep-alive every 10 seconds - serverAliveCountMax: 2 — disconnect after 2 missed keep-alives (20s) enableDefaultConfig = false so NixOS's generated defaults do not conflict with this configuration. YubiKey SSH authentication is supported via two methods: 1. GPG-based: GnuPG agent with enableSSHSupport (nixosModules/tools.nix) uses GPG authentication subkeys stored on the YubiKey smart card. 2. FIDO2-based: ed25519-sk / ecdsa-sk keys via libfido2 (nixosModules/tools.nix). Generate with: ssh-keygen -t ed25519-sk For resident keys stored on YubiKey: ssh-keygen -t ed25519-sk -O resident SSH keys are managed separately via agenix secrets.
+Whether to enable SSH client configuration. Configures programs.ssh with sensible keep-alive defaults applied to all hosts (Match *): - compression: false — disabled to reduce CPU overhead on fast links - serverAliveInterval: 10s — send a keep-alive every 10 seconds - serverAliveCountMax: 2 — disconnect after 2 missed keep-alives (20s) enableDefaultConfig = false so NixOS's generated defaults do not conflict with this configuration. YubiKey SSH authentication is supported via two methods: 1. GPG-based: GnuPG agent with enableSSHSupport (nixosModules/tools.nix) uses GPG authentication subkeys stored on the YubiKey smart card. 2. FIDO2-based: ed25519-sk / ecdsa-sk keys via libfido2 (nixosModules/tools.nix). Generate with: ssh-keygen -t ed25519-sk For resident keys stored on YubiKey: ssh-keygen -t ed25519-sk -O resident SSH keys are managed separately via agenix secrets.
 
 ---
 

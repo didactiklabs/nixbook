@@ -23,6 +23,7 @@
     ./kubeTools.nix
     ./mpvConfig.nix
     ./niri
+    ./ocmConfig.nix
     ./opencodeConfig.nix
     ./oversteerConfig.nix
     ./nixvim
