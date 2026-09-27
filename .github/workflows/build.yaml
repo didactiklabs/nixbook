@@ -6,12 +6,25 @@ on:
   pull_request:
     branches:
       - main
+    # `closed` is only here so that merging/closing a PR cancels its still
+    # queued/running build through the concurrency group below; every job is
+    # skipped for that event, so it never takes a runner.
+    types: [opened, synchronize, reopened, closed]
+  workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # PRs: a new push supersedes the old build. main: never kill a running build
+  # or cache push half-way; a newer main push just waits (and replaces any
+  # older run still pending).
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+defaults:
+  run:
+    # Explicit `bash` makes Actions run with `-eo pipefail`, so a failing
+    # command in a pipeline fails the step.
+    shell: bash
 jobs:
   pre_job:
-    # continue-on-error: true # Uncomment once integration is finished
+    if: ${{ github.event.action != 'closed' }}
     runs-on: self-hosted
     # Map a step output to a job output
     outputs:
@@ -20,7 +33,6 @@ jobs:
       - id: skip_check
         uses: fkirc/skip-duplicate-actions@master
         with:
-          # All of these options are optional, so you can remove them if you are happy with the defaults
           concurrent_skipping: "never"
           skip_after_successful_duplicate: "true"
           paths_ignore: '["**/README.md", "**/docs/**"]'
@@ -48,30 +60,76 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Get Nixpkgs revision for nixfmt
+      - name: Pin nixpkgs for nix-shell
         run: |
           # This should not be a URL, because it would allow PRs to run arbitrary code in CI!
-          url=$(jq -r .pins.nixpkgs.url npins/sources.json)
-          echo "url=$url" >> "$GITHUB_ENV"
-      - uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
-        with:
-          nix_path: nixpkgs=${{ env.url }}
-          extra_nix_config: |
-            fallback = true
-            trusted-public-keys = didactiklabs-nixcache:PxLKN0+ZkP07M8g8/B6xbP6A4MYpqQg6LH7V3muiy/0= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
-            substituters = https://s3.didactiklabs.io/nix-cache https://cache.nixos.org/
-      - name: Auth to s3 cache
-        run: |
-          aws --profile default configure set aws_access_key_id "${{ secrets.AWS_ACCESS_KEY_ID }}"
-          aws --profile default configure set aws_secret_access_key "${{ secrets.AWS_SECRET_ACCESS_KEY_ID }}"
+          echo "NIX_PATH=nixpkgs=$(jq -r .pins.nixpkgs.url npins/sources.json)" >> "$GITHUB_ENV"
       - name: Build (${{ matrix.profile }})
+        env:
+          NIXPKGS_ALLOW_UNFREE: "1"
+          PROFILE: ${{ matrix.profile }}
         run: |
-          export NIXPKGS_ALLOW_UNFREE=1
-          build=$(nix-shell -p colmena --run "colmena build --on '${{ matrix.profile }}' --no-build-on-target" 2>&1 | tee /dev/stderr | grep -oE '/nix/store/[a-z0-9]+-nixos-system-[^ "]+' | tail -n1)
-          echo "build=$build" >> "$GITHUB_ENV"
+          # --keep-result roots the system in .gcroots/ so it survives until
+          # the push-cache job picks it up.
+          nix-shell -p colmena --run "colmena build --on '$PROFILE' --no-build-on-target --keep-result"
+          readlink -e ".gcroots/node-$PROFILE"
+
+  # Uploads each built system closure to the S3 binary cache. Only runs for main
+  # (never a PR check, so a flaky upload cannot block a merge), and one profile
+  # at a time: the profiles share most of their closure, and 5 parallel
+  # `nix copy`s (each already uploading many paths at once) overloaded the S3
+  # endpoint until requests failed with IncompleteBody.
+  push-cache:
+    timeout-minutes: 120
+    needs: [pre_job, build]
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: self-hosted
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        profile:
+          - totoro
+          - anya
+          - nishinoya
+          - tanjiro
+          - hanamichi
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Pin nixpkgs for nix-shell
+        run: |
+          echo "NIX_PATH=nixpkgs=$(jq -r .pins.nixpkgs.url npins/sources.json)" >> "$GITHUB_ENV"
+      - name: Resolve system (${{ matrix.profile }})
+        env:
+          NIXPKGS_ALLOW_UNFREE: "1"
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          # Already built by the build job on this shared store, so this is
+          # just an evaluation; it rebuilds/substitutes only if it was GC'd.
+          nix-shell -p colmena --run "colmena build --on '$PROFILE' --no-build-on-target --keep-result"
+          echo "build=$(readlink -e ".gcroots/node-$PROFILE")" >> "$GITHUB_ENV"
       - name: Push to cache (${{ matrix.profile }})
-        if: success()
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_ID }}
+          CACHE_PRIVATE_KEY: ${{ secrets.CACHE_PRIVATE_KEY }}
         run: |
-          echo '${{ secrets.CACHE_PRIVATE_KEY }}' > cache-priv.pem
-          nix store sign -r -k cache-priv.pem "$build"
-          nix copy --option http-connections 1 --to 's3://nix-cache?profile=default&scheme=https&endpoint=s3.didactiklabs.io' "$build"
+          key="$RUNNER_TEMP/cache-priv.pem"
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$CACHE_PRIVATE_KEY" > "$key"
+          # secret-key signs the narinfos as they are uploaded, instead of a
+          # separate `nix store sign -r` writing to the local (shared, often
+          # "busy") store database.
+          store="s3://nix-cache?scheme=https&endpoint=s3.didactiklabs.io&compression=zstd&secret-key=$key"
+          # nix copy skips paths the cache already has, so each retry resumes
+          # where the previous attempt died.
+          for attempt in 1 2 3 4 5; do
+            if nix copy --to "$store" "$build"; then
+              exit 0
+            fi
+            echo "::warning::nix copy attempt $attempt failed, retrying in $((attempt * 30))s"
+            sleep $((attempt * 30))
+          done
+          echo "::error::nix copy failed after 5 attempts"
+          exit 1
