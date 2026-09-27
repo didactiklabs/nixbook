@@ -289,10 +289,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "v1.1.0",
-      "revision": "7c9a54a7f87b4539ddbd8bda09a8a5f5f9361aa9",
-      "url": "https://api.github.com/repos/nix-community/lanzaboote/tarball/refs/tags/v1.1.0",
-      "hash": "sha256-hqijVSEETttmo8Okql9/LG0Ua34hdciKW1a5zzlj8mU="
+      "version": "v1.2.0",
+      "revision": "d4db37c6f22c63339562672babec51a8952f1325",
+      "url": "https://api.github.com/repos/nix-community/lanzaboote/tarball/refs/tags/v1.2.0",
+      "hash": "sha256-sr4Kfp6yaXUeyKL6n0Y8/ElcR3momIRC20HFc+LF22s="
     },
     "niri-flake": {
       "type": "Git",
