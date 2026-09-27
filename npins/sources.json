@@ -389,20 +389,17 @@
       "hash": "sha256-KYDaRNZ9dnIWqojuzJQHIdGcNp+mkpbsnMfw4tdb2/s="
     },
     "opencode-manager": {
-      "type": "GitRelease",
+      "type": "Git",
       "repository": {
         "type": "GitHub",
-        "owner": "Mickael-Roger",
+        "owner": "Banh-Canh",
         "repo": "opencode-manager"
       },
-      "pre_releases": false,
-      "version_upper_bound": null,
-      "release_prefix": null,
+      "branch": "main",
       "submodules": false,
-      "version": "v2.5.1",
-      "revision": "29c307ee70feee807e6237ce4db7d1ec268137b2",
-      "url": "https://api.github.com/repos/Mickael-Roger/opencode-manager/tarball/refs/tags/v2.5.1",
-      "hash": "sha256-DuqVgdMuscePvGC9QwFxB9v6H1dgsVTu+v0U6DwLqwY="
+      "revision": "05970cfb9fc8a825ca9bb40231dca6d376c4253c",
+      "url": "https://github.com/Banh-Canh/opencode-manager/archive/05970cfb9fc8a825ca9bb40231dca6d376c4253c.tar.gz",
+      "hash": "sha256-sMJ0nmxC+iI+CDcovGjmepqkC2f1UJFAN4Qr2eP5TCI="
     },
     "pear-desktop": {
       "type": "Url",
