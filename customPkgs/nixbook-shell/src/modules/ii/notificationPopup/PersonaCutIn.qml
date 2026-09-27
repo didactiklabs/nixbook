@@ -65,14 +65,18 @@ Scope {
     component CutInButton: RippleButton {
         id: cutInButton
         property string label
+        property real maxWidth: Infinity
         implicitHeight: 34
         implicitWidth: cutInLabel.implicitWidth + 30
+        width: Math.min(implicitWidth, maxWidth)
         buttonRadius: 0
         colBackground: cutInButton.toggled ? Persona.shadowColor : Persona.spec.frame
         colBackgroundHover: Persona.shadowColor
         contentItem: StyledText {
             id: cutInLabel
             anchors.centerIn: parent
+            width: Math.min(implicitWidth, cutInButton.width - 30)
+            elide: Text.ElideRight
             text: cutInButton.label.toUpperCase()
             font.family: Persona.titleFont
             font.pixelSize: Appearance.font.pixelSize.normal
@@ -366,9 +370,12 @@ Scope {
             Item {
                 id: dialog
                 readonly property real bx: cutIn.w * 0.27
-                readonly property real by: cutIn.h * 0.76
                 readonly property real bw: cutIn.w * 0.46
                 readonly property real bh: Math.max(cutIn.h * 0.16, dialogText.implicitHeight + 70)
+                // Actions and the reply box hang under the box: lift it so they stay on screen.
+                readonly property real footer: (actions.height > 0 ? 26 + actions.height : 0)
+                    + (replyBox.visible ? 16 + replyBox.height : 0)
+                readonly property real by: Math.min(cutIn.h * 0.76, cutIn.h - bh - footer - 32)
                 anchors.fill: parent
                 opacity: Math.min(1, Math.max(0, cutIn.t * 1.6 - 0.3))
                 transform: Translate { x: -(1 - cutIn.t) * 160; y: (1 - cutIn.t) * 60 }
@@ -476,12 +483,15 @@ Scope {
                     opacity: 0.6
                 }
 
-                // Actions
-                Row {
+                // Actions (wrap instead of running off the right edge)
+                Flow {
+                    id: actions
                     x: dialog.bx + 40
                     y: dialog.by + dialog.bh + 26
+                    width: cutIn.w - x - 32
                     spacing: 10
                     CutInButton {
+                        maxWidth: actions.width
                         visible: cutIn.replyMethod !== null
                         label: cutIn.replyMethod?.kind === "inline" ? Translation.tr("Reply")
                             : Translation.tr("Reply in %1").arg(cutIn.n?.appName || Translation.tr("the app"))
@@ -502,6 +512,7 @@ Scope {
                             && a.identifier !== cutIn.replyMethod?.identifier).slice(0, 3)
                         delegate: CutInButton {
                             required property var modelData
+                            maxWidth: actions.width
                             label: modelData.text
                             onClicked: {
                                 Notifications.attemptInvokeAction(cutIn.n.notificationId, modelData.identifier);
@@ -516,7 +527,7 @@ Scope {
                     id: replyBox
                     visible: cutIn.replying
                     x: dialog.bx + 40
-                    y: dialog.by + dialog.bh + 76
+                    y: actions.y + actions.height + 16
                     width: dialog.bw - 40
                     height: Math.max(52, replyInput.contentHeight + 24)
                     rotation: -2
