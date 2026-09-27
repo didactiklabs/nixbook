@@ -14,6 +14,19 @@ let
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
   grimshot = "${pkgs.sway-contrib.grimshot}/bin/grimshot";
   systemctl = "${pkgs.systemd}/bin/systemctl";
+  notifySend = "${pkgs.libnotify}/bin/notify-send";
+  ## Mod+I idle-inhibit toggle (parity with the nixbook-shell bind in niriConfig.nix).
+  ## nixbook-shell has no IPC for it, and Sway manages idle through swayidle
+  ## (services.swayidle), so start/stop that user unit directly.
+  idleToggle = pkgs.writeShellScript "sway-idle-toggle" ''
+    if ${systemctl} --user is-active --quiet swayidle; then
+      ${systemctl} --user stop swayidle && \
+        ${notifySend} -h string:x-canonical-private-synchronous:idle-inhibit -u low -t 1500 'Idle inhibited' 'Auto-lock and suspend are off'
+    else
+      ${systemctl} --user start swayidle && \
+        ${notifySend} -h string:x-canonical-private-synchronous:idle-inhibit -u low -t 1500 'Idle inhibitor off' 'Auto-lock and suspend are back on'
+    fi
+  '';
   waylandEnv = {
     CLUTTER_BACKEND = "wayland";
     SDL_VIDEODRIVER = "wayland";
@@ -217,96 +230,114 @@ in
             };
           };
 
-          keybindings = lib.filterAttrsRecursive (name: value: value != null) {
-            #lib.mkOptionDefault {
-            # Focus
-            "${mod}+Left" = "focus left";
-            "${mod}+Down" = "focus down";
-            "${mod}+Up" = "focus up";
-            "${mod}+Right" = "focus right";
+          keybindings =
+            lib.filterAttrsRecursive (name: value: value != null) {
+              #lib.mkOptionDefault {
+              # Focus
+              "${mod}+Left" = "focus left";
+              "${mod}+Down" = "focus down";
+              "${mod}+Up" = "focus up";
+              "${mod}+Right" = "focus right";
 
-            "${mod}+Shift+Left" = "move left";
-            "${mod}+Shift+Down" = "move down";
-            "${mod}+Shift+Up" = "move up";
-            "${mod}+Shift+Right" = "move right";
+              "${mod}+Shift+Left" = "move left";
+              "${mod}+Shift+Down" = "move down";
+              "${mod}+Shift+Up" = "move up";
+              "${mod}+Shift+Right" = "move right";
 
-            "${mod}+l" = if cfg.dmsConfig.enable then "exec dms ipc call powermenu toggle" else null;
-            "${mod}+d" = if cfg.dmsConfig.enable then "exec dms ipc call spotlight toggle" else null;
+              "${mod}+l" = if cfg.dmsConfig.enable then "exec dms ipc call powermenu toggle" else null;
+              "${mod}+d" = if cfg.dmsConfig.enable then "exec dms ipc call spotlight toggle" else null;
 
-            # Brightness
-            "XF86MonBrightnessDown" = "exec ${brightnessctl} set 10%-";
-            "XF86MonBrightnessUp" = "exec ${brightnessctl} set +10%";
+              # Brightness
+              "XF86MonBrightnessDown" = "exec ${brightnessctl} set 10%-";
+              "XF86MonBrightnessUp" = "exec ${brightnessctl} set +10%";
 
-            "${mod}+n" = "exec ${pkgs.kitty}/bin/kitty ${pkgs.neovim}/bin/nvim";
+              "${mod}+n" = "exec ${pkgs.kitty}/bin/kitty ${pkgs.neovim}/bin/nvim";
 
-            ## To allow a keybinding to be executed while the lockscreen is active add the --locked parameter to bindsym.
-            # Audio
-            "--locked ${mod}+equal" = "exec ${playerctl} next";
-            "--locked ${mod}+minus" = "exec ${playerctl} previous";
-            "--locked XF86AudioNext" = "exec ${playerctl} next";
-            "--locked XF86AudioPrev" = "exec ${playerctl} previous";
-            "--locked XF86AudioPlay" = "exec ${playerctl} play-pause";
-            "--locked XF86AudioRaiseVolume" =
-              "exec ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%+";
-            "--locked XF86AudioLowerVolume" =
-              "exec ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%-";
-            "--locked XF86AudioMute" = "exec ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_SINK@ toggle";
-            "Print" =
-              if cfg.dmsConfig.enable then
-                "exec dms screenshot"
-              else
-                ''
-                  exec ${grimshot} --notify copy area
-                '';
-            "${mod}+ampersand" = "workspace $workspace1";
-            "${mod}+eacute" = "workspace $workspace2";
-            "${mod}+quotedbl" = "workspace $workspace3";
-            "${mod}+apostrophe" = "workspace $workspace4";
-            "${mod}+parenleft" = "workspace $workspace5";
-            "${mod}+minus" = "workspace $workspace6";
-            "${mod}+egrave" = "workspace $workspace7";
-            "${mod}+underscore" = "workspace $workspace8";
-            "${mod}+ccedilla" = "workspace $workspace9";
-            "${mod}+agrave" = "workspace $workspace10";
-            "${mod}+Shift+ampersand" = "move container to workspace $workspace1";
-            "${mod}+Shift+eacute" = "move container to workspace $workspace2";
-            "${mod}+Shift+quotedbl" = "move container to workspace $workspace3";
-            "${mod}+Shift+apostrophe" = "move container to workspace $workspace4";
-            "${mod}+Shift+parenleft" = "move container to workspace $workspace5";
-            "${mod}+Shift+minus" = "move container to workspace $workspace6";
-            "${mod}+Shift+egrave" = "move container to workspace $workspace7";
-            "${mod}+Shift+underscore" = "move container to workspace $workspace8";
-            "${mod}+Shift+ccedilla" = "move container to workspace $workspace9";
-            "${mod}+Shift+agrave" = "move container to workspace $workspace10";
-
-            "${mod}+Shift+p" = "move scratchpad";
-            "${mod}+a" = "kill";
-            "${mod}+c" = "reload";
-            "${mod}+s" = "layout stacking";
-            "${mod}+e" = "layout toggle split";
-            "${mod}+z" = "layout tabbed";
-            "${mod}+Shift+r" = "restart";
-            "${mod}+Shift+space" = "floating toggle";
-
-            "${mod}+x" = "move workspace to output right";
-            "${mod}+r" = ''mode "${modeResize}"'';
-            "${mod}+Shift+t" = ''mode "${modeSystem}"'';
-            "${mod}+Shift+v" = "exec ${pkgs.wlprop}/bin/wlprop";
-            "${mod}+q" = if cfg.dmsConfig.enable then "exec dms ipc call clipboard toggle" else null;
-            "${mod}+i" = if cfg.dmsConfig.enable then "exec dms ipc call inhibit toggle" else null;
-            "${mod}+w" = if cfg.dmsConfig.enable then "exec dms ipc call dankdash wallpaper" else null;
-            "${mod}+o" = if cfg.dmsConfig.enable then "exec dms ipc call dash toggle overview" else null;
-            "${mod}+space" = if cfg.dmsConfig.enable then "exec dms ipc call widget toggle sathiAi" else null;
-            "${mod}+b" =
-              if cfg.dmsConfig.enable then
-                if cfg.dmsConfig.showDock then
-                  "exec dms ipc call bar toggle index 0 && dms ipc call dock toggle"
+              ## To allow a keybinding to be executed while the lockscreen is active add the --locked parameter to bindsym.
+              # Audio
+              "--locked ${mod}+equal" = "exec ${playerctl} next";
+              "--locked ${mod}+minus" = "exec ${playerctl} previous";
+              "--locked XF86AudioNext" = "exec ${playerctl} next";
+              "--locked XF86AudioPrev" = "exec ${playerctl} previous";
+              "--locked XF86AudioPlay" = "exec ${playerctl} play-pause";
+              "--locked XF86AudioRaiseVolume" =
+                "exec ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%+";
+              "--locked XF86AudioLowerVolume" =
+                "exec ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%-";
+              "--locked XF86AudioMute" = "exec ${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_SINK@ toggle";
+              "Print" =
+                if cfg.dmsConfig.enable then
+                  "exec dms screenshot"
                 else
-                  "exec dms ipc call bar toggle index 0"
-              else
-                null;
-            "Ctrl+space" = lib.mkIf cfg.fcitx5Config.enable "exec ${pkgs.fcitx5}/bin/fcitx5-remote -t";
-          };
+                  ''
+                    exec ${grimshot} --notify copy area
+                  '';
+              "${mod}+ampersand" = "workspace $workspace1";
+              "${mod}+eacute" = "workspace $workspace2";
+              "${mod}+quotedbl" = "workspace $workspace3";
+              "${mod}+apostrophe" = "workspace $workspace4";
+              "${mod}+parenleft" = "workspace $workspace5";
+              "${mod}+minus" = "workspace $workspace6";
+              "${mod}+egrave" = "workspace $workspace7";
+              "${mod}+underscore" = "workspace $workspace8";
+              "${mod}+ccedilla" = "workspace $workspace9";
+              "${mod}+agrave" = "workspace $workspace10";
+              "${mod}+Shift+ampersand" = "move container to workspace $workspace1";
+              "${mod}+Shift+eacute" = "move container to workspace $workspace2";
+              "${mod}+Shift+quotedbl" = "move container to workspace $workspace3";
+              "${mod}+Shift+apostrophe" = "move container to workspace $workspace4";
+              "${mod}+Shift+parenleft" = "move container to workspace $workspace5";
+              "${mod}+Shift+minus" = "move container to workspace $workspace6";
+              "${mod}+Shift+egrave" = "move container to workspace $workspace7";
+              "${mod}+Shift+underscore" = "move container to workspace $workspace8";
+              "${mod}+Shift+ccedilla" = "move container to workspace $workspace9";
+              "${mod}+Shift+agrave" = "move container to workspace $workspace10";
+
+              "${mod}+Shift+p" = "move scratchpad";
+              "${mod}+a" = "kill";
+              "${mod}+c" = "reload";
+              "${mod}+s" = "layout stacking";
+              "${mod}+e" = "layout toggle split";
+              "${mod}+z" = "layout tabbed";
+              "${mod}+Shift+r" = "restart";
+              "${mod}+Shift+space" = "floating toggle";
+
+              "${mod}+x" = "move workspace to output right";
+              "${mod}+r" = ''mode "${modeResize}"'';
+              "${mod}+Shift+t" = ''mode "${modeSystem}"'';
+              "${mod}+Shift+v" = "exec ${pkgs.wlprop}/bin/wlprop";
+              "${mod}+q" = if cfg.dmsConfig.enable then "exec dms ipc call clipboard toggle" else null;
+              "${mod}+i" = if cfg.dmsConfig.enable then "exec dms ipc call inhibit toggle" else null;
+              "${mod}+w" = if cfg.dmsConfig.enable then "exec dms ipc call dankdash wallpaper" else null;
+              "${mod}+o" = if cfg.dmsConfig.enable then "exec dms ipc call dash toggle overview" else null;
+              "${mod}+space" = if cfg.dmsConfig.enable then "exec dms ipc call widget toggle sathiAi" else null;
+              "${mod}+b" =
+                if cfg.dmsConfig.enable then
+                  if cfg.dmsConfig.showDock then
+                    "exec dms ipc call bar toggle index 0 && dms ipc call dock toggle"
+                  else
+                    "exec dms ipc call bar toggle index 0"
+                else
+                  null;
+              "Ctrl+space" = lib.mkIf cfg.fcitx5Config.enable "exec ${pkgs.fcitx5}/bin/fcitx5-remote -t";
+            }
+            ## nixbook-shell panels: same IPC calls as the niri config
+            ## (niriConfig.nix). Merged last, so it overrides the DMS/no-shell
+            ## fallbacks above, the kitty+nvim launcher on ${mod}+n and the
+            ## grimshot Print bind — matching what niri does.
+            // lib.optionalAttrs cfg.nixbookShellConfig.enable {
+              "${mod}+b" = "exec nixbook-shell ipc call bar toggle";
+              "${mod}+d" = "exec nixbook-shell ipc call search toggle";
+              "${mod}+o" = "exec nixbook-shell ipc call search workspacesToggle";
+              "${mod}+q" = "exec nixbook-shell ipc call search clipboardToggle";
+              "${mod}+l" = "exec nixbook-shell ipc call session toggle";
+              "${mod}+n" = "exec nixbook-shell ipc call sidebarRight toggle";
+              "${mod}+space" = "exec nixbook-shell ipc call sidebarLeft toggle";
+              "${mod}+w" = "exec nixbook-shell ipc call wallpaperSelector toggle";
+              "${mod}+Escape" = "exec nixbook-shell ipc call settings toggle";
+              "${mod}+i" = "exec ${idleToggle}";
+              "Print" = "exec nixbook-shell ipc call region screenshot";
+            };
 
           assigns = {
             "${workspace1}" = [ ];
