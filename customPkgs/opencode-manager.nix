@@ -17,6 +17,19 @@ pkgs.buildGoModule {
 
   subPackages = [ "cmd/opencode-manager" ];
 
+  # baseImage.commands are joined with " && " into the EXTRA_COMMANDS build arg,
+  # but the embedded Dockerfiles run it as `RUN ${EXTRA_COMMANDS}`: the shell
+  # word-splits the expansion without re-parsing it, so `&&`, pipes, redirects
+  # and quotes become plain arguments of the first command (every command ends
+  # up as arguments to the first `mkdir`). Hand the string to `sh -c` so it is
+  # parsed as a shell command line.
+  postPatch = ''
+    substituteInPlace \
+      internal/runtime/buildcontext/Dockerfile \
+      internal/runtime/buildcontext/Dockerfile.overlay \
+      --replace-fail 'RUN ''${EXTRA_COMMANDS}' 'RUN sh -c "''${EXTRA_COMMANDS}"'
+  '';
+
   ldflags = [
     "-s"
     "-w"

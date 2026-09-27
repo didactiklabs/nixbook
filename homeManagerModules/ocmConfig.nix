@@ -53,7 +53,13 @@ let
       "nix profile install --profile ${nixProfile} ${cfg.nix.nixpkgs}#devenv"
       "ln -sfn ${nixProfile}/bin/* /usr/local/bin/"
     ]
-    ++ lib.optionals cfg.nix.enable [ "chmod -R a+rwX /nix" ];
+    ++ lib.optionals cfg.nix.enable [
+      "chmod -R a+rwX /nix"
+      # Nix resets these two to 0755 whenever it opens the store unless they
+      # already are, and chmod fails for the workspace user, who doesn't own them.
+      "mkdir -p /nix/var/nix/profiles/per-user /nix/var/nix/gcroots/per-user"
+      "chmod 0755 /nix/var/nix/profiles/per-user /nix/var/nix/gcroots/per-user"
+    ];
 in
 {
   options.customHomeManagerModules.ocmConfig = {
@@ -189,6 +195,10 @@ in
               filled in as root during the image build. The container already
               grants passwordless sudo to every user, so this does not weaken
               its isolation.
+            - put `/nix/var/nix/{profiles,gcroots}/per-user` back to `0755`:
+              Nix chmods them to that mode on every store open unless they
+              already have it, which fails ("Operation not permitted") for the
+              workspace user, who doesn't own them.
         '';
       };
 
