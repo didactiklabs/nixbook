@@ -1,0 +1,178 @@
+{ pkgs }:
+# nixbook-shell — nixbook's Quickshell (QML) desktop shell (forked from
+# pctrade/end4-pC, itself a fork of end-4's illogical-impulse). Everything needed to build and run it lives here; the Home
+# Manager module (homeManagerModules/nixbookShellConfig.nix) only holds the options and
+# wires this package into the session.
+#
+#   src/                 vendored QML tree (hard fork, edited in place)
+#   shell.nix            the QML tree as installed (store-path fixups, Persona art)
+#   quickshell.nix       Quickshell pin + crash patch (patches/)
+#   lib.nix              typed settings options generated from builtin-defaults.json
+#   scripts/             anthropic-usage, the `nixbook-shell config` CLI and its jq lib
+#
+# The result is the `nixbook-shell` launcher: `nixbook-shell` starts the shell,
+# `nixbook-shell ipc call <target> <fn>` drives it, `nixbook-shell config …` relates the
+# live settings to Nix. `passthru` carries the pieces the module needs.
+let
+  inherit (pkgs) lib;
+
+  shell = import ./shell.nix { inherit pkgs; };
+  quickshell = import ./quickshell.nix { inherit pkgs; };
+  settingsLib = import ./lib.nix { inherit lib; };
+  inherit (shell.passthru) configName;
+
+  # Claude usage reader for the AnthropicUsage bar widget (OpenCode OAuth).
+  anthropicUsage = pkgs.writeShellScriptBin "anthropic-usage" (
+    builtins.readFile ./scripts/anthropic-usage.sh
+  );
+
+  # Upstream probes ~40 tools with `command -v` and shells out to them from QML
+  # `Process` blocks. Rather than patching every call site we inject them into
+  # the shell's PATH; children inherit it.
+  runtimeDeps =
+    (with pkgs; [
+      bash
+      coreutils
+      findutils
+      gawk
+      gnugrep
+      gnused
+      procps # pgrep
+      psmisc # killall
+      sysvtools # pidof
+
+      jq
+      curl
+      wget
+      libnotify # notify-send
+      glib # gsettings
+      xdg-utils # xdg-open
+      util-linux
+
+      imagemagick # magick / convert / identify
+      matugen
+      ffmpeg
+      mpvpaper
+
+      wl-clipboard
+      cliphist
+      grim
+      slurp
+      wf-recorder
+      ydotool
+      tesseract # region OCR
+
+      playerctl
+      pulseaudio # pactl
+      wireplumber # wpctl
+      brightnessctl
+      cava
+      ddcutil
+      networkmanager # nmcli
+      translate-shell # trans
+      kdePackages.kdialog
+
+      hyprpicker # colour picker (bar util button, quick toggle, accent picking)
+      songrec # Shazam CLI behind scripts/musicRecognition + its quick toggle
+      easyeffects # EasyEffects quick toggle and the shell's EQ panel
+      lm_sensors # `sensors` — temperatures in ResourceUsage
+      file # MIME sniffing for chat attachments and directory icons
+      zip # settings preset export/import (scripts/presets.sh)
+
+      tailscale # VpnStatus bar widget — `tailscale status/switch/set`
+      netbird # VpnStatus bar widget — `netbird status/up/down/profile`
+
+      niri
+      btop # task manager (Config.options.apps.taskManager)
+    ])
+    ++ [
+      quickshell # `qs` — the shell re-invokes itself for sub-windows
+      shell.passthru.pythonEnv
+      anthropicUsage # `anthropic-usage` — AnthropicUsage bar widget
+    ];
+
+  # QML modules the shell imports that quickshell itself is not built against,
+  # so they are absent from its wrapper's QML import path. Without these the
+  # shell dies at startup with "module <x> is not installed":
+  #   Qt5Compat.GraphicalEffects -> qt5compat          (ReloadPopup and friends)
+  #   QtPositioning              -> qtpositioning      (weather / auto-location)
+  #   org.kde.syntaxhighlighting -> syntax-highlighting (AI chat code blocks)
+  #   org.kde.kirigami           -> kirigami           (common/widgets/AppIcon)
+  # Everything else it imports (QtQuick.*, QtQml.*, Qt.labs.*, QtCore) already
+  # comes from qtdeclarative via quickshell.
+  #
+  # nixpkgs' Qt6 uses a patched qtbase that reads NIXPKGS_QT6_QML_IMPORT_PATH,
+  # and quickshell's wrapper extends it with `--prefix`, so exporting it here
+  # is additive rather than destructive.
+  qmlImportPath = lib.makeSearchPath "lib/qt-6/qml" [
+    pkgs.qt6.qt5compat
+    pkgs.qt6.qtpositioning
+    pkgs.kdePackages.syntax-highlighting
+    # `kdePackages.kirigami` is a Qt app wrapper with no lib/ output; the QML
+    # module only exists in the unwrapped derivation.
+    pkgs.kdePackages.kirigami.unwrapped
+  ];
+
+  # `nixbook-shell config …` (scripts/config-tool.sh). Reads the settings set in Nix
+  # from ~/.config/nixbook-shell/nix-pinned-values.json at run time, so the
+  # CLI doesn't depend on the module's configuration.
+  # jq resolves `include "config-merge"` by file name in the -L directory.
+  mergeLib = pkgs.writeTextDir "lib/config-merge.jq" (builtins.readFile ./scripts/config-merge.jq);
+  configTool = pkgs.writeShellScript "nixbook-shell-config" ''
+    export PATH="${
+      lib.makeBinPath [
+        pkgs.jq
+        pkgs.coreutils
+      ]
+    }:$PATH"
+    export NIXBOOK_SHELL_MERGE_JQ="${mergeLib}/lib/config-merge.jq"
+    export NIXBOOK_SHELL_BUILTIN="${./builtin-defaults.json}"
+    export NIXBOOK_SHELL_LIVE_KEYS="${pkgs.writeText "nixbook-shell-live-keys.json" (builtins.toJSON settingsLib.liveKeys)}"
+    # `config builtin`: run the shell's Config singleton alone against an empty
+    # config dir to get its built-in defaults.
+    export NIXBOOK_SHELL_SHELL="${shell}"
+    export NIXBOOK_SHELL_QS="${quickshell}/bin/qs"
+    export NIXBOOK_SHELL_QML_PATH="${qmlImportPath}"
+    exec ${pkgs.bash}/bin/bash ${./scripts/config-tool.sh} "$@"
+  '';
+
+  # cliphist store daemon. Nothing else in this config runs one, so without it
+  # the shell's clipboard history (Mod+Q) is permanently empty.
+  cliphistWatch = pkgs.writeShellScript "nixbook-shell-cliphist-watch" ''
+    ${pkgs.wl-clipboard}/bin/wl-paste --type text --watch ${pkgs.cliphist}/bin/cliphist store &
+    ${pkgs.wl-clipboard}/bin/wl-paste --type image --watch ${pkgs.cliphist}/bin/cliphist store &
+    wait
+  '';
+
+  # Single entry point: keybinds and the systemd unit both go through this so
+  # the runtime PATH and QML import path are always correct.
+  launcher = pkgs.writeShellScriptBin "nixbook-shell" ''
+    # `nixbook-shell config …`: how the live settings relate to the Nix module.
+    if [ "''${1:-}" = "config" ]; then
+      shift
+      exec ${configTool} "$@"
+    fi
+    export PATH="${lib.makeBinPath runtimeDeps}:$PATH"
+    export NIXPKGS_QT6_QML_IMPORT_PATH="${qmlImportPath}''${NIXPKGS_QT6_QML_IMPORT_PATH:+:$NIXPKGS_QT6_QML_IMPORT_PATH}"
+    # Quickshell resolves `image://icon/...` against this rather than the GTK
+    # settings; without it half the tray/launcher icons fail to load. Matches
+    # gtkConfig.nix's iconTheme. Set here rather than in home.sessionVariables
+    # so it also applies to the systemd unit without needing a re-login.
+    export QS_ICON_THEME="''${QS_ICON_THEME:-Papirus-Dark}"
+    exec ${quickshell}/bin/qs -c ${configName} "$@"
+  '';
+in
+launcher.overrideAttrs (old: {
+  passthru = (old.passthru or { }) // {
+    inherit
+      shell
+      quickshell
+      configName
+      settingsLib
+      cliphistWatch
+      ;
+  };
+  meta = shell.meta // {
+    mainProgram = "nixbook-shell";
+  };
+})

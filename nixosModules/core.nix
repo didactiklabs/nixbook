@@ -58,6 +58,16 @@ in
       ];
       kernel = {
         sysctl = {
+          # zram tuning (swap is compressed RAM, see zramSwap below): prefer
+          # compressing cold pages early over dropping page cache, read swap
+          # back one page at a time (no readahead: zram has no seek cost), and
+          # avoid watermark-boost reclaim storms. Keeps the desktop responsive
+          # under memory pressure. Values follow Pop!_OS / Fedora zram guidance.
+          "vm.swappiness" = 180;
+          "vm.page-cluster" = 0;
+          "vm.watermark_boost_factor" = 0;
+          "vm.watermark_scale_factor" = 125;
+
           # Restricts /dev/kmsg and dmesg(1) to root.
           # Defends against: information leakage of kernel addresses, loaded modules,
           # hardware layout — useful recon data for local privilege escalation.
@@ -320,7 +330,16 @@ in
           login.u2fAuth = true;
           sudo.u2fAuth = true;
         };
-        u2f.enable = true;
+        u2f = {
+          enable = true;
+          # Have pam_u2f announce when it is waiting for a touch: a PAM info
+          # message the nixbook-shell lock screen shows as "Touch your security key",
+          # tuigreet (greetd) prints, and sudo writes to the terminal.
+          settings = {
+            cue = true;
+            cue_prompt = "Touch your security key";
+          };
+        };
       };
     };
 

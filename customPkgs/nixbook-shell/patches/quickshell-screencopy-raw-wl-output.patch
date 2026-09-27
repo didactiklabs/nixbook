@@ -1,0 +1,139 @@
+diff -ru a/src/wayland/screencopy/wlr_screencopy/wlr_screencopy.cpp b/src/wayland/screencopy/wlr_screencopy/wlr_screencopy.cpp
+--- a/src/wayland/screencopy/wlr_screencopy/wlr_screencopy.cpp	2026-09-26 16:56:28.182914534 +0200
++++ b/src/wayland/screencopy/wlr_screencopy/wlr_screencopy.cpp	2026-09-26 16:56:28.223530578 +0200
+@@ -161,8 +161,16 @@
+ WlrScreencopyContext::OutputTransformQuery::OutputTransformQuery(WlrScreencopyContext* context)
+     : context(context) {}
+ 
+-WlrScreencopyContext::OutputTransformQuery::~OutputTransformQuery() {
+-	if (this->isInitialized()) this->release();
++WlrScreencopyContext::OutputTransformQuery::~OutputTransformQuery() { this->releaseOutput(); }
++
++void WlrScreencopyContext::OutputTransformQuery::releaseOutput() {
++	if (this->output == nullptr) return;
++	if (wl_proxy_get_version(reinterpret_cast<wl_proxy*>(this->output)) >= WL_OUTPUT_RELEASE_SINCE_VERSION) { // NOLINT
++		wl_output_release(this->output);
++	} else {
++		wl_output_destroy(this->output);
++	}
++	this->output = nullptr;
+ }
+ 
+ void WlrScreencopyContext::OutputTransformQuery::setScreen(
+@@ -174,28 +182,44 @@
+ 		[[nodiscard]] int globalId() const { return this->m_outputId; }
+ 	};
+ 
+-	if (this->isInitialized()) this->release();
++	this->releaseOutput();
+ 
+-	this->init(
++	this->output = static_cast<::wl_output*>(wl_registry_bind( // NOLINT
+ 	    screen->display()->wl_registry(),
+ 	    static_cast<QWaylandScreenReflector*>(screen)->globalId(), // NOLINT
++	    &wl_output_interface,
+ 	    3
+-	);
++	));
++	wl_output_add_listener(this->output, &LISTENER, this);
+ }
+ 
+-void WlrScreencopyContext::OutputTransformQuery::output_geometry(
+-    qint32 /*x*/,
+-    qint32 /*y*/,
+-    qint32 /*width*/,
+-    qint32 /*height*/,
+-    qint32 /*subpixel*/,
+-    const QString& /*make*/,
+-    const QString& /*model*/,
+-    qint32 transform
++void WlrScreencopyContext::OutputTransformQuery::onGeometry(
++    void* data,
++    ::wl_output* /*output*/,
++    int32_t /*x*/,
++    int32_t /*y*/,
++    int32_t /*width*/,
++    int32_t /*height*/,
++    int32_t /*subpixel*/,
++    const char* /*make*/,
++    const char* /*model*/,
++    int32_t transform
+ ) {
+-	auto newTransform = this->transform == -1;
+-	this->transform = transform;
+-	this->context->updateTransform(newTransform);
++	auto* self = static_cast<OutputTransformQuery*>(data);
++	auto newTransform = self->transform == -1;
++	self->transform = transform;
++	self->context->updateTransform(newTransform);
+ }
+ 
++// Only geometry matters; the rest are no-ops (version 3 never sends
++// name/description, but keep the listener complete).
++const ::wl_output_listener WlrScreencopyContext::OutputTransformQuery::LISTENER = {
++    .geometry = &OutputTransformQuery::onGeometry,
++    .mode = [](void*, ::wl_output*, uint32_t, int32_t, int32_t, int32_t) {},
++    .done = [](void*, ::wl_output*) {},
++    .scale = [](void*, ::wl_output*, int32_t) {},
++    .name = [](void*, ::wl_output*, const char*) {},
++    .description = [](void*, ::wl_output*, const char*) {},
++};
++
+ } // namespace qs::wayland::screencopy::wlr
+diff --color -ru a/src/wayland/screencopy/wlr_screencopy/wlr_screencopy_p.hpp b/src/wayland/screencopy/wlr_screencopy/wlr_screencopy_p.hpp
+--- a/src/wayland/screencopy/wlr_screencopy/wlr_screencopy_p.hpp	2026-09-26 16:56:28.183030622 +0200
++++ b/src/wayland/screencopy/wlr_screencopy/wlr_screencopy_p.hpp	2026-09-26 16:56:28.223233120 +0200
+@@ -45,28 +45,39 @@
+ private:
+ 	void submitFrame();
+ 
+-	class OutputTransformQuery: public QtWayland::wl_output {
++	// Binds its own wl_output (raw proxy + private listener) to read the
++	// output transform. It used to derive from QtWayland::wl_output, which
++	// installs QtWayland's listener on the proxy; compositors that send
++	// wl_surface.enter for every bound wl_output (niri) then made
++	// QWaylandScreen::fromWlOutput() static_cast this proxy to a
++	// QWaylandScreen, and QWaylandWindow::handleScreensChanged() crashed in
++	// QWaylandSurface::oldestEnteredScreen() (quickshell issue #1202).
++	class OutputTransformQuery {
+ 	public:
+ 		OutputTransformQuery(WlrScreencopyContext* context);
+-		~OutputTransformQuery() override;
++		~OutputTransformQuery();
+ 		Q_DISABLE_COPY_MOVE(OutputTransformQuery);
+ 
+ 		qint32 transform = -1;
+ 		void setScreen(QtWaylandClient::QWaylandScreen* screen);
+ 
+-	protected:
+-		void output_geometry(
+-		    qint32 x,
+-		    qint32 y,
+-		    qint32 width,
+-		    qint32 height,
+-		    qint32 subpixel,
+-		    const QString& make,
+-		    const QString& model,
+-		    qint32 transform
+-		) override;
+-
+ 	private:
++		void releaseOutput();
++		static void onGeometry(
++		    void* data,
++		    ::wl_output* output,
++		    int32_t x,
++		    int32_t y,
++		    int32_t width,
++		    int32_t height,
++		    int32_t subpixel,
++		    const char* make,
++		    const char* model,
++		    int32_t transform
++		);
++		static const ::wl_output_listener LISTENER;
++
++		::wl_output* output = nullptr;
+ 		WlrScreencopyContext* context;
+ 	};
+ 

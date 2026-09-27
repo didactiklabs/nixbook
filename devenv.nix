@@ -16,6 +16,14 @@
     "assets/dms/plugins/**/translations.js"
   ];
 
+  # customPkgs/nixbook-shell/src is a vendored upstream tree (nixbook-shell, merged by
+  # hand): upstream's shell/Python scripts and QML-flavoured JS (`.pragma
+  # library`, which prettier can't parse) are left as upstream wrote them, so
+  # resyncing stays a plain diff. Our own scripts (customPkgs/nixbook-shell/scripts)
+  # are still checked.
+  treefmt.config.settings.global.excludes = [ "customPkgs/nixbook-shell/src/**" ];
+  git-hooks.hooks.shellcheck.excludes = [ "^customPkgs/nixbook-shell/src/" ];
+
   scripts = {
     # https://devenv.sh/scripts/
     hello.exec = ''

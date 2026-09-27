@@ -79,7 +79,14 @@ in
       # Polkit authentication agent — required for privilege-escalation dialogs
       # (e.g. NetworkManager adding system-wide connections, fwupd updates).
       # The niri-flake bundled agent is disabled above; this replaces it.
-      systemd.user.services.polkit-gnome-authentication-agent-1 = {
+      #
+      # Only one agent can hold the polkit registration for a session. Quickshell
+      # shells ship their own (nixbook-shell has services/PolkitService.qml), and
+      # whichever starts first wins — in practice this one, leaving the shell's
+      # agent to fail with "An authentication agent already exists for the given
+      # subject" on every start. Set `polkitAgent = false` on machines whose
+      # desktop shell provides one, to get the themed in-shell prompt instead.
+      systemd.user.services.polkit-gnome-authentication-agent-1 = lib.mkIf cfg.niri.polkitAgent {
         description = "polkit-gnome-authentication-agent-1";
         wantedBy = [ "graphical-session.target" ];
         wants = [ "graphical-session.target" ];
@@ -139,6 +146,26 @@ in
 
         Used on: totoro (primary), tanjiro (primary), nishinoya (primary).
         See also: homeManagerModules/niri/ for per-user compositor configuration.
+      '';
+    };
+
+    polkitAgent = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether to run polkit-gnome as the session's polkit authentication agent.
+
+        Only one agent can hold the polkit registration per session. Quickshell
+        desktop shells ship their own — nixbook-shell has `services/PolkitService.qml`
+        — and whichever registers first wins. In practice polkit-gnome starts
+        first, so the shell's agent fails on every start with "An authentication
+        agent already exists for the given subject" and its (themed, in-shell)
+        prompt is never used.
+
+        Set to false on machines whose shell provides an agent, to drop the
+        extra process and get the integrated prompt. Leave true when the shell
+        has no agent of its own (DMS does not ship one), otherwise privilege
+        escalation dialogs silently never appear.
       '';
     };
   };

@@ -9,6 +9,7 @@
     ./devTools.nix
     ./dmsConfig.nix
     ./dolphinConfig.nix
+    ./nixbookShellConfig.nix
     ./fastfetchConfig.nix
     ./fcitx5Config.nix
     ./fontConfig.nix

@@ -84,7 +84,13 @@ in
     atuinConfig.didactiklabs.enable = true;
     kittyConfig.enable = true;
     zshConfig.enable = true;
-    dmsConfig.enable = true;
+    # dmsConfig.enable = true;
+    nixbookShellConfig = {
+      enable = true;
+      settings = {
+        appearance.persona.enable = true;
+      };
+    };
     desktopApps.enable = true;
     zenBrowserConfig.enable = true;
     opencodeConfig = {

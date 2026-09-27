@@ -40,7 +40,12 @@ in
       settings = {
         general = {
           lock_cmd =
-            if cfg.dmsConfig.enable then "dms ipc call lock lock" else "${pidof} ${hyprlock} || ${hyprlock}"; # avoid starting multiple hyprlock instances.
+            if cfg.dmsConfig.enable then
+              "dms ipc call lock lock"
+            else if cfg.nixbookShellConfig.enable then
+              "nixbook-shell ipc call lock activate"
+            else
+              "${pidof} ${hyprlock} || ${hyprlock}"; # avoid starting multiple hyprlock instances.
           before_sleep_cmd = "${loginctl} lock-session"; # lock before suspend.
           after_sleep_cmd = "${niri} msg action power-on-monitors"; # turn on monitors after sleep
         };
@@ -78,8 +83,9 @@ in
       };
     };
 
-    # Enable hyprlock for screen locking (same styling as Hyprland config)
-    programs.hyprlock = lib.mkIf (!cfg.dmsConfig.enable) {
+    # Enable hyprlock for screen locking (same styling as Hyprland config).
+    # Only used as the fallback locker: DMS and nixbook-shell each ship their own.
+    programs.hyprlock = lib.mkIf (!(cfg.dmsConfig.enable || cfg.nixbookShellConfig.enable)) {
       enable = true;
       settings = {
         general = {
@@ -179,6 +185,18 @@ in
               }
           }
 
+          // Tiled windows only ever sit on the wallpaper/background layers, so
+          // xray blur (computed once from those layers and cached) looks the
+          // same for them and is much cheaper whenever the background animates
+          // (measured: niri 41% -> 25% of the GPU with the shell's visualizer
+          // running). Floating windows keep true blur of what is behind them.
+          window-rule {
+              match is-floating=false
+              background-effect {
+                  xray true
+              }
+          }
+
         ''
       );
 
@@ -212,7 +230,10 @@ in
             ];
           }
         ]
-        ++ [
+        ++ lib.optionals (!cfg.nixbookShellConfig.enable) [
+          # nixbook-shell paints its own wallpaper layer (and owns wallpaper
+          # switching via its Settings panel), so swaybg would just burn a
+          # second full-screen surface underneath it.
           {
             command = [
               "${pkgs.swaybg}/bin/swaybg"
@@ -356,6 +377,21 @@ in
             ];
             opacity = 1.0;
           }
+          # nixbook-shell's Settings window (a normal app window): open floating like
+          # a dialog; Mod+V tiles it.
+          {
+            matches = [
+              {
+                app-id = "^org\\.quickshell$";
+                title = "^Shell settings$";
+              }
+            ];
+            open-floating = true;
+          }
+          # Vesktop's floating video-call popup stays opaque. The main window
+          # keeps its normal transparency when floated: floating windows get
+          # the same opacity rules as tiled ones, and the main window is told
+          # apart by its "(n) Discord | #channel | server" title.
           {
             matches = [
               {
@@ -363,6 +399,7 @@ in
                 is-floating = true;
               }
             ];
+            excludes = [ { title = "Discord \\| "; } ];
             opacity = 1.0;
           }
           {
@@ -558,6 +595,14 @@ in
                 "dms"
                 "screenshot"
               ]
+            else if cfg.nixbookShellConfig.enable then
+              [
+                "nixbook-shell"
+                "ipc"
+                "call"
+                "region"
+                "screenshot"
+              ]
             else
               [
                 "bash"
@@ -744,6 +789,84 @@ in
             }
           else
             { }
+        )
+        // (
+          # nixbook-shell panels. Upstream drives these with Hyprland global
+          # shortcuts, which are inactive under niri (see
+          # services/CompositorGlobalShortcut.qml), so everything goes through
+          # the shell's IPC instead. Layout mirrors the DMS binds above so the
+          # muscle memory carries over.
+          lib.optionalAttrs cfg.nixbookShellConfig.enable (
+            lib.mapAttrs
+              (_name: call: {
+                action.spawn = [
+                  "nixbook-shell"
+                  "ipc"
+                  "call"
+                ]
+                ++ call;
+              })
+              {
+                "Mod+B" = [
+                  "bar"
+                  "toggle"
+                ];
+                "Mod+D" = [
+                  "search"
+                  "toggle"
+                ];
+                "Mod+O" = [
+                  "search"
+                  "workspacesToggle"
+                ];
+                "Mod+Q" = [
+                  "search"
+                  "clipboardToggle"
+                ];
+                "Mod+L" = [
+                  "session"
+                  "toggle"
+                ];
+                "Mod+N" = [
+                  "sidebarRight"
+                  "toggle"
+                ];
+                "Mod+Space" = [
+                  "sidebarLeft"
+                  "toggle"
+                ];
+                "Mod+W" = [
+                  "wallpaperSelector"
+                  "toggle"
+                ];
+                "Mod+Escape" = [
+                  "settings"
+                  "toggle"
+                ];
+              }
+          )
+        )
+        // (
+          # Mod+I: idle-inhibit parity with DMS. nixbook-shell has the feature
+          # (services/Idle.qml) but exposes no IpcHandler for it — only a quick
+          # toggle in the right sidebar — so drive hypridle directly instead,
+          # which is what actually locks/suspends this machine. Shadows niri's
+          # focus-workspace-up on Mod+I exactly like the DMS bind does.
+          lib.optionalAttrs cfg.nixbookShellConfig.enable {
+            "Mod+I".action.spawn = [
+              "bash"
+              "-c"
+              ''
+                if ${systemctl} --user is-active --quiet hypridle; then
+                  ${systemctl} --user stop hypridle && \
+                    ${pkgs.libnotify}/bin/notify-send -h string:x-canonical-private-synchronous:idle-inhibit -u low -t 1500 'Idle inhibited' 'Auto-lock and suspend are off'
+                else
+                  ${systemctl} --user start hypridle && \
+                    ${pkgs.libnotify}/bin/notify-send -h string:x-canonical-private-synchronous:idle-inhibit -u low -t 1500 'Idle inhibitor off' 'Auto-lock and suspend are back on'
+                fi
+              ''
+            ];
+          }
         );
       };
     };
