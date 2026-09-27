@@ -121,7 +121,13 @@ ColumnLayout {
                                         text: "theater_comedy"
                                         iconSize: Appearance.font.pixelSize.normal
                                         color: Appearance.colors.colPrimary
+                                        // A Text has no `hovered`, which StyledToolTip reads as
+                                        // "always shown": gate it on a hover handler instead.
+                                        HoverHandler {
+                                            id: cutInHover
+                                        }
                                         StyledToolTip {
+                                            extraVisibleCondition: cutInHover.hovered
                                             text: Translation.tr("Cut-in · %1").arg(card.entry.cutIn)
                                         }
                                     }
