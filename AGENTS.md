@@ -263,16 +263,15 @@ hive.nix                          Colmena deployment config
 
 **GitHub Actions Workflows (2 files):**
 
-- `build.yaml` - Build all 5 profiles (totoro, anya, nishinoya, tanjiro, hanamichi) via matrix strategy on push/PR to main. Self-hosted runner, Cachix/install-nix, S3 cache auth, 120min timeout.
+- `build.yaml` - Two jobs on the self-hosted runners (which share one Nix store). `build` builds all 5 profiles (totoro, anya, nishinoya, tanjiro, hanamichi) via matrix on push/PR to main; its `build (<profile>)` checks are the merge gate (steps run with `pipefail`, so a failing `colmena build` fails the check). `push-cache` runs on main/dispatch only, after all builds succeed, one profile at a time (`max-parallel: 1`): it re-resolves the system via `colmena build --keep-result` (a no-op evaluation on the shared store) and `nix copy`s it to the S3 cache, signing on upload (`secret-key=`) and retrying up to 5 times (each retry resumes, as already-uploaded paths are skipped). Concurrency: a new PR push cancels the old run and closing a PR cancels its pending run; main runs are never cancelled mid-flight. 120min timeout per job.
 - `npins-update.yaml` - Automated dependency updates every 6 hours or manual dispatch. Updates each pin independently (max 10 parallel), syncs devenv.yaml nixpkgs revision, creates PRs with auto-merge.
 
 **Features:**
 
 - Self-hosted runner support
-- Cachix caching integration
-- Custom S3 cache (didactiklabs-nixcache / nix-cache)
+- Custom S3 cache (didactiklabs-nixcache / nix-cache), pushed from main only, serialized
 - Matrix-based multi-profile builds
-- Concurrent job management with cancel-in-progress
+- Concurrent job management with cancel-in-progress (PRs only)
 
 ## Installation & Usage
 
