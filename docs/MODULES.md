@@ -135,7 +135,7 @@ Whether to install the RPCU internal CA certificate system-wide. Adds assets/cer
 - **Type:** `boolean`
 - **Default:** `true`
 
-Whether to enable the core NixOS module. This is the foundational system module that configures: - Boot: systemd-boot UEFI loader, plymouth splash screen, latest kernel, LVM support, LUKS dm-crypt modules, keyboard backlight on initrd, IOMMU, NTFS + exFAT filesystem support for external drives - Kernel hardening: sysctl security settings (restrict BPF, perf events, ICMP redirects, source routing, suid dumps, etc.) - Locale: Europe/Paris timezone, en_US locale with fr_FR LC_ settings, French keyboard layout - Audio: PipeWire with ALSA and PulseAudio compatibility (PulseAudio disabled) - Hardware: firmware, Intel/AMD CPU microcode, Bluetooth (bluez), uinput - Security: rtkit, polkit, U2F PAM (login + sudo), passwordless sudo for wheel - XDG portals: wlr portal enabled for Wayland screen sharing - Nix daemon: lix package, weekly GC (7d retention), store optimisation at 03:45, nix-command + flakes features, custom S3 binary cache, OOM-managed nix-daemon slice - Display: xserver disabled (Wayland-only), fonts dir enabled - Env: NIXOS_OZONE_WL=1, NIXPKGS_ALLOW_UNFREE=1 - System state version: 24.05
+Whether to enable the core NixOS module. This is the foundational system module that configures: - Boot: systemd-boot UEFI loader, plymouth splash screen, latest kernel, LVM support, LUKS dm-crypt modules, keyboard backlight on initrd, IOMMU, NTFS + exFAT filesystem support for external drives - Kernel hardening: sysctl security settings (restrict BPF, perf events, ICMP redirects, source routing, suid dumps, etc.) - Locale: Europe/Paris timezone, en*US locale with fr_FR LC* settings, French keyboard layout - Audio: PipeWire with ALSA and PulseAudio compatibility (PulseAudio disabled) - Hardware: firmware, Intel/AMD CPU microcode, Bluetooth (bluez), uinput - Security: rtkit, polkit, U2F PAM (login + sudo), passwordless sudo for wheel - XDG portals: wlr portal enabled for Wayland screen sharing - Nix daemon: lix package, weekly GC (7d retention), store optimisation at 03:45, nix-command + flakes features, custom S3 binary cache, OOM-managed nix-daemon slice - Display: xserver disabled (Wayland-only), fonts dir enabled - Env: NIXOS_OZONE_WL=1, NIXPKGS_ALLOW_UNFREE=1 - System state version: 24.05
 
 ---
 
@@ -575,7 +575,7 @@ Whether to enable font installation and fontconfig defaults. Installs a curated 
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable Foxblat presets for Moza Racing wheelbases. Foxblat is a fork of Boxflat — the Linux configuration tool for Moza Racing hardware (alternative to Pit House). This module places game-specific FFB presets into ~/.config/foxblat/presets/ tuned for the Moza R9 (9 Nm): - r9-acc.yml — Assetto Corsa Competizione (transparent FFB, 15% damper, 25% friction for anti-oscillation on direct-drive) - r9-ac.yml — Assetto Corsa 1 (25% damper, 25% friction) - r9-cyberpunk2077.yml — Cyberpunk 2077 with cp2077-wheel-mod-moza (720°, mod-generated FFB at 250 Hz; spring/damper pass-through at 100%) All presets include pedal sections with game-appropriate response curves. All values are stored in raw wire format (what is sent to the hardware), not UI percentages. Key conversions: - ffb-strength, damper, friction, inertia, speed: wire = UI% * 10 - natural-inertia: 1:1 (factory default KS/GS = 1100) - set-*-gain: wire = UI% * 2.55 - equalizers: 1:1, neutral = 100 Requires customNixOSModules.simracing.enable = true on the machine. Used on: anya.
+Whether to enable Foxblat presets for Moza Racing wheelbases. Foxblat is a fork of Boxflat — the Linux configuration tool for Moza Racing hardware (alternative to Pit House). This module places game-specific FFB presets into ~/.config/foxblat/presets/ tuned for the Moza R9 (9 Nm): - r9-acc.yml — Assetto Corsa Competizione (transparent FFB, 15% damper, 25% friction for anti-oscillation on direct-drive) - r9-ac.yml — Assetto Corsa 1 (25% damper, 25% friction) - r9-cyberpunk2077.yml — Cyberpunk 2077 with cp2077-wheel-mod-moza (720°, mod-generated FFB at 250 Hz; spring/damper pass-through at 100%) All presets include pedal sections with game-appropriate response curves. All values are stored in raw wire format (what is sent to the hardware), not UI percentages. Key conversions: - ffb-strength, damper, friction, inertia, speed: wire = UI% _ 10 - natural-inertia: 1:1 (factory default KS/GS = 1100) - set-_-gain: wire = UI% \* 2.55 - equalizers: 1:1, neutral = 100 Requires customNixOSModules.simracing.enable = true on the machine. Used on: anya.
 
 ---
 
@@ -673,7 +673,7 @@ Whether to deploy the RPCU (Zitadel OIDC) mgmt kubeconfig. Copies assets/kubecon
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable the full Kubernetes toolchain. Installs a comprehensive set of Kubernetes CLI tools and utilities: Core: - kubectl — Kubernetes CLI - kubernetes-helm — Helm package manager - k9s — TUI cluster dashboard (config in k9sConfig.nix) - kubeswitch — multi-kubeconfig context switcher (kswitch alias) - kubelogin-oidc — OIDC authentication plugin for kubectl - kustomize — Kubernetes overlay management Inspection & debugging: - kubectl-neat — strip noisy fields from kubectl YAML output - kubectl-view-secret — base64-decode secrets in-place - kubectl-explore — interactive resource browser - skopeo — inspect/copy container images without pulling - dive — explore container image layers - netfetch — network debugging tool - kubevirt — virtctl for KubeVirt VMs (SSH, console) - fluxcd — Flux GitOps CLI (flux) Custom packages: - kl — opinionated multi-pod log viewer - songbird — custom cluster management utility - pvmigrate — Proxmox VM migration tool - crd-wizard — CRD visualisation dashboard (Shift-E in k9s) - kratix-cli — CLI to build Kratix Promises (kratix) - sofka — Kubernetes TUI reimagined in Rust (ki alias) - sou — container image analysis wrapper Others: - kubebuilder — Kubernetes controller scaffolding - kind — local Kubernetes clusters via Docker - paralus-cli — Paralus zero-trust access CLI Also sets: - k=kubectl shell alias - ki=sofka shell alias - pctl=cli shell alias - kubectl and songbird Zsh completions See also: kubeConfig.* options for OIDC kubeconfig file deployment, and k9sConfig.nix for k9s settings and plugins.
+Whether to enable the full Kubernetes toolchain. Installs a comprehensive set of Kubernetes CLI tools and utilities: Core: - kubectl — Kubernetes CLI - kubernetes-helm — Helm package manager - k9s — TUI cluster dashboard (config in k9sConfig.nix) - kubeswitch — multi-kubeconfig context switcher (kswitch alias) - kubelogin-oidc — OIDC authentication plugin for kubectl - kustomize — Kubernetes overlay management Inspection & debugging: - kubectl-neat — strip noisy fields from kubectl YAML output - kubectl-view-secret — base64-decode secrets in-place - kubectl-explore — interactive resource browser - skopeo — inspect/copy container images without pulling - dive — explore container image layers - netfetch — network debugging tool - kubevirt — virtctl for KubeVirt VMs (SSH, console) - fluxcd — Flux GitOps CLI (flux) Custom packages: - kl — opinionated multi-pod log viewer - songbird — custom cluster management utility - pvmigrate — Proxmox VM migration tool - crd-wizard — CRD visualisation dashboard (Shift-E in k9s) - kratix-cli — CLI to build Kratix Promises (kratix) - sofka — Kubernetes TUI reimagined in Rust (ki alias) - sou — container image analysis wrapper Others: - kubebuilder — Kubernetes controller scaffolding - kind — local Kubernetes clusters via Docker - paralus-cli — Paralus zero-trust access CLI Also sets: - k=kubectl shell alias - ki=sofka shell alias - pctl=cli shell alias - kubectl and songbird Zsh completions See also: kubeConfig.\* options for OIDC kubeconfig file deployment, and k9sConfig.nix for k9s settings and plugins.
 
 ---
 
@@ -684,7 +684,7 @@ Whether to enable the full Kubernetes toolchain. Installs a comprehensive set of
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable kubeswitch context-switcher configuration. kubeswitch (exposed as the `kswitch` command) is a terminal UI and CLI for switching between multiple kubeconfigs / contexts stored across many files. This replaces the traditional KUBECONFIG env-var juggling. Configuration: - commandName: kswitch (aliased as `ks` in the shell) - Zsh integration enabled (shell function injection) - Fish integration enabled when fishConfig is active - Store: filesystem, scanning ~/.kube/configs/** for files matching _._ (picks up all kubeconfigs deployed by the kubeConfig.*.enable options) - Kind: SwitchConfig v1alpha1 Requires kubeTools.enable = true to have the kubeswitch binary available. Used on: totoro, nishinoya.
+Whether to enable kubeswitch context-switcher configuration. kubeswitch (exposed as the `kswitch` command) is a terminal UI and CLI for switching between multiple kubeconfigs / contexts stored across many files. This replaces the traditional KUBECONFIG env-var juggling. Configuration: - commandName: kswitch (aliased as `ks` in the shell) - Zsh integration enabled (shell function injection) - Fish integration enabled when fishConfig is active - Store: filesystem, scanning ~/.kube/configs/\*_ for files matching _._ (picks up all kubeconfigs deployed by the kubeConfig._.enable options) - Kind: SwitchConfig v1alpha1 Requires kubeTools.enable = true to have the kubeswitch binary available. Used on: totoro, nishinoya.
 
 ---
 
@@ -730,6 +730,13 @@ Whether to enable NixVim — a fully declarative Neovim configuration. NixVim ma
 
 ## ocmConfig
 
+### `customHomeManagerModules.ocmConfig.agentInstructions`
+
+- **Type:** `null or strings concatenated with "\n"`
+- **Default:** `"# Workspace guidelines  These apply to every project in this workspace unless the project's own instructions say otherwise.  ## Environment  - Prefer devenv. If the project has a `devenv.nix`, run commands through it (`devenv shell -- <cmd>`, `devenv test`, `devenv tasks run <task>`) instead of whatever happens to be on PATH. - If a project has no devenv setup and needs toolchains or services, propose adding a `devenv.nix` (`devenv init`) rather than installing them globally. - For a one-off tool, use `nix shell nixpkgs#<pkg> -c <cmd>`or`nix run nixpkgs#<pkg>`instead of`apt`, `pip install --user`, `npm -g`or`curl \| sh`.  ## Working style  - Read the project's README, AGENTS.md/CLAUDE.md and existing code before changing it; match its conventions. - Run the project's tests, linters and formatters after a change, and report failures honestly. - Do not commit or push unless asked."`
+
+Instructions shared by every agent in every workspace. Written to `~/.config/opencode-manager/opencode/AGENTS.md`, which ocm syncs one way into each workspace as the global OpenCode `AGENTS.md` (`/home/debian/.config/opencode/AGENTS.md`). It is copied as a regular file by an activation step, not linked: ocm refuses symlinks in the shared tree and then fails the whole sync. Manual edits to that file are overwritten on the next activation. `null` leaves the file alone so it can be managed by hand.
+
 ### `customHomeManagerModules.ocmConfig.baseImage.commands`
 
 - **Type:** `list of string`
@@ -750,6 +757,13 @@ Base image workspace containers are built from. Defaults to the published prebui
 - **Default:** `[]`
 
 Extra apt packages installed into the workspace base image, on top of anything the module adds itself (see `nix.enable`).
+
+### `customHomeManagerModules.ocmConfig.claudeCode.importAgentInstructions`
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+Whether Claude Code in the workspaces also reads the shared `AGENTS.md`. ocm only shares configuration with OpenCode; Claude Code keeps its own per-workspace `home/.claude/`. This bakes a managed `/etc/claude-code/CLAUDE.md` into the base image containing a single import of the synced `AGENTS.md`, so both agents follow the same file, and editing it needs no image rebuild.
 
 ### `customHomeManagerModules.ocmConfig.enable`
 
@@ -867,7 +881,7 @@ Whether to enable RTK (Rust Token Killer). RTK is a CLI proxy that transparently
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable SSH client configuration. Configures programs.ssh with sensible keep-alive defaults applied to all hosts (Match *): - compression: false — disabled to reduce CPU overhead on fast links - serverAliveInterval: 10s — send a keep-alive every 10 seconds - serverAliveCountMax: 2 — disconnect after 2 missed keep-alives (20s) enableDefaultConfig = false so NixOS's generated defaults do not conflict with this configuration. YubiKey SSH authentication is supported via two methods: 1. GPG-based: GnuPG agent with enableSSHSupport (nixosModules/tools.nix) uses GPG authentication subkeys stored on the YubiKey smart card. 2. FIDO2-based: ed25519-sk / ecdsa-sk keys via libfido2 (nixosModules/tools.nix). Generate with: ssh-keygen -t ed25519-sk For resident keys stored on YubiKey: ssh-keygen -t ed25519-sk -O resident SSH keys are managed separately via agenix secrets.
+Whether to enable SSH client configuration. Configures programs.ssh with sensible keep-alive defaults applied to all hosts (Match \*): - compression: false — disabled to reduce CPU overhead on fast links - serverAliveInterval: 10s — send a keep-alive every 10 seconds - serverAliveCountMax: 2 — disconnect after 2 missed keep-alives (20s) enableDefaultConfig = false so NixOS's generated defaults do not conflict with this configuration. YubiKey SSH authentication is supported via two methods: 1. GPG-based: GnuPG agent with enableSSHSupport (nixosModules/tools.nix) uses GPG authentication subkeys stored on the YubiKey smart card. 2. FIDO2-based: ed25519-sk / ecdsa-sk keys via libfido2 (nixosModules/tools.nix). Generate with: ssh-keygen -t ed25519-sk For resident keys stored on YubiKey: ssh-keygen -t ed25519-sk -O resident SSH keys are managed separately via agenix secrets.
 
 ---
 

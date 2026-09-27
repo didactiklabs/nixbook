@@ -11,6 +11,37 @@ let
 
   nixProfile = "/nix/var/nix/profiles/default";
 
+  # Where ocm syncs the shared OpenCode tree inside every workspace container.
+  workspaceAgentsFile = "/home/debian/.config/opencode/AGENTS.md";
+
+  claudeCommands = lib.optionals cfg.claudeCode.importAgentInstructions [
+    "mkdir -p /etc/claude-code && printf '%s\\n' '@${workspaceAgentsFile}' > /etc/claude-code/CLAUDE.md"
+  ];
+
+  defaultInstructions = lib.concatStringsSep "\n" (
+    [
+      "# Workspace guidelines"
+      ""
+      "These apply to every project in this workspace unless the project's own instructions say otherwise."
+      ""
+    ]
+    ++ lib.optionals (cfg.nix.enable && cfg.nix.devenv) [
+      "## Environment"
+      ""
+      "- Prefer devenv. If the project has a `devenv.nix`, run commands through it (`devenv shell -- <cmd>`, `devenv test`, `devenv tasks run <task>`) instead of whatever happens to be on PATH."
+      "- If a project has no devenv setup and needs toolchains or services, propose adding a `devenv.nix` (`devenv init`) rather than installing them globally."
+      "- For a one-off tool, use `nix shell nixpkgs#<pkg> -c <cmd>` or `nix run nixpkgs#<pkg>` instead of `apt`, `pip install --user`, `npm -g` or `curl | sh`."
+      ""
+    ]
+    ++ [
+      "## Working style"
+      ""
+      "- Read the project's README, AGENTS.md/CLAUDE.md and existing code before changing it; match its conventions."
+      "- Run the project's tests, linters and formatters after a change, and report failures honestly."
+      "- Do not commit or push unless asked."
+    ]
+  );
+
   nixPackages = lib.optionals cfg.nix.enable [ "nix" ];
 
   nixCommands =
@@ -103,6 +134,38 @@ in
       };
     };
 
+    agentInstructions = lib.mkOption {
+      type = lib.types.nullOr lib.types.lines;
+      default = defaultInstructions;
+      defaultText = lib.literalMD "generic guidelines (prefer devenv and `nix shell` when `nix.devenv` is on, match project conventions, run tests, don't commit unasked)";
+      description = ''
+        Instructions shared by every agent in every workspace.
+
+        Written to `~/.config/opencode-manager/opencode/AGENTS.md`, which ocm
+        syncs one way into each workspace as the global OpenCode `AGENTS.md`
+        (`/home/debian/.config/opencode/AGENTS.md`). It is copied as a regular
+        file by an activation step, not linked: ocm refuses symlinks in the
+        shared tree and then fails the whole sync. Manual edits to that file are
+        overwritten on the next activation.
+
+        `null` leaves the file alone so it can be managed by hand.
+      '';
+    };
+
+    claudeCode.importAgentInstructions = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether Claude Code in the workspaces also reads the shared `AGENTS.md`.
+
+        ocm only shares configuration with OpenCode; Claude Code keeps its own
+        per-workspace `home/.claude/`. This bakes a managed
+        `/etc/claude-code/CLAUDE.md` into the base image containing a single
+        import of the synced `AGENTS.md`, so both agents follow the same
+        file, and editing it needs no image rebuild.
+      '';
+    };
+
     nix = {
       enable = lib.mkOption {
         type = lib.types.bool;
@@ -172,8 +235,22 @@ in
       baseImage = {
         inherit (cfg.baseImage) name;
         packages = nixPackages ++ cfg.baseImage.packages;
-        commands = nixCommands ++ cfg.baseImage.commands;
+        commands = nixCommands ++ claudeCommands ++ cfg.baseImage.commands;
       };
     };
+
+    # Copied, not linked: ocm rejects symlinks in the shared OpenCode tree.
+    # Only rewritten when it differs, since every write triggers a sync.
+    home.activation.ocmAgentInstructions = lib.mkIf (cfg.agentInstructions != null) (
+      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        agents="$HOME/.config/opencode-manager/opencode/AGENTS.md"
+        src=${pkgs.writeText "ocm-AGENTS.md" cfg.agentInstructions}
+        if ! cmp -s "$src" "$agents"; then
+          $DRY_RUN_CMD mkdir -p "$(dirname "$agents")"
+          $DRY_RUN_CMD rm -f "$agents"
+          $DRY_RUN_CMD install -m 0644 "$src" "$agents"
+        fi
+      ''
+    );
   };
 }
