@@ -8,11 +8,22 @@ let
   cfg = config.customHomeManagerModules;
   mainWallpaper = "${config.profileCustomization.mainWallpaper}";
   startup_audio = "${config.profileCustomization.startup_audio}";
-  rofi = "${pkgs.rofi}/bin/rofi";
-  waybar = "${pkgs.waybar}/bin/waybar";
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
   grimshot = "${pkgs.grimblast}/bin/grimblast";
-  pidof = "${pkgs.sysvtools}/bin/pidof";
+  systemctl = "${pkgs.systemd}/bin/systemctl";
+  notifySend = "${pkgs.libnotify}/bin/notify-send";
+  ## Mod+I idle-inhibit toggle (parity with the nixbook-shell bind in niriConfig.nix).
+  ## nixbook-shell has no IPC for it, and Hyprland manages idle through hypridle
+  ## (services.hypridle), so start/stop that user unit directly.
+  idleToggle = pkgs.writeShellScript "hyprland-idle-toggle" ''
+    if ${systemctl} --user is-active --quiet hypridle; then
+      ${systemctl} --user stop hypridle && \
+        ${notifySend} -h string:x-canonical-private-synchronous:idle-inhibit -u low -t 1500 'Idle inhibited' 'Auto-lock and suspend are off'
+    else
+      ${systemctl} --user start hypridle && \
+        ${notifySend} -h string:x-canonical-private-synchronous:idle-inhibit -u low -t 1500 'Idle inhibitor off' 'Auto-lock and suspend are back on'
+    fi
+  '';
 in
 {
   config = lib.mkIf cfg.hyprlandConfig.enable {
@@ -136,16 +147,8 @@ in
           "systemctl --user import-environment XDG_SESSION_TYPE XDG_CURRENT_DESKTOP"
           "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
           "${pkgs.mpg123}/bin/mpg123 ${startup_audio}"
-        ]
-        ++ lib.optionals cfg.waybarConfig.enable [ "${pidof} ${waybar} || ${waybar}" ];
-        exec = [
-          "${pkgs.swaybg}/bin/swaybg -m fill -i ${mainWallpaper}"
-        ]
-        ++ lib.optionals cfg.swayncConfig.enable [
-          "${pkgs.swaynotificationcenter}/bin/swaync-client --reload-css"
-          "${pkgs.swaynotificationcenter}/bin/swaync-client --reload-config"
-        ]
-        ++ lib.optionals cfg.waybarConfig.enable [ "killall -SIGUSR2 waybar" ];
+        ];
+        exec = [ "${pkgs.swaybg}/bin/swaybg -m fill -i ${mainWallpaper}" ];
         input = {
           kb_layout = "fr";
           numlock_by_default = true;
@@ -188,11 +191,17 @@ in
           "$mod SHIFT, down, hy3:movewindow, d"
 
           "$mod, A, killactive"
+        ]
+        # Without nixbook-shell: area screenshot (DMS or grimblast) and the
+        # kitty+nvim launcher. nixbook-shell takes both over below (Print =
+        # region selector, Mod+N = right sidebar), like it does in niri.
+        ++ lib.optionals (!cfg.nixbookShellConfig.enable) [
           ", PRINT, exec, ${
             if cfg.dmsConfig.enable then "dms screenshot" else "${grimshot} --notify copy area"
           }"
           "$mod, N, exec, ${pkgs.kitty}/bin/kitty ${pkgs.neovim}/bin/nvim"
-
+        ]
+        ++ [
           ",XF86MonBrightnessDown, exec, ${brightnessctl} set 10%-"
           ",XF86MonBrightnessUp, exec, ${brightnessctl} set +10%"
         ]
@@ -207,32 +216,10 @@ in
               }"
             ]
           else
-            lib.optionals cfg.waybarConfig.enable [
-              "$mod, B, exec, ${pkgs.toybox}/bin/pkill -SIGUSR1 'waybar'"
-            ]
-        )
-        ++ (
-          if cfg.dmsConfig.enable then
-            [ "$mod, D, exec, dms ipc call spotlight toggle" ]
-          else if cfg.rofiConfig.enable then
-            [
-              "$mod, D, exec, ${rofi} -show drun -theme $HOME/.config/rofi/launchers/type-1/style-landscape.rasi"
-            ]
-          else
             [ ]
         )
-        ++ (
-          if cfg.dmsConfig.enable then
-            [ "$mod, L, exec, dms ipc call powermenu toggle" ]
-          else if cfg.rofiConfig.enable then
-            [
-              ''
-                $mod, L, exec, $HOME/.config/rofiScripts/rofiLockScript.sh style-1
-              ''
-            ]
-          else
-            [ ]
-        )
+        ++ (if cfg.dmsConfig.enable then [ "$mod, D, exec, dms ipc call spotlight toggle" ] else [ ])
+        ++ (if cfg.dmsConfig.enable then [ "$mod, L, exec, dms ipc call powermenu toggle" ] else [ ])
         ++ (
           if cfg.fcitx5Config.enable then
             [ "CTRL, Space, exec, ${pkgs.fcitx5}/bin/fcitx5-remote -t" ]
@@ -244,7 +231,26 @@ in
         ++ (if cfg.dmsConfig.enable then [ "$mod, O, exec, dms ipc call dash toggle overview" ] else [ ])
         ++ (
           if cfg.dmsConfig.enable then [ "$mod, space, exec, dms ipc call widget toggle sathiAi" ] else [ ]
-        );
+        )
+        # nixbook-shell panels: same IPC calls as the niri config
+        # (niriConfig.nix). Merged last, so it wins over every DMS/no-shell
+        # branch above — the two shells are mutually exclusive anyway. Upstream
+        # also registers Hyprland GlobalShortcuts for these panels, but going
+        # through `nixbook-shell ipc call` keeps one mechanism on all three
+        # compositors (sway has no global-shortcut protocol at all).
+        ++ lib.optionals cfg.nixbookShellConfig.enable [
+          "$mod, B, exec, nixbook-shell ipc call bar toggle"
+          "$mod, D, exec, nixbook-shell ipc call search toggle"
+          "$mod, O, exec, nixbook-shell ipc call search workspacesToggle"
+          "$mod, Q, exec, nixbook-shell ipc call search clipboardToggle"
+          "$mod, L, exec, nixbook-shell ipc call session toggle"
+          "$mod, N, exec, nixbook-shell ipc call sidebarRight toggle"
+          "$mod, space, exec, nixbook-shell ipc call sidebarLeft toggle"
+          "$mod, W, exec, nixbook-shell ipc call wallpaperSelector toggle"
+          "$mod, Escape, exec, nixbook-shell ipc call settings toggle"
+          "$mod, I, exec, ${idleToggle}"
+          ", PRINT, exec, nixbook-shell ipc call region screenshot"
+        ];
         bindle = [
           ",XF86AudioRaiseVolume, exec, ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%+"
           ",XF86AudioLowerVolume, exec, ${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_SINK@ 3%-"
