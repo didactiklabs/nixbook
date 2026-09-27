@@ -148,9 +148,17 @@ Scope {
         readonly property var spec: Persona.spec
         readonly property real w: width
         readonly property real h: height
-        readonly property string bodyText: NotificationUtils.processNotificationBody(n?.body ?? "", n?.appName ?? "")
-            .replace(/<[^>]*>/g, "").trim() || (n?.summary ?? "")
-        readonly property string speaker: (n?.body ? n?.summary : n?.appName) || n?.appName || ""
+        readonly property string fullBody: NotificationUtils.plainText(
+            NotificationUtils.processNotificationBody(n?.body ?? "", n?.appName ?? "")).trim()
+        // Phone chats mirrored by KDE Connect: title = the phone app or the
+        // conversation, body = "sender: message". The sender goes on the name
+        // tag, the title next to the app name.
+        readonly property var mirrored: (n?.appName ?? "") === "KDE Connect"
+            ? fullBody.match(/^([^:\n]{1,40}): ([\s\S]+)$/) : null
+        readonly property string bodyText: (mirrored ? mirrored[2].trim() : fullBody)
+            || NotificationUtils.plainText(n?.summary).trim()
+        readonly property string speaker: mirrored ? mirrored[1].trim()
+            : ((n?.body ? NotificationUtils.plainText(n?.summary) : n?.appName) || n?.appName || "")
         readonly property var replyMethod: n ? Notifications.replyMethod(n) : null
         property bool replying: false
         onReplyingChanged: if (replying) Qt.callLater(() => replyInput.forceActiveFocus())
@@ -466,7 +474,7 @@ Scope {
                 StyledText {
                     x: dialog.bx + 48
                     y: dialog.by + dialog.bh - 26
-                    text: `${cutIn.n?.appName ?? ""} · ${Qt.formatTime(new Date(cutIn.n?.time ?? Date.now()), "hh:mm")}`
+                    text: `${cutIn.mirrored ? `${NotificationUtils.plainText(cutIn.n?.summary)} · ` : ""}${cutIn.n?.appName ?? ""} · ${Qt.formatTime(new Date(cutIn.n?.time ?? Date.now()), "hh:mm")}`
                     font.pixelSize: Appearance.font.pixelSize.small
                     color: cutIn.spec.ink
                     opacity: 0.6

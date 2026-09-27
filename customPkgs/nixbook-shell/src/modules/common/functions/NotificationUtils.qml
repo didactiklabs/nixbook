@@ -105,8 +105,22 @@ Singleton {
         }
 
         processedBody = processedBody.replace(/<img/gi, '\n\n<img');
-        
+
         return processedBody
+    }
+
+    /**
+     * A body as plain text: markup stripped and entities decoded (KDE Connect
+     * sends `&quot;`, `&#39;`… that only a rich-text view would render).
+     */
+    function plainText(text) {
+        const named = { amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'", nbsp: " " };
+        return `${text ?? ""}`.replace(/<[^>]*>/g, "")
+            .replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z]+);/gi, (m, e) => {
+                if (e[0] !== "#") return named[e.toLowerCase()] ?? m;
+                const code = e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+                return code > 0 && code <= 0x10FFFF ? String.fromCodePoint(code) : m;
+            });
     }
 
     /**
@@ -118,14 +132,15 @@ Singleton {
      *   app:Instagram          only look in one field — app, title, body or
      *                          hint (string hints); no prefix = all of them
      *   "Diệu"                 whole word only (not inside a longer word)
-     * Prefixes combine: !title:"re". A term can't contain "+" or ",".
+     *   body:^You:             the field starts with it (a chat's sender)
+     * Prefixes combine: !title:^"re". A term can't contain "+" or ",".
      */
     function ruleFields(n) {
         const hints = n?.hints ?? {};
         const f = {
             app: `${n?.appName ?? ""}`,
-            title: `${n?.summary ?? ""}`,
-            body: `${n?.body ?? ""}`,
+            title: root.plainText(n?.summary),
+            body: root.plainText(n?.body),
             hint: Object.keys(hints).map(k => typeof hints[k] === "string" ? hints[k] : "").join(" "),
         };
         f.any = `${f.app} ${f.title} ${f.body} ${f.hint}`;
@@ -148,11 +163,15 @@ Singleton {
         let field = "any";
         const m = t.match(/^(app|title|body|hint):/i);
         if (m) { field = m[1].toLowerCase(); t = t.slice(m[0].length).trim(); }
+        let start = false;
+        if (t.startsWith("^")) { start = true; t = t.slice(1).trim(); }
         let whole = false;
         if (t.length >= 2 && t.startsWith('"') && t.endsWith('"')) { whole = true; t = t.slice(1, -1).trim(); }
         t = t.toLowerCase();
         if (t.length === 0) return null;
-        const found = whole ? root.containsWord(fields[field], t) : fields[field].includes(t);
+        const text = start ? fields[field].replace(/^\s+/, "") : fields[field];
+        const found = start ? text.startsWith(t) && !(whole && root.isWordChar(text[t.length]))
+            : whole ? root.containsWord(text, t) : text.includes(t);
         return found !== negate;
     }
     function ruleMatches(fields, rule) {

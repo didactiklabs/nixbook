@@ -109,46 +109,27 @@
         "Messenger"
       ];
     };
-    # Persona style: full-screen cut-in for critical notifications, calendar
-    # events and anything concerning me, family or friends. Rules are matched
+    # Persona style: full-screen cut-in for critical notifications and
+    # calendar events; people (friends, mentions of the user) are personal and
+    # added per user profile (e.g. profiles/totoro/khoa). Rules are matched
     # case-insensitively on app name, title, text and hints; "a + b" needs
     # both, "!a" absent, "app:/title:/body:/hint:" one field, quotes a whole
-    # word (NotificationUtils.ruleMatches). Test them live in Settings →
-    # Notifications → Persona cut-in.
+    # word, "^" the start of the field (NotificationUtils.ruleMatches). Test
+    # them live in Settings → Notifications → Persona cut-in.
     cutIn.keywords = [
-      # Calendar events
       "Calendar"
       "Reminder"
       "Google Agenda"
-      # Family and friends
-      "Alesio"
-      "chocomooncake"
-      "choco mooncake"
-      "wolfey182"
-      "huyền"
-      "Huyen"
-      "\"Diệu\""
-      "Trang HANG"
-      "Tin Dinh"
-      "aamoyel"
-      "Alan Amoyel"
-      # Me
-      "vtk_hg"
-      "victortk"
-      "Victor Tiến Khoa"
-      "Victor Hang"
-      "ビクタ"
     ];
     # Never a cut-in, whatever matched above: my own replies. The phone
     # updates the chat notification with the message I just sent and KDE
-    # Connect mirrors it (conversation name + my message), so it matches the
-    # friend's rule. Sent lines read "<me>: …" or "You: …".
+    # Connect mirrors it (conversation name + my message), so it would match
+    # the friend's rule. Sent lines start with "You: …" (or the user's own
+    # name, in the profile).
     cutIn.blacklist = [
-      "\"Victor Hang:\""
-      "\"Victor Tiến Khoa Hang:\""
-      "\"You:\""
-      "\"Vous:\""
-      "\"Bạn:\""
+      "body:^\"You:\""
+      "body:^\"Vous:\""
+      "body:^\"Bạn:\""
     ];
   };
   overlay = {
