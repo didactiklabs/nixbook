@@ -1,0 +1,14 @@
+#!/bin/sh
+# Runs inside the workspace container. The host's Claude Code login is
+# bind-mounted onto ~/.claude/.credentials.json by the module's `mounts`
+# (optional: skipped while the host has no login), so there is nothing to
+# write; this only reports whether the mount is in place.
+set -e
+
+creds="$HOME/.claude/.credentials.json"
+
+if grep -qF " $creds " /proc/self/mountinfo 2>/dev/null; then
+  echo "claude-auth-shared: Claude login shared with the host"
+else
+  echo "claude-auth-shared: no Claude login on the host yet; log in there and restart the workspace"
+fi

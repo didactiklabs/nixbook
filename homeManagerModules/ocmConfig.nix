@@ -106,11 +106,64 @@ let
     chmod 0755 $out/install $out/uninstall $out/list-contexts $out/resolve
   '';
 
+  claudeCredentials = cfg.claudeCode.credentials;
+
+  # module.yml of the shared-login module: its source depends on
+  # claudeCode.credentials.path, so it is generated here.
+  claudeAuthSharedManifest = yamlFormat.generate "claude-auth-shared-module.yml" {
+    name = "claude-auth-shared";
+    version = 1;
+    description = "Share this host's Claude Code subscription login with the workspace (bind mount, so both refresh the same tokens). Adding or removing it recreates the container.";
+    mounts = [
+      {
+        source = claudeCredentials.path;
+        target = "/home/debian/.claude/.credentials.json";
+        optional = true;
+      }
+    ];
+  };
+
+  claudeAuthResolve = pkgs.writeShellScript "ocm-claude-auth-resolve" ''
+    # resolve: hand the host's Claude Code OAuth credentials to the container
+    # install as "credentials=<base64>". Prints nothing when import is off or the
+    # host has no Claude login, so the install writes nothing.
+    set -u
+    export PATH=${lib.makeBinPath [ pkgs.coreutils ]}:$PATH
+    case "''${OCM_IMPORT_AUTH:-yes}" in
+      yes | true | 1) ;;
+      *) exit 0 ;;
+    esac
+    creds=${lib.escapeShellArg claudeCredentials.path}
+    [ -s "$creds" ] || exit 0
+    printf 'credentials=%s\n' "$(base64 -w0 "$creds")"
+  '';
+
+  # Real files, not links into the store (see kubeswitchModule).
+  claudeAuthModule = pkgs.runCommand "ocm-module-claude-auth" { } ''
+    mkdir -p $out
+    cp ${./ocmModules/claude-auth}/{module.yml,install,uninstall} $out/
+    cp ${claudeAuthResolve} $out/resolve
+    chmod 0755 $out/install $out/uninstall $out/resolve
+  '';
+
+  claudeAuthSharedModule = pkgs.runCommand "ocm-module-claude-auth-shared" { } ''
+    mkdir -p $out
+    cp ${claudeAuthSharedManifest} $out/module.yml
+    cp ${./ocmModules/claude-auth-shared}/{install,uninstall} $out/
+    chmod 0644 $out/module.yml
+    chmod 0755 $out/install $out/uninstall
+  '';
+
   # category/name -> module directory, installed into ocm's primary moduleDir
   # (the only one it runs resolve hooks from).
-  ocmModules = lib.optionalAttrs cfg.kubeswitch.enable {
-    "infra/kubeswitch" = kubeswitchModule;
-  };
+  ocmModules =
+    lib.optionalAttrs cfg.kubeswitch.enable {
+      "infra/kubeswitch" = kubeswitchModule;
+    }
+    // lib.optionalAttrs claudeCredentials.enable {
+      "tools/claude-auth" = claudeAuthModule;
+      "tools/claude-auth-shared" = claudeAuthSharedModule;
+    };
 
   nixCommands =
     lib.optionals cfg.nix.enable [
@@ -238,6 +291,56 @@ in
         import of the synced `AGENTS.md`, so both agents follow the same
         file, and editing it needs no image rebuild.
       '';
+    };
+
+    claudeCode.credentials = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Whether to install the two ocm modules that give a workspace this
+          host's Claude Code subscription login, so neither `claude` nor
+          OpenCode's `opencode-claude-auth` plugin has to log in again inside it.
+          Installing them only makes them available: each is added per
+          workspace from the module editor, so you pick which workspaces get
+          the login.
+
+          `claude-auth-shared` (recommended) shares the login itself: the
+          module declares an ocm `mounts` entry that bind-mounts
+          `claudeCode.credentials.path` read-write onto
+          `/home/debian/.claude/.credentials.json` in the containers of the
+          workspaces that have it, so the host and those workspaces read and
+          refresh one login (Claude Code notices when the file changes on
+          disk). Adding or removing it recreates that workspace's container.
+          The mount is optional: while the host has no login it is skipped, and
+          it is added on the first start after you log in. A symlink would not
+          do: Claude Code refuses a symlinked credentials file.
+
+          `claude-auth` imports a copy instead. Its `resolve` hook runs on
+          the host and reads `claudeCode.credentials.path`; the container
+          `install` writes it to the workspace `~/.claude/.credentials.json`
+          (mode 0600). Nothing is stored in `workspace.yaml`, and the hook re-runs
+          on every add and reconcile, so the workspace picks up the host's
+          current login. A workspace login that is already newer (by
+          `claudeAiOauth.expiresAt`) is kept rather than rolled back.
+
+          An imported copy refreshes its tokens on its own. OAuth refresh tokens
+          rotate, so a copy and the host can end up invalidating each other's
+          login, which `claude-auth-shared` avoids. When both are added,
+          `claude-auth` sees the mount and leaves it alone.
+        '';
+      };
+
+      path = lib.mkOption {
+        type = lib.types.str;
+        default = "${config.home.homeDirectory}/.claude/.credentials.json";
+        defaultText = lib.literalExpression ''"''${config.home.homeDirectory}/.claude/.credentials.json"'';
+        description = ''
+          Host file holding Claude Code's subscription login. Claude Code
+          writes it on Linux after `claude /login` (under `CLAUDE_CONFIG_DIR`
+          when that is set).
+        '';
+      };
     };
 
     kubeswitch = {
