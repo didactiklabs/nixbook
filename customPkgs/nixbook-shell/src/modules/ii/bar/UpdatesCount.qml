@@ -26,7 +26,7 @@ MouseArea {
     hoverEnabled: true
 
     readonly property bool busy: UpdateState.checking || UpdateState.updating
-    readonly property bool cursorNear: containsMouse || popupHover.hovered
+    readonly property bool cursorNear: containsMouse || updatePopup.hovered
 
     // One shared rotation angle: every icon variant binds `rotation` to it,
     // so stopping the check always snaps them back upright (a per-icon
@@ -44,16 +44,44 @@ MouseArea {
         running: root.busy
     }
 
+    // Leaving closes the panel after a generous grace period, so a cursor
+    // overshooting the panel or crossing the bar doesn't lose it.
+    // When the panel resizes (a check finished: Execute + changelog appear),
+    // the compositor can report a leave without the cursor moving; so after
+    // a resize, auto-close waits until the cursor is seen over it again
+    // (a click elsewhere still closes it through the focus grab).
+    property bool closeArmed: true
+
     onCursorNearChanged: {
-        if (cursorNear) closeTimer.stop()
-        else if (panelOpen) closeTimer.start()
+        if (cursorNear) {
+            closeArmed = true
+            closeTimer.stop()
+        } else if (panelOpen && closeArmed) {
+            closeTimer.restart()
+        }
+    }
+
+    onPanelOpenChanged: if (panelOpen) closeArmed = true
+
+    function contentResized() {
+        if (!root.panelOpen) return
+        root.closeArmed = false
+        closeTimer.stop()
+        settleTimer.restart()
+    }
+
+    // Once the resize has settled, a cursor still over the panel re-arms it.
+    Timer {
+        id: settleTimer
+        interval: 400
+        onTriggered: if (root.cursorNear) root.closeArmed = true
     }
 
     Timer {
         id: closeTimer
-        interval: 500
+        interval: 1200
         onTriggered: {
-            if (!root.cursorNear) root.panelOpen = false
+            if (!root.cursorNear && root.closeArmed) root.panelOpen = false
         }
     }
 
@@ -162,21 +190,21 @@ MouseArea {
     StyledPopup {
         id: updatePopup
         hoverTarget: root
+        hoverMargin: 10
         active: root.panelOpen
 
         ColumnLayout {
             id: panelContent
             spacing: 10
 
+            onImplicitWidthChanged: root.contentResized()
+            onImplicitHeightChanged: root.contentResized()
+
             // Panel width (a ColumnLayout recomputes its own implicitWidth,
             // so a zero-height row sets it): wider while a log is shown.
             Item {
                 Layout.minimumWidth: (UpdateState.viewingLogs || failureCard.visible) ? 600 : 420
                 implicitHeight: 0
-            }
-
-            HoverHandler {
-                id: popupHover
             }
 
             StyledText {
