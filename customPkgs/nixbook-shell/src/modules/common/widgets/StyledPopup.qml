@@ -128,6 +128,9 @@ LazyLoader {
         Rectangle {
             id: popupBackground
             readonly property real margin: 8
+            // The Persona frame leans (sheared about its vertical centre), so
+            // tall popups need more room on the sides or text touches the edge.
+            readonly property real hMargin: Persona.shapes ? 8 + 12 : 8 // PersonaFrame.maxLean
 
             anchors {
                 fill: parent
@@ -138,7 +141,7 @@ LazyLoader {
             }
 
             // Use local reference instead of crossing LazyLoader scope boundary
-            implicitWidth: (popupWindow.innerContent?.implicitWidth ?? 0) + margin * 2
+            implicitWidth: (popupWindow.innerContent?.implicitWidth ?? 0) + hMargin * 2
             implicitHeight: (popupWindow.innerContent?.implicitHeight ?? 0) + margin * 2
 
             color: Persona.shapes ? "transparent" : Appearance.colors.colLayer1Base

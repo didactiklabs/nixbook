@@ -105,10 +105,6 @@ Singleton {
                 // summary of the shell's live settings. Sent to the chosen
                 // provider with every request.
                 property bool includeSystemContext: true
-                // Model selected when it first becomes available (an Ollama
-                // name such as "nixbook-assistant", or a model id). Applied
-                // once per value, so picking another model still sticks.
-                property string defaultModel: ""
                 property list<var> extraModels: [
                     {
                         "api_format": "openai", // Most of the time you want "openai". Use "gemini" for Google's models

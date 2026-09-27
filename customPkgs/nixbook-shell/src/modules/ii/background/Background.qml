@@ -22,8 +22,9 @@ Variants {
         id: bgRoot
 
         required property var modelData
-        property string currentWallpaperSource: Config.options.background.wallpaperPath
-        property string previousWallpaperSource: Config.options.background.wallpaperPath
+        // The image shown (a video's thumbnail), never the video itself.
+        property string currentWallpaperSource: bgRoot.wallpaperPath
+        property string previousWallpaperSource: bgRoot.wallpaperPath
         property bool videoRevealed: false
 
         readonly property real splitFraction: {
@@ -200,6 +201,14 @@ Variants {
                 centeredWallpaper.setCenteredProgress(GlobalStates.screenLocked ? 0 : (centeredWallpaper.centeredOnlyWhenLocked ? 1 : 0))
                 centeredWallpaper.centeredAnimationReady = true
             }
+        }
+
+        // Re-map above a video wallpaper that just started (see
+        // Wallpapers.restackOverVideo): a new surface stacks on top.
+        property int restackSeen: GlobalStates.backgroundRestack
+        onRestackSeenChanged: {
+            bgRoot.visible = false;
+            Qt.callLater(() => bgRoot.visible = true);
         }
 
         Connections {

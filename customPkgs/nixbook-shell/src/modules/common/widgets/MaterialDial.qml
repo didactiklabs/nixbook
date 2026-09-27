@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Shapes
 import qs.modules.common
+import qs.modules.common.functions
 
 /**
  * Material 3 Expressive (Wavy) circular Dial.
@@ -35,7 +36,7 @@ Dial {
         loops: Animation.Infinite
         // Only while actually on screen: the wave path is recomputed in JS
         // every frame, and this dial lives in popups kept alive while hidden.
-        running: control.visible && (control.Window.window?.visible ?? false)
+        running: ObjectUtils.shown(control)
     }
 
     MouseArea {

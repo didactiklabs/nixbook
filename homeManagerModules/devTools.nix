@@ -7,6 +7,7 @@
 let
   cfg = config.customHomeManagerModules.devTools;
   openchoreo-cli = import ../customPkgs/openchoreo-cli.nix { inherit pkgs; };
+  opencode-manager = import ../customPkgs/opencode-manager.nix { inherit pkgs; };
 in
 {
   options.customHomeManagerModules.devTools = {
@@ -44,6 +45,9 @@ in
             - runme        — runnable Markdown notebooks
             - npins        — Nix dependency pinning tool
             - openchoreo-cli — OpenChoreo internal developer platform CLI (occ)
+            - opencode-manager (`ocm`) — k9s-style TUI to manage isolated
+              OpenCode workspaces in containers; seeds the built-in module
+              catalogue into ~/.config/opencode-manager/modules on activation
       '';
     };
   };
@@ -91,6 +95,33 @@ in
       runme
       npins
       openchoreo-cli
+      opencode-manager
     ];
+
+    # Seed the built-in module catalogue the way the npm postinstall does:
+    # copy it into ~/.config/opencode-manager/modules, replacing built-in
+    # modules (so upgrades take effect) while leaving user-authored ones in
+    # place. Guarded by a stamp with the store path, so unrelated switches
+    # never clobber local module edits.
+    home.activation.opencodeManagerModules = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      modulesDir="$HOME/.config/opencode-manager/modules"
+      stamp="$modulesDir/.nix-store"
+      if [ "$(cat "$stamp" 2>/dev/null)" != "${opencode-manager}" ]; then
+        $DRY_RUN_CMD mkdir -p "$modulesDir"
+        for category in ${opencode-manager}/share/opencode-manager/modules/*; do
+          name="''${category##*/}"
+          $DRY_RUN_CMD mkdir -p "$modulesDir/$name"
+          for module in "$category"/*; do
+            mod="''${module##*/}"
+            $DRY_RUN_CMD rm -rf "$modulesDir/$name/$mod"
+            $DRY_RUN_CMD cp -R "$module" "$modulesDir/$name/$mod"
+            $DRY_RUN_CMD chmod -R u+w "$modulesDir/$name/$mod"
+          done
+        done
+        if [ -z "$DRY_RUN_CMD" ]; then
+          printf '%s' "${opencode-manager}" > "$stamp"
+        fi
+      fi
+    '';
   };
 }

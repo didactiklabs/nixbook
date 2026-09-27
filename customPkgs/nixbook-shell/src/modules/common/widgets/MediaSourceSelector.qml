@@ -93,7 +93,7 @@ Flow {
                 iconSize: Appearance.font.pixelSize.small
                 color: chip.selected ? root.colTextSelected : Appearance.colors.colPrimary
                 SequentialAnimation on opacity {
-                    running: chip.playing && chip.visible && (chip.Window.window?.visible ?? false)
+                    running: chip.playing && ObjectUtils.shown(chip)
                     loops: Animation.Infinite
                     NumberAnimation { to: 0.35; duration: 700; easing.type: Easing.InOutSine }
                     NumberAnimation { to: 1; duration: 700; easing.type: Easing.InOutSine }

@@ -20,6 +20,18 @@ Scope { // Scope
         ? Config.options.bar.frameThickness
         : Appearance.sizes.barHeight
 
+    // Ctrl+O extend and Ctrl+P pin (docked), Ctrl+D detach/attach — from
+    // the panel's key handler or its text fields (GlobalStates.sidebarLeftKey).
+    Connections {
+        target: GlobalStates
+        function onSidebarLeftShortcut(key) {
+            if (key === Qt.Key_D) root.toggleDetach();
+            else if (root.detach) return;
+            else if (key === Qt.Key_O && sidebarLoader.item) sidebarLoader.item.extend = !sidebarLoader.item.extend;
+            else if (key === Qt.Key_P) root.togglePin();
+        }
+    }
+
     function toggleDetach() {
         root.detach = !root.detach;
     }
@@ -59,7 +71,9 @@ Scope { // Scope
     }
 
     function togglePin() {
-        if (!root.pin) pinWithFunnyHyprlandWorkaroundProc.doIt()
+        // The cursor dance is a Hyprland workaround (hyprctl): elsewhere it
+        // never completed, so pinning did nothing under niri.
+        if (!root.pin && WM.compositor === "hyprland") pinWithFunnyHyprlandWorkaroundProc.doIt()
         else root.pin = !root.pin;
     }
 
@@ -83,6 +97,8 @@ Scope { // Scope
             sidebarLoader.active = true; // Load sidebar
             sidebarContent.parent = sidebarLoader.item.contentParent; // append (keeps the Persona texture child)
         }
+        // The content moved to another window: give its input the keyboard again.
+        Qt.callLater(() => root.sidebarContent?.focusActiveItem());
     }
 
     Loader {
@@ -123,6 +139,10 @@ Scope { // Scope
                         if (!root.pin) panelWindow.followFocusedScreen();
                         panelWindow.reallyVisible = true;
                         if (panelWindow.animatedEntrance) panelWindow.keepMapped = true;
+                        // Focus the current tab (the chat's input): without an
+                        // active focus item the panel got the keyboard but every
+                        // key — typing, Ctrl+O/P/D — went nowhere until a click.
+                        Qt.callLater(() => root.sidebarContent?.focusActiveItem());
                     } else if (panelWindow.animatedEntrance) {
                         closeAnimTimer.restart();
                     } else {
@@ -138,7 +158,7 @@ Scope { // Scope
             }
 
             property bool extend: false
-            property real sidebarWidth: panelWindow.extend ? Appearance.sizes.sidebarWidthExtended : Appearance.sizes.sidebarWidth
+            property real sidebarWidth: panelWindow.extend ? Appearance.sizes.sidebarWidthExtended : Appearance.sizes.leftSidebarWidth
             property var contentParent: sidebarLeftBackground
 
             function hide() {
@@ -308,16 +328,7 @@ Scope { // Scope
                     if (event.key === Qt.Key_Escape) {
                         panelWindow.hide();
                     }
-                    if (event.modifiers === Qt.ControlModifier) {
-                        if (event.key === Qt.Key_O) {
-                            panelWindow.extend = !panelWindow.extend;
-                        } else if (event.key === Qt.Key_D) {
-                            root.toggleDetach();
-                        } else if (event.key === Qt.Key_P) {
-                            root.togglePin();
-                        }
-                        event.accepted = true;
-                    }
+                    if (GlobalStates.sidebarLeftKey(event)) event.accepted = true;
                 }
             }
         }
@@ -343,12 +354,7 @@ Scope { // Scope
                 color: Appearance.colors.colLayer0
 
                 Keys.onPressed: (event) => {
-                    if (event.modifiers === Qt.ControlModifier) {
-                        if (event.key === Qt.Key_D) {
-                            root.toggleDetach();
-                        }
-                        event.accepted = true;
-                    }
+                    if (GlobalStates.sidebarLeftKey(event)) event.accepted = true;
                 }
             }
         }

@@ -17,7 +17,8 @@ Rectangle {
     property real messagePadding: 7
     property real contentSpacing: 3
 
-    property bool enableMouseSelection: false
+    // Answers are selectable: drag to select, Ctrl+C (or the copy button) to copy.
+    property bool enableMouseSelection: true
     property bool renderMarkdown: true
     property bool editing: false
 
@@ -188,6 +189,16 @@ Rectangle {
         // Ctrl + S to save
         if ((event.key === Qt.Key_S) && event.modifiers == Qt.ControlModifier) {
             root.saveMessage();
+            event.accepted = true;
+            return;
+        }
+        // Typing after selecting text in an answer goes back to the input
+        // field (a read-only answer doesn't take text, so the key was lost).
+        const field = root.messageInputField;
+        if (field && !root.editing && event.text.length > 0 && event.text >= " "
+                && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))) {
+            field.forceActiveFocus();
+            field.insert(field.cursorPosition, event.text);
             event.accepted = true;
         }
     }
@@ -417,35 +428,43 @@ Rectangle {
                 }
             }
             Repeater {
+                // Keyed by position + type, not by the block objects: the
+                // content is re-split on every streamed chunk, and objects
+                // compared by identity rebuilt every block of the message each
+                // time (the flicker on long answers). A block now updates in
+                // place and is only rebuilt when its type changes.
                 model: ScriptModel {
-                    values: root.messageBlocks
+                    values: root.messageBlocks.map((block, i) => `${i}:${block.type}`)
                 }
-                delegate: DelegateChooser {
-                    id: messageDelegate
-                    role: "type"
+                delegate: Loader {
+                    id: blockLoader
+                    required property int index
+                    readonly property var block: root.messageBlocks[index] ?? ({ type: "text", content: "" })
+                    Layout.fillWidth: true
+                    sourceComponent: block.type === "code" ? codeBlock : block.type === "think" ? thinkBlock : textBlock
 
-                    DelegateChoice { roleValue: "code"; MessageCodeBlock {
+                    Component { id: codeBlock; MessageCodeBlock {
                         editing: root.editing
                         renderMarkdown: root.renderMarkdown
                         enableMouseSelection: root.enableMouseSelection
-                        segmentContent: modelData.content
-                        segmentLang: modelData.lang
+                        segmentContent: blockLoader.block.content
+                        segmentLang: blockLoader.block.lang ?? ""
                         messageData: root.messageData
                     } }
-                    DelegateChoice { roleValue: "think"; MessageThinkBlock {
+                    Component { id: thinkBlock; MessageThinkBlock {
                         editing: root.editing
                         renderMarkdown: root.renderMarkdown
                         enableMouseSelection: root.enableMouseSelection
-                        segmentContent: modelData.content
+                        segmentContent: blockLoader.block.content
                         messageData: root.messageData
                         done: root.messageData?.done ?? false
-                        completed: modelData.completed ?? false
+                        completed: blockLoader.block.completed ?? false
                     } }
-                    DelegateChoice { roleValue: "text"; MessageTextBlock {
+                    Component { id: textBlock; MessageTextBlock {
                         editing: root.editing
                         renderMarkdown: root.renderMarkdown
                         enableMouseSelection: root.enableMouseSelection
-                        segmentContent: modelData.content
+                        segmentContent: blockLoader.block.content
                         messageData: root.messageData
                         done: root.messageData?.done ?? false
                         forceDisableChunkSplitting: root.messageData?.content.includes("```") ?? true

@@ -59,9 +59,6 @@ in
       didactiklabs.enable = true;
     };
     lanzaboote.enable = true;
-    # Local assistant for the shell's Intelligence tab (keybinds, modules,
-    # packages of this machine): qwen2.5 1.5B on CPU at idle priority.
-    localLlm.enable = true;
     # System-level support (uinput server, udev, per-user service) for the
     # Lotus Vietnamese input method. The fcitx5 addon itself is enabled in
     # the user's Home Manager fcitx5Config (lotus = true).

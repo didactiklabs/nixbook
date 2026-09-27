@@ -27,6 +27,9 @@ Item {
 
     ColumnLayout {
         anchors.centerIn: parent
+        // No wider than the page: the description wraps instead of running
+        // past a narrow panel.
+        width: Math.min(implicitWidth, root.width - 32)
         spacing: 5
 
         MaterialShapeWrappedMaterialSymbol {

@@ -94,7 +94,7 @@ Scope {
                 (Config.options.bar.dynamicIsland.visualizerStyle === "wave" ||
                 (Config.options.bar.dynamicIsland.visualizerStyle === "dots" && !Config.options.bar.dynamicIsland.showMediaControls))) ||
             Config.options.bar.layouts.rightLayout.includes("visualizer") ||
-            Config.options.background.widgets.visualizer.enable)
+            GlobalStates.desktopVisualizersAnimating > 0)
     readonly property bool playing: MprisController.activePlayer?.isPlaying ?? false
     onCavaWantedChanged: if (!cavaWanted) cavaGrace.restart()
     Timer {

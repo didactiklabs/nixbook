@@ -44,6 +44,16 @@ Item {
 
     property var allCommands: [
         {
+            name: "help",
+            description: Translation.tr("Quick questions answered from your configuration, and the chat commands"),
+            execute: () => {
+                const commands = root.allCommands.filter(c => c.name !== "test")
+                    .map(c => `- \`${root.commandPrefix}${c.name}\` — ${c.description}`).join("\n");
+                Ai.addMessage((ConfigAssistant.ready ? ConfigAssistant.helpText() + "\n\n" : "")
+                    + `**${Translation.tr("Commands")}**\n${commands}`, Ai.interfaceRole);
+            }
+        },
+        {
             name: "attach",
             description: Translation.tr("Attach a file. Only works with Gemini."),
             execute: args => {
@@ -54,6 +64,8 @@ Item {
             name: "model",
             description: Translation.tr("Choose model"),
             execute: args => {
+                // No model given: also look for local Ollama models.
+                if (args.length === 0 || !args[0]) Ai.refreshLocalModels();
                 Ai.setModel(args[0]);
             }
         },
@@ -398,12 +410,13 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                 shown: Ai.messageIDs.length === 0
                 // The local configuration assistant: how to ask for answers it
                 // gets right.
-                readonly property bool configAssistant: ConfigAssistant.ready && Ai.isLocalModel(Ai.getModel())
+                readonly property bool configAssistant: Ai.usingConfigAssistant
                     && (Config.options?.ai?.includeSystemContext ?? true)
                 icon: configAssistant ? "developer_board" : "neurology"
                 title: configAssistant ? Translation.tr("Config assistant") : Translation.tr("Large language models")
+                descriptionHorizontalAlignment: configAssistant ? Text.AlignHCenter : Text.AlignLeft
                 description: configAssistant
-                    ? Translation.tr("Answers about this machine's configuration, from its Nix config:\nshortcuts, enabled modules, installed packages, where to change a setting.\n\nWorks best with one precise question naming the thing:\n“What's the shortcut to open the app launcher?”\n“Is tailscale enabled?” · “Is anki installed?”\n“Where do I change the dock's pinned apps?”\n“Show me all keybinds” · “Shortcuts for workspaces”\n\nIt says so when your configuration doesn't cover it.")
+                    ? Translation.tr("Your machine's config: shortcuts, modules, packages, settings.\n\nOne question, naming the thing:\n“shortcut for the launcher”\n“is tailscale enabled?”\n“all shortcuts”\n\nEnglish · Français · Deutsch · Tiếng Việt")
                     : Translation.tr("Type /key to get started with online models\nCtrl+O to expand sidebar\nCtrl+P to pin sidebar\nCtrl+D to detach sidebar")
                 shape: MaterialShape.Shape.PixelCircle
             }
@@ -643,6 +656,10 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                         }
 
                         Keys.onPressed: event => {
+                            if (GlobalStates.sidebarLeftKey(event)) {
+                                event.accepted = true;
+                                return;
+                            }
                             if (event.key === Qt.Key_Tab) {
                                 suggestions.acceptSelectedWord();
                                 event.accepted = true;
@@ -748,6 +765,10 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                         dontAddSpace: true
                     },
                     {
+                        name: "help",
+                        sendDirectly: true
+                    },
+                    {
                         name: "clear",
                         sendDirectly: true
                     },
@@ -761,10 +782,18 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                 }
 
                 ApiInputBoxIndicator {
-                    // Tool indicator
+                    // Tool indicator (no tools without a model)
+                    visible: !Ai.usingConfigAssistant
                     icon: "service_toolbox"
                     text: Ai.currentTool.charAt(0).toUpperCase() + Ai.currentTool.slice(1)
                     tooltipText: Translation.tr("Current tool: %1\nSet it with %2tool TOOL").arg(Ai.currentTool).arg(root.commandPrefix)
+                }
+
+                ApiInputBoxIndicator {
+                    // What the configuration assistant answers without the model
+                    visible: ConfigAssistant.ready && Ai.usingConfigAssistant
+                    icon: "help"
+                    tooltipText: ConfigAssistant.ready ? ConfigAssistant.helpText(ConfigAssistant.uiLang(), true) : ""
                 }
 
                 Item {

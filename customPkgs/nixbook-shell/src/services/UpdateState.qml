@@ -21,6 +21,9 @@ Singleton {
     id: root
 
     property string localRev: "Unknown"
+    // Deployed from a tree with uncommitted changes: localRev is the commit
+    // they were made on (older builds wrote an all-zero rev instead).
+    property bool localDirty: false
     property string localBranch: "Unknown"
     property string remoteRev: "Unknown"
     property bool updateAvailable: false
@@ -32,6 +35,11 @@ Singleton {
     property bool checking: false
     property bool viewingLogs: false
     property string logText: ""
+    // The last nixos-upgrade-manual run: "success", "failed" or "" (never
+    // ran this boot), when it ended, and its journal.
+    property string lastResult: ""
+    property string lastRunTime: ""
+    property string lastRunLog: ""
 
     property bool started: false
 
@@ -45,6 +53,7 @@ Singleton {
         if (root.started || !Config.ready) return
         root.started = true
         root.monitorProcess.running = true
+        root.lastRunProcess.running = true
         root.checkUpdate()
     }
 
@@ -64,6 +73,8 @@ Singleton {
     function startUpdate() {
         if (root.updating) return false
         root.updating = true
+        root.lastResult = ""
+        root.lastRunLog = ""
         root.startUpdateProcess.running = true
         return true
     }
@@ -77,7 +88,7 @@ Singleton {
     }
 
     function compareRevs() {
-        root.updateAvailable = (root.localRev !== "Unknown" && root.remoteRev !== "Unknown" && root.localRev !== root.remoteRev)
+        root.updateAvailable = (root.remoteRev !== "Unknown" && root.localRev !== root.remoteRev)
         root.fetchChangelog()
     }
 
@@ -111,15 +122,15 @@ Singleton {
             if (code === 0 && root.versionProcess.buffer.trim()) {
                 try {
                     const data = JSON.parse(root.versionProcess.buffer)
-                    root.localRev = data.rev || "Unknown"
+                    const rev = data.rev || ""
+                    root.localDirty = data.dirty === true || /^0+$/.test(rev)
+                    root.localRev = (rev && !/^0+$/.test(rev)) ? rev : "Unknown"
                     root.localBranch = data.branch || "Unknown"
                     root.parseRepoUrl()
 
-                    if (root.localRev !== "Unknown") {
-                        root.remoteProcess.running = true
-                    } else {
-                        root.checking = false
-                    }
+                    // An unknown local rev still gets compared: any remote
+                    // commit is then an update.
+                    root.remoteProcess.running = true
                 } catch (e) {
                     console.error("UpdateState: Failed to parse version:", e)
                     root.checking = false
@@ -181,6 +192,7 @@ Singleton {
             } else {
                 if (root.updating) {
                     root.updating = false
+                    root.lastRunProcess.running = true
                     root.checkUpdate()
                 }
             }
@@ -202,6 +214,32 @@ Singleton {
             } else {
                 root.monitorTimer.start()
                 root.checkUpdate()
+            }
+        }
+    }
+
+    // Outcome + journal of the latest run (`--invocation=0`: that run only).
+    property Process lastRunProcess: Process {
+        // A finished oneshot is unloaded (its Result is gone) unless it
+        // failed, so the time comes from the journal and the outcome from
+        // the unit state plus the log (older osupdate builds exited 0 even
+        // when colmena failed).
+        command: ["bash", "-c", "echo ActiveState=$(systemctl show -p ActiveState --value nixos-upgrade-manual.service); "
+            + "echo Time=$(journalctl -u nixos-upgrade-manual --invocation=0 -n 1 -o short --no-pager 2>/dev/null | cut -c1-15); "
+            + "echo ---; journalctl -u nixos-upgrade-manual --invocation=0 -o cat --no-pager -n 400 2>/dev/null"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const cut = text.indexOf("\n---\n")
+                const props = {}
+                for (const line of (cut >= 0 ? text.slice(0, cut) : text).split("\n")) {
+                    const eq = line.indexOf("=")
+                    if (eq > 0) props[line.slice(0, eq)] = line.slice(eq + 1).trim()
+                }
+                const log = cut >= 0 ? text.slice(cut + 5).replace(/\s+$/, "") : ""
+                root.lastRunLog = log
+                root.lastRunTime = props.Time ?? ""
+                const failed = props.ActiveState === "failed" || /panicked at|Failed to run command|^error:|\berror: /m.test(log)
+                root.lastResult = log === "" ? "" : failed ? "failed" : /Finished|Deactivated successfully/.test(log) ? "success" : ""
             }
         }
     }

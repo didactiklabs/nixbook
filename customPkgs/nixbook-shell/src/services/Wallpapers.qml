@@ -1,3 +1,4 @@
+import qs
 import qs.modules.common
 import qs.modules.common.models
 import qs.modules.common.functions
@@ -50,6 +51,51 @@ Singleton {
     signal thumbnailGeneratedFile(filePath: string)
 
     function load () {} // For forcing initialization
+
+    // The config is the truth once it changes: the wallpaper was applied (or
+    // set from elsewhere — the desktop menu's file picker runs switchwall.sh
+    // directly, which used to be hidden behind a stale confirmedPath).
+    readonly property string configuredPath: Config.options?.background?.wallpaperPath ?? ""
+    onConfiguredPathChanged: {
+        root.confirmedPath = "";
+        if (root.isVideo(root.configuredPath)) root.restackOverVideo();
+    }
+
+    // Video wallpapers are played by mpvpaper (scripts/colors/live-wallpaper.sh,
+    // started by switchwall.sh). It runs in the shell's service, so a shell
+    // restart or a new login leaves none: start it again when the shell starts.
+    function isVideo(path) {
+        return /\.(mp4|webm|mkv|avi|mov)$/i.test(path ?? "");
+    }
+    property bool videoChecked: false
+    function ensureVideoWallpaper() {
+        if (root.videoChecked || !Config.ready) return;
+        root.videoChecked = true;
+        const path = root.configuredPath;
+        if (!root.isVideo(path)) return;
+        Quickshell.execDetached([`${FileUtils.trimFileProtocol(Directories.scriptPath)}/colors/live-wallpaper.sh`, "ensure", path]);
+        root.restackOverVideo();
+    }
+    // Under niri the video is on the Bottom layer, like the desktop widgets
+    // (Background.qml), and a surface mapped later stacks on top: once every
+    // output has its mpvpaper surface, re-map the desktop layer above it.
+    function restackOverVideo() {
+        if (WM.compositor !== "niri") return;
+        restackWait.running = false;
+        restackWait.running = true;
+    }
+    Process {
+        id: restackWait
+        command: ["bash", "-c", 'sleep 0.3; for _ in $(seq 60); do '
+            + 'n=$(niri msg --json layers | jq \'[.[] | select(.namespace == "mpvpaper" and .layer == "Bottom")] | length\'); '
+            + '[ "$n" -ge "$(niri msg --json outputs | jq \'[.[] | select(.current_mode != null)] | length\')" ] && exit 0; sleep 0.25; done; exit 1']
+        onExited: (code) => { if (code === 0) GlobalStates.backgroundRestack += 1 }
+    }
+    Connections {
+        target: Config
+        function onReadyChanged() { root.ensureVideoWallpaper() }
+    }
+    Component.onCompleted: root.ensureVideoWallpaper()
 
     function startPreview(path) {
         if (!path || path.length === 0) return;

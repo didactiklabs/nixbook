@@ -222,8 +222,11 @@ ColumnLayout {
                         color: messageData.thinking ? Appearance.colors.colSubtext : Appearance.colors.colOnLayer1
 
                         text: segmentContent
+                        // Only while editing: writing it back otherwise breaks the
+                        // incoming binding, and a block updated in place (streaming)
+                        // would stop following the answer.
                         onTextChanged: {
-                            segmentContent = text
+                            if (root.editing) segmentContent = text
                         }
 
                         Keys.onPressed: (event) => {

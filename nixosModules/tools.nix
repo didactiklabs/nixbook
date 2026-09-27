@@ -13,11 +13,30 @@ let
   ginx = import ../customPkgs/ginx.nix { inherit pkgs; };
   osupdate = pkgs.writeShellScriptBin "osupdate" ''
     set -euo pipefail
-    echo last applied revisions: $(${pkgs.jq}/bin/jq .rev /etc/nixos/version)
-    echo applying revision: "$(${pkgs.git}/bin/git ls-remote https://github.com/didactiklabs/nixbook HEAD | awk '{print $1}')"...
+    # colmena evaluates the hive with nix (not on a systemd unit's PATH: its
+    # absence made `colmena apply-local` panic with "No such file or directory").
+    export PATH=${
+      lib.makeBinPath [
+        config.nix.package
+        pkgs.git
+        pkgs.gawk
+        pkgs.coreutils
+        pkgs.hostname
+      ]
+    }:$PATH
+    target="$(git ls-remote https://github.com/didactiklabs/nixbook refs/heads/main | awk '{print $1}')"
+    echo last applied revision: $(${pkgs.jq}/bin/jq -r .rev /etc/nixos/version)
+    echo applying revision: "$target"...
 
     echo Running ginx...
     ${ginx}/bin/ginx --source https://github.com/didactiklabs/nixbook -b main --now -- /run/wrappers/bin/sudo ${pkgs.colmena}/bin/colmena apply-local
+    # ginx exits 0 even when its command fails: check the result.
+    applied="$(${pkgs.jq}/bin/jq -r .rev /etc/nixos/version)"
+    if [ "$applied" != "$target" ]; then
+      echo "error: the update did not apply (deployed revision: $applied, expected: $target)" >&2
+      exit 1
+    fi
+    echo "updated to $applied"
   '';
 in
 {

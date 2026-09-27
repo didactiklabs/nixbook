@@ -42,6 +42,24 @@ Singleton {
     property string settingsPage: ""
     property Item currentPageInstance: null
     property list<real> visualizerPoints: []
+    // Desktop visualizers currently animating (not paused behind windows):
+    // cava only runs for them while this is > 0 (MediaControls.cavaWanted).
+    property int desktopVisualizersAnimating: 0
+    // Bumped when the desktop layer (Background.qml, Bottom layer) must be
+    // re-mapped to stack above a video wallpaper that just started.
+    property int backgroundRestack: 0
+
+    // Left sidebar shortcuts (Ctrl+O extend, Ctrl+P pin, Ctrl+D detach),
+    // handled by SidebarLeft. Its text fields call sidebarLeftKey() first:
+    // a text field takes Ctrl+D as "delete", so the key never reached the
+    // panel's own handler.
+    signal sidebarLeftShortcut(int key)
+    function sidebarLeftKey(event): bool {
+        const mods = event.modifiers & ~Qt.KeypadModifier;
+        if (mods !== Qt.ControlModifier || ![Qt.Key_O, Qt.Key_P, Qt.Key_D].includes(event.key)) return false;
+        root.sidebarLeftShortcut(event.key);
+        return true;
+    }
     property bool desktopWidgetKeyboardFocus: false
     // Desktop widgets under the pointer (AbstractWidget): the background
     // layer turns keyboard-focusable *before* the click, so the click that

@@ -23,7 +23,10 @@ import Quickshell.Services.Notifications
  *
  * Click: run the notification's default action and dismiss. Right click /
  * Escape / Enter / Space: dismiss (the notification stays in the centre).
- * Several critical notifications queue up.
+ * Reply (when the app supports it, Notifications.replyMethod): an inline
+ * reply opens a box under the dialogue (Enter sends, Esc cancels), else the
+ * app's own Reply action / conversation opens. Several critical
+ * notifications queue up.
  */
 Scope {
     id: root
@@ -58,6 +61,26 @@ Scope {
     function wantsCutIn(n) {
         return root.cutInReason(n) !== "";
     }
+    // A slanted-panel action button (actions, Reply).
+    component CutInButton: RippleButton {
+        id: cutInButton
+        property string label
+        implicitHeight: 34
+        implicitWidth: cutInLabel.implicitWidth + 30
+        buttonRadius: 0
+        colBackground: cutInButton.toggled ? Persona.shadowColor : Persona.spec.frame
+        colBackgroundHover: Persona.shadowColor
+        contentItem: StyledText {
+            id: cutInLabel
+            anchors.centerIn: parent
+            text: cutInButton.label.toUpperCase()
+            font.family: Persona.titleFont
+            font.pixelSize: Appearance.font.pixelSize.normal
+            font.weight: Font.Bold
+            color: Persona.spec.ink
+        }
+    }
+
     property var lastSeen: null
     function show(n) {
         root.queue = root.queue.concat([n]);
@@ -135,6 +158,16 @@ Scope {
         readonly property string bodyText: NotificationUtils.processNotificationBody(n?.body ?? "", n?.appName ?? "")
             .replace(/<[^>]*>/g, "").trim() || (n?.summary ?? "")
         readonly property string speaker: (n?.body ? n?.summary : n?.appName) || n?.appName || ""
+        readonly property var replyMethod: n ? Notifications.replyMethod(n) : null
+        property bool replying: false
+        onReplyingChanged: if (replying) Qt.callLater(() => replyInput.forceActiveFocus())
+        function sendReply() {
+            if (Notifications.sendReply(cutIn.n?.notificationId ?? -1, replyInput.text)) {
+                replyInput.text = "";
+                cutIn.replying = false;
+                root.dismiss();
+            }
+        }
 
         // 0 → 1 entrance, reversed on leave.
         property real t: 0
@@ -148,6 +181,8 @@ Scope {
             leaveAnim.stop();
             t = 0;
             typed = 0;
+            replying = false;
+            replyInput.text = "";
             enterAnim.restart();
         }
         NumberAnimation on t {
@@ -174,6 +209,7 @@ Scope {
         }
 
         Item {
+            id: keyTarget
             anchors.fill: parent
             focus: true
             Keys.onPressed: event => {
@@ -445,30 +481,92 @@ Scope {
                     x: dialog.bx + 40
                     y: dialog.by + dialog.bh + 26
                     spacing: 10
+                    CutInButton {
+                        visible: cutIn.replyMethod !== null
+                        label: cutIn.replyMethod?.kind === "inline" ? Translation.tr("Reply")
+                            : Translation.tr("Reply in %1").arg(cutIn.n?.appName || Translation.tr("the app"))
+                        toggled: cutIn.replying
+                        onClicked: {
+                            if (cutIn.replyMethod?.kind === "inline") {
+                                cutIn.replying = !cutIn.replying;
+                                if (!cutIn.replying) keyTarget.forceActiveFocus();
+                            } else {
+                                Notifications.replyViaApp(cutIn.n.notificationId);
+                                root.dismiss();
+                            }
+                        }
+                    }
                     Repeater {
-                        model: (cutIn.n?.actions ?? []).filter(a => a.identifier !== "default").slice(0, 3)
-                        delegate: RippleButton {
-                            id: actionButton
+                        // The app's Reply action is the button above.
+                        model: (cutIn.n?.actions ?? []).filter(a => a.identifier !== "default"
+                            && a.identifier !== cutIn.replyMethod?.identifier).slice(0, 3)
+                        delegate: CutInButton {
                             required property var modelData
-                            implicitHeight: 34
-                            implicitWidth: actionLabel.implicitWidth + 30
-                            buttonRadius: 0
-                            colBackground: cutIn.spec.frame
-                            colBackgroundHover: Persona.shadowColor
+                            label: modelData.text
                             onClicked: {
                                 Notifications.attemptInvokeAction(cutIn.n.notificationId, modelData.identifier);
                                 root.dismiss();
                             }
-                            contentItem: StyledText {
-                                id: actionLabel
-                                anchors.centerIn: parent
-                                text: actionButton.modelData.text.toUpperCase()
-                                font.family: Persona.titleFont
-                                font.pixelSize: Appearance.font.pixelSize.normal
-                                font.weight: Font.Bold
-                                color: cutIn.spec.ink
-                            }
                         }
+                    }
+                }
+
+                // Inline reply: a slanted box under the actions.
+                Item {
+                    id: replyBox
+                    visible: cutIn.replying
+                    x: dialog.bx + 40
+                    y: dialog.by + dialog.bh + 76
+                    width: dialog.bw - 40
+                    height: Math.max(52, replyInput.contentHeight + 24)
+                    rotation: -2
+                    Rectangle {
+                        x: 6; y: 6
+                        width: parent.width; height: parent.height
+                        color: Persona.shadowColor
+                    }
+                    Rectangle {
+                        anchors.fill: parent
+                        color: cutIn.spec.frame
+                        border.width: 3
+                        border.color: cutIn.spec.frameBorder
+                    }
+                    MouseArea { // keep clicks in the box from dismissing
+                        anchors.fill: parent
+                        cursorShape: Qt.IBeamCursor
+                        onClicked: replyInput.forceActiveFocus()
+                    }
+                    TextInput {
+                        id: replyInput
+                        anchors { left: parent.left; right: sendHint.left; verticalCenter: parent.verticalCenter; leftMargin: 18; rightMargin: 12 }
+                        color: cutIn.spec.ink
+                        selectionColor: Persona.shadowColor
+                        font.pixelSize: Appearance.font.pixelSize.larger
+                        font.weight: Font.DemiBold
+                        clip: true
+                        Keys.onReturnPressed: cutIn.sendReply()
+                        Keys.onEnterPressed: cutIn.sendReply()
+                        Keys.onEscapePressed: {
+                            cutIn.replying = false;
+                            keyTarget.forceActiveFocus();
+                        }
+                        StyledText {
+                            visible: replyInput.text.length === 0
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: cutIn.n?.inlineReplyPlaceholder || Translation.tr("Reply…")
+                            font: replyInput.font
+                            color: cutIn.spec.ink
+                            opacity: 0.45
+                        }
+                    }
+                    StyledText {
+                        id: sendHint
+                        anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 16 }
+                        text: Translation.tr("Enter ↵").toUpperCase()
+                        font.family: Persona.titleFont
+                        font.weight: Font.Bold
+                        color: cutIn.spec.ink
+                        opacity: replyInput.text.length > 0 ? 1 : 0.4
                     }
                 }
             }

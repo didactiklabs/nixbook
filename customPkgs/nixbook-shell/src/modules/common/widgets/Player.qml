@@ -43,7 +43,7 @@ Item {
     Timer {
         // Seek-slider refresh; pointless (and a wakeup every interval) while
         // the popup holding this player is hidden.
-        running: root.player?.playbackState == MprisPlaybackState.Playing && (root.Window.window?.visible ?? false)
+        running: root.player?.playbackState == MprisPlaybackState.Playing && ObjectUtils.shown(root)
         interval: Config.options.resources.updateInterval
         repeat: true
         onTriggered: root.player.positionChanged()
