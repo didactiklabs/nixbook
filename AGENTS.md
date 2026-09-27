@@ -9,9 +9,9 @@
 
 ## Key Statistics
 
-- **Nix Files:** 171 files (~15,000 lines of code)
+- **Nix Files:** 178 files (~16,000 lines of code)
 - **Active Machines:** 5 (totoro, anya, nishinoya, tanjiro, hanamichi)
-- **Home Manager Modules:** 33 (28 standalone files + 5 subdirectories)
+- **Home Manager Modules:** 34 (29 standalone files + 5 subdirectories)
 - **NixOS Modules:** 19 files
 - **Custom Packages:** 20
 - **CI/CD Workflows:** 2
@@ -41,7 +41,7 @@ profiles/{hostname}/              Machine-specific configurations
   └── {username}/                 User-specific overrides
 
 nixosModules/                     System-level modules (19 files)
-homeManagerModules/               User-level modules (32 entries)
+homeManagerModules/               User-level modules (34 entries)
 base.nix                          Core entry point
 hive.nix                          Colmena deployment config
 ```
@@ -88,7 +88,7 @@ hive.nix                          Colmena deployment config
 | `fcitx5-lotus.nix`         | 84    | System-level support for the Lotus Vietnamese fcitx5 input method: `uinput_proxy` user, udev rule for /dev/uinput access, and a per-user `fcitx5-lotus-server@<user>.service` (set `users`). The fcitx5 addon itself is enabled in Home Manager via `fcitx5Config.lotus`. Disabled by default                                                                                                                                                                                                                                                                                                               |
 | `default.nix`              | 22    | Module imports aggregator                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
-## Home Manager Modules (33 entries)
+## Home Manager Modules (34 entries)
 
 **Core User Configuration:**
 
@@ -116,10 +116,11 @@ hive.nix                          Colmena deployment config
 
 **Development:**
 
-- `devTools.nix` (127 LOC) - Languages and dev tools (includes `occ`, the OpenChoreo platform CLI, `antigravity-cli` (`agy`), which replaced the removed-from-nixpkgs `gemini-cli`, and `opencode-manager` (`ocm`) — a k9s-style TUI for isolated OpenCode workspaces; its Home Manager activation seeds the built-in module catalogue into `~/.config/opencode-manager/modules`, replacing built-ins only when the package's store path changes)
+- `devTools.nix` (127 LOC) - Languages and dev tools (includes `occ`, the OpenChoreo platform CLI, `antigravity-cli` (`agy`), which replaced the removed-from-nixpkgs `gemini-cli`, and `opencode-manager` (`ocm`) — a k9s-style TUI for isolated OpenCode workspaces; its Home Manager activation seeds the built-in module catalogue into `~/.config/opencode-manager/modules`, replacing built-ins only when the package's store path changes — while the declarative `~/.config/opencode-manager/config.yaml` comes from `ocmConfig.nix`)
 - `goji.nix` (259 LOC) - AI-powered conventional commits with emoji support
 - `nixvim/` - NeoVim with 25 plugins (28 files, 1,249 LOC): LSP, Treesitter, Telescope, neo-tree, etc.
 - `opencodeConfig.nix` (48 LOC) - OpenCode AI coding assistant: gemini-auth + anthropic-oauth plugins
+- `ocmConfig.nix` (179 LOC) - opencode-manager (`ocm`) configuration: writes `~/.config/opencode-manager/config.yaml` declaratively (`runtime: podman` plus the `baseImage` block — extra apt `packages` and build `commands`, joined with `&&` and run as root while the workspace base image is built). Its generated commands install Debian's `nix` package, create `/nix`, write `/etc/nix/nix.conf` (`nix-command`+flakes, empty `build-users-group`, `sandbox = false`), `nix profile install` devenv into `/nix/var/nix/profiles/default`, symlink it into `/usr/local/bin` and `chmod -R a+rwX /nix` last. Installs the `opencode-manager` package itself (machines that also enable `devTools` get the same store path twice, which Home Manager merges). The config file is a store symlink, so `ocm config edit` cannot write it. Enabled on totoro, tanjiro, nishinoya
 
 **Sim Racing:**
 
@@ -161,7 +162,7 @@ hive.nix                          Colmena deployment config
 - **NixOS Modules:** laptopProfile, greetd, niri, caCertificates (bealv + didactiklabs), lanzaboote
 - **Special Features:** KDE Connect, Bluetooth, Nextcloud client systemd service, multi-monitor niri config, Moonlight Qt. **Desktop shell: nixbook-shell (`nixbookShellConfig`), not DMS** — totoro is the only machine on the nixbook-shell shell; `dmsConfig.enable = false` there. Its `nixbookShellConfig.settings` pins `appearance.persona.enable = true` (Persona style on; variant and sub-toggles stay menu-editable) and `background.screenList = [ "eDP-1" ]`. fcitx5 input methods cycled with Ctrl+Space: French/AZERTY (base) → Vietnamese (Lotus, via `customNixOSModules.fcitx5-lotus`) → Japanese (Mozc). German umlauts via the Schnelle Umlaute hold-letter+Space gesture (no German XKB layout in the cycle)
 - **Work Environments:** didactiklabs, bealv kubeconfigs
-- **Home Manager Modules:** cliTools, devTools, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, fcitx5Config, thunderbirdConfig, opencodeConfig, rtk, nixbookShellConfig, zenBrowserConfig, rbwConfig
+- **Home Manager Modules:** cliTools, devTools, ocmConfig, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, fcitx5Config, thunderbirdConfig, opencodeConfig, rtk, nixbookShellConfig, zenBrowserConfig, rbwConfig
 
 ### tanjiro - Development Laptop (Framework)
 
@@ -172,7 +173,7 @@ hive.nix                          Colmena deployment config
 - **NixOS Modules:** laptopProfile, greetd, niri, caCertificates (bealv + didactiklabs), lanzaboote, firewall, fcitx5-lotus
 - **Special Features:** ClamAV daemon + updater, sudo requires password, Tailscale/NetBird disabled, GlobalProtect-openconnect VPN client (gpclient/gpauth CLI, built from source via the upstream flake `fromSource` output pinned to main, since the nixpkgs package was removed and the prebuilt flake output has a broken upstream hash). fcitx5 input methods cycled with Ctrl+Space: French/AZERTY (base) → Vietnamese (Lotus, via `customNixOSModules.fcitx5-lotus`) → Japanese (Mozc)
 - **Work Environments:** didactiklabs, bealv kubeconfigs
-- **Home Manager Modules:** cliTools, devTools, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, fcitx5Config, thunderbirdConfig, opencodeConfig, rtk, dmsConfig
+- **Home Manager Modules:** cliTools, devTools, ocmConfig, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, fcitx5Config, thunderbirdConfig, opencodeConfig, rtk, dmsConfig
 
 ### anya - Gaming/Streaming Desktop
 
@@ -194,7 +195,7 @@ hive.nix                          Colmena deployment config
 - **Special Features:** Yubico security key lock on removal, unprivileged port access (sysctl port_start=80)
 - **Work Environments:** didactiklabs, logicmg kubeconfigs
 - **Extra Packages:** Google Chrome, GitKraken, Slack, Kanidm, Moonlight Qt, immich-go, oapi-codegen
-- **Home Manager Modules:** cliTools, devTools, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, vscode, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, fcitx5Config, dmsConfig
+- **Home Manager Modules:** cliTools, devTools, ocmConfig, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, vscode, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, fcitx5Config, dmsConfig
 
 ### hanamichi - Gaming/Normal-Use Desktop (NVIDIA)
 

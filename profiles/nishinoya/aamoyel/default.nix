@@ -34,6 +34,7 @@ in
   customHomeManagerModules = {
     cliTools.enable = true;
     devTools.enable = true;
+    ocmConfig.enable = true;
     fontConfig.enable = true;
     gitConfig.enable = true;
     gtkConfig.enable = true;
