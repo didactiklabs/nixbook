@@ -35,28 +35,10 @@ Scope {
     readonly property var current: root.queue.length > 0 ? root.queue[0] : null
     readonly property bool enabled: Persona.enabled && Persona.shapes
 
-    readonly property var rules: Config.options?.notifications?.cutIn ?? ({})
-    function isCritical(n) {
-        return n && (n.urgency == NotificationUrgency.Critical || n.urgency === "critical");
-    }
-    // Settings → Notifications → Persona cut-in: critical urgency, chosen
-    // apps, or keywords in the title/text (case-insensitive).
-    // Everything a keyword can match: app name, title, raw text (Chromium
-    // browsers put the origin site on its first line) and string hints.
-    function matchText(n) {
-        const hints = n?.hints ?? {};
-        const hintText = Object.keys(hints).map(k => typeof hints[k] === "string" ? hints[k] : "").join(" ");
-        return `${n?.appName ?? ""} ${n?.summary ?? ""} ${n?.body ?? ""} ${hintText}`.toLowerCase();
-    }
-    // Why `n` gets a cut-in ("" = it doesn't).
+    // Why `n` gets a cut-in ("" = it doesn't): Notifications.cutInVerdict.
     function cutInReason(n) {
-        if (!n || !(root.rules.enable ?? true)) return "";
-        if ((root.rules.critical ?? true) && root.isCritical(n)) return "critical";
-        const app = (n.appName ?? "").toLowerCase();
-        if ((root.rules.apps ?? []).some(a => a.toLowerCase() === app)) return `app "${n.appName}"`;
-        const text = root.matchText(n);
-        const keyword = (root.rules.keywords ?? []).find(k => k.trim().length > 0 && text.includes(k.trim().toLowerCase()));
-        return keyword ? `keyword "${keyword}"` : "";
+        const v = Notifications.cutInVerdict(n);
+        return v.cutIn ? v.reason : "";
     }
     function wantsCutIn(n) {
         return root.cutInReason(n) !== "";
@@ -87,6 +69,7 @@ Scope {
 
     property var lastSeen: null
     function show(n) {
+        Notifications.playCutInSound(n);
         root.queue = root.queue.concat([n]);
     }
     function next() {
@@ -136,8 +119,14 @@ Scope {
             return JSON.stringify({
                 app: n.appName, title: n.summary, text: n.body, urgency: n.urgency,
                 hints: Object.fromEntries(Object.keys(hints).filter(k => typeof hints[k] !== "object").map(k => [k, hints[k]])),
-                cutIn: root.cutInReason(n) || "no"
+                cutIn: (v => v.cutIn ? v.reason : (v.reason ? `no (${v.reason})` : "no"))(Notifications.cutInVerdict(n))
             }, null, 2);
+        }
+        // Would a notification like this get a cut-in, and which rule decides:
+        // `nixbook-shell ipc call personaCutIn check Instagram "Victor" "hi"`
+        function check(app: string, title: string, text: string): string {
+            const v = Notifications.cutInVerdict({ appName: app, summary: title, body: text, hints: {} });
+            return v.cutIn ? `cut-in: ${v.reason}` : (v.reason ? `no cut-in: ${v.reason}` : "no cut-in: no rule matches");
         }
         function test(name: string, message: string): void {
             root.show({ notificationId: -1, summary: name, body: message, appName: "nixbook-shell", appIcon: "", image: "", actions: [], time: Date.now() });

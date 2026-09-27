@@ -725,13 +725,28 @@ Singleton {
                     property list<string> apps: []
                     property list<string> keywords: []
                 }
+                // Log of every notification (kept after it is dismissed),
+                // services/NotificationHistory.qml. retentionDays 0 = forever.
+                property JsonObject history: JsonObject {
+                    property bool enable: true
+                    property int retentionDays: 30
+                }
                 property JsonObject cutIn: JsonObject {
                     property bool enable: true
                     property bool critical: true // urgency "critical", set by the app
                     property list<string> apps: [] // app names (as shown on notifications)
-                    // Words matched in the app name, title, text and notification
-                    // hints (browsers/KDE put the origin site there).
+                    // Rules matched in the app name, title, text and notification
+                    // hints (browsers/KDE put the origin site there): "a + b"
+                    // needs both, "!a" absent, "app:/title:/body:/hint:a" one
+                    // field, "\"a\"" whole word (NotificationUtils.ruleMatches).
                     property list<string> keywords: []
+                    // Rules (same syntax as `keywords`) that veto a cut-in,
+                    // even for critical notifications or chosen apps.
+                    property list<string> blacklist: []
+                    // Played when a cut-in shows (even with the chime off);
+                    // empty soundFile = the bundled Persona 5 cut-in effect.
+                    property bool sound: true
+                    property string soundFile: ""
                 }
             }
 

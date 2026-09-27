@@ -108,4 +108,62 @@ Singleton {
         
         return processedBody
     }
+
+    /**
+     * Notification filter rules (Settings → Notifications → Persona cut-in).
+     * One rule = terms joined by "+", all of which must hold:
+     *   Victor                 "victor" anywhere (case-insensitive)
+     *   Victor + Instagram     both present
+     *   Victor + !newsletter   "victor" present, "newsletter" absent
+     *   app:Instagram          only look in one field — app, title, body or
+     *                          hint (string hints); no prefix = all of them
+     *   "Diệu"                 whole word only (not inside a longer word)
+     * Prefixes combine: !title:"re". A term can't contain "+" or ",".
+     */
+    function ruleFields(n) {
+        const hints = n?.hints ?? {};
+        const f = {
+            app: `${n?.appName ?? ""}`,
+            title: `${n?.summary ?? ""}`,
+            body: `${n?.body ?? ""}`,
+            hint: Object.keys(hints).map(k => typeof hints[k] === "string" ? hints[k] : "").join(" "),
+        };
+        f.any = `${f.app} ${f.title} ${f.body} ${f.hint}`;
+        for (const k in f) f[k] = f[k].toLowerCase();
+        return f;
+    }
+    function isWordChar(c) {
+        return c !== undefined && (c.toLowerCase() !== c.toUpperCase() || /[0-9_]/.test(c));
+    }
+    function containsWord(text, word) {
+        for (let i = text.indexOf(word); i !== -1; i = text.indexOf(word, i + 1))
+            if (!root.isWordChar(text[i - 1]) && !root.isWordChar(text[i + word.length])) return true;
+        return false;
+    }
+    // One "+"-term against the fields; null = empty term (ignored).
+    function termHolds(fields, term) {
+        let t = term.trim();
+        let negate = false;
+        if (t.startsWith("!")) { negate = true; t = t.slice(1).trim(); }
+        let field = "any";
+        const m = t.match(/^(app|title|body|hint):/i);
+        if (m) { field = m[1].toLowerCase(); t = t.slice(m[0].length).trim(); }
+        let whole = false;
+        if (t.length >= 2 && t.startsWith('"') && t.endsWith('"')) { whole = true; t = t.slice(1, -1).trim(); }
+        t = t.toLowerCase();
+        if (t.length === 0) return null;
+        const found = whole ? root.containsWord(fields[field], t) : fields[field].includes(t);
+        return found !== negate;
+    }
+    function ruleMatches(fields, rule) {
+        const results = `${rule ?? ""}`.split("+").map(t => root.termHolds(fields, t)).filter(r => r !== null);
+        // Only negative terms ("!x") is allowed: it matches whatever lacks x.
+        return results.length > 0 && results.every(r => r);
+    }
+    // The first of `rules` that `n` matches, or "" if none.
+    function firstMatchingRule(n, rules) {
+        if (!n) return "";
+        const fields = root.ruleFields(n);
+        return (rules ?? []).find(r => root.ruleMatches(fields, r)) ?? "";
+    }
 }

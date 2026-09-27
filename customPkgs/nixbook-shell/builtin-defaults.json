@@ -555,9 +555,16 @@
     "splitPopups": true,
     "cutIn": {
       "apps": [],
+      "blacklist": [],
       "critical": true,
       "enable": true,
-      "keywords": []
+      "keywords": [],
+      "sound": true,
+      "soundFile": ""
+    },
+    "history": {
+      "enable": true,
+      "retentionDays": 30
     },
     "persistent": {
       "apps": [],

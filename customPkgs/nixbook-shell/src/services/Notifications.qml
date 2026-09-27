@@ -2,6 +2,7 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 
 import qs.modules.common
+import qs.modules.common.functions
 import qs
 import qs.services
 import QtQuick
@@ -208,8 +209,11 @@ Singleton {
                 newNotifObject.read = false;
                 root.unread++;
             }
-            root.playNotificationSound(notification);
+            NotificationHistory.record(newNotifObject, (v => v.cutIn ? v.reason : "")(root.cutInVerdict(newNotifObject)));
+            // notify first: a cut-in plays its own sound, and the chime then
+            // falls within the 300 ms gap instead of doubling it.
             root.notify(newNotifObject);
+            root.playNotificationSound(notification);
             // console.log(notifToString(newNotifObject));
             notifFileView.setText(stringifyList(root.list));
         }
@@ -227,6 +231,18 @@ Singleton {
         root.lastSoundTime = now;
         const file = Config.options.sounds.notificationFile;
         Audio.playSoundFile(file !== "" ? file : `${Directories.assetsPath}/sounds/persona5-notification.mp3`);
+    }
+
+    // Persona cut-in sound (notifications.cutIn.sound/soundFile), played by
+    // PersonaCutIn when a cut-in shows — even with the chime off. Counts as
+    // the chime for the 300 ms gap.
+    function playCutInSound(notification) {
+        const rules = Config.options?.notifications?.cutIn;
+        if (!(rules?.sound ?? true) || root.silent) return;
+        if (notification?.hints?.["suppress-sound"] ?? false) return;
+        root.lastSoundTime = Date.now();
+        const file = rules?.soundFile ?? "";
+        Audio.playSoundFile(file !== "" ? file : `${Directories.assetsPath}/sounds/persona5-cut-in.mp3`);
     }
 
     function markAllRead() {
@@ -342,6 +358,26 @@ Singleton {
         const hints = n.hints ?? {};
         const text = `${n.appName ?? ""} ${n.summary ?? ""} ${Object.keys(hints).map(k => typeof hints[k] === "string" ? hints[k] : "").join(" ")}`.toLowerCase();
         return (rules.keywords ?? []).some(k => k.trim().length > 0 && text.includes(k.trim().toLowerCase()));
+    }
+
+    // Persona cut-in decision (Settings → Notifications → Persona cut-in):
+    // { cutIn, reason }. A blacklist rule vetoes everything; otherwise
+    // critical urgency, a chosen app or a keyword rule gives a cut-in.
+    // Rule syntax ("Victor + Instagram", "!x", "app:x", "\"word\""):
+    // NotificationUtils.ruleMatches.
+    function cutInVerdict(n) {
+        const rules = Config.options?.notifications?.cutIn ?? {};
+        if (!n) return { cutIn: false, reason: "" };
+        if (!(rules.enable ?? true)) return { cutIn: false, reason: "cut-ins off" };
+        const blocked = NotificationUtils.firstMatchingRule(n, rules.blacklist);
+        if (blocked) return { cutIn: false, reason: `blacklist "${blocked}"` };
+        if ((rules.critical ?? true) && (n.urgency == NotificationUrgency.Critical || n.urgency === "critical"))
+            return { cutIn: true, reason: "critical" };
+        const app = (n.appName ?? "").toLowerCase();
+        if ((rules.apps ?? []).some(a => a.toLowerCase() === app)) return { cutIn: true, reason: `app "${n.appName}"` };
+        const keyword = NotificationUtils.firstMatchingRule(n, rules.keywords);
+        if (keyword) return { cutIn: true, reason: `keyword "${keyword}"` };
+        return { cutIn: false, reason: "" };
     }
 
     // Restart a popup's expiry countdown (after hovering it paused the timer).
