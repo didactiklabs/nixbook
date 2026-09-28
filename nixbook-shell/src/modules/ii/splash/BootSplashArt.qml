@@ -10,7 +10,10 @@ import QtQuick.Layouts
  * earlySplash.qml (its own small Quickshell instance, up before the shell has
  * loaded), so the handover between the two is invisible.
  *
- * progress < 0: indeterminate (a segment sweeping along the bar).
+ * progress < 0: indeterminate (a segment sweeping along the bar). The sweep
+ * follows the wall clock, not an animation started with the window, so the
+ * two instances draw the very same bar at the same moment; when progress
+ * starts, the segment glides into the fill.
  */
 Item {
     id: root
@@ -22,7 +25,32 @@ Item {
     property real screenHeight: 9
 
     readonly property bool indeterminate: root.progress < 0
-    onIndeterminateChanged: if (!root.indeterminate) fill.x = 0
+
+    // Sweep position 0..1 from the wall clock (eased in and out).
+    readonly property int sweepMs: 1100
+    property real sweep: 0
+    function updateSweep() {
+        const t = (Date.now() % root.sweepMs) / root.sweepMs;
+        root.sweep = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    }
+    FrameAnimation {
+        running: root.indeterminate && root.visible
+        onTriggered: root.updateSweep()
+    }
+    Component.onCompleted: root.updateSweep()
+
+    // 0 → 1: from where the sweep stopped to the progress fill.
+    property real glide: root.indeterminate ? 0 : 1
+    onIndeterminateChanged: if (!root.indeterminate) glideAnim.restart()
+    NumberAnimation {
+        id: glideAnim
+        target: root
+        property: "glide"
+        from: 0
+        to: 1
+        duration: 280
+        easing.type: Easing.OutCubic
+    }
 
     Rectangle {
         anchors.fill: parent
@@ -88,24 +116,19 @@ Item {
                 Rectangle {
                     id: fill
                     anchors { top: parent.top; bottom: parent.bottom }
-                    // Indeterminate: a fixed segment swept by the animation below.
-                    x: 0
-                    width: root.indeterminate ? parent.width * 0.3 : parent.width * Math.max(0.04, root.progress)
+                    // Indeterminate: a segment swept across by the clock;
+                    // then it glides (root.glide) into the fill, which grows
+                    // from the left.
+                    readonly property real sweepX: -parent.width * 0.3 + root.sweep * parent.width * 1.3
+                    readonly property real sweepWidth: parent.width * 0.3
+                    readonly property real fillWidth: parent.width * Math.max(0.04, root.progress)
+                    x: fill.sweepX * (1 - root.glide)
+                    width: fill.sweepWidth + (fill.fillWidth - fill.sweepWidth) * root.glide
                     radius: track.radius
                     color: Persona.shapes ? Persona.stripeColor : Appearance.colors.colPrimary
                     Behavior on width {
-                        enabled: !root.indeterminate
+                        enabled: root.glide === 1
                         NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
-                    }
-                    SequentialAnimation on x {
-                        running: root.indeterminate && root.visible
-                        loops: Animation.Infinite
-                        NumberAnimation {
-                            from: -track.width * 0.3
-                            to: track.width
-                            duration: 1100
-                            easing.type: Easing.InOutQuad
-                        }
                     }
                 }
             }
