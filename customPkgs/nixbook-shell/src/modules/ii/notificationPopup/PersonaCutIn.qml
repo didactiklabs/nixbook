@@ -69,9 +69,21 @@ Scope {
 
     property var lastSeen: null
     function show(n) {
+        // A newer copy of a cut-in still queued or on screen (a chat thread
+        // re-posted with one more message) takes its place: no second cut-in
+        // or sound for the same conversation.
+        const replaces = (Config.options?.notifications?.cutIn?.mergeUpdates ?? true) ? n.replaces ?? [] : [];
+        const index = root.queue.findIndex(q => replaces.includes(q.notificationId));
+        if (index !== -1 && !(index === 0 && leaveAnim.running)) {
+            if (index === 0) root.swapping = true;
+            root.queue = root.queue.map((q, i) => i === index ? n : q);
+            return;
+        }
         Notifications.playCutInSound(n);
         root.queue = root.queue.concat([n]);
     }
+    // The cut-in on screen is being swapped for its newer copy: keep it up.
+    property bool swapping: false
     function next() {
         root.queue = root.queue.slice(1);
     }
@@ -180,6 +192,11 @@ Scope {
         }
         onNChanged: {
             if (!n) return;
+            if (root.swapping) {
+                root.swapping = false;
+                typed = 0;
+                return;
+            }
             leaveAnim.stop();
             t = 0;
             typed = 0;

@@ -33,8 +33,11 @@ Singleton {
     }
 
     // Called by Notifications for each incoming notification; `cutIn` is the
-    // cut-in rule that matched ("" = none).
-    function record(notif, cutIn) {
+    // cut-in rule that matched ("" = none). `replaced`: [{ id, time }] of the
+    // earlier copies it supersedes (a chat thread re-posted with a new
+    // message, a phone copy of the same message), dropped from the history
+    // so each message is logged once.
+    function record(notif, cutIn, replaced) {
         if (!root.enabled || !notif || notif.isTransient) return;
         const entry = {
             id: notif.notificationId,
@@ -46,11 +49,12 @@ Singleton {
             urgency: notif.urgency,
             cutIn: cutIn ?? "",
         };
+        const isReplaced = e => (replaced ?? []).some(r => r.id === e.id && r.time === e.time);
         if (!root.loaded) {
-            root.pending = [...root.pending, entry];
+            root.pending = [...root.pending.filter(e => !isReplaced(e)), entry];
             return;
         }
-        root.save(root.pruned([...root.entries, entry]));
+        root.save(root.pruned([...root.entries.filter(e => !isReplaced(e)), entry]));
     }
 
     function deleteOlderThan(days) {
