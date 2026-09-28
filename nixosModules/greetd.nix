@@ -31,13 +31,14 @@ in
           menu. Its --sessions are built from whichever Wayland compositors
           are enabled (niri, sway, hyprland), niri sessions are wrapped with
           niri-session.
-        - `nixbook-shell`: ReGreet (GTK4, in cage) in nixbook-shell's style,
-          following a user's shell settings: Material palette from the
-          wallpaper or the Persona style and variant, and the login screen
-          wallpaper chosen in the shell's Settings menu
-          (`nixbook-shell.greeter`, nixbook-shell/greeter.nix). It also
-          remembers the last user and session, and lists the sessions of the
-          enabled compositors.
+        - `nixbook-shell`: nixbook-shell's own login screen (Quickshell,
+          in niri or cage) following a user's shell settings: the theme and
+          variant (Material palette from the wallpaper, Persona, Chiikawa…),
+          fonts, account picture, cursor and the login screen wallpaper chosen
+          in the shell's Settings menu (`nixbook-shell.greeter`,
+          nixbook-shell/greeter.nix). It remembers the last user and session,
+          lists the sessions of the enabled compositors, and falls back to
+          tuigreet if it can't start.
 
         Either way the greetd PAM service has U2F (YubiKey), fingerprint and
         GNOME Keyring unlock; both greeters show PAM's prompts ("touch your
@@ -55,13 +56,29 @@ in
       default = "tuigreet";
       description = "The greeter greetd runs (see `enable`).";
     };
+    cursorUser = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default =
+        if cfg.greetd.themeUser != null then
+          cfg.greetd.themeUser
+        else
+          lib.findFirst (u: config.home-manager.users.${u}.home.pointerCursor.enable or false) null (
+            lib.attrNames (config.home-manager.users or { })
+          );
+      defaultText = lib.literalExpression "themeUser, else the first Home Manager user with a pointer cursor";
+      description = ''
+        With the `nixbook-shell` greeter: the user whose cursor
+        (home.pointerCursor) the login screen shows.
+      '';
+    };
     themeUser = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = if shellUsers != [ ] then lib.head shellUsers else null;
       defaultText = lib.literalExpression "the first Home Manager user with programs.nixbook-shell enabled";
       description = ''
         With the `nixbook-shell` greeter: the user whose nixbook-shell
-        settings the login screen follows.
+        settings the login screen follows (null: the shell's default look,
+        e.g. on a machine whose users run DankMaterialShell).
       '';
     };
   };
@@ -101,19 +118,11 @@ in
           );
       })
       (lib.mkIf (cfg.greetd.greeter == "nixbook-shell") {
-        assertions = [
-          {
-            assertion = cfg.greetd.themeUser != null;
-            message = ''
-              customNixOSModules.greetd.greeter = "nixbook-shell" needs a user running
-              nixbook-shell (customHomeManagerModules.nixbookShellConfig), or
-              customNixOSModules.greetd.themeUser set.
-            '';
-          }
-        ];
-        nixbook-shell.greeter = lib.mkIf (cfg.greetd.themeUser != null) {
+        nixbook-shell.greeter = {
           enable = true;
+          # null (no one runs nixbook-shell): the shell's default look.
           user = cfg.greetd.themeUser;
+          cursorUser = cfg.greetd.cursorUser;
         };
       })
     ]

@@ -163,6 +163,12 @@ let
       shift
       exec ${quickshell}/bin/qs -p ${shell}/earlySplash.qml "$@"
     fi
+    # `nixbook-shell greeter`: the login screen (src/greeter.qml), run by
+    # greetd through the nixbook-shell.greeter NixOS module.
+    if [ "''${1:-}" = "greeter" ]; then
+      shift
+      exec ${quickshell}/bin/qs -p ${shell}/greeter.qml "$@"
+    fi
     exec ${quickshell}/bin/qs -c ${configName} "$@"
   '';
 in
