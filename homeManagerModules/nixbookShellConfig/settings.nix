@@ -39,7 +39,7 @@
   };
   background = {
     centeredWallpaperShape = "Heart";
-    wallpaperAnimation = "Doom";
+    # wallpaperAnimation: chosen in the menu (Settings > Desktop).
   };
   bar = {
     cornerStyle = 1;
