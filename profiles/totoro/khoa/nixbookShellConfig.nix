@@ -9,10 +9,11 @@
     # every message, mine included.
     notifications.cutIn = {
       keywords = [
-        # Calendar events
-        "Calendar"
-        "Reminder"
-        "Google Agenda"
+        # Calendar reminders: DankCalendar's own (the phone's and browser's
+        # copies are quiet, see the shared settings). Not "Calendar" or
+        # "Reminder" anywhere: mails about Google Calendar, invitations and
+        # "quick reminder" newsletters matched too.
+        "app:^\"Dank Calendar\""
         # Family and friends
         "Alesio"
         "chocomooncake"
@@ -32,9 +33,10 @@
         # phone (KDE Connect, title "Gmail").
         "last:\"@vtk_hg\""
         "last:\"@victortk\""
-        "last:Victor Tiến Khoa + !app:Thunderbird + !title:Gmail"
-        "last:Victor Hang + !app:Thunderbird + !title:Gmail"
-        "last:ビクタ + !app:Thunderbird + !title:Gmail"
+        # (and not Jira's ticket updates in Slack: "Assignee: Victor Hang").
+        "last:Victor Tiến Khoa + !app:Thunderbird + !title:Gmail + !title:Jira"
+        "last:Victor Hang + !app:Thunderbird + !title:Gmail + !title:Jira"
+        "last:ビクタ + !app:Thunderbird + !title:Gmail + !title:Jira"
         "last:mentioned you"
         "last:tagged you"
         "last:replied to you"

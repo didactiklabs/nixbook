@@ -52,6 +52,7 @@
       ];
       middleLayout = [
         "clockWidget"
+        "nextEvent"
         "kdeConnect"
         "resources"
         "networkSpeed"
@@ -107,19 +108,31 @@
         "Instagram"
         "Facebook"
         "Messenger"
+        # SMS through Google Messages in the browser (the title is the
+        # phone number; the site is in the notification hints).
+        "messages.google.com"
       ];
     };
+    # No popup, cut-in or chime (still in the notification centre and the
+    # history): calendar reminders DankCalendar already shows, as the
+    # phone's Google Calendar app mirrors them (KDE Connect, title
+    # "Calendar"/"Agenda") and as Google Calendar in the browser does
+    # (the site in the notification hints).
+    quiet.keywords = [
+      "app:KDE Connect + title:^\"Calendar\""
+      "app:KDE Connect + title:^\"Agenda\""
+      "hint:calendar.google.com"
+    ];
     # Persona style: full-screen cut-in for critical notifications and
-    # calendar events; people (friends, mentions of the user) are personal and
+    # calendar reminders (DankCalendar's; the other copies are quiet above);
+    # people (friends, mentions of the user) are personal and
     # added per user profile (e.g. profiles/totoro/khoa). Rules are matched
     # case-insensitively on app name, title, text and hints; "a + b" needs
     # both, "!a" absent, "app:/title:/body:/hint:" one field, quotes a whole
     # word, "^" the start of the field (NotificationUtils.ruleMatches). Test
     # them live in Settings → Notifications → Persona cut-in.
     cutIn.keywords = [
-      "Calendar"
-      "Reminder"
-      "Google Agenda"
+      "app:^\"Dank Calendar\""
     ];
     # Never a cut-in, whatever matched above: my own replies. The phone
     # updates the chat notification with the message I just sent and KDE

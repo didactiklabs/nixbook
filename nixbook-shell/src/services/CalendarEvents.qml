@@ -69,17 +69,17 @@ Singleton {
         return root.eventsByDay[root.dayKey(date)] ?? []
     }
 
-    // The next `limit` timed events not over yet, and today's all-day ones,
-    // within the coming week.
-    function upcoming(limit) {
-        const now = new Date()
+    // The next `limit` events not over yet at `now` within the coming week:
+    // timed ones, and today's all-day ones unless `timedOnly`. Pass a `now`
+    // that ticks for a binding to follow the clock.
+    function upcoming(limit, now = new Date(), timedOnly = false) {
         const seen = {}
         const out = []
         const day = new Date(now.getFullYear(), now.getMonth(), now.getDate())
         for (let i = 0; i < 7 && out.length < limit; i++) {
             for (const e of root.eventsOn(day)) {
                 const key = `${e.id}@${e.start.getTime()}`
-                if (seen[key] || e.end <= now || (e.allDay && i > 0)) continue
+                if (seen[key] || e.end <= now || (e.allDay && (timedOnly || i > 0))) continue
                 seen[key] = true
                 out.push(e)
                 if (out.length >= limit) break
@@ -87,6 +87,25 @@ Singleton {
             day.setDate(day.getDate() + 1)
         }
         return out
+    }
+
+    // "Now · until 10:30", "in 12 min", "14:00", "Tomorrow 09:00",
+    // "Fri 09:00", "All day".
+    function whenText(event, now = new Date()) {
+        const fmt = Config.options?.time.format ?? "hh:mm"
+        const at = d => Qt.locale().toString(d, fmt)
+        if (event.allDay)
+            return Translation.tr("All day")
+        if (event.start <= now)
+            return Translation.tr("Now · until %1").arg(at(event.end))
+        const minutes = Math.round((event.start - now) / 60000)
+        if (minutes < 60)
+            return Translation.tr("in %1 min").arg(Math.max(1, minutes))
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        const days = Math.floor((new Date(event.start.getFullYear(), event.start.getMonth(), event.start.getDate()) - today) / 86400000)
+        if (days === 0) return at(event.start)
+        if (days === 1) return Translation.tr("Tomorrow %1").arg(at(event.start))
+        return `${Qt.locale().toString(event.start, "ddd")} ${at(event.start)}`
     }
 
     // `dcal ipc <method> key=value…`; onDone(ok, result) gets the parsed JSON.

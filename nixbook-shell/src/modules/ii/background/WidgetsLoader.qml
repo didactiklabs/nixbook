@@ -15,6 +15,7 @@ import qs.modules.ii.background.widgets.images
 import qs.modules.ii.background.widgets.resources
 import qs.modules.ii.background.widgets.visualizer
 import qs.modules.ii.background.widgets.calendar
+import qs.modules.ii.background.widgets.nextevent
 import qs.modules.ii.background.widgets.worldclock
 import qs.modules.ii.background.widgets.usercard
 import qs.modules.ii.background.widgets.notes
@@ -38,6 +39,7 @@ Item {
             { key: "customImage" },
             { key: "sticker" },
             { key: "calendar" },
+            { key: "nextEvent" },
             { key: "weather" },
             { key: "clock", alwaysOnLock: true },
             { key: "notes" },
@@ -96,6 +98,7 @@ Item {
                     case "customImage": return customImageComp
                     case "sticker":     return stickerComp
                     case "calendar":    return calendarComp
+                    case "nextEvent":   return nextEventComp
                     case "weather":     return weatherComp
                     case "clock":       return clockComp
                     case "notes":       return notesComp
@@ -241,6 +244,18 @@ Item {
     Component {
         id: resourcesComp
         ResourcesWidget {
+            screenName: root.screen?.name ?? ""
+            screenWidth: root.screen.width
+            screenHeight: root.screen.height
+            scaledScreenWidth: root.screen.width
+            scaledScreenHeight: root.screen.height
+            wallpaperScale: 1
+            wallpaperItem: root.wallpaperItem
+        }
+    }
+    Component {
+        id: nextEventComp
+        NextEventWidget {
             screenName: root.screen?.name ?? ""
             screenWidth: root.screen.width
             screenHeight: root.screen.height
