@@ -166,7 +166,8 @@ Singleton {
     function helpText(lang = root.uiLang(), plain = false) {
         const h = root.helpExamples[lang] ?? root.helpExamples.en;
         const lines = h.items.map(([what, ex]) => plain ? `• ${what}: ${ex}` : `- **${what}**: “${ex.split(" · ").join("”, “")}”`);
-        return `${plain ? h.title : `**${h.title}**`}\n${lines.join("\n")}\n${plain ? "" : "\n"}${h.more}\nEnglish · Français · Deutsch · Tiếng Việt`;
+        const text = `${plain ? h.title : `**${h.title}**`}\n${lines.join("\n")}\n${plain ? "" : "\n"}${h.more}\nEnglish · Français · Deutsch · Tiếng Việt`;
+        return plain ? text : root.codeKeys(text);
     }
 
     function tr(lang, key, arg, arg2) {
@@ -550,6 +551,16 @@ Singleton {
     // ever called): a direct answer, else the closest facts, else "I don't
     // know" with tips on how to ask.
     function answer(question, previous = "") {
+        return root.codeKeys(root.answerText(question, previous));
+    }
+    // Vim key notation (<leader>ff, <C-p>) as code spans: the chat renders
+    // Markdown, which takes <…> for an HTML tag and drops it. Existing code
+    // spans are left alone; trailing punctuation stays outside.
+    function codeKeys(text) {
+        return text.replace(/(`[^`]*`)|([^\s`*“”"(]*<[A-Za-z][\w-]*>[^\s`*“”"]*?)(?=[.,:;!?)”"*]*(?:\s|$))/g,
+            (m, code, key) => code ?? `\`${key}\``);
+    }
+    function answerText(question, previous) {
         const quick = root.quickReply(question, previous);
         if (quick !== null) return quick;
         const lang = root.detectLang(question);
