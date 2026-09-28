@@ -47,8 +47,8 @@ in
     laptopProfile.enable = true;
     greetd = {
       enable = true;
-      # ReGreet in nixbook-shell's style (khoa's Persona/palette and login
-      # screen wallpaper), instead of tuigreet.
+      # nixbook-shell's own login screen (khoa's theme, palette, cursor and
+      # login screen wallpaper), instead of tuigreet.
       greeter = "nixbook-shell";
     };
     hyprland.enable = false;

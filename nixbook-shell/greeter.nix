@@ -4,42 +4,64 @@
   pkgs,
   ...
 }:
-# The login screen in nixbook-shell's style: greetd + ReGreet (the maintained
-# GTK4 greetd greeter, nixpkgs' services.displayManager.regreet) in niri or cage,
-# themed from one user's nixbook-shell settings — the Material palette the
-# shell generates from the wallpaper, or the theme's (themes.json: Persona and
-# its variant…) — and
-# showing the login screen wallpaper chosen in the shell's Settings menu
-# (Background > Wallpaper, "Login screen": background.greeterWall, else the
-# lock screen's, else the desktop's).
+# The login screen in nixbook-shell's style: greetd running the shell's own
+# greeter (`nixbook-shell greeter`, src/greeter.qml, Quickshell's greetd
+# client) in niri — or cage — with one user's look: the theme and variant, the
+# palette (the theme's, or the one the shell generates from the wallpaper),
+# fonts, account picture and the login screen wallpaper chosen in the shell's
+# Settings menu (background.greeterWall, else the lock screen's, else the
+# desktop's; per theme variant). tuigreet takes over if neither compositor
+# starts, so there is always a login prompt.
 #
-# The theme follows the settings live: nixbook-shell-greeter-theme (run as
-# that user, so it only reads what the user can) renders it into
+# The look follows the settings live: nixbook-shell-greeter-theme (run as
+# that user, so it only reads what the user can) exports it into
 # /var/lib/nixbook-shell-greeter whenever the shell's settings or palette
 # change (scripts/greeter-theme.sh). Until it first runs, the greeter uses the
-# same theme built from the settings set in Nix.
+# settings set in Nix.
 #
 # Authentication is greetd's PAM service (`security.pam.services.greetd`):
-# ReGreet shows PAM's messages ("touch your security key", fingerprint
-# prompts) and answers them, so U2F/fingerprint/keyring setups work as with
-# any greetd greeter.
+# the greeter shows PAM's messages ("touch your security key", fingerprint)
+# and answers its prompts, so U2F/fingerprint/keyring setups work as with any
+# greetd greeter. It remembers the last user and session
+# (/var/cache/nixbook-shell-greeter).
 let
   cfg = config.nixbook-shell.greeter;
-  regreet = config.services.displayManager.regreet;
   stateDir = "/var/lib/nixbook-shell-greeter";
+  cacheDir = "/var/cache/nixbook-shell-greeter";
   greeterUser = config.services.greetd.settings.default_session.user;
   greeterGroup = config.users.users.${greeterUser}.group or "greeter";
-  home = config.users.users.${cfg.user}.home or "/home/${cfg.user}";
+  # The user whose settings give the look (none: the shell's defaults).
+  themed = cfg.user != null;
+  home = if themed then config.users.users.${cfg.user}.home or "/home/${cfg.user}" else "/var/empty";
+  hmOf = name: if name != null then config.home-manager.users.${name} or { } else { };
+  hmUser = hmOf cfg.user;
 
-  # Persona art, rasterised with the shell (qml.nix).
-  shell = import ./qml.nix { inherit pkgs; };
+  # The user's own nixbook-shell (same build as their session), else ours.
+  package =
+    if hmUser.programs.nixbook-shell.enable or false then
+      hmUser.programs.nixbook-shell.package
+    else
+      (import ./. { inherit pkgs; }).package;
+
+  # A user's cursor (`cursorUser`'s Home Manager home.pointerCursor, e.g.
+  # Stylix's or a profile's own).
+  cursor =
+    let
+      pc = (hmOf cfg.cursorUser).home.pointerCursor or null;
+    in
+    if pc != null && (pc.enable or true) && pc.package or null != null then pc else null;
+  cursorEnv = lib.optionalAttrs (cursor != null) {
+    XCURSOR_THEME = cursor.name;
+    XCURSOR_SIZE = toString cursor.size;
+    XCURSOR_PATH = "${cursor.package}/share/icons";
+  };
+
   # The themes and their palettes (checked), from the shell's registry.
   palettes = pkgs.runCommand "nixbook-shell-theme-palettes.json" {
     nativeBuildInputs = [ pkgs.python3 ];
   } "python3 ${./scripts/theme-palettes.py} ${./src/modules/common/themes.json} > $out";
   themeEnv = {
     NB_PALETTES = palettes;
-    NB_TEXTURES = "${shell}/assets/persona";
   }
   // lib.optionalAttrs (cfg.background != null) {
     NB_DEFAULT_BACKGROUND = "${cfg.background}";
@@ -47,8 +69,10 @@ let
 
   # The settings set in Nix for that user (Home Manager as a NixOS module).
   settingsLib = import ./lib.nix { inherit lib; };
-  pinned = settingsLib.pinnedSettings (
-    lib.attrByPath [ "home-manager" "users" cfg.user "programs" "nixbook-shell" "settings" ] { } config
+  pinned = lib.optionalAttrs themed (
+    settingsLib.pinnedSettings (
+      lib.attrByPath [ "home-manager" "users" cfg.user "programs" "nixbook-shell" "settings" ] { } config
+    )
   );
   fallbackTheme =
     pkgs.runCommand "nixbook-shell-greeter-theme"
@@ -79,49 +103,92 @@ let
     exec ${pkgs.bash}/bin/bash ${./scripts/greeter-theme.sh}
   '';
 
-  toml = pkgs.formats.toml { };
-  # Two configurations, the same but for the wallpaper: the rendered one, or
-  # the NixOS option's (none: the theme's background colour) before the first
-  # render.
-  regreetConfig =
-    background:
-    toml.generate "regreet.toml" (
-      lib.recursiveUpdate regreet.settings (
-        lib.optionalAttrs (background != null) { background.path = background; }
-      )
-    );
-  liveConfig = regreetConfig "${stateDir}/background";
-  staticConfig = regreetConfig (if cfg.background != null then "${cfg.background}" else null);
+  sessionDirs = "${config.services.displayManager.sessionData.desktops}/share";
+  # The sessions this system provides (niri, sway, Hyprland…): [{ name, exec,
+  # desktopNames }], Wayland first.
+  sessions =
+    pkgs.runCommand "nixbook-shell-greeter-sessions.json"
+      {
+        nativeBuildInputs = [ pkgs.python3 ];
+      }
+      ''
+        python3 - ${sessionDirs} > $out <<'PY'
+        import configparser, json, os, sys
+        out, seen = [], set()
+        for kind in ("wayland-sessions", "xsessions"):
+            d = os.path.join(sys.argv[1], kind)
+            for f in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+                if not f.endswith(".desktop"):
+                    continue
+                p = configparser.ConfigParser(interpolation=None, strict=False)
+                p.optionxform = str
+                p.read(os.path.join(d, f), encoding="utf-8")
+                e = p["Desktop Entry"] if p.has_section("Desktop Entry") else {}
+                name, exe = e.get("Name", ""), e.get("Exec", "")
+                if not name or not exe or name in seen or e.get("Hidden") == "true" or e.get("NoDisplay") == "true":
+                    continue
+                seen.add(name)
+                out.append({"name": name, "exec": exe, "desktopNames": e.get("DesktopNames", "").replace(";", ":").strip(":")})
+        json.dump(out, sys.stdout)
+        PY
+      '';
+  # The accounts that can log in (normal users), the login screen's first.
+  users = lib.sort (a: b: themed && a.name == cfg.user && b.name != cfg.user) (
+    lib.mapAttrsToList (name: u: {
+      inherit name;
+      realName = u.description or "";
+    }) (lib.filterAttrs (_: u: u.isNormalUser or false) config.users.users)
+  );
+  usersJson = pkgs.writeText "nixbook-shell-greeter-users.json" (builtins.toJSON users);
 
-  # The rendered theme and wallpaper (else the ones built from the Nix
-  # settings), and only the sessions this system provides (niri, sway,
-  # Hyprland…), found first: ReGreet skips duplicates.
-  selectTheme = ''
-    css=${stateDir}/regreet.css
-    [ -s "$css" ] || css=${fallbackTheme}/regreet.css
-    conf=${staticConfig}
-    wall=${lib.optionalString (cfg.background != null) "${cfg.background}"}
+  # Runs as the greeter user in the compositor: a private copy of the
+  # exported settings (else the ones from Nix) as the shell's config, the
+  # wallpaper, and the users/sessions list, then the greeter.
+  greeterRun = pkgs.writeShellScript "nixbook-shell-greeter-run" ''
+    export PATH=${
+      lib.makeBinPath [
+        pkgs.jq
+        pkgs.coreutils
+      ]
+    }''${PATH:+:$PATH}
+    src=${stateDir}
+    [ -s "$src/settings.json" ] || src=${fallbackTheme}
+    wall=""
     if [ -s ${stateDir}/background ]; then
-      conf=${liveConfig}
       wall=${stateDir}/background
+    ${lib.optionalString (cfg.background != null) ''
+      else
+        wall=${cfg.background}
+    ''}
     fi
-    export XDG_DATA_DIRS="${config.services.displayManager.sessionData.desktops}/share''${XDG_DATA_DIRS:+:$XDG_DATA_DIRS}"
-  '';
-
-  cageGreeter = pkgs.writeShellScript "nixbook-shell-greeter" ''
-    ${selectTheme}
-    exec ${lib.getExe regreet.package} --config "$conf" --style "$css"
+    run=$(mktemp -d "''${XDG_RUNTIME_DIR:-/tmp}/nixbook-shell-greeter.XXXXXX")
+    mkdir -p "$run/config/nixbook-shell" "$run/state/quickshell/user/generated" "$run/cache"
+    jq --arg wall "$wall" '. + {background: {wallpaperPath: $wall}}' "$src/settings.json" \
+      >"$run/config/nixbook-shell/config.json"
+    cp "$src/colors.json" "$run/state/quickshell/user/generated/colors.json" 2>/dev/null || true
+    avatar=""
+    [ -s ${stateDir}/avatar ] && avatar=${stateDir}/avatar
+    jq -n --slurpfile users ${usersJson} --slurpfile sessions ${sessions} \
+      --arg avatar "$avatar" --arg me ${lib.escapeShellArg (if themed then cfg.user else "")} '{
+        users: ($users[0] | map(if .name == $me and $avatar != "" then . + {avatar: $avatar} else . end)),
+        sessions: $sessions[0],
+        defaultUser: (if $me != "" then $me else ($users[0][0].name // "") end),
+        cache: "${cacheDir}/last.json"
+      }' >"$run/info.json"
+    export XDG_CONFIG_HOME="$run/config" XDG_STATE_HOME="$run/state" XDG_CACHE_HOME="$run/cache"
+    export NB_GREETER_INFO="$run/info.json"
+    ${lib.concatStrings (lib.mapAttrsToList (k: v: "export ${k}=${lib.escapeShellArg v}\n") cursorEnv)}
+    exec ${lib.getExe package} greeter
   '';
 
   # niri as the greeter's compositor: its very first frame is the theme's
   # background colour, swaybg puts the wallpaper up a few milliseconds later,
-  # then ReGreet — the same wallpaper under its login card — fades in over
-  # it (niri's open animation), fullscreen, and every other screen keeps the
-  # wallpaper. cage can do none of that: black until ReGreet has drawn.
-  # ReGreet exiting (a session was started) ends niri.
+  # then the greeter (the same wallpaper under its login card) comes up over
+  # it; every screen shows the wallpaper. The greeter exiting (a session was
+  # started) ends niri.
   niri = config.programs.niri.package or pkgs.niri;
-  niriRegreet = pkgs.writeShellScript "nixbook-shell-greeter-regreet" ''
-    ${lib.getExe regreet.package} --config "$1" --style "$2"
+  niriSession = pkgs.writeShellScript "nixbook-shell-greeter-in-niri" ''
+    ${greeterRun}
     exec ${lib.getExe niri} msg action quit --skip-confirmation
   '';
   kdlXkb = lib.concatStrings (
@@ -129,7 +196,13 @@ let
       inherit (cfg.keyboard) layout variant options;
     }
   );
-  # @BG@, @WALLPAPER@, @CONF@, @CSS@: filled in at start (the rendered theme).
+  kdlCursor = lib.optionalString (cursor != null) ''
+    cursor {
+        xcursor-theme ${builtins.toJSON cursor.name}
+        xcursor-size ${toString cursor.size}
+    }
+  '';
+  # @BG@, @WALLPAPER@: filled in at start (the exported look).
   niriTemplate = pkgs.writeText "nixbook-shell-greeter-niri.kdl" ''
     input {
         keyboard {
@@ -147,45 +220,18 @@ let
         skip-at-startup
     }
     prefer-no-csd
-    window-rule {
-        open-fullscreen true
-    }
+    ${kdlCursor}
     @WALLPAPER@
-    spawn-at-startup "${niriRegreet}" "@CONF@" "@CSS@"
+    spawn-at-startup "${niriSession}"
   '';
   # Fails the build if niri would reject the configuration.
   niriTemplateChecked = pkgs.runCommand "nixbook-shell-greeter-niri-checked.kdl" { } ''
     t=$(<${niriTemplate})
     t=''${t//@BG@/#000000}
     t=''${t//@WALLPAPER@/spawn-at-startup \"${lib.getExe pkgs.swaybg}\" \"-i\" \"/wallpaper\"}
-    t=''${t//@CONF@//conf}
-    t=''${t//@CSS@//css}
     printf '%s\n' "$t" >check.kdl
     ${lib.getExe niri} validate -c check.kdl
     cp ${niriTemplate} $out
-  '';
-  niriGreeter = pkgs.writeShellScript "nixbook-shell-greeter-niri" ''
-    ${selectTheme}
-    bg=$(${pkgs.gnused}/bin/sed -n 's/^@define-color nb_bg \(#[0-9a-fA-F]\{6,8\}\);$/\1/p' "$css")
-    wallpaper=""
-    [ -n "$wall" ] &&
-      wallpaper="spawn-at-startup \"${lib.getExe pkgs.swaybg}\" \"-m\" \"fill\" \"-i\" \"$wall\""
-    t=$(<${niriTemplateChecked})
-    t=''${t//@BG@/''${bg:-#000000}}
-    t=''${t//@WALLPAPER@/$wallpaper}
-    t=''${t//@CONF@/$conf}
-    t=''${t//@CSS@/$css}
-    dir=''${XDG_RUNTIME_DIR:-$(${pkgs.coreutils}/bin/mktemp -d)}
-    printf '%s\n' "$t" >"$dir/nixbook-shell-greeter-niri.kdl"
-    # niri quits cleanly once ReGreet is done; if it fails instead (no usable
-    # GPU, a crash), fall back to cage so there is always a login screen —
-    # but not when greetd itself is stopping us.
-    stopping=""
-    trap 'stopping=1' TERM INT HUP
-    ${lib.getExe niri} -c "$dir/nixbook-shell-greeter-niri.kdl" && exit 0
-    [ -z "$stopping" ] || exit 0
-    ${lib.concatStringsSep " " (lib.mapAttrsToList (k: v: "export ${k}=${lib.escapeShellArg v};") xkb)}
-    exec ${lib.getExe pkgs.cage} ${lib.escapeShellArgs regreet.cageArgs} -- ${cageGreeter}
   '';
 
   xkb = lib.filterAttrs (_: v: v != "") {
@@ -193,19 +239,67 @@ let
     XKB_DEFAULT_VARIANT = cfg.keyboard.variant;
     XKB_DEFAULT_OPTIONS = cfg.keyboard.options;
   };
+  exports = lib.concatStrings (
+    lib.mapAttrsToList (k: v: "export ${k}=${lib.escapeShellArg v}\n") (xkb // cursorEnv)
+  );
+
+  greeterCommand = pkgs.writeShellScript "nixbook-shell-greeter" ''
+    ${exports}
+    # niri first (the smooth start), cage if it can't run, tuigreet if
+    # neither can — but not when greetd itself is stopping us.
+    stopping=""
+    trap 'stopping=1' TERM INT HUP
+    ${lib.optionalString (cfg.compositor == "niri") ''
+      src=${stateDir}
+      [ -s "$src/bg" ] || src=${fallbackTheme}
+      bg=$(${pkgs.coreutils}/bin/head -c 9 "$src/bg" 2>/dev/null)
+      case "$bg" in \#[0-9a-fA-F]*) ;; *) bg="#000000" ;; esac
+      wallpaper=""
+      wall=""
+      [ -s ${stateDir}/background ] && wall=${stateDir}/background
+      ${lib.optionalString (cfg.background != null) ''[ -n "$wall" ] || wall=${cfg.background}''}
+      [ -n "$wall" ] &&
+        wallpaper="spawn-at-startup \"${lib.getExe pkgs.swaybg}\" \"-m\" \"fill\" \"-i\" \"$wall\""
+      t=$(<${niriTemplateChecked})
+      t=''${t//@BG@/$bg}
+      t=''${t//@WALLPAPER@/$wallpaper}
+      dir=''${XDG_RUNTIME_DIR:-$(${pkgs.coreutils}/bin/mktemp -d)}
+      printf '%s\n' "$t" >"$dir/nixbook-shell-greeter-niri.kdl"
+      ${lib.getExe niri} -c "$dir/nixbook-shell-greeter-niri.kdl" && exit 0
+      [ -z "$stopping" ] || exit 0
+    ''}
+    ${lib.getExe pkgs.cage} -s -- ${greeterRun} && exit 0
+    [ -z "$stopping" ] || exit 0
+    exec ${lib.getExe pkgs.tuigreet} --time --remember --remember-session --asterisks \
+      --sessions ${sessionDirs}/wayland-sessions:${sessionDirs}/xsessions
+  '';
 in
 {
   options.nixbook-shell.greeter = {
     enable = lib.mkEnableOption ''
-      the login screen in nixbook-shell's style: greetd with ReGreet, themed
-      and given its wallpaper from `user`'s nixbook-shell settings'';
+      the login screen in nixbook-shell's style: greetd with the shell's own
+      greeter, given its look and wallpaper by `user`'s nixbook-shell settings'';
 
     user = lib.mkOption {
-      type = lib.types.str;
+      type = lib.types.nullOr lib.types.str;
+      default = null;
       example = "alice";
       description = ''
-        The user whose nixbook-shell settings (Persona style and variant,
-        wallpaper palette, login screen wallpaper) the login screen follows.
+        The user whose nixbook-shell settings (theme and variant, wallpaper
+        palette, login screen wallpaper, account picture) the login screen
+        follows, and the one it offers first. null: the shell's default look
+        (no one on the machine needs to run nixbook-shell).
+      '';
+    };
+
+    cursorUser = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = cfg.user;
+      defaultText = lib.literalExpression "config.nixbook-shell.greeter.user";
+      example = "alice";
+      description = ''
+        The user whose cursor (Home Manager's `home.pointerCursor`) the login
+        screen shows. null: the compositor's default.
       '';
     };
 
@@ -229,15 +323,9 @@ in
       defaultText = lib.literalExpression ''if config.programs.niri.enable then "niri" else "cage"'';
       description = ''
         Compositor the greeter runs in. niri shows the theme's background and
-        the wallpaper from its first frames and fades ReGreet in over them;
-        cage (ReGreet's default) is black until ReGreet has drawn.
+        the wallpaper from its first frames; cage is black until the greeter
+        has drawn. Either way tuigreet takes over if it can't start.
       '';
-    };
-
-    greeting = lib.mkOption {
-      type = lib.types.str;
-      default = "Welcome back";
-      description = "Message shown above the login form.";
     };
 
     keyboard = {
@@ -265,56 +353,21 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
-        assertion = config.users.users ? ${cfg.user};
-        message = "nixbook-shell.greeter.user: no user `${cfg.user}`.";
+        assertion = !themed || config.users.users ? ${cfg.user};
+        message = "nixbook-shell.greeter.user: no user `${toString cfg.user}`.";
       }
     ];
 
-    services.displayManager.regreet = {
+    services.greetd = {
       enable = true;
-      settings = {
-        background.fit = "Cover";
-        GTK.application_prefer_dark_theme = true;
-        appearance.greeting_msg = cfg.greeting;
-        widget.clock = {
-          format = "%A %d %B   %H:%M";
-          resolution = "500ms";
-        };
-      };
-      # Body text; titles use the shell's display face (Oswald in the Persona
-      # style), from the stylesheet.
-      font = {
-        package = pkgs.roboto;
-        name = "Roboto";
-        size = 13;
-      };
-      iconTheme = {
-        package = pkgs.papirus-icon-theme;
-        name = "Papirus-Dark";
-      };
+      settings.default_session.command = "${pkgs.dbus}/bin/dbus-run-session ${greeterCommand}";
     };
-    fonts.packages = [ pkgs.oswald ];
-
-    # With the keyboard layout of the system (XKB_DEFAULT_* for cage, the
-    # generated configuration for niri), the rendered theme and the sessions
-    # above.
-    services.greetd.settings.default_session.command = lib.concatStringsSep " " (
-      [ "${pkgs.dbus}/bin/dbus-run-session" ]
-      ++ (
-        if cfg.compositor == "niri" then
-          [ "${niriGreeter}" ]
-        else
-          lib.optionals (xkb != { }) (
-            [ "${pkgs.coreutils}/bin/env" ] ++ lib.mapAttrsToList (k: v: lib.escapeShellArg "${k}=${v}") xkb
-          )
-          ++ [
-            (lib.getExe pkgs.cage)
-            (lib.escapeShellArgs regreet.cageArgs)
-            "--"
-            "${cageGreeter}"
-          ]
-      )
-    );
+    # The theme's fonts, for the greeter (it has none of the user's).
+    fonts.packages = [
+      pkgs.roboto
+      pkgs.oswald
+      pkgs.nunito
+    ];
 
     # Boot splash to login screen without a black screen or console in
     # between: greetd, not plymouth-quit.service, ends the splash, leaving its
@@ -334,11 +387,12 @@ in
     };
 
     # Owned by the user (the renderer runs as them), readable by the greeter.
-    systemd.tmpfiles.rules = [
-      "d ${stateDir} 0750 ${cfg.user} ${greeterGroup} - -"
-    ];
+    systemd.tmpfiles.rules =
+      lib.optional themed "d ${stateDir} 0750 ${cfg.user} ${greeterGroup} - -"
+      # The greeter's own: the last user and session.
+      ++ [ "d ${cacheDir} 0750 ${greeterUser} ${greeterGroup} - -" ];
 
-    systemd.services.nixbook-shell-greeter-theme = {
+    systemd.services.nixbook-shell-greeter-theme = lib.mkIf themed {
       description = "Login screen theme from ${cfg.user}'s nixbook-shell settings";
       wantedBy = [ "multi-user.target" ];
       after = [ "systemd-tmpfiles-setup.service" ];
@@ -369,7 +423,7 @@ in
     };
     # Re-rendered when the shell rewrites its settings or its palette (a new
     # wallpaper, Persona on/off, another variant or login screen wallpaper).
-    systemd.paths.nixbook-shell-greeter-theme = {
+    systemd.paths.nixbook-shell-greeter-theme = lib.mkIf themed {
       wantedBy = [ "multi-user.target" ];
       pathConfig = {
         PathChanged = [

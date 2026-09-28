@@ -53,36 +53,40 @@ The shell runs as the `nixbook-shell` user service. Bind keys to
 ## Login screen and loading screen
 
 On NixOS, `nixbook-shell.greeter` (`greeter.nix`, part of
-`nixosModules.default`) makes the login screen match the shell: greetd with
-[ReGreet](https://github.com/rharish101/ReGreet) in cage, themed from one
-user's live settings — the Material palette generated from the wallpaper, or
-the theme's own palette in its variant — and showing the login screen
-wallpaper.
+`nixosModules.default`) makes the login screen the shell's own: greetd running
+`nixbook-shell greeter` (`src/greeter.qml`, `modules/ii/greeter/`, Quickshell's
+greetd client) with one user's look — the theme and variant, the palette
+(the theme's, or the one generated from the wallpaper), fonts, account picture
+and cursor — around a login card: the user (arrows switch between the
+machine's accounts), the password, PAM's cues (security key, fingerprint,
+further prompts such as a one-time code) and the session to start, which it
+remembers (`/var/cache/nixbook-shell-greeter`), with suspend, reboot and power
+off in the corner.
 
 ```nix
 nixbook-shell.greeter = {
   enable = true;
-  user = "alice";               # whose shell settings it follows
+  user = "alice";               # whose look it follows (null: the default look)
+  cursorUser = "alice";         # whose cursor it shows (default: `user`)
   background = ./login.jpg;     # optional: default login screen wallpaper
 };
 ```
 
-The Settings menu (Background > Wallpaper) sets the desktop, lock screen
-(`background.lockWall`) and login screen (`background.greeterWall`, shown when
-the greeter is enabled for this user) wallpapers separately; an empty one
-falls back to the lock screen's, then the desktop's. Both can also be set in
-Nix through `programs.nixbook-shell.settings.background`. The
-`nixbook-shell-greeter-theme` service renders the theme into
+The Settings menu (Background > Wallpaper, Appearance > Theme for each
+variant) sets the desktop, lock screen (`background.lockWall`) and login
+screen (`background.greeterWall`, shown when the greeter is enabled for this
+user) wallpapers; an empty one falls back to the lock screen's, then the
+desktop's. The greeter can't read the home directory: the
+`nixbook-shell-greeter-theme` service exports what it needs into
 `/var/lib/nixbook-shell-greeter` as that user whenever the settings or palette
-change (`scripts/greeter-theme.sh`, theme colours read from `themes.json` by
-`scripts/theme-palettes.py`); before its first run the
-greeter uses the same theme built from the settings set in Nix.
-Authentication is greetd's PAM service: ReGreet shows and answers PAM's
-messages, so security keys (pam_u2f's cue) and fingerprints work.
+change (`scripts/greeter-theme.sh`: the look's settings only, the palette's
+colours, the account picture and the wallpaper, copied); before its first run
+the greeter uses the settings set in Nix.
 
 With niri installed the greeter runs in niri (`compositor`), which shows the
 theme's colour and the wallpaper from its first frames, and it takes the
-plymouth splash over without clearing the screen; cage is the fallback.
+plymouth splash over without clearing the screen; cage is the fallback, and
+tuigreet takes over if neither starts, so there is always a login prompt.
 
 After login, `nixbook-shell splash` (the `nixbook-shell-splash` user service,
 `splash.enable`) shows the shell's loading screen (`src/earlySplash.qml`,

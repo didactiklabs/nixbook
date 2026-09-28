@@ -3,7 +3,7 @@
 #   - config-merge.jq: the JSON -> Nix printers must round-trip through Nix;
 #   - config-tool.sh: `nixbook-shell config diff|pinned|dump|path` on fixtures;
 #   - assistant-facts.py: fact file structure, keybind, Neovim keymap, system and how-to facts;
-#   - theme-palettes.py + greeter-theme.sh: the login screen theme.
+#   - theme-palettes.py + greeter-theme.sh: what the login screen gets.
 # Needs bash, jq, python3 and nix-instantiate. Run: bash tests/scripts.sh
 # The jq programs are single-quoted on purpose: `$n`, `$a`, ... are jq variables.
 # shellcheck disable=SC2016
@@ -302,68 +302,53 @@ bad_registry "a duplicate theme" '{"default":"a","themes":[{"id":"a","name":"A",
 bad_registry "an id that isn't a settings key" '{"default":"a.b","themes":[{"id":"a.b","name":"A","icon":"x","variants":[]}]}'
 bad_registry "an incomplete palette" '{"default":"a","themes":[{"id":"a","name":"A","icon":"x","variants":[{"id":"v","name":"V","icon":"x","palette":{"background":"#000000"}}]}]}'
 
-# greeter_theme NAME CONFIG_JSON [COLORS_JSON]: renders into $tmp/greeter/NAME.
+# greeter_theme NAME CONFIG_JSON [COLORS_JSON]: exports into $tmp/greeter/NAME.
 greeter_theme() {
-  local out="$tmp/greeter/$1"
-  mkdir -p "$out"
-  printf '%s\n' "$2" >"$out/config.json"
-  [ $# -lt 3 ] || printf '%s\n' "$3" >"$out/colors.json"
-  NB_OUT="$out" NB_PALETTES="$tmp/palettes.json" NB_TEXTURES=/textures \
-    NB_CONFIG="$out/config.json" NB_COLORS="$out/colors.json" NB_COPY_BACKGROUND=1 \
-    bash "$scripts/greeter-theme.sh" 2>"$tmp/err" || fail "greeter-theme.sh: $1 renders" "$(cat "$tmp/err")"
+  local out="$tmp/greeter/$1" in="$tmp/greeter-in/$1"
+  mkdir -p "$out" "$in"
+  printf '%s\n' "$2" >"$in/config.json"
+  rm -f "$in/colors.json"
+  [ $# -lt 3 ] || printf '%s\n' "$3" >"$in/colors.json"
+  NB_OUT="$out" NB_PALETTES="$tmp/palettes.json" \
+    NB_CONFIG="$in/config.json" NB_COLORS="$in/colors.json" NB_COPY_BACKGROUND=1 \
+    bash "$scripts/greeter-theme.sh" 2>"$tmp/err" || fail "greeter-theme.sh: $1 exports" "$(cat "$tmp/err")"
 }
+bg() { cat "$tmp/greeter/$1/bg"; }
 
+# The first frame's colour: the theme's palette, else the wallpaper's.
 greeter_theme p3r '{"appearance":{"theme":"persona","persona":{"variant":"p3r"}}}'
-css=$(cat "$tmp/greeter/p3r/regreet.css")
-expect_contains "greeter-theme.sh: Persona variant palette" "$css" "@define-color nb_primary #3fd4ff;"
-expect_contains "greeter-theme.sh: Persona halftone art" "$css" 'url("file:///textures/p3r-panel.png")'
-expect_contains "greeter-theme.sh: Persona hard shadow" "$css" "box-shadow: 5px 5px 0 0 @nb_shadow;"
-expect_contains "greeter-theme.sh: Persona display font" "$css" '"Oswald"'
-
-greeter_theme p5 '{"appearance":{"theme":"persona"}}'
-css=$(cat "$tmp/greeter/p5/regreet.css")
-expect_contains "greeter-theme.sh: p5 gold edge" "$css" "@define-color nb_edge #d9a441;"
-expect_contains "greeter-theme.sh: p5 outline in its edge colour" "$css" "border: 3px solid @nb_edge;"
-expect_contains "greeter-theme.sh: p5 hard red shadow" "$css" "box-shadow: 7px 7px 0 0 @nb_shadow;"
-
-greeter_theme material '{"appearance":{"theme":"material","persona":{"variant":"p3r"}}}' '{"primary":"#123456"}'
-css=$(cat "$tmp/greeter/material/regreet.css")
-expect_contains "greeter-theme.sh: the wallpaper palette without Persona" "$css" "@define-color nb_primary #123456;"
-expect_contains "greeter-theme.sh: defaults for roles missing from it" "$css" "@define-color nb_bg #141313;"
-if grep -q "panel.png" <<<"$css"; then fail "greeter-theme.sh: no Persona art without Persona"; else pass "greeter-theme.sh: no Persona art without Persona"; fi
-
-# A theme with only a palette (no Persona shapes): its colours, Material shapes.
-greeter_theme chiikawa '{"appearance":{"theme":"chiikawa"}}' '{"primary":"#123456"}'
-css=$(cat "$tmp/greeter/chiikawa/regreet.css")
-expect_contains "greeter-theme.sh: Chiikawa's default variant palette" "$css" "@define-color nb_primary #b5436a;"
-expect_contains "greeter-theme.sh: ...with the rounded shapes" "$css" "border-radius: 9999px;"
-if grep -q "panel.png" <<<"$css"; then fail "greeter-theme.sh: no Persona art for Chiikawa"; else pass "greeter-theme.sh: no Persona art for Chiikawa"; fi
+expect_eq "greeter-theme.sh: a Persona variant's background" "#050f26" "$(bg p3r)"
 greeter_theme usagi '{"appearance":{"theme":"chiikawa","chiikawa":{"variant":"usagi"}}}'
-expect_contains "greeter-theme.sh: a Chiikawa variant" "$(cat "$tmp/greeter/usagi/regreet.css")" "@define-color nb_primary #a4560a;"
-
-# config.json from before `appearance.theme` (the shell migrates it on load).
+expect_eq "greeter-theme.sh: a Chiikawa variant's background" "#fffbeb" "$(bg usagi)"
+greeter_theme chiikawa '{"appearance":{"theme":"chiikawa"}}' '{"background":"#123456"}'
+expect_eq "greeter-theme.sh: a theme's default variant" "#fffaf6" "$(bg chiikawa)"
+greeter_theme material '{"appearance":{"theme":"material"}}' '{"background":"#123456","primary":"#abcdef"}'
+expect_eq "greeter-theme.sh: Material: the wallpaper palette" "#123456" "$(bg material)"
+greeter_theme persona-wallpaper '{"appearance":{"theme":"persona","persona":{"palette":false}}}' '{"background":"#123456"}'
+expect_eq "greeter-theme.sh: palette false keeps the wallpaper's under the theme" "#123456" "$(bg persona-wallpaper)"
 greeter_theme legacy '{"appearance":{"persona":{"enable":true,"variant":"p3r"}}}'
-css=$(cat "$tmp/greeter/legacy/regreet.css")
-expect_contains "greeter-theme.sh: legacy persona.enable still means Persona" "$css" "@define-color nb_primary #3fd4ff;"
-greeter_theme legacy-off '{"appearance":{"theme":"persona","persona":{"enable":false}}}'
-css=$(cat "$tmp/greeter/legacy-off/regreet.css")
-expect_contains "greeter-theme.sh: a migrated config (enable false) keeps its theme" "$css" "@define-color nb_primary #ff1f2d;"
-greeter_theme unknown '{"appearance":{"theme":"nope"}}' '{"primary":"#123456"}'
-css=$(cat "$tmp/greeter/unknown/regreet.css")
-expect_contains "greeter-theme.sh: an unknown theme falls back to the default" "$css" "@define-color nb_primary #123456;"
+expect_eq "greeter-theme.sh: legacy persona.enable still means Persona" "#050f26" "$(bg legacy)"
+greeter_theme unknown '{"appearance":{"theme":"nope"}}'
+expect_eq "greeter-theme.sh: an unknown theme falls back to the default" "#141313" "$(bg unknown)"
 greeter_theme bad-variant '{"appearance":{"theme":"persona","persona":{"variant":"p9"}}}'
-css=$(cat "$tmp/greeter/bad-variant/regreet.css")
-expect_contains "greeter-theme.sh: an unknown variant falls back to the first" "$css" "@define-color nb_primary #ff1f2d;"
-greeter_theme persona-wallpaper '{"appearance":{"theme":"persona","persona":{"palette":false}}}' '{"primary":"#123456"}'
-css=$(cat "$tmp/greeter/persona-wallpaper/regreet.css")
-expect_contains "greeter-theme.sh: palette false keeps the wallpaper's under the theme" "$css" "@define-color nb_primary #123456;"
-expect_contains "greeter-theme.sh: ...with the theme's shapes" "$css" "box-shadow: 7px 7px 0 0 @nb_shadow;"
+expect_eq "greeter-theme.sh: an unknown variant falls back to the first" "#0a0a0a" "$(bg bad-variant)"
 
-# Settings are the user's: nothing but colours and plain font names reach the CSS.
-greeter_theme hostile '{"appearance":{"persona":{"enable":false},"fonts":{"main":"x\"; } * { color: red"}}}' '{"primary":"red; } window { opacity: 0"}'
-css=$(cat "$tmp/greeter/hostile/regreet.css")
-expect_contains "greeter-theme.sh: invalid colours fall back" "$css" "@define-color nb_primary #cbc4cb;"
-expect_contains "greeter-theme.sh: invalid fonts fall back" "$css" 'font-family: "Roboto", "Roboto", sans-serif;'
+# What the greeter is given: the look only.
+greeter_theme exported '{"appearance":{"theme":"chiikawa","themeWallpapers":["x=/y"]},"time":{"format":"HH:mm"},"ai":{"systemPrompt":"secret"},"apps":{"terminal":"rm -rf"},"lock":{"materialShapeChars":true,"x":1}}' '{"primary":"#abcdef","secondary":"red; } *"}'
+settings=$(cat "$tmp/greeter/exported/settings.json")
+expect_eq "greeter-theme.sh: the theme, for the greeter" chiikawa "$(jq -r .appearance.theme <<<"$settings")"
+expect_eq "greeter-theme.sh: the time format" HH:mm "$(jq -r .time.format <<<"$settings")"
+expect_eq "greeter-theme.sh: nothing but the look (no ai, apps, per-variant paths)" '["appearance","language","lock","time"]' "$(jq -c 'keys' <<<"$settings")"
+expect_eq "greeter-theme.sh: ...no wallpaper lists" null "$(jq -c .appearance.themeWallpapers <<<"$settings")"
+expect_eq "greeter-theme.sh: ...only the lock's password dots" '{"materialShapeChars":true}' "$(jq -c .lock <<<"$settings")"
+expect_eq "greeter-theme.sh: the palette, invalid colours dropped" '{"primary":"#abcdef"}' "$(cat "$tmp/greeter/exported/colors.json")"
+
+# The account picture: copied when it is an image.
+printf 'png' >"$tmp/face.png"
+greeter_theme avatar "{\"profile\":{\"avatarPath\":\"file://$tmp/face.png\"}}"
+expect_eq "greeter-theme.sh: the account picture" png "$(cat "$tmp/greeter/avatar/avatar")"
+greeter_theme avatar '{"profile":{"avatarPath":"/etc/shadow"}}'
+if [ -e "$tmp/greeter/avatar/avatar" ]; then fail "greeter-theme.sh: only images as the account picture"; else pass "greeter-theme.sh: only images as the account picture"; fi
 
 # Login screen wallpaper: greeterWall, then lockWall, then the desktop's.
 printf 'desk' >"$tmp/desk.png"
