@@ -30,7 +30,7 @@ in
           French keyboard layout
         - Audio: PipeWire with ALSA and PulseAudio compatibility (PulseAudio disabled)
         - Hardware: firmware, Intel/AMD CPU microcode, Bluetooth (bluez), uinput
-        - Security: rtkit, polkit, U2F PAM (login + sudo), passwordless sudo for wheel,
+        - Security: rtkit, polkit (power actions without a password for the local user), U2F PAM (login + sudo), passwordless sudo for wheel,
           sudo executable by wheel members only
         - XDG portals: enabled (backends come from the compositor modules)
         - Nix daemon: lix package, weekly GC (7d retention), store optimisation at 03:45,
@@ -354,6 +354,32 @@ in
           polkit.addRule(function(action, subject) {
             if (action.id == "net.reactivated.fprint.device.enroll" &&
                 subject.isInGroup("wheel")) {
+              return polkit.Result.YES;
+            }
+          });
+          // Power menu (nixbook-shell, fuzzel, keybinds): the person at the
+          // machine powers it off / reboots / suspends without a password,
+          // even when logind sees another session (greeter, SSH, a second
+          // login) or an app's shutdown inhibitor, which otherwise needs admin
+          // authentication.
+          polkit.addRule(function(action, subject) {
+            var power = [
+              "org.freedesktop.login1.power-off",
+              "org.freedesktop.login1.power-off-multiple-sessions",
+              "org.freedesktop.login1.power-off-ignore-inhibit",
+              "org.freedesktop.login1.reboot",
+              "org.freedesktop.login1.reboot-multiple-sessions",
+              "org.freedesktop.login1.reboot-ignore-inhibit",
+              "org.freedesktop.login1.suspend",
+              "org.freedesktop.login1.suspend-multiple-sessions",
+              "org.freedesktop.login1.suspend-ignore-inhibit",
+              "org.freedesktop.login1.hibernate",
+              "org.freedesktop.login1.hibernate-multiple-sessions",
+              "org.freedesktop.login1.hibernate-ignore-inhibit",
+              "org.freedesktop.login1.set-reboot-to-firmware-setup"
+            ];
+            if (power.indexOf(action.id) >= 0 && subject.local && subject.active &&
+                subject.isInGroup("users")) {
               return polkit.Result.YES;
             }
           });
