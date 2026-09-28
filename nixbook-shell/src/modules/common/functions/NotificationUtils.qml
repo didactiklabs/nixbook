@@ -242,8 +242,8 @@ Singleton {
      *    a whole thread only matches on its newest message), whole words;
      *  - and share a word of 3+ characters with the local title (the sender,
      *    channel or server), so a short "ok" from someone else never matches.
-     *    A local notification without a usable title needs a 24+ character
-     *    message instead.
+     *    A title of short words only (a phone number) must appear whole
+     *    instead; without a usable title the message needs 24+ characters.
      */
     function isRelayOf(local, relay) {
         const body = root.matchText(local?.body);
@@ -252,9 +252,13 @@ Singleton {
         const relayText = root.matchText(`${relay?.summary ?? ""}\n${relay?.body ?? ""}`);
         if (relayText !== message && !relayText.endsWith(` ${message}`)) return false;
         const relayWords = new Set(relayText.split(" "));
-        const titleWords = body === "" ? []
-            : root.matchText(local?.summary).split(" ").filter(w => w.length >= 3);
-        return titleWords.length > 0 ? titleWords.some(w => relayWords.has(w)) : message.length >= 24;
+        const title = body === "" ? "" : root.matchText(local?.summary);
+        const titleWords = title.split(" ").filter(w => w.length >= 3);
+        if (titleWords.length > 0 ? titleWords.some(w => relayWords.has(w)) : message.length >= 24) return true;
+        // A title of short words only — a phone number, "+1 55 01 23 45" —
+        // counts when all of it appears before the message.
+        const before = ` ${relayText.slice(0, relayText.length - message.length)}`;
+        return title.replace(/ /g, "").length >= 6 && before.includes(` ${title} `);
     }
 
     // Same app, title and text.
