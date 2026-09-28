@@ -26,6 +26,13 @@ Item {
     anchors.fill: target
     anchors.margins: -pad
 
+    // Tonal elevation (Appearance.tonal): never drawn, whatever the call
+    // site's own `visible` says.
+    Binding on visible {
+        when: Appearance.tonal
+        value: false
+    }
+
     // The target's shape, in this item's coordinates.
     Item {
         id: rectShape

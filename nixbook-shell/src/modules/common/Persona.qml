@@ -50,7 +50,9 @@ Singleton {
     readonly property real shadowBlur: 14
     readonly property color elevationColor: Qt.alpha(root.shadowColor, 0.5)
     // Outline of panels: the variant's border colour, tonal.
-    readonly property color outlineColor: Qt.alpha(root.frameBorderColor, 0.3)
+    // A variant with an `edge` colour (p5: Royal gold) outlines in it, a
+    // little stronger; the others use their border colour, tonal.
+    readonly property color outlineColor: root.spec.edge !== undefined ? Qt.alpha(root.spec.edge, 0.55) : Qt.alpha(root.frameBorderColor, 0.3)
     // Halftone/art opacity over panels.
     readonly property real textureOpacity: 0.45
 
@@ -61,15 +63,18 @@ Singleton {
             background: "#0a0a0a", surface1: "#171213", surface2: "#1f191a", surface3: "#2a2223", surface4: "#352b2c",
             onSurface: "#f4f4f4", onSurfaceVariant: "#cfcfcf", outline: "#9c8384", outlineVariant: "#4a3b3c",
             // Black dominates, white type, red as the accent (active
-            // controls, slashes, the elevation glow); surfaces and containers
-            // are tonal: near-black warmed by the red, deep red containers.
+            // controls, slashes) and a touch of Royal gold (panel outlines,
+            // tertiary, glints in the art); surfaces and containers are
+            // tonal: near-black warmed by the red, deep red containers.
             primary: "#ff1f2d", onPrimary: "#ffffff", primaryContainer: "#5c0a13", onPrimaryContainer: "#ffdad8",
             secondary: "#ffffff", onSecondary: "#0a0a0a", secondaryContainer: "#3a2f30", onSecondaryContainer: "#f5dddd",
-            tertiary: "#ffe14d", onTertiary: "#0a0a0a", tertiaryContainer: "#3b3200", onTertiaryContainer: "#fff3b0",
+            // Tertiary: Royal gold (the key art's sparkles and bronze panels).
+            tertiary: "#e8b64c", onTertiary: "#1a1204", tertiaryContainer: "#3d2c0c", onTertiaryContainer: "#ffe2a6",
             error: "#ff5449", onError: "#ffffff", errorContainer: "#93000a", onErrorContainer: "#ffdad6",
             frame: "#151112", frameBorder: "#ffffff", shadow: "#e60012", stripe: "#e60012", ink: "#ffffff",
+            edge: "#d9a441",
             // Phone chat (notification popups): white bubbles, black type
-            bubble: "#ffffff", bubbleText: "#0a0a0a", tag: "#0a0a0a", tagText: "#ffffff", mugBorder: "#ffffff"
+            bubble: "#ffffff", bubbleText: "#0a0a0a", tag: "#0a0a0a", tagText: "#ffffff", mugBorder: "#d9a441"
         },
         "p3r": {
             background: "#050f26", surface1: "#0c1d42", surface2: "#112656", surface3: "#17316c", surface4: "#1d3c82",

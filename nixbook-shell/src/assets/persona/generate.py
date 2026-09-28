@@ -53,14 +53,36 @@ def halftone(color, opacity, step, rmax, weight):
     return f'<path d="{"".join(out)}" fill="{color}" opacity="{opacity}"/>'
 
 
+def sparkle(x, y, r):
+    """Four-pointed star (a lens-flare glint)."""
+    t = r * 0.16
+    return (f"M{f(x)} {f(y - r)}L{f(x + t)} {f(y - t)}L{f(x + r)} {f(y)}L{f(x + t)} {f(y + t)}"
+            f"L{f(x)} {f(y + r)}L{f(x - t)} {f(y + t)}L{f(x - r)} {f(y)}L{f(x - t)} {f(y - t)}Z")
+
+
 def p5():
-    body = rays(-40, H + 40, 22, "#e60012", 0.22, phase=-1.2)
+    # Royal: a bronze glow behind the red burst, and gold glints.
+    defs = (
+        '<radialGradient id="bronze" cx="0.18" cy="0.2" r="0.9">'
+        '<stop offset="0" stop-color="#b8802e" stop-opacity="0.28"/>'
+        '<stop offset="1" stop-color="#b8802e" stop-opacity="0"/></radialGradient>'
+    )
+    body = f'<rect width="{W}" height="{H}" fill="url(#bronze)"/>'
+    body += rays(-40, H + 40, 22, "#e60012", 0.22, phase=-1.2)
     body += halftone("#ffffff", 0.10, 13, 4.2, lambda x, y: max(0.0, (x / W + (H - y) / H) / 2 - 0.35) * 1.6)
     # Sharp slashes: a white blade and a red one crossing the top-right.
     body += f'<path d="M{W * 0.62} -10 L{W + 10} -10 L{W + 10} {H * 0.22} L{W * 0.78} {H * 0.08}Z" fill="#ffffff" opacity="0.13"/>'
     body += f'<path d="M{W * 0.70} -10 L{W + 10} -10 L{W + 10} {H * 0.12}Z" fill="#e60012" opacity="0.55"/>'
     body += f'<path d="M-10 {H * 0.86} L{W * 0.34} {H * 0.74} L{W * 0.30} {H * 0.80} L-10 {H + 10}Z" fill="#ffffff" opacity="0.08"/>'
-    return svg(body)
+    # A thin gold blade along the red one.
+    body += f'<path d="M{W * 0.58} -10 L{W * 0.61} -10 L{W + 10} {H * 0.24} L{W + 10} {H * 0.265}Z" fill="#e8b64c" opacity="0.45"/>'
+    # Gold glints: a few four-pointed sparkles and specks.
+    random.seed(5)
+    glints = "".join(sparkle(random.uniform(W * 0.1, W * 0.95), random.uniform(H * 0.08, H * 0.9), random.uniform(5, 11)) for _ in range(6))
+    specks = "".join(sparkle(random.uniform(0, W), random.uniform(0, H), 2.2) for _ in range(14))
+    body += f'<path d="{glints}" fill="#ffd98a" opacity="0.4"/>'
+    body += f'<path d="{specks}" fill="#ffc861" opacity="0.3"/>'
+    return svg(body, defs)
 
 
 def p3r():

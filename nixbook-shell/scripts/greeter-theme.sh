@@ -60,7 +60,8 @@ theme=$(jq -n \
        primary_container: $spec.primaryContainer, on_primary_container: $spec.onPrimaryContainer,
        secondary_container: $spec.secondaryContainer, on_secondary_container: $spec.onSecondaryContainer,
        error: $spec.error, error_container: $spec.errorContainer, on_error_container: $spec.onErrorContainer,
-       frame: $spec.frame, frame_border: $spec.frameBorder, shadow: $spec.shadow, stripe: $spec.stripe
+       frame: $spec.frame, frame_border: $spec.frameBorder, shadow: $spec.shadow, stripe: $spec.stripe,
+       edge: ($spec.edge // $spec.frameBorder)
      }
    else
      {
@@ -73,13 +74,16 @@ theme=$(jq -n \
        secondary_container: m3("secondary_container"), on_secondary_container: m3("on_secondary_container"),
        error: m3("error"), error_container: m3("error_container"), on_error_container: m3("on_error_container"),
        frame: m3("surface_container"), frame_border: m3("outline_variant"), shadow: "#000000",
-       stripe: m3("primary")
+       stripe: m3("primary"), edge: m3("outline_variant")
      }
    end) as $colors
   | {
       colors: ($colors | with_entries(.value = color(.value; "#808080"))),
       persona: $persona,
       variant: $variant,
+      # Persona.outlineColor: a variant with its own edge colour (the p5 gold)
+      # outlines a little stronger.
+      edgeAlpha: (if $persona and ($spec.edge != null) then 0.55 else 0.3 end),
       shapes: ($persona and ($p.shapes != false)),
       halftone: ($persona and ($p.halftone != false)),
       titleFont: (if $persona and ($p.fonts != false) then "Oswald"
@@ -141,14 +145,14 @@ c() { get ".colors.$1"; }
 shapes=$(get .shapes)
 if [ "$shapes" = true ]; then
   # Persona.qml tokens: the cut (cornerLarge 18 on top-left and bottom-right,
-  # corner 6 elsewhere), a 1 px tonal outline, a soft accent glow offset by
-  # 4 px (blur 14, half opacity), the accent stripe as a pill on the top edge.
+  # corner 6 elsewhere), a 1 px tonal outline (Persona.outlineColor), the
+  # accent stripe as a pill on the top edge. Tonal elevation: no glow.
   radius="18px 6px 18px 6px"
   field_radius="8px"
   button_radius="12px 4px 12px 4px"
-  card_border="1px solid alpha(@nb_frame_border, 0.3)"
-  card_shadow="4px 4px 14px 0 alpha(@nb_shadow, 0.5)"
-  button_shadow="3px 3px 10px 0 alpha(@nb_shadow, 0.45)"
+  card_border="1px solid alpha(@nb_edge, $(get .edgeAlpha))"
+  card_shadow="none"
+  button_shadow="none"
   stripe_layer="linear-gradient(to right, transparent 10%, @nb_stripe 10%, @nb_stripe 38%, transparent 38%)"
   title_style="font-style: italic; font-weight: 700; letter-spacing: 1px;"
 else
@@ -156,7 +160,8 @@ else
   field_radius="9999px"
   button_radius="9999px"
   card_border="1px solid alpha(@nb_frame_border, 0.6)"
-  card_shadow="0 8px 28px 0 alpha(black, 0.45)"
+  # Tonal elevation, like the shell: the outline instead of a shadow.
+  card_shadow="none"
   button_shadow="none"
   stripe_layer=""
   title_style="font-weight: 600;"
@@ -211,6 +216,7 @@ cat >"$NB_OUT/.regreet.css.tmp" <<EOF
 @define-color nb_frame_border $(c frame_border);
 @define-color nb_shadow $(c shadow);
 @define-color nb_stripe $(c stripe);
+@define-color nb_edge $(c edge);
 
 @define-color accent_color @nb_primary;
 @define-color accent_bg_color @nb_primary;
@@ -231,7 +237,7 @@ window, window.background {
 }
 
 /* Login card and clock: the shell's panels (PersonaFrame in the Persona
-   style: the Persona cut, accent glow, tonal outline, accent stripe, halftone art). */
+   style: the Persona cut, tonal outline, accent stripe, halftone art). */
 overlay > frame.background {
   background-color: @nb_frame;
   $texture

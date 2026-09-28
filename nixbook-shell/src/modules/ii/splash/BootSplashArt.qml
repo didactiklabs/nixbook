@@ -100,7 +100,7 @@ Item {
             // Slant of the Persona bar (x shear), about its vertical center.
             readonly property real lean: Persona.shapes ? -0.25 : 0
             RectangularShadow {
-                visible: Persona.shapes
+                visible: Persona.shapes && !Appearance.tonal
                 anchors.fill: track
                 radius: track.radius
                 offset: Qt.vector2d(Persona.shadowOffset, Persona.shadowOffset)

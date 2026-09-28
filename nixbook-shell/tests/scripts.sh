@@ -302,9 +302,15 @@ greeter_theme p3r '{"appearance":{"persona":{"enable":true,"variant":"p3r"}}}'
 css=$(cat "$tmp/greeter/p3r/regreet.css")
 expect_contains "greeter-theme.sh: Persona variant palette" "$css" "@define-color nb_primary #3fd4ff;"
 expect_contains "greeter-theme.sh: Persona halftone art" "$css" 'url("file:///textures/p3r-panel.png")'
-expect_contains "greeter-theme.sh: Persona accent glow" "$css" "box-shadow: 4px 4px 14px 0 alpha(@nb_shadow, 0.5);"
+expect_contains "greeter-theme.sh: tonal elevation, no glow" "$css" "box-shadow: none;"
+expect_contains "greeter-theme.sh: Persona tonal outline" "$css" "border: 1px solid alpha(@nb_edge, 0.3);"
 expect_contains "greeter-theme.sh: Persona cut corners" "$css" "border-radius: 18px 6px 18px 6px;"
 expect_contains "greeter-theme.sh: Persona display font" "$css" '"Oswald"'
+
+greeter_theme p5 '{"appearance":{"persona":{"enable":true}}}'
+css=$(cat "$tmp/greeter/p5/regreet.css")
+expect_contains "greeter-theme.sh: p5 gold edge" "$css" "@define-color nb_edge #d9a441;"
+expect_contains "greeter-theme.sh: p5 outline in its edge colour" "$css" "border: 1px solid alpha(@nb_edge, 0.55);"
 
 greeter_theme material '{"appearance":{"persona":{"enable":false,"variant":"p3r"}}}' '{"primary":"#123456"}'
 css=$(cat "$tmp/greeter/material/regreet.css")

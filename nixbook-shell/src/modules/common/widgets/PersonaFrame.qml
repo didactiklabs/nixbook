@@ -7,9 +7,9 @@ import qs.modules.common
  * Persona-style panel frame, drawn *behind* content (content stays straight
  * and readable): slanted body (shear about the vertical center) with the
  * Persona cut — a large radius on the top-left and bottom-right corners, a
- * small one on the others — a soft accent glow for elevation, a thin tonal
- * outline, the accent slash along the top edge and the halftone art. Static:
- * no per-frame work.
+ * small one on the others — a thin tonal outline, the accent slash along
+ * the top edge and the halftone art. Tonal elevation: the accent glow is
+ * only drawn if Appearance.tonal is turned off. Static: no per-frame work.
  *
  * Fill the area the panel background would cover:
  *   PersonaFrame { anchors.fill: popupBackground }
@@ -43,7 +43,7 @@ Item {
     }
 
     RectangularShadow {
-        visible: root.showShadow
+        visible: root.showShadow && !Appearance.tonal
         anchors.fill: body
         offset: Qt.vector2d(Persona.shadowOffset, Persona.shadowOffset)
         blur: Persona.shadowBlur
@@ -63,8 +63,9 @@ Item {
         color: root.color
         border.width: Persona.borderWidth
         border.color: root.borderColor
-        clip: true
 
+        // No `clip`: the art already fills the body exactly (a cropped
+        // Image), and a clip under the shear is a stencil pass every frame.
         PersonaTexture {
             anchors.fill: parent
             anchors.margins: Persona.borderWidth

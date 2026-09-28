@@ -3,8 +3,10 @@
 A Quickshell (QML) desktop shell for niri and Hyprland: bar, dock, sidebars,
 launcher, notifications, lock screen, desktop widgets, an AI chat and the
 optional Persona style (the Persona art direction rendered with Material 3
-manners: rounded corners with the Persona cut, soft accent glow, tonal
-surfaces). It started as a fork of
+manners: rounded corners with the Persona cut, tonal surfaces). Both looks use
+Material 3 tonal elevation: surfaces are told apart by their tone and a thin
+outline, with no shadows or glows, which keeps them light on integrated GPUs.
+It started as a fork of
 [pctrade/end4-pC](https://github.com/pctrade/end4-pC), itself a fork of end-4's
 illogical-impulse, and is maintained here as a hard fork (credits and licence
 in `src/`).
