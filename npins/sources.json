@@ -118,9 +118,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "ef908222d632f8da58c3df78702f5465d5cde3ee",
-      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/ef908222d632f8da58c3df78702f5465d5cde3ee.tar.gz",
-      "hash": "sha256-Y2UUcRgOM13wYqOdQTdVpym5Mj/T3rg/1PM5RssliBk="
+      "revision": "90ddfd245f2554aab70c4dcdb69209c714e6ac7b",
+      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/90ddfd245f2554aab70c4dcdb69209c714e6ac7b.tar.gz",
+      "hash": "sha256-iYXRvNBf1sOA7hDwGM3mB1sk2FaX0RlnlUUOW7kbc1U="
     },
     "ds4drv": {
       "type": "Git",
