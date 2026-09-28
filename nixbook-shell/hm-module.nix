@@ -430,6 +430,18 @@ in
       '';
     };
 
+    splash.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Show the shell's loading screen from the moment the session starts
+        (`nixbook-shell splash`, the `nixbook-shell-splash` user service),
+        until the shell has loaded and its own loading screen takes over: no
+        black screen or half-drawn desktop between the login screen and the
+        shell.
+      '';
+    };
+
     assistant = {
       context = lib.mkOption {
         type = lib.types.lines;
@@ -716,6 +728,30 @@ in
         ExecStart = lib.getExe cfg.package;
         Restart = "on-failure";
         RestartSec = 2;
+        Slice = "app.slice";
+      };
+      Install.WantedBy = [ "graphical-session.target" ];
+    };
+
+    # Started before the shell (Before=): a small instance that is up well
+    # before the shell's QML has loaded. It quits by itself once the shell's
+    # BootSplash is on screen (the marker below), or after 20 s.
+    systemd.user.services.nixbook-shell-splash = lib.mkIf cfg.splash.enable {
+      Unit = {
+        Description = "nixbook-shell loading screen (until the shell is up)";
+        PartOf = [ "graphical-session.target" ];
+        After = [ "graphical-session.target" ];
+        Before = [ "nixbook-shell.service" ];
+      };
+      Service = {
+        Type = "simple";
+        # Only while the shell isn't up yet (session start), never when a
+        # switch (re)starts this unit under a running shell.
+        ExecCondition = "${pkgs.bash}/bin/bash -c '! ${pkgs.systemd}/bin/systemctl --user is-active --quiet nixbook-shell.service'";
+        # A marker left by the previous shell start in this session.
+        ExecStartPre = "${pkgs.coreutils}/bin/rm -f %t/nixbook-shell/boot-splash-shown";
+        ExecStart = "${lib.getExe cfg.package} splash";
+        Restart = "no";
         Slice = "app.slice";
       };
       Install.WantedBy = [ "graphical-session.target" ];

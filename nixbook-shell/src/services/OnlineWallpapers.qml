@@ -426,7 +426,7 @@ Singleton {
     // Downloads live here, not in the grid: they keep going when the selector
     // closes or switches source, and several can be queued. `apply` sets the
     // wallpaper once the file is there (target = the selector's target at click
-    // time: "wallpaper" or "lockWall").
+    // time: "wallpaper", "lockWall" or "greeterWall").
     property var downloadQueue: []
     readonly property bool downloading: downloadProc.running || root.downloadQueue.length > 0
     signal downloadFinished(string path, bool ok)
@@ -467,9 +467,9 @@ Singleton {
 
     function _apply(path, target) {
         const dark = Appearance.m3colors.darkmode;
-        if (target === "lockWall") {
+        if (target === "lockWall" || target === "greeterWall") {
             Wallpapers.select(path, dark, finalPath => {
-                Config.options.background.lockWall = finalPath;
+                Config.options.background[target] = finalPath;
             });
         } else {
             if (Config.options.background.enableWallpaperPreview)

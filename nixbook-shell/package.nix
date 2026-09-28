@@ -1,6 +1,7 @@
 { pkgs, quickshellSrc }:
 # The `nixbook-shell` launcher: `nixbook-shell` starts the shell,
-# `nixbook-shell ipc call <target> <fn>` drives it, `nixbook-shell config …` relates the
+# `nixbook-shell ipc call <target> <fn>` drives it, `nixbook-shell splash` shows
+# the loading screen until it is up, `nixbook-shell config …` relates the
 # live settings to Nix. `passthru` carries the pieces the Home Manager module
 # (hm-module.nix) needs. See README.md for the layout of this directory.
 let
@@ -149,6 +150,12 @@ let
     # it in the environment for another theme. Set here rather than in home.sessionVariables
     # so it also applies to the systemd unit without needing a re-login.
     export QS_ICON_THEME="''${QS_ICON_THEME:-Papirus-Dark}"
+    # `nixbook-shell splash`: the loading screen shown while the shell starts
+    # (src/earlySplash.qml, its own instance: quits once the shell's is up).
+    if [ "''${1:-}" = "splash" ]; then
+      shift
+      exec ${quickshell}/bin/qs -p ${shell}/earlySplash.qml "$@"
+    fi
     exec ${quickshell}/bin/qs -c ${configName} "$@"
   '';
 in

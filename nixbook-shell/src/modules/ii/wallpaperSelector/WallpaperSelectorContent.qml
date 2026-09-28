@@ -63,9 +63,11 @@ MouseArea {
 
     function selectWallpaperPath(filePath) {
         if (filePath && filePath.length > 0) {
-            if (GlobalStates.wallpaperSelectorTarget === "lockWall") {
+            // Lock / login screen wallpapers: just remember the file.
+            const target = GlobalStates.wallpaperSelectorTarget;
+            if (target === "lockWall" || target === "greeterWall") {
                 Wallpapers.select(filePath, root.useDarkMode, finalPath => {
-                    Config.options.background.lockWall = finalPath;
+                    Config.options.background[target] = finalPath;
                     GlobalStates.wallpaperSelectorTarget = "wallpaper";
                     GlobalStates.wallpaperSelectorOpen = false;
                 });

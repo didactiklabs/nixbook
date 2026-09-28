@@ -116,6 +116,14 @@ let
     "lanzaboote replaces systemd-boot when enabled" =
       custom.lanzaboote.enable
       -> (config.boot.lanzaboote.enable && !config.boot.loader.systemd-boot.enable);
+    "greetd login keeps U2F, fingerprint and keyring unlock (whatever the greeter)" =
+      custom.greetd.enable
+      -> (
+        let
+          pam = config.security.pam.services.greetd;
+        in
+        pam.u2fAuth && pam.fprintAuth && pam.enableGnomeKeyring
+      );
     "firewall module turns on the nftables firewall" =
       custom.firewall.enable -> (config.networking.firewall.enable && config.networking.nftables.enable);
 

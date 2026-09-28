@@ -86,6 +86,7 @@
     "centeredWallpaperShape": "Cookie7Sided",
     "centeredWallpaperSize": 400,
     "enableWallpaperPreview": false,
+    "greeterWall": "",
     "hideWhenFullscreen": true,
     "lockWall": "",
     "parallax": {

@@ -43,6 +43,41 @@ The shell runs as the `nixbook-shell` user service. Bind keys to
 (`search toggle`, `sidebarLeft toggle`, `sidebarRight toggle`,
 `settings toggle`, `lock activate`, …).
 
+## Login screen and loading screen
+
+On NixOS, `nixbook-shell.greeter` (`greeter.nix`, part of
+`nixosModules.default`) makes the login screen match the shell: greetd with
+[ReGreet](https://github.com/rharish101/ReGreet) in cage, themed from one
+user's live settings — the Material palette generated from the wallpaper, or
+the Persona style in its variant — and showing the login screen wallpaper.
+
+```nix
+nixbook-shell.greeter = {
+  enable = true;
+  user = "alice";               # whose shell settings it follows
+  background = ./login.jpg;     # optional: default login screen wallpaper
+};
+```
+
+The Settings menu (Background > Wallpaper) sets the desktop, lock screen
+(`background.lockWall`) and login screen (`background.greeterWall`, shown when
+the greeter is enabled for this user) wallpapers separately; an empty one
+falls back to the lock screen's, then the desktop's. Both can also be set in
+Nix through `programs.nixbook-shell.settings.background`. The
+`nixbook-shell-greeter-theme` service renders the theme into
+`/var/lib/nixbook-shell-greeter` as that user whenever the settings or palette
+change (`scripts/greeter-theme.sh`, Persona colours read from
+`Persona.qml` by `scripts/persona-palettes.py`); before its first run the
+greeter uses the same theme built from the settings set in Nix.
+Authentication is greetd's PAM service: ReGreet shows and answers PAM's
+messages, so security keys (pam_u2f's cue) and fingerprints work.
+
+After login, `nixbook-shell splash` (the `nixbook-shell-splash` user service,
+`splash.enable`) shows the shell's loading screen (`src/earlySplash.qml`,
+drawing the same `BootSplashArt` as the shell's own BootSplash) from the
+start of the session until the shell's BootSplash is up, then fades out: no
+black screen or half-drawn desktop in between.
+
 ## Settings
 
 Settings live in `~/.config/nixbook-shell/config.json` and are edited from the
@@ -85,20 +120,21 @@ isn't sure.
 
 ## Layout
 
-| Path               | What                                                           |
-| ------------------ | -------------------------------------------------------------- |
-| `default.nix`      | entry point (`package`, `homeManagerModules.default`, `lib`)   |
-| `package.nix`      | the launcher: runtime `PATH`, QML import path, `config` CLI    |
-| `qml.nix`          | the QML tree as installed (store-path fixups, Persona art)     |
-| `quickshell.nix`   | Quickshell from `quickshellSrc` plus `patches/`                |
-| `lib.nix`          | typed settings options generated from `builtin-defaults.json`  |
-| `hm-module.nix`    | the Home Manager module `programs.nixbook-shell`               |
-| `nixos-module.nix` | optional NixOS module: the system's toggles for the assistant  |
-| `toggles.nix`      | discovers the `enable` toggles from an options tree            |
-| `scripts/`         | `config` CLI, its jq library, assistant facts, Anthropic usage |
-| `npins/`           | default nixpkgs and quickshell pins                            |
-| `src/`             | the vendored QML tree (edited in place)                        |
-| `tests/`           | script tests, lib unit tests, the self-containment check       |
+| Path               | What                                                                               |
+| ------------------ | ---------------------------------------------------------------------------------- |
+| `default.nix`      | entry point (`package`, `homeManagerModules.default`, `lib`)                       |
+| `package.nix`      | the launcher: runtime `PATH`, QML import path, `config` CLI                        |
+| `qml.nix`          | the QML tree as installed (store-path fixups, Persona art)                         |
+| `quickshell.nix`   | Quickshell from `quickshellSrc` plus `patches/`                                    |
+| `lib.nix`          | typed settings options generated from `builtin-defaults.json`                      |
+| `hm-module.nix`    | the Home Manager module `programs.nixbook-shell`                                   |
+| `nixos-module.nix` | optional NixOS module: the system's toggles for the assistant                      |
+| `greeter.nix`      | the login screen (`nixbook-shell.greeter`, imported by it)                         |
+| `toggles.nix`      | discovers the `enable` toggles from an options tree                                |
+| `scripts/`         | `config` CLI, its jq library, assistant facts, Anthropic usage, login screen theme |
+| `npins/`           | default nixpkgs and quickshell pins                                                |
+| `src/`             | the vendored QML tree (edited in place)                                            |
+| `tests/`           | script tests, lib unit tests, the self-containment check                           |
 
 ## Tests
 
