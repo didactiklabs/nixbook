@@ -111,7 +111,6 @@
   "OK": "Tamam",
   "Settings": "Ayarlar",
   "This is usually safe and needed for your browser and AI sidebar anyway\nMostly useful for those who use lock on startup instead of a display manager that does it (GDM, SDDM, etc.)": "Bu genellikle güvenlidir ve tarayıcınız ve AI kenar çubuğu için zaten gereklidir\nÇoğunlukla başlangıçta kilitleme kullanıp bunu yapan bir görüntü yöneticisi (GDM, SDDM, vb.) kullanmayanlar için faydalıdır",
-  "Use Hyprlock (instead of Quickshell)": "Hyprlock kullan (Quickshell yerine)",
   "Crosshair code (in Valorant's format)": "Nişangah kodu (Valorant formatında)",
   "Silent": "Sessiz",
   "Useless buttons": "İşe yaramaz düğmeler",

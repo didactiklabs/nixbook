@@ -101,7 +101,6 @@
   "OK": "OK",
   "Settings": "Настройки",
   "This is usually safe and needed for your browser and AI sidebar anyway\nMostly useful for those who use lock on startup instead of a display manager that does it (GDM, SDDM, etc.)": "Обычно безопасно и нужно для браузера и AI-панели\nПолезно при блокировке при запуске вместо менеджера дисплея (GDM, SDDM и т.д)",
-  "Use Hyprlock (instead of Quickshell)": "Использовать Hyprlock (вместо Quickshell)",
   "Crosshair code (in Valorant's format)": "Код прицела (формат Valorant)",
   "Silent": "Тихий",
   "Useless buttons": "Бесполезные кнопки",

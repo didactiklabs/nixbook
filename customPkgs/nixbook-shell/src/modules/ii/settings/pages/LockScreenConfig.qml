@@ -47,14 +47,6 @@ ContentPage {
 
             GroupedList {
                 ConfigSwitch {
-                    configKey: "lock.useHyprlock";
-                    enabled: !nixManaged;
-                    buttonIcon: "water_drop"
-                    text: Translation.tr("Use Hyprlock (instead of Quickshell)")
-                    checked: Config.options.lock.useHyprlock
-                    onCheckedChanged: { Config.options.lock.useHyprlock = checked }
-                }
-                ConfigSwitch {
                     configKey: "lock.launchOnStartup";
                     enabled: !nixManaged;
                     buttonIcon: "account_circle"

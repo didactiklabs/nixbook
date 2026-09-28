@@ -536,8 +536,7 @@
     "showLockedText": true,
     "showMedia": true,
     "showToolbars": true,
-    "showWidgets": false,
-    "useHyprlock": false
+    "showWidgets": false
   },
   "media": {
     "filterDuplicatePlayers": true
