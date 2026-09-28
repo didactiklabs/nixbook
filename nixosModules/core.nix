@@ -278,7 +278,7 @@ in
       # - unlocks the keyring on TTY password logins (PAM login service)
       # - adds a cap_ipc_lock wrapper so the daemon can mlock() its memory
       # The per-user daemon itself is started by Home Manager
-      # (services.gnome-keyring in nixosModules/userConfig.nix mkUser).
+      # (services.gnome-keyring in lib/userConfig.nix mkUser).
       gnome.gnome-keyring.enable = true;
       fwupd.enable = true;
       upower.enable = true;

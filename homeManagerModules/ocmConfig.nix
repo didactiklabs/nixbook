@@ -7,7 +7,7 @@
 let
   cfg = config.customHomeManagerModules.ocmConfig;
   yamlFormat = pkgs.formats.yaml { };
-  opencode-manager = import ../customPkgs/opencode-manager.nix { inherit pkgs; };
+  inherit (pkgs.customPkgs) opencode-manager;
 
   nixProfile = "/nix/var/nix/profiles/default";
 

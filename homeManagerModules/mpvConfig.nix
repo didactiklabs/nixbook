@@ -5,8 +5,7 @@
   ...
 }:
 let
-  ytui = import ../customPkgs/ytui.nix { inherit pkgs; };
-  jtui = import ../customPkgs/jtui.nix { inherit pkgs; };
+  inherit (pkgs.customPkgs) ytui jtui;
   cfg = config.customHomeManagerModules;
   mpvScripts = with pkgs.mpvScripts; [
     thumbfast

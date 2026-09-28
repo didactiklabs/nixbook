@@ -11,12 +11,7 @@
 */
 let
   sources = import ../npins;
-  pkgs = import sources.nixpkgs {
-    config = {
-      allowUnfree = true;
-      allowUnfreePredicate = true;
-    };
-  };
+  pkgs = import ../lib/pkgs.nix { inherit sources; };
   inherit (pkgs) lib;
 
   # -- HM lib with hm extensions (needed for lib.hm.*) -------------------------
@@ -39,6 +34,8 @@ let
   # -- NixOS Modules -----------------------------------------------------------
   nixosEval = import (sources.nixpkgs + "/nixos/lib/eval-config.nix") {
     system = "x86_64-linux";
+    # The overlaid pkgs (lib/pkgs.nix): modules use `pkgs.customPkgs.*`.
+    inherit pkgs;
     modules = [
       (import "${sources.lanzaboote}" {
         inherit pkgs;

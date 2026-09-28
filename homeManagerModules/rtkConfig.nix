@@ -6,7 +6,7 @@
 }:
 let
   cfg = config.customHomeManagerModules.rtk;
-  rtk = import ../customPkgs/rtk.nix { inherit pkgs; };
+  inherit (pkgs.customPkgs) rtk;
 in
 {
   options.customHomeManagerModules.rtk = {

@@ -11,7 +11,7 @@ let
   # entry shadows the original. Home Manager's xdg.desktopEntries adds these as
   # hiPrio desktop-item packages to the user profile, overriding the originals
   # there. Entries installed system-wide (e.g. qt5ct/qt6ct) are hidden
-  # separately in nixosModules/userConfig.nix.
+  # separately in lib/userConfig.nix.
   hiddenEntries = [
     # Qt / theme settings tools
     "qt5ct"
@@ -66,7 +66,7 @@ in
 
         Implemented via hiPrio desktop-item packages with NoDisplay=true that
         shadow the originals in the user profile. System-wide qt5ct/qt6ct are
-        hidden separately in nixosModules/userConfig.nix.
+        hidden separately in lib/userConfig.nix.
       '';
     };
   };

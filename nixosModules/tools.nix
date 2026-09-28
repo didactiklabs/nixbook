@@ -10,7 +10,7 @@ let
   ds4drv = pkgs.python313Packages.ds4drv.overrideAttrs (oldAttrs: {
     src = sources.ds4drv;
   });
-  ginx = import ../customPkgs/ginx.nix { inherit pkgs; };
+  inherit (pkgs.customPkgs) ginx;
   osupdate = pkgs.writeShellScriptBin "osupdate" ''
     set -euo pipefail
     # colmena evaluates the hive with nix (not on a systemd unit's PATH: its
