@@ -213,6 +213,13 @@ in
 
     programs.niri = {
       settings = {
+        # niri draws its own cursor and exports it (XCURSOR_THEME/SIZE) to what
+        # it spawns; niri-flake defaults it to the "default" theme, so follow
+        # the Home Manager cursor (Stylix's, or a profile's own).
+        cursor = lib.mkIf (config.home.pointerCursor.enable or false) {
+          theme = config.home.pointerCursor.name;
+          inherit (config.home.pointerCursor) size;
+        };
         prefer-no-csd = true;
         hotkey-overlay.skip-at-startup = true;
 
