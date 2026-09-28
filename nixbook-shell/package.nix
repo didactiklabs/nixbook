@@ -1,4 +1,9 @@
-{ pkgs, quickshellSrc }:
+{
+  pkgs,
+  quickshellSrc,
+  dankcalendarSrc,
+  flakeCompatSrc,
+}:
 # The `nixbook-shell` launcher: `nixbook-shell` starts the shell,
 # `nixbook-shell ipc call <target> <fn>` drives it, `nixbook-shell splash` shows
 # the loading screen until it is up, `nixbook-shell config …` relates the
@@ -9,6 +14,7 @@ let
 
   shell = import ./qml.nix { inherit pkgs; };
   quickshell = import ./quickshell.nix { inherit pkgs quickshellSrc; };
+  dankcalendar = import ./dankcalendar.nix { inherit pkgs dankcalendarSrc flakeCompatSrc; };
   settingsLib = import ./lib.nix { inherit lib; };
   inherit (shell.passthru) configName;
 
@@ -78,6 +84,7 @@ let
     ])
     ++ [
       quickshell # `qs` — the shell re-invokes itself for sub-windows
+      dankcalendar # `dcal` — calendar events and tasks (CalendarEvents, Todo)
       shell.passthru.pythonEnv
       anthropicUsage # `anthropic-usage` — AnthropicUsage bar widget
     ];
@@ -164,6 +171,7 @@ launcher.overrideAttrs (old: {
     inherit
       shell
       quickshell
+      dankcalendar
       configName
       settingsLib
       cliphistWatch

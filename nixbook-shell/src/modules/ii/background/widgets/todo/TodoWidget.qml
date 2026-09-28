@@ -111,6 +111,13 @@ AbstractBackgroundWidget {
                     }
                     Item { Layout.fillWidth: true }
 
+                    // Tasks synced through DankCalendar (Google Tasks…).
+                    CalendarAccountButton {
+                        Layout.alignment: Qt.AlignVCenter
+                        size: 34
+                        colIcon: Appearance.colors.colOnPrimaryContainer
+                    }
+
                     ToolbarPairedFab {
                         Layout.rightMargin: 4
                         Layout.alignment: Qt.AlignVCenter

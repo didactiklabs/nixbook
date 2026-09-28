@@ -81,6 +81,16 @@ Item {
         }
     }
 
+    // Tasks synced through DankCalendar (Google Tasks…): connect an
+    // account, or open it.
+    CalendarAccountButton {
+        anchors.left: parent.left
+        anchors.bottom: parent.bottom
+        anchors.leftMargin: root.fabMargins
+        anchors.bottomMargin: root.fabMargins + (root.fabSize - size) / 2
+        size: 36
+    }
+
     // + FAB
     StyledRectangularShadow {
         target: fabButton

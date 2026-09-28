@@ -13,7 +13,6 @@
 let
   cfg = config.customHomeManagerModules.nixbookShellConfig;
   sources = import ../npins;
-  dankcalendarFlake = import sources.flake-compat { src = sources.dankcalendar; };
 
   os = osConfig;
   hostName = if os != null then os.networking.hostName else "unknown";
@@ -117,23 +116,6 @@ in
     '';
   };
 
-  options.customHomeManagerModules.nixbookShellConfig.enableDankCalendar = lib.mkOption {
-    type = lib.types.bool;
-    default = true;
-    description = ''
-      Whether to show calendar events in nixbook-shell's calendars (sidebar
-      and desktop widget), synced by DankCalendar (`dcal`, the repository's
-      pin, as with dmsConfig): its daemon runs as the `dcal` user service
-      (`programs.nixbook-shell.calendar.package`).
-
-      Google needs no OAuth client of your own: dcal ships one. Sign in once
-      with `dcal account add google` (the browser opens Google's login), or
-      from dcal's window ("Open calendar app" in the calendar); the token
-      lives in the keyring and is refreshed by dcal. Microsoft, CalDAV,
-      iCloud and iCal feeds are added the same way.
-    '';
-  };
-
   config = lib.mkIf cfg.enable {
     assertions = [
       {
@@ -154,9 +136,11 @@ in
         (import ../nixbook-shell {
           inherit pkgs;
           quickshellSrc = sources.quickshell;
+          # DankCalendar (the shell's calendar and task sync), the same pin
+          # as dmsConfig's.
+          dankcalendarSrc = sources.dankcalendar;
+          flakeCompatSrc = sources.flake-compat;
         }).package;
-      calendar.package = lib.mkIf cfg.enableDankCalendar (dankcalendarFlake.defaultNix.lib.buildDcalPkgs pkgs)
-      .dankcalendar;
       # Shared settings, as defaults so a profile's `settings` win key by key.
       settings = lib.mapAttrsRecursive (_: lib.mkDefault) (import ./nixbookShellConfig/settings.nix);
 

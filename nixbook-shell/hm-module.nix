@@ -162,123 +162,161 @@ let
     toggles = osToggles ++ hmToggles;
   };
 
+  # How the calendars and to-do list sync, through DankCalendar (`dcal`,
+  # always part of the shell): for the config assistant and the AI chat.
+  calendarHowTo = {
+    calendarConnect = {
+      en = "To sync the shell's calendar with Google Calendar, click the person icon (Connect a Google account) in a calendar or to-do widget (sidebar, desktop, bar clock popup), or run `dcal account add google`: the browser opens Google's login, you sign in and accept, and that's all. DankCalendar (dcal) ships its own Google OAuth client, so no client ID, secret or Google Cloud project is needed; the token is kept in the keyring and renewed by dcal.";
+      fr = "Pour synchroniser le calendrier du shell avec Google Agenda, cliquez sur l'icône de personne (Connecter un compte Google) dans un widget calendrier ou tâches (panneau latéral, bureau, horloge de la barre), ou lancez `dcal account add google` : le navigateur ouvre la connexion Google, vous vous connectez et acceptez, c'est tout. DankCalendar (dcal) fournit son propre client OAuth Google : aucun identifiant client, secret ni projet Google Cloud n'est nécessaire ; le jeton est gardé dans le trousseau et renouvelé par dcal.";
+      de = "Um den Kalender der Shell mit Google Kalender zu synchronisieren, klicke auf das Personensymbol (Google-Konto verbinden) in einem Kalender- oder Aufgaben-Widget (Seitenleiste, Desktop, Uhr-Popup der Leiste) oder führe `dcal account add google` aus: Der Browser öffnet die Google-Anmeldung, du meldest dich an und stimmst zu, fertig. DankCalendar (dcal) bringt einen eigenen Google-OAuth-Client mit, es braucht also keine Client-ID, kein Secret und kein Google-Cloud-Projekt; das Token liegt im Schlüsselbund und wird von dcal erneuert.";
+      vi = "Để đồng bộ lịch của shell với Google Lịch, bấm biểu tượng người (Kết nối tài khoản Google) trong widget lịch hoặc công việc (thanh bên, màn hình nền, popup đồng hồ trên thanh), hoặc chạy `dcal account add google`: trình duyệt mở trang đăng nhập Google, bạn đăng nhập và chấp nhận, vậy là xong. DankCalendar (dcal) có sẵn client OAuth Google riêng nên không cần client ID, secret hay dự án Google Cloud; token được giữ trong keyring và dcal tự gia hạn.";
+    };
+    calendarOtherAccounts = {
+      en = "To add another calendar account (Microsoft/Outlook, CalDAV such as Nextcloud, iCloud, an iCal feed URL, a local calendar) or remove one, open DankCalendar (the calendar icon in a calendar or to-do widget, or `dcal show`) and use its settings; `dcal account list` lists the accounts.";
+      fr = "Pour ajouter un autre compte de calendrier (Microsoft/Outlook, CalDAV comme Nextcloud, iCloud, une URL de flux iCal, un calendrier local) ou en retirer un, ouvrez DankCalendar (l'icône calendrier d'un widget calendrier ou tâches, ou `dcal show`) et passez par ses paramètres ; `dcal account list` liste les comptes.";
+      de = "Um ein weiteres Kalenderkonto (Microsoft/Outlook, CalDAV wie Nextcloud, iCloud, eine iCal-Feed-URL, einen lokalen Kalender) hinzuzufügen oder eines zu entfernen, öffne DankCalendar (das Kalendersymbol in einem Kalender- oder Aufgaben-Widget, oder `dcal show`) und nutze seine Einstellungen; `dcal account list` listet die Konten auf.";
+      vi = "Để thêm tài khoản lịch khác (Microsoft/Outlook, CalDAV như Nextcloud, iCloud, URL nguồn iCal, lịch cục bộ) hoặc gỡ một tài khoản, mở DankCalendar (biểu tượng lịch trong widget lịch hoặc công việc, hoặc `dcal show`) và dùng phần cài đặt của nó; `dcal account list` liệt kê các tài khoản.";
+    };
+    calendarEvents = {
+      en = "Calendar events show as dots in the sidebar, desktop and bar clock calendars, and the bar clock popup lists the next ones; click a day in the sidebar calendar to see its events and add one (+). Events are created and edited in DankCalendar's window, which syncs them to Google; the shell rereads them every 5 minutes, and the sync button (right click on the calendar icon) syncs now.";
+      fr = "Les événements du calendrier apparaissent en points dans les calendriers du panneau latéral, du bureau et de l'horloge de la barre, et le popup de l'horloge liste les prochains ; cliquez sur un jour du calendrier du panneau latéral pour voir ses événements et en ajouter un (+). Les événements se créent et se modifient dans la fenêtre de DankCalendar, qui les synchronise avec Google ; le shell les relit toutes les 5 minutes, et le bouton de synchronisation (clic droit sur l'icône calendrier) synchronise tout de suite.";
+      de = "Kalendertermine erscheinen als Punkte in den Kalendern der Seitenleiste, des Desktops und der Leistenuhr, und das Uhr-Popup listet die nächsten; klicke auf einen Tag im Seitenleisten-Kalender, um seine Termine zu sehen und einen hinzuzufügen (+). Termine werden im Fenster von DankCalendar erstellt und bearbeitet, das sie mit Google synchronisiert; die Shell liest sie alle 5 Minuten neu, und die Synchronisieren-Aktion (Rechtsklick auf das Kalendersymbol) synchronisiert sofort.";
+      vi = "Sự kiện lịch hiện thành chấm trong lịch ở thanh bên, màn hình nền và đồng hồ trên thanh, và popup đồng hồ liệt kê các sự kiện sắp tới; bấm vào một ngày trong lịch thanh bên để xem sự kiện và thêm mới (+). Sự kiện được tạo và sửa trong cửa sổ DankCalendar, nơi đồng bộ chúng lên Google; shell đọc lại mỗi 5 phút, và nút đồng bộ (chuột phải vào biểu tượng lịch) đồng bộ ngay.";
+    };
+    calendarTasks = {
+      en = "The to-do list (sidebar, desktop widget, bar clock popup, the launcher's add task) is synced with Google Tasks once a Google account is connected: adding, ticking and deleting a task changes it in the account, new tasks go to the first task list, and finished tasks stay listed for 14 days. Without an account it is a local list.";
+      fr = "La liste de tâches (panneau latéral, widget du bureau, popup de l'horloge, l'ajout de tâche du lanceur) est synchronisée avec Google Tasks dès qu'un compte Google est connecté : ajouter, cocher ou supprimer une tâche la modifie dans le compte, les nouvelles tâches vont dans la première liste, et les tâches terminées restent affichées 14 jours. Sans compte, c'est une liste locale.";
+      de = "Die Aufgabenliste (Seitenleiste, Desktop-Widget, Uhr-Popup der Leiste, Aufgabe hinzufügen im Starter) wird mit Google Tasks synchronisiert, sobald ein Google-Konto verbunden ist: Hinzufügen, Abhaken und Löschen ändert die Aufgabe im Konto, neue Aufgaben landen in der ersten Aufgabenliste, und erledigte bleiben 14 Tage sichtbar. Ohne Konto ist es eine lokale Liste.";
+      vi = "Danh sách công việc (thanh bên, widget màn hình nền, popup đồng hồ trên thanh, thêm công việc từ trình khởi chạy) được đồng bộ với Google Tasks khi đã kết nối tài khoản Google: thêm, đánh dấu xong và xóa công việc sẽ thay đổi trong tài khoản, công việc mới vào danh sách đầu tiên, và công việc đã xong vẫn hiện trong 14 ngày. Khi chưa có tài khoản, đó là danh sách cục bộ.";
+    };
+    calendarTroubleshoot = {
+      en = "If the calendar shows no events or the to-do list isn't synced, check the DankCalendar daemon with `systemctl --user status dcal` and its logs with `journalctl --user -u dcal`; `dcal account list` shows the accounts, `dcal sync` syncs now, and `dcal account reauth <account-id>` signs in again when Google asks.";
+      fr = "Si le calendrier n'affiche aucun événement ou si la liste de tâches n'est pas synchronisée, vérifiez le démon DankCalendar avec `systemctl --user status dcal` et ses journaux avec `journalctl --user -u dcal` ; `dcal account list` montre les comptes, `dcal sync` synchronise tout de suite, et `dcal account reauth <id-du-compte>` reconnecte quand Google le demande.";
+      de = "Wenn der Kalender keine Termine zeigt oder die Aufgabenliste nicht synchronisiert wird, prüfe den DankCalendar-Dienst mit `systemctl --user status dcal` und seine Logs mit `journalctl --user -u dcal`; `dcal account list` zeigt die Konten, `dcal sync` synchronisiert sofort, und `dcal account reauth <konto-id>` meldet neu an, wenn Google danach fragt.";
+      vi = "Nếu lịch không hiện sự kiện hoặc danh sách công việc không đồng bộ, kiểm tra dịch vụ DankCalendar bằng `systemctl --user status dcal` và nhật ký bằng `journalctl --user -u dcal`; `dcal account list` hiện các tài khoản, `dcal sync` đồng bộ ngay, và `dcal account reauth <id-tài-khoản>` đăng nhập lại khi Google yêu cầu.";
+    };
+  };
+
   # Generic answers to "how do I …" questions; the configuration's own way
   # of doing it (a deploy tool, an update script) overrides one by name.
   defaultHowTo =
-    if os != null then
-      {
-        apply = {
-          en = "To apply a change to the NixOS configuration, run `sudo nixos-rebuild switch`.";
-          fr = "Pour appliquer une modification de la configuration NixOS, lancez `sudo nixos-rebuild switch`.";
-          de = "Um eine Änderung der NixOS-Konfiguration anzuwenden, führe `sudo nixos-rebuild switch` aus.";
-          vi = "Để áp dụng thay đổi cấu hình NixOS, chạy `sudo nixos-rebuild switch`.";
-        };
-        update = {
-          en = "To update the system, update nixpkgs (`sudo nix-channel --update`, or `nix flake update` for a flake) and run `sudo nixos-rebuild switch`.";
-          fr = "Pour mettre à jour le système, mettez à jour nixpkgs (`sudo nix-channel --update`, ou `nix flake update` pour un flake) puis lancez `sudo nixos-rebuild switch`.";
-          de = "Um das System zu aktualisieren, aktualisiere nixpkgs (`sudo nix-channel --update` oder `nix flake update` bei einem Flake) und führe `sudo nixos-rebuild switch` aus.";
-          vi = "Để cập nhật hệ thống, cập nhật nixpkgs (`sudo nix-channel --update`, hoặc `nix flake update` với flake) rồi chạy `sudo nixos-rebuild switch`.";
-        };
-        rollback = {
-          en = "To roll back (undo) the last system change, run `sudo nixos-rebuild switch --rollback`, or choose an older generation in the boot menu.";
-          fr = "Pour revenir en arrière (annuler) la dernière modification du système, lancez `sudo nixos-rebuild switch --rollback`, ou choisissez une génération plus ancienne dans le menu de démarrage.";
-          de = "Um die letzte Systemänderung zurückzusetzen (rückgängig zu machen), führe `sudo nixos-rebuild switch --rollback` aus oder wähle im Bootmenü eine ältere Generation.";
-          vi = "Để quay lại (hoàn tác) thay đổi hệ thống gần nhất, chạy `sudo nixos-rebuild switch --rollback`, hoặc chọn một thế hệ (generation) cũ hơn trong menu khởi động.";
-        };
-        generations = {
-          en = "To list the system generations (previous versions of the system), run `nixos-rebuild list-generations`.";
-          fr = "Pour lister les générations du système (versions précédentes du système), lancez `nixos-rebuild list-generations`.";
-          de = "Um die Systemgenerationen (frühere Versionen des Systems) aufzulisten, führe `nixos-rebuild list-generations` aus.";
-          vi = "Để liệt kê các thế hệ (generation, phiên bản trước) của hệ thống, chạy `nixos-rebuild list-generations`.";
-        };
-        gc = {
-          en = "To free disk space, delete old generations and unused packages with `sudo nix-collect-garbage -d` (garbage collection), then apply the configuration again to clean the boot menu.";
-          fr = "Pour libérer de l'espace disque, supprimez les anciennes générations et les paquets inutilisés avec `sudo nix-collect-garbage -d` (ramasse-miettes), puis appliquez de nouveau la configuration pour nettoyer le menu de démarrage.";
-          de = "Um Speicherplatz freizugeben, lösche alte Generationen und ungenutzte Pakete mit `sudo nix-collect-garbage -d` (Garbage Collection) und wende die Konfiguration erneut an, um das Bootmenü aufzuräumen.";
-          vi = "Để giải phóng dung lượng đĩa, xóa các thế hệ cũ và gói không dùng bằng `sudo nix-collect-garbage -d` (dọn rác), rồi áp dụng lại cấu hình để dọn menu khởi động.";
-        };
-        search = {
-          en = "To find a package, run `nix search nixpkgs <name>` or search https://search.nixos.org/packages.";
-          fr = "Pour trouver un paquet, lancez `nix search nixpkgs <nom>` ou cherchez sur https://search.nixos.org/packages.";
-          de = "Um ein Paket zu finden, führe `nix search nixpkgs <name>` aus oder suche auf https://search.nixos.org/packages.";
-          vi = "Để tìm một gói, chạy `nix search nixpkgs <tên>` hoặc tìm trên https://search.nixos.org/packages.";
-        };
-        try = {
-          en = "To try a program without installing it, run `nix shell nixpkgs#<name>` (or `nix run nixpkgs#<name>`).";
-          fr = "Pour essayer un programme sans l'installer, lancez `nix shell nixpkgs#<nom>` (ou `nix run nixpkgs#<nom>`).";
-          de = "Um ein Programm ohne Installation auszuprobieren, führe `nix shell nixpkgs#<name>` (oder `nix run nixpkgs#<name>`) aus.";
-          vi = "Để dùng thử một chương trình mà không cài, chạy `nix shell nixpkgs#<tên>` (hoặc `nix run nixpkgs#<tên>`).";
-        };
-        install = {
-          en = "To install a program for good, add it to environment.systemPackages (system) or home.packages (Home Manager) in the configuration, then apply it.";
-          fr = "Pour installer un programme durablement, ajoutez-le à environment.systemPackages (système) ou home.packages (Home Manager) dans la configuration, puis appliquez-la.";
-          de = "Um ein Programm dauerhaft zu installieren, füge es in der Konfiguration zu environment.systemPackages (System) oder home.packages (Home Manager) hinzu und wende sie an.";
-          vi = "Để cài một chương trình lâu dài, thêm nó vào environment.systemPackages (hệ thống) hoặc home.packages (Home Manager) trong cấu hình, rồi áp dụng.";
-        };
-        logs = {
-          en = "To see a service's logs, run `journalctl -u <service>` (`journalctl --user -u <service>` for a user service); `systemctl status <service>` shows whether it is running.";
-          fr = "Pour voir les journaux (logs) d'un service, lancez `journalctl -u <service>` (`journalctl --user -u <service>` pour un service utilisateur) ; `systemctl status <service>` indique s'il tourne.";
-          de = "Um die Protokolle (Logs) eines Dienstes zu sehen, führe `journalctl -u <dienst>` aus (`journalctl --user -u <dienst>` für einen Benutzerdienst); `systemctl status <dienst>` zeigt, ob er läuft.";
-          vi = "Để xem nhật ký (log) của một dịch vụ, chạy `journalctl -u <dịch vụ>` (`journalctl --user -u <dịch vụ>` với dịch vụ người dùng); `systemctl status <dịch vụ>` cho biết nó có đang chạy không.";
-        };
-        options = {
-          en = "To look up configuration options, run `man configuration.nix` (NixOS) or `man home-configuration.nix` (Home Manager), or search https://search.nixos.org/options.";
-          fr = "Pour chercher des options de configuration, lancez `man configuration.nix` (NixOS) ou `man home-configuration.nix` (Home Manager), ou cherchez sur https://search.nixos.org/options.";
-          de = "Um Konfigurationsoptionen nachzuschlagen, führe `man configuration.nix` (NixOS) oder `man home-configuration.nix` (Home Manager) aus oder suche auf https://search.nixos.org/options.";
-          vi = "Để tra cứu tùy chọn cấu hình, chạy `man configuration.nix` (NixOS) hoặc `man home-configuration.nix` (Home Manager), hoặc tìm trên https://search.nixos.org/options.";
-        };
-      }
-    else
-      {
-        apply = {
-          en = "To apply a change to the Home Manager configuration, run `home-manager switch`.";
-          fr = "Pour appliquer une modification de la configuration Home Manager, lancez `home-manager switch`.";
-          de = "Um eine Änderung der Home-Manager-Konfiguration anzuwenden, führe `home-manager switch` aus.";
-          vi = "Để áp dụng thay đổi cấu hình Home Manager, chạy `home-manager switch`.";
-        };
-        generations = {
-          en = "To list the Home Manager generations (previous versions), run `home-manager generations`; run a generation's `activate` script to roll back to it.";
-          fr = "Pour lister les générations Home Manager (versions précédentes), lancez `home-manager generations` ; lancez le script `activate` d'une génération pour y revenir.";
-          de = "Um die Home-Manager-Generationen (frühere Versionen) aufzulisten, führe `home-manager generations` aus; das `activate`-Skript einer Generation setzt auf sie zurück.";
-          vi = "Để liệt kê các thế hệ Home Manager (phiên bản trước), chạy `home-manager generations`; chạy script `activate` của một thế hệ để quay lại nó.";
-        };
-        gc = {
-          en = "To free disk space, run `home-manager expire-generations '-30 days'` then `nix-collect-garbage` (garbage collection).";
-          fr = "Pour libérer de l'espace disque, lancez `home-manager expire-generations '-30 days'` puis `nix-collect-garbage` (ramasse-miettes).";
-          de = "Um Speicherplatz freizugeben, führe `home-manager expire-generations '-30 days'` und dann `nix-collect-garbage` (Garbage Collection) aus.";
-          vi = "Để giải phóng dung lượng đĩa, chạy `home-manager expire-generations '-30 days'` rồi `nix-collect-garbage` (dọn rác).";
-        };
-        search = {
-          en = "To find a package, run `nix search nixpkgs <name>` or search https://search.nixos.org/packages.";
-          fr = "Pour trouver un paquet, lancez `nix search nixpkgs <nom>` ou cherchez sur https://search.nixos.org/packages.";
-          de = "Um ein Paket zu finden, führe `nix search nixpkgs <name>` aus oder suche auf https://search.nixos.org/packages.";
-          vi = "Để tìm một gói, chạy `nix search nixpkgs <tên>` hoặc tìm trên https://search.nixos.org/packages.";
-        };
-        try = {
-          en = "To try a program without installing it, run `nix shell nixpkgs#<name>` (or `nix run nixpkgs#<name>`).";
-          fr = "Pour essayer un programme sans l'installer, lancez `nix shell nixpkgs#<nom>` (ou `nix run nixpkgs#<nom>`).";
-          de = "Um ein Programm ohne Installation auszuprobieren, führe `nix shell nixpkgs#<name>` (oder `nix run nixpkgs#<name>`) aus.";
-          vi = "Để dùng thử một chương trình mà không cài, chạy `nix shell nixpkgs#<tên>` (hoặc `nix run nixpkgs#<tên>`).";
-        };
-        install = {
-          en = "To install a program for good, add it to home.packages in the Home Manager configuration, then run `home-manager switch`.";
-          fr = "Pour installer un programme durablement, ajoutez-le à home.packages dans la configuration Home Manager, puis lancez `home-manager switch`.";
-          de = "Um ein Programm dauerhaft zu installieren, füge es in der Home-Manager-Konfiguration zu home.packages hinzu und führe `home-manager switch` aus.";
-          vi = "Để cài một chương trình lâu dài, thêm nó vào home.packages trong cấu hình Home Manager, rồi chạy `home-manager switch`.";
-        };
-        logs = {
-          en = "To see a user service's logs, run `journalctl --user -u <service>`; `systemctl --user status <service>` shows whether it is running.";
-          fr = "Pour voir les journaux (logs) d'un service utilisateur, lancez `journalctl --user -u <service>` ; `systemctl --user status <service>` indique s'il tourne.";
-          de = "Um die Protokolle (Logs) eines Benutzerdienstes zu sehen, führe `journalctl --user -u <dienst>` aus; `systemctl --user status <dienst>` zeigt, ob er läuft.";
-          vi = "Để xem nhật ký (log) của dịch vụ người dùng, chạy `journalctl --user -u <dịch vụ>`; `systemctl --user status <dịch vụ>` cho biết nó có đang chạy không.";
-        };
-        options = {
-          en = "To look up Home Manager options, run `man home-configuration.nix` or search https://home-manager-options.extranix.com.";
-          fr = "Pour chercher des options Home Manager, lancez `man home-configuration.nix` ou cherchez sur https://home-manager-options.extranix.com.";
-          de = "Um Home-Manager-Optionen nachzuschlagen, führe `man home-configuration.nix` aus oder suche auf https://home-manager-options.extranix.com.";
-          vi = "Để tra cứu tùy chọn Home Manager, chạy `man home-configuration.nix` hoặc tìm trên https://home-manager-options.extranix.com.";
-        };
-      };
+    calendarHowTo
+    // (
+      if os != null then
+        {
+          apply = {
+            en = "To apply a change to the NixOS configuration, run `sudo nixos-rebuild switch`.";
+            fr = "Pour appliquer une modification de la configuration NixOS, lancez `sudo nixos-rebuild switch`.";
+            de = "Um eine Änderung der NixOS-Konfiguration anzuwenden, führe `sudo nixos-rebuild switch` aus.";
+            vi = "Để áp dụng thay đổi cấu hình NixOS, chạy `sudo nixos-rebuild switch`.";
+          };
+          update = {
+            en = "To update the system, update nixpkgs (`sudo nix-channel --update`, or `nix flake update` for a flake) and run `sudo nixos-rebuild switch`.";
+            fr = "Pour mettre à jour le système, mettez à jour nixpkgs (`sudo nix-channel --update`, ou `nix flake update` pour un flake) puis lancez `sudo nixos-rebuild switch`.";
+            de = "Um das System zu aktualisieren, aktualisiere nixpkgs (`sudo nix-channel --update` oder `nix flake update` bei einem Flake) und führe `sudo nixos-rebuild switch` aus.";
+            vi = "Để cập nhật hệ thống, cập nhật nixpkgs (`sudo nix-channel --update`, hoặc `nix flake update` với flake) rồi chạy `sudo nixos-rebuild switch`.";
+          };
+          rollback = {
+            en = "To roll back (undo) the last system change, run `sudo nixos-rebuild switch --rollback`, or choose an older generation in the boot menu.";
+            fr = "Pour revenir en arrière (annuler) la dernière modification du système, lancez `sudo nixos-rebuild switch --rollback`, ou choisissez une génération plus ancienne dans le menu de démarrage.";
+            de = "Um die letzte Systemänderung zurückzusetzen (rückgängig zu machen), führe `sudo nixos-rebuild switch --rollback` aus oder wähle im Bootmenü eine ältere Generation.";
+            vi = "Để quay lại (hoàn tác) thay đổi hệ thống gần nhất, chạy `sudo nixos-rebuild switch --rollback`, hoặc chọn một thế hệ (generation) cũ hơn trong menu khởi động.";
+          };
+          generations = {
+            en = "To list the system generations (previous versions of the system), run `nixos-rebuild list-generations`.";
+            fr = "Pour lister les générations du système (versions précédentes du système), lancez `nixos-rebuild list-generations`.";
+            de = "Um die Systemgenerationen (frühere Versionen des Systems) aufzulisten, führe `nixos-rebuild list-generations` aus.";
+            vi = "Để liệt kê các thế hệ (generation, phiên bản trước) của hệ thống, chạy `nixos-rebuild list-generations`.";
+          };
+          gc = {
+            en = "To free disk space, delete old generations and unused packages with `sudo nix-collect-garbage -d` (garbage collection), then apply the configuration again to clean the boot menu.";
+            fr = "Pour libérer de l'espace disque, supprimez les anciennes générations et les paquets inutilisés avec `sudo nix-collect-garbage -d` (ramasse-miettes), puis appliquez de nouveau la configuration pour nettoyer le menu de démarrage.";
+            de = "Um Speicherplatz freizugeben, lösche alte Generationen und ungenutzte Pakete mit `sudo nix-collect-garbage -d` (Garbage Collection) und wende die Konfiguration erneut an, um das Bootmenü aufzuräumen.";
+            vi = "Để giải phóng dung lượng đĩa, xóa các thế hệ cũ và gói không dùng bằng `sudo nix-collect-garbage -d` (dọn rác), rồi áp dụng lại cấu hình để dọn menu khởi động.";
+          };
+          search = {
+            en = "To find a package, run `nix search nixpkgs <name>` or search https://search.nixos.org/packages.";
+            fr = "Pour trouver un paquet, lancez `nix search nixpkgs <nom>` ou cherchez sur https://search.nixos.org/packages.";
+            de = "Um ein Paket zu finden, führe `nix search nixpkgs <name>` aus oder suche auf https://search.nixos.org/packages.";
+            vi = "Để tìm một gói, chạy `nix search nixpkgs <tên>` hoặc tìm trên https://search.nixos.org/packages.";
+          };
+          try = {
+            en = "To try a program without installing it, run `nix shell nixpkgs#<name>` (or `nix run nixpkgs#<name>`).";
+            fr = "Pour essayer un programme sans l'installer, lancez `nix shell nixpkgs#<nom>` (ou `nix run nixpkgs#<nom>`).";
+            de = "Um ein Programm ohne Installation auszuprobieren, führe `nix shell nixpkgs#<name>` (oder `nix run nixpkgs#<name>`) aus.";
+            vi = "Để dùng thử một chương trình mà không cài, chạy `nix shell nixpkgs#<tên>` (hoặc `nix run nixpkgs#<tên>`).";
+          };
+          install = {
+            en = "To install a program for good, add it to environment.systemPackages (system) or home.packages (Home Manager) in the configuration, then apply it.";
+            fr = "Pour installer un programme durablement, ajoutez-le à environment.systemPackages (système) ou home.packages (Home Manager) dans la configuration, puis appliquez-la.";
+            de = "Um ein Programm dauerhaft zu installieren, füge es in der Konfiguration zu environment.systemPackages (System) oder home.packages (Home Manager) hinzu und wende sie an.";
+            vi = "Để cài một chương trình lâu dài, thêm nó vào environment.systemPackages (hệ thống) hoặc home.packages (Home Manager) trong cấu hình, rồi áp dụng.";
+          };
+          logs = {
+            en = "To see a service's logs, run `journalctl -u <service>` (`journalctl --user -u <service>` for a user service); `systemctl status <service>` shows whether it is running.";
+            fr = "Pour voir les journaux (logs) d'un service, lancez `journalctl -u <service>` (`journalctl --user -u <service>` pour un service utilisateur) ; `systemctl status <service>` indique s'il tourne.";
+            de = "Um die Protokolle (Logs) eines Dienstes zu sehen, führe `journalctl -u <dienst>` aus (`journalctl --user -u <dienst>` für einen Benutzerdienst); `systemctl status <dienst>` zeigt, ob er läuft.";
+            vi = "Để xem nhật ký (log) của một dịch vụ, chạy `journalctl -u <dịch vụ>` (`journalctl --user -u <dịch vụ>` với dịch vụ người dùng); `systemctl status <dịch vụ>` cho biết nó có đang chạy không.";
+          };
+          options = {
+            en = "To look up configuration options, run `man configuration.nix` (NixOS) or `man home-configuration.nix` (Home Manager), or search https://search.nixos.org/options.";
+            fr = "Pour chercher des options de configuration, lancez `man configuration.nix` (NixOS) ou `man home-configuration.nix` (Home Manager), ou cherchez sur https://search.nixos.org/options.";
+            de = "Um Konfigurationsoptionen nachzuschlagen, führe `man configuration.nix` (NixOS) oder `man home-configuration.nix` (Home Manager) aus oder suche auf https://search.nixos.org/options.";
+            vi = "Để tra cứu tùy chọn cấu hình, chạy `man configuration.nix` (NixOS) hoặc `man home-configuration.nix` (Home Manager), hoặc tìm trên https://search.nixos.org/options.";
+          };
+        }
+      else
+        {
+          apply = {
+            en = "To apply a change to the Home Manager configuration, run `home-manager switch`.";
+            fr = "Pour appliquer une modification de la configuration Home Manager, lancez `home-manager switch`.";
+            de = "Um eine Änderung der Home-Manager-Konfiguration anzuwenden, führe `home-manager switch` aus.";
+            vi = "Để áp dụng thay đổi cấu hình Home Manager, chạy `home-manager switch`.";
+          };
+          generations = {
+            en = "To list the Home Manager generations (previous versions), run `home-manager generations`; run a generation's `activate` script to roll back to it.";
+            fr = "Pour lister les générations Home Manager (versions précédentes), lancez `home-manager generations` ; lancez le script `activate` d'une génération pour y revenir.";
+            de = "Um die Home-Manager-Generationen (frühere Versionen) aufzulisten, führe `home-manager generations` aus; das `activate`-Skript einer Generation setzt auf sie zurück.";
+            vi = "Để liệt kê các thế hệ Home Manager (phiên bản trước), chạy `home-manager generations`; chạy script `activate` của một thế hệ để quay lại nó.";
+          };
+          gc = {
+            en = "To free disk space, run `home-manager expire-generations '-30 days'` then `nix-collect-garbage` (garbage collection).";
+            fr = "Pour libérer de l'espace disque, lancez `home-manager expire-generations '-30 days'` puis `nix-collect-garbage` (ramasse-miettes).";
+            de = "Um Speicherplatz freizugeben, führe `home-manager expire-generations '-30 days'` und dann `nix-collect-garbage` (Garbage Collection) aus.";
+            vi = "Để giải phóng dung lượng đĩa, chạy `home-manager expire-generations '-30 days'` rồi `nix-collect-garbage` (dọn rác).";
+          };
+          search = {
+            en = "To find a package, run `nix search nixpkgs <name>` or search https://search.nixos.org/packages.";
+            fr = "Pour trouver un paquet, lancez `nix search nixpkgs <nom>` ou cherchez sur https://search.nixos.org/packages.";
+            de = "Um ein Paket zu finden, führe `nix search nixpkgs <name>` aus oder suche auf https://search.nixos.org/packages.";
+            vi = "Để tìm một gói, chạy `nix search nixpkgs <tên>` hoặc tìm trên https://search.nixos.org/packages.";
+          };
+          try = {
+            en = "To try a program without installing it, run `nix shell nixpkgs#<name>` (or `nix run nixpkgs#<name>`).";
+            fr = "Pour essayer un programme sans l'installer, lancez `nix shell nixpkgs#<nom>` (ou `nix run nixpkgs#<nom>`).";
+            de = "Um ein Programm ohne Installation auszuprobieren, führe `nix shell nixpkgs#<name>` (oder `nix run nixpkgs#<name>`) aus.";
+            vi = "Để dùng thử một chương trình mà không cài, chạy `nix shell nixpkgs#<tên>` (hoặc `nix run nixpkgs#<tên>`).";
+          };
+          install = {
+            en = "To install a program for good, add it to home.packages in the Home Manager configuration, then run `home-manager switch`.";
+            fr = "Pour installer un programme durablement, ajoutez-le à home.packages dans la configuration Home Manager, puis lancez `home-manager switch`.";
+            de = "Um ein Programm dauerhaft zu installieren, füge es in der Home-Manager-Konfiguration zu home.packages hinzu und führe `home-manager switch` aus.";
+            vi = "Để cài một chương trình lâu dài, thêm nó vào home.packages trong cấu hình Home Manager, rồi chạy `home-manager switch`.";
+          };
+          logs = {
+            en = "To see a user service's logs, run `journalctl --user -u <service>`; `systemctl --user status <service>` shows whether it is running.";
+            fr = "Pour voir les journaux (logs) d'un service utilisateur, lancez `journalctl --user -u <service>` ; `systemctl --user status <service>` indique s'il tourne.";
+            de = "Um die Protokolle (Logs) eines Benutzerdienstes zu sehen, führe `journalctl --user -u <dienst>` aus; `systemctl --user status <dienst>` zeigt, ob er läuft.";
+            vi = "Để xem nhật ký (log) của dịch vụ người dùng, chạy `journalctl --user -u <dịch vụ>`; `systemctl --user status <dịch vụ>` cho biết nó có đang chạy không.";
+          };
+          options = {
+            en = "To look up Home Manager options, run `man home-configuration.nix` or search https://home-manager-options.extranix.com.";
+            fr = "Pour chercher des options Home Manager, lancez `man home-configuration.nix` ou cherchez sur https://home-manager-options.extranix.com.";
+            de = "Um Home-Manager-Optionen nachzuschlagen, führe `man home-configuration.nix` aus oder suche auf https://home-manager-options.extranix.com.";
+            vi = "Để tra cứu tùy chọn Home Manager, chạy `man home-configuration.nix` hoặc tìm trên https://home-manager-options.extranix.com.";
+          };
+        }
+    );
   packages =
     config.home.packages ++ lib.optionals (osConfig != null) osConfig.environment.systemPackages;
 
@@ -442,24 +480,6 @@ in
       '';
     };
 
-    calendar.package = lib.mkOption {
-      type = lib.types.nullOr lib.types.package;
-      default = null;
-      example = lib.literalExpression "dankcalendar";
-      description = ''
-        [DankCalendar](https://github.com/AvengeMedia/dankcalendar) (`dcal`),
-        whose events the calendar widgets (sidebar and desktop) show. Its
-        daemon runs as the `dcal` user service and keeps the accounts in sync:
-        Google (with its own built-in OAuth client, so no Google Cloud project
-        is needed), Microsoft, CalDAV, iCloud, iCal feeds and local calendars.
-        Add one with `dcal account add google` (or from its window), once;
-        events are created and edited in its window (the calendar's
-        "Open calendar app" button), which syncs them back.
-
-        `null` (the default): no events, a plain calendar.
-      '';
-    };
-
     assistant = {
       context = lib.mkOption {
         type = lib.types.lines;
@@ -568,7 +588,10 @@ in
           Answers to "how do I …" questions about the system, by name: `apply`,
           `update`, `rollback`, `generations`, `gc`, `search`, `try`,
           `install`, `logs`, `options` (generic NixOS ones by default, Home
-          Manager ones without NixOS). Set one to your configuration's own way
+          Manager ones without NixOS), and how the calendars and to-do list
+          sync through DankCalendar: `calendarConnect`,
+          `calendarOtherAccounts`, `calendarEvents`, `calendarTasks`,
+          `calendarTroubleshoot`. Set one to your configuration's own way
           (a deploy tool, an update script), or to null to drop it; the others
           keep their default.
         '';
@@ -685,8 +708,9 @@ in
       # Condensed display face used by the optional Persona style
       # (appearance.persona.fonts) for titles and numbers.
       pkgs.oswald
-    ]
-    ++ lib.optional (cfg.calendar.package != null) cfg.calendar.package;
+      # `dcal`: DankCalendar's CLI (accounts, sync) for the user too.
+      cfg.package.passthru.dankcalendar
+    ];
 
     # The shell writes its settings, generated Material You palette and
     # wallpaper state into these; nothing creates them for us on a fresh user.
@@ -745,10 +769,6 @@ in
       };
       Service = {
         ExecStart = lib.getExe cfg.package;
-        # services/CalendarEvents.qml reads the events from this dcal.
-        Environment = lib.optional (
-          cfg.calendar.package != null
-        ) "NIXBOOK_SHELL_DCAL=${lib.getExe cfg.calendar.package}";
         Restart = "on-failure";
         RestartSec = 2;
         Slice = "app.slice";
@@ -756,17 +776,18 @@ in
       Install.WantedBy = [ "graphical-session.target" ];
     };
 
-    # DankCalendar's daemon (sync, reminders, tray icon; its window opens on
-    # demand), as its own dcal.service does. It finds its UI's `qs` on PATH:
-    # the quickshell installed above.
-    systemd.user.services.dcal = lib.mkIf (cfg.calendar.package != null) {
+    # DankCalendar's daemon, behind the shell's calendars and to-do list
+    # (sync, reminders, tray icon; its window opens on demand), as its own
+    # dcal.service does. It finds its UI's `qs` on PATH: the quickshell
+    # installed above.
+    systemd.user.services.dcal = {
       Unit = {
         Description = "DankCalendar (calendar sync for nixbook-shell)";
         PartOf = [ "graphical-session.target" ];
         After = [ "graphical-session.target" ];
       };
       Service = {
-        ExecStart = "${lib.getExe cfg.calendar.package} run --session --hidden";
+        ExecStart = "${lib.getExe cfg.package.passthru.dankcalendar} run --session --hidden";
         Restart = "on-failure";
         RestartSec = 2;
         Slice = "app.slice";

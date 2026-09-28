@@ -72,34 +72,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: false
             }
-            CalendarHeaderButton {
-                visible: CalendarEvents.available
-                forceCircle: true
-                tooltipText: Translation.tr("Sync calendars")
-                downAction: () => {
-                    CalendarEvents.sync();
-                }
-                contentItem: MaterialSymbol {
-                    text: "sync"
-                    iconSize: Appearance.font.pixelSize.larger
-                    horizontalAlignment: Text.AlignHCenter
-                    color: Appearance.colors.colOnLayer1
-                }
-            }
-            CalendarHeaderButton {
-                visible: CalendarEvents.available
-                forceCircle: true
-                tooltipText: Translation.tr("Open calendar app")
-                downAction: () => {
-                    CalendarEvents.openApp();
-                }
-                contentItem: MaterialSymbol {
-                    text: "edit_calendar"
-                    iconSize: Appearance.font.pixelSize.larger
-                    horizontalAlignment: Text.AlignHCenter
-                    color: Appearance.colors.colOnLayer1
-                }
-            }
+            CalendarAccountButton {}
             CalendarHeaderButton {
                 forceCircle: true
                 downAction: () => {
@@ -215,7 +188,21 @@ Item {
             }
             CalendarHeaderButton {
                 forceCircle: true
-                tooltipText: Translation.tr("Open calendar app")
+                tooltipText: Translation.tr("Add an event")
+                downAction: () => {
+                    // 09:00 on the selected day.
+                    CalendarEvents.newEvent(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 9));
+                }
+                contentItem: MaterialSymbol {
+                    text: "add"
+                    iconSize: Appearance.font.pixelSize.larger
+                    horizontalAlignment: Text.AlignHCenter
+                    color: Appearance.colors.colOnLayer1
+                }
+            }
+            CalendarHeaderButton {
+                forceCircle: true
+                tooltipText: Translation.tr("Open DankCalendar (events, accounts)")
                 downAction: () => {
                     CalendarEvents.openApp();
                 }

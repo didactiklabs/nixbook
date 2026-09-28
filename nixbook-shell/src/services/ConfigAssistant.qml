@@ -243,7 +243,9 @@ Singleton {
              ["=storage", "disk space"], ["=wifi", "networkmanager network"], ["=internet", "network"],
              ["=language", "locale language"], ["=layout", "keyboard layout"], ["=logs", "logs journal"],
              ["=vm", "virtual machines"], ["=vms", "virtual machines"], ["=wm", "window manager desktop"],
-             ["=dm", "login manager"], ["=specs", "system info"]],
+             ["=dm", "login manager"], ["=specs", "system info"],
+             ["=agenda", "calendar"], ["=gcal", "google calendar"], ["=todo", "task"], ["=todos", "task"], ["to do", "task"],
+             ["=outlook", "microsoft"], ["nextcloud", "caldav"], ["=dcal", "dankcalendar"]],
         fr: [["ouvr", "open"], ["ferm", "close"], ["fenetre", "window"], ["raccourci", "shortcut"], ["touche", "key"],
              ["clavier", "keyboard"], ["lanceur", "launcher"], ["applic", "app"], ["=appli", "app"], ["logiciel", "app package"],
              ["fond d ecran", "wallpaper"], ["=fond", "wallpaper"], ["capture d ecran", "screenshot"], ["capture", "screenshot"],
@@ -270,7 +272,9 @@ Singleton {
              ["editeur", "editor"], ["systeme d exploitation", "operating system nixos"], ["pare feu", "firewall"],
              ["impression", "printing"], ["imprim", "printing"], ["reseau", "network"], ["machines virtuelles", "virtual machines"],
              ["conteneur", "containers"], ["ecran de connexion", "login screen"], ["gestionnaire de connexion", "login manager"],
-             ["empreinte", "fingerprint"], ["batterie", "battery"], ["infos systeme", "system info"], ["information", "info"]],
+             ["empreinte", "fingerprint"], ["batterie", "battery"], ["infos systeme", "system info"], ["information", "info"],
+             ["agenda", "calendar"], ["calendrier", "calendar"], ["=tache", "task"], ["=taches", "task"], ["evenement", "event"],
+             ["rendez vous", "event"], ["synchro", "sync"], ["connect", "connect"]],
         de: [["offn", "open"], ["schliess", "close"], ["fenster", "window"], ["tastenkurz", "shortcut"], ["kurzel", "shortcut"],
              ["tastatur", "keyboard"], ["=taste", "key"], ["starter", "launcher"], ["programm", "app"], ["=app", "app"],
              ["anwendung", "app"], ["hintergrund", "wallpaper"], ["bildschirmfoto", "screenshot"], ["screenshot", "screenshot"],
@@ -295,7 +299,8 @@ Singleton {
              ["benutzer", "user"], ["=konto", "account user"], ["=konten", "account user"], ["betriebssystem", "operating system nixos"],
              ["=drucken", "printing"], ["=drucker", "printing"], ["netzwerk", "network"], ["virtuelle maschine", "virtual machines"],
              ["anmeldebildschirm", "login screen"], ["anmeldemanager", "login manager"], ["fingerabdruck", "fingerprint"],
-             ["=akku", "battery"], ["=dienst", "service"], ["systeminfo", "system info"], ["freigeb", "free"]],
+             ["=akku", "battery"], ["=dienst", "service"], ["systeminfo", "system info"], ["freigeb", "free"],
+             ["=termin", "event"], ["=termine", "event"], ["aufgabe", "task"], ["synchron", "sync"], ["verbind", "connect"]],
         vi: [["phim tat", "shortcut"], ["=phim", "key"], ["=mo", "open"], ["=dong", "close"], ["cua so", "window"],
              ["trinh khoi chay", "launcher"], ["khoi chay", "launcher"], ["ung dung", "app"], ["hinh nen", "wallpaper"],
              ["chup man hinh", "screenshot"], ["=chup", "screenshot"], ["toan man hinh", "fullscreen"], ["man hinh", "screen"],
@@ -318,7 +323,8 @@ Singleton {
              ["dung luong", "disk space"], ["giai phong", "free"], ["don rac", "garbage"], ["=tim", "find search"], ["dung thu", "try"],
              ["nhat ky", "logs"], ["nguoi dung", "user"], ["tai khoan", "account"], ["soan thao", "editor"], ["tuong lua", "firewall"],
              ["=mang", "network"], ["may ao", "virtual machines"], ["dang nhap", "login"], ["van tay", "fingerprint"],
-             ["dich vu", "service"], ["thong tin he thong", "system info"], ["thong tin", "info"]]
+             ["dich vu", "service"], ["thong tin he thong", "system info"], ["thong tin", "info"],
+             ["cong viec", "task"], ["su kien", "event"], ["dong bo", "sync"], ["ket noi", "connect"]]
     })
     // English words for the question: its words mapped through the
     // lexicons (the detected language's, plus French/German — cognates are
@@ -413,7 +419,9 @@ Singleton {
         "capture": ["screenshot"], "snip": ["screenshot"], "log": ["session"], "restart": ["reboot"],
         "background": ["wallpaper"], "panel": ["sidebar"], "chat": ["assistant", "ai"], "raise": ["up"],
         "lower": ["down"], "next": ["below"], "previous": ["above"], "history": ["clipboard"],
-        "vim": ["neovim"], "nvim": ["neovim"], "nixvim": ["neovim"]
+        "vim": ["neovim"], "nvim": ["neovim"], "nixvim": ["neovim"],
+        "meeting": ["event"], "appointment": ["event"], "agenda": ["calendar"], "todo": ["task"],
+        "synchronize": ["sync"], "synchronise": ["sync"], "login": ["sign"], "signin": ["sign"]
     })
 
     function stem(w) {
