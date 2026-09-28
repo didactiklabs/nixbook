@@ -9,6 +9,7 @@
 #   package                      the `nixbook-shell` launcher (package.nix)
 #   homeManagerModules.default   programs.nixbook-shell (hm-module.nix)
 #   nixosModules.default         the NixOS toggles for its assistant (nixos-module.nix)
+#                                and the login screen (greeter.nix, nixbook-shell.greeter)
 #   lib                          the settings helpers (lib.nix)
 {
   sources ? import ./npins,

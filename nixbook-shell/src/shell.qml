@@ -29,7 +29,6 @@ ShellRoot {
             if (!Config.ready) return
 
             if (WM.compositor === "niri") {
-                Config.options.background.lockWall = ""
                 Config.options.overview.enable = false
             }
 

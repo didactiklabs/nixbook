@@ -32,6 +32,16 @@ Scope {
         onTriggered: root.shown = false
     }
 
+    // earlySplash.qml (the same loading screen, up while the shell itself
+    // was still loading) leaves once this marker appears: by then this
+    // splash has drawn its first frames underneath it.
+    Timer {
+        id: announceShown
+        interval: 150
+        onTriggered: Quickshell.execDetached(["sh", "-c",
+            'mkdir -p "$XDG_RUNTIME_DIR/nixbook-shell" && touch "$XDG_RUNTIME_DIR/nixbook-shell/boot-splash-shown"'])
+    }
+
     // Destroyed (not just hidden) once the fade-out is over.
     LazyLoader {
         active: root.shown
@@ -43,6 +53,8 @@ Scope {
             required property var modelData
             screen: modelData
             visible: root.shown
+
+            Component.onCompleted: announceShown.restart()
 
             WlrLayershell.namespace: "quickshell:bootSplash"
             WlrLayershell.layer: WlrLayer.Overlay
@@ -73,88 +85,13 @@ Scope {
                 focus: true
                 Keys.onPressed: event => event.accepted = true
 
-                Rectangle {
+                BootSplashArt {
                     anchors.fill: parent
-                    color: Persona.shapes ? Persona.frameColor : Appearance.m3colors.m3background
-                }
-                // The art *is* the splash: decoded synchronously (a 1200×800
-                // PNG, a few ms; the other screens hit the pixmap cache) with
-                // the bucket picked from the screen size, so it is there in the
-                // very first frame. PersonaTexture waits for its layout size and
-                // decodes asynchronously, which showed the bare background and
-                // text for a moment at startup.
-                Image {
-                    anchors.fill: parent
-                    visible: Persona.halftone
-                    source: visible ? Persona.textureUrl(Persona.textureShapeFor(splash.screen?.width ?? 16, splash.screen?.height ?? 9)) : ""
-                    fillMode: Image.PreserveAspectCrop
-                    asynchronous: false
-                    cache: true
-                    smooth: true
-                    opacity: 0.6
-                }
-
-                ColumnLayout {
-                    anchors.centerIn: parent
-                    width: Math.min(splash.width * 0.5, 520)
-                    spacing: 18
-
-                    StyledText {
-                        Layout.alignment: Qt.AlignHCenter
-                        text: Persona.fonts ? "NOW LOADING" : Translation.tr("Getting things ready")
-                        font.family: Persona.fonts ? Persona.titleFont : Appearance.font.family.title
-                        font.pixelSize: Persona.fonts ? 64 : Appearance.font.pixelSize.title
-                        font.weight: Font.Bold
-                        font.italic: Persona.shapes
-                        color: Persona.shapes ? Persona.spec.ink : Appearance.colors.colOnLayer0
-                        style: Persona.shapes ? Text.Outline : Text.Normal
-                        styleColor: Persona.shadowColor
-                    }
-
-                    // Progress: a slanted accent bar in the Persona style, a
-                    // rounded Material one otherwise.
-                    Item {
-                        Layout.fillWidth: true
-                        implicitHeight: 14
-                        Rectangle {
-                            visible: Persona.shapes
-                            x: Persona.shadowOffset
-                            y: Persona.shadowOffset
-                            width: parent.width
-                            height: parent.height
-                            color: Persona.shadowColor
-                            transform: Matrix4x4 { matrix: Qt.matrix4x4(1, -0.4, 0, 0.4 * 7, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1) }
-                        }
-                        Rectangle {
-                            id: track
-                            anchors.fill: parent
-                            radius: Persona.shapes ? 0 : height / 2
-                            color: Persona.shapes ? Persona.spec.frame : Appearance.colors.colSecondaryContainer
-                            border.width: Persona.shapes ? 2 : 0
-                            border.color: Persona.frameBorderColor
-                            clip: true
-                            transform: Matrix4x4 { matrix: Qt.matrix4x4(1, Persona.shapes ? -0.4 : 0, 0, Persona.shapes ? 0.4 * 7 : 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1) }
-                            Rectangle {
-                                anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                                width: parent.width * Math.max(0.04, Preloader.progress)
-                                radius: track.radius
-                                color: Persona.shapes ? Persona.stripeColor : Appearance.colors.colPrimary
-                                Behavior on width {
-                                    NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
-                                }
-                            }
-                        }
-                    }
-
-                    StyledText {
-                        Layout.alignment: Qt.AlignHCenter
-                        text: Preloader.currentStage !== "" ? Preloader.currentStage
-                            : Preloader.bootPhase === "rendering" ? Translation.tr("Finishing up") : Translation.tr("Starting")
-                        font.family: Persona.fonts ? Persona.titleFont : Appearance.font.family.main
-                        font.pixelSize: Appearance.font.pixelSize.normal
-                        color: Persona.shapes ? Persona.spec.ink : Appearance.colors.colSubtext
-                        opacity: 0.8
-                    }
+                    progress: Preloader.progress
+                    stageText: Preloader.currentStage !== "" ? Preloader.currentStage
+                        : Preloader.bootPhase === "rendering" ? Translation.tr("Finishing up") : Translation.tr("Starting")
+                    screenWidth: splash.screen?.width ?? 16
+                    screenHeight: splash.screen?.height ?? 9
                 }
             }
         }

@@ -2,7 +2,8 @@
 # Tests for the nixbook-shell helper scripts (scripts/):
 #   - config-merge.jq: the JSON -> Nix printers must round-trip through Nix;
 #   - config-tool.sh: `nixbook-shell config diff|pinned|dump|path` on fixtures;
-#   - assistant-facts.py: fact file structure, keybind, Neovim keymap, system and how-to facts.
+#   - assistant-facts.py: fact file structure, keybind, Neovim keymap, system and how-to facts;
+#   - persona-palettes.py + greeter-theme.sh: the login screen theme.
 # Needs bash, jq, python3 and nix-instantiate. Run: bash tests/scripts.sh
 # The jq programs are single-quoted on purpose: `$n`, `$a`, ... are jq variables.
 # shellcheck disable=SC2016
@@ -275,6 +276,59 @@ if python3 "$scripts/assistant-facts.py" "$tmp/info.json" /dev/null >/dev/null 2
 else
   fail "assistant-facts.py: works without keybinds (niri disabled)" "$(cat "$tmp/err")"
 fi
+
+# -- persona-palettes.py + greeter-theme.sh: the login screen theme ------------
+
+if python3 "$scripts/persona-palettes.py" "$root/src/modules/common/Persona.qml" >"$tmp/palettes.json" 2>"$tmp/err"; then
+  pass "persona-palettes.py reads Persona.qml"
+  expect_eq "persona-palettes.py: every variant" '["p3r","p4","p5"]' "$(jq -c 'keys' "$tmp/palettes.json")"
+  expect_eq "persona-palettes.py: the p5 accent" '#ff1f2d' "$(jq -r '.p5.primary' "$tmp/palettes.json")"
+else
+  fail "persona-palettes.py reads Persona.qml" "$(cat "$tmp/err")"
+fi
+
+# greeter_theme NAME CONFIG_JSON [COLORS_JSON]: renders into $tmp/greeter/NAME.
+greeter_theme() {
+  local out="$tmp/greeter/$1"
+  mkdir -p "$out"
+  printf '%s\n' "$2" >"$out/config.json"
+  [ $# -lt 3 ] || printf '%s\n' "$3" >"$out/colors.json"
+  NB_OUT="$out" NB_PALETTES="$tmp/palettes.json" NB_TEXTURES=/textures \
+    NB_CONFIG="$out/config.json" NB_COLORS="$out/colors.json" NB_COPY_BACKGROUND=1 \
+    bash "$scripts/greeter-theme.sh" 2>"$tmp/err" || fail "greeter-theme.sh: $1 renders" "$(cat "$tmp/err")"
+}
+
+greeter_theme p3r '{"appearance":{"persona":{"enable":true,"variant":"p3r"}}}'
+css=$(cat "$tmp/greeter/p3r/regreet.css")
+expect_contains "greeter-theme.sh: Persona variant palette" "$css" "@define-color nb_primary #3fd4ff;"
+expect_contains "greeter-theme.sh: Persona halftone art" "$css" 'url("file:///textures/p3r-panel.png")'
+expect_contains "greeter-theme.sh: Persona hard shadow" "$css" "box-shadow: 5px 5px 0 0 @nb_shadow;"
+expect_contains "greeter-theme.sh: Persona display font" "$css" '"Oswald"'
+
+greeter_theme material '{"appearance":{"persona":{"enable":false,"variant":"p3r"}}}' '{"primary":"#123456"}'
+css=$(cat "$tmp/greeter/material/regreet.css")
+expect_contains "greeter-theme.sh: the wallpaper palette without Persona" "$css" "@define-color nb_primary #123456;"
+expect_contains "greeter-theme.sh: defaults for roles missing from it" "$css" "@define-color nb_bg #141313;"
+if grep -q "panel.png" <<<"$css"; then fail "greeter-theme.sh: no Persona art without Persona"; else pass "greeter-theme.sh: no Persona art without Persona"; fi
+
+# Settings are the user's: nothing but colours and plain font names reach the CSS.
+greeter_theme hostile '{"appearance":{"persona":{"enable":false},"fonts":{"main":"x\"; } * { color: red"}}}' '{"primary":"red; } window { opacity: 0"}'
+css=$(cat "$tmp/greeter/hostile/regreet.css")
+expect_contains "greeter-theme.sh: invalid colours fall back" "$css" "@define-color nb_primary #cbc4cb;"
+expect_contains "greeter-theme.sh: invalid fonts fall back" "$css" 'font-family: "Roboto", "Roboto", sans-serif;'
+
+# Login screen wallpaper: greeterWall, then lockWall, then the desktop's.
+printf 'desk' >"$tmp/desk.png"
+printf 'lock' >"$tmp/lock.png"
+printf 'greet' >"$tmp/greet.png"
+greeter_theme walls "{\"background\":{\"wallpaperPath\":\"$tmp/desk.png\",\"lockWall\":\"$tmp/lock.png\",\"greeterWall\":\"$tmp/greet.png\"}}"
+expect_eq "greeter-theme.sh: the login screen wallpaper first" greet "$(cat "$tmp/greeter/walls/background")"
+greeter_theme walls "{\"background\":{\"wallpaperPath\":\"$tmp/desk.png\",\"lockWall\":\"$tmp/lock.png\",\"greeterWall\":\"\"}}"
+expect_eq "greeter-theme.sh: else the lock screen's" lock "$(cat "$tmp/greeter/walls/background")"
+greeter_theme walls "{\"background\":{\"wallpaperPath\":\"file://$tmp/desk.png\",\"lockWall\":\"$tmp/missing.png\"}}"
+expect_eq "greeter-theme.sh: else the desktop's (file:// and missing files handled)" desk "$(cat "$tmp/greeter/walls/background")"
+greeter_theme walls '{}'
+if [ -e "$tmp/greeter/walls/background" ]; then fail "greeter-theme.sh: no wallpaper, none copied"; else pass "greeter-theme.sh: no wallpaper, none copied"; fi
 
 if [ "$failures" -ne 0 ]; then
   echo "$failures nixbook-shell test(s) failed" >&2

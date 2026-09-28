@@ -7,6 +7,8 @@ import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.functions
 import Quickshell.Hyprland
+import Quickshell.Io
+import Qt5Compat.GraphicalEffects
 
 
 ContentPage {
@@ -38,6 +40,110 @@ ContentPage {
         }
     }
 
+    // The wallpaper each screen really shows ("" falls back along the chain).
+    readonly property string lockWallEffective: Config.options.background.lockWall !== ""
+        ? Config.options.background.lockWall : Config.options.background.wallpaperPath
+    readonly property string greeterWallEffective: Config.options.background.greeterWall !== ""
+        ? Config.options.background.greeterWall
+        : (page.greeterInfo?.background ?? "") !== "" ? page.greeterInfo.background : page.lockWallEffective
+
+    // Written by the nixbook-shell.greeter NixOS module (greeter.nix): the
+    // login screen follows this user's settings.
+    property var greeterInfo: null
+    readonly property bool greeterAvailable: page.greeterInfo !== null && page.greeterInfo.user === SystemInfo.username
+    FileView {
+        path: "/etc/nixbook-shell/greeter.json"
+        onLoaded: {
+            try {
+                page.greeterInfo = JSON.parse(text());
+            } catch (e) {
+                page.greeterInfo = null;
+            }
+        }
+    }
+
+    component WallCard: ColumnLayout {
+        id: card
+        required property string target
+        required property string icon
+        required property string label
+        required property string path
+        property bool inherited: false
+        property string inheritedText: ""
+        readonly property bool locked: card.target !== "wallpaper" && NixManaged.isPinned(`background.${card.target}`)
+
+        Layout.fillWidth: true
+        Layout.preferredWidth: 1
+        spacing: 6
+
+        Rectangle {
+            id: thumbBg
+            Layout.fillWidth: true
+            Layout.preferredHeight: 150
+            radius: Appearance.rounding.large
+            color: Appearance.colors.colSurfaceContainerHigh
+            clip: true
+            layer.enabled: true
+            layer.effect: OpacityMask {
+                maskSource: Rectangle {
+                    width: thumbBg.width
+                    height: thumbBg.height
+                    radius: thumbBg.radius
+                }
+            }
+
+            ThumbnailImage {
+                anchors.fill: parent
+                visible: card.path !== ""
+                sourcePath: FileUtils.trimFileProtocol(page.displayPathFor(card.path))
+                thumbnailSizeName: "x-large"
+                fillMode: Image.PreserveAspectCrop
+                sourceSize.width: thumbBg.width * 1.5
+                sourceSize.height: thumbBg.height * 1.5
+                opacity: card.inherited ? 0.55 : 1
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                enabled: !card.locked
+                hoverEnabled: true
+                cursorShape: card.locked ? Qt.ArrowCursor : Qt.PointingHandCursor
+                onClicked: {
+                    GlobalStates.wallpaperSelectorTarget = card.target
+                    GlobalStates.wallpaperSelectorOpen = true
+                }
+            }
+        }
+
+        RowLayout {
+            Layout.alignment: Qt.AlignHCenter
+            spacing: 6
+            MaterialSymbol {
+                text: card.icon
+                iconSize: Appearance.font.pixelSize.larger
+                color: Appearance.colors.colPrimary
+            }
+            StyledText {
+                text: card.label
+                font.pixelSize: Appearance.font.pixelSize.normal
+                font.weight: Font.Medium
+                color: Appearance.colors.colOnLayer1
+            }
+            NixManagedBadge {
+                pinned: card.locked
+            }
+        }
+
+        StyledText {
+            Layout.fillWidth: true
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideMiddle
+            text: card.inherited ? card.inheritedText : card.path.split("/").pop()
+            font.pixelSize: Appearance.font.pixelSize.small
+            color: Appearance.colors.colSubtext
+        }
+    }
+
     function displayPathFor(path) {
         return /\.(mp4|webm|mkv|avi|mov)$/i.test(path)
             ? Config.options.background.thumbnailPath
@@ -55,151 +161,37 @@ ContentPage {
             title: Translation.tr("Wallpaper")
             shape: MaterialShape.Shape.Clover4Leaf
 
-            Rectangle {
+            // The desktop, lock screen and (with the nixbook-shell.greeter
+            // NixOS module) login screen wallpapers: click one to choose it in
+            // the wallpaper selector.
+            RowLayout {
                 Layout.fillWidth: true
-                visible: WM.compositor !== "niri"
-                implicitHeight: wrapperCol.implicitHeight + 16
-                topLeftRadius: Appearance.rounding.verylarge
-                topRightRadius: Appearance.rounding.verylarge
-                bottomLeftRadius: Appearance.rounding.normal
-                bottomRightRadius: Appearance.rounding.normal
-                color: Appearance.colors.colLayer1
+                spacing: 8
 
-                ColumnLayout {
-                    id: wrapperCol
-                    anchors.fill: parent
-                    anchors.margins: 8
-                    spacing: 8
-
-                    Carousel {
-                        Layout.fillWidth: true
-                        implicitHeight: 280
-                        largeItemWidthRatio: 0.5
-                        mediumItemWidthRatio: 0.485
-                        itemSpacing: 8
-                        model: [
-                            page.displayPathFor(Config.options.background.wallpaperPath),
-                            page.displayPathFor(
-                                Config.options.background.lockWall !== ""
-                                    ? Config.options.background.lockWall
-                                    : Config.options.background.wallpaperPath
-                            )
-                        ]
-                        wheelEnabled: false
-                        dragEnabled: false
-                        clickAction: (index, modelData) => {
-                            GlobalStates.wallpaperSelectorTarget = index === 1 ? "lockWall" : "wallpaper"
-                            GlobalStates.wallpaperSelectorOpen = true
-                        }
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 8
-
-                        Rectangle {
-                            Layout.fillWidth: true
-                            implicitHeight: 24
-                            radius: Appearance.rounding.normal
-                            color: "transparent"
-
-                            RowLayout {
-                                anchors.centerIn: parent
-                                spacing: 8
-                                MaterialSymbol {
-                                    text: "desktop_windows"
-                                    iconSize: Appearance.font.pixelSize.larger
-                                    color: Appearance.colors.colPrimary
-                                }
-                                StyledText {
-                                    text: Translation.tr("Desktop")
-                                    font.pixelSize: Appearance.font.pixelSize.normal
-                                    font.weight: Font.Medium
-                                    color: Appearance.colors.colOnLayer1
-                                }
-                            }
-                        }
-
-                        Rectangle {
-                            Layout.fillWidth: true
-                            implicitHeight: 24
-                            radius: Appearance.rounding.normal
-                            color: "transparent"
-
-                            RowLayout {
-                                anchors.centerIn: parent
-                                spacing: 8
-                                MaterialSymbol {
-                                    text: "lock"
-                                    iconSize: Appearance.font.pixelSize.larger
-                                    color: Appearance.colors.colPrimary
-                                }
-                                StyledText {
-                                    text: Translation.tr("Lockscreen")
-                                    font.pixelSize: Appearance.font.pixelSize.normal
-                                    font.weight: Font.Medium
-                                    color: Appearance.colors.colOnLayer1
-                                }
-                            }
-                        }
-                    }
+                WallCard {
+                    target: "wallpaper"
+                    icon: "desktop_windows"
+                    label: Translation.tr("Desktop")
+                    path: Config.options.background.wallpaperPath
                 }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                visible: WM.compositor === "niri"
-                implicitHeight: niriWrapperCol.implicitHeight + 16
-                topLeftRadius: Appearance.rounding.verylarge
-                topRightRadius: Appearance.rounding.verylarge
-                bottomLeftRadius: Appearance.rounding.normal
-                bottomRightRadius: Appearance.rounding.normal
-                color: Appearance.colors.colLayer1
-
-                ColumnLayout {
-                    id: niriWrapperCol
-                    anchors.fill: parent
-                    anchors.margins: 8
-                    spacing: 8
-
-                    Carousel {
-                        Layout.fillWidth: true
-                        implicitHeight: 280
-                        largeItemWidthRatio: 1
-                        mediumItemWidthRatio: 0
-                        itemSpacing: 8
-                        model: [page.displayPathFor(Config.options.background.wallpaperPath)]
-                        wheelEnabled: false
-                        dragEnabled: false
-                        clickAction: (index, modelData) => {
-                            GlobalStates.wallpaperSelectorTarget = "wallpaper"
-                            GlobalStates.wallpaperSelectorOpen = true
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        implicitHeight: 24
-                        radius: Appearance.rounding.normal
-                        color: "transparent"
-
-                        RowLayout {
-                            anchors.centerIn: parent
-                            spacing: 8
-                            MaterialSymbol {
-                                text: "image"
-                                iconSize: Appearance.font.pixelSize.larger
-                                color: Appearance.colors.colPrimary
-                            }
-                            StyledText {
-                                text: Config.options.background.wallpaperPath.split("/").pop()
-                                font.pixelSize: Appearance.font.pixelSize.normal
-                                font.weight: Font.Medium
-                                color: Appearance.colors.colOnLayer1
-                                elide: Text.ElideMiddle
-                            }
-                        }
-                    }
+                WallCard {
+                    target: "lockWall"
+                    icon: "lock"
+                    label: Translation.tr("Lock screen")
+                    path: page.lockWallEffective
+                    inherited: Config.options.background.lockWall === ""
+                    inheritedText: Translation.tr("Same as the desktop")
+                }
+                WallCard {
+                    visible: page.greeterAvailable
+                    target: "greeterWall"
+                    icon: "login"
+                    label: Translation.tr("Login screen")
+                    path: page.greeterWallEffective
+                    inherited: Config.options.background.greeterWall === ""
+                    inheritedText: (page.greeterInfo?.background ?? "") !== ""
+                        ? Translation.tr("Set in Nix")
+                        : Translation.tr("Same as the lock screen")
                 }
             }
 
@@ -211,11 +203,26 @@ ContentPage {
                     enabled: !nixManaged;
                     id: syncWallpaperSwitch
                     buttonIcon: "sync"
-                    text: Translation.tr("Use same wallpaper for both")
+                    text: Translation.tr("Lock screen uses the desktop wallpaper")
                     checked: Config.options.background.lockWall === ""
                     onCheckedChanged: {
                         if (checked) {
                             Config.options.background.lockWall = "";
+                        }
+                    }
+                }
+
+                ConfigSwitch {
+                    configKey: "background.greeterWall";
+                    enabled: !nixManaged;
+                    visible: page.greeterAvailable
+                    id: syncGreeterWallpaperSwitch
+                    buttonIcon: "sync"
+                    text: Translation.tr("Login screen uses the lock screen wallpaper")
+                    checked: Config.options.background.greeterWall === ""
+                    onCheckedChanged: {
+                        if (checked) {
+                            Config.options.background.greeterWall = "";
                         }
                     }
                 }
@@ -336,6 +343,9 @@ ContentPage {
                 target: Config.options.background
                 function onLockWallChanged() {
                     syncWallpaperSwitch.checked = Qt.binding(() => Config.options.background.lockWall === "")
+                }
+                function onGreeterWallChanged() {
+                    syncGreeterWallpaperSwitch.checked = Qt.binding(() => Config.options.background.greeterWall === "")
                 }
             }
         

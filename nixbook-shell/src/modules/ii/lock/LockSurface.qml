@@ -121,7 +121,10 @@ MouseArea {
             Image {
                 id: lockBgSource
                 anchors.fill: parent
-                source: Config.options.background.wallpaperPath
+                // The lock screen's own wallpaper when one is set.
+                source: Config.options.background.lockWall !== ""
+                    ? Config.options.background.lockWall
+                    : Config.options.background.wallpaperPath
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 cache: true

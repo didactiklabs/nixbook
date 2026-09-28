@@ -45,7 +45,12 @@ in
   services.xserver.videoDrivers = lib.mkForce [ "modesetting" ];
   customNixOSModules = {
     laptopProfile.enable = true;
-    greetd.enable = true;
+    greetd = {
+      enable = true;
+      # ReGreet in nixbook-shell's style (khoa's Persona/palette and login
+      # screen wallpaper), instead of tuigreet.
+      greeter = "nixbook-shell";
+    };
     hyprland.enable = false;
     niri = {
       enable = true;

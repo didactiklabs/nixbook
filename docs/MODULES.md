@@ -225,7 +225,21 @@ Whether to embed git metadata about the applied configuration into the system. A
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable the greetd display manager with tuigreet. Configures greetd to launch tuigreet, a TUI-based greeter that: - Displays a clock and remembers the last session and user - Shows an asterisk-masked password field - Presents a user menu for multi-user machines - Dynamically builds --sessions from whichever Wayland compositors are enabled (niri, sway, hyprland), so only installed sessions appear - Wraps niri sessions via niri-session for proper environment setup - Enables U2F authentication in the greetd PAM service (YubiKey login) Depends on at least one compositor module being enabled (customNixOSModules.niri, .sway, or .hyprland).
+Whether to enable the greetd display manager. The greeter is chosen with `greeter`: - `tuigreet` (default): a TUI greeter with a clock, the last session and user remembered, an asterisk-masked password field and a user menu. Its --sessions are built from whichever Wayland compositors are enabled (niri, sway, hyprland), niri sessions are wrapped with niri-session. - `nixbook-shell`: ReGreet (GTK4, in cage) in nixbook-shell's style, following a user's shell settings: Material palette from the wallpaper or the Persona style and variant, and the login screen wallpaper chosen in the shell's Settings menu (`nixbook-shell.greeter`, nixbook-shell/greeter.nix). It also remembers the last user and session, and lists the sessions of the enabled compositors. Either way the greetd PAM service has U2F (YubiKey), fingerprint and GNOME Keyring unlock; both greeters show PAM's prompts ("touch your security key", fingerprint). Depends on at least one compositor module being enabled (customNixOSModules.niri, .sway, or .hyprland).
+
+### `customNixOSModules.greetd.greeter`
+
+- **Type:** `one of "tuigreet", "nixbook-shell"`
+- **Default:** `"tuigreet"`
+
+The greeter greetd runs (see `enable`).
+
+### `customNixOSModules.greetd.themeUser`
+
+- **Type:** `null or string`
+- **Default:** `null`
+
+With the `nixbook-shell` greeter: the user whose nixbook-shell settings the login screen follows.
 
 ---
 

@@ -9,7 +9,12 @@
 # Manager module through osConfig (`assistant.os.toggles`). Home Manager
 # modules only get the NixOS configuration, not its options, hence this
 # module. Optional: without it, only the Home Manager toggles are known.
+#
+# Also the login screen in the shell's style (greeter.nix,
+# `nixbook-shell.greeter`, off unless enabled).
 {
+  imports = [ ./greeter.nix ];
+
   options.nixbook-shell.toggles = lib.mkOption {
     type = lib.types.listOf (lib.types.attrsOf lib.types.anything);
     readOnly = true;

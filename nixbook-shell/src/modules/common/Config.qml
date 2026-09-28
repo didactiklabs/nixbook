@@ -265,7 +265,11 @@ Singleton {
             }
 
             property JsonObject background: JsonObject {
+                // Lock screen wallpaper; "" = the desktop wallpaper.
                 property string lockWall: ""
+                // Login screen (greetd greeter, nixbook-shell.greeter NixOS
+                // option) wallpaper; "" = the lock screen wallpaper.
+                property string greeterWall: ""
                 property bool widgetsLocked: false
                 property bool showGrid: true
                 property bool showBlur: false
