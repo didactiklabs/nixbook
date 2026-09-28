@@ -20,7 +20,8 @@ import qs.modules.common
  * previous question counts at half weight, for follow-ups.
  *
  * Answers (`answer`): greetings and help; listings (all shortcuts,
- * shortcuts about X, enabled modules, settings set in Nix, packages); "is
+ * shortcuts about X, Neovim keymaps, enabled modules, settings set in Nix,
+ * packages); "what does <leader>ff do in vim?"; "is
  * <module> enabled?"; "is <package> installed?"; "what does <key> do?"; a
  * request a keybinding answers (key + description) — all in `quickReply`;
  * otherwise the closest facts, or "I don't know" with tips when the
@@ -65,6 +66,7 @@ Singleton {
             modYes: "Yes, %1 is enabled on this machine.", modNo: "No, %1 is not enabled on this machine.",
             pkgYes: "Yes, %1 is installed.",
             pkgKnown: "%1 is installed on this machine (I only know its configuration, not how to use the tool).",
+            nvimShortcuts: "Neovim keymaps (%1, <leader> = %2):", nvimMatching: "Neovim keymaps matching your question (<leader> = %1):", nvimNone: "No Neovim keymaps are configured on this machine.", nvimUnbound: "%1 isn't mapped in Neovim on this machine.",
             also: "Also:", shortcut: "Shortcut:", unbound: "%1 isn't bound to anything on this machine.",
         },
         fr: {
@@ -81,6 +83,7 @@ Singleton {
             modYes: "Oui, %1 est activé sur cette machine.", modNo: "Non, %1 n'est pas activé sur cette machine.",
             pkgYes: "Oui, %1 est installé.",
             pkgKnown: "%1 est installé sur cette machine (je ne connais que sa configuration, pas l'utilisation de l'outil).",
+            nvimShortcuts: "Raccourcis Neovim (%1, <leader> = %2) :", nvimMatching: "Raccourcis Neovim correspondant à votre question (<leader> = %1) :", nvimNone: "Aucun raccourci Neovim n'est configuré sur cette machine.", nvimUnbound: "%1 n'est associé à rien dans Neovim sur cette machine.",
             also: "Aussi :", shortcut: "Raccourci :", unbound: "%1 n'est associé à rien sur cette machine.",
         },
         de: {
@@ -97,6 +100,7 @@ Singleton {
             modYes: "Ja, %1 ist auf diesem Rechner aktiviert.", modNo: "Nein, %1 ist auf diesem Rechner nicht aktiviert.",
             pkgYes: "Ja, %1 ist installiert.",
             pkgKnown: "%1 ist auf diesem Rechner installiert (ich kenne nur die Konfiguration, nicht die Bedienung des Programms).",
+            nvimShortcuts: "Neovim-Tastenbelegungen (%1, <leader> = %2):", nvimMatching: "Passende Neovim-Tastenbelegungen (<leader> = %1):", nvimNone: "Auf diesem Rechner sind keine Neovim-Tastenbelegungen konfiguriert.", nvimUnbound: "%1 ist in Neovim auf diesem Rechner mit nichts belegt.",
             also: "Auch:", shortcut: "Tastenkürzel:", unbound: "%1 ist auf diesem Rechner mit nichts belegt.",
         },
         vi: {
@@ -113,6 +117,7 @@ Singleton {
             modYes: "Có, %1 đang được bật trên máy này.", modNo: "Không, %1 không được bật trên máy này.",
             pkgYes: "Có, %1 đã được cài.",
             pkgKnown: "%1 đã được cài trên máy này (tôi chỉ biết cấu hình, không biết cách dùng công cụ).",
+            nvimShortcuts: "Phím tắt Neovim (%1, <leader> = %2):", nvimMatching: "Các phím tắt Neovim phù hợp (<leader> = %1):", nvimNone: "Máy này không cấu hình phím tắt Neovim nào.", nvimUnbound: "%1 không được gán trong Neovim trên máy này.",
             also: "Ngoài ra:", shortcut: "Phím tắt:", unbound: "%1 không được gán cho chức năng nào trên máy này.",
         }
     })
@@ -123,6 +128,7 @@ Singleton {
             ["Find a shortcut", "shortcut for the launcher · how do I lock the screen"],
             ["What a key does", "what does Mod+R do?"],
             ["List shortcuts", "all shortcuts · shortcuts for workspaces"],
+            ["Neovim keymaps", "all vim shortcuts · vim shortcut to find files · what does <leader>ff do in vim?"],
             ["Modules", "is tailscale enabled? · which modules are enabled"],
             ["Packages", "is firefox installed? · which packages are installed"],
             ["Shell settings", "settings set in Nix"]] },
@@ -130,6 +136,7 @@ Singleton {
             ["Trouver un raccourci", "raccourci pour le lanceur · comment verrouiller l'écran"],
             ["Ce que fait une touche", "que fait Mod+R ?"],
             ["Lister les raccourcis", "tous les raccourcis · raccourcis des espaces de travail"],
+            ["Raccourcis Neovim", "tous les raccourcis vim · raccourci vim pour chercher des fichiers · que fait <leader>ff dans vim ?"],
             ["Modules", "tailscale est activé ? · quels modules sont activés"],
             ["Paquets", "firefox est installé ? · quels paquets sont installés"],
             ["Réglages du shell", "réglages définis dans Nix"]] },
@@ -137,6 +144,7 @@ Singleton {
             ["Tastenkürzel finden", "Tastenkürzel für den Starter · wie sperre ich den Bildschirm"],
             ["Was eine Taste macht", "was macht Mod+R?"],
             ["Kürzel auflisten", "alle Tastenkürzel · Kürzel für Arbeitsbereiche"],
+            ["Neovim-Belegungen", "alle vim-Tastenkürzel · vim-Kürzel zum Dateien suchen · was macht <leader>ff in vim?"],
             ["Module", "ist tailscale aktiviert? · welche Module sind aktiv"],
             ["Pakete", "ist firefox installiert? · welche Pakete sind installiert"],
             ["Shell-Einstellungen", "Einstellungen in Nix"]] },
@@ -144,6 +152,7 @@ Singleton {
             ["Tìm phím tắt", "phím tắt mở trình khởi chạy · làm sao khóa màn hình"],
             ["Phím làm gì", "Mod+R để làm gì?"],
             ["Liệt kê phím tắt", "tất cả phím tắt · phím tắt cho không gian làm việc"],
+            ["Phím tắt Neovim", "tất cả phím tắt vim · phím tắt vim tìm tệp · <leader>ff trong vim làm gì?"],
             ["Module", "tailscale có bật không? · những module nào được bật"],
             ["Gói phần mềm", "firefox đã cài chưa? · những gói nào đã cài"],
             ["Cài đặt shell", "cài đặt trong Nix"]] }
@@ -160,9 +169,9 @@ Singleton {
         return `${plain ? h.title : `**${h.title}**`}\n${lines.join("\n")}\n${plain ? "" : "\n"}${h.more}\nEnglish · Français · Deutsch · Tiếng Việt`;
     }
 
-    function tr(lang, key, arg) {
+    function tr(lang, key, arg, arg2) {
         const s = (root.strings[lang] ?? root.strings.en)[key] ?? root.strings.en[key];
-        return arg === undefined ? s : s.replace("%1", arg);
+        return (arg === undefined ? s : s.replace("%1", arg)).replace("%2", arg2 ?? "%2");
     }
     // A fact in the question's language.
     function factText(i, lang) {
@@ -349,7 +358,8 @@ Singleton {
         "screen": ["display"], "display": ["screen"], "copy": ["clipboard"], "paste": ["clipboard"],
         "capture": ["screenshot"], "snip": ["screenshot"], "log": ["session"], "restart": ["reboot"],
         "background": ["wallpaper"], "panel": ["sidebar"], "chat": ["assistant", "ai"], "raise": ["up"],
-        "lower": ["down"], "next": ["below"], "previous": ["above"], "history": ["clipboard"]
+        "lower": ["down"], "next": ["below"], "previous": ["above"], "history": ["clipboard"],
+        "vim": ["neovim"], "nvim": ["neovim"], "nixvim": ["neovim"]
     })
 
     function stem(w) {
@@ -380,6 +390,8 @@ Singleton {
             for (const s of (root.synonyms[w] ?? []))
                 if (!direct.has(s)) extra.add(s);
         const weight = w => root._idf[w] ?? 0;
+        // Neovim keymaps for questions about vim, the rest for the others.
+        const vim = root.aboutVim(question);
         const scored = [];
         root.data.facts.forEach((fact, i) => {
             const fw = root._factWords[i];
@@ -387,6 +399,7 @@ Singleton {
             for (const w of direct) if (fw.has(w)) score += weight(w);
             for (const w of extra) if (fw.has(w)) score += 0.5 * weight(w);
             for (const w of context) if (fw.has(w)) score += 0.5 * weight(w);
+            if (root.isNvim(i) !== vim) score *= 0.5;
             if (score > 0) scored.push({ score, fact, i });
         });
         // Ties (e.g. "settings": every pinned shell setting matches too): the
@@ -412,13 +425,51 @@ Singleton {
 
 
     // ------------------------------------------------------------ intents
-    readonly property var keybindAsk: /shortcut|keybind|hotkey|keyboard|\bkeys?\b|\bpress|\bbind|raccourci|touche|clavier|tastenk|kurzel|\btaste|tastatur|phim tat|\bphim\b/
+    readonly property var keybindAsk: /shortcut|keybind|keymap|mapping|hotkey|keyboard|\bkeys?\b|\bpress|\bbind|raccourci|touche|clavier|tastenk|kurzel|\btaste|tastatur|belegung|phim tat|\bphim\b/
+    // About Neovim ("vim shortcut to find files", "what does <leader>ff do").
+    readonly property var vimAsk: /\b(n?vim|neovim|nixvim)\b|<leader>|<localleader>/i
     readonly property var howAsk: /^\s*(how|what should|can i|is there a way|comment|wie|lam sao|lam the nao|cach)\b/
     readonly property var whyAsk: /^\s*(why|what could|what can cause|pourquoi|warum|wieso|tai sao|vi sao)\b|\bcause\b/
     readonly property var enableAsk: /enabled|\benable|\bactive|\bturned on|\bon this machine|\busing\b|\bon\b|\bhave\b|\bactiv|\baktiv|\bbat\b|kich hoat|\bdung\b/
     readonly property var installAsk: /\binstall|\bhave\b|\bknow\b|\bavailable\b|\bconnai|\bkenn|\bbiet\b|\bcai\b|\bco\b.*\bkhong\b/
     function mentions(foldedQuestion, name) {
         return new RegExp(`\\b${root.escapeRe(root.fold(name))}\\b`).test(foldedQuestion);
+    }
+    function isNvim(i) {
+        return root.data.kinds?.[i]?.startsWith("nvim:") ?? false;
+    }
+    function aboutVim(question) {
+        return root.vimAsk.test(question) || root.vimAsk.test(root.fold(question));
+    }
+    // A Neovim keymap as a list line: "- **<leader>ff** (normal mode): run :Telescope find_files"
+    function formatNvim(i, lang) {
+        const km = root.data.nvim.keymaps[Number(root.data.kinds[i].slice(5))];
+        return `- **${km.key}** (${km.where[lang] ?? km.where.en}): ${km.desc[lang] ?? km.desc.en}`;
+    }
+    // Canonical Neovim key: <…> parts are case-insensitive with sorted
+    // modifiers (<S-C-u> = <c-s-U>), the rest is case-sensitive (gd ≠ gD).
+    function nvimKey(k) {
+        const leader = root.data?.nvim?.leader === "Space" ? "<leader>" : "<space>";
+        return k.replace(/<([^<>]+)>/g, (_, inner) => {
+            const parts = inner.toLowerCase().split("-");
+            const key = parts.length > 1 && parts[parts.length - 1] === "" ? "-" : parts.pop();
+            const name = `<${parts.filter(p => p !== "").sort().concat([key]).join("-")}>`;
+            return name === "<space>" ? leader : name;
+        });
+    }
+    // The Neovim keys a question names: <…> notation, "ctrl+p" when about
+    // vim, and plain configured keys ("gd") when about vim.
+    function nvimKeysIn(question) {
+        const keys = root.allMatches(/(?:<[A-Za-z][\w-]*>)+[^\s?!,;"'`“”]*/g, question).map(m => m[0].replace(/[.:]$/, ""));
+        if (root.aboutVim(question)) {
+            const mods = { ctrl: "C", control: "C", shift: "S", alt: "M", meta: "M" };
+            for (const m of root.allMatches(/((?:(?:ctrl|control|shift|alt|meta)\s*\+\s*)+)([a-z0-9]+)/gi, question))
+                keys.push(`<${m[1].split("+").map(x => mods[x.trim().toLowerCase()]).filter(x => x).join("-")}-${m[2]}>`);
+            const known = new Set(root.data.nvim.keymaps.map(km => km.key));
+            for (const w of question.split(/[\s?!,;"'`“”]+/))
+                if (known.has(w) && !keys.includes(w)) keys.push(w);
+        }
+        return keys;
     }
     function isBind(i) {
         return root.data.kinds ? root.data.kinds[i].startsWith("bind:") : root.data.facts[i].startsWith("Press ");
@@ -441,9 +492,27 @@ Singleton {
     function listReply(question, lang) {
         const q = root.fold(question);
         const listing = /\b(all|list|every|cheat ?sheet|overview|tous|toutes|liste|alle|zeig|tat ca|liet ke|danh sach|toan bo)\b/.test(q)
-            || /\b(keybinds|shortcuts|bindings|hotkeys|modules|packages|raccourcis|paquets|pakete)\b/.test(q);
+            || /\b(keybinds|keymaps|mappings|shortcuts|bindings|hotkeys|modules|packages|raccourcis|paquets|pakete)\b/.test(q);
         if (!listing) return null;
         const facts = root.data.facts;
+        if (root.aboutVim(question)) {
+            const keymaps = facts.map((_, i) => i).filter(i => root.isNvim(i));
+            if (keymaps.length === 0) return root.tr(lang, "nvimNone");
+            const generic = new Set(["all", "list", "every", "each", "show", "available", "overview", "cheat", "sheet",
+                "keybind", "keymap", "mapping", "hotkey", "shortcut", "binding", "key", "the", "me", "here", "have", "exist",
+                "current", "configured", "vim", "nvim", "neovim", "nixvim", "in"]);
+            const topic = new Set(root.words(root.englishText(question, lang)).filter(w => !generic.has(w) && (root._idf[w] ?? 0) > 0));
+            for (const w of [...topic])
+                for (const s of (root.synonyms[w] ?? [])) topic.add(s);
+            let selected = keymaps;
+            if (topic.size > 0) {
+                const matching = keymaps.filter(i => [...topic].some(w => root._factWords[i].has(w)));
+                if (matching.length > 0) selected = matching;
+            }
+            const leader = root.data.nvim.leader;
+            const title = selected === keymaps ? root.tr(lang, "nvimShortcuts", keymaps.length, leader) : root.tr(lang, "nvimMatching", leader);
+            return `${title}\n${selected.map(i => root.formatNvim(i, lang)).join("\n")}`;
+        }
         if (root.keybindAsk.test(q)) {
             const binds = facts.map((_, i) => i).filter(i => root.isBind(i));
             const generic = new Set(["all", "list", "every", "each", "show", "available", "overview", "cheat", "sheet",
@@ -486,8 +555,9 @@ Singleton {
         const lang = root.detectLang(question);
         const found = root.lookup(question, previous, lang);
         // Keybindings first: what can be done beats what is configured.
-        const close = found.facts.filter(f => root.isBind(f.i))
-            .concat(found.facts.filter(f => !root.isBind(f.i))).slice(0, 3);
+        const isKey = i => root.isBind(i) || root.isNvim(i);
+        const close = found.facts.filter(f => isKey(f.i))
+            .concat(found.facts.filter(f => !isKey(f.i))).slice(0, 3);
         if (close.length === 0 || found.coverage < 0.25)
             return `${root.tr(lang, "dontKnow")}\n\n${root.tr(lang, "tips")}`;
         return `${root.tr(lang, "notSure")}\n${close.map(f => `- ${root.factText(f.i, lang)}`).join("\n")}`;
@@ -516,6 +586,18 @@ Singleton {
         if (pkg && root.installAsk.test(q) && !root.keybindAsk.test(q))
             return /\binstall|\bcai\b/.test(q) ? root.tr(lang, "pkgYes", pkg) : root.tr(lang, "pkgKnown", pkg);
 
+        // "What does <leader>ff do (in vim)?" — the Neovim keymap(s) of that key.
+        const vimKeys = root.data.nvim ? root.nvimKeysIn(question) : [];
+        if (vimKeys.length > 0) {
+            const lines = [];
+            for (const k of vimKeys) {
+                const found = root.data.facts.map((_, j) => j).filter(j => root.isNvim(j)
+                    && root.nvimKey(root.data.nvim.keymaps[Number(root.data.kinds[j].slice(5))].key) === root.nvimKey(k));
+                if (found.length === 0) lines.push(root.tr(lang, "nvimUnbound", k));
+                for (const j of found) lines.push(root.factText(j, lang));
+            }
+            return lines.filter((l, j) => lines.indexOf(l) === j).join("\n");
+        }
         // "What does Mod+R do?" — the key's own binding.
         const keys = root.allMatches(/(?:(?:mod|super|ctrl|control|alt|shift|win(?:dows)?)\s*\+\s*)+[a-z0-9_]+/gi, question)
             .concat(root.allMatches(/\bPrint\b|XF86\w+/g, question)).map(m => m[0]);
@@ -532,13 +614,14 @@ Singleton {
         // does), plus a close second one. Not for "why …" questions.
         // The best binding, if close to the best fact overall (a wallpaper
         // *setting* shouldn't hide the wallpaper selector's key).
-        const top = found.facts.find(s => root.isBind(s.i) && s.score >= 0.75 * found.facts[0].score);
+        const isKey = root.aboutVim(question) ? root.isNvim : root.isBind;
+        const top = found.facts.find(s => isKey(s.i) && s.score >= 0.75 * found.facts[0].score);
         // Not when the question names something no fact mentions: "record my
         // screen" isn't answered by the screenshot key (answer() then lists
         // the closest facts instead).
         if (top && found.coverage >= 0.35 && (found.unknown ?? []).length === 0 && !root.whyAsk.test(q)) {
-            const second = found.facts.find(s => s !== top && root.isBind(s.i) && s.score >= 0.85 * top.score
-                && root.bindKey(s.i) !== root.bindKey(top.i));
+            const second = found.facts.find(s => s !== top && isKey(s.i) && s.score >= 0.85 * top.score
+                && root.factText(s.i, "en") !== root.factText(top.i, "en") && (isKey !== root.isBind || root.bindKey(s.i) !== root.bindKey(top.i)));
             return root.factText(top.i, lang) + (second ? `\n${root.tr(lang, "also")} ${root.factText(second.i, lang)}` : "");
         }
         if (found.facts.length === 0 || found.coverage < 0.25)
