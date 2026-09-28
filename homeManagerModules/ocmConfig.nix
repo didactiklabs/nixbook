@@ -7,6 +7,7 @@
 let
   cfg = config.customHomeManagerModules.ocmConfig;
   yamlFormat = pkgs.formats.yaml { };
+  jsonFormat = pkgs.formats.json { };
   inherit (pkgs.customPkgs) opencode-manager;
 
   nixProfile = "/nix/var/nix/profiles/default";
@@ -319,6 +320,36 @@ in
       '';
     };
 
+    opencodeSettings = lib.mkOption {
+      type = lib.types.nullOr jsonFormat.type;
+      default = {
+        "$schema" = "https://opencode.ai/config.json";
+        plugin = config.programs.opencode.settings.plugin or [ "opencode-claude-auth@latest" ];
+      };
+      defaultText = lib.literalExpression ''
+        {
+          "$schema" = "https://opencode.ai/config.json";
+          plugin = config.programs.opencode.settings.plugin or [ "opencode-claude-auth@latest" ];
+        }
+      '';
+      description = ''
+        Global OpenCode configuration shared by every workspace.
+
+        Written to `~/.config/opencode-manager/opencode/opencode.json`, which
+        ocm syncs one way into each workspace as
+        `/home/debian/.config/opencode/opencode.json`. Copied as a regular file
+        like `agentInstructions`, for the same reason.
+
+        Defaults to the host's OpenCode plugins (the `opencodeConfig` auth
+        plugins, including `opencode-claude-auth`), so workspaces authenticate
+        the same way; OpenCode installs them on its first start in the
+        workspace. Only the plugins are carried over: the host's providers
+        (e.g. the local Ollama endpoint) are not reachable from a container.
+
+        `null` leaves the file alone so it can be managed by hand.
+      '';
+    };
+
     claudeCode.importAgentInstructions = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -602,6 +633,18 @@ in
           $DRY_RUN_CMD mkdir -p "$(dirname "$agents")"
           $DRY_RUN_CMD rm -f "$agents"
           $DRY_RUN_CMD install -m 0644 "$src" "$agents"
+        fi
+      ''
+    );
+
+    home.activation.ocmOpencodeSettings = lib.mkIf (cfg.opencodeSettings != null) (
+      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        settings="$HOME/.config/opencode-manager/opencode/opencode.json"
+        src=${jsonFormat.generate "ocm-opencode.json" cfg.opencodeSettings}
+        if ! cmp -s "$src" "$settings"; then
+          $DRY_RUN_CMD mkdir -p "$(dirname "$settings")"
+          $DRY_RUN_CMD rm -f "$settings"
+          $DRY_RUN_CMD install -m 0644 "$src" "$settings"
         fi
       ''
     );
