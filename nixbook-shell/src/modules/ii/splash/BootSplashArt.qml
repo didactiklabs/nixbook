@@ -58,18 +58,22 @@ Item {
         color: Persona.shapes ? Persona.frameColor : Appearance.m3colors.m3background
     }
     // The art *is* the splash: decoded synchronously (a 1200×800
-    // PNG, a few ms; the other screens hit the pixmap cache) with
-    // the bucket picked from the screen size, so it is there in the
-    // very first frame. PersonaTexture waits for its layout size and
-    // decodes asynchronously, which showed the bare background and
-    // text for a moment at startup.
+    // PNG, a few ms per screen) with the bucket picked from the
+    // screen size, so it is there in the very first frame.
+    // PersonaTexture waits for its layout size and decodes
+    // asynchronously, which showed the bare background and text for
+    // a moment at startup. Not from the pixmap cache: Persona's
+    // preloader starts async loads of these very urls when the
+    // config is read, just before BootSplash is created, and a
+    // cached request joins a pending load (QQuickPixmap::load) —
+    // asynchronous: false or not.
     Image {
         anchors.fill: parent
         visible: Persona.halftone
         source: visible ? Persona.textureUrl(Persona.textureShapeFor(root.screenWidth, root.screenHeight)) : ""
         fillMode: Image.PreserveAspectCrop
         asynchronous: false
-        cache: true
+        cache: false
         smooth: true
         opacity: 0.6
     }
