@@ -14,7 +14,7 @@
 - **Home Manager Modules:** 34 (29 standalone files + 5 subdirectories)
 - **NixOS Modules:** 19 files
 - **Custom Packages:** 19
-- **CI/CD Workflows:** 2
+- **CI/CD Workflows:** 3
 - **NixVim Plugins:** 25
 - **VSCode Extensions:** 32
 - **Pinned Dependencies:** 41
@@ -59,6 +59,7 @@ hive.nix                          Colmena deployment config
 - `devenv.nix/.envrc` - Development environment with direnv integration
 - `devenvModules/` - Shared devenv config module imported by nixbook, hephaestus, and aletheia via npins
 - `docs/` - Auto-generated module documentation (generate-docs.nix, MODULES.md)
+- `tests/` - Cheap regression checks run by `checks.yaml` (`run.sh` entry point, `hosts.nix` per-machine invariants, `repo.nix` repository checks, `nixbook-shell.sh` script tests, `hardware-configuration.nix` evaluation stub)
 
 ## NixOS Modules (26 files)
 
@@ -262,9 +263,10 @@ hive.nix                          Colmena deployment config
 
 ## CI/CD Pipeline
 
-**GitHub Actions Workflows (2 files):**
+**GitHub Actions Workflows (3 files):**
 
 - `build.yaml` - Two jobs on the self-hosted runners (which share one Nix store). `build` builds all 5 profiles (totoro, anya, nishinoya, tanjiro, hanamichi) via matrix on push/PR to main; its `build (<profile>)` checks are the merge gate (steps run with `pipefail`, so a failing `colmena build` fails the check). `push-cache` runs on main/dispatch only, after all builds succeed, one profile at a time (`max-parallel: 1`): it re-resolves the system via `colmena build --keep-result` (a no-op evaluation on the shared store) and `nix copy`s it to the S3 cache, signing on upload (`secret-key=`) and retrying up to 5 times (each retry resumes, as already-uploaded paths are skipped). Concurrency: a new PR push cancels the old run and closing a PR cancels its pending run; main runs are never cancelled mid-flight. 120min timeout per job.
+- `checks.yaml` - Cheap regression checks on GitHub-hosted `ubuntu-latest` runners (the repo is public, so they are free and never compete with the self-hosted builders), on push/PR to main. Jobs: `lint` (`devenv test`: treefmt/shellcheck/mdsh hooks, then fails if treefmt changed any file), `repo` (`tests/run.sh repo`, `shell`, `iso`, `docs`), and `host (<name>)` for every hive node plus one `all modules` leg (`tests/run.sh host`), whose matrix is read from `hive.nix` so new machines are picked up automatically. Host legs install `tests/hardware-configuration.nix` as `/etc/nixos/hardware-configuration.nix` (base.nix imports it) and evaluate through `colmena eval`, building only a few tiny generated files. Evaluation warnings become annotations.
 - `npins-update.yaml` - Automated dependency updates every 6 hours or manual dispatch. Updates each pin independently (max 10 parallel), syncs devenv.yaml nixpkgs revision, creates PRs with auto-merge.
 
 **Features:**
@@ -300,6 +302,7 @@ direnv allow  # Automatically loads devenv
 - `build-iso` - Build installation ISO
 - `test-iso` - Build and test ISO in QEMU VM with UEFI
 - `generate-docs` - Auto-generate docs/MODULES.md from module definitions
+- `run-tests` - Cheap regression checks (`tests/run.sh`: `repo`, `shell`, `iso`, `docs`, `host <name> [--all-modules]`, `all`)
 
 ### Interactive Installer
 
@@ -430,7 +433,7 @@ All git operations must follow this workflow. **Always ask the user for validati
 4. **Dependencies** - Check `npins/sources.json` for versions, update via npins
 5. **Custom Packages** - Add new packages to `customPkgs/`
 6. **Secrets** - Use agenix for credentials in `installer/` or user configs
-7. **Testing** - Use `default.nix` to build and test ISO
+7. **Testing** - Run `run-tests` (`tests/run.sh`) for the cheap checks CI runs (see README "Tests"); use `default.nix` to build and test the ISO. When adding a machine, the hive, `profiles/` and both `build.yaml` matrices must agree (`run-tests repo` checks it). When a module is added that no profile enables, add its toggle to `optionalModules` in `tests/hosts.nix`. When changing an invariant asserted in `tests/hosts.nix` on purpose, update the check in the same change
 8. **Deployment** - Use `colmena apply-local --sudo` for local changes
 9. **Git Hooks** - Configured in `devenv.nix`, run automatically on commit
 10. **Documentation** - Keep `README.md` and `AGENTS.md` updated; run `generate-docs` to update `docs/MODULES.md`
