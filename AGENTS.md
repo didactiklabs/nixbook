@@ -212,7 +212,7 @@ hive.nix                          Colmena deployment config
 - **NixOS Modules:** greetd, niri, gamingConfig (gpu = "nvidia"), simracing, printTools, lanzaboote
 - **Special Features:** Regular desktop for everyday use + gaming. Steam/Proton/GameMode enabled but does NOT auto-launch Steam Big Picture on startup. Sim racing hardware support (Moza & Fanatec wheelbases, pedals, etc.) via the simracing module. Printing & scanning (CUPS + SANE + mDNS discovery) via the printTools module. No laptop/dev/work modules. No work CA certs or kubeconfigs. fcitx5 input method with US QWERTY + US-International (German umlauts via AltGr) layouts and Vietnamese Unikey (toggle with Ctrl+Space).
 - **Home Manager Modules:** fontConfig, gtkConfig, starship, fastfetchConfig, niriConfig, dmsConfig, kittyConfig, zshConfig, atuinConfig, desktopApps, zenBrowserConfig, gitConfig, fcitx5Config, oversteerConfig
-- **Cursor:** the Momonga Xcursor theme, a profile asset (`profiles/hanamichi/assets/cursors/Momonga`) set by `chocomooncake/cursorConfig.nix` (overrides the shared Stylix cursor and gtkConfig's GTK cursor; size 32). Temporarily also imported by totoro's `khoa` profile for testing.
+- **Cursor:** the Momonga Xcursor theme, a profile asset (`profiles/hanamichi/assets/cursors/Momonga`) set by `chocomooncake/cursorConfig.nix` (overrides the shared Stylix cursor and gtkConfig's GTK cursor; size 32).
 
 ## Key Features
 

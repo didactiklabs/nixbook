@@ -14,9 +14,6 @@ in
     ./niriConfig.nix
     ./thunderbirdConfig.nix
     ./nixbookShellConfig.nix
-    # TEMPORARY: trying hanamichi's Momonga cursor here before keeping it
-    # there only; remove this line once tested.
-    ../../hanamichi/chocomooncake/cursorConfig.nix
   ];
   home.packages = [
     pkgs.slack
