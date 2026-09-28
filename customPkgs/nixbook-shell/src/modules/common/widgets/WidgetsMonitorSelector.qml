@@ -14,6 +14,13 @@ Flow {
     required property var configEntry
     property string configKey: ""
     readonly property bool nixManaged: configKey !== "" && NixManaged.isPinned(configKey)
+    // Settings menu "Editable only" filter: locked settings drop out of the
+    // list (containers hide once empty, see NixManaged.allFiltered).
+    readonly property bool filteredOut: nixManaged && NixManaged.hideLocked
+    Binding on visible {
+        when: root.filteredOut
+        value: false
+    }
     readonly property var screenNames: Quickshell.screens.map(s => s.name)
     Layout.fillWidth: true
     spacing: 2

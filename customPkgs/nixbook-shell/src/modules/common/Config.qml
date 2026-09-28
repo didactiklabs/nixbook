@@ -261,6 +261,7 @@ Singleton {
                 property real borderSize: 1
                 property string borderColor: "layer0Border"
                 property list<string> collapsedSections: []
+                property bool hideLocked: false // settings menu: hide locked (externally managed) settings
             }
 
             property JsonObject background: JsonObject {

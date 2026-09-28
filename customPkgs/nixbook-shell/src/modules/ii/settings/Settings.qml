@@ -33,9 +33,9 @@ Scope {
         id: settingsWindow
         title: Translation.tr("Shell settings")
         visible: false
-        implicitWidth: Math.round(980 * root.sizeScale)
-        implicitHeight: Math.round(665 * root.sizeScale)
-        minimumSize: Qt.size(560, 400)
+        implicitWidth: Math.round(1180 * root.sizeScale)
+        implicitHeight: Math.round(800 * root.sizeScale)
+        minimumSize: Qt.size(640, 460)
         color: Appearance.colors.colLayer0
 
         // Two-way sync with GlobalStates.settingsOpen (IPC, sidebar button,

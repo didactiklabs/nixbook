@@ -8,7 +8,7 @@ import QtQuick
 import QtQuick.Layouts
 
 // Desktop right-click menu → Persona variant (shown while the Persona style
-// is enabled). Same choices as Settings → Interface → Persona style.
+// is enabled). Same choices as Settings → Appearance → Persona style.
 Item {
     id: root
     implicitHeight: col.implicitHeight + 16
