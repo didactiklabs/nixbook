@@ -44,6 +44,9 @@ Singleton {
         readonly property bool hasInlineReply: notification?.hasInlineReply ?? false
         readonly property string inlineReplyPlaceholder: notification?.inlineReplyPlaceholder ?? ""
         property Timer timer
+        // Ids of the earlier copies this one supersedes (duplicateVerdict):
+        // a thread re-post, or the desktop copy of a phone-mirrored message.
+        property var replaces: []
 
         onNotificationChanged: {
             if (notification === null) {
@@ -198,12 +201,11 @@ Singleton {
                 "notificationId": notification.id + root.idOffset,
                 "notification": notification,
                 "time": Date.now(),
+                "replaces": duplicate.supersedes,
             });
+            const replaced = (root.dedupOptions?.history ?? true)
+                ? root.recent.filter(r => duplicate.supersedes.includes(r.notificationId)) : [];
             root.remember(newNotifObject);
-            if (duplicate.replaces.length > 0) {
-                console.log(`[Notifications] "${notification.appName}: ${notification.summary}" replaces ${duplicate.replaces.join(", ")}`);
-                root.discardNotifications(duplicate.replaces, true);
-            }
 			root.list = [...root.list, newNotifObject];
 
             // Popup
@@ -220,10 +222,17 @@ Singleton {
                 newNotifObject.read = false;
                 root.unread++;
             }
-            NotificationHistory.record(newNotifObject, (v => v.cutIn ? v.reason : "")(root.cutInVerdict(newNotifObject)));
+            NotificationHistory.record(newNotifObject, (v => v.cutIn ? v.reason : "")(root.cutInVerdict(newNotifObject)),
+                replaced.map(r => ({ id: r.notificationId, time: r.time })));
             // notify first: a cut-in plays its own sound, and the chime then
-            // falls within the 300 ms gap instead of doubling it.
+            // falls within the 300 ms gap instead of doubling it. Before
+            // discarding what it replaces, so a cut-in on screen for the old
+            // copy is updated in place instead of leaving and coming back.
             root.notify(newNotifObject);
+            if (duplicate.replaces.length > 0) {
+                console.log(`[Notifications] "${notification.appName}: ${notification.summary}" replaces ${duplicate.replaces.join(", ")}`);
+                root.discardNotifications(duplicate.replaces, true);
+            }
             root.playNotificationSound(notification);
             // console.log(notifToString(newNotifObject));
             notifFileView.setText(stringifyList(root.list));
@@ -365,32 +374,34 @@ Singleton {
         }];
     }
 
-    // What to do with incoming `n`: { drop, replaces }. drop = why it is not
-    // shown ("" = show it); replaces = ids of earlier copies it supersedes.
+    // What to do with incoming `n`: { drop, replaces, supersedes }. drop =
+    // why it is not shown ("" = show it); supersedes = ids of the earlier
+    // copies it supersedes, replaces = those still in the list.
     //  - a mirrored copy of a desktop notification: dropped;
     //  - a desktop notification whose mirrored copy came first: replaces it;
-    //  - the same app, title and text again within 2 s (a sender repeating
-    //    itself): dropped;
+    //  - the same app, title and text again within `repeatWindow` s (a
+    //    sender repeating itself): dropped;
     //  - the same app and title re-posted with lines appended (a phone
     //    mirroring the whole chat thread each time): replaces the old one.
     // Matching: NotificationUtils.isRelayOf / isRepeatOf / isThreadUpdateOf.
     function duplicateVerdict(n, now) {
-        const verdict = { drop: "", replaces: [] };
+        const verdict = { drop: "", replaces: [], supersedes: [] };
         const options = root.dedupOptions;
         if (!(options?.enable ?? true)) return verdict;
-        const windowMs = Math.max(0, options?.window ?? 120) * 1000;
+        const windowMs = Math.max(0, options?.window ?? 1800) * 1000;
         root.recent = root.recent.filter(r => now - r.time <= windowMs);
         const relayed = NotificationUtils.isRelayed(n, options?.relayApps);
+        const repeatMs = Math.max(0, options?.repeatWindow ?? 2) * 1000;
         for (const r of [...root.recent].reverse()) {
-            if (now - r.time <= 2000 && NotificationUtils.isRepeatOf(n, r))
-                return { drop: `repeat of #${r.notificationId}`, replaces: [] };
+            if (now - r.time <= repeatMs && NotificationUtils.isRepeatOf(n, r))
+                return { drop: `repeat of #${r.notificationId}`, replaces: [], supersedes: [] };
             if (relayed && !r.relayed && NotificationUtils.isRelayOf(r, n))
-                return { drop: `mirrors ${r.appName} #${r.notificationId}`, replaces: [] };
+                return { drop: `mirrors ${r.appName} #${r.notificationId}`, replaces: [], supersedes: [] };
             if ((!relayed && r.relayed && NotificationUtils.isRelayOf(n, r))
                     || NotificationUtils.isThreadUpdateOf(n, r))
-                verdict.replaces.push(r.notificationId);
+                verdict.supersedes.push(r.notificationId);
         }
-        verdict.replaces = verdict.replaces.filter(id => root.list.some(notif => notif.notificationId === id));
+        verdict.replaces = verdict.supersedes.filter(id => root.list.some(notif => notif.notificationId === id));
         return verdict;
     }
 

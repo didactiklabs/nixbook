@@ -125,18 +125,24 @@ Singleton {
 
     /**
      * The last message of a chat notification. Phones (KDE Connect) re-post a
-     * conversation with every new message appended, each starting on a line
-     * "sender: text" (or "sender:" then the text on the next lines):
-     * { sender, text, block } for the last one — block = "sender: text" as
-     * it appears. Without such a line: no sender, the whole text.
+     * conversation with every new message appended: the first line is
+     * "sender: text" or "conversation: sender:", then each sender change is a
+     * line "sender:" alone, the messages on the next lines. A later
+     * "x: text" line is a message ("Liked your message: …", "Note: …"), not
+     * a sender. { sender, text, block } for the last one — block = its lines
+     * as they appear, from the sender's. Without a sender line: no sender,
+     * the whole text.
      */
     function lastMessage(text) {
         const lines = `${text ?? ""}`.split("\n");
         for (let i = lines.length - 1; i >= 0; i--) {
             const m = lines[i].match(/^([^:]{1,40}):(?: (.*))?$/);
-            if (!m) continue;
-            const text = [m[2] ?? "", ...lines.slice(i + 1)].join("\n").trim();
-            return { sender: m[1].trim(), text: text, block: lines.slice(i).join("\n") };
+            if (!m || (i > 0 && (m[2] ?? "").trim() !== "")) continue;
+            // "conversation: sender:" — the sender is the second name.
+            const inner = i === 0 ? (m[2] ?? "").match(/^([^:]{1,40}):$/) : null;
+            const first = inner ? "" : m[2] ?? "";
+            const text = [first, ...lines.slice(i + 1)].join("\n").trim();
+            return { sender: (inner ? inner[1] : m[1]).trim(), text: text, block: lines.slice(i).join("\n") };
         }
         return { sender: "", text: `${text ?? ""}`, block: `${text ?? ""}` };
     }
@@ -149,7 +155,9 @@ Singleton {
      *   Victor + !newsletter   "victor" present, "newsletter" absent
      *   app:Instagram          only look in one field — app, title, body,
      *                          last (the body's last chat message, with its
-     *                          sender) or hint (string hints); no prefix = all
+     *                          sender), line (the body's last line: the newest
+     *                          message of a re-posted thread) or hint (string
+     *                          hints); no prefix = all
      *   "Diệu"                 whole word only (not inside a longer word)
      *   last:^You:             the field starts with it (a chat's sender)
      * Prefixes combine: !title:^"re". A term can't contain "+" or ",".
@@ -163,6 +171,7 @@ Singleton {
             hint: Object.keys(hints).map(k => typeof hints[k] === "string" ? hints[k] : "").join(" "),
         };
         f.last = root.lastMessage(f.body).block;
+        f.line = f.body.trim().split("\n").pop();
         f.any = `${f.app} ${f.title} ${f.body} ${f.hint}`;
         for (const k in f) f[k] = f[k].toLowerCase();
         return f;
@@ -181,7 +190,7 @@ Singleton {
         let negate = false;
         if (t.startsWith("!")) { negate = true; t = t.slice(1).trim(); }
         let field = "any";
-        const m = t.match(/^(app|title|body|last|hint):/i);
+        const m = t.match(/^(app|title|body|last|line|hint):/i);
         if (m) { field = m[1].toLowerCase(); t = t.slice(m[0].length).trim(); }
         let start = false;
         if (t.startsWith("^")) { start = true; t = t.slice(1).trim(); }

@@ -563,9 +563,17 @@ ContentPage {
                         text: Translation.tr("Max delay between the two copies (s)")
                         value: Config.options.notifications.deduplicate.window
                         from: 5
-                        to: 600
-                        stepSize: 5
+                        to: 3600
+                        stepSize: 60
                         onValueChanged: Config.options.notifications.deduplicate.window = value
+                    }
+                    ConfigSwitch {
+                        configKey: "notifications.deduplicate.history"
+                        enabled: Config.options.notifications.deduplicate.enable
+                        buttonIcon: "history"
+                        text: Translation.tr("Keep one history entry per message")
+                        checked: Config.options.notifications.deduplicate.history
+                        onCheckedChanged: Config.options.notifications.deduplicate.history = checked
                     }
                 }
             }
@@ -680,6 +688,14 @@ ContentPage {
                         checked: cutInSection.rules.sound
                         onCheckedChanged: Config.options.notifications.cutIn.sound = checked
                     }
+                    ConfigSwitch {
+                        configKey: "notifications.cutIn.mergeUpdates"
+                        enabled: cutInSection.rules.enable
+                        buttonIcon: "forum"
+                        text: Translation.tr("Update the cut-in on screen when its chat gets a new message")
+                        checked: cutInSection.rules.mergeUpdates
+                        onCheckedChanged: Config.options.notifications.cutIn.mergeUpdates = checked
+                    }
                     NotificationRuleEditor {
                         Layout.fillWidth: true
                         enabled: cutInSection.rules.enable
@@ -695,7 +711,7 @@ ContentPage {
                         Layout.margins: 8
                         wrapMode: Text.Wrap
                         textFormat: Text.StyledText
-                        text: Translation.tr("<b>Rules</b> — each comma-separated rule is checked on its own. Join terms with <b>+</b> to require all of them (<i>Victor + Instagram</i> needs both). <b>!</b> means absent (<i>Victor + !newsletter</i>). <b>app:</b>, <b>title:</b>, <b>body:</b> or <b>hint:</b> look in one field only (<i>app:Instagram + Victor</i>). Quotes match a whole word (<i>\"Diệu\"</i>), <b>^</b> the start of the field (<i>last:^You:</i>: the last chat message is mine). <b>last:</b> is the last message of a chat thread, with its sender. Case is ignored. Blacklist rules win over everything, critical included.")
+                        text: Translation.tr("<b>Rules</b> — each comma-separated rule is checked on its own. Join terms with <b>+</b> to require all of them (<i>Victor + Instagram</i> needs both). <b>!</b> means absent (<i>Victor + !newsletter</i>). <b>app:</b>, <b>title:</b>, <b>body:</b> or <b>hint:</b> look in one field only (<i>app:Instagram + Victor</i>). Quotes match a whole word (<i>\"Diệu\"</i>), <b>^</b> the start of the field (<i>last:^You:</i>: the last chat message is mine). <b>last:</b> is the last message of a chat thread, with its sender; <b>line:</b> its last line (<i>line:Liked your message</i>). Case is ignored. Blacklist rules win over everything, critical included.")
                         font.pixelSize: Appearance.font.pixelSize.small
                         color: Appearance.colors.colSubtext
                     }

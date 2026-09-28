@@ -559,13 +559,16 @@
       "critical": true,
       "enable": true,
       "keywords": [],
+      "mergeUpdates": true,
       "sound": true,
       "soundFile": ""
     },
     "deduplicate": {
       "enable": true,
+      "history": true,
       "relayApps": ["KDE Connect", "GSConnect"],
-      "window": 120
+      "repeatWindow": 2,
+      "window": 1800
     },
     "history": {
       "enable": true,

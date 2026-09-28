@@ -734,12 +734,17 @@ Singleton {
                 // Drop duplicate notifications (services/Notifications.qml
                 // duplicateVerdict): the phone's mirrored copy of a message the
                 // desktop app also showed, within `window` seconds (the desktop
-                // one is kept), and a sender repeating itself. relayApps: app
-                // names of notifications mirrored from another device.
+                // one is kept; the phone can lag 15+ minutes), and a sender
+                // repeating itself within `repeatWindow` seconds. relayApps:
+                // app names of notifications mirrored from another device.
+                // history: also drop the superseded copies (a thread re-post's
+                // previous version, a mirrored copy) from the history.
                 property JsonObject deduplicate: JsonObject {
                     property bool enable: true
-                    property int window: 120
+                    property int window: 1800
+                    property int repeatWindow: 2
                     property list<string> relayApps: ["KDE Connect", "GSConnect"]
+                    property bool history: true
                 }
                 property JsonObject cutIn: JsonObject {
                     property bool enable: true
@@ -747,8 +752,8 @@ Singleton {
                     property list<string> apps: [] // app names (as shown on notifications)
                     // Rules matched in the app name, title, text and notification
                     // hints (browsers/KDE put the origin site there): "a + b"
-                    // needs both, "!a" absent, "app:/title:/body:/hint:a" one
-                    // field, "\"a\"" whole word (NotificationUtils.ruleMatches).
+                    // needs both, "!a" absent, "app:/title:/body:/last:/line:/hint:a"
+                    // one field, "\"a\"" whole word (NotificationUtils.ruleMatches).
                     property list<string> keywords: []
                     // Rules (same syntax as `keywords`) that veto a cut-in,
                     // even for critical notifications or chosen apps.
@@ -757,6 +762,10 @@ Singleton {
                     // empty soundFile = the bundled Persona 5 cut-in effect.
                     property bool sound: true
                     property string soundFile: ""
+                    // A newer copy of a cut-in still queued or on screen (a chat
+                    // thread re-posted with one more message) takes its place
+                    // instead of a second cut-in.
+                    property bool mergeUpdates: true
                 }
             }
 
