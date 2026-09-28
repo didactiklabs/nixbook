@@ -354,6 +354,57 @@ ContentPage {
                     onSelected: newValue => Themes.setVariant(Themes.current, newValue)
                 }
             }
+            // A wallpaper per theme variant (services/ThemeWallpapers.qml).
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "appearance.wallpaperPerTheme";
+                    buttonIcon: "wallpaper"
+                    text: Translation.tr("Each theme keeps its own wallpaper (switching puts it back)")
+                    checked: Config.options.appearance.wallpaperPerTheme
+                    enabled: !nixManaged
+                    onCheckedChanged: { Config.options.appearance.wallpaperPerTheme = checked }
+                }
+                RowLayout {
+                    id: themeWallRow
+                    visible: Config.options.appearance.wallpaperPerTheme
+                    readonly property bool locked: ThemeWallpapers.pinned
+                    readonly property var target: ThemeWallpapers.wallpaperFor(ThemeWallpapers.key)
+                    Layout.leftMargin: 8
+                    Layout.rightMargin: 8
+                    spacing: 8
+                    MaterialSymbol {
+                        text: "image"
+                        iconSize: Appearance.font.pixelSize.larger
+                        color: Appearance.colors.colOnSecondaryContainer
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        elide: Text.ElideMiddle
+                        color: Appearance.colors.colOnSecondaryContainer
+                        text: {
+                            const t = themeWallRow.target;
+                            const name = Translation.tr(Themes.currentVariant?.name ?? Themes.currentTheme?.name ?? "");
+                            if (!t)
+                                return Translation.tr("%1: keeps the wallpaper you have").arg(name);
+                            return t.bundled ? Translation.tr("%1: its own wallpaper").arg(name)
+                                : Translation.tr("%1: %2").arg(name).arg(t.path.slice(t.path.lastIndexOf("/") + 1));
+                        }
+                    }
+                    NixManagedBadge { pinned: themeWallRow.locked }
+                    RippleButtonWithIcon {
+                        enabled: !themeWallRow.locked && (Config.options.background.wallpaperPath ?? "") !== ""
+                        materialIcon: "add_photo_alternate"
+                        mainText: Translation.tr("Use the current one")
+                        onClicked: ThemeWallpapers.setForCurrent(Config.options.background.wallpaperPath)
+                    }
+                    RippleButtonWithIcon {
+                        enabled: !themeWallRow.locked && (ThemeWallpapers.map?.[ThemeWallpapers.key] ?? "") !== ""
+                        materialIcon: "restart_alt"
+                        mainText: Translation.tr("Reset")
+                        onClicked: ThemeWallpapers.setForCurrent("")
+                    }
+                }
+            }
         }
 
         // Persona theme options (only while it is the theme).
@@ -472,28 +523,6 @@ ContentPage {
                         { displayName: Translation.tr("Default"), icon: "settings_panorama", value: "default" },
                         { displayName: Translation.tr("Minimal"), icon: "settings_heart", value: "minimal" }
                     ]
-                }
-                ConfigSpinBox {
-                    configKey: "settings.borderSize";
-                    enabled: !nixManaged;
-                    icon: "border_style"
-                    text: Translation.tr("Border width")
-                    value: Config.options.settings.borderSize
-                    from: 0
-                    to: 10
-                    stepSize: 1
-                    onValueChanged: { Config.options.settings.borderSize = value }
-                }
-                ColorSelectionArray {
-                    configKey: "settings.borderColor";
-                    enabled: !nixManaged;
-                    icon: "format_paint"
-                    text: Translation.tr("Border Color")
-                    options: ["primary", "secondary", "tertiary", "primaryContainer", "secondaryContainer", "tertiaryContainer", "layer0Border"]
-                    currentValue: Config.options.settings.borderColor
-                    onSelected: newValue => {
-                        Config.options.settings.borderColor = newValue
-                    }
                 }
             }
         }

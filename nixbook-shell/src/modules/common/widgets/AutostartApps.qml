@@ -24,6 +24,7 @@ ColumnLayout {
         }
         list.push({ cmd: "", workspace: 1, delay: 0 })
         Config.options.hyprland.autostartApps.apps = list
+        Config.save()
     }
 
     function removeEntry(index) {
@@ -34,6 +35,7 @@ ColumnLayout {
             list.push({ cmd: o.cmd, workspace: o.workspace, delay: o.delay })
         }
         Config.options.hyprland.autostartApps.apps = list
+        Config.save()
     }
 
     function updateEntry(index, key, value) {
@@ -44,6 +46,7 @@ ColumnLayout {
         }
         list[index][key] = value
         Config.options.hyprland.autostartApps.apps = list
+        Config.save()
     }
 
     RowLayout {

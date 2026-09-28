@@ -77,10 +77,12 @@ Item {
         autoPaddingEnabled: false
         shadowEnabled: true
         blurMax: 16
+        // Persona: a short, softened hard shadow (the full one made every
+        // card shout next to the panels).
         shadowBlur: root.persona ? 0 : 1
         shadowColor: root.persona ? Persona.shadowColor : Appearance.colors.colShadow
-        shadowHorizontalOffset: root.persona ? Persona.shadowOffset : 0
-        shadowVerticalOffset: root.persona ? Persona.shadowOffset : 1
-        shadowOpacity: 1
+        shadowHorizontalOffset: root.persona ? Math.round(Persona.shadowOffset * 0.5) : 0
+        shadowVerticalOffset: root.persona ? Math.round(Persona.shadowOffset * 0.5) : 1
+        shadowOpacity: root.persona ? 0.55 : 1
     }
 }

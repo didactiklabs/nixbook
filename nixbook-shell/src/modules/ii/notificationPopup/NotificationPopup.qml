@@ -11,8 +11,14 @@ import Quickshell.Hyprland
 Scope {
     id: notificationPopup
 
-    // Critical notifications: full-screen Persona cut-in (Persona style only).
+    // Critical notifications (and the cut-in rules): the full-screen Persona
+    // cut-in in the Persona theme, the character's speech bubble in the
+    // Chiikawa theme (loaded only then).
     PersonaCutIn {}
+    LazyLoader {
+        active: Chiikawa.enabled
+        component: ChiikawaAlert {}
+    }
 
     // Stays mapped while unlocked (hiding a Wayland window destroys its
     // surface, and Qt then rebuilt the GL context on the next notification:

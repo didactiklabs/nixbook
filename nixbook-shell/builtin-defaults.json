@@ -50,12 +50,14 @@
       "variant": "p5"
     },
     "theme": "material",
+    "themeWallpapers": [],
     "transparency": {
       "automatic": true,
       "backgroundTransparency": 0.11,
       "contentTransparency": 0.57,
       "enable": false
     },
+    "wallpaperPerTheme": true,
     "wallpaperTheming": {
       "enableAppsAndShell": true,
       "enableQtApps": true,
@@ -71,7 +73,6 @@
   "apps": {
     "bluetooth": "kcmshell6 kcm_bluetooth",
     "changePassword": "kitty -1 --hold=yes fish -i -c 'passwd'",
-    "manageUser": "kcmshell6 kcm_users",
     "network": "kcmshell6 kcm_networkmanagement",
     "networkEthernet": "kcmshell6 kcm_networkmanagement",
     "taskManager": "plasma-systemmonitor --page-name Processes",
@@ -97,14 +98,6 @@
     "greeterWall": "",
     "hideWhenFullscreen": true,
     "lockWall": "",
-    "parallax": {
-      "autoVertical": false,
-      "enableSidebar": true,
-      "enableWorkspace": true,
-      "vertical": false,
-      "widgetsFactor": 1.2,
-      "workspaceZoom": 1
-    },
     "screenList": [],
     "showBlur": false,
     "showGrid": true,
@@ -129,7 +122,6 @@
         "cookie": {
           "aiStyling": false,
           "constantlyRotate": false,
-          "dateInClock": true,
           "dateStyle": "bubble",
           "dialNumberStyle": "full",
           "hourHandStyle": "fill",
@@ -201,12 +193,9 @@
         "z": 0
       },
       "media": {
-        "backgroundShape": "Cookie4Sided",
         "enable": false,
         "placementStrategy": "free",
-        "showControls": true,
         "showLyrics": false,
-        "showTitles": true,
         "sizeMode": "1x3",
         "x": 800,
         "y": 500,
@@ -335,7 +324,6 @@
       "showMediaControls": false,
       "visualizerStyle": "dots"
     },
-    "floatStyleShadow": true,
     "followFrameColor": false,
     "frameColor": "black",
     "frameThickness": 4,
@@ -377,7 +365,6 @@
       "clickToShow": false,
       "enable": true
     },
-    "topLeftIcon": "spark",
     "utilButtons": {
       "isRecording": false,
       "showColorPicker": true,
@@ -404,7 +391,6 @@
       "monochromeIcons": true,
       "numberMap": ["1", "2"],
       "showAppIcons": false,
-      "showNumberDelay": 300,
       "shown": 10,
       "useNerdFont": false
     }
@@ -689,8 +675,6 @@
     "sloppy": false
   },
   "settings": {
-    "borderColor": "layer0Border",
-    "borderSize": 1,
     "collapsedSections": [],
     "hideLocked": false,
     "style": "default"

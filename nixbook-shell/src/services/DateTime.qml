@@ -58,7 +58,8 @@ Singleton {
             if (minutes > 0 || !formatted)
                 formatted += `${formatted ? ", " : ""}${minutes}m`;
                 uptime = formatted;
-                interval = Config.options?.resources?.updateInterval ?? 3000;
+                // Shown to the minute.
+                interval = 60000;
         }
     }
 

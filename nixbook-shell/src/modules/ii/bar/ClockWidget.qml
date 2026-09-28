@@ -190,6 +190,16 @@ BarWidgetSwitcher {
         id: mouseArea
         anchors.fill: parent
         hoverEnabled: !Config.options.bar.tooltips.clickToShow
+        // Left click: DankCalendar (the calendar and its events); right
+        // click: sync now. Hover: the calendar popup.
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        cursorShape: Qt.PointingHandCursor
+        onClicked: mouse => {
+            if (mouse.button === Qt.RightButton)
+                CalendarEvents.sync();
+            else
+                CalendarEvents.openApp();
+        }
         ClockWidgetPopup {
             hoverTarget: mouseArea
             today: root.today

@@ -178,10 +178,10 @@ let
       vi = "Để thêm tài khoản lịch khác (Microsoft/Outlook, CalDAV như Nextcloud, iCloud, URL nguồn iCal, lịch cục bộ) hoặc gỡ một tài khoản, mở DankCalendar (biểu tượng lịch trong widget lịch hoặc công việc, hoặc `dcal show`) và dùng phần cài đặt của nó; `dcal account list` liệt kê các tài khoản.";
     };
     calendarEvents = {
-      en = "Calendar events show as dots in the sidebar, desktop and bar clock calendars; the Next Event bar widget and desktop widget (desktop right click > Widgets) show the next ones, with a Join button for meetings; click a day in the sidebar calendar to see its events and add one (+). Events are created and edited in DankCalendar's window, which syncs them to Google; the shell rereads them every 5 minutes, and the sync button (right click on the calendar icon) syncs now.";
-      fr = "Les événements du calendrier apparaissent en points dans les calendriers du panneau latéral, du bureau et de l'horloge de la barre ; le widget de barre et le widget de bureau Prochain événement (clic droit sur le bureau > Widgets) montrent les prochains, avec un bouton Rejoindre pour les réunions ; cliquez sur un jour du calendrier du panneau latéral pour voir ses événements et en ajouter un (+). Les événements se créent et se modifient dans la fenêtre de DankCalendar, qui les synchronise avec Google ; le shell les relit toutes les 5 minutes, et le bouton de synchronisation (clic droit sur l'icône calendrier) synchronise tout de suite.";
-      de = "Kalendertermine erscheinen als Punkte in den Kalendern der Seitenleiste, des Desktops und der Leistenuhr; das Leisten- und das Desktop-Widget Nächster Termin (Rechtsklick auf den Desktop > Widgets) zeigen die nächsten, mit einem Beitreten-Knopf für Besprechungen; klicke auf einen Tag im Seitenleisten-Kalender, um seine Termine zu sehen und einen hinzuzufügen (+). Termine werden im Fenster von DankCalendar erstellt und bearbeitet, das sie mit Google synchronisiert; die Shell liest sie alle 5 Minuten neu, und die Synchronisieren-Aktion (Rechtsklick auf das Kalendersymbol) synchronisiert sofort.";
-      vi = "Sự kiện lịch hiện thành chấm trong lịch ở thanh bên, màn hình nền và đồng hồ trên thanh; widget Sự kiện tiếp theo trên thanh và trên màn hình nền (chuột phải màn hình nền > Widgets) hiện các sự kiện sắp tới, có nút Tham gia cho cuộc họp; bấm vào một ngày trong lịch thanh bên để xem sự kiện và thêm mới (+). Sự kiện được tạo và sửa trong cửa sổ DankCalendar, nơi đồng bộ chúng lên Google; shell đọc lại mỗi 5 phút, và nút đồng bộ (chuột phải vào biểu tượng lịch) đồng bộ ngay.";
+      en = "Calendar events show as dots in the sidebar, desktop and bar clock calendars; the Next Event bar widget and desktop widget (desktop right click > Widgets) show the next ones, with a Join button for meetings; click a day in the sidebar calendar to see its events and add one (+); clicking the bar clock, the Next Event widget or a day in the desktop calendar opens DankCalendar. Events are created and edited in DankCalendar's window, which syncs them to Google; the shell rereads them every 5 minutes, and the sync button (right click on the calendar icon) syncs now.";
+      fr = "Les événements du calendrier apparaissent en points dans les calendriers du panneau latéral, du bureau et de l'horloge de la barre ; le widget de barre et le widget de bureau Prochain événement (clic droit sur le bureau > Widgets) montrent les prochains, avec un bouton Rejoindre pour les réunions ; cliquez sur un jour du calendrier du panneau latéral pour voir ses événements et en ajouter un (+) ; un clic sur l'horloge de la barre, le widget Prochain événement ou un jour du calendrier du bureau ouvre DankCalendar. Les événements se créent et se modifient dans la fenêtre de DankCalendar, qui les synchronise avec Google ; le shell les relit toutes les 5 minutes, et le bouton de synchronisation (clic droit sur l'icône calendrier) synchronise tout de suite.";
+      de = "Kalendertermine erscheinen als Punkte in den Kalendern der Seitenleiste, des Desktops und der Leistenuhr; das Leisten- und das Desktop-Widget Nächster Termin (Rechtsklick auf den Desktop > Widgets) zeigen die nächsten, mit einem Beitreten-Knopf für Besprechungen; klicke auf einen Tag im Seitenleisten-Kalender, um seine Termine zu sehen und einen hinzuzufügen (+); ein Klick auf die Leistenuhr, das Widget Nächster Termin oder einen Tag im Desktop-Kalender öffnet DankCalendar. Termine werden im Fenster von DankCalendar erstellt und bearbeitet, das sie mit Google synchronisiert; die Shell liest sie alle 5 Minuten neu, und die Synchronisieren-Aktion (Rechtsklick auf das Kalendersymbol) synchronisiert sofort.";
+      vi = "Sự kiện lịch hiện thành chấm trong lịch ở thanh bên, màn hình nền và đồng hồ trên thanh; widget Sự kiện tiếp theo trên thanh và trên màn hình nền (chuột phải màn hình nền > Widgets) hiện các sự kiện sắp tới, có nút Tham gia cho cuộc họp; bấm vào một ngày trong lịch thanh bên để xem sự kiện và thêm mới (+); bấm vào đồng hồ trên thanh, widget Sự kiện tiếp theo hoặc một ngày trong lịch màn hình nền sẽ mở DankCalendar. Sự kiện được tạo và sửa trong cửa sổ DankCalendar, nơi đồng bộ chúng lên Google; shell đọc lại mỗi 5 phút, và nút đồng bộ (chuột phải vào biểu tượng lịch) đồng bộ ngay.";
     };
     calendarReminders = {
       en = "Calendar reminders (event notifications) come from DankCalendar: a notification before each event at the event's own Google reminder times, or 10 minutes before by default, with Join (meeting link), Open, Snooze and Dismiss buttons; it stays until handled and respects Do Not Disturb. The default time, sound, snooze length and all-day reminders are set in DankCalendar's settings (open it from a calendar widget); `dcal reminders test` sends a test one.";
@@ -203,10 +203,47 @@ let
     };
   };
 
+  # The shell's own features (themes, notifications, the chat panel): for
+  # the config assistant and the AI chat. Keep these up to date with every
+  # feature added or changed (AGENTS.md).
+  shellHowTo = {
+    themeSwitch = {
+      en = "To change the shell's theme, open Settings > Appearance > Theme (or right click the desktop > Theme) and pick Material (colours from the wallpaper), Persona (Persona 5 Royal, 3 Reload or 4 Revival) or Chiikawa (Chiikawa, Usagi or Momonga), then its variant. Each theme keeps its own variant and options (palette, animations, shapes, fonts); in Nix it is programs.nixbook-shell.settings.appearance.theme and appearance.<theme>.variant.";
+      fr = "Pour changer le thème du shell, ouvrez Paramètres > Apparence > Thème (ou clic droit sur le bureau > Thème) et choisissez Material (couleurs du fond d'écran), Persona (Persona 5 Royal, 3 Reload ou 4 Revival) ou Chiikawa (Chiikawa, Usagi ou Momonga), puis sa variante. Chaque thème garde sa variante et ses options (palette, animations, formes, polices) ; dans Nix, c'est programs.nixbook-shell.settings.appearance.theme et appearance.<thème>.variant.";
+      de = "Um das Design der Shell zu ändern, öffne Einstellungen > Darstellung > Design (oder Rechtsklick auf den Desktop > Design) und wähle Material (Farben aus dem Hintergrundbild), Persona (Persona 5 Royal, 3 Reload oder 4 Revival) oder Chiikawa (Chiikawa, Usagi oder Momonga), dann seine Variante. Jedes Design behält seine Variante und Optionen (Palette, Animationen, Formen, Schriften); in Nix ist es programs.nixbook-shell.settings.appearance.theme und appearance.<design>.variant.";
+      vi = "Để đổi giao diện (theme) của shell, mở Cài đặt > Giao diện > Theme (hoặc chuột phải màn hình nền > Theme) và chọn Material (màu theo hình nền), Persona (Persona 5 Royal, 3 Reload hoặc 4 Revival) hoặc Chiikawa (Chiikawa, Usagi hoặc Momonga), rồi chọn biến thể. Mỗi theme giữ biến thể và tùy chọn riêng (bảng màu, hiệu ứng, hình dạng, phông chữ); trong Nix là programs.nixbook-shell.settings.appearance.theme và appearance.<theme>.variant.";
+    };
+    themeWallpaper = {
+      en = "Each theme variant keeps its own wallpaper: switching theme or variant puts back the wallpaper it had (the Chiikawa variants start with their own), and a wallpaper picked while in a variant becomes that variant's. Settings > Appearance > Theme has 'Use the current one' and 'Reset', and the switch to turn it off (appearance.wallpaperPerTheme).";
+      fr = "Chaque variante de thème garde son propre fond d'écran : changer de thème ou de variante remet celui qu'elle avait (les variantes Chiikawa commencent avec le leur), et un fond choisi dans une variante devient le sien. Paramètres > Apparence > Thème propose « Utiliser l'actuel » et « Réinitialiser », et l'interrupteur pour le désactiver (appearance.wallpaperPerTheme).";
+      de = "Jede Designvariante behält ihr eigenes Hintergrundbild: Beim Wechsel von Design oder Variante kommt ihr Bild zurück (die Chiikawa-Varianten starten mit ihrem eigenen), und ein in einer Variante gewähltes Bild wird zu ihrem. Einstellungen > Darstellung > Design bietet „Aktuelles verwenden“ und „Zurücksetzen“ sowie den Schalter zum Abschalten (appearance.wallpaperPerTheme).";
+      vi = "Mỗi biến thể theme giữ hình nền riêng: đổi theme hoặc biến thể sẽ đặt lại hình nền của nó (các biến thể Chiikawa bắt đầu với hình nền riêng), và hình nền chọn khi đang ở một biến thể sẽ thành của biến thể đó. Cài đặt > Giao diện > Theme có nút 'Dùng hình hiện tại' và 'Đặt lại', cùng công tắc tắt tính năng (appearance.wallpaperPerTheme).";
+    };
+    themeSounds = {
+      en = "Each theme has its own notification sounds: Persona 5's chime and cut-in effect in Material and Persona, the characters' own chime and jingle in Chiikawa. A sound file set in Settings > General > Sounds (notification) or in the cut-in settings replaces the theme's.";
+      fr = "Chaque thème a ses propres sons de notification : le carillon et l'effet de cut-in de Persona 5 en Material et Persona, le carillon et le jingle des personnages en Chiikawa. Un fichier son choisi dans Paramètres > Général > Sons (notification) ou dans les réglages du cut-in remplace celui du thème.";
+      de = "Jedes Design hat eigene Benachrichtigungstöne: Persona 5s Glockenton und Cut-in-Effekt in Material und Persona, der eigene Ton und Jingle der Figuren in Chiikawa. Eine in Einstellungen > Allgemein > Töne (Benachrichtigung) oder in den Cut-in-Einstellungen gesetzte Tondatei ersetzt den des Designs.";
+      vi = "Mỗi theme có âm thanh thông báo riêng: tiếng chuông và hiệu ứng cut-in của Persona 5 ở Material và Persona, tiếng chuông và đoạn nhạc của các nhân vật ở Chiikawa. Tệp âm thanh đặt trong Cài đặt > Chung > Âm thanh (thông báo) hoặc trong cài đặt cut-in sẽ thay âm thanh của theme.";
+    };
+    themeCutIns = {
+      en = "Important notifications (critical ones and those matching the cut-in rules in Settings > Bar > Notifications > Cut-ins) take over the screen: a Persona cut-in in the Persona theme, the character popping up with a speech bubble in the Chiikawa theme. Click runs the notification's action, right click or Escape dismisses it; the Preview button shows one.";
+      fr = "Les notifications importantes (critiques, ou correspondant aux règles de cut-in dans Paramètres > Barre > Notifications > Cut-ins) prennent l'écran : un cut-in Persona dans le thème Persona, le personnage qui surgit avec une bulle dans le thème Chiikawa. Un clic lance l'action de la notification, un clic droit ou Échap la ferme ; le bouton Aperçu en montre un.";
+      de = "Wichtige Benachrichtigungen (kritische und solche, die zu den Cut-in-Regeln unter Einstellungen > Leiste > Benachrichtigungen > Cut-ins passen) übernehmen den Bildschirm: ein Persona-Cut-in im Persona-Design, die Figur mit einer Sprechblase im Chiikawa-Design. Klick führt die Aktion aus, Rechtsklick oder Escape schließt; der Vorschau-Knopf zeigt eines.";
+      vi = "Thông báo quan trọng (khẩn cấp, hoặc khớp quy tắc cut-in trong Cài đặt > Thanh > Thông báo > Cut-ins) chiếm màn hình: cut-in Persona ở theme Persona, nhân vật hiện lên với bong bóng thoại ở theme Chiikawa. Bấm để chạy hành động của thông báo, chuột phải hoặc Escape để đóng; nút Xem trước hiển thị một ví dụ.";
+    };
+    chatPanel = {
+      en = "The AI chat panel (left sidebar) has buttons for its shortcuts under its tabs: Extend (Ctrl+O) makes it wider, Pin (Ctrl+P) keeps it open beside your windows, Detach (Ctrl+D) opens the chat in a window of its own (Ctrl+D again, or Attach, puts it back). Ctrl+PageUp/PageDown switch between the chat and the translator.";
+      fr = "Le panneau du chat IA (panneau latéral gauche) a sous ses onglets des boutons pour ses raccourcis : Étendre (Ctrl+O) l'élargit, Épingler (Ctrl+P) le garde ouvert à côté des fenêtres, Détacher (Ctrl+D) ouvre le chat dans sa propre fenêtre (Ctrl+D à nouveau, ou Rattacher, le remet). Ctrl+PageHaut/PageBas passent du chat au traducteur.";
+      de = "Das KI-Chat-Panel (linke Seitenleiste) hat unter seinen Tabs Knöpfe für seine Tastenkürzel: Erweitern (Strg+O) macht es breiter, Anheften (Strg+P) hält es neben den Fenstern offen, Lösen (Strg+D) öffnet den Chat in einem eigenen Fenster (nochmals Strg+D oder Andocken holt ihn zurück). Strg+Bild auf/ab wechseln zwischen Chat und Übersetzer.";
+      vi = "Bảng chat AI (thanh bên trái) có các nút phím tắt dưới các tab: Mở rộng (Ctrl+O) làm bảng rộng hơn, Ghim (Ctrl+P) giữ bảng mở cạnh cửa sổ, Tách (Ctrl+D) mở chat trong cửa sổ riêng (nhấn lại Ctrl+D hoặc Gắn lại để đưa về). Ctrl+PageUp/PageDown chuyển giữa chat và trình dịch.";
+    };
+  };
+
   # Generic answers to "how do I …" questions; the configuration's own way
   # of doing it (a deploy tool, an update script) overrides one by name.
   defaultHowTo =
     calendarHowTo
+    // shellHowTo
     // (
       if os != null then
         {
@@ -677,12 +714,17 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    warnings = lib.optional (cfg.settings.appearance.persona.enable != null) ''
-      programs.nixbook-shell.settings.appearance.persona.enable is deprecated: use
-      appearance.theme = "${
-        if cfg.settings.appearance.persona.enable then "persona" else "material"
-      }" (the themes are in nixbook-shell/src/modules/common/themes.json).
-    '';
+    warnings =
+      map (
+        key:
+        "programs.nixbook-shell.settings.${key} was removed (it did nothing) and is ignored: remove it."
+      ) (settingsLib.removedKeysSet cfg.settings)
+      ++ lib.optional (cfg.settings.appearance.persona.enable != null) ''
+        programs.nixbook-shell.settings.appearance.persona.enable is deprecated: use
+        appearance.theme = "${
+          if cfg.settings.appearance.persona.enable then "persona" else "material"
+        }" (the themes are in nixbook-shell/src/modules/common/themes.json).
+      '';
 
     # Defaults one by one, so setting one answer keeps the others.
     programs.nixbook-shell.assistant.howTo = lib.mapAttrs (_: lib.mkDefault) defaultHowTo;
@@ -795,8 +837,10 @@ in
 
     # DankCalendar's daemon, behind the shell's calendars and to-do list
     # (sync, reminders, tray icon; its window opens on demand), as its own
-    # dcal.service does. It finds its UI's `qs` on PATH: the quickshell
-    # installed above.
+    # dcal.service does. Its window is a quickshell instance started from
+    # PATH: the shell's quickshell is put first, so the window (what
+    # "Open DankCalendar" and the calendar clicks show) exists whatever the
+    # user manager's PATH holds.
     systemd.user.services.dcal = {
       Unit = {
         Description = "DankCalendar (calendar sync for nixbook-shell)";
@@ -804,7 +848,12 @@ in
         After = [ "graphical-session.target" ];
       };
       Service = {
-        ExecStart = "${lib.getExe cfg.package.passthru.dankcalendar} run --session --hidden";
+        ExecStart = toString (
+          pkgs.writeShellScript "dcal-session" ''
+            export PATH=${lib.makeBinPath [ cfg.package.passthru.quickshell ]}''${PATH:+:$PATH}
+            exec ${lib.getExe cfg.package.passthru.dankcalendar} run --session --hidden
+          ''
+        );
         Restart = "on-failure";
         RestartSec = 2;
         Slice = "app.slice";

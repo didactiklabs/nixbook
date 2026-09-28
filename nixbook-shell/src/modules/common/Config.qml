@@ -43,6 +43,12 @@ Singleton {
         obj[keys[keys.length - 1]] = convertedValue;
     }
 
+    // Save soon. Assigning a list property doesn't emit the adapter's
+    // update (so nothing would be written): call this after one.
+    function save() {
+        fileWriteTimer.restart();
+    }
+
     // Re-read config.json now (Home Manager activation rewrites it; see
     // NixManaged's `nixManaged reload` IPC).
     function reloadFile() {
@@ -128,6 +134,12 @@ Singleton {
                 // has an object of its own below, named after its id, holding
                 // at least `variant`.
                 property string theme: "material"
+                // A wallpaper per theme variant, put back when switching to it
+                // (services/ThemeWallpapers.qml): "<theme>/<variant>=<path>"
+                // (or "<theme>=<path>") entries. Strings: JsonAdapter saves a
+                // changed list<string>, not a free-form object or list<var>.
+                property bool wallpaperPerTheme: true
+                property list<string> themeWallpapers: []
                 // Persona art direction (Atlus): see modules/common/Persona.qml.
                 property JsonObject persona: JsonObject {
                     // Legacy switch (before `theme`): true is migrated to
@@ -266,7 +278,6 @@ Singleton {
                 property string bluetooth: "kcmshell6 kcm_bluetooth"
                 property string changePassword: "kitty -1 --hold=yes fish -i -c 'passwd'"
                 property string network: "kcmshell6 kcm_networkmanagement"
-                property string manageUser: "kcmshell6 kcm_users"
                 property string networkEthernet: "kcmshell6 kcm_networkmanagement"
                 property string taskManager: "plasma-systemmonitor --page-name Processes"
                 property string terminal: "kitty -1" // This is only for shell actions
@@ -276,8 +287,6 @@ Singleton {
 
             property JsonObject settings: JsonObject {
                 property string style: "default" // default - minimal
-                property real borderSize: 1
-                property string borderColor: "layer0Border"
                 property list<string> collapsedSections: []
                 property bool hideLocked: false // settings menu: hide locked (externally managed) settings
             }
@@ -327,7 +336,6 @@ Singleton {
                             property string dateStyle: "bubble"       // Options: "border", "rect", "bubble" , "hide"
                             property bool timeIndicators: true
                             property bool hourMarks: false
-                            property bool dateInClock: true
                             property bool constantlyRotate: false
                             property bool useSineCookie: false
                         }
@@ -486,10 +494,7 @@ Singleton {
 
                     property JsonObject media: JsonObject {
                         property bool enable: false
-                        property bool showControls: true
                         property bool showLyrics: false
-                        property bool showTitles: true
-                        property string backgroundShape: "Cookie4Sided"
                         property string placementStrategy: "free" // "free", "leastBusy", "mostBusy"
                         property real x: 800
                         property real y: 500
@@ -522,14 +527,6 @@ Singleton {
                 property bool enableWallpaperPreview: false
                 property string thumbnailPath: ""
                 property bool hideWhenFullscreen: true
-                property JsonObject parallax: JsonObject {
-                    property bool vertical: false
-                    property bool autoVertical: false
-                    property bool enableWorkspace: true
-                    property real workspaceZoom: 1.0 // Relative to wallpaper size
-                    property bool enableSidebar: true
-                    property real widgetsFactor: 1.2
-                }
             }
 
             property JsonObject bar: JsonObject {
@@ -550,9 +547,7 @@ Singleton {
                 property bool bottom: false // Instead of top
                 property int cornerStyle: 0 // 0: Hug | 1: Float | 2: Plain rectangle
                 property string groupColor: "layer1"
-                property bool floatStyleShadow: true // Show shadow behind bar when cornerStyle == 1 (Float)
                 property string borderless: "pills"
-                property string topLeftIcon: "spark" // Options: "distro" or any icon name in ~/.config/quickshell/ii/assets/icons
                 property bool showBackground: true
                 property bool verbose: true
                 property bool vertical: false
@@ -605,7 +600,6 @@ Singleton {
                     property bool showAppIcons: false
                     property string indicatorStyle: "dot" // "dot" or "icon"
                     property bool alwaysShowNumbers: true
-                    property int showNumberDelay: 300 // milliseconds
                     property list<string> numberMap: ["1", "2"] // Characters to show instead of numbers on workspace indicator
                     property bool useNerdFont: false
                 }
@@ -799,7 +793,7 @@ Singleton {
                     // even for critical notifications or chosen apps.
                     property list<string> blacklist: []
                     // Played when a cut-in shows (even with the chime off);
-                    // empty soundFile = the bundled Persona 5 cut-in effect.
+                    // empty soundFile = the theme's critical sound (Themes.sound).
                     property bool sound: true
                     property string soundFile: ""
                     // A newer copy of a cut-in still queued or on screen (a chat
@@ -971,7 +965,8 @@ Singleton {
                 property bool pomodoro: false
                 property string theme: "freedesktop"
                 // Chime on every incoming notification (not in Do Not Disturb).
-                // Empty notificationFile = the bundled Persona 5 tone.
+                // Empty notificationFile = the theme's chime (Themes.sound:
+                // Persona 5's by default, the characters' own in Chiikawa).
                 property bool notification: true
                 property string notificationFile: ""
             }

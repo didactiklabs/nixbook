@@ -33,5 +33,9 @@ Item {
         opacity: 0.9
         // Under the content: no hover hop (the content gets the pointer).
         hopOnHover: false
+        // Still: the sidebars stay mapped while closed (faded out), so an
+        // endless animation here repainted them every frame (~4x the idle
+        // CPU). It hops when clicked.
+        idle: false
     }
 }

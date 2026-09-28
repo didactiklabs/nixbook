@@ -73,6 +73,96 @@ Item {
             onCurrentIndexChanged: swipeView.currentIndex = currentIndex
         }
 
+        // What the panel can do and its shortcuts, on screen: extend
+        // (Ctrl+O), pin (Ctrl+P: stays open, part of the layout) and detach
+        // (Ctrl+D: a window of its own). Same as the keys (GlobalStates.
+        // sidebarLeftShortcut); extend and pin only while docked.
+        RowLayout {
+            id: panelToolbar
+            Layout.fillWidth: true
+            Layout.topMargin: 4
+            Layout.bottomMargin: 4
+            spacing: 4
+            readonly property bool detached: root.scopeRoot?.detach ?? false
+
+            component PanelToolButton: RippleButton {
+                id: toolButton
+                property string symbol
+                property string label
+                property string keys
+                property string hint
+                Layout.fillWidth: true
+                implicitHeight: 30
+                buttonRadius: Appearance.rounding.full
+                colBackground: "transparent"
+                colBackgroundHover: Appearance.colors.colLayer1Hover
+                colBackgroundToggled: Appearance.colors.colSecondaryContainer
+                colBackgroundToggledHover: Appearance.colors.colSecondaryContainerHover
+                colRippleToggled: Appearance.colors.colSecondaryContainerActive
+                contentItem: RowLayout {
+                    anchors.centerIn: parent
+                    spacing: 5
+                    MaterialSymbol {
+                        text: toolButton.symbol
+                        fill: toolButton.toggled ? 1 : 0
+                        iconSize: Appearance.font.pixelSize.normal
+                        color: toolButton.toggled ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
+                    }
+                    StyledText {
+                        text: toolButton.label
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: toolButton.toggled ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
+                    }
+                    Rectangle { // the key, as a keycap
+                        implicitWidth: keyText.implicitWidth + 8
+                        implicitHeight: keyText.implicitHeight + 2
+                        radius: 4
+                        color: "transparent"
+                        border.width: 1
+                        border.color: Appearance.colors.colOutlineVariant
+                        StyledText {
+                            id: keyText
+                            anchors.centerIn: parent
+                            text: toolButton.keys
+                            font.pixelSize: Appearance.font.pixelSize.smallest
+                            color: Appearance.colors.colSubtext
+                        }
+                    }
+                }
+                StyledToolTip {
+                    text: toolButton.hint
+                }
+            }
+
+            PanelToolButton {
+                visible: !panelToolbar.detached
+                symbol: root.scopeRoot?.extended ? "close_fullscreen" : "open_in_full"
+                label: Translation.tr("Extend")
+                keys: "Ctrl+O"
+                hint: Translation.tr("Make the panel wider (Ctrl+O)")
+                toggled: root.scopeRoot?.extended ?? false
+                onClicked: GlobalStates.sidebarLeftShortcut(Qt.Key_O)
+            }
+            PanelToolButton {
+                visible: !panelToolbar.detached
+                symbol: "push_pin"
+                label: Translation.tr("Pin")
+                keys: "Ctrl+P"
+                hint: Translation.tr("Keep the panel open beside your windows (Ctrl+P)")
+                toggled: root.scopeRoot?.pin ?? false
+                onClicked: GlobalStates.sidebarLeftShortcut(Qt.Key_P)
+            }
+            PanelToolButton {
+                symbol: panelToolbar.detached ? "dock_to_left" : "open_in_new"
+                label: panelToolbar.detached ? Translation.tr("Attach") : Translation.tr("Detach")
+                keys: "Ctrl+D"
+                hint: panelToolbar.detached ? Translation.tr("Put the chat back in the panel (Ctrl+D)")
+                    : Translation.tr("Open the chat in a window of its own (Ctrl+D)")
+                toggled: panelToolbar.detached
+                onClicked: GlobalStates.sidebarLeftShortcut(Qt.Key_D)
+            }
+        }
+
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true

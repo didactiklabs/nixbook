@@ -9,7 +9,9 @@ import qs.modules.common
 Image {
     id: root
     property bool hopOnHover: true
-    // Idle "breathing" (off for a still picture, e.g. in a screenshot).
+    // Idle "breathing": only where the character is briefly on screen (the
+    // loading screen, the alert); an endless animation keeps its window
+    // repainting every frame.
     property bool idle: true
 
     visible: Chiikawa.mascot

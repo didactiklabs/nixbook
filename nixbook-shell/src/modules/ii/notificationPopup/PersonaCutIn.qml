@@ -113,6 +113,8 @@ Scope {
 
     Connections {
         target: GlobalStates
+        // The Chiikawa theme previews its own (ChiikawaAlert).
+        enabled: !Chiikawa.enabled
         function onPersonaCutInPreviewChanged() {
             root.show({ notificationId: -1, summary: Translation.tr("Preview"), body: Translation.tr("This is how a cut-in notification looks."),
                 appName: "nixbook-shell", appIcon: "", image: UserAvatar.source, actions: [], time: Date.now() });

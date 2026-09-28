@@ -98,6 +98,7 @@ Item {
     Item {
         id: marker
         visible: root.hasMarker
+        readonly property bool pulsing: root.hasMarker && (marker.Window.window?.visible ?? false)
         x: root.hasMarker ? root.projectX(root.markerCoords.lon) - width / 2 : 0
         y: root.hasMarker ? root.projectY(root.markerCoords.lat) - height / 2 : 0
         width: 14
@@ -117,11 +118,15 @@ Item {
             border.color: root.markerColor
             opacity: 0.8
 
+            // Pulses only while its window is shown (the settings page
+            // stays loaded after it was opened).
             SequentialAnimation on scale {
+                running: marker.pulsing
                 loops: Animation.Infinite
                 NumberAnimation { from: 0.5; to: 2.2; duration: 1400; easing.type: Easing.OutCubic }
             }
             SequentialAnimation on opacity {
+                running: marker.pulsing
                 loops: Animation.Infinite
                 NumberAnimation { from: 0.7; to: 0.0; duration: 1400; easing.type: Easing.OutCubic }
             }
@@ -136,6 +141,7 @@ Item {
             color: root.markerColor
 
             SequentialAnimation on opacity {
+                running: marker.pulsing
                 loops: Animation.Infinite
                 NumberAnimation { from: 1.0; to: 0.4; duration: 900; easing.type: Easing.InOutSine }
                 NumberAnimation { from: 0.4; to: 1.0; duration: 900; easing.type: Easing.InOutSine }

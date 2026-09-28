@@ -157,6 +157,14 @@ AbstractBackgroundWidget {
             color: dayCell.isToday ? Appearance.colors.colOnPrimary
                 : (dayCell.events[0]?.color || Appearance.colors.colPrimary)
         }
+
+        // A day opens DankCalendar (its events, adding one).
+        MouseArea {
+            anchors.fill: parent
+            enabled: dayCell.date !== null
+            cursorShape: Qt.PointingHandCursor
+            onClicked: CalendarEvents.openApp()
+        }
     }
 
     Rectangle {
