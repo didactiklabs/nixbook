@@ -1,23 +1,13 @@
-{ pkgs }:
-# nixbook-shell — nixbook's Quickshell (QML) desktop shell (forked from
-# pctrade/end4-pC, itself a fork of end-4's illogical-impulse). Everything needed to build and run it lives here; the Home
-# Manager module (homeManagerModules/nixbookShellConfig.nix) only holds the options and
-# wires this package into the session.
-#
-#   src/                 vendored QML tree (hard fork, edited in place)
-#   shell.nix            the QML tree as installed (store-path fixups, Persona art)
-#   quickshell.nix       Quickshell pin + crash patch (patches/)
-#   lib.nix              typed settings options generated from builtin-defaults.json
-#   scripts/             anthropic-usage, the `nixbook-shell config` CLI and its jq lib
-#
-# The result is the `nixbook-shell` launcher: `nixbook-shell` starts the shell,
+{ pkgs, quickshellSrc }:
+# The `nixbook-shell` launcher: `nixbook-shell` starts the shell,
 # `nixbook-shell ipc call <target> <fn>` drives it, `nixbook-shell config …` relates the
-# live settings to Nix. `passthru` carries the pieces the module needs.
+# live settings to Nix. `passthru` carries the pieces the Home Manager module
+# (hm-module.nix) needs. See README.md for the layout of this directory.
 let
   inherit (pkgs) lib;
 
-  shell = import ./shell.nix { inherit pkgs; };
-  quickshell = import ./quickshell.nix { inherit pkgs; };
+  shell = import ./qml.nix { inherit pkgs; };
+  quickshell = import ./quickshell.nix { inherit pkgs quickshellSrc; };
   settingsLib = import ./lib.nix { inherit lib; };
   inherit (shell.passthru) configName;
 
@@ -155,8 +145,8 @@ let
     export PATH="${lib.makeBinPath runtimeDeps}:$PATH"
     export NIXPKGS_QT6_QML_IMPORT_PATH="${qmlImportPath}''${NIXPKGS_QT6_QML_IMPORT_PATH:+:$NIXPKGS_QT6_QML_IMPORT_PATH}"
     # Quickshell resolves `image://icon/...` against this rather than the GTK
-    # settings; without it half the tray/launcher icons fail to load. Matches
-    # gtkConfig.nix's iconTheme. Set here rather than in home.sessionVariables
+    # settings; without it half the tray/launcher icons fail to load. Override
+    # it in the environment for another theme. Set here rather than in home.sessionVariables
     # so it also applies to the systemd unit without needing a re-login.
     export QS_ICON_THEME="''${QS_ICON_THEME:-Papirus-Dark}"
     exec ${quickshell}/bin/qs -c ${configName} "$@"

@@ -8,8 +8,9 @@ import qs.modules.common
  * NixOS update state — port of the DMS nixos-update plugin singleton
  * (assets/dms/plugins/nixos-update/UpdateState.qml) to nixbook-shell.
  *
- * Compares the deployed revision (/etc/nixos/version, written by
- * customNixOSModules.getRevision) against the remote repository, fetches the
+ * Compares the deployed revision (/etc/nixos/version, JSON {rev, branch,
+ * dirty}, e.g. nixbook's customNixOSModules.getRevision) against the remote
+ * repository (updates.repoUrl; the check is off while it is empty), fetches the
  * changelog from the GitHub API, and drives the nixos-upgrade-manual systemd
  * oneshot (osupdate) plus its journal. Used by the bar widget
  * (modules/ii/bar/UpdatesCount.qml) and the Services settings page.
@@ -28,8 +29,8 @@ Singleton {
     property string remoteRev: "Unknown"
     property bool updateAvailable: false
     property string repoUrl: Config.options.updates.repoUrl
-    property string repoOwner: "didactiklabs"
-    property string repoName: "nixbook"
+    property string repoOwner: ""
+    property string repoName: ""
     property string changelogText: ""
     property bool updating: false
     property bool checking: false
@@ -65,7 +66,8 @@ Singleton {
     }
 
     function checkUpdate() {
-        if (root.checking || root.updating) return
+        // No repository configured (updates.repoUrl): nothing to compare with.
+        if (root.checking || root.updating || !root.repoUrl) return
         root.checking = true
         root.versionProcess.running = true
     }

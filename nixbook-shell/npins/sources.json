@@ -1,0 +1,31 @@
+{
+  "pins": {
+    "nixpkgs": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "NixOS",
+        "repo": "nixpkgs"
+      },
+      "branch": "nixos-unstable",
+      "submodules": false,
+      "revision": "e158d9ed9b51c98974c5e66e1ba1c9e0255fecaa",
+      "url": "https://github.com/NixOS/nixpkgs/archive/e158d9ed9b51c98974c5e66e1ba1c9e0255fecaa.tar.gz",
+      "hash": "sha256-hKlVl12B1dF0Q5vd9dY3lIJM5mFGWYSlXwSLAqHZ1+s="
+    },
+    "quickshell": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "quickshell-mirror",
+        "repo": "quickshell"
+      },
+      "branch": "master",
+      "submodules": false,
+      "revision": "41651d7dcd62a9400eb6f4f8a8580efe00901efb",
+      "url": "https://github.com/quickshell-mirror/quickshell/archive/41651d7dcd62a9400eb6f4f8a8580efe00901efb.tar.gz",
+      "hash": "sha256-dLtjYGr1sTihGhsISR71LB17E6m0r18JhF+6BNAHy0M="
+    }
+  },
+  "version": 8
+}

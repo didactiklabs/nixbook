@@ -3,18 +3,8 @@
 nixbook's Quickshell (QML) desktop shell: bar, dock, sidebars, launcher,
 notifications, lock screen, desktop widgets and the optional Persona style.
 
-It is packaged and configured by this repository, not installed by hand:
-
-- package: `customPkgs/nixbook-shell/` (this tree is `src/`)
-- Home Manager module: `customHomeManagerModules.nixbookShellConfig`
-  (`homeManagerModules/nixbookShellConfig.nix`, shared settings in
-  `homeManagerModules/nixbookShellConfig/settings.nix`)
-- runs as the `nixbook-shell` user service; `nixbook-shell ipc call <target> <fn>`
-  drives it and `nixbook-shell config …` relates the live settings to Nix
-- settings live in `~/.config/nixbook-shell/config.json` (keys set in Nix are
-  locked in the Settings window, everything else is editable there)
-
-See `AGENTS.md` at the repository root for the full description.
+This is the QML tree (`qs -c nixbook-shell`). It is packaged and configured
+by the parent directory, not installed by hand: see `../README.md`.
 
 ## Credits
 

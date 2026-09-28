@@ -1,11 +1,11 @@
 { lib }:
-# Nix helpers behind customHomeManagerModules.nixbookShellConfig.settings: the typed
+# Nix helpers behind programs.nixbook-shell.settings (hm-module.nix): the typed
 # option tree generated from the shell's built-in defaults, and the functions
 # that turn the settings set in Nix into the files the shell reads.
 rec {
   # The shell's built-in default config (upstream modules/common/Config.qml),
   # minus `liveKeys`. Regenerate after changing Config.qml:
-  #   nixbook-shell config builtin > customPkgs/nixbook-shell/builtin-defaults.json
+  #   nixbook-shell config builtin > nixbook-shell/builtin-defaults.json
   builtinDefaults = lib.importJSON ./builtin-defaults.json;
 
   # Runtime state the shell and its scripts rewrite (wallpaper path, accent

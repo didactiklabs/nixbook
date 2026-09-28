@@ -2,7 +2,8 @@
 # Cheap regression checks: everything here evaluates, only tiny derivations
 # are built. See the "Tests" section of README.md.
 #
-#   tests/run.sh repo                  repository consistency, custom packages, lib unit tests
+#   tests/run.sh repo                  repository consistency, custom packages, nixbook-shell unit
+#                                      tests and self-containment
 #   tests/run.sh shell                 nixbook-shell script tests
 #   tests/run.sh iso                   the installer ISO evaluates
 #   tests/run.sh docs                  docs/MODULES.md lists the modules' current options
@@ -47,9 +48,10 @@ cmd_repo() {
   need nix-instantiate jq yq
   local failed=0 check
 
-  section "repo: consistency and nixbook-shell lib.nix unit tests"
-  for check in machines orphans shellLib; do
-    if nix-instantiate --eval --strict --json tests/repo.nix -A "$check" >/dev/null 2> >(annotate >&2); then
+  section "repo: consistency, nixbook-shell lib.nix unit tests and self-containment"
+  # --read-write-mode: shellStandalone copies nixbook-shell/ to the store.
+  for check in machines orphans shellLib shellStandalone; do
+    if nix-instantiate --eval --strict --json --read-write-mode tests/repo.nix -A "$check" >/dev/null 2> >(annotate >&2); then
       echo "ok   - $check"
     else
       echo "FAIL - $check" >&2
@@ -96,7 +98,7 @@ cmd_repo() {
 cmd_shell() {
   need nix-instantiate jq python3
   section "nixbook-shell scripts"
-  bash tests/nixbook-shell.sh
+  bash nixbook-shell/tests/scripts.sh
 }
 
 cmd_iso() {

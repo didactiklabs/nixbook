@@ -17,7 +17,7 @@ Many compositor binds are conditional on which desktop shell is enabled. Two are
 available and they are mutually exclusive:
 
 - `dmsConfig` — DankMaterialShell (anya, tanjiro, nishinoya, hanamichi)
-- `nixbookShellConfig` — nixbook-shell, a Quickshell fork of illogical-impulse (totoro)
+- `nixbookShellConfig` — nixbook-shell, nixbook's Quickshell desktop shell (totoro)
 
 DMS variants are listed as "(DMS)", nixbook-shell variants as "(nixbook-shell)"; the
 no-shell fallbacks are listed where they differ. nixbook-shell binds only exist for

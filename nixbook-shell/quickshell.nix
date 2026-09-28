@@ -1,6 +1,6 @@
-{ pkgs }:
-# Quickshell for nixbook-shell: the npins pin (the same one dmsConfig.nix uses, so the
-# two modules never disagree on the QML runtime) plus one crash fix.
+{ pkgs, quickshellSrc }:
+# Quickshell for nixbook-shell: `quickshellSrc` (a quickshell checkout: the npins
+# pin, see default.nix) plus one crash fix.
 #
 # patches/quickshell-screencopy-raw-wl-output.patch: the wlr-screencopy
 # output-transform query bound a Qt-wrapped wl_output, which niri's
@@ -10,9 +10,8 @@
 # locked on niri's blank fallback screen. Upstream: quickshell issue #1202
 # (open); drop the patch once it is fixed there.
 let
-  sources = import ../../npins;
-  quickshellOverlay = (import "${sources.quickshell}/overlay.nix") {
-    rev = sources.quickshell.revision;
+  quickshellOverlay = (import "${quickshellSrc}/overlay.nix") {
+    rev = quickshellSrc.revision;
   };
   upstream = (quickshellOverlay pkgs pkgs).quickshell;
   unwrapped = upstream.unwrapped.overrideAttrs (old: {

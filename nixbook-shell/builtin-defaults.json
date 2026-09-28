@@ -770,7 +770,7 @@
   "updates": {
     "checkInterval": 120,
     "enableCheck": true,
-    "repoUrl": "https://github.com/didactiklabs/nixbook"
+    "repoUrl": ""
   },
   "wallpaperSelector": {
     "changeInterval": 0,

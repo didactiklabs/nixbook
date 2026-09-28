@@ -4,9 +4,10 @@ retrieves for each question and answers from.
 
   assistant-facts.py <input.json> <binds.kdl>  >  system-facts.json
 
-input.json (from homeManagerModules/nixbookShellConfig.nix): host, user,
-enabled/declared NixOS and Home Manager module names, the shell settings
-pinned in Nix ({"dot.path": value}), package names, every setting path.
+input.json (from hm-module.nix): host, user, the core statements
+(`coreFacts`: [{en, fr, de, vi}]: where and how the configuration is changed),
+module names (`modules`: {all, enabled}), the shell settings pinned in Nix
+({"dot.path": value}), package names, every setting path.
 binds.kdl: niri's rendered `binds { ... }` block (may be empty).
 
 Every fact also exists in French, German and Vietnamese (`factsI18n`, same
@@ -26,7 +27,7 @@ def t(en, fr, de, vi):
     return {"en": en, "fr": fr, "de": de, "vi": vi}
 
 
-# nixbook-shell IPC targets bound in niriConfig.nix.
+# nixbook-shell IPC targets (as bound by niri keybinds).
 IPC = {
     ("search", "toggle"): t(
         "open the app launcher (search and start apps, calculator, commands)",
@@ -311,30 +312,10 @@ def main():
 
     for key, what in binds(kdl):
         add(f"bind:{key}", {lang: PRESS[lang].format(k=key, d=what[lang]) for lang in LANGS})
-    # The core statements as retrievable facts too, so questions about them
-    # ("how do I apply my changes?") aren't mistaken for uncovered ones.
-    for texts in [
-        t("To apply a configuration change, run `colmena apply-local --sudo switch` from the nixbook repository.",
-          "Pour appliquer une modification de la configuration, lancez `colmena apply-local --sudo switch` depuis le dépôt nixbook.",
-          "Um eine Konfigurationsänderung anzuwenden, führe `colmena apply-local --sudo switch` im nixbook-Repository aus.",
-          "Để áp dụng thay đổi cấu hình, chạy `colmena apply-local --sudo switch` trong kho nixbook."),
-        t(f"System settings (NixOS modules and their options) are changed in profiles/{host}/default.nix.",
-          f"Les réglages système (modules NixOS et leurs options) se changent dans profiles/{host}/default.nix.",
-          f"Systemeinstellungen (NixOS-Module und ihre Optionen) werden in profiles/{host}/default.nix geändert.",
-          f"Thiết lập hệ thống (module NixOS và tùy chọn) được đổi trong profiles/{host}/default.nix."),
-        t(f"This user's Home Manager modules and their options are changed in profiles/{host}/{user}/default.nix.",
-          f"Les modules Home Manager de cet utilisateur et leurs options se changent dans profiles/{host}/{user}/default.nix.",
-          f"Die Home-Manager-Module dieses Benutzers und ihre Optionen werden in profiles/{host}/{user}/default.nix geändert.",
-          f"Module Home Manager của người dùng này và tùy chọn được đổi trong profiles/{host}/{user}/default.nix."),
-        t("Shell settings (bar, dock, widgets, notifications, theme) set in Nix are in homeManagerModules/nixbookShellConfig/settings.nix (shared) or nixbookShellConfig.settings in the user profile; the others are changed in the shell's Settings window.",
-          "Les réglages du shell (barre, dock, widgets, notifications, thème) définis dans Nix sont dans homeManagerModules/nixbookShellConfig/settings.nix (communs) ou nixbookShellConfig.settings dans le profil utilisateur ; les autres se changent dans la fenêtre des paramètres du shell.",
-          "In Nix gesetzte Shell-Einstellungen (Leiste, Dock, Widgets, Benachrichtigungen, Design) stehen in homeManagerModules/nixbookShellConfig/settings.nix (gemeinsam) oder nixbookShellConfig.settings im Benutzerprofil; die übrigen werden im Einstellungsfenster der Shell geändert.",
-          "Thiết lập shell (thanh, dock, widget, thông báo, giao diện) đặt trong Nix nằm ở homeManagerModules/nixbookShellConfig/settings.nix (dùng chung) hoặc nixbookShellConfig.settings trong hồ sơ người dùng; các thiết lập khác đổi trong cửa sổ cài đặt của shell."),
-        t("The keyboard shortcuts are documented in KEYBINDS.md in the nixbook repository.",
-          "Les raccourcis clavier sont documentés dans KEYBINDS.md dans le dépôt nixbook.",
-          "Die Tastenkürzel sind in KEYBINDS.md im nixbook-Repository dokumentiert.",
-          "Các phím tắt được ghi trong KEYBINDS.md của kho nixbook."),
-    ]:
+    # The core statements (how to change and apply the configuration) as
+    # retrievable facts too, so questions about them ("how do I apply my
+    # changes?") aren't mistaken for uncovered ones.
+    for texts in info.get("coreFacts", []):
         add("core", texts)
     for path, value in sorted(info["pinned"].items()):
         v = json.dumps(value, ensure_ascii=False)
@@ -350,8 +331,8 @@ def main():
         "facts": facts["en"],
         "factsI18n": {lang: facts[lang] for lang in LANGS if lang != "en"},
         "kinds": kinds,
-        "modules": {"all": sorted(set(info["osAll"] + info["hmAll"])),
-                    "enabled": sorted(set(info["osEnabled"] + info["hmEnabled"]))},
+        "modules": {"all": sorted(set(info.get("modules", {}).get("all", []))),
+                    "enabled": sorted(set(info.get("modules", {}).get("enabled", [])))},
         "packages": packages,
         "settingPaths": sorted(set(info.get("settingPaths", []))),
     }, sys.stdout, ensure_ascii=False, indent=1)

@@ -10,7 +10,7 @@
 # restarts and switches.
 #
 # Only list values that differ from the shell's built-in defaults
-# (builtin-defaults.json, i.e. upstream's modules/common/Config.qml).
+# (nixbook-shell/builtin-defaults.json, i.e. src/modules/common/Config.qml).
 # `nixbook-shell config diff` prints the settings you changed from the menu as Nix
 # lines, ready to paste here or into a profile's `nixbookShellConfig.settings`.
 {
@@ -153,5 +153,10 @@
   };
   time = {
     secondPrecision = true;
+  };
+  # The bar's update indicator (UpdatesCount) compares /etc/nixos/version
+  # with this repository's main branch.
+  updates = {
+    repoUrl = "https://github.com/didactiklabs/nixbook";
   };
 }
