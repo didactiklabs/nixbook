@@ -83,8 +83,51 @@ Item {
         }
     }
 
-    implicitWidth: root.vertical ? 32 : flow.implicitWidth + 4
-    implicitHeight: root.vertical ? flow.implicitHeight + 4 : 32
+    implicitWidth: root.vertical ? 32 : flow.implicitWidth + 16
+    implicitHeight: root.vertical ? flow.implicitHeight + 16 : 32
+
+    // The whole group is a single button (toggles the right sidebar): one
+    // shared pill lights up when hovering any icon and stays highlighted
+    // while the sidebar is open, like LeftSidebarButton.
+    readonly property bool toggled: GlobalStates.sidebarRightOpen
+    HoverHandler {
+        id: groupHover
+    }
+    Rectangle {
+        id: buttonBackground
+        anchors.fill: parent
+        anchors.topMargin: root.vertical ? 0 : 2
+        anchors.bottomMargin: root.vertical ? 0 : 2
+        anchors.leftMargin: root.vertical ? 2 : 0
+        anchors.rightMargin: root.vertical ? 2 : 0
+        // Persona style: slanted like the BarGroup background around it.
+        readonly property bool slanted: Persona.shapes && !root.vertical
+        readonly property real skew: slanted ? Math.tan(-15 * Math.PI / 180) : 0
+        transform: Matrix4x4 {
+            matrix: Qt.matrix4x4(1, buttonBackground.skew, 0, -buttonBackground.skew * buttonBackground.height / 2,
+                                 0, 1, 0, 0,
+                                 0, 0, 1, 0,
+                                 0, 0, 0, 1)
+        }
+        radius: slanted ? Persona.corner : Appearance.rounding.full
+        color: root.isMaterial
+            ? ColorUtils.transparentize(Appearance.colors.colOnPrimary,
+                root.toggled ? 0.75 : groupHover.hovered ? 0.85 : 1)
+            : root.toggled
+                ? (groupHover.hovered ? Appearance.colors.colSecondaryContainerHover : Appearance.colors.colSecondaryContainer)
+                : ColorUtils.transparentize(Appearance.colors.colSecondaryContainer, groupHover.hovered ? 0.7 : 1)
+        // Accent outline marks the button's extent: faint on hover, solid
+        // while the sidebar is open.
+        border.width: root.isMaterial ? 0 : 2
+        border.color: ColorUtils.transparentize(Appearance.colors.colPrimary,
+            root.toggled ? 0 : groupHover.hovered ? 0.5 : 1)
+        Behavior on color {
+            animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+        }
+        Behavior on border.color {
+            animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+        }
+    }
 
     MouseArea {
         hoverEnabled: true
