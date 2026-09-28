@@ -71,9 +71,18 @@ in
   };
 
   customNixOSModules = {
-    # Login: tuigreet greeter offering the niri session (totoro pattern).
-    greetd.enable = true;
-    niri.enable = true;
+    # Login: greetd with nixbook-shell's login screen (totoro pattern).
+    greetd = {
+      enable = true;
+      # nixbook-shell's own login screen (the user's theme, wallpaper and
+      # cursor), instead of tuigreet (still the fallback).
+      greeter = "nixbook-shell";
+    };
+    niri = {
+      enable = true;
+      # nixbook-shell ships its own polkit agent (see totoro).
+      polkitAgent = false;
+    };
     hyprland.enable = false;
     sway.enable = false;
     # Gaming stack (Steam, Proton, GameMode, 32-bit graphics) without the
