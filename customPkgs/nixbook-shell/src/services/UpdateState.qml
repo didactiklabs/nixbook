@@ -238,8 +238,17 @@ Singleton {
                 const log = cut >= 0 ? text.slice(cut + 5).replace(/\s+$/, "") : ""
                 root.lastRunLog = log
                 root.lastRunTime = props.Time ?? ""
-                const failed = props.ActiveState === "failed" || /panicked at|Failed to run command|^error:|\berror: /m.test(log)
-                root.lastResult = log === "" ? "" : failed ? "failed" : /Finished|Deactivated successfully/.test(log) ? "success" : ""
+                // Current osupdate exits 1 on failure and ends with
+                // "updated to <rev>" on success: trust those. Nix/colmena
+                // output of a successful deploy can contain "error:" lines,
+                // so the log patterns are only a fallback for older builds.
+                let result = ""
+                if (log === "") result = ""
+                else if (/^updated to \S+$/m.test(log)) result = "success"
+                else if (props.ActiveState === "failed" || /Failed with result/.test(log)) result = "failed"
+                else if (/panicked at|Failed to run command|^error:/m.test(log)) result = "failed"
+                else if (/Finished|Deactivated successfully/.test(log)) result = "success"
+                root.lastResult = result
             }
         }
     }
