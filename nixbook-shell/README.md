@@ -2,7 +2,9 @@
 
 A Quickshell (QML) desktop shell for niri and Hyprland: bar, dock, sidebars,
 launcher, notifications, lock screen, desktop widgets, an AI chat and the
-optional Persona style. It started as a fork of
+optional Persona style (the Persona art direction rendered with Material 3
+manners: rounded corners with the Persona cut, soft accent glow, tonal
+surfaces). It started as a fork of
 [pctrade/end4-pC](https://github.com/pctrade/end4-pC), itself a fork of end-4's
 illogical-impulse, and is maintained here as a hard fork (credits and licence
 in `src/`).
@@ -71,6 +73,10 @@ change (`scripts/greeter-theme.sh`, Persona colours read from
 greeter uses the same theme built from the settings set in Nix.
 Authentication is greetd's PAM service: ReGreet shows and answers PAM's
 messages, so security keys (pam_u2f's cue) and fingerprints work.
+
+With niri installed the greeter runs in niri (`compositor`), which shows the
+theme's colour and the wallpaper from its first frames, and it takes the
+plymouth splash over without clearing the screen; cage is the fallback.
 
 After login, `nixbook-shell splash` (the `nixbook-shell-splash` user service,
 `splash.enable`) shows the shell's loading screen (`src/earlySplash.qml`,

@@ -17,7 +17,8 @@ in
         Whether to enable the core NixOS module.
 
         This is the foundational system module that configures:
-        - Boot: systemd-boot UEFI loader, plymouth splash screen, latest kernel,
+        - Boot: systemd-boot UEFI loader, plymouth splash screen (silent boot:
+          only errors on the console, no cursor), latest kernel,
           LVM support, LUKS dm-crypt modules, keyboard backlight on initrd, IOMMU,
           NTFS + exFAT filesystem support for external drives
         - Kernel hardening: sysctl security settings (restrict BPF, perf events,
@@ -211,6 +212,14 @@ in
         "amdgpu.dcdebugmask=0x10"
         "quiet"
         "splash"
+        # Silent boot: nothing printed over the plymouth splash or in the
+        # gap between it and the login screen (no text, no blinking cursor).
+        # Errors still reach the journal.
+        "rd.udev.log_level=3"
+        "udev.log_level=3"
+        "rd.systemd.show_status=auto"
+        "systemd.show_status=auto"
+        "vt.global_cursor_default=0"
         # Keeps slab caches separate so a heap overflow in one object type
         # cannot corrupt objects of another type sharing the same cache.
         "slab_nomerge"
@@ -221,6 +230,9 @@ in
       ];
       kernelPackages = pkgs.linuxPackages_latest;
       plymouth.enable = true;
+      # Kernel messages below "error" stay off the console (dmesg keeps them).
+      consoleLogLevel = 3;
+      initrd.verbose = false;
       loader = {
         systemd-boot = {
           enable = true;

@@ -5,7 +5,7 @@
   ...
 }:
 # The login screen in nixbook-shell's style: greetd + ReGreet (the maintained
-# GTK4 greetd greeter, nixpkgs' services.displayManager.regreet) in cage,
+# GTK4 greetd greeter, nixpkgs' services.displayManager.regreet) in niri or cage,
 # themed from one user's nixbook-shell settings — the Material palette the
 # shell generates from the wallpaper, or the Persona style and variant — and
 # showing the login screen wallpaper chosen in the shell's Settings menu
@@ -91,15 +91,99 @@ let
   liveConfig = regreetConfig "${stateDir}/background";
   staticConfig = regreetConfig (if cfg.background != null then "${cfg.background}" else null);
 
-  greeter = pkgs.writeShellScript "nixbook-shell-greeter" ''
+  # The rendered theme and wallpaper (else the ones built from the Nix
+  # settings), and only the sessions this system provides (niri, sway,
+  # Hyprland…), found first: ReGreet skips duplicates.
+  selectTheme = ''
     css=${stateDir}/regreet.css
     [ -s "$css" ] || css=${fallbackTheme}/regreet.css
     conf=${staticConfig}
-    [ -s ${stateDir}/background ] && conf=${liveConfig}
-    # Only the sessions this system provides (niri, sway, Hyprland…), found
-    # first; ReGreet skips duplicates.
+    wall=${lib.optionalString (cfg.background != null) "${cfg.background}"}
+    if [ -s ${stateDir}/background ]; then
+      conf=${liveConfig}
+      wall=${stateDir}/background
+    fi
     export XDG_DATA_DIRS="${config.services.displayManager.sessionData.desktops}/share''${XDG_DATA_DIRS:+:$XDG_DATA_DIRS}"
+  '';
+
+  cageGreeter = pkgs.writeShellScript "nixbook-shell-greeter" ''
+    ${selectTheme}
     exec ${lib.getExe regreet.package} --config "$conf" --style "$css"
+  '';
+
+  # niri as the greeter's compositor: its very first frame is the theme's
+  # background colour, swaybg puts the wallpaper up a few milliseconds later,
+  # then ReGreet — the same wallpaper under its login card — fades in over
+  # it (niri's open animation), fullscreen, and every other screen keeps the
+  # wallpaper. cage can do none of that: black until ReGreet has drawn.
+  # ReGreet exiting (a session was started) ends niri.
+  niri = config.programs.niri.package or pkgs.niri;
+  niriRegreet = pkgs.writeShellScript "nixbook-shell-greeter-regreet" ''
+    ${lib.getExe regreet.package} --config "$1" --style "$2"
+    exec ${lib.getExe niri} msg action quit --skip-confirmation
+  '';
+  kdlXkb = lib.concatStrings (
+    lib.mapAttrsToList (k: v: lib.optionalString (v != "") "            ${k} ${builtins.toJSON v}\n") {
+      inherit (cfg.keyboard) layout variant options;
+    }
+  );
+  # @BG@, @WALLPAPER@, @CONF@, @CSS@: filled in at start (the rendered theme).
+  niriTemplate = pkgs.writeText "nixbook-shell-greeter-niri.kdl" ''
+    input {
+        keyboard {
+            xkb {
+    ${kdlXkb}        }
+        }
+        touchpad {
+            tap
+        }
+    }
+    layout {
+        background-color "@BG@"
+    }
+    hotkey-overlay {
+        skip-at-startup
+    }
+    prefer-no-csd
+    window-rule {
+        open-fullscreen true
+    }
+    @WALLPAPER@
+    spawn-at-startup "${niriRegreet}" "@CONF@" "@CSS@"
+  '';
+  # Fails the build if niri would reject the configuration.
+  niriTemplateChecked = pkgs.runCommand "nixbook-shell-greeter-niri-checked.kdl" { } ''
+    t=$(<${niriTemplate})
+    t=''${t//@BG@/#000000}
+    t=''${t//@WALLPAPER@/spawn-at-startup \"${lib.getExe pkgs.swaybg}\" \"-i\" \"/wallpaper\"}
+    t=''${t//@CONF@//conf}
+    t=''${t//@CSS@//css}
+    printf '%s\n' "$t" >check.kdl
+    ${lib.getExe niri} validate -c check.kdl
+    cp ${niriTemplate} $out
+  '';
+  niriGreeter = pkgs.writeShellScript "nixbook-shell-greeter-niri" ''
+    ${selectTheme}
+    bg=$(${pkgs.gnused}/bin/sed -n 's/^@define-color nb_bg \(#[0-9a-fA-F]\{6,8\}\);$/\1/p' "$css")
+    wallpaper=""
+    [ -n "$wall" ] &&
+      wallpaper="spawn-at-startup \"${lib.getExe pkgs.swaybg}\" \"-m\" \"fill\" \"-i\" \"$wall\""
+    t=$(<${niriTemplateChecked})
+    t=''${t//@BG@/''${bg:-#000000}}
+    t=''${t//@WALLPAPER@/$wallpaper}
+    t=''${t//@CONF@/$conf}
+    t=''${t//@CSS@/$css}
+    dir=''${XDG_RUNTIME_DIR:-$(${pkgs.coreutils}/bin/mktemp -d)}
+    printf '%s\n' "$t" >"$dir/nixbook-shell-greeter-niri.kdl"
+    # niri quits cleanly once ReGreet is done; if it fails instead (no usable
+    # GPU, a crash), fall back to cage so there is always a login screen —
+    # but not when greetd itself is stopping us.
+    stopping=""
+    trap 'stopping=1' TERM INT HUP
+    ${lib.getExe niri} -c "$dir/nixbook-shell-greeter-niri.kdl" && exit 0
+    [ -z "$stopping" ] || exit 0
+    ${lib.concatStringsSep " " (lib.mapAttrsToList (k: v: "export ${k}=${lib.escapeShellArg v};") xkb)}
+    exec ${lib.getExe pkgs.cage} ${lib.escapeShellArgs regreet.cageArgs} -- ${cageGreeter}
   '';
 
   xkb = lib.filterAttrs (_: v: v != "") {
@@ -131,6 +215,20 @@ in
         Login screen wallpaper when none is chosen in the shell
         (`background.greeterWall`, Settings > Background > Login screen);
         before the lock screen's and the desktop's.
+      '';
+    };
+
+    compositor = lib.mkOption {
+      type = lib.types.enum [
+        "niri"
+        "cage"
+      ];
+      default = if config.programs.niri.enable or false then "niri" else "cage";
+      defaultText = lib.literalExpression ''if config.programs.niri.enable then "niri" else "cage"'';
+      description = ''
+        Compositor the greeter runs in. niri shows the theme's background and
+        the wallpaper from its first frames and fades ReGreet in over them;
+        cage (ReGreet's default) is black until ReGreet has drawn.
       '';
     };
 
@@ -195,20 +293,43 @@ in
     };
     fonts.packages = [ pkgs.oswald ];
 
-    # ReGreet in cage, with the keyboard layout of the system (cage reads
-    # XKB_DEFAULT_*), the rendered theme and the sessions above.
+    # With the keyboard layout of the system (XKB_DEFAULT_* for cage, the
+    # generated configuration for niri), the rendered theme and the sessions
+    # above.
     services.greetd.settings.default_session.command = lib.concatStringsSep " " (
       [ "${pkgs.dbus}/bin/dbus-run-session" ]
-      ++ lib.optionals (xkb != { }) (
-        [ "${pkgs.coreutils}/bin/env" ] ++ lib.mapAttrsToList (k: v: lib.escapeShellArg "${k}=${v}") xkb
+      ++ (
+        if cfg.compositor == "niri" then
+          [ "${niriGreeter}" ]
+        else
+          lib.optionals (xkb != { }) (
+            [ "${pkgs.coreutils}/bin/env" ] ++ lib.mapAttrsToList (k: v: lib.escapeShellArg "${k}=${v}") xkb
+          )
+          ++ [
+            (lib.getExe pkgs.cage)
+            (lib.escapeShellArgs regreet.cageArgs)
+            "--"
+            "${cageGreeter}"
+          ]
       )
-      ++ [
-        (lib.getExe pkgs.cage)
-        (lib.escapeShellArgs regreet.cageArgs)
-        "--"
-        "${greeter}"
-      ]
     );
+
+    # Boot splash to login screen without a black screen or console in
+    # between: greetd, not plymouth-quit.service, ends the splash, leaving its
+    # last frame on screen (--retain-splash) until the greeter's compositor
+    # draws over it — what GDM does.
+    services.greetd.greeterManagesPlymouth = lib.mkIf config.boot.plymouth.enable true;
+    systemd.services.greetd = lib.mkIf config.boot.plymouth.enable {
+      conflicts = [ "plymouth-quit.service" ];
+      after = [
+        "plymouth-quit.service"
+        "plymouth-start.service"
+      ];
+      onFailure = [ "plymouth-quit.service" ];
+      serviceConfig.ExecStartPre = [
+        "-${config.boot.plymouth.package}/bin/plymouth quit --retain-splash"
+      ];
+    };
 
     # Owned by the user (the renderer runs as them), readable by the greeter.
     systemd.tmpfiles.rules = [
