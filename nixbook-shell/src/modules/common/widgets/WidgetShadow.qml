@@ -6,7 +6,7 @@ import qs.modules.common
  * Shadow for desktop widget cards, drawn only *outside* the card's shape.
  * The cards are translucent (background.widgets.cardOpacity), so a filled
  * shadow underneath shows through them: StyledRectangularShadow darkens the
- * card (in the Persona style it turns it into a solid accent block), and
+ * card (in the Persona style it tints it with the accent glow), and
  * Qt5Compat's DropShadow also re-draws its source, doubling the card's
  * opacity. Here the shadow is cut out by the card's own shape.
  *
@@ -20,7 +20,7 @@ Item {
     required property Item target
     readonly property bool persona: Persona.shapes
     readonly property bool rectTarget: root.target.radius !== undefined
-    // Room for the blur / hard offset around the card.
+    // Room for the blur and offset around the card.
     readonly property real pad: 24
 
     anchors.fill: target
@@ -70,8 +70,8 @@ Item {
         autoPaddingEnabled: false
         shadowEnabled: true
         blurMax: 16
-        shadowBlur: root.persona ? 0 : 1
-        shadowColor: root.persona ? Persona.shadowColor : Appearance.colors.colShadow
+        shadowBlur: 1
+        shadowColor: root.persona ? Persona.elevationColor : Appearance.colors.colShadow
         shadowHorizontalOffset: root.persona ? Persona.shadowOffset : 0
         shadowVerticalOffset: root.persona ? Persona.shadowOffset : 1
         shadowOpacity: 1

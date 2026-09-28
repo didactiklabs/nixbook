@@ -5,6 +5,7 @@ import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.functions
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Widgets
@@ -121,10 +122,11 @@ MouseArea {
             implicitWidth: root.mugSize
             implicitHeight: root.mugSize
             rotation: -6
-            Rectangle { // hard shadow
-                x: Persona.shadowOffset; y: Persona.shadowOffset
+            RectangularShadow { // accent glow
                 width: parent.width; height: parent.height
-                color: Persona.shadowColor
+                offset: Qt.vector2d(Persona.shadowOffset, Persona.shadowOffset)
+                blur: Persona.shadowBlur
+                color: Persona.elevationColor
             }
             // Critical (urgency set by the app): "!" badge on the mugshot.
             Rectangle {
@@ -368,12 +370,12 @@ MouseArea {
                             ctx.fill();
                         }
                     }
-                    Rectangle { // hard shadow
-                        x: 4; y: 4
+                    RectangularShadow { // accent glow
                         width: bubble.width; height: bubble.height
                         radius: bubble.radius
-                        color: Persona.shadowColor
-                        opacity: 0.85
+                        offset: Qt.vector2d(Persona.shadowOffset, Persona.shadowOffset)
+                        blur: Persona.shadowBlur
+                        color: Persona.elevationColor
                     }
                     Rectangle {
                         id: bubble
@@ -416,12 +418,13 @@ MouseArea {
                 Layout.fillWidth: true
                 Layout.leftMargin: 24
                 implicitHeight: replyBubble.height + 4
-                Rectangle { // hard shadow
-                    x: replyBubble.x + 4; y: 4
+                RectangularShadow { // accent glow
+                    x: replyBubble.x
                     width: replyBubble.width; height: replyBubble.height
                     radius: replyBubble.radius
-                    color: Persona.shadowColor
-                    opacity: 0.85
+                    offset: Qt.vector2d(Persona.shadowOffset, Persona.shadowOffset)
+                    blur: Persona.shadowBlur
+                    color: Persona.elevationColor
                 }
                 Rectangle {
                     id: replyBubble

@@ -230,20 +230,20 @@ Singleton {
         property color colOnErrorContainer: m3colors.m3onErrorContainer
     }
 
-    // Persona style: near-sharp corners everywhere except true circles/pills
-    // (`full`) and the tiny `unsharpen` radii.
+    // Persona style: a tighter Material scale (crisper than the default
+    // one, never sharp); pills (`full`) stay pills.
     rounding: QtObject {
         readonly property bool sharp: Persona.shapes
         property int unsharpen: 2
-        property int unsharpenmore: sharp ? Persona.corner : 6
+        property int unsharpenmore: sharp ? 4 : 6
         property int verysmall: sharp ? Persona.corner : 8
-        property int small: sharp ? Persona.corner : 12
-        property int normal: sharp ? Persona.corner : 17
-        property int large: sharp ? Persona.corner : 23
-        property int verylarge: sharp ? Persona.corner : 30
+        property int small: sharp ? 8 : 12
+        property int normal: sharp ? 12 : 17
+        property int large: sharp ? 16 : 23
+        property int verylarge: sharp ? 20 : 30
         property int full: 9999
         property int screenRounding: large
-        property int windowRounding: sharp ? Persona.corner : 18
+        property int windowRounding: sharp ? 12 : 18
     }
 
     font: QtObject {
