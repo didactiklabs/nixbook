@@ -76,19 +76,21 @@ AbstractBackgroundWidget {
 
         let cells = []
         for (let i = 0; i < startOffset; i++)
-            cells.push({ day: daysInPrevMonth - startOffset + i + 1, currentMonth: false, isToday: false })
+            cells.push({ day: daysInPrevMonth - startOffset + i + 1, currentMonth: false, isToday: false,
+                date: new Date(year, month - 1, daysInPrevMonth - startOffset + i + 1) })
 
         for (let d = 1; d <= daysInMonth; d++) {
             const isToday = monthShift === 0
                 && d === today.getDate()
                 && month === today.getMonth()
                 && year  === today.getFullYear()
-            cells.push({ day: d, currentMonth: true, isToday: isToday })
+            cells.push({ day: d, currentMonth: true, isToday: isToday, date: new Date(year, month, d) })
         }
 
         let nextDay = 1
         while (cells.length < 42) {
-            cells.push({ day: nextDay++, currentMonth: false, isToday: false })
+            cells.push({ day: nextDay, currentMonth: false, isToday: false, date: new Date(year, month + 1, nextDay) })
+            nextDay++
         }
 
         let weeks = []
@@ -107,6 +109,9 @@ AbstractBackgroundWidget {
 
     property var weeks: getMonthMatrix(viewingDate)
 
+    Component.onCompleted: CalendarEvents.load()
+    onViewingDateChanged: CalendarEvents.ensureMonth(viewingDate)
+
     implicitWidth:  card.implicitWidth
     implicitHeight: card.implicitHeight
 
@@ -115,10 +120,14 @@ AbstractBackgroundWidget {
     }
 
     component DayCell: Rectangle {
+        id: dayCell
         property int day: 0
         property bool currentMonth: true
         property bool isToday: false
         property bool bold: false
+        property var date: null
+        // A dot when the day has events (CalendarEvents).
+        readonly property var events: date ? (CalendarEvents.eventsByDay[CalendarEvents.dayKey(date)] ?? []) : []
 
         implicitWidth: 28
         implicitHeight: 28
@@ -134,6 +143,19 @@ AbstractBackgroundWidget {
                 ? Appearance.colors.colOnPrimary
                 : Appearance.colors.colOnLayer0
             opacity: parent.currentMonth ? 1.0 : 0.3
+        }
+
+        Rectangle {
+            visible: dayCell.events.length > 0
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 2
+            width: 4
+            height: 4
+            radius: 2
+            opacity: dayCell.currentMonth ? 1.0 : 0.3
+            color: dayCell.isToday ? Appearance.colors.colOnPrimary
+                : (dayCell.events[0]?.color || Appearance.colors.colPrimary)
         }
     }
 
@@ -406,6 +428,7 @@ AbstractBackgroundWidget {
                                         day: modelData.day
                                         currentMonth: modelData.currentMonth
                                         isToday: modelData.isToday
+                                        date: modelData.date
                                     }
                                 }
                             }
@@ -509,6 +532,7 @@ AbstractBackgroundWidget {
                                             day: modelData.day
                                             currentMonth: modelData.currentMonth
                                             isToday: modelData.currentMonth && modelData.day === root.today.getDate()
+                                            date: modelData.date
                                         }
                                     }
                                 }

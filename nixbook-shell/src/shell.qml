@@ -47,6 +47,7 @@ ShellRoot {
         Cliphist.refresh()
         Wallpapers.load()
         UpdateState.load()
+        CalendarEvents.load()
         LyricsService.restartLyrics()
         Preloader.load()
     }

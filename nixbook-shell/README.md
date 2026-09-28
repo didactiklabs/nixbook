@@ -100,6 +100,18 @@ editable there. The options are generated from the built-in defaults
 - `nixbook-shell config builtin > builtin-defaults.json` — regenerate the
   defaults after changing `src/modules/common/Config.qml`
 
+### Calendar events
+
+With `programs.nixbook-shell.calendar.package` set to
+[DankCalendar](https://github.com/AvengeMedia/dankcalendar)'s package, its
+daemon runs as the `dcal` user service and the calendars show its events: dots
+on the days in the sidebar and desktop calendars, a day's events when you click
+it in the sidebar, and buttons to sync now and to open dcal's window (where
+events are created and edited, then synced back). dcal syncs Google (through
+its own built-in OAuth client: sign in once with `dcal account add google`,
+no Google Cloud project needed), Microsoft, CalDAV, iCloud, iCal feeds and
+local calendars.
+
 The bar's update indicator compares `/etc/nixos/version` (JSON `{rev, branch}`)
 with `updates.repoUrl`; it stays idle while that is empty (the default).
 
