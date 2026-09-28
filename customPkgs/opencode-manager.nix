@@ -14,7 +14,7 @@ pkgs.buildGoModule {
 
   src = opencodeManagerSrc;
 
-  vendorHash = "sha256-XL22WQ0C6JyGxLIQ2jKKohhlLU8Oj++jMMtmWs969Oc=";
+  vendorHash = "sha256-RYJNDNTvx26TUX7mmn3xPKxS+QqKDYolh/lYQTad+hI=";
 
   # The test suite expects a container runtime and interactive environment.
   doCheck = false;
