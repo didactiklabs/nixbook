@@ -1,4 +1,5 @@
 pragma Singleton
+import QtQuick
 import Quickshell
 import qs.services
 import qs.modules.common
@@ -19,6 +20,42 @@ Singleton {
         });
     }
 
+    // Close the windows, then run `action` once they are gone (at most
+    // ~4 s: an app may be asking about unsaved work). Reboot/poweroff sent
+    // while the apps were still quitting were refused by logind (apps hold
+    // shutdown inhibitors while they save), so the power menu closed
+    // everything and did nothing more.
+    property var pendingAction: null
+    property int waitedMs: 0
+    function closeWindowsThen(action) {
+        root.closeAllWindows();
+        const open = WM.compositor === "niri" ? WM.windowList.length : 0;
+        if (open === 0) {
+            action();
+            return;
+        }
+        root.pendingAction = action;
+        root.waitedMs = 0;
+        afterClose.restart();
+    }
+    Timer {
+        id: afterClose
+        interval: 200
+        repeat: true
+        onTriggered: {
+            root.waitedMs += interval;
+            if (WM.windowList.length > 0 && root.waitedMs < 4000)
+                return;
+            afterClose.stop();
+            // A moment more for the last app to release its inhibitor.
+            Qt.callLater(() => {
+                const action = root.pendingAction;
+                root.pendingAction = null;
+                if (action) action();
+            });
+        }
+    }
+
     function changePassword() {
         AppLaunch.spawnShell(Config.options.apps.changePassword);
     }
@@ -36,12 +73,13 @@ Singleton {
     }
 
     function logout() {
-        closeAllWindows();
-        if (WM.compositor === "niri") {
-            Quickshell.execDetached(["niri", "msg", "action", "quit"]);
-        } else {
-            Quickshell.execDetached(["pkill", "-i", "Hyprland"]);
-        }
+        root.closeWindowsThen(() => {
+            if (WM.compositor === "niri") {
+                Quickshell.execDetached(["niri", "msg", "action", "quit", "--skip-confirmation"]);
+            } else {
+                Quickshell.execDetached(["pkill", "-i", "Hyprland"]);
+            }
+        });
     }
 
     function launchTaskManager() {
@@ -53,17 +91,14 @@ Singleton {
     }
 
     function poweroff() {
-        closeAllWindows();
-        Quickshell.execDetached(["bash", "-c", `systemctl poweroff || loginctl poweroff`]);
+        root.closeWindowsThen(() => Quickshell.execDetached(["bash", "-c", `systemctl poweroff || loginctl poweroff`]));
     }
 
     function reboot() {
-        closeAllWindows();
-        Quickshell.execDetached(["bash", "-c", `reboot || loginctl reboot`]);
+        root.closeWindowsThen(() => Quickshell.execDetached(["bash", "-c", `systemctl reboot || loginctl reboot`]));
     }
 
     function rebootToFirmware() {
-        closeAllWindows();
-        Quickshell.execDetached(["bash", "-c", `systemctl reboot --firmware-setup || loginctl reboot --firmware-setup`]);
+        root.closeWindowsThen(() => Quickshell.execDetached(["bash", "-c", `systemctl reboot --firmware-setup || loginctl reboot --firmware-setup`]));
     }
 }
