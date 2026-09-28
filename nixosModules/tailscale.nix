@@ -51,7 +51,6 @@ let
         pkgs.gawk
         pkgs.gnugrep
         pkgs.coreutils
-        pkgs.tailscale
       ]
     }:$PATH"
 
@@ -61,10 +60,10 @@ let
     # individual entries.  This also correctly cleans up stale routes
     # left over from a previous service instance.
     cleanup_routes() {
-      echo "Cleaning up throw routes from table 52..."
       local routes
       routes=$(ip -4 route show table 52 2>/dev/null | grep "^throw " || true)
       if [[ -n "$routes" ]]; then
+        echo "Cleaning up throw routes from table 52..."
         while IFS= read -r route; do
           local subnet
           subnet=$(echo "$route" | awk '{print $2}')
@@ -75,8 +74,17 @@ let
     }
 
     # Clean up throw routes when the service stops (e.g. tailscaled goes
-    # down and systemd tears us down via bindsTo).
-    trap cleanup_routes EXIT TERM INT
+    # down and systemd tears us down via bindsTo).  TERM/INT must exit
+    # (which runs the EXIT trap): a trap that only cleans up lets the
+    # script carry on looping, and systemd then waits out the full stop
+    # timeout before SIGKILL — a 90 s hang on every shutdown.
+    monitor_pid=""
+    on_exit() {
+      [[ -n "$monitor_pid" ]] && kill "$monitor_pid" 2>/dev/null
+      cleanup_routes
+    }
+    trap on_exit EXIT
+    trap 'exit 0' TERM INT
 
     # Collect all IPv4 subnets directly connected to physical interfaces,
     # excluding VPN tunnels and loopback.  NetBird's WireGuard interfaces
@@ -89,10 +97,13 @@ let
         | grep '/' || true
     }
 
-    # Returns 0 if Tailscale is actively connected (not just daemon
-    # running).  Returns non-zero after `tailscale down`.
-    is_tailscale_active() {
-      tailscale status >/dev/null 2>&1
+    # Returns 0 while Tailscale is routing: it has device routes on
+    # tailscale0 in table 52.  `tailscale down` (or a stopped/logged-out
+    # node) removes them.  Reading the kernel state instead of running
+    # `tailscale status` keeps each check cheap and race-free: routes can
+    # land before the backend reports Running.
+    is_tailscale_routing() {
+      [[ -n "$(ip -4 route show table 52 dev tailscale0 2>/dev/null)" ]]
     }
 
     # Ensure a throw route exists in table 52 for each local subnet.
@@ -115,33 +126,30 @@ let
       done <<< "$local_subnets"
     }
 
-    # Wait for Tailscale to be up before doing anything
-    while ! tailscale status >/dev/null 2>&1; do
-      echo "Waiting for Tailscale to come up..."
-      sleep 5
-    done
+    sync_routes() {
+      if is_tailscale_routing; then
+        fix_routes
+      else
+        cleanup_routes
+      fi
+    }
 
-    # Run once at startup
-    fix_routes
-
-    # Re-check whenever a route changes on tailscale0 (e.g. Tailscale
-    # re-adds its subnet route after we threw it).  When Tailscale is
-    # disconnected (`tailscale down`), clean up throw routes so the
-    # routing table is left in a clean state for other VPNs (NetBird).
-    # Process substitution keeps the loop in the main shell so the EXIT
-    # trap has full access to cleanup_routes.
-    while IFS= read -r line; do
+    # Event-driven, no polling: re-check whenever a route changes on
+    # tailscale0 (Tailscale coming up, re-adding its subnet route after
+    # we threw it, or going down).  When Tailscale stops routing, clean
+    # up the throw routes so the routing table is left in a clean state
+    # for other VPNs (NetBird).  The monitor is started before the
+    # initial sync so no change can slip in between.  Reading it through
+    # a file descriptor keeps the loop in the main shell, so the EXIT
+    # trap has full access to cleanup_routes (and stops the monitor).
+    exec 3< <(ip monitor route)
+    monitor_pid=$!
+    sync_routes
+    while IFS= read -r line <&3; do
       case "$line" in
-        *tailscale0*)
-          if is_tailscale_active; then
-            fix_routes
-          else
-            echo "Tailscale is inactive, removing throw routes"
-            cleanup_routes
-          fi
-          ;;
+        *tailscale0*) sync_routes ;;
       esac
-    done < <(ip monitor route)
+    done
   '';
 in
 {
@@ -213,6 +221,8 @@ in
           ExecStart = "${tailscale-fix-routes}/bin/tailscale-fix-routes";
           Restart = "always";
           RestartSec = 5;
+          # Cleanup is a handful of `ip route del`; never hold up shutdown.
+          TimeoutStopSec = 10;
         };
       };
     };
