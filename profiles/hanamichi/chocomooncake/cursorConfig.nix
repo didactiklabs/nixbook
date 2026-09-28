@@ -1,6 +1,9 @@
 # The Momonga cursor on this machine (assets/cursors/Momonga, an Xcursor theme
 # converted from its Windows .cur files: 24 to 192 px, the usual cursor-name
-# aliases, Adwaita for the rest). Overrides the shared Stylix cursor
+# aliases, Adwaita for the rest). The converter wrote the image chunk headers
+# out of order (no height, version and type swapped): libXcursor rejected
+# every image and fell back to Adwaita. The files here have them rewritten in
+# the Xcursor order (same pixels and hotspots; `xcur2png` reads them all). Overrides the shared Stylix cursor
 # (homeManagerModules/stylixConfig.nix) and gtkConfig's GTK cursor settings.
 { pkgs, lib, ... }:
 let
