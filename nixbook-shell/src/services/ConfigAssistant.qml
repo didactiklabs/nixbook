@@ -54,7 +54,8 @@ Singleton {
     readonly property var strings: ({
         en: {
             hi: "Hi!", welcome: "You're welcome!",
-            capabilities: "I answer questions about this machine's configuration: shortcuts, enabled modules, installed packages, and where to change a setting.",
+            capabilities: "I answer questions about this machine's configuration: the system (version, kernel, services), how to update or roll it back, shortcuts, enabled modules, installed packages, and where to change a setting.",
+            sysInfo: "About this machine (%1):", toggleYes: "Yes: %1 is enabled.", toggleNo: "No: %1 is not enabled.", enabledToggles: "Enabled on %1 (option sets with enable = true):",
             tips: "Name the thing, e.g. “shortcut for the launcher”, “is tailscale enabled?”, “all shortcuts”.",
             dontKnow: "I don't know: that isn't in this machine's configuration.",
             notSure: "No exact match in this machine's configuration. The closest things in it:",
@@ -71,7 +72,8 @@ Singleton {
         },
         fr: {
             hi: "Salut !", welcome: "De rien !",
-            capabilities: "Je réponds aux questions sur la configuration de cette machine : raccourcis, modules activés, paquets installés, et où changer un réglage.",
+            capabilities: "Je réponds aux questions sur la configuration de cette machine : le système (version, noyau, services), comment le mettre à jour ou revenir en arrière, raccourcis, modules activés, paquets installés, et où changer un réglage.",
+            sysInfo: "À propos de cette machine (%1) :", toggleYes: "Oui : %1 est activé.", toggleNo: "Non : %1 n'est pas activé.", enabledToggles: "Activé sur %1 (options avec enable = true) :",
             tips: "Nommez la chose, par ex. « raccourci du lanceur », « tailscale est activé ? », « tous les raccourcis ».",
             dontKnow: "Je ne sais pas : ce n'est pas dans la configuration de cette machine.",
             notSure: "Pas de correspondance exacte dans la configuration de cette machine. Le plus proche :",
@@ -88,7 +90,8 @@ Singleton {
         },
         de: {
             hi: "Hallo!", welcome: "Gern geschehen!",
-            capabilities: "Ich beantworte Fragen zur Konfiguration dieses Rechners: Tastenkürzel, aktivierte Module, installierte Pakete und wo man eine Einstellung ändert.",
+            capabilities: "Ich beantworte Fragen zur Konfiguration dieses Rechners: das System (Version, Kernel, Dienste), wie man es aktualisiert oder zurücksetzt, Tastenkürzel, aktivierte Module, installierte Pakete und wo man eine Einstellung ändert.",
+            sysInfo: "Über diesen Rechner (%1):", toggleYes: "Ja: %1 ist aktiviert.", toggleNo: "Nein: %1 ist nicht aktiviert.", enabledToggles: "Aktiviert auf %1 (Optionen mit enable = true):",
             tips: "Nenne die Sache, z. B. „Tastenkürzel für den Starter“, „ist tailscale aktiviert?“, „alle Tastenkürzel“.",
             dontKnow: "Weiß ich nicht: Das steht nicht in der Konfiguration dieses Rechners.",
             notSure: "Keine genaue Entsprechung in der Konfiguration dieses Rechners. Am nächsten kommen:",
@@ -105,7 +108,8 @@ Singleton {
         },
         vi: {
             hi: "Xin chào!", welcome: "Không có gì!",
-            capabilities: "Tôi trả lời câu hỏi về cấu hình của máy này: phím tắt, module đang bật, gói đã cài, và nơi đổi một thiết lập.",
+            capabilities: "Tôi trả lời câu hỏi về cấu hình của máy này: hệ thống (phiên bản, kernel, dịch vụ), cách cập nhật hoặc quay lại, phím tắt, module đang bật, gói đã cài, và nơi đổi một thiết lập.",
+            sysInfo: "Về máy này (%1):", toggleYes: "Có: %1 đang được bật.", toggleNo: "Không: %1 không được bật.", enabledToggles: "Đang bật trên %1 (các tùy chọn có enable = true):",
             tips: "Hãy nêu rõ, ví dụ: “phím tắt mở trình khởi chạy”, “tailscale có bật không?”, “tất cả phím tắt”.",
             dontKnow: "Tôi không biết: điều này không có trong cấu hình của máy.",
             notSure: "Không có kết quả khớp chính xác trong cấu hình của máy. Gần nhất là:",
@@ -123,13 +127,15 @@ Singleton {
     })
     // /help and the chat's help tooltip: questions answered right away from
     // the configuration (quickReply). A third element names what an entry
-    // needs ("nvim": Neovim keymaps).
+    // needs ("nvim": Neovim keymaps, "os": system facts, "howto": how-tos).
     readonly property var helpExamples: ({
         en: { title: "Answered instantly from your configuration (no model):", more: "No AI here: to chat with a model (Gemini, Ollama…), pick one with /model.", items: [
             ["Find a shortcut", "shortcut for the launcher · how do I lock the screen"],
             ["What a key does", "what does Mod+R do?"],
             ["List shortcuts", "all shortcuts · shortcuts for workspaces"],
             ["Neovim keymaps", "all vim shortcuts · vim shortcut to find files · what does <leader>ff do in vim?", "nvim"],
+            ["Your system", "which kernel? · is bluetooth enabled? · keyboard layout · system info", "os"],
+            ["How do I…", "how do I update the system? · how do I roll back? · free disk space", "howto"],
             ["Modules", "is tailscale enabled? · which modules are enabled"],
             ["Packages", "is firefox installed? · which packages are installed"],
             ["Shell settings", "settings set in Nix"]] },
@@ -138,6 +144,8 @@ Singleton {
             ["Ce que fait une touche", "que fait Mod+R ?"],
             ["Lister les raccourcis", "tous les raccourcis · raccourcis des espaces de travail"],
             ["Raccourcis Neovim", "tous les raccourcis vim · raccourci vim pour chercher des fichiers · que fait <leader>ff dans vim ?", "nvim"],
+            ["Votre système", "quel noyau ? · le bluetooth est activé ? · disposition du clavier · infos système", "os"],
+            ["Comment faire…", "comment mettre à jour le système ? · comment revenir en arrière ? · libérer de l'espace disque", "howto"],
             ["Modules", "tailscale est activé ? · quels modules sont activés"],
             ["Paquets", "firefox est installé ? · quels paquets sont installés"],
             ["Réglages du shell", "réglages définis dans Nix"]] },
@@ -146,6 +154,8 @@ Singleton {
             ["Was eine Taste macht", "was macht Mod+R?"],
             ["Kürzel auflisten", "alle Tastenkürzel · Kürzel für Arbeitsbereiche"],
             ["Neovim-Belegungen", "alle vim-Tastenkürzel · vim-Kürzel zum Dateien suchen · was macht <leader>ff in vim?", "nvim"],
+            ["Dein System", "welcher Kernel? · ist Bluetooth aktiviert? · Tastaturlayout · Systeminfo", "os"],
+            ["Wie mache ich…", "wie aktualisiere ich das System? · wie setze ich zurück? · Speicherplatz freigeben", "howto"],
             ["Module", "ist tailscale aktiviert? · welche Module sind aktiv"],
             ["Pakete", "ist firefox installiert? · welche Pakete sind installiert"],
             ["Shell-Einstellungen", "Einstellungen in Nix"]] },
@@ -154,6 +164,8 @@ Singleton {
             ["Phím làm gì", "Mod+R để làm gì?"],
             ["Liệt kê phím tắt", "tất cả phím tắt · phím tắt cho không gian làm việc"],
             ["Phím tắt Neovim", "tất cả phím tắt vim · phím tắt vim tìm tệp · <leader>ff trong vim làm gì?", "nvim"],
+            ["Hệ thống", "kernel nào? · bluetooth có bật không? · bố cục bàn phím · thông tin hệ thống", "os"],
+            ["Làm sao để…", "làm sao cập nhật hệ thống? · làm sao quay lại? · giải phóng dung lượng đĩa", "howto"],
             ["Module", "tailscale có bật không? · những module nào được bật"],
             ["Gói phần mềm", "firefox đã cài chưa? · những gói nào đã cài"],
             ["Cài đặt shell", "cài đặt trong Nix"]] }
@@ -167,7 +179,10 @@ Singleton {
     function helpText(lang = root.uiLang(), plain = false) {
         const h = root.helpExamples[lang] ?? root.helpExamples.en;
         // The Neovim line only where there are Neovim keymaps to ask about.
-        const items = h.items.filter(([, , needs]) => needs !== "nvim" || (root.data?.nvim?.keymaps?.length ?? 0) > 0);
+        const kinds = root.data?.kinds ?? [];
+        const has = { nvim: (root.data?.nvim?.keymaps?.length ?? 0) > 0, os: kinds.includes("os"),
+            howto: kinds.some(k => k.startsWith("howto:")) };
+        const items = h.items.filter(([, , needs]) => !needs || has[needs]);
         const lines = items.map(([what, ex]) => plain ? `• ${what}: ${ex}` : `- **${what}**: “${ex.split(" · ").join("”, “")}”`);
         const text = `${plain ? h.title : `**${h.title}**`}\n${lines.join("\n")}\n${plain ? "" : "\n"}${h.more}\nEnglish · Français · Deutsch · Tiếng Việt`;
         return plain ? text : root.codeKeys(text);
@@ -221,7 +236,14 @@ Singleton {
     readonly property var lexicon: ({
         en: [["hotkey", "shortcut"], ["=float", "floating toggle"], ["=floating", "floating toggle"], ["=go", "focus"], ["=switch", "focus"], ["louder", "volume up raise"], ["quieter", "volume down lower"],
              ["=next", "below down"], ["previous", "above up"], ["=sound", "volume audio"], ["background", "wallpaper"],
-             ["=panel", "sidebar"], ["=chat", "assistant ai"], ["=computer", "screen"], ["=pc", "screen"]],
+             ["=panel", "sidebar"], ["=chat", "assistant ai"], ["=computer", "screen host"], ["=pc", "screen host"],
+             ["=os", "nixos operating system"], ["what shell", "shell login"], ["which shell", "shell login"], ["my shell", "shell login"], ["distro", "nixos operating system"], ["hostname", "host name"],
+             ["timezone", "time zone"], ["upgrad", "update"], ["=revert", "roll back undo"], ["rollback", "roll back undo"],
+             ["=undo", "roll back undo"], ["cleanup", "free disk space garbage"], ["=clean", "free disk space garbage"],
+             ["=storage", "disk space"], ["=wifi", "networkmanager network"], ["=internet", "network"],
+             ["=language", "locale language"], ["=layout", "keyboard layout"], ["=logs", "logs journal"],
+             ["=vm", "virtual machines"], ["=vms", "virtual machines"], ["=wm", "window manager desktop"],
+             ["=dm", "login manager"], ["=specs", "system info"]],
         fr: [["ouvr", "open"], ["ferm", "close"], ["fenetre", "window"], ["raccourci", "shortcut"], ["touche", "key"],
              ["clavier", "keyboard"], ["lanceur", "launcher"], ["applic", "app"], ["=appli", "app"], ["logiciel", "app package"],
              ["fond d ecran", "wallpaper"], ["=fond", "wallpaper"], ["capture d ecran", "screenshot"], ["capture", "screenshot"],
@@ -239,7 +261,16 @@ Singleton {
              ["assistant", "assistant"], ["traduc", "translator"], ["notif", "notification"], ["calendrier", "calendar"],
              ["configur", "configure setting"], ["appliqu", "apply"], ["modif", "change"], ["chang", "change"],
              ["alimentation", "power"], ["maximis", "maximize"], ["centr", "center"], ["cafe", "caffeine idle"],
-             ["enregistr", "record"], ["copi", "copy"], ["texte", "text"]],
+             ["enregistr", "record"], ["copi", "copy"], ["texte", "text"],
+             ["noyau", "kernel"], ["nom d hote", "host name"], ["=hote", "host"], ["fuseau", "time zone"], ["langue", "language locale"],
+             ["disposition", "layout"], ["demarrage", "boot"], ["chargeur", "bootloader"], ["mise a jour", "update"],
+             ["mettre a jour", "update"], ["revenir", "roll back undo"], ["annul", "undo roll back"], ["arriere", "back"],
+             ["espace disque", "free disk space"], ["nettoy", "free disk space garbage"], ["liber", "free"], ["cherch", "find search"],
+             ["trouv", "find"], ["essay", "try"], ["journaux", "logs"], ["utilisateur", "user"], ["compte", "account user"],
+             ["editeur", "editor"], ["systeme d exploitation", "operating system nixos"], ["pare feu", "firewall"],
+             ["impression", "printing"], ["imprim", "printing"], ["reseau", "network"], ["machines virtuelles", "virtual machines"],
+             ["conteneur", "containers"], ["ecran de connexion", "login screen"], ["gestionnaire de connexion", "login manager"],
+             ["empreinte", "fingerprint"], ["batterie", "battery"], ["infos systeme", "system info"], ["information", "info"]],
         de: [["offn", "open"], ["schliess", "close"], ["fenster", "window"], ["tastenkurz", "shortcut"], ["kurzel", "shortcut"],
              ["tastatur", "keyboard"], ["=taste", "key"], ["starter", "launcher"], ["programm", "app"], ["=app", "app"],
              ["anwendung", "app"], ["hintergrund", "wallpaper"], ["bildschirmfoto", "screenshot"], ["screenshot", "screenshot"],
@@ -256,7 +287,15 @@ Singleton {
              ["paket", "package"], ["=alle", "all"], ["liste", "list"], ["=ki", "ai"], ["=chat", "chat assistant"],
              ["ubersetz", "translator"], ["benachrichtigung", "notification"], ["kalender", "calendar"], ["wechsel", "focus"],
              ["konfigur", "configure setting"], ["anwend", "apply"], ["ander", "change"], ["energie", "power"],
-             ["maximier", "maximize"], ["zentrier", "center"], ["koffein", "caffeine idle"], ["aufnehm", "record"], ["kopier", "copy"]],
+             ["maximier", "maximize"], ["zentrier", "center"], ["koffein", "caffeine idle"], ["aufnehm", "record"], ["kopier", "copy"],
+             ["rechnername", "host name computer"], ["zeitzone", "time zone"], ["sprache", "language locale"],
+             ["tastaturlayout", "keyboard layout"], ["aktualisier", "update"], ["zurucksetz", "roll back undo"], ["zuruck", "back roll"],
+             ["ruckgangig", "undo roll back"], ["speicherplatz", "free disk space"], ["aufraum", "free disk space garbage"],
+             ["=such", "find search"], ["=suche", "find search"], ["finde", "find"], ["ausprobier", "try"], ["protokoll", "logs"],
+             ["benutzer", "user"], ["=konto", "account user"], ["=konten", "account user"], ["betriebssystem", "operating system nixos"],
+             ["=drucken", "printing"], ["=drucker", "printing"], ["netzwerk", "network"], ["virtuelle maschine", "virtual machines"],
+             ["anmeldebildschirm", "login screen"], ["anmeldemanager", "login manager"], ["fingerabdruck", "fingerprint"],
+             ["=akku", "battery"], ["=dienst", "service"], ["systeminfo", "system info"], ["freigeb", "free"]],
         vi: [["phim tat", "shortcut"], ["=phim", "key"], ["=mo", "open"], ["=dong", "close"], ["cua so", "window"],
              ["trinh khoi chay", "launcher"], ["khoi chay", "launcher"], ["ung dung", "app"], ["hinh nen", "wallpaper"],
              ["chup man hinh", "screenshot"], ["=chup", "screenshot"], ["toan man hinh", "fullscreen"], ["man hinh", "screen"],
@@ -272,7 +311,14 @@ Singleton {
              ["tro ly", "assistant"], ["=chat", "chat assistant"], ["=ai", "ai"], ["=dich", "translator"], ["thong bao", "notification"],
              ["=lich", "calendar"], ["ap dung", "apply"], ["thay doi", "change"], ["=doi", "change"], ["=nguon", "power"],
              ["phong to", "maximize"], ["can giua", "center"], ["tat tieng", "mute"], ["tat am", "mute"],
-             ["tat man hinh", "monitors off"], ["=tieng", "volume audio"], ["=tat", "off"]]
+             ["tat man hinh", "monitors off"], ["=tieng", "volume audio"], ["=tat", "off"],
+             ["he dieu hanh", "operating system nixos"], ["=nhan", "kernel"], ["phien ban", "version"], ["ten may", "host name"],
+             ["mui gio", "time zone"], ["ngon ngu", "language locale"], ["bo cuc", "layout"], ["ban phim", "keyboard"],
+             ["khoi dong", "boot"], ["cap nhat", "update"], ["quay lai", "roll back"], ["hoan tac", "undo"], ["the he", "generation"],
+             ["dung luong", "disk space"], ["giai phong", "free"], ["don rac", "garbage"], ["=tim", "find search"], ["dung thu", "try"],
+             ["nhat ky", "logs"], ["nguoi dung", "user"], ["tai khoan", "account"], ["soan thao", "editor"], ["tuong lua", "firewall"],
+             ["=mang", "network"], ["may ao", "virtual machines"], ["dang nhap", "login"], ["van tay", "fingerprint"],
+             ["dich vu", "service"], ["thong tin he thong", "system info"], ["thong tin", "info"]]
     })
     // English words for the question: its words mapped through the
     // lexicons (the detected language's, plus French/German — cognates are
@@ -319,7 +365,11 @@ Singleton {
 
     // ------------------------------------------------------------ retrieval
     // What retrieval matches a fact on: the distinctive part only.
-    function indexText(fact) {
+    function indexText(fact, kind) {
+        // A discovered toggle: its option path only (the description is for
+        // reading; its words would match unrelated questions).
+        if (kind?.startsWith("toggle:"))
+            return `${kind.slice(7).replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[._-]/g, " ")} enabled`;
         let m = fact.match(/^The shell setting (\S+) is set in Nix to (.*)\.$/);
         if (m) return `setting ${m[1].replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[._]/g, " ")} ${m[2]}`;
         m = fact.match(/^The package (\S+) is installed\.$/);
@@ -330,7 +380,7 @@ Singleton {
     function load(text) {
         try {
             const d = JSON.parse(text);
-            const fw = d.facts.map(f => new Set(root.words(root.indexText(f))));
+            const fw = d.facts.map((f, i) => new Set(root.words(root.indexText(f, d.kinds?.[i]))));
             const df = {};
             for (const set of fw)
                 for (const w of set)
@@ -351,7 +401,7 @@ Singleton {
 
     readonly property var stopWords: new Set(("a an the is are am to of in on for with my me i do does how what which where when can could "
         + "should would it this that and or by from be use using key keyboard shortcut shortcuts bind binding press open get "
-        + "spawn launch bring mean meant want need please there way make you your yo whats current this put set").split(" "))
+        + "spawn launch bring mean meant want need please there way make you your yo whats current this put set run running").split(" "))
     readonly property var synonyms: ({
         "launcher": ["search", "app"], "app": ["launcher"], "screenshot": ["screen"], "float": ["floating"],
         "floating": ["tiled"], "terminal": ["kitty"], "lock": ["session"], "logout": ["log", "session"],
@@ -377,7 +427,7 @@ Singleton {
     }
     function words(text) {
         // Single letters are noise ("what's" → "s", which matched Mod+S).
-        return (text.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter(w => w.length > 1)
+        return (text.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter(w => w.length > 1 && !root.stopWords.has(w))
             .map(w => root.stem(w)).filter(w => !root.stopWords.has(w));
     }
 
@@ -404,6 +454,8 @@ Singleton {
             for (const w of extra) if (fw.has(w)) score += 0.5 * weight(w);
             for (const w of context) if (fw.has(w)) score += 0.5 * weight(w);
             if (root.isNvim(i) !== vim) score *= 0.5;
+            // Statements about the system before the many discovered toggles.
+            if (root.data.kinds?.[i]?.startsWith("toggle:")) score *= 0.7;
             if (score > 0) scored.push({ score, fact, i });
         });
         // Ties (e.g. "settings": every pinned shell setting matches too): the
@@ -496,7 +548,7 @@ Singleton {
     function listReply(question, lang) {
         const q = root.fold(question);
         const listing = /\b(all|list|every|cheat ?sheet|overview|tous|toutes|liste|alle|zeig|tat ca|liet ke|danh sach|toan bo)\b/.test(q)
-            || /\b(keybinds|keymaps|mappings|shortcuts|bindings|hotkeys|modules|packages|raccourcis|paquets|pakete)\b/.test(q);
+            || /\b(keybinds|keymaps|mappings|shortcuts|bindings|hotkeys|modules|packages|services|programs|raccourcis|paquets|pakete|dienste|programme)\b/.test(q);
         if (!listing) return null;
         const facts = root.data.facts;
         if (root.aboutVim(question)) {
@@ -533,6 +585,12 @@ Singleton {
             const title = selected === binds ? root.tr(lang, "allShortcuts", binds.length) : root.tr(lang, "matching");
             return `${title}\n${selected.map(i => root.formatBind(i, lang)).join("\n")}`;
         }
+        if (/\b(services?|programs?|dienste?|programme|dich vu|chuong trinh|option)\b/.test(q) && (root.data.toggles ?? []).length > 0) {
+            const on = root.data.toggles.filter(tg => tg.enabled);
+            const group = scope => on.filter(tg => tg.scope === scope).map(tg => tg.path).join(", ");
+            return root.tr(lang, "enabledToggles", root.data.host ?? "")
+                + `\n- NixOS: ${group("nixos") || "–"}\n- Home Manager: ${group("home-manager") || "–"}`;
+        }
         if (/\bmodul/.test(q)) {
             const off = root.data.modules.all.filter(m => !root.data.modules.enabled.includes(m));
             return root.tr(lang, "enabledModules", root.data.host ?? "") + `\n${root.data.modules.enabled.join(", ")}\n\n`
@@ -546,6 +604,53 @@ Singleton {
         if (/\b(packages?|paquets?|pakete?|goi|installed|installes?|installiert|da cai)\b/.test(q))
             return root.tr(lang, "packages", root.data.packages.length) + `\n${root.data.packages.join(", ")}`;
         return null;
+    }
+
+    // "system info", "about this machine", "neofetch": every system fact.
+    function systemInfoReply(question, lang) {
+        const en = ` ${root.englishText(question, lang)} ${root.fold(question)} `;
+        const asked = /\b(neofetch|fastfetch|specs)\b/.test(en)
+            || (/\b(system|os|machine|computer|nixos)\b/.test(en) && /\b(info|infos|information|summary|overview|details|about)\b/.test(en));
+        if (!asked) return null;
+        const facts = root.data.facts.map((_, i) => i).filter(i => root.data.kinds?.[i] === "os");
+        if (facts.length === 0) return null;
+        return root.tr(lang, "sysInfo", root.data.host ?? "") + "\n" + facts.map(i => `- ${root.factText(i, lang)}`).join("\n");
+    }
+    // A statement about the system (os), a how-to or a core fact.
+    function isInfo(i) {
+        const k = root.data.kinds?.[i] ?? "";
+        return k === "os" || k === "core" || k.startsWith("howto:") || k.startsWith("toggle:");
+    }
+    // "Is bluetooth enabled?", "do I have docker?": the discovered option sets
+    // (<path>.enable) the question names, by their last component ("ssh" finds
+    // services.openssh). Exact names win over partial ones; null when none.
+    function toggleReply(question, lang) {
+        const toggles = root.data.toggles ?? [];
+        if (toggles.length === 0) return null;
+        const fold = w => w.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const english = root.englishText(question, lang);
+        const generic = ["enabled", "enable", "install", "installed", "running", "active", "service", "services", "program",
+            "programs", "system", "machine", "server", "client", "daemon", "support", "have", "there", "any", "use", "using"];
+        // Other languages: only the translated words (untranslated function
+        // words such as "est" would match option names).
+        const function_ = new Set([].concat(...Object.values(root.langWords)));
+        const words = [...new Set(`${lang === "en" ? root.fold(question) : ""} ${english}`.split(/\s+/).map(fold))]
+            .filter(w => w.length >= 3 && !root.stopWords.has(w) && !function_.has(w) && !generic.includes(w));
+        const name = tg => fold(tg.path.split(".").pop());
+        // The name itself or one ending in it ("ssh": programs.ssh,
+        // services.openssh); else one starting with or containing it.
+        let hits = toggles.filter(tg => words.some(w => name(tg) === w || name(tg).endsWith(w)));
+        if (hits.length === 0)
+            hits = toggles.filter(tg => words.some(w => w.length >= 4 && name(tg).includes(w)));
+        if (hits.length === 0 || hits.length > 8) return null;
+        const label = tg => `${tg.path} (${tg.scope === "home-manager" ? "Home Manager" : "NixOS"})`;
+        // The name itself first; a long list of what is off is cut short.
+        hits.sort((a, b) => words.includes(name(b)) - words.includes(name(a)));
+        const on = hits.filter(tg => tg.enabled), off = hits.filter(tg => !tg.enabled).slice(0, 4);
+        const lines = [];
+        if (on.length > 0) lines.push(root.tr(lang, "toggleYes", on.map(label).join(", ")));
+        if (off.length > 0) lines.push(root.tr(lang, "toggleNo", off.map(label).join(", ")));
+        return lines.join("\n");
     }
 
     // ------------------------------------------------------------ direct answers
@@ -590,15 +695,28 @@ Singleton {
             return root.helpText(({ aide: "fr", hilfe: "de", giup: "vi", "giup do": "vi", "tro giup": "vi" })[helpWord[1]] ?? lang);
         const listing = root.listReply(question, lang);
         if (listing !== null) return listing;
+        const info = root.systemInfoReply(question, lang);
+        if (info !== null) return info;
 
         // "Is <module> enabled?" — from the module lists.
         const mod = root.data.modules.all.find(m => root.mentions(q, m));
         if (mod && root.enableAsk.test(q) && !root.keybindAsk.test(q))
             return root.data.modules.enabled.includes(mod) ? root.tr(lang, "modYes", mod) : root.tr(lang, "modNo", mod);
+        // "Is bluetooth enabled?", "do I have docker?" — the discovered option
+        // sets ("is firefox installed?" stays a package question).
+        if (root.enableAsk.test(q) && !root.keybindAsk.test(q) && !root.aboutVim(question) && !/\binstall|\bcai\b/.test(q)) {
+            const toggle = root.toggleReply(question, lang);
+            if (toggle !== null) return toggle;
+        }
         // "Is <package> installed?" / "do you know <package>?"
         const pkg = root.data.packages.find(p => p.length > 2 && root.mentions(q, p));
         if (pkg && root.installAsk.test(q) && !root.keybindAsk.test(q))
             return /\binstall|\bcai\b/.test(q) ? root.tr(lang, "pkgYes", pkg) : root.tr(lang, "pkgKnown", pkg);
+        // "Is firefox installed?" when it comes from programs.firefox.enable.
+        if (!pkg && root.installAsk.test(q) && !root.keybindAsk.test(q) && !root.aboutVim(question)) {
+            const toggle = root.toggleReply(question, lang);
+            if (toggle !== null) return toggle;
+        }
 
         // "What does <leader>ff do (in vim)?" — the Neovim keymap(s) of that key.
         const vimKeys = root.data.nvim ? root.nvimKeysIn(question) : [];
@@ -637,6 +755,14 @@ Singleton {
             const second = found.facts.find(s => s !== top && isKey(s.i) && s.score >= 0.85 * top.score
                 && root.factText(s.i, "en") !== root.factText(top.i, "en") && (isKey !== root.isBind || root.bindKey(s.i) !== root.bindKey(top.i)));
             return root.factText(top.i, lang) + (second ? `\n${root.tr(lang, "also")} ${root.factText(second.i, lang)}` : "");
+        }
+        // A question about the system or how to do something: the best
+        // statement, plus a close second one.
+        const best = found.facts[0];
+        if (best && root.isInfo(best.i) && (found.coverage >= 0.5
+                || (found.coverage >= 0.35 && (found.unknown ?? []).length === 0))) {
+            const second = found.facts.find(s => s !== best && root.isInfo(s.i) && s.score >= 0.85 * best.score);
+            return root.factText(best.i, lang) + (second ? `\n${root.tr(lang, "also")} ${root.factText(second.i, lang)}` : "");
         }
         if (found.facts.length === 0 || found.coverage < 0.25)
             return `${root.tr(lang, "dontKnow")}\n\n${root.tr(lang, "tips")}`;

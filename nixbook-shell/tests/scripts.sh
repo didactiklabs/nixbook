@@ -2,7 +2,7 @@
 # Tests for the nixbook-shell helper scripts (scripts/):
 #   - config-merge.jq: the JSON -> Nix printers must round-trip through Nix;
 #   - config-tool.sh: `nixbook-shell config diff|pinned|dump|path` on fixtures;
-#   - assistant-facts.py: fact file structure, keybind and Neovim keymap descriptions.
+#   - assistant-facts.py: fact file structure, keybind, Neovim keymap, system and how-to facts.
 # Needs bash, jq, python3 and nix-instantiate. Run: bash tests/scripts.sh
 # The jq programs are single-quoted on purpose: `$n`, `$a`, ... are jq variables.
 # shellcheck disable=SC2016
@@ -165,6 +165,20 @@ cat >"$tmp/info.json" <<'EOF'
   "pinned": {"bar.bottom": true, "ai.model": "x"},
   "packages": ["git", "foo.desktop", "bar.sh", "ripgrep"],
   "settingPaths": ["b.x", "a.y", "a.y"],
+  "os": {
+    "nixos": true, "release": "26.05", "codeName": "Yarara", "platform": "x86_64-linux", "kernel": "6.18.1",
+    "host": "testhost", "user": "tester", "timeZone": null, "autoTimeZone": false, "locale": "fr_FR.UTF-8",
+    "keyboard": {"layout": "fr", "variant": "azerty"}, "bootloader": "systemd-boot", "shell": "zsh",
+    "editor": "nvim", "nix": "lix 2.95.2", "flakes": true, "users": ["tester", "guest"],
+    "toggles": [
+      {"path": "hardware.bluetooth", "scope": "nixos", "enabled": true, "description": "support for Bluetooth"},
+      {"path": "services.openssh", "scope": "nixos", "enabled": false, "description": "the OpenSSH secure shell daemon"},
+      {"path": "xdg.portal", "scope": "nixos", "enabled": true, "description": "[xdg desktop integration](https://example.org)"}
+    ]
+  },
+  "howTo": {
+    "apply": {"en": "Apply with deploy-tool.", "fr": "fr", "de": "de", "vi": "vi"}
+  },
   "nvim": {
     "leader": " ",
     "localLeader": null,
@@ -230,8 +244,27 @@ if facts=$(python3 "$scripts/assistant-facts.py" "$tmp/info.json" "$tmp/binds.kd
     "In Neovim, the leader key (<leader>) is Space."; do
     expect_contains "assistant-facts.py: fact \"${want:0:48}\"" "$(jq -r '.facts[]' <<<"$facts")" "$want"
   done
-  md=$(python3 "$scripts/assistant-facts.py" --nvim-markdown "$tmp/info.json")
-  expect_contains "assistant-facts.py --nvim-markdown lists the keymaps" "$md" '- `gd` (normal, visual, operator-pending mode, in buffers with an LSP server): LSP: definition'
+  md=$(python3 "$scripts/assistant-facts.py" --markdown "$tmp/info.json")
+  expect_contains "assistant-facts.py --markdown lists the keymaps" "$md" '- `gd` (normal, visual, operator-pending mode, in buffers with an LSP server): LSP: definition'
+  check_facts "the operating system becomes facts" '[.kinds[] | select(. == "os")] | length == 12'
+  check_facts "only enabled toggles become facts, every toggle is listed" \
+    '([.kinds[] | select(startswith("toggle:"))] | length) == 2 and (.toggles | length) == 3 and (.toggles | map(.enabled)) == [true,false,true]'
+  check_facts "how-to answers become facts" '.kinds | index("howto:apply") != null'
+  for want in \
+    "This machine runs NixOS version 26.05" \
+    "Yarara" \
+    "The Linux kernel is version 6.18.1." \
+    "The keyboard layout is fr (azerty)." \
+    "Nix flakes are enabled." \
+    "The user accounts on this machine are: tester, guest." \
+    "bluetooth – support for Bluetooth is enabled (NixOS option hardware.bluetooth.enable)." \
+    "portal – xdg desktop integration is enabled (NixOS option xdg.portal.enable)." \
+    "Apply with deploy-tool."; do
+    expect_contains "assistant-facts.py: fact \"${want:0:48}\"" "$(jq -r '.facts[]' <<<"$facts")" "$want"
+  done
+  expect_contains "assistant-facts.py --markdown lists the system" "$md" "- The Linux kernel is version 6.18.1."
+  expect_contains "assistant-facts.py --markdown lists the how-tos" "$md" "- Apply with deploy-tool."
+  expect_contains "assistant-facts.py --markdown lists the enabled toggles" "$md" "hardware.bluetooth, xdg.portal"
   check_facts "the composed move action is described" \
     '[.facts[] | select(startswith("Press Mod+Shift+Ctrl+Down to move "))] | length == 1'
 else

@@ -37,10 +37,10 @@ let
     You are also this user's assistant for their NixOS setup. It is fully
     declarative: the "nixbook" repository (git@github.com:didactiklabs/nixbook,
     revision in /etc/nixos/version) builds every machine. When asked to change
-    something, answer with the Nix change in the right file and remind that it
-    is applied with `colmena apply-local --sudo switch` from the repository.
-    Don't suggest imperative changes (nix-env, editing /etc, pacman…) for
-    things the configuration manages.
+    something, prefer the Nix change in the right file, applied with
+    `colmena apply-local --sudo switch` from the repository: imperative
+    changes (nix-env, editing /etc…) to things the configuration manages are
+    undone by the next switch.
 
     - Host `${hostName}`${
       lib.optionalString (os != null)
@@ -149,13 +149,23 @@ in
             ++ declared (config.customHomeManagerModules or { });
           enabled = osModules ++ hmModules;
         };
-        coreFacts = [
-          {
+        # nixbook's own way of applying and updating (the other how-tos keep
+        # nixbook-shell's generic NixOS answers).
+        howTo = {
+          apply = {
             en = "To apply a configuration change, run `colmena apply-local --sudo switch` from the nixbook repository.";
             fr = "Pour appliquer une modification de la configuration, lancez `colmena apply-local --sudo switch` depuis le dépôt nixbook.";
             de = "Um eine Konfigurationsänderung anzuwenden, führe `colmena apply-local --sudo switch` im nixbook-Repository aus.";
             vi = "Để áp dụng thay đổi cấu hình, chạy `colmena apply-local --sudo switch` trong kho nixbook.";
-          }
+          };
+          update = lib.mkIf (os != null && (os.customNixOSModules.tools.enable or false)) {
+            en = "To update the system, run `osupdate`: it applies the latest nixbook main branch (git@github.com:didactiklabs/nixbook).";
+            fr = "Pour mettre à jour le système, lancez `osupdate` : il applique la dernière version de la branche main de nixbook (git@github.com:didactiklabs/nixbook).";
+            de = "Um das System zu aktualisieren, führe `osupdate` aus: es wendet den neuesten Stand des nixbook-Branches main an (git@github.com:didactiklabs/nixbook).";
+            vi = "Để cập nhật hệ thống, chạy `osupdate`: nó áp dụng bản mới nhất của nhánh main của nixbook (git@github.com:didactiklabs/nixbook).";
+          };
+        };
+        coreFacts = [
           {
             en = "System settings (NixOS modules and their options) are changed in profiles/${hostName}/default.nix.";
             fr = "Les réglages système (modules NixOS et leurs options) se changent dans profiles/${hostName}/default.nix.";

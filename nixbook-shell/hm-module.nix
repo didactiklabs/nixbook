@@ -1,5 +1,6 @@
 {
   config,
+  options,
   pkgs,
   lib,
   osConfig ? null,
@@ -74,12 +75,223 @@ let
   );
 
   names = pkgList: lib.unique (lib.sort lib.lessThan (map lib.getName pkgList));
+
+  # The operating system as configured, for questions about it ("which
+  # kernel?", "is bluetooth on?", "what is my keyboard layout?"). Read from
+  # the evaluated NixOS (osConfig) and Home Manager configurations; every
+  # lookup has a fallback, so it evaluates on any NixOS release and under
+  # standalone Home Manager (no osConfig: only the Home Manager part).
+  os = osConfig;
+  osGet = path: default: if os == null then default else lib.attrByPath path default os;
+  hmGet = path: default: lib.attrByPath path default config;
+  osUser = config.home.username;
+  pkgName =
+    p:
+    if p == null then
+      null
+    else if lib.isDerivation p then
+      lib.getName p
+    else
+      baseNameOf (toString p);
+  experimental = osGet [ "nix" "settings" "experimental-features" ] [ ];
+  firstLayout = l: if l == null || l == "" then null else lib.head (lib.splitString "," l);
+  # Every option set with an `enable` option, on or off (toggles.nix): the
+  # NixOS ones from nixbook-shell's NixOS module (nixos-module.nix) when it is
+  # imported, the Home Manager ones from this configuration's options.
+  osToggles = osGet [ "nixbook-shell" "toggles" ] [ ];
+  hmToggles = (import ./toggles.nix { inherit lib; }) {
+    inherit options config;
+    scope = "home-manager";
+  };
+  osInfo = {
+    nixos = os != null;
+    host = osGet [ "networking" "hostName" ] null;
+    user = osUser;
+    release = osGet [ "system" "nixos" "release" ] null;
+    codeName = osGet [ "system" "nixos" "codeName" ] null;
+    platform = pkgs.stdenv.hostPlatform.system;
+    kernel = if os == null then null else os.boot.kernelPackages.kernel.version;
+    timeZone = osGet [ "time" "timeZone" ] null;
+    autoTimeZone = osGet [ "services" "automatic-timezoned" "enable" ] false;
+    locale = osGet [ "i18n" "defaultLocale" ] null;
+    # The compositor's own layout first (niri), else the system's.
+    keyboard =
+      let
+        niri = hmGet [ "programs" "niri" "settings" "input" "keyboard" "xkb" ] { };
+        xkb = osGet [ "services" "xserver" "xkb" ] { };
+        layout = firstLayout (niri.layout or null);
+      in
+      if layout != null then
+        {
+          inherit layout;
+          variant = niri.variant or "";
+        }
+      else
+        {
+          layout = firstLayout (xkb.layout or null);
+          variant = xkb.variant or "";
+        };
+    bootloader =
+      if osGet [ "boot" "lanzaboote" "enable" ] false then
+        "systemd-boot (Secure Boot, lanzaboote)"
+      else if osGet [ "boot" "loader" "systemd-boot" "enable" ] false then
+        "systemd-boot"
+      else if osGet [ "boot" "loader" "grub" "enable" ] false then
+        "GRUB"
+      else
+        null;
+    shell = pkgName (osGet [ "users" "users" osUser "shell" ] null);
+    editor =
+      let
+        e = hmGet [ "home" "sessionVariables" "EDITOR" ] (
+          osGet [ "environment" "variables" "EDITOR" ] null
+        );
+      in
+      if e == null then null else baseNameOf (toString e);
+    nix =
+      let
+        p = osGet [ "nix" "package" ] null;
+      in
+      if p == null then null else "${lib.getName p} ${lib.getVersion p}";
+    flakes = lib.elem "flakes" (
+      if builtins.isList experimental then experimental else lib.splitString " " experimental
+    );
+    users = lib.attrNames (
+      lib.filterAttrs (_: u: u.isNormalUser or false) (osGet [ "users" "users" ] { })
+    );
+    toggles = osToggles ++ hmToggles;
+  };
+
+  # Generic answers to "how do I …" questions; the configuration's own way
+  # of doing it (a deploy tool, an update script) overrides one by name.
+  defaultHowTo =
+    if os != null then
+      {
+        apply = {
+          en = "To apply a change to the NixOS configuration, run `sudo nixos-rebuild switch`.";
+          fr = "Pour appliquer une modification de la configuration NixOS, lancez `sudo nixos-rebuild switch`.";
+          de = "Um eine Änderung der NixOS-Konfiguration anzuwenden, führe `sudo nixos-rebuild switch` aus.";
+          vi = "Để áp dụng thay đổi cấu hình NixOS, chạy `sudo nixos-rebuild switch`.";
+        };
+        update = {
+          en = "To update the system, update nixpkgs (`sudo nix-channel --update`, or `nix flake update` for a flake) and run `sudo nixos-rebuild switch`.";
+          fr = "Pour mettre à jour le système, mettez à jour nixpkgs (`sudo nix-channel --update`, ou `nix flake update` pour un flake) puis lancez `sudo nixos-rebuild switch`.";
+          de = "Um das System zu aktualisieren, aktualisiere nixpkgs (`sudo nix-channel --update` oder `nix flake update` bei einem Flake) und führe `sudo nixos-rebuild switch` aus.";
+          vi = "Để cập nhật hệ thống, cập nhật nixpkgs (`sudo nix-channel --update`, hoặc `nix flake update` với flake) rồi chạy `sudo nixos-rebuild switch`.";
+        };
+        rollback = {
+          en = "To roll back (undo) the last system change, run `sudo nixos-rebuild switch --rollback`, or choose an older generation in the boot menu.";
+          fr = "Pour revenir en arrière (annuler) la dernière modification du système, lancez `sudo nixos-rebuild switch --rollback`, ou choisissez une génération plus ancienne dans le menu de démarrage.";
+          de = "Um die letzte Systemänderung zurückzusetzen (rückgängig zu machen), führe `sudo nixos-rebuild switch --rollback` aus oder wähle im Bootmenü eine ältere Generation.";
+          vi = "Để quay lại (hoàn tác) thay đổi hệ thống gần nhất, chạy `sudo nixos-rebuild switch --rollback`, hoặc chọn một thế hệ (generation) cũ hơn trong menu khởi động.";
+        };
+        generations = {
+          en = "To list the system generations (previous versions of the system), run `nixos-rebuild list-generations`.";
+          fr = "Pour lister les générations du système (versions précédentes du système), lancez `nixos-rebuild list-generations`.";
+          de = "Um die Systemgenerationen (frühere Versionen des Systems) aufzulisten, führe `nixos-rebuild list-generations` aus.";
+          vi = "Để liệt kê các thế hệ (generation, phiên bản trước) của hệ thống, chạy `nixos-rebuild list-generations`.";
+        };
+        gc = {
+          en = "To free disk space, delete old generations and unused packages with `sudo nix-collect-garbage -d` (garbage collection), then apply the configuration again to clean the boot menu.";
+          fr = "Pour libérer de l'espace disque, supprimez les anciennes générations et les paquets inutilisés avec `sudo nix-collect-garbage -d` (ramasse-miettes), puis appliquez de nouveau la configuration pour nettoyer le menu de démarrage.";
+          de = "Um Speicherplatz freizugeben, lösche alte Generationen und ungenutzte Pakete mit `sudo nix-collect-garbage -d` (Garbage Collection) und wende die Konfiguration erneut an, um das Bootmenü aufzuräumen.";
+          vi = "Để giải phóng dung lượng đĩa, xóa các thế hệ cũ và gói không dùng bằng `sudo nix-collect-garbage -d` (dọn rác), rồi áp dụng lại cấu hình để dọn menu khởi động.";
+        };
+        search = {
+          en = "To find a package, run `nix search nixpkgs <name>` or search https://search.nixos.org/packages.";
+          fr = "Pour trouver un paquet, lancez `nix search nixpkgs <nom>` ou cherchez sur https://search.nixos.org/packages.";
+          de = "Um ein Paket zu finden, führe `nix search nixpkgs <name>` aus oder suche auf https://search.nixos.org/packages.";
+          vi = "Để tìm một gói, chạy `nix search nixpkgs <tên>` hoặc tìm trên https://search.nixos.org/packages.";
+        };
+        try = {
+          en = "To try a program without installing it, run `nix shell nixpkgs#<name>` (or `nix run nixpkgs#<name>`).";
+          fr = "Pour essayer un programme sans l'installer, lancez `nix shell nixpkgs#<nom>` (ou `nix run nixpkgs#<nom>`).";
+          de = "Um ein Programm ohne Installation auszuprobieren, führe `nix shell nixpkgs#<name>` (oder `nix run nixpkgs#<name>`) aus.";
+          vi = "Để dùng thử một chương trình mà không cài, chạy `nix shell nixpkgs#<tên>` (hoặc `nix run nixpkgs#<tên>`).";
+        };
+        install = {
+          en = "To install a program for good, add it to environment.systemPackages (system) or home.packages (Home Manager) in the configuration, then apply it.";
+          fr = "Pour installer un programme durablement, ajoutez-le à environment.systemPackages (système) ou home.packages (Home Manager) dans la configuration, puis appliquez-la.";
+          de = "Um ein Programm dauerhaft zu installieren, füge es in der Konfiguration zu environment.systemPackages (System) oder home.packages (Home Manager) hinzu und wende sie an.";
+          vi = "Để cài một chương trình lâu dài, thêm nó vào environment.systemPackages (hệ thống) hoặc home.packages (Home Manager) trong cấu hình, rồi áp dụng.";
+        };
+        logs = {
+          en = "To see a service's logs, run `journalctl -u <service>` (`journalctl --user -u <service>` for a user service); `systemctl status <service>` shows whether it is running.";
+          fr = "Pour voir les journaux (logs) d'un service, lancez `journalctl -u <service>` (`journalctl --user -u <service>` pour un service utilisateur) ; `systemctl status <service>` indique s'il tourne.";
+          de = "Um die Protokolle (Logs) eines Dienstes zu sehen, führe `journalctl -u <dienst>` aus (`journalctl --user -u <dienst>` für einen Benutzerdienst); `systemctl status <dienst>` zeigt, ob er läuft.";
+          vi = "Để xem nhật ký (log) của một dịch vụ, chạy `journalctl -u <dịch vụ>` (`journalctl --user -u <dịch vụ>` với dịch vụ người dùng); `systemctl status <dịch vụ>` cho biết nó có đang chạy không.";
+        };
+        options = {
+          en = "To look up configuration options, run `man configuration.nix` (NixOS) or `man home-configuration.nix` (Home Manager), or search https://search.nixos.org/options.";
+          fr = "Pour chercher des options de configuration, lancez `man configuration.nix` (NixOS) ou `man home-configuration.nix` (Home Manager), ou cherchez sur https://search.nixos.org/options.";
+          de = "Um Konfigurationsoptionen nachzuschlagen, führe `man configuration.nix` (NixOS) oder `man home-configuration.nix` (Home Manager) aus oder suche auf https://search.nixos.org/options.";
+          vi = "Để tra cứu tùy chọn cấu hình, chạy `man configuration.nix` (NixOS) hoặc `man home-configuration.nix` (Home Manager), hoặc tìm trên https://search.nixos.org/options.";
+        };
+      }
+    else
+      {
+        apply = {
+          en = "To apply a change to the Home Manager configuration, run `home-manager switch`.";
+          fr = "Pour appliquer une modification de la configuration Home Manager, lancez `home-manager switch`.";
+          de = "Um eine Änderung der Home-Manager-Konfiguration anzuwenden, führe `home-manager switch` aus.";
+          vi = "Để áp dụng thay đổi cấu hình Home Manager, chạy `home-manager switch`.";
+        };
+        generations = {
+          en = "To list the Home Manager generations (previous versions), run `home-manager generations`; run a generation's `activate` script to roll back to it.";
+          fr = "Pour lister les générations Home Manager (versions précédentes), lancez `home-manager generations` ; lancez le script `activate` d'une génération pour y revenir.";
+          de = "Um die Home-Manager-Generationen (frühere Versionen) aufzulisten, führe `home-manager generations` aus; das `activate`-Skript einer Generation setzt auf sie zurück.";
+          vi = "Để liệt kê các thế hệ Home Manager (phiên bản trước), chạy `home-manager generations`; chạy script `activate` của một thế hệ để quay lại nó.";
+        };
+        gc = {
+          en = "To free disk space, run `home-manager expire-generations '-30 days'` then `nix-collect-garbage` (garbage collection).";
+          fr = "Pour libérer de l'espace disque, lancez `home-manager expire-generations '-30 days'` puis `nix-collect-garbage` (ramasse-miettes).";
+          de = "Um Speicherplatz freizugeben, führe `home-manager expire-generations '-30 days'` und dann `nix-collect-garbage` (Garbage Collection) aus.";
+          vi = "Để giải phóng dung lượng đĩa, chạy `home-manager expire-generations '-30 days'` rồi `nix-collect-garbage` (dọn rác).";
+        };
+        search = {
+          en = "To find a package, run `nix search nixpkgs <name>` or search https://search.nixos.org/packages.";
+          fr = "Pour trouver un paquet, lancez `nix search nixpkgs <nom>` ou cherchez sur https://search.nixos.org/packages.";
+          de = "Um ein Paket zu finden, führe `nix search nixpkgs <name>` aus oder suche auf https://search.nixos.org/packages.";
+          vi = "Để tìm một gói, chạy `nix search nixpkgs <tên>` hoặc tìm trên https://search.nixos.org/packages.";
+        };
+        try = {
+          en = "To try a program without installing it, run `nix shell nixpkgs#<name>` (or `nix run nixpkgs#<name>`).";
+          fr = "Pour essayer un programme sans l'installer, lancez `nix shell nixpkgs#<nom>` (ou `nix run nixpkgs#<nom>`).";
+          de = "Um ein Programm ohne Installation auszuprobieren, führe `nix shell nixpkgs#<name>` (oder `nix run nixpkgs#<name>`) aus.";
+          vi = "Để dùng thử một chương trình mà không cài, chạy `nix shell nixpkgs#<tên>` (hoặc `nix run nixpkgs#<tên>`).";
+        };
+        install = {
+          en = "To install a program for good, add it to home.packages in the Home Manager configuration, then run `home-manager switch`.";
+          fr = "Pour installer un programme durablement, ajoutez-le à home.packages dans la configuration Home Manager, puis lancez `home-manager switch`.";
+          de = "Um ein Programm dauerhaft zu installieren, füge es in der Home-Manager-Konfiguration zu home.packages hinzu und führe `home-manager switch` aus.";
+          vi = "Để cài một chương trình lâu dài, thêm nó vào home.packages trong cấu hình Home Manager, rồi chạy `home-manager switch`.";
+        };
+        logs = {
+          en = "To see a user service's logs, run `journalctl --user -u <service>`; `systemctl --user status <service>` shows whether it is running.";
+          fr = "Pour voir les journaux (logs) d'un service utilisateur, lancez `journalctl --user -u <service>` ; `systemctl --user status <service>` indique s'il tourne.";
+          de = "Um die Protokolle (Logs) eines Benutzerdienstes zu sehen, führe `journalctl --user -u <dienst>` aus; `systemctl --user status <dienst>` zeigt, ob er läuft.";
+          vi = "Để xem nhật ký (log) của dịch vụ người dùng, chạy `journalctl --user -u <dịch vụ>`; `systemctl --user status <dịch vụ>` cho biết nó có đang chạy không.";
+        };
+        options = {
+          en = "To look up Home Manager options, run `man home-configuration.nix` or search https://home-manager-options.extranix.com.";
+          fr = "Pour chercher des options Home Manager, lancez `man home-configuration.nix` ou cherchez sur https://home-manager-options.extranix.com.";
+          de = "Um Home-Manager-Optionen nachzuschlagen, führe `man home-configuration.nix` aus oder suche auf https://home-manager-options.extranix.com.";
+          vi = "Để tra cứu tùy chọn Home Manager, chạy `man home-configuration.nix` hoặc tìm trên https://home-manager-options.extranix.com.";
+        };
+      };
   packages =
     config.home.packages ++ lib.optionals (osConfig != null) osConfig.environment.systemPackages;
 
   # The Neovim keymaps, for scripts/assistant-facts.py.
   nvimInfo = {
     inherit (cfg.assistant.nixvim) leader localLeader keymaps;
+  };
+  # What scripts/assistant-facts.py turns into facts and the AI context.
+  howTo = lib.filterAttrs (_: v: v != null) cfg.assistant.howTo;
+  contextInfo = {
+    nvim = nvimInfo;
+    os = cfg.assistant.os;
+    inherit howTo;
   };
 
   # Machine context for the Intelligence tab's system prompt
@@ -91,7 +303,7 @@ let
       {
         header = cfg.assistant.context;
         niriKdl = cfg.assistant.niriConfig;
-        info = builtins.toJSON { nvim = nvimInfo; };
+        info = builtins.toJSON contextInfo;
         passAsFile = [
           "header"
           "niriKdl"
@@ -100,18 +312,22 @@ let
         nativeBuildInputs = [ pkgs.python3 ];
       }
       ''
-        cat "$headerPath" > "$out"
+        {
+          printf '# About this machine (reference)\n'
+          printf 'The sections below are generated from this machine'"'"'s configuration. Use them as reference together with your own knowledge: they do not limit what you can answer. Answer any question; when you are not sure, say so.\n\n'
+          cat "$headerPath"
+        } > "$out"
         if [ -s "$niriKdlPath" ]; then
           {
             printf '\n## Keyboard shortcuts (niri, rendered from the configuration)\n'
-            printf 'Answer questions about shortcuts from this list (the authoritative one; Mod = the Super/Windows key). A spawn of nixbook-shell ipc call <target> <fn> opens a shell panel.\n```kdl\n'
+            printf 'The niri keybinds as configured (Mod = the Super/Windows key; a spawn of nixbook-shell ipc call <target> <fn> opens a shell panel).\n```kdl\n'
             # Store paths only add noise: /nix/store/<hash>-kitty-0.49/bin/kitty -> kitty
             ${lib.getExe pkgs.gawk} '/^binds \{/,/^\}/' "$niriKdlPath" \
               | ${lib.getExe pkgs.gnused} -E 's#/nix/store/[a-z0-9]{32}-[^/ "]*/bin/##g'
             printf '```\n'
           } >> "$out"
         fi
-        python3 ${./scripts/assistant-facts.py} --nvim-markdown "$infoPath" >> "$out"
+        python3 ${./scripts/assistant-facts.py} --markdown "$infoPath" >> "$out"
       '';
 
   # The same, as retrievable one-sentence facts for the chat's config
@@ -130,7 +346,7 @@ let
         packages = names packages;
         # Every setting the shell has (answers naming another are flagged).
         settingPaths = settingsLib.flattenPaths [ ] settingsLib.builtinDefaults ++ settingsLib.liveKeys;
-        nvim = nvimInfo;
+        inherit (contextInfo) nvim os howTo;
       };
     in
     pkgs.runCommand "nixbook-shell-system-facts.json"
@@ -299,6 +515,35 @@ in
         '';
       };
 
+      os = lib.mkOption {
+        type = lib.types.attrsOf lib.types.anything;
+        default = osInfo;
+        defaultText = lib.literalMD "read from the evaluated NixOS (`osConfig`) and Home Manager configurations";
+        description = ''
+          The operating system as configured (NixOS release, kernel, host, time
+          zone, locale, keyboard layout, bootloader, shell, editor, Nix,
+          accounts, and `toggles`: every NixOS and Home Manager option set with
+          a real `enable` option, discovered from the options trees, on or off
+          — the NixOS ones need nixbook-shell's NixOS module), for the
+          config assistant ("which kernel?", "is bluetooth enabled?", "which
+          services are enabled?") and the AI context. Built from the evaluated
+          configuration; override a key to correct or hide it (null).
+        '';
+      };
+
+      howTo = lib.mkOption {
+        type = lib.types.attrsOf (lib.types.nullOr factType);
+        default = { };
+        description = ''
+          Answers to "how do I …" questions about the system, by name: `apply`,
+          `update`, `rollback`, `generations`, `gc`, `search`, `try`,
+          `install`, `logs`, `options` (generic NixOS ones by default, Home
+          Manager ones without NixOS). Set one to your configuration's own way
+          (a deploy tool, an update script), or to null to drop it; the others
+          keep their default.
+        '';
+      };
+
       nixvim = {
         keymaps = lib.mkOption {
           type = lib.types.listOf (
@@ -372,6 +617,9 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    # Defaults one by one, so setting one answer keeps the others.
+    programs.nixbook-shell.assistant.howTo = lib.mapAttrs (_: lib.mkDefault) defaultHowTo;
+
     xdg.configFile."quickshell/${configName}".source = cfg.package.passthru.shell;
 
     # The manifest the shell reads to know which settings Nix owns: every

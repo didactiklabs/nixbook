@@ -23,5 +23,8 @@
     ./tools.nix
     ./vmSupport.nix
     ./wolf.nix
+    # The system toggles for nixbook-shell's config assistant (read by its
+    # Home Manager module through osConfig).
+    ../nixbook-shell/nixos-module.nix
   ];
 }

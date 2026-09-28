@@ -8,6 +8,7 @@
 # gives:
 #   package                      the `nixbook-shell` launcher (package.nix)
 #   homeManagerModules.default   programs.nixbook-shell (hm-module.nix)
+#   nixosModules.default         the NixOS toggles for its assistant (nixos-module.nix)
 #   lib                          the settings helpers (lib.nix)
 {
   sources ? import ./npins,
@@ -18,5 +19,6 @@
 {
   package = import ./package.nix { inherit pkgs quickshellSrc; };
   homeManagerModules.default = ./hm-module.nix;
+  nixosModules.default = ./nixos-module.nix;
   lib = import ./lib.nix { inherit (pkgs) lib; };
 }

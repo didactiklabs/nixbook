@@ -34,6 +34,8 @@ another quickshell pin) gives:
 
 - `package` — the `nixbook-shell` launcher
 - `homeManagerModules.default` — the module above (`hm-module.nix`)
+- `nixosModules.default` — optional, on NixOS: lets the assistant know the
+  system's toggles (`nixos-module.nix`, see below)
 - `lib` — the settings helpers (`lib.nix`)
 
 The shell runs as the `nixbook-shell` user service. Bind keys to
@@ -65,20 +67,38 @@ The AI chat and the config assistant can be told about the machine through
 config assistant lists them ("all vim shortcuts") and looks them up ("what does
 <leader>ff do in vim?") as Neovim really gets them, overrides included.
 
+The config assistant also answers basic questions about the system, all read
+from the evaluated configuration: NixOS release, kernel, host, time zone,
+locale, keyboard layout, bootloader, shell, editor, Nix (`assistant.os`), and
+"is X enabled?" for every option set with a real `enable` option, discovered
+from the module system's options trees (`toggles.nix`: declared, bool, visible,
+so renamed and removed options are never read). Home Manager's come from its
+own options; NixOS's need `nixosModules.default`, since Home Manager modules
+only get the NixOS configuration, not its options. "How do I update / roll
+back / free disk space…" answers (`assistant.howTo`) are generic NixOS ones by
+default; set one by name to your configuration's own way (a deploy tool, an
+update script), or to null to drop it.
+
+With a model selected in the chat, all of this is only reference for the
+model's system prompt: it answers with its own knowledge too, and says when it
+isn't sure.
+
 ## Layout
 
-| Path             | What                                                           |
-| ---------------- | -------------------------------------------------------------- |
-| `default.nix`    | entry point (`package`, `homeManagerModules.default`, `lib`)   |
-| `package.nix`    | the launcher: runtime `PATH`, QML import path, `config` CLI    |
-| `qml.nix`        | the QML tree as installed (store-path fixups, Persona art)     |
-| `quickshell.nix` | Quickshell from `quickshellSrc` plus `patches/`                |
-| `lib.nix`        | typed settings options generated from `builtin-defaults.json`  |
-| `hm-module.nix`  | the Home Manager module `programs.nixbook-shell`               |
-| `scripts/`       | `config` CLI, its jq library, assistant facts, Anthropic usage |
-| `npins/`         | default nixpkgs and quickshell pins                            |
-| `src/`           | the vendored QML tree (edited in place)                        |
-| `tests/`         | script tests, lib unit tests, the self-containment check       |
+| Path               | What                                                           |
+| ------------------ | -------------------------------------------------------------- |
+| `default.nix`      | entry point (`package`, `homeManagerModules.default`, `lib`)   |
+| `package.nix`      | the launcher: runtime `PATH`, QML import path, `config` CLI    |
+| `qml.nix`          | the QML tree as installed (store-path fixups, Persona art)     |
+| `quickshell.nix`   | Quickshell from `quickshellSrc` plus `patches/`                |
+| `lib.nix`          | typed settings options generated from `builtin-defaults.json`  |
+| `hm-module.nix`    | the Home Manager module `programs.nixbook-shell`               |
+| `nixos-module.nix` | optional NixOS module: the system's toggles for the assistant  |
+| `toggles.nix`      | discovers the `enable` toggles from an options tree            |
+| `scripts/`         | `config` CLI, its jq library, assistant facts, Anthropic usage |
+| `npins/`           | default nixpkgs and quickshell pins                            |
+| `src/`             | the vendored QML tree (edited in place)                        |
+| `tests/`           | script tests, lib unit tests, the self-containment check       |
 
 ## Tests
 
