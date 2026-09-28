@@ -7,6 +7,7 @@ in
     ./gitConfig.nix
     ./niriConfig.nix
     ./fastfetchConfig.nix
+    ./cursorConfig.nix
   ];
 
   home.packages = [
