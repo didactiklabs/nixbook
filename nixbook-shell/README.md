@@ -109,15 +109,29 @@ service) and keeps every calendar surface in sync:
 - events: dots on the days of the sidebar, desktop and bar clock calendars,
   the next events in the bar clock popup, a day's events when you click it in
   the sidebar (with an "add event" button);
+- the next events: the "Next Event" bar widget (`nextEvent` in a bar layout:
+  "in 12 min" and the title, the following ones on hover; click joins the
+  meeting when it starts within 10 minutes, else opens DankCalendar) and
+  desktop widget (`background.widgets.nextEvent`: the next one large with a
+  Join button, the three after it);
 - tasks: the to-do list (sidebar, desktop widget, bar clock popup, the
   launcher's "add task") is the account's task list (Google Tasks…) once one
-  is connected, a local list before that (`src/services/Todo.qml`).
+  is connected, a local list before that (`src/services/Todo.qml`);
+- reminders: DankCalendar's own notifications (before each event, at its
+  Google reminder times or 10 minutes before; Join, Open, Snooze, Dismiss),
+  shown by the shell's notification server and silenced by Do Not Disturb.
+  Other copies of the same reminder (the phone's calendar app mirrored by KDE
+  Connect, Google Calendar in the browser) can be made quiet with
+  `notifications.quiet` (Settings → Notifications → Quiet: apps and rules, in
+  the cut-in rule syntax, whose notifications don't pop up, cut in or chime
+  but still reach the notification centre and the history).
 
 Each of these widgets has the same account button: "Connect a Google account"
 until one is connected (the browser opens Google's login: dcal ships its own
 OAuth client, so no Google Cloud project is needed), then "Open DankCalendar"
 (events, tasks, the other accounts: Microsoft, CalDAV, iCloud, iCal feeds);
-right click syncs now. The assistant answers "how do I sync my Google
+right click syncs now. The desktop menu's widget list scrolls when it is
+taller than the screen. The assistant answers "how do I sync my Google
 calendar?" and the like (`assistant.howTo.calendar*`).
 
 The bar's update indicator compares `/etc/nixos/version` (JSON `{rev, branch}`)

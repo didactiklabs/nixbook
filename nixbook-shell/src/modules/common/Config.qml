@@ -353,6 +353,14 @@ Singleton {
                         property real z: 0
                         property string sizeMode: "2x2"
                     }
+                    // The next calendar events (DankCalendar).
+                    property JsonObject nextEvent: JsonObject {
+                        property bool enable: false
+                        property string placementStrategy: "free"
+                        property real x: 400
+                        property real y: 100
+                        property real z: 0
+                    }
                     property JsonObject worldClock: JsonObject {
                         property bool enable: false
                         property list<string> timezones: ["Australia/Sydney", "Asia/Tokyo", "Europe/London", "America/New_York"]
@@ -725,6 +733,16 @@ Singleton {
                 // out: messages from people. Matched on app name, title and
                 // notification hints (not the message text), case-insensitive.
                 property JsonObject persistent: JsonObject {
+                    property bool enable: true
+                    property list<string> apps: []
+                    property list<string> keywords: []
+                }
+                // Quiet: notifications that don't pop up, cut in or chime, but
+                // still go to the notification centre and the history — e.g.
+                // the phone's or the browser's copy of a calendar reminder
+                // DankCalendar already shows. Apps (exact name) and rules
+                // (the cut-in syntax, NotificationUtils.ruleMatches).
+                property JsonObject quiet: JsonObject {
                     property bool enable: true
                     property list<string> apps: []
                     property list<string> keywords: []

@@ -1582,6 +1582,12 @@ ContentPage {
                             enabled: Config.options.background.widgets.calendar.enable
                         },
                         {
+                            icon: "event_upcoming",
+                            name: Translation.tr("Next Event"),
+                            key: "nextEvent",
+                            enabled: Config.options.background.widgets.nextEvent.enable
+                        },
+                        {
                             icon: "public",
                             name: Translation.tr("World Clock"),
                             key: "worldClock",

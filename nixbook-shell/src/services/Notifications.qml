@@ -208,8 +208,14 @@ Singleton {
             root.remember(newNotifObject);
 			root.list = [...root.list, newNotifObject];
 
+            // Quiet (Settings → Notifications → Quiet): no popup, cut-in or
+            // chime, only the notification centre and the history.
+            const quiet = root.quietRule(newNotifObject);
+            if (quiet !== "")
+                console.log(`[Notifications] Quiet "${notification.appName}: ${notification.summary}" (${quiet})`);
+
             // Popup
-            if (!root.popupInhibited) {
+            if (!root.popupInhibited && quiet === "") {
                 newNotifObject.popup = true;
                 // Messages (Settings → Notifications → Keep on screen) stay until
                 // dismissed: no expiry timer at all.
@@ -222,18 +228,21 @@ Singleton {
                 newNotifObject.read = false;
                 root.unread++;
             }
-            NotificationHistory.record(newNotifObject, (v => v.cutIn ? v.reason : "")(root.cutInVerdict(newNotifObject)),
+            NotificationHistory.record(newNotifObject,
+                quiet !== "" ? "" : (v => v.cutIn ? v.reason : "")(root.cutInVerdict(newNotifObject)),
                 replaced.map(r => ({ id: r.notificationId, time: r.time })));
             // notify first: a cut-in plays its own sound, and the chime then
             // falls within the 300 ms gap instead of doubling it. Before
             // discarding what it replaces, so a cut-in on screen for the old
             // copy is updated in place instead of leaving and coming back.
-            root.notify(newNotifObject);
+            if (quiet === "")
+                root.notify(newNotifObject);
             if (duplicate.replaces.length > 0) {
                 console.log(`[Notifications] "${notification.appName}: ${notification.summary}" replaces ${duplicate.replaces.join(", ")}`);
                 root.discardNotifications(duplicate.replaces, true);
             }
-            root.playNotificationSound(notification);
+            if (quiet === "")
+                root.playNotificationSound(notification);
             // console.log(notifToString(newNotifObject));
             notifFileView.setText(stringifyList(root.list));
         }
@@ -419,6 +428,15 @@ Singleton {
         const index = root.list.findIndex((notif) => notif.notificationId === id);
         if (root.list[index] != null && root.list[index].timer != null)
             root.list[index].timer.stop();
+    }
+
+    // The quiet rule `n` matches ("app \"x\"" or the rule), "" = none.
+    function quietRule(n) {
+        const rules = Config.options?.notifications?.quiet;
+        if (!n || !(rules?.enable ?? false)) return "";
+        const app = (n.appName ?? "").toLowerCase();
+        if ((rules.apps ?? []).some(a => a.toLowerCase() === app)) return `app "${n.appName}"`;
+        return NotificationUtils.firstMatchingRule(n, rules.keywords);
     }
 
     // Does this notification's popup stay until dismissed? App name (exact) or

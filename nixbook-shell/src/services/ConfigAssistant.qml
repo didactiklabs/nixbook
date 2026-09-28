@@ -245,7 +245,8 @@ Singleton {
              ["=vm", "virtual machines"], ["=vms", "virtual machines"], ["=wm", "window manager desktop"],
              ["=dm", "login manager"], ["=specs", "system info"],
              ["=agenda", "calendar"], ["=gcal", "google calendar"], ["=todo", "task"], ["=todos", "task"], ["to do", "task"],
-             ["=outlook", "microsoft"], ["nextcloud", "caldav"], ["=dcal", "dankcalendar"]],
+             ["=outlook", "microsoft"], ["nextcloud", "caldav"], ["=dcal", "dankcalendar"], ["remind", "reminder"],
+             ["upcoming", "next event"], ["next meeting", "next event"]],
         fr: [["ouvr", "open"], ["ferm", "close"], ["fenetre", "window"], ["raccourci", "shortcut"], ["touche", "key"],
              ["clavier", "keyboard"], ["lanceur", "launcher"], ["applic", "app"], ["=appli", "app"], ["logiciel", "app package"],
              ["fond d ecran", "wallpaper"], ["=fond", "wallpaper"], ["capture d ecran", "screenshot"], ["capture", "screenshot"],
@@ -274,7 +275,8 @@ Singleton {
              ["conteneur", "containers"], ["ecran de connexion", "login screen"], ["gestionnaire de connexion", "login manager"],
              ["empreinte", "fingerprint"], ["batterie", "battery"], ["infos systeme", "system info"], ["information", "info"],
              ["agenda", "calendar"], ["calendrier", "calendar"], ["=tache", "task"], ["=taches", "task"], ["evenement", "event"],
-             ["rendez vous", "event"], ["synchro", "sync"], ["connect", "connect"]],
+             ["rendez vous", "event"], ["synchro", "sync"], ["connect", "connect"], ["rappel", "reminder"], ["reunion", "meeting event"],
+             ["prochain", "next"]],
         de: [["offn", "open"], ["schliess", "close"], ["fenster", "window"], ["tastenkurz", "shortcut"], ["kurzel", "shortcut"],
              ["tastatur", "keyboard"], ["=taste", "key"], ["starter", "launcher"], ["programm", "app"], ["=app", "app"],
              ["anwendung", "app"], ["hintergrund", "wallpaper"], ["bildschirmfoto", "screenshot"], ["screenshot", "screenshot"],
@@ -300,7 +302,8 @@ Singleton {
              ["=drucken", "printing"], ["=drucker", "printing"], ["netzwerk", "network"], ["virtuelle maschine", "virtual machines"],
              ["anmeldebildschirm", "login screen"], ["anmeldemanager", "login manager"], ["fingerabdruck", "fingerprint"],
              ["=akku", "battery"], ["=dienst", "service"], ["systeminfo", "system info"], ["freigeb", "free"],
-             ["=termin", "event"], ["=termine", "event"], ["aufgabe", "task"], ["synchron", "sync"], ["verbind", "connect"]],
+             ["=termin", "event"], ["=termine", "event"], ["aufgabe", "task"], ["synchron", "sync"], ["verbind", "connect"],
+             ["erinner", "reminder"], ["terminerinner", "event reminder"], ["besprechung", "meeting event"]],
         vi: [["phim tat", "shortcut"], ["=phim", "key"], ["=mo", "open"], ["=dong", "close"], ["cua so", "window"],
              ["trinh khoi chay", "launcher"], ["khoi chay", "launcher"], ["ung dung", "app"], ["hinh nen", "wallpaper"],
              ["chup man hinh", "screenshot"], ["=chup", "screenshot"], ["toan man hinh", "fullscreen"], ["man hinh", "screen"],
@@ -324,7 +327,8 @@ Singleton {
              ["nhat ky", "logs"], ["nguoi dung", "user"], ["tai khoan", "account"], ["soan thao", "editor"], ["tuong lua", "firewall"],
              ["=mang", "network"], ["may ao", "virtual machines"], ["dang nhap", "login"], ["van tay", "fingerprint"],
              ["dich vu", "service"], ["thong tin he thong", "system info"], ["thong tin", "info"],
-             ["cong viec", "task"], ["su kien", "event"], ["dong bo", "sync"], ["ket noi", "connect"]]
+             ["cong viec", "task"], ["su kien", "event"], ["dong bo", "sync"], ["ket noi", "connect"], ["nhac nho", "reminder"],
+             ["cuoc hop", "meeting event"]]
     })
     // English words for the question: its words mapped through the
     // lexicons (the detected language's, plus French/German — cognates are
@@ -421,7 +425,8 @@ Singleton {
         "lower": ["down"], "next": ["below"], "previous": ["above"], "history": ["clipboard"],
         "vim": ["neovim"], "nvim": ["neovim"], "nixvim": ["neovim"],
         "meeting": ["event"], "appointment": ["event"], "agenda": ["calendar"], "todo": ["task"],
-        "synchronize": ["sync"], "synchronise": ["sync"], "login": ["sign"], "signin": ["sign"]
+        "synchronize": ["sync"], "synchronise": ["sync"], "login": ["sign"], "signin": ["sign"],
+        "reminder": ["notification"], "alert": ["notification", "reminder"]
     })
 
     function stem(w) {

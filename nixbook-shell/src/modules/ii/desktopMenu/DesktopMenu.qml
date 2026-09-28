@@ -401,6 +401,9 @@ Scope {
                 id: submenuLoader
                 active: menuWindow.openSubmenuComponent !== null
                 width: menuWindow.submenuWidth
+                // The tallest a submenu may be; a longer one scrolls
+                // (WidgetsSubmenu).
+                property real maxItemHeight: menuWindow.height - 16
                 sourceComponent: menuWindow.openSubmenuComponent
 
                 x: (menuCard.x + menuCard.width + 8 + menuWindow.submenuWidth > menuWindow.width)

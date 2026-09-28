@@ -44,6 +44,7 @@ ContentPage {
         { id: "systemIcons",       name: Translation.tr("System Icons"),         icon: "info" },
         { id: "networkSpeed",      name: Translation.tr("Network Speed"),        icon: "network_check" },
         { id: "clockWidget",       name: Translation.tr("Clock"),                icon: "schedule" },
+        { id: "nextEvent",         name: Translation.tr("Next Event"),           icon: "event_upcoming" },
         { id: "utilButtons",       name: Translation.tr("Util Buttons"),         icon: "toggle_on" },
         { id: "sysTray",           name: Translation.tr("Tray"),                 icon: "inbox" },
         { id: "batteryIndicator",  name: Translation.tr("Battery"),              icon: "battery_android_frame_full" },
@@ -533,6 +534,36 @@ ContentPage {
                         ruleKey: "persistent"
                         keywordsLabel: Translation.tr("App or title containing")
                         keywordsPlaceholder: Translation.tr("comma-separated, e.g. Discord, Slack, WhatsApp")
+                    }
+                }
+            }
+
+            // Quiet notifications (services/Notifications.qml quietRule).
+            ContentSubsection {
+                title: Translation.tr("Quiet")
+                GroupedList {
+                    StyledText {
+                        Layout.fillWidth: true
+                        Layout.margins: 8
+                        wrapMode: Text.Wrap
+                        text: Translation.tr("Notifications from these apps, or matching one of the rules (same syntax as the Persona cut-in rules below), don't pop up, cut in or chime: they only go to the notification centre and the history. For copies you already get elsewhere, e.g. the phone's calendar reminders now that DankCalendar shows them.")
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        color: Appearance.colors.colSubtext
+                    }
+                    ConfigSwitch {
+                        configKey: "notifications.quiet.enable"
+                        buttonIcon: "notifications_off"
+                        text: Translation.tr("Keep matching notifications quiet")
+                        checked: Config.options.notifications.quiet.enable
+                        onCheckedChanged: Config.options.notifications.quiet.enable = checked
+                    }
+                    NotificationRuleEditor {
+                        Layout.fillWidth: true
+                        enabled: Config.options.notifications.quiet.enable
+                        opacity: enabled ? 1 : 0.5
+                        ruleKey: "quiet"
+                        keywordsLabel: Translation.tr("For notifications matching")
+                        keywordsPlaceholder: Translation.tr("comma-separated rules, e.g. app:KDE Connect + title:^\"Calendar\"")
                     }
                 }
             }
