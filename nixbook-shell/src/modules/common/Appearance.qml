@@ -14,6 +14,11 @@ Singleton {
     property QtObject font
     property QtObject sizes
     property string syntaxHighlightingTheme
+    // Material 3 tonal elevation, in every style (Persona included): surfaces
+    // are told apart by their tone (and a thin outline where they float over
+    // windows), never by a shadow or glow — less to draw on an iGPU driving
+    // several screens. The shadow code stays for a style that wants it back.
+    readonly property bool tonal: true
 
     // Transparency. The quadratic functions were derived from analysis of hand-picked transparency values.
     ColorQuantizer {

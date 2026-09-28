@@ -125,6 +125,9 @@ MouseArea { // Notification group area
         width: parent.width
         color: popup ? Appearance.colors.colBackgroundSurfaceContainer : Appearance.colors.colLayer2
         radius: Appearance.rounding.normal
+        // Tonal elevation: an outline instead of the popup's shadow.
+        border.width: popup && Appearance.tonal ? 1 : 0
+        border.color: Appearance.colors.colLayer0Border
         anchors.leftMargin: root.xOffset
 
         Behavior on anchors.leftMargin {

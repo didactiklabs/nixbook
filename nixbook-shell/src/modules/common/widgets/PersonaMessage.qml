@@ -123,6 +123,7 @@ MouseArea {
             implicitHeight: root.mugSize
             rotation: -6
             RectangularShadow { // accent glow
+                visible: !Appearance.tonal
                 width: parent.width; height: parent.height
                 offset: Qt.vector2d(Persona.shadowOffset, Persona.shadowOffset)
                 blur: Persona.shadowBlur
@@ -371,6 +372,7 @@ MouseArea {
                         }
                     }
                     RectangularShadow { // accent glow
+                        visible: !Appearance.tonal
                         width: bubble.width; height: bubble.height
                         radius: bubble.radius
                         offset: Qt.vector2d(Persona.shadowOffset, Persona.shadowOffset)
@@ -419,6 +421,7 @@ MouseArea {
                 Layout.leftMargin: 24
                 implicitHeight: replyBubble.height + 4
                 RectangularShadow { // accent glow
+                    visible: !Appearance.tonal
                     x: replyBubble.x
                     width: replyBubble.width; height: replyBubble.height
                     radius: replyBubble.radius

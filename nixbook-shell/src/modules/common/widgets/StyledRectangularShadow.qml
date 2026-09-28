@@ -14,4 +14,11 @@ RectangularShadow {
     spread: persona ? 0 : 1
     color: persona ? Persona.elevationColor : Appearance.colors.colShadow
     cached: true
+
+    // Tonal elevation (Appearance.tonal): never drawn, whatever the call
+    // site's own `visible` says.
+    Binding on visible {
+        when: Appearance.tonal
+        value: false
+    }
 }

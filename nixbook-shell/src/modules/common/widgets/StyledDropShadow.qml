@@ -15,4 +15,14 @@ DropShadow {
     verticalOffset: persona ? Persona.shadowOffset : 0
     color: persona ? Persona.elevationColor : Appearance.colors.colShadow
     transparentBorder: true
+    // Blur once, not every frame the window redraws (29 taps in the
+    // Persona style); redone only when the target changes.
+    cached: true
+
+    // Tonal elevation (Appearance.tonal): never drawn, whatever the call
+    // site's own `visible` says.
+    Binding on visible {
+        when: Appearance.tonal
+        value: false
+    }
 }
