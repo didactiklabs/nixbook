@@ -26,6 +26,9 @@ Item {
         return Math.sign(k) * Math.min(Math.abs(k), root.maxLean / half);
     }
     property bool showShadow: true
+    property real shadowOffset: Persona.shadowOffset
+    property real shadowOpacity: 1
+    property real borderWidth: Persona.borderWidth
     property bool showStripe: true
     property bool showHalftone: Persona.halftone
 
@@ -39,12 +42,13 @@ Item {
 
     Rectangle {
         visible: root.showShadow
-        x: Persona.shadowOffset
-        y: Persona.shadowOffset
+        x: root.shadowOffset
+        y: root.shadowOffset
         width: parent.width
         height: parent.height
         radius: Persona.corner
         color: root.shadowColor
+        opacity: root.shadowOpacity
     }
 
     Rectangle {
@@ -52,14 +56,14 @@ Item {
         anchors.fill: parent
         radius: Persona.corner
         color: root.color
-        border.width: Persona.borderWidth
+        border.width: root.borderWidth
         border.color: root.borderColor
 
         // No `clip`: the art already fills the body exactly (a cropped
         // Image), and a clip under the shear is a stencil pass every frame.
         PersonaTexture {
             anchors.fill: parent
-            anchors.margins: Persona.borderWidth
+            anchors.margins: root.borderWidth
         }
     }
 
@@ -69,11 +73,11 @@ Item {
         anchors {
             top: parent.top
             left: parent.left
-            topMargin: -Persona.borderWidth
+            topMargin: -Math.max(root.borderWidth, 1)
             leftMargin: parent.width * 0.08
         }
         width: Math.max(28, parent.width * 0.28)
-        height: Persona.borderWidth * 2 + 2
+        height: Math.max(root.borderWidth, 1) * 2 + 2
         color: root.accentColor
     }
 }

@@ -170,17 +170,23 @@ pkgs.stdenvNoCC.mkDerivation {
   # current variant's three textures cached and every panel reuses them.
   # (Qt keys SVG rasters by size x device pixel ratio, so each panel/screen
   # used to re-render its SVG — ~0.5 s before the art appeared.)
-  nativeBuildInputs = [ pkgs.resvg ];
+  nativeBuildInputs = [
+    pkgs.resvg
+    pkgs.python3
+  ];
   buildPhase = ''
     runHook preBuild
     for svg in assets/persona/p*-{panel,tall,wide}.svg; do
       resvg --zoom 2.5 "$svg" "''${svg%.svg}.png"
     done
     # Chiikawa theme art (assets/chiikawa/*.svg, generate.py): the characters
-    # (200px viewBox, shown up to ~180px on HiDPI) and the sidebar patterns.
+    # (200px viewBox, shown up to ~180px on HiDPI), the sidebar patterns and
+    # the wallpapers (1920x1080 viewBox: 4K).
     for svg in assets/chiikawa/*.svg; do
       resvg --zoom 2 "$svg" "''${svg%.svg}.png"
     done
+    # ...and its sounds, synthesized (assets/chiikawa/sounds.py).
+    python3 assets/chiikawa/sounds.py assets/chiikawa/sounds
     runHook postBuild
   '';
 

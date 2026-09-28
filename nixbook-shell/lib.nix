@@ -30,7 +30,34 @@ rec {
   # them are translated by `legacyModule`.
   legacyKeys = [
     "appearance.persona.enable"
+  ]
+  ++ removedKeys;
+
+  # Settings that did nothing and were removed: still accepted in Nix (so an
+  # old configuration evaluates) but ignored, with a warning (hm-module.nix).
+  removedKeys = [
+    "apps.manageUser"
+    "background.parallax.autoVertical"
+    "background.parallax.enableSidebar"
+    "background.parallax.enableWorkspace"
+    "background.parallax.vertical"
+    "background.parallax.widgetsFactor"
+    "background.parallax.workspaceZoom"
+    "background.widgets.clock.cookie.dateInClock"
+    "background.widgets.media.backgroundShape"
+    "background.widgets.media.showControls"
+    "background.widgets.media.showTitles"
+    "bar.floatStyleShadow"
+    "bar.topLeftIcon"
+    "bar.workspaces.showNumberDelay"
+    "settings.borderColor"
+    "settings.borderSize"
   ];
+
+  # The removed keys set in a settings tree (for the warning).
+  removedKeysSet =
+    settings:
+    lib.filter (key: lib.attrByPath (lib.splitString "." key) null settings != null) removedKeys;
 
   # Keys `config builtin` / `config diff` skip.
   skippedKeys = liveKeys ++ legacyKeys;
@@ -141,12 +168,29 @@ rec {
   legacyModule =
     { config, ... }:
     {
-      options.appearance.persona.enable = lib.mkOption {
-        type = lib.types.nullOr lib.types.bool;
-        default = null;
-        visible = false;
-        description = "Deprecated: `appearance.theme = \"persona\"` (true) or `\"material\"` (false).";
-      };
+      options =
+        lib.foldl' lib.recursiveUpdate
+          {
+            appearance.persona.enable = lib.mkOption {
+              type = lib.types.nullOr lib.types.bool;
+              default = null;
+              visible = false;
+              description = "Deprecated: `appearance.theme = \"persona\"` (true) or `\"material\"` (false).";
+            };
+          }
+          (
+            map (
+              key:
+              lib.setAttrByPath (lib.splitString "." key) (
+                lib.mkOption {
+                  type = lib.types.nullOr lib.types.anything;
+                  default = null;
+                  visible = false;
+                  description = "Removed: `${key}` did nothing; ignored.";
+                }
+              )
+            ) removedKeys
+          );
       config.appearance.theme = lib.mkIf (config.appearance.persona.enable != null) (
         lib.mkDefault (if config.appearance.persona.enable then "persona" else "material")
       );
@@ -186,7 +230,7 @@ rec {
     lib.concatLists (
       lib.mapAttrsToList (
         name: value:
-        if builtins.isAttrs value then
+        if builtins.isAttrs value && value != { } then
           flattenPaths (prefix ++ [ name ]) value
         else
           [ (lib.concatStringsSep "." (prefix ++ [ name ])) ]

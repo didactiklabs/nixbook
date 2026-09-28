@@ -98,6 +98,16 @@ Singleton {
         return root.current === id;
     }
 
+    // ----------------------------------------------------------- sounds
+    // The current theme's sound for `kind` ("notification": the chime,
+    // "critical": critical notifications / the Persona cut-in): the
+    // variant's, else the theme's, else the registry's default. A file set
+    // in the settings (sounds.notificationFile, cutIn.soundFile) wins.
+    function sound(kind) {
+        const rel = root.currentVariant?.sounds?.[kind] ?? root.currentTheme?.sounds?.[kind] ?? root.registry.sounds?.[kind] ?? "";
+        return rel !== "" ? Quickshell.shellPath(rel) : "";
+    }
+
     // ------------------------------------------------------------ style
     // A theme's look as data (themes.json `style`, a variant's own `style`
     // overriding its theme's), applied by Appearance; each part can be

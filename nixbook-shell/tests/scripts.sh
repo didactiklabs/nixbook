@@ -335,11 +335,11 @@ if grep -q "panel.png" <<<"$css"; then fail "greeter-theme.sh: no Persona art wi
 # A theme with only a palette (no Persona shapes): its colours, Material shapes.
 greeter_theme chiikawa '{"appearance":{"theme":"chiikawa"}}' '{"primary":"#123456"}'
 css=$(cat "$tmp/greeter/chiikawa/regreet.css")
-expect_contains "greeter-theme.sh: Chiikawa's default variant palette" "$css" "@define-color nb_primary #c44d73;"
+expect_contains "greeter-theme.sh: Chiikawa's default variant palette" "$css" "@define-color nb_primary #b5436a;"
 expect_contains "greeter-theme.sh: ...with the rounded shapes" "$css" "border-radius: 9999px;"
 if grep -q "panel.png" <<<"$css"; then fail "greeter-theme.sh: no Persona art for Chiikawa"; else pass "greeter-theme.sh: no Persona art for Chiikawa"; fi
 greeter_theme usagi '{"appearance":{"theme":"chiikawa","chiikawa":{"variant":"usagi"}}}'
-expect_contains "greeter-theme.sh: a Chiikawa variant" "$(cat "$tmp/greeter/usagi/regreet.css")" "@define-color nb_primary #b25f0c;"
+expect_contains "greeter-theme.sh: a Chiikawa variant" "$(cat "$tmp/greeter/usagi/regreet.css")" "@define-color nb_primary #a4560a;"
 
 # config.json from before `appearance.theme` (the shell migrates it on load).
 greeter_theme legacy '{"appearance":{"persona":{"enable":true,"variant":"p3r"}}}'

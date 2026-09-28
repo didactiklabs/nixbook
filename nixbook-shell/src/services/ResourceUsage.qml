@@ -127,6 +127,7 @@ Singleton {
         updateDiskUsageHistory()
     }
 
+    property int _diskTick: 0
     Timer {
         interval: 1
         running: true
@@ -146,8 +147,11 @@ Singleton {
                 tempProcFallback.running = true
             }
 
-            diskProc.running = false
-            diskProc.running = true
+            // Disk usage barely moves: `df` (a process) every 10th tick.
+            if (root._diskTick++ % 10 === 0) {
+                diskProc.running = false
+                diskProc.running = true
+            }
 
             const textMeminfo = fileMeminfo.text()
             memoryTotal = Number(textMeminfo.match(/MemTotal: *(\d+)/)?.[1] ?? 1)

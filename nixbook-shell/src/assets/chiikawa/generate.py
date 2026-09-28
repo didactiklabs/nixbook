@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Generate the Chiikawa theme's art: each variant's character (<variant>.svg,
-the mascot on the loading screen and the sidebars) and a scattered pattern of
-tiny stars, hearts and dots for the sidebars' background (<variant>-tall.svg).
+the mascot on the loading screen and the sidebars), a scattered pattern of
+tiny stars, hearts and dots for the sidebars' background (<variant>-tall.svg)
+and its default wallpaper (<variant>-wallpaper.svg, themes.json `wallpaper`).
 
 Simple fan-art shapes drawn from scratch (ellipses and paths, no external
 artwork). Colours come from each variant's palette in
@@ -171,6 +172,42 @@ def pattern(p, seed):
     return svg(w, h, shapes)
 
 
+def wallpaper(p, character, seed):
+    """Desktop wallpaper (16:9): a pastel sky, a soft hill, clouds, the
+    scatter of stars and hearts, and the character standing on the hill."""
+    w, h = 1920, 1080
+    rnd = random.Random(seed)
+    defs = (
+        '<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">'
+        f'<stop offset="0" stop-color="{p["surface2"]}"/><stop offset="1" stop-color="{p["background"]}"/>'
+        "</linearGradient></defs>"
+    )
+    body = [defs, f'<rect width="{w}" height="{h}" fill="url(#sky)"/>']
+    # big soft light circles
+    for cx, cy, r in ((360, 260, 300), (1560, 180, 220), (980, 560, 380)):
+        body.append(ellipse(cx, cy, r, r, "#ffffff", opacity=0.35))
+    # clouds: overlapping white ellipses
+    for cx, cy, sc in ((300, 200, 1.0), (1180, 150, 0.8), (1700, 330, 0.7)):
+        for dx, dy, rx, ry in ((0, 0, 70, 44), (-60, 14, 50, 32), (60, 12, 56, 36), (18, -26, 44, 34)):
+            body.append(ellipse(cx + dx * sc, cy + dy * sc, rx * sc, ry * sc, "#ffffff", opacity=0.9))
+    for _ in range(60):
+        x, y = rnd.uniform(20, w - 20), rnd.uniform(20, h * 0.72)
+        color = rnd.choice([p["accent"], p["stripe"], p["blush"]])
+        k = rnd.random()
+        if k < 0.35:
+            body.append(star(x, y, rnd.uniform(8, 18), color, 0.55))
+        elif k < 0.6:
+            body.append(heart(x, y, rnd.uniform(7, 14), color, 0.5))
+        else:
+            body.append(ellipse(x, y, rnd.uniform(3, 7), rnd.uniform(3, 7), color, opacity=0.45))
+    # the hill, and the character on it (its 200x200 drawing, scaled)
+    body.append(ellipse(1340, 1180, 900, 330, p["surface4"]))
+    body.append(ellipse(1340, 1200, 860, 300, p["surface3"], opacity=0.7))
+    body.append(ellipse(1400, 882, 150, 22, p["line"], opacity=0.12))
+    body.append(f'<g transform="translate(1172 426) scale(2.3)">{"".join(character)}</g>')
+    return svg(w, h, body)
+
+
 def main():
     themes = json.load(open(THEMES, encoding="utf-8"))["themes"]
     variants = next(t for t in themes if t["id"] == "chiikawa")["variants"]
@@ -180,6 +217,8 @@ def main():
             out.write(svg(200, 200, DRAW[v["id"]](p)))
         with open(os.path.join(HERE, f"{v['id']}-tall.svg"), "w", encoding="utf-8") as out:
             out.write(pattern(p, seed=i + 1))
+        with open(os.path.join(HERE, f"{v['id']}-wallpaper.svg"), "w", encoding="utf-8") as out:
+            out.write(wallpaper(p, DRAW[v["id"]](p), seed=i + 11))
 
 
 if __name__ == "__main__":

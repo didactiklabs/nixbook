@@ -248,7 +248,8 @@ Singleton {
         }
     }
 
-    // Notification chime (Settings → General → Sounds). Skipped in Do Not
+    // Notification chime (Settings → General → Sounds; by default the
+    // theme's, Themes.sound). Skipped in Do Not
     // Disturb, for senders asking for silence (`suppress-sound` hint) and
     // within 300 ms of the last one so a burst doesn't stack up.
     property real lastSoundTime: 0
@@ -259,7 +260,7 @@ Singleton {
         if (now - root.lastSoundTime < 300) return;
         root.lastSoundTime = now;
         const file = Config.options.sounds.notificationFile;
-        Audio.playSoundFile(file !== "" ? file : `${Directories.assetsPath}/sounds/persona5-notification.mp3`);
+        Audio.playSoundFile(file !== "" ? file : Themes.sound("notification"));
     }
 
     // Persona cut-in sound (notifications.cutIn.sound/soundFile), played by
@@ -271,7 +272,7 @@ Singleton {
         if (notification?.hints?.["suppress-sound"] ?? false) return;
         root.lastSoundTime = Date.now();
         const file = rules?.soundFile ?? "";
-        Audio.playSoundFile(file !== "" ? file : `${Directories.assetsPath}/sounds/persona5-cut-in.mp3`);
+        Audio.playSoundFile(file !== "" ? file : Themes.sound("critical"));
     }
 
     function markAllRead() {

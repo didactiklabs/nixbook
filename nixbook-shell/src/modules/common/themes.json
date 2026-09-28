@@ -6,9 +6,17 @@
     "`default` is the theme when none is set; a theme's `defaultVariant` (else its first) is its default variant.",
     "A theme's `style` (a variant's own overriding it) is its look as data: see Themes.qml.",
     "A variant's `palette` (optional) replaces the wallpaper-generated Material palette while the",
-    "theme is on (MaterialThemeLoader); see README.md \"Themes\" for adding one."
+    "theme is on (MaterialThemeLoader). A variant's (or theme's) `wallpaper` (optional, a path in the shell tree) is",
+    "shown when switching to it until the user picks another (services/ThemeWallpapers.qml).",
+    "`sounds` ({notification, critical}: the chime, and the critical notification's sound) at the top level are",
+    "the defaults; a theme's or a variant's own override them (Themes.sound). Paths are in the shell tree.",
+    "See README.md \"Themes\" for adding one."
   ],
   "default": "material",
+  "sounds": {
+    "notification": "assets/sounds/persona5-notification.mp3",
+    "critical": "assets/sounds/persona5-cut-in.mp3"
+  },
   "themes": [
     {
       "id": "material",
@@ -95,31 +103,41 @@
           "id": "momonga",
           "name": "Momonga",
           "icon": "air",
-          "notes": "The flying squirrel: moonlit periwinkle and lavender, pink for the tertiary.",
+          "wallpaper": "assets/chiikawa/momonga-wallpaper.png",
+          "sounds": {
+            "notification": "assets/chiikawa/sounds/momonga-notification.wav",
+            "critical": "assets/chiikawa/sounds/momonga-critical.wav"
+          },
+          "notes": "The flying squirrel: purple pastel, a lavender tail, pink for the tertiary.",
           "palette": {
-            "background": "#f6f7ff", "surface1": "#eef1ff", "surface2": "#e6eafd", "surface3": "#dde3fa", "surface4": "#d3dbf6",
-            "onSurface": "#2c3050", "onSurfaceVariant": "#585e80", "outline": "#8d93b6", "outlineVariant": "#d4daf0",
-            "primary": "#5460c4", "onPrimary": "#ffffff", "primaryContainer": "#dfe2ff", "onPrimaryContainer": "#141a5e",
-            "secondary": "#74699f", "onSecondary": "#ffffff", "secondaryContainer": "#e6e0fa", "onSecondaryContainer": "#29224f",
-            "tertiary": "#b8497d", "onTertiary": "#ffffff", "tertiaryContainer": "#ffd8e8", "onTertiaryContainer": "#4a0f2e",
+            "background": "#fbf7ff", "surface1": "#f4edff", "surface2": "#ede4fd", "surface3": "#e5dafa", "surface4": "#ddd0f6",
+            "onSurface": "#2d2540", "onSurfaceVariant": "#4a4063", "outline": "#6c6186", "outlineVariant": "#ddd2ef",
+            "primary": "#7446c0", "onPrimary": "#ffffff", "primaryContainer": "#ecdcff", "onPrimaryContainer": "#29105a",
+            "secondary": "#76688f", "onSecondary": "#ffffff", "secondaryContainer": "#e9dff8", "onSecondaryContainer": "#2a2140",
+            "tertiary": "#b0447a", "onTertiary": "#ffffff", "tertiaryContainer": "#ffd8e8", "onTertiaryContainer": "#4a0f2e",
             "error": "#ba1a1a", "onError": "#ffffff", "errorContainer": "#ffdad6", "onErrorContainer": "#410002",
-            "frame": "#f6f7ff", "frameBorder": "#2c3050", "shadow": "#b9c2ee", "stripe": "#aab4f0", "ink": "#2c3050",
-            "body": "#ffffff", "fur": "#dbe3f7", "blush": "#f4a9c4", "line": "#2c3050", "accent": "#8f9be6"
+            "frame": "#fbf7ff", "frameBorder": "#2d2540", "shadow": "#cdb8f0", "stripe": "#c3a8f0", "ink": "#2d2540",
+            "body": "#ffffff", "fur": "#e4d5fb", "blush": "#f4a9c4", "line": "#2d2540", "accent": "#b394ea"
           }
         },
         {
           "id": "usagi",
           "name": "Usagi",
           "icon": "sunny",
+          "wallpaper": "assets/chiikawa/usagi-wallpaper.png",
+          "sounds": {
+            "notification": "assets/chiikawa/sounds/usagi-notification.wav",
+            "critical": "assets/chiikawa/sounds/usagi-critical.wav"
+          },
           "notes": "The rabbit: sunny yellow, a warm orange accent, pink like its mouth for the tertiary.",
           "palette": {
             "background": "#fffbeb", "surface1": "#fff6d8", "surface2": "#fff0c4", "surface3": "#ffe9b0", "surface4": "#fde19c",
-            "onSurface": "#46391c", "onSurfaceVariant": "#72623a", "outline": "#ae9a5e", "outlineVariant": "#ecdcab",
-            "primary": "#b25f0c", "onPrimary": "#ffffff", "primaryContainer": "#ffe08a", "onPrimaryContainer": "#3b2900",
+            "onSurface": "#382c10", "onSurfaceVariant": "#524322", "outline": "#74643a", "outlineVariant": "#ecdcab",
+            "primary": "#a4560a", "onPrimary": "#ffffff", "primaryContainer": "#ffe08a", "onPrimaryContainer": "#3b2900",
             "secondary": "#86683a", "onSecondary": "#ffffff", "secondaryContainer": "#f6e4bd", "onSecondaryContainer": "#2d1f00",
             "tertiary": "#b6435e", "onTertiary": "#ffffff", "tertiaryContainer": "#ffd9df", "onTertiaryContainer": "#44061a",
             "error": "#ba1a1a", "onError": "#ffffff", "errorContainer": "#ffdad6", "onErrorContainer": "#410002",
-            "frame": "#fffbeb", "frameBorder": "#46391c", "shadow": "#f0c850", "stripe": "#f7dc6f", "ink": "#46391c",
+            "frame": "#fffbeb", "frameBorder": "#382c10", "shadow": "#f0c850", "stripe": "#f7dc6f", "ink": "#382c10",
             "body": "#f8dc72", "fur": "#f2c14e", "blush": "#f5a3a0", "line": "#46391c", "accent": "#f2b134"
           }
         },
@@ -127,15 +145,20 @@
           "id": "chiikawa",
           "name": "Chiikawa",
           "icon": "favorite",
+          "wallpaper": "assets/chiikawa/chiikawa-wallpaper.png",
+          "sounds": {
+            "notification": "assets/chiikawa/sounds/chiikawa-notification.wav",
+            "critical": "assets/chiikawa/sounds/chiikawa-critical.wav"
+          },
           "notes": "The small white one: cream and white with its pink blush, cocoa brown lines, a sky blue tertiary.",
           "palette": {
             "background": "#fffaf6", "surface1": "#fff3ee", "surface2": "#ffece6", "surface3": "#fde3dc", "surface4": "#f9d9d1",
-            "onSurface": "#4a3a36", "onSurfaceVariant": "#76625c", "outline": "#b39b94", "outlineVariant": "#ecd6cf",
-            "primary": "#c44d73", "onPrimary": "#ffffff", "primaryContainer": "#ffd9e3", "onPrimaryContainer": "#4f1027",
+            "onSurface": "#3a2b28", "onSurfaceVariant": "#56433d", "outline": "#7a5f56", "outlineVariant": "#ecd6cf",
+            "primary": "#b5436a", "onPrimary": "#ffffff", "primaryContainer": "#ffd9e3", "onPrimaryContainer": "#4f1027",
             "secondary": "#8f7166", "onSecondary": "#ffffff", "secondaryContainer": "#f3e0d8", "onSecondaryContainer": "#3a2821",
             "tertiary": "#3f7ea6", "onTertiary": "#ffffff", "tertiaryContainer": "#d4eaf8", "onTertiaryContainer": "#062d45",
             "error": "#ba1a1a", "onError": "#ffffff", "errorContainer": "#ffdad6", "onErrorContainer": "#410002",
-            "frame": "#fffaf6", "frameBorder": "#4a3a36", "shadow": "#eeb6c4", "stripe": "#f7a8b8", "ink": "#4a3a36",
+            "frame": "#fffaf6", "frameBorder": "#3a2b28", "shadow": "#eeb6c4", "stripe": "#f7a8b8", "ink": "#3a2b28",
             "body": "#ffffff", "fur": "#fff3ea", "blush": "#f7a8b8", "line": "#4a3a36", "accent": "#f28aa6"
           }
         }

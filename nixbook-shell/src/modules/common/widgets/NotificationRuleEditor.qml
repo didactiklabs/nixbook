@@ -38,12 +38,15 @@ ColumnLayout {
         Config.options.notifications[root.ruleKey].apps = root.hasApp(app)
             ? apps.filter(a => a.toLowerCase() !== app.toLowerCase())
             : apps.concat([app]);
+        Config.save();
     }
     // Comma-separated field text → Config.options.notifications.<ruleKey>.<key>.
     function saveWords(key, value) {
         const words = value.split(",").map(w => w.trim()).filter(w => w.length > 0);
-        if (JSON.stringify(words) !== JSON.stringify(root.rules?.[key] ?? []))
+        if (JSON.stringify(words) !== JSON.stringify(root.rules?.[key] ?? [])) {
             Config.options.notifications[root.ruleKey][key] = words;
+            Config.save();
+        }
     }
 
     ColumnLayout {

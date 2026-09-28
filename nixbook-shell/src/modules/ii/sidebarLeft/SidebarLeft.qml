@@ -13,6 +13,8 @@ Scope { // Scope
     id: root
     property bool detach: false
     property bool pin: false
+    // Extended (Ctrl+O), for the toolbar's state (SidebarLeftContent).
+    readonly property bool extended: sidebarLoader.item?.extend ?? false
     property Component contentComponent: SidebarLeftContent {}
     property Item sidebarContent
     readonly property bool centerOnly: Config.options.bar.layouts.leftLayout.length === 0 && Config.options.bar.layouts.rightLayout.length === 0 && !Config.options.bar.vertical

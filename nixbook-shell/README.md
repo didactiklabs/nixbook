@@ -111,7 +111,8 @@ service) and keeps every calendar surface in sync:
 
 - events: dots on the days of the sidebar, desktop and bar clock calendars,
   the next events in the bar clock popup, a day's events when you click it in
-  the sidebar (with an "add event" button);
+  the sidebar (with an "add event" button); clicking the bar clock (right
+  click: sync) or a day of the desktop calendar opens DankCalendar;
 - the next events: the "Next Event" bar widget (`nextEvent` in a bar layout:
   "in 12 min" and the title, the following ones on hover; click joins the
   meeting when it starts within 10 minutes, else opens DankCalendar) and
@@ -183,6 +184,19 @@ programs.nixbook-shell.settings.appearance = {
 };
 ```
 
+Each theme variant also keeps its own wallpaper (`appearance.wallpaperPerTheme`,
+on by default; `appearance.themeWallpapers`, `"<theme>/<variant>=<path>"`
+entries, `src/services/ThemeWallpapers.qml`): switching puts back the
+wallpaper the variant had, a variant's bundled one the first time (the
+Chiikawa ones), and a wallpaper picked while in a variant becomes that
+variant's. Each theme has its own sounds too (`sounds` in `themes.json`: the
+notification chime and the critical sound — Persona 5's by default, the
+characters' own in Chiikawa); a file set in the settings wins. Important
+notifications (critical ones, and those the cut-in rules pick:
+Settings → Bar → Notifications → Cut-ins) get the theme's cut-in: the
+full-screen Persona one, or the Chiikawa character popping up with a speech
+bubble (`ChiikawaAlert.qml`).
+
 Before `appearance.theme` the Persona style was the switch
 `appearance.persona.enable`. It still works: a `config.json` holding it is
 migrated to `theme = "persona"` when the shell loads it, and the Nix option is
@@ -201,7 +215,10 @@ shell (`Themes.qml`), the Nix options (`lib.nix`), the login screen
    optionally `defaultVariant` and a `style` — the look as data, applied by
    `Appearance.qml`: `rounding` (scale of the corner radii), `fonts`
    (`main`, `title`, `numbers`) and `motion` (bezier curves `slam`, `snap`,
-   `quick`, `exit`); a variant's own `style` overrides its theme's.
+   `quick`, `exit`); a variant's own `style` overrides its theme's. Also
+   optional, on the theme or a variant: `wallpaper` (a path in `src/`, shown
+   the first time the variant is picked) and `sounds` (`notification`,
+   `critical`: paths in `src/`, overriding the top-level defaults).
 2. With variants, add `property JsonObject <id>` under `appearance` in
    `src/modules/common/Config.qml`, holding at least `variant` (and any of
    `palette`, `shapes`, `fonts`, `motion`: false turns that part of the
@@ -213,9 +230,15 @@ shell (`Themes.qml`), the Nix options (`lib.nix`), the login screen
    variant list and desktop submenu need nothing: they come from the
    registry. A font the theme uses goes in `hm-module.nix`'s `home.packages`.
 
-The Chiikawa art (the characters and the sidebar patterns) is drawn by
-`src/assets/chiikawa/generate.py` from the variants' palettes; rerun it after
-changing them.
+The Chiikawa art (the characters, the sidebar patterns and the wallpapers) is
+drawn by `src/assets/chiikawa/generate.py` from the variants' palettes; rerun
+it after changing them. Its sounds are synthesized when the package is built
+(`src/assets/chiikawa/sounds.py`, no audio file in git).
+
+Settings that did nothing were removed (`lib.nix` `removedKeys`: the parallax
+options, `bar.topLeftIcon`, the settings window border…); an old Nix
+configuration setting one still evaluates, with a warning, and the value is
+ignored.
 
 ## Layout
 

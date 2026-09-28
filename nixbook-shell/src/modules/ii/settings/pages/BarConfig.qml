@@ -680,11 +680,13 @@ ContentPage {
                 }
             }
 
-            // Which notifications get the full-screen Persona cut-in
-            // (modules/ii/notificationPopup/PersonaCutIn.qml).
+            // Which notifications get the theme's cut-in: the full-screen
+            // Persona one (PersonaCutIn.qml) or the Chiikawa speech bubble
+            // (ChiikawaAlert.qml).
             ContentSubsection {
                 id: cutInSection
-                title: Translation.tr("Persona cut-in")
+                title: Translation.tr("Cut-ins (important notifications)")
+                readonly property bool themeHasCutIn: Persona.shapes || Chiikawa.enabled
                 readonly property var rules: Config.options.notifications.cutIn
 
                 GroupedList {
@@ -692,7 +694,7 @@ ContentPage {
                         Layout.fillWidth: true
                         Layout.margins: 8
                         wrapMode: Text.Wrap
-                        text: Translation.tr("With the Persona style on, matching notifications take over the screen like an in-game dialogue. An app marks a notification critical itself (e.g. low battery, incoming calls, notify-send -u critical); critical ones show a \"!\" in the notification centre. Most chat apps send normal notifications — pick them below to get cut-ins for them too. Rules also match the message text and hints.")
+                        text: Translation.tr("In the Persona theme matching notifications take over the screen like an in-game dialogue; in the Chiikawa theme the character pops up with them in a speech bubble. An app marks a notification critical itself (e.g. low battery, incoming calls, notify-send -u critical); critical ones show a \"!\" in the notification centre. Most chat apps send normal notifications — pick them below to get cut-ins for them too. Rules also match the message text and hints.")
                         font.pixelSize: Appearance.font.pixelSize.small
                         color: Appearance.colors.colSubtext
                     }
@@ -715,7 +717,7 @@ ContentPage {
                         configKey: "notifications.cutIn.sound"
                         enabled: cutInSection.rules.enable
                         buttonIcon: "music_note"
-                        text: Translation.tr("Play the Persona 5 cut-in effect")
+                        text: Translation.tr("Play the theme's sound (Persona 5 cut-in, the Chiikawa jingle…)")
                         checked: cutInSection.rules.sound
                         onCheckedChanged: Config.options.notifications.cutIn.sound = checked
                     }
@@ -759,16 +761,16 @@ ContentPage {
                         StyledText {
                             Layout.fillWidth: true
                             wrapMode: Text.Wrap
-                            visible: !Persona.shapes
-                            text: Translation.tr("Needs the Persona theme (Appearance → Theme).")
+                            visible: !cutInSection.themeHasCutIn
+                            text: Translation.tr("Needs the Persona or Chiikawa theme (Appearance → Theme).")
                             font.pixelSize: Appearance.font.pixelSize.small
                             color: Appearance.colors.colSubtext
                         }
-                        Item { Layout.fillWidth: true; visible: Persona.shapes }
+                        Item { Layout.fillWidth: true; visible: cutInSection.themeHasCutIn }
                         RippleButtonWithIcon {
                             materialIcon: "visibility"
                             mainText: Translation.tr("Preview")
-                            enabled: Persona.shapes && cutInSection.rules.enable
+                            enabled: cutInSection.themeHasCutIn && cutInSection.rules.enable
                             onClicked: GlobalStates.personaCutInPreview += 1
                         }
                     }

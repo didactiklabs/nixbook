@@ -115,6 +115,12 @@ Scope {
                                 anchors.fill: parent
                                 z: -1
                                 color: Appearance.colors.colLayer0
+                                // Quieter than the panels: a hairline, not the
+                                // bold (P5: gold) outline, and a short soft shadow.
+                                borderWidth: 1
+                                borderColor: ColorUtils.transparentize(Persona.frameBorderColor, 0.82)
+                                shadowOffset: Math.round(Persona.shadowOffset * 0.5)
+                                shadowOpacity: 0.55
                             }
                         }
 

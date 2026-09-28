@@ -48,6 +48,7 @@ ShellRoot {
         Wallpapers.load()
         UpdateState.load()
         CalendarEvents.load()
+        ThemeWallpapers.load()
         LyricsService.restartLyrics()
         Preloader.load()
     }
