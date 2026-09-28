@@ -7,6 +7,13 @@ Singleton {
     id: root
 
     function closeAllWindows() {
+        // HyprlandData is empty under niri: ask niri to close each window
+        // instead, so apps shut down gracefully before logout/poweroff rather
+        // than being killed when systemd tears the session down.
+        if (WM.compositor === "niri") {
+            WM.windowList.forEach(w => WM.closeWindow(w.id));
+            return;
+        }
         HyprlandData.windowList.map(w => w.pid).forEach(pid => {
             Quickshell.execDetached(["kill", pid]);
         });
