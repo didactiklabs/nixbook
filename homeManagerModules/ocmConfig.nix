@@ -123,29 +123,6 @@ let
     ];
   };
 
-  claudeAuthResolve = pkgs.writeShellScript "ocm-claude-auth-resolve" ''
-    # resolve: hand the host's Claude Code OAuth credentials to the container
-    # install as "credentials=<base64>". Prints nothing when import is off or the
-    # host has no Claude login, so the install writes nothing.
-    set -u
-    export PATH=${lib.makeBinPath [ pkgs.coreutils ]}:$PATH
-    case "''${OCM_IMPORT_AUTH:-yes}" in
-      yes | true | 1) ;;
-      *) exit 0 ;;
-    esac
-    creds=${lib.escapeShellArg claudeCredentials.path}
-    [ -s "$creds" ] || exit 0
-    printf 'credentials=%s\n' "$(base64 -w0 "$creds")"
-  '';
-
-  # Real files, not links into the store (see kubeswitchModule).
-  claudeAuthModule = pkgs.runCommand "ocm-module-claude-auth" { } ''
-    mkdir -p $out
-    cp ${./ocmModules/claude-auth}/{module.yml,install,uninstall} $out/
-    cp ${claudeAuthResolve} $out/resolve
-    chmod 0755 $out/install $out/uninstall $out/resolve
-  '';
-
   claudeAuthSharedModule = pkgs.runCommand "ocm-module-claude-auth-shared" { } ''
     mkdir -p $out
     cp ${claudeAuthSharedManifest} $out/module.yml
@@ -229,6 +206,10 @@ let
     mv -f "$dest/.notification-history.json.tmp" "$dest/notification-history.json"
   '';
 
+  # Modules nixbook used to install, deleted from ocm's moduleDir (see the
+  # ocmModules activation).
+  retiredOcmModules = [ "tools/claude-auth" ];
+
   # category/name -> module directory, installed into ocm's primary moduleDir
   # (the only one it runs resolve hooks from).
   ocmModules =
@@ -236,7 +217,6 @@ let
       "infra/kubeswitch" = kubeswitchModule;
     }
     // lib.optionalAttrs claudeCredentials.enable {
-      "tools/claude-auth" = claudeAuthModule;
       "tools/claude-auth-shared" = claudeAuthSharedModule;
     }
     // lib.optionalAttrs hostDisplay.enable {
@@ -379,16 +359,15 @@ in
         type = lib.types.bool;
         default = true;
         description = ''
-          Whether to install the two ocm modules that give a workspace this
-          host's Claude Code subscription login, so neither `claude` nor
-          OpenCode's `opencode-claude-auth` plugin has to log in again inside it.
-          Installing them only makes them available: each is added per
-          workspace from the module editor, so you pick which workspaces get
-          the login.
+          Whether to install the `claude-auth-shared` ocm module, which gives a
+          workspace this host's Claude Code subscription login, so neither
+          `claude` nor OpenCode's `opencode-claude-auth` plugin has to log in
+          again inside it. Installing it only makes it available: it is added
+          per workspace from the module editor, so you pick which workspaces
+          get the login.
 
-          `claude-auth-shared` (recommended) shares the login itself: the
-          module declares an ocm `mounts` entry that bind-mounts
-          `claudeCode.credentials.path` read-write onto
+          The module shares the login itself: it declares an ocm `mounts`
+          entry that bind-mounts `claudeCode.credentials.path` read-write onto
           `/home/debian/.claude/.credentials.json` in the containers of the
           workspaces that have it, so the host and those workspaces read and
           refresh one login (Claude Code notices when the file changes on
@@ -397,18 +376,11 @@ in
           it is added on the first start after you log in. A symlink would not
           do: Claude Code refuses a symlinked credentials file.
 
-          `claude-auth` imports a copy instead. Its `resolve` hook runs on
-          the host and reads `claudeCode.credentials.path`; the container
-          `install` writes it to the workspace `~/.claude/.credentials.json`
-          (mode 0600). Nothing is stored in `workspace.yaml`, and the hook re-runs
-          on every add and reconcile, so the workspace picks up the host's
-          current login. A workspace login that is already newer (by
-          `claudeAiOauth.expiresAt`) is kept rather than rolled back.
-
-          An imported copy refreshes its tokens on its own. OAuth refresh tokens
-          rotate, so a copy and the host can end up invalidating each other's
-          login, which `claude-auth-shared` avoids. When both are added,
-          `claude-auth` sees the mount and leaves it alone.
+          A copied login cannot work: OAuth refresh tokens rotate, so a copy
+          and the host invalidate each other's login on their next refresh.
+          The former `claude-auth` module, which imported such a copy, was
+          removed for that reason; activation deletes its installed copy once
+          no workspace lists it any more.
         '';
       };
 
@@ -639,21 +611,32 @@ in
     };
 
     # Copied, not linked (see kubeswitchModule). Only rewritten when it differs,
-    # and only the managed modules are touched.
-    home.activation.ocmModules = lib.mkIf (ocmModules != { }) (
-      lib.hm.dag.entryAfter [ "writeBoundary" ] (
-        lib.concatStrings (
-          lib.mapAttrsToList (path: src: ''
-            dest="$HOME/.config/opencode-manager/modules/${path}"
-            if ! diff -rq ${src} "$dest" >/dev/null 2>&1; then
-              $DRY_RUN_CMD mkdir -p "$(dirname "$dest")"
-              $DRY_RUN_CMD rm -rf "$dest"
-              $DRY_RUN_CMD cp -R ${src} "$dest"
-              $DRY_RUN_CMD chmod -R u+w "$dest"
-            fi
-          '') ocmModules
-        )
+    # and only the managed modules are touched. Retired modules are deleted, but
+    # only once no workspace manifest lists them: ocm needs a module's scripts
+    # to uninstall it or to reinstall it into a recreated container.
+    home.activation.ocmModules = lib.hm.dag.entryAfter [ "writeBoundary" ] (
+      lib.concatStrings (
+        lib.mapAttrsToList (path: src: ''
+          dest="$HOME/.config/opencode-manager/modules/${path}"
+          if ! diff -rq ${src} "$dest" >/dev/null 2>&1; then
+            $DRY_RUN_CMD mkdir -p "$(dirname "$dest")"
+            $DRY_RUN_CMD rm -rf "$dest"
+            $DRY_RUN_CMD cp -R ${src} "$dest"
+            $DRY_RUN_CMD chmod -R u+w "$dest"
+          fi
+        '') ocmModules
       )
+      + lib.concatMapStrings (path: ''
+        dest="$HOME/.config/opencode-manager/modules/${path}"
+        if [ -d "$dest" ]; then
+          if grep -qsE '^[[:space:]]+(- )?name: "?${baseNameOf path}"?[[:space:]]*$' \
+            "$HOME"/.local/share/opencode-manager/workspaces/*/workspace.yaml; then
+            echo "ocm: keeping retired module ${path}: remove it from the workspaces that still use it" >&2
+          else
+            $DRY_RUN_CMD rm -rf "$dest"
+          fi
+        fi
+      '') retiredOcmModules
     );
 
     systemd.user.paths.ocm-notification-history = lib.mkIf notificationHistory.enable {
