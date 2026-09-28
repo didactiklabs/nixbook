@@ -760,7 +760,7 @@ ContentPage {
                             Layout.fillWidth: true
                             wrapMode: Text.Wrap
                             visible: !Persona.shapes
-                            text: Translation.tr("Needs the Persona style (Interface → Persona style).")
+                            text: Translation.tr("Needs the Persona theme (Appearance → Theme).")
                             font.pixelSize: Appearance.font.pixelSize.small
                             color: Appearance.colors.colSubtext
                         }

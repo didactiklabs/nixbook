@@ -290,6 +290,11 @@ Scope { // Scope
                     anchors.margins: parent.border.width
                     opacity: 0.55
                 }
+                // Chiikawa theme: stars and hearts, the character in the corner
+                ChiikawaDecor {
+                    anchors.fill: parent
+                    anchors.margins: parent.border.width
+                }
 
                 readonly property bool animatedEntrance: panelWindow.animatedEntrance
                 readonly property bool sidebarOpen: GlobalStates.sidebarLeftOpen

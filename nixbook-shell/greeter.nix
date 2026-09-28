@@ -7,7 +7,8 @@
 # The login screen in nixbook-shell's style: greetd + ReGreet (the maintained
 # GTK4 greetd greeter, nixpkgs' services.displayManager.regreet) in niri or cage,
 # themed from one user's nixbook-shell settings — the Material palette the
-# shell generates from the wallpaper, or the Persona style and variant — and
+# shell generates from the wallpaper, or the theme's (themes.json: Persona and
+# its variant…) — and
 # showing the login screen wallpaper chosen in the shell's Settings menu
 # (Background > Wallpaper, "Login screen": background.greeterWall, else the
 # lock screen's, else the desktop's).
@@ -32,9 +33,10 @@ let
 
   # Persona art, rasterised with the shell (qml.nix).
   shell = import ./qml.nix { inherit pkgs; };
-  palettes = pkgs.runCommand "nixbook-shell-persona-palettes.json" {
+  # The themes and their palettes (checked), from the shell's registry.
+  palettes = pkgs.runCommand "nixbook-shell-theme-palettes.json" {
     nativeBuildInputs = [ pkgs.python3 ];
-  } "python3 ${./scripts/persona-palettes.py} ${./src/modules/common/Persona.qml} > $out";
+  } "python3 ${./scripts/theme-palettes.py} ${./src/modules/common/themes.json} > $out";
   themeEnv = {
     NB_PALETTES = palettes;
     NB_TEXTURES = "${shell}/assets/persona";
@@ -45,7 +47,7 @@ let
 
   # The settings set in Nix for that user (Home Manager as a NixOS module).
   settingsLib = import ./lib.nix { inherit lib; };
-  pinned = settingsLib.setLeaves (
+  pinned = settingsLib.pinnedSettings (
     lib.attrByPath [ "home-manager" "users" cfg.user "programs" "nixbook-shell" "settings" ] { } config
   );
   fallbackTheme =

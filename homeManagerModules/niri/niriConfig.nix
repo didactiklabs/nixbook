@@ -32,18 +32,18 @@ let
 
   # What niri shows before any client has drawn (the first frames after the
   # login screen): nixbook-shell's loading screen background, so the handover
-  # to its splash is seamless. Persona frame colours (Persona.qml specs.*.frame)
-  # or the shell's default Material background.
+  # to its splash is seamless (BootSplashArt.qml): Persona's frame colour
+  # (themes.json), another theme's palette background, or the shell's default
+  # Material background.
   shellSettings = config.programs.nixbook-shell.settings or { };
-  persona = shellSettings.appearance.persona or { };
+  shellTheme = (import ../../nixbook-shell/lib.nix { inherit lib; }).themeOf shellSettings;
   splashBackground =
-    if (config.programs.nixbook-shell.enable or false) && (persona.enable or false) == true then
-      {
-        p5 = "#0a0a0a";
-        p3r = "#07163a";
-        p4 = "#120d06";
-      }
-      .${if persona.variant or null == null then "p5" else persona.variant} or "#0a0a0a"
+    if !(config.programs.nixbook-shell.enable or false) then
+      "#141313"
+    else if shellTheme.id == "persona" then
+      shellTheme.variantPalette.frame
+    else if shellTheme.palette != null then
+      shellTheme.palette.background
     else
       "#141313";
 in

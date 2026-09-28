@@ -3,7 +3,7 @@
 # (homeManagerModules/nixbookShellConfig/settings.nix, set as defaults).
 {
   customHomeManagerModules.nixbookShellConfig.settings = {
-    appearance.persona.enable = true;
+    # appearance.theme = "persona";
     # Persona cut-in rules. "last:" is the last message of a chat thread with
     # its sender: the phone (KDE Connect) re-posts the whole conversation on
     # every message, mine included.

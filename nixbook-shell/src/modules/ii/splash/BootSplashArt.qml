@@ -5,7 +5,8 @@ import QtQuick
 import QtQuick.Layouts
 
 /**
- * What the loading screen draws: background, Persona art, title, progress
+ * What the loading screen draws: background, Persona art (or the Chiikawa
+ * character), title, progress
  * bar and stage text. Shared by BootSplash (inside the shell) and
  * earlySplash.qml (its own small Quickshell instance, up before the shell has
  * loaded), so the handover between the two is invisible.
@@ -81,6 +82,16 @@ Item {
         anchors.centerIn: parent
         width: Math.min(root.width * 0.5, 520)
         spacing: 18
+
+        // Chiikawa theme: the character, decoded synchronously like the
+        // Persona art (there in the first frame).
+        ChiikawaMascot {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.preferredWidth: 180
+            Layout.preferredHeight: 180
+            asynchronous: false
+            hopOnHover: false
+        }
 
         StyledText {
             Layout.alignment: Qt.AlignHCenter

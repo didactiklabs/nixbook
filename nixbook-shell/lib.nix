@@ -25,6 +25,71 @@ rec {
     "_presetMeta"
   ];
 
+  # Settings the shell still reads but only to migrate them: no option, left
+  # out of builtin-defaults.json and `config diff`. Old Nix settings setting
+  # them are translated by `legacyModule`.
+  legacyKeys = [
+    "appearance.persona.enable"
+  ];
+
+  # Keys `config builtin` / `config diff` skip.
+  skippedKeys = liveKeys ++ legacyKeys;
+
+  # The themes (src/modules/common/themes.json, also read by the shell's
+  # Themes.qml and the login screen).
+  themes = lib.importJSON ./src/modules/common/themes.json;
+  themeIds = map (t: t.id) themes.themes;
+  themeById = id: lib.findFirst (t: t.id == id) null themes.themes;
+
+  # Settings that are a choice among fixed values: `appearance.theme` and
+  # each theme's `appearance.<id>.variant`, from the registry.
+  enumKeys = {
+    "appearance.theme" = themeIds;
+  }
+  // lib.listToAttrs (
+    map (t: lib.nameValuePair "appearance.${t.id}.variant" (map (v: v.id) t.variants)) (
+      lib.filter (t: t.variants != [ ]) themes.themes
+    )
+  );
+
+  # The theme a settings tree selects (unset keys: the shell's defaults):
+  # { id, variant (null without variants), palette (null: the wallpaper's),
+  # variantPalette (the variant's own, even with `palette = false`) }.
+  # Accepts the legacy `appearance.persona.enable`.
+  themeOf =
+    settings:
+    let
+      appearance = settings.appearance or { };
+      legacy = appearance.persona.enable or null;
+      chosen = appearance.theme or null;
+      id =
+        if legacy == true then
+          "persona"
+        else if chosen != null && themeById chosen != null then
+          chosen
+        else
+          themes.default;
+      theme = themeById id;
+      opts = appearance.${id} or { };
+      variantIds = map (v: v.id) theme.variants;
+      variantId =
+        if theme.variants == [ ] then
+          null
+        else if lib.elem (opts.variant or null) variantIds then
+          opts.variant
+        else if lib.elem (theme.defaultVariant or null) variantIds then
+          theme.defaultVariant
+        else
+          lib.head variantIds;
+      variant = lib.findFirst (v: v.id == variantId) null theme.variants;
+      variantPalette = if variant == null then null else variant.palette or null;
+    in
+    {
+      inherit id variantPalette;
+      variant = variantId;
+      palette = if (opts.palette or true) == false then null else variantPalette;
+    };
+
   # Option type for a setting, inferred from its built-in default.
   settingType =
     v:
@@ -54,16 +119,57 @@ rec {
       if builtins.isAttrs v && v != { } then
         settingOptions path v
       else
+        let
+          key = lib.concatStringsSep "." path;
+        in
         lib.mkOption {
-          type = lib.types.nullOr (settingType v);
+          type = lib.types.nullOr (
+            if enumKeys ? ${key} then lib.types.enum enumKeys.${key} else settingType v
+          );
           default = null;
           description = "`${lib.concatStringsSep "." path}` (built-in default: `${builtins.toJSON v}`).";
         }
     );
 
   settingsModule = {
+    imports = [ legacyModule ];
     options = settingOptions [ ] builtinDefaults;
   };
+
+  # The legacy keys as deprecated options, translated to their replacement
+  # (hm-module.nix warns about them). `pinnedSettings` leaves them out.
+  legacyModule =
+    { config, ... }:
+    {
+      options.appearance.persona.enable = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = null;
+        visible = false;
+        description = "Deprecated: `appearance.theme = \"persona\"` (true) or `\"material\"` (false).";
+      };
+      config.appearance.theme = lib.mkIf (config.appearance.persona.enable != null) (
+        lib.mkDefault (if config.appearance.persona.enable then "persona" else "material")
+      );
+    };
+
+  # The settings set in Nix, as written to config.json and locked in the
+  # menu: set leaves, minus the legacy keys (already translated).
+  pinnedSettings =
+    settings:
+    setLeaves (
+      lib.foldl' (
+        s: key:
+        let
+          path = lib.splitString "." key;
+        in
+        lib.updateManyAttrsByPath [
+          {
+            path = lib.init path;
+            update = old: if builtins.isAttrs old then removeAttrs old [ (lib.last path) ] else old;
+          }
+        ] s
+      ) settings legacyKeys
+    );
 
   # The settings actually set: drop unset (null) leaves and the empty branches
   # they leave behind.

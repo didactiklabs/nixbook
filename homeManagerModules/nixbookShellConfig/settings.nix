@@ -52,7 +52,7 @@
       ];
       middleLayout = [
         "clockWidget"
-        "nextEvent"
+        # "nextEvent"
         "kdeConnect"
         "resources"
         "networkSpeed"

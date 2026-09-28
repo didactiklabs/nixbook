@@ -78,6 +78,7 @@ Singleton {
             NixManaged.scheduleEnforce(); // pinned (Nix) settings can't drift
         }
         onLoaded: {
+            Themes.migrate();
             root.ready = true;
             NixManaged.scheduleEnforce();
         }
@@ -122,8 +123,16 @@ Singleton {
             }
 
             property JsonObject appearance: JsonObject {
+                // The theme (modules/common/themes.json, Themes.qml): "material"
+                // (wallpaper colours) | "persona" | … Each theme with variants
+                // has an object of its own below, named after its id, holding
+                // at least `variant`.
+                property string theme: "material"
                 // Persona art direction (Atlus): see modules/common/Persona.qml.
                 property JsonObject persona: JsonObject {
+                    // Legacy switch (before `theme`): true is migrated to
+                    // theme "persona" on load (Themes.migrate). Not a Nix
+                    // option (lib.nix legacyKeys).
                     property bool enable: false
                     property string variant: "p5" // p5 | p3r | p4 (Persona 4 Revival)
                     property bool palette: true   // replace the wallpaper palette
@@ -131,6 +140,15 @@ Singleton {
                     property bool shapes: true    // sharp corners, slanted frames, hard shadows
                     property bool halftone: true  // halftone texture on frames
                     property bool fonts: true     // condensed display font for titles
+                }
+                // Chiikawa theme: see modules/common/Chiikawa.qml.
+                property JsonObject chiikawa: JsonObject {
+                    property string variant: "chiikawa" // momonga | usagi | chiikawa
+                    property bool palette: true   // the character's pastel palette
+                    property bool motion: true    // bouncy animations
+                    property bool shapes: true    // extra round corners
+                    property bool fonts: true     // rounded font (Nunito)
+                    property bool mascot: true    // the character on panels and the loading screen
                 }
                 property bool extraBackgroundTint: true
                 property int fakeScreenRounding: 2 // 0: None | 1: Always | 2: When not fullscreen

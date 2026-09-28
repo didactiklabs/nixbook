@@ -130,4 +130,126 @@ lib.runTests {
     expr = fails (evalSettings { ai.includeSystemContext = "yes"; }).ai.includeSystemContext;
     expected = true;
   };
+  # -- themes (src/modules/common/themes.json) ----------------------------
+  testLegacyKeysAreNotSettings = {
+    expr = lib.filter (k: lib.elem k flatDefaults) shellLib.legacyKeys;
+    expected = [ ];
+  };
+  testThemeDefaultIsAChoice = {
+    expr = lib.elem shellLib.builtinDefaults.appearance.theme shellLib.themeIds;
+    expected = true;
+  };
+  # Each theme with variants has its settings object, with a valid default.
+  testEveryThemeVariantIsASetting = {
+    expr = lib.filter (
+      key:
+      !(lib.elem key flatDefaults)
+      || !(lib.elem (lib.attrByPath (lib.splitString "." key) null
+        shellLib.builtinDefaults
+      ) shellLib.enumKeys.${key})
+    ) (lib.attrNames shellLib.enumKeys);
+    expected = [ ];
+  };
+  testUnknownThemeFails = {
+    expr = fails (evalSettings { appearance.theme = "nope"; }).appearance.theme;
+    expected = true;
+  };
+  testUnknownVariantFails = {
+    expr = fails (evalSettings { appearance.persona.variant = "p9"; }).appearance.persona.variant;
+    expected = true;
+  };
+  testThemeRoundTrip = {
+    expr = shellLib.pinnedSettings (evalSettings {
+      appearance.theme = "persona";
+      appearance.persona.variant = "p4";
+    });
+    expected = {
+      appearance.theme = "persona";
+      appearance.persona.variant = "p4";
+    };
+  };
+  testLegacyPersonaEnableTranslated = {
+    expr = shellLib.pinnedSettings (evalSettings {
+      appearance.persona.enable = true;
+    });
+    expected = {
+      appearance.theme = "persona";
+    };
+  };
+  testLegacyPersonaDisableTranslated = {
+    expr = shellLib.pinnedSettings (evalSettings {
+      appearance.persona.enable = false;
+    });
+    expected = {
+      appearance.theme = "material";
+    };
+  };
+  testThemeWinsOverLegacy = {
+    expr =
+      (shellLib.pinnedSettings (evalSettings {
+        appearance.persona.enable = true;
+        appearance.theme = "material";
+      })).appearance.theme;
+    expected = "material";
+  };
+  testThemeOfDefaults = {
+    expr = shellLib.themeOf (evalSettings { });
+    expected = {
+      id = "material";
+      variant = null;
+      palette = null;
+      variantPalette = null;
+    };
+  };
+  testThemeOfPersona = {
+    expr =
+      let
+        t = shellLib.themeOf (evalSettings {
+          appearance.theme = "persona";
+          appearance.persona.variant = "p3r";
+        });
+      in
+      [
+        t.id
+        t.variant
+        t.palette.frame
+      ];
+    expected = [
+      "persona"
+      "p3r"
+      "#07163a"
+    ];
+  };
+  testThemeOfLegacyConfig = {
+    expr = (shellLib.themeOf { appearance.persona.enable = true; }).variant;
+    expected = "p5";
+  };
+  testThemeOfPaletteOff = {
+    expr =
+      let
+        t = shellLib.themeOf {
+          appearance.theme = "persona";
+          appearance.persona.palette = false;
+        };
+      in
+      [
+        t.palette
+        t.variantPalette.frame
+      ];
+    expected = [
+      null
+      "#0a0a0a"
+    ];
+  };
+  testThemeOfDefaultVariant = {
+    expr = (shellLib.themeOf { appearance.theme = "chiikawa"; }).variant;
+    expected = "chiikawa";
+  };
+  testThemeOfEvaluatedDefaults = {
+    expr =
+      (shellLib.themeOf (evalSettings {
+        appearance.theme = "chiikawa";
+      })).palette.background;
+    expected = "#fffaf6";
+  };
 }

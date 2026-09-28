@@ -21,7 +21,7 @@ let
   # Everything set in Nix: applied on every activation with Nix winning, and
   # locked in the Settings menu. Keys Nix doesn't set are never touched: they
   # keep the shell's built-in default or the value chosen from the menu.
-  pinnedSettings = settingsLib.setLeaves cfg.settings;
+  pinnedSettings = settingsLib.pinnedSettings cfg.settings;
   pinnedPaths = settingsLib.flattenPaths [ ] pinnedSettings;
   pinnedFile = jsonFormat.generate "nixbook-shell-pinned.json" pinnedSettings;
   nixManagedFile = jsonFormat.generate "nix-managed.json" {
@@ -442,7 +442,8 @@ in
         {
           bar.bottom = true;
           background.screenList = [ "eDP-1" ];
-          appearance.persona.enable = true;
+          appearance.theme = "persona";
+          appearance.persona.variant = "p3r";
         }
       '';
       description = ''
@@ -676,6 +677,13 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    warnings = lib.optional (cfg.settings.appearance.persona.enable != null) ''
+      programs.nixbook-shell.settings.appearance.persona.enable is deprecated: use
+      appearance.theme = "${
+        if cfg.settings.appearance.persona.enable then "persona" else "material"
+      }" (the themes are in nixbook-shell/src/modules/common/themes.json).
+    '';
+
     # Defaults one by one, so setting one answer keeps the others.
     programs.nixbook-shell.assistant.howTo = lib.mapAttrs (_: lib.mkDefault) defaultHowTo;
 
@@ -711,9 +719,12 @@ in
     home.packages = [
       cfg.package
       cfg.package.passthru.quickshell
-      # Condensed display face used by the optional Persona style
+      # Condensed display face used by the optional Persona theme
       # (appearance.persona.fonts) for titles and numbers.
       pkgs.oswald
+      # Rounded face used by the optional Chiikawa theme
+      # (appearance.chiikawa.fonts, themes.json style.fonts).
+      pkgs.nunito
       # `dcal`: DankCalendar's CLI (accounts, sync) for the user too.
       cfg.package.passthru.dankcalendar
     ];

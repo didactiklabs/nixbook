@@ -31,11 +31,12 @@ Singleton {
     property bool firstApplyDone: false
     property var pendingPalette: null   // [[m3Key, value], ...] still to apply
 
-    // Persona style: its fixed palette replaces the wallpaper-generated one
-    // (kept in lastFileContent so switching Persona off restores it).
+    // A theme's fixed palette (Themes.palette, from themes.json) replaces the
+    // wallpaper-generated one (kept in lastFileContent so switching back to a
+    // theme without one restores it).
     property string lastFileContent: ""
-    function personaPalette() {
-        const c = Persona.spec;
+    function themePalette() {
+        const c = Themes.palette;
         return {
             background: c.background, on_background: c.onSurface,
             surface: c.background, surface_dim: c.background, surface_bright: c.surface4,
@@ -55,15 +56,14 @@ Singleton {
         };
     }
     function reapplyCurrent() {
-        if (Persona.palette)
-            root.applyColors(JSON.stringify(Object.assign({ __persona: true }, root.personaPalette())));
+        if (Themes.palette)
+            root.applyColors(JSON.stringify(Object.assign({ __theme: true }, root.themePalette())));
         else if (root.lastFileContent !== "")
             root.applyColors(root.lastFileContent);
     }
     Connections {
-        target: Persona
+        target: Themes
         function onPaletteChanged() { root.reapplyCurrent() }
-        function onVariantChanged() { if (Persona.palette) root.reapplyCurrent() }
     }
 
     function applyColors(fileContent) {
@@ -74,17 +74,17 @@ Singleton {
             console.warn("[MaterialThemeLoader] invalid palette:", e);
             return;
         }
-        // Wallpaper palettes are remembered; while Persona owns the palette
+        // Wallpaper palettes are remembered; while a theme owns the palette
         // they don't override it.
-        if (!json.__persona) {
+        if (!json.__theme) {
             root.lastFileContent = fileContent;
-            if (Persona.palette) {
-                json = root.personaPalette();
+            if (Themes.palette) {
+                json = root.themePalette();
             }
         }
         const entries = [];
         for (const key in json) {
-            if (!json.hasOwnProperty(key) || key === "__persona")
+            if (!json.hasOwnProperty(key) || key === "__theme")
                 continue;
             // Convert snake_case to CamelCase
             const camelCaseKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase());

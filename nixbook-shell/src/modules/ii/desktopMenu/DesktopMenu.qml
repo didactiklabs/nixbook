@@ -285,32 +285,32 @@ Scope {
                             }
                         }
 
-                        // Persona variant (only while the Persona style is on)
+                        // Theme and its variant (ThemeSubmenu)
                         RippleButton {
-                            id: personaRow
-                            visible: Persona.enabled
+                            id: themeRow
                             implicitHeight: 40
                             colBackground: "transparent"
                             colBackgroundHover: Appearance.colors.colLayer2
                             contentItem: RowLayout {
                                 anchors { fill: parent; leftMargin: 12; rightMargin: 12 }
                                 spacing: 12
-                                MaterialSymbol { text: "theater_comedy"; iconSize: Appearance.font.pixelSize.larger; color: Appearance.colors.colOnLayer1 }
-                                StyledText { Layout.fillWidth: true; text: Translation.tr("Persona variant"); font.pixelSize: Appearance.font.pixelSize.normal; color: Appearance.colors.colOnLayer1 }
+                                MaterialSymbol { text: Themes.currentTheme?.icon ?? "style"; iconSize: Appearance.font.pixelSize.larger; color: Appearance.colors.colOnLayer1 }
+                                StyledText { Layout.fillWidth: true; text: Translation.tr("Theme"); font.pixelSize: Appearance.font.pixelSize.normal; color: Appearance.colors.colOnLayer1 }
+                                StyledText { text: Translation.tr(Themes.currentVariant?.name ?? Themes.currentTheme?.name ?? ""); font.pixelSize: Appearance.font.pixelSize.small; color: Appearance.colors.colOnLayer1; opacity: 0.6 }
                                 MaterialSymbol { text: "chevron_right"; iconSize: Appearance.font.pixelSize.normal; color: Appearance.colors.colOnLayer1; opacity: 0.4 }
                             }
 
                             Component {
-                                id: personaSubmenu
-                                PersonaSubmenu {}
+                                id: themeSubmenu
+                                ThemeSubmenu {}
                             }
 
                             HoverHandler {
                                 onHoveredChanged: {
                                     if (hovered) {
                                         submenuCloseTimer.stop()
-                                        menuWindow.submenuAnchorY = menuCard.y + personaRow.mapToItem(menuCard, 0, 0).y
-                                        menuWindow.openSubmenuComponent = personaSubmenu
+                                        menuWindow.submenuAnchorY = menuCard.y + themeRow.mapToItem(menuCard, 0, 0).y
+                                        menuWindow.openSubmenuComponent = themeSubmenu
                                     } else {
                                         submenuCloseTimer.restart()
                                     }

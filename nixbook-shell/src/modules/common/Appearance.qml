@@ -237,26 +237,27 @@ Singleton {
     }
 
     // Persona style: near-sharp corners everywhere except true circles/pills
-    // (`full`) and the tiny `unsharpen` radii.
+    // (`full`) and the tiny `unsharpen` radii. Other themes may scale the
+    // Material radii (Themes.roundingScale).
     rounding: QtObject {
         readonly property bool sharp: Persona.shapes
         property int unsharpen: 2
-        property int unsharpenmore: sharp ? Persona.corner : 6
-        property int verysmall: sharp ? Persona.corner : 8
-        property int small: sharp ? Persona.corner : 12
-        property int normal: sharp ? Persona.corner : 17
-        property int large: sharp ? Persona.corner : 23
-        property int verylarge: sharp ? Persona.corner : 30
+        property int unsharpenmore: sharp ? Persona.corner : Themes.rounded(6)
+        property int verysmall: sharp ? Persona.corner : Themes.rounded(8)
+        property int small: sharp ? Persona.corner : Themes.rounded(12)
+        property int normal: sharp ? Persona.corner : Themes.rounded(17)
+        property int large: sharp ? Persona.corner : Themes.rounded(23)
+        property int verylarge: sharp ? Persona.corner : Themes.rounded(30)
         property int full: 9999
         property int screenRounding: large
-        property int windowRounding: sharp ? Persona.corner : 18
+        property int windowRounding: sharp ? Persona.corner : Themes.rounded(18)
     }
 
     font: QtObject {
         property QtObject family: QtObject {
-            property string main: Config.options.appearance.fonts.main
-            property string numbers: Persona.fonts ? Persona.titleFont : Config.options.appearance.fonts.numbers
-            property string title: Persona.fonts ? Persona.titleFont : Config.options.appearance.fonts.title
+            property string main: Themes.fonts.main ?? Config.options.appearance.fonts.main
+            property string numbers: Persona.fonts ? Persona.titleFont : (Themes.fonts.numbers ?? Config.options.appearance.fonts.numbers)
+            property string title: Persona.fonts ? Persona.titleFont : (Themes.fonts.title ?? Config.options.appearance.fonts.title)
             property string iconMaterial: "Material Symbols Rounded"
             property string iconNerd: Config.options.appearance.fonts.iconNerd
             property string monospace: Config.options.appearance.fonts.monospace
@@ -312,7 +313,7 @@ Singleton {
         property QtObject elementMove: QtObject {
             property int duration: Persona.motion ? 420 : (animationCurves.expressiveDefaultSpatialDuration)
             property int type: Easing.BezierSpline
-            property list<real> bezierCurve: Persona.motion ? Persona.curves.slam : animationCurves.expressiveDefaultSpatial
+            property list<real> bezierCurve: Persona.motion ? Persona.curves.slam : (Themes.curves?.slam ?? animationCurves.expressiveDefaultSpatial)
             property int velocity: 650
             property Component numberAnimation: Component {
                 NumberAnimation {
@@ -326,7 +327,7 @@ Singleton {
         property QtObject elementMoveSmall: QtObject {
             property int duration: Persona.motion ? 300 : (animationCurves.expressiveFastSpatialDuration)
             property int type: Easing.BezierSpline
-            property list<real> bezierCurve: Persona.motion ? Persona.curves.snap : animationCurves.expressiveFastSpatial
+            property list<real> bezierCurve: Persona.motion ? Persona.curves.snap : (Themes.curves?.snap ?? animationCurves.expressiveFastSpatial)
             property int velocity: 650
             property Component numberAnimation: Component {
                 NumberAnimation {
@@ -340,7 +341,7 @@ Singleton {
         property QtObject elementMoveEnter: QtObject {
             property int duration: Persona.motion ? 380 : (400)
             property int type: Easing.BezierSpline
-            property list<real> bezierCurve: Persona.motion ? Persona.curves.slam : animationCurves.emphasizedDecel
+            property list<real> bezierCurve: Persona.motion ? Persona.curves.slam : (Themes.curves?.slam ?? animationCurves.emphasizedDecel)
             property int velocity: 650
             property Component numberAnimation: Component {
                 NumberAnimation {
@@ -355,7 +356,7 @@ Singleton {
         property QtObject elementMoveExit: QtObject {
             property int duration: Persona.motion ? 150 : (200)
             property int type: Easing.BezierSpline
-            property list<real> bezierCurve: Persona.motion ? Persona.curves.exit : animationCurves.emphasizedAccel
+            property list<real> bezierCurve: Persona.motion ? Persona.curves.exit : (Themes.curves?.exit ?? animationCurves.emphasizedAccel)
             property int velocity: 650
             property Component numberAnimation: Component {
                 NumberAnimation {
@@ -370,7 +371,7 @@ Singleton {
         property QtObject elementMoveFast: QtObject {
             property int duration: Persona.motion ? 170 : (animationCurves.expressiveEffectsDuration)
             property int type: Easing.BezierSpline
-            property list<real> bezierCurve: Persona.motion ? Persona.curves.quick : animationCurves.expressiveEffects
+            property list<real> bezierCurve: Persona.motion ? Persona.curves.quick : (Themes.curves?.quick ?? animationCurves.expressiveEffects)
             property int velocity: 850
             property Component colorAnimation: Component { ColorAnimation {
                 duration: root.animation.elementMoveFast.duration
@@ -388,7 +389,7 @@ Singleton {
         property QtObject elementResize: QtObject {
             property int duration: Persona.motion ? 280 : (300)
             property int type: Easing.BezierSpline
-            property list<real> bezierCurve: Persona.motion ? Persona.curves.snap : animationCurves.emphasized
+            property list<real> bezierCurve: Persona.motion ? Persona.curves.snap : (Themes.curves?.snap ?? animationCurves.emphasized)
             property int velocity: 650
             property Component numberAnimation: Component {
                 NumberAnimation {
@@ -403,7 +404,7 @@ Singleton {
         property QtObject clickBounce: QtObject {
             property int duration: Persona.motion ? 420 : (400)
             property int type: Easing.BezierSpline
-            property list<real> bezierCurve: Persona.motion ? Persona.curves.slam : animationCurves.expressiveDefaultSpatial
+            property list<real> bezierCurve: Persona.motion ? Persona.curves.slam : (Themes.curves?.slam ?? animationCurves.expressiveDefaultSpatial)
             property int velocity: 850
             property Component numberAnimation: Component { NumberAnimation {
                 alwaysRunToEnd: true
@@ -427,7 +428,7 @@ Singleton {
         property QtObject sidebarSlideEnter: QtObject {
             property int duration: Persona.motion ? 360 : (300)
             property int type: Easing.BezierSpline
-            property list<real> bezierCurve: Persona.motion ? Persona.curves.slam : animationCurves.standardDecel
+            property list<real> bezierCurve: Persona.motion ? Persona.curves.slam : (Themes.curves?.slam ?? animationCurves.standardDecel)
             property int velocity: 650
             property Component numberAnimation: Component {
                 NumberAnimation {
@@ -442,7 +443,7 @@ Singleton {
         property QtObject sidebarSlideExit: QtObject {
             property int duration: Persona.motion ? 180 : (250)
             property int type: Easing.BezierSpline
-            property list<real> bezierCurve: Persona.motion ? Persona.curves.exit : animationCurves.standardAccel
+            property list<real> bezierCurve: Persona.motion ? Persona.curves.exit : (Themes.curves?.exit ?? animationCurves.standardAccel)
             property int velocity: 650
             property Component numberAnimation: Component {
                 NumberAnimation {
