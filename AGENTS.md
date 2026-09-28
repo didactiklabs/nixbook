@@ -13,7 +13,7 @@
 - **Active Machines:** 5 (totoro, anya, nishinoya, tanjiro, hanamichi)
 - **Home Manager Modules:** 34 (29 standalone files + 5 subdirectories)
 - **NixOS Modules:** 19 files
-- **Custom Packages:** 20
+- **Custom Packages:** 19
 - **CI/CD Workflows:** 2
 - **NixVim Plugins:** 25
 - **VSCode Extensions:** 32
@@ -49,7 +49,7 @@ hive.nix                          Colmena deployment config
 ### Dependency & Package Management
 
 - `npins/` - Pinned external dependencies (nixpkgs, home-manager, agenix, disko, stylix, lanzaboote, etc.)
-- `customPkgs/` - 20 custom packages (ginx, goji, ytui, jtui, crd-wizard, opencode-manager, etc.)
+- `customPkgs/` - 19 custom packages (ginx, goji, ytui, jtui, crd-wizard, opencode-manager, etc.)
 - `assets/` - Static assets: themes, plugins, images, certificates, VPN configs
 
 ### Installation & Deployment
@@ -336,7 +336,7 @@ customPkgs/ → base.nix
 npins/ → dependency sources
 ```
 
-## Custom Packages (20 total)
+## Custom Packages (19 total)
 
 | Package            | Version | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -358,7 +358,6 @@ npins/ → dependency sources
 | `schnelle-umlaute` | main    | German umlauts (ä/ö/ü/ß) via hold-letter+Space gesture for fcitx5                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `actual-budget`    | v26.5.2 | Actual Budget local-first personal finance app (AppImage)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `pear-desktop`     | v3.11.0 | YouTube Music desktop player (AppImage)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `lazyjira`         | —       | Jira TUI (orphan: no npins pin, not referenced by any profile)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `nixbook-shell`    | main    | nixbook-shell Quickshell desktop shell — directory package `customPkgs/nixbook-shell/` (`default.nix` launcher + CLI, `shell.nix` QML tree with **features baked in directly** and store-path fixups only in `postPatch`, `quickshell.nix` patched Quickshell, `lib.nix` settings options, `src/` vendored QML)                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 ## Dependencies & Pinning (41 total)
