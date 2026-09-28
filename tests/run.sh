@@ -13,7 +13,7 @@
 #
 # Needs: nix, jq, yq (mikefarah), python3; `host` also needs colmena and an
 # /etc/nixos/hardware-configuration.nix (on a non-NixOS machine or a CI
-# runner, install tests/hardware-configuration.nix there).
+# runner, install tests/hardware-stub.nix there).
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -133,7 +133,7 @@ cmd_host() {
   need colmena nix-store jq
   if [ ! -e /etc/nixos/hardware-configuration.nix ]; then
     echo "tests/run.sh: /etc/nixos/hardware-configuration.nix is missing; for an evaluation-only machine:" >&2
-    echo "  sudo install -D -m 644 tests/hardware-configuration.nix /etc/nixos/hardware-configuration.nix" >&2
+    echo "  sudo install -D -m 644 tests/hardware-stub.nix /etc/nixos/hardware-configuration.nix" >&2
     exit 2
   fi
 

@@ -177,7 +177,7 @@ Besides the full profile builds (`build.yaml`, self-hosted), every push and PR r
 | `run-tests host <name> [--all-modules]` | the machine evaluates exactly as `colmena build` would, keeps its invariants (`tests/hosts.nix`: hardening sysctls, boot editor off, deployment settings, state version, …) and its generated config files build     |
 | `run-tests all`                         | all of the above, for every machine                                                                                                                                                                                  |
 
-`--all-modules` evaluates a machine with every optional `customNixOSModules` toggle forced on, so modules no profile enables are still evaluated. `host` needs an `/etc/nixos/hardware-configuration.nix`; on a machine without one (e.g. a CI runner), install the stub: `sudo install -D -m 644 tests/hardware-configuration.nix /etc/nixos/hardware-configuration.nix`.
+`--all-modules` evaluates a machine with every optional `customNixOSModules` toggle forced on, so modules no profile enables are still evaluated. `host` needs an `/etc/nixos/hardware-configuration.nix`; on a machine without one (e.g. a CI runner), install the stub: `sudo install -D -m 644 tests/hardware-stub.nix /etc/nixos/hardware-configuration.nix`.
 
 ## 🐧 Using Home Manager on Non-NixOS Distributions
 

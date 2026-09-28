@@ -113,7 +113,7 @@ jobs:
       - *pin-nixpkgs
       - *install-nix
       - name: Stub hardware configuration
-        run: sudo install -D -m 644 tests/hardware-configuration.nix /etc/nixos/hardware-configuration.nix
+        run: sudo install -D -m 644 tests/hardware-stub.nix /etc/nixos/hardware-configuration.nix
       - name: Evaluate ${{ matrix.host }}
         env:
           HOST: ${{ matrix.host }}
