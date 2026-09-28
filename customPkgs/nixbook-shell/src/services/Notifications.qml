@@ -187,12 +187,23 @@ Singleton {
         persistenceSupported: true
 
         onNotification: (notification) => {
+            const duplicate = root.duplicateVerdict(notification, Date.now());
+            if (duplicate.drop !== "") {
+                console.log(`[Notifications] Dropped "${notification.appName}: ${notification.summary}" (${duplicate.drop})`);
+                notification.expire();
+                return;
+            }
             notification.tracked = true
             const newNotifObject = notifComponent.createObject(root, {
                 "notificationId": notification.id + root.idOffset,
                 "notification": notification,
                 "time": Date.now(),
             });
+            root.remember(newNotifObject);
+            if (duplicate.replaces.length > 0) {
+                console.log(`[Notifications] "${notification.appName}: ${notification.summary}" replaces ${duplicate.replaces.join(", ")}`);
+                root.discardNotifications(duplicate.replaces, true);
+            }
 			root.list = [...root.list, newNotifObject];
 
             // Popup
@@ -311,7 +322,9 @@ Singleton {
         root.discardNotifications([id]);
     }
 
-    function discardNotifications(ids) {
+    // `expired`: close them as expired rather than dismissed by the user
+    // (duplicates replaced by another copy).
+    function discardNotifications(ids, expired = false) {
         console.log("[Notifications] Discarding notifications with IDs: " + ids.join(", "));
         const idSet = new Set(ids);
         // Assign a new array instead of splicing: on a list<> property, splice()
@@ -327,8 +340,58 @@ Singleton {
         }
         notifServer.trackedNotifications.values
             .filter((notif) => idSet.has(notif.id + root.idOffset))
-            .forEach((notif) => notif.dismiss());
+            .forEach((notif) => expired ? notif.expire() : notif.dismiss());
         ids.forEach((id) => root.discard(id)); // Emit signal
+    }
+
+    // Duplicates (Settings → Notifications → Duplicates). The same message
+    // often arrives twice: from the desktop app and mirrored from the phone
+    // (KDE Connect: appName "KDE Connect", title = the phone app). The
+    // desktop copy wins — it has the app's actions, reply and icon.
+    // Notifications of the last `window` seconds, dismissed or not:
+    // { notificationId, time, appName, summary, body, relayed }.
+    property var recent: []
+    readonly property var dedupOptions: Config.options?.notifications?.deduplicate
+
+    function remember(notif) {
+        if (!(root.dedupOptions?.enable ?? true)) return;
+        root.recent = [...root.recent, {
+            notificationId: notif.notificationId,
+            time: notif.time,
+            appName: notif.appName,
+            summary: notif.summary,
+            body: notif.body,
+            relayed: NotificationUtils.isRelayed(notif, root.dedupOptions?.relayApps),
+        }];
+    }
+
+    // What to do with incoming `n`: { drop, replaces }. drop = why it is not
+    // shown ("" = show it); replaces = ids of earlier copies it supersedes.
+    //  - a mirrored copy of a desktop notification: dropped;
+    //  - a desktop notification whose mirrored copy came first: replaces it;
+    //  - the same app, title and text again within 2 s (a sender repeating
+    //    itself): dropped;
+    //  - the same app and title re-posted with lines appended (a phone
+    //    mirroring the whole chat thread each time): replaces the old one.
+    // Matching: NotificationUtils.isRelayOf / isRepeatOf / isThreadUpdateOf.
+    function duplicateVerdict(n, now) {
+        const verdict = { drop: "", replaces: [] };
+        const options = root.dedupOptions;
+        if (!(options?.enable ?? true)) return verdict;
+        const windowMs = Math.max(0, options?.window ?? 120) * 1000;
+        root.recent = root.recent.filter(r => now - r.time <= windowMs);
+        const relayed = NotificationUtils.isRelayed(n, options?.relayApps);
+        for (const r of [...root.recent].reverse()) {
+            if (now - r.time <= 2000 && NotificationUtils.isRepeatOf(n, r))
+                return { drop: `repeat of #${r.notificationId}`, replaces: [] };
+            if (relayed && !r.relayed && NotificationUtils.isRelayOf(r, n))
+                return { drop: `mirrors ${r.appName} #${r.notificationId}`, replaces: [] };
+            if ((!relayed && r.relayed && NotificationUtils.isRelayOf(n, r))
+                    || NotificationUtils.isThreadUpdateOf(n, r))
+                verdict.replaces.push(r.notificationId);
+        }
+        verdict.replaces = verdict.replaces.filter(id => root.list.some(notif => notif.notificationId === id));
+        return verdict;
     }
 
     function discardAllNotifications() {
