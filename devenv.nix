@@ -10,6 +10,10 @@
     colmena
     npins
     ragenix
+    # tests/run.sh
+    jq
+    yq-go
+    python3
   ];
 
   treefmt.config.programs.prettier.excludes = [
@@ -38,6 +42,9 @@
     generate-docs.exec = ''
       nix-build docs/generate-docs.nix "$@" && cp result/MODULES.md docs/MODULES.md && treefmt docs/MODULES.md && echo "Documentation written to docs/MODULES.md"
     '';
+    run-tests.exec = ''
+      "$DEVENV_ROOT/tests/run.sh" "$@"
+    '';
   };
 
   enterShell = ''
@@ -49,6 +56,7 @@
     echo "  build-iso - Builds the installation ISO"
     echo "  test-iso       - Builds and tests the installation ISO in a VM"
     echo "  generate-docs  - Auto-generates module documentation to docs/MODULES.md"
+    echo "  run-tests      - Cheap regression checks (tests/run.sh; run-tests for usage)"
   '';
 
   # https://devenv.sh/tests/

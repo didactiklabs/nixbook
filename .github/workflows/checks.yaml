@@ -1,0 +1,121 @@
+name: Checks
+# Cheap regression checks (evaluation, lint, script tests), complementing the
+# full profile builds of build.yaml. They run on GitHub-hosted runners, so they
+# never compete with the self-hosted builders, and fail within minutes instead
+# of after a full build. Everything runs through tests/run.sh; see the "Tests"
+# section of README.md to run them locally.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+defaults:
+  run:
+    # Explicit `bash` makes Actions run with `-eo pipefail`.
+    shell: bash
+env:
+  NIXPKGS_ALLOW_UNFREE: "1"
+jobs:
+  # Formatting (treefmt: nixfmt, prettier, shfmt, gofumpt), shellcheck and mdsh,
+  # exactly as the devenv git hooks run them.
+  lint:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - &pin-nixpkgs
+        name: Pin nixpkgs
+        run: echo "NIXPKGS_URL=$(jq -r .pins.nixpkgs.url npins/sources.json)" >> "$GITHUB_ENV"
+      - &install-nix
+        uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=${{ env.NIXPKGS_URL }}
+          extra_nix_config: |
+            fallback = true
+            trusted-public-keys = didactiklabs-nixcache:PxLKN0+ZkP07M8g8/B6xbP6A4MYpqQg6LH7V3muiy/0= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+            substituters = https://s3.didactiklabs.io/nix-cache https://cache.nixos.org/
+      - name: Install devenv
+        run: nix-env -f '<nixpkgs>' -iA devenv
+      - name: Format and lint (devenv test)
+        run: devenv test
+      - name: Files are formatted
+        # treefmt rewrites files in place; any change means they were not
+        # formatted. devenv.lock is excluded: devenv relocks it when it lags
+        # devenv.yaml, which is not a formatting problem.
+        run: |
+          if ! git diff --exit-code -- . ':(exclude)devenv.lock'; then
+            echo "::error::Files are not formatted: run \`treefmt\` in \`devenv shell\` and commit the result."
+            exit 1
+          fi
+
+  # Repository consistency, every custom package instantiates, nixbook-shell
+  # lib/script unit tests, the installer ISO evaluates, docs/MODULES.md is fresh.
+  repo:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Evaluation reads the repo with builtins.fetchGit (getRevision.nix),
+          # which Nix refuses on a shallow clone.
+          fetch-depth: 0
+      - *pin-nixpkgs
+      - *install-nix
+      - name: Repository checks
+        run: nix-shell -p jq yq-go --run "tests/run.sh repo"
+      - name: nixbook-shell script tests
+        if: ${{ !cancelled() }}
+        run: nix-shell -p jq python3 --run "tests/run.sh shell"
+      - name: Installer ISO evaluates
+        if: ${{ !cancelled() }}
+        run: tests/run.sh iso
+      - name: docs/MODULES.md is up to date
+        if: ${{ !cancelled() }}
+        run: tests/run.sh docs
+
+  # Every hive node, plus one leg with all optional modules switched on.
+  host-matrix:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    outputs:
+      hosts: ${{ steps.hosts.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - *pin-nixpkgs
+      - *install-nix
+      - id: hosts
+        run: |
+          matrix=$(tests/run.sh hosts | jq -c 'map({host: ., allModules: false}) + [{host: .[0], allModules: true}]')
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  # Each machine evaluates (no build) and keeps its invariants; see tests/hosts.nix.
+  host:
+    name: host (${{ matrix.host }}${{ matrix.allModules && ', all modules' || '' }})
+    needs: host-matrix
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.host-matrix.outputs.hosts) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # see the repo job
+      - *pin-nixpkgs
+      - *install-nix
+      - name: Stub hardware configuration
+        run: sudo install -D -m 644 tests/hardware-configuration.nix /etc/nixos/hardware-configuration.nix
+      - name: Evaluate ${{ matrix.host }}
+        env:
+          HOST: ${{ matrix.host }}
+          FLAGS: ${{ matrix.allModules && '--all-modules' || '' }}
+        run: nix-shell -p jq colmena --run "tests/run.sh host $HOST $FLAGS"

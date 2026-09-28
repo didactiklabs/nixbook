@@ -164,6 +164,21 @@ sudo sbctl verify
 - Setting a UEFI/BIOS password is also recommended to prevent disabling Secure Boot from the firmware.
 - The `autoEnrollKeys` and `autoGenerateKeys` services are idempotent -- they are no-ops once keys are generated and enrolled.
 
+## 🧪 Tests
+
+Besides the full profile builds (`build.yaml`, self-hosted), every push and PR runs cheap regression checks on GitHub-hosted runners (`.github/workflows/checks.yaml`). Nothing is built except a few tiny generated files, so they report problems within minutes. They all run through `tests/run.sh` (`run-tests` in `devenv shell`):
+
+| Command                                 | Checks                                                                                                                                                                                                               |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `run-tests repo`                        | `hive.nix` nodes, `profiles/` and the `build.yaml` matrices agree; `devenv.yaml` uses the npins nixpkgs; every module file is imported; every `customPkgs/` package instantiates; nixbook-shell `lib.nix` unit tests |
+| `run-tests shell`                       | nixbook-shell scripts: `config-merge.jq` output round-trips through Nix, `nixbook-shell config` commands, `assistant-facts.py`                                                                                       |
+| `run-tests iso`                         | the installer ISO evaluates                                                                                                                                                                                          |
+| `run-tests docs`                        | `docs/MODULES.md` documents the current options (run `generate-docs` if not)                                                                                                                                         |
+| `run-tests host <name> [--all-modules]` | the machine evaluates exactly as `colmena build` would, keeps its invariants (`tests/hosts.nix`: hardening sysctls, boot editor off, deployment settings, state version, …) and its generated config files build     |
+| `run-tests all`                         | all of the above, for every machine                                                                                                                                                                                  |
+
+`--all-modules` evaluates a machine with every optional `customNixOSModules` toggle forced on, so modules no profile enables are still evaluated. `host` needs an `/etc/nixos/hardware-configuration.nix`; on a machine without one (e.g. a CI runner), install the stub: `sudo install -D -m 644 tests/hardware-configuration.nix /etc/nixos/hardware-configuration.nix`.
+
 ## 🐧 Using Home Manager on Non-NixOS Distributions
 
 Nixbook's Home Manager modules can be used on any Linux distribution (Ubuntu, Fedora, Arch, etc.) to manage your user-level configurations declaratively. This allows you to replicate your Nix-based dotfiles environment without installing NixOS.
