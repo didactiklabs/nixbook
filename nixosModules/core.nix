@@ -21,12 +21,16 @@ in
           LVM support, LUKS dm-crypt modules, keyboard backlight on initrd, IOMMU,
           NTFS + exFAT filesystem support for external drives
         - Kernel hardening: sysctl security settings (restrict BPF, perf events,
-          ICMP redirects, source routing, suid dumps, etc.)
+          ICMP redirects, source routing, suid dumps, kexec, TTY ldisc autoload,
+          mmap ASLR entropy, etc.) and boot parameters (slab_nomerge,
+          page allocator randomisation)
+        - Boot: kernel command-line editor disabled (systemd-boot and lanzaboote)
         - Locale: Europe/Paris timezone, en_US locale with fr_FR LC_ settings,
           French keyboard layout
         - Audio: PipeWire with ALSA and PulseAudio compatibility (PulseAudio disabled)
         - Hardware: firmware, Intel/AMD CPU microcode, Bluetooth (bluez), uinput
-        - Security: rtkit, polkit, U2F PAM (login + sudo), passwordless sudo for wheel
+        - Security: rtkit, polkit, U2F PAM (login + sudo), passwordless sudo for wheel,
+          sudo executable by wheel members only
         - XDG portals: wlr portal enabled for Wayland screen sharing
         - Nix daemon: lix package, weekly GC (7d retention), store optimisation at 03:45,
           nix-command + flakes features, custom S3 binary cache, OOM-managed nix-daemon slice
@@ -171,6 +175,23 @@ in
           # Restricts ptrace(2) to processes in a parent-child relationship.
           "kernel.yama.ptrace_scope" = 1;
 
+          # Disables kexec, which can boot an unsigned kernel and bypass Secure Boot.
+          # Side effects: `systemctl kexec` no longer works (never used here).
+          "kernel.kexec_load_disabled" = 1;
+
+          # Only root may load TTY line disciplines; unprivileged autoloading of
+          # rarely-used ldisc modules has been a recurring source of kernel CVEs.
+          "dev.tty.ldisc_autoload" = 0;
+
+          # Unprivileged BPF is already off by default (2); 1 also prevents
+          # turning it back on at runtime.
+          "kernel.unprivileged_bpf_disabled" = 1;
+
+          # Maximum ASLR entropy for mmap base addresses (x86_64 upper bounds,
+          # compat = 32-bit processes such as Wine/Steam games).
+          "vm.mmap_rnd_bits" = 32;
+          "vm.mmap_rnd_compat_bits" = 16;
+
           # IPv6: disables ICMP redirect acceptance.
           "net.ipv6.conf.all.accept_redirects" = 0;
           "net.ipv6.conf.default.accept_redirects" = 0;
@@ -190,6 +211,13 @@ in
         "amdgpu.dcdebugmask=0x10"
         "quiet"
         "splash"
+        # Keeps slab caches separate so a heap overflow in one object type
+        # cannot corrupt objects of another type sharing the same cache.
+        "slab_nomerge"
+        # Randomise the page allocator free lists, making memory layout harder
+        # to predict. (init_on_alloc and randomize_kstack_offset are already
+        # on by default in the NixOS kernel.)
+        "page_alloc.shuffle=1"
       ];
       kernelPackages = pkgs.linuxPackages_latest;
       plymouth.enable = true;
@@ -197,6 +225,9 @@ in
         systemd-boot = {
           enable = true;
           configurationLimit = 10;
+          # The boot menu's command-line editor gives anyone at the keyboard a
+          # root shell via `init=/bin/sh`. lanzaboote's loader.conf inherits it.
+          editor = false;
         };
 
         efi.canTouchEfiVariables = true;
@@ -324,7 +355,12 @@ in
           });
         '';
       };
-      sudo.wheelNeedsPassword = lib.mkDefault false;
+      sudo = {
+        wheelNeedsPassword = lib.mkDefault false;
+        # Only wheel members may execute the sudo binary at all, shrinking the
+        # setuid attack surface for system service accounts.
+        execWheelOnly = true;
+      };
       pam = {
         services = {
           login.u2fAuth = true;
