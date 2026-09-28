@@ -5,8 +5,7 @@
   ...
 }:
 let
-  actual-budget = import ../../../customPkgs/actual-budget.nix { inherit pkgs; };
-  pear-desktop = import ../../../customPkgs/pear-desktop.nix { inherit pkgs; };
+  inherit (pkgs.customPkgs) actual-budget pear-desktop;
 in
 {
   imports = [

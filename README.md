@@ -259,6 +259,10 @@ in
     "${nixbookPath}/homeManagerModules/gitConfig.nix"
     "${nixbookPath}/homeManagerModules/nixvim"
   ];
+
+  # Modules that install nixbook's own packages use `pkgs.customPkgs.*`
+  # (entrypoint.nix adds this overlay itself).
+  nixpkgs.overlays = [ (import "${nixbookPath}/customPkgs") ];
 }
 ```
 

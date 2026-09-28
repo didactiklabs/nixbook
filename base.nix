@@ -6,20 +6,7 @@
 }:
 let
   sources = import ./npins;
-  pkgs = import sources.nixpkgs {
-    config = {
-      allowUnfree = true;
-      allowUnfreePredicate = true;
-      permittedInsecurePackages = [
-        "qtwebengine-5.15.19"
-        "pnpm-10.29.2"
-        "electron-40.10.5"
-      ];
-    };
-    overlays = [
-      (import ./nixosModules/overlays.nix { inherit sources; })
-    ];
-  };
+  pkgs = import ./lib/pkgs.nix { inherit sources; };
   hostProfile = import ./profiles/${hostname} {
     inherit
       lib

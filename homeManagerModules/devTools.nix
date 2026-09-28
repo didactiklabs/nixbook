@@ -6,8 +6,7 @@
 }:
 let
   cfg = config.customHomeManagerModules.devTools;
-  openchoreo-cli = import ../customPkgs/openchoreo-cli.nix { inherit pkgs; };
-  opencode-manager = import ../customPkgs/opencode-manager.nix { inherit pkgs; };
+  inherit (pkgs.customPkgs) openchoreo-cli opencode-manager;
 in
 {
   options.customHomeManagerModules.devTools = {

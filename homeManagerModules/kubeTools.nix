@@ -6,12 +6,14 @@
 }:
 let
   cfg = config.customHomeManagerModules;
-  kl = import ../customPkgs/kl.nix { inherit pkgs; };
-  songbird = import ../customPkgs/songbird.nix { inherit pkgs; };
-  pvmigrate = import ../customPkgs/pvmigrate.nix { inherit pkgs; };
-  crd-wizard = import ../customPkgs/crd-wizard.nix { inherit pkgs; };
-  kratix-cli = import ../customPkgs/kratix-cli.nix { inherit pkgs; };
-  sofka = import ../customPkgs/sofka.nix { inherit pkgs; };
+  inherit (pkgs.customPkgs)
+    kl
+    songbird
+    pvmigrate
+    crd-wizard
+    kratix-cli
+    sofka
+    ;
 in
 {
   options.customHomeManagerModules = {

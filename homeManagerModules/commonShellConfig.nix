@@ -1,7 +1,6 @@
 { pkgs, ... }:
 let
-  ginx = import ../customPkgs/ginx.nix { inherit pkgs; };
-  witr = import ../customPkgs/witr.nix { inherit pkgs; };
+  inherit (pkgs.customPkgs) ginx witr;
 in
 {
   commonPackages = [

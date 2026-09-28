@@ -7,7 +7,7 @@
 let
   cfg = config.customNixOSModules.fcitx5-lotus;
 
-  fcitx5-lotus = import ../customPkgs/fcitx5-lotus.nix { inherit pkgs; };
+  inherit (pkgs.customPkgs) fcitx5-lotus;
 
   invalidUsers = lib.filter (
     user: user == "" || (builtins.match "[A-Za-z_][A-Za-z0-9_-]*" user) == null
@@ -33,7 +33,7 @@ in
     package = lib.mkOption {
       type = lib.types.package;
       default = fcitx5-lotus;
-      defaultText = lib.literalExpression "import ../customPkgs/fcitx5-lotus.nix { inherit pkgs; }";
+      defaultText = lib.literalExpression "pkgs.customPkgs.fcitx5-lotus";
       description = "The fcitx5-lotus package to install.";
     };
 

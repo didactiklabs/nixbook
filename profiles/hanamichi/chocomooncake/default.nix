@@ -1,6 +1,6 @@
 { pkgs, ... }:
 let
-  pear-desktop = import ../../../customPkgs/pear-desktop.nix { inherit pkgs; };
+  inherit (pkgs.customPkgs) pear-desktop;
 in
 {
   imports = [

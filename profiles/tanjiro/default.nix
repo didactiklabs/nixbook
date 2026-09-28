@@ -11,7 +11,7 @@ let
       ./fastfetchConfig.nix
     ];
   };
-  userConfig = import ../../nixosModules/userConfig.nix {
+  userConfig = import ../../lib/userConfig.nix {
     inherit
       lib
       pkgs

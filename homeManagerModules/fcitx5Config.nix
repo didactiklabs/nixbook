@@ -8,11 +8,11 @@ let
   cfg = config.customHomeManagerModules.fcitx5Config;
 
   # fcitx5 addon for German umlaut input via hold-letter + Space gesture.
-  schnelle-umlaute = import ../customPkgs/schnelle-umlaute.nix { inherit pkgs; };
+  inherit (pkgs.customPkgs) schnelle-umlaute;
 
   # Vietnamese input method addon (needs the system-level NixOS module
   # customNixOSModules.fcitx5-lotus for its uinput server).
-  fcitx5-lotus = import ../customPkgs/fcitx5-lotus.nix { inherit pkgs; };
+  inherit (pkgs.customPkgs) fcitx5-lotus;
 
   # Build the numbered "Groups/0/Items/N" attrset from the ordered list of
   # input-method engine names (e.g. [ "keyboard-us" "keyboard-de" "unikey" ]).

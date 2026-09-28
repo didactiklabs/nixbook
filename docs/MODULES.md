@@ -446,7 +446,7 @@ Whether to enable a curated set of GUI desktop applications. Installs and config
 - **Type:** `boolean`
 - **Default:** `true`
 
-Whether to hide desktop launcher entries for non-user-facing utilities, settings tools, background daemons and duplicate launchers (e.g. kvantummanager, fcitx5 daemon/helpers/config GUIs, KDE Connect daemon entries, geoclue demos, pinentry, nm-connection-editor, xdg portals, khal, umpv, imv-dir, kbd-layout-viewer, quickshell, nixos-manual). Implemented via hiPrio desktop-item packages with NoDisplay=true that shadow the originals in the user profile. System-wide qt5ct/qt6ct are hidden separately in nixosModules/userConfig.nix.
+Whether to hide desktop launcher entries for non-user-facing utilities, settings tools, background daemons and duplicate launchers (e.g. kvantummanager, fcitx5 daemon/helpers/config GUIs, KDE Connect daemon entries, geoclue demos, pinentry, nm-connection-editor, xdg portals, khal, umpv, imv-dir, kbd-layout-viewer, quickshell, nixos-manual). Implemented via hiPrio desktop-item packages with NoDisplay=true that shadow the originals in the user profile. System-wide qt5ct/qt6ct are hidden separately in lib/userConfig.nix.
 
 ---
 

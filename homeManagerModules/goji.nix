@@ -6,7 +6,7 @@
 }:
 let
   cfg = config.customHomeManagerModules;
-  goji = import ../customPkgs/goji.nix { inherit pkgs; };
+  inherit (pkgs.customPkgs) goji;
   goji-ai = pkgs.writeShellScriptBin "goji-ai" ''
     # Check if opencode is installed
     if ! command -v opencode &> /dev/null; then

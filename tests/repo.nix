@@ -17,29 +17,12 @@
 */
 let
   sources = import ../npins;
-  pkgs = import sources.nixpkgs {
-    config = {
-      allowUnfree = true;
-      permittedInsecurePackages = [
-        "qtwebengine-5.15.19"
-        "pnpm-10.29.2"
-        "electron-40.10.5"
-      ];
-    };
-    overlays = [ (import ../nixosModules/overlays.nix { inherit sources; }) ];
-  };
+  pkgs = import ../lib/pkgs.nix { inherit sources; };
   inherit (pkgs) lib;
 
   sorted = lib.sort lib.lessThan;
   dirsIn =
     dir: sorted (lib.attrNames (lib.filterAttrs (_: t: t == "directory") (builtins.readDir dir)));
-  nixFilesIn =
-    dir:
-    sorted (
-      lib.attrNames (
-        lib.filterAttrs (n: t: t == "regular" && lib.hasSuffix ".nix" n) (builtins.readDir dir)
-      )
-    );
 
   # -- Machines -----------------------------------------------------------------
   hiveNodes = sorted (lib.attrNames (removeAttrs (import ../hive.nix) [ "meta" ]));
@@ -116,10 +99,6 @@ let
   orphans =
     orphansIn "nixosModules" ../nixosModules ++ orphansIn "homeManagerModules" ../homeManagerModules;
 
-  # -- Custom packages ----------------------------------------------------------
-  customPkgFiles = nixFilesIn ../customPkgs;
-  customPkgDirs = dirsIn ../customPkgs;
-
   # -- nixbook-shell -------------------------------------------------------------
   # Its own tests (nixbook-shell/tests/lib.nix), plus proof that the directory
   # is self-contained: copied alone to the store, it still builds its package
@@ -143,11 +122,5 @@ in
   shellStandalone = check "nixbook-shell/ is not self-contained" (standaloneShell == "ok");
   # Not a check: the node names, for CI's host matrix.
   inherit hiveNodes;
-  packages = lib.genAttrs (map (lib.removeSuffix ".nix") customPkgFiles ++ customPkgDirs) (
-    name:
-    let
-      path = ../customPkgs + "/${if lib.elem name customPkgDirs then name else "${name}.nix"}";
-    in
-    (import path { inherit pkgs; }).drvPath
-  );
+  packages = lib.mapAttrs (_: pkg: pkg.drvPath) pkgs.customPkgs;
 }

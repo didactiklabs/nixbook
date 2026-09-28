@@ -12,7 +12,7 @@ let
   #   (import sources.flake-compat {
   #     src = sources.globalprotect-openconnect;
   #   }).defaultNix.packages.${pkgs.stdenv.hostPlatform.system}.fromSource;
-  pear-desktop = import ../../../customPkgs/pear-desktop.nix { inherit pkgs; };
+  inherit (pkgs.customPkgs) pear-desktop;
 in
 {
   imports = [

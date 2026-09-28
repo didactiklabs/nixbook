@@ -35,6 +35,13 @@
     ]
     ++ extraHomeManagerModules;
 
+  # Standalone Home Manager has its own pkgs: give it nixbook's overlays, as
+  # lib/pkgs.nix does for the machines (the modules use `pkgs.customPkgs.*`).
+  nixpkgs.overlays = [
+    (import ../lib/overlays.nix { inherit sources; })
+    (import ../customPkgs)
+  ];
+
   # Open plain-text files with VSCode when it is installed, otherwise fall back
   # to nvim launched inside a kitty terminal. The choice is made at runtime so
   # this entry works regardless of whether the vscode module is enabled.
