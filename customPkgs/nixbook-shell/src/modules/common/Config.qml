@@ -731,6 +731,16 @@ Singleton {
                     property bool enable: true
                     property int retentionDays: 30
                 }
+                // Drop duplicate notifications (services/Notifications.qml
+                // duplicateVerdict): the phone's mirrored copy of a message the
+                // desktop app also showed, within `window` seconds (the desktop
+                // one is kept), and a sender repeating itself. relayApps: app
+                // names of notifications mirrored from another device.
+                property JsonObject deduplicate: JsonObject {
+                    property bool enable: true
+                    property int window: 120
+                    property list<string> relayApps: ["KDE Connect", "GSConnect"]
+                }
                 property JsonObject cutIn: JsonObject {
                     property bool enable: true
                     property bool critical: true // urgency "critical", set by the app

@@ -537,6 +537,39 @@ ContentPage {
                 }
             }
 
+            // Duplicate filter (services/Notifications.qml duplicateVerdict).
+            ContentSubsection {
+                title: Translation.tr("Duplicates")
+                GroupedList {
+                    StyledText {
+                        Layout.fillWidth: true
+                        Layout.margins: 8
+                        wrapMode: Text.Wrap
+                        text: Translation.tr("A message shown by a desktop app and mirrored from your phone (%1) appears once, from the desktop app, whichever copy arrives first. The phone's copy must end with the same message and mention the same sender or channel.").arg((Config.options.notifications.deduplicate.relayApps ?? []).join(", "))
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        color: Appearance.colors.colSubtext
+                    }
+                    ConfigSwitch {
+                        configKey: "notifications.deduplicate.enable"
+                        buttonIcon: "filter_none"
+                        text: Translation.tr("Hide duplicate notifications")
+                        checked: Config.options.notifications.deduplicate.enable
+                        onCheckedChanged: Config.options.notifications.deduplicate.enable = checked
+                    }
+                    ConfigSpinBox {
+                        configKey: "notifications.deduplicate.window"
+                        enabled: Config.options.notifications.deduplicate.enable
+                        icon: "timer"
+                        text: Translation.tr("Max delay between the two copies (s)")
+                        value: Config.options.notifications.deduplicate.window
+                        from: 5
+                        to: 600
+                        stepSize: 5
+                        onValueChanged: Config.options.notifications.deduplicate.window = value
+                    }
+                }
+            }
+
             // Log of every notification, kept after it is dismissed
             // (services/NotificationHistory.qml; sidebar → history button).
             ContentSubsection {

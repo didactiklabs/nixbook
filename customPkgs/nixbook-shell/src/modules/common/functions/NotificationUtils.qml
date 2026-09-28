@@ -205,4 +205,66 @@ Singleton {
         const fields = root.ruleFields(n);
         return (rules ?? []).find(r => root.ruleMatches(fields, r)) ?? "";
     }
+
+    /**
+     * Duplicate detection (services/Notifications.qml duplicateVerdict).
+     * Text as compared: markup and entities gone, lower case, and every run
+     * of whitespace, ASCII/Latin-1/general punctuation (bidi isolates
+     * included — Discord wraps names in them) and CJK punctuation folded to
+     * one space. Letters of any script, digits and emoji are kept.
+     */
+    function matchText(text) {
+        return root.plainText(text).normalize("NFKC").toLowerCase()
+            .replace(/[\s!-\/:-@\[-`{-~ -¿ -⁯⸀-⹿　-〿︀-️﻿]+/g, " ")
+            .trim();
+    }
+
+    // Is `n` mirrored from another device (appName in `relayApps`)?
+    function isRelayed(n, relayApps) {
+        const app = `${n?.appName ?? ""}`.toLowerCase();
+        return app !== "" && (relayApps ?? []).some(a => `${a}`.toLowerCase() === app);
+    }
+
+    /**
+     * Is `relay` (a phone's copy, e.g. KDE Connect: title = the phone app,
+     * body = "conversation: sender:\nmessage…") the same message as `local`
+     * (the desktop app's own notification)? Strict on purpose:
+     *  - the relayed text must END with the local message (a phone re-posting
+     *    a whole thread only matches on its newest message), whole words;
+     *  - and share a word of 3+ characters with the local title (the sender,
+     *    channel or server), so a short "ok" from someone else never matches.
+     *    A local notification without a usable title needs a 24+ character
+     *    message instead.
+     */
+    function isRelayOf(local, relay) {
+        const body = root.matchText(local?.body);
+        const message = body !== "" ? body : root.matchText(local?.summary);
+        if (message.length < 2) return false;
+        const relayText = root.matchText(`${relay?.summary ?? ""}\n${relay?.body ?? ""}`);
+        if (relayText !== message && !relayText.endsWith(` ${message}`)) return false;
+        const relayWords = new Set(relayText.split(" "));
+        const titleWords = body === "" ? []
+            : root.matchText(local?.summary).split(" ").filter(w => w.length >= 3);
+        return titleWords.length > 0 ? titleWords.some(w => relayWords.has(w)) : message.length >= 24;
+    }
+
+    // Same app, title and text.
+    function isRepeatOf(n, older) {
+        return `${n?.appName}` === `${older?.appName}`
+            && root.matchText(n?.summary) === root.matchText(older?.summary)
+            && root.matchText(n?.body) === root.matchText(older?.body);
+    }
+
+    /**
+     * Does `n` re-post `older` with more lines appended (same app and title,
+     * the old text followed by a new line)? Phones mirror a chat this way,
+     * the whole thread each time a message arrives.
+     */
+    function isThreadUpdateOf(n, older) {
+        const body = root.plainText(n?.body).trim();
+        const old = root.plainText(older?.body).trim();
+        return `${n?.appName}` === `${older?.appName}`
+            && root.matchText(n?.summary) === root.matchText(older?.summary)
+            && old !== "" && body.startsWith(`${old}\n`);
+    }
 }

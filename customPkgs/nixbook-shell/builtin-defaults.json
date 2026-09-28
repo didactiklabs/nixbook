@@ -562,6 +562,11 @@
       "sound": true,
       "soundFile": ""
     },
+    "deduplicate": {
+      "enable": true,
+      "relayApps": ["KDE Connect", "GSConnect"],
+      "window": 120
+    },
     "history": {
       "enable": true,
       "retentionDays": 30
