@@ -3,14 +3,15 @@ no AI): one plain sentence per fact, in four languages, which the shell
 retrieves for each question and answers from.
 
   assistant-facts.py <input.json> <binds.kdl>  >  system-facts.json
-  assistant-facts.py --nvim-markdown <input.json>  >  keymaps.md
+  assistant-facts.py --markdown <input.json>  >  context.md
 
 input.json (from hm-module.nix): host, user, the core statements
 (`coreFacts`: [{en, fr, de, vi}]: where and how the configuration is changed),
 module names (`modules`: {all, enabled}), the shell settings pinned in Nix
 ({"dot.path": value}), package names, every setting path, and the Neovim
 keymaps (`nvim`: {leader, localLeader, keymaps: [{key, mode, action, lua,
-desc, scope}]}, optional).
+desc, scope}]}, optional), the operating system as configured (`os`) and the
+how-to answers (`howTo`: {name: {en, fr, de, vi}}), both optional.
 binds.kdl: niri's rendered `binds { ... }` block (may be empty).
 
 Every fact also exists in French, German and Vietnamese (`factsI18n`, same
@@ -383,6 +384,99 @@ def nvim_keymaps(nvim):
     return out
 
 
+# The operating system as configured (hm-module.nix: `assistant.os`).
+OS = {
+    "nixos": t("This machine runs NixOS version {release}{code} ({platform}), the operating system.",
+               "Cette machine tourne sous NixOS version {release}{code} ({platform}), le système d'exploitation.",
+               "Dieser Rechner läuft mit NixOS Version {release}{code} ({platform}), dem Betriebssystem.",
+               "Máy này chạy hệ điều hành NixOS phiên bản {release}{code} ({platform})."),
+    "kernel": t("The Linux kernel is version {x}.", "Le noyau Linux est en version {x}.",
+                "Der Linux-Kernel hat die Version {x}.", "Nhân (kernel) Linux là phiên bản {x}."),
+    "host": t("The host name (computer name) is {x}.", "Le nom d'hôte (nom de l'ordinateur) est {x}.",
+              "Der Hostname (Rechnername) ist {x}.", "Tên máy (hostname) là {x}."),
+    "user": t("You are logged in as the user {x}.", "Vous êtes connecté en tant qu'utilisateur {x}.",
+              "Du bist als Benutzer {x} angemeldet.", "Bạn đang đăng nhập với người dùng {x}."),
+    "users": t("The user accounts on this machine are: {x}.", "Les comptes utilisateur de cette machine sont : {x}.",
+               "Die Benutzerkonten auf diesem Rechner sind: {x}.", "Các tài khoản người dùng trên máy này là: {x}."),
+    "timeZone": t("The time zone is {x}.", "Le fuseau horaire est {x}.", "Die Zeitzone ist {x}.", "Múi giờ là {x}."),
+    "autoTimeZone": t("The time zone is set automatically from the location.",
+                      "Le fuseau horaire est réglé automatiquement selon la position.",
+                      "Die Zeitzone wird automatisch anhand des Standorts eingestellt.",
+                      "Múi giờ được đặt tự động theo vị trí."),
+    "locale": t("The system language (locale) is {x}.", "La langue du système (locale) est {x}.",
+                "Die Systemsprache (Locale) ist {x}.", "Ngôn ngữ hệ thống (locale) là {x}."),
+    "keyboard": t("The keyboard layout is {x}.", "La disposition du clavier est {x}.",
+                  "Das Tastaturlayout ist {x}.", "Bố cục bàn phím là {x}."),
+    "bootloader": t("The bootloader is {x}.", "Le chargeur de démarrage (bootloader) est {x}.",
+                    "Der Bootloader ist {x}.", "Trình khởi động (bootloader) là {x}."),
+    "shell": t("Your login shell (terminal command shell) is {x}.", "Votre shell de connexion (shell du terminal) est {x}.",
+               "Deine Login-Shell (Terminal-Shell) ist {x}.", "Shell đăng nhập (shell của terminal) của bạn là {x}."),
+    "editor": t("Your default text editor ($EDITOR) is {x}.", "Votre éditeur de texte par défaut ($EDITOR) est {x}.",
+                "Dein Standard-Texteditor ($EDITOR) ist {x}.", "Trình soạn thảo văn bản mặc định ($EDITOR) của bạn là {x}."),
+    "nix": t("The Nix package manager is {x}.", "Le gestionnaire de paquets Nix est {x}.",
+             "Der Nix-Paketmanager ist {x}.", "Trình quản lý gói Nix là {x}."),
+    "flakesOn": t("Nix flakes are enabled.", "Les flakes Nix sont activés.", "Nix-Flakes sind aktiviert.",
+                  "Nix flakes đang được bật."),
+    "flakesOff": t("Nix flakes are not enabled.", "Les flakes Nix ne sont pas activés.",
+                   "Nix-Flakes sind nicht aktiviert.", "Nix flakes không được bật."),
+}
+TOGGLE_ON = t("{x} is enabled ({s}).", "{x} est activé ({s}).", "{x} ist aktiviert ({s}).", "{x} đang được bật ({s}).")
+SCOPES = {"nixos": t("NixOS option {p}.enable", "option NixOS {p}.enable", "NixOS-Option {p}.enable", "tùy chọn NixOS {p}.enable"),
+          "home-manager": t("Home Manager option {p}.enable", "option Home Manager {p}.enable",
+                            "Home-Manager-Option {p}.enable", "tùy chọn Home Manager {p}.enable")}
+
+
+def toggle_description(text):
+    """An option description as plain words: links as their text, no leading "Enable"."""
+    text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text or "").strip()
+    return re.sub(r"^(?i:enables?|whether to enable)\s+", "", text)
+
+
+def toggle_name(path):
+    """services.desktopManager.plasma6 -> "plasma6 (desktop manager)", hardware.bluetooth -> "bluetooth"."""
+    parts = path.split(".")
+    words = lambda w: re.sub(r"([a-z])([A-Z])", r"\1 \2", w).lower()
+    return parts[-1] + (f" ({words(parts[-2])})" if len(parts) > 2 else "")
+
+
+def os_facts(info):
+    """(kind, {lang: sentence}) for the operating system and the how-tos."""
+    os = info.get("os") or {}
+    out = []
+
+    def one(key, x=None, **kw):
+        out.append(("os", {lang: OS[key][lang].format(x=x, **kw) for lang in LANGS}))
+
+    if os.get("nixos") and os.get("release"):
+        code = f" \u201c{os['codeName']}\u201d" if os.get("codeName") else ""
+        one("nixos", release=os["release"], code=code, platform=os.get("platform", ""))
+    for key in ("kernel", "host", "user", "locale", "bootloader", "shell", "editor", "nix"):
+        if os.get(key):
+            one(key, os[key])
+    if os.get("timeZone"):
+        one("timeZone", os["timeZone"])
+    elif os.get("autoTimeZone"):
+        one("autoTimeZone")
+    kb = os.get("keyboard") or {}
+    if kb.get("layout"):
+        one("keyboard", kb["layout"] + (f" ({kb['variant']})" if kb.get("variant") else ""))
+    if os.get("nixos"):
+        one("flakesOn" if os.get("flakes") else "flakesOff")
+    if len(os.get("users") or []) > 1:
+        one("users", ", ".join(os["users"]))
+    # Only what is on becomes a fact; the full list (on and off) answers
+    # "is X enabled?" (see toggles()).
+    for tg in os.get("toggles") or []:
+        if tg.get("enabled"):
+            scope = SCOPES.get(tg.get("scope"), SCOPES["nixos"])
+            out.append((f"toggle:{tg['path']}", {lang: TOGGLE_ON[lang].format(
+                x=toggle_name(tg["path"]) + (f" – {toggle_description(tg['description'])}" if tg.get("description") else ""),
+                s=scope[lang].format(p=tg["path"])) for lang in LANGS}))
+    for hid, texts in sorted((info.get("howTo") or {}).items()):
+        out.append((f"howto:{hid}", texts))
+    return out
+
+
 PRESS = t("Press {k} to {d}.", "Appuyez sur {k} pour {d}.", "{k} – {d}.", "Nhấn {k} để {d}.")
 SETTING = t("The shell setting {p} is set in Nix to {v}.",
             "Le réglage du shell {p} est défini dans Nix à {v}.",
@@ -404,7 +498,7 @@ def main():
     kdl = open(sys.argv[2]).read() if len(sys.argv) > 2 else ""
     host, user = info["host"], info["user"]
     facts = {lang: [] for lang in LANGS}
-    kinds = []  # "bind:<key>", "nvim:<index>", "nvim-leader", "core", "setting", "package"
+    kinds = []  # "bind:<key>", "nvim:<index>", "nvim-leader", "core", "os", "toggle:<path>", "howto:<name>", "setting", "package"
 
     def add(kind, texts):
         kinds.append(kind)
@@ -427,6 +521,8 @@ def main():
     # changes?") aren't mistaken for uncovered ones.
     for texts in info.get("coreFacts", []):
         add("core", texts)
+    for kind, texts in os_facts(info):
+        add(kind, texts)
     for path, value in sorted(info["pinned"].items()):
         v = json.dumps(value, ensure_ascii=False)
         add("setting", {lang: SETTING[lang].format(p=path, v=v) for lang in LANGS})
@@ -445,6 +541,11 @@ def main():
                     "enabled": sorted(set(info.get("modules", {}).get("enabled", [])))},
         "packages": packages,
         "settingPaths": sorted(set(info.get("settingPaths", []))),
+        # Every discovered option set with an `enable`, on or off, for
+        # "is X enabled?" and "which services are enabled?".
+        "toggles": [{"path": tg["path"], "scope": tg.get("scope", "nixos"), "enabled": bool(tg.get("enabled")),
+                     "description": toggle_description(tg.get("description"))}
+                    for tg in (info.get("os") or {}).get("toggles") or []],
         # The keymaps behind the "nvim:<index>" facts, for the listings.
         "nvim": {"leader": leader_name(nvim.get("leader")),
                  "localLeader": leader_name(nvim.get("localLeader")),
@@ -453,20 +554,36 @@ def main():
 
 
 def markdown(info_path):
-    """The Neovim keymaps as a Markdown section for the AI chat's prompt."""
-    nvim = json.load(open(info_path)).get("nvim") or {}
+    """The operating system, the how-tos and the Neovim keymaps as Markdown
+    sections for the AI chat's prompt."""
+    info = json.load(open(info_path))
+    facts = os_facts(info)
+    if facts:
+        print("\n## Operating system (from the configuration)")
+        for kind, texts in facts:
+            if kind == "os":
+                print(f"- {texts['en']}")
+        on = [tg["path"] for tg in (info.get("os") or {}).get("toggles") or [] if tg.get("enabled")]
+        if on:
+            print(f"- Enabled option sets (`<path>.enable = true`): {', '.join(on)}")
+        howtos = [texts["en"] for kind, texts in facts if kind.startswith("howto:")]
+        if howtos:
+            print("\n## How things are done on this machine")
+            for text in howtos:
+                print(f"- {text}")
+    nvim = info.get("nvim") or {}
     keymaps = nvim_keymaps(nvim)
     if not keymaps:
         return
     print("\n## Neovim keymaps (nixvim, rendered from the configuration)")
-    print("Answer questions about Neovim/vim shortcuts from this list (the authoritative one; "
-          f"<leader> = {leader_name(nvim.get('leader'))}, <localleader> = {leader_name(nvim.get('localLeader'))}).")
+    print(f"The Neovim keymaps as configured (<leader> = {leader_name(nvim.get('leader'))}, "
+          f"<localleader> = {leader_name(nvim.get('localLeader'))}).")
     for km in keymaps:
         print(f"- `{km['key']}` ({km['where']['en']}): {km['desc']['en']}")
 
 
 if __name__ == "__main__":
-    if sys.argv[1:2] == ["--nvim-markdown"]:
+    if sys.argv[1:2] == ["--markdown"]:
         markdown(sys.argv[2])
     else:
         main()
