@@ -122,13 +122,14 @@ Singleton {
         }
     })
     // /help and the chat's help tooltip: questions answered right away from
-    // the configuration (quickReply).
+    // the configuration (quickReply). A third element names what an entry
+    // needs ("nvim": Neovim keymaps).
     readonly property var helpExamples: ({
         en: { title: "Answered instantly from your configuration (no model):", more: "No AI here: to chat with a model (Gemini, Ollama…), pick one with /model.", items: [
             ["Find a shortcut", "shortcut for the launcher · how do I lock the screen"],
             ["What a key does", "what does Mod+R do?"],
             ["List shortcuts", "all shortcuts · shortcuts for workspaces"],
-            ["Neovim keymaps", "all vim shortcuts · vim shortcut to find files · what does <leader>ff do in vim?"],
+            ["Neovim keymaps", "all vim shortcuts · vim shortcut to find files · what does <leader>ff do in vim?", "nvim"],
             ["Modules", "is tailscale enabled? · which modules are enabled"],
             ["Packages", "is firefox installed? · which packages are installed"],
             ["Shell settings", "settings set in Nix"]] },
@@ -136,7 +137,7 @@ Singleton {
             ["Trouver un raccourci", "raccourci pour le lanceur · comment verrouiller l'écran"],
             ["Ce que fait une touche", "que fait Mod+R ?"],
             ["Lister les raccourcis", "tous les raccourcis · raccourcis des espaces de travail"],
-            ["Raccourcis Neovim", "tous les raccourcis vim · raccourci vim pour chercher des fichiers · que fait <leader>ff dans vim ?"],
+            ["Raccourcis Neovim", "tous les raccourcis vim · raccourci vim pour chercher des fichiers · que fait <leader>ff dans vim ?", "nvim"],
             ["Modules", "tailscale est activé ? · quels modules sont activés"],
             ["Paquets", "firefox est installé ? · quels paquets sont installés"],
             ["Réglages du shell", "réglages définis dans Nix"]] },
@@ -144,7 +145,7 @@ Singleton {
             ["Tastenkürzel finden", "Tastenkürzel für den Starter · wie sperre ich den Bildschirm"],
             ["Was eine Taste macht", "was macht Mod+R?"],
             ["Kürzel auflisten", "alle Tastenkürzel · Kürzel für Arbeitsbereiche"],
-            ["Neovim-Belegungen", "alle vim-Tastenkürzel · vim-Kürzel zum Dateien suchen · was macht <leader>ff in vim?"],
+            ["Neovim-Belegungen", "alle vim-Tastenkürzel · vim-Kürzel zum Dateien suchen · was macht <leader>ff in vim?", "nvim"],
             ["Module", "ist tailscale aktiviert? · welche Module sind aktiv"],
             ["Pakete", "ist firefox installiert? · welche Pakete sind installiert"],
             ["Shell-Einstellungen", "Einstellungen in Nix"]] },
@@ -152,7 +153,7 @@ Singleton {
             ["Tìm phím tắt", "phím tắt mở trình khởi chạy · làm sao khóa màn hình"],
             ["Phím làm gì", "Mod+R để làm gì?"],
             ["Liệt kê phím tắt", "tất cả phím tắt · phím tắt cho không gian làm việc"],
-            ["Phím tắt Neovim", "tất cả phím tắt vim · phím tắt vim tìm tệp · <leader>ff trong vim làm gì?"],
+            ["Phím tắt Neovim", "tất cả phím tắt vim · phím tắt vim tìm tệp · <leader>ff trong vim làm gì?", "nvim"],
             ["Module", "tailscale có bật không? · những module nào được bật"],
             ["Gói phần mềm", "firefox đã cài chưa? · những gói nào đã cài"],
             ["Cài đặt shell", "cài đặt trong Nix"]] }
@@ -165,7 +166,9 @@ Singleton {
     // Markdown for the chat (/help) or plain lines for a tooltip.
     function helpText(lang = root.uiLang(), plain = false) {
         const h = root.helpExamples[lang] ?? root.helpExamples.en;
-        const lines = h.items.map(([what, ex]) => plain ? `• ${what}: ${ex}` : `- **${what}**: “${ex.split(" · ").join("”, “")}”`);
+        // The Neovim line only where there are Neovim keymaps to ask about.
+        const items = h.items.filter(([, , needs]) => needs !== "nvim" || (root.data?.nvim?.keymaps?.length ?? 0) > 0);
+        const lines = items.map(([what, ex]) => plain ? `• ${what}: ${ex}` : `- **${what}**: “${ex.split(" · ").join("”, “")}”`);
         const text = `${plain ? h.title : `**${h.title}**`}\n${lines.join("\n")}\n${plain ? "" : "\n"}${h.more}\nEnglish · Français · Deutsch · Tiếng Việt`;
         return plain ? text : root.codeKeys(text);
     }
