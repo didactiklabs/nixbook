@@ -30,10 +30,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "0.17.0",
-      "revision": "07a33319a408a0c770f0fe5d0d98f5e7b4e5a5e7",
-      "url": "https://api.github.com/repos/ryantm/agenix/tarball/refs/tags/0.17.0",
-      "hash": "sha256-dLq4qfJvm2ZfkwGGdgWl/nsA2aavpQMrPQbNqbkLXKE="
+      "version": "0.18.0",
+      "revision": "9353cb29366a8535ac9483065284785fd48012a2",
+      "url": "https://api.github.com/repos/ryantm/agenix/tarball/refs/tags/0.18.0",
+      "hash": "sha256-/FjF9A8HVLVftjdmz1MPA2G0wSYWRaC628NTAsCqeyI="
     },
     "crane": {
       "type": "GitRelease",
