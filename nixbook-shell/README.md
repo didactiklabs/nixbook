@@ -184,12 +184,15 @@ programs.nixbook-shell.settings.appearance = {
 };
 ```
 
-Each theme variant also keeps its own wallpaper (`appearance.wallpaperPerTheme`,
-on by default; `appearance.themeWallpapers`, `"<theme>/<variant>=<path>"`
-entries, `src/services/ThemeWallpapers.qml`): switching puts back the
-wallpaper the variant had, a variant's bundled one the first time (the
-Chiikawa ones), and a wallpaper picked while in a variant becomes that
-variant's. Each theme has its own sounds too (`sounds` in `themes.json`: the
+Each theme variant also keeps its own desktop, lock screen and login screen
+wallpapers (`appearance.wallpaperPerTheme`, on by default;
+`appearance.themeWallpapers`, `themeLockWallpapers`, `themeLoginWallpapers`:
+`"<theme>/<variant>=<path>"` entries, `src/services/ThemeWallpapers.qml`):
+switching puts back what the variant had (for the desktop, its bundled one
+the first time: the Chiikawa ones; for the lock and login screens, nothing:
+they follow the desktop, then the lock screen), and a wallpaper picked while
+in a variant becomes that variant's. Settings → Appearance → Theme sets or
+unsets all of them at once, in a table of every variant. Each theme has its own sounds too (`sounds` in `themes.json`: the
 notification chime and the critical sound — Persona 5's by default, the
 characters' own in Chiikawa); a file set in the settings wins. Important
 notifications (critical ones, and those the cut-in rules pick:

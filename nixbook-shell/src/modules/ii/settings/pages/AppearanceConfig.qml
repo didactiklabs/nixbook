@@ -9,6 +9,71 @@ ContentPage {
     id: page
     forceWidth: true
 
+    // Per-variant wallpaper table (Settings → Appearance → Theme): one cell
+    // per variant and screen; click to choose it in the wallpaper selector,
+    // × to unset it (desktop: the variant's own/none; lock: the desktop's;
+    // login: the lock screen's).
+    component VariantWallCell: Rectangle {
+        id: cell
+        property string slot
+        property string variantKey
+        property string symbol
+        property string value
+        property bool isSet
+        property bool locked
+        Layout.fillWidth: true
+        Layout.preferredWidth: 1
+        implicitHeight: 40
+        radius: Appearance.rounding.small
+        color: cellMouse.containsMouse && !cell.locked ? Appearance.colors.colLayer2Hover : Appearance.colors.colLayer2
+        MouseArea {
+            id: cellMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            enabled: !cell.locked
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+                GlobalStates.wallpaperSelectorTarget = `variant:${cell.slot}:${cell.variantKey}`;
+                GlobalStates.wallpaperSelectorOpen = true;
+            }
+        }
+        RowLayout {
+            anchors { fill: parent; leftMargin: 10; rightMargin: 4 }
+            spacing: 6
+            MaterialSymbol {
+                text: cell.symbol
+                iconSize: Appearance.font.pixelSize.normal
+                color: cell.isSet ? Appearance.colors.colPrimary : Appearance.colors.colSubtext
+            }
+            StyledText {
+                Layout.fillWidth: true
+                elide: Text.ElideMiddle
+                text: cell.value
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: cell.isSet ? Appearance.colors.colOnLayer2 : Appearance.colors.colSubtext
+            }
+            RippleButton {
+                visible: cell.isSet && !cell.locked
+                implicitWidth: 26
+                implicitHeight: 26
+                buttonRadius: Appearance.rounding.full
+                colBackground: "transparent"
+                colBackgroundHover: Appearance.colors.colLayer1Hover
+                contentItem: MaterialSymbol {
+                    anchors.centerIn: parent
+                    text: "close"
+                    iconSize: Appearance.font.pixelSize.normal
+                    color: Appearance.colors.colSubtext
+                }
+                onClicked: ThemeWallpapers.setFor(cell.slot, cell.variantKey, "")
+                StyledToolTip { text: Translation.tr("Unset") }
+            }
+        }
+    }
+    function fileName(path) {
+        return String(path).slice(String(path).lastIndexOf("/") + 1);
+    }
+
     function goTo(term) {
         const t = term.toLowerCase().trim()
 
@@ -364,44 +429,96 @@ ContentPage {
                     enabled: !nixManaged
                     onCheckedChanged: { Config.options.appearance.wallpaperPerTheme = checked }
                 }
-                RowLayout {
-                    id: themeWallRow
+                // Every variant's wallpapers, set here all at once (or picked
+                // while in the variant: they are remembered either way).
+                ColumnLayout {
                     visible: Config.options.appearance.wallpaperPerTheme
-                    readonly property bool locked: ThemeWallpapers.pinned
-                    readonly property var target: ThemeWallpapers.wallpaperFor(ThemeWallpapers.key)
                     Layout.leftMargin: 8
                     Layout.rightMargin: 8
-                    spacing: 8
-                    MaterialSymbol {
-                        text: "image"
-                        iconSize: Appearance.font.pixelSize.larger
-                        color: Appearance.colors.colOnSecondaryContainer
+                    spacing: 6
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
+                        StyledText {
+                            Layout.preferredWidth: 150
+                            text: Translation.tr("Variant")
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            color: Appearance.colors.colSubtext
+                        }
+                        Repeater {
+                            model: [Translation.tr("Desktop"), Translation.tr("Lock screen"), Translation.tr("Login screen")]
+                            delegate: StyledText {
+                                required property string modelData
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: 1
+                                text: modelData
+                                font.pixelSize: Appearance.font.pixelSize.small
+                                color: Appearance.colors.colSubtext
+                            }
+                        }
+                    }
+                    Repeater {
+                        model: ThemeWallpapers.allKeys
+                        delegate: RowLayout {
+                            id: variantRow
+                            required property var modelData
+                            readonly property string key: modelData.key
+                            readonly property bool current: key === ThemeWallpapers.key
+                            readonly property var desk: ThemeWallpapers.wallpaperFor(key)
+                            readonly property string lockPath: ThemeWallpapers.lockMap[key] ?? ""
+                            readonly property string loginPath: ThemeWallpapers.loginMap[key] ?? ""
+                            Layout.fillWidth: true
+                            spacing: 6
+                            RowLayout {
+                                Layout.preferredWidth: 150
+                                Layout.maximumWidth: 150
+                                spacing: 6
+                                MaterialSymbol {
+                                    text: variantRow.modelData.icon
+                                    iconSize: Appearance.font.pixelSize.larger
+                                    color: variantRow.current ? Appearance.colors.colPrimary : Appearance.colors.colOnSecondaryContainer
+                                }
+                                StyledText {
+                                    Layout.fillWidth: true
+                                    elide: Text.ElideRight
+                                    text: Translation.tr(variantRow.modelData.name)
+                                    font.weight: variantRow.current ? Font.Bold : Font.Normal
+                                    color: Appearance.colors.colOnSecondaryContainer
+                                }
+                            }
+                            VariantWallCell {
+                                slot: "main"
+                                variantKey: variantRow.key
+                                symbol: "wallpaper"
+                                isSet: (ThemeWallpapers.map[variantRow.key] ?? "") !== ""
+                                value: isSet ? page.fileName(ThemeWallpapers.map[variantRow.key])
+                                    : variantRow.desk?.bundled ? Translation.tr("its own") : Translation.tr("not set")
+                                locked: ThemeWallpapers.listPinned("main")
+                            }
+                            VariantWallCell {
+                                slot: "lock"
+                                variantKey: variantRow.key
+                                symbol: "lock"
+                                isSet: variantRow.lockPath !== ""
+                                value: isSet ? page.fileName(variantRow.lockPath) : Translation.tr("the desktop's")
+                                locked: ThemeWallpapers.listPinned("lock")
+                            }
+                            VariantWallCell {
+                                slot: "login"
+                                variantKey: variantRow.key
+                                symbol: "login"
+                                isSet: variantRow.loginPath !== ""
+                                value: isSet ? page.fileName(variantRow.loginPath) : Translation.tr("the lock screen's")
+                                locked: ThemeWallpapers.listPinned("login")
+                            }
+                        }
                     }
                     StyledText {
                         Layout.fillWidth: true
-                        elide: Text.ElideMiddle
-                        color: Appearance.colors.colOnSecondaryContainer
-                        text: {
-                            const t = themeWallRow.target;
-                            const name = Translation.tr(Themes.currentVariant?.name ?? Themes.currentTheme?.name ?? "");
-                            if (!t)
-                                return Translation.tr("%1: keeps the wallpaper you have").arg(name);
-                            return t.bundled ? Translation.tr("%1: its own wallpaper").arg(name)
-                                : Translation.tr("%1: %2").arg(name).arg(t.path.slice(t.path.lastIndexOf("/") + 1));
-                        }
-                    }
-                    NixManagedBadge { pinned: themeWallRow.locked }
-                    RippleButtonWithIcon {
-                        enabled: !themeWallRow.locked && (Config.options.background.wallpaperPath ?? "") !== ""
-                        materialIcon: "add_photo_alternate"
-                        mainText: Translation.tr("Use the current one")
-                        onClicked: ThemeWallpapers.setForCurrent(Config.options.background.wallpaperPath)
-                    }
-                    RippleButtonWithIcon {
-                        enabled: !themeWallRow.locked && (ThemeWallpapers.map?.[ThemeWallpapers.key] ?? "") !== ""
-                        materialIcon: "restart_alt"
-                        mainText: Translation.tr("Reset")
-                        onClicked: ThemeWallpapers.setForCurrent("")
+                        wrapMode: Text.Wrap
+                        text: Translation.tr("Click a cell to choose its wallpaper, × to unset it. Wallpapers picked while in a variant are remembered for it too.")
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
                     }
                 }
             }

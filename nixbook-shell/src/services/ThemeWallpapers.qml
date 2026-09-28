@@ -7,51 +7,103 @@ import Quickshell
 import Quickshell.Io
 
 /**
- * A wallpaper per theme variant (appearance.wallpaperPerTheme): each theme
- * (and variant) remembers its wallpaper, and switching to it puts that
- * wallpaper back.
+ * Wallpapers per theme variant (appearance.wallpaperPerTheme): each theme
+ * (and variant) remembers its desktop, lock screen and login screen
+ * wallpapers, and switching to it puts them back.
  *
- *   appearance.themeWallpapers   ["<theme>/<variant>=<path>" or "<theme>=<path>", …]
+ *   appearance.themeWallpapers        desktop  (background.wallpaperPath)
+ *   appearance.themeLockWallpapers    lock     (background.lockWall)
+ *   appearance.themeLoginWallpapers   login    (background.greeterWall)
  *
- * - leaving a variant remembers the wallpaper it had;
+ * each a list of "<theme>/<variant>=<path>" (or "<theme>=<path>") entries.
+ *
+ * - leaving a variant remembers the wallpapers it had;
  * - picking a wallpaper while in a variant makes it that variant's;
- * - entering a variant applies its wallpaper, else the variant's default
+ * - entering a variant: its desktop wallpaper, else the variant's default
  *   from themes.json (`wallpaper`, copied out of the store first so the
- *   setting never points at a path a garbage collection removes), else
- *   leaves the wallpaper alone.
+ *   setting never points at a path a garbage collection removes), else the
+ *   current one stays; its lock and login wallpapers, else none: the lock
+ *   screen then uses the desktop wallpaper and the login screen the lock
+ *   screen's, so both follow the variant;
+ * - unset (Settings → Appearance → Theme): the desktop back to the variant's
+ *   default, the lock screen to the desktop's, the login screen to the lock
+ *   screen's.
  *
- * Set in Nix, the map is only read (nothing is learnt from the menu).
+ * A list set in Nix is only read (nothing learnt from the menu), and a
+ * lock/login wallpaper set in Nix is never changed.
  */
 Singleton {
     id: root
 
     readonly property bool enabled: Config.options?.appearance?.wallpaperPerTheme ?? true
-    // appearance.themeWallpapers as { key: path }.
-    readonly property var map: {
+    readonly property string key: Themes.current + (Themes.variant ? `/${Themes.variant}` : "")
+    readonly property string copiesDir: `${FileUtils.trimFileProtocol(Directories.state)}/user/theme-wallpapers`
+
+    // The three slots: their per-variant list and the setting they drive.
+    readonly property var slots: ({
+        "main": { list: "themeWallpapers", setting: "wallpaperPath" },
+        "lock": { list: "themeLockWallpapers", setting: "lockWall" },
+        "login": { list: "themeLoginWallpapers", setting: "greeterWall" }
+    })
+
+    function parse(entries) {
         const out = {};
-        for (const e of Config.options?.appearance?.themeWallpapers ?? []) {
-            const i = String(e).indexOf("=");
-            if (i > 0 && i < String(e).length - 1) out[String(e).slice(0, i)] = String(e).slice(i + 1);
+        for (const e of entries ?? []) {
+            const s = String(e);
+            const i = s.indexOf("=");
+            if (i > 0 && i < s.length - 1) out[s.slice(0, i)] = s.slice(i + 1);
         }
         return out;
     }
-    function store(map) {
-        Config.options.appearance.themeWallpapers = Object.keys(map).sort().map(k => `${k}=${map[k]}`);
+    readonly property var map: root.parse(Config.options?.appearance?.themeWallpapers)
+    readonly property var lockMap: root.parse(Config.options?.appearance?.themeLockWallpapers)
+    readonly property var loginMap: root.parse(Config.options?.appearance?.themeLoginWallpapers)
+    function mapOf(slot) {
+        return slot === "lock" ? root.lockMap : slot === "login" ? root.loginMap : root.map;
+    }
+    function listPinned(slot) {
+        return NixManaged.isPinned(`appearance.${root.slots[slot].list}`);
+    }
+    function settingPinned(slot) {
+        return NixManaged.isPinned(`background.${root.slots[slot].setting}`);
+    }
+    // For the Settings row (the desktop list).
+    readonly property bool pinned: root.listPinned("main")
+
+    function store(slot, map) {
+        Config.options.appearance[root.slots[slot].list] = Object.keys(map).sort().map(k => `${k}=${map[k]}`);
         Config.save();
     }
-    readonly property bool pinned: NixManaged.isPinned("appearance.themeWallpapers")
-    readonly property string key: Themes.current + (Themes.variant ? `/${Themes.variant}` : "")
-    readonly property string wallpaper: Config.options?.background?.wallpaperPath ?? ""
-    readonly property string copiesDir: `${FileUtils.trimFileProtocol(Directories.state)}/user/theme-wallpapers`
+    // `path` "" forgets the entry.
+    function remember(slot, key, path) {
+        if (root.listPinned(slot) || !key)
+            return;
+        const current = root.mapOf(slot);
+        if ((current[key] ?? "") === (path ?? ""))
+            return;
+        const next = Object.assign({}, current);
+        if (path)
+            next[key] = path;
+        else
+            delete next[key];
+        root.store(slot, next);
+    }
 
-    // The key the current wallpaper belongs to ("" until the config is read).
+    readonly property string wallpaper: Config.options?.background?.wallpaperPath ?? ""
+    readonly property string lockWall: Config.options?.background?.lockWall ?? ""
+    readonly property string greeterWall: Config.options?.background?.greeterWall ?? ""
+
+    // The key the current wallpapers belong to ("" until the config is read).
     property string _lastKey: ""
-    // A wallpaper we are applying: not "picked" by the user.
+    // A desktop wallpaper we are applying: not "picked" by the user.
     property string _applying: ""
+    // Lock/login wallpapers being put back by a switch: not "picked" either.
+    property bool _switching: false
 
     function load() {}
 
-    // What entering `key` shows: remembered, else the variant's default.
+    // What entering `key` shows on the desktop: remembered, else the
+    // variant's default.
     function wallpaperFor(key) {
         const remembered = root.map?.[key] ?? "";
         if (remembered !== "")
@@ -62,25 +114,57 @@ Singleton {
         return bundled !== "" ? { path: bundled, bundled: true } : null;
     }
 
-    function remember(key, path) {
-        if (root.pinned || !key || !path || root.map?.[key] === path)
+    // Settings buttons, for the current variant: the desktop "use the current
+    // one" / reset to its default (path ""); the lock and login screens
+    // unset (they follow the desktop / the lock screen again).
+    function setForCurrent(path) {
+        root.remember("main", root.key, path ?? "");
+        // Unset: the variant's own default right away (none: stays).
+        if (!path)
+            root.applyFor(root.key);
+    }
+    // Settings table: `slot` ("main", "lock", "login") of `key` set to `path`
+    // ("" unsets it); applied right away when `key` is the current variant.
+    function setFor(slot, key, path) {
+        root.remember(slot, key, path ?? "");
+        if (key !== root.key)
             return;
-        const next = Object.assign({}, root.map);
-        next[key] = path;
-        root.store(next);
+        if (slot === "main") {
+            if (path)
+                root.apply(path);
+            else
+                root.applyFor(key);
+        } else if (!root.settingPinned(slot)) {
+            root.setSetting(slot, path ?? "");
+        }
+    }
+    // Every key of the table: "<theme>" or "<theme>/<variant>".
+    readonly property var allKeys: {
+        const out = [];
+        for (const t of Themes.list) {
+            if ((t.variants ?? []).length === 0)
+                out.push({ key: t.id, name: t.name, icon: t.icon });
+            else
+                for (const v of t.variants)
+                    out.push({ key: `${t.id}/${v.id}`, name: v.name, icon: v.icon });
+        }
+        return out;
     }
 
-    // This variant's wallpaper: the current one (Settings button), or
-    // back to its default (empty).
-    function setForCurrent(path) {
-        if (root.pinned)
-            return;
-        const next = Object.assign({}, root.map);
-        if (path)
-            next[root.key] = path;
-        else
-            delete next[root.key];
-        root.store(next);
+    function unsetLock() {
+        root.remember("lock", root.key, "");
+        if (!root.settingPinned("lock"))
+            root.setSetting("lock", "");
+    }
+    function unsetLogin() {
+        root.remember("login", root.key, "");
+        if (!root.settingPinned("login"))
+            root.setSetting("login", "");
+    }
+    function setSetting(slot, value) {
+        root._switching = true;
+        Config.options.background[root.slots[slot].setting] = value;
+        root._switching = false;
     }
 
     // Applied a moment later: switchwall.sh rewrites config.json from what
@@ -101,7 +185,25 @@ Singleton {
     }
 
     function switchTo(fromKey, toKey) {
-        root.remember(fromKey, root.wallpaper);
+        // Remember what the variant we leave had (lock/login "" = following).
+        root.remember("main", fromKey, root.wallpaper);
+        root.remember("lock", fromKey, root.lockWall);
+        root.remember("login", fromKey, root.greeterWall);
+
+        // The lock and login screens of the variant we enter (none: follow).
+        for (const slot of ["lock", "login"]) {
+            if (root.settingPinned(slot))
+                continue;
+            const target = root.mapOf(slot)[toKey] ?? "";
+            if ((Config.options.background[root.slots[slot].setting] ?? "") !== target)
+                root.setSetting(slot, target);
+        }
+
+        root.applyFor(toKey);
+    }
+
+    // The desktop wallpaper of `toKey` (remembered, else its default).
+    function applyFor(toKey) {
         const target = root.wallpaperFor(toKey);
         if (!target)
             return;
@@ -137,7 +239,11 @@ Singleton {
         }
         const from = root._lastKey;
         root._lastKey = root.key;
-        root.switchTo(from, root.key);
+        // Once the settings have settled: when config.json is reloaded (an
+        // edit, a Home Manager activation) the variant can change before the
+        // file's other values are read back.
+        const to = root.key;
+        Qt.callLater(() => root.switchTo(from, to));
     }
     Connections {
         target: Config
@@ -148,7 +254,7 @@ Singleton {
     }
     Component.onCompleted: if (Config.ready) root._lastKey = root.key
 
-    // A wallpaper picked while in a variant becomes that variant's.
+    // Wallpapers picked while in a variant become that variant's.
     onWallpaperChanged: {
         if (!Config.ready || !root.enabled || root.wallpaper === "")
             return;
@@ -157,6 +263,20 @@ Singleton {
                 root._applying = "";
             return;
         }
-        root.remember(root.key, root.wallpaper);
+        root.remember("main", root.key, root.wallpaper);
+    }
+    // Learnt once the settings have settled (not mid-reload, not while a
+    // switch is putting a variant's wallpapers back).
+    onLockWallChanged: {
+        if (Config.ready && root.enabled && !root._switching) {
+            const key = root.key;
+            Qt.callLater(() => { if (root.key === key) root.remember("lock", key, root.lockWall); });
+        }
+    }
+    onGreeterWallChanged: {
+        if (Config.ready && root.enabled && !root._switching) {
+            const key = root.key;
+            Qt.callLater(() => { if (root.key === key) root.remember("login", key, root.greeterWall); });
+        }
     }
 }
