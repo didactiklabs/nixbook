@@ -442,6 +442,24 @@ in
       '';
     };
 
+    calendar.package = lib.mkOption {
+      type = lib.types.nullOr lib.types.package;
+      default = null;
+      example = lib.literalExpression "dankcalendar";
+      description = ''
+        [DankCalendar](https://github.com/AvengeMedia/dankcalendar) (`dcal`),
+        whose events the calendar widgets (sidebar and desktop) show. Its
+        daemon runs as the `dcal` user service and keeps the accounts in sync:
+        Google (with its own built-in OAuth client, so no Google Cloud project
+        is needed), Microsoft, CalDAV, iCloud, iCal feeds and local calendars.
+        Add one with `dcal account add google` (or from its window), once;
+        events are created and edited in its window (the calendar's
+        "Open calendar app" button), which syncs them back.
+
+        `null` (the default): no events, a plain calendar.
+      '';
+    };
+
     assistant = {
       context = lib.mkOption {
         type = lib.types.lines;
@@ -667,7 +685,8 @@ in
       # Condensed display face used by the optional Persona style
       # (appearance.persona.fonts) for titles and numbers.
       pkgs.oswald
-    ];
+    ]
+    ++ lib.optional (cfg.calendar.package != null) cfg.calendar.package;
 
     # The shell writes its settings, generated Material You palette and
     # wallpaper state into these; nothing creates them for us on a fresh user.
@@ -726,6 +745,28 @@ in
       };
       Service = {
         ExecStart = lib.getExe cfg.package;
+        # services/CalendarEvents.qml reads the events from this dcal.
+        Environment = lib.optional (
+          cfg.calendar.package != null
+        ) "NIXBOOK_SHELL_DCAL=${lib.getExe cfg.calendar.package}";
+        Restart = "on-failure";
+        RestartSec = 2;
+        Slice = "app.slice";
+      };
+      Install.WantedBy = [ "graphical-session.target" ];
+    };
+
+    # DankCalendar's daemon (sync, reminders, tray icon; its window opens on
+    # demand), as its own dcal.service does. It finds its UI's `qs` on PATH:
+    # the quickshell installed above.
+    systemd.user.services.dcal = lib.mkIf (cfg.calendar.package != null) {
+      Unit = {
+        Description = "DankCalendar (calendar sync for nixbook-shell)";
+        PartOf = [ "graphical-session.target" ];
+        After = [ "graphical-session.target" ];
+      };
+      Service = {
+        ExecStart = "${lib.getExe cfg.calendar.package} run --session --hidden";
         Restart = "on-failure";
         RestartSec = 2;
         Slice = "app.slice";
