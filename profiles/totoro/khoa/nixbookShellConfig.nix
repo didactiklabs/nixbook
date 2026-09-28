@@ -27,20 +27,28 @@
         "Alan Amoyel"
         # About me: mentions and answers to my messages, only in the last
         # message (a title or earlier line holding my name is my own
-        # conversation or message), and not in mail (newsletters say
-        # "Hi Victor" too).
+        # conversation or message), and not in mail (newsletters and account
+        # mails say "Hi Victor" too): Thunderbird, or Gmail mirrored from the
+        # phone (KDE Connect, title "Gmail").
         "last:\"@vtk_hg\""
         "last:\"@victortk\""
-        "last:Victor Tiến Khoa + !app:Thunderbird"
-        "last:Victor Hang + !app:Thunderbird"
-        "last:ビクタ + !app:Thunderbird"
+        "last:Victor Tiến Khoa + !app:Thunderbird + !title:Gmail"
+        "last:Victor Hang + !app:Thunderbird + !title:Gmail"
+        "last:ビクタ + !app:Thunderbird + !title:Gmail"
         "last:mentioned you"
         "last:tagged you"
         "last:replied to you"
         "last:your message"
       ];
+      # Reactions and likes (Instagram "Liked your message", "Reacted 😂 to
+      # your message"), from anyone, friends included: a normal notification
+      # is enough. "line:" is the newest message only (the thread's last
+      # line), so a like earlier in the thread doesn't veto a real message.
       # My own messages: the last message is sent by me.
       blacklist = [
+        "line:Liked your message"
+        "line:Liked a message"
+        "line:\"Reacted\" + line:\"to\""
         "last:^\"You:\""
         "last:^\"Vous:\""
         "last:^\"Bạn:\""
