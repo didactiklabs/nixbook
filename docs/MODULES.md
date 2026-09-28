@@ -706,14 +706,14 @@ Whether to enable per-user Niri compositor configuration. Manages the full Niri 
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable nixbook-shell, nixbook's Quickshell (QML) desktop shell (forked from end-4's illogical-impulse via pctrade/end4-pC; packaged in customPkgs/nixbook-shell). This is an alternative to DankMaterialShell (`dmsConfig`) — the two are mutually exclusive, since both draw a top bar, own the lock screen and register overlapping layer-shell surfaces. Flip `dmsConfig.enable` off when turning this on. The shell runs as the `nixbook-shell` user service, bound to `graphical-session.target`. Works under niri and Hyprland; under niri every panel is driven through `nixbook-shell ipc call <target> <function>` keybinds (homeManagerModules/niri/niriConfig.nix, KEYBINDS.md).
+Whether to enable nixbook-shell, nixbook's Quickshell (QML) desktop shell (`programs.nixbook-shell`, packaged in nixbook-shell/), with the settings shared by every nixbook machine (nixbookShellConfig/settings.nix, as defaults a profile's `nixbookShellConfig.settings` override key by key). This is an alternative to DankMaterialShell (`dmsConfig`) — the two are mutually exclusive, since both draw a top bar, own the lock screen and register overlapping layer-shell surfaces. Flip `dmsConfig.enable` off when turning this on. The shell runs as the `nixbook-shell` user service, bound to `graphical-session.target`. Works under niri and Hyprland; under niri every panel is driven through `nixbook-shell ipc call <target> <function>` keybinds (homeManagerModules/niri/niriConfig.nix, KEYBINDS.md).
 
 ### `customHomeManagerModules.nixbookShellConfig.settings`
 
 - **Type:** `submodule`
-- **Default:** `{}`
+- **Default:** `*none*`
 
-nixbook-shell settings (the dot-paths of `~/.config/nixbook-shell/config.json`, as nested attributes). Every key set here is applied on each activation and **locked** in the shell's Settings menu (red lock, control disabled); every key left unset stays editable from the menu and persists across restarts, reboots and switches. Removing a key unlocks it in the running shell after the next switch. Shared values live in `homeManagerModules/nixbookShellConfig/settings.nix` (set here as defaults, so a profile overrides them key by key). The keys are typed options generated from the shell's built-in defaults (`customPkgs/nixbook-shell/builtin-defaults.json`), so a misspelt key fails evaluation. `nixbook-shell config diff` prints the settings changed from the menu as Nix lines; `nixbook-shell config pinned` lists the locked keys. Runtime state (wallpaper path, accent colour, avatar, preset metadata) has no option: the shell and its scripts own it.
+Alias of {option}`programs.nixbook-shell.settings`.
 
 ---
 

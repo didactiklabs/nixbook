@@ -12,7 +12,8 @@
       referenced somewhere (an unimported module silently does nothing);
     - packages.<name>: every custom package in customPkgs/ instantiates (its .drv evaluates),
       including the ones no profile uses;
-    - shellLib: unit tests of the nixbook-shell settings helpers (customPkgs/nixbook-shell/lib.nix).
+    - shellLib: unit tests of the nixbook-shell settings helpers (nixbook-shell/tests/lib.nix);
+    - shellStandalone: nixbook-shell/ evaluates on its own (nixbook-shell/tests/standalone.nix).
 */
 let
   sources = import ../npins;
@@ -119,127 +120,14 @@ let
   customPkgFiles = nixFilesIn ../customPkgs;
   customPkgDirs = dirsIn ../customPkgs;
 
-  # -- nixbook-shell settings helpers ------------------------------------------
-  shellLib = import ../customPkgs/nixbook-shell/lib.nix { inherit lib; };
-  typeName = v: (shellLib.settingType v).description;
-  inherit (lib) types;
-  evalSettings =
-    settings:
-    (lib.evalModules {
-      modules = [
-        shellLib.settingsModule
-        { config = settings; }
-      ];
-    }).config;
-  fails = x: !(builtins.tryEval (builtins.deepSeq x x)).success;
-  leafCount =
-    set:
-    lib.foldl' (n: v: n + (if builtins.isAttrs v && v != { } then leafCount v else 1)) 0 (
-      lib.attrValues set
-    );
-  flatDefaults = shellLib.flattenPaths [ ] shellLib.builtinDefaults;
-
-  shellLibFailures = lib.runTests {
-    testSettingTypeBool = {
-      expr = typeName true;
-      expected = types.bool.description;
-    };
-    testSettingTypeInt = {
-      expr = typeName 3;
-      expected = types.number.description;
-    };
-    testSettingTypeFloat = {
-      expr = typeName 0.5;
-      expected = types.number.description;
-    };
-    testSettingTypeString = {
-      expr = typeName "x";
-      expected = types.str.description;
-    };
-    testSettingTypeStringList = {
-      expr = typeName [
-        "a"
-        "b"
-      ];
-      expected = (types.listOf types.str).description;
-    };
-    testSettingTypeMixedList = {
-      expr = typeName [
-        1
-        "a"
-      ];
-      expected = (types.listOf types.anything).description;
-    };
-    testSettingTypeEmptyList = {
-      expr = typeName [ ];
-      expected = (types.listOf types.anything).description;
-    };
-    testSetLeavesDropsNullsAndEmptyBranches = {
-      expr = shellLib.setLeaves {
-        a = null;
-        b = {
-          c = null;
-          d = {
-            e = null;
-          };
-        };
-        f = {
-          g = 1;
-          h = null;
-        };
-        i = false;
-        j = [ ];
-      };
-      expected = {
-        f.g = 1;
-        i = false;
-        j = [ ];
-      };
-    };
-    testFlattenPaths = {
-      expr = sorted (
-        shellLib.flattenPaths [ ] {
-          bar.layouts.left = [ "a" ];
-          dock.enable = true;
-          x = 1;
-        }
-      );
-      expected = [
-        "bar.layouts.left"
-        "dock.enable"
-        "x"
-      ];
-    };
-    testOneOptionPerDefaultLeaf = {
-      expr = lib.length flatDefaults;
-      expected = leafCount shellLib.builtinDefaults;
-    };
-    testLiveKeysAreNotSettings = {
-      expr = lib.filter (k: lib.elem k flatDefaults) shellLib.liveKeys;
-      expected = [ ];
-    };
-    testUnsetSettingsAreNull = {
-      expr = shellLib.setLeaves (evalSettings { });
-      expected = { };
-    };
-    testSettingRoundTrip = {
-      expr = shellLib.setLeaves (evalSettings {
-        ai.includeSystemContext = true;
-      });
-      expected = {
-        ai.includeSystemContext = true;
-      };
-    };
-    testMisspeltSettingFails = {
-      expr = fails (evalSettings {
-        bar.definitelyNotASetting = true;
-      });
-      expected = true;
-    };
-    testWronglyTypedSettingFails = {
-      expr = fails (evalSettings { ai.includeSystemContext = "yes"; }).ai.includeSystemContext;
-      expected = true;
-    };
+  # -- nixbook-shell -------------------------------------------------------------
+  # Its own tests (nixbook-shell/tests/lib.nix), plus proof that the directory
+  # is self-contained: copied alone to the store, it still builds its package
+  # and a Home Manager configuration using only its module.
+  shellLibFailures = import ../nixbook-shell/tests/lib.nix { inherit lib; };
+  standaloneShell = import ../nixbook-shell/tests/standalone.nix {
+    inherit pkgs;
+    homeManager = sources.home-manager;
   };
 
   check = what: ok: if ok then "ok" else throw "tests/repo.nix: ${what}";
@@ -252,6 +140,7 @@ in
   shellLib = check "nixbook-shell lib.nix unit tests failed:\n${
     lib.generators.toPretty { } shellLibFailures
   }" (shellLibFailures == [ ]);
+  shellStandalone = check "nixbook-shell/ is not self-contained" (standaloneShell == "ok");
   # Not a check: the node names, for CI's host matrix.
   inherit hiveNodes;
   packages = lib.genAttrs (map (lib.removeSuffix ".nix") customPkgFiles ++ customPkgDirs) (

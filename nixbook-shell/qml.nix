@@ -1,15 +1,14 @@
 { pkgs }:
-# nixbook-shell — nixbook's Quickshell (QML) desktop shell, an alternative to
-# DankMaterialShell (homeManagerModules/dmsConfig.nix). It started as a fork of
+# nixbook-shell's QML tree as installed (store-path fixups, Persona art). It started as a fork of
 # pctrade/end4-pC (https://github.com/pctrade/end4-pC), itself a fork of end-4's
 # illogical-impulse (https://github.com/end-4/dots-hyprland), and is maintained
 # here independently since (GPL-3.0, like upstream; src/LICENSE).
 #
-# VENDORED: the whole QML tree lives in-repo under customPkgs/nixbook-shell/src/ and
+# VENDORED: the whole QML tree lives under src/ and
 # is edited directly — this is a hard fork, no longer a live npins pin.
 #
 # All of our feature changes are baked into the vendored source (the former
-# postPatch scripts customPkgs/nixbook-shell-*.{py,go} are gone): the NixOS update
+# postPatch scripts nixbook-shell-*.{py,go} are gone): the NixOS update
 # port (services/UpdateState.qml, modules/ii/bar/UpdatesCount.qml + the About/
 # Services/Config rewires), the pointing-hand cursor sweep, the Nix-managed
 # settings support (modules/common/NixManaged.qml + NixManagedBadge.qml +
@@ -18,7 +17,7 @@
 # bar widgets. The two upstream QML bug fixes (ThumbnailImage temp-file quoting,
 # niri MonitorConfigOption scale) are baked in too.
 #
-# To resync with upstream: diff customPkgs/nixbook-shell/src/ against a fresh checkout
+# To resync with upstream: diff src/ against a fresh checkout
 # of pctrade/end4-pC and merge by hand. Last synced from revision
 # 0ff392bc69bdda1d795819c4bb8ec65e2b3658df.
 #
@@ -26,7 +25,7 @@
 # handful of transforms that reference Nix store paths (matugen config, the
 # python interpreter, the hyprctl→niri monitor shim, the thumbgen typelib) plus
 # the venv activate/deactivate neutralisation. Runtime *binaries* are injected
-# via PATH by the `nixbook-shell` launcher (default.nix)
+# via PATH by the `nixbook-shell` launcher (package.nix)
 # (upstream calls ~40 different tools and probes most with `command -v`).
 let
   inherit (pkgs) lib;

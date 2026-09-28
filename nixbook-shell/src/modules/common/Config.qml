@@ -955,7 +955,7 @@ Singleton {
             property JsonObject updates: JsonObject {
                 property bool enableCheck: true
                 property int checkInterval: 120 // minutes
-                property string repoUrl: "https://github.com/didactiklabs/nixbook"
+                property string repoUrl: "" // NixOS configuration repository to compare /etc/nixos/version with; empty = no check
             }
             
             property JsonObject wallpaperSelector: JsonObject {

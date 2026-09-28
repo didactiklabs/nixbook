@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Tests for the nixbook-shell helper scripts (customPkgs/nixbook-shell/scripts):
+# Tests for the nixbook-shell helper scripts (scripts/):
 #   - config-merge.jq: the JSON -> Nix printers must round-trip through Nix;
 #   - config-tool.sh: `nixbook-shell config diff|pinned|dump|path` on fixtures;
 #   - assistant-facts.py: fact file structure and keybind descriptions.
-# Needs bash, jq, python3 and nix-instantiate. Run: tests/run.sh shell
+# Needs bash, jq, python3 and nix-instantiate. Run: bash tests/scripts.sh
 # The jq programs are single-quoted on purpose: `$n`, `$a`, ... are jq variables.
 # shellcheck disable=SC2016
 set -euo pipefail
 
-repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-scripts="$repo/customPkgs/nixbook-shell/scripts"
-builtin="$repo/customPkgs/nixbook-shell/builtin-defaults.json"
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+scripts="$root/scripts"
+builtin="$root/builtin-defaults.json"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
@@ -94,7 +94,7 @@ export NIXBOOK_SHELL_MERGE_JQ="$scripts/config-merge.jq"
 export NIXBOOK_SHELL_BUILTIN="$builtin"
 export NIXBOOK_SHELL_LIVE_KEYS="$tmp/live-keys.json"
 nix-instantiate --eval --strict --json \
-  --expr "(import $repo/customPkgs/nixbook-shell/lib.nix { lib = (import (import $repo/npins).nixpkgs { }).lib; }).liveKeys" \
+  --expr "(import $root/lib.nix { lib = (import (import $root/npins).nixpkgs { }).lib; }).liveKeys" \
   >"$NIXBOOK_SHELL_LIVE_KEYS"
 config_tool() { bash "$scripts/config-tool.sh" "$@"; }
 
@@ -155,10 +155,13 @@ cat >"$tmp/info.json" <<'EOF'
 {
   "host": "testhost",
   "user": "tester",
-  "osEnabled": ["core", "niri"],
-  "osAll": ["core", "niri", "sway"],
-  "hmEnabled": ["gitConfig"],
-  "hmAll": ["gitConfig", "zshConfig"],
+  "coreFacts": [
+    {"en": "Apply with switch in profiles/testhost/tester/default.nix.", "fr": "fr", "de": "de", "vi": "vi"}
+  ],
+  "modules": {
+    "all": ["niri", "core", "gitConfig", "sway", "zshConfig", "core"],
+    "enabled": ["niri", "core", "gitConfig"]
+  },
   "pinned": {"bar.bottom": true, "ai.model": "x"},
   "packages": ["git", "foo.desktop", "bar.sh", "ripgrep"],
   "settingPaths": ["b.x", "a.y", "a.y"]
@@ -190,7 +193,8 @@ if facts=$(python3 "$scripts/assistant-facts.py" "$tmp/info.json" "$tmp/binds.kd
   check_facts "one fact per keybind" '[.kinds[] | select(startswith("bind:"))] | length == 8'
   check_facts "host and user are carried over" '.host == "testhost" and .user == "tester"'
   check_facts "desktop entries and scripts are not listed as packages" '.packages == ["git","ripgrep"]'
-  check_facts "modules are merged and sorted" '.modules.all == ["core","gitConfig","niri","sway","zshConfig"] and .modules.enabled == ["core","gitConfig","niri"]'
+  check_facts "core facts are carried over" '[.kinds[] | select(. == "core")] | length == 1'
+  check_facts "modules are deduplicated and sorted" '.modules.all == ["core","gitConfig","niri","sway","zshConfig"] and .modules.enabled == ["core","gitConfig","niri"]'
   check_facts "setting paths are deduplicated and sorted" '.settingPaths == ["a.y","b.x"]'
   check_facts "pinned settings become facts" '[.kinds[] | select(. == "setting")] | length == 2'
   for want in \

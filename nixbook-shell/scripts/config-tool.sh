@@ -3,7 +3,7 @@
 # variables, not shell ones.
 # shellcheck disable=SC2016
 # `nixbook-shell config <command>` — inspect how the live nixbook-shell settings relate to
-# the Nix module. Paths are injected by the launcher (customPkgs/nixbook-shell/default.nix):
+# the Nix module. Paths are injected by the launcher (package.nix):
 #   NIXBOOK_SHELL_MERGE_JQ NIXBOOK_SHELL_BUILTIN NIXBOOK_SHELL_LIVE_KEYS
 #   NIXBOOK_SHELL_SHELL NIXBOOK_SHELL_QS NIXBOOK_SHELL_QML_PATH (for `builtin`)
 set -euo pipefail
@@ -20,9 +20,8 @@ Usage: nixbook-shell config <command>
 
   diff      Settings changed from the menu: live values that differ from the
             shell's built-in defaults and are not set in Nix, printed as Nix
-            lines. Paste them into `nixbookShellConfig.settings` (or the shared
-            homeManagerModules/nixbookShellConfig/settings.nix) to set them in Nix —
-            they are then locked in the menu.
+            lines. Paste them into `programs.nixbook-shell.settings` to set
+            them in Nix — they are then locked in the menu.
   pinned    Keys set in Nix (locked in the Settings menu).
   dump      Every live value that differs from the built-in defaults, as a
             Nix attrset (a starting point for settings.nix; `dump --json` for
@@ -30,7 +29,7 @@ Usage: nixbook-shell config <command>
   builtin   The shell's built-in default config (upstream Config.qml) as
             JSON, minus runtime-owned keys. The `settings` options are
             generated from it: after changing Config.qml, run
-              nixbook-shell config builtin > customPkgs/nixbook-shell/builtin-defaults.json
+              nixbook-shell config builtin > nixbook-shell/builtin-defaults.json
             (needs the graphical session; opens no window).
   path      Print the config and lock-manifest locations.
 USAGE
@@ -109,7 +108,7 @@ dump)
   if [ "${2:-}" = "--json" ]; then
     jqc "$changed"' | reduce .[] as $p ({}; setpath($p; $live[0] | getpath($p)))'
   else
-    echo "# nixbook-shell settings that differ from the built-in defaults — see homeManagerModules/nixbookShellConfig/settings.nix."
+    echo "# nixbook-shell settings that differ from the built-in defaults — paste into programs.nixbook-shell.settings."
     jqc "$changed"' | reduce .[] as $p ({}; setpath($p; $live[0] | getpath($p))) | nixpp("")'
   fi
   ;;

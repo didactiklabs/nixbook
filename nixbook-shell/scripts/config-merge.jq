@@ -26,8 +26,8 @@ def tonix:
 
 def nixline($p; $v): ($p | map(nixkey) | join(".")) + " = " + ($v | tonix) + ";";
 
-# Multi-line Nix expression for a JSON value (`nixbook-shell config dump`, for
-# homeManagerModules/nixbookShellConfig/settings.nix).
+# Multi-line Nix expression for a JSON value (`nixbook-shell config dump`, a
+# starting point for a `programs.nixbook-shell.settings` file).
 def nixpp($ind):
   if type == "object" then
     if length == 0 then "{ }"
