@@ -18,8 +18,9 @@ StyledPopup {
         spacing: 8
         width: 340
 
-        Row {
-            width: parent.width
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 0
 
             StyledText {
                 text: Qt.locale().toString(root.today, " MMMM")
@@ -32,6 +33,13 @@ StyledPopup {
                 text: " " + Qt.locale().toString(root.today, "yyyy")
                 font.pixelSize: Appearance.font.pixelSize.huge
                 color: Appearance.colors.colOnSurfaceVariant
+            }
+
+            Item { Layout.fillWidth: true }
+
+            // DankCalendar: connect an account, or open it (events, tasks).
+            CalendarAccountButton {
+                size: 32
             }
         }
 
@@ -91,6 +99,82 @@ StyledPopup {
                                 : Appearance.colors.colOnLayer1
                         }
                     }
+
+                    // The day's events (CalendarEvents), up to three dots.
+                    Row {
+                        readonly property var events: CalendarEvents.eventsOn(date)
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 5
+                        spacing: 2
+                        Repeater {
+                            model: parent.events.slice(0, 3)
+                            delegate: Rectangle {
+                                required property var modelData
+                                width: 4
+                                height: 4
+                                radius: 2
+                                color: modelData.color || Appearance.colors.colPrimary
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Next events (the coming week), from DankCalendar.
+        Column {
+            id: nextUp
+            readonly property var events: CalendarEvents.upcoming(3)
+            Layout.fillWidth: true
+            spacing: 2
+            visible: events.length > 0
+
+            Repeater {
+                model: nextUp.events
+                delegate: Rectangle {
+                    required property var modelData
+                    required property int index
+                    readonly property bool isFirst: index === 0
+                    readonly property bool isLast: index === nextUp.events.length - 1
+                    readonly property real bigRadius: Appearance.rounding.normal
+                    readonly property real smallRadius: Appearance.rounding.unsharpenmore
+                    readonly property string fmt: Config.options?.time.format ?? "hh:mm"
+                    readonly property bool startsToday: CalendarEvents.dayKey(modelData.start) === CalendarEvents.dayKey(new Date())
+
+                    width: parent.width
+                    height: 32
+                    topLeftRadius:     isFirst ? bigRadius : smallRadius
+                    topRightRadius:    isFirst ? bigRadius : smallRadius
+                    bottomLeftRadius:  isLast  ? bigRadius : smallRadius
+                    bottomRightRadius: isLast  ? bigRadius : smallRadius
+                    color: Appearance.colors.colSurfaceContainerHigh
+
+                    Rectangle {
+                        id: eventColor
+                        anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
+                        width: 4
+                        height: 16
+                        radius: 2
+                        color: modelData.color || Appearance.colors.colPrimary
+                    }
+                    StyledText {
+                        id: eventWhen
+                        anchors { left: eventColor.right; leftMargin: 8; verticalCenter: parent.verticalCenter }
+                        text: modelData.allDay ? Translation.tr("All day")
+                            : (startsToday ? "" : Qt.locale().toString(modelData.start, "ddd") + " ")
+                              + Qt.locale().toString(modelData.start, fmt)
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        font.weight: Font.DemiBold
+                        color: Appearance.colors.colPrimary
+                    }
+                    StyledText {
+                        anchors { left: eventWhen.right; leftMargin: 8; right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
+                        text: modelData.summary
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colOnLayer1
+                        elide: Text.ElideRight
+                    }
                 }
             }
         }
@@ -127,12 +211,12 @@ StyledPopup {
 
                 Repeater {
                     id: todoRepeater
-                    model: Math.min(3, Todo.list.filter(t => !t.done).length)
+                    model: Todo.pending(3)
 
                     delegate: Rectangle {
                         required property int index
-                        readonly property var filteredList: Todo.list.filter(t => !t.done)
-                        readonly property var todo: filteredList[filteredList.length - 1 - index]
+                        required property var modelData
+                        readonly property var todo: modelData
                         readonly property int total: todoRepeater.count
                         readonly property bool isFirst: index === 0
                         readonly property bool isLast: index === total - 1

@@ -1,5 +1,31 @@
 {
   "pins": {
+    "dankcalendar": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "AvengeMedia",
+        "repo": "dankcalendar"
+      },
+      "branch": "master",
+      "submodules": false,
+      "revision": "161be60696e2dc2b80147eb51b46a7a75517d772",
+      "url": "https://github.com/AvengeMedia/dankcalendar/archive/161be60696e2dc2b80147eb51b46a7a75517d772.tar.gz",
+      "hash": "sha256-dIXQuotufps/E5AMtDhh7k2nacS4BhqZgUd0rycie/w="
+    },
+    "flake-compat": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "edolstra",
+        "repo": "flake-compat"
+      },
+      "branch": "master",
+      "submodules": false,
+      "revision": "5edf11c44bc78a0d334f6334cdaf7d60d732daab",
+      "url": "https://github.com/edolstra/flake-compat/archive/5edf11c44bc78a0d334f6334cdaf7d60d732daab.tar.gz",
+      "hash": "sha256-vNpUSpF5Nuw8xvDLj2KCwwksIbjua2LZCqhV1LNRDns="
+    },
     "nixpkgs": {
       "type": "Git",
       "repository": {

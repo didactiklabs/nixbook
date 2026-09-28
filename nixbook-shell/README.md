@@ -100,17 +100,25 @@ editable there. The options are generated from the built-in defaults
 - `nixbook-shell config builtin > builtin-defaults.json` — regenerate the
   defaults after changing `src/modules/common/Config.qml`
 
-### Calendar events
+### Calendars and to-do list
 
-With `programs.nixbook-shell.calendar.package` set to
-[DankCalendar](https://github.com/AvengeMedia/dankcalendar)'s package, its
-daemon runs as the `dcal` user service and the calendars show its events: dots
-on the days in the sidebar and desktop calendars, a day's events when you click
-it in the sidebar, and buttons to sync now and to open dcal's window (where
-events are created and edited, then synced back). dcal syncs Google (through
-its own built-in OAuth client: sign in once with `dcal account add google`,
-no Google Cloud project needed), Microsoft, CalDAV, iCloud, iCal feeds and
-local calendars.
+[DankCalendar](https://github.com/AvengeMedia/dankcalendar) (`dcal`) is part of
+the shell (`dankcalendar.nix`, on its PATH; its daemon is the `dcal` user
+service) and keeps every calendar surface in sync:
+
+- events: dots on the days of the sidebar, desktop and bar clock calendars,
+  the next events in the bar clock popup, a day's events when you click it in
+  the sidebar (with an "add event" button);
+- tasks: the to-do list (sidebar, desktop widget, bar clock popup, the
+  launcher's "add task") is the account's task list (Google Tasks…) once one
+  is connected, a local list before that (`src/services/Todo.qml`).
+
+Each of these widgets has the same account button: "Connect a Google account"
+until one is connected (the browser opens Google's login: dcal ships its own
+OAuth client, so no Google Cloud project is needed), then "Open DankCalendar"
+(events, tasks, the other accounts: Microsoft, CalDAV, iCloud, iCal feeds);
+right click syncs now. The assistant answers "how do I sync my Google
+calendar?" and the like (`assistant.howTo.calendar*`).
 
 The bar's update indicator compares `/etc/nixos/version` (JSON `{rev, branch}`)
 with `updates.repoUrl`; it stays idle while that is empty (the default).
@@ -145,6 +153,7 @@ isn't sure.
 | ------------------ | ---------------------------------------------------------------------------------- |
 | `default.nix`      | entry point (`package`, `homeManagerModules.default`, `lib`)                       |
 | `package.nix`      | the launcher: runtime `PATH`, QML import path, `config` CLI                        |
+| `dankcalendar.nix` | DankCalendar (`dcal`), the calendar and task sync, from `npins/`                   |
 | `qml.nix`          | the QML tree as installed (store-path fixups, Persona art)                         |
 | `quickshell.nix`   | Quickshell from `quickshellSrc` plus `patches/`                                    |
 | `lib.nix`          | typed settings options generated from `builtin-defaults.json`                      |
@@ -153,7 +162,7 @@ isn't sure.
 | `greeter.nix`      | the login screen (`nixbook-shell.greeter`, imported by it)                         |
 | `toggles.nix`      | discovers the `enable` toggles from an options tree                                |
 | `scripts/`         | `config` CLI, its jq library, assistant facts, Anthropic usage, login screen theme |
-| `npins/`           | default nixpkgs and quickshell pins                                                |
+| `npins/`           | default nixpkgs, quickshell, dankcalendar (+ flake-compat) pins                    |
 | `src/`             | the vendored QML tree (edited in place)                                            |
 | `tests/`           | script tests, lib unit tests, the self-containment check                           |
 

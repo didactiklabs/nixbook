@@ -350,6 +350,11 @@ AbstractBackgroundWidget {
                         text: root.viewingDate.toLocaleDateString(Qt.locale(), "MMMM yyyy")
                     }
 
+                    CalendarAccountButton {
+                        size: 26
+                        colIcon: Appearance.colors.colOnPrimaryContainer
+                    }
+
                     Rectangle {
                         implicitWidth: 26; implicitHeight: 26; radius: 13
                         color: "transparent"
@@ -450,16 +455,23 @@ AbstractBackgroundWidget {
                     Layout.fillHeight: true
                     spacing: 2
 
-                    MaterialShapeWrappedMaterialSymbol {
-                        shape: MaterialShape.Shape.Gem
-                        color: Appearance.colors.colPrimary
-                        colSymbol: Appearance.colors.colOnPrimary
-                        text: "calendar_month"
-                        iconSize: 22
-                        fill: 1
-                        padding: 6
-                        implicitWidth: 44
-                        implicitHeight: 44
+                    RowLayout {
+                        spacing: 6
+                        MaterialShapeWrappedMaterialSymbol {
+                            shape: MaterialShape.Shape.Gem
+                            color: Appearance.colors.colPrimary
+                            colSymbol: Appearance.colors.colOnPrimary
+                            text: "calendar_month"
+                            iconSize: 22
+                            fill: 1
+                            padding: 6
+                            implicitWidth: 44
+                            implicitHeight: 44
+                        }
+                        CalendarAccountButton {
+                            size: 30
+                            colIcon: Appearance.colors.colOnPrimaryContainer
+                        }
                     }
 
                     Item { Layout.fillHeight: true }
