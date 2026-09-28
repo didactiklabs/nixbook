@@ -112,7 +112,7 @@
           "palette": {
             "background": "#fcf9ff", "surface1": "#f6f0ff", "surface2": "#f0e8fe", "surface3": "#e9dffb", "surface4": "#e3d8f8",
             "onSurface": "#2d2540", "onSurfaceVariant": "#4a4063", "outline": "#6c6186", "outlineVariant": "#e0d6f1",
-            "primary": "#8466c4", "onPrimary": "#ffffff", "primaryContainer": "#efe5ff", "onPrimaryContainer": "#2c1a57",
+            "primary": "#9d85d4", "onPrimary": "#1f1438", "primaryContainer": "#dccbfa", "onPrimaryContainer": "#2c1a57",
             "secondary": "#857a9e", "onSecondary": "#ffffff", "secondaryContainer": "#ece5fa", "onSecondaryContainer": "#2a2140",
             "tertiary": "#b24f86", "onTertiary": "#ffffff", "tertiaryContainer": "#ffdcec", "onTertiaryContainer": "#4a0f2e",
             "error": "#ba1a1a", "onError": "#ffffff", "errorContainer": "#ffdad6", "onErrorContainer": "#410002",

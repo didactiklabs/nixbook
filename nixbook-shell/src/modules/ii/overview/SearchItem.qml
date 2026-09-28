@@ -45,11 +45,18 @@ RippleButton {
     implicitHeight: rowLayout.implicitHeight + root.buttonVerticalPadding * 2
     implicitWidth: rowLayout.implicitWidth + root.buttonHorizontalPadding * 2
     buttonRadius: Appearance.rounding.normal
-    colBackground: (root.down || root.keyboardDown) ? Appearance.colors.colPrimaryContainerActive : 
-        (selected ? Appearance.colors.colPrimaryContainer : 
+    // The selection is the primary container tinted with the accent, and
+    // outlined: the bare container is too close to the list background in
+    // several palettes (Persona 5: #111 on #1c1c1c; the pastel ones).
+    readonly property color colSelected: ColorUtils.mix(Appearance.colors.colPrimaryContainer, Appearance.colors.colPrimary, 0.7)
+    colBackground: (root.down || root.keyboardDown) ? ColorUtils.mix(Appearance.colors.colPrimaryContainer, Appearance.colors.colPrimary, 0.55) :
+        (selected ? root.colSelected :
         ColorUtils.transparentize(Appearance.colors.colPrimaryContainer, 1))
-    colBackgroundHover: Appearance.colors.colPrimaryContainer
+    colBackgroundHover: root.colSelected
     colRipple: Appearance.colors.colPrimaryContainerActive
+    border: root.selected
+    borderWidth: 1.5
+    colBorder: Appearance.colors.colPrimary
     property color colForeground: selected ? Appearance.colors.colOnPrimaryContainer : Appearance.m3colors.m3onSurface
 
     readonly property string highlightPrefix: `<u><font color="${Appearance.colors.colPrimary}">`
