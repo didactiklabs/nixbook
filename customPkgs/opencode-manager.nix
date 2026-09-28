@@ -6,7 +6,7 @@ let
   # upstream release it is based on so ocm's update check (which ignores the
   # `-…` suffix) doesn't report an update for the base it already includes.
   version =
-    opencodeManagerSrc.version or "v2.8.0-fork.${builtins.substring 0 7 opencodeManagerSrc.revision}";
+    opencodeManagerSrc.version or "v2.8.2-fork.${builtins.substring 0 7 opencodeManagerSrc.revision}";
 in
 pkgs.buildGoModule {
   pname = "opencode-manager";
