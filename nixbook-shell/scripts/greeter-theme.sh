@@ -85,10 +85,6 @@ theme=$(jq -n \
       titleFont: (if $persona and ($p.fonts != false) then "Oswald"
                   else font($cfg.appearance.fonts.title; "Roboto") end),
       mainFont: font($cfg.appearance.fonts.main; "Roboto"),
-      # Persona.qml: corner, borderWidth, shadowOffset per variant
-      corner: (if $variant == "p3r" then 3 else 1 end),
-      border: (if $variant == "p3r" then 2 else 3 end),
-      shadowOffset: (if $variant == "p3r" then 5 else 7 end),
       walls: [
         ($cfg.background.greeterWall // ""),
         "@default@",
@@ -143,17 +139,17 @@ fi
 # ---------------------------------------------------------------------- CSS
 c() { get ".colors.$1"; }
 shapes=$(get .shapes)
-corner=$(get .corner)
-border=$(get .border)
-offset=$(get .shadowOffset)
 if [ "$shapes" = true ]; then
-  radius="${corner}px"
-  field_radius="${corner}px"
-  button_radius="${corner}px"
-  card_border="${border}px solid @nb_frame_border"
-  card_shadow="${offset}px ${offset}px 0 0 @nb_shadow"
-  button_shadow="4px 4px 0 0 @nb_shadow"
-  stripe="border-top: $((border * 2 + 2))px solid @nb_stripe;"
+  # Persona.qml tokens: the cut (cornerLarge 18 on top-left and bottom-right,
+  # corner 6 elsewhere), a 1 px tonal outline, a soft accent glow offset by
+  # 4 px (blur 14, half opacity), the accent stripe as a pill on the top edge.
+  radius="18px 6px 18px 6px"
+  field_radius="8px"
+  button_radius="12px 4px 12px 4px"
+  card_border="1px solid alpha(@nb_frame_border, 0.3)"
+  card_shadow="4px 4px 14px 0 alpha(@nb_shadow, 0.5)"
+  button_shadow="3px 3px 10px 0 alpha(@nb_shadow, 0.45)"
+  stripe_layer="linear-gradient(to right, transparent 10%, @nb_stripe 10%, @nb_stripe 38%, transparent 38%)"
   title_style="font-style: italic; font-weight: 700; letter-spacing: 1px;"
 else
   radius="23px"
@@ -162,15 +158,30 @@ else
   card_border="1px solid alpha(@nb_frame_border, 0.6)"
   card_shadow="0 8px 28px 0 alpha(black, 0.45)"
   button_shadow="none"
-  stripe=""
+  stripe_layer=""
   title_style="font-weight: 600;"
 fi
+# Background layers of the card, top first: the accent stripe (a 4 px band
+# on the top edge), then the halftone art under a tint of the frame colour
+# (PersonaTexture at Persona.textureOpacity 0.45).
+layers=() sizes=() positions=()
+if [ -n "$stripe_layer" ]; then
+  layers+=("$stripe_layer") sizes+=("100% 4px") positions+=("top")
+fi
 if [ "$(get .halftone)" = true ]; then
-  # PersonaTexture: the art over the frame colour at 0.75 opacity.
-  texture="background-image: linear-gradient(alpha(@nb_frame, 0.25), alpha(@nb_frame, 0.25)), url(\"file://$NB_TEXTURES/$(get .variant)-panel.png\");
-  background-size: cover; background-position: center;"
-else
-  texture=""
+  layers+=("linear-gradient(alpha(@nb_frame, 0.55), alpha(@nb_frame, 0.55))" "url(\"file://$NB_TEXTURES/$(get .variant)-panel.png\")")
+  sizes+=("cover" "cover") positions+=("center" "center")
+fi
+texture=""
+if [ ${#layers[@]} -gt 0 ]; then
+  join() {
+    local IFS=,
+    echo "$*"
+  }
+  texture="background-image: $(join "${layers[@]}");
+  background-size: $(join "${sizes[@]}");
+  background-position: $(join "${positions[@]}");
+  background-repeat: no-repeat;"
 fi
 main_font=$(get .mainFont)
 title_font=$(get .titleFont)
@@ -220,7 +231,7 @@ window, window.background {
 }
 
 /* Login card and clock: the shell's panels (PersonaFrame in the Persona
-   style: bold border, hard offset shadow, accent stripe, halftone art). */
+   style: the Persona cut, accent glow, tonal outline, accent stripe, halftone art). */
 overlay > frame.background {
   background-color: @nb_frame;
   $texture
@@ -228,7 +239,6 @@ overlay > frame.background {
   border: $card_border;
   border-radius: $radius;
   box-shadow: $card_shadow;
-  $stripe
 }
 overlay > frame.background:nth-child(2) {
   padding: 10px 14px;
@@ -238,7 +248,6 @@ overlay > frame.background:nth-child(3) {
   margin-top: 28px;
   padding: 8px 28px;
   border-radius: $radius;
-  border-top-width: $([ "$shapes" = true ] && echo "$((border * 2 + 2))px" || echo "1px");
 }
 overlay > frame.background:nth-child(3) label {
   font-family: "$title_font", "$main_font", sans-serif;

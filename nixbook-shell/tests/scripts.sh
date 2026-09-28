@@ -302,7 +302,8 @@ greeter_theme p3r '{"appearance":{"persona":{"enable":true,"variant":"p3r"}}}'
 css=$(cat "$tmp/greeter/p3r/regreet.css")
 expect_contains "greeter-theme.sh: Persona variant palette" "$css" "@define-color nb_primary #3fd4ff;"
 expect_contains "greeter-theme.sh: Persona halftone art" "$css" 'url("file:///textures/p3r-panel.png")'
-expect_contains "greeter-theme.sh: Persona hard shadow" "$css" "box-shadow: 5px 5px 0 0 @nb_shadow;"
+expect_contains "greeter-theme.sh: Persona accent glow" "$css" "box-shadow: 4px 4px 14px 0 alpha(@nb_shadow, 0.5);"
+expect_contains "greeter-theme.sh: Persona cut corners" "$css" "border-radius: 18px 6px 18px 6px;"
 expect_contains "greeter-theme.sh: Persona display font" "$css" '"Oswald"'
 
 greeter_theme material '{"appearance":{"persona":{"enable":false,"variant":"p3r"}}}' '{"primary":"#123456"}'

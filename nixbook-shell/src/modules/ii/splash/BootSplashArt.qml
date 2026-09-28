@@ -2,6 +2,7 @@ import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Layouts
 
 /**
@@ -90,29 +91,32 @@ Item {
             styleColor: Persona.shadowColor
         }
 
-        // Progress: a slanted accent bar in the Persona style, a
+        // Progress: a slanted accent pill with a glow in the Persona style, a
         // rounded Material one otherwise.
         Item {
+            id: bar
             Layout.fillWidth: true
             implicitHeight: 14
-            Rectangle {
+            // Slant of the Persona bar (x shear), about its vertical center.
+            readonly property real lean: Persona.shapes ? -0.25 : 0
+            RectangularShadow {
                 visible: Persona.shapes
-                x: Persona.shadowOffset
-                y: Persona.shadowOffset
-                width: parent.width
-                height: parent.height
-                color: Persona.shadowColor
-                transform: Matrix4x4 { matrix: Qt.matrix4x4(1, -0.4, 0, 0.4 * 7, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1) }
+                anchors.fill: track
+                radius: track.radius
+                offset: Qt.vector2d(Persona.shadowOffset, Persona.shadowOffset)
+                blur: Persona.shadowBlur
+                color: Persona.elevationColor
+                transform: Matrix4x4 { matrix: Qt.matrix4x4(1, bar.lean, 0, -bar.lean * bar.height / 2, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1) }
             }
             Rectangle {
                 id: track
                 anchors.fill: parent
-                radius: Persona.shapes ? 0 : height / 2
-                color: Persona.shapes ? Persona.spec.frame : Appearance.colors.colSecondaryContainer
-                border.width: Persona.shapes ? 2 : 0
-                border.color: Persona.frameBorderColor
+                radius: height / 2
+                color: Persona.shapes ? Persona.spec.surface2 : Appearance.colors.colSecondaryContainer
+                border.width: Persona.shapes ? Persona.borderWidth : 0
+                border.color: Persona.outlineColor
                 clip: true
-                transform: Matrix4x4 { matrix: Qt.matrix4x4(1, Persona.shapes ? -0.4 : 0, 0, Persona.shapes ? 0.4 * 7 : 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1) }
+                transform: Matrix4x4 { matrix: Qt.matrix4x4(1, bar.lean, 0, -bar.lean * bar.height / 2, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1) }
                 Rectangle {
                     id: fill
                     anchors { top: parent.top; bottom: parent.bottom }
