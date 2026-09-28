@@ -24,8 +24,6 @@ in
 
           Nerd Fonts (patched with icons for terminal use):
             - FiraCode Nerd Font
-            - Hack Nerd Font
-            - Iosevka Nerd Font
             - JetBrains Mono Nerd Font
 
           Regular fonts:
@@ -54,8 +52,6 @@ in
     };
     home.packages = with pkgs.nerd-fonts; [
       fira-code
-      hack
-      iosevka
       jetbrains-mono
       pkgs.inter
       pkgs.roboto

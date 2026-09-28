@@ -135,7 +135,7 @@ Whether to install the RPCU internal CA certificate system-wide. Adds assets/cer
 - **Type:** `boolean`
 - **Default:** `true`
 
-Whether to enable the core NixOS module. This is the foundational system module that configures: - Boot: systemd-boot UEFI loader, plymouth splash screen (silent boot: only errors on the console, no cursor), latest kernel, LVM support, LUKS dm-crypt modules, keyboard backlight on initrd, IOMMU, NTFS + exFAT filesystem support for external drives - Kernel hardening: sysctl security settings (restrict BPF, perf events, ICMP redirects, source routing, suid dumps, kexec, TTY ldisc autoload, mmap ASLR entropy, etc.) and boot parameters (slab_nomerge, page allocator randomisation) - Boot: kernel command-line editor disabled (systemd-boot and lanzaboote) - Locale: Europe/Paris timezone, en_US locale with fr_FR LC_ settings, French keyboard layout - Audio: PipeWire with ALSA and PulseAudio compatibility (PulseAudio disabled) - Hardware: firmware, Intel/AMD CPU microcode, Bluetooth (bluez), uinput - Security: rtkit, polkit, U2F PAM (login + sudo), passwordless sudo for wheel, sudo executable by wheel members only - XDG portals: wlr portal enabled for Wayland screen sharing - Nix daemon: lix package, weekly GC (7d retention), store optimisation at 03:45, nix-command + flakes features, custom S3 binary cache, OOM-managed nix-daemon slice - Display: xserver disabled (Wayland-only), fonts dir enabled - Env: NIXOS_OZONE_WL=1, NIXPKGS_ALLOW_UNFREE=1 - System state version: 24.05
+Whether to enable the core NixOS module. This is the foundational system module that configures: - Boot: systemd-boot UEFI loader, plymouth splash screen (silent boot: only errors on the console, no cursor), latest kernel, LVM support, LUKS dm-crypt modules, keyboard backlight on initrd, IOMMU, NTFS + exFAT filesystem support for external drives - Kernel hardening: sysctl security settings (restrict BPF, perf events, ICMP redirects, source routing, suid dumps, kexec, TTY ldisc autoload, mmap ASLR entropy, etc.) and boot parameters (slab_nomerge, page allocator randomisation) - Boot: kernel command-line editor disabled (systemd-boot and lanzaboote) - Locale: Europe/Paris timezone, en_US locale with fr_FR LC_ settings, French keyboard layout - Audio: PipeWire with ALSA and PulseAudio compatibility (PulseAudio disabled) - Hardware: firmware, Intel/AMD CPU microcode, Bluetooth (bluez), uinput - Security: rtkit, polkit, U2F PAM (login + sudo), passwordless sudo for wheel, sudo executable by wheel members only - XDG portals: enabled (backends come from the compositor modules) - Nix daemon: lix package, weekly GC (7d retention), store optimisation at 03:45, nix-command + flakes features, custom S3 binary cache, OOM-managed nix-daemon slice - Display: xserver disabled (Wayland-only), fonts dir enabled - Env: NIXOS_OZONE_WL=1, NIXPKGS_ALLOW_UNFREE=1 - System state version: 24.05
 
 ---
 
@@ -578,7 +578,7 @@ Whether to install the "Schnelle Umlaute" fcitx5 addon, which types umlauts and 
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable font installation and fontconfig defaults. Installs a curated set of fonts and sets system-wide defaults: Default font families (fontconfig): - Monospace: Roboto Mono - Sans-serif: Roboto - Serif: Roboto Serif - Emoji: Noto Color Emoji Nerd Fonts (patched with icons for terminal use): - FiraCode Nerd Font - Hack Nerd Font - Iosevka Nerd Font - JetBrains Mono Nerd Font Regular fonts: - Inter — clean sans-serif UI font - Roboto / Roboto Mono / Roboto Serif — primary font family - Material Design Icons — icon font used by DMS and other widgets - Font Awesome — icon font used by various bars and prompts Enables fonts.fontconfig so the user-level fontconfig cache is managed by Home Manager.
+Whether to enable font installation and fontconfig defaults. Installs a curated set of fonts and sets system-wide defaults: Default font families (fontconfig): - Monospace: Roboto Mono - Sans-serif: Roboto - Serif: Roboto Serif - Emoji: Noto Color Emoji Nerd Fonts (patched with icons for terminal use): - FiraCode Nerd Font - JetBrains Mono Nerd Font Regular fonts: - Inter — clean sans-serif UI font - Roboto / Roboto Mono / Roboto Serif — primary font family - Material Design Icons — icon font used by DMS and other widgets - Font Awesome — icon font used by various bars and prompts Enables fonts.fontconfig so the user-level fontconfig cache is managed by Home Manager.
 
 ---
 
@@ -862,6 +862,13 @@ Whether to install the `tools/notification-history` ocm module, which gives a wo
 - **Default:** `"/home/docs/.local/state/quickshell/user/notification-history.json"`
 
 Notification history file nixbook-shell writes (`Directories.notificationHistoryPath`).
+
+### `customHomeManagerModules.ocmConfig.opencodeSettings`
+
+- **Type:** `null or JSON value`
+- **Default:** `{"$schema":"https://opencode.ai/config.json","plugin":["opencode-claude-auth@latest"]}`
+
+Global OpenCode configuration shared by every workspace. Written to `~/.config/opencode-manager/opencode/opencode.json`, which ocm syncs one way into each workspace as `/home/debian/.config/opencode/opencode.json`. Copied as a regular file like `agentInstructions`, for the same reason. Defaults to the host's OpenCode plugins (the `opencodeConfig` auth plugins, including `opencode-claude-auth`), so workspaces authenticate the same way; OpenCode installs them on its first start in the workspace. Only the plugins are carried over: the host's providers (e.g. the local Ollama endpoint) are not reachable from a container. `null` leaves the file alone so it can be managed by hand.
 
 ### `customHomeManagerModules.ocmConfig.runtime`
 

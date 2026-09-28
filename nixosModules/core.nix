@@ -32,7 +32,7 @@ in
         - Hardware: firmware, Intel/AMD CPU microcode, Bluetooth (bluez), uinput
         - Security: rtkit, polkit, U2F PAM (login + sudo), passwordless sudo for wheel,
           sudo executable by wheel members only
-        - XDG portals: wlr portal enabled for Wayland screen sharing
+        - XDG portals: enabled (backends come from the compositor modules)
         - Nix daemon: lix package, weekly GC (7d retention), store optimisation at 03:45,
           nix-command + flakes features, custom S3 binary cache, OOM-managed nix-daemon slice
         - Display: xserver disabled (Wayland-only), fonts dir enabled
@@ -328,10 +328,9 @@ in
     console.keyMap = "fr";
 
     xdg = {
-      portal = {
-        enable = true;
-        wlr.enable = true;
-      };
+      # Backends are added per compositor: sway (nixpkgs module) and
+      # hyprland (portalPackage) bring the wlr portal, niri uses gnome + gtk.
+      portal.enable = true;
     };
 
     hardware = {
