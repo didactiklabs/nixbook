@@ -59,7 +59,11 @@ with `updates.repoUrl`; it stays idle while that is empty (the default).
 
 The AI chat and the config assistant can be told about the machine through
 `programs.nixbook-shell.assistant` (`context`, `coreFacts`, `modules`,
-`niriConfig`).
+`niriConfig`, `nixvim`). When nixvim's Home Manager module is enabled,
+`assistant.nixvim` defaults to its evaluated keymaps (`keymaps`,
+`keymapsOnEvents`, `lsp.keymaps`, `files.<name>.keymaps`) and leader, so the
+config assistant lists them ("all vim shortcuts") and looks them up ("what does
+<leader>ff do in vim?") as Neovim really gets them, overrides included.
 
 ## Layout
 

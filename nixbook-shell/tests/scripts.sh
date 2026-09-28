@@ -2,7 +2,7 @@
 # Tests for the nixbook-shell helper scripts (scripts/):
 #   - config-merge.jq: the JSON -> Nix printers must round-trip through Nix;
 #   - config-tool.sh: `nixbook-shell config diff|pinned|dump|path` on fixtures;
-#   - assistant-facts.py: fact file structure and keybind descriptions.
+#   - assistant-facts.py: fact file structure, keybind and Neovim keymap descriptions.
 # Needs bash, jq, python3 and nix-instantiate. Run: bash tests/scripts.sh
 # The jq programs are single-quoted on purpose: `$n`, `$a`, ... are jq variables.
 # shellcheck disable=SC2016
@@ -164,7 +164,18 @@ cat >"$tmp/info.json" <<'EOF'
   },
   "pinned": {"bar.bottom": true, "ai.model": "x"},
   "packages": ["git", "foo.desktop", "bar.sh", "ripgrep"],
-  "settingPaths": ["b.x", "a.y", "a.y"]
+  "settingPaths": ["b.x", "a.y", "a.y"],
+  "nvim": {
+    "leader": " ",
+    "localLeader": null,
+    "keymaps": [
+      {"key": "<leader>ff", "mode": "n", "action": "<cmd>Telescope find_files<cr>", "lua": false, "desc": null, "scope": null},
+      {"key": "<leader>ff", "mode": "n", "action": ":Overridden<CR>", "lua": false, "desc": null, "scope": null},
+      {"key": "gd", "mode": "", "action": "vim.lsp.buf.definition()", "lua": true, "desc": null, "scope": "event:LspAttach"},
+      {"key": "<C-a>", "mode": ["n", "x"], "action": "function() x() end", "lua": true, "desc": "Ask opencode…", "scope": null},
+      {"key": "<leader>m", "mode": "n", "action": ":MarkdownPreview<cr>", "lua": false, "desc": null, "scope": "filetype:markdown"}
+    ]
+  }
 }
 EOF
 cat >"$tmp/binds.kdl" <<'EOF'
@@ -208,6 +219,19 @@ if facts=$(python3 "$scripts/assistant-facts.py" "$tmp/info.json" "$tmp/binds.kd
     "profiles/testhost/tester/default.nix"; do
     expect_contains "assistant-facts.py: fact \"${want:0:48}\"" "$(jq -r '.facts[]' <<<"$facts")" "$want"
   done
+  check_facts "one fact per Neovim keymap, a later one for the same key replacing the earlier" \
+    '([.kinds[] | select(startswith("nvim:"))] | length) == 4 and (.nvim.keymaps | length) == 4'
+  check_facts "the Neovim leader is named" '.nvim.leader == "Space" and .nvim.localLeader == "\\"'
+  for want in \
+    "In Neovim (normal mode), <leader>ff: run :Overridden." \
+    "In Neovim (normal, visual, operator-pending mode, in buffers with an LSP server), gd: LSP: definition." \
+    "In Neovim (normal, visual mode), <C-a>: Ask opencode." \
+    "In Neovim (normal mode, in markdown files), <leader>m: run :MarkdownPreview." \
+    "In Neovim, the leader key (<leader>) is Space."; do
+    expect_contains "assistant-facts.py: fact \"${want:0:48}\"" "$(jq -r '.facts[]' <<<"$facts")" "$want"
+  done
+  md=$(python3 "$scripts/assistant-facts.py" --nvim-markdown "$tmp/info.json")
+  expect_contains "assistant-facts.py --nvim-markdown lists the keymaps" "$md" '- `gd` (normal, visual, operator-pending mode, in buffers with an LSP server): LSP: definition'
   check_facts "the composed move action is described" \
     '[.facts[] | select(startswith("Press Mod+Shift+Ctrl+Down to move "))] | length == 1'
 else

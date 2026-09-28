@@ -27,22 +27,77 @@ let
     paths = pinnedPaths;
   };
 
+  # Neovim keymaps from an evaluated nixvim configuration
+  # (`programs.nixvim`, when its Home Manager module is imported): read after
+  # every override, so they are the keys Neovim really gets. Only these
+  # fields are read (a keymap's removed `lua` option throws when touched).
+  nixvim = config.programs.nixvim or null;
+  nixvimEnabled = nixvim != null && (nixvim.enable or false);
+  nixvimKeymap =
+    scope: km:
+    let
+      action = km.action or null;
+      lspBuf = km.lspBufAction or null;
+    in
+    {
+      inherit (km) key;
+      inherit scope;
+      mode = km.mode or "n";
+      action =
+        if lspBuf != null then
+          "vim.lsp.buf.${lspBuf}()"
+        else if builtins.isAttrs action then
+          action.__raw or (builtins.toJSON action)
+        else
+          action;
+      lua = lspBuf != null || builtins.isAttrs action;
+      desc = km.options.desc or null;
+    };
+  # "after/ftplugin/markdown.lua" -> "filetype:markdown"
+  nixvimFileScope =
+    name:
+    let
+      ft = builtins.match "(after/)?ftplugin/([^/]+)\\.(lua|vim)" name;
+    in
+    if ft != null then "filetype:${builtins.elemAt ft 1}" else "file:${name}";
+  nixvimKeymaps = lib.optionals nixvimEnabled (
+    map (nixvimKeymap null) (nixvim.keymaps or [ ])
+    ++ lib.concatLists (
+      lib.mapAttrsToList (event: map (nixvimKeymap "event:${event}")) (nixvim.keymapsOnEvents or { })
+    )
+    ++ map (nixvimKeymap "event:LspAttach") (nixvim.lsp.keymaps or [ ])
+    ++ lib.concatLists (
+      lib.mapAttrsToList (name: file: map (nixvimKeymap (nixvimFileScope name)) (file.keymaps or [ ])) (
+        nixvim.files or { }
+      )
+    )
+  );
+
   names = pkgList: lib.unique (lib.sort lib.lessThan (map lib.getName pkgList));
   packages =
     config.home.packages ++ lib.optionals (osConfig != null) osConfig.environment.systemPackages;
 
+  # The Neovim keymaps, for scripts/assistant-facts.py.
+  nvimInfo = {
+    inherit (cfg.assistant.nixvim) leader localLeader keymaps;
+  };
+
   # Machine context for the Intelligence tab's system prompt
   # (services/Ai.qml appends it while ai.includeSystemContext is on), plus the
-  # niri keybinds when there are any. No secrets: it is a store path.
+  # niri keybinds and Neovim keymaps when there are any. No secrets: it is a
+  # store path.
   systemContextFile =
     pkgs.runCommand "nixbook-shell-system-context.md"
       {
         header = cfg.assistant.context;
         niriKdl = cfg.assistant.niriConfig;
+        info = builtins.toJSON { nvim = nvimInfo; };
         passAsFile = [
           "header"
           "niriKdl"
+          "info"
         ];
+        nativeBuildInputs = [ pkgs.python3 ];
       }
       ''
         cat "$headerPath" > "$out"
@@ -56,6 +111,7 @@ let
             printf '```\n'
           } >> "$out"
         fi
+        python3 ${./scripts/assistant-facts.py} --nvim-markdown "$infoPath" >> "$out"
       '';
 
   # The same, as retrievable one-sentence facts for the chat's config
@@ -74,6 +130,7 @@ let
         packages = names packages;
         # Every setting the shell has (answers naming another are flagged).
         settingPaths = settingsLib.flattenPaths [ ] settingsLib.builtinDefaults ++ settingsLib.liveKeys;
+        nvim = nvimInfo;
       };
     in
     pkgs.runCommand "nixbook-shell-system-facts.json"
@@ -183,7 +240,8 @@ in
           Markdown appended to the AI chat's system prompt while
           `ai.includeSystemContext` is on: what the assistant should know about
           this machine and how its configuration is changed. The niri keybinds
-          (`assistant.niriConfig`) are appended to it.
+          (`assistant.niriConfig`) and Neovim keymaps (`assistant.nixvim`) are
+          appended to it.
         '';
       };
 
@@ -239,6 +297,76 @@ in
           becomes keybind facts and is appended to the AI context. Empty: no
           keybinds.
         '';
+      };
+
+      nixvim = {
+        keymaps = lib.mkOption {
+          type = lib.types.listOf (
+            lib.types.submodule {
+              options = {
+                key = lib.mkOption {
+                  type = lib.types.str;
+                  description = "The key sequence, as in nixvim (`<leader>ff`, `<C-p>`, `gd`).";
+                };
+                mode = lib.mkOption {
+                  type = with lib.types; either str (listOf str);
+                  default = "n";
+                  description = "Mode(s), as in nixvim (`\"\"` = normal, visual and operator-pending).";
+                };
+                action = lib.mkOption {
+                  type = lib.types.nullOr lib.types.str;
+                  default = null;
+                  description = "The mapped keys or command (`:bnext<CR>`), or Lua code when `lua`.";
+                };
+                lua = lib.mkOption {
+                  type = lib.types.bool;
+                  default = false;
+                  description = "Whether `action` is Lua code.";
+                };
+                desc = lib.mkOption {
+                  type = lib.types.nullOr lib.types.str;
+                  default = null;
+                  description = "What it does (else it is described from `action`).";
+                };
+                scope = lib.mkOption {
+                  type = lib.types.nullOr lib.types.str;
+                  default = null;
+                  example = "filetype:markdown";
+                  description = ''
+                    Where it applies: null (everywhere), `event:<Event>`
+                    (`event:LspAttach`: buffers with an LSP server),
+                    `filetype:<ft>` or `file:<runtime file>`.
+                  '';
+                };
+              };
+            }
+          );
+          default = nixvimKeymaps;
+          defaultText = lib.literalMD ''
+            the keymaps of the evaluated `programs.nixvim` configuration when
+            nixvim's Home Manager module is imported and enabled (`keymaps`,
+            `keymapsOnEvents`, `lsp.keymaps`, `files.<name>.keymaps`), else `[ ]`
+          '';
+          description = ''
+            Neovim keymaps for the config assistant (listed and looked up by key,
+            "what does <leader>ff do in vim?") and the AI context. Read from the
+            final nixvim configuration, so an override anywhere shows here as
+            Neovim gets it. A later keymap for the same key, modes and scope
+            replaces an earlier one.
+          '';
+        };
+        leader = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = if nixvimEnabled then nixvim.globals.mapleader or null else null;
+          defaultText = lib.literalExpression "config.programs.nixvim.globals.mapleader or null";
+          description = "Neovim's `mapleader` (null: its default, backslash).";
+        };
+        localLeader = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = if nixvimEnabled then nixvim.globals.maplocalleader or null else null;
+          defaultText = lib.literalExpression "config.programs.nixvim.globals.maplocalleader or null";
+          description = "Neovim's `maplocalleader` (null: its default, backslash).";
+        };
       };
     };
   };

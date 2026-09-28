@@ -3,11 +3,14 @@ no AI): one plain sentence per fact, in four languages, which the shell
 retrieves for each question and answers from.
 
   assistant-facts.py <input.json> <binds.kdl>  >  system-facts.json
+  assistant-facts.py --nvim-markdown <input.json>  >  keymaps.md
 
 input.json (from hm-module.nix): host, user, the core statements
 (`coreFacts`: [{en, fr, de, vi}]: where and how the configuration is changed),
 module names (`modules`: {all, enabled}), the shell settings pinned in Nix
-({"dot.path": value}), package names, every setting path.
+({"dot.path": value}), package names, every setting path, and the Neovim
+keymaps (`nvim`: {leader, localLeader, keymaps: [{key, mode, action, lua,
+desc, scope}]}, optional).
 binds.kdl: niri's rendered `binds { ... }` block (may be empty).
 
 Every fact also exists in French, German and Vietnamese (`factsI18n`, same
@@ -282,6 +285,104 @@ def describe(action: str):
     return t(generic, generic, generic, generic)
 
 
+# Neovim keymaps (hm-module.nix: `assistant.nixvim`, read from the evaluated
+# nixvim configuration). Only the wording is fixed here: keys, modes and
+# actions all come from the configuration.
+NVIM_MODES = {
+    "": t("normal, visual, operator-pending", "normal, visuel, attente d'opérateur",
+          "Normal, Visual, Operator-wartend", "normal, visual, chờ toán tử"),
+    "n": t("normal", "normal", "Normal", "normal"),
+    "v": t("visual, select", "visuel, sélection", "Visual, Auswahl", "visual, chọn"),
+    "x": t("visual", "visuel", "Visual", "visual"),
+    "s": t("select", "sélection", "Auswahl", "chọn"),
+    "o": t("operator-pending", "attente d'opérateur", "Operator-wartend", "chờ toán tử"),
+    "i": t("insert", "insertion", "Einfüge", "chèn"),
+    "t": t("terminal", "terminal", "Terminal", "terminal"),
+    "c": t("command-line", "ligne de commande", "Befehlszeile", "dòng lệnh"),
+    "!": t("insert, command-line", "insertion, ligne de commande", "Einfüge, Befehlszeile", "chèn, dòng lệnh"),
+    "l": t("insert, command-line, lang-arg", "insertion, ligne de commande, lang-arg",
+           "Einfüge, Befehlszeile, Lang-Arg", "chèn, dòng lệnh, lang-arg"),
+}
+MODE_WORD = t("{m} mode", "mode {m}", "{m}-Modus", "chế độ {m}")
+SCOPE_LSP = t("in buffers with an LSP server", "dans les tampons avec un serveur LSP",
+              "in Puffern mit LSP-Server", "trong buffer có máy chủ LSP")
+SCOPE_FT = t("in {x} files", "dans les fichiers {x}", "in {x}-Dateien", "trong tệp {x}")
+SCOPE_EVENT = t("after the {x} event", "après l'événement {x}", "nach dem Ereignis {x}", "sau sự kiện {x}")
+SCOPE_FILE = t("in {x}", "dans {x}", "in {x}", "trong {x}")
+RUN_CMD = t("run :{x}", "lancer :{x}", ":{x} ausführen", "chạy :{x}")
+RUN_LUA = t("run the Lua code {x}", "exécuter le code Lua {x}", "den Lua-Code {x} ausführen", "chạy mã Lua {x}")
+RUN_LUA_FN = t("run a Lua function", "exécuter une fonction Lua", "eine Lua-Funktion ausführen", "chạy một hàm Lua")
+LSP_ACTION = t("LSP: {x}", "LSP : {x}", "LSP: {x}", "LSP: {x}")
+KEYS = t("type {x}", "taper {x}", "{x} eingeben", "gõ {x}")
+NVIM_FACT = t("In Neovim ({w}), {k}: {d}.", "Dans Neovim ({w}), {k} : {d}.",
+              "In Neovim ({w}): {k} – {d}.", "Trong Neovim ({w}), {k}: {d}.")
+NVIM_LEADER = t("In Neovim, the leader key (<leader>) is {x}.", "Dans Neovim, la touche leader (<leader>) est {x}.",
+                "In Neovim ist die Leader-Taste (<leader>) {x}.", "Trong Neovim, phím leader (<leader>) là {x}.")
+NVIM_LOCALLEADER = t("In Neovim, the local leader key (<localleader>) is {x}.",
+                     "Dans Neovim, la touche leader locale (<localleader>) est {x}.",
+                     "In Neovim ist die lokale Leader-Taste (<localleader>) {x}.",
+                     "Trong Neovim, phím leader cục bộ (<localleader>) là {x}.")
+STORE_BIN = re.compile(r"/nix/store/[a-z0-9]{32}-[^/ \"']*/bin/")
+
+
+def leader_name(key):
+    """mapleader value → how to type it (None: Neovim's default, backslash)."""
+    return {None: "\\", " ": "Space", "\t": "Tab", ",": ", (comma)"}.get(key, key)
+
+
+def nvim_modes(mode):
+    modes = mode if isinstance(mode, list) else [mode or ""]
+    return {lang: ", ".join(NVIM_MODES.get(m, t(m, m, m, m))[lang] for m in modes) for lang in LANGS}
+
+
+def nvim_scope(scope):
+    if not scope:
+        return None
+    kind, _, x = scope.partition(":")
+    if kind == "event" and x == "LspAttach":
+        return SCOPE_LSP
+    table = {"event": SCOPE_EVENT, "filetype": SCOPE_FT}.get(kind, SCOPE_FILE)
+    return {lang: table[lang].format(x=x) for lang in LANGS}
+
+
+def nvim_describe(km):
+    """A keymap's description: its own `desc`, else what its action does."""
+    if km.get("desc"):
+        d = km["desc"].strip().rstrip(".…")
+        return t(d, d, d, d)
+    action = STORE_BIN.sub("", (km.get("action") or "").strip())
+    m = re.search(r"vim\.lsp\.buf\.(\w+)\(", action)
+    if m:
+        return {lang: LSP_ACTION[lang].format(x=m[1].replace("_", " ")) for lang in LANGS}
+    if km.get("lua"):
+        body = re.fullmatch(r"function\s*\(\s*\)\s*(?:return\s+)?(.*?)\s*end", action, re.S)
+        code = body[1] if body else action
+        if "\n" in code or len(code) > 80:
+            return RUN_LUA_FN
+        return {lang: RUN_LUA[lang].format(x=code) for lang in LANGS}
+    # ":cmd<CR>", "<cmd>cmd<cr>", "<Cmd>cmd<CR>"
+    m = re.fullmatch(r"(?i)(?::|<cmd>)\s*(.*?)\s*<cr>", action)
+    if m:
+        return {lang: RUN_CMD[lang].format(x=m[1]) for lang in LANGS}
+    return {lang: KEYS[lang].format(x=action) for lang in LANGS}
+
+
+def nvim_keymaps(nvim):
+    """The keymaps as listed: a later definition of the same key, modes and
+    scope replaces the earlier one (as in Neovim)."""
+    last = {}
+    for km in nvim.get("keymaps", []):
+        modes = km.get("mode")
+        modes = tuple(modes) if isinstance(modes, list) else (modes or "",)
+        last[(km["key"], modes, km.get("scope") or "")] = km
+    out = []
+    for km in last.values():
+        modes, scope, what = nvim_modes(km.get("mode")), nvim_scope(km.get("scope")), nvim_describe(km)
+        where = {lang: MODE_WORD[lang].format(m=modes[lang]) + (f", {scope[lang]}" if scope else "") for lang in LANGS}
+        out.append({"key": km["key"], "where": where, "desc": what})
+    return out
+
+
 PRESS = t("Press {k} to {d}.", "Appuyez sur {k} pour {d}.", "{k} – {d}.", "Nhấn {k} để {d}.")
 SETTING = t("The shell setting {p} is set in Nix to {v}.",
             "Le réglage du shell {p} est défini dans Nix à {v}.",
@@ -303,7 +404,7 @@ def main():
     kdl = open(sys.argv[2]).read() if len(sys.argv) > 2 else ""
     host, user = info["host"], info["user"]
     facts = {lang: [] for lang in LANGS}
-    kinds = []  # "bind:<key>", "core", "setting", "package"
+    kinds = []  # "bind:<key>", "nvim:<index>", "nvim-leader", "core", "setting", "package"
 
     def add(kind, texts):
         kinds.append(kind)
@@ -312,6 +413,15 @@ def main():
 
     for key, what in binds(kdl):
         add(f"bind:{key}", {lang: PRESS[lang].format(k=key, d=what[lang]) for lang in LANGS})
+    nvim = info.get("nvim") or {}
+    keymaps = nvim_keymaps(nvim)
+    for i, km in enumerate(keymaps):
+        add(f"nvim:{i}", {lang: NVIM_FACT[lang].format(w=km["where"][lang], k=km["key"], d=km["desc"][lang])
+                          for lang in LANGS})
+    if keymaps:
+        add("nvim-leader", {lang: NVIM_LEADER[lang].format(x=leader_name(nvim.get("leader"))) for lang in LANGS})
+        if any("<localleader>" in km["key"].lower() for km in keymaps):
+            add("nvim-leader", {lang: NVIM_LOCALLEADER[lang].format(x=leader_name(nvim.get("localLeader"))) for lang in LANGS})
     # The core statements (how to change and apply the configuration) as
     # retrievable facts too, so questions about them ("how do I apply my
     # changes?") aren't mistaken for uncovered ones.
@@ -335,8 +445,28 @@ def main():
                     "enabled": sorted(set(info.get("modules", {}).get("enabled", [])))},
         "packages": packages,
         "settingPaths": sorted(set(info.get("settingPaths", []))),
+        # The keymaps behind the "nvim:<index>" facts, for the listings.
+        "nvim": {"leader": leader_name(nvim.get("leader")),
+                 "localLeader": leader_name(nvim.get("localLeader")),
+                 "keymaps": keymaps},
     }, sys.stdout, ensure_ascii=False, indent=1)
 
 
+def markdown(info_path):
+    """The Neovim keymaps as a Markdown section for the AI chat's prompt."""
+    nvim = json.load(open(info_path)).get("nvim") or {}
+    keymaps = nvim_keymaps(nvim)
+    if not keymaps:
+        return
+    print("\n## Neovim keymaps (nixvim, rendered from the configuration)")
+    print("Answer questions about Neovim/vim shortcuts from this list (the authoritative one; "
+          f"<leader> = {leader_name(nvim.get('leader'))}, <localleader> = {leader_name(nvim.get('localLeader'))}).")
+    for km in keymaps:
+        print(f"- `{km['key']}` ({km['where']['en']}): {km['desc']['en']}")
+
+
 if __name__ == "__main__":
-    main()
+    if sys.argv[1:2] == ["--nvim-markdown"]:
+        markdown(sys.argv[2])
+    else:
+        main()
