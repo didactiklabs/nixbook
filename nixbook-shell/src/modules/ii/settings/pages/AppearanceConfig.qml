@@ -323,38 +323,52 @@ ContentPage {
             }
         }
 
+        // Theme and its variant (Themes.qml, themes.json): both lists come
+        // from the registry, so a new theme shows up here by itself.
         ContentSection {
+            icon: "style"
+            shape: MaterialShape.Shape.Burst
+            title: Translation.tr("Theme")
+            GroupedList {
+                ConfigSelectionArray {
+                    configKey: "appearance.theme";
+                    enabled: !nixManaged
+                    text: Translation.tr("Theme")
+                    icon: Themes.currentTheme?.icon ?? "style"
+                    currentValue: Themes.current
+                    options: Themes.list.map(t => ({ "displayName": Translation.tr(t.name), "icon": t.icon, "value": t.id }))
+                    onSelected: newValue => Themes.setTheme(newValue)
+                }
+            }
+            // Its own list: GroupedList keeps a row's background even when
+            // the row is hidden, and a theme may have no variants.
+            GroupedList {
+                visible: Themes.currentVariants.length > 0
+                ConfigSelectionArray {
+                    configKey: Themes.variantKey(Themes.current);
+                    enabled: !nixManaged
+                    text: Translation.tr("Variant")
+                    icon: Themes.currentVariant?.icon ?? "sports_esports"
+                    currentValue: Themes.variant
+                    options: Themes.currentVariants.map(v => ({ "displayName": Translation.tr(v.name), "icon": v.icon, "value": v.id }))
+                    onSelected: newValue => Themes.setVariant(Themes.current, newValue)
+                }
+            }
+        }
+
+        // Persona theme options (only while it is the theme).
+        ContentSection {
+            visible: Themes.is("persona")
             icon: "theater_comedy"
             shape: MaterialShape.Shape.Burst
             title: Translation.tr("Persona style")
             GroupedList {
                 ConfigSwitch {
-                    configKey: "appearance.persona.enable";
-                    buttonIcon: "check"
-                    text: Translation.tr("Enable Persona art direction")
-                    checked: Config.options.appearance.persona.enable
-                    enabled: !nixManaged
-                    onCheckedChanged: { Config.options.appearance.persona.enable = checked }
-                }
-                ConfigSelectionArray {
-                    configKey: "appearance.persona.variant";
-                    enabled: Config.options.appearance.persona.enable && !nixManaged
-                    text: Translation.tr("Persona variant")
-                    icon: "sports_esports"
-                    currentValue: Config.options.appearance.persona.variant
-                    options: [
-                        { "displayName": "Persona 5 Royal", "icon": "local_fire_department", "value": "p5" },
-                        { "displayName": "Persona 3 Reload", "icon": "water_drop", "value": "p3r" },
-                        { "displayName": "Persona 4 Revival", "icon": "tv", "value": "p4" },
-                    ]
-                    onSelected: newValue => { Config.options.appearance.persona.variant = newValue }
-                }
-                ConfigSwitch {
                     configKey: "appearance.persona.palette";
                     buttonIcon: "palette"
                     text: Translation.tr("Game color palette (instead of wallpaper)")
                     checked: Config.options.appearance.persona.palette
-                    enabled: Config.options.appearance.persona.enable && !nixManaged
+                    enabled: !nixManaged
                     onCheckedChanged: { Config.options.appearance.persona.palette = checked }
                 }
                 ConfigSwitch {
@@ -362,7 +376,7 @@ ContentPage {
                     buttonIcon: "animation"
                     text: Translation.tr("Snappy slam-in animations")
                     checked: Config.options.appearance.persona.motion
-                    enabled: Config.options.appearance.persona.enable && !nixManaged
+                    enabled: !nixManaged
                     onCheckedChanged: { Config.options.appearance.persona.motion = checked }
                 }
                 ConfigSwitch {
@@ -370,7 +384,7 @@ ContentPage {
                     buttonIcon: "change_history"
                     text: Translation.tr("Sharp slanted frames and hard shadows")
                     checked: Config.options.appearance.persona.shapes
-                    enabled: Config.options.appearance.persona.enable && !nixManaged
+                    enabled: !nixManaged
                     onCheckedChanged: { Config.options.appearance.persona.shapes = checked }
                 }
                 ConfigSwitch {
@@ -378,7 +392,7 @@ ContentPage {
                     buttonIcon: "blur_on"
                     text: Translation.tr("Background art & halftone")
                     checked: Config.options.appearance.persona.halftone
-                    enabled: Config.options.appearance.persona.enable && !nixManaged
+                    enabled: !nixManaged
                     onCheckedChanged: { Config.options.appearance.persona.halftone = checked }
                 }
                 ConfigSwitch {
@@ -386,8 +400,58 @@ ContentPage {
                     buttonIcon: "title"
                     text: Translation.tr("Condensed display font for titles")
                     checked: Config.options.appearance.persona.fonts
-                    enabled: Config.options.appearance.persona.enable && !nixManaged
+                    enabled: !nixManaged
                     onCheckedChanged: { Config.options.appearance.persona.fonts = checked }
+                }
+            }
+        }
+
+        // Chiikawa theme options (only while it is the theme).
+        ContentSection {
+            visible: Themes.is("chiikawa")
+            icon: "cruelty_free"
+            shape: MaterialShape.Shape.Cookie9Sided
+            title: Translation.tr("Chiikawa style")
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "appearance.chiikawa.palette";
+                    buttonIcon: "palette"
+                    text: Translation.tr("Character color palette (instead of wallpaper)")
+                    checked: Config.options.appearance.chiikawa.palette
+                    enabled: !nixManaged
+                    onCheckedChanged: { Config.options.appearance.chiikawa.palette = checked }
+                }
+                ConfigSwitch {
+                    configKey: "appearance.chiikawa.motion";
+                    buttonIcon: "animation"
+                    text: Translation.tr("Bouncy animations")
+                    checked: Config.options.appearance.chiikawa.motion
+                    enabled: !nixManaged
+                    onCheckedChanged: { Config.options.appearance.chiikawa.motion = checked }
+                }
+                ConfigSwitch {
+                    configKey: "appearance.chiikawa.shapes";
+                    buttonIcon: "rounded_corner"
+                    text: Translation.tr("Extra round corners")
+                    checked: Config.options.appearance.chiikawa.shapes
+                    enabled: !nixManaged
+                    onCheckedChanged: { Config.options.appearance.chiikawa.shapes = checked }
+                }
+                ConfigSwitch {
+                    configKey: "appearance.chiikawa.fonts";
+                    buttonIcon: "title"
+                    text: Translation.tr("Rounded font (Nunito)")
+                    checked: Config.options.appearance.chiikawa.fonts
+                    enabled: !nixManaged
+                    onCheckedChanged: { Config.options.appearance.chiikawa.fonts = checked }
+                }
+                ConfigSwitch {
+                    configKey: "appearance.chiikawa.mascot";
+                    buttonIcon: "cruelty_free"
+                    text: Translation.tr("Show the character (loading screen, sidebars)")
+                    checked: Config.options.appearance.chiikawa.mascot
+                    enabled: !nixManaged
+                    onCheckedChanged: { Config.options.appearance.chiikawa.mascot = checked }
                 }
             }
         }

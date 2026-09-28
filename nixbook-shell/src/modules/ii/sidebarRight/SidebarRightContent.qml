@@ -149,6 +149,11 @@ Item {
             anchors.margins: parent.border.width
             opacity: 0.55
         }
+        // Chiikawa theme: stars and hearts, the character in the corner
+        ChiikawaDecor {
+            anchors.fill: parent
+            anchors.margins: parent.border.width
+        }
 
         ColumnLayout {
             anchors.fill: parent

@@ -1,11 +1,13 @@
 # nixbook-shell
 
 A Quickshell (QML) desktop shell for niri and Hyprland: bar, dock, sidebars,
-launcher, notifications, lock screen, desktop widgets, an AI chat and the
-optional Persona style (Persona 5 Royal by default: slanted black panels with
-bold Royal gold outlines, hard unblurred red offset shadows, red accent slashes
-and halftone art). The Material look uses Material 3 tonal elevation: surfaces
-are told apart by their tone and a thin outline, with no shadows. Neither
+launcher, notifications, lock screen, desktop widgets, an AI chat and a choice
+of themes (see [Themes](#themes)): Material, the default (colours from the
+wallpaper, Material 3 tonal elevation: surfaces are told apart by their tone
+and a thin outline, with no shadows); Persona (Persona 5 Royal by default:
+slanted black panels with bold Royal gold outlines, hard unblurred red offset
+shadows, red accent slashes and halftone art); and Chiikawa (pastel light
+palettes, bubbly corners, bouncy motion and the characters themselves). None
 blurs a shadow, which keeps them light on integrated GPUs. It started as a
 fork of
 [pctrade/end4-pC](https://github.com/pctrade/end4-pC), itself a fork of end-4's
@@ -28,7 +30,7 @@ nixbook repository, so it can be used on its own (nixbook's
     enable = true;
     settings = {
       bar.bottom = true;
-      appearance.persona.enable = true;
+      appearance.theme = "persona";
     };
   };
 }
@@ -54,7 +56,8 @@ On NixOS, `nixbook-shell.greeter` (`greeter.nix`, part of
 `nixosModules.default`) makes the login screen match the shell: greetd with
 [ReGreet](https://github.com/rharish101/ReGreet) in cage, themed from one
 user's live settings — the Material palette generated from the wallpaper, or
-the Persona style in its variant — and showing the login screen wallpaper.
+the theme's own palette in its variant — and showing the login screen
+wallpaper.
 
 ```nix
 nixbook-shell.greeter = {
@@ -71,8 +74,8 @@ falls back to the lock screen's, then the desktop's. Both can also be set in
 Nix through `programs.nixbook-shell.settings.background`. The
 `nixbook-shell-greeter-theme` service renders the theme into
 `/var/lib/nixbook-shell-greeter` as that user whenever the settings or palette
-change (`scripts/greeter-theme.sh`, Persona colours read from
-`Persona.qml` by `scripts/persona-palettes.py`); before its first run the
+change (`scripts/greeter-theme.sh`, theme colours read from `themes.json` by
+`scripts/theme-palettes.py`); before its first run the
 greeter uses the same theme built from the settings set in Nix.
 Authentication is greetd's PAM service: ReGreet shows and answers PAM's
 messages, so security keys (pam_u2f's cue) and fingerprints work.
@@ -161,6 +164,59 @@ With a model selected in the chat, all of this is only reference for the
 model's system prompt: it answers with its own knowledge too, and says when it
 isn't sure.
 
+## Themes
+
+The theme is `appearance.theme` — Settings → Appearance → Theme, or the
+desktop menu's Theme submenu — and each theme with variants keeps its own
+`appearance.<theme>.variant`, so switching theme and back keeps the variant:
+
+| Theme      | Variants                                         | Own settings (`appearance.<theme>.*`)              |
+| ---------- | ------------------------------------------------ | -------------------------------------------------- |
+| `material` | —                                                | —                                                  |
+| `persona`  | `p5` (Royal), `p3r` (3 Reload), `p4` (4 Revival) | `palette`, `motion`, `shapes`, `halftone`, `fonts` |
+| `chiikawa` | `chiikawa` (default), `usagi`, `momonga`         | `palette`, `motion`, `shapes`, `fonts`, `mascot`   |
+
+```nix
+programs.nixbook-shell.settings.appearance = {
+  theme = "chiikawa";          # an enum of the themes: a typo fails evaluation
+  chiikawa.variant = "usagi";  # likewise, the theme's variants
+};
+```
+
+Before `appearance.theme` the Persona style was the switch
+`appearance.persona.enable`. It still works: a `config.json` holding it is
+migrated to `theme = "persona"` when the shell loads it, and the Nix option is
+translated to `appearance.theme` with a deprecation warning.
+
+### Adding a theme
+
+The themes are declared once, in `src/modules/common/themes.json`, which the
+shell (`Themes.qml`), the Nix options (`lib.nix`), the login screen
+(`scripts/theme-palettes.py`) and niri's first frames all read:
+
+1. Add an entry to `themes.json`: `id` (lowercase letters and digits: it is a
+   settings key), `name`, `icon` (a Material Symbol), `description`,
+   `variants` (each `id`, `name`, `icon` and an optional `palette`: the roles
+   `theme-palettes.py` lists, which replace the wallpaper palette),
+   optionally `defaultVariant` and a `style` — the look as data, applied by
+   `Appearance.qml`: `rounding` (scale of the corner radii), `fonts`
+   (`main`, `title`, `numbers`) and `motion` (bezier curves `slam`, `snap`,
+   `quick`, `exit`); a variant's own `style` overrides its theme's.
+2. With variants, add `property JsonObject <id>` under `appearance` in
+   `src/modules/common/Config.qml`, holding at least `variant` (and any of
+   `palette`, `shapes`, `fonts`, `motion`: false turns that part of the
+   style off), then regenerate `builtin-defaults.json`
+   (`nixbook-shell config builtin`).
+3. For anything data can't express, a singleton gated on `Themes.is("<id>")`
+   (`Persona.qml`, `Chiikawa.qml`) and an options section in
+   `src/modules/ii/settings/pages/AppearanceConfig.qml`. The theme list,
+   variant list and desktop submenu need nothing: they come from the
+   registry. A font the theme uses goes in `hm-module.nix`'s `home.packages`.
+
+The Chiikawa art (the characters and the sidebar patterns) is drawn by
+`src/assets/chiikawa/generate.py` from the variants' palettes; rerun it after
+changing them.
+
 ## Layout
 
 | Path               | What                                                                               |
@@ -168,7 +224,7 @@ isn't sure.
 | `default.nix`      | entry point (`package`, `homeManagerModules.default`, `lib`)                       |
 | `package.nix`      | the launcher: runtime `PATH`, QML import path, `config` CLI                        |
 | `dankcalendar.nix` | DankCalendar (`dcal`), the calendar and task sync, from `npins/`                   |
-| `qml.nix`          | the QML tree as installed (store-path fixups, Persona art)                         |
+| `qml.nix`          | the QML tree as installed (store-path fixups, Persona and Chiikawa art)            |
 | `quickshell.nix`   | Quickshell from `quickshellSrc` plus `patches/`                                    |
 | `lib.nix`          | typed settings options generated from `builtin-defaults.json`                      |
 | `hm-module.nix`    | the Home Manager module `programs.nixbook-shell`                                   |

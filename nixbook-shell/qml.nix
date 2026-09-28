@@ -176,6 +176,11 @@ pkgs.stdenvNoCC.mkDerivation {
     for svg in assets/persona/p*-{panel,tall,wide}.svg; do
       resvg --zoom 2.5 "$svg" "''${svg%.svg}.png"
     done
+    # Chiikawa theme art (assets/chiikawa/*.svg, generate.py): the characters
+    # (200px viewBox, shown up to ~180px on HiDPI) and the sidebar patterns.
+    for svg in assets/chiikawa/*.svg; do
+      resvg --zoom 2 "$svg" "''${svg%.svg}.png"
+    done
     runHook postBuild
   '';
 

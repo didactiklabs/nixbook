@@ -125,7 +125,7 @@ let
     }:$PATH"
     export NIXBOOK_SHELL_MERGE_JQ="${mergeLib}/lib/config-merge.jq"
     export NIXBOOK_SHELL_BUILTIN="${./builtin-defaults.json}"
-    export NIXBOOK_SHELL_LIVE_KEYS="${pkgs.writeText "nixbook-shell-live-keys.json" (builtins.toJSON settingsLib.liveKeys)}"
+    export NIXBOOK_SHELL_LIVE_KEYS="${pkgs.writeText "nixbook-shell-live-keys.json" (builtins.toJSON settingsLib.skippedKeys)}"
     # `config builtin`: run the shell's Config singleton alone against an empty
     # config dir to get its built-in defaults.
     export NIXBOOK_SHELL_SHELL="${shell}"

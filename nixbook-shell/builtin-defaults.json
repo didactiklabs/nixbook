@@ -19,6 +19,14 @@
     "includeSystemContext": true
   },
   "appearance": {
+    "chiikawa": {
+      "fonts": true,
+      "mascot": true,
+      "motion": true,
+      "palette": true,
+      "shapes": true,
+      "variant": "chiikawa"
+    },
     "extraBackgroundTint": true,
     "fakeScreenRounding": 2,
     "fonts": {
@@ -34,7 +42,6 @@
       "type": "auto"
     },
     "persona": {
-      "enable": false,
       "fonts": true,
       "halftone": true,
       "motion": true,
@@ -42,6 +49,7 @@
       "shapes": true,
       "variant": "p5"
     },
+    "theme": "material",
     "transparency": {
       "automatic": true,
       "backgroundTransparency": 0.11,
