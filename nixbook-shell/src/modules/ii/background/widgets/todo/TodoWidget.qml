@@ -69,6 +69,9 @@ AbstractBackgroundWidget {
             target: contentRect 
             visible: Config.options.background.widgets.shadow
         }
+        WidgetOutline {
+            target: contentRect
+        }
 
         Rectangle {
             id: contentRect

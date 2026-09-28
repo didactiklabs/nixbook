@@ -14,11 +14,12 @@ Singleton {
     property QtObject font
     property QtObject sizes
     property string syntaxHighlightingTheme
-    // Material 3 tonal elevation, in every style (Persona included): surfaces
-    // are told apart by their tone (and a thin outline where they float over
-    // windows), never by a shadow or glow — less to draw on an iGPU driving
-    // several screens. The shadow code stays for a style that wants it back.
-    readonly property bool tonal: true
+    // Material 3 tonal elevation in the Material style: surfaces are told
+    // apart by their tone (and a thin outline where they float over windows),
+    // never by a shadow — less to draw on an iGPU driving several screens.
+    // The Persona style keeps its hard, unblurred accent shadows (cheap:
+    // an offset rectangle, no blur pass).
+    readonly property bool tonal: !Persona.shapes
 
     // Transparency. The quadratic functions were derived from analysis of hand-picked transparency values.
     ColorQuantizer {
@@ -235,20 +236,20 @@ Singleton {
         property color colOnErrorContainer: m3colors.m3onErrorContainer
     }
 
-    // Persona style: a tighter Material scale (crisper than the default
-    // one, never sharp); pills (`full`) stay pills.
+    // Persona style: near-sharp corners everywhere except true circles/pills
+    // (`full`) and the tiny `unsharpen` radii.
     rounding: QtObject {
         readonly property bool sharp: Persona.shapes
         property int unsharpen: 2
-        property int unsharpenmore: sharp ? 4 : 6
+        property int unsharpenmore: sharp ? Persona.corner : 6
         property int verysmall: sharp ? Persona.corner : 8
-        property int small: sharp ? 8 : 12
-        property int normal: sharp ? 12 : 17
-        property int large: sharp ? 16 : 23
-        property int verylarge: sharp ? 20 : 30
+        property int small: sharp ? Persona.corner : 12
+        property int normal: sharp ? Persona.corner : 17
+        property int large: sharp ? Persona.corner : 23
+        property int verylarge: sharp ? Persona.corner : 30
         property int full: 9999
         property int screenRounding: large
-        property int windowRounding: sharp ? 12 : 18
+        property int windowRounding: sharp ? Persona.corner : 18
     }
 
     font: QtObject {

@@ -81,14 +81,15 @@ theme=$(jq -n \
       colors: ($colors | with_entries(.value = color(.value; "#808080"))),
       persona: $persona,
       variant: $variant,
-      # Persona.outlineColor: a variant with its own edge colour (the p5 gold)
-      # outlines a little stronger.
-      edgeAlpha: (if $persona and ($spec.edge != null) then 0.55 else 0.3 end),
       shapes: ($persona and ($p.shapes != false)),
       halftone: ($persona and ($p.halftone != false)),
       titleFont: (if $persona and ($p.fonts != false) then "Oswald"
                   else font($cfg.appearance.fonts.title; "Roboto") end),
       mainFont: font($cfg.appearance.fonts.main; "Roboto"),
+      # Persona.qml: corner, borderWidth, shadowOffset per variant
+      corner: (if $variant == "p3r" then 3 else 1 end),
+      border: (if $variant == "p3r" then 2 else 3 end),
+      shadowOffset: (if $variant == "p3r" then 5 else 7 end),
       walls: [
         ($cfg.background.greeterWall // ""),
         "@default@",
@@ -143,17 +144,18 @@ fi
 # ---------------------------------------------------------------------- CSS
 c() { get ".colors.$1"; }
 shapes=$(get .shapes)
+corner=$(get .corner)
+border=$(get .border)
+offset=$(get .shadowOffset)
 if [ "$shapes" = true ]; then
-  # Persona.qml tokens: the cut (cornerLarge 18 on top-left and bottom-right,
-  # corner 6 elsewhere), a 1 px tonal outline (Persona.outlineColor), the
-  # accent stripe as a pill on the top edge. Tonal elevation: no glow.
-  radius="18px 6px 18px 6px"
-  field_radius="8px"
-  button_radius="12px 4px 12px 4px"
-  card_border="1px solid alpha(@nb_edge, $(get .edgeAlpha))"
-  card_shadow="none"
-  button_shadow="none"
-  stripe_layer="linear-gradient(to right, transparent 10%, @nb_stripe 10%, @nb_stripe 38%, transparent 38%)"
+  radius="${corner}px"
+  field_radius="${corner}px"
+  button_radius="${corner}px"
+  # Persona.outlineColor: the variant's edge colour (p5: Royal gold).
+  card_border="${border}px solid @nb_edge"
+  card_shadow="${offset}px ${offset}px 0 0 @nb_shadow"
+  button_shadow="4px 4px 0 0 @nb_shadow"
+  stripe="border-top: $((border * 2 + 2))px solid @nb_stripe;"
   title_style="font-style: italic; font-weight: 700; letter-spacing: 1px;"
 else
   radius="23px"
@@ -163,30 +165,15 @@ else
   # Tonal elevation, like the shell: the outline instead of a shadow.
   card_shadow="none"
   button_shadow="none"
-  stripe_layer=""
+  stripe=""
   title_style="font-weight: 600;"
 fi
-# Background layers of the card, top first: the accent stripe (a 4 px band
-# on the top edge), then the halftone art under a tint of the frame colour
-# (PersonaTexture at Persona.textureOpacity 0.45).
-layers=() sizes=() positions=()
-if [ -n "$stripe_layer" ]; then
-  layers+=("$stripe_layer") sizes+=("100% 4px") positions+=("top")
-fi
 if [ "$(get .halftone)" = true ]; then
-  layers+=("linear-gradient(alpha(@nb_frame, 0.55), alpha(@nb_frame, 0.55))" "url(\"file://$NB_TEXTURES/$(get .variant)-panel.png\")")
-  sizes+=("cover" "cover") positions+=("center" "center")
-fi
-texture=""
-if [ ${#layers[@]} -gt 0 ]; then
-  join() {
-    local IFS=,
-    echo "$*"
-  }
-  texture="background-image: $(join "${layers[@]}");
-  background-size: $(join "${sizes[@]}");
-  background-position: $(join "${positions[@]}");
-  background-repeat: no-repeat;"
+  # PersonaTexture: the art over the frame colour at 0.75 opacity.
+  texture="background-image: linear-gradient(alpha(@nb_frame, 0.25), alpha(@nb_frame, 0.25)), url(\"file://$NB_TEXTURES/$(get .variant)-panel.png\");
+  background-size: cover; background-position: center;"
+else
+  texture=""
 fi
 main_font=$(get .mainFont)
 title_font=$(get .titleFont)
@@ -237,7 +224,7 @@ window, window.background {
 }
 
 /* Login card and clock: the shell's panels (PersonaFrame in the Persona
-   style: the Persona cut, tonal outline, accent stripe, halftone art). */
+   style: bold border (Royal gold in p5), hard offset shadow, accent stripe, halftone art). */
 overlay > frame.background {
   background-color: @nb_frame;
   $texture
@@ -245,6 +232,7 @@ overlay > frame.background {
   border: $card_border;
   border-radius: $radius;
   box-shadow: $card_shadow;
+  $stripe
 }
 overlay > frame.background:nth-child(2) {
   padding: 10px 14px;
@@ -254,6 +242,7 @@ overlay > frame.background:nth-child(3) {
   margin-top: 28px;
   padding: 8px 28px;
   border-radius: $radius;
+  border-top-width: $([ "$shapes" = true ] && echo "$((border * 2 + 2))px" || echo "1px");
 }
 overlay > frame.background:nth-child(3) label {
   font-family: "$title_font", "$main_font", sans-serif;

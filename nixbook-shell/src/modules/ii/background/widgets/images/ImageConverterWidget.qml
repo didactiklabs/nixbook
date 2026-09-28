@@ -146,6 +146,9 @@ AbstractBackgroundWidget {
         z: -2
         visible: Config.options.background.widgets.shadow
     }
+    WidgetOutline {
+        target: contentItem
+    }
 
     Rectangle {
         id: contentItem

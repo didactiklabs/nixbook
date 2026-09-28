@@ -162,6 +162,9 @@ AbstractBackgroundWidget {
             z: -2
             visible: Config.options.background.widgets.shadow
         }
+        WidgetOutline {
+            target: card
+        }
 
         Loader {
             anchors.fill: parent
