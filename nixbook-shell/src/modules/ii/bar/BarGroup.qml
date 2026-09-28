@@ -46,6 +46,11 @@ Item {
 
     default property alias items: gridLayout.children
 
+    // The box the group paints, and its slant: InteractionFx keeps its
+    // hover/press state layer inside it, slanted the same way.
+    readonly property Item interactionBounds: background
+    readonly property real interactionSkew: background.personaSkew
+
     Rectangle {
         id: background
         // Persona style: slanted group background (P5 HUD); widgets stay

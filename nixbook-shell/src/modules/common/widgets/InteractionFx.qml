@@ -14,7 +14,10 @@ import qs.modules.common
  * that item). It only adds passive pointer handlers on a transparent overlay,
  * so the widget's own MouseAreas, hover popups, wheel handling and drags keep
  * working untouched. The state layer is drawn *under* the widget (a sibling at
- * z -1), so the content stays crisp above it. Scale effects are sized in pixels
+ * z -1), so the content stays crisp above it. Inside a container that declares
+ * `interactionBounds` (the box it paints, e.g. BarGroup's background) and
+ * `interactionSkew`, the state layer is kept within that box (2 px in) and
+ * slanted like it, so it never spills past the box's edges. Scale effects are sized in pixels
  * rather than as a fixed factor, so a wide media/title widget moves as little
  * as a small icon.
  */
@@ -37,6 +40,33 @@ Item {
     property real statePaddingX: 5
     property real statePaddingY: 2
     readonly property color stateColor: Persona.shapes ? Persona.stripeColor : Appearance.colors.colOnLayer1
+
+    // The enclosing container's box (see header), looked up a few levels up.
+    readonly property Item boundsHost: {
+        let p = root.parent;
+        for (let i = 0; p && i < 5; i++, p = p.parent) {
+            if (p.interactionBounds !== undefined)
+                return p;
+        }
+        return null;
+    }
+    readonly property real boundsInset: 2
+    // That box in the state layer's coordinates (its unslanted geometry),
+    // refreshed when the pointer arrives: layouts move widgets around.
+    property rect bounds: Qt.rect(0, 0, 0, 0)
+    function updateBounds() {
+        const host = root.boundsHost;
+        const box = host?.interactionBounds;
+        const layerParent = stateLayerRect.parent;
+        if (!box || !layerParent) {
+            root.bounds = Qt.rect(0, 0, 0, 0);
+            return;
+        }
+        const r = host.mapToItem(layerParent, box.x, box.y, box.width, box.height);
+        const i = root.boundsInset;
+        root.bounds = Qt.rect(r.x + i, r.y + i, Math.max(0, r.width - 2 * i), Math.max(0, r.height - 2 * i));
+    }
+    onHoveredChanged: if (root.hovered) root.updateBounds()
 
     readonly property real extent: Math.max(1, Math.max(root.target?.width ?? 0, root.target?.height ?? 0))
     readonly property real hoverScale: Math.min(root.maxHoverScale, 1 + 2 * root.hoverGrowPx / root.extent)
@@ -125,11 +155,25 @@ Item {
         parent: root.parent
         z: -1
         visible: root.stateLayer && root.target !== null && opacity > 0
-        x: (root.target?.x ?? 0) - root.statePaddingX
-        y: (root.target?.y ?? 0) - root.statePaddingY
-        width: (root.target?.width ?? 0) + root.statePaddingX * 2
-        height: (root.target?.height ?? 0) + root.statePaddingY * 2
-        radius: Persona.shapes ? Persona.corner : Math.min(height / 2, Appearance.rounding.full)
+        // The widget plus padding, clipped to the container's box.
+        readonly property bool bounded: root.bounds.width > 0 && root.bounds.height > 0
+        readonly property real wantLeft: (root.target?.x ?? 0) - root.statePaddingX
+        readonly property real wantTop: (root.target?.y ?? 0) - root.statePaddingY
+        readonly property real wantRight: (root.target?.x ?? 0) + (root.target?.width ?? 0) + root.statePaddingX
+        readonly property real wantBottom: (root.target?.y ?? 0) + (root.target?.height ?? 0) + root.statePaddingY
+        x: bounded ? Math.max(wantLeft, root.bounds.x) : wantLeft
+        y: bounded ? Math.max(wantTop, root.bounds.y) : wantTop
+        width: Math.max(0, (bounded ? Math.min(wantRight, root.bounds.x + root.bounds.width) : wantRight) - x)
+        height: Math.max(0, (bounded ? Math.min(wantBottom, root.bounds.y + root.bounds.height) : wantBottom) - y)
+        radius: Math.min(height / 2, Persona.shapes ? Persona.corner : Appearance.rounding.full)
+        // Slanted like the container (same shear, about the vertical center).
+        readonly property real skew: root.boundsHost?.interactionSkew ?? 0
+        transform: Matrix4x4 {
+            matrix: Qt.matrix4x4(1, stateLayerRect.skew, 0, -stateLayerRect.skew * stateLayerRect.height / 2,
+                                 0, 1, 0, 0,
+                                 0, 0, 1, 0,
+                                 0, 0, 0, 1)
+        }
         color: root.stateColor
         // Persona's accent is darker (P5 red on black): a bit stronger there.
         opacity: (root.pressed ? 0.26 : root.hovered ? 0.14 : 0) + (Persona.shapes && root.hovered ? 0.08 : 0)
