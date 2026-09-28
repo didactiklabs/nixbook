@@ -87,7 +87,9 @@ Scope {
 
                 BootSplashArt {
                     anchors.fill: parent
-                    progress: Preloader.progress
+                    // Sweeping (like earlySplash.qml, which it takes over
+                    // from) until the first stage is built.
+                    progress: Preloader.progress > 0 ? Preloader.progress : -1
                     stageText: Preloader.currentStage !== "" ? Preloader.currentStage
                         : Preloader.bootPhase === "rendering" ? Translation.tr("Finishing up") : Translation.tr("Starting")
                     screenWidth: splash.screen?.width ?? 16
