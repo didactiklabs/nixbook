@@ -106,31 +106,6 @@ let
     chmod 0755 $out/install $out/uninstall $out/list-contexts $out/resolve
   '';
 
-  claudeCredentials = cfg.claudeCode.credentials;
-
-  # module.yml of the shared-login module: its source depends on
-  # claudeCode.credentials.path, so it is generated here.
-  claudeAuthSharedManifest = yamlFormat.generate "claude-auth-shared-module.yml" {
-    name = "claude-auth-shared";
-    version = 2;
-    description = "Share this host's Claude Code subscription login with the workspace (bind mount, so both refresh the same tokens). Adding or removing it recreates the container.";
-    mounts = [
-      {
-        source = claudeCredentials.path;
-        target = "/home/debian/.claude/.credentials.json";
-        optional = true;
-      }
-    ];
-  };
-
-  claudeAuthSharedModule = pkgs.runCommand "ocm-module-claude-auth-shared" { } ''
-    mkdir -p $out
-    cp ${claudeAuthSharedManifest} $out/module.yml
-    cp ${./ocmModules/claude-auth-shared}/{install,uninstall} $out/
-    chmod 0644 $out/module.yml
-    chmod 0755 $out/install $out/uninstall
-  '';
-
   hostDisplay = cfg.hostDisplay;
 
   # module.yml of the host-display module: its mount sources are host paths
@@ -207,17 +182,21 @@ let
   '';
 
   # Modules nixbook used to install, deleted from ocm's moduleDir (see the
-  # ocmModules activation).
-  retiredOcmModules = [ "tools/claude-auth" ];
+  # ocmModules activation). The two claude-auth modules handed the host's
+  # Claude Code login to workspaces, which cannot work: refresh tokens rotate,
+  # so a copy and the host log each other out, and Claude Code replaces
+  # .credentials.json by rename, so a bind mount of that one file goes stale
+  # on the host's next login or refresh. Each workspace logs in on its own.
+  retiredOcmModules = [
+    "tools/claude-auth"
+    "tools/claude-auth-shared"
+  ];
 
   # category/name -> module directory, installed into ocm's primary moduleDir
   # (the only one it runs resolve hooks from).
   ocmModules =
     lib.optionalAttrs cfg.kubeswitch.enable {
       "infra/kubeswitch" = kubeswitchModule;
-    }
-    // lib.optionalAttrs claudeCredentials.enable {
-      "tools/claude-auth-shared" = claudeAuthSharedModule;
     }
     // lib.optionalAttrs hostDisplay.enable {
       "tools/host-display" = hostDisplayModule;
@@ -352,48 +331,6 @@ in
         import of the synced `AGENTS.md`, so both agents follow the same
         file, and editing it needs no image rebuild.
       '';
-    };
-
-    claudeCode.credentials = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = true;
-        description = ''
-          Whether to install the `claude-auth-shared` ocm module, which gives a
-          workspace this host's Claude Code subscription login, so neither
-          `claude` nor OpenCode's `opencode-claude-auth` plugin has to log in
-          again inside it. Installing it only makes it available: it is added
-          per workspace from the module editor, so you pick which workspaces
-          get the login.
-
-          The module shares the login itself: it declares an ocm `mounts`
-          entry that bind-mounts `claudeCode.credentials.path` read-write onto
-          `/home/debian/.claude/.credentials.json` in the containers of the
-          workspaces that have it, so the host and those workspaces read and
-          refresh one login (Claude Code notices when the file changes on
-          disk). Adding or removing it recreates that workspace's container.
-          The mount is optional: while the host has no login it is skipped, and
-          it is added on the first start after you log in. A symlink would not
-          do: Claude Code refuses a symlinked credentials file.
-
-          A copied login cannot work: OAuth refresh tokens rotate, so a copy
-          and the host invalidate each other's login on their next refresh.
-          The former `claude-auth` module, which imported such a copy, was
-          removed for that reason; activation deletes its installed copy once
-          no workspace lists it any more.
-        '';
-      };
-
-      path = lib.mkOption {
-        type = lib.types.str;
-        default = "${config.home.homeDirectory}/.claude/.credentials.json";
-        defaultText = lib.literalExpression ''"''${config.home.homeDirectory}/.claude/.credentials.json"'';
-        description = ''
-          Host file holding Claude Code's subscription login. Claude Code
-          writes it on Linux after `claude /login` (under `CLAUDE_CONFIG_DIR`
-          when that is set).
-        '';
-      };
     };
 
     hostDisplay = {
