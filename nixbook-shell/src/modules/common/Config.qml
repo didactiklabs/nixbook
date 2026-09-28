@@ -140,6 +140,11 @@ Singleton {
                 // changed list<string>, not a free-form object or list<var>.
                 property bool wallpaperPerTheme: true
                 property list<string> themeWallpapers: []
+                // Same for the lock and login screens ("" / no entry: the lock
+                // screen uses the desktop wallpaper, the login screen the lock
+                // screen's).
+                property list<string> themeLockWallpapers: []
+                property list<string> themeLoginWallpapers: []
                 // Persona art direction (Atlus): see modules/common/Persona.qml.
                 property JsonObject persona: JsonObject {
                     // Legacy switch (before `theme`): true is migrated to

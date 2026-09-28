@@ -44,7 +44,10 @@ RippleButton {
             id: labelWidget
             Layout.fillWidth: true
             text: root.text
-            font: root.font
+            // The shell's font (the theme's: Nunito in Chiikawa…), not the
+            // Controls default family `root.font` carries.
+            font.family: Appearance.font.family.main
+            font.pixelSize: root.font.pixelSize
             color: Appearance.colors.colOnSecondaryContainer
             opacity: root.enabled ? 1 : 0.4
         }

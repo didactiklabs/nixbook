@@ -50,6 +50,8 @@
       "variant": "p5"
     },
     "theme": "material",
+    "themeLockWallpapers": [],
+    "themeLoginWallpapers": [],
     "themeWallpapers": [],
     "transparency": {
       "automatic": true,

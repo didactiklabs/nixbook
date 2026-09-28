@@ -65,6 +65,19 @@ MouseArea {
         if (filePath && filePath.length > 0) {
             // Lock / login screen wallpapers: just remember the file.
             const target = GlobalStates.wallpaperSelectorTarget;
+            // A theme variant's wallpaper (Settings → Appearance → Theme):
+            // "variant:<main|lock|login>:<theme>[/<variant>]".
+            if (target.startsWith("variant:")) {
+                const [, slot, key] = target.split(":");
+                if (Config.options.background.enableWallpaperPreview)
+                    Wallpapers.stopPreview();
+                Wallpapers.select(filePath, root.useDarkMode, finalPath => {
+                    ThemeWallpapers.setFor(slot, key, finalPath);
+                    GlobalStates.wallpaperSelectorTarget = "wallpaper";
+                    GlobalStates.wallpaperSelectorOpen = false;
+                });
+                return;
+            }
             if (target === "lockWall" || target === "greeterWall") {
                 Wallpapers.select(filePath, root.useDarkMode, finalPath => {
                     Config.options.background[target] = finalPath;
