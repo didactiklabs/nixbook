@@ -397,9 +397,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "48981ae1036dc2a1582c7d5c5b20b639b2d4b71e",
-      "url": "https://github.com/Banh-Canh/opencode-manager/archive/48981ae1036dc2a1582c7d5c5b20b639b2d4b71e.tar.gz",
-      "hash": "sha256-ze72n5P3mxXOoP2kdpbsogSSGUjr3VuJssxFLm7V9VI="
+      "revision": "112b27733b2557a52bdc6cec012c4cd4f67eafe7",
+      "url": "https://github.com/Banh-Canh/opencode-manager/archive/112b27733b2557a52bdc6cec012c4cd4f67eafe7.tar.gz",
+      "hash": "sha256-hS7wYwys5H1ue8qfxXdA/NhQWK+C6z3sn7SQQ8R3Gu0="
     },
     "pear-desktop": {
       "type": "Url",
