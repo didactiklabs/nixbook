@@ -110,14 +110,14 @@
           },
           "notes": "The flying squirrel: purple pastel, a lavender tail, pink for the tertiary.",
           "palette": {
-            "background": "#fbf7ff", "surface1": "#f4edff", "surface2": "#ede4fd", "surface3": "#e5dafa", "surface4": "#ddd0f6",
-            "onSurface": "#2d2540", "onSurfaceVariant": "#4a4063", "outline": "#6c6186", "outlineVariant": "#ddd2ef",
-            "primary": "#7446c0", "onPrimary": "#ffffff", "primaryContainer": "#ecdcff", "onPrimaryContainer": "#29105a",
-            "secondary": "#76688f", "onSecondary": "#ffffff", "secondaryContainer": "#e9dff8", "onSecondaryContainer": "#2a2140",
-            "tertiary": "#b0447a", "onTertiary": "#ffffff", "tertiaryContainer": "#ffd8e8", "onTertiaryContainer": "#4a0f2e",
+            "background": "#fcf9ff", "surface1": "#f6f0ff", "surface2": "#f0e8fe", "surface3": "#e9dffb", "surface4": "#e3d8f8",
+            "onSurface": "#2d2540", "onSurfaceVariant": "#4a4063", "outline": "#6c6186", "outlineVariant": "#e0d6f1",
+            "primary": "#8466c4", "onPrimary": "#ffffff", "primaryContainer": "#efe5ff", "onPrimaryContainer": "#2c1a57",
+            "secondary": "#857a9e", "onSecondary": "#ffffff", "secondaryContainer": "#ece5fa", "onSecondaryContainer": "#2a2140",
+            "tertiary": "#b24f86", "onTertiary": "#ffffff", "tertiaryContainer": "#ffdcec", "onTertiaryContainer": "#4a0f2e",
             "error": "#ba1a1a", "onError": "#ffffff", "errorContainer": "#ffdad6", "onErrorContainer": "#410002",
-            "frame": "#fbf7ff", "frameBorder": "#2d2540", "shadow": "#cdb8f0", "stripe": "#c3a8f0", "ink": "#2d2540",
-            "body": "#ffffff", "fur": "#e4d5fb", "blush": "#f4a9c4", "line": "#2d2540", "accent": "#b394ea"
+            "frame": "#fcf9ff", "frameBorder": "#2d2540", "shadow": "#dccdf6", "stripe": "#cfbcf5", "ink": "#2d2540",
+            "body": "#ffffff", "fur": "#e9defc", "blush": "#f4a9c4", "line": "#2d2540", "accent": "#bea8ef"
           }
         },
         {
