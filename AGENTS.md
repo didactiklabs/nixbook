@@ -59,7 +59,7 @@ hive.nix                          Colmena deployment config
 - `devenv.nix/.envrc` - Development environment with direnv integration
 - `devenvModules/` - Shared devenv config module imported by nixbook, hephaestus, and aletheia via npins
 - `docs/` - Auto-generated module documentation (generate-docs.nix, MODULES.md)
-- `tests/` - Cheap regression checks run by `checks.yaml` (`run.sh` entry point, `hosts.nix` per-machine invariants, `repo.nix` repository checks, `nixbook-shell.sh` script tests, `hardware-configuration.nix` evaluation stub)
+- `tests/` - Cheap regression checks run by `checks.yaml` (`run.sh` entry point, `hosts.nix` per-machine invariants, `repo.nix` repository checks, `nixbook-shell.sh` script tests, `hardware-stub.nix` stand-in for /etc/nixos/hardware-configuration.nix)
 
 ## NixOS Modules (26 files)
 
@@ -266,7 +266,7 @@ hive.nix                          Colmena deployment config
 **GitHub Actions Workflows (3 files):**
 
 - `build.yaml` - Two jobs on the self-hosted runners (which share one Nix store). `build` builds all 5 profiles (totoro, anya, nishinoya, tanjiro, hanamichi) via matrix on push/PR to main; its `build (<profile>)` checks are the merge gate (steps run with `pipefail`, so a failing `colmena build` fails the check). `push-cache` runs on main/dispatch only, after all builds succeed, one profile at a time (`max-parallel: 1`): it re-resolves the system via `colmena build --keep-result` (a no-op evaluation on the shared store) and `nix copy`s it to the S3 cache, signing on upload (`secret-key=`) and retrying up to 5 times (each retry resumes, as already-uploaded paths are skipped). Concurrency: a new PR push cancels the old run and closing a PR cancels its pending run; main runs are never cancelled mid-flight. 120min timeout per job.
-- `checks.yaml` - Cheap regression checks on GitHub-hosted `ubuntu-latest` runners (the repo is public, so they are free and never compete with the self-hosted builders), on push/PR to main. Jobs: `lint` (`devenv test`: treefmt/shellcheck/mdsh hooks, then fails if treefmt changed any file), `repo` (`tests/run.sh repo`, `shell`, `iso`, `docs`), and `host (<name>)` for every hive node plus one `all modules` leg (`tests/run.sh host`), whose matrix is read from `hive.nix` so new machines are picked up automatically. Host legs install `tests/hardware-configuration.nix` as `/etc/nixos/hardware-configuration.nix` (base.nix imports it) and evaluate through `colmena eval`, building only a few tiny generated files. Evaluation warnings become annotations.
+- `checks.yaml` - Cheap regression checks on GitHub-hosted `ubuntu-latest` runners (the repo is public, so they are free and never compete with the self-hosted builders), on push/PR to main. Jobs: `lint` (`devenv test`: treefmt/shellcheck/mdsh hooks, then fails if treefmt changed any file), `repo` (`tests/run.sh repo`, `shell`, `iso`, `docs`), and `host (<name>)` for every hive node plus one `all modules` leg (`tests/run.sh host`), whose matrix is read from `hive.nix` so new machines are picked up automatically. Host legs install `tests/hardware-stub.nix` as `/etc/nixos/hardware-configuration.nix` (base.nix imports it) and evaluate through `colmena eval`, building only a few tiny generated files. Evaluation warnings become annotations.
 - `npins-update.yaml` - Automated dependency updates every 6 hours or manual dispatch. Updates each pin independently (max 10 parallel), syncs devenv.yaml nixpkgs revision, creates PRs with auto-merge.
 
 **Features:**
