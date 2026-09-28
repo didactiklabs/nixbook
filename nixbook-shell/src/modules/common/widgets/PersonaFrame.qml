@@ -1,15 +1,13 @@
 import QtQuick
-import QtQuick.Effects
 import Quickshell
 import qs.modules.common
 
 /**
  * Persona-style panel frame, drawn *behind* content (content stays straight
- * and readable): slanted body (shear about the vertical center) with the
- * Persona cut — a large radius on the top-left and bottom-right corners, a
- * small one on the others — a thin tonal outline, the accent slash along
- * the top edge and the halftone art. Tonal elevation: the accent glow is
- * only drawn if Appearance.tonal is turned off. Static: no per-frame work.
+ * and readable): slanted body (shear about the vertical center), hard
+ * accent-colored offset shadow, bold border (Royal gold in p5), accent slash
+ * along the top edge and a halftone corner. Only rectangles + one tiled
+ * image, all static — no per-frame work.
  *
  * Fill the area the panel background would cover:
  *   PersonaFrame { anchors.fill: popupBackground }
@@ -18,7 +16,7 @@ Item {
     id: root
     property color color: Persona.frameColor
     property color borderColor: Persona.outlineColor
-    property color shadowColor: Persona.elevationColor
+    property color shadowColor: Persona.shadowColor
     property color accentColor: Persona.stripeColor
     // Lean is capped in pixels so a tall frame stays inside its window margin.
     property real maxLean: 12
@@ -30,9 +28,6 @@ Item {
     property bool showShadow: true
     property bool showStripe: true
     property bool showHalftone: Persona.halftone
-    // The cut, clamped for small frames.
-    readonly property real bigCorner: Math.min(Persona.cornerLarge, root.height / 2, root.width / 2)
-    readonly property real smallCorner: Math.min(Persona.corner, root.height / 2, root.width / 2)
 
     // Shear around the vertical center so the frame leans without drifting.
     transform: Matrix4x4 {
@@ -42,24 +37,20 @@ Item {
                              0, 0, 0, 1)
     }
 
-    RectangularShadow {
-        visible: root.showShadow && !Appearance.tonal
-        anchors.fill: body
-        offset: Qt.vector2d(Persona.shadowOffset, Persona.shadowOffset)
-        blur: Persona.shadowBlur
-        spread: 0
-        radius: root.bigCorner
+    Rectangle {
+        visible: root.showShadow
+        x: Persona.shadowOffset
+        y: Persona.shadowOffset
+        width: parent.width
+        height: parent.height
+        radius: Persona.corner
         color: root.shadowColor
-        cached: true
     }
 
     Rectangle {
         id: body
         anchors.fill: parent
-        topLeftRadius: root.bigCorner
-        bottomRightRadius: root.bigCorner
-        topRightRadius: root.smallCorner
-        bottomLeftRadius: root.smallCorner
+        radius: Persona.corner
         color: root.color
         border.width: Persona.borderWidth
         border.color: root.borderColor
@@ -72,18 +63,17 @@ Item {
         }
     }
 
-    // Accent slash along the top edge: a rounded pill, clear of the cut.
+    // Accent slash along the top edge.
     Rectangle {
         visible: root.showStripe
         anchors {
             top: parent.top
             left: parent.left
-            topMargin: -height / 2
-            leftMargin: Math.max(root.bigCorner, parent.width * 0.08)
+            topMargin: -Persona.borderWidth
+            leftMargin: parent.width * 0.08
         }
         width: Math.max(28, parent.width * 0.28)
-        height: 4
-        radius: height / 2
+        height: Persona.borderWidth * 2 + 2
         color: root.accentColor
     }
 }

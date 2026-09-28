@@ -77,6 +77,10 @@ AbstractBackgroundWidget {
             visible: sizeMode !== "4x1" && Config.options.background.widgets.shadow
             z: -2
         }
+        WidgetOutline {
+            target: contentRect
+            visible: Persona.shapes && sizeMode !== "4x1"
+        }
 
         Rectangle {
             id: contentRect

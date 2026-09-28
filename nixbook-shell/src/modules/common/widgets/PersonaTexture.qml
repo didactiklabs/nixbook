@@ -25,5 +25,5 @@ Image {
     asynchronous: true
     cache: true
     smooth: true
-    opacity: Persona.textureOpacity
+    opacity: 0.75
 }
