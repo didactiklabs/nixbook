@@ -5,6 +5,8 @@
 #   tests/run.sh repo                  repository consistency, custom packages, nixbook-shell unit
 #                                      tests and self-containment
 #   tests/run.sh shell                 nixbook-shell script tests
+#   tests/run.sh shell-perf            nixbook-shell performance score (headless, ~3 min;
+#                                      not part of `all`; AGENTS.md keeps the latest)
 #   tests/run.sh iso                   the installer ISO evaluates
 #   tests/run.sh docs                  docs/MODULES.md lists the modules' current options
 #   tests/run.sh hosts                 print the hive's node names (JSON)
@@ -101,6 +103,12 @@ cmd_shell() {
   bash nixbook-shell/tests/scripts.sh
 }
 
+cmd_shell_perf() {
+  need nix-instantiate nix-build
+  section "nixbook-shell performance (higher score is better)"
+  bash nixbook-shell/tests/perf.sh "$@"
+}
+
 cmd_iso() {
   need nix-instantiate
   section "installer ISO evaluates"
@@ -191,6 +199,10 @@ trap 'rm -rf "$tmpdir"' EXIT
 
 case "${1:-}" in
 repo | shell | iso | docs | hosts | all) "cmd_$1" ;;
+shell-perf)
+  shift
+  cmd_shell_perf "$@"
+  ;;
 host)
   shift
   cmd_host "$@"

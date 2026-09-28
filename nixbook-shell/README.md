@@ -274,3 +274,11 @@ nix-instantiate --eval --strict --json --expr 'import ./tests/lib.nix { }'   # [
 nix-instantiate --eval --strict --read-write-mode tests/standalone.nix \
   --arg homeManager '<home-manager checkout>'                                  # "ok"
 ```
+
+`bash tests/perf.sh` (`tests/run.sh shell-perf` in nixbook) is the
+performance score: the shell in a headless sway (software rendering, Nix's
+pinned tools, a throwaway home), once per theme (Material, Persona 5 Royal,
+Chiikawa), measuring startup (until the QML is loaded), idle CPU over 30 s
+after 20 s to settle, and resident memory; `score = 1000 / mean(startup_s +
+cpu_% + rss_MB / 100)`, higher is better. Compare scores from the same
+machine only; nixbook's AGENTS.md keeps the latest.
