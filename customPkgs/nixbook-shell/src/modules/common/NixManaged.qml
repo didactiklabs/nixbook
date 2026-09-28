@@ -23,6 +23,40 @@ Singleton {
         return false
     }
 
+    // ------------------------------------------------------ menu filter
+    // Settings menu "Editable only" toggle: locked (pinned) widgets hide
+    // themselves (Config*.qml `filteredOut`), and containers (GroupedList,
+    // ConfigRow, ContentSubsection, ContentSection) hide once every setting
+    // inside them is hidden.
+    readonly property bool hideLocked: Config.options.settings.hideLocked
+
+    // [settings, hidden] under `item`: a setting is any descendant exposing
+    // `filteredOut`. Reads only `children` and `filteredOut` (never
+    // `visible`), so a hidden container still sees its settings and shows up
+    // again when the filter is turned off.
+    function tally(item, acc) {
+        acc = acc ?? { total: 0, hidden: 0 };
+        if (!item) return acc;
+        if (item.filteredOut !== undefined) {
+            acc.total++;
+            if (item.filteredOut) acc.hidden++;
+            return acc;
+        }
+        const kids = item.children;
+        if (kids) {
+            for (let i = 0; i < kids.length; i++)
+                root.tally(kids[i], acc);
+        }
+        return acc;
+    }
+
+    // Whether `item` holds settings and the filter hides all of them.
+    function allFiltered(item) {
+        if (!root.hideLocked) return false;
+        const t = root.tally(item);
+        return t.total > 0 && t.hidden === t.total;
+    }
+
     // ------------------------------------------------------- enforcement
     // The pinned *values* (nix-pinned-values.json, same keys as the manifest).
     // Whenever the config changes — Settings menu, QuickConfig cards, IPC,

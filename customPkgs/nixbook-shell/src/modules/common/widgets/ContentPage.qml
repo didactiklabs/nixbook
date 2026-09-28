@@ -5,7 +5,7 @@ import qs.modules.common.widgets
 
 StyledFlickable {
     id: root
-    property real baseWidth: 600
+    property real baseWidth: 680
     property bool forceWidth: false
     property real bottomContentPadding: Config.options.settings.style === "minimal" ? 40 : 90
 
@@ -17,7 +17,8 @@ StyledFlickable {
     
     ColumnLayout {
         id: contentColumn
-        width: root.forceWidth ? root.baseWidth : Math.max(root.baseWidth, implicitWidth)
+        // Shrinks with a narrow window instead of overflowing it.
+        width: root.forceWidth ? Math.min(root.baseWidth, root.width - 32) : Math.max(root.baseWidth, implicitWidth)
         anchors {
             top: parent.top
             horizontalCenter: parent.horizontalCenter

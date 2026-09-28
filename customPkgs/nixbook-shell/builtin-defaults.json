@@ -672,6 +672,7 @@
     "borderColor": "layer0Border",
     "borderSize": 1,
     "collapsedSections": [],
+    "hideLocked": false,
     "style": "default"
   },
   "sidebar": {

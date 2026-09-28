@@ -47,6 +47,13 @@ ColumnLayout {
     Layout.fillWidth: true
     spacing: 6
 
+    // Hidden when the settings menu's "Editable only" filter hides every
+    // setting inside (see NixManaged.allFiltered).
+    Binding on visible {
+        when: NixManaged.allFiltered(root)
+        value: false
+    }
+
     Item {
         id: header
         Layout.fillWidth: true

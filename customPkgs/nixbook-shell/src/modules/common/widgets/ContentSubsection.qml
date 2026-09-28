@@ -13,6 +13,13 @@ ColumnLayout {
     Layout.topMargin: 4
     spacing: 2
 
+    // Hidden when the settings menu's "Editable only" filter hides every
+    // setting inside (see NixManaged.allFiltered).
+    Binding on visible {
+        when: NixManaged.allFiltered(root)
+        value: false
+    }
+
     RowLayout {
         ContentSubsectionLabel {
             visible: root.title && root.title.length > 0

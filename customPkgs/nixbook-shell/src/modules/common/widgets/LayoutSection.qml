@@ -15,6 +15,13 @@ ContentSubsection {
     // Set in Nix (nixbookShellConfig): locked — no drag, add or remove.
     property string configKey: ""
     readonly property bool nixManaged: configKey !== "" && NixManaged.isPinned(configKey)
+    // Settings menu "Editable only" filter: locked settings drop out of the
+    // list (containers hide once empty, see NixManaged.allFiltered).
+    readonly property bool filteredOut: nixManaged && NixManaged.hideLocked
+    Binding on visible {
+        when: root.filteredOut
+        value: false
+    }
     enabled: !nixManaged
     opacity: nixManaged ? 0.6 : 1
 

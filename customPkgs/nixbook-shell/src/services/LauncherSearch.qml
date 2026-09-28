@@ -84,15 +84,20 @@ Singleton {
 
     property var settingsKeywordsCache: ({})
 
+    // Page names must match SettingsContent.qml's `pages` (GlobalStates.settingsPage
+    // looks them up by name).
     property var settingsIndex: [
-        { page: "General",   path: "GeneralConfig.qml" },
-        { page: "Bar",       path: "BarConfig.qml" },
-        { page: "Desktop",   path: "BackgroundConfig.qml" },
-        { page: "Interface", path: "InterfaceConfig.qml" },
-        { page: "Services",  path: "ServicesConfig.qml" },
-        { page: "Hyprland",  path: "HyprlandConfig.qml" },
-        { page: "About",     path: "About.qml" },
-        { page: "Quick",     path: "QuickConfig.qml" },
+        { page: "Quick",       path: "QuickConfig.qml" },
+        { page: "Appearance",  path: "AppearanceConfig.qml" },
+        { page: "Desktop",     path: "BackgroundConfig.qml" },
+        { page: "Bar",         path: "BarConfig.qml" },
+        { page: "Panels",      path: "PanelsConfig.qml" },
+        { page: "Lock screen", path: "LockScreenConfig.qml" },
+        { page: "General",     path: "GeneralConfig.qml" },
+        { page: "Services",    path: "ServicesConfig.qml" },
+        ...(WM.compositor === "niri" ? [{ page: "Niri", path: "NiriConfig.qml" }] : []),
+        ...(WM.compositor === "hyprland" ? [{ page: "Hyprland", path: "HyprlandConfig.qml" }] : []),
+        { page: "About",       path: "About.qml" },
     ]
 
     // Load user action scripts from ~/.config/nixbook-shell/actions/
