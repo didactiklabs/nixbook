@@ -25,10 +25,9 @@ in
     niriConfig.enable = true;
     nixvimConfig.enable = true;
     vscode.enable = true;
-    dmsConfig = {
-      enable = true;
-      showDock = true;
-    };
+    # Desktop shell: nixbook-shell (was DankMaterialShell, dmsConfig; the
+    # two are mutually exclusive). The shared settings show the dock.
+    nixbookShellConfig.enable = true;
 
     # Terminal / shell
     kittyConfig.enable = true;

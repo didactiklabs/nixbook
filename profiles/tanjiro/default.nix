@@ -32,8 +32,17 @@ in
   };
   customNixOSModules = {
     laptopProfile.enable = true;
-    greetd.enable = true;
-    niri.enable = true;
+    greetd = {
+      enable = true;
+      # nixbook-shell's own login screen (the user's theme, wallpaper and
+      # cursor), instead of tuigreet (still the fallback).
+      greeter = "nixbook-shell";
+    };
+    niri = {
+      enable = true;
+      # nixbook-shell ships its own polkit agent (see totoro).
+      polkitAgent = false;
+    };
     caCertificates = {
       bealv.enable = true;
       didactiklabs.enable = true;
