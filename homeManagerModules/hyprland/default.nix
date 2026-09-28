@@ -24,8 +24,10 @@ in
             keybindings, animations, decorations, workspace rules,
             monitor layout, exec-once startup commands, environment
             variables, and input device configuration
-          - hyprlockConfig.nix: hyprlock screen-locker configuration —
+          - hyprlockConfig.nix: hypridle (locks through DMS or nixbook-shell
+            when enabled) and the fallback hyprlock screen locker —
             background blur, clock widget, password input field styling
+            (not installed under nixbook-shell, which ships its own)
 
         Requires the system-level nixosModules/hyprland.nix to be enabled
         (customNixOSModules.hyprland.enable = true).

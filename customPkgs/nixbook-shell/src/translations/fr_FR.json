@@ -112,7 +112,6 @@
   "OK": "OK",
   "Settings": "Paramètres",
   "This is usually safe and needed for your browser and AI sidebar anyway\nMostly useful for those who use lock on startup instead of a display manager that does it (GDM, SDDM, etc.)": "C'est généralement sûr et nécessaire pour votre navigateur et la barre latérale IA\nSurtout utile pour ceux qui utilisent le verrouillage au démarrage au lieu d'un gestionnaire d'affichage (GDM, SDDM, etc.)",
-  "Use Hyprlock (instead of Quickshell)": "Utiliser Hyprlock (au lieu de Quickshell)",
   "Crosshair code (in Valorant's format)": "Code du réticule (au format Valorant)",
   "Silent": "Silencieux",
   "Useless buttons": "Boutons inutiles",

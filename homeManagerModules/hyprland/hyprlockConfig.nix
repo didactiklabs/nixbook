@@ -26,7 +26,12 @@ in
       settings = {
         general = {
           lock_cmd =
-            if cfg.dmsConfig.enable then "dms ipc call lock lock" else "${pidof} ${hyprlock} || ${hyprlock}"; # avoid starting multiple hyprlock instances.
+            if cfg.dmsConfig.enable then
+              "dms ipc call lock lock"
+            else if cfg.nixbookShellConfig.enable then
+              "nixbook-shell ipc call lock activate"
+            else
+              "${pidof} ${hyprlock} || ${hyprlock}"; # avoid starting multiple hyprlock instances.
           before_sleep_cmd = "${loginctl} lock-session"; # lock before suspend.
           after_sleep_cmd = "${hyprctl} dispatch dpms on"; # to avoid having to press a key twice to turn on the display.
         };
@@ -64,7 +69,8 @@ in
       };
     };
 
-    programs.hyprlock = {
+    # Fallback locker only: nixbook-shell ships its own lock screen.
+    programs.hyprlock = lib.mkIf (!cfg.nixbookShellConfig.enable) {
       enable = true;
       settings = {
         general = {

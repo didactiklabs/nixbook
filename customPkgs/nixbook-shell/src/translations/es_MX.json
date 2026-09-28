@@ -518,7 +518,6 @@
   "%1 characters": "%1 caracteres",
   "Invalid API provider. Supported: \n-": "Proveedor de API no válido. Compatibles: \n-",
   "Humidity": "Humedad",
-  "Use Hyprlock (instead of Quickshell)": "Usar Hyprlock (en lugar de Quickshell)",
   "Search wallpapers": "Buscar fondos de pantalla",
   "Total duration timeout (s)": "Tiempo de espera total (s)",
   "Check interval (mins)": "Intervalo de verificación (min)",
