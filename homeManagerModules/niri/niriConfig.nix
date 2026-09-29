@@ -262,18 +262,12 @@ in
             ];
           }
         ]
+        # No xwayland-satellite or environment-import entries: niri (>= 25.08)
+        # spawns xwayland-satellite itself on the first X11 client (found in
+        # PATH via nixosModules/niri.nix) and restarts it if it dies, and
+        # imports WAYLAND_DISPLAY, DISPLAY, XDG_CURRENT_DESKTOP,
+        # XDG_SESSION_TYPE and NIRI_SOCKET into systemd and D-Bus on start.
         ++ [
-          {
-            command = [ "${pkgs.xwayland-satellite}/bin/xwayland-satellite" ];
-          }
-          {
-            command = [ "systemctl --user import-environment XDG_SESSION_TYPE XDG_CURRENT_DESKTOP" ];
-          }
-          {
-            command = [
-              "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
-            ];
-          }
           {
             # NM secret agent — handles WPA Enterprise credential prompts and
             # shows a tray icon for network status/connection management.
