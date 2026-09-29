@@ -129,6 +129,16 @@ nixbook-shell binds all spawn `nixbook-shell ipc call <target> <function>`.
 | `XF86AudioLowerVolume`  | Volume -3%                                                                               |
 | `XF86AudioMute`         | Toggle mute                                                                              |
 
+#### nixbook-shell screenshot selector (open with `Print`)
+
+| Key / click       | Action                                                                                        |
+| ----------------- | --------------------------------------------------------------------------------------------- |
+| Drag + left click | Copy the rectangle to the clipboard                                                           |
+| Right click       | Annotate the selection (swappy / satty)                                                       |
+| `W`               | Window selection: hovering a window selects it, a click takes it whole (`W` again: rectangle) |
+| `S`               | Screen selection: hovering a screen selects it, a click takes it (`S` again: rectangle)       |
+| `Esc`             | Cancel                                                                                        |
+
 ---
 
 ## Sway (SwayFX i3-like compositor — anya)

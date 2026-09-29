@@ -13,6 +13,9 @@ Item {
     required property color color
     required property color overlayColor
     property bool showAimLines: Config.options.regionSelector.rect.showAimLines
+    // Shown before the size (the hovered window's title / screen name).
+    property string label: ""
+    readonly property bool hasRegion: root.regionWidth > 0 && root.regionHeight > 0
 
     property bool breathingBorderOnly: false
 
@@ -38,6 +41,7 @@ Item {
     DashedBorder {
         id: selectionBorder
         z: 9
+        visible: root.hasRegion
         anchors {
             left: parent.left
             top: parent.top
@@ -62,16 +66,29 @@ Item {
         }
     }
 
-    StyledText {
+    Rectangle {
+        id: sizeLabel
         z: 2
-        visible: !root.breathingBorderOnly
-        anchors {
-            top: selectionBorder.bottom
-            right: selectionBorder.right
-            margins: 8
+        visible: !root.breathingBorderOnly && root.hasRegion
+        // Below the selection, or inside its bottom edge when that is off
+        // screen (a whole-screen or bottom-hugging selection).
+        readonly property real below: selectionBorder.y + selectionBorder.height + 8
+        x: Math.max(8, selectionBorder.x + selectionBorder.width - width - 8)
+        y: below + height + 8 <= root.height ? below : selectionBorder.y + selectionBorder.height - height - 8
+        width: sizeText.width + 16
+        height: sizeText.implicitHeight + 8
+        radius: height / 2
+        color: root.overlayColor
+
+        StyledText {
+            id: sizeText
+            anchors.centerIn: parent
+            color: root.color
+            text: (root.label !== "" ? `${root.label}  ·  ` : "")
+                + `${Math.round(root.regionWidth)} x ${Math.round(root.regionHeight)}`
+            elide: Text.ElideMiddle
+            width: Math.min(implicitWidth, Math.max(0, root.width - 32))
         }
-        color: root.color
-        text: `${Math.round(root.regionWidth)} x ${Math.round(root.regionHeight)}`
     }
 
     // Coord lines

@@ -31,8 +31,9 @@ Singleton {
         const ry = Math.round(y);
         const rw = Math.round(width);
         const rh = Math.round(height);
-        const cropBase = `magick ${StringUtils.shellSingleQuoteEscape(screenshotPath)} `
-            + `-crop ${rw}x${rh}+${rx}+${ry} +repage`
+        // A zero size keeps the whole image (a window captured by niri).
+        const cropBase = `magick '${StringUtils.shellSingleQuoteEscape(screenshotPath)}'`
+            + (rw > 0 && rh > 0 ? ` -crop ${rw}x${rh}+${rx}+${ry} +repage` : "")
         const cropToStdout = `${cropBase} -`
         const cropInPlace = `${cropBase} '${StringUtils.shellSingleQuoteEscape(screenshotPath)}'`
         const cleanup = `rm '${StringUtils.shellSingleQuoteEscape(screenshotPath)}'`
@@ -77,5 +78,18 @@ Singleton {
                 console.warn("[Region Selector] Unknown snip action, skipping snip.");
                 return;
         }
+    }
+
+    // Runs `command` (from getCommand, with a zero size) on the window `windowId`
+    // as niri renders it: whole, borderless, even where it is off screen or
+    // covered. niri only hands the capture to the clipboard, so the clipboard
+    // is cleared first and the image read back once it lands there.
+    function getWindowCommand(windowId, screenshotPath, command) {
+        const path = StringUtils.shellSingleQuoteEscape(screenshotPath);
+        const capture = `wl-copy --clear && `
+            + `niri msg action screenshot-window --id ${Number(windowId)} --write-to-disk false && `
+            + `for _ in $(seq 40); do wl-paste --list-types 2>/dev/null | grep -qx image/png && break; sleep 0.05; done && `
+            + `mkdir -p "$(dirname '${path}')" && wl-paste --no-newline --type image/png > '${path}'`;
+        return ["bash", "-c", `${capture} && ${command[2]}`];
     }
 }

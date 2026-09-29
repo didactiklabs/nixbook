@@ -16,23 +16,27 @@ import Quickshell.Wayland
 Toolbar {
     id: root
 
-    // Use a synchronizer on these
+    // Use a synchronizer on this
     property var action
+    // Shared by every screen: shown here, changed through selectionModeSelected
     property var selectionMode
     // Signals
     signal dismiss()
+    signal selectionModeSelected(var mode)
 
+    // Tab index = RegionSelection.SelectionMode value
     ToolbarTabBar {
         id: tabBar
         tabButtonList: [
             {"icon": "activity_zone", "name": Translation.tr("Rect")},
-            {"icon": "gesture", "name": Translation.tr("Circle")}
+            {"icon": "gesture", "name": Translation.tr("Circle")},
+            {"icon": "select_window", "name": Translation.tr("Window")},
+            {"icon": "monitor", "name": Translation.tr("Screen")}
         ]
-        currentIndex: root.selectionMode === RegionSelection.SelectionMode.RectCorners ? 0 : 1
+        currentIndex: root.selectionMode
         onCurrentIndexChanged: {
-            const newMode = currentIndex === 0 ? RegionSelection.SelectionMode.RectCorners : RegionSelection.SelectionMode.Circle;
-            if (root.selectionMode !== newMode)
-                root.selectionMode = newMode;
+            if (currentIndex !== root.selectionMode)
+                root.selectionModeSelected(currentIndex);
         }
     }
 }

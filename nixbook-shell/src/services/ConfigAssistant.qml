@@ -422,7 +422,7 @@ Singleton {
         "notification": ["notification"], "setting": ["configure"], "configure": ["setting"], "config": ["setting", "configure"],
         "configuration": ["setting", "configure"], "preference": ["setting"], "option": ["setting"],
         "disappear": ["hide"], "caffeine": ["idle"], "awake": ["idle", "display"], "sleep": ["suspend", "idle"],
-        "screen": ["display"], "display": ["screen"], "copy": ["clipboard"], "paste": ["clipboard"],
+        "screen": ["display"], "display": ["screen"], "monitor": ["screen"], "copy": ["clipboard"], "paste": ["clipboard"],
         "capture": ["screenshot"], "snip": ["screenshot"], "log": ["session"], "restart": ["reboot"],
         "background": ["wallpaper"], "panel": ["sidebar"], "chat": ["assistant", "ai"], "raise": ["up"],
         "lower": ["down"], "next": ["below"], "previous": ["above"], "history": ["clipboard"],
