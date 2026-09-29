@@ -1240,11 +1240,24 @@ def layout_entry(w, ws, apps):
 )
 def t_save_layout(ctx, args):
     name = as_str(args, "name", max_len=64, pattern=LAYOUT_NAME)
+    path = os.path.join(layouts_dir(), f"{name}.json")
+    # A layout made with more monitors than are connected now (a laptop off
+    # its dock) isn't overwritten with the windows squeezed onto the rest.
+    try:
+        with open(path, encoding="utf-8") as f:
+            saved_on = {e.get("monitor") for e in json.load(f).get("windows", [])}
+    except (OSError, ValueError, AttributeError):
+        saved_on = set()
+    gone = sorted(m for m in saved_on - connected_monitors() if m)
+    if gone:
+        raise ToolError(
+            f"layout {name!r} has windows on {', '.join(gone)}, not connected now: "
+            f"save under another name, or reconnect {'it' if len(gone) == 1 else 'them'} first"
+        )
     wss = {w["id"]: w for w in niri_json("workspaces")}
     apps = applications()
     entries = [layout_entry(w, wss[w["workspace_id"]], apps) for w in windows() if w.get("workspace_id") in wss]
     doc = {"name": name, "saved": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "windows": entries}
-    path = os.path.join(layouts_dir(), f"{name}.json")
     fd = os.open(path + ".tmp", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         json.dump(doc, f, indent=1, ensure_ascii=False)
@@ -1281,6 +1294,11 @@ def layouts_index():
         except (OSError, ValueError):
             continue
     return out
+
+
+def connected_monitors():
+    """The enabled outputs (a disabled one has no logical size)."""
+    return {n for n, o in (niri_json("outputs") or {}).items() if o.get("logical")}
 
 
 def current_layout_path():
@@ -1330,7 +1348,8 @@ def match_windows(entries, current):
     "Put the windows back as a saved layout had them (see list_layouts): "
     "monitors, workspaces, column order and widths, floating positions and "
     "sizes; apps that aren't open are started first (launch_missing, default "
-    "true). One call does it all.",
+    "true). Windows saved on a monitor that isn't connected are left where "
+    "they are. One call does it all.",
     obj(
         {
             "name": {"type": "string"},
@@ -1383,14 +1402,25 @@ def t_restore_layout(ctx, args):
     else:
         report += [f"not open: {e.get('app_id')} {e.get('title')!r}" for e in missing]
 
-    outputs = set((niri_json("outputs") or {}).keys())
+    # Windows saved on a monitor that isn't connected now stay where they
+    # are: niri has moved that monitor's workspaces, windows and columns
+    # intact, to another one and moves them back when it's plugged in again.
+    # Put on the saved workspace index instead, they would pile up on this
+    # monitor's workspace 1, 2… with its own windows.
+    outputs = connected_monitors()
+    gone = sorted({e["monitor"] for e, w in pairs if e.get("monitor") and e["monitor"] not in outputs})
+    left = [(e, w) for e, w in pairs if e.get("monitor") in gone]
+    pairs = [(e, w) for e, w in pairs if e.get("monitor") not in gone]
+    if left:
+        report.append(
+            f"{len(left)} window(s) of {', '.join(gone)} (not connected) left where they are: "
+            + ", ".join(sorted({e.get("app_id") or "?" for e, w in left}))
+        )
     # 1. Monitor, workspace, floating or tiled.
     for e, w in pairs:
         wid = str(w["id"])
-        if e.get("monitor") in outputs:
+        if e.get("monitor"):
             niri_action("move-window-to-monitor", "--id", wid, e["monitor"])
-        elif e.get("monitor"):
-            report.append(f"monitor {e['monitor']} isn't connected: {e.get('app_id')} stays where it is")
         ws = e.get("workspace") or {}
         ref = ws.get("name") or (str(ws["index"]) if ws.get("index") else None)
         if ref:
@@ -1450,7 +1480,10 @@ def t_restore_layout(ctx, args):
         niri_action("focus-window", "--id", str(focused_before))
     set_current_layout(name)
     count_use("layouts", name)
-    report.insert(0, f"restored layout {name!r}: {len(pairs)} of {len(entries)} windows placed")
+    summary = f"restored layout {name!r}: {len(pairs)} of {len(entries)} windows placed"
+    if gone:
+        summary += f" ({', '.join(gone)} not connected: {len(left)} left where they are)"
+    report.insert(0, summary)
     return [text("\n".join(report))]
 
 
