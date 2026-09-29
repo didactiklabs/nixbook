@@ -4,7 +4,11 @@
 # close. Cheap: one texture read per pixel, no loops.
 #
 # `accent` and `ink` are "#rrggbb" colours (nixbook-shell's Persona palette,
-# or the stylix accent/foreground for other themes).
+# or the stylix accent/foreground for other themes), baked into `animations`.
+# `kdlTemplate` is the same open/close as an `animations {}` KDL block with
+# `@ACCENT@` and `@INK@` (GLSL vec3s) left to fill: nixbook-shell fills it with
+# the live theme colours (services/NiriThemeAnimations.qml) and niri includes
+# the result, so a theme picked in the shell's menu recolours the slash.
 {
   lib,
   accent,
@@ -14,11 +18,11 @@ let
   channel = hex: i: toString ((lib.fromHexString (builtins.substring (1 + 2 * i) 2 hex)) / 255.0);
   vec3 = hex: "vec3(${channel hex 0}, ${channel hex 1}, ${channel hex 2})";
 
-  # Shared by both shaders. `behind` is what is left once the slash has
+  # Shared by both shaders, with the band colours as GLSL vec3 expressions. `behind` is what is left once the slash has
   # passed (the window on open, nothing on close); `ahead` is what it has not
   # reached yet. Everything is in logical pixels so the angle, band widths
   # and teeth look the same on any window size.
-  slash = ''
+  slash = accentGlsl: inkGlsl: ''
     vec4 persona_slash(vec3 coords_geo, vec3 size_geo, float progress, bool opening) {
         vec2 px = coords_geo.xy * size_geo.xy;
 
@@ -54,10 +58,31 @@ let
         vec4 behind = opening ? win : vec4(0.0);
         vec4 ahead = opening ? vec4(0.0) : win;
 
-        vec4 color = mix(behind, vec4(${vec3 accent}, 1.0), past_accent);
-        color = mix(color, vec4(${vec3 ink}, 1.0), past_ink);
+        vec4 color = mix(behind, vec4(${accentGlsl}, 1.0), past_accent);
+        color = mix(color, vec4(${inkGlsl}, 1.0), past_ink);
         color = mix(color, ahead, past_lead);
         return color * inside;
+    }
+  '';
+
+  open = {
+    duration-ms = 260;
+    curve = "ease-out-expo";
+  };
+  close = {
+    duration-ms = 200;
+    curve = "ease-out-cubic";
+  };
+  openShader = accentGlsl: inkGlsl: ''
+    ${slash accentGlsl inkGlsl}
+    vec4 open_color(vec3 coords_geo, vec3 size_geo) {
+        return persona_slash(coords_geo, size_geo, niri_clamped_progress, true);
+    }
+  '';
+  closeShader = accentGlsl: inkGlsl: ''
+    ${slash accentGlsl inkGlsl}
+    vec4 close_color(vec3 coords_geo, vec3 size_geo) {
+        return persona_slash(coords_geo, size_geo, niri_clamped_progress, false);
     }
   '';
 in
@@ -71,29 +96,29 @@ in
     };
 
     window-open = {
-      kind.easing = {
-        duration-ms = 260;
-        curve = "ease-out-expo";
-      };
-      custom-shader = ''
-        ${slash}
-        vec4 open_color(vec3 coords_geo, vec3 size_geo) {
-            return persona_slash(coords_geo, size_geo, niri_clamped_progress, true);
-        }
-      '';
+      kind.easing = open;
+      custom-shader = openShader (vec3 accent) (vec3 ink);
     };
 
     window-close = {
-      kind.easing = {
-        duration-ms = 200;
-        curve = "ease-out-cubic";
-      };
-      custom-shader = ''
-        ${slash}
-        vec4 close_color(vec3 coords_geo, vec3 size_geo) {
-            return persona_slash(coords_geo, size_geo, niri_clamped_progress, false);
-        }
-      '';
+      kind.easing = close;
+      custom-shader = closeShader (vec3 accent) (vec3 ink);
     };
   };
+
+  # Strings are JSON-escaped, which KDL reads as-is (as niri-flake writes them).
+  kdlTemplate = ''
+    animations {
+        window-open {
+            duration-ms ${toString open.duration-ms}
+            curve ${builtins.toJSON open.curve}
+            custom-shader ${builtins.toJSON (openShader "@ACCENT@" "@INK@")}
+        }
+        window-close {
+            duration-ms ${toString close.duration-ms}
+            curve ${builtins.toJSON close.curve}
+            custom-shader ${builtins.toJSON (closeShader "@ACCENT@" "@INK@")}
+        }
+    }
+  '';
 }

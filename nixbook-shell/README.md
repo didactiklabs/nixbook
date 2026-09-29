@@ -212,6 +212,15 @@ Before `appearance.theme` the Persona style was the switch
 migrated to `theme = "persona"` when the shell loads it, and the Nix option is
 translated to `appearance.theme` with a deprecation warning.
 
+Under niri the window open/close animation can follow the theme too:
+`services/NiriThemeAnimations.qml` fills
+`~/.config/niri/nixbook-shell-animations.kdl.in` (its `@ACCENT@` and `@INK@`
+GLSL vec3s) with the palette's primary and ink colours and writes
+`nixbook-shell-animations.kdl` next to it whenever they change; a niri config
+that includes that file (`include optional=true`, last) is recoloured live.
+nixbook's `homeManagerModules/niri` ships the template (Persona slash) and
+the include; without a template nothing is written.
+
 ### Adding a theme
 
 The themes are declared once, in `src/modules/common/themes.json`, which the
