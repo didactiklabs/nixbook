@@ -2,27 +2,27 @@ import QtQuick
 import qs.modules.common
 
 /**
- * The Chiikawa theme's character (the current variant's, Chiikawa.mascotUrl):
- * breathes gently, hops when clicked or hovered. Hidden unless the theme and
- * its mascot are on.
+ * The Chiikawa theme's character (Chiikawa.mascotUrl, an animated GIF):
+ * breathes gently and spins where idle, hops (and spins) when clicked or
+ * hovered. Hidden unless the theme and its mascot are on.
  */
-Image {
+AnimatedImage {
     id: root
     property bool hopOnHover: true
-    // Idle "breathing": only where the character is briefly on screen (the
-    // loading screen, the alert); an endless animation keeps its window
-    // repainting every frame.
+    // Idle "breathing" and spinning: only where the character is briefly on
+    // screen (the loading screen, the alert); an endless animation keeps its
+    // window repainting every frame.
     property bool idle: true
 
     visible: Chiikawa.mascot
     source: visible ? Chiikawa.mascotUrl() : ""
-    sourceSize.width: 400
-    sourceSize.height: 400
+    // Where not idle it stays on its first frame, spinning only during a hop.
+    playing: visible && (idle || hopAnim.running)
+    onPlayingChanged: if (!playing) currentFrame = 0
     fillMode: Image.PreserveAspectFit
     asynchronous: true
     cache: true
     smooth: true
-    mipmap: true
     transformOrigin: Item.Bottom
 
     function hop() {

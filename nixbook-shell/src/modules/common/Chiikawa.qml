@@ -8,12 +8,14 @@ import Quickshell
  * "chiikawa"` (Themes.qml). Its palettes, rounder corners, rounded font and
  * bouncy motion are data in themes.json (`style`, applied by Appearance and
  * MaterialThemeLoader); this singleton adds what data can't: the character
- * of the current variant (ChiikawaMascot: loading screen, sidebars) and the
- * scattered stars and hearts behind the sidebars (ChiikawaDecor).
+ * (ChiikawaMascot: loading screen, sidebars) and the scattered stars and
+ * hearts behind the sidebars (ChiikawaDecor).
  *
  * Variants: momonga (periwinkle), usagi (yellow), chiikawa (cream and pink).
- * Art: assets/chiikawa/generate.py, rasterised to PNG when the package is
- * built (qml.nix).
+ * The character is the same animated GIF for every variant
+ * (assets/chiikawa/momonga.gif); the rest of the art is drawn by
+ * assets/chiikawa/generate.py, rasterised to PNG when the package is built
+ * (qml.nix).
  */
 Singleton {
     id: root
@@ -25,8 +27,8 @@ Singleton {
 
     readonly property var spec: Themes.variantsOf("chiikawa").find(v => v.id === root.variant)?.palette ?? ({})
 
-    function mascotUrl(variant) {
-        return Quickshell.shellPath(`assets/chiikawa/${variant ?? root.variant}.png`);
+    function mascotUrl() {
+        return Quickshell.shellPath("assets/chiikawa/momonga.gif");
     }
     function patternUrl(variant) {
         return Quickshell.shellPath(`assets/chiikawa/${variant ?? root.variant}-tall.png`);
