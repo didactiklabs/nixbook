@@ -261,22 +261,22 @@ ignored.
 
 ## Layout
 
-| Path               | What                                                                               |
-| ------------------ | ---------------------------------------------------------------------------------- |
-| `default.nix`      | entry point (`package`, `homeManagerModules.default`, `lib`)                       |
-| `package.nix`      | the launcher: runtime `PATH`, QML import path, `config` CLI                        |
-| `dankcalendar.nix` | DankCalendar (`dcal`), the calendar and task sync, from `npins/`                   |
-| `qml.nix`          | the QML tree as installed (store-path fixups, Persona and Chiikawa art)            |
-| `quickshell.nix`   | Quickshell from `quickshellSrc` plus `patches/`                                    |
-| `lib.nix`          | typed settings options generated from `builtin-defaults.json`                      |
-| `hm-module.nix`    | the Home Manager module `programs.nixbook-shell`                                   |
-| `nixos-module.nix` | optional NixOS module: the system's toggles for the assistant                      |
-| `greeter.nix`      | the login screen (`nixbook-shell.greeter`, imported by it)                         |
-| `toggles.nix`      | discovers the `enable` toggles from an options tree                                |
-| `scripts/`         | `config` CLI, its jq library, assistant facts, Anthropic usage, login screen theme |
-| `npins/`           | default nixpkgs, quickshell, dankcalendar (+ flake-compat) pins                    |
-| `src/`             | the vendored QML tree (edited in place)                                            |
-| `tests/`           | script tests, lib unit tests, the self-containment check                           |
+| Path               | What                                                                                           |
+| ------------------ | ---------------------------------------------------------------------------------------------- |
+| `default.nix`      | entry point (`package`, `homeManagerModules.default`, `lib`)                                   |
+| `package.nix`      | the launcher: runtime `PATH`, QML import path, `config` CLI                                    |
+| `dankcalendar.nix` | DankCalendar (`dcal`), the calendar and task sync, from `npins/`                               |
+| `qml.nix`          | the QML tree as installed (store-path fixups, Persona and Chiikawa art, emoji list)            |
+| `quickshell.nix`   | Quickshell from `quickshellSrc` plus `patches/`                                                |
+| `lib.nix`          | typed settings options generated from `builtin-defaults.json`                                  |
+| `hm-module.nix`    | the Home Manager module `programs.nixbook-shell`                                               |
+| `nixos-module.nix` | optional NixOS module: the system's toggles for the assistant                                  |
+| `greeter.nix`      | the login screen (`nixbook-shell.greeter`, imported by it)                                     |
+| `toggles.nix`      | discovers the `enable` toggles from an options tree                                            |
+| `scripts/`         | `config` CLI, its jq library, assistant facts, Anthropic usage, login screen theme, emoji list |
+| `npins/`           | default nixpkgs, quickshell, dankcalendar (+ flake-compat) pins                                |
+| `src/`             | the QML tree                                                                                   |
+| `tests/`           | script tests, lib unit tests, the self-containment check                                       |
 
 ## Tests
 
