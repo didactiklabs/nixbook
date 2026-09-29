@@ -100,6 +100,36 @@ in
         };
       };
 
+      # NVIDIA's driver keeps freed buffers in niri's heap instead of returning
+      # them, so niri climbs toward ~1 GiB of VRAM (vs ~100 MiB) and the GPU
+      # gets memory-starved under games. Per-process profile from niri's wiki
+      # (docs/wiki/Nvidia.md, egl-wayland#126). Only on NVIDIA machines.
+      environment.etc."nvidia/nvidia-application-profiles-rc.d/50-limit-free-buffer-pool-in-wayland-compositors.json" =
+        lib.mkIf (lib.elem "nvidia" config.services.xserver.videoDrivers) {
+          text = builtins.toJSON {
+            rules = [
+              {
+                pattern = {
+                  feature = "procname";
+                  matches = "niri";
+                };
+                profile = "Limit Free Buffer Pool On Wayland Compositors";
+              }
+            ];
+            profiles = [
+              {
+                name = "Limit Free Buffer Pool On Wayland Compositors";
+                settings = [
+                  {
+                    key = "GLVidHeapReuseRatio";
+                    value = 0;
+                  }
+                ];
+              }
+            ];
+          };
+        };
+
       environment.systemPackages = with pkgs; [
         fuzzel
         grimblast
@@ -143,6 +173,8 @@ in
         - Adds xdg-desktop-portal-gtk for FileChooser (avoids Nautilus dependency)
         - Ensures the GNOME portal backend auto-starts with the session and restarts on crash
         - Adds the niri.cachix.org binary cache for fast pre-built niri packages
+        - On NVIDIA machines, installs the driver application profile that stops
+          niri's VRAM usage from ballooning (GLVidHeapReuseRatio = 0)
 
         Used on: totoro (primary), tanjiro (primary), nishinoya (primary).
         See also: homeManagerModules/niri/ for per-user compositor configuration.
