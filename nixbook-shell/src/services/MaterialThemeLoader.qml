@@ -147,9 +147,6 @@ Singleton {
         Appearance.m3colors = Appearance.newPalette(values);
         if (current.dynamicInstance)
             Qt.callLater(() => current.destroy());
-        // Custom window border colors are stored as palette roles, so they
-        // have to be pushed to Hyprland again whenever the palette changes.
-        HyprlandConfig.applyBorderColors();
     }
 
     // Never hold a palette hostage to a stuck transition.

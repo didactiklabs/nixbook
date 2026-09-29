@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Wayland
 import Quickshell.Services.Mpris
 import Qt5Compat.GraphicalEffects
@@ -228,7 +227,7 @@ Item {
             case "battery":   return root.batteryIcon()
             case "osd":
                 switch (GlobalStates.osdIndicatorType) {
-                    case "brightness": return Hyprsunset.temperatureActive ? "routine" : "light_mode"
+                    case "brightness": return NightLightService.temperatureActive ? "routine" : "light_mode"
                     case "gamma":      return "wb_twilight"
                     default:           return "volume_up"
                 }

@@ -7,7 +7,6 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Hyprland
 
 Scope {
     id: screenCorners
@@ -41,11 +40,6 @@ Scope {
             bottom: cornerWidget.isBottomLeft || cornerWidget.isBottomRight
             right: cornerWidget.isTopRight || cornerWidget.isBottomRight
         }
-        margins {
-            right: (Config.options.interactions.deadPixelWorkaround.enable && cornerPanelWindow.anchors.right) * -1
-            bottom: (Config.options.interactions.deadPixelWorkaround.enable && cornerPanelWindow.anchors.bottom) * -1
-        }
-
         implicitWidth: cornerWidget.implicitWidth
         implicitHeight: cornerWidget.implicitHeight
 
@@ -53,8 +47,6 @@ Scope {
             id: cornerWidget
             anchors.fill: parent
             corner: cornerPanelWindow.corner
-            rightVisualMargin: (Config.options.interactions.deadPixelWorkaround.enable && cornerPanelWindow.anchors.right) * 1
-            bottomVisualMargin: (Config.options.interactions.deadPixelWorkaround.enable && cornerPanelWindow.anchors.bottom) * 1
 
             implicitSize: Appearance.rounding.screenRounding
             implicitHeight: Math.max(implicitSize, sidebarCornerOpenInteractionLoader.implicitHeight)
@@ -139,36 +131,28 @@ Scope {
         Scope {
             id: monitorScope
             required property var modelData
-            property HyprlandMonitor monitor: Hyprland.monitorFor(modelData)
-
             // Hide when fullscreen
-            property list<HyprlandWorkspace> workspacesForMonitor: Hyprland.workspaces.values.filter(workspace => workspace.monitor && workspace.monitor.name == monitor.name)
-            property var activeWorkspaceWithFullscreen: workspacesForMonitor.filter(workspace => ((workspace.toplevels.values.filter(window => window.wayland?.fullscreen)[0] != undefined) && workspace.active))[0]
-            property bool fullscreen: activeWorkspaceWithFullscreen != undefined
-            // A special workspace open on top of the fullscreen window should bring corners back,
-            // same reasoning as the bar's layer fix: fullscreen only buries them when nothing else is above it.
-            property var thisMonitorData: HyprlandData.monitors.find(m => m.name === monitor.name)
-            property bool specialOpen: (thisMonitorData?.specialWorkspace?.name ?? "") !== ""
+            property bool fullscreen: WM.fullscreenOnMonitor(modelData.name)
 
             CornerPanelWindow {
                 screen: modelData
                 corner: RoundCorner.CornerEnum.TopLeft
-                fullscreen: monitorScope.fullscreen && !monitorScope.specialOpen
+                fullscreen: monitorScope.fullscreen
             }
             CornerPanelWindow {
                 screen: modelData
                 corner: RoundCorner.CornerEnum.TopRight
-                fullscreen: monitorScope.fullscreen && !monitorScope.specialOpen
+                fullscreen: monitorScope.fullscreen
             }
             CornerPanelWindow {
                 screen: modelData
                 corner: RoundCorner.CornerEnum.BottomLeft
-                fullscreen: monitorScope.fullscreen && !monitorScope.specialOpen
+                fullscreen: monitorScope.fullscreen
             }
             CornerPanelWindow {
                 screen: modelData
                 corner: RoundCorner.CornerEnum.BottomRight
-                fullscreen: monitorScope.fullscreen && !monitorScope.specialOpen
+                fullscreen: monitorScope.fullscreen
             }
         }
     }

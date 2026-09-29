@@ -7,8 +7,7 @@ import qs.modules.common
 import qs.services
 
 /**
- * Exposes the active Niri Xkb keyboard layout name and code for indicators.
- * Mirrors HyprlandXkb.qml's shape so widgets can bind to either transparently.
+ * Exposes the active niri Xkb keyboard layout name and code for indicators.
  */
 Singleton {
     id: root
@@ -21,7 +20,6 @@ Singleton {
 
     onCurrentLayoutNameChanged: root.updateLayoutCode()
     function updateLayoutCode() {
-        if (WM.compositor !== "niri") return;
         if (!root.currentLayoutName) return;
         if (cachedLayoutCodes.hasOwnProperty(currentLayoutName)) {
             root.currentLayoutCode = cachedLayoutCodes[currentLayoutName];
@@ -66,7 +64,6 @@ Singleton {
     }
 
     function refresh() {
-        if (WM.compositor !== "niri") return;
         fetchLayoutsProc.running = true;
     }
 
@@ -90,10 +87,8 @@ Singleton {
     }
 
     Component.onCompleted: {
-        if (WM.compositor === "niri") {
-            refresh();
-            eventStream.running = true;
-        }
+        refresh();
+        eventStream.running = true;
     }
 
     Process {
@@ -108,6 +103,6 @@ Singleton {
         }
         onExited: restartTimer.restart()
     }
-    Timer { id: restartTimer; interval: 1000; onTriggered: { if (WM.compositor === "niri") eventStream.running = true; } }
+    Timer { id: restartTimer; interval: 1000; onTriggered: eventStream.running = true }
     Timer { id: refreshDebounce; interval: 80; onTriggered: root.refresh() }
 }

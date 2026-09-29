@@ -7,7 +7,6 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
-import Quickshell.Hyprland
 
 Scope {
     id: root
@@ -138,28 +137,9 @@ Scope {
         }
     }
 
-    CompositorGlobalShortcut {
-        name: "lock"
-        description: "Locks the screen"
-
-        onPressed: {
-            root.lock()
-        }
-    }
-
-    CompositorGlobalShortcut {
-        name: "lockFocus"
-        description: "Re-focuses the lock screen. This is because Hyprland after waking up for whatever reason"
-            + "decides to keyboard-unfocus the lock screen"
-
-        onPressed: {
-            lockContext.shouldReFocus();
-        }
-    }
-
     function initIfReady() {
         if (!Config.ready || !Persistent.ready) return;
-        if (Config.options.lock.launchOnStartup && Persistent.isNewHyprlandInstance) {
+        if (Config.options.lock.launchOnStartup && Persistent.isNewSession) {
             root.lock();
         } else {
             KeyringStorage.fetchKeyringData();

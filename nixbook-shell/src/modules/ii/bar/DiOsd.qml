@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Hyprland
 import qs
 import qs.services
 import qs.modules.common
@@ -17,9 +16,7 @@ RowLayout {
     }
     spacing: 6
 
-    readonly property var focusedScreen: WM.compositor === "hyprland"
-        ? Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name)
-        : Quickshell.screens.find(s => s.name === WM.focusedMonitor?.name)
+    readonly property var focusedScreen: Quickshell.screens.find(s => s.name === WM.focusedMonitor?.name)
     readonly property var brightnessMonitor: Brightness.getMonitorForScreen(focusedScreen)
 
     MaterialShapeWrappedMaterialSymbol {
@@ -40,7 +37,7 @@ RowLayout {
         text: {
             switch (GlobalStates.osdIndicatorType) {
                 case "brightness": return `${Math.round((brightnessMonitor?.brightness ?? 0.5) * 100)}`
-                case "gamma":      return `${Math.round((Hyprsunset.gamma ?? 50))}`
+                case "gamma":      return `${Math.round((NightLightService.gamma ?? 50))}`
                 default:           return `${Math.round((Audio.sink?.audio?.volume ?? 0) * 100)}`
             }
         }

@@ -16,7 +16,6 @@ Variants {
     Loader {
         id: loader
         required property var modelData
-        active: WM.compositor === "niri"
 
         sourceComponent: PanelWindow {
             id: backdrop

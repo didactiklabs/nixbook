@@ -50,27 +50,4 @@ Singleton {
         }
         return keep;
     }
-
-    function filterWindowRegionsByLayers(windowRegions, layerRegions) {
-        return windowRegions.filter(windowRegion => {
-            for (let i = 0; i < layerRegions.length; ++i) {
-                if (intersectionOverUnion(windowRegion, layerRegions[i]) > 0)
-                    return false;
-            }
-            return true;
-        });
-    }
-
-    function filterImageRegions(regions, windowRegions, threshold = 0.1) {
-        // Remove image regions that overlap too much with any window region
-        let filtered = regions.filter(region => {
-            for (let i = 0; i < windowRegions.length; ++i) {
-                if (intersectionOverUnion(region, windowRegions[i]) > threshold)
-                    return false;
-            }
-            return true;
-        });
-        // Remove overlapping image regions, keep only the smaller one
-        return filterOverlappingImageRegions(filtered);
-    }
 }

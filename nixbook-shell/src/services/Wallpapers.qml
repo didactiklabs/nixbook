@@ -80,7 +80,6 @@ Singleton {
     // (Background.qml), and a surface mapped later stacks on top: once every
     // output has its mpvpaper surface, re-map the desktop layer above it.
     function restackOverVideo() {
-        if (WM.compositor !== "niri") return;
         restackWait.running = false;
         restackWait.running = true;
     }

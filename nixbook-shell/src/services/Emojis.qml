@@ -8,11 +8,12 @@ import Quickshell
 import Quickshell.Io
 
 /**
- * Emojis.
+ * Emojis, read from ~/.config/nixbook-shell/emojis.txt: one emoji and its
+ * name per line, after a "### DATA ###" line (fuzzel-emoji.sh's format).
  */
 Singleton {
     id: root
-    property string emojiScriptPath: `${Directories.config}/hypr/hyprland/scripts/fuzzel-emoji.sh`
+    property string emojiScriptPath: FileUtils.trimFileProtocol(`${Directories.shellConfig}/emojis.txt`)
 	property string lineBeforeData: "### DATA ###"
     property list<var> list
     readonly property var preparedEntries: list.map(a => ({

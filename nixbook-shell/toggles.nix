@@ -4,7 +4,7 @@
 # never read; nor are defaults computed from other options that nothing
 # sets), anywhere in the options tree up to `depth` levels
 # (services.openssh, services.desktopManager.plasma6,
-# wayland.windowManager.hyprland). Only those `enable` values are read from
+# programs.niri). Only those `enable` values are read from
 # the configuration.
 #
 #   (import ./toggles.nix { inherit lib; }) { inherit options config; scope = "nixos"; }

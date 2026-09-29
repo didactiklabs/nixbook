@@ -33,10 +33,12 @@ rec {
   ]
   ++ removedKeys;
 
-  # Settings that did nothing and were removed: still accepted in Nix (so an
-  # old configuration evaluates) but ignored, with a warning (hm-module.nix).
+  # Settings that did nothing (or only did something under Hyprland) and were
+  # removed: still accepted in Nix (so an old configuration evaluates) but
+  # ignored, with a warning (hm-module.nix).
   removedKeys = [
     "apps.manageUser"
+    "background.hideWhenFullscreen"
     "background.parallax.autoVertical"
     "background.parallax.enableSidebar"
     "background.parallax.enableWorkspace"
@@ -47,9 +49,17 @@ rec {
     "background.widgets.media.backgroundShape"
     "background.widgets.media.showControls"
     "background.widgets.media.showTitles"
+    "bar.autoHide.showWhenPressingSuper"
     "bar.floatStyleShadow"
     "bar.topLeftIcon"
     "bar.workspaces.showNumberDelay"
+    "hyprland"
+    "interactions.deadPixelWorkaround"
+    "light.antiFlashbang"
+    "overview"
+    "regionSelector.targetRegions.layers"
+    "regionSelector.targetRegions.windows"
+    "search.prefix.keybinds"
     "settings.borderColor"
     "settings.borderSize"
   ];

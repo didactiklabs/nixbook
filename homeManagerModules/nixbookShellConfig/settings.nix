@@ -148,9 +148,6 @@
   overlay = {
     openingZoomAnimation = false;
   };
-  overview = {
-    enable = false;
-  };
   sidebar = {
     cornerOpen = {
       clicklessCornerEnd = false;

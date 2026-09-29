@@ -2,7 +2,6 @@ import qs.modules.common
 import qs.services
 import QtQuick
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Io
 pragma Singleton
 pragma ComponentBehavior: Bound
@@ -35,10 +34,7 @@ Singleton {
     property bool screenUnlockFailed: false
     property bool screenTranslatorOpen: false
     property bool sessionOpen: false
-    property bool superDown: false
-    property bool superReleaseMightTrigger: true
     property bool wallpaperSelectorOpen: false
-    property bool workspaceShowNumbers: false
     property string settingsPage: ""
     property Item currentPageInstance: null
     property list<real> visualizerPoints: []
@@ -150,24 +146,9 @@ Singleton {
         barRefreshTimer.restart()
     }
 
-    CompositorGlobalShortcut {
-        name: "workspaceNumber"
-        description: "Hold to show workspace numbers, release to show icons"
-        onPressed: { root.superDown = true }
-        onReleased: { root.superDown = false }
-    }
-
     IpcHandler {
         target: "background"
         function toggleCenteredWallpaper(): void {
-            Config.options.background.centeredWallpaper = !Config.options.background.centeredWallpaper
-        }
-    }
-
-     CompositorGlobalShortcut {
-        name: "centeredWallpaperToggle"
-        description: "Toggles centered wallpaper"
-        onPressed: {
             Config.options.background.centeredWallpaper = !Config.options.background.centeredWallpaper
         }
     }

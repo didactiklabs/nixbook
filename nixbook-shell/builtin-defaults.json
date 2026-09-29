@@ -80,7 +80,7 @@
     "taskManager": "plasma-systemmonitor --page-name Processes",
     "terminal": "kitty -1",
     "update": "systemctl start --no-block nixos-upgrade-manual.service",
-    "volumeMixer": "~/.config/hypr/hyprland/scripts/launch_first_available.sh \"pavucontrol-qt\" \"pavucontrol\""
+    "volumeMixer": "pavucontrol-qt || pavucontrol"
   },
   "audio": {
     "protection": {
@@ -98,7 +98,6 @@
     "centeredWallpaperSize": 400,
     "enableWallpaperPreview": false,
     "greeterWall": "",
-    "hideWhenFullscreen": true,
     "lockWall": "",
     "screenList": [],
     "showBlur": false,
@@ -306,11 +305,7 @@
     "autoHide": {
       "enable": false,
       "hoverRegionWidth": 2,
-      "pushWindows": false,
-      "showWhenPressingSuper": {
-        "delay": 140,
-        "enable": true
-      }
+      "pushWindows": false
     },
     "borderless": "pills",
     "bottom": false,
@@ -436,65 +431,7 @@
   "hacks": {
     "arbitraryRaceConditionDelay": 20
   },
-  "hyprland": {
-    "animations": {
-      "animation": "normal",
-      "enable": true
-    },
-    "autostartApps": {
-      "apps": [],
-      "enable": false
-    },
-    "decoration": {
-      "activeOpacity": 1,
-      "blur": {
-        "enabled": true,
-        "passes": 3,
-        "size": 1
-      },
-      "inactiveOpacity": 0.9,
-      "rounding": 22,
-      "shadow": {
-        "enabled": true,
-        "range": 4
-      }
-    },
-    "general": {
-      "borderColor": {
-        "activeOpacity": 0.47,
-        "activeRole": "layer0Border",
-        "enable": false,
-        "inactiveOpacity": 0.2,
-        "inactiveRole": "layer0Border"
-      },
-      "borderSize": 1,
-      "gapsIn": 2,
-      "gapsOut": 5,
-      "layout": "dwindle"
-    },
-    "idle": {
-      "lock": 300,
-      "screenOff": 600,
-      "suspend": 10800
-    },
-    "input": {
-      "followMouse": 1,
-      "kbLayout": "us",
-      "numlock": true,
-      "repeatDelay": 250,
-      "repeatRate": 35,
-      "touchpad": {
-        "clickfingerBehavior": false,
-        "disableWhileTyping": true,
-        "naturalScroll": false,
-        "scrollFactor": 0.7
-      }
-    }
-  },
   "interactions": {
-    "deadPixelWorkaround": {
-      "enable": false
-    },
     "scrolling": {
       "fasterTouchpadScroll": false,
       "mouseScrollDeltaThreshold": 120,
@@ -514,9 +451,6 @@
     "pinnedApps": ["org.kde.dolphin", "kitty", "cmake-gui"]
   },
   "light": {
-    "antiFlashbang": {
-      "enable": false
-    },
     "night": {
       "automatic": true,
       "colorTemperature": 5000,
@@ -605,16 +539,6 @@
     },
     "openingZoomAnimation": true
   },
-  "overview": {
-    "centerIcons": true,
-    "columns": 5,
-    "enable": true,
-    "orderBottomUp": false,
-    "orderRightLeft": false,
-    "rows": 2,
-    "scale": 0.18,
-    "style": "default"
-  },
   "panelFamily": "ii",
   "policies": {
     "ai": 1
@@ -638,11 +562,9 @@
     "targetRegions": {
       "content": true,
       "contentRegionOpacity": 0.8,
-      "layers": false,
       "opacity": 0.3,
       "selectionPadding": 5,
-      "showLabel": false,
-      "windows": true
+      "showLabel": false
     }
   },
   "resources": {
@@ -668,7 +590,6 @@
       "app": ">",
       "clipboard": ";",
       "emojis": ":",
-      "keybinds": "<",
       "math": "=",
       "shellCommand": "$",
       "showDefaultActionsWithoutPrefix": true,

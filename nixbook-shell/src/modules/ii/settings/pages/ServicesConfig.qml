@@ -293,18 +293,6 @@ ContentPage {
                                 Config.options.search.prefix.app = value;
                             }
                         }
-                        ConfigTextArea {
-                            configKey: "search.prefix.keybinds";
-                            enabled: !nixManaged;
-                            Layout.fillWidth: true
-                            buttonIcon: "keyboard_command_key"
-                            fieldWidth: 100
-                            text: Translation.tr("Keybinds")
-                            value: Config.options.search.prefix.keybinds
-                            onValueChanged: {
-                                Config.options.search.prefix.keybinds = value;
-                            }
-                        }
                     }
                 }
             }

@@ -69,26 +69,18 @@ Item {
         { id: "system",      name: Translation.tr("System") },
     ]
 
-    property var pages: {
-        let list = [
-            { group: "personalize", name: Translation.tr("Quick"),       icon: "instant_mix",    description: Translation.tr("Wallpaper, colors and the most used toggles"), component: Qt.resolvedUrl("pages/QuickConfig.qml") },
-            { group: "personalize", name: Translation.tr("Appearance"),  icon: "palette",        description: Translation.tr("Color generation, transparency, fonts and style"), component: Qt.resolvedUrl("pages/AppearanceConfig.qml") },
-            { group: "personalize", name: Translation.tr("Desktop"),     icon: "texture",        description: Translation.tr("Wallpaper, clock and desktop widgets"), component: Qt.resolvedUrl("pages/BackgroundConfig.qml") },
-            { group: "personalize", name: Translation.tr("Bar"),         icon: "toast",          iconRotation: 180, description: Translation.tr("Layout, bar widgets and notifications"), component: Qt.resolvedUrl("pages/BarConfig.qml") },
-            { group: "shell",       name: Translation.tr("Panels"),      icon: "bottom_app_bar", description: Translation.tr("Overview, sidebars, dock, on-screen display and overlays"), component: Qt.resolvedUrl("pages/PanelsConfig.qml") },
-            { group: "shell",       name: Translation.tr("Lock screen"), icon: "lock",           description: Translation.tr("Locking, security and lock screen style"), component: Qt.resolvedUrl("pages/LockScreenConfig.qml") },
-            { group: "system",      name: Translation.tr("General"),     icon: "tune",           description: Translation.tr("Time, battery, audio, sounds and language"), component: Qt.resolvedUrl("pages/GeneralConfig.qml") },
-            { group: "system",      name: Translation.tr("Services"),    icon: "hub",            description: Translation.tr("AI, networking, search, updates and weather"), component: Qt.resolvedUrl("pages/ServicesConfig.qml") },
-        ]
-        if (WM.compositor === "hyprland") {
-            list.push({ group: "system", name: Translation.tr("Hyprland"), icon: "select_window_2", description: Translation.tr("Displays, input, idle and animations"), component: Qt.resolvedUrl("pages/HyprlandConfig.qml") })
-        }
-        if (WM.compositor === "niri") {
-            list.push({ group: "system", name: Translation.tr("Niri"), icon: "select_window_2", description: Translation.tr("Displays, input, layout and animations"), component: Qt.resolvedUrl("pages/NiriConfig.qml") })
-        }
-        list.push({ group: "", name: Translation.tr("About"), icon: "info", description: Translation.tr("System information and updates"), component: Qt.resolvedUrl("pages/About.qml") })
-        return list
-    }
+    readonly property var pages: [
+        { group: "personalize", name: Translation.tr("Quick"),       icon: "instant_mix",    description: Translation.tr("Wallpaper, colors and the most used toggles"), component: Qt.resolvedUrl("pages/QuickConfig.qml") },
+        { group: "personalize", name: Translation.tr("Appearance"),  icon: "palette",        description: Translation.tr("Color generation, transparency, fonts and style"), component: Qt.resolvedUrl("pages/AppearanceConfig.qml") },
+        { group: "personalize", name: Translation.tr("Desktop"),     icon: "texture",        description: Translation.tr("Wallpaper, clock and desktop widgets"), component: Qt.resolvedUrl("pages/BackgroundConfig.qml") },
+        { group: "personalize", name: Translation.tr("Bar"),         icon: "toast",          iconRotation: 180, description: Translation.tr("Layout, bar widgets and notifications"), component: Qt.resolvedUrl("pages/BarConfig.qml") },
+        { group: "shell",       name: Translation.tr("Panels"),      icon: "bottom_app_bar", description: Translation.tr("Overview, sidebars, dock, on-screen display and overlays"), component: Qt.resolvedUrl("pages/PanelsConfig.qml") },
+        { group: "shell",       name: Translation.tr("Lock screen"), icon: "lock",           description: Translation.tr("Locking, security and lock screen style"), component: Qt.resolvedUrl("pages/LockScreenConfig.qml") },
+        { group: "system",      name: Translation.tr("General"),     icon: "tune",           description: Translation.tr("Time, battery, audio, sounds and language"), component: Qt.resolvedUrl("pages/GeneralConfig.qml") },
+        { group: "system",      name: Translation.tr("Services"),    icon: "hub",            description: Translation.tr("AI, networking, search, updates and weather"), component: Qt.resolvedUrl("pages/ServicesConfig.qml") },
+        { group: "system",      name: Translation.tr("Niri"),        icon: "select_window_2", description: Translation.tr("Displays, input, layout and animations"), component: Qt.resolvedUrl("pages/NiriConfig.qml") },
+        { group: "",            name: Translation.tr("About"),       icon: "info",           description: Translation.tr("System information and updates"), component: Qt.resolvedUrl("pages/About.qml") },
+    ]
 
     readonly property var currentEntry: root.showingProfile
         ? { name: Translation.tr("Profile"), icon: "account_circle", description: Translation.tr("Avatar, identity and presets") }

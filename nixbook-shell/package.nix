@@ -69,7 +69,6 @@ let
       translate-shell # trans
       kdePackages.kdialog
 
-      hyprpicker # colour picker (bar util button, quick toggle, accent picking)
       songrec # Shazam CLI behind scripts/musicRecognition + its quick toggle
       easyeffects # EasyEffects quick toggle and the shell's EQ panel
       lm_sensors # `sensors` — temperatures in ResourceUsage

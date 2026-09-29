@@ -9,29 +9,14 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
-import Quickshell.Hyprland
 
 Scope {
     id: overviewScope
     property bool dontAutoCancelSearch: false
 
-    // The workspace/overview widget is the expensive part (a full delegate
-    // tree per window) - build it on first open and keep it, rather than
-    // tearing it down every time the overview closes. Its timers are all
-    // event-driven, so an idle cached instance costs nothing.
-    property bool overviewEverOpened: false
-    Connections {
-        target: GlobalStates
-        function onOverviewOpenChanged() {
-            if (GlobalStates.overviewOpen)
-                overviewScope.overviewEverOpened = true;
-        }
-    }
-
     PanelWindow {
         id: panelWindow
         property string searchingText: ""
-        readonly property HyprlandMonitor monitor: Hyprland.monitorFor(panelWindow.screen)
         readonly property bool barCenterOnly: Config.options.bar.layouts.leftLayout.length === 0
             && Config.options.bar.layouts.rightLayout.length === 0
             && !Config.options.bar.vertical
@@ -40,7 +25,6 @@ Scope {
             && Config.options.bar.centerOnlyReserveFrame
             && !Config.options.bar.bottom
             && !Config.options.bar.autoHide.enable
-        property bool monitorIsFocused: (Hyprland.focusedMonitor?.id == monitor?.id)
         // Stays mapped once opened or preloaded: hiding a Wayland window
         // destroys its surface and Qt rebuilt the window's GL context on every
         // open (≈100–200 ms). Closed = no input region, no keyboard focus,
@@ -135,12 +119,6 @@ Scope {
             Keys.onPressed: event => {
                 if (event.key === Qt.Key_Escape) {
                     GlobalStates.overviewOpen = false;
-                } else if (event.key === Qt.Key_Left) {
-                    if (!panelWindow.searchingText)
-                        Hyprland.dispatch("workspace r-1");
-                } else if (event.key === Qt.Key_Right) {
-                    if (!panelWindow.searchingText)
-                        Hyprland.dispatch("workspace r+1");
                 }
             }
 
@@ -149,29 +127,6 @@ Scope {
                 anchors.horizontalCenter: parent.horizontalCenter
                 Synchronizer on searchingText {
                     property alias source: panelWindow.searchingText
-                }
-            }
-
-            Loader {
-                id: overviewLoader
-                active: overviewScope.overviewEverOpened && (Config?.options.overview.enable ?? true)
-                sourceComponent: (Config?.options.overview.style ?? "default") === "niri" ? niriComponent : defaultComponent
-
-                Component {
-                    id: defaultComponent
-                    OverviewWidget {
-                        screen: panelWindow.screen
-                        visible: (panelWindow.searchingText == "")
-                    }
-                }
-
-                Component {
-                    id: niriComponent
-                    NiriOverview {
-                        screen: panelWindow.screen
-                        panelWindow: panelWindow
-                        visible: (panelWindow.searchingText == "")
-                    }
                 }
             }
         }
@@ -222,85 +177,13 @@ Scope {
         function open() {
             GlobalStates.overviewOpen = true;
         }
-        function toggleReleaseInterrupt() {
-            GlobalStates.superReleaseMightTrigger = false;
-        }
         function clipboardToggle() {
             overviewScope.toggleClipboard();
         }
-    }
-
-    CompositorGlobalShortcut {
-        name: "searchToggle"
-        description: "Toggles search on press"
-
-        onPressed: {
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
-        }
-    }
-    CompositorGlobalShortcut {
-        name: "overviewWorkspacesClose"
-        description: "Closes overview on press"
-
-        onPressed: {
-            GlobalStates.overviewOpen = false;
-        }
-    }
-    CompositorGlobalShortcut {
-        name: "overviewWorkspacesToggle"
-        description: "Toggles overview on press"
-
-        onPressed: {
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
-        }
-    }
-    CompositorGlobalShortcut {
-        name: "searchToggleRelease"
-        description: "Toggles search on release"
-
-        onPressed: {
-            GlobalStates.superReleaseMightTrigger = true;
-        }
-
-        onReleased: {
-            if (!GlobalStates.superReleaseMightTrigger) {
-                GlobalStates.superReleaseMightTrigger = true;
-                return;
-            }
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
-        }
-    }
-    CompositorGlobalShortcut {
-        name: "searchToggleReleaseInterrupt"
-        description: "Interrupts possibility of search being toggled on release. " + "This is necessary because GlobalShortcut.onReleased in quickshell triggers whether or not you press something else while holding the key. " + "To make sure this works consistently, use binditn = MODKEYS, catchall in an automatically triggered submap that includes everything."
-
-        onPressed: {
-            GlobalStates.superReleaseMightTrigger = false;
-        }
-    }
-    CompositorGlobalShortcut {
-        name: "overviewClipboardToggle"
-        description: "Toggle clipboard query on overview widget"
-
-        onPressed: {
-            overviewScope.toggleClipboard();
-        }
-    }
-
-    CompositorGlobalShortcut {
-        name: "overviewEmojiToggle"
-        description: "Toggle emoji query on overview widget"
-
-        onPressed: {
+        function emojiToggle() {
             overviewScope.toggleEmojis();
         }
-    }
-
-    CompositorGlobalShortcut {
-        name: "overviewSymbolsToggle"
-        description: "Toggle material symbols search on overview widget"
-
-        onPressed: {
+        function symbolsToggle() {
             overviewScope.toggleSymbols();
         }
     }

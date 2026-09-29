@@ -17,7 +17,7 @@
 #   and used from the next start on (never swapped mid-playback: that would
 #   restart the video). Measured on a 4K60 video over three outputs: ~60
 #   points less GPU time (mpvpaper + niri), same CPU.
-# - Under niri the video goes on the *Bottom* layer. niri's xray blur (tiled
+# - The video goes on the *Bottom* layer. niri's xray blur (tiled
 #   windows) only samples Background-layer surfaces, where the shell keeps a
 #   still frame (NiriBackdrop, the video's thumbnail): windows blur that still
 #   frame once instead of re-blurring every output on every video frame, while
@@ -39,23 +39,17 @@ CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/nixbook-shell/live-wallpapers"
 
 # "name width height" per enabled output (physical pixels).
 outputs() {
-  if [ -n "${NIRI_SOCKET:-}" ]; then
-    niri msg --json outputs | jq -r 'to_entries[] | .value | select(.current_mode != null)
-      | "\(.name) \(.modes[.current_mode].width) \(.modes[.current_mode].height)"'
-  else
-    hyprctl monitors -j | jq -r '.[] | "\(.name) \(.width) \(.height)"'
-  fi
+  niri msg --json outputs | jq -r 'to_entries[] | .value | select(.current_mode != null)
+    | "\(.name) \(.modes[.current_mode].width) \(.modes[.current_mode].height)"'
 }
 
-# Playing as `play` would start it: an mpvpaper surface on the expected
-# layer for every output (under niri the Bottom layer — one left on the
-# Background layer by an older version would sit under the still frame and
-# look frozen). Without niri, any running mpvpaper counts; `[m]` keeps the
-# pattern from matching this script's own command line (the process itself
-# is named `.mpvpaper-wrapp`, Nix wrapper).
+# Playing as `play` would start it: an mpvpaper surface on the Bottom layer
+# for every output (one left on the Background layer by an older version
+# would sit under the still frame and look frozen). `[m]` keeps the pattern
+# from matching this script's own command line (the process itself is named
+# `.mpvpaper-wrapp`, Nix wrapper).
 running() {
   pgrep -f "/bin/[m]pvpaper " >/dev/null || return 1
-  [ -n "${NIRI_SOCKET:-}" ] || return 0
   local want have
   want=$(outputs | wc -l)
   have=$(niri msg --json layers | jq '[.[] | select(.namespace == "mpvpaper" and .layer == "Bottom") | .output] | unique | length')
@@ -104,12 +98,11 @@ optimize() {
 
 play() {
   pkill -f "/bin/[m]pvpaper " || true
-  local file="$video" opt layer=()
-  [ -n "${NIRI_SOCKET:-}" ] && layer=(-l bottom)
+  local file="$video" opt
   opt=$(optimized_path)
   [ -n "$opt" ] && [ -f "$opt" ] && file="$opt"
   while read -r name _; do
-    mpvpaper -p "${layer[@]}" -o "$OPTS" "$name" "$file" >/dev/null 2>&1 </dev/null &
+    mpvpaper -p -l bottom -o "$OPTS" "$name" "$file" >/dev/null 2>&1 </dev/null &
     sleep 0.1
   done < <(outputs)
   if [ -n "$opt" ] && [ ! -f "$opt" ]; then

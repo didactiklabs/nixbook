@@ -8,7 +8,6 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
-import Quickshell.Hyprland
 
 Scope {
     id: root
@@ -47,9 +46,7 @@ Scope {
         sourceComponent: PanelWindow {
             id: panelWindow
             readonly property var monitor: WM.monitorFor(panelWindow.screen)
-            property bool monitorIsFocused: WM.compositor === "hyprland"
-                ? (Hyprland.focusedMonitor?.name == monitor?.name)
-                : (WM.focusedMonitor?.name == monitor?.name)
+            property bool monitorIsFocused: WM.focusedMonitor?.name == monitor?.name
 
             visible: root.reallyOpen
             exclusionMode: ExclusionMode.Ignore
@@ -61,7 +58,7 @@ Scope {
 
             anchors.top: true
             margins {
-                top: Config?.options.bar.vertical ? Appearance.sizes.hyprlandGapsOut : Appearance.sizes.barHeight + Appearance.sizes.hyprlandGapsOut
+                top: Config?.options.bar.vertical ? Appearance.sizes.gapsOut : Appearance.sizes.barHeight + Appearance.sizes.gapsOut
             }
 
             mask: Region {
@@ -103,11 +100,7 @@ Scope {
 
                 function slideIn() {
                     content.y = -content.height;
-                    if (WM.compositor === "niri") {
-                        Qt.callLater(() => { Qt.callLater(() => { content.y = 0; }); });
-                    } else {
-                        Qt.callLater(() => { content.y = 0; });
-                    }
+                    Qt.callLater(() => { Qt.callLater(() => { content.y = 0; }); });
                 }
 
                 Connections {
@@ -124,9 +117,7 @@ Scope {
 
                 Behavior on y {
                     NumberAnimation {
-                        duration: WM.compositor === "niri"
-                            ? Appearance.animation.sidebarSlideEnter.duration
-                            : Appearance.animation.sidebarSlideExit.duration
+                        duration: Appearance.animation.sidebarSlideEnter.duration
                         easing.type: GlobalStates.wallpaperSelectorOpen
                             ? Appearance.animation.sidebarSlideEnter.type
                             : Appearance.animation.sidebarSlideExit.type
@@ -155,22 +146,6 @@ Scope {
         }
 
         function random(): void {
-            Wallpapers.randomFromCurrentFolder();
-        }
-    }
-
-    CompositorGlobalShortcut {
-        name: "wallpaperSelectorToggle"
-        description: "Toggle wallpaper selector"
-        onPressed: {
-            root.toggleWallpaperSelector();
-        }
-    }
-
-    CompositorGlobalShortcut {
-        name: "wallpaperSelectorRandom"
-        description: "Select random wallpaper in current folder"
-        onPressed: {
             Wallpapers.randomFromCurrentFolder();
         }
     }

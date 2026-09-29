@@ -104,7 +104,7 @@ let
   '';
 
   sessionDirs = "${config.services.displayManager.sessionData.desktops}/share";
-  # The sessions this system provides (niri, sway, Hyprland…): [{ name, exec,
+  # The sessions this system provides (niri, sway…): [{ name, exec,
   # desktopNames }], Wayland first.
   sessions =
     pkgs.runCommand "nixbook-shell-greeter-sessions.json"

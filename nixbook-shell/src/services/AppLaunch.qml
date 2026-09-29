@@ -15,16 +15,12 @@ import Quickshell
  * quickshell wrapper's QT_PLUGIN_PATH / QML import paths / tool PATH leak into
  * every Qt app, which then loads the shell's Qt plugin set).
  *
- * Under Niri the compositor spawns the app instead (`niri msg action spawn`):
- * it gets its own app-niri-*.scope, the session environment, and an activation
- * token, exactly like apps started from a niri keybind. Under Hyprland
- * `hyprctl dispatch exec` does the same. Anything else falls back to the old
- * in-process spawn.
+ * niri spawns the app instead (`niri msg action spawn`): it gets its own
+ * app-niri-*.scope, the session environment, and an activation token, exactly
+ * like apps started from a niri keybind.
  */
 Singleton {
     id: root
-
-    readonly property string compositor: WM.compositor
 
     function quote(arg) {
         return `'${StringUtils.shellSingleQuoteEscape(String(arg))}'`;
@@ -38,24 +34,14 @@ Singleton {
             root.spawnShell(`cd ${root.quote(workingDirectory)} && exec ${argv.map(a => root.quote(a)).join(" ")}`);
             return;
         }
-        if (root.compositor === "niri")
-            Quickshell.execDetached(["niri", "msg", "action", "spawn", "--", ...argv]);
-        else if (root.compositor === "hyprland")
-            Quickshell.execDetached(["hyprctl", "dispatch", "exec", "--", argv.map(a => root.quote(a)).join(" ")]);
-        else
-            Quickshell.execDetached(argv);
+        Quickshell.execDetached(["niri", "msg", "action", "spawn", "--", ...argv]);
     }
 
     // Run a shell command line (Config.options.apps.* style strings).
     function spawnShell(command) {
         if (!command || command.length === 0)
             return;
-        if (root.compositor === "niri")
-            Quickshell.execDetached(["niri", "msg", "action", "spawn-sh", "--", command]);
-        else if (root.compositor === "hyprland")
-            Quickshell.execDetached(["hyprctl", "dispatch", "exec", "--", command]);
-        else
-            Quickshell.execDetached(["bash", "-c", command]);
+        Quickshell.execDetached(["niri", "msg", "action", "spawn-sh", "--", command]);
     }
 
     function spawnInTerminal(argv, workingDirectory = "") {

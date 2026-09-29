@@ -41,22 +41,22 @@ Rectangle {
             sourceComponent: QuickSlider {
                 materialSymbol: "brightness_medium"
                 secondaryMaterialSymbol: "wb_twilight"
-                stopIndicatorValues: Hyprsunset.gamma !== 100 && root.brightnessMonitor?.brightness !== 0 ? [0.3 + root.brightnessMonitor?.brightness * 0.7] : []
-                value: Hyprsunset.gamma === 100? 0.3 + root.brightnessMonitor?.brightness * 0.7 : (Hyprsunset.gamma - Hyprsunset.gammaLowerLimit) / (100 - Hyprsunset.gammaLowerLimit) * 0.3
-                tooltipContent: Hyprsunset.gamma === 100 ? `${Math.round(root.brightnessMonitor?.brightness * 100)}%` : `${Translation.tr("Gamma")} ${Hyprsunset.gamma}%`
+                stopIndicatorValues: NightLightService.gamma !== 100 && root.brightnessMonitor?.brightness !== 0 ? [0.3 + root.brightnessMonitor?.brightness * 0.7] : []
+                value: NightLightService.gamma === 100? 0.3 + root.brightnessMonitor?.brightness * 0.7 : (NightLightService.gamma - NightLightService.gammaLowerLimit) / (100 - NightLightService.gammaLowerLimit) * 0.3
+                tooltipContent: NightLightService.gamma === 100 ? `${Math.round(root.brightnessMonitor?.brightness * 100)}%` : `${Translation.tr("Gamma")} ${NightLightService.gamma}%`
                 onMoved: {
                     if (value >= 0.3) {
                         // 0.3 - 1.0 brightness
                         root.brightnessMonitor.setBrightness((value - 0.3) / 0.7);
-                        if (Hyprsunset.gamma !== 100) {
-                            Hyprsunset.setGamma(100);
+                        if (NightLightService.gamma !== 100) {
+                            NightLightService.setGamma(100);
                         }
                     } else {
                         // 0 - 0.3 gamma
                         if (root.brightnessMonitor.brightness !== 0) {
                             root.brightnessMonitor.setBrightness(0);
                         }
-                        Hyprsunset.setGamma((value / 0.3 * (100 - Hyprsunset.gammaLowerLimit) + Hyprsunset.gammaLowerLimit));
+                        NightLightService.setGamma((value / 0.3 * (100 - NightLightService.gammaLowerLimit) + NightLightService.gammaLowerLimit));
                     }
                 }
             }

@@ -319,7 +319,7 @@ ApplicationWindow {
 
                     NoticeBox {
                         Layout.fillWidth: true
-                        text: Translation.tr("Change any time later with /dark, /light, /wallpaper in the launcher\nIf the shell's colors aren't changing:\n    1. Open the right sidebar with Super+N\n    2. Click \"Reload Hyprland & Quickshell\" in the top-right corner")
+                        text: Translation.tr("Change any time later with /dark, /light, /wallpaper in the launcher\nIf the shell's colors aren't changing:\n    1. Open the right sidebar with Super+N\n    2. Click \"Reload Niri & Quickshell\" in the top-right corner")
                     }
                 }
 
@@ -398,21 +398,6 @@ ApplicationWindow {
                                 }
                             }
                         }
-
-                        RippleButtonWithIcon {
-                            materialIcon: "help"
-                            mainText: Translation.tr("Usage")
-                            onClicked: {
-                                AppLaunch.openUrl("https://end-4.github.io/dots-hyprland-wiki/en/ii-qs/02usage/");
-                            }
-                        }
-                        RippleButtonWithIcon {
-                            materialIcon: "construction"
-                            mainText: Translation.tr("Configuration")
-                            onClicked: {
-                                AppLaunch.openUrl("https://end-4.github.io/dots-hyprland-wiki/en/ii-qs/03config/");
-                            }
-                        }
                     }
                 }
 
@@ -428,7 +413,7 @@ ApplicationWindow {
                             nerdIcon: "󰊤"
                             mainText: Translation.tr("GitHub")
                             onClicked: {
-                                AppLaunch.openUrl("https://github.com/end-4/dots-hyprland");
+                                AppLaunch.openUrl("https://github.com/didactiklabs/nixbook");
                             }
                         }
                         RippleButtonWithIcon {

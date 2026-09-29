@@ -8,7 +8,6 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
-import Quickshell.Hyprland
 
 Scope {
     id: root
@@ -61,30 +60,6 @@ Scope {
                 right: true
             }
 
-            HyprlandFocusGrab {
-                id: grab
-                windows: [overlayWindow]
-                active: false
-                onCleared: () => {
-                    if (!active) GlobalStates.overlayOpen = false;
-                }
-            }
-
-            Connections {
-                target: GlobalStates
-                function onOverlayOpenChanged() {
-                    delayedGrabTimer.restart();
-                }
-            }
-
-            Timer {
-                id: delayedGrabTimer
-                interval: Appearance.animation.elementMoveFast.duration
-                onTriggered: {
-                    grab.active = GlobalStates.overlayOpen;
-                }
-            }
-
             OverlayContent {
                 id: overlayContent
                 anchors.fill: parent
@@ -96,15 +71,6 @@ Scope {
         target: "overlay"
 
         function toggle(): void {
-            GlobalStates.overlayOpen = !GlobalStates.overlayOpen;
-        }
-    }
-
-    CompositorGlobalShortcut {
-        name: "overlayToggle"
-        description: "Toggles overlay on press"
-
-        onPressed: {
             GlobalStates.overlayOpen = !GlobalStates.overlayOpen;
         }
     }

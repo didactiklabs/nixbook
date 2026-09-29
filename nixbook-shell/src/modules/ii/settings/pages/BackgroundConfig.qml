@@ -6,7 +6,6 @@ import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.functions
-import Quickshell.Hyprland
 import Quickshell.Io
 import Qt5Compat.GraphicalEffects
 
@@ -365,17 +364,6 @@ ContentPage {
                             Config.options.background.centeredWallpaper = !Config.options.background.centeredWallpaper;
                         }
                     }
-                    ConfigSwitch {
-                        configKey: "background.centeredWallpaperOnlyWhenLocked";
-                        Layout.fillWidth: true
-                        buttonIcon: "lock"
-                        text: Translation.tr("Show only when locked")
-                        checked: Config.options.background.centeredWallpaperOnlyWhenLocked
-                        onCheckedChanged: {
-                            Config.options.background.centeredWallpaperOnlyWhenLocked = checked;
-                        }
-                        enabled: (Config.options.background.centeredWallpaper && WM.compositor !== "niri") && !nixManaged
-                    }
                 }
 
                 GroupedList {
@@ -599,16 +587,6 @@ ContentPage {
                     }
                 }
 
-                ConfigSwitch {
-                    configKey: "background.widgets.clock.showOnlyWhenLocked";
-                    buttonIcon: "lock_clock"
-                    text: Translation.tr("Show only when locked")
-                    enabled: (WM.compositor !== "niri") && !nixManaged
-                    checked: Config.options.background.widgets.clock.showOnlyWhenLocked
-                    onCheckedChanged: {
-                        Config.options.background.widgets.clock.showOnlyWhenLocked = checked;
-                    }
-                }
                 ConfigSelectionArray {
                     configKey: "background.widgets.clock.placementStrategy";
                     enabled: !nixManaged;

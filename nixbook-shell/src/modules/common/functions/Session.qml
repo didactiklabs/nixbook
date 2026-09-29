@@ -8,16 +8,10 @@ Singleton {
     id: root
 
     function closeAllWindows() {
-        // HyprlandData is empty under niri: ask niri to close each window
-        // instead, so apps shut down gracefully before logout/poweroff rather
-        // than being killed when systemd tears the session down.
-        if (WM.compositor === "niri") {
-            WM.windowList.forEach(w => WM.closeWindow(w.id));
-            return;
-        }
-        HyprlandData.windowList.map(w => w.pid).forEach(pid => {
-            Quickshell.execDetached(["kill", pid]);
-        });
+        // Ask niri to close each window, so apps shut down gracefully before
+        // logout/poweroff rather than being killed when systemd tears the
+        // session down.
+        WM.windowList.forEach(w => WM.closeWindow(w.id));
     }
 
     // Close the windows, then run `action` once they are gone (at most
@@ -29,8 +23,7 @@ Singleton {
     property int waitedMs: 0
     function closeWindowsThen(action) {
         root.closeAllWindows();
-        const open = WM.compositor === "niri" ? WM.windowList.length : 0;
-        if (open === 0) {
+        if (WM.windowList.length === 0) {
             action();
             return;
         }
@@ -61,11 +54,7 @@ Singleton {
     }
 
     function lock() {
-        if (WM.compositor === "niri") {
-            Quickshell.execDetached(["qs", "-c", "nixbook-shell", "ipc", "call", "lock", "activate"]);
-        } else {
-            Quickshell.execDetached(["loginctl", "lock-session"]);
-        }
+        Quickshell.execDetached(["qs", "-c", "nixbook-shell", "ipc", "call", "lock", "activate"]);
     }
 
     function suspend() {
@@ -74,11 +63,7 @@ Singleton {
 
     function logout() {
         root.closeWindowsThen(() => {
-            if (WM.compositor === "niri") {
-                Quickshell.execDetached(["niri", "msg", "action", "quit", "--skip-confirmation"]);
-            } else {
-                Quickshell.execDetached(["pkill", "-i", "Hyprland"]);
-            }
+            Quickshell.execDetached(["niri", "msg", "action", "quit", "--skip-confirmation"]);
         });
     }
 

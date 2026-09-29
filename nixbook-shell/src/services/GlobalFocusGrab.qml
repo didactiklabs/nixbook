@@ -2,14 +2,13 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs
 import qs.modules.common
 import qs.services
 
 /**
- * Manages a HyprlandFocusGrab that's to be shared by all windows.
+ * Popup dismissal shared by all windows.
  * "Persistent" is for windows that should always be included but not closed on dismiss, like bar and onscreen keyboard.
  * "Dismissable" is for stuff like sidebars.
  **/
@@ -25,9 +24,8 @@ Singleton {
     // Consistent popup dismissal:
     //  - opening a dismissable popup closes the other ones (popups sharing a
     //    non-empty `group`, e.g. media controls + equalizer, may coexist);
-    //  - clicking outside every popup closes them (Hyprland: the focus grab
-    //    below; other compositors: the click catcher at the bottom of this
-    //    file, since hyprland_focus_grab_v1 doesn't exist there);
+    //  - clicking outside every popup closes them (the click catcher at the
+    //    bottom of this file);
     //  - switching workspace closes them.
     // onDismissed handlers skip themselves via `spares(window)` when they
     // belong to the popup (group) that is being opened.
@@ -59,7 +57,7 @@ Singleton {
     }
 
     Component.onCompleted: {
-        console.log("[GlobalFocusGrab] Initialized" + (WM.compositor !== "hyprland" ? " (inactive, non-Hyprland compositor)" : ""));
+        console.log("[GlobalFocusGrab] Initialized");
     }
 
     function addPersistent(window) {
@@ -92,14 +90,6 @@ Singleton {
         }
     }
 
-    function hasActive(element) {
-        return element?.activeFocus || Array.from(
-            element?.children ?? []
-        ).some(
-            (child) => hasActive(child)
-        );
-    }
-
     // Workspace switches close popups too (compared by id: the backend
     // republishes the workspace objects on unrelated updates).
     property var lastWorkspaceId: undefined
@@ -115,13 +105,13 @@ Singleton {
         }
     }
 
-    // Non-Hyprland click-outside: a transparent catcher on every screen, on the
+    // Click-outside: a transparent catcher on every screen, on the
     // Top layer (dismissable popups live on Overlay, so they stay above it),
     // with the bar cut out so bar widgets keep working in one click.
-    readonly property bool catcherActive: WM.compositor !== "hyprland" && root.dismissable.length > 0
+    readonly property bool catcherActive: root.dismissable.length > 0
     readonly property bool barVertical: Config.options?.bar?.vertical ?? false
     readonly property bool barBottom: Config.options?.bar?.bottom ?? false
-    readonly property real barThickness: (root.barVertical ? Appearance.sizes.verticalBarWidth : Appearance.sizes.barHeight) + (Appearance.sizes.hyprlandGapsOut ?? 0)
+    readonly property real barThickness: (root.barVertical ? Appearance.sizes.verticalBarWidth : Appearance.sizes.barHeight) + (Appearance.sizes.gapsOut ?? 0)
 
     Variants {
         model: Quickshell.screens
@@ -154,15 +144,6 @@ Singleton {
                 acceptedButtons: Qt.AllButtons
                 onPressed: root.dismiss()
             }
-        }
-    }
-
-    HyprlandFocusGrab {
-        id: grab
-        windows: root.dismissable.every(w => !w?.focusable) || root.dismissable.some(w => root.hasActive(w?.contentItem)) ? [...root.dismissable, ...root.persistent] : [...root.dismissable]
-        active: WM.compositor === "hyprland" && root.dismissable.length > 0
-        onCleared: () => {
-            root.dismiss();
         }
     }
 }

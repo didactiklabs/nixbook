@@ -17,13 +17,12 @@ import Quickshell.Io
  * whenever they change: a theme, variant or wallpaper palette picked in the
  * shell recolours the animation. niri watches included files and reloads it.
  *
- * Without the template (another compositor, or a niri config that doesn't
- * ship one) it does nothing.
+ * Without the template (a niri config that doesn't ship one) it does
+ * nothing.
  */
 Singleton {
     id: root
 
-    readonly property bool active: WM.compositor === "niri"
     readonly property string dir: `${FileUtils.trimFileProtocol(Directories.config)}/niri`
     readonly property color accent: Appearance.m3colors.m3primary
     readonly property color ink: Themes.palette?.ink ?? Appearance.m3colors.m3onSurface
@@ -35,8 +34,6 @@ Singleton {
     }
 
     function write() {
-        if (!root.active)
-            return;
         const template = templateFile.text();
         if (!template)
             return;
@@ -60,9 +57,10 @@ Singleton {
 
     FileView {
         id: templateFile
-        path: root.active ? `${root.dir}/nixbook-shell-animations.kdl.in` : ""
+        path: `${root.dir}/nixbook-shell-animations.kdl.in`
         blockLoading: true
         watchChanges: true
+        printErrors: false
         // A new generation re-links the template.
         onFileChanged: {
             reload();
@@ -71,7 +69,7 @@ Singleton {
     }
     FileView {
         id: outputFile
-        path: root.active ? `${root.dir}/nixbook-shell-animations.kdl` : ""
+        path: `${root.dir}/nixbook-shell-animations.kdl`
         blockLoading: true
         // Missing until the first write.
         printErrors: false

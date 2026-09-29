@@ -3,7 +3,6 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
-import Quickshell.Hyprland
 import Quickshell.Services.UPower
 import qs
 import qs.services
@@ -33,28 +32,13 @@ Scope {
 
                 property var brightnessMonitor: Brightness.getMonitorForScreen(barLoader.modelData)
                 
-                Timer {
-                    id: showBarTimer
-                    interval: (Config?.options.bar.autoHide.showWhenPressingSuper.delay ?? 100)
-                    repeat: false
-                    onTriggered: { barRoot.superShow = true }
-                }
-                Connections {
-                    target: GlobalStates
-                    function onSuperDownChanged() {
-                        if (!Config?.options.bar.autoHide.showWhenPressingSuper.enable) return;
-                        if (GlobalStates.superDown) showBarTimer.restart();
-                        else { showBarTimer.stop(); barRoot.superShow = false; }
-                    }
-                }
-                property bool superShow: false
-                property bool mustShow: hoverRegion.containsMouse || superShow
+                property bool mustShow: hoverRegion.containsMouse
                 exclusionMode: ExclusionMode.Ignore
                 property int normalExclusiveZone: (Config?.options.bar.autoHide.enable && (!mustShow || !Config?.options.bar.autoHide.pushWindows))
                     ? 0
                     : Appearance.sizes.baseVerticalBarWidth
-                        + (Config.options.bar.cornerStyle === 1 ? Appearance.sizes.hyprlandGapsOut : 0)
-                        + (Config.options.bar.cornerStyle === 3 ? (Appearance.sizes.hyprlandGapsOut || 5) : 0)
+                        + (Config.options.bar.cornerStyle === 1 ? Appearance.sizes.gapsOut : 0)
+                        + (Config.options.bar.cornerStyle === 3 ? (Appearance.sizes.gapsOut || 5) : 0)
 
                 exclusiveZone: (barContent.centerOnly && Config.options.bar.centerOnlyReserveFrame)
                     ? Config.options.bar.frameThickness
@@ -159,7 +143,7 @@ Scope {
                             right: undefined
                             leftMargin: (Config?.options.bar.autoHide.enable && !mustShow) 
                                 ? -Appearance.sizes.verticalBarWidth 
-                                : (Config.options.bar.cornerStyle === 3 ? (Appearance.sizes.hyprlandGapsOut || 5) : 0)
+                                : (Config.options.bar.cornerStyle === 3 ? (Appearance.sizes.gapsOut || 5) : 0)
                         }
                         Behavior on anchors.leftMargin {
                             animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
@@ -185,7 +169,7 @@ Scope {
                                 anchors.topMargin: 0
                                 anchors.rightMargin: (Config?.options.bar.autoHide.enable && !mustShow)
                                     ? -Appearance.sizes.barHeight
-                                    : (Config.options.bar.cornerStyle === 3 ? (Appearance.sizes.hyprlandGapsOut || 5) : 0)
+                                    : (Config.options.bar.cornerStyle === 3 ? (Appearance.sizes.gapsOut || 5) : 0)
                             }
                         }
                     }
@@ -266,21 +250,5 @@ Scope {
         function toggle(): void { GlobalStates.barOpen = !GlobalStates.barOpen }
         function close(): void { GlobalStates.barOpen = false }
         function open(): void { GlobalStates.barOpen = true }
-    }
-
-    CompositorGlobalShortcut {
-        name: "barToggle"
-        description: "Toggles bar on press"
-        onPressed: { GlobalStates.barOpen = !GlobalStates.barOpen; }
-    }
-    CompositorGlobalShortcut {
-        name: "barOpen"
-        description: "Opens bar on press"
-        onPressed: { GlobalStates.barOpen = true; }
-    }
-    CompositorGlobalShortcut {
-        name: "barClose"
-        description: "Closes bar on press"
-        onPressed: { GlobalStates.barOpen = false; }
     }
 }

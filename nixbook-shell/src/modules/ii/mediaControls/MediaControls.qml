@@ -10,7 +10,6 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Mpris
 import Quickshell.Wayland
-import Quickshell.Hyprland
 
 Scope {
     id: root
@@ -33,7 +32,7 @@ Scope {
     readonly property real osdWidth: Appearance.sizes.osdWidth
     readonly property real widgetWidth: Appearance.sizes.mediaControlsWidth
     readonly property real widgetHeight: Appearance.sizes.mediaControlsHeight
-    property real popupRounding: Appearance.rounding.screenRounding - Appearance.sizes.hyprlandGapsOut + 1
+    property real popupRounding: Appearance.rounding.screenRounding - Appearance.sizes.gapsOut + 1
 
     readonly property string mediaPosition: {
         if (Config.options.bar.layouts.leftLayout.includes("media")) return "left"
@@ -47,7 +46,7 @@ Scope {
         if (!barVertical) return Config.options.bar.bottom ? "bottom" : "top"
         return Config.options.bar.bottom ? "right" : "left"
     }
-    readonly property real gap: Config.options.bar.cornerStyle === 3 ? Appearance.sizes.hyprlandGapsOut : 0
+    readonly property real gap: Config.options.bar.cornerStyle === 3 ? Appearance.sizes.gapsOut : 0
     readonly property bool cornerStyleReducesGap: Config.options.bar.cornerStyle === 1 || Config.options.bar.cornerStyle === 2
     readonly property real barThickness: barVertical ? Appearance.sizes.verticalBarWidth : Appearance.sizes.barHeight
 
@@ -294,8 +293,8 @@ Scope {
                             return Qt.AlignRight;
                         return Qt.AlignHCenter;
                     }
-                    Layout.leftMargin: Appearance.sizes.hyprlandGapsOut
-                    Layout.rightMargin: Appearance.sizes.hyprlandGapsOut
+                    Layout.leftMargin: Appearance.sizes.gapsOut
+                    Layout.rightMargin: Appearance.sizes.gapsOut
                     visible: root.meaningfulPlayers.length === 0
                     implicitWidth: placeholderBackground.implicitWidth + Appearance.sizes.elevationMargin
                     implicitHeight: placeholderBackground.implicitHeight + Appearance.sizes.elevationMargin
@@ -356,31 +355,6 @@ Scope {
         function open(): void {
             GlobalStates.mediaControlsOpen = true;
             Notifications.timeoutAll();
-        }
-    }
-
-    CompositorGlobalShortcut {
-        name: "mediaControlsToggle"
-        description: "Toggles media controls on press"
-
-        onPressed: {
-            GlobalStates.mediaControlsOpen = !GlobalStates.mediaControlsOpen;
-        }
-    }
-    CompositorGlobalShortcut {
-        name: "mediaControlsOpen"
-        description: "Opens media controls on press"
-
-        onPressed: {
-            GlobalStates.mediaControlsOpen = true;
-        }
-    }
-    CompositorGlobalShortcut {
-        name: "mediaControlsClose"
-        description: "Closes media controls on press"
-
-        onPressed: {
-            GlobalStates.mediaControlsOpen = false;
         }
     }
 }
