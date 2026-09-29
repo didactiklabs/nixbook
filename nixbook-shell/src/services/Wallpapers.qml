@@ -118,10 +118,14 @@ Singleton {
         Quickshell.execDetached(args);
     }
 
+    function switchCommand(path, darkMode = Appearance.m3colors.darkmode) {
+        return [Directories.wallpaperSwitchScriptPath, "--mode", darkMode ? "dark" : "light", "--image", path];
+    }
+
     function apply(path, darkMode = Appearance.m3colors.darkmode) {
         if (!path || path.length === 0) return;
         root.confirmedPath = path;
-        Quickshell.execDetached([Directories.wallpaperSwitchScriptPath, "--mode", darkMode ? "dark" : "light", "--image", path]);
+        Quickshell.execDetached(root.switchCommand(path, darkMode));
         root.changed()
     }
 
