@@ -216,10 +216,22 @@ what; `run_steps` with `remember_as` saves the steps as a recipe; `recall`,
 `forget`), and usage is counted as they work (apps launched, layouts
 restored, tools used). `launch_app` learns aliases: a name that failed, then
 the app that worked (e.g. "discord" then Vesktop), resolves directly next
-time. A digest of it all goes to every agent when it connects (the MCP
-server's instructions, which Claude Code puts in the model's context) and to
-the AI chat's system prompt, labelled as hints written by agents, never the
-user's instructions; its instructions ask agents to save what they learned.
+time. Only the right part reaches a model, to keep its context small:
+
+- when an agent connects, a digest (at most `memoryPromptChars`, 1500)
+  carries the aliases and most used apps, the full text of the notes about
+  the task — the AI chat passes the user's message; other agents get the
+  most used notes — and the other notes by topic only ("wifi (3)");
+- notes are linked to the apps they are about, and come with the reply of
+  the action that reaches that app (launching or focusing it), once per
+  session;
+- `recall` ranks notes by the words of a question (topic first) and returns
+  the best five; without a question, the list of topics.
+
+With 40 notes, the digest went from about 745 tokens (and the notes about
+the task could be cut off) to about 165, with those notes in full. It is
+labelled as hints written by agents, never the user's instructions; the
+instructions ask agents to save what they learned.
 It lives in `~/.local/state/nixbook-shell/desktop-memory.json` (private);
 **Settings → Desktop agents** shows the notes (delete any), the aliases and
 usage, clears them, and pauses desktop control. `nixbook-desktop-mcp memory`

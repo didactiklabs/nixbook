@@ -589,8 +589,14 @@ Singleton {
         let args = ["-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
             "--strict-mcp-config", "--append-system-prompt", system,
             "--disallowedTools", "Bash", "Edit", "Write", "NotebookEdit"];
+        // The message tells the desktop MCP server what the task is: its
+        // memory digest then carries the notes about it, the rest by topic.
+        const task = (last?.role === "user" ? last.rawContent : "").slice(0, 500);
         if (desktop)
-            args.push("--mcp-config", JSON.stringify({ mcpServers: { desktop: { command: root.desktopMcpCommand } } }));
+            args.push("--mcp-config", JSON.stringify({ mcpServers: { desktop: {
+                command: root.desktopMcpCommand,
+                env: { NIXBOOK_DESKTOP_MCP_QUERY: task },
+            } } }));
         // Only the allowed built-in tools are loaded at all: Claude Code's
         // full set would double the context of every message.
         const builtins = Config.options.ai.claudeCode.allowedTools ?? [];
