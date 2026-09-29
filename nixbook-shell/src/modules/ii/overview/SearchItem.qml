@@ -38,6 +38,12 @@ RippleButton {
     visible: root.entryShown
     property int horizontalMargin: 10
     property int buttonHorizontalPadding: 10
+    // Where the icon slot is centred and the text starts, from the row's left
+    // edge: the search bar lines its own icon and text up with them.
+    readonly property int iconSlotSize: 36
+    readonly property int iconTextSpacing: 12
+    readonly property real iconCenterX: horizontalMargin + buttonHorizontalPadding + iconSlotSize / 2
+    readonly property real textX: horizontalMargin + buttonHorizontalPadding + iconSlotSize + iconTextSpacing
     property int buttonVerticalPadding: 6
     property bool keyboardDown: false
     readonly property bool selected: (root.hovered || root.focus)
@@ -141,7 +147,7 @@ RippleButton {
 
     RowLayout {
         id: rowLayout
-        spacing: 12
+        spacing: root.iconTextSpacing
         anchors.fill: parent
         anchors.leftMargin: root.horizontalMargin + root.buttonHorizontalPadding
         anchors.rightMargin: root.horizontalMargin + root.buttonHorizontalPadding
@@ -150,8 +156,8 @@ RippleButton {
         Loader {
             id: iconLoader
             active: true
-            Layout.preferredWidth: 36
-            Layout.preferredHeight: 36
+            Layout.preferredWidth: root.iconSlotSize
+            Layout.preferredHeight: root.iconSlotSize
             Layout.alignment: Qt.AlignVCenter
             sourceComponent: switch(root.iconType) {
                 case LauncherSearchResult.IconType.Material:
@@ -171,7 +177,7 @@ RippleButton {
             id: iconImageComponent
             IconImage {
                 source: Quickshell.iconPath(root.iconName, "image-missing")
-                implicitSize: 36
+                implicitSize: root.iconSlotSize
             }
         }
 
@@ -286,10 +292,8 @@ RippleButton {
             text: root.itemClickActionName
         }
 
-        RowLayout {
-            Layout.alignment: Qt.AlignTop
-            Layout.topMargin: root.buttonVerticalPadding
-            Layout.bottomMargin: -root.buttonVerticalPadding // Why is this necessary? Good question.
+        RowLayout { // Desktop actions, centred on the row like the icon and text
+            Layout.alignment: Qt.AlignVCenter
             spacing: 4
             Repeater {
                 model: (root.entry.actions ?? []).slice(0, 4)

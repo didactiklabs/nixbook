@@ -757,4 +757,10 @@ Item {
             }
         }
     }
+
+    // Shutting down / restarting: over everything, until the machine goes down.
+    PowerActionOverlay {
+        z: 100
+        action: root.context.powerAction
+    }
 }

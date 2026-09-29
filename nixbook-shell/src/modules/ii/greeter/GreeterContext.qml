@@ -171,11 +171,29 @@ Scope {
     }
 
     // Power buttons (logind lets the greeter's own seat session do these).
+    // `powerAction` ("poweroff" / "reboot") while the machine goes down, for
+    // the screen to say so; cleared if systemd refuses.
+    property string powerAction: ""
+    Process {
+        id: powerProc
+        onExited: (exitCode, exitStatus) => {
+            if (exitCode !== 0) {
+                console.warn("[Greeter]", root.powerAction, "refused, exit code", exitCode);
+                root.powerAction = "";
+            }
+        }
+    }
+    function power(action) {
+        if (root.powerAction !== "")
+            return;
+        root.powerAction = action;
+        powerProc.exec({ command: ["systemctl", action] });
+    }
     function poweroff() {
-        Quickshell.execDetached(["systemctl", "poweroff"]);
+        root.power("poweroff");
     }
     function reboot() {
-        Quickshell.execDetached(["systemctl", "reboot"]);
+        root.power("reboot");
     }
     function suspend() {
         Quickshell.execDetached(["systemctl", "suspend"]);

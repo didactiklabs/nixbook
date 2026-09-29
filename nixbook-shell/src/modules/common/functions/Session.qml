@@ -1,6 +1,7 @@
 pragma Singleton
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import qs.services
 import qs.modules.common
 
@@ -75,15 +76,36 @@ Singleton {
         Quickshell.execDetached(["bash", "-c", `systemctl hibernate || loginctl hibernate`]);
     }
 
+    // "poweroff" or "reboot" from the click until the machine goes down
+    // (closing the apps, then systemd's shutdown, take a while): the lock
+    // screen shows it. Cleared if systemd refuses.
+    property string powerAction: ""
+    readonly property bool closingApps: root.pendingAction !== null
+    Process {
+        id: powerProc
+        onExited: (exitCode, exitStatus) => {
+            if (exitCode !== 0) {
+                console.warn("[Session]", root.powerAction, "refused, exit code", exitCode);
+                root.powerAction = "";
+            }
+        }
+    }
+    function power(action, command) {
+        if (root.powerAction !== "")
+            return;
+        root.powerAction = action;
+        root.closeWindowsThen(() => powerProc.exec({ command: ["bash", "-c", command] }));
+    }
+
     function poweroff() {
-        root.closeWindowsThen(() => Quickshell.execDetached(["bash", "-c", `systemctl poweroff || loginctl poweroff`]));
+        root.power("poweroff", `systemctl poweroff || loginctl poweroff`);
     }
 
     function reboot() {
-        root.closeWindowsThen(() => Quickshell.execDetached(["bash", "-c", `systemctl reboot || loginctl reboot`]));
+        root.power("reboot", `systemctl reboot || loginctl reboot`);
     }
 
     function rebootToFirmware() {
-        root.closeWindowsThen(() => Quickshell.execDetached(["bash", "-c", `systemctl reboot --firmware-setup || loginctl reboot --firmware-setup`]));
+        root.power("reboot", `systemctl reboot --firmware-setup || loginctl reboot --firmware-setup`);
     }
 }
