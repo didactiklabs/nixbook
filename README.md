@@ -8,7 +8,7 @@
 
 Nixbook is a personal, declarative NixOS configuration repository that manages multiple machines from a single source of truth. Built entirely with Nix, it embraces the "everything as code" philosophy to deliver reproducible, composable, and easily maintainable system configurations.
 
-It ships modern Wayland compositors (Niri, Sway, and Hyprland), a fully-featured Zsh shell with GNU CLI replacements, a complete development and Kubernetes toolchain, and per-machine profiles selected automatically by hostname. Security is a first-class concern, with UEFI Secure Boot (Lanzaboote), LUKS disk encryption, agenix-managed secrets, and kernel hardening baked in. Deployment is handled by Colmena, dependencies are pinned with npins, and the whole system can be provisioned from a custom interactive installer ISO.
+It ships modern Wayland compositors (Niri and Sway), a fully-featured Zsh shell with GNU CLI replacements, a complete development and Kubernetes toolchain, and per-machine profiles selected automatically by hostname. Security is a first-class concern, with UEFI Secure Boot (Lanzaboote), LUKS disk encryption, agenix-managed secrets, and kernel hardening baked in. Deployment is handled by Colmena, dependencies are pinned with npins, and the whole system can be provisioned from a custom interactive installer ISO.
 
 ### Project Goals
 
@@ -46,7 +46,7 @@ Customize your setup per machine using profile configurations. Add custom Nix co
 
 **Keybindings**
 
-All keyboard shortcuts (Niri, Sway, Hyprland, Kitty, and Neovim) are documented in [KEYBINDS.md](./KEYBINDS.md).
+All keyboard shortcuts (Niri, Sway, Kitty, and Neovim) are documented in [KEYBINDS.md](./KEYBINDS.md).
 
 **Easy Installation and Updates**
 

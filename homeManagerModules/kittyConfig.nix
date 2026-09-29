@@ -31,7 +31,6 @@ in
             - Shift+←/→/↑/↓ — move/reorder splits
 
           Compositor integration (spawn kitty on Mod+Return):
-            - Hyprland: $mod+RETURN keybind
             - Niri: Mod+Return bind
             - Sway: terminal = kitty, Mod4+Return keybind
 
@@ -132,13 +131,6 @@ in
             "Mod+Return".action.spawn = [ "${pkgs.kitty}/bin/kitty" ];
           };
         };
-      };
-    };
-    wayland.windowManager.hyprland = {
-      settings = {
-        bind = [
-          "$mod, RETURN, exec, ${pkgs.kitty}/bin/kitty"
-        ];
       };
     };
     wayland.windowManager.sway = {

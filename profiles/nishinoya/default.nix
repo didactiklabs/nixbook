@@ -30,7 +30,6 @@ in
   customNixOSModules = {
     laptopProfile.enable = true;
     greetd.enable = true;
-    hyprland.enable = false;
     niri.enable = true;
     caCertificates = {
       didactiklabs.enable = true;

@@ -11,14 +11,14 @@
 
 - **Nix Files:** 178 files (~16,000 lines of code)
 - **Active Machines:** 5 (totoro, anya, nishinoya, tanjiro, hanamichi)
-- **Home Manager Modules:** 34 (29 standalone files + 5 subdirectories)
+- **Home Manager Modules:** 33 (29 standalone files + 4 subdirectories)
 - **NixOS Modules:** 19 files
 - **Custom Packages:** 19
 - **CI/CD Workflows:** 3
 - **NixVim Plugins:** 25
 - **VSCode Extensions:** 32
 - **Pinned Dependencies:** 41
-- **Assets:** 46 files
+- **Assets:** 44 files
 
 ## Core Tools
 
@@ -67,7 +67,7 @@ hive.nix                          Colmena deployment config
 - `docs/` - Auto-generated module documentation (generate-docs.nix, MODULES.md)
 - `tests/` - Cheap regression checks run by `checks.yaml` (`run.sh` entry point, `hosts.nix` per-machine invariants, `repo.nix` repository checks, `nixbook-shell.sh` script tests, `hardware-stub.nix` stand-in for /etc/nixos/hardware-configuration.nix)
 
-## NixOS Modules (26 files)
+## NixOS Modules (25 files)
 
 | Module                     | Lines | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | -------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -84,7 +84,6 @@ hive.nix                          Colmena deployment config
 | `laptopProfile.nix`        | 68    | Laptop optimizations: lid-switch handling, power-profiles-daemon, thermald, SATA power mgmt, deep sleep                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `firewall.nix`             | 60    | NixOS stateful firewall: nftables backend, deny-by-default inbound, configurable ports. Disabled by default                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `sunshine.nix`             | 52    | Remote desktop streaming: Sunshine game-streaming server as user systemd service                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `hyprland.nix`             | 58    | Hyprland dynamic tiling compositor: wlr portal, Secret portal → gnome-keyring, U2F + keyring re-unlock PAM for hyprlock                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `simracing.nix`            | 85    | Sim racing hardware support: Moza Racing (VID 346e) & Fanatec (VID 0eb7) udev rules (HID/USB/input/serial), foxblat + oversteer config tools, FFB testing utils, USB autosuspend disabled, cdc_acm/usbhid kernel modules. PIDFF handles FFB natively. Disabled by default. Used on anya, hanamichi                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `printTools.nix`           | 56    | Printing/scanning: CUPS, ipp-usb, Avahi mDNS, SANE with airscan. cups-browsed explicitly disabled (its legacy `implicitclass://` auto-queues silently drop jobs; modern CUPS does driverless/IPP-Everywhere discovery via Avahi natively). Add discovered printers via the CUPS web UI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `sway.nix`                 | 45    | Sway i3-like compositor using SwayFX fork (blur, rounded corners, shadows); Secret portal → gnome-keyring, swaylock keyring re-unlock PAM                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -94,7 +93,7 @@ hive.nix                          Colmena deployment config
 | `fcitx5-lotus.nix`         | 84    | System-level support for the Lotus Vietnamese fcitx5 input method: `uinput_proxy` user, udev rule for /dev/uinput access, and a per-user `fcitx5-lotus-server@<user>.service` (set `users`). The fcitx5 addon itself is enabled in Home Manager via `fcitx5Config.lotus`. Disabled by default                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `default.nix`              | 22    | Module imports aggregator                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
-## Home Manager Modules (34 entries)
+## Home Manager Modules (33 entries)
 
 **Core User Configuration:**
 
@@ -112,7 +111,6 @@ hive.nix                          Colmena deployment config
 
 **Desktop Environments:**
 
-- `hyprland/` - Hyprland compositor (3 files, 442 LOC): hyprlandConfig.nix, hyprlockConfig.nix
 - `niri/` - Niri scrollable compositor (2 files, 721 LOC): niriConfig.nix. Window rules: a global `opacity = 0.85` with per-app `1.0` overrides; blur is xray for every window, tiled or floating (the wallpaper blurred once and cached); floating windows get the same rules as tiled ones (so a transparent app stays transparent when floated), except vesktop's floating video-call popup, which stays opaque (`is-floating` match that excludes the main window by its `Discord | ` title)
 - `sway/` - Sway i3-like compositor (2 files, 414 LOC): swayConfig.nix
 - `gtkConfig.nix` (92 LOC) - GTK appearance and theming
@@ -219,7 +217,6 @@ hive.nix                          Colmena deployment config
 ### Desktop Environments (Wayland-only)
 
 - **Niri** - Scrollable tiling compositor (preferred)
-- **Hyprland** - Dynamic tiling with rich configuration
 - **Sway** - i3-like lightweight option (SwayFX fork)
 - Per-machine and per-user configuration overrides
 
@@ -396,7 +393,7 @@ npins/ → dependency sources
 
 **Custom Package Sources:** ginx, goji, ytui, jtui, crd-wizard, pvmigrate (frozen), rtk, songbird, witr, kl (frozen), opencode-manager (v2.5.1), openchoreo (v1.3.0), kratix-cli (v0.19.0), fcitx5-lotus (v3.6.0), schnelle-umlaute, sofka, actual-budget (v26.5.2), pear-desktop (v3.11.0)
 
-## Assets (39 files)
+## Assets (37 files)
 
 - **Certificates (3):** bealv-ca.crt, didactiklabs-ca.crt, logicmg-ca.crt
 - **DMS Plugins (22 files):** vpn-dms, nixos-update, opencode-usage, github-notifier-custom, discord-voice-custom (widgets, settings, scripts)
@@ -404,7 +401,6 @@ npins/ → dependency sources
 - **Kubernetes (4):** OIDC kubeconfigs (didactiklabs, bealv, bealvprod, logicmg)
 - **OpenVPN (1):** bealv.ovpn
 - **Rofi (5):** config, OneDark color scheme, launcher and powermenu styles
-- **Sounds (2):** notifications.mp3, startup.mp3
 
 ## For AI Agents
 
@@ -445,7 +441,7 @@ All git operations must follow this workflow. **Always ask the user for validati
 11. **AGENTS.md Updates** - Always update `AGENTS.md` after making changes to project structure, adding/removing machines, modules, packages, or features. This ensures the documentation stays accurate for future AI agents.
 12. **nixbook-shell assistant help** - Whenever you add or change a nixbook-shell feature (a setting, a widget, a click, a shortcut, a theme…), update what its chat assistant knows in the same change: the four-language `howTo` answers in `nixbook-shell/hm-module.nix` (`shellHowTo`, `calendarHowTo`, …; en/fr/de/vi), and the assistant's lexicon in `nixbook-shell/src/services/ConfigAssistant.qml` when users would name it with other words. Removed or renamed features must be removed from those answers too, so the assistant never gives outdated help.
 13. **nixbook-shell performance** - After any change to `nixbook-shell/`, run `run-tests shell-perf` (`nixbook-shell/tests/perf.sh`, ~3 min, headless) and record the result in the "nixbook-shell performance score" table below (newest first: date, change, score, per-theme startup / idle CPU / memory). Always try to keep or raise the score: prefer the cheaper implementation, lazy-load what isn't on screen, avoid endless animations and polling, and look for wins when touching code. A small loss (roughly under 2 points, within run-to-run noise) is fine for a useful change; a bigger one is only acceptable for a significant feature — ask the user before accepting it, with the numbers.
-14. **Keybindings (`KEYBINDS.md`)** - Always check `KEYBINDS.md` when working with keybinds, and keep it up to date. Whenever you add, remove, or change a keyboard shortcut anywhere (compositor binds in `homeManagerModules/{niri,sway,hyprland}/`, terminal binds in `homeManagerModules/kittyConfig.nix`, Neovim mappings in `homeManagerModules/nixvim/`, or per-profile overrides in `profiles/*/*/`), update the matching table in `KEYBINDS.md` in the same change. Before assuming a key is free, grep these sources for the existing binding.
+14. **Keybindings (`KEYBINDS.md`)** - Always check `KEYBINDS.md` when working with keybinds, and keep it up to date. Whenever you add, remove, or change a keyboard shortcut anywhere (compositor binds in `homeManagerModules/{niri,sway}/`, terminal binds in `homeManagerModules/kittyConfig.nix`, Neovim mappings in `homeManagerModules/nixvim/`, or per-profile overrides in `profiles/*/*/`), update the matching table in `KEYBINDS.md` in the same change. Before assuming a key is free, grep these sources for the existing binding.
 
 ### nixbook-shell performance score
 

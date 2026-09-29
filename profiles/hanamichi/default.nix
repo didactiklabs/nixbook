@@ -83,7 +83,6 @@ in
       # nixbook-shell ships its own polkit agent (see totoro).
       polkitAgent = false;
     };
-    hyprland.enable = false;
     sway.enable = false;
     # Gaming stack (Steam, Proton, GameMode, 32-bit graphics) without the
     # AMD-specific GPU tuning.

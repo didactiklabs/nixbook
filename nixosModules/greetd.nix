@@ -9,7 +9,6 @@ let
   sessionPaths = lib.concatLists [
     (lib.optionals cfg.niri.enable [ "${pkgs.niri}/share/wayland-sessions" ])
     (lib.optionals cfg.sway.enable [ "${pkgs.swayfx}/share/wayland-sessions" ])
-    (lib.optionals cfg.hyprland.enable [ "${pkgs.hyprland}/share/wayland-sessions" ])
   ];
   # The first user running nixbook-shell: the login screen follows their
   # shell settings.
@@ -29,7 +28,7 @@ in
         - `tuigreet` (default): a TUI greeter with a clock, the last session
           and user remembered, an asterisk-masked password field and a user
           menu. Its --sessions are built from whichever Wayland compositors
-          are enabled (niri, sway, hyprland), niri sessions are wrapped with
+          are enabled (niri, sway), niri sessions are wrapped with
           niri-session.
         - `nixbook-shell`: nixbook-shell's own login screen (Quickshell,
           in niri or cage) following a user's shell settings: the theme and
@@ -45,7 +44,7 @@ in
         security key", fingerprint).
 
         Depends on at least one compositor module being enabled
-        (customNixOSModules.niri, .sway, or .hyprland).
+        (customNixOSModules.niri or .sway).
       '';
     };
     greeter = lib.mkOption {

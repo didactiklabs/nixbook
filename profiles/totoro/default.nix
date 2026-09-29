@@ -51,7 +51,6 @@ in
       # login screen wallpaper), instead of tuigreet.
       greeter = "nixbook-shell";
     };
-    hyprland.enable = false;
     niri = {
       enable = true;
       # nixbook-shell ships its own polkit agent; running polkit-gnome as well just

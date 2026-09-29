@@ -286,7 +286,7 @@ in
       #   a fingerprint/U2F login where PAM gets no password)
       # - registers the gnome-keyring Secret portal backend
       #   (org.freedesktop.impl.portal.Secret), routed per-compositor in the
-      #   niri/sway/hyprland modules
+      #   niri/sway modules
       # - unlocks the keyring on TTY password logins (PAM login service)
       # - adds a cap_ipc_lock wrapper so the daemon can mlock() its memory
       # The per-user daemon itself is started by Home Manager
@@ -328,8 +328,8 @@ in
     console.keyMap = "fr";
 
     xdg = {
-      # Backends are added per compositor: sway (nixpkgs module) and
-      # hyprland (portalPackage) bring the wlr portal, niri uses gnome + gtk.
+      # Backends are added per compositor: sway (nixpkgs module) brings the
+      # wlr portal, niri uses gnome + gtk.
       portal.enable = true;
     };
 

@@ -9,7 +9,6 @@
     ./gamingConfig.nix
     ./getRevision.nix
     ./greetd.nix
-    ./hyprland.nix
     ./laptopProfile.nix
     ./lanzaboote.nix
     ./netbird-tools.nix

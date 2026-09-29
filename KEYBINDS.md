@@ -6,10 +6,9 @@
 >
 > - `homeManagerModules/niri/niriConfig.nix` (`programs.niri.settings.binds`)
 > - `homeManagerModules/sway/swayConfig.nix` (`wayland.windowManager.sway.config.keybindings` + `modes`)
-> - `homeManagerModules/hyprland/hyprlandConfig.nix` (`settings.bind`/`bindle`/`bindl`)
 > - `homeManagerModules/kittyConfig.nix` (terminal binds + the `Mod+Return` spawn bind for every compositor)
 > - `homeManagerModules/nixvim/default.nix` and `homeManagerModules/nixvim/plugins/*.nix`
-> - Per-profile overrides in `profiles/*/*/{niriConfig,swayConfig,hyprlandConfig}.nix`
+> - Per-profile overrides in `profiles/*/*/{niriConfig,swayConfig}.nix`
 
 `Mod` / `$mod` / `Mod4` / `SUPER` all refer to the **Super (Windows) key**.
 
@@ -21,9 +20,9 @@ available and they are mutually exclusive:
 
 DMS variants are listed as "(DMS)", nixbook-shell variants as "(nixbook-shell)"; the
 no-shell fallbacks are listed where they differ. nixbook-shell binds only exist for
-Niri, because under Hyprland the shell registers its own global shortcuts.
+Niri.
 
-Keyboards are configured for the **French (AZERTY)** layout. In Sway and Hyprland the
+Keyboards are configured for the **French (AZERTY)** layout. In Sway the
 workspace digit keys are therefore bound to their AZERTY symbol names
 (`ampersand`=1, `eacute`=2, `quotedbl`=3, `apostrophe`=4, `parenleft`=5, `minus`=6,
 `egrave`=7, `underscore`=8, `ccedilla`=9, `agrave`=10).
@@ -52,8 +51,7 @@ Niri is column/scroll based; it has no numbered workspaces (workspaces stack ver
 | `Mod+Escape` | —                                                        | Toggle Settings panel                         |
 | `Ctrl+Space` | Toggle fcitx5 input method (when `fcitx5Config` enabled) | same                                          |
 
-nixbook-shell binds all spawn `nixbook-shell ipc call <target> <function>`; upstream's Hyprland
-`GlobalShortcut` handlers are inactive under Niri.
+nixbook-shell binds all spawn `nixbook-shell ipc call <target> <function>`.
 
 > Note: `Mod+I` is overloaded — it maps to **focus workspace up** _and_ to **toggle idle
 > inhibitor**; the shell spawn bind is merged in last and wins. Under DMS that is
@@ -237,59 +235,6 @@ Digit symbols: `ampersand`(1) `eacute`(2) `quotedbl`(3) `apostrophe`(4)
 
 > Note: `Mod4+minus` is bound both to "previous track" and to workspace 6; the later
 > workspace binding wins. Use the media keys for track control.
-
----
-
-## Hyprland (dynamic tiling compositor — available, not a primary WM)
-
-Source: `homeManagerModules/hyprland/hyprlandConfig.nix`, terminal bind from `kittyConfig.nix`.
-`$mod` = `SUPER`. Uses the hy3 layout and hyprexpo plugins.
-
-### Applications & shell
-
-| Keybind       | Action                                                   |
-| ------------- | -------------------------------------------------------- |
-| `$mod+RETURN` | Launch Kitty terminal                                    |
-| `$mod+D`      | Spotlight (DMS) / rofi drun (fallback)                   |
-| `$mod+N`      | Toggle notifications (DMS / swaync fallback)             |
-| `$mod+B`      | Toggle bar (+dock) (DMS) / toggle waybar (fallback)      |
-| `$mod+O`      | Dash overview (DMS)                                      |
-| `$mod+W`      | Wallpaper picker / dankdash (DMS)                        |
-| `$mod+I`      | Toggle idle inhibitor (DMS)                              |
-| `$mod+L`      | Power menu (DMS) / rofi lock script (fallback)           |
-| `$mod+space`  | Toggle Sathi AI assistant widget (DMS)                   |
-| `Ctrl+Space`  | Toggle fcitx5 input method (when `fcitx5Config` enabled) |
-
-### Window / layout (hy3)
-
-| Keybind                         | Action                          |
-| ------------------------------- | ------------------------------- |
-| `$mod+A`                        | Kill active window              |
-| `$mod+TAB`                      | Toggle hyprexpo (expo overview) |
-| `$mod+Z`                        | hy3: toggle tab group           |
-| `$mod+E`                        | hy3: change group to opposite   |
-| `$mod+Left/Right/Up/Down`       | Move focus (hy3)                |
-| `$mod+Shift+Left/Right/Up/Down` | Move window (hy3)               |
-
-### Workspaces (AZERTY digit row)
-
-| Keybind                     | Action                        |
-| --------------------------- | ----------------------------- |
-| `$mod+<digit symbol>`       | Switch to workspace 1–10      |
-| `$mod+Shift+<digit symbol>` | Move window to workspace 1–10 |
-
-(Same AZERTY digit symbol mapping as Sway above.)
-
-### Media / brightness / screenshot
-
-| Keybind                 | Action                                                 |
-| ----------------------- | ------------------------------------------------------ |
-| `Print`                 | Screenshot: DMS tool, or `grimblast` area-to-clipboard |
-| `XF86MonBrightnessUp`   | Brightness +10%                                        |
-| `XF86MonBrightnessDown` | Brightness -10%                                        |
-| `XF86AudioRaiseVolume`  | Volume +3%                                             |
-| `XF86AudioLowerVolume`  | Volume -3%                                             |
-| `XF86AudioMute`         | Toggle mute                                            |
 
 ---
 
