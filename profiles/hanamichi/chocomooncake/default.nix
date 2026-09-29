@@ -8,6 +8,7 @@ in
     ./niriConfig.nix
     ./fastfetchConfig.nix
     ./cursorConfig.nix
+    ./nixbookShellConfig.nix
   ];
 
   home.packages = [
