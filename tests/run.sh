@@ -5,8 +5,11 @@
 #   tests/run.sh repo                  repository consistency, custom packages, nixbook-shell unit
 #                                      tests and self-containment
 #   tests/run.sh shell                 nixbook-shell script tests
-#   tests/run.sh shell-perf            nixbook-shell performance score (headless, ~3 min;
-#                                      not part of `all`; AGENTS.md keeps the latest)
+#   tests/run.sh shell-perf [--quick] [--compare [REF]]
+#                                      nixbook-shell performance and smoothness (headless,
+#                                      ~5 min; --compare REF, default origin/main: this tree
+#                                      against REF, ~10 min; not part of `all`; AGENTS.md
+#                                      keeps the latest score)
 #   tests/run.sh iso                   the installer ISO evaluates
 #   tests/run.sh docs                  docs/MODULES.md lists the modules' current options
 #   tests/run.sh hosts                 print the hive's node names (JSON)
