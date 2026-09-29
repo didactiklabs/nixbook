@@ -113,7 +113,6 @@ MouseArea {
     Loader {
         anchors.fill: parent
         z: -1
-        active: WM.compositor === "niri"
 
         sourceComponent: Item {
             anchors.fill: parent
@@ -521,7 +520,7 @@ MouseArea {
                 Loader {
                     anchors.verticalCenter: parent.verticalCenter
                     sourceComponent: StyledText {
-                        text: HyprlandXkb.currentLayoutCode
+                        text: NiriXkb.currentLayoutCode
                         color: Appearance.colors.colOnSurfaceVariant
                         animateChange: true
                     }

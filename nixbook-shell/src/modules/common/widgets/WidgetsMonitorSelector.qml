@@ -6,8 +6,7 @@ import QtQuick.Layouts
 import Quickshell
 
 // Per-screen toggle for a `screenList` config entry ([] = all screens).
-// Compositor-agnostic (Quickshell.screens; upstream listed Hyprland monitors,
-// so it was empty under niri) and aware of Nix pinning: when `configKey` is
+// Lists Quickshell.screens and is aware of Nix pinning: when `configKey` is
 // pinned the buttons are disabled and a red lock is shown.
 Flow {
     id: root

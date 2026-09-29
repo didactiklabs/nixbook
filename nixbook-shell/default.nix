@@ -1,4 +1,4 @@
-# nixbook-shell — a Quickshell (QML) desktop shell for niri and Hyprland.
+# nixbook-shell — a Quickshell (QML) desktop shell for niri.
 # Self-contained: nothing here reaches outside this directory, so it can be
 # used (or split into its own repository) without the rest of nixbook.
 #

@@ -11,7 +11,6 @@ import QtQuick.Layouts
 import Quickshell.Io
 import Quickshell
 import Quickshell.Bluetooth
-import Quickshell.Hyprland
 
 import qs.modules.ii.sidebarRight.quickToggles
 import qs.modules.ii.sidebarRight.quickToggles.classicStyle
@@ -33,7 +32,6 @@ Item {
     property bool editMode: false
     property bool showIconPickerDialog: false
 
-    readonly property bool animatedEntrance: WM.compositor !== "hyprland"
     readonly property bool sidebarOpen: GlobalStates.sidebarRightOpen
 
     readonly property MprisPlayer activePlayer: MprisController.activePlayer
@@ -84,14 +82,14 @@ Item {
         id: sidebarRightBackground
 
         anchors.fill: parent
-        implicitHeight: parent.height - Appearance.sizes.hyprlandGapsOut * 2
-        implicitWidth: sidebarWidth - Appearance.sizes.hyprlandGapsOut * 2
+        implicitHeight: parent.height - Appearance.sizes.gapsOut * 2
+        implicitWidth: sidebarWidth - Appearance.sizes.gapsOut * 2
         // Persona style: the slanted comic-panel frame (same as the popups)
         // replaces the rounded body.
         color: Persona.shapes ? "transparent" : Appearance.colors.colLayer0
         border.width: Persona.shapes ? 0 : 1
         border.color: ColorUtils.transparentize(Appearance.colors.colLayer0Border, 0.8)
-        radius: Appearance.rounding.screenRounding - Appearance.sizes.hyprlandGapsOut + 5
+        radius: Appearance.rounding.screenRounding - Appearance.sizes.gapsOut + 5
 
         PersonaFrame {
             visible: Persona.shapes
@@ -133,7 +131,7 @@ Item {
                         Rectangle {
                             id: sysRect
                             anchors.fill: parent
-                            radius: Config.options.hyprland.decoration.rounding - 2
+                            radius: NiriConfig.options.decoration.rounding - 2
                             color: Appearance.colors.colLayer1
 
                             Rectangle {
@@ -267,11 +265,11 @@ Item {
                                     toggled: false
                                     buttonIcon: "restart_alt"
                                     onClicked: {
-                                        Quickshell.execDetached(["hyprctl", "reload"])
+                                        Quickshell.execDetached(["niri", "msg", "action", "reload-config"])
                                         Quickshell.reload(true);
                                     }
                                     StyledToolTip {
-                                        text: Translation.tr("Reload Hyprland & Quickshell")
+                                        text: Translation.tr("Reload Niri & Quickshell")
                                     }
                                 }
                                 QuickToggleButton {
@@ -537,17 +535,11 @@ Item {
                 toggled: false
                 buttonIcon: "restart_alt"
                 onClicked: {
-                    if (WM.compositor === "niri") {
-                        Quickshell.execDetached(["niri", "msg", "action", "reload-config"]);
-                    } else {
-                        Quickshell.execDetached(["hyprctl", "reload"]);
-                    }
+                    Quickshell.execDetached(["niri", "msg", "action", "reload-config"]);
                     Quickshell.reload(true);
                 }
                 StyledToolTip {
-                    text: WM.compositor === "niri"
-                        ? Translation.tr("Reload Niri & Quickshell")
-                        : Translation.tr("Reload Hyprland & Quickshell")
+                    text: Translation.tr("Reload Niri & Quickshell")
                 }
             }
             QuickToggleButton {

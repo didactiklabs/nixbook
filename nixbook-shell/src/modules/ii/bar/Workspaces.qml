@@ -22,7 +22,6 @@ ButtonMouseArea {
     }
 
     property bool vertical: Config.options.bar.vertical
-    property bool superPressAndHeld: false // Relevant modifications at bottom of file
 
     property real workspaceButtonWidth: Config.options.bar.cornerStyle === 3 ? 30 : 26
     property real activeWorkspaceMargin: 2
@@ -32,7 +31,6 @@ ButtonMouseArea {
     property real workspaceIconOpacityShrinked: 1
     property real workspaceIconMarginShrinked: -4
     property int workspaceIndexInGroup: (wsModel.activeNumber - 1) % wsModel.shownCount
-    property real specialTextSize: workspaceButtonWidth * 0.5
 
     Layout.alignment: vertical ? Qt.AlignHCenter : Qt.AlignVCenter
     Layout.fillWidth: vertical
@@ -40,11 +38,6 @@ ButtonMouseArea {
     readonly property real barThickness: vertical ? Appearance.sizes.verticalBarWidth : Appearance.sizes.barHeight
     implicitWidth: vertical ? barThickness : occupiedIndicators.implicitWidth
     implicitHeight: vertical ? occupiedIndicators.implicitHeight : barThickness
-
-    property real specialBlur: (wsModel.specialWorkspaceActive && !containsMouse) ? 1 : 0
-    Behavior on specialBlur {
-        animation: Appearance.animation.elementMoveSmall.numberAnimation.createObject(this)
-    }
 
     // Interactions
     acceptedButtons: Qt.LeftButton | Qt.RightButton
@@ -75,16 +68,6 @@ ButtonMouseArea {
         id: regularWorkspaces
         anchors.fill: parent
 
-        scale: 1 - 0.08 * root.specialBlur
-        layer.smooth: true
-        layer.enabled: root.specialBlur > 0
-        layer.effect: MultiEffect {
-            brightness: -0.1 * root.specialBlur
-            blurEnabled: true
-            blur: root.specialBlur
-            blurMax: 32
-        }
-
         /////////////////// Occupied indicators ///////////////////
         StyledRectangle {
             id: occupiedIndicatorsBg
@@ -107,9 +90,9 @@ ButtonMouseArea {
                     id: wsBg
                     required property int index
                     readonly property int wsId: wsModel.getWorkspaceIdAt(index)
-                    property bool currentOccupied: wsModel.occupied[index] && wsId != wsModel.fakeWorkspace
-                    property bool previousOccupied: index > 0 && wsModel.occupied[index - 1] && (wsId - 1) != wsModel.fakeWorkspace
-                    property bool nextOccupied: index < wsModel.shownCount - 1 && wsModel.occupied[index + 1] && (wsId + 1) != wsModel.fakeWorkspace
+                    property bool currentOccupied: wsModel.occupied[index]
+                    property bool previousOccupied: index > 0 && wsModel.occupied[index - 1]
+                    property bool nextOccupied: index < wsModel.shownCount - 1 && wsModel.occupied[index + 1]
                     implicitWidth: root.workspaceButtonWidth
                     implicitHeight: root.workspaceButtonWidth
 
@@ -215,7 +198,7 @@ ButtonMouseArea {
 
                     AppIcon {
                         id: appIcon
-                        property real cornerMargin: (!root.superPressAndHeld && Config.options?.bar.workspaces.showAppIcons && wsApp.biggestWindow) ? (root.workspaceButtonWidth - root.workspaceIconSize) / 2 : root.workspaceIconMarginShrinked
+                        property real cornerMargin: (Config.options?.bar.workspaces.showAppIcons && wsApp.biggestWindow) ? (root.workspaceButtonWidth - root.workspaceIconSize) / 2 : root.workspaceIconMarginShrinked
                         anchors {
                             bottom: parent.bottom
                             right: parent.right
@@ -255,9 +238,9 @@ ButtonMouseArea {
                             brightness: 0
                             source: appIcon
 
-                            opacity: !Config.options?.bar.workspaces.showAppIcons ? 0 : (wsApp.biggestWindow && !root.superPressAndHeld && Config.options?.bar.workspaces.showAppIcons) ? 1 : wsApp.biggestWindow ? root.workspaceIconOpacityShrinked : 0
+                            opacity: !Config.options?.bar.workspaces.showAppIcons ? 0 : (wsApp.biggestWindow && Config.options?.bar.workspaces.showAppIcons) ? 1 : wsApp.biggestWindow ? root.workspaceIconOpacityShrinked : 0
                             visible: opacity > 0
-                            scale: ((!root.superPressAndHeld && Config.options?.bar.workspaces.showAppIcons) ? root.workspaceIconSize : root.workspaceIconSizeShrinked) / root.workspaceIconSize
+                            scale: (Config.options?.bar.workspaces.showAppIcons ? root.workspaceIconSize : root.workspaceIconSizeShrinked) / root.workspaceIconSize
 
                             Behavior on opacity {
                                 animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
@@ -274,68 +257,6 @@ ButtonMouseArea {
                     }
                 }
             }
-        }
-    }
-
-    FadeLoader {
-        anchors.centerIn: parent
-        shown: wsModel.specialWorkspaceActive
-        scale: 0.8 + 0.2 * root.specialBlur
-
-        opacity: root.specialBlur
-        Behavior on opacity {} // Don't animate, as specialBlur is already animated
-
-        sourceComponent: Pill {
-            anchors.centerIn: parent
-            property real undirectionalWidth: root.activeWorkspaceSize
-            property real undirectionalLength: {
-                const base = root.workspaceButtonWidth * Math.min(1.35, wsModel.shownCount); // Who tf only configures only 2 workspaces shown anyway?
-                if (root.vertical)
-                    return base;
-                return specialWsText.implicitWidth + undirectionalWidth;
-            }
-            color: Appearance.colors.colPrimary
-
-            implicitWidth: root.vertical ? undirectionalWidth : undirectionalLength
-            implicitHeight: root.vertical ? undirectionalLength : undirectionalWidth
-
-            StyledText {
-                id: specialWsText
-                anchors.centerIn: parent
-                text: (!root.vertical ? wsModel.specialWorkspaceName : "S")
-                color: Appearance.colors.colOnPrimary
-                font.pixelSize: root.specialTextSize
-            }
-
-            Behavior on undirectionalLength {
-                animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
-            }
-        }
-    }
-
-    /////////////////// Super key press handling ///////////////////
-    Timer {
-        id: superPressAndHeldTimer
-        interval: (Config?.options.bar.autoHide.showWhenPressingSuper.delay ?? 100)
-        repeat: false
-        onTriggered: {
-            root.superPressAndHeld = true;
-        }
-    }
-    Connections {
-        target: GlobalStates
-        function onSuperDownChanged() {
-            if (!Config?.options.bar.autoHide.showWhenPressingSuper.enable)
-                return;
-            if (GlobalStates.superDown)
-                superPressAndHeldTimer.restart();
-            else {
-                superPressAndHeldTimer.stop();
-                root.superPressAndHeld = false;
-            }
-        }
-        function onSuperReleaseMightTriggerChanged() {
-            superPressAndHeldTimer.stop();
         }
     }
 
@@ -363,10 +284,8 @@ ButtonMouseArea {
         id: wsNum
         property bool hasBiggestWindow: !!wsModel.biggestWindow[index]
         property int wsId: wsModel.getWorkspaceIdAt(index)
-        property color contentColor: (wsModel.occupied[wsNum.index] && wsId !== wsModel.fakeWorkspace) ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1Inactive
+        property color contentColor: wsModel.occupied[wsNum.index] ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1Inactive
         property bool showingNumbers: {
-            if (root.superPressAndHeld)
-                return true;
             if (GlobalStates.screenLocked)
                 return false;
             if (Config.options?.bar.workspaces.alwaysShowNumbers && (!Config.options?.bar.workspaces.showAppIcons || !wsNum.hasBiggestWindow))

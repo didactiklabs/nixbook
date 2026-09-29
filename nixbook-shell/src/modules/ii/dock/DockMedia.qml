@@ -108,10 +108,10 @@ Item {
     Rectangle {
         id: card
         anchors.fill:         parent
-        anchors.topMargin:    Appearance.sizes.hyprlandGapsOut
-        anchors.bottomMargin: Appearance.sizes.hyprlandGapsOut
-        anchors.leftMargin:   Appearance.sizes.hyprlandGapsOut
-        anchors.rightMargin:  Appearance.sizes.hyprlandGapsOut - 2
+        anchors.topMargin:    Appearance.sizes.gapsOut
+        anchors.bottomMargin: Appearance.sizes.gapsOut
+        anchors.leftMargin:   Appearance.sizes.gapsOut
+        anchors.rightMargin:  Appearance.sizes.gapsOut - 2
         radius: Appearance.rounding.normal
         color:  "transparent"
 

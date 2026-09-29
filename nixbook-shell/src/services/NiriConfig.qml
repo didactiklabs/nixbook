@@ -6,7 +6,6 @@ import qs.modules.common
 import qs.modules.common.functions
 
 /**
- * Niri counterpart of HyprlandConfig.
  * Persists shell-managed niri options as JSON (DMS-style) in ~/.config/niri/qssettings/settings.json
  * and generates KDL override fragments next to it. Niri picks them up automatically
  * when the user adds the include lines to config.kdl (niri watches included files).

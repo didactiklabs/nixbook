@@ -8,7 +8,6 @@ import QtQuick.Layouts
 import Quickshell.Io
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Hyprland
 
 Scope { // Scope
     id: root
@@ -44,13 +43,11 @@ Scope { // Scope
             function hide() {
                 GlobalStates.oskOpen = false
             }
-            exclusiveZone: root.pinned ? implicitHeight - Appearance.sizes.hyprlandGapsOut : 0
+            exclusiveZone: root.pinned ? implicitHeight - Appearance.sizes.gapsOut : 0
             implicitWidth: oskBackground.width + Appearance.sizes.elevationMargin * 2
             implicitHeight: oskBackground.height + Appearance.sizes.elevationMargin * 2
             WlrLayershell.namespace: "quickshell:osk"
             WlrLayershell.layer: WlrLayer.Overlay
-            // Hyprland 0.49: Focus is always exclusive and setting this breaks mouse focus grab
-            // WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
             color: "transparent"
 
             mask: Region {
@@ -140,33 +137,6 @@ Scope { // Scope
 
         function open(): void {
             GlobalStates.oskOpen = true
-        }
-    }
-
-    CompositorGlobalShortcut {
-        name: "oskToggle"
-        description: "Toggles on screen keyboard on press"
-
-        onPressed: {
-            GlobalStates.oskOpen = !GlobalStates.oskOpen;
-        }
-    }
-
-    CompositorGlobalShortcut {
-        name: "oskOpen"
-        description: "Opens on screen keyboard on press"
-
-        onPressed: {
-            GlobalStates.oskOpen = true
-        }
-    }
-
-    CompositorGlobalShortcut {
-        name: "oskClose"
-        description: "Closes on screen keyboard on press"
-
-        onPressed: {
-            GlobalStates.oskOpen = false
         }
     }
 

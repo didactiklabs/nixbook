@@ -12,12 +12,14 @@ Singleton {
     property string filePath: `${root.fileDir}/${root.fileName}`
 
     property bool ready: false
-    property string previousHyprlandInstanceSignature: ""
-    property bool isNewHyprlandInstance: previousHyprlandInstanceSignature !== states.hyprlandInstanceSignature
+    // A new niri session (its IPC socket path is per instance), not just
+    // a shell restart: the lock screen's launch-on-startup keys off it.
+    property string previousSessionSignature: ""
+    property bool isNewSession: previousSessionSignature !== states.sessionSignature
 
     onReadyChanged: {
-        root.previousHyprlandInstanceSignature = root.states.hyprlandInstanceSignature
-        root.states.hyprlandInstanceSignature = Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE") || ""
+        root.previousSessionSignature = root.states.sessionSignature
+        root.states.sessionSignature = Quickshell.env("NIRI_SOCKET") || ""
     }
 
     Timer {
@@ -56,7 +58,7 @@ Singleton {
         adapter: JsonAdapter {
             id: persistentStatesJsonAdapter
 
-            property string hyprlandInstanceSignature: ""
+            property string sessionSignature: ""
 
             property JsonObject ai: JsonObject {
                 property string model: "config-assistant"

@@ -1,32 +1,17 @@
 { pkgs }:
-# nixbook-shell's QML tree as installed (store-path fixups, Persona art). It started as a fork of
-# pctrade/end4-pC (https://github.com/pctrade/end4-pC), itself a fork of end-4's
-# illogical-impulse (https://github.com/end-4/dots-hyprland), and is maintained
-# here independently since (GPL-3.0, like upstream; src/LICENSE).
+# nixbook-shell's QML tree as installed (store-path fixups, Persona art).
 #
-# VENDORED: the whole QML tree lives under src/ and
-# is edited directly — this is a hard fork, no longer a live npins pin.
+# nixbook-shell is its own project, niri-only, developed here in src/ (no
+# upstream to track). It began as a fork of pctrade/end4-pC
+# (https://github.com/pctrade/end4-pC), itself a fork of end-4's
+# illogical-impulse (https://github.com/end-4/dots-hyprland); GPL-3.0 like
+# them (src/LICENSE).
 #
-# All of our feature changes are baked into the vendored source (the former
-# postPatch scripts nixbook-shell-*.{py,go} are gone): the NixOS update
-# port (services/UpdateState.qml, modules/ii/bar/UpdatesCount.qml + the About/
-# Services/Config rewires), the pointing-hand cursor sweep, the Nix-managed
-# settings support (modules/common/NixManaged.qml + NixManagedBadge.qml +
-# configKey/enabled guards on every settings control), the brightness
-# write-back debounce, the AI chat stream fixes, and the AnthropicUsage / VpnStatus
-# bar widgets. The two upstream QML bug fixes (ThumbnailImage temp-file quoting,
-# niri MonitorConfigOption scale) are baked in too.
-#
-# To resync with upstream: diff src/ against a fresh checkout
-# of pctrade/end4-pC and merge by hand. Last synced from revision
-# 0ff392bc69bdda1d795819c4bb8ec65e2b3658df.
-#
-# What still can NOT be baked in and therefore stays in postPatch below: the
-# handful of transforms that reference Nix store paths (matugen config, the
-# python interpreter, the hyprctl→niri monitor shim, the thumbgen typelib) plus
-# the venv activate/deactivate neutralisation. Runtime *binaries* are injected
-# via PATH by the `nixbook-shell` launcher (package.nix)
-# (upstream calls ~40 different tools and probes most with `command -v`).
+# What can NOT live in src/ and stays in postPatch below: the transforms that
+# reference Nix store paths (matugen config, the python interpreter, the
+# thumbgen typelib) plus the venv activate/deactivate neutralisation. Runtime
+# *binaries* are injected via PATH by the `nixbook-shell` launcher
+# (package.nix).
 let
   inherit (pkgs) lib;
   src = ./src;
@@ -59,7 +44,7 @@ let
   # Trimmed matugen setup.
   #
   # illogical-impulse's matugen config also rewrites ~/.config/gtk-{3,4}.0/gtk.css,
-  # ~/.config/fuzzel/fuzzel_theme.ini and ~/.config/hypr/**. Every one of those
+  # ~/.config/fuzzel/fuzzel_theme.ini and the compositor config. Every one of those
   # is Home Manager / stylix managed here (read-only store symlinks), so matugen
   # would fail on them and, worse, fight stylix over the GTK theme. We keep only
   # the three outputs the shell itself reads back (see Directories.qml:
@@ -140,22 +125,6 @@ let
     output_path = '~/.local/state/quickshell/user/generated/wallpaper/path.txt'
   '';
 
-  # `hyprctl monitors -j` shim. Upstream uses it purely to read screen
-  # dimensions; under niri it does not exist, which would make the wallpaper
-  # switcher blow up. Emits the same `[{width,height},...]` shape so the
-  # upstream jq expressions keep working unchanged.
-  monitorsJson = pkgs.writeShellScript "nixbook-shell-monitors-json" ''
-    set -u
-    if [ -n "''${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && command -v hyprctl >/dev/null 2>&1; then
-      exec hyprctl monitors -j
-    elif command -v niri >/dev/null 2>&1 && niri msg -j outputs >/dev/null 2>&1; then
-      focused=$(niri msg -j focused-output 2>/dev/null | ${lib.getExe pkgs.jq} -r '.name // ""')
-      niri msg -j outputs | ${lib.getExe pkgs.jq} --arg focused "$focused" \
-        '[ to_entries[].value | { name: .name, focused: (.name == $focused), x: (.logical.x // 0), y: (.logical.y // 0), scale: (.logical.scale // 1), width: (.logical.width // 0), height: (.logical.height // 0) } ]'
-    else
-      echo '[]'
-    fi
-  '';
 in
 pkgs.stdenvNoCC.mkDerivation {
   pname = "nixbook-shell";
@@ -202,12 +171,7 @@ pkgs.stdenvNoCC.mkDerivation {
       --replace-fail '"$XDG_CONFIG_HOME"/matugen/templates/kde/kde-material-you-colors-wrapper.sh --scheme-variant "$kde_scheme_variant"' \
                      ': "$kde_scheme_variant"'
 
-    # 2. hyprctl is hyprland-only; route monitor geometry and the focused
-    #    output (switchwall.sh, record.sh) through the shim.
-    substituteInPlace scripts/colors/switchwall.sh scripts/videos/record.sh \
-      --replace-fail 'hyprctl monitors -j' '${monitorsJson}'
-
-    # 3. Point every python shebang at a Nix interpreter that already carries
+    # 2. Point every python shebang at a Nix interpreter that already carries
     #    what the illogical-impulse virtualenv would have provided. Upstream
     #    uses an `env -S ... source $ILLOGICAL_IMPULSE_VIRTUAL_ENV/bin/activate`
     #    shebang, which is a no-op here.
@@ -215,7 +179,7 @@ pkgs.stdenvNoCC.mkDerivation {
       sed -i "1s|^#!.*|#!${pythonEnv}/bin/python3|" "$f"
     done
 
-    # 4. ...and neutralise the matching activate/deactivate calls in the shell
+    # 3. ...and neutralise the matching activate/deactivate calls in the shell
     #    wrappers (`scripts/**/*-venv.sh`, switchwall.sh).
     find . -name '*.sh' -type f -print0 | while IFS= read -r -d "" f; do
       sed -i \
@@ -224,7 +188,7 @@ pkgs.stdenvNoCC.mkDerivation {
         "$f"
     done
 
-    # 5. thumbgen.py needs gobject-introspection typelibs (Gio, GnomeDesktop).
+    # 4. thumbgen.py needs gobject-introspection typelibs (Gio, GnomeDesktop).
     substituteInPlace scripts/thumbnails/thumbgen-venv.sh \
       --replace-fail 'GIO_USE_VFS=local' 'GI_TYPELIB_PATH=${typelibPath} GIO_USE_VFS=local'
   '';
@@ -245,7 +209,7 @@ pkgs.stdenvNoCC.mkDerivation {
   };
 
   meta = {
-    description = "nixbook's Quickshell desktop shell (fork of end-4's illogical-impulse via pctrade/end4-pC)";
+    description = "nixbook's Quickshell desktop shell for niri";
     homepage = "https://github.com/didactiklabs/nixbook";
     license = lib.licenses.gpl3Only;
     platforms = lib.platforms.linux;

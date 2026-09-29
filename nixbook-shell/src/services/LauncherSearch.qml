@@ -8,7 +8,6 @@ import QtQuick
 import Qt.labs.folderlistmodel
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import ".."
 
 Singleton {
@@ -95,8 +94,7 @@ Singleton {
         { page: "Lock screen", path: "LockScreenConfig.qml" },
         { page: "General",     path: "GeneralConfig.qml" },
         { page: "Services",    path: "ServicesConfig.qml" },
-        ...(WM.compositor === "niri" ? [{ page: "Niri", path: "NiriConfig.qml" }] : []),
-        ...(WM.compositor === "hyprland" ? [{ page: "Hyprland", path: "HyprlandConfig.qml" }] : []),
+        { page: "Niri",        path: "NiriConfig.qml" },
         { page: "About",       path: "About.qml" },
     ]
 
@@ -176,7 +174,10 @@ Singleton {
         {
             action: "wallpaper",
             execute: () => {
-                Hyprland.dispatch(`hl.dsp.global("quickshell:wallpaperSelectorToggle")`)
+                if (Config.options.wallpaperSelector.useSystemFileDialog)
+                    Wallpapers.openFallbackPicker(Appearance.m3colors.darkmode);
+                else
+                    GlobalStates.wallpaperSelectorOpen = !GlobalStates.wallpaperSelectorOpen;
             }
         },
         {
@@ -516,37 +517,6 @@ Singleton {
                     }
                 });
             });
-        } else if (root.query.startsWith(Config.options.search.prefix.keybinds ?? "<")) {
-            // Keybinds
-            const searchString = StringUtils.cleanPrefix(root.query, Config.options.search.prefix.keybinds ?? "<");
-            const flatBinds = (function flatten(node) {
-                let result = [...(node.keybinds ?? [])];
-                for (const child of (node.children ?? [])) {
-                    result = result.concat(flatten(child));
-                }
-                return result;
-            })(HyprlandKeybinds.keybinds);
-
-            return flatBinds.filter(bind => {
-                if (!bind.comment) return false;
-                if (searchString.length === 0) return true;
-                return bind.comment.toLowerCase().includes(searchString.toLowerCase())
-                    || bind.key.toLowerCase().includes(searchString.toLowerCase());
-            }).map(bind => {
-                const modsStr = bind.mods.join(" + ");
-                const keyStr  = modsStr.length > 0 ? `${modsStr} + ${bind.key}` : bind.key;
-                return resultComp.createObject(null, {
-                    name: bind.comment,
-                    iconName: "keyboard",
-                    iconType: LauncherSearchResult.IconType.Material,
-                    verb: keyStr,
-                    type: Translation.tr("Keybind"),
-                    comment: keyStr,
-                    execute: () => {
-                        Quickshell.clipboardText = keyStr;
-                    }
-                });
-            }).filter(Boolean);
         } else if (root.query.startsWith(Config.options.search.prefix.symbols)) {
             // Material Symbols
             const searchString = StringUtils.cleanPrefix(root.query, Config.options.search.prefix.symbols);

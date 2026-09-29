@@ -91,7 +91,7 @@ def main():
     parser.add_argument('--min-size', type=int, default=50, help='Segmentation parameter min_size (default: 20)')
     parser.add_argument('--sigma', type=float, default=0.6, help='Segmentation parameter sigma (default: 0.8)')
     parser.add_argument('--resize-factor', type=float, default=0.1, help='Resize factor for input image before processing (default: 1.0, e.g. 0.5 for half size)')
-    parser.add_argument('--hyprctl', action='store_true', help='Mimics hyprctl\'s window output, like {"at": [x, y], "size": [w, h]}')
+    parser.add_argument('--at-size', action='store_true', help='Output regions as window-style geometry, like {"at": [x, y], "size": [w, h]}')
     args = parser.parse_args()
 
     regions, image = find_regions(
@@ -109,7 +109,7 @@ def main():
     if args.single and regions:
         largest = max(regions, key=lambda r: r['width'] * r['height'])
         regions = [largest]
-    if args.hyprctl:
+    if args.at_size:
         regions = [{"at": [r['x'], r['y']], "size": [r['width'], r['height']]} for r in regions]
     print(json.dumps(regions))
     if args.debug_output:

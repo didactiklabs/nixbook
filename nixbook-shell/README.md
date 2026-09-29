@@ -1,6 +1,6 @@
 # nixbook-shell
 
-A Quickshell (QML) desktop shell for niri and Hyprland: bar, dock, sidebars,
+A Quickshell (QML) desktop shell for niri: bar, dock, sidebars,
 launcher, notifications, lock screen, desktop widgets, an AI chat and a choice
 of themes (see [Themes](#themes)): Material, the default (colours from the
 wallpaper, Material 3 tonal elevation: surfaces are told apart by their tone
@@ -11,8 +11,8 @@ palettes, bubbly corners, bouncy motion and the characters themselves). None
 blurs a shadow, which keeps them light on integrated GPUs. It started as a
 fork of
 [pctrade/end4-pC](https://github.com/pctrade/end4-pC), itself a fork of end-4's
-illogical-impulse, and is maintained here as a hard fork (credits and licence
-in `src/`).
+illogical-impulse; it is now its own project, niri-only, with no upstream to
+track (credits and licence in `src/`).
 
 This directory is self-contained: nothing in it refers to the rest of the
 nixbook repository, so it can be used on its own (nixbook's

@@ -278,7 +278,7 @@ RippleButton {
             Layout.fillWidth: false
             // Hidden by opacity, keeping its room: toggling `visible` on hover
             // re-wrapped the name next to it.
-            opacity: root.selected || root.itemType === Translation.tr("Keybind") ? 1 : 0
+            opacity: root.selected ? 1 : 0
             id: clickAction
             font.pixelSize: Appearance.font.pixelSize.normal
             color: Appearance.colors.colOnPrimaryContainer

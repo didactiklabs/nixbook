@@ -9,15 +9,13 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
-import Quickshell.Hyprland
 
 Scope {
     id: root
 
-    // WM.focusedMonitor is Hyprland.focusedMonitor under Hyprland and the niri
-    // backend's focused output under niri (`NiriBackend` is a component
-    // instantiated as WM.backend, not a singleton, so `NiriBackend.focusedMonitor`
-    // was always undefined and the menu fell back to the first screen).
+    // WM.focusedMonitor is the niri backend's focused output (`NiriBackend` is
+    // a component instantiated as WM.backend, not a singleton, so
+    // `NiriBackend.focusedMonitor` would always be undefined).
     property string focusedScreenName: WM.focusedMonitor?.name ?? ""
 
     property var focusedScreen: Quickshell.screens.find(s => s.name === root.focusedScreenName)
@@ -335,37 +333,6 @@ Scope {
 
         function open(): void {
             GlobalStates.sessionOpen = true;
-        }
-    }
-
-    CompositorGlobalShortcut {
-        name: "sessionToggle"
-        description: "Toggles session screen on press"
-
-        onPressed: {
-            if (Config.options.bar.layouts.middleLayout.includes("dynamicIsland")) {
-                GlobalStates.diSessionOpen = !GlobalStates.diSessionOpen;
-            } else {
-                GlobalStates.sessionOpen = !GlobalStates.sessionOpen;
-            }
-        }
-    }
-
-    CompositorGlobalShortcut {
-        name: "sessionOpen"
-        description: "Opens session screen on press"
-
-        onPressed: {
-            GlobalStates.sessionOpen = true;
-        }
-    }
-
-    CompositorGlobalShortcut {
-        name: "sessionClose"
-        description: "Closes session screen on press"
-
-        onPressed: {
-            GlobalStates.sessionOpen = false;
         }
     }
 }

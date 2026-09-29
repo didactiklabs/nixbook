@@ -6,7 +6,7 @@ import qs.services
 import "../"
 
 /**
- * Same interface as models/hyprland/MonitorConfigOption, backed by niri.
+ * Monitor settings backed by niri.
  * Fetches via `niri msg -j outputs`, applies live via `niri msg output`,
  * persists via NiriConfig (qssettings/outputs.kdl).
  */
@@ -17,7 +17,7 @@ NestableObject {
 
     readonly property var transformNames: ["normal", "90", "180", "270"]
 
-    Component.onCompleted: { if (WM.compositor === "niri") fetchProc.running = true }
+    Component.onCompleted: fetchProc.running = true
 
     function updateMonitor(index, changes) {
         let m = root.monitors.slice()

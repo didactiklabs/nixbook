@@ -5,14 +5,12 @@ import qs.modules.common
 import qs.services
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 
 Singleton {
     id: root
     signal gammaChangeAttempt()
 
     readonly property real gammaLowerLimit: 25
-    readonly property bool isNiri: WM.compositor === "niri"
 
     property string from: Config.options?.light?.night?.from ?? "19:00"
     property string to: Config.options?.light?.night?.to ?? "06:30"
@@ -51,7 +49,7 @@ Singleton {
     }
 
     // Re-evaluated every minute. Applying is idempotent (ensureState only acts
-    // when the desired state differs from the applied one): the niri path used
+    // when the desired state differs from the applied one): it used
     // to `pkill wlsunset` and start a new one on every minute tick, so the
     // screen flashed back to neutral once a minute all night.
     function reEvaluate() {
@@ -74,8 +72,8 @@ Singleton {
     function ensureState() {
         if (!root.automatic || root.manualActive !== undefined)
             return;
-        if (root.isNiri && !root.niriReady)
-            return; // niriCleanup re-evaluates when done
+        if (!root.staleCleared)
+            return; // staleCleanup re-evaluates when done
         if (root.shouldBeOn && !root.temperatureActive) {
             root.enableTemperature();
         } else if (!root.shouldBeOn && root.temperatureActive) {
@@ -83,74 +81,51 @@ Singleton {
         }
     }
 
-    function startHyprsunset() {
-        if (root.isNiri) return;
-        Quickshell.execDetached(["bash", "-c", `pidof hyprsunset || hyprsunset`]);
-    }
-
     function load() {
-        if (root.isNiri) {
-            root.disableTemperature();
-            return;
-        }
-        Quickshell.execDetached(["bash", "-c", `pidof hyprsunset || hyprsunset & disown; sleep 0.3; hyprctl hyprsunset identity`]);
-        root.temperatureActive = false;
+        root.disableTemperature();
     }
 
     function enableTemperature() {
-        if (root.isNiri) {
-            root.startNiriSunset(root.colorTemperature);
-        } else {
-            root.startHyprsunset();
-            Quickshell.execDetached(["bash", "-c", `hyprctl hyprsunset temperature ${root.colorTemperature}`]);
-        }
+        root.startWlsunset(root.colorTemperature);
         root.temperatureActive = true;
     }
 
     function disableTemperature() {
-        if (root.isNiri) {
-            root.stopNiriSunset();
-        } else {
-            Quickshell.execDetached(["hyprctl", "hyprsunset", "identity"]);
-        }
+        root.stopWlsunset();
         root.temperatureActive = false;
     }
 
+    // Only tracked (the brightness keys fall back to it below 0 brightness):
+    // wlsunset has no separate gamma control.
     function setGamma(gamma) {
         root.gamma = Math.max(root.gammaLowerLimit, Math.min(100, gamma));
         root.gammaChangeAttempt();
-
-        if (root.isNiri) {
-            return;
-        }
-        root.startHyprsunset();
-        Quickshell.execDetached(["bash", "-c", `hyprctl hyprsunset gamma ${root.gamma}`]);
     }
 
-    // niri: one wlsunset owned by the shell (it exits with the shell, and the
+    // One wlsunset owned by the shell (it exits with the shell, and the
     // compositor restores neutral gamma). Forced to "night" all day: sunset
     // 00:00, sunrise 23:59, 1 s transitions, day/night temperatures 50 K apart.
     // (Re)started only when it isn't running or the temperature changed.
-    property int niriAppliedTemp: 0
-    property bool niriStopping: false
-    function startNiriSunset(temp) {
-        if (wlsunsetProc.running && root.niriAppliedTemp === temp) return;
-        root.niriAppliedTemp = temp;
+    property int appliedTemp: 0
+    property bool stopping: false
+    function startWlsunset(temp) {
+        if (wlsunsetProc.running && root.appliedTemp === temp) return;
+        root.appliedTemp = temp;
         wlsunsetProc.command = ["wlsunset", "-T", `${temp + 50}`, "-t", `${temp}`, "-S", "23:59", "-s", "00:00", "-d", "1"];
         if (wlsunsetProc.running) {
-            root.niriRestart = true;
+            root.restarting = true;
             wlsunsetProc.running = false; // onExited starts it again
         } else {
             wlsunsetProc.running = true;
         }
     }
-    property bool niriRestart: false
+    property bool restarting: false
 
-    function stopNiriSunset() {
-        root.niriRestart = false;
-        root.niriAppliedTemp = 0;
+    function stopWlsunset() {
+        root.restarting = false;
+        root.appliedTemp = 0;
         if (wlsunsetProc.running) {
-            root.niriStopping = true;
+            root.stopping = true;
             wlsunsetProc.running = false;
         }
     }
@@ -158,31 +133,31 @@ Singleton {
     Process {
         id: wlsunsetProc
         onExited: (exitCode, exitStatus) => {
-            if (root.niriRestart) {
-                root.niriRestart = false;
+            if (root.restarting) {
+                root.restarting = false;
                 Qt.callLater(() => wlsunsetProc.running = true);
                 return;
             }
-            if (!root.niriStopping && root.temperatureActive) {
+            if (!root.stopping && root.temperatureActive) {
                 // Died on its own (no gamma control, crashed): don't loop, just
                 // reflect it; the next toggle/boundary tries again.
-                console.warn(`[Hyprsunset] wlsunset exited (${exitCode}); night light is off`);
+                console.warn(`[NightLightService] wlsunset exited (${exitCode}); night light is off`);
                 root.temperatureActive = false;
-                root.niriAppliedTemp = 0;
+                root.appliedTemp = 0;
             }
-            root.niriStopping = false;
+            root.stopping = false;
         }
     }
 
     // Instances started detached by older builds of the shell would fight ours
     // for the gamma ramps: clear them once, before the first apply.
-    property bool niriReady: false
+    property bool staleCleared: false
     Process {
-        id: niriCleanup
-        running: root.isNiri
+        id: staleCleanup
+        running: true
         command: ["pkill", "-x", "-u", Quickshell.env("USER") ?? "", "wlsunset"]
         onExited: {
-            root.niriReady = true;
+            root.staleCleared = true;
             root.reEvaluate();
         }
     }
@@ -194,27 +169,7 @@ Singleton {
     }
 
     function fetchState() {
-        if (root.isNiri) {
-            root.temperatureActive = wlsunsetProc.running;
-        } else {
-            fetchProc.running = true;
-        }
-    }
-
-    Process {
-        id: fetchProc
-        running: false
-        command: ["bash", "-c", "hyprctl hyprsunset temperature"]
-        stdout: StdioCollector {
-            id: stateCollector
-            onStreamFinished: {
-                const output = stateCollector.text.trim();
-                if (output.length == 0 || output.startsWith("Couldn't"))
-                    root.temperatureActive = false;
-                else
-                    root.temperatureActive = (output != "6500");
-            }
-        }
+        root.temperatureActive = wlsunsetProc.running;
     }
 
     function toggleTemperature(active = undefined) {
@@ -236,11 +191,7 @@ Singleton {
         target: Config.options.light.night
         function onColorTemperatureChanged() {
             if (!root.temperatureActive) return;
-            if (root.isNiri) {
-                root.startNiriSunset(Config.options.light.night.colorTemperature);
-            } else {
-                Quickshell.execDetached(["hyprctl", "hyprsunset", "temperature", `${Config.options.light.night.colorTemperature}`]);
-            }
+            root.startWlsunset(Config.options.light.night.colorTemperature);
         }
     }
 }

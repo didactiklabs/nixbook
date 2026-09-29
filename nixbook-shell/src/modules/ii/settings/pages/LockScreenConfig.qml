@@ -55,14 +55,6 @@ ContentPage {
                     onCheckedChanged: { Config.options.lock.launchOnStartup = checked }
                 }
                 ConfigSwitch {
-                    configKey: "lock.showWidgets";
-                    buttonIcon: "widgets"
-                    enabled: (WM.compositor !== "niri") && !nixManaged
-                    text: Translation.tr("Show Widgets")
-                    checked: Config.options.lock.showWidgets
-                    onCheckedChanged: { Config.options.lock.showWidgets = checked }
-                }
-                ConfigSwitch {
                     configKey: "lock.showToolbars";
                     enabled: !nixManaged;
                     buttonIcon: "tools_installation_kit"

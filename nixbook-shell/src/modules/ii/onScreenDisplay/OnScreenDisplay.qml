@@ -8,7 +8,6 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
-import Quickshell.Hyprland
 
 Scope {
     id: root
@@ -59,7 +58,7 @@ Scope {
     }
 
     Connections {
-        target: Hyprsunset
+        target: NightLightService
         function onGammaChangeAttempt() {
             root.protectionMessage = "";
             root.currentIndicator = "gamma";
@@ -255,22 +254,6 @@ Scope {
 
         function toggle() {
             GlobalStates.osdVolumeOpen = !GlobalStates.osdVolumeOpen;
-        }
-    }
-    CompositorGlobalShortcut {
-        name: "osdVolumeTrigger"
-        description: "Triggers volume OSD on press"
-
-        onPressed: {
-            root.triggerOsd();
-        }
-    }
-    CompositorGlobalShortcut {
-        name: "osdVolumeHide"
-        description: "Hides volume OSD on press"
-
-        onPressed: {
-            GlobalStates.osdVolumeOpen = false;
         }
     }
 }

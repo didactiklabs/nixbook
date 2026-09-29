@@ -7,7 +7,6 @@ import QtQuick
 import Quickshell.Io
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Hyprland
 
 Scope { // Scope
     id: root
@@ -38,45 +37,8 @@ Scope { // Scope
         root.detach = !root.detach;
     }
 
-    Process { // Dodge cursor away, pin, move cursor back
-        id: pinWithFunnyHyprlandWorkaroundProc
-        property var hook: null
-        property int cursorX;
-        property int cursorY;
-        function doIt() {
-            command = ["hyprctl", "cursorpos"]
-            hook = (output) => {
-                cursorX = parseInt(output.split(",")[0]);
-                cursorY = parseInt(output.split(",")[1]);
-                doIt2();
-            }
-            running = true;
-        }
-        function doIt2(output) {
-            command = ["bash", "-c", "hyprctl dispatch 'hl.dsp.cursor.move({x=9999,y=9999})'"];
-            hook = () => {
-                doIt3();
-            }
-            running = true;
-        }
-        function doIt3(output) {
-            root.pin = !root.pin;
-            command = ["bash", "-c", `sleep 0.01; hyprctl dispatch 'hl.dsp.cursor.move({x=${cursorX},y=${cursorY}})'`];
-            hook = null
-            running = true;
-        }
-        stdout: StdioCollector {
-            onStreamFinished: {
-                pinWithFunnyHyprlandWorkaroundProc.hook(text);
-            }
-        }
-    }
-
     function togglePin() {
-        // The cursor dance is a Hyprland workaround (hyprctl): elsewhere it
-        // never completed, so pinning did nothing under niri.
-        if (!root.pin && WM.compositor === "hyprland") pinWithFunnyHyprlandWorkaroundProc.doIt()
-        else root.pin = !root.pin;
+        root.pin = !root.pin;
     }
 
     Component.onCompleted: {
@@ -110,8 +72,6 @@ Scope { // Scope
         sourceComponent: PanelWindow { // Window
             id: panelWindow
 
-            readonly property bool animatedEntrance: WM.compositor !== "hyprland"
-
             // Open, or still playing the exit animation.
             property bool reallyVisible: false
             // Stays mapped once opened (see SidebarRight: hiding destroys the
@@ -122,7 +82,7 @@ Scope { // Scope
             Connections {
                 target: Preloader
                 function onSidebarLeftChanged() {
-                    if (Preloader.sidebarLeft && panelWindow.animatedEntrance && !root.detach)
+                    if (Preloader.sidebarLeft && !root.detach)
                         panelWindow.keepMapped = true;
                 }
             }
@@ -140,15 +100,13 @@ Scope { // Scope
                         closeAnimTimer.stop();
                         if (!root.pin) panelWindow.followFocusedScreen();
                         panelWindow.reallyVisible = true;
-                        if (panelWindow.animatedEntrance) panelWindow.keepMapped = true;
+                        panelWindow.keepMapped = true;
                         // Focus the current tab (the chat's input): without an
                         // active focus item the panel got the keyboard but every
                         // key — typing, Ctrl+O/P/D — went nowhere until a click.
                         Qt.callLater(() => root.sidebarContent?.focusActiveItem());
-                    } else if (panelWindow.animatedEntrance) {
-                        closeAnimTimer.restart();
                     } else {
-                        panelWindow.reallyVisible = false;
+                        closeAnimTimer.restart();
                     }
                 }
             }
@@ -173,8 +131,7 @@ Scope { // Scope
             WlrLayershell.namespace: "quickshell:sidebarLeft"
             // Overlay so it stays above GlobalFocusGrab's click catcher (Top).
             WlrLayershell.layer: WlrLayer.Overlay
-            // Hyprland 0.49: OnDemand is Exclusive, Exclusive just breaks click-outside-to-close
-// Open panels take the keyboard (Exclusive): these surfaces stay mapped
+            // Open panels take the keyboard (Exclusive): these surfaces stay mapped
             // once built, so niri never sees them "open" and an OnDemand surface
             // only got the keyboard after a click — typing went to the window
             // underneath. Closing releases it.
@@ -196,9 +153,9 @@ Scope { // Scope
                     if (!centerOnly) return 0;
                     switch (Config.options.bar.cornerStyle) {
                     case 0: return -root.barCenterOnlyOffset;
-                    case 1: return -root.barCenterOnlyOffset + Appearance.sizes.hyprlandGapsOut;
-                    case 2: return -root.barCenterOnlyOffset + Appearance.sizes.hyprlandGapsOut;
-                    case 3: return -root.barCenterOnlyOffset - Appearance.sizes.hyprlandGapsOut;
+                    case 1: return -root.barCenterOnlyOffset + Appearance.sizes.gapsOut;
+                    case 2: return -root.barCenterOnlyOffset + Appearance.sizes.gapsOut;
+                    case 3: return -root.barCenterOnlyOffset - Appearance.sizes.gapsOut;
                     default: return 0;
                     }
                 }
@@ -208,9 +165,9 @@ Scope { // Scope
                     if (!centerOnly) return 0;
                     switch (Config.options.bar.cornerStyle) {
                     case 0: return -root.barCenterOnlyOffset;
-                    case 1: return -root.barCenterOnlyOffset + Appearance.sizes.hyprlandGapsOut;
-                    case 2: return -root.barCenterOnlyOffset + Appearance.sizes.hyprlandGapsOut;
-                    case 3: return -root.barCenterOnlyOffset - Appearance.sizes.hyprlandGapsOut;
+                    case 1: return -root.barCenterOnlyOffset + Appearance.sizes.gapsOut;
+                    case 2: return -root.barCenterOnlyOffset + Appearance.sizes.gapsOut;
+                    case 3: return -root.barCenterOnlyOffset - Appearance.sizes.gapsOut;
                     default: return 0;
                     }
                 }
@@ -219,7 +176,7 @@ Scope { // Scope
             mask: panelWindow.reallyVisible ? openMask : noInput
             Region {
                 id: openMask
-                item: panelWindow.animatedEntrance ? fullMaskArea : sidebarLeftBackground
+                item: fullMaskArea
             }
             Region { id: noInput }
 
@@ -255,8 +212,6 @@ Scope { // Scope
                 cursorShape: Qt.PointingHandCursor
                 id: outsideClickArea
                 anchors.fill: parent
-                enabled: panelWindow.animatedEntrance
-                visible: panelWindow.animatedEntrance
                 onClicked: panelWindow.hide()
             }
 
@@ -268,15 +223,15 @@ Scope { // Scope
             Rectangle {
                 id: sidebarLeftBackground
                 anchors.top: parent.top
-                anchors.topMargin: Appearance.sizes.hyprlandGapsOut
-                width: panelWindow.sidebarWidth - Appearance.sizes.hyprlandGapsOut - Appearance.sizes.elevationMargin
-                height: parent.height - Appearance.sizes.hyprlandGapsOut * 2
+                anchors.topMargin: Appearance.sizes.gapsOut
+                width: panelWindow.sidebarWidth - Appearance.sizes.gapsOut - Appearance.sizes.elevationMargin
+                height: parent.height - Appearance.sizes.gapsOut * 2
                 // Persona style: the slanted comic-panel frame (same as the
                 // popups) replaces the rounded body.
                 color: Persona.shapes ? "transparent" : Appearance.colors.colLayer0
                 border.width: Persona.shapes ? 0 : 1
                 border.color: ColorUtils.transparentize(Appearance.colors.colLayer0Border, 0.8)
-                radius: Appearance.rounding.screenRounding - Appearance.sizes.hyprlandGapsOut + 1
+                radius: Appearance.rounding.screenRounding - Appearance.sizes.gapsOut + 1
 
                 PersonaFrame {
                     visible: Persona.shapes
@@ -298,15 +253,13 @@ Scope { // Scope
                     anchors.margins: parent.border.width
                 }
 
-                readonly property bool animatedEntrance: panelWindow.animatedEntrance
                 readonly property bool sidebarOpen: GlobalStates.sidebarLeftOpen
                 // Nothing drawn while closed (the surface stays mapped).
                 // (≈invisible while booting: draws once so textures are uploaded)
                 opacity: panelWindow.reallyVisible ? 1 : (Preloader.prerender ? 0.004 : 0)
-                x: Appearance.sizes.hyprlandGapsOut - (animatedEntrance && !sidebarOpen ? width : 0)
+                x: Appearance.sizes.gapsOut - (!sidebarOpen ? width : 0)
 
                 Behavior on x {
-                    enabled: sidebarLeftBackground.animatedEntrance
                     NumberAnimation {
                         duration: sidebarLeftBackground.sidebarOpen
                             ? Appearance.animation.elementMoveEnter.duration
@@ -382,41 +335,4 @@ Scope { // Scope
             GlobalStates.sidebarLeftOpen = true
         }
     }
-
-    CompositorGlobalShortcut {
-        name: "sidebarLeftToggle"
-        description: "Toggles left sidebar on press"
-
-        onPressed: {
-            GlobalStates.sidebarLeftOpen = !GlobalStates.sidebarLeftOpen;
-        }
-    }
-
-    CompositorGlobalShortcut {
-        name: "sidebarLeftOpen"
-        description: "Opens left sidebar on press"
-
-        onPressed: {
-            GlobalStates.sidebarLeftOpen = true;
-        }
-    }
-
-    CompositorGlobalShortcut {
-        name: "sidebarLeftClose"
-        description: "Closes left sidebar on press"
-
-        onPressed: {
-            GlobalStates.sidebarLeftOpen = false;
-        }
-    }
-
-    CompositorGlobalShortcut {
-        name: "sidebarLeftToggleDetach"
-        description: "Detach left sidebar into a window/Attach it back"
-
-        onPressed: {
-            root.detach = !root.detach;
-        }
-    }
-
 }

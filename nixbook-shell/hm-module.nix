@@ -463,7 +463,7 @@ in
       nixbook-shell, a Quickshell (QML) desktop shell (bar, dock, sidebars,
       launcher, notifications, lock screen, desktop widgets). It runs as the
       `nixbook-shell` user service, bound to `graphical-session.target`, under
-      niri or Hyprland; bind keys to `nixbook-shell ipc call <target> <function>`
+      niri; bind keys to `nixbook-shell ipc call <target> <function>`
       to drive its panels'';
 
     package = lib.mkOption {

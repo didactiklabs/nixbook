@@ -1,10 +1,10 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import qs
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
-import Quickshell.Hyprland
 
 ContentPage {
     id: page
@@ -57,7 +57,7 @@ ContentPage {
         { id: "kdeConnect",        name: Translation.tr("Phone Connect"),         icon: "devices" },
         { id: "docktoPanel",       name: Translation.tr("Dock to Panel"),        icon: "apps" },
         { id: "visualizer",        name: Translation.tr("Visualizer"),           icon: "graphic_eq" },
-        { id: "hyprlandXkbIndicator",   name: Translation.tr("Keyboard Layout"), icon: "keyboard" },
+        { id: "keyboardLayoutIndicator", name: Translation.tr("Keyboard Layout"), icon: "keyboard" },
         { id: "divisor",            name: Translation.tr("Divider"),             icon: "horizontal_distribute" },
         { id: "launcherButton",     name: Translation.tr("Launcher Button"),     icon: "search" },
         { id: "dynamicIsland",     name: Translation.tr("Dynamic Island"),     icon: "nest_wifi_pro" },
@@ -99,7 +99,7 @@ ContentPage {
         ContentSection {
             icon: "monitor"
             shape: MaterialShape.Shape.ClamShell
-            visible: Hyprland.monitors.values.length > 1
+            visible: Quickshell.screens.length > 1
             title: Translation.tr("Screens")
             ContentSubsection {
                 title: Translation.tr("Show bar on")
@@ -140,12 +140,12 @@ ContentPage {
                     }
 
                     Repeater {
-                        model: Hyprland.monitors
+                        model: Quickshell.screens
                         delegate: Rectangle {
                             id: monitorRow
                             required property var modelData
                             required property int index
-                            readonly property bool isLast: index === Hyprland.monitors.values.length - 1
+                            readonly property bool isLast: index === Quickshell.screens.length - 1
 
                             Layout.fillWidth: true
                             implicitHeight: switchItem.implicitHeight + 16 + 8
@@ -163,7 +163,7 @@ ContentPage {
                                 buttonIcon: "monitor"
                                 text: monitorRow.modelData.name
                                 onCheckedChanged: {
-                                    const allNames = Hyprland.monitors.values.map(m => m.name)
+                                    const allNames = Quickshell.screens.map(m => m.name)
                                     let list = Config.options.bar.screenList.length === 0 ? allNames.slice() : Config.options.bar.screenList.slice()
                                     if (checked) {
                                         if (!list.includes(monitorRow.modelData.name)) list.push(monitorRow.modelData.name)

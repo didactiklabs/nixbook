@@ -9,13 +9,12 @@ import QtQuick.Layouts
 import Quickshell.Io
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Hyprland
 
 WindowDialog {
     id: root
     property var screen: root.QsWindow.window?.screen
     property var brightnessMonitor: Brightness.getMonitorForScreen(screen)
-    backgroundHeight: 700
+    backgroundHeight: 580
 
     WindowDialogTitle {
         text: Translation.tr("Eye protection")
@@ -39,9 +38,9 @@ WindowDialog {
             iconSize: Appearance.font.pixelSize.larger
             buttonIcon: "check"
             text: Translation.tr("Enable now")
-            checked: Hyprsunset.temperatureActive
+            checked: NightLightService.temperatureActive
             onCheckedChanged: {
-                Hyprsunset.toggleTemperature(checked)
+                NightLightService.toggleTemperature(checked)
             }
         }
 
@@ -65,45 +64,6 @@ WindowDialog {
             value: Config.options.light.night.colorTemperature
             onMoved: Config.options.light.night.colorTemperature = value
             tooltipContent: `${Math.round(value)}K`
-        }
-    }
-
-
-    WindowDialogSectionHeader {
-        text: Translation.tr("Anti-flashbang (experimental)")
-        Layout.bottomMargin: -10
-    }
-
-    GroupedList {
-        itemVerticalPadding: 16
-        bgcolor: Appearance.colors.colSurfaceContainerHigh
-        ConfigSwitch {
-            Layout.topMargin: -2  
-            iconSize: Appearance.font.pixelSize.larger
-            buttonIcon: "filter"
-            text: Translation.tr("Content adjustment")
-            checked: HyprlandAntiFlashbangShader.enabled
-            onCheckedChanged: {
-                if (checked) HyprlandAntiFlashbangShader.enable()
-                else HyprlandAntiFlashbangShader.disable()
-            }
-            StyledToolTip {
-                text: Translation.tr("<b>Dims screen content</b> as needed.<br><br>Pros: Immediately responsive<br>Cons: Expensive and can hurt color accuracy<br><br><i>Uses a Hyprland screen shader</i>")
-            }
-        }
-
-        ConfigSwitch {
-            Layout.topMargin: -2  
-            iconSize: Appearance.font.pixelSize.larger
-            buttonIcon: "light_mode"
-            text: Translation.tr("Brightness adjustment")
-            checked: Config.options.light.antiFlashbang.enable
-            onCheckedChanged: {
-                Config.options.light.antiFlashbang.enable = checked;
-            }
-            StyledToolTip {
-                text: Translation.tr("Adapts the <b>display (physical screen) brightness</b><br><br>Pros: Less expensive, retains colors<br>Cons: Not immediately responsive<br><br><i>Adjusts display brightness after each Hyprland IPC event</i>")
-            }
         }
     }
 
@@ -132,9 +92,9 @@ WindowDialog {
         itemVerticalPadding: 16
         bgcolor: Appearance.colors.colSurfaceContainerHigh
         WindowDialogSlider {
-            from: Hyprsunset.gammaLowerLimit / 100
-            value: Hyprsunset.gamma / 100
-            onMoved: Hyprsunset.setGamma(value * 100)
+            from: NightLightService.gammaLowerLimit / 100
+            value: NightLightService.gamma / 100
+            onMoved: NightLightService.setGamma(value * 100)
             tooltipContent: `${Math.round(value * 100)}%`
         }
     }

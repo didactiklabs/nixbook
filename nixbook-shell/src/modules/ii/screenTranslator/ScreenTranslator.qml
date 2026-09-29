@@ -4,7 +4,6 @@ import qs.services
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 
 Scope {
     id: root
@@ -47,11 +46,5 @@ Scope {
         function translate() {
             root.translate()
         }
-    }
-
-    CompositorGlobalShortcut {
-        name: "screenTranslate"
-        description: "Translates screen content"
-        onPressed: root.translate()
     }
 }

@@ -27,7 +27,7 @@ import Quickshell.Services.Mpris
 // Uses the same keep-alive pattern as modules/ii/mediaControls/MediaControls.qml:
 // the PanelWindow is built on first open and then mapped/unmapped via
 // `visible: GlobalStates.equalizerOpen`, so the popup's entrance/exit is whatever native
-// map/unmap animation the compositor (Hyprland) already plays for every other
+// map/unmap animation the compositor already plays for every other
 // quickshell layer-shell surface - the same "pop" you see opening media -
 // rather than a hand-rolled QML slide.
 Scope {
@@ -35,7 +35,7 @@ Scope {
 
     readonly property real popupWidth: 820
     readonly property real popupHeight: 600
-    readonly property real popupRounding: Appearance.rounding.screenRounding - Appearance.sizes.hyprlandGapsOut + 1
+    readonly property real popupRounding: Appearance.rounding.screenRounding - Appearance.sizes.gapsOut + 1
 
     // No standalone "equalizer" bar entry anymore - it only opens via the
     // button inside the media popup, so position it the same way the media
@@ -52,7 +52,7 @@ Scope {
         if (!barVertical) return Config.options.bar.bottom ? "bottom" : "top"
         return Config.options.bar.bottom ? "right" : "left"
     }
-    readonly property real gap: Config.options.bar.cornerStyle === 3 ? Appearance.sizes.hyprlandGapsOut : 0
+    readonly property real gap: Config.options.bar.cornerStyle === 3 ? Appearance.sizes.gapsOut : 0
     readonly property bool cornerStyleReducesGap: Config.options.bar.cornerStyle === 1 || Config.options.bar.cornerStyle === 2
     readonly property real barThickness: barVertical ? Appearance.sizes.verticalBarWidth : Appearance.sizes.barHeight
 

@@ -33,7 +33,7 @@ AbstractBackgroundWidget {
     // A floating window's blur samples a little around it (3 passes, offset 3).
     readonly property real blurReach: 48
     readonly property bool desktopVisible: {
-        const niri = WM.compositor === "niri" ? WM.backend : null;
+        const niri = WM.backend;
         if (!niri || root.screenName === "") return true;
         const ws = niri.activeWorkspaceForMonitor(root.screenName);
         if (!ws) return true;

@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Services.SystemTray
 import qs.services
 import qs.modules.common
@@ -28,35 +27,16 @@ Item {
         if (unpinnedItems.length == 0) root.closeOverflowMenu()
     }
 
-    function grabFocus() { focusGrab.active = true }
-    function setExtraWindowAndGrabFocus(window) {
+    // Tracks the open tray menu so opening another one closes it first.
+    function setActiveMenu(window) {
         if (root.activeMenu && root.activeMenu !== window) {
             if (typeof root.activeMenu.close === "function")
                 root.activeMenu.close()
-            root.activeMenu = null
         }
         root.activeMenu = window
-        root.grabFocus()
     }
-    function releaseFocus() { focusGrab.active = false }
-    function closeOverflowMenu() { focusGrab.active = false }
-
-    onTrayOverflowOpenChanged: {
-        if (root.trayOverflowOpen) root.grabFocus()
-    }
-
-    HyprlandFocusGrab {
-        id: focusGrab
-        active: false
-        windows: [trayOverflowLayout.QsWindow?.window, root.activeMenu]
-        onCleared: {
-            root.trayOverflowOpen = false
-            if (root.activeMenu) {
-                root.activeMenu.close()
-                root.activeMenu = null
-            }
-        }
-    }
+    function clearActiveMenu() { root.activeMenu = null }
+    function closeOverflowMenu() { root.trayOverflowOpen = false }
 
     Rectangle {
         id: pill
@@ -120,8 +100,8 @@ Item {
                             item: modelData
                             Layout.fillHeight: !root.vertical
                             Layout.fillWidth: root.vertical
-                            onMenuClosed: root.releaseFocus()
-                            onMenuOpened: (qsWindow) => root.setExtraWindowAndGrabFocus(qsWindow)
+                            onMenuClosed: root.clearActiveMenu()
+                            onMenuOpened: (qsWindow) => root.setActiveMenu(qsWindow)
                         }
                     }
                 }
@@ -138,8 +118,8 @@ Item {
                 Layout.fillWidth: root.vertical
                 Layout.leftMargin:  6
                 Layout.rightMargin: 6
-                onMenuClosed: root.releaseFocus()
-                onMenuOpened: (qsWindow) => root.setExtraWindowAndGrabFocus(qsWindow)
+                onMenuClosed: root.clearActiveMenu()
+                onMenuOpened: (qsWindow) => root.setActiveMenu(qsWindow)
             }
         }
     }

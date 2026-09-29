@@ -34,14 +34,13 @@ Scope {
                 return root.pinned
                     || (Config.options?.dock.hoverToReveal && dockMouseArea.containsMouse)
                     || activeAppsArea.requestDockShow
-                    || dragSlots.requestDockShow
                     || GlobalStates.dockPopupsOpen > 0
                     || (!ToplevelManager.activeToplevel?.activated)
             }
 
             exclusiveZone: (root.pinned && !fullscreenOnThisMonitor)
-                ? implicitHeight - Appearance.sizes.hyprlandGapsOut
-                  - (Appearance.sizes.elevationMargin - Appearance.sizes.hyprlandGapsOut)
+                ? implicitHeight - Appearance.sizes.gapsOut
+                  - (Appearance.sizes.elevationMargin - Appearance.sizes.gapsOut)
                 : 0
 
             anchors { bottom: true; left: true; right: true }
@@ -51,7 +50,7 @@ Scope {
 
             implicitHeight: (Config.options?.dock.height ?? 70)
                 + Appearance.sizes.elevationMargin
-                + Appearance.sizes.hyprlandGapsOut
+                + Appearance.sizes.gapsOut
 
             mask: Region { item: dockMouseArea }
 
@@ -90,7 +89,7 @@ Scope {
                         implicitWidth: dockRow.implicitWidth + 5 * 2
                         height: parent.height
                             - Appearance.sizes.elevationMargin
-                            - Appearance.sizes.hyprlandGapsOut
+                            - Appearance.sizes.gapsOut
 
                         StyledRectangularShadow {
                             target: dockVisualBackground
@@ -102,7 +101,7 @@ Scope {
                             property real margin: Appearance.sizes.elevationMargin
                             anchors.fill: parent
                             anchors.topMargin:    Appearance.sizes.elevationMargin
-                            anchors.bottomMargin: Appearance.sizes.hyprlandGapsOut
+                            anchors.bottomMargin: Appearance.sizes.gapsOut
                             color: Config.options.dock.showBackground && !Persona.shapes
                                    ? Appearance.colors.colLayer0 : "transparent"
                             border.width: Config.options.dock.showBackground && !Persona.shapes ? 1 : 0
@@ -136,11 +135,11 @@ Scope {
                             VerticalButtonGroup {
                                 Layout.topMargin: 3
                                 Layout.leftMargin:  root.pinned
-                                    ? Appearance.sizes.hyprlandGapsOut + 4
-                                    : Appearance.sizes.hyprlandGapsOut
+                                    ? Appearance.sizes.gapsOut + 4
+                                    : Appearance.sizes.gapsOut
                                 Layout.rightMargin: root.pinned
-                                    ? Appearance.sizes.hyprlandGapsOut + 4
-                                    : Appearance.sizes.hyprlandGapsOut
+                                    ? Appearance.sizes.gapsOut + 4
+                                    : Appearance.sizes.gapsOut
 
                                 GroupButton {
                                     baseWidth: 35; baseHeight: 35

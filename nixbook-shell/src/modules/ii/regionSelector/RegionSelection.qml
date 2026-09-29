@@ -59,12 +59,6 @@ PanelWindow {
     property bool contentRegionOpacity: Config.options.regionSelector.targetRegions.contentRegionOpacity
 
     // Vars for indicators
-    readonly property var windows: [...HyprlandData.windowList].sort((a, b) => {
-        // Sort floating=true windows before others
-        if (a.floating === b.floating) return 0;
-        return a.floating ? -1 : 1;
-    })
-    readonly property var layers: HyprlandData.layers
     readonly property real falsePositivePreventionRatio: 0.5
 
     // Screen & interaction vars
@@ -86,44 +80,8 @@ PanelWindow {
     property list<point> points: []
     property var mouseButton: null
     property var imageRegions: []
-    readonly property list<var> windowRegions: RegionFunctions.filterWindowRegionsByLayers(
-        root.windows.filter(w => w.workspace.id === root.activeWorkspaceId),
-        root.layerRegions
-    ).map(window => {
-        return {
-            at: [window.at[0] - root.monitorOffsetX, window.at[1] - root.monitorOffsetY],
-            size: [window.size[0], window.size[1]],
-            class: window.class,
-            title: window.title,
-        }
-    })
-    readonly property list<var> layerRegions: {
-        const layersOfThisMonitor = root.layers[root.monitor?.name]
-        const topLayers = layersOfThisMonitor?.levels["2"]
-        if (!topLayers) return [];
-        const nonBarTopLayers = topLayers
-            .filter(layer => !(layer.namespace.includes(":bar") || layer.namespace.includes(":verticalBar") || layer.namespace.includes(":dock")))
-            .map(layer => {
-            return {
-                at: [layer.x, layer.y],
-                size: [layer.w, layer.h],
-                namespace: layer.namespace,
-            }
-        })
-        const offsetAdjustedLayers = nonBarTopLayers.map(layer => {
-            return {
-                at: [layer.at[0] - root.monitorOffsetX, layer.at[1] - root.monitorOffsetY],
-                size: layer.size,
-                namespace: layer.namespace,
-            }
-        });
-        return offsetAdjustedLayers;
-    }
-
     // Config
     property bool isCircleSelection: (root.selectionMode === RegionSelection.SelectionMode.Circle)
-    property bool enableWindowRegions: Config.options.regionSelector.targetRegions.windows && !isCircleSelection
-    property bool enableLayerRegions: Config.options.regionSelector.targetRegions.layers && !isCircleSelection
     property bool enableContentRegions: Config.options.regionSelector.targetRegions.content
 
     // Target
@@ -152,30 +110,6 @@ PanelWindow {
             root.targetedRegionY = clickedRegion.at[1];
             root.targetedRegionWidth = clickedRegion.size[0];
             root.targetedRegionHeight = clickedRegion.size[1];
-            return;
-        }
-
-        // Layer regions
-        const clickedLayer = root.layerRegions.find(region => {
-            return region.at[0] <= x && x <= region.at[0] + region.size[0] && region.at[1] <= y && y <= region.at[1] + region.size[1];
-        });
-        if (clickedLayer) {
-            root.targetedRegionX = clickedLayer.at[0];
-            root.targetedRegionY = clickedLayer.at[1];
-            root.targetedRegionWidth = clickedLayer.size[0];
-            root.targetedRegionHeight = clickedLayer.size[1];
-            return;
-        }
-
-        // Window regions
-        const clickedWindow = root.windowRegions.find(region => {
-            return region.at[0] <= x && x <= region.at[0] + region.size[0] && region.at[1] <= y && y <= region.at[1] + region.size[1];
-        });
-        if (clickedWindow) {
-            root.targetedRegionX = clickedWindow.at[0];
-            root.targetedRegionY = clickedWindow.at[1];
-            root.targetedRegionWidth = clickedWindow.size[0];
-            root.targetedRegionHeight = clickedWindow.size[1];
             return;
         }
 
@@ -241,16 +175,14 @@ PanelWindow {
     Process {
         id: imageDetectionProcess
         command: ["bash", "-c", `${Directories.scriptPath}/images/find-regions-venv.sh ` 
-            + `--hyprctl ` 
             + `--image '${StringUtils.shellSingleQuoteEscape(root.screenshotPath)}' ` 
             + `--max-width ${Math.round(root.screen.width * root.falsePositivePreventionRatio)} ` 
             + `--max-height ${Math.round(root.screen.height * root.falsePositivePreventionRatio)} `]
         stdout: StdioCollector {
             id: imageDimensionCollector
             onStreamFinished: {
-                imageRegions = RegionFunctions.filterImageRegions(
-                    JSON.parse(imageDimensionCollector.text),
-                    root.windowRegions
+                imageRegions = RegionFunctions.filterOverlappingImageRegions(
+                    JSON.parse(imageDimensionCollector.text).map(r => ({ at: [r.x, r.y], size: [r.width, r.height] }))
                 );
             }
         }
@@ -433,65 +365,6 @@ PanelWindow {
             y: root.dragging ? root.regionY + root.regionHeight : mouseArea.mouseY
             action: root.action
             selectionMode: root.selectionMode
-        }
-
-        // Window regions
-        Repeater {
-            model: ScriptModel {
-                values: {
-                    if (root.phase === RegionSelection.Phase.Select && root.enableWindowRegions) {
-                        return root.windowRegions
-                    } else {
-                        return []
-                    }
-                }
-            }
-            delegate: TargetRegion {
-                z: 2
-                required property var modelData
-                clientDimensions: modelData
-                showIcon: true
-                targeted: !root.draggedAway && //
-                    (root.targetedRegionX === modelData.at[0]  //
-                    && root.targetedRegionY === modelData.at[1] //
-                    && root.targetedRegionWidth === modelData.size[0] //
-                    && root.targetedRegionHeight === modelData.size[1])
-
-                opacity: root.draggedAway ? 0 : root.targetRegionOpacity
-                borderColor: root.windowBorderColor
-                fillColor: targeted ? root.windowFillColor : "transparent"
-                text: `${modelData.class}`
-                radius: Appearance.rounding.windowRounding
-            }
-        }
-
-        // Layer regions
-        Repeater {
-            model: ScriptModel {
-                values: {
-                    if (root.phase === RegionSelection.Phase.Select && root.enableLayerRegions) {
-                        return root.layerRegions
-                    } else {
-                        return []
-                    }
-                }
-            }
-            delegate: TargetRegion {
-                z: 3
-                required property var modelData
-                clientDimensions: modelData
-                targeted: !root.draggedAway &&
-                    (root.targetedRegionX === modelData.at[0] 
-                    && root.targetedRegionY === modelData.at[1]
-                    && root.targetedRegionWidth === modelData.size[0]
-                    && root.targetedRegionHeight === modelData.size[1])
-
-                opacity: root.draggedAway ? 0 : root.targetRegionOpacity
-                borderColor: root.windowBorderColor
-                fillColor: targeted ? root.windowFillColor : "transparent"
-                text: `${modelData.namespace}`
-                radius: Appearance.rounding.windowRounding
-            }
         }
 
         // Content regions

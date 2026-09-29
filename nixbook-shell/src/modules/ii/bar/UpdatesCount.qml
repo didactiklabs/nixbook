@@ -7,7 +7,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Hyprland
 
 // NixOS update indicator — left click toggles an action panel (status line,
 // Check / Execute / Logs, changelog, live log tail), right click re-checks.
@@ -102,12 +101,6 @@ MouseArea {
             ])
             mouse.accepted = false
         }
-    }
-
-    HyprlandFocusGrab {
-        active: root.panelOpen
-        windows: [panelContent.QsWindow?.window]
-        onCleared: root.panelOpen = false
     }
 
     Loader {

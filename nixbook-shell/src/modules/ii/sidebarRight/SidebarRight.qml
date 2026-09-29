@@ -5,7 +5,6 @@ import QtQuick
 import Quickshell.Io
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Hyprland
 
 Scope {
     id: root
@@ -15,7 +14,7 @@ Scope {
         ? Config.options.bar.frameThickness
         : Appearance.sizes.barHeight
 
-    // Click outside to close (niri/animated entrance): its own transparent
+    // Click outside to close: its own transparent
     // full-screen window, input everywhere but over the sidebar. It used to be
     // part of the sidebar window, widened to the full screen while open, so
     // every animation, hover or tick in the sidebar re-rendered a full-screen
@@ -25,7 +24,7 @@ Scope {
     PanelWindow {
         id: outsideClickWindow
         screen: panelWindow.screen
-        visible: panelWindow.animatedEntrance && panelWindow.reallyVisible
+        visible: panelWindow.reallyVisible
         color: "transparent"
         exclusionMode: ExclusionMode.Ignore
         WlrLayershell.namespace: "quickshell:sidebarRightOutside"
@@ -56,11 +55,10 @@ Scope {
     PanelWindow {
         id: panelWindow
 
-        readonly property bool animatedEntrance: WM.compositor !== "hyprland"
         // Open, or still playing the exit animation.
         property bool reallyVisible: false
 
-        // Kept mapped once built (niri/animated entrance). Hiding a Wayland
+        // Kept mapped once built. Hiding a Wayland
         // window destroys its surface, and Qt's threaded renderer then throws
         // away the window's GL context; every open used to recreate it
         // (eglCreateContext + shader/glyph caches: 130–230 ms per open,
@@ -75,7 +73,7 @@ Scope {
         Connections {
             target: Preloader
             function onSidebarRightChanged() {
-                if (Preloader.sidebarRight && panelWindow.animatedEntrance)
+                if (Preloader.sidebarRight)
                     panelWindow.keepMapped = true;
             }
         }
@@ -96,11 +94,9 @@ Scope {
                     closeAnimTimer.stop();
                     panelWindow.followFocusedScreen();
                     panelWindow.reallyVisible = true;
-                    if (panelWindow.animatedEntrance) panelWindow.keepMapped = true;
-                } else if (panelWindow.animatedEntrance) {
-                    closeAnimTimer.restart();
+                    panelWindow.keepMapped = true;
                 } else {
-                    panelWindow.reallyVisible = false;
+                    closeAnimTimer.restart();
                 }
             }
         }
@@ -154,9 +150,9 @@ Scope {
                 if (!centerOnly) return 0;
                 switch (Config.options.bar.cornerStyle) {
                 case 0: return -root.barCenterOnlyOffset;
-                case 1: return -root.barCenterOnlyOffset + Appearance.sizes.hyprlandGapsOut;
-                case 2: return -root.barCenterOnlyOffset + Appearance.sizes.hyprlandGapsOut;
-                case 3: return -root.barCenterOnlyOffset - Appearance.sizes.hyprlandGapsOut;
+                case 1: return -root.barCenterOnlyOffset + Appearance.sizes.gapsOut;
+                case 2: return -root.barCenterOnlyOffset + Appearance.sizes.gapsOut;
+                case 3: return -root.barCenterOnlyOffset - Appearance.sizes.gapsOut;
                 default: return 0;
                 }
             }
@@ -166,9 +162,9 @@ Scope {
                 if (!centerOnly) return 0;
                 switch (Config.options.bar.cornerStyle) {
                 case 0: return -root.barCenterOnlyOffset;
-                case 1: return -root.barCenterOnlyOffset + Appearance.sizes.hyprlandGapsOut;
-                case 2: return -root.barCenterOnlyOffset + Appearance.sizes.hyprlandGapsOut;
-                case 3: return -root.barCenterOnlyOffset - Appearance.sizes.hyprlandGapsOut;
+                case 1: return -root.barCenterOnlyOffset + Appearance.sizes.gapsOut;
+                case 2: return -root.barCenterOnlyOffset + Appearance.sizes.gapsOut;
+                case 3: return -root.barCenterOnlyOffset - Appearance.sizes.gapsOut;
                 default: return 0;
                 }
             }
@@ -192,9 +188,8 @@ Scope {
                 // it slides).
                 anchors.right: parent.right
                 transform: Translate {
-                    x: panelWindow.animatedEntrance && !entranceWrapper.open ? entranceWrapper.width : 0
+                    x: !entranceWrapper.open ? entranceWrapper.width : 0
                     Behavior on x {
-                        enabled: panelWindow.animatedEntrance
                         NumberAnimation {
                             duration: entranceWrapper.open
                                 ? Appearance.animation.sidebarSlideEnter.duration
@@ -222,11 +217,11 @@ Scope {
                     active: panelWindow.reallyVisible || Config?.options.sidebar.keepRightSidebarLoaded
                     anchors {
                         fill: parent
-                        margins: Appearance.sizes.hyprlandGapsOut
+                        margins: Appearance.sizes.gapsOut
                         leftMargin: Appearance.sizes.elevationMargin
                     }
-                    width: sidebarWidth - Appearance.sizes.hyprlandGapsOut - Appearance.sizes.elevationMargin
-                    height: parent.height - Appearance.sizes.hyprlandGapsOut * 2
+                    width: sidebarWidth - Appearance.sizes.gapsOut - Appearance.sizes.elevationMargin
+                    height: parent.height - Appearance.sizes.gapsOut * 2
 
                     focus: GlobalStates.sidebarRightOpen
                     Keys.onPressed: event => {
@@ -253,31 +248,6 @@ Scope {
 
             function open(): void {
                 GlobalStates.sidebarRightOpen = true;
-            }
-        }
-
-        CompositorGlobalShortcut {
-            name: "sidebarRightToggle"
-            description: "Toggles right sidebar on press"
-
-            onPressed: {
-                GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen;
-            }
-        }
-        CompositorGlobalShortcut {
-            name: "sidebarRightOpen"
-            description: "Opens right sidebar on press"
-
-            onPressed: {
-                GlobalStates.sidebarRightOpen = true;
-            }
-        }
-        CompositorGlobalShortcut {
-            name: "sidebarRightClose"
-            description: "Closes right sidebar on press"
-
-            onPressed: {
-                GlobalStates.sidebarRightOpen = false;
             }
         }
     }

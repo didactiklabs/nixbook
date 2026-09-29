@@ -21,7 +21,7 @@ QuickToggleModel {
         interval: 300
         repeat: false
         onTriggered: {
-            Quickshell.execDetached(["hyprpicker", "-a"]);
+            Quickshell.execDetached(["sh", "-c", "niri msg pick-color | awk '/^Hex:/ {print $2}' | wl-copy -n"]);
         }
     }
 

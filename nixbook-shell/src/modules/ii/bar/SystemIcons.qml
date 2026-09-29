@@ -243,7 +243,7 @@ Item {
             }
         }
         Loader {
-            source: "HyprlandXkbIndicator.qml"
+            source: "KeyboardLayoutIndicator.qml"
             onLoaded: item.color = root.iconColor
         }
         HintedIcon {

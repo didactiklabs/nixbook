@@ -7,7 +7,6 @@ import qs.modules.common.models
 import qs.modules.common.widgets
 import Quickshell.Io
 import Quickshell.Wayland
-import Quickshell.Hyprland
 
 Loader {
     id: root
@@ -26,7 +25,7 @@ Loader {
             StyledText {
                 id: layoutCodeText
                 horizontalAlignment: Text.AlignHCenter
-                text: WM.compositor === "niri" ? NiriXkb.currentLayoutCode : HyprlandXkb.currentLayoutCode
+                text: NiriXkb.currentLayoutCode
                 font.pixelSize: Appearance.font.pixelSize.small
                 color: Appearance.colors.colOnLayer0
                 animateChange: true

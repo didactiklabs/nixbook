@@ -59,13 +59,13 @@ Item {
             id: colorPickerM3
             UtilButton {
                 iconText: "colorize"
-                onClicked: Quickshell.execDetached(["hyprpicker", "-a"])
+                onClicked: Quickshell.execDetached(["sh", "-c", "niri msg pick-color | awk '/^Hex:/ {print $2}' | wl-copy -n"])
             }
         }
         Component {
             id: legacyColorPicker
             CircleUtilButton {
-                onClicked: Quickshell.execDetached(["hyprpicker", "-a"])
+                onClicked: Quickshell.execDetached(["sh", "-c", "niri msg pick-color | awk '/^Hex:/ {print $2}' | wl-copy -n"])
                 MaterialSymbol {
                     horizontalAlignment: Qt.AlignHCenter
                     fill: 1; text: "colorize"

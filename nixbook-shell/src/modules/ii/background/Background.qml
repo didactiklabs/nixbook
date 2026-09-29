@@ -12,7 +12,6 @@ import Qt5Compat.GraphicalEffects
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
-import Quickshell.Hyprland
 
 Variants {
     id: root
@@ -34,23 +33,14 @@ Variants {
                 default:   return 1.0
             }
         }
-        readonly property bool overviewBlurActive: Config.options.overview.style === "niri" && GlobalStates.overviewOpen && Config.options.overview.enable
         readonly property bool userBlurActive: Config.options.background.showBlur && !bgRoot.wallpaperIsVideo
-        readonly property bool blurFullScreen: bgRoot.overviewBlurActive || bgRoot.splitFraction >= 1.0
+        readonly property bool blurFullScreen: bgRoot.splitFraction >= 1.0
 
         property var shaderList: ["circlePit", "circleSelect", "magic", "Doom", "Peel", "transition", "pixelate", "stripes", "crt", "dissolve", "glitch", "ripple", "shatter"]
         property string currentShader: "pixelate"
         property string wallpaperAnimation: Config.options.background.wallpaperAnimation ?? "random"
 
-        property list<HyprlandWorkspace> workspacesForMonitor: Hyprland.workspaces.values.filter(workspace => workspace.monitor && workspace.monitor.name == monitor.name)
-        property var activeWorkspaceWithFullscreen: workspacesForMonitor.filter(workspace => ((workspace.toplevels.values.filter(window => window.wayland?.fullscreen)[0] != undefined) && workspace.active))[0]
         visible: true
-
-        readonly property bool hiddenForFullscreen: !GlobalStates.screenLocked
-            && (activeWorkspaceWithFullscreen != undefined)
-            && Config?.options.background.hideWhenFullscreen
-
-        property HyprlandMonitor monitor: Hyprland.monitorFor(modelData)
 
         property string effectiveWallpaperPath: {
             if (GlobalStates.screenLocked && Config.options.background.lockWall !== "")
@@ -222,8 +212,7 @@ Variants {
 
         Item {
             anchors.fill: parent
-            opacity: (bgRoot.hiddenForFullscreen || GlobalStates.startupLockPending) ? 0 : 1
-            enabled: !bgRoot.hiddenForFullscreen
+            opacity: GlobalStates.startupLockPending ? 0 : 1
             
             Behavior on opacity {
                 NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
@@ -304,7 +293,7 @@ Variants {
                 // save the expensive multi-sample blur pass on lock/unlock.
                 active: Config.options.lock.blur.enable && !centeredWallpaper.centeredWallpaperEnabled
                     && (GlobalStates.screenLocked || scaleAnim.running)
-                    && !(bgRoot.userBlurActive || bgRoot.overviewBlurActive)
+                    && !bgRoot.userBlurActive
                 anchors.fill: parent
                 scale: GlobalStates.screenLocked ? Config.options.lock.blur.extraZoom : 1
                 Behavior on scale {
@@ -329,7 +318,7 @@ Variants {
 
             Loader {
                 id: fastBlurLoader
-                active: (bgRoot.userBlurActive || bgRoot.overviewBlurActive)
+                active: bgRoot.userBlurActive
                     && (!GlobalStates.screenLocked || !centeredWallpaper.centeredWallpaperEnabled || bgRoot.blurFullScreen)
                 anchors.fill: parent
                 
