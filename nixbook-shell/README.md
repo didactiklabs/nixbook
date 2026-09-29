@@ -366,11 +366,12 @@ desktop menu's Theme submenu, or the launcher's theme mode (the
 themeToggle`: every theme and variant, type to filter, Enter applies) — and each theme with variants keeps its own
 `appearance.<theme>.variant`, so switching theme and back keeps the variant:
 
-| Theme      | Variants                                         | Own settings (`appearance.<theme>.*`)              |
-| ---------- | ------------------------------------------------ | -------------------------------------------------- |
-| `material` | —                                                | —                                                  |
-| `persona`  | `p5` (Royal), `p3r` (3 Reload), `p4` (4 Revival) | `palette`, `motion`, `shapes`, `halftone`, `fonts` |
-| `chiikawa` | `chiikawa` (default), `usagi`, `momonga`         | `palette`, `motion`, `shapes`, `fonts`, `mascot`   |
+| Theme       | Variants                                         | Own settings (`appearance.<theme>.*`)              |
+| ----------- | ------------------------------------------------ | -------------------------------------------------- |
+| `material`  | —                                                | —                                                  |
+| `persona`   | `p5` (Royal), `p3r` (3 Reload), `p4` (4 Revival) | `palette`, `motion`, `shapes`, `halftone`, `fonts` |
+| `chiikawa`  | `chiikawa` (default), `usagi`, `momonga`         | `palette`, `motion`, `shapes`, `fonts`, `mascot`   |
+| `cyberpunk` | `yellow` (default), `red`                        | `palette`, `motion`, `shapes`, `fonts`, `glitch`   |
 
 ```nix
 programs.nixbook-shell.settings.appearance = {
@@ -384,16 +385,20 @@ wallpapers (`appearance.wallpaperPerTheme`, on by default;
 `appearance.themeWallpapers`, `themeLockWallpapers`, `themeLoginWallpapers`:
 `"<theme>/<variant>=<path>"` entries, `src/services/ThemeWallpapers.qml`):
 switching puts back what the variant had (for the desktop, its bundled one
-the first time: the Chiikawa ones; for the lock and login screens, nothing:
+the first time: the Chiikawa and Cyberpunk ones; for the lock and login screens, nothing:
 they follow the desktop, then the lock screen), and a wallpaper picked while
 in a variant becomes that variant's. Settings → Appearance → Theme sets or
 unsets all of them at once, in a table of every variant. Each theme has its own sounds too (`sounds` in `themes.json`: the
 notification chime and the critical sound — Persona 5's by default, the
-characters' own in Chiikawa); a file set in the settings wins. Important
+characters' own in Chiikawa, a digital blip and a glitch alarm in
+Cyberpunk 2077); a file set in the settings wins. Important
 notifications (critical ones, and those the cut-in rules pick:
 Settings → Bar → Notifications → Cut-ins) get the theme's cut-in: the
-full-screen Persona one, or the Chiikawa character popping up with a speech
-bubble (`ChiikawaAlert.qml`).
+full-screen Persona one, the Chiikawa character popping up with a speech
+bubble (`ChiikawaAlert.qml`), or an incoming holocall glitching in — a
+chamfered HUD panel with an RGB split, scanlines and the message typed out
+(`CyberpunkCutIn.qml`; `appearance.cyberpunk.glitch = false` keeps it
+steady).
 
 Before `appearance.theme` the Persona style was the switch
 `appearance.persona.enable`. It still works: a `config.json` holding it is
@@ -440,7 +445,10 @@ shell (`Themes.qml`), the Nix options (`lib.nix`), the login screen
 The Chiikawa art (the characters, the sidebar patterns and the wallpapers) is
 drawn by `src/assets/chiikawa/generate.py` from the variants' palettes; rerun
 it after changing them. Its sounds are synthesized when the package is built
-(`src/assets/chiikawa/sounds.py`, no audio file in git).
+(`src/assets/chiikawa/sounds.py`, no audio file in git). The Cyberpunk 2077
+theme works the same way: `src/assets/cyberpunk/generate.py` draws its
+wallpapers from the palettes, `sounds.py` synthesizes its sounds at build
+time, and its face (Rajdhani) ships in `fonts.nix`.
 
 Settings that did nothing were removed (`lib.nix` `removedKeys`: the parallax
 options, `bar.topLeftIcon`, the settings window border…); an old Nix
@@ -454,8 +462,8 @@ ignored.
 | `default.nix`      | entry point (`package`, `homeManagerModules.default`, `lib`)                                                               |
 | `package.nix`      | the launcher: runtime `PATH`, QML import path, `config` CLI                                                                |
 | `dankcalendar.nix` | DankCalendar (`dcal`), the calendar and task sync, from `npins/`                                                           |
-| `qml.nix`          | the QML tree as installed (store-path fixups, Persona and Chiikawa art, emoji list)                                        |
-| `fonts.nix`        | the faces `appearance.fonts` names that nixpkgs lacks (Google Sans Flex, Space Grotesk)                                    |
+| `qml.nix`          | the QML tree as installed (store-path fixups, Persona, Chiikawa and Cyberpunk art and sounds, emoji list)                  |
+| `fonts.nix`        | the faces `appearance.fonts` names that nixpkgs lacks (Google Sans Flex, Space Grotesk, Rajdhani)                          |
 | `quickshell.nix`   | Quickshell from `quickshellSrc` plus `patches/`                                                                            |
 | `lib.nix`          | typed settings options generated from `builtin-defaults.json`                                                              |
 | `hm-module.nix`    | the Home Manager module `programs.nixbook-shell`                                                                           |

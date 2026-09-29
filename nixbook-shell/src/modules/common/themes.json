@@ -163,6 +163,67 @@
           }
         }
       ]
+    },
+    {
+      "id": "cyberpunk",
+      "name": "Cyberpunk 2077",
+      "icon": "memory",
+      "description": "Night City: dark HUD panels, neon accents, cut corners, a condensed tech face and glitchy incoming-call cut-ins",
+      "defaultVariant": "yellow",
+      "style": {
+        "rounding": 0.18,
+        "fonts": { "main": "Rajdhani", "title": "Rajdhani", "numbers": "Rajdhani" },
+        "motion": {
+          "slam": [0.1, 0.9, 0.2, 1, 1, 1],
+          "snap": [0.2, 0, 0, 1, 1, 1],
+          "quick": [0.05, 0.7, 0.1, 1, 1, 1],
+          "exit": [0.7, 0, 0.84, 0, 1, 1]
+        }
+      },
+      "variants": [
+        {
+          "id": "yellow",
+          "name": "Yellow",
+          "icon": "bolt",
+          "wallpaper": "assets/cyberpunk/yellow-wallpaper.png",
+          "sounds": {
+            "notification": "assets/cyberpunk/sounds/yellow-notification.wav",
+            "critical": "assets/cyberpunk/sounds/yellow-critical.wav"
+          },
+          "notes": "The key art: signature yellow as the accent over near-black panels, cyan for the secondary (the glitch offset, links), hot red-pink for the tertiary. Cut-in: a yellow holocall frame with a cyan glitch.",
+          "palette": {
+            "background": "#0b0b0d", "surface1": "#131316", "surface2": "#1a1a1e", "surface3": "#232328", "surface4": "#2c2c32",
+            "onSurface": "#f2f0e3", "onSurfaceVariant": "#c9c6b0", "outline": "#8c886a", "outlineVariant": "#3a3828",
+            "primary": "#fcee0a", "onPrimary": "#0b0b0d", "primaryContainer": "#2e2b06", "onPrimaryContainer": "#fff68a",
+            "secondary": "#02d7f2", "onSecondary": "#00181c", "secondaryContainer": "#063840", "onSecondaryContainer": "#b6f6ff",
+            "tertiary": "#ff2a6d", "onTertiary": "#ffffff", "tertiaryContainer": "#4a0c20", "onTertiaryContainer": "#ffd0dc",
+            "error": "#ff4d4d", "onError": "#1a0000", "errorContainer": "#7a0010", "onErrorContainer": "#ffdad6",
+            "frame": "#0b0b0d", "frameBorder": "#fcee0a", "shadow": "#02d7f2", "stripe": "#fcee0a", "ink": "#f2f0e3",
+            "glitch": "#02d7f2", "alert": "#ff2a6d"
+          }
+        },
+        {
+          "id": "red",
+          "name": "Red",
+          "icon": "emergency_home",
+          "wallpaper": "assets/cyberpunk/red-wallpaper.png",
+          "sounds": {
+            "notification": "assets/cyberpunk/sounds/red-notification.wav",
+            "critical": "assets/cyberpunk/sounds/red-critical.wav"
+          },
+          "notes": "The in-game HUD: red-tinted black panels, the menus' salmon red as the accent and hairlines, the interactive cyan for the secondary, yellow for the tertiary. Cut-in: a red HUD frame with a cyan glitch.",
+          "palette": {
+            "background": "#0a0506", "surface1": "#130a0c", "surface2": "#1b0f11", "surface3": "#241417", "surface4": "#2e1a1d",
+            "onSurface": "#f6e4e1", "onSurfaceVariant": "#d5b3ae", "outline": "#9a6560", "outlineVariant": "#43201f",
+            "primary": "#ff5a4f", "onPrimary": "#1c0302", "primaryContainer": "#3d0f0c", "onPrimaryContainer": "#ffc9c2",
+            "secondary": "#5ef6ff", "onSecondary": "#00191b", "secondaryContainer": "#0b3a3e", "onSecondaryContainer": "#c4fbff",
+            "tertiary": "#f3e600", "onTertiary": "#161400", "tertiaryContainer": "#3a3600", "onTertiaryContainer": "#fff79a",
+            "error": "#ff8a3d", "onError": "#1f0a00", "errorContainer": "#6b2c00", "onErrorContainer": "#ffdcc6",
+            "frame": "#0a0506", "frameBorder": "#ff5a4f", "shadow": "#5ef6ff", "stripe": "#ff5a4f", "ink": "#f6e4e1",
+            "glitch": "#5ef6ff", "alert": "#f3e600"
+          }
+        }
+      ]
     }
   ]
 }

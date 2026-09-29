@@ -12,11 +12,16 @@ Scope {
 
     // Critical notifications (and the cut-in rules): the full-screen Persona
     // cut-in in the Persona theme, the character's speech bubble in the
-    // Chiikawa theme (loaded only then).
+    // Chiikawa theme, the incoming holocall in the Cyberpunk theme (loaded
+    // only then).
     PersonaCutIn {}
     LazyLoader {
         active: Chiikawa.enabled
         component: ChiikawaAlert {}
+    }
+    LazyLoader {
+        active: Cyberpunk.enabled
+        component: CyberpunkCutIn {}
     }
 
     // Stays mapped while unlocked (hiding a Wayland window destroys its

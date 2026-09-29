@@ -249,6 +249,7 @@ Singleton {
              ["upcoming", "next event"], ["next meeting", "next event"],
              ["=look", "theme"], ["=skin", "theme"], ["=style", "theme"], ["chikawa", "chiikawa theme"],
              ["momonga", "chiikawa theme"], ["usagi", "chiikawa theme"], ["persona", "persona theme"],
+             ["cyberpunk", "cyberpunk theme"], ["2077", "cyberpunk theme"], ["night city", "cyberpunk theme"], ["neon", "cyberpunk theme"],
              ["critical", "cut-in important notification"], ["=sound", "sounds notification"]],
         fr: [["arret", "stop"], ["stopp", "stop"], ["memoire", "memory"], ["souvien", "memory"], ["retien", "memory"], ["disposition", "layout window"], ["agencement", "layout window"], ["agent", "ai agent"], ["pilot", "control"], ["controle", "control"], ["ouvr", "open"], ["ferm", "close"], ["fenetre", "window"], ["raccourci", "shortcut"], ["touche", "key"],
              ["clavier", "keyboard"], ["lanceur", "launcher"], ["applic", "app"], ["=appli", "app"], ["logiciel", "app package"],
