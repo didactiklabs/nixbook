@@ -69,7 +69,7 @@ in
       };
     };
 
-    # Port workspace assignments from hyprland to output assignments
+    # Pin apps to outputs
     programs.niri.settings.window-rules = lib.mkAfter [
       # Apps that were on workspace 1 -> assign to main monitor (DP-9)
       # {

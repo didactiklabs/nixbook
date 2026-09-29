@@ -10,7 +10,6 @@ in
   imports = [
     ./gitConfig.nix
     ./kanshiConfig.nix
-    ./hyprlandConfig.nix
     ./niriConfig.nix
   ];
   home.packages = [
@@ -41,7 +40,6 @@ in
     sshConfig.enable = true;
     starship.enable = true;
     swayConfig.enable = false;
-    hyprlandConfig.enable = false;
     niriConfig.enable = true;
     fastfetchConfig.enable = true;
     desktopApps.enable = true;

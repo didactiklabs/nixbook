@@ -16,7 +16,6 @@
     ./gitConfig.nix
     ./goji.nix
     ./gtkConfig.nix
-    ./hyprland
     ./k9sConfig.nix
     ./kittyConfig.nix
     ./kubeswitchConfig.nix

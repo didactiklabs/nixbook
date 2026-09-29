@@ -34,7 +34,6 @@ let
           "bluetoothAutoConnect"
           "firewall"
           "gamingConfig"
-          "hyprland"
           "lanzaboote"
           "netbird-tools"
           "ollama"

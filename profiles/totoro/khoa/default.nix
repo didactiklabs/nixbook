@@ -47,7 +47,6 @@ in
     sshConfig.enable = true;
     starship.enable = true;
     swayConfig.enable = false;
-    hyprlandConfig.enable = false;
     niriConfig.enable = true;
     fastfetchConfig.enable = true;
     desktopApps.enable = true;

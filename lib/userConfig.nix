@@ -11,11 +11,6 @@ let
     cp -r $src/* $out
   '';
 
-  defaultSoundPath = pkgs.runCommand "default-sounds" { src = ../assets/sounds; } ''
-    mkdir -p $out
-    cp -r $src/* $out
-  '';
-
   defaultConfig = {
     extraGroups = [
       "ydotool"
@@ -165,16 +160,6 @@ let
                 type = lib.types.str;
                 default = "${defaultImagePath}/nixos-wallpaper.png";
                 description = "Image to set as lock wallpaper.";
-              };
-              startup_audio = lib.mkOption {
-                type = lib.types.path;
-                default = "${defaultSoundPath}/startup.mp3";
-                description = "Path to startup sound that hyprland plays on startup.";
-              };
-              notification_audio = lib.mkOption {
-                type = lib.types.path;
-                default = "${defaultSoundPath}/notifications.mp3";
-                description = "Path to sound that hyprland plays on notifications.";
               };
             };
 
