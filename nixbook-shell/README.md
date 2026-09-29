@@ -48,7 +48,7 @@ another quickshell pin) gives:
 The shell runs as the `nixbook-shell` user service. Bind keys to
 `nixbook-shell ipc call <target> <function>` to open its panels
 (`search toggle`, `sidebarLeft toggle`, `sidebarRight toggle`,
-`settings toggle`, `lock activate`, …).
+`settings toggle`, `search themeToggle`, `lock activate`, …).
 
 ## Login screen and loading screen
 
@@ -178,8 +178,10 @@ isn't sure.
 
 ## Themes
 
-The theme is `appearance.theme` — Settings → Appearance → Theme, or the
-desktop menu's Theme submenu — and each theme with variants keeps its own
+The theme is `appearance.theme` — Settings → Appearance → Theme, the
+desktop menu's Theme submenu, or the launcher's theme mode (the
+`search.prefix.themes` prefix, `@`, or `nixbook-shell ipc call search
+themeToggle`: every theme and variant, type to filter, Enter applies) — and each theme with variants keeps its own
 `appearance.<theme>.variant`, so switching theme and back keeps the variant:
 
 | Theme      | Variants                                         | Own settings (`appearance.<theme>.*`)              |

@@ -594,6 +594,7 @@
       "shellCommand": "$",
       "showDefaultActionsWithoutPrefix": true,
       "symbols": ".",
+      "themes": "@",
       "webSearch": "?"
     },
     "sloppy": false

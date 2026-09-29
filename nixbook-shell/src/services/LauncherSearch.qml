@@ -16,7 +16,7 @@ Singleton {
     property string query: ""
 
     function ensurePrefix(prefix) {
-        if ([Config.options.search.prefix.action, Config.options.search.prefix.app, Config.options.search.prefix.clipboard, Config.options.search.prefix.emojis, Config.options.search.prefix.symbols, Config.options.search.prefix.math, Config.options.search.prefix.shellCommand, Config.options.search.prefix.webSearch,].some(i => root.query.startsWith(i))) {
+        if ([Config.options.search.prefix.action, Config.options.search.prefix.app, Config.options.search.prefix.clipboard, Config.options.search.prefix.emojis, Config.options.search.prefix.symbols, Config.options.search.prefix.themes, Config.options.search.prefix.math, Config.options.search.prefix.shellCommand, Config.options.search.prefix.webSearch,].some(i => root.query.startsWith(i))) {
             root.query = prefix + root.query.slice(1);
         } else {
             root.query = prefix + root.query;
@@ -536,6 +536,34 @@ Singleton {
                         Quickshell.clipboardText = symName;
                     }
                 });
+            });
+        } else if (root.query.startsWith(Config.options.search.prefix.themes)) {
+            // Themes and their variants (Themes.qml): the ones Nix doesn't pin away
+            const terms = StringUtils.cleanPrefix(root.query, Config.options.search.prefix.themes).toLowerCase().split(/\s+/).filter(Boolean);
+            const themePinned = NixManaged.isPinned("appearance.theme");
+            return Themes.list.filter(t => !themePinned || t.id === Themes.current).reduce((acc, t) => {
+                const variants = t.variants.length > 0 ? t.variants : [null];
+                const variantPinned = variants[0] !== null && NixManaged.isPinned(Themes.variantKey(t.id));
+                return acc.concat(variants.filter(v => !variantPinned || v.id === Themes.variantOf(t.id)).map(v => ({ theme: t, variant: v })));
+            }, []).filter(({ theme, variant }) => {
+                const haystack = `${theme.id} ${theme.name} ${variant?.id ?? ""} ${variant?.name ?? ""}`.toLowerCase();
+                return terms.every(term => haystack.includes(term));
+            }).map(({ theme, variant }) => {
+                const obj = root.cachedResult("theme", `${theme.id}/${variant?.id ?? ""}`, {
+                    name: variant ? `${Translation.tr(theme.name)} · ${Translation.tr(variant.name)}` : Translation.tr(theme.name),
+                    iconName: variant?.icon ?? theme.icon,
+                    iconType: LauncherSearchResult.IconType.Material,
+                    type: Translation.tr("Theme"),
+                    comment: Translation.tr(theme.description ?? ""),
+                    execute: () => {
+                        Themes.setTheme(theme.id);
+                        if (variant)
+                            Themes.setVariant(theme.id, variant.id);
+                    }
+                });
+                const current = Themes.current === theme.id && (!variant || Themes.variant === variant.id);
+                obj.verb = current ? Translation.tr("Current") : Translation.tr("Apply");
+                return obj;
             });
         }
 

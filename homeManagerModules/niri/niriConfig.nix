@@ -888,6 +888,10 @@ in
                   "settings"
                   "toggle"
                 ];
+                "Mod+X" = [
+                  "search"
+                  "themeToggle"
+                ];
               }
           )
         )
