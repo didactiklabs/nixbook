@@ -69,9 +69,6 @@
         "updatesCount"
       ];
     };
-    weather = {
-      city = "Mérignac";
-    };
   };
   dock = {
     enable = true;
