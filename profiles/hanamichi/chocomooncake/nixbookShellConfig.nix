@@ -16,6 +16,7 @@
         "Victor Tiến Khoa"
         "vtk_hg"
         "victortk"
+        "ビクタ"
       ];
       # Reactions and likes: a normal notification is enough. "line:" is the
       # newest message only. My own messages: the last message is sent by
