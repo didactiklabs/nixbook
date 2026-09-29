@@ -575,7 +575,7 @@
     "savePath": "/home/khoa/Videos"
   },
   "screenSnip": {
-    "savePath": ""
+    "savePath": "~/Pictures/Screenshots"
   },
   "search": {
     "engineBaseUrl": "https://www.google.com/search?q=",

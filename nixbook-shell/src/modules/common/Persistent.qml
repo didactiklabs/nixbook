@@ -60,6 +60,11 @@ Singleton {
 
             property string sessionSignature: ""
 
+            // One-time settings migrations already applied (Config.qml).
+            property JsonObject migrations: JsonObject {
+                property bool screenshotSavePath: false
+            }
+
             property JsonObject ai: JsonObject {
                 property string model: "config-assistant"
                 property real temperature: 0.5

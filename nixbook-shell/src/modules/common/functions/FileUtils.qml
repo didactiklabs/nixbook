@@ -16,6 +16,18 @@ Singleton {
     }
 
     /**
+     * Expands a leading ~ or $HOME to the home directory (paths typed in the
+     * settings: the shell commands quote them, so the shell never would)
+     * @param {string} str
+     * @returns {string}
+     */
+    function expandHome(str) {
+        if (typeof str !== "string") return "";
+        const home = Quickshell.env("HOME");
+        return str.replace(/^(~|\$HOME|\$\{HOME\})(?=\/|$)/, home);
+    }
+
+    /**
      * Extracts the file name from a file path
      * @param {string} str
      * @returns {string}

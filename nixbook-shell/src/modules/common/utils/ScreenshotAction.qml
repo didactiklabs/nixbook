@@ -24,6 +24,17 @@ Singleton {
 
     property string imageSearchEngineBaseUrl: Config.options.search.imageSearch.imageSearchEngineBaseUrl
     property string fileUploadApiEndpoint: "https://uguu.se/upload"
+    // Where screenshots are saved ("" = only copied to the clipboard).
+    readonly property string saveDir: FileUtils.expandHome(Config.options.screenSnip.savePath)
+
+    // Sets $out to the file a copied screenshot goes to: in saveDir, named like
+    // niri's own (Screenshot-%Y-%m-%d-%H-%M-%S.png), else a temporary one in
+    // Directories.screenshotTemp (cleared on the next open).
+    function outputFileCommand(saveDir) {
+        const dir = StringUtils.shellSingleQuoteEscape(saveDir !== "" ? saveDir : Directories.screenshotTemp);
+        const name = saveDir !== "" ? `Screenshot-$(date '+%Y-%m-%d-%H-%M-%S').png` : `snip-$(date '+%s%N').png`;
+        return `mkdir -p '${dir}' && out='${dir}'/"${name}"`;
+    }
 
     function getCommand(x, y, width, height, screenshotPath, action, saveDir = "") {
         // Set command for action
@@ -44,12 +55,8 @@ Singleton {
         const annotationCommand = `${Config.options.regionSelector.annotation.useSatty ? "satty" : "swappy"} -f -`;
         switch (action) {
             case ScreenshotAction.Action.Copy: {
-                // Written to a file first, which the notification shows: in
-                // saveDir, else Directories.screenshotTemp (cleared on the next open).
-                const target = saveDir !== ""
-                    ? `mkdir -p '${StringUtils.shellSingleQuoteEscape(saveDir)}' && out='${StringUtils.shellSingleQuoteEscape(saveDir)}'/"screenshot-$(date '+%Y-%m-%d_%H.%M.%S').png"`
-                    : `out='${StringUtils.shellSingleQuoteEscape(Directories.screenshotTemp)}'/"snip-$(date '+%s%N').png"`;
-                return ["bash", "-c", `${target} && ${cropBase} "$out" && wl-copy --type image/png < "$out" && ${cleanup} && ${root.notifyCommand}`]
+                // Written to a file first, which the notification shows.
+                return ["bash", "-c", `${root.outputFileCommand(saveDir)} && ${cropBase} "$out" && wl-copy --type image/png < "$out" && ${cleanup} && ${root.notifyCommand}`]
             }
             case ScreenshotAction.Action.Edit:
                 return ["bash", "-c", `${cropToStdout} | ${annotationCommand} && ${cleanup}`]
@@ -94,8 +101,7 @@ Singleton {
             + `prev=-1 && for _ in $(seq 80); do size=$(stat -c %s "$win" 2>/dev/null || echo 0); `
             + `[ "$size" -gt 0 ] && [ "$size" = "$prev" ] && break; prev=$size; sleep 0.05; done && [ -s "$win" ]`;
         if (action === ScreenshotAction.Action.Copy) {
-            const save = saveDir === "" ? ""
-                : ` && mkdir -p '${StringUtils.shellSingleQuoteEscape(saveDir)}' && cp "$win" '${StringUtils.shellSingleQuoteEscape(saveDir)}'/"screenshot-$(date '+%Y-%m-%d_%H.%M.%S').png"`;
+            const save = saveDir === "" ? "" : ` && ${root.outputFileCommand(saveDir)} && cp "$win" "$out"`;
             return ["bash", "-c", capture + save];
         }
         const command = root.getCommand(0, 0, 0, 0, workPath, action, "");
