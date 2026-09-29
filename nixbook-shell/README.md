@@ -209,6 +209,23 @@ same call; `run_steps` does up to 20 actions (keys, typing, clicks, waits)
 in one call, each through the same guardrails; screenshots are JPEG (a
 fraction of a PNG's size; `screenshotFormat`, `screenshotQuality`).
 
+**Desktop memory**, so the next task is faster: agents keep notes of what
+worked (`remember`: an app's shortcut, where a setting is, which app does
+what; `run_steps` with `remember_as` saves the steps as a recipe; `recall`,
+`forget`), and usage is counted as they work (apps launched, layouts
+restored, tools used). `launch_app` learns aliases: a name that failed, then
+the app that worked (e.g. "discord" then Vesktop), resolves directly next
+time. A digest of it all goes to every agent when it connects (the MCP
+server's instructions, which Claude Code puts in the model's context) and to
+the AI chat's system prompt, labelled as hints written by agents, never the
+user's instructions; its instructions ask agents to save what they learned.
+It lives in `~/.local/state/nixbook-shell/desktop-memory.json` (private);
+**Settings → Desktop agents** shows the notes (delete any), the aliases and
+usage, clears them, and pauses desktop control. `nixbook-desktop-mcp memory`
+shows, clears or prints the digest; the `memory` tool group
+(`desktopMcp.settings.tools`) turns it off; `memoryPromptChars` and
+`memoryMaxNotes` size it.
+
 **Window layouts**: `save_layout` remembers where every window is (monitor,
 workspace, column and its width, or floating position and size, and the app
 that opens it) under a name; `restore_layout` puts them back in one call,

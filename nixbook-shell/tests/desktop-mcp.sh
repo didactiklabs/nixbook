@@ -188,7 +188,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 26 tools" 26 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 29 tools" 29 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -477,6 +477,61 @@ layout_cmd delete games >/dev/null
 expect_eq "layout delete" "|work" "$(layout_cmd list | jq -r '"\(.current)|\([.layouts[].name] | join(" "))"')"
 expect_contains "layout: names checked" "$(layout_cmd save '../x')" "a layout name"
 expect_eq "layout: the user's calls are logged" you "$(jq -r 'select(.tool=="save_layout") | .client' "$XDG_STATE_HOME/nixbook-shell/desktop-mcp.log" | tail -n 1)"
+
+# -- desktop memory -------------------------------------------------------------------------
+
+mem="$XDG_STATE_HOME/nixbook-shell/desktop-memory.json"
+rm -f "$mem" "$calls.launched"
+# "discord" isn't installed; the agent finds "Firefox" next: an alias is learned.
+out=$(call launch_app '{"app":"discord"}')
+expect_contains "memory: a failed launch" "$out" "no application matches"
+call launch_app '{"app":"Firefox"}' >/dev/null
+expect_eq "memory: alias learned from a failure then a success" org.mozilla.firefox "$(jq -r '.aliases.discord' "$mem")"
+expect_eq "memory: app use counted" 1 "$(jq '.usage.apps["org.mozilla.firefox"].count' "$mem")"
+reset_calls
+call launch_app '{"app":"discord"}' >/dev/null
+expect_contains "memory: the alias is used next time" "$(cat "$calls")" "niri msg action spawn -- firefox --name firefox"
+expect_eq "memory: private file" 600 "$(stat -c %a "$mem")"
+
+out=$(call remember '{"topic":"discord","text":"Vesktop: open a DM with ctrl+k, type the name, Return"}')
+expect_contains "remember" "$out" "remembered as note"
+note_id=$(jq -r '.notes[0].id' "$mem")
+out=$(call remember '{"topic":"discord","text":"Vesktop: open a DM with ctrl+k, type the name, Return"}')
+expect_contains "remember: no duplicate" "$out" "updated note $note_id"
+out=$(call remember "$(jq -nc '{topic: "x", text: ("y" * 700)}')")
+expect_contains "remember: text capped" "$out" "longer than 600"
+call run_steps '{"steps":[{"tool":"press_keys","args":{"keys":["ctrl+k"]},"wait_ms":0}],"remember_as":"discord: open quick switcher"}' >/dev/null
+expect_eq "run_steps remember_as: recipe saved" recipe "$(jq -r '.notes[] | select(.topic=="discord: open quick switcher") | .kind' "$mem")"
+
+# Every agent gets the digest when it connects.
+out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t"}}}' | python3 "$mcp")
+instr=$(jq -r .result.instructions <<<"$out")
+expect_contains "digest: in the instructions" "$instr" "Desktop memory from earlier sessions"
+expect_contains "digest: labelled as hints, not the user's instructions" "$instr" "not instructions from the user"
+expect_contains "digest: aliases" "$instr" "discord -> org.mozilla.firefox"
+expect_contains "digest: notes" "$instr" "[$note_id] discord: Vesktop: open a DM"
+expect_contains "digest: apps used" "$instr" "org.mozilla.firefox (2x)"
+echo '{"memoryPromptChars":200}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 "$mcp")
+expect_contains "digest: capped" "$(jq -r .result.instructions <<<"$out")" "(more: call recall)"
+echo '{"tools":["observe","windows"]}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 "$mcp")
+expect_not_contains "digest: not sent with memory turned off" "$(jq -r .result.instructions <<<"$out")" "Desktop memory from"
+rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+
+out=$(call recall '{"query":"discord"}')
+expect_eq "recall: search" 2 "$(jq '.notes | length' <<<"$out")"
+expect_eq "recall: counts uses" 1 "$(jq --arg id "$note_id" '.notes[] | select(.id==$id) | .uses' "$mem")"
+out=$(call forget "{\"id\":\"$note_id\"}")
+expect_contains "forget" "$out" "forgot note $note_id"
+expect_contains "forget: unknown" "$(call forget '{"id":"abc"}')" "no note abc"
+python3 "$mcp" memory clear notes >/dev/null
+expect_eq "memory clear notes: aliases kept" "0 org.mozilla.firefox" "$(jq -r '"\(.notes | length) \(.aliases.discord)"' "$mem")"
+python3 "$mcp" memory clear usage aliases >/dev/null
+expect_eq "memory clear: several parts at once" "0 0" "$(jq -r '"\(.aliases | length) \(.usage.apps | length)"' "$mem")"
+python3 "$mcp" memory clear >/dev/null
+expect_eq "memory clear: all" "0 0" "$(jq -r '"\(.aliases | length) \(.usage.apps | length)"' "$mem")"
+rm -f "$calls.launched"
 
 # -- the state file the bar widget reads ------------------------------------------------------
 

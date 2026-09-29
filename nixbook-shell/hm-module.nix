@@ -548,6 +548,7 @@ in
                 "windows"
                 "input"
                 "shell"
+                "memory"
               ]
             );
             default = [
@@ -556,12 +557,15 @@ in
               "windows"
               "input"
               "shell"
+              "memory"
             ];
             description = ''
               Tool groups AI agents get: `observe` (windows, workspaces,
               apps), `screen` (screenshots, reading the clipboard), `windows`
               (focus, move, close, launch apps), `input` (keyboard, pointer,
-              writing the clipboard), `shell` (the shell's IPC, notifications).
+              writing the clipboard), `shell` (the shell's IPC, notifications),
+              `memory` (notes agents keep about this desktop, and the digest of
+              it they get when they connect).
             '';
           };
         };

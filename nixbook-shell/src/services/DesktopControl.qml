@@ -49,6 +49,55 @@ Singleton {
         else root.pause();
     }
 
+    // The desktop memory (Settings > Desktop agents): notes agents wrote,
+    // aliases and usage learned, as `nixbook-desktop-mcp memory show` prints.
+    property var memory: ({ notes: [], aliases: {}, usage: { apps: {}, layouts: {}, tools: {} } })
+    function refreshMemory() {
+        if (!memoryReader.running) memoryReader.running = true;
+    }
+    function forgetNote(id) {
+        if (!/^[0-9a-f]{1,16}$/.test(id ?? "")) return;
+        root.memoryCommand(["forget", id]);
+    }
+    // parts: any of "notes", "usage", "aliases", "all"
+    function clearMemory(parts) {
+        if (!parts.every(p => ["notes", "usage", "aliases", "all"].includes(p))) return;
+        root.memoryCommand(["clear", ...parts]);
+    }
+    // One command at a time, in order (quick clicks queue up).
+    property var memoryQueue: []
+    function memoryCommand(args) {
+        root.memoryQueue = [...root.memoryQueue, ["nixbook-desktop-mcp", "memory", ...args]];
+        if (!memoryWriter.running) root.nextMemoryCommand();
+    }
+    function nextMemoryCommand() {
+        if (root.memoryQueue.length === 0) {
+            root.refreshMemory();
+            return;
+        }
+        memoryWriter.command = root.memoryQueue[0];
+        root.memoryQueue = root.memoryQueue.slice(1);
+        memoryWriter.running = true;
+    }
+
+    Process {
+        id: memoryReader
+        command: ["nixbook-desktop-mcp", "memory", "show"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    root.memory = JSON.parse(text);
+                } catch (e) {
+                    console.warn("[DesktopControl] can't read the desktop memory:", e);
+                }
+            }
+        }
+    }
+    Process {
+        id: memoryWriter
+        onExited: root.nextMemoryCommand()
+    }
+
     function parse(text) {
         try {
             const state = JSON.parse(text);
