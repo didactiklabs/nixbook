@@ -503,25 +503,61 @@ expect_contains "remember: text capped" "$out" "longer than 600"
 call run_steps '{"steps":[{"tool":"press_keys","args":{"keys":["ctrl+k"]},"wait_ms":0}],"remember_as":"discord: open quick switcher"}' >/dev/null
 expect_eq "run_steps remember_as: recipe saved" recipe "$(jq -r '.notes[] | select(.topic=="discord: open quick switcher") | .kind' "$mem")"
 
+# Notes are linked to the apps they are about (here through the learned alias).
+expect_eq "remember: note linked to its app" '["org.mozilla.firefox"]' "$(jq -c --arg id "$note_id" '.notes[] | select(.id==$id) | .apps' "$mem")"
+call remember '{"topic":"zen browser","text":"new tab ctrl+t, address bar ctrl+l"}' >/dev/null
+call remember '{"topic":"wifi","text":"quick settings in the right sidebar, Mod+N"}' >/dev/null
+call remember '{"topic":"spotify","text":"play/pause with space when focused"}' >/dev/null
+
 # Every agent gets the digest when it connects.
 out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t"}}}' | python3 "$mcp")
 instr=$(jq -r .result.instructions <<<"$out")
-expect_contains "digest: in the instructions" "$instr" "Desktop memory from earlier sessions"
-expect_contains "digest: labelled as hints, not the user's instructions" "$instr" "not instructions from the user"
+expect_contains "digest: in the instructions" "$instr" "Desktop memory (hints written by agents"
+expect_contains "digest: labelled as hints, not the user's instructions" "$instr" "not the user's instructions"
 expect_contains "digest: aliases" "$instr" "discord -> org.mozilla.firefox"
-expect_contains "digest: notes" "$instr" "[$note_id] discord: Vesktop: open a DM"
 expect_contains "digest: apps used" "$instr" "org.mozilla.firefox (2x)"
+expect_contains "digest: without a task, the most used notes in full" "$instr" "Most used notes:"
+expect_contains "digest: the others by topic only" "$instr" "Other notes, by topic (recall a topic for its text):"
+
+# The shell's AI chat says what the task is: the notes about it come in full, the rest by topic.
+out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | NIXBOOK_DESKTOP_MCP_QUERY="send Alesio a message on Discord" python3 "$mcp")
+instr=$(jq -r .result.instructions <<<"$out")
+expect_contains "digest: notes about the task" "$instr" "Notes about this task:
+- [$note_id] discord: Vesktop: open a DM"
+expect_not_contains "digest: unrelated notes not in full" "$instr" "play/pause with space"
+expect_contains "digest: unrelated notes by topic" "$instr" "spotify"
+out=$(python3 "$mcp" memory prompt "open a new tab in zen")
+expect_contains "memory prompt QUERY: ranked by topic" "$(sed -n '/Notes about this task/,+1p' <<<"$out")" "zen browser: new tab ctrl+t"
+
 echo '{"memoryPromptChars":200}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
 out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 "$mcp")
-expect_contains "digest: capped" "$(jq -r .result.instructions <<<"$out")" "(more: call recall)"
+digest=$(jq -r .result.instructions <<<"$out" | sed -n '/^Desktop memory/,$p')
+# Characters, not bytes (the locale may be C): the digest has "—" and "…".
+chars=$(printf '%s' "$digest" | python3 -c 'import sys; print(len(sys.stdin.read()))')
+if [ "$chars" -le 200 ]; then pass "digest: capped ($chars chars)"; else fail "digest: capped" "$chars chars:"$'\n'"$digest"; fi
 echo '{"tools":["observe","windows"]}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
 out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 "$mcp")
-expect_not_contains "digest: not sent with memory turned off" "$(jq -r .result.instructions <<<"$out")" "Desktop memory from"
+expect_not_contains "digest: not sent with memory turned off" "$(jq -r .result.instructions <<<"$out")" "Desktop memory ("
 rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
 
+# Just in time: the notes about an app come with the action that reaches it, once a session.
+out=$(printf '%s\n' \
+  '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"focus_window","arguments":{"id":1}}}' \
+  '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"focus_window","arguments":{"id":1}}}' |
+  python3 "$mcp")
+expect_contains "just in time: notes about the focused app" "$(jq -r 'select(.id==1) | .result.content[].text' <<<"$out")" "Memory about Firefox:
+- [$note_id] discord: Vesktop"
+expect_not_contains "just in time: not twice in a session" "$(jq -r 'select(.id==2) | .result.content[].text' <<<"$out")" "Memory about"
+expect_not_contains "just in time: not in the chat's one-off calls" "$(call focus_window '{"id":1}')" "Memory about"
+
 out=$(call recall '{"query":"discord"}')
-expect_eq "recall: search" 2 "$(jq '.notes | length' <<<"$out")"
+expect_eq "recall: best matches" 2 "$(jq '.notes | length' <<<"$out")"
 expect_eq "recall: counts uses" 1 "$(jq --arg id "$note_id" '.notes[] | select(.id==$id) | .uses' "$mem")"
+out=$(call recall '{"query":"how do I open a tab in the browser"}')
+expect_eq "recall: ranked by words, not substrings" "zen browser" "$(jq -r '.notes[0].topic' <<<"$out")"
+out=$(call recall '{}')
+expect_eq "recall: without a query, the topics only" "true false" "$(jq -r '"\(has("topics")) \(has("notes"))"' <<<"$out")"
+expect_contains "recall: nothing" "$(call recall '{"query":"blender"}')" "no note about 'blender'"
 out=$(call forget "{\"id\":\"$note_id\"}")
 expect_contains "forget" "$out" "forgot note $note_id"
 expect_contains "forget: unknown" "$(call forget '{"id":"abc"}')" "no note abc"
