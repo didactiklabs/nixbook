@@ -128,6 +128,16 @@ Singleton {
                 // summary of the shell's live settings. Sent to the chosen
                 // provider with every request.
                 property bool includeSystemContext: true
+                // Claude through Claude Code (`claude -p`, the user's own
+                // Claude login): the "Claude" model, with the desktop tools
+                // (nixbook-desktop-mcp) unless the tool is "none".
+                property JsonObject claudeCode: JsonObject {
+                    property string command: "" // empty: `claude` on PATH, ~/.local/bin, the Nix profiles
+                    property string model: "" // empty: Claude Code's default; e.g. "sonnet" (faster), "opus"
+                    // Tools it may use besides the desktop ones; others (Bash,
+                    // Edit, Write…) are refused.
+                    property list<string> allowedTools: ["WebSearch", "WebFetch", "Read", "Glob", "Grep"]
+                }
                 property list<var> extraModels: [
                     {
                         "api_format": "openai", // Most of the time you want "openai". Use "gemini" for Google's models

@@ -132,6 +132,13 @@ Item {
             }
         },
         {
+            name: "stop",
+            description: Translation.tr("Stop the answer being written (and what Claude is doing)"),
+            execute: () => {
+                Ai.stopResponse();
+            }
+        },
+        {
             name: "clear",
             description: Translation.tr("Clear chat history"),
             execute: () => {
@@ -729,14 +736,15 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                         }
                     }
                 }
-                RippleButton { // Send button
+                RippleButton { // Send button; stops the answer being written when there's nothing to send
                     id: sendButton
+                    readonly property bool stopMode: Ai.responding && messageInputField.text.length === 0
                     Layout.alignment: Qt.AlignBottom
                     Layout.rightMargin: 5
                     implicitWidth: 40
                     implicitHeight: 40
                     buttonRadius: Appearance.rounding.small
-                    enabled: messageInputField.text.length > 0
+                    enabled: messageInputField.text.length > 0 || stopMode
                     toggled: enabled
 
                     MouseArea {
@@ -744,6 +752,10 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                         anchors.fill: parent
                         cursorShape: sendButton.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                         onClicked: {
+                            if (sendButton.stopMode) {
+                                Ai.stopResponse();
+                                return;
+                            }
                             const inputText = messageInputField.text;
                             root.handleInput(inputText);
                             messageInputField.clear();
@@ -755,7 +767,7 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                         horizontalAlignment: Text.AlignHCenter
                         iconSize: 22
                         color: sendButton.enabled ? Appearance.m3colors.m3onPrimary : Appearance.colors.colOnLayer2Disabled
-                        text: "arrow_upward"
+                        text: sendButton.stopMode ? "stop" : "arrow_upward"
                     }
                 }
             }

@@ -234,7 +234,7 @@ Singleton {
     // Lexicons onto the facts' English vocabulary. "=w" matches the word w
     // exactly; "a b" a phrase; anything else a word prefix (inflections).
     readonly property var lexicon: ({
-        en: [["hotkey", "shortcut"], ["=float", "floating toggle"], ["=floating", "floating toggle"], ["=go", "focus"], ["=switch", "focus"], ["louder", "volume up raise"], ["quieter", "volume down lower"],
+        en: [["hotkey", "shortcut"], ["remember", "memory"], ["=memorize", "memory"], ["=pause", "stop"], ["=halt", "stop"], ["=agent", "ai agent"], ["=agents", "ai agent"], ["=claude", "claude ai"], ["arrangement", "layout window"], ["=float", "floating toggle"], ["=floating", "floating toggle"], ["=go", "focus"], ["=switch", "focus"], ["louder", "volume up raise"], ["quieter", "volume down lower"],
              ["=next", "below down"], ["previous", "above up"], ["=sound", "volume audio"], ["background", "wallpaper"],
              ["=panel", "sidebar"], ["=chat", "assistant ai"], ["=computer", "screen host"], ["=pc", "screen host"],
              ["=os", "nixos operating system"], ["what shell", "shell login"], ["which shell", "shell login"], ["my shell", "shell login"], ["distro", "nixos operating system"], ["hostname", "host name"],
@@ -250,7 +250,7 @@ Singleton {
              ["=look", "theme"], ["=skin", "theme"], ["=style", "theme"], ["chikawa", "chiikawa theme"],
              ["momonga", "chiikawa theme"], ["usagi", "chiikawa theme"], ["persona", "persona theme"],
              ["critical", "cut-in important notification"], ["=sound", "sounds notification"]],
-        fr: [["ouvr", "open"], ["ferm", "close"], ["fenetre", "window"], ["raccourci", "shortcut"], ["touche", "key"],
+        fr: [["arret", "stop"], ["stopp", "stop"], ["memoire", "memory"], ["souvien", "memory"], ["retien", "memory"], ["disposition", "layout window"], ["agencement", "layout window"], ["agent", "ai agent"], ["pilot", "control"], ["controle", "control"], ["ouvr", "open"], ["ferm", "close"], ["fenetre", "window"], ["raccourci", "shortcut"], ["touche", "key"],
              ["clavier", "keyboard"], ["lanceur", "launcher"], ["applic", "app"], ["=appli", "app"], ["logiciel", "app package"],
              ["fond d ecran", "wallpaper"], ["=fond", "wallpaper"], ["capture d ecran", "screenshot"], ["capture", "screenshot"],
              ["plein ecran", "fullscreen"], ["ecran", "screen"], ["flott", "floating toggle"], ["=aller", "focus"], ["=passer", "focus"], ["mosaique", "tiled"],
@@ -280,7 +280,7 @@ Singleton {
              ["agenda", "calendar"], ["calendrier", "calendar"], ["=tache", "task"], ["=taches", "task"], ["evenement", "event"],
              ["rendez vous", "event"], ["synchro", "sync"], ["connect", "connect"], ["rappel", "reminder"], ["reunion", "meeting event"],
              ["prochain", "next"]],
-        de: [["offn", "open"], ["schliess", "close"], ["fenster", "window"], ["tastenkurz", "shortcut"], ["kurzel", "shortcut"],
+        de: [["anhalt", "stop"], ["stopp", "stop"], ["gedachtnis", "memory"], ["merkt", "memory"], ["erinnert", "memory"], ["anordnung", "layout window"], ["agent", "ai agent"], ["steuer", "control"], ["offn", "open"], ["schliess", "close"], ["fenster", "window"], ["tastenkurz", "shortcut"], ["kurzel", "shortcut"],
              ["tastatur", "keyboard"], ["=taste", "key"], ["starter", "launcher"], ["programm", "app"], ["=app", "app"],
              ["anwendung", "app"], ["hintergrund", "wallpaper"], ["bildschirmfoto", "screenshot"], ["screenshot", "screenshot"],
              ["bildschirm", "screen"], ["schweb", "floating toggle"], ["kachel", "tiled"], ["einstellung", "setting"],
@@ -307,7 +307,7 @@ Singleton {
              ["=akku", "battery"], ["=dienst", "service"], ["systeminfo", "system info"], ["freigeb", "free"],
              ["=termin", "event"], ["=termine", "event"], ["aufgabe", "task"], ["synchron", "sync"], ["verbind", "connect"],
              ["erinner", "reminder"], ["terminerinner", "event reminder"], ["besprechung", "meeting event"]],
-        vi: [["phim tat", "shortcut"], ["=phim", "key"], ["=mo", "open"], ["=dong", "close"], ["cua so", "window"],
+        vi: [["tam dung", "stop"], ["dung lai", "stop"], ["bo nho", "memory"], ["ghi nho", "memory"], ["bo cuc", "layout window"], ["tac nhan", "ai agent"], ["dieu khien", "control"], ["phim tat", "shortcut"], ["=phim", "key"], ["=mo", "open"], ["=dong", "close"], ["cua so", "window"],
              ["trinh khoi chay", "launcher"], ["khoi chay", "launcher"], ["ung dung", "app"], ["hinh nen", "wallpaper"],
              ["chup man hinh", "screenshot"], ["=chup", "screenshot"], ["toan man hinh", "fullscreen"], ["man hinh", "screen"],
              ["=noi", "floating toggle"], ["chuyen sang", "focus"], ["chuyen den", "focus"], ["xep o", "tiled"], ["cai dat nhanh", "quick settings sidebar right"], ["cai dat", "setting"], ["=nhanh", "quick"], ["=khoa", "lock"],

@@ -6,9 +6,10 @@ import qs.modules.common
 import qs.modules.common.widgets
 
 // Settings > Desktop agents (services/DesktopControl.qml): whether AI agents
-// may drive the desktop (nixbook-desktop-mcp), and the memory they keep of
-// it — notes they wrote, app aliases and usage learned — to review, prune or
-// clear.
+// may drive the desktop (nixbook-desktop-mcp), Claude in the AI chat
+// (ai.claudeCode, services/Ai.qml), and the memory agents keep of the
+// desktop — notes they wrote, app aliases and usage learned — to review,
+// prune or clear.
 ContentPage {
     id: page
     forceWidth: true
@@ -70,7 +71,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("AI agents (Claude Code, the AI chat, any MCP client using nixbook-desktop-mcp) can see and drive the desktop. Pausing refuses every tool to every agent until you allow them again; the Desktop Control bar widget does the same.")
+                text: Translation.tr("AI agents (Claude Code, the AI chat, any MCP client using nixbook-desktop-mcp) can see and drive the desktop. Pausing refuses every tool to every agent until you allow them again; the Desktop Control bar widget and Mod+Shift+Escape do the same.")
             }
 
             GroupedList {
@@ -80,6 +81,102 @@ ContentPage {
                     checked: DesktopControl.paused
                     onClicked: DesktopControl.toggle()
                 }
+            }
+        }
+
+        ContentSection {
+            id: claudeSection
+            icon: "neurology"
+            title: Translation.tr("Claude in the side panel")
+            shape: MaterialShape.Shape.Ghostish
+
+            readonly property var tools: Config.options.ai.claudeCode.allowedTools ?? []
+            function hasAll(names) {
+                return names.every(n => claudeSection.tools.includes(n))
+            }
+            function setTools(names, on) {
+                const hasNone = !names.some(n => claudeSection.tools.includes(n))
+                if ((on && claudeSection.hasAll(names)) || (!on && hasNone)) return
+                const rest = claudeSection.tools.filter(t => !names.includes(t))
+                Config.options.ai.claudeCode.allowedTools = on ? [...rest, ...names] : rest
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("The AI chat's Claude model runs Claude Code on your own Claude account (no API key), with the desktop tools. It can't run commands or edit files; below, what else it may do.")
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+                MaterialSymbol {
+                    text: Ai.claudeCodePath.length > 0 ? "check_circle" : "error"
+                    iconSize: Appearance.font.pixelSize.larger
+                    color: Ai.claudeCodePath.length > 0 ? Appearance.colors.colPrimary : Appearance.m3colors.m3error
+                }
+                StyledText {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    color: Appearance.colors.colOnLayer1
+                    text: Ai.claudeCodePath.length > 0
+                        ? Translation.tr("Claude Code found: %1").arg(Ai.claudeCodePath)
+                        : Translation.tr("Claude Code not found. Install it, run `claude` once in a terminal to log in, or give its path below.")
+                }
+                SmallButton {
+                    visible: Ai.claudeCodePath.length > 0
+                    materialIcon: Ai.currentModelId === "claude" ? "check" : "chat"
+                    mainText: Ai.currentModelId === "claude" ? Translation.tr("In use") : Translation.tr("Use in the side panel")
+                    enabled: Ai.currentModelId !== "claude"
+                    onClicked: Ai.setModel("claude")
+                }
+            }
+
+            ConfigSelectionArray {
+                configKey: "ai.claudeCode.model"
+                enabled: !nixManaged
+                text: Translation.tr("Model")
+                icon: "neurology"
+                currentValue: Config.options.ai.claudeCode.model
+                onSelected: newValue => { Config.options.ai.claudeCode.model = newValue }
+                options: [
+                    { displayName: Translation.tr("Default"), icon: "auto_awesome", value: "" },
+                    { displayName: "Sonnet", icon: "bolt", value: "sonnet" },
+                    { displayName: "Opus", icon: "psychology", value: "opus" },
+                    { displayName: "Haiku", icon: "speed", value: "haiku" }
+                ]
+            }
+
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "ai.claudeCode.allowedTools"
+                    enabled: !nixManaged
+                    buttonIcon: "travel_explore"
+                    text: Translation.tr("Search and read the web")
+                    checked: claudeSection.hasAll(["WebSearch", "WebFetch"])
+                    onCheckedChanged: claudeSection.setTools(["WebSearch", "WebFetch"], checked)
+                }
+                ConfigSwitch {
+                    configKey: "ai.claudeCode.allowedTools"
+                    enabled: !nixManaged
+                    buttonIcon: "folder_open"
+                    text: Translation.tr("Read your files")
+                    checked: claudeSection.hasAll(["Read", "Glob", "Grep"])
+                    onCheckedChanged: claudeSection.setTools(["Read", "Glob", "Grep"], checked)
+                }
+            }
+
+            ConfigTextArea {
+                configKey: "ai.claudeCode.command"
+                enabled: !nixManaged
+                Layout.fillWidth: true
+                fieldWidth: 320
+                buttonIcon: "terminal"
+                text: Translation.tr("Claude Code command")
+                placeholderText: Translation.tr("found automatically")
+                value: Config.options.ai.claudeCode.command
+                onValueChanged: Config.options.ai.claudeCode.command = value.trim()
             }
         }
 
