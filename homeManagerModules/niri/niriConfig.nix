@@ -15,7 +15,6 @@ let
     }).defaultNix;
   mainWallpaper = config.stylix.image;
   lockWallpaper = config.stylix.image;
-  startup_audio = "${config.profileCustomization.startup_audio}";
   brightnessctl = "${pkgs.brightnessctl}/bin/brightnessctl";
   pidof = "${pkgs.sysvtools}/bin/pidof";
   hyprlock = "${pkgs.hyprlock}/bin/hyprlock";
@@ -28,7 +27,6 @@ let
   '';
 
   wpctl = "${pkgs.wireplumber}/bin/wpctl";
-  pixelateAnimations = import ./pixelateAnimations.nix;
 
   # What niri shows before any client has drawn (the first frames after the
   # login screen): nixbook-shell's loading screen background, so the handover
@@ -46,6 +44,23 @@ let
       shellTheme.palette.background
     else
       "#141313";
+
+  # Window open/close slash colours: the Persona variant's own accent and ink
+  # (P5 red/white, P3R cyan, P4 yellow), else the stylix accent/foreground.
+  personaAnimations = import ./personaAnimations.nix (
+    if (config.programs.nixbook-shell.enable or false) && shellTheme.id == "persona" then
+      {
+        inherit lib;
+        accent = shellTheme.variantPalette.primary;
+        ink = shellTheme.variantPalette.ink;
+      }
+    else
+      {
+        inherit lib;
+        accent = config.lib.stylix.colors.withHashtag.base0D;
+        ink = config.lib.stylix.colors.withHashtag.base05;
+      }
+  );
 in
 {
   config = lib.mkIf cfg.niriConfig.enable {
@@ -240,42 +255,35 @@ in
           "NIXOS_OZONE_WL" = "1";
         };
 
-        spawn-at-startup = [
-          {
-            command = [
-              "${pkgs.mpg123}/bin/mpg123"
-              startup_audio
-            ];
-          }
-        ]
-        ++ lib.optionals (!cfg.nixbookShellConfig.enable) [
-          # nixbook-shell paints its own wallpaper layer (and owns wallpaper
-          # switching via its Settings panel), so swaybg would just burn a
-          # second full-screen surface underneath it.
-          {
-            command = [
-              "${pkgs.swaybg}/bin/swaybg"
-              "-m"
-              "fill"
-              "-i"
-              mainWallpaper
-            ];
-          }
-        ]
-        # No xwayland-satellite or environment-import entries: niri (>= 25.08)
-        # spawns xwayland-satellite itself on the first X11 client (found in
-        # PATH via nixosModules/niri.nix) and restarts it if it dies, and
-        # imports WAYLAND_DISPLAY, DISPLAY, XDG_CURRENT_DESKTOP,
-        # XDG_SESSION_TYPE and NIRI_SOCKET into systemd and D-Bus on start.
-        ++ [
-          {
-            # NM secret agent — handles WPA Enterprise credential prompts and
-            # shows a tray icon for network status/connection management.
-            command = [
-              "${pkgs.networkmanagerapplet}/bin/nm-applet"
-            ];
-          }
-        ];
+        spawn-at-startup =
+          lib.optionals (!cfg.nixbookShellConfig.enable) [
+            # nixbook-shell paints its own wallpaper layer (and owns wallpaper
+            # switching via its Settings panel), so swaybg would just burn a
+            # second full-screen surface underneath it.
+            {
+              command = [
+                "${pkgs.swaybg}/bin/swaybg"
+                "-m"
+                "fill"
+                "-i"
+                mainWallpaper
+              ];
+            }
+          ]
+          # No xwayland-satellite or environment-import entries: niri (>= 25.08)
+          # spawns xwayland-satellite itself on the first X11 client (found in
+          # PATH via nixosModules/niri.nix) and restarts it if it dies, and
+          # imports WAYLAND_DISPLAY, DISPLAY, XDG_CURRENT_DESKTOP,
+          # XDG_SESSION_TYPE and NIRI_SOCKET into systemd and D-Bus on start.
+          ++ [
+            {
+              # NM secret agent — handles WPA Enterprise credential prompts and
+              # shows a tray icon for network status/connection management.
+              command = [
+                "${pkgs.networkmanagerapplet}/bin/nm-applet"
+              ];
+            }
+          ];
 
         input = {
           keyboard = {
@@ -497,7 +505,7 @@ in
           }
         ];
 
-        animations = pixelateAnimations.animations // {
+        animations = personaAnimations.animations // {
           slowdown = 1.0;
 
           horizontal-view-movement = {
