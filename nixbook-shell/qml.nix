@@ -156,6 +156,12 @@ pkgs.stdenvNoCC.mkDerivation {
     done
     # ...and its sounds, synthesized (assets/chiikawa/sounds.py).
     python3 assets/chiikawa/sounds.py assets/chiikawa/sounds
+    # Cyberpunk 2077 theme art (assets/cyberpunk/*.svg, generate.py): the
+    # wallpapers (1920x1080 viewBox: 4K), and its synthesized sounds.
+    for svg in assets/cyberpunk/*.svg; do
+      resvg --zoom 2 "$svg" "''${svg%.svg}.png"
+    done
+    python3 assets/cyberpunk/sounds.py assets/cyberpunk/sounds
     # The launcher's emoji list (services/Emojis.qml): Unicode's emojis with
     # CLDR's English keywords.
     python3 ${./scripts/emojis.py} \

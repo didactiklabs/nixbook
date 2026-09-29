@@ -32,6 +32,14 @@
       "shapes": true,
       "variant": "chiikawa"
     },
+    "cyberpunk": {
+      "fonts": true,
+      "glitch": true,
+      "motion": true,
+      "palette": true,
+      "shapes": true,
+      "variant": "yellow"
+    },
     "extraBackgroundTint": true,
     "fakeScreenRounding": 2,
     "fonts": {

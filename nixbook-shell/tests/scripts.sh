@@ -285,6 +285,7 @@ if python3 "$scripts/theme-palettes.py" "$root/src/modules/common/themes.json" >
   expect_eq "theme-palettes.py: the p5 accent" '#ff1f2d' "$(jq -r '.themes.persona.palettes.p5.primary' "$tmp/palettes.json")"
   expect_eq "theme-palettes.py: the default theme" 'material' "$(jq -r '.default' "$tmp/palettes.json")"
   expect_eq "theme-palettes.py: a theme's defaultVariant" 'chiikawa' "$(jq -r '.themes.chiikawa.default' "$tmp/palettes.json")"
+  expect_eq "theme-palettes.py: the Cyberpunk variants, yellow first" '["yellow","red"]' "$(jq -c '.themes.cyberpunk.variants' "$tmp/palettes.json")"
 else
   fail "theme-palettes.py reads themes.json" "$(cat "$tmp/err")"
 fi
@@ -322,6 +323,8 @@ greeter_theme usagi '{"appearance":{"theme":"chiikawa","chiikawa":{"variant":"us
 expect_eq "greeter-theme.sh: a Chiikawa variant's background" "#fffbeb" "$(bg usagi)"
 greeter_theme chiikawa '{"appearance":{"theme":"chiikawa"}}' '{"background":"#123456"}'
 expect_eq "greeter-theme.sh: a theme's default variant" "#fffaf6" "$(bg chiikawa)"
+greeter_theme cyberpunk-red '{"appearance":{"theme":"cyberpunk","cyberpunk":{"variant":"red"}}}'
+expect_eq "greeter-theme.sh: a Cyberpunk variant's background" "#0a0506" "$(bg cyberpunk-red)"
 greeter_theme material '{"appearance":{"theme":"material"}}' '{"background":"#123456","primary":"#abcdef"}'
 expect_eq "greeter-theme.sh: Material: the wallpaper palette" "#123456" "$(bg material)"
 greeter_theme persona-wallpaper '{"appearance":{"theme":"persona","persona":{"palette":false}}}' '{"background":"#123456"}'

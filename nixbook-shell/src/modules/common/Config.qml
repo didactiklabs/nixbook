@@ -193,6 +193,15 @@ Singleton {
                     property bool fonts: true     // rounded font (Nunito)
                     property bool mascot: true    // the character on panels and the loading screen
                 }
+                // Cyberpunk 2077 theme: see modules/common/Cyberpunk.qml.
+                property JsonObject cyberpunk: JsonObject {
+                    property string variant: "yellow" // yellow | red
+                    property bool palette: true   // the neon-on-black palette
+                    property bool motion: true    // sharp, snappy animations
+                    property bool shapes: true    // near-square corners
+                    property bool fonts: true     // condensed tech font (Rajdhani)
+                    property bool glitch: true    // RGB-split glitch and scanlines in the cut-in
+                }
                 property bool extraBackgroundTint: true
                 property int fakeScreenRounding: 2 // 0: None | 1: Always | 2: When not fullscreen
                 property JsonObject fonts: JsonObject {

@@ -252,4 +252,29 @@ lib.runTests {
       })).palette.background;
     expected = "#fffaf6";
   };
+  testThemeOfCyberpunk = {
+    expr =
+      let
+        t = shellLib.themeOf (evalSettings {
+          appearance.theme = "cyberpunk";
+          appearance.cyberpunk.variant = "red";
+        });
+      in
+      [
+        t.variant
+        t.palette.primary
+      ];
+    expected = [
+      "red"
+      "#ff5a4f"
+    ];
+  };
+  testCyberpunkDefaultVariant = {
+    expr = (shellLib.themeOf { appearance.theme = "cyberpunk"; }).variant;
+    expected = "yellow";
+  };
+  testCyberpunkBadVariantFails = {
+    expr = fails (evalSettings { appearance.cyberpunk.variant = "blue"; }).appearance.cyberpunk.variant;
+    expected = true;
+  };
 }

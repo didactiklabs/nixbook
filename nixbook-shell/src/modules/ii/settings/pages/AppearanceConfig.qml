@@ -624,6 +624,56 @@ ContentPage {
             }
         }
 
+        // Cyberpunk 2077 theme options (only while it is the theme).
+        ContentSection {
+            visible: Themes.is("cyberpunk")
+            icon: "memory"
+            shape: MaterialShape.Shape.Square
+            title: Translation.tr("Cyberpunk 2077 style")
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "appearance.cyberpunk.palette";
+                    buttonIcon: "palette"
+                    text: Translation.tr("Neon palette (instead of wallpaper)")
+                    checked: Config.options.appearance.cyberpunk.palette
+                    enabled: !nixManaged
+                    onCheckedChanged: { Config.options.appearance.cyberpunk.palette = checked }
+                }
+                ConfigSwitch {
+                    configKey: "appearance.cyberpunk.motion";
+                    buttonIcon: "animation"
+                    text: Translation.tr("Sharp, snappy animations")
+                    checked: Config.options.appearance.cyberpunk.motion
+                    enabled: !nixManaged
+                    onCheckedChanged: { Config.options.appearance.cyberpunk.motion = checked }
+                }
+                ConfigSwitch {
+                    configKey: "appearance.cyberpunk.shapes";
+                    buttonIcon: "crop_square"
+                    text: Translation.tr("Near-square corners")
+                    checked: Config.options.appearance.cyberpunk.shapes
+                    enabled: !nixManaged
+                    onCheckedChanged: { Config.options.appearance.cyberpunk.shapes = checked }
+                }
+                ConfigSwitch {
+                    configKey: "appearance.cyberpunk.fonts";
+                    buttonIcon: "title"
+                    text: Translation.tr("Condensed tech font (Rajdhani)")
+                    checked: Config.options.appearance.cyberpunk.fonts
+                    enabled: !nixManaged
+                    onCheckedChanged: { Config.options.appearance.cyberpunk.fonts = checked }
+                }
+                ConfigSwitch {
+                    configKey: "appearance.cyberpunk.glitch";
+                    buttonIcon: "blur_on"
+                    text: Translation.tr("Glitch and scanlines in the cut-in")
+                    checked: Config.options.appearance.cyberpunk.glitch
+                    enabled: !nixManaged
+                    onCheckedChanged: { Config.options.appearance.cyberpunk.glitch = checked }
+                }
+            }
+        }
+
         ContentSection {
             icon: "settings"
             shape: MaterialShape.Shape.SoftBurst
