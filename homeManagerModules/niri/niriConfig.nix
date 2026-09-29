@@ -47,8 +47,9 @@ let
 
   # Window open/close slash colours: the Persona variant's own accent and ink
   # (P5 red/white, P3R cyan, P4 yellow), else the stylix accent/foreground.
+  shellEnabled = config.programs.nixbook-shell.enable or false;
   personaAnimations = import ./personaAnimations.nix (
-    if (config.programs.nixbook-shell.enable or false) && shellTheme.id == "persona" then
+    if shellEnabled && shellTheme.id == "persona" then
       {
         inherit lib;
         accent = shellTheme.variantPalette.primary;
@@ -61,6 +62,18 @@ let
         ink = config.lib.stylix.colors.withHashtag.base05;
       }
   );
+  liveAnimations = "${config.xdg.configHome}/niri/nixbook-shell-animations.kdl";
+  # Fails the build if niri would reject the template once filled.
+  animationsTemplate =
+    pkgs.runCommand "nixbook-shell-animations.kdl.in" { template = personaAnimations.kdlTemplate; }
+      ''
+        t=$template
+        t=''${t//@ACCENT@/vec3(1.0, 0.0, 0.0)}
+        t=''${t//@INK@/vec3(1.0, 1.0, 1.0)}
+        printf '%s\n' "$t" >check.kdl
+        ${lib.getExe config.programs.niri.package} validate -c check.kdl
+        printf '%s' "$template" >$out
+      '';
 in
 {
   config = lib.mkIf cfg.niriConfig.enable {
@@ -222,9 +235,20 @@ in
                   xray true
               }
           }
+          ${lib.optionalString shellEnabled ''
 
+            // nixbook-shell's live theme colours for the open/close slash
+            // (last, so it overrides the baked ones above).
+            include optional=true "${liveAnimations}"
+          ''}
         ''
       );
+
+    # The slash with its colours left open, filled in by nixbook-shell
+    # (services/NiriThemeAnimations.qml) into ${liveAnimations}.
+    xdg.configFile."niri/nixbook-shell-animations.kdl.in" = lib.mkIf shellEnabled {
+      source = animationsTemplate;
+    };
 
     programs.niri = {
       settings = {

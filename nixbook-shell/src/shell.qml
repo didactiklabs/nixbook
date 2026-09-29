@@ -49,6 +49,7 @@ ShellRoot {
         UpdateState.load()
         CalendarEvents.load()
         ThemeWallpapers.load()
+        NiriThemeAnimations.load()
         LyricsService.restartLyrics()
         Preloader.load()
     }
