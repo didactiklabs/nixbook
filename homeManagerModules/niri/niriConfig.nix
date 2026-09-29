@@ -892,6 +892,12 @@ in
                   "search"
                   "themeToggle"
                 ];
+                # Window layouts: the launcher as a picker (restore one, or
+                # type a name to save the windows as they are).
+                "Mod+G" = [
+                  "search"
+                  "layoutsToggle"
+                ];
               }
           )
         )

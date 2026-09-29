@@ -63,6 +63,7 @@
         "utilButtons"
         "systemIcons"
         "vpnStatus"
+        "desktopControl"
         "batteryIndicator"
         "powerButton"
         "updatesCount"

@@ -590,6 +590,7 @@
       "app": ">",
       "clipboard": ";",
       "emojis": ":",
+      "layouts": "#",
       "math": "=",
       "shellCommand": "$",
       "showDefaultActionsWithoutPrefix": true,

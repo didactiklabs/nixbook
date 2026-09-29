@@ -162,6 +162,18 @@ Scope {
         GlobalStates.overviewOpen = true;
     }
 
+    // The launcher as a window layout picker (LauncherSearch, WindowLayouts).
+    function toggleLayouts() {
+        if (GlobalStates.overviewOpen && overviewScope.dontAutoCancelSearch) {
+            GlobalStates.overviewOpen = false;
+            return;
+        }
+        WindowLayouts.refresh();
+        overviewScope.dontAutoCancelSearch = true;
+        panelWindow.setSearchingText(Config.options.search.prefix.layouts);
+        GlobalStates.overviewOpen = true;
+    }
+
     function toggleThemes() {
         if (GlobalStates.overviewOpen && overviewScope.dontAutoCancelSearch) {
             GlobalStates.overviewOpen = false;
@@ -198,6 +210,9 @@ Scope {
         }
         function themeToggle() {
             overviewScope.toggleThemes();
+        }
+        function layoutsToggle() {
+            overviewScope.toggleLayouts();
         }
     }
 }

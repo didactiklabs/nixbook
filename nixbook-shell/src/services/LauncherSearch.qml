@@ -16,7 +16,7 @@ Singleton {
     property string query: ""
 
     function ensurePrefix(prefix) {
-        if ([Config.options.search.prefix.action, Config.options.search.prefix.app, Config.options.search.prefix.clipboard, Config.options.search.prefix.emojis, Config.options.search.prefix.symbols, Config.options.search.prefix.themes, Config.options.search.prefix.math, Config.options.search.prefix.shellCommand, Config.options.search.prefix.webSearch,].some(i => root.query.startsWith(i))) {
+        if ([Config.options.search.prefix.action, Config.options.search.prefix.app, Config.options.search.prefix.clipboard, Config.options.search.prefix.emojis, Config.options.search.prefix.symbols, Config.options.search.prefix.themes, Config.options.search.prefix.layouts, Config.options.search.prefix.math, Config.options.search.prefix.shellCommand, Config.options.search.prefix.webSearch,].some(i => root.query.startsWith(i))) {
             root.query = prefix + root.query.slice(1);
         } else {
             root.query = prefix + root.query;
@@ -537,6 +537,54 @@ Singleton {
                     }
                 });
             });
+        } else if (root.query.startsWith(Config.options.search.prefix.layouts)) {
+            // Saved window layouts (WindowLayouts.qml): restore one, or save
+            // the windows under the typed name.
+            const typed = StringUtils.cleanPrefix(root.query, Config.options.search.prefix.layouts).trim();
+            const terms = typed.toLowerCase().split(/\s+/).filter(Boolean);
+            const results = WindowLayouts.layouts.filter(l => {
+                const haystack = `${l.name} ${(l.apps ?? []).join(" ")}`.toLowerCase();
+                return terms.every(term => haystack.includes(term));
+            }).map((l, i) => {
+                const obj = root.cachedResult("layout", l.name, {
+                    name: l.name,
+                    iconName: "view_quilt",
+                    iconType: LauncherSearchResult.IconType.Material,
+                    type: Translation.tr("Window layout"),
+                    comment: Translation.tr("%1 windows · %2").arg(l.windows).arg((l.apps ?? []).join(", ")),
+                    execute: () => WindowLayouts.restore(l.name)
+                });
+                obj.verb = WindowLayouts.current === l.name ? Translation.tr("Restore (current)") : Translation.tr("Restore");
+                return obj;
+            });
+            // Save: under the typed name when it's a new one, else into the current layout.
+            const exists = WindowLayouts.layouts.some(l => l.name === typed);
+            const saveName = typed.length > 0 && !exists ? typed : WindowLayouts.current;
+            if (saveName.length > 0 && WindowLayouts.validName(saveName)) {
+                const save = root.cachedResult("layout-save", saveName, {
+                    name: typed.length > 0 && !exists ? Translation.tr("Save the windows as “%1”").arg(saveName)
+                        : Translation.tr("Update “%1” with the windows as they are").arg(saveName),
+                    iconName: "save",
+                    iconType: LauncherSearchResult.IconType.Material,
+                    type: Translation.tr("Window layout"),
+                    comment: Translation.tr("Type a new name to save a new layout"),
+                    execute: () => WindowLayouts.save(saveName)
+                });
+                save.verb = Translation.tr("Save");
+                if (typed.length > 0 && !exists) results.unshift(save);
+                else results.push(save);
+            } else if (typed.length > 0 && !exists) {
+                const invalid = root.cachedResult("layout-invalid", typed, {
+                    name: Translation.tr("Letters, digits, '.', '-' and '_' only"),
+                    iconName: "error",
+                    iconType: LauncherSearchResult.IconType.Material,
+                    type: Translation.tr("Window layout"),
+                    execute: () => {}
+                });
+                invalid.verb = "";
+                results.push(invalid);
+            }
+            return results;
         } else if (root.query.startsWith(Config.options.search.prefix.themes)) {
             // Themes and their variants (Themes.qml): the ones Nix doesn't pin away
             const terms = StringUtils.cleanPrefix(root.query, Config.options.search.prefix.themes).toLowerCase().split(/\s+/).filter(Boolean);

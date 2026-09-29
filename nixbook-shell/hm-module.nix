@@ -536,6 +536,72 @@ in
       '';
     };
 
+    desktopMcp = {
+      settings = lib.mkOption {
+        type = lib.types.submodule {
+          freeformType = (pkgs.formats.json { }).type;
+          options.tools = lib.mkOption {
+            type = lib.types.listOf (
+              lib.types.enum [
+                "observe"
+                "screen"
+                "windows"
+                "input"
+                "shell"
+              ]
+            );
+            default = [
+              "observe"
+              "screen"
+              "windows"
+              "input"
+              "shell"
+            ];
+            description = ''
+              Tool groups AI agents get: `observe` (windows, workspaces,
+              apps), `screen` (screenshots, reading the clipboard), `windows`
+              (focus, move, close, launch apps), `input` (keyboard, pointer,
+              writing the clipboard), `shell` (the shell's IPC, notifications).
+            '';
+          };
+        };
+        default = { };
+        example = lib.literalExpression ''
+          {
+            tools = [ "observe" "windows" ];
+            actionsPerMinute = 60;
+            inputDenyApps = [ "^org\\.gnome\\.Nautilus$" ];
+          }
+        '';
+        description = ''
+          Settings of `nixbook-desktop-mcp`, the desktop control MCP server
+          AI agents (Claude Code, opencode, the shell's AI chat…) use to see
+          and drive the desktop, written to
+          `~/.config/nixbook-shell/desktop-mcp.json`. Other keys:
+          `inputDenyApps`, `inputDenyTitles` (regexes: no keyboard or pointer
+          input into those windows; set to replace the defaults, which cover
+          terminals, password managers and password prompts),
+          `shellIpcDenyTargets`, `allowSuperKey`, `maxTextLength`,
+          `actionsPerMinute`, `notifyOnControl`, `screenshotMaxEdge`.
+          `nixbook-desktop-mcp config` prints the effective settings.
+        '';
+      };
+
+      http = {
+        enable = lib.mkEnableOption ''
+          the desktop control MCP server over HTTP, for agents that can't
+          start it themselves (the `nixbook-desktop-mcp` user service). It
+          listens on 127.0.0.1 only, so nothing off this machine can reach
+          it and no firewall port is opened; clients need the bearer token
+          from `nixbook-desktop-mcp token`, and must run as this user'';
+        port = lib.mkOption {
+          type = lib.types.port;
+          default = 7823;
+          description = "Port on 127.0.0.1 of the HTTP MCP endpoint (`/mcp`).";
+        };
+      };
+    };
+
     assistant = {
       context = lib.mkOption {
         type = lib.types.lines;
@@ -754,6 +820,10 @@ in
     # Machine context for the AI assistant (see above).
     xdg.configFile."nixbook-shell/system-context.md".source = systemContextFile;
     xdg.configFile."nixbook-shell/system-facts.json".source = systemFactsFile;
+    # Desktop control for AI agents (scripts/desktop-mcp.py).
+    xdg.configFile."nixbook-shell/desktop-mcp.json".source =
+      (pkgs.formats.json { }).generate "desktop-mcp.json"
+        (cfg.desktopMcp.settings // { http.port = cfg.desktopMcp.http.port; });
 
     # Launcher entry for the Settings window (nixbook-shell's own launcher, fuzzel…).
     xdg.desktopEntries.nixbook-shell-settings = {
@@ -783,6 +853,9 @@ in
       pkgs.nunito
       # `dcal`: DankCalendar's CLI (accounts, sync) for the user too.
       cfg.package.passthru.dankcalendar
+      # `nixbook-desktop-mcp`: the desktop control MCP server, for
+      # `claude mcp add` and the like, and its pause/resume kill switch.
+      cfg.package.passthru.desktopMcp
     ];
 
     # The shell writes its settings, generated Material You palette and
@@ -895,6 +968,30 @@ in
         ExecStart = "${lib.getExe cfg.package} splash";
         Restart = "no";
         Slice = "app.slice";
+      };
+      Install.WantedBy = [ "graphical-session.target" ];
+    };
+
+    # The desktop control MCP server over HTTP (desktopMcp.http). It binds
+    # 127.0.0.1 itself; the unit also keeps it off IPv6 and any socket
+    # family but loopback TCP and Unix sockets (niri, Wayland, ydotoold).
+    systemd.user.services.nixbook-desktop-mcp = lib.mkIf cfg.desktopMcp.http.enable {
+      Unit = {
+        Description = "nixbook-shell desktop control MCP server (127.0.0.1 only)";
+        PartOf = [ "graphical-session.target" ];
+        After = [ "graphical-session.target" ];
+      };
+      Service = {
+        ExecStart = "${lib.getExe cfg.package.passthru.desktopMcp} serve --http --port ${toString cfg.desktopMcp.http.port}";
+        Restart = "on-failure";
+        RestartSec = 2;
+        Slice = "app.slice";
+        NoNewPrivileges = true;
+        RestrictAddressFamilies = [
+          "AF_UNIX"
+          "AF_INET"
+        ];
+        UMask = "0077";
       };
       Install.WantedBy = [ "graphical-session.target" ];
     };

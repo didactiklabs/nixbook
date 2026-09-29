@@ -176,6 +176,110 @@ With a model selected in the chat, all of this is only reference for the
 model's system prompt: it answers with its own knowledge too, and says when it
 isn't sure.
 
+## Desktop control for AI agents
+
+`nixbook-desktop-mcp` (`scripts/desktop-mcp.py`, also `nixbook-shell mcp`)
+lets an AI agent see and drive the desktop: list windows, workspaces and
+apps; focus, move, resize, close windows; launch apps; take screenshots (a
+monitor, a zoomed-in region, a window on screen), silently; type, press
+keys, click, drag, scroll, or several of these in one call (`run_steps`);
+the clipboard; the shell's own IPC (sidebars, launcher, lock…);
+notifications. It is a Model Context Protocol server, so
+any agent that speaks MCP can use it:
+
+```sh
+claude mcp add desktop -- nixbook-desktop-mcp            # Claude Code
+# opencode, Gemini CLI, Codex…: a local (stdio) server running
+# `nixbook-desktop-mcp`
+```
+
+The **Desktop Control** bar widget (`desktopControl` in a bar layout) shows
+it: a faint robot when idle, a pulsing one in the accent colour while an
+agent acts (its calls within the last 20 s), a red hand when paused; its
+tooltip names the last agent and tool. A click pauses every agent at once
+(even between the steps of a `run_steps` batch), another allows them again.
+`nixbook-shell ipc call desktopControl toggle` (or `pause`, `resume`,
+`status`) does the same from a key binding; agents can't call that target.
+
+Agents are slow mostly because every tool call is a model round trip, so
+the tools save calls: `launch_app` waits for the app's window and says
+which it is; every action's reply names the focused window; action tools
+take `screenshot_after: true` to return a screenshot of the result in the
+same call; `run_steps` does up to 20 actions (keys, typing, clicks, waits)
+in one call, each through the same guardrails; screenshots are JPEG (a
+fraction of a PNG's size; `screenshotFormat`, `screenshotQuality`).
+
+**Window layouts**: `save_layout` remembers where every window is (monitor,
+workspace, column and its width, or floating position and size, and the app
+that opens it) under a name; `restore_layout` puts them back in one call,
+starting the apps that were closed. The same layouts are yours in the shell,
+where the agents' pause doesn't apply: **Mod+G** opens the launcher as a
+layout picker (the `#` prefix: pick one to restore it, or type a new name to
+save the windows as they are), the desktop's right-click menu has a Window
+layouts submenu, and Settings → Window layouts lists them to restore,
+update, rename or delete. Key bindings can also call the `layouts` IPC target
+(`cycle`, `saveCurrent`, `restoreNumber N`, `restore NAME`, `save NAME`;
+agents can't call it), and scripts `nixbook-desktop-mcp layout …`.
+They live in `~/.local/state/nixbook-shell/layouts/`.
+
+The shell's AI chat (left sidebar) gets the same tools in its `functions`
+mode: looking at windows and apps runs at once; screenshots, the clipboard
+and every action show an Approve / Reject card first (screenshots then go to
+Gemini as an image).
+
+Over stdio (above) nothing listens anywhere: the agent starts the server
+and talks to it through a pipe. For an agent that can only reach a URL,
+`desktopMcp.http.enable` runs it as the `nixbook-desktop-mcp` user service
+at `http://127.0.0.1:7823/mcp`:
+
+- bound to 127.0.0.1 only: loopback traffic never leaves the machine and
+  isn't filtered by the firewall, so no port is opened and nothing on the
+  network can reach it;
+- a bearer token (`Authorization: Bearer $(nixbook-desktop-mcp token)`),
+  kept in `$XDG_RUNTIME_DIR/nixbook-desktop-mcp/token` (0600);
+- the connecting process must belong to the same user (checked in
+  `/proc/net/tcp`), so other accounts are refused even with the token;
+- the Host and Origin headers must be loopback ones (no DNS rebinding from
+  a web page); the unit allows only Unix and IPv4 sockets.
+
+Guardrails, whatever the transport:
+
+- no tool runs a command: apps start from their `.desktop` entry only (no
+  arguments, no terminal apps), niri actions and IPC calls are a fixed,
+  validated set, the `session`, `nixManaged` and `desktopControl` IPC
+  targets are off limits;
+- no keyboard or pointer input while the focused window is a terminal, a
+  password manager or a password prompt (`inputDenyApps`,
+  `inputDenyTitles`), no Super combinations (compositor bindings) or
+  Ctrl+Alt+Delete/F-keys;
+- the bar widget, `nixbook-desktop-mcp pause` (or `toggle`) stops every
+  tool (for every agent, until `resume`): bind it to a key as a panic button. Without a private
+  `$XDG_RUNTIME_DIR` nothing runs, since the pause couldn't be honoured;
+- at most 120 actions a minute, 4000 characters per text, a notification
+  when an agent starts driving the desktop (again after 5 idle minutes);
+- every call is logged to `~/.local/state/nixbook-shell/desktop-mcp.log`
+  (typed and copied text by length only).
+
+`programs.nixbook-shell.desktopMcp.settings` (written to
+`~/.config/nixbook-shell/desktop-mcp.json`) turns tool groups off (`tools`:
+`observe`, `screen`, `windows`, `input`, `shell`) and tunes the rest;
+`nixbook-desktop-mcp config` prints what applies. Keyboard input goes
+through `wtype` (Wayland virtual keyboard). The pointer goes through niri's
+virtual pointer (wlr-virtual-pointer, spoken by a small Wayland client in the
+script): absolute desktop coordinates without pointer acceleration, so
+clicks, drags and scrolls land on the exact logical pixel, on any monitor
+and scale; ydotool (approximate) is only a fallback where the protocol is
+missing, and `get_status` says which one is in use. Monitor and `region`
+screenshots (a region is captured at the monitor's full resolution, to zoom
+in on small targets) return a `mapping` that the pointer tools take as
+`screenshot`, so an agent clicks in image pixels without converting
+coordinates itself. Screenshots are taken with grim, silently: a window's
+is cropped from the screen (a floating window exactly; a tiled one comes
+with its monitor, since niri gives no position for tiled windows). A window
+off screen is only captured through niri with `offscreen: true`, which the
+tool tells agents to avoid: niri copies its captures to the clipboard and
+notifies (the previous clipboard is put back, but cliphist records it).
+
 ## Look and feel
 
 The type is Google Sans Flex (main, titles, numbers), with Space Grotesk for
@@ -290,28 +394,29 @@ ignored.
 
 ## Layout
 
-| Path               | What                                                                                           |
-| ------------------ | ---------------------------------------------------------------------------------------------- |
-| `default.nix`      | entry point (`package`, `homeManagerModules.default`, `lib`)                                   |
-| `package.nix`      | the launcher: runtime `PATH`, QML import path, `config` CLI                                    |
-| `dankcalendar.nix` | DankCalendar (`dcal`), the calendar and task sync, from `npins/`                               |
-| `qml.nix`          | the QML tree as installed (store-path fixups, Persona and Chiikawa art, emoji list)            |
-| `fonts.nix`        | the faces `appearance.fonts` names that nixpkgs lacks (Google Sans Flex, Space Grotesk)        |
-| `quickshell.nix`   | Quickshell from `quickshellSrc` plus `patches/`                                                |
-| `lib.nix`          | typed settings options generated from `builtin-defaults.json`                                  |
-| `hm-module.nix`    | the Home Manager module `programs.nixbook-shell`                                               |
-| `nixos-module.nix` | optional NixOS module: the system's toggles for the assistant                                  |
-| `greeter.nix`      | the login screen (`nixbook-shell.greeter`, imported by it)                                     |
-| `toggles.nix`      | discovers the `enable` toggles from an options tree                                            |
-| `scripts/`         | `config` CLI, its jq library, assistant facts, Anthropic usage, login screen theme, emoji list |
-| `npins/`           | default nixpkgs, quickshell, dankcalendar (+ flake-compat) pins                                |
-| `src/`             | the QML tree                                                                                   |
-| `tests/`           | script tests, lib unit tests, the self-containment check                                       |
+| Path               | What                                                                                                                       |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `default.nix`      | entry point (`package`, `homeManagerModules.default`, `lib`)                                                               |
+| `package.nix`      | the launcher: runtime `PATH`, QML import path, `config` CLI                                                                |
+| `dankcalendar.nix` | DankCalendar (`dcal`), the calendar and task sync, from `npins/`                                                           |
+| `qml.nix`          | the QML tree as installed (store-path fixups, Persona and Chiikawa art, emoji list)                                        |
+| `fonts.nix`        | the faces `appearance.fonts` names that nixpkgs lacks (Google Sans Flex, Space Grotesk)                                    |
+| `quickshell.nix`   | Quickshell from `quickshellSrc` plus `patches/`                                                                            |
+| `lib.nix`          | typed settings options generated from `builtin-defaults.json`                                                              |
+| `hm-module.nix`    | the Home Manager module `programs.nixbook-shell`                                                                           |
+| `nixos-module.nix` | optional NixOS module: the system's toggles for the assistant                                                              |
+| `greeter.nix`      | the login screen (`nixbook-shell.greeter`, imported by it)                                                                 |
+| `toggles.nix`      | discovers the `enable` toggles from an options tree                                                                        |
+| `scripts/`         | `config` CLI, its jq library, assistant facts, Anthropic usage, login screen theme, emoji list, desktop control MCP server |
+| `npins/`           | default nixpkgs, quickshell, dankcalendar (+ flake-compat) pins                                                            |
+| `src/`             | the QML tree                                                                                                               |
+| `tests/`           | script tests, lib unit tests, the self-containment check                                                                   |
 
 ## Tests
 
 ```sh
 bash tests/scripts.sh
+bash tests/desktop-mcp.sh    # the desktop control MCP server, against stub niri/wtype/grim… and a fake compositor
 nix-instantiate --eval --strict --json --expr 'import ./tests/lib.nix { }'   # []
 nix-instantiate --eval --strict --read-write-mode tests/standalone.nix \
   --arg homeManager '<home-manager checkout>'                                  # "ok"

@@ -305,6 +305,18 @@ ContentPage {
                                 Config.options.search.prefix.themes = value;
                             }
                         }
+                        ConfigTextArea {
+                            configKey: "search.prefix.layouts";
+                            enabled: !nixManaged;
+                            Layout.fillWidth: true
+                            buttonIcon: "view_quilt"
+                            fieldWidth: 100
+                            text: Translation.tr("Window layouts")
+                            value: Config.options.search.prefix.layouts
+                            onValueChanged: {
+                                Config.options.search.prefix.layouts = value;
+                            }
+                        }
                     }
                 }
             }
