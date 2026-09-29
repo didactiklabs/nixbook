@@ -283,9 +283,7 @@ PanelWindow {
             || root.action === RegionSelection.SnipAction.RecordWithSound;
         let command;
         if (root.snipWindowId !== "" && !isRecording) {
-            const windowPath = `${root.screenshotDir}/window-${root.snipWindowId}`;
-            command = ScreenshotAction.getWindowCommand(root.snipWindowId, windowPath,
-                ScreenshotAction.getCommand(0, 0, 0, 0, windowPath, screenshotAction, screenshotDir));
+            command = ScreenshotAction.getWindowCommand(root.snipWindowId, screenshotAction, screenshotDir);
         } else {
             root.snipped = !isRecording; // the command reads and removes the capture
             command = ScreenshotAction.getCommand(

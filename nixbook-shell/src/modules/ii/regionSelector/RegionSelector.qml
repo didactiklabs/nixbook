@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import qs
 import qs.modules.common
+import qs.modules.common.functions
 import qs.services
 import QtQuick
 import Quickshell
@@ -26,7 +27,10 @@ Scope {
     Connections {
         target: GlobalStates
         function onRegionSelectorOpenChanged() {
-            if (GlobalStates.regionSelectorOpen) niriConfigFile.reload();
+            if (!GlobalStates.regionSelectorOpen) return;
+            niriConfigFile.reload();
+            // The previous copies' files, kept for their notification image.
+            Quickshell.execDetached(["bash", "-c", `rm -f '${StringUtils.shellSingleQuoteEscape(Directories.screenshotTemp)}'/{window-,snip-}*.png`]);
         }
     }
     
