@@ -317,10 +317,23 @@ nix-instantiate --eval --strict --read-write-mode tests/standalone.nix \
   --arg homeManager '<home-manager checkout>'                                  # "ok"
 ```
 
-`bash tests/perf.sh` (`tests/run.sh shell-perf` in nixbook) is the
-performance score: the shell in a headless sway (software rendering, Nix's
-pinned tools, a throwaway home), once per theme (Material, Persona 5 Royal,
-Chiikawa), measuring startup (until the QML is loaded), idle CPU over 30 s
-after 20 s to settle, and resident memory; `score = 1000 / mean(startup_s +
-cpu_% + rss_MB / 100)`, higher is better. Compare scores from the same
-machine only; nixbook's AGENTS.md keeps the latest.
+`bash tests/perf.sh` (`tests/run.sh shell-perf` in nixbook) measures
+performance and smoothness: the shell in a headless sway (real OpenGL on
+Mesa's llvmpipe, Nix's pinned tools, a throwaway home), in each theme
+(Material, Persona 5 Royal, Chiikawa), driven like a person would (the
+launcher typed into, the AI chat, the right sidebar, a wallpaper change, the
+settings window): startup, idle CPU (and the clock's minute change), memory,
+and for the interactions the UI-thread CPU (what makes typing lag), the time
+spent drawing frames, and heavy frames (jank). About 5 minutes; `--quick`
+(Material, one round) about 1.5.
+
+- `--compare [REF]` (default `origin/main`) runs REF and this tree
+  alternately on the same machine and gives each metric's change with a
+  verdict (better / worse only when every A/B pair agrees and the change is
+  over 3%): the reliable way to judge a change.
+- The score (100 = the shell before the smoothness work of 2026-09-29,
+  higher is better) converts timings to a reference machine through a
+  calibration run, so it varies little between machines; nixbook's AGENTS.md
+  keeps the latest.
+
+The script's header explains every metric and what keeps runs comparable.
