@@ -507,7 +507,7 @@ Singleton {
                 const emoji = entry.match(/^\s*(\S+)/)?.[1] || "";
                 return root.cachedResult("emoji", entry, {
                     rawValue: entry,
-                    name: entry.replace(/^\s*\S+\s+/, ""),
+                    name: entry.replace(/^\s*\S+\s+/, "").split("\t")[0],
                     iconName: emoji,
                     iconType: LauncherSearchResult.IconType.Text,
                     verb: Translation.tr("Copy"),

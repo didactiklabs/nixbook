@@ -156,6 +156,13 @@ pkgs.stdenvNoCC.mkDerivation {
     done
     # ...and its sounds, synthesized (assets/chiikawa/sounds.py).
     python3 assets/chiikawa/sounds.py assets/chiikawa/sounds
+    # The launcher's emoji list (services/Emojis.qml): Unicode's emojis with
+    # CLDR's English keywords.
+    python3 ${./scripts/emojis.py} \
+      ${pkgs.unicode-emoji}/share/unicode/emoji/emoji-test.txt \
+      ${pkgs.cldr-annotations}/share/unicode/cldr/common/annotations/en.xml \
+      ${pkgs.cldr-annotations}/share/unicode/cldr/common/annotationsDerived/en.xml \
+      >assets/emojis.txt
     runHook postBuild
   '';
 
