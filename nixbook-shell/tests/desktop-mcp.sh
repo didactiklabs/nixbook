@@ -512,6 +512,36 @@ expect_not_contains "layout restore, monitors unplugged: nor piled onto a worksp
 expect_contains "layout restore, monitors unplugged: the others placed" "$(cat "$calls")" "move-window-to-monitor --id 1 eDP-1"
 expect_contains "layout save, monitors unplugged: not overwritten" "$(layout_cmd save docked)" "has windows on DP-2, DP-3, not connected now"
 expect_eq "layout save, monitors unplugged: file kept" DP-2 "$(jq -r '.windows[] | select(.app_id=="org.gnome.TextEditor") | .monitor' "$XDG_STATE_HOME/nixbook-shell/layouts/docked.json")"
+# The setting (--close-others): the windows the layout doesn't have close.
+jq -c '.name = "browsing" | .windows |= map(select(.app_id == "firefox" or .app_id == "kitty"))' \
+  "$layout" >"$XDG_STATE_HOME/nixbook-shell/layouts/browsing.json"
+reset_calls
+out=$(layout_cmd restore browsing)
+expect_not_contains "layout restore: the other windows stay open by default" "$(cat "$calls")" "close-window"
+reset_calls
+out=$(layout_cmd restore browsing --close-others)
+expect_contains "layout restore --close-others: says so" "$out" "restored layout 'browsing': 2 of 2 windows placed, 3 others closed"
+expect_contains "layout restore --close-others: which" "$out" "closed: org.gnome.Calculator, org.gnome.Nautilus, org.gnome.TextEditor"
+expect_eq "layout restore --close-others: closes them" "3 4 5" "$(grep -o 'close-window --id [0-9]*' "$calls" | awk '{print $3}' | sort | xargs)"
+expect_eq "layout restore --close-others: logged" true "$(jq -r 'select(.tool=="restore_layout") | .args.close_others' "$XDG_STATE_HOME/nixbook-shell/desktop-mcp.log" | tail -n 1)"
+# After work (the last one) comes browsing.
+layout_cmd restore work >/dev/null
+reset_calls
+out=$(layout_cmd cycle --close-others)
+expect_contains "layout cycle --close-others" "$out" "restored layout 'browsing': 2 of 2 windows placed, 3 others closed"
+# A monitor of the layout unplugged: which windows were on it can't be told.
+jq -c '.name = "browsing-docked" | .windows |= map(if .app_id == "kitty" then .monitor = "DP-3" else . end)' \
+  "$XDG_STATE_HOME/nixbook-shell/layouts/browsing.json" >"$XDG_STATE_HOME/nixbook-shell/layouts/browsing-docked.json"
+reset_calls
+out=$(layout_cmd restore browsing-docked --close-others)
+expect_contains "layout restore --close-others, monitor unplugged: says so" "$out" "other windows not closed: DP-3 not connected"
+expect_not_contains "layout restore --close-others, monitor unplugged: nothing closed" "$(cat "$calls")" "close-window"
+# Not for agents: their restore_layout never closes windows.
+reset_calls
+out=$(call restore_layout '{"name":"browsing","close_others":true}')
+expect_not_contains "restore_layout: agents can't close the other windows" "$(cat "$calls")" "close-window"
+layout_cmd delete browsing-docked >/dev/null
+layout_cmd delete browsing >/dev/null
 layout_cmd delete docked >/dev/null
 layout_cmd delete games >/dev/null
 expect_eq "layout delete" "|work" "$(layout_cmd list | jq -r '"\(.current)|\([.layouts[].name] | join(" "))"')"

@@ -966,6 +966,10 @@ Singleton {
                 property string sortMode: "time"
             }
 
+            property JsonObject windowLayouts: JsonObject {
+                property bool closeOthers: false // Restoring a layout closes the windows it doesn't have
+            }
+
             property JsonObject windows: JsonObject {
                 property bool showTitlebar: true // Client-side decoration for shell apps
                 property bool centerTitle: true

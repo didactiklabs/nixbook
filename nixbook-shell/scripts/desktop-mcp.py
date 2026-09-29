@@ -1329,7 +1329,7 @@ def current_layout():
 
 def match_windows(entries, current):
     """Pairs saved entries with open windows: same app_id, the same title
-    first. Returns (pairs, unmatched entries)."""
+    first. Returns (pairs, unmatched entries, windows not in the layout)."""
     free = list(current)
     pairs, missing = [], []
     for exact in (True, False):
@@ -1345,7 +1345,7 @@ def match_windows(entries, current):
             else:
                 rest.append(e)
         missing = rest
-    return pairs, missing
+    return pairs, missing, free
 
 
 @tool(
@@ -1364,7 +1364,9 @@ def match_windows(entries, current):
         ["name"],
     ),
 )
-def t_restore_layout(ctx, args):
+def t_restore_layout(ctx, args, close_others=False):
+    # close_others (the user's setting, not the agents' tool): close the
+    # windows the layout doesn't have, as their close button would.
     name = as_str(args, "name", max_len=64, pattern=LAYOUT_NAME)
     path = os.path.join(layouts_dir(), f"{name}.json")
     try:
@@ -1375,7 +1377,7 @@ def t_restore_layout(ctx, args):
     ctx.guard.check_rate()
     current = windows()
     focused_before = next((w["id"] for w in current if w.get("is_focused")), None)
-    pairs, missing = match_windows(entries, current)
+    pairs, missing, others = match_windows(entries, current)
     report = []
 
     # Start what isn't open, all at once, then wait for their windows.
@@ -1482,13 +1484,29 @@ def t_restore_layout(ctx, args):
                 if dx or dy:
                     niri_action("move-floating-window", "--id", str(w["id"]), "-x", f"{dx:+d}", "-y", f"{dy:+d}")
 
-    if focused_before is not None and any(w["id"] == focused_before for w in windows()):
+    # 4. Close the windows the layout doesn't have. Not with a monitor of the
+    # layout unplugged: its windows are on the connected ones now, and which
+    # are which can't be told.
+    closed = []
+    if close_others and others:
+        if gone:
+            report.append(f"other windows not closed: {', '.join(gone)} not connected")
+        else:
+            for w in others:
+                niri_action("close-window", "--id", str(w["id"]))
+                closed.append(w)
+            report.append("closed: " + ", ".join(sorted({w.get("app_id") or "?" for w in closed})))
+
+    if focused_before is not None and not any(w["id"] == focused_before for w in closed) \
+            and any(w["id"] == focused_before for w in windows()):
         niri_action("focus-window", "--id", str(focused_before))
     set_current_layout(name)
     count_use("layouts", name)
     summary = f"restored layout {name!r}: {len(pairs)} of {len(entries)} windows placed"
     if gone:
         summary += f" ({', '.join(gone)} not connected: {len(left)} left where they are)"
+    if closed:
+        summary += f", {len(closed)} other{'s' if len(closed) > 1 else ''} closed"
     report.insert(0, summary)
     return [text("\n".join(report))]
 
@@ -2808,6 +2826,7 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
   layout list             saved window layouts (JSON), for the user and the shell:
   layout save|restore NAME  not subject to the agents' pause or tool groups
   layout delete NAME | rename OLD NEW | cycle (restore the next one)
+  layout restore|cycle --close-others  also close the windows not in the layout
   memory [show]           the desktop memory (JSON); memory prompt [QUERY]: the digest
   memory forget ID | clear [notes] [usage] [aliases] (default: all)
   config                  the effective configuration
@@ -2931,6 +2950,8 @@ def call_forget(note_id):
 def layout_command(cfg, argv):
     """Window layouts for the user (the shell's menus, key bindings): the
     same code as the agents' tools, without the pause and the tool groups."""
+    close_others = "--close-others" in argv
+    argv = [a for a in argv if a != "--close-others"]
     sub = argv[0] if argv else "list"
     ctx = Context(cfg, "cli", "you", notify=False)
 
@@ -2953,13 +2974,18 @@ def layout_command(cfg, argv):
         sub, argv = "restore", ["restore", names[(names.index(cur) + 1) % len(names)] if cur in names else names[0]]
     if sub in ("save", "restore"):
         name = name_arg(1)
-        fn = t_save_layout if sub == "save" else t_restore_layout
+        args = {"name": name}
         try:
-            out = fn(ctx, {"name": name})
+            if sub == "save":
+                out = t_save_layout(ctx, args)
+            else:
+                if close_others:
+                    args["close_others"] = True
+                out = t_restore_layout(ctx, {"name": name}, close_others=close_others)
         except ToolError as e:
-            audit("you", f"{sub}_layout", {"name": name}, f"error: {e}")
+            audit("you", f"{sub}_layout", args, f"error: {e}")
             raise
-        audit("you", f"{sub}_layout", {"name": name}, "ok")
+        audit("you", f"{sub}_layout", args, "ok")
         print("\n".join(c["text"] for c in out))
         if shutil.which("notify-send"):
             subprocess.run(["notify-send", "-a", "Window layouts", "-i", "view-grid",
