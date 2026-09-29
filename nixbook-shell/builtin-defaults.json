@@ -88,8 +88,8 @@
   "apps": {
     "bluetooth": "overskride",
     "changePassword": "kitty -1 --hold=yes fish -i -c 'passwd'",
-    "network": "kcmshell6 kcm_networkmanagement",
-    "networkEthernet": "kcmshell6 kcm_networkmanagement",
+    "network": "nm-connection-editor",
+    "networkEthernet": "nm-connection-editor",
     "taskManager": "plasma-systemmonitor --page-name Processes",
     "terminal": "kitty -1",
     "update": "systemctl start --no-block nixos-upgrade-manual.service",
