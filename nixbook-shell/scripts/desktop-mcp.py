@@ -15,7 +15,8 @@ Guardrails (see README.md, "Desktop control for AI agents"):
   - no tool runs arbitrary commands: apps are launched from their .desktop
     entry, niri actions and shell IPC calls are a fixed, validated set;
   - tool groups can be turned off (config `tools`); `pause` stops every tool
-    but `get_status` until `resume`, for every client at once;
+    but `get_status` until `resume`, for every client at once; paused until
+    the user first resumes, and the choice survives a reboot;
   - no keyboard or pointer input while the focused window is a terminal, a
     password manager or a password prompt (config `inputDenyApps`,
     `inputDenyTitles`); no Super combos (compositor bindings) or VT switches;
@@ -146,12 +147,17 @@ def runtime_dir():
     return path
 
 
-def paused_flag():
-    return os.path.join(runtime_dir(), "paused")
+def allowed_flag():
+    """The kill switch: agents may act only while this file exists. It lives
+    in the state directory, so the user's choice survives a reboot, and its
+    absence (a new install, a wiped state) means paused: desktop control is
+    off until the user allows it."""
+    return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-shell", "desktop-control-allowed")
 
 
 def is_paused():
-    return os.path.exists(paused_flag())
+    runtime_dir()  # no private runtime directory: nothing runs
+    return not os.path.exists(allowed_flag())
 
 
 def state_path():
@@ -2796,6 +2802,7 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
   tools                   the enabled tools, as MCP JSON
   call NAME [JSON]        run one tool; prints its text, exit 1 on refusal
   pause | resume | toggle stop / allow desktop control, for every client
+                          (paused until first resumed; kept across reboots)
   status                  paused or not, config and audit log paths
   token                   the HTTP bearer token (created if needed)
   layout list             saved window layouts (JSON), for the user and the shell:
@@ -2847,17 +2854,20 @@ def main(argv):
     if cmd == "toggle":
         cmd = "resume" if is_paused() else "pause"
     if cmd == "pause":
-        open(paused_flag(), "w").close()
+        try:
+            os.unlink(allowed_flag())
+        except FileNotFoundError:
+            pass
         write_state()
         if shutil.which("notify-send"):
             subprocess.run(["notify-send", "-a", "Desktop agent", "Desktop control paused"], capture_output=True)
         print("desktop control paused")
         return 0
     if cmd == "resume":
-        try:
-            os.unlink(paused_flag())
-        except FileNotFoundError:
-            pass
+        os.makedirs(os.path.dirname(allowed_flag()), mode=0o700, exist_ok=True)
+        fd = os.open(allowed_flag(), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
+            f.write("allowed\n")
         write_state()
         print("desktop control allowed")
         return 0

@@ -198,7 +198,8 @@ The **Desktop Control** bar widget (`desktopControl` in a bar layout) shows
 it: a faint robot when idle, a pulsing one in the accent colour while an
 agent acts (its calls within the last 20 s), a red hand when paused; its
 tooltip names the last agent and tool. A click pauses every agent at once
-(even between the steps of a `run_steps` batch), another allows them again.
+(even between the steps of a `run_steps` batch), another allows them again;
+it starts paused and remembers its position across reboots.
 `nixbook-shell ipc call desktopControl toggle` (or `pause`, `resume`,
 `status`) does the same from a key binding (nixbook binds it to
 **Mod+Shift+Escape**); agents can't call that target.
@@ -303,8 +304,12 @@ Guardrails, whatever the transport:
   `inputDenyTitles`), no Super combinations (compositor bindings) or
   Ctrl+Alt+Delete/F-keys;
 - the bar widget, `nixbook-desktop-mcp pause` (or `toggle`) stops every
-  tool (for every agent, until `resume`): bind it to a key as a panic button. Without a private
-  `$XDG_RUNTIME_DIR` nothing runs, since the pause couldn't be honoured;
+  tool (for every agent, until `resume`): bind it to a key as a panic button.
+  Desktop control starts paused: agents may act only while
+  `~/.local/state/nixbook-shell/desktop-control-allowed` exists, which
+  `resume` creates and `pause` removes, so the choice survives a reboot and a
+  fresh install (or wiped state) stays paused until you allow it. Without a
+  private `$XDG_RUNTIME_DIR` nothing runs;
 - at most 120 actions a minute, 4000 characters per text, a notification
   when an agent starts driving the desktop (again after 5 idle minutes);
 - every call is logged to `~/.local/state/nixbook-shell/desktop-mcp.log`

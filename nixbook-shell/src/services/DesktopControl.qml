@@ -13,6 +13,10 @@ import QtQuick
  * command, so every agent (Claude Code, opencode, the AI chat…) is stopped at
  * once, including a run_steps batch between two steps.
  *
+ * Paused until the user first allows it, and the choice survives a reboot:
+ * agents may act only while ~/.local/state/nixbook-shell/desktop-control-allowed
+ * exists (the server's kill switch), which this watches.
+ *
  * The `desktopControl` IPC target (pause, resume, toggle, status) is for the
  * user's key bindings; the MCP server refuses it to agents.
  */
@@ -20,7 +24,8 @@ Singleton {
     id: root
 
     readonly property string stateDir: `${Quickshell.env("XDG_RUNTIME_DIR")}/nixbook-desktop-mcp`
-    property bool paused: false
+    readonly property string allowedFlag: `${Quickshell.env("XDG_STATE_HOME") || `${Quickshell.env("HOME")}/.local/state`}/nixbook-shell/desktop-control-allowed`
+    property bool paused: true
     // { time (ms since the epoch), client, tool, outcome: running|ok|error|paused }
     property var last: null
     property real now: Date.now()
@@ -101,7 +106,6 @@ Singleton {
     function parse(text) {
         try {
             const state = JSON.parse(text);
-            root.paused = state.paused === true;
             root.last = state.last ?? null;
         } catch (e) {
             // Caught mid-write: the next change or tick reads it whole.
@@ -116,11 +120,20 @@ Singleton {
         onFileChanged: reload()
         onLoaded: root.parse(text())
         onLoadFailed: error => {
-            if (error == FileViewError.FileNotFound) {
-                root.paused = false;
+            if (error == FileViewError.FileNotFound)
                 root.last = null;
-            }
         }
+    }
+
+    // The kill switch itself: present = allowed, anything else = paused.
+    FileView {
+        id: allowedFile
+        path: root.allowedFlag
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: root.paused = false
+        onLoadFailed: error => root.paused = true
     }
 
     // Ages the "active" state, and re-reads the file in case a change was
@@ -132,6 +145,7 @@ Singleton {
         onTriggered: {
             root.now = Date.now();
             stateFile.reload();
+            allowedFile.reload();
         }
     }
 

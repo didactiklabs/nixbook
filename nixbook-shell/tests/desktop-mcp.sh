@@ -4,7 +4,7 @@
 #   - the MCP protocol over stdio (initialize, tools/list, tools/call, errors);
 #   - each tool's niri/wtype/ydotool command line;
 #   - the guardrails: denied windows, Super/VT combos, text cap, rate limit,
-#     pause, disabled groups, denied IPC targets, no arbitrary commands;
+#     pause (off by default, persistent), disabled groups, denied IPC targets, no arbitrary commands;
 #   - the pointer: the exact Wayland requests sent to a fake compositor
 #     (tests/fake-wayland.py), screenshot mappings, the ydotool fallback;
 #   - HTTP: loopback only, bearer token, Host/Origin checks.
@@ -182,6 +182,21 @@ export WAYLAND_DISPLAY=wayland-test
 call() { python3 "$mcp" call "$@" 2>&1 || true; }
 last_call() { tail -n 1 "$calls"; }
 reset_calls() { : >"$calls"; }
+
+# -- paused until first allowed, kept across reboots --------------------------
+
+allowed="$XDG_STATE_HOME/nixbook-shell/desktop-control-allowed"
+out=$(call list_windows)
+expect_contains "default: paused on a fresh install" "$out" "paused by the user"
+expect_eq "default: status says paused" true "$(python3 "$mcp" status | jq .paused)"
+python3 "$mcp" resume >/dev/null
+expect_eq "resume: persisted in the state directory" 600 "$(stat -c %a "$allowed")"
+rm -rf "$XDG_RUNTIME_DIR"
+expect_eq "resume: survives a reboot (runtime dir wiped)" false "$(python3 "$mcp" status | jq .paused)"
+python3 "$mcp" pause >/dev/null
+rm -rf "$XDG_RUNTIME_DIR"
+expect_eq "pause: survives a reboot" true "$(python3 "$mcp" status | jq .paused)"
+python3 "$mcp" resume >/dev/null
 
 # -- MCP over stdio ------------------------------------------------------------
 

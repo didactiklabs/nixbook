@@ -71,7 +71,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("AI agents (Claude Code, the AI chat, any MCP client using nixbook-desktop-mcp) can see and drive the desktop. Pausing refuses every tool to every agent until you allow them again; the Desktop Control bar widget and Mod+Shift+Escape do the same.")
+                text: Translation.tr("AI agents (Claude Code, the AI chat, any MCP client using nixbook-desktop-mcp) can see and drive the desktop. Pausing refuses every tool to every agent until you allow them again; the Desktop Control bar widget and Mod+Shift+Escape do the same. It starts paused and keeps its position across reboots.")
             }
 
             GroupedList {
