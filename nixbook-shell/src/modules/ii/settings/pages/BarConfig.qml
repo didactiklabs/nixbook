@@ -100,7 +100,7 @@ ContentPage {
         ContentSection {
             icon: "monitor"
             shape: MaterialShape.Shape.ClamShell
-            visible: Quickshell.screens.length > 1
+            shown: Quickshell.screens.length > 1
             title: Translation.tr("Screens")
             ContentSubsection {
                 title: Translation.tr("Show bar on")

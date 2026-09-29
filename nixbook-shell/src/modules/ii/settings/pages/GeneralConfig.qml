@@ -193,7 +193,7 @@ ContentPage {
             icon: "battery_android_full"
             shape: MaterialShape.Shape.SemiCircle
             title: Translation.tr("Battery")
-            visible: Battery.available
+            shown: Battery.available
 
             GroupedList {
                 ConfigRow {

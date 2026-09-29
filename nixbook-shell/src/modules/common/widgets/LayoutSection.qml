@@ -17,16 +17,9 @@ ContentSubsection {
     readonly property bool nixManaged: configKey !== "" && NixManaged.isPinned(configKey)
     // Settings menu "Editable only" filter: locked settings drop out of the
     // list (containers hide once empty, see NixManaged.allFiltered).
+    // Hidden through ContentSubsection's `visible` (NixManaged.allFiltered
+    // counts this section's own `filteredOut`).
     readonly property bool filteredOut: nixManaged && NixManaged.hideLocked
-    // A real binding for the Binding below to restore: without one it
-    // restores the value it read on activation, the *effective* visibility,
-    // i.e. false when the filter was turned on from another page (pages stay
-    // loaded but hidden), and the item stayed hidden after turning it off.
-    visible: !root.filteredOut
-    Binding on visible {
-        when: root.filteredOut
-        value: false
-    }
     enabled: !nixManaged
     opacity: nixManaged ? 0.6 : 1
 

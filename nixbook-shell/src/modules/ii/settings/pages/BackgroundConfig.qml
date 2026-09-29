@@ -214,7 +214,7 @@ ContentPage {
                 ConfigSwitch {
                     configKey: "background.greeterWall";
                     enabled: !nixManaged;
-                    visible: page.greeterAvailable
+                    shown: page.greeterAvailable
                     id: syncGreeterWallpaperSwitch
                     buttonIcon: "sync"
                     text: Translation.tr("Login screen uses the lock screen wallpaper")
@@ -368,7 +368,7 @@ ContentPage {
 
                 GroupedList {
                     Layout.topMargin: 0
-                    visible: Config.options.background.centeredWallpaper
+                    shown: Config.options.background.centeredWallpaper
                     ConfigSelectionShapeArray {
                         configKey: "background.centeredWallpaperShape";
                         enabled: !nixManaged;
@@ -389,7 +389,7 @@ ContentPage {
                     ColorSelectionArray {
                         configKey: "background.centeredWallpaperColor";
                         enabled: !nixManaged;
-                        visible: Config.options.background.centeredWallpaper
+                        shown: Config.options.background.centeredWallpaper
                         icon: "palette"
                         text: Translation.tr("Background Color")
                         currentValue: Config.options.background.centeredWallpaperColor
@@ -400,7 +400,7 @@ ContentPage {
                     ConfigSlider {
                         configKey: "background.centeredWallpaperSize";
                         enabled: !nixManaged;
-                        visible: Config.options.background.centeredWallpaper
+                        shown: Config.options.background.centeredWallpaper
                         text: Translation.tr("Size")
                         value: Config.options.background.centeredWallpaperSize
                         usePercentTooltip: false
@@ -672,7 +672,7 @@ ContentPage {
             }
 
             ContentSubsection {
-                visible: settingsClock.digitalPresent
+                shown: settingsClock.digitalPresent
                 title: Translation.tr("Digital clock settings")
 
                 ConfigRow {
@@ -827,7 +827,7 @@ ContentPage {
             }
 
             ContentSubsection {
-                visible: settingsClock.cookiePresent
+                shown: settingsClock.cookiePresent
                 title: Translation.tr("Cookie clock settings")
                 GroupedList {   
                     ConfigSwitch {  
@@ -912,7 +912,7 @@ ContentPage {
 
             GroupedList {
                 Layout.topMargin: 10
-                visible: settingsClock.cookiePresent
+                shown: settingsClock.cookiePresent
                 ConfigSelectionArray {
                     configKey: "background.widgets.clock.cookie.dialNumberStyle";
                     enabled: !nixManaged;
@@ -1087,15 +1087,15 @@ ContentPage {
             }
             
             ContentSubsection {
-                visible: Config.options.background.widgets.clock.style === "pixel"
+                shown: Config.options.background.widgets.clock.style === "pixel"
                 title: Translation.tr("Pixel Clock Settings")
                 GroupedList {
-                    visible: Config.options.background.widgets.clock.style === "pixel"
+                    shown: Config.options.background.widgets.clock.style === "pixel"
                     ConfigSelectionArray {
                         configKey: "background.widgets.clock.pixel.orientation";
                         enabled: !nixManaged;
                         text: Translation.tr("Pixel clock orientation")
-                        visible: Config.options.background.widgets.clock.style === "pixel"
+                        shown: Config.options.background.widgets.clock.style === "pixel"
                         icon: "screen_rotation"
                         currentValue: Config.options.background.widgets.clock.pixel.orientation
                         onSelected: newValue => {
@@ -1513,7 +1513,7 @@ ContentPage {
 
             ContentSubsection {
                 title: Translation.tr("Show widgets on")
-                visible: Quickshell.screens.length > 1
+                shown: Quickshell.screens.length > 1
                 Layout.bottomMargin: 10
 
                 WidgetsMonitorSelector {
