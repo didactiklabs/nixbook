@@ -181,6 +181,15 @@ PanelWindow {
         }
     }
     property bool preparationDone: false
+    // Drawn once the file to crop exists and niri's frozen frame is here (so
+    // the overlay never shows over an empty view).
+    readonly property bool shown: root.preparationDone && frozenView.hasContent
+    // The captures of the screens not snipped are deleted on close (the
+    // snipped one is removed by the snip command once it has read it).
+    property bool snipped: false
+    Component.onDestruction: {
+        if (!root.snipped) Quickshell.execDetached(["rm", "-f", root.screenshotPath]);
+    }
     // A selection finished before the capture was ready: taken once it is.
     property bool snipPending: false
     onPreparationDoneChanged: {
@@ -278,6 +287,7 @@ PanelWindow {
             command = ScreenshotAction.getWindowCommand(root.snipWindowId, windowPath,
                 ScreenshotAction.getCommand(0, 0, 0, 0, windowPath, screenshotAction, screenshotDir));
         } else {
+            root.snipped = !isRecording; // the command reads and removes the capture
             command = ScreenshotAction.getCommand(
                 root.regionX * root.monitorScale, //
                 root.regionY * root.monitorScale, //
@@ -306,11 +316,12 @@ PanelWindow {
     }
 
     ScreencopyView { // For freezing
+        id: frozenView
         anchors.fill: parent
         live: false
         captureSource: root.screen
         visible: root.phase === RegionSelection.Phase.Select
-        opacity: root.preparationDone ? 1 : 0 // stays focusable (Esc) meanwhile
+        opacity: root.shown ? 1 : 0 // stays focusable (Esc) meanwhile
 
         focus: root.visible
         Keys.onPressed: (event) => {
@@ -329,7 +340,7 @@ PanelWindow {
         anchors.fill: parent
         // Takes input from the start (opacity doesn't block it); its overlay
         // (dimming, guides, toolbar) shows once the capture is ready.
-        opacity: root.preparationDone ? 1 : 0
+        opacity: root.shown ? 1 : 0
         cursorShape: Qt.CrossCursor
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         hoverEnabled: true
@@ -471,8 +482,8 @@ PanelWindow {
             opacity: 0
             Connections {
                 target: root
-                function onPreparationDoneChanged() {
-                    if (!root.preparationDone) return;
+                function onShownChanged() {
+                    if (!root.shown) return;
                     regionSelectionControls.anchors.bottomMargin = 8;
                     regionSelectionControls.opacity = 1;
                 }
