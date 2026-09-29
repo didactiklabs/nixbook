@@ -272,6 +272,9 @@ in
     environment.systemPackages = with pkgs; [
       hfsprogs
       apfs-fuse
+      # Bluetooth manager (GTK4): opened by nixbook-shell's Bluetooth
+      # "Details" button and quick toggle right-click (apps.bluetooth).
+      overskride
     ];
     services = {
       # Auto-detect your time zone.

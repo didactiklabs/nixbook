@@ -57,8 +57,10 @@ DialogListItem {
                     color: Appearance.colors.colSubtext
                     elide: Text.ElideRight
                     text: {
-                        if (!root.device?.paired) return "";
-                        let statusText = BluetoothStatus.isConnected(root.device) ? Translation.tr("Connected") : Translation.tr("Paired");
+                        // Connected without pairing happens too (BLE devices, controllers)
+                        const connected = BluetoothStatus.isConnected(root.device);
+                        if (!connected && !root.device?.paired) return "";
+                        let statusText = connected ? Translation.tr("Connected") : Translation.tr("Paired");
                         if (!root.device?.batteryAvailable) return statusText;
                         statusText += ` • ${Math.round(root.device?.battery * 100)}%`;
                         return statusText;

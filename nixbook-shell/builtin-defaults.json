@@ -86,7 +86,7 @@
     }
   },
   "apps": {
-    "bluetooth": "kcmshell6 kcm_bluetooth",
+    "bluetooth": "overskride",
     "changePassword": "kitty -1 --hold=yes fish -i -c 'passwd'",
     "network": "kcmshell6 kcm_networkmanagement",
     "networkEthernet": "kcmshell6 kcm_networkmanagement",
