@@ -24,6 +24,29 @@ let
     builtins.readFile ./scripts/anthropic-usage.sh
   );
 
+  # Desktop control for AI agents (scripts/desktop-mcp.py): an MCP server
+  # (`nixbook-desktop-mcp`, also `nixbook-shell mcp`) and the command line
+  # the shell's AI chat calls, with the tools it drives on its PATH.
+  desktopMcp = pkgs.writeShellScriptBin "nixbook-desktop-mcp" ''
+    export PATH="${
+      lib.makeBinPath (
+        with pkgs;
+        [
+          niri
+          grim
+          wtype
+          ydotool
+          wl-clipboard
+          libnotify
+          imagemagick # scales window captures down
+        ]
+      )
+    }:$PATH"
+    export NIXBOOK_DESKTOP_MCP_QS="${quickshell}/bin/qs"
+    export NIXBOOK_DESKTOP_MCP_QS_CONFIG="${configName}"
+    exec ${pkgs.python3}/bin/python3 ${./scripts/desktop-mcp.py} "$@"
+  '';
+
   # Upstream probes ~40 tools with `command -v` and shells out to them from QML
   # `Process` blocks. Rather than patching every call site we inject them into
   # the shell's PATH; children inherit it.
@@ -59,6 +82,7 @@ let
       slurp
       wf-recorder
       ydotool
+      wtype # desktop-mcp keyboard input (virtual keyboard, no uinput)
       tesseract # region OCR
 
       playerctl
@@ -88,6 +112,7 @@ let
       dankcalendar # `dcal` — calendar events and tasks (CalendarEvents, Todo)
       shell.passthru.pythonEnv
       anthropicUsage # `anthropic-usage` — AnthropicUsage bar widget
+      desktopMcp # `nixbook-desktop-mcp` — desktop tools of the AI chat
     ];
 
   # QML modules the shell imports that quickshell itself is not built against,
@@ -151,6 +176,11 @@ let
       shift
       exec ${configTool} "$@"
     fi
+    # `nixbook-shell mcp …`: the desktop control MCP server (desktopMcp).
+    if [ "''${1:-}" = "mcp" ]; then
+      shift
+      exec ${lib.getExe desktopMcp} "$@"
+    fi
     export PATH="${lib.makeBinPath runtimeDeps}:$PATH"
     export NIXPKGS_QT6_QML_IMPORT_PATH="${qmlImportPath}''${NIXPKGS_QT6_QML_IMPORT_PATH:+:$NIXPKGS_QT6_QML_IMPORT_PATH}"
     # Quickshell resolves `image://icon/...` against this rather than the GTK
@@ -182,6 +212,7 @@ launcher.overrideAttrs (old: {
       configName
       settingsLib
       cliphistWatch
+      desktopMcp
       fonts
       ;
   };

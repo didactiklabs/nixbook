@@ -156,6 +156,7 @@ Singleton {
                         "required": ["command"]
                     }
                 },
+                ...root.desktopToolDecls("gemini"),
             ]}],
             "search": [{
                 "google_search": {}
@@ -210,6 +211,7 @@ Singleton {
                         }
                     },
                 },
+                ...root.desktopToolDecls("openai"),
             ],
             "search": [],
             "none": [],
@@ -262,6 +264,7 @@ Singleton {
                         }
                     },
                 },
+                ...root.desktopToolDecls("mistral"),
             ],
             "search": [],
             "none": [],
@@ -481,6 +484,69 @@ Singleton {
                     .map(fileName => `${Directories.aiChats}/${fileName}`)
             }
         }
+    }
+
+    // Desktop control (scripts/desktop-mcp.py, `nixbook-desktop-mcp`): the
+    // same tools and guardrails as the MCP server other agents use. They join
+    // the "functions" tool set; the ones that only look at windows and apps
+    // run at once, the others wait for the user's approval like
+    // run_shell_command.
+    readonly property string desktopMcpCommand: "nixbook-desktop-mcp"
+    property var desktopTools: []
+    readonly property var desktopToolNames: desktopTools.map(t => t.name)
+
+    Process {
+        id: getDesktopTools
+        running: true
+        command: [root.desktopMcpCommand, "tools"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const tools = JSON.parse(text);
+                    if (Array.isArray(tools)) root.desktopTools = tools;
+                } catch (e) {
+                    console.log("[Ai] Desktop tools unavailable:", e);
+                }
+            }
+        }
+    }
+
+    // Gemini's schema dialect: no additionalProperties/title, one type.
+    function geminiSchema(schema) {
+        if (Array.isArray(schema)) return schema.map(s => root.geminiSchema(s));
+        if (!schema || typeof schema !== "object") return schema;
+        const out = {};
+        for (const [k, v] of Object.entries(schema)) {
+            if (k === "additionalProperties" || k === "title") continue;
+            if (k === "type" && Array.isArray(v)) out.type = "string";
+            else out[k] = (k === "enum" || k === "required") ? v : root.geminiSchema(v);
+        }
+        return out;
+    }
+
+    function desktopToolDecls(format) {
+        return root.desktopTools.map(t => {
+            const hasParams = Object.keys(t.inputSchema?.properties ?? {}).length > 0;
+            if (format === "gemini") {
+                const decl = { "name": t.name, "description": t.description };
+                if (hasParams) decl.parameters = root.geminiSchema(t.inputSchema);
+                return decl;
+            }
+            return {
+                "type": "function",
+                "function": {
+                    "name": t.name,
+                    "description": t.description,
+                    "parameters": hasParams ? t.inputSchema : {},
+                },
+            };
+        });
+    }
+
+    // Only looking at windows and apps runs without approval: a screenshot
+    // or the clipboard would leave for the model's provider.
+    function isObserveDesktopTool(name) {
+        return root.desktopTools.some(t => t.name === name && t._meta?.["nixbook/group"] === "observe");
     }
 
     FileView {
@@ -877,16 +943,21 @@ Singleton {
 
         commandExecutionProc.message = responseMessage;
         commandExecutionProc.baseMessageContent = responseMessage.content;
-        commandExecutionProc.shellCommand = message.functionCall.args.command;
+        const name = message.functionName;
+        commandExecutionProc.argv = root.desktopToolNames.includes(name)
+            // An argument vector, never a shell line: the model's JSON isn't parsed by bash.
+            ? [root.desktopMcpCommand, "call", name, JSON.stringify(message.functionCall?.args ?? {})]
+            : ["bash", "-c", message.functionCall.args.command];
         commandExecutionProc.running = true; // Start the command execution
     }
 
     Process {
         id: commandExecutionProc
-        property string shellCommand: ""
+        property list<string> argv: []
         property AiMessageData message
         property string baseMessageContent: ""
-        command: ["bash", "-c", shellCommand]
+        command: argv
+        environment: ({ "NIXBOOK_DESKTOP_MCP_CLIENT": "nixbook-shell AI chat" })
         stdout: SplitParser {
             onRead: (output) => {
                 commandExecutionProc.message.functionResponse += output + "\n\n";
@@ -897,6 +968,12 @@ Singleton {
         }
         onExited: (exitCode, exitStatus) => {
             commandExecutionProc.message.functionResponse += `[[ Command exited with code ${exitCode} (${exitStatus}) ]]\n`;
+            // A screenshot (the screenshot tool, or an action's
+            // screenshot_after) goes to Gemini with the next request (the only
+            // format here that uploads images); the others get its description.
+            const shot = commandExecutionProc.message.functionResponse.match(/^Saved to (\/\S+\.(?:png|jpg))$/m);
+            if (shot && root.models[root.currentModelId]?.api_format === "gemini")
+                root.attachFile(shot[1]);
             requester.makeRequest(); // Continue
         }
     }
@@ -929,6 +1006,18 @@ Singleton {
             message.rawContent += contentToAppend;
             message.content += contentToAppend;
             message.functionPending = true; // Use thinking to indicate the command is waiting for approval
+        }
+        else if (root.desktopToolNames.includes(name)) {
+            if (root.isObserveDesktopTool(name)) {
+                // Looking at windows and apps only: no approval.
+                message.functionPending = true;
+                root.approveCommand(message);
+                return;
+            }
+            const contentToAppend = `\n\n**Desktop action request**\n\n\`\`\`command\n${root.desktopMcpCommand} call ${name} '${JSON.stringify(args ?? {})}'\n\`\`\``;
+            message.rawContent += contentToAppend;
+            message.content += contentToAppend;
+            message.functionPending = true;
         }
         else root.addMessage(Translation.tr("Unknown function call: %1").arg(name), "assistant");
     }

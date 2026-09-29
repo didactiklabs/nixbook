@@ -825,6 +825,7 @@ Singleton {
                     property string emojis: ":"
                     property string symbols: "."
                     property string themes: "@"
+                    property string layouts: "#"
                     property string math: "="
                     property string shellCommand: "$"
                     property string webSearch: "?"

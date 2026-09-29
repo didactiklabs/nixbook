@@ -96,9 +96,11 @@ cmd_repo() {
 }
 
 cmd_shell() {
-  need nix-instantiate jq python3
+  need nix-instantiate jq python3 curl
   section "nixbook-shell scripts"
   bash nixbook-shell/tests/scripts.sh
+  section "nixbook-shell desktop control MCP server"
+  bash nixbook-shell/tests/desktop-mcp.sh
 }
 
 cmd_iso() {

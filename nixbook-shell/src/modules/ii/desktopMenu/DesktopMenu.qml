@@ -284,6 +284,39 @@ Scope {
                             }
                         }
 
+                        // Saved window layouts (WindowLayoutsSubmenu)
+                        RippleButton {
+                            id: layoutsRow
+                            implicitHeight: 40
+                            colBackground: "transparent"
+                            colBackgroundHover: Appearance.colors.colLayer2
+                            contentItem: RowLayout {
+                                anchors { fill: parent; leftMargin: 12; rightMargin: 12 }
+                                spacing: 12
+                                MaterialSymbol { text: "view_quilt"; iconSize: Appearance.font.pixelSize.larger; color: Appearance.colors.colOnLayer1 }
+                                StyledText { Layout.fillWidth: true; text: Translation.tr("Window layouts"); font.pixelSize: Appearance.font.pixelSize.normal; color: Appearance.colors.colOnLayer1 }
+                                StyledText { text: WindowLayouts.current; font.pixelSize: Appearance.font.pixelSize.small; color: Appearance.colors.colOnLayer1; opacity: 0.6 }
+                                MaterialSymbol { text: "chevron_right"; iconSize: Appearance.font.pixelSize.normal; color: Appearance.colors.colOnLayer1; opacity: 0.4 }
+                            }
+
+                            Component {
+                                id: layoutsSubmenu
+                                WindowLayoutsSubmenu {}
+                            }
+
+                            HoverHandler {
+                                onHoveredChanged: {
+                                    if (hovered) {
+                                        submenuCloseTimer.stop()
+                                        menuWindow.submenuAnchorY = menuCard.y + layoutsRow.mapToItem(menuCard, 0, 0).y
+                                        menuWindow.openSubmenuComponent = layoutsSubmenu
+                                    } else {
+                                        submenuCloseTimer.restart()
+                                    }
+                                }
+                            }
+                        }
+
                         // Theme and its variant (ThemeSubmenu)
                         RippleButton {
                             id: themeRow
