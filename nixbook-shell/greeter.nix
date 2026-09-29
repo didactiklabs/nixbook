@@ -364,6 +364,7 @@ in
     };
     # The theme's fonts, for the greeter (it has none of the user's).
     fonts.packages = [
+      package.passthru.fonts or (import ./fonts.nix { inherit pkgs; })
       pkgs.roboto
       pkgs.oswald
       pkgs.nunito

@@ -29,6 +29,7 @@ Item {
     // right sidebar (quick settings).
     component IconHint: StyledPopup {
         id: hint
+        hoverTint: false // the group's shared pill lights up already
         property string title
         property string detail: ""
         property string action: root.clickHint

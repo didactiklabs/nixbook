@@ -42,6 +42,7 @@ ButtonMouseArea {
     // Interactions
     acceptedButtons: Qt.LeftButton | Qt.RightButton
     hoverEnabled: true
+    cursorShape: Qt.PointingHandCursor
     property int hoverIndex: {
         const position = root.vertical ? mouseY : mouseX;
         return Math.floor(position / root.workspaceButtonWidth);

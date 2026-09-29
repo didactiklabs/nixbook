@@ -767,6 +767,8 @@ in
     home.packages = [
       cfg.package
       cfg.package.passthru.quickshell
+      # The faces appearance.fonts names (fonts.nix).
+      cfg.package.passthru.fonts
       # Condensed display face used by the optional Persona theme
       # (appearance.persona.fonts) for titles and numbers.
       pkgs.oswald

@@ -20,6 +20,8 @@ MouseArea {
     implicitHeight: vertical ? speedColumn.implicitHeight + 6 : 32
 
     hoverEnabled: !Config.options.bar.tooltips.clickToShow
+    // Hover-only (its popup): the hand only when a click shows it.
+    cursorShape: Config.options.bar.tooltips.clickToShow ? Qt.PointingHandCursor : Qt.ArrowCursor
 
     function formatRate(rate, compact) {
         const units = compact

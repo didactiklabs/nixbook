@@ -24,6 +24,19 @@ LazyLoader {
     }
     readonly property real barThickness: barVertical ? Appearance.sizes.verticalBarWidth : Appearance.sizes.barHeight
 
+    // The widget's hover cue (BarPointerCue: the notch, and the state layer
+    // on a clickable one). `hoverTint: false` for a target that already
+    // shows its own hover state, `hoverCue: false` for none (a second popup
+    // on the same target).
+    property bool hoverCue: true
+    property bool hoverTint: root.hoverTarget?.cursorShape === Qt.PointingHandCursor
+    property Item _cue: BarPointerCue {
+        target: root.hoverTarget
+        popup: true
+        tint: root.hoverTint
+        active: root.hoverCue && Config.options.bar.tooltips.enable
+    }
+
     component: PanelWindow {
         id: popupWindow
 

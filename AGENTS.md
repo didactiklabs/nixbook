@@ -447,8 +447,9 @@ All git operations must follow this workflow. **Always ask the user for validati
 
 `run-tests shell-perf` (headless sway, Qt software rendering; higher score is better; compare runs on the same machine). Per theme: startup ms / idle CPU % / RSS MB.
 
-| Date       | Change                                                                                 | Score | Material          | Persona (P5)      | Chiikawa          |
-| ---------- | -------------------------------------------------------------------------------------- | ----- | ----------------- | ----------------- | ----------------- |
-| 2026-09-29 | Modern login screen per theme (greeter only; 141.8 before, same machine: noise)        | 139.0 | 2061 / 0.10 / 444 | 2004 / 0.23 / 486 | 2661 / 0.13 / 510 |
-| 2026-09-29 | Smoother launcher, sidebars, media card, wallpaper change (142.1 before, same machine) | 146.6 | 1829 / 0.13 / 454 | 1717 / 0.13 / 492 | 1772 / 0.27 / 516 |
-| 2026-09-28 | Baseline (themes, per-variant wallpapers, own login screen)                            | 136.6 | 2057 / 0.10 / 459 | 2064 / 0.27 / 514 | 2242 / 0.10 / 540 |
+| Date       | Change                                                                                                                                                              | Score | Material          | Persona (P5)      | Chiikawa          |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----------------- | ----------------- | ----------------- |
+| 2026-09-29 | Shipped fonts, bar pointer cues, update check timeouts (HEAD 97.3 in 3 A/B pairs on a loaded machine: idle CPU ~3 % for both; idle repaints equal, 16 vs 18 / 30 s) | 93.7  | 2001 / 3.70 / 454 | 2341 / 3.30 / 503 | 2191 / 3.67 / 525 |
+| 2026-09-29 | Modern login screen per theme (greeter only; 141.8 before, same machine: noise)                                                                                     | 139.0 | 2061 / 0.10 / 444 | 2004 / 0.23 / 486 | 2661 / 0.13 / 510 |
+| 2026-09-29 | Smoother launcher, sidebars, media card, wallpaper change (142.1 before, same machine)                                                                              | 146.6 | 1829 / 0.13 / 454 | 1717 / 0.13 / 492 | 1772 / 0.27 / 516 |
+| 2026-09-28 | Baseline (themes, per-variant wallpapers, own login screen)                                                                                                         | 136.6 | 2057 / 0.10 / 459 | 2064 / 0.27 / 514 | 2242 / 0.10 / 540 |
