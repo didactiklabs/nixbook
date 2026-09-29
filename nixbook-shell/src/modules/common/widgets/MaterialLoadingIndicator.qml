@@ -49,7 +49,7 @@ Rectangle {
     }
     Timer {
         interval: 800
-        running: root.loading
+        running: root.loading && ObjectUtils.shown(root)
         repeat: true
         onTriggered: leapAnimation.start()
     }

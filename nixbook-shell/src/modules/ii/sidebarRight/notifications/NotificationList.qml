@@ -37,7 +37,17 @@ Item {
         anchors.bottomMargin: 5
 
         clip: true
-        layer.enabled: true
+        // The mask only matters when rows scroll under the rounded corners:
+        // without overflow the cards' own radius (the same) already rounds
+        // them, and the list isn't redrawn offscreen on every hover/animation.
+        // Applied a turn later (Qt.callLater): these depend on sizes, and switching
+        // a layer on or off in the middle of a geometry change crashed Qt.
+        readonly property bool layerWanted: listview.contentHeight > listview.height
+        property bool layerOn: true
+        function applyLayer() { listview.layerOn = listview.layerWanted; }
+        onLayerWantedChanged: Qt.callLater(listview.applyLayer)
+        Component.onCompleted: Qt.callLater(listview.applyLayer)
+        layer.enabled: listview.layerOn
         layer.effect: OpacityMask {
             maskSource: Rectangle {
                 width: listview.width

@@ -79,7 +79,6 @@ Scope {
             target: GlobalStates
             function onOverviewOpenChanged() {
                 if (!GlobalStates.overviewOpen) {
-                    searchWidget.disableExpandAnimation();
                     overviewScope.dontAutoCancelSearch = false;
                     // Only leave the dismissable set: dismiss() here also closed
                     // whichever popup had just replaced the launcher.

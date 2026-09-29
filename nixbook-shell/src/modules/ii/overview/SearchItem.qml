@@ -42,7 +42,12 @@ RippleButton {
     property bool keyboardDown: false
     readonly property bool selected: (root.hovered || root.focus)
 
-    implicitHeight: rowLayout.implicitHeight + root.buttonVerticalPadding * 2
+    // Every row is the same height (clipboard images excepted), whatever its
+    // text or icon: the list doesn't jump around while typing.
+    readonly property bool hasImagePreview: root.cliphistRawString !== "" && Cliphist.entryIsImage(root.cliphistRawString)
+    implicitHeight: root.hasImagePreview
+        ? rowLayout.implicitHeight + root.buttonVerticalPadding * 2
+        : Appearance.sizes.searchResultHeight
     implicitWidth: rowLayout.implicitWidth + root.buttonHorizontalPadding * 2
     buttonRadius: Appearance.rounding.normal
     // The selection is the primary container tinted with the accent, and
@@ -136,15 +141,18 @@ RippleButton {
 
     RowLayout {
         id: rowLayout
-        spacing: iconLoader.sourceComponent === null ? 0 : 10
+        spacing: 12
         anchors.fill: parent
         anchors.leftMargin: root.horizontalMargin + root.buttonHorizontalPadding
         anchors.rightMargin: root.horizontalMargin + root.buttonHorizontalPadding
 
-        // Icon
+        // Icon, in a fixed slot so every row's text starts at the same place
         Loader {
             id: iconLoader
             active: true
+            Layout.preferredWidth: 36
+            Layout.preferredHeight: 36
+            Layout.alignment: Qt.AlignVCenter
             sourceComponent: switch(root.iconType) {
                 case LauncherSearchResult.IconType.Material:
                     return materialSymbolComponent
@@ -163,8 +171,7 @@ RippleButton {
             id: iconImageComponent
             IconImage {
                 source: Quickshell.iconPath(root.iconName, "image-missing")
-                width: 35
-                height: 35
+                implicitSize: 36
             }
         }
 
@@ -174,6 +181,8 @@ RippleButton {
                 text: root.materialSymbol
                 iconSize: 30
                 color: root.colForeground
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
             }
         }
 
@@ -183,6 +192,8 @@ RippleButton {
                 text: root.bigText
                 font.pixelSize: Appearance.font.pixelSize.larger
                 color: root.colForeground
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
             }
         }
 
@@ -193,6 +204,7 @@ RippleButton {
             Layout.alignment: Qt.AlignVCenter
             spacing: 0
             StyledText {
+                id: typeText
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: root.selected ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colSubtext
                 visible: root.itemType && root.itemType != Translation.tr("App")
@@ -232,11 +244,16 @@ RippleButton {
                     font.family: Appearance.font.family[root.fontType]
                     color: root.colForeground
                     horizontalAlignment: Text.AlignLeft
+                    // Long names wrap instead of widening the launcher, up to
+                    // what fits in the row's fixed height.
+                    wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+                    maximumLineCount: (typeText.visible || tagsText.visible) ? 1 : 2
                     elide: Text.ElideRight
                     text: root.selected ? root.itemName : root.displayContent
                 }
             }
             StyledText { // Symbol tags / description
+                id: tagsText
                 visible: root.itemTags !== "" && root.itemType === Translation.tr("Symbol")
                 Layout.fillWidth: true
                 font.pixelSize: Appearance.font.pixelSize.smaller
@@ -245,7 +262,7 @@ RippleButton {
                 text: root.itemTags
             }
             Loader { // Clipboard image preview
-                active: root.cliphistRawString && Cliphist.entryIsImage(root.cliphistRawString)
+                active: root.hasImagePreview
                 sourceComponent: CliphistImage {
                     Layout.fillWidth: true
                     entry: root.cliphistRawString
@@ -259,7 +276,9 @@ RippleButton {
         // Action text
         StyledText {
             Layout.fillWidth: false
-            visible: root.selected || root.itemType === Translation.tr("Keybind")
+            // Hidden by opacity, keeping its room: toggling `visible` on hover
+            // re-wrapped the name next to it.
+            opacity: root.selected || root.itemType === Translation.tr("Keybind") ? 1 : 0
             id: clickAction
             font.pixelSize: Appearance.font.pixelSize.normal
             color: Appearance.colors.colOnPrimaryContainer

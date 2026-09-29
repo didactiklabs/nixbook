@@ -236,7 +236,9 @@ Variants {
                 // Same size as `wallpaper` so this synchronous Image reuses its cached pixmap
                 sourceSize: bgRoot.wallpaperSourceSize
                 cache: true
-                mipmap: true
+                // No mipmaps: decoded at screen size and drawn 1:1 into its
+                // layer, they were never sampled, but were built (and uploaded,
+                // +1/3) on the transition's first frame.
                 smooth: true
                 layer.enabled: true
                 visible: !bgRoot.videoRevealed
@@ -250,7 +252,6 @@ Variants {
                 sourceSize: bgRoot.wallpaperSourceSize
                 cache: true
                 smooth: true
-                mipmap: true
                 asynchronous: true
                 layer.enabled: bgRoot.wallpaperIsVideo ? false : true
                 visible: !blurLoader.active && !bgRoot.videoRevealed
@@ -287,11 +288,11 @@ Variants {
                     ? Qt.resolvedUrl(`shaders/${bgRoot.currentShader}.frag.qsb`)
                     : ""
 
-                Timer {
-                    interval: 16
-                    repeat: true
+                // Advanced by the real frame time, in step with the display
+                // (a 16 ms Timer drifted against the refresh rate: stutter).
+                FrameAnimation {
                     running: transitionEffect.visible
-                    onTriggered: transitionEffect.time += interval / 1000.0
+                    onTriggered: transitionEffect.time += frameTime
                 }
                 onVisibleChanged: if (!visible) transitionEffect.time = 0.0
             }

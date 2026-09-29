@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import Qt.labs.synchronizer
-import Qt5Compat.GraphicalEffects
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -21,6 +20,9 @@ Item { // Wrapper
 
     property string searchingText: LauncherSearch.query
     property bool showResults: searchingText != ""
+    // The query without its mode prefix, for the rows' match highlighting:
+    // worked out once here instead of in every row.
+    readonly property string highlightQuery: StringUtils.cleanOnePrefix(root.searchingText, [Config.options.search.prefix.action, Config.options.search.prefix.app, Config.options.search.prefix.clipboard, Config.options.search.prefix.emojis, Config.options.search.prefix.symbols, Config.options.search.prefix.math, Config.options.search.prefix.shellCommand, Config.options.search.prefix.webSearch])
     implicitWidth: searchWidgetContent.implicitWidth + Appearance.sizes.elevationMargin * 2
     implicitHeight: searchWidgetContent.implicitHeight + searchBar.verticalPadding * 2 + Appearance.sizes.elevationMargin * 2
 
@@ -32,14 +34,9 @@ Item { // Wrapper
         searchBar.forceFocus();
     }
 
-    function disableExpandAnimation() {
-        searchBar.animateWidth = false;
-    }
-
     function cancelSearch() {
         searchBar.searchInput.text = ""; 
         LauncherSearch.query = "";
-        searchBar.animateWidth = true;
     }
 
     function setSearchingText(text) {
@@ -102,7 +99,7 @@ Item { // Wrapper
     }
     Rectangle { // Background
         id: searchWidgetContent
-        // Persona style background art (clipped by the search box's mask)
+        // Persona style background art
         PersonaTexture {
             anchors.fill: parent
             opacity: 0.5
@@ -113,7 +110,7 @@ Item { // Wrapper
             topMargin: Appearance.sizes.elevationMargin
         }
         clip: true
-        implicitWidth: columnLayout.implicitWidth
+        implicitWidth: Appearance.sizes.searchWidth
         implicitHeight: columnLayout.implicitHeight
         radius: searchBar.height / 2 + searchBar.verticalPadding
         color: Appearance.colors.colBackgroundSurfaceContainer
@@ -127,23 +124,19 @@ Item { // Wrapper
             animation: Appearance.animation.elementMove.numberAnimation.createObject(this)
         }
 
+        // No OpacityMask layer for the rounded corners: it re-rendered the
+        // whole launcher offscreen on every change (each keystroke, cursor
+        // blink, hover and scroll step). Nothing reaches the corners: the list
+        // stops short of the bottom ones (its Layout.bottomMargin) and its
+        // rows are inset.
         ColumnLayout {
             id: columnLayout
             anchors {
                 top: parent.top
-                horizontalCenter: parent.horizontalCenter
+                left: parent.left
+                right: parent.right
             }
             spacing: 0
-
-            // clip: true
-            layer.enabled: true
-            layer.effect: OpacityMask {
-                maskSource: Rectangle {
-                    width: searchWidgetContent.width
-                    height: searchWidgetContent.width
-                    radius: searchWidgetContent.radius
-                }
-            }
 
             SearchBar {
                 id: searchBar
@@ -162,7 +155,7 @@ Item { // Wrapper
                 // Separator
                 visible: root.showResults
                 Layout.fillWidth: true
-                height: 1
+                implicitHeight: 1
                 color: Appearance.colors.colOutlineVariant
             }
 
@@ -170,11 +163,16 @@ Item { // Wrapper
                 id: appResults
                 visible: root.showResults
                 Layout.fillWidth: true
-                implicitHeight: Math.min(600, appResults.contentHeight + topMargin + bottomMargin)
+                // Always the same height, however many rows match: the box
+                // doesn't resize on each keystroke.
+                Layout.preferredHeight: Appearance.sizes.searchResultsHeight - Layout.bottomMargin
+                Layout.bottomMargin: 8
                 clip: true
-                topMargin: 10
-                bottomMargin: 10
+                topMargin: 8
+                bottomMargin: 2
                 spacing: 2
+                // A few rows past the edge ready, for smooth scrolling.
+                cacheBuffer: Appearance.sizes.searchResultHeight * 4
                 KeyNavigation.up: searchBar
                 highlightMoveDuration: 100
                 // Recycle result rows instead of destroying/recreating them on
@@ -243,7 +241,7 @@ Item { // Wrapper
                     anchors.left: parent?.left
                     anchors.right: parent?.right
                     entry: modelData
-                    query: StringUtils.cleanOnePrefix(root.searchingText, [Config.options.search.prefix.action, Config.options.search.prefix.app, Config.options.search.prefix.clipboard, Config.options.search.prefix.emojis, Config.options.search.prefix.symbols, Config.options.search.prefix.math, Config.options.search.prefix.shellCommand, Config.options.search.prefix.webSearch])
+                    query: root.highlightQuery
 
                     Keys.onPressed: event => {
                         if (event.key === Qt.Key_Tab) {

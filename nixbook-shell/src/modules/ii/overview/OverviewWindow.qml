@@ -123,7 +123,11 @@ Item { // Window
         id: windowPreview
         anchors.fill: parent
         captureSource: GlobalStates.overviewOpen ? root.toplevel : null
-        live: true
+        // Only while the previews are shown: the overview stays open (hidden)
+        // under the launcher's results, and copying every window each frame
+        // there made typing lag. Not live keeps the last frame, so the
+        // previews don't flash empty when the search is cleared.
+        live: root.visible
 
         // Color overlay for interactions
         Rectangle {

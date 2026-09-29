@@ -29,17 +29,26 @@ Item {
     property real scale: Config.options.overview.scale
     property color activeBorderColor: Appearance.colors.colSecondary
 
+    // No Hyprland monitor data (another compositor, or not received yet):
+    // no reserved area. Undefined here made the sizes NaN, and the rows then
+    // re-laid themselves out on every frame (a polish() loop).
+    // Same for the monitor's size and scale: 0 without Hyprland data (a
+    // division by zero), so fall back to the screen's.
+    readonly property var monitorReserved: monitorData?.reserved ?? [0, 0, 0, 0]
+    readonly property real monitorWidth: monitor?.width || screen?.width || 0
+    readonly property real monitorHeight: monitor?.height || screen?.height || 0
+    readonly property real monitorScale: monitor?.scale || 1
     property real workspaceImplicitWidth: (monitorData?.transform % 2 === 1) ? 
-        ((monitor.height - monitorData?.reserved[0] - monitorData?.reserved[2]) * root.scale / monitor.scale) :
-        ((monitor.width - monitorData?.reserved[0] - monitorData?.reserved[2]) * root.scale / monitor.scale)
+        ((monitorHeight - monitorReserved[0] - monitorReserved[2]) * root.scale / monitorScale) :
+        ((monitorWidth - monitorReserved[0] - monitorReserved[2]) * root.scale / monitorScale)
     property real workspaceImplicitHeight: (monitorData?.transform % 2 === 1) ? 
-        ((monitor.width - monitorData?.reserved[1] - monitorData?.reserved[3]) * root.scale / monitor.scale) :
-        ((monitor.height - monitorData?.reserved[1] - monitorData?.reserved[3]) * root.scale / monitor.scale)
+        ((monitorWidth - monitorReserved[1] - monitorReserved[3]) * root.scale / monitorScale) :
+        ((monitorHeight - monitorReserved[1] - monitorReserved[3]) * root.scale / monitorScale)
     property real largeWorkspaceRadius: Appearance.rounding.large
     property real smallWorkspaceRadius: Appearance.rounding.verysmall
 
     property real workspaceNumberMargin: 80
-    property real workspaceNumberSize: 250 * monitor.scale
+    property real workspaceNumberSize: 250 * monitorScale
     property int workspaceZ: 0
     property int windowZ: 1
     property int windowDraggingZ: 99999

@@ -22,7 +22,22 @@ Rectangle {
     property bool renderMarkdown: true
     property bool editing: false
 
-    property list<var> messageBlocks: StringUtils.splitMarkdownBlocks(root.messageData?.content)
+    // Streaming appends to the content once per received line, often several
+    // times per frame: re-split and re-lay out the markdown at most once per
+    // event-loop turn (Qt.callLater runs the same function once).
+    property string shownContent: ""
+    function syncContent() {
+        root.shownContent = root.messageData?.content ?? "";
+    }
+    onMessageDataChanged: root.syncContent()
+    Component.onCompleted: root.syncContent()
+    Connections {
+        target: root.messageData
+        function onContentChanged() {
+            Qt.callLater(root.syncContent);
+        }
+    }
+    property list<var> messageBlocks: StringUtils.splitMarkdownBlocks(root.shownContent)
 
     // Persona style (shapes on): the in-game chat — a tilted mugshot in a bold
     // frame and a black, skewed speech bubble with a white border and a

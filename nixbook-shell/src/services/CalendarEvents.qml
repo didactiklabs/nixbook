@@ -53,6 +53,9 @@ Singleton {
     property bool _pending: false
     // Queued `dcal ipc` calls: [{ args, onDone }], run one at a time.
     property var _calls: []
+    property string _lastCalendarsText: ""
+    property string _lastEventsText: ""
+    property bool _calendarsChanged: false
 
     function load() {
         if (root._started) return
@@ -148,6 +151,7 @@ Singleton {
     function sync() {
         syncProc.running = true
     }
+    readonly property bool syncing: syncProc.running
 
     // DankCalendar's window: events, tasks, and its settings (accounts:
     // Google, Microsoft, CalDAV, iCloud, iCal feeds).
@@ -239,7 +243,11 @@ Singleton {
                 root._finish()
                 return
             }
-            try {
+            // Unchanged since the last read (the usual case): keep the same
+            // objects, so nothing bound to them re-evaluates or redraws.
+            const calendarsChanged = calendarsOut.text !== root._lastCalendarsText
+            if (calendarsChanged) try {
+                root._lastCalendarsText = calendarsOut.text
                 const map = {}
                 const lists = []
                 for (const c of JSON.parse(calendarsOut.text)) {
@@ -252,9 +260,12 @@ Singleton {
             } catch (e) {
                 console.warn("CalendarEvents: cannot parse calendars:", e)
             }
+            root._calendarsChanged = calendarsChanged
             const a = root._anchor
-            root.rangeStart = new Date(a.getFullYear(), a.getMonth() - 1, 1)
-            root.rangeEnd = new Date(a.getFullYear(), a.getMonth() + 2, 1)
+            const start = new Date(a.getFullYear(), a.getMonth() - 1, 1)
+            const end = new Date(a.getFullYear(), a.getMonth() + 2, 1)
+            if (start.getTime() !== root.rangeStart.getTime()) root.rangeStart = start
+            if (end.getTime() !== root.rangeEnd.getTime()) root.rangeEnd = end
             eventsProc.command = [root.dcal, "ipc", "events.list",
                 `from=${root.rangeStart.toISOString()}`, `to=${root.rangeEnd.toISOString()}`]
             eventsProc.running = true
@@ -271,7 +282,13 @@ Singleton {
                 root.available = false
             } else {
                 try {
-                    root.eventsByDay = root._index(JSON.parse(eventsOut.text).events ?? [])
+                    // Re-indexed only when the events (or the calendars'
+                    // colours/visibility) changed: a new eventsByDay redraws
+                    // every calendar (sidebar, desktop, bar).
+                    if (root._calendarsChanged || eventsOut.text !== root._lastEventsText) {
+                        root.eventsByDay = root._index(JSON.parse(eventsOut.text).events ?? [])
+                        root._lastEventsText = eventsOut.text
+                    }
                     root.available = true
                 } catch (e) {
                     console.warn("CalendarEvents: cannot parse events:", e)
@@ -321,10 +338,11 @@ Singleton {
         onExited: root.refresh()
     }
 
-    // dcal syncs on its own schedule; re-read its copy regularly, and at
-    // midnight the "today" highlight moves anyway.
+    // dcal syncs on its own schedule; re-read its copy regularly (unchanged
+    // data is dropped above). The sidebar calendar's refresh button syncs
+    // right away.
     Timer {
-        interval: 5 * 60 * 1000
+        interval: Math.max(1, Config.options.calendar.refreshMinutes ?? 30) * 60 * 1000
         running: root._started
         repeat: true
         onTriggered: root.refresh()

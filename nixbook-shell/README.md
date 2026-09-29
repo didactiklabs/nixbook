@@ -116,7 +116,10 @@ service) and keeps every calendar surface in sync:
 - events: dots on the days of the sidebar, desktop and bar clock calendars,
   the next events in the bar clock popup, a day's events when you click it in
   the sidebar (with an "add event" button); clicking the bar clock (right
-  click: sync) or a day of the desktop calendar opens DankCalendar;
+  click: sync) or a day of the desktop calendar opens DankCalendar. The
+  shell rereads them every `calendar.refreshMinutes` (30), keeping the same
+  data (no redraw) when nothing changed; the refresh button in the sidebar
+  calendar's header syncs the accounts now;
 - the next events: the "Next Event" bar widget (`nextEvent` in a bar layout:
   "in 12 min" and the title, the following ones on hover; click joins the
   meeting when it starts within 10 minutes, else opens DankCalendar) and
