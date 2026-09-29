@@ -12,24 +12,21 @@ Item {
     Layout.fillWidth: true
     implicitHeight: col.implicitHeight
 
-    // Indices of the items the settings menu's "Editable only" filter leaves
-    // visible: hidden rows collapse and the rounded ends move to the first
-    // and last remaining ones.
+    // Indices of the rows left visible: an item hidden by its page (`shown`)
+    // or by the settings menu's "Editable only" filter collapses its row, and
+    // the rounded ends move to the first and last remaining ones.
     readonly property var shownIndices: {
         const out = [];
-        for (let i = 0; i < root.items.length; i++)
-            if (!NixManaged.allFiltered(root.items[i])) out.push(i);
+        for (let i = 0; i < root.items.length; i++) {
+            const item = root.items[i];
+            if (item.shown !== false && !NixManaged.allFiltered(item)) out.push(i);
+        }
         return out;
     }
-    // A real binding for the Binding below to restore: without one it
-    // restores the value it read on activation, the *effective* visibility,
-    // i.e. false when the filter was turned on from another page (pages stay
-    // loaded but hidden), and the item stayed hidden after turning it off.
-    visible: !(root.items.length > 0 && root.shownIndices.length === 0)
-    Binding on visible {
-        when: root.items.length > 0 && root.shownIndices.length === 0
-        value: false
-    }
+    // Set `shown` (not `visible`) to hide the list conditionally from a page:
+    // an instance's `visible:` would replace the filter binding below.
+    property bool shown: true
+    visible: root.shown && !(root.items.length > 0 && root.shownIndices.length === 0)
 
     ColumnLayout {
         id: col

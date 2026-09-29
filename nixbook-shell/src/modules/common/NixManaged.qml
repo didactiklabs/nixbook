@@ -27,21 +27,27 @@ Singleton {
     // Settings menu "Editable only" toggle: locked (pinned) widgets hide
     // themselves (Config*.qml `filteredOut`), and containers (GroupedList,
     // ConfigRow, ContentSubsection, ContentSection) hide once every setting
-    // inside them is hidden.
+    // inside them is hidden. All of it goes through `visible` bindings, never
+    // `Binding on visible`: a Binding restores the value it saw on activation
+    // when a binding it replaced can't be put back, which left settings
+    // hidden after the filter was turned off.
     readonly property bool hideLocked: Config.options.settings.hideLocked
 
     // [settings, hidden] under `item`: a setting is any descendant exposing
-    // `filteredOut`. Reads only `children` and `filteredOut` (never
-    // `visible`), so a hidden container still sees its settings and shows up
-    // again when the filter is turned off.
+    // `filteredOut`, hidden when filtered or when its page hides it
+    // (`shown: false`); a container the page hides counts as empty. Reads only
+    // `children`, `shown` and `filteredOut` (never `visible`), so a hidden
+    // container still sees its settings and shows up again when the filter
+    // is turned off.
     function tally(item, acc) {
         acc = acc ?? { total: 0, hidden: 0 };
         if (!item) return acc;
         if (item.filteredOut !== undefined) {
             acc.total++;
-            if (item.filteredOut) acc.hidden++;
+            if (item.filteredOut || item.shown === false) acc.hidden++;
             return acc;
         }
+        if (item.shown === false) return acc;
         const kids = item.children;
         if (kids) {
             for (let i = 0; i < kids.length; i++)

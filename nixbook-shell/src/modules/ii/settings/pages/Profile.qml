@@ -718,7 +718,7 @@ ContentPage {
 
             ContentSubsection {
                 title: Translation.tr("Downloaded")
-                visible: Presets.onlineFolderModel.count > 0
+                shown: Presets.onlineFolderModel.count > 0
 
                 Flow {
                     Layout.fillWidth: true
@@ -771,7 +771,7 @@ ContentPage {
             icon: "upload"
             shape: MaterialShape.Shape.Slanted
             title: Translation.tr("Imported")
-            visible: Presets.importedFolderModel.count > 0
+            shown: Presets.importedFolderModel.count > 0
 
             Flow {
                 Layout.fillWidth: true
@@ -822,7 +822,7 @@ ContentPage {
             icon: "link_2"
             shape: MaterialShape.Shape.Bun
             title: Translation.tr("Browse Online")
-            visible: Config.options.profile.onlinePresets
+            shown: Config.options.profile.onlinePresets
 
             ColumnLayout {
                 Layout.fillWidth: true

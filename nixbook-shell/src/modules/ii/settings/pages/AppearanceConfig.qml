@@ -408,7 +408,7 @@ ContentPage {
             // Its own list: GroupedList keeps a row's background even when
             // the row is hidden, and a theme may have no variants.
             GroupedList {
-                visible: Themes.currentVariants.length > 0
+                shown: Themes.currentVariants.length > 0
                 ConfigSelectionArray {
                     configKey: Themes.variantKey(Themes.current);
                     enabled: !nixManaged
@@ -526,7 +526,7 @@ ContentPage {
 
         // Persona theme options (only while it is the theme).
         ContentSection {
-            visible: Themes.is("persona")
+            shown: Themes.is("persona")
             icon: "theater_comedy"
             shape: MaterialShape.Shape.Burst
             title: Translation.tr("Persona style")
@@ -576,7 +576,7 @@ ContentPage {
 
         // Chiikawa theme options (only while it is the theme).
         ContentSection {
-            visible: Themes.is("chiikawa")
+            shown: Themes.is("chiikawa")
             icon: "cruelty_free"
             shape: MaterialShape.Shape.Cookie9Sided
             title: Translation.tr("Chiikawa style")
@@ -626,7 +626,7 @@ ContentPage {
 
         // Cyberpunk 2077 theme options (only while it is the theme).
         ContentSection {
-            visible: Themes.is("cyberpunk")
+            shown: Themes.is("cyberpunk")
             icon: "memory"
             shape: MaterialShape.Shape.Square
             title: Translation.tr("Cyberpunk 2077 style")

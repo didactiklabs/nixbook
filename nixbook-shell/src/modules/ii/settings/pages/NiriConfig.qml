@@ -128,7 +128,7 @@ rm -f "$tmp"`]
             icon: "monitor"
             shape: MaterialShape.Shape.ClamShell
             title: Translation.tr("Displays")
-            visible: monitorConfig.monitors.length > 0
+            shown: monitorConfig.monitors.length > 0
 
             MonitorCanvas {
                 id: monitorCanvas

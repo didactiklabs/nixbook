@@ -15,15 +15,10 @@ ColumnLayout {
 
     // Hidden when the settings menu's "Editable only" filter hides every
     // setting inside (see NixManaged.allFiltered).
-    // A real binding for the Binding below to restore: without one it
-    // restores the value it read on activation, the *effective* visibility,
-    // i.e. false when the filter was turned on from another page (pages stay
-    // loaded but hidden), and the item stayed hidden after turning it off.
-    visible: !NixManaged.allFiltered(root)
-    Binding on visible {
-        when: NixManaged.allFiltered(root)
-        value: false
-    }
+    // Set `shown` (not `visible`) to hide this conditionally from a page: an
+    // instance's `visible:` would replace the filter binding below.
+    property bool shown: true
+    visible: root.shown && !NixManaged.allFiltered(root)
 
     RowLayout {
         ContentSubsectionLabel {
