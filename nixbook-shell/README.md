@@ -183,8 +183,9 @@ lets an AI agent see and drive the desktop: list windows, workspaces and
 apps; focus, move, resize, close windows; launch apps; take screenshots (a
 monitor, a zoomed-in region, a window on screen), silently; type, press
 keys, click, drag, scroll, or several of these in one call (`run_steps`);
-the clipboard; the shell's own IPC (sidebars, launcher, lock…);
-notifications. It is a Model Context Protocol server, so
+the clipboard; the shell's themes and variants (`list_themes`, `set_theme`:
+"switch to Persona 3 Reload", "use the Usagi variant"; Nix-pinned ones stay
+locked); the shell's own IPC (sidebars, launcher, lock…); notifications. It is a Model Context Protocol server, so
 any agent that speaks MCP can use it:
 
 ```sh

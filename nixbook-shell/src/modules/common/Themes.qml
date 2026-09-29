@@ -157,4 +157,47 @@ Singleton {
             a.theme = "persona";
         a.persona.enable = false;
     }
+
+    // `nixbook-shell ipc call theme list|set THEME VARIANT`: for key bindings
+    // and the desktop MCP server (list_themes, set_theme). What Nix pins stays
+    // as it is, as in the Settings menu.
+    IpcHandler {
+        target: "theme"
+
+        function list(): string {
+            return JSON.stringify({
+                current: root.current,
+                variant: root.variant,
+                themeLocked: NixManaged.isPinned("appearance.theme"),
+                themes: root.list.map(t => ({
+                    id: t.id,
+                    name: t.name,
+                    description: t.description ?? "",
+                    variant: root.variantOf(t.id),
+                    variantLocked: (t.variants ?? []).length > 0 && NixManaged.isPinned(root.variantKey(t.id)),
+                    variants: (t.variants ?? []).map(v => ({ id: v.id, name: v.name })),
+                })),
+            });
+        }
+
+        // theme: an id, or "" for the current one; variant: an id, or "" to
+        // keep the theme's own.
+        function set(theme: string, variant: string): string {
+            const id = theme.length > 0 ? theme : root.current;
+            if (!root.theme(id))
+                return `error: no theme "${theme}"`;
+            if (variant.length > 0 && !root.variantsOf(id).some(v => v.id === variant))
+                return `error: no variant "${variant}" of ${id}`;
+            if (id !== root.current && NixManaged.isPinned("appearance.theme"))
+                return "error: the theme is set in the Nix configuration (locked)";
+            if (variant.length > 0 && variant !== root.variantOf(id) && NixManaged.isPinned(root.variantKey(id)))
+                return `error: the ${id} variant is set in the Nix configuration (locked)`;
+            if (variant.length > 0)
+                root.setVariant(id, variant);
+            if (id !== root.current)
+                root.setTheme(id);
+            const v = root.variantOf(id);
+            return `ok: ${id}${v.length > 0 ? " / " + v : ""}`;
+        }
+    }
 }

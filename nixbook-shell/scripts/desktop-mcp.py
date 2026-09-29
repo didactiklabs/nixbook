@@ -2312,6 +2312,85 @@ def t_shell_ipc(ctx, args):
     return [text(out or f"called {target}.{fn}")]
 
 
+def theme_registry():
+    out = qs_ipc("call", "--", "theme", "list").stdout.strip()
+    try:
+        reg = json.loads(out)
+        if isinstance(reg, dict) and isinstance(reg.get("themes"), list):
+            return reg
+    except ValueError:
+        pass
+    raise ToolError("the desktop shell didn't list its themes (is nixbook-shell running?)")
+
+
+def _named(items, want):
+    """The item whose id or name is `want` (accents and case ignored), else
+    the only one whose name contains it."""
+    w = fold(want).strip()
+    exact = [i for i in items if fold(i["id"]) == w or fold(i.get("name", "")) == w]
+    if exact:
+        return exact[0]
+    partial = [i for i in items if w and (w in fold(i.get("name", "")) or w in fold(i["id"]))]
+    return partial[0] if len(partial) == 1 else None
+
+
+@tool(
+    "list_themes",
+    "shell",
+    "The desktop shell's themes (its whole look: colours, shapes, fonts, "
+    "sounds, wallpapers) and each one's variants, the current ones, and "
+    "which are locked by the Nix configuration.",
+    read_only=True,
+)
+def t_list_themes(ctx, args):
+    return [text(theme_registry())]
+
+
+@tool(
+    "set_theme",
+    "shell",
+    "Switch the desktop shell's theme and/or variant, by id or name: e.g. "
+    "theme \"persona\" with variant \"Persona 3 Reload\" (or \"p3r\"), or a "
+    "variant alone (\"momonga\") to switch to it within its theme. The "
+    "palette and wallpapers follow. See list_themes.",
+    obj({
+        "theme": {"type": "string", "description": "A theme id or name (Material, Persona, Chiikawa…)"},
+        "variant": {"type": "string", "description": "A variant id or name of that theme"},
+    }),
+)
+def t_set_theme(ctx, args):
+    want_theme = as_str(args, "theme", required=False, max_len=64)
+    want_variant = as_str(args, "variant", required=False, max_len=64)
+    if not want_theme and not want_variant:
+        raise ToolError("give a `theme`, a `variant`, or both (see list_themes)")
+    reg = theme_registry()
+    themes = reg["themes"]
+    if want_theme:
+        theme = _named(themes, want_theme)
+        if not theme:
+            raise ToolError(f"no theme {want_theme!r}: {', '.join(t['id'] for t in themes)}")
+    else:
+        # A variant alone: in the current theme first, else the theme that has it.
+        current = next(t for t in themes if t["id"] == reg["current"])
+        found = [t for t in [current] + [t for t in themes if t is not current]
+                 if _named(t.get("variants", []), want_variant)]
+        if not found:
+            raise ToolError(f"no variant {want_variant!r} in any theme (see list_themes)")
+        theme = found[0]
+    variant = ""
+    if want_variant:
+        v = _named(theme.get("variants", []), want_variant)
+        if not v:
+            names = ", ".join(x["id"] for x in theme.get("variants", [])) or "none"
+            raise ToolError(f"{theme['name']} has no variant {want_variant!r} (variants: {names})")
+        variant = v["id"]
+    ctx.guard.check_rate()
+    out = qs_ipc("call", "--", "theme", "set", theme["id"], variant).stdout.strip()
+    if not out.startswith("ok"):
+        raise ToolError(out or "the shell didn't answer")
+    return [text(f"theme set: {out[3:].strip()}")]
+
+
 @tool(
     "notify",
     "shell",
