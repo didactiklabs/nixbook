@@ -40,6 +40,11 @@ Singleton {
             const machine = systemContextFile.loaded ? systemContextFile.text().trim() : "";
             prompt += "\n\n" + [machine, root.liveShellContext].filter(p => p.length > 0).join("\n\n");
         }
+        // What agents learned about this desktop (the desktop MCP memory),
+        // with the desktop tools only.
+        if (root.desktopTools.length > 0 && root.desktopMemory.length > 0) {
+            prompt += "\n\n## Desktop memory\n" + root.desktopMemory;
+        }
         return prompt;
     }
 
@@ -543,11 +548,26 @@ Singleton {
         });
     }
 
-    // Only looking at windows and apps runs without approval: a screenshot
-    // or the clipboard would leave for the model's provider.
+    // Only looking at windows and apps, and the memory, run without
+    // approval: a screenshot or the clipboard would leave for the model's
+    // provider.
     function isObserveDesktopTool(name) {
-        return root.desktopTools.some(t => t.name === name && t._meta?.["nixbook/group"] === "observe");
+        return root.desktopTools.some(t => t.name === name
+            && ["observe", "memory"].includes(t._meta?.["nixbook/group"]));
     }
+
+    // The desktop memory's digest (`nixbook-desktop-mcp memory prompt`), read
+    // at start and after each answer (the model may have added notes).
+    property string desktopMemory: ""
+    Process {
+        id: getDesktopMemory
+        running: true
+        command: [root.desktopMcpCommand, "memory", "prompt"]
+        stdout: StdioCollector {
+            onStreamFinished: root.desktopMemory = text.trim()
+        }
+    }
+    onResponseFinished: if (!getDesktopMemory.running) getDesktopMemory.running = true
 
     FileView {
         id: promptLoader
