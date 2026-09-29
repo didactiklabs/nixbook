@@ -10,6 +10,22 @@ Singleton {
     property string filePath: Directories.shellConfigPath
     property alias options: configOptionsJsonAdapter
     property bool ready: false
+
+    // One-time migrations of values an older default wrote into config.json
+    // (the shell writes the whole default tree there on first run), once both
+    // it and the persistent state are loaded.
+    readonly property bool migrationsReady: root.ready && Persistent.ready
+    onMigrationsReadyChanged: {
+        if (!root.migrationsReady) return;
+        const done = Persistent.states.migrations;
+        // screenSnip.savePath used to default to "" (copy only): save to
+        // ~/Pictures/Screenshots like niri. Once, so clearing it again sticks.
+        if (!done.screenshotSavePath) {
+            if (root.options.screenSnip.savePath === "" && !NixManaged.isPinned("screenSnip.savePath"))
+                root.options.screenSnip.savePath = "~/Pictures/Screenshots";
+            done.screenshotSavePath = true;
+        }
+    }
     property int readWriteDelay: 50 // milliseconds
     property bool blockWrites: false
 
@@ -880,7 +896,8 @@ Singleton {
             }
 
             property JsonObject screenSnip: JsonObject {
-                property string savePath: "" // only copy to clipboard when empty
+                // ~ and $HOME are expanded; empty: only copy to the clipboard.
+                property string savePath: "~/Pictures/Screenshots"
             }
 
             property JsonObject sounds: JsonObject {

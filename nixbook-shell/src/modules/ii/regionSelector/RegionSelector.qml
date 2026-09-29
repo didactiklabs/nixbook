@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import qs
 import qs.modules.common
 import qs.modules.common.functions
+import qs.modules.common.utils
 import qs.services
 import QtQuick
 import Quickshell
@@ -54,14 +55,9 @@ Scope {
 
     function screenshot() {
         if (Persistent.states.record.enable) {
-            const saveDir = Config.options.screenSnip.savePath !== "" ? Config.options.screenSnip.savePath : "";
-            if (saveDir !== "") {
-                const cmd = `mkdir -p '${saveDir}' && filePath="${saveDir}/screenshot-$(date '+%Y-%m-%d_%H.%M.%S').png" && grim -g "$(slurp)" "$filePath" && cat "$filePath" | wl-copy && notify-send "Screenshot Saved" "Saved to $filePath" -a "Screen Snip" -i "image-x-generic"`;
-                Quickshell.execDetached(["bash", "-c", cmd]);
-            } else {
-                const cmd = `grim -g "$(slurp)" - | wl-copy && notify-send "Screenshot Copied" "Copied to clipboard" -a "Screen Snip" -i "image-x-generic"`;
-                Quickshell.execDetached(["bash", "-c", cmd]);
-            }
+            // Recording: the selector would show in the video, so slurp picks the region.
+            Quickshell.execDetached(["bash", "-c", `${ScreenshotAction.outputFileCommand(ScreenshotAction.saveDir)} && `
+                + `grim -g "$(slurp)" "$out" && wl-copy --type image/png < "$out" && ${ScreenshotAction.notifyCommand}`]);
             return;
         }
         root.action = RegionSelection.SnipAction.Copy
