@@ -95,6 +95,12 @@ Singleton {
 
     // The key the current wallpapers belong to ("" until the config is read).
     property string _lastKey: ""
+    // The variant changed, switchTo() not run yet.
+    property bool _switchPending: false
+    // The key whose desktop wallpaper is showing: "" while a switch's is on
+    // its way (switchwall.sh takes a moment), so leaving a variant before its
+    // wallpaper arrived doesn't hand it the previous variant's.
+    property string _wallKey: ""
     // A desktop wallpaper we are applying: not "picked" by the user.
     property string _applying: ""
     // Lock/login wallpapers being put back by a switch: not "picked" either.
@@ -169,24 +175,82 @@ Singleton {
 
     // Applied a moment later: switchwall.sh rewrites config.json from what
     // it read when it started, so the remembered wallpapers must be saved
-    // (Config's 50 ms write delay) before it runs.
-    function apply(path) {
-        if (!path || path === root.wallpaper)
+    // (Config's 50 ms write delay) before it runs. One run at a time, the
+    // latest wallpaper queued behind it: switching variants quickly would
+    // otherwise race runs that land in any order. `src`: a bundled
+    // wallpaper, copied to `path` first.
+    function apply(path, src = "") {
+        if (!path)
             return;
+        if (!root._busy && path === root.wallpaper) {
+            root._settle();
+            return;
+        }
         root._applying = path;
-        applyTimer.path = path;
+        root._wallKey = "";
+        settleTimer.stop();
+        applyTimer.job = { path: path, src: src };
         applyTimer.restart();
     }
+    readonly property bool _busy: applyTimer.running || switchProc.running
     Timer {
         id: applyTimer
-        property string path: ""
+        property var job: null
         interval: 300
-        onTriggered: Wallpapers.apply(applyTimer.path)
+        onTriggered: root._run()
+    }
+    function _run() {
+        const job = applyTimer.job;
+        if (!job || switchProc.running)
+            return; // run once the current one is done
+        applyTimer.job = null;
+        const cmd = Wallpapers.switchCommand(job.path);
+        switchProc.command = job.src === "" ? cmd
+            : ["bash", "-c", 'mkdir -p "$(dirname "$2")" && cp -f "$1" "$2" && chmod u+w "$2" && shift 2 && exec "$@"', "_", job.src, job.path, ...cmd];
+        switchProc.running = true;
+        Wallpapers.confirmedPath = job.path;
+        Wallpapers.changed();
+    }
+    Process {
+        id: switchProc
+        onExited: code => {
+            if (code !== 0)
+                console.warn("[ThemeWallpapers] could not apply", root._applying);
+            if (applyTimer.running)
+                return;
+            if (applyTimer.job) {
+                root._run();
+                return;
+            }
+            // Done: settled once config.json is read back (not at all when
+            // switchwall.sh swapped in a -dark/-light file or failed).
+            if (root.wallpaper === root._applying)
+                root._settle();
+            else
+                settleTimer.restart();
+        }
+    }
+    Timer {
+        id: settleTimer
+        interval: 2000
+        onTriggered: root._settle()
+    }
+    // Whatever the desktop shows now is the current variant's (the one
+    // applied, or one picked while it was on its way).
+    function _settle() {
+        if (root._switchPending)
+            return; // switchTo() decides
+        settleTimer.stop();
+        root._applying = "";
+        root._wallKey = root.key;
+        root.remember("main", root.key, root.wallpaper);
     }
 
     function switchTo(fromKey, toKey) {
-        // Remember what the variant we leave had (lock/login "" = following).
-        root.remember("main", fromKey, root.wallpaper);
+        // Remember what the variant we leave had (lock/login "" = following;
+        // the desktop only once its wallpaper arrived).
+        if (root._wallKey === fromKey)
+            root.remember("main", fromKey, root.wallpaper);
         root.remember("lock", fromKey, root.lockWall);
         root.remember("login", fromKey, root.greeterWall);
 
@@ -199,10 +263,18 @@ Singleton {
                 root.setSetting(slot, target);
         }
 
+        // No wallpaper of its own: whatever is showing (or on its way) stays.
+        root._switchPending = false;
+        if (!root._busy) {
+            settleTimer.stop();
+            root._applying = "";
+            root._wallKey = toKey;
+        }
         root.applyFor(toKey);
     }
 
-    // The desktop wallpaper of `toKey` (remembered, else its default).
+    // The desktop wallpaper of `toKey` (remembered, else its default: copied
+    // next to the state first).
     function applyFor(toKey) {
         const target = root.wallpaperFor(toKey);
         if (!target)
@@ -211,30 +283,15 @@ Singleton {
             root.apply(target.path);
             return;
         }
-        // Bundled: copy it next to the state, then apply the copy.
-        const src = Quickshell.shellPath(target.path);
         const dst = `${root.copiesDir}/${toKey.replace("/", "-")}${target.path.slice(target.path.lastIndexOf("."))}`;
-        copyProc.target = dst;
-        copyProc.command = ["bash", "-c", 'mkdir -p "$(dirname "$2")" && cp -f "$1" "$2" && chmod u+w "$2"', "_", src, dst];
-        copyProc.running = true;
-    }
-
-    Process {
-        id: copyProc
-        property string target: ""
-        onExited: code => {
-            if (code === 0)
-                root.apply(copyProc.target);
-            else
-                console.warn("[ThemeWallpapers] could not copy", copyProc.target);
-        }
+        root.apply(dst, Quickshell.shellPath(target.path));
     }
 
     onKeyChanged: {
         if (!Config.ready || !root.enabled)
             return;
         if (root._lastKey === "" || root._lastKey === root.key) {
-            root._lastKey = root.key;
+            root._lastKey = root._wallKey = root.key;
             return;
         }
         const from = root._lastKey;
@@ -243,24 +300,25 @@ Singleton {
         // edit, a Home Manager activation) the variant can change before the
         // file's other values are read back.
         const to = root.key;
+        root._switchPending = true;
         Qt.callLater(() => root.switchTo(from, to));
     }
     Connections {
         target: Config
         function onReadyChanged() {
             if (Config.ready && root._lastKey === "")
-                root._lastKey = root.key;
+                root._lastKey = root._wallKey = root.key;
         }
     }
-    Component.onCompleted: if (Config.ready) root._lastKey = root.key
+    Component.onCompleted: if (Config.ready) root._lastKey = root._wallKey = root.key
 
     // Wallpapers picked while in a variant become that variant's.
     onWallpaperChanged: {
         if (!Config.ready || !root.enabled || root.wallpaper === "")
             return;
         if (root._applying !== "") {
-            if (root.wallpaper === root._applying)
-                root._applying = "";
+            if (!root._busy && root.wallpaper === root._applying)
+                root._settle();
             return;
         }
         root.remember("main", root.key, root.wallpaper);
