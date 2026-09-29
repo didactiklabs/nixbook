@@ -43,6 +43,16 @@ IPC = {
         "ouvrir l'aperçu des espaces de travail du shell",
         "die Arbeitsbereich-Übersicht der Shell öffnen",
         "mở tổng quan không gian làm việc của shell"),
+    ("search", "layoutsToggle"): t(
+        "open the window layout picker: restore a saved window layout, or type a name to save the windows as they are",
+        "ouvrir le sélecteur de dispositions de fenêtres : restaurer une disposition enregistrée, ou taper un nom pour enregistrer les fenêtres telles qu'elles sont",
+        "die Auswahl der Fensteranordnungen öffnen: eine gespeicherte Anordnung wiederherstellen oder einen Namen eingeben, um die Fenster so zu speichern, wie sie sind",
+        "mở bộ chọn bố cục cửa sổ: khôi phục một bố cục đã lưu, hoặc gõ tên để lưu các cửa sổ như hiện tại"),
+    ("desktopControl", "toggle"): t(
+        "stop (pause) the AI agents controlling the desktop, or allow them again: the panic key",
+        "arrêter (mettre en pause) les agents IA qui contrôlent le bureau, ou les autoriser à nouveau : la touche d'urgence",
+        "die KI-Agenten, die den Desktop steuern, stoppen (pausieren) oder wieder erlauben: die Nottaste",
+        "dừng (tạm dừng) các tác nhân AI đang điều khiển màn hình, hoặc cho phép lại: phím khẩn cấp"),
     ("search", "clipboardToggle"): t(
         "open the clipboard history",
         "ouvrir l'historique du presse-papiers",

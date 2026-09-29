@@ -898,6 +898,12 @@ in
                   "search"
                   "layoutsToggle"
                 ];
+                # Panic key: pause (or allow again) every AI agent driving the
+                # desktop (nixbook-desktop-mcp; same as the bar's robot).
+                "Mod+Shift+Escape" = [
+                  "desktopControl"
+                  "toggle"
+                ];
               }
           )
         )

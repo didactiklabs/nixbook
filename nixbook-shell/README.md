@@ -199,7 +199,8 @@ agent acts (its calls within the last 20 s), a red hand when paused; its
 tooltip names the last agent and tool. A click pauses every agent at once
 (even between the steps of a `run_steps` batch), another allows them again.
 `nixbook-shell ipc call desktopControl toggle` (or `pause`, `resume`,
-`status`) does the same from a key binding; agents can't call that target.
+`status`) does the same from a key binding (nixbook binds it to
+**Mod+Shift+Escape**); agents can't call that target.
 
 Agents are slow mostly because every tool call is a model round trip, so
 the tools save calls: `launch_app` waits for the app's window and says
@@ -238,6 +239,22 @@ update, rename or delete. Key bindings can also call the `layouts` IPC target
 (`cycle`, `saveCurrent`, `restoreNumber N`, `restore NAME`, `save NAME`;
 agents can't call it), and scripts `nixbook-desktop-mcp layout …`.
 They live in `~/.local/state/nixbook-shell/layouts/`.
+
+**Claude in the side panel**: when Claude Code is installed (`claude` on the
+PATH, in `~/.local/bin` or a Nix profile), the AI chat offers a **Claude**
+model (`/model claude`) that runs on your own Claude login, no API key. It is
+set up in **Settings → Desktop agents → Claude in the side panel**: whether
+Claude Code was found (and its command, if elsewhere), the model (default,
+Sonnet, Opus, Haiku), whether it may search and read the web and read your
+files, and a button to use it in the panel (the `ai.claudeCode.*` settings;
+Nix can pin them like any other). Each message runs `claude -p` once, resuming the
+conversation's session, with the desktop MCP server attached (its guardrails,
+the pause button and the memory apply as always; tool `none` leaves it out)
+and only the built-in tools in `ai.claudeCode.allowedTools` (web search and
+fetch, reading files); running commands and editing files are refused.
+Replies stream in, each tool call shows with its result in a collapsible
+block, and the send button stops the answer (and what Claude is doing), as
+does `/stop`. Sonnet is faster than Opus for desktop tasks.
 
 The shell's AI chat (left sidebar) gets the same tools in its `functions`
 mode: looking at windows and apps runs at once; screenshots, the clipboard
