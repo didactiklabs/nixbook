@@ -15,6 +15,20 @@ Scope {
 
     property var action: RegionSelection.SnipAction.Copy
     property var selectionMode: RegionSelection.SelectionMode.RectCorners
+
+    // niri's gaps and struts (not in its IPC), for placing tiled windows in
+    // window selection. Re-read on each open: a switch replaces the file.
+    FileView {
+        id: niriConfigFile
+        path: Quickshell.env("NIRI_CONFIG") || `${Quickshell.env("XDG_CONFIG_HOME") || `${Quickshell.env("HOME")}/.config`}/niri/config.kdl`
+        printErrors: false
+    }
+    Connections {
+        target: GlobalStates
+        function onRegionSelectorOpenChanged() {
+            if (GlobalStates.regionSelectorOpen) niriConfigFile.reload();
+        }
+    }
     
     Variants {
         model: Quickshell.screens
@@ -28,6 +42,8 @@ Scope {
                 onDismiss: root.dismiss()
                 action: root.action
                 selectionMode: root.selectionMode
+                niriLayout: RegionFunctions.parseNiriLayout(niriConfigFile.text())
+                onSelectionModeRequested: mode => root.selectionMode = mode
             }
         }
     }

@@ -33,7 +33,14 @@ Scope {
             tileX: w.layout?.tile_pos_in_workspace_view?.[0] ?? null,
             tileY: w.layout?.tile_pos_in_workspace_view?.[1] ?? null,
             tileWidth: w.layout?.tile_size?.[0] ?? 0,
-            tileHeight: w.layout?.tile_size?.[1] ?? 0
+            tileHeight: w.layout?.tile_size?.[1] ?? 0,
+            // Tiled windows only: 1-based column and tile index in the
+            // scrolling layout.
+            column: w.layout?.pos_in_scrolling_layout?.[0] ?? null,
+            tileIndex: w.layout?.pos_in_scrolling_layout?.[1] ?? null,
+            // The window's visual geometry within its tile (borders).
+            windowOffsetX: w.layout?.window_offset_in_tile?.[0] ?? 0,
+            windowOffsetY: w.layout?.window_offset_in_tile?.[1] ?? 0
         };
     }
 

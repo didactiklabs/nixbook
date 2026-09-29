@@ -35,12 +35,17 @@ PanelWindow {
     // Modes
     // TODO: Ask: sidebar AI
     enum SnipAction { Copy, Edit, Search, CharRecognition, Record, RecordWithSound } 
-    enum SelectionMode { RectCorners, Circle }
+    // Window / Screen: hovering a window or a screen selects it, a click takes it.
+    enum SelectionMode { RectCorners, Circle, Window, Screen }
     enum Phase { Select, Post }
     property var action: RegionSelection.SnipAction.Copy
     property var selectionMode: RegionSelection.SelectionMode.RectCorners
     property var phase: RegionSelection.Phase.Select
     signal dismiss()
+    // The mode is shared by every screen's selector: ask RegionSelector.
+    signal selectionModeRequested(var mode)
+    // niri's gaps/struts, for the window estimate (RegionFunctions.parseNiriLayout).
+    property var niriLayout: RegionFunctions.parseNiriLayout("")
 
     // Styles
     property string screenshotDir: Directories.screenshotTemp
@@ -79,9 +84,37 @@ PanelWindow {
     property bool dragging: false
     property list<point> points: []
     property var mouseButton: null
+    // The window taken in window selection: captured by niri, not cropped.
+    property string snipWindowId: ""
     property var imageRegions: []
     // Config
     property bool isCircleSelection: (root.selectionMode === RegionSelection.SelectionMode.Circle)
+    readonly property bool isTargetSelection: root.selectionMode === RegionSelection.SelectionMode.Window
+        || root.selectionMode === RegionSelection.SelectionMode.Screen
+
+    function toggleSelectionMode(mode) {
+        root.selectionModeRequested(root.selectionMode === mode ? RegionSelection.SelectionMode.RectCorners : mode);
+    }
+
+    // Window/screen selection: the windows of this screen's workspace, and
+    // whatever is under the pointer (null while it is on another screen).
+    readonly property var windowTargets: root.selectionMode === RegionSelection.SelectionMode.Window
+        ? RegionFunctions.windowTargets(WM.windowList, WM.activeWorkspaceForMonitor(root.screen.name),
+            root.screen.width, root.screen.height, root.niriLayout, root.reservedBarSpace)
+        : []
+    readonly property var reservedBarSpace: {
+        const bar = Config.options.bar;
+        const screens = bar.screenList ?? [];
+        const barHere = screens.length === 0 || screens.includes(root.screen.name);
+        const side = barHere && bar.vertical ? Appearance.sizes.verticalBarWidth : 0;
+        return { left: bar.bottom ? 0 : side, right: bar.bottom ? side : 0, bottom: barHere && !bar.vertical && bar.bottom };
+    }
+    readonly property var hoverTarget: {
+        if (!root.isTargetSelection || !mouseArea.containsMouse) return null;
+        if (root.selectionMode === RegionSelection.SelectionMode.Screen)
+            return { id: "", title: root.screen.name, x: 0, y: 0, width: root.screen.width, height: root.screen.height };
+        return RegionFunctions.targetAt(root.windowTargets, mouseArea.mouseX, mouseArea.mouseY);
+    }
     property bool enableContentRegions: Config.options.regionSelector.targetRegions.content
 
     // Target
@@ -237,15 +270,24 @@ PanelWindow {
         const screenshotDir = Config.options.screenSnip.savePath !== "" ? //
             Config.options.screenSnip.savePath : "";
         var screenshotAction = root.getScreenshotAction();
-        const command = ScreenshotAction.getCommand(
-            root.regionX * root.monitorScale, //
-            root.regionY * root.monitorScale, //
-            root.regionWidth * root.monitorScale,// 
-            root.regionHeight * root.monitorScale, //
-            root.screenshotPath, //
-            screenshotAction, //
-            screenshotDir
-        )
+        const isRecording = root.action === RegionSelection.SnipAction.Record
+            || root.action === RegionSelection.SnipAction.RecordWithSound;
+        let command;
+        if (root.snipWindowId !== "" && !isRecording) {
+            const windowPath = `${root.screenshotDir}/window-${root.snipWindowId}`;
+            command = ScreenshotAction.getWindowCommand(root.snipWindowId, windowPath,
+                ScreenshotAction.getCommand(0, 0, 0, 0, windowPath, screenshotAction, screenshotDir));
+        } else {
+            command = ScreenshotAction.getCommand(
+                root.regionX * root.monitorScale, //
+                root.regionY * root.monitorScale, //
+                root.regionWidth * root.monitorScale,// 
+                root.regionHeight * root.monitorScale, //
+                root.screenshotPath, //
+                screenshotAction, //
+                screenshotDir
+            )
+        }
         Quickshell.execDetached(command);
         if (root.action == RegionSelection.SnipAction.Record || root.action == RegionSelection.SnipAction.RecordWithSound) {
             root.phase = RegionSelection.Phase.Post
@@ -271,9 +313,13 @@ PanelWindow {
         opacity: root.preparationDone ? 1 : 0 // stays focusable (Esc) meanwhile
 
         focus: root.visible
-        Keys.onPressed: (event) => { // Esc to close
-            if (event.key === Qt.Key_Escape) {
+        Keys.onPressed: (event) => {
+            if (event.key === Qt.Key_Escape) { // Esc to close
                 Qt.callLater(root.dismiss);
+            } else if (event.key === Qt.Key_S) { // hover a screen to select it
+                root.toggleSelectionMode(RegionSelection.SelectionMode.Screen);
+            } else if (event.key === Qt.Key_W) { // hover a window to select it
+                root.toggleSelectionMode(RegionSelection.SelectionMode.Window);
             }
         }
     }
@@ -298,6 +344,18 @@ PanelWindow {
             root.mouseButton = mouse.button;
         }
         onReleased: (mouse) => {
+            if (root.isTargetSelection) {
+                root.dragging = false;
+                const target = root.hoverTarget;
+                if (!target) return; // no window there: keep selecting
+                root.regionX = target.x;
+                root.regionY = target.y;
+                root.regionWidth = target.width;
+                root.regionHeight = target.height;
+                root.snipWindowId = target.id;
+                root.snip();
+                return;
+            }
             // Detect if it was a click -> Try to select targeted region
             if (root.draggingX === root.dragStartX && root.draggingY === root.dragStartY) {
                 if (root.targetedRegionValid()) {
@@ -332,12 +390,17 @@ PanelWindow {
         Loader {
             z: 2
             anchors.fill: parent
-            active: root.selectionMode === RegionSelection.SelectionMode.RectCorners
+            active: root.selectionMode !== RegionSelection.SelectionMode.Circle
             sourceComponent: RectCornersSelectionDetails {
-                regionX: root.regionX
-                regionY: root.regionY
-                regionWidth: root.regionWidth
-                regionHeight: root.regionHeight
+                // Window/screen selection shows the hovered target (nothing:
+                // the whole screen dimmed) until one is taken.
+                readonly property bool showsTarget: root.isTargetSelection && root.phase === RegionSelection.Phase.Select
+                regionX: showsTarget ? (root.hoverTarget?.x ?? 0) : root.regionX
+                regionY: showsTarget ? (root.hoverTarget?.y ?? 0) : root.regionY
+                regionWidth: showsTarget ? (root.hoverTarget?.width ?? 0) : root.regionWidth
+                regionHeight: showsTarget ? (root.hoverTarget?.height ?? 0) : root.regionHeight
+                label: showsTarget ? (root.hoverTarget?.title ?? "") : ""
+                showAimLines: !root.isTargetSelection && Config.options.regionSelector.rect.showAimLines
                 mouseX: mouseArea.mouseX
                 mouseY: mouseArea.mouseY
                 color: root.selectionBorderColor
@@ -371,7 +434,7 @@ PanelWindow {
         Repeater {
             model: ScriptModel {
                 values: {
-                    if (root.phase === RegionSelection.Phase.Select && root.enableContentRegions) {
+                    if (root.phase === RegionSelection.Phase.Select && root.enableContentRegions && !root.isTargetSelection) {
                         return root.imageRegions
                     } else {
                         return []
@@ -426,9 +489,8 @@ PanelWindow {
                 Synchronizer on action {
                     property alias source: root.action
                 }
-                Synchronizer on selectionMode {
-                    property alias source: root.selectionMode
-                }
+                selectionMode: root.selectionMode
+                onSelectionModeSelected: mode => root.selectionModeRequested(mode)
                 onDismiss: root.dismiss();
             }
             ToolbarPairedFab {

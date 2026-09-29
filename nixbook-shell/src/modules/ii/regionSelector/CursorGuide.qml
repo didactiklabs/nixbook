@@ -8,10 +8,14 @@ Item {
     property var action
     property var selectionMode
 
+    readonly property string target: root.selectionMode === RegionSelection.SelectionMode.Window ? "window"
+        : root.selectionMode === RegionSelection.SelectionMode.Screen ? "screen" : "region"
     property string description: switch (root.action) {
     case RegionSelection.SnipAction.Copy:
     case RegionSelection.SnipAction.Edit:
-        return Translation.tr("Copy region (LMB) or annotate (RMB)");
+        return root.target === "window" ? Translation.tr("Copy window (LMB) or annotate (RMB)")
+            : root.target === "screen" ? Translation.tr("Copy screen (LMB) or annotate (RMB)")
+            : Translation.tr("Copy region (LMB) or annotate (RMB)");
     case RegionSelection.SnipAction.Search:
         return Translation.tr("Search with Google Lens");
     case RegionSelection.SnipAction.CharRecognition:
@@ -23,7 +27,7 @@ Item {
     property string materialSymbol: switch (root.action) {
     case RegionSelection.SnipAction.Copy:
     case RegionSelection.SnipAction.Edit:
-        return "content_cut";
+        return root.target === "window" ? "select_window" : root.target === "screen" ? "monitor" : "content_cut";
     case RegionSelection.SnipAction.Search:
         return "image_search";
     case RegionSelection.SnipAction.CharRecognition:
@@ -48,6 +52,10 @@ Item {
         }
     }
     onActionChanged: {
+        root.showDescription = true
+        descTimeout.restart()
+    }
+    onSelectionModeChanged: {
         root.showDescription = true
         descTimeout.restart()
     }
