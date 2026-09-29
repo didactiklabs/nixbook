@@ -293,6 +293,18 @@ ContentPage {
                                 Config.options.search.prefix.app = value;
                             }
                         }
+                        ConfigTextArea {
+                            configKey: "search.prefix.themes";
+                            enabled: !nixManaged;
+                            Layout.fillWidth: true
+                            buttonIcon: "palette"
+                            fieldWidth: 100
+                            text: Translation.tr("Themes")
+                            value: Config.options.search.prefix.themes
+                            onValueChanged: {
+                                Config.options.search.prefix.themes = value;
+                            }
+                        }
                     }
                 }
             }

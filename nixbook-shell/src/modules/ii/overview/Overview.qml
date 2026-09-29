@@ -162,6 +162,16 @@ Scope {
         GlobalStates.overviewOpen = true;
     }
 
+    function toggleThemes() {
+        if (GlobalStates.overviewOpen && overviewScope.dontAutoCancelSearch) {
+            GlobalStates.overviewOpen = false;
+            return;
+        }
+        overviewScope.dontAutoCancelSearch = true;
+        panelWindow.setSearchingText(Config.options.search.prefix.themes);
+        GlobalStates.overviewOpen = true;
+    }
+
     IpcHandler {
         target: "search"
 
@@ -185,6 +195,9 @@ Scope {
         }
         function symbolsToggle() {
             overviewScope.toggleSymbols();
+        }
+        function themeToggle() {
+            overviewScope.toggleThemes();
         }
     }
 }

@@ -808,6 +808,7 @@ Singleton {
                     property string clipboard: ";"
                     property string emojis: ":"
                     property string symbols: "."
+                    property string themes: "@"
                     property string math: "="
                     property string shellCommand: "$"
                     property string webSearch: "?"

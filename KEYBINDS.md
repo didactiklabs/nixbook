@@ -49,6 +49,7 @@ Niri is column/scroll based; it has no numbered workspaces (workspaces stack ver
 | `Mod+Space`  | Toggle Sathi AI assistant widget                         | Toggle left sidebar (AI chat, translator)     |
 | `Mod+I`      | Toggle idle inhibitor                                    | Start/stop `hypridle` (idle inhibit)          |
 | `Mod+Escape` | —                                                        | Toggle Settings panel                         |
+| `Mod+X`      | —                                                        | Launcher in theme/variant switcher mode       |
 | `Ctrl+Space` | Toggle fcitx5 input method (when `fcitx5Config` enabled) | same                                          |
 
 nixbook-shell binds all spawn `nixbook-shell ipc call <target> <function>`.
