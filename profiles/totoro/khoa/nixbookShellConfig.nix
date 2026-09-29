@@ -4,6 +4,33 @@
 {
   customHomeManagerModules.nixbookShellConfig.settings = {
     # appearance.theme = "persona";
+    # Bar widgets (not shared: other users arrange theirs from the menu).
+    bar.layouts = {
+      leftLayout = [
+        "launcherButton"
+        "workspaces"
+        "activeWindow"
+        "leftSidebarButton"
+      ];
+      middleLayout = [
+        "clockWidget"
+        # "nextEvent"
+        "kdeConnect"
+        "resources"
+        "networkSpeed"
+        "anthropicUsage"
+      ];
+      rightLayout = [
+        "sysTray"
+        "utilButtons"
+        "systemIcons"
+        "vpnStatus"
+        "desktopControl"
+        "batteryIndicator"
+        "powerButton"
+        "updatesCount"
+      ];
+    };
     # Persona cut-in rules. "last:" is the last message of a chat thread with
     # its sender: the phone (KDE Connect) re-posts the whole conversation on
     # every message, mine included.

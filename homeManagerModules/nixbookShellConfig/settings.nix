@@ -43,32 +43,8 @@
   };
   bar = {
     cornerStyle = 1;
-    layouts = {
-      leftLayout = [
-        "launcherButton"
-        "workspaces"
-        "activeWindow"
-        "leftSidebarButton"
-      ];
-      middleLayout = [
-        "clockWidget"
-        # "nextEvent"
-        "kdeConnect"
-        "resources"
-        "networkSpeed"
-        "anthropicUsage"
-      ];
-      rightLayout = [
-        "sysTray"
-        "utilButtons"
-        "systemIcons"
-        "vpnStatus"
-        "desktopControl"
-        "batteryIndicator"
-        "powerButton"
-        "updatesCount"
-      ];
-    };
+    # layouts: per profile (profiles/totoro/khoa/nixbookShellConfig.nix), so
+    # other users arrange their bar from the menu.
   };
   dock = {
     enable = true;

@@ -21,6 +21,11 @@ Item {
             if (!NixManaged.allFiltered(root.items[i])) out.push(i);
         return out;
     }
+    // A real binding for the Binding below to restore: without one it
+    // restores the value it read on activation, the *effective* visibility,
+    // i.e. false when the filter was turned on from another page (pages stay
+    // loaded but hidden), and the item stayed hidden after turning it off.
+    visible: !(root.items.length > 0 && root.shownIndices.length === 0)
     Binding on visible {
         when: root.items.length > 0 && root.shownIndices.length === 0
         value: false
