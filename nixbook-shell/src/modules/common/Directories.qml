@@ -21,11 +21,16 @@ Singleton {
     readonly property string videos: StandardPaths.standardLocations(StandardPaths.MoviesLocation)[0]
 
     // Other dirs used by the shell, without "file://"
+    // Per-user scratch space ($XDG_RUNTIME_DIR: 0700, tmpfs). Never a fixed
+    // /tmp path: the login screen runs the shell as the greeter user, which
+    // created /tmp/quickshell first, so the session could not create its
+    // subdirectories there and screenshots never reached the clipboard.
+    readonly property string runtimeTemp: `${Quickshell.env("XDG_RUNTIME_DIR") || `/tmp/nixbook-shell-${Quickshell.env("USER")}`}/nixbook-shell`
     property string assetsPath: Quickshell.shellPath("assets")
     property string scriptPath: Quickshell.shellPath("scripts")
     property string favicons: FileUtils.trimFileProtocol(`${Directories.cache}/media/favicons`)
     property string coverArt: FileUtils.trimFileProtocol(`${Directories.cache}/media/coverart`)
-    property string tempImages: "/tmp/quickshell/media/images"
+    property string tempImages: `${Directories.runtimeTemp}/media/images`
     property string latexOutput: FileUtils.trimFileProtocol(`${Directories.cache}/media/latex`)
     property string shellConfig: FileUtils.trimFileProtocol(`${Directories.config}/nixbook-shell`)
     property string shellConfigName: "config.json"
@@ -38,8 +43,9 @@ Singleton {
     property string notificationHistoryPath: FileUtils.trimFileProtocol(`${Directories.state}/user/notification-history.json`)
     property string generatedMaterialThemePath: FileUtils.trimFileProtocol(`${Directories.state}/user/generated/colors.json`)
     property string generatedWallpaperCategoryPath: FileUtils.trimFileProtocol(`${Directories.state}/user/generated/wallpaper/category.txt`)
-    property string cliphistDecode: FileUtils.trimFileProtocol(`/tmp/quickshell/media/cliphist`)
-    property string screenshotTemp: "/tmp/quickshell/media/screenshot"
+    property string cliphistDecode: `${Directories.runtimeTemp}/media/cliphist`
+    property string screenshotTemp: `${Directories.runtimeTemp}/media/screenshot`
+    property string aiTemp: `${Directories.runtimeTemp}/ai`
     property string wallpaperSwitchScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/colors/switchwall.sh`)
     property string defaultAiPrompts: Quickshell.shellPath("defaults/ai/prompts")
     property string userAiPrompts: FileUtils.trimFileProtocol(`${Directories.shellConfig}/ai/prompts`)
@@ -67,5 +73,6 @@ Singleton {
         Quickshell.execDetached(["mkdir", "-p", `${userActions}`])
         Quickshell.execDetached(["mkdir", "-p", `${eqStateDir}`])
         Quickshell.execDetached(["rm", "-rf", `${tempImages}`])
+        Quickshell.execDetached(["mkdir", "-p", `${aiTemp}`])
     }
 }

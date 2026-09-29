@@ -3,10 +3,11 @@
 import argparse
 import cv2
 import json
+import os
 import numpy as np
 import sys
 
-DEFAULT_IMAGE_PATH = '/tmp/quickshell/media/screenshot/image'
+DEFAULT_IMAGE_PATH = os.path.join(os.environ.get('XDG_RUNTIME_DIR') or f"/tmp/nixbook-shell-{os.environ.get('USER', '')}", 'nixbook-shell/media/screenshot/image')
 
 def iou(boxA, boxB):
     # Compute intersection over union for two boxes
