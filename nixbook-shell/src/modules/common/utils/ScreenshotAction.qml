@@ -43,22 +43,14 @@ Singleton {
         }
         const annotationCommand = `${Config.options.regionSelector.annotation.useSatty ? "satty" : "swappy"} -f -`;
         switch (action) {
-            case ScreenshotAction.Action.Copy:
-                if (saveDir === "") {
-                    // not saving the screenshot, just copy to clipboard
-                    return ["bash", "-c", `${cropToStdout} | wl-copy && ${cleanup}`]
-                    break;
-                }
-                return [
-                    "bash", "-c",
-                    `mkdir -p '${StringUtils.shellSingleQuoteEscape(saveDir)}' && \
-                    saveFileName="screenshot-$(date '+%Y-%m-%d_%H.%M.%S').png" && \
-                    savePath="${saveDir}/$saveFileName" && \
-                    ${cropToStdout} | tee >(wl-copy) > "$savePath" && \
-                    ${cleanup}`
-                ]
-
-                break;
+            case ScreenshotAction.Action.Copy: {
+                // Written to a file first, which the notification shows: in
+                // saveDir, else Directories.screenshotTemp (cleared on the next open).
+                const target = saveDir !== ""
+                    ? `mkdir -p '${StringUtils.shellSingleQuoteEscape(saveDir)}' && out='${StringUtils.shellSingleQuoteEscape(saveDir)}'/"screenshot-$(date '+%Y-%m-%d_%H.%M.%S').png"`
+                    : `out='${StringUtils.shellSingleQuoteEscape(Directories.screenshotTemp)}'/"snip-$(date '+%s%N').png"`;
+                return ["bash", "-c", `${target} && ${cropBase} "$out" && wl-copy --type image/png < "$out" && ${cleanup} && ${root.notifyCommand}`]
+            }
             case ScreenshotAction.Action.Edit:
                 return ["bash", "-c", `${cropToStdout} | ${annotationCommand} && ${cleanup}`]
                 break;
@@ -80,16 +72,34 @@ Singleton {
         }
     }
 
-    // Runs `command` (from getCommand, with a zero size) on the window `windowId`
-    // as niri renders it: whole, borderless, even where it is off screen or
-    // covered. niri only hands the capture to the clipboard, so the clipboard
-    // is cleared first and the image read back once it lands there.
-    function getWindowCommand(windowId, screenshotPath, command) {
-        const path = StringUtils.shellSingleQuoteEscape(screenshotPath);
-        const capture = `wl-copy --clear && `
-            + `niri msg action screenshot-window --id ${Number(windowId)} --write-to-disk false && `
-            + `for _ in $(seq 40); do wl-paste --list-types 2>/dev/null | grep -qx image/png && break; sleep 0.05; done && `
-            + `mkdir -p "$(dirname '${path}')" && wl-paste --no-newline --type image/png > '${path}'`;
-        return ["bash", "-c", `${capture} && ${command[2]}`];
+    // The notification niri sends for its own screenshots (a window capture
+    // gets that one), for the region and screen copies: the image in "$out".
+    readonly property string notifyCommand: `notify-send -a '${StringUtils.shellSingleQuoteEscape(Translation.tr("Screenshot"))}' `
+        + `-i image-x-generic -h "string:image-path:$out" -h boolean:transient:true `
+        + `'${StringUtils.shellSingleQuoteEscape(Translation.tr("Screenshot captured"))}' `
+        + `'${StringUtils.shellSingleQuoteEscape(Translation.tr("You can paste the image from the clipboard."))}'`
+
+    // `action` on the window `windowId` as niri renders it: whole, borderless,
+    // even where it is off screen or covered. niri writes it to a file (kept
+    // until the next open: its notification shows it), puts it in the
+    // clipboard and notifies, so a copy is done once the file is there; the
+    // other actions work on a copy of the file.
+    function getWindowCommand(windowId, action, saveDir = "") {
+        const dir = StringUtils.shellSingleQuoteEscape(Directories.screenshotTemp);
+        const id = Number(windowId);
+        const workPath = `${Directories.screenshotTemp}/window-${id}-work.png`;
+        const capture = `mkdir -p '${dir}' && win='${dir}/window-${id}.png' && rm -f "$win" && `
+            + `niri msg action screenshot-window --id ${id} --path "$win" && `
+            // niri encodes and writes it from a thread: wait until it is complete.
+            + `prev=-1 && for _ in $(seq 80); do size=$(stat -c %s "$win" 2>/dev/null || echo 0); `
+            + `[ "$size" -gt 0 ] && [ "$size" = "$prev" ] && break; prev=$size; sleep 0.05; done && [ -s "$win" ]`;
+        if (action === ScreenshotAction.Action.Copy) {
+            const save = saveDir === "" ? ""
+                : ` && mkdir -p '${StringUtils.shellSingleQuoteEscape(saveDir)}' && cp "$win" '${StringUtils.shellSingleQuoteEscape(saveDir)}'/"screenshot-$(date '+%Y-%m-%d_%H.%M.%S').png"`;
+            return ["bash", "-c", capture + save];
+        }
+        const command = root.getCommand(0, 0, 0, 0, workPath, action, "");
+        if (!command) return;
+        return ["bash", "-c", `${capture} && cp "$win" '${StringUtils.shellSingleQuoteEscape(workPath)}' && ${command[2]}`];
     }
 }
