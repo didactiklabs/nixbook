@@ -145,6 +145,10 @@ Item { // Wrapper
                 Layout.leftMargin: 10
                 Layout.rightMargin: 4
                 Layout.topMargin: verticalPadding
+                // Same column as the result rows' icon and text (SearchItem's
+                // iconCenterX and textX), in the bar's own coordinates.
+                iconCenterX: 10 + 10 + 36 / 2 - Layout.leftMargin
+                textX: 10 + 10 + 36 + 12 - Layout.leftMargin
                 Layout.bottomMargin: verticalPadding
                 Synchronizer on searchingText {
                     property alias source: root.searchingText

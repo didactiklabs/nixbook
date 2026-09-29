@@ -13,6 +13,10 @@ RowLayout {
     spacing: 6
     property alias searchInput: searchInput
     property string searchingText
+    // Where the icon's centre and the typed text go, from the bar's left edge
+    // (the search widget lines them up with the result rows).
+    property real iconCenterX: searchIcon.implicitWidth / 2
+    property real textX: searchIcon.implicitWidth + root.spacing + 10
 
     function forceFocus() {
         searchInput.forceActiveFocus();
@@ -36,7 +40,9 @@ RowLayout {
     MaterialShapeWrappedMaterialSymbol {
         id: searchIcon
         Layout.alignment: Qt.AlignVCenter
+        Layout.leftMargin: Math.max(0, root.iconCenterX - implicitWidth / 2)
         iconSize: Appearance.font.pixelSize.huge
+        padding: 4 // As wide as the result rows' 36 px icon slot
         shape: switch(root.searchPrefixType) {
             case SearchBar.SearchPrefixType.Action: return MaterialShape.Shape.Pill;
             case SearchBar.SearchPrefixType.App: return MaterialShape.Shape.Clover4Leaf;
@@ -68,6 +74,7 @@ RowLayout {
         Layout.topMargin: 4
         Layout.bottomMargin: 4
         implicitHeight: 40
+        leftPadding: Math.max(4, root.textX - x)
         focus: GlobalStates.overviewOpen
         font.pixelSize: Appearance.font.pixelSize.normal
         placeholderText: Translation.tr("Search, calculate or run")

@@ -579,6 +579,13 @@ MouseArea {
         }
     }
 
+    // Shutting down / restarting: over everything, until the machine goes down.
+    PowerActionOverlay {
+        z: 100
+        action: Session.powerAction
+        detail: Session.closingApps ? Translation.tr("Closing apps…") : ""
+    }
+
     component PasswordGuardedIconToolbarButton: IconToolbarButton {
         id: guardedBtn
         required property var targetAction
