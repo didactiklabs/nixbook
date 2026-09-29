@@ -251,7 +251,10 @@ layouts submenu, and Settings → Window layouts lists them to restore,
 update, rename or delete. Key bindings can also call the `layouts` IPC target
 (`cycle`, `saveCurrent`, `restoreNumber N`, `restore NAME`, `save NAME`;
 agents can't call it), and scripts `nixbook-desktop-mcp layout …`.
-They live in `~/.local/state/nixbook-shell/layouts/`.
+They live in `~/.local/state/nixbook-shell/layouts/`. Restored with a
+monitor unplugged, the windows saved on it stay where niri moved them (with
+their workspace, back on the monitor when it's plugged in again), and the
+layout can't be overwritten until the monitor is back: save under another name.
 
 **Claude in the side panel**: when Claude Code is installed (`claude` on the
 PATH, in `~/.local/bin` or a Nix profile), the AI chat offers a **Claude**

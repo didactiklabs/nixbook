@@ -483,6 +483,21 @@ expect_contains "layout cycle: wraps around" "$out" "restored layout 'gaming'"
 layout_cmd rename gaming games >/dev/null
 expect_eq "layout rename: current follows" "games|games work" "$(layout_cmd list | jq -r '"\(.current)|\([.layouts[].name] | join(" "))"')"
 expect_contains "layout rename: no overwrite" "$(layout_cmd rename games work)" "exists already"
+# Saved with DP-2 (disconnected now) and a monitor gone from the list: those
+# windows stay where niri parked them; the layout isn't overwritten.
+jq -c '.name = "docked" | .windows |= map(if .app_id == "org.gnome.TextEditor" then .monitor = "DP-2"
+  elif .app_id == "kitty" then .monitor = "DP-3" | .workspace = {index: 1, name: null} else . end)' \
+  "$layout" >"$XDG_STATE_HOME/nixbook-shell/layouts/docked.json"
+reset_calls
+out=$(layout_cmd restore docked)
+expect_contains "layout restore, monitors unplugged: says so" "$out" "restored layout 'docked': 3 of 5 windows placed (DP-2, DP-3 not connected: 2 left where they are)"
+expect_contains "layout restore, monitors unplugged: which windows" "$out" "left where they are: kitty, org.gnome.TextEditor"
+expect_not_contains "layout restore, monitors unplugged: their windows not moved" "$(cat "$calls")" "--id 4"
+expect_not_contains "layout restore, monitors unplugged: nor piled onto a workspace" "$(cat "$calls")" "--window-id 2"
+expect_contains "layout restore, monitors unplugged: the others placed" "$(cat "$calls")" "move-window-to-monitor --id 1 eDP-1"
+expect_contains "layout save, monitors unplugged: not overwritten" "$(layout_cmd save docked)" "has windows on DP-2, DP-3, not connected now"
+expect_eq "layout save, monitors unplugged: file kept" DP-2 "$(jq -r '.windows[] | select(.app_id=="org.gnome.TextEditor") | .monitor' "$XDG_STATE_HOME/nixbook-shell/layouts/docked.json")"
+layout_cmd delete docked >/dev/null
 layout_cmd delete games >/dev/null
 expect_eq "layout delete" "|work" "$(layout_cmd list | jq -r '"\(.current)|\([.layouts[].name] | join(" "))"')"
 expect_contains "layout: names checked" "$(layout_cmd save '../x')" "a layout name"

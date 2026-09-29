@@ -158,12 +158,22 @@ ContentPage {
                                     visible: row.renaming
                                     Layout.fillWidth: true
                                     text: row.modelData.name
+                                    onVisibleChanged: if (visible) { text = row.modelData.name; forceActiveFocus(); selectAll() }
                                     onAccepted: {
                                         const name = text.trim()
-                                        if (name !== row.modelData.name && WindowLayouts.rename(row.modelData.name, name))
-                                            row.renaming = false
+                                        if (name === row.modelData.name) row.renaming = false
+                                        else if (WindowLayouts.rename(row.modelData.name, name)) row.renaming = false
                                     }
                                     Keys.onEscapePressed: row.renaming = false
+                                }
+                                StyledText {
+                                    readonly property string name: renameField.text.trim()
+                                    visible: row.renaming && name !== row.modelData.name
+                                        && (!WindowLayouts.validName(name) || WindowLayouts.layouts.some(l => l.name === name))
+                                    color: Appearance.m3colors.m3error
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                    text: WindowLayouts.validName(name) ? Translation.tr("A layout with this name exists already")
+                                        : Translation.tr("Letters, digits, '.', '-' and '_' only")
                                 }
                                 StyledText {
                                     Layout.fillWidth: true
