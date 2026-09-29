@@ -15,6 +15,44 @@ Scope {
         ? Config.options.bar.frameThickness
         : Appearance.sizes.barHeight
 
+    // Click outside to close (niri/animated entrance): its own transparent
+    // full-screen window, input everywhere but over the sidebar. It used to be
+    // part of the sidebar window, widened to the full screen while open, so
+    // every animation, hover or tick in the sidebar re-rendered a full-screen
+    // buffer. This one is drawn once when shown and then stays idle. Overlay,
+    // like the sidebar, so it also covers the bar (a bar click closes the
+    // sidebar, as before).
+    PanelWindow {
+        id: outsideClickWindow
+        screen: panelWindow.screen
+        visible: panelWindow.animatedEntrance && panelWindow.reallyVisible
+        color: "transparent"
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.namespace: "quickshell:sidebarRightOutside"
+        WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+        anchors { top: true; bottom: true; left: true; right: true }
+
+        mask: Region {
+            item: outsideClickArea
+            Region {
+                intersection: Intersection.Subtract
+                x: outsideClickWindow.width - root.sidebarWidth
+                y: 0
+                width: root.sidebarWidth
+                height: outsideClickWindow.height
+            }
+        }
+
+        MouseArea {
+            id: outsideClickArea
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: panelWindow.hide()
+        }
+    }
+
     PanelWindow {
         id: panelWindow
 
@@ -28,7 +66,7 @@ Scope {
         // (eglCreateContext + shader/glyph caches: 130–230 ms per open,
         // measured). While closed the surface stays mapped as a sidebar-wide
         // strip with no input region, no keyboard focus and invisible content
-        // (opacity 0 → nothing drawn); opening only widens it. The content
+        // (opacity 0 → nothing drawn); opening only gives it input back. It
         // keeps its size, so nothing is re-laid-out either.
         property bool keepMapped: false
         visible: reallyVisible || keepMapped
@@ -107,8 +145,6 @@ Scope {
             top: true
             right: true
             bottom: true
-            // Full width (for the click-outside area) only while shown.
-            left: animatedEntrance && panelWindow.reallyVisible
         }
 
         margins {
@@ -141,16 +177,6 @@ Scope {
         Item {
             anchors.fill: parent
 
-            MouseArea {
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                id: outsideClickArea
-                anchors.fill: parent
-                enabled: panelWindow.animatedEntrance
-                visible: panelWindow.animatedEntrance
-                onClicked: panelWindow.hide()
-            }
-
             Item {
                 id: entranceWrapper
                 // Nothing drawn while closed (the surface stays mapped).
@@ -162,8 +188,8 @@ Scope {
                 clip: true
 
                 readonly property bool open: GlobalStates.sidebarRightOpen
-                // Right-anchored and slid with a transform, so widening the
-                // window on open (see keepMapped) doesn't move the content.
+                // Right-anchored and slid with a transform (no re-layout while
+                // it slides).
                 anchors.right: parent.right
                 transform: Translate {
                     x: panelWindow.animatedEntrance && !entranceWrapper.open ? entranceWrapper.width : 0

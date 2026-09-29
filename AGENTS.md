@@ -451,6 +451,7 @@ All git operations must follow this workflow. **Always ask the user for validati
 
 `run-tests shell-perf` (headless sway, Qt software rendering; higher score is better; compare runs on the same machine). Per theme: startup ms / idle CPU % / RSS MB.
 
-| Date       | Change                                                      | Score | Material          | Persona (P5)      | Chiikawa          |
-| ---------- | ----------------------------------------------------------- | ----- | ----------------- | ----------------- | ----------------- |
-| 2026-09-28 | Baseline (themes, per-variant wallpapers, own login screen) | 136.6 | 2057 / 0.10 / 459 | 2064 / 0.27 / 514 | 2242 / 0.10 / 540 |
+| Date       | Change                                                                                 | Score | Material          | Persona (P5)      | Chiikawa          |
+| ---------- | -------------------------------------------------------------------------------------- | ----- | ----------------- | ----------------- | ----------------- |
+| 2026-09-29 | Smoother launcher, sidebars, media card, wallpaper change (142.1 before, same machine) | 146.6 | 1829 / 0.13 / 454 | 1717 / 0.13 / 492 | 1772 / 0.27 / 516 |
+| 2026-09-28 | Baseline (themes, per-variant wallpapers, own login screen)                            | 136.6 | 2057 / 0.10 / 459 | 2064 / 0.27 / 514 | 2242 / 0.10 / 540 |

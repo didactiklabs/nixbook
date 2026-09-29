@@ -50,6 +50,12 @@ Variants {
                 anchors.fill: parent
                 source: backdrop.wallpaperPath
                 fillMode: Image.PreserveAspectCrop
+                // Screen size, the same request as Background.qml's wallpaper:
+                // one shared decode. Unbounded, a wallpaper change decoded the
+                // full-resolution file again and uploaded that texture in the
+                // middle of the transition.
+                sourceSize: Qt.size(Math.ceil(backdrop.screen.width * backdrop.screen.devicePixelRatio),
+                    Math.ceil(backdrop.screen.height * backdrop.screen.devicePixelRatio))
                 asynchronous: true
                 cache: true
                 smooth: true

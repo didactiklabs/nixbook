@@ -11,7 +11,6 @@ import qs.modules.common.functions
 RowLayout {
     id: root
     spacing: 6
-    property bool animateWidth: false
     property alias searchInput: searchInput
     property string searchingText
 
@@ -70,19 +69,10 @@ RowLayout {
         Layout.bottomMargin: 4
         implicitHeight: 40
         focus: GlobalStates.overviewOpen
-        font.pixelSize: Appearance.font.pixelSize.small
+        font.pixelSize: Appearance.font.pixelSize.normal
         placeholderText: Translation.tr("Search, calculate or run")
-        implicitWidth: root.searchingText == "" ? Appearance.sizes.searchWidthCollapsed : Appearance.sizes.searchWidth
-
-        Behavior on implicitWidth {
-            id: searchWidthBehavior
-            enabled: root.animateWidth
-            NumberAnimation {
-                duration: 300
-                easing.type: Appearance.animation.elementMove.type
-                easing.bezierCurve: Appearance.animation.elementMove.bezierCurve
-            }
-        }
+        // Fills the launcher's fixed width: no resize while typing.
+        Layout.fillWidth: true
 
         onTextChanged: LauncherSearch.query = text
 

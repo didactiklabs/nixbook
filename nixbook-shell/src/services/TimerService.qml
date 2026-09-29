@@ -1,6 +1,7 @@
 pragma Singleton
 pragma ComponentBehavior: Bound
 
+import qs
 import qs.services
 import qs.modules.common
 
@@ -122,7 +123,10 @@ Singleton {
 
     Timer {
         id: stopwatchTimer
-        interval: 10
+        // Reads the clock on each tick, so a slower tick loses no accuracy:
+        // once per frame with the sidebar open (10 ms was faster than the
+        // display), 10/s when only the bar shows it.
+        interval: GlobalStates.sidebarRightOpen ? 16 : 100
         running: root.stopwatchRunning
         repeat: true
         onTriggered: refreshStopwatch()

@@ -297,7 +297,16 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
             // Messages
             Layout.fillWidth: true
             Layout.fillHeight: true
-            layer.enabled: true
+            id: messageListClip
+            // Messages only reach the rounded corners once the list scrolls.
+            // Applied a turn later (Qt.callLater): these depend on sizes, and switching
+            // a layer on or off in the middle of a geometry change crashed Qt.
+            readonly property bool layerWanted: !(messageListView.atYBeginning && messageListView.atYEnd)
+            property bool layerOn: true
+            function applyLayer() { messageListClip.layerOn = messageListClip.layerWanted; }
+            onLayerWantedChanged: Qt.callLater(messageListClip.applyLayer)
+            Component.onCompleted: Qt.callLater(messageListClip.applyLayer)
+            layer.enabled: messageListClip.layerOn
             layer.effect: OpacityMask {
                 maskSource: Rectangle {
                     width: swipeView.width
@@ -371,6 +380,9 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                 spacing: 10
                 popin: false
                 topMargin: statusBg.implicitHeight + statusBg.anchors.topMargin * 2
+                // Messages are heavy (markdown, code highlighting): keep a few
+                // screens of them built instead of re-parsing while scrolling.
+                cacheBuffer: Math.max(2000, height * 3)
 
                 touchpadScrollFactor: Config.options.interactions.scrolling.touchpadScrollFactor * 1.4
                 mouseScrollFactor: Config.options.interactions.scrolling.mouseScrollFactor * 1.4

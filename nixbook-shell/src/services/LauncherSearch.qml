@@ -249,6 +249,20 @@ Singleton {
         return StringUtils.stringListContainsSubstring(entry.toLowerCase(), unsafeKeywords);
     }
 
+    // qalc only runs for queries that look like maths (a digit, or the math
+    // prefix): it used to be spawned 30 ms after every keystroke, whatever was
+    // typed, and its answer re-ran the whole search below.
+    function looksLikeMath(query) {
+        return query.startsWith(Config.options.search.prefix.math) || /\d/.test(query);
+    }
+    onQueryChanged: {
+        if (root.looksLikeMath(root.query)) {
+            nonAppResultsTimer.restart();
+        } else {
+            nonAppResultsTimer.stop();
+            root.mathResult = "";
+        }
+    }
     Timer {
         id: nonAppResultsTimer
         interval: Config.options.search.nonAppResultDelay
@@ -357,55 +371,140 @@ Singleton {
         return obj;
     }
 
+    // The rows that are always there (maths, command, web search) are one
+    // object each whose text follows the query, and the other rows are cached
+    // per entry: the results binding used to create a fresh QObject for every
+    // row on every keystroke (thousands with ":" for emojis), and fresh
+    // objects also defeat the list's identity diff, so every row was rebuilt.
+    LauncherSearchResult {
+        id: mathResultObject
+        name: root.mathResult
+        verb: Translation.tr("Copy")
+        type: Translation.tr("Math result")
+        fontType: LauncherSearchResult.FontType.Monospace
+        iconName: "calculate"
+        iconType: LauncherSearchResult.IconType.Material
+        execute: () => {
+            Quickshell.clipboardText = root.mathResult;
+        }
+    }
+    LauncherSearchResult {
+        id: commandResultObject
+        name: StringUtils.cleanPrefix(root.query, Config.options.search.prefix.shellCommand).replace("file://", "")
+        verb: Translation.tr("Run")
+        type: Translation.tr("Command")
+        fontType: LauncherSearchResult.FontType.Monospace
+        iconName: "terminal"
+        iconType: LauncherSearchResult.IconType.Material
+        execute: () => {
+            let cleanedCommand = root.query.replace("file://", "");
+            cleanedCommand = StringUtils.cleanPrefix(cleanedCommand, Config.options.search.prefix.shellCommand);
+            if (cleanedCommand.startsWith(Config.options.search.prefix.shellCommand)) {
+                cleanedCommand = cleanedCommand.slice(Config.options.search.prefix.shellCommand.length);
+            }
+            AppLaunch.spawnShell(root.query.startsWith('sudo') ? `${Config.options.apps.terminal} fish -C '${cleanedCommand}'` : cleanedCommand);
+        }
+    }
+    LauncherSearchResult {
+        id: webSearchResultObject
+        name: StringUtils.cleanPrefix(root.query, Config.options.search.prefix.webSearch)
+        verb: Translation.tr("Search")
+        type: Translation.tr("Web search")
+        iconName: "travel_explore"
+        iconType: LauncherSearchResult.IconType.Material
+        execute: () => {
+            let query = StringUtils.cleanPrefix(root.query, Config.options.search.prefix.webSearch);
+            let url = Config.options.search.engineBaseUrl + query;
+            for (let site of Config.options.search.excludedSites) {
+                url += ` -site:${site}`;
+            }
+            AppLaunch.openUrl(url);
+        }
+    }
+
+    // Rows past a few screenfuls are never scrolled to; building them only
+    // cost time on each keystroke.
+    readonly property int maxListResults: 200
+    // Cached result objects, keyed "<kind>\t<entry>", dropped wholesale when
+    // too many (clipboard history changes, emoji/symbol browsing). A plain JS
+    // object mutated in place, never reassigned: it's filled from inside the
+    // results binding, and a notifying property would re-trigger it.
+    readonly property var _entryCache: ({ objects: ({}), size: 0 })
+    // Called before a search builds its rows, never in the middle of one.
+    function trimEntryCache() {
+        const cache = root._entryCache;
+        if (cache.size < 3000)
+            return;
+        const old = cache.objects;
+        cache.objects = ({});
+        cache.size = 0;
+        for (const id in old)
+            old[id].destroy(1000);
+    }
+    function cachedResult(kind, key, props) {
+        const cache = root._entryCache;
+        const k = kind + "\t" + key;
+        const cached = cache.objects[k];
+        if (cached)
+            return cached;
+        const obj = resultComp.createObject(root, props);
+        cache.objects[k] = obj;
+        cache.size++;
+        return obj;
+    }
+
     property list<var> results: {
         // Search results are handled here
         ////////////////// Skip? //////////////////
         if (root.query == "")
             return [];
+        root.trimEntryCache();
 
         ///////////// Special cases ///////////////
         if (root.query.startsWith(Config.options.search.prefix.clipboard)) {
             // Clipboard
             const searchString = StringUtils.cleanPrefix(root.query, Config.options.search.prefix.clipboard);
-            return Cliphist.fuzzyQuery(searchString).map((entry, index, array) => {
+            const clipEntries = Cliphist.fuzzyQuery(searchString).slice(0, root.maxListResults);
+            return clipEntries.map((entry, index, array) => {
                 const mightBlurImage = Cliphist.entryIsImage(entry) && root.clipboardWorkSafetyActive;
                 let shouldBlurImage = mightBlurImage;
                 if (mightBlurImage) {
                     shouldBlurImage = shouldBlurImage && (root.containsUnsafeLink(array[index - 1]) || root.containsUnsafeLink(array[index + 1]));
                 }
-                const type = `#${entry.match(/^\s*(\S+)/)?.[1] || ""}`;
-                return resultComp.createObject(null, {
+                const obj = root.cachedResult("clip", entry, {
                     rawValue: entry,
                     name: StringUtils.cleanCliphistEntry(entry),
                     verb: "",
-                    type: type,
+                    type: `#${entry.match(/^\s*(\S+)/)?.[1] || ""}`,
                     execute: () => {
                         Cliphist.copy(entry);
                     },
-                    actions: [resultComp.createObject(null, {
+                    actions: [resultComp.createObject(root, {
                             name: Translation.tr("Copy"),
                             iconName: "content_copy",
                             iconType: LauncherSearchResult.IconType.Material,
                             execute: () => {
                                 Cliphist.copy(entry);
                             }
-                        }), resultComp.createObject(null, {
+                        }), resultComp.createObject(root, {
                             name: Translation.tr("Delete"),
                             iconName: "delete",
                             iconType: LauncherSearchResult.IconType.Material,
                             execute: () => {
                                 Cliphist.deleteEntry(entry);
                             }
-                        })],
-                    blurImage: shouldBlurImage
+                        })]
                 });
-            }).filter(Boolean);
+                // Depends on the neighbours, which change with the query.
+                obj.blurImage = shouldBlurImage;
+                return obj;
+            });
         } else if (root.query.startsWith(Config.options.search.prefix.emojis)) {
             // Emojis
             const searchString = StringUtils.cleanPrefix(root.query, Config.options.search.prefix.emojis);
-            return Emojis.fuzzyQuery(searchString).map(entry => {
+            return Emojis.fuzzyQuery(searchString).slice(0, root.maxListResults).map(entry => {
                 const emoji = entry.match(/^\s*(\S+)/)?.[1] || "";
-                return resultComp.createObject(null, {
+                return root.cachedResult("emoji", entry, {
                     rawValue: entry,
                     name: entry.replace(/^\s*\S+\s+/, ""),
                     iconName: emoji,
@@ -416,7 +515,7 @@ Singleton {
                         Quickshell.clipboardText = entry.match(/^\s*(\S+)/)?.[1];
                     }
                 });
-            }).filter(Boolean);
+            });
         } else if (root.query.startsWith(Config.options.search.prefix.keybinds ?? "<")) {
             // Keybinds
             const searchString = StringUtils.cleanPrefix(root.query, Config.options.search.prefix.keybinds ?? "<");
@@ -451,11 +550,11 @@ Singleton {
         } else if (root.query.startsWith(Config.options.search.prefix.symbols)) {
             // Material Symbols
             const searchString = StringUtils.cleanPrefix(root.query, Config.options.search.prefix.symbols);
-            return MaterialSymbolsSearch.fuzzyQuery(searchString).map(entry => {
+            return MaterialSymbolsSearch.fuzzyQuery(searchString).slice(0, root.maxListResults).map(entry => {
                 const tabIdx = entry.indexOf("\t");
                 const symName = tabIdx >= 0 ? entry.slice(0, tabIdx) : entry;
                 const symTags = tabIdx >= 0 ? entry.slice(tabIdx + 1) : "";
-                return resultComp.createObject(null, {
+                return root.cachedResult("symbol", entry, {
                     rawValue: entry,
                     name: symName,
                     iconName: symName,
@@ -467,94 +566,50 @@ Singleton {
                         Quickshell.clipboardText = symName;
                     }
                 });
-            }).filter(Boolean);
+            });
         }
 
-        ////////////////// Init ///////////////////
-        nonAppResultsTimer.restart();
-        const mathResultObject = resultComp.createObject(null, {
-            name: root.mathResult,
-            verb: Translation.tr("Copy"),
-            type: Translation.tr("Math result"),
-            fontType: LauncherSearchResult.FontType.Monospace,
-            iconName: 'calculate',
-            iconType: LauncherSearchResult.IconType.Material,
-            execute: () => {
-                Quickshell.clipboardText = root.mathResult;
-            }
-        });
         const appResultObjects = AppSearch.fuzzyQuery(StringUtils.cleanPrefix(root.query, Config.options.search.prefix.app)).map(entry => root.appResultFor(entry));
         ////////////////// Settings search //////////////////
         const settingsQuery = root.query.toLowerCase().trim();
-
-        const settingsResults = root.settingsIndex.reduce((acc, page) => {
+        const settingsResults = settingsQuery === "" ? [] : root.settingsIndex.reduce((acc, page) => {
             const dynamicKeywords = (root.settingsKeywordsCache[page.page] || "").toLowerCase();
-            const query = root.query.toLowerCase().trim();
-            if (query === "") return acc;
-
-            if (page.page.toLowerCase().includes(query) || dynamicKeywords.includes(query)) {
-                acc.push(resultComp.createObject(null, {
+            if (page.page.toLowerCase().includes(settingsQuery) || dynamicKeywords.includes(settingsQuery)) {
+                const obj = root.cachedResult("settings", page.page, {
                     name: page.page,
-                    comment: dynamicKeywords.includes(query) ? "Section: " + query : "Settings for " + page.page,
                     verb: Translation.tr("Go"),
                     type: Translation.tr("Settings"),
                     iconName: "settings",
                     iconType: LauncherSearchResult.IconType.Material,
                     execute: () => {
+                        const query = root.query.toLowerCase().trim();
                         GlobalStates.settingsOpen = true;
                         Qt.callLater(() => {
                             GlobalStates.settingsPage = page.page + ":" + query;
                         });
                         root.query = "";
                     }
-                }));
+                });
+                obj.comment = dynamicKeywords.includes(settingsQuery) ? "Section: " + settingsQuery : "Settings for " + page.page;
+                acc.push(obj);
             }
             return acc;
         }, []);
-        const commandResultObject = resultComp.createObject(null, {
-            name: StringUtils.cleanPrefix(root.query, Config.options.search.prefix.shellCommand).replace("file://", ""),
-            verb: Translation.tr("Run"),
-            type: Translation.tr("Command"),
-            fontType: LauncherSearchResult.FontType.Monospace,
-            iconName: 'terminal',
-            iconType: LauncherSearchResult.IconType.Material,
-            execute: () => {
-                let cleanedCommand = root.query.replace("file://", "");
-                cleanedCommand = StringUtils.cleanPrefix(cleanedCommand, Config.options.search.prefix.shellCommand);
-                if (cleanedCommand.startsWith(Config.options.search.prefix.shellCommand)) {
-                    cleanedCommand = cleanedCommand.slice(Config.options.search.prefix.shellCommand.length);
-                }
-                AppLaunch.spawnShell(root.query.startsWith('sudo') ? `${Config.options.apps.terminal} fish -C '${cleanedCommand}'` : cleanedCommand);
-            }
-        });
-        const webSearchResultObject = resultComp.createObject(null, {
-            name: StringUtils.cleanPrefix(root.query, Config.options.search.prefix.webSearch),
-            verb: Translation.tr("Search"),
-            type: Translation.tr("Web search"),
-            iconName: 'travel_explore',
-            iconType: LauncherSearchResult.IconType.Material,
-            execute: () => {
-                let query = StringUtils.cleanPrefix(root.query, Config.options.search.prefix.webSearch);
-                let url = Config.options.search.engineBaseUrl + query;
-                for (let site of Config.options.search.excludedSites) {
-                    url += ` -site:${site}`;
-                }
-                AppLaunch.openUrl(url);
-            }
-        });
         const launcherActionObjects = root.allActions.map(action => {
             const actionString = `${Config.options.search.prefix.action}${action.action}`;
             if (actionString.startsWith(root.query) || root.query.startsWith(actionString)) {
-                return resultComp.createObject(null, {
-                    name: root.query.startsWith(actionString) ? root.query : actionString,
+                const obj = root.cachedResult("action", actionString, {
                     verb: Translation.tr("Run"),
                     type: Translation.tr("Action"),
                     iconName: 'settings_suggest',
-                    iconType: LauncherSearchResult.IconType.Material,
-                    execute: () => {
-                        action.execute(root.query.split(" ").slice(1).join(" "));
-                    }
+                    iconType: LauncherSearchResult.IconType.Material
                 });
+                obj.name = root.query.startsWith(actionString) ? root.query : actionString;
+                // User action scripts are reloaded with the folder: run the current one.
+                obj.execute = () => {
+                    action.execute(root.query.split(" ").slice(1).join(" "));
+                };
+                return obj;
             }
             return null;
         }).filter(Boolean);
@@ -584,7 +639,7 @@ Singleton {
         if (Config.options.search.prefix.showDefaultActionsWithoutPrefix) {
             if (!startsWithShellCommandPrefix)
                 result.push(commandResultObject);
-            if (!startsWithNumber && !startsWithMathPrefix)
+            if (!startsWithNumber && !startsWithMathPrefix && root.looksLikeMath(root.query))
                 result.push(mathResultObject);
             if (!startsWithWebSearchPrefix)
                 result.push(webSearchResultObject);

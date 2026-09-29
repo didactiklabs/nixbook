@@ -144,7 +144,9 @@ ColumnLayout {
                 spacing: 0
                 
                 Repeater {
-                    model: codeTextArea.text.split("\n").length
+                    // lineCount (no wrapping here): the text was split on every
+                    // streamed token just to count lines.
+                    model: codeTextArea.lineCount
                     Text {
                         required property int index
                         Layout.fillWidth: true

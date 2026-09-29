@@ -405,7 +405,8 @@
     "suspend": 3
   },
   "calendar": {
-    "locale": "en-GB"
+    "locale": "en-GB",
+    "refreshMinutes": 30
   },
   "conflictKiller": {
     "autoKillNotificationDaemons": false,

@@ -181,7 +181,18 @@ Item {
                 currentIndex: tabBar.currentIndex
 
                 clip: true
-                layer.enabled: true
+                // Rounds the pages' corners while they slide. At rest the page
+                // (inset, with its own rounded corners) is already inside it,
+                // and the offscreen pass re-ran on every keystroke, caret
+                // blink, scroll frame and streamed token.
+                // Applied a turn later (Qt.callLater): these depend on sizes, and switching
+                // a layer on or off in the middle of a geometry change crashed Qt.
+                readonly property bool layerWanted: Math.abs(swipeView.contentItem.contentX
+                    - swipeView.currentIndex * (swipeView.width + swipeView.spacing)) > 0.5
+                property bool layerOn: false
+                function applyLayer() { swipeView.layerOn = swipeView.layerWanted; }
+                onLayerWantedChanged: Qt.callLater(swipeView.applyLayer)
+                layer.enabled: swipeView.layerOn
                 layer.effect: OpacityMask {
                     maskSource: Rectangle {
                         width: swipeView.width

@@ -475,8 +475,11 @@ Singleton {
         property real mediaControlsHeight: 160
         property real notificationPopupWidth: 410
         property real osdWidth: 180
-        property real searchWidthCollapsed: 210
-        property real searchWidth: 360
+        // The launcher keeps one size while it's open: a fixed width, fixed
+        // result rows and a fixed results area (it used to follow the text).
+        property real searchWidth: 680
+        property real searchResultHeight: 64
+        property real searchResultsHeight: 552 // 8 rows + the list's margins
         property real sidebarWidth: 460
         property real leftSidebarWidth: 540 // the AI chat panel: room for answers
         property real sidebarWidthExtended: 750

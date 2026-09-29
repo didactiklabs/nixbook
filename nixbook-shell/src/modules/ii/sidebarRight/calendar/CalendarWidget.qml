@@ -72,6 +72,31 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: false
             }
+            CalendarHeaderButton {
+                // Sync the accounts and reload now (otherwise re-read every
+                // `calendar.refreshMinutes`).
+                visible: CalendarEvents.available
+                forceCircle: true
+                tooltipText: Translation.tr("Refresh events")
+                downAction: () => {
+                    if (!CalendarEvents.syncing) CalendarEvents.sync();
+                }
+                contentItem: MaterialSymbol {
+                    id: refreshIcon
+                    text: "refresh"
+                    iconSize: Appearance.font.pixelSize.larger
+                    horizontalAlignment: Text.AlignHCenter
+                    color: Appearance.colors.colOnLayer1
+                    RotationAnimation on rotation {
+                        running: CalendarEvents.syncing
+                        from: 0
+                        to: 360
+                        duration: 900
+                        loops: Animation.Infinite
+                        onRunningChanged: if (!running) refreshIcon.rotation = 0
+                    }
+                }
+            }
             CalendarAccountButton {}
             CalendarHeaderButton {
                 forceCircle: true

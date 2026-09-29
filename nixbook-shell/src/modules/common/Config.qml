@@ -644,6 +644,7 @@ Singleton {
 
             property JsonObject calendar: JsonObject {
                 property string locale: "en-GB"
+                property int refreshMinutes: 30 // Re-read DankCalendar's events (the refresh button syncs now)
             }
 
             property JsonObject conflictKiller: JsonObject {

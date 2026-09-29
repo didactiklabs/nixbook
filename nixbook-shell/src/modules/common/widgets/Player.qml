@@ -95,46 +95,56 @@ Item {
         color: ColorUtils.applyAlpha(blendedColors.colLayer0, 1)
         radius: root.radius
 
-        layer.enabled: true
-        layer.effect: OpacityMask {
-            maskSource: Rectangle {
-                width: background.width
-                height: background.height
-                radius: background.radius
-            }
-        }
-
-        Image {
-            id: blurredArt
+        // Only what reaches the rounded corners is masked: the blurred art and
+        // the visualizer along the bottom edge. The mask used to cover the
+        // whole card, so every seek-wave frame and position tick re-rendered
+        // the entire card offscreen; the controls sit inside the margins and
+        // need none. This redraws only when the art changes, or at the
+        // visualizer's (≤30 fps) rate while playing.
+        Item {
+            id: cornerClip
             anchors.fill: parent
-            source: root.displayedArtFilePath
-            sourceSize.width: background.width
-            sourceSize.height: background.height
-            fillMode: Image.PreserveAspectCrop
-            cache: false
-            antialiasing: true
-            asynchronous: true
-
             layer.enabled: true
-            layer.effect: StyledBlurEffect {
-                source: blurredArt
+            layer.effect: OpacityMask {
+                maskSource: Rectangle {
+                    width: cornerClip.width
+                    height: cornerClip.height
+                    radius: background.radius
+                }
             }
 
-            Rectangle {
+            Image {
+                id: blurredArt
                 anchors.fill: parent
-                color: ColorUtils.transparentize(blendedColors.colLayer0, 0.3)
-                radius: root.radius
-            }
-        }
+                source: root.displayedArtFilePath
+                sourceSize.width: background.width
+                sourceSize.height: background.height
+                fillMode: Image.PreserveAspectCrop
+                cache: false
+                antialiasing: true
+                asynchronous: true
 
-        WaveVisualizer {
-            id: visualizerCanvas
-            anchors.fill: parent
-            live: root.player?.isPlaying
-            points: root.visualizerPoints
-            maxVisualizerValue: root.maxVisualizerValue
-            smoothing: root.visualizerSmoothing
-            color: blendedColors.colPrimary
+                layer.enabled: true
+                layer.effect: StyledBlurEffect {
+                    source: blurredArt
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: ColorUtils.transparentize(blendedColors.colLayer0, 0.3)
+                    radius: root.radius
+                }
+            }
+
+            WaveVisualizer {
+                id: visualizerCanvas
+                anchors.fill: parent
+                live: root.player?.isPlaying
+                points: root.visualizerPoints
+                maxVisualizerValue: root.maxVisualizerValue
+                smoothing: root.visualizerSmoothing
+                color: blendedColors.colPrimary
+            }
         }
 
         Loader {

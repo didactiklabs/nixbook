@@ -209,11 +209,20 @@ Item { // Notification item area
                 }
 
                 Item {
+                    id: actionsClip
                     Layout.fillWidth: true
                     implicitWidth: actionsFlickable.implicitWidth
                     implicitHeight: actionsFlickable.implicitHeight
 
-                    layer.enabled: true
+                    // Only when the actions overflow and scroll sideways.
+                    // Applied a turn later (Qt.callLater): these depend on sizes, and switching
+                    // a layer on or off in the middle of a geometry change crashed Qt.
+                    readonly property bool layerWanted: actionsFlickable.contentWidth > actionsFlickable.width
+                    property bool layerOn: true
+                    function applyLayer() { actionsClip.layerOn = actionsClip.layerWanted; }
+                    onLayerWantedChanged: Qt.callLater(actionsClip.applyLayer)
+                    Component.onCompleted: Qt.callLater(actionsClip.applyLayer)
+                    layer.enabled: actionsClip.layerOn
                     layer.effect: OpacityMask {
                         maskSource: Rectangle {
                             width: actionsFlickable.width

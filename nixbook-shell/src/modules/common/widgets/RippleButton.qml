@@ -147,7 +147,11 @@ Button {
             animation: Appearance?.animation.elementMoveFast.colorAnimation.createObject(this)
         }
 
-        layer.enabled: true
+        // The mask only clips the ripple to the rounded shape: rendering the
+        // background offscreen all the time made every button (each launcher
+        // row and its action buttons, sidebar toggles…) a separate texture
+        // redrawn on each hover/colour step. At rest it is plain Rectangle.
+        layer.enabled: ripple.opacity > 0
         layer.effect: OpacityMask {
             maskSource: Rectangle {
                 width: buttonBackground.width

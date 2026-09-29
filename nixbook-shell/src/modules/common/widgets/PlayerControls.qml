@@ -204,6 +204,10 @@ Item {
                             active: root.player?.canSeek ?? false
                             sourceComponent: StyledSlider {
                                 configuration: StyledSlider.Configuration.Wavy
+                                // The wave moves while playing only (as the progress
+                                // bar below): it repainted a Canvas every frame even
+                                // when paused, keeping the sidebar rendering at 60 fps.
+                                animateWave: root.player?.isPlaying ?? false
                                 highlightColor: root.blendedColors.colPrimary
                                 trackColor: root.blendedColors.colSecondaryContainer
                                 handleColor: root.blendedColors.colPrimary
