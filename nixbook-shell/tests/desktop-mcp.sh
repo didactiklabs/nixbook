@@ -135,6 +135,16 @@ echo "qs $*" >>"$STUB_CALLS"
 if [ "${*: -1}" = "show" ]; then
   printf 'target sidebarLeft\n  function toggle(): void\ntarget session\n  function open(): void\n'
 fi
+# The shell's theme target (Themes.qml): the registry, and set.
+case "$*" in
+  *"theme list"*)
+    echo '{"current":"material","variant":"","themeLocked":false,"themes":[
+      {"id":"material","name":"Material","variant":"","variantLocked":false,"variants":[]},
+      {"id":"persona","name":"Persona","variant":"p5","variantLocked":false,"variants":[{"id":"p5","name":"Persona 5 Royal"},{"id":"p3r","name":"Persona 3 Reload"},{"id":"p4","name":"Persona 4 Revival"}]},
+      {"id":"chiikawa","name":"Chiikawa","variant":"chiikawa","variantLocked":false,"variants":[{"id":"momonga","name":"Momonga"},{"id":"usagi","name":"Usagi"},{"id":"chiikawa","name":"Chiikawa"}]}]}' ;;
+  *"theme set"*)
+    if [ -n "${STUB_THEME_ERROR:-}" ]; then echo "$STUB_THEME_ERROR"; else echo "ok: ${*: -2:1} / ${*: -1}"; fi ;;
+esac
 EOF
 chmod +x "$bin"/*
 
@@ -188,7 +198,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 29 tools" 29 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 31 tools" 31 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -583,6 +593,28 @@ out=$(call shell_ipc '{"target":"desktopControl","function":"resume"}')
 expect_contains "shell_ipc: the bar's pause/resume is the user's only" "$out" "off limits"
 out=$(call shell_ipc '{"target":"layouts","function":"restore","args":["work"]}')
 expect_contains "shell_ipc: the user's layouts target is theirs only" "$out" "off limits"
+
+# -- themes and variants ---------------------------------------------------------------------
+
+out=$(call list_themes)
+expect_eq "list_themes: from the shell" "material persona chiikawa" "$(jq -r '[.themes[].id] | join(" ")' <<<"$out")"
+reset_calls
+out=$(call set_theme '{"theme":"Persona","variant":"Persona 3 Reload"}')
+expect_eq "set_theme: names resolved to ids" "qs -c nixbook-shell ipc call -- theme set persona p3r" "$(grep 'theme set' "$calls")"
+expect_contains "set_theme: reply" "$out" "theme set: persona / p3r"
+reset_calls
+call set_theme '{"variant":"momonga"}' >/dev/null
+expect_eq "set_theme: a variant alone finds its theme" "qs -c nixbook-shell ipc call -- theme set chiikawa momonga" "$(grep 'theme set' "$calls")"
+call set_theme '{"variant":"p4"}' >/dev/null
+expect_contains "set_theme: variant by id" "$(cat "$calls")" "theme set persona p4"
+out=$(call set_theme '{"theme":"gruvbox"}')
+expect_contains "set_theme: unknown theme" "$out" "no theme 'gruvbox': material, persona, chiikawa"
+out=$(call set_theme '{"theme":"material","variant":"p3r"}')
+expect_contains "set_theme: variant of another theme" "$out" "Material has no variant 'p3r'"
+out=$(call set_theme '{}')
+expect_contains "set_theme: nothing asked" "$out" "or both (see list_themes)"
+out=$(STUB_THEME_ERROR="error: the theme is set in the Nix configuration (locked)" call set_theme '{"theme":"persona"}')
+expect_contains "set_theme: Nix locks reported" "$out" "set in the Nix configuration (locked)"
 
 # -- pause, groups, rate limit ---------------------------------------------------
 
