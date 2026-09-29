@@ -45,12 +45,9 @@ in
   services.xserver.videoDrivers = lib.mkForce [ "modesetting" ];
   customNixOSModules = {
     laptopProfile.enable = true;
-    greetd = {
-      enable = true;
-      # nixbook-shell's own login screen (khoa's theme, palette, cursor and
-      # login screen wallpaper), instead of tuigreet.
-      greeter = "nixbook-shell";
-    };
+    # greetd with nixbook-shell's own login screen: the greeter's default
+    # when a user runs nixbook-shell (tuigreet stays the fallback).
+    greetd.enable = true;
     niri = {
       enable = true;
       # nixbook-shell ships its own polkit agent; running polkit-gnome as well just

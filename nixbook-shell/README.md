@@ -57,9 +57,13 @@ On NixOS, `nixbook-shell.greeter` (`greeter.nix`, part of
 `nixbook-shell greeter` (`src/greeter.qml`, `modules/ii/greeter/`, Quickshell's
 greetd client) with one user's look — the theme and variant, the palette
 (the theme's, or the one generated from the wallpaper), fonts, account picture
-and cursor — around a login card: the user (arrows switch between the
-machine's accounts), the password, PAM's cues (security key, fingerprint,
-further prompts such as a one-time code) and the session to start, which it
+and cursor — drawn in that theme's style (a frosted card for Material, a
+slanted frame with the variant's slash and halftone for Persona, the variant's
+character peeking over a bubbly card for Chiikawa) under the date and a large
+clock: the user with a greeting (the account pictures under the card, or Up /
+Down, switch between the machine's accounts), the password (the eye shows it,
+Esc clears it), PAM's cues (security key, fingerprint, further prompts such as
+a one-time code) and the session pill (click or scroll to switch), which it
 remembers (`/var/cache/nixbook-shell-greeter`), with suspend, reboot and power
 off in the corner.
 

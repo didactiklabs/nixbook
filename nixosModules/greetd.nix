@@ -24,8 +24,9 @@ in
       description = ''
         Whether to enable the greetd display manager.
 
-        The greeter is chosen with `greeter`:
-        - `tuigreet` (default): a TUI greeter with a clock, the last session
+        The greeter is chosen with `greeter` (by default nixbook-shell's
+        login screen when a user runs nixbook-shell, else tuigreet):
+        - `tuigreet`: a TUI greeter with a clock, the last session
           and user remembered, an asterisk-masked password field and a user
           menu. Its --sessions are built from whichever Wayland compositors
           are enabled (niri, sway), niri sessions are wrapped with
@@ -52,7 +53,9 @@ in
         "tuigreet"
         "nixbook-shell"
       ];
-      default = "tuigreet";
+      # A machine whose users run nixbook-shell gets its login screen too.
+      default = if shellUsers != [ ] then "nixbook-shell" else "tuigreet";
+      defaultText = lib.literalExpression ''"nixbook-shell" when a Home Manager user has programs.nixbook-shell enabled, else "tuigreet"'';
       description = "The greeter greetd runs (see `enable`).";
     };
     cursorUser = lib.mkOption {

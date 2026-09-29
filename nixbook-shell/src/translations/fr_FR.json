@@ -626,5 +626,12 @@
   "Album cover": "Pochette de l'album",
   "Sensitivity (%)": "Sensibilité (%)",
   "Height": "Hauteur",
-  "Size": "Taille"
+  "Size": "Taille",
+  "Welcome back": "Bon retour",
+  "Good morning": "Bonjour",
+  "Good afternoon": "Bon après-midi",
+  "Good evening": "Bonsoir",
+  "Show password": "Afficher le mot de passe",
+  "Hide password": "Masquer le mot de passe",
+  "Sign in": "Se connecter"
 }

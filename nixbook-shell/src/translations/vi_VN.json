@@ -363,5 +363,12 @@
   "illogical-impulse Settings": "Cài đặt illogical-impulse",
   "Online | Google's model\nNewer model that's slower than its predecessor but should deliver higher quality answers": "Trực tuyến | Model của Google\nMới hơn nhưng chậm hơn so với phiên bản trước nhưng nên cung cấp câu trả lời chất lượng cao hơn",
   "Preferred wallpaper zoom (%)": "Tỷ lệ thu phóng hình nền (%)",
-  "Function Response": "Phản hồi function"
+  "Function Response": "Phản hồi function",
+  "Welcome back": "Chào mừng trở lại",
+  "Good morning": "Chào buổi sáng",
+  "Good afternoon": "Chào buổi chiều",
+  "Good evening": "Chào buổi tối",
+  "Show password": "Hiện mật khẩu",
+  "Hide password": "Ẩn mật khẩu",
+  "Sign in": "Đăng nhập"
 }
