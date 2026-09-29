@@ -16,6 +16,7 @@ let
   quickshell = import ./quickshell.nix { inherit pkgs quickshellSrc; };
   dankcalendar = import ./dankcalendar.nix { inherit pkgs dankcalendarSrc flakeCompatSrc; };
   settingsLib = import ./lib.nix { inherit lib; };
+  fonts = import ./fonts.nix { inherit pkgs; };
   inherit (shell.passthru) configName;
 
   # Claude usage reader for the AnthropicUsage bar widget (OpenCode OAuth).
@@ -40,6 +41,7 @@ let
 
       jq
       curl
+      gitMinimal # `git ls-remote` for the update check (services/UpdateState.qml)
       wget
       libnotify # notify-send
       glib # gsettings
@@ -180,6 +182,7 @@ launcher.overrideAttrs (old: {
       configName
       settingsLib
       cliphistWatch
+      fonts
       ;
   };
   meta = shell.meta // {

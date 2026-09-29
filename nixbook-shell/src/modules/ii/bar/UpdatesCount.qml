@@ -92,8 +92,7 @@ MouseArea {
 
     onPressed: (mouse) => {
         if (mouse.button === Qt.RightButton) {
-            UpdateState.checkUpdate()
-            Quickshell.execDetached([
+            if (UpdateState.checkUpdate()) Quickshell.execDetached([
                 "notify-send",
                 Translation.tr("Updates"),
                 Translation.tr("Checking for updates..."),
@@ -241,6 +240,7 @@ MouseArea {
     StyledPopup {
         id: updatePopup
         hoverTarget: root
+        hoverCue: false // the hover tooltip above has it
         hoverMargin: 10
         active: root.panelOpen
 
@@ -269,6 +269,19 @@ MouseArea {
                     : UpdateState.updateAvailable
                         ? Translation.tr("Update available: %1 \u2192 %2").arg(root.shortRev(UpdateState.localRev)).arg(root.shortRev(UpdateState.remoteRev))
                         : Translation.tr("System up to date (%1)").arg(root.shortRev(UpdateState.localRev))
+            }
+
+            // When the last check ran, so a check that finds nothing new
+            // still visibly did something, and why it failed if it did.
+            StyledText {
+                Layout.fillWidth: true
+                visible: !UpdateState.checking && UpdateState.lastCheckTime !== ""
+                wrapMode: Text.Wrap
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: UpdateState.checkError !== "" ? Appearance.m3colors.m3error : Appearance.colors.colSubtext
+                text: UpdateState.checkError !== ""
+                    ? Translation.tr("Last check failed at %1: %2").arg(UpdateState.lastCheckTime).arg(UpdateState.checkError)
+                    : Translation.tr("Last checked at %1").arg(UpdateState.lastCheckTime)
             }
 
             StyledText {

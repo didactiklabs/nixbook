@@ -251,6 +251,7 @@ MouseArea {
     StyledPopup {
         id: vpnPopup
         hoverTarget: root
+        hoverCue: false // the hover tooltip above has it
         active: root.panelOpen
 
         ColumnLayout {

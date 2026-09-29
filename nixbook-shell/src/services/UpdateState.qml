@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.modules.common
+import qs.services
 
 /**
  * NixOS update state — port of the DMS nixos-update plugin singleton
@@ -34,6 +35,10 @@ Singleton {
     property string changelogText: ""
     property bool updating: false
     property bool checking: false
+    // When the last check ended ("" before the first), and why it failed
+    // ("" when it worked): a check that finds nothing new still shows it ran.
+    property string lastCheckTime: ""
+    property string checkError: ""
     property bool viewingLogs: false
     property string logText: ""
     // The last nixos-upgrade-manual run: "success", "failed" or "" (never
@@ -65,11 +70,35 @@ Singleton {
         }
     }
 
+    // Returns whether a check started (false: one is running, an update is,
+    // or no repository is configured).
     function checkUpdate() {
         // No repository configured (updates.repoUrl): nothing to compare with.
-        if (root.checking || root.updating || !root.repoUrl) return
+        if (root.checking || root.updating || !root.repoUrl) return false
         root.checking = true
+        root.checkError = ""
+        root.checkWatchdog.restart()
         root.versionProcess.running = true
+        return true
+    }
+
+    function finishCheck(error) {
+        root.checkWatchdog.stop()
+        root.checkError = error ?? ""
+        root.lastCheckTime = Qt.formatTime(new Date(), "hh:mm")
+        root.checking = false
+    }
+
+    // Every step has its own timeout; this only guarantees the button can
+    // never stay stuck on "Checking..." (it used to, while `git ls-remote`
+    // waited on a dead network).
+    property Timer checkWatchdog: Timer {
+        interval: 45000
+        onTriggered: {
+            root.remoteProcess.running = false
+            root.changelogProcess.running = false
+            root.finishCheck(Translation.tr("timed out"))
+        }
     }
 
     function startUpdate() {
@@ -99,7 +128,7 @@ Singleton {
             root.changelogProcess.running = true
         } else {
             root.changelogText = ""
-            root.checking = false
+            root.finishCheck()
         }
     }
 
@@ -135,17 +164,23 @@ Singleton {
                     root.remoteProcess.running = true
                 } catch (e) {
                     console.error("UpdateState: Failed to parse version:", e)
-                    root.checking = false
+                    root.finishCheck(Translation.tr("unreadable /etc/nixos/version"))
                 }
             } else {
-                root.checking = false
+                root.finishCheck(Translation.tr("no /etc/nixos/version"))
             }
             root.versionProcess.buffer = ""
         }
     }
 
     property Process remoteProcess: Process {
-        command: ["git", "ls-remote", root.repoUrl, "refs/heads/main"]
+        // Bounded, and never prompting (credentials, ssh host keys): a
+        // prompt nobody can answer used to hang the check.
+        command: ["timeout", "20", "git", "ls-remote", root.repoUrl, "refs/heads/main"]
+        environment: ({
+            GIT_TERMINAL_PROMPT: "0",
+            GIT_SSH_COMMAND: "ssh -o BatchMode=yes -o ConnectTimeout=10"
+        })
         stdout: SplitParser {
             onRead: line => {
                 const parts = line.split('\t')
@@ -153,22 +188,29 @@ Singleton {
             }
         }
         onExited: code => {
+            if (!root.checking) return // the watchdog gave up on it
             if (code === 0) {
                 root.compareRevs()
             } else {
-                root.checking = false
+                root.finishCheck(code === 124 ? Translation.tr("timed out") : Translation.tr("can't reach the repository"))
             }
         }
     }
 
     property Process changelogProcess: Process {
-        command: ["curl", "-s", `https://api.github.com/repos/${root.repoOwner}/${root.repoName}/compare/${root.localRev}...${root.remoteRev}`]
+        command: ["curl", "-sfL", "--max-time", "15", `https://api.github.com/repos/${root.repoOwner}/${root.repoName}/compare/${root.localRev}...${root.remoteRev}`]
         property string buffer: ""
         stdout: SplitParser {
             onRead: line => root.changelogProcess.buffer += line
         }
         onExited: code => {
-            root.checking = false
+            if (!root.checking) { // the watchdog gave up on it
+                root.changelogProcess.buffer = ""
+                return
+            }
+            // The changelog is a bonus: the check succeeded without it
+            // (e.g. GitHub's API rate limit).
+            root.finishCheck()
             if (code === 0 && root.changelogProcess.buffer.trim()) {
                 try {
                     const data = JSON.parse(root.changelogProcess.buffer)

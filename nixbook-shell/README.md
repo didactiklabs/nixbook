@@ -176,6 +176,29 @@ With a model selected in the chat, all of this is only reference for the
 model's system prompt: it answers with its own knowledge too, and says when it
 isn't sure.
 
+## Look and feel
+
+The type is Google Sans Flex (main, titles, numbers), with Space Grotesk for
+the desktop clock and Readex Pro for reading in the AI chat
+(`appearance.fonts`): `fonts.nix` ships them (the Home Manager module
+installs them, the login screen gets them too), so nothing falls back to
+the system's sans-serif.
+
+The bar says what the pointer can do on each widget while it hovers it
+(`BarPointerCue`, put on every popup's widget by `StyledPopup`):
+
+| Cue                                                  | Meaning                 |
+| ---------------------------------------------------- | ----------------------- |
+| accent notch on the side the popup opens from        | hovering shows a popup  |
+| hand cursor and a soft highlight (or its own ripple) | clicking does something |
+| both                                                 | both                    |
+| neither                                              | nothing happens         |
+
+A new clickable bar widget sets `cursorShape: Qt.PointingHandCursor` (a
+`StyledPopup` on it then adds the highlight too) or adds
+`BarPointerCue { target: <its MouseArea> }` when it has no popup and no hover
+state of its own; a hover-only one keeps the arrow.
+
 ## Themes
 
 The theme is `appearance.theme` — Settings → Appearance → Theme, the
@@ -273,6 +296,7 @@ ignored.
 | `package.nix`      | the launcher: runtime `PATH`, QML import path, `config` CLI                                    |
 | `dankcalendar.nix` | DankCalendar (`dcal`), the calendar and task sync, from `npins/`                               |
 | `qml.nix`          | the QML tree as installed (store-path fixups, Persona and Chiikawa art, emoji list)            |
+| `fonts.nix`        | the faces `appearance.fonts` names that nixpkgs lacks (Google Sans Flex, Space Grotesk)        |
 | `quickshell.nix`   | Quickshell from `quickshellSrc` plus `patches/`                                                |
 | `lib.nix`          | typed settings options generated from `builtin-defaults.json`                                  |
 | `hm-module.nix`    | the Home Manager module `programs.nixbook-shell`                                               |

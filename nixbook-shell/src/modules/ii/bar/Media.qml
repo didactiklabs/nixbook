@@ -83,7 +83,13 @@ Item {
         onTriggered: activePlayer.positionChanged()
     }
 
+    // Clickable, no popup of its own: the bar's click cue.
+    BarPointerCue {
+        target: mediaArea
+    }
+
     MouseArea {
+        id: mediaArea
         cursorShape: Qt.PointingHandCursor
         anchors.fill: parent
         acceptedButtons: Qt.MiddleButton | Qt.BackButton | Qt.ForwardButton | Qt.RightButton | Qt.LeftButton
