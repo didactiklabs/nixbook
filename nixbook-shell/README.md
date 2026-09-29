@@ -7,7 +7,7 @@ wallpaper, Material 3 tonal elevation: surfaces are told apart by their tone
 and a thin outline, with no shadows); Persona (Persona 5 Royal by default:
 slanted black panels with bold Royal gold outlines, hard unblurred red offset
 shadows, red accent slashes and halftone art); and Chiikawa (pastel light
-palettes, bubbly corners, bouncy motion and the characters themselves). None
+palettes, bubbly corners, bouncy motion and an animated Momonga). None
 blurs a shadow, which keeps them light on integrated GPUs. It started as a
 fork of
 [pctrade/end4-pC](https://github.com/pctrade/end4-pC), itself a fork of end-4's
@@ -447,9 +447,11 @@ shell (`Themes.qml`), the Nix options (`lib.nix`), the login screen
    variant list and desktop submenu need nothing: they come from the
    registry. A font the theme uses goes in `hm-module.nix`'s `home.packages`.
 
-The Chiikawa art (the characters, the sidebar patterns and the wallpapers) is
-drawn by `src/assets/chiikawa/generate.py` from the variants' palettes; rerun
-it after changing them. Its sounds are synthesized when the package is built
+The Chiikawa character is an animated GIF of Momonga
+(`src/assets/chiikawa/momonga.gif`), the same for every variant; the rest of
+its art (the sidebar patterns and the wallpapers, the GIF's first frame on a
+hill) is drawn by `src/assets/chiikawa/generate.py` from the variants'
+palettes; rerun it after changing them. Its sounds are synthesized when the package is built
 (`src/assets/chiikawa/sounds.py`, no audio file in git). The Cyberpunk 2077
 theme works the same way: `src/assets/cyberpunk/generate.py` draws its
 wallpapers from the palettes, `sounds.py` synthesizes its sounds at build

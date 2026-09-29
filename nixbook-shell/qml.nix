@@ -148,9 +148,9 @@ pkgs.stdenvNoCC.mkDerivation {
     for svg in assets/persona/p*-{panel,tall,wide}.svg; do
       resvg --zoom 2.5 "$svg" "''${svg%.svg}.png"
     done
-    # Chiikawa theme art (assets/chiikawa/*.svg, generate.py): the characters
-    # (200px viewBox, shown up to ~180px on HiDPI), the sidebar patterns and
-    # the wallpapers (1920x1080 viewBox: 4K).
+    # Chiikawa theme art (assets/chiikawa/*.svg, generate.py): the sidebar
+    # patterns and the wallpapers (1920x1080 viewBox: 4K). The character is
+    # momonga.gif, shipped as is.
     for svg in assets/chiikawa/*.svg; do
       resvg --zoom 2 "$svg" "''${svg%.svg}.png"
     done
