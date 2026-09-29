@@ -258,8 +258,8 @@ Singleton {
             property JsonObject apps: JsonObject {
                 property string bluetooth: "overskride"
                 property string changePassword: "kitty -1 --hold=yes fish -i -c 'passwd'"
-                property string network: "kcmshell6 kcm_networkmanagement"
-                property string networkEthernet: "kcmshell6 kcm_networkmanagement"
+                property string network: "nm-connection-editor"
+                property string networkEthernet: "nm-connection-editor"
                 property string taskManager: "plasma-systemmonitor --page-name Processes"
                 property string terminal: "kitty -1" // This is only for shell actions
                 property string update: "systemctl start --no-block nixos-upgrade-manual.service"
