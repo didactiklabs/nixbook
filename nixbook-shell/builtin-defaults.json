@@ -728,6 +728,9 @@
     "useSystemFileDialog": false,
     "userPath": ""
   },
+  "windowLayouts": {
+    "closeOthers": false
+  },
   "windows": {
     "centerTitle": true,
     "showTitlebar": true

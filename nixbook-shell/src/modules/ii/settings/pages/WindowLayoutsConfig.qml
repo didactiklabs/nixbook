@@ -69,6 +69,20 @@ ContentPage {
                 text: Translation.tr("A layout remembers where every window is: its monitor, workspace, column (or position when floating) and size. Restoring it puts the windows back and starts the apps that were closed. AI agents with desktop control can save and restore them too.")
             }
 
+            ConfigSwitch {
+                configKey: "windowLayouts.closeOthers"
+                enabled: !nixManaged
+                buttonIcon: "close"
+                text: Translation.tr("Close the other windows when restoring")
+                checked: Config.options.windowLayouts.closeOthers
+                onCheckedChanged: {
+                    Config.options.windowLayouts.closeOthers = checked;
+                }
+                StyledToolTip {
+                    text: Translation.tr("Windows the layout doesn't have are closed as their close button would (apps may ask to save). Not while a monitor of the layout is unplugged. Only your restores: agents' never close windows.")
+                }
+            }
+
             ContentSubsection {
                 title: Translation.tr("Save the windows as they are")
 

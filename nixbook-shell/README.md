@@ -256,6 +256,11 @@ They live in `~/.local/state/nixbook-shell/layouts/`. Restored with a
 monitor unplugged, the windows saved on it stay where niri moved them (with
 their workspace, back on the monitor when it's plugged in again), and the
 layout can't be overwritten until the monitor is back: save under another name.
+Settings → Window layouts → _Close the other windows when restoring_
+(`windowLayouts.closeOthers`, off by default; `layout restore|cycle
+--close-others`) makes your restores also close the windows the layout
+doesn't have, as their close button would. Not while a monitor of the layout
+is unplugged, and never the agents' `restore_layout`.
 
 **Claude in the side panel**: when Claude Code is installed (`claude` on the
 PATH, in `~/.local/bin` or a Nix profile), the AI chat offers a **Claude**

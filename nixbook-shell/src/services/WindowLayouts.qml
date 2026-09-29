@@ -17,6 +17,8 @@ import QtQuick
  * Used by the desktop's right-click menu, Settings > Window layouts and the
  * `layouts` IPC target for key bindings (`cycle`, `restoreNumber N`,
  * `saveCurrent`, `restore NAME`, `save NAME`), which agents can't call.
+ * With windowLayouts.closeOthers on, restoring also closes the windows the
+ * layout doesn't have (the agents' restore_layout never does).
  * The list is read again after every change and when a menu shows it.
  */
 Singleton {
@@ -59,9 +61,11 @@ Singleton {
         if (!root.validName(name)) return false;
         return root.run(["save", name]);
     }
+    readonly property list<string> restoreFlags: Config.options.windowLayouts.closeOthers ? ["--close-others"] : []
+
     function restore(name) {
         if (!root.validName(name)) return false;
-        return root.run(["restore", name]);
+        return root.run(["restore", name, ...root.restoreFlags]);
     }
     function remove(name) {
         if (!root.validName(name)) return false;
@@ -72,7 +76,7 @@ Singleton {
         return root.run(["rename", from, to]);
     }
     function cycle() {
-        return root.run(["cycle"]);
+        return root.run(["cycle", ...root.restoreFlags]);
     }
     // Into the current layout (the last saved or restored), else a new one.
     function saveCurrent() {
