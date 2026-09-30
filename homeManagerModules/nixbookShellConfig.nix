@@ -145,8 +145,9 @@ in
       settings = lib.mapAttrsRecursive (_: lib.mkDefault) (import ./nixbookShellConfig/settings.nix);
 
       # Qt/KDE apps (Dolphin…), Vesktop, YouTube Music and Zen follow the
-      # shell's wallpaper palette instead of stylix's (stylixConfig.nix turns
-      # its qt and zen-browser targets off for this).
+      # palette the shell shows (the wallpaper's or the theme variant's)
+      # instead of stylix's (stylixConfig.nix turns its qt and zen-browser
+      # targets off for this).
       appTheming = {
         qt.enable = true;
         vesktop.enable = true;

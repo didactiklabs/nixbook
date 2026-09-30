@@ -570,7 +570,6 @@ Singleton {
     Connections {
         target: Config.options.appearance.wallpaperTheming
         function onEnableAppsAndShellChanged() { root.regenerateColors() }
-        function onEnableQtAppsChanged() { root.regenerateColors() }
         function onEnableTerminalChanged() {
             // Turned off: hand the open terminals their own colours back
             // (new ones start with them anyway).

@@ -28,8 +28,9 @@ let
     paths = pinnedPaths;
   };
 
-  # Apps coloured from the shell's palette (appTheming): the matugen templates
-  # (app-theming/) switchwall.sh renders after the shell's own, and where.
+  # Apps coloured like the shell (appTheming): their templates (app-theming/,
+  # matugen's placeholders) and where they go; the running shell renders them
+  # from the palette it shows (services/AppTheming.qml).
   appsDir = "${config.xdg.stateHome}/quickshell/user/generated/apps";
   zenProfileDir =
     name:
@@ -57,8 +58,7 @@ let
       input = "zen-userChrome.css";
       output = "${zenProfileDir profile}/chrome/nixbook-shell.css";
     }) cfg.appTheming.zen.profiles;
-  matugenAppsFile = (pkgs.formats.toml { }).generate "nixbook-shell-matugen-apps.toml" {
-    config.version_check = false;
+  appThemingFile = (pkgs.formats.toml { }).generate "nixbook-shell-app-theming.toml" {
     templates = lib.listToAttrs (
       map (
         t:
@@ -608,6 +608,8 @@ in
       '';
     };
 
+    # "The shell's palette": the one it shows, the wallpaper's or a theme
+    # variant's own (Persona, Chiikawa, Cyberpunk…), light or dark.
     appTheming = {
       qt.enable = lib.mkEnableOption ''
         Qt and KDE apps (Dolphin…) coloured from the shell's palette: Qt goes
@@ -1123,10 +1125,10 @@ in
         };
       }
 
-      # appTheming: the templates for switchwall.sh, and the apps pointed at what
-      # it generates.
+      # appTheming: the templates for the shell (services/AppTheming.qml), and
+      # the apps pointed at what it renders.
       (lib.mkIf (appTemplates != [ ]) {
-        xdg.configFile."nixbook-shell/matugen-apps.toml".source = matugenAppsFile;
+        xdg.configFile."nixbook-shell/app-theming.toml".source = appThemingFile;
       })
       (lib.mkIf cfg.appTheming.qt.enable {
         qt =

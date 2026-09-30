@@ -1,18 +1,33 @@
 #!/usr/bin/env bash
-# After switchwall.sh rendered the app templates (programs.nixbook-shell.appTheming):
-# have the running apps pick the new colours up where they can.
+# The apps coloured like the shell (programs.nixbook-shell.appTheming): render
+# their templates from the palette the shell shows (the wallpaper's or a
+# theme variant's, passed by services/AppTheming.qml as JSON), then have the
+# running apps pick the new colours up where they can.
 #   Qt / KDE: the scheme goes to ~/.local/share/color-schemes (KDE apps load it
 #     by name) and its colour sections into ~/.config/kdeglobals, then running
 #     KDE apps are told the palette changed; qt6ct/qt5ct reread their colour
 #     scheme when their config directory changes.
 #   Vesktop reloads its themes folder by itself; Zen and YouTube Music read
 #   theirs when they start (or reload the page).
+#
+# Usage: apply-app-colors.sh PALETTE_JSON
 
 XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 XDG_STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APPS_DIR="$XDG_STATE_HOME/quickshell/user/generated/apps"
+APPS_CONFIG="$XDG_CONFIG_HOME/nixbook-shell/app-theming.toml"
+SHELL_CONFIG_FILE="$XDG_CONFIG_HOME/nixbook-shell/config.json"
+
+# The templates the Home Manager module set up, and the "Apps" switch
+# (appearance.wallpaperTheming.enableQtApps).
+[ -f "$APPS_CONFIG" ] || exit 0
+if [ -f "$SHELL_CONFIG_FILE" ] &&
+  [ "$(jq -r '.appearance.wallpaperTheming.enableQtApps' "$SHELL_CONFIG_FILE")" == "false" ]; then
+  exit 0
+fi
+"$SCRIPT_DIR/render-app-colors.py" "$APPS_CONFIG" <<<"${1:?usage: apply-app-colors.sh PALETTE_JSON}" || exit 1
 
 qt_colors="$APPS_DIR/qt-colors.conf"
 if [ -f "$qt_colors" ]; then
