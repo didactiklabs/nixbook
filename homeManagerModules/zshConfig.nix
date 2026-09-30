@@ -17,7 +17,8 @@ in
         Whether to enable Zsh with full shell integrations and common tooling.
 
         Enables programs.zsh with:
-          - oh-my-zsh framework
+          - oh-my-zsh-style defaults (keybindings, completion menu, dir options)
+            without oh-my-zsh itself, to keep shell startup fast
           - zsh-syntax-highlighting plugin (v0.8.0) — real-time command colouring
           - zsh-bat plugin — replaces `cat` output with bat syntax highlighting
           - Autosuggestions (fish-style inline suggestions)
@@ -92,10 +93,41 @@ in
         shellAliases = common.commonShellAliases;
         initContent = ''
           ${common.anyNixShellInit "zsh"}
+
+          # The parts of oh-my-zsh's lib we actually used, without its ~65ms startup cost.
+          setopt auto_cd auto_pushd pushd_ignore_dups pushdminus
+          setopt complete_in_word always_to_end auto_menu interactive_comments
+          unsetopt menu_complete flow_control
+
+          zstyle ':completion:*' matcher-list 'm:{[:lower:][:upper:]}={[:upper:][:lower:]}' 'r:|=*' 'l:|=* r:|=*'
+          zstyle ':completion:*:*:*:*:*' menu select
+          zstyle ':completion:*' special-dirs true
+          zstyle ':completion:*' list-colors "''${(s.:.)LS_COLORS}"
+          zstyle ':completion:*' use-cache yes
+          zstyle ':completion:*' cache-path "''${XDG_CACHE_HOME:-$HOME/.cache}/zsh"
+
+          # Up/Down: search history for lines starting with what's already typed
+          autoload -U up-line-or-beginning-search down-line-or-beginning-search edit-command-line
+          zle -N up-line-or-beginning-search
+          zle -N down-line-or-beginning-search
+          zle -N edit-command-line
+          bindkey '^[[A' up-line-or-beginning-search
+          bindkey '^[OA' up-line-or-beginning-search
+          bindkey '^[[B' down-line-or-beginning-search
+          bindkey '^[OB' down-line-or-beginning-search
+          bindkey '^[[1;5C' forward-word
+          bindkey '^[[1;5D' backward-word
+          bindkey '^[[3;5~' kill-word
+          bindkey '^[[Z' reverse-menu-complete
+          bindkey ' ' magic-space
+          bindkey '^x^e' edit-command-line
+
+          alias -g ...='../..'
+          alias -g ....='../../..'
+          alias -g .....='../../../..'
+          alias -- -='cd -'
+          alias md='mkdir -p'
         '';
-        oh-my-zsh = {
-          enable = true;
-        };
       };
     };
   };

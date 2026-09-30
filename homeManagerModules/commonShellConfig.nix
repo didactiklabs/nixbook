@@ -110,5 +110,12 @@ in
     };
   };
 
-  anyNixShellInit = shell: "any-nix-shell ${shell} --info-right | source /dev/stdin";
+  # Generated at build time: the output is static, so don't run any-nix-shell on every shell start.
+  anyNixShellInit =
+    shell:
+    "source ${
+      pkgs.runCommand "any-nix-shell-${shell}-init" { } ''
+        ${pkgs.any-nix-shell}/bin/any-nix-shell ${shell} --info-right > $out
+      ''
+    }";
 }

@@ -19,6 +19,12 @@ pkgs.buildGoModule {
 
   subPackages = [ "." ];
 
+  nativeBuildInputs = [ pkgs.installShellFiles ];
+  postInstall = ''
+    installShellCompletion --cmd songbird \
+      --zsh <($out/bin/songbird completion zsh)
+  '';
+
   meta = {
     mainProgram = "songbird";
   };
