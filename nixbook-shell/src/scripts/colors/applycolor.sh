@@ -48,7 +48,10 @@ apply_kitty() {
   fi
   # Copy template
   mkdir -p "$STATE_DIR"/user/generated/terminal
-  cp "$SCRIPT_DIR/terminal/kitty-theme.conf" "$STATE_DIR"/user/generated/terminal/kitty-theme.conf
+  # Writable copy: the template is in the read-only Nix store, and a
+  # read-only copy makes every later cp fail (colours never updated again).
+  rm -f "$STATE_DIR"/user/generated/terminal/kitty-theme.conf
+  cp --no-preserve=mode "$SCRIPT_DIR/terminal/kitty-theme.conf" "$STATE_DIR"/user/generated/terminal/kitty-theme.conf
   # Apply colors
   for i in "${!colorlist[@]}"; do
     sed -i "s/${colorlist[$i]} #/${colorvalues[$i]#\#}/g" "$STATE_DIR"/user/generated/terminal/kitty-theme.conf
@@ -66,7 +69,10 @@ apply_anyterm() {
   fi
   # Copy template
   mkdir -p "$STATE_DIR"/user/generated/terminal
-  cp "$SCRIPT_DIR/terminal/sequences.txt" "$STATE_DIR"/user/generated/terminal/sequences.txt
+  # Writable copy: the template is in the read-only Nix store, and a
+  # read-only copy makes every later cp fail (colours never updated again).
+  rm -f "$STATE_DIR"/user/generated/terminal/sequences.txt
+  cp --no-preserve=mode "$SCRIPT_DIR/terminal/sequences.txt" "$STATE_DIR"/user/generated/terminal/sequences.txt
   # Apply colors
   for i in "${!colorlist[@]}"; do
     sed -i "s/${colorlist[$i]} #/${colorvalues[$i]#\#}/g" "$STATE_DIR"/user/generated/terminal/sequences.txt

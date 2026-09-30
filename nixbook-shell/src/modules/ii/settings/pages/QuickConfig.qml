@@ -42,10 +42,22 @@ ContentPage {
         id: smallLightDarkPreferenceButton
         required property bool dark
         property color colText: toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer2
+        // A theme variant with its own palette (Persona, Chiikawa, Cyberpunk)
+        // replaces the wallpaper's: light/dark still switches the apps and
+        // the wallpaper palette (back once the theme's palette is off), not
+        // the shell. Neither button shows as current then, and the tooltip
+        // says why.
+        readonly property bool themePalette: Themes.palette !== null
         padding: 0
         Layout.fillHeight: true
         Layout.preferredWidth: 46
-        toggled: Appearance.m3colors.darkmode === dark
+        opacity: themePalette ? 0.5 : 1
+        toggled: !themePalette && Appearance.m3colors.darkmode === dark
+        StyledToolTip {
+            text: smallLightDarkPreferenceButton.themePalette
+                ? Translation.tr("The %1 theme uses its own colours: light/dark only applies to apps. Turn off its colour palette (Appearance > %1 style) to use the wallpaper colours.").arg(Themes.currentTheme?.name ?? "")
+                : (smallLightDarkPreferenceButton.dark ? Translation.tr("Dark mode") : Translation.tr("Light mode"))
+        }
         colBackground: toggled ? Appearance.colors.colPrimary : ColorUtils.transparentize(Appearance.colors.colLayer2, 0.45)
         onClicked: {
             Quickshell.execDetached(["bash", "-c", `${Directories.wallpaperSwitchScriptPath} --mode ${dark ? "dark" : "light"} --noswitch`]);
@@ -189,6 +201,13 @@ ContentPage {
         property var options: []
         property var isCurrentValue: value => false
         property var pickValue: value => {}
+        // The settings the options write. Any of them set in Nix: the button
+        // shows the lock, the popup still shows the current value but its
+        // options can't be picked (NixManaged would put the value back
+        // anyway), and the "Editable only" filter hides the button.
+        property var configKeys: []
+        readonly property bool locked: configKeys.some(key => NixManaged.isPinned(key))
+        visible: !(locked && NixManaged.hideLocked)
         readonly property bool popupVisible: popupHost !== null && popupHost.openPopup === popupId
         readonly property bool hoveredAnywhere: buttonHoverHandler.hovered || popupHoverHandler.hovered
 
@@ -221,6 +240,13 @@ ContentPage {
                 text: barScreenPopupButton.iconText
                 iconSize: 22
                 color: Appearance.colors.colOnLayer1
+                opacity: barScreenPopupButton.locked ? 0.5 : 1
+            }
+            NixManagedBadge {
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.margins: 4
+                pinned: barScreenPopupButton.locked
             }
         }
 
@@ -283,14 +309,29 @@ ContentPage {
                     anchors.margins: 6
                     spacing: 2
 
-                    StyledText {
+                    RowLayout {
                         Layout.fillWidth: true
                         Layout.leftMargin: 8
+                        Layout.rightMargin: 8
                         Layout.topMargin: 2
                         Layout.bottomMargin: 2
-                        text: barScreenPopupButton.popupTitle
-                        font.pixelSize: Appearance.font.pixelSize.smaller
-                        color: ColorUtils.transparentize(Appearance.colors.colOnLayer1, 0.45)
+                        spacing: 4
+
+                        StyledText {
+                            Layout.fillWidth: true
+                            text: barScreenPopupButton.popupTitle
+                            font.pixelSize: Appearance.font.pixelSize.smaller
+                            color: ColorUtils.transparentize(Appearance.colors.colOnLayer1, 0.45)
+                        }
+                        NixManagedBadge {
+                            pinned: barScreenPopupButton.locked
+                        }
+                        StyledText {
+                            visible: barScreenPopupButton.locked
+                            text: Translation.tr("Set in Nix")
+                            font.pixelSize: Appearance.font.pixelSize.smaller
+                            color: Appearance.m3colors.m3error
+                        }
                     }
 
                     Repeater {
@@ -309,10 +350,13 @@ ContentPage {
                             color: isSelected ? Appearance.colors.colPrimary
                                 : rowHovered ? ColorUtils.transparentize(Appearance.colors.colOnLayer1, 0.9)
                                 : "transparent"
+                            // Locked: only the current value stands out.
+                            opacity: barScreenPopupButton.locked && !isSelected ? 0.4 : 1
 
                             MouseArea {
                                 id: optionMouseArea
                                 anchors.fill: parent
+                                enabled: !barScreenPopupButton.locked
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
@@ -443,6 +487,7 @@ ContentPage {
                                 popupHost: page
                                 backdrop: wallpaperImg
                                 popupTitle: Translation.tr("Bar position")
+                                configKeys: ["bar.bottom", "bar.vertical"]
                                 options: [
                                     { displayName: Translation.tr("Top"), icon: "arrow_upward", value: 0 },
                                     { displayName: Translation.tr("Left"), icon: "arrow_back", value: 2 },
@@ -461,6 +506,7 @@ ContentPage {
                                 popupHost: page
                                 backdrop: wallpaperImg
                                 popupTitle: Translation.tr("Bar style")
+                                configKeys: ["bar.cornerStyle"]
                                 options: [
                                     { displayName: Translation.tr("Hug"), icon: "line_curve", value: 0 },
                                     { displayName: Translation.tr("Float"), icon: "view_day", value: 1 },
@@ -479,6 +525,7 @@ ContentPage {
                                 popupHost: page
                                 backdrop: wallpaperImg
                                 popupTitle: Translation.tr("Group style")
+                                configKeys: ["bar.borderless"]
                                 options: [
                                     { displayName: Translation.tr("None"), icon: "block", value: "transparent" },
                                     { displayName: Translation.tr("Pills"), icon: "pill", value: "pills" },
@@ -496,6 +543,7 @@ ContentPage {
                                 popupHost: page
                                 backdrop: wallpaperImg
                                 popupTitle: Translation.tr("Screen round corner")
+                                configKeys: ["appearance.fakeScreenRounding"]
                                 options: [
                                     { displayName: Translation.tr("No"), icon: "close", value: 0 },
                                     { displayName: Translation.tr("Yes"), icon: "check", value: 1 },
@@ -538,9 +586,6 @@ ContentPage {
                         BarScreenPopupButton {
                             id: schemeButton
                             z: 11
-                            // Set in Nix (nixbookShellConfig): locked
-                            enabled: !NixManaged.isPinned("appearance.palette.type")
-                            opacity: enabled ? 1 : 0.5
                             anchors.right: accentColorButton.left
                             anchors.rightMargin: 6
                             anchors.verticalCenter: parent.verticalCenter
@@ -552,6 +597,7 @@ ContentPage {
                             popupXOffset: isMinimal ? -30 : -40
                             backdrop: wallpaperImg
                             popupTitle: Translation.tr("Color scheme")
+                            configKeys: ["appearance.palette.type"]
                             options: [
                                 { displayName: Translation.tr("Auto"),        icon: "auto_awesome",  value: "auto" },
                                 { displayName: Translation.tr("Content"),     icon: "image",         value: "scheme-content" },

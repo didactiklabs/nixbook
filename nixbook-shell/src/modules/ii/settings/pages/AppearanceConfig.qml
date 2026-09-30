@@ -138,7 +138,10 @@ ContentPage {
                     checked: Config.options.appearance.wallpaperTheming.enableTerminal
                     onCheckedChanged: { Config.options.appearance.wallpaperTheming.enableTerminal = checked }
                 }
+                // The terminal options only act on terminal theming: shown
+                // while it is on.
                 ConfigRow {
+                    shown: Config.options.appearance.wallpaperTheming.enableTerminal
                     uniform: true
                     ConfigSwitch {
                         configKey: "appearance.wallpaperTheming.terminalGenerationProps.forceDarkMode";
@@ -150,6 +153,7 @@ ContentPage {
                     }
                 }
                 ConfigSpinBox {
+                    shown: Config.options.appearance.wallpaperTheming.enableTerminal
                     configKey: "appearance.wallpaperTheming.terminalGenerationProps.harmony";
                     enabled: !nixManaged;
                     icon: "invert_colors"
@@ -159,6 +163,7 @@ ContentPage {
                     onValueChanged: { Config.options.appearance.wallpaperTheming.terminalGenerationProps.harmony = value / 100 }
                 }
                 ConfigSpinBox {
+                    shown: Config.options.appearance.wallpaperTheming.enableTerminal
                     configKey: "appearance.wallpaperTheming.terminalGenerationProps.harmonizeThreshold";
                     enabled: !nixManaged;
                     icon: "gradient"
@@ -168,6 +173,7 @@ ContentPage {
                     onValueChanged: { Config.options.appearance.wallpaperTheming.terminalGenerationProps.harmonizeThreshold = value }
                 }
                 ConfigSpinBox {
+                    shown: Config.options.appearance.wallpaperTheming.enableTerminal
                     configKey: "appearance.wallpaperTheming.terminalGenerationProps.termFgBoost";
                     enabled: !nixManaged;
                     icon: "format_color_text"
