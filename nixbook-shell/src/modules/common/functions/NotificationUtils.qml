@@ -246,19 +246,43 @@ Singleton {
      *    instead; without a usable title the message needs 24+ characters.
      */
     function isRelayOf(local, relay) {
+        return root.relayMatch(local, relay) === "same";
+    }
+
+    /**
+     * How `relay` holds `local`'s message: "same" (it ends with it: the
+     * same message, see isRelayOf), "contains" (it has it followed by newer
+     * lines: a phone re-posting the thread with a message the desktop app
+     * didn't show, e.g. WhatsApp through KDE Connect after WhatsApp Web), or
+     * "". Same sender/title check either way.
+     */
+    function relayMatch(local, relay) {
         const body = root.matchText(local?.body);
         const message = body !== "" ? body : root.matchText(local?.summary);
-        if (message.length < 2) return false;
+        if (message.length < 2) return "";
         const relayText = root.matchText(`${relay?.summary ?? ""}\n${relay?.body ?? ""}`);
-        if (relayText !== message && !relayText.endsWith(` ${message}`)) return false;
+        const same = relayText === message || relayText.endsWith(` ${message}`);
+        // Inside: whole lines of the relay (not a word that happens to match).
+        const lines = root.plainText(relay?.body).split("\n").map(l => root.matchText(l));
+        const contains = !same && message.length >= 8 && lines.some((l, i) => {
+            let joined = "";
+            for (let j = i; j < lines.length; j++) {
+                joined = joined === "" ? lines[j] : `${joined} ${lines[j]}`;
+                if (joined === message || joined.endsWith(` ${message}`)) return j < lines.length - 1;
+                if (joined.length > message.length + 80) break;
+            }
+            return false;
+        });
+        if (!same && !contains) return "";
+        const verdict = same ? "same" : "contains";
         const relayWords = new Set(relayText.split(" "));
         const title = body === "" ? "" : root.matchText(local?.summary);
         const titleWords = title.split(" ").filter(w => w.length >= 3);
-        if (titleWords.length > 0 ? titleWords.some(w => relayWords.has(w)) : message.length >= 24) return true;
+        if (titleWords.length > 0 ? titleWords.some(w => relayWords.has(w)) : message.length >= 24) return verdict;
         // A title of short words only — a phone number, "+1 55 01 23 45" —
         // counts when all of it appears before the message.
-        const before = ` ${relayText.slice(0, relayText.length - message.length)}`;
-        return title.replace(/ /g, "").length >= 6 && before.includes(` ${title} `);
+        const before = ` ${relayText.slice(0, Math.max(0, relayText.indexOf(message)))}`;
+        return title.replace(/ /g, "").length >= 6 && before.includes(` ${title} `) ? verdict : "";
     }
 
     // Same app, title and text.
@@ -274,10 +298,30 @@ Singleton {
      * the whole thread each time a message arrives.
      */
     function isThreadUpdateOf(n, older) {
-        const body = root.plainText(n?.body).trim();
-        const old = root.plainText(older?.body).trim();
+        const body = root.threadText(n?.body);
+        const old = root.threadText(older?.body);
         return `${n?.appName}` === `${older?.appName}`
             && root.matchText(n?.summary) === root.matchText(older?.summary)
             && old !== "" && body.startsWith(`${old}\n`);
+    }
+
+    // A re-posted thread as compared: plain text without the message count
+    // phones add to its first line ("Chat (2 messages): …"), which changes
+    // with every re-post.
+    function threadText(text) {
+        return root.plainText(text).trim()
+            .replace(/^([^\n]*?) ?\(\d+[^()\n]{0,24}\)(?=:)/, "$1");
+    }
+
+    /**
+     * Is the newest message of a phone's copy the user's own ("You:" block,
+     * as KDE Connect mirrors a reply sent from the phone or elsewhere)?
+     */
+    // Labels phones use for the user's own messages, in a few languages;
+    // never short first names ("Tú", "Du" are also people).
+    readonly property var ownSenders: ["you", "vous", "moi", "bạn", "ich", "você", "我"]
+    function isOwnMessage(n) {
+        const sender = root.lastMessage(root.plainText(n?.body)).sender;
+        return sender !== "" && root.ownSenders.includes(sender.toLowerCase());
     }
 }

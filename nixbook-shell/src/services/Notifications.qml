@@ -388,12 +388,18 @@ Singleton {
     // why it is not shown ("" = show it); supersedes = ids of the earlier
     // copies it supersedes, replaces = those still in the list.
     //  - a mirrored copy of a desktop notification: dropped;
+    //  - a mirrored copy whose newest message is the user's own ("You:"),
+    //    with `hideOwnMessages`: dropped;
+    //  - a mirrored thread holding a desktop notification's message and
+    //    newer lines: replaces it (one entry for the conversation);
     //  - a desktop notification whose mirrored copy came first: replaces it;
     //  - the same app, title and text again within `repeatWindow` s (a
     //    sender repeating itself): dropped;
     //  - the same app and title re-posted with lines appended (a phone
-    //    mirroring the whole chat thread each time): replaces the old one.
-    // Matching: NotificationUtils.isRelayOf / isRepeatOf / isThreadUpdateOf.
+    //    mirroring the whole chat thread each time, its "(N messages)" count
+    //    ignored): replaces the old one.
+    // Matching: NotificationUtils.relayMatch / isOwnMessage / isRepeatOf /
+    // isThreadUpdateOf.
     function duplicateVerdict(n, now) {
         const verdict = { drop: "", replaces: [], supersedes: [] };
         const options = root.dedupOptions;
@@ -402,11 +408,20 @@ Singleton {
         root.recent = root.recent.filter(r => now - r.time <= windowMs);
         const relayed = NotificationUtils.isRelayed(n, options?.relayApps);
         const repeatMs = Math.max(0, options?.repeatWindow ?? 2) * 1000;
+        if (relayed && (options?.hideOwnMessages ?? true) && NotificationUtils.isOwnMessage(n))
+            return { drop: "the user's own message", replaces: [], supersedes: [] };
         for (const r of [...root.recent].reverse()) {
             if (now - r.time <= repeatMs && NotificationUtils.isRepeatOf(n, r))
                 return { drop: `repeat of #${r.notificationId}`, replaces: [], supersedes: [] };
-            if (relayed && !r.relayed && NotificationUtils.isRelayOf(r, n))
-                return { drop: `mirrors ${r.appName} #${r.notificationId}`, replaces: [], supersedes: [] };
+            if (relayed && !r.relayed) {
+                const match = NotificationUtils.relayMatch(r, n);
+                if (match === "same")
+                    return { drop: `mirrors ${r.appName} #${r.notificationId}`, replaces: [], supersedes: [] };
+                if (match === "contains") {
+                    verdict.supersedes.push(r.notificationId);
+                    continue;
+                }
+            }
             if ((!relayed && r.relayed && NotificationUtils.isRelayOf(n, r))
                     || NotificationUtils.isThreadUpdateOf(n, r))
                 verdict.supersedes.push(r.notificationId);

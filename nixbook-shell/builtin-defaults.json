@@ -516,6 +516,7 @@
     },
     "deduplicate": {
       "enable": true,
+      "hideOwnMessages": true,
       "history": true,
       "relayApps": ["KDE Connect", "GSConnect"],
       "repeatWindow": 2,
