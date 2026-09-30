@@ -19,7 +19,6 @@
 - [laptopProfile](#laptopprofile)
 - [netbird-tools](#netbird-tools)
 - [niri](#niri)
-- [ollama](#ollama)
 - [printTools](#printtools)
 - [simracing](#simracing)
 - [sunshine](#sunshine)
@@ -296,17 +295,6 @@ Whether to enable the Niri scrollable-tiling Wayland compositor. Niri is a moder
 - **Default:** `true`
 
 Whether to run polkit-gnome as the session's polkit authentication agent. Only one agent can hold the polkit registration per session. Quickshell desktop shells ship their own — nixbook-shell has `services/PolkitService.qml` — and whichever registers first wins. In practice polkit-gnome starts first, so the shell's agent fails on every start with "An authentication agent already exists for the given subject" and its (themed, in-shell) prompt is never used. Set to false on machines whose shell provides an agent, to drop the extra process and get the integrated prompt. Leave true when the shell has no agent of its own (DMS does not ship one), otherwise privilege escalation dialogs silently never appear.
-
----
-
-## ollama
-
-### `customNixOSModules.ollama.enable`
-
-- **Type:** `boolean`
-- **Default:** `false`
-
-Whether to enable the Ollama local LLM inference server. Ollama is an open-source framework for running large language models locally. This module: - Runs Ollama as a systemd service (services.ollama) - Uses ROCm GPU acceleration for AMD GPUs - Preloads the Gemini Gemma 4 27B model on first start - Exposes the Ollama API at http://localhost:11434 Used on: anya (gaming/streaming desktop with AMD GPU). Reference: https://wiki.nixos.org/wiki/Ollama
 
 ---
 
@@ -851,7 +839,7 @@ Notification history file nixbook-shell writes (`Directories.notificationHistory
 - **Type:** `null or JSON value`
 - **Default:** `{"$schema":"https://opencode.ai/config.json","plugin":["opencode-claude-auth@latest"]}`
 
-Global OpenCode configuration shared by every workspace. Written to `~/.config/opencode-manager/opencode/opencode.json`, which ocm syncs one way into each workspace as `/home/debian/.config/opencode/opencode.json`. Copied as a regular file like `agentInstructions`, for the same reason. Defaults to the host's OpenCode plugins (the `opencodeConfig` auth plugins, including `opencode-claude-auth`), so workspaces authenticate the same way; OpenCode installs them on its first start in the workspace. Only the plugins are carried over: the host's providers (e.g. the local Ollama endpoint) are not reachable from a container. `null` leaves the file alone so it can be managed by hand.
+Global OpenCode configuration shared by every workspace. Written to `~/.config/opencode-manager/opencode/opencode.json`, which ocm syncs one way into each workspace as `/home/debian/.config/opencode/opencode.json`. Copied as a regular file like `agentInstructions`, for the same reason. Defaults to the host's OpenCode plugins (the `opencodeConfig` auth plugins, including `opencode-claude-auth`), so workspaces authenticate the same way; OpenCode installs them on its first start in the workspace. Only the plugins are carried over: the host's providers are not reachable from a container. `null` leaves the file alone so it can be managed by hand.
 
 ### `customHomeManagerModules.ocmConfig.runtime`
 
@@ -870,20 +858,6 @@ Container runtime opencode-manager drives (`docker` or `podman`). Set to `podman
 - **Default:** `false`
 
 Whether to enable OpenCode AI coding assistant configuration. OpenCode is an AI-powered terminal coding assistant that supports multiple LLM providers through a plugin system. This configuration enables programs.opencode with two authentication plugins: - opencode-gemini-auth — Google Gemini OAuth authentication - opencode-anthropic-oauth — Anthropic Claude OAuth authentication When enabled, other modules integrate with OpenCode: - rtkConfig: runs `rtk init -g --opencode` to wire up the RTK auto-rewrite hook for token optimisation - goji.nix: goji-ai uses `opencode run` to generate commit messages - dmsConfig: the opencodeUsage bar widget shows token consumption Requires `opencode auth login` after activation to authenticate with a provider.
-
-### `customHomeManagerModules.opencodeConfig.ollama.baseUrl`
-
-- **Type:** `string`
-- **Default:** `"http://localhost:11434/v1"`
-
-The base URL for the Ollama API endpoint.
-
-### `customHomeManagerModules.opencodeConfig.ollama.enable`
-
-- **Type:** `boolean`
-- **Default:** `false`
-
-Whether to enable the Ollama provider for OpenCode. When enabled, configures an OpenAI-compatible Ollama provider with models defined in nixosModules/ollamaModels.nix.
 
 ---
 

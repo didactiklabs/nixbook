@@ -5,17 +5,6 @@
 }:
 let
   cfg = config.customHomeManagerModules.opencodeConfig;
-  ollamaModels = import ../nixosModules/ollamaModels.nix;
-  # Build opencode provider models attrset from shared ollama model definitions
-  # e.g. { "gemma4:26b" = { name = "Gemma 4 26B"; }; ... }
-  ollamaProviderModels = builtins.listToAttrs (
-    map (m: {
-      name = m.id;
-      value = {
-        inherit (m) name;
-      };
-    }) ollamaModels
-  );
 in
 {
   options.customHomeManagerModules.opencodeConfig = {
@@ -43,25 +32,6 @@ in
         a provider.
       '';
     };
-
-    ollama = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = ''
-          Whether to enable the Ollama provider for OpenCode.
-
-          When enabled, configures an OpenAI-compatible Ollama provider
-          with models defined in nixosModules/ollamaModels.nix.
-        '';
-      };
-
-      baseUrl = lib.mkOption {
-        type = lib.types.str;
-        default = "http://localhost:11434/v1";
-        description = "The base URL for the Ollama API endpoint.";
-      };
-    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -73,16 +43,6 @@ in
           "opencode-claude-auth@latest"
           "opencode-openai-codex-auth@latest"
         ];
-        provider = lib.mkIf cfg.ollama.enable {
-          ollama = {
-            npm = "@ai-sdk/openai-compatible";
-            name = "Ollama";
-            options = {
-              baseURL = cfg.ollama.baseUrl;
-            };
-            models = ollamaProviderModels;
-          };
-        };
       };
     };
   };

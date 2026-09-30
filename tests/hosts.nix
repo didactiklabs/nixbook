@@ -36,7 +36,6 @@ let
           "gamingConfig"
           "lanzaboote"
           "netbird-tools"
-          "ollama"
           "printTools"
           "simracing"
           "sunshine"
