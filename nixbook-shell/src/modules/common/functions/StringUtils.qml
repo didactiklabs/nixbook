@@ -236,6 +236,51 @@ Singleton {
     }
 
     /**
+     * The web links in plain text (http://, https:// or www.), without the
+     * punctuation that usually ends a sentence after them.
+     * @param { string } str
+     * @returns { {start: number, end: number, text: string, url: string}[] }
+     */
+    function findUrls(str) {
+        const s = String(str ?? "");
+        const found = [];
+        const re = /(?:https?:\/\/|www\.)[^\s<>"]+/gi;
+        let m;
+        while ((m = re.exec(s)) !== null) {
+            const text = m[0].replace(/[.,;:!?')\]]+$/, "");
+            if (text.length === 0)
+                continue;
+            found.push({
+                start: m.index,
+                end: m.index + text.length,
+                text: text,
+                url: /^www\./i.test(text) ? `https://${text}` : text
+            });
+        }
+        return found;
+    }
+
+    /**
+     * Plain text as Text.StyledText with its web links as <a> tags (the
+     * rest escaped, newlines as <br>).
+     * @param { string } str
+     * @returns { string }
+     */
+    function linkify(str) {
+        const s = String(str ?? "");
+        const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        let out = "";
+        let last = 0;
+        for (const link of findUrls(s)) {
+            // StyledText takes attribute values as they are (no entities);
+            // findUrls never includes a quote or angle bracket.
+            out += esc(s.slice(last, link.start)) + `<a href="${link.url}">${esc(link.text)}</a>`;
+            last = link.end;
+        }
+        return (out + esc(s.slice(last))).replace(/\n/g, "<br>");
+    }
+
+    /**
      * Cleans a cliphist entry by removing leading digits and tab.
      * @param { string } str
      * @returns { string }

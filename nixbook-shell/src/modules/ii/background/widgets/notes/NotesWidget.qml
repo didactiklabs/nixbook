@@ -141,10 +141,17 @@ AbstractBackgroundWidget {
                                     leftMargin: 12; rightMargin: 12
                                 }
                                 color: noteCard.fg
-                                text: noteCard.modelData.content.trim()
+                                linkColor: noteCard.fg
+                                // Links open in the browser; a click anywhere
+                                // else opens the note.
+                                textFormat: Text.StyledText
+                                text: StringUtils.linkify(noteCard.modelData.content.trim())
                                 wrapMode: Text.Wrap
                                 elide: Text.ElideRight
                                 maximumLineCount: 3
+                                onLinkActivated: (link) => AppLaunch.openUrl(link)
+
+                                PointingHandLinkHover {}
                             }
                         }
 

@@ -240,6 +240,17 @@ PanelWindow {
                         background: null
                         selectByMouse: true
                         Keys.onEscapePressed: root.close()
+
+                        // Ctrl+click opens the link under the pointer (a
+                        // plain click places the cursor, as usual).
+                        TapHandler {
+                            acceptedModifiers: Qt.ControlModifier
+                            onTapped: (eventPoint) => {
+                                const pos = textArea.positionAt(eventPoint.position.x, eventPoint.position.y)
+                                const link = StringUtils.findUrls(textArea.text).find(l => pos >= l.start && pos <= l.end)
+                                if (link) AppLaunch.openUrl(link.url)
+                            }
+                        }
                         Keys.onPressed: (event) => {
                             if (event.key === Qt.Key_S && (event.modifiers & Qt.ControlModifier)) {
                                 root.save()
@@ -258,13 +269,15 @@ PanelWindow {
                 StyledText {
                     Layout.leftMargin: 8
                     Layout.fillWidth: true
+                    elide: Text.ElideRight
                     font.pixelSize: Appearance.font.pixelSize.smaller
                     color: Appearance.colors.colSubtext
                     text: {
                         const text = textArea.text
                         const words = text.trim().length > 0 ? text.trim().split(/\s+/).length : 0
                         const status = root.dirty ? " · unsaved" : ""
-                        return `${words} ${words === 1 ? "word" : "words"} · ${text.length} characters${status}`
+                        const links = StringUtils.findUrls(text).length > 0 ? " · Ctrl+click a link to open it" : ""
+                        return `${words} ${words === 1 ? "word" : "words"} · ${text.length} characters${status}${links}`
                     }
                 }
 
