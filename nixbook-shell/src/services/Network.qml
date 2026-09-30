@@ -77,10 +77,14 @@ Singleton {
         if (!accessPoint || accessPoint.active || connectProc.running) return;
         accessPoint.askingPassword = false;
         root.wifiConnectTarget = accessPoint;
-        // We use this instead of `nmcli connection up SSID` because this also creates a connection profile
         connectProc.exec({
             "environment": { "LANG": "C", "LC_ALL": "C", "SSID": accessPoint.ssid },
-            "command": ["sh", "-c", 'nmcli dev wifi connect "$SSID"']
+            "command": ["sh", "-c", accessPoint.isEnterprise
+                // `dev wifi connect` can't set up 802.1X: bring up the saved
+                // profile, or ask for the credentials (changePassword creates it)
+                ? 'if nmcli -g NAME connection show | grep -Fxq -- "$SSID"; then exec nmcli connection up id "$SSID"; fi; echo "Secrets were required" >&2; exit 4'
+                // We use this instead of `nmcli connection up SSID` because this also creates a connection profile
+                : 'nmcli dev wifi connect "$SSID"']
         });
     }
 
@@ -93,10 +97,24 @@ Singleton {
     }
 
     function changePassword(network: WifiAccessPoint, password: string, username = ""): void {
-        // TODO: enterprise wifi with username
         if (!network || connectProc.running) return;
         network.askingPassword = false;
         root.wifiConnectTarget = network;
+        if (network.isEnterprise) {
+            // WPA-Enterprise: a saved profile (possibly set up by hand, e.g. TTLS
+            // or a CA certificate in nm-connection-editor) only gets the new
+            // credentials; otherwise one is created with PEAP/MSCHAPv2, what
+            // eduroam and most corporate networks use.
+            connectProc.exec({
+                "environment": { "LANG": "C", "LC_ALL": "C", "SSID": network.ssid, "IDENTITY": username, "PASSWORD": password },
+                "command": ["sh", "-c", 'if nmcli -g NAME connection show | grep -Fxq -- "$SSID"; then '
+                    + 'nmcli connection modify id "$SSID" 802-1x.identity "$IDENTITY" 802-1x.password "$PASSWORD"; '
+                    + 'else nmcli connection add type wifi con-name "$SSID" ssid "$SSID" wifi-sec.key-mgmt wpa-eap '
+                    + '802-1x.eap peap 802-1x.phase2-auth mschapv2 802-1x.identity "$IDENTITY" 802-1x.password "$PASSWORD"; '
+                    + 'fi && nmcli connection up id "$SSID"']
+            });
+            return;
+        }
         // A failed `dev wifi connect` deletes the profile it created, so there is
         // nothing to `connection modify`: connect again with the password (it
         // updates a saved profile's key too).
