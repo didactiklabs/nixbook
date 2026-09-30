@@ -121,14 +121,65 @@ ContentPage {
                 }
                 ConfigSwitch {
                     configKey: "appearance.wallpaperTheming.enableQtApps";
-                    // The apps set up in Nix (programs.nixbook-shell.appTheming:
-                    // Qt/KDE, Vesktop, Zen, YouTube Music); the key keeps
-                    // its upstream name.
+                    // All the apps below (services/AppTheming.qml); the key
+                    // keeps its upstream name.
                     enabled: !nixManaged;
                     buttonIcon: "tv_options_input_settings"
-                    text: Translation.tr("Apps (Qt, Discord, Zen, YouTube Music)")
+                    text: Translation.tr("Apps")
                     checked: Config.options.appearance.wallpaperTheming.enableQtApps
                     onCheckedChanged: { Config.options.appearance.wallpaperTheming.enableQtApps = checked }
+                }
+                // Each app: greyed out while "Apps" is off. Switching one off
+                // undoes its setup.
+                ConfigRow {
+                    uniform: true
+                    ConfigSwitch {
+                        configKey: "appearance.wallpaperTheming.apps.qt";
+                        enabled: !nixManaged && Config.options.appearance.wallpaperTheming.enableQtApps;
+                        buttonIcon: "widgets"
+                        text: Translation.tr("Qt & KDE")
+                        checked: Config.options.appearance.wallpaperTheming.apps.qt
+                        onCheckedChanged: { Config.options.appearance.wallpaperTheming.apps.qt = checked }
+                        StyledToolTip {
+                            text: Translation.tr("Dolphin and other Qt/KDE apps, live. Qt apps also need programs.nixbook-shell.appTheming.qt")
+                        }
+                    }
+                    ConfigSwitch {
+                        configKey: "appearance.wallpaperTheming.apps.vesktop";
+                        enabled: !nixManaged && Config.options.appearance.wallpaperTheming.enableQtApps;
+                        buttonIcon: "forum"
+                        text: Translation.tr("Discord (Vesktop)")
+                        checked: Config.options.appearance.wallpaperTheming.apps.vesktop
+                        onCheckedChanged: { Config.options.appearance.wallpaperTheming.apps.vesktop = checked }
+                        StyledToolTip {
+                            text: Translation.tr("Live")
+                        }
+                    }
+                }
+                ConfigRow {
+                    uniform: true
+                    ConfigSwitch {
+                        configKey: "appearance.wallpaperTheming.apps.youtubeMusic";
+                        enabled: !nixManaged && Config.options.appearance.wallpaperTheming.enableQtApps;
+                        buttonIcon: "music_note"
+                        text: Translation.tr("YouTube Music")
+                        checked: Config.options.appearance.wallpaperTheming.apps.youtubeMusic
+                        onCheckedChanged: { Config.options.appearance.wallpaperTheming.apps.youtubeMusic = checked }
+                        StyledToolTip {
+                            text: Translation.tr("Live: the new colours are put in the running app through its debugger, opened for about a second")
+                        }
+                    }
+                    ConfigSwitch {
+                        configKey: "appearance.wallpaperTheming.apps.zen";
+                        enabled: !nixManaged && Config.options.appearance.wallpaperTheming.enableQtApps;
+                        buttonIcon: "public"
+                        text: Translation.tr("Zen Browser")
+                        checked: Config.options.appearance.wallpaperTheming.apps.zen
+                        onCheckedChanged: { Config.options.appearance.wallpaperTheming.apps.zen = checked }
+                        StyledToolTip {
+                            text: Translation.tr("Zen reads them when it starts: while it runs, a notification offers to restart it (tabs restored)")
+                        }
+                    }
                 }
                 ConfigSwitch {
                     configKey: "appearance.wallpaperTheming.enableTerminal";

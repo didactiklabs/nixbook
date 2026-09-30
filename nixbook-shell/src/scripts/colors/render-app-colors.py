@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-"""Render the app templates (programs.nixbook-shell.appTheming) from the
-palette the shell shows: the wallpaper's or a theme variant's.
+"""Render the app templates (app-templates/, the apps switched on in
+Settings > Appearance) from the palette the shell shows: the wallpaper's or a
+theme variant's.
 
-Usage: render-app-colors.py APPS_TOML < PALETTE_JSON
+Usage: render-app-colors.py TEMPLATE OUTPUT [TEMPLATE OUTPUT]... < PALETTE_JSON
 
-APPS_TOML lists the templates ([templates.<name>] input_path / output_path,
-matugen's format). PALETTE_JSON maps Material roles (snake_case, e.g.
-"surface_container_low") to "#rrggbb". The templates use matugen's
-placeholders: {{colors.<role>.default.hex}} and .red / .green / .blue.
+PALETTE_JSON maps Material roles (snake_case, e.g. "surface_container_low")
+to "#rrggbb". The templates use matugen's placeholders:
+{{colors.<role>.default.hex}} and .red / .green / .blue. Prints the outputs
+whose content changed (one per line), so the caller only reloads those apps.
 """
 import json
 import os
 import re
 import sys
 import tempfile
-import tomllib
 
 PLACEHOLDER = re.compile(r"\{\{\s*colors\.([a-z_]+)\.default\.(hex|red|green|blue)\s*\}\}")
 
@@ -46,28 +46,35 @@ def write(path, text):
     os.replace(tmp, path)
 
 
-def main(apps_toml):
+def main(pairs):
     # "#rrggbb", or Qt's "#aarrggbb" (alpha dropped).
     palette = {
         role: "#" + color.lstrip("#")[-6:]
         for role, color in json.load(sys.stdin).items()
         if isinstance(color, str) and re.fullmatch(r"#?([0-9A-Fa-f]{2})?[0-9A-Fa-f]{6}", color)
     }
-    with open(apps_toml, "rb") as f:
-        templates = tomllib.load(f).get("templates", {})
     failed = False
-    for name, spec in templates.items():
-        with open(spec["input_path"]) as f:
+    for template, output in pairs:
+        with open(template) as f:
             text, missing = render(f.read(), palette)
         if missing:
-            print(f"{name}: no colour for {', '.join(sorted(missing))}", file=sys.stderr)
+            print(f"{template}: no colour for {', '.join(sorted(missing))}", file=sys.stderr)
             failed = True
             continue
-        write(os.path.expanduser(spec["output_path"]), text)
+        output = os.path.expanduser(output)
+        try:
+            with open(output) as f:
+                if f.read() == text:
+                    continue
+        except OSError:
+            pass
+        write(output, text)
+        print(output)
     return 1 if failed else 0
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
+    args = sys.argv[1:]
+    if not args or len(args) % 2:
         sys.exit(__doc__)
-    sys.exit(main(sys.argv[1]))
+    sys.exit(main(list(zip(args[::2], args[1::2]))))

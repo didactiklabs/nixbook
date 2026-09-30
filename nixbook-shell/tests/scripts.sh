@@ -3,7 +3,8 @@
 #   - config-merge.jq: the JSON -> Nix printers must round-trip through Nix;
 #   - config-tool.sh: `nixbook-shell config diff|pinned|dump|path` on fixtures;
 #   - assistant-facts.py: fact file structure, keybind, Neovim keymap, system and how-to facts;
-#   - theme-palettes.py + greeter-theme.sh: what the login screen gets.
+#   - theme-palettes.py + greeter-theme.sh: what the login screen gets;
+#   - render-app-colors.py, zen-theme.py, apply-app-colors.sh: the app colours.
 # Needs bash, jq, python3 and nix-instantiate. Run: bash tests/scripts.sh
 # The jq programs are single-quoted on purpose: `$n`, `$a`, ... are jq variables.
 # shellcheck disable=SC2016
@@ -365,6 +366,73 @@ greeter_theme walls "{\"background\":{\"wallpaperPath\":\"file://$tmp/desk.png\"
 expect_eq "greeter-theme.sh: else the desktop's (file:// and missing files handled)" desk "$(cat "$tmp/greeter/walls/background")"
 greeter_theme walls '{}'
 if [ -e "$tmp/greeter/walls/background" ]; then fail "greeter-theme.sh: no wallpaper, none copied"; else pass "greeter-theme.sh: no wallpaper, none copied"; fi
+
+# -- App colours: render-app-colors.py, zen-theme.py, apply-app-colors.sh ------
+
+colors="$root/src/scripts/colors"
+palette='{"primary":"#AbCdEf","surface":"#ff112233","not_a_colour":"blue"}'
+printf 'p={{colors.primary.default.hex}} r={{colors.primary.default.red}} s={{ colors.surface.default.hex }}\n' >"$tmp/app.tpl"
+out=$("$colors/render-app-colors.py" "$tmp/app.tpl" "$tmp/apps/a.txt" <<<"$palette")
+expect_eq "render-app-colors.py: placeholders filled (alpha dropped, lower case)" "p=#abcdef r=171 s=#112233" "$(cat "$tmp/apps/a.txt")"
+expect_eq "render-app-colors.py: prints what changed" "$tmp/apps/a.txt" "$out"
+out=$("$colors/render-app-colors.py" "$tmp/app.tpl" "$tmp/apps/a.txt" <<<"$palette")
+expect_eq "render-app-colors.py: ...and nothing when unchanged" "" "$out"
+printf '{{colors.tertiary.default.hex}}\n' >"$tmp/missing.tpl"
+if "$colors/render-app-colors.py" "$tmp/missing.tpl" "$tmp/apps/m.txt" <<<"$palette" 2>/dev/null || [ -e "$tmp/apps/m.txt" ]; then
+  fail "render-app-colors.py: a colour missing fails, nothing written"
+else
+  pass "render-app-colors.py: a colour missing fails, nothing written"
+fi
+
+# A home with a Zen profile (relative path in profiles.ini) and Vesktop /
+# YouTube Music settings files.
+home="$tmp/home"
+zen_profile="$home/.config/zen/abc.default"
+mkdir -p "$zen_profile" "$home/.config/vesktop/settings" "$home/.config/YouTube Music"
+printf '[General]\nStartWithLastProfile=1\n\n[Profile0]\nName=default\nIsRelative=1\nPath=abc.default\n' >"$home/.config/zen/profiles.ini"
+printf 'body { color: red; }\n' >"$tmp/userChrome.css"
+cp "$tmp/userChrome.css" "$zen_profile/chrome.keep" && mkdir -p "$zen_profile/chrome" && mv "$zen_profile/chrome.keep" "$zen_profile/chrome/userChrome.css"
+printf 'user_pref("browser.startup.page", 3);\n' >"$zen_profile/prefs.js"
+echo '{"enabledThemes":["other.css"]}' >"$home/.config/vesktop/settings/settings.json"
+echo '{"options":{"themes":[]}}' >"$home/.config/YouTube Music/config.json"
+in_home() { HOME="$home" XDG_CONFIG_HOME="$home/.config" XDG_STATE_HOME="$home/.local/state" XDG_DATA_HOME="$home/.local/share" XDG_RUNTIME_DIR="$tmp" "$@"; }
+
+expect_eq "zen-theme.py: profiles from profiles.ini" "$(realpath "$zen_profile")" "$(in_home "$colors/zen-theme.py" profiles)"
+
+# Every role the templates use, all #abcdef.
+full_palette=$(grep -ohE 'colors\.[a-z_]+\.default' "$colors"/app-templates/* | cut -d. -f2 | sort -u |
+  jq -R -s -c 'split("\n") | map(select(. != "")) | map({(.): "#abcdef"}) | add')
+in_home "$colors/apply-app-colors.sh" "$full_palette" vesktop,youtube-music,zen
+expect_eq "apply-app-colors.sh: Vesktop theme written" "true" "$(grep -q '#abcdef' "$home/.config/vesktop/themes/nixbook-shell.css" && echo true)"
+expect_eq "apply-app-colors.sh: ...and turned on, other themes kept" '["other.css","nixbook-shell.css"]' "$(jq -c .enabledThemes "$home/.config/vesktop/settings/settings.json")"
+expect_eq "apply-app-colors.sh: YouTube Music theme added" "[\"$home/.local/state/quickshell/user/generated/apps/youtube-music.css\"]" "$(jq -c .options.themes "$home/.config/YouTube Music/config.json")"
+expect_eq "apply-app-colors.sh: Zen CSS in the profile" "true" "$(grep -q '#abcdef' "$zen_profile/chrome/nixbook-shell.css" && echo true)"
+expect_eq "zen-theme.py: import first, the rest of userChrome.css kept" '@import url("nixbook-shell.css");'$'\n''body { color: red; }' "$(cat "$zen_profile/chrome/userChrome.css")"
+expect_contains "zen-theme.py: userChrome pref set while Zen is closed" "$(cat "$zen_profile/prefs.js")" 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);'
+expect_contains "zen-theme.py: ...other prefs kept" "$(cat "$zen_profile/prefs.js")" 'user_pref("browser.startup.page", 3);'
+in_home "$colors/zen-theme.py" sync
+expect_eq "zen-theme.py: sync is idempotent" 1 "$(grep -c '@import' "$zen_profile/chrome/userChrome.css")"
+
+# Running (its lock points at a live pid): prefs.js untouched, a restart
+# needed only when its CSS changed.
+ln -s "127.0.0.1:+$$" "$zen_profile/lock"
+status=0
+in_home "$colors/zen-theme.py" sync || status=$?
+expect_eq "zen-theme.py: running, CSS unchanged: no restart" 0 "$status"
+status=0
+in_home "$colors/zen-theme.py" sync "$zen_profile/chrome/nixbook-shell.css" || status=$?
+expect_eq "zen-theme.py: running, CSS changed: restart (exit 3)" 3 "$status"
+rm "$zen_profile/lock"
+
+in_home "$colors/apply-app-colors.sh" "$full_palette" ""
+expect_eq "apply-app-colors.sh: switched off, Vesktop theme turned off" '["other.css"]' "$(jq -c .enabledThemes "$home/.config/vesktop/settings/settings.json")"
+expect_eq "apply-app-colors.sh: ...YouTube Music theme removed" '[]' "$(jq -c .options.themes "$home/.config/YouTube Music/config.json")"
+expect_eq "apply-app-colors.sh: ...Zen import removed" 'body { color: red; }' "$(cat "$zen_profile/chrome/userChrome.css")"
+if [ -e "$zen_profile/chrome/nixbook-shell.css" ] || [ -e "$home/.config/vesktop/themes/nixbook-shell.css" ]; then
+  fail "apply-app-colors.sh: ...generated files removed"
+else
+  pass "apply-app-colors.sh: ...generated files removed"
+fi
 
 if [ "$failures" -ne 0 ]; then
   echo "$failures nixbook-shell test(s) failed" >&2

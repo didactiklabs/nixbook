@@ -7,11 +7,14 @@ import QtQuick
 import Quickshell
 
 /**
- * Apps coloured like the shell (programs.nixbook-shell.appTheming: Qt/KDE,
- * Vesktop, YouTube Music, Zen): whenever the palette the shell shows changes
- * (a new wallpaper palette, light/dark, a theme variant with its own
- * palette), it goes to scripts/colors/apply-app-colors.sh, which renders the
- * apps' templates from it and has them reload. Main shell only (loaded from
+ * Apps coloured like the shell (Settings > Appearance > Color generation >
+ * Apps: Qt/KDE, Vesktop, YouTube Music, Zen, each with its own switch):
+ * whenever the palette the shell shows changes (a new wallpaper palette,
+ * light/dark, a theme variant with its own palette) or a switch is flipped,
+ * the palette and the apps switched on go to
+ * scripts/colors/apply-app-colors.sh, which renders the apps' templates,
+ * has the running apps pick them up (live where the app allows it) and
+ * undoes the setup of the apps switched off. Main shell only (loaded from
  * shell.qml): the greeter and the splash screens have no say.
  */
 Singleton {
@@ -38,13 +41,23 @@ Singleton {
         return out;
     }
 
+    // The apps switched on, as apply-app-colors.sh names them: none while the
+    // "Apps" switch is off.
+    function apps() {
+        const theming = Config.options.appearance.wallpaperTheming;
+        if (!theming.enableQtApps)
+            return [];
+        const names = { qt: "qt", vesktop: "vesktop", youtubeMusic: "youtube-music", zen: "zen" };
+        return Object.keys(names).filter(key => theming.apps[key]).map(key => names[key]);
+    }
+
     function apply() {
         // Not before the first real palette, nor the lock screen's own one
         // (the live palette comes back when it unlocks).
         if (!MaterialThemeLoader.firstApplyDone
                 || MaterialThemeLoader.filePath === Directories.generatedLockMaterialThemePath)
             return;
-        Quickshell.execDetached([root.script, JSON.stringify(root.palette())]);
+        Quickshell.execDetached([root.script, JSON.stringify(root.palette()), root.apps().join(",")]);
     }
 
     // A palette swap can come in slices and in quick succession (wallpaper
@@ -62,5 +75,12 @@ Singleton {
     Connections {
         target: Config.options.appearance.wallpaperTheming
         function onEnableQtAppsChanged() { applyTimer.restart() }
+    }
+    Connections {
+        target: Config.options.appearance.wallpaperTheming.apps
+        function onQtChanged() { applyTimer.restart() }
+        function onVesktopChanged() { applyTimer.restart() }
+        function onYoutubeMusicChanged() { applyTimer.restart() }
+        function onZenChanged() { applyTimer.restart() }
     }
 }

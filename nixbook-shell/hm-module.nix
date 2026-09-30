@@ -28,47 +28,9 @@ let
     paths = pinnedPaths;
   };
 
-  # Apps coloured like the shell (appTheming): their templates (app-theming/,
-  # matugen's placeholders) and where they go; the running shell renders them
-  # from the palette it shows (services/AppTheming.qml).
+  # Where the running shell renders the apps' colours (services/AppTheming.qml,
+  # which apps is up to Settings > Appearance): the Qt palette qt6ct/qt5ct read.
   appsDir = "${config.xdg.stateHome}/quickshell/user/generated/apps";
-  zenProfileDir =
-    name:
-    "${config.programs.zen-browser.profilesPath or "${config.xdg.configHome}/zen"}/${
-      config.programs.zen-browser.profiles.${name}.path or name
-    }";
-  appTemplates =
-    lib.optional cfg.appTheming.qt.enable {
-      name = "qt";
-      input = "qt-colors.conf";
-      output = "${appsDir}/qt-colors.conf";
-    }
-    ++ lib.optional cfg.appTheming.vesktop.enable {
-      name = "vesktop";
-      input = "vesktop.css";
-      output = "${config.xdg.configHome}/vesktop/themes/nixbook-shell.css";
-    }
-    ++ lib.optional cfg.appTheming.youtubeMusic.enable {
-      name = "youtube_music";
-      input = "youtube-music.css";
-      output = "${appsDir}/youtube-music.css";
-    }
-    ++ map (profile: {
-      name = "zen_${lib.replaceStrings [ "-" "." ] [ "_" "_" ] profile}";
-      input = "zen-userChrome.css";
-      output = "${zenProfileDir profile}/chrome/nixbook-shell.css";
-    }) cfg.appTheming.zen.profiles;
-  appThemingFile = (pkgs.formats.toml { }).generate "nixbook-shell-app-theming.toml" {
-    templates = lib.listToAttrs (
-      map (
-        t:
-        lib.nameValuePair t.name {
-          input_path = "${./app-theming}/${t.input}";
-          output_path = t.output;
-        }
-      ) appTemplates
-    );
-  };
 
   # Neovim keymaps from an evaluated nixvim configuration
   # (`programs.nixvim`, when its Home Manager module is imported): read after
@@ -536,6 +498,23 @@ let
   };
 in
 {
+  # The apps coloured like the shell are switched on from the Settings menu
+  # now (appearance.wallpaperTheming.apps), live.
+  imports =
+    map
+      (
+        app:
+        lib.mkRemovedOptionModule [ "programs" "nixbook-shell" "appTheming" app ] ''
+          The apps coloured from the shell's palette are switched on and off in
+          the shell: Settings > Appearance > Color generation > Apps.
+        ''
+      )
+      [
+        "vesktop"
+        "youtubeMusic"
+        "zen"
+      ];
+
   options.programs.nixbook-shell = {
     enable = lib.mkEnableOption ''
       nixbook-shell, a Quickshell (QML) desktop shell (bar, dock, sidebars,
@@ -609,36 +588,19 @@ in
     };
 
     # "The shell's palette": the one it shows, the wallpaper's or a theme
-    # variant's own (Persona, Chiikawa, Cyberpunk…), light or dark.
+    # variant's own (Persona, Chiikawa, Cyberpunk…), light or dark. Which apps
+    # follow it is chosen in the shell (Settings > Appearance > Color
+    # generation > Apps); only what has to be set up outside it is here.
     appTheming = {
       qt.enable = lib.mkEnableOption ''
-        Qt and KDE apps (Dolphin…) coloured from the shell's palette: Qt goes
+        Qt apps following the shell's palette when "Qt & KDE" is on in the
+        shell's Settings (Appearance > Color generation > Apps): Qt goes
         through qt6ct/qt5ct with the Breeze style and a custom palette (the
-        generated colour scheme), KDE apps get the same scheme in
-        ~/.config/kdeglobals. Running apps follow palette changes. Sets
-        `qt.*`: turn off anything else theming Qt (e.g. stylix's `qt` target)
+        colour scheme the shell generates). KDE apps (Dolphin…) get the same
+        scheme in ~/.config/kdeglobals from the shell alone. Running apps
+        follow palette changes. Sets `qt.*`: turn off anything else theming Qt
+        (e.g. stylix's `qt` target)
       '';
-      vesktop.enable = lib.mkEnableOption ''
-        Vesktop (Discord) coloured from the shell's palette: a theme in
-        ~/.config/vesktop/themes, enabled in Vesktop's settings, reloaded live
-      '';
-      youtubeMusic.enable = lib.mkEnableOption ''
-        YouTube Music (pear-desktop) coloured from the shell's palette: a CSS
-        theme added to its `options.themes`, applied when the app starts (or
-        reloads its page)
-      '';
-      zen.profiles = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        default = [ ];
-        example = [ "default" ];
-        description = ''
-          Zen Browser profiles (`programs.zen-browser.profiles` names) whose
-          browser chrome is coloured from the shell's palette: the generated
-          CSS is imported at the top of their `userChrome`, applied when Zen
-          starts. Turn off anything else writing their `userChrome` colours
-          (e.g. stylix's `zen-browser` target).
-        '';
-      };
     };
 
     desktopMcp = {
@@ -1125,11 +1087,7 @@ in
         };
       }
 
-      # appTheming: the templates for the shell (services/AppTheming.qml), and
-      # the apps pointed at what it renders.
-      (lib.mkIf (appTemplates != [ ]) {
-        xdg.configFile."nixbook-shell/app-theming.toml".source = appThemingFile;
-      })
+      # appTheming.qt: qt6ct/qt5ct pointed at the palette the shell renders.
       (lib.mkIf cfg.appTheming.qt.enable {
         qt =
           let
@@ -1146,14 +1104,6 @@ in
             qt5ctSettings = appearance;
             qt6ctSettings = appearance;
           };
-      })
-      (lib.optionalAttrs (options.programs ? zen-browser) {
-        programs.zen-browser.profiles = lib.genAttrs cfg.appTheming.zen.profiles (_: {
-          # First: @import rules must precede every other rule.
-          userChrome = lib.mkBefore ''
-            @import url("nixbook-shell.css");
-          '';
-        });
       })
     ]
   );
