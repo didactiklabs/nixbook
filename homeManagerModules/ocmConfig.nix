@@ -343,8 +343,8 @@ in
         Defaults to the host's OpenCode plugins (the `opencodeConfig` auth
         plugins, including `opencode-claude-auth`), so workspaces authenticate
         the same way; OpenCode installs them on its first start in the
-        workspace. Only the plugins are carried over: the host's providers
-        (e.g. the local Ollama endpoint) are not reachable from a container.
+        workspace. Only the plugins are carried over: the host's providers are
+        not reachable from a container.
 
         `null` leaves the file alone so it can be managed by hand.
       '';

@@ -81,7 +81,6 @@ in
       enable = true;
       hostAppsStateFolder = "/data/wolf";
     };
-    ollama.enable = true;
     sway.enable = true;
     tailscale.enable = false;
     netbird-tools.enable = false;

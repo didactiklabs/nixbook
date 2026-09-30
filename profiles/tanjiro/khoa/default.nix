@@ -85,13 +85,7 @@ in
       lotus = true;
     };
     thunderbirdConfig.enable = false;
-    opencodeConfig = {
-      enable = true;
-      ollama = {
-        enable = true;
-        baseUrl = "http://anya:11434/v1";
-      };
-    };
+    opencodeConfig.enable = true;
     zenBrowserConfig.enable = true;
     rtk = {
       enable = true;

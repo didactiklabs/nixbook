@@ -91,9 +91,6 @@ in
     };
     desktopApps.enable = true;
     zenBrowserConfig.enable = true;
-    opencodeConfig = {
-      enable = true;
-      ollama.enable = true;
-    };
+    opencodeConfig.enable = true;
   };
 }

@@ -13,7 +13,6 @@
     ./lanzaboote.nix
     ./netbird-tools.nix
     ./niri.nix
-    ./ollama.nix
     ./printTools.nix
     ./simracing.nix
     ./sunshine.nix
