@@ -386,6 +386,11 @@ in
         "-${config.boot.plymouth.package}/bin/plymouth quit --retain-splash"
       ];
     };
+    # ...and nothing but that failure pulls plymouth-quit in: every switch
+    # starts multi-user.target again, which would start the (finished,
+    # oneshot) plymouth-quit through its Wants=, and the conflict above could
+    # then stop greetd — logging the running session out.
+    systemd.services.plymouth-quit.wantedBy = lib.mkIf config.boot.plymouth.enable (lib.mkForce [ ]);
 
     # Owned by the user (the renderer runs as them), readable by the greeter.
     systemd.tmpfiles.rules =
