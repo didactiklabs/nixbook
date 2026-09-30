@@ -160,6 +160,9 @@ Singleton {
                     // Tools it may use besides the desktop ones; others (Bash,
                     // Edit, Write…) are refused.
                     property list<string> allowedTools: ["WebSearch", "WebFetch", "Read", "Glob", "Grep"]
+                    // The claude.ai connectors of the Claude account (Gmail,
+                    // Calendar, Drive…), all their tools allowed.
+                    property bool connectors: false
                 }
             }
 

@@ -165,6 +165,27 @@ ContentPage {
                     checked: claudeSection.hasAll(["Read", "Glob", "Grep"])
                     onCheckedChanged: claudeSection.setTools(["Read", "Glob", "Grep"], checked)
                 }
+                ConfigSwitch {
+                    configKey: "ai.claudeCode.connectors"
+                    enabled: !nixManaged
+                    buttonIcon: "hub"
+                    text: Translation.tr("Use your claude.ai connectors")
+                    checked: Config.options.ai.claudeCode.connectors
+                    onCheckedChanged: Config.options.ai.claudeCode.connectors = checked
+                    StyledToolTip {
+                        text: Translation.tr("Gmail, Calendar, Drive… as connected on claude.ai, without asking before each use")
+                    }
+                }
+            }
+
+            StyledText {
+                visible: Config.options.ai.claudeCode.connectors
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Ai.claudeConnectors.length > 0
+                    ? Translation.tr("Connectors: %1").arg(Ai.claudeConnectors.map(c => c.replace(/^mcp__claude_ai_/, "").replace(/_/g, " ")).join(", "))
+                    : Translation.tr("No connectors found. Add them on claude.ai (Settings → Connectors).")
             }
 
             ConfigTextArea {

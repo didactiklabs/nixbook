@@ -274,6 +274,11 @@ conversation's session, with the desktop MCP server attached (its guardrails,
 the pause button and the memory apply as always; tool `none` leaves it out)
 and only the built-in tools in `ai.claudeCode.allowedTools` (web search and
 fetch, reading files); running commands and editing files are refused.
+**Use your claude.ai connectors** (`ai.claudeCode.connectors`, off by
+default) also gives it the connectors of your Claude account (Gmail,
+Calendar, Drive… as connected on claude.ai, found with `claude mcp list`),
+every tool of each allowed without asking; it then drops
+`--strict-mcp-config` and keeps their tools behind ToolSearch.
 Replies stream in, each tool call shows with its result in a collapsible
 block, and the send button stops the answer (and what Claude is doing), as
 does `/stop`. Sonnet is faster than Opus for desktop tasks.

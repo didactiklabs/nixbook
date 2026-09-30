@@ -212,7 +212,8 @@ Singleton {
     // Claude login. Offered as a model when `claude` is found. Each message
     // runs Claude Code once, resuming the session of the previous one; it
     // gets the desktop tools (the desktop MCP server, whose guardrails, pause
-    // and memory apply) and Config ai.claudeCode.allowedTools, nothing else.
+    // and memory apply), Config ai.claudeCode.allowedTools and, with
+    // ai.claudeCode.connectors, the user's claude.ai connectors; nothing else.
     property string claudeCodePath: ""
     property string claudeSessionId: ""
     // Settings > Desktop agents can change where Claude Code is: look again.
@@ -233,6 +234,7 @@ Singleton {
             onStreamFinished: {
                 const path = text.trim();
                 root.claudeCodePath = path;
+                if (path.length > 0 && root.claudeConnectorsSetting) listClaudeConnectors.running = true;
                 if (path.length === 0 || root.models["claude"]) return;
                 root.addModel("claude", {
                     "name": "Claude",
@@ -243,6 +245,27 @@ Singleton {
                     "api_format": "claude-code",
                 });
                 root.modelList = Object.keys(root.models);
+            }
+        }
+    }
+
+    // The claude.ai connectors (Gmail, Calendar, Drive…) of the user's Claude
+    // account, as permission rules: `claude mcp list` names them "claude.ai
+    // Gmail", their tools are mcp__claude_ai_Gmail__*. Claude Code takes no
+    // wildcard over servers, so each one is allowed by name.
+    property list<string> claudeConnectors: []
+    readonly property bool claudeConnectorsSetting: Config.options?.ai?.claudeCode?.connectors ?? false
+    onClaudeConnectorsSettingChanged: if (claudeConnectorsSetting && claudeCodePath.length > 0) listClaudeConnectors.running = true
+    Process {
+        id: listClaudeConnectors
+        command: [root.claudeCodePath, "mcp", "list"]
+        workingDirectory: Quickshell.env("HOME")
+        stdout: StdioCollector {
+            onStreamFinished: {
+                root.claudeConnectors = text.split("\n")
+                    .map(l => /^(claude\.ai [^:]+):/.exec(l.trim()))
+                    .filter(m => m)
+                    .map(m => "mcp__" + m[1].replace(/[^A-Za-z0-9_-]/g, "_"));
             }
         }
     }
@@ -263,12 +286,16 @@ Singleton {
             prompt += `\n\n(Attached file: ${attachedFile}; read it with the Read tool.)`;
 
         const desktop = root.currentTool !== "none" && root.desktopTools.length > 0;
-        const allowed = [...(desktop ? ["mcp__desktop"] : []), ...(Config.options.ai.claudeCode.allowedTools ?? [])];
+        const connectors = root.claudeConnectorsSetting;
+        const allowed = [...(desktop ? ["mcp__desktop"] : []), ...(Config.options.ai.claudeCode.allowedTools ?? []),
+            ...(connectors ? root.claudeConnectors : [])];
         const system = root.systemPrompt
             + "\n\nYou are answering in the desktop shell's side panel: keep answers short."
             + (desktop ? " You can see and drive the user's desktop with the desktop tools." : "");
+        // --strict-mcp-config leaves out every MCP server but the desktop one,
+        // claude.ai connectors included: dropped when they are wanted.
         let args = ["-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
-            "--strict-mcp-config", "--append-system-prompt", system,
+            ...(connectors ? [] : ["--strict-mcp-config"]), "--append-system-prompt", system,
             "--disallowedTools", "Bash", "Edit", "Write", "NotebookEdit"];
         // The message tells the desktop MCP server what the task is: its
         // memory digest then carries the notes about it, the rest by topic.
@@ -280,7 +307,9 @@ Singleton {
             } } }));
         // Only the allowed built-in tools are loaded at all: Claude Code's
         // full set would double the context of every message.
-        const builtins = Config.options.ai.claudeCode.allowedTools ?? [];
+        // With the connectors, ToolSearch too: their tools stay deferred
+        // behind it (without it they all load, ~130k tokens a message).
+        const builtins = [...(Config.options.ai.claudeCode.allowedTools ?? []), ...(connectors ? ["ToolSearch"] : [])];
         args.push("--tools", ...(builtins.length > 0 ? builtins : [""]));
         if (allowed.length > 0) args.push("--allowedTools", ...allowed);
         const claudeModel = Config.options.ai.claudeCode.model ?? "";
@@ -288,8 +317,9 @@ Singleton {
         if (root.claudeSessionId.length > 0) args.push("--resume", root.claudeSessionId);
         // The desktop tools loaded up front: Claude Code otherwise defers MCP
         // tools behind a ToolSearch call, one more round trip per session.
+        // Not with the connectors: hundreds of tools would fill every message.
         // The message on stdin: never read as an option, whatever it starts with.
-        return `cd "$HOME" || exit 1\nexport ENABLE_TOOL_SEARCH=false\n`
+        return `cd "$HOME" || exit 1\n${connectors ? "" : "export ENABLE_TOOL_SEARCH=false\n"}`
             + `exec ${q(root.claudeCodePath)} ${args.map(q).join(" ")} < <(printf '%s' ${q(prompt)})\n`;
     }
 

@@ -6,6 +6,7 @@
     "claudeCode": {
       "allowedTools": ["WebSearch", "WebFetch", "Read", "Glob", "Grep"],
       "command": "",
+      "connectors": false,
       "model": ""
     }
   },
