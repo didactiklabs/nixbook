@@ -23,6 +23,7 @@ Item {
         { key: "resources",   icon: "monitor_heart",      name: Translation.tr("Resources") },
         { key: "calendar",    icon: "calendar_month",     name: Translation.tr("Calendar") },
         { key: "nextEvent",   icon: "event_upcoming",     name: Translation.tr("Next Event") },
+        { key: "musicRecognition", icon: "music_cast",    name: Translation.tr("Music Recognition") },
         { key: "worldClock",  icon: "public",             name: Translation.tr("World Clock") },
         { key: "userCard",    icon: "person",             name: Translation.tr("User Card") },
         { key: "notes",       icon: "note_stack_add",     name: Translation.tr("Notes") },

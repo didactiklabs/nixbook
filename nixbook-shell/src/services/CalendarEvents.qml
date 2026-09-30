@@ -347,4 +347,82 @@ Singleton {
         repeat: true
         onTriggered: root.refresh()
     }
+
+    // `nixbook-shell ipc call calendar next|upcoming DAYS|day YYYY-MM-DD`:
+    // the synced events (DankCalendar), read-only, for key bindings and the
+    // desktop MCP server's `calendar` tool. JSON; times in local ISO form.
+    function _localIso(d) {
+        const pad = n => (n < 10 ? "0" : "") + n
+        return `${root.dayKey(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+    }
+    function _eventJson(e, now) {
+        const iso = d => e.allDay ? root.dayKey(d) : root._localIso(d)
+        return {
+            summary: e.summary,
+            start: iso(e.start),
+            end: iso(e.end),
+            allDay: e.allDay,
+            when: root.whenText(e, now),
+            location: e.location,
+            meetingUrl: e.meetingUrl,
+            calendar: e.calendarName,
+        }
+    }
+    function _ipcState() {
+        if (!root.available)
+            return "error: DankCalendar (dcal) isn't running";
+        if (!root.hasAccounts)
+            return "error: no calendar account connected (connect Google from the calendar widget)";
+        return "";
+    }
+
+    IpcHandler {
+        target: "calendar"
+
+        function next(): string {
+            const err = root._ipcState();
+            if (err)
+                return err;
+            const now = new Date();
+            const e = root.upcoming(1, now, false)[0];
+            return JSON.stringify({ now: root._localIso(now), next: e ? root._eventJson(e, now) : null });
+        }
+        // The events not over yet from now to the end of the DAYS-th day
+        // (1 = today), at most the loaded window (about two months).
+        function upcoming(days: int): string {
+            const err = root._ipcState();
+            if (err)
+                return err;
+            const now = new Date();
+            const n = Math.max(1, Math.min(days, 60));
+            const seen = {};
+            const out = [];
+            const day = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            for (let i = 0; i < n; i++) {
+                for (const e of root.eventsOn(day)) {
+                    const key = `${e.id}@${e.start.getTime()}`;
+                    if (seen[key] || e.end <= now) continue;
+                    seen[key] = true;
+                    out.push(root._eventJson(e, now));
+                }
+                day.setDate(day.getDate() + 1);
+            }
+            return JSON.stringify({ now: root._localIso(now), days: n, loadedUntil: root.dayKey(new Date(root.rangeEnd - 1)), events: out });
+        }
+        function day(date: string): string {
+            const err = root._ipcState();
+            if (err)
+                return err;
+            const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+            if (!m)
+                return "error: the date must be YYYY-MM-DD";
+            const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+            if (d < root.rangeStart || d >= root.rangeEnd) {
+                root.ensureMonth(d);
+                return "error: that month isn't loaded yet: ask again in a few seconds";
+            }
+            const now = new Date();
+            return JSON.stringify({ date: root.dayKey(d), events: root.eventsOn(d).map(e => root._eventJson(e, now)) });
+        }
+    }
 }

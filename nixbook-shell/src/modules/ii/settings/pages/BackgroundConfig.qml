@@ -1555,6 +1555,12 @@ ContentPage {
                             enabled: Config.options.background.widgets.nextEvent.enable
                         },
                         {
+                            icon: "music_cast",
+                            name: Translation.tr("Music Recognition"),
+                            key: "musicRecognition",
+                            enabled: Config.options.background.widgets.musicRecognition.enable
+                        },
+                        {
                             icon: "public",
                             name: Translation.tr("World Clock"),
                             key: "worldClock",

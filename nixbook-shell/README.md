@@ -187,9 +187,12 @@ the clipboard; the shell's themes and variants (`list_themes`, `set_theme`:
 "switch to Persona 3 Reload", "use the Usagi variant"; Nix-pinned ones stay
 locked); the desktop widgets without clicking them (`widget`: list, show or
 hide any; read, add, edit and remove the notes widget's notes and the
-to-do list's tasks; the timers' pomodoro, stopwatch and countdown, through
-the shell's `widgets`, `notes`, `todo` and `timers` IPC targets, which key
-bindings can call too); the shell's own IPC (sidebars, launcher, lock…);
+to-do list's tasks; the timers' pomodoro, stopwatch and countdown; music
+recognition: listen, the source, the songs found, through the shell's
+`widgets`, `notes`, `todo`, `timers` and `musicRecognition` IPC targets,
+which key bindings can call too); the user's calendar, read-only
+(`calendar`: the next event, the coming days, a given day, from DankCalendar
+through the `calendar` IPC target); the shell's own IPC (sidebars, launcher, lock…);
 notifications. It is a Model Context Protocol server, so
 any agent that speaks MCP can use it:
 
