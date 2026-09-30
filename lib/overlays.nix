@@ -8,10 +8,6 @@ let
 in
 {
   bluez-stable = pkgs-stable.bluez;
-
-  # Slack following nixbook-shell's palette (Settings > Appearance > Color
-  # generation > Apps > Slack); stock Slack when the shell doesn't theme it.
-  slack = import ../nixbook-shell/slack.nix { pkgs = prev; };
   inherit (lixStable)
     nixpkgs-review
     nix-eval-jobs

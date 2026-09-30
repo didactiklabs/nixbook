@@ -38,6 +38,8 @@ rec {
   # ignored, with a warning (hm-module.nix).
   removedKeys = [
     "apps.manageUser"
+    "appearance.wallpaperTheming.apps.slack"
+    "appearance.wallpaperTheming.apps.youtubeMusic"
     "background.hideWhenFullscreen"
     "background.parallax.autoVertical"
     "background.parallax.enableSidebar"

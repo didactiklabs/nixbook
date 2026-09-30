@@ -159,17 +159,6 @@ ContentPage {
                 ConfigRow {
                     uniform: true
                     ConfigSwitch {
-                        configKey: "appearance.wallpaperTheming.apps.youtubeMusic";
-                        enabled: !nixManaged && Config.options.appearance.wallpaperTheming.enableQtApps;
-                        buttonIcon: "music_note"
-                        text: Translation.tr("YouTube Music")
-                        checked: Config.options.appearance.wallpaperTheming.apps.youtubeMusic
-                        onCheckedChanged: { Config.options.appearance.wallpaperTheming.apps.youtubeMusic = checked }
-                        StyledToolTip {
-                            text: Translation.tr("Live: the new colours are put in the running app through its debugger, opened for about a second")
-                        }
-                    }
-                    ConfigSwitch {
                         configKey: "appearance.wallpaperTheming.apps.zen";
                         enabled: !nixManaged && Config.options.appearance.wallpaperTheming.enableQtApps;
                         buttonIcon: "public"
@@ -178,20 +167,6 @@ ContentPage {
                         onCheckedChanged: { Config.options.appearance.wallpaperTheming.apps.zen = checked }
                         StyledToolTip {
                             text: Translation.tr("Zen reads them when it starts: while it runs, a notification offers to restart it (tabs restored)")
-                        }
-                    }
-                }
-                ConfigRow {
-                    uniform: true
-                    ConfigSwitch {
-                        configKey: "appearance.wallpaperTheming.apps.slack";
-                        enabled: !nixManaged && Config.options.appearance.wallpaperTheming.enableQtApps;
-                        buttonIcon: "tag"
-                        text: Translation.tr("Slack")
-                        checked: Config.options.appearance.wallpaperTheming.apps.slack
-                        onCheckedChanged: { Config.options.appearance.wallpaperTheming.apps.slack = checked }
-                        StyledToolTip {
-                            text: Translation.tr("Live, in the Slack nixbook-shell patches (nixbook-shell/slack.nix)")
                         }
                     }
                     Item {
