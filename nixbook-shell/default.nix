@@ -12,6 +12,7 @@
 #   nixosModules.default         the NixOS toggles for its assistant (nixos-module.nix)
 #                                and the login screen (greeter.nix, nixbook-shell.greeter)
 #   lib                          the settings helpers (lib.nix)
+#   slack                        Slack following the shell's palette (slack.nix)
 {
   sources ? import ./npins,
   pkgs ? import sources.nixpkgs { },
@@ -33,4 +34,5 @@
   homeManagerModules.default = ./hm-module.nix;
   nixosModules.default = ./nixos-module.nix;
   lib = import ./lib.nix { inherit (pkgs) lib; };
+  slack = import ./slack.nix { inherit pkgs; };
 }
