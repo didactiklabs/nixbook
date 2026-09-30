@@ -58,4 +58,79 @@ Singleton {
         if (!adapter) return;
         adapter.enabled = !adapter.enabled;
     }
+
+    // Discovery, wanted while the devices dialog is open. It is paused while a
+    // device action runs: BlueZ connects and pairs classic devices (headsets)
+    // unreliably during an inquiry scan (br-connection-busy, page timeouts).
+    property bool discoveryWanted: false
+    onDiscoveryWantedChanged: {
+        if (discoveryWanted && Bluetooth.defaultAdapter)
+            Bluetooth.defaultAdapter.enabled = true;
+        syncDiscovery();
+    }
+    onBusyChanged: syncDiscovery()
+    function syncDiscovery() {
+        const adapter = Bluetooth.defaultAdapter;
+        if (!adapter) return;
+        const want = discoveryWanted && !busy;
+        if (adapter.discovering !== want) adapter.discovering = want;
+    }
+
+    // Device actions call BlueZ directly instead of BluetoothDevice's
+    // connect()/disconnect(), which refuse from Quickshell's cached state:
+    // "already connecting" once a Connect() succeeded without Connected ever
+    // flipping, "already disconnected" for the devices isConnected() counts
+    // through Battery1 alone, so their Disconnect button did nothing.
+    readonly property bool busy: busyDevicePath !== ""
+    property string busyDevicePath: ""
+    property string busyAction: ""
+    property string failedDevicePath: ""
+    property string failedMessage: ""
+
+    function connectDevice(device) {
+        runDeviceAction(device, "connect", 'busctl --system --timeout=60 call org.bluez "$DEV" org.bluez.Device1 Connect');
+    }
+    function disconnectDevice(device) {
+        runDeviceAction(device, "disconnect", 'busctl --system --timeout=30 call org.bluez "$DEV" org.bluez.Device1 Disconnect');
+    }
+    // "Always connect": pair, trust (BlueZ then accepts the device's own
+    // reconnections) and connect.
+    function pairDevice(device) {
+        runDeviceAction(device, "pair", 'busctl --system --timeout=60 call org.bluez "$DEV" org.bluez.Device1 Pair'
+            + ' && busctl --system set-property org.bluez "$DEV" org.bluez.Device1 Trusted b true'
+            + ' && busctl --system --timeout=60 call org.bluez "$DEV" org.bluez.Device1 Connect');
+    }
+    function forgetDevice(device) {
+        if (!device) return;
+        if (root.failedDevicePath === device.dbusPath) root.failedDevicePath = "";
+        device.forget();
+    }
+
+    function runDeviceAction(device, action, script) {
+        if (!device || root.busy) return;
+        root.busyDevicePath = device.dbusPath;
+        root.busyAction = action;
+        root.failedDevicePath = "";
+        root.failedMessage = "";
+        // busy pauses discovery (syncDiscovery) before the call is sent
+        deviceAction.exec({
+            "environment": { "DEV": device.dbusPath },
+            "command": ["sh", "-c", script]
+        });
+    }
+
+    Process {
+        id: deviceAction
+        stderr: StdioCollector { id: deviceActionErr }
+        onExited: (exitCode, exitStatus) => {
+            if (exitCode !== 0) {
+                const message = deviceActionErr.text.trim().split("\n").pop() ?? "";
+                console.warn(`[BluetoothStatus] ${root.busyAction} ${root.busyDevicePath} failed: ${message}`);
+                root.failedDevicePath = root.busyDevicePath;
+                root.failedMessage = message.replace(/^Call failed:\s*/, "");
+            }
+            root.busyDevicePath = "";
+            root.busyAction = "";
+        }
+    }
 }

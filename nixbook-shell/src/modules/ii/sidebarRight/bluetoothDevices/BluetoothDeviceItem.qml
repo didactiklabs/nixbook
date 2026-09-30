@@ -9,6 +9,8 @@ DialogListItem {
     id: root
     required property var device
     property bool expanded: false
+    readonly property bool busy: BluetoothStatus.busyDevicePath === (root.device?.dbusPath ?? "-")
+    readonly property bool failed: BluetoothStatus.failedDevicePath === (root.device?.dbusPath ?? "-")
     pointingHandCursor: !expanded
 
     onClicked: expanded = !expanded
@@ -51,12 +53,21 @@ DialogListItem {
                     textFormat: Text.PlainText
                 }
                 StyledText {
-                    visible: (BluetoothStatus.isConnected(root.device) || root.device?.paired) ?? false
+                    visible: text.length > 0
                     Layout.fillWidth: true
                     font.pixelSize: Appearance.font.pixelSize.smaller
-                    color: Appearance.colors.colSubtext
+                    color: root.failed ? Appearance.colors.colError : Appearance.colors.colSubtext
                     elide: Text.ElideRight
                     text: {
+                        if (root.busy) {
+                            switch (BluetoothStatus.busyAction) {
+                            case "disconnect": return Translation.tr("Disconnecting...");
+                            case "pair": return Translation.tr("Pairing...");
+                            default: return Translation.tr("Connecting...");
+                            }
+                        }
+                        if (root.failed)
+                            return BluetoothStatus.failedMessage || Translation.tr("Failed");
                         // Connected without pairing happens too (BLE devices, controllers)
                         const connected = BluetoothStatus.isConnected(root.device);
                         if (!connected && !root.device?.paired) return "";
@@ -87,6 +98,7 @@ DialogListItem {
             }
             ActionButton {
                 readonly property bool p: root.device?.paired ?? false
+                enabled: !BluetoothStatus.busy
                 colBackground: p ? Appearance.colors.colError : ColorUtils.transparentize(Appearance.colors.colLayer3, 1)
                 colBackgroundHover: p ? Appearance.colors.colErrorHover : ColorUtils.transparentize(Appearance.colors.colLayer3, 1)
                 colRipple: p ? Appearance.colors.colErrorActive : Appearance.colors.colLayer3Hover
@@ -94,28 +106,19 @@ DialogListItem {
 
                 buttonText: p ? Translation.tr("Forget") : Translation.tr("Always connect")
                 onClicked: {
-                    const device = root.device;
-                    if (!device) return;
-                    if (device.paired) {
-                        device.forget();
-                    } else {
-                        device.pair();
-                    }
+                    if (p) BluetoothStatus.forgetDevice(root.device);
+                    else BluetoothStatus.pairDevice(root.device);
                 }
             }
             ActionButton {
+                enabled: !BluetoothStatus.busy
                 buttonText: BluetoothStatus.isConnected(root.device) ? Translation.tr("Disconnect") : Translation.tr("Connect")
 
                 onClicked: {
-                    const device = root.device;
-                    if (!device) return;
-                    // Disconnect() works even in the state where BlueZ reports the
-                    // device as disconnected (see BluetoothStatus.isConnected).
-                    if (BluetoothStatus.isConnected(device)) {
-                        device.disconnect();
-                    } else {
-                        device.connect();
-                    }
+                    if (BluetoothStatus.isConnected(root.device))
+                        BluetoothStatus.disconnectDevice(root.device);
+                    else
+                        BluetoothStatus.connectDevice(root.device);
                 }
             }
         }
