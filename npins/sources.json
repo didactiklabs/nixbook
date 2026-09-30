@@ -105,9 +105,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "a609b5f999a9182e002b226f2197347b0d1bc747",
-      "url": "https://github.com/AvengeMedia/DankMaterialShell/archive/a609b5f999a9182e002b226f2197347b0d1bc747.tar.gz",
-      "hash": "sha256-TcUusGR0QrWZsqbytv24DfTzS7LQnVL8mwilZCts9Qg="
+      "revision": "db903801c3d2c73fe94f59701ce31acdcb273023",
+      "url": "https://github.com/AvengeMedia/DankMaterialShell/archive/db903801c3d2c73fe94f59701ce31acdcb273023.tar.gz",
+      "hash": "sha256-dA2bXHzhb543fdAh47u7v+bx2VD97YF3T8AqeqmYd20="
     },
     "dms-plugin-registry": {
       "type": "Git",
