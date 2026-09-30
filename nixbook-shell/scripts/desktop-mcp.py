@@ -2510,9 +2510,17 @@ WIDGET_ACTIONS = {
         "countdown_toggle": ("timers", "countdownToggle", (), True),
         "countdown_reset": ("timers", "countdownReset", (), True),
     },
+    "music": {
+        "status": ("musicRecognition", "status", (), False),
+        "listen": ("musicRecognition", "listen", (), True),
+        "stop": ("musicRecognition", "stop", (), True),
+        "use_system_sound": ("musicRecognition", "useSystemSound", (), True),
+        "use_microphone": ("musicRecognition", "useMicrophone", (), True),
+    },
 }
 WIDGET_NAMES = {"note": "notes", "todos": "todo", "todolist": "todo", "task": "todo", "tasks": "todo",
-                "timer": "timers", "pomodoro": "timers", "stopwatch": "timers", "countdown": "timers"}
+                "timer": "timers", "pomodoro": "timers", "stopwatch": "timers", "countdown": "timers",
+                "musicrecognition": "music", "songrec": "music", "shazam": "music", "song": "music"}
 
 
 def widget_call(target, fn, *args):
@@ -2533,9 +2541,12 @@ def widget_call(target, fn, *args):
     "task list): list, add {text}, done/undone/remove {index}. timers: "
     "status, pomodoro_toggle, pomodoro_reset, stopwatch_toggle, "
     "stopwatch_lap, stopwatch_reset, countdown_add {minutes} (starts it), "
-    "countdown_toggle, countdown_reset.",
+    "countdown_toggle, countdown_reset. music (recognize the song playing, "
+    "Shazam): listen (up to the timeout; the song comes in status a few "
+    "seconds later, and as a notification), stop, status (the last songs "
+    "found), use_system_sound, use_microphone.",
     obj({
-        "widget": {"type": "string", "description": "notes, todo, timers, or a widget name from list"},
+        "widget": {"type": "string", "description": "notes, todo, timers, music, or a widget name from list"},
         "action": {"type": "string"},
         "text": {"type": "string", "description": "A note's or task's text"},
         "id": {"type": "string", "description": "A note's id (from list)"},
@@ -2561,7 +2572,7 @@ def t_widget(ctx, args):
         ctx.guard.check_rate()
         return [text(widget_call("widgets", action, name))]
     if widget not in WIDGET_ACTIONS:
-        raise ToolError(f"give `widget`: notes, todo or timers (or list/show/hide for the others)")
+        raise ToolError("give `widget`: notes, todo, timers or music (or list/show/hide for the others)")
     actions = WIDGET_ACTIONS[widget]
     if action == "list" and "status" in actions:
         action = "status"
@@ -2591,6 +2602,40 @@ def t_widget(ctx, args):
         except ValueError:
             pass
     return [text(out[3:].strip() if out.startswith("ok:") else out)]
+
+
+@tool(
+    "calendar",
+    "shell",
+    "The user's calendar events (synced by DankCalendar: Google, CalDAV…), "
+    "read-only: `next` (the next event, with a \"when\" like \"in 12 min\"), "
+    "`upcoming` {days: 1 = today, up to 60}, or `day` {date: YYYY-MM-DD}. "
+    "Local times.",
+    obj({
+        "action": {"type": "string", "enum": ["next", "upcoming", "day"]},
+        "days": {"type": "integer", "description": "upcoming: how many days from today (default 7)"},
+        "date": {"type": "string", "description": "day: YYYY-MM-DD"},
+    }, ["action"]),
+    read_only=True,
+)
+def t_calendar(ctx, args):
+    action = as_str(args, "action", max_len=16)
+    if action == "next":
+        argv = ["next"]
+    elif action == "upcoming":
+        days = args.get("days", 7)
+        if not isinstance(days, int) or isinstance(days, bool) or not 1 <= days <= 60:
+            raise ToolError("`days` must be a whole number from 1 to 60")
+        argv = ["upcoming", str(days)]
+    elif action == "day":
+        argv = ["day", as_str(args, "date", max_len=10, pattern=r"\d{4}-\d{2}-\d{2}")]
+    else:
+        raise ToolError("`action` must be next, upcoming or day")
+    out = widget_call("calendar", *argv)
+    try:
+        return [text(json.loads(out))]
+    except ValueError:
+        return [text(out)]
 
 
 @tool(

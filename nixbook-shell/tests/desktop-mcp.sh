@@ -157,6 +157,13 @@ case "$*" in
   *"timers status"*) echo '{"pomodoro":{"running":false},"stopwatch":{"running":false},"countdown":{"running":false,"secondsLeft":0}}' ;;
   *"timers countdownAdd"*) echo "ok: countdown ${*: -1} min" ;;
   *"timers "*) echo "ok: done" ;;
+  *"musicRecognition status"*) echo '{"listening":false,"source":"system sound","last":{"title":"Take Flight","subtitle":"SPYAIR"}}' ;;
+  *"musicRecognition "*) echo "ok: ${*: -1}" ;;
+  *"calendar next"*)
+    if [ -n "${STUB_NO_DCAL:-}" ]; then echo "error: DankCalendar (dcal) isn't running"; else
+      echo '{"now":"2026-09-30T10:00","next":{"summary":"Standup","start":"2026-09-30T10:30","when":"in 30 min"}}'; fi ;;
+  *"calendar upcoming"*) echo "{\"days\":${*: -1},\"events\":[]}" ;;
+  *"calendar day"*) echo "{\"date\":\"${*: -1}\",\"events\":[]}" ;;
 esac
 EOF
 chmod +x "$bin"/*
@@ -232,7 +239,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 32 tools" 32 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 33 tools" 33 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -738,7 +745,24 @@ out=$(call widget '{"widget":"timers","action":"list"}')
 expect_eq "widget timers: list is status" "false" "$(jq -r '.pomodoro.running' <<<"$out")"
 out=$(call widget '{"widget":"pomodoro","action":"countdown_add","minutes":25}')
 expect_eq "widget timers countdown_add" "qs -c nixbook-shell ipc call -- timers countdownAdd 25" "$(last_call)"
-expect_contains "widget: which widget" "$(call widget '{"action":"add","text":"x"}')" "notes, todo or timers"
+expect_contains "widget: which widget" "$(call widget '{"action":"add","text":"x"}')" "notes, todo, timers or music"
+
+# Music recognition and the calendar (SongRec.qml, CalendarEvents.qml).
+out=$(call widget '{"widget":"shazam","action":"status"}')
+expect_eq "widget music status" "Take Flight" "$(jq -r '.last.title' <<<"$out")"
+call widget '{"widget":"music","action":"use_microphone"}' >/dev/null
+expect_eq "widget music source" "qs -c nixbook-shell ipc call -- musicRecognition useMicrophone" "$(last_call)"
+call widget '{"widget":"music recognition","action":"listen"}' >/dev/null
+expect_eq "widget music listen" "qs -c nixbook-shell ipc call -- musicRecognition listen" "$(last_call)"
+out=$(call calendar '{"action":"next"}')
+expect_eq "calendar next" "Standup in 30 min" "$(jq -r '"\(.next.summary) \(.next.when)"' <<<"$out")"
+call calendar '{"action":"upcoming"}' >/dev/null
+expect_eq "calendar upcoming: a week by default" "qs -c nixbook-shell ipc call -- calendar upcoming 7" "$(last_call)"
+call calendar '{"action":"day","date":"2026-10-02"}' >/dev/null
+expect_eq "calendar day" "qs -c nixbook-shell ipc call -- calendar day 2026-10-02" "$(last_call)"
+expect_contains "calendar: date checked" "$(call calendar '{"action":"day","date":"tomorrow"}')" "invalid value"
+expect_contains "calendar: days checked" "$(call calendar '{"action":"upcoming","days":400}')" "from 1 to 60"
+expect_contains "calendar: no dcal reported" "$(STUB_NO_DCAL=1 call calendar '{"action":"next"}')" "isn't running"
 
 # -- pause, groups, rate limit ---------------------------------------------------
 

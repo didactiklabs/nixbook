@@ -208,6 +208,13 @@
         "y": 500,
         "z": 0
       },
+      "musicRecognition": {
+        "enable": false,
+        "placementStrategy": "free",
+        "x": 700,
+        "y": 100,
+        "z": 0
+      },
       "nextEvent": {
         "enable": false,
         "placementStrategy": "free",

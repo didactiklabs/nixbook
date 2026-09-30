@@ -381,6 +381,13 @@ Singleton {
                         property string sizeMode: "2x2"
                     }
                     // The next calendar events (DankCalendar).
+                    property JsonObject musicRecognition: JsonObject {
+                        property bool enable: false
+                        property string placementStrategy: "free"
+                        property real x: 700
+                        property real y: 100
+                        property real z: 0
+                    }
                     property JsonObject nextEvent: JsonObject {
                         property bool enable: false
                         property string placementStrategy: "free"
