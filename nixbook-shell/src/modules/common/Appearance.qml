@@ -145,7 +145,10 @@ Singleton {
     m3colors: M3Palette {}
 
     colors: QtObject {
-        property color colSubtext: m3colors.m3outline
+        // outline, pulled toward onSurface where it would read below 4.5:1 on
+        // the highest (least contrasting) surface: some wallpaper palettes put
+        // it at ~3.3:1 there.
+        property color colSubtext: ColorUtils.ensureContrast(m3colors.m3outline, m3colors.m3surfaceContainerHighest, 4.5, m3colors.m3onSurface)
         // Layer 0
         property color colLayer0Base: ColorUtils.mix(m3colors.m3background, m3colors.m3primary, Config.options.appearance.extraBackgroundTint ? 0.99 : 1)
         property color colLayer0: ColorUtils.transparentize(colLayer0Base, root.backgroundTransparency)

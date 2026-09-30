@@ -171,4 +171,54 @@ Singleton {
 
         return Qt.rgba(clamp01(r), clamp01(g), clamp01(b), overlayOpacity);
     }
+
+    /**
+     * WCAG relative luminance of a color (alpha ignored).
+     *
+     * @param {string} color - The color (any Qt.color-compatible string).
+     * @returns {number} The luminance (0-1).
+     */
+    function luminance(color) {
+        const c = Qt.color(color);
+        const lin = v => v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+        return 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
+    }
+
+    /**
+     * WCAG contrast ratio between two colors (1-21).
+     *
+     * @param {string} color1 - The first color.
+     * @param {string} color2 - The second color.
+     * @returns {number} The contrast ratio.
+     */
+    function contrastRatio(color1, color2) {
+        const l1 = luminance(color1);
+        const l2 = luminance(color2);
+        return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    }
+
+    /**
+     * Returns `color` moved toward `toward` just enough to reach `minRatio`
+     * contrast against `background` (unchanged when it already does), so a
+     * tone picked for its look stays as close to it as readability allows.
+     *
+     * @param {string} color - The foreground color.
+     * @param {string} background - The color it is drawn on.
+     * @param {number} minRatio - The contrast ratio to reach (4.5: WCAG AA text).
+     * @param {string} toward - A higher-contrast color to move to (e.g. onSurface).
+     * @returns {Qt.rgba} The resulting color.
+     */
+    function ensureContrast(color, background, minRatio, toward) {
+        if (contrastRatio(color, background) >= minRatio)
+            return Qt.color(color);
+        let lo = 0, hi = 1; // share of `toward`
+        for (let i = 0; i < 12; i++) {
+            const mid = (lo + hi) / 2;
+            if (contrastRatio(mix(toward, color, mid), background) >= minRatio)
+                hi = mid;
+            else
+                lo = mid;
+        }
+        return mix(toward, color, hi);
+    }
 }

@@ -47,7 +47,7 @@ let
   # ~/.config/fuzzel/fuzzel_theme.ini and the compositor config. Every one of those
   # is Home Manager / stylix managed here (read-only store symlinks), so matugen
   # would fail on them and, worse, fight stylix over the GTK theme. We keep only
-  # the three outputs the shell itself reads back (see Directories.qml:
+  # the outputs the shell itself reads back (see Directories.qml:
   # generatedMaterialThemePath / generatedWallpaperCategoryPath).
   matugenColorsTemplate = pkgs.writeText "nixbook-shell-colors.json" ''
     {
@@ -119,6 +119,13 @@ let
     [templates.kde_colors]
     input_path = '${matugenSourceColorTemplate}'
     output_path = '~/.local/state/quickshell/user/generated/color.txt'
+
+    # The palette's source colour, left alone by generate_colors_material.py
+    # (which rewrites color.txt): switchwall.sh keeps it when the palette
+    # doesn't follow the wallpaper (wallpaperTheming.enableAppsAndShell off).
+    [templates.source_color]
+    input_path = '${matugenSourceColorTemplate}'
+    output_path = '~/.local/state/quickshell/user/generated/source-color.txt'
 
     [templates.wallpaper]
     input_path = '${matugenWallpaperTemplate}'
