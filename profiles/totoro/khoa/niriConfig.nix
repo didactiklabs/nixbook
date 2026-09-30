@@ -71,6 +71,14 @@ in
 
     # Pin apps to outputs
     programs.niri.settings.window-rules = lib.mkAfter [
+      # Override the shared default column width (0.84 in niriConfig.nix) for
+      # totoro. A catch-all rule placed after the shared ones wins in niri.
+      {
+        matches = [ { } ];
+        default-column-width = {
+          proportion = 0.84;
+        };
+      }
       # Apps that were on workspace 1 -> assign to main monitor (DP-9)
       # {
       #   matches = [ { app-id = "^thunderbird$"; } ];
