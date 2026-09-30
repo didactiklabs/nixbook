@@ -1,0 +1,11 @@
+#!/bin/sh
+# Removes the host-memory helper and the ~/.claude/CLAUDE.md block. ocm
+# recreates the container without the mount after this runs.
+set -e
+
+sudo rm -f /usr/local/bin/host-memory
+
+memory="$HOME/.claude/CLAUDE.md"
+[ -f "$memory" ] && sed -i '/<!-- >>> ocm:desktop-memory >>> -->/,/<!-- <<< ocm:desktop-memory <<< -->/d' "$memory"
+
+echo "desktop-memory: the host desktop memory is no longer shared once the container is recreated"

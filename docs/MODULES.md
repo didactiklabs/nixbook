@@ -750,6 +750,20 @@ Extra apt packages installed into the workspace base image, on top of anything t
 
 Whether Claude Code in the workspaces also reads the shared `AGENTS.md`. ocm only shares configuration with OpenCode; Claude Code keeps its own per-workspace `home/.claude/`. This bakes a managed `/etc/claude-code/CLAUDE.md` into the base image containing a single import of the synced `AGENTS.md`, so both agents follow the same file, and editing it needs no image rebuild.
 
+### `customHomeManagerModules.ocmConfig.desktopMemory.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to install the `tools/desktop-memory` ocm module, which gives a workspace read-only, live access to nixbook-shell's desktop memory: the notes the desktop agents write (app shortcuts, where settings are, `run_steps` recipes), the app aliases they learned and the usage counts. Installing it only makes it available: add it per workspace from the module editor. It pairs with `hostDisplay`, for workspace agents that work on the host desktop. `nixbook-desktop-mcp` rewrites `desktopMemory.source` by rename, in a directory that also holds the window layouts and the agents' audit log, so neither the file nor its directory is mounted. A `ocm-desktop-memory` user path unit copies the file, whenever it changes, into `$XDG_STATE_HOME/ocm-desktop-memory/` (0700, the copy renamed into place, without the `lastFailedLaunch` scratch entry), and the module's `mounts` bind that directory read-only onto `~/.local/share/host-desktop-memory` (optional: skipped until the first copy exists). Workspaces cannot add or change notes. The container `install` adds `host-memory [WORDS...] [--json]` and a marked `~/.claude/CLAUDE.md` block that tells Claude Code where the memory is, and that it holds hints written by agents, not the user's instructions; `uninstall` removes both.
+
+### `customHomeManagerModules.ocmConfig.desktopMemory.source`
+
+- **Type:** `string`
+- **Default:** `"/home/docs/.local/state/nixbook-shell/desktop-memory.json"`
+
+Desktop memory file `nixbook-desktop-mcp` writes.
+
 ### `customHomeManagerModules.ocmConfig.enable`
 
 - **Type:** `boolean`

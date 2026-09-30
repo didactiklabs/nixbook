@@ -182,6 +182,56 @@ let
     mv -f "$dest/.notification-history.json.tmp" "$dest/notification-history.json"
   '';
 
+  desktopMemory = cfg.desktopMemory;
+  # Mirrored like the notification history: desktop-mcp replaces the memory by
+  # rename, in a directory that also holds the layouts and the agents' audit log.
+  desktopMemoryMirror = "${config.xdg.stateHome}/ocm-desktop-memory";
+
+  desktopMemoryManifest = yamlFormat.generate "desktop-memory-module.yml" {
+    name = "desktop-memory";
+    version = 1;
+    description = "Share this host's nixbook-shell desktop memory (the notes, app aliases and usage the desktop agents keep; read-only, live) with the workspace, plus a host-memory query helper. Adding or removing it recreates the container.";
+    mounts = [
+      {
+        source = desktopMemoryMirror;
+        target = "/home/debian/.local/share/host-desktop-memory";
+        readOnly = true;
+        optional = true;
+      }
+    ];
+  };
+
+  desktopMemoryModule = pkgs.runCommand "ocm-module-desktop-memory" { } ''
+    mkdir -p $out
+    cp ${desktopMemoryManifest} $out/module.yml
+    cp ${./ocmModules/desktop-memory}/{install,uninstall} $out/
+    chmod 0644 $out/module.yml
+    chmod 0755 $out/install $out/uninstall
+  '';
+
+  desktopMemoryMirrorScript = pkgs.writeShellScript "ocm-desktop-memory-mirror" ''
+    # Same as the notification history mirror, minus lastFailedLaunch (the
+    # alias learning's scratch state, which changes on every failed launch).
+    set -eu
+    export PATH=${
+      lib.makeBinPath [
+        pkgs.coreutils
+        pkgs.jq
+      ]
+    }:$PATH
+    src=${lib.escapeShellArg desktopMemory.source}
+    dest=${lib.escapeShellArg desktopMemoryMirror}
+    [ -f "$src" ] || exit 0
+    mkdir -p -m 0700 "$dest"
+    tmp="$dest/.desktop-memory.json.tmp"
+    (umask 077 && jq 'del(.lastFailedLaunch)' "$src" >"$tmp")
+    if cmp -s "$tmp" "$dest/desktop-memory.json"; then
+      rm -f "$tmp"
+    else
+      mv -f "$tmp" "$dest/desktop-memory.json"
+    fi
+  '';
+
   # Modules nixbook used to install, deleted from ocm's moduleDir (see the
   # ocmModules activation). The two claude-auth modules handed the host's
   # Claude Code login to workspaces, which cannot work: refresh tokens rotate,
@@ -204,6 +254,9 @@ let
     }
     // lib.optionalAttrs notificationHistory.enable {
       "tools/notification-history" = notificationHistoryModule;
+    }
+    // lib.optionalAttrs desktopMemory.enable {
+      "tools/desktop-memory" = desktopMemoryModule;
     };
 
   nixCommands =
@@ -453,6 +506,45 @@ in
       };
     };
 
+    desktopMemory = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = config.customHomeManagerModules.nixbookShellConfig.enable;
+        defaultText = lib.literalExpression "config.customHomeManagerModules.nixbookShellConfig.enable";
+        description = ''
+          Whether to install the `tools/desktop-memory` ocm module, which gives
+          a workspace read-only, live access to nixbook-shell's desktop memory:
+          the notes the desktop agents write (app shortcuts, where settings
+          are, `run_steps` recipes), the app aliases they learned and the
+          usage counts. Installing it only makes it available: add it per
+          workspace from the module editor. It pairs with `hostDisplay`, for
+          workspace agents that work on the host desktop.
+
+          `nixbook-desktop-mcp` rewrites `desktopMemory.source` by rename, in a
+          directory that also holds the window layouts and the agents' audit
+          log, so neither the file nor its directory is mounted. A
+          `ocm-desktop-memory` user path unit copies the file, whenever it
+          changes, into `$XDG_STATE_HOME/ocm-desktop-memory/` (0700, the copy
+          renamed into place, without the `lastFailedLaunch` scratch entry),
+          and the module's `mounts` bind that directory read-only onto
+          `~/.local/share/host-desktop-memory` (optional: skipped until the
+          first copy exists). Workspaces cannot add or change notes.
+
+          The container `install` adds `host-memory [WORDS...] [--json]` and a
+          marked `~/.claude/CLAUDE.md` block that tells Claude Code where the
+          memory is, and that it holds hints written by agents, not the user's
+          instructions; `uninstall` removes both.
+        '';
+      };
+
+      source = lib.mkOption {
+        type = lib.types.str;
+        default = "${config.xdg.stateHome}/nixbook-shell/desktop-memory.json";
+        defaultText = lib.literalExpression ''"''${config.xdg.stateHome}/nixbook-shell/desktop-memory.json"'';
+        description = "Desktop memory file `nixbook-desktop-mcp` writes.";
+      };
+    };
+
     kubeswitch = {
       enable = lib.mkOption {
         type = lib.types.bool;
@@ -620,6 +712,21 @@ in
         ExecStart = "${notificationHistoryMirrorScript}";
       };
       # Also refresh once per login, whether or not the file changed since.
+      Install.WantedBy = [ "default.target" ];
+    };
+
+    systemd.user.paths.ocm-desktop-memory = lib.mkIf desktopMemory.enable {
+      Unit.Description = "Mirror the nixbook-shell desktop memory for ocm workspaces";
+      Path.PathChanged = desktopMemory.source;
+      Install.WantedBy = [ "paths.target" ];
+    };
+
+    systemd.user.services.ocm-desktop-memory = lib.mkIf desktopMemory.enable {
+      Unit.Description = "Mirror the nixbook-shell desktop memory for ocm workspaces";
+      Service = {
+        Type = "oneshot";
+        ExecStart = "${desktopMemoryMirrorScript}";
+      };
       Install.WantedBy = [ "default.target" ];
     };
 
