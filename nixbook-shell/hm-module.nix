@@ -28,6 +28,48 @@ let
     paths = pinnedPaths;
   };
 
+  # Apps coloured from the shell's palette (appTheming): the matugen templates
+  # (app-theming/) switchwall.sh renders after the shell's own, and where.
+  appsDir = "${config.xdg.stateHome}/quickshell/user/generated/apps";
+  zenProfileDir =
+    name:
+    "${config.programs.zen-browser.profilesPath or "${config.xdg.configHome}/zen"}/${
+      config.programs.zen-browser.profiles.${name}.path or name
+    }";
+  appTemplates =
+    lib.optional cfg.appTheming.qt.enable {
+      name = "qt";
+      input = "qt-colors.conf";
+      output = "${appsDir}/qt-colors.conf";
+    }
+    ++ lib.optional cfg.appTheming.vesktop.enable {
+      name = "vesktop";
+      input = "vesktop.css";
+      output = "${config.xdg.configHome}/vesktop/themes/nixbook-shell.css";
+    }
+    ++ lib.optional cfg.appTheming.youtubeMusic.enable {
+      name = "youtube_music";
+      input = "youtube-music.css";
+      output = "${appsDir}/youtube-music.css";
+    }
+    ++ map (profile: {
+      name = "zen_${lib.replaceStrings [ "-" "." ] [ "_" "_" ] profile}";
+      input = "zen-userChrome.css";
+      output = "${zenProfileDir profile}/chrome/nixbook-shell.css";
+    }) cfg.appTheming.zen.profiles;
+  matugenAppsFile = (pkgs.formats.toml { }).generate "nixbook-shell-matugen-apps.toml" {
+    config.version_check = false;
+    templates = lib.listToAttrs (
+      map (
+        t:
+        lib.nameValuePair t.name {
+          input_path = "${./app-theming}/${t.input}";
+          output_path = t.output;
+        }
+      ) appTemplates
+    );
+  };
+
   # Neovim keymaps from an evaluated nixvim configuration
   # (`programs.nixvim`, when its Home Manager module is imported): read after
   # every override, so they are the keys Neovim really gets. Only these
@@ -566,6 +608,37 @@ in
       '';
     };
 
+    appTheming = {
+      qt.enable = lib.mkEnableOption ''
+        Qt and KDE apps (Dolphin…) coloured from the shell's palette: Qt goes
+        through qt6ct/qt5ct with the Breeze style and a custom palette (the
+        generated colour scheme), KDE apps get the same scheme in
+        ~/.config/kdeglobals. Running apps follow palette changes. Sets
+        `qt.*`: turn off anything else theming Qt (e.g. stylix's `qt` target)
+      '';
+      vesktop.enable = lib.mkEnableOption ''
+        Vesktop (Discord) coloured from the shell's palette: a theme in
+        ~/.config/vesktop/themes, enabled in Vesktop's settings, reloaded live
+      '';
+      youtubeMusic.enable = lib.mkEnableOption ''
+        YouTube Music (pear-desktop) coloured from the shell's palette: a CSS
+        theme added to its `options.themes`, applied when the app starts (or
+        reloads its page)
+      '';
+      zen.profiles = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        example = [ "default" ];
+        description = ''
+          Zen Browser profiles (`programs.zen-browser.profiles` names) whose
+          browser chrome is coloured from the shell's palette: the generated
+          CSS is imported at the top of their `userChrome`, applied when Zen
+          starts. Turn off anything else writing their `userChrome` colours
+          (e.g. stylix's `zen-browser` target).
+        '';
+      };
+    };
+
     desktopMcp = {
       settings = lib.mkOption {
         type = lib.types.submodule {
@@ -825,226 +898,261 @@ in
     };
   };
 
-  config = lib.mkIf cfg.enable {
-    warnings =
-      map (
-        key:
-        "programs.nixbook-shell.settings.${key} was removed (it did nothing) and is ignored: remove it."
-      ) (settingsLib.removedKeysSet cfg.settings)
-      ++ lib.optional (cfg.settings.appearance.persona.enable != null) ''
-        programs.nixbook-shell.settings.appearance.persona.enable is deprecated: use
-        appearance.theme = "${
-          if cfg.settings.appearance.persona.enable then "persona" else "material"
-        }" (the themes are in nixbook-shell/src/modules/common/themes.json).
-      '';
+  config = lib.mkIf cfg.enable (
+    lib.mkMerge [
+      {
+        warnings =
+          map (
+            key:
+            "programs.nixbook-shell.settings.${key} was removed (it did nothing) and is ignored: remove it."
+          ) (settingsLib.removedKeysSet cfg.settings)
+          ++ lib.optional (cfg.settings.appearance.persona.enable != null) ''
+            programs.nixbook-shell.settings.appearance.persona.enable is deprecated: use
+            appearance.theme = "${
+              if cfg.settings.appearance.persona.enable then "persona" else "material"
+            }" (the themes are in nixbook-shell/src/modules/common/themes.json).
+          '';
 
-    # Defaults one by one, so setting one answer keeps the others.
-    programs.nixbook-shell.assistant.howTo = lib.mapAttrs (_: lib.mkDefault) defaultHowTo;
+        # Defaults one by one, so setting one answer keeps the others.
+        programs.nixbook-shell.assistant.howTo = lib.mapAttrs (_: lib.mkDefault) defaultHowTo;
 
-    xdg.configFile."quickshell/${configName}".source = cfg.package.passthru.shell;
+        xdg.configFile."quickshell/${configName}".source = cfg.package.passthru.shell;
 
-    # The manifest the shell reads to know which settings Nix owns: every
-    # pinned leaf path. Drives the red lock icon and the disabled control in
-    # the Settings menu (src/modules/common/NixManaged.qml).
-    xdg.configFile."nixbook-shell/nix-managed.json".source = nixManagedFile;
-    # ...and their values: NixManaged.qml restores any pinned key that gets
-    # changed at runtime (menu, QuickConfig, IPC, scripts); `nixbook-shell config`
-    # reads them too.
-    xdg.configFile."nixbook-shell/nix-pinned-values.json".source = pinnedFile;
-    # Machine context for the AI assistant (see above).
-    xdg.configFile."nixbook-shell/system-context.md".source = systemContextFile;
-    xdg.configFile."nixbook-shell/system-facts.json".source = systemFactsFile;
-    # Desktop control for AI agents (scripts/desktop-mcp.py).
-    xdg.configFile."nixbook-shell/desktop-mcp.json".source =
-      (pkgs.formats.json { }).generate "desktop-mcp.json"
-        (cfg.desktopMcp.settings // { http.port = cfg.desktopMcp.http.port; });
+        # The manifest the shell reads to know which settings Nix owns: every
+        # pinned leaf path. Drives the red lock icon and the disabled control in
+        # the Settings menu (src/modules/common/NixManaged.qml).
+        xdg.configFile."nixbook-shell/nix-managed.json".source = nixManagedFile;
+        # ...and their values: NixManaged.qml restores any pinned key that gets
+        # changed at runtime (menu, QuickConfig, IPC, scripts); `nixbook-shell config`
+        # reads them too.
+        xdg.configFile."nixbook-shell/nix-pinned-values.json".source = pinnedFile;
+        # Machine context for the AI assistant (see above).
+        xdg.configFile."nixbook-shell/system-context.md".source = systemContextFile;
+        xdg.configFile."nixbook-shell/system-facts.json".source = systemFactsFile;
+        # Desktop control for AI agents (scripts/desktop-mcp.py).
+        xdg.configFile."nixbook-shell/desktop-mcp.json".source =
+          (pkgs.formats.json { }).generate "desktop-mcp.json"
+            (cfg.desktopMcp.settings // { http.port = cfg.desktopMcp.http.port; });
 
-    # Launcher entry for the Settings window (nixbook-shell's own launcher, fuzzel…).
-    xdg.desktopEntries.nixbook-shell-settings = {
-      name = "Shell settings";
-      genericName = "Desktop shell settings";
-      comment = "Settings of the nixbook-shell desktop shell (bar, dock, widgets, theme…)";
-      exec = "${lib.getExe cfg.package} ipc call settings open";
-      icon = "preferences-desktop";
-      terminal = false;
-      categories = [
-        "Settings"
-        "DesktopSettings"
-      ];
-      settings.Keywords = "settings;preferences;shell;nixbook;bar;dock;theme;wallpaper;persona;";
-    };
+        # Launcher entry for the Settings window (nixbook-shell's own launcher, fuzzel…).
+        xdg.desktopEntries.nixbook-shell-settings = {
+          name = "Shell settings";
+          genericName = "Desktop shell settings";
+          comment = "Settings of the nixbook-shell desktop shell (bar, dock, widgets, theme…)";
+          exec = "${lib.getExe cfg.package} ipc call settings open";
+          icon = "preferences-desktop";
+          terminal = false;
+          categories = [
+            "Settings"
+            "DesktopSettings"
+          ];
+          settings.Keywords = "settings;preferences;shell;nixbook;bar;dock;theme;wallpaper;persona;";
+        };
 
-    home.packages = [
-      cfg.package
-      cfg.package.passthru.quickshell
-      # The faces appearance.fonts names (fonts.nix).
-      cfg.package.passthru.fonts
-      # Condensed display face used by the optional Persona theme
-      # (appearance.persona.fonts) for titles and numbers.
-      pkgs.oswald
-      # Rounded face used by the optional Chiikawa theme
-      # (appearance.chiikawa.fonts, themes.json style.fonts).
-      pkgs.nunito
-      # (Rajdhani, the Cyberpunk 2077 theme's condensed tech face, is in
-      # fonts.nix: nixpkgs doesn't ship it.)
-      # `dcal`: DankCalendar's CLI (accounts, sync) for the user too.
-      cfg.package.passthru.dankcalendar
-      # `nixbook-desktop-mcp`: the desktop control MCP server, for
-      # `claude mcp add` and the like, and its pause/resume kill switch.
-      cfg.package.passthru.desktopMcp
-    ];
-
-    # The shell writes its settings, generated Material You palette and
-    # wallpaper state into these; nothing creates them for us on a fresh user.
-    #
-    # config.json itself stays a real file (the shell rewrites it live from the
-    # Settings panel, so it cannot be an xdg.configFile): every key Nix sets is
-    # merged into it on each activation (Nix wins), every other key is left
-    # alone. Runs after linkGeneration so the running shell, told to reload,
-    # sees the new lock manifest too.
-    home.activation.nixbookShellDirs = lib.hm.dag.entryAfter [ "writeBoundary" "linkGeneration" ] ''
-      run mkdir -p \
-        "''${XDG_CONFIG_HOME:-$HOME/.config}/nixbook-shell" \
-        "''${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/user/generated/wallpaper" \
-        "''${XDG_CACHE_HOME:-$HOME/.cache}/quickshell/user/generated"
-
-      shell_config="''${XDG_CONFIG_HOME:-$HOME/.config}/nixbook-shell/config.json"
-
-      shell_tmp=$(mktemp -d)
-      echo '{}' > "$shell_tmp/empty.json"
-      shell_live="$shell_tmp/empty.json"
-      shell_ok=1
-      if [ -s "$shell_config" ]; then
-        if ${lib.getExe pkgs.jq} -e 'type == "object"' "$shell_config" >/dev/null 2>&1; then
-          shell_live="$shell_config"
-        else
-          warnEcho "nixbook-shell: $shell_config is not a valid JSON object, leaving it alone"
-          shell_ok=0
-        fi
-      fi
-      if [ "$shell_ok" = 1 ]; then
-        if ${lib.getExe pkgs.jq} -n \
-              --slurpfile live "$shell_live" \
-              --slurpfile pinned ${pinnedFile} \
-              '$live[0] * $pinned[0]' > "$shell_tmp/config.json"; then
-          run install -m644 "$shell_tmp/config.json" "$shell_config"
-        else
-          warnEcho "nixbook-shell: failed to merge settings into $shell_config"
-        fi
-      fi
-      rm -rf "$shell_tmp"
-
-      # A running shell doesn't notice the swapped symlinks: have it re-read
-      # the lock manifest, the pinned values and config.json. No-op when the
-      # shell isn't running.
-      if [ -z "''${DRY_RUN:-}" ]; then
-        XDG_RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" \
-          ${lib.getExe cfg.package} ipc call nixManaged reload >/dev/null 2>&1 || true
-      fi
-    '';
-
-    systemd.user.services.nixbook-shell = {
-      Unit = {
-        Description = "nixbook-shell Quickshell desktop shell";
-        PartOf = [ "graphical-session.target" ];
-        After = [ "graphical-session.target" ];
-      };
-      Service = {
-        ExecStart = lib.getExe cfg.package;
-        Restart = "on-failure";
-        RestartSec = 2;
-        Slice = "app.slice";
-      };
-      Install.WantedBy = [ "graphical-session.target" ];
-    };
-
-    # DankCalendar's daemon, behind the shell's calendars and to-do list
-    # (sync, reminders, tray icon; its window opens on demand), as its own
-    # dcal.service does. Its window is a quickshell instance started from
-    # PATH: the shell's quickshell is put first, so the window (what
-    # "Open DankCalendar" and the calendar clicks show) exists whatever the
-    # user manager's PATH holds.
-    systemd.user.services.dcal = {
-      Unit = {
-        Description = "DankCalendar (calendar sync for nixbook-shell)";
-        PartOf = [ "graphical-session.target" ];
-        After = [ "graphical-session.target" ];
-      };
-      Service = {
-        ExecStart = toString (
-          pkgs.writeShellScript "dcal-session" ''
-            export PATH=${lib.makeBinPath [ cfg.package.passthru.quickshell ]}''${PATH:+:$PATH}
-            exec ${lib.getExe cfg.package.passthru.dankcalendar} run --session --hidden
-          ''
-        );
-        Restart = "on-failure";
-        RestartSec = 2;
-        Slice = "app.slice";
-      };
-      Install.WantedBy = [ "graphical-session.target" ];
-    };
-
-    # Started before the shell (Before=): a small instance that is up well
-    # before the shell's QML has loaded. It quits by itself once the shell's
-    # BootSplash is on screen (the marker below), or after 20 s.
-    systemd.user.services.nixbook-shell-splash = lib.mkIf cfg.splash.enable {
-      Unit = {
-        Description = "nixbook-shell loading screen (until the shell is up)";
-        PartOf = [ "graphical-session.target" ];
-        After = [ "graphical-session.target" ];
-        Before = [ "nixbook-shell.service" ];
-      };
-      Service = {
-        Type = "simple";
-        # Only while the shell isn't up yet (session start), never when a
-        # switch (re)starts this unit under a running shell.
-        ExecCondition = "${pkgs.bash}/bin/bash -c '! ${pkgs.systemd}/bin/systemctl --user is-active --quiet nixbook-shell.service'";
-        # A marker left by the previous shell start in this session.
-        ExecStartPre = "${pkgs.coreutils}/bin/rm -f %t/nixbook-shell/boot-splash-shown";
-        ExecStart = "${lib.getExe cfg.package} splash";
-        Restart = "no";
-        Slice = "app.slice";
-      };
-      Install.WantedBy = [ "graphical-session.target" ];
-    };
-
-    # The desktop control MCP server over HTTP (desktopMcp.http). It binds
-    # 127.0.0.1 itself; the unit also keeps it off IPv6 and any socket
-    # family but loopback TCP and Unix sockets (niri, Wayland, ydotoold).
-    systemd.user.services.nixbook-desktop-mcp = lib.mkIf cfg.desktopMcp.http.enable {
-      Unit = {
-        Description = "nixbook-shell desktop control MCP server (127.0.0.1 only)";
-        PartOf = [ "graphical-session.target" ];
-        After = [ "graphical-session.target" ];
-      };
-      Service = {
-        ExecStart = "${lib.getExe cfg.package.passthru.desktopMcp} serve --http --port ${toString cfg.desktopMcp.http.port}";
-        Restart = "on-failure";
-        RestartSec = 2;
-        Slice = "app.slice";
-        NoNewPrivileges = true;
-        RestrictAddressFamilies = [
-          "AF_UNIX"
-          "AF_INET"
+        home.packages = [
+          cfg.package
+          cfg.package.passthru.quickshell
+          # The faces appearance.fonts names (fonts.nix).
+          cfg.package.passthru.fonts
+          # Condensed display face used by the optional Persona theme
+          # (appearance.persona.fonts) for titles and numbers.
+          pkgs.oswald
+          # Rounded face used by the optional Chiikawa theme
+          # (appearance.chiikawa.fonts, themes.json style.fonts).
+          pkgs.nunito
+          # (Rajdhani, the Cyberpunk 2077 theme's condensed tech face, is in
+          # fonts.nix: nixpkgs doesn't ship it.)
+          # `dcal`: DankCalendar's CLI (accounts, sync) for the user too.
+          cfg.package.passthru.dankcalendar
+          # `nixbook-desktop-mcp`: the desktop control MCP server, for
+          # `claude mcp add` and the like, and its pause/resume kill switch.
+          cfg.package.passthru.desktopMcp
         ];
-        UMask = "0077";
-      };
-      Install.WantedBy = [ "graphical-session.target" ];
-    };
 
-    systemd.user.services.cliphist = lib.mkIf cfg.cliphist.enable {
-      Unit = {
-        Description = "Clipboard history store for nixbook-shell (cliphist)";
-        PartOf = [ "graphical-session.target" ];
-        After = [ "graphical-session.target" ];
-      };
-      Service = {
-        ExecStart = "${cfg.package.passthru.cliphistWatch}";
-        Restart = "on-failure";
-        RestartSec = 2;
-        Slice = "background.slice";
-      };
-      Install.WantedBy = [ "graphical-session.target" ];
-    };
-  };
+        # The shell writes its settings, generated Material You palette and
+        # wallpaper state into these; nothing creates them for us on a fresh user.
+        #
+        # config.json itself stays a real file (the shell rewrites it live from the
+        # Settings panel, so it cannot be an xdg.configFile): every key Nix sets is
+        # merged into it on each activation (Nix wins), every other key is left
+        # alone. Runs after linkGeneration so the running shell, told to reload,
+        # sees the new lock manifest too.
+        home.activation.nixbookShellDirs = lib.hm.dag.entryAfter [ "writeBoundary" "linkGeneration" ] ''
+          run mkdir -p \
+            "''${XDG_CONFIG_HOME:-$HOME/.config}/nixbook-shell" \
+            "''${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/user/generated/wallpaper" \
+            "''${XDG_CACHE_HOME:-$HOME/.cache}/quickshell/user/generated"
+
+          shell_config="''${XDG_CONFIG_HOME:-$HOME/.config}/nixbook-shell/config.json"
+
+          shell_tmp=$(mktemp -d)
+          echo '{}' > "$shell_tmp/empty.json"
+          shell_live="$shell_tmp/empty.json"
+          shell_ok=1
+          if [ -s "$shell_config" ]; then
+            if ${lib.getExe pkgs.jq} -e 'type == "object"' "$shell_config" >/dev/null 2>&1; then
+              shell_live="$shell_config"
+            else
+              warnEcho "nixbook-shell: $shell_config is not a valid JSON object, leaving it alone"
+              shell_ok=0
+            fi
+          fi
+          if [ "$shell_ok" = 1 ]; then
+            if ${lib.getExe pkgs.jq} -n \
+                  --slurpfile live "$shell_live" \
+                  --slurpfile pinned ${pinnedFile} \
+                  '$live[0] * $pinned[0]' > "$shell_tmp/config.json"; then
+              run install -m644 "$shell_tmp/config.json" "$shell_config"
+            else
+              warnEcho "nixbook-shell: failed to merge settings into $shell_config"
+            fi
+          fi
+          rm -rf "$shell_tmp"
+
+          # A running shell doesn't notice the swapped symlinks: have it re-read
+          # the lock manifest, the pinned values and config.json. No-op when the
+          # shell isn't running.
+          if [ -z "''${DRY_RUN:-}" ]; then
+            XDG_RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" \
+              ${lib.getExe cfg.package} ipc call nixManaged reload >/dev/null 2>&1 || true
+          fi
+        '';
+
+        systemd.user.services.nixbook-shell = {
+          Unit = {
+            Description = "nixbook-shell Quickshell desktop shell";
+            PartOf = [ "graphical-session.target" ];
+            After = [ "graphical-session.target" ];
+          };
+          Service = {
+            ExecStart = lib.getExe cfg.package;
+            Restart = "on-failure";
+            RestartSec = 2;
+            Slice = "app.slice";
+          };
+          Install.WantedBy = [ "graphical-session.target" ];
+        };
+
+        # DankCalendar's daemon, behind the shell's calendars and to-do list
+        # (sync, reminders, tray icon; its window opens on demand), as its own
+        # dcal.service does. Its window is a quickshell instance started from
+        # PATH: the shell's quickshell is put first, so the window (what
+        # "Open DankCalendar" and the calendar clicks show) exists whatever the
+        # user manager's PATH holds.
+        systemd.user.services.dcal = {
+          Unit = {
+            Description = "DankCalendar (calendar sync for nixbook-shell)";
+            PartOf = [ "graphical-session.target" ];
+            After = [ "graphical-session.target" ];
+          };
+          Service = {
+            ExecStart = toString (
+              pkgs.writeShellScript "dcal-session" ''
+                export PATH=${lib.makeBinPath [ cfg.package.passthru.quickshell ]}''${PATH:+:$PATH}
+                exec ${lib.getExe cfg.package.passthru.dankcalendar} run --session --hidden
+              ''
+            );
+            Restart = "on-failure";
+            RestartSec = 2;
+            Slice = "app.slice";
+          };
+          Install.WantedBy = [ "graphical-session.target" ];
+        };
+
+        # Started before the shell (Before=): a small instance that is up well
+        # before the shell's QML has loaded. It quits by itself once the shell's
+        # BootSplash is on screen (the marker below), or after 20 s.
+        systemd.user.services.nixbook-shell-splash = lib.mkIf cfg.splash.enable {
+          Unit = {
+            Description = "nixbook-shell loading screen (until the shell is up)";
+            PartOf = [ "graphical-session.target" ];
+            After = [ "graphical-session.target" ];
+            Before = [ "nixbook-shell.service" ];
+          };
+          Service = {
+            Type = "simple";
+            # Only while the shell isn't up yet (session start), never when a
+            # switch (re)starts this unit under a running shell.
+            ExecCondition = "${pkgs.bash}/bin/bash -c '! ${pkgs.systemd}/bin/systemctl --user is-active --quiet nixbook-shell.service'";
+            # A marker left by the previous shell start in this session.
+            ExecStartPre = "${pkgs.coreutils}/bin/rm -f %t/nixbook-shell/boot-splash-shown";
+            ExecStart = "${lib.getExe cfg.package} splash";
+            Restart = "no";
+            Slice = "app.slice";
+          };
+          Install.WantedBy = [ "graphical-session.target" ];
+        };
+
+        # The desktop control MCP server over HTTP (desktopMcp.http). It binds
+        # 127.0.0.1 itself; the unit also keeps it off IPv6 and any socket
+        # family but loopback TCP and Unix sockets (niri, Wayland, ydotoold).
+        systemd.user.services.nixbook-desktop-mcp = lib.mkIf cfg.desktopMcp.http.enable {
+          Unit = {
+            Description = "nixbook-shell desktop control MCP server (127.0.0.1 only)";
+            PartOf = [ "graphical-session.target" ];
+            After = [ "graphical-session.target" ];
+          };
+          Service = {
+            ExecStart = "${lib.getExe cfg.package.passthru.desktopMcp} serve --http --port ${toString cfg.desktopMcp.http.port}";
+            Restart = "on-failure";
+            RestartSec = 2;
+            Slice = "app.slice";
+            NoNewPrivileges = true;
+            RestrictAddressFamilies = [
+              "AF_UNIX"
+              "AF_INET"
+            ];
+            UMask = "0077";
+          };
+          Install.WantedBy = [ "graphical-session.target" ];
+        };
+
+        systemd.user.services.cliphist = lib.mkIf cfg.cliphist.enable {
+          Unit = {
+            Description = "Clipboard history store for nixbook-shell (cliphist)";
+            PartOf = [ "graphical-session.target" ];
+            After = [ "graphical-session.target" ];
+          };
+          Service = {
+            ExecStart = "${cfg.package.passthru.cliphistWatch}";
+            Restart = "on-failure";
+            RestartSec = 2;
+            Slice = "background.slice";
+          };
+          Install.WantedBy = [ "graphical-session.target" ];
+        };
+      }
+
+      # appTheming: the templates for switchwall.sh, and the apps pointed at what
+      # it generates.
+      (lib.mkIf (appTemplates != [ ]) {
+        xdg.configFile."nixbook-shell/matugen-apps.toml".source = matugenAppsFile;
+      })
+      (lib.mkIf cfg.appTheming.qt.enable {
+        qt =
+          let
+            appearance.Appearance = {
+              custom_palette = true;
+              color_scheme_path = "${appsDir}/qt-colors.conf";
+              style = "Breeze";
+            };
+          in
+          {
+            enable = true;
+            platformTheme.name = "qtct";
+            style.name = "breeze";
+            qt5ctSettings = appearance;
+            qt6ctSettings = appearance;
+          };
+      })
+      (lib.optionalAttrs (options.programs ? zen-browser) {
+        programs.zen-browser.profiles = lib.genAttrs cfg.appTheming.zen.profiles (_: {
+          # First: @import rules must precede every other rule.
+          userChrome = lib.mkBefore ''
+            @import url("nixbook-shell.css");
+          '';
+        });
+      })
+    ]
+  );
 }

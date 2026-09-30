@@ -18,6 +18,8 @@
 
   treefmt.config.programs.prettier.excludes = [
     "assets/dms/plugins/**/translations.js"
+    # matugen templates: `{{colors.…}}` placeholders aren't CSS prettier parses.
+    "nixbook-shell/app-theming/**"
   ];
 
   # nixbook-shell/src is a vendored upstream tree (nixbook-shell, merged by
