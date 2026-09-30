@@ -32,6 +32,7 @@ ShellRoot {
         Preloader.load()
         DesktopControl.load()
         WindowLayouts.load()
+        AppTheming.load()
     }
     
     PanelFamilyLoader {

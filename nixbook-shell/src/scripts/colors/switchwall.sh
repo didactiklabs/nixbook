@@ -12,25 +12,6 @@ SHELL_CONFIG_FILE="$XDG_CONFIG_HOME/nixbook-shell/config.json"
 MATUGEN_DIR="$XDG_CONFIG_HOME/matugen"
 terminalscheme="$SCRIPT_DIR/terminal/scheme-base.json"
 
-# Apps themed from the shell's palette (programs.nixbook-shell.appTheming:
-# Qt/KDE, Vesktop, Zen, YouTube Music): the Home Manager module writes a
-# matugen config with their templates; they get the same source colour,
-# scheme and mode as the shell. Gated by the "Apps" switch
-# (appearance.wallpaperTheming.enableQtApps).
-handle_app_colors() {
-  local apps_config="$XDG_CONFIG_HOME/nixbook-shell/matugen-apps.toml"
-  [ -f "$apps_config" ] || return
-  if [ -f "$SHELL_CONFIG_FILE" ] &&
-    [ "$(jq -r '.appearance.wallpaperTheming.enableQtApps' "$SHELL_CONFIG_FILE")" == "false" ]; then
-    return
-  fi
-  local source_color
-  source_color=$(tr -d '[:space:]' <"$STATE_DIR/user/generated/source-color.txt" 2>/dev/null)
-  [[ $source_color =~ ^#[A-Fa-f0-9]{6}$ ]] || return
-  matugen --config "$apps_config" color hex "$source_color" --mode "$mode_flag" --type "$type_flag" >/dev/null || return
-  "$SCRIPT_DIR/apply-app-colors.sh"
-}
-
 pre_process() {
   local mode_flag="$1"
   if [[ $mode_flag == "dark" ]]; then
@@ -54,7 +35,6 @@ post_process() {
     return
   fi
 
-  handle_app_colors &
   "$SCRIPT_DIR/code/material-code-set-color.sh" &
 }
 
