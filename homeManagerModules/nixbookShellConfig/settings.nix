@@ -15,7 +15,7 @@
 # lines, ready to paste here or into a profile's `nixbookShellConfig.settings`.
 {
   appearance = {
-    # Colour generation (appearance.palette.type and
+    # Color generation (appearance.palette.type and
     # appearance.wallpaperTheming.*) is left to the menu (Settings >
     # Appearance > Color generation, the scheme button of the wallpaper
     # picker): it applies live. Terminal theming recolours open terminals

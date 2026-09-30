@@ -234,6 +234,14 @@ Singleton {
                 property JsonObject wallpaperTheming: JsonObject {
                     property bool enableAppsAndShell: true
                     property bool enableQtApps: true
+                    // Each app under "Apps" (enableQtApps, the master switch),
+                    // services/AppTheming.qml.
+                    property JsonObject apps: JsonObject {
+                        property bool qt: true
+                        property bool vesktop: true
+                        property bool youtubeMusic: true
+                        property bool zen: true
+                    }
                     property bool enableTerminal: true
                     property JsonObject terminalGenerationProps: JsonObject {
                         property real harmony: 0.6

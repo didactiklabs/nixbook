@@ -61,6 +61,12 @@
     },
     "wallpaperPerTheme": true,
     "wallpaperTheming": {
+      "apps": {
+        "qt": true,
+        "vesktop": true,
+        "youtubeMusic": true,
+        "zen": true
+      },
       "enableAppsAndShell": true,
       "enableQtApps": true,
       "enableTerminal": true,

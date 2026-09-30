@@ -79,8 +79,8 @@ in
         k9s.enable = false; # enable this parameter cause this error in k9s: "load failed:Additional property ui is not allowed"
         gtk.extraCss = "";
       }
-      # nixbook-shell colours these like itself (wallpaper or theme palette)
-      # (programs.nixbook-shell.appTheming, nixbookShellConfig.nix).
+      # nixbook-shell colours these like itself (wallpaper or theme palette):
+      # Settings > Appearance > Color generation > Apps.
       // lib.optionalAttrs (config.customHomeManagerModules.nixbookShellConfig.enable or false) {
         qt.enable = false;
         zen-browser.enable = false;

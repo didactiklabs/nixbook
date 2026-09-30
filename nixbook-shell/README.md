@@ -422,6 +422,22 @@ that includes that file (`include optional=true`, last) is recoloured live.
 nixbook's `homeManagerModules/niri` ships the template (Persona slash) and
 the include; without a template nothing is written.
 
+### App colours
+
+Other apps can follow the palette the shell shows (the wallpaper's or the
+theme variant's), each switched on in Settings → Appearance → Color
+generation, under Apps (`appearance.wallpaperTheming.apps.*`; switching one
+off undoes its setup). `services/AppTheming.qml` hands the palette to
+`scripts/colors/apply-app-colors.sh`, which renders the templates in
+`scripts/colors/app-templates/` and gets them to the apps:
+
+| App           | How the running app gets the new colours                                                                                                                                                                                                                                     |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Qt & KDE      | Live: kdeglobals + a palette-changed signal; Qt apps read the palette through qt6ct/qt5ct, set up by `programs.nixbook-shell.appTheming.qt.enable`                                                                                                                           |
+| Vesktop       | Live: its themes folder                                                                                                                                                                                                                                                      |
+| YouTube Music | Live (`youtube-music-live.py`): SIGUSR1 opens pear-desktop's Node inspector on 127.0.0.1:9229, the CSS is swapped in its windows and the inspector is closed again (about a second, during which a local process could run code in it). Its `options.themes` covers restarts |
+| Zen Browser   | At startup only (`zen-theme.py`): the CSS is imported by each profile's `userChrome.css`; while Zen runs, a notification offers to restart it (SIGTERM, a normal quit; the session is restored)                                                                              |
+
 ### Adding a theme
 
 The themes are declared once, in `src/modules/common/themes.json`, which the
