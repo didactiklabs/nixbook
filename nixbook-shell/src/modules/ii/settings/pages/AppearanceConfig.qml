@@ -181,6 +181,23 @@ ContentPage {
                         }
                     }
                 }
+                ConfigRow {
+                    uniform: true
+                    ConfigSwitch {
+                        configKey: "appearance.wallpaperTheming.apps.slack";
+                        enabled: !nixManaged && Config.options.appearance.wallpaperTheming.enableQtApps;
+                        buttonIcon: "tag"
+                        text: Translation.tr("Slack")
+                        checked: Config.options.appearance.wallpaperTheming.apps.slack
+                        onCheckedChanged: { Config.options.appearance.wallpaperTheming.apps.slack = checked }
+                        StyledToolTip {
+                            text: Translation.tr("Live, in the Slack nixbook-shell patches (nixbook-shell/slack.nix)")
+                        }
+                    }
+                    Item {
+                        Layout.fillWidth: true
+                    }
+                }
                 ConfigSwitch {
                     configKey: "appearance.wallpaperTheming.enableTerminal";
                     enabled: !nixManaged;

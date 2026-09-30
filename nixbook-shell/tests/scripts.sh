@@ -402,7 +402,8 @@ expect_eq "zen-theme.py: profiles from profiles.ini" "$(realpath "$zen_profile")
 # Every role the templates use, all #abcdef.
 full_palette=$(grep -ohE 'colors\.[a-z_]+\.default' "$colors"/app-templates/* | cut -d. -f2 | sort -u |
   jq -R -s -c 'split("\n") | map(select(. != "")) | map({(.): "#abcdef"}) | add')
-in_home "$colors/apply-app-colors.sh" "$full_palette" vesktop,youtube-music,zen
+in_home "$colors/apply-app-colors.sh" "$full_palette" slack,vesktop,youtube-music,zen
+expect_eq "apply-app-colors.sh: Slack CSS written" "true" "$(grep -q '#abcdef' "$home/.local/state/quickshell/user/generated/apps/slack.css" && echo true)"
 expect_eq "apply-app-colors.sh: Vesktop theme written" "true" "$(grep -q '#abcdef' "$home/.config/vesktop/themes/nixbook-shell.css" && echo true)"
 expect_eq "apply-app-colors.sh: ...and turned on, other themes kept" '["other.css","nixbook-shell.css"]' "$(jq -c .enabledThemes "$home/.config/vesktop/settings/settings.json")"
 expect_eq "apply-app-colors.sh: YouTube Music theme added" "[\"$home/.local/state/quickshell/user/generated/apps/youtube-music.css\"]" "$(jq -c .options.themes "$home/.config/YouTube Music/config.json")"
@@ -427,6 +428,7 @@ rm "$zen_profile/lock"
 in_home "$colors/apply-app-colors.sh" "$full_palette" ""
 expect_eq "apply-app-colors.sh: switched off, Vesktop theme turned off" '["other.css"]' "$(jq -c .enabledThemes "$home/.config/vesktop/settings/settings.json")"
 expect_eq "apply-app-colors.sh: ...YouTube Music theme removed" '[]' "$(jq -c .options.themes "$home/.config/YouTube Music/config.json")"
+expect_eq "apply-app-colors.sh: ...Slack CSS removed" "false" "$([ -e "$home/.local/state/quickshell/user/generated/apps/slack.css" ] && echo true || echo false)"
 expect_eq "apply-app-colors.sh: ...Zen import removed" 'body { color: red; }' "$(cat "$zen_profile/chrome/userChrome.css")"
 if [ -e "$zen_profile/chrome/nixbook-shell.css" ] || [ -e "$home/.config/vesktop/themes/nixbook-shell.css" ]; then
   fail "apply-app-colors.sh: ...generated files removed"

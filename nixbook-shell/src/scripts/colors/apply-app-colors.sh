@@ -9,6 +9,8 @@
 #     KDE apps are told the palette changed; qt6ct/qt5ct (set up by
 #     programs.nixbook-shell.appTheming.qt) reread their colour scheme when
 #     their config directory changes.
+#   slack: a CSS file the patched Slack (nixbook-shell/slack.nix) watches and
+#     swaps in live; removed, it is gone from Slack too.
 #   vesktop: the theme in its themes folder, which it reloads by itself.
 #   youtube-music: a CSS theme in pear-desktop's options.themes, swapped live
 #     in the running app (youtube-music-live.py).
@@ -34,6 +36,7 @@ on() { [[ "$enabled" == *",$1,"* ]]; }
 vesktop_css="$XDG_CONFIG_HOME/vesktop/themes/nixbook-shell.css"
 vesktop_settings="$XDG_CONFIG_HOME/vesktop/settings/settings.json"
 ytm_css="$APPS_DIR/youtube-music.css"
+slack_css="$APPS_DIR/slack.css"
 ytm_settings="$XDG_CONFIG_HOME/YouTube Music/config.json"
 
 # edit_list FILE JQ_PATH add|del VALUE: VALUE added to / removed from the JSON
@@ -60,6 +63,7 @@ edit_list() {
 # The templates of the apps switched on, and where they go.
 pairs=()
 on qt && pairs+=("$TEMPLATES/qt-colors.conf" "$APPS_DIR/qt-colors.conf")
+on slack && pairs+=("$TEMPLATES/slack.css" "$slack_css")
 on vesktop && pairs+=("$TEMPLATES/vesktop.css" "$vesktop_css")
 on youtube-music && pairs+=("$TEMPLATES/youtube-music.css" "$ytm_css")
 if on zen; then
@@ -91,6 +95,9 @@ if on qt && was_changed "$APPS_DIR/qt-colors.conf"; then
     fi
   done
 fi
+
+# Slack: the patched app follows the file, there or not.
+on slack || rm -f "$slack_css"
 
 # Vesktop: the theme is in its themes folder; turn it on.
 if on vesktop; then
