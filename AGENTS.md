@@ -418,7 +418,7 @@ If you make changes, always present them for user review before committing.
 
 All git operations must follow this workflow. **Always ask the user for validation before performing any git action** (creating a branch, committing, pushing, rebasing, creating a PR, merging, deleting a branch) — never do it on your own initiative.
 
-1. **Branch** - Never commit on `main`. Always create a dedicated feature branch first (`git checkout -b <branch-name>` from `main`), with a descriptive branch name.
+1. **Branch** - Never commit on `main`. Always start every new fix or feature from a freshly pulled, up-to-date `main` (`git fetch origin && git checkout main && git pull --ff-only`), never from a stale `main` or another feature branch, then create a dedicated feature branch from it (`git checkout -b <branch-name>`), with a descriptive branch name.
 2. **Commit** - Commit the changes on that branch (only after the user validated the changes).
 3. **PR** - Push the branch and open a Pull Request against `main` (`git push -u origin <branch-name>` then `gh pr create`).
 4. **Rebase** - Before updating the PR, rebase it on top of `main` and force-push (`git fetch origin && git rebase origin/main`, then `git push --force-with-lease`).
