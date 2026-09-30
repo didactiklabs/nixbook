@@ -2,6 +2,7 @@ pragma Singleton
 
 import QtQuick
 import Quickshell
+import Quickshell.Io
 
 /**
  * Per-monitor desktop widgets. `background.widgets.perScreen` maps
@@ -13,6 +14,8 @@ import Quickshell
  */
 Singleton {
     id: root
+
+    function load() {}
 
     function key(widget, screen) {
         return `${widget}@${screen}`;
@@ -51,5 +54,50 @@ Singleton {
         const list = Config.options?.background?.screenList ?? [];
         return (Config.options?.background?.widgets?.[widget]?.enable ?? false)
             && (list.length === 0 || list.includes(screen));
+    }
+
+    // The desktop widgets WidgetsLoader shows, by config key.
+    readonly property var names: ["sticker", "calendar", "nextEvent", "weather", "clock", "notes", "media", "images",
+        "resources", "worldClock", "userCard", "todo", "timers", "customText"]
+
+    // `nixbook-shell ipc call widgets list|show|hide NAME`: for key bindings
+    // and the desktop MCP server. show/hide set the shared switch and drop
+    // the per-monitor ones, so the widget shows (or not) everywhere.
+    IpcHandler {
+        target: "widgets"
+
+        function list(): string {
+            const w = Config.options?.background?.widgets ?? {};
+            return JSON.stringify(root.names.filter(n => w[n] !== undefined).map(n => ({
+                name: n,
+                enabled: w[n].enable ?? false,
+                placement: w[n].placementStrategy ?? "",
+            })));
+        }
+        function show(name: string): string {
+            return root._setEnabled(name, true);
+        }
+        function hide(name: string): string {
+            return root._setEnabled(name, false);
+        }
+    }
+
+    function _setEnabled(name, on) {
+        const w = Config.options?.background?.widgets;
+        if (!w || !root.names.includes(name) || w[name] === undefined)
+            return `error: no widget "${name}" (${root.names.filter(n => w?.[n] !== undefined).join(", ")})`;
+        w[name].enable = on;
+        const all = Object.assign({}, w.perScreen ?? {});
+        let changed = false;
+        for (const k in all) {
+            if (k.startsWith(name + "@") && all[k].enable !== undefined) {
+                all[k] = Object.assign({}, all[k]);
+                delete all[k].enable;
+                changed = true;
+            }
+        }
+        if (changed)
+            w.perScreen = all;
+        return `ok: ${name} ${on ? "shown" : "hidden"}`;
     }
 }

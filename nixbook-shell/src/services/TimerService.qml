@@ -15,6 +15,8 @@ import QtQuick
 Singleton {
     id: root
 
+    function load() {}
+
     property int focusTime: Config.options.time.pomodoro.focus
     property int breakTime: Config.options.time.pomodoro.breakTime
     property int longBreakTime: Config.options.time.pomodoro.longBreak
@@ -210,5 +212,62 @@ Singleton {
         Persistent.states.timer.countdown.running = false;
         Persistent.states.timer.countdown.duration = 0;
         countdownSecondsLeft = 0;
+    }
+
+    // `nixbook-shell ipc call timers …`: the timers widget's pomodoro,
+    // stopwatch and countdown, for key bindings and the desktop MCP server.
+    IpcHandler {
+        target: "timers"
+
+        function status(): string {
+            root.refreshStopwatch();
+            return JSON.stringify({
+                pomodoro: { running: root.pomodoroRunning, isBreak: root.pomodoroBreak, cycle: root.pomodoroCycle, secondsLeft: root.pomodoroSecondsLeft },
+                stopwatch: { running: root.stopwatchRunning, seconds: Math.floor(root.stopwatchTime / 100), laps: (root.stopwatchLaps ?? []).map(l => Math.floor(l / 100)) },
+                countdown: { running: root.countdownRunning, secondsLeft: root.countdownSecondsLeft },
+            });
+        }
+        function pomodoroToggle(): string {
+            root.togglePomodoro();
+            return `ok: pomodoro ${root.pomodoroRunning ? "running" : "paused"}`;
+        }
+        function pomodoroReset(): string {
+            root.resetPomodoro();
+            return "ok: pomodoro reset";
+        }
+        function stopwatchToggle(): string {
+            root.toggleStopwatch();
+            return `ok: stopwatch ${root.stopwatchRunning ? "running" : "paused"}`;
+        }
+        function stopwatchLap(): string {
+            if (!root.stopwatchRunning)
+                return "error: the stopwatch isn't running";
+            root.refreshStopwatch();
+            root.stopwatchRecordLap();
+            return "ok: lap recorded";
+        }
+        function stopwatchReset(): string {
+            root.stopwatchReset();
+            return "ok: stopwatch reset";
+        }
+        // Adds minutes to the countdown and starts it if it was stopped.
+        function countdownAdd(minutes: int): string {
+            if (minutes <= 0 || minutes > 24 * 60)
+                return "error: minutes must be between 1 and 1440";
+            root.addCountdownMinutes(minutes);
+            if (!root.countdownRunning)
+                root.toggleCountdown();
+            return `ok: countdown ${Math.ceil(Persistent.states.timer.countdown.duration / 60)} min`;
+        }
+        function countdownToggle(): string {
+            if (root.countdownDuration <= 0)
+                return "error: no countdown set (countdownAdd first)";
+            root.toggleCountdown();
+            return `ok: countdown ${root.countdownRunning ? "running" : "paused"}`;
+        }
+        function countdownReset(): string {
+            root.resetCountdown();
+            return "ok: countdown reset";
+        }
     }
 }

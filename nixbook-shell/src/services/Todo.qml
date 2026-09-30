@@ -20,6 +20,8 @@ import QtQuick;
  */
 Singleton {
     id: root
+
+    function load() {}
     property var filePath: Directories.todoPath
     property var list: []
 
@@ -170,6 +172,57 @@ Singleton {
             } else {
                 console.log("[To Do] Error loading file: " + error)
             }
+        }
+    }
+
+    // `nixbook-shell ipc call todo list|add|done|undone|remove`: the task
+    // list every to-do widget shows (synced with the calendar account when
+    // there is one), for key bindings and the desktop MCP server. Tasks are
+    // addressed by their index in `list`.
+    function _ipcCheck(index) {
+        if (!root.list[index])
+            return `error: no task ${index}`;
+        if (root.synced && !root.list[index].id)
+            return "error: that task is still syncing, try again in a moment";
+        return "";
+    }
+
+    IpcHandler {
+        target: "todo"
+
+        function list(): string {
+            return JSON.stringify({
+                synced: root.synced,
+                tasks: root.list.map((t, i) => ({ index: i, content: t.content, done: t.done, due: t.due ?? null })),
+            });
+        }
+        function add(content: string): string {
+            if (content.length === 0)
+                return "error: empty task";
+            root.addTask(content);
+            return "ok";
+        }
+        function done(index: int): string {
+            const err = root._ipcCheck(index);
+            if (err)
+                return err;
+            root.markDone(index);
+            return `ok: ${root.list[index]?.content ?? index}`;
+        }
+        function undone(index: int): string {
+            const err = root._ipcCheck(index);
+            if (err)
+                return err;
+            root.markUnfinished(index);
+            return `ok: ${root.list[index]?.content ?? index}`;
+        }
+        function remove(index: int): string {
+            const err = root._ipcCheck(index);
+            if (err)
+                return err;
+            const task = root.list[index];
+            root.deleteItem(index);
+            return `ok: ${task.content}`;
         }
     }
 }
