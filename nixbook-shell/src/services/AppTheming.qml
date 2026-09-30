@@ -72,6 +72,12 @@ Singleton {
         target: Appearance
         function onM3colorsChanged() { applyTimer.restart() }
     }
+    // Back from the lock palette: the palettes shown meanwhile (a theme
+    // switched while it was loaded) weren't passed on.
+    Connections {
+        target: MaterialThemeLoader
+        function onFilePathChanged() { applyTimer.restart() }
+    }
     Connections {
         target: Config.options.appearance.wallpaperTheming
         function onEnableQtAppsChanged() { applyTimer.restart() }
