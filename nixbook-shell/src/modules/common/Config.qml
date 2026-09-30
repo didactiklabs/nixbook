@@ -25,6 +25,22 @@ Singleton {
                 root.options.screenSnip.savePath = "~/Pictures/Screenshots";
             done.screenshotSavePath = true;
         }
+        // apps.* used to default to KDE's kcmshell6 and a Hyprland script, none
+        // of which is installed, so the Wi-Fi/Bluetooth/volume "Details"
+        // buttons did nothing. Replace only those dead commands.
+        if (!done.appCommands) {
+            const apps = root.options.apps;
+            const replace = (key, isDead, value) => {
+                if (isDead(apps[key] ?? "") && !NixManaged.isPinned("apps." + key))
+                    apps[key] = value;
+            };
+            const kcm = cmd => cmd.startsWith("kcmshell6 ");
+            replace("bluetooth", kcm, "overskride");
+            replace("network", kcm, "nm-connection-editor");
+            replace("networkEthernet", kcm, "nm-connection-editor");
+            replace("volumeMixer", cmd => cmd.includes("/.config/hypr/"), "pavucontrol-qt || pavucontrol");
+            done.appCommands = true;
+        }
     }
     property int readWriteDelay: 50 // milliseconds
     property bool blockWrites: false
