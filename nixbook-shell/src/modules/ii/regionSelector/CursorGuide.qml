@@ -22,7 +22,9 @@ Item {
         return Translation.tr("Recognize text");
     case RegionSelection.SnipAction.Record:
     case RegionSelection.SnipAction.RecordWithSound:
-        return Translation.tr("Record region");
+        return root.target === "window" ? Translation.tr("Record window")
+            : root.target === "screen" ? Translation.tr("Record screen")
+            : Translation.tr("Record region");
     }
     property string materialSymbol: switch (root.action) {
     case RegionSelection.SnipAction.Copy:
@@ -34,7 +36,7 @@ Item {
         return "document_scanner";
     case RegionSelection.SnipAction.Record:
     case RegionSelection.SnipAction.RecordWithSound:
-        return "videocam";
+        return root.target === "window" ? "select_window" : root.target === "screen" ? "monitor" : "videocam";
     default:
         return "";
     }

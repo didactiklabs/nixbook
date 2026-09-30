@@ -48,7 +48,6 @@ Singleton {
         const cropToStdout = `${cropBase} -`
         const cropInPlace = `${cropBase} '${StringUtils.shellSingleQuoteEscape(screenshotPath)}'`
         const cleanup = `rm '${StringUtils.shellSingleQuoteEscape(screenshotPath)}'`
-        const slurpRegion = `${rx},${ry} ${rw}x${rh}`
         const uploadAndGetUrl = (filePath) => {
             return `curl -sF files[]=@'${StringUtils.shellSingleQuoteEscape(filePath)}' ${root.fileUploadApiEndpoint} | jq -r '.files[0].url'`
         }
@@ -67,16 +66,21 @@ Singleton {
             case ScreenshotAction.Action.CharRecognition:
                 return ["bash", "-c", `${cropInPlace} && tesseract '${StringUtils.shellSingleQuoteEscape(screenshotPath)}' stdout -l $(tesseract --list-langs | awk 'NR>1{print $1}' | tr '\\n' '+' | sed 's/\\+$/\\n/') | wl-copy && ${cleanup}`]
                 break;
-            case ScreenshotAction.Action.Record:
-                return ["bash", "-c", `${Directories.recordScriptPath} --region '${slurpRegion}'`]
-                break;
-            case ScreenshotAction.Action.RecordWithSound:
-                return ["bash", "-c", `${Directories.recordScriptPath} --region '${slurpRegion}' --sound`]
-                break;
             default:
                 console.warn("[Region Selector] Unknown snip action, skipping snip.");
                 return;
         }
+    }
+
+    // Starts a recording (record.sh), with the desktop audio when
+    // `withSound`, of the output `output`, else of the area x, y, width x
+    // height in niri's global logical coordinates (what wf-recorder's
+    // --geometry, like slurp, takes).
+    function getRecordCommand(output, x, y, width, height, withSound) {
+        const target = output !== ""
+            ? ["--output", output]
+            : ["--region", `${Math.round(x)},${Math.round(y)} ${Math.round(width)}x${Math.round(height)}`];
+        return [Directories.recordScriptPath, ...target, ...(withSound ? [] : ["--no-sound"])];
     }
 
     // The notification niri sends for its own screenshots (a window capture

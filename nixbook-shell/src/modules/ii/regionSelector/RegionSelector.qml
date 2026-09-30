@@ -17,6 +17,8 @@ Scope {
 
     property var action: RegionSelection.SnipAction.Copy
     property var selectionMode: RegionSelection.SelectionMode.RectCorners
+    // The screen being recorded: only its selector stays (drawing the border).
+    property string recordingScreen: ""
 
     // niri's gaps and struts (not in its IPC), for placing tiled windows in
     // window selection. Re-read on each open: a switch replaces the file.
@@ -29,6 +31,7 @@ Scope {
         target: GlobalStates
         function onRegionSelectorOpenChanged() {
             if (!GlobalStates.regionSelectorOpen) return;
+            root.recordingScreen = "";
             niriConfigFile.reload();
             // The previous copies' files, kept for their notification image.
             Quickshell.execDetached(["bash", "-c", `rm -f '${StringUtils.shellSingleQuoteEscape(Directories.screenshotTemp)}'/{window-,snip-}*.png`]);
@@ -41,6 +44,7 @@ Scope {
             id: regionSelectorLoader
             required property var modelData
             active: GlobalStates.regionSelectorOpen
+                && (root.recordingScreen === "" || root.recordingScreen === regionSelectorLoader.modelData.name)
 
             sourceComponent: RegionSelection {
                 screen: regionSelectorLoader.modelData
@@ -49,6 +53,7 @@ Scope {
                 selectionMode: root.selectionMode
                 niriLayout: RegionFunctions.parseNiriLayout(niriConfigFile.text())
                 onSelectionModeRequested: mode => root.selectionMode = mode
+                onRecordingStarted: root.recordingScreen = regionSelectorLoader.modelData.name
             }
         }
     }
