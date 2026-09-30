@@ -1,17 +1,39 @@
 /* nixbook-shell: Zen Browser chrome, from the shell's palette (matugen).
  * Adapted from DankMaterialShell's matugen templates
  * (https://github.com/AvengeMedia/DankMaterialShell, MIT, (c) 2025 Avenge Media LLC). */
-:root {
+/* Zen's workspace theme sets --toolbox-textcolor, --zen-primary-color and
+ * color-scheme inline, on the window and on each workspace, from its own
+ * light/dark choice (zen.view.window.scheme, the workspace gradient): they
+ * follow the palette instead, or its text stays white on a light palette. */
+:root,
+zen-workspace {
   --zen-primary-color: {{colors.primary_container.default.hex}} !important;
+  --toolbox-textcolor: {{colors.on_background.default.hex}} !important;
+  --toolbox-textcolor-inactive: {{colors.on_surface_variant.default.hex}} !important;
+  --toolbar-color-scheme: {{mode}} !important;
   --toolbarbutton-icon-fill: {{colors.primary.default.hex}} !important;
   --toolbar-field-color: {{colors.on_background.default.hex}} !important;
-  --tab-selected-textcolor: {{colors.primary.default.hex}} !important;
+  --toolbar-field-focus-color: {{colors.on_background.default.hex}} !important;
+  --tab-selected-textcolor: {{colors.on_background.default.hex}} !important;
   --toolbar-color: {{colors.on_background.default.hex}} !important;
   --arrowpanel-color: {{colors.on_background.default.hex}} !important;
   --arrowpanel-background: {{colors.surface_container.default.hex}} !important;
   --sidebar-text-color: {{colors.on_background.default.hex}} !important;
   --zen-main-browser-background: {{colors.background.default.hex}} !important;
   --zen-main-browser-background-toolbar: {{colors.background.default.hex}} !important;
+}
+
+/* The chrome's light-dark() colours follow the palette too. Web pages keep
+ * Zen's own setting: their <browser> elements have their own color-scheme. */
+:root,
+zen-workspace,
+#browser,
+panel,
+menupopup,
+#urlbar[breakout-extend],
+.zen-browser-generic-background,
+#zen-toast-container {
+  color-scheme: {{mode}} !important;
 }
 
 #zen-browser-background {

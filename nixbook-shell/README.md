@@ -454,6 +454,24 @@ off undoes its setup). `services/AppTheming.qml` hands the palette to
 | YouTube Music | Live (`youtube-music-live.py`): SIGUSR1 opens pear-desktop's Node inspector on 127.0.0.1:9229, the CSS is swapped in its windows and the inspector is closed again (about a second, during which a local process could run code in it). Its `options.themes` covers restarts |
 | Zen Browser   | At startup only (`zen-theme.py`): the CSS is imported by each profile's `userChrome.css`; while Zen runs, a notification offers to restart it (SIGTERM, a normal quit; the session is restored)                                                                              |
 
+The palette is made readable before it is rendered
+(`render-app-colors.py`): a theme variant's colours are picked for the
+shell's look, and a pastel primary that works as a fill (Chiikawa's Momonga)
+is unreadable as the link, tab or icon colour the apps use it for. Text roles
+(`on_surface`, `on_surface_variant`, `primary`, `secondary`, `tertiary`,
+`error`; `outline` at 3:1) get at least 4.5:1 against every surface, and
+each `on_<role>` against its `<role>`, by moving only their lightness; colours
+that already read are untouched (Material's generated palettes are). Besides
+matugen's `{{colors.<role>.default.hex}}`, templates can use `{{mode}}`
+(`light`/`dark`) and `{{colors.<role>.dark.hex}}`: the palette's dark version
+(the same hues at dark tones while the shell is light), for apps with only a
+dark look. YouTube Music uses it: its own styles hard-code white and grey text
+in over a thousand rules, so a light palette left most of its text invisible.
+Zen's template overrides what its workspace theme sets inline on the window
+and on each `zen-workspace` (`--toolbox-textcolor`, `--zen-primary-color`,
+`color-scheme`), which otherwise kept its own light/dark text over the
+palette's background; web pages keep Zen's own light/dark setting.
+
 ### Adding a theme
 
 The themes are declared once, in `src/modules/common/themes.json`, which the

@@ -1,59 +1,62 @@
 /* nixbook-shell: YouTube Music (pear-desktop) recolor from the shell's
  * palette (matugen). Loaded from the app's options.themes when a page loads
  * (reload or restart to pick up a new palette). The variables are the ones
- * YouTube Music's own dark theme and pear-desktop's album-color plugin use. */
+ * YouTube Music's own dark theme and pear-desktop's album-color plugin use.
+ * YouTube Music only has a dark look (its own styles hard-code white and grey
+ * text in over a thousand rules), so it gets the palette's dark version
+ * (.dark: the palette's hues at dark tones while the shell is light). */
 
 html:not(.style-scope) {
   /* backgrounds, lowest to highest */
-  --ytmusic-background: {{colors.surface.default.hex}} !important;
-  --ytmusic-color-blackpure: {{colors.surface_container_lowest.default.hex}} !important;
-  --ytmusic-color-black1: {{colors.surface_container.default.hex}} !important;
-  --ytmusic-color-black2: {{colors.surface_container_low.default.hex}} !important;
-  --ytmusic-color-black3: {{colors.surface.default.hex}} !important;
-  --ytmusic-color-black4: {{colors.surface.default.hex}} !important;
-  --dark-theme-background-color: {{colors.surface_container.default.hex}} !important;
-  --yt-spec-base-background: {{colors.surface.default.hex}} !important;
-  --yt-spec-raised-background: {{colors.surface_container_high.default.hex}} !important;
-  --yt-spec-menu-background: {{colors.surface_container_high.default.hex}} !important;
-  --yt-spec-general-background-a: {{colors.surface_container_low.default.hex}} !important;
-  --yt-spec-general-background-b: {{colors.surface.default.hex}} !important;
-  --yt-spec-general-background-c: {{colors.surface.default.hex}} !important;
-  --yt-spec-snackbar-background: {{colors.inverse_surface.default.hex}} !important;
-  --yt-spec-static-brand-black: {{colors.surface_container.default.hex}} !important;
-  --yt-spec-black-1: {{colors.surface_container_high.default.hex}} !important;
-  --yt-spec-black-2: {{colors.surface_container.default.hex}} !important;
-  --yt-spec-black-3: {{colors.surface_container_low.default.hex}} !important;
-  --yt-spec-black-4: {{colors.surface.default.hex}} !important;
-  --ytmusic-menu-item-hover-background-color: {{colors.surface_container_highest.default.hex}} !important;
+  --ytmusic-background: {{colors.surface.dark.hex}} !important;
+  --ytmusic-color-blackpure: {{colors.surface_container_lowest.dark.hex}} !important;
+  --ytmusic-color-black1: {{colors.surface_container.dark.hex}} !important;
+  --ytmusic-color-black2: {{colors.surface_container_low.dark.hex}} !important;
+  --ytmusic-color-black3: {{colors.surface.dark.hex}} !important;
+  --ytmusic-color-black4: {{colors.surface.dark.hex}} !important;
+  --dark-theme-background-color: {{colors.surface_container.dark.hex}} !important;
+  --yt-spec-base-background: {{colors.surface.dark.hex}} !important;
+  --yt-spec-raised-background: {{colors.surface_container_high.dark.hex}} !important;
+  --yt-spec-menu-background: {{colors.surface_container_high.dark.hex}} !important;
+  --yt-spec-general-background-a: {{colors.surface_container_low.dark.hex}} !important;
+  --yt-spec-general-background-b: {{colors.surface.dark.hex}} !important;
+  --yt-spec-general-background-c: {{colors.surface.dark.hex}} !important;
+  --yt-spec-snackbar-background: {{colors.inverse_surface.dark.hex}} !important;
+  --yt-spec-static-brand-black: {{colors.surface_container.dark.hex}} !important;
+  --yt-spec-black-1: {{colors.surface_container_high.dark.hex}} !important;
+  --yt-spec-black-2: {{colors.surface_container.dark.hex}} !important;
+  --yt-spec-black-3: {{colors.surface_container_low.dark.hex}} !important;
+  --yt-spec-black-4: {{colors.surface.dark.hex}} !important;
+  --ytmusic-menu-item-hover-background-color: {{colors.surface_container_highest.dark.hex}} !important;
 
   /* text and icons */
-  --ytmusic-text-primary: {{colors.on_surface.default.hex}} !important;
-  --ytmusic-text-secondary: {{colors.on_surface_variant.default.hex}} !important;
-  --yt-spec-text-primary: {{colors.on_surface.default.hex}} !important;
-  --yt-spec-text-secondary: {{colors.on_surface_variant.default.hex}} !important;
-  --yt-spec-text-disabled: {{colors.outline.default.hex}} !important;
-  --yt-spec-icon-active-other: {{colors.on_surface.default.hex}} !important;
-  --yt-spec-icon-inactive: {{colors.on_surface_variant.default.hex}} !important;
-  --yt-spec-icon-disabled: {{colors.outline.default.hex}} !important;
-  --ytmusic-menu-item: {{colors.on_surface.default.hex}} !important;
-  --ytmusic-menu-item-icon: {{colors.on_surface_variant.default.hex}} !important;
-  --yt-endpoint-color: {{colors.on_surface.default.hex}} !important;
-  --yt-endpoint-hover-color: {{colors.primary.default.hex}} !important;
-  --yt-endpoint-visited-color: {{colors.on_surface.default.hex}} !important;
-  --yt-spec-filled-button-text: {{colors.on_primary.default.hex}} !important;
+  --ytmusic-text-primary: {{colors.on_surface.dark.hex}} !important;
+  --ytmusic-text-secondary: {{colors.on_surface_variant.dark.hex}} !important;
+  --yt-spec-text-primary: {{colors.on_surface.dark.hex}} !important;
+  --yt-spec-text-secondary: {{colors.on_surface_variant.dark.hex}} !important;
+  --yt-spec-text-disabled: {{colors.outline.dark.hex}} !important;
+  --yt-spec-icon-active-other: {{colors.on_surface.dark.hex}} !important;
+  --yt-spec-icon-inactive: {{colors.on_surface_variant.dark.hex}} !important;
+  --yt-spec-icon-disabled: {{colors.outline.dark.hex}} !important;
+  --ytmusic-menu-item: {{colors.on_surface.dark.hex}} !important;
+  --ytmusic-menu-item-icon: {{colors.on_surface_variant.dark.hex}} !important;
+  --yt-endpoint-color: {{colors.on_surface.dark.hex}} !important;
+  --yt-endpoint-hover-color: {{colors.primary.dark.hex}} !important;
+  --yt-endpoint-visited-color: {{colors.on_surface.dark.hex}} !important;
+  --yt-spec-filled-button-text: {{colors.on_primary.dark.hex}} !important;
 
   /* accents: toggles, links, progress and volume sliders */
-  --ytmusic-setting-item-toggle-active: {{colors.primary.default.hex}} !important;
-  --yt-spec-call-to-action: {{colors.primary.default.hex}} !important;
-  --yt-spec-themed-blue: {{colors.primary.default.hex}} !important;
-  --yt-spec-brand-button-background: {{colors.primary.default.hex}} !important;
-  --paper-slider-active-color: {{colors.primary.default.hex}} !important;
-  --paper-slider-knob-color: {{colors.primary.default.hex}} !important;
-  --paper-slider-secondary-color: {{colors.secondary_container.default.hex}} !important;
-  --paper-slider-container-color: {{colors.surface_container_highest.default.hex}} !important;
-  --paper-progress-active-color: {{colors.primary.default.hex}} !important;
-  --yt-spec-10-percent-layer: {{colors.outline_variant.default.hex}} !important;
-  --yt-spec-outline: {{colors.outline_variant.default.hex}} !important;
+  --ytmusic-setting-item-toggle-active: {{colors.primary.dark.hex}} !important;
+  --yt-spec-call-to-action: {{colors.primary.dark.hex}} !important;
+  --yt-spec-themed-blue: {{colors.primary.dark.hex}} !important;
+  --yt-spec-brand-button-background: {{colors.primary.dark.hex}} !important;
+  --paper-slider-active-color: {{colors.primary.dark.hex}} !important;
+  --paper-slider-knob-color: {{colors.primary.dark.hex}} !important;
+  --paper-slider-secondary-color: {{colors.secondary_container.dark.hex}} !important;
+  --paper-slider-container-color: {{colors.surface_container_highest.dark.hex}} !important;
+  --paper-progress-active-color: {{colors.primary.dark.hex}} !important;
+  --yt-spec-10-percent-layer: {{colors.outline_variant.dark.hex}} !important;
+  --yt-spec-outline: {{colors.outline_variant.dark.hex}} !important;
 }
 
 body,
@@ -62,19 +65,19 @@ ytmusic-browse-response,
 #guide-wrapper,
 #nav-bar-background,
 ytmusic-player-page {
-  background: {{colors.surface.default.hex}} !important;
+  background: {{colors.surface.dark.hex}} !important;
 }
 
 ytmusic-player-bar,
 #player-bar-background {
-  background: {{colors.surface_container.default.hex}} !important;
+  background: {{colors.surface_container.dark.hex}} !important;
 }
 
 ytmusic-search-box {
-  --ytmusic-search-background: {{colors.surface_container_high.default.hex}} !important;
+  --ytmusic-search-background: {{colors.surface_container_high.dark.hex}} !important;
 }
 
 ::selection {
-  color: {{colors.on_primary.default.hex}};
-  background: {{colors.primary.default.hex}};
+  color: {{colors.on_primary.dark.hex}};
+  background: {{colors.primary.dark.hex}};
 }

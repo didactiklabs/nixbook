@@ -383,6 +383,17 @@ if "$colors/render-app-colors.py" "$tmp/missing.tpl" "$tmp/apps/m.txt" <<<"$pale
 else
   pass "render-app-colors.py: a colour missing fails, nothing written"
 fi
+# A light theme palette with a pastel primary (Chiikawa's Momonga): the
+# primary is darkened until it reads as text on the surface (4.5:1), its
+# on_primary follows, readable colours stay as they are; .dark is the same
+# hues on dark surfaces (a dark palette's .dark is the palette itself).
+light='{"surface":"#fcf9ff","on_surface":"#2d2540","primary":"#b7a4e9","on_primary":"#1f1438"}'
+printf '{{colors.primary.default.hex}} {{colors.on_primary.default.hex}} {{colors.on_surface.default.hex}} {{mode}} {{colors.surface.dark.hex}} {{colors.on_surface.dark.hex}} {{colors.primary.dark.hex}}\n' >"$tmp/modes.tpl"
+"$colors/render-app-colors.py" "$tmp/modes.tpl" "$tmp/apps/light.txt" <<<"$light" >/dev/null
+expect_eq "render-app-colors.py: text roles made readable, .dark derived" "#7d5ad7 #f9f7fc #2d2540 light #0e0b13 #fcf9ff #b7a4e9" "$(cat "$tmp/apps/light.txt")"
+dark='{"surface":"#141218","on_surface":"#e6e0e9","primary":"#d0bcff","on_primary":"#381e72"}'
+"$colors/render-app-colors.py" "$tmp/modes.tpl" "$tmp/apps/dark.txt" <<<"$dark" >/dev/null
+expect_eq "render-app-colors.py: a readable dark palette is left alone" "#d0bcff #381e72 #e6e0e9 dark #141218 #e6e0e9 #d0bcff" "$(cat "$tmp/apps/dark.txt")"
 
 # A home with a Zen profile (relative path in profiles.ini) and Vesktop /
 # YouTube Music settings files.
@@ -400,7 +411,7 @@ in_home() { HOME="$home" XDG_CONFIG_HOME="$home/.config" XDG_STATE_HOME="$home/.
 expect_eq "zen-theme.py: profiles from profiles.ini" "$(realpath "$zen_profile")" "$(in_home "$colors/zen-theme.py" profiles)"
 
 # Every role the templates use, all #abcdef.
-full_palette=$(grep -ohE 'colors\.[a-z_]+\.default' "$colors"/app-templates/* | cut -d. -f2 | sort -u |
+full_palette=$(grep -ohE 'colors\.[a-z_]+\.(default|dark)' "$colors"/app-templates/* | cut -d. -f2 | sort -u |
   jq -R -s -c 'split("\n") | map(select(. != "")) | map({(.): "#abcdef"}) | add')
 in_home "$colors/apply-app-colors.sh" "$full_palette" slack,vesktop,youtube-music,zen
 expect_eq "apply-app-colors.sh: Slack CSS written" "true" "$(grep -q '#abcdef' "$home/.local/state/quickshell/user/generated/apps/slack.css" && echo true)"
