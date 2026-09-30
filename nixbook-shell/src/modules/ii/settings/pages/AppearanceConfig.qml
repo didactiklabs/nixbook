@@ -121,12 +121,12 @@ ContentPage {
                 }
                 ConfigSwitch {
                     configKey: "appearance.wallpaperTheming.enableQtApps";
-                    // No effect: the package drops the kde-material-you-colors
-                    // hook it gates (qml.nix, not in nixpkgs).
-                    visible: false
+                    // The apps set up in Nix (programs.nixbook-shell.appTheming:
+                    // Qt/KDE, Vesktop, Zen, YouTube Music); the key keeps
+                    // its upstream name.
                     enabled: !nixManaged;
                     buttonIcon: "tv_options_input_settings"
-                    text: Translation.tr("Qt apps")
+                    text: Translation.tr("Apps (Qt, Discord, Zen, YouTube Music)")
                     checked: Config.options.appearance.wallpaperTheming.enableQtApps
                     onCheckedChanged: { Config.options.appearance.wallpaperTheming.enableQtApps = checked }
                 }
@@ -138,14 +138,13 @@ ContentPage {
                     checked: Config.options.appearance.wallpaperTheming.enableTerminal
                     onCheckedChanged: { Config.options.appearance.wallpaperTheming.enableTerminal = checked }
                 }
-                // The terminal options only act on terminal theming: shown
-                // while it is on.
+                // The terminal options only act on terminal theming: greyed
+                // out while it is off.
                 ConfigRow {
-                    shown: Config.options.appearance.wallpaperTheming.enableTerminal
                     uniform: true
                     ConfigSwitch {
                         configKey: "appearance.wallpaperTheming.terminalGenerationProps.forceDarkMode";
-                        enabled: !nixManaged;
+                        enabled: !nixManaged && Config.options.appearance.wallpaperTheming.enableTerminal;
                         buttonIcon: "dark_mode"
                         text: Translation.tr("Force dark mode in terminal")
                         checked: Config.options.appearance.wallpaperTheming.terminalGenerationProps.forceDarkMode
@@ -153,9 +152,8 @@ ContentPage {
                     }
                 }
                 ConfigSpinBox {
-                    shown: Config.options.appearance.wallpaperTheming.enableTerminal
                     configKey: "appearance.wallpaperTheming.terminalGenerationProps.harmony";
-                    enabled: !nixManaged;
+                    enabled: !nixManaged && Config.options.appearance.wallpaperTheming.enableTerminal;
                     icon: "invert_colors"
                     text: Translation.tr("Terminal: Harmony (%)")
                     value: Config.options.appearance.wallpaperTheming.terminalGenerationProps.harmony * 100
@@ -163,9 +161,8 @@ ContentPage {
                     onValueChanged: { Config.options.appearance.wallpaperTheming.terminalGenerationProps.harmony = value / 100 }
                 }
                 ConfigSpinBox {
-                    shown: Config.options.appearance.wallpaperTheming.enableTerminal
                     configKey: "appearance.wallpaperTheming.terminalGenerationProps.harmonizeThreshold";
-                    enabled: !nixManaged;
+                    enabled: !nixManaged && Config.options.appearance.wallpaperTheming.enableTerminal;
                     icon: "gradient"
                     text: Translation.tr("Terminal: Harmonize threshold")
                     value: Config.options.appearance.wallpaperTheming.terminalGenerationProps.harmonizeThreshold
@@ -173,9 +170,8 @@ ContentPage {
                     onValueChanged: { Config.options.appearance.wallpaperTheming.terminalGenerationProps.harmonizeThreshold = value }
                 }
                 ConfigSpinBox {
-                    shown: Config.options.appearance.wallpaperTheming.enableTerminal
                     configKey: "appearance.wallpaperTheming.terminalGenerationProps.termFgBoost";
-                    enabled: !nixManaged;
+                    enabled: !nixManaged && Config.options.appearance.wallpaperTheming.enableTerminal;
                     icon: "format_color_text"
                     text: Translation.tr("Terminal: Foreground boost (%)")
                     value: Config.options.appearance.wallpaperTheming.terminalGenerationProps.termFgBoost * 100

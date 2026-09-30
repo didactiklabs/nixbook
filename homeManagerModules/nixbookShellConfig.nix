@@ -144,6 +144,17 @@ in
       # Shared settings, as defaults so a profile's `settings` win key by key.
       settings = lib.mapAttrsRecursive (_: lib.mkDefault) (import ./nixbookShellConfig/settings.nix);
 
+      # Qt/KDE apps (Dolphin…), Vesktop, YouTube Music and Zen follow the
+      # shell's wallpaper palette instead of stylix's (stylixConfig.nix turns
+      # its qt and zen-browser targets off for this).
+      appTheming = {
+        qt.enable = true;
+        vesktop.enable = true;
+        youtubeMusic.enable = true;
+        zen.profiles = lib.optional (config.customHomeManagerModules.zenBrowserConfig.enable or false
+        ) "default";
+      };
+
       assistant = {
         inherit context;
         niriConfig = if niriEnabled then (config.programs.niri.finalConfig or "") else "";

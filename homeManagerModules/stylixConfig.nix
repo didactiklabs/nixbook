@@ -26,6 +26,8 @@ in
           - Disabled targets:
               dank-material-shell — DMS manages its own theming via matugen
               k9s                 — Stylix's k9s target causes schema errors
+              qt, zen-browser     — with nixbookShellConfig: the shell colours
+                                    them from the wallpaper palette
           - Cursor: phinger-cursors-light, size 24
 
           Fonts (shared with fontConfig):
@@ -76,6 +78,12 @@ in
         dank-material-shell.enable = false;
         k9s.enable = false; # enable this parameter cause this error in k9s: "load failed:Additional property ui is not allowed"
         gtk.extraCss = "";
+      }
+      # nixbook-shell colours these from the wallpaper palette itself
+      # (programs.nixbook-shell.appTheming, nixbookShellConfig.nix).
+      // lib.optionalAttrs (config.customHomeManagerModules.nixbookShellConfig.enable or false) {
+        qt.enable = false;
+        zen-browser.enable = false;
       };
 
       fonts = {

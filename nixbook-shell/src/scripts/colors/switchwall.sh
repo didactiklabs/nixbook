@@ -12,24 +12,23 @@ SHELL_CONFIG_FILE="$XDG_CONFIG_HOME/nixbook-shell/config.json"
 MATUGEN_DIR="$XDG_CONFIG_HOME/matugen"
 terminalscheme="$SCRIPT_DIR/terminal/scheme-base.json"
 
-handle_kde_material_you_colors() {
-  if [ -f "$SHELL_CONFIG_FILE" ]; then
-    enable_qt_apps=$(jq -r '.appearance.wallpaperTheming.enableQtApps' "$SHELL_CONFIG_FILE")
-    if [ "$enable_qt_apps" == "false" ]; then
-      return
-    fi
+# Apps themed from the shell's palette (programs.nixbook-shell.appTheming:
+# Qt/KDE, Vesktop, Zen, YouTube Music): the Home Manager module writes a
+# matugen config with their templates; they get the same source colour,
+# scheme and mode as the shell. Gated by the "Apps" switch
+# (appearance.wallpaperTheming.enableQtApps).
+handle_app_colors() {
+  local apps_config="$XDG_CONFIG_HOME/nixbook-shell/matugen-apps.toml"
+  [ -f "$apps_config" ] || return
+  if [ -f "$SHELL_CONFIG_FILE" ] &&
+    [ "$(jq -r '.appearance.wallpaperTheming.enableQtApps' "$SHELL_CONFIG_FILE")" == "false" ]; then
+    return
   fi
-
-  local kde_scheme_variant=""
-  case "$type_flag" in
-  scheme-content | scheme-expressive | scheme-fidelity | scheme-fruit-salad | scheme-monochrome | scheme-neutral | scheme-rainbow | scheme-tonal-spot)
-    kde_scheme_variant="$type_flag"
-    ;;
-  *)
-    kde_scheme_variant="scheme-tonal-spot"
-    ;;
-  esac
-  "$XDG_CONFIG_HOME"/matugen/templates/kde/kde-material-you-colors-wrapper.sh --scheme-variant "$kde_scheme_variant"
+  local source_color
+  source_color=$(tr -d '[:space:]' <"$STATE_DIR/user/generated/source-color.txt" 2>/dev/null)
+  [[ $source_color =~ ^#[A-Fa-f0-9]{6}$ ]] || return
+  matugen --config "$apps_config" color hex "$source_color" --mode "$mode_flag" --type "$type_flag" >/dev/null || return
+  "$SCRIPT_DIR/apply-app-colors.sh"
 }
 
 pre_process() {
@@ -55,7 +54,7 @@ post_process() {
     return
   fi
 
-  handle_kde_material_you_colors &
+  handle_app_colors &
   "$SCRIPT_DIR/code/material-code-set-color.sh" &
 }
 

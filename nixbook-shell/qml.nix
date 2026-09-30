@@ -182,14 +182,10 @@ pkgs.stdenvNoCC.mkDerivation {
   # Only the store-path-dependent transforms remain here; every feature change
   # is already baked into src/. See the header for why.
   postPatch = ''
-    # 1. matugen: use our trimmed config instead of ~/.config/matugen/config.toml,
-    #    and drop the kde-material-you-colors hook (not in nixpkgs, and its
-    #    wrapper script lives in illogical-impulse's matugen templates).
+    # 1. matugen: use our trimmed config instead of ~/.config/matugen/config.toml.
     substituteInPlace scripts/colors/switchwall.sh \
       --replace-fail 'matugen "''${matugen_args[@]}"' \
-                     'matugen --config ${matugenConfig} "''${matugen_args[@]}"' \
-      --replace-fail '"$XDG_CONFIG_HOME"/matugen/templates/kde/kde-material-you-colors-wrapper.sh --scheme-variant "$kde_scheme_variant"' \
-                     ': "$kde_scheme_variant"'
+                     'matugen --config ${matugenConfig} "''${matugen_args[@]}"'
 
     # 2. Point every python shebang at a Nix interpreter that already carries
     #    what the illogical-impulse virtualenv would have provided. Upstream
