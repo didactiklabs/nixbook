@@ -40,14 +40,14 @@ AbstractBackgroundWidget {
 
     component IconButton: RippleButton {
         id: iconButton
-        property string icon
+        property string symbol
         property color colIcon: Appearance.colors.colOnPrimaryContainer
         implicitWidth: 30
         implicitHeight: 30
         buttonRadius: Appearance.rounding.full
         contentItem: MaterialSymbol {
             anchors.centerIn: parent
-            text: iconButton.icon
+            text: iconButton.symbol
             iconSize: Appearance.font.pixelSize.larger
             color: iconButton.colIcon
         }
@@ -99,7 +99,7 @@ AbstractBackgroundWidget {
                     color: Appearance.colors.colOnPrimaryContainer
                 }
                 IconButton {
-                    icon: root.fromMonitor ? "speaker" : "mic"
+                    symbol: root.fromMonitor ? "speaker" : "mic"
                     releaseAction: () => SongRec.toggleMonitorSource()
                     StyledToolTip {
                         text: root.fromMonitor ? Translation.tr("Listening to: system sound (click for the microphone)")
@@ -166,12 +166,12 @@ AbstractBackgroundWidget {
                     RowLayout {
                         spacing: 2
                         IconButton {
-                            icon: "open_in_new"
+                            symbol: "open_in_new"
                             releaseAction: () => SongRec.openShazam()
                             StyledToolTip { text: Translation.tr("Open on Shazam") }
                         }
                         IconButton {
-                            icon: "smart_display"
+                            symbol: "smart_display"
                             releaseAction: () => SongRec.openYouTube()
                             StyledToolTip { text: Translation.tr("Search on YouTube") }
                         }
