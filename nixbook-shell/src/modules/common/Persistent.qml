@@ -63,6 +63,7 @@ Singleton {
             // One-time settings migrations already applied (Config.qml).
             property JsonObject migrations: JsonObject {
                 property bool screenshotSavePath: false
+                property bool appCommands: false
             }
 
             property JsonObject ai: JsonObject {
