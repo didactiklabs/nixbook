@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
+import Quickshell
 import qs
 import qs.services
 import qs.modules.common
@@ -17,69 +18,26 @@ AbstractBackgroundWidget {
     implicitWidth: 276
     implicitHeight: 252
 
-    property string mode: "list" // "list" | "edit"
-    property var pendingNoteId: null
-    property string editingText: ""
-    onModeChanged: GlobalStates.desktopWidgetKeyboardFocus = (mode === "edit")
+    // The note open in the floating editor: {} for a new note, null when closed
+    property var editingNote: null
 
-    function toggleFlip() { flipAnim.start() }
+    function openNewNote() { root.editingNote = {} }
+    function openNote(note) { root.editingNote = note }
 
-    function openNewNote() {
-        root.pendingNoteId = null
-        root.editingText = ""
-        editTextArea.text = ""
-        toggleFlip()
-    }
-
-    function openNote(note) {
-        root.pendingNoteId = note.id
-        root.editingText = note.content
-        editTextArea.text = note.content
-        toggleFlip()
-    }
-
-    function saveAndBack() {
-        if (root.editingText.length > 0) {
-            if (root.pendingNoteId) {
-                Notes.updateNote(root.pendingNoteId, root.editingText)
-            } else {
-                Notes.addNote(root.editingText)
-            }
+    LazyLoader {
+        active: root.editingNote !== null
+        component: NoteEditorWindow {
+            screen: Quickshell.screens.find(s => s.name === root.screenName) ?? Quickshell.screens[0]
+            noteId: root.editingNote?.id ?? null
+            initialText: root.editingNote?.content ?? ""
+            createdAt: root.editingNote?.createdAt ?? 0
+            onDismissed: root.editingNote = null
         }
-        toggleFlip()
     }
 
     Item {
         id: cardWrapper
         anchors.fill: parent
-
-        transform: Scale {
-            id: flipScale
-            origin.x: cardWrapper.width  / 2
-            origin.y: cardWrapper.height / 2
-            xScale: 1
-        }
-
-        SequentialAnimation {
-            id: flipAnim
-            NumberAnimation {
-                target: flipScale; property: "xScale"
-                to: 0; duration: 150; easing.type: Easing.InQuad
-            }
-            ScriptAction {
-                script: {
-                    root.mode = (root.mode === "list" ? "edit" : "list")
-                    if (root.mode === "edit") {
-                        editTextArea.forceActiveFocus()
-                        editTextArea.cursorPosition = editTextArea.length
-                    }
-                }
-            }
-            NumberAnimation {
-                target: flipScale; property: "xScale"
-                to: 1; duration: 150; easing.type: Easing.OutQuad
-            }
-        }
 
         WidgetShadow { 
             target: contentRect
@@ -111,7 +69,6 @@ AbstractBackgroundWidget {
                 id: listPage
                 anchors { fill: parent; margins: 12 }
                 spacing: 10
-                visible: root.mode === "list"
 
                 RowLayout {
                     Layout.fillWidth: true
@@ -150,7 +107,8 @@ AbstractBackgroundWidget {
                         required property int index
 
                         width: notesListView.width
-                        implicitHeight: 55
+                        // Up to three lines of the note; the editor shows the rest.
+                        implicitHeight: Math.max(55, preview.implicitHeight + 24)
                         padding: 0
                         background: null
                         clip: true
@@ -176,15 +134,17 @@ AbstractBackgroundWidget {
                             width: parent.width - Math.abs(noteCard.swipe.position) * 6
 
                             StyledText {
+                                id: preview
                                 anchors {
                                     left: parent.left; right: parent.right
                                     verticalCenter: parent.verticalCenter
                                     leftMargin: 12; rightMargin: 12
                                 }
                                 color: noteCard.fg
-                                text: noteCard.modelData.content
+                                text: noteCard.modelData.content.trim()
+                                wrapMode: Text.Wrap
                                 elide: Text.ElideRight
-                                maximumLineCount: 1
+                                maximumLineCount: 3
                             }
                         }
 
@@ -204,67 +164,6 @@ AbstractBackgroundWidget {
 
                             SwipeDelegate.onClicked: Notes.deleteNote(noteCard.modelData.id)
                         }
-                    }
-                }
-            }
-
-            // Edit
-            ColumnLayout {
-                id: editPage
-                anchors { fill: parent; margins: 12 }
-                spacing: 10
-                visible: root.mode === "edit"
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 4
-
-                    Rectangle {
-                        radius: Appearance.rounding.full
-                        color: "transparent"
-                        implicitWidth: 28; implicitHeight: 28
-                        MaterialSymbol {
-                            anchors.centerIn: parent
-                            iconSize: Appearance.font.pixelSize.normal
-                            text: "arrow_back"
-                            color: Appearance.colors.colOnPrimaryContainer
-                        }
-                        MouseArea {
-                            hoverEnabled: true
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.toggleFlip()
-                        }
-                    }
-                    Item { Layout.fillWidth: true }
-
-                    ToolbarPairedFab {
-                        Layout.rightMargin: 4
-                        Layout.alignment: Qt.AlignVCenter
-                        baseSize: 38
-                        iconText: "save"
-                        onClicked: root.saveAndBack()
-                    }
-                }
-
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    radius: Appearance.rounding.normal
-                    color: Appearance.colors.colSurfaceContainerLow
-
-                    TextArea {
-                        id: editTextArea
-                        anchors.fill: parent
-                        anchors.margins: 8
-                        // Filled imperatively in openNote()/openNewNote(): a
-                        // `text: root.editingText` binding fed back by
-                        // onTextChanged re-set the document mid-edit.
-                        wrapMode: TextArea.Wrap
-                        placeholderText: "Type your note..."
-                        color: Appearance.colors.colOnLayer0
-                        background: null
-                        onTextChanged: root.editingText = text
                     }
                 }
             }
