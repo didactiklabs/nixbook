@@ -113,8 +113,8 @@ Item {
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
+                                // Wallpapers regenerates the palette once it's saved.
                                 Config.options.appearance.palette.type = schemeTile.modelData.value
-                                Quickshell.execDetached(["bash", "-c", `${Directories.wallpaperSwitchScriptPath} --noswitch`])
                             }
                         }
 

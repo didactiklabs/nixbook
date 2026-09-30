@@ -565,8 +565,8 @@ ContentPage {
                             ]
                             isCurrentValue: value => Config.options.appearance.palette.type === value
                             pickValue: value => {
+                                // Wallpapers regenerates the palette once it's saved.
                                 Config.options.appearance.palette.type = value;
-                                Quickshell.execDetached(["bash", "-c", `${Directories.wallpaperSwitchScriptPath} --noswitch`]);
                             }
                         }
                     }

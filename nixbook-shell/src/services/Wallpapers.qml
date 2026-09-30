@@ -551,6 +551,41 @@ Singleton {
         }
     }
 
+    // Colour generation settings (scheme, Settings > Appearance > Color
+    // generation) take effect live: any change regenerates the palette from
+    // the current wallpaper, once the value has settled (spin boxes step).
+    Timer {
+        id: regenerateColorsTimer
+        interval: 700
+        onTriggered: Quickshell.execDetached([Directories.wallpaperSwitchScriptPath, "--noswitch"])
+    }
+    function regenerateColors() {
+        if (Config.ready)
+            regenerateColorsTimer.restart();
+    }
+    Connections {
+        target: Config.options.appearance.palette
+        function onTypeChanged() { root.regenerateColors() }
+    }
+    Connections {
+        target: Config.options.appearance.wallpaperTheming
+        function onEnableAppsAndShellChanged() { root.regenerateColors() }
+        function onEnableTerminalChanged() {
+            // Turned off: hand the open terminals their own colours back
+            // (new ones start with them anyway).
+            if (Config.ready && !Config.options.appearance.wallpaperTheming.enableTerminal)
+                Quickshell.execDetached([`${FileUtils.trimFileProtocol(Directories.scriptPath)}/colors/applycolor.sh`, "--reset-terminal"]);
+            root.regenerateColors();
+        }
+    }
+    Connections {
+        target: Config.options.appearance.wallpaperTheming.terminalGenerationProps
+        function onForceDarkModeChanged() { root.regenerateColors() }
+        function onHarmonyChanged() { root.regenerateColors() }
+        function onHarmonizeThresholdChanged() { root.regenerateColors() }
+        function onTermFgBoostChanged() { root.regenerateColors() }
+    }
+
     IpcHandler {
         target: "wallpapers"
 

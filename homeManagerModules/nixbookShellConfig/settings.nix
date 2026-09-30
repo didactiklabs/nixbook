@@ -15,23 +15,14 @@
 # lines, ready to paste here or into a profile's `nixbookShellConfig.settings`.
 {
   appearance = {
-    palette = {
-      type = "scheme-neutral";
-    };
+    # Colour generation (appearance.palette.type and
+    # appearance.wallpaperTheming.*) is left to the menu (Settings >
+    # Appearance > Color generation, the scheme button of the wallpaper
+    # picker): it applies live. Terminal theming recolours open terminals
+    # over stylix's colours (stylixConfig.nix + kittyConfig.nix) until it is
+    # turned off again.
     transparency = {
       enable = true;
-    };
-    wallpaperTheming = {
-      enableQtApps = false;
-      # Don't recolour terminals from the wallpaper: upstream's applycolor.sh
-      # rewrites kitty's theme and blasts OSC colour sequences into every
-      # /dev/pts/*, fighting stylix (stylixConfig.nix + kittyConfig.nix own
-      # terminal theming here). The shell's own palette is unaffected.
-      enableTerminal = false;
-      # Keep on (and locked): it gates an early `return` in switchwall.sh, so
-      # turning it off stops palette regeneration entirely and silently breaks
-      # the shell's light/dark switch. Use enableTerminal for the terminal.
-      enableAppsAndShell = true;
     };
   };
   apps = {

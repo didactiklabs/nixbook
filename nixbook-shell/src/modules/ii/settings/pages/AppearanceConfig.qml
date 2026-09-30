@@ -121,6 +121,9 @@ ContentPage {
                 }
                 ConfigSwitch {
                     configKey: "appearance.wallpaperTheming.enableQtApps";
+                    // No effect: the package drops the kde-material-you-colors
+                    // hook it gates (qml.nix, not in nixpkgs).
+                    visible: false
                     enabled: !nixManaged;
                     buttonIcon: "tv_options_input_settings"
                     text: Translation.tr("Qt apps")

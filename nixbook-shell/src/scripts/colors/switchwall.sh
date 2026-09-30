@@ -187,9 +187,23 @@ switch() {
 
   if [ -f "$SHELL_CONFIG_FILE" ]; then
     enable_apps_shell=$(jq -r '.appearance.wallpaperTheming.enableAppsAndShell' "$SHELL_CONFIG_FILE")
-    if [ "$enable_apps_shell" == "false" ]; then
-      echo "App and shell theming disabled, skipping matugen and color generation"
-      return
+    if [[ $enable_apps_shell == "false" && $color_flag != "1" ]]; then
+      # Not following the wallpaper: regenerate from the current source
+      # colour, so the colours stay put but the light/dark switch and the
+      # scheme still apply (an accent colour picked by hand still does).
+      # (source-color.txt: matugen's source; color.txt, the generator's pick,
+      # for a state older than source-color.txt.)
+      frozen_color=$(cat "$STATE_DIR/user/generated/source-color.txt" 2>/dev/null ||
+        cat "$STATE_DIR/user/generated/color.txt" 2>/dev/null)
+      frozen_color=$(tr -d '[:space:]' <<<"$frozen_color")
+      if [[ ! $frozen_color =~ ^#[A-Fa-f0-9]{6}$ ]]; then
+        echo "App and shell theming disabled and no current colour, skipping color generation"
+        return
+      fi
+      matugen_args=(--source-color-index 0 color hex "$frozen_color" --mode "$mode_flag")
+      [[ -n $type_flag ]] && matugen_args+=(--type "$type_flag")
+      # Drop --path <image> (always first), keep the rest.
+      generate_colors_material_args=(--color "$frozen_color" "${generate_colors_material_args[@]:2}")
     fi
   fi
 

@@ -10,6 +10,19 @@ STATE_DIR="$XDG_STATE_HOME/quickshell"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 term_alpha=100 #Set this to < 100 make all your terminals transparent
+
+# --reset-terminal: terminal theming was turned off; give every open
+# terminal its own colours back (OSC 104 palette, 110/111/112 foreground,
+# background, cursor, 117/119 selection).
+if [[ ${1:-} == "--reset-terminal" ]]; then
+  for file in /dev/pts/*; do
+    if [[ $file =~ ^/dev/pts/[0-9]+$ ]]; then
+      { printf '\e]104\e\\\e]110\e\\\e]111\e\\\e]112\e\\\e]117\e\\\e]119\e\\' >"$file"; } 2>/dev/null &
+      disown || true
+    fi
+  done
+  exit 0
+fi
 # sleep 0 # idk i wanted some delay or colors dont get applied properly
 if [ ! -d "$STATE_DIR"/user/generated ]; then
   mkdir -p "$STATE_DIR"/user/generated

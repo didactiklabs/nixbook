@@ -6,6 +6,7 @@ from PIL import Image
 from materialyoucolor.quantize import QuantizeCelebi
 from materialyoucolor.score.score import Score
 from materialyoucolor.hct import Hct
+from materialyoucolor.contrast.contrast import Contrast
 from materialyoucolor.dynamiccolor.material_dynamic_colors import MaterialDynamicColors
 from materialyoucolor.utils.color_utils import (rgba_from_argb, argb_from_rgb, argb_from_rgba)
 from materialyoucolor.utils.math_utils import (sanitize_degrees_double, difference_degrees, rotation_direction)
@@ -157,8 +158,54 @@ if args.termscheme is not None:
             harmonized = boost_chroma_tone(hex_to_argb(material_colors['onSurface']), 3, 1)
         else:
             harmonized = harmonize(hex_to_argb(val), primary_color_argb, args.harmonize_threshold, args.harmony)
-            harmonized = boost_chroma_tone(harmonized, 1, 1 + (args.term_fg_boost * (1 if darkmode else -1)))
+            hct = Hct.from_int(harmonized)
+            tone = hct.tone * (1 + (args.term_fg_boost * (1 if darkmode else -1)))
+            # The colours (term1-6, term9-14) no lighter than tone 85 (dark) /
+            # no darker than 30 (light): a strong foreground boost would wash
+            # them all out to the same white / black.
+            if color not in ('term7', 'term8', 'term15'):
+                tone = min(tone, 85) if darkmode else max(tone, 30)
+            harmonized = Hct.from_hct(hct.hue, hct.chroma, tone).to_int()
         term_colors[color] = argb_to_hex(harmonized)
+
+    # Readability: whatever the wallpaper, scheme and boost settings, every
+    # colour must stay legible on the terminal background (term0). Only the
+    # tone moves (hue and chroma are kept as far as the gamut allows).
+    #   - text colours (term1-7, term9-15): at least 4.5:1 (WCAG AA), the
+    #     foreground (term7) and bright white (term15) at least 7:1;
+    #   - bright black (term8: autosuggestions, comments): between 3:1 and
+    #     4.5:1, readable but visibly dimmer than typed text (the light base
+    #     palette has it near black, like the foreground).
+    def with_tone(hex_code, tone):
+        hct = Hct.from_int(hex_to_argb(hex_code))
+        return argb_to_hex(Hct.from_hct(hct.hue, hct.chroma, tone).to_int())
+
+    def ratio(hex1, hex2):
+        return Contrast.ratio_of_tones(Hct.from_int(hex_to_argb(hex1)).tone, Hct.from_int(hex_to_argb(hex2)).tone)
+
+    def contrast_tone(bg_tone, target, lighter):
+        # Contrast.lighter/darker give the tone reaching `target` (-1: none).
+        # A small margin covers the rounding to 8-bit channels.
+        tone = (Contrast.lighter if lighter else Contrast.darker)(bg_tone, target + 0.1)
+        return (100.0 if lighter else 0.0) if tone < 0 else tone
+
+    if 'term0' in term_colors:
+        bg = term_colors['term0']
+        bg_tone = Hct.from_int(hex_to_argb(bg)).tone
+        lighter = bg_tone < 50
+        for color, code in term_colors.items():
+            if color == 'term0':
+                continue
+            if color == 'term8':
+                low, high = 3.0, 4.5
+            elif color in ('term7', 'term15'):
+                low, high = 7.0, None
+            else:
+                low, high = 4.5, None
+            if ratio(code, bg) < low:
+                term_colors[color] = with_tone(code, contrast_tone(bg_tone, low, lighter))
+            elif high is not None and ratio(code, bg) > high:
+                term_colors[color] = with_tone(code, contrast_tone(bg_tone, high - 0.2, lighter))
 
 if args.debug == False:
     print(f"$darkmode: {darkmode};")
