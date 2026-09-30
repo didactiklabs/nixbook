@@ -40,48 +40,6 @@ Item {
     implicitWidth: implicitSize
     implicitHeight: implicitSize
 
-    function applyStyle(sides, dialStyle, hourHandStyle, minuteHandStyle, secondHandStyle, dateStyle) {
-        Config.options.background.widgets.clock.cookie.sides = sides
-        Config.options.background.widgets.clock.cookie.dialNumberStyle = dialStyle
-        Config.options.background.widgets.clock.cookie.hourHandStyle = hourHandStyle
-        Config.options.background.widgets.clock.cookie.minuteHandStyle = minuteHandStyle
-        Config.options.background.widgets.clock.cookie.secondHandStyle = secondHandStyle
-        Config.options.background.widgets.clock.cookie.dateStyle = dateStyle
-    }
-
-    function setClockPreset(category) {
-        if (!Config.options.background.widgets.clock.cookie.aiStyling) return;
-        if (category === "") return;
-        print("[Cookie clock] Setting clock preset for category: " + category)
-        // "abstract", "anime", "city", "minimalist", "landscape", "plants", "person", "space"
-        if (category == "abstract") {
-            applyStyle(9, "none", "fill", "medium", "dot", "bubble")
-        } else if (category == "anime") {
-            applyStyle(7, "none", "fill", "bold", "dot", "bubble")
-        } else if (category == "city" || category == "space") {
-            applyStyle(23, "full", "hollow", "thin", "classic", "bubble")
-        } else if (category == "minimalist") {
-            applyStyle(6, "none", "fill", "bold", "dot", "hide")
-        } else if (category == "landscape") {
-            applyStyle(14, "full", "hollow", "medium", "classic", "bubble")
-        } else if (category == "plants") {
-            applyStyle(9, "dots", "fill", "bold", "dot", "border")
-        } else if (category == "person") {
-            applyStyle(14, "full", "classic", "classic", "classic", "rect")
-        }
-    }
-
-    FileView {
-        id: categoryFileView
-        path: Config.ready ? Directories.generatedWallpaperCategoryPath : ""
-        watchChanges: true
-        onFileChanged: reload()
-        onLoaded: {
-            root.setClockPreset(categoryFileView.text().trim())
-        }
-        onLoadFailed: (error) => {}
-    }
-
     property bool useSineCookie: Config.options.background.widgets.clock.cookie.useSineCookie
     Item {
         id: cookieContainer

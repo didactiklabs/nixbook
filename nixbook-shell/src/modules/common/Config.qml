@@ -41,6 +41,13 @@ Singleton {
             replace("volumeMixer", cmd => cmd.includes("/.config/hypr/"), "pavucontrol-qt || pavucontrol");
             done.appCommands = true;
         }
+        // The side panel button's icon used to default to Gemini's, whose
+        // icon is gone: Claude's.
+        if (!done.sidebarIconNoGemini) {
+            if (root.options.custom.distroIcon === "google-gemini-symbolic" && !NixManaged.isPinned("custom.distroIcon"))
+                root.options.custom.distroIcon = "spark-symbolic";
+            done.sidebarIconNoGemini = true;
+        }
     }
     property int readWriteDelay: 50 // milliseconds
     property bool blockWrites: false
@@ -154,20 +161,6 @@ Singleton {
                     // Edit, Write…) are refused.
                     property list<string> allowedTools: ["WebSearch", "WebFetch", "Read", "Glob", "Grep"]
                 }
-                property list<var> extraModels: [
-                    {
-                        "api_format": "openai", // Most of the time you want "openai". Use "gemini" for Google's models
-                        "description": "This is a custom model. Edit the config to add more! | Anyway, this is DeepSeek R1 Distill LLaMA 70B",
-                        "endpoint": "https://openrouter.ai/api/v1/chat/completions",
-                        "homepage": "https://openrouter.ai/deepseek/deepseek-r1-distill-llama-70b:free", // Not mandatory
-                        "icon": "spark-symbolic", // Not mandatory
-                        "key_get_link": "https://openrouter.ai/settings/keys", // Not mandatory
-                        "key_id": "openrouter",
-                        "model": "deepseek/deepseek-r1-distill-llama-70b:free",
-                        "name": "Custom: DS R1 Dstl. LLaMA 70B",
-                        "requires_key": true
-                    }
-                ]
             }
 
             property JsonObject appearance: JsonObject {
@@ -324,7 +317,6 @@ Singleton {
                         property string color: ""
                         property string styleLocked: "cookie"  // Options: "cookie", "digital"
                         property JsonObject cookie: JsonObject {
-                            property bool aiStyling: false
                             property int sides: 14
                             property string dialNumberStyle: "full"   // Options: "dots" , "numbers", "full" , "none"
                             property string hourHandStyle: "fill"     // Options: "classic", "fill", "hollow", "hide"
@@ -923,7 +915,7 @@ Singleton {
             }
 
             property JsonObject custom: JsonObject {
-                property string distroIcon: "google-gemini-symbolic"
+                property string distroIcon: "spark-symbolic"
                 property bool colorizeIcon: true
             }
 

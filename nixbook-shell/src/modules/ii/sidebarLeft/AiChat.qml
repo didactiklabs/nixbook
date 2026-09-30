@@ -55,7 +55,7 @@ Item {
         },
         {
             name: "attach",
-            description: Translation.tr("Attach a file. Only works with Gemini."),
+            description: Translation.tr("Attach a file for Claude to read"),
             execute: args => {
                 Ai.attachFile(args.join(" ").trim());
             }
@@ -64,8 +64,6 @@ Item {
             name: "model",
             description: Translation.tr("Choose model"),
             execute: args => {
-                // No model given: also look for local Ollama models.
-                if (args.length === 0 || !args[0]) Ai.refreshLocalModels();
                 Ai.setModel(args[0]);
             }
         },
@@ -94,17 +92,6 @@ Item {
                     return;
                 }
                 Ai.loadPrompt(args.join(" ").trim());
-            }
-        },
-        {
-            name: "key",
-            description: Translation.tr("Set API key"),
-            execute: args => {
-                if (args[0] == "get") {
-                    Ai.printApiKey();
-                } else {
-                    Ai.setApiKey(args[0]);
-                }
             }
         },
         {
@@ -143,19 +130,6 @@ Item {
             description: Translation.tr("Clear chat history"),
             execute: () => {
                 Ai.clearMessages();
-            }
-        },
-        {
-            name: "temp",
-            description: Translation.tr("Set temperature (randomness) of the model. Values range between 0 to 2 for Gemini, 0 to 1 for other models. Default is 0.5."),
-            execute: args => {
-                // console.log(args)
-                if (args.length == 0 || args[0] == "get") {
-                    Ai.printTemperature();
-                } else {
-                    const temp = parseFloat(args[0]);
-                    Ai.setTemperature(temp);
-                }
             }
         },
         {
@@ -352,23 +326,8 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                     spacing: 10
 
                     StatusItem {
-                        icon: Ai.currentModelHasApiKey ? "key" : "key_off"
-                        statusText: ""
-                        description: Ai.currentModelHasApiKey ? Translation.tr("API key is set\nChange with /key YOUR_API_KEY") : Translation.tr("No API key\nSet it with /key YOUR_API_KEY")
-                    }
-                    StatusSeparator {}
-                    StatusItem {
-                        icon: "device_thermostat"
-                        statusText: Ai.temperature.toFixed(1)
-                        description: Translation.tr("Temperature\nChange with /temp VALUE")
-                    }
-                    StatusSeparator {
-                        visible: Ai.tokenCount.total > 0
-                    }
-                    StatusItem {
-                        visible: Ai.tokenCount.total > 0
                         icon: "token"
-                        statusText: Ai.tokenCount.total
+                        statusText: Ai.tokenCount.total > 0 ? Ai.tokenCount.total : "–"
                         description: Translation.tr("Total token count\nInput: %1\nOutput: %2").arg(Ai.tokenCount.input).arg(Ai.tokenCount.output)
                     }
                 }
@@ -432,11 +391,11 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                 readonly property bool configAssistant: Ai.usingConfigAssistant
                     && (Config.options?.ai?.includeSystemContext ?? true)
                 icon: configAssistant ? "developer_board" : "neurology"
-                title: configAssistant ? Translation.tr("Config assistant") : Translation.tr("Large language models")
+                title: configAssistant ? Translation.tr("Config assistant") : "Claude"
                 descriptionHorizontalAlignment: configAssistant ? Text.AlignHCenter : Text.AlignLeft
                 description: configAssistant
                     ? Translation.tr("Your machine's config: shortcuts, modules, packages, settings.\n\nOne question, naming the thing:\n“shortcut for the launcher”\n“is tailscale enabled?”\n“all shortcuts”\n\nEnglish · Français · Deutsch · Tiếng Việt")
-                    : Translation.tr("Type /key to get started with online models\nCtrl+O to expand sidebar\nCtrl+P to pin sidebar\nCtrl+D to detach sidebar")
+                    : Translation.tr("Type /model to switch models\nCtrl+O to expand sidebar\nCtrl+P to pin sidebar\nCtrl+D to detach sidebar")
                 shape: MaterialShape.Shape.PixelCircle
             }
 
