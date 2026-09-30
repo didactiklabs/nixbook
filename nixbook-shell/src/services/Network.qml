@@ -74,11 +74,14 @@ Singleton {
     }
 
     function connectToWifiNetwork(accessPoint: WifiAccessPoint): void {
+        if (!accessPoint || accessPoint.active || connectProc.running) return;
         accessPoint.askingPassword = false;
         root.wifiConnectTarget = accessPoint;
         // We use this instead of `nmcli connection up SSID` because this also creates a connection profile
-        connectProc.exec(["nmcli", "dev", "wifi", "connect", accessPoint.ssid])
-
+        connectProc.exec({
+            "environment": { "LANG": "C", "LC_ALL": "C", "SSID": accessPoint.ssid },
+            "command": ["sh", "-c", 'nmcli dev wifi connect "$SSID"']
+        });
     }
 
     function disconnectWifiNetwork(): void {
@@ -91,14 +94,16 @@ Singleton {
 
     function changePassword(network: WifiAccessPoint, password: string, username = ""): void {
         // TODO: enterprise wifi with username
+        if (!network || connectProc.running) return;
         network.askingPassword = false;
-        changePasswordProc.exec({
-            "environment": {
-                "PASSWORD": password,
-                "SSID": network.ssid
-            },
-            "command": ["bash", "-c", 'nmcli connection modify "$SSID" wifi-sec.psk "$PASSWORD"']
-        })
+        root.wifiConnectTarget = network;
+        // A failed `dev wifi connect` deletes the profile it created, so there is
+        // nothing to `connection modify`: connect again with the password (it
+        // updates a saved profile's key too).
+        connectProc.exec({
+            "environment": { "LANG": "C", "LC_ALL": "C", "SSID": network.ssid, "PASSWORD": password },
+            "command": ["sh", "-c", 'nmcli dev wifi connect "$SSID" password "$PASSWORD"']
+        });
     }
 
     Process {
@@ -107,27 +112,26 @@ Singleton {
 
     Process {
         id: connectProc
-        environment: ({
-            LANG: "C",
-            LC_ALL: "C"
-        })
+        property bool needsSecrets: false
+        onRunningChanged: if (running) needsSecrets = false
         stdout: SplitParser {
             onRead: line => {
-                // print(line)
                 getNetworks.running = true
             }
         }
         stderr: SplitParser {
             onRead: line => {
-                // print("err:", line)
-                if (line.includes("Secrets were required")) {
-                    root.wifiConnectTarget.askingPassword = true
-                }
+                if (/secrets were required|password|encryption key/i.test(line))
+                    connectProc.needsSecrets = true;
+                else
+                    console.warn("[Network] nmcli:", line);
             }
         }
         onExited: (exitCode, exitStatus) => {
-            root.wifiConnectTarget.askingPassword = (exitCode !== 0)
-            root.wifiConnectTarget = null
+            const target = root.wifiConnectTarget;
+            root.wifiConnectTarget = null;
+            if (target) target.askingPassword = exitCode !== 0 && connectProc.needsSecrets;
+            getNetworks.running = true;
         }
     }
 
@@ -135,14 +139,6 @@ Singleton {
         id: disconnectProc
         stdout: SplitParser {
             onRead: getNetworks.running = true
-        }
-    }
-
-    Process {
-        id: changePasswordProc
-        onExited: { // Re-attempt connection after changing password
-            connectProc.running = false
-            connectProc.running = true
         }
     }
 
