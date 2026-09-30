@@ -19,8 +19,16 @@ set_recording_state() {
 getdate() {
   date '+%Y-%m-%d_%H.%M.%S'
 }
+# The desktop audio: the monitor of the default output (every sink has one,
+# so the first monitor listed is only a fallback).
 getaudiooutput() {
-  pactl list sources | grep 'Name' | grep 'monitor' | cut -d ' ' -f2
+  local sink
+  sink=$(pactl get-default-sink 2>/dev/null)
+  if [[ -n $sink ]]; then
+    echo "$sink.monitor"
+  else
+    pactl list short sources 2>/dev/null | awk '$2 ~ /\.monitor$/ { print $2; exit }'
+  fi
 }
 
 getactivemonitor() {
@@ -30,9 +38,14 @@ getactivemonitor() {
 mkdir -p "$RECORDING_DIR"
 cd "$RECORDING_DIR" || exit
 
+# Usage: record.sh [--region "X,Y WxH" | --output NAME | --fullscreen] [--no-sound]
+# Starts a recording (of the region, the output, the focused output, else a
+# region picked with slurp), with the desktop audio unless --no-sound; stops
+# the running one when there is one. --sound is the default, still accepted.
 ARGS=("$@")
 MANUAL_REGION=""
-SOUND_FLAG=0
+OUTPUT=""
+SOUND_FLAG=1
 FULLSCREEN_FLAG=0
 for ((i = 0; i < ${#ARGS[@]}; i++)); do
   if [[ ${ARGS[i]} == "--region" ]]; then
@@ -43,8 +56,18 @@ for ((i = 0; i < ${#ARGS[@]}; i++)); do
       disown
       exit 1
     fi
+  elif [[ ${ARGS[i]} == "--output" ]]; then
+    if ((i + 1 < ${#ARGS[@]})); then
+      OUTPUT="${ARGS[i + 1]}"
+    else
+      notify-send "Recording cancelled" "No output specified for --output" -a 'Recorder' &
+      disown
+      exit 1
+    fi
   elif [[ ${ARGS[i]} == "--sound" ]]; then
     SOUND_FLAG=1
+  elif [[ ${ARGS[i]} == "--no-sound" ]]; then
+    SOUND_FLAG=0
   elif [[ ${ARGS[i]} == "--fullscreen" ]]; then
     FULLSCREEN_FLAG=1
   fi
@@ -55,15 +78,11 @@ if pgrep wf-recorder >/dev/null; then
   pkill wf-recorder &
   set_recording_state false
 else
-  if [[ $FULLSCREEN_FLAG -eq 1 ]]; then
-    notify-send "Starting recording" 'recording_'"$(getdate)"'.mp4' -a 'Recorder' &
-    disown
-    set_recording_state true
-    if [[ $SOUND_FLAG -eq 1 ]]; then
-      wf-recorder -o "$(getactivemonitor)" --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t --audio="$(getaudiooutput)"
-    else
-      wf-recorder -o "$(getactivemonitor)" --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t
-    fi
+  if [[ $FULLSCREEN_FLAG -eq 1 && -z $OUTPUT ]]; then
+    OUTPUT="$(getactivemonitor)"
+  fi
+  if [[ -n $OUTPUT ]]; then
+    target=(-o "$OUTPUT")
   else
     if [[ -n $MANUAL_REGION ]]; then
       region="$MANUAL_REGION"
@@ -74,14 +93,16 @@ else
         exit 1
       fi
     fi
-    notify-send "Starting recording" 'recording_'"$(getdate)"'.mp4' -a 'Recorder' &
-    disown
-    set_recording_state true
-    if [[ $SOUND_FLAG -eq 1 ]]; then
-      wf-recorder --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t --geometry "$region" --audio="$(getaudiooutput)"
-    else
-      wf-recorder --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t --geometry "$region"
-    fi
+    target=(--geometry "$region")
   fi
+  audio=()
+  if [[ $SOUND_FLAG -eq 1 ]]; then
+    audio=(--audio="$(getaudiooutput)")
+  fi
+  file='./recording_'"$(getdate)"'.mp4'
+  notify-send "Starting recording" "${file#./}" -a 'Recorder' &
+  disown
+  set_recording_state true
+  wf-recorder "${target[@]}" --pixel-format yuv420p -f "$file" -t "${audio[@]}"
   set_recording_state false
 fi

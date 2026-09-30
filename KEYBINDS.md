@@ -141,6 +141,8 @@ nixbook-shell binds all spawn `nixbook-shell ipc call <target> <function>`.
 | `S`               | Screen selection: hovering a screen selects it, a click takes it (`S` again: rectangle)       |
 | `Esc`             | Cancel                                                                                        |
 
+The same selector opens to record the screen (the bar's record button, or `nixbook-shell ipc call region recordWithSound`): a rectangle, `W` a window (the area it is shown in when clicked) or `S` a whole screen, recorded with the desktop audio. The record button again stops it.
+
 ---
 
 ## Sway (SwayFX i3-like compositor — anya)

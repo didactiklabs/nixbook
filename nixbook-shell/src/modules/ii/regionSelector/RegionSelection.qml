@@ -22,8 +22,9 @@ PanelWindow {
     color: "transparent"
     WlrLayershell.namespace: "quickshell:regionSelector"
     WlrLayershell.layer: WlrLayer.Overlay
-    // Only exists while selecting: take the keyboard (Escape cancels).
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+    // Takes the keyboard while selecting (Escape cancels), not while it only
+    // draws the border of a recording.
+    WlrLayershell.keyboardFocus: root.phase === RegionSelection.Phase.Select ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
     anchors {
         left: true
@@ -44,6 +45,8 @@ PanelWindow {
     signal dismiss()
     // The mode is shared by every screen's selector: ask RegionSelector.
     signal selectionModeRequested(var mode)
+    // A recording of this screen started: the other screens' selectors close.
+    signal recordingStarted()
     // niri's gaps/struts, for the window estimate (RegionFunctions.parseNiriLayout).
     property var niriLayout: RegionFunctions.parseNiriLayout("")
 
@@ -278,13 +281,35 @@ PanelWindow {
         
         const screenshotDir = ScreenshotAction.saveDir;
         var screenshotAction = root.getScreenshotAction();
-        const isRecording = root.action === RegionSelection.SnipAction.Record
-            || root.action === RegionSelection.SnipAction.RecordWithSound;
+        if (root.isRecording) {
+            // Screen: the whole output. Window, rectangle, circle: the area
+            // selected (a window as it is shown now: wf-recorder records the
+            // screen, it can't follow a window), in global logical coordinates.
+            const wholeScreen = root.selectionMode === RegionSelection.SelectionMode.Screen;
+            Quickshell.execDetached(ScreenshotAction.getRecordCommand(
+                wholeScreen ? root.screen.name : "",
+                root.monitorOffsetX + root.regionX,
+                root.monitorOffsetY + root.regionY,
+                root.regionWidth,
+                root.regionHeight,
+                root.action === RegionSelection.SnipAction.RecordWithSound));
+            root.recordingStarted();
+            if (wholeScreen) {
+                root.dismiss(); // no border to draw: it is off screen
+            } else {
+                // The recorded area's border (drawn just outside it, so not
+                // recorded) stays until the recording stops.
+                root.snipWindowId = "";
+                root.phase = RegionSelection.Phase.Post;
+                root.selectionModeRequested(RegionSelection.SelectionMode.RectCorners);
+            }
+            return;
+        }
         let command;
-        if (root.snipWindowId !== "" && !isRecording) {
+        if (root.snipWindowId !== "") {
             command = ScreenshotAction.getWindowCommand(root.snipWindowId, screenshotAction, screenshotDir);
         } else {
-            root.snipped = !isRecording; // the command reads and removes the capture
+            root.snipped = true; // the command reads and removes the capture
             command = ScreenshotAction.getCommand(
                 root.regionX * root.monitorScale, //
                 root.regionY * root.monitorScale, //
@@ -296,12 +321,7 @@ PanelWindow {
             )
         }
         Quickshell.execDetached(command);
-        if (root.action == RegionSelection.SnipAction.Record || root.action == RegionSelection.SnipAction.RecordWithSound) {
-            root.phase = RegionSelection.Phase.Post
-            root.selectionMode = RegionSelection.SelectionMode.RectCorners
-        } else {
-            root.dismiss();
-        }
+        root.dismiss();
     }
 
     // Only clickable in Selection phase
