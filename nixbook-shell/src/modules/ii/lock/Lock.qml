@@ -24,7 +24,11 @@ LockScreen {
             `${Directories.wallpaperSwitchScriptPath} --mode ${Appearance.m3colors.darkmode ? "dark" : "light"} --colors_lock --image '${Config.options.background.lockWall}'`
         ]
         onExited: {
-            MaterialThemeLoader.useLockTheme()
+            // Generating the palette takes a while: when the screen was
+            // unlocked meanwhile, the live palette stays (switching now would
+            // leave the lock one in place for good, apps included).
+            if (GlobalStates.screenLocked)
+                MaterialThemeLoader.useLockTheme()
             root.lastProcessedLockWall = Config.options.background.lockWall
             root.lastProcessedDarkmode = Appearance.m3colors.darkmode
         }
@@ -42,10 +46,8 @@ LockScreen {
                 } else if (Config.options.background.lockWall !== "") {
                     MaterialThemeLoader.useLockTheme()
                 }
-            } else {
-                if (Config.options.background.lockWall !== "") {
-                    MaterialThemeLoader.useLiveTheme()
-                }
+            } else if (MaterialThemeLoader.filePath !== Directories.generatedMaterialThemePath) {
+                MaterialThemeLoader.useLiveTheme()
             }
         }
     }
