@@ -8,11 +8,8 @@ Usage: render-app-colors.py TEMPLATE OUTPUT [TEMPLATE OUTPUT]... < PALETTE_JSON
 PALETTE_JSON maps Material roles (snake_case, e.g. "surface_container_low")
 to "#rrggbb". The templates use matugen's placeholders:
 {{colors.<role>.default.hex}} and .red / .green / .blue, and {{mode}}
-("light" or "dark", from the surface). {{colors.<role>.dark.hex}} is the
-dark version of the palette, for apps that only have a dark look (their own
-styles hard-code light text): the palette itself when it's dark, else
-dark_of() it. Prints the outputs whose content changed (one per line), so
-the caller only reloads those apps.
+("light" or "dark", from the surface). Prints the outputs whose content
+changed (one per line), so the caller only reloads those apps.
 
 The apps draw these colours as text, so the palette is made readable first
 (readable()): a theme variant's palette is chosen for the shell's look and may
@@ -30,7 +27,7 @@ import sys
 import tempfile
 
 PLACEHOLDER = re.compile(
-    r"\{\{\s*(?:colors\.([a-z_]+)\.(default|dark)\.(hex|red|green|blue)|(mode))\s*\}\}"
+    r"\{\{\s*(?:colors\.([a-z_]+)\.default\.(hex|red|green|blue)|(mode))\s*\}\}"
 )
 
 # The backgrounds the apps put text on.
@@ -114,62 +111,6 @@ def readable_on(color, backgrounds, ratio):
     return max(("#000000", "#ffffff"), key=lambda c: min(contrast(c, bg) for bg in backgrounds))
 
 
-def with_lightness(color, lightness):
-    h, _, s = colorsys.rgb_to_hls(*rgb(color))
-    return to_hex(colorsys.hls_to_rgb(h, lightness, s))
-
-
-def dark_of(palette):
-    """A dark palette with the hues of PALETTE (itself when it is dark): the
-    surfaces are its text colour's hue at Material's dark tones, the text is
-    its light surface, and the accents are the light tones it already has
-    (inverse_primary, the *_fixed_dim roles: Material's tone 80), which
-    readable() then lifts where needed."""
-    paper = palette.get("surface", "#ffffff")
-    if not is_light(paper):
-        return palette
-    ink = palette.get("on_surface", "#1b1b1f")
-    dark = dict(palette)
-    for role, lightness in [
-        ("surface_container_lowest", 0.04),
-        ("background", 0.06),
-        ("surface", 0.06),
-        ("surface_dim", 0.06),
-        ("surface_container_low", 0.09),
-        ("surface_container", 0.11),
-        ("surface_container_high", 0.15),
-        ("surface_container_highest", 0.19),
-        ("surface_variant", 0.19),
-        ("surface_bright", 0.22),
-    ]:
-        dark[role] = with_lightness(ink, lightness)
-    dark.update(
-        on_background=paper,
-        on_surface=paper,
-        on_surface_variant=with_lightness(palette.get("on_surface_variant", ink), 0.8),
-        outline=with_lightness(palette.get("outline", ink), 0.6),
-        outline_variant=with_lightness(palette.get("outline_variant", ink), 0.3),
-        inverse_surface=paper,
-        inverse_on_surface=ink,
-        inverse_primary=palette.get("primary", ink),
-    )
-    for accent in ("primary", "secondary", "tertiary", "error"):
-        color = palette.get(accent)
-        if color is None:
-            continue
-        if accent == "error":
-            dark[accent] = with_lightness(color, 0.8)
-        elif accent == "primary" and "inverse_primary" in palette:
-            dark[accent] = palette["inverse_primary"]
-        else:
-            dark[accent] = palette.get(f"{accent}_fixed_dim", color)
-        dark[f"on_{accent}"] = palette.get(f"on_{accent}_container", ink)
-        dark[f"{accent}_container"] = with_lightness(color, 0.28)
-        dark[f"on_{accent}_container"] = palette.get(f"{accent}_container", paper)
-    dark["surface_tint"] = dark.get("primary", ink)
-    return dark
-
-
 def readable(palette):
     palette = dict(palette)
     surfaces = [palette[r] for r in SURFACES if r in palette]
@@ -183,15 +124,15 @@ def readable(palette):
     return palette
 
 
-def render(template, palettes):
+def render(template, palette):
     missing = set()
-    mode = "light" if is_light(palettes["default"].get("surface", "#ffffff")) else "dark"
+    mode = "light" if is_light(palette.get("surface", "#ffffff")) else "dark"
 
     def value(match):
-        role, variant, field, is_mode = match.groups()
+        role, field, is_mode = match.groups()
         if is_mode:
             return mode
-        color = palettes[variant].get(role)
+        color = palette.get(role)
         if color is None:
             missing.add(role)
             return match.group(0)
@@ -215,16 +156,15 @@ def write(path, text):
 
 def main(pairs):
     # "#rrggbb", or Qt's "#aarrggbb" (alpha dropped).
-    palette = {
+    palette = readable({
         role: "#" + color.lstrip("#")[-6:].lower()
         for role, color in json.load(sys.stdin).items()
         if isinstance(color, str) and re.fullmatch(r"#?([0-9A-Fa-f]{2})?[0-9A-Fa-f]{6}", color)
-    }
-    palettes = {"default": readable(palette), "dark": readable(dark_of(palette))}
+    })
     failed = False
     for template, output in pairs:
         with open(template) as f:
-            text, missing = render(f.read(), palettes)
+            text, missing = render(f.read(), palette)
         if missing:
             print(f"{template}: no colour for {', '.join(sorted(missing))}", file=sys.stderr)
             failed = True

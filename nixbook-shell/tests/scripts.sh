@@ -385,39 +385,35 @@ else
 fi
 # A light theme palette with a pastel primary (Chiikawa's Momonga): the
 # primary is darkened until it reads as text on the surface (4.5:1), its
-# on_primary follows, readable colours stay as they are; .dark is the same
-# hues on dark surfaces (a dark palette's .dark is the palette itself).
+# on_primary follows, readable colours stay as they are.
 light='{"surface":"#fcf9ff","on_surface":"#2d2540","primary":"#b7a4e9","on_primary":"#1f1438"}'
-printf '{{colors.primary.default.hex}} {{colors.on_primary.default.hex}} {{colors.on_surface.default.hex}} {{mode}} {{colors.surface.dark.hex}} {{colors.on_surface.dark.hex}} {{colors.primary.dark.hex}}\n' >"$tmp/modes.tpl"
+printf '{{colors.primary.default.hex}} {{colors.on_primary.default.hex}} {{colors.on_surface.default.hex}} {{mode}}\n' >"$tmp/modes.tpl"
 "$colors/render-app-colors.py" "$tmp/modes.tpl" "$tmp/apps/light.txt" <<<"$light" >/dev/null
-expect_eq "render-app-colors.py: text roles made readable, .dark derived" "#7d5ad7 #f9f7fc #2d2540 light #0e0b13 #fcf9ff #b7a4e9" "$(cat "$tmp/apps/light.txt")"
+expect_eq "render-app-colors.py: text roles made readable" "#7d5ad7 #f9f7fc #2d2540 light" "$(cat "$tmp/apps/light.txt")"
 dark='{"surface":"#141218","on_surface":"#e6e0e9","primary":"#d0bcff","on_primary":"#381e72"}'
 "$colors/render-app-colors.py" "$tmp/modes.tpl" "$tmp/apps/dark.txt" <<<"$dark" >/dev/null
-expect_eq "render-app-colors.py: a readable dark palette is left alone" "#d0bcff #381e72 #e6e0e9 dark #141218 #e6e0e9 #d0bcff" "$(cat "$tmp/apps/dark.txt")"
+expect_eq "render-app-colors.py: a readable dark palette is left alone" "#d0bcff #381e72 #e6e0e9 dark" "$(cat "$tmp/apps/dark.txt")"
 
-# A home with a Zen profile (relative path in profiles.ini) and Vesktop /
-# YouTube Music settings files.
+# A home with a Zen profile (relative path in profiles.ini) and Vesktop
+# settings.
 home="$tmp/home"
 zen_profile="$home/.config/zen/abc.default"
-mkdir -p "$zen_profile" "$home/.config/vesktop/settings" "$home/.config/YouTube Music"
+mkdir -p "$zen_profile" "$home/.config/vesktop/settings"
 printf '[General]\nStartWithLastProfile=1\n\n[Profile0]\nName=default\nIsRelative=1\nPath=abc.default\n' >"$home/.config/zen/profiles.ini"
 printf 'body { color: red; }\n' >"$tmp/userChrome.css"
 cp "$tmp/userChrome.css" "$zen_profile/chrome.keep" && mkdir -p "$zen_profile/chrome" && mv "$zen_profile/chrome.keep" "$zen_profile/chrome/userChrome.css"
 printf 'user_pref("browser.startup.page", 3);\n' >"$zen_profile/prefs.js"
 echo '{"enabledThemes":["other.css"]}' >"$home/.config/vesktop/settings/settings.json"
-echo '{"options":{"themes":[]}}' >"$home/.config/YouTube Music/config.json"
 in_home() { HOME="$home" XDG_CONFIG_HOME="$home/.config" XDG_STATE_HOME="$home/.local/state" XDG_DATA_HOME="$home/.local/share" XDG_RUNTIME_DIR="$tmp" "$@"; }
 
 expect_eq "zen-theme.py: profiles from profiles.ini" "$(realpath "$zen_profile")" "$(in_home "$colors/zen-theme.py" profiles)"
 
 # Every role the templates use, all #abcdef.
-full_palette=$(grep -ohE 'colors\.[a-z_]+\.(default|dark)' "$colors"/app-templates/* | cut -d. -f2 | sort -u |
+full_palette=$(grep -ohE 'colors\.[a-z_]+\.default' "$colors"/app-templates/* | cut -d. -f2 | sort -u |
   jq -R -s -c 'split("\n") | map(select(. != "")) | map({(.): "#abcdef"}) | add')
-in_home "$colors/apply-app-colors.sh" "$full_palette" slack,vesktop,youtube-music,zen
-expect_eq "apply-app-colors.sh: Slack CSS written" "true" "$(grep -q '#abcdef' "$home/.local/state/quickshell/user/generated/apps/slack.css" && echo true)"
+in_home "$colors/apply-app-colors.sh" "$full_palette" vesktop,zen
 expect_eq "apply-app-colors.sh: Vesktop theme written" "true" "$(grep -q '#abcdef' "$home/.config/vesktop/themes/nixbook-shell.css" && echo true)"
 expect_eq "apply-app-colors.sh: ...and turned on, other themes kept" '["other.css","nixbook-shell.css"]' "$(jq -c .enabledThemes "$home/.config/vesktop/settings/settings.json")"
-expect_eq "apply-app-colors.sh: YouTube Music theme added" "[\"$home/.local/state/quickshell/user/generated/apps/youtube-music.css\"]" "$(jq -c .options.themes "$home/.config/YouTube Music/config.json")"
 expect_eq "apply-app-colors.sh: Zen CSS in the profile" "true" "$(grep -q '#abcdef' "$zen_profile/chrome/nixbook-shell.css" && echo true)"
 expect_eq "zen-theme.py: import first, the rest of userChrome.css kept" '@import url("nixbook-shell.css");'$'\n''body { color: red; }' "$(cat "$zen_profile/chrome/userChrome.css")"
 expect_contains "zen-theme.py: userChrome pref set while Zen is closed" "$(cat "$zen_profile/prefs.js")" 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);'
@@ -438,8 +434,6 @@ rm "$zen_profile/lock"
 
 in_home "$colors/apply-app-colors.sh" "$full_palette" ""
 expect_eq "apply-app-colors.sh: switched off, Vesktop theme turned off" '["other.css"]' "$(jq -c .enabledThemes "$home/.config/vesktop/settings/settings.json")"
-expect_eq "apply-app-colors.sh: ...YouTube Music theme removed" '[]' "$(jq -c .options.themes "$home/.config/YouTube Music/config.json")"
-expect_eq "apply-app-colors.sh: ...Slack CSS removed" "false" "$([ -e "$home/.local/state/quickshell/user/generated/apps/slack.css" ] && echo true || echo false)"
 expect_eq "apply-app-colors.sh: ...Zen import removed" 'body { color: red; }' "$(cat "$zen_profile/chrome/userChrome.css")"
 if [ -e "$zen_profile/chrome/nixbook-shell.css" ] || [ -e "$home/.config/vesktop/themes/nixbook-shell.css" ]; then
   fail "apply-app-colors.sh: ...generated files removed"

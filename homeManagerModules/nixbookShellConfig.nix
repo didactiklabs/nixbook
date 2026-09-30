@@ -147,8 +147,8 @@ in
       # Qt apps can follow the palette the shell shows (the wallpaper's or the
       # theme variant's) instead of stylix's (stylixConfig.nix turns its qt and
       # zen-browser targets off for this). Which apps do (Qt/KDE, Vesktop,
-      # YouTube Music, Zen) is switched in the shell: Settings > Appearance >
-      # Color generation > Apps.
+      # Zen) is switched in the shell: Settings > Appearance > Color
+      # generation > Apps.
       appTheming.qt.enable = true;
 
       assistant = {

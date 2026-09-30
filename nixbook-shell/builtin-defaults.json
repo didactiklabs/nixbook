@@ -63,9 +63,7 @@
     "wallpaperTheming": {
       "apps": {
         "qt": true,
-        "slack": true,
         "vesktop": true,
-        "youtubeMusic": true,
         "zen": true
       },
       "enableAppsAndShell": true,

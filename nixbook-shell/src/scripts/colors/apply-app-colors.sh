@@ -9,11 +9,7 @@
 #     KDE apps are told the palette changed; qt6ct/qt5ct (set up by
 #     programs.nixbook-shell.appTheming.qt) reread their colour scheme when
 #     their config directory changes.
-#   slack: a CSS file the patched Slack (nixbook-shell/slack.nix) watches and
-#     swaps in live; removed, it is gone from Slack too.
 #   vesktop: the theme in its themes folder, which it reloads by itself.
-#   youtube-music: a CSS theme in pear-desktop's options.themes, swapped live
-#     in the running app (youtube-music-live.py).
 #   zen: the CSS imported by each profile's userChrome.css (zen-theme.py);
 #     Zen only reads it at startup, so a running Zen offers a restart.
 # An app switched off gets its setup undone (Qt: its files just stop being
@@ -35,9 +31,6 @@ on() { [[ "$enabled" == *",$1,"* ]]; }
 
 vesktop_css="$XDG_CONFIG_HOME/vesktop/themes/nixbook-shell.css"
 vesktop_settings="$XDG_CONFIG_HOME/vesktop/settings/settings.json"
-ytm_css="$APPS_DIR/youtube-music.css"
-slack_css="$APPS_DIR/slack.css"
-ytm_settings="$XDG_CONFIG_HOME/YouTube Music/config.json"
 
 # edit_list FILE JQ_PATH add|del VALUE: VALUE added to / removed from the JSON
 # array at JQ_PATH of FILE, everything else kept. Only once the app has
@@ -63,9 +56,7 @@ edit_list() {
 # The templates of the apps switched on, and where they go.
 pairs=()
 on qt && pairs+=("$TEMPLATES/qt-colors.conf" "$APPS_DIR/qt-colors.conf")
-on slack && pairs+=("$TEMPLATES/slack.css" "$slack_css")
 on vesktop && pairs+=("$TEMPLATES/vesktop.css" "$vesktop_css")
-on youtube-music && pairs+=("$TEMPLATES/youtube-music.css" "$ytm_css")
 if on zen; then
   while IFS= read -r profile; do
     [ -n "$profile" ] && pairs+=("$TEMPLATES/zen-userChrome.css" "$profile/chrome/nixbook-shell.css")
@@ -96,30 +87,12 @@ if on qt && was_changed "$APPS_DIR/qt-colors.conf"; then
   done
 fi
 
-# Slack: the patched app follows the file, there or not.
-on slack || rm -f "$slack_css"
-
 # Vesktop: the theme is in its themes folder; turn it on.
 if on vesktop; then
   edit_list "$vesktop_settings" .enabledThemes add nixbook-shell.css
 else
   edit_list "$vesktop_settings" .enabledThemes del nixbook-shell.css
   rm -f "$vesktop_css"
-fi
-
-# YouTube Music (pear-desktop): its CSS themes are file paths, read when a page
-# loads; the running app gets the new colours live.
-if on youtube-music; then
-  edit_list "$ytm_settings" .options.themes add "$ytm_css"
-  if was_changed "$ytm_css"; then
-    "$SCRIPT_DIR/youtube-music-live.py" "$ytm_css" >/dev/null
-  fi
-else
-  edit_list "$ytm_settings" .options.themes del "$ytm_css"
-  if [ -f "$ytm_css" ]; then
-    "$SCRIPT_DIR/youtube-music-live.py" --remove >/dev/null
-    rm -f "$ytm_css"
-  fi
 fi
 
 # Zen: set up where it's closed; a running Zen showing old colours gets a

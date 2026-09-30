@@ -33,7 +33,6 @@ let
     ps.pygobject3 # thumbnails/thumbgen.py
     ps.google-auth # services/gCloud/token_from_key.py
     ps.requests # services/gCloud/token_from_key.py
-    ps.websocket-client # scripts/colors/youtube-music-live.py
   ]);
 
   # thumbgen.py pulls Gio + GnomeDesktop through gobject-introspection.

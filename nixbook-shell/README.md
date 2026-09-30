@@ -446,13 +446,11 @@ off undoes its setup). `services/AppTheming.qml` hands the palette to
 `scripts/colors/apply-app-colors.sh`, which renders the templates in
 `scripts/colors/app-templates/` and gets them to the apps:
 
-| App           | How the running app gets the new colours                                                                                                                                                                                                                                     |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Qt & KDE      | Live: kdeglobals + a palette-changed signal; Qt apps read the palette through qt6ct/qt5ct, set up by `programs.nixbook-shell.appTheming.qt.enable`                                                                                                                           |
-| Slack         | Live: the Slack `slack.nix` patches (nixbook overlays `pkgs.slack` with it) loads the CSS as a user stylesheet and swaps it when the file changes; stock Slack ignores it                                                                                                    |
-| Vesktop       | Live: its themes folder                                                                                                                                                                                                                                                      |
-| YouTube Music | Live (`youtube-music-live.py`): SIGUSR1 opens pear-desktop's Node inspector on 127.0.0.1:9229, the CSS is swapped in its windows and the inspector is closed again (about a second, during which a local process could run code in it). Its `options.themes` covers restarts |
-| Zen Browser   | At startup only (`zen-theme.py`): the CSS is imported by each profile's `userChrome.css`; while Zen runs, a notification offers to restart it (SIGTERM, a normal quit; the session is restored)                                                                              |
+| App         | How the running app gets the new colours                                                                                                                                                        |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Qt & KDE    | Live: kdeglobals + a palette-changed signal; Qt apps read the palette through qt6ct/qt5ct, set up by `programs.nixbook-shell.appTheming.qt.enable`                                              |
+| Vesktop     | Live: its themes folder                                                                                                                                                                         |
+| Zen Browser | At startup only (`zen-theme.py`): the CSS is imported by each profile's `userChrome.css`; while Zen runs, a notification offers to restart it (SIGTERM, a normal quit; the session is restored) |
 
 The palette is made readable before it is rendered
 (`render-app-colors.py`): a theme variant's colours are picked for the
@@ -463,14 +461,16 @@ is unreadable as the link, tab or icon colour the apps use it for. Text roles
 each `on_<role>` against its `<role>`, by moving only their lightness; colours
 that already read are untouched (Material's generated palettes are). Besides
 matugen's `{{colors.<role>.default.hex}}`, templates can use `{{mode}}`
-(`light`/`dark`) and `{{colors.<role>.dark.hex}}`: the palette's dark version
-(the same hues at dark tones while the shell is light), for apps with only a
-dark look. YouTube Music uses it: its own styles hard-code white and grey text
-in over a thousand rules, so a light palette left most of its text invisible.
-Zen's template overrides what its workspace theme sets inline on the window
-and on each `zen-workspace` (`--toolbox-textcolor`, `--zen-primary-color`,
-`color-scheme`), which otherwise kept its own light/dark text over the
-palette's background; web pages keep Zen's own light/dark setting.
+(`light`/`dark`). Zen's template overrides what its workspace theme sets
+inline on the window and on each `zen-workspace` (`--toolbox-textcolor`,
+`--zen-primary-color`, `color-scheme`), which otherwise kept its own
+light/dark text over the palette's background; web pages keep Zen's own
+light/dark setting.
+
+Slack and YouTube Music are deliberately not themed: Slack looked bad
+recoloured, and YouTube Music is dark-only (its styles hard-code white and
+grey text in over a thousand rules). Their old switches
+(`appearance.wallpaperTheming.apps.slack` / `.youtubeMusic`) are removed keys.
 
 ### Adding a theme
 
@@ -521,7 +521,6 @@ ignored.
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
 | `default.nix`      | entry point (`package`, `homeManagerModules.default`, `lib`)                                                               |
 | `package.nix`      | the launcher: runtime `PATH`, QML import path, `config` CLI                                                                |
-| `slack.nix`        | Slack loading the shell's colours (`slack-theme.js` appended to its main bundle)                                           |
 | `dankcalendar.nix` | DankCalendar (`dcal`), the calendar and task sync, from `npins/`                                                           |
 | `qml.nix`          | the QML tree as installed (store-path fixups, Persona, Chiikawa and Cyberpunk art and sounds, emoji list)                  |
 | `fonts.nix`        | the faces `appearance.fonts` names that nixpkgs lacks (Google Sans Flex, Space Grotesk, Rajdhani)                          |
