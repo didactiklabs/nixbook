@@ -92,7 +92,11 @@ let
 
       programs = {
         ydotool.enable = true; # clipboard prerequisite
-        zsh.enable = true;
+        zsh = {
+          enable = true;
+          # home-manager's zsh (zshConfig) already runs compinit; don't run it twice.
+          enableGlobalCompInit = false;
+        };
       };
 
       users.users."${username}" = {

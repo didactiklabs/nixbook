@@ -93,6 +93,16 @@ in
         shellAliases = common.commonShellAliases;
         initContent = ''
           ${common.anyNixShellInit "zsh"}
+          # any-nix-shell's precmd forks nix-shell-info + sed on every prompt, but it only
+          # prints something inside a nix shell; skip it everywhere else.
+          functions[__any_nix_shell_precmd]=$functions[precmd]
+          precmd() {
+            if [[ -n $IN_NIX_SHELL$IN_NIX_RUN ]]; then
+              __any_nix_shell_precmd
+            else
+              RPROMPT=
+            fi
+          }
 
           # The parts of oh-my-zsh's lib we actually used, without its ~65ms startup cost.
           setopt auto_cd auto_pushd pushd_ignore_dups pushdminus
