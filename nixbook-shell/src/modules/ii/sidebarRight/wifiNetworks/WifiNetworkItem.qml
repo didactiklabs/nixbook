@@ -56,6 +56,16 @@ DialogListItem {
             visible: root.wifiNetwork?.askingPassword ?? false
 
             MaterialTextField {
+                id: usernameField
+                visible: root.wifiNetwork?.isEnterprise ?? false
+                Layout.fillWidth: true
+                Layout.bottomMargin: 4
+                placeholderText: Translation.tr("Username")
+                inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+                onAccepted: passwordField.forceActiveFocus()
+            }
+
+            MaterialTextField {
                 id: passwordField
                 Layout.fillWidth: true
                 placeholderText: Translation.tr("Password")
@@ -65,7 +75,7 @@ DialogListItem {
                 inputMethodHints: Qt.ImhSensitiveData
 
                 onAccepted: {
-                    Network.changePassword(root.wifiNetwork, passwordField.text);
+                    Network.changePassword(root.wifiNetwork, passwordField.text, usernameField.text);
                 }
             }
 
@@ -86,7 +96,7 @@ DialogListItem {
                 DialogButton {
                     buttonText: Translation.tr("Connect")
                     onClicked: {
-                        Network.changePassword(root.wifiNetwork, passwordField.text);
+                        Network.changePassword(root.wifiNetwork, passwordField.text, usernameField.text);
                     }
                 }
             }
