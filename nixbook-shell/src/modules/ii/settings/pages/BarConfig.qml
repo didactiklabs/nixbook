@@ -578,7 +578,7 @@ ContentPage {
                         Layout.fillWidth: true
                         Layout.margins: 8
                         wrapMode: Text.Wrap
-                        text: Translation.tr("A message shown by a desktop app and mirrored from your phone (%1) appears once, from the desktop app, whichever copy arrives first. The phone's copy must end with the same message and mention the same sender or channel.").arg((Config.options.notifications.deduplicate.relayApps ?? []).join(", "))
+                        text: Translation.tr("A message shown by a desktop app and mirrored from your phone (%1) appears once, from the desktop app, whichever copy arrives first. The phone's copy must end with the same message and mention the same sender or channel; when it also brings newer messages, it replaces the desktop one, so a conversation shows once.").arg((Config.options.notifications.deduplicate.relayApps ?? []).join(", "))
                         font.pixelSize: Appearance.font.pixelSize.small
                         color: Appearance.colors.colSubtext
                     }
@@ -607,6 +607,14 @@ ContentPage {
                         text: Translation.tr("Keep one history entry per message")
                         checked: Config.options.notifications.deduplicate.history
                         onCheckedChanged: Config.options.notifications.deduplicate.history = checked
+                    }
+                    ConfigSwitch {
+                        configKey: "notifications.deduplicate.hideOwnMessages"
+                        enabled: Config.options.notifications.deduplicate.enable
+                        buttonIcon: "reply"
+                        text: Translation.tr("Hide your own replies mirrored from the phone (\"You:\")")
+                        checked: Config.options.notifications.deduplicate.hideOwnMessages
+                        onCheckedChanged: Config.options.notifications.deduplicate.hideOwnMessages = checked
                     }
                 }
             }

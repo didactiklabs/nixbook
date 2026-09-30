@@ -777,6 +777,8 @@ Singleton {
                     property int repeatWindow: 2
                     property list<string> relayApps: ["KDE Connect", "GSConnect"]
                     property bool history: true
+                    // Drop a phone's copy of the user's own message ("You: …").
+                    property bool hideOwnMessages: true
                 }
                 property JsonObject cutIn: JsonObject {
                     property bool enable: true
