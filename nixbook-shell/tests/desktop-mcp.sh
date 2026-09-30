@@ -162,6 +162,12 @@ Type=Application
 Name=Calculator
 Exec=org.gnome.Calculator
 EOF
+cat >"$tmp/data/applications/kcm_webshortcuts.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Web Search Keywords
+Exec=kcmshell6 kcm_webshortcuts
+EOF
 cat >"$tmp/data/applications/htop.desktop" <<'EOF'
 [Desktop Entry]
 Type=Application
@@ -576,6 +582,13 @@ expect_eq "run_steps remember_as: recipe saved" recipe "$(jq -r '.notes[] | sele
 # Notes are linked to the apps they are about (here through the learned alias).
 expect_eq "remember: note linked to its app" '["org.mozilla.firefox"]' "$(jq -c --arg id "$note_id" '.notes[] | select(.id==$id) | .apps' "$mem")"
 call remember '{"topic":"zen browser","text":"new tab ctrl+t, address bar ctrl+l"}' >/dev/null
+call remember '{"topic":"apartment search","text":"edit the URL filters"}' >/dev/null
+expect_eq "remember: not linked to an app sharing one word of its name" '[]' "$(jq -c '.notes[] | select(.topic=="apartment search") | .apps' "$mem")"
+out=$(call remember '{"topic":"Discord","text":"Vesktop: the member list is ctrl+u"}')
+expect_contains "remember: lists the notes already on the topic" "$out" "Other notes on this topic:
+- [$note_id] discord: Vesktop: open a DM"
+expect_contains "remember: asks to merge them" "$out" "remember with its id"
+call forget "$(jq -c '{id: (.notes[] | select(.text | contains("ctrl+u")) | .id)}' "$mem")" >/dev/null
 call remember '{"topic":"wifi","text":"quick settings in the right sidebar, Mod+N"}' >/dev/null
 call remember '{"topic":"spotify","text":"play/pause with space when focused"}' >/dev/null
 
@@ -622,7 +635,8 @@ expect_not_contains "just in time: not in the chat's one-off calls" "$(call focu
 
 out=$(call recall '{"query":"discord"}')
 expect_eq "recall: best matches" 2 "$(jq '.notes | length' <<<"$out")"
-expect_eq "recall: counts uses" 1 "$(jq --arg id "$note_id" '.notes[] | select(.id==$id) | .uses' "$mem")"
+# Given with the task's digest, just in time, then recalled.
+expect_eq "recall: counts uses" 3 "$(jq --arg id "$note_id" '.notes[] | select(.id==$id) | .uses' "$mem")"
 out=$(call recall '{"query":"how do I open a tab in the browser"}')
 expect_eq "recall: ranked by words, not substrings" "zen browser" "$(jq -r '.notes[0].topic' <<<"$out")"
 out=$(call recall '{}')
@@ -631,6 +645,12 @@ expect_contains "recall: nothing" "$(call recall '{"query":"blender"}')" "no not
 out=$(call forget "{\"id\":\"$note_id\"}")
 expect_contains "forget" "$out" "forgot note $note_id"
 expect_contains "forget: unknown" "$(call forget '{"id":"abc"}')" "no note abc"
+# Version 1 linked notes to any app sharing a word with the topic: linked again on load.
+jq '.version = 1 | .notes += [{id: "0a0a0a", topic: "apartment search", text: "t", apps: ["kcm_webshortcuts"], uses: 0},
+                             {id: "0b0b0b", topic: "firefox tabs", text: "t", apps: [], uses: 0}]' "$mem" >"$mem.new" && mv "$mem.new" "$mem"
+call recall '{}' >/dev/null
+expect_eq "memory v1: notes linked again" '2 [] ["org.mozilla.firefox"]' \
+  "$(jq -r '"\(.version) \(.notes[] | select(.id=="0a0a0a") | .apps | tojson) \(.notes[] | select(.id=="0b0b0b") | .apps | tojson)"' "$mem")"
 python3 "$mcp" memory clear notes >/dev/null
 expect_eq "memory clear notes: aliases kept" "0 org.mozilla.firefox" "$(jq -r '"\(.notes | length) \(.aliases.discord)"' "$mem")"
 python3 "$mcp" memory clear usage aliases >/dev/null
