@@ -49,7 +49,7 @@ Singleton {
         const cropInPlace = `${cropBase} '${StringUtils.shellSingleQuoteEscape(screenshotPath)}'`
         const cleanup = `rm '${StringUtils.shellSingleQuoteEscape(screenshotPath)}'`
         const uploadAndGetUrl = (filePath) => {
-            return `curl -sF files[]=@'${StringUtils.shellSingleQuoteEscape(filePath)}' ${root.fileUploadApiEndpoint} | jq -r '.files[0].url'`
+            return `curl -sSf --max-time 30 -F 'files[]=@${StringUtils.shellSingleQuoteEscape(filePath)}' ${root.fileUploadApiEndpoint} | jq -r '.files[0].url // empty'`
         }
         const annotationCommand = `${Config.options.regionSelector.annotation.useSatty ? "satty" : "swappy"} -f -`;
         switch (action) {
@@ -60,9 +60,14 @@ Singleton {
             case ScreenshotAction.Action.Edit:
                 return ["bash", "-c", `${cropToStdout} | ${annotationCommand} && ${cleanup}`]
                 break;
-            case ScreenshotAction.Action.Search:
-                return ["bash", "-c", `${cropInPlace} && xdg-open "${root.imageSearchEngineBaseUrl}$(${uploadAndGetUrl(screenshotPath)})" && ${cleanup}`]
-                break;
+            case ScreenshotAction.Action.Search: {
+                // Uploaded for the search engine to fetch; a failed upload used
+                // to open the engine with an empty (or "null") image URL, silently.
+                const failed = `notify-send -a Shell '${StringUtils.shellSingleQuoteEscape(Translation.tr("Image search failed"))}' `
+                    + `'${StringUtils.shellSingleQuoteEscape(Translation.tr("Couldn't upload the image"))} (${root.fileUploadApiEndpoint})'`;
+                return ["bash", "-c", `${cropInPlace} && url=$(${uploadAndGetUrl(screenshotPath)}); ${cleanup}; `
+                    + `case "$url" in https://*) xdg-open "${root.imageSearchEngineBaseUrl}$(jq -rn --arg u "$url" '$u | @uri')" ;; *) ${failed} ;; esac`]
+            }
             case ScreenshotAction.Action.CharRecognition:
                 return ["bash", "-c", `${cropInPlace} && tesseract '${StringUtils.shellSingleQuoteEscape(screenshotPath)}' stdout -l $(tesseract --list-langs | awk 'NR>1{print $1}' | tr '\\n' '+' | sed 's/\\+$/\\n/') | wl-copy && ${cleanup}`]
                 break;
