@@ -144,6 +144,19 @@ case "$*" in
       {"id":"chiikawa","name":"Chiikawa","variant":"chiikawa","variantLocked":false,"variants":[{"id":"momonga","name":"Momonga"},{"id":"usagi","name":"Usagi"},{"id":"chiikawa","name":"Chiikawa"}]}]}' ;;
   *"theme set"*)
     if [ -n "${STUB_THEME_ERROR:-}" ]; then echo "$STUB_THEME_ERROR"; else echo "ok: ${*: -2:1} / ${*: -1}"; fi ;;
+  # The desktop widgets' targets (DesktopWidgets.qml, Notes.qml, Todo.qml, TimerService.qml).
+  *"widgets list"*)
+    echo '[{"name":"clock","enabled":true,"placement":"leastBusy"},{"name":"notes","enabled":false,"placement":"free"},{"name":"worldClock","enabled":false,"placement":"free"}]' ;;
+  *"widgets show"* | *"widgets hide"*) echo "ok: ${*: -1} ${*: -2:1}" ;;
+  *"notes list"*) echo '[{"id":"17-1","content":"buy milk","createdAt":17}]' ;;
+  *"notes add"*) echo "ok: 18-2" ;;
+  *"notes update"* | *"notes remove"*)
+    if [ "${*: -1}" = "nope" ] || [ "${*: -2:1}" = "nope" ]; then echo 'error: no note "nope"'; else echo "ok: 17-1"; fi ;;
+  *"todo list"*) echo '{"synced":false,"tasks":[{"index":0,"content":"call mum","done":false,"due":null}]}' ;;
+  *"todo "*) echo "ok: call mum" ;;
+  *"timers status"*) echo '{"pomodoro":{"running":false},"stopwatch":{"running":false},"countdown":{"running":false,"secondsLeft":0}}' ;;
+  *"timers countdownAdd"*) echo "ok: countdown ${*: -1} min" ;;
+  *"timers "*) echo "ok: done" ;;
 esac
 EOF
 chmod +x "$bin"/*
@@ -219,7 +232,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 31 tools" 31 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 32 tools" 32 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -695,6 +708,37 @@ out=$(call set_theme '{}')
 expect_contains "set_theme: nothing asked" "$out" "or both (see list_themes)"
 out=$(STUB_THEME_ERROR="error: the theme is set in the Nix configuration (locked)" call set_theme '{"theme":"persona"}')
 expect_contains "set_theme: Nix locks reported" "$out" "set in the Nix configuration (locked)"
+
+# -- desktop widgets -------------------------------------------------------------------
+
+out=$(call widget '{"action":"list"}')
+expect_eq "widget list: every widget" "clock notes worldClock" "$(jq -r '[.[].name] | join(" ")' <<<"$out")"
+reset_calls
+call widget '{"widget":"world clock","action":"show"}' >/dev/null
+expect_eq "widget show: name matched ignoring case and spaces" "qs -c nixbook-shell ipc call -- widgets show worldClock" "$(last_call)"
+expect_contains "widget show: unknown widget" "$(call widget '{"widget":"aquarium","action":"show"}')" "no widget 'aquarium': clock, notes, worldClock"
+out=$(call widget '{"widget":"notes","action":"list"}')
+expect_eq "widget notes list" "buy milk" "$(jq -r '.[0].content' <<<"$out")"
+reset_calls
+out=$(call widget '{"widget":"note","action":"add","text":"--call the bank\nbefore 5pm"}')
+expect_eq "widget notes add: the text as one argument" "qs -c nixbook-shell ipc call -- notes add --call the bank
+before 5pm" "$(tail -n 2 "$calls")"
+expect_contains "widget notes add: the new id" "$out" "18-2"
+call widget '{"widget":"notes","action":"update","id":"17-1","text":"buy oat milk"}' >/dev/null
+expect_eq "widget notes update" "qs -c nixbook-shell ipc call -- notes update 17-1 buy oat milk" "$(last_call)"
+expect_contains "widget notes: the shell's errors" "$(call widget '{"widget":"notes","action":"remove","id":"nope"}')" 'no note "nope"'
+expect_contains "widget notes update: needs text" "$(call widget '{"widget":"notes","action":"update","id":"17-1"}')" "must be a non-empty string"
+expect_contains "widget notes: unknown action" "$(call widget '{"widget":"notes","action":"done"}')" "notes can't 'done': list, add, update, remove"
+out=$(call widget '{"widget":"tasks","action":"list"}')
+expect_eq "widget todo list" "call mum" "$(jq -r '.tasks[0].content' <<<"$out")"
+call widget '{"widget":"todo","action":"done","index":0}' >/dev/null
+expect_eq "widget todo done: by index" "qs -c nixbook-shell ipc call -- todo done 0" "$(last_call)"
+expect_contains "widget todo: index checked" "$(call widget '{"widget":"todo","action":"remove","index":"x"}')" "must be a whole number"
+out=$(call widget '{"widget":"timers","action":"list"}')
+expect_eq "widget timers: list is status" "false" "$(jq -r '.pomodoro.running' <<<"$out")"
+out=$(call widget '{"widget":"pomodoro","action":"countdown_add","minutes":25}')
+expect_eq "widget timers countdown_add" "qs -c nixbook-shell ipc call -- timers countdownAdd 25" "$(last_call)"
+expect_contains "widget: which widget" "$(call widget '{"action":"add","text":"x"}')" "notes, todo or timers"
 
 # -- pause, groups, rate limit ---------------------------------------------------
 

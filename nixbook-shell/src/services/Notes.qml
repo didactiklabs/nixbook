@@ -12,6 +12,8 @@ import QtQuick
  */
 Singleton {
     id: root
+
+    function load() {}
     property var filePath: Directories.desktopNotesPath ?? (Directories.config + "/notes.json")
     property var list: []
 
@@ -79,6 +81,36 @@ Singleton {
             } else {
                 console.log("[Notes] Error loading file: " + error)
             }
+        }
+    }
+
+    // `nixbook-shell ipc call notes list|add|update|remove`: the desktop
+    // notes widget's notes, for key bindings and the desktop MCP server
+    // (its `widget` tool).
+    IpcHandler {
+        target: "notes"
+
+        function list(): string {
+            return JSON.stringify(root.list.map(n => ({ id: n.id, content: n.content, createdAt: n.createdAt })));
+        }
+        function add(content: string): string {
+            if (content.length === 0)
+                return "error: empty note";
+            return `ok: ${root.addNote(content)}`;
+        }
+        function update(id: string, content: string): string {
+            if (!root.list.some(n => n.id === id))
+                return `error: no note "${id}"`;
+            if (content.length === 0)
+                return "error: empty note (remove it instead)";
+            root.updateNote(id, content);
+            return `ok: ${id}`;
+        }
+        function remove(id: string): string {
+            if (!root.list.some(n => n.id === id))
+                return `error: no note "${id}"`;
+            root.deleteNote(id);
+            return `ok: ${id}`;
         }
     }
 }

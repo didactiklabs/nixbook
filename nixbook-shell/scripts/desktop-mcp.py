@@ -2482,6 +2482,117 @@ def t_set_theme(ctx, args):
     return [text(f"theme set: {out[3:].strip()}")]
 
 
+# The shell's desktop widgets (DesktopWidgets.qml, Notes.qml, Todo.qml,
+# TimerService.qml IPC targets): widget -> action -> (target, function, the
+# arguments it takes, whether it changes something).
+WIDGET_ACTIONS = {
+    "notes": {
+        "list": ("notes", "list", (), False),
+        "add": ("notes", "add", ("text",), True),
+        "update": ("notes", "update", ("id", "text"), True),
+        "remove": ("notes", "remove", ("id",), True),
+    },
+    "todo": {
+        "list": ("todo", "list", (), False),
+        "add": ("todo", "add", ("text",), True),
+        "done": ("todo", "done", ("index",), True),
+        "undone": ("todo", "undone", ("index",), True),
+        "remove": ("todo", "remove", ("index",), True),
+    },
+    "timers": {
+        "status": ("timers", "status", (), False),
+        "pomodoro_toggle": ("timers", "pomodoroToggle", (), True),
+        "pomodoro_reset": ("timers", "pomodoroReset", (), True),
+        "stopwatch_toggle": ("timers", "stopwatchToggle", (), True),
+        "stopwatch_lap": ("timers", "stopwatchLap", (), True),
+        "stopwatch_reset": ("timers", "stopwatchReset", (), True),
+        "countdown_add": ("timers", "countdownAdd", ("minutes",), True),
+        "countdown_toggle": ("timers", "countdownToggle", (), True),
+        "countdown_reset": ("timers", "countdownReset", (), True),
+    },
+}
+WIDGET_NAMES = {"note": "notes", "todos": "todo", "todolist": "todo", "task": "todo", "tasks": "todo",
+                "timer": "timers", "pomodoro": "timers", "stopwatch": "timers", "countdown": "timers"}
+
+
+def widget_call(target, fn, *args):
+    out = qs_ipc("call", "--", target, fn, *args).stdout.strip()
+    if not out:
+        raise ToolError("the desktop shell didn't answer (is nixbook-shell running?)")
+    if out.startswith("error:"):
+        raise ToolError(out[6:].strip())
+    return out
+
+
+@tool(
+    "widget",
+    "shell",
+    "The desktop widgets, without clicking them. No widget: `list` them "
+    "(shown or not); any widget: `show` or `hide` it. notes (the notes "
+    "widget): list, add {text}, update {id, text}, remove {id}. todo (the "
+    "task list): list, add {text}, done/undone/remove {index}. timers: "
+    "status, pomodoro_toggle, pomodoro_reset, stopwatch_toggle, "
+    "stopwatch_lap, stopwatch_reset, countdown_add {minutes} (starts it), "
+    "countdown_toggle, countdown_reset.",
+    obj({
+        "widget": {"type": "string", "description": "notes, todo, timers, or a widget name from list"},
+        "action": {"type": "string"},
+        "text": {"type": "string", "description": "A note's or task's text"},
+        "id": {"type": "string", "description": "A note's id (from list)"},
+        "index": {"type": "integer", "description": "A task's index (from list)"},
+        "minutes": {"type": "integer"},
+    }, ["action"]),
+)
+def t_widget(ctx, args):
+    action = as_str(args, "action", max_len=32).strip().lower()
+    want = (as_str(args, "widget", required=False, max_len=64) or "").strip()
+    key = re.sub(r"[^a-z]", "", want.lower())
+    widget = WIDGET_NAMES.get(key, key)
+    if action in ("list", "show", "hide") and (not want or action != "list" or widget not in WIDGET_ACTIONS):
+        widgets = json.loads(widget_call("widgets", "list"))
+        if action == "list":
+            return [text(widgets)]
+        if not want:
+            raise ToolError(f"which widget? {', '.join(w['name'] for w in widgets)}")
+        # Names are camelCase in the shell (worldClock): matched ignoring case.
+        name = next((w["name"] for w in widgets if w["name"].lower() == key or w["name"].lower() == widget), None)
+        if not name:
+            raise ToolError(f"no widget {want!r}: {', '.join(w['name'] for w in widgets)}")
+        ctx.guard.check_rate()
+        return [text(widget_call("widgets", action, name))]
+    if widget not in WIDGET_ACTIONS:
+        raise ToolError(f"give `widget`: notes, todo or timers (or list/show/hide for the others)")
+    actions = WIDGET_ACTIONS[widget]
+    if action == "list" and "status" in actions:
+        action = "status"
+    if action not in actions:
+        raise ToolError(f"{widget} can't {action!r}: {', '.join(actions)}")
+    target, fn, needs, changes = actions[action]
+    argv = []
+    for name in needs:
+        if name == "text":
+            value = as_str(args, "text", max_len=int(ctx.cfg.get("maxTextLength", 4000)))
+            if not value.strip():
+                raise ToolError("`text` is empty")
+        elif name == "id":
+            value = as_str(args, "id", max_len=64, pattern=r"[\w.-]{1,64}")
+        else:
+            value = args.get(name)
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise ToolError(f"`{name}` must be a whole number (0 or more)")
+            value = str(value)
+        argv.append(value)
+    if changes:
+        ctx.guard.check_rate()
+    out = widget_call(target, fn, *argv)
+    if not changes:
+        try:
+            return [text(json.loads(out))]
+        except ValueError:
+            pass
+    return [text(out[3:].strip() if out.startswith("ok:") else out)]
+
+
 @tool(
     "notify",
     "shell",

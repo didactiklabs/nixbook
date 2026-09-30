@@ -33,6 +33,11 @@ ShellRoot {
         DesktopControl.load()
         WindowLayouts.load()
         AppTheming.load()
+        // Their IPC targets (widgets, notes, todo, timers) exist once they are loaded.
+        DesktopWidgets.load()
+        Notes.load()
+        Todo.load()
+        TimerService.load()
     }
     
     PanelFamilyLoader {
