@@ -145,13 +145,21 @@ AbstractBackgroundWidget {
                                 // Links open in the browser; a click anywhere
                                 // else opens the note.
                                 textFormat: Text.StyledText
-                                text: StringUtils.linkify(noteCard.modelData.content.trim())
+                                text: StringUtils.linkify(noteCard.modelData.content.trim(), preview.hoveredUrl,
+                                    ColorUtils.mix(noteCard.fg, noteCard.bg, 0.6))
                                 wrapMode: Text.Wrap
                                 elide: Text.ElideRight
                                 maximumLineCount: 3
                                 onLinkActivated: (link) => AppLaunch.openUrl(link)
 
-                                PointingHandLinkHover {}
+                                // The link under the pointer (hoveredLink reads
+                                // the global cursor position, unknown on Wayland).
+                                readonly property string hoveredUrl: previewHover.hovered
+                                    ? preview.linkAt(previewHover.point.position.x, previewHover.point.position.y) : ""
+                                HoverHandler {
+                                    id: previewHover
+                                    cursorShape: preview.hoveredUrl !== "" ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                }
                             }
                         }
 
