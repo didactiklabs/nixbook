@@ -830,17 +830,6 @@ ContentPage {
                 shown: settingsClock.cookiePresent
                 title: Translation.tr("Cookie clock settings")
                 GroupedList {   
-                    ConfigSwitch {  
-                        configKey: "background.widgets.clock.cookie.aiStyling";
-                        enabled: !nixManaged;
-                        buttonIcon: "wand_stars"
-                        text: Translation.tr("Auto styling with Gemini")
-                        checked: Config.options.background.widgets.clock.cookie.aiStyling
-                        onCheckedChanged: {
-                            Config.options.background.widgets.clock.cookie.aiStyling = checked;
-                        }
-                    }
-
                     ConfigSwitch {
                         configKey: "background.widgets.clock.cookie.useSineCookie";
                         enabled: !nixManaged;

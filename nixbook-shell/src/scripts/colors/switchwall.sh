@@ -84,11 +84,6 @@ set_thumbnail_path() {
   fi
 }
 
-categorize_wallpaper() {
-  img_cat=$("$SCRIPT_DIR/../ai/gemini-categorize-wallpaper.sh" "$1")
-  echo "$img_cat" >"$STATE_DIR/user/generated/wallpaper/category.txt"
-}
-
 switch() {
   imgpath="$1"
   mode_flag="$2"
@@ -97,11 +92,6 @@ switch() {
   color="$5"
   colors_only_flag="$6"
   colors_lock_flag="$7"
-
-  aiStylingEnabled=$(jq -r '.background.widgets.clock.cookie.aiStyling' "$SHELL_CONFIG_FILE")
-  if [[ $aiStylingEnabled == "true" && -z $colors_only_flag ]]; then
-    categorize_wallpaper "$imgpath" &
-  fi
 
   matugen_args=(--source-color-index 0)
 

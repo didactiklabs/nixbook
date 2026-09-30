@@ -7,7 +7,7 @@ import QtQuick
 // tool call with its result in one collapsible <think> block, the session id
 // (the next message resumes it) and the token usage. The command line is
 // built by Ai.qml (claudeCodeScript).
-ApiStrategy {
+QtObject {
     // Tool calls of the current answer, by id: "name input", shown with
     // their result in one block.
     property var toolCalls: ({})
@@ -91,11 +91,5 @@ ApiStrategy {
         // Claude Code exited without a result: say so (not logged in, crashed…).
         if (!finished && message.rawContent.trim().length === 0)
             append(message, "**Error**: Claude Code stopped without an answer. Is it installed and logged in (`claude`, then /login)?");
-        return { finished: true };
     }
-
-    // Not used: Ai.qml runs Claude Code instead of an HTTP request.
-    function buildEndpoint(model) { return ""; }
-    function buildRequestData(model, messages, systemPrompt, temperature, tools, filePath) { return {}; }
-    function buildAuthorizationHeader(apiKeyEnvVarName) { return ""; }
 }

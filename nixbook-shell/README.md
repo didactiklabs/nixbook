@@ -190,7 +190,7 @@ any agent that speaks MCP can use it:
 
 ```sh
 claude mcp add desktop -- nixbook-desktop-mcp            # Claude Code
-# opencode, Gemini CLI, Codex…: a local (stdio) server running
+# opencode, Codex…: a local (stdio) server running
 # `nixbook-desktop-mcp`
 ```
 
@@ -278,10 +278,8 @@ Replies stream in, each tool call shows with its result in a collapsible
 block, and the send button stops the answer (and what Claude is doing), as
 does `/stop`. Sonnet is faster than Opus for desktop tasks.
 
-The shell's AI chat (left sidebar) gets the same tools in its `functions`
-mode: looking at windows and apps runs at once; screenshots, the clipboard
-and every action show an Approve / Reject card first (screenshots then go to
-Gemini as an image).
+The side panel's other model is the offline **Config assistant** (the
+default), which answers from this machine's configuration without any AI.
 
 Over stdio (above) nothing listens anywhere: the agent starts the server
 and talks to it through a pipe. For an agent that can only reach a URL,

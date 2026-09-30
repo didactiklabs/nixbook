@@ -36,12 +36,6 @@ ContentPage {
         }
     }
     
-    Process {
-        id: translationProc
-        property string locale: ""
-        command: [Directories.aiTranslationScriptPath, translationProc.locale]
-    }
-
     ColumnLayout {
         id: mainLayout 
         Layout.fillWidth: true   
@@ -391,22 +385,6 @@ ContentPage {
                         text: Translation.tr("Locale code")
                         placeholderText: Translation.tr("e.g. fr_FR, de_DE, zh_CN...")
                         value: Config.options.language.ui === "auto" ? Qt.locale().name : Config.options.language.ui
-                    }
-
-                    RippleButtonWithIcon {
-                        id: generateTranslationBtn
-                        Layout.fillWidth: false
-                        Layout.alignment: Qt.AlignRight
-                        Layout.preferredHeight: 50
-                        Layout.rightMargin: 8
-                        nerdIcon: ""
-                        enabled: !translationProc.running || (translationProc.locale !== localeField.value.trim())
-                        mainText: enabled ? Translation.tr("Generate\nTypically takes 2 minutes") : Translation.tr("Generating...\nDon't close this window!")
-                        onClicked: {
-                            translationProc.locale = localeField.value.trim();
-                            translationProc.running = false;
-                            translationProc.running = true;
-                        }
                     }
                 }
             }

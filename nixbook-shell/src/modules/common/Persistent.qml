@@ -64,11 +64,11 @@ Singleton {
             property JsonObject migrations: JsonObject {
                 property bool screenshotSavePath: false
                 property bool appCommands: false
+                property bool sidebarIconNoGemini: false
             }
 
             property JsonObject ai: JsonObject {
                 property string model: "config-assistant"
-                property real temperature: 0.5
             }
 
             property JsonObject cheatsheet: JsonObject {

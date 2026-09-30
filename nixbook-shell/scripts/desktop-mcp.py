@@ -2,7 +2,7 @@
 """nixbook-desktop-mcp: lets an AI agent see and drive the niri desktop.
 
 A Model Context Protocol server (any MCP client: Claude Code, opencode,
-Gemini CLI, Codex, …) and a command line for the shell's own AI chat, both
+Codex, …) and a command line for the shell's own AI chat, both
 behind the same tools and the same guardrails:
 
   nixbook-desktop-mcp                       MCP over stdio (the client starts it)
