@@ -166,10 +166,6 @@ in
     };
     programs = {
       zsh = {
-        initContent = ''
-          source <(songbird completion zsh)
-          source <(kubectl completion zsh)
-        '';
         shellAliases = {
           k = "kubectl";
           ki = "sofka";

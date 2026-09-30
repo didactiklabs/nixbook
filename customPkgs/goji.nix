@@ -12,6 +12,12 @@ pkgs.buildGoModule rec {
 
   subPackages = [ "." ];
 
+  nativeBuildInputs = [ pkgs.installShellFiles ];
+  postInstall = ''
+    installShellCompletion --cmd goji \
+      --zsh <($out/bin/goji completion zsh)
+  '';
+
   ldflags = [
     "-s"
     "-w"

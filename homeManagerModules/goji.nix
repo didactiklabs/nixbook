@@ -217,11 +217,6 @@ in
     home.file.".goji.json" = {
       text = gojiJson;
     };
-    programs.zsh = {
-      initContent = ''
-        source <(goji completion zsh)
-      '';
-    };
     programs.fish = lib.mkIf (config.customHomeManagerModules.fishConfig.enable or false) {
       shellInit = ''
         goji completion fish | source
@@ -253,7 +248,7 @@ in
             Supports -t/--type, -s/--scope, -a/--add, --amend flags
             Requires opencode to be configured (opencodeConfig.enable = true)
 
-        Also installs Zsh completion for goji (`source <(goji completion zsh)`)
+        Also installs Zsh completion for goji (installed by the goji package, loaded via fpath)
         and Fish completion when fishConfig is enabled.
 
         Shell aliases (from commonShellConfig): gfix, gfeat, gchore.
