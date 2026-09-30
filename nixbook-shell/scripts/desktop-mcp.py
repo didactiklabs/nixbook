@@ -828,7 +828,7 @@ def memory_path():
 
 
 def empty_memory():
-    return {"version": 1, "notes": [], "aliases": {}, "usage": {"apps": {}, "layouts": {}, "tools": {}}}
+    return {"version": 2, "notes": [], "aliases": {}, "usage": {"apps": {}, "layouts": {}, "tools": {}}}
 
 
 class Memory:
@@ -852,6 +852,13 @@ class Memory:
         for k, v in empty_memory()["usage"].items():
             self.data["usage"].setdefault(k, v)
         self.changed = False
+        if self.data.get("version", 1) < 2:
+            # Version 1 linked notes to any app sharing a word with their
+            # topic ("search" -> Web Search Keywords): link them again.
+            for n in self.data["notes"]:
+                n["apps"] = note_apps(n.get("topic", ""), self.data["aliases"], self.data["usage"]["apps"])
+            self.data["version"] = 2
+            self.changed = True
         return self
 
     def save(self):
@@ -886,6 +893,22 @@ def count_use(kind, key, **extra):
             entry["count"] += 1
             entry["last"] = int(time.time())
             entry.update(extra)
+            m.save()
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+
+
+def count_note_uses(ids):
+    """Notes given to an agent (recalled, or sent because they are about its
+    task or the app it reached): the most useful ones rank first and are
+    the last dropped at the cap."""
+    if not ids:
+        return
+    try:
+        with Memory() as m:
+            for n in m.data["notes"]:
+                if n["id"] in ids:
+                    n["uses"] = n.get("uses", 0) + 1
             m.save()
     except (OSError, ValueError, KeyError, TypeError):
         pass
@@ -970,21 +993,30 @@ def rank_notes(notes, query):
     return [n for _, n in scored]
 
 
-def note_apps(topic, body):
-    """The apps a note is about (desktop ids): its topic's words naming an
-    installed app, or an alias."""
+def note_apps(topic, aliases, usage):
+    """The apps a note is about (desktop ids), from its topic: an alias, an
+    installed app whose whole name or id is in it ("zen twilight", not the
+    "search" of "Web Search Keywords"), or one used before whose keywords
+    or first name are ("discord" for Vesktop, "zen" for Zen Twilight).
+    Apps used before win over the others."""
     tw = set(words(topic))
     if not tw:
         return []
-    aliases = read_memory()["aliases"]
     found = [aliases[w] for w in tw if w in aliases]
     for app_id, entry in applications().items():
-        names = set(words(app_id.replace(".", " "))) | set(words(entry.get("Name", "")))
-        names = {n for n in names if len(n) >= 3 and n not in ("org", "com", "io", "app", "desktop")}
-        if tw & names:
+        if entry.get("NoDisplay") == "true":  # settings modules, helpers
+            continue
+        name = set(words(entry.get("Name", "")))
+        last = set(words(app_id.rsplit(".", 1)[-1].replace("-", " ")))
+        keywords = set()
+        if app_id in usage:
+            keywords = set(words(entry.get("Keywords", "").replace(";", " ")))
+            keywords |= set(words(entry.get("Name", ""))[:1]) | set(words(app_id.rsplit(".", 1)[-1])[:1])
+        if (name and name <= tw) or (last and last <= tw) or tw & keywords:
             found.append(app_id)
+    used = [a for a in found if a in usage]
     out = []
-    for a in found:
+    for a in used or found:
         if a not in out:
             out.append(a)
     return out[:3]
@@ -1075,6 +1107,7 @@ def notes_for_window(ctx, window):
     found.sort(key=lambda n: (-n.get("uses", 0), -n.get("updated", 0)))
     found = found[:3]
     ctx.notes_shown.update(n["id"] for n in found)
+    count_note_uses({n["id"] for n in found})
     return text(f"Memory about {entry.get('Name') or app_id}:\n"
                 + "\n".join(f"- [{n['id']}] {n['topic']}: {short(n['text'], 400)}" for n in found))
 
@@ -1103,16 +1136,7 @@ def t_recall(ctx, args):
     notes = rank_notes(mem["notes"], q)[:5] or [
         n for n in mem["notes"] if q.lower() in n["topic"].lower() or q.lower() in n["text"].lower()][:5]
     ctx.notes_shown.update(n["id"] for n in notes)
-    if notes:
-        try:
-            with Memory() as m:
-                ids = {n["id"] for n in notes}
-                for n in m.data["notes"]:
-                    if n["id"] in ids:
-                        n["uses"] = n.get("uses", 0) + 1
-                m.save()
-        except OSError:
-            pass
+    count_note_uses({n["id"] for n in notes})
     return [text({"notes": [{k: n.get(k) for k in ("id", "topic", "text")} for n in notes]}
                  if notes else f"no note about {q!r}")]
 
@@ -1124,7 +1148,10 @@ def t_recall(ctx, args):
     "shortcut, where a setting is, which app does what (e.g. topic "
     "\"discord\", text \"Vesktop is the Discord client; open a DM: ctrl+k, "
     "type the name, Return\"). Short and reusable; no passwords or private "
-    "message contents. Give `id` to update a note instead of adding one.",
+    "message contents. Keep one note per app or task: when a note on the "
+    "topic exists (the digest, recall, or this tool's reply lists them), "
+    "give its `id` to update it with the combined text rather than adding "
+    "another.",
     obj(
         {
             "topic": {"type": "string", "description": "An app or task, e.g. discord, zen browser, wifi"},
@@ -1142,9 +1169,8 @@ def t_remember(ctx, args):
 
 def add_note(ctx, topic, body, note_id=None, kind="note"):
     now = int(time.time())
-    # Before taking the lock: it reads the memory (the aliases) itself.
-    apps = note_apps(topic, body)
     with Memory() as m:
+        apps = note_apps(topic, m.data["aliases"], m.data["usage"]["apps"])
         notes = m.data["notes"]
         existing = next((n for n in notes if n["id"] == note_id), None) if note_id else None
         if not existing:
@@ -1163,7 +1189,15 @@ def add_note(ctx, topic, body, note_id=None, kind="note"):
             notes.sort(key=lambda n: (n.get("uses", 0), n.get("updated", 0)))
             del notes[: len(notes) - cap]
         m.save()
-        return f"remembered as note {note['id']}"
+        # Notes already about this topic: one note per app or task keeps the
+        # memory short and right, so the agent merges them now while it knows.
+        same = [n for n in rank_notes(notes, topic) if n is not note and note_score(n, words(topic)) >= 3][:3]
+        if not same:
+            return f"remembered as note {note['id']}"
+        return (f"remembered as note {note['id']}. Other notes on this topic:\n"
+                + "\n".join(f"- [{n['id']}] {n['topic']}: {short(n['text'], 200)}" for n in same)
+                + f"\nIf one says the same or is out of date, merge them: remember with its id "
+                  f"(the combined text), then forget {note['id']}; forget any that turned out wrong.")
 
 
 @tool(
@@ -2567,8 +2601,9 @@ INSTRUCTIONS = (
     "reply of the action that reaches it, so recall only for a topic listed "
     "below. When a task took exploring (finding an app, a shortcut, a "
     "menu), save the short path with remember (topic: the app), or pass "
-    "remember_as to a run_steps that worked; forget notes that turned out "
-    "wrong."
+    "remember_as to a run_steps that worked; update a note on the same "
+    "topic (remember with its id) rather than adding another, and fix or "
+    "forget notes that turned out wrong or slow."
 )
 
 
@@ -2577,7 +2612,9 @@ def instructions_with_memory(cfg):
         return INSTRUCTIONS
     # The client may say what the task is (the shell's AI chat passes the
     # user's message): the notes about it then come in full.
-    digest = memory_digest(cfg, os.environ.get("NIXBOOK_DESKTOP_MCP_QUERY", ""))
+    query = os.environ.get("NIXBOOK_DESKTOP_MCP_QUERY", "")
+    digest = memory_digest(cfg, query)
+    count_note_uses({n["id"] for n in rank_notes(read_memory()["notes"], query)[:4]})
     return INSTRUCTIONS + ("\n\n" + digest if digest else "\n\nDesktop memory: empty so far.")
 
 

@@ -224,11 +224,18 @@ time. Only the right part reaches a model, to keep its context small:
   carries the aliases and most used apps, the full text of the notes about
   the task — the AI chat passes the user's message; other agents get the
   most used notes — and the other notes by topic only ("wifi (3)");
-- notes are linked to the apps they are about, and come with the reply of
-  the action that reaches that app (launching or focusing it), once per
-  session;
+- notes are linked to the apps they are about (the topic names the app,
+  an alias, or the keywords of an app used before; apps used before win),
+  and come with the reply of the action that reaches that app (launching
+  or focusing it), once per session;
 - `recall` ranks notes by the words of a question (topic first) and returns
-  the best five; without a question, the list of topics.
+  the best five; without a question, the list of topics;
+- a note counts as used each time it goes to an agent (recalled, about its
+  task, or just in time), so the useful ones rank first and are kept at the
+  cap;
+- `remember` answers with the notes already on its topic, so the agent
+  merges them into one (`remember` with an `id`) instead of piling up
+  near-duplicates.
 
 With 40 notes, the digest went from about 745 tokens (and the notes about
 the task could be cut off) to about 165, with those notes in full. It is
