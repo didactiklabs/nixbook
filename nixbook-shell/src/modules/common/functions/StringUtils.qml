@@ -262,11 +262,14 @@ Singleton {
 
     /**
      * Plain text as Text.StyledText with its web links as <a> tags (the
-     * rest escaped, newlines as <br>).
+     * rest escaped, newlines as <br>). The links to `hoveredUrl` are drawn in
+     * `hoverColor` (hover feedback).
      * @param { string } str
+     * @param { string } hoveredUrl
+     * @param { color } hoverColor
      * @returns { string }
      */
-    function linkify(str) {
+    function linkify(str, hoveredUrl = "", hoverColor = "") {
         const s = String(str ?? "");
         const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         let out = "";
@@ -274,7 +277,8 @@ Singleton {
         for (const link of findUrls(s)) {
             // StyledText takes attribute values as they are (no entities);
             // findUrls never includes a quote or angle bracket.
-            out += esc(s.slice(last, link.start)) + `<a href="${link.url}">${esc(link.text)}</a>`;
+            const label = (hoveredUrl && link.url === hoveredUrl) ? `<font color="${hoverColor}">${esc(link.text)}</font>` : esc(link.text);
+            out += esc(s.slice(last, link.start)) + `<a href="${link.url}">${label}</a>`;
             last = link.end;
         }
         return (out + esc(s.slice(last))).replace(/\n/g, "<br>");
