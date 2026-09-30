@@ -74,7 +74,7 @@ for ((i = 0; i < ${#ARGS[@]}; i++)); do
 done
 
 if pgrep wf-recorder >/dev/null; then
-  notify-send "Recording Stopped" "Stopped" -a 'Recorder' &
+  notify-send "Recording Stopped" "Copied to the clipboard" -a 'Recorder' &
   pkill wf-recorder &
   set_recording_state false
 else
@@ -105,4 +105,8 @@ else
   set_recording_state true
   wf-recorder "${target[@]}" --pixel-format yuv420p -f "$file" -t "${audio[@]}"
   set_recording_state false
+  # The video in the clipboard as a file (pasted into a file manager or a chat).
+  if [[ -s $file ]]; then
+    wl-copy --type text/uri-list "file://$PWD/${file#./}"
+  fi
 fi

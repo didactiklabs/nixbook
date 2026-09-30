@@ -337,6 +337,7 @@ in
               "${mod}+Escape" = "exec nixbook-shell ipc call settings toggle";
               "${mod}+i" = "exec ${idleToggle}";
               "Print" = "exec nixbook-shell ipc call region screenshot";
+              "Shift+Print" = "exec nixbook-shell ipc call region recordWithSound";
             };
 
           assigns = {

@@ -125,6 +125,7 @@ nixbook-shell binds all spawn `nixbook-shell ipc call <target> <function>`.
 | Keybind                 | Action                                                                                   |
 | ----------------------- | ---------------------------------------------------------------------------------------- |
 | `Print`                 | Screenshot: DMS tool, nixbook-shell region selector, or area-to-clipboard via grim+slurp |
+| `Shift+Print`           | nixbook-shell: record the screen (region selector in record mode; again: stop)           |
 | `XF86MonBrightnessUp`   | Brightness +10%                                                                          |
 | `XF86MonBrightnessDown` | Brightness -10%                                                                          |
 | `XF86AudioRaiseVolume`  | Volume +3%                                                                               |
@@ -141,7 +142,7 @@ nixbook-shell binds all spawn `nixbook-shell ipc call <target> <function>`.
 | `S`               | Screen selection: hovering a screen selects it, a click takes it (`S` again: rectangle)       |
 | `Esc`             | Cancel                                                                                        |
 
-The same selector opens to record the screen (the bar's record button, or `nixbook-shell ipc call region recordWithSound`): a rectangle, `W` a window (the area it is shown in when clicked) or `S` a whole screen, recorded with the desktop audio. The record button again stops it.
+The same selector opens to record the screen (`Shift+Print`, the bar's record button, or `nixbook-shell ipc call region recordWithSound`): a rectangle, `W` a window (the area it is shown in when clicked) or `S` a whole screen, recorded with the desktop audio. `Shift+Print` or the record button again stops it; the video is then copied to the clipboard as a file.
 
 ---
 
@@ -239,6 +240,7 @@ Digit symbols: `ampersand`(1) `eacute`(2) `quotedbl`(3) `apostrophe`(4)
 | Keybind                        | Action                                                |
 | ------------------------------ | ----------------------------------------------------- |
 | `Print`                        | Screenshot: DMS tool, or `grimshot` area-to-clipboard |
+| `Shift+Print`                  | nixbook-shell: record the screen (again: stop)        |
 | `XF86MonBrightnessUp`          | Brightness +10%                                       |
 | `XF86MonBrightnessDown`        | Brightness -10%                                       |
 | `Mod4+equal` / `XF86AudioNext` | Next track (playerctl, works while locked)            |

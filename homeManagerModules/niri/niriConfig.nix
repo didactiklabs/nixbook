@@ -898,6 +898,12 @@ in
                   "search"
                   "layoutsToggle"
                 ];
+                # Screen recording: the screenshot selector in record mode
+                # (rectangle / window / screen, desktop audio); again: stop.
+                "Shift+Print" = [
+                  "region"
+                  "recordWithSound"
+                ];
                 # Panic key: pause (or allow again) every AI agent driving the
                 # desktop (nixbook-desktop-mcp; same as the bar's robot).
                 "Mod+Shift+Escape" = [
