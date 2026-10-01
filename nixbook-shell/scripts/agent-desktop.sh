@@ -7,11 +7,16 @@
 # tools, the notes widget, to-do list, calendar, still reach the user's
 # shell: desktop-mcp talks to it over its IPC, not through a display.)
 #
-# The window is a view: its niri (patched, niri-winit-ignore-input.patch)
-# drops the input it gets from the user, so the user can move, resize and
-# close the window but not click or type into the agent's desktop. Closing
-# it stops the agent: desktop-mcp doesn't start it again, only the user does
-# (`desktop agent`, Mod+Shift+A).
+# The window is a view, "Assistant's desktop" (app id nixbook-agent-desktop):
+# its niri (patched, niri-winit-agent-window.patch) drops the input it gets
+# from the user, so the user can move, resize and close the window but not
+# click or type into the agent's desktop. Closing it stops the agent:
+# desktop-mcp doesn't start it again, only the user does (`desktop agent`,
+# Mod+Shift+A). The user takes over (`desktop interact`, Mod+Ctrl+A: clicks
+# and keys get through while $XDG_RUNTIME_DIR/nixbook-desktop-mcp/
+# agent-desktop-input exists; off again on each start). Nothing is on it but the one app the agent works in, filling
+# it edge to edge (desktop-mcp closes the previous app when it starts
+# another): no bar, no borders, no layout to look after.
 #
 # Its apps are the agent's, not the user's:
 #   - their own home ($XDG_DATA_HOME/nixbook-shell/agent-home): their own
@@ -30,6 +35,7 @@ set -euo pipefail
 
 runtime="${XDG_RUNTIME_DIR:?no XDG_RUNTIME_DIR}/nixbook-desktop-mcp"
 env_file="$runtime/agent-desktop.env"
+input_file="$runtime/agent-desktop-input"
 config="$runtime/agent-desktop.kdl"
 data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
 config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
@@ -92,6 +98,24 @@ animations {
     off
 }
 screenshot-path null
+// Nothing but the app: no focus ring, border or shadow, no hot corner (the
+// agent's pointer would open the overview).
+layout {
+    focus-ring {
+        off
+    }
+    border {
+        off
+    }
+    shadow {
+        off
+    }
+}
+gestures {
+    hot-corners {
+        off
+    }
+}
 // Every window fills the whole screen, edge to edge (maximized, not
 // fullscreen: a fullscreen browser hides its tabs and address bar).
 window-rule {
@@ -111,8 +135,8 @@ environment {
 spawn-at-startup "sh" "-c" $(kdl "$announce") "announce" $(kdl "$env_file")
 EOF
 
-rm -f "$env_file"
-trap 'rm -f "$env_file"' EXIT
+rm -f "$env_file" "$input_file"
+trap 'rm -f "$env_file" "$input_file"' EXIT
 trap 'exit 143' TERM INT
 # The system's session bus configuration (NixOS: /etc/dbus-1), else dbus's own.
 bus_config=()
@@ -120,4 +144,6 @@ if [ ! -e /etc/dbus-1/session.conf ]; then
   bus_config=(--config-file "$(dirname "$(command -v dbus-daemon)")/../share/dbus-1/session.conf")
 fi
 # Not exec: the trap removes the env file when niri exits.
-NIRI_WINIT_IGNORE_INPUT=1 dbus-run-session "${bus_config[@]}" -- niri -c "$config"
+NIRI_WINIT_IGNORE_INPUT=1 NIRI_WINIT_ALLOW_INPUT_FILE="$input_file" \
+  NIRI_WINIT_TITLE="Assistant's desktop" NIRI_WINIT_APP_ID=nixbook-agent-desktop \
+  dbus-run-session "${bus_config[@]}" -- niri -c "$config"

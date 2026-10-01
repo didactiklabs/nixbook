@@ -54,9 +54,17 @@ cat >"$bin/niri" <<'EOF'
 #!/usr/bin/env bash
 # Which niri it was asked (the user's or the agent desktop's): its socket.
 echo "${NIRI_SOCKET:-}" >"$STUB_CALLS.socket"
-# The agent desktop has no windows: a launched app opens on the user's.
+# The agent desktop has no windows (a launched app opens on the user's), or
+# with $STUB_AGENT_HAS_WINDOW one app, and the launched one beside it.
 if [ "$1 $2 $3" = "msg --json windows" ] && [ "${NIRI_SOCKET:-}" = "${STUB_AGENT_SOCKET:-}" ]; then
-  echo '[]'
+  if [ -n "${STUB_AGENT_HAS_WINDOW:-}" ]; then
+    jq -nc --argjson launched "$([ -e "$STUB_CALLS.launched" ] && echo true || echo false)" '
+      [{id: 20, app_id: "org.gnome.TextEditor", title: "notes", pid: 50, workspace_id: 1, is_focused: ($launched | not), is_floating: false}]
+      + (if $launched then [{id: 21, app_id: "firefox", title: "New Tab", pid: 60, workspace_id: 1, is_focused: true, is_floating: false},
+                            {id: 22, app_id: "firefox", title: "Restore session?", pid: 60, workspace_id: 1, is_focused: false, is_floating: true}] else [] end)'
+  else
+    echo '[]'
+  fi
   exit 0
 fi
 if [ "$1 $2" = "msg --json" ]; then
@@ -856,6 +864,23 @@ rm -f "$calls.launched"
 out=$(call launch_app '{"app": "firefox"}')
 expect_contains "agent desktop: an app opening on the user's desktop is reported" "$out" "opened its window on the user's desktop"
 rm -f "$calls.launched"
+# One app at a time: the one before closes, the new app's own windows stay.
+reset_calls
+out=$(STUB_AGENT_HAS_WINDOW=1 call launch_app '{"app": "firefox"}')
+expect_contains "agent desktop: launch_app starts the app" "$out" '"started"'
+expect_eq "agent desktop: one app at a time, the one before closed" "niri msg action close-window --id 20" "$(grep close-window "$calls")"
+expect_eq "agent desktop: an app that won't close (save prompt) is reported" 20 "$(jq '.still_open[0].id' <<<"$out")"
+rm -f "$calls.launched"
+# The user takes over (to log in somewhere): the agent's input waits.
+python3 "$mcp" desktop interact on >/dev/null
+expect_eq "desktop interact on: the flag" true "$(python3 "$mcp" desktop status | jq .user_has_control)"
+expect_contains "user has control: the agent's input refused" "$(call type_text '{"text": "x"}')" "the user took over your desktop"
+expect_contains "user has control: launching refused too" "$(call launch_app '{"app": "firefox"}')" "the user took over your desktop"
+expect_contains "user has control: the agent can still look" "$(call screenshot)" "mapping"
+expect_eq "user has control: get_status says so" true "$(call get_status | jq .user_has_control)"
+python3 "$mcp" desktop interact toggle >/dev/null
+expect_eq "desktop interact toggle: given back" false "$(python3 "$mcp" desktop status | jq .user_has_control)"
+expect_not_contains "given back: the agent types again" "$(call type_text '{"text": "x"}')" "took over"
 # Closed by the user (niri gone, or crashed and left the env file): that
 # stops the agents, only the user opens it again.
 rm -f "$STUB_AGENT_SOCKET"

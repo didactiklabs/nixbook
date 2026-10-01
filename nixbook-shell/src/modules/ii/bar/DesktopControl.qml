@@ -11,6 +11,9 @@ import Quickshell
 // agent is driving the desktop through nixbook-desktop-mcp, with the stop
 // button. Idle: a dim robot; an agent acting: a pulsing robot in the accent
 // colour; paused: a red hand. Click pauses every agent (or allows them again).
+// Where they work: a window icon beside it while they're on a desktop of their
+// own (red once its window is closed: they're stopped; a hand while the user
+// has taken it over); right-click switches between theirs and the user's.
 MouseArea {
     id: root
     property bool vertical: Config.options.bar.vertical
@@ -21,7 +24,16 @@ MouseArea {
 
     cursorShape: Qt.PointingHandCursor
     hoverEnabled: true
-    onClicked: DesktopControl.toggle()
+    acceptedButtons: Qt.LeftButton | Qt.RightButton
+    onClicked: mouse => {
+        if (mouse.button === Qt.RightButton) DesktopControl.toggleDesktop();
+        else DesktopControl.toggle();
+    }
+
+    readonly property bool ownDesktop: DesktopControl.onAgentDesktop
+    readonly property string deskIcon: DesktopControl.userHasControl ? "touch_app" : "picture_in_picture"
+    readonly property color deskColor: DesktopControl.agentDesktopOpen ? Appearance.colors.colPrimary
+        : Appearance.m3colors.m3error
 
     readonly property string icon: DesktopControl.paused ? "pan_tool" : "smart_toy"
     readonly property color iconColor: DesktopControl.paused ? Appearance.m3colors.m3error
@@ -54,17 +66,28 @@ MouseArea {
     Component {
         id: plainContent
         Item {
-            implicitWidth: symbol.implicitWidth + 8
-            implicitHeight: symbol.implicitHeight + 6
-            MaterialSymbol {
-                id: symbol
+            implicitWidth: plainRow.implicitWidth + 8
+            implicitHeight: plainRow.implicitHeight + 6
+            Row {
+                id: plainRow
                 anchors.centerIn: parent
-                text: root.icon
-                fill: DesktopControl.paused || DesktopControl.active ? 1 : 0
-                iconSize: Appearance.font.pixelSize.normal
-                color: root.iconColor
-                // Idle: faint, so the accent colour of an acting agent stands out.
-                opacity: DesktopControl.active ? root.pulse : DesktopControl.paused ? 1 : 0.45
+                spacing: 2
+                MaterialSymbol {
+                    text: root.icon
+                    fill: DesktopControl.paused || DesktopControl.active ? 1 : 0
+                    iconSize: Appearance.font.pixelSize.normal
+                    color: root.iconColor
+                    // Idle: faint, so the accent colour of an acting agent stands out.
+                    opacity: DesktopControl.active ? root.pulse : DesktopControl.paused ? 1 : 0.45
+                }
+                MaterialSymbol {
+                    visible: root.ownDesktop
+                    text: root.deskIcon
+                    fill: DesktopControl.agentDesktopOpen ? 1 : 0
+                    iconSize: Appearance.font.pixelSize.small
+                    color: root.deskColor
+                    anchors.verticalCenter: parent.verticalCenter
+                }
             }
         }
     }
@@ -74,6 +97,23 @@ MouseArea {
         Item {
             implicitWidth: 24 + 8
             implicitHeight: 24 + 6
+            // Their own desktop: a badge on the button's corner.
+            Rectangle {
+                z: 1
+                visible: root.ownDesktop
+                anchors { right: parent.right; bottom: parent.bottom; rightMargin: 1; bottomMargin: 1 }
+                width: 14
+                height: 14
+                radius: Appearance.rounding.full
+                color: Appearance.colors.colLayer1
+                MaterialSymbol {
+                    anchors.centerIn: parent
+                    text: root.deskIcon
+                    fill: DesktopControl.agentDesktopOpen ? 1 : 0
+                    iconSize: 10
+                    color: root.deskColor
+                }
+            }
             Rectangle {
                 anchors.centerIn: parent
                 width: 24
@@ -118,6 +158,16 @@ MouseArea {
 
             StyledPopupValueRow {
                 Layout.fillWidth: true
+                icon: root.ownDesktop ? root.deskIcon : "desktop_windows"
+                label: Translation.tr("Desktop")
+                value: !root.ownDesktop ? Translation.tr("Yours")
+                    : DesktopControl.userHasControl ? Translation.tr("Its own, you have control")
+                    : DesktopControl.agentDesktopOpen ? Translation.tr("Its own, in a window")
+                    : Translation.tr("Its own, closed: stopped")
+            }
+
+            StyledPopupValueRow {
+                Layout.fillWidth: true
                 visible: DesktopControl.last !== null
                 icon: "history"
                 label: Translation.tr("Last")
@@ -130,6 +180,15 @@ MouseArea {
                 Layout.fillWidth: true
                 text: DesktopControl.paused ? Translation.tr("Click to allow agents again")
                     : Translation.tr("Click to stop every agent")
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                text: !root.ownDesktop ? Translation.tr("Right-click to give them their own desktop")
+                    : DesktopControl.agentDesktopOpen ? Translation.tr("Right-click to bring them back to yours")
+                    : Translation.tr("Right-click to open their desktop again")
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colSubtext
             }

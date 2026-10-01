@@ -401,10 +401,11 @@ in
             matches = [ { app-id = "^qemu$"; } ];
             opacity = 1.0;
           }
-          # The AI agents' own desktop (nixbook-desktop-mcp desktop agent): a
-          # nested niri. It opens beside your work without taking the focus.
+          # The AI agents' own desktop, "Assistant's desktop" (nixbook-desktop-mcp
+          # desktop agent): a nested niri, a window like any other app's. It
+          # opens beside your work without taking the focus.
           {
-            matches = [ { app-id = "^niri$"; } ];
+            matches = [ { app-id = "^nixbook-agent-desktop$"; } ];
             opacity = 1.0;
             open-focused = false;
           }
@@ -945,6 +946,14 @@ in
             "Mod+Shift+A".action.spawn = [
               "nixbook-desktop-mcp"
               "desktop"
+              "toggle"
+            ];
+            # Use the agents' desktop yourself for a moment (its window takes
+            # your clicks and keys, the agent waits), or give it back.
+            "Mod+Ctrl+A".action.spawn = [
+              "nixbook-desktop-mcp"
+              "desktop"
+              "interact"
               "toggle"
             ];
           }

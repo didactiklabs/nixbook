@@ -251,6 +251,21 @@ def start_agent_desktop():
     raise ToolError(f"the agent desktop didn't start (journalctl --user -u {AGENT_DESKTOP_UNIT})")
 
 
+def agent_input_flag():
+    """The user has taken over the agent desktop (`desktop interact`): its
+    niri lets the window's clicks and keys through while this exists. In the
+    runtime directory: off again after a reboot (and each start, the
+    launcher removes it)."""
+    return os.path.join(runtime_dir(), "agent-desktop-input")
+
+
+def user_has_control():
+    try:
+        return on_agent_desktop() and os.path.exists(agent_input_flag())
+    except ToolError:
+        return False
+
+
 def use_desktop():
     """Points the tools at the desktop agents use now. Returns "agent" or
     "user". The agent desktop isn't started here: closing its window is how
@@ -591,6 +606,7 @@ def t_get_status(ctx, args):
             {
                 "paused": paused,
                 "desktop": ctx.desktop,
+                "user_has_control": user_has_control(),
                 "pointer": pointer,
                 "enabled_groups": ctx.cfg["tools"],
                 "focused_window": focused and slim_window(focused),
@@ -806,6 +822,21 @@ def t_launch_app(ctx, args):
             time.sleep(0.3)
             new = [w for w in windows() if w.get("id") not in before] or new
             main = next((w for w in new if w.get("is_focused")), new[-1])
+            if ctx.desktop == "agent":
+                # One app at a time on the agent desktop, filling it: the
+                # user watches a window, not a layout. Its own other windows
+                # (dialogs, a splash) stay.
+                before_ids = {w.get("id") for w in windows()
+                              if w.get("id") not in {n.get("id") for n in new} and w.get("pid") != main.get("pid")}
+                for wid in before_ids:
+                    niri_action("close-window", "--id", str(wid))
+                if before_ids:
+                    time.sleep(0.5)
+                    left = [slim_window(w) for w in windows() if w.get("id") in before_ids]
+                    if left:
+                        return [text({"started": name, "window": slim_window(main), "still_open": left,
+                                      "note": "the previous app didn't close: it's probably asking whether to save "
+                                              "(focus_window it and answer), or close it with close_window"})]
             return [text({"started": name, "window": slim_window(main)})]
     if ctx.desktop == "agent":
         if user_windows_ids() - user_before:
@@ -2824,6 +2855,9 @@ def call_tool(ctx, name, args):
         try:
             if name != "get_status":  # it says why the agent desktop can't start
                 ctx.desktop = use_desktop()
+            if ctx.desktop == "agent" and t["group"] in ACTION_GROUPS and user_has_control():
+                raise ToolError("refused: the user took over your desktop for a moment (to log in somewhere, "
+                                "say). Wait and try again later; screenshots still show what they do.")
             content = t["fn"](ctx, args)
         except ToolError as e:
             audit(ctx.client, name, args, f"error: {e}")
@@ -2899,7 +2933,10 @@ AGENT_DESKTOP_INSTRUCTIONS = (
     "watch, but can't click or type in it). The "
     "window, screen and input tools act there. Its apps are yours, not the "
     "user's: their own profiles, logged out of the user's accounts, and none "
-    "of the user's windows; start what you need with launch_app. The shell "
+    "of the user's windows; start what you need with launch_app. It shows "
+    "one app at a time, filling it: launch_app closes the one before, so "
+    "finish with an app (save, note what you need) before starting another. "
+    "The shell "
     "tools (widget: notes, to-do list, timers; calendar; notify; set_theme) "
     "still reach the user's desktop: hand results over there, e.g. write a "
     "note with what you found (your clipboard isn't theirs)."
@@ -3174,6 +3211,8 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
   desktop agent | user | toggle  agents use their own desktop (a nested niri,
                           started as needed) / the user's
   desktop stop            close the agent desktop and its windows
+  desktop interact on | off | toggle  take over the agent desktop (your clicks
+                          and keys reach it; the agent's input is refused)
 """
 
 
@@ -3287,6 +3326,34 @@ def desktop_command(argv):
         notify_desktop("Agents now work on your desktop again. Theirs stays open (nixbook-desktop-mcp desktop stop closes it).")
         print("agents work on your desktop (the agent desktop stays open: `desktop stop` closes it)")
         return 0
+    if sub == "interact":
+        want = argv[1] if len(argv) > 1 else "toggle"
+        if want == "toggle":
+            want = "off" if user_has_control() else "on"
+        if want == "on":
+            env = agent_desktop_env() if on_agent_desktop() else None
+            if not env:
+                print("the assistant's desktop isn't open (`desktop agent` opens it)", file=sys.stderr)
+                return 1
+            fd = os.open(agent_input_flag(), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            os.close(fd)
+            write_state(user_has_control=True)
+            show_agent_desktop(env)
+            notify_desktop("You have the assistant's desktop: your clicks and keys reach it, the assistant waits. "
+                           "Mod+Ctrl+A gives it back.")
+            print("you have the assistant's desktop")
+            return 0
+        if want == "off":
+            try:
+                os.unlink(agent_input_flag())
+            except FileNotFoundError:
+                pass
+            write_state(user_has_control=False)
+            notify_desktop("The assistant has its desktop back.")
+            print("the assistant has its desktop back")
+            return 0
+        print(USAGE, end="", file=sys.stderr)
+        return 2
     if sub == "stop":
         run(["systemctl", "--user", "stop", AGENT_DESKTOP_UNIT], timeout=20, check=False)
         print("agent desktop closed" + (": the agents are stopped until you open it again (`desktop agent`) "
@@ -3295,7 +3362,7 @@ def desktop_command(argv):
     if sub == "status":
         env = agent_desktop_env()
         print(json.dumps({"desktop": "agent" if on_agent_desktop() else "user", "agent_desktop_running": bool(env),
-                          "agent_desktop": env}, indent=1))
+                          "agent_desktop": env, "user_has_control": user_has_control()}, indent=1))
         return 0
     print(USAGE, end="", file=sys.stderr)
     return 2
@@ -3311,7 +3378,8 @@ def show_agent_desktop(env):
     deadline = time.monotonic() + 3
     while time.monotonic() < deadline:
         try:
-            nested = [w for w in niri_json("windows", env=user_desktop_env()) if w.get("app_id") == "niri"]
+            nested = [w for w in niri_json("windows", env=user_desktop_env())
+                      if w.get("app_id") in ("nixbook-agent-desktop", "niri")]
         except ToolError:
             return False
         win = next((w for w in nested if str(w.get("pid")) == pid), nested[-1] if nested else None)
