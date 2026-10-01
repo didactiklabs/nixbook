@@ -126,9 +126,11 @@ gestures {
         off
     }
 }
-// Every window fills the whole screen, edge to edge (maximized, not
-// fullscreen: a fullscreen browser hides its tabs and address bar).
+// Every window opens fullscreen (a browser hides its tabs and address bar
+// then: the agents are told to use its shortcuts), maximized to the edges
+// when it leaves fullscreen.
 window-rule {
+    open-fullscreen true
     open-maximized-to-edges true
 }
 environment {
