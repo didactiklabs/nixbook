@@ -2106,14 +2106,7 @@ def screenshot_window(ctx, wid):
     w = window_by_id(wid)
     # niri writes the capture where asked (--path), but also puts it in the
     # clipboard (no way around that): keep what was there to put it back.
-    offered = clipboard_types()
-    saved = None
-    for mime in CLIPBOARD_TYPES:
-        if mime in offered:
-            proc = run(["wl-paste", "--no-newline", "--type", mime], timeout=3, check=False, binary=True)
-            if proc.returncode == 0:
-                saved = (mime, proc.stdout)
-            break
+    saved = saved_clipboard()
     path = os.path.join(runtime_dir(), f"screenshot-{secrets.token_hex(4)}.png")
     try:
         niri_action("screenshot-window", "--id", str(wid), "--path", path)
@@ -2313,6 +2306,71 @@ def t_clipboard_get(ctx, args):
     return [text(proc.stdout[:20000])]
 
 
+def notification_history_path():
+    # The shell's history (Directories.notificationHistoryPath), oldest first.
+    return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "quickshell", "user", "notification-history.json")
+
+
+# Unicode bidi isolates Vesktop wraps names in: noise for the model.
+BIDI_MARKS = dict.fromkeys(map(ord, "⁦⁧⁨⁩‎‏"))
+
+
+@tool(
+    "notifications",
+    "screen",
+    "The desktop's recent notifications, oldest first, as text: new chat "
+    "messages (Vesktop: \"sender (#channel, server): message\", or just the "
+    "sender for a DM), mail, reminders… Cheaper than a screenshot to see "
+    "whether someone answered. Filter by `app` (e.g. vesktop), `contains` "
+    "(in the title or text) and `since_minutes`.",
+    obj(
+        {
+            "app": {"type": "string", "description": "App name, case-insensitive substring (e.g. vesktop)"},
+            "contains": {"type": "string", "description": "Only those whose title or text contains this"},
+            "since_minutes": {"type": "integer", "description": "Only those from the last N minutes"},
+            "count": {"type": "integer", "description": "At most this many, the newest (default 20, at most 100)"},
+        }
+    ),
+    read_only=True,
+)
+def t_notifications(ctx, args):
+    app = (as_str(args, "app", max_len=128, required=False) or "").lower()
+    contains = (as_str(args, "contains", max_len=256, required=False) or "").lower()
+    since = args.get("since_minutes")
+    count = args.get("count", 20)
+    if not isinstance(count, int) or isinstance(count, bool) or count < 1:
+        raise ToolError("`count` must be a positive integer")
+    if since is not None and (not isinstance(since, int) or isinstance(since, bool) or since < 1):
+        raise ToolError("`since_minutes` must be a positive integer")
+    try:
+        with open(notification_history_path(), encoding="utf-8") as f:
+            history = json.load(f)
+    except FileNotFoundError:
+        return [text("no notifications yet")]
+    except (OSError, ValueError) as e:
+        raise ToolError(f"can't read the notification history: {e}")
+    cutoff = (time.time() - since * 60) * 1000 if since else 0
+    lines = []
+    for n in history if isinstance(history, list) else []:
+        if not isinstance(n, dict):
+            continue
+        name = str(n.get("appName") or "")
+        summary = str(n.get("summary") or "").translate(BIDI_MARKS)
+        body = str(n.get("body") or "").translate(BIDI_MARKS)
+        when = n.get("time") if isinstance(n.get("time"), (int, float)) else 0
+        if app and app not in name.lower():
+            continue
+        if contains and contains not in summary.lower() and contains not in body.lower():
+            continue
+        if when < cutoff:
+            continue
+        stamp = time.strftime("%Y-%m-%d %H:%M", time.localtime(when / 1000))
+        lines.append(f"{stamp} [{name}] {summary}: {body}"[:2000])
+    if not lines:
+        return [text("no notifications match")]
+    return [text("\n".join(lines[-min(count, 100):]))]
+
+
 @tool(
     "clipboard_set",
     "input",
@@ -2330,6 +2388,38 @@ def t_clipboard_set(ctx, args):
 
 
 # -- keyboard and pointer ----------------------------------------------------
+
+# Typed by wtype as is. Anything else is pasted: wtype sends each character
+# not on the keymap by swapping in a new keymap, and Chromium/Electron apps
+# (Vesktop, Zen) drop or mangle the keys around those swaps ("c'est" came out
+# "est"), and a "\n" would press Return (sending a chat message half-written).
+PLAIN_TEXT = re.compile(r"[A-Za-z0-9 ]+")
+
+
+def saved_clipboard():
+    offered = clipboard_types()
+    for mime in CLIPBOARD_TYPES:
+        if mime in offered:
+            proc = run(["wl-paste", "--no-newline", "--type", mime], timeout=3, check=False, binary=True)
+            return (mime, proc.stdout) if proc.returncode == 0 else None
+    return None
+
+
+def paste_text(value):
+    """Paste through the clipboard, then put back what it held."""
+    saved = saved_clipboard()
+    wl_copy(value.encode())
+    try:
+        # wl-copy serves the selection from its fork: give it a moment.
+        time.sleep(0.1)
+        run(["wtype", "-M", "ctrl", "-k", "v", "-m", "ctrl"])
+        # The app reads the selection after the key: wait before replacing it.
+        time.sleep(0.4)
+    finally:
+        if saved:
+            wl_copy(saved[1], saved[0])
+        else:
+            run(["wl-copy", "--clear"], check=False)
 
 MODIFIERS = {"ctrl": "ctrl", "control": "ctrl", "shift": "shift", "alt": "alt", "altgr": "altgr",
              "super": "logo", "logo": "logo", "meta": "logo", "win": "logo"}
@@ -2361,8 +2451,11 @@ def parse_combo(combo, allow_super):
 @tool(
     "type_text",
     "input",
-    "Type text into the focused window, as the keyboard would. Refused in "
-    "terminals, password managers and password prompts.",
+    "Type text into the focused window, as the keyboard would. Text with "
+    "accents, punctuation or line breaks is pasted instead (the clipboard is "
+    "put back after), so type it as is: accents, apostrophes and commas come "
+    "out right, and a line break doesn't press Return. Refused in terminals, "
+    "password managers and password prompts.",
     obj({"text": {"type": "string"}}, ["text"]),
 )
 def t_type_text(ctx, args):
@@ -2372,6 +2465,9 @@ def t_type_text(ctx, args):
     ctx.guard.check_text(value)
     ctx.guard.check_input_target()
     ctx.guard.check_rate()
+    if shutil.which("wtype") and PLAIN_TEXT.fullmatch(value) is None and shutil.which("wl-copy"):
+        paste_text(value)
+        return [text(f"pasted {len(value)} characters")]
     if shutil.which("wtype"):
         run(["wtype", "-"], input=value, timeout=60)
     elif on_agent_desktop():

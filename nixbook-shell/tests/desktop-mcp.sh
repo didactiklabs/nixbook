@@ -294,7 +294,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 34 tools" 34 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 35 tools" 35 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -384,6 +384,44 @@ expect_eq "fallback drag: press, moves, release" "ydotool click 0x40|ydotool cli
 call clipboard_set '{"text":"abc"}' >/dev/null
 sleep 0.2
 expect_contains "clipboard_set" "$(cat "$calls")" "wl-copy <<abc"
+
+# Accents, punctuation, line breaks: pasted, and the clipboard put back.
+printf 'user text' | wl-copy
+reset_calls
+out=$(call type_text '{"text":"c'"'"'est déjà fait, ok\nà plus"}')
+expect_contains "type_text: accents/punctuation pasted" "$out" "pasted"
+expect_eq "type_text: paste sequence" "wl-copy <<c'est déjà fait, ok|à plus|wtype -M ctrl -k v -m ctrl|wl-copy <<user text" \
+  "$(grep -v '^wl-paste' "$calls" | paste -sd'|')"
+expect_eq "type_text: clipboard restored" "user text" "$(wl-paste)"
+wl-copy --clear
+reset_calls
+call type_text '{"text":"ça va?"}' >/dev/null
+expect_eq "type_text: an empty clipboard stays empty" "wl-copy --clear" "$(last_call)"
+reset_calls
+call type_text '{"text":"plain words 42"}' >/dev/null
+expect_eq "type_text: plain text still typed" "wtype - <<plain words 42" "$(last_call)"
+
+# The shell's notification history, as text.
+mkdir -p "$XDG_STATE_HOME/quickshell/user"
+now_ms=$(($(date +%s) * 1000))
+jq -n --argjson now "$now_ms" '[
+  {id: 1, time: ($now - 7200000), appName: "vesktop", summary: "Old", body: "hours ago"},
+  {id: 2, time: ($now - 60000), appName: "vesktop", summary: "⁨Alesio⁩", body: "tu as vu ?"},
+  {id: 3, time: ($now - 30000), appName: "thunderbird", summary: "Mail", body: "invoice"},
+  {id: 4, time: $now, appName: "vesktop", summary: "⁨Fl1nt⁩ (⁨#random⁩)", body: "lol"}
+]' >"$XDG_STATE_HOME/quickshell/user/notification-history.json"
+out=$(call notifications '{"app":"Vesktop","since_minutes":5}')
+expect_contains "notifications: by app, bidi marks stripped" "$out" "[vesktop] Alesio: tu as vu ?"
+expect_contains "notifications: newest last" "$(tail -n 1 <<<"$out")" "Fl1nt (#random): lol"
+expect_not_contains "notifications: since_minutes" "$out" "hours ago"
+expect_not_contains "notifications: other apps left out" "$out" "invoice"
+out=$(call notifications '{"contains":"INVOICE"}')
+expect_eq "notifications: contains" "1" "$(wc -l <<<"$out")"
+out=$(call notifications '{"count":1}')
+expect_contains "notifications: count keeps the newest" "$out" "lol"
+expect_eq "notifications: count" "1" "$(wc -l <<<"$out")"
+expect_contains "notifications: no match" "$(call notifications '{"app":"nothing"}')" "no notifications match"
+expect_contains "notifications: bad count" "$(call notifications '{"count":0}')" "positive integer"
 
 echo kitty >"$STUB_FOCUS"
 reset_calls
