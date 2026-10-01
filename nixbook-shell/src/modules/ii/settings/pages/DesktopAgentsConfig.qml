@@ -106,6 +106,40 @@ ContentPage {
                 text: Translation.tr("On their own desktop, agents work in a window you watch but can't click or type into, with their own browser and apps, so they don't get in your way; your notes, to-do list and calendar stay reachable. The window opens when they start an app and closes once it's gone; close it yourself to stop them. Mod+Shift+A, right-clicking the bar widget and the desktop menu switch too. To use their desktop yourself for a moment (to log their browser in somewhere), take it over: your clicks and keys reach it and the agent waits until you give it back.")
                     + (DesktopControl.onAgentDesktop && DesktopControl.agentStopped ? " " + Translation.tr("You closed their desktop: they're stopped until you switch this on again.") : "")
             }
+
+            // Their desktop's sandbox (scripts/agent-desktop.sh): both on by
+            // default, read when it starts.
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "ai.agentDesktop.hideSystemSockets"
+                    enabled: !nixManaged
+                    buttonIcon: "lan"
+                    text: Translation.tr("Hide the system's services from their apps")
+                    checked: Config.options.ai.agentDesktop.hideSystemSockets
+                    onCheckedChanged: Config.options.ai.agentDesktop.hideSystemSockets = checked
+                    StyledToolTip {
+                        text: Translation.tr("Their apps see none of the system daemons' sockets (printing, input helpers…), only what they need to run and look up names")
+                    }
+                }
+                ConfigSwitch {
+                    configKey: "ai.agentDesktop.privateNetwork"
+                    enabled: !nixManaged
+                    buttonIcon: "vpn_lock"
+                    text: Translation.tr("Keep their apps off this computer's local services")
+                    checked: Config.options.ai.agentDesktop.privateNetwork
+                    onCheckedChanged: Config.options.ai.agentDesktop.privateNetwork = checked
+                    StyledToolTip {
+                        text: Translation.tr("Their own network: the internet and your local network, not what runs on this computer (a dev server on localhost, printer pages…). Off: their browser can open those too")
+                    }
+                }
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("Their apps run sandboxed: none of your files but the folders you allow, none of your windows, clipboard or screen (they can't capture or type into your desktop). These two switches take effect when their desktop next opens.")
+            }
         }
 
         ContentSection {

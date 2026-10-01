@@ -157,6 +157,14 @@ Singleton {
                 // (scripts/agent-desktop.sh binds them into its sandbox). None by
                 // default: no access to the user's files unless allowed here.
                 property list<string> allowedFolders: []
+                // The agent desktop's sandbox (scripts/agent-desktop.sh), from
+                // its next start. hideSystemSockets: /run empty but for what
+                // apps need, no daemon's socket. privateNetwork: its own
+                // network (pasta), without this computer's local services.
+                property JsonObject agentDesktop: JsonObject {
+                    property bool hideSystemSockets: true
+                    property bool privateNetwork: true
+                }
                 // Claude through Claude Code (`claude -p`, the user's own
                 // Claude login): the "Claude" model, with the desktop tools
                 // (nixbook-desktop-mcp) unless the tool is "none".
