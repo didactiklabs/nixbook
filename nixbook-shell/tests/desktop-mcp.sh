@@ -423,6 +423,85 @@ expect_eq "notifications: count" "1" "$(wc -l <<<"$out")"
 expect_contains "notifications: no match" "$(call notifications '{"app":"nothing"}')" "no notifications match"
 expect_contains "notifications: bad count" "$(call notifications '{"count":0}')" "positive integer"
 
+# Zen (WebDriver BiDi) and Vesktop (DevTools): opt-in groups, against a fake
+# app on the loopback (tests/fake-devtools.py) that logs each command.
+expect_contains "browser tools off by default" "$(call browser_tabs)" "unknown or disabled tool"
+dt_port=$((20000 + RANDOM % 20000))
+dt_log="$tmp/devtools.log"
+: >"$dt_log"
+python3 "$root/tests/fake-devtools.py" "$dt_port" "$dt_log" >"$tmp/devtools.out" 2>&1 &
+dt_pid=$!
+for _ in $(seq 50); do
+  grep -q ready "$tmp/devtools.out" 2>/dev/null && break
+  sleep 0.1
+done
+echo "{\"tools\":[\"browser\",\"discord\"],\"zenDebugPort\":$dt_port,\"vesktopDebugPort\":$dt_port}" \
+  >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+dt() { jq -c "select($1)" "$dt_log"; }
+
+out=$(call browser_tabs)
+expect_contains "browser_tabs: numbered, query string left out" "$out" "1. Page A — https://example.com/a?…"
+expect_contains "browser_tabs: the tab on screen marked" "$out" "* 2. Page B — https://example.org/b"
+expect_not_contains "browser_tabs: no token sent" "$out" "secret"
+expect_eq "browser: one session per call, ended" "1|1" \
+  "$(dt '.method=="session.new"' | wc -l)|$(dt '.method=="session.end"' | wc -l)"
+expect_eq "browser: frames masked, on /session" "true /session" \
+  "$(dt '.method=="session.new"' | jq -r '"\(.masked) \(.path)"')"
+out=$(call browser_read '{"find":"SECRET"}')
+expect_eq "browser_read: find keeps matching lines (and neighbours)" "line one|secret line|line three" "$(paste -sd'|' <<<"$out")"
+out=$(call browser_read '{"what":"elements"}')
+expect_contains "browser_read elements: values hidden by default, 100 at most" "$out" "max=100 values=false"
+expect_contains "browser_read: in its own sandbox" "$(dt '.method=="script.callFunction"' | tail -n 1)" '"sandbox":"nixbook-desktop"'
+: >"$dt_log"
+out=$(call browser_act '{"action":"click","index":2}')
+expect_contains "browser_act click: a real pointer click on the element" \
+  "$(dt '.method=="input.performActions"')" '"origin":{"type":"element","element":{"sharedId":"node-2"}}'
+expect_contains "browser_act: says where it is after" "$out" "done; tab 2: Page B"
+: >"$dt_log"
+out=$(call browser_act '{"action":"fill","index":2,"value":"déjà, c'"'"'est ça"}')
+expect_eq "browser_act fill: each character a key press" "déjà, c'est ça" \
+  "$(dt '.method=="input.performActions"' | jq -r '[.params.actions[0].actions[] | select(.type=="keyDown") | .value] | join("")')"
+if grep -q 'déjà' "$XDG_STATE_HOME/nixbook-shell/desktop-mcp.log"; then
+  fail "audit: browser_act value not logged"
+else
+  pass "audit: browser_act value not logged"
+fi
+: >"$dt_log"
+expect_contains "browser_act: password fields refused" "$(call browser_act '{"action":"fill","index":3,"value":"x"}')" "password fields are off limits"
+expect_eq "browser_act: nothing typed into a password field" "" "$(dt '.method=="input.performActions"')"
+expect_contains "browser_act: unknown element" "$(call browser_act '{"action":"click","index":9}')" "no element [9]"
+expect_contains "browser_act: press needs a key" "$(call browser_act '{"action":"press","value":"ctrl+nope"}')" "unknown key"
+expect_contains "browser_open: only http(s)" "$(call browser_open '{"url":"file:///etc/passwd"}')" "only http and https"
+: >"$dt_log"
+call browser_open '{"url":"example.net/x","tab":1}' >/dev/null
+expect_eq "browser_open: https added, the tab asked for" "https://example.net/x ctx-a" \
+  "$(dt '.method=="browsingContext.navigate"' | jq -r '"\(.params.url) \(.params.context)"')"
+expect_contains "browser: tab out of range" "$(
+  call browser_tabs >/dev/null
+  call browser_read '{"tab":7}'
+)" "no tab 7"
+
+out=$(call discord_conversations)
+expect_contains "discord_conversations" "$out" "Alesio — unread 2"
+out=$(call discord_read '{"to":"Alesio"}')
+expect_contains "discord_read" "$out" "10:00 Alesio: salut"
+expect_contains "discord_read: 10 messages by default" "$(dt '.method=="Runtime.evaluate"' | tail -n 1)" "slice(-10)"
+out=$(call discord_send '{"to":"Alesio","text":"c'"'"'est \"ok\"\nà plus"}')
+expect_contains "discord_send: says where it went" "$out" "sent to Alesio [123]"
+expect_contains "discord_send: the text passed as a JSON string" "$(dt '.method=="Runtime.evaluate"' | tail -n 1 | jq -r .params.expression)" \
+  'sendMessage(c.id, {content: "c'"'"'est \"ok\"\n\u00e0 plus"})'
+expect_contains "discord_send: 2000 characters at most" "$(call discord_send "$(jq -nc '{to: "x", text: ("a" * 2001)}')")" "at most 2000"
+if grep -q 'à plus' "$XDG_STATE_HOME/nixbook-shell/desktop-mcp.log"; then
+  fail "audit: discord message not logged"
+else
+  pass "audit: discord message not logged"
+fi
+kill "$dt_pid" 2>/dev/null || true
+wait "$dt_pid" 2>/dev/null || true
+expect_contains "browser: Zen not listening" "$(call browser_tabs)" "Zen isn't listening for agents (127.0.0.1:$dt_port)"
+expect_contains "discord: Vesktop not listening" "$(call discord_read)" "Vesktop isn't listening for agents"
+rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+
 echo kitty >"$STUB_FOCUS"
 reset_calls
 out=$(call type_text '{"text":"rm -rf ~"}')

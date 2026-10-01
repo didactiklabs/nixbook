@@ -990,6 +990,13 @@ Whether to enable Visual Studio Code with a declarative extension set. Manages V
 
 ## zenBrowserConfig
 
+### `customHomeManagerModules.zenBrowserConfig.agentRemoteControl`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether AI agents may drive Zen through WebDriver BiDi on 127.0.0.1 (nixbook-shell's `desktopMcp.zen`: the `browser` tools read pages as text and click and type in them, instead of screenshots). Zen's launcher entry starts it with `--remote-debugging-port`, and the profile's `remote.prefs.recommended` is off, so remote control doesn't apply Firefox's automation defaults (Safe Browsing off, no session restore…) to it. While Zen runs, any program of this user can drive it; pages can tell it is remote-controlled (`navigator.webdriver`).
+
 ### `customHomeManagerModules.zenBrowserConfig.enable`
 
 - **Type:** `boolean`
