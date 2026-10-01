@@ -54,8 +54,10 @@ let
   # Its niri (niri-winit-agent-window.patch) drops the input of its window
   # (NIRI_WINIT_IGNORE_INPUT): the user can move, resize and close the window
   # but not click or type into it; and names it (NIRI_WINIT_TITLE,
-  # NIRI_WINIT_APP_ID) like an app. The agent's only: the user's niri stays
-  # the cached nixpkgs one, this one builds locally (tests off).
+  # NIRI_WINIT_APP_ID) like an app; and keeps the windows its rules open
+  # fullscreen so, whatever the app asks (NIRI_KEEP_FULLSCREEN). The agent's
+  # only: the user's niri stays the cached nixpkgs one, this one builds
+  # locally (tests off).
   agentNiri = pkgs.niri.overrideAttrs (old: {
     patches = (old.patches or [ ]) ++ [ ./niri-winit-agent-window.patch ];
     doCheck = false;

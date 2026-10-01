@@ -12,8 +12,9 @@
 # from the user, so the user can move, resize and close the window but not
 # click or type into the agent's desktop; except while the user takes it over
 # (`desktop interact`, Mod+Ctrl+A: while agent-desktop-input exists). Nothing
-# is on it but the one app the agent works in, filling it edge to edge
-# (desktop-mcp closes the previous app when it starts another).
+# is on it but the one app the agent works in, fullscreen (its niri keeps it
+# so, whatever the app asks; desktop-mcp closes the previous app when it
+# starts another).
 #
 # Sandboxed (bubblewrap): its niri and every app on it see none of the
 # user's files. Their home is $XDG_DATA_HOME/nixbook-shell/agent-home (their
@@ -126,9 +127,10 @@ gestures {
         off
     }
 }
-// Every window opens fullscreen (a browser hides its tabs and address bar
-// then: the agents are told to use its shortcuts), maximized to the edges
-// when it leaves fullscreen.
+// Every window opens fullscreen (a browser may hide its tabs and address bar
+// then: the agents are told to use its shortcuts) and stays so: its niri
+// ignores the app's own requests to leave it (NIRI_KEEP_FULLSCREEN; Zen and
+// Firefox restore their window size on start), maximized to the edges under it.
 window-rule {
     open-fullscreen true
     open-maximized-to-edges true
@@ -214,6 +216,7 @@ bwrap "${sandbox[@]}" \
   --setenv NIRI_WINIT_ALLOW_INPUT_FILE "$input_file" \
   --setenv NIRI_WINIT_TITLE "Assistant's desktop" \
   --setenv NIRI_WINIT_APP_ID nixbook-agent-desktop \
+  --setenv NIRI_KEEP_FULLSCREEN 1 \
   --unsetenv DBUS_SESSION_BUS_ADDRESS --unsetenv DISPLAY --unsetenv NIRI_SOCKET \
   -- dbus-run-session "${bus_config[@]}" -- niri -c "$config" &
 niri_pid=$!
