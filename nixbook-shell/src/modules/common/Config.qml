@@ -170,7 +170,10 @@ Singleton {
                 // (nixbook-desktop-mcp) unless the tool is "none".
                 property JsonObject claudeCode: JsonObject {
                     property string command: "" // empty: `claude` on PATH, ~/.local/bin, the Nix profiles
-                    property string model: "" // empty: Claude Code's default; e.g. "sonnet" (faster), "opus"
+                    // Sonnet at low effort: driving the desktop is many short
+                    // steps, each waiting on the model's thinking.
+                    property string model: "sonnet" // empty: Claude Code's default; "opus", "haiku"
+                    property string effort: "low" // --effort: low, medium, high; empty: Claude Code's default
                     // Tools it may use besides the desktop ones; others (Bash,
                     // Edit, Write…) are refused. The file tools (Read, Glob,
                     // Grep) aren't taken from here: ai.allowedFolders gives them.

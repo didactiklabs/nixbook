@@ -12,7 +12,8 @@
       "allowedTools": ["WebSearch", "WebFetch"],
       "command": "",
       "connectors": false,
-      "model": ""
+      "effort": "low",
+      "model": "sonnet"
     }
   },
   "appearance": {

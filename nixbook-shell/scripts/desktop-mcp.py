@@ -86,7 +86,7 @@ DEFAULT_CONFIG = {
     "maxNoteLength": 100000,
     "actionsPerMinute": 120,
     "notifyOnControl": True,
-    "screenshotMaxEdge": 1568,
+    "screenshotMaxEdge": 1280,
     # JPEG: a fraction of a PNG's size, so screenshots reach the model sooner.
     "screenshotFormat": "jpeg",
     "screenshotQuality": 80,
@@ -1854,7 +1854,7 @@ def t_screenshot(ctx, args):
         out = t_screenshot(ctx, {"monitor": ws["output"]})
         out[0]["text"] = f"Window {wid} ({w.get('app_id')}) is tiled on {ws['output']}: the whole monitor.\n" + out[0]["text"]
         return out
-    max_edge = int(ctx.cfg.get("screenshotMaxEdge", 1568))
+    max_edge = int(ctx.cfg.get("screenshotMaxEdge", 1280))
     if args.get("region") is not None:
         r = args["region"]
         if not isinstance(r, dict):
@@ -2138,7 +2138,7 @@ def screenshot_window(ctx, wid):
         if saved:
             wl_copy(saved[1], saved[0])
     size = png_size(data)
-    max_edge = int(ctx.cfg.get("screenshotMaxEdge", 1568))
+    max_edge = int(ctx.cfg.get("screenshotMaxEdge", 1280))
     if shutil.which("magick"):
         # Scaled down to the size limit, and to JPEG unless PNG is asked for.
         out = path
@@ -2189,7 +2189,7 @@ OCR_MAX_CHARS = 6000
     "screen",
     "Read the text on a monitor (default: the focused one) or a `region`, "
     "with where each line is: a few hundred tokens of text instead of a "
-    "screenshot's ~1,850, and the positions are desktop pixels, ready for "
+    "screenshot's ~1,250, and the positions are desktop pixels, ready for "
     "click/move_pointer as x, y (no mapping). OCR: icons and images aren't "
     "read, and some text may be missed; take a screenshot when the text isn't "
     "enough. `find`: only the lines that contain this text, e.g. to locate "
