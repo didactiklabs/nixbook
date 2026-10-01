@@ -119,7 +119,18 @@ done
 cat >"$bin/grim" <<'EOF'
 #!/usr/bin/env bash
 echo "grim $*" >>"$STUB_CALLS"
-printf '\x89PNG fake' >"${*: -1}"
+# PPM: the next of $STUB_FRAMES/1.ppm, 2.ppm… (the last one again), else a grey 64x36.
+if [ "${*: -2:1}" = ppm ]; then
+  if [ -n "${STUB_FRAMES:-}" ]; then
+    n=$(( $(cat "$STUB_FRAMES/n" 2>/dev/null || echo 0) + 1 ))
+    [ -e "$STUB_FRAMES/$n.ppm" ] && echo "$n" >"$STUB_FRAMES/n" || n=$(cat "$STUB_FRAMES/n")
+    cp "$STUB_FRAMES/$n.ppm" "${*: -1}"
+  else
+    { printf 'P6\n64 36\n255\n'; head -c $((64 * 36 * 3)) /dev/zero | tr '\0' '\200'; } >"${*: -1}"
+  fi
+else
+  printf '\x89PNG fake' >"${*: -1}"
+fi
 EOF
 # A clipboard: $STUB_CLIP (content) and $STUB_CLIP.type (its type).
 cat >"$bin/wl-copy" <<'EOF'
@@ -140,11 +151,11 @@ cat >"$bin/wl-paste" <<'EOF'
 [ -f "$STUB_CLIP.type" ] || exit 1
 if [ "${1:-}" = "--list-types" ]; then cat "$STUB_CLIP.type"; else cat "$STUB_CLIP"; fi
 EOF
-# magick: copies its input to its output (the last argument).
+# magick: copies its input to its output (the last argument; jpeg:- or png:- stdout).
 cat >"$bin/magick" <<'EOF'
 #!/usr/bin/env bash
 echo "magick $*" >>"$STUB_CALLS"
-cp "$1" "${*: -1}"
+case "${*: -1}" in *:-) cat "$1" ;; *) cp "$1" "${*: -1}" ;; esac
 EOF
 cat >"$bin/qs" <<'EOF'
 #!/usr/bin/env bash
@@ -269,7 +280,7 @@ expect_eq "unknown tool: -32602" -32602 "$(jq 'select(.id==4).error.code' <<<"$o
 expect_eq "unknown method: -32601" -32601 "$(jq 'select(.id==5).error.code' <<<"$out")"
 expect_eq "bad JSON: -32700" -32700 "$(jq 'select(.id==null).error.code' <<<"$out")"
 expect_eq "screenshot: image content (JPEG)" "image/jpeg" "$(jq -r 'select(.id==6).result.content[1].mimeType' <<<"$out")"
-expect_eq "screenshot: scaled to 1568px" "grim -o eDP-1 -s 0.5000 -t jpeg" "$(grep '^grim' "$calls" | cut -d' ' -f1-7)"
+expect_eq "screenshot: scaled to 1568px" "grim -o eDP-1 -s 0.5000 -t ppm" "$(grep '^grim' "$calls" | cut -d' ' -f1-7)"
 expect_eq "screenshot: file removed after sending" 0 "$(find "$XDG_RUNTIME_DIR" -name 'screenshot-*' | wc -l | tr -d ' ')"
 expect_eq "audit: client name from initialize" test-client "$(jq -r 'select(.tool=="focus_window").client' "$XDG_STATE_HOME/nixbook-shell/desktop-mcp.log" | head -1)"
 expect_eq "audit log is private" 600 "$(stat -c %a "$XDG_STATE_HOME/nixbook-shell/desktop-mcp.log")"
@@ -480,9 +491,44 @@ wl_pid=""
 reset_calls
 out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"focus_window","arguments":{"id":1,"screenshot_after":true,"wait_ms":0}}}' | python3 "$mcp")
 expect_eq "screenshot_after: action, focused window, screenshot" "text text text image" "$(jq -r '[.result.content[].type] | join(" ")' <<<"$out")"
-expect_eq "screenshot_after: the action ran first" "niri msg action focus-window --id 1|grim" "$(grep -v '^notify-send' "$calls" | sed 's/^grim.*/grim/' | paste -sd'|')"
+expect_eq "screenshot_after: the action ran first" "niri msg action focus-window --id 1|grim|magick" "$(grep -v '^notify-send' "$calls" | sed 's/^\(grim\|magick\) .*/\1/' | paste -sd'|')"
 expect_eq "screenshot_after: offered on action tools only" "true false" \
   "$(python3 "$mcp" tools | jq -r '[(.[] | select(.name=="click") | .inputSchema.properties | has("screenshot_after")), (.[] | select(.name=="list_windows") | .inputSchema.properties | has("screenshot_after"))] | join(" ")')"
+
+# Monitor screenshots after the first: only what changed (eDP-1: 3200x1800 at 0,0, scale 0.5).
+frames="$tmp/frames"
+mkdir -p "$frames"
+python3 - "$frames" <<'PY'
+import sys
+d = sys.argv[1]
+def frame(n, paint=()):
+    w, h = 1600, 900
+    px = bytearray(b"\x80" * (w * h * 3))
+    for x0, y0, x1, y1 in paint:
+        for y in range(y0, y1):
+            px[(y * w + x0) * 3:(y * w + x1) * 3] = b"\xff" * ((x1 - x0) * 3)
+    open(f"{d}/{n}.ppm", "wb").write(b"P6\n1600 900\n255\n" + px)
+frame(1)
+frame(2)                                          # unchanged
+frame(3, [(100, 200, 140, 210)])                  # a small change
+frame(4, [(100, 200, 140, 210), (1500, 10, 1510, 20), (800, 800, 810, 810)])  # two more, far apart
+frame(5, [(0, 0, 1600, 600)])                     # most of it
+PY
+reset_calls
+out=$(for a in 1:'{}' 2:'{}' 3:'{}' 4:'{}' 5:'{}' 6:'{"full":true}'; do
+  printf '{"jsonrpc":"2.0","id":%d,"method":"tools/call","params":{"name":"screenshot","arguments":%s}}\n' "${a%%:*}" "${a#*:}"
+done | STUB_FRAMES="$frames" python3 "$mcp")
+expect_eq "screenshot: the first one whole" "text image" "$(jq -r 'select(.id==1) | [.result.content[].type] | join(" ")' <<<"$out")"
+expect_eq "screenshot: unchanged, no image" "text" "$(jq -r 'select(.id==2) | [.result.content[].type] | join(" ")' <<<"$out")"
+expect_contains "screenshot: unchanged, said so" "$(jq -r 'select(.id==2).result.content[0].text' <<<"$out")" "Nothing changed since your last screenshot"
+expect_eq "screenshot: a small change, cropped" "text text image" "$(jq -r 'select(.id==3) | [.result.content[].type] | join(" ")' <<<"$out")"
+expect_contains "screenshot: crop mapping, in desktop pixels" "$(jq -r 'select(.id==3).result.content[1].text' <<<"$out")" \
+  'Part 72x42 at image (84,184), mapping: {"x": 168.0, "y": 368.0, "scale": 0.5}'
+expect_eq "screenshot: two changes apart, two crops" "text text image text image" "$(jq -r 'select(.id==4) | [.result.content[].type] | join(" ")' <<<"$out")"
+expect_eq "screenshot: most of it changed, whole" "text image" "$(jq -r 'select(.id==5) | [.result.content[].type] | join(" ")' <<<"$out")"
+expect_eq "screenshot: full: true, whole" "text image" "$(jq -r 'select(.id==6) | [.result.content[].type] | join(" ")' <<<"$out")"
+expect_eq "screenshot: crops cut by magick" "magick -crop 72x42+84+184|magick -crop 42x36+1484+0|magick -crop 42x42+784+784" \
+  "$(grep -o '^magick .* -crop [^ ]*' "$calls" | sed 's/ [^ ]*ppm//' | paste -sd'|')"
 
 reset_calls
 out=$(call run_steps '{"steps":[{"tool":"press_keys","args":{"keys":["ctrl+k"]}},{"tool":"type_text","args":{"text":"Alesio"},"wait_ms":0},{"tool":"press_keys","args":{"keys":["Return"]},"wait_ms":0}]}')

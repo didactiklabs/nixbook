@@ -1801,7 +1801,9 @@ COORD = {"type": "number"}
     "screenshot comes with a `mapping`: pass it as `screenshot` to "
     "click/move_pointer/drag/scroll to give them this image's pixel "
     "coordinates. A window not on screen: focus it first (focus_window with "
-    "screenshot_after does both in one call).",
+    "screenshot_after does both in one call). A monitor screenshot sends only "
+    "what changed since your last one of it (the rest is as you saw it), or "
+    "says nothing did; `full` sends it all.",
     obj(
         {
             "monitor": {"type": "string", "description": "Monitor name (see list_workspaces)"},
@@ -1817,6 +1819,7 @@ COORD = {"type": "number"}
                 "description": "Capture a window that isn't on screen through niri. Avoid: it "
                 "copies the capture to the user's clipboard and notifies them",
             },
+            "full": {"type": "boolean", "description": "The whole monitor, even when little or nothing changed"},
         }
     ),
     read_only=True,
@@ -1884,6 +1887,8 @@ def t_screenshot(ctx, args):
         scale = min(1.0, max_edge / max(w, h))
         grim = ["-o", name]
         what = f"Monitor {name}: {w}x{h} logical pixels at ({x},{y})"
+        if ctx.transport != "cli" and shutil.which("magick"):
+            return monitor_screenshot(ctx, name, grim, round(scale, 4), x, y, what, args.get("full") is True)
     scale = round(scale, 4)
     if ctx.cfg.get("screenshotFormat") == "png":
         path = os.path.join(runtime_dir(), f"screenshot-{secrets.token_hex(4)}.png")
@@ -1901,6 +1906,117 @@ def t_screenshot(ctx, args):
         "To see small things better, take a `region` screenshot around them."
     )
     return screenshot_reply(ctx, path, info)
+
+
+# Monitor screenshots send what changed since the session's last one: an
+# image costs the model about width x height / 750 tokens, every time it is
+# read again, and most screenshots after an action change a small part.
+FRAME_GAP = 24  # image pixels: changes closer than this make one crop
+FRAME_PAD = 16  # image pixels around each changed area
+FRAME_MAX_CROPS = 3
+FRAME_MAX_SHARE = 0.5  # crops covering more than this: the whole image
+
+
+def read_ppm(data):
+    m = re.match(rb"P6\s+(\d+)\s+(\d+)\s+255\s", data)
+    if not m or len(data) - m.end() != int(m[1]) * int(m[2]) * 3:
+        raise ToolError("grim returned an unexpected capture")
+    return int(m[1]), int(m[2]), data[m.end():]
+
+
+def first_diff(a, b):
+    """Index of the first differing byte of a and b (they differ)."""
+    lo, hi = 0, len(a)  # a[:lo] == b[:lo], a[:hi] != b[:hi]
+    while hi - lo > 1:
+        mid = (lo + hi) // 2
+        if a[:mid] == b[:mid]:
+            lo = mid
+        else:
+            hi = mid
+    return lo
+
+
+def changed_boxes(old, new, w, h):
+    """[x0, y0, x1, y1) image rectangles around the pixels that differ."""
+    stride = w * 3
+    boxes = []
+    for y in range(h):
+        a, b = old[y * stride:(y + 1) * stride], new[y * stride:(y + 1) * stride]
+        if a == b:
+            continue
+        x0 = first_diff(a, b) // 3
+        x1 = w - first_diff(a[::-1], b[::-1]) // 3
+        last = boxes[-1] if boxes else None
+        if last and y - last[3] < FRAME_GAP:
+            last[0], last[2], last[3] = min(last[0], x0), max(last[2], x1), y + 1
+        else:
+            boxes.append([x0, y, x1, y + 1])
+    boxes = [[max(0, b[0] - FRAME_PAD), max(0, b[1] - FRAME_PAD), min(w, b[2] + FRAME_PAD), min(h, b[3] + FRAME_PAD)] for b in boxes]
+    merged = True
+    while merged:  # padded boxes that overlap: one
+        merged = False
+        for i, a in enumerate(boxes):
+            for b in boxes[i + 1:]:
+                if a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]:
+                    a[:] = [min(a[0], b[0]), min(a[1], b[1]), max(a[2], b[2]), max(a[3], b[3])]
+                    boxes.remove(b)
+                    merged = True
+                    break
+            if merged:
+                break
+    if len(boxes) > FRAME_MAX_CROPS:
+        boxes = [[min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes)]]
+    return boxes
+
+
+def monitor_screenshot(ctx, name, grim, scale, x, y, what, full):
+    path = os.path.join(runtime_dir(), f"screenshot-{secrets.token_hex(4)}.ppm")
+    try:
+        run(["grim", *grim, "-s", f"{scale:.4f}", "-t", "ppm", path], timeout=15)
+        os.chmod(path, 0o600)
+        with open(path, "rb") as f:
+            iw, ih, pixels = read_ppm(f.read())
+        # What this session was sent last of this monitor, on this desktop.
+        key = (ctx.session, current_desktop(), name, x, y, scale)
+        old = ctx.frames.pop(key, None)
+        ctx.frames[key] = pixels
+        while len(ctx.frames) > 4:  # a few MB each
+            ctx.frames.pop(next(iter(ctx.frames)))
+        boxes = None if full or old is None or len(old) != len(pixels) else changed_boxes(old, pixels, iw, ih)
+        head = f"{what}, image scale {scale:g}."
+        if boxes == []:
+            return [text(f"{head} Nothing changed since your last screenshot of it (`full: true` sends it again).")]
+        if boxes and sum((b[2] - b[0]) * (b[3] - b[1]) for b in boxes) <= FRAME_MAX_SHARE * iw * ih:
+            out = [text(
+                f"{head} Only {'this part' if len(boxes) == 1 else f'these {len(boxes)} parts'} changed since "
+                "your last screenshot of it (the rest is as you saw it; `full: true` sends it all). "
+                "To click in a part, pass its pixel coordinates as x, y with its mapping as `screenshot`."
+            )]
+            for b in boxes:
+                mapping = {"x": round(x + b[0] / scale, 2), "y": round(y + b[1] / scale, 2), "scale": scale}
+                out.append(text(f"Part {b[2] - b[0]}x{b[3] - b[1]} at image ({b[0]},{b[1]}), mapping: {json.dumps(mapping)}"))
+                out.append(encode_frame(ctx, path, f"{b[2] - b[0]}x{b[3] - b[1]}+{b[0]}+{b[1]}"))
+            return out
+        mapping = {"x": x, "y": y, "scale": scale}
+        info = (
+            f"{head}\nmapping: {json.dumps(mapping)}\n"
+            "To click something in this image, pass its pixel coordinates as x, y "
+            "with this mapping as `screenshot` (desktop x = mapping.x + image_x / scale). "
+            "To see small things better, take a `region` screenshot around them."
+        )
+        return [text(info), encode_frame(ctx, path)]
+    finally:
+        if os.path.exists(path):
+            os.unlink(path)
+
+
+def encode_frame(ctx, path, crop=None):
+    png = ctx.cfg.get("screenshotFormat") == "png"
+    quality = min(max(int(ctx.cfg.get("screenshotQuality", 80)), 10), 100)
+    argv = ["magick", path, *(["-crop", crop, "+repage"] if crop else [])]
+    argv += ["png:-"] if png else ["-quality", str(quality), "jpeg:-"]
+    data = run(argv, timeout=15, binary=True).stdout
+    return {"type": "image", "data": base64.b64encode(data).decode(), "mimeType": "image/png" if png else "image/jpeg"}
 
 
 def png_size(data):
@@ -2962,14 +3078,19 @@ class Context:
         # Just-in-time memory: the apps and notes this session was given.
         self.apps_seen = set()
         self.notes_shown = set()
+        # The MCP session of the call running (call_tool), and the last
+        # monitor capture each was sent (monitor_screenshot).
+        self.session = None
+        self.frames = {}
 
 
 def enabled_tools(cfg):
     return {n: t for n, t in TOOLS.items() if t["group"] in cfg["tools"]}
 
 
-def call_tool(ctx, name, args):
-    """Returns (content, is_error). Unknown tools raise KeyError."""
+def call_tool(ctx, name, args, session=None):
+    """Returns (content, is_error). Unknown tools raise KeyError. session:
+    the MCP session calling (HTTP: its Mcp-Session-Id)."""
     t = enabled_tools(ctx.cfg).get(name)
     if not t:
         raise KeyError(name)
@@ -2986,6 +3107,7 @@ def call_tool(ctx, name, args):
             return [text("refused: desktop control is paused by the user (`nixbook-desktop-mcp resume` to allow it again)")], True
     # One action at a time, whatever the number of clients or threads.
     with ctx.lock:
+        ctx.session = session
         write_state(last={"time": int(time.time() * 1000), "client": ctx.client, "tool": name, "outcome": "running"})
         try:
             if name != "get_status":  # it says why the agent desktop can't start
@@ -3188,7 +3310,7 @@ class Session:
         if method == "tools/call":
             name = params.get("name")
             try:
-                content, is_error = call_tool(self.ctx, name, params.get("arguments") or {})
+                content, is_error = call_tool(self.ctx, name, params.get("arguments") or {}, session_id)
             except KeyError:
                 raise RpcError(-32602, f"unknown tool: {name}")
             note = desktop_switch_note(self.ctx, session_id)
