@@ -7,6 +7,12 @@
 # tools, the notes widget, to-do list, calendar, still reach the user's
 # shell: desktop-mcp talks to it over its IPC, not through a display.)
 #
+# The window is a view: its niri (patched, niri-winit-ignore-input.patch)
+# drops the input it gets from the user, so the user can move, resize and
+# close the window but not click or type into the agent's desktop. Closing
+# it stops the agent: desktop-mcp doesn't start it again, only the user does
+# (`desktop agent`, Mod+Shift+A).
+#
 # Its apps are the agent's, not the user's:
 #   - their own home ($XDG_DATA_HOME/nixbook-shell/agent-home): their own
 #     browser profiles, history and logins, with the user's GTK/Qt/font
@@ -114,4 +120,4 @@ if [ ! -e /etc/dbus-1/session.conf ]; then
   bus_config=(--config-file "$(dirname "$(command -v dbus-daemon)")/../share/dbus-1/session.conf")
 fi
 # Not exec: the trap removes the env file when niri exits.
-dbus-run-session "${bus_config[@]}" -- niri -c "$config"
+NIRI_WINIT_IGNORE_INPUT=1 dbus-run-session "${bus_config[@]}" -- niri -c "$config"
