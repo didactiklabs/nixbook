@@ -294,7 +294,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 37 tools" 37 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 38 tools" 38 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -893,6 +893,28 @@ out=$(call shell_ipc '{"target":"desktopControl","function":"resume"}')
 expect_contains "shell_ipc: the bar's pause/resume is the user's only" "$out" "off limits"
 out=$(call shell_ipc '{"target":"layouts","function":"restore","args":["work"]}')
 expect_contains "shell_ipc: the user's layouts target is theirs only" "$out" "off limits"
+
+# -- the wallpaper: an image from a folder shared with agents --------------------------------
+
+shared="$tmp/shared" outside="$tmp/outside"
+mkdir -p "$shared" "$outside"
+printf '\x89PNG\r\n\x1a\n0000IHDR' >"$shared/wall.png"
+printf '\xff\xd8\xff\xe0 jfif' >"$outside/secret.jpg"
+echo "not an image" >"$shared/notes.txt"
+ln -sf "$outside/secret.jpg" "$shared/link.jpg"
+expect_contains "set_wallpaper: no shared folder" "$(call set_wallpaper "{\"path\":\"$shared/wall.png\"}")" "shares no folder with agents"
+jq -n --arg d "$shared" '{ai: {allowedFolders: [], writableFolders: [$d]}}' >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
+reset_calls
+out=$(call set_wallpaper "{\"path\":\"$shared/wall.png\"}")
+expect_contains "set_wallpaper: applied" "$out" "wallpaper set to $shared/wall.png"
+expect_eq "set_wallpaper: the shell's wallpapers.apply" "qs -c nixbook-shell ipc call -- wallpapers apply $shared/wall.png" "$(grep 'wallpapers apply' "$calls")"
+reset_calls
+expect_contains "set_wallpaper: outside the shared folders" "$(call set_wallpaper "{\"path\":\"$outside/secret.jpg\"}")" "isn't in a folder the user shares"
+expect_contains "set_wallpaper: a link out of them" "$(call set_wallpaper "{\"path\":\"$shared/link.jpg\"}")" "isn't in a folder the user shares"
+expect_contains "set_wallpaper: not an image" "$(call set_wallpaper "{\"path\":\"$shared/notes.txt\"}")" "isn't a JPEG, PNG, WebP or AVIF image"
+expect_contains "set_wallpaper: a web address" "$(call set_wallpaper '{"path":"https://example.com/w.jpg"}')" "download the image"
+expect_eq "set_wallpaper: nothing applied when refused" "" "$(grep 'wallpapers apply' "$calls" || true)"
+rm "$XDG_CONFIG_HOME/nixbook-shell/config.json"
 
 # -- themes and variants ---------------------------------------------------------------------
 
