@@ -24,6 +24,10 @@ in
   # security = {
   #   sudo.wheelNeedsPassword = true;
   # };
+  # OpenVPN 3 Linux: OpenVPN Inc's official client on Linux (OpenVPN Connect
+  # itself only ships for Windows/macOS/mobile). Same profiles (.ovpn,
+  # Access Server, CloudConnexa incl. web auth); DNS via systemd-resolved.
+  programs.openvpn3.enable = true;
   services = {
     clamav = {
       daemon.enable = true;
