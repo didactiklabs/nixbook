@@ -408,6 +408,63 @@ Scope {
                             }
                         }
 
+                        // Where AI agents work (DesktopControl): their own desktop
+                        // (a window you watch) or yours. Click switches, like Mod+Shift+A.
+                        RippleButton {
+                            implicitHeight: 40
+                            colBackground: "transparent"
+                            colBackgroundHover: Appearance.colors.colLayer2
+                            contentItem: RowLayout {
+                                anchors { fill: parent; leftMargin: 12; rightMargin: 12 }
+                                spacing: 12
+                                MaterialSymbol { text: "smart_toy"; iconSize: Appearance.font.pixelSize.larger; color: Appearance.colors.colOnLayer1 }
+                                StyledText { Layout.fillWidth: true; text: Translation.tr("Assistant's desktop"); font.pixelSize: Appearance.font.pixelSize.normal; color: Appearance.colors.colOnLayer1; elide: Text.ElideRight }
+                                StyledText {
+                                    text: !DesktopControl.onAgentDesktop ? Translation.tr("Off")
+                                        : DesktopControl.agentDesktopOpen ? Translation.tr("On")
+                                        : Translation.tr("Closed")
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                    color: Appearance.colors.colOnLayer1
+                                    opacity: 0.6
+                                }
+                                MaterialSymbol {
+                                    text: DesktopControl.onAgentDesktop && DesktopControl.agentDesktopOpen ? "toggle_on" : "toggle_off"
+                                    iconSize: Appearance.font.pixelSize.larger
+                                    color: DesktopControl.onAgentDesktop && DesktopControl.agentDesktopOpen ? Appearance.colors.colPrimary : Appearance.colors.colOnLayer1
+                                    opacity: DesktopControl.onAgentDesktop && DesktopControl.agentDesktopOpen ? 1 : 0.5
+                                }
+                            }
+                            onClicked: {
+                                GlobalStates.desktopMenuOpen = false
+                                DesktopControl.toggleDesktop()
+                            }
+                        }
+
+                        // Take the assistant's desktop over for a moment (log its
+                        // browser in somewhere…), like Mod+Ctrl+A.
+                        RippleButton {
+                            visible: DesktopControl.canTakeOver || DesktopControl.userHasControl
+                            implicitHeight: 40
+                            colBackground: "transparent"
+                            colBackgroundHover: Appearance.colors.colLayer2
+                            contentItem: RowLayout {
+                                anchors { fill: parent; leftMargin: 12; rightMargin: 12 }
+                                spacing: 12
+                                MaterialSymbol { text: "touch_app"; iconSize: Appearance.font.pixelSize.larger; color: Appearance.colors.colOnLayer1 }
+                                StyledText { Layout.fillWidth: true; text: Translation.tr("Use it myself"); font.pixelSize: Appearance.font.pixelSize.normal; color: Appearance.colors.colOnLayer1; elide: Text.ElideRight }
+                                MaterialSymbol {
+                                    text: DesktopControl.userHasControl ? "toggle_on" : "toggle_off"
+                                    iconSize: Appearance.font.pixelSize.larger
+                                    color: DesktopControl.userHasControl ? Appearance.colors.colPrimary : Appearance.colors.colOnLayer1
+                                    opacity: DesktopControl.userHasControl ? 1 : 0.5
+                                }
+                            }
+                            onClicked: {
+                                GlobalStates.desktopMenuOpen = false
+                                DesktopControl.toggleInteract()
+                            }
+                        }
+
                         RippleButton {
                             implicitHeight: 40
                             colBackground: "transparent"

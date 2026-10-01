@@ -51,12 +51,13 @@ let
   # A desktop of their own for AI agents (scripts/agent-desktop.sh): a nested
   # niri that `nixbook-desktop-mcp desktop agent` points the agents' tools
   # at, run by the `nixbook-agent-desktop` user service.
-  # Its niri drops the input of its window (niri-winit-ignore-input.patch,
-  # with NIRI_WINIT_IGNORE_INPUT): the agent's only, the user can move,
-  # resize and close the window but not click or type into it. The user's
-  # niri stays the cached nixpkgs one; this one builds locally (tests off).
+  # Its niri (niri-winit-agent-window.patch) drops the input of its window
+  # (NIRI_WINIT_IGNORE_INPUT): the user can move, resize and close the window
+  # but not click or type into it; and names it (NIRI_WINIT_TITLE,
+  # NIRI_WINIT_APP_ID) like an app. The agent's only: the user's niri stays
+  # the cached nixpkgs one, this one builds locally (tests off).
   agentNiri = pkgs.niri.overrideAttrs (old: {
-    patches = (old.patches or [ ]) ++ [ ./niri-winit-ignore-input.patch ];
+    patches = (old.patches or [ ]) ++ [ ./niri-winit-agent-window.patch ];
     doCheck = false;
   });
   agentDesktop = pkgs.writeShellScriptBin "nixbook-agent-desktop" ''

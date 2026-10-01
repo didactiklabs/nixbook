@@ -1,0 +1,45 @@
+diff --git a/src/backend/winit.rs b/src/backend/winit.rs
+index a9bcc515..84067d6f 100644
+--- a/src/backend/winit.rs
++++ b/src/backend/winit.rs
+@@ -43,11 +43,14 @@ impl Winit {
+     ) -> Result<Self, winit::Error> {
+         let _span = tracy_client::span!("Winit::new");
+ 
++        // Nested in another compositor as somebody's window: what it shows as.
++        let title = std::env::var("NIRI_WINIT_TITLE").unwrap_or_else(|_| String::from("niri"));
++        let app_id = std::env::var("NIRI_WINIT_APP_ID").unwrap_or_else(|_| String::from("niri"));
+         let builder = Window::default_attributes()
+             .with_inner_size(LogicalSize::new(1280.0, 800.0))
+             // .with_resizable(false)
+-            .with_title("niri")
+-            .with_name("niri", "");
++            .with_title(title)
++            .with_name(app_id, "");
+         let (backend, winit) = winit::init_from_attributes(builder)?;
+ 
+         let output = Output::new(
+@@ -100,6 +103,14 @@ impl Winit {
+ 
+         let damage_tracker = OutputDamageTracker::from_output(&output);
+ 
++        // A view only: input from the window is dropped, the session is
++        // driven through virtual input devices (wlr-virtual-pointer,
++        // virtual-keyboard) instead; except while the file at
++        // NIRI_WINIT_ALLOW_INPUT_FILE exists (the window's user takes over).
++        let ignore_input = std::env::var_os("NIRI_WINIT_IGNORE_INPUT").is_some();
++        let allow_input_file =
++            std::env::var_os("NIRI_WINIT_ALLOW_INPUT_FILE").map(std::path::PathBuf::from);
++
+         event_loop
+             .insert_source(winit, move |event, _, state| match event {
+                 WinitEvent::Resized { size, .. } => {
+@@ -129,6 +140,8 @@ impl Winit {
+ 
+                     state.niri.output_resized(&winit.output);
+                 }
++                WinitEvent::Input(_)
++                    if ignore_input && !allow_input_file.as_ref().is_some_and(|f| f.exists()) => {}
+                 WinitEvent::Input(event) => state.process_input_event(event),
+                 WinitEvent::Focus(_) => (),
+                 WinitEvent::Redraw => state.niri.queue_redraw(&state.backend.winit().output),

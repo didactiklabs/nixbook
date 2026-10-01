@@ -361,24 +361,38 @@ notifies (the previous clipboard is put back, but cliphist records it).
 ### A desktop of their own
 
 So an agent can work while you work, it can be given its own desktop:
-`nixbook-desktop-mcp desktop agent` (or `Mod+Shift+A`, which toggles)
-starts `nixbook-agent-desktop` (`scripts/agent-desktop.sh`, the user
-service of the same name): a nested niri, shown as a window on your desktop
-and focused so niri scrolls it into view. Every agent's tools then act
-there: its own pointer, keyboard focus, clipboard and windows, so nothing
-the agent does moves your windows, takes your focus or types into what
-you're typing in. Every window on it fills its screen, edge to edge
-(maximized, not fullscreen, so a browser keeps its tabs and address bar).
+`nixbook-desktop-mcp desktop agent` (or `Mod+Shift+A`, which toggles; also
+right-clicking the Desktop Control bar widget, the desktop menu's
+"Assistant's desktop" entry and Settings > Desktop agents) starts
+`nixbook-agent-desktop` (`scripts/agent-desktop.sh`, the user service of the
+same name): a nested niri, shown on your desktop as a window called
+"Assistant's desktop" (app id `nixbook-agent-desktop`), focused so niri
+scrolls it into view. Every agent's tools then act there: its own pointer,
+keyboard focus, clipboard and windows, so nothing the agent does moves your
+windows, takes your focus or types into what you're typing in.
 
-The window is a view of the agent's desktop, not a way into it: its niri
-drops your clicks and keys (`niri-winit-ignore-input.patch`, the agent's
-niri only: yours stays the cached nixpkgs package, this one builds locally),
-so you watch it work, and move, resize or send the window elsewhere like
-any other. **Closing the window stops the agent**: its tools are refused
-("the user closed your desktop") until you open it again with
-`Mod+Shift+A`; agents never start it themselves. `desktop user` brings the
-agents back to your desktop, `desktop stop` closes theirs, `desktop status`
-says which is in use (also `get_status`); the choice survives a reboot.
+To you it's one more app window: nothing is on the agent's desktop but the
+one app it works in, filling it edge to edge (maximized, not fullscreen, so
+a browser keeps its tabs and address bar): no bar, no focus ring or
+borders, no hot corner, and `launch_app` closes the agent's previous app
+when it starts another (that app's own dialogs stay), so there's never a
+layout inside. The bar widget shows a window icon beside its robot while
+agents are on their own desktop (red once you've closed it).
+
+The window is a view, not a way in: its niri drops your clicks and keys
+(`niri-winit-agent-window.patch`, which also names the window; the agent's
+niri only: yours stays the cached nixpkgs package, this one builds
+locally), so you watch it work, and move, resize or send the window
+elsewhere like any other. To use it yourself for a moment (log the agent's
+browser into a site, say), take it over: `Mod+Ctrl+A`, the desktop menu's
+"Use it myself", Settings, or `desktop interact on|off|toggle`. Your clicks
+and keys then reach it, and the agent's window and input tools are refused
+until you give it back (it can still take screenshots); it's off again
+after a restart. **Closing the window stops the agent**: its tools
+are refused ("the user closed your desktop") until you open it again;
+agents never start it themselves. `desktop user` brings the agents back to
+your desktop, `desktop stop` closes theirs, `desktop status` says which is
+in use (also `get_status`); the choice survives a reboot.
 
 Its apps are the agent's, not yours: their own home
 (`~/.local/share/nixbook-shell/agent-home`: their own browser profiles,

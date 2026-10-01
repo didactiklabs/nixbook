@@ -17,15 +17,35 @@ import QtQuick
  * agents may act only while ~/.local/state/nixbook-shell/desktop-control-allowed
  * exists (the server's kill switch), which this watches.
  *
- * The `desktopControl` IPC target (pause, resume, toggle, status) is for the
- * user's key bindings; the MCP server refuses it to agents.
+ * Where agents work: on the user's desktop, or on a desktop of their own
+ * (`nixbook-desktop-mcp desktop agent`: a nested niri shown as a window, a
+ * view the user can't type into; closing it stops the agents). Switching goes
+ * through the server's command too; this watches its flag
+ * (~/.local/state/nixbook-shell/agent-desktop) and whether the agent desktop
+ * is open (its env file in the runtime directory).
+ *
+ * The user can take the agent desktop over for a moment (`desktop interact`:
+ * their clicks and keys reach it, the agent's input waits), shown by its flag
+ * in the runtime directory.
+ *
+ * The `desktopControl` IPC target (pause, resume, toggle, status, and
+ * agentDesktop, userDesktop, toggleDesktop, closeAgentDesktop, toggleInteract)
+ * is for the user's key bindings; the MCP server refuses it to agents.
  */
 Singleton {
     id: root
 
     readonly property string stateDir: `${Quickshell.env("XDG_RUNTIME_DIR")}/nixbook-desktop-mcp`
-    readonly property string allowedFlag: `${Quickshell.env("XDG_STATE_HOME") || `${Quickshell.env("HOME")}/.local/state`}/nixbook-shell/desktop-control-allowed`
+    readonly property string stateHome: `${Quickshell.env("XDG_STATE_HOME") || `${Quickshell.env("HOME")}/.local/state`}/nixbook-shell`
+    readonly property string allowedFlag: `${root.stateHome}/desktop-control-allowed`
     property bool paused: true
+    // Agents work on their own desktop (else on the user's).
+    property bool onAgentDesktop: false
+    // Their desktop is open; on it but closed: the agents are stopped.
+    property bool agentDesktopOpen: false
+    // The user has taken their desktop over (clicks and keys get through).
+    property bool userHasControl: false
+    readonly property bool canTakeOver: root.onAgentDesktop && root.agentDesktopOpen
     // { time (ms since the epoch), client, tool, outcome: running|ok|error|paused }
     property var last: null
     property real now: Date.now()
@@ -52,6 +72,35 @@ Singleton {
     function toggle() {
         if (root.paused) root.resume();
         else root.pause();
+    }
+
+    // Opens the agent desktop (or reopens it, after the user closed it).
+    function agentDesktop() {
+        Quickshell.execDetached(["nixbook-desktop-mcp", "desktop", "agent"]);
+        root.onAgentDesktop = true;
+    }
+
+    function userDesktop() {
+        Quickshell.execDetached(["nixbook-desktop-mcp", "desktop", "user"]);
+        root.onAgentDesktop = false;
+    }
+
+    // Like Mod+Shift+A: to theirs (reopened if closed), or back to the user's.
+    function toggleDesktop() {
+        if (root.onAgentDesktop && root.agentDesktopOpen) root.userDesktop();
+        else root.agentDesktop();
+    }
+
+    // Take the agent desktop over, or give it back.
+    function toggleInteract() {
+        if (!root.userHasControl && !root.canTakeOver) return;
+        Quickshell.execDetached(["nixbook-desktop-mcp", "desktop", "interact", root.userHasControl ? "off" : "on"]);
+        root.userHasControl = !root.userHasControl;
+    }
+
+    function closeAgentDesktop() {
+        Quickshell.execDetached(["nixbook-desktop-mcp", "desktop", "stop"]);
+        root.agentDesktopOpen = false;
     }
 
     // The desktop memory (Settings > Desktop agents): notes agents wrote,
@@ -136,6 +185,37 @@ Singleton {
         onLoadFailed: error => root.paused = true
     }
 
+    FileView {
+        id: agentDesktopFlag
+        path: `${root.stateHome}/agent-desktop`
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: root.onAgentDesktop = true
+        onLoadFailed: error => root.onAgentDesktop = false
+    }
+
+    // Written once the agent desktop is up, removed when it closes.
+    FileView {
+        id: agentDesktopEnv
+        path: `${root.stateDir}/agent-desktop.env`
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: root.agentDesktopOpen = true
+        onLoadFailed: error => root.agentDesktopOpen = false
+    }
+
+    FileView {
+        id: agentDesktopInput
+        path: `${root.stateDir}/agent-desktop-input`
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: root.userHasControl = true
+        onLoadFailed: error => root.userHasControl = false
+    }
+
     // Ages the "active" state, and re-reads the file in case a change was
     // missed (the directory only appears with the first agent).
     Timer {
@@ -146,6 +226,9 @@ Singleton {
             root.now = Date.now();
             stateFile.reload();
             allowedFile.reload();
+            agentDesktopFlag.reload();
+            agentDesktopEnv.reload();
+            agentDesktopInput.reload();
         }
     }
 
@@ -161,8 +244,25 @@ Singleton {
         function toggle(): void {
             root.toggle();
         }
+        function agentDesktop(): void {
+            root.agentDesktop();
+        }
+        function userDesktop(): void {
+            root.userDesktop();
+        }
+        function toggleDesktop(): void {
+            root.toggleDesktop();
+        }
+        function closeAgentDesktop(): void {
+            root.closeAgentDesktop();
+        }
+        function toggleInteract(): void {
+            root.toggleInteract();
+        }
         function status(): string {
-            return JSON.stringify({ paused: root.paused, active: root.active, last: root.last });
+            return JSON.stringify({ paused: root.paused, active: root.active, last: root.last,
+                desktop: root.onAgentDesktop ? "agent" : "user", agentDesktopOpen: root.agentDesktopOpen,
+                userHasControl: root.userHasControl });
         }
     }
 }
