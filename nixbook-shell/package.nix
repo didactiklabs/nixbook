@@ -68,7 +68,9 @@ let
           agentNiri
           dbus # dbus-run-session: the agent apps' own session bus
           xwayland-satellite # X11 apps on the agent desktop, not the user's
-          bash # its --watch, run inside the agent desktop
+          bubblewrap # the sandbox: none of the user's files, sockets or processes
+          jq # the folders the user lets agents read (shell config)
+          findutils
           coreutils
         ]
       )

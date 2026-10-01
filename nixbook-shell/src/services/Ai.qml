@@ -282,21 +282,43 @@ Singleton {
             if (earlier.length > 8000) earlier = "…" + earlier.slice(-8000);
             prompt = `Earlier in this conversation:\n\n${earlier}\n\nThe user now says:\n\n${prompt}`;
         }
-        if (attachedFile && attachedFile.length > 0)
-            prompt += `\n\n(Attached file: ${attachedFile}; read it with the Read tool.)`;
+        const attached = attachedFile && attachedFile.length > 0 && attachedFile.startsWith("/") ? attachedFile : "";
+        if (attached.length > 0)
+            prompt += `\n\n(Attached file: ${attached}; read it with the Read tool.)`;
 
+        // No access to the user's files but the folders they allow
+        // (ai.allowedFolders: working directories, readable without asking)
+        // and a file they attach (that file only). Claude Code runs in an
+        // empty directory of its own, without the user's ~/.claude settings
+        // (their allow rules are for their own sessions), and every other
+        // read is denied (-p can't ask). No folder, no attachment: no file
+        // tools at all.
+        const fileTools = ["Read", "Glob", "Grep"];
+        const home = Quickshell.env("HOME");
+        const folders = (Config.options.ai.allowedFolders ?? [])
+            .map(f => String(f).trim())
+            .map(f => f === "~" ? home : f.startsWith("~/") ? `${home}/${f.slice(2)}` : f)
+            .filter(f => f.startsWith("/"));
+        const readTools = folders.length > 0 ? ["Read", "Glob", "Grep"] : attached.length > 0 ? ["Read"] : [];
+        const configured = (Config.options.ai.claudeCode.allowedTools ?? [])
+            .filter(t => !fileTools.some(f => t === f || t.startsWith(`${f}(`)));
         const desktop = root.currentTool !== "none" && root.desktopTools.length > 0;
         const connectors = root.claudeConnectorsSetting;
-        const allowed = [...(desktop ? ["mcp__desktop"] : []), ...(Config.options.ai.claudeCode.allowedTools ?? []),
+        const allowed = [...(desktop ? ["mcp__desktop"] : []), ...configured,
+            ...(attached.length > 0 ? [`Read(/${attached})`] : []),
             ...(connectors ? root.claudeConnectors : [])];
         const system = root.systemPrompt
             + "\n\nYou are answering in the desktop shell's side panel: keep answers short."
-            + (desktop ? " You can see and drive the user's desktop with the desktop tools." : "");
+            + (desktop ? " You can see and drive the user's desktop with the desktop tools." : "")
+            + (folders.length > 0 ? ` You may read files in these folders only: ${folders.join(", ")}.`
+                : " You have no access to the user's files (they can allow folders in Settings > Desktop agents).");
         // --strict-mcp-config leaves out every MCP server but the desktop one,
         // claude.ai connectors included: dropped when they are wanted.
         let args = ["-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
             ...(connectors ? [] : ["--strict-mcp-config"]), "--append-system-prompt", system,
-            "--disallowedTools", "Bash", "Edit", "Write", "NotebookEdit"];
+            "--setting-sources", "project",
+            "--disallowedTools", "Bash", "Edit", "Write", "NotebookEdit", ...fileTools.filter(t => !readTools.includes(t))];
+        for (const folder of folders) args.push("--add-dir", folder);
         // The message tells the desktop MCP server what the task is: its
         // memory digest then carries the notes about it, the rest by topic.
         const task = (last?.role === "user" ? last.rawContent : "").slice(0, 500);
@@ -309,7 +331,7 @@ Singleton {
         // full set would double the context of every message.
         // With the connectors, ToolSearch too: their tools stay deferred
         // behind it (without it they all load, ~130k tokens a message).
-        const builtins = [...(Config.options.ai.claudeCode.allowedTools ?? []), ...(connectors ? ["ToolSearch"] : [])];
+        const builtins = [...configured, ...readTools, ...(connectors ? ["ToolSearch"] : [])];
         args.push("--tools", ...(builtins.length > 0 ? builtins : [""]));
         if (allowed.length > 0) args.push("--allowedTools", ...allowed);
         const claudeModel = Config.options.ai.claudeCode.model ?? "";
@@ -319,7 +341,8 @@ Singleton {
         // tools behind a ToolSearch call, one more round trip per session.
         // Not with the connectors: hundreds of tools would fill every message.
         // The message on stdin: never read as an option, whatever it starts with.
-        return `cd "$HOME" || exit 1\n${connectors ? "" : "export ENABLE_TOOL_SEARCH=false\n"}`
+        return `workdir="\${XDG_DATA_HOME:-$HOME/.local/share}/nixbook-shell/assistant"\n`
+            + `mkdir -p "$workdir" && cd "$workdir" || exit 1\n${connectors ? "" : "export ENABLE_TOOL_SEARCH=false\n"}`
             + `exec ${q(root.claudeCodePath)} ${args.map(q).join(" ")} < <(printf '%s' ${q(prompt)})\n`;
     }
 

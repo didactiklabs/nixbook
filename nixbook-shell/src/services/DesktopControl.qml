@@ -38,6 +38,8 @@ Singleton {
     id: root
 
     readonly property string stateDir: `${Quickshell.env("XDG_RUNTIME_DIR")}/nixbook-desktop-mcp`
+    // The agent desktop's launcher (scripts/agent-desktop.sh) writes these.
+    readonly property string agentDesktopDir: `${Quickshell.env("XDG_RUNTIME_DIR")}/nixbook-agent-desktop`
     readonly property string stateHome: `${Quickshell.env("XDG_STATE_HOME") || `${Quickshell.env("HOME")}/.local/state`}/nixbook-shell`
     readonly property string allowedFlag: `${root.stateHome}/desktop-control-allowed`
     property bool paused: true
@@ -213,7 +215,7 @@ Singleton {
     // Written once the agent desktop is up, removed when it closes.
     FileView {
         id: agentDesktopEnv
-        path: `${root.stateDir}/agent-desktop.env`
+        path: `${root.agentDesktopDir}/agent-desktop.env`
         watchChanges: true
         printErrors: false
         onFileChanged: reload()
@@ -223,7 +225,7 @@ Singleton {
 
     FileView {
         id: agentDesktopInput
-        path: `${root.stateDir}/agent-desktop-input`
+        path: `${root.agentDesktopDir}/agent-desktop-input`
         watchChanges: true
         printErrors: false
         onFileChanged: reload()

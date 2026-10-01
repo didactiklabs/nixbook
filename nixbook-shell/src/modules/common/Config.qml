@@ -151,6 +151,12 @@ Singleton {
                 // summary of the shell's live settings. Sent to the chosen
                 // provider with every request.
                 property bool includeSystemContext: true
+                // The folders AI agents may read (absolute, or ~/…), read-only:
+                // the side panel's Claude (Claude Code --add-dir; no file tools
+                // at all without any) and the apps on the agent desktop
+                // (scripts/agent-desktop.sh binds them into its sandbox). None by
+                // default: no access to the user's files unless allowed here.
+                property list<string> allowedFolders: []
                 // Claude through Claude Code (`claude -p`, the user's own
                 // Claude login): the "Claude" model, with the desktop tools
                 // (nixbook-desktop-mcp) unless the tool is "none".
@@ -158,8 +164,9 @@ Singleton {
                     property string command: "" // empty: `claude` on PATH, ~/.local/bin, the Nix profiles
                     property string model: "" // empty: Claude Code's default; e.g. "sonnet" (faster), "opus"
                     // Tools it may use besides the desktop ones; others (Bash,
-                    // Edit, Write…) are refused.
-                    property list<string> allowedTools: ["WebSearch", "WebFetch", "Read", "Glob", "Grep"]
+                    // Edit, Write…) are refused. The file tools (Read, Glob,
+                    // Grep) aren't taken from here: ai.allowedFolders gives them.
+                    property list<string> allowedTools: ["WebSearch", "WebFetch"]
                     // The claude.ai connectors of the Claude account (Gmail,
                     // Calendar, Drive…), all their tools allowed.
                     property bool connectors: false

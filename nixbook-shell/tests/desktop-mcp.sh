@@ -831,11 +831,12 @@ if [ "$2" = start ]; then
 for p in sys.argv[1:]:
     if os.path.exists(p): os.unlink(p)
     socket.socket(socket.AF_UNIX).bind(p)' "$XDG_RUNTIME_DIR/wayland-9" "$STUB_AGENT_SOCKET"
-  printf 'WAYLAND_DISPLAY=wayland-9\nNIRI_SOCKET=%s\n' "$STUB_AGENT_SOCKET" >"$XDG_RUNTIME_DIR/nixbook-desktop-mcp/agent-desktop.env"
+  mkdir -p "$XDG_RUNTIME_DIR/nixbook-agent-desktop"
+  printf 'WAYLAND_DISPLAY=wayland-9\nNIRI_SOCKET=%s\n' "$STUB_AGENT_SOCKET" >"$XDG_RUNTIME_DIR/nixbook-agent-desktop/agent-desktop.env"
 fi
 EOF
 chmod +x "$bin/systemctl"
-agent_env="$XDG_RUNTIME_DIR/nixbook-desktop-mcp/agent-desktop.env"
+agent_env="$XDG_RUNTIME_DIR/nixbook-agent-desktop/agent-desktop.env"
 
 expect_eq "desktop: the user's by default" user "$(python3 "$mcp" desktop status | jq -r .desktop)"
 reset_calls
