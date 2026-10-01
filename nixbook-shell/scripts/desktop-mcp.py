@@ -3056,7 +3056,7 @@ def t_shell_ipc(ctx, args):
     if ctx.desktop == "agent":
         # Sidebars, launcher, lock screen…: they'd open on the user's screen.
         raise ToolError("refused: you work on your own desktop, and the shell's panels open on the user's: "
-                        "use widget, calendar, notify or set_theme for the user's shell")
+                        "use widget, calendar, notify, set_theme or set_wallpaper for the user's shell")
     extra = args.get("args") or []
     if not isinstance(extra, list) or len(extra) > 8 or not all(isinstance(a, str) and len(a) <= 256 for a in extra):
         raise ToolError("`args` must be up to 8 strings of at most 256 characters")
@@ -3222,6 +3222,86 @@ def widget_call(target, fn, *args):
     if out.startswith("error:"):
         raise ToolError(out[6:].strip())
     return out
+
+
+def shared_folders():
+    """The folders the user shares with AI agents (shell settings
+    ai.allowedFolders, read, and ai.writableFolders, written by the agent
+    desktop's apps), resolved; the home itself and / never count."""
+    path = os.path.join(xdg("XDG_CONFIG_HOME", "~/.config"), "nixbook-shell", "config.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            ai = (json.load(f) or {}).get("ai") or {}
+    except (OSError, ValueError):
+        return []
+    home = os.path.realpath(os.path.expanduser("~"))
+    out = []
+    for key in ("allowedFolders", "writableFolders"):
+        for folder in ai.get(key) or []:
+            if not isinstance(folder, str) or not folder.strip():
+                continue
+            folder = folder.strip()
+            if folder == "~" or folder.startswith("~/"):
+                folder = os.path.expanduser(folder)
+            if not os.path.isabs(folder):
+                continue
+            real = os.path.realpath(folder)
+            if real not in (home, "/") and real not in out:
+                out.append(real)
+    return out
+
+
+# The image types the wallpaper script handles, by their first bytes.
+def image_kind(head):
+    if head[:3] == b"\xff\xd8\xff":
+        return "jpeg"
+    if head[:8] == b"\x89PNG\r\n\x1a\n":
+        return "png"
+    if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return "webp"
+    if head[4:8] == b"ftyp" and head[8:12] in (b"avif", b"avis"):
+        return "avif"
+    return None
+
+
+@tool(
+    "set_wallpaper",
+    "shell",
+    "Set the user's wallpaper to an image file on their computer (JPEG, PNG, "
+    "WebP, AVIF), from a folder they share with agents (Settings > Desktop "
+    "agents: the folders agents may read or write; what your desktop's "
+    "browser downloads lands in the first writable one). The palette "
+    "follows, as when the user picks it with Mod+W. A web address won't do: "
+    "download the image first.",
+    obj({"path": {"type": "string", "description": "Absolute path (or ~/…) of the image"}}, ["path"]),
+)
+def t_set_wallpaper(ctx, args):
+    want = as_str(args, "path", max_len=1024)
+    if re.match(r"(?i)^[a-z][a-z0-9+.-]*://", want):
+        raise ToolError("that's a web address: download the image into a shared folder first, then give its path")
+    path = os.path.realpath(os.path.expanduser(want))
+    folders = shared_folders()
+    if not folders:
+        raise ToolError("the user shares no folder with agents: ask them to add one in Settings > Desktop agents "
+                        "(e.g. a writable ~/Pictures/Assistant), or to set the wallpaper with Mod+W")
+    if not any(path == f or path.startswith(f + os.sep) for f in folders):
+        raise ToolError(f"refused: {want} isn't in a folder the user shares with agents ({', '.join(folders)})")
+    try:
+        st = os.stat(path)
+        with open(path, "rb") as f:
+            head = f.read(16)
+    except OSError as e:
+        raise ToolError(f"can't read {want}: {e.strerror}")
+    if not stat.S_ISREG(st.st_mode):
+        raise ToolError(f"{want} isn't a file")
+    if st.st_size > 200 * 1024 * 1024:
+        raise ToolError(f"{want} is over 200 MB")
+    if not image_kind(head):
+        raise ToolError(f"{want} isn't a JPEG, PNG, WebP or AVIF image")
+    ctx.guard.check_rate()
+    qs_ipc("call", "--", "wallpapers", "apply", path)
+    return [text(f"wallpaper set to {path}; the palette follows in a few seconds")]
+
 
 
 @tool(

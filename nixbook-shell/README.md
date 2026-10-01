@@ -193,7 +193,10 @@ the clipboard; the recent notifications as text (`notifications`: new chat
 messages, mail…, by app, text or age; cheaper than a screenshot to see
 whether someone answered); the shell's themes and variants (`list_themes`, `set_theme`:
 "switch to Persona 3 Reload", "use the Usagi variant"; Nix-pinned ones stay
-locked); the desktop widgets without clicking them (`widget`: list, show or
+locked); the wallpaper (`set_wallpaper`: a JPEG, PNG, WebP or AVIF file
+from a folder shared with agents, `ai.allowedFolders` or
+`ai.writableFolders`, e.g. what the agent desktop's browser downloaded; the
+palette follows); the desktop widgets without clicking them (`widget`: list, show or
 hide any; read, add, edit and remove the notes widget's notes and the
 to-do list's tasks; the timers' pomodoro, stopwatch and countdown; music
 recognition: listen, the source, the songs found, through the shell's
