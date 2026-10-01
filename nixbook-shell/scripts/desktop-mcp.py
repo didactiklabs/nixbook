@@ -90,6 +90,8 @@ DEFAULT_CONFIG = {
     # JPEG: a fraction of a PNG's size, so screenshots reach the model sooner.
     "screenshotFormat": "jpeg",
     "screenshotQuality": 80,
+    # read_screen's OCR languages (tesseract's -l: "eng", "eng+fra"…).
+    "ocrLanguages": "eng",
     # Desktop memory: the digest sent to agents when they connect, at most
     # this many characters; notes kept (the least used and oldest go first).
     "memoryPromptChars": 1500,
@@ -2174,6 +2176,130 @@ def screenshot_reply(ctx, path, info):
     return [text(info), {"type": "image", "data": data, "mimeType": mime}]
 
 
+# read_screen: captured at twice its logical size, in grey, at most this
+# many pixels a side (OCR reads small UI text better upscaled).
+OCR_SCALE = 2.0
+OCR_MAX_EDGE = 4096
+OCR_MIN_CONF = 50
+OCR_MAX_CHARS = 6000
+
+
+@tool(
+    "read_screen",
+    "screen",
+    "Read the text on a monitor (default: the focused one) or a `region`, "
+    "with where each line is: a few hundred tokens of text instead of a "
+    "screenshot's ~1,850, and the positions are desktop pixels, ready for "
+    "click/move_pointer as x, y (no mapping). OCR: icons and images aren't "
+    "read, and some text may be missed; take a screenshot when the text isn't "
+    "enough. `find`: only the lines that contain this text, e.g. to locate "
+    "a button before clicking it.",
+    obj(
+        {
+            "monitor": {"type": "string", "description": "Monitor name (see list_workspaces)"},
+            "region": {
+                "type": "object",
+                "description": "A desktop rectangle in logical pixels",
+                "properties": {"x": COORD, "y": COORD, "width": COORD, "height": COORD},
+                "required": ["x", "y", "width", "height"],
+            },
+            "find": {"type": "string", "description": "Only the lines containing this text (any case)"},
+        }
+    ),
+    read_only=True,
+)
+def t_read_screen(ctx, args):
+    find = as_str(args, "find", required=False, max_len=200)
+    if args.get("region") is not None:
+        r = args["region"]
+        if not isinstance(r, dict):
+            raise ToolError("`region` must be {x, y, width, height}")
+        x, y = point(r)
+        w, h = point(r, "width", "height")
+        x, y, w, h = round(x), round(y), round(w), round(h)
+        bx, by, bw, bh = desktop_bbox()
+        x, y = max(x, bx), max(y, by)
+        w, h = min(w, bx + bw - x), min(h, by + bh - y)
+        if w < 4 or h < 4:
+            raise ToolError(f"`region` is outside the desktop ({bx},{by} {bw}x{bh}) or smaller than 4x4")
+        grim = ["-g", f"{x},{y} {w}x{h}"]
+        what = f"region {w}x{h} at ({x},{y})"
+    else:
+        outputs = {n: o for n, o in (niri_json("outputs") or {}).items() if o.get("logical")}
+        name = as_str(args, "monitor", required=False, max_len=64, pattern=r"[\w.\-]+")
+        if not name:
+            name = (niri_json("focused-output") or {}).get("name")
+        if name not in outputs:
+            raise ToolError(f"no monitor {name!r}; monitors: {', '.join(outputs)}")
+        lg = outputs[name]["logical"]
+        x, y, w, h = lg.get("x", 0), lg.get("y", 0), lg.get("width") or 1, lg.get("height") or 1
+        grim = ["-o", name]
+        what = f"monitor {name}"
+    scale = round(min(OCR_SCALE, OCR_MAX_EDGE / max(w, h)), 4)
+    capture = run(["grim", *grim, "-s", f"{scale:.4f}", "-t", "ppm", "-"], timeout=15, binary=True).stdout
+    gray = run(["magick", "ppm:-", "-colorspace", "gray", "pgm:-"], input=capture, timeout=15, binary=True).stdout
+    lang = str(ctx.cfg.get("ocrLanguages") or "eng")
+    if not re.fullmatch(r"[A-Za-z_]+(\+[A-Za-z_]+)*", lang):
+        raise ToolError("`ocrLanguages` must be like eng or eng+fra")
+    tsv = run(["tesseract", "stdin", "stdout", "--psm", "11", "-l", lang, "tsv"], input=gray, timeout=30, binary=True)
+    lines = ocr_lines(tsv.stdout.decode(errors="replace"), x, y, scale)
+    if find:
+        want = fold(find)
+        found = [ln for ln in lines if want in fold(ln[2])]
+        if not found:
+            return [text(f"No line on {what} contains {find!r} ({len(lines)} lines read). "
+                         "It may be an icon, or missed by OCR: take a screenshot.")]
+        lines = found
+    head = (f"Text on {what} (OCR), a line each: x,y (its middle, desktop pixels: click there) "
+            "width x height, then the text.")
+    out, size = [head], len(head)
+    for i, (cx, cy, line, lw, lh) in enumerate(lines):
+        entry = f"{cx},{cy} {lw}x{lh} {line}"
+        if size + len(entry) > OCR_MAX_CHARS:
+            out.append(f"… {len(lines) - i} more lines: read a `region`")
+            break
+        out.append(entry)
+        size += len(entry) + 1
+    if len(out) == 1:
+        out.append("(no text found)")
+    return [text("\n".join(out))]
+
+
+def ocr_lines(tsv, x, y, scale):
+    """tesseract's TSV words, confident enough, joined into lines: [(middle
+    x, middle y, text, width, height)] in desktop pixels, top to bottom."""
+    groups = {}
+    for row in tsv.splitlines()[1:]:
+        cols = row.split("\t")
+        if len(cols) < 12 or not cols[11].strip():
+            continue
+        try:
+            conf = float(cols[10])
+            left, top, width, height = (int(c) for c in cols[6:10])
+        except ValueError:
+            continue
+        if conf < OCR_MIN_CONF:
+            continue
+        groups.setdefault(tuple(cols[1:5]), []).append((left, top, width, height, cols[11].strip()))
+    lines = []
+    for words_ in groups.values():
+        # An icon read as a letter or two of noise: not a line.
+        if sum(c.isalnum() for wd in words_ for c in wd[4]) < 2:
+            continue
+        words_.sort()
+        l0 = min(wd[0] for wd in words_)
+        t0 = min(wd[1] for wd in words_)
+        r0 = max(wd[0] + wd[2] for wd in words_)
+        b0 = max(wd[1] + wd[3] for wd in words_)
+        lines.append((
+            round(x + (l0 + r0) / 2 / scale), round(y + (t0 + b0) / 2 / scale),
+            " ".join(wd[4] for wd in words_),
+            round((r0 - l0) / scale), round((b0 - t0) / scale),
+        ))
+    lines.sort(key=lambda ln: (ln[1] - ln[4] / 2, ln[0]))
+    return lines
+
+
 @tool(
     "clipboard_get",
     "screen",
@@ -3232,8 +3358,10 @@ INSTRUCTIONS = (
     "take screenshot_after: true to return a screenshot of the result in the "
     "same call; run_steps does several actions (keys, typing, clicks, waits) "
     "in one call. Prefer apps' keyboard shortcuts (a quick switcher, a search "
-    "box) and the window tools over pointer clicks; to click, give a "
-    "screenshot's pixel coordinates with its mapping. Input into terminals, "
+    "box) and the window tools over pointer clicks; to find text or a "
+    "labelled button, read_screen (with `find`) costs far less than a "
+    "screenshot and gives positions to click as they are; to click in a "
+    "screenshot, give its pixel coordinates with its mapping. Input into terminals, "
     "password managers and password prompts is refused: ask the user to do "
     "those steps. The user can pause desktop control at any time from the "
     "bar; then every tool is refused. The user can also move you between "

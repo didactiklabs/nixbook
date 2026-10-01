@@ -181,7 +181,10 @@ isn't sure.
 `nixbook-desktop-mcp` (`scripts/desktop-mcp.py`, also `nixbook-shell mcp`)
 lets an AI agent see and drive the desktop: list windows, workspaces and
 apps; focus, move, resize, close windows; launch apps; take screenshots (a
-monitor, a zoomed-in region, a window on screen), silently; type, press
+monitor, a zoomed-in region, a window on screen), silently; read the text on
+screen (`read_screen`: OCR, each line with its position to click, ~150
+tokens instead of a screenshot's ~1,850; `find` returns only the lines
+containing the given text; `ocrLanguages`, `eng` by default); type, press
 keys, click, drag, scroll, or several of these in one call (`run_steps`);
 the clipboard; the shell's themes and variants (`list_themes`, `set_theme`:
 "switch to Persona 3 Reload", "use the Usagi variant"; Nix-pinned ones stay

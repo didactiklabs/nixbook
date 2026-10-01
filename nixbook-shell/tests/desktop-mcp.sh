@@ -157,11 +157,27 @@ cat >"$bin/wl-paste" <<'EOF'
 [ -f "$STUB_CLIP.type" ] || exit 1
 if [ "${1:-}" = "--list-types" ]; then cat "$STUB_CLIP.type"; else cat "$STUB_CLIP"; fi
 EOF
-# magick: copies its input to its output (the last argument; jpeg:- or png:- stdout).
+# magick: copies its input (a file, or stdin: ppm:-) to its output (the last
+# argument; jpeg:- or pgm:-… stdout).
 cat >"$bin/magick" <<'EOF'
 #!/usr/bin/env bash
 echo "magick $*" >>"$STUB_CALLS"
-case "${*: -1}" in *:-) cat "$1" ;; *) cp "$1" "${*: -1}" ;; esac
+in="$1"
+case "$in" in *:-) in=/dev/stdin ;; esac
+case "${*: -1}" in *:-) cat "$in" ;; *) cp "$in" "${*: -1}" ;; esac
+EOF
+# tesseract: words of a 2x capture (TSV): two lines, a low-confidence word, an icon read as noise.
+cat >"$bin/tesseract" <<'EOF'
+#!/usr/bin/env bash
+echo "tesseract $*" >>"$STUB_CALLS"
+cat >/dev/null
+printf 'level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+printf '5\t1\t1\t1\t1\t1\t200\t100\t80\t30\t95\tMark\n'
+printf '5\t1\t1\t1\t1\t2\t290\t100\t40\t30\t93\tas\n'
+printf '5\t1\t1\t1\t1\t3\t340\t100\t60\t30\t91\tRead\n'
+printf '5\t1\t2\t1\t1\t1\t1000\t600\t120\t40\t88\tFriends\n'
+printf '5\t1\t2\t1\t1\t2\t1130\t600\t40\t40\t20\tzq\n'
+printf '5\t1\t3\t1\t1\t1\t50\t50\t10\t10\t70\t@\n'
 EOF
 cat >"$bin/qs" <<'EOF'
 #!/usr/bin/env bash
@@ -278,7 +294,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 33 tools" 33 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 34 tools" 34 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -491,6 +507,18 @@ out=$(call get_status)
 expect_contains "get_status: fallback reported" "$(jq -r .pointer <<<"$out")" "ydotool (approximate)"
 kill "$wl_pid" 2>/dev/null || true
 wl_pid=""
+
+# read_screen: OCR lines at desktop positions (eDP-1: 3136 wide, so captured at 4096/3136, not 2x).
+reset_calls
+out=$(call read_screen)
+expect_eq "read_screen: grey capture, sparse OCR" "grim -o eDP-1 -s 1.3061 -t ppm -|magick ppm:- -colorspace gray pgm:-|tesseract stdin stdout --psm 11 -l eng tsv" "$(paste -sd'|' "$calls")"
+expect_contains "read_screen: a line, its middle in desktop pixels" "$out" "230,88 153x23 Mark as Read"
+expect_contains "read_screen: low-confidence words left out" "$out" "812,475 92x31 Friends"
+expect_not_contains "read_screen: noise left out" "$out" "@"
+out=$(call read_screen '{"find":"mark AS"}')
+expect_contains "read_screen find: the matching line" "$out" "Mark as Read"
+expect_not_contains "read_screen find: only it" "$out" "Friends"
+expect_contains "read_screen find: none, said so" "$(call read_screen '{"find":"Settings"}')" "No line on monitor eDP-1 contains 'Settings'"
 
 # -- fewer round trips: screenshot_after, run_steps ---------------------------------------
 
