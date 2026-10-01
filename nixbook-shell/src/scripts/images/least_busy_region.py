@@ -1,12 +1,98 @@
 #!/usr/bin/env python3
-# Disclaimer: This script was ai-generated and went through minimal revision.
+"""Find the least (or most) busy region of a wallpaper, as JSON: where a
+background widget goes, and the colour under it.
 
-import os
-os.environ["OPENCV_LOG_LEVEL"] = "SILENT"
-import cv2
-import numpy as np
+Every background widget runs this on each screen when the shell starts and
+when the wallpaper changes, so it is cached ($XDG_CACHE_HOME/nixbook-shell/
+least-busy-region, private to the user):
+  - results/: the JSON answer, keyed by the wallpaper file (path, inode, size,
+    mtime) and every argument; a hit never loads OpenCV;
+  - images/: the wallpaper decoded and scaled to the screen, shared by the
+    widgets that start together (a lock makes one of them decode it).
+"""
+
 import argparse
+import fcntl
+import hashlib
 import json
+import os
+import sys
+import tempfile
+
+# Bumped when the output for the same input changes: old entries are ignored.
+CACHE_VERSION = 1
+MAX_RESULTS = 256
+MAX_IMAGES = 4
+
+cv2 = None
+np = None
+
+
+def load_cv():
+    global cv2, np
+    if cv2 is None:
+        os.environ["OPENCV_LOG_LEVEL"] = "SILENT"
+        # One thread: the work is small, and the widgets run this all at
+        # once; a thread pool per process (one thread per core, spinning)
+        # costs several times the CPU it saves.
+        for var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "OPENCV_FOR_THREADS_NUM"):
+            os.environ.setdefault(var, "1")
+        import cv2 as _cv2
+        import numpy as _np
+        _cv2.setNumThreads(1)
+        cv2, np = _cv2, _np
+
+
+def cache_root():
+    base = os.environ.get("XDG_CACHE_HOME") or os.path.join(os.path.expanduser("~"), ".cache")
+    return os.path.join(base, "nixbook-shell", "least-busy-region")
+
+
+def cache_dir(name):
+    root = cache_root()
+    os.makedirs(root, mode=0o700, exist_ok=True)
+    path = os.path.join(root, name)
+    os.makedirs(path, mode=0o700, exist_ok=True)
+    return path
+
+
+def cache_key(image_path, **params):
+    """A hash of the wallpaper file's identity and the parameters, or None
+    when the file cannot be read (then nothing is cached)."""
+    try:
+        real = os.path.realpath(image_path)
+        st = os.stat(real)
+    except OSError:
+        return None
+    ident = {"v": CACHE_VERSION, "path": real, "ino": st.st_ino, "size": st.st_size,
+             "mtime": st.st_mtime_ns, **params}
+    return hashlib.sha256(json.dumps(ident, sort_keys=True).encode()).hexdigest()
+
+
+def write_atomic(directory, name, write):
+    fd, tmp = tempfile.mkstemp(dir=directory, prefix=".tmp-")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            write(f)
+        os.replace(tmp, os.path.join(directory, name))
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def prune(directory, suffix, keep):
+    """Keep the `keep` most recently used `suffix` files."""
+    try:
+        entries = [e for e in os.scandir(directory) if e.name.endswith(suffix)]
+        entries.sort(key=lambda e: e.stat().st_mtime, reverse=True)
+        for e in entries[keep:]:
+            os.unlink(e.path)
+    except OSError:
+        pass
+
 
 def center_crop(img, target_w, target_h):
     h, w = img.shape[:2]
@@ -18,33 +104,84 @@ def center_crop(img, target_w, target_h):
     y2 = y1 + target_h
     return img[y1:y2, x1:x2]
 
-def find_least_busy_region(image_path, region_width=300, region_height=200, screen_width=None, screen_height=None, verbose=False, stride=2, screen_mode="fill", horizontal_padding=50, vertical_padding=50, busiest=False):
-    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+
+def decode_screen_image(image_path, screen_width, screen_height, screen_mode="fill", verbose=False):
+    """The wallpaper (BGR) as it is shown on a screen of that size."""
+    load_cv()
+    img = cv2.imread(image_path, cv2.IMREAD_COLOR)
     if img is None:
         raise FileNotFoundError(f"Image not found: {image_path}")
-    orig_h, orig_w = img.shape
-    scale = 1.0
-    if screen_width is not None and screen_height is not None:
-        scale_w = screen_width / orig_w
-        scale_h = screen_height / orig_h
-        if screen_mode == "fill":
-            scale = max(scale_w, scale_h)
-        else:
-            scale = min(scale_w, scale_h)
-        new_w = int(orig_w * scale)
-        new_h = int(orig_h * scale)
-        if verbose:
-            print(f"Scaling image from {orig_w}x{orig_h} to {new_w}x{new_h} (scale: {scale:.3f}, mode: {screen_mode})")
-        img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LANCZOS4)
-        img = center_crop(img, screen_width, screen_height)
-        if verbose:
-            print(f"Cropped image to {screen_width}x{screen_height}")
-    else:
-        if verbose:
-            print(f"Using original image size: {orig_w}x{orig_h}")
-    arr = img.astype(np.float64)
-    h, w = arr.shape
-    # Validate & adjust stride
+    orig_h, orig_w = img.shape[:2]
+    scale_w = screen_width / orig_w
+    scale_h = screen_height / orig_h
+    scale = max(scale_w, scale_h) if screen_mode == "fill" else min(scale_w, scale_h)
+    new_w = int(orig_w * scale)
+    new_h = int(orig_h * scale)
+    if verbose:
+        print(f"Scaling image from {orig_w}x{orig_h} to {new_w}x{new_h} (scale: {scale:.3f}, mode: {screen_mode})")
+    img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LANCZOS4)
+    return np.ascontiguousarray(center_crop(img, screen_width, screen_height))
+
+
+def screen_image(image_path, screen_width, screen_height, screen_mode="fill", verbose=False):
+    """decode_screen_image, through the shared image cache (skipped when the
+    cache cannot be written)."""
+    load_cv()
+    key = cache_key(image_path, screen=[screen_width, screen_height, screen_mode])
+    try:
+        if key is None:
+            raise OSError("no cache key")
+        directory = cache_dir("images")
+        lock = open(os.path.join(directory, "lock"), "a")
+    except OSError:
+        return decode_screen_image(image_path, screen_width, screen_height, screen_mode, verbose)
+    cached = os.path.join(directory, f"{key}.npy")
+    with lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            img = np.load(cached, allow_pickle=False)
+            if img.dtype == np.uint8 and img.ndim == 3 and img.shape[2] == 3:
+                os.utime(cached)
+                return img
+        except (OSError, ValueError, EOFError):
+            pass
+        img = decode_screen_image(image_path, screen_width, screen_height, screen_mode, verbose)
+        try:
+            write_atomic(directory, f"{key}.npy", lambda f: np.save(f, img, allow_pickle=False))
+            prune(directory, ".npy", MAX_IMAGES)
+        except OSError:
+            pass
+        return img
+
+
+def integrals(gray):
+    """Summed-area tables of the values and of their squares, with a leading
+    row and column of zeros."""
+    arr = gray.astype(np.float64)
+    return cv2.integral(arr, sdepth=cv2.CV_64F), cv2.integral(arr ** 2, sdepth=cv2.CV_64F)
+
+
+def window_variances(sums, sums_sq, xs, ys, region_w, region_h):
+    """The variance of every region_w x region_h window whose top-left corner
+    is at (x, y) for y in ys and x in xs: a len(ys) x len(xs) array."""
+    x1, y1 = xs[np.newaxis, :], ys[:, np.newaxis]
+    x2, y2 = x1 + region_w, y1 + region_h
+    area = region_w * region_h
+    s = sums[y2, x2] - sums[y1, x2] - sums[y2, x1] + sums[y1, x1]
+    s2 = sums_sq[y2, x2] - sums_sq[y1, x2] - sums_sq[y2, x1] + sums_sq[y1, x1]
+    mean = s / area
+    return (s2 / area) - (mean ** 2)
+
+
+def window_starts(start, end, stride, region, limit):
+    """Window corners from start to end (inclusive) every stride, the window
+    inside the image."""
+    starts = np.arange(start, end + 1, stride)
+    return starts[starts + region - 1 < limit]
+
+
+def find_least_busy_region(gray, region_width=300, region_height=200, verbose=False, stride=2, horizontal_padding=50, vertical_padding=50, busiest=False):
+    h, w = gray.shape
     stride = max(1, int(stride) if stride else 1)
     # Adjust region size if it does not fit given padding
     if horizontal_padding * 2 >= w or vertical_padding * 2 >= h:
@@ -63,98 +200,30 @@ def find_least_busy_region(image_path, region_width=300, region_height=200, scre
         if verbose:
             print(f"Requested region_height {region_height} too large; clamping to {max_region_h}")
         region_height = max_region_h
-    # Use OpenCV's integral for fast computation
-    integral = cv2.integral(arr, sdepth=cv2.CV_64F)[1:,1:]
-    integral_sq = cv2.integral(arr**2, sdepth=cv2.CV_64F)[1:,1:]
-    def region_sum(ii, x1, y1, x2, y2):
-        # Assume bounds have been checked before calling
-        total = ii[y2, x2]
-        if x1 > 0:
-            total -= ii[y2, x1-1]
-        if y1 > 0:
-            total -= ii[y1-1, x2]
-        if x1 > 0 and y1 > 0:
-            total += ii[y1-1, x1-1]
-        return total
-    min_var = None
-    max_var = None
-    min_coords = (horizontal_padding, vertical_padding)
-    max_coords = (horizontal_padding, vertical_padding)
-    area = region_width * region_height
     x_start = horizontal_padding
     y_start = vertical_padding
-    x_end = w - region_width - horizontal_padding + 1
-    y_end = h - region_height - vertical_padding + 1
-    if x_end < x_start:
-        x_end = x_start
-    if y_end < y_start:
-        y_end = y_start
-    for y in range(y_start, y_end + 1, stride):
-        for x in range(x_start, x_end + 1, stride):
-            x1, y1 = x, y
-            x2, y2 = x + region_width - 1, y + region_height - 1
-            if x2 >= w or y2 >= h:
-                continue  # Skip out-of-bounds window
-            s = region_sum(integral, x1, y1, x2, y2)
-            s2 = region_sum(integral_sq, x1, y1, x2, y2)
-            mean = s / area
-            var = (s2 / area) - (mean ** 2)
-            if (min_var is None) or (var < min_var):
-                min_var = var
-                min_coords = (x, y)
-            if (max_var is None) or (var > max_var):
-                max_var = var
-                max_coords = (x, y)
-    if busiest:
-        return max_coords, max_var
-    else:
-        return min_coords, min_var
+    x_end = max(x_start, w - region_width - horizontal_padding + 1)
+    y_end = max(y_start, h - region_height - vertical_padding + 1)
+    xs = window_starts(x_start, x_end, stride, region_width, w)
+    ys = window_starts(y_start, y_end, stride, region_height, h)
+    if xs.size == 0 or ys.size == 0:
+        return (horizontal_padding, vertical_padding), None
+    var = window_variances(*integrals(gray), xs, ys, region_width, region_height)
+    # First extreme in row order, as a scan keeping only strictly better ones.
+    i = int(np.argmax(var) if busiest else np.argmin(var))
+    row, col = divmod(i, xs.size)
+    return (int(xs[col]), int(ys[row])), float(var[row, col])
 
-def find_largest_region(image_path, screen_width=None, screen_height=None, verbose=False, stride=2, screen_mode="fill", threshold=100.0, aspect_ratio=1.0, horizontal_padding=50, vertical_padding=50):
-    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-    if img is None:
-        raise FileNotFoundError(f"Image not found: {image_path}")
-    orig_h, orig_w = img.shape
-    # ...existing scaling logic...
-    scale = 1.0
-    if screen_width is not None and screen_height is not None:
-        scale_w = screen_width / orig_w
-        scale_h = screen_height / orig_h
-        if screen_mode == "fill":
-            scale = max(scale_w, scale_h)
-        else:
-            scale = min(scale_w, scale_h)
-        new_w = int(orig_w * scale)
-        new_h = int(orig_h * scale)
-        if verbose:
-            print(f"Scaling image from {orig_w}x{orig_h} to {new_w}x{new_h} (scale: {scale:.3f}, mode: {screen_mode})")
-        img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LANCZOS4)
-        img = center_crop(img, screen_width, screen_height)
-        if verbose:
-            print(f"Cropped image to {screen_width}x{screen_height}")
-    else:
-        if verbose:
-            print(f"Using original image size: {orig_w}x{orig_h}")
-    arr = img.astype(np.float64)
-    h, w = arr.shape
+
+def find_largest_region(gray, verbose=False, stride=2, threshold=100.0, aspect_ratio=1.0, horizontal_padding=50, vertical_padding=50):
+    h, w = gray.shape
     stride = max(1, int(stride) if stride else 1)
     threshold = max(0.0, float(threshold))
     # Adjust padding if image too small
     if horizontal_padding * 2 >= w or vertical_padding * 2 >= h:
         horizontal_padding = max(0, min(horizontal_padding, (w - 1) // 2))
         vertical_padding = max(0, min(vertical_padding, (h - 1) // 2))
-    # Use OpenCV's integral for fast computation
-    integral = cv2.integral(arr, sdepth=cv2.CV_64F)[1:,1:]
-    integral_sq = cv2.integral(arr**2, sdepth=cv2.CV_64F)[1:,1:]
-    def region_sum(ii, x1, y1, x2, y2):
-        total = ii[y2, x2]
-        if x1 > 0:
-            total -= ii[y2, x1-1]
-        if y1 > 0:
-            total -= ii[y1-1, x2]
-        if x1 > 0 and y1 > 0:
-            total += ii[y1-1, x1-1]
-        return total
+    sums, sums_sq = integrals(gray)
     min_size = 10
     # Determine maximum feasible size respecting padding
     effective_w = w - 2 * horizontal_padding
@@ -183,28 +252,17 @@ def find_largest_region(image_path, screen_width=None, screen_height=None, verbo
         if region_w > effective_w or region_h > effective_h:
             max_size = mid - 1
             continue
+        xs = window_starts(horizontal_padding, w - region_w - horizontal_padding, stride, region_w, w)
+        ys = window_starts(vertical_padding, h - region_h - vertical_padding, stride, region_h, h)
         found = False
-        x_start = horizontal_padding
-        y_start = vertical_padding
-        x_end = w - region_w - horizontal_padding
-        y_end = h - region_h - vertical_padding
-        for y in range(y_start, y_end + 1, stride):
-            for x in range(x_start, x_end + 1, stride):
-                x1, y1 = x, y
-                x2, y2 = x + region_w - 1, y + region_h - 1
-                if x2 >= w or y2 >= h:
-                    continue
-                s = region_sum(integral, x1, y1, x2, y2)
-                s2 = region_sum(integral_sq, x1, y1, x2, y2)
-                area = region_w * region_h
-                mean = s / area
-                var = (s2 / area) - (mean ** 2)
-                if var <= threshold:
-                    found = True
-                    best = (x, y, region_w, region_h, var)
-                    break
-            if found:
-                break
+        if xs.size > 0 and ys.size > 0:
+            var = window_variances(sums, sums_sq, xs, ys, region_w, region_h)
+            under = (var <= threshold).ravel()
+            if under.any():
+                # The first one in row order.
+                row, col = divmod(int(np.argmax(under)), xs.size)
+                best = (int(xs[col]), int(ys[row]), region_w, region_h, float(var[row, col]))
+                found = True
         if found:
             min_size = mid + 1
         else:
@@ -217,43 +275,16 @@ def find_largest_region(image_path, screen_width=None, screen_height=None, verbo
     else:
         return None, (0, 0), None
 
-def draw_region(image_path, coords, region_width=300, region_height=200, output_path='output.png', screen_width=None, screen_height=None, screen_mode="fill"):
-    img = cv2.imread(image_path)
-    if img is None:
-        raise FileNotFoundError(f"Image not found: {image_path}")
-    orig_h, orig_w = img.shape[:2]
-    if screen_width is not None and screen_height is not None:
-        scale_w = screen_width / orig_w
-        scale_h = screen_height / orig_h
-        if screen_mode == "fill":
-            scale = max(scale_w, scale_h)
-        else:
-            scale = min(scale_w, scale_h)
-        new_w = int(orig_w * scale)
-        new_h = int(orig_h * scale)
-        img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LANCZOS4)
-        img = center_crop(img, screen_width, screen_height)
+
+def draw_region(img, coords, region_width=300, region_height=200, output_path='output.png'):
+    img = img.copy()
     x, y = coords
     cv2.rectangle(img, (x, y), (x+region_width-1, y+region_height-1), (0,0,255), 3)
     cv2.imwrite(output_path, img)
-    # print removed for quieter operation
 
-def draw_largest_region(image_path, center, size, output_path='output.png', screen_width=None, screen_height=None, screen_mode="fill"):
-    img = cv2.imread(image_path)
-    if img is None:
-        raise FileNotFoundError(f"Image not found: {image_path}")
-    orig_h, orig_w = img.shape[:2]
-    if screen_width is not None and screen_height is not None:
-        scale_w = screen_width / orig_w
-        scale_h = screen_height / orig_h
-        if screen_mode == "fill":
-            scale = max(scale_w, scale_h)
-        else:
-            scale = min(scale_w, scale_h)
-        new_w = int(orig_w * scale)
-        new_h = int(orig_h * scale)
-        img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LANCZOS4)
-        img = center_crop(img, screen_width, screen_height)
+
+def draw_largest_region(img, center, size, output_path='output.png'):
+    img = img.copy()
     cx, cy = center
     region_w, region_h = size
     x1 = cx - region_w // 2
@@ -262,24 +293,9 @@ def draw_largest_region(image_path, center, size, output_path='output.png', scre
     y2 = cy + region_h // 2 - 1
     cv2.rectangle(img, (x1, y1), (x2, y2), (255,0,0), 3)
     cv2.imwrite(output_path, img)
-    # print removed for quieter operation
 
-def get_dominant_color(image_path, x, y, w, h, screen_width=None, screen_height=None, screen_mode="fill"):
-    img = cv2.imread(image_path)
-    if img is None:
-        raise FileNotFoundError(f"Image not found: {image_path}")
-    orig_h, orig_w = img.shape[:2]
-    if screen_width is not None and screen_height is not None:
-        scale_w = screen_width / orig_w
-        scale_h = screen_height / orig_h
-        if screen_mode == "fill":
-            scale = max(scale_w, scale_h)
-        else:
-            scale = min(scale_w, scale_h)
-        new_w = int(orig_w * scale)
-        new_h = int(orig_h * scale)
-        img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LANCZOS4)
-        img = center_crop(img, screen_width, screen_height)
+
+def get_dominant_color(img, x, y, w, h):
     # Ensure region is within bounds
     x = max(0, x)
     y = max(0, y)
@@ -305,6 +321,65 @@ def get_dominant_color(image_path, x, y, w, h, screen_width=None, screen_height=
     # Reverse from BGR to RGB
     return [int(x) for x in reversed(dominant)]
 
+
+def hex_color(rgb):
+    return '#{:02x}{:02x}{:02x}'.format(*rgb)
+
+
+def compute(args, use_cache=True):
+    """The answer, as a dict (the visual output written on the way)."""
+    load = screen_image if use_cache else decode_screen_image
+    img = load(args.image_path, args.screen_width, args.screen_height, args.screen_mode, args.verbose)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    if args.largest_region:
+        center, size, var = find_largest_region(
+            gray,
+            verbose=args.verbose,
+            stride=args.stride,
+            threshold=args.variance_threshold,
+            aspect_ratio=args.aspect_ratio,
+            horizontal_padding=args.horizontal_padding,
+            vertical_padding=args.vertical_padding
+        )
+        if not center:
+            return {"error": "No region found under the threshold."}
+        if args.visual_output:
+            draw_largest_region(img, center, size)
+        region_w, region_h = size
+        dominant_color = get_dominant_color(img, center[0] - region_w // 2, center[1] - region_h // 2, region_w, region_h)
+        return {
+            "center_x": center[0],
+            "center_y": center[1],
+            "width": size[0],
+            "height": size[1],
+            "variance": var,
+            "dominant_color": hex_color(dominant_color)
+        }
+
+    coords, variance = find_least_busy_region(
+        gray,
+        region_width=args.width,
+        region_height=args.height,
+        verbose=args.verbose,
+        stride=args.stride,
+        horizontal_padding=args.horizontal_padding,
+        vertical_padding=args.vertical_padding,
+        busiest=args.busiest
+    )
+    if args.visual_output:
+        draw_region(img, coords, region_width=args.width, region_height=args.height)
+    dominant_color = get_dominant_color(img, coords[0], coords[1], args.width, args.height)
+    return {
+        "center_x": coords[0] + args.width // 2,
+        "center_y": coords[1] + args.height // 2,
+        "width": args.width,
+        "height": args.height,
+        "variance": variance,
+        "dominant_color": hex_color(dominant_color)
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="Find least busy region in an image and output a JSON. Made for determining a suitable position for a wallpaper widget.")
     parser.add_argument("image_path", help="Path to the input image")
@@ -322,78 +397,48 @@ def main():
     parser.add_argument("--horizontal-padding", "-hp", type=int, default=50, help="Minimum horizontal distance from region to image edge")
     parser.add_argument("--vertical-padding", "-vp", type=int, default=50, help="Minimum vertical distance from region to image edge")
     parser.add_argument("--busiest", action="store_true", help="Find the busiest region instead of the least busy")
+    parser.add_argument("--no-cache", action="store_true", help="Neither read nor write the cache")
     args = parser.parse_args()
 
-    if args.largest_region:
-        center, size, var = find_largest_region(
-            args.image_path,
-            screen_width=args.screen_width,
-            screen_height=args.screen_height,
-            verbose=args.verbose,
-            stride=args.stride,
-            screen_mode=args.screen_mode,
-            threshold=args.variance_threshold,
-            aspect_ratio=args.aspect_ratio,
-            horizontal_padding=args.horizontal_padding,
-            vertical_padding=args.vertical_padding
-        )
-        if center:
-            if args.visual_output:
-                draw_largest_region(args.image_path, center, size, screen_width=args.screen_width, screen_height=args.screen_height, screen_mode=args.screen_mode)
-            # Extract dominant color
-            cx, cy = center
-            region_w, region_h = size
-            x1 = cx - region_w // 2
-            y1 = cy - region_h // 2
-            dominant_color = get_dominant_color(
-                args.image_path, x1, y1, region_w, region_h,
-                screen_width=args.screen_width, screen_height=args.screen_height, screen_mode=args.screen_mode
-            )
-            dominant_color_hex = '#{:02x}{:02x}{:02x}'.format(*dominant_color)
-            print(json.dumps({
-                "center_x": center[0],
-                "center_y": center[1],
-                "width": size[0],
-                "height": size[1],
-                "variance": var,
-                "dominant_color": dominant_color_hex
-            }))
-        else:
-            print(json.dumps({"error": "No region found under the threshold."}))
-        return
+    # Only the answer is cached: not a run that draws or explains itself.
+    cacheable = not (args.no_cache or args.visual_output or args.verbose)
+    params = {k: v for k, v in vars(args).items()
+              if k not in ("image_path", "visual_output", "verbose", "no_cache")}
+    key = cache_key(args.image_path, args=params) if cacheable else None
+    try:
+        directory = cache_dir("results") if key is not None else None
+    except OSError:
+        directory = None
+    if directory is not None:
+        cached = os.path.join(directory, f"{key}.json")
+        try:
+            with open(cached) as f:
+                result = json.load(f)
+        except (OSError, ValueError):
+            result = None
+        if isinstance(result, dict):
+            try:
+                os.utime(cached)
+            except OSError:
+                pass
+            print(json.dumps(result))
+            return
 
-    coords, variance = find_least_busy_region(
-        args.image_path,
-        region_width=args.width,
-        region_height=args.height,
-        screen_width=args.screen_width,
-        screen_height=args.screen_height,
-        verbose=args.verbose,
-        stride=args.stride,
-        screen_mode=args.screen_mode,
-        horizontal_padding=args.horizontal_padding,
-        vertical_padding=args.vertical_padding,
-        busiest=args.busiest
-    )
-    if args.visual_output:
-        draw_region(args.image_path, coords, region_width=args.width, region_height=args.height, screen_width=args.screen_width, screen_height=args.screen_height, screen_mode=args.screen_mode)
-    # Output JSON with center point
-    center_x = coords[0] + args.width // 2
-    center_y = coords[1] + args.height // 2
-    dominant_color = get_dominant_color(
-        args.image_path, coords[0], coords[1], args.width, args.height,
-        screen_width=args.screen_width, screen_height=args.screen_height, screen_mode=args.screen_mode
-    )
-    dominant_color_hex = '#{:02x}{:02x}{:02x}'.format(*dominant_color)
-    print(json.dumps({
-        "center_x": center_x,
-        "center_y": center_y,
-        "width": args.width,
-        "height": args.height,
-        "variance": variance,
-        "dominant_color": dominant_color_hex
-    }))
+    load_cv()
+    result = compute(args, use_cache=not args.no_cache)
+    output = json.dumps(result)
+    if directory is not None:
+        try:
+            write_atomic(directory, f"{key}.json", lambda f: f.write(output.encode()))
+            prune(directory, ".json", MAX_RESULTS)
+        except OSError:
+            pass
+    print(output)
+
 
 if __name__ == "__main__":
-    main()
-
+    try:
+        main()
+    except (FileNotFoundError, ValueError) as e:
+        print(f"least_busy_region: {e}", file=sys.stderr)
+        sys.exit(1)
