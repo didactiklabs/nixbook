@@ -4,8 +4,10 @@
 #   - config-tool.sh: `nixbook-shell config diff|pinned|dump|path` on fixtures;
 #   - assistant-facts.py: fact file structure, keybind, Neovim keymap, system and how-to facts;
 #   - theme-palettes.py + greeter-theme.sh: what the login screen gets;
-#   - render-app-colors.py, zen-theme.py, apply-app-colors.sh: the app colours.
-# Needs bash, jq, python3 and nix-instantiate. Run: bash tests/scripts.sh
+#   - render-app-colors.py, zen-theme.py, apply-app-colors.sh: the app colours;
+#   - least_busy_region.py: background widget placement and its cache.
+# Needs bash, jq, python3, nix-instantiate and nix-build (the shell's Python
+# environment, with OpenCV). Run: bash tests/scripts.sh
 # The jq programs are single-quoted on purpose: `$n`, `$a`, ... are jq variables.
 # shellcheck disable=SC2016
 set -euo pipefail
@@ -439,6 +441,134 @@ if [ -e "$zen_profile/chrome/nixbook-shell.css" ] || [ -e "$home/.config/vesktop
   fail "apply-app-colors.sh: ...generated files removed"
 else
   pass "apply-app-colors.sh: ...generated files removed"
+fi
+
+# -- least_busy_region.py: background widget placement -------------------------
+
+# The shell's own Python environment (OpenCV, numpy), as packaged.
+lbr_python="$(nix-build --no-out-link -E "(import $root { }).package.passthru.shell.passthru.pythonEnv")/bin/python3"
+lbr_dir="$root/src/scripts/images"
+lbr() { PYTHONDONTWRITEBYTECODE=1 XDG_CACHE_HOME="$tmp/lbr-cache" "$lbr_python" "$lbr_dir/least_busy_region.py" "$@"; }
+
+# The window scans give what a plain scan of every window gives (ties
+# included: the first one in row order wins).
+if out=$(
+  PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$lbr_dir" "$lbr_python" - 2>&1 <<'EOF'
+import numpy as np
+import least_busy_region as L
+L.load_cv()
+
+def variance(img, x, y, w, h):
+    win = img[y:y + h, x:x + w].astype(np.float64)
+    return (win ** 2).sum() / (w * h) - (win.sum() / (w * h)) ** 2
+
+def least_busy(img, rw, rh, stride, hp, vp, busiest):
+    h, w = img.shape
+    rw, rh = min(rw, w - 2 * hp), min(rh, h - 2 * vp)
+    best = None
+    for y in range(vp, max(vp, h - rh - vp + 1) + 1, stride):
+        for x in range(hp, max(hp, w - rw - hp + 1) + 1, stride):
+            if x + rw > w or y + rh > h:
+                continue
+            v = variance(img, x, y, rw, rh)
+            if best is None or (v > best[1] if busiest else v < best[1]):
+                best = ((x, y), v)
+    return best
+
+def largest(img, stride, thr, ar, hp, vp):
+    h, w = img.shape
+    ew, eh = w - 2 * hp, h - 2 * vp
+    lo, hi = 10, (min(eh, int(ew / ar)) if ar >= 1 else min(int(eh * ar), ew))
+    best = None
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        rw, rh = (int(round(mid * ar)), mid) if ar >= 1 else (mid, int(round(mid / ar)))
+        if rw > ew or rh > eh:
+            hi = mid - 1
+            continue
+        hit = next(((x, y) for y in range(vp, h - rh - vp + 1, stride)
+                    for x in range(hp, w - rw - hp + 1, stride)
+                    if variance(img, x, y, rw, rh) <= thr), None)
+        if hit:
+            best = ((hit[0] + rw // 2, hit[1] + rh // 2), (rw, rh))
+            lo = mid + 1
+        else:
+            hi = mid - 1
+    return best
+
+rng = np.random.default_rng(7)
+noise = rng.integers(0, 256, (90, 140), dtype=np.uint8)
+patchy = noise.copy()
+patchy[:, :70] = 40  # a flat half: many equal windows
+images = [noise, patchy, np.full((60, 80), 128, np.uint8)]
+bad = []
+for i, img in enumerate(images):
+    for rw, rh in [(20, 12), (33, 30), (500, 500)]:
+        for stride in [1, 4, 10]:
+            for hp, vp in [(0, 0), (3, 5)]:
+                for busiest in (False, True):
+                    want = least_busy(img, rw, rh, stride, hp, vp, busiest)
+                    got = L.find_least_busy_region(img, rw, rh, stride=stride, horizontal_padding=hp,
+                                                   vertical_padding=vp, busiest=busiest)
+                    if want[0] != got[0] or not np.isclose(want[1], got[1], atol=1e-6):
+                        bad.append(("least busy", i, rw, rh, stride, hp, vp, busiest, want, got))
+    for stride in [1, 5]:
+        for thr in [0.0, 300.0, 1e9]:
+            for ar in [1.78, 0.6]:
+                want = largest(img, stride, thr, ar, 2, 2)
+                got = L.find_largest_region(img, stride=stride, threshold=thr, aspect_ratio=ar,
+                                            horizontal_padding=2, vertical_padding=2)
+                if want != (got[:2] if got[0] else None):
+                    bad.append(("largest", i, stride, thr, ar, want, got))
+print("\n".join(map(str, bad[:5])) if bad else "same")
+EOF
+) && [ "$out" = same ]; then
+  pass "least_busy_region.py: window scans match a plain scan"
+else
+  fail "least_busy_region.py: window scans match a plain scan" "$out"
+fi
+
+# A noisy wallpaper with one flat block: the widget goes on the block.
+lbr_wall="$tmp/lbr-wall.png"
+PYTHONDONTWRITEBYTECODE=1 "$lbr_python" -c '
+import sys, cv2, numpy as np
+img = np.random.default_rng(3).integers(0, 256, (540, 960, 3), dtype=np.uint8)
+img[300:500, 600:900] = (40, 90, 200)  # BGR
+cv2.imwrite(sys.argv[1], img)' "$lbr_wall"
+lbr_args=(--screen-width 960 --screen-height 540 --width 200 --height 150 --horizontal-padding 20 --vertical-padding 20)
+cold=$(lbr "${lbr_args[@]}" "$lbr_wall")
+expect_eq "least_busy_region.py: widget placed on the flat block" '[true,true,"#c85a28"]' \
+  "$(jq -c '[(.center_x >= 700 and .center_x <= 800), (.center_y >= 375 and .center_y <= 425), .dominant_color]' <<<"$cold")"
+expect_eq "least_busy_region.py: --busiest avoids it" 'true' \
+  "$(lbr "${lbr_args[@]}" --busiest "$lbr_wall" | jq '.center_x < 600 or .center_y < 300')"
+
+# The cache: private, the same answer, a new one when the wallpaper changes.
+lbr_cache="$tmp/lbr-cache/nixbook-shell/least-busy-region"
+expect_eq "least_busy_region.py: cache directories are private" '700 700 700' \
+  "$(stat -c %a "$lbr_cache" "$lbr_cache/results" "$lbr_cache/images" | tr '\n' ' ' | sed 's/ $//')"
+expect_eq "least_busy_region.py: cached answer is the same" "$cold" "$(lbr "${lbr_args[@]}" "$lbr_wall")"
+expect_eq "least_busy_region.py: one answer per argument set" 2 "$(find "$lbr_cache/results" -name '*.json' | wc -l)"
+expect_eq "least_busy_region.py: one decoded image per wallpaper and screen" 1 "$(find "$lbr_cache/images" -name '*.npy' | wc -l)"
+for f in "$lbr_cache"/results/*.json; do printf 'not json' >"$f"; done
+expect_eq "least_busy_region.py: a broken cache entry is recomputed" "$cold" "$(lbr "${lbr_args[@]}" "$lbr_wall")"
+PYTHONDONTWRITEBYTECODE=1 "$lbr_python" -c '
+import sys, cv2, numpy as np
+img = np.random.default_rng(4).integers(0, 256, (540, 960, 3), dtype=np.uint8)
+img[40:200, 60:300] = 255
+cv2.imwrite(sys.argv[1], img)' "$lbr_wall"
+expect_eq "least_busy_region.py: a changed wallpaper is not served from the cache" '[true,"#ffffff"]' \
+  "$(lbr "${lbr_args[@]}" "$lbr_wall" | jq -c '[.center_x < 400 and .center_y < 300, .dominant_color]')"
+rm -rf "$tmp/lbr-cache"
+lbr --no-cache "${lbr_args[@]}" "$lbr_wall" >/dev/null
+expect_eq "least_busy_region.py: --no-cache writes nothing" 'absent' "$([ -e "$tmp/lbr-cache" ] && echo present || echo absent)"
+mkdir -p "$tmp/lbr-cache" && chmod 500 "$tmp/lbr-cache"
+expect_eq "least_busy_region.py: works without a writable cache" '"#ffffff"' \
+  "$(lbr "${lbr_args[@]}" "$lbr_wall" | jq .dominant_color)"
+chmod 700 "$tmp/lbr-cache"
+if lbr "$tmp/missing.png" >/dev/null 2>"$tmp/err"; then
+  fail "least_busy_region.py: a missing wallpaper is an error"
+else
+  expect_contains "least_busy_region.py: a missing wallpaper is an error" "$(cat "$tmp/err")" "Image not found"
 fi
 
 if [ "$failures" -ne 0 ]; then
