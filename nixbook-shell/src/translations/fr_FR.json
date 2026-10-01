@@ -629,5 +629,8 @@
   "The assistant is waiting for you": "L'assistant vous attend",
   "The assistant is done": "L'assistant a terminé",
   "Notify me when the assistant is done or waiting for me": "M'avertir quand l'assistant a terminé ou m'attend",
-  "Only while the side panel is closed, and not in Do Not Disturb.": "Seulement quand le panneau latéral est fermé, et pas en mode Ne pas déranger."
+  "Only while the side panel is closed, and not in Do Not Disturb.": "Seulement quand le panneau latéral est fermé, et pas en mode Ne pas déranger.",
+  "Folders the agents' desktop may write": "Dossiers où le bureau des agents peut écrire",
+  "none: e.g. ~/Pictures/Assistant": "aucun : par ex. ~/Pictures/Assistant",
+  "The apps on the agents' own desktop can save files there (from its next start), and its browser downloads into the first one, so an agent can fetch a file for you, a wallpaper say. Claude here can read them but not write them. Made if missing; not your whole home.": "Les applications du bureau des agents peuvent y enregistrer des fichiers (à partir de son prochain démarrage), et son navigateur télécharge dans le premier, pour qu'un agent puisse récupérer un fichier pour vous, un fond d'écran par exemple. Claude ici peut les lire mais pas y écrire. Créés s'ils n'existent pas ; pas votre dossier personnel entier."
 }

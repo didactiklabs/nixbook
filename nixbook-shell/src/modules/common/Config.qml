@@ -160,6 +160,13 @@ Singleton {
                 // (scripts/agent-desktop.sh binds them into its sandbox). None by
                 // default: no access to the user's files unless allowed here.
                 property list<string> allowedFolders: []
+                // The folders the apps on the agent desktop may also write
+                // (bound read-write into its sandbox; the first one is their
+                // Downloads folder, where its browser saves), so an agent can
+                // download a file there and use it on the user's side. The side
+                // panel's Claude can read them, not write them. Not the home
+                // itself or /. None by default.
+                property list<string> writableFolders: []
                 // The agent desktop's sandbox (scripts/agent-desktop.sh), from
                 // its next start. hideSystemSockets: /run empty but for what
                 // apps need, no daemon's socket. privateNetwork: its own

@@ -5,6 +5,7 @@
     "includeSystemContext": true,
     "notifyWhenDone": true,
     "allowedFolders": [],
+    "writableFolders": [],
     "agentDesktop": {
       "hideSystemSockets": true,
       "privateNetwork": true
