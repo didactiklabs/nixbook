@@ -210,6 +210,32 @@ claude mcp add desktop -- nixbook-desktop-mcp            # Claude Code
 # `nixbook-desktop-mcp`
 ```
 
+Two apps can also be driven directly, much faster than through screenshots
+and keystrokes (opt-in: each opens a debugging port on 127.0.0.1 only, which
+any program of this user can use while the app runs):
+
+- **Zen** (`desktopMcp.zen`, nixbook's `zenBrowserConfig.agentRemoteControl`):
+  the `browser` tools over WebDriver BiDi. `browser_tabs` lists the tabs,
+  `browser_open` loads an address and returns the start of the page,
+  `browser_read` returns a page's text or its links, buttons and fields,
+  numbered (`find` keeps only what matches), and `browser_act` clicks, fills,
+  selects, presses keys, scrolls, goes back or closes a tab, with real input
+  events. Password fields are refused, field values only show when asked
+  for, and addresses come without their query string. Zen shows the robot
+  icon of a remote-controlled browser, and pages can tell
+  (`navigator.webdriver`); the profile's `remote.prefs.recommended` must be
+  off, or Zen applies Firefox's automation defaults (Safe Browsing off…).
+- **Vesktop** (`desktopMcp.vesktop`): the `discord` tools over the Chrome
+  DevTools Protocol and Vencord. `discord_conversations` lists the direct
+  and group messages with their unread counts, `discord_read` returns a
+  conversation's last messages (10 by default) without marking them read,
+  and `discord_send` sends through Discord's own send function. Automating
+  a user account is against Discord's terms.
+
+What an agent reads goes to its model provider: the defaults are kept short
+(a page's first 1000 characters, 10 messages, 10 notifications) and the
+descriptions steer agents to `find` and `count`.
+
 The **Desktop Control** bar widget (`desktopControl` in a bar layout) shows
 it: a faint robot when idle, a pulsing one in the accent colour while an
 agent acts (its calls within the last 20 s), a red hand when paused; its

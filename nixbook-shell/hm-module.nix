@@ -498,6 +498,19 @@ let
         python3 ${./scripts/assistant-facts.py} "$infoPath" binds.kdl > "$out"
       '';
 
+  # An app's launcher entry, its commands started with `flag` (a debugging
+  # port for desktop-mcp's browser and discord tools).
+  withDebugPort =
+    package: name: flag:
+    pkgs.runCommand "${name}-debug-port.desktop" { } ''
+      src=${package}/share/applications/${name}.desktop
+      if [ ! -f "$src" ]; then
+        echo "${package} has no share/applications/${name}.desktop" >&2
+        exit 1
+      fi
+      ${lib.getExe pkgs.gnused} -E 's#^(Exec=[^ ]+)#\1 ${flag}#' "$src" > $out
+    '';
+
   # Four-language sentence, as scripts/assistant-facts.py expects.
   factType = lib.types.submodule {
     options = lib.genAttrs [ "en" "fr" "de" "vi" ] (lang: lib.mkOption { type = lib.types.str; });
@@ -622,6 +635,8 @@ in
                 "input"
                 "shell"
                 "memory"
+                "browser"
+                "discord"
               ]
             );
             default = [
@@ -639,7 +654,8 @@ in
               (focus, move, close, launch apps), `input` (keyboard, pointer,
               writing the clipboard), `shell` (the shell's IPC, notifications),
               `memory` (notes agents keep about this desktop, and the digest of
-              it they get when they connect).
+              it they get when they connect). `browser` and `discord` come
+              with `desktopMcp.zen` and `desktopMcp.vesktop`.
             '';
           };
         };
@@ -665,6 +681,61 @@ in
           `ocrLanguages` (read_screen's tesseract languages, e.g. `eng+fra`).
           `nixbook-desktop-mcp config` prints the effective settings.
         '';
+      };
+
+      zen = {
+        enable = lib.mkEnableOption ''
+          the `browser` tools: AI agents read Zen's tabs as text and click,
+          fill and type in pages (real input events) through WebDriver BiDi,
+          instead of screenshots and keystrokes: a page or a form in one call.
+          Zen has to listen on 127.0.0.1:`port` (`--remote-debugging-port`;
+          loopback only, nothing off this machine can reach it, but any
+          program of this user can drive Zen while it's open): with `package`
+          set, its launcher entry starts it so. Zen then shows the robot icon
+          of a browser under remote control, and pages can tell
+          (`navigator.webdriver`). Set the Zen profile's
+          `remote.prefs.recommended` to false, or Zen applies its automation
+          defaults (Safe Browsing off…) to the profile: nixbook's
+          `zenBrowserConfig.agentRemoteControl` does both'';
+        port = lib.mkOption {
+          type = lib.types.port;
+          default = 9222;
+          description = "Port on 127.0.0.1 of Zen's WebDriver BiDi server.";
+        };
+        package = lib.mkOption {
+          type = lib.types.nullOr lib.types.package;
+          default = null;
+          description = ''
+            Zen's package: its launcher entry (`desktopEntry`) is replaced by
+            one starting it with `--remote-debugging-port`. Null: start Zen
+            with it yourself.
+          '';
+        };
+        desktopEntry = lib.mkOption {
+          type = lib.types.str;
+          default = "zen-twilight";
+          description = "Name of Zen's .desktop file in `package` (zen-beta, zen-twilight…).";
+        };
+      };
+
+      vesktop = {
+        enable = lib.mkEnableOption ''
+          the `discord` tools: AI agents list Vesktop's conversations, read
+          their messages as text and send messages (through Discord's own
+          send, what the message box does) over the Chrome DevTools Protocol,
+          instead of screenshots and keystrokes. Vesktop's launcher entry
+          starts it listening on 127.0.0.1:`port` (loopback only, but any
+          program of this user can drive Vesktop, as the user's Discord
+          account, while it's open); a Vesktop already running, or started
+          by its own "start with the system" entry, has to be quit and
+          reopened from the launcher. Automating a Discord user account is
+          against Discord's terms'';
+        port = lib.mkOption {
+          type = lib.types.port;
+          default = 9223;
+          description = "Port on 127.0.0.1 of Vesktop's DevTools server.";
+        };
+        package = lib.mkPackageOption pkgs "vesktop" { };
       };
 
       http = {
@@ -905,7 +976,34 @@ in
         # Desktop control for AI agents (scripts/desktop-mcp.py).
         xdg.configFile."nixbook-shell/desktop-mcp.json".source =
           (pkgs.formats.json { }).generate "desktop-mcp.json"
-            (cfg.desktopMcp.settings // { http.port = cfg.desktopMcp.http.port; });
+            (
+              cfg.desktopMcp.settings
+              // {
+                http.port = cfg.desktopMcp.http.port;
+                tools = lib.unique (
+                  cfg.desktopMcp.settings.tools
+                  ++ lib.optional cfg.desktopMcp.zen.enable "browser"
+                  ++ lib.optional cfg.desktopMcp.vesktop.enable "discord"
+                );
+                zenDebugPort = cfg.desktopMcp.zen.port;
+                vesktopDebugPort = cfg.desktopMcp.vesktop.port;
+              }
+            );
+        # Launcher entries starting Zen and Vesktop with their debugging port
+        # (desktopMcp.zen, desktopMcp.vesktop): the apps' own, with the flag
+        # after the command; ~/.local/share/applications comes first in XDG order.
+        xdg.dataFile."applications/${cfg.desktopMcp.zen.desktopEntry}.desktop" =
+          lib.mkIf (cfg.desktopMcp.zen.enable && cfg.desktopMcp.zen.package != null)
+            {
+              source =
+                withDebugPort cfg.desktopMcp.zen.package cfg.desktopMcp.zen.desktopEntry
+                  "--remote-debugging-port ${toString cfg.desktopMcp.zen.port}";
+            };
+        xdg.dataFile."applications/vesktop.desktop" = lib.mkIf cfg.desktopMcp.vesktop.enable {
+          source =
+            withDebugPort cfg.desktopMcp.vesktop.package "vesktop"
+              "--remote-debugging-port=${toString cfg.desktopMcp.vesktop.port}";
+        };
 
         # Launcher entry for the Settings window (nixbook-shell's own launcher, fuzzel…).
         xdg.desktopEntries.nixbook-shell-settings = {
