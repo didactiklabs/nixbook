@@ -215,12 +215,18 @@ def on_agent_desktop():
     return os.path.exists(agent_desktop_flag())
 
 
+def agent_desktop_dir():
+    """The launcher's directory (scripts/agent-desktop.sh): written by it
+    only, read-only inside the agent desktop's sandbox."""
+    return os.path.join(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}", "nixbook-agent-desktop")
+
+
 def agent_desktop_env():
     """WAYLAND_DISPLAY and NIRI_SOCKET of the running agent desktop, or None.
     The launcher writes them once niri is up and removes them when it exits;
     a crash can leave them behind, so the sockets must exist too."""
     try:
-        with open(os.path.join(runtime_dir(), "agent-desktop.env"), encoding="utf-8") as f:
+        with open(os.path.join(agent_desktop_dir(), "agent-desktop.env"), encoding="utf-8") as f:
             env = dict(line.rstrip("\n").split("=", 1) for line in f if "=" in line)
     except (OSError, ToolError):
         return None
@@ -256,7 +262,7 @@ def agent_input_flag():
     niri lets the window's clicks and keys through while this exists. In the
     runtime directory: off again after a reboot (and each start, the
     launcher removes it)."""
-    return os.path.join(runtime_dir(), "agent-desktop-input")
+    return os.path.join(agent_desktop_dir(), "agent-desktop-input")
 
 
 def user_has_control():

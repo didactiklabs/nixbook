@@ -282,13 +282,23 @@ PATH, in `~/.local/bin` or a Nix profile), the AI chat offers a **Claude**
 model (`/model claude`) that runs on your own Claude login, no API key. It is
 set up in **Settings → Desktop agents → Claude in the side panel**: whether
 Claude Code was found (and its command, if elsewhere), the model (default,
-Sonnet, Opus, Haiku), whether it may search and read the web and read your
-files, and a button to use it in the panel (the `ai.claudeCode.*` settings;
-Nix can pin them like any other). Each message runs `claude -p` once, resuming the
+Sonnet, Opus, Haiku), whether it may search and read the web, the folders it
+may read, and a button to use it in the panel (the `ai.claudeCode.*` and
+`ai.allowedFolders` settings; Nix can pin them like any other). Each message runs `claude -p` once, resuming the
 conversation's session, with the desktop MCP server attached (its guardrails,
 the pause button and the memory apply as always; tool `none` leaves it out)
 and only the built-in tools in `ai.claudeCode.allowedTools` (web search and
-fetch, reading files); running commands and editing files are refused.
+fetch); running commands and editing files are refused. **It reads none of
+your files** unless you allow it: **Folders AI agents may read**
+(`ai.allowedFolders`, none by default) become its `--add-dir` working
+directories, read-only, and a file attached to a message is readable alone
+(`Read(//that/file)`). Without any, it has no file tools at all
+(`--disallowedTools Read Glob Grep`). It runs in an empty directory of its own
+(`~/.local/share/nixbook-shell/assistant`, not your home) and without your
+`~/.claude` settings (`--setting-sources project`: allow rules you set for your
+own Claude Code sessions don't apply), and any other read is denied (`-p`
+can't ask). Claude Code in a terminal, or any other MCP client, follows its
+own permissions.
 **Use your claude.ai connectors** (`ai.claudeCode.connectors`, off by
 default) also gives it the connectors of your Claude account (Gmail,
 Calendar, Drive… as connected on claude.ai, found with `claude mcp list`),
@@ -369,7 +379,7 @@ the same name): a nested niri, shown on your desktop as a window called
 "Assistant's desktop" (app id `nixbook-agent-desktop`). It's never open
 empty: it opens (beside your work, without taking the focus, with a
 notification) when an agent starts an app, and closes by itself once the
-agent's last app is gone (a watcher inside it: 10 s without a window). Every
+agent's last app is gone (the launcher watches it: 10 s without a window). Every
 agent's tools then act there: its own pointer,
 keyboard focus, clipboard and windows, so nothing the agent does moves your
 windows, takes your focus or types into what you're typing in.
@@ -399,13 +409,23 @@ again (the launcher tells your closing from its own: it marks
 your desktop, `desktop stop` closes theirs, `desktop status` says which is
 in use (also `get_status`); the choice survives a reboot.
 
-Its apps are the agent's, not yours: their own home
-(`~/.local/share/nixbook-shell/agent-home`: their own browser profiles,
-history and logins, with your GTK/Qt/font settings linked in so they look
-the same) and their own D-Bus session, so a browser you already have open
-still starts a copy of its own there. Log the agent's browser into an
-account only if you want it to use that account. File choosers are GTK's
-own there (the portal's would open on your desktop).
+Its apps are the agent's, not yours, and sandboxed (bubblewrap): **they see
+none of your files**. Their home is `~/.local/share/nixbook-shell/agent-home`
+(their own browser profiles, history and logins); your GTK/Qt/font settings
+are visible read-only so apps look the same, the **Folders AI agents may
+read** read-only (from its next start), and nothing else of your home, of
+/mnt, /media or other homes. They get their own D-Bus session (no keyring,
+portals or notifications of yours; a browser you already have open still
+starts a copy of its own there), no system bus, none of your runtime sockets
+but the display (no session bus, audio, X11, desktop-mcp's token), and their
+own process namespace (none of your processes to see or attach to). What the
+sandbox may change is its home and the nested session's runtime directory;
+the launcher's own files (where its sockets are, the take-over flag) are
+read-only to it, and it watches the session from outside, so an app can't
+fake "closed because empty" to keep closing the window from stopping the
+agent. Log the agent's browser into an account only if you want it to use
+that account. File choosers are GTK's own there (the portal's would open on
+your desktop).
 
 The shell tools still act on your desktop: `widget` (notes, to-do list,
 timers), `calendar`, `notify`, `set_theme` reach your shell over its IPC,

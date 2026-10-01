@@ -129,7 +129,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("The AI chat's Claude model runs Claude Code on your own Claude account (no API key), with the desktop tools. It can't run commands or edit files; below, what else it may do.")
+                text: Translation.tr("The AI chat's Claude model runs Claude Code on your own Claude account (no API key), with the desktop tools. It can't run commands or edit files, and reads none of your files but the folders you allow below (and a file you attach to a message); below, what else it may do.")
             }
 
             RowLayout {
@@ -182,14 +182,6 @@ ContentPage {
                     onCheckedChanged: claudeSection.setTools(["WebSearch", "WebFetch"], checked)
                 }
                 ConfigSwitch {
-                    configKey: "ai.claudeCode.allowedTools"
-                    enabled: !nixManaged
-                    buttonIcon: "folder_open"
-                    text: Translation.tr("Read your files")
-                    checked: claudeSection.hasAll(["Read", "Glob", "Grep"])
-                    onCheckedChanged: claudeSection.setTools(["Read", "Glob", "Grep"], checked)
-                }
-                ConfigSwitch {
                     configKey: "ai.claudeCode.connectors"
                     enabled: !nixManaged
                     buttonIcon: "hub"
@@ -210,6 +202,35 @@ ContentPage {
                 text: Ai.claudeConnectors.length > 0
                     ? Translation.tr("Connectors: %1").arg(Ai.claudeConnectors.map(c => c.replace(/^mcp__claude_ai_/, "").replace(/_/g, " ")).join(", "))
                     : Translation.tr("No connectors found. Add them on claude.ai (Settings → Connectors).")
+            }
+
+            // The folders AI agents may read (Claude here, and the apps on
+            // their own desktop): none unless listed. Saved when editing ends,
+            // so typing a comma isn't undone.
+            ConfigTextArea {
+                id: foldersField
+                configKey: "ai.allowedFolders"
+                enabled: !nixManaged
+                Layout.fillWidth: true
+                fieldWidth: 320
+                buttonIcon: "folder_open"
+                text: Translation.tr("Folders AI agents may read")
+                placeholderText: Translation.tr("none: e.g. ~/Documents/flats, ~/Downloads")
+                value: (Config.options.ai.allowedFolders ?? []).join(", ")
+                Connections {
+                    target: foldersField.textArea
+                    function onEditingFinished() {
+                        Config.options.ai.allowedFolders = foldersField.value.split(",")
+                            .map(f => f.trim()).filter(f => f.length > 0)
+                    }
+                }
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("Read-only, for Claude here and for the apps on the agents' own desktop (from its next start). Absolute paths or ~/…, separated by commas. Other agents (Claude Code in a terminal…) follow their own permissions.")
             }
 
             ConfigTextArea {
