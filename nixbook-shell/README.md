@@ -372,18 +372,21 @@ desktop, `desktop stop` closes theirs, `desktop status` says which is in
 use (also `get_status`); the choice survives a reboot, and the agent desktop
 is started again when an agent acts and it isn't running.
 
-Its apps run as yours: your settings, browser profiles and logins, the same
-D-Bus session (keyring, notifications); the agents are told they're on a
-desktop of their own and start what they need with `launch_app`. The catch
-is single-instance apps: one you already have open (your browser, Electron
-and GApplication apps) hands a new launch to that copy, so its window opens
-on your desktop. `launch_app` sees it there and tells the agent it can't use
-that app, rather than letting it drive your desktop. With
-`desktopMcp.agentDesktop.separateHome = true` the agent desktop's apps get
-their own home (`~/.local/share/nixbook-shell/agent-home`, your GTK/Qt/font
-settings linked in, logged out of your accounts) and a private bus instead,
-so a second copy of any app opens there. File choosers are GTK's own on the
-agent desktop (the portal's would open on yours).
+Its apps are the agent's, not yours: their own home
+(`~/.local/share/nixbook-shell/agent-home`: their own browser profiles,
+history and logins, with your GTK/Qt/font settings linked in so they look
+the same) and their own D-Bus session, so a browser you already have open
+still starts a copy of its own there. Log the agent's browser into an
+account only if you want it to use that account. File choosers are GTK's
+own there (the portal's would open on your desktop).
+
+The shell tools still act on your desktop: `widget` (notes, to-do list,
+timers), `calendar`, `notify`, `set_theme` reach your shell over its IPC,
+whichever desktop the agent works on. So an agent can, say, look for flats
+in its browser and write what it found into your notes widget. Only the
+generic `shell_ipc` is refused from the agent desktop: the panels it opens
+(sidebars, launcher, lock screen) would appear on your screen. The agents
+are told all this when they connect.
 
 Why not two seats in one niri (two pointers and keyboards on your
 desktop)? niri has one focus and one view per workspace, and most apps

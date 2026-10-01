@@ -2463,11 +2463,13 @@ IPC_NAME = r"[A-Za-z][A-Za-z0-9_]{0,63}"
 
 
 def qs_ipc(*args):
+    """The user's shell, also from the agent desktop: notes, to-do list,
+    calendar, themes are the user's whichever desktop the agent works on."""
     qs = os.environ.get("NIXBOOK_DESKTOP_MCP_QS")
     conf = os.environ.get("NIXBOOK_DESKTOP_MCP_QS_CONFIG")
     if qs and conf:
-        return run([qs, "-c", conf, "ipc", *args])
-    return run(["nixbook-shell", "ipc", *args])
+        return run([qs, "-c", conf, "ipc", *args], env=user_desktop_env())
+    return run(["nixbook-shell", "ipc", *args], env=user_desktop_env())
 
 
 @tool(
@@ -2509,6 +2511,10 @@ def t_shell_ipc(ctx, args):
     fn = as_str(args, "function", max_len=64, pattern=IPC_NAME)
     if target in ctx.cfg.get("shellIpcDenyTargets", []):
         raise ToolError(f"refused: the {target!r} target is off limits")
+    if ctx.desktop == "agent":
+        # Sidebars, launcher, lock screen…: they'd open on the user's screen.
+        raise ToolError("refused: you work on your own desktop, and the shell's panels open on the user's: "
+                        "use widget, calendar, notify or set_theme for the user's shell")
     extra = args.get("args") or []
     if not isinstance(extra, list) or len(extra) > 8 or not all(isinstance(a, str) and len(a) <= 256 for a in extra):
         raise ToolError("`args` must be up to 8 strings of at most 256 characters")
@@ -2884,10 +2890,13 @@ INSTRUCTIONS = (
 AGENT_DESKTOP_INSTRUCTIONS = (
     "You work on a desktop of your own, not the user's: a separate niri "
     "session the user sees as a window, with its own pointer, focus and "
-    "clipboard, so work there freely while the user keeps working. Its apps "
-    "run as the user's own (their settings and logins), but the user's "
-    "windows aren't on it: start what you need with launch_app. An app the "
-    "user already has open may refuse to open here (launch_app says so)."
+    "clipboard, so work there freely while the user keeps working. The "
+    "window, screen and input tools act there. Its apps are yours, not the "
+    "user's: their own profiles, logged out of the user's accounts, and none "
+    "of the user's windows; start what you need with launch_app. The shell "
+    "tools (widget: notes, to-do list, timers; calendar; notify; set_theme) "
+    "still reach the user's desktop: hand results over there, e.g. write a "
+    "note with what you found (your clipboard isn't theirs)."
 )
 
 

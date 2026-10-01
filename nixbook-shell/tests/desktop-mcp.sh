@@ -140,6 +140,8 @@ EOF
 cat >"$bin/qs" <<'EOF'
 #!/usr/bin/env bash
 echo "qs $*" >>"$STUB_CALLS"
+# The display it was started on: the user's, even from the agent desktop.
+echo "${WAYLAND_DISPLAY:-}" >"$STUB_CALLS.qs_display"
 if [ "${*: -1}" = "show" ]; then
   printf 'target sidebarLeft\n  function toggle(): void\ntarget session\n  function open(): void\n'
 fi
@@ -837,6 +839,13 @@ expect_eq "agent desktop: tools reach its niri" "$STUB_AGENT_SOCKET" "$(cat "$ca
 expect_eq "agent desktop: status says so" agent "$(call get_status | jq -r .desktop)"
 out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 "$mcp")
 expect_contains "agent desktop: agents are told" "$(jq -r .result.instructions <<<"$out")" "You work on a desktop of your own"
+# Browsing on its own desktop, writing what it found in the user's notes.
+reset_calls
+out=$(call widget '{"widget":"notes","action":"add","text":"flat: 3 rooms, 1200 EUR"}')
+expect_eq "agent desktop: notes go to the user's shell" "qs -c nixbook-shell ipc call -- notes add flat: 3 rooms, 1200 EUR" "$(last_call)"
+expect_eq "agent desktop: the shell is reached on the user's display" wayland-test "$(cat "$calls.qs_display")"
+expect_contains "agent desktop: no shell panels on the user's screen" \
+  "$(call shell_ipc '{"target":"sidebarLeft","function":"toggle"}')" "refused: you work on your own desktop"
 rm -f "$calls.launched"
 out=$(call launch_app '{"app": "firefox"}')
 expect_contains "agent desktop: an app opening on the user's desktop is reported" "$out" "opened its window on the user's desktop"
