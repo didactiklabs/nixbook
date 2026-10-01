@@ -558,7 +558,8 @@ AFTER_PROPS = {
         "description": "Also return a screenshot of the focused monitor after the action, "
         "to check the result without another call",
     },
-    "wait_ms": {"type": "integer", "description": "Wait before that screenshot (default 400 ms, at most 5000)"},
+    "wait_ms": {"type": "integer", "description": "Wait this long before that screenshot (at most 5000 ms) instead "
+                "of until the screen stops changing (the default, at most 2.5 s)"},
 }
 
 
@@ -1924,6 +1925,60 @@ def read_ppm(data):
     return int(m[1]), int(m[2]), data[m.end():]
 
 
+# Waiting for the screen to settle: tiny captures of the focused monitor
+# until one changes no more than a few rows (a caret, a clock, a spinner)
+# from the one before for SETTLE_QUIET_MS; at most SETTLE_MAX_MS.
+SETTLE_SCALE = 0.125
+SETTLE_MIN_MS = 50
+SETTLE_QUIET_MS = 250
+SETTLE_MAX_MS = 2500
+
+
+def nearly_same(a, b, w, h):
+    """At most 2% of the rows differ."""
+    stride = w * 3
+    budget = max(1, h // 50)
+    for y in range(h):
+        if a[y * stride:(y + 1) * stride] != b[y * stride:(y + 1) * stride]:
+            budget -= 1
+            if budget < 0:
+                return False
+    return True
+
+
+def wait_settled(ctx):
+    """Waits until the focused monitor stops changing. Returns whether it
+    did within SETTLE_MAX_MS (no screen tools: SETTLE_QUIET_MS, then True)."""
+    start = time.monotonic()
+    name = None
+    if "screen" in ctx.cfg["tools"]:
+        try:
+            name = (niri_json("focused-output") or {}).get("name")
+        except ToolError:
+            pass
+    if not name or not shutil.which("grim"):
+        time.sleep(SETTLE_QUIET_MS / 1000)
+        return True
+    time.sleep(SETTLE_MIN_MS / 1000)
+    prev = stable_since = None
+    while True:
+        try:
+            frame = read_ppm(run(["grim", "-o", name, "-s", str(SETTLE_SCALE), "-t", "ppm", "-"], timeout=5, binary=True).stdout)
+        except ToolError:
+            return True
+        now = time.monotonic()
+        if prev and prev[:2] == frame[:2] and nearly_same(prev[2], frame[2], *frame[:2]):
+            stable_since = stable_since or prev_time
+            if now - stable_since >= SETTLE_QUIET_MS / 1000:
+                return True
+        else:
+            stable_since = None
+        if now - start >= SETTLE_MAX_MS / 1000:
+            return False
+        prev, prev_time = frame, now
+        time.sleep(0.05)
+
+
 def first_diff(a, b):
     """Index of the first differing byte of a and b (they differ)."""
     lo, hi = 0, len(a)  # a[:lo] == b[:lo], a[:hi] != b[:hi]
@@ -2634,7 +2689,8 @@ def t_scroll(ctx, args):
     "Do several actions in one call, in order: each step is {tool, args} for "
     "a window or input tool (launch_app, focus_window, press_keys, type_text, "
     "click, drag, scroll, clipboard_set…), optionally with wait_ms to wait "
-    "after it (default 200). Stops at the first step that fails or is "
+    "after it (default 200), or settle: true to wait until the screen stops "
+    "changing (a page loading, a dialog opening). Stops at the first step that fails or is "
     "refused. E.g. open a chat and send a message: [{tool: press_keys, args: "
     "{keys: [ctrl+k]}}, {tool: type_text, args: {text: Alesio}, wait_ms: 600}, "
     "{tool: press_keys, args: {keys: [Return]}}, …]. Every step passes the "
@@ -2651,6 +2707,7 @@ def t_scroll(ctx, args):
                         "tool": {"type": "string"},
                         "args": {"type": "object"},
                         "wait_ms": {"type": "integer"},
+                        "settle": {"type": "boolean"},
                     },
                     "required": ["tool"],
                 },
@@ -2684,7 +2741,7 @@ def t_run_steps(ctx, args):
         wait = step.get("wait_ms", 200)
         if isinstance(wait, bool) or not isinstance(wait, int) or not 0 <= wait <= 5000:
             raise ToolError(f"step {i}: `wait_ms` must be 0 to 5000")
-        plan.append((name, t, step_args, wait))
+        plan.append((name, t, step_args, "settle" if step.get("settle") is True else wait))
     done = []
     for i, (name, t, step_args, wait) in enumerate(plan, 1):
         if is_paused():
@@ -2699,7 +2756,10 @@ def t_run_steps(ctx, args):
         summary = next((c["text"] for c in out if c.get("type") == "text"), "done")
         done.append(f"{i}. {name}: {summary.splitlines()[0] if summary else 'done'}")
         write_state(last={"time": int(time.time() * 1000), "client": ctx.client, "tool": name, "outcome": "ok"})
-        time.sleep(wait / 1000)
+        if wait != "settle":
+            time.sleep(wait / 1000)
+        elif not wait_settled(ctx):
+            done.append(f"(the screen was still changing after {SETTLE_MAX_MS / 1000:g} s)")
     if isinstance(args.get("remember_as"), str) and args["remember_as"].strip() and "memory" in ctx.cfg["tools"]:
         topic = clean_text(args["remember_as"], NOTE_TOPIC_MAX)
         recipe = clean_text("run_steps recipe: " + json.dumps(steps, ensure_ascii=False, separators=(",", ":")), RECIPE_TEXT_MAX)
@@ -3140,6 +3200,13 @@ def after_action(ctx, args):
     """What an agent would otherwise ask for next: the focused window and,
     with screenshot_after, a screenshot of the result."""
     extra = []
+    shot = args.get("screenshot_after") is True and "screen" in ctx.cfg["tools"]
+    if shot:
+        wait = args.get("wait_ms")
+        if isinstance(wait, int) and not isinstance(wait, bool) and 0 <= wait <= 5000:
+            time.sleep(wait / 1000)
+        elif not wait_settled(ctx):
+            extra.append(text(f"(the screen was still changing after {SETTLE_MAX_MS / 1000:g} s)"))
     try:
         w = focused_window()
         extra.append(text(f"Focused: {w.get('app_id')} — {w.get('title')!r} (id {w.get('id')})" if w else "Focused: no window"))
@@ -3148,14 +3215,9 @@ def after_action(ctx, args):
                 extra.append(notes)
     except ToolError:
         pass
-    if args.get("screenshot_after") is True:
-        if "screen" not in ctx.cfg["tools"]:
-            extra.append(text("(no screenshot: the screen tools are turned off)"))
-            return extra
-        wait = args.get("wait_ms", 400)
-        if isinstance(wait, bool) or not isinstance(wait, int) or not 0 <= wait <= 5000:
-            wait = 400
-        time.sleep(wait / 1000)
+    if args.get("screenshot_after") is True and not shot:
+        extra.append(text("(no screenshot: the screen tools are turned off)"))
+    elif shot:
         try:
             extra += t_screenshot(ctx, {})
         except ToolError as e:

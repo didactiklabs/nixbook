@@ -216,8 +216,11 @@ Agents are slow mostly because every tool call is a model round trip, so
 the tools save calls: `launch_app` waits for the app's window and says
 which it is; every action's reply names the focused window; action tools
 take `screenshot_after: true` to return a screenshot of the result in the
-same call; `run_steps` does up to 20 actions (keys, typing, clicks, waits)
-in one call, each through the same guardrails; screenshots are JPEG (a
+same call, once the screen stops changing (tiny captures of the monitor,
+a caret or a clock aside; at most 2.5 s, or a fixed `wait_ms`), so a slow
+page isn't caught half drawn and a quick one isn't waited for; `run_steps`
+does up to 20 actions (keys, typing, clicks, waits) in one call, each
+through the same guardrails (a step's `settle: true` waits the same way); screenshots are JPEG (a
 fraction of a PNG's size; `screenshotFormat`, `screenshotQuality`). A
 monitor screenshot sends only what changed since the agent's last one (up
 to 3 crops, each with its own mapping), or just says nothing did: an image
