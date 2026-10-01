@@ -46,7 +46,20 @@ let
     }:$PATH"
     export NIXBOOK_DESKTOP_MCP_QS="${quickshell}/bin/qs"
     export NIXBOOK_DESKTOP_MCP_QS_CONFIG="${configName}"
-    exec ${pkgs.python3}/bin/python3 ${./scripts/desktop-mcp.py} "$@"
+    # The ui tools read apps' accessibility trees through at-spi2-core's
+    # GObject bindings.
+    export GI_TYPELIB_PATH="${
+      lib.makeSearchPath "lib/girepository-1.0" (
+        map (p: p.out) [
+          pkgs.at-spi2-core
+          pkgs.glib
+          pkgs.gobject-introspection
+        ]
+      )
+    }''${GI_TYPELIB_PATH:+:$GI_TYPELIB_PATH}"
+    exec ${
+      pkgs.python3.withPackages (ps: [ ps.pygobject3 ])
+    }/bin/python3 ${./scripts/desktop-mcp.py} "$@"
   '';
 
   # A desktop of their own for AI agents (scripts/agent-desktop.sh): a nested

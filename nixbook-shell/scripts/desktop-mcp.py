@@ -48,6 +48,7 @@ import sys
 import threading
 import time
 import unicodedata
+import warnings
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 VERSION = "1.0.0"
@@ -60,7 +61,7 @@ SERVER_NAME = "nixbook-desktop"
 
 DEFAULT_CONFIG = {
     # Tool groups on offer; the others are neither listed nor callable.
-    "tools": ["observe", "screen", "windows", "input", "shell", "memory"],
+    "tools": ["observe", "screen", "windows", "input", "shell", "memory", "ui"],
     # No keyboard/pointer input while the focused window's app_id (or title)
     # matches one of these (Python regexes, case-insensitive, searched).
     "inputDenyApps": [
@@ -103,7 +104,7 @@ DEFAULT_CONFIG = {
     "http": {"port": 7823},
 }
 
-TOOL_GROUPS = ["observe", "screen", "windows", "input", "shell", "memory", "browser", "discord"]
+TOOL_GROUPS = ["observe", "screen", "windows", "input", "shell", "memory", "ui", "browser", "discord"]
 
 
 def xdg(var, fallback):
@@ -2400,6 +2401,13 @@ def t_clipboard_set(ctx, args):
 PLAIN_TEXT = re.compile(r"[A-Za-z0-9 ]+")
 
 
+def focus_note(ctx):
+    """Where the keys went (the accessibility tree's focused element), so an
+    agent needn't screenshot to check; empty when it can't be told."""
+    note = ui_focus_summary(ctx.cfg)
+    return f"; {note}" if note else ""
+
+
 def saved_clipboard():
     offered = clipboard_types()
     for mime in CLIPBOARD_TYPES:
@@ -2471,7 +2479,7 @@ def t_type_text(ctx, args):
     ctx.guard.check_rate()
     if shutil.which("wtype") and PLAIN_TEXT.fullmatch(value) is None and shutil.which("wl-copy"):
         paste_text(value)
-        return [text(f"pasted {len(value)} characters")]
+        return [text(f"pasted {len(value)} characters" + focus_note(ctx))]
     if shutil.which("wtype"):
         run(["wtype", "-"], input=value, timeout=60)
     elif on_agent_desktop():
@@ -2479,7 +2487,7 @@ def t_type_text(ctx, args):
         raise ToolError("can't type on your desktop: wtype is missing (ydotool would type on the user's)")
     else:
         run(["ydotool", "type", "--file", "-"], input=value, timeout=60)
-    return [text(f"typed {len(value)} characters")]
+    return [text(f"typed {len(value)} characters" + focus_note(ctx))]
 
 
 @tool(
@@ -2513,7 +2521,7 @@ def t_press_keys(ctx, args):
         for m in reversed(mods):
             argv += ["-m", m]
     run(argv)
-    return [text(f"pressed {', '.join(keys)}")]
+    return [text(f"pressed {', '.join(keys)}" + focus_note(ctx))]
 
 
 # The pointer goes through the compositor's virtual pointer
@@ -3341,6 +3349,320 @@ def t_notify(ctx, args):
     ctx.guard.check_rate()
     run(["notify-send", "-a", "Desktop agent", "--", title, body])
     return [text("notification shown")]
+
+
+# -- any app, through its accessibility tree (AT-SPI) --------------------------
+#
+# What screen readers see: a window's buttons, fields, texts, with names and
+# actions. Reading it costs a few hundred tokens where a screenshot costs
+# ~1,250, and acting on an element (its own press/toggle action, its text set
+# directly) needs no coordinates. Only the windows listed by niri, only what
+# is showing, never terminals, password managers or password fields.
+
+# Roles listed (with their name, value or text); the others only hold them.
+UI_ROLES = {
+    "push button", "toggle button", "check box", "radio button", "menu item", "check menu item",
+    "radio menu item", "menu", "combo box", "list item", "tree item", "page tab", "link", "entry",
+    "text", "spin button", "slider", "label", "heading", "table cell", "icon", "image", "button",
+    "switch", "search", "notification", "alert", "dialog", "status bar", "editbar", "terminal",
+    "paragraph", "static", "tool bar", "list box", "option",
+}
+UI_MAX_VISITS = 4000
+UI_TIMEOUT_S = 8
+
+
+def atspi():
+    try:
+        import gi
+        gi.require_version("Atspi", "2.0")
+        from gi.repository import Atspi
+    except (ImportError, ValueError) as e:
+        raise ToolError(f"the accessibility tools need PyGObject and at-spi2-core's typelib ({e})")
+    Atspi.set_timeout(1500, 5000)
+    return Atspi
+
+
+def ui_refs_path():
+    return os.path.join(runtime_dir(), "ui-refs.json")
+
+
+def ui_window(ctx, args):
+    """The niri window asked for (or the focused one), once checked."""
+    wid = args.get("window_id")
+    w = window_by_id(wid) if wid is not None else focused_window()
+    if not w:
+        raise ToolError("no window: give `window_id` (list_windows)")
+    app, title = w.get("app_id") or "", w.get("title") or ""
+    for pat in ctx.cfg.get("inputDenyApps", []):
+        if re.search(pat, app, re.IGNORECASE):
+            raise ToolError(f"refused: {app!r} is off limits (terminals, password managers)")
+    for pat in ctx.cfg.get("inputDenyTitles", []):
+        if re.search(pat, title, re.IGNORECASE):
+            raise ToolError("refused: that window looks like a password or authentication prompt")
+    return w
+
+
+def ui_frame(Atspi, w):
+    """The window's frame in the accessibility tree: its app by pid, then
+    the frame with its title (or the active one)."""
+    pid = w.get("pid")
+    desktop = Atspi.get_desktop(0)
+    apps = []
+    for i in range(desktop.get_child_count()):
+        a = desktop.get_child_at_index(i)
+        try:
+            if a is not None and a.get_process_id() == pid:
+                apps.append((i, a))
+        except Exception:
+            continue
+    if not apps:
+        raise ToolError(
+            f"{w.get('app_id')} shows no accessibility tree: it may not support it, or it was started "
+            "before accessibility was on (restart it). Chromium/Electron apps need ACCESSIBILITY_ENABLED=1, "
+            "Firefox-based ones GNOME_ACCESSIBILITY=1 (the Home Manager module sets both)."
+        )
+    title = w.get("title") or ""
+    frames = []
+    for ai, app in apps:
+        for j in range(app.get_child_count()):
+            f = app.get_child_at_index(j)
+            if f is not None:
+                frames.append(([ai, j], f))
+    if not frames:
+        raise ToolError(f"{w.get('app_id')}'s accessibility tree has no window")
+    for path, f in frames:
+        if (f.get_name() or "") == title:
+            return path, f
+    for path, f in frames:
+        if f.get_state_set().contains(Atspi.StateType.ACTIVE):
+            return path, f
+    return frames[0]
+
+
+def ui_states(Atspi, node):
+    s = node.get_state_set()
+    out = []
+    for state, label in ((Atspi.StateType.FOCUSED, "focused"), (Atspi.StateType.CHECKED, "checked"),
+                         (Atspi.StateType.SELECTED, "selected"), (Atspi.StateType.EXPANDED, "expanded"),
+                         (Atspi.StateType.PRESSED, "pressed")):
+        if s.contains(state):
+            out.append(label)
+    if not s.contains(Atspi.StateType.ENABLED) and not s.contains(Atspi.StateType.SENSITIVE):
+        out.append("disabled")
+    if s.contains(Atspi.StateType.EDITABLE):
+        out.append("editable")
+    return out
+
+
+def ui_text(Atspi, node, role):
+    """An element's own text, short; never a password field's."""
+    if role == "password text":
+        return ""
+    try:
+        if node.get_text_iface() is not None:
+            n = Atspi.Text.get_character_count(node)
+            # U+FFFC: an embedded object (a link, an image) in the text.
+            return (Atspi.Text.get_text(node, 0, min(n, 200)) or "").replace("￼", "").strip()
+    except Exception:
+        pass
+    try:
+        if node.get_value_iface() is not None:
+            return f"{Atspi.Value.get_current_value(node):g}"
+    except Exception:
+        pass
+    return ""
+
+
+def ui_walk(Atspi, frame, frame_path, find, cap):
+    """The showing, named or actionable elements of a window: [(path, role, name, text, states)]."""
+    out, visits, deadline = [], 0, time.monotonic() + UI_TIMEOUT_S
+    stack = [(frame, frame_path, 0)]
+    truncated = False
+    while stack:
+        node, path, depth = stack.pop()
+        visits += 1
+        if visits > UI_MAX_VISITS or time.monotonic() > deadline or len(out) >= cap:
+            truncated = True
+            break
+        try:
+            states = node.get_state_set()
+            if depth and not states.contains(Atspi.StateType.SHOWING):
+                continue
+            role = node.get_role_name() or ""
+            name = (node.get_name() or "").strip()
+            count = node.get_child_count()
+        except Exception:
+            continue
+        if depth and (role in UI_ROLES or role == "password text"):
+            text_ = ui_text(Atspi, node, role)
+            if name or text_ or role in ("entry", "text", "password text", "push button", "check box", "toggle button"):
+                line = f"{role} {name!r}" + (f" = {text_[:80]!r}" if text_ and text_ != name else "")
+                if not find or find in line.lower():
+                    out.append((path, role, name, line, ui_states(Atspi, node)))
+        if depth < 60:
+            # Children pushed in reverse: read in document order.
+            for i in reversed(range(min(count, 500))):
+                try:
+                    child = node.get_child_at_index(i)
+                except Exception:
+                    continue
+                if child is not None:
+                    stack.append((child, path + [i], depth + 1))
+    return out, truncated
+
+
+def ui_resolve(Atspi, path):
+    node = Atspi.get_desktop(0)
+    for i in path:
+        node = node.get_child_at_index(i) if node is not None else None
+    return node
+
+
+@tool(
+    "ui_read",
+    "ui",
+    "Read a window as text through its accessibility tree (what screen "
+    "readers see): its buttons, fields, labels, list items… numbered for "
+    "ui_act, with their text and state (focused, checked…). A few hundred "
+    "tokens instead of a screenshot, and exact. The focused window unless "
+    "`window_id`; only what's showing. Prefer `find`: what you read goes to "
+    "the model provider. Password fields never show their text; terminals "
+    "and password managers are refused.",
+    obj({
+        "window_id": {"type": "integer", "description": "From list_windows; default: the focused window"},
+        "find": {"type": "string", "description": "Only the elements whose line contains this"},
+        "max_elements": {"type": "integer", "description": "At most this many (default 80, at most 400)"},
+    }),
+    read_only=True,
+)
+def t_ui_read(ctx, args):
+    w = ui_window(ctx, args)
+    Atspi = atspi()
+    find = (as_str(args, "find", max_len=200, required=False) or "").lower()
+    cap = min(max(int(args.get("max_elements") or 80), 1), 400)
+    frame_path, frame = ui_frame(Atspi, w)
+    found, truncated = ui_walk(Atspi, frame, frame_path, find, cap)
+    refs = {"window": w.get("id"), "pid": w.get("pid"), "items": []}
+    lines = []
+    for n, (path, role, name, line, states) in enumerate(found, 1):
+        refs["items"].append({"path": path, "role": role, "name": name})
+        lines.append(f"[{n}] {line}" + (f" ({', '.join(states)})" if states else ""))
+    fd = os.open(ui_refs_path(), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        json.dump(refs, f)
+    head = f"{w.get('app_id')} — {w.get('title')!r} (window {w.get('id')})"
+    if not lines:
+        return [text(head + "\n" + ("nothing matches" if find else "no element showing"))]
+    more = "\n… (more: raise max_elements or use find)" if truncated else ""
+    return [text(head + "\n" + "\n".join(lines) + more)]
+
+
+# Actions an element offers, by what ui_act's `click` may use.
+UI_CLICK_ACTIONS = ("click", "press", "activate", "toggle", "jump", "open", "select")
+
+
+@tool(
+    "ui_act",
+    "ui",
+    "Act on element `index` from the last ui_read, through the app itself "
+    "(no coordinates): `click` (its press/toggle/activate action), `focus`, "
+    "`set_text` (replaces a field's text with `value`, accents and all), or "
+    "any action name the app lists for it. Returns the element after. "
+    "Password fields are refused.",
+    obj({
+        "index": {"type": "integer"},
+        "action": {"type": "string", "description": "click, focus, set_text, or an action name"},
+        "value": {"type": "string", "description": "The text, for set_text"},
+    }, ["index", "action"]),
+    destructive=True,
+)
+def t_ui_act(ctx, args):
+    index, action = args.get("index"), as_str(args, "action", max_len=40).lower()
+    try:
+        with open(ui_refs_path(), encoding="utf-8") as f:
+            refs = json.load(f)
+        item = refs["items"][index - 1] if isinstance(index, int) and index >= 1 else None
+    except (OSError, ValueError, KeyError, IndexError):
+        item = None
+    if not item:
+        raise ToolError(f"no element [{index}]: ui_read first")
+    w = window_by_id(refs["window"])
+    if not w or w.get("pid") != refs["pid"]:
+        raise ToolError("that window is gone: ui_read again")
+    ui_window(ctx, {"window_id": refs["window"]})
+    Atspi = atspi()
+    node = ui_resolve(Atspi, item["path"])
+    try:
+        role, name = node.get_role_name(), (node.get_name() or "").strip()
+    except Exception:
+        node, role, name = None, None, None
+    if node is None or role != item["role"] or name != item["name"]:
+        raise ToolError("the window changed since ui_read: read it again")
+    if role == "password text":
+        raise ToolError("refused: password fields are off limits; ask the user to do this step")
+    ctx.guard.check_rate()
+    if action == "focus":
+        if node.get_component_iface() is None or not Atspi.Component.grab_focus(node):
+            raise ToolError("that element can't take the focus")
+    elif action == "set_text":
+        value = args.get("value")
+        if not isinstance(value, str):
+            raise ToolError("`set_text` needs a `value`")
+        ctx.guard.check_text(value)
+        if node.get_editable_text_iface() is None or not Atspi.EditableText.set_text_contents(node, value):
+            raise ToolError("that element's text can't be set: focus it and use type_text")
+    else:
+        has_actions = node.get_action_iface() is not None
+        with warnings.catch_warnings():  # get_action_name: deprecated, but the only one in at-spi 2.60
+            warnings.simplefilter("ignore", DeprecationWarning)
+            names = [(Atspi.Action.get_action_name(node, i) or "").lower()
+                     for i in range(Atspi.Action.get_n_actions(node))] if has_actions else []
+        wanted = [action] if action != "click" else list(UI_CLICK_ACTIONS)
+        pick = next((names.index(a) for a in wanted if a in names), None)
+        if pick is None:
+            raise ToolError(f"{role} {name!r} has no {action!r} action (it has: {', '.join(names) or 'none'}); "
+                            "click it at its position from a screenshot instead")
+        Atspi.Action.do_action(node, pick)
+    time.sleep(0.3)
+    try:
+        after = f"{node.get_role_name()} {(node.get_name() or '').strip()!r}"
+        t = ui_text(Atspi, node, role)
+        states = ui_states(Atspi, node)
+        after += (f" = {t[:80]!r}" if t else "") + (f" ({', '.join(states)})" if states else "")
+    except Exception:
+        after = "(the element is gone: the window changed)"
+    return [text(f"done: {after}")]
+
+
+def ui_focus_summary(cfg):
+    """The focused element of the focused window, in a few words (after
+    typing: where the keys went), or None when it can't be told cheaply."""
+    if "ui" not in cfg.get("tools", []):
+        return None
+    try:
+        Atspi = atspi()
+        w = focused_window()
+        if not w:
+            return None
+        _, frame = ui_frame(Atspi, w)
+        stack, visits = [(frame, 0)], 0
+        while stack and visits < 600:
+            node, depth = stack.pop()
+            visits += 1
+            s = node.get_state_set()
+            if s.contains(Atspi.StateType.FOCUSED) and depth:
+                role = node.get_role_name()
+                editable = s.contains(Atspi.StateType.EDITABLE)
+                return f"keyboard focus: {role} {(node.get_name() or '').strip()!r}" + (
+                    "" if editable else " (not editable: the text may not have gone into a field)")
+            if depth < 40 and s.contains(Atspi.StateType.SHOWING) or not depth:
+                for i in range(min(node.get_child_count(), 300)):
+                    c = node.get_child_at_index(i)
+                    if c is not None:
+                        stack.append((c, depth + 1))
+    except Exception:
+        return None
+    return None
 
 
 # -- apps through their debugging protocols ----------------------------------

@@ -38,6 +38,9 @@ in
     }
     (lib.mkIf cfg.niri.enable {
       programs.niri.enable = true;
+      # The accessibility bus (niri.accessibility): without it NixOS sets
+      # NO_AT_BRIDGE=1 and GTK_A11Y=none, and no app shows its tree.
+      services.gnome.at-spi2-core.enable = lib.mkIf cfg.niri.accessibility true;
       systemd.user.services.niri-flake-polkit.enable = false;
 
       # Add GTK portal and route FileChooser to it (avoids Nautilus dependency from GNOME portal)
@@ -178,6 +181,19 @@ in
 
         Used on: totoro (primary), tanjiro (primary), nishinoya (primary).
         See also: homeManagerModules/niri/ for per-user compositor configuration.
+      '';
+    };
+
+    accessibility = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether to run at-spi2-core, the accessibility bus: apps publish their
+        widgets (buttons, fields, texts) on it for screen readers, and
+        nixbook-shell's desktop agents read and press them through it (the
+        `ui` tools: a few hundred tokens a window instead of a screenshot).
+        Off, NixOS sets `NO_AT_BRIDGE=1` and `GTK_A11Y=none` and no app
+        publishes anything.
       '';
     };
 

@@ -210,6 +210,22 @@ claude mcp add desktop -- nixbook-desktop-mcp            # Claude Code
 # `nixbook-desktop-mcp`
 ```
 
+Any app's window can be read and driven through its accessibility tree,
+what screen readers see (the `ui` tools, on by default): `ui_read` returns
+the focused window's (or a given one's) buttons, fields, labels and list
+items as numbered text lines, with their text and state, a few hundred
+tokens where a screenshot costs ~1,250, and `ui_act` presses, toggles,
+focuses or sets the text of one through the app itself, without
+coordinates. After `type_text` and `press_keys` the result says which
+element has the keyboard focus, so agents needn't screenshot to check where
+the keys went. Only the windows niri lists and what is showing are read;
+terminals, password managers and password prompts are refused, and password
+fields never show their text. It needs the accessibility bus (nixbook's
+`customNixOSModules.niri.accessibility`, on by default; NixOS otherwise sets
+`NO_AT_BRIDGE=1`), and Firefox-based and Chromium/Electron apps only publish
+their tree with `GNOME_ACCESSIBILITY=1` / `ACCESSIBILITY_ENABLED=1`, which
+the module sets in the session (apps started before need a restart).
+
 Two apps can also be driven directly, much faster than through screenshots
 and keystrokes (opt-in: each opens a debugging port on 127.0.0.1 only, which
 any program of this user can use while the app runs):
