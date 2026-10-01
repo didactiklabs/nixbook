@@ -248,6 +248,16 @@ any program of this user can use while the app runs):
   and `discord_send` sends through Discord's own send function. Automating
   a user account is against Discord's terms.
 
+Nothing off the machine can reach those ports: the apps bind 127.0.0.1,
+and reject web pages (Origin and Host checks). On NixOS, `agent-ports.nix`
+(`nixbook-shell.agentPorts`, on by default, imported by `nixos-module.nix`)
+adds an nftables table of its own: packets to them arriving on any other
+interface than `lo` are dropped, whatever address the app binds, and other
+local users get a reset (only the user whose app it is may connect). It
+leaves the rest of the ruleset alone (a table of NixOS's ruleset when
+`networking.nftables` is on, else its own `nixbook-agent-ports` unit).
+Programs running as that same user can still connect.
+
 What an agent reads goes to its model provider: the defaults are kept short
 (a page's first 1000 characters, 10 messages, 10 notifications) and the
 descriptions steer agents to `find` and `count`.
