@@ -282,6 +282,34 @@ ContentPage {
                 text: Translation.tr("Read-only, for Claude here and for the apps on the agents' own desktop (from its next start). Absolute paths or ~/…, separated by commas. Other agents (Claude Code in a terminal…) follow their own permissions.")
             }
 
+            // The folders the apps on the agents' desktop may write too: the
+            // first is where its browser downloads.
+            ConfigTextArea {
+                id: writableField
+                configKey: "ai.writableFolders"
+                enabled: !nixManaged
+                Layout.fillWidth: true
+                fieldWidth: 320
+                buttonIcon: "drive_folder_upload"
+                text: Translation.tr("Folders the agents' desktop may write")
+                placeholderText: Translation.tr("none: e.g. ~/Pictures/Assistant")
+                value: (Config.options.ai.writableFolders ?? []).join(", ")
+                Connections {
+                    target: writableField.textArea
+                    function onEditingFinished() {
+                        Config.options.ai.writableFolders = writableField.value.split(",")
+                            .map(f => f.trim()).filter(f => f.length > 0)
+                    }
+                }
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("The apps on the agents' own desktop can save files there (from its next start), and its browser downloads into the first one, so an agent can fetch a file for you, a wallpaper say. Claude here can read them but not write them. Made if missing; not your whole home.")
+            }
+
             ConfigTextArea {
                 configKey: "ai.claudeCode.command"
                 enabled: !nixManaged

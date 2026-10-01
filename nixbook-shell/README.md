@@ -337,7 +337,13 @@ your files** unless you allow it: **Folders AI agents may read**
 (`ai.allowedFolders`, none by default) become its `--add-dir` working
 directories, read-only, and a file attached to a message is readable alone
 (`Read(//that/file)`). Without any, it has no file tools at all
-(`--disallowedTools Read Glob Grep`). It runs in an empty directory of its own
+(`--disallowedTools Read Glob Grep`). **Folders the agents' desktop may write**
+(`ai.writableFolders`, none by default) are bound read-write into the agent
+desktop's sandbox (made if missing; never the whole home or `/`), and the
+first is its apps' Downloads folder (`XDG_DOWNLOAD_DIR` in its home), so an
+agent can download a file in its own browser and use it on your side, a
+wallpaper for instance; Claude can read them, not write them, and is told
+where downloads land. It runs in an empty directory of its own
 (`~/.local/share/nixbook-shell/assistant`, not your home) and without your
 `~/.claude` settings (`--setting-sources project`: allow rules you set for your
 own Claude Code sessions don't apply), and any other read is denied (`-p`

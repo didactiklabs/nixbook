@@ -309,10 +309,14 @@ Singleton {
         // tools at all.
         const fileTools = ["Read", "Glob", "Grep"];
         const home = Quickshell.env("HOME");
-        const folders = (Config.options.ai.allowedFolders ?? [])
+        const expand = list => (list ?? [])
             .map(f => String(f).trim())
             .map(f => f === "~" ? home : f.startsWith("~/") ? `${home}/${f.slice(2)}` : f)
             .filter(f => f.startsWith("/"));
+        // ai.writableFolders: the agent desktop's apps write there (its
+        // browser's downloads go to the first); Claude reads them.
+        const writable = expand(Config.options.ai.writableFolders).filter(f => f !== home && f !== "/");
+        const folders = [...new Set([...expand(Config.options.ai.allowedFolders), ...writable])];
         const readTools = folders.length > 0 ? ["Read", "Glob", "Grep"] : attached.length > 0 ? ["Read"] : [];
         const configured = (Config.options.ai.claudeCode.allowedTools ?? [])
             .filter(t => !fileTools.some(f => t === f || t.startsWith(`${f}(`)));
@@ -325,7 +329,10 @@ Singleton {
             + "\n\nYou are answering in the desktop shell's side panel: keep answers short."
             + (desktop ? " You can see and drive the user's desktop with the desktop tools." : "")
             + (folders.length > 0 ? ` You may read files in these folders only: ${folders.join(", ")}.`
-                : " You have no access to the user's files (they can allow folders in Settings > Desktop agents).");
+                : " You have no access to the user's files (they can allow folders in Settings > Desktop agents).")
+            + (desktop && writable.length > 0
+                ? ` The apps on your own desktop can save into ${writable.join(", ")}, and its browser downloads to ${writable[0]}: download a file there to use it on the user's side (e.g. a wallpaper). You can't write files yourself.`
+                : "");
         // --strict-mcp-config leaves out every MCP server but the desktop one,
         // claude.ai connectors included: dropped when they are wanted.
         let args = ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages",

@@ -20,7 +20,8 @@
 # user's files. Their home is $XDG_DATA_HOME/nixbook-shell/agent-home (their
 # own browser profiles and logins); the user's GTK/Qt/font settings are
 # visible read-only so apps look the same; the folders the user allows
-# (shell setting ai.allowedFolders) read-only; the rest of the home, /mnt,
+# (shell setting ai.allowedFolders) read-only, and those they may write
+# (ai.writableFolders; the first is their Downloads); the rest of the home, /mnt,
 # /media, the other users' homes, /var/log, /var/lib and /etc/nixos are
 # empty. Their own D-Bus session (a private bus: no keyring, portals or
 # notifications of the user's), no system bus, none of the user's runtime
@@ -256,6 +257,33 @@ if [ -r "$shell_config" ]; then
     esac
   done < <(jq -r '.ai.allowedFolders // [] | .[] | strings' "$shell_config" 2>/dev/null || true)
 fi
+# The folders they may also write (ai.writableFolders), bound after the
+# read-only ones so a writable folder inside a readable one stays writable;
+# made if missing. The first is their Downloads folder (XDG_DOWNLOAD_DIR):
+# what their browser downloads lands there, on the user's side too.
+download_dir="$agent_home/Downloads"
+if [ -r "$shell_config" ]; then
+  first=true
+  while IFS= read -r folder; do
+    [ -n "$folder" ] || continue
+    # shellcheck disable=SC2088 # a literal ~ from the setting, expanded here
+    case "$folder" in "~") folder="$HOME" ;; "~/"*) folder="$HOME/${folder#"~/"}" ;; esac
+    folder="${folder%/}"
+    case "$folder" in
+    "" | "$HOME") echo "nixbook-agent-desktop: not making ${folder:-/} writable (the whole home or /)" >&2 ;;
+    /*)
+      mkdir -p "$folder" && sandbox+=(--bind "$folder" "$folder")
+      if $first; then
+        download_dir="$folder"
+        first=false
+      fi
+      ;;
+    *) echo "nixbook-agent-desktop: ignoring $folder (not an absolute path)" >&2 ;;
+    esac
+  done < <(jq -r '.ai.writableFolders // [] | .[] | strings' "$shell_config" 2>/dev/null || true)
+fi
+mkdir -p "$agent_home/.config"
+printf 'XDG_DOWNLOAD_DIR="%s"\n' "$download_dir" >"$agent_home/.config/user-dirs.dirs"
 
 # Their own network: pasta gives it the internet and the LAN through this
 # computer's connection, without its loopback (-T/-U none, --no-map-gw: the
