@@ -89,4 +89,10 @@
       ];
     };
   };
+
+  # Desktop agents drive Zen and Vesktop directly (WebDriver BiDi, DevTools)
+  # instead of through screenshots: a debugging port each on 127.0.0.1,
+  # firewalled to this user (nixbook-shell/agent-ports.nix).
+  customHomeManagerModules.zenBrowserConfig.agentRemoteControl = true;
+  programs.nixbook-shell.desktopMcp.vesktop.enable = true;
 }
