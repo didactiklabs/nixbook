@@ -294,10 +294,12 @@ your files** unless you allow it: **Folders AI agents may read**
 directories, read-only, and a file attached to a message is readable alone
 (`Read(//that/file)`). Without any, it has no file tools at all
 (`--disallowedTools Read Glob Grep`). It runs in an empty directory of its own
-(`~/.local/share/nixbook-shell/assistant`, not your home) and without your
-`~/.claude` settings (`--setting-sources project`: allow rules you set for your
-own Claude Code sessions don't apply), and any other read is denied (`-p`
-can't ask). Claude Code in a terminal, or any other MCP client, follows its
+(`~/.local/share/nixbook-shell/assistant`, not your home), with your own
+Claude login and `~/.claude` settings: your permission rules apply as in your
+own sessions (a deny there holds; the file tools stay denied without a folder,
+since a deny beats any allow; with folders, a bare `Read` allow in your
+settings would open every path), and any other read is denied (`-p` can't
+ask). Claude Code in a terminal, or any other MCP client, follows its
 own permissions.
 **Use your claude.ai connectors** (`ai.claudeCode.connectors`, off by
 default) also gives it the connectors of your Claude account (Gmail,
