@@ -119,14 +119,20 @@ done
 cat >"$bin/grim" <<'EOF'
 #!/usr/bin/env bash
 echo "grim $*" >>"$STUB_CALLS"
-# PPM: the next of $STUB_FRAMES/1.ppm, 2.ppm… (the last one again), else a grey 64x36.
+# PPM: the next of $STUB_FRAMES/1.ppm, 2.ppm… (then the last one again, or
+# with $STUB_FRAMES_CYCLE the first), else a grey 64x36. To a file, or "-": stdout.
+out="${*: -1}"
+[ "$out" != - ] || out=/dev/stdout
 if [ "${*: -2:1}" = ppm ]; then
   if [ -n "${STUB_FRAMES:-}" ]; then
-    n=$(( $(cat "$STUB_FRAMES/n" 2>/dev/null || echo 0) + 1 ))
-    [ -e "$STUB_FRAMES/$n.ppm" ] && echo "$n" >"$STUB_FRAMES/n" || n=$(cat "$STUB_FRAMES/n")
-    cp "$STUB_FRAMES/$n.ppm" "${*: -1}"
+    n=$(($(cat "$STUB_FRAMES/n" 2>/dev/null || echo 0) + 1))
+    if [ ! -e "$STUB_FRAMES/$n.ppm" ]; then
+      if [ -n "${STUB_FRAMES_CYCLE:-}" ]; then n=1; else n=$((n - 1)); fi
+    fi
+    echo "$n" >"$STUB_FRAMES/n"
+    cat "$STUB_FRAMES/$n.ppm" >"$out"
   else
-    { printf 'P6\n64 36\n255\n'; head -c $((64 * 36 * 3)) /dev/zero | tr '\0' '\200'; } >"${*: -1}"
+    { printf 'P6\n64 36\n255\n'; head -c $((64 * 36 * 3)) /dev/zero | tr '\0' '\200'; } >"$out"
   fi
 else
   printf '\x89PNG fake' >"${*: -1}"
@@ -492,6 +498,19 @@ reset_calls
 out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"focus_window","arguments":{"id":1,"screenshot_after":true,"wait_ms":0}}}' | python3 "$mcp")
 expect_eq "screenshot_after: action, focused window, screenshot" "text text text image" "$(jq -r '[.result.content[].type] | join(" ")' <<<"$out")"
 expect_eq "screenshot_after: the action ran first" "niri msg action focus-window --id 1|grim|magick" "$(grep -v '^notify-send' "$calls" | sed 's/^\(grim\|magick\) .*/\1/' | paste -sd'|')"
+# By default, screenshot_after waits until the screen stops changing (tiny captures).
+reset_calls
+start=$(date +%s%N)
+out=$(call focus_window '{"id":1,"screenshot_after":true}')
+took=$((($(date +%s%N) - start) / 1000000))
+expect_eq "screenshot_after: settles, then the screenshot" "probe probe probe shot" \
+  "$(grep '^grim' "$calls" | sed 's/.*-s 0.125 -t ppm -$/probe/; s/^grim .*/shot/' | head -3 | paste -sd' ') $(grep '^grim' "$calls" | tail -1 | sed 's/.*-s 0.125 .*/probe/; s/^grim .*/shot/')"
+if [ "$took" -lt 2000 ]; then pass "screenshot_after: a still screen settles fast (${took} ms)"; else fail "screenshot_after: a still screen settles fast" "took ${took} ms"; fi
+expect_not_contains "screenshot_after: settled, nothing said" "$out" "still changing"
+reset_calls
+call run_steps '{"steps":[{"tool":"press_keys","args":{"keys":["Return"]},"settle":true}]}' >/dev/null
+expect_contains "run_steps: settle waits for the screen" "$(cat "$calls")" "-s 0.125 -t ppm -"
+
 expect_eq "screenshot_after: offered on action tools only" "true false" \
   "$(python3 "$mcp" tools | jq -r '[(.[] | select(.name=="click") | .inputSchema.properties | has("screenshot_after")), (.[] | select(.name=="list_windows") | .inputSchema.properties | has("screenshot_after"))] | join(" ")')"
 
@@ -529,6 +548,9 @@ expect_eq "screenshot: most of it changed, whole" "text image" "$(jq -r 'select(
 expect_eq "screenshot: full: true, whole" "text image" "$(jq -r 'select(.id==6) | [.result.content[].type] | join(" ")' <<<"$out")"
 expect_eq "screenshot: crops cut by magick" "magick -crop 72x42+84+184|magick -crop 42x36+1484+0|magick -crop 42x42+784+784" \
   "$(grep -o '^magick .* -crop [^ ]*' "$calls" | sed 's/ [^ ]*ppm//' | paste -sd'|')"
+rm -f "$frames/n"
+out=$(STUB_FRAMES="$frames" STUB_FRAMES_CYCLE=1 call focus_window '{"id":1,"screenshot_after":true}')
+expect_contains "screenshot_after: a screen that keeps changing, said so" "$out" "(the screen was still changing after 2.5 s)"
 
 reset_calls
 out=$(call run_steps '{"steps":[{"tool":"press_keys","args":{"keys":["ctrl+k"]}},{"tool":"type_text","args":{"text":"Alesio"},"wait_ms":0},{"tool":"press_keys","args":{"keys":["Return"]},"wait_ms":0}]}')
