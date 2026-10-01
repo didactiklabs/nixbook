@@ -33,28 +33,8 @@ in
         manager and the "ask to save passwords" prompt.
       '';
     };
-    agentRemoteControl = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
-      description = ''
-        Whether AI agents may drive Zen through WebDriver BiDi on
-        127.0.0.1 (nixbook-shell's `desktopMcp.zen`: the `browser` tools read
-        pages as text and click and type in them, instead of screenshots).
-
-        Zen's launcher entry starts it with `--remote-debugging-port`, and the
-        profile's `remote.prefs.recommended` is off, so remote control doesn't
-        apply Firefox's automation defaults (Safe Browsing off, no session
-        restore…) to it. While Zen runs, any program of this user can drive
-        it; pages can tell it is remote-controlled (`navigator.webdriver`).
-      '';
-    };
   };
   config = lib.mkIf cfg.zenBrowserConfig.enable {
-    programs.nixbook-shell.desktopMcp.zen = lib.mkIf cfg.zenBrowserConfig.agentRemoteControl {
-      enable = true;
-      package = config.programs.zen-browser.finalPackage;
-    };
-
     programs.zen-browser = {
       enable = true;
       setAsDefaultBrowser = true;
@@ -147,9 +127,6 @@ in
         };
 
         settings = {
-          # Remote control (agentRemoteControl) without Firefox's automation
-          # defaults, which turn Safe Browsing and session restore off.
-          "remote.prefs.recommended" = false;
           # Privacy & telemetry
           "toolkit.telemetry.enabled" = false;
           "toolkit.telemetry.unified" = false;
