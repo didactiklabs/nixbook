@@ -635,6 +635,7 @@ in
                 "input"
                 "shell"
                 "memory"
+                "ui"
                 "browser"
                 "discord"
               ]
@@ -646,6 +647,7 @@ in
               "input"
               "shell"
               "memory"
+              "ui"
             ];
             description = ''
               Tool groups AI agents get: `observe` (windows, workspaces,
@@ -654,8 +656,13 @@ in
               (focus, move, close, launch apps), `input` (keyboard, pointer,
               writing the clipboard), `shell` (the shell's IPC, notifications),
               `memory` (notes agents keep about this desktop, and the digest of
-              it they get when they connect). `browser` and `discord` come
-              with `desktopMcp.zen` and `desktopMcp.vesktop`.
+              it they get when they connect), `ui` (any app's window as text
+              through its accessibility tree, and acting on its elements;
+              needs the accessibility bus, nixbook's `niri.accessibility`, and
+              sets `GNOME_ACCESSIBILITY` and `ACCESSIBILITY_ENABLED` so
+              Firefox-based and Chromium/Electron apps publish their tree, at
+              some memory and CPU cost). `browser` and `discord` come with
+              `desktopMcp.zen` and `desktopMcp.vesktop`.
             '';
           };
         };
@@ -989,6 +996,12 @@ in
                 vesktopDebugPort = cfg.desktopMcp.vesktop.port;
               }
             );
+        # The ui tools: Firefox-based and Chromium/Electron apps publish their
+        # accessibility tree only when asked to (GTK and Qt apps always do).
+        systemd.user.sessionVariables = lib.mkIf (lib.elem "ui" cfg.desktopMcp.settings.tools) {
+          GNOME_ACCESSIBILITY = "1";
+          ACCESSIBILITY_ENABLED = "1";
+        };
         # Launcher entries starting Zen and Vesktop with their debugging port
         # (desktopMcp.zen, desktopMcp.vesktop): the apps' own, with the flag
         # after the command; ~/.local/share/applications comes first in XDG order.

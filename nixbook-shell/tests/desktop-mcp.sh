@@ -294,7 +294,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 35 tools" 35 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 37 tools" 37 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -422,6 +422,13 @@ expect_contains "notifications: count keeps the newest" "$out" "lol"
 expect_eq "notifications: count" "1" "$(wc -l <<<"$out")"
 expect_contains "notifications: no match" "$(call notifications '{"app":"nothing"}')" "no notifications match"
 expect_contains "notifications: bad count" "$(call notifications '{"count":0}')" "positive integer"
+
+# Accessibility trees (ui): the deny lists hold for reading too.
+echo kitty >"$STUB_FOCUS"
+expect_contains "ui_read: terminals refused" "$(call ui_read)" "refused: 'kitty' is off limits"
+echo firefox >"$STUB_FOCUS"
+rm -f "$XDG_RUNTIME_DIR/nixbook-shell/ui-refs.json" "$XDG_RUNTIME_DIR/ui-refs.json"
+expect_contains "ui_act: needs a ui_read first" "$(call ui_act '{"index":1,"action":"click"}')" "no element [1]: ui_read first"
 
 # Zen (WebDriver BiDi) and Vesktop (DevTools): opt-in groups, against a fake
 # app on the loopback (tests/fake-devtools.py) that logs each command.

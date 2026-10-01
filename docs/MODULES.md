@@ -282,6 +282,13 @@ Whether to enable NetBird VPN client with the nswitch helper. NetBird is a WireG
 
 ## niri
 
+### `customNixOSModules.niri.accessibility`
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+Whether to run at-spi2-core, the accessibility bus: apps publish their widgets (buttons, fields, texts) on it for screen readers, and nixbook-shell's desktop agents read and press them through it (the `ui` tools: a few hundred tokens a window instead of a screenshot). Off, NixOS sets `NO_AT_BRIDGE=1` and `GTK_A11Y=none` and no app publishes anything.
+
 ### `customNixOSModules.niri.enable`
 
 - **Type:** `boolean`
