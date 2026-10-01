@@ -1300,14 +1300,67 @@ def notes_for_window(ctx, window):
                 + "\n".join(f"- [{n['id']}] {n['topic']}: {short(n['text'], 400)}" for n in found))
 
 
+def strings_in(value, limit=2000):
+    """The text in an action's arguments (typed text, an app, a URL, the
+    steps of run_steps), at most `limit` characters."""
+    out = []
+    def walk(v):
+        if sum(map(len, out)) >= limit:
+            return
+        if isinstance(v, str):
+            out.append(v)
+        elif isinstance(v, dict):
+            for x in v.values():
+                walk(x)
+        elif isinstance(v, list):
+            for x in v:
+                walk(x)
+    walk(value)
+    return " ".join(out)[:limit]
+
+
+# Words too common in titles and typed text to say what a note is about.
+GENERIC_TOPIC_WORDS = set("search settings setting new tab tabs page window windows open close "
+                          "browser app apps file files folder message messages home menu web site "
+                          "recherche nouveau fenetre suche neu fenster".split())
+
+
+def topic_named(note, pool):
+    """Whether most of a note's topic, its generic words aside, is in these
+    words: "apartment search tokyo" by "tokyo apartments", not by "search"."""
+    topic = set(words(note.get("topic", ""))) - GENERIC_TOPIC_WORDS
+    hits = sum(1 for t in topic if _match(t, pool))
+    return hits > 0 and hits * 2 >= len(topic)
+
+
+def notes_for_action(ctx, window, args):
+    """Just in time too: the notes whose topic the focused window's title
+    or the action's text names (a site, a search, a task), once per
+    session."""
+    if "memory" not in ctx.cfg["tools"] or ctx.transport == "cli":
+        return None
+    pool = set(words((window or {}).get("title") or "")) | set(words(strings_in(args)))
+    if not pool:
+        return None
+    found = [n for n in read_memory()["notes"] if n["id"] not in ctx.notes_shown and topic_named(n, pool)]
+    if not found:
+        return None
+    found.sort(key=lambda n: (-n.get("uses", 0), -n.get("updated", 0)))
+    found = found[:3]
+    ctx.notes_shown.update(n["id"] for n in found)
+    count_note_uses({n["id"] for n in found})
+    return text("Memory about what this reached:\n"
+                + "\n".join(f"- [{n['id']}] {n['topic']}: {short(n['text'], 400)}" for n in found))
+
+
 @tool(
     "recall",
     "memory",
     "Notes earlier sessions left about this desktop (shortcuts, where "
-    "things are, recipes). The ones about the task came with these tools, "
-    "and notes about an app come with the reply of the action that reaches "
-    "it; call this for another topic (the best matches, full text) or with "
-    "no query for the list of topics.",
+    "things are, recipes). Call it when given a task, with the task's app, "
+    "site or kind of task, unless the notes about it already came with "
+    "these tools (the best matches, full text); with no query, the list of "
+    "topics.",
     obj({"query": {"type": "string"}}),
     read_only=True,
 )
@@ -2895,6 +2948,10 @@ class Context:
         self.lock = threading.Lock()
         # The desktop the tools act on: "agent" or "user" (use_desktop).
         self.desktop = "user"
+        # The desktop each MCP session (stdio: one, None; HTTP: by
+        # Mcp-Session-Id) was last told it works on, to tell it when the user
+        # switches it (desktop_switch_note).
+        self.desktop_told = {}
         # Just-in-time memory: the apps and notes this session was given.
         self.apps_seen = set()
         self.notes_shown = set()
@@ -2955,9 +3012,9 @@ def after_action(ctx, args):
     try:
         w = focused_window()
         extra.append(text(f"Focused: {w.get('app_id')} — {w.get('title')!r} (id {w.get('id')})" if w else "Focused: no window"))
-        notes = notes_for_window(ctx, w)
-        if notes:
-            extra.append(notes)
+        for notes in (notes_for_window(ctx, w), notes_for_action(ctx, w, args)):
+            if notes:
+                extra.append(notes)
     except ToolError:
         pass
     if args.get("screenshot_after") is True:
@@ -2986,10 +3043,16 @@ INSTRUCTIONS = (
     "screenshot's pixel coordinates with its mapping. Input into terminals, "
     "password managers and password prompts is refused: ask the user to do "
     "those steps. The user can pause desktop control at any time from the "
-    "bar; then every tool is refused. Memory: the notes about this task "
-    "follow, the others by topic; notes about an app also come with the "
-    "reply of the action that reaches it, so recall only for a topic listed "
-    "below. When a task took exploring (finding an app, a shortcut, a "
+    "bar; then every tool is refused. The user can also move you between "
+    "their desktop and one of your own at any time: a tool reply that starts "
+    "with \"Desktop switched\" says so, and replaces what you were told "
+    "about the desktop before. Memory: when you are given a task, look in "
+    "the desktop memory below before acting: its notes (shortcuts, where "
+    "things are, what worked before) save exploring. The notes about the "
+    "task may be there in full, the others by topic: recall each topic "
+    "that matches the task (its app, site or kind of task) in one call "
+    "first. Notes about an app, a window or what you type also come with "
+    "the reply of the action that reaches it. When a task took exploring (finding an app, a shortcut, a "
     "menu), save the short path with remember (topic: the app), or pass "
     "remember_as to a run_steps that worked; update a note on the same "
     "topic (remember with its id) rather than adding another, and fix or "
@@ -3017,6 +3080,38 @@ AGENT_DESKTOP_INSTRUCTIONS = (
 )
 
 
+USER_DESKTOP_SWITCH = (
+    "You now work on the user's own desktop, not a desktop of your own: the "
+    "window, screen and input tools act on their windows and apps, while "
+    "they may be using them (take a screenshot first; don't close or move "
+    "their windows unless the task asks for it). launch_app starts apps "
+    "there, beside theirs; the apps you had on your desktop are out of reach."
+)
+
+
+def current_desktop():
+    return "agent" if on_agent_desktop() else "user"
+
+
+def desktop_switch_note(ctx, session_id):
+    """When the user switched desktops since this session was last told
+    (instructions, or a reply), what it now works on; else None."""
+    now = current_desktop()
+    told = ctx.desktop_told.get(session_id)
+    remember_desktop_told(ctx, session_id, now)
+    if told is None or told == now:
+        return None
+    return "Desktop switched by the user: " + (AGENT_DESKTOP_INSTRUCTIONS if now == "agent" else USER_DESKTOP_SWITCH)
+
+
+def remember_desktop_told(ctx, session_id, desktop):
+    told = ctx.desktop_told
+    told.pop(session_id, None)
+    told[session_id] = desktop
+    while len(told) > 64:  # HTTP sessions are never closed for sure
+        told.pop(next(iter(told)))
+
+
 def instructions_with_desktop():
     return INSTRUCTIONS + ("\n\n" + AGENT_DESKTOP_INSTRUCTIONS if on_agent_desktop() else "")
 
@@ -3038,9 +3133,9 @@ class Session:
     def __init__(self, ctx):
         self.ctx = ctx
 
-    def handle(self, msg):
+    def handle(self, msg, session_id=None):
         if isinstance(msg, list):  # 2025-03-26 batches
-            replies = [r for r in (self.handle(m) for m in msg) if r is not None]
+            replies = [r for r in (self.handle(m, session_id) for m in msg) if r is not None]
             return replies or None
         if not isinstance(msg, dict) or msg.get("jsonrpc") != "2.0":
             return error(None, -32600, "invalid request")
@@ -3052,7 +3147,7 @@ class Session:
         if not isinstance(params, dict):
             params = {}
         try:
-            result = self.dispatch(method, params)
+            result = self.dispatch(method, params, session_id)
         except RpcError as e:
             return None if mid is None else error(mid, e.code, e.message)
         except Exception as e:  # never take the server down
@@ -3062,8 +3157,9 @@ class Session:
             return None
         return {"jsonrpc": "2.0", "id": mid, "result": result}
 
-    def dispatch(self, method, params):
+    def dispatch(self, method, params, session_id=None):
         if method == "initialize":
+            remember_desktop_told(self.ctx, session_id, current_desktop())
             info = params.get("clientInfo") or {}
             if info.get("name"):
                 name = re.sub(r"[^\w .\-]", "", str(info["name"]))[:40]
@@ -3088,6 +3184,9 @@ class Session:
                 content, is_error = call_tool(self.ctx, name, params.get("arguments") or {})
             except KeyError:
                 raise RpcError(-32602, f"unknown tool: {name}")
+            note = desktop_switch_note(self.ctx, session_id)
+            if note:
+                content = [text(note)] + content
             return {"content": content, "isError": is_error}
         raise RpcError(-32601, f"method not found: {method}")
 
@@ -3227,10 +3326,13 @@ def make_handler(cfg, token, port):
             except ValueError:
                 return self.reply(400, error(None, -32700, "parse error"))
             session = Session(shared)
-            reply = session.handle(msg)
             headers = []
             if isinstance(msg, dict) and msg.get("method") == "initialize":
-                headers.append(("Mcp-Session-Id", secrets.token_hex(16)))
+                session_id = secrets.token_hex(16)
+                headers.append(("Mcp-Session-Id", session_id))
+            else:
+                session_id = self.headers.get("Mcp-Session-Id")
+            reply = session.handle(msg, session_id)
             if reply is None:
                 return self.reply(202, headers=headers)
             self.reply(200, reply, headers)

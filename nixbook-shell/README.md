@@ -231,11 +231,16 @@ time. Only the right part reaches a model, to keep its context small:
 - when an agent connects, a digest (at most `memoryPromptChars`, 1500)
   carries the aliases and most used apps, the full text of the notes about
   the task — the AI chat passes the user's message; other agents get the
-  most used notes — and the other notes by topic only ("wifi (3)");
+  most used notes — and the other notes by topic only ("wifi (3)"); agents
+  are told to look there when given a task and to `recall` the topics that
+  match it before acting;
 - notes are linked to the apps they are about (the topic names the app,
   an alias, or the keywords of an app used before; apps used before win),
   and come with the reply of the action that reaches that app (launching
-  or focusing it), once per session;
+  or focusing it), once per session; so do the notes whose topic, its
+  generic words aside ("search", "settings", "tab"…), is named by the
+  focused window's title or the text an action types (typing "furnished
+  apartments in tokyo" brings the "apartment search" note);
 - `recall` ranks notes by the words of a question (topic first) and returns
   the best five; without a question, the list of topics;
 - a note counts as used each time it goes to an agent (recalled, about its
@@ -412,7 +417,10 @@ tools are refused ("the user closed your desktop") until you switch it on
 again (the launcher tells your closing from its own: it marks
 `~/.local/state/nixbook-shell/agent-desktop-stopped`). `desktop user` brings the agents back to
 your desktop, `desktop stop` closes theirs, `desktop status` says which is
-in use (also `get_status`); the choice survives a reboot.
+in use (also `get_status`); the choice survives a reboot. An agent already
+at work when you switch is told on its next tool reply ("Desktop switched
+by the user: …", with what the desktop it's now on means for it), once per
+MCP session, since its instructions only said where it was when it connected.
 
 Its apps are the agent's, not yours, and sandboxed (bubblewrap): **they see
 none of your files**. Their home is `~/.local/share/nixbook-shell/agent-home`

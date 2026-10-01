@@ -679,6 +679,16 @@ out=$(call recall '{"query":"discord"}')
 expect_eq "recall: best matches" 2 "$(jq '.notes | length' <<<"$out")"
 # Given with the task's digest, just in time, then recalled.
 expect_eq "recall: counts uses" 3 "$(jq --arg id "$note_id" '.notes[] | select(.id==$id) | .uses' "$mem")"
+# ...and the notes whose topic what it types (a site, a search) or the window title names.
+out=$(printf '%s\n' \
+  '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"type_text","arguments":{"text":"search the web"}}}' \
+  '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"type_text","arguments":{"text":"furnished apartments in tokyo"}}}' \
+  '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"type_text","arguments":{"text":"apartments"}}}' |
+  python3 "$mcp")
+expect_not_contains "just in time: not for a generic word of a topic" "$(jq -r 'select(.id==1) | .result.content[].text' <<<"$out")" "apartment search"
+expect_contains "just in time: notes about what was typed" "$(jq -r 'select(.id==2) | .result.content[].text' <<<"$out")" "Memory about what this reached:
+- [$(jq -r '.notes[] | select(.topic=="apartment search") | .id' "$mem")] apartment search: edit the URL filters"
+expect_not_contains "just in time: typed-text notes not twice" "$(jq -r 'select(.id==3) | .result.content[].text' <<<"$out")" "Memory about"
 out=$(call recall '{"query":"how do I open a tab in the browser"}')
 expect_eq "recall: ranked by words, not substrings" "zen browser" "$(jq -r '.notes[0].topic' <<<"$out")"
 out=$(call recall '{}')
@@ -936,6 +946,22 @@ call focus_window '{"id": 1}' >/dev/null
 expect_eq "desktop user: tools reach the user's niri again" /dev/null "$(cat "$calls.socket")"
 out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 "$mcp")
 expect_not_contains "desktop user: no agent desktop instructions" "$(jq -r .result.instructions <<<"$out")" "desktop of your own"
+# A session that outlives a switch is told on its next reply, once.
+mkfifo "$tmp/mcp.in" "$tmp/mcp.out"
+python3 "$mcp" <"$tmp/mcp.in" >"$tmp/mcp.out" &
+mcp_pid=$!
+exec 7>"$tmp/mcp.in" 8<"$tmp/mcp.out"
+mcp_send() { printf '%s\n' "$1" >&7 && IFS= read -r line <&8 && printf '%s' "$line"; }
+status_call() { mcp_send "{\"jsonrpc\":\"2.0\",\"id\":$1,\"method\":\"tools/call\",\"params\":{\"name\":\"get_status\",\"arguments\":{}}}" | jq -r '.result.content[0].text'; }
+mcp_send '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' >/dev/null
+expect_not_contains "switch: nothing to say while unchanged" "$(status_call 2)" "Desktop switched"
+python3 "$mcp" desktop agent >/dev/null
+expect_contains "switch to the agent's desktop: the session is told" "$(status_call 3)" "Desktop switched by the user: You work on a desktop of your own"
+expect_not_contains "switch to the agent's desktop: told once" "$(status_call 4)" "Desktop switched"
+python3 "$mcp" desktop user >/dev/null
+expect_contains "switch back to the user's desktop: the session is told" "$(status_call 5)" "Desktop switched by the user: You now work on the user's own desktop"
+exec 7>&- 8<&-
+wait "$mcp_pid" || true
 rm -f "$agent_env" "$STUB_AGENT_SOCKET" "$XDG_RUNTIME_DIR/wayland-9"
 
 port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
