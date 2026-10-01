@@ -39,6 +39,7 @@ let
           wl-clipboard
           libnotify
           imagemagick # scales window captures down
+          tesseract # read_screen
           systemd # systemctl: starts the agent desktop (agentDesktop)
         ]
       )

@@ -660,7 +660,8 @@ in
           terminals, password managers and password prompts),
           `shellIpcDenyTargets`, `allowSuperKey`, `maxTextLength` (typed text and
           tasks), `maxNoteLength` (a note),
-          `actionsPerMinute`, `notifyOnControl`, `screenshotMaxEdge`.
+          `actionsPerMinute`, `notifyOnControl`, `screenshotMaxEdge`,
+          `ocrLanguages` (read_screen's tesseract languages, e.g. `eng+fra`).
           `nixbook-desktop-mcp config` prints the effective settings.
         '';
       };
