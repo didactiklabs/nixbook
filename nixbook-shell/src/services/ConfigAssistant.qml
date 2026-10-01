@@ -430,7 +430,8 @@ Singleton {
         "vim": ["neovim"], "nvim": ["neovim"], "nixvim": ["neovim"],
         "meeting": ["event"], "appointment": ["event"], "agenda": ["calendar"], "todo": ["task"],
         "synchronize": ["sync"], "synchronise": ["sync"], "login": ["sign"], "signin": ["sign"],
-        "reminder": ["notification"], "alert": ["notification", "reminder"]
+        "reminder": ["notification"], "alert": ["notification", "reminder"],
+        "sandbox": ["isolation"], "isolation": ["sandbox"], "isolat": ["sandbox"], "isolate": ["sandbox"], "localhost": ["local"]
     })
 
     function stem(w) {

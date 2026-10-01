@@ -427,11 +427,34 @@ none of your files**. Their home is `~/.local/share/nixbook-shell/agent-home`
 (their own browser profiles, history and logins); your GTK/Qt/font settings
 are visible read-only so apps look the same, the **Folders AI agents may
 read** read-only (from its next start), and nothing else of your home, of
-/mnt, /media or other homes. They get their own D-Bus session (no keyring,
+/mnt, /media or other homes, nor the system's logs and state (`/var/log`,
+`/var/lib`) or `/etc/nixos`. They get their own D-Bus session (no keyring,
 portals or notifications of yours; a browser you already have open still
 starts a copy of its own there), no system bus, none of your runtime sockets
-but the display (no session bus, audio, X11, desktop-mcp's token), and their
-own process namespace (none of your processes to see or attach to). What the
+(no session bus, audio, X11, desktop-mcp's token), and their own process
+namespace (none of your processes to see or attach to). **Your desktop
+only through a restricted connection**: its niri reaches yours through a
+socket made with security-context-v1 (`nixbook-wayland-security-context`,
+`scripts/wayland-security-context.py`; the way Flatpak does it), so neither
+it nor anything in the sandbox can capture your screen, type or click into
+it, read your clipboard or list your windows; it can only show its window
+(and take your clicks and keys while you take it over). ydotoold's socket,
+which types into your desktop, is hidden whatever the settings. Two
+switches in Settings > Desktop agents (`ai.agentDesktop`), both on, from
+its next start:
+
+- **Hide the system's services from their apps** (`hideSystemSockets`):
+  `/run` is empty but for what apps need (the system's programs, graphics
+  drivers, name lookups), so no system daemon's socket is reachable;
+- **Keep their apps off this computer's local services**
+  (`privateNetwork`): their own network (pasta): the internet and your LAN
+  through your connection, but not what listens on this computer
+  (`127.0.0.1`: a dev server, the printer and Sunshine pages) nor its
+  abstract sockets (X11); DNS goes through pasta. Off, their browser can
+  open those too. If pasta can't start, the desktop doesn't open (it
+  never falls back to your network) and a notification says so.
+
+What the
 sandbox may change is its home and the nested session's runtime directory;
 the launcher's own files (where its sockets are, the take-over flag) are
 read-only to it, and it watches the session from outside, so an app can't

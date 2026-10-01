@@ -2077,6 +2077,9 @@ def t_type_text(ctx, args):
     ctx.guard.check_rate()
     if shutil.which("wtype"):
         run(["wtype", "-"], input=value, timeout=60)
+    elif on_agent_desktop():
+        # ydotool types into the user's desktop (uinput), never the agent's.
+        raise ToolError("can't type on your desktop: wtype is missing (ydotool would type on the user's)")
     else:
         run(["ydotool", "type", "--file", "-"], input=value, timeout=60)
     return [text(f"typed {len(value)} characters")]
@@ -2304,10 +2307,14 @@ class Pointer:
             self.vp = VirtualPointer()
             self.bbox = desktop_bbox()
         except WaylandError as e:
-            log(f"virtual pointer unavailable ({e}), falling back to ydotool")
             if self.vp:
                 self.vp.close()
                 self.vp = None
+            if on_agent_desktop():
+                # ydotool moves the user's pointer (uinput), never the agent's.
+                raise ToolError(f"your desktop's virtual pointer is unavailable ({e}); "
+                                "ydotool would click on the user's desktop instead")
+            log(f"virtual pointer unavailable ({e}), falling back to ydotool")
         return self
 
     @property

@@ -21,11 +21,22 @@
 # own browser profiles and logins); the user's GTK/Qt/font settings are
 # visible read-only so apps look the same; the folders the user allows
 # (shell setting ai.allowedFolders) read-only; the rest of the home, /mnt,
-# /media and the other users' homes are empty. Their own D-Bus session (a
-# private bus: no keyring, portals or notifications of the user's), no
-# system bus, none of the user's runtime sockets (session bus, audio,
-# X11), their own process namespace (nothing of the user's to see or
-# attach to).
+# /media, the other users' homes, /var/log, /var/lib and /etc/nixos are
+# empty. Their own D-Bus session (a private bus: no keyring, portals or
+# notifications of the user's), no system bus, none of the user's runtime
+# sockets (session bus, audio, X11), their own process namespace (nothing
+# of the user's to see or attach to). Shell settings ai.agentDesktop, both
+# on unless switched off in Settings > Desktop agents:
+#   - hideSystemSockets: /run is empty but for what apps need (the system's
+#     programs, graphics drivers, name lookups): no daemon's socket
+#     (ydotoold, which types into the user's desktop, is hidden either way);
+#   - privateNetwork: their own network (pasta): the internet and the LAN,
+#     not this computer's local services (127.0.0.1) nor its abstract
+#     sockets (X11).
+# Its niri reaches the user's desktop through a restricted socket
+# (nixbook-wayland-security-context: security-context-v1), so neither it
+# nor anything in the sandbox can capture the user's screen, type or click
+# into it, read its clipboard or list its windows.
 #
 # Never open empty: started by the `nixbook-agent-desktop` user service when
 # an agent starts an app (desktop-mcp's launch_app), it quits once no window
@@ -56,8 +67,6 @@ config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
 stopped_file="${XDG_STATE_HOME:-$HOME/.local/state}/nixbook-shell/agent-desktop-stopped"
 shell_config="$config_home/nixbook-shell/config.json"
 agent_home="${NIXBOOK_AGENT_HOME:-$data_home/nixbook-shell/agent-home}"
-host_display="$WAYLAND_DISPLAY"
-[ "${host_display#/}" != "$host_display" ] || host_display="$user_runtime/$host_display"
 
 rm -rf "$control"
 mkdir -p "$session_runtime" "$agent_home"
@@ -151,6 +160,39 @@ environment {
 spawn-at-startup "dbus-update-activation-environment" "WAYLAND_DISPLAY" "DISPLAY" "NIRI_SOCKET" "HOME" "XDG_CONFIG_HOME" "XDG_DATA_HOME" "XDG_STATE_HOME" "XDG_CACHE_HOME" "XDG_RUNTIME_DIR"
 EOF
 
+# The shell's switches (Settings > Desktop agents): on unless set to false.
+setting_on() {
+  [ "$(jq -r "if $1 == false then \"off\" else \"on\" end" "$shell_config" 2>/dev/null || echo on)" != off ]
+}
+hide_system_sockets=true
+setting_on .ai.agentDesktop.hideSystemSockets || hide_system_sockets=false
+private_network=true
+setting_on .ai.agentDesktop.privateNetwork || private_network=false
+
+fail() {
+  echo "nixbook-agent-desktop: $1" >&2
+  notify-send -a "Desktop agent" -u critical "The assistant's desktop didn't start" "$1" 2>/dev/null || true
+  exit 1
+}
+
+niri_pid=""
+cleanup() {
+  [ -z "$niri_pid" ] || kill "$niri_pid" 2>/dev/null || true
+  rm -rf "$control"
+}
+trap cleanup EXIT
+trap 'exit 143' TERM INT
+
+# The user's desktop, through a restricted socket: served until this script
+# exits (the helper reads its standard input, this holds the other end).
+restricted_display="$control/wayland-restricted"
+exec {restricted_fd}> >(exec nixbook-wayland-security-context "$restricted_display")
+for _ in $(seq 50); do
+  [ -S "$restricted_display" ] && break
+  sleep 0.1
+done
+[ -S "$restricted_display" ] || fail "your compositor didn't give it a restricted connection (security-context-v1)"
+
 # -- the sandbox ---------------------------------------------------------------
 
 sandbox=(
@@ -162,15 +204,33 @@ sandbox=(
   --unshare-pid --unshare-ipc --unshare-uts --unshare-cgroup-try
   --die-with-parent --new-session
 )
-# Nobody's files: the homes, removable media, the system bus.
-for dir in /home /root /mnt /media /run/media /srv /run/dbus; do
+# /run: only what apps need, the system's programs, graphics drivers and
+# name lookups; no daemon's socket.
+if $hide_system_sockets; then
+  sandbox+=(--tmpfs /run)
+  for path in /run/current-system /run/booted-system /run/opengl-driver /run/opengl-driver-32 \
+    /run/wrappers /run/nscd /run/udev; do
+    if [ -L "$path" ]; then
+      sandbox+=(--symlink "$(readlink "$path")" "$path")
+    elif [ -e "$path" ]; then
+      sandbox+=(--ro-bind "$path" "$path")
+    fi
+  done
+  # resolv.conf, when it points into /run (systemd-resolved, NetworkManager).
+  resolv="$(readlink -f /etc/resolv.conf || true)"
+  case "$resolv" in /run/*) $private_network || sandbox+=(--ro-bind "${resolv%/*}" "${resolv%/*}") ;; esac
+fi
+# Nobody's files: the homes, removable media, the system bus, the system's
+# logs and state, its configuration's sources; ydotoold's socket (it types
+# into the user's desktop), whatever the switch above.
+for dir in /home /root /mnt /media /run/media /srv /run/dbus /run/ydotoold /var/log /var/lib /etc/nixos; do
   [ -d "$dir" ] && sandbox+=(--tmpfs "$dir")
 done
 case "$HOME" in /home/*) ;; *) sandbox+=(--tmpfs "$HOME") ;; esac
-# None of the user's runtime sockets but the display it's a window on.
+# None of the user's runtime sockets: the user's desktop only through the
+# restricted socket, in $control.
 sandbox+=(
   --tmpfs "$user_runtime"
-  --bind "$host_display" "$host_display"
   --ro-bind "$control" "$control"
   --bind "$session_runtime" "$session_runtime"
   --bind "$agent_home" "$agent_home"
@@ -195,30 +255,34 @@ if [ -r "$shell_config" ]; then
   done < <(jq -r '.ai.allowedFolders // [] | .[] | strings' "$shell_config" 2>/dev/null || true)
 fi
 
+# Their own network: pasta gives it the internet and the LAN through this
+# computer's connection, without its loopback (-T/-U none, --no-map-gw: the
+# defaults would forward to it) and without forwarding anything in; DNS
+# through pasta's forwarder (the host's resolver may be on its loopback).
+network=()
+if $private_network; then
+  dns=169.254.1.53
+  printf 'nameserver %s\n' "$dns" >"$control/resolv.conf"
+  sandbox+=(--ro-bind "$control/resolv.conf" "$(readlink -f /etc/resolv.conf || echo /etc/resolv.conf)")
+  network=(pasta --config-net --quiet -t none -u none -T none -U none --no-map-gw --dns-forward "$dns" --)
+fi
+
 # The system's session bus configuration (NixOS: /etc/dbus-1), else dbus's own.
 bus_config=()
 if [ ! -e /etc/dbus-1/session.conf ]; then
   bus_config=(--config-file "$(dirname "$(command -v dbus-daemon)")/../share/dbus-1/session.conf")
 fi
 
-niri_pid=""
-cleanup() {
-  [ -z "$niri_pid" ] || kill "$niri_pid" 2>/dev/null || true
-  rm -rf "$control"
-}
-trap cleanup EXIT
-trap 'exit 143' TERM INT
-
-bwrap "${sandbox[@]}" \
+${network[@]+"${network[@]}"} bwrap "${sandbox[@]}" \
   --setenv XDG_RUNTIME_DIR "$session_runtime" \
-  --setenv WAYLAND_DISPLAY "$host_display" \
+  --setenv WAYLAND_DISPLAY "$restricted_display" \
   --setenv NIRI_WINIT_IGNORE_INPUT 1 \
   --setenv NIRI_WINIT_ALLOW_INPUT_FILE "$input_file" \
   --setenv NIRI_WINIT_TITLE "Assistant's desktop" \
   --setenv NIRI_WINIT_APP_ID nixbook-agent-desktop \
   --setenv NIRI_KEEP_FULLSCREEN 1 \
   --unsetenv DBUS_SESSION_BUS_ADDRESS --unsetenv DISPLAY --unsetenv NIRI_SOCKET \
-  -- dbus-run-session "${bus_config[@]}" -- niri -c "$config" &
+  -- dbus-run-session "${bus_config[@]}" -- niri -c "$config" {restricted_fd}>&- &
 niri_pid=$!
 
 # -- watching it, from outside the sandbox ----------------------------------------
@@ -232,8 +296,8 @@ for _ in $(seq 150); do
   sleep 0.1
 done
 if [ -z "$niri_socket" ]; then
-  echo "nixbook-agent-desktop: niri didn't start" >&2
-  exit 1
+  $private_network && fail "niri didn't start; its private network (pasta) may be the cause: the journal says (journalctl --user -u nixbook-agent-desktop), Settings > Desktop agents can turn it off"
+  fail "niri didn't start (journalctl --user -u nixbook-agent-desktop)"
 fi
 display="${niri_socket##*/niri.}"
 display="${display%.*.sock}"

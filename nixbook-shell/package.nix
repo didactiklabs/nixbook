@@ -62,6 +62,12 @@ let
     patches = (old.patches or [ ]) ++ [ ./niri-winit-agent-window.patch ];
     doCheck = false;
   });
+  # A restricted socket on the user's compositor (security-context-v1) for the
+  # agent desktop's niri: no screen capture, input or window list of the
+  # user's desktop through it (scripts/wayland-security-context.py).
+  securityContext = pkgs.writeShellScriptBin "nixbook-wayland-security-context" ''
+    exec ${pkgs.python3}/bin/python3 ${./scripts/wayland-security-context.py} "$@"
+  '';
   agentDesktop = pkgs.writeShellScriptBin "nixbook-agent-desktop" ''
     export PATH="${
       lib.makeBinPath (
@@ -71,6 +77,9 @@ let
           dbus # dbus-run-session: the agent apps' own session bus
           xwayland-satellite # X11 apps on the agent desktop, not the user's
           bubblewrap # the sandbox: none of the user's files, sockets or processes
+          passt # pasta: the sandbox's own network (ai.agentDesktop.privateNetwork)
+          securityContext # its restricted connection to the user's desktop
+          libnotify # notify-send: why it didn't start
           jq # the folders the user lets agents read (shell config)
           findutils
           coreutils
@@ -247,6 +256,7 @@ launcher.overrideAttrs (old: {
       cliphistWatch
       desktopMcp
       agentDesktop
+      securityContext
       fonts
       ;
   };

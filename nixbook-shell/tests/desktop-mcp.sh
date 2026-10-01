@@ -409,6 +409,14 @@ start_compositor
 out=$(call get_status)
 expect_eq "get_status: exact pointer" "virtual pointer (exact)" "$(jq -r .pointer <<<"$out")"
 
+# The agent desktop's restricted connection: a compositor without
+# security-context-v1 is an error (exit 1), never a socket of full rights.
+status=0
+err=$(WAYLAND_DISPLAY=wayland-test python3 "$root/scripts/wayland-security-context.py" "$tmp/restricted.sock" </dev/null 2>&1) || status=$?
+expect_eq "security context: refused without the protocol" 1 "$status"
+expect_contains "security context: says why" "$err" "has no wp_security_context_manager_v1"
+expect_eq "security context: no socket left" absent "$([ -e "$tmp/restricted.sock" ] && echo present || echo absent)"
+
 : >"$wl_log"
 reset_calls
 out=$(call click '{"x":3200.5,"y":300}')
@@ -888,6 +896,10 @@ rm -f "$calls.launched"
 call focus_window '{"id": 1}' >/dev/null
 expect_eq "agent desktop: tools reach its niri" "$STUB_AGENT_SOCKET" "$(cat "$calls.socket")"
 expect_eq "agent desktop: status says so" agent "$(call get_status | jq -r .desktop)"
+# Its niri has no virtual pointer here: refused, never ydotool (uinput: the user's desktop).
+reset_calls
+expect_contains "agent desktop: no ydotool fallback for the pointer" "$(call click '{"x": 10, "y": 10}')" "ydotool would click on the user's desktop"
+expect_eq "agent desktop: ydotool never run" "" "$(grep ydotool "$calls" || true)"
 out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 "$mcp")
 expect_contains "agent desktop: agents are told" "$(jq -r .result.instructions <<<"$out")" "You work on a desktop of your own"
 expect_contains "agent desktop: no shell panels on the user's screen" \

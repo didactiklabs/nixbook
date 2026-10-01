@@ -4,6 +4,10 @@
     "tool": "functions",
     "includeSystemContext": true,
     "allowedFolders": [],
+    "agentDesktop": {
+      "hideSystemSockets": true,
+      "privateNetwork": true
+    },
     "claudeCode": {
       "allowedTools": ["WebSearch", "WebFetch"],
       "command": "",
