@@ -838,31 +838,41 @@ chmod +x "$bin/systemctl"
 agent_env="$XDG_RUNTIME_DIR/nixbook-desktop-mcp/agent-desktop.env"
 
 expect_eq "desktop: the user's by default" user "$(python3 "$mcp" desktop status | jq -r .desktop)"
-out=$(STUB_SYSTEMCTL_FAIL=1 python3 "$mcp" desktop agent 2>&1 || true)
-expect_contains "desktop agent: refused when it can't start" "$out" "agents stay on your desktop"
-expect_eq "desktop agent: not switched when it can't start" user "$(python3 "$mcp" desktop status | jq -r .desktop)"
 reset_calls
-STUB_NESTED_WINDOW=1 python3 "$mcp" desktop agent >/dev/null
-expect_eq "desktop agent: starts the service" "systemctl --user start nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
-# Its window (niri.wayland-9.1.sock: pid 1) opens out of view: brought in.
-expect_eq "desktop agent: its window focused on the user's niri" "niri msg action focus-window --id 9" "$(grep focus-window "$calls")"
-expect_eq "desktop agent: focused through the user's niri" /dev/null "$(cat "$calls.socket")"
+python3 "$mcp" desktop agent >/dev/null
 expect_eq "desktop agent: persisted" agent "$(python3 "$mcp" desktop status | jq -r .desktop)"
+expect_eq "desktop agent: no empty window opened" "" "$(grep systemctl "$calls" || true)"
+# Closed while no app is on it: the window tools wait for one, the shell
+# tools (the user's notes…) work.
+expect_contains "agent desktop closed: window tools wait for an app" "$(call list_windows)" "start the app you need with launch_app"
+reset_calls
+out=$(call widget '{"widget":"notes","action":"add","text":"flat: 3 rooms, 1200 EUR"}')
+expect_eq "agent desktop: notes go to the user's shell" "qs -c nixbook-shell ipc call -- notes add flat: 3 rooms, 1200 EUR" "$(last_call)"
+expect_eq "agent desktop: the shell is reached on the user's display" wayland-test "$(cat "$calls.qs_display")"
+expect_eq "agent desktop closed: the shell tools don't open it" "" "$(grep systemctl "$calls" || true)"
+# launch_app opens it.
+out=$(STUB_SYSTEMCTL_FAIL=1 call launch_app '{"app": "firefox"}')
+expect_contains "launch_app: says when the agent desktop can't start" "$out" "systemctl --user start"
+rm -f "$calls.launched"
+reset_calls
+out=$(call launch_app '{"app": "firefox"}')
+expect_eq "launch_app: opens the agent desktop" "systemctl --user start nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
+expect_contains "agent desktop: an app opening on the user's desktop is reported" "$out" "opened its window on the user's desktop"
+rm -f "$calls.launched"
 call focus_window '{"id": 1}' >/dev/null
 expect_eq "agent desktop: tools reach its niri" "$STUB_AGENT_SOCKET" "$(cat "$calls.socket")"
 expect_eq "agent desktop: status says so" agent "$(call get_status | jq -r .desktop)"
 out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 "$mcp")
 expect_contains "agent desktop: agents are told" "$(jq -r .result.instructions <<<"$out")" "You work on a desktop of your own"
-# Browsing on its own desktop, writing what it found in the user's notes.
-reset_calls
-out=$(call widget '{"widget":"notes","action":"add","text":"flat: 3 rooms, 1200 EUR"}')
-expect_eq "agent desktop: notes go to the user's shell" "qs -c nixbook-shell ipc call -- notes add flat: 3 rooms, 1200 EUR" "$(last_call)"
-expect_eq "agent desktop: the shell is reached on the user's display" wayland-test "$(cat "$calls.qs_display")"
 expect_contains "agent desktop: no shell panels on the user's screen" \
   "$(call shell_ipc '{"target":"sidebarLeft","function":"toggle"}')" "refused: you work on your own desktop"
-rm -f "$calls.launched"
-out=$(call launch_app '{"app": "firefox"}')
-expect_contains "agent desktop: an app opening on the user's desktop is reported" "$out" "opened its window on the user's desktop"
+# Switching to it while it's open: its window (niri.wayland-9.1.sock: pid 1)
+# is focused on the user's niri, so it scrolls into view.
+python3 "$mcp" desktop user >/dev/null
+reset_calls
+STUB_NESTED_WINDOW=1 python3 "$mcp" desktop agent >/dev/null
+expect_eq "desktop agent: an open agent desktop is focused" "niri msg action focus-window --id 9" "$(grep focus-window "$calls")"
+expect_eq "desktop agent: focused through the user's niri" /dev/null "$(cat "$calls.socket")"
 rm -f "$calls.launched"
 # One app at a time: the one before closes, the new app's own windows stay.
 reset_calls
@@ -881,24 +891,35 @@ expect_eq "user has control: get_status says so" true "$(call get_status | jq .u
 python3 "$mcp" desktop interact toggle >/dev/null
 expect_eq "desktop interact toggle: given back" false "$(python3 "$mcp" desktop status | jq .user_has_control)"
 expect_not_contains "given back: the agent types again" "$(call type_text '{"text": "x"}')" "took over"
-# Closed by the user (niri gone, or crashed and left the env file): that
-# stops the agents, only the user opens it again.
+# Emptied (its watcher closed it): opened again by the next app.
 rm -f "$STUB_AGENT_SOCKET"
 reset_calls
-out=$(call list_windows)
-expect_contains "agent desktop closed: the agents are stopped" "$out" "the user closed your desktop"
-expect_eq "agent desktop closed: not started again by an agent" "" "$(grep systemctl "$calls" || true)"
+expect_contains "agent desktop emptied: window tools wait for an app" "$(call list_windows)" "start the app you need"
+call launch_app '{"app": "firefox"}' >/dev/null
+expect_eq "agent desktop emptied: the next app opens it again" "systemctl --user start nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
+rm -f "$calls.launched"
+# Closed by the user (the launcher marks it stopped): every tool refused, not
+# opened again by an agent, until the user switches them on again.
+echo stopped >"$XDG_STATE_HOME/nixbook-shell/agent-desktop-stopped"
+rm -f "$STUB_AGENT_SOCKET"
+reset_calls
+expect_contains "closed by the user: the agents are stopped" "$(call launch_app '{"app": "firefox"}')" "the user closed your desktop"
+expect_contains "closed by the user: the shell tools too" "$(call widget '{"widget":"notes","action":"list"}')" "the user closed your desktop"
+expect_eq "closed by the user: not opened again by an agent" "" "$(grep systemctl "$calls" || true)"
+expect_eq "closed by the user: status says so" true "$(python3 "$mcp" desktop status | jq .stopped_by_user)"
 python3 "$mcp" desktop toggle >/dev/null
-expect_eq "agent desktop closed: the toggle opens it again" "systemctl --user start nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
-expect_eq "agent desktop closed: the toggle stays on it" agent "$(python3 "$mcp" desktop status | jq -r .desktop)"
+expect_eq "closed by the user: the toggle switches them on again" false "$(python3 "$mcp" desktop status | jq .stopped_by_user)"
+expect_eq "closed by the user: the toggle stays on their desktop" agent "$(python3 "$mcp" desktop status | jq -r .desktop)"
+expect_eq "closed by the user: switching on opens no empty window" "" "$(grep systemctl "$calls" || true)"
+reset_calls
+python3 "$mcp" desktop stop >/dev/null
+expect_eq "desktop stop: stops the service" "systemctl --user stop nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
+expect_eq "desktop stop: the agents are stopped" true "$(python3 "$mcp" desktop status | jq .stopped_by_user)"
 python3 "$mcp" desktop user >/dev/null
 call focus_window '{"id": 1}' >/dev/null
 expect_eq "desktop user: tools reach the user's niri again" /dev/null "$(cat "$calls.socket")"
 out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 "$mcp")
 expect_not_contains "desktop user: no agent desktop instructions" "$(jq -r .result.instructions <<<"$out")" "desktop of your own"
-reset_calls
-python3 "$mcp" desktop stop >/dev/null
-expect_eq "desktop stop: stops the service" "systemctl --user stop nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
 rm -f "$agent_env" "$STUB_AGENT_SOCKET" "$XDG_RUNTIME_DIR/wayland-9"
 
 port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')

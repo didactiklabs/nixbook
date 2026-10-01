@@ -19,10 +19,12 @@ import QtQuick
  *
  * Where agents work: on the user's desktop, or on a desktop of their own
  * (`nixbook-desktop-mcp desktop agent`: a nested niri shown as a window, a
- * view the user can't type into; closing it stops the agents). Switching goes
- * through the server's command too; this watches its flag
- * (~/.local/state/nixbook-shell/agent-desktop) and whether the agent desktop
- * is open (its env file in the runtime directory).
+ * view the user can't type into). It's never left open empty: it opens when
+ * an agent starts an app and closes once its last app is gone; the user
+ * closing it stops the agents until switched on again. Switching goes
+ * through the server's command too; this watches its flags
+ * (~/.local/state/nixbook-shell/agent-desktop, agent-desktop-stopped) and
+ * whether the agent desktop is open (its env file in the runtime directory).
  *
  * The user can take the agent desktop over for a moment (`desktop interact`:
  * their clicks and keys reach it, the agent's input waits), shown by its flag
@@ -41,8 +43,10 @@ Singleton {
     property bool paused: true
     // Agents work on their own desktop (else on the user's).
     property bool onAgentDesktop: false
-    // Their desktop is open; on it but closed: the agents are stopped.
+    // Their desktop is open (an app on it); closed in between.
     property bool agentDesktopOpen: false
+    // The user closed it: the agents are stopped until switched on again.
+    property bool agentStopped: false
     // The user has taken their desktop over (clicks and keys get through).
     property bool userHasControl: false
     readonly property bool canTakeOver: root.onAgentDesktop && root.agentDesktopOpen
@@ -74,10 +78,11 @@ Singleton {
         else root.pause();
     }
 
-    // Opens the agent desktop (or reopens it, after the user closed it).
+    // Agents on their own desktop (switched on again after the user closed it).
     function agentDesktop() {
         Quickshell.execDetached(["nixbook-desktop-mcp", "desktop", "agent"]);
         root.onAgentDesktop = true;
+        root.agentStopped = false;
     }
 
     function userDesktop() {
@@ -85,9 +90,9 @@ Singleton {
         root.onAgentDesktop = false;
     }
 
-    // Like Mod+Shift+A: to theirs (reopened if closed), or back to the user's.
+    // Like Mod+Shift+A: to theirs (switched on again if stopped), or back to the user's.
     function toggleDesktop() {
-        if (root.onAgentDesktop && root.agentDesktopOpen) root.userDesktop();
+        if (root.onAgentDesktop && !root.agentStopped) root.userDesktop();
         else root.agentDesktop();
     }
 
@@ -195,6 +200,16 @@ Singleton {
         onLoadFailed: error => root.onAgentDesktop = false
     }
 
+    FileView {
+        id: agentStoppedFlag
+        path: `${root.stateHome}/agent-desktop-stopped`
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: root.agentStopped = true
+        onLoadFailed: error => root.agentStopped = false
+    }
+
     // Written once the agent desktop is up, removed when it closes.
     FileView {
         id: agentDesktopEnv
@@ -227,6 +242,7 @@ Singleton {
             stateFile.reload();
             allowedFile.reload();
             agentDesktopFlag.reload();
+            agentStoppedFlag.reload();
             agentDesktopEnv.reload();
             agentDesktopInput.reload();
         }
@@ -262,6 +278,7 @@ Singleton {
         function status(): string {
             return JSON.stringify({ paused: root.paused, active: root.active, last: root.last,
                 desktop: root.onAgentDesktop ? "agent" : "user", agentDesktopOpen: root.agentDesktopOpen,
+                agentStopped: root.agentStopped,
                 userHasControl: root.userHasControl });
         }
     }
