@@ -294,8 +294,13 @@ set up in **Settings → Desktop agents → Claude in the side panel**: whether
 Claude Code was found (and its command, if elsewhere), the model (default,
 Sonnet, Opus, Haiku), whether it may search and read the web, the folders it
 may read, and a button to use it in the panel (the `ai.claudeCode.*` and
-`ai.allowedFolders` settings; Nix can pin them like any other). Each message runs `claude -p` once, resuming the
-conversation's session, with the desktop MCP server attached (its guardrails,
+`ai.allowedFolders` settings; Nix can pin them like any other). Claude
+Code (`claude -p`) keeps running between messages, each one a line on its
+stdin, so a message doesn't wait ~2 s for it and the desktop MCP server to
+start: it starts when you open the panel on Claude, again (resuming the
+conversation's session) when a setting or an attached file changes its
+command line, and closes after 15 minutes unused; Stop interrupts the answer
+and keeps it. It runs with the desktop MCP server attached (its guardrails,
 the pause button and the memory apply as always; tool `none` leaves it out)
 and only the built-in tools in `ai.claudeCode.allowedTools` (web search and
 fetch); running commands and editing files are refused. **It reads none of

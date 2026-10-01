@@ -705,6 +705,25 @@ expect_contains "digest: notes about the task" "$instr" "Notes about this task:
 - [$note_id] discord: Vesktop: open a DM"
 expect_not_contains "digest: unrelated notes not in full" "$instr" "play/pause with space"
 expect_contains "digest: unrelated notes by topic" "$instr" "spotify"
+# A client that outlives a message (the shell's AI chat): the task from a
+# file, rewritten each message; a new one's notes come with the next reply.
+task="$tmp/task.txt"
+echo "send Alesio a message on Discord" >"$task"
+task_call() { printf '{"jsonrpc":"2.0","id":%d,"method":"tools/call","params":{"name":"get_status","arguments":{}}}\n' "$1"; }
+out=$({
+  printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
+  task_call 2
+  sleep 1
+  echo "pause the music on spotify" >"$task"
+  task_call 3
+  task_call 4
+} | NIXBOOK_DESKTOP_MCP_QUERY_FILE="$task" python3 "$mcp")
+expect_contains "task file: notes in the instructions" "$(jq -r 'select(.id==1).result.instructions' <<<"$out")" "[$note_id] discord: Vesktop"
+expect_not_contains "task file: unchanged, nothing more" "$(jq -c 'select(.id==2).result.content' <<<"$out")" "Memory about this task"
+expect_contains "task file: a new task's notes with the next reply" "$(jq -r 'select(.id==3).result.content[0].text' <<<"$out")" "Memory about this task:
+- ["
+expect_contains "task file: the new task's notes" "$(jq -r 'select(.id==3).result.content[0].text' <<<"$out")" "play/pause with space"
+expect_not_contains "task file: once" "$(jq -c 'select(.id==4).result.content' <<<"$out")" "Memory about this task"
 out=$(python3 "$mcp" memory prompt "open a new tab in zen")
 expect_contains "memory prompt QUERY: ranked by topic" "$(sed -n '/Notes about this task/,+1p' <<<"$out")" "zen browser: new tab ctrl+t"
 
@@ -731,8 +750,8 @@ expect_not_contains "just in time: not in the chat's one-off calls" "$(call focu
 
 out=$(call recall '{"query":"discord"}')
 expect_eq "recall: best matches" 2 "$(jq '.notes | length' <<<"$out")"
-# Given with the task's digest, just in time, then recalled.
-expect_eq "recall: counts uses" 3 "$(jq --arg id "$note_id" '.notes[] | select(.id==$id) | .uses' "$mem")"
+# Given with the task's digests (env, then file), just in time, then recalled.
+expect_eq "recall: counts uses" 4 "$(jq --arg id "$note_id" '.notes[] | select(.id==$id) | .uses' "$mem")"
 # ...and the notes whose topic what it types (a site, a search) or the window title names.
 out=$(printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"type_text","arguments":{"text":"search the web"}}}' \
