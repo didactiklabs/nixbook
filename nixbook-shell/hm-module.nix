@@ -652,7 +652,8 @@ in
           `inputDenyApps`, `inputDenyTitles` (regexes: no keyboard or pointer
           input into those windows; set to replace the defaults, which cover
           terminals, password managers and password prompts),
-          `shellIpcDenyTargets`, `allowSuperKey`, `maxTextLength`,
+          `shellIpcDenyTargets`, `allowSuperKey`, `maxTextLength` (typed text and
+          tasks), `maxNoteLength` (a note),
           `actionsPerMinute`, `notifyOnControl`, `screenshotMaxEdge`.
           `nixbook-desktop-mcp config` prints the effective settings.
         '';

@@ -167,10 +167,13 @@ case "$*" in
   *"widgets list"*)
     echo '[{"name":"clock","enabled":true,"placement":"leastBusy"},{"name":"notes","enabled":false,"placement":"free"},{"name":"worldClock","enabled":false,"placement":"free"}]' ;;
   *"widgets show"* | *"widgets hide"*) echo "ok: ${*: -1} ${*: -2:1}" ;;
-  *"notes list"*) echo '[{"id":"17-1","content":"buy milk","createdAt":17}]' ;;
-  *"notes add"*) echo "ok: 18-2" ;;
-  *"notes update"* | *"notes remove"*)
-    if [ "${*: -1}" = "nope" ] || [ "${*: -2:1}" = "nope" ]; then echo 'error: no note "nope"'; else echo "ok: 17-1"; fi ;;
+  # Notes travel through transfer files (Notes.qml): the text read from the
+  # one given ($STUB_CALLS.note), the list written to it.
+  *"notes listToFile"*) echo '[{"id":"17-1","content":"buy milk","createdAt":17}]' >"${*: -1}"; echo ok ;;
+  *"notes addFromFile"*) cat "${*: -1}" >"$STUB_CALLS.note"; echo "ok: 18-2" ;;
+  *"notes updateFromFile"*) cat "${*: -1}" >"$STUB_CALLS.note"; echo "ok: 17-1" ;;
+  *"notes remove"*)
+    if [ "${*: -1}" = "nope" ]; then echo 'error: no note "nope"'; else echo "ok: 17-1"; fi ;;
   *"todo list"*) echo '{"synced":false,"tasks":[{"index":0,"content":"call mum","done":false,"due":null}]}' ;;
   *"todo "*) echo "ok: call mum" ;;
   *"timers status"*) echo '{"pomodoro":{"running":false},"stopwatch":{"running":false},"countdown":{"running":false,"secondsLeft":0}}' ;;
@@ -747,11 +750,23 @@ out=$(call widget '{"widget":"notes","action":"list"}')
 expect_eq "widget notes list" "buy milk" "$(jq -r '.[0].content' <<<"$out")"
 reset_calls
 out=$(call widget '{"widget":"note","action":"add","text":"--call the bank\nbefore 5pm"}')
-expect_eq "widget notes add: the text as one argument" "qs -c nixbook-shell ipc call -- notes add --call the bank
-before 5pm" "$(tail -n 2 "$calls")"
+expect_eq "widget notes add: the text through a transfer file" "--call the bank
+before 5pm" "$(cat "$calls.note")"
+expect_contains "widget notes add: only the file's path over IPC" "$(last_call)" "notes addFromFile $XDG_RUNTIME_DIR/nixbook-desktop-mcp/notes-"
+expect_eq "widget notes add: the transfer file removed" 0 "$(find "$XDG_RUNTIME_DIR/nixbook-desktop-mcp" -name 'notes-*' | wc -l | tr -d ' ')"
 expect_contains "widget notes add: the new id" "$out" "18-2"
+long=$(python3 -c 'print("a" * 90000)')
+out=$(call widget "{\"widget\":\"notes\",\"action\":\"add\",\"text\":\"$long\"}")
+expect_contains "widget notes add: long notes (90000 characters)" "$out" "18-2"
+expect_eq "widget notes add: a long note whole" 90000 "$(python3 -c 'import sys; print(len(open(sys.argv[1], encoding="utf-8").read()))' "$calls.note")"
+too_long=$(python3 -c 'print("a" * 100001)')
+expect_contains "widget notes add: at most 100000 characters" "$(call widget "{\"widget\":\"notes\",\"action\":\"add\",\"text\":\"$too_long\"}")" "100000"
+expect_contains "widget todo add: tasks keep the typing cap" "$(call widget "{\"widget\":\"todo\",\"action\":\"add\",\"text\":\"$too_long\"}")" "4000"
 call widget '{"widget":"notes","action":"update","id":"17-1","text":"buy oat milk"}' >/dev/null
-expect_eq "widget notes update" "qs -c nixbook-shell ipc call -- notes update 17-1 buy oat milk" "$(last_call)"
+expect_contains "widget notes update" "$(last_call)" "notes updateFromFile 17-1 $XDG_RUNTIME_DIR/nixbook-desktop-mcp/notes-"
+expect_eq "widget notes update: the text" "buy oat milk" "$(cat "$calls.note")"
+expect_contains "shell_ipc: the notes' file functions only through the widget tool" \
+  "$(call shell_ipc '{"target":"notes","function":"addFromFile","args":["/home/x/.ssh/id_rsa"]}')" "refused"
 expect_contains "widget notes: the shell's errors" "$(call widget '{"widget":"notes","action":"remove","id":"nope"}')" 'no note "nope"'
 expect_contains "widget notes update: needs text" "$(call widget '{"widget":"notes","action":"update","id":"17-1"}')" "must be a non-empty string"
 expect_contains "widget notes: unknown action" "$(call widget '{"widget":"notes","action":"done"}')" "notes can't 'done': list, add, update, remove"
@@ -848,7 +863,7 @@ expect_eq "desktop agent: no empty window opened" "" "$(grep systemctl "$calls" 
 expect_contains "agent desktop closed: window tools wait for an app" "$(call list_windows)" "start the app you need with launch_app"
 reset_calls
 out=$(call widget '{"widget":"notes","action":"add","text":"flat: 3 rooms, 1200 EUR"}')
-expect_eq "agent desktop: notes go to the user's shell" "qs -c nixbook-shell ipc call -- notes add flat: 3 rooms, 1200 EUR" "$(last_call)"
+expect_eq "agent desktop: notes go to the user's shell" "flat: 3 rooms, 1200 EUR" "$(cat "$calls.note")"
 expect_eq "agent desktop: the shell is reached on the user's display" wayland-test "$(cat "$calls.qs_display")"
 expect_eq "agent desktop closed: the shell tools don't open it" "" "$(grep systemctl "$calls" || true)"
 # launch_app opens it.

@@ -343,7 +343,9 @@ Guardrails, whatever the transport:
   `resume` creates and `pause` removes, so the choice survives a reboot and a
   fresh install (or wiped state) stays paused until you allow it. Without a
   private `$XDG_RUNTIME_DIR` nothing runs;
-- at most 120 actions a minute, 4000 characters per text, a notification
+- at most 120 actions a minute, 4000 characters per typed text or task
+  (100000 per note: notes go to the shell through a private file, not its
+  IPC, which large messages can wedge), a notification
   when an agent starts driving the desktop (again after 5 idle minutes);
 - every call is logged to `~/.local/state/nixbook-shell/desktop-mcp.log`
   (typed and copied text by length only).

@@ -81,6 +81,9 @@ DEFAULT_CONFIG = {
     "shellIpcDenyTargets": ["session", "nixManaged", "desktopControl", "layouts"],
     "allowSuperKey": False,
     "maxTextLength": 4000,
+    # A note written into the notes widget (it goes through a file, not the
+    # shell's IPC: see notes_call).
+    "maxNoteLength": 100000,
     "actionsPerMinute": 120,
     "notifyOnControl": True,
     "screenshotMaxEdge": 1568,
@@ -2582,6 +2585,8 @@ def t_shell_ipc(ctx, args):
     fn = as_str(args, "function", max_len=64, pattern=IPC_NAME)
     if target in ctx.cfg.get("shellIpcDenyTargets", []):
         raise ToolError(f"refused: the {target!r} target is off limits")
+    if target == "notes" and fn in NOTES_FILE_FUNCTIONS:
+        raise ToolError("refused: use the widget tool for notes")
     if ctx.desktop == "agent":
         # Sidebars, launcher, lock screen…: they'd open on the user's screen.
         raise ToolError("refused: you work on your own desktop, and the shell's panels open on the user's: "
@@ -2678,9 +2683,9 @@ def t_set_theme(ctx, args):
 # arguments it takes, whether it changes something).
 WIDGET_ACTIONS = {
     "notes": {
-        "list": ("notes", "list", (), False),
-        "add": ("notes", "add", ("text",), True),
-        "update": ("notes", "update", ("id", "text"), True),
+        "list": ("notes", "listToFile", (), False),
+        "add": ("notes", "addFromFile", ("text",), True),
+        "update": ("notes", "updateFromFile", ("id", "text"), True),
         "remove": ("notes", "remove", ("id",), True),
     },
     "todo": {
@@ -2712,6 +2717,36 @@ WIDGET_ACTIONS = {
 WIDGET_NAMES = {"note": "notes", "todos": "todo", "todolist": "todo", "task": "todo", "tasks": "todo",
                 "timer": "timers", "pomodoro": "timers", "stopwatch": "timers", "countdown": "timers",
                 "musicrecognition": "music", "songrec": "music", "shazam": "music", "song": "music"}
+
+
+# The notes' functions that take a transfer file (services/Notes.qml): only
+# through the widget tool, which writes and reads those files itself.
+NOTES_FILE_FUNCTIONS = {"addFromFile", "updateFromFile", "listToFile"}
+
+
+def notes_call(fn, *args):
+    """A notes call, the text going through a private file: a large IPC
+    argument or reply can wedge the shell's IPC. add/update: the last
+    argument (the text) is written to the file; list: the shell writes it."""
+    path = os.path.join(runtime_dir(), f"notes-{secrets.token_hex(8)}.{'json' if fn == 'listToFile' else 'txt'}")
+    try:
+        if fn != "listToFile":
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(args[-1])
+            args = args[:-1]
+        out = widget_call("notes", fn, *args, path)
+        if fn == "listToFile":
+            with open(path, encoding="utf-8") as f:
+                return f.read()
+        return out
+    except OSError as e:
+        raise ToolError(f"notes: {e}")
+    finally:
+        try:
+            os.unlink(path)
+        except FileNotFoundError:
+            pass
 
 
 def widget_call(target, fn, *args):
@@ -2773,7 +2808,8 @@ def t_widget(ctx, args):
     argv = []
     for name in needs:
         if name == "text":
-            value = as_str(args, "text", max_len=int(ctx.cfg.get("maxTextLength", 4000)))
+            cap = int(ctx.cfg.get("maxNoteLength", 100000)) if widget == "notes" else int(ctx.cfg.get("maxTextLength", 4000))
+            value = as_str(args, "text", max_len=cap)
             if not value.strip():
                 raise ToolError("`text` is empty")
         elif name == "id":
@@ -2786,7 +2822,7 @@ def t_widget(ctx, args):
         argv.append(value)
     if changes:
         ctx.guard.check_rate()
-    out = widget_call(target, fn, *argv)
+    out = notes_call(fn, *argv) if target == "notes" and fn in NOTES_FILE_FUNCTIONS else widget_call(target, fn, *argv)
     if not changes:
         try:
             return [text(json.loads(out))]

@@ -54,6 +54,39 @@ Singleton {
         notesFileView.reload()
     }
 
+    // Long notes travel through files, not IPC arguments or replies (a large
+    // IPC message can wedge Quickshell's IPC): the desktop MCP server writes
+    // the text to a private file and passes its path, or gives a path for the
+    // list. Only its own transfer files: notes-* directly in its private
+    // runtime directory, so these can't read or write anything else.
+    readonly property string transferDir: `${Quickshell.env("XDG_RUNTIME_DIR")}/nixbook-desktop-mcp/`
+    function isTransferPath(path) {
+        if (typeof path !== "string" || !path.startsWith(root.transferDir + "notes-"))
+            return false
+        const name = path.slice(root.transferDir.length)
+        return /^notes-[A-Za-z0-9_-]{1,64}\.(txt|json)$/.test(name)
+    }
+    function readTransfer(path) {
+        transferIn.path = ""
+        transferIn.path = path
+        transferIn.reload()
+        return transferIn.text()
+    }
+    FileView {
+        id: transferIn
+        blockLoading: true
+        printErrors: false
+    }
+    // Loads (nothing: the file doesn't exist yet) and writes synchronously:
+    // a write right after an asynchronous path change can be lost.
+    FileView {
+        id: transferOut
+        blockLoading: true
+        blockWrites: true
+        atomicWrites: true
+        printErrors: false
+    }
+
     Component.onCompleted: {
         refresh()
     }
@@ -105,6 +138,33 @@ Singleton {
                 return "error: empty note (remove it instead)";
             root.updateNote(id, content);
             return `ok: ${id}`;
+        }
+        function addFromFile(path: string): string {
+            if (!root.isTransferPath(path))
+                return "error: not a transfer file";
+            const content = root.readTransfer(path);
+            if (content.length === 0)
+                return "error: empty note";
+            return `ok: ${root.addNote(content)}`;
+        }
+        function updateFromFile(id: string, path: string): string {
+            if (!root.isTransferPath(path))
+                return "error: not a transfer file";
+            if (!root.list.some(n => n.id === id))
+                return `error: no note "${id}"`;
+            const content = root.readTransfer(path);
+            if (content.length === 0)
+                return "error: empty note (remove it instead)";
+            root.updateNote(id, content);
+            return `ok: ${id}`;
+        }
+        function listToFile(path: string): string {
+            if (!root.isTransferPath(path))
+                return "error: not a transfer file";
+            transferOut.path = "";
+            transferOut.path = path;
+            transferOut.setText(JSON.stringify(root.list.map(n => ({ id: n.id, content: n.content, createdAt: n.createdAt }))));
+            return "ok";
         }
         function remove(id: string): string {
             if (!root.list.some(n => n.id === id))
