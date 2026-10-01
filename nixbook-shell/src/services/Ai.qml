@@ -209,8 +209,10 @@ Singleton {
     }
 
     // Claude through Claude Code (`claude -p`): no API key, the user's own
-    // Claude login. Offered as a model when `claude` is found. Each message
-    // runs Claude Code once, resuming the session of the previous one; it
+    // Claude login. Offered as a model when `claude` is found. Claude Code
+    // keeps running between messages (stream-json on stdin, one line a
+    // message: no ~2 s start, the desktop MCP server already connected), and
+    // starts again, resuming the session, when its command line changes; it
     // gets the desktop tools (the desktop MCP server, whose guardrails, pause
     // and memory apply), Config ai.claudeCode.allowedTools and, with
     // ai.claudeCode.connectors, the user's claude.ai connectors; nothing else.
@@ -270,8 +272,7 @@ Singleton {
         }
     }
 
-    function claudeCodeScript(model, messages, attachedFile) {
-        const q = s => `'${CF.StringUtils.shellSingleQuoteEscape(String(s))}'`;
+    function claudeCodePrompt(messages, attached) {
         const turns = messages.filter(m => (m.role === "user" || m.role === "assistant") && !m.functionName);
         const last = turns[turns.length - 1];
         let prompt = last?.role === "user" ? last.rawContent : "";
@@ -282,10 +283,23 @@ Singleton {
             if (earlier.length > 8000) earlier = "…" + earlier.slice(-8000);
             prompt = `Earlier in this conversation:\n\n${earlier}\n\nThe user now says:\n\n${prompt}`;
         }
-        const attached = attachedFile && attachedFile.length > 0 && attachedFile.startsWith("/") ? attachedFile : "";
         if (attached.length > 0)
             prompt += `\n\n(Attached file: ${attached}; read it with the Read tool.)`;
+        return prompt;
+    }
 
+    // The task, for the desktop MCP server's memory (NIXBOOK_DESKTOP_MCP_QUERY_FILE):
+    // written before each message, read by the running server on its next call.
+    readonly property string desktopTaskFilePath: `${Directories.aiTemp}/desktop-task.txt`
+    FileView {
+        id: desktopTaskFile
+        blockWrites: true
+    }
+
+    // The command line Claude Code runs with (it reads the messages on
+    // stdin); resume: the session to go on with ("" for a new one).
+    function claudeCodeScript(attached, resume) {
+        const q = s => `'${CF.StringUtils.shellSingleQuoteEscape(String(s))}'`;
         // No access to the user's files but the folders they allow
         // (ai.allowedFolders: working directories, readable without asking)
         // and a file they attach (that file only). Claude Code runs in an
@@ -314,18 +328,18 @@ Singleton {
                 : " You have no access to the user's files (they can allow folders in Settings > Desktop agents).");
         // --strict-mcp-config leaves out every MCP server but the desktop one,
         // claude.ai connectors included: dropped when they are wanted.
-        let args = ["-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
+        let args = ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
             ...(connectors ? [] : ["--strict-mcp-config"]), "--append-system-prompt", system,
             "--setting-sources", "project",
             "--disallowedTools", "Bash", "Edit", "Write", "NotebookEdit", ...fileTools.filter(t => !readTools.includes(t))];
         for (const folder of folders) args.push("--add-dir", folder);
-        // The message tells the desktop MCP server what the task is: its
-        // memory digest then carries the notes about it, the rest by topic.
-        const task = (last?.role === "user" ? last.rawContent : "").slice(0, 500);
+        // Each message tells the desktop MCP server what the task is (a
+        // file: the server outlives a message): the notes about it then come
+        // with its next reply.
         if (desktop)
             args.push("--mcp-config", JSON.stringify({ mcpServers: { desktop: {
                 command: root.desktopMcpCommand,
-                env: { NIXBOOK_DESKTOP_MCP_QUERY: task },
+                env: { NIXBOOK_DESKTOP_MCP_QUERY_FILE: root.desktopTaskFilePath },
             } } }));
         // Only the allowed built-in tools are loaded at all: Claude Code's
         // full set would double the context of every message.
@@ -336,14 +350,13 @@ Singleton {
         if (allowed.length > 0) args.push("--allowedTools", ...allowed);
         const claudeModel = Config.options.ai.claudeCode.model ?? "";
         if (claudeModel.length > 0) args.push("--model", claudeModel);
-        if (root.claudeSessionId.length > 0) args.push("--resume", root.claudeSessionId);
+        if (resume.length > 0) args.push("--resume", resume);
         // The desktop tools loaded up front: Claude Code otherwise defers MCP
         // tools behind a ToolSearch call, one more round trip per session.
         // Not with the connectors: hundreds of tools would fill every message.
-        // The message on stdin: never read as an option, whatever it starts with.
         return `workdir="\${XDG_DATA_HOME:-$HOME/.local/share}/nixbook-shell/assistant"\n`
             + `mkdir -p "$workdir" && cd "$workdir" || exit 1\n${connectors ? "" : "export ENABLE_TOOL_SEARCH=false\n"}`
-            + `exec ${q(root.claudeCodePath)} ${args.map(q).join(" ")} < <(printf '%s' ${q(prompt)})\n`;
+            + `exec ${q(root.claudeCodePath)} ${args.map(q).join(" ")}\n`;
     }
 
     FileView {
@@ -435,14 +448,34 @@ Singleton {
         blockWrites: true
     }
 
+    // Claude Code, kept running between messages: a message is one line on
+    // its stdin, the answer ends with a "result" event. Started again
+    // (resuming the session) when the command line it needs changes (the
+    // settings, an attached file) or for another chat; started ahead when
+    // the panel opens; closed after a while unused.
     Process {
         id: requester
         property list<string> baseCommand: ["bash"]
+        stdinEnabled: true
         property AiMessageData message
         property AiMessageData activeMessage
         property bool restartPending: false
+        // The command line it runs, without --resume, and the session it
+        // goes on with ("" for a new one, until its first answer names it);
+        // ready once started (stdin open).
+        property string script: ""
+        property string session: ""
+        property bool ready: false
+        // The line to send once it has started; the message being answered.
+        property string pendingLine: ""
+        property bool turnActive: false
+        property bool interrupting: false
 
         function markDone() {
+            requester.turnActive = false;
+            requester.interrupting = false;
+            stopFallback.stop();
+            idleClose.restart();
             if (!requester.activeMessage || requester.activeMessage.done) return;
             requester.activeMessage.done = true;
             requester.activeMessage.thinking = false;
@@ -493,22 +526,46 @@ Singleton {
             root.messageIDs = [...root.messageIDs, id];
             root.messageByID[id] = requester.message;
 
-            const attachedFile = root.pendingFilePath;
+            let attachedFile = root.pendingFilePath;
             if (attachedFile && attachedFile.length > 0) {
                 requester.message.localFilePath = attachedFile;
                 root.pendingFilePath = ""
             }
+            const attached = attachedFile && attachedFile.length > 0 && attachedFile.startsWith("/") ? attachedFile : "";
 
             /* Send the request */
-            const scriptContent = "#!/usr/bin/env bash\n" + root.claudeCodeScript(model, filteredMessageArray, attachedFile);
-            const shellScriptPath = CF.FileUtils.trimFileProtocol(root.requestScriptFilePath)
-            requesterScriptFile.path = Qt.resolvedUrl(shellScriptPath)
-            requesterScriptFile.setText(scriptContent)
+            const prompt = root.claudeCodePrompt(filteredMessageArray, attached);
+            const turns = filteredMessageArray.filter(m => m.role === "user");
+            desktopTaskFile.path = Qt.resolvedUrl(root.desktopTaskFilePath);
+            desktopTaskFile.setText((turns[turns.length - 1]?.rawContent ?? "").slice(0, 500));
+            requester.pendingLine = JSON.stringify({ type: "user", message: { role: "user", content: prompt } }) + "\n";
+            requester.start(attached);
+        }
+
+        // Sends the pending message: to the Claude Code running, when it
+        // fits, else to one started for it.
+        function start(attached) {
+            if (requester.running && !requester.restartPending && !requester.turnActive
+                    && requester.script === root.claudeCodeScript(attached, "")
+                    && requester.session === root.claudeSessionId) {
+                if (requester.ready) requester.send(); // else once started
+                return;
+            }
+            if (requester.activeMessage && requester.activeMessage !== requester.message && !requester.activeMessage.done) {
+                requester.activeMessage.done = true;
+                requester.activeMessage.thinking = false;
+            }
+            requester.launch(attached, root.claudeSessionId);
+        }
+
+        // Starts Claude Code (after stopping the one running): resume, the
+        // session to go on with.
+        function launch(attached, resume) {
+            requester.script = root.claudeCodeScript(attached, "");
+            requester.session = resume;
+            requesterScriptFile.path = Qt.resolvedUrl(CF.FileUtils.trimFileProtocol(root.requestScriptFilePath));
+            requesterScriptFile.setText("#!/usr/bin/env bash\n" + root.claudeCodeScript(attached, resume));
             if (requester.running) {
-                if (requester.activeMessage && requester.activeMessage !== requester.message && !requester.activeMessage.done) {
-                    requester.activeMessage.done = true;
-                    requester.activeMessage.thinking = false;
-                }
                 requester.restartPending = true;
                 requester.signal(15);
             } else {
@@ -517,23 +574,47 @@ Singleton {
         }
 
         function spawn() {
-            requester.activeMessage = requester.message;
+            requester.turnActive = false;
+            requester.ready = false;
             requester.command = baseCommand.concat([CF.FileUtils.trimFileProtocol(root.requestScriptFilePath)]);
             requester.running = true;
         }
 
+        function send() {
+            if (requester.pendingLine.length === 0) return;
+            requester.activeMessage = requester.message;
+            requester.turnActive = true;
+            idleClose.stop();
+            requester.write(requester.pendingLine);
+            requester.pendingLine = "";
+        }
+
+        onStarted: {
+            requester.ready = true;
+            requester.send();
+        }
+
         stdout: SplitParser {
             onRead: data => {
-                if (data.length === 0 || !requester.activeMessage) return;
+                if (data.length === 0 || !requester.activeMessage || !requester.turnActive) return;
                 if (requester.activeMessage.thinking) requester.activeMessage.thinking = false;
                 // console.log("[Ai] Raw response line: ", data);
 
                 // Handle response line
                 try {
+                    // Stopped: the "result" that ends the answer is no error to show.
+                    if (requester.interrupting && data.trim().startsWith("{") && JSON.parse(data).type === "result") {
+                        root.claudeCodeApiStrategy.finished = true;
+                        requester.markDone();
+                        return;
+                    }
                     const result = root.claudeCodeApiStrategy.parseResponseLine(data, requester.activeMessage);
                     // console.log("[Ai] Parsed response result: ", JSON.stringify(result, null, 2));
 
-                    if (result.sessionId) root.claudeSessionId = result.sessionId;
+                    if (result.sessionId) {
+                        root.claudeSessionId = result.sessionId;
+                        requester.session = result.sessionId;
+                    }
                     if (result.tokenUsage) {
                         root.tokenCount.input = result.tokenUsage.input;
                         root.tokenCount.output = result.tokenUsage.output;
@@ -552,10 +633,11 @@ Singleton {
         }
 
         onExited: (exitCode, exitStatus) => {
-            if (requester.activeMessage && !requester.activeMessage.done) {
+            if (requester.turnActive && requester.activeMessage && !requester.activeMessage.done && !requester.interrupting)
                 root.claudeCodeApiStrategy.onRequestFinished(requester.activeMessage);
-                requester.markDone();
-            }
+            requester.markDone();
+            requester.ready = false;
+            idleClose.stop();
             if (requester.restartPending) {
                 requester.restartPending = false;
                 requester.spawn();
@@ -563,13 +645,48 @@ Singleton {
         }
     }
 
-    readonly property bool responding: requester.running
+    // Stop: Claude Code interrupts the answer and waits for the next
+    // message; stopped if it doesn't.
+    Timer {
+        id: stopFallback
+        interval: 5000
+        onTriggered: if (requester.turnActive) { requester.restartPending = false; requester.signal(15); }
+    }
+
+    // Unused for a while: closed (a few hundred MB); the next message
+    // resumes the session.
+    Timer {
+        id: idleClose
+        interval: 15 * 60 * 1000
+        onTriggered: if (requester.running && !requester.turnActive) { requester.restartPending = false; requester.signal(15); }
+    }
+
+    // The panel opened on Claude: Claude Code started ahead, so the first
+    // message doesn't wait for it.
+    readonly property bool claudeWanted: GlobalStates.sidebarLeftOpen && root.claudeCodePath.length > 0
+        && (root.models[root.currentModelId]?.api_format ?? "") === "claude-code" && Config.options.policies.ai !== 2
+    onClaudeWantedChanged: if (claudeWanted) prewarm.restart()
+    Timer {
+        id: prewarm
+        interval: 300
+        onTriggered: {
+            if (!root.claudeWanted || requester.running || requester.turnActive) return;
+            // Only a new chat or the session of this one, with no file attached.
+            requester.pendingLine = "";
+            requester.launch("", root.claudeSessionId);
+        }
+    }
+
+    readonly property bool responding: requester.turnActive
 
     // Stops the answer being written (and, for Claude, what it is doing).
     function stopResponse() {
-        if (!requester.running) return;
+        if (!requester.turnActive) return;
         requester.restartPending = false;
-        requester.signal(15);
+        requester.interrupting = true;
+        requester.write(JSON.stringify({ type: "control_request", request_id: `stop-${Date.now()}`,
+            request: { subtype: "interrupt" } }) + "\n");
+        stopFallback.restart();
     }
 
     function sendUserMessage(message) {

@@ -3082,6 +3082,8 @@ class Context:
         # monitor capture each was sent (monitor_screenshot).
         self.session = None
         self.frames = {}
+        # The task the client was last told the notes of (task_note).
+        self.task_told = None
 
 
 def enabled_tools(cfg):
@@ -3245,12 +3247,43 @@ def instructions_with_desktop():
     return INSTRUCTIONS + ("\n\n" + AGENT_DESKTOP_INSTRUCTIONS if on_agent_desktop() else "")
 
 
+def task_query():
+    """What the client says the task is: NIXBOOK_DESKTOP_MCP_QUERY, or the
+    file NIXBOOK_DESKTOP_MCP_QUERY_FILE names (the shell's AI chat writes
+    each message there: its Claude Code, and so this server, outlive one)."""
+    path = os.environ.get("NIXBOOK_DESKTOP_MCP_QUERY_FILE")
+    if path:
+        try:
+            with open(path, encoding="utf-8", errors="replace") as f:
+                return f.read(500).strip()
+        except OSError:
+            return ""
+    return os.environ.get("NIXBOOK_DESKTOP_MCP_QUERY", "")[:500]
+
+
+def task_note(ctx):
+    """The task changed since the client was last told (a new message in a
+    session that goes on): the notes about it not given yet, or None."""
+    query = task_query()
+    if query == ctx.task_told:
+        return None
+    ctx.task_told = query
+    if not query or "memory" not in ctx.cfg["tools"]:
+        return None
+    found = [n for n in rank_notes(read_memory()["notes"], query)[:4] if n["id"] not in ctx.notes_shown]
+    if not found:
+        return None
+    ctx.notes_shown.update(n["id"] for n in found)
+    count_note_uses({n["id"] for n in found})
+    return "Memory about this task:\n" + "\n".join(f"- [{n['id']}] {n['topic']}: {short(n['text'], 400)}" for n in found)
+
+
 def instructions_with_memory(cfg):
     if "memory" not in cfg["tools"]:
         return instructions_with_desktop()
     # The client may say what the task is (the shell's AI chat passes the
     # user's message): the notes about it then come in full.
-    query = os.environ.get("NIXBOOK_DESKTOP_MCP_QUERY", "")
+    query = task_query()
     digest = memory_digest(cfg, query)
     count_note_uses({n["id"] for n in rank_notes(read_memory()["notes"], query)[:4]})
     return instructions_with_desktop() + ("\n\n" + digest if digest else "\n\nDesktop memory: empty so far.")
@@ -3289,6 +3322,9 @@ class Session:
     def dispatch(self, method, params, session_id=None):
         if method == "initialize":
             remember_desktop_told(self.ctx, session_id, current_desktop())
+            # The instructions carry the notes about the task as it is now.
+            self.ctx.task_told = task_query()
+            self.ctx.notes_shown.update(n["id"] for n in rank_notes(read_memory()["notes"], self.ctx.task_told)[:4])
             info = params.get("clientInfo") or {}
             if info.get("name"):
                 name = re.sub(r"[^\w .\-]", "", str(info["name"]))[:40]
@@ -3313,9 +3349,9 @@ class Session:
                 content, is_error = call_tool(self.ctx, name, params.get("arguments") or {}, session_id)
             except KeyError:
                 raise RpcError(-32602, f"unknown tool: {name}")
-            note = desktop_switch_note(self.ctx, session_id)
-            if note:
-                content = [text(note)] + content
+            for note in (task_note(self.ctx), desktop_switch_note(self.ctx, session_id)):
+                if note:
+                    content = [text(note)] + content
             return {"content": content, "isError": is_error}
         raise RpcError(-32601, f"method not found: {method}")
 
