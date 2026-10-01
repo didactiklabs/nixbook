@@ -218,7 +218,12 @@ which it is; every action's reply names the focused window; action tools
 take `screenshot_after: true` to return a screenshot of the result in the
 same call; `run_steps` does up to 20 actions (keys, typing, clicks, waits)
 in one call, each through the same guardrails; screenshots are JPEG (a
-fraction of a PNG's size; `screenshotFormat`, `screenshotQuality`).
+fraction of a PNG's size; `screenshotFormat`, `screenshotQuality`). A
+monitor screenshot sends only what changed since the agent's last one (up
+to 3 crops, each with its own mapping), or just says nothing did: an image
+costs the model about width × height / 750 tokens (~1,850 at 1568px), and
+most screenshots after an action change a small part (`full: true` sends
+it all).
 
 **Desktop memory**, so the next task is faster: agents keep notes of what
 worked (`remember`: an app's shortcut, where a setting is, which app does
