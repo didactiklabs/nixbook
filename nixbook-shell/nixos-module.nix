@@ -11,13 +11,9 @@
 # module. Optional: without it, only the Home Manager toggles are known.
 #
 # Also the login screen in the shell's style (greeter.nix,
-# `nixbook-shell.greeter`, off unless enabled), and the firewall of the app
-# debugging ports desktop-mcp uses (agent-ports.nix).
+# `nixbook-shell.greeter`, off unless enabled).
 {
-  imports = [
-    ./greeter.nix
-    ./agent-ports.nix
-  ];
+  imports = [ ./greeter.nix ];
 
   options.nixbook-shell.toggles = lib.mkOption {
     type = lib.types.listOf (lib.types.attrsOf lib.types.anything);
