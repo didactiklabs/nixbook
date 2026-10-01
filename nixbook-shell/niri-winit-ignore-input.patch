@@ -1,0 +1,24 @@
+diff --git a/src/backend/winit.rs b/src/backend/winit.rs
+index a9bcc515..399646ee 100644
+--- a/src/backend/winit.rs
++++ b/src/backend/winit.rs
+@@ -100,6 +100,11 @@ impl Winit {
+ 
+         let damage_tracker = OutputDamageTracker::from_output(&output);
+ 
++        // A view only: input from the window is dropped, the session is
++        // driven through virtual input devices (wlr-virtual-pointer,
++        // virtual-keyboard) instead.
++        let ignore_input = std::env::var_os("NIRI_WINIT_IGNORE_INPUT").is_some();
++
+         event_loop
+             .insert_source(winit, move |event, _, state| match event {
+                 WinitEvent::Resized { size, .. } => {
+@@ -129,6 +134,7 @@ impl Winit {
+ 
+                     state.niri.output_resized(&winit.output);
+                 }
++                WinitEvent::Input(_) if ignore_input => (),
+                 WinitEvent::Input(event) => state.process_input_event(event),
+                 WinitEvent::Focus(_) => (),
+                 WinitEvent::Redraw => state.niri.queue_redraw(&state.backend.winit().output),

@@ -819,8 +819,10 @@ cat >"$bin/systemctl" <<'EOF'
 echo "systemctl $*" >>"$STUB_CALLS"
 [ -z "${STUB_SYSTEMCTL_FAIL:-}" ] || { echo "Unit nixbook-agent-desktop.service not found." >&2; exit 5; }
 if [ "$2" = start ]; then
-  python3 -c 'import socket, sys
-for p in sys.argv[1:]: socket.socket(socket.AF_UNIX).bind(p)' "$XDG_RUNTIME_DIR/wayland-9" "$STUB_AGENT_SOCKET"
+  python3 -c 'import os, socket, sys
+for p in sys.argv[1:]:
+    if os.path.exists(p): os.unlink(p)
+    socket.socket(socket.AF_UNIX).bind(p)' "$XDG_RUNTIME_DIR/wayland-9" "$STUB_AGENT_SOCKET"
   printf 'WAYLAND_DISPLAY=wayland-9\nNIRI_SOCKET=%s\n' "$STUB_AGENT_SOCKET" >"$XDG_RUNTIME_DIR/nixbook-desktop-mcp/agent-desktop.env"
 fi
 EOF
@@ -854,11 +856,16 @@ rm -f "$calls.launched"
 out=$(call launch_app '{"app": "firefox"}')
 expect_contains "agent desktop: an app opening on the user's desktop is reported" "$out" "opened its window on the user's desktop"
 rm -f "$calls.launched"
-# Gone (niri exited, or crashed and left the env file): started again.
+# Closed by the user (niri gone, or crashed and left the env file): that
+# stops the agents, only the user opens it again.
 rm -f "$STUB_AGENT_SOCKET"
 reset_calls
-call list_windows >/dev/null
-expect_eq "agent desktop: restarted when its socket is gone" "systemctl --user start nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
+out=$(call list_windows)
+expect_contains "agent desktop closed: the agents are stopped" "$out" "the user closed your desktop"
+expect_eq "agent desktop closed: not started again by an agent" "" "$(grep systemctl "$calls" || true)"
+python3 "$mcp" desktop toggle >/dev/null
+expect_eq "agent desktop closed: the toggle opens it again" "systemctl --user start nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
+expect_eq "agent desktop closed: the toggle stays on it" agent "$(python3 "$mcp" desktop status | jq -r .desktop)"
 python3 "$mcp" desktop user >/dev/null
 call focus_window '{"id": 1}' >/dev/null
 expect_eq "desktop user: tools reach the user's niri again" /dev/null "$(cat "$calls.socket")"
