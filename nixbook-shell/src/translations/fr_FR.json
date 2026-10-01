@@ -624,5 +624,10 @@
   "Good evening": "Bonsoir",
   "Show password": "Afficher le mot de passe",
   "Hide password": "Masquer le mot de passe",
-  "Sign in": "Se connecter"
+  "Sign in": "Se connecter",
+  "Open": "Ouvrir",
+  "The assistant is waiting for you": "L'assistant vous attend",
+  "The assistant is done": "L'assistant a terminé",
+  "Notify me when the assistant is done or waiting for me": "M'avertir quand l'assistant a terminé ou m'attend",
+  "Only while the side panel is closed, and not in Do Not Disturb.": "Seulement quand le panneau latéral est fermé, et pas en mode Ne pas déranger."
 }

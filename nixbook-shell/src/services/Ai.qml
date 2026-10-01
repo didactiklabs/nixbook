@@ -474,6 +474,7 @@ Singleton {
         property bool interrupting: false
 
         function markDone() {
+            const stopped = requester.interrupting;
             requester.turnActive = false;
             requester.interrupting = false;
             stopFallback.stop();
@@ -483,6 +484,8 @@ Singleton {
             requester.activeMessage.thinking = false;
             root.saveChat("lastSession")
             root.responseFinished()
+            // Stopped by the user: they're there already.
+            if (!stopped) root.notifyDone(requester.activeMessage);
         }
 
         function makeRequest() {
@@ -680,6 +683,31 @@ Singleton {
     }
 
     readonly property bool responding: requester.turnActive
+
+    // Claude finished a turn while the panel is closed (ai.notifyWhenDone):
+    // a notification says so, "waiting for you" when it ends on a question,
+    // and its Open button opens the panel. Not in Do Not Disturb.
+    property string doneNotice: ""
+    function notifyDone(message) {
+        if (!(Config.options?.ai?.notifyWhenDone ?? true) || GlobalStates.sidebarLeftOpen || Notifications.silent) return;
+        const lines = (message?.rawContent ?? "").split("\n")
+            .map(l => l.replace(/[*_`#>]+/g, "").replace(/\s+/g, " ").trim())
+            .filter(l => l.length > 0);
+        const last = lines.length > 0 ? lines[lines.length - 1] : "";
+        const asks = /[?？]$/.test(last);
+        root.doneNotice = last.length > 140 ? last.slice(0, 139) + "…" : last;
+        doneNotifier.command = ["notify-send", "-a", "Shell", "-A", "open=" + Translation.tr("Open"), "--",
+            asks ? Translation.tr("The assistant is waiting for you") : Translation.tr("The assistant is done"),
+            root.doneNotice];
+        doneNotifier.running = false;
+        doneNotifier.running = true;
+    }
+    Process {
+        id: doneNotifier
+        stdout: StdioCollector {
+            onStreamFinished: if (this.text.trim() === "open") GlobalStates.sidebarLeftOpen = true
+        }
+    }
 
     // Stops the answer being written (and, for Claude, what it is doing).
     function stopResponse() {

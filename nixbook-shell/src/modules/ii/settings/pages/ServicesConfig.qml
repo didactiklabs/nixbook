@@ -67,6 +67,16 @@ ContentPage {
                     text: Translation.tr("Appended to the system prompt, so the assistant knows how this system is set up.\nIt is sent to the selected AI provider with each request.")
                 }
             }
+            ConfigSwitch {
+                configKey: "ai.notifyWhenDone"
+                buttonIcon: "notifications_active"
+                text: Translation.tr("Notify me when the assistant is done or waiting for me")
+                checked: Config.options.ai.notifyWhenDone
+                onCheckedChanged: Config.options.ai.notifyWhenDone = checked
+                StyledToolTip {
+                    text: Translation.tr("Only while the side panel is closed, and not in Do Not Disturb.")
+                }
+            }
         }
 
         ContentSection {
