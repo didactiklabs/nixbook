@@ -3259,13 +3259,15 @@ def desktop_command(argv):
         with open(agent_desktop_flag(), "w", encoding="utf-8") as f:
             f.write("agent\n")
         try:
-            start_agent_desktop()
+            env = start_agent_desktop()
         except ToolError as e:
             os.unlink(agent_desktop_flag())
             print(f"agents stay on your desktop: {e}", file=sys.stderr)
             return 1
         write_state(desktop="agent")
-        notify_desktop("Agents now work on their own desktop")
+        shown = show_agent_desktop(env)
+        notify_desktop("Agents now work on their own desktop"
+                       + (", in the window just focused" if shown else "") + ". Mod+Shift+A brings them back to yours.")
         print("agents work on their own desktop")
         return 0
     if sub == "user":
@@ -3274,7 +3276,7 @@ def desktop_command(argv):
         except FileNotFoundError:
             pass
         write_state(desktop="user")
-        notify_desktop("Agents now work on your desktop")
+        notify_desktop("Agents now work on your desktop again. Theirs stays open (nixbook-desktop-mcp desktop stop closes it).")
         print("agents work on your desktop (the agent desktop stays open: `desktop stop` closes it)")
         return 0
     if sub == "stop":
@@ -3289,6 +3291,27 @@ def desktop_command(argv):
         return 0
     print(USAGE, end="", file=sys.stderr)
     return 2
+
+
+def show_agent_desktop(env):
+    """Focuses the agent desktop's window on the user's desktop, so niri
+    scrolls it into view: it opens unfocused (the niri window rule), beside
+    the user's work and often out of view. Only when the user switches to
+    it: an agent restarting it doesn't take the user's focus."""
+    # The nested niri's pid, from its socket's name (niri.wayland-1.<pid>.sock).
+    pid = os.path.basename(env["NIRI_SOCKET"]).split(".")[-2]
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        try:
+            nested = [w for w in niri_json("windows", env=user_desktop_env()) if w.get("app_id") == "niri"]
+        except ToolError:
+            return False
+        win = next((w for w in nested if str(w.get("pid")) == pid), nested[-1] if nested else None)
+        if win:
+            run(["niri", "msg", "action", "focus-window", "--id", str(win["id"])], env=user_desktop_env(), check=False)
+            return True
+        time.sleep(0.2)
+    return False
 
 
 def notify_desktop(message):

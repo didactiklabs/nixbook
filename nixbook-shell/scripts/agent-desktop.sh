@@ -86,14 +86,10 @@ animations {
     off
 }
 screenshot-path null
-layout {
-    gaps 8
-    default-column-width {
-        proportion 1.0
-    }
-    focus-ring {
-        width 2
-    }
+// Every window fills the whole screen, edge to edge (maximized, not
+// fullscreen: a fullscreen browser hides its tabs and address bar).
+window-rule {
+    open-maximized-to-edges true
 }
 environment {
     HOME $(kdl "$agent_home")
