@@ -154,6 +154,8 @@ environment {
     // GTK's own file chooser: the portal's would open on the user's desktop.
     GDK_DEBUG "no-portals"
     GTK_USE_PORTAL "0"
+    // This niri's own, not its apps' (see its bwrap below).
+    vblank_mode null
 }
 // The private bus activates services (D-Bus activated apps) here, with the
 // agent's home.
@@ -273,6 +275,13 @@ if [ ! -e /etc/dbus-1/session.conf ]; then
   bus_config=(--config-file "$(dirname "$(command -v dbus-daemon)")/../share/dbus-1/session.conf")
 fi
 
+# vblank_mode=0 (Mesa: swap interval 0): its buffer swaps never wait for
+# the user's niri. With the default (1), a swap waits for a frame callback,
+# which the user's niri doesn't send while this window is hidden (another
+# workspace, scrolled off, behind a fullscreen window), and its niri renders
+# on every redraw: the first one while hidden blocked its event loop, and
+# every client (wtype, wl-copy, niri msg) timed out until the window was
+# shown again. Its apps don't inherit it (the config's environment).
 ${network[@]+"${network[@]}"} bwrap "${sandbox[@]}" \
   --setenv XDG_RUNTIME_DIR "$session_runtime" \
   --setenv WAYLAND_DISPLAY "$restricted_display" \
@@ -281,6 +290,7 @@ ${network[@]+"${network[@]}"} bwrap "${sandbox[@]}" \
   --setenv NIRI_WINIT_TITLE "Assistant's desktop" \
   --setenv NIRI_WINIT_APP_ID nixbook-agent-desktop \
   --setenv NIRI_KEEP_FULLSCREEN 1 \
+  --setenv vblank_mode 0 \
   --unsetenv DBUS_SESSION_BUS_ADDRESS --unsetenv DISPLAY --unsetenv NIRI_SOCKET \
   -- dbus-run-session "${bus_config[@]}" -- niri -c "$config" {restricted_fd}>&- &
 niri_pid=$!
