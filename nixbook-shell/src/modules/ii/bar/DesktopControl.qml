@@ -12,7 +12,8 @@ import Quickshell
 // button. Idle: a dim robot; an agent acting: a pulsing robot in the accent
 // colour; paused: a red hand. Click pauses every agent (or allows them again).
 // Where they work: a window icon beside it while they're on a desktop of their
-// own (red once its window is closed: they're stopped; a hand while the user
+// own (accent while its window is open, faint while it waits for their next
+// app, red once the user closed it: they're stopped; a hand while the user
 // has taken it over); right-click switches between theirs and the user's.
 MouseArea {
     id: root
@@ -32,8 +33,9 @@ MouseArea {
 
     readonly property bool ownDesktop: DesktopControl.onAgentDesktop
     readonly property string deskIcon: DesktopControl.userHasControl ? "touch_app" : "picture_in_picture"
-    readonly property color deskColor: DesktopControl.agentDesktopOpen ? Appearance.colors.colPrimary
-        : Appearance.m3colors.m3error
+    readonly property color deskColor: DesktopControl.agentStopped ? Appearance.m3colors.m3error
+        : DesktopControl.agentDesktopOpen ? Appearance.colors.colPrimary
+        : Appearance.colors.colOnLayer1
 
     readonly property string icon: DesktopControl.paused ? "pan_tool" : "smart_toy"
     readonly property color iconColor: DesktopControl.paused ? Appearance.m3colors.m3error
@@ -161,9 +163,10 @@ MouseArea {
                 icon: root.ownDesktop ? root.deskIcon : "desktop_windows"
                 label: Translation.tr("Desktop")
                 value: !root.ownDesktop ? Translation.tr("Yours")
+                    : DesktopControl.agentStopped ? Translation.tr("Its own, closed by you: stopped")
                     : DesktopControl.userHasControl ? Translation.tr("Its own, you have control")
                     : DesktopControl.agentDesktopOpen ? Translation.tr("Its own, in a window")
-                    : Translation.tr("Its own, closed: stopped")
+                    : Translation.tr("Its own, opens with its next app")
             }
 
             StyledPopupValueRow {
@@ -187,8 +190,8 @@ MouseArea {
             StyledText {
                 Layout.fillWidth: true
                 text: !root.ownDesktop ? Translation.tr("Right-click to give them their own desktop")
-                    : DesktopControl.agentDesktopOpen ? Translation.tr("Right-click to bring them back to yours")
-                    : Translation.tr("Right-click to open their desktop again")
+                    : DesktopControl.agentStopped ? Translation.tr("Right-click to switch them on again")
+                    : Translation.tr("Right-click to bring them back to yours")
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colSubtext
             }

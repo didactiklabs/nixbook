@@ -266,16 +266,43 @@ def user_has_control():
         return False
 
 
-def use_desktop():
+def agent_stopped_flag():
+    """The user closed the agent desktop's window (or `desktop stop`): that
+    stops the agents until the user switches them on again. Written by the
+    launcher when niri exits without the closing-because-empty marker; in the
+    state directory, so it survives a reboot."""
+    return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-shell", "agent-desktop-stopped")
+
+
+def agent_stopped():
+    return os.path.exists(agent_stopped_flag())
+
+
+def needs_agent_desktop(name, group):
+    """Tools that look at or act on the agent desktop's windows."""
+    return group in ("screen", "windows", "input") or name in ("list_windows", "list_workspaces")
+
+
+def use_desktop(name="get_status", group="observe"):
     """Points the tools at the desktop agents use now. Returns "agent" or
-    "user". The agent desktop isn't started here: closing its window is how
-    the user stops the agents, only the user starts it again."""
+    "user". The agent desktop is never left open empty: launch_app opens it
+    (unfocused, beside the user's work), it closes by itself once its last
+    app is gone (the launcher's watcher), and the other window tools wait for
+    an app. Closing its window is how the user stops the agents: then every
+    tool is refused until the user switches them on again."""
     if on_agent_desktop():
-        env = agent_desktop_env()
-        if not env:
-            raise ToolError("refused: the user closed your desktop, which stops you. Ask them to open it "
+        if agent_stopped():
+            raise ToolError("refused: the user closed your desktop, which stops you. Ask them to switch you on "
                             "again (Mod+Shift+A, or `nixbook-desktop-mcp desktop agent`) if they want you to go on.")
-        os.environ.update(env)
+        env = agent_desktop_env()
+        if not env and name == "launch_app":
+            env = start_agent_desktop()
+            notify_desktop("The assistant opened its desktop, beside your work.")
+        if env:
+            os.environ.update(env)
+        elif needs_agent_desktop(name, group):
+            raise ToolError("your desktop is closed while no app is open on it: start the app you need with "
+                            "launch_app (it opens your desktop)")
         return "agent"
     for k, v in USER_DESKTOP_ENV.items():
         if v is None:
@@ -585,8 +612,10 @@ WS = {
 def t_get_status(ctx, args):
     try:
         ctx.desktop = use_desktop()
+        if ctx.desktop == "agent" and not agent_desktop_env():
+            ctx.desktop = "agent (closed until you start an app with launch_app)"
     except ToolError as e:
-        ctx.desktop = f"agent (not running: {e})"
+        ctx.desktop = f"agent ({e})"
     focused = None
     try:
         focused = focused_window()
@@ -2854,7 +2883,7 @@ def call_tool(ctx, name, args):
         write_state(last={"time": int(time.time() * 1000), "client": ctx.client, "tool": name, "outcome": "running"})
         try:
             if name != "get_status":  # it says why the agent desktop can't start
-                ctx.desktop = use_desktop()
+                ctx.desktop = use_desktop(name, t["group"])
             if ctx.desktop == "agent" and t["group"] in ACTION_GROUPS and user_has_control():
                 raise ToolError("refused: the user took over your desktop for a moment (to log in somewhere, "
                                 "say). Wait and try again later; screenshots still show what they do.")
@@ -2933,7 +2962,8 @@ AGENT_DESKTOP_INSTRUCTIONS = (
     "watch, but can't click or type in it). The "
     "window, screen and input tools act there. Its apps are yours, not the "
     "user's: their own profiles, logged out of the user's accounts, and none "
-    "of the user's windows; start what you need with launch_app. It shows "
+    "of the user's windows; start what you need with launch_app, which opens "
+    "your desktop (it closes by itself once your last app is gone). It shows "
     "one app at a time, filling it: launch_app closes the one before, so "
     "finish with an app (save, note what you need) before starting another. "
     "The shell "
@@ -3298,24 +3328,24 @@ def desktop_command(argv):
     them their own desktop, `desktop user` brings them back to the user's."""
     sub = argv[0] if argv else "status"
     if sub == "toggle":
-        # On the agent desktop but closed: open it again.
-        sub = "user" if on_agent_desktop() and agent_desktop_env() else "agent"
+        # Stopped (the user closed its window): switched on again.
+        sub = "user" if on_agent_desktop() and not agent_stopped() else "agent"
     if sub == "agent":
         os.makedirs(os.path.dirname(agent_desktop_flag()), mode=0o700, exist_ok=True)
         with open(agent_desktop_flag(), "w", encoding="utf-8") as f:
             f.write("agent\n")
         try:
-            env = start_agent_desktop()
-        except ToolError as e:
-            os.unlink(agent_desktop_flag())
-            print(f"agents stay on your desktop: {e}", file=sys.stderr)
-            return 1
+            os.unlink(agent_stopped_flag())
+        except FileNotFoundError:
+            pass
         write_state(desktop="agent")
-        shown = show_agent_desktop(env)
-        notify_desktop("Agents now work on their own desktop"
-                       + (", in the window just focused" if shown else "")
+        # Open already (an app on it): shown; else it opens with the agent's next app.
+        env = agent_desktop_env()
+        shown = bool(env) and show_agent_desktop(env)
+        notify_desktop("Agents now work on their own desktop: "
+                       + ("the window just focused" if shown else "a window that opens when they start an app")
                        + ". Close it to stop them; Mod+Shift+A brings them back to yours.")
-        print("agents work on their own desktop")
+        print("agents work on their own desktop" + ("" if env else " (it opens when they start an app)"))
         return 0
     if sub == "user":
         try:
@@ -3323,8 +3353,10 @@ def desktop_command(argv):
         except FileNotFoundError:
             pass
         write_state(desktop="user")
-        notify_desktop("Agents now work on your desktop again. Theirs stays open (nixbook-desktop-mcp desktop stop closes it).")
-        print("agents work on your desktop (the agent desktop stays open: `desktop stop` closes it)")
+        open_now = bool(agent_desktop_env())
+        notify_desktop("Agents now work on your desktop again."
+                       + (" Theirs closes once its apps are gone (or close it)." if open_now else ""))
+        print("agents work on your desktop" + (" (theirs closes once its apps are gone)" if open_now else ""))
         return 0
     if sub == "interact":
         want = argv[1] if len(argv) > 1 else "toggle"
@@ -3333,7 +3365,7 @@ def desktop_command(argv):
         if want == "on":
             env = agent_desktop_env() if on_agent_desktop() else None
             if not env:
-                print("the assistant's desktop isn't open (`desktop agent` opens it)", file=sys.stderr)
+                print("the assistant's desktop isn't open (it opens when the assistant starts an app)", file=sys.stderr)
                 return 1
             fd = os.open(agent_input_flag(), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
             os.close(fd)
@@ -3355,14 +3387,19 @@ def desktop_command(argv):
         print(USAGE, end="", file=sys.stderr)
         return 2
     if sub == "stop":
+        if on_agent_desktop():
+            os.makedirs(os.path.dirname(agent_stopped_flag()), mode=0o700, exist_ok=True)
+            with open(agent_stopped_flag(), "w", encoding="utf-8") as f:
+                f.write("stopped\n")
         run(["systemctl", "--user", "stop", AGENT_DESKTOP_UNIT], timeout=20, check=False)
-        print("agent desktop closed" + (": the agents are stopped until you open it again (`desktop agent`) "
+        print("agent desktop closed" + (": the agents are stopped until you switch them on again (`desktop agent`) "
                                         "or bring them back to yours (`desktop user`)" if on_agent_desktop() else ""))
         return 0
     if sub == "status":
         env = agent_desktop_env()
         print(json.dumps({"desktop": "agent" if on_agent_desktop() else "user", "agent_desktop_running": bool(env),
-                          "agent_desktop": env, "user_has_control": user_has_control()}, indent=1))
+                          "agent_desktop": env, "user_has_control": user_has_control(),
+                          "stopped_by_user": on_agent_desktop() and agent_stopped()}, indent=1))
         return 0
     print(USAGE, end="", file=sys.stderr)
     return 2

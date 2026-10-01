@@ -84,9 +84,9 @@ ContentPage {
                 ConfigSwitch {
                     buttonIcon: "picture_in_picture"
                     text: Translation.tr("Agents work on their own desktop")
-                    checked: DesktopControl.onAgentDesktop
+                    checked: DesktopControl.onAgentDesktop && !DesktopControl.agentStopped
                     onClicked: {
-                        if (DesktopControl.onAgentDesktop) DesktopControl.userDesktop();
+                        if (DesktopControl.onAgentDesktop && !DesktopControl.agentStopped) DesktopControl.userDesktop();
                         else DesktopControl.agentDesktop();
                     }
                 }
@@ -103,8 +103,8 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("On their own desktop, agents work in a window you watch but can't click or type into, with their own browser and apps, so they don't get in your way; your notes, to-do list and calendar stay reachable. Close the window to stop them. Mod+Shift+A, right-clicking the bar widget and the desktop menu switch too. To use their desktop yourself for a moment (to log their browser in somewhere), take it over: your clicks and keys reach it and the agent waits until you give it back.")
-                    + (DesktopControl.onAgentDesktop && !DesktopControl.agentDesktopOpen ? " " + Translation.tr("Their desktop is closed: they're stopped until you open it again.") : "")
+                text: Translation.tr("On their own desktop, agents work in a window you watch but can't click or type into, with their own browser and apps, so they don't get in your way; your notes, to-do list and calendar stay reachable. The window opens when they start an app and closes once it's gone; close it yourself to stop them. Mod+Shift+A, right-clicking the bar widget and the desktop menu switch too. To use their desktop yourself for a moment (to log their browser in somewhere), take it over: your clicks and keys reach it and the agent waits until you give it back.")
+                    + (DesktopControl.onAgentDesktop && DesktopControl.agentStopped ? " " + Translation.tr("You closed their desktop: they're stopped until you switch this on again.") : "")
             }
         }
 

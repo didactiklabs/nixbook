@@ -421,17 +421,18 @@ Scope {
                                 StyledText { Layout.fillWidth: true; text: Translation.tr("Assistant's desktop"); font.pixelSize: Appearance.font.pixelSize.normal; color: Appearance.colors.colOnLayer1; elide: Text.ElideRight }
                                 StyledText {
                                     text: !DesktopControl.onAgentDesktop ? Translation.tr("Off")
-                                        : DesktopControl.agentDesktopOpen ? Translation.tr("On")
-                                        : Translation.tr("Closed")
+                                        : DesktopControl.agentStopped ? Translation.tr("Stopped")
+                                        : Translation.tr("On")
                                     font.pixelSize: Appearance.font.pixelSize.small
                                     color: Appearance.colors.colOnLayer1
                                     opacity: 0.6
                                 }
                                 MaterialSymbol {
-                                    text: DesktopControl.onAgentDesktop && DesktopControl.agentDesktopOpen ? "toggle_on" : "toggle_off"
+                                    readonly property bool on: DesktopControl.onAgentDesktop && !DesktopControl.agentStopped
+                                    text: on ? "toggle_on" : "toggle_off"
                                     iconSize: Appearance.font.pixelSize.larger
-                                    color: DesktopControl.onAgentDesktop && DesktopControl.agentDesktopOpen ? Appearance.colors.colPrimary : Appearance.colors.colOnLayer1
-                                    opacity: DesktopControl.onAgentDesktop && DesktopControl.agentDesktopOpen ? 1 : 0.5
+                                    color: on ? Appearance.colors.colPrimary : Appearance.colors.colOnLayer1
+                                    opacity: on ? 1 : 0.5
                                 }
                             }
                             onClicked: {
