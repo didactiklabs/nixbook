@@ -387,8 +387,9 @@ keyboard focus, clipboard and windows, so nothing the agent does moves your
 windows, takes your focus or types into what you're typing in.
 
 To you it's one more app window: nothing is on the agent's desktop but the
-one app it works in, filling it edge to edge (maximized, not fullscreen, so
-a browser keeps its tabs and address bar): no bar, no focus ring or
+one app it works in, fullscreen (a browser's tabs and address bar are
+hidden then; the agents are told to use its shortcuts, and an app leaving
+fullscreen stays maximized to the edges): no bar, no focus ring or
 borders, no hot corner, and `launch_app` closes the agent's previous app
 when it starts another (that app's own dialogs stay), so there's never a
 layout inside. The bar widget shows a window icon beside its robot while
