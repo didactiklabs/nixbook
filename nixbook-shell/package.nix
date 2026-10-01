@@ -39,12 +39,31 @@ let
           wl-clipboard
           libnotify
           imagemagick # scales window captures down
+          systemd # systemctl: starts the agent desktop (agentDesktop)
         ]
       )
     }:$PATH"
     export NIXBOOK_DESKTOP_MCP_QS="${quickshell}/bin/qs"
     export NIXBOOK_DESKTOP_MCP_QS_CONFIG="${configName}"
     exec ${pkgs.python3}/bin/python3 ${./scripts/desktop-mcp.py} "$@"
+  '';
+
+  # A desktop of their own for AI agents (scripts/agent-desktop.sh): a nested
+  # niri that `nixbook-desktop-mcp desktop agent` points the agents' tools
+  # at, run by the `nixbook-agent-desktop` user service.
+  agentDesktop = pkgs.writeShellScriptBin "nixbook-agent-desktop" ''
+    export PATH="${
+      lib.makeBinPath (
+        with pkgs;
+        [
+          niri
+          dbus # dbus-run-session, dbus-update-activation-environment (--separate)
+          xwayland-satellite # X11 apps on the agent desktop, not the user's
+          coreutils
+        ]
+      )
+    }:$PATH"
+    exec ${pkgs.bash}/bin/bash ${./scripts/agent-desktop.sh} "$@"
   '';
 
   # Upstream probes ~40 tools with `command -v` and shells out to them from QML
@@ -213,6 +232,7 @@ launcher.overrideAttrs (old: {
       settingsLib
       cliphistWatch
       desktopMcp
+      agentDesktop
       fonts
       ;
   };

@@ -358,6 +358,38 @@ off screen is only captured through niri with `offscreen: true`, which the
 tool tells agents to avoid: niri copies its captures to the clipboard and
 notifies (the previous clipboard is put back, but cliphist records it).
 
+### A desktop of their own
+
+So an agent can work while you work, it can be given its own desktop:
+`nixbook-desktop-mcp desktop agent` (or `Mod+Shift+A`, which toggles)
+starts `nixbook-agent-desktop` (`scripts/agent-desktop.sh`, the user
+service of the same name): a nested niri, shown as a window on your desktop
+that opens beside your work without taking the focus. Every agent's tools
+then act there: its own pointer, keyboard focus, clipboard and windows, so
+nothing the agent does moves your windows, takes your focus or types into
+what you're typing in. `desktop user` brings the agents back to your
+desktop, `desktop stop` closes theirs, `desktop status` says which is in
+use (also `get_status`); the choice survives a reboot, and the agent desktop
+is started again when an agent acts and it isn't running.
+
+Its apps run as yours: your settings, browser profiles and logins, the same
+D-Bus session (keyring, notifications); the agents are told they're on a
+desktop of their own and start what they need with `launch_app`. The catch
+is single-instance apps: one you already have open (your browser, Electron
+and GApplication apps) hands a new launch to that copy, so its window opens
+on your desktop. `launch_app` sees it there and tells the agent it can't use
+that app, rather than letting it drive your desktop. With
+`desktopMcp.agentDesktop.separateHome = true` the agent desktop's apps get
+their own home (`~/.local/share/nixbook-shell/agent-home`, your GTK/Qt/font
+settings linked in, logged out of your accounts) and a private bus instead,
+so a second copy of any app opens there. File choosers are GTK's own on the
+agent desktop (the portal's would open on yours).
+
+Why not two seats in one niri (two pointers and keyboards on your
+desktop)? niri has one focus and one view per workspace, and most apps
+ignore input from a second Wayland seat (Chromium and Electron entirely,
+kitty too): a nested compositor needs no niri patch and works with every app.
+
 ## Look and feel
 
 The type is Google Sans Flex (main, titles, numbers), with Space Grotesk for
