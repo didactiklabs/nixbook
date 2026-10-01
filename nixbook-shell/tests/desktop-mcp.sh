@@ -78,6 +78,7 @@ if [ "$1 $2" = "msg --json" ]; then
         {id: 5, app_id: "org.gnome.Calculator", title: "Calculator", workspace_id: 10, is_focused: false, is_floating: true,
          layout: {window_size: [400, 300], tile_pos_in_workspace_view: [10, 20], window_offset_in_tile: [2, 3]}}
       ] + (if $launched then [{id: 6, app_id: $launched_app, title: "New Tab", workspace_id: 10, is_focused: false, is_floating: false}] else [] end)
+      + (if env.STUB_NESTED_WINDOW then [{id: 9, app_id: "niri", title: "niri", pid: 1, workspace_id: 10, is_focused: false, is_floating: false}] else [] end)
       | map(select(.id as $i | $hidden | index($i) | not))' ;;
     workspaces)
       echo '[{"id":10,"idx":1,"name":null,"output":"eDP-1","is_active":true,"is_focused":true,"active_window_id":1},
@@ -831,8 +832,11 @@ out=$(STUB_SYSTEMCTL_FAIL=1 python3 "$mcp" desktop agent 2>&1 || true)
 expect_contains "desktop agent: refused when it can't start" "$out" "agents stay on your desktop"
 expect_eq "desktop agent: not switched when it can't start" user "$(python3 "$mcp" desktop status | jq -r .desktop)"
 reset_calls
-python3 "$mcp" desktop agent >/dev/null
+STUB_NESTED_WINDOW=1 python3 "$mcp" desktop agent >/dev/null
 expect_eq "desktop agent: starts the service" "systemctl --user start nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
+# Its window (niri.wayland-9.1.sock: pid 1) opens out of view: brought in.
+expect_eq "desktop agent: its window focused on the user's niri" "niri msg action focus-window --id 9" "$(grep focus-window "$calls")"
+expect_eq "desktop agent: focused through the user's niri" /dev/null "$(cat "$calls.socket")"
 expect_eq "desktop agent: persisted" agent "$(python3 "$mcp" desktop status | jq -r .desktop)"
 call focus_window '{"id": 1}' >/dev/null
 expect_eq "agent desktop: tools reach its niri" "$STUB_AGENT_SOCKET" "$(cat "$calls.socket")"

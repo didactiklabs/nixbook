@@ -364,7 +364,10 @@ So an agent can work while you work, it can be given its own desktop:
 `nixbook-desktop-mcp desktop agent` (or `Mod+Shift+A`, which toggles)
 starts `nixbook-agent-desktop` (`scripts/agent-desktop.sh`, the user
 service of the same name): a nested niri, shown as a window on your desktop
-that opens beside your work without taking the focus. Every agent's tools
+that opens beside your work without taking the focus (switching to it
+focuses the window, so niri scrolls it into view; an agent restarting it
+doesn't). Every window on it fills its screen, edge to edge (maximized, not
+fullscreen, so a browser keeps its tabs and address bar). Every agent's tools
 then act there: its own pointer, keyboard focus, clipboard and windows, so
 nothing the agent does moves your windows, takes your focus or types into
 what you're typing in. `desktop user` brings the agents back to your
