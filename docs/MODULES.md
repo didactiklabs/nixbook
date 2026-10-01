@@ -148,7 +148,7 @@ Whether to enable Fcitx5 Lotus — an open-source Vietnamese input method for fc
 ### `customNixOSModules.fcitx5-lotus.package`
 
 - **Type:** `package`
-- **Default:** `"/nix/store/57h2kaxfy30gkxk2ck4j5r5596mrwvsc-fcitx5-lotus-3.5.10"`
+- **Default:** `"/nix/store/hmzs8x2z13s5a02hqrqlklzndrh4aj6w-fcitx5-lotus-3.6.0"`
 
 The fcitx5-lotus package to install.
 
