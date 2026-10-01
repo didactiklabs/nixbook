@@ -57,7 +57,7 @@ let
         with pkgs;
         [
           niri
-          dbus # dbus-run-session, dbus-update-activation-environment (--separate)
+          dbus # dbus-run-session: the agent apps' own session bus
           xwayland-satellite # X11 apps on the agent desktop, not the user's
           coreutils
         ]

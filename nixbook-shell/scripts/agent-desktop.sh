@@ -1,37 +1,26 @@
 #!/usr/bin/env bash
-# nixbook-agent-desktop [--separate]: a desktop of its own for AI agents, so
-# they can work while the user works. A nested niri (a window on the user's
-# desktop) that `nixbook-desktop-mcp desktop agent` points every agent tool
-# at: its own pointer, keyboard focus, clipboard and windows; nothing it does
-# moves the user's windows or takes their focus.
+# nixbook-agent-desktop: a desktop of its own for AI agents, so they can work
+# while the user works. A nested niri (a window on the user's desktop) that
+# `nixbook-desktop-mcp desktop agent` points the agents' window, screen and
+# input tools at: its own pointer, keyboard focus, clipboard and windows;
+# nothing it does moves the user's windows or takes their focus. (Their shell
+# tools, the notes widget, to-do list, calendar, still reach the user's
+# shell: desktop-mcp talks to it over its IPC, not through a display.)
 #
-# By default its apps run as the user's own: same home, configuration, D-Bus
-# session (keyring, notifications), browser profiles and logins; only their
-# windows are elsewhere. A single-instance app the user already has open
-# (their browser, an Electron or GApplication app) hands the launch to that
-# copy, so its new window opens on the user's desktop instead: desktop-mcp
-# reports that to the agent.
-#
-# --separate: the apps get their own home ($XDG_DATA_HOME/nixbook-shell/
-# agent-home: separate profiles, logged out of the user's accounts, with the
-# user's GTK/Qt/font settings linked in) and their own D-Bus session, so a
-# second copy of any app opens on the agent desktop.
+# Its apps are the agent's, not the user's:
+#   - their own home ($XDG_DATA_HOME/nixbook-shell/agent-home): their own
+#     browser profiles, history and logins, with the user's GTK/Qt/font
+#     settings linked in so apps look the same;
+#   - their own D-Bus session (a private bus): GApplication/Firefox remoting,
+#     portals and notifications don't reach the user's session, so a second
+#     copy of an app the user has open starts here instead of handing its
+#     window to the user's copy.
 #
 # Started by the `nixbook-agent-desktop` user service (desktop-mcp starts it
 # on demand). Writes WAYLAND_DISPLAY and NIRI_SOCKET of the nested niri to
 # $XDG_RUNTIME_DIR/nixbook-desktop-mcp/agent-desktop.env once it's up, and
 # removes the file when it exits.
 set -euo pipefail
-
-separate=false
-case "${1:-}" in
---separate) separate=true ;;
-"") ;;
-*)
-  echo "usage: nixbook-agent-desktop [--separate]" >&2
-  exit 2
-  ;;
-esac
 
 runtime="${XDG_RUNTIME_DIR:?no XDG_RUNTIME_DIR}/nixbook-desktop-mcp"
 env_file="$runtime/agent-desktop.env"
@@ -44,8 +33,32 @@ if [ -z "${WAYLAND_DISPLAY:-}" ]; then
   echo "nixbook-agent-desktop: no WAYLAND_DISPLAY: it runs as a window on the user's desktop" >&2
   exit 1
 fi
-mkdir -p "$runtime"
-chmod 700 "$runtime"
+mkdir -p "$runtime" "$agent_home"
+chmod 700 "$runtime" "$agent_home"
+mkdir -p "$agent_home/.config" "$agent_home/.local/share" "$agent_home/.local/state" "$agent_home/.cache"
+
+# The user's look: links, so a theme change reaches the agent's apps too.
+# Nothing with accounts or secrets (browsers, mail, keyrings) is linked.
+link() {
+  local src="$1" dst="$2"
+  if [ -e "$src" ] && [ ! -e "$dst" ] && [ ! -L "$dst" ]; then
+    mkdir -p "$(dirname "$dst")"
+    ln -s "$src" "$dst"
+  fi
+}
+for name in gtk-3.0 gtk-4.0 fontconfig kdeglobals qt5ct qt6ct Kvantum mimeapps.list; do
+  link "$config_home/$name" "$agent_home/.config/$name"
+done
+for name in fonts icons themes; do
+  link "$data_home/$name" "$agent_home/.local/share/$name"
+done
+link "$HOME/.icons" "$agent_home/.icons"
+# dconf (GTK theme, fonts) is copied once: it can't be shared read-only and
+# the agent's apps must not rewrite the user's settings.
+if [ -e "$config_home/dconf/user" ] && [ ! -e "$agent_home/.config/dconf/user" ]; then
+  mkdir -p "$agent_home/.config/dconf"
+  cp "$config_home/dconf/user" "$agent_home/.config/dconf/user"
+fi
 
 kdl() { # a KDL string
   local s="$1"
@@ -54,51 +67,13 @@ kdl() { # a KDL string
   printf '"%s"' "$s"
 }
 
-# The env file is written by niri's first spawned process: by then its Wayland
-# and IPC sockets are up.
+# Run by niri's first spawned process, so its Wayland and IPC sockets are up:
+# tells the private bus to activate services (D-Bus activated apps) on the
+# agent desktop with the agent's home, then writes the env file.
 # shellcheck disable=SC2016 # expanded by that process, not here
-announce='umask 077; printf "WAYLAND_DISPLAY=%s\nNIRI_SOCKET=%s\n" "$WAYLAND_DISPLAY" "$NIRI_SOCKET" >"$1.tmp" && mv "$1.tmp" "$1"'
-environment=""
-
-if $separate; then
-  mkdir -p "$agent_home"
-  chmod 700 "$agent_home"
-  mkdir -p "$agent_home/.config" "$agent_home/.local/share" "$agent_home/.local/state" "$agent_home/.cache"
-
-  # The user's look: links, so a theme change reaches the agent's apps too.
-  # Nothing with accounts or secrets (browsers, mail, keyrings) is linked.
-  link() {
-    local src="$1" dst="$2"
-    if [ -e "$src" ] && [ ! -e "$dst" ] && [ ! -L "$dst" ]; then
-      mkdir -p "$(dirname "$dst")"
-      ln -s "$src" "$dst"
-    fi
-  }
-  for name in gtk-3.0 gtk-4.0 fontconfig kdeglobals qt5ct qt6ct Kvantum mimeapps.list; do
-    link "$config_home/$name" "$agent_home/.config/$name"
-  done
-  for name in fonts icons themes; do
-    link "$data_home/$name" "$agent_home/.local/share/$name"
-  done
-  link "$HOME/.icons" "$agent_home/.icons"
-  # dconf (GTK theme, fonts) is copied once: it can't be shared read-only and
-  # the agent's apps must not rewrite the user's settings.
-  if [ -e "$config_home/dconf/user" ] && [ ! -e "$agent_home/.config/dconf/user" ]; then
-    mkdir -p "$agent_home/.config/dconf"
-    cp "$config_home/dconf/user" "$agent_home/.config/dconf/user"
-  fi
-
-  # The private bus activates services (D-Bus activated apps) on the agent
-  # desktop, with the agent's home. Only ever this private bus: on the user's
-  # bus it would send the user's own apps to the agent desktop.
-  announce="dbus-update-activation-environment WAYLAND_DISPLAY DISPLAY NIRI_SOCKET HOME XDG_CONFIG_HOME XDG_DATA_HOME XDG_STATE_HOME XDG_CACHE_HOME; $announce"
-  environment="
-    HOME $(kdl "$agent_home")
-    XDG_CONFIG_HOME $(kdl "$agent_home/.config")
-    XDG_DATA_HOME $(kdl "$agent_home/.local/share")
-    XDG_STATE_HOME $(kdl "$agent_home/.local/state")
-    XDG_CACHE_HOME $(kdl "$agent_home/.cache")"
-fi
+announce='dbus-update-activation-environment WAYLAND_DISPLAY DISPLAY NIRI_SOCKET HOME XDG_CONFIG_HOME XDG_DATA_HOME XDG_STATE_HOME XDG_CACHE_HOME; '
+# shellcheck disable=SC2016
+announce+='umask 077; printf "WAYLAND_DISPLAY=%s\nNIRI_SOCKET=%s\n" "$WAYLAND_DISPLAY" "$NIRI_SOCKET" >"$1.tmp" && mv "$1.tmp" "$1"'
 
 cat >"$config" <<EOF
 // Generated by nixbook-agent-desktop on each start: edits are lost.
@@ -120,9 +95,14 @@ layout {
         width 2
     }
 }
-environment {$environment
+environment {
+    HOME $(kdl "$agent_home")
+    XDG_CONFIG_HOME $(kdl "$agent_home/.config")
+    XDG_DATA_HOME $(kdl "$agent_home/.local/share")
+    XDG_STATE_HOME $(kdl "$agent_home/.local/state")
+    XDG_CACHE_HOME $(kdl "$agent_home/.cache")
     NIXOS_OZONE_WL "1"
-    // GTK's own file chooser: the portal's opens on the user's desktop.
+    // GTK's own file chooser: the portal's would open on the user's desktop.
     GDK_DEBUG "no-portals"
     GTK_USE_PORTAL "0"
 }
@@ -132,14 +112,10 @@ EOF
 rm -f "$env_file"
 trap 'rm -f "$env_file"' EXIT
 trap 'exit 143' TERM INT
-# Not exec: the trap removes the env file when niri exits.
-if $separate; then
-  # The system's session bus configuration (NixOS: /etc/dbus-1), else dbus's own.
-  bus_config=()
-  if [ ! -e /etc/dbus-1/session.conf ]; then
-    bus_config=(--config-file "$(dirname "$(command -v dbus-daemon)")/../share/dbus-1/session.conf")
-  fi
-  dbus-run-session "${bus_config[@]}" -- niri -c "$config"
-else
-  niri -c "$config"
+# The system's session bus configuration (NixOS: /etc/dbus-1), else dbus's own.
+bus_config=()
+if [ ! -e /etc/dbus-1/session.conf ]; then
+  bus_config=(--config-file "$(dirname "$(command -v dbus-daemon)")/../share/dbus-1/session.conf")
 fi
+# Not exec: the trap removes the env file when niri exits.
+dbus-run-session "${bus_config[@]}" -- niri -c "$config"
