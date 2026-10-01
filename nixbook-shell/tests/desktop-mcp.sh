@@ -7,6 +7,7 @@
 #     pause (off by default, persistent), disabled groups, denied IPC targets, no arbitrary commands;
 #   - the pointer: the exact Wayland requests sent to a fake compositor
 #     (tests/fake-wayland.py), screenshot mappings, the ydotool fallback;
+#   - the agent desktop: switching the tools to it and back, starting it;
 #   - HTTP: loopback only, bearer token, Host/Origin checks.
 # Needs bash, python3, jq and curl. Run: bash tests/desktop-mcp.sh
 set -euo pipefail
@@ -51,6 +52,13 @@ echo firefox >"$STUB_FOCUS"
 
 cat >"$bin/niri" <<'EOF'
 #!/usr/bin/env bash
+# Which niri it was asked (the user's or the agent desktop's): its socket.
+echo "${NIRI_SOCKET:-}" >"$STUB_CALLS.socket"
+# The agent desktop has no windows: a launched app opens on the user's.
+if [ "$1 $2 $3" = "msg --json windows" ] && [ "${NIRI_SOCKET:-}" = "${STUB_AGENT_SOCKET:-}" ]; then
+  echo '[]'
+  exit 0
+fi
 if [ "$1 $2" = "msg --json" ]; then
   focus=$(cat "$STUB_FOCUS")
   case "$3" in
@@ -797,6 +805,56 @@ expect_contains "no runtime dir: actions refused (fail closed)" "$(jq -r 'select
 expect_eq "no runtime dir: server keeps answering" 3 "$(wc -l <<<"$out" | tr -d ' ')"
 
 # -- HTTP ----------------------------------------------------------------------------
+
+# -- the agent desktop ---------------------------------------------------------------------
+
+# systemctl: starting the agent desktop service does what the launcher does
+# (scripts/agent-desktop.sh): sockets up, then the env file.
+export STUB_AGENT_SOCKET="$tmp/runtime/niri.wayland-9.1.sock"
+cat >"$bin/systemctl" <<'EOF'
+#!/usr/bin/env bash
+echo "systemctl $*" >>"$STUB_CALLS"
+[ -z "${STUB_SYSTEMCTL_FAIL:-}" ] || { echo "Unit nixbook-agent-desktop.service not found." >&2; exit 5; }
+if [ "$2" = start ]; then
+  python3 -c 'import socket, sys
+for p in sys.argv[1:]: socket.socket(socket.AF_UNIX).bind(p)' "$XDG_RUNTIME_DIR/wayland-9" "$STUB_AGENT_SOCKET"
+  printf 'WAYLAND_DISPLAY=wayland-9\nNIRI_SOCKET=%s\n' "$STUB_AGENT_SOCKET" >"$XDG_RUNTIME_DIR/nixbook-desktop-mcp/agent-desktop.env"
+fi
+EOF
+chmod +x "$bin/systemctl"
+agent_env="$XDG_RUNTIME_DIR/nixbook-desktop-mcp/agent-desktop.env"
+
+expect_eq "desktop: the user's by default" user "$(python3 "$mcp" desktop status | jq -r .desktop)"
+out=$(STUB_SYSTEMCTL_FAIL=1 python3 "$mcp" desktop agent 2>&1 || true)
+expect_contains "desktop agent: refused when it can't start" "$out" "agents stay on your desktop"
+expect_eq "desktop agent: not switched when it can't start" user "$(python3 "$mcp" desktop status | jq -r .desktop)"
+reset_calls
+python3 "$mcp" desktop agent >/dev/null
+expect_eq "desktop agent: starts the service" "systemctl --user start nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
+expect_eq "desktop agent: persisted" agent "$(python3 "$mcp" desktop status | jq -r .desktop)"
+call focus_window '{"id": 1}' >/dev/null
+expect_eq "agent desktop: tools reach its niri" "$STUB_AGENT_SOCKET" "$(cat "$calls.socket")"
+expect_eq "agent desktop: status says so" agent "$(call get_status | jq -r .desktop)"
+out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 "$mcp")
+expect_contains "agent desktop: agents are told" "$(jq -r .result.instructions <<<"$out")" "You work on a desktop of your own"
+rm -f "$calls.launched"
+out=$(call launch_app '{"app": "firefox"}')
+expect_contains "agent desktop: an app opening on the user's desktop is reported" "$out" "opened its window on the user's desktop"
+rm -f "$calls.launched"
+# Gone (niri exited, or crashed and left the env file): started again.
+rm -f "$STUB_AGENT_SOCKET"
+reset_calls
+call list_windows >/dev/null
+expect_eq "agent desktop: restarted when its socket is gone" "systemctl --user start nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
+python3 "$mcp" desktop user >/dev/null
+call focus_window '{"id": 1}' >/dev/null
+expect_eq "desktop user: tools reach the user's niri again" /dev/null "$(cat "$calls.socket")"
+out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 "$mcp")
+expect_not_contains "desktop user: no agent desktop instructions" "$(jq -r .result.instructions <<<"$out")" "desktop of your own"
+reset_calls
+python3 "$mcp" desktop stop >/dev/null
+expect_eq "desktop stop: stops the service" "systemctl --user stop nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
+rm -f "$agent_env" "$STUB_AGENT_SOCKET" "$XDG_RUNTIME_DIR/wayland-9"
 
 port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
 python3 "$mcp" serve --http --port "$port" 2>"$tmp/http.log" &

@@ -401,6 +401,13 @@ in
             matches = [ { app-id = "^qemu$"; } ];
             opacity = 1.0;
           }
+          # The AI agents' own desktop (nixbook-desktop-mcp desktop agent): a
+          # nested niri. It opens beside your work without taking the focus.
+          {
+            matches = [ { app-id = "^niri$"; } ];
+            opacity = 1.0;
+            open-focused = false;
+          }
           {
             matches = [ { app-id = "^mpv$"; } ];
             opacity = 1.0;
@@ -932,6 +939,13 @@ in
                     ${pkgs.libnotify}/bin/notify-send -h string:x-canonical-private-synchronous:idle-inhibit -u low -t 1500 'Idle inhibitor off' 'Auto-lock and suspend are back on'
                 fi
               ''
+            ];
+            # AI agents work on a desktop of their own (a nested niri, opened
+            # as a window) or on yours: nixbook-desktop-mcp desktop toggle.
+            "Mod+Shift+A".action.spawn = [
+              "nixbook-desktop-mcp"
+              "desktop"
+              "toggle"
             ];
           }
         );

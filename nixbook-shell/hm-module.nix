@@ -671,6 +671,26 @@ in
           description = "Port on 127.0.0.1 of the HTTP MCP endpoint (`/mcp`).";
         };
       };
+
+      agentDesktop.separateHome = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Whether the apps on the agents' own desktop (`nixbook-desktop-mcp
+          desktop agent`: a nested niri, shown as a window on yours) get a
+          home and D-Bus session of their own.
+
+          Off: they run as your own apps, with your settings, browser
+          profiles and logins; only their windows are elsewhere. An app you
+          already have open (your browser, Electron and GApplication apps)
+          can't be used there: launching it again hands the window to your
+          copy, on your desktop, and the agent is told so.
+
+          On: they use ~/.local/share/nixbook-shell/agent-home (your
+          GTK/Qt/font settings linked in, logged out of your accounts) and a
+          private bus, so a second copy of any app opens on the agent desktop.
+        '';
+      };
     };
 
     assistant = {
@@ -1069,6 +1089,23 @@ in
             UMask = "0077";
           };
           Install.WantedBy = [ "graphical-session.target" ];
+        };
+
+        # The agents' own desktop (scripts/agent-desktop.sh): started on demand
+        # by `nixbook-desktop-mcp desktop agent` and the agents' next action,
+        # stopped by `desktop stop` or with the session.
+        systemd.user.services.nixbook-agent-desktop = {
+          Unit = {
+            Description = "A desktop of their own for AI agents (nested niri)";
+            PartOf = [ "graphical-session.target" ];
+            After = [ "graphical-session.target" ];
+          };
+          Service = {
+            ExecStart =
+              lib.getExe cfg.package.passthru.agentDesktop
+              + lib.optionalString cfg.desktopMcp.agentDesktop.separateHome " --separate";
+            Slice = "app.slice";
+          };
         };
 
         systemd.user.services.cliphist = lib.mkIf cfg.cliphist.enable {

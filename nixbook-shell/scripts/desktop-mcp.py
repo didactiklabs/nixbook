@@ -191,6 +191,92 @@ def log(msg):
 
 
 # --------------------------------------------------------------------------
+# The agent desktop
+# --------------------------------------------------------------------------
+
+# Agents work either on the user's desktop or on their own: a nested niri
+# (scripts/agent-desktop.sh, the nixbook-agent-desktop user service), a
+# window on the user's desktop with its own pointer, focus, clipboard and
+# windows. Every tool reaches the compositor through WAYLAND_DISPLAY (grim,
+# wtype, wl-copy, the virtual pointer) and NIRI_SOCKET (niri msg), so
+# switching desktops is switching those two.
+DESKTOP_ENV = ("WAYLAND_DISPLAY", "NIRI_SOCKET")
+USER_DESKTOP_ENV = {k: os.environ.get(k) for k in DESKTOP_ENV}
+AGENT_DESKTOP_UNIT = "nixbook-agent-desktop.service"
+
+
+def agent_desktop_flag():
+    """Agents use their own desktop while this file exists (`desktop agent`);
+    in the state directory, like the kill switch, so it survives a reboot."""
+    return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-shell", "agent-desktop")
+
+
+def on_agent_desktop():
+    return os.path.exists(agent_desktop_flag())
+
+
+def agent_desktop_env():
+    """WAYLAND_DISPLAY and NIRI_SOCKET of the running agent desktop, or None.
+    The launcher writes them once niri is up and removes them when it exits;
+    a crash can leave them behind, so the sockets must exist too."""
+    try:
+        with open(os.path.join(runtime_dir(), "agent-desktop.env"), encoding="utf-8") as f:
+            env = dict(line.rstrip("\n").split("=", 1) for line in f if "=" in line)
+    except (OSError, ToolError):
+        return None
+    if set(env) != set(DESKTOP_ENV):
+        return None
+    wayland = env["WAYLAND_DISPLAY"]
+    if not wayland.startswith("/"):
+        wayland = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "", wayland)
+    try:
+        if not all(stat.S_ISSOCK(os.stat(p).st_mode) for p in (wayland, env["NIRI_SOCKET"])):
+            return None
+    except OSError:
+        return None
+    return env
+
+
+def start_agent_desktop():
+    env = agent_desktop_env()
+    if env:
+        return env
+    run(["systemctl", "--user", "start", AGENT_DESKTOP_UNIT], timeout=20)
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline:
+        env = agent_desktop_env()
+        if env:
+            return env
+        time.sleep(0.2)
+    raise ToolError(f"the agent desktop didn't start (journalctl --user -u {AGENT_DESKTOP_UNIT})")
+
+
+def use_desktop():
+    """Points the tools at the desktop agents use now; starts the agent
+    desktop if it's that one and isn't running. Returns "agent" or "user"."""
+    if on_agent_desktop():
+        os.environ.update(start_agent_desktop())
+        return "agent"
+    for k, v in USER_DESKTOP_ENV.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
+    return "user"
+
+
+def user_desktop_env():
+    """The environment of a command meant for the user's desktop."""
+    env = dict(os.environ)
+    for k, v in USER_DESKTOP_ENV.items():
+        if v is None:
+            env.pop(k, None)
+        else:
+            env[k] = v
+    return env
+
+
+# --------------------------------------------------------------------------
 # Audit log
 # --------------------------------------------------------------------------
 
@@ -242,7 +328,7 @@ class ToolError(Exception):
     """A refusal or failure reported to the agent (isError: true)."""
 
 
-def run(argv, *, input=None, timeout=10, check=True, binary=False):
+def run(argv, *, input=None, timeout=10, check=True, binary=False, env=None):
     exe = shutil.which(argv[0])
     if not exe:
         raise ToolError(f"`{argv[0]}` is not installed or not on PATH")
@@ -253,6 +339,7 @@ def run(argv, *, input=None, timeout=10, check=True, binary=False):
             capture_output=True,
             timeout=timeout,
             text=not binary and not isinstance(input, bytes),
+            env=env,
         )
     except subprocess.TimeoutExpired:
         raise ToolError(f"`{argv[0]}` timed out")
@@ -265,8 +352,8 @@ def run(argv, *, input=None, timeout=10, check=True, binary=False):
     return proc
 
 
-def niri_json(*what):
-    out = run(["niri", "msg", "--json", *what]).stdout
+def niri_json(*what, env=None):
+    out = run(["niri", "msg", "--json", *what], env=env).stdout
     try:
         return json.loads(out)
     except ValueError:
@@ -476,6 +563,10 @@ WS = {
     read_only=True,
 )
 def t_get_status(ctx, args):
+    try:
+        ctx.desktop = use_desktop()
+    except ToolError as e:
+        ctx.desktop = f"agent (not running: {e})"
     focused = None
     try:
         focused = focused_window()
@@ -494,6 +585,7 @@ def t_get_status(ctx, args):
         text(
             {
                 "paused": paused,
+                "desktop": ctx.desktop,
                 "pointer": pointer,
                 "enabled_groups": ctx.cfg["tools"],
                 "focused_window": focused and slim_window(focused),
@@ -695,6 +787,7 @@ def t_launch_app(ctx, args):
         raise ToolError("refused: terminal applications can't be started by the agent")
     ctx.guard.check_rate()
     before = {w.get("id") for w in windows()}
+    user_before = user_windows_ids() if ctx.desktop == "agent" else set()
     # Spawned by niri, not as our child: it outlives this server.
     niri_action("spawn", "--", *exec_argv(entry))
     learn_launch(args["app"], next((i for i, e in apps.items() if e is entry), want))
@@ -709,8 +802,29 @@ def t_launch_app(ctx, args):
             new = [w for w in windows() if w.get("id") not in before] or new
             main = next((w for w in new if w.get("is_focused")), new[-1])
             return [text({"started": name, "window": slim_window(main)})]
+    if ctx.desktop == "agent":
+        if user_windows_ids() - user_before:
+            raise ToolError(
+                f"{name} opened its window on the user's desktop, not yours: it's already running there, "
+                "and a single-instance app hands new windows to its running copy. You can't use it from "
+                "here: ask the user to close it on their desktop (or to switch you to theirs, "
+                "`nixbook-desktop-mcp desktop user`), or use another app."
+            )
+        raise ToolError(
+            f"started {name}, but no window opened on your desktop within 10 s: it may still be starting "
+            "(look again with list_windows), have failed to start, or be a single-instance app already "
+            "running on the user's desktop that raised its window there instead."
+        )
     return [text(f"started {name}, but no new window appeared within 10 s (a single-instance "
                  "app may have raised its existing window instead; see the focused window below)")]
+
+
+def user_windows_ids():
+    """The windows on the user's desktop (seen from the agent desktop)."""
+    try:
+        return {w.get("id") for w in niri_json("windows", env=user_desktop_env())}
+    except ToolError:
+        return set()
 
 
 # -- windows and workspaces --------------------------------------------------
@@ -2666,6 +2780,8 @@ class Context:
         self.client = client
         self.guard = Guard(cfg, client, notify)
         self.lock = threading.Lock()
+        # The desktop the tools act on: "agent" or "user" (use_desktop).
+        self.desktop = "user"
         # Just-in-time memory: the apps and notes this session was given.
         self.apps_seen = set()
         self.notes_shown = set()
@@ -2695,6 +2811,8 @@ def call_tool(ctx, name, args):
     with ctx.lock:
         write_state(last={"time": int(time.time() * 1000), "client": ctx.client, "tool": name, "outcome": "running"})
         try:
+            if name != "get_status":  # it says why the agent desktop can't start
+                ctx.desktop = use_desktop()
             content = t["fn"](ctx, args)
         except ToolError as e:
             audit(ctx.client, name, args, f"error: {e}")
@@ -2763,15 +2881,29 @@ INSTRUCTIONS = (
 )
 
 
+AGENT_DESKTOP_INSTRUCTIONS = (
+    "You work on a desktop of your own, not the user's: a separate niri "
+    "session the user sees as a window, with its own pointer, focus and "
+    "clipboard, so work there freely while the user keeps working. Its apps "
+    "run as the user's own (their settings and logins), but the user's "
+    "windows aren't on it: start what you need with launch_app. An app the "
+    "user already has open may refuse to open here (launch_app says so)."
+)
+
+
+def instructions_with_desktop():
+    return INSTRUCTIONS + ("\n\n" + AGENT_DESKTOP_INSTRUCTIONS if on_agent_desktop() else "")
+
+
 def instructions_with_memory(cfg):
     if "memory" not in cfg["tools"]:
-        return INSTRUCTIONS
+        return instructions_with_desktop()
     # The client may say what the task is (the shell's AI chat passes the
     # user's message): the notes about it then come in full.
     query = os.environ.get("NIXBOOK_DESKTOP_MCP_QUERY", "")
     digest = memory_digest(cfg, query)
     count_note_uses({n["id"] for n in rank_notes(read_memory()["notes"], query)[:4]})
-    return INSTRUCTIONS + ("\n\n" + digest if digest else "\n\nDesktop memory: empty so far.")
+    return instructions_with_desktop() + ("\n\n" + digest if digest else "\n\nDesktop memory: empty so far.")
 
 
 class Session:
@@ -3023,6 +3155,10 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
   memory [show]           the desktop memory (JSON); memory prompt [QUERY]: the digest
   memory forget ID | clear [notes] [usage] [aliases] (default: all)
   config                  the effective configuration
+  desktop [status]        where agents work: on the user's desktop or their own
+  desktop agent | user | toggle  agents use their own desktop (a nested niri,
+                          started as needed) / the user's
+  desktop stop            close the agent desktop and its windows
 """
 
 
@@ -3087,6 +3223,8 @@ def main(argv):
         print(json.dumps({"paused": is_paused(), "last": read_state().get("last"), "config": config_path(),
                           "audit_log": audit_path(), "enabled_groups": cfg["tools"]}, indent=1))
         return 0
+    if cmd == "desktop":
+        return desktop_command(argv[1:])
     if cmd == "layout":
         return layout_command(cfg, argv[1:])
     if cmd == "memory":
@@ -3099,6 +3237,55 @@ def main(argv):
         return 0
     print(USAGE, end="", file=sys.stderr)
     return 2
+
+
+def desktop_command(argv):
+    """Where agents work, for the user (and the shell): `desktop agent` gives
+    them their own desktop, `desktop user` brings them back to the user's."""
+    sub = argv[0] if argv else "status"
+    if sub == "toggle":
+        sub = "user" if on_agent_desktop() else "agent"
+    if sub == "agent":
+        os.makedirs(os.path.dirname(agent_desktop_flag()), mode=0o700, exist_ok=True)
+        with open(agent_desktop_flag(), "w", encoding="utf-8") as f:
+            f.write("agent\n")
+        try:
+            start_agent_desktop()
+        except ToolError as e:
+            os.unlink(agent_desktop_flag())
+            print(f"agents stay on your desktop: {e}", file=sys.stderr)
+            return 1
+        write_state(desktop="agent")
+        notify_desktop("Agents now work on their own desktop")
+        print("agents work on their own desktop")
+        return 0
+    if sub == "user":
+        try:
+            os.unlink(agent_desktop_flag())
+        except FileNotFoundError:
+            pass
+        write_state(desktop="user")
+        notify_desktop("Agents now work on your desktop")
+        print("agents work on your desktop (the agent desktop stays open: `desktop stop` closes it)")
+        return 0
+    if sub == "stop":
+        run(["systemctl", "--user", "stop", AGENT_DESKTOP_UNIT], timeout=20, check=False)
+        print("agent desktop closed" + (" (agents reopen it when they next act: `desktop user` to "
+                                        "bring them back to yours)" if on_agent_desktop() else ""))
+        return 0
+    if sub == "status":
+        env = agent_desktop_env()
+        print(json.dumps({"desktop": "agent" if on_agent_desktop() else "user", "agent_desktop_running": bool(env),
+                          "agent_desktop": env}, indent=1))
+        return 0
+    print(USAGE, end="", file=sys.stderr)
+    return 2
+
+
+def notify_desktop(message):
+    if shutil.which("notify-send"):
+        subprocess.run(["notify-send", "-a", "Desktop agent", "-i", "computer", message],
+                       capture_output=True, env=user_desktop_env())
 
 
 def memory_command(cfg, argv):
