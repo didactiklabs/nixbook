@@ -183,7 +183,7 @@ lets an AI agent see and drive the desktop: list windows, workspaces and
 apps; focus, move, resize, close windows; launch apps; take screenshots (a
 monitor, a zoomed-in region, a window on screen), silently; read the text on
 screen (`read_screen`: OCR, each line with its position to click, ~150
-tokens instead of a screenshot's ~1,850; `find` returns only the lines
+tokens instead of a screenshot's ~1,250; `find` returns only the lines
 containing the given text; `ocrLanguages`, `eng` by default); type, press
 keys, click, drag, scroll, or several of these in one call (`run_steps`);
 the clipboard; the shell's themes and variants (`list_themes`, `set_theme`:
@@ -227,7 +227,7 @@ through the same guardrails (a step's `settle: true` waits the same way); screen
 fraction of a PNG's size; `screenshotFormat`, `screenshotQuality`). A
 monitor screenshot sends only what changed since the agent's last one (up
 to 3 crops, each with its own mapping), or just says nothing did: an image
-costs the model about width × height / 750 tokens (~1,850 at 1568px), and
+costs the model about width × height / 750 tokens (~1,250 at 1280px, `screenshotMaxEdge`), and
 most screenshots after an action change a small part (`full: true` sends
 it all).
 
@@ -297,8 +297,10 @@ is unplugged, and never the agents' `restore_layout`.
 PATH, in `~/.local/bin` or a Nix profile), the AI chat offers a **Claude**
 model (`/model claude`) that runs on your own Claude login, no API key. It is
 set up in **Settings → Desktop agents → Claude in the side panel**: whether
-Claude Code was found (and its command, if elsewhere), the model (default,
-Sonnet, Opus, Haiku), whether it may search and read the web, the folders it
+Claude Code was found (and its command, if elsewhere), the model (Sonnet by
+default, or Opus, Haiku, Claude Code's own) and its thinking effort (low by
+default: driving the desktop is many short steps, each waiting on the
+model), whether it may search and read the web, the folders it
 may read, and a button to use it in the panel (the `ai.claudeCode.*` and
 `ai.allowedFolders` settings; Nix can pin them like any other). Claude
 Code (`claude -p`) keeps running between messages, each one a line on its

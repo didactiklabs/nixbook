@@ -302,7 +302,7 @@ expect_eq "unknown tool: -32602" -32602 "$(jq 'select(.id==4).error.code' <<<"$o
 expect_eq "unknown method: -32601" -32601 "$(jq 'select(.id==5).error.code' <<<"$out")"
 expect_eq "bad JSON: -32700" -32700 "$(jq 'select(.id==null).error.code' <<<"$out")"
 expect_eq "screenshot: image content (JPEG)" "image/jpeg" "$(jq -r 'select(.id==6).result.content[1].mimeType' <<<"$out")"
-expect_eq "screenshot: scaled to 1568px" "grim -o eDP-1 -s 0.5000 -t ppm" "$(grep '^grim' "$calls" | cut -d' ' -f1-7)"
+expect_eq "screenshot: scaled to 1280px" "grim -o eDP-1 -s 0.4082 -t ppm" "$(grep '^grim' "$calls" | cut -d' ' -f1-7)"
 expect_eq "screenshot: file removed after sending" 0 "$(find "$XDG_RUNTIME_DIR" -name 'screenshot-*' | wc -l | tr -d ' ')"
 expect_eq "audit: client name from initialize" test-client "$(jq -r 'select(.tool=="focus_window").client' "$XDG_STATE_HOME/nixbook-shell/desktop-mcp.log" | head -1)"
 expect_eq "audit log is private" 600 "$(stat -c %a "$XDG_STATE_HOME/nixbook-shell/desktop-mcp.log")"
@@ -422,7 +422,7 @@ expect_contains "region screenshot: mapping" "$out" 'mapping: {"x": 3140, "y": 2
 out=$(call screenshot '{"region":{"x":9000,"y":0,"width":100,"height":100}}')
 expect_contains "region screenshot: outside the desktop" "$out" "outside the desktop"
 out=$(call screenshot '{}')
-expect_contains "monitor screenshot: mapping" "$out" 'mapping: {"x": 0, "y": 0, "scale": 0.5}'
+expect_contains "monitor screenshot: mapping" "$out" 'mapping: {"x": 0, "y": 0, "scale": 0.4082}'
 
 wl_log="$tmp/wayland.log"
 start_compositor() {
@@ -542,7 +542,7 @@ expect_contains "run_steps: settle waits for the screen" "$(cat "$calls")" "-s 0
 expect_eq "screenshot_after: offered on action tools only" "true false" \
   "$(python3 "$mcp" tools | jq -r '[(.[] | select(.name=="click") | .inputSchema.properties | has("screenshot_after")), (.[] | select(.name=="list_windows") | .inputSchema.properties | has("screenshot_after"))] | join(" ")')"
 
-# Monitor screenshots after the first: only what changed (eDP-1: 3200x1800 at 0,0, scale 0.5).
+# Monitor screenshots after the first: only what changed (eDP-1: 3136x1960 at 0,0, image scale 1280/3136).
 frames="$tmp/frames"
 mkdir -p "$frames"
 python3 - "$frames" <<'PY'
@@ -570,7 +570,7 @@ expect_eq "screenshot: unchanged, no image" "text" "$(jq -r 'select(.id==2) | [.
 expect_contains "screenshot: unchanged, said so" "$(jq -r 'select(.id==2).result.content[0].text' <<<"$out")" "Nothing changed since your last screenshot"
 expect_eq "screenshot: a small change, cropped" "text text image" "$(jq -r 'select(.id==3) | [.result.content[].type] | join(" ")' <<<"$out")"
 expect_contains "screenshot: crop mapping, in desktop pixels" "$(jq -r 'select(.id==3).result.content[1].text' <<<"$out")" \
-  'Part 72x42 at image (84,184), mapping: {"x": 168.0, "y": 368.0, "scale": 0.5}'
+  'Part 72x42 at image (84,184), mapping: {"x": 205.78, "y": 450.76, "scale": 0.4082}'
 expect_eq "screenshot: two changes apart, two crops" "text text image text image" "$(jq -r 'select(.id==4) | [.result.content[].type] | join(" ")' <<<"$out")"
 expect_eq "screenshot: most of it changed, whole" "text image" "$(jq -r 'select(.id==5) | [.result.content[].type] | join(" ")' <<<"$out")"
 expect_eq "screenshot: full: true, whole" "text image" "$(jq -r 'select(.id==6) | [.result.content[].type] | join(" ")' <<<"$out")"

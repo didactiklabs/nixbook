@@ -350,6 +350,8 @@ Singleton {
         if (allowed.length > 0) args.push("--allowedTools", ...allowed);
         const claudeModel = Config.options.ai.claudeCode.model ?? "";
         if (claudeModel.length > 0) args.push("--model", claudeModel);
+        const claudeEffort = Config.options.ai.claudeCode.effort ?? "";
+        if (/^[a-z]+$/.test(claudeEffort)) args.push("--effort", claudeEffort);
         if (resume.length > 0) args.push("--resume", resume);
         // The desktop tools loaded up front: Claude Code otherwise defers MCP
         // tools behind a ToolSearch call, one more round trip per session.

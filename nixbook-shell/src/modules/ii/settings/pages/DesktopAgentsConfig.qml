@@ -206,6 +206,21 @@ ContentPage {
                 ]
             }
 
+            ConfigSelectionArray {
+                configKey: "ai.claudeCode.effort"
+                enabled: !nixManaged
+                text: Translation.tr("Thinking effort (low: quicker steps on the desktop)")
+                icon: "speed"
+                currentValue: Config.options.ai.claudeCode.effort
+                onSelected: newValue => { Config.options.ai.claudeCode.effort = newValue }
+                options: [
+                    { displayName: Translation.tr("Low"), icon: "bolt", value: "low" },
+                    { displayName: Translation.tr("Medium"), icon: "tune", value: "medium" },
+                    { displayName: Translation.tr("High"), icon: "psychology", value: "high" },
+                    { displayName: Translation.tr("Default"), icon: "auto_awesome", value: "" }
+                ]
+            }
+
             GroupedList {
                 ConfigSwitch {
                     configKey: "ai.claudeCode.allowedTools"
