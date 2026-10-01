@@ -43,3 +43,76 @@ index a9bcc515..84067d6f 100644
                  WinitEvent::Input(event) => state.process_input_event(event),
                  WinitEvent::Focus(_) => (),
                  WinitEvent::Redraw => state.niri.queue_redraw(&state.backend.winit().output),
+diff --git a/src/handlers/xdg_shell.rs b/src/handlers/xdg_shell.rs
+--- a/src/handlers/xdg_shell.rs
++++ b/src/handlers/xdg_shell.rs
+@@ -41,7 +41,7 @@
+ use crate::input::resize_grab::ResizeGrab;
+ use crate::input::touch_resize_grab::TouchResizeGrab;
+ use crate::input::{PointerOrTouchStartData, DOUBLE_CLICK_TIME};
+-use crate::layout::ActivateWindow;
++use crate::layout::{ActivateWindow, LayoutElement as _};
+ use crate::niri::{CastTarget, PopupGrabState, State};
+ use crate::utils::transaction::Transaction;
+ use crate::utils::{
+@@ -49,6 +49,14 @@
+ };
+ use crate::window::{InitialConfigureState, ResolvedWindowRules, Unmapped, WindowRef};
+ 
++/// A window its rules open fullscreen stays fullscreen (and maximized under
++/// it), whatever the app asks, when NIRI_KEEP_FULLSCREEN is set: a nested
++/// niri showing one app at a time, where an app restoring its own window
++/// size (Firefox-based browsers do on start) would leave a half-width column.
++fn keeps_fullscreen(rules: &ResolvedWindowRules) -> bool {
++    rules.open_fullscreen == Some(true) && std::env::var_os("NIRI_KEEP_FULLSCREEN").is_some()
++}
++
+ impl XdgShellHandler for State {
+     fn xdg_shell_state(&mut self) -> &mut XdgShellState {
+         &mut self.niri.xdg_shell_state
+@@ -498,6 +506,10 @@
+             // changes.
+             mapped.set_needs_configure();
+ 
++            if keeps_fullscreen(mapped.rules()) {
++                return;
++            }
++
+             let window = mapped.window.clone();
+             self.niri.layout.set_maximized(&window, false);
+         } else if let Some(unmapped) = self.niri.unmapped_windows.get_mut(toplevel.wl_surface()) {
+@@ -520,6 +532,11 @@
+                     workspace_name,
+                     is_pending_maximized,
+                 } => {
++                    if keeps_fullscreen(rules) {
++                        toplevel.send_configure();
++                        return;
++                    }
++
+                     // Figure out the monitor following a similar logic to initial configure.
+                     // FIXME: deduplicate.
+                     let mon = workspace_name
+@@ -709,6 +726,10 @@
+             // changes.
+             mapped.set_needs_configure();
+ 
++            if keeps_fullscreen(mapped.rules()) {
++                return;
++            }
++
+             let window = mapped.window.clone();
+             self.niri.layout.set_fullscreen(&window, false);
+         } else if let Some(unmapped) = self.niri.unmapped_windows.get_mut(toplevel.wl_surface()) {
+@@ -731,6 +752,11 @@
+                     workspace_name,
+                     is_pending_maximized,
+                 } => {
++                    if keeps_fullscreen(rules) {
++                        toplevel.send_configure();
++                        return;
++                    }
++
+                     // Figure out the monitor following a similar logic to initial configure.
+                     // FIXME: deduplicate.
+                     let mon = workspace_name
