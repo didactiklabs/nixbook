@@ -634,7 +634,8 @@ in
             ];
             description = ''
               Tool groups AI agents get: `observe` (windows, workspaces,
-              apps), `screen` (screenshots, reading the clipboard), `windows`
+              apps), `screen` (screenshots, reading the clipboard and the
+              recent notifications), `windows`
               (focus, move, close, launch apps), `input` (keyboard, pointer,
               writing the clipboard), `shell` (the shell's IPC, notifications),
               `memory` (notes agents keep about this desktop, and the digest of

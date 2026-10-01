@@ -185,8 +185,13 @@ monitor, a zoomed-in region, a window on screen), silently; read the text on
 screen (`read_screen`: OCR, each line with its position to click, ~150
 tokens instead of a screenshot's ~1,250; `find` returns only the lines
 containing the given text; `ocrLanguages`, `eng` by default); type, press
-keys, click, drag, scroll, or several of these in one call (`run_steps`);
-the clipboard; the shell's themes and variants (`list_themes`, `set_theme`:
+keys, click, drag, scroll, or several of these in one call (`run_steps`;
+`type_text` pastes text with accents, punctuation or line breaks through
+the clipboard, then puts the clipboard back: wtype's keymap swaps lose keys
+in Chromium/Electron apps, and a line break would press Return);
+the clipboard; the recent notifications as text (`notifications`: new chat
+messages, mail…, by app, text or age; cheaper than a screenshot to see
+whether someone answered); the shell's themes and variants (`list_themes`, `set_theme`:
 "switch to Persona 3 Reload", "use the Usagi variant"; Nix-pinned ones stay
 locked); the desktop widgets without clicking them (`widget`: list, show or
 hide any; read, add, edit and remove the notes widget's notes and the
