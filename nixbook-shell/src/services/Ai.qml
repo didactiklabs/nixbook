@@ -289,10 +289,12 @@ Singleton {
         // No access to the user's files but the folders they allow
         // (ai.allowedFolders: working directories, readable without asking)
         // and a file they attach (that file only). Claude Code runs in an
-        // empty directory of its own, without the user's ~/.claude settings
-        // (their allow rules are for their own sessions), and every other
-        // read is denied (-p can't ask). No folder, no attachment: no file
-        // tools at all.
+        // empty directory of its own, with the user's own login and
+        // ~/.claude settings (their permission rules apply too: a bare
+        // "Read" allow there opens every path while file tools are loaded),
+        // and every other read is denied (-p can't ask). No folder, no
+        // attachment: no file tools at all (not loaded, and denied: a deny
+        // beats any allow rule).
         const fileTools = ["Read", "Glob", "Grep"];
         const home = Quickshell.env("HOME");
         const folders = (Config.options.ai.allowedFolders ?? [])
@@ -316,7 +318,6 @@ Singleton {
         // claude.ai connectors included: dropped when they are wanted.
         let args = ["-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
             ...(connectors ? [] : ["--strict-mcp-config"]), "--append-system-prompt", system,
-            "--setting-sources", "project",
             "--disallowedTools", "Bash", "Edit", "Write", "NotebookEdit", ...fileTools.filter(t => !readTools.includes(t))];
         for (const folder of folders) args.push("--add-dir", folder);
         // The message tells the desktop MCP server what the task is: its
