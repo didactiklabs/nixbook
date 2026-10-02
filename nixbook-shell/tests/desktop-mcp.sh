@@ -1089,6 +1089,9 @@ call equalizer '{"action":"bands","gains":[5,4,3,0,-1,0,1,2,3,3.25]}' >/dev/null
 expect_eq "equalizer bands: 10 gains" "qs -c nixbook-shell ipc call -- equalizer bands 5,4,3,0,-1,0,1,2,3,3.2" "$(last_call)"
 expect_contains "equalizer bands: 10 of them" "$(call equalizer '{"action":"bands","gains":[1,2,3]}')" "10 numbers in dB"
 expect_contains "equalizer bands: within -12..12" "$(call equalizer '{"action":"bands","gains":[20,0,0,0,0,0,0,0,0,0]}')" "10 numbers in dB"
+call equalizer '{"action":"song_curve","gains":[6,5,3,0,-2,-1,1,2,3,4],"db":-4}' >/dev/null
+expect_eq "equalizer song_curve: this song's curve and preamp" "qs -c nixbook-shell ipc call -- equalizer songCurve 6,5,3,0,-2,-1,1,2,3,4 -4" "$(last_call)"
+expect_contains "equalizer song_curve: preamp checked" "$(call equalizer '{"action":"song_curve","gains":[0,0,0,0,0,0,0,0,0,0],"db":30}')" "-12 to 12"
 call equalizer '{"action":"preamp","db":-5}' >/dev/null
 expect_eq "equalizer preamp" "qs -c nixbook-shell ipc call -- equalizer preamp -5" "$(last_call)"
 call equalizer '{"action":"preset","name":"Bass"}' >/dev/null

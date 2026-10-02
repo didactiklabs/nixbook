@@ -3674,7 +3674,9 @@ EQ_BANDS_HZ = [32, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
     "following each song's genre), and what's playing (app, title, artist, "
     "album, page URL) with its Last.fm genre tags when the user set up a "
     "Last.fm key. preset {name}; bands {gains: 10 numbers in dB, -12..12, for "
-    "32, 63, 125, 250, 500 Hz, 1, 2, 4, 8, 16 kHz}; preamp {db}; auto {on}; "
+    "32, 63, 125, 250, 500 Hz, 1, 2, 4, 8, 16 kHz}; song_curve {gains, db} "
+    "(a curve for the song playing only: the user's saved curve comes back "
+    "when it ends); preamp {db}; auto {on}; "
     "agent {on} (agent mode: each new song, a Claude Code task tunes it; "
     "replaces Auto); "
     "open / close (the equalizer window, on the user's screen). Setting a "
@@ -3686,11 +3688,11 @@ EQ_BANDS_HZ = [32, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
     "moderate (+6 dB at most) and lower the preamp by about the biggest "
     "boost so it doesn't clip.",
     obj({
-        "action": {"type": "string", "enum": ["status", "preset", "bands", "preamp", "auto", "agent", "open", "close"]},
+        "action": {"type": "string", "enum": ["status", "preset", "bands", "song_curve", "preamp", "auto", "agent", "open", "close"]},
         "name": {"type": "string", "description": "preset: its name (from status)"},
         "gains": {"type": "array", "items": {"type": "number"}, "minItems": 10, "maxItems": 10,
                   "description": "bands: dB for 32 Hz … 16 kHz"},
-        "db": {"type": "number", "description": "preamp: dB, -12..12"},
+        "db": {"type": "number", "description": "preamp, song_curve: the preamp in dB, -12..12"},
         "on": {"type": "boolean", "description": "auto, agent: on or off"},
     }, ["action"]),
 )
@@ -3717,12 +3719,19 @@ def t_equalizer(ctx, args):
     ctx.guard.check_rate()
     if action == "preset":
         out = widget_call("equalizer", "preset", as_str(args, "name", max_len=64, pattern=r"[\w .()+-]{1,64}"))
-    elif action == "bands":
+    elif action in ("bands", "song_curve"):
         gains = args.get("gains")
         if not isinstance(gains, list) or len(gains) != 10 or not all(
                 isinstance(g, (int, float)) and not isinstance(g, bool) and -12 <= g <= 12 for g in gains):
             raise ToolError("`gains`: 10 numbers in dB, -12..12, for " + ", ".join(f"{hz} Hz" for hz in EQ_BANDS_HZ))
-        out = widget_call("equalizer", "bands", ",".join(f"{round(g, 1):g}" for g in gains))
+        curve = ",".join(f"{round(g, 1):g}" for g in gains)
+        if action == "bands":
+            out = widget_call("equalizer", "bands", curve)
+        else:
+            db = args.get("db", 0)
+            if not isinstance(db, (int, float)) or isinstance(db, bool) or not -12 <= db <= 12:
+                raise ToolError("`db` must be a number from -12 to 12")
+            out = widget_call("equalizer", "songCurve", curve, f"{round(db, 1):g}")
     elif action == "preamp":
         db = args.get("db")
         if not isinstance(db, (int, float)) or isinstance(db, bool) or not -12 <= db <= 12:
@@ -3734,7 +3743,7 @@ def t_equalizer(ctx, args):
             raise ToolError("`on` must be true or false")
         out = widget_call("equalizer", action, "true" if on else "false")
     else:
-        raise ToolError("`action`: status, preset, bands, preamp, auto, agent, open or close")
+        raise ToolError("`action`: status, preset, bands, song_curve, preamp, auto, agent, open or close")
     return [text(out[3:].strip() if out.startswith("ok:") else out)]
 
 

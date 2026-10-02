@@ -1125,7 +1125,10 @@ Item {
                     wrapMode: Text.Wrap
                     font.pixelSize: Appearance.font.pixelSize.smaller
                     color: root.blendedColors.colOnLayer1
-                    text: EqualizerAutoService.agentRunning ? Translation.tr("Tuning for this song…") : EqualizerAutoService.agentNote
+                    text: EqualizerAutoService.agentRunning ? Translation.tr("Shaping a curve for this song…")
+                        : (EqualizerAutoService.songCurveFor !== ""
+                            ? Translation.tr("Tuned for this song: your curve comes back when it ends.") + (EqualizerAutoService.agentNote ? "\n" + EqualizerAutoService.agentNote : "")
+                            : EqualizerAutoService.agentNote)
                 }
             }
         }

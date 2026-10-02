@@ -328,6 +328,9 @@ Singleton {
     Component.onCompleted: {
         root.refresh()
         root.refreshAuto()
+        // A song curve left from before a restart: back to the saved one
+        // (a no-op without one).
+        root.eq("song_revert")
     }
 
     // Covers switching which player is active (e.g. pausing an ineligible
@@ -338,14 +341,40 @@ Singleton {
     // that new player's own next metadata blip.
     onPlayerChanged: {
         root.maybeLookupGenre()
+        root.endSongCurveIfOver()
         root.maybeTuneByAgent()
     }
 
     Connections {
         target: root.player
-        function onTrackArtistChanged() { root.maybeLookupGenre(); root.maybeTuneByAgent() }
-        function onTrackTitleChanged() { root.maybeLookupGenre(); root.maybeTuneByAgent() }
+        function onTrackArtistChanged() { root.maybeLookupGenre(); root.endSongCurveIfOver(); root.maybeTuneByAgent() }
+        function onTrackTitleChanged() { root.maybeLookupGenre(); root.endSongCurveIfOver(); root.maybeTuneByAgent() }
         function onIsPlayingChanged() { root.maybeTuneByAgent() }
+        function onPlaybackStateChanged() { root.endSongCurveIfOver() }
+    }
+
+    // ------------------------------------------------------- song curve
+    // A curve for the song playing only (`songCurve`, what agent mode sets):
+    // heard through the live preview, the saved preset untouched, and
+    // reverted to it (and its name) once that song is over - another track,
+    // playback stopped, the player gone, agent mode off.
+    property string songCurveFor: ""
+    function endSongCurveIfOver() {
+        if (root.songCurveFor === "") return
+        const p = root.player
+        if (p && root.songKey(p) === root.songCurveFor && p.playbackState !== MprisPlaybackState.Stopped) return
+        root.revertSongCurve()
+    }
+    function revertSongCurve() {
+        root.songCurveFor = ""
+        root.eq("song_revert")
+        eqRefreshAfterRevert.restart()
+    }
+    // The preset name comes back with the revert: read it again.
+    Timer {
+        id: eqRefreshAfterRevert
+        interval: 1500
+        onTriggered: root.refresh()
     }
 
     // ------------------------------------------------------------ agent
@@ -370,6 +399,7 @@ Singleton {
         } else {
             agentDebounce.stop()
             agentProc.running = false
+            root.revertSongCurve()
         }
     }
 
@@ -409,9 +439,10 @@ Singleton {
             + (p.trackArtist ? ` by ${p.trackArtist}` : "")
             + (p.trackAlbum ? `, from ${p.trackAlbum}` : "")
             + ` (${p.identity ?? "a player"}${url ? ", " + url : ""}).`
-            + " Tune the user's equalizer for it: call the equalizer tool's status (it has the track's genre tags when"
-            + " there are any), then set the bands and preamp, or a preset, that suit this track. Don't open the"
-            + " equalizer window. Then answer with one short line: what you set and why."
+            + " Make the user's equalizer a curve of its own for this track: call the equalizer tool's status (it has the"
+            + " track's genre tags when there are any), then song_curve with the 10 band gains and the preamp you craft"
+            + " for this very track - not a preset; it lasts while the song plays, then the user's own curve comes back."
+            + " Don't open the equalizer window. Then answer with one short line: what you shaped and why."
         agentProc.running = false
         root.agentRunning = true
         agentProc.running = true
@@ -550,6 +581,7 @@ exec "$1" -p "$2" --output-format text --strict-mcp-config --setting-sources pro
                 } : null,
                 genreTags: lookedUp ? { artist: root.lastArtistTags, track: root.lastTrackTags } : null,
                 agent: { enabled: root.agentEnabled, running: root.agentRunning, note: root.agentNote },
+                songCurve: root.songCurveFor !== "",
                 // Last known (refreshed by this call for the next one).
                 easyEffects: root.easyEffects,
             });
@@ -567,6 +599,7 @@ exec "$1" -p "$2" --output-format text --strict-mcp-config --setting-sources pro
             const match = known.find(n => n.toLowerCase() === name.toLowerCase());
             if (!match) return `error: no preset "${name}" (${known.join(", ")})`;
             root.stopAuto();
+            root.songCurveFor = "";
             root.currentPresetName = match;
             root.eq("preset", match);
             return `ok: preset ${match}`;
@@ -578,11 +611,27 @@ exec "$1" -p "$2" --output-format text --strict-mcp-config --setting-sources pro
             if (values.length !== 10 || values.some(v => gains.trim() === "" || isNaN(v) || Math.abs(v) > root.gainRange))
                 return `error: give 10 gains in dB from -${root.gainRange} to ${root.gainRange}, for ${root.bandFrequencies.join(", ")} Hz`;
             root.stopAuto();
+            root.songCurveFor = "";
             root.currentPresetName = "Custom";
             Quickshell.execDetached(["bash", "-c",
                 'script=$1 dir=$2; shift 2; i=1; for g in "$@"; do bash "$script" "$dir" set_band "$i" "$g"; i=$((i + 1)); done; bash "$script" "$dir" save',
                 "sh", Directories.eqScriptPath, Directories.eqStateDir, ...values.map(v => String(Math.round(v * 10) / 10))]);
             return `ok: ${root.bandFrequencies.map((hz, i) => `${hz < 1000 ? hz : hz / 1000 + "k"}:${values[i]}`).join(" ")}`;
+        }
+        // A curve for the song playing only (10 gains as for `bands`, and the
+        // preamp): heard now, the saved preset untouched; once the song is
+        // over the saved curve comes back.
+        function songCurve(gains: string, preamp: real): string {
+            if (!root.player) return "error: nothing is playing";
+            const values = gains.split(",").map(g => Number(g.trim()));
+            if (values.length !== 10 || values.some(v => gains.trim() === "" || isNaN(v) || Math.abs(v) > root.gainRange))
+                return `error: give 10 gains in dB from -${root.gainRange} to ${root.gainRange}, for ${root.bandFrequencies.join(", ")} Hz`;
+            if (isNaN(preamp) || Math.abs(preamp) > root.gainRange)
+                return `error: preamp goes from -${root.gainRange} to ${root.gainRange} dB`;
+            root.songCurveFor = root.songKey(root.player);
+            root.currentPresetName = "Song";
+            root.eq("song_curve", values.map(v => String(Math.round(v * 10) / 10)).join(","), String(Math.round(preamp * 10) / 10));
+            return `ok: for "${root.player.trackTitle ?? ""}": ${root.bandFrequencies.map((hz, i) => `${hz < 1000 ? hz : hz / 1000 + "k"}:${values[i]}`).join(" ")}, preamp ${preamp}`;
         }
         // Master gain (dB, -12..12), over the curve.
         function preamp(db: real): string {
