@@ -228,6 +228,13 @@ case "$*" in
   *"images list"*) echo '[{"number":1,"name":"customImage","path":"","monitors":["DP-1"],"zoom":1},{"number":2,"name":"customImage:ab12","path":"/x.png","monitors":["DP-1","HDMI-A-1"],"zoom":2}]' ;;
   *"images set 9 "*) echo 'error: no image "9" (1 to 2)' ;;
   *"images "*) echo "ok: done" ;;
+  # The equalizer (EqualizerAutoService.qml): genre tags once looked up.
+  *"equalizer status"*)
+    tags=null; [ -e "$STUB_CALLS.genre" ] && tags='{"artist":["electronic","house"],"track":[]}'
+    echo "{\"auto\":true,\"preset\":\"Flat\",\"preamp\":0,\"presets\":[\"Flat\",\"Bass\"],\"playing\":{\"app\":\"Spotify\",\"title\":\"One More Time\",\"artist\":\"Daft Punk\"},\"genreTags\":$tags}" ;;
+  *"equalizer lookupGenre"*) touch "$STUB_CALLS.genre"; echo "ok: looking up" ;;
+  *"equalizer preset Nope"*) echo 'error: no preset "Nope" (Flat, Bass)' ;;
+  *"equalizer "*) echo "ok: done" ;;
   *"musicRecognition status"*) echo '{"listening":false,"source":"system sound","last":{"title":"Take Flight","subtitle":"SPYAIR"}}' ;;
   *"musicRecognition "*) echo "ok: ${*: -1}" ;;
   *"calendar next"*)
@@ -310,7 +317,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 39 tools" 39 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 40 tools" 40 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -1074,6 +1081,23 @@ expect_contains "screen_capture record_start: a region, no sound by default" "$(
 out=$(call screen_capture '{"action":"record_stop"}')
 expect_contains "screen_capture record_stop: the video's path" "$out" "recording stopped: $STUB_VIDEOS/recording_2026-10-02_12.00.00.mp4"
 expect_contains "screen_capture record_start: not a window" "$(call screen_capture '{"action":"record_start","window_id":5}')" "(a window: its region from list_windows)"
+
+# The equalizer: the song playing and its genre, then a curve for it.
+out=$(call equalizer '{"action":"status"}')
+expect_eq "equalizer status: the song and its genre, looked up" "Daft Punk electronic" "$(jq -r '"\(.playing.artist) \(.genreTags.artist[0])"' <<<"$out")"
+call equalizer '{"action":"bands","gains":[5,4,3,0,-1,0,1,2,3,3.25]}' >/dev/null
+expect_eq "equalizer bands: 10 gains" "qs -c nixbook-shell ipc call -- equalizer bands 5,4,3,0,-1,0,1,2,3,3.2" "$(last_call)"
+expect_contains "equalizer bands: 10 of them" "$(call equalizer '{"action":"bands","gains":[1,2,3]}')" "10 numbers in dB"
+expect_contains "equalizer bands: within -12..12" "$(call equalizer '{"action":"bands","gains":[20,0,0,0,0,0,0,0,0,0]}')" "10 numbers in dB"
+call equalizer '{"action":"preamp","db":-5}' >/dev/null
+expect_eq "equalizer preamp" "qs -c nixbook-shell ipc call -- equalizer preamp -5" "$(last_call)"
+call equalizer '{"action":"preset","name":"Bass"}' >/dev/null
+expect_eq "equalizer preset" "qs -c nixbook-shell ipc call -- equalizer preset Bass" "$(last_call)"
+expect_contains "equalizer preset: the shell's error" "$(call equalizer '{"action":"preset","name":"Nope"}')" 'no preset "Nope"'
+call equalizer '{"action":"auto","on":false}' >/dev/null
+expect_eq "equalizer auto" "qs -c nixbook-shell ipc call -- equalizer auto false" "$(last_call)"
+call equalizer '{"action":"agent","on":true}' >/dev/null
+expect_eq "equalizer agent mode" "qs -c nixbook-shell ipc call -- equalizer agent true" "$(last_call)"
 
 # Music recognition and the calendar (SongRec.qml, CalendarEvents.qml).
 out=$(call widget '{"widget":"shazam","action":"status"}')

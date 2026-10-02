@@ -11,6 +11,7 @@ import QtQuick
 import QtQuick.Window
 import Quickshell
 import Quickshell.Io
+import qs.modules.ii.equalizer
 
 ShellRoot {
     id: root
@@ -33,12 +34,14 @@ ShellRoot {
         DesktopControl.load()
         WindowLayouts.load()
         AppTheming.load()
-        // Their IPC targets (widgets, notes, todo, timers, musicRecognition) exist once they are loaded.
+        // Their IPC targets (widgets, notes, todo, timers, musicRecognition,
+        // equalizer) exist once they are loaded.
         DesktopWidgets.load()
         Notes.load()
         Todo.load()
         TimerService.load()
         SongRec.load()
+        EqualizerAutoService.load()
     }
     
     PanelFamilyLoader {

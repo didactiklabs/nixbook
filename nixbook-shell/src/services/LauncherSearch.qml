@@ -181,6 +181,12 @@ Singleton {
             }
         },
         {
+            action: "equalizer",
+            execute: () => {
+                Qt.callLater(() => GlobalStates.equalizerOpen = true);
+            }
+        },
+        {
             action: "wipeclipboard",
             execute: () => {
                 Quickshell.execDetached(["bash", "-c", "rm -f ~/.cache/cliphist/db"]);
@@ -235,6 +241,19 @@ Singleton {
 
     // Combined built-in and user actions
     property var allActions: searchActions.concat(userActionScripts)
+
+    // The shell's own panels with no app of their own, found by name or by
+    // what they're for (a word starting the query, or the query starting one).
+    readonly property var shellTools: [
+        {
+            id: "equalizer",
+            name: Translation.tr("Equalizer"),
+            icon: "graphic_eq",
+            comment: Translation.tr("Shape the sound: presets, 10 bands, or following the song's genre (EasyEffects)"),
+            keywords: ["equalizer", "equaliser", "eq", "bass", "treble", "audio", "sound", "easyeffects"],
+            open: () => GlobalStates.equalizerOpen = true,
+        },
+    ]
 
     property string mathResult: ""
     property bool clipboardWorkSafetyActive: {
@@ -713,6 +732,19 @@ Singleton {
             result.push(webSearchResultObject);
         }
 
+        ///////////// Shell tools //////////////
+        const toolQuery = root.query.toLowerCase().trim();
+        result = result.concat(toolQuery.length < 2 ? [] : root.shellTools
+            .filter(tool => tool.keywords.some(k => k.startsWith(toolQuery) || toolQuery.startsWith(k + " ")))
+            .map(tool => root.cachedResult("shellTool", tool.id, {
+                name: tool.name,
+                verb: Translation.tr("Open"),
+                type: Translation.tr("Shell"),
+                comment: tool.comment,
+                iconName: tool.icon,
+                iconType: LauncherSearchResult.IconType.Material,
+                execute: () => Qt.callLater(tool.open),
+            })));
         //////////////// Apps //////////////////
         result = result.concat(appResultObjects);
         ////////////// Settings ////////////////

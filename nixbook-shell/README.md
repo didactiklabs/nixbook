@@ -101,7 +101,8 @@ black screen or half-drawn desktop in between.
 ## Settings
 
 Settings live in `~/.config/nixbook-shell/config.json` and are edited from the
-shell's Settings window. Every key set in `programs.nixbook-shell.settings` is
+shell's Settings window (its search box, Ctrl+F, finds any setting or
+section on any page and scrolls to it). Every key set in `programs.nixbook-shell.settings` is
 applied on each activation and **locked** in that window; every other key stays
 editable there. The options are generated from the built-in defaults
 (`builtin-defaults.json`), so a misspelt key fails evaluation.
@@ -212,7 +213,13 @@ monitor, frame, style, move between monitors, remove; music recognition:
 listen, the source, the songs found, through the shell's `widgets`,
 `images`, `notes`, `todo`, `timers` and `musicRecognition` IPC targets, and
 `region`'s recordStart/recordStop/recordStatus, which key bindings can call
-too); the user's calendar, read-only
+too); the audio equalizer (`equalizer`: what's playing
+with its Last.fm genre tags, then a preset or a 10-band curve and the
+preamp, or Auto, which follows each song's genre; the `equalizer` IPC
+target; its agent mode, `equalizer.agent` (the equalizer window's Agent
+chip, Settings > Desktop agents), has a short Claude Code task with only
+this tool tune the curve for each new song, `equalizer.agentModel`, Haiku
+by default); the user's calendar, read-only
 (`calendar`: the next event, the coming days, a given day, from DankCalendar
 through the `calendar` IPC target); the shell's own IPC (sidebars, launcher, lock…);
 notifications. It is a Model Context Protocol server, so
