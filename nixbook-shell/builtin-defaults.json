@@ -178,6 +178,7 @@
       "customImage": {
         "enable": false,
         "grayscale": false,
+        "instances": [],
         "mirror": false,
         "offsetX": 0,
         "offsetY": 0,
