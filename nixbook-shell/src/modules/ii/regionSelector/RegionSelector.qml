@@ -124,5 +124,37 @@ Scope {
         function recordWithSound() {
             root.recordWithSound()
         }
+
+        // Without the selector (the desktop MCP server's screen_capture),
+        // through the same script, indicator and notifications. `target`: ""
+        // (the focused monitor), a monitor's name, or a region "X,Y WxH" in
+        // logical pixels.
+        function recordStart(target: string, sound: bool): string {
+            if (Persistent.states.record.enable)
+                return "error: already recording (recordStop first)";
+            const args = [Directories.recordScriptPath];
+            if (target === "")
+                args.push("--fullscreen");
+            else if (/^-?[0-9]+,-?[0-9]+ [0-9]+x[0-9]+$/.test(target))
+                args.push("--region", target);
+            else if (Quickshell.screens.some(s => s.name === target))
+                args.push("--output", target);
+            else
+                return `error: "${target}" isn't a monitor (${Quickshell.screens.map(s => s.name).join(", ")}) or a region "X,Y WxH"`;
+            args.push(sound ? "--sound" : "--no-sound");
+            Quickshell.execDetached(args);
+            return `ok: recording ${target || "the focused monitor"}${sound ? " with sound" : ""}`;
+        }
+        // The script stops the running recording when called again.
+        function recordStop(): string {
+            if (!Persistent.states.record.enable)
+                return "error: not recording";
+            Quickshell.execDetached([Directories.recordScriptPath]);
+            return "ok: stopped";
+        }
+        function recordStatus(): string {
+            return JSON.stringify({ recording: Persistent.states.record.enable,
+                folder: FileUtils.trimFileProtocol(Config.options.screenRecord.savePath) });
+        }
     }
 }

@@ -63,6 +63,32 @@ AbstractWidget {
 
     draggable: placementStrategy === "free" && !Config.options.background.widgetsLocked
 
+    // Where it is on its monitor and how big (DesktopWidgets.geometries, for
+    // `ipc call widgets layout`), reported once it settles.
+    QtObject {
+        id: geometryReport
+        function send() {
+            DesktopWidgets.reportGeometry(root.configEntryName, root.screenName, root.visible && root.width > 0
+                ? { x: Math.round(root.x), y: Math.round(root.y), width: Math.round(root.width), height: Math.round(root.height), z: root.z }
+                : null);
+        }
+        property Timer timer: Timer {
+            interval: 300
+            onTriggered: geometryReport.send()
+        }
+        property Connections changes: Connections {
+            target: root
+            function onXChanged() { geometryReport.timer.restart() }
+            function onYChanged() { geometryReport.timer.restart() }
+            function onZChanged() { geometryReport.timer.restart() }
+            function onWidthChanged() { geometryReport.timer.restart() }
+            function onHeightChanged() { geometryReport.timer.restart() }
+            function onVisibleChanged() { geometryReport.timer.restart() }
+        }
+        Component.onCompleted: timer.restart()
+        Component.onDestruction: DesktopWidgets.reportGeometry(root.configEntryName, root.screenName, null)
+    }
+
     function requestDelete() {
         if (DesktopWidgets.splitName(root.configEntryName))
             DesktopWidgets.removeInstance(root.configEntryName)

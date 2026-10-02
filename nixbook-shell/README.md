@@ -181,7 +181,12 @@ isn't sure.
 `nixbook-desktop-mcp` (`scripts/desktop-mcp.py`, also `nixbook-shell mcp`)
 lets an AI agent see and drive the desktop: list windows, workspaces and
 apps; focus, move, resize, close windows; launch apps; take screenshots (a
-monitor, a zoomed-in region, a window on screen), silently; read the text on
+monitor, a zoomed-in region, a window on screen), silently; save screenshots
+and record the screen for the user (`screen_capture`: a monitor, region or
+window to a file in `screenSnip.savePath` and/or the clipboard; recordings
+of a monitor or region, with or without the desktop audio, through the
+shell's recorder and its indicator: start, stop with the video's path,
+status; never from the agent desktop); read the text on
 screen (`read_screen`: OCR, each line with its position to click, ~150
 tokens instead of a screenshot's ~1,250; `find` returns only the lines
 containing the given text; `ocrLanguages`, `eng` by default); type, press
@@ -197,11 +202,17 @@ locked); the wallpaper (`set_wallpaper`: a JPEG, PNG, WebP or AVIF file
 from a folder shared with agents, `ai.allowedFolders` or
 `ai.writableFolders`, e.g. what the agent desktop's browser downloaded; the
 palette follows); the desktop widgets without clicking them (`widget`: list, show or
-hide any; read, add, edit and remove the notes widget's notes and the
-to-do list's tasks; the timers' pomodoro, stopwatch and countdown; music
-recognition: listen, the source, the songs found, through the shell's
-`widgets`, `notes`, `todo`, `timers` and `musicRecognition` IPC targets,
-which key bindings can call too); the user's calendar, read-only
+hide any; arrange them: each widget's box per monitor (`layout`), move one
+to a position on a monitor, hide it there, bring it to the front, or let it
+follow the wallpaper's calm areas; read, add, edit and remove the notes
+widget's notes and the to-do list's tasks; the timers' pomodoro, stopwatch,
+countdown and alarm (set at a date and time, once or daily; dismiss,
+snooze); the custom images: add one (a picture from a shared folder) on a
+monitor, frame, style, move between monitors, remove; music recognition:
+listen, the source, the songs found, through the shell's `widgets`,
+`images`, `notes`, `todo`, `timers` and `musicRecognition` IPC targets, and
+`region`'s recordStart/recordStop/recordStatus, which key bindings can call
+too); the user's calendar, read-only
 (`calendar`: the next event, the coming days, a given day, from DankCalendar
 through the `calendar` IPC target); the shell's own IPC (sidebars, launcher, lock…);
 notifications. It is a Model Context Protocol server, so

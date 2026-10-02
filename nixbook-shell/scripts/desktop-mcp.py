@@ -3171,6 +3171,20 @@ WIDGET_ACTIONS = {
         "countdown_add": ("timers", "countdownAdd", ("minutes",), True),
         "countdown_toggle": ("timers", "countdownToggle", (), True),
         "countdown_reset": ("timers", "countdownReset", (), True),
+        "alarm_set": ("timers", "alarmSet", ("when", "label", "daily"), True),
+        "alarm_toggle": ("timers", "alarmToggle", (), True),
+        "alarm_clear": ("timers", "alarmClear", (), True),
+        "alarm_dismiss": ("timers", "alarmDismiss", (), True),
+        "alarm_snooze": ("timers", "alarmSnooze", (), True),
+    },
+    # The custom images (DesktopWidgets.qml `images` target).
+    "images": {
+        "list": ("images", "list", (), False),
+        "add": ("images", "add", ("path", "monitor"), True),
+        "remove": ("images", "remove", ("image",), True),
+        "set": ("images", "set", ("image", "key", "value"), True),
+        "recenter": ("images", "recenter", ("image",), True),
+        "monitors": ("images", "monitors", ("image", "monitors"), True),
     },
     "music": {
         "status": ("musicRecognition", "status", (), False),
@@ -3181,7 +3195,9 @@ WIDGET_ACTIONS = {
     },
 }
 WIDGET_NAMES = {"note": "notes", "todos": "todo", "todolist": "todo", "task": "todo", "tasks": "todo",
-                "timer": "timers", "pomodoro": "timers", "stopwatch": "timers", "countdown": "timers",
+                "timer": "timers", "pomodoro": "timers", "stopwatch": "timers", "countdown": "timers", "alarm": "timers",
+                "image": "images", "customimage": "images", "customimages": "images", "picture": "images",
+                "pictures": "images", "photo": "images", "photos": "images",
                 "musicrecognition": "music", "songrec": "music", "shazam": "music", "song": "music"}
 
 
@@ -3264,26 +3280,17 @@ def image_kind(head):
     return None
 
 
-@tool(
-    "set_wallpaper",
-    "shell",
-    "Set the user's wallpaper to an image file on their computer (JPEG, PNG, "
-    "WebP, AVIF), from a folder they share with agents (Settings > Desktop "
-    "agents: the folders agents may read or write; what your desktop's "
-    "browser downloads lands in the first writable one). The palette "
-    "follows, as when the user picks it with Mod+W. A web address won't do: "
-    "download the image first.",
-    obj({"path": {"type": "string", "description": "Absolute path (or ~/…) of the image"}}, ["path"]),
-)
-def t_set_wallpaper(ctx, args):
-    want = as_str(args, "path", max_len=1024)
+def shared_image(want, fallback):
+    """The real path of `want`, an image file (JPEG, PNG, WebP, AVIF) in a
+    folder the user shares with agents; else a ToolError. `fallback`: how the
+    user can do it themselves, when no folder is shared."""
     if re.match(r"(?i)^[a-z][a-z0-9+.-]*://", want):
         raise ToolError("that's a web address: download the image into a shared folder first, then give its path")
     path = os.path.realpath(os.path.expanduser(want))
     folders = shared_folders()
     if not folders:
         raise ToolError("the user shares no folder with agents: ask them to add one in Settings > Desktop agents "
-                        "(e.g. a writable ~/Pictures/Assistant), or to set the wallpaper with Mod+W")
+                        f"(e.g. a writable ~/Pictures/Assistant), or to {fallback}")
     if not any(path == f or path.startswith(f + os.sep) for f in folders):
         raise ToolError(f"refused: {want} isn't in a folder the user shares with agents ({', '.join(folders)})")
     try:
@@ -3298,37 +3305,272 @@ def t_set_wallpaper(ctx, args):
         raise ToolError(f"{want} is over 200 MB")
     if not image_kind(head):
         raise ToolError(f"{want} isn't a JPEG, PNG, WebP or AVIF image")
+    return path
+
+
+@tool(
+    "set_wallpaper",
+    "shell",
+    "Set the user's wallpaper to an image file on their computer (JPEG, PNG, "
+    "WebP, AVIF), from a folder they share with agents (Settings > Desktop "
+    "agents: the folders agents may read or write; what your desktop's "
+    "browser downloads lands in the first writable one). The palette "
+    "follows, as when the user picks it with Mod+W. A web address won't do: "
+    "download the image first.",
+    obj({"path": {"type": "string", "description": "Absolute path (or ~/…) of the image"}}, ["path"]),
+)
+def t_set_wallpaper(ctx, args):
+    path = shared_image(as_str(args, "path", max_len=1024), "set the wallpaper with Mod+W")
     ctx.guard.check_rate()
     qs_ipc("call", "--", "wallpapers", "apply", path)
     return [text(f"wallpaper set to {path}; the palette follows in a few seconds")]
 
 
 
+def shell_setting(path, default):
+    """A value of the shell's settings (config.json), by dotted path."""
+    try:
+        with open(os.path.join(xdg("XDG_CONFIG_HOME", "~/.config"), "nixbook-shell", "config.json"), encoding="utf-8") as f:
+            value = json.load(f)
+        for key in path.split("."):
+            value = value[key]
+        return value if value not in (None, "") else default
+    except (OSError, ValueError, KeyError, TypeError):
+        return default
+
+
+def capture_geometry(args):
+    """grim's target for screen_capture: {window_id} (a floating window
+    exactly, a tiled one with its monitor), {region}, or {monitor} (default:
+    the focused one). Returns (grim arguments, what, the region "X,Y WxH" or
+    monitor name for a recording)."""
+    outputs = {n: o for n, o in (niri_json("outputs") or {}).items() if o.get("logical")}
+    if args.get("window_id") is not None:
+        wid = as_int(args, "window_id")
+        w = window_by_id(wid)
+        ws = next((x for x in niri_json("workspaces") if x.get("id") == w.get("workspace_id")), None)
+        if not (ws and ws.get("is_active") and ws.get("output") in outputs):
+            raise ToolError(f"window {wid} isn't on screen: focus it first")
+        lg = outputs[ws["output"]]["logical"]
+        layout = w.get("layout") or {}
+        pos, size = layout.get("tile_pos_in_workspace_view"), layout.get("window_size")
+        if w.get("is_floating") and pos and size:
+            off = layout.get("window_offset_in_tile") or [0, 0]
+            args = {"region": {"x": lg["x"] + pos[0] + off[0], "y": lg["y"] + pos[1] + off[1], "width": size[0], "height": size[1]}}
+        else:
+            args = {"monitor": ws["output"]}
+    if args.get("region") is not None:
+        r = args["region"]
+        if not isinstance(r, dict):
+            raise ToolError("`region` must be {x, y, width, height}")
+        x, y = point(r)
+        w, h = point(r, "width", "height")
+        x, y, w, h = round(x), round(y), round(w), round(h)
+        bx, by, bw, bh = desktop_bbox()
+        x, y = max(x, bx), max(y, by)
+        w, h = min(w, bx + bw - x), min(h, by + bh - y)
+        if w < 4 or h < 4:
+            raise ToolError(f"`region` must be at least 4x4 logical pixels on the desktop ({bx},{by} {bw}x{bh})")
+        geometry = f"{x},{y} {w}x{h}"
+        return ["-g", geometry], f"region {geometry}", geometry
+    name = as_str(args, "monitor", required=False, max_len=64, pattern=r"[\w.\-]+")
+    if not name:
+        name = (niri_json("focused-output") or {}).get("name")
+    if name not in outputs:
+        raise ToolError(f"no monitor {name!r}; monitors: {', '.join(outputs)}")
+    return ["-o", name], f"monitor {name}", name
+
+
+@tool(
+    "screen_capture",
+    "screen",
+    "Screenshots and screen recordings for the user (to look at the screen "
+    "yourself, use `screenshot`). screenshot {monitor | region | window_id, "
+    "to: file (default), clipboard or both}: full resolution, saved where "
+    "the shell saves screenshots (its path in the reply). record_start "
+    "{monitor | region, sound?}: records the user's screen (default: the "
+    "focused monitor; sound: the desktop audio, off unless asked) with the "
+    "shell's recorder, its indicator showing; record_stop: ends it and gives "
+    "the video's path; record_status.",
+    obj({
+        "action": {"type": "string", "enum": ["screenshot", "record_start", "record_stop", "record_status"]},
+        "monitor": {"type": "string", "description": "Monitor name (see list_workspaces)"},
+        "region": {
+            "type": "object",
+            "description": "A desktop rectangle in logical pixels",
+            "properties": {"x": COORD, "y": COORD, "width": COORD, "height": COORD},
+            "required": ["x", "y", "width", "height"],
+        },
+        "window_id": {"type": "integer", "description": "screenshot: a window on screen (see list_windows)"},
+        "to": {"type": "string", "enum": ["file", "clipboard", "both"]},
+        "sound": {"type": "boolean", "description": "record_start: with the desktop audio"},
+    }, ["action"]),
+)
+def t_screen_capture(ctx, args):
+    action = as_str(args, "action", max_len=16)
+    if action == "screenshot":
+        to = args.get("to", "file")
+        if to not in ("file", "clipboard", "both"):
+            raise ToolError("`to` is file, clipboard or both")
+        grim, what, _ = capture_geometry(args)
+        ctx.guard.check_rate()
+        if to == "clipboard":
+            path = os.path.join(runtime_dir(), f"capture-{secrets.token_hex(4)}.png")
+        else:
+            folder = os.path.expanduser(str(shell_setting("screenSnip.savePath", "~/Pictures/Screenshots")))
+            os.makedirs(folder, exist_ok=True)
+            path = os.path.join(folder, time.strftime("Screenshot-%Y-%m-%d-%H-%M-%S.png"))
+        run(["grim", *grim, "-t", "png", path], timeout=15)
+        if to != "file":
+            with open(path, "rb") as f:
+                wl_copy(f.read(), "image/png")
+        if to == "clipboard":
+            os.unlink(path)
+            return [text(f"screenshot of the {what} copied to the clipboard")]
+        return [text(f"screenshot of the {what} saved to {path}" + (" and copied to the clipboard" if to == "both" else ""))]
+    if ctx.desktop == "agent":
+        raise ToolError("refused: recordings are of the user's screen, and you work on your own desktop")
+    if action == "record_status":
+        return [text(json.loads(widget_call("region", "recordStatus")))]
+    if action == "record_start":
+        if args.get("window_id") is not None:
+            raise ToolError("record a `monitor` or a `region` (a window: its region from list_windows)")
+        sound = args.get("sound", False)
+        if not isinstance(sound, bool):
+            raise ToolError("`sound` must be true or false")
+        _, what, target = capture_geometry(args)
+        ctx.guard.check_rate()
+        widget_call("region", "recordStart", target, "true" if sound else "false")
+        # The script marks the recording as started once wf-recorder runs.
+        for _ in range(20):
+            time.sleep(0.25)
+            if json.loads(widget_call("region", "recordStatus")).get("recording"):
+                return [text(f"recording the {what}{' with sound' if sound else ''}; record_stop to end it")]
+        raise ToolError("the recording didn't start (is wf-recorder installed? see the user's notifications)")
+    if action == "record_stop":
+        status = json.loads(widget_call("region", "recordStatus"))
+        if not status.get("recording"):
+            raise ToolError("not recording")
+        stopped = time.time()
+        ctx.guard.check_rate()
+        widget_call("region", "recordStop")
+        for _ in range(40):
+            time.sleep(0.25)
+            if not json.loads(widget_call("region", "recordStatus")).get("recording"):
+                break
+        folder = os.path.expanduser(status.get("folder") or "~/Videos")
+        try:
+            videos = [os.path.join(folder, n) for n in os.listdir(folder) if n.startswith("recording_") and n.endswith(".mp4")]
+        except OSError:
+            videos = []
+        latest = max(videos, key=os.path.getmtime, default=None)
+        if latest and os.path.getmtime(latest) >= stopped - 5:
+            return [text(f"recording stopped: {latest} (also in the user's clipboard)")]
+        return [text(f"recording stopped; the video is in {folder}")]
+    raise ToolError("`action`: screenshot, record_start, record_stop or record_status")
+
+
+ARRANGE_ACTIONS = {"layout", "place", "hide_on", "raise", "placement"}
+
+
+def arrange_widget(ctx, action, want, args):
+    """layout / place / hide_on / raise / placement: any widget, through the
+    shell's `widgets` target (DesktopWidgets.qml)."""
+    if action == "layout":
+        return [text(json.loads(widget_call("widgets", "layout")))]
+    if not want:
+        raise ToolError(f"`{action}` needs `widget` (a name from layout or list)")
+    layout = json.loads(widget_call("widgets", "layout"))
+    names = {w["name"] for w in json.loads(widget_call("widgets", "list"))} | {w["name"] for w in layout["widgets"]}
+    key = re.sub(r"[^a-z0-9:]", "", want.lower())
+    name = next((n for n in sorted(names) if n.lower() == key or re.sub(r"[^a-z0-9:]", "", n.lower()) == key), None)
+    if not name:
+        raise ToolError(f"no widget {want!r}: {', '.join(sorted(names))}")
+    if action == "placement":
+        strategy = as_str(args, "strategy", max_len=16)
+        if strategy not in ("free", "leastBusy", "mostBusy"):
+            raise ToolError("`strategy` is free, leastBusy or mostBusy")
+        ctx.guard.check_rate()
+        return [text(widget_call("widgets", "placement", name, strategy)[3:].strip())]
+    monitor = as_str(args, "monitor", required=False, max_len=64, pattern=r"[\w.:-]{1,64}")
+    if not monitor:
+        shown = [w["monitor"] for w in layout["widgets"] if w["name"] == name]
+        monitors = [m["name"] for m in layout["monitors"]]
+        if len(shown) == 1 or len(monitors) == 1:
+            monitor = shown[0] if len(shown) == 1 else monitors[0]
+        else:
+            raise ToolError(f"which `monitor`? {', '.join(monitors)}")
+    ctx.guard.check_rate()
+    if action == "place":
+        argv = []
+        for k in ("x", "y"):
+            v = args.get(k)
+            if not isinstance(v, (int, float)) or isinstance(v, bool) or v < 0:
+                raise ToolError(f"`{k}` must be a position in logical pixels (0 or more)")
+            argv.append(str(round(v)))
+        out = widget_call("widgets", "place", name, monitor, *argv)
+    elif action == "hide_on":
+        out = widget_call("widgets", "hideOn", name, monitor)
+    else:
+        out = widget_call("widgets", "raise", name, monitor)
+    return [text(out[3:].strip() if out.startswith("ok:") else out)]
+
+
 @tool(
     "widget",
     "shell",
     "The desktop widgets, without clicking them. No widget: `list` them "
-    "(shown or not); any widget: `show` or `hide` it. notes (the notes "
+    "(shown or not); any widget: `show` or `hide` it. Arranging: `layout` "
+    "(each monitor's size and the box {x, y, width, height} of every widget "
+    "showing, per monitor); place {widget, monitor?, x, y} (its top left, "
+    "logical pixels from the monitor's corner; shows it there and stops it "
+    "following the wallpaper), hide_on {widget, monitor?}, raise {widget, "
+    "monitor?} (in front), placement {widget, strategy: free, leastBusy, "
+    "mostBusy}. Lay widgets out from `layout` so they don't overlap. notes (the notes "
     "widget): list, add {text}, update {id, text}, remove {id}. todo (the "
     "task list): list, add {text}, done/undone/remove {index}. timers: "
     "status, pomodoro_toggle, pomodoro_reset, stopwatch_toggle, "
     "stopwatch_lap, stopwatch_reset, countdown_add {minutes} (starts it), "
-    "countdown_toggle, countdown_reset. music (recognize the song playing, "
+    "countdown_toggle, countdown_reset, alarm_set {when: \"YYYY-MM-DD HH:MM\" "
+    "or \"HH:MM\" (today), label?, daily?}, alarm_toggle, alarm_clear, "
+    "alarm_dismiss, alarm_snooze (while it rings). images (the custom image "
+    "widgets): list, add {path, monitor?} (an image from a folder the user "
+    "shares with agents; on that monitor, else all), remove {image}, set "
+    "{image, key, value} (key: path, shape, size 80-1000, zoom 1-4, offsetX / "
+    "offsetY -1..1 (which part of the picture shows, 0 = centre), rotation, "
+    "opacity 0.1-1, mirror, grayscale), recenter {image}, monitors {image, "
+    "monitors: all, none, or names}; `image` is a number from list. music "
+    "(recognize the song playing, "
     "Shazam): listen (up to the timeout; the song comes in status a few "
     "seconds later, and as a notification), stop, status (the last songs "
     "found), use_system_sound, use_microphone.",
     obj({
-        "widget": {"type": "string", "description": "notes, todo, timers, music, or a widget name from list"},
+        "widget": {"type": "string", "description": "notes, todo, timers, images, music, or a widget name from list"},
         "action": {"type": "string"},
         "text": {"type": "string", "description": "A note's or task's text"},
         "id": {"type": "string", "description": "A note's id (from list)"},
         "index": {"type": "integer", "description": "A task's index (from list)"},
         "minutes": {"type": "integer"},
+        "x": {"type": "number", "description": "place: logical pixels from the monitor's left"},
+        "y": {"type": "number", "description": "place: logical pixels from the monitor's top"},
+        "strategy": {"type": "string", "enum": ["free", "leastBusy", "mostBusy"]},
+        "when": {"type": "string", "description": "alarm_set: local \"YYYY-MM-DD HH:MM\", or \"HH:MM\""},
+        "label": {"type": "string", "description": "alarm_set: what the alarm is for"},
+        "daily": {"type": "boolean", "description": "alarm_set: every day at that time"},
+        "image": {"type": ["integer", "string"], "description": "images: the image's number (from list)"},
+        "path": {"type": "string", "description": "images add: the picture (absolute path or ~/…)"},
+        "monitor": {"type": "string", "description": "images add, place, hide_on, raise: a monitor's name"},
+        "key": {"type": "string", "description": "images set: the setting"},
+        "value": {"type": ["string", "number", "boolean"], "description": "images set: its value"},
+        "monitors": {"type": ["string", "array"], "items": {"type": "string"},
+                     "description": "images monitors: all, none, or monitor names"},
     }, ["action"]),
 )
 def t_widget(ctx, args):
     action = as_str(args, "action", max_len=32).strip().lower()
     want = (as_str(args, "widget", required=False, max_len=64) or "").strip()
+    if action in ARRANGE_ACTIONS:
+        return arrange_widget(ctx, action, want, args)
     key = re.sub(r"[^a-z]", "", want.lower())
     widget = WIDGET_NAMES.get(key, key)
     if action in ("list", "show", "hide") and (not want or action != "list" or widget not in WIDGET_ACTIONS):
@@ -3344,7 +3586,7 @@ def t_widget(ctx, args):
         ctx.guard.check_rate()
         return [text(widget_call("widgets", action, name))]
     if widget not in WIDGET_ACTIONS:
-        raise ToolError("give `widget`: notes, todo, timers or music (or list/show/hide for the others)")
+        raise ToolError("give `widget`: notes, todo, timers, images or music (or list/show/hide for the others)")
     actions = WIDGET_ACTIONS[widget]
     if action == "list" and "status" in actions:
         action = "status"
@@ -3360,6 +3602,50 @@ def t_widget(ctx, args):
                 raise ToolError("`text` is empty")
         elif name == "id":
             value = as_str(args, "id", max_len=64, pattern=r"[\w.-]{1,64}")
+        elif name == "when":
+            value = as_str(args, "when", max_len=20, pattern=r"(\d{4}-\d{1,2}-\d{1,2}[ T])?\d{1,2}:\d{2}")
+        elif name == "label":
+            value = (as_str(args, "label", required=False, max_len=100) or "").strip()
+        elif name == "daily":
+            daily = args.get("daily", False)
+            if not isinstance(daily, bool):
+                raise ToolError("`daily` must be true or false")
+            value = "true" if daily else "false"
+        elif name == "path":
+            value = shared_image(as_str(args, "path", max_len=1024), "drop the picture on the image widget")
+        elif name == "monitor":
+            value = as_str(args, "monitor", required=False, max_len=64, pattern=r"[\w.:-]{1,64}") or ""
+        elif name == "image":
+            image = args.get("image")
+            if isinstance(image, int) and not isinstance(image, bool) and image >= 1:
+                value = str(image)
+            elif isinstance(image, str) and re.fullmatch(r"\d{1,4}|customImage(:[\w]{1,32})?", image):
+                value = image
+            else:
+                raise ToolError("`image` must be an image's number (1, 2, …: images list)")
+        elif name == "key":
+            value = as_str(args, "key", max_len=16, pattern=r"[A-Za-z]{1,16}")
+        elif name == "value":
+            raw = args.get("value")
+            if isinstance(raw, bool):
+                value = "true" if raw else "false"
+            elif isinstance(raw, (int, float)):
+                value = repr(raw)
+            elif isinstance(raw, str) and raw and len(raw) <= 1024:
+                value = raw
+            else:
+                raise ToolError("`value` must be a string, a number or true/false")
+            # A new picture: the same check as add.
+            if args.get("key") == "path":
+                value = shared_image(value, "drop the picture on the image widget")
+        elif name == "monitors":
+            raw = args.get("monitors")
+            if isinstance(raw, list) and raw and all(isinstance(m, str) and re.fullmatch(r"[\w.:-]{1,64}", m) for m in raw):
+                value = ",".join(raw)
+            elif isinstance(raw, str) and re.fullmatch(r"all|none|[\w.:-]{1,64}(,[\w.:-]{1,64})*", raw):
+                value = raw
+            else:
+                raise ToolError("`monitors` must be all, none, or monitor names")
         else:
             value = args.get(name)
             if not isinstance(value, int) or isinstance(value, bool) or value < 0:
