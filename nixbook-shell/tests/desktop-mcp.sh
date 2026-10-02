@@ -223,6 +223,7 @@ case "$*" in
   *"timers status"*) echo '{"pomodoro":{"running":false},"stopwatch":{"running":false},"countdown":{"running":false,"secondsLeft":0}}' ;;
   *"timers countdownAdd"*) echo "ok: countdown ${*: -1} min" ;;
   *"timers alarmDismiss"*) echo "error: the alarm isn't ringing" ;;
+  *"timers countdownDismiss"*) echo "error: the countdown isn't ringing" ;;
   *"timers "*) echo "ok: done" ;;
   # The custom images (DesktopWidgets.qml `images`).
   *"images list"*) echo '[{"number":1,"name":"customImage","path":"","monitors":["DP-1"],"zoom":1},{"number":2,"name":"customImage:ab12","path":"/x.png","monitors":["DP-1","HDMI-A-1"],"zoom":2}]' ;;
@@ -1020,6 +1021,7 @@ out=$(call widget '{"widget":"timers","action":"list"}')
 expect_eq "widget timers: list is status" "false" "$(jq -r '.pomodoro.running' <<<"$out")"
 out=$(call widget '{"widget":"pomodoro","action":"countdown_add","minutes":25}')
 expect_eq "widget timers countdown_add" "qs -c nixbook-shell ipc call -- timers countdownAdd 25" "$(last_call)"
+expect_contains "widget timers countdown_dismiss: the shell's error" "$(call widget '{"widget":"timers","action":"countdown_dismiss"}')" "isn't ringing"
 expect_contains "widget: which widget" "$(call widget '{"action":"add","text":"x"}')" "notes, todo, timers, images or music"
 
 # The alarm (TimerService.qml) and the custom images (DesktopWidgets.qml).

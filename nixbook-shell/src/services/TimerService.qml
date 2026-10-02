@@ -39,19 +39,20 @@ Singleton {
     property int countdownDuration: Persistent.states.timer.countdown.duration // seconds, total
     property int countdownStart: Persistent.states.timer.countdown.start
     property int countdownSecondsLeft: countdownDuration
+    // Rings when it reaches zero, like the alarm, until dismissed (reset,
+    // toggled, minutes added) or for sounds.countdownRingSeconds at most.
+    readonly property bool countdownRinging: countdownRinger.ringing
 
     // Alarm: one, at a date and time (epoch seconds), once or every day.
     // Rings (alarmRingtone, looped) until dismissed or snoozed, or for
-    // `alarmRingSeconds` at most.
+    // sounds.alarmRingSeconds at most.
     readonly property var alarm: Persistent.states.timer.alarm
     property bool alarmEnabled: alarm.enabled
     property int alarmAt: alarm.at
     property string alarmLabel: alarm.label
     property bool alarmDaily: alarm.daily
     property int alarmSnoozeUntil: alarm.snoozeUntil
-    property bool alarmRinging: false
-    property int alarmRingStart: 0
-    readonly property int alarmRingSeconds: 120
+    readonly property bool alarmRinging: alarmRinger.ringing
     readonly property int alarmSnoozeMinutes: 5
     // An alarm missed by more than this (the shell wasn't running, the
     // machine slept) is only reported, not rung.
@@ -189,10 +190,7 @@ Singleton {
             left = 0;
             Persistent.states.timer.countdown.running = false;
             Persistent.states.timer.countdown.duration = 0;
-            Quickshell.execDetached(["notify-send", "Timers", "⏰ Countdown finished", "-a", "Shell"]);
-            if (Config.options.sounds.pomodoro) {
-                Audio.playRingtone(Audio.soundFor("countdown"))
-            }
+            countdownRinger.ring();
         }
 
         countdownSecondsLeft = left;
@@ -208,6 +206,7 @@ Singleton {
 
     // Adds minutes to the countdown. Works whether paused or running.
     function addCountdownMinutes(minutes) {
+        root.dismissCountdown();
         const addSeconds = minutes * 60;
         if (root.countdownRunning) {
             Persistent.states.timer.countdown.duration += addSeconds;
@@ -218,6 +217,10 @@ Singleton {
     }
 
     function toggleCountdown() {
+        if (root.countdownRinging) {
+            root.dismissCountdown();
+            return;
+        }
         if (countdownDuration <= 0) return;
         Persistent.states.timer.countdown.running = !countdownRunning;
         if (Persistent.states.timer.countdown.running) {
@@ -226,9 +229,31 @@ Singleton {
     }
 
     function resetCountdown() {
+        root.dismissCountdown();
         Persistent.states.timer.countdown.running = false;
         Persistent.states.timer.countdown.duration = 0;
         countdownSecondsLeft = 0;
+    }
+
+    function dismissCountdown() {
+        countdownRinger.stop();
+    }
+
+    Ringer {
+        id: countdownRinger
+        sound: Audio.soundFor("countdown")
+        audible: Config.options.sounds.pomodoro
+        ringSeconds: Config.options.sounds.countdownRingSeconds
+        title: Translation.tr("Countdown finished")
+        actions: [["add", Translation.tr("+1 min")], ["dismiss", Translation.tr("Dismiss")]]
+        onAction: name => {
+            if (name === "add") {
+                root.addCountdownMinutes(1);
+                root.toggleCountdown();
+            } else {
+                root.dismissCountdown();
+            }
+        }
     }
 
     // Alarm
@@ -316,18 +341,11 @@ Singleton {
     }
 
     function ringAlarm() {
-        root.alarmRinging = true;
-        root.alarmRingStart = getCurrentTimeInSeconds();
-        alarmSound.running = true;
-        alarmNotification.serverId = -1;
-        alarmNotification.running = true;
+        alarmRinger.ring();
     }
 
     function dismissAlarm() {
-        if (!root.alarmRinging) return;
-        root.alarmRinging = false;
-        alarmSound.running = false;
-        alarmNotification.close();
+        alarmRinger.stop();
     }
 
     function snoozeAlarm() {
@@ -343,63 +361,98 @@ Singleton {
         triggeredOnStart: true
         onTriggered: {
             root.checkAlarm();
-            if (root.alarmRinging && getCurrentTimeInSeconds() - root.alarmRingStart >= root.alarmRingSeconds)
-                root.dismissAlarm();
         }
     }
 
-    // The ringtone, played again each time it ends while ringing.
-    Process {
-        id: alarmSound
-        command: Audio.ringtoneCommand(Audio.soundFor("alarm"))
-        onExited: {
-            if (root.alarmRinging)
-                alarmSoundRestart.start();
-        }
-    }
-    Timer {
-        id: alarmSoundRestart
-        interval: 400
-        onTriggered: if (root.alarmRinging) alarmSound.running = true
+    Ringer {
+        id: alarmRinger
+        sound: Audio.soundFor("alarm")
+        ringSeconds: Config.options.sounds.alarmRingSeconds
+        title: root.alarmLabel || Translation.tr("Alarm")
+        actions: [["snooze", Translation.tr("Snooze %1 min").arg(root.alarmSnoozeMinutes)], ["dismiss", Translation.tr("Dismiss")]]
+        onAction: name => name === "snooze" ? root.snoozeAlarm() : root.dismissAlarm()
     }
 
-    // The notification, with Snooze / Dismiss: notify-send prints the
-    // notification's id (-p), then the action clicked.
-    Process {
-        id: alarmNotification
-        property int serverId: -1
-        function close() {
-            if (serverId > 0)
-                Notifications.discardNotification(serverId + Notifications.idOffset);
-            serverId = -1;
-            running = false;
+    // A timer going off: its ringtone (when `audible`), played again each time
+    // it ends, and a critical notification with `actions` ([id, label]
+    // pairs), until stop() or for `ringSeconds`. A click on an action emits
+    // action(name); closing the notification emits action("dismiss").
+    component Ringer: Scope {
+        id: ringer
+        property string sound
+        property bool audible: true
+        property string title
+        property var actions: []
+        property bool ringing: false
+        property int ringStart: 0
+        property int ringSeconds: 120
+        signal action(string name)
+
+        function ring() {
+            ringer.ringing = true;
+            ringer.ringStart = Math.floor(Date.now() / 1000);
+            ringSound.running = ringer.audible;
+            notification.serverId = -1;
+            notification.running = true;
         }
-        command: ["notify-send", "-a", "Shell", "-u", "critical", "-i", "alarm-clock", "-p",
-            "--action=snooze=" + Translation.tr("Snooze %1 min").arg(root.alarmSnoozeMinutes),
-            "--action=dismiss=" + Translation.tr("Dismiss"),
-            root.alarmLabel || Translation.tr("Alarm"),
-            Qt.formatDateTime(new Date(root.alarmRingStart * 1000), Config.options.time.format)]
-        // Closed without an action (its close button): stop ringing too.
-        // close() and the actions clear serverId first, so they don't land here.
-        // Ids start at 1: notify-send prints 0 when no notification server
-        // answered, and the alarm then keeps ringing.
-        onExited: {
-            if (serverId > 0 && root.alarmRinging) {
-                serverId = -1;
-                root.dismissAlarm();
+        function stop() {
+            if (!ringer.ringing) return;
+            ringer.ringing = false;
+            ringSound.running = false;
+            notification.close();
+        }
+
+        Timer {
+            interval: Math.max(1, ringer.ringSeconds) * 1000
+            running: ringer.ringing
+            onTriggered: ringer.stop()
+        }
+        Process {
+            id: ringSound
+            command: Audio.ringtoneCommand(ringer.sound)
+            onExited: {
+                if (ringer.ringing)
+                    ringSoundRestart.start();
             }
         }
-        stdout: SplitParser {
-            onRead: line => {
-                const text = line.trim();
-                if (/^[0-9]+$/.test(text)) {
-                    alarmNotification.serverId = parseInt(text);
-                } else if (text === "snooze") {
-                    alarmNotification.serverId = -1;
-                    root.snoozeAlarm();
-                } else if (text === "dismiss") {
-                    alarmNotification.serverId = -1;
-                    root.dismissAlarm();
+        Timer {
+            id: ringSoundRestart
+            interval: 400
+            onTriggered: if (ringer.ringing && ringer.audible) ringSound.running = true
+        }
+        // notify-send prints the notification's id (-p), then the action
+        // clicked.
+        Process {
+            id: notification
+            property int serverId: -1
+            function close() {
+                if (serverId > 0)
+                    Notifications.discardNotification(serverId + Notifications.idOffset);
+                serverId = -1;
+                running = false;
+            }
+            command: ["notify-send", "-a", "Shell", "-u", "critical", "-i", "alarm-clock", "-p"]
+                .concat(ringer.actions.map(a => `--action=${a[0]}=${a[1]}`))
+                .concat([ringer.title, Qt.formatDateTime(new Date(ringer.ringStart * 1000), Config.options.time.format)])
+            // Closed without an action (its close button): stop ringing too.
+            // close() and the actions clear serverId first, so they don't
+            // land here. Ids start at 1: notify-send prints 0 when no
+            // notification server answered, and it then keeps ringing.
+            onExited: {
+                if (serverId > 0 && ringer.ringing) {
+                    serverId = -1;
+                    ringer.action("dismiss");
+                }
+            }
+            stdout: SplitParser {
+                onRead: line => {
+                    const text = line.trim();
+                    if (/^[0-9]+$/.test(text)) {
+                        notification.serverId = parseInt(text);
+                    } else if (ringer.actions.some(a => a[0] === text)) {
+                        notification.serverId = -1;
+                        ringer.action(text);
+                    }
                 }
             }
         }
@@ -415,7 +468,7 @@ Singleton {
             return JSON.stringify({
                 pomodoro: { running: root.pomodoroRunning, isBreak: root.pomodoroBreak, cycle: root.pomodoroCycle, secondsLeft: root.pomodoroSecondsLeft },
                 stopwatch: { running: root.stopwatchRunning, seconds: Math.floor(root.stopwatchTime / 100), laps: (root.stopwatchLaps ?? []).map(l => Math.floor(l / 100)) },
-                countdown: { running: root.countdownRunning, secondsLeft: root.countdownSecondsLeft },
+                countdown: { running: root.countdownRunning, secondsLeft: root.countdownSecondsLeft, ringing: root.countdownRinging },
                 alarm: { enabled: root.alarmEnabled, at: root.alarmAt > 0 ? new Date(root.alarmAt * 1000).toISOString() : "",
                     label: root.alarmLabel, daily: root.alarmDaily, ringing: root.alarmRinging,
                     snoozedUntil: root.alarmSnoozeUntil > 0 ? new Date(root.alarmSnoozeUntil * 1000).toISOString() : "" },
@@ -458,6 +511,12 @@ Singleton {
                 return "error: no countdown set (countdownAdd first)";
             root.toggleCountdown();
             return `ok: countdown ${root.countdownRunning ? "running" : "paused"}`;
+        }
+        function countdownDismiss(): string {
+            if (!root.countdownRinging)
+                return "error: the countdown isn't ringing";
+            root.dismissCountdown();
+            return "ok: countdown dismissed";
         }
         function countdownReset(): string {
             root.resetCountdown();

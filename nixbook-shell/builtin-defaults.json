@@ -704,8 +704,10 @@
     }
   },
   "sounds": {
+    "alarmRingSeconds": 120,
     "alarmRingtone": "alarm-clock-elapsed",
     "battery": false,
+    "countdownRingSeconds": 120,
     "countdownRingtone": "alarm-clock-elapsed",
     "focusRingtone": "alarm-clock-elapsed",
     "notification": true,

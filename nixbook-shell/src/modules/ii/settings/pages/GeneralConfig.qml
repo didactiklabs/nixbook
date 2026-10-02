@@ -445,6 +445,35 @@ ContentPage {
                     text: Translation.tr("Alarm ringtone")
                     icon: "alarm"
                 }
+                ConfigRow {
+                    uniform: true
+                    ConfigSpinBox {
+                        configKey: "sounds.countdownRingSeconds";
+                        enabled: !nixManaged;
+                        icon: "timer_off"
+                        text: Translation.tr("Countdown rings for (s)")
+                        value: Config.options.sounds.countdownRingSeconds
+                        from: 5
+                        to: 3600
+                        stepSize: 15
+                        onValueChanged: {
+                            Config.options.sounds.countdownRingSeconds = value;
+                        }
+                    }
+                    ConfigSpinBox {
+                        configKey: "sounds.alarmRingSeconds";
+                        enabled: !nixManaged;
+                        icon: "alarm_off"
+                        text: Translation.tr("Alarm rings for (s)")
+                        value: Config.options.sounds.alarmRingSeconds
+                        from: 5
+                        to: 3600
+                        stepSize: 15
+                        onValueChanged: {
+                            Config.options.sounds.alarmRingSeconds = value;
+                        }
+                    }
+                }
                 ConfigSwitch {
                     configKey: "sounds.notification";
                     enabled: !nixManaged;

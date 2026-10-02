@@ -207,8 +207,8 @@ hide any; arrange them: each widget's box per monitor (`layout`), move one
 to a position on a monitor, hide it there, bring it to the front, or let it
 follow the wallpaper's calm areas; read, add, edit and remove the notes
 widget's notes and the to-do list's tasks; the timers' pomodoro, stopwatch,
-countdown and alarm (set at a date and time, once or daily; dismiss,
-snooze); the custom images: add one (a picture from a shared folder) on a
+countdown (it rings until dismissed, like the alarm) and alarm (set at a
+date and time, once or daily; dismiss, snooze); the custom images: add one (a picture from a shared folder) on a
 monitor, frame, style, move between monitors, remove; music recognition:
 listen, the source, the songs found, through the shell's `widgets`,
 `images`, `notes`, `todo`, `timers` and `musicRecognition` IPC targets, and
