@@ -239,7 +239,7 @@ MouseArea { // Notification group area
                             iconSize: topRow.fontSize + 3
                             color: Appearance.colors.colOnLayer2
                         }
-                        StyledToolTip {
+                        PopupToolTip {
                             text: Translation.tr("Mark as read")
                         }
                     }
@@ -264,7 +264,7 @@ MouseArea { // Notification group area
                             iconSize: topRow.fontSize + 3
                             color: Appearance.colors.colOnLayer2
                         }
-                        StyledToolTip {
+                        PopupToolTip {
                             text: Translation.tr("Delete (not kept in the notification centre)")
                         }
                     }
@@ -278,7 +278,7 @@ MouseArea { // Notification group area
                         onClicked: { root.toggleExpanded() }
                         altAction: () => { root.toggleExpanded() }
 
-                        StyledToolTip {
+                        PopupToolTip {
                             text: Translation.tr("Tip: right-clicking a group\nalso expands it")
                         }
                     }
