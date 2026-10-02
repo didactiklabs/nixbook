@@ -280,6 +280,9 @@ in
       overskride
     ];
     services = {
+      # The journal reached 3 GB (journald's default cap is 10% of the
+      # filesystem, up to 4 GB); 1 GB still keeps weeks of boots.
+      journald.settings.Journal.SystemMaxUse = "1G";
       # Auto-detect your time zone.
       automatic-timezoned.enable = true;
       chrony.enable = true;
@@ -481,6 +484,13 @@ in
     networking.networkmanager.enable = true;
 
     systemd = {
+      # Coredumps took 1.8 GB (mostly crashing test shells in ocm
+      # containers); keep the most recent ones within 500 MB, and don't
+      # store a single dump over 200 MB (it is still logged with its stack).
+      coredump.settings.Coredump = {
+        MaxUse = "500M";
+        ExternalSizeMax = "200M";
+      };
       # Create a separate slice for nix-daemon that is
       # memory-managed by the userspace systemd-oomd killer
       slices."nix-daemon".sliceConfig = {
