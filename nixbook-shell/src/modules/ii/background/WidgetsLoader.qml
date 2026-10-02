@@ -34,6 +34,93 @@ Item {
     readonly property bool onThisScreen: Config.options.background.screenList.length === 0
         || Config.options.background.screenList.includes(root.screen.name)
 
+    // One desktop widget: built once wanted on this monitor, revealed after
+    // the loading screen.
+    component WidgetSlot: FadeLoader {
+        id: loaderDelegate
+        // The widget's config key ("customImage:<id>" for an extra image).
+        required property string widgetKey
+        property bool alwaysOnLock: false
+        // Set by the delegates: an inline component can't see `root`.
+        required property string screenName
+        required property Component widgetComponent
+
+        property bool enableLoading: true
+
+        // Per monitor (DesktopWidgets.enabledOn: this monitor's own choice,
+        // else the shared switch on the monitors of background.screenList).
+        // The clock set to show on the lock screen shows on every monitor
+        // while locked.
+        readonly property bool wanted: loaderDelegate.enableLoading
+            && ((loaderDelegate.alwaysOnLock && GlobalStates.screenLocked
+                    && Config.options.background.widgets[loaderDelegate.widgetKey].enable)
+                || DesktopWidgets.enabledOn(loaderDelegate.widgetKey, loaderDelegate.screenName))
+
+        // Widgets appear one after another once the loading screen has
+        // lifted (Preloader.queueReveal): each one is built while still
+        // transparent, then fades in on the next frames, so no build
+        // lands in the middle of a fade.
+        property bool built: false
+        property bool revealed: false
+        function requestReveal() {
+            if (!loaderDelegate.wanted || loaderDelegate.built)
+                return;
+            Preloader.queueReveal(() => {
+                loaderDelegate.built = true;
+                revealTimer.restart();
+            });
+        }
+        onWantedChanged: requestReveal()
+        Component.onCompleted: requestReveal()
+        Timer {
+            id: revealTimer
+            interval: 32
+            onTriggered: loaderDelegate.revealed = true
+        }
+        shown: loaderDelegate.wanted && loaderDelegate.revealed
+        active: loaderDelegate.built && loaderDelegate.wanted || opacity > 0
+
+        sourceComponent: loaderDelegate.widgetComponent
+
+        onLoaded: {
+            if (loaderDelegate.widgetKey === "media" && loaderDelegate.item && loaderDelegate.item.requestReset) {
+                loaderDelegate.item.requestReset.connect(() => {
+                    loaderDelegate.enableLoading = false
+                    mediaResetTimer.restart()
+                })
+            }
+        }
+
+        Timer {
+            id: mediaResetTimer
+            interval: 500
+            onTriggered: loaderDelegate.enableLoading = true
+        }
+    }
+
+    function componentFor(key) {
+        switch (key) {
+        case "visualizer":  return visualizerComp
+        case "customImage": return customImageComp
+        case "sticker":     return stickerComp
+        case "calendar":    return calendarComp
+        case "nextEvent":   return nextEventComp
+        case "musicRecognition": return musicRecognitionComp
+        case "weather":     return weatherComp
+        case "clock":       return clockComp
+        case "notes":       return notesComp
+        case "media":       return mediaComp
+        case "images":      return imagesComp
+        case "resources":   return resourcesComp
+        case "worldClock":  return worldClockComp
+        case "userCard":    return userCardComp
+        case "todo":        return todoComp
+        case "timers":      return timersComp
+        case "customText":  return customTextComp
+        }
+        return null
+    }
+
     Repeater {
         model: [
             { key: "visualizer" },
@@ -55,81 +142,63 @@ Item {
             { key: "customText" },
         ]
 
-        delegate: FadeLoader {
-            id: loaderDelegate
+        delegate: WidgetSlot {
             required property var modelData
+            widgetKey: modelData.key
+            alwaysOnLock: modelData.alwaysOnLock ?? false
+            screenName: root.screen?.name ?? ""
+            widgetComponent: root.componentFor(modelData.key)
+        }
+    }
 
-            property bool enableLoading: true
+    // Extra custom images (DesktopWidgets.multiInstance). A ListModel kept in
+    // step by name: editing one image rewrites the whole instances list, which
+    // as a plain model would rebuild every image.
+    ListModel {
+        id: extraImages
+    }
+    function syncExtraImages() {
+        const names = DesktopWidgets.instanceNames("customImage");
+        for (let i = extraImages.count - 1; i >= 0; i--) {
+            if (!names.includes(extraImages.get(i).name))
+                extraImages.remove(i);
+        }
+        for (const name of names) {
+            let found = false;
+            for (let i = 0; i < extraImages.count; i++)
+                if (extraImages.get(i).name === name) found = true;
+            if (!found)
+                extraImages.append({ name: name });
+        }
+    }
+    Connections {
+        target: Config.options.background.widgets.customImage
+        function onInstancesChanged() { root.syncExtraImages() }
+    }
+    Connections {
+        target: Config
+        function onReadyChanged() { root.syncExtraImages() }
+    }
+    Component.onCompleted: root.syncExtraImages()
 
-            // Per monitor (DesktopWidgets.enabledOn: this monitor's own choice,
-            // else the shared switch on the monitors of background.screenList).
-            // The clock set to show on the lock screen shows on every monitor
-            // while locked.
-            readonly property bool wanted: loaderDelegate.enableLoading
-                && ((loaderDelegate.modelData.alwaysOnLock && GlobalStates.screenLocked
-                        && Config.options.background.widgets[loaderDelegate.modelData.key].enable)
-                    || DesktopWidgets.enabledOn(loaderDelegate.modelData.key, root.screen?.name ?? ""))
-
-            // Widgets appear one after another once the loading screen has
-            // lifted (Preloader.queueReveal): each one is built while still
-            // transparent, then fades in on the next frames, so no build
-            // lands in the middle of a fade.
-            property bool built: false
-            property bool revealed: false
-            function requestReveal() {
-                if (!loaderDelegate.wanted || loaderDelegate.built)
-                    return;
-                Preloader.queueReveal(() => {
-                    loaderDelegate.built = true;
-                    revealTimer.restart();
-                });
-            }
-            onWantedChanged: requestReveal()
-            Component.onCompleted: requestReveal()
-            Timer {
-                id: revealTimer
-                interval: 32
-                onTriggered: loaderDelegate.revealed = true
-            }
-            shown: loaderDelegate.wanted && loaderDelegate.revealed
-            active: loaderDelegate.built && loaderDelegate.wanted || opacity > 0
-
-            sourceComponent: {
-                switch (loaderDelegate.modelData.key) {
-                    case "visualizer":  return visualizerComp
-                    case "customImage": return customImageComp
-                    case "sticker":     return stickerComp
-                    case "calendar":    return calendarComp
-                    case "nextEvent":   return nextEventComp
-                    case "musicRecognition": return musicRecognitionComp
-                    case "weather":     return weatherComp
-                    case "clock":       return clockComp
-                    case "notes":       return notesComp
-                    case "media":       return mediaComp
-                    case "images":      return imagesComp
-                    case "resources":   return resourcesComp
-                    case "worldClock":  return worldClockComp
-                    case "userCard":    return userCardComp
-                    case "todo":        return todoComp
-                    case "timers":      return timersComp
-                    case "customText":  return customTextComp
+    Repeater {
+        model: extraImages
+        delegate: WidgetSlot {
+            id: extraImage
+            required property string name
+            widgetKey: extraImage.name
+            screenName: root.screen?.name ?? ""
+            widgetComponent: Component {
+                CustomImage {
+                    configEntryName: extraImage.name
+                    screenName: root.screen?.name ?? ""
+                    screenWidth: root.screen.width
+                    screenHeight: root.screen.height
+                    scaledScreenWidth: root.screen.width
+                    scaledScreenHeight: root.screen.height
+                    wallpaperScale: 1
+                    wallpaperItem: root.wallpaperItem
                 }
-                return null
-            }
-
-            onLoaded: {
-                if (loaderDelegate.modelData.key === "media" && loaderDelegate.item && loaderDelegate.item.requestReset) {
-                    loaderDelegate.item.requestReset.connect(() => {
-                        loaderDelegate.enableLoading = false
-                        mediaResetTimer.restart()
-                    })
-                }
-            }
-
-            Timer {
-                id: mediaResetTimer
-                interval: 500
-                onTriggered: loaderDelegate.enableLoading = true
             }
         }
     }
@@ -150,6 +219,7 @@ Item {
     Component {
         id: customImageComp
         CustomImage {
+            configEntryName: "customImage"
             screenName: root.screen?.name ?? ""
             screenWidth: root.screen.width
             screenHeight: root.screen.height

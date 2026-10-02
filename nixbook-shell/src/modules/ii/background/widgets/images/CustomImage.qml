@@ -12,10 +12,11 @@ import qs.modules.ii.background.widgets
 AbstractBackgroundWidget {
     id: root
 
-    configEntryName: "customImage"
     hoverEnabled: true
 
-    readonly property var entry: Config.options.background.widgets.customImage
+    // configEntryName: "customImage", or "customImage:<id>" for an extra
+    // image (WidgetsLoader); always read and write through entry/setEntry.
+    readonly property var entry: root.configEntry
     property string imagePath: entry.path ?? ""
     property bool dropHover: false
     property real widgetSize: entry.size ?? 200
@@ -32,13 +33,6 @@ AbstractBackgroundWidget {
 
     implicitWidth: contentItem.implicitWidth
     implicitHeight: contentItem.implicitHeight
-
-    // Back to the default framing: whole image centred, no zoom.
-    function recenter() {
-        root.entry.zoom = 1
-        root.entry.offsetX = 0
-        root.entry.offsetY = 0
-    }
 
     function getShape(name) {
         switch (name) {
@@ -114,6 +108,8 @@ AbstractBackgroundWidget {
         StyledDropShadow {
             target: shadowShape
             z: -1
+            // The effect draws its source unrotated.
+            rotation: root.widgetRotation
             opacity: imageShape.opacity
             visible: Config.options.background.widgets.shadow
         }
@@ -193,8 +189,7 @@ AbstractBackgroundWidget {
                         var ext = cleanPath.split(".").pop().toLowerCase()
                         var accepted = ["png","jpg","jpeg","webp","avif","bmp","gif","tiff","tif"]
                         if (accepted.indexOf(ext) !== -1) {
-                            Config.options.background.widgets.customImage.path = cleanPath
-                            root.recenter()
+                            root.setEntry({ path: cleanPath, zoom: 1, offsetX: 0, offsetY: 0 })
                         }
                     }
                     root.dropHover = false
@@ -215,14 +210,14 @@ AbstractBackgroundWidget {
                 root.widgetSize = Math.max(80, newValue)
             }
             onResizeFinished: {
-                Config.options.background.widgets.customImage.size = root.widgetSize
+                root.setEntry({ size: root.widgetSize })
                 root.widgetSize = Qt.binding(() => root.entry.size ?? 200)
             }
             onRotated: (newAngle) => {
                 root.widgetRotation = newAngle
             }
             onRotateFinished: {
-                Config.options.background.widgets.customImage.rotation = root.widgetRotation
+                root.setEntry({ rotation: root.widgetRotation })
                 root.widgetRotation = Qt.binding(() => root.entry.rotation ?? 0)
             }
         }

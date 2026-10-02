@@ -19,8 +19,14 @@ AbstractWidget {
     property Item wallpaperItem: null
 
     property bool visibleWhenLocked: Config.options.lock.showWidgets
-    property var configEntry: Config.options.background.widgets[configEntryName]
-    property string placementStrategy: configEntry.placementStrategy
+    // The widget's entry, or one of its extra instances' ("customImage:<id>",
+    // see DesktopWidgets); {} once that instance is removed.
+    property var configEntry: DesktopWidgets.entry(configEntryName) ?? ({})
+    // Writes to configEntry (needed for an instance: its entry is a copy).
+    function setEntry(values) {
+        DesktopWidgets.setEntry(root.configEntryName, values);
+    }
+    property string placementStrategy: configEntry.placementStrategy ?? "free"
     // Set by WidgetsLoader. Each monitor keeps its own position
     // (background.widgets.screenPositions); a screen without one uses the
     // widget's shared x/y/z.
@@ -35,9 +41,9 @@ AbstractWidget {
         DesktopWidgets.setValues(root.configEntryName, root.screenName, values);
     }
     readonly property var position: ({
-        x: root.screenValue("x", configEntry.x),
-        y: root.screenValue("y", configEntry.y),
-        z: root.screenValue("z", configEntry.z)
+        x: root.screenValue("x", configEntry.x ?? 0),
+        y: root.screenValue("y", configEntry.y ?? 0),
+        z: root.screenValue("z", configEntry.z ?? 0)
     })
     property real targetX: Math.max(0, Math.min(position.x, scaledScreenWidth - width))
     property real targetY : Math.max(0, Math.min(position.y, scaledScreenHeight - height))
@@ -58,7 +64,10 @@ AbstractWidget {
     draggable: placementStrategy === "free" && !Config.options.background.widgetsLocked
 
     function requestDelete() {
-        Config.options.background.widgets[root.configEntryName].enable = false
+        if (DesktopWidgets.splitName(root.configEntryName))
+            DesktopWidgets.removeInstance(root.configEntryName)
+        else
+            Config.options.background.widgets[root.configEntryName].enable = false
     }
     function restoreXYBinding() {
         root.x = Qt.binding(() => root.targetX);

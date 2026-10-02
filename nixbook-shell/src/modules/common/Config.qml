@@ -499,6 +499,9 @@ Singleton {
                         property real opacity: 1
                         property bool mirror: false
                         property bool grayscale: false
+                        // More images, each a full entry like this one plus an
+                        // `id` (DesktopWidgets.multiInstance)
+                        property list<var> instances: []
                     }
 
                     property JsonObject sticker: JsonObject {

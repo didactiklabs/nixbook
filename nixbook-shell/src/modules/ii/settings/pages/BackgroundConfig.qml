@@ -1157,25 +1157,82 @@ ContentPage {
         }
 
         ContentSection {
+            id: settingsCustomImage
             icon: "panorama"
             shape: MaterialShape.Shape.SoftBoom 
             title: Translation.tr("Custom Image")
+
+            // The image the controls below edit: "customImage" (the first) or
+            // "customImage:<id>" (an extra one, DesktopWidgets.multiInstance).
+            property string selected: "customImage"
+            readonly property bool isExtra: selected !== "customImage"
+            readonly property var extraNames: DesktopWidgets.instanceNames("customImage")
+            readonly property var entry: DesktopWidgets.entry(selected) ?? Config.options.background.widgets.customImage
+            onExtraNamesChanged: {
+                if (!extraNames.includes(selected))
+                    selected = "customImage";
+            }
+            function set(values) {
+                DesktopWidgets.setEntry(selected, values);
+            }
+            // Nix locks the first image key by key, the extra ones as a whole.
+            function keyOf(prop) {
+                return "background.widgets.customImage." + (isExtra ? "instances" : prop);
+            }
+            readonly property bool instancesPinned: NixManaged.isPinned("background.widgets.customImage.instances")
+
             GroupedList {
+                ConfigSelectionArray {
+                    text: Translation.tr("Image")
+                    icon: "photo_library"
+                    shown: settingsCustomImage.extraNames.length > 0
+                    currentValue: settingsCustomImage.selected
+                    options: [
+                        { displayName: "1", icon: "image", value: "customImage" },
+                        ...settingsCustomImage.extraNames.map((name, i) => ({
+                            displayName: `${i + 2}`, icon: "image", value: name
+                        }))
+                    ]
+                    onSelected: newValue => {
+                        settingsCustomImage.selected = newValue;
+                    }
+                }
+                ConfigRow {
+                    uniform: true
+                    RippleButtonWithIcon {
+                        Layout.fillWidth: true
+                        buttonRadius: Appearance.rounding.normal
+                        materialIcon: "add_photo_alternate"
+                        mainText: Translation.tr("Add another image")
+                        enabled: !settingsCustomImage.instancesPinned
+                        onClicked: settingsCustomImage.selected = DesktopWidgets.addInstance("customImage")
+                    }
+                    RippleButtonWithIcon {
+                        Layout.fillWidth: true
+                        visible: settingsCustomImage.isExtra
+                        buttonRadius: Appearance.rounding.normal
+                        materialIcon: "delete"
+                        mainText: Translation.tr("Delete this image")
+                        enabled: !settingsCustomImage.instancesPinned
+                        onClicked: DesktopWidgets.removeInstance(settingsCustomImage.selected)
+                    }
+                }
                 ConfigSwitch {
-                    configKey: "background.widgets.customImage.enable";
-                    enabled: !nixManaged;
+                    configKey: settingsCustomImage.keyOf("enable");
                     Layout.fillWidth: true
                     buttonIcon: "check"
                     text: Translation.tr("Enable")
-                    checked: Config.options.background.widgets.customImage.enable
+                    checked: settingsCustomImage.entry.enable
                     onCheckedChanged: {
-                        Config.options.background.widgets.customImage.enable = checked;
+                        settingsCustomImage.set({ enable: checked });
+                        // A click replaces the binding; keep following the
+                        // selected image.
+                        checked = Qt.binding(() => settingsCustomImage.entry.enable);
                     }
                 }
                 ConfigSelectionShapeArray {
-                    configKey: "background.widgets.customImage.shape";
-                    enabled: !nixManaged;
-                    currentValue: Config.options.background.widgets.customImage.shape
+                    configKey: settingsCustomImage.keyOf("shape");
+                    currentValue: settingsCustomImage.entry.shape
                     shapeColor: Appearance.colors.colPrimary
                     backgroundColor: Appearance.colors.colPrimaryContainer
                     options: [
@@ -1186,7 +1243,7 @@ ContentPage {
                         "Puffy", "PuffyDiamond", "PixelCircle", "Bun", "Heart"
                     ]
                     onSelected: newValue => {
-                        Config.options.background.widgets.customImage.shape = newValue
+                        settingsCustomImage.set({ shape: newValue });
                     }
                 }
             }
@@ -1195,42 +1252,42 @@ ContentPage {
                 title: Translation.tr("Framing")
                 GroupedList {
                     ConfigSlider {
-                        configKey: "background.widgets.customImage.zoom"
+                        configKey: settingsCustomImage.keyOf("zoom")
                         text: Translation.tr("Zoom (%)")
                         buttonIcon: "zoom_in"
                         usePercentTooltip: false
-                        value: Config.options.background.widgets.customImage.zoom * 100
+                        value: settingsCustomImage.entry.zoom * 100
                         from: 100
                         to: 400
                         stopIndicatorValues: [100]
                         onValueChanged: {
-                            Config.options.background.widgets.customImage.zoom = Math.round(value) / 100;
+                            settingsCustomImage.set({ zoom: Math.round(value) / 100 });
                         }
                     }
                     ConfigSlider {
-                        configKey: "background.widgets.customImage.offsetX"
+                        configKey: settingsCustomImage.keyOf("offsetX")
                         text: Translation.tr("Horizontal position")
                         buttonIcon: "swap_horiz"
                         usePercentTooltip: false
-                        value: Config.options.background.widgets.customImage.offsetX * 100
+                        value: settingsCustomImage.entry.offsetX * 100
                         from: -100
                         to: 100
                         stopIndicatorValues: [0]
                         onValueChanged: {
-                            Config.options.background.widgets.customImage.offsetX = Math.round(value) / 100;
+                            settingsCustomImage.set({ offsetX: Math.round(value) / 100 });
                         }
                     }
                     ConfigSlider {
-                        configKey: "background.widgets.customImage.offsetY"
+                        configKey: settingsCustomImage.keyOf("offsetY")
                         text: Translation.tr("Vertical position")
                         buttonIcon: "swap_vert"
                         usePercentTooltip: false
-                        value: Config.options.background.widgets.customImage.offsetY * 100
+                        value: settingsCustomImage.entry.offsetY * 100
                         from: -100
                         to: 100
                         stopIndicatorValues: [0]
                         onValueChanged: {
-                            Config.options.background.widgets.customImage.offsetY = Math.round(value) / 100;
+                            settingsCustomImage.set({ offsetY: Math.round(value) / 100 });
                         }
                     }
                     ConfigRow {
@@ -1240,22 +1297,17 @@ ContentPage {
                             buttonRadius: Appearance.rounding.normal
                             materialIcon: "center_focus_strong"
                             mainText: Translation.tr("Recenter")
-                            enabled: !["zoom", "offsetX", "offsetY"].some(k => NixManaged.isPinned("background.widgets.customImage." + k))
-                            onClicked: {
-                                const entry = Config.options.background.widgets.customImage;
-                                entry.zoom = 1;
-                                entry.offsetX = 0;
-                                entry.offsetY = 0;
-                            }
+                            enabled: !["zoom", "offsetX", "offsetY"].some(k => NixManaged.isPinned(settingsCustomImage.keyOf(k)))
+                            onClicked: settingsCustomImage.set({ zoom: 1, offsetX: 0, offsetY: 0 })
                         }
                         RippleButtonWithIcon {
                             Layout.fillWidth: true
                             buttonRadius: Appearance.rounding.normal
                             materialIcon: "hide_image"
                             mainText: Translation.tr("Remove image")
-                            enabled: Config.options.background.widgets.customImage.path !== ""
-                                && !NixManaged.isPinned("background.widgets.customImage.path")
-                            onClicked: Config.options.background.widgets.customImage.path = ""
+                            enabled: settingsCustomImage.entry.path !== ""
+                                && !NixManaged.isPinned(settingsCustomImage.keyOf("path"))
+                            onClicked: settingsCustomImage.set({ path: "" })
                         }
                     }
                 }
@@ -1265,45 +1317,47 @@ ContentPage {
                 title: Translation.tr("Style")
                 GroupedList {
                     ConfigSlider {
-                        configKey: "background.widgets.customImage.rotation"
+                        configKey: settingsCustomImage.keyOf("rotation")
                         text: Translation.tr("Rotation (°)")
                         buttonIcon: "rotate_right"
                         usePercentTooltip: false
-                        value: Config.options.background.widgets.customImage.rotation
+                        value: settingsCustomImage.entry.rotation
                         from: -180
                         to: 180
                         stopIndicatorValues: [0]
                         onValueChanged: {
-                            Config.options.background.widgets.customImage.rotation = Math.round(value);
+                            settingsCustomImage.set({ rotation: Math.round(value) });
                         }
                     }
                     ConfigSlider {
-                        configKey: "background.widgets.customImage.opacity"
+                        configKey: settingsCustomImage.keyOf("opacity")
                         text: Translation.tr("Opacity")
                         buttonIcon: "opacity"
-                        value: Config.options.background.widgets.customImage.opacity
+                        value: settingsCustomImage.entry.opacity
                         from: 0.1
                         to: 1
                         onValueChanged: {
-                            Config.options.background.widgets.customImage.opacity = value;
+                            settingsCustomImage.set({ opacity: value });
                         }
                     }
                     ConfigSwitch {
-                        configKey: "background.widgets.customImage.mirror"
+                        configKey: settingsCustomImage.keyOf("mirror")
                         buttonIcon: "flip"
                         text: Translation.tr("Mirror")
-                        checked: Config.options.background.widgets.customImage.mirror
+                        checked: settingsCustomImage.entry.mirror
                         onCheckedChanged: {
-                            Config.options.background.widgets.customImage.mirror = checked;
+                            settingsCustomImage.set({ mirror: checked });
+                            checked = Qt.binding(() => settingsCustomImage.entry.mirror);
                         }
                     }
                     ConfigSwitch {
-                        configKey: "background.widgets.customImage.grayscale"
+                        configKey: settingsCustomImage.keyOf("grayscale")
                         buttonIcon: "filter_b_and_w"
                         text: Translation.tr("Black and white")
-                        checked: Config.options.background.widgets.customImage.grayscale
+                        checked: settingsCustomImage.entry.grayscale
                         onCheckedChanged: {
-                            Config.options.background.widgets.customImage.grayscale = checked;
+                            settingsCustomImage.set({ grayscale: checked });
+                            checked = Qt.binding(() => settingsCustomImage.entry.grayscale);
                         }
                     }
                 }
