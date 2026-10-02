@@ -295,14 +295,34 @@ Singleton {
     // created a fresh LauncherSearchResult (plus one per desktop action) for
     // every matching app on every keystroke and whenever the calculator result
     // arrived, which churned the JS heap while typing.
-    property var appResultCache: ({})
+    // A plain JS object mutated in place (it's filled from inside the results
+    // binding). Each object remembers the DesktopEntry it was built from
+    // (appResultEntries): a rescan that replaces or edits an entry gets a
+    // fresh object the next time the results binding asks for it. The cache
+    // used to be dropped wholesale when DesktopEntries changed, but that ran
+    // after the results binding had already re-read it: the launcher kept
+    // the old objects, destroyed a second later (blank tiles launching
+    // nothing until the next keystroke).
+    readonly property var appResultCache: ({})
+    readonly property var appResultEntries: ({})
     Connections {
         target: DesktopEntries.applications
         function onValuesChanged() {
-            const old = root.appResultCache;
-            root.appResultCache = ({});
-            for (const id in old)
-                old[id].destroy(1000);
+            // Once AppSearch.list and the results binding caught up.
+            Qt.callLater(root.pruneAppResults);
+        }
+    }
+    // Destroys the objects of apps that are gone, unless still listed.
+    function pruneAppResults() {
+        const current = new Set(AppSearch.list);
+        for (const key in root.appResultCache) {
+            if (current.has(root.appResultEntries[key]))
+                continue;
+            const obj = root.appResultCache[key];
+            delete root.appResultCache[key];
+            delete root.appResultEntries[key];
+            if (!root.results.includes(obj))
+                obj.destroy(1000);
         }
     }
     // Preloader "launcher" stage: build the search index and every app's result
@@ -355,8 +375,12 @@ Singleton {
     function appResultFor(entry) {
         const key = entry.id || entry.name;
         const cached = root.appResultCache[key];
-        if (cached)
+        if (cached && root.appResultEntries[key] === entry && cached.name === entry.name && cached.iconName === entry.icon)
             return cached;
+        // Replaced while the results binding re-reads the apps: the new
+        // results drop the old object long before it goes.
+        if (cached)
+            cached.destroy(2000);
         const obj = resultComp.createObject(root, {
             type: Translation.tr("App"),
             id: entry.id,
@@ -383,6 +407,7 @@ Singleton {
             }))
         });
         root.appResultCache[key] = obj;
+        root.appResultEntries[key] = entry;
         return obj;
     }
 

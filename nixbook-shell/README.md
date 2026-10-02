@@ -633,6 +633,16 @@ inline on the window and on each `zen-workspace` (`--toolbox-textcolor`,
 light/dark text over the palette's background; web pages keep Zen's own
 light/dark setting.
 
+The Qt/KDE scheme draws every text colour of its selection set
+(`[Colors:Selection]`) in `on_primary`, since it sits on the `primary`
+selection fill, where the surface text roles can be the same colour (about
+1:1 on Momonga). A KDE app can also pin a scheme of its own in its rc file
+(`[UiSettings] ColorScheme`, written by Dolphin's View → Color Scheme menu, or
+DankMaterialShell's `DankMatugen`), which wins over kdeglobals; mixed with the
+palette qt6ct applies, a dark pinned scheme drew dark text on dark rows. While
+the Qt switch is on, `apply-kde-colors.py --unpin` removes such pins from
+`~/.config/*rc`, so the app follows the shell (restart it once).
+
 Slack and YouTube Music are deliberately not themed: Slack looked bad
 recoloured, and YouTube Music is dark-only (its styles hard-code white and
 grey text in over a thousand rules). Their old switches
