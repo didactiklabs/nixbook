@@ -31,7 +31,7 @@ RippleButton {
     }
     property string itemClickActionName: entry?.verb ?? "Open"
     property string bigText: entry?.iconType === LauncherSearchResult.IconType.Text ? entry?.iconName ?? "" : ""
-    property string materialSymbol: entry.iconType === LauncherSearchResult.IconType.Material ? entry?.iconName ?? "" : ""
+    property string materialSymbol: entry?.iconType === LauncherSearchResult.IconType.Material ? entry?.iconName ?? "" : ""
     property string cliphistRawString: entry?.rawValue ?? ""
     property bool blurImage: entry?.blurImage ?? false
     
@@ -130,7 +130,7 @@ RippleButton {
     }
     Keys.onPressed: (event) => {
         if (event.key === Qt.Key_Delete && event.modifiers === Qt.ShiftModifier) {
-            const deleteAction = root.entry.actions.find(action => action.name == Translation.tr("Delete"));
+            const deleteAction = (root.entry?.actions ?? []).find(action => action.name == Translation.tr("Delete"));
 
             if (deleteAction) {
                 deleteAction.execute()
@@ -299,7 +299,7 @@ RippleButton {
             Layout.alignment: Qt.AlignVCenter
             spacing: 4
             Repeater {
-                model: (root.entry.actions ?? []).slice(0, 4)
+                model: (root.entry?.actions ?? []).slice(0, 4)
                 delegate: RippleButton {
                     id: actionButton
                     required property var modelData

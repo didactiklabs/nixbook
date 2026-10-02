@@ -17,11 +17,12 @@ Item {
         id: iconImage
         anchors.fill: parent
         source: {
-            const fullPathWhenSourceIsIconName = iconFolder + "/" + root.source;
-            if (iconFolder && fullPathWhenSourceIsIconName) {
-                return fullPathWhenSourceIsIconName
-            }
-            return root.source
+            // No icon yet: loading "<folder>/" only logged "Cannot open".
+            if (!root.source)
+                return "";
+            if (root.source.startsWith("/") || root.source.includes("://"))
+                return root.source;
+            return iconFolder ? iconFolder + "/" + root.source : root.source;
         }
         implicitSize: root.height
     }

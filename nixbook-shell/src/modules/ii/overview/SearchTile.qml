@@ -16,7 +16,10 @@ RippleButton {
     id: root
     property LauncherSearchResult entry
     property string itemName: entry?.name ?? ""
-    property string itemType: entry?.type ?? Translation.tr("App")
+    // Read once: as a fallback it ran while a pooled tile was torn down,
+    // after the singleton had left its context ("Translation is not defined").
+    readonly property string appLabel: Translation.tr("App")
+    property string itemType: entry?.type ?? appLabel
     property var iconType: entry?.iconType
     property string iconName: entry?.iconName ?? ""
     property var itemExecute: entry?.execute
@@ -121,7 +124,7 @@ RippleButton {
         StyledText { // Kind, for what isn't an app (settings, command, web search…)
             id: typeText
             Layout.fillWidth: true
-            visible: root.itemType && root.itemType != Translation.tr("App")
+            visible: root.itemType && root.itemType != root.appLabel
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: Appearance.font.pixelSize.smaller
             color: root.selected ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colSubtext

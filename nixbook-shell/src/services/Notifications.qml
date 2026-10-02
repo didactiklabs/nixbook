@@ -55,6 +55,12 @@ Singleton {
         }
     }
 
+    // image://qsimage/… handles live only in the process that received the
+    // notification: after a restart they are "unknown handle" errors, so they
+    // are neither saved nor restored (the app icon shows instead).
+    function persistableImage(image) {
+        return (image ?? "").startsWith("image://qsimage/") ? "" : (image ?? "");
+    }
     function notifToJSON(notif) {
         return {
             "notificationId": notif.notificationId,
@@ -62,7 +68,7 @@ Singleton {
             "appIcon": notif.appIcon,
             "appName": notif.appName,
             "body": notif.body,
-            "image": notif.image,
+            "image": root.persistableImage(notif.image),
             "summary": notif.summary,
             "time": notif.time,
             "urgency": notif.urgency,
@@ -79,7 +85,12 @@ Singleton {
         onTriggered: () => {
             const index = root.list.findIndex((notif) => notif.notificationId === notificationId);
             const notifObject = root.list[index];
-            print("[Notifications] Notification timer triggered for ID: " + notificationId + ", transient: " + notifObject?.isTransient);
+            // Already discarded or replaced: it used to throw here and never
+            // reach destroy(), leaking the timer.
+            if (!notifObject) {
+                destroy();
+                return;
+            }
             if (notifObject.isTransient) root.discardNotification(notificationId);
             else root.timeoutNotification(notificationId);
             destroy()
@@ -576,7 +587,7 @@ Singleton {
                         "appIcon": notif.appIcon,
                         "appName": notif.appName,
                         "body": notif.body,
-                        "image": notif.image,
+                        "image": root.persistableImage(notif.image),
                         "summary": notif.summary,
                         "time": notif.time,
                         "urgency": notif.urgency,

@@ -20,10 +20,11 @@ Singleton {
     property real value: sink?.audio?.volume ?? 0
     
     function friendlyDeviceName(node) {
-        return (node.nickname || node.description || Translation.tr("Unknown"));
+        return (node?.nickname || node?.description || Translation.tr("Unknown"));
     }
+    // A mixer entry's binding still runs once its stream is gone (node null).
     function appNodeDisplayName(node) {
-        return (node.properties["application.name"] || node.description || node.name)
+        return (node?.properties?.["application.name"] || node?.description || node?.name || "")
     }
 
     // Lists
