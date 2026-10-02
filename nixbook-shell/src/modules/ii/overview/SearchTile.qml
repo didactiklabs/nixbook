@@ -1,4 +1,5 @@
 import qs
+import qs.services
 import qs.modules.common
 import qs.modules.common.models
 import qs.modules.common.widgets
@@ -40,7 +41,7 @@ RippleButton {
 
     onClicked: {
         GlobalStates.overviewOpen = false
-        root.itemExecute()
+        root.itemExecute?.()
     }
     Keys.onPressed: (event) => {
         if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {

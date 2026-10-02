@@ -87,6 +87,16 @@ if on qt && was_changed "$APPS_DIR/qt-colors.conf"; then
   done
 fi
 
+# KDE apps that pinned another colour scheme in their own rc (Dolphin's View >
+# Color Scheme, DankMaterialShell's DankMatugen) follow kdeglobals again.
+if on qt; then
+  rcs=()
+  for rc in "$XDG_CONFIG_HOME"/*rc; do
+    [ -f "$rc" ] && [ "$rc" != "$XDG_CONFIG_HOME/kdeglobals" ] && rcs+=("$rc")
+  done
+  [ ${#rcs[@]} -gt 0 ] && "$SCRIPT_DIR/apply-kde-colors.py" --unpin "${rcs[@]}" >/dev/null
+fi
+
 # Vesktop: the theme is in its themes folder; turn it on.
 if on vesktop; then
   edit_list "$vesktop_settings" .enabledThemes add nixbook-shell.css
