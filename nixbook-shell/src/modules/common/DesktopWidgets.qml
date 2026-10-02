@@ -62,9 +62,9 @@ Singleton {
     function instanceNames(base) {
         return (Config.options?.background?.widgets?.[base]?.instances ?? []).map(e => `${base}:${e.id}`);
     }
-    // Adds an instance of `base` (shown on every monitor), a little offset
-    // from the previous one; returns its name.
-    function addInstance(base) {
+    // Adds an instance of `base`, a little offset from the previous one, on
+    // `screen` only (every monitor when not given); returns its name.
+    function addInstance(base, screen) {
         const w = Config.options.background.widgets;
         const list = w[base].instances ?? [];
         // Unique even for several added within the same millisecond.
@@ -77,7 +77,10 @@ Singleton {
             id: id, x: (w[base].x ?? 400) + step, y: (w[base].y ?? 100) + step,
         });
         w[base].instances = [...list, fresh];
-        return `${base}:${id}`;
+        const name = `${base}:${id}`;
+        if (screen)
+            root.setShownOn(name, [screen]);
+        return name;
     }
     // Removes an extra instance and its per-monitor overrides.
     function removeInstance(name) {
@@ -125,6 +128,29 @@ Singleton {
         all[k] = Object.assign({}, root.overrides(widget, screen) ?? {}, values);
         w.perScreen = all; // a new object, so bindings see the change
     }
+    // Where the widget shows: `screens` null hides it everywhere, [] shows it
+    // on every monitor (of background.screenList), a list only on those
+    // monitors. Replaces any per-monitor choice.
+    function setShownOn(name, screens) {
+        const w = Config.options.background.widgets;
+        root.setEntry(name, { enable: Array.isArray(screens) && screens.length === 0 });
+        const before = w.perScreen ?? {};
+        const all = Object.assign({}, before);
+        for (const k in all) {
+            if (k.startsWith(name + "@") && all[k].enable !== undefined) {
+                all[k] = Object.assign({}, all[k]);
+                delete all[k].enable;
+            }
+        }
+        for (const screen of screens ?? [])
+            all[root.key(name, screen)] = Object.assign({}, root.overrides(name, screen) ?? {}, { enable: true });
+        if (JSON.stringify(all) !== JSON.stringify(before))
+            w.perScreen = all;
+    }
+    function shownAnywhere(name) {
+        return Quickshell.screens.some(s => root.enabledOn(name, s.name));
+    }
+
     // Whether the widget shows on `screen`: an explicit per-monitor choice
     // wins (even outside background.screenList); otherwise the shared switch,
     // on the monitors of screenList (all when empty).
@@ -166,18 +192,7 @@ Singleton {
         const w = Config.options?.background?.widgets;
         if (!w || !root.names.includes(name) || w[name] === undefined)
             return `error: no widget "${name}" (${root.names.filter(n => w?.[n] !== undefined).join(", ")})`;
-        w[name].enable = on;
-        const all = Object.assign({}, w.perScreen ?? {});
-        let changed = false;
-        for (const k in all) {
-            if (k.startsWith(name + "@") && all[k].enable !== undefined) {
-                all[k] = Object.assign({}, all[k]);
-                delete all[k].enable;
-                changed = true;
-            }
-        }
-        if (changed)
-            w.perScreen = all;
+        root.setShownOn(name, on ? [] : null);
         return `ok: ${name} ${on ? "shown" : "hidden"}`;
     }
 }
