@@ -323,6 +323,40 @@ ContentPage {
             }
         }
 
+        // EqualizerAutoService's agent mode.
+        ContentSection {
+            icon: "graphic_eq"
+            title: Translation.tr("Equalizer agent")
+            shape: MaterialShape.Shape.Burst
+
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "equalizer.agent"
+                    enabled: !nixManaged && Ai.claudeCodePath !== ""
+                    buttonIcon: "smart_toy"
+                    text: Translation.tr("Tune the equalizer for each song")
+                    checked: Config.options.equalizer.agent
+                    onCheckedChanged: Config.options.equalizer.agent = checked
+                    StyledToolTip {
+                        text: Translation.tr("When a new song has played a few seconds, Claude (Claude Code, your account) reads what it is and sets the equalizer for it. Replaces Auto.")
+                    }
+                }
+                ConfigSelectionArray {
+                    configKey: "equalizer.agentModel"
+                    text: Translation.tr("Model")
+                    icon: "neurology"
+                    enabled: Config.options.equalizer.agent
+                    currentValue: Config.options.equalizer.agentModel
+                    onSelected: newValue => Config.options.equalizer.agentModel = newValue
+                    options: [
+                        { displayName: Translation.tr("Haiku (fast)"), icon: "bolt", value: "haiku" },
+                        { displayName: "Sonnet", icon: "auto_awesome", value: "sonnet" },
+                        { displayName: Translation.tr("Default"), icon: "tune", value: "" }
+                    ]
+                }
+            }
+        }
+
         ContentSection {
             icon: "psychology"
             title: Translation.tr("Desktop memory")

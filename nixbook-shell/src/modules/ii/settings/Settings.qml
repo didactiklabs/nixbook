@@ -72,6 +72,12 @@ Scope {
             }
 
             Keys.onPressed: (event) => {
+                // Ctrl+F: the sidebar's search.
+                if (event.key === Qt.Key_F && (event.modifiers & Qt.ControlModifier)) {
+                    settingsContent.focusSearch();
+                    event.accepted = true;
+                    return;
+                }
                 if (event.key === Qt.Key_Escape) {
                     GlobalStates.settingsOpen = false;
                     event.accepted = true;

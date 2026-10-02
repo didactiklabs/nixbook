@@ -914,6 +914,42 @@ AbstractBackgroundWidget {
             }
         }
 
+        // The equalizer (EqualizerPopup), from any size of the card: shown
+        // while the card is hovered.
+        HoverHandler {
+            id: cardHover
+        }
+        RippleButton {
+            id: equalizerButton
+            anchors {
+                top: parent.top
+                right: parent.right
+                margins: 8
+            }
+            z: 2
+            implicitWidth: 30
+            implicitHeight: 30
+            buttonRadius: Appearance.rounding.full
+            colBackground: ColorUtils.transparentize(Appearance.colors.colLayer1, 0.15)
+            toggled: GlobalStates.equalizerOpen
+            opacity: cardHover.hovered || GlobalStates.equalizerOpen ? 1 : 0
+            visible: opacity > 0
+            Behavior on opacity {
+                NumberAnimation { duration: 150 }
+            }
+            onClicked: GlobalStates.equalizerOpen = !GlobalStates.equalizerOpen
+            contentItem: MaterialSymbol {
+                anchors.centerIn: parent
+                horizontalAlignment: Text.AlignHCenter
+                text: "graphic_eq"
+                iconSize: Appearance.font.pixelSize.large
+                color: equalizerButton.toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer1
+            }
+            StyledToolTip {
+                text: Translation.tr("Equalizer")
+            }
+        }
+
         ResizeHandler {
             anchorItem: card
             hoverActive: root.containsMouse

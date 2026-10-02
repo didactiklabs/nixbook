@@ -3663,6 +3663,81 @@ def t_widget(ctx, args):
     return [text(out[3:].strip() if out.startswith("ok:") else out)]
 
 
+EQ_BANDS_HZ = [32, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
+
+
+@tool(
+    "equalizer",
+    "shell",
+    "The user's audio equalizer (EasyEffects, through the shell). status: "
+    "the curve (10 bands, dB), the preamp, the presets, Auto (the preset "
+    "following each song's genre), and what's playing (app, title, artist, "
+    "album, page URL) with its Last.fm genre tags when the user set up a "
+    "Last.fm key. preset {name}; bands {gains: 10 numbers in dB, -12..12, for "
+    "32, 63, 125, 250, 500 Hz, 1, 2, 4, 8, 16 kHz}; preamp {db}; auto {on}; "
+    "agent {on} (agent mode: each new song, a Claude Code task tunes it; "
+    "replaces Auto); "
+    "open / close (the equalizer window, on the user's screen). Setting a "
+    "preset or bands turns Auto off. To fit what's playing: read status, "
+    "then a preset or your own curve, e.g. electronic / hip-hop: lift "
+    "32-125 Hz; rock / metal: lows and 4-8 kHz up, 500 Hz down a little; "
+    "acoustic / jazz / classical: nearly flat, a little air at 8-16 kHz; "
+    "speech (podcast, video essay): 32-125 Hz down, 1-4 kHz up. Keep boosts "
+    "moderate (+6 dB at most) and lower the preamp by about the biggest "
+    "boost so it doesn't clip.",
+    obj({
+        "action": {"type": "string", "enum": ["status", "preset", "bands", "preamp", "auto", "agent", "open", "close"]},
+        "name": {"type": "string", "description": "preset: its name (from status)"},
+        "gains": {"type": "array", "items": {"type": "number"}, "minItems": 10, "maxItems": 10,
+                  "description": "bands: dB for 32 Hz … 16 kHz"},
+        "db": {"type": "number", "description": "preamp: dB, -12..12"},
+        "on": {"type": "boolean", "description": "auto, agent: on or off"},
+    }, ["action"]),
+)
+def t_equalizer(ctx, args):
+    action = as_str(args, "action", max_len=16)
+    if action == "status":
+        status = json.loads(widget_call("equalizer", "status"))
+        # Genre tags of what's playing: looked up now if they aren't known yet.
+        if status.get("playing") and status.get("genreTags") is None:
+            try:
+                widget_call("equalizer", "lookupGenre")
+                for _ in range(12):
+                    time.sleep(0.25)
+                    status = json.loads(widget_call("equalizer", "status"))
+                    if status.get("genreTags") is not None:
+                        break
+            except ToolError:
+                pass
+        return [text(status)]
+    if action in ("open", "close"):
+        if ctx.desktop == "agent":
+            raise ToolError("refused: the equalizer window opens on the user's screen, and you work on your own desktop")
+        return [text(widget_call("equalizer", action)[3:].strip())]
+    ctx.guard.check_rate()
+    if action == "preset":
+        out = widget_call("equalizer", "preset", as_str(args, "name", max_len=64, pattern=r"[\w .()+-]{1,64}"))
+    elif action == "bands":
+        gains = args.get("gains")
+        if not isinstance(gains, list) or len(gains) != 10 or not all(
+                isinstance(g, (int, float)) and not isinstance(g, bool) and -12 <= g <= 12 for g in gains):
+            raise ToolError("`gains`: 10 numbers in dB, -12..12, for " + ", ".join(f"{hz} Hz" for hz in EQ_BANDS_HZ))
+        out = widget_call("equalizer", "bands", ",".join(f"{round(g, 1):g}" for g in gains))
+    elif action == "preamp":
+        db = args.get("db")
+        if not isinstance(db, (int, float)) or isinstance(db, bool) or not -12 <= db <= 12:
+            raise ToolError("`db` must be a number from -12 to 12")
+        out = widget_call("equalizer", "preamp", f"{round(db, 1):g}")
+    elif action in ("auto", "agent"):
+        on = args.get("on")
+        if not isinstance(on, bool):
+            raise ToolError("`on` must be true or false")
+        out = widget_call("equalizer", action, "true" if on else "false")
+    else:
+        raise ToolError("`action`: status, preset, bands, preamp, auto, agent, open or close")
+    return [text(out[3:].strip() if out.startswith("ok:") else out)]
+
+
 @tool(
     "calendar",
     "shell",

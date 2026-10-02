@@ -16,6 +16,95 @@ Item {
     property real contentPadding: 10
     property int currentPage: 0
     property bool showingProfile: false
+
+    // ----------------------------------------------------------- search
+    // The sidebar's search box: every page's sections and settings
+    // (SettingsSearchIndex); a result opens its page and scrolls to it.
+    property string searchQuery: ""
+    readonly property var searchResults: root.searchQuery.trim() === "" ? [] : searchIndex.search(root.searchQuery, 40)
+    function focusSearch() {
+        searchField.forceActiveFocus();
+        searchField.selectAll();
+    }
+    SettingsSearchIndex {
+        id: searchIndex
+        pages: root.pages
+    }
+    property var revealing: null
+    function openSearchResult(entry) {
+        if (!entry) return;
+        root.showingProfile = false;
+        root.currentPage = entry.page;
+        root.revealing = entry;
+        revealTimer.tries = 0;
+        revealTimer.settling = false;
+        revealTimer.interval = 120;
+        revealTimer.restart();
+    }
+    // The page loads and lays out first: then scroll its setting into view,
+    // again once the page has settled (some fill in asynchronously, moving
+    // it), and flash it.
+    Timer {
+        id: revealTimer
+        property int tries: 0
+        property bool settling: false
+        interval: 120
+        onTriggered: {
+            const entry = root.revealing;
+            const page = pagesRepeater.itemAt(entry?.page ?? -1)?.item;
+            const target = page ? root.findSettingItem(page, entry) : null;
+            if (!target) {
+                if (++tries < 12) restart();
+                return;
+            }
+            const pos = target.mapToItem(page.contentItem, 0, 0);
+            const maxY = Math.max(0, page.contentHeight - page.height);
+            page.contentY = Math.max(0, Math.min(maxY, pos.y - 24));
+            if (!settling) {
+                settling = true;
+                interval = 450;
+                restart();
+                return;
+            }
+            searchHighlight.createObject(page.contentItem, { x: pos.x - 6, y: pos.y - 4, width: target.width + 12, height: target.height + 8 });
+        }
+    }
+    function findSettingItem(item, entry) {
+        const label = Translation.tr(entry.label);
+        // A section's title, or a settings control's label (Config*
+        // controls have a configKey, RingtoneSetting a kind).
+        const matches = it => it.visible && (entry.kind === "section"
+            ? (it.title === label || it.title === entry.label)
+            : ((it.configKey !== undefined || it.kind !== undefined) && (it.text === label || it.text === entry.label)));
+        const walk = it => {
+            if (!it) return null;
+            if (it !== item && matches(it)) return it;
+            for (const child of it.children ?? []) {
+                const found = walk(child);
+                if (found) return found;
+            }
+            return null;
+        };
+        return walk(item.contentItem ?? item);
+    }
+    Component {
+        id: searchHighlight
+        Rectangle {
+            id: flash
+            radius: Appearance.rounding.normal
+            color: "transparent"
+            border.width: 2
+            border.color: Appearance.colors.colPrimary
+            z: 100
+            SequentialAnimation on opacity {
+                running: true
+                NumberAnimation { from: 0; to: 1; duration: 150 }
+                PauseAnimation { duration: 900 }
+                NumberAnimation { to: 0; duration: 500 }
+                ScriptAction { script: flash.destroy() }
+            }
+        }
+    }
     property bool isMinimal: Config.options.settings.style === "minimal"
     // Icon-only sidebar when the window is narrow (or in the minimal style).
     readonly property bool railExpanded: !isMinimal && root.width > 860
@@ -283,9 +372,113 @@ Item {
                     }
                 }
 
+                // Search: Ctrl+F; Enter opens the first result, Escape clears.
+                ToolbarTextField {
+                    id: searchField
+                    visible: root.railExpanded
+                    Layout.fillWidth: true
+                    Layout.fillHeight: false
+                    Layout.topMargin: 6
+                    implicitHeight: 38
+                    leftPadding: 36
+                    placeholderText: Translation.tr("Search settings")
+                    text: root.searchQuery
+                    onTextChanged: root.searchQuery = text
+                    Keys.onReturnPressed: root.openSearchResult(root.searchResults[0])
+                    Keys.onEnterPressed: root.openSearchResult(root.searchResults[0])
+                    Keys.onEscapePressed: event => {
+                        if (text !== "") {
+                            text = "";
+                            event.accepted = true;
+                        } else {
+                            event.accepted = false;
+                        }
+                    }
+                    MaterialSymbol {
+                        anchors {
+                            left: parent.left
+                            leftMargin: 12
+                            verticalCenter: parent.verticalCenter
+                        }
+                        text: "search"
+                        iconSize: Appearance.font.pixelSize.larger
+                        color: Appearance.colors.colSubtext
+                    }
+                }
+
+                // Search results, instead of the pages while searching.
+                StyledFlickable {
+                    id: resultsFlick
+                    visible: root.searchQuery.trim() !== ""
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.topMargin: 4
+                    clip: true
+                    contentHeight: resultsColumn.implicitHeight
+                    boundsBehavior: Flickable.StopAtBounds
+
+                    ColumnLayout {
+                        id: resultsColumn
+                        width: resultsFlick.width
+                        spacing: 2
+
+                        StyledText {
+                            visible: root.searchResults.length === 0
+                            Layout.fillWidth: true
+                            Layout.margins: 12
+                            wrapMode: Text.Wrap
+                            text: Translation.tr("No setting matches")
+                            color: Appearance.colors.colSubtext
+                            font.pixelSize: Appearance.font.pixelSize.small
+                        }
+                        Repeater {
+                            model: root.searchResults
+                            delegate: RippleButton {
+                                id: resultButton
+                                required property var modelData
+                                required property int index
+                                Layout.fillWidth: true
+                                implicitHeight: resultText.implicitHeight + 16
+                                buttonRadius: Appearance.rounding.normal
+                                toggled: root.revealing?.page === modelData.page && root.revealing?.label === modelData.label
+                                onClicked: root.openSearchResult(modelData)
+                                contentItem: RowLayout {
+                                    spacing: 10
+                                    MaterialSymbol {
+                                        Layout.leftMargin: 8
+                                        text: resultButton.modelData.kind === "section" ? "segment" : (root.pages[resultButton.modelData.page]?.icon ?? "settings")
+                                        iconSize: Appearance.font.pixelSize.larger
+                                        color: resultButton.toggled ? Appearance.m3colors.m3onSecondaryContainer : Appearance.colors.colOnLayer1
+                                    }
+                                    ColumnLayout {
+                                        id: resultText
+                                        Layout.fillWidth: true
+                                        spacing: 0
+                                        StyledText {
+                                            Layout.fillWidth: true
+                                            text: Translation.tr(resultButton.modelData.label)
+                                            elide: Text.ElideRight
+                                            font.pixelSize: Appearance.font.pixelSize.small
+                                            color: resultButton.toggled ? Appearance.m3colors.m3onSecondaryContainer : Appearance.colors.colOnLayer1
+                                        }
+                                        StyledText {
+                                            Layout.fillWidth: true
+                                            text: [root.pages[resultButton.modelData.page]?.name, resultButton.modelData.section ? Translation.tr(resultButton.modelData.section) : ""].filter(Boolean).join(" › ")
+                                            elide: Text.ElideRight
+                                            font.pixelSize: Appearance.font.pixelSize.smallest
+                                            color: Appearance.colors.colSubtext
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Page list, grouped. Scrolls when the window is short.
                 StyledFlickable {
                     id: navFlick
+                    visible: root.searchQuery.trim() === ""
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Layout.topMargin: 4

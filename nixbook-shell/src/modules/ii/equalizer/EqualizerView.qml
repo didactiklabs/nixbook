@@ -523,6 +523,14 @@ Item {
     Connections {
         target: GlobalStates
         function onEqualizerOpenChanged() {
+            if (GlobalStates.equalizerOpen) {
+                // The view is preloaded (EqualizerPopup's Loader): what was
+                // read at startup may be stale by now - Auto, the
+                // `equalizer` IPC target or an agent changed the curve since.
+                root.refresh()
+                root.refreshNeedsSave()
+                root.refreshActivePreset()
+            }
             if (!GlobalStates.equalizerOpen) {
                 root.dimExpanded = false
                 // Closing without an explicit Save should discard whatever's
@@ -933,6 +941,38 @@ Item {
                 }
             }
 
+            // Agent mode (EqualizerAutoService): a desktop agent tunes the
+            // curve for each new song. Needs Claude Code.
+            PillChip {
+                visible: Ai.claudeCodePath !== ""
+                implicitHeight: 34
+                Layout.preferredWidth: agentLabel.implicitWidth + 40
+                chipToggled: EqualizerAutoService.agentEnabled
+                downAction: () => Config.options.equalizer.agent = !EqualizerAutoService.agentEnabled
+                contentItem: Item {
+                    anchors.fill: parent
+                    RowLayout {
+                        anchors.centerIn: parent
+                        spacing: 4
+                        MaterialSymbol {
+                            iconSize: Appearance.font.pixelSize.smaller
+                            fill: EqualizerAutoService.agentEnabled ? 1 : 0
+                            text: "smart_toy"
+                            color: EqualizerAutoService.agentEnabled ? root.blendedColors.colOnPrimary : root.blendedColors.colOnLayer1
+                        }
+                        StyledText {
+                            id: agentLabel
+                            font.pixelSize: Appearance.font.pixelSize.smallest
+                            text: Translation.tr("Agent")
+                            color: EqualizerAutoService.agentEnabled ? root.blendedColors.colOnPrimary : root.blendedColors.colOnLayer1
+                        }
+                    }
+                }
+                StyledToolTip {
+                    text: Translation.tr("Each new song, a desktop agent (Claude) tunes the equalizer for it")
+                }
+            }
+
             PillChip {
                 implicitWidth: 34
                 implicitHeight: 34
@@ -975,6 +1015,37 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                     color: root.blendedColors.colOnLayer1
                     text: "close"
+                }
+            }
+        }
+        // What the agent set for the song playing (agent mode), or that it's at it.
+        Rectangle {
+            Layout.fillWidth: true
+            visible: EqualizerAutoService.agentEnabled && (EqualizerAutoService.agentRunning || EqualizerAutoService.agentNote !== "")
+            implicitHeight: agentNoteRow.implicitHeight + 16
+            radius: Appearance.rounding.normal
+            color: ColorUtils.transparentize(root.blendedColors.colPrimary, 0.85)
+
+            RowLayout {
+                id: agentNoteRow
+                anchors {
+                    left: parent.left
+                    right: parent.right
+                    verticalCenter: parent.verticalCenter
+                    margins: 8
+                }
+                spacing: 6
+                MaterialSymbol {
+                    iconSize: Appearance.font.pixelSize.normal
+                    text: "smart_toy"
+                    color: root.blendedColors.colOnLayer1
+                }
+                StyledText {
+                    Layout.fillWidth: true
+                    wrapMode: Text.Wrap
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: root.blendedColors.colOnLayer1
+                    text: EqualizerAutoService.agentRunning ? Translation.tr("Tuning for this song…") : EqualizerAutoService.agentNote
                 }
             }
         }

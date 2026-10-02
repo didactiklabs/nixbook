@@ -455,6 +455,10 @@
     "showMedia": true,
     "showPinButton": true
   },
+  "equalizer": {
+    "agent": false,
+    "agentModel": "haiku"
+  },
   "hacks": {
     "arbitraryRaceConditionDelay": 20
   },
