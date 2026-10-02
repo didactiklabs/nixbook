@@ -31,6 +31,14 @@ let
   # Where the running shell renders the apps' colours (services/AppTheming.qml,
   # which apps is up to Settings > Appearance): the Qt palette qt6ct/qt5ct read.
   appsDir = "${config.xdg.stateHome}/quickshell/user/generated/apps";
+  terminalThemeDir = "${config.xdg.stateHome}/quickshell/user/generated/terminal";
+  # A new interactive shell in a terminal other than kitty (which includes
+  # the theme itself) starts with the generated colours.
+  replayTerminalColors = ''
+    if [[ $- == *i* && -t 1 && "$TERM" != xterm-kitty && -r "${terminalThemeDir}/sequences.txt" ]]; then
+      cat "${terminalThemeDir}/sequences.txt"
+    fi
+  '';
 
   # Neovim keymaps from an evaluated nixvim configuration
   # (`programs.nixvim`, when its Home Manager module is imported): read after
@@ -897,6 +905,19 @@ in
         programs.nixbook-shell.assistant.howTo = lib.mapAttrs (_: lib.mkDefault) defaultHowTo;
 
         xdg.configFile."quickshell/${configName}".source = cfg.package.passthru.shell;
+
+        # Terminal theming (appearance.wallpaperTheming.enableTerminal,
+        # scripts/colors/applycolor.sh): kitty reads the generated theme,
+        # last so it wins over stylix's colours (`include`: kitty skips it,
+        # with a log line, while theming is off and the file is gone; its
+        # globinclude takes no absolute path), and reloads it on SIGUSR1;
+        # other terminals get the colours as escape sequences, written to the
+        # open ones and replayed by each new interactive shell.
+        programs.kitty.extraConfig = lib.mkIf config.programs.kitty.enable (
+          lib.mkAfter "include ${terminalThemeDir}/kitty-theme.conf"
+        );
+        programs.zsh.initContent = lib.mkIf config.programs.zsh.enable (lib.mkAfter replayTerminalColors);
+        programs.bash.initExtra = lib.mkIf config.programs.bash.enable (lib.mkAfter replayTerminalColors);
 
         # The manifest the shell reads to know which settings Nix owns: every
         # pinned leaf path. Drives the red lock icon and the disabled control in

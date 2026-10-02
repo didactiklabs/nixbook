@@ -109,9 +109,14 @@ Scope {
         (colorQuantizer?.colors[0] ?? Appearance.colors.colPrimary),
         Appearance.colors.colPrimaryContainer,
         0.8) || Appearance.m3colors.m3secondaryContainer
-    readonly property QtObject blendedColors: AdaptedMaterialScheme {
+    // The theme's look by default (its palette, opaque card, its frame);
+    // equalizer.albumColors: tinted from the album art over the blurred cover.
+    readonly property bool albumLook: Config.options?.equalizer?.albumColors ?? false
+    AdaptedMaterialScheme {
+        id: albumScheme
         color: root.artDominantColor
     }
+    readonly property QtObject blendedColors: root.albumLook ? albumScheme : Appearance.colors
 
     // Component.onCompleted covers the track that's already playing when this
     // Scope is first created - onArtFilePathChanged alone misses it, since
@@ -225,8 +230,17 @@ Scope {
                 function onDismissed() { if (!GlobalFocusGrab.spares(panelWindow)) GlobalStates.equalizerOpen = false }
             }
 
+            readonly property bool personaFrame: Persona.shapes && !root.albumLook
             StyledRectangularShadow {
                 target: cardBackground
+                visible: !panelWindow.personaFrame
+            }
+            // Persona: its slanted frame behind the card (outside the card's
+            // clip, so the lean and the hard shadow show).
+            PersonaFrame {
+                visible: panelWindow.personaFrame
+                anchors.fill: cardBackground
+                color: Appearance.colors.colLayer0
             }
 
             Rectangle {
@@ -234,9 +248,10 @@ Scope {
                 anchors.fill: parent
                 anchors.margins: Appearance.sizes.elevationMargin
                 radius: root.popupRounding
-                color: ColorUtils.applyAlpha(root.blendedColors.colLayer0, 1)
-                border.width: 2
-                border.color: Qt.rgba(0, 0, 0, 0.55)
+                color: root.albumLook ? ColorUtils.applyAlpha(root.blendedColors.colLayer0, 1)
+                    : panelWindow.personaFrame ? "transparent" : Appearance.colors.colLayer0
+                border.width: root.albumLook ? 2 : panelWindow.personaFrame ? 0 : 1
+                border.color: root.albumLook ? Qt.rgba(0, 0, 0, 0.55) : Appearance.colors.colLayer0Border
 
                 // root.blendedColors settles onto new album art in place (see
                 // EqualizerView's colorSignature fix for the same issue on the
@@ -266,7 +281,7 @@ Scope {
                     cache: false
                     antialiasing: true
                     asynchronous: true
-                    visible: root.displayedArtFilePath.length > 0
+                    visible: root.albumLook && root.displayedArtFilePath.length > 0
                     // Fades in once the async load actually finishes, rather
                     // than popping straight to a fully-loaded frame the
                     // instant `visible` flips true.

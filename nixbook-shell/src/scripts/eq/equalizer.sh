@@ -43,6 +43,9 @@
 #   equalizer.sh <state_dir> set_active_preset <n>  (switch which preset it merges into)
 #   equalizer.sh <state_dir> create_preset <n>      (make a brand-new preset from scratch and
 #                                                     switch to it - refuses if <n> already exists)
+#   equalizer.sh <state_dir> status                 (JSON: EasyEffects installed / running, the
+#                                                     active preset, whether its file exists, needs_manual_save)
+#   equalizer.sh <state_dir> start                  (start EasyEffects hidden, in service mode)
 #   equalizer.sh <state_dir> delete_preset <n>       (delete a saved EasyEffects preset file from
 #                                                     PRESET_DIR - refuses if <n> is the active preset
 #                                                     or doesn't exist on disk)
@@ -205,6 +208,43 @@ strip_featured_artists() {
     sed -E 's/[[:space:]]+[vV]s\.?[[:space:]].*//'
 }
 
+# EasyEffects has to be running for `easyeffects -l` to apply anything (and
+# run without it, -l would open its window): started here hidden, in
+# service mode - like the quick toggle (services/EasyEffects.qml) - before
+# every load, then given a moment to come up. Returns 1 if it isn't installed.
+ee_running() {
+  pidof easyeffects >/dev/null 2>&1 || flatpak ps 2>/dev/null | grep -q com.github.wwmm.easyeffects
+}
+ee_installed() {
+  command -v easyeffects >/dev/null 2>&1 || flatpak info com.github.wwmm.easyeffects >/dev/null 2>&1
+}
+ensure_running() {
+  ee_running && return 0
+  if command -v easyeffects >/dev/null 2>&1; then
+    setsid easyeffects --hide-window --service-mode </dev/null >/dev/null 2>&1 &
+  elif flatpak info com.github.wwmm.easyeffects >/dev/null 2>&1; then
+    setsid flatpak run com.github.wwmm.easyeffects --hide-window --service-mode </dev/null >/dev/null 2>&1 &
+  else
+    return 1
+  fi
+  for _ in $(seq 40); do
+    if ee_running; then
+      sleep 1 # its D-Bus service registers just after the process starts
+      return 0
+    fi
+    sleep 0.25
+  done
+  return 1
+}
+# Loads a preset into the running EasyEffects (starting it first), in the background.
+ee_load() {
+  (ensure_running && easyeffects -l "$1" >/dev/null 2>&1) &
+}
+# Real presets on disk (not this script's live-preview scratch file).
+has_user_presets() {
+  find "$PRESET_DIR" -maxdepth 1 -name '*.json' ! -name '_eq_live_preview.json' 2>/dev/null | grep -q .
+}
+
 apply_eq() {
   # force_create=1 means "yes, really create this preset from scratch" -
   # only ever passed by create_preset below, which itself only runs for
@@ -345,6 +385,13 @@ except Exception:
 " "$vals" "$active_preset_path" "$write_path" "$force_create"
   py_status=$?
 
+  if [ "$py_status" -eq 3 ] && [ "$force_create" != 1 ] && ! has_user_presets; then
+    # No preset at all yet (a fresh setup): nothing on disk can be lost,
+    # so create the active one (the default "output") with the equalizer
+    # instead of asking the user to make one first.
+    apply_eq 1 "$target_name"
+    return
+  fi
   if [ "$py_status" -eq 3 ]; then
     # Never-saved preset detected - the file above was left untouched
     # on purpose. Flag it so the UI can tell you to save your current
@@ -356,7 +403,7 @@ except Exception:
   fi
   echo 'false' >"$NEEDS_SAVE_FILE"
 
-  easyeffects -l "$write_name" >/dev/null 2>&1 &
+  ee_load "$write_name"
 }
 
 # Live-preview variant of apply_eq() - merges the current slider state into
@@ -426,7 +473,7 @@ print(json.dumps({'bands': bands, 'preamp': preamp}))
     '.b1=($r.bands[0]|tostring) | .b2=($r.bands[1]|tostring) | .b3=($r.bands[2]|tostring) | .b4=($r.bands[3]|tostring) | .b5=($r.bands[4]|tostring) | .b6=($r.bands[5]|tostring) | .b7=($r.bands[6]|tostring) | .b8=($r.bands[7]|tostring) | .b9=($r.bands[8]|tostring) | .b10=($r.bands[9]|tostring) | .preamp=($r.preamp|tostring) | .preset="Custom" | .pending=false')
   echo "$updated" >"$STATE_FILE"
 
-  easyeffects -l "$active_preset" >/dev/null 2>&1 &
+  ee_load "$active_preset"
 }
 
 save_preset() {
@@ -562,6 +609,18 @@ case "$cmd" in
   esac
   echo "$arg1" >"$ACTIVE_PRESET_FILE"
   apply_eq
+  ;;
+"status")
+  active=$(cat "$ACTIVE_PRESET_FILE" 2>/dev/null)
+  [ -n "$active" ] || active="output"
+  jq -n -c --argjson installed "$(ee_installed && echo true || echo false)" \
+    --argjson running "$(ee_running && echo true || echo false)" \
+    --arg preset "$active" --argjson exists "$([ -f "$PRESET_DIR/$active.json" ] && echo true || echo false)" \
+    --argjson needsSave "$(cat "$NEEDS_SAVE_FILE" 2>/dev/null || echo false)" \
+    '{installed: $installed, running: $running, preset: $preset, presetExists: $exists, needsManualSave: $needsSave}'
+  ;;
+"start")
+  ensure_running
   ;;
 "create_preset")
   # Spin up a brand-new EasyEffects preset containing just the

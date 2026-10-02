@@ -100,8 +100,11 @@ Item {
     // below automatically follows this.
     readonly property int panelRadius: Appearance.rounding.normal
     readonly property int panelPadding: 16
-    readonly property color panelColor: ColorUtils.transparentize(root.blendedColors.colLayer1, 0.55)
-    readonly property color panelBorderColor: ColorUtils.transparentize(root.blendedColors.colSubtext, 0.88)
+    // Album look (equalizer.albumColors): see-through over the blurred cover;
+    // else the theme's opaque surfaces.
+    readonly property bool albumLook: Config.options?.equalizer?.albumColors ?? false
+    readonly property color panelColor: root.albumLook ? ColorUtils.transparentize(root.blendedColors.colLayer1, 0.55) : Appearance.colors.colLayer1
+    readonly property color panelBorderColor: root.albumLook ? ColorUtils.transparentize(root.blendedColors.colSubtext, 0.88) : Appearance.colors.colLayer0Border
 
     // Mirrors equalizer.sh's save_preset() calls exactly, so tapping a
     // preset chip moves the blobs immediately instead of waiting on a
@@ -853,8 +856,33 @@ Item {
             // single icon by default; tapping it expands a slider inline
             // (see dimSliderWrap below) rather than permanently taking up
             // header space.
+            // The window's look: the theme's, or tinted from the album art
+            // over the blurred cover (equalizer.albumColors).
+            PillChip {
+                implicitWidth: 34
+                implicitHeight: 34
+                chipToggled: root.albumLook
+                downAction: () => Config.options.equalizer.albumColors = !root.albumLook
+                contentItem: Item {
+                    anchors.fill: parent
+                    MaterialSymbol {
+                        anchors.centerIn: parent
+                        iconSize: Appearance.font.pixelSize.large
+                        fill: root.albumLook ? 1 : 0
+                        horizontalAlignment: Text.AlignHCenter
+                        color: root.albumLook ? root.blendedColors.colOnPrimary : root.blendedColors.colOnLayer1
+                        text: "palette"
+                    }
+                }
+                StyledToolTip {
+                    text: root.albumLook ? Translation.tr("Album colors: on (click for the theme's look)") : Translation.tr("Album colors: off (the theme's look)")
+                }
+            }
+
+            // Only with the album look: it darkens the blurred cover.
             PillChip {
                 id: dimChip
+                visible: root.albumLook
                 implicitWidth: 34
                 implicitHeight: 34
                 chipToggled: root.dimExpanded
@@ -877,6 +905,7 @@ Item {
             // as sliding out from under the icon, not popping in.
             Item {
                 id: dimSliderWrap
+                visible: root.albumLook
                 Layout.preferredWidth: root.dimExpanded ? 110 : 0
                 Layout.preferredHeight: 34
                 clip: true
@@ -1015,6 +1044,57 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                     color: root.blendedColors.colOnLayer1
                     text: "close"
+                }
+            }
+        }
+        // EasyEffects does the equalizing: say so when it can't (not
+        // installed, not running), with a way to start it.
+        Rectangle {
+            readonly property var ee: EqualizerAutoService.easyEffects
+            Layout.fillWidth: true
+            visible: ee !== null && (!ee.installed || !ee.running)
+            implicitHeight: eeStatusRow.implicitHeight + 16
+            radius: Appearance.rounding.normal
+            color: ColorUtils.transparentize(root.blendedColors.colError, 0.85)
+
+            RowLayout {
+                id: eeStatusRow
+                anchors {
+                    left: parent.left
+                    right: parent.right
+                    verticalCenter: parent.verticalCenter
+                    margins: 8
+                }
+                spacing: 6
+                MaterialSymbol {
+                    iconSize: Appearance.font.pixelSize.normal
+                    text: "warning"
+                    color: root.blendedColors.colError
+                }
+                StyledText {
+                    Layout.fillWidth: true
+                    wrapMode: Text.Wrap
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: root.blendedColors.colOnLayer1
+                    text: !(parent.parent.ee?.installed ?? true)
+                        ? Translation.tr("EasyEffects isn't installed: the equalizer can't change the sound.")
+                        : Translation.tr("EasyEffects isn't running: the sound isn't equalized. It starts with your next change.")
+                }
+                RippleButton {
+                    visible: parent.parent.ee?.installed ?? false
+                    implicitHeight: 28
+                    implicitWidth: eeStartText.implicitWidth + 24
+                    buttonRadius: Appearance.rounding.full
+                    colBackground: root.blendedColors.colPrimary
+                    onClicked: EqualizerAutoService.startEasyEffects()
+                    contentItem: StyledText {
+                        id: eeStartText
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        text: Translation.tr("Start")
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: root.blendedColors.colOnPrimary
+                    }
                 }
             }
         }
