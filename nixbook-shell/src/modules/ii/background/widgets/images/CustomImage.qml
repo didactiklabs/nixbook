@@ -15,12 +15,30 @@ AbstractBackgroundWidget {
     configEntryName: "customImage"
     hoverEnabled: true
 
-    property string imagePath: Config.options.background.widgets.customImage.path ?? ""
+    readonly property var entry: Config.options.background.widgets.customImage
+    property string imagePath: entry.path ?? ""
     property bool dropHover: false
-    property real widgetSize: Config.options.background.widgets.customImage.size ?? 200
+    property real widgetSize: entry.size ?? 200
+    property real widgetRotation: entry.rotation ?? 0
+
+    // Framing: the image covers the shape (scaled up by `zoom`); offsetX/Y
+    // (-1..1) pick which part of the overflow shows, 0 = centred.
+    readonly property real zoom: Math.max(1, entry.zoom ?? 1)
+    readonly property real offsetX: Math.max(-1, Math.min(1, entry.offsetX ?? 0))
+    readonly property real offsetY: Math.max(-1, Math.min(1, entry.offsetY ?? 0))
+    // Natural aspect ratio, from a thumbnail-sized decode (see aspectProbe).
+    readonly property real imageAspect: (aspectProbe.status === Image.Ready && aspectProbe.implicitHeight > 0)
+        ? aspectProbe.implicitWidth / aspectProbe.implicitHeight : 1
 
     implicitWidth: contentItem.implicitWidth
     implicitHeight: contentItem.implicitHeight
+
+    // Back to the default framing: whole image centred, no zoom.
+    function recenter() {
+        root.entry.zoom = 1
+        root.entry.offsetX = 0
+        root.entry.offsetY = 0
+    }
 
     function getShape(name) {
         switch (name) {
@@ -63,6 +81,15 @@ AbstractBackgroundWidget {
         }
     }
 
+    Image {
+        id: aspectProbe
+        visible: false
+        asynchronous: true
+        cache: false
+        source: root.imagePath
+        sourceSize: Qt.size(256, 256)
+    }
+
     Item {
         id: contentItem
         implicitWidth: root.widgetSize
@@ -79,13 +106,15 @@ AbstractBackgroundWidget {
             id: shadowShape
             anchors.fill: parent
             color: Appearance.colors.colPrimaryContainer
-            shape: getShape(Config.options.background.widgets.customImage.shape ?? "Cookie4Sided")
+            shape: getShape(root.entry.shape ?? "Cookie4Sided")
+            rotation: root.widgetRotation
             visible: false
         }
 
         StyledDropShadow {
             target: shadowShape
             z: -1
+            opacity: imageShape.opacity
             visible: Config.options.background.widgets.shadow
         }
 
@@ -94,26 +123,45 @@ AbstractBackgroundWidget {
             anchors.fill: parent
             z: 0
             color: Appearance.colors.colPrimaryContainer
-            shape: getShape(Config.options.background.widgets.customImage.shape ?? "Cookie4Sided")
+            shape: getShape(root.entry.shape ?? "Cookie4Sided")
+            rotation: root.widgetRotation
+            opacity: root.entry.opacity ?? 1
 
             layer.enabled: true
             layer.effect: OpacityMask {
                 maskSource: MaterialShape {
                     width: imageShape.width
                     height: imageShape.height
-                    shape: getShape(Config.options.background.widgets.customImage.shape ?? "Cookie4Sided")
+                    shape: getShape(root.entry.shape ?? "Cookie4Sided")
                 }
             }
 
             StyledImage {
-                anchors.fill: parent
-                source: root.imagePath !== "" ? root.imagePath : ""
+                id: image
+                // Smallest size covering the shape, times the zoom.
+                readonly property real coverScale: Math.max(parent.width / root.imageAspect, parent.height) * root.zoom
+                width: coverScale * root.imageAspect
+                height: coverScale
+                // (parent - size) / 2 is the centred position; offset ±1 slides
+                // to an edge.
+                x: (parent.width - width) / 2 * (1 + root.offsetX)
+                y: (parent.height - height) / 2 * (1 + root.offsetY)
+                source: root.imagePath
+                // Crops away the probe's rounding instead of stretching it.
                 fillMode: Image.PreserveAspectCrop
                 cache: false
                 antialiasing: true
-                sourceSize.width: parent.width
-                sourceSize.height: parent.height
+                mirror: root.entry.mirror ?? false
+                // Rounded up in steps so resizing or zooming doesn't reload the
+                // image on every pixel.
+                sourceSize.width: Math.ceil(width / 64) * 64
+                sourceSize.height: Math.ceil(height / 64) * 64
                 visible: root.imagePath !== ""
+
+                layer.enabled: root.entry.grayscale ?? false
+                layer.effect: MultiEffect {
+                    saturation: -1
+                }
             }
 
             // Placeholder + hover hint
@@ -146,6 +194,7 @@ AbstractBackgroundWidget {
                         var accepted = ["png","jpg","jpeg","webp","avif","bmp","gif","tiff","tif"]
                         if (accepted.indexOf(ext) !== -1) {
                             Config.options.background.widgets.customImage.path = cleanPath
+                            root.recenter()
                         }
                     }
                     root.dropHover = false
@@ -159,12 +208,22 @@ AbstractBackgroundWidget {
             locked: Config.options.background.widgetsLocked
             currentWidth: root.widgetSize
             resizeMode: "diagonal"
+            rotatable: true
+            currentRotation: root.widgetRotation
             z: 1
             onResized: (newValue) => {
                 root.widgetSize = Math.max(80, newValue)
             }
             onResizeFinished: {
                 Config.options.background.widgets.customImage.size = root.widgetSize
+                root.widgetSize = Qt.binding(() => root.entry.size ?? 200)
+            }
+            onRotated: (newAngle) => {
+                root.widgetRotation = newAngle
+            }
+            onRotateFinished: {
+                Config.options.background.widgets.customImage.rotation = root.widgetRotation
+                root.widgetRotation = Qt.binding(() => root.entry.rotation ?? 0)
             }
         }
     }

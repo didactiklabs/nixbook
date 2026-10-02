@@ -1190,6 +1190,124 @@ ContentPage {
                     }
                 }
             }
+
+            ContentSubsection {
+                title: Translation.tr("Framing")
+                GroupedList {
+                    ConfigSlider {
+                        configKey: "background.widgets.customImage.zoom"
+                        text: Translation.tr("Zoom (%)")
+                        buttonIcon: "zoom_in"
+                        usePercentTooltip: false
+                        value: Config.options.background.widgets.customImage.zoom * 100
+                        from: 100
+                        to: 400
+                        stopIndicatorValues: [100]
+                        onValueChanged: {
+                            Config.options.background.widgets.customImage.zoom = Math.round(value) / 100;
+                        }
+                    }
+                    ConfigSlider {
+                        configKey: "background.widgets.customImage.offsetX"
+                        text: Translation.tr("Horizontal position")
+                        buttonIcon: "swap_horiz"
+                        usePercentTooltip: false
+                        value: Config.options.background.widgets.customImage.offsetX * 100
+                        from: -100
+                        to: 100
+                        stopIndicatorValues: [0]
+                        onValueChanged: {
+                            Config.options.background.widgets.customImage.offsetX = Math.round(value) / 100;
+                        }
+                    }
+                    ConfigSlider {
+                        configKey: "background.widgets.customImage.offsetY"
+                        text: Translation.tr("Vertical position")
+                        buttonIcon: "swap_vert"
+                        usePercentTooltip: false
+                        value: Config.options.background.widgets.customImage.offsetY * 100
+                        from: -100
+                        to: 100
+                        stopIndicatorValues: [0]
+                        onValueChanged: {
+                            Config.options.background.widgets.customImage.offsetY = Math.round(value) / 100;
+                        }
+                    }
+                    ConfigRow {
+                        uniform: true
+                        RippleButtonWithIcon {
+                            Layout.fillWidth: true
+                            buttonRadius: Appearance.rounding.normal
+                            materialIcon: "center_focus_strong"
+                            mainText: Translation.tr("Recenter")
+                            enabled: !["zoom", "offsetX", "offsetY"].some(k => NixManaged.isPinned("background.widgets.customImage." + k))
+                            onClicked: {
+                                const entry = Config.options.background.widgets.customImage;
+                                entry.zoom = 1;
+                                entry.offsetX = 0;
+                                entry.offsetY = 0;
+                            }
+                        }
+                        RippleButtonWithIcon {
+                            Layout.fillWidth: true
+                            buttonRadius: Appearance.rounding.normal
+                            materialIcon: "hide_image"
+                            mainText: Translation.tr("Remove image")
+                            enabled: Config.options.background.widgets.customImage.path !== ""
+                                && !NixManaged.isPinned("background.widgets.customImage.path")
+                            onClicked: Config.options.background.widgets.customImage.path = ""
+                        }
+                    }
+                }
+            }
+
+            ContentSubsection {
+                title: Translation.tr("Style")
+                GroupedList {
+                    ConfigSlider {
+                        configKey: "background.widgets.customImage.rotation"
+                        text: Translation.tr("Rotation (°)")
+                        buttonIcon: "rotate_right"
+                        usePercentTooltip: false
+                        value: Config.options.background.widgets.customImage.rotation
+                        from: -180
+                        to: 180
+                        stopIndicatorValues: [0]
+                        onValueChanged: {
+                            Config.options.background.widgets.customImage.rotation = Math.round(value);
+                        }
+                    }
+                    ConfigSlider {
+                        configKey: "background.widgets.customImage.opacity"
+                        text: Translation.tr("Opacity")
+                        buttonIcon: "opacity"
+                        value: Config.options.background.widgets.customImage.opacity
+                        from: 0.1
+                        to: 1
+                        onValueChanged: {
+                            Config.options.background.widgets.customImage.opacity = value;
+                        }
+                    }
+                    ConfigSwitch {
+                        configKey: "background.widgets.customImage.mirror"
+                        buttonIcon: "flip"
+                        text: Translation.tr("Mirror")
+                        checked: Config.options.background.widgets.customImage.mirror
+                        onCheckedChanged: {
+                            Config.options.background.widgets.customImage.mirror = checked;
+                        }
+                    }
+                    ConfigSwitch {
+                        configKey: "background.widgets.customImage.grayscale"
+                        buttonIcon: "filter_b_and_w"
+                        text: Translation.tr("Black and white")
+                        checked: Config.options.background.widgets.customImage.grayscale
+                        onCheckedChanged: {
+                            Config.options.background.widgets.customImage.grayscale = checked;
+                        }
+                    }
+                }
+            }
         }
 
                 ContentSection {

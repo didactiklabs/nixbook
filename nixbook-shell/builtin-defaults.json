@@ -177,13 +177,20 @@
       },
       "customImage": {
         "enable": false,
+        "grayscale": false,
+        "mirror": false,
+        "offsetX": 0,
+        "offsetY": 0,
+        "opacity": 1,
         "path": "",
         "placementStrategy": "free",
+        "rotation": 0,
         "shape": "Cookie4Sided",
         "size": 200,
         "x": 400,
         "y": 100,
-        "z": 0
+        "z": 0,
+        "zoom": 1
       },
       "customText": {
         "alignment": "center",
