@@ -1205,7 +1205,8 @@ ContentPage {
                         materialIcon: "add_photo_alternate"
                         mainText: Translation.tr("Add another image")
                         enabled: !settingsCustomImage.instancesPinned
-                        onClicked: settingsCustomImage.selected = DesktopWidgets.addInstance("customImage")
+                        // Onto the monitor this window is on (the focused one).
+                        onClicked: settingsCustomImage.selected = DesktopWidgets.addInstance("customImage", WM.focusedMonitor?.name ?? "")
                     }
                     RippleButtonWithIcon {
                         Layout.fillWidth: true
@@ -1222,12 +1223,67 @@ ContentPage {
                     Layout.fillWidth: true
                     buttonIcon: "check"
                     text: Translation.tr("Enable")
-                    checked: settingsCustomImage.entry.enable
+                    // On any monitor; switching it on shows it on all of them.
+                    checked: DesktopWidgets.shownAnywhere(settingsCustomImage.selected)
                     onCheckedChanged: {
-                        settingsCustomImage.set({ enable: checked });
+                        if (checked !== DesktopWidgets.shownAnywhere(settingsCustomImage.selected))
+                            DesktopWidgets.setShownOn(settingsCustomImage.selected, checked ? [] : null);
                         // A click replaces the binding; keep following the
                         // selected image.
-                        checked = Qt.binding(() => settingsCustomImage.entry.enable);
+                        checked = Qt.binding(() => DesktopWidgets.shownAnywhere(settingsCustomImage.selected));
+                    }
+                }
+                // Which monitors show this image (DesktopWidgets.setShownOn).
+                RowLayout {
+                    id: imageMonitors
+                    visible: Quickshell.screens.length > 1
+                    Layout.leftMargin: 8
+                    Layout.rightMargin: 8
+                    spacing: 10
+                    readonly property var screenNames: Quickshell.screens.map(s => s.name)
+                    readonly property var shownOn: screenNames.filter(n => DesktopWidgets.enabledOn(settingsCustomImage.selected, n))
+                    readonly property bool locked: NixManaged.isPinned(settingsCustomImage.keyOf("enable"))
+                    OptionalMaterialSymbol {
+                        icon: "monitor"
+                        iconSize: Appearance.font.pixelSize.larger
+                    }
+                    StyledText {
+                        text: Translation.tr("Monitors")
+                        color: Appearance.colors.colOnSecondaryContainer
+                    }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 2
+                        SelectionGroupButton {
+                            leftmost: true
+                            rightmost: false
+                            enabled: !imageMonitors.locked
+                            buttonIcon: "tv_displays"
+                            buttonText: Translation.tr("All")
+                            toggled: imageMonitors.shownOn.length === imageMonitors.screenNames.length
+                            onClicked: DesktopWidgets.setShownOn(settingsCustomImage.selected, [])
+                        }
+                        Repeater {
+                            model: imageMonitors.screenNames
+                            delegate: SelectionGroupButton {
+                                required property string modelData
+                                required property int index
+                                leftmost: false
+                                rightmost: index === imageMonitors.screenNames.length - 1
+                                enabled: !imageMonitors.locked
+                                buttonIcon: "monitor"
+                                buttonText: modelData
+                                toggled: imageMonitors.shownOn.includes(modelData)
+                                onClicked: {
+                                    const list = toggled
+                                        ? imageMonitors.shownOn.filter(n => n !== modelData)
+                                        : [...imageMonitors.shownOn, modelData];
+                                    DesktopWidgets.setShownOn(settingsCustomImage.selected,
+                                        list.length === 0 ? null
+                                            : list.length === imageMonitors.screenNames.length ? [] : list);
+                                }
+                            }
+                        }
                     }
                 }
                 ConfigSelectionShapeArray {
