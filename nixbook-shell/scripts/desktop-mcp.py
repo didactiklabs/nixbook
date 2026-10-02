@@ -3183,6 +3183,7 @@ WIDGET_ACTIONS = {
         "countdown_add": ("timers", "countdownAdd", ("minutes",), True),
         "countdown_toggle": ("timers", "countdownToggle", (), True),
         "countdown_reset": ("timers", "countdownReset", (), True),
+        "countdown_dismiss": ("timers", "countdownDismiss", (), True),
         "alarm_set": ("timers", "alarmSet", ("when", "label", "daily"), True),
         "alarm_toggle": ("timers", "alarmToggle", (), True),
         "alarm_clear": ("timers", "alarmClear", (), True),
@@ -3543,7 +3544,8 @@ def arrange_widget(ctx, action, want, args):
     "task list): list, add {text}, done/undone/remove {index}. timers: "
     "status, pomodoro_toggle, pomodoro_reset, stopwatch_toggle, "
     "stopwatch_lap, stopwatch_reset, countdown_add {minutes} (starts it), "
-    "countdown_toggle, countdown_reset, alarm_set {when: \"YYYY-MM-DD HH:MM\" "
+    "countdown_toggle, countdown_reset, countdown_dismiss (it rings at "
+    "zero, until dismissed), alarm_set {when: \"YYYY-MM-DD HH:MM\" "
     "or \"HH:MM\" (today), label?, daily?}, alarm_toggle, alarm_clear, "
     "alarm_dismiss, alarm_snooze (while it rings). images (the custom image "
     "widgets): list, add {path, monitor?} (an image from a folder the user "

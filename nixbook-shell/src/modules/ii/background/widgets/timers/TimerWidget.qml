@@ -196,9 +196,12 @@ AbstractBackgroundWidget {
         TimerCard {
             icon: "hourglass_top"
             value: TimerService.formatSeconds(TimerService.countdownSecondsLeft)
-            label: "Countdown"
-            running: TimerService.countdownRunning
+            label: TimerService.countdownRinging ? Translation.tr("Ringing") : "Countdown"
+            running: TimerService.countdownRunning || TimerService.countdownRinging
+            runningIcon: TimerService.countdownRinging ? "notifications_off" : "pause"
             shape: MaterialShape.Shape.Bun
+            bgColor: TimerService.countdownRinging ? Appearance.colors.colErrorContainer : Appearance.colors.colPrimaryContainer
+            shapeColor: TimerService.countdownRinging ? Appearance.colors.colError : Appearance.colors.colPrimary
             onToggle: () => TimerService.toggleCountdown()
             onReset: () => TimerService.resetCountdown()
 

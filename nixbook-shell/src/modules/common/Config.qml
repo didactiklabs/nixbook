@@ -1005,6 +1005,10 @@ Singleton {
                 // The alarm always rings (not gated by `pomodoro`), looping
                 // until dismissed or snoozed.
                 property string alarmRingtone: "alarm-clock-elapsed"
+                // How long the countdown and the alarm ring before stopping
+                // by themselves (seconds).
+                property int countdownRingSeconds: 120
+                property int alarmRingSeconds: 120
                 property string theme: "freedesktop"
                 // Chime on every incoming notification (not in Do Not Disturb).
                 // notificationFile: a sound theme name or an audio file's
