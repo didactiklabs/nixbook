@@ -417,7 +417,10 @@ Guardrails, whatever the transport:
 - at most 120 actions a minute, 4000 characters per typed text or task
   (100000 per note: notes go to the shell through a private file, not its
   IPC, which large messages can wedge), a notification
-  when an agent starts driving the desktop (again after 5 idle minutes);
+  when an agent starts driving the desktop (again after 5 idle minutes;
+  `nixbook-desktop-mcp notify off|on|toggle`, the Settings > Desktop agents
+  switch or the `desktopControl toggleNotify` IPC call turn it off and on,
+  kept across reboots);
 - every call is logged to `~/.local/state/nixbook-shell/desktop-mcp.log`
   (typed and copied text by length only).
 

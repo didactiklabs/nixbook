@@ -82,6 +82,12 @@ ContentPage {
                     onClicked: DesktopControl.toggle()
                 }
                 ConfigSwitch {
+                    buttonIcon: "notifications"
+                    text: Translation.tr("Notify when an agent starts driving the desktop")
+                    checked: DesktopControl.notifyOnControl
+                    onClicked: DesktopControl.toggleNotify()
+                }
+                ConfigSwitch {
                     buttonIcon: "picture_in_picture"
                     text: Translation.tr("Agents work on their own desktop")
                     checked: DesktopControl.onAgentDesktop && !DesktopControl.agentStopped
