@@ -19,16 +19,122 @@ Item { // Wrapper
     readonly property int typingResultLimit: 15 // Should be enough to cover the whole view
 
     property string searchingText: LauncherSearch.query
-    property bool showResults: searchingText != ""
+    // Apps are listed before anything is typed (LauncherSearch.allAppResults).
+    property bool showResults: searchingText != "" || LauncherSearch.results.length > 0
     // The query without its mode prefix, for the rows' match highlighting:
     // worked out once here instead of in every row.
     readonly property string highlightQuery: StringUtils.cleanOnePrefix(root.searchingText, [Config.options.search.prefix.action, Config.options.search.prefix.app, Config.options.search.prefix.clipboard, Config.options.search.prefix.emojis, Config.options.search.prefix.symbols, Config.options.search.prefix.themes, Config.options.search.prefix.layouts, Config.options.search.prefix.math, Config.options.search.prefix.shellCommand, Config.options.search.prefix.webSearch])
+    // Apps (and the default search) are a grid of tiles, like DankLauncher;
+    // the prefix modes (clipboard, emojis, themes…) keep the list rows.
+    readonly property bool gridMode: ![Config.options.search.prefix.action, Config.options.search.prefix.clipboard, Config.options.search.prefix.emojis, Config.options.search.prefix.symbols, Config.options.search.prefix.themes, Config.options.search.prefix.layouts, Config.options.search.prefix.math, Config.options.search.prefix.shellCommand, Config.options.search.prefix.webSearch].some(prefix => prefix !== "" && root.searchingText.startsWith(prefix))
+    readonly property int gridColumns: 5
+    // The view showing the results: the keyboard moves its selection.
+    readonly property var resultView: root.gridMode ? appGrid : appResults
     implicitWidth: searchWidgetContent.implicitWidth + Appearance.sizes.elevationMargin * 2
     implicitHeight: searchWidgetContent.implicitHeight + searchBar.verticalPadding * 2 + Appearance.sizes.elevationMargin * 2
 
     function focusFirstItem() {
-        appResults.currentIndex = 0;
+        for (const view of [appResults, appGrid]) {
+            view.currentIndex = 0;
+            view.positionViewAtBeginning();
+        }
     }
+
+    function selectIndex(index) {
+        const view = root.resultView;
+        if (view.count === 0)
+            return;
+        view.currentIndex = Math.max(0, Math.min(view.count - 1, index));
+        view.positionViewAtIndex(view.currentIndex, ListView.Contain);
+    }
+
+    // One result to the next or previous, wrapping around at either end.
+    function moveItem(delta) {
+        const view = root.resultView;
+        if (view.count === 0)
+            return;
+        root.selectIndex((view.currentIndex + delta + view.count) % view.count);
+    }
+
+    // Up/Down: a row of the list, or of the grid (stopping at its edges).
+    function moveSelection(delta) {
+        if (!root.gridMode) {
+            root.moveItem(delta);
+            return;
+        }
+        // Down from a row above a shorter last one lands on its last tile.
+        const target = appGrid.currentIndex + delta * root.gridColumns;
+        const lastRow = Math.floor((appGrid.count - 1) / root.gridColumns);
+        if (target >= 0 && Math.floor(target / root.gridColumns) <= lastRow)
+            root.selectIndex(target);
+    }
+
+    function pageSelection(direction) {
+        const view = root.resultView;
+        const rowHeight = root.gridMode ? appGrid.cellHeight : Appearance.sizes.searchResultHeight;
+        const rows = Math.max(1, Math.floor(view.height / rowHeight) - 1);
+        root.selectIndex(view.currentIndex + direction * rows * (root.gridMode ? root.gridColumns : 1));
+    }
+
+    function acceptSelection() {
+        const view = root.resultView;
+        const item = view.currentItem ?? view.itemAtIndex(0);
+        if (item && item.clicked)
+            item.clicked();
+    }
+
+    // Tab in the list: put the selected result's name in the box.
+    function completeSelection() {
+        const item = appResults.currentItem;
+        if (!item || !item.modelData)
+            return;
+        root.setSearchingText(item.modelData.name);
+    }
+
+    // The pointer selects the result under it, but only when it really moves:
+    // Qt re-sends a hover at the same place when the view scrolls under a
+    // resting pointer (keyboard paging), which would steal the keyboard's
+    // selection.
+    component SelectOnHover: HoverHandler {
+        required property var view
+        property point lastScenePosition: Qt.point(-1, -1)
+        onPointChanged: {
+            const p = point.scenePosition;
+            if (p.x === lastScenePosition.x && p.y === lastScenePosition.y)
+                return;
+            lastScenePosition = p;
+            const index = view.indexAt(point.position.x + view.contentX, point.position.y + view.contentY);
+            if (index !== -1)
+                view.currentIndex = index;
+        }
+    }
+
+    // Diff by object identity: app results are cached per desktop entry
+    // (LauncherSearch.appResultFor), so results that survive a keystroke keep
+    // their delegate. `objectProp: "key"` named a property
+    // LauncherSearchResult doesn't have. Only the shown view gets it.
+    ScriptModel {
+        id: resultModel
+    }
+
+    Timer {
+        id: debounceTimer
+        interval: root.typingDebounceInterval
+        onTriggered: {
+            resultModel.values = LauncherSearch.results ?? [];
+        }
+    }
+
+    Connections {
+        target: LauncherSearch
+        function onResultsChanged() {
+            resultModel.values = LauncherSearch.results.slice(0, root.typingResultLimit);
+            root.focusFirstItem();
+            debounceTimer.restart();
+        }
+    }
+
+    onSearchingTextChanged: root.focusFirstItem()
 
     function focusSearchInput() {
         searchBar.forceFocus();
@@ -37,6 +143,8 @@ Item { // Wrapper
     function cancelSearch() {
         searchBar.searchInput.text = ""; 
         LauncherSearch.query = "";
+        // Back to the top of the app list on each open.
+        root.focusFirstItem();
     }
 
     function setSearchingText(text) {
@@ -150,6 +258,12 @@ Item { // Wrapper
                 iconCenterX: 10 + 10 + 36 / 2 - Layout.leftMargin
                 textX: 10 + 10 + 36 + 12 - Layout.leftMargin
                 Layout.bottomMargin: verticalPadding
+                onMoveSelection: delta => root.moveSelection(delta)
+                onPageSelection: direction => root.pageSelection(direction)
+                onAcceptSelection: root.acceptSelection()
+                onCompleteSelection: root.completeSelection()
+                onMoveItem: delta => root.moveItem(delta)
+                gridMode: root.gridMode
                 Synchronizer on searchingText {
                     property alias source: root.searchingText
                 }
@@ -163,9 +277,9 @@ Item { // Wrapper
                 color: Appearance.colors.colOutlineVariant
             }
 
-            ListView { // App results
+            ListView { // Prefix mode results (clipboard, emojis, themes…)
                 id: appResults
-                visible: root.showResults
+                visible: root.showResults && !root.gridMode
                 Layout.fillWidth: true
                 // Always the same height, however many rows match: the box
                 // doesn't resize on each keystroke.
@@ -180,63 +294,19 @@ Item { // Wrapper
                 KeyNavigation.up: searchBar
                 highlightMoveDuration: 100
                 // Recycle result rows instead of destroying/recreating them on
-                // every keystroke; the pool is pre-filled while idle (below).
+                // every keystroke.
                 reuseItems: true
+
+                SelectOnHover {
+                    view: appResults
+                }
 
                 onFocusChanged: {
                     if (focus)
                         appResults.currentIndex = 1;
                 }
 
-                Connections {
-                    target: root
-                    function onSearchingTextChanged() {
-                        if (appResults.count > 0)
-                            appResults.currentIndex = 0;
-                    }
-                }
-
-                Timer {
-                    id: debounceTimer
-                    interval: root.typingDebounceInterval
-                    onTriggered: {
-                        resultModel.values = LauncherSearch.results ?? [];
-                    }
-                }
-
-                Connections {
-                    target: LauncherSearch
-                    function onResultsChanged() {
-                        resultModel.values = LauncherSearch.results.slice(0, root.typingResultLimit);
-                        root.focusFirstItem();
-                        debounceTimer.restart();
-                    }
-                }
-
-                // Diff by object identity: app results are cached per desktop
-                // entry (LauncherSearch.appResultFor), so rows that survive a
-                // keystroke keep their delegate. `objectProp: "key"` named a
-                // property LauncherSearchResult doesn't have.
-                model: ScriptModel {
-                    id: resultModel
-                }
-
-                // After the Preloader warmed the launcher, build one screenful
-                // of rows while hidden and release them into the reuse pool, so
-                // the first real query only rebinds them.
-                Connections {
-                    target: LauncherSearch
-                    function onPrewarmed() {
-                        if (root.showResults || AppSearch.list.length === 0) return;
-                        appResults.poolWarmup = true;
-                        resultModel.values = AppSearch.list.slice(0, root.typingResultLimit).map(e => LauncherSearch.appResultFor(e));
-                        Qt.callLater(() => {
-                            if (!root.showResults) resultModel.values = [];
-                            appResults.poolWarmup = false;
-                        });
-                    }
-                }
-                property bool poolWarmup: false
+                model: root.gridMode ? null : resultModel
 
                 delegate: SearchItem {
                     id: searchItem
@@ -251,13 +321,47 @@ Item { // Wrapper
                         if (event.key === Qt.Key_Tab) {
                             if (LauncherSearch.results.length === 0)
                                 return;
-                            const tabbedText = searchItem.modelData.name;
-                            LauncherSearch.query = tabbedText;
-                            searchBar.searchInput.text = tabbedText;
+                            root.setSearchingText(searchItem.modelData.name);
                             event.accepted = true;
                             root.focusSearchInput();
                         }
                     }
+                }
+            }
+
+            GridView { // Apps and the default search, as tiles
+                id: appGrid
+                visible: root.showResults && root.gridMode
+                Layout.fillWidth: true
+                Layout.leftMargin: 8
+                Layout.rightMargin: 8
+                // Same fixed height as the list: no resize on each keystroke.
+                Layout.preferredHeight: Appearance.sizes.searchResultsHeight - Layout.bottomMargin
+                Layout.bottomMargin: 8
+                clip: true
+                topMargin: 8
+                bottomMargin: 2
+                cellWidth: Math.floor(width / root.gridColumns)
+                cellHeight: 116
+                cacheBuffer: cellHeight * 2
+                highlightMoveDuration: 100
+                reuseItems: true
+                model: root.gridMode ? resultModel : null
+
+                SelectOnHover {
+                    view: appGrid
+                }
+
+                delegate: SearchTile {
+                    required property var modelData
+                    width: appGrid.cellWidth
+                    height: appGrid.cellHeight
+                    // Gaps between the tiles
+                    topInset: 3
+                    bottomInset: 3
+                    leftInset: 3
+                    rightInset: 3
+                    entry: modelData
                 }
             }
         }
