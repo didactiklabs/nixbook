@@ -241,6 +241,9 @@ in
           # root shell via `init=/bin/sh`. lanzaboote's loader.conf inherits it.
           editor = false;
         };
+        # The menu waited the default 5 s on every boot; 1 s is still enough to
+        # press a key and pick an older generation. lanzaboote inherits it.
+        timeout = lib.mkDefault 1;
 
         efi.canTouchEfiVariables = true;
       };
@@ -418,6 +421,11 @@ in
         };
       };
     };
+
+    # Yubico's 70-u2f.rules set GROUP="plugdev", a group NixOS doesn't create:
+    # udev logged ~100 "Failed to resolve group 'plugdev'" lines on every USB
+    # event (~6,600 per boot). Access itself comes from the rules' uaccess tag.
+    users.groups.plugdev = { };
 
     nix = {
       # Pin <nixpkgs> (used by nix-shell -p) to the npins-pinned revision

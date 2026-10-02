@@ -3447,13 +3447,39 @@ UI_MAX_VISITS = 4000
 UI_TIMEOUT_S = 8
 
 
+def atspi_bus_check(Gio, GLib):
+    """Connect to the accessibility bus the way libatspi will, first: when it
+    can't, libatspi calls g_error(), which aborts the whole process (no
+    exception) — e.g. once another at-spi bus launcher sharing
+    $XDG_RUNTIME_DIR replaced at-spi/bus_0 with a socket nobody listens on."""
+    try:
+        address = os.environ.get("AT_SPI_BUS_ADDRESS")
+        if not address:
+            session = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+            reply = session.call_sync(
+                "org.a11y.Bus", "/org/a11y/bus", "org.a11y.Bus", "GetAddress",
+                None, GLib.VariantType.new("(s)"), Gio.DBusCallFlags.NONE, 3000, None)
+            address = reply.unpack()[0]
+        conn = Gio.DBusConnection.new_for_address_sync(
+            address,
+            Gio.DBusConnectionFlags.AUTHENTICATION_CLIENT | Gio.DBusConnectionFlags.MESSAGE_BUS_CONNECTION,
+            None, None)
+        conn.close_sync(None)
+    except GLib.Error as e:
+        raise ToolError(
+            f"the accessibility bus is unreachable ({e.message}); restart it with "
+            "`systemctl --user restart at-spi-dbus-bus`, or log out and in again"
+        )
+
+
 def atspi():
     try:
         import gi
         gi.require_version("Atspi", "2.0")
-        from gi.repository import Atspi
+        from gi.repository import Atspi, Gio, GLib
     except (ImportError, ValueError) as e:
         raise ToolError(f"the accessibility tools need PyGObject and at-spi2-core's typelib ({e})")
+    atspi_bus_check(Gio, GLib)
     Atspi.set_timeout(1500, 5000)
     return Atspi
 

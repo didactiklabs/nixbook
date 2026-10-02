@@ -402,9 +402,17 @@ in
       description = "Login screen theme from ${cfg.user}'s nixbook-shell settings";
       wantedBy = [ "multi-user.target" ];
       after = [ "systemd-tmpfiles-setup.service" ];
+      # The shell rewrites config.json several times in a row: each write
+      # started a render, and five within 10 s hit the start limit, leaving the
+      # path unit failed (the login screen stopped following the settings).
+      # No limit, and a short wait first: changes landing while the service is
+      # active don't start it again, so a burst ends in one render of the
+      # final files.
+      startLimitIntervalSec = 0;
       serviceConfig = {
         Type = "oneshot";
         User = cfg.user;
+        ExecStartPre = "${pkgs.coreutils}/bin/sleep 2";
         ExecStart = renderTheme;
         UMask = "0022";
         # Reads the user's settings, writes the state directory, nothing else.
