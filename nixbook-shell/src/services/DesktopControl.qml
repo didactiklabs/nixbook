@@ -30,7 +30,10 @@ import QtQuick
  * their clicks and keys reach it, the agent's input waits), shown by its flag
  * in the runtime directory.
  *
- * The `desktopControl` IPC target (pause, resume, toggle, status, and
+ * The "… is driving the desktop" notification can be turned off
+ * (`nixbook-desktop-mcp notify off`): ~/.local/state/nixbook-shell/desktop-control-quiet.
+ *
+ * The `desktopControl` IPC target (pause, resume, toggle, toggleNotify, status, and
  * agentDesktop, userDesktop, toggleDesktop, closeAgentDesktop, toggleInteract)
  * is for the user's key bindings; the MCP server refuses it to agents.
  */
@@ -43,6 +46,8 @@ Singleton {
     readonly property string stateHome: `${Quickshell.env("XDG_STATE_HOME") || `${Quickshell.env("HOME")}/.local/state`}/nixbook-shell`
     readonly property string allowedFlag: `${root.stateHome}/desktop-control-allowed`
     property bool paused: true
+    // A notification when an agent starts driving the desktop.
+    property bool notifyOnControl: true
     // Agents work on their own desktop (else on the user's).
     property bool onAgentDesktop: false
     // Their desktop is open (an app on it); closed in between.
@@ -78,6 +83,11 @@ Singleton {
     function toggle() {
         if (root.paused) root.resume();
         else root.pause();
+    }
+
+    function toggleNotify() {
+        Quickshell.execDetached(["nixbook-desktop-mcp", "notify", root.notifyOnControl ? "off" : "on"]);
+        root.notifyOnControl = !root.notifyOnControl;
     }
 
     // Agents on their own desktop (switched on again after the user closed it).
@@ -193,6 +203,16 @@ Singleton {
     }
 
     FileView {
+        id: quietFlag
+        path: `${root.stateHome}/desktop-control-quiet`
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: root.notifyOnControl = false
+        onLoadFailed: error => root.notifyOnControl = true
+    }
+
+    FileView {
         id: agentDesktopFlag
         path: `${root.stateHome}/agent-desktop`
         watchChanges: true
@@ -243,6 +263,7 @@ Singleton {
             root.now = Date.now();
             stateFile.reload();
             allowedFile.reload();
+            quietFlag.reload();
             agentDesktopFlag.reload();
             agentStoppedFlag.reload();
             agentDesktopEnv.reload();
@@ -262,6 +283,9 @@ Singleton {
         function toggle(): void {
             root.toggle();
         }
+        function toggleNotify(): void {
+            root.toggleNotify();
+        }
         function agentDesktop(): void {
             root.agentDesktop();
         }
@@ -278,7 +302,7 @@ Singleton {
             root.toggleInteract();
         }
         function status(): string {
-            return JSON.stringify({ paused: root.paused, active: root.active, last: root.last,
+            return JSON.stringify({ paused: root.paused, notify: root.notifyOnControl, active: root.active, last: root.last,
                 desktop: root.onAgentDesktop ? "agent" : "user", agentDesktopOpen: root.agentDesktopOpen,
                 agentStopped: root.agentStopped,
                 userHasControl: root.userHasControl });

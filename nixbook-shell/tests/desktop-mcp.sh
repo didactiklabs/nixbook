@@ -330,6 +330,24 @@ expect_eq "screenshot: file removed after sending" 0 "$(find "$XDG_RUNTIME_DIR" 
 expect_eq "audit: client name from initialize" test-client "$(jq -r 'select(.tool=="focus_window").client' "$XDG_STATE_HOME/nixbook-shell/desktop-mcp.log" | head -1)"
 expect_eq "audit log is private" 600 "$(stat -c %a "$XDG_STATE_HOME/nixbook-shell/desktop-mcp.log")"
 expect_eq "runtime dir is private" 700 "$(stat -c %a "$XDG_RUNTIME_DIR/nixbook-desktop-mcp")"
+expect_contains "notify: an agent taking over is announced" "$(grep '^notify-send' "$calls")" "test-client is driving the desktop"
+
+# The notification's toggle: off survives a reboot, a new session stays quiet.
+expect_eq "notify: on by default" true "$(python3 "$mcp" status | jq .notify)"
+expect_eq "notify toggle: off" "notification off" "$(python3 "$mcp" notify toggle)"
+rm -rf "$XDG_RUNTIME_DIR"
+expect_eq "notify off: survives a reboot" false "$(python3 "$mcp" status | jq .notify)"
+reset_calls
+printf '%s\n' \
+  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test-client"}}}' \
+  '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"focus_window","arguments":{"id":1}}}' |
+  python3 "$mcp" >/dev/null
+expect_eq "notify off: no notification" "" "$(grep '^notify-send' "$calls" || true)"
+expect_eq "notify on" "notification on" "$(python3 "$mcp" notify on)"
+expect_eq "notify: bad argument" 2 "$(
+  python3 "$mcp" notify maybe >/dev/null 2>&1
+  echo $?
+)"
 
 # -- tools -----------------------------------------------------------------------
 

@@ -10,6 +10,7 @@ behind the same tools and the same guardrails:
   nixbook-desktop-mcp tools                 the tools, as MCP JSON
   nixbook-desktop-mcp call NAME [JSON]      run one tool (the shell's AI chat)
   nixbook-desktop-mcp pause|resume|status   the kill switch
+  nixbook-desktop-mcp notify on|off|toggle  the "agent took over" notification
 
 Guardrails (see README.md, "Desktop control for AI agents"):
   - no tool runs arbitrary commands: apps are launched from their .desktop
@@ -159,6 +160,17 @@ def allowed_flag():
     absence (a new install, a wiped state) means paused: desktop control is
     off until the user allows it."""
     return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-shell", "desktop-control-allowed")
+
+
+def quiet_flag():
+    """While this file exists, no notification when an agent starts driving
+    the desktop (the user's toggle; config `notifyOnControl: false` turns it
+    off for good). In the state directory too, so it survives a reboot."""
+    return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-shell", "desktop-control-quiet")
+
+
+def notify_enabled():
+    return not os.path.exists(quiet_flag())
 
 
 def is_paused():
@@ -502,7 +514,7 @@ class Guard:
             idle = now - self.last_action
             self.last_action = now
         # Tell the user an agent took over (again after 5 idle minutes).
-        if self.notify and idle > 300:
+        if self.notify and idle > 300 and notify_enabled():
             try:
                 run(
                     [
@@ -4624,6 +4636,8 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
   pause | resume | toggle stop / allow desktop control, for every client
                           (paused until first resumed; kept across reboots)
   status                  paused or not, config and audit log paths
+  notify [on | off | toggle]  the "… is driving the desktop" notification
+                          (on by default; kept across reboots)
   token                   the HTTP bearer token (created if needed)
   layout list             saved window layouts (JSON), for the user and the shell:
   layout save|restore NAME  not subject to the agents' pause or tool groups
@@ -4699,8 +4713,26 @@ def main(argv):
         print("desktop control allowed")
         return 0
     if cmd == "status":
-        print(json.dumps({"paused": is_paused(), "last": read_state().get("last"), "config": config_path(),
+        print(json.dumps({"paused": is_paused(), "notify": notify_enabled(), "last": read_state().get("last"), "config": config_path(),
                           "audit_log": audit_path(), "enabled_groups": cfg["tools"]}, indent=1))
+        return 0
+    if cmd == "notify":
+        want = argv[1] if len(argv) > 1 else "status"
+        if want == "toggle":
+            want = "off" if notify_enabled() else "on"
+        if want == "off":
+            os.makedirs(os.path.dirname(quiet_flag()), mode=0o700, exist_ok=True)
+            with open(quiet_flag(), "w", encoding="utf-8") as f:
+                f.write("quiet\n")
+        elif want == "on":
+            try:
+                os.unlink(quiet_flag())
+            except FileNotFoundError:
+                pass
+        elif want != "status":
+            print(USAGE, end="", file=sys.stderr)
+            return 2
+        print("notification " + ("on" if notify_enabled() else "off"))
         return 0
     if cmd == "desktop":
         return desktop_command(argv[1:])
