@@ -91,9 +91,10 @@ Singleton {
         Quickshell.execDetached(["bash", Directories.wallpaperSwitchScriptPath, "--noswitch"])
     }
 
-    FileView {
+    FileView { // only written (regenerateMatugenConfig); usually absent
         id: matugenConfigFile
         path: root.matugenConfigPath
+        printErrors: false
     }
 
     // Backs up config.toml -> config.toml.orig once, then emits the orig

@@ -26,8 +26,8 @@ in
           mmap ASLR entropy, etc.) and boot parameters (slab_nomerge,
           page allocator randomisation)
         - Boot: kernel command-line editor disabled (systemd-boot and lanzaboote)
-        - Locale: Europe/Paris timezone, en_US locale with fr_FR LC_ settings,
-          French keyboard layout
+        - Locale: Europe/Paris timezone, en_US locale for everything (messages,
+          dates, numbers, units), French keyboard layout
         - Audio: PipeWire with ALSA and PulseAudio compatibility (PulseAudio disabled)
         - Hardware: firmware, Intel/AMD CPU microcode, Bluetooth (bluez), uinput
         - Security: rtkit, polkit (power actions without a password for the local user), U2F PAM (login + sudo), passwordless sudo for wheel,
@@ -318,19 +318,11 @@ in
     };
 
     # Select internationalisation properties.
+    # en_US for every category; only the keyboard is French (xkb layout above,
+    # console keymap). The former fr_FR LC_* settings never applied: an
+    # LC_ALL=C.UTF-8 beside them overrode every category (and LANG), so all
+    # apps ran in the C locale.
     i18n.defaultLocale = "en_US.UTF-8";
-    i18n.extraLocaleSettings = {
-      LC_ADDRESS = "fr_FR.UTF-8";
-      LC_IDENTIFICATION = "fr_FR.UTF-8";
-      LC_MEASUREMENT = "fr_FR.UTF-8";
-      LC_MONETARY = "fr_FR.UTF-8";
-      LC_NAME = "fr_FR.UTF-8";
-      LC_NUMERIC = "fr_FR.UTF-8";
-      LC_PAPER = "fr_FR.UTF-8";
-      LC_TELEPHONE = "fr_FR.UTF-8";
-      LC_TIME = "fr_FR.UTF-8";
-      LC_ALL = "C.UTF-8";
-    };
     console.keyMap = "fr";
 
     xdg = {

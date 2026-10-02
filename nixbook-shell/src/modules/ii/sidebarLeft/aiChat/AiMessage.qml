@@ -32,7 +32,7 @@ Rectangle {
     onMessageDataChanged: root.syncContent()
     Component.onCompleted: root.syncContent()
     Connections {
-        target: root.messageData
+        target: root.messageData ?? null
         function onContentChanged() {
             Qt.callLater(root.syncContent);
         }
@@ -413,7 +413,7 @@ Rectangle {
 
         Loader {
             Layout.fillWidth: true
-            active: root.messageData?.localFilePath && root.messageData?.localFilePath.length > 0
+            active: (root.messageData?.localFilePath?.length ?? 0) > 0
             sourceComponent: AttachedFileIndicator {
                 filePath: root.messageData?.localFilePath
                 canRemove: false
@@ -436,7 +436,7 @@ Rectangle {
                 FadeLoader {
                     id: loadingIndicatorLoader
                     anchors.centerIn: parent
-                    shown: (root.messageBlocks.length < 1) && (!root.messageData.done)
+                    shown: (root.messageBlocks.length < 1) && !(root.messageData?.done ?? true)
                     sourceComponent: MaterialLoadingIndicator {
                         loading: true
                     }

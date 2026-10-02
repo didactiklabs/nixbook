@@ -374,7 +374,7 @@ Singleton {
             serverId = -1;
             running = false;
         }
-        command: ["notify-send", "-a", "Shell", "-u", "critical", "-i", "alarm", "-p",
+        command: ["notify-send", "-a", "Shell", "-u", "critical", "-i", "alarm-clock", "-p",
             "--action=snooze=" + Translation.tr("Snooze %1 min").arg(root.alarmSnoozeMinutes),
             "--action=dismiss=" + Translation.tr("Dismiss"),
             root.alarmLabel || Translation.tr("Alarm"),

@@ -1122,7 +1122,10 @@ Item {
             Panel {
                 id: railPanel
                 Layout.fillWidth: false
-                Layout.preferredWidth: Math.round(bodyRow.width * 0.34)
+                // mainColumn's width (anchored, so fixed) rather than bodyRow's,
+                // which this very width feeds back into: "Detected recursive
+                // rearrange" on every open. Same value (bodyRow fills it).
+                Layout.preferredWidth: Math.round(mainColumn.width * 0.34)
                 Layout.fillHeight: true
 
                 ColumnLayout {
