@@ -699,7 +699,10 @@
     }
   },
   "sounds": {
+    "alarmRingtone": "alarm-clock-elapsed",
     "battery": false,
+    "countdownRingtone": "alarm-clock-elapsed",
+    "focusRingtone": "alarm-clock-elapsed",
     "notification": true,
     "notificationFile": "",
     "pomodoro": false,

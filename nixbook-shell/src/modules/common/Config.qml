@@ -987,11 +987,20 @@ Singleton {
 
             property JsonObject sounds: JsonObject {
                 property bool battery: false
-                property bool pomodoro: false
+                property bool pomodoro: false // the timers: focus/break and countdown
+                // What they ring (Audio.playRingtone): a sound theme name or
+                // an audio file's path.
+                property string focusRingtone: "alarm-clock-elapsed"
+                property string countdownRingtone: "alarm-clock-elapsed"
+                // The alarm always rings (not gated by `pomodoro`), looping
+                // until dismissed or snoozed.
+                property string alarmRingtone: "alarm-clock-elapsed"
                 property string theme: "freedesktop"
                 // Chime on every incoming notification (not in Do Not Disturb).
-                // Empty notificationFile = the theme's chime (Themes.sound:
-                // Persona 5's by default, the characters' own in Chiikawa).
+                // notificationFile: a sound theme name or an audio file's
+                // path; empty = the default chime (Themes.sound). On themes
+                // with their own sounds (Themes.themeSounds) the theme's
+                // chime and ringtones play instead (Audio.soundFor).
                 property bool notification: true
                 property string notificationFile: ""
             }

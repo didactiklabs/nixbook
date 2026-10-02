@@ -169,6 +169,9 @@ pkgs.stdenvNoCC.mkDerivation {
       resvg --zoom 2 "$svg" "''${svg%.svg}.png"
     done
     python3 assets/cyberpunk/sounds.py assets/cyberpunk/sounds
+    # Persona's timer sounds (assets/persona/sounds.py; its chime and cut-in
+    # are the registry's, assets/sounds).
+    python3 assets/persona/sounds.py assets/persona/sounds
     # The launcher's emoji list (services/Emojis.qml): Unicode's emojis with
     # CLDR's English keywords.
     python3 ${./scripts/emojis.py} \

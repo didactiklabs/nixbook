@@ -118,27 +118,48 @@ Singleton {
         }
     }
 
+    // The command playing `soundName` from the sound theme (sounds.theme,
+    // else freedesktop), looked up in $XDG_DATA_DIRS: the first file found.
+    function systemSoundCommand(soundName) {
+        const dirs = (Quickshell.env("XDG_DATA_DIRS") || "/usr/local/share:/usr/share").split(":").filter(d => d !== "");
+        const candidates = [];
+        for (const theme of [...new Set([root.audioTheme, "freedesktop"])])
+            for (const dir of dirs)
+                for (const ext of ["oga", "ogg", "wav"])
+                    candidates.push(`${dir}/sounds/${theme}/stereo/${soundName}.${ext}`);
+        return ["sh", "-c",
+            'for f in "$@"; do [ -f "$f" ] && exec ffplay -nodisp -autoexit -loglevel quiet "$f"; done',
+            "sh", ...candidates];
+    }
     function playSystemSound(soundName) {
-        const ogaPath = `/usr/share/sounds/${root.audioTheme}/stereo/${soundName}.oga`;
-        const oggPath = `/usr/share/sounds/${root.audioTheme}/stereo/${soundName}.ogg`;
+        Quickshell.execDetached(root.systemSoundCommand(soundName));
+    }
 
-        // Try playing .oga first
-        let command = [
-            "ffplay",
-            "-nodisp",
-            "-autoexit",
-            ogaPath
-        ];
-        Quickshell.execDetached(command);
+    // A ringtone setting (sounds.focusRingtone, countdownRingtone,
+    // alarmRingtone): an audio file's path, or a sound theme name
+    // ("alarm-clock-elapsed"). The command plays it once.
+    function ringtoneCommand(ringtone) {
+        if ((ringtone ?? "").includes("/"))
+            return ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", ringtone.replace(/^file:\/\//, "")];
+        return root.systemSoundCommand(ringtone || "alarm-clock-elapsed");
+    }
+    function playRingtone(ringtone) {
+        Quickshell.execDetached(root.ringtoneCommand(ringtone));
+    }
 
-        // Also try playing .ogg (ffplay will just fail silently if file doesn't exist)
-        command = [
-            "ffplay",
-            "-nodisp",
-            "-autoexit",
-            oggPath
-        ];
-        Quickshell.execDetached(command);
+    // What plays for `kind` ("notification", "focus", "countdown", "alarm"),
+    // for playRingtone/ringtoneCommand: on a theme with its own sounds
+    // (Themes.themeSounds) the theme's; else the setting (sounds.
+    // notificationFile, empty: the default chime; sounds.<kind>Ringtone).
+    function soundFor(kind) {
+        if (Themes.themeSounds) {
+            const themed = Themes.sound(kind);
+            if (themed !== "") return themed;
+        }
+        const sounds = Config.options.sounds;
+        if (kind === "notification")
+            return sounds.notificationFile || Themes.sound("notification");
+        return sounds[kind + "Ringtone"] || "alarm-clock-elapsed";
     }
 
     // Play an arbitrary audio file (absolute path or file:// URL).

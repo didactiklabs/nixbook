@@ -244,6 +244,10 @@ let
     # it in the environment for another theme. Set here rather than in home.sessionVariables
     # so it also applies to the systemd unit without needing a re-login.
     export QS_ICON_THEME="''${QS_ICON_THEME:-Papirus-Dark}"
+    # Sounds (Audio.playSystemSound: the timers' ringtones, battery) are
+    # looked up in XDG_DATA_DIRS; NixOS has no /usr/share/sounds, so the
+    # freedesktop theme is always there as the fallback.
+    export XDG_DATA_DIRS="''${XDG_DATA_DIRS:-/usr/local/share:/usr/share}:${pkgs.sound-theme-freedesktop}/share"
     # `nixbook-shell splash`: the loading screen shown while the shell starts
     # (src/earlySplash.qml, its own instance: quits once the shell's is up).
     if [ "''${1:-}" = "splash" ]; then

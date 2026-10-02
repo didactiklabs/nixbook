@@ -8,8 +8,10 @@
     "A variant's `palette` (optional) replaces the wallpaper-generated Material palette while the",
     "theme is on (MaterialThemeLoader). A variant's (or theme's) `wallpaper` (optional, a path in the shell tree) is",
     "shown when switching to it until the user picks another (services/ThemeWallpapers.qml).",
-    "`sounds` ({notification, critical}: the chime, and the critical notification's sound) at the top level are",
-    "the defaults; a theme's or a variant's own override them (Themes.sound). Paths are in the shell tree.",
+    "`sounds` ({notification, critical}: the chime, and the critical notification's sound; {focus, countdown, alarm}:",
+    "the timers' ringtones) at the top level are the defaults; a theme's or a variant's own override them",
+    "(Themes.sound). On every theme but the default they replace the user's sound settings (Audio.soundFor).",
+    "Paths are in the shell tree.",
     "See README.md \"Themes\" for adding one."
   ],
   "default": "material",
@@ -35,6 +37,11 @@
           "id": "p5",
           "name": "Persona 5 Royal",
           "icon": "local_fire_department",
+          "sounds": {
+            "focus": "assets/persona/sounds/p5-focus.wav",
+            "countdown": "assets/persona/sounds/p5-countdown.wav",
+            "alarm": "assets/persona/sounds/p5-alarm.wav"
+          },
           "notes": "Black dominates, white type, red as the accent (active controls, slashes) and the hard offset shadow, Royal gold (tertiary, edge) for the panel outlines and the glints in the art: containers (widget cards, filled buttons) are black, not red. Notification bubbles: white, black type.",
           "palette": {
             "background": "#0a0a0a", "surface1": "#141414", "surface2": "#1c1c1c", "surface3": "#262626", "surface4": "#303030",
@@ -52,6 +59,11 @@
           "id": "p3r",
           "name": "Persona 3 Reload",
           "icon": "water_drop",
+          "sounds": {
+            "focus": "assets/persona/sounds/p3r-focus.wav",
+            "countdown": "assets/persona/sounds/p3r-countdown.wav",
+            "alarm": "assets/persona/sounds/p3r-alarm.wav"
+          },
           "notes": "Navy / cyan / white, smoother slant.",
           "palette": {
             "background": "#050f26", "surface1": "#0a1a3c", "surface2": "#0f2350", "surface3": "#152e66", "surface4": "#1b397c",
@@ -68,6 +80,11 @@
           "id": "p4",
           "name": "Persona 4 Revival",
           "icon": "tv",
+          "sounds": {
+            "focus": "assets/persona/sounds/p4-focus.wav",
+            "countdown": "assets/persona/sounds/p4-countdown.wav",
+            "alarm": "assets/persona/sounds/p4-alarm.wav"
+          },
           "notes": "The 2026 remake: warm near-black / dark amber panels (the dialogue box), bright gold only as the accent (selected choice, stripes), metallic gold borders and a deep-gold hard shadow.",
           "palette": {
             "background": "#0d0a05", "surface1": "#16110a", "surface2": "#1e170c", "surface3": "#281f10", "surface4": "#332814",
@@ -106,7 +123,10 @@
           "wallpaper": "assets/chiikawa/momonga-wallpaper.png",
           "sounds": {
             "notification": "assets/chiikawa/sounds/momonga-notification.wav",
-            "critical": "assets/chiikawa/sounds/momonga-critical.wav"
+            "critical": "assets/chiikawa/sounds/momonga-critical.wav",
+            "focus": "assets/chiikawa/sounds/momonga-focus.wav",
+            "countdown": "assets/chiikawa/sounds/momonga-countdown.wav",
+            "alarm": "assets/chiikawa/sounds/momonga-alarm.wav"
           },
           "notes": "The flying squirrel: purple pastel, a lavender tail, pink for the tertiary.",
           "palette": {
@@ -127,7 +147,10 @@
           "wallpaper": "assets/chiikawa/usagi-wallpaper.png",
           "sounds": {
             "notification": "assets/chiikawa/sounds/usagi-notification.wav",
-            "critical": "assets/chiikawa/sounds/usagi-critical.wav"
+            "critical": "assets/chiikawa/sounds/usagi-critical.wav",
+            "focus": "assets/chiikawa/sounds/usagi-focus.wav",
+            "countdown": "assets/chiikawa/sounds/usagi-countdown.wav",
+            "alarm": "assets/chiikawa/sounds/usagi-alarm.wav"
           },
           "notes": "The rabbit: sunny yellow, a warm orange accent, pink like its mouth for the tertiary.",
           "palette": {
@@ -148,7 +171,10 @@
           "wallpaper": "assets/chiikawa/chiikawa-wallpaper.png",
           "sounds": {
             "notification": "assets/chiikawa/sounds/chiikawa-notification.wav",
-            "critical": "assets/chiikawa/sounds/chiikawa-critical.wav"
+            "critical": "assets/chiikawa/sounds/chiikawa-critical.wav",
+            "focus": "assets/chiikawa/sounds/chiikawa-focus.wav",
+            "countdown": "assets/chiikawa/sounds/chiikawa-countdown.wav",
+            "alarm": "assets/chiikawa/sounds/chiikawa-alarm.wav"
           },
           "notes": "The small white one: cream and white with its pink blush, cocoa brown lines, a sky blue tertiary.",
           "palette": {
@@ -188,7 +214,10 @@
           "wallpaper": "assets/cyberpunk/yellow-wallpaper.png",
           "sounds": {
             "notification": "assets/cyberpunk/sounds/yellow-notification.wav",
-            "critical": "assets/cyberpunk/sounds/yellow-critical.wav"
+            "critical": "assets/cyberpunk/sounds/yellow-critical.wav",
+            "focus": "assets/cyberpunk/sounds/yellow-focus.wav",
+            "countdown": "assets/cyberpunk/sounds/yellow-countdown.wav",
+            "alarm": "assets/cyberpunk/sounds/yellow-alarm.wav"
           },
           "notes": "The key art: signature yellow as the accent over near-black panels, cyan for the secondary (the glitch offset, links), hot red-pink for the tertiary. Cut-in: a yellow holocall frame with a cyan glitch.",
           "palette": {
@@ -209,7 +238,10 @@
           "wallpaper": "assets/cyberpunk/red-wallpaper.png",
           "sounds": {
             "notification": "assets/cyberpunk/sounds/red-notification.wav",
-            "critical": "assets/cyberpunk/sounds/red-critical.wav"
+            "critical": "assets/cyberpunk/sounds/red-critical.wav",
+            "focus": "assets/cyberpunk/sounds/red-focus.wav",
+            "countdown": "assets/cyberpunk/sounds/red-countdown.wav",
+            "alarm": "assets/cyberpunk/sounds/red-alarm.wav"
           },
           "notes": "The in-game HUD: red-tinted black panels, the menus' salmon red as the accent and hairlines, the interactive cyan for the secondary, yellow for the tertiary. Cut-in: a red HUD frame with a cyan glitch.",
           "palette": {

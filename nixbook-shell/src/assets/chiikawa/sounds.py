@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Synthesize the Chiikawa theme's sounds (themes.json `sounds`): per variant,
-a short bubbly notification chime (<variant>-notification.wav) and a playful
-jingle for critical notifications (<variant>-critical.wav). Soft bell-like
+a short bubbly notification chime (<variant>-notification.wav), a playful
+jingle for critical notifications (<variant>-critical.wav), and the timers':
+a "pin-pon" when a focus session or a break ends (<variant>-focus.wav), a
+"done!" when the countdown finishes (<variant>-countdown.wav) and a music-box
+tune the alarm loops (<variant>-alarm.wav). Soft bell-like
 tones (sine + a little second harmonic, fast attack, exponential decay) and
 little pitch hops; nothing harsh. Standard library only, so the package
 generates them when it is built (qml.nix): no audio file is kept in git.
@@ -92,6 +95,46 @@ def jingle(base, vib):
     return mix(boing, seq(silence(0.06), first, silence(0.05), second))
 
 
+def pinpon(base):
+    """The two-note door chime, high then a fourth down, soft and round."""
+    return seq(
+        tone(base * 1.335, 0.5, amp=0.55, decay=4.5),
+        tone(base, 0.9, amp=0.55, decay=3.5),
+        overlap=0.18,
+    )
+
+
+def done(base, hop):
+    """A quick tumble down a pentatonic scale, then the variant's hop up with
+    a little wobble: "yatta!"."""
+    run = seq(*[tone(base * r, 0.1, amp=0.45, decay=16) for r in (2.0, 1.682, 1.498, 1.335, 1.122)], overlap=0.02)
+    return seq(run, silence(0.03), tone(base, 0.12, amp=0.5, decay=12),
+               tone(base * hop, 0.6, amp=0.6, vibrato=6, decay=4.5), overlap=0.03)
+
+
+def music_box(base, tune):
+    """A music-box melody (high, plinky, fast decay) over soft low notes on
+    the downbeats; ends with a rest so the loop breathes."""
+    step = 0.2
+    notes = [(k * step, tone(base * r, 0.45, amp=0.45, decay=7, harmonic=0.45)) for k, r in enumerate(tune)]
+    lows = [(k * step * 4, tone(base / 2 * r, 0.8, amp=0.25, decay=3, harmonic=0.1))
+            for k, r in enumerate((1.0, 1.335, 1.498, 1.0))]
+    out = [0.0] * int((len(tune) * step + 0.35) * RATE)
+    for start, samples in notes + lows:
+        o = int(start * RATE)
+        for i, s in enumerate(samples):
+            if o + i < len(out):
+                out[o + i] += s
+    return out
+
+
+# A little tune per character, as ratios of the base note (major pentatonic).
+TUNES = {
+    "chiikawa": (1, 1.122, 1.26, 1.498, 1.26, 1.122, 1, 0.749, 0.841, 1, 1.122, 1.26, 1.122, 1, 0.749, 1),
+    "momonga": (1.498, 1.682, 2, 1.682, 1.498, 1.26, 1.498, 2, 2.245, 2, 1.682, 1.498, 1.26, 1.122, 1.26, 1.498),
+    "usagi": (1, 1, 1.498, 1.498, 2, 1.498, 1.26, 1.498, 1, 1, 1.498, 1.682, 2, 2.245, 2, 1),
+}
+
 VARIANTS = {
     # sweet, mid (C6 / hop a fourth)
     "chiikawa": dict(chime=(1046.5, 1.335), jingle=(1046.5, 6.0)),
@@ -108,6 +151,10 @@ def main():
     for name, v in VARIANTS.items():
         write(os.path.join(out, f"{name}-notification.wav"), chime(*v["chime"]))
         write(os.path.join(out, f"{name}-critical.wav"), jingle(*v["jingle"]))
+        base, hop = v["chime"]
+        write(os.path.join(out, f"{name}-focus.wav"), pinpon(base / 2))
+        write(os.path.join(out, f"{name}-countdown.wav"), done(base / 2, hop))
+        write(os.path.join(out, f"{name}-alarm.wav"), music_box(base / 2, TUNES[name]))
 
 
 if __name__ == "__main__":
