@@ -248,8 +248,8 @@ Singleton {
         }
     }
 
-    // Notification chime (Settings → General → Sounds; by default the
-    // theme's, Themes.sound). Skipped in Do Not
+    // Notification chime (Settings → General → Sounds; the theme's on themes
+    // with their own sounds: Audio.soundFor). Skipped in Do Not
     // Disturb, for senders asking for silence (`suppress-sound` hint) and
     // within 300 ms of the last one so a burst doesn't stack up.
     property real lastSoundTime: 0
@@ -259,8 +259,7 @@ Singleton {
         const now = Date.now();
         if (now - root.lastSoundTime < 300) return;
         root.lastSoundTime = now;
-        const file = Config.options.sounds.notificationFile;
-        Audio.playSoundFile(file !== "" ? file : Themes.sound("notification"));
+        Audio.playRingtone(Audio.soundFor("notification"));
     }
 
     // Persona cut-in sound (notifications.cutIn.sound/soundFile), played by

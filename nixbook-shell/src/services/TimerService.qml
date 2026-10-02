@@ -40,6 +40,23 @@ Singleton {
     property int countdownStart: Persistent.states.timer.countdown.start
     property int countdownSecondsLeft: countdownDuration
 
+    // Alarm: one, at a date and time (epoch seconds), once or every day.
+    // Rings (alarmRingtone, looped) until dismissed or snoozed, or for
+    // `alarmRingSeconds` at most.
+    readonly property var alarm: Persistent.states.timer.alarm
+    property bool alarmEnabled: alarm.enabled
+    property int alarmAt: alarm.at
+    property string alarmLabel: alarm.label
+    property bool alarmDaily: alarm.daily
+    property int alarmSnoozeUntil: alarm.snoozeUntil
+    property bool alarmRinging: false
+    property int alarmRingStart: 0
+    readonly property int alarmRingSeconds: 120
+    readonly property int alarmSnoozeMinutes: 5
+    // An alarm missed by more than this (the shell wasn't running, the
+    // machine slept) is only reported, not rung.
+    readonly property int alarmMissedSeconds: 3600
+
     // General
     Component.onCompleted: {
         if (!stopwatchRunning)
@@ -83,7 +100,7 @@ Singleton {
 
             Quickshell.execDetached(["notify-send", "Pomodoro", notificationMessage, "-a", "Shell"]);
             if (Config.options.sounds.pomodoro) {
-                Audio.playSystemSound("alarm-clock-elapsed")
+                Audio.playRingtone(Audio.soundFor("focus"))
             }
 
             if (!pomodoroBreak) {
@@ -174,7 +191,7 @@ Singleton {
             Persistent.states.timer.countdown.duration = 0;
             Quickshell.execDetached(["notify-send", "Timers", "⏰ Countdown finished", "-a", "Shell"]);
             if (Config.options.sounds.pomodoro) {
-                Audio.playSystemSound("alarm-clock-elapsed")
+                Audio.playRingtone(Audio.soundFor("countdown"))
             }
         }
 
@@ -214,6 +231,180 @@ Singleton {
         countdownSecondsLeft = 0;
     }
 
+    // Alarm
+    // "YYYY-MM-DD HH:MM" (or with a T) as local time, or "HH:MM" today;
+    // epoch seconds, or null.
+    function parseAlarmTime(text) {
+        const m = (text ?? "").trim().match(/^(?:(\d{4})-(\d{1,2})-(\d{1,2})[ T])?(\d{1,2}):(\d{2})$/);
+        if (!m) return null;
+        const now = new Date();
+        const d = m[1] ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5])
+            : new Date(now.getFullYear(), now.getMonth(), now.getDate(), +m[4], +m[5]);
+        if (isNaN(d.getTime()) || +m[4] > 23 || +m[5] > 59) return null;
+        return Math.floor(d.getTime() / 1000);
+    }
+
+    // The next time at or after `now` with the same wall-clock time as `at`
+    // (stepping by calendar days, so it stays put across DST changes).
+    function nextDaily(at, now) {
+        const d = new Date(at * 1000);
+        while (d.getTime() / 1000 <= now)
+            d.setDate(d.getDate() + 1);
+        return Math.floor(d.getTime() / 1000);
+    }
+
+    // Sets and enables the alarm. A daily alarm in the past moves to its next
+    // time; a one-off alarm in the past is refused (false).
+    function setAlarm(at, label, daily) {
+        const now = getCurrentTimeInSeconds();
+        if (daily)
+            at = nextDaily(at, now);
+        else if (at <= now)
+            return false;
+        root.dismissAlarm();
+        alarm.at = at;
+        alarm.label = label ?? "";
+        alarm.daily = !!daily;
+        alarm.snoozeUntil = 0;
+        alarm.enabled = true;
+        return true;
+    }
+
+    // On/off without changing the time; switching a passed one-off alarm on
+    // fails (false): it needs a new date.
+    function toggleAlarm() {
+        if (alarm.enabled) {
+            alarm.enabled = false;
+            alarm.snoozeUntil = 0;
+            return true;
+        }
+        if (alarm.at <= 0)
+            return false;
+        return root.setAlarm(alarm.at, alarm.label, alarm.daily);
+    }
+
+    function clearAlarm() {
+        root.dismissAlarm();
+        alarm.enabled = false;
+        alarm.at = 0;
+        alarm.label = "";
+        alarm.daily = false;
+        alarm.snoozeUntil = 0;
+    }
+
+    function checkAlarm() {
+        if (root.alarmRinging || !Persistent.ready) return;
+        const now = getCurrentTimeInSeconds();
+        if (alarm.snoozeUntil > 0 && now >= alarm.snoozeUntil) {
+            alarm.snoozeUntil = 0;
+            root.ringAlarm();
+            return;
+        }
+        if (!alarm.enabled || now < alarm.at) return;
+        const late = now - alarm.at;
+        // Schedule the next one before ringing this one.
+        if (alarm.daily)
+            alarm.at = nextDaily(alarm.at, now);
+        else
+            alarm.enabled = false;
+        if (late > root.alarmMissedSeconds) {
+            Quickshell.execDetached(["notify-send", "-a", "Shell", "Missed alarm",
+                (alarm.label || Translation.tr("Alarm")) + " · " + Qt.formatDateTime(new Date((now - late) * 1000), Qt.locale().dateTimeFormat(Locale.ShortFormat))]);
+            return;
+        }
+        root.ringAlarm();
+    }
+
+    function ringAlarm() {
+        root.alarmRinging = true;
+        root.alarmRingStart = getCurrentTimeInSeconds();
+        alarmSound.running = true;
+        alarmNotification.serverId = -1;
+        alarmNotification.running = true;
+    }
+
+    function dismissAlarm() {
+        if (!root.alarmRinging) return;
+        root.alarmRinging = false;
+        alarmSound.running = false;
+        alarmNotification.close();
+    }
+
+    function snoozeAlarm() {
+        root.dismissAlarm();
+        alarm.snoozeUntil = getCurrentTimeInSeconds() + root.alarmSnoozeMinutes * 60;
+    }
+
+    Timer {
+        id: alarmTimer
+        interval: 1000
+        running: root.alarmEnabled || root.alarmSnoozeUntil > 0 || root.alarmRinging
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: {
+            root.checkAlarm();
+            if (root.alarmRinging && getCurrentTimeInSeconds() - root.alarmRingStart >= root.alarmRingSeconds)
+                root.dismissAlarm();
+        }
+    }
+
+    // The ringtone, played again each time it ends while ringing.
+    Process {
+        id: alarmSound
+        command: Audio.ringtoneCommand(Audio.soundFor("alarm"))
+        onExited: {
+            if (root.alarmRinging)
+                alarmSoundRestart.start();
+        }
+    }
+    Timer {
+        id: alarmSoundRestart
+        interval: 400
+        onTriggered: if (root.alarmRinging) alarmSound.running = true
+    }
+
+    // The notification, with Snooze / Dismiss: notify-send prints the
+    // notification's id (-p), then the action clicked.
+    Process {
+        id: alarmNotification
+        property int serverId: -1
+        function close() {
+            if (serverId > 0)
+                Notifications.discardNotification(serverId + Notifications.idOffset);
+            serverId = -1;
+            running = false;
+        }
+        command: ["notify-send", "-a", "Shell", "-u", "critical", "-i", "alarm", "-p",
+            "--action=snooze=" + Translation.tr("Snooze %1 min").arg(root.alarmSnoozeMinutes),
+            "--action=dismiss=" + Translation.tr("Dismiss"),
+            root.alarmLabel || Translation.tr("Alarm"),
+            Qt.formatDateTime(new Date(root.alarmRingStart * 1000), Config.options.time.format)]
+        // Closed without an action (its close button): stop ringing too.
+        // close() and the actions clear serverId first, so they don't land here.
+        // Ids start at 1: notify-send prints 0 when no notification server
+        // answered, and the alarm then keeps ringing.
+        onExited: {
+            if (serverId > 0 && root.alarmRinging) {
+                serverId = -1;
+                root.dismissAlarm();
+            }
+        }
+        stdout: SplitParser {
+            onRead: line => {
+                const text = line.trim();
+                if (/^[0-9]+$/.test(text)) {
+                    alarmNotification.serverId = parseInt(text);
+                } else if (text === "snooze") {
+                    alarmNotification.serverId = -1;
+                    root.snoozeAlarm();
+                } else if (text === "dismiss") {
+                    alarmNotification.serverId = -1;
+                    root.dismissAlarm();
+                }
+            }
+        }
+    }
+
     // `nixbook-shell ipc call timers …`: the timers widget's pomodoro,
     // stopwatch and countdown, for key bindings and the desktop MCP server.
     IpcHandler {
@@ -225,6 +416,9 @@ Singleton {
                 pomodoro: { running: root.pomodoroRunning, isBreak: root.pomodoroBreak, cycle: root.pomodoroCycle, secondsLeft: root.pomodoroSecondsLeft },
                 stopwatch: { running: root.stopwatchRunning, seconds: Math.floor(root.stopwatchTime / 100), laps: (root.stopwatchLaps ?? []).map(l => Math.floor(l / 100)) },
                 countdown: { running: root.countdownRunning, secondsLeft: root.countdownSecondsLeft },
+                alarm: { enabled: root.alarmEnabled, at: root.alarmAt > 0 ? new Date(root.alarmAt * 1000).toISOString() : "",
+                    label: root.alarmLabel, daily: root.alarmDaily, ringing: root.alarmRinging,
+                    snoozedUntil: root.alarmSnoozeUntil > 0 ? new Date(root.alarmSnoozeUntil * 1000).toISOString() : "" },
             });
         }
         function pomodoroToggle(): string {
@@ -268,6 +462,37 @@ Singleton {
         function countdownReset(): string {
             root.resetCountdown();
             return "ok: countdown reset";
+        }
+        // `when`: a local date and time ("2026-12-24 07:30", "2026-12-24T07:30")
+        // or a time today ("07:30"; daily: the next 07:30).
+        function alarmSet(when: string, label: string, daily: bool): string {
+            const at = root.parseAlarmTime(when);
+            if (at === null)
+                return `error: can't read "${when}" (YYYY-MM-DD HH:MM or HH:MM)`;
+            if (!root.setAlarm(at, label, daily))
+                return "error: that time has passed";
+            return `ok: alarm at ${new Date(root.alarmAt * 1000).toString()}`;
+        }
+        function alarmToggle(): string {
+            if (!root.toggleAlarm())
+                return "error: the alarm's time has passed (alarmSet a new one)";
+            return `ok: alarm ${root.alarmEnabled ? "on" : "off"}`;
+        }
+        function alarmClear(): string {
+            root.clearAlarm();
+            return "ok: alarm cleared";
+        }
+        function alarmDismiss(): string {
+            if (!root.alarmRinging)
+                return "error: the alarm isn't ringing";
+            root.dismissAlarm();
+            return "ok: alarm dismissed";
+        }
+        function alarmSnooze(): string {
+            if (!root.alarmRinging)
+                return "error: the alarm isn't ringing";
+            root.snoozeAlarm();
+            return `ok: snoozed ${root.alarmSnoozeMinutes} min`;
         }
     }
 }

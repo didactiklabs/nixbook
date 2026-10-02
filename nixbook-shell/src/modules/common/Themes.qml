@@ -98,11 +98,17 @@ Singleton {
         return root.current === id;
     }
 
+    // Every theme but the default (Material) brings its own sounds: the
+    // notification chime and the timers' ringtones are then the theme's, and
+    // their settings (Settings → General → Sounds) are locked.
+    readonly property bool themeSounds: root.current !== root.defaultTheme
+
     // ----------------------------------------------------------- sounds
     // The current theme's sound for `kind` ("notification": the chime,
-    // "critical": critical notifications / the Persona cut-in): the
-    // variant's, else the theme's, else the registry's default. A file set
-    // in the settings (sounds.notificationFile, cutIn.soundFile) wins.
+    // "critical": critical notifications / the Persona cut-in; "focus",
+    // "countdown", "alarm": the timers' ringtones): the variant's, else the
+    // theme's, else the registry's default ("" if none). What actually plays
+    // is Audio.soundFor(kind).
     function sound(kind) {
         const rel = root.currentVariant?.sounds?.[kind] ?? root.currentTheme?.sounds?.[kind] ?? root.registry.sounds?.[kind] ?? "";
         return rel !== "" ? Quickshell.shellPath(rel) : "";

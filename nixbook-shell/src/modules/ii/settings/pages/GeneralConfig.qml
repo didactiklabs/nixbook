@@ -11,6 +11,98 @@ ContentPage {
     id: page
     forceWidth: true
 
+    // A sound setting (Audio.soundFor `kind`: sounds.<kind>Ringtone, or
+    // sounds.notificationFile): a sound theme name, or an audio file picked
+    // with kdialog. Locked on themes with their own sounds (Themes.themeSounds).
+    component RingtoneSetting: ColumnLayout {
+        id: ringtone
+        required property string kind
+        property string text
+        property string icon
+        property var choices: [
+            { displayName: Translation.tr("Alarm clock"), icon: "alarm", value: "alarm-clock-elapsed" },
+            { displayName: Translation.tr("Phone ring"), icon: "ring_volume", value: "phone-incoming-call" },
+            { displayName: Translation.tr("Bell"), icon: "notifications", value: "bell" },
+            { displayName: Translation.tr("Chime"), icon: "check_circle", value: "complete" },
+        ]
+        readonly property string key: ringtone.kind === "notification" ? "notificationFile" : ringtone.kind + "Ringtone"
+        readonly property string value: Config.options.sounds[ringtone.key] ?? ""
+        readonly property bool isFile: ringtone.value.includes("/")
+        readonly property bool locked: Themes.themeSounds
+        Layout.fillWidth: true
+        spacing: 4
+
+        RowLayout {
+            Layout.leftMargin: 8
+            Layout.rightMargin: 8
+            spacing: 10
+            OptionalMaterialSymbol {
+                icon: ringtone.icon
+                iconSize: Appearance.font.pixelSize.larger
+                opacity: ringtone.enabled ? 1 : 0.4
+            }
+            StyledText {
+                Layout.fillWidth: true
+                text: ringtone.text
+                color: Appearance.colors.colOnSecondaryContainer
+                opacity: ringtone.enabled ? 1 : 0.4
+            }
+            // What plays now: the theme's sound while locked.
+            RippleButtonWithIcon {
+                buttonRadius: Appearance.rounding.normal
+                materialIcon: "play_arrow"
+                mainText: Translation.tr("Preview")
+                onClicked: Audio.playRingtone(Audio.soundFor(ringtone.kind))
+            }
+        }
+        StyledText {
+            Layout.leftMargin: 8
+            Layout.rightMargin: 8
+            Layout.fillWidth: true
+            visible: ringtone.locked
+            wrapMode: Text.Wrap
+            text: Translation.tr("Set by the %1 theme").arg(Themes.currentVariant?.name ?? Themes.currentTheme?.name ?? "")
+            color: Appearance.colors.colSubtext
+            font.pixelSize: Appearance.font.pixelSize.small
+        }
+        ConfigSelectionArray {
+            configKey: "sounds." + ringtone.key
+            shown: !ringtone.locked
+            currentValue: ringtone.isFile ? "file" : ringtone.value
+            options: [...ringtone.choices,
+                { displayName: Translation.tr("Custom file…"), icon: "audio_file", value: "file" }]
+            onSelected: newValue => {
+                if (newValue === "file")
+                    ringtonePicker.running = true;
+                else
+                    Config.options.sounds[ringtone.key] = newValue;
+            }
+        }
+        StyledText {
+            Layout.leftMargin: 8
+            Layout.rightMargin: 8
+            Layout.fillWidth: true
+            visible: ringtone.isFile && !ringtone.locked
+            elide: Text.ElideMiddle
+            text: FileUtils.fileNameForPath(ringtone.value)
+            color: Appearance.colors.colSubtext
+            font.pixelSize: Appearance.font.pixelSize.small
+        }
+        Process {
+            id: ringtonePicker
+            command: ["kdialog", "--title", ringtone.text, "--getopenfilename",
+                FileUtils.trimFileProtocol(Directories.music), "Audio (*.mp3 *.ogg *.oga *.opus *.flac *.wav *.m4a)"]
+            stdout: StdioCollector {
+                id: ringtonePickerOut
+                onStreamFinished: {
+                    const file = ringtonePickerOut.text.trim();
+                    if (file !== "")
+                        Config.options.sounds[ringtone.key] = file;
+                }
+            }
+        }
+    }
+
     function goTo(term) {
         const t = term.toLowerCase().trim()
 
@@ -329,11 +421,29 @@ ContentPage {
                     configKey: "sounds.pomodoro";
                     enabled: !nixManaged;
                     buttonIcon: "av_timer"
-                    text: Translation.tr("Pomodoro")
+                    text: Translation.tr("Timers (focus and countdown)")
                     checked: Config.options.sounds.pomodoro
                     onCheckedChanged: {
                         Config.options.sounds.pomodoro = checked;
                     }
+                }
+                RingtoneSetting {
+                    kind: "focus"
+                    text: Translation.tr("Focus / break ringtone")
+                    icon: "search_activity"
+                    enabled: Config.options.sounds.pomodoro
+                }
+                RingtoneSetting {
+                    kind: "countdown"
+                    text: Translation.tr("Countdown ringtone")
+                    icon: "timer"
+                    enabled: Config.options.sounds.pomodoro
+                }
+                // Always rings, whatever the switch above says.
+                RingtoneSetting {
+                    kind: "alarm"
+                    text: Translation.tr("Alarm ringtone")
+                    icon: "alarm"
                 }
                 ConfigSwitch {
                     configKey: "sounds.notification";
@@ -344,6 +454,18 @@ ContentPage {
                     onCheckedChanged: {
                         Config.options.sounds.notification = checked;
                     }
+                }
+                RingtoneSetting {
+                    kind: "notification"
+                    text: Translation.tr("Notification sound")
+                    icon: "notifications_active"
+                    enabled: Config.options.sounds.notification
+                    choices: [
+                        { displayName: Translation.tr("Default"), icon: "music_note", value: "" },
+                        { displayName: Translation.tr("Message"), icon: "chat", value: "message-new-instant" },
+                        { displayName: Translation.tr("Bell"), icon: "notifications", value: "bell" },
+                        { displayName: Translation.tr("Pop"), icon: "bubble_chart", value: "message" },
+                    ]
                 }
             }
         }

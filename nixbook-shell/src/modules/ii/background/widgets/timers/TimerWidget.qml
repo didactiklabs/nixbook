@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import qs
 import qs.services
 import qs.modules.common
@@ -13,14 +14,39 @@ AbstractBackgroundWidget {
     configEntryName: "timers"
     hoverEnabled: true
 
-    property real widgetWidth: 420
+    property real widgetWidth: 564
     property real cardSpacing: 12
     property real cardHeight: 120
-    property real cardWidth: (widgetWidth - cardSpacing * 2) / 3
+    property real cardWidth: (widgetWidth - cardSpacing * 3) / 4
     property bool isVertical: root.configEntry.vertical ?? false
 
     implicitWidth: row.implicitWidth
     implicitHeight: row.implicitHeight
+
+    property bool editingAlarm: false
+    LazyLoader {
+        active: root.editingAlarm
+        component: AlarmEditorWindow {
+            screen: Quickshell.screens.find(s => s.name === root.screenName) ?? Quickshell.screens[0]
+            onDismissed: root.editingAlarm = false
+        }
+    }
+
+    // The alarm card's text: its time, and when (or its state).
+    readonly property date alarmDate: new Date(TimerService.alarmAt * 1000)
+    readonly property string alarmWhen: {
+        if (TimerService.alarmRinging) return Translation.tr("Ringing");
+        if (TimerService.alarmSnoozeUntil > 0)
+            return Translation.tr("Snoozed until %1").arg(Qt.formatTime(new Date(TimerService.alarmSnoozeUntil * 1000), Config.options.time.format));
+        if (TimerService.alarmAt <= 0) return Translation.tr("Alarm");
+        if (!TimerService.alarmEnabled) return Translation.tr("Off");
+        if (TimerService.alarmDaily) return Translation.tr("Every day");
+        const now = new Date(DateTime.clock.date);
+        const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        if (root.alarmDate.toDateString() === now.toDateString()) return Translation.tr("Today");
+        if (root.alarmDate.toDateString() === tomorrow.toDateString()) return Translation.tr("Tomorrow");
+        return Qt.formatDate(root.alarmDate, Config.options.time.dateFormat);
+    }
 
     component TimerCard: Rectangle {
         id: timerCard
@@ -28,6 +54,7 @@ AbstractBackgroundWidget {
         property string value: ""
         property string label: ""
         property bool running: false
+        property string runningIcon: "pause"
         property int shape: MaterialShape.Shape.Cookie12Sided
         property color bgColor: Appearance.colors.colPrimaryContainer
         property color shapeColor: Appearance.colors.colPrimary
@@ -82,7 +109,7 @@ AbstractBackgroundWidget {
                     shape: timerCard.shape
                     color: timerCard.shapeColor
                     colSymbol: Appearance.colors.colOnPrimary
-                    text: timerCard.running ? "pause" : timerCard.icon
+                    text: timerCard.running ? timerCard.runningIcon : timerCard.icon
                     iconSize: 18
                     fill: 1
                     padding: 6
@@ -131,8 +158,8 @@ AbstractBackgroundWidget {
 
     Grid {
         id: row
-        columns: root.isVertical ? 1 : 3
-        rows: root.isVertical ? 3 : 1
+        columns: root.isVertical ? 1 : 4
+        rows: root.isVertical ? 4 : 1
         spacing: root.cardSpacing
 
         Behavior on columns {
@@ -201,6 +228,62 @@ AbstractBackgroundWidget {
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             onClicked: TimerService.addCountdownMinutes(modelData)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Alarm: the toggle switches it on/off; Edit opens the editor;
+        // right-click deletes it.
+        TimerCard {
+            icon: "alarm_off"
+            runningIcon: "alarm_on"
+            value: TimerService.alarmAt > 0 ? Qt.formatTime(root.alarmDate, Config.options.time.format) : "--:--"
+            label: TimerService.alarmLabel !== "" && !TimerService.alarmRinging ? `${root.alarmWhen} · ${TimerService.alarmLabel}` : root.alarmWhen
+            running: TimerService.alarmEnabled || TimerService.alarmRinging || TimerService.alarmSnoozeUntil > 0
+            shape: MaterialShape.Shape.Cookie9Sided
+            bgColor: TimerService.alarmRinging ? Appearance.colors.colErrorContainer : Appearance.colors.colSecondaryContainer
+            shapeColor: TimerService.alarmRinging ? Appearance.colors.colError : Appearance.colors.colSecondary
+            onToggle: () => {
+                if (TimerService.alarmRinging)
+                    TimerService.dismissAlarm();
+                else if (TimerService.alarmSnoozeUntil > 0)
+                    TimerService.alarm.snoozeUntil = 0;
+                else if (!TimerService.toggleAlarm())
+                    root.editingAlarm = true;
+            }
+            onReset: () => TimerService.clearAlarm()
+
+            RowLayout {
+                anchors.fill: parent
+                spacing: 4
+
+                Repeater {
+                    model: TimerService.alarmRinging
+                        ? [{ text: Translation.tr("Snooze"), action: () => TimerService.snoozeAlarm() },
+                           { text: Translation.tr("Dismiss"), action: () => TimerService.dismissAlarm() }]
+                        : [{ text: TimerService.alarmAt > 0 ? Translation.tr("Edit") : Translation.tr("Set"), action: () => root.editingAlarm = true }]
+                    delegate: Rectangle {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        radius: Appearance.rounding.full
+                        color: ColorUtils.transparentize(Appearance.colors.colOnTertiaryContainer, 0.85)
+
+                        StyledText {
+                            anchors.centerIn: parent
+                            text: parent.modelData.text
+                            font.pixelSize: Appearance.font.pixelSize.smallest
+                            font.weight: Font.DemiBold
+                            color: Appearance.colors.colOnPrimaryContainer
+                        }
+
+                        MouseArea {
+                            hoverEnabled: true
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: parent.modelData.action()
                         }
                     }
                 }

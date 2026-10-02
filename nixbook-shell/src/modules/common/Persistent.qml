@@ -176,6 +176,15 @@ Singleton {
                     property int duration: 0
                     property int start: 0
                 }
+                // TimerService: one alarm at a date and time (epoch seconds),
+                // once or every day; snoozeUntil rings it again after a snooze.
+                property JsonObject alarm: JsonObject {
+                    property bool enabled: false
+                    property int at: 0
+                    property string label: ""
+                    property bool daily: false
+                    property int snoozeUntil: 0
+                }
             }
         }
     }

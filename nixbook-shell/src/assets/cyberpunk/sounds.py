@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Synthesize the Cyberpunk 2077 theme's sounds (themes.json `sounds`): per
-variant, a short digital HUD blip for notifications (<variant>-notification.wav)
-and a glitchy incoming-call alarm for critical ones and the cut-in
-(<variant>-critical.wav). Band-limited square-ish tones, a stutter of noise
+variant, a short digital HUD blip for notifications (<variant>-notification.wav),
+a glitchy incoming-call alarm for critical ones and the cut-in
+(<variant>-critical.wav), and the timers': a HUD mode switch when a focus
+session or a break ends (<variant>-focus.wav), a "timer expired" readout when
+the countdown finishes (<variant>-countdown.wav) and a holocall ring the alarm
+loops (<variant>-alarm.wav). Band-limited square-ish tones, a stutter of noise
 bursts, a bit-crushed downward chirp; short and dry. Standard library only, so
 the package generates them when it is built (qml.nix): no audio file is kept
 in git.
@@ -104,6 +107,52 @@ def alarm(base, seed):
     return seq(stutter, sweep, silence(0.03), mix(beeps, sub))
 
 
+def mode_switch(base):
+    """A crushed upward chirp, a click of noise, then two locking-in blips:
+    the HUD switching modes."""
+    return seq(
+        tone(base / 2, 0.12, amp=0.4, glide=1.5, decay=6, harmonics=4, crush=8),
+        noise(0.015, amp=0.3, seed=7, decay=80),
+        silence(0.02),
+        tone(base, 0.06, amp=0.5, decay=30, harmonics=3), silence(0.03),
+        tone(base * 2, 0.14, amp=0.5, decay=18, harmonics=3),
+    )
+
+
+def expired(base, seed):
+    """Three falling readout blips, a glitch stutter, and a long crushed
+    downward sweep: time's up."""
+    rnd = random.Random(seed)
+    stutter = []
+    for k in range(4):
+        d = 0.012 + rnd.random() * 0.02
+        stutter += noise(d, amp=0.3, seed=seed + k) + silence(0.01)
+    return seq(
+        tone(base * 2, 0.07, amp=0.5, decay=22), silence(0.04),
+        tone(base * 1.5, 0.07, amp=0.5, decay=22), silence(0.04),
+        tone(base, 0.09, amp=0.5, decay=18), silence(0.03),
+        stutter,
+        mix(tone(base, 0.45, amp=0.45, glide=-0.6, decay=4, harmonics=4, crush=6),
+            tone(base / 4, 0.45, amp=0.25, decay=5, harmonics=2)),
+    )
+
+
+def holocall(base, seed):
+    """The holocall ringing: two bursts of four fast buzzy pulses, each burst
+    opened by a glitch, over a low drone; a short gap so the loop pulses."""
+    rnd = random.Random(seed)
+    out = []
+    for burst in range(2):
+        for k in range(3):
+            out += noise(0.012 + rnd.random() * 0.015, amp=0.3, seed=seed + burst * 10 + k) + silence(0.008)
+        pulses = []
+        for k in range(4):
+            pulses += tone(base * (1.0 if k % 2 == 0 else 1.335), 0.07, amp=0.5, decay=10, harmonics=5) + silence(0.035)
+        out += mix(pulses, tone(base / 4, len(pulses) / RATE, amp=0.2, decay=1.5, harmonics=3))
+        out += silence(0.18)
+    return out + silence(0.3)
+
+
 VARIANTS = {
     # bright (A5)
     "yellow": dict(blip=880.0, alarm=(880.0, 2077)),
@@ -118,6 +167,9 @@ def main():
     for name, v in VARIANTS.items():
         write(os.path.join(out, f"{name}-notification.wav"), blip(v["blip"]))
         write(os.path.join(out, f"{name}-critical.wav"), alarm(*v["alarm"]))
+        write(os.path.join(out, f"{name}-focus.wav"), mode_switch(v["blip"]))
+        write(os.path.join(out, f"{name}-countdown.wav"), expired(*v["alarm"]))
+        write(os.path.join(out, f"{name}-alarm.wav"), holocall(*v["alarm"]))
 
 
 if __name__ == "__main__":
