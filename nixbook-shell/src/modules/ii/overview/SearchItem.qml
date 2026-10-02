@@ -46,7 +46,10 @@ RippleButton {
     readonly property real textX: horizontalMargin + buttonHorizontalPadding + iconSlotSize + iconTextSpacing
     property int buttonVerticalPadding: 6
     property bool keyboardDown: false
-    readonly property bool selected: (root.hovered || root.focus)
+    // The list's current row is the one Enter opens: it stays highlighted
+    // while the keyboard is in the search box (the pointer moves it too:
+    // SearchWidget's HoverHandler).
+    readonly property bool selected: (root.focus || ListView.isCurrentItem)
 
     // Every row is the same height (clipboard images excepted), whatever its
     // text or icon: the list doesn't jump around while typing.

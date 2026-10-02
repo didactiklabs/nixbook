@@ -332,11 +332,25 @@ Singleton {
             }
             if (pending.length === 0) {
                 stop();
+                root.appsReady = true;
                 root.prewarmed();
             }
         }
     }
     signal prewarmed()
+    // Every app's result object is built (prewarmTimer): the empty query can
+    // list them all without building them in one go inside the binding.
+    property bool appsReady: false
+
+    // Shown before anything is typed (like DankLauncher): every app, the most
+    // used first (AppSearch frecency), then A-Z. Typing filters from there.
+    function allAppResults() {
+        AppSearch.usageRevision; // Re-sort after a launch
+        return AppSearch.list
+            .map(entry => ({ entry: entry, score: AppSearch.frecencyBonus(entry.id) }))
+            .sort((a, b) => (b.score - a.score) || a.entry.name.localeCompare(b.entry.name))
+            .map(item => root.appResultFor(item.entry));
+    }
 
     function appResultFor(entry) {
         const key = entry.id || entry.name;
@@ -458,7 +472,7 @@ Singleton {
         // Search results are handled here
         ////////////////// Skip? //////////////////
         if (root.query == "")
-            return [];
+            return root.appsReady ? root.allAppResults() : [];
         root.trimEntryCache();
 
         ///////////// Special cases ///////////////

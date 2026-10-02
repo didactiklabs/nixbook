@@ -219,6 +219,9 @@ Singleton {
 
     // ---------------------------------------------------------- frecency
     property var usage: ({})   // desktop id -> { count, last }
+    // Bumped whenever `usage` changes (it's mutated in place, so it doesn't
+    // notify): the launcher's app list re-sorts on it.
+    property int usageRevision: 0
     function frecencyBonus(id) {
         const u = root.usage[id];
         if (!u)
@@ -234,6 +237,7 @@ Singleton {
         u.count = (u.count || 0) + 1;
         u.last = Date.now();
         root.usage[id] = u;
+        root.usageRevision++;
         usageSaveTimer.restart();
     }
     FileView {
@@ -245,6 +249,7 @@ Singleton {
             } catch (e) {
                 root.usage = {};
             }
+            root.usageRevision++;
         }
         onLoadFailed: root.usage = {}
     }

@@ -22,6 +22,17 @@ RowLayout {
         searchInput.forceActiveFocus();
     }
 
+    // The keyboard stays in the box (like DankLauncher): these move and use
+    // the result list's selection while typing.
+    signal moveSelection(int delta)
+    signal pageSelection(int direction)
+    signal acceptSelection()
+    signal completeSelection()
+    // Grid only: one tile to the side (Left/Right when nothing is typed,
+    // Tab/Shift+Tab).
+    signal moveItem(int delta)
+    property bool gridMode: false
+
     enum SearchPrefixType { Action, App, Clipboard, Emojis, Symbols, Themes, Layouts, Math, ShellCommand, WebSearch, DefaultSearch }
 
     property var searchPrefixType: {
@@ -86,24 +97,28 @@ RowLayout {
 
         onTextChanged: LauncherSearch.query = text
 
-        onAccepted: {
-            if (appResults.count > 0) {
-                // Get the first visible delegate and trigger its click
-                let firstItem = appResults.itemAtIndex(0);
-                if (firstItem && firstItem.clicked) {
-                    firstItem.clicked();
-                }
-            }
-        }
+        onAccepted: root.acceptSelection()
 
         Keys.onPressed: event => {
-            if (event.key === Qt.Key_Tab) {
-                if (LauncherSearch.results.length === 0) return;
-                const tabbedText = LauncherSearch.results[0].name;
-                LauncherSearch.query = tabbedText;
-                searchInput.text = tabbedText;
-                event.accepted = true;
+            const ctrl = event.modifiers & Qt.ControlModifier;
+            if (event.key === Qt.Key_Down || (ctrl && (event.key === Qt.Key_J || event.key === Qt.Key_N))) {
+                root.moveSelection(1);
+            } else if (event.key === Qt.Key_Up || (ctrl && (event.key === Qt.Key_K || event.key === Qt.Key_P))) {
+                root.moveSelection(-1);
+            } else if (event.key === Qt.Key_PageDown) {
+                root.pageSelection(1);
+            } else if (event.key === Qt.Key_PageUp) {
+                root.pageSelection(-1);
+            } else if (root.gridMode && searchInput.text === "" && (event.key === Qt.Key_Right || event.key === Qt.Key_Left)) {
+                root.moveItem(event.key === Qt.Key_Right ? 1 : -1);
+            } else if (root.gridMode && (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab)) {
+                root.moveItem(event.key === Qt.Key_Tab ? 1 : -1);
+            } else if (event.key === Qt.Key_Tab) {
+                root.completeSelection();
+            } else {
+                return;
             }
+            event.accepted = true;
         }
     }
 
