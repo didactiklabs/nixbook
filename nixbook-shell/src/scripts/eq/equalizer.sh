@@ -46,6 +46,12 @@
 #   equalizer.sh <state_dir> status                 (JSON: EasyEffects installed / running, the
 #                                                     active preset, whether its file exists, needs_manual_save)
 #   equalizer.sh <state_dir> start                  (start EasyEffects hidden, in service mode)
+#   equalizer.sh <state_dir> song_curve <g1,…,g10> <preamp>
+#                                                   (a curve for the song playing only: loaded as
+#                                                     the live preview, the saved preset untouched;
+#                                                     the preset name before it is kept as .songBase)
+#   equalizer.sh <state_dir> song_revert            (back to the saved preset and its name after a
+#                                                     song curve; nothing without one)
 #   equalizer.sh <state_dir> delete_preset <n>       (delete a saved EasyEffects preset file from
 #                                                     PRESET_DIR - refuses if <n> is the active preset
 #                                                     or doesn't exist on disk)
@@ -510,6 +516,28 @@ case "$cmd" in
   updated=$(echo "$tmp" | jq -c --arg val "$arg1" '.dim = $val')
   echo "$updated" >"$STATE_FILE"
   ;;
+"song_curve")
+  # The song's own curve, heard now through the live preview (the saved
+  # preset never changes); .songBase remembers the preset it replaces,
+  # once, for song_revert.
+  [ "$(tr -cd , <<<"$arg1" | wc -c)" -eq 9 ] || exit 1
+  tmp=$(cat "$STATE_FILE")
+  updated=$(echo "$tmp" | jq -c --arg g "$arg1" --arg p "${arg2:-0}" '
+    ($g | split(",")) as $v
+    | (if has("songBase") then . else .songBase = (.preset // "Custom") end)
+    | reduce range(0; 10) as $i (.; .["b\($i + 1)"] = $v[$i])
+    | .preamp = $p | .preset = "Song" | .pending = false')
+  echo "$updated" >"$STATE_FILE"
+  apply_eq_preview
+  ;;
+"song_revert")
+  base=$(jq -r '.songBase // empty' "$STATE_FILE" 2>/dev/null)
+  [ -n "$base" ] || exit 0
+  revert_preview
+  tmp=$(cat "$STATE_FILE")
+  updated=$(echo "$tmp" | jq -c --arg b "$base" '.preset = $b | del(.songBase)')
+  echo "$updated" >"$STATE_FILE"
+  ;;
 "save")
   # The real commit: writes the current slider state into the
   # actual active preset's own file and reloads it live. Only ever
@@ -517,7 +545,7 @@ case "$cmd" in
   # slider triggers "preview" below instead, which never touches
   # this file.
   tmp=$(cat "$STATE_FILE")
-  updated=$(echo "$tmp" | jq -c ".pending = false")
+  updated=$(echo "$tmp" | jq -c ".pending = false | del(.songBase)")
   echo "$updated" >"$STATE_FILE"
   apply_eq
   ;;
