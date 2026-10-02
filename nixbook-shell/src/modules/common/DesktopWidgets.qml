@@ -147,6 +147,22 @@ Singleton {
         if (JSON.stringify(all) !== JSON.stringify(before))
             w.perScreen = all;
     }
+    // Each widget's box on each monitor ("<widget>@<monitor>" -> {x, y,
+    // width, height, z}), reported by the widgets themselves; runtime only.
+    property var geometries: ({})
+    function reportGeometry(widget, screen, box) {
+        if (!screen) return;
+        const all = Object.assign({}, root.geometries);
+        if (box) all[root.key(widget, screen)] = box;
+        else delete all[root.key(widget, screen)];
+        root.geometries = all;
+    }
+    // Widgets `place` and friends take: the fixed ones, the visualizer, and
+    // the extra instances (customImage:<id>).
+    function placeable(name) {
+        return root.names.includes(name) || name === "visualizer" || root.instanceNames("customImage").includes(name);
+    }
+
     function shownAnywhere(name) {
         return Quickshell.screens.some(s => root.enabledOn(name, s.name));
     }
@@ -163,7 +179,7 @@ Singleton {
     }
 
     // The desktop widgets WidgetsLoader shows, by config key.
-    readonly property var names: ["sticker", "calendar", "nextEvent", "musicRecognition", "weather", "clock", "notes", "media", "images",
+    readonly property var names: ["customImage", "sticker", "calendar", "nextEvent", "musicRecognition", "weather", "clock", "notes", "media", "images",
         "resources", "worldClock", "userCard", "todo", "timers", "customText"]
 
     // `nixbook-shell ipc call widgets list|show|hide NAME`: for key bindings
@@ -185,6 +201,171 @@ Singleton {
         }
         function hide(name: string): string {
             return root._setEnabled(name, false);
+        }
+        // The monitors (logical size) and the widgets showing on them, with
+        // their boxes: to arrange them without overlaps.
+        function layout(): string {
+            const widgets = [];
+            for (const k in root.geometries) {
+                const at = k.lastIndexOf("@");
+                const name = k.slice(0, at);
+                widgets.push(Object.assign({ name: name, monitor: k.slice(at + 1),
+                    placement: root.entry(name)?.placementStrategy ?? "free" }, root.geometries[k]));
+            }
+            return JSON.stringify({
+                monitors: Quickshell.screens.map(s => ({ name: s.name, width: s.width, height: s.height })),
+                widgets: widgets.sort((a, b) => a.monitor.localeCompare(b.monitor) || a.y - b.y || a.x - b.x),
+            });
+        }
+        // Moves the widget to x, y (logical pixels from the monitor's top
+        // left) on that monitor only, showing it there; its placement
+        // becomes free (not following the wallpaper's busy areas).
+        function place(name: string, monitor: string, x: int, y: int): string {
+            if (!root.placeable(name)) return `error: no widget "${name}"`;
+            const screen = Quickshell.screens.find(s => s.name === monitor);
+            if (!screen) return `error: no monitor "${monitor}" (${Quickshell.screens.map(s => s.name).join(", ")})`;
+            if (x < 0 || y < 0 || x >= screen.width || y >= screen.height)
+                return `error: ${x}, ${y} is off ${monitor} (${screen.width}x${screen.height})`;
+            if ((root.entry(name)?.placementStrategy ?? "free") !== "free")
+                root.setEntry(name, { placementStrategy: "free" });
+            root.setValues(name, monitor, { x: x, y: y, enable: true });
+            return `ok: ${name} at ${x}, ${y} on ${monitor}`;
+        }
+        function hideOn(name: string, monitor: string): string {
+            if (!root.placeable(name)) return `error: no widget "${name}"`;
+            if (!Quickshell.screens.some(s => s.name === monitor)) return `error: no monitor "${monitor}"`;
+            root.setValues(name, monitor, { enable: false });
+            return `ok: ${name} hidden on ${monitor}`;
+        }
+        // In front of the other widgets on that monitor.
+        function raise(name: string, monitor: string): string {
+            if (!root.placeable(name)) return `error: no widget "${name}"`;
+            let top = 0;
+            for (const k in root.geometries)
+                if (k.endsWith("@" + monitor)) top = Math.max(top, root.geometries[k].z ?? 0);
+            root.setValues(name, monitor, { z: top + 1 });
+            return `ok: ${name} raised on ${monitor}`;
+        }
+        // free (where it was put), leastBusy or mostBusy (the wallpaper's
+        // calmest or busiest area, found by the shell).
+        function placement(name: string, strategy: string): string {
+            if (!root.placeable(name)) return `error: no widget "${name}"`;
+            if (!["free", "leastBusy", "mostBusy"].includes(strategy)) return "error: placement is free, leastBusy or mostBusy";
+            root.setEntry(name, { placementStrategy: strategy });
+            return `ok: ${name} placement ${strategy}`;
+        }
+    }
+
+    // `nixbook-shell ipc call images …`: the custom images (the first,
+    // "customImage", and the ones added after it), for key bindings and the
+    // desktop MCP server. An image is its number in `list` (1: the first) or
+    // its name. Paths aren't checked here: the MCP server only passes files
+    // from the folders the user shares with agents.
+    readonly property var imageShapes: ["Circle", "Square", "Slanted", "Arch", "Arrow", "SemiCircle", "Oval", "Pill",
+        "Triangle", "Diamond", "ClamShell", "Pentagon", "Gem", "Sunny", "VerySunny",
+        "Cookie4Sided", "Cookie6Sided", "Cookie7Sided", "Cookie9Sided", "Cookie12Sided",
+        "Ghostish", "Clover4Leaf", "Clover8Leaf", "Burst", "SoftBurst", "Flower",
+        "Puffy", "PuffyDiamond", "PixelCircle", "Bun", "Heart"]
+    // The settings `images set` takes: [min, max] for numbers, "bool", or a list.
+    readonly property var imageSettings: ({
+        zoom: [1, 4], offsetX: [-1, 1], offsetY: [-1, 1], rotation: [-360, 360],
+        opacity: [0.1, 1], size: [80, 1000], mirror: "bool", grayscale: "bool",
+    })
+    function imageNames() {
+        return ["customImage", ...root.instanceNames("customImage")];
+    }
+    function resolveImage(ref) {
+        const names = root.imageNames();
+        if (/^[0-9]+$/.test(ref)) return names[parseInt(ref) - 1] ?? null;
+        return names.includes(ref) ? ref : null;
+    }
+    function screenNames() {
+        return Quickshell.screens.map(s => s.name);
+    }
+
+    IpcHandler {
+        target: "images"
+
+        function list(): string {
+            return JSON.stringify(root.imageNames().map((name, i) => {
+                const e = root.entry(name) ?? {};
+                return {
+                    number: i + 1, name: name, path: e.path ?? "",
+                    monitors: root.screenNames().filter(s => root.enabledOn(name, s)),
+                    shape: e.shape, size: e.size, zoom: e.zoom, offsetX: e.offsetX, offsetY: e.offsetY,
+                    rotation: e.rotation, opacity: e.opacity, mirror: e.mirror, grayscale: e.grayscale,
+                };
+            }));
+        }
+        // On `monitor` only ("": every monitor). The first image is used
+        // while it shows nowhere and has no picture; else one is added.
+        function add(path: string, monitor: string): string {
+            if (monitor !== "" && !root.screenNames().includes(monitor))
+                return `error: no monitor "${monitor}" (${root.screenNames().join(", ")})`;
+            let name = "customImage";
+            const first = root.entry(name);
+            if (root.shownAnywhere(name) || (first?.path ?? "") !== "")
+                name = root.addInstance("customImage", monitor);
+            else
+                root.setShownOn(name, monitor !== "" ? [monitor] : []);
+            root.setEntry(name, { path: path, zoom: 1, offsetX: 0, offsetY: 0 });
+            return `ok: image ${root.imageNames().indexOf(name) + 1} (${name})`;
+        }
+        // An added image is deleted; the first one is hidden everywhere.
+        function remove(image: string): string {
+            const name = root.resolveImage(image);
+            if (!name) return `error: no image "${image}" (1 to ${root.imageNames().length})`;
+            if (name === "customImage") {
+                root.setShownOn(name, null);
+                return "ok: image 1 hidden (the first image stays in the settings)";
+            }
+            root.removeInstance(name);
+            return `ok: ${name} deleted`;
+        }
+        function set(image: string, key: string, value: string): string {
+            const name = root.resolveImage(image);
+            if (!name) return `error: no image "${image}" (1 to ${root.imageNames().length})`;
+            let v;
+            if (key === "shape") {
+                v = root.imageShapes.find(s => s.toLowerCase() === value.toLowerCase());
+                if (!v) return `error: no shape "${value}" (${root.imageShapes.join(", ")})`;
+            } else if (key === "path") {
+                v = value;
+            } else if (root.imageSettings[key] === "bool") {
+                if (value !== "true" && value !== "false") return `error: ${key} is true or false`;
+                v = value === "true";
+            } else if (root.imageSettings[key]) {
+                const [min, max] = root.imageSettings[key];
+                v = Number(value);
+                if (value.trim() === "" || isNaN(v) || v < min || v > max) return `error: ${key} goes from ${min} to ${max}`;
+            } else {
+                return `error: no setting "${key}" (path, shape, ${Object.keys(root.imageSettings).join(", ")})`;
+            }
+            root.setEntry(name, { [key]: v });
+            return `ok: ${name} ${key} = ${v}`;
+        }
+        function recenter(image: string): string {
+            const name = root.resolveImage(image);
+            if (!name) return `error: no image "${image}" (1 to ${root.imageNames().length})`;
+            root.setEntry(name, { zoom: 1, offsetX: 0, offsetY: 0 });
+            return `ok: ${name} recentered`;
+        }
+        // `names`: "all", "none", or monitors separated by commas.
+        function monitors(image: string, names: string): string {
+            const name = root.resolveImage(image);
+            if (!name) return `error: no image "${image}" (1 to ${root.imageNames().length})`;
+            if (names === "all") {
+                root.setShownOn(name, []);
+            } else if (names === "none") {
+                root.setShownOn(name, null);
+            } else {
+                const list = names.split(",").map(n => n.trim()).filter(n => n !== "");
+                const unknown = list.filter(n => !root.screenNames().includes(n));
+                if (list.length === 0 || unknown.length > 0)
+                    return `error: no monitor "${unknown[0] ?? names}" (all, none, or ${root.screenNames().join(", ")})`;
+                root.setShownOn(name, list.length === root.screenNames().length ? [] : list);
+            }
+            return `ok: ${name} on ${root.screenNames().filter(s => root.enabledOn(name, s)).join(", ") || "no monitor"}`;
         }
     }
 

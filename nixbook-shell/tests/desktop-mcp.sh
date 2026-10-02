@@ -200,6 +200,17 @@ case "$*" in
   *"widgets list"*)
     echo '[{"name":"clock","enabled":true,"placement":"leastBusy"},{"name":"notes","enabled":false,"placement":"free"},{"name":"worldClock","enabled":false,"placement":"free"}]' ;;
   *"widgets show"* | *"widgets hide"*) echo "ok: ${*: -1} ${*: -2:1}" ;;
+  *"widgets layout"*)
+    echo '{"monitors":[{"name":"eDP-1","width":3136,"height":1960},{"name":"HDMI-A-1","width":1920,"height":1080}],
+      "widgets":[{"name":"clock","monitor":"eDP-1","x":100,"y":100,"width":300,"height":300,"z":0,"placement":"leastBusy"},
+                 {"name":"customImage:ab12","monitor":"HDMI-A-1","x":50,"y":60,"width":200,"height":200,"z":1,"placement":"free"}]}' ;;
+  *"widgets place"* | *"widgets hideOn"* | *"widgets raise"* | *"widgets placement"*) echo "ok: done" ;;
+  # Recording (RegionSelector.qml `region`): a marker while it runs; stopping
+  # leaves a video in $STUB_VIDEOS.
+  *"region recordStatus"*)
+    echo "{\"recording\":$([ -e "$STUB_CALLS.rec" ] && echo true || echo false),\"folder\":\"${STUB_VIDEOS:-}\"}" ;;
+  *"region recordStart"*) touch "$STUB_CALLS.rec"; echo "ok: recording" ;;
+  *"region recordStop"*) rm -f "$STUB_CALLS.rec"; touch "$STUB_VIDEOS/recording_2026-10-02_12.00.00.mp4"; echo "ok: stopped" ;;
   # Notes travel through transfer files (Notes.qml): the text read from the
   # one given ($STUB_CALLS.note), the list written to it.
   *"notes listToFile"*) echo '[{"id":"17-1","content":"buy milk","createdAt":17}]' >"${*: -1}"; echo ok ;;
@@ -211,7 +222,12 @@ case "$*" in
   *"todo "*) echo "ok: call mum" ;;
   *"timers status"*) echo '{"pomodoro":{"running":false},"stopwatch":{"running":false},"countdown":{"running":false,"secondsLeft":0}}' ;;
   *"timers countdownAdd"*) echo "ok: countdown ${*: -1} min" ;;
+  *"timers alarmDismiss"*) echo "error: the alarm isn't ringing" ;;
   *"timers "*) echo "ok: done" ;;
+  # The custom images (DesktopWidgets.qml `images`).
+  *"images list"*) echo '[{"number":1,"name":"customImage","path":"","monitors":["DP-1"],"zoom":1},{"number":2,"name":"customImage:ab12","path":"/x.png","monitors":["DP-1","HDMI-A-1"],"zoom":2}]' ;;
+  *"images set 9 "*) echo 'error: no image "9" (1 to 2)' ;;
+  *"images "*) echo "ok: done" ;;
   *"musicRecognition status"*) echo '{"listening":false,"source":"system sound","last":{"title":"Take Flight","subtitle":"SPYAIR"}}' ;;
   *"musicRecognition "*) echo "ok: ${*: -1}" ;;
   *"calendar next"*)
@@ -294,7 +310,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 38 tools" 38 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 39 tools" 39 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -979,7 +995,85 @@ out=$(call widget '{"widget":"timers","action":"list"}')
 expect_eq "widget timers: list is status" "false" "$(jq -r '.pomodoro.running' <<<"$out")"
 out=$(call widget '{"widget":"pomodoro","action":"countdown_add","minutes":25}')
 expect_eq "widget timers countdown_add" "qs -c nixbook-shell ipc call -- timers countdownAdd 25" "$(last_call)"
-expect_contains "widget: which widget" "$(call widget '{"action":"add","text":"x"}')" "notes, todo, timers or music"
+expect_contains "widget: which widget" "$(call widget '{"action":"add","text":"x"}')" "notes, todo, timers, images or music"
+
+# The alarm (TimerService.qml) and the custom images (DesktopWidgets.qml).
+call widget '{"widget":"alarm","action":"alarm_set","when":"2026-12-24 07:30","label":"Wake up","daily":true}' >/dev/null
+expect_eq "widget timers alarm_set: time, label, daily" "qs -c nixbook-shell ipc call -- timers alarmSet 2026-12-24 07:30 Wake up true" "$(last_call)"
+call widget '{"widget":"timers","action":"alarm_set","when":"7:05"}' >/dev/null
+expect_eq "widget timers alarm_set: a time today, no label" "qs -c nixbook-shell ipc call -- timers alarmSet 7:05  false" "$(last_call)"
+expect_contains "widget timers alarm_set: when checked" "$(call widget '{"widget":"timers","action":"alarm_set","when":"tomorrow"}')" "invalid value"
+expect_contains "widget timers alarm_set: daily checked" "$(call widget '{"widget":"timers","action":"alarm_set","when":"07:00","daily":"yes"}')" "true or false"
+expect_contains "widget timers alarm_dismiss: the shell's error" "$(call widget '{"widget":"timers","action":"alarm_dismiss"}')" "isn't ringing"
+out=$(call widget '{"widget":"images","action":"list"}')
+expect_eq "widget images list" "customImage:ab12 2" "$(jq -r '.[1] | "\(.name) \(.zoom)"' <<<"$out")"
+reset_calls
+# Pictures come from the folders shared with agents, like the wallpaper's.
+saved_config=$(cat "$XDG_CONFIG_HOME/nixbook-shell/config.json" 2>/dev/null || true)
+mkdir -p "$XDG_CONFIG_HOME/nixbook-shell"
+jq -n --arg d "$shared" '{ai: {allowedFolders: [], writableFolders: [$d]}}' >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
+call widget "{\"widget\":\"picture\",\"action\":\"add\",\"path\":\"$shared/wall.png\",\"monitor\":\"DP-1\"}" >/dev/null
+expect_eq "widget images add: a shared picture, on a monitor" "qs -c nixbook-shell ipc call -- images add $shared/wall.png DP-1" "$(last_call)"
+reset_calls
+expect_contains "widget images add: outside the shared folders" "$(call widget "{\"widget\":\"images\",\"action\":\"add\",\"path\":\"$outside/secret.jpg\"}")" "isn't in a folder the user shares"
+expect_contains "widget images set path: the same check" "$(call widget "{\"widget\":\"images\",\"action\":\"set\",\"image\":2,\"key\":\"path\",\"value\":\"$shared/notes.txt\"}")" "isn't a JPEG, PNG, WebP or AVIF image"
+expect_eq "widget images: nothing sent when refused" "" "$(grep 'images' "$calls" || true)"
+if [ -n "$saved_config" ]; then printf '%s\n' "$saved_config" >"$XDG_CONFIG_HOME/nixbook-shell/config.json"; else rm -f "$XDG_CONFIG_HOME/nixbook-shell/config.json"; fi
+call widget '{"widget":"images","action":"set","image":2,"key":"offsetX","value":-0.5}' >/dev/null
+expect_eq "widget images set: a number" "qs -c nixbook-shell ipc call -- images set 2 offsetX -0.5" "$(last_call)"
+call widget '{"widget":"images","action":"set","image":"1","key":"grayscale","value":true}' >/dev/null
+expect_eq "widget images set: true/false" "qs -c nixbook-shell ipc call -- images set 1 grayscale true" "$(last_call)"
+expect_contains "widget images set: the shell's checks" "$(call widget '{"widget":"images","action":"set","image":9,"key":"zoom","value":2}')" 'no image "9"'
+expect_contains "widget images: image checked" "$(call widget '{"widget":"images","action":"recenter","image":"../x"}')" "image's number"
+call widget '{"widget":"images","action":"monitors","image":2,"monitors":["DP-1","HDMI-A-1"]}' >/dev/null
+expect_eq "widget images monitors: a list" "qs -c nixbook-shell ipc call -- images monitors 2 DP-1,HDMI-A-1" "$(last_call)"
+call widget '{"widget":"images","action":"monitors","image":2,"monitors":"none"}' >/dev/null
+expect_eq "widget images monitors: none" "qs -c nixbook-shell ipc call -- images monitors 2 none" "$(last_call)"
+
+# Arranging the widgets (DesktopWidgets.qml `widgets` layout, place…).
+out=$(call widget '{"action":"layout"}')
+expect_eq "widget layout: monitors and boxes" "2 clock" "$(jq -r '"\(.monitors | length) \(.widgets[0].name)"' <<<"$out")"
+call widget '{"widget":"clock","action":"place","x":200,"y":300.4}' >/dev/null
+expect_eq "widget place: on the one monitor it shows on" "qs -c nixbook-shell ipc call -- widgets place clock eDP-1 200 300" "$(last_call)"
+call widget '{"widget":"customImage:ab12","action":"raise"}' >/dev/null
+expect_eq "widget raise: an extra image, by name" "qs -c nixbook-shell ipc call -- widgets raise customImage:ab12 HDMI-A-1" "$(last_call)"
+call widget '{"widget":"world clock","action":"place","monitor":"HDMI-A-1","x":0,"y":0}' >/dev/null
+expect_eq "widget place: a hidden widget, on a monitor" "qs -c nixbook-shell ipc call -- widgets place worldClock HDMI-A-1 0 0" "$(last_call)"
+expect_contains "widget place: which monitor" "$(call widget '{"widget":"notes","action":"hide_on"}')" "? eDP-1, HDMI-A-1"
+expect_contains "widget place: position checked" "$(call widget '{"widget":"clock","action":"place","x":-5,"y":0}')" "0 or more"
+expect_contains "widget place: unknown widget" "$(call widget '{"widget":"aquarium","action":"place","x":1,"y":1}')" "no widget 'aquarium'"
+call widget '{"widget":"notes","action":"placement","strategy":"leastBusy"}' >/dev/null
+expect_eq "widget placement" "qs -c nixbook-shell ipc call -- widgets placement notes leastBusy" "$(last_call)"
+
+# screen_capture: screenshots saved for the user, recordings.
+shots="$tmp/shots"
+export STUB_VIDEOS="$tmp/videos"
+mkdir -p "$STUB_VIDEOS"
+saved_config=$(cat "$XDG_CONFIG_HOME/nixbook-shell/config.json" 2>/dev/null || true)
+mkdir -p "$XDG_CONFIG_HOME/nixbook-shell"
+jq -n --arg d "$shots" '{screenSnip: {savePath: $d}}' >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
+reset_calls
+out=$(call screen_capture '{"action":"screenshot","region":{"x":3140,"y":210,"width":100,"height":50}}')
+expect_contains "screen_capture screenshot: saved where the shell saves them" "$out" "saved to $shots/Screenshot-"
+expect_contains "screen_capture screenshot: full resolution png" "$(grep '^grim' "$calls")" "grim -g 3140,210 100x50 -t png $shots/Screenshot-"
+expect_eq "screen_capture screenshot: the file" 1 "$(find "$shots" -name 'Screenshot-*.png' | wc -l | tr -d ' ')"
+reset_calls
+out=$(call screen_capture '{"action":"screenshot","window_id":5,"to":"clipboard"}')
+expect_contains "screen_capture screenshot: a floating window, exactly" "$(grep '^grim' "$calls")" "grim -g 12,23 400x300 -t png"
+expect_eq "screen_capture screenshot: to the clipboard as an image" "image/png" "$(cat "$STUB_CLIP.type")"
+expect_contains "screen_capture screenshot: clipboard only" "$out" "copied to the clipboard"
+expect_eq "screen_capture screenshot: no file for the clipboard" 1 "$(find "$shots" -name 'Screenshot-*.png' | wc -l | tr -d ' ')"
+if [ -n "$saved_config" ]; then printf '%s\n' "$saved_config" >"$XDG_CONFIG_HOME/nixbook-shell/config.json"; else rm -f "$XDG_CONFIG_HOME/nixbook-shell/config.json"; fi
+expect_contains "screen_capture record_stop: not recording" "$(call screen_capture '{"action":"record_stop"}')" "not recording"
+out=$(call screen_capture '{"action":"record_start","monitor":"HDMI-A-1","sound":true}')
+expect_contains "screen_capture record_start: the shell's recorder" "$(grep 'recordStart' "$calls")" "region recordStart HDMI-A-1 true"
+expect_contains "screen_capture record_start: started" "$out" "recording the monitor HDMI-A-1 with sound"
+expect_eq "screen_capture record_status" true "$(call screen_capture '{"action":"record_status"}' | jq -r '.recording')"
+call screen_capture '{"action":"record_start","region":{"x":10,"y":20,"width":300,"height":200}}' >/dev/null
+expect_contains "screen_capture record_start: a region, no sound by default" "$(grep 'recordStart' "$calls" | tail -n 1)" "region recordStart 10,20 300x200 false"
+out=$(call screen_capture '{"action":"record_stop"}')
+expect_contains "screen_capture record_stop: the video's path" "$out" "recording stopped: $STUB_VIDEOS/recording_2026-10-02_12.00.00.mp4"
+expect_contains "screen_capture record_start: not a window" "$(call screen_capture '{"action":"record_start","window_id":5}')" "(a window: its region from list_windows)"
 
 # Music recognition and the calendar (SongRec.qml, CalendarEvents.qml).
 out=$(call widget '{"widget":"shazam","action":"status"}')
