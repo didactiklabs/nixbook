@@ -492,6 +492,13 @@ Singleton {
                         property string path: ""
                         property string shape: "Cookie4Sided"
                         property real size: 200
+                        property real zoom: 1 // 1-4, scales the image inside the shape
+                        property real offsetX: 0 // -1 (left edge) to 1 (right edge), 0 = centred
+                        property real offsetY: 0 // -1 (top edge) to 1 (bottom edge), 0 = centred
+                        property real rotation: 0
+                        property real opacity: 1
+                        property bool mirror: false
+                        property bool grayscale: false
                     }
 
                     property JsonObject sticker: JsonObject {
