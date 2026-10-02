@@ -487,6 +487,41 @@ exec "$1" -p "$2" --output-format text --strict-mcp-config --setting-sources pro
         }
     }
 
+    // EasyEffects' state (equalizer.sh status: installed, running, the
+    // active preset, needsManualSave), checked while the window is open and
+    // for `status`; null until known. The script starts EasyEffects itself
+    // when it applies a change.
+    property var easyEffects: null
+    function refreshEasyEffects() {
+        eeStatusProc.running = false;
+        eeStatusProc.running = true;
+    }
+    function startEasyEffects() {
+        root.eq("start");
+        eeRecheck.restart();
+    }
+    Process {
+        id: eeStatusProc
+        command: ["bash", Directories.eqScriptPath, Directories.eqStateDir, "status"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try { root.easyEffects = JSON.parse(text) } catch (e) {}
+            }
+        }
+    }
+    Timer {
+        interval: 3000
+        repeat: true
+        running: GlobalStates.equalizerOpen
+        triggeredOnStart: true
+        onTriggered: root.refreshEasyEffects()
+    }
+    Timer {
+        id: eeRecheck
+        interval: 2500
+        onTriggered: root.refreshEasyEffects()
+    }
+
     IpcHandler {
         target: "equalizer"
 
@@ -495,6 +530,7 @@ exec "$1" -p "$2" --output-format text --strict-mcp-config --setting-sources pro
         function status(): string {
             listPresetsProc.running = false;
             listPresetsProc.running = true;
+            root.refreshEasyEffects();
             let state = {};
             try { state = JSON.parse(eqStateFile.text()) } catch (e) {}
             const p = root.player;
@@ -514,6 +550,8 @@ exec "$1" -p "$2" --output-format text --strict-mcp-config --setting-sources pro
                 } : null,
                 genreTags: lookedUp ? { artist: root.lastArtistTags, track: root.lastTrackTags } : null,
                 agent: { enabled: root.agentEnabled, running: root.agentRunning, note: root.agentNote },
+                // Last known (refreshed by this call for the next one).
+                easyEffects: root.easyEffects,
             });
         }
         function open(): string {

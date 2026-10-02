@@ -5,6 +5,7 @@
 #   - assistant-facts.py: fact file structure, keybind, Neovim keymap, system and how-to facts;
 #   - theme-palettes.py + greeter-theme.sh: what the login screen gets;
 #   - render-app-colors.py, zen-theme.py, apply-app-colors.sh: the app colours;
+#   - applycolor.sh: the terminal colours (kitty's theme, escape sequences);
 #   - least_busy_region.py: background widget placement and its cache.
 # Needs bash, jq, python3, nix-instantiate and nix-build (the shell's Python
 # environment, with OpenCV). Run: bash tests/scripts.sh
@@ -570,6 +571,51 @@ if lbr "$tmp/missing.png" >/dev/null 2>"$tmp/err"; then
 else
   expect_contains "least_busy_region.py: a missing wallpaper is an error" "$(cat "$tmp/err")" "Image not found"
 fi
+
+# -- applycolor.sh: terminal colours ---------------------------------------------
+# A generated palette into kitty's theme and the escape sequences written to
+# the open terminals (fake ones: NIXBOOK_SHELL_PTS_DIR), then turned off.
+ac_home="$tmp/applycolor"
+mkdir -p "$ac_home/state/quickshell/user/generated" "$ac_home/config/quickshell/nixbook-shell" \
+  "$ac_home/config/nixbook-shell" "$ac_home/pts"
+# Every colour the templates use: term0-15 distinct, the rest grey but for
+# the selection's.
+{
+  for i in $(seq 0 15); do printf '$term%d: #%02x%02x%02x;\n' "$i" "$i" "$((i + 16))" "$((i + 32))"; done
+  printf '$onSecondaryContainer: #aabbcc;\n$secondaryContainer: #223344;\n'
+  grep -ohE '\$[a-zA-Z0-9]+ #' "$root/src/scripts/colors/terminal/"{kitty-theme.conf,sequences.txt} | sort -u |
+    grep -vE '^\$(term[0-9]+|onSecondaryContainer|secondaryContainer) ' | sed 's/ #$/: #808080;/'
+} >"$ac_home/state/quickshell/user/generated/material_colors.scss"
+echo '{"appearance":{"wallpaperTheming":{"enableTerminal":true}}}' >"$ac_home/config/nixbook-shell/config.json"
+: >"$ac_home/pts/3"
+: >"$ac_home/pts/ptmx"
+applycolor() {
+  XDG_STATE_HOME="$ac_home/state" XDG_CONFIG_HOME="$ac_home/config" NIXBOOK_SHELL_PTS_DIR="$ac_home/pts" \
+    bash "$root/src/scripts/colors/applycolor.sh" "$@" >/dev/null 2>&1
+}
+# Its writes run in the background: wait for them.
+wait_for() { for _ in $(seq 50); do
+  [ -s "$1" ] && return 0
+  sleep 0.1
+done; }
+applycolor
+wait_for "$ac_home/pts/3"
+seqs=$(cat -v "$ac_home/pts/3")
+expect_contains "applycolor.sh: the palette to the open terminals" "$seqs" '^[]4;1;#011121^['
+expect_contains "applycolor.sh: the background, a plain colour" "$seqs" '^[]11;#001020^['
+expect_contains "applycolor.sh: the selection colours" "$seqs" '^[]17;#aabbcc^['
+expect_eq "applycolor.sh: no placeholder or alpha prefix left" "" "$(grep -oE '\$[a-zA-Z]|\[[0-9]+\]' <<<"$seqs" || true)"
+expect_eq "applycolor.sh: not to ptmx" "" "$(cat "$ac_home/pts/ptmx")"
+kitty_theme="$ac_home/state/quickshell/user/generated/terminal/kitty-theme.conf"
+expect_contains "applycolor.sh: kitty's theme" "$(cat "$kitty_theme")" "color1                #011121"
+expect_eq "applycolor.sh: kitty's theme fully filled in, no inline comment" "" \
+  "$(grep -E '\$[a-zA-Z]|^[a-z_0-9]+ +#[0-9a-f]+ .' "$kitty_theme" || true)"
+: >"$ac_home/pts/3"
+applycolor --reset-terminal
+wait_for "$ac_home/pts/3"
+expect_contains "applycolor.sh --reset-terminal: the terminals' own colours back" "$(cat -v "$ac_home/pts/3")" '^[]104^['
+expect_eq "applycolor.sh --reset-terminal: the generated theme gone (kitty, new shells)" "" \
+  "$(ls "$ac_home/state/quickshell/user/generated/terminal")"
 
 if [ "$failures" -ne 0 ]; then
   echo "$failures nixbook-shell test(s) failed" >&2

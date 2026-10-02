@@ -457,7 +457,8 @@
   },
   "equalizer": {
     "agent": false,
-    "agentModel": "haiku"
+    "agentModel": "haiku",
+    "albumColors": false
   },
   "hacks": {
     "arbitraryRaceConditionDelay": 20

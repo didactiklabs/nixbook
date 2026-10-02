@@ -9,14 +9,28 @@ CACHE_DIR="$XDG_CACHE_HOME/quickshell"
 STATE_DIR="$XDG_STATE_HOME/quickshell"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-term_alpha=100 #Set this to < 100 make all your terminals transparent
+# The open terminals' devices (overridable for the tests).
+PTS_DIR="${NIXBOOK_SHELL_PTS_DIR:-/dev/pts}"
+GENERATED_TERMINAL="$STATE_DIR/user/generated/terminal"
+
+# kitty reads the generated theme through the Home Manager module's
+# `include` (hm-module.nix): SIGUSR1 makes every kitty reload it.
+reload_kitty() {
+  local pids
+  pids=$(pidof kitty) || return 0
+  # shellcheck disable=SC2086 # one pid per word
+  kill -SIGUSR1 $pids 2>/dev/null || true
+}
 
 # --reset-terminal: terminal theming was turned off; give every open
 # terminal its own colours back (OSC 104 palette, 110/111/112 foreground,
-# background, cursor, 117/119 selection).
+# background, cursor, 117/119 selection), and drop the generated files so
+# kitty and new shells don't pick them up again.
 if [[ ${1:-} == "--reset-terminal" ]]; then
-  for file in /dev/pts/*; do
-    if [[ $file =~ ^/dev/pts/[0-9]+$ ]]; then
+  rm -f "$GENERATED_TERMINAL/kitty-theme.conf" "$GENERATED_TERMINAL/sequences.txt"
+  reload_kitty
+  for file in "$PTS_DIR"/*; do
+    if [[ $file =~ /[0-9]+$ ]]; then
       { printf '\e]104\e\\\e]110\e\\\e]111\e\\\e]112\e\\\e]117\e\\\e]119\e\\' >"$file"; } 2>/dev/null &
       disown || true
     fi
@@ -57,8 +71,7 @@ apply_kitty() {
     sed -i "s/${colorlist[$i]} #/${colorvalues[$i]#\#}/g" "$STATE_DIR"/user/generated/terminal/kitty-theme.conf
   done
 
-  # Reload
-  kill -SIGUSR1 $(pidof kitty)
+  reload_kitty
 }
 
 apply_anyterm() {
@@ -78,10 +91,8 @@ apply_anyterm() {
     sed -i "s/${colorlist[$i]} #/${colorvalues[$i]#\#}/g" "$STATE_DIR"/user/generated/terminal/sequences.txt
   done
 
-  sed -i "s/\$alpha/$term_alpha/g" "$STATE_DIR/user/generated/terminal/sequences.txt"
-
-  for file in /dev/pts/*; do
-    if [[ $file =~ ^/dev/pts/[0-9]+$ ]]; then
+  for file in "$PTS_DIR"/*; do
+    if [[ $file =~ /[0-9]+$ ]]; then
       {
         cat "$STATE_DIR"/user/generated/terminal/sequences.txt >"$file"
       } &

@@ -147,6 +147,9 @@ Singleton {
             property JsonObject equalizer: JsonObject {
                 property bool agent: false
                 property string agentModel: "haiku" // claude --model ("" = Claude Code's default)
+                // The window's look: false = the theme's (its palette and
+                // frame), true = tinted from the album art over the blurred cover.
+                property bool albumColors: false
             }
 
             property JsonObject ai: JsonObject {
