@@ -225,7 +225,7 @@ MouseArea {
                             if (root.replyMethod?.kind === "inline") root.replying = !root.replying;
                             else Notifications.replyViaApp(root.latest.notificationId);
                         }
-                        StyledToolTip {
+                        PopupToolTip {
                             text: root.replyMethod?.kind === "inline" ? Translation.tr("Reply")
                                 : Translation.tr("Reply in %1").arg(root.notificationGroup?.appName || Translation.tr("the app"))
                         }
@@ -245,7 +245,7 @@ MouseArea {
                         colBackground: root.popup ? root.spec.tag : "transparent"
                         colBackgroundHover: Persona.shadowColor
                         onClicked: root.expanded = !root.expanded
-                        StyledToolTip {
+                        PopupToolTip {
                             text: root.expanded ? Translation.tr("Collapse") : Translation.tr("Show the whole conversation")
                         }
                         contentItem: MaterialSymbol {
@@ -264,7 +264,7 @@ MouseArea {
                         colBackground: root.spec.tag
                         colBackgroundHover: Persona.shadowColor
                         onClicked: Notifications.markRead(root.notifications.map(n => n.notificationId))
-                        StyledToolTip {
+                        PopupToolTip {
                             text: Translation.tr("Mark as read")
                         }
                         contentItem: MaterialSymbol {
@@ -288,7 +288,7 @@ MouseArea {
                         colBackground: root.popup ? root.spec.tag : "transparent"
                         colBackgroundHover: root.popup ? Persona.shadowColor : Appearance.colors.colLayer1Hover
                         onClicked: Notifications.discardNotifications(root.notifications.map(n => n.notificationId))
-                        StyledToolTip {
+                        PopupToolTip {
                             extraVisibleCondition: root.popup
                             text: Translation.tr("Delete (not kept in the notification centre)")
                         }
