@@ -240,7 +240,10 @@ the focused window's (or a given one's) buttons, fields, labels and list
 items as numbered text lines, with their text and state, a few hundred
 tokens where a screenshot costs ~1,250, and `ui_act` presses, toggles,
 focuses or sets the text of one through the app itself, without
-coordinates. After `type_text` and `press_keys` the result says which
+coordinates. `ui_wait` waits until an element shows (a page loaded, a
+dialog opened) or is gone, reading the window again on each change the app
+reports, instead of a fixed wait and a screenshot. Agents are told to look
+through these before taking a screenshot. After `type_text` and `press_keys` the result says which
 element has the keyboard focus, so agents needn't screenshot to check where
 the keys went. Only the windows niri lists and what is showing are read;
 terminals, password managers and password prompts are refused, and password
