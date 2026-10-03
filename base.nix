@@ -28,6 +28,18 @@ in
     hostname = config.networking.hostName;
   };
 
+  # Evaluate the system with the same nixpkgs instance as the profiles (one
+  # instance instead of two). Without it NixOS builds its own from the
+  # nixpkgs.config/overlays colmena copies over from meta.nixpkgs. Those two
+  # are forced empty here (nixpkgs requires that with nixpkgs.pkgs; they are
+  # already part of this instance): add config and overlays in lib/pkgs.nix
+  # and lib/overlays.nix, not through the nixpkgs.* options.
+  nixpkgs = {
+    inherit pkgs;
+    config = lib.mkForce { };
+    overlays = lib.mkForce [ ];
+  };
+
   imports = [
     /etc/nixos/hardware-configuration.nix
     ./nixosModules

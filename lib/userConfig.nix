@@ -128,7 +128,7 @@ let
         useGlobalPkgs = true;
         backupCommand = "for b in $(ls -t $1.* 2>/dev/null | tail -n +4); do rm $b; done; cp $1 $1.$(date +%Y%m%d%H%M%S)";
         users.${username} =
-          { ... }:
+          { config, ... }:
           {
             imports =
               let
@@ -171,7 +171,8 @@ let
               # Open plain-text files with VSCode when it is installed, otherwise
               # fall back to nvim launched inside a kitty terminal. The choice is
               # made at runtime so this entry works on every machine regardless of
-              # whether the vscode module is enabled.
+              # whether the vscode module is enabled. nvim is nixvim's configured
+              # one when nixvimConfig is on (plain neovim has none of its plugins).
               xdg.desktopEntries.editor-text = {
                 name = "Text Editor (VSCode or nvim)";
                 genericName = "Text Editor";
@@ -180,7 +181,9 @@ let
                   if command -v code >/dev/null 2>&1; then
                     exec code --new-window "$@"
                   else
-                    exec ${pkgs.kitty}/bin/kitty ${pkgs.neovim}/bin/nvim "$@"
+                    exec ${pkgs.kitty}/bin/kitty ${
+                      if config.programs.nixvim.enable then config.programs.nixvim.build.package else pkgs.neovim
+                    }/bin/nvim "$@"
                   fi
                 ''} %F";
                 mimeType = [ "text/plain" ];

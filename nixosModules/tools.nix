@@ -24,6 +24,16 @@ let
         pkgs.hostname
       ]
     }:$PATH
+
+    ${lib.optionalString config.networking.networkmanager.enable ''
+      # Network preflight, skipped with `osupdate --force` (or OSUPDATE_FORCE=1).
+      if [ "''${1:-}" != "--force" ] && [ "''${OSUPDATE_FORCE:-0}" != 1 ] \
+        && ! ${pkgs.networkmanager}/bin/nm-online -q -t 30; then
+        echo "error: no network connection (use osupdate --force to try anyway)" >&2
+        exit 1
+      fi
+    ''}
+
     target="$(git ls-remote https://github.com/didactiklabs/nixbook refs/heads/main | awk '{print $1}')"
     echo last applied revision: $(${pkgs.jq}/bin/jq -r .rev /etc/nixos/version)
     echo applying revision: "$target"...
@@ -89,8 +99,8 @@ in
         "ip6table_nat"
         "ip_tables"
         "iptable_nat"
+        # nf_conntrack_ipv4 was merged into nf_conntrack in Linux 4.19.
         "nf_conntrack"
-        "nf_conntrack_ipv4"
         "ip_vs"
         "ip_vs_rr"
         "ip_vs_wrr"
@@ -174,6 +184,11 @@ in
             ''}";
             StandardOutput = "journal";
             StandardError = "journal";
+            # Stay out of the way of the desktop while it evaluates and
+            # switches, and don't hang forever on a stuck download.
+            Nice = 10;
+            IOSchedulingClass = "idle";
+            TimeoutStartSec = "2h";
           };
         };
       };

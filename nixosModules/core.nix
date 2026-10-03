@@ -33,7 +33,7 @@ in
         - Security: rtkit, polkit (power actions without a password for the local user), U2F PAM (login + sudo), passwordless sudo for wheel,
           sudo executable by wheel members only
         - XDG portals: enabled (backends come from the compositor modules)
-        - Nix daemon: lix package, weekly GC (7d retention), store optimisation at 03:45,
+        - Nix daemon: lix package, weekly GC via nh clean (keeps the last 5 generations and 7d), store optimisation at 03:45,
           nix-command + flakes features, custom S3 binary cache, OOM-managed nix-daemon slice
         - Display: xserver disabled (Wayland-only), fonts dir enabled
         - Env: NIXOS_OZONE_WL=1, NIXPKGS_ALLOW_UNFREE=1
@@ -114,6 +114,10 @@ in
           # Side effects: a buggy driver oops will hard-reboot the machine instead
           # of just killing the offending process. Rare in practice with stable kernels.
           "kernel.panic_on_oops" = 1;
+          # Reboot 10 s after a panic: the default (0) waits forever, so with
+          # panic_on_oops a single driver oops froze the machine until a
+          # manual power cycle.
+          "kernel.panic" = 10;
 
           # Hardens the BPF JIT compiler against JIT spraying attacks.
           # Value 2 = randomise JIT image addresses AND disable unprivileged JIT.
@@ -209,7 +213,6 @@ in
       kernelParams = [
         "intel_iommu=on"
         "iommu=pt"
-        "amdgpu.dcdebugmask=0x10"
         "quiet"
         "splash"
         # Silent boot: nothing printed over the plymouth splash or in the
@@ -227,7 +230,12 @@ in
         # to predict. (init_on_alloc and randomize_kstack_offset are already
         # on by default in the NixOS kernel.)
         "page_alloc.shuffle=1"
-      ];
+      ]
+      # The AMD gaming profile sets its own dcdebugmask, which includes this
+      # 0x10 bit (only one amdgpu.dcdebugmask= takes effect: the last one).
+      ++ lib.optional (
+        !(cfg.gamingConfig.enable && cfg.gamingConfig.gpu == "amd")
+      ) "amdgpu.dcdebugmask=0x10";
       kernelPackages = pkgs.linuxPackages_latest;
       plymouth.enable = true;
       # Kernel messages below "error" stay off the console (dmesg keeps them).
@@ -436,11 +444,6 @@ in
         };
       };
       package = pkgs.lixPackageSets.stable.lix;
-      gc = {
-        automatic = true;
-        dates = "weekly";
-        options = "--delete-older-than 7d";
-      };
       optimise = {
         automatic = true;
         dates = [ "03:45" ];
@@ -461,9 +464,21 @@ in
       };
       extraOptions = ''
         fallback = true
+        # Give up quickly on an unreachable substituter (then build or use
+        # cache.nixos.org) instead of stalling on the default 300 s timeout.
+        connect-timeout = 5
         min-free = ${toString (10240 * 1024 * 1024)}
         max-free = ${toString (10240 * 1024 * 1024)}
       '';
+    };
+
+    # Weekly GC of old system and Home Manager generations that always keeps
+    # the last 5 (plain nix.gc --delete-older-than 7d left a host not updated
+    # for a week with no generation to roll back to).
+    programs.nh.clean = {
+      enable = true;
+      dates = "weekly";
+      extraArgs = "--keep 5 --keep-since 7d";
     };
 
     # zram swap (compressed RAM) with disk fallback
