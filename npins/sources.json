@@ -368,9 +368,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "5980a626794486abad69fca7667f9c11dfbc3bd7",
-      "url": "https://github.com/nix-community/nixvim/archive/5980a626794486abad69fca7667f9c11dfbc3bd7.tar.gz",
-      "hash": "sha256-/496IQz8qNWHHLnc3Zvr0l4uxJ34igNhJhn7ZKAefFk="
+      "revision": "1cdfef1a6eb583d65b606b04fc97687491479d62",
+      "url": "https://github.com/nix-community/nixvim/archive/1cdfef1a6eb583d65b606b04fc97687491479d62.tar.gz",
+      "hash": "sha256-EeMn6SmrBe4gnxaMyb3NZYMXG8FPF9PY0OCcbPDFFNI="
     },
     "openchoreo": {
       "type": "GitRelease",
