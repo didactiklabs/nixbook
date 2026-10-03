@@ -622,7 +622,7 @@ full-screen Persona one, the Chiikawa character popping up with a speech
 bubble (`ChiikawaAlert.qml`), or an incoming holocall glitching in — a
 chamfered HUD panel with an RGB split, scanlines and the message typed out
 (`CyberpunkCutIn.qml`; `appearance.cyberpunk.glitch = false` keeps it
-steady), or a painted card drifting in on a gust of wind with the film's
+steady), or a frosted-glass card drifting in on a gust of wind with the film's
 spirit leaning on it, among leaves, paper birds or fireflies
 (`GhibliCutIn.qml`).
 
@@ -734,9 +734,11 @@ wallpapers from the palettes, `sounds.py` synthesizes its sounds at build
 time, and its face (Rajdhani) ships in `fonts.nix`.
 
 The Studio Ghibli theme too: `src/assets/ghibli/generate.py` paints the
-three wallpapers (a summer afternoon with the camphor tree and the forest
-spirit; the bathhouse at nightfall over the flooded plain, the sea train and
-the masked spirit; the ancient forest full of kodama), the sidebar patterns
+three wallpapers in a modern illustrated style — volumetric light, bloom,
+haze, a colour grade, grain and a vignette — (a summer afternoon with the
+camphor tree and the forest spirit; the bathhouse at nightfall over the
+flooded plain, the sea train and the masked spirit; the ancient forest full
+of kodama), the sidebar patterns
 and each variant's spirit (`GhibliSpirit`, in the sidebars' corner, on the
 loading screen and on the cut-in), and its faces (Zen Maru Gothic, Klee One
 for titles) ship in `fonts.nix`. `src/assets/ghibli/sounds.py` recreates the
@@ -745,7 +747,8 @@ announces — raindrops on an umbrella, the forest spirit's roar, a wind chime,
 an ocarina (Totoro); a rin bowl, the bathhouse drum and bell, the sea train's
 crossing bell, paper birds, a piano waltz (Spirited Away); the kodama's
 rattle, the wolf's howl, the forest spirit's step, a shakuhachi over a taiko
-(Mononoke). No sample or melody is taken from the films: the tunes are
+(Mononoke) — produced like a modern film score (felt piano, string pads, a
+soft sub, risers into the big hits, a warm tape master). No sample or melody is taken from the films: the tunes are
 original, only the instruments and the idiom are borrowed.
 
 Settings that did nothing were removed (`lib.nix` `removedKeys`: the parallax

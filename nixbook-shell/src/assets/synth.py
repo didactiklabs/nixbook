@@ -83,6 +83,20 @@ class Mix:
                 dst[i] += v * g
         return self
 
+    def tape(self, drive=1.6, tone=11000.0):
+        """A warm master: soft tape saturation (gentle compression of the
+        peaks, a little harmonic warmth) and the top end rounded off."""
+        peak = max(1e-9, max(max(abs(v) for v in self.L), max(abs(v) for v in self.R)))
+        a = 1 - math.exp(-TAU * tone / RATE)
+        norm = math.tanh(drive)
+        for ch in (self.L, self.R):
+            y = 0.0
+            for i, v in enumerate(ch):
+                x = math.tanh(drive * v / peak) / norm
+                y += a * (x - y)
+                ch[i] = y
+        return self
+
 
 def _comb(x, d, fb, damp):
     out = [0.0] * len(x)
@@ -478,6 +492,68 @@ def taiko(f=72.0, seed=0, big=1.0):
     return scale(membrane(f, 1.2, drop=0.55, drop_rate=22, decay=5.5, hit=0.45, hit_f=600, seed=seed), big)
 
 
+# ------------------------------------------------------------ modern
+def pad(freqs, dur, seed=0, bright=2.4, attack=0.7, release=1.2, detune=0.006):
+    """A warm string/synth pad: per note three slightly detuned saws and a
+    sine an octave down, through a soft low-pass that breathes; slow attack,
+    long release. Returns (left, right): each side detuned its own way, for
+    width."""
+    rnd = random.Random(seed)
+    sides = []
+    for side in range(2):
+        out = [0.0] * n(dur)
+        for f in freqs:
+            phases = [rnd.random() for _ in range(3)]
+            ratios = [1.0, 1 + detune * (0.6 + 0.4 * rnd.random()), 1 - detune * (0.6 + 0.4 * rnd.random())]
+            y = 0.0
+            sub = 0.0
+            for i in range(len(out)):
+                t = i / RATE
+                saw = 0.0
+                for k in range(3):
+                    phases[k] = (phases[k] + f * ratios[k] / RATE) % 1.0
+                    saw += 2 * phases[k] - 1
+                sub += TAU * f * 0.5 / RATE
+                cutoff = f * (bright + 0.6 * math.sin(TAU * 0.13 * t + side))
+                a = 1 - math.exp(-TAU * cutoff / RATE)
+                y += a * (saw / 3 - y)
+                out[i] += (y + 0.35 * math.sin(sub)) * adsr(t, dur, attack, release)
+        sides.append([v / max(1, len(freqs)) for v in out])
+    return sides
+
+
+def add_pad(mix, freqs, t, dur, gain=0.3, seed=0, **kw):
+    """Place a stereo pad (pad()) in `mix`."""
+    left, right = pad(freqs, dur, seed=seed, **kw)
+    mix.add(left, t, gain, -0.7)
+    mix.add(right, t, gain, 0.7)
+    return mix
+
+
+def felt_piano(f, dur=2.4, vel=0.7):
+    """A soft felt piano (the muted, intimate modern piano): the piano,
+    darker, with a slower hammer."""
+    tone = biquad(piano(f, dur, vel), "lp", 1400 + f * 1.5, 0.6)
+    return shaped(tone, lambda t: min(1.0, t / 0.006))
+
+
+def sub_boom(f=45.0, dur=1.6):
+    """A cinematic sub drop under a hit."""
+    out = []
+    phase = 0.0
+    for i in range(n(dur)):
+        t = i / RATE
+        phase += TAU * f * (1 + 0.8 * math.exp(-t * 9)) / RATE
+        out.append(math.sin(phase) * min(1.0, t / 0.004) * math.exp(-t * 2.6))
+    return out
+
+
+def riser(dur, seed=0, f_from=200.0, f_to=5000.0):
+    """A swelling cinematic riser: noise sweeping up, getting louder, into a
+    hit."""
+    return shaped(swoosh(dur, seed, f_from, f_to, q=1.6, swell=False), lambda t: (t / dur) ** 2.2)
+
+
 # -------------------------------------------------------------- speech
 # Vowel formants (Hz) of an adult voice; speak() scales them for a smaller
 # creature. Japanese u is unrounded (a higher second formant).
@@ -613,8 +689,9 @@ def vibrate(dur, seed=0, pulses=((0.0, 0.4), (0.55, 0.4))):
     return biquad(out, "lp", 1200)
 
 
-def swoosh(dur, seed, f_from=400.0, f_to=6000.0, q=2.0):
-    """A whoosh sweeping from f_from to f_to (a blade, a card, a cape)."""
+def swoosh(dur, seed, f_from=400.0, f_to=6000.0, q=2.0, swell=True):
+    """A whoosh sweeping from f_from to f_to (a blade, a card, a cape);
+    swell=False: the bare sweep, no rise and fall."""
     air = noise(dur, seed)
     out = [0.0] * len(air)
     x1 = x2 = y1 = y2 = 0.0
@@ -630,7 +707,7 @@ def swoosh(dur, seed, f_from=400.0, f_to=6000.0, q=2.0):
             v = air[i]
             y = b0 * v + b2 * x2 - a1 * y1 - a2 * y2
             x2, x1, y2, y1 = x1, v, y1, y
-            out[i] = y * math.sin(math.pi * i / len(air)) ** 2
+            out[i] = y * (math.sin(math.pi * i / len(air)) ** 2 if swell else 1.0)
     return out
 
 

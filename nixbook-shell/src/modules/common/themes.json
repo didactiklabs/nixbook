@@ -268,13 +268,13 @@
       "description": "Hand-painted and gentle: watercolour palettes from the films, soft corners, a storybook font, unhurried motion, the spirits themselves and sounds of their worlds",
       "defaultVariant": "totoro",
       "style": {
-        "rounding": 1.2,
+        "rounding": 1.35,
         "fonts": { "main": "Zen Maru Gothic", "title": "Klee One", "numbers": "Zen Maru Gothic" },
         "motion": {
-          "slam": [0.22, 0.82, 0.28, 1.03, 1, 1],
-          "snap": [0.3, 0.85, 0.35, 1, 1, 1],
-          "quick": [0.25, 0.8, 0.3, 1, 1, 1],
-          "exit": [0.5, 0, 0.75, 0.35, 1, 1]
+          "slam": [0.12, 0.9, 0.22, 1.02, 1, 1],
+          "snap": [0.2, 0.9, 0.25, 1, 1, 1],
+          "quick": [0.2, 0.85, 0.25, 1, 1, 1],
+          "exit": [0.45, 0, 0.8, 0.3, 1, 1]
         }
       },
       "variants": [
@@ -292,13 +292,13 @@
           },
           "notes": "Summer in the countryside: rice-paper cream, the camphor tree's leaf green as the accent, the forest spirit's grey for the secondary, the cat bus's amber for the tertiary.",
           "palette": {
-            "background": "#f6f4e8", "surface1": "#eef0de", "surface2": "#e6ead4", "surface3": "#dde4ca", "surface4": "#d3dcbf",
+            "background": "#f6f7f1", "surface1": "#eef1e7", "surface2": "#e6eadd", "surface3": "#dde3d3", "surface4": "#d4dcc9",
             "onSurface": "#26322a", "onSurfaceVariant": "#47544a", "outline": "#6c7a6e", "outlineVariant": "#d2dccb",
-            "primary": "#3c7a3f", "onPrimary": "#ffffff", "primaryContainer": "#cde9c0", "onPrimaryContainer": "#0d2b10",
+            "primary": "#2f7d47", "onPrimary": "#ffffff", "primaryContainer": "#c9ecd0", "onPrimaryContainer": "#062a12",
             "secondary": "#5c6a70", "onSecondary": "#ffffff", "secondaryContainer": "#dfe6e8", "onSecondaryContainer": "#1b262b",
             "tertiary": "#a95a17", "onTertiary": "#ffffff", "tertiaryContainer": "#fbdcb8", "onTertiaryContainer": "#3d1d00",
             "error": "#ba1a1a", "onError": "#ffffff", "errorContainer": "#ffdad6", "onErrorContainer": "#410002",
-            "frame": "#f6f4e8", "frameBorder": "#26322a", "shadow": "#b9d7a8", "stripe": "#8fbf7a", "ink": "#26322a",
+            "frame": "#f6f7f1", "frameBorder": "#26322a", "shadow": "#b9d7a8", "stripe": "#8fbf7a", "ink": "#26322a",
             "sky": "#8ec5ea", "cloud": "#ffffff", "leaf": "#4f8a3c", "fur": "#7d8a8f", "belly": "#efe8d4", "glow": "#ffe9a8", "accent": "#e8a33d"
           }
         },
@@ -318,11 +318,11 @@
           "palette": {
             "background": "#14111c", "surface1": "#1c1724", "surface2": "#241d2c", "surface3": "#2d2436", "surface4": "#372c40",
             "onSurface": "#f3e7da", "onSurfaceVariant": "#d4c2b4", "outline": "#9a8577", "outlineVariant": "#4a3a44",
-            "primary": "#f26b4f", "onPrimary": "#2b0700", "primaryContainer": "#6e1f14", "onPrimaryContainer": "#ffdbd1",
+            "primary": "#ff7259", "onPrimary": "#2b0700", "primaryContainer": "#74231a", "onPrimaryContainer": "#ffdbd1",
             "secondary": "#6fc2b8", "onSecondary": "#00201c", "secondaryContainer": "#1f4a45", "onSecondaryContainer": "#c7f0ea",
             "tertiary": "#f0c35a", "onTertiary": "#261a00", "tertiaryContainer": "#4d3a0d", "onTertiaryContainer": "#ffe7a8",
             "error": "#ffb4ab", "onError": "#690005", "errorContainer": "#93000a", "onErrorContainer": "#ffdad6",
-            "frame": "#14111c", "frameBorder": "#f26b4f", "shadow": "#6e1f14", "stripe": "#f0c35a", "ink": "#f3e7da",
+            "frame": "#14111c", "frameBorder": "#ff7259", "shadow": "#6e1f14", "stripe": "#f0c35a", "ink": "#f3e7da",
             "sky": "#2b2550", "cloud": "#d98b7a", "leaf": "#6fc2b8", "fur": "#1a1420", "belly": "#f3e7da", "glow": "#ffb347", "accent": "#e0452f"
           }
         },

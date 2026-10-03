@@ -6,6 +6,7 @@ import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.functions
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
@@ -15,9 +16,10 @@ import Quickshell.Widgets
  * The Studio Ghibli theme's take on the cut-in, for the same notifications
  * (Notifications.cutInVerdict: critical ones and the cut-in rules): a gust of
  * wind across the focused screen carries the variant's things (leaves, paper
- * birds, fireflies) and a painted card that settles in the lower third, the
- * variant's spirit leaning on its corner; the sender in the storybook title
- * face, the message beneath, a round seal with the time. To the theme's
+ * birds, fireflies) and a frosted-glass card that settles in the lower
+ * third over two blurred glows of the palette, the variant's spirit leaning
+ * on its corner; the app and the time as chips, the sender in the storybook
+ * title face, the message beneath. To the theme's
  * critical sound (Themes.sound("critical")). Never while locked or silenced
  * (Do Not Disturb). appearance.ghibli.spirits: false leaves the spirit and
  * the drifting things out.
@@ -310,45 +312,63 @@ Scope {
                 opacity: Math.min(1, card.t * 1.8)
                 rotation: card.drift * 8
 
-                // Night variants: a lantern glow behind the card.
-                Rectangle {
-                    visible: Ghibli.night
-                    anchors.centerIn: paper
-                    width: paper.width + 80
-                    height: paper.height + 80
-                    radius: 60
-                    color: ColorUtils.transparentize(Ghibli.glow, 0.82)
+                // Two glows of the palette behind the glass (the accent, and the
+                // lantern / sun glow), blurred: the card's colour comes from them.
+                Repeater {
+                    model: [
+                        { col: Ghibli.accent, x: -0.08, y: -0.35, w: 0.55, h: 1.5 },
+                        { col: Ghibli.night ? Ghibli.glow : Ghibli.warm, x: 0.55, y: 0.1, w: 0.5, h: 1.4 }
+                    ]
+                    delegate: Rectangle {
+                        required property var modelData
+                        x: paper.width * modelData.x
+                        y: paper.height * modelData.y
+                        width: paper.width * modelData.w
+                        height: paper.height * modelData.h
+                        radius: Math.min(width, height) / 2
+                        color: modelData.col
+                        opacity: Ghibli.night ? 0.55 : 0.45
+                        layer.enabled: true
+                        layer.effect: MultiEffect {
+                            blurEnabled: true
+                            blur: 1.0
+                            blurMax: 64
+                        }
+                    }
                 }
-                // Soft shadow.
+                // Soft, wide shadow.
                 Rectangle {
-                    x: 6; y: 10
+                    x: 0; y: 18
                     width: paper.width; height: paper.height
-                    radius: Appearance.rounding.large
-                    color: ColorUtils.transparentize("#000000", Ghibli.night ? 0.5 : 0.78)
+                    radius: paper.radius
+                    color: ColorUtils.transparentize("#000000", Ghibli.night ? 0.45 : 0.75)
+                    layer.enabled: true
+                    layer.effect: MultiEffect {
+                        blurEnabled: true
+                        blur: 1.0
+                        blurMax: 48
+                    }
                 }
 
                 Rectangle {
                     id: paper
                     width: parent.width
-                    height: content.implicitHeight + 44
-                    radius: Appearance.rounding.large
-                    color: Ghibli.paper
-                    border.width: 2
-                    border.color: ColorUtils.transparentize(Ghibli.accent, 0.55)
+                    height: content.implicitHeight + 48
+                    radius: Appearance.rounding.verylarge
+                    // Frosted glass: the paper colour, see-through.
+                    color: ColorUtils.transparentize(Ghibli.paper, Ghibli.night ? 0.2 : 0.16)
+                    border.width: 1
+                    border.color: ColorUtils.transparentize("#ffffff", Ghibli.night ? 0.82 : 0.35)
                     clip: true
 
-                    // Watercolour wash: two soft pools of the palette.
+                    // The glass's sheen, brightest along the top edge.
                     Rectangle {
-                        x: -parent.width * 0.15; y: -parent.height * 0.6
-                        width: parent.width * 0.7; height: parent.height * 1.3
-                        radius: width / 2
-                        color: ColorUtils.transparentize(Ghibli.accent, 0.9)
-                    }
-                    Rectangle {
-                        x: parent.width * 0.55; y: parent.height * 0.35
-                        width: parent.width * 0.6; height: parent.height
-                        radius: width / 2
-                        color: ColorUtils.transparentize(Ghibli.seal, 0.9)
+                        anchors.fill: parent
+                        radius: parent.radius
+                        gradient: Gradient {
+                            GradientStop { position: 0.0; color: ColorUtils.transparentize("#ffffff", Ghibli.night ? 0.9 : 0.55) }
+                            GradientStop { position: 0.45; color: "transparent" }
+                        }
                     }
 
                     MouseArea { // the card activates, like the rest; keeps the reply box usable
@@ -374,8 +394,8 @@ Scope {
                                 implicitHeight: 84
                                 radius: width / 2
                                 color: ColorUtils.transparentize(Ghibli.accent, 0.82)
-                                border.width: 3
-                                border.color: Ghibli.accent
+                                border.width: 2
+                                border.color: ColorUtils.transparentize(Ghibli.accent, 0.2)
                                 readonly property bool hasImage: (card.n?.image ?? "") !== ""
                                 ClippingRectangle {
                                     anchors.fill: parent
@@ -411,22 +431,54 @@ Scope {
                                 Layout.alignment: Qt.AlignTop
                                 spacing: 4
 
-                                StyledText {
+                                // The app and the time, as chips.
+                                RowLayout {
                                     Layout.fillWidth: true
-                                    text: card.source
-                                    visible: text !== "" && text !== card.speaker
-                                    elide: Text.ElideRight
-                                    font.family: Ghibli.titleFont
-                                    font.pixelSize: Appearance.font.pixelSize.normal
-                                    color: ColorUtils.transparentize(Ghibli.ink, 0.35)
+                                    spacing: 8
+                                    Rectangle {
+                                        visible: card.source !== "" && card.source !== card.speaker
+                                        Layout.maximumWidth: 320
+                                        implicitWidth: sourceText.implicitWidth + 22
+                                        implicitHeight: sourceText.implicitHeight + 8
+                                        radius: height / 2
+                                        color: ColorUtils.transparentize(Ghibli.accent, 0.82)
+                                        StyledText {
+                                            id: sourceText
+                                            anchors.centerIn: parent
+                                            width: Math.min(implicitWidth, parent.Layout.maximumWidth - 22)
+                                            text: card.source
+                                            elide: Text.ElideRight
+                                            font.pixelSize: Appearance.font.pixelSize.small
+                                            font.weight: Font.DemiBold
+                                            color: Ghibli.ink
+                                        }
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                    Rectangle {
+                                        implicitWidth: timeText.implicitWidth + 22
+                                        implicitHeight: timeText.implicitHeight + 8
+                                        radius: height / 2
+                                        color: "transparent"
+                                        border.width: 1
+                                        border.color: ColorUtils.transparentize(Ghibli.ink, 0.75)
+                                        StyledText {
+                                            id: timeText
+                                            anchors.centerIn: parent
+                                            text: Qt.formatTime(new Date(card.n?.time ?? Date.now()), "hh:mm")
+                                            font.pixelSize: Appearance.font.pixelSize.small
+                                            font.features: { "tnum": 1 }
+                                            color: ColorUtils.transparentize(Ghibli.ink, 0.25)
+                                        }
+                                    }
                                 }
                                 StyledText {
                                     Layout.fillWidth: true
                                     text: card.speaker
                                     elide: Text.ElideRight
                                     font.family: Ghibli.titleFont
-                                    font.pixelSize: 32
+                                    font.pixelSize: 30
                                     font.weight: Font.DemiBold
+                                    font.letterSpacing: -0.2
                                     color: Ghibli.ink
                                 }
                                 StyledText {
@@ -442,26 +494,6 @@ Scope {
                                 }
                             }
 
-                            // A round seal with the time, like a stamp in
-                            // the corner of a painting.
-                            Rectangle {
-                                Layout.alignment: Qt.AlignTop
-                                implicitWidth: 58
-                                implicitHeight: 58
-                                radius: width / 2
-                                rotation: -8
-                                color: "transparent"
-                                border.width: 2.5
-                                border.color: Ghibli.seal
-                                StyledText {
-                                    anchors.centerIn: parent
-                                    text: Qt.formatTime(new Date(card.n?.time ?? Date.now()), "hh:mm")
-                                    font.family: Ghibli.titleFont
-                                    font.pixelSize: Appearance.font.pixelSize.normal
-                                    font.weight: Font.DemiBold
-                                    color: Ghibli.seal
-                                }
-                            }
                         }
 
                         Flow {

@@ -40,8 +40,11 @@ import random
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from synth import (RATE, TAU, Mix, adsr, biquad, drop, kalimba, koto, membrane, modal, mono, noise,  # noqa: E402
-                   note, ocarina, phrase, piano, rustle, scale, shakuhachi, shaped, run, taiko, voice, whoosh, wood, higurashi, n)
+from synth import (  # noqa: E402
+    RATE, TAU, add_pad, adsr, biquad, drop, felt_piano, higurashi, kalimba, koto, membrane, Mix, modal,
+    mono, n, noise, note, ocarina, phrase, riser, run, rustle, scale, shakuhachi, shaped, sub_boom,
+    taiko, voice, whoosh, wood
+)
 
 
 # ======================================================================= Totoro
@@ -92,7 +95,9 @@ def totoro_critical():
     for k in range(9):
         m.add(umbrella_drop(30 + k, 0.5 + 0.5 * rnd.random()), 0.32 + k * 0.055 + rnd.random() * 0.03,
               0.6, rnd.random() * 1.4 - 0.7)
+    m.add(riser(0.6, 25, 300, 4000), 0.22, 0.25, 0.0)
     m.add(roar(24), 0.82, 1.0, 0.0)
+    m.add(sub_boom(42, 1.8), 0.82, 0.55, 0.0)
     return m.reverb(0.35, room=0.84, tail=1.6)
 
 
@@ -121,6 +126,7 @@ def totoro_focus():
     m.add(whoosh(2.2, 41, bands=((500, 0.0), (1100, 0.2))), 0.0, 0.18, 0.4)
     m.add(furin(2637.0, 42, strikes=3), 0.15, 1.0, -0.2)
     m.add(furin(3136.0, 43, strikes=2), 0.62, 0.55, 0.3)
+    add_pad(m, [note(0), note(4), note(7), note(14)], 0.05, 2.6, gain=0.16, seed=44, attack=0.5, release=1.2)
     return m.reverb(0.3, room=0.8, tail=1.2)
 
 
@@ -135,6 +141,9 @@ def totoro_countdown():
     m.add(kalimba(note(C5 - 12), 1.6), end - 2.4 * 0.17, 0.35, -0.3)
     m.add(kalimba(note(C5 - 5), 1.6), end - 2.4 * 0.17, 0.25, 0.3)
     m.add(furin(3136.0, 51, strikes=2), end - 0.1, 0.4, 0.4)
+    for k, semi in enumerate((-12, 4, 7, 14)):
+        m.add(felt_piano(note(semi), 2.6, 0.6), end - 2.4 * 0.17 + 0.02 * k, 0.32, -0.3 + 0.2 * k)
+    add_pad(m, [note(-12), note(7), note(16)], end - 2.4 * 0.17, 2.4, gain=0.18, seed=52, attack=0.25, release=1.4)
     return m.reverb(0.32, room=0.82, tail=1.3)
 
 
@@ -155,8 +164,14 @@ def totoro_alarm():
               (-7, 0, -3, 0, 5, 0, -3, 0), (-5, 2, -1, 2, 7, 2, -1, 2)]
     for bar, arp in enumerate(chords):
         for k, semi in enumerate(arp):
-            m.add(kalimba(note(semi)), t0 + (bar * 4 + k * 0.5) * beat, 0.32 if k % 4 == 0 else 0.22,
+            m.add(kalimba(note(semi)), t0 + (bar * 4 + k * 0.5) * beat, 0.2 if k % 4 == 0 else 0.13,
                   -0.35 + 0.1 * (k % 3))
+        root = arp[0]
+        for j, semi in enumerate((root - 12, root + 7 - 12, root + 4, root + 11 if bar != 3 else root + 10)):
+            m.add(felt_piano(note(semi), 2.2, 0.55), t0 + bar * 4 * beat + 0.015 * j, 0.24, -0.25 + 0.15 * j)
+        add_pad(m, [note(root - 12), note(root + 7 - 12), note(root + 4)], t0 + bar * 4 * beat, 4 * beat + 0.4,
+                gain=0.14, seed=70 + bar, attack=0.35, release=0.5)
+        m.add(sub_boom(note(root - 24), 1.6), t0 + bar * 4 * beat, 0.18, 0.0)
     m.add(kalimba(note(-12), 2.0), t0 + 16 * beat, 0.35, -0.2)
     m.add(furin(2637.0, 62, strikes=2), t0 + 15 * beat, 0.3, 0.5)
     m.pad(t0 + 16 * beat + 1.0)
@@ -194,7 +209,9 @@ def spirited_critical():
     times = [0.0, 0.62, 1.1, 1.36, 1.56, 1.72, 1.86]
     for k, t in enumerate(times):
         m.add(taiko(72 + (k % 2) * 4, 80 + k, 0.65 + 0.05 * k), t, 1.0, -0.15 + 0.3 * (k % 2))
+    m.add(riser(0.85, 92, 200, 6000), 1.25, 0.3, 0.0)
     m.add(taiko(66, 90, 1.25), 2.1, 1.0, 0.0)
+    m.add(sub_boom(40, 2.2), 2.1, 0.6, 0.0)
     m.add(shaped(bonsho(98.0, 91, 3.2), lambda t: adsr(t, 3.2, 0.001, 1.4)), 2.1, 0.55, 0.1)
     return m.reverb(0.38, room=0.86, tail=1.2)
 
@@ -249,6 +266,7 @@ def spirited_countdown():
     m.add(koto(note(9), 1.5, 122), 1.15, 0.45, -0.3)   # A4
     m.add(koto(note(16), 1.5, 123), 1.27, 0.45, -0.1)  # E5
     m.add(rin(1046.5, 124), 1.4, 0.9, 0.15)
+    add_pad(m, [note(A4), note(A4 + 7), note(A4 + 16)], 1.1, 2.6, gain=0.15, seed=125, attack=0.3, release=1.4, bright=3.2)
     return m.reverb(0.32, room=0.84, tail=1.3)
 
 
@@ -264,15 +282,17 @@ def spirited_alarm():
               (-16, (-4, 0, 3)), (-17, (-5, -1, 2))]  # Am F G Em F E
     for bar, (bass, chord) in enumerate(chords):
         t = t0 + bar * 3 * beat
-        m.add(piano(note(A4 + bass), 2.4, 0.7), t, 0.55, -0.35)
+        m.add(felt_piano(note(A4 + bass), 2.4, 0.7), t, 0.55, -0.35)
         for j in (1, 2):
             for semi in chord:
-                m.add(piano(note(A4 + semi), 1.4, 0.45), t + j * beat, 0.22, -0.15)
+                m.add(felt_piano(note(A4 + semi), 1.4, 0.45), t + j * beat, 0.22, -0.15)
+        add_pad(m, [note(A4 + bass), note(A4 + chord[1]), note(A4 + chord[2])], t, 3 * beat + 0.3,
+                gain=0.16, seed=140 + bar, attack=0.3, release=0.45, bright=1.8)
     melody = [(7, 2), (3, 1), (5, 1), (3, 1), (0, 1), (2, 1.5), (3, 0.5), (5, 1),
               (10, 2), (7, 1), (8, 1), (7, 1), (5, 1), (2, 2), (-1, 1)]
     t = t0
     for k, (semi, beats) in enumerate(melody):
-        m.add(piano(note(A4 + 12 + semi - 12), 2.4, 0.85), t, 0.75, 0.2)
+        m.add(felt_piano(note(A4 + semi), 2.4, 0.85), t, 0.75, 0.2)
         t += beats * beat
     # A koto answers at the turn, the rin closes the loop.
     m.add(koto(note(A4 + 7 + 12), 1.4, 130), t0 + 9 * beat + beat * 1.5, 0.3, 0.55)
@@ -332,6 +352,8 @@ def howl(seed, dur=2.6, high=560.0):
 def mononoke_critical():
     m = Mix()
     m.add(taiko(64, 150, 1.0), 0.0, 0.8, 0.0)
+    m.add(sub_boom(38, 2.0), 0.0, 0.6, 0.0)
+    add_pad(m, [note(D4 - 24), note(D4 - 17), note(D4 - 12)], 0.1, 3.2, gain=0.2, seed=158, attack=0.8, release=1.6, bright=1.6)
     m.add(howl(151), 0.15, 1.0, -0.15)
     m.add(howl(152, dur=2.1, high=500.0), 0.75, 0.35, 0.6)
     for k in range(4):
@@ -371,6 +393,7 @@ def mononoke_focus():
     m.add(step, 0.0, 0.8, 0.0)
     m.add(bloom(161), 0.05, 0.7, -0.25)
     m.add(bloom(162), 0.12, 0.45, 0.35)
+    add_pad(m, [note(7), note(14), note(19)], 0.1, 2.4, gain=0.12, seed=163, attack=0.3, release=1.4, bright=3.5)
     return m.reverb(0.45, room=0.88, tail=1.8)
 
 
@@ -393,11 +416,14 @@ def mononoke_alarm():
     # Low drone on D and A.
     drone = mono(modal(note(D4 - 24), total, ((1.0, 1.0, 0.05, 0.3),)),
                  modal(note(D4 - 17), total, ((1.0, 0.45, 0.06, 0.2),)))
-    m.add(shaped(drone, lambda t: adsr(t, total, 1.2, 1.5)), 0.0, 0.35, 0.0)
+    m.add(shaped(drone, lambda t: adsr(t, total, 1.2, 1.5)), 0.0, 0.25, 0.0)
+    add_pad(m, [note(D4 - 24), note(D4 - 17), note(D4 - 12), note(D4 - 9)], 0.0, total, gain=0.2, seed=205,
+            attack=1.2, release=1.5, bright=1.5)
     # Taiko heartbeat: "don-don", rest.
     for k in range(10):
         if k % 2 == 0:
             m.add(taiko(64, 180 + k, 0.8), k * beat, 0.6, -0.1)
+            m.add(sub_boom(40, 0.9), k * beat, 0.25, 0.0)
             m.add(taiko(70, 190 + k, 0.5), k * beat + 0.22, 0.6, 0.1)
     # Shakuhachi in miyako-bushi on D (D Eb G A Bb): an original phrase.
     sh = lambda f, d, s: shakuhachi(f, d, s)
@@ -423,7 +449,8 @@ VARIANTS = {
 
 
 def main():
-    run(VARIANTS)
+    # A warm, slightly saturated master on every sound.
+    run({v: {k: (lambda make=make: make().tape()) for k, make in kinds.items()} for v, kinds in VARIANTS.items()})
 
 
 if __name__ == "__main__":
