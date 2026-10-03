@@ -45,9 +45,9 @@
 # an agent starts an app (desktop-mcp's launch_app), it quits once no window
 # is left (10 s without one, not in its first 15 s while the app that opened
 # it starts). This script watches from outside the sandbox, where the apps
-# can't reach: when niri quits otherwise, the user closed the window, which
-# stops the agents (~/.local/state/nixbook-shell/agent-desktop-stopped, until
-# the user switches them on again).
+# can't reach. The user closing the window only closes it: the agent's next
+# app opens it again, as long as agents work on their own desktop (`desktop
+# user` switches that off; the bar's pause stops them).
 #
 # $XDG_RUNTIME_DIR/nixbook-agent-desktop: written here only (read-only in the
 # sandbox): agent-desktop.env (the nested niri's WAYLAND_DISPLAY and
@@ -67,7 +67,6 @@ input_file="$control/agent-desktop-input"
 config="$control/agent-desktop.kdl"
 data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
 config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
-stopped_file="${XDG_STATE_HOME:-$HOME/.local/state}/nixbook-shell/agent-desktop-stopped"
 shell_config="$config_home/nixbook-shell/config.json"
 agent_home="${NIXBOOK_AGENT_HOME:-$data_home/nixbook-shell/agent-home}"
 
@@ -401,7 +400,6 @@ umask 077
 printf 'WAYLAND_DISPLAY=%s\nNIRI_SOCKET=%s\n' "$session_runtime/$display" "$niri_socket" >"$env_file.tmp"
 mv "$env_file.tmp" "$env_file"
 
-closing=false
 idle=0
 uptime=0
 while kill -0 "$niri_pid" 2>/dev/null; do
@@ -414,16 +412,9 @@ while kill -0 "$niri_pid" 2>/dev/null; do
     idle=0
   fi
   if [ "$idle" -ge 10 ] && [ "$uptime" -ge 15 ]; then
-    closing=true
     NIRI_SOCKET="$niri_socket" niri msg action quit --skip-confirmation || true
     break
   fi
 done
 wait "$niri_pid" || true
 niri_pid=""
-# Not emptied, not stopped as a service (that ends this in the TERM trap): the
-# user closed the window, which stops the agents.
-if ! $closing; then
-  mkdir -p "$(dirname "$stopped_file")"
-  echo stopped >"$stopped_file"
-fi

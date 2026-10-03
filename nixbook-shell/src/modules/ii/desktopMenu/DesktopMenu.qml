@@ -420,15 +420,13 @@ Scope {
                                 MaterialSymbol { text: "smart_toy"; iconSize: Appearance.font.pixelSize.larger; color: Appearance.colors.colOnLayer1 }
                                 StyledText { Layout.fillWidth: true; text: Translation.tr("Assistant's desktop"); font.pixelSize: Appearance.font.pixelSize.normal; color: Appearance.colors.colOnLayer1; elide: Text.ElideRight }
                                 StyledText {
-                                    text: !DesktopControl.onAgentDesktop ? Translation.tr("Off")
-                                        : DesktopControl.agentStopped ? Translation.tr("Stopped")
-                                        : Translation.tr("On")
+                                    text: DesktopControl.onAgentDesktop ? Translation.tr("On") : Translation.tr("Off")
                                     font.pixelSize: Appearance.font.pixelSize.small
                                     color: Appearance.colors.colOnLayer1
                                     opacity: 0.6
                                 }
                                 MaterialSymbol {
-                                    readonly property bool on: DesktopControl.onAgentDesktop && !DesktopControl.agentStopped
+                                    readonly property bool on: DesktopControl.onAgentDesktop
                                     text: on ? "toggle_on" : "toggle_off"
                                     iconSize: Appearance.font.pixelSize.larger
                                     color: on ? Appearance.colors.colPrimary : Appearance.colors.colOnLayer1
