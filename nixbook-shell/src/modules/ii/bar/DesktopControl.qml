@@ -33,8 +33,7 @@ MouseArea {
 
     readonly property bool ownDesktop: DesktopControl.onAgentDesktop
     readonly property string deskIcon: DesktopControl.userHasControl ? "touch_app" : "picture_in_picture"
-    readonly property color deskColor: DesktopControl.agentStopped ? Appearance.m3colors.m3error
-        : DesktopControl.agentDesktopOpen ? Appearance.colors.colPrimary
+    readonly property color deskColor: DesktopControl.agentDesktopOpen ? Appearance.colors.colPrimary
         : Appearance.colors.colOnLayer1
 
     readonly property string icon: DesktopControl.paused ? "pan_tool" : "smart_toy"
@@ -163,7 +162,6 @@ MouseArea {
                 icon: root.ownDesktop ? root.deskIcon : "desktop_windows"
                 label: Translation.tr("Desktop")
                 value: !root.ownDesktop ? Translation.tr("Yours")
-                    : DesktopControl.agentStopped ? Translation.tr("Its own, closed by you: stopped")
                     : DesktopControl.userHasControl ? Translation.tr("Its own, you have control")
                     : DesktopControl.agentDesktopOpen ? Translation.tr("Its own, in a window")
                     : Translation.tr("Its own, opens with its next app")
@@ -190,7 +188,6 @@ MouseArea {
             StyledText {
                 Layout.fillWidth: true
                 text: !root.ownDesktop ? Translation.tr("Right-click to give them their own desktop")
-                    : DesktopControl.agentStopped ? Translation.tr("Right-click to switch them on again")
                     : Translation.tr("Right-click to bring them back to yours")
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colSubtext

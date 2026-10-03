@@ -492,10 +492,10 @@ browser into a site, say), take it over: `Mod+Ctrl+A`, the desktop menu's
 "Use it myself", Settings, or `desktop interact on|off|toggle`. Your clicks
 and keys then reach it, and the agent's window and input tools are refused
 until you give it back (it can still take screenshots); it's off again
-after a restart. **Closing the window yourself stops the agent**: its
-tools are refused ("the user closed your desktop") until you switch it on
-again (the launcher tells your closing from its own: it marks
-`~/.local/state/nixbook-shell/agent-desktop-stopped`). `desktop user` brings the agents back to
+after a restart. **Closing the window yourself only closes it**: the
+agent's next app opens it again, for as long as agents work on their own
+desktop; to stop them, switch them back to yours or pause them (the bar's
+robot, Mod+Shift+Escape). `desktop user` brings the agents back to
 your desktop, `desktop stop` closes theirs, `desktop status` says which is
 in use (also `get_status`); the choice survives a reboot. An agent already
 at work when you switch is told on its next tool reply ("Desktop switched
@@ -539,9 +539,7 @@ its next start:
 What the
 sandbox may change is its home and the nested session's runtime directory;
 the launcher's own files (where its sockets are, the take-over flag) are
-read-only to it, and it watches the session from outside, so an app can't
-fake "closed because empty" to keep closing the window from stopping the
-agent. Log the agent's browser into an account only if you want it to use
+read-only to it, and it watches the session from outside. Log the agent's browser into an account only if you want it to use
 that account. File choosers are GTK's own there (the portal's would open on
 your desktop).
 

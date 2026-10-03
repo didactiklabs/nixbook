@@ -1268,23 +1268,22 @@ expect_contains "agent desktop emptied: window tools wait for an app" "$(call li
 call launch_app '{"app": "firefox"}' >/dev/null
 expect_eq "agent desktop emptied: the next app opens it again" "systemctl --user start nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
 rm -f "$calls.launched"
-# Closed by the user (the launcher marks it stopped): every tool refused, not
-# opened again by an agent, until the user switches them on again.
-echo stopped >"$XDG_STATE_HOME/nixbook-shell/agent-desktop-stopped"
+# Closed by the user: only closed, the agent's next app opens it again and
+# the shell tools work meanwhile; agents stay on their own desktop.
 rm -f "$STUB_AGENT_SOCKET"
 reset_calls
-expect_contains "closed by the user: the agents are stopped" "$(call launch_app '{"app": "firefox"}')" "the user closed your desktop"
-expect_contains "closed by the user: the shell tools too" "$(call widget '{"widget":"notes","action":"list"}')" "the user closed your desktop"
-expect_eq "closed by the user: not opened again by an agent" "" "$(grep systemctl "$calls" || true)"
-expect_eq "closed by the user: status says so" true "$(python3 "$mcp" desktop status | jq .stopped_by_user)"
-python3 "$mcp" desktop toggle >/dev/null
-expect_eq "closed by the user: the toggle switches them on again" false "$(python3 "$mcp" desktop status | jq .stopped_by_user)"
-expect_eq "closed by the user: the toggle stays on their desktop" agent "$(python3 "$mcp" desktop status | jq -r .desktop)"
-expect_eq "closed by the user: switching on opens no empty window" "" "$(grep systemctl "$calls" || true)"
+expect_not_contains "closed by the user: the shell tools work" "$(call widget '{"widget":"notes","action":"list"}')" "refused"
+call launch_app '{"app": "firefox"}' >/dev/null
+expect_eq "closed by the user: the next app opens it again" "systemctl --user start nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
+expect_eq "closed by the user: still their desktop" agent "$(python3 "$mcp" desktop status | jq -r .desktop)"
+rm -f "$calls.launched"
 reset_calls
 python3 "$mcp" desktop stop >/dev/null
 expect_eq "desktop stop: stops the service" "systemctl --user stop nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
-expect_eq "desktop stop: the agents are stopped" true "$(python3 "$mcp" desktop status | jq .stopped_by_user)"
+expect_eq "desktop stop: agents stay on their desktop" agent "$(python3 "$mcp" desktop status | jq -r .desktop)"
+python3 "$mcp" desktop toggle >/dev/null
+expect_eq "desktop toggle: back to the user's" user "$(python3 "$mcp" desktop status | jq -r .desktop)"
+python3 "$mcp" desktop agent >/dev/null
 python3 "$mcp" desktop user >/dev/null
 call focus_window '{"id": 1}' >/dev/null
 expect_eq "desktop user: tools reach the user's niri again" /dev/null "$(cat "$calls.socket")"
