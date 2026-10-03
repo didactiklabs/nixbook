@@ -214,8 +214,9 @@ Singleton {
     // message: no ~2 s start, the desktop MCP server already connected), and
     // starts again, resuming the session, when its command line changes; it
     // gets the desktop tools (the desktop MCP server, whose guardrails, pause
-    // and memory apply), Config ai.claudeCode.allowedTools and, with
-    // ai.claudeCode.connectors, the user's claude.ai connectors; nothing else.
+    // and memory apply), the MCP servers of assistant-mcp.json (mcp-nixos…),
+    // Config ai.claudeCode.allowedTools and, with ai.claudeCode.connectors,
+    // the user's claude.ai connectors; nothing else.
     property string claudeCodePath: ""
     property string claudeSessionId: ""
     // Settings > Desktop agents can change where Claude Code is: look again.
@@ -296,6 +297,27 @@ Singleton {
         blockWrites: true
     }
 
+    // Claude's other MCP servers (Home Manager assistant.mcpServers, e.g.
+    // mcp-nixos), in Claude Code's mcpServers format; "desktop" is ours.
+    property var assistantMcpServers: ({})
+    FileView {
+        id: assistantMcpFile
+        path: `${Directories.shellConfig}/assistant-mcp.json`
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: {
+            try {
+                const servers = JSON.parse(text()).mcpServers ?? {};
+                delete servers.desktop;
+                root.assistantMcpServers = servers;
+            } catch (e) {
+                console.log("[Ai] assistant-mcp.json unreadable:", e);
+                root.assistantMcpServers = {};
+            }
+        }
+        onLoadFailed: root.assistantMcpServers = {}
+    }
+
     // The command line Claude Code runs with (it reads the messages on
     // stdin); resume: the session to go on with ("" for a new one).
     function claudeCodeScript(attached, resume) {
@@ -322,7 +344,9 @@ Singleton {
             .filter(t => !fileTools.some(f => t === f || t.startsWith(`${f}(`)));
         const desktop = root.currentTool !== "none" && root.desktopTools.length > 0;
         const connectors = root.claudeConnectorsSetting;
-        const allowed = [...(desktop ? ["mcp__desktop"] : []), ...configured,
+        const extraServers = root.currentTool !== "none" ? root.assistantMcpServers : {};
+        const allowed = [...(desktop ? ["mcp__desktop"] : []),
+            ...Object.keys(extraServers).map(name => `mcp__${name}`), ...configured,
             ...(attached.length > 0 ? [`Read(/${attached})`] : []),
             ...(connectors ? root.claudeConnectors : [])];
         const system = root.systemPrompt
@@ -343,11 +367,12 @@ Singleton {
         // Each message tells the desktop MCP server what the task is (a
         // file: the server outlives a message): the notes about it then come
         // with its next reply.
-        if (desktop)
-            args.push("--mcp-config", JSON.stringify({ mcpServers: { desktop: {
-                command: root.desktopMcpCommand,
-                env: { NIXBOOK_DESKTOP_MCP_QUERY_FILE: root.desktopTaskFilePath },
-            } } }));
+        const mcpServers = Object.assign({}, extraServers, desktop ? { desktop: {
+            command: root.desktopMcpCommand,
+            env: { NIXBOOK_DESKTOP_MCP_QUERY_FILE: root.desktopTaskFilePath },
+        } } : {});
+        if (Object.keys(mcpServers).length > 0)
+            args.push("--mcp-config", JSON.stringify({ mcpServers }));
         // Only the allowed built-in tools are loaded at all: Claude Code's
         // full set would double the context of every message.
         // With the connectors, ToolSearch too: their tools stay deferred

@@ -355,8 +355,11 @@ start: it starts when you open the panel on Claude, again (resuming the
 conversation's session) when a setting or an attached file changes its
 command line, and closes after 15 minutes unused; Stop interrupts the answer
 and keeps it. It runs with the desktop MCP server attached (its guardrails,
-the pause button and the memory apply as always; tool `none` leaves it out)
-and only the built-in tools in `ai.claudeCode.allowedTools` (web search and
+the pause button and the memory apply as always; tool `none` leaves it out),
+the MCP servers of `programs.nixbook-shell.assistant.mcpServers` (by default
+[MCP-NixOS](https://mcp-nixos.io), for real NixOS / Home Manager package and
+option data; written to `~/.config/nixbook-shell/assistant-mcp.json`, every
+tool allowed, left out with tool `none` too) and only the built-in tools in `ai.claudeCode.allowedTools` (web search and
 fetch); running commands and editing files are refused. **It reads none of
 your files** unless you allow it: **Folders AI agents may read**
 (`ai.allowedFolders`, none by default) become its `--add-dir` working

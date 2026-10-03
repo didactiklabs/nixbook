@@ -1,0 +1,16 @@
+#!/bin/sh
+# Removes the MCP-NixOS server from Claude Code's user scope. Best-effort.
+set -e
+
+claude=$(command -v claude || true)
+[ -n "$claude" ] || [ ! -x "$HOME/.local/bin/claude" ] || claude="$HOME/.local/bin/claude"
+
+if [ -n "$claude" ]; then
+  "$claude" mcp remove --scope user nixos >/dev/null 2>&1 || true
+elif command -v jq >/dev/null 2>&1 && [ -s "$HOME/.claude.json" ]; then
+  tmp="$(mktemp)"
+  jq 'del(.mcpServers.nixos)' "$HOME/.claude.json" >"$tmp" && mv "$tmp" "$HOME/.claude.json"
+  chmod 600 "$HOME/.claude.json"
+fi
+
+echo "mcp-nixos: removed from Claude Code"

@@ -107,6 +107,13 @@ let
     chmod 0755 $out/install $out/uninstall $out/list-contexts $out/resolve
   '';
 
+  mcpNixosModule = pkgs.runCommand "ocm-module-mcp-nixos" { } ''
+    mkdir -p $out
+    cp ${./ocmModules/mcp-nixos}/{module.yml,install,uninstall} $out/
+    chmod 0644 $out/module.yml
+    chmod 0755 $out/install $out/uninstall
+  '';
+
   hostDisplay = cfg.hostDisplay;
 
   # module.yml of the host-display module: its mount sources are host paths
@@ -257,6 +264,9 @@ let
     }
     // lib.optionalAttrs desktopMemory.enable {
       "tools/desktop-memory" = desktopMemoryModule;
+    }
+    // lib.optionalAttrs cfg.mcpNixos.enable {
+      "tools/mcp-nixos" = mcpNixosModule;
     };
 
   nixCommands =
@@ -543,6 +553,19 @@ in
         defaultText = lib.literalExpression ''"''${config.xdg.stateHome}/nixbook-shell/desktop-memory.json"'';
         description = "Desktop memory file `nixbook-desktop-mcp` writes.";
       };
+    };
+
+    mcpNixos.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether to install the `tools/mcp-nixos` ocm module. Added to a
+        workspace from the module editor, it registers
+        [MCP-NixOS](https://mcp-nixos.io) (real NixOS, Home Manager and
+        nix-darwin package and option data) as a user-scope MCP server of the
+        workspace's Claude Code (`claude mcp add --scope user nixos -- uvx
+        mcp-nixos`; uvx ships in the base image); `uninstall` removes it.
+      '';
     };
 
     kubeswitch = {
