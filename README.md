@@ -61,7 +61,7 @@ colmena apply-local --sudo -v switch
 Update your system:
 
 ```bash
-osupdate
+osupdate          # refuses to run offline; --force skips the check
 ```
 
 Or manually:
@@ -168,14 +168,14 @@ sudo sbctl verify
 
 Besides the full profile builds (`build.yaml`, self-hosted), every push and PR runs cheap regression checks on GitHub-hosted runners (`.github/workflows/checks.yaml`). Nothing is built except a few tiny generated files, so they report problems within minutes. They all run through `tests/run.sh` (`run-tests` in `devenv shell`):
 
-| Command                                 | Checks                                                                                                                                                                                                                                                                                  |
-| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `run-tests repo`                        | `hive.nix` nodes, `profiles/` and the `build.yaml` matrices agree; `devenv.yaml` uses the npins nixpkgs; every module file is imported; every `customPkgs/` package instantiates; nixbook-shell `lib.nix` unit tests; `nixbook-shell/` evaluates on its own (copied alone to the store) |
-| `run-tests shell`                       | nixbook-shell scripts (`nixbook-shell/tests/scripts.sh`): `config-merge.jq` output round-trips through Nix, `nixbook-shell config` commands, `assistant-facts.py`, app colours, background widget placement (`least_busy_region.py` and its cache)                                      |
-| `run-tests iso`                         | the installer ISO evaluates                                                                                                                                                                                                                                                             |
-| `run-tests docs`                        | `docs/MODULES.md` documents the current options (run `generate-docs` if not)                                                                                                                                                                                                            |
-| `run-tests host <name> [--all-modules]` | the machine evaluates exactly as `colmena build` would, keeps its invariants (`tests/hosts.nix`: hardening sysctls, boot editor off, deployment settings, state version, …) and its generated config files build                                                                        |
-| `run-tests all`                         | all of the above, for every machine                                                                                                                                                                                                                                                     |
+| Command                                 | Checks                                                                                                                                                                                                                                                                                      |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `run-tests repo`                        | `hive.nix` nodes, `profiles/` and the `build.yaml` build matrix agree; `devenv.yaml` uses the npins nixpkgs; every module file is imported; every `customPkgs/` package instantiates; nixbook-shell `lib.nix` unit tests; `nixbook-shell/` evaluates on its own (copied alone to the store) |
+| `run-tests shell`                       | nixbook-shell scripts (`nixbook-shell/tests/scripts.sh`): `config-merge.jq` output round-trips through Nix, `nixbook-shell config` commands, `assistant-facts.py`, app colours, background widget placement (`least_busy_region.py` and its cache)                                          |
+| `run-tests iso`                         | the installer ISO evaluates                                                                                                                                                                                                                                                                 |
+| `run-tests docs`                        | `docs/MODULES.md` documents the current options (run `generate-docs` if not)                                                                                                                                                                                                                |
+| `run-tests host <name> [--all-modules]` | the machine evaluates exactly as `colmena build` would, keeps its invariants (`tests/hosts.nix`: hardening sysctls, boot editor off, deployment settings, state version, …) and its generated config files build                                                                            |
+| `run-tests all`                         | all of the above, for every machine                                                                                                                                                                                                                                                         |
 
 `--all-modules` evaluates a machine with every optional `customNixOSModules` toggle forced on, so modules no profile enables are still evaluated. `host` needs an `/etc/nixos/hardware-configuration.nix`; on a machine without one (e.g. a CI runner), install the stub: `sudo install -D -m 644 tests/hardware-stub.nix /etc/nixos/hardware-configuration.nix`.
 
