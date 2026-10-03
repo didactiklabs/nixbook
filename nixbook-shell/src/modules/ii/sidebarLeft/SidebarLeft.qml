@@ -31,6 +31,27 @@ Scope { // Scope
             else if (key === Qt.Key_O && sidebarLoader.item) sidebarLoader.item.extend = !sidebarLoader.item.extend;
             else if (key === Qt.Key_P) root.togglePin();
         }
+        function onSidebarLeftOpenChanged() {
+            if (Persistent.ready && root.pin) Persistent.states.sidebar.left.open = GlobalStates.sidebarLeftOpen;
+        }
+    }
+
+    // Pinned survives restarts and reboots (Persistent states.json), and a
+    // sidebar left open pinned opens again.
+    function restorePin() {
+        root.pin = Persistent.states.sidebar.left.pinned;
+        if (root.pin && Persistent.states.sidebar.left.open) GlobalStates.sidebarLeftOpen = true;
+    }
+    Connections {
+        target: Persistent
+        function onReadyChanged() {
+            if (Persistent.ready) root.restorePin();
+        }
+    }
+    onPinChanged: {
+        if (!Persistent.ready) return;
+        Persistent.states.sidebar.left.pinned = root.pin;
+        Persistent.states.sidebar.left.open = root.pin && GlobalStates.sidebarLeftOpen;
     }
 
     function toggleDetach() {
@@ -46,6 +67,7 @@ Scope { // Scope
             "scopeRoot": root,
         });
         root.sidebarContent.parent = sidebarLoader.item.contentParent; // append (keeps the Persona texture child)
+        if (Persistent.ready) root.restorePin();
     }
 
     onDetachChanged: {
@@ -173,10 +195,17 @@ Scope { // Scope
                 }
             }
 
-            mask: panelWindow.reallyVisible ? openMask : noInput
+            // Pinned, only the panel's own reserved strip takes input: the
+            // window is wider (extended width, shadow), and that transparent
+            // rest lies over the windows beside it.
+            mask: !panelWindow.reallyVisible ? noInput : root.pin ? pinnedMask : openMask
             Region {
                 id: openMask
                 item: fullMaskArea
+            }
+            Region {
+                id: pinnedMask
+                item: pinnedMaskArea
             }
             Region { id: noInput }
 
@@ -206,13 +235,19 @@ Scope { // Scope
                 id: fullMaskArea
                 anchors.fill: parent
             }
+            Item {
+                id: pinnedMaskArea
+                anchors { top: parent.top; bottom: parent.bottom; left: parent.left }
+                width: panelWindow.sidebarWidth
+            }
 
+            // Beside the panel: closes it, unless pinned (part of the layout).
             MouseArea {
                 hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
+                cursorShape: root.pin ? Qt.ArrowCursor : Qt.PointingHandCursor
                 id: outsideClickArea
                 anchors.fill: parent
-                onClicked: panelWindow.hide()
+                onClicked: if (!root.pin) panelWindow.hide()
             }
 
             StyledRectangularShadow {

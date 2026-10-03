@@ -80,6 +80,12 @@ Singleton {
                     property bool collapsed: false
                     property int tab: 0
                 }
+                // The left sidebar pinned (Ctrl+P), and open while pinned:
+                // it opens pinned again after a restart or reboot.
+                property JsonObject left: JsonObject {
+                    property bool pinned: false
+                    property bool open: false
+                }
             }
 
 
