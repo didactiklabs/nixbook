@@ -1819,7 +1819,10 @@ COORD = {"type": "number"}
     "coordinates. A window not on screen: focus it first (focus_window with "
     "screenshot_after does both in one call). A monitor screenshot sends only "
     "what changed since your last one of it (the rest is as you saw it), or "
-    "says nothing did; `full` sends it all.",
+    "says nothing did; `full` sends it all. To read a window's buttons, "
+    "fields or text, or to check that something showed, ui_read and "
+    "ui_wait cost far less and are exact: screenshot when they show "
+    "nothing (games, canvases) or for the look of things.",
     obj(
         {
             "monitor": {"type": "string", "description": "Monitor name (see list_workspaces)"},
@@ -4011,7 +4014,8 @@ def ui_resolve(Atspi, path):
     "readers see): its buttons, fields, labels, list items… numbered for "
     "ui_act, with their text and state (focused, checked…). A few hundred "
     "tokens instead of a screenshot, and exact. The focused window unless "
-    "`window_id`; only what's showing. Prefer `find`: what you read goes to "
+    "`window_id`; only what's showing. To wait for something to show, "
+    "ui_wait. Prefer `find`: what you read goes to "
     "the model provider. Password fields never show their text; terminals "
     "and password managers are refused.",
     obj({
@@ -4028,6 +4032,16 @@ def t_ui_read(ctx, args):
     cap = min(max(int(args.get("max_elements") or 80), 1), 400)
     frame_path, frame = ui_frame(Atspi, w)
     found, truncated = ui_walk(Atspi, frame, frame_path, find, cap)
+    head = f"{w.get('app_id')} — {w.get('title')!r} (window {w.get('id')})"
+    if not found:
+        ui_listing(w, found)
+        return [text(head + "\n" + ("nothing matches" if find else "no element showing"))]
+    more = "\n… (more: raise max_elements or use find)" if truncated else ""
+    return [text(head + "\n" + ui_listing(w, found) + more)]
+
+
+def ui_listing(w, found):
+    """The elements as numbered lines, saved for ui_act's `index`."""
     refs = {"window": w.get("id"), "pid": w.get("pid"), "items": []}
     lines = []
     for n, (path, role, name, line, states) in enumerate(found, 1):
@@ -4036,11 +4050,118 @@ def t_ui_read(ctx, args):
     fd = os.open(ui_refs_path(), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         json.dump(refs, f)
-    head = f"{w.get('app_id')} — {w.get('title')!r} (window {w.get('id')})"
-    if not lines:
-        return [text(head + "\n" + ("nothing matches" if find else "no element showing"))]
-    more = "\n… (more: raise max_elements or use find)" if truncated else ""
-    return [text(head + "\n" + "\n".join(lines) + more)]
+    return "\n".join(lines)
+
+
+# What makes ui_wait read the window again: the tree or a text changed.
+UI_WAIT_EVENTS = (
+    "object:children-changed", "object:state-changed", "object:text-changed",
+    "object:property-change:accessible-name", "document:load-complete", "window:activate",
+)
+# One ui_wait at a time pumps the GLib main context (libatspi's events come
+# through it); a second one meanwhile polls.
+_ui_events_lock = threading.Lock()
+
+
+def ui_event_waiter(Atspi):
+    """A function waiting up to `seconds` for an accessibility event (True
+    when one came) and its cleanup, or (None, None) when events can't be
+    listened to: ui_wait then polls."""
+    try:
+        from gi.repository import GLib
+        if not _ui_events_lock.acquire(blocking=False):
+            return None, None
+        changed = [False]
+
+        def on_event(_event):
+            changed[0] = True
+
+        listener = Atspi.EventListener.new(on_event)
+        registered = [e for e in UI_WAIT_EVENTS if listener.register(e)]
+    except Exception:
+        if _ui_events_lock.locked():
+            _ui_events_lock.release()
+        return None, None
+    context = GLib.MainContext.default()
+
+    def wait(seconds):
+        end = time.monotonic() + seconds
+        while not changed[0] and time.monotonic() < end:
+            if not context.iteration(False):
+                time.sleep(0.02)
+        hit, changed[0] = changed[0], False
+        return hit
+
+    def close():
+        try:
+            for e in registered:
+                listener.deregister(e)
+        finally:
+            _ui_events_lock.release()
+
+    if not registered:
+        close()
+        return None, None
+    return wait, close
+
+
+@tool(
+    "ui_wait",
+    "ui",
+    "Wait until an element whose line contains `find` shows in a window's "
+    "accessibility tree (a page loaded, a dialog or result appeared), or "
+    "with `gone` until none does (a spinner, a dialog closed); it reads "
+    "the window again whenever the app reports a change. Use it instead of "
+    "a fixed wait and a screenshot. Returns the matching elements numbered "
+    "for ui_act, like ui_read. The focused window unless `window_id`.",
+    obj({
+        "find": {"type": "string", "description": "Text of the element's line (role, name or text), any case"},
+        "gone": {"type": "boolean", "description": "Wait until nothing matches instead"},
+        "window_id": {"type": "integer", "description": "From list_windows; default: the focused window"},
+        "timeout_ms": {"type": "integer", "description": "Give up after this long (default 5000, at most 15000)"},
+    }, ["find"]),
+    read_only=True,
+)
+def t_ui_wait(ctx, args):
+    find = as_str(args, "find", max_len=200).lower()
+    gone = args.get("gone") is True
+    timeout = args.get("timeout_ms", 5000)
+    if isinstance(timeout, bool) or not isinstance(timeout, int) or not 100 <= timeout <= 15000:
+        raise ToolError("`timeout_ms` must be 100 to 15000")
+    w = ui_window(ctx, args)
+    Atspi = atspi()
+    start = time.monotonic()
+    deadline = start + timeout / 1000
+    wait, close = ui_event_waiter(Atspi)
+    try:
+        while True:
+            now_w = window_by_id(w.get("id"))
+            if not now_w or now_w.get("pid") != w.get("pid"):
+                raise ToolError("the window closed while waiting")
+            frame_path, frame = ui_frame(Atspi, now_w)
+            found, _ = ui_walk(Atspi, frame, frame_path, find, 1 if gone else 20)
+            if bool(found) != gone:
+                break
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                state = "still showing" if gone else "not showing"
+                raise ToolError(f"{find!r} {state} after {timeout} ms: ui_read to see what is")
+            if is_paused():
+                raise ToolError("stopped: desktop control was paused by the user")
+            if wait:
+                # Woken by an event: let the burst that follows land first.
+                if wait(min(remaining, 1.0)):
+                    time.sleep(min(0.15, max(deadline - time.monotonic(), 0)))
+            else:
+                time.sleep(min(remaining, 0.4))
+    finally:
+        if close:
+            close()
+    took = f"after {int((time.monotonic() - start) * 1000)} ms"
+    head = f"{now_w.get('app_id')} — {now_w.get('title')!r} (window {now_w.get('id')})"
+    if gone:
+        return [text(f"{head}\n{find!r} gone {took}")]
+    return [text(f"{head}\n{find!r} showing {took}:\n" + ui_listing(now_w, found))]
 
 
 # Actions an element offers, by what ui_act's `click` may use.
@@ -4266,9 +4387,15 @@ INSTRUCTIONS = (
     "take screenshot_after: true to return a screenshot of the result in the "
     "same call; run_steps does several actions (keys, typing, clicks, waits) "
     "in one call. Prefer apps' keyboard shortcuts (a quick switcher, a search "
-    "box) and the window tools over pointer clicks; to find text or a "
-    "labelled button, read_screen (with `find`) costs far less than a "
-    "screenshot and gives positions to click as they are; to click in a "
+    "box) and the window tools over pointer clicks. Look before you "
+    "screenshot: ui_read (with `find`) gives a window's buttons, fields "
+    "and text exactly for a few hundred tokens, ui_act presses or fills "
+    "them without coordinates, and ui_wait waits for something to show "
+    "(a page loaded, a dialog) instead of a fixed wait and a screenshot; "
+    "when an app shows no tree (games, canvases, images), read_screen "
+    "(with `find`) still costs far less than a screenshot and gives "
+    "positions to click as they are. Screenshot only for what neither "
+    "tells (layout, pictures); to click in a "
     "screenshot, give its pixel coordinates with its mapping. Input into terminals, "
     "password managers and password prompts is refused: ask the user to do "
     "those steps. The user can pause desktop control at any time from the "
