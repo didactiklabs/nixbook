@@ -1207,6 +1207,7 @@ expect_eq "desktop agent: no empty window opened" "" "$(grep systemctl "$calls" 
 # Closed while no app is on it: the window tools wait for one, the shell
 # tools (the user's notes…) work.
 expect_contains "agent desktop closed: window tools wait for an app" "$(call list_windows)" "start the app you need with launch_app"
+expect_contains "agent desktop closed: the ui tools never read the user's windows" "$(call ui_read)" "start the app you need with launch_app"
 reset_calls
 out=$(call widget '{"widget":"notes","action":"add","text":"flat: 3 rooms, 1200 EUR"}')
 expect_eq "agent desktop: notes go to the user's shell" "flat: 3 rooms, 1200 EUR" "$(cat "$calls.note")"
@@ -1223,6 +1224,9 @@ expect_contains "agent desktop: an app opening on the user's desktop is reported
 rm -f "$calls.launched"
 call focus_window '{"id": 1}' >/dev/null
 expect_eq "agent desktop: tools reach its niri" "$STUB_AGENT_SOCKET" "$(cat "$calls.socket")"
+# Its apps' trees are on its own accessibility bus (run/at-spi/bus_N), never the user's.
+expect_contains "agent desktop: ui tools use its own accessibility bus" \
+  "$(STUB_AGENT_HAS_WINDOW=1 call ui_read)" "no accessibility tree on your desktop"
 expect_eq "agent desktop: status says so" agent "$(call get_status | jq -r .desktop)"
 # Its niri has no virtual pointer here: refused, never ydotool (uinput: the user's desktop).
 reset_calls

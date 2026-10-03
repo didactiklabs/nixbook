@@ -243,7 +243,8 @@ focuses or sets the text of one through the app itself, without
 coordinates. `ui_wait` waits until an element shows (a page loaded, a
 dialog opened) or is gone, reading the window again on each change the app
 reports, instead of a fixed wait and a screenshot. Agents are told to look
-through these before taking a screenshot. After `type_text` and `press_keys` the result says which
+through these before taking a screenshot. On the agent desktop they read its
+apps through its own accessibility bus (its sandbox's), never yours. After `type_text` and `press_keys` the result says which
 element has the keyboard focus, so agents needn't screenshot to check where
 the keys went. Only the windows niri lists and what is showing are read;
 terminals, password managers and password prompts are refused, and password
@@ -505,7 +506,9 @@ Its apps are the agent's, not yours, and sandboxed (bubblewrap): **they see
 none of your files**. Their home is `~/.local/share/nixbook-shell/agent-home`
 (their own browser profiles, history and logins); your GTK/Qt/font settings
 are visible read-only so apps look the same, the **Folders AI agents may
-read** read-only (from its next start), and nothing else of your home, of
+read** read-only (from its next start), also where its apps look for them:
+a shared folder of your home is at the same place in theirs (their
+`~/Pictures` is yours, and is their Pictures folder), and nothing else of your home, of
 /mnt, /media or other homes, nor the system's logs and state (`/var/log`,
 `/var/lib`) or `/etc/nixos`. They get their own D-Bus session (no keyring,
 portals or notifications of yours; a browser you already have open still

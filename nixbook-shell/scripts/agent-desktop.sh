@@ -21,7 +21,9 @@
 # own browser profiles and logins); the user's GTK/Qt/font settings are
 # visible read-only so apps look the same; the folders the user allows
 # (shell setting ai.allowedFolders) read-only, and those they may write
-# (ai.writableFolders; the first is their Downloads); the rest of the home, /mnt,
+# (ai.writableFolders; the first is their Downloads), at their own path and,
+# those in the user's home, at the same place in theirs too (links: their
+# ~/Pictures is the user's); the rest of the home, /mnt,
 # /media, the other users' homes, /var/log, /var/lib and /etc/nixos are
 # empty. Their own D-Bus session (a private bus: no keyring, portals or
 # notifications of the user's), no system bus, none of the user's runtime
@@ -246,13 +248,19 @@ for path in ${look[@]+"${look[@]}"}; do
   sandbox+=(--ro-bind "$path" "$path")
 done
 # The folders the user lets AI agents read.
+shared=()
 if [ -r "$shell_config" ]; then
   while IFS= read -r folder; do
     [ -n "$folder" ] || continue
     # shellcheck disable=SC2088 # a literal ~ from the setting, expanded here
     case "$folder" in "~") folder="$HOME" ;; "~/"*) folder="$HOME/${folder#"~/"}" ;; esac
     case "$folder" in
-    /*) [ -d "$folder" ] && sandbox+=(--ro-bind "$folder" "$folder") ;;
+    /*)
+      if [ -d "$folder" ]; then
+        sandbox+=(--ro-bind "$folder" "$folder")
+        shared+=("${folder%/}")
+      fi
+      ;;
     *) echo "nixbook-agent-desktop: ignoring $folder (not an absolute path)" >&2 ;;
     esac
   done < <(jq -r '.ai.allowedFolders // [] | .[] | strings' "$shell_config" 2>/dev/null || true)
@@ -273,6 +281,7 @@ if [ -r "$shell_config" ]; then
     "" | "$HOME") echo "nixbook-agent-desktop: not making ${folder:-/} writable (the whole home or /)" >&2 ;;
     /*)
       mkdir -p "$folder" && sandbox+=(--bind "$folder" "$folder")
+      shared+=("$folder")
       if $first; then
         download_dir="$folder"
         first=false
@@ -282,8 +291,57 @@ if [ -r "$shell_config" ]; then
     esac
   done < <(jq -r '.ai.writableFolders // [] | .[] | strings' "$shell_config" 2>/dev/null || true)
 fi
+
+# The shared folders of the user's home are also where the agent's apps look
+# for them: the same place in their own home (~/Pictures, a link to the
+# user's), so file dialogs, darktable's import… find them. The links of the
+# last start go first (a folder may be shared no more).
+links_file="$agent_home/.config/nixbook-shared-links"
+if [ -r "$links_file" ]; then
+  while IFS= read -r link; do
+    case "$link" in "$agent_home"/*) ;; *) continue ;; esac
+    if [ -L "$link" ]; then
+      rm -f "$link"
+      rmdir -p --ignore-fail-on-non-empty "$(dirname "$link")" 2>/dev/null || true
+    fi
+  done <"$links_file"
+fi
 mkdir -p "$agent_home/.config"
-printf 'XDG_DOWNLOAD_DIR="%s"\n' "$download_dir" >"$agent_home/.config/user-dirs.dirs"
+: >"$links_file"
+# Sorted: a folder before those inside it (inside a linked one, they are there).
+while IFS= read -r folder; do
+  case "$folder" in "$HOME"/*) ;; *) continue ;; esac
+  link="$agent_home/${folder#"$HOME"/}"
+  if [ ! -e "$link" ] && [ ! -L "$link" ]; then
+    mkdir -p "$(dirname "$link")"
+    ln -s "$folder" "$link"
+    printf '%s\n' "$link" >>"$links_file"
+  fi
+done < <(printf '%s\n' ${shared[@]+"${shared[@]}"} | sort -u)
+
+# Their XDG folders: Downloads, and those of the user's (Pictures,
+# Documents…) that are shared, so apps open them by default.
+{
+  printf 'XDG_DOWNLOAD_DIR="%s"\n' "$download_dir"
+  if [ -r "$config_home/user-dirs.dirs" ]; then
+    while IFS='=' read -r key value; do
+      case "$key" in XDG_*_DIR) ;; *) continue ;; esac
+      [ "$key" = XDG_DOWNLOAD_DIR ] && continue
+      value="${value#\"}"
+      value="${value%\"}"
+      # shellcheck disable=SC2016 # user-dirs.dirs' literal $HOME
+      value="${value/#'$HOME'/$HOME}"
+      value="${value%/}"
+      for folder in ${shared[@]+"${shared[@]}"}; do
+        case "$value" in "$folder" | "$folder"/*)
+          printf '%s="%s"\n' "$key" "$value"
+          break
+          ;;
+        esac
+      done
+    done <"$config_home/user-dirs.dirs"
+  fi
+} >"$agent_home/.config/user-dirs.dirs"
 
 # Their own network: pasta gives it the internet and the LAN through this
 # computer's connection, without its loopback (-T/-U none, --no-map-gw: the
