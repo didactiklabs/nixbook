@@ -304,7 +304,8 @@ def agent_stopped():
 
 def needs_agent_desktop(name, group):
     """Tools that look at or act on the agent desktop's windows."""
-    return (group in ("screen", "windows", "input") and name != "notifications") or name in ("list_windows", "list_workspaces")
+    return ((group in ("screen", "windows", "input", "ui") and name != "notifications")
+            or name in ("list_windows", "list_workspaces"))
 
 
 def use_desktop(name="get_status", group="observe"):
@@ -3853,22 +3854,109 @@ def atspi_bus_check(Gio, GLib):
             None, None)
         conn.close_sync(None)
     except GLib.Error as e:
+        if on_agent_desktop():
+            raise ToolError(f"your desktop's accessibility bus is unreachable ({e.message}): use screenshots "
+                            "or read_screen; closing your apps restarts your desktop and its bus")
         raise ToolError(
             f"the accessibility bus is unreachable ({e.message}); restart it with "
             "`systemctl --user restart at-spi-dbus-bus`, or log out and in again"
         )
 
 
+# The agent desktop's apps publish their trees on its own accessibility bus:
+# its sandbox has a session bus of its own, which starts one (at-spi-bus-
+# launcher) when the first app asks, its socket in the runtime directory the
+# sandbox shares with us (run/at-spi/bus_N). libatspi keeps the bus it first
+# connected to for the life of the process: this one's ("" for the user's,
+# found the usual way), once connected. Then the ui tools for the other
+# desktop run in a process of their own (in_ui_worker), and so do they once
+# the agent desktop restarted (a new bus: its socket's inode tells).
+_atspi_bus = None
+
+
+class UiElsewhere(Exception):
+    """This process's libatspi is on the other desktop's bus."""
+
+
+def ui_bus_address():
+    """The accessibility bus of the desktop the tools act on, and what tells
+    that bus from another: "" for the user's (AT_SPI_BUS_ADDRESS, else
+    asked from the session bus)."""
+    if not on_agent_desktop():
+        return "", ""
+    bus_dir = os.path.join(agent_desktop_dir(), "run", "at-spi")
+    socks = []
+    try:
+        for name in os.listdir(bus_dir):
+            path = os.path.join(bus_dir, name)
+            if name.startswith("bus") and stat.S_ISSOCK(os.stat(path).st_mode):
+                socks.append(path)
+    except OSError:
+        pass
+    if not socks:
+        raise ToolError("no accessibility tree on your desktop: none of its apps published one (they start "
+                        "its accessibility bus); use screenshots or read_screen")
+    path = max(socks, key=os.path.getmtime)
+    return f"unix:path={path}", f"{path}#{os.stat(path).st_ino}"
+
+
 def atspi():
+    global _atspi_bus
+    address, bus = ui_bus_address()
+    if _atspi_bus is not None and _atspi_bus != bus:
+        raise UiElsewhere(bus)
     try:
         import gi
         gi.require_version("Atspi", "2.0")
         from gi.repository import Atspi, Gio, GLib
     except (ImportError, ValueError) as e:
         raise ToolError(f"the accessibility tools need PyGObject and at-spi2-core's typelib ({e})")
-    atspi_bus_check(Gio, GLib)
-    Atspi.set_timeout(1500, 5000)
+    # Only while connecting: the apps launch_app starts mustn't inherit it.
+    saved = os.environ.get("AT_SPI_BUS_ADDRESS")
+    if address:
+        os.environ["AT_SPI_BUS_ADDRESS"] = address
+    try:
+        atspi_bus_check(Gio, GLib)
+        Atspi.set_timeout(1500, 5000)
+        if _atspi_bus is None:
+            Atspi.get_desktop(0).get_child_count()  # connects, for good
+            _atspi_bus = bus
+    finally:
+        if saved is None:
+            os.environ.pop("AT_SPI_BUS_ADDRESS", None)
+        else:
+            os.environ["AT_SPI_BUS_ADDRESS"] = saved
     return Atspi
+
+
+def in_ui_worker(fn):
+    """A ui tool, run in a fresh process when this one's libatspi is
+    connected to the other desktop's accessibility bus (the user switched
+    desktops since). The rate limit is counted here, its process has none."""
+    def wrapper(ctx, args):
+        try:
+            return fn(ctx, args)
+        except UiElsewhere:
+            pass
+        name = fn.__name__.removeprefix("t_")
+        if name == "ui_act":
+            ctx.guard.check_rate()
+        try:
+            # os.environ: the desktop the tools act on, as use_desktop set it.
+            p = subprocess.run([sys.executable, os.path.abspath(__file__), "ui-worker", name],
+                               input=json.dumps(args), capture_output=True, text=True, timeout=40)
+        except subprocess.TimeoutExpired:
+            raise ToolError("the accessibility tools didn't answer in time")
+        try:
+            out = json.loads(p.stdout)
+        except ValueError:
+            raise ToolError(f"the accessibility tools failed: {p.stderr.strip()[-300:] or 'no output'}")
+        if "error" in out:
+            raise ToolError(out["error"])
+        return out["content"]
+
+    wrapper.__name__ = fn.__name__
+    return wrapper
 
 
 def ui_refs_path():
@@ -4025,6 +4113,7 @@ def ui_resolve(Atspi, path):
     }),
     read_only=True,
 )
+@in_ui_worker
 def t_ui_read(ctx, args):
     w = ui_window(ctx, args)
     Atspi = atspi()
@@ -4122,6 +4211,7 @@ def ui_event_waiter(Atspi):
     }, ["find"]),
     read_only=True,
 )
+@in_ui_worker
 def t_ui_wait(ctx, args):
     find = as_str(args, "find", max_len=200).lower()
     gone = args.get("gone") is True
@@ -4183,6 +4273,7 @@ UI_CLICK_ACTIONS = ("click", "press", "activate", "toggle", "jump", "open", "sel
     }, ["index", "action"]),
     destructive=True,
 )
+@in_ui_worker
 def t_ui_act(ctx, args):
     index, action = args.get("index"), as_str(args, "action", max_len=40).lower()
     try:
@@ -4798,6 +4889,16 @@ def main(argv):
             serve_http(cfg, port)
         else:
             serve_stdio(cfg)
+        return 0
+    if cmd == "ui-worker":
+        # Internal (in_ui_worker): one ui tool, its arguments on stdin, on the
+        # desktop the caller's environment points at.
+        ctx = Context(cfg, "worker", os.environ.get("NIXBOOK_DESKTOP_MCP_CLIENT", "worker"), notify=False)
+        try:
+            content = TOOLS[argv[1]]["fn"](ctx, json.loads(sys.stdin.read() or "{}"))
+            print(json.dumps({"content": content}))
+        except ToolError as e:
+            print(json.dumps({"error": str(e)}))
         return 0
     if cmd == "tools":
         print(json.dumps([t["spec"] for t in enabled_tools(cfg).values()], indent=1))
