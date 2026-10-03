@@ -11,7 +11,7 @@ import Quickshell
  * singleton adds what data can't: the variant's spirit (GhibliSpirit: the
  * sidebars' corner, the loading screen, the cut-in), the scatter behind the
  * sidebars (GhibliDecor) and the tokens of its cut-in (GhibliCutIn.qml, a
- * painted card drifting in on the wind).
+ * frosted-glass card drifting in on the wind).
  *
  * Variants: totoro (summer greens; the forest spirit, leaves and soot
  * sprites), spirited (the bathhouse at night; the masked spirit, paper birds,
@@ -29,13 +29,14 @@ Singleton {
 
     readonly property var spec: Themes.variantsOf("ghibli").find(v => v.id === root.variant)?.palette ?? ({})
 
-    // The cut-in's colours: the paper card, its ink, the accent (seal,
-    // buttons), the warm glow, and what drifts across (leaves, paper birds,
-    // fireflies).
+    // The cut-in's colours: the glass card's tint, its ink, the accent
+    // (chips, buttons, a glow behind the glass), the warm colour (the other
+    // glow by day), the lantern glow, and what drifts across (leaves, paper
+    // birds, fireflies).
     readonly property color paper: root.spec.background ?? "#f6f4e8"
     readonly property color ink: root.spec.ink ?? "#26322a"
     readonly property color accent: root.spec.primary ?? "#3c7a3f"
-    readonly property color seal: root.spec.accent ?? "#e8a33d"
+    readonly property color warm: root.spec.accent ?? "#e8a33d"
     readonly property color glow: root.spec.glow ?? "#ffe9a8"
     readonly property color drift: root.variant === "spirited" ? "#f6f1e4" : (root.variant === "mononoke" ? (root.spec.glow ?? "#c8f5ff") : (root.spec.leaf ?? "#4f8a3c"))
     // Night variants: the card is lit from inside (a glow), not shaded.

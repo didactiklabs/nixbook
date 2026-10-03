@@ -242,262 +242,341 @@ def soot(cx, cy, r, rnd, eyes=True):
 TAU = 2 * math.pi
 
 
+# ================================================================ finishing
+# The modern painted look: light that blooms (screen-blended blurred
+# copies), haze for depth, a colour grade (soft light), film grain and a
+# vignette over everything.
+FINISH_DEFS = [
+    '<filter id="grain" x="0" y="0" width="100%" height="100%">'
+    '<feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7"/>'
+    '<feColorMatrix type="matrix" values="0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0.9 0"/></filter>',
+    rgrad("vignette", [(0.55, "#000000", 0), (1, "#000000", 0.55)], 0.5, 0.5, 0.75),
+]
+
+
+def finish(grade_top, grade_bottom, grade=0.35, vignette=0.6, grain=0.07):
+    """The grade (a soft-light wash from one tint to another), the grain and
+    the vignette, laid over the whole picture."""
+    return [
+        f'<defs>{lgrad("grade", [(0, grade_top, 1), (1, grade_bottom, 1)], x2=1, y2=1)}</defs>',
+        rect(0, 0, W, H, fill="url(#grade)", opacity=grade, extra=' style="mix-blend-mode:soft-light"'),
+        rect(0, 0, W, H, fill="#808080", opacity=grain, filt="grain", extra=' style="mix-blend-mode:overlay"'),
+        rect(0, 0, W, H, fill="url(#vignette)", opacity=vignette),
+    ]
+
+
+def screen(body, opacity=1.0, filt=None):
+    """Light added on top (bloom, rays, glows)."""
+    a = f' opacity="{f(opacity)}"' if opacity < 1 else ""
+    fl = f' filter="url(#{filt})"' if filt else ""
+    return f'<g style="mix-blend-mode:screen"{a}{fl}>' + "".join(body) + "</g>"
+
+
+def bokeh(rnd, n_, x0, x1, y0, y1, r0, r1, color, opacity, filt="bokeh"):
+    """Out-of-focus light: soft discs of various sizes."""
+    return screen([circle(rnd.uniform(x0, x1), rnd.uniform(y0, y1), rnd.uniform(r0, r1), fill=color,
+                          opacity=opacity * (0.4 + 0.6 * rnd.random())) for _ in range(n_)], filt=filt)
+
+
 # ================================================================== Totoro
-def cloud(cx, cy, s, rnd, shade, top="#ffffff"):
-    """A towering summer cumulus: stacked puffs, shaded underneath."""
+def cloud(cx, cy, s, rnd, p):
+    """A towering summer cumulus, painted as one soft mass: a blue-grey body,
+    the sunlit top laid over it (offset toward the sun and blurred, so the
+    light turns gradually into shadow), a warm rim, the flat base."""
     puffs = []
-    for k in range(34):
-        level = rnd.random()
-        x = cx + (rnd.random() - 0.5) * 520 * s * (1 - 0.55 * level)
-        y = cy - level * 420 * s
-        r = (90 - 40 * level + rnd.random() * 40) * s
+    for _ in range(46):
+        level = rnd.random() ** 0.8
+        x = cx + (rnd.random() - 0.5) * 560 * s * (1 - 0.6 * level)
+        y = cy - level * 440 * s
+        r = (95 - 45 * level + rnd.random() * 45) * s
         puffs.append((x, y, r))
-    puffs.sort(key=lambda q: -q[1])
-    shadow = [circle(x + 10 * s, y + 22 * s, r, fill=shade) for x, y, r in puffs]
-    body = [circle(x, y, r * 0.96, fill="url(#puff)") for x, y, r in puffs]
-    light = [circle(x - r * 0.25, y - r * 0.3, r * 0.5, fill="#ffffff") for x, y, r in puffs if y < cy - 120 * s]
-    base = rect(cx - 330 * s, cy + 30 * s, 660 * s, 70 * s, rx=35 * s, fill=shade)
-    return [g(shadow + [base], filt="soft"), g(body, filt="soft"), g(light, opacity=0.45, filt="soft")]
+    base = path(f"M{f(cx - 340 * s)} {f(cy + 70 * s)} Q{f(cx)} {f(cy + 34 * s)} {f(cx + 340 * s)} {f(cy + 70 * s)} "
+                f"L{f(cx + 300 * s)} {f(cy + 10 * s)} L{f(cx - 300 * s)} {f(cy + 10 * s)} Z", fill="#9db3cf")
+    shadow = [base] + [circle(x, y, r, fill="#a9bdd8") for x, y, r in puffs]
+    mid = [circle(x - r * 0.14, y - r * 0.16, r * 0.8, fill="#d6e2f0") for x, y, r in puffs]
+    lit = [circle(x - r * 0.3, y - r * 0.34, r * 0.5, fill="#ffffff") for x, y, r in puffs]
+    rim = [circle(x - r * 0.32, y - r * 0.36, r * 0.42, fill="#fff3d6") for x, y, r in puffs if y < cy - 120 * s]
+    return [g(shadow, filt="softer"), g(mid, filt="soft"), g(lit, filt="cloudlight"), screen(rim, 0.35, "cloudlight")]
 
 
 def camphor(cx, base, s, rnd, p):
-    """The great camphor tree: a thick trunk and a huge rounded crown."""
-    leaf, dark = p["leaf"], mix(p["leaf"], "#0d2412", 0.55)
-    light = mix(p["leaf"], "#e8f5c8", 0.35)
-    out = [path(f"M{f(cx - 60 * s)} {f(base)} C{f(cx - 40 * s)} {f(base - 120 * s)} {f(cx - 50 * s)} {f(base - 230 * s)} "
-                f"{f(cx - 20 * s)} {f(base - 330 * s)} L{f(cx + 30 * s)} {f(base - 330 * s)} C{f(cx + 50 * s)} {f(base - 230 * s)} "
-                f"{f(cx + 45 * s)} {f(base - 120 * s)} {f(cx + 75 * s)} {f(base)} Z", fill="#4b3a2c")]
+    """The great camphor tree: a thick shaded trunk, a huge crown of leaf
+    clumps lit from the upper left, sun dapples."""
+    leaf = p["leaf"]
+    dark, deep = mix(leaf, "#0b2a1a", 0.55), mix(leaf, "#05140c", 0.75)
+    out = [path(f"M{f(cx - 64 * s)} {f(base)} C{f(cx - 40 * s)} {f(base - 120 * s)} {f(cx - 52 * s)} {f(base - 230 * s)} "
+                f"{f(cx - 22 * s)} {f(base - 340 * s)} L{f(cx + 32 * s)} {f(base - 340 * s)} C{f(cx + 52 * s)} {f(base - 230 * s)} "
+                f"{f(cx + 46 * s)} {f(base - 120 * s)} {f(cx + 80 * s)} {f(base)} Z", fill="url(#bark)")]
     for side in (-1, 1):
-        out.append(path(f"M{f(cx)} {f(base - 260 * s)} Q{f(cx + side * 120 * s)} {f(base - 330 * s)} {f(cx + side * 220 * s)} {f(base - 360 * s)}",
-                        stroke="#4b3a2c", width=26 * s))
-    blobs = []
-    for k in range(70):
+        out.append(path(f"M{f(cx)} {f(base - 270 * s)} Q{f(cx + side * 130 * s)} {f(base - 340 * s)} {f(cx + side * 230 * s)} {f(base - 370 * s)}",
+                        stroke="#3d2f25", width=24 * s))
+    clumps = []
+    for _ in range(85):
         a = rnd.random() * math.pi
         rr = rnd.random() ** 0.6
-        x = cx + math.cos(a) * 420 * s * rr * (1 if rnd.random() < 0.5 else -1) * 0.95
-        y = base - 420 * s - math.sin(a) * 300 * s * rr
-        blobs.append((x, y, (70 + rnd.random() * 60) * s))
-    out.append(g([circle(x + 8 * s, y + 18 * s, r, fill=dark) for x, y, r in blobs], filt="soft"))
-    out.append(g([circle(x, y, r * 0.9, fill=leaf) for x, y, r in blobs], filt="soft"))
-    out.append(g([circle(x - r * 0.3, y - r * 0.35, r * 0.45, fill=light) for x, y, r in blobs if y < base - 450 * s],
-                 opacity=0.75, filt="soft"))
+        x = cx + math.cos(a) * 440 * s * rr * (1 if rnd.random() < 0.5 else -1) * 0.95
+        y = base - 430 * s - math.sin(a) * 310 * s * rr
+        clumps.append((x, y, (64 + rnd.random() * 62) * s))
+    clumps.sort(key=lambda c: c[1])
+    out.append(g([circle(x + 6 * s, y + 14 * s, r, fill=deep) for x, y, r in clumps], filt="softer"))
+    out.append(g([circle(x - r * 0.08, y - r * 0.1, r * 0.82, fill=dark) for x, y, r in clumps], filt="softer"))
+    out.append(g([circle(x - r * 0.2, y - r * 0.25, r * 0.6, fill=leaf) for x, y, r in clumps], filt="soft"))
+    out.append(g([circle(x - r * 0.32, y - r * 0.38, r * 0.34, fill=mix(leaf, "#d8f08a", 0.5)) for x, y, r in clumps
+                  if rnd.random() < 0.7], filt="soft"))
+    out.append(screen([circle(x - r * 0.38, y - r * 0.44, r * 0.16, fill="#f6ffc8") for x, y, r in clumps
+                       if y < base - 470 * s and rnd.random() < 0.5], 0.5, "softer"))
     return out
 
 
 def totoro_wallpaper(p):
     rnd = random.Random(1988)
-    sky = p["sky"]
-    defs = [lgrad("sky", [(0, mix(sky, "#2f6fb0", 0.45), 1), (0.55, sky, 1), (1, "#eef5ea", 1)]),
-            lgrad("field", [(0, mix(p["leaf"], "#c9e39a", 0.5), 1), (1, mix(p["leaf"], "#14361a", 0.35), 1)]),
-            rgrad("sun", [(0, "#fffbe6", 0.9), (1, "#fffbe6", 0)], 0.25, 0.1, 0.45),
-            rgrad("puff", [(0, "#ffffff", 1), (0.55, "#f7f9fc", 1), (0.85, "#d5e1ee", 1), (1, "#b9cbe0", 1)], 0.38, 0.3, 0.7),
-            blur("soft", 6), blur("softer", 2.5), blur("haze", 18)]
+    leaf = p["leaf"]
+    defs = FINISH_DEFS + [
+        lgrad("sky", [(0, "#1f6fc4", 1), (0.45, "#5aaee8", 1), (0.78, "#a9d8f2", 1), (1, "#fdf0d2", 1)]),
+        rgrad("sun", [(0, "#fffbe8", 1), (0.12, "#fff3c4", 0.9), (0.45, "#ffe7a0", 0.25), (1, "#ffe7a0", 0)], 0.12, 0.06, 0.6),
+        rgrad("puff", [(0, "#ffffff", 1), (0.5, "#fbfcff", 1), (0.78, "#d9e5f2", 1), (1, "#a7bcd6", 1)], 0.32, 0.26, 0.75),
+        rgrad("foliage", [(0, mix(leaf, "#d8f08a", 0.45), 1), (0.55, leaf, 1), (1, mix(leaf, "#0b2a1a", 0.5), 1)], 0.3, 0.25, 0.8),
+        lgrad("bark", [(0, "#6b5442", 1), (0.5, "#4a3a2e", 1), (1, "#2a1f19", 1)], x2=1, y2=0),
+        lgrad("far", [(0, "#7fa8cc", 1), (1, "#b9d6e6", 1)]),
+        lgrad("mid", [(0, mix(leaf, "#6c96b0", 0.5), 1), (1, mix(leaf, "#b9d6e6", 0.35), 1)]),
+        lgrad("near", [(0, mix(leaf, "#9cc96b", 0.2), 1), (1, mix(leaf, "#1d4a24", 0.35), 1)]),
+        lgrad("water", [(0, "#cfe9f7", 0.9), (1, "#7fb7dc", 0.9)]),
+        lgrad("hill", [(0, mix(leaf, "#b8dc72", 0.3), 1), (1, mix(leaf, "#123a1c", 0.45), 1)], x2=1, y2=1),
+        lgrad("ray", [(0, "#fff6d0", 0.5), (1, "#fff6d0", 0)], x2=0.6, y2=1),
+        lgrad("field", [(0, mix(leaf, "#bfe28a", 0.35), 1), (1, mix(leaf, "#2c6a2c", 0.2), 1)]),
+        blur("soft", 5), blur("softer", 2), blur("cloudlight", 9), blur("haze", 22), blur("bokeh", 6), blur("near", 4)]
     body = [rect(0, 0, W, H, fill="url(#sky)"), rect(0, 0, W, H, fill="url(#sun)")]
-    body += cloud(560, 640, 1.25, rnd, "#c4d6e6")
-    body += cloud(1500, 560, 0.7, rnd, "#c9d9e8")
-    body.append(g([ellipse(1100, 230, 260, 28, fill="#ffffff", opacity=0.7), ellipse(260, 180, 200, 22, fill="#ffffff", opacity=0.6)],
-                  filt="haze"))
-    # Hills, far to near.
-    for k, (y, amp, c) in enumerate(((640, 50, mix(sky, "#4a6f8a", 0.45)), (680, 40, mix(p["leaf"], "#7fa0b5", 0.55)),
-                                     (712, 26, mix(p["leaf"], "#24502a", 0.35)))):
-        body.append(path(smooth(ridge(rnd, y, amp, 80, rough=0.7), closed_to=H), fill=c, filt="softer" if k < 2 else None))
-    # Rice paddies: bands widening toward us, water glinting between.
-    y = 735
+    # Sun rays fanning down from the upper left.
+    body.append(screen([path(f"M{f(150 + k * 30)} -40 L{f(260 + k * 40)} -40 L{f(700 + k * 260)} {H} L{f(560 + k * 230)} {H} Z",
+                             fill="url(#ray)") for k in range(5)], 0.35, "haze"))
+    body += cloud(560, 640, 1.3, rnd, p)
+    body += cloud(1540, 590, 0.75, rnd, p)
+    body.append(screen([ellipse(1150, 250, 300, 26, fill="#ffffff", opacity=0.75), ellipse(300, 190, 220, 20, fill="#ffffff", opacity=0.6),
+                        ellipse(1700, 140, 180, 14, fill="#ffffff", opacity=0.5)], filt="haze"))
+    # Hills, far to near, fading into haze.
+    for k, (y, amp, fill) in enumerate(((636, 56, "url(#far)"), (676, 40, "url(#mid)"), (708, 28, "url(#near)"))):
+        body.append(path(smooth(ridge(rnd, y, amp, 80, rough=0.7), closed_to=H), fill=fill, filt="softer" if k < 2 else None))
+        body.append(rect(0, y - 30, W, 70, fill="#e7f2f4", opacity=0.22 - 0.06 * k, filt="haze"))
+    # Rice paddies: a green field whose rows recede to the horizon, the
+    # sky glinting in the water between the young rice.
+    body.append(rect(0, 724, W, H - 724, fill="url(#field)"))
+    vp = (980, 600)
+    rows = []
+    for k in range(-40, 41):
+        x = vp[0] + k * 70
+        rows.append(path(f"M{f(vp[0] + (x - vp[0]) * 0.18)} 726 L{f(x)} {H}", stroke=mix(leaf, "#173f1c", 0.5), width=1.2, opacity=0.35))
+    body.append(g(rows))
+    y = 730
     k = 0
-    body.append(rect(0, 730, W, H - 730, fill="url(#field)"))
+    dykes = []
     while y < H:
-        hgt = 6 + (y - 730) * 0.09
-        c = mix(p["leaf"], "#d6eda8", 0.35 + 0.12 * rnd.random()) if k % 2 == 0 else mix(p["leaf"], "#1f4d25", 0.1 + 0.15 * rnd.random())
-        body.append(path(f"M-20 {f(y)} Q{W / 2} {f(y - 6 - k)} {W + 20} {f(y + 4)} L{W + 20} {f(y + hgt)} Q{W / 2} {f(y + hgt - 6 - k)} -20 {f(y + hgt)} Z",
-                         fill=c, opacity=0.85))
-        body.append(path(f"M-20 {f(y + hgt)} Q{W / 2} {f(y + hgt - 6 - k)} {W + 20} {f(y + hgt + 4)}",
-                         stroke=mix(p["leaf"], "#e8e2b0", 0.5), width=1 + hgt * 0.12, opacity=0.5))
-        if k % 3 == 1:
-            body.append(path(f"M{f(200 + rnd.random() * 300)} {f(y + hgt * 0.5)} l{f(120 + rnd.random() * 200)} -2",
-                             stroke="#e9f6ff", width=1.5 + hgt * 0.08, opacity=0.55))
-        y += hgt
+        dykes.append(path(f"M-20 {f(y)} Q{W / 2} {f(y - 4 - k * 0.5)} {W + 20} {f(y + 2)}", stroke=mix(leaf, "#e2e6a8", 0.45),
+                          width=1 + (y - 726) * 0.012, opacity=0.55))
+        y += 10 + (y - 726) * 0.35
         k += 1
-    # The tree's hill, the tree, the spirit under it.
-    body.append(path(smooth([(700, 1000), (980, 900), (1250, 790), (1520, 745), (1780, 755), (2000, 800)], closed_to=H + 10),
-                     fill=mix(p["leaf"], "#2c5a26", 0.3)))
-    body.append(path(smooth([(980, 905), (1250, 795), (1520, 750), (1780, 760)]), stroke=mix(p["leaf"], "#d6eda8", 0.4),
-                     width=4, opacity=0.5, filt="softer"))
-    body += camphor(1560, 765, 0.78, rnd, p)
-    body += totoro(1400, 815, 0.85, p)
-    # Foreground grass.
+    body.append(g(dykes, filt="softer"))
+    body.append(screen([ellipse(rnd.uniform(0, 1150), rnd.uniform(740, 1000), rnd.uniform(30, 140), 3,
+                                fill="#d8efff", opacity=0.6) for _ in range(46)], filt="softer"))
+    # The hill, the tree's shadow on it, the tree, the spirit in the shade.
+    body.append(path(smooth([(820, H + 20), (980, 930), (1150, 830), (1350, 770), (1560, 748), (1780, 756), (2000, 790)], closed_to=H + 20),
+                     fill="url(#hill)"))
+    body.append(screen([path(smooth([(1000, 925), (1170, 828), (1360, 770), (1560, 750)]), stroke="#e8f7a8", width=10, opacity=0.4)],
+                       filt="soft"))
+    body.append(ellipse(1540, 790, 360, 46, fill="#0d2a14", opacity=0.35, filt="soft"))
+    body += camphor(1570, 765, 0.8, rnd, p)
+    body += totoro(1395, 818, 0.88, p)
+    body.append(ellipse(1395, 760, 90, 80, fill="#0d2a14", opacity=0.12, filt="haze"))
+    # Pollen drifting in the light.
+    body.append(bokeh(rnd, 50, 0, W, 80, 900, 2, 7, "#fff6d0", 0.8, filt="softer"))
+    # Foreground grass, out of focus, and a few big bokeh discs.
     blades = []
-    for _ in range(260):
+    for _ in range(300):
         x = rnd.random() * W
-        hgt = 30 + rnd.random() * 80
-        lean = (rnd.random() - 0.5) * 40
-        c = mix(p["leaf"], "#0f2e14", 0.3 + 0.4 * rnd.random())
-        blades.append(path(f"M{f(x - 4)} {H + 4} Q{f(x + lean * 0.3)} {f(H - hgt * 0.6)} {f(x + lean)} {f(H - hgt)} Q{f(x + lean * 0.2)} {f(H - hgt * 0.5)} {f(x + 4)} {H + 4} Z",
+        hgt = 40 + rnd.random() * 120
+        lean = (rnd.random() - 0.5) * 50
+        c = mix(leaf, "#0a2412", 0.35 + 0.45 * rnd.random())
+        blades.append(path(f"M{f(x - 5)} {H + 4} Q{f(x + lean * 0.3)} {f(H - hgt * 0.6)} {f(x + lean)} {f(H - hgt)} Q{f(x + lean * 0.2)} {f(H - hgt * 0.5)} {f(x + 5)} {H + 4} Z",
                            fill=c))
-    body.append(g(blades, filt="softer"))
+    body.append(g(blades, filt="near"))
+    body.append(bokeh(rnd, 9, 0, W, 900, 1080, 20, 46, "#fffbe0", 0.35))
+    body += finish("#ffd27a", "#3a6fa8", grade=0.3, vignette=0.45)
     return svg(W, H, body, defs)
 
 
 # ============================================================ Spirited Away
 def bathhouse(x0, base, s, p, rnd):
-    """The bathhouse: tiers of vermilion walls under flared jade roofs, a
-    tall chimney, rows of warm windows, lanterns."""
-    wall, roof, glow = mix(p["accent"], "#1a0a10", 0.45), mix(p["leaf"], "#0b1a1c", 0.55), p["glow"]
-    out = []
-    tiers = [(0, 520, 150), (40, 440, 120), (80, 360, 110), (120, 280, 100), (165, 190, 90)]
+    """The bathhouse: tiers of lacquered walls lit from below by their
+    lanterns, flared jade roofs with moonlit edges, rows of glowing windows,
+    the tall chimney smoking."""
+    glow = p["glow"]
+    out, lights, rims = [], [], []
+    tiers = [(0, 540, 150), (40, 460, 122), (82, 376, 112), (122, 296, 102), (166, 208, 92)]
     y = base
-    lights = []
+    chimney_top = base - 590 * s
+    cx = x0 + 480 * s
+    out.append(g([circle(cx + 15 * s + k * 26 * s, chimney_top - 24 * s - k * 36 * s, (16 + k * 11) * s, fill="#d9cfe0",
+                         opacity=0.3 - k * 0.03) for k in range(9)], filt="soft"))
+    out.append(rect(cx, chimney_top, 32 * s, 420 * s, fill="url(#chimney)"))
     for k, (inset, width, height) in enumerate(tiers):
         x = x0 + inset * s
         w, h = width * s, height * s
-        out.append(rect(x, y - h, w, h, fill=wall))
-        # Windows.
+        out.append(rect(x, y - h, w, h, fill="url(#wall)"))
         cols = int(w / (34 * s))
         for c in range(cols):
             for r in range(2):
-                if rnd.random() < 0.82:
+                if rnd.random() < 0.85:
                     wx = x + 12 * s + c * (w - 24 * s) / cols
                     wy = y - h + 22 * s + r * h * 0.42
-                    lights.append(rect(wx, wy, 16 * s, 22 * s, fill=glow, opacity=0.85 + 0.15 * rnd.random()))
-        # Roof.
+                    lights.append(rect(wx, wy, 16 * s, 22 * s, rx=2, fill=mix(glow, "#fff2c8", 0.3 * rnd.random())))
         ry = y - h
-        out.append(path(f"M{f(x - 40 * s)} {f(ry + 6 * s)} Q{f(x + w * 0.1)} {f(ry - 10 * s)} {f(x + w * 0.2)} {f(ry - 30 * s)} "
-                        f"L{f(x + w * 0.8)} {f(ry - 30 * s)} Q{f(x + w * 0.9)} {f(ry - 10 * s)} {f(x + w + 40 * s)} {f(ry + 6 * s)} Z",
-                        fill=roof))
-        y = ry - 30 * s
-    # Chimney and its smoke.
-    cx = x0 + 470 * s
-    chimney_top = base - 560 * s
-    out.insert(0, rect(cx, chimney_top, 30 * s, 400 * s, fill=mix(wall, "#0b0710", 0.35)))
-    smoke = [circle(cx + 15 * s + k * 22 * s, chimney_top - 20 * s - k * 34 * s, (14 + k * 10) * s, fill="#d9cfe0",
-                    opacity=0.35 - k * 0.035) for k in range(9)]
-    out.insert(0, g(smoke, filt="soft"))
-    out.append(g(lights, filt=None))
-    # Glow around the lit windows.
-    out.append(g(lights, opacity=0.8, filt="glow"))
-    # Lanterns along the bridge.
-    for k in range(9):
-        lx = x0 - 260 * s + k * 40 * s
-        out.append(circle(lx, base - 34 * s, 16 * s, fill=glow, opacity=0.5, filt="glow"))
-        out.append(ellipse(lx, base - 34 * s, 6 * s, 8 * s, fill=p["accent"]))
-    out.append(rect(x0 - 280 * s, base - 14 * s, 300 * s, 10 * s, fill=wall))
+        roof = (f"M{f(x - 44 * s)} {f(ry + 6 * s)} Q{f(x + w * 0.1)} {f(ry - 10 * s)} {f(x + w * 0.2)} {f(ry - 32 * s)} "
+                f"L{f(x + w * 0.8)} {f(ry - 32 * s)} Q{f(x + w * 0.9)} {f(ry - 10 * s)} {f(x + w + 44 * s)} {f(ry + 6 * s)} Z")
+        out.append(path(roof, fill="url(#roof)"))
+        rims.append(path(f"M{f(x + w * 0.2)} {f(ry - 32 * s)} L{f(x + w * 0.8)} {f(ry - 32 * s)}", stroke="#cfe6ff", width=2.2 * s))
+        rims.append(path(f"M{f(x - 44 * s)} {f(ry + 6 * s)} Q{f(x + w * 0.1)} {f(ry - 10 * s)} {f(x + w * 0.2)} {f(ry - 32 * s)}",
+                         stroke="#cfe6ff", width=1.6 * s))
+        y = ry - 32 * s
+    out += lights
+    out.append(screen(lights, 0.9, "glow"))
+    out.append(screen(rims, 0.55))
+    # Lanterns along the bridge, and their halo.
+    lanterns = []
+    for k in range(10):
+        lx = x0 - 280 * s + k * 38 * s
+        lanterns.append(ellipse(lx, base - 34 * s, 6 * s, 8.5 * s, fill="#ffb15c"))
+    out.append(rect(x0 - 300 * s, base - 14 * s, 320 * s, 10 * s, fill="url(#wall)"))
+    out += lanterns
+    out.append(screen([circle(x0 - 280 * s + k * 38 * s, base - 34 * s, 26 * s, fill=glow, opacity=0.7) for k in range(10)], filt="glow"))
     return out
 
 
 def spirited_wallpaper(p):
     rnd = random.Random(2001)
     horizon = 690
-    defs = [lgrad("sky", [(0, "#120f26", 1), (0.45, p["sky"], 1), (0.8, mix(p["cloud"], p["sky"], 0.35), 1), (1, p["cloud"], 1)]),
-            lgrad("sea", [(0, mix(p["cloud"], p["sky"], 0.55), 1), (0.25, mix(p["sky"], "#0b0f1e", 0.4), 1), (1, "#07070f", 1)]),
-            rgrad("moon", [(0, "#fff6e0", 0.55), (1, "#fff6e0", 0)]),
-            blur("soft", 7), blur("softer", 2), blur("glow", 9), blur("haze", 22), blur("ripple", 3.5)]
+    glow = p["glow"]
+    defs = FINISH_DEFS + [
+        lgrad("sky", [(0, "#070a22", 1), (0.35, "#1b1d4e", 1), (0.66, "#4a3a78", 1), (0.86, "#b8607a", 1), (1, "#f0a77e", 1)]),
+        lgrad("sea", [(0, "#8a5a7a", 1), (0.08, "#2c2a55", 1), (0.5, "#12122c", 1), (1, "#06060f", 1)]),
+        rgrad("moon", [(0, "#fff6e0", 0.7), (0.25, "#ffe9c8", 0.25), (1, "#ffe9c8", 0)]),
+        lgrad("wall", [(0, mix(p["accent"], "#1a0a12", 0.55), 1), (1, mix(p["accent"], "#ff9a5a", 0.15), 1)]),
+        lgrad("roof", [(0, mix(p["leaf"], "#0b1a1c", 0.35), 1), (1, mix(p["leaf"], "#05090c", 0.7), 1)]),
+        lgrad("chimney", [(0, "#2a1418", 1), (0.5, "#4a2028", 1), (1, "#1a0c10", 1)], x2=1, y2=0),
+        lgrad("train", [(0, "#5d7f9c", 1), (1, "#2b3d52", 1)]),
+        lgrad("streak", [(0, glow, 0.7), (1, glow, 0)]),
+        blur("soft", 7), blur("softer", 2), blur("glow", 10), blur("haze", 24), blur("ripple", 3), blur("bokeh", 5)]
     body = [rect(0, 0, W, H, fill="url(#sky)")]
-    body.append(g([circle(rnd.random() * W, rnd.random() * 420, 0.6 + rnd.random() * 1.4, fill="#fff8e8",
-                          opacity=0.3 + rnd.random() * 0.6) for _ in range(140)]))
-    body.append(circle(330, 210, 220, fill="url(#moon)"))
-    body.append(circle(330, 210, 46, fill="#fbf1dc", opacity=0.95))
-    # Long dusk clouds.
-    body.append(g([ellipse(300 + k * 360 + rnd.random() * 100, 470 + rnd.random() * 120, 240 + rnd.random() * 120, 14 + rnd.random() * 10,
-                           fill=mix(p["cloud"], "#ffffff", 0.2), opacity=0.45) for k in range(6)], filt="haze"))
-    # Far islands.
-    body.append(path(smooth(ridge(rnd, horizon - 18, 26, 70, rough=0.6), closed_to=horizon + 2), fill=mix(p["sky"], "#0b0a18", 0.45),
-                     filt="softer"))
-    house = bathhouse(1240, horizon + 4, 1.0, p, rnd)
-    scene = []
-    # The rails just under the water line, posts, the train.
+    stars = [circle(rnd.random() * W, rnd.random() * 460, 0.5 + rnd.random() * 1.3, fill="#fff8e8", opacity=0.3 + rnd.random() * 0.7)
+             for _ in range(220)]
+    body.append(g(stars))
+    for _ in range(7):  # a few bright stars with a cross glint
+        x, y = rnd.random() * W, rnd.random() * 380
+        body.append(screen([path(f"M{f(x - 9)} {f(y)} L{f(x + 9)} {f(y)} M{f(x)} {f(y - 9)} L{f(x)} {f(y + 9)}", stroke="#fff8e8", width=1),
+                            circle(x, y, 4, fill="#fff8e8", opacity=0.8)], 0.8, "softer"))
+    body.append(circle(330, 210, 300, fill="url(#moon)"))
+    body.append(circle(330, 210, 48, fill="#fbf1dc"))
+    body.append(circle(318, 200, 48, fill="#fffaf0", opacity=0.5, filt="softer"))
+    # Long dusk clouds, lit pink from below.
+    body.append(g([ellipse(260 + k * 330 + rnd.random() * 120, 450 + rnd.random() * 150, 260 + rnd.random() * 160, 12 + rnd.random() * 9,
+                           fill=mix("#f3a6a0", "#ffffff", 0.2), opacity=0.5) for k in range(7)], filt="haze"))
+    body.append(path(smooth(ridge(rnd, horizon - 22, 30, 70, rough=0.6), closed_to=horizon + 2), fill="#2a2148", opacity=0.9, filt="softer"))
+    body.append(rect(0, horizon - 40, W, 60, fill="#f0a77e", opacity=0.25, filt="haze"))
+    house = bathhouse(1220, horizon + 4, 1.0, p, rnd)
     rail_y = horizon + 70
-    scene.append(rect(-10, rail_y, W + 20, 5, fill="#1b1622"))
+    scene = [rect(-10, rail_y, W + 20, 5, fill="#140f1c")]
     for k in range(-1, 26):
-        x = k * 82
-        scene.append(rect(x, rail_y - 26, 5, 36, fill="#1b1622"))
-    tx = 300
-    scene.append(rect(tx, rail_y - 58, 300, 54, rx=10, fill="#3f5b73"))
-    scene.append(rect(tx, rail_y - 64, 300, 10, rx=5, fill="#2b3d50"))
-    for k in range(7):
-        scene.append(rect(tx + 14 + k * 40, rail_y - 48, 28, 22, rx=3, fill=p["glow"], opacity=0.9))
-    scene.append(rect(tx + 14, rail_y - 48, 270, 22, fill=p["glow"], opacity=0.25, filt="glow"))
-    scene += noface(860, rail_y + 2, 0.42, p)
-    # The sea, the scene mirrored in it (the bathhouse about the water
-    # line, the train about its rails), then the scene itself.
+        scene.append(rect(k * 82, rail_y - 26, 5, 36, fill="#140f1c"))
+    tx = 290
+    scene.append(rect(tx, rail_y - 58, 310, 54, rx=12, fill="url(#train)"))
+    scene.append(rect(tx, rail_y - 64, 310, 10, rx=5, fill="#22324a"))
+    windows = [rect(tx + 16 + k * 40, rail_y - 48, 28, 22, rx=3, fill="#ffd9a0") for k in range(7)]
+    scene += windows
+    scene.append(screen(windows, 0.9, "glow"))
+    scene.append(screen([path(f"M{tx + 310} {rail_y - 30} L{tx + 620} {rail_y - 60} L{tx + 620} {rail_y + 10} Z", fill="#fff0c8", opacity=0.25)],
+                        filt="haze"))
+    scene += noface(870, rail_y + 2, 0.42, p)
+    # The sea, mirrored scene, light streaks, then the scene itself.
     body.append(rect(0, horizon + 4, W, H - horizon, fill="url(#sea)"))
-    body.append(g([g(house, transform=f"translate(0 {2 * (horizon + 4)}) scale(1 -1)", opacity=0.45),
-                   g(scene, transform=f"translate(0 {2 * rail_y}) scale(1 -1)", opacity=0.4)], filt="ripple"))
+    body.append(g([g(house, transform=f"translate(0 {2 * (horizon + 4)}) scale(1 -1)", opacity=0.42),
+                   g(scene, transform=f"translate(0 {2 * rail_y}) scale(1 -1)", opacity=0.36)], filt="ripple"))
+    streaks = [rect(x - 9, horizon + 10, 18, 300 + rnd.random() * 120, fill="url(#streak)")
+               for x in [1220 - 280 + k * 38 for k in range(10)] + [tx + 30 + k * 40 for k in range(7)]]
+    body.append(screen(streaks, 0.5, "softer"))
     body.append(g(house))
     body.append(g(scene))
-    body.append(rect(0, horizon + 4, W, 3, fill=p["cloud"], opacity=0.25))
-    # Ripples.
     ripples = []
-    for _ in range(140):
-        y = horizon + 20 + rnd.random() ** 1.6 * (H - horizon)
+    for _ in range(170):
+        y = horizon + 18 + rnd.random() ** 1.6 * (H - horizon)
         x = rnd.random() * W
-        w = 20 + (y - horizon) * 0.4 * rnd.random()
-        ripples.append(path(f"M{f(x)} {f(y)} l{f(w)} 0", stroke=mix(p["glow"], "#ffffff", 0.3), width=1 + (y - horizon) * 0.004,
-                            opacity=0.12 + 0.2 * rnd.random()))
-    body.append(g(ripples))
-    # The near rail in front of the water.
-    body.append(rect(-10, rail_y + 3, W + 20, 3, fill="#0f0c14", opacity=0.6))
+        w = 18 + (y - horizon) * 0.45 * rnd.random()
+        ripples.append(path(f"M{f(x)} {f(y)} l{f(w)} 0", stroke=mix(glow, "#ffffff", 0.3), width=1 + (y - horizon) * 0.004,
+                            opacity=0.1 + 0.22 * rnd.random()))
+    body.append(screen(ripples))
+    body.append(rect(0, horizon - 10, W, 50, fill="#c9a8d8", opacity=0.18, filt="haze"))
+    body.append(bokeh(rnd, 14, 900, W, 520, 760, 6, 16, glow, 0.5))
+    body += finish("#5a3fa0", "#ff9a5a", grade=0.28, vignette=0.6)
     return svg(W, H, body, defs)
 
 
 # ================================================================== Mononoke
 def mononoke_wallpaper(p):
     rnd = random.Random(1997)
-    defs = [lgrad("air", [(0, mix(p["sky"], "#a9c9a0", 0.35), 1), (0.6, p["sky"], 1), (1, "#070c08", 1)]),
-            lgrad("ray", [(0, "#f4ffd8", 0.35), (1, "#f4ffd8", 0)]),
-            blur("soft", 6), blur("softer", 2), blur("mist", 26), blur("far", 10), blur("glow", 6)]
+    leaf, glow = p["leaf"], p["glow"]
+    defs = FINISH_DEFS + [
+        lgrad("air", [(0, "#cfe7c8", 1), (0.35, "#5f8f6d", 1), (0.7, "#1d3a2a", 1), (1, "#07120b", 1)]),
+        lgrad("ray", [(0, "#f6ffd8", 0.55), (1, "#f6ffd8", 0)]),
+        lgrad("ground", [(0, mix(leaf, "#2f5a2a", 0.4), 1), (1, "#06100a", 1)]),
+        blur("soft", 6), blur("softer", 2), blur("mist", 28), blur("far", 9), blur("mid", 3.5), blur("glow", 7), blur("bokeh", 9)]
+    for k, depth in enumerate((0.15, 0.45, 0.9)):
+        dark = mix("#a7c4a0", "#0f1a12", depth ** 0.6)
+        light = mix("#e8f3d8", "#3e5a3c", depth ** 0.6)
+        defs.append(lgrad(f"trunk{k}", [(0, dark, 1), (0.35, light, 1), (0.6, mix(light, dark, 0.4), 1), (1, dark, 1)], x2=1, y2=0))
+        defs.append(lgrad(f"moss{k}", [(0, mix(leaf, light, 0.3), 0), (1, mix(leaf, dark, 0.2), 0.9)]))
     body = [rect(0, 0, W, H, fill="url(#air)")]
-    # Shafts of light through the canopy.
-    rays = []
-    for k in range(6):
-        x = 700 + k * 190 + rnd.random() * 80
-        w = 40 + rnd.random() * 70
-        rays.append(path(f"M{f(x)} -20 L{f(x + w)} -20 L{f(x - 260 + w * 2)} {H} L{f(x - 360)} {H} Z", fill="url(#ray)"))
-    body.append(g(rays, filt="mist"))
+    body.append(screen([path(f"M{f(x)} -20 L{f(x + w)} -20 L{f(x - 280 + w * 2)} {H} L{f(x - 380)} {H} Z", fill="url(#ray)")
+                        for x, w in ((640 + k * 180 + rnd.random() * 90, 40 + rnd.random() * 80) for k in range(7))], 0.8, "mist"))
 
-    def trunks(n, depth, rnd):
+    def trunks(n_, k, depth):
         out = []
-        for _ in range(n):
+        for _ in range(n_):
             x = rnd.random() * (W + 200) - 100
-            w = (30 + rnd.random() * 40) * (0.4 + depth * 1.6)
+            w = (30 + rnd.random() * 44) * (0.4 + depth * 1.7)
             base = 760 + depth * 300
-            col = mix(mix(p["sky"], "#a7bfa2", 0.4), "#1e1d15", depth ** 0.7)
-            moss = mix(p["leaf"], col, 0.4 + 0.5 * (1 - depth))
             lean = (rnd.random() - 0.5) * 30
             out.append(path(f"M{f(x - w / 2 + lean)} -20 L{f(x + w / 2 + lean)} -20 L{f(x + w / 2)} {f(base - w * 0.6)} "
-                            f"Q{f(x + w * 0.9)} {f(base)} {f(x + w * 1.5)} {f(base + 6)} L{f(x - w * 1.5)} {f(base + 6)} "
-                            f"Q{f(x - w * 0.9)} {f(base)} {f(x - w / 2)} {f(base - w * 0.6)} Z", fill=col))
-            out.append(path(f"M{f(x - w / 2)} {f(base - w * 0.6)} Q{f(x - w * 0.2)} {f(base - w * 2.5)} {f(x - w / 2 + lean * 0.5)} {f(base - w * 6)}",
-                            stroke=moss, width=w * 0.25, opacity=0.6))
+                            f"Q{f(x + w * 0.9)} {f(base)} {f(x + w * 1.6)} {f(base + 8)} L{f(x - w * 1.6)} {f(base + 8)} "
+                            f"Q{f(x - w * 0.9)} {f(base)} {f(x - w / 2)} {f(base - w * 0.6)} Z", fill=f"url(#trunk{k})"))
+            out.append(rect(x - w * 0.6, base - w * 4, w * 1.2, w * 4 + 8, fill=f"url(#moss{k})"))
         return out
 
-    body.append(g(trunks(16, 0.1, rnd), filt="far", opacity=0.55))
-    body.append(g([ellipse(W / 2, 700, 1300, 110, fill="#d6e8d0", opacity=0.22)], filt="mist"))
-    body.append(g(trunks(10, 0.4, rnd), filt="softer", opacity=0.85))
-    body.append(g([ellipse(W / 2 + 200, 860, 1200, 90, fill="#cfe3c8", opacity=0.18)], filt="mist"))
-    # The forest floor.
-    body.append(path(smooth(ridge(rnd, 900, 40, 90, rough=0.6), closed_to=H + 10), fill=mix(p["leaf"], "#0c1a0d", 0.6)))
-    body.append(g(trunks(5, 0.85, rnd)))
-    # Ferns.
+    body.append(g(trunks(18, 0, 0.15), filt="far", opacity=0.7))
+    body.append(screen([ellipse(W / 2, 690, 1300, 120, fill="#dff0d6", opacity=0.35)], filt="mist"))
+    body.append(g(trunks(10, 1, 0.45), filt="mid"))
+    body.append(screen([ellipse(W / 2 + 200, 860, 1200, 100, fill="#cfe6c6", opacity=0.25)], filt="mist"))
+    body.append(path(smooth(ridge(rnd, 905, 40, 90, rough=0.6), closed_to=H + 10), fill="url(#ground)"))
     ferns = []
-    for _ in range(40):
+    for _ in range(46):
         x, y = rnd.random() * W, 930 + rnd.random() * 160
         for k in range(5):
             a = -math.pi / 2 + (k - 2) * 0.45
-            ln = 40 + rnd.random() * 50
+            ln = 44 + rnd.random() * 56
             ferns.append(path(f"M{f(x)} {f(y)} Q{f(x + math.cos(a) * ln * 0.5)} {f(y + math.sin(a) * ln * 0.8)} {f(x + math.cos(a) * ln)} {f(y + math.sin(a) * ln * 0.6)}",
-                              stroke=mix(p["leaf"], "#0b1a0b", 0.3 + 0.3 * rnd.random()), width=4))
+                              stroke=mix(leaf, "#0b1a0b", 0.25 + 0.35 * rnd.random()), width=4))
     body.append(g(ferns, filt="softer"))
-    # Kodama among the roots and on the moss, near ones bigger.
-    spirits = []
+    # Kodama among the roots and on the moss, near ones bigger, glowing.
+    spirits, halos = [], []
     for _ in range(26):
-        y = 820 + rnd.random() ** 0.8 * 240
-        s = 0.3 + (y - 820) / 240 * 0.8
+        y = 830 + rnd.random() ** 0.8 * 230
+        s = 0.3 + (y - 830) / 230 * 0.85
         x = rnd.random() * W
-        spirits += kodama(x, y, s, tilt=(rnd.random() - 0.5) * 70, p=p, glow=p["glow"])
+        spirits += kodama(x, y, s, tilt=(rnd.random() - 0.5) * 70, p=p)
+        halos.append(circle(x, y - 36 * s, 34 * s, fill=glow, opacity=0.5))
+    body.append(screen(halos, 0.8, "glow"))
     body.append(g(spirits))
-    # Fireflies and spores.
-    body.append(g([circle(rnd.random() * W, 300 + rnd.random() * 760, 2 + rnd.random() * 3, fill=p["glow"], opacity=0.5 + 0.5 * rnd.random())
-                   for _ in range(70)], filt="glow"))
-    body.append(g([circle(rnd.random() * W, 300 + rnd.random() * 760, 1.2, fill="#ffffff", opacity=0.8) for _ in range(60)]))
+    body.append(g(trunks(4, 2, 0.9), filt="softer"))
+    # Fireflies near and far: sharp sparks and big out-of-focus discs.
+    body.append(bokeh(rnd, 60, 0, W, 300, 1000, 1.5, 4, glow, 0.9, filt="softer"))
+    body.append(bokeh(rnd, 12, 0, W, 200, 1080, 18, 40, glow, 0.35))
+    body += finish("#f2ffd0", "#0a2a2a", grade=0.3, vignette=0.65)
     return svg(W, H, body, defs)
 
 
