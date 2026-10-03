@@ -692,11 +692,12 @@ ContentPage {
 
             // Which notifications get the theme's cut-in: the full-screen
             // Persona one (PersonaCutIn.qml), the Chiikawa speech bubble
-            // (ChiikawaAlert.qml) or the Cyberpunk holocall (CyberpunkCutIn.qml).
+            // (ChiikawaAlert.qml), the Cyberpunk holocall (CyberpunkCutIn.qml) or
+            // the Ghibli card on the wind (GhibliCutIn.qml).
             ContentSubsection {
                 id: cutInSection
                 title: Translation.tr("Cut-ins (important notifications)")
-                readonly property bool themeHasCutIn: Persona.shapes || Chiikawa.enabled || Cyberpunk.enabled
+                readonly property bool themeHasCutIn: Persona.shapes || Chiikawa.enabled || Cyberpunk.enabled || Ghibli.enabled
                 readonly property var rules: Config.options.notifications.cutIn
 
                 GroupedList {
@@ -704,7 +705,7 @@ ContentPage {
                         Layout.fillWidth: true
                         Layout.margins: 8
                         wrapMode: Text.Wrap
-                        text: Translation.tr("In the Persona theme matching notifications take over the screen like an in-game dialogue; in the Chiikawa theme the character pops up with them in a speech bubble; in the Cyberpunk 2077 theme they glitch in as an incoming holocall. An app marks a notification critical itself (e.g. low battery, incoming calls, notify-send -u critical); critical ones show a \"!\" in the notification centre. Most chat apps send normal notifications — pick them below to get cut-ins for them too. Rules also match the message text and hints.")
+                        text: Translation.tr("In the Persona theme matching notifications take over the screen like an in-game dialogue; in the Chiikawa theme the character pops up with them in a speech bubble; in the Cyberpunk 2077 theme they glitch in as an incoming holocall; in the Studio Ghibli theme they drift in on the wind as a painted card with the spirit. An app marks a notification critical itself (e.g. low battery, incoming calls, notify-send -u critical); critical ones show a \"!\" in the notification centre. Most chat apps send normal notifications — pick them below to get cut-ins for them too. Rules also match the message text and hints.")
                         font.pixelSize: Appearance.font.pixelSize.small
                         color: Appearance.colors.colSubtext
                     }
@@ -727,7 +728,7 @@ ContentPage {
                         configKey: "notifications.cutIn.sound"
                         enabled: cutInSection.rules.enable
                         buttonIcon: "music_note"
-                        text: Translation.tr("Play the theme's sound (Persona 5 cut-in, the Chiikawa jingle, the Cyberpunk glitch alarm…)")
+                        text: Translation.tr("Play the theme's sound (Persona 5 cut-in, the Chiikawa jingle, the Relic glitch, Totoro's roar…)")
                         checked: cutInSection.rules.sound
                         onCheckedChanged: Config.options.notifications.cutIn.sound = checked
                     }
@@ -772,7 +773,7 @@ ContentPage {
                             Layout.fillWidth: true
                             wrapMode: Text.Wrap
                             visible: !cutInSection.themeHasCutIn
-                            text: Translation.tr("Needs the Persona, Chiikawa or Cyberpunk 2077 theme (Appearance → Theme).")
+                            text: Translation.tr("Needs the Persona, Chiikawa, Cyberpunk 2077 or Studio Ghibli theme (Appearance → Theme).")
                             font.pixelSize: Appearance.font.pixelSize.small
                             color: Appearance.colors.colSubtext
                         }

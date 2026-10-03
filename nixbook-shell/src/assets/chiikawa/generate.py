@@ -2,7 +2,8 @@
 """Generate the Chiikawa theme's art for each variant: a scattered pattern of
 tiny stars, hearts and dots for the sidebars' background (<variant>-tall.svg)
 and its default wallpaper (<variant>-wallpaper.svg, themes.json `wallpaper`),
-with the character (momonga.gif, not generated) standing on a hill.
+with the three friends (friends.gif: Momonga, momonga.gif as is, with
+Chiikawa and Usagi beside him, made by friends.py) standing on a hill.
 
 Colours come from each variant's palette in modules/common/themes.json
 (accent, stripe, blush, line, surfaces), so the art follows the theme's single
@@ -53,10 +54,11 @@ def svg(w, h, body):
 
 
 # -------------------------------------------------------------- character
-# The character: an animated GIF of Momonga (momonga.gif), used as is by
-# ChiikawaMascot for every variant; the wallpapers show its first frame.
-CHARACTER = "momonga.gif"
-CHARACTER_SIZE = (200, 151)
+# The characters: Momonga's animated GIF (momonga.gif) with his two friends
+# beside him (friends.gif, friends.py), used by ChiikawaMascot for every
+# variant; the wallpapers show its first frame.
+CHARACTER = "friends.gif"
+CHARACTER_SIZE = (460, 177)
 
 
 # ---------------------------------------------------------------- pattern
@@ -124,8 +126,8 @@ def wallpaper(p, seed):
     # the hill, and the character on it (the GIF's first frame, scaled)
     body.append(ellipse(1340, 1180, 900, 330, p["surface4"]))
     body.append(ellipse(1340, 1200, 860, 300, p["surface3"], opacity=0.7))
-    body.append(ellipse(1400, 882, 150, 22, p["line"], opacity=0.12))
-    cw, ch = (x * 2.3 for x in CHARACTER_SIZE)
+    body.append(ellipse(1400, 882, 290, 22, p["line"], opacity=0.12))
+    cw, ch = (x * 1.45 for x in CHARACTER_SIZE)
     body.append(f'<image x="{f(1400 - cw / 2)}" y="{f(892 - ch)}" width="{f(cw)}" height="{f(ch)}" href="{CHARACTER}"/>')
     return svg(w, h, body)
 

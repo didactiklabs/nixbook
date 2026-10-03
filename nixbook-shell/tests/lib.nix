@@ -277,4 +277,29 @@ lib.runTests {
     expr = fails (evalSettings { appearance.cyberpunk.variant = "blue"; }).appearance.cyberpunk.variant;
     expected = true;
   };
+  testThemeOfGhibli = {
+    expr =
+      let
+        t = shellLib.themeOf (evalSettings {
+          appearance.theme = "ghibli";
+          appearance.ghibli.variant = "mononoke";
+        });
+      in
+      [
+        t.variant
+        t.palette.primary
+      ];
+    expected = [
+      "mononoke"
+      "#a8d67f"
+    ];
+  };
+  testGhibliDefaultVariant = {
+    expr = (shellLib.themeOf { appearance.theme = "ghibli"; }).variant;
+    expected = "totoro";
+  };
+  testGhibliBadVariantFails = {
+    expr = fails (evalSettings { appearance.ghibli.variant = "ponyo"; }).appearance.ghibli.variant;
+    expected = true;
+  };
 }

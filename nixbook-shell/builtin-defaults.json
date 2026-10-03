@@ -46,6 +46,14 @@
       "reading": "Readex Pro",
       "title": "Google Sans Flex"
     },
+    "ghibli": {
+      "fonts": true,
+      "motion": true,
+      "palette": true,
+      "shapes": true,
+      "spirits": true,
+      "variant": "totoro"
+    },
     "palette": {
       "type": "auto"
     },

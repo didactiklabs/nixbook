@@ -13,7 +13,9 @@ import Quickshell
  *
  * Variants: momonga (periwinkle), usagi (yellow), chiikawa (cream and pink).
  * The character is the same animated GIF for every variant
- * (assets/chiikawa/momonga.gif); the rest of the art is drawn by
+ * (assets/chiikawa/momonga.gif); where there is room (the loading screen,
+ * the alert, the wallpapers) it is the three friends (friends.gif: Momonga
+ * with Chiikawa and Usagi beside him, friends.py); the rest of the art is drawn by
  * assets/chiikawa/generate.py, rasterised to PNG when the package is built
  * (qml.nix).
  */
@@ -30,6 +32,11 @@ Singleton {
     function mascotUrl() {
         return Quickshell.shellPath("assets/chiikawa/momonga.gif");
     }
+    // Momonga with Chiikawa and Usagi: 460x177.
+    function friendsUrl() {
+        return Quickshell.shellPath("assets/chiikawa/friends.gif");
+    }
+    readonly property real friendsAspect: 460 / 177
     function patternUrl(variant) {
         return Quickshell.shellPath(`assets/chiikawa/${variant ?? root.variant}-tall.png`);
     }
@@ -37,7 +44,7 @@ Singleton {
     // Keep the current variant's art decoded (served from the pixmap cache
     // when a sidebar opens), only while the theme is on.
     Instantiator {
-        model: root.mascot ? [root.mascotUrl(), root.patternUrl()] : []
+        model: root.mascot ? [root.mascotUrl(), root.friendsUrl(), root.patternUrl()] : []
         delegate: Image {
             required property string modelData
             source: modelData

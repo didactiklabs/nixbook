@@ -204,15 +204,16 @@ Scope {
                 }
             }
 
-            // The character, hopping up from the bottom edge.
+            // The three friends, hopping up from the bottom edge.
             ChiikawaMascot {
                 id: mascot
                 visible: true
+                friends: true
                 hopOnHover: false
                 // Only while showing: the window outlives the alerts.
                 idle: alert.visible
-                width: Math.min(260, alert.height * 0.3)
-                height: width
+                width: Math.min(620, alert.height * 0.3 * Chiikawa.friendsAspect, alert.width - 64)
+                height: width / Chiikawa.friendsAspect
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: alert.height - height * (0.92 * alert.t) + 8
             }

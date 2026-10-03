@@ -6,15 +6,20 @@ a "pin-pon" when a focus session or a break ends (<variant>-focus.wav), a
 "done!" when the countdown finishes (<variant>-countdown.wav) and a music-box
 tune the alarm loops (<variant>-alarm.wav). Soft bell-like
 tones (sine + a little second harmonic, fast attack, exponential decay) and
-little pitch hops; nothing harsh. Standard library only, so the package
-generates them when it is built (qml.nix): no audio file is kept in git.
+little pitch hops, nothing harsh — and over them the characters' own little
+voices, made from scratch (formant speech at a tiny creature's pitch,
+../synth.py speak()): Usagi's "yaha!", "ura!" and "pururururu", Chiikawa's
+startled "wa!", Momonga's bossy "hya!". Standard library only, so the
+package generates them when it is built (qml.nix): no audio file is kept in
+git.
 Run: python3 sounds.py [out-dir]   (default: next to this script)
 """
 import math
 import os
-import struct
 import sys
-import wave
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+import synth as S  # noqa: E402
 
 RATE = 44100
 
@@ -57,22 +62,6 @@ def seq(*parts, overlap=0.0):
         for i, s in enumerate(p):
             out[start + i] += s
     return out
-
-
-def write(path, samples, fade=0.02):
-    peak = max(1e-9, max(abs(s) for s in samples))
-    gain = 0.8 / peak
-    n = len(samples)
-    fn = int(fade * RATE)
-    with wave.open(path, "wb") as w:
-        w.setnchannels(1)
-        w.setsampwidth(2)
-        w.setframerate(RATE)
-        frames = bytearray()
-        for i, s in enumerate(samples):
-            g = gain * (min(1.0, (n - i) / fn) if fn else 1.0)
-            frames += struct.pack("<h", int(max(-1, min(1, s * g)) * 32767))
-        w.writeframes(bytes(frames))
 
 
 def chime(base, hop):
@@ -145,16 +134,74 @@ VARIANTS = {
 }
 
 
+# --------------------------------------------------------------- voices
+# The characters' own little voices, built from scratch (formant speech at a
+# tiny creature's pitch), over the chimes.
+def yaha(f=720.0, long=False):
+    """Usagi: "ya-ha!" — a shout jumping up."""
+    return S.speak([dict(dur=0.13, f0=f, to=f * 1.08, v="a", frm="y", glide=0.5, gap=0.02),
+                    dict(dur=0.42 if long else 0.2, f0=f * 1.2, to=f * (1.25 if long else 1.45), v="a", onset="h",
+                         release=0.12 if long else 0.03)], size=1.45, seed=1, rasp=0.25)
+
+
+def ura(f=700.0):
+    """Usagi: "u-ra!"."""
+    return S.speak([dict(dur=0.1, f0=f, to=f * 1.05, v="u", gap=0.0),
+                    dict(dur=0.2, f0=f * 1.25, to=f * 1.45, v="a", frm="e", onset="r", glide=0.3, release=0.03)],
+                   size=1.45, seed=2, rasp=0.3)
+
+
+def pururu(f=700.0, dur=0.9):
+    """Usagi: "pururururu" — a rolled r on a long u, wobbling."""
+    return S.speak([dict(dur=dur, f0=f * 1.1, to=f * 0.95, v="u", onset="p", trill=26, release=0.1)],
+                   size=1.45, seed=3, rasp=0.15)
+
+
+def wa(f=900.0, soft=False):
+    """Chiikawa: "wa!" — small, startled."""
+    return S.speak([dict(dur=0.24 if soft else 0.2, f0=f, to=f * (1.08 if soft else 1.25), v="a", frm="w", glide=0.45,
+                         release=0.09 if soft else 0.04)], size=1.6, seed=4, breath=0.25)
+
+
+def hya(f=1000.0, long=False):
+    """Momonga: "hya!" — high and bossy."""
+    return S.speak([dict(dur=0.45 if long else 0.18, f0=f * 1.05, to=f * (1.4 if long else 1.2), v="a", frm="y",
+                         onset="h", glide=0.4, release=0.15 if long else 0.03)], size=1.65, seed=5, rasp=0.35)
+
+
+def hm(f, v="n", rise=1.2):
+    """A little "hm?" / "un!": a short hum, rising (a question) or not."""
+    return S.speak([dict(dur=0.2, f0=f, to=f * rise, v=v, release=0.06)], size=1.5, seed=6, breath=0.2)
+
+
+def mixed(*parts, wet=0.16):
+    m = S.Mix()
+    for start, sig, gain, pan in parts:
+        m.add(sig, start, gain, pan)
+    return m.reverb(wet, room=0.7, tail=0.6)
+
+
+def sounds(name):
+    v = VARIANTS[name]
+    base, hop = v["chime"]
+    if name == "usagi":
+        hello, shout, ask, cheer = yaha(), [(0.0, ura()), (0.36, ura(760)), (0.8, pururu())], hm(560, "a", 1.5), yaha(700, long=True)
+    elif name == "chiikawa":
+        hello, shout, ask, cheer = wa(), [(0.0, wa(880)), (0.42, wa(980))], hm(800, "n", 1.15), wa(950, soft=True)
+    else:
+        hello, shout, ask, cheer = hya(), [(0.0, hya(1000)), (0.3, hya(1050, long=True))], hm(900, "n", 1.3), hya(1050, long=True)
+    alarm = music_box(base / 2, TUNES[name])
+    return dict(
+        notification=lambda: mixed((0.0, chime(*v["chime"]), 0.6, -0.15), (0.12, hello, 0.9, 0.15)),
+        critical=lambda: mixed((0.0, jingle(*v["jingle"]), 0.6, -0.2), *[(t, s, 0.95, 0.15) for t, s in shout]),
+        focus=lambda: mixed((0.0, pinpon(base / 2), 0.8, -0.1), (1.0, ask, 0.8, 0.2)),
+        countdown=lambda: mixed((0.0, done(base / 2, hop), 0.75, -0.1), (0.75, cheer, 0.9, 0.2)),
+        alarm=lambda: mixed((0.0, alarm, 0.85, 0.0), (len(alarm) / RATE - 0.55, hello, 0.6, 0.3), wet=0.12),
+    )
+
+
 def main():
-    out = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.abspath(__file__))
-    os.makedirs(out, exist_ok=True)
-    for name, v in VARIANTS.items():
-        write(os.path.join(out, f"{name}-notification.wav"), chime(*v["chime"]))
-        write(os.path.join(out, f"{name}-critical.wav"), jingle(*v["jingle"]))
-        base, hop = v["chime"]
-        write(os.path.join(out, f"{name}-focus.wav"), pinpon(base / 2))
-        write(os.path.join(out, f"{name}-countdown.wav"), done(base / 2, hop))
-        write(os.path.join(out, f"{name}-alarm.wav"), music_box(base / 2, TUNES[name]))
+    S.run({name: sounds(name) for name in VARIANTS})
 
 
 if __name__ == "__main__":

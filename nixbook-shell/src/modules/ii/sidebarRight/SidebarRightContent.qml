@@ -110,6 +110,11 @@ Item {
             anchors.fill: parent
             anchors.margins: parent.border.width
         }
+        // Ghibli theme: leaves, paper birds or fireflies, the spirit in the corner
+        GhibliDecor {
+            anchors.fill: parent
+            anchors.margins: parent.border.width
+        }
 
         ColumnLayout {
             anchors.fill: parent

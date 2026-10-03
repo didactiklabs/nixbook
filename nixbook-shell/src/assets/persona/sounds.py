@@ -1,22 +1,34 @@
 #!/usr/bin/env python3
-"""Synthesize the Persona theme's timer sounds (themes.json `sounds`): per
-variant, a cue when a focus session or a break ends (<variant>-focus.wav),
-one when the countdown finishes (<variant>-countdown.wav) and a ringtone
-the alarm loops (<variant>-alarm.wav). Original sounds in the spirit of each
-game's music, no Atlus audio: P5 acid jazz (electric piano minor-ninth stabs,
-walking bass, brushed hats), P3R calm (soft piano arpeggios in a minor key),
-P4 bright funky pop (major-seventh stabs, octave bass, claps). Standard
-library only, so the package generates them when it is built (qml.nix): no
-audio file is kept in git. The notification chime and the cut-in keep the
-registry's sounds (assets/sounds).
+"""Synthesize the Persona theme's sounds (themes.json `sounds`): per variant,
+a cue when a focus session or a break ends (<variant>-focus.wav), one when
+the countdown finishes (<variant>-countdown.wav) and a ringtone the alarm
+loops (<variant>-alarm.wav); P3R and P4 also get their own notification
+chime and critical sound (P5 keeps the registry's, assets/sounds). Each is
+built from scratch around a sound the game is remembered by, over music in
+the spirit of its soundtrack (original tunes, no Atlus audio):
+
+  p5   acid jazz (electric piano minor-ninth stabs, walking bass, brushes);
+       the calendar flipping to the next day, the calling card thrown and
+       sticking, the phone buzzing before the riff
+  p3r  calm piano in a minor key; the Velvet Room's blue butterfly (a glassy
+       chime), the Evoker (the click, the shot, glass shattering into the
+       summon), the Dark Hour (the clock ticking, then the bell)
+  p4   bright funky pop (major-seventh stabs, octave bass, claps); the
+       Midnight Channel (a TV blipping, switching on into static), the
+       Persona card shattering, the school chime (the Westminster Quarters,
+       public domain)
+
+Standard library only (with ../synth.py), so the package generates them
+when it is built (qml.nix): no audio file is kept in git.
 Run: python3 sounds.py [out-dir]   (default: next to this script)
 """
 import math
 import os
 import random
-import struct
 import sys
-import wave
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+import synth as S  # noqa: E402
 
 RATE = 44100
 # The alarms' last notes ring out this long after the loop's final beat
@@ -120,22 +132,6 @@ def place(events, length):
             if o + i < len(out):
                 out[o + i] += s
     return out
-
-
-def write(path, samples, fade=0.03):
-    peak = max(1e-9, max(abs(s) for s in samples))
-    gain = 0.8 / peak
-    n = len(samples)
-    fn = int(fade * RATE)
-    with wave.open(path, "wb") as w:
-        w.setnchannels(1)
-        w.setsampwidth(2)
-        w.setframerate(RATE)
-        frames = bytearray()
-        for i, s in enumerate(samples):
-            g = gain * (min(1.0, (n - i) / fn) if fn else 1.0)
-            frames += struct.pack("<h", int(max(-1, min(1, s * g)) * 32767))
-        w.writeframes(bytes(frames))
 
 
 # ------------------------------------------------------------------ P5
@@ -267,19 +263,149 @@ def p4_alarm():
     return place(events, 32 * s + RING_OUT)
 
 
+# ------------------------------------------------------- the games' sounds
+def paper_snap(seed, f=2500.0):
+    return S.biquad(S.shaped(S.noise(0.05, seed), lambda t: math.exp(-t * 110)), "bp", f, 1.0)
+
+
+def stereo(*parts, wet=0.18, room=0.72, tail=0.6):
+    """(start, mono samples, gain, pan) parts on a stereo Mix, with a room;
+    each part's full length is kept (the alarms' RING_OUT)."""
+    m = S.Mix()
+    for start, sig, gain, pan in parts:
+        m.add(sig, start, gain, pan)
+        m.pad(start + len(sig) / RATE)
+    return m.reverb(wet, room=room, tail=tail)
+
+
+def p5_focus_mix():
+    """The calendar flips to the next day (a page swept off, a snap), then
+    the stab."""
+    return stereo((0.0, S.swoosh(0.35, 501, 600, 7000, q=1.5), 0.45, -0.4),
+                  (0.3, paper_snap(502), 0.5, 0.2),
+                  (0.32, p5_focus(), 1.0, 0.0))
+
+
+def p5_countdown_mix():
+    """The calling card: flicked through the air, stuck with a thwack, then
+    the run and the stab with a cymbal."""
+    return stereo((0.0, S.swoosh(0.28, 510, 1500, 9000, q=3.0), 0.45, 0.5),
+                  (0.26, S.membrane(190, 0.25, decay=28, hit=0.9, hit_f=2600, seed=511), 0.55, 0.3),
+                  (0.42, p5_countdown(), 1.0, 0.0),
+                  (0.42 + 0.78, S.crash(1.4, 512), 0.18, -0.3))
+
+
+def p5_alarm_mix():
+    """The phone buzzing on the desk, then the riff."""
+    return stereo((0.0, S.vibrate(1.0, 520, ((0.0, 0.32), (0.45, 0.32))), 0.55, -0.2),
+                  (0.95, p5_alarm(), 1.0, 0.0), wet=0.12)
+
+
+def p3r_notification():
+    """The blue butterfly: two glassy chimes a fifth apart and a few glints
+    fluttering up, in a large, quiet room."""
+    glints = [(0.12 + 0.07 * k, S.fm_bell(S.note(24 + r), 0.5, index=0.8, ratio=3.0, decay=7), 0.18, -0.6 + 0.3 * k)
+              for k, r in enumerate((7, 11, 14, 19, 23))]
+    return stereo((0.0, S.fm_bell(1046.5, 1.8, index=1.6, ratio=2.0, decay=2.4), 0.8, -0.15),
+                  (0.09, S.fm_bell(1568.0, 1.6, index=1.2, ratio=2.0, decay=2.8), 0.6, 0.2),
+                  *glints, wet=0.4, room=0.88, tail=1.4)
+
+
+def p3r_critical():
+    """The Evoker: the hammer cocking, the shot, the glass of the mind
+    shattering, and the summon rising from below."""
+    swell = S.shaped(S.swoosh(1.2, 531, 150, 2500, q=1.2), lambda t: (t / 1.2) ** 1.5 * 2)
+    return stereo((0.0, S.tick(1700, 530), 0.6, 0.0),
+                  (0.06, S.tick(1300, 532, tock=True), 0.4, 0.0),
+                  (0.3, S.gunshot(533), 1.0, 0.0),
+                  (0.31, S.glass(1.6, 534), 0.75, 0.15),
+                  (0.45, swell, 0.45, -0.2),
+                  (1.5, chord(piano, [33, 45, 52, 57, 60, 64], 3.6, amp=0.25, decay=1.4), 0.75, 0.0),
+                  wet=0.35, room=0.86, tail=1.6)
+
+
+def p3r_focus_mix():
+    """The Dark Hour: the clock ticks, stops, a deep bell; then the piano."""
+    ticks = [(0.45 * k, S.tick(2400, 540 + k, tock=k % 2 == 1), 0.5, 0.25 if k % 2 else -0.25) for k in range(4)]
+    return stereo(*ticks,
+                  (1.95, S.tubular(110.0, 3.0, 545), 0.8, 0.0),
+                  (1.95, S.shaped(S.modal(55.0, 3.0, ((1.0, 1.0, 0.7, 0.4),)), lambda t: 1.0), 0.4, 0.0),
+                  (2.25, p3r_focus(), 0.75, 0.15), wet=0.35, room=0.86, tail=1.4)
+
+
+def p3r_countdown_mix():
+    """Midnight strikes (two deep strokes, a shimmer of glass), then the
+    phrase resolving."""
+    return stereo((0.0, S.tubular(146.8, 2.6, 550), 0.8, -0.1),
+                  (0.0, S.glass(0.9, 551, density=40, low=4000), 0.15, 0.4),
+                  (0.95, S.tubular(146.8, 2.6, 552), 0.7, 0.1),
+                  (1.5, p3r_countdown(), 0.9, 0.0), wet=0.32, room=0.86, tail=1.2)
+
+
+def p3r_alarm_mix():
+    """The ostinato over the clock's ticking."""
+    alarm = p3r_alarm()
+    dur = len(alarm) / RATE
+    ticks = [(k * 0.32, S.tick(2400, 560 + k, tock=k % 2 == 1), 0.22, 0.3 if k % 2 else -0.3)
+             for k in range(int(dur / 0.32))]
+    return stereo((0.0, alarm, 1.0, 0.0), *ticks, wet=0.22, room=0.8, tail=0.5)
+
+
+def p4_notification():
+    """The TV changing channel: a burst of static and the set's "pip"."""
+    pip = S.shaped([math.sin(S.TAU * 1000 * i / RATE) for i in range(S.n(0.16))], lambda t: S.adsr(t, 0.16, 0.003, 0.03))
+    return stereo((0.0, S.shaped(S.static(0.14, 570), lambda t: S.adsr(t, 0.14, 0.003, 0.04)), 0.5, -0.1),
+                  (0.13, pip, 0.55, 0.1),
+                  (0.33, [v * 0.8 for v in pip], 0.45, 0.1), wet=0.1, room=0.6, tail=0.3)
+
+
+def card_shatter(seed):
+    """The tarot card bursting: a quick upward rush, a crack, glass shards."""
+    return S.mono(S.scale(S.swoosh(0.25, seed, 800, 8000, q=2.5), 0.6),
+                  [0.0] * S.n(0.22) + S.scale(S.glass(1.2, seed + 1, density=150), 0.9))
+
+
+def p4_critical():
+    """The Midnight Channel: the TV switches on into static, then the
+    Persona card shatters over a bright stab."""
+    return stereo((0.0, S.tv_on(580), 0.9, 0.0),
+                  (0.9, card_shatter(581), 0.85, 0.15),
+                  (1.12, chord(brass, [52, 56, 59, 64], 0.7, amp=0.2), 0.9, -0.1),
+                  (1.12, bass(hz(40), 0.8), 0.9, 0.0),
+                  (1.12, S.crash(1.6, 582), 0.25, 0.3), wet=0.2, room=0.78, tail=0.9)
+
+
+def p4_focus_mix():
+    """The school chime: the first two changes of the Westminster Quarters
+    on tubular bells."""
+    parts = [(t * 0.68, S.tubular(f, 2.2, 590 + k), 0.7, -0.3 + 0.2 * (k % 4))
+             for k, (t, f) in enumerate(S.chime_westminster(beat=0.62, base=S.note(4))[:8])]
+    return stereo(*parts, wet=0.38, room=0.86, tail=1.2)
+
+
+def p4_countdown_mix():
+    return stereo((0.0, card_shatter(600), 0.8, 0.15), (0.3, p4_countdown(), 1.0, 0.0), wet=0.15)
+
+
+def p4_alarm_mix():
+    """The funk loop, the Midnight Channel's hiss under it, a blip on top."""
+    alarm = p4_alarm()
+    dur = len(alarm) / RATE
+    hiss = S.shaped(S.static(dur, 610), lambda t: 0.6 + 0.4 * math.sin(math.pi * t / dur))
+    return stereo((0.0, alarm, 1.0, 0.0), (0.0, hiss, 0.08, 0.0), wet=0.1)
+
+
 VARIANTS = {
-    "p5": dict(focus=p5_focus, countdown=p5_countdown, alarm=p5_alarm),
-    "p3r": dict(focus=p3r_focus, countdown=p3r_countdown, alarm=p3r_alarm),
-    "p4": dict(focus=p4_focus, countdown=p4_countdown, alarm=p4_alarm),
+    "p5": dict(focus=p5_focus_mix, countdown=p5_countdown_mix, alarm=p5_alarm_mix),
+    "p3r": dict(notification=p3r_notification, critical=p3r_critical, focus=p3r_focus_mix,
+                countdown=p3r_countdown_mix, alarm=p3r_alarm_mix),
+    "p4": dict(notification=p4_notification, critical=p4_critical, focus=p4_focus_mix,
+               countdown=p4_countdown_mix, alarm=p4_alarm_mix),
 }
 
 
 def main():
-    out = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.abspath(__file__))
-    os.makedirs(out, exist_ok=True)
-    for name, sounds in VARIANTS.items():
-        for kind, make in sounds.items():
-            write(os.path.join(out, f"{name}-{kind}.wav"), make())
+    S.run(VARIANTS)
 
 
 if __name__ == "__main__":

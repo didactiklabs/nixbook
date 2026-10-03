@@ -113,9 +113,9 @@ Scope {
 
     Connections {
         target: GlobalStates
-        // The Chiikawa and Cyberpunk themes preview their own
-        // (ChiikawaAlert, CyberpunkCutIn).
-        enabled: !Chiikawa.enabled && !Cyberpunk.enabled
+        // The Chiikawa, Cyberpunk and Ghibli themes preview their own
+        // (ChiikawaAlert, CyberpunkCutIn, GhibliCutIn).
+        enabled: !Chiikawa.enabled && !Cyberpunk.enabled && !Ghibli.enabled
         function onPersonaCutInPreviewChanged() {
             root.show({ notificationId: -1, summary: Translation.tr("Preview"), body: Translation.tr("This is how a cut-in notification looks."),
                 appName: "nixbook-shell", appIcon: "", image: UserAvatar.source, actions: [], time: Date.now() });

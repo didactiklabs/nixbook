@@ -722,6 +722,56 @@ ContentPage {
             }
         }
 
+        // Studio Ghibli theme options (only while it is the theme).
+        ContentSection {
+            shown: Themes.is("ghibli")
+            icon: "forest"
+            shape: MaterialShape.Shape.Clover4Leaf
+            title: Translation.tr("Studio Ghibli style")
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "appearance.ghibli.palette";
+                    buttonIcon: "palette"
+                    text: Translation.tr("Watercolour palette of the film (instead of wallpaper)")
+                    checked: Config.options.appearance.ghibli.palette
+                    enabled: !nixManaged
+                    onCheckedChanged: { Config.options.appearance.ghibli.palette = checked }
+                }
+                ConfigSwitch {
+                    configKey: "appearance.ghibli.motion";
+                    buttonIcon: "animation"
+                    text: Translation.tr("Gentle, floating animations")
+                    checked: Config.options.appearance.ghibli.motion
+                    enabled: !nixManaged
+                    onCheckedChanged: { Config.options.appearance.ghibli.motion = checked }
+                }
+                ConfigSwitch {
+                    configKey: "appearance.ghibli.shapes";
+                    buttonIcon: "rounded_corner"
+                    text: Translation.tr("Soft rounded corners")
+                    checked: Config.options.appearance.ghibli.shapes
+                    enabled: !nixManaged
+                    onCheckedChanged: { Config.options.appearance.ghibli.shapes = checked }
+                }
+                ConfigSwitch {
+                    configKey: "appearance.ghibli.fonts";
+                    buttonIcon: "title"
+                    text: Translation.tr("Storybook fonts (Zen Maru Gothic, Klee One)")
+                    checked: Config.options.appearance.ghibli.fonts
+                    enabled: !nixManaged
+                    onCheckedChanged: { Config.options.appearance.ghibli.fonts = checked }
+                }
+                ConfigSwitch {
+                    configKey: "appearance.ghibli.spirits";
+                    buttonIcon: "emoji_nature"
+                    text: Translation.tr("The spirit on panels, the loading screen and cut-ins")
+                    checked: Config.options.appearance.ghibli.spirits
+                    enabled: !nixManaged
+                    onCheckedChanged: { Config.options.appearance.ghibli.spirits = checked }
+                }
+            }
+        }
+
         ContentSection {
             icon: "settings"
             shape: MaterialShape.Shape.SoftBurst

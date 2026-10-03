@@ -287,6 +287,11 @@ Scope { // Scope
                     anchors.fill: parent
                     anchors.margins: parent.border.width
                 }
+                // Ghibli theme: leaves, paper birds or fireflies, the spirit in the corner
+                GhibliDecor {
+                    anchors.fill: parent
+                    anchors.margins: parent.border.width
+                }
 
                 readonly property bool sidebarOpen: GlobalStates.sidebarLeftOpen
                 // Nothing drawn while closed (the surface stays mapped).
