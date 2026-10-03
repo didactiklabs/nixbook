@@ -93,6 +93,10 @@ in
               "${pidof} ${hyprlock} || ${hyprlock}"; # avoid starting multiple hyprlock instances.
           before_sleep_cmd = "${loginctl} lock-session"; # lock before suspend.
           after_sleep_cmd = "${niri} msg action power-on-monitors"; # turn on monitors after sleep
+          # Hold the suspend (up to logind's InhibitDelayMaxSec) until the lock
+          # screen has actually locked the session (ext-session-lock), so the
+          # machine never sleeps, or wakes, with the desktop visible.
+          inhibit_sleep = 3;
         };
 
         listener = [

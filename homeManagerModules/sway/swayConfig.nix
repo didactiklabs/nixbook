@@ -15,6 +15,13 @@ let
   grimshot = "${pkgs.sway-contrib.grimshot}/bin/grimshot";
   systemctl = "${pkgs.systemd}/bin/systemctl";
   notifySend = "${pkgs.libnotify}/bin/notify-send";
+  # nixvim's configured nvim when nixvimConfig is on (plain neovim has none of
+  # its plugins).
+  nvim =
+    if config.programs.nixvim.enable or false then
+      config.programs.nixvim.build.package
+    else
+      pkgs.neovim;
   ## Mod+I idle-inhibit toggle (parity with the nixbook-shell bind in niriConfig.nix).
   ## nixbook-shell has no IPC for it, and Sway manages idle through swayidle
   ## (services.swayidle), so start/stop that user unit directly.
@@ -251,7 +258,7 @@ in
               "XF86MonBrightnessDown" = "exec ${brightnessctl} set 10%-";
               "XF86MonBrightnessUp" = "exec ${brightnessctl} set +10%";
 
-              "${mod}+n" = "exec ${pkgs.kitty}/bin/kitty ${pkgs.neovim}/bin/nvim";
+              "${mod}+n" = "exec ${pkgs.kitty}/bin/kitty ${nvim}/bin/nvim";
 
               ## To allow a keybinding to be executed while the lockscreen is active add the --locked parameter to bindsym.
               # Audio

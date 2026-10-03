@@ -3,6 +3,12 @@
   quickshellSrc,
   dankcalendarSrc,
   flakeCompatSrc,
+  # The VPN CLIs behind the VpnStatus bar widget (services/VpnState.qml probes
+  # them with `command -v`, so the widget only shows the ones it finds). Off
+  # where they are on the PATH anyway or not used, to keep them out of the
+  # closure.
+  withTailscale ? true,
+  withNetbird ? true,
 }:
 # The `nixbook-shell` launcher: `nixbook-shell` starts the shell,
 # `nixbook-shell ipc call <target> <fn>` drives it, `nixbook-shell splash` shows
@@ -157,12 +163,11 @@ let
       file # MIME sniffing for chat attachments and directory icons
       zip # settings preset export/import (scripts/presets.sh)
 
-      tailscale # VpnStatus bar widget — `tailscale status/switch/set`
-      netbird # VpnStatus bar widget — `netbird status/up/down/profile`
-
       niri
       btop # task manager (Config.options.apps.taskManager)
     ])
+    ++ lib.optional withTailscale pkgs.tailscale # VpnStatus bar widget — `tailscale status/switch/set`
+    ++ lib.optional withNetbird pkgs.netbird # VpnStatus bar widget — `netbird status/up/down/profile`
     ++ [
       quickshell # `qs` — the shell re-invokes itself for sub-windows
       dankcalendar # `dcal` — calendar events and tasks (CalendarEvents, Todo)
@@ -217,11 +222,14 @@ let
   '';
 
   # cliphist store daemon. Nothing else in this config runs one, so without it
-  # the shell's clipboard history (Mod+Q) is permanently empty.
+  # the shell's clipboard history (Mod+Q) is permanently empty. If either
+  # watcher dies, exit non-zero so the unit's Restart=on-failure brings both
+  # back (systemd kills the surviving one with the rest of the cgroup).
   cliphistWatch = pkgs.writeShellScript "nixbook-shell-cliphist-watch" ''
     ${pkgs.wl-clipboard}/bin/wl-paste --type text --watch ${pkgs.cliphist}/bin/cliphist store &
     ${pkgs.wl-clipboard}/bin/wl-paste --type image --watch ${pkgs.cliphist}/bin/cliphist store &
-    wait
+    wait -n
+    exit 1
   '';
 
   # Single entry point: keybinds and the systemd unit both go through this so
@@ -259,6 +267,15 @@ let
     if [ "''${1:-}" = "greeter" ]; then
       shift
       exec ${quickshell}/bin/qs -p ${shell}/greeter.qml "$@"
+    fi
+    # The directories services/DesktopControl.qml watches: a file watch needs
+    # its directory to exist when the shell starts (desktop-mcp.py creates
+    # them the same way, 0700, on first use).
+    if [ "''${1:-}" != "ipc" ]; then
+      for dir in "''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/nixbook-desktop-mcp" \
+        "''${XDG_STATE_HOME:-$HOME/.local/state}/nixbook-shell"; do
+        [ -d "$dir" ] || mkdir -p -m 700 "$dir"
+      done
     fi
     exec ${quickshell}/bin/qs -c ${configName} "$@"
   '';

@@ -706,7 +706,12 @@ in
     };
 
     systemd.user.services.ocm-notification-history = lib.mkIf notificationHistory.enable {
-      Unit.Description = "Mirror the nixbook-shell notification history for ocm workspaces";
+      Unit = {
+        Description = "Mirror the nixbook-shell notification history for ocm workspaces";
+        # The shell can rewrite the file every second: no start rate limit,
+        # or the path unit stops triggering after 5 starts in 10 s.
+        StartLimitIntervalSec = 0;
+      };
       Service = {
         Type = "oneshot";
         ExecStart = "${notificationHistoryMirrorScript}";
@@ -722,7 +727,12 @@ in
     };
 
     systemd.user.services.ocm-desktop-memory = lib.mkIf desktopMemory.enable {
-      Unit.Description = "Mirror the nixbook-shell desktop memory for ocm workspaces";
+      Unit = {
+        Description = "Mirror the nixbook-shell desktop memory for ocm workspaces";
+        # The shell can rewrite the file every second: no start rate limit,
+        # or the path unit stops triggering after 5 starts in 10 s.
+        StartLimitIntervalSec = 0;
+      };
       Service = {
         Type = "oneshot";
         ExecStart = "${desktopMemoryMirrorScript}";

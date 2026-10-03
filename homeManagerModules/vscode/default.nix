@@ -7,19 +7,54 @@
 let
   cfg = config.customHomeManagerModules.vscode;
   # nixpkgs-unstable's VSCode (>= 1.131) can't fetch its Oniguruma WASM in this
-  # environment, breaking ALL TextMate syntax highlighting. Pin VSCode to the last
-  # nixpkgs revision where it works (1.130.0, Copilot-compatible). Frozen fetchTarball
-  # so `npins update` can't bump it back. Revert to pkgs.vscode once upstream fixes it.
-  pkgsVscode =
-    import
-      (builtins.fetchTarball {
-        url = "https://github.com/NixOS/nixpkgs/archive/148bab9c1c3c53136ecb44a6ea356a0ed5b39b06.tar.gz";
-        sha256 = "130q3prp2m6863lzc7rhv6ak42g1xr4hhpn7mccp979aqk4fr11a";
-      })
-      {
-        inherit (pkgs.stdenv.hostPlatform) system;
-        config.allowUnfree = true;
-      };
+  # environment, breaking ALL TextMate syntax highlighting. Pin VSCode to 1.130.0
+  # (the last version where it works, Copilot-compatible), built by this nixpkgs'
+  # own VSCode expression: only the version, the archive and the Remote SSH server
+  # commit change (values from nixpkgs 148bab9c), so no second nixpkgs is
+  # evaluated and the runtime libraries are shared with the rest of the system.
+  # Hardcoded so `npins update` can't bump it. Revert to pkgs.vscode once
+  # upstream fixes it.
+  vscodePinned =
+    let
+      version = "1.130.0";
+      rev = "1b6a188127eeaf9194f945eb6eb89a657e93c54c";
+      plat =
+        {
+          x86_64-linux = "linux-x64";
+          aarch64-linux = "linux-arm64";
+        }
+        .${pkgs.stdenv.hostPlatform.system};
+      hash =
+        {
+          x86_64-linux = "sha256-fWrT06eKxFUcFGMfeNfgPIUoKrUFw86LG8BOAfr+iOo=";
+          aarch64-linux = "sha256-CzQScd1qm4YzqXMkeWqPWCKKWtwmKQ5AsokPy/lmowA=";
+        }
+        .${pkgs.stdenv.hostPlatform.system};
+    in
+    pkgs.vscode.override {
+      buildVscode =
+        args:
+        pkgs.buildVscode (
+          args
+          // {
+            inherit version rev;
+            src = pkgs.fetchurl {
+              name = "VSCode_${version}_${plat}.tar.gz";
+              url = "https://update.code.visualstudio.com/${version}/${plat}/stable";
+              inherit hash;
+            };
+            vscodeServer = pkgs.srcOnly {
+              name = "vscode-server-${rev}.tar.gz";
+              src = pkgs.fetchurl {
+                name = "vscode-server-${rev}.tar.gz";
+                url = "https://update.code.visualstudio.com/commit:${rev}/server-linux-x64/stable";
+                hash = "sha256-ogtXQGE9/8xQYvN/juDglu6wkHJzYyL8wetF8sWnqd8=";
+              };
+              stdenv = pkgs.stdenvNoCC;
+            };
+          }
+        );
+    };
 in
 {
   options.customHomeManagerModules.vscode = {
@@ -69,7 +104,7 @@ in
     ];
     programs.vscode = {
       enable = true;
-      package = pkgsVscode.vscode;
+      package = vscodePinned;
       profiles.default.extensions = import ./mkAllExtensions.nix { inherit pkgs; };
       mutableExtensionsDir = false;
       # Write settings.json as a writable file so VSCode can persist runtime
