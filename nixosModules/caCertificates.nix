@@ -57,13 +57,13 @@ in
     };
   };
   config = {
-    security.pki.certificateFiles = [
-      "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
-    ]
-    ++ lib.optional cfg.caCertificates.rpcu.enable ../assets/certs/rpcu-ca.crt
-    ++ lib.optional cfg.caCertificates.bealv.enable ../assets/certs/bealv-ca.crt
-    ++ lib.optional cfg.caCertificates.didactiklabs.enable ../assets/certs/didactiklabs-ca.crt
-    ++ lib.optional cfg.caCertificates.logicmg.enable ../assets/certs/logicmg-ca.crt;
+    # NixOS builds the trust store from pkgs.cacert already: list only the
+    # extra internal CAs here (listing cacert's bundle duplicated every root).
+    security.pki.certificateFiles =
+      lib.optional cfg.caCertificates.rpcu.enable ../assets/certs/rpcu-ca.crt
+      ++ lib.optional cfg.caCertificates.bealv.enable ../assets/certs/bealv-ca.crt
+      ++ lib.optional cfg.caCertificates.didactiklabs.enable ../assets/certs/didactiklabs-ca.crt
+      ++ lib.optional cfg.caCertificates.logicmg.enable ../assets/certs/logicmg-ca.crt;
     environment.etc = {
       "ssl/certs/ca-certs.crt" = {
         source = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
@@ -74,7 +74,7 @@ in
         mode = "0644";
       };
       "ssl/certs/rpcu-ca.crt" = lib.mkIf cfg.caCertificates.rpcu.enable {
-        source = ../assets/certs/bealv-ca.crt;
+        source = ../assets/certs/rpcu-ca.crt;
         mode = "0644";
       };
       "ssl/certs/bealv-ca.crt" = lib.mkIf cfg.caCertificates.bealv.enable {

@@ -142,8 +142,10 @@ in
         # 4 is the max supported across RDNA2 + RDNA3
         "amdgpu.sched_hw_submission=4"
 
-        # Work around black/white flashes when showing/hiding planes
-        "amdgpu.dcdebugmask=0x20000"
+        # Work around black/white flashes when showing/hiding planes (0x20000),
+        # plus core's 0x10 (it skips its own param here: only the last
+        # amdgpu.dcdebugmask= takes effect)
+        "amdgpu.dcdebugmask=0x20010"
 
         # Disable kernel audit subsystem (not needed for gaming, saves cycles)
         "audit=0"

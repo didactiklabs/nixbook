@@ -10,44 +10,43 @@ let
   # A tree with uncommitted changes has an all-zero `rev`; `dirtyRev` is
   # "<commit>-dirty" (the commit the changes were made on).
   dirty = gitRepo != null && gitRepo ? dirtyRev;
+  # Read straight from .git at evaluation time. (These used to be
+  # runCommand + readFile, i.e. import-from-derivation: evaluation stopped to
+  # build them.) A .git *file* (worktree, submodule) has no config/HEAD here.
+  gitFile =
+    name:
+    if builtins.pathExists (../.git + "/${name}") then
+      builtins.readFile (../.git + "/${name}")
+    else
+      null;
+  gitConfig = gitFile "config";
+  gitHead = gitFile "HEAD";
+  # The first `url = …` of .git/config (the remote the repo was cloned from).
+  remoteUrls = lib.concatMap (
+    line:
+    let
+      m = builtins.match "[[:space:]]*url = (.*)" line;
+    in
+    if m == null then [ ] else m
+  ) (lib.splitString "\n" gitConfig);
   jsonFile = builtins.toJSON {
-    url =
-      if builtins.pathExists ../.git then
-        builtins.readFile (
-          pkgs.runCommand "getRemoteUrl" { buildInputs = [ pkgs.git ]; } ''
-            grep -oP '(?<=url = ).*' ${../.git/config} | tr -d '\n' > $out;
-          ''
-        )
-      else
-        {
-          url = "unknown";
-        };
+    url = if gitConfig != null && remoteUrls != [ ] then lib.head remoteUrls else "unknown";
+    # "refs/heads/<branch>", or "detached" for a checked-out commit.
     branch =
-      if builtins.pathExists ../.git then
-        builtins.readFile (
-          pkgs.runCommand "getBranch" { buildInputs = [ pkgs.git ]; } ''
-            cat ${../.git/HEAD} | awk '{print $2}' | tr -d '\n' > $out;
-          ''
-        )
+      if gitHead == null then
+        "unknown"
       else
-        { branch = "unknown"; };
+        let
+          m = builtins.match "ref: ([^\n]*).*" gitHead;
+        in
+        if m == null then "detached" else lib.head m;
     inherit dirty;
     rev =
       if gitRepo != null then
         if dirty then lib.removeSuffix "-dirty" gitRepo.dirtyRev else gitRepo.rev
       else
-        {
-          rev = "unknown"; # Default value when there's no .git directory
-        }
-        .rev;
-    lastModifiedDate =
-      if gitRepo != null then
-        gitRepo.lastModifiedDate
-      else
-        {
-          lastModifiedDate = "unknown";
-        }
-        .lastModifiedDate;
+        "unknown"; # no .git directory
+    lastModifiedDate = if gitRepo != null then gitRepo.lastModifiedDate else "unknown";
   };
 in
 {
