@@ -1,0 +1,6 @@
+name: mcp-nixos
+version: 1
+description: Give Claude Code in the workspace the MCP-NixOS server (https://mcp-nixos.io), real NixOS, Home Manager and nix-darwin package and option data, run with uvx.
+# Only writes the user-scope server into ~/.claude.json, nothing in ~/.env, so
+# it never bounces the OpenCode server.
+restartServer: false

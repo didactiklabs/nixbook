@@ -820,6 +820,13 @@ Whether to install the `kubeswitch` ocm module (`~/.config/opencode-manager/modu
 
 kubeswitch package whose `switcher` the host hooks run.
 
+### `customHomeManagerModules.ocmConfig.mcpNixos.enable`
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+Whether to install the `tools/mcp-nixos` ocm module. Added to a workspace from the module editor, it registers [MCP-NixOS](https://mcp-nixos.io) (real NixOS, Home Manager and nix-darwin package and option data) as a user-scope MCP server of the workspace's Claude Code (`claude mcp add --scope user nixos -- uvx mcp-nixos`; uvx ships in the base image); `uninstall` removes it.
+
 ### `customHomeManagerModules.ocmConfig.nix.devenv`
 
 - **Type:** `boolean`

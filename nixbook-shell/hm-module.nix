@@ -742,6 +742,29 @@ in
         '';
       };
 
+      mcpServers = lib.mkOption {
+        type = lib.types.attrsOf (pkgs.formats.json { }).type;
+        default = {
+          nixos.command = lib.getExe pkgs.mcp-nixos;
+        };
+        defaultText = lib.literalExpression "{ nixos.command = lib.getExe pkgs.mcp-nixos; }";
+        example = lib.literalExpression ''
+          {
+            nixos.command = lib.getExe pkgs.mcp-nixos;
+            trek = { type = "http"; url = "https://trek.example.org/mcp"; };
+          }
+        '';
+        description = ''
+          MCP servers the AI chat's Claude model gets besides the desktop one,
+          in Claude Code's `mcpServers` format, written to
+          `~/.config/nixbook-shell/assistant-mcp.json`. All their tools are
+          allowed. Not given while the chat's tools are disabled. The default,
+          [MCP-NixOS](https://mcp-nixos.io), answers from the real NixOS,
+          Home Manager and nix-darwin package and option data instead of
+          guessing. `desktop` is reserved.
+        '';
+      };
+
       pinnedLines = lib.mkOption {
         type = lib.types.str;
         readOnly = true;
@@ -948,6 +971,10 @@ in
         xdg.configFile."nixbook-shell/desktop-mcp.json".source =
           (pkgs.formats.json { }).generate "desktop-mcp.json"
             (cfg.desktopMcp.settings // { http.port = cfg.desktopMcp.http.port; });
+        # The AI chat's other MCP servers (assistant.mcpServers, services/Ai.qml).
+        xdg.configFile."nixbook-shell/assistant-mcp.json".source =
+          (pkgs.formats.json { }).generate "assistant-mcp.json"
+            { inherit (cfg.assistant) mcpServers; };
         # The ui tools: Firefox-based and Chromium/Electron apps publish their
         # accessibility tree only when asked to (GTK and Qt apps always do).
         systemd.user.sessionVariables = lib.mkIf (lib.elem "ui" cfg.desktopMcp.settings.tools) {

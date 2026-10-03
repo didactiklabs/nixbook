@@ -1,0 +1,29 @@
+#!/bin/sh
+# Runs inside the workspace container. Registers MCP-NixOS
+# (https://mcp-nixos.io) as a user-scope MCP server of Claude Code, so every
+# Claude Code session in the workspace has it. uvx (in the ocm base image)
+# fetches mcp-nixos from PyPI on its first start and caches it.
+# Idempotent: the entry is replaced.
+set -e
+
+claude=$(command -v claude || true)
+[ -n "$claude" ] || [ ! -x "$HOME/.local/bin/claude" ] || claude="$HOME/.local/bin/claude"
+
+if [ -n "$claude" ]; then
+  "$claude" mcp remove --scope user nixos >/dev/null 2>&1 || true
+  "$claude" mcp add --scope user nixos -- uvx mcp-nixos >/dev/null
+else
+  # No Claude Code yet: write the entry it reads from ~/.claude.json.
+  if ! command -v jq >/dev/null 2>&1; then
+    sudo apt-get update
+    sudo apt-get install -y --no-install-recommends jq
+  fi
+  cfg="$HOME/.claude.json"
+  [ -s "$cfg" ] || echo '{}' >"$cfg"
+  tmp="$(mktemp)"
+  jq '.mcpServers.nixos = {type: "stdio", command: "uvx", args: ["mcp-nixos"], env: {}}' "$cfg" >"$tmp"
+  mv "$tmp" "$cfg"
+  chmod 600 "$cfg"
+fi
+
+echo "mcp-nixos: added to Claude Code (user scope); new sessions have it"
