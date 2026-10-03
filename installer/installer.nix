@@ -9,7 +9,7 @@ let
 in
 {
   config.system.build.scripts = {
-    installer = pkgs.writeScriptBin "installer" ''
+    installer = pkgs.writeShellScriptBin "installer" ''
       set -euo pipefail
       set +H
       export PATH="$PATH:${

@@ -60,8 +60,16 @@ cmd_repo() {
   done
 
   section "repo: every custom package instantiates"
-  local pkg
-  for pkg in $(nix-instantiate --eval --strict --json -E 'builtins.attrNames (import ./tests/repo.nix).packages' | jq -r '.[]'); do
+  local pkg pkgs
+  pkgs=$(nix-instantiate --eval --strict --json -E 'builtins.attrNames (import ./tests/repo.nix).packages' | jq -r '.[]') || {
+    echo "FAIL - could not list the custom packages" >&2
+    return 1
+  }
+  if [ -z "$pkgs" ]; then
+    echo "FAIL - tests/repo.nix lists no custom packages" >&2
+    return 1
+  fi
+  for pkg in $pkgs; do
     if nix-instantiate --eval --strict tests/repo.nix -A "packages.$pkg" >/dev/null 2>"$tmpdir/pkg.err"; then
       echo "ok   - customPkgs/$pkg"
     else
@@ -72,17 +80,20 @@ cmd_repo() {
   done
 
   section "repo: CI and devenv agree with the hive and npins"
-  local nodes matrix job
-  nodes=$(nix-instantiate --eval --strict --json tests/repo.nix -A hiveNodes | jq -c 'sort')
-  for job in build push-cache; do
-    matrix=$(yq -o=json ".jobs.\"$job\".strategy.matrix.profile" .github/workflows/build.yaml | jq -c 'sort')
-    if [ "$matrix" = "$nodes" ]; then
-      echo "ok   - build.yaml $job matrix builds every hive node"
-    else
-      echo "FAIL - build.yaml $job matrix $matrix != hive nodes $nodes" >&2
-      failed=1
-    fi
-  done
+  local nodes matrix
+  nodes=$(nix-instantiate --eval --strict --json tests/repo.nix -A hiveNodes | jq -c 'sort') || {
+    echo "FAIL - could not list the hive nodes" >&2
+    return 1
+  }
+  # push-cache builds the whole hive (no --on), so only the build matrix
+  # has to list the nodes.
+  matrix=$(yq -o=json '.jobs.build.strategy.matrix.profile' .github/workflows/build.yaml | jq -c 'sort')
+  if [ "$matrix" = "$nodes" ]; then
+    echo "ok   - build.yaml build matrix builds every hive node"
+  else
+    echo "FAIL - build.yaml build matrix $matrix != hive nodes $nodes" >&2
+    failed=1
+  fi
   local npins_rev devenv_rev
   npins_rev=$(jq -r .pins.nixpkgs.revision npins/sources.json)
   devenv_rev=$(yq -r '.inputs.nixpkgs.url' devenv.yaml | sed 's|.*/||')
@@ -97,10 +108,12 @@ cmd_repo() {
 
 cmd_shell() {
   need nix-instantiate jq python3 curl
+  local failed=0
   section "nixbook-shell scripts"
-  bash nixbook-shell/tests/scripts.sh
+  bash nixbook-shell/tests/scripts.sh || failed=1
   section "nixbook-shell desktop control MCP server"
-  bash nixbook-shell/tests/desktop-mcp.sh
+  bash nixbook-shell/tests/desktop-mcp.sh || failed=1
+  return "$failed"
 }
 
 cmd_iso() {
@@ -112,7 +125,7 @@ cmd_iso() {
 cmd_docs() {
   need nix-build
   section "docs/MODULES.md is up to date"
-  nix-build docs/generate-docs.nix -o "$tmpdir/docs" >/dev/null 2> >(annotate >&2)
+  nix-build docs/generate-docs.nix -o "$tmpdir/docs" >/dev/null 2> >(annotate >&2) || return 1
   # Compare the structure (modules, options, types, defaults), not the prose,
   # and ignore whitespace and escapes: the committed file went through
   # prettier, whose output changes with its version.
@@ -143,9 +156,17 @@ cmd_host() {
 
   section "host $host$([ "$all" = true ] && echo " (all optional modules on)"): evaluate + invariants"
   local result
+  # Explicit `|| return 1`s: cmd_all calls this under `||`, which disables set -e.
   result=$(colmena eval -E "import $repo/tests/hosts.nix { host = \"$host\"; allModules = $all; }" \
-    2> >(annotate >&2) | tail -n 1)
-  jq -r '"toplevel: \(.toplevel)", (.warnings[] | "NixOS warning: \(.)")' <<<"$result"
+    2> >(annotate >&2) | tail -n 1) || {
+    echo "FAIL - host $host does not evaluate" >&2
+    return 1
+  }
+  jq -e '.toplevel | type == "string" and length > 0' <<<"$result" >/dev/null 2>&1 || {
+    echo "FAIL - host $host: colmena eval returned no toplevel: $result" >&2
+    return 1
+  }
+  jq -r '"toplevel: \(.toplevel)", (.warnings[] | "NixOS warning: \(.)")' <<<"$result" || return 1
   if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
     jq -r '.warnings[] | "::warning title=NixOS warning ('"$host"')::\(.)"' <<<"$result"
   fi
@@ -153,10 +174,14 @@ cmd_host() {
   section "host $host: build generated files"
   local drvs
   mapfile -t drvs < <(jq -r '.cheapBuilds[]' <<<"$result")
-  nix-store --realise "${drvs[@]}" --add-root "$tmpdir/cheap" --indirect >/dev/null
+  if [ ${#drvs[@]} -eq 0 ]; then
+    echo "FAIL - host $host: no generated files to build" >&2
+    return 1
+  fi
+  nix-store --realise "${drvs[@]}" --add-root "$tmpdir/cheap" --indirect >/dev/null || return 1
   local drv out
   for drv in "${drvs[@]}"; do
-    out=$(nix-store --query --outputs "$drv")
+    out=$(nix-store --query --outputs "$drv") || return 1
     case "$drv" in
     *projectGit.json.drv)
       # /etc/nixos/version: osupdate reads `.rev` from it.
@@ -176,15 +201,20 @@ cmd_host() {
 }
 
 cmd_all() {
-  local failed=0 host
+  local failed=0 host hosts
+  hosts=$(cmd_hosts | jq -r '.[]') || return 1
+  [ -n "$hosts" ] || {
+    echo "FAIL - the hive has no nodes" >&2
+    return 1
+  }
   cmd_repo || failed=1
   cmd_shell || failed=1
   cmd_iso || failed=1
   cmd_docs || failed=1
-  for host in $(cmd_hosts | jq -r '.[]'); do
+  for host in $hosts; do
     cmd_host "$host" || failed=1
   done
-  cmd_host "$(cmd_hosts | jq -r '.[0]')" --all-modules || failed=1
+  cmd_host "${hosts%%$'\n'*}" --all-modules || failed=1
   return "$failed"
 }
 
