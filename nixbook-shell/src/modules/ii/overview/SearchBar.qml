@@ -28,6 +28,8 @@ RowLayout {
     signal pageSelection(int direction)
     signal acceptSelection()
     signal completeSelection()
+    // Shift+Delete: the selected result's Delete action (clipboard, layouts).
+    signal deleteSelection()
     // Grid only: one tile to the side (Left/Right when nothing is typed,
     // Tab/Shift+Tab).
     signal moveItem(int delta)
@@ -115,6 +117,8 @@ RowLayout {
                 root.moveItem(event.key === Qt.Key_Tab ? 1 : -1);
             } else if (event.key === Qt.Key_Tab) {
                 root.completeSelection();
+            } else if (event.key === Qt.Key_Delete && (event.modifiers & Qt.ShiftModifier)) {
+                root.deleteSelection();
             } else {
                 return;
             }

@@ -604,34 +604,54 @@ Singleton {
                 const haystack = `${l.name} ${(l.apps ?? []).join(" ")}`.toLowerCase();
                 return terms.every(term => haystack.includes(term));
             }).map((l, i) => {
+                // Row buttons (SearchItem): update it, delete it (also Shift+Delete).
                 const obj = root.cachedResult("layout", l.name, {
                     name: l.name,
                     iconName: "view_quilt",
                     iconType: LauncherSearchResult.IconType.Material,
                     type: Translation.tr("Window layout"),
-                    comment: Translation.tr("%1 windows · %2").arg(l.windows).arg((l.apps ?? []).join(", ")),
-                    execute: () => WindowLayouts.restore(l.name)
+                    execute: () => WindowLayouts.restore(l.name),
+                    actions: [resultComp.createObject(root, {
+                            name: Translation.tr("Update with the windows as they are"),
+                            iconName: "save",
+                            iconType: LauncherSearchResult.IconType.Material,
+                            execute: () => WindowLayouts.save(l.name)
+                        }), resultComp.createObject(root, {
+                            name: Translation.tr("Delete"),
+                            iconName: "delete",
+                            iconType: LauncherSearchResult.IconType.Material,
+                            execute: () => WindowLayouts.remove(l.name)
+                        })]
                 });
+                // Changes with each save: not only when the row is first made.
+                obj.comment = Translation.tr("%1 windows · %2").arg(l.windows).arg((l.apps ?? []).join(", "));
                 obj.verb = WindowLayouts.current === l.name ? Translation.tr("Restore (current)") : Translation.tr("Restore");
                 return obj;
             });
-            // Save: under the typed name when it's a new one, else into the current layout.
-            const exists = WindowLayouts.layouts.some(l => l.name === typed);
-            const saveName = typed.length > 0 && !exists ? typed : WindowLayouts.current;
-            if (saveName.length > 0 && WindowLayouts.validName(saveName)) {
-                const save = root.cachedResult("layout-save", saveName, {
-                    name: typed.length > 0 && !exists ? Translation.tr("Save the windows as “%1”").arg(saveName)
-                        : Translation.tr("Update “%1” with the windows as they are").arg(saveName),
+            // Save: under the typed name when it's a new one, else into the
+            // current layout, and always as a new one (layout-N) when nothing
+            // is typed: saving must not depend on knowing to type a name.
+            // "my work" is saved as my-work: names have no spaces.
+            const newName = typed.replace(/\s+/g, "-");
+            const exists = WindowLayouts.layouts.some(l => l.name === newName);
+            const isNew = newName.length > 0 && !exists;
+            const saveRow = (key, saveName, label, comment) => {
+                const save = root.cachedResult(key, saveName, {
                     iconName: "save",
                     iconType: LauncherSearchResult.IconType.Material,
                     type: Translation.tr("Window layout"),
-                    comment: Translation.tr("Type a new name to save a new layout"),
                     execute: () => WindowLayouts.save(saveName)
                 });
+                // A cached row can be "new" one time and "update" the next.
+                save.name = label;
+                save.comment = comment;
                 save.verb = Translation.tr("Save");
-                if (typed.length > 0 && !exists) results.unshift(save);
-                else results.push(save);
-            } else if (typed.length > 0 && !exists) {
+                return save;
+            };
+            if (isNew && WindowLayouts.validName(newName)) {
+                results.unshift(saveRow("layout-save", newName, Translation.tr("Save the windows as “%1”").arg(newName),
+                    Translation.tr("A new layout")));
+            } else if (isNew) {
                 const invalid = root.cachedResult("layout-invalid", typed, {
                     name: Translation.tr("Letters, digits, '.', '-' and '_' only"),
                     iconName: "error",
@@ -641,6 +661,16 @@ Singleton {
                 });
                 invalid.verb = "";
                 results.push(invalid);
+            } else {
+                if (WindowLayouts.current.length > 0 && (typed.length === 0 || newName === WindowLayouts.current))
+                    results.push(saveRow("layout-save", WindowLayouts.current,
+                        Translation.tr("Update “%1” with the windows as they are").arg(WindowLayouts.current),
+                        Translation.tr("The current layout")));
+                if (typed.length === 0) {
+                    const fresh = WindowLayouts.nextName();
+                    results.push(saveRow("layout-save", fresh, Translation.tr("Save the windows as a new layout"),
+                        Translation.tr("As “%1”, or type a name first").arg(fresh)));
+                }
             }
             return results;
         } else if (root.query.startsWith(Config.options.search.prefix.themes)) {

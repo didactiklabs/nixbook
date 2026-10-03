@@ -51,7 +51,13 @@ Singleton {
     }
 
     function run(args) {
-        if (runner.running) return false;
+        // One at a time (a restore waits up to 15 s for the apps it starts):
+        // said, not silently dropped, which looked like nothing working.
+        if (runner.running) {
+            Quickshell.execDetached(["notify-send", "-a", "Window layouts", "-i", "view-grid",
+                Translation.tr("Window layouts"), Translation.tr("Still busy with the last change: try again in a moment")]);
+            return false;
+        }
         runner.command = [root.command, "layout", ...args];
         runner.running = true;
         return true;

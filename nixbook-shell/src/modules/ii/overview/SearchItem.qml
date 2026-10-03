@@ -17,6 +17,7 @@ RippleButton {
     property string itemTags: entry?.comment ?? ""
     property bool entryShown: entry?.shown ?? true
     property string itemType: entry?.type ?? Translation.tr("App")
+    readonly property bool layoutDetails: root.itemTags !== "" && root.itemType === Translation.tr("Window layout")
     property string itemName: entry?.name ?? ""
     property var iconType: entry?.iconType
     property string iconName: entry?.iconName ?? ""
@@ -216,7 +217,9 @@ RippleButton {
                 id: typeText
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: root.selected ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colSubtext
-                visible: root.itemType && root.itemType != Translation.tr("App")
+                // A window layout's windows and apps take its place: the row
+                // has room for two lines.
+                visible: root.itemType && root.itemType != Translation.tr("App") && !root.layoutDetails
                 text: root.itemType
             }
             RowLayout {
@@ -261,9 +264,9 @@ RippleButton {
                     text: root.selected ? root.itemName : root.displayContent
                 }
             }
-            StyledText { // Symbol tags / description
+            StyledText { // Symbol tags, window layout windows and apps
                 id: tagsText
-                visible: root.itemTags !== "" && root.itemType === Translation.tr("Symbol")
+                visible: root.itemTags !== "" && (root.itemType === Translation.tr("Symbol") || root.layoutDetails)
                 Layout.fillWidth: true
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: root.selected ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colSubtext
