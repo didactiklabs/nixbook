@@ -152,12 +152,14 @@ pkgs.stdenvNoCC.mkDerivation {
   ];
   buildPhase = ''
     runHook preBuild
+    # The sound scripts share assets/synth.py: no __pycache__ in the tree.
+    export PYTHONDONTWRITEBYTECODE=1
     for svg in assets/persona/p*-{panel,tall,wide}.svg; do
       resvg --zoom 2.5 "$svg" "''${svg%.svg}.png"
     done
     # Chiikawa theme art (assets/chiikawa/*.svg, generate.py): the sidebar
     # patterns and the wallpapers (1920x1080 viewBox: 4K). The character is
-    # momonga.gif, shipped as is.
+    # momonga.gif and friends.gif, shipped as they are.
     for svg in assets/chiikawa/*.svg; do
       resvg --zoom 2 "$svg" "''${svg%.svg}.png"
     done
@@ -169,8 +171,16 @@ pkgs.stdenvNoCC.mkDerivation {
       resvg --zoom 2 "$svg" "''${svg%.svg}.png"
     done
     python3 assets/cyberpunk/sounds.py assets/cyberpunk/sounds
-    # Persona's timer sounds (assets/persona/sounds.py; its chime and cut-in
-    # are the registry's, assets/sounds).
+    # Studio Ghibli theme art (assets/ghibli/*.svg, generate.py): the
+    # wallpapers (1920x1080 viewBox: 4K), the sidebar patterns and the
+    # spirits, and its synthesized sounds.
+    for svg in assets/ghibli/*.svg; do
+      resvg --zoom 2 "$svg" "''${svg%.svg}.png"
+    done
+    python3 assets/ghibli/sounds.py assets/ghibli/sounds
+    # Persona's synthesized sounds (assets/persona/sounds.py): the timers',
+    # and P3R's and P4's own chime and critical sound (P5's are the
+    # registry's, assets/sounds).
     python3 assets/persona/sounds.py assets/persona/sounds
     # The launcher's emoji list (services/Emojis.qml): Unicode's emojis with
     # CLDR's English keywords.

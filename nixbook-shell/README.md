@@ -593,6 +593,7 @@ themeToggle`: every theme and variant, type to filter, Enter applies) — and ea
 | `persona`   | `p5` (Royal), `p3r` (3 Reload), `p4` (4 Revival) | `palette`, `motion`, `shapes`, `halftone`, `fonts` |
 | `chiikawa`  | `chiikawa` (default), `usagi`, `momonga`         | `palette`, `motion`, `shapes`, `fonts`, `mascot`   |
 | `cyberpunk` | `yellow` (default), `red`                        | `palette`, `motion`, `shapes`, `fonts`, `glitch`   |
+| `ghibli`    | `totoro` (default), `spirited`, `mononoke`       | `palette`, `motion`, `shapes`, `fonts`, `spirits`  |
 
 ```nix
 programs.nixbook-shell.settings.appearance = {
@@ -606,20 +607,24 @@ wallpapers (`appearance.wallpaperPerTheme`, on by default;
 `appearance.themeWallpapers`, `themeLockWallpapers`, `themeLoginWallpapers`:
 `"<theme>/<variant>=<path>"` entries, `src/services/ThemeWallpapers.qml`):
 switching puts back what the variant had (for the desktop, its bundled one
-the first time: the Chiikawa and Cyberpunk ones; for the lock and login screens, nothing:
+the first time: the Chiikawa, Cyberpunk and Ghibli ones; for the lock and login screens, nothing:
 they follow the desktop, then the lock screen), and a wallpaper picked while
 in a variant becomes that variant's. Settings → Appearance → Theme sets or
 unsets all of them at once, in a table of every variant. Each theme has its own sounds too (`sounds` in `themes.json`: the
 notification chime and the critical sound — Persona 5's by default, the
-characters' own in Chiikawa, a digital blip and a glitch alarm in
-Cyberpunk 2077); a file set in the settings wins. Important
+Velvet Room's chime and the Evoker in Persona 3 Reload, the Midnight
+Channel's TV and the shattering card in Persona 4, the characters' chimes
+and little voices in Chiikawa, a message ping and the Relic malfunctioning
+in Cyberpunk 2077, the films' sounds recreated in Studio Ghibli); a file set in the settings wins. Important
 notifications (critical ones, and those the cut-in rules pick:
 Settings → Bar → Notifications → Cut-ins) get the theme's cut-in: the
 full-screen Persona one, the Chiikawa character popping up with a speech
 bubble (`ChiikawaAlert.qml`), or an incoming holocall glitching in — a
 chamfered HUD panel with an RGB split, scanlines and the message typed out
 (`CyberpunkCutIn.qml`; `appearance.cyberpunk.glitch = false` keeps it
-steady).
+steady), or a painted card drifting in on a gust of wind with the film's
+spirit leaning on it, among leaves, paper birds or fireflies
+(`GhibliCutIn.qml`).
 
 Before `appearance.theme` the Persona style was the switch
 `appearance.persona.enable`. It still works: a `config.json` holding it is
@@ -709,14 +714,39 @@ shell (`Themes.qml`), the Nix options (`lib.nix`), the login screen
    registry. A font the theme uses goes in `hm-module.nix`'s `home.packages`.
 
 The Chiikawa character is an animated GIF of Momonga
-(`src/assets/chiikawa/momonga.gif`), the same for every variant; the rest of
+(`src/assets/chiikawa/momonga.gif`), the same for every variant; where
+there is room (the loading screen, the alert, the wallpapers) it is the three
+friends, `friends.gif`: Momonga's frames as they are, with Chiikawa swaying
+and Usagi hopping beside him, drawn by `src/assets/chiikawa/friends.py`
+(committed; rerun it with Pillow and resvg after changing the drawing); the rest of
 its art (the sidebar patterns and the wallpapers, the GIF's first frame on a
 hill) is drawn by `src/assets/chiikawa/generate.py` from the variants'
 palettes; rerun it after changing them. Its sounds are synthesized when the package is built
-(`src/assets/chiikawa/sounds.py`, no audio file in git). The Cyberpunk 2077
+(`src/assets/chiikawa/sounds.py`, no audio file in git): the chimes, with
+the characters' own little voices over them (Usagi's "yaha!" and
+"pururururu", Chiikawa's "wa!", Momonga's "hya!"), made from scratch.
+Every theme's synthesized sounds share `src/assets/synth.py` (a stereo mix
+with a room, filters, struck, plucked and blown instruments, formant speech,
+effects); they recreate the originals' signature sounds from scratch, with
+original tunes. The Cyberpunk 2077
 theme works the same way: `src/assets/cyberpunk/generate.py` draws its
 wallpapers from the palettes, `sounds.py` synthesizes its sounds at build
 time, and its face (Rajdhani) ships in `fonts.nix`.
+
+The Studio Ghibli theme too: `src/assets/ghibli/generate.py` paints the
+three wallpapers (a summer afternoon with the camphor tree and the forest
+spirit; the bathhouse at nightfall over the flooded plain, the sea train and
+the masked spirit; the ancient forest full of kodama), the sidebar patterns
+and each variant's spirit (`GhibliSpirit`, in the sidebars' corner, on the
+loading screen and on the cut-in), and its faces (Zen Maru Gothic, Klee One
+for titles) ship in `fonts.nix`. `src/assets/ghibli/sounds.py` recreates the
+films' signature sounds from scratch at build time, fitted to what each one
+announces — raindrops on an umbrella, the forest spirit's roar, a wind chime,
+an ocarina (Totoro); a rin bowl, the bathhouse drum and bell, the sea train's
+crossing bell, paper birds, a piano waltz (Spirited Away); the kodama's
+rattle, the wolf's howl, the forest spirit's step, a shakuhachi over a taiko
+(Mononoke). No sample or melody is taken from the films: the tunes are
+original, only the instruments and the idiom are borrowed.
 
 Settings that did nothing were removed (`lib.nix` `removedKeys`: the parallax
 options, `bar.topLeftIcon`, the settings window border…); an old Nix
@@ -725,23 +755,23 @@ ignored.
 
 ## Layout
 
-| Path               | What                                                                                                                       |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| `default.nix`      | entry point (`package`, `homeManagerModules.default`, `lib`)                                                               |
-| `package.nix`      | the launcher: runtime `PATH`, QML import path, `config` CLI                                                                |
-| `dankcalendar.nix` | DankCalendar (`dcal`), the calendar and task sync, from `npins/`                                                           |
-| `qml.nix`          | the QML tree as installed (store-path fixups, Persona, Chiikawa and Cyberpunk art and sounds, emoji list)                  |
-| `fonts.nix`        | the faces `appearance.fonts` names that nixpkgs lacks (Google Sans Flex, Space Grotesk, Rajdhani)                          |
-| `quickshell.nix`   | Quickshell from `quickshellSrc` plus `patches/`                                                                            |
-| `lib.nix`          | typed settings options generated from `builtin-defaults.json`                                                              |
-| `hm-module.nix`    | the Home Manager module `programs.nixbook-shell`                                                                           |
-| `nixos-module.nix` | optional NixOS module: the system's toggles for the assistant                                                              |
-| `greeter.nix`      | the login screen (`nixbook-shell.greeter`, imported by it)                                                                 |
-| `toggles.nix`      | discovers the `enable` toggles from an options tree                                                                        |
-| `scripts/`         | `config` CLI, its jq library, assistant facts, Anthropic usage, login screen theme, emoji list, desktop control MCP server |
-| `npins/`           | default nixpkgs, quickshell, dankcalendar (+ flake-compat) pins                                                            |
-| `src/`             | the QML tree                                                                                                               |
-| `tests/`           | script tests, lib unit tests, the self-containment check                                                                   |
+| Path               | What                                                                                                                         |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `default.nix`      | entry point (`package`, `homeManagerModules.default`, `lib`)                                                                 |
+| `package.nix`      | the launcher: runtime `PATH`, QML import path, `config` CLI                                                                  |
+| `dankcalendar.nix` | DankCalendar (`dcal`), the calendar and task sync, from `npins/`                                                             |
+| `qml.nix`          | the QML tree as installed (store-path fixups, Persona, Chiikawa, Cyberpunk and Ghibli art and sounds, emoji list)            |
+| `fonts.nix`        | the faces `appearance.fonts` names that nixpkgs lacks (Google Sans Flex, Space Grotesk, Rajdhani, Zen Maru Gothic, Klee One) |
+| `quickshell.nix`   | Quickshell from `quickshellSrc` plus `patches/`                                                                              |
+| `lib.nix`          | typed settings options generated from `builtin-defaults.json`                                                                |
+| `hm-module.nix`    | the Home Manager module `programs.nixbook-shell`                                                                             |
+| `nixos-module.nix` | optional NixOS module: the system's toggles for the assistant                                                                |
+| `greeter.nix`      | the login screen (`nixbook-shell.greeter`, imported by it)                                                                   |
+| `toggles.nix`      | discovers the `enable` toggles from an options tree                                                                          |
+| `scripts/`         | `config` CLI, its jq library, assistant facts, Anthropic usage, login screen theme, emoji list, desktop control MCP server   |
+| `npins/`           | default nixpkgs, quickshell, dankcalendar (+ flake-compat) pins                                                              |
+| `src/`             | the QML tree                                                                                                                 |
+| `tests/`           | script tests, lib unit tests, the self-containment check                                                                     |
 
 ## Tests
 

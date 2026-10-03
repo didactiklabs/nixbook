@@ -60,6 +60,8 @@
           "name": "Persona 3 Reload",
           "icon": "water_drop",
           "sounds": {
+            "notification": "assets/persona/sounds/p3r-notification.wav",
+            "critical": "assets/persona/sounds/p3r-critical.wav",
             "focus": "assets/persona/sounds/p3r-focus.wav",
             "countdown": "assets/persona/sounds/p3r-countdown.wav",
             "alarm": "assets/persona/sounds/p3r-alarm.wav"
@@ -81,6 +83,8 @@
           "name": "Persona 4 Revival",
           "icon": "tv",
           "sounds": {
+            "notification": "assets/persona/sounds/p4-notification.wav",
+            "critical": "assets/persona/sounds/p4-critical.wav",
             "focus": "assets/persona/sounds/p4-focus.wav",
             "countdown": "assets/persona/sounds/p4-countdown.wav",
             "alarm": "assets/persona/sounds/p4-alarm.wav"
@@ -253,6 +257,97 @@
             "error": "#ff8a3d", "onError": "#1f0a00", "errorContainer": "#6b2c00", "onErrorContainer": "#ffdcc6",
             "frame": "#0a0506", "frameBorder": "#ff5a4f", "shadow": "#5ef6ff", "stripe": "#ff5a4f", "ink": "#f6e4e1",
             "glitch": "#5ef6ff", "alert": "#f3e600"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ghibli",
+      "name": "Studio Ghibli",
+      "icon": "forest",
+      "description": "Hand-painted and gentle: watercolour palettes from the films, soft corners, a storybook font, unhurried motion, the spirits themselves and sounds of their worlds",
+      "defaultVariant": "totoro",
+      "style": {
+        "rounding": 1.2,
+        "fonts": { "main": "Zen Maru Gothic", "title": "Klee One", "numbers": "Zen Maru Gothic" },
+        "motion": {
+          "slam": [0.22, 0.82, 0.28, 1.03, 1, 1],
+          "snap": [0.3, 0.85, 0.35, 1, 1, 1],
+          "quick": [0.25, 0.8, 0.3, 1, 1, 1],
+          "exit": [0.5, 0, 0.75, 0.35, 1, 1]
+        }
+      },
+      "variants": [
+        {
+          "id": "totoro",
+          "name": "My Neighbor Totoro",
+          "icon": "park",
+          "wallpaper": "assets/ghibli/totoro-wallpaper.png",
+          "sounds": {
+            "notification": "assets/ghibli/sounds/totoro-notification.wav",
+            "critical": "assets/ghibli/sounds/totoro-critical.wav",
+            "focus": "assets/ghibli/sounds/totoro-focus.wav",
+            "countdown": "assets/ghibli/sounds/totoro-countdown.wav",
+            "alarm": "assets/ghibli/sounds/totoro-alarm.wav"
+          },
+          "notes": "Summer in the countryside: rice-paper cream, the camphor tree's leaf green as the accent, the forest spirit's grey for the secondary, the cat bus's amber for the tertiary.",
+          "palette": {
+            "background": "#f6f4e8", "surface1": "#eef0de", "surface2": "#e6ead4", "surface3": "#dde4ca", "surface4": "#d3dcbf",
+            "onSurface": "#26322a", "onSurfaceVariant": "#47544a", "outline": "#6c7a6e", "outlineVariant": "#d2dccb",
+            "primary": "#3c7a3f", "onPrimary": "#ffffff", "primaryContainer": "#cde9c0", "onPrimaryContainer": "#0d2b10",
+            "secondary": "#5c6a70", "onSecondary": "#ffffff", "secondaryContainer": "#dfe6e8", "onSecondaryContainer": "#1b262b",
+            "tertiary": "#a95a17", "onTertiary": "#ffffff", "tertiaryContainer": "#fbdcb8", "onTertiaryContainer": "#3d1d00",
+            "error": "#ba1a1a", "onError": "#ffffff", "errorContainer": "#ffdad6", "onErrorContainer": "#410002",
+            "frame": "#f6f4e8", "frameBorder": "#26322a", "shadow": "#b9d7a8", "stripe": "#8fbf7a", "ink": "#26322a",
+            "sky": "#8ec5ea", "cloud": "#ffffff", "leaf": "#4f8a3c", "fur": "#7d8a8f", "belly": "#efe8d4", "glow": "#ffe9a8", "accent": "#e8a33d"
+          }
+        },
+        {
+          "id": "spirited",
+          "name": "Spirited Away",
+          "icon": "temple_buddhist",
+          "wallpaper": "assets/ghibli/spirited-wallpaper.png",
+          "sounds": {
+            "notification": "assets/ghibli/sounds/spirited-notification.wav",
+            "critical": "assets/ghibli/sounds/spirited-critical.wav",
+            "focus": "assets/ghibli/sounds/spirited-focus.wav",
+            "countdown": "assets/ghibli/sounds/spirited-countdown.wav",
+            "alarm": "assets/ghibli/sounds/spirited-alarm.wav"
+          },
+          "notes": "The bathhouse at nightfall: indigo night, its vermilion lacquer as the accent, the copper roofs' jade for the secondary, lantern gold for the tertiary.",
+          "palette": {
+            "background": "#14111c", "surface1": "#1c1724", "surface2": "#241d2c", "surface3": "#2d2436", "surface4": "#372c40",
+            "onSurface": "#f3e7da", "onSurfaceVariant": "#d4c2b4", "outline": "#9a8577", "outlineVariant": "#4a3a44",
+            "primary": "#f26b4f", "onPrimary": "#2b0700", "primaryContainer": "#6e1f14", "onPrimaryContainer": "#ffdbd1",
+            "secondary": "#6fc2b8", "onSecondary": "#00201c", "secondaryContainer": "#1f4a45", "onSecondaryContainer": "#c7f0ea",
+            "tertiary": "#f0c35a", "onTertiary": "#261a00", "tertiaryContainer": "#4d3a0d", "onTertiaryContainer": "#ffe7a8",
+            "error": "#ffb4ab", "onError": "#690005", "errorContainer": "#93000a", "onErrorContainer": "#ffdad6",
+            "frame": "#14111c", "frameBorder": "#f26b4f", "shadow": "#6e1f14", "stripe": "#f0c35a", "ink": "#f3e7da",
+            "sky": "#2b2550", "cloud": "#d98b7a", "leaf": "#6fc2b8", "fur": "#1a1420", "belly": "#f3e7da", "glow": "#ffb347", "accent": "#e0452f"
+          }
+        },
+        {
+          "id": "mononoke",
+          "name": "Princess Mononoke",
+          "icon": "psychiatry",
+          "wallpaper": "assets/ghibli/mononoke-wallpaper.png",
+          "sounds": {
+            "notification": "assets/ghibli/sounds/mononoke-notification.wav",
+            "critical": "assets/ghibli/sounds/mononoke-critical.wav",
+            "focus": "assets/ghibli/sounds/mononoke-focus.wav",
+            "countdown": "assets/ghibli/sounds/mononoke-countdown.wav",
+            "alarm": "assets/ghibli/sounds/mononoke-alarm.wav"
+          },
+          "notes": "The ancient forest: deep moss dark, new-leaf green as the accent, the kodama's bone white for the secondary, the wolf princess's mask red for the tertiary.",
+          "palette": {
+            "background": "#0f1610", "surface1": "#151e16", "surface2": "#1b261c", "surface3": "#223023", "surface4": "#2a3a2b",
+            "onSurface": "#e6eadb", "onSurfaceVariant": "#c0c9b6", "outline": "#87947f", "outlineVariant": "#34423a",
+            "primary": "#a8d67f", "onPrimary": "#142b00", "primaryContainer": "#2f4d1f", "onPrimaryContainer": "#cdf0b0",
+            "secondary": "#d8d2c0", "onSecondary": "#26231a", "secondaryContainer": "#3d3a30", "onSecondaryContainer": "#f0ead6",
+            "tertiary": "#e0554a", "onTertiary": "#2c0300", "tertiaryContainer": "#6b1a14", "onTertiaryContainer": "#ffdad5",
+            "error": "#ffb4ab", "onError": "#690005", "errorContainer": "#93000a", "onErrorContainer": "#ffdad6",
+            "frame": "#0f1610", "frameBorder": "#a8d67f", "shadow": "#2f4d1f", "stripe": "#e0554a", "ink": "#e6eadb",
+            "sky": "#1d3324", "cloud": "#7fa58b", "leaf": "#5f8f45", "fur": "#f2f0e6", "belly": "#f2f0e6", "glow": "#c8f5ff", "accent": "#e0554a"
           }
         }
       ]

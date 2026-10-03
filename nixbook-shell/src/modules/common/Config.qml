@@ -252,6 +252,15 @@ Singleton {
                     property bool fonts: true     // condensed tech font (Rajdhani)
                     property bool glitch: true    // RGB-split glitch and scanlines in the cut-in
                 }
+                // Studio Ghibli theme: see modules/common/Ghibli.qml.
+                property JsonObject ghibli: JsonObject {
+                    property string variant: "totoro" // totoro | spirited | mononoke
+                    property bool palette: true   // the film's watercolour palette
+                    property bool motion: true    // gentle, floating animations
+                    property bool shapes: true    // soft rounded corners
+                    property bool fonts: true     // storybook fonts (Zen Maru Gothic, Klee One)
+                    property bool spirits: true   // the spirit on panels, the loading screen and the cut-in
+                }
                 property bool extraBackgroundTint: true
                 property int fakeScreenRounding: 2 // 0: None | 1: Always | 2: When not fullscreen
                 property JsonObject fonts: JsonObject {

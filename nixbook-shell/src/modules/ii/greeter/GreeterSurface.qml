@@ -138,6 +138,15 @@ Item {
         asynchronous: true
         opacity: 0.3
     }
+    // Ghibli: the variant's leaves, paper birds or fireflies, faint.
+    Image {
+        anchors.fill: parent
+        visible: Ghibli.spirits
+        source: visible ? Ghibli.patternUrl() : ""
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        opacity: 0.35
+    }
 
     // ----------------------------------------------------------------- clock
     SystemClock {
