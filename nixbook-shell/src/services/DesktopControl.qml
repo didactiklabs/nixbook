@@ -184,7 +184,10 @@ Singleton {
         watchChanges: true
         printErrors: false
         onFileChanged: reload()
-        onLoaded: root.parse(text())
+        onLoaded: {
+            root.now = Date.now();
+            root.parse(text());
+        }
         onLoadFailed: error => {
             if (error == FileViewError.FileNotFound)
                 root.last = null;
@@ -253,10 +256,25 @@ Singleton {
         onLoadFailed: error => root.userHasControl = false
     }
 
-    // Ages the "active" state, and re-reads the file in case a change was
-    // missed (the directory only appears with the first agent).
+    // Every second, only while something can change on its own: ages the
+    // "active" state while an agent is active, and re-reads the agent desktop's
+    // files while that desktop is in use (agent-desktop.sh deletes and
+    // recreates their directory, which drops the file watch).
     Timer {
         interval: 1000
+        running: root.active || root.onAgentDesktop || root.agentDesktopOpen
+        repeat: true
+        onTriggered: {
+            root.now = Date.now();
+            agentDesktopEnv.reload();
+            agentDesktopInput.reload();
+        }
+    }
+
+    // Safety net for a missed change (the watches above cover the rest: the
+    // launcher creates their directories before the shell starts).
+    Timer {
+        interval: 10000
         running: true
         repeat: true
         onTriggered: {

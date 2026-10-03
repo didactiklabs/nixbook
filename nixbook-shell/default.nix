@@ -20,6 +20,9 @@
   # DankCalendar's source (a flake) and flake-compat to evaluate it.
   dankcalendarSrc ? sources.dankcalendar,
   flakeCompatSrc ? sources.flake-compat,
+  # Put the tailscale / netbird CLIs on the shell's PATH (VpnStatus widget).
+  withTailscale ? true,
+  withNetbird ? true,
 }:
 {
   package = import ./package.nix {
@@ -28,6 +31,8 @@
       quickshellSrc
       dankcalendarSrc
       flakeCompatSrc
+      withTailscale
+      withNetbird
       ;
   };
   homeManagerModules.default = ./hm-module.nix;

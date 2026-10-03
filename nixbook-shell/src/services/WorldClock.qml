@@ -101,12 +101,27 @@ Singleton {
     }
     readonly property bool use24h: root.ampmToken === ""
 
+    // The clocks show hours and minutes, and only the desktop widget reads
+    // them: tick on each minute boundary, and only while the widget is on.
+    readonly property bool enabled: Config.options?.background?.widgets?.worldClock?.enable ?? false
     property var now: new Date()
+    function msToNextMinute() {
+        return 60000 - (Date.now() % 60000) + 50
+    }
     Timer {
-        interval: 1000
-        running: true
+        id: minuteTimer
+        interval: root.msToNextMinute()
+        running: root.enabled
         repeat: true
-        onTriggered: root.now = new Date()
+        onRunningChanged: if (running) {
+            root.now = new Date()
+            interval = root.msToNextMinute()
+            root.refreshOffsets()
+        }
+        onTriggered: {
+            root.now = new Date()
+            interval = root.msToNextMinute()
+        }
     }
 
     property var offsetsMinutes: [0, 0, 0, 0]
@@ -118,7 +133,7 @@ Singleton {
 
     Timer {
         interval: 5 * 60 * 1000
-        running: true
+        running: root.enabled
         repeat: true
         onTriggered: root.refreshOffsets()
     }

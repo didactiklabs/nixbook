@@ -33,10 +33,11 @@ let
   appsDir = "${config.xdg.stateHome}/quickshell/user/generated/apps";
   terminalThemeDir = "${config.xdg.stateHome}/quickshell/user/generated/terminal";
   # A new interactive shell in a terminal other than kitty (which includes
-  # the theme itself) starts with the generated colours.
+  # the theme itself) starts with the generated colours. `$(<file)` is read
+  # by the shell itself, without running cat.
   replayTerminalColors = ''
     if [[ $- == *i* && -t 1 && "$TERM" != xterm-kitty && -r "${terminalThemeDir}/sequences.txt" ]]; then
-      cat "${terminalThemeDir}/sequences.txt"
+      printf '%s' "$(<"${terminalThemeDir}/sequences.txt")"
     fi
   '';
 
@@ -94,6 +95,12 @@ let
   # lookup has a fallback, so it evaluates on any NixOS release and under
   # standalone Home Manager (no osConfig: only the Home Manager part).
   os = osConfig;
+  # Which VPN CLIs the package bundles: those the NixOS system runs, or both
+  # under standalone Home Manager (no osConfig to ask).
+  vpnClients = {
+    withTailscale = os == null || (os.services.tailscale.enable or false);
+    withNetbird = os == null || (os.services.netbird.enable or false);
+  };
   osGet = path: default: if os == null then default else lib.attrByPath path default os;
   hmGet = path: default: lib.attrByPath path default config;
   osUser = config.home.username;
@@ -539,11 +546,18 @@ in
 
     package = lib.mkOption {
       type = lib.types.package;
-      default = (import ./default.nix { inherit pkgs; }).package;
+      default =
+        (import ./default.nix {
+          inherit pkgs;
+          inherit (vpnClients) withTailscale withNetbird;
+        }).package;
       defaultText = lib.literalExpression "(import ./nixbook-shell { inherit pkgs; }).package";
       description = ''
         The `nixbook-shell` launcher. Build it with your own quickshell pin
         through `import ./nixbook-shell { inherit pkgs quickshellSrc; }`.
+        Under NixOS, the tailscale / netbird CLIs are only bundled when the
+        system enables `services.tailscale` / `services.netbird`
+        (`withTailscale` / `withNetbird`); standalone, both are.
       '';
     };
 

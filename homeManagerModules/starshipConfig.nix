@@ -43,7 +43,7 @@ in
       settings = {
         add_newline = true;
         scan_timeout = 30;
-        command_timeout = 5000;
+        command_timeout = 800;
 
         format = ''
           [╭─](bold #${config.lib.stylix.colors.base04})$nix_shell$username$hostname$kubernetes[ ](bold #${config.lib.stylix.colors.base04})$directory$git_branch$git_status

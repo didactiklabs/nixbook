@@ -41,6 +41,9 @@ Singleton {
     property string maxAvailableDiskString: kbToGbString(diskTotal)
 
     property string thermalPath: ""
+    // `sensors` found no CPU temperature either: stop asking it every tick
+    // (it reads the same hwmon files the path search above already scanned).
+    property bool noTempSensor: false
 
     Process {
         id: findThermalPathProc
@@ -77,6 +80,8 @@ Singleton {
                 const parsed = parseFloat(text.trim());
                 if (!isNaN(parsed) && parsed > 0) {
                     root.cpuTemp = parsed;
+                } else {
+                    root.noTempSensor = true;
                 }
             }
         }
@@ -142,7 +147,7 @@ Singleton {
                 if (!isNaN(raw) && raw > 0) {
                     root.cpuTemp = raw > 200 ? Math.round(raw / 100) / 10 : raw
                 }
-            } else if (!findThermalPathProc.running) {
+            } else if (!findThermalPathProc.running && !root.noTempSensor) {
                 tempProcFallback.running = false
                 tempProcFallback.running = true
             }

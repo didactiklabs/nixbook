@@ -37,7 +37,10 @@ nixbook repository, so it can be used on its own (nixbook's
 ```
 
 `import ./nixbook-shell { }` (or `{ inherit pkgs; }`, and `quickshellSrc` for
-another quickshell pin) gives:
+another quickshell pin; `withTailscale = false` / `withNetbird = false` leave
+that VPN CLI out of the shell's PATH — the module's default package does so
+under NixOS when the system doesn't enable `services.tailscale` /
+`services.netbird`) gives:
 
 - `package` — the `nixbook-shell` launcher
 - `homeManagerModules.default` — the module above (`hm-module.nix`)

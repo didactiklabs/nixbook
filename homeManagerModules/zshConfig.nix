@@ -19,7 +19,7 @@ in
         Enables programs.zsh with:
           - oh-my-zsh-style defaults (keybindings, completion menu, dir options)
             without oh-my-zsh itself, to keep shell startup fast
-          - zsh-syntax-highlighting plugin (v0.8.0) — real-time command colouring
+          - zsh-syntax-highlighting (nixpkgs) — real-time command colouring
           - zsh-bat plugin — replaces `cat` output with bat syntax highlighting
           - Autosuggestions (fish-style inline suggestions)
           - any-nix-shell integration: preserves the Zsh shell inside `nix shell`
@@ -67,24 +67,35 @@ in
       };
       zsh = {
         autosuggestion.enable = true;
-        plugins = [
-          {
-            # will source zsh-autosuggestions.plugin.zsh
-            name = "zsh-syntax-highlighting";
-            src = pkgs.fetchFromGitHub {
-              owner = "zsh-users";
-              repo = "zsh-syntax-highlighting";
-              rev = "refs/tags/0.8.0";
-              sha256 = "sha256-iJdWopZwHpSyYl5/FQXEW7gl/SrKaYDEtTH9cGP7iPo=";
-            };
+        # nixpkgs' zsh-syntax-highlighting (0.8.0), sourced by home-manager at
+        # the very end of .zshrc, after every widget is defined, as upstream
+        # requires.
+        syntaxHighlighting.enable = true;
+        # The completion dump is keyed on the store paths of the Nix profiles
+        # (resolved without forking), so it is rebuilt exactly when a profile
+        # generation changes and `compinit -C` can skip the fpath scan and the
+        # compaudit check on every other start.
+        completionInit = ''
+          autoload -U compinit
+          () {
+            local dir="''${XDG_CACHE_HOME:-$HOME/.cache}/zsh" key= p
+            for p in ''${(z)NIX_PROFILES}; do key+="''${''${p:A:t}[1,8]}"; done
+            local dump="$dir/zcompdump-$ZSH_VERSION-$key"
+            if [[ ! -e $dump ]]; then
+              [[ -d $dir ]] || mkdir -p "$dir"
+              rm -f "$dir"/zcompdump-*(N)
+            fi
+            compinit -C -d "$dump"
           }
+        '';
+        plugins = [
           {
             # will source zsh-autosuggestions.plugin.zsh
             name = "zsh-bat";
             src = pkgs.fetchFromGitHub {
               owner = "fdellwing";
               repo = "zsh-bat";
-              rev = "master";
+              rev = "467337613c1c220c0d01d69b19d2892935f43e9f";
               sha256 = "sha256-TTuYZpev0xJPLgbhK5gWUeGut0h7Gi3b+e00SzFvSGo=";
             };
           }
