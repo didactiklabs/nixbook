@@ -319,8 +319,9 @@ workspace, column and its width, or floating position and size, and the app
 that opens it) under a name; `restore_layout` puts them back in one call,
 starting the apps that were closed. The same layouts are yours in the shell,
 where the agents' pause doesn't apply: **Mod+G** opens the launcher as a
-layout picker (the `#` prefix: pick one to restore it, or type a new name to
-save the windows as they are), the desktop's right-click menu has a Window
+layout picker (the `#` prefix: pick one to restore it, update or delete it
+with its row's buttons or Shift+Delete, "Save the windows as a new layout",
+or type a new name first — spaces become `-`), the desktop's right-click menu has a Window
 layouts submenu, and Settings → Window layouts lists them to restore,
 update, rename or delete. Key bindings can also call the `layouts` IPC target
 (`cycle`, `saveCurrent`, `restoreNumber N`, `restore NAME`, `save NAME`;

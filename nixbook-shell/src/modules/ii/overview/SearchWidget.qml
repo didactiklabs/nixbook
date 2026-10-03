@@ -91,6 +91,14 @@ Item { // Wrapper
         root.setSearchingText(item.modelData.name);
     }
 
+    // Shift+Delete in the box: what SearchItem does with the row focused.
+    function deleteSelection() {
+        const item = appResults.currentItem;
+        const remove = (item?.modelData?.actions ?? []).find(action => action.name == Translation.tr("Delete"));
+        if (remove)
+            remove.execute();
+    }
+
     // The pointer selects the result under it, but only when it really moves:
     // Qt re-sends a hover at the same place when the view scrolls under a
     // resting pointer (keyboard paging), which would steal the keyboard's
@@ -262,6 +270,7 @@ Item { // Wrapper
                 onPageSelection: direction => root.pageSelection(direction)
                 onAcceptSelection: root.acceptSelection()
                 onCompleteSelection: root.completeSelection()
+                onDeleteSelection: root.deleteSelection()
                 onMoveItem: delta => root.moveItem(delta)
                 gridMode: root.gridMode
                 Synchronizer on searchingText {
