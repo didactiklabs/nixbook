@@ -67,8 +67,14 @@ in
     # So we run everything from here as root in a single sudo shell.
     echo "Applying final configuration via colmena..."
     sudo bash -c '
+      set -euo pipefail
       export NIXPKGS_ALLOW_UNFREE=1
-      ginx --source https://github.com/didactiklabs/nixbook -b main --now -- colmena apply-local --sudo
+      if ! ginx --source https://github.com/didactiklabs/nixbook -b main --now -- colmena apply-local --sudo; then
+        # Keep the bootstrap files so the apply can be retried from this shell.
+        echo "ERROR: colmena apply-local failed; bootstrap files kept in /etc/nixos, not rebooting." >&2
+        echo "Fix the problem and re-run: ginx --source https://github.com/didactiklabs/nixbook -b main --now -- colmena apply-local --sudo" >&2
+        exit 1
+      fi
 
       # Cleanup bootstrap files from /etc/nixos
       # Only hardware-configuration.nix is needed by base.nix after colmena applies

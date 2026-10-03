@@ -5,7 +5,10 @@ let
 in
 pkgs.buildGoModule rec {
   pname = "ginx";
-  version = "nix";
+  # From the pin (its release, else its commit), not a constant: the vendored
+  # modules are a fixed-output derivation named after the version, so a
+  # constant one would silently reuse a stale vendor dir when the pin moves.
+  version = ginxSrc.version or "unstable-${builtins.substring 0 7 ginxSrc.revision}";
 
   src = ginxSrc;
 

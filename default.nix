@@ -37,14 +37,16 @@ rec {
     #!/usr/bin/env bash
     set -euo pipefail
 
+    mkdir -p .tmp
+
     # Create a 64GB virtual disk if it doesn't exist
-    if [ ! -f test-disk.qcow2 ]; then
-      echo "Creating 64GB test-disk.qcow2..."
+    if [ ! -f .tmp/test-disk.qcow2 ]; then
+      echo "Creating 64GB .tmp/test-disk.qcow2..."
       ${pkgs.qemu}/bin/qemu-img create -f qcow2 .tmp/test-disk.qcow2 64G
     fi
 
     # We need a writeable copy of the UEFI vars
-    if [ ! -f OVMF_VARS.fd ]; then
+    if [ ! -f .tmp/OVMF_VARS.fd ]; then
       cp ${pkgs.OVMF.fd}/FV/OVMF_VARS.fd ./.tmp
       chmod +w ./.tmp/OVMF_VARS.fd
     fi
