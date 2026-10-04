@@ -216,6 +216,8 @@ Singleton {
     function navigateBack() {
         folderModel.navigateBack()
     }
+    // A folder to go back to (the selector's back button).
+    readonly property bool canNavigateBack: folderModel.currentFolderHistoryIndex > 0
     function navigateForward() {
         folderModel.navigateForward()
     }
