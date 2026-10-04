@@ -14,7 +14,7 @@
 - **Home Manager Modules:** 33 (29 standalone files + 4 subdirectories)
 - **NixOS Modules:** 19 files
 - **Custom Packages:** 19
-- **CI/CD Workflows:** 3
+- **CI/CD Workflows:** 4
 - **NixVim Plugins:** 25
 - **VSCode Extensions:** 32
 - **Pinned Dependencies:** 40
@@ -64,7 +64,7 @@ hive.nix                          Colmena deployment config
 - `.github/workflows/` - GitHub Actions CI/CD for all 5 machines
 - `devenv.nix/.envrc` - Development environment with direnv integration
 - `devenvModules/` - Shared devenv config module imported by nixbook, hephaestus, and aletheia via npins
-- `docs/` - Auto-generated module documentation (generate-docs.nix, MODULES.md)
+- `docs/` - Documentation website (VitePress: `.vitepress/config.mts` holds the nav/sidebar, one directory per section, `reference/options.md` includes the generated `MODULES.md`, `desktop/keybindings.md` includes the root `KEYBINDS.md`; built by `doc-build`, deployed to GitHub Pages by `docs.yaml`) and the auto-generated module documentation (generate-docs.nix, MODULES.md)
 - `tests/` - Cheap regression checks run by `checks.yaml` (`run.sh` entry point, `hosts.nix` per-machine invariants, `repo.nix` repository checks, `nixbook-shell.sh` script tests, `hardware-stub.nix` stand-in for /etc/nixos/hardware-configuration.nix)
 
 ## NixOS Modules (23 files)
@@ -265,10 +265,11 @@ hive.nix                          Colmena deployment config
 
 ## CI/CD Pipeline
 
-**GitHub Actions Workflows (3 files):**
+**GitHub Actions Workflows (4 files):**
 
 - `build.yaml` - Three jobs on the self-hosted runners (which share one Nix store). `changed` (`tests/changed-hosts.sh`) evaluates every node's system derivation (`tests/drv-paths.nix`: toplevel `.drv`, with getRevision off, since `/etc/nixos/version` embeds the commit) and compares it with the base commit's (the PR's base, or the previous main on a push); main saves its map with `actions/cache` (`drv-paths-<sha>`), so the base is usually not evaluated again. `build` has a matrix leg for all 5 profiles (totoro, anya, nishinoya, tanjiro, hanamichi) on push/PR to main, but only legs whose derivation changed actually build: the others report "unchanged" and pass in seconds (every leg still reports, because the checks are the merge gate). No base, a base evaluation error, or a failed `changed` job builds every profile; its `build (<profile>)` checks are the merge gate (steps run with `pipefail`, so a failing `colmena build` fails the check). `push-cache` runs on main/dispatch only, once the build matrix has finished (`!cancelled()`, so one failed profile doesn't block the others' upload): a single job re-resolves the whole hive with one `colmena build --keep-result` (a no-op evaluation on the shared store; it falls back to node by node, skipping nodes that fail) and does one `nix copy` of every resulting system to the S3 cache, signing on upload (`secret-key=`) and retrying up to 5 times (each retry resumes, as already-uploaded paths are skipped). Concurrency: a new PR push cancels the old run and closing a PR cancels its pending run; main runs are never cancelled mid-flight. 120min timeout per job.
 - `checks.yaml` - Cheap regression checks on GitHub-hosted `ubuntu-latest` runners (the repo is public, so they are free and never compete with the self-hosted builders), on push/PR to main. Jobs: `lint` (`devenv test`: treefmt/shellcheck/mdsh hooks, then fails if treefmt changed any file), `repo` (`tests/run.sh repo`, `shell`, `iso`, `docs`), and `host (<name>)` for every hive node plus one `all modules` leg (`tests/run.sh host`), whose matrix is read from `hive.nix` so new machines are picked up automatically. Host legs install `tests/hardware-stub.nix` as `/etc/nixos/hardware-configuration.nix` (base.nix imports it) and evaluate through `colmena eval`, building only a few tiny generated files. Evaluation warnings become annotations. The `lint`, `repo` and `host` jobs restore a Nix store cache (`nix-community/cache-nix-action`, saved from main only, superseded entries purged — hence `actions: write`); the devenv install uses the `devenv.cachix.org` substituter.
+- `docs.yaml` - Documentation website: builds `docs/` (`devenv shell -- doc-build`) on PRs touching `docs/**`, `KEYBINDS.md` or the devenv files, and on main deploys `docs/.vitepress/dist` to GitHub Pages (`https://didactiklabs.github.io/nixbook/`; the Pages source must be "GitHub Actions"; `DOCS_BASE=/` for a custom domain). VitePress fails the build on dead links.
 - `npins-update.yaml` - Automated dependency updates every 3 days (00:00 UTC) or manual dispatch; npins comes from the pinned nixpkgs (`nix run -f '<nixpkgs>' npins`); one run at a time (concurrency group) with per-job timeouts. Updates each pin independently (max 10 parallel), syncs devenv.yaml nixpkgs revision, creates PRs with auto-merge.
 
 **Features:**
@@ -305,6 +306,7 @@ direnv allow  # Automatically loads devenv
 - `test-iso` - Build and test ISO in QEMU VM with UEFI
 - `generate-docs` - Auto-generate docs/MODULES.md from module definitions
 - `run-tests` - Cheap regression checks (`tests/run.sh`: `repo`, `shell`, `iso`, `docs`, `host <name> [--all-modules]`, `all`)
+- `doc-dev` / `doc-build` / `doc-preview` - Documentation website (VitePress in `docs/`, Node.js + pnpm from devenv): dev server on port 5173, production build, preview
 
 ### Interactive Installer
 
@@ -436,7 +438,7 @@ All git operations must follow this workflow. **Always ask the user for validati
 7. **Testing** - Run `run-tests` (`tests/run.sh`) for the cheap checks CI runs (see README "Tests"); use `default.nix` to build and test the ISO. When adding a machine, the hive, `profiles/` and the `build.yaml` build matrix must agree (`run-tests repo` checks it). When a module is added that no profile enables, add its toggle to `optionalModules` in `tests/hosts.nix`. When changing an invariant asserted in `tests/hosts.nix` on purpose, update the check in the same change
 8. **Deployment** - Use `colmena apply-local --sudo` for local changes
 9. **Git Hooks** - Configured in `devenv.nix`, run automatically on commit
-10. **Documentation** - Keep `README.md` and `AGENTS.md` updated; run `generate-docs` to update `docs/MODULES.md`
+10. **Documentation** - Keep `README.md` and `AGENTS.md` updated; run `generate-docs` to update `docs/MODULES.md`. When adding or changing a user-facing feature, also update the matching page of the documentation website (`docs/<section>/*.md`; new pages go in the sidebar of `docs/.vitepress/config.mts`) and check it with `doc-build`
 11. **AGENTS.md Updates** - Always update `AGENTS.md` after making changes to project structure, adding/removing machines, modules, packages, or features. This ensures the documentation stays accurate for future AI agents.
 12. **nixbook-shell assistant help** - Whenever you add or change a nixbook-shell feature (a setting, a widget, a click, a shortcut, a theme…), update what its chat assistant knows in the same change: the four-language `howTo` answers in `nixbook-shell/hm-module.nix` (`shellHowTo`, `calendarHowTo`, …; en/fr/de/vi), and the assistant's lexicon in `nixbook-shell/src/services/ConfigAssistant.qml` when users would name it with other words. Removed or renamed features must be removed from those answers too, so the assistant never gives outdated help.
 13. **Keybindings (`KEYBINDS.md`)** - Always check `KEYBINDS.md` when working with keybinds, and keep it up to date. Whenever you add, remove, or change a keyboard shortcut anywhere (compositor binds in `homeManagerModules/{niri,sway}/`, terminal binds in `homeManagerModules/kittyConfig.nix`, Neovim mappings in `homeManagerModules/nixvim/`, or per-profile overrides in `profiles/*/*/`), update the matching table in `KEYBINDS.md` in the same change. Before assuming a key is free, grep these sources for the existing binding.

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Nixbook">
+  <defs>
+    <linearGradient id="a" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7EBAE4"/>
+      <stop offset="1" stop-color="#5277C3"/>
+    </linearGradient>
+  </defs>
+  <!-- an open book whose spine is a lambda -->
+  <path d="M6 14c9-3 18-2 26 4v36c-8-6-17-7-26-4z" fill="url(#a)"/>
+  <path d="M58 14c-9-3-18-2-26 4v36c8-6 17-7 26-4z" fill="#5277C3"/>
+  <path d="M24 24l8 0 12 24h-6l-6-12-6 12h-6l9-17z" fill="#fff"/>
+</svg>

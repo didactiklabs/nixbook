@@ -4,6 +4,8 @@
 [![Build nishinoya](https://github.com/didactiklabs/nixbook/actions/workflows/build-nishinoya.yaml/badge.svg)](https://github.com/didactiklabs/nixbook/actions/workflows/build-nishinoya.yaml)
 [![Build anya](https://github.com/didactiklabs/nixbook/actions/workflows/build-anya.yaml/badge.svg)](https://github.com/didactiklabs/nixbook/actions/workflows/build-anya.yaml)
 
+📖 **[Documentation](https://didactiklabs.github.io/nixbook/)** — every feature, module and machine, organised as a website (sources in [`docs/`](./docs)).
+
 ## 🔍 Description
 
 Nixbook is a personal, declarative NixOS configuration repository that manages multiple machines from a single source of truth. Built entirely with Nix, it embraces the "everything as code" philosophy to deliver reproducible, composable, and easily maintainable system configurations.
