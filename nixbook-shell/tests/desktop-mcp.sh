@@ -90,11 +90,19 @@ if [ "$1 $2" = "msg --json" ]; then
       # A launched app's window (spawn below) appears after the others.
       # With $STUB_LAUNCH_NO_WINDOW it opens none anywhere, and the agent
       # desktop (just started) maps its own window on the user's meanwhile.
+      # With $STUB_USER_SPLASH it's a splash (id 6) for 3 window lists, then
+      # the app's own window (id 7).
       # Hidden: ids listed in $STUB_CALLS.hidden (closed windows).
       hidden="$(cat "$STUB_CALLS.hidden" 2>/dev/null || echo '[]')"
       launched_app="$(cat "$STUB_CALLS.launched" 2>/dev/null || true)"
+      launched_id=6
+      if [ -n "${STUB_USER_SPLASH:-}" ] && [ -e "$STUB_CALLS.launched" ]; then
+        n=$(($(cat "$STUB_CALLS.splash" 2>/dev/null || echo 0) + 1))
+        echo "$n" >"$STUB_CALLS.splash"
+        [ "$n" -le 3 ] || launched_id=7
+      fi
       jq -nc --arg f "$focus" --argjson launched "$([ -e "$STUB_CALLS.launched" ] && echo true || echo false)" \
-        --arg launched_app "${launched_app:-firefox}" --argjson hidden "$hidden" '[
+        --arg launched_app "${launched_app:-firefox}" --argjson launched_id "$launched_id" --argjson hidden "$hidden" '[
         {id: 1, app_id: "firefox", title: "Mozilla Firefox", workspace_id: 10, is_focused: ($f == "firefox"), is_floating: false},
         {id: 2, app_id: "kitty", title: "~", workspace_id: 10, is_focused: ($f == "kitty"), is_floating: false},
         {id: 3, app_id: "org.gnome.Nautilus", title: "Enter password", workspace_id: 11, is_focused: ($f == "prompt"), is_floating: true,
@@ -103,7 +111,7 @@ if [ "$1 $2" = "msg --json" ]; then
          layout: {window_size: [1000, 1900], tile_pos_in_workspace_view: null, pos_in_scrolling_layout: [2, 1]}},
         {id: 5, app_id: "org.gnome.Calculator", title: "Calculator", workspace_id: 10, is_focused: false, is_floating: true,
          layout: {window_size: [400, 300], tile_pos_in_workspace_view: [10, 20], window_offset_in_tile: [2, 3]}}
-      ] + (if $launched and (env.STUB_LAUNCH_NO_WINDOW | not) then [{id: 6, app_id: $launched_app, title: "New Tab", workspace_id: 10, is_focused: false, is_floating: false}] else [] end)
+      ] + (if $launched and (env.STUB_LAUNCH_NO_WINDOW | not) then [{id: $launched_id, app_id: $launched_app, title: "New Tab", workspace_id: 10, is_focused: false, is_floating: false}] else [] end)
       + (if env.STUB_NESTED_WINDOW or ($launched and env.STUB_LAUNCH_NO_WINDOW) then [{id: 9, app_id: "niri", title: "niri", pid: 1, workspace_id: 10, is_focused: false, is_floating: false}] else [] end)
       | map(select(.id as $i | $hidden | index($i) | not))' ;;
     workspaces)
@@ -741,6 +749,16 @@ niri msg action set-window-height --id 6 300
 niri msg action move-floating-window --id 6 -x 10 -y 20"
 expect_eq "restore_layout: focus given back" "niri msg action focus-window --id 1" "$(grep -v '^notify' "$calls" | tail -n 1)"
 rm -f "$calls.hidden" "$calls.launched"
+# An app that shows a splash first (Vesktop's "Loading", same app id): the
+# window that replaces it is the one placed.
+echo '[5]' >"$calls.hidden"
+reset_calls
+STUB_USER_SPLASH=1 call restore_layout '{"name":"work"}' >/dev/null
+expect_contains "restore_layout: the app's window after its splash is placed" "$(cat "$calls")" "niri msg action set-window-width --id 7 400
+niri msg action set-window-height --id 7 300
+niri msg action move-floating-window --id 7 -x 10 -y 20"
+expect_contains "restore_layout: and made floating" "$(cat "$calls")" "niri msg action move-window-to-floating --id 7"
+rm -f "$calls.hidden" "$calls.launched" "$calls.splash"
 out=$(call restore_layout '{"name":"nope"}')
 expect_contains "restore_layout: unknown layout" "$out" "no saved layout 'nope'"
 

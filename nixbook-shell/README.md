@@ -324,7 +324,9 @@ shows, clears or prints the digest; the `memory` tool group
 **Window layouts**: `save_layout` remembers where every window is (monitor,
 workspace, column and its width, or floating position and size, and the app
 that opens it) under a name; `restore_layout` puts them back in one call,
-starting the apps that were closed. The same layouts are yours in the shell,
+starting the apps that were closed (an app whose first window is a splash,
+like Vesktop's "Loading", is placed again once its own window replaces
+it: restores that start apps watch them for 5 s). The same layouts are yours in the shell,
 where the agents' pause doesn't apply: **Mod+G** opens the launcher as a
 layout picker (the `#` prefix: pick one to restore it, update or delete it
 with its row's buttons or Shift+Delete, "Save the windows as a new layout",
