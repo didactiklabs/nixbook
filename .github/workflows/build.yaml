@@ -37,11 +37,84 @@ jobs:
           skip_after_successful_duplicate: "true"
           paths_ignore: '["**/README.md", "**/docs/**"]'
           do_not_skip: '["pull_request", "workflow_dispatch", "schedule"]'
-  build:
-    timeout-minutes: 120
+  # The machines whose system derivation (toplevel .drv) this change touches,
+  # e.g. a pin only one machine uses: the others' systems are byte-for-byte the
+  # ones already built (and cached) for the base commit, so their build leg
+  # passes without building. Base = the PR's base, or the previous main for a
+  # push. main saves its derivations (actions/cache), so the base usually
+  # isn't evaluated again. Anything unusual (no base, evaluation error) builds every
+  # machine, which also reports the actual error.
+  changed:
+    timeout-minutes: 60
     needs: pre_job
     if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
     runs-on: self-hosted
+    outputs:
+      all: ${{ steps.changed.outputs.all }}
+      profiles: ${{ steps.changed.outputs.profiles }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Pin nixpkgs for nix-shell
+        run: |
+          echo "NIX_PATH=nixpkgs=$(jq -r .pins.nixpkgs.url npins/sources.json)" >> "$GITHUB_ENV"
+      - name: Base commit
+        id: base
+        run: echo "sha=${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'push' && github.event.before || '' }}" >> "$GITHUB_OUTPUT"
+      - name: Base derivations (saved by main's build of it)
+        if: ${{ steps.base.outputs.sha != '' }}
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/base-drvs.json
+          key: drv-paths-${{ steps.base.outputs.sha }}
+      - name: Changed machines
+        id: changed
+        env:
+          BASE: ${{ steps.base.outputs.sha }}
+        run: |
+          all=true profiles='[]'
+          if [ -z "$BASE" ] || [ "$BASE" = 0000000000000000000000000000000000000000 ]; then
+            reason="no base commit ($GITHUB_EVENT_NAME)"
+          elif ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            reason="base $BASE is not in the checkout"
+            echo "::warning::$reason, building every machine"
+          elif ! changed=$(nix-shell -p colmena --run "tests/changed-hosts.sh --save '$RUNNER_TEMP/drvs.json' --base-map '$RUNNER_TEMP/base-drvs.json' '$BASE'"); then
+            reason="could not compare the system derivations with $BASE"
+            echo "::warning::$reason, building every machine"
+          else
+            all=false profiles=$changed
+          fi
+          echo "all=$all" >> "$GITHUB_OUTPUT"
+          echo "profiles=$profiles" >> "$GITHUB_OUTPUT"
+          if [ -s "$RUNNER_TEMP/drvs.json" ]; then echo "saved=true" >> "$GITHUB_OUTPUT"; fi
+          {
+            echo "### Machines to build"
+            if [ "$all" = true ]; then
+              echo "All of them: $reason."
+            elif [ "$profiles" = '[]' ]; then
+              echo "None: no machine's system derivation changed since \`$BASE\`."
+            else
+              jq -r --arg base "$BASE" '"System derivation changed since `\($base)`:", (.[] | "- \(.)")' <<<"$profiles"
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Save derivations for PRs based on this commit
+        if: ${{ github.event_name != 'pull_request' && steps.changed.outputs.saved == 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/drvs.json
+          key: drv-paths-${{ github.sha }}
+  build:
+    timeout-minutes: 120
+    needs: [pre_job, changed]
+    # Runs even if `changed` failed (then it builds everything): its
+    # `build (<profile>)` checks are the merge gate, so every leg must report.
+    if: ${{ !cancelled() && needs.pre_job.outputs.should_skip != 'true' }}
+    runs-on: self-hosted
+    env:
+      # This machine's system changed (or `changed` couldn't tell).
+      BUILD: ${{ needs.changed.result != 'success' || needs.changed.outputs.all == 'true' || contains(fromJson(needs.changed.outputs.profiles), matrix.profile) }}
     strategy:
       # Don't cancel the other profiles when one runner hiccups (e.g. a runner
       # shutdown signal or a transient "SQLite database is busy" lock race on the
@@ -56,15 +129,21 @@ jobs:
           - tanjiro
           - hanamichi
     steps:
+      - name: Unchanged (${{ matrix.profile }})
+        if: ${{ env.BUILD != 'true' }}
+        run: echo "::notice::${{ matrix.profile }}'s system derivation is unchanged, not rebuilt (see the changed job)"
       - name: Checkout
+        if: ${{ env.BUILD == 'true' }}
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Pin nixpkgs for nix-shell
+        if: ${{ env.BUILD == 'true' }}
         run: |
           # This should not be a URL, because it would allow PRs to run arbitrary code in CI!
           echo "NIX_PATH=nixpkgs=$(jq -r .pins.nixpkgs.url npins/sources.json)" >> "$GITHUB_ENV"
       - name: Build (${{ matrix.profile }})
+        if: ${{ env.BUILD == 'true' }}
         env:
           NIXPKGS_ALLOW_UNFREE: "1"
           PROFILE: ${{ matrix.profile }}

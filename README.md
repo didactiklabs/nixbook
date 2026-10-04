@@ -179,6 +179,8 @@ Besides the full profile builds (`build.yaml`, self-hosted), every push and PR r
 
 `--all-modules` evaluates a machine with every optional `customNixOSModules` toggle forced on, so modules no profile enables are still evaluated. `host` needs an `/etc/nixos/hardware-configuration.nix`; on a machine without one (e.g. a CI runner), install the stub: `sudo install -D -m 644 tests/hardware-stub.nix /etc/nixos/hardware-configuration.nix`.
 
+The profile builds themselves only build the machines a change touches: `tests/changed-hosts.sh BASE` compares every machine's system derivation (`tests/drv-paths.nix`) with the base commit's and prints the ones that differ, and `build.yaml`'s other legs pass without building (a pin only one machine uses, docs-only changes, …).
+
 ## 🐧 Using Home Manager on Non-NixOS Distributions
 
 Nixbook's Home Manager modules can be used on any Linux distribution (Ubuntu, Fedora, Arch, etc.) to manage your user-level configurations declaratively. This allows you to replicate your Nix-based dotfiles environment without installing NixOS.
