@@ -15,6 +15,16 @@ Singleton {
 
     property string query: ""
 
+    // Typing the layouts prefix reads the saved layouts again, like the
+    // `layouts` key binding (Overview.toggleLayouts) does: the list loaded at
+    // startup misses the ones saved since by agents (desktop MCP), and stays
+    // empty if that first read failed.
+    readonly property bool layoutsMode: root.query.startsWith(Config.options.search.prefix.layouts)
+    onLayoutsModeChanged: {
+        if (root.layoutsMode)
+            WindowLayouts.refresh();
+    }
+
     function ensurePrefix(prefix) {
         if ([Config.options.search.prefix.action, Config.options.search.prefix.app, Config.options.search.prefix.clipboard, Config.options.search.prefix.emojis, Config.options.search.prefix.symbols, Config.options.search.prefix.themes, Config.options.search.prefix.layouts, Config.options.search.prefix.math, Config.options.search.prefix.shellCommand, Config.options.search.prefix.webSearch,].some(i => root.query.startsWith(i))) {
             root.query = prefix + root.query.slice(1);
