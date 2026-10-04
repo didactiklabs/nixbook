@@ -856,6 +856,7 @@ def t_launch_app(ctx, args):
     learn_launch(args["app"], next((i for i, e in apps.items() if e is entry), want))
     name = entry.get("Name") or want
     deadline = time.monotonic() + 10
+    small = None
     while time.monotonic() < deadline:
         time.sleep(0.2)
         new = [w for w in windows() if w.get("id") not in before]
@@ -864,14 +865,21 @@ def t_launch_app(ctx, args):
             time.sleep(0.3)
             new = [w for w in windows() if w.get("id") not in before] or new
             main = next((w for w in new if w.get("is_focused")), new[-1])
-            if ctx.desktop == "agent":
-                # One app shown at a time on the agent desktop, fullscreen:
-                # the others stay open behind it (focus_window shows one).
-                others = [slim_window(w) for w in windows()
-                          if w.get("id") not in {n.get("id") for n in new} and w.get("pid") != main.get("pid")]
-                if others:
-                    return [text({"started": name, "window": slim_window(main), "in_background": others})]
-            return [text({"started": name, "window": slim_window(main)})]
+            if ctx.desktop == "agent" and not fills_screen(main):
+                # Every window is fullscreen there: one that stays smaller
+                # can't be resized, a splash (Vesktop's "Loading", gone once
+                # the app's window opens) or a fixed-size dialog: wait for
+                # the app's window, else say which it is.
+                small = main
+                continue
+            return launched(ctx, name, main, new)
+    if small:
+        new = [w for w in windows() if w.get("id") not in before]
+        if new:
+            main = next((w for w in new if w.get("is_focused")), new[-1])
+            return launched(ctx, name, main, new, note=(
+                "this window doesn't fill your desktop: a dialog or a splash screen. If it's a "
+                "splash (\"Loading…\"), the app's own window replaces it: look again with list_windows"))
     if ctx.desktop == "agent":
         if user_windows_ids() - user_before:
             raise ToolError(
@@ -887,6 +895,34 @@ def t_launch_app(ctx, args):
         )
     return [text(f"started {name}, but no new window appeared within 10 s (a single-instance "
                  "app may have raised its existing window instead; see the focused window below)")]
+
+
+def launched(ctx, name, main, new, note=None):
+    out = {"started": name, "window": slim_window(main)}
+    if ctx.desktop == "agent":
+        # One app shown at a time on the agent desktop, fullscreen: the
+        # others stay open behind it (focus_window shows one).
+        others = [slim_window(w) for w in windows()
+                  if w.get("id") not in {n.get("id") for n in new} and w.get("pid") != main.get("pid")]
+        if others:
+            out["in_background"] = others
+    if note:
+        out["note"] = note
+    return [text(out)]
+
+
+def fills_screen(w):
+    """Whether a window is the size of the screen (on the agent desktop, where
+    its niri makes every window fullscreen, nearly so: a window that won't
+    be resized stays smaller). True when niri doesn't give its size."""
+    size = (w.get("layout") or {}).get("window_size")
+    if not size:
+        return True
+    try:
+        screens = [o["logical"] for o in (niri_json("outputs") or {}).values() if o.get("logical")]
+    except ToolError:
+        return True
+    return not screens or any(size[0] >= 0.9 * s["width"] and size[1] >= 0.9 * s["height"] for s in screens)
 
 
 def user_windows_ids():

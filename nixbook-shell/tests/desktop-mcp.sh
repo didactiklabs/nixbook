@@ -57,7 +57,23 @@ echo "${NIRI_SOCKET:-}" >"$STUB_CALLS.socket"
 # The agent desktop has no windows (a launched app opens on the user's), or
 # with $STUB_AGENT_HAS_WINDOW one app, and the launched one beside it.
 if [ "$1 $2 $3" = "msg --json windows" ] && [ "${NIRI_SOCKET:-}" = "${STUB_AGENT_SOCKET:-}" ]; then
-  if [ -n "${STUB_AGENT_HAS_WINDOW:-}" ]; then
+  if [ -n "${STUB_AGENT_SPLASH:-}" ]; then
+    # A launched app that shows a small splash first ($STUB_AGENT_SPLASH
+    # window lists), then its own window, fullscreen (the largest output
+    # below); "stays": the small window is the app's (a fixed-size dialog).
+    n=0
+    if [ -e "$STUB_CALLS.launched" ]; then
+      n=$(($(cat "$STUB_CALLS.splash" 2>/dev/null || echo 0) + 1))
+      echo "$n" >"$STUB_CALLS.splash"
+    fi
+    if [ "$n" -eq 0 ]; then
+      echo '[]'
+    elif [ "$STUB_AGENT_SPLASH" = stays ] || [ "$n" -le 3 ]; then
+      echo '[{"id": 30, "app_id": "firefox", "title": "loading", "pid": 70, "workspace_id": 1, "is_focused": true, "is_floating": false, "layout": {"window_size": [300, 350]}}]'
+    else
+      echo '[{"id": 31, "app_id": "firefox", "title": "New Tab", "pid": 70, "workspace_id": 1, "is_focused": true, "is_floating": false, "layout": {"window_size": [3136, 1960]}}]'
+    fi
+  elif [ -n "${STUB_AGENT_HAS_WINDOW:-}" ]; then
     jq -nc --argjson launched "$([ -e "$STUB_CALLS.launched" ] && echo true || echo false)" '
       [{id: 20, app_id: "org.gnome.TextEditor", title: "notes", pid: 50, workspace_id: 1, is_focused: ($launched | not), is_floating: false}]
       + (if $launched then [{id: 21, app_id: "firefox", title: "New Tab", pid: 60, workspace_id: 1, is_focused: true, is_floating: false},
@@ -1258,6 +1274,16 @@ expect_contains "agent desktop: launch_app starts the app" "$out" '"started"'
 expect_eq "agent desktop: the app before isn't closed" "" "$(grep close-window "$calls" || true)"
 expect_eq "agent desktop: the app before is said to be in the background" 20 "$(jq -n 'input.in_background[0].id' <<<"$out")"
 rm -f "$calls.launched"
+# A splash first (Vesktop's "Loading"): launch_app names the app's own
+# window, not the splash that's about to close.
+out=$(STUB_AGENT_SPLASH=1 call launch_app '{"app": "firefox"}')
+expect_eq "agent desktop: launch_app waits out a splash screen" 31 "$(jq -n 'input.window.id' <<<"$out")"
+rm -f "$calls.launched" "$calls.splash"
+# A small window that stays (a fixed-size dialog) is named, with a note.
+out=$(STUB_AGENT_SPLASH=stays call launch_app '{"app": "firefox"}')
+expect_eq "agent desktop: a small window that stays is named" 30 "$(jq -n 'input.window.id' <<<"$out")"
+expect_contains "agent desktop: ...said not to fill the desktop" "$out" "doesn't fill your desktop"
+rm -f "$calls.launched" "$calls.splash"
 # The user takes over (to log in somewhere): the agent's input waits.
 python3 "$mcp" desktop interact on >/dev/null
 expect_eq "desktop interact on: the flag" true "$(python3 "$mcp" desktop status | jq .user_has_control)"
