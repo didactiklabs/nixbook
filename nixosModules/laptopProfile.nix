@@ -57,9 +57,10 @@ in
       # Set SATA link power management to the most aggressive power-saving policy
       # that still allows DIPM (Device Initiated Power Management) — safe on NVMe+SATA.
       # "med_power_with_dipm" is the sweet spot: real savings without the latency
-      # spikes of "min_power" that can cause filesystem stalls.
+      # spikes of "min_power" that can cause filesystem stalls. The TEST skips
+      # hosts without the attribute (USB storage), which udev logged every boot.
       udev.extraRules = ''
-        ACTION=="add", SUBSYSTEM=="scsi_host", KERNEL=="host*", ATTR{link_power_management_policy}="med_power_with_dipm"
+        ACTION=="add", SUBSYSTEM=="scsi_host", KERNEL=="host*", TEST=="link_power_management_policy", ATTR{link_power_management_policy}="med_power_with_dipm"
       '';
     };
     powerManagement = lib.mkForce {

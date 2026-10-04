@@ -60,7 +60,7 @@ in
         Provides system-level tooling and services:
         - Container runtime: Podman with Docker compatibility alias, DNS-enabled default
           network, weekly auto-prune, and OCI container backend
-        - Kernel modules: netfilter (iptables/ip6tables, conntrack, ipvs) for container
+        - Kernel modules: netfilter (conntrack, ipvs) for container
           networking
         - System packages: openvpn, gnupg, yubikey tools (yubico-piv-tool, yubioath-flutter,
           yubikey-personalization), podman/podman-compose, wlsunset, cups-pk-helper, ginx,
@@ -94,12 +94,10 @@ in
       };
     };
     boot = {
+      # No legacy ip_tables/iptable_nat/ip6_tables/ip6table_nat: the kernel no
+      # longer builds them (CONFIG_IP_NF_IPTABLES_LEGACY off) and podman uses
+      # nftables. nf_conntrack_ipv4 was merged into nf_conntrack in Linux 4.19.
       kernelModules = [
-        "ip6_tables"
-        "ip6table_nat"
-        "ip_tables"
-        "iptable_nat"
-        # nf_conntrack_ipv4 was merged into nf_conntrack in Linux 4.19.
         "nf_conntrack"
         "ip_vs"
         "ip_vs_rr"
