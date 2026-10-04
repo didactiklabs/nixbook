@@ -1689,6 +1689,7 @@ def t_restore_layout(ctx, args, close_others=False):
     focused_before = next((w["id"] for w in current if w.get("is_focused")), None)
     pairs, missing, others = match_windows(entries, current)
     report = []
+    started = []  # [entry, window, when it appeared] of the apps started here
 
     # Start what isn't open, all at once, then wait for their windows.
     if missing and args.get("launch_missing", True) is not False:
@@ -1714,6 +1715,7 @@ def t_restore_layout(ctx, args, close_others=False):
                     taken.add(w["id"])
                     waiting.remove(e)
                     pairs.append((e, w))
+                    started.append([e, w, time.monotonic()])
                     report.append(f"started {e.get('desktop')}")
         for e in waiting:
             report.append(f"started {e.get('desktop')}, but its window didn't appear within 15 s")
@@ -1734,65 +1736,93 @@ def t_restore_layout(ctx, args, close_others=False):
             f"{len(left)} window(s) of {', '.join(gone)} (not connected) left where they are: "
             + ", ".join(sorted({e.get("app_id") or "?" for e, w in left}))
         )
-    # 1. Monitor, workspace, floating or tiled.
-    for e, w in pairs:
-        wid = str(w["id"])
-        if e.get("monitor"):
-            niri_action("move-window-to-monitor", "--id", wid, e["monitor"])
-        ws = e.get("workspace") or {}
-        ref = ws.get("name") or (str(ws["index"]) if ws.get("index") else None)
-        if ref:
-            # An index is on the window's monitor, where it just went.
-            niri_action("move-window-to-workspace", "--window-id", wid, "--focus", "false", ref)
-        if e.get("floating") != bool(w.get("is_floating")):
-            niri_action("move-window-to-floating" if e.get("floating") else "move-window-to-tiling", "--id", wid)
-
-    # 2. Tiled: columns in order, stacked tiles into their column, widths.
-    groups = {}
-    for e, w in pairs:
-        if not e.get("floating") and e.get("column"):
-            ws = e.get("workspace") or {}
-            groups.setdefault((e.get("monitor"), ws.get("name") or ws.get("index")), []).append((e, w))
-    for group in groups.values():
-        columns = {}
-        for e, w in group:
-            columns.setdefault(e["column"], []).append((e, w))
-        for index, col in enumerate(sorted(columns), 1):
-            tiles = sorted(columns[col], key=lambda ew: ew[0].get("tile") or 0)
-            head = str(tiles[0][1]["id"])
-            niri_action("focus-window", "--id", head)
-            niri_action("move-column-to-index", str(index))
-            for e, w in tiles[1:]:
-                wid = str(w["id"])
-                niri_action("focus-window", "--id", wid)
-                niri_action("move-column-to-index", str(index + 1))
-                niri_action("consume-or-expel-window-left", "--id", wid)
-            size = tiles[0][0].get("size")
-            if size:
-                niri_action("set-window-width", "--id", head, str(int(size[0])))
-            if len(tiles) > 1:
-                for e, w in tiles:
-                    if e.get("size"):
-                        niri_action("set-window-height", "--id", str(w["id"]), str(int(e["size"][1])))
-
-    # 3. Floating: size, then position. niri places a fixed position within
-    # the working area (without the bar), the saved one is on the whole
-    # monitor: measure where it landed and correct by the difference.
-    floating = [(e, w) for e, w in pairs if e.get("floating") and e.get("position")]
-    for e, w in floating:
-        wid = str(w["id"])
-        if e.get("size"):
-            niri_action("set-window-width", "--id", wid, str(int(e["size"][0])))
-            niri_action("set-window-height", "--id", wid, str(int(e["size"][1])))
-        niri_action("move-floating-window", "--id", wid, "-x", str(max(0, e["position"][0])), "-y", str(max(0, e["position"][1])))
-    if floating:
+    def arrange(pairs):
+        # 1. Monitor, workspace, floating or tiled.
         now = {w["id"]: w for w in windows()}
+        for e, w in pairs:
+            wid = str(w["id"])
+            if e.get("monitor"):
+                niri_action("move-window-to-monitor", "--id", wid, e["monitor"])
+            ws = e.get("workspace") or {}
+            ref = ws.get("name") or (str(ws["index"]) if ws.get("index") else None)
+            if ref:
+                # An index is on the window's monitor, where it just went.
+                niri_action("move-window-to-workspace", "--window-id", wid, "--focus", "false", ref)
+            if e.get("floating") != bool(now.get(w["id"], w).get("is_floating")):
+                niri_action("move-window-to-floating" if e.get("floating") else "move-window-to-tiling", "--id", wid)
+
+        # 2. Tiled: columns in order, stacked tiles into their column, widths.
+        groups = {}
+        for e, w in pairs:
+            if not e.get("floating") and e.get("column"):
+                ws = e.get("workspace") or {}
+                groups.setdefault((e.get("monitor"), ws.get("name") or ws.get("index")), []).append((e, w))
+        for group in groups.values():
+            columns = {}
+            for e, w in group:
+                columns.setdefault(e["column"], []).append((e, w))
+            for index, col in enumerate(sorted(columns), 1):
+                tiles = sorted(columns[col], key=lambda ew: ew[0].get("tile") or 0)
+                head = str(tiles[0][1]["id"])
+                niri_action("focus-window", "--id", head)
+                niri_action("move-column-to-index", str(index))
+                for e, w in tiles[1:]:
+                    wid = str(w["id"])
+                    niri_action("focus-window", "--id", wid)
+                    niri_action("move-column-to-index", str(index + 1))
+                    niri_action("consume-or-expel-window-left", "--id", wid)
+                size = tiles[0][0].get("size")
+                if size:
+                    niri_action("set-window-width", "--id", head, str(int(size[0])))
+                if len(tiles) > 1:
+                    for e, w in tiles:
+                        if e.get("size"):
+                            niri_action("set-window-height", "--id", str(w["id"]), str(int(e["size"][1])))
+
+        # 3. Floating: size, then position. niri places a fixed position within
+        # the working area (without the bar), the saved one is on the whole
+        # monitor: measure where it landed and correct by the difference.
+        floating = [(e, w) for e, w in pairs if e.get("floating") and e.get("position")]
         for e, w in floating:
-            pos = ((now.get(w["id"]) or {}).get("layout") or {}).get("tile_pos_in_workspace_view")
-            if pos:
-                dx, dy = round(e["position"][0] - pos[0]), round(e["position"][1] - pos[1])
-                if dx or dy:
-                    niri_action("move-floating-window", "--id", str(w["id"]), "-x", f"{dx:+d}", "-y", f"{dy:+d}")
+            wid = str(w["id"])
+            if e.get("size"):
+                niri_action("set-window-width", "--id", wid, str(int(e["size"][0])))
+                niri_action("set-window-height", "--id", wid, str(int(e["size"][1])))
+            niri_action("move-floating-window", "--id", wid, "-x", str(max(0, e["position"][0])), "-y", str(max(0, e["position"][1])))
+        if floating:
+            now = {w["id"]: w for w in windows()}
+            for e, w in floating:
+                pos = ((now.get(w["id"]) or {}).get("layout") or {}).get("tile_pos_in_workspace_view")
+                if pos:
+                    dx, dy = round(e["position"][0] - pos[0]), round(e["position"][1] - pos[1])
+                    if dx or dy:
+                        niri_action("move-floating-window", "--id", str(w["id"]), "-x", f"{dx:+d}", "-y", f"{dy:+d}")
+
+
+    arrange(pairs)
+
+    # An app's first window may be a splash with the app's id (Vesktop's
+    # "Loading"), gone a few seconds later for the app's own: watch the
+    # started apps' windows for 5 s after they appeared, and arrange again
+    # with the one that replaced a window gone.
+    settle = max((s[2] for s in started), default=0) + 5
+    while time.monotonic() < settle:
+        time.sleep(0.3)
+        now = windows()
+        ids = {w["id"] for w in now}
+        swapped = {}
+        for s in started:
+            if s[1]["id"] in ids:
+                continue
+            new = next((w for w in now if w["id"] not in before and w["id"] not in taken
+                        and w.get("app_id") == s[0].get("app_id")), None)
+            if new:
+                taken.add(new["id"])
+                swapped[s[1]["id"]] = new
+                s[1] = new
+        if swapped:
+            pairs = [(e, swapped.get(w["id"], w)) for e, w in pairs]
+            arrange(pairs)
 
     # 4. Close the windows the layout doesn't have. Not with a monitor of the
     # layout unplugged: its windows are on the connected ones now, and which
