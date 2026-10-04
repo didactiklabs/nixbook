@@ -222,7 +222,8 @@ in
                      type = \"filesystem\";
                      format = \"vfat\";
                      mountpoint = \"/boot\";
-                     mountOptions = [ \"defaults\" ];
+                     # Root-only: bootctl refuses a world-readable random seed.
+                     mountOptions = [ \"fmask=0077\" \"dmask=0077\" ];
                      extraArgs = [ \"-n\" \"BOOT\" ];
                    };
                  };

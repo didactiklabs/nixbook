@@ -296,6 +296,14 @@ in
         "apfs"
       ];
     };
+    # The ESP root-only: the generated hardware-configuration.nix mounts it
+    # 0022, and bootctl warns every boot that the random seed on it is world
+    # readable. mkAfter: vfat takes the last fmask/dmask given, so these win
+    # over the generated ones. Applies at the next mount (reboot).
+    fileSystems."/boot".options = lib.mkAfter [
+      "fmask=0077"
+      "dmask=0077"
+    ];
     # Userspace tools for the Mac filesystems enabled above:
     # - hfsprogs: fsck.hfsplus / mkfs.hfsplus (repair a dirty HFS+ journal so it
     #   mounts read-write, or reformat as HFS+).
@@ -313,7 +321,15 @@ in
       journald.settings.Journal.SystemMaxUse = "1G";
       # Auto-detect your time zone.
       automatic-timezoned.enable = true;
-      chrony.enable = true;
+      chrony = {
+        enable = true;
+        # RTC trimming (the default) needs RTC interrupts, which some laptops
+        # (totoro) don't provide: "RTC driver could not be initialised" every
+        # boot. rtcsync instead: the kernel copies the system time to the RTC
+        # every 11 minutes (the module adds nothing in its place).
+        enableRTCTrimming = false;
+        extraConfig = "rtcsync";
+      };
 
       fprintd.enable = true;
       accounts-daemon.enable = true;

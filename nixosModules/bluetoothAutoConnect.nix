@@ -121,10 +121,13 @@ in
       };
     };
 
+    # Real users only: the greeter (a system user) runs a user manager too, and
+    # its reconnect could grab the speaker before anyone logs in.
     systemd.user.services = {
       bt-autoconnect-remember = {
         description = "Remember the last connected Bluetooth audio device";
         wantedBy = [ "default.target" ];
+        unitConfig.ConditionUser = "!@system";
         serviceConfig = {
           ExecStart = lib.getExe remember;
           Restart = "on-failure";
@@ -135,6 +138,7 @@ in
       bt-autoconnect-reconnect = {
         description = "Reconnect the last Bluetooth audio device";
         wantedBy = [ "default.target" ];
+        unitConfig.ConditionUser = "!@system";
         after = [
           "pipewire.service"
           "wireplumber.service"
