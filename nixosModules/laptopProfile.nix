@@ -21,10 +21,12 @@ in
         - power-profiles-daemon: dynamic CPU frequency scaling (performance / balanced /
           power-saver profiles, switchable via e.g. the DMS control centre)
         - thermald: Intel thermal management daemon to prevent CPU throttling
+        - scx_lavd: sched_ext CPU scheduler built for interactivity and
+          battery life (latency-critical tasks first, fewer cores awake)
         - powerManagement: general power management framework
         - powertop: power consumption analyser available in the system PATH
 
-        Enable this on machines that are laptops (totoro, nishinoya).
+        Enable this on machines that are laptops (totoro, nishinoya, tanjiro).
         Leave disabled on desktop/server machines (anya).
       '';
     };
@@ -39,6 +41,18 @@ in
 
       power-profiles-daemon.enable = true;
       thermald.enable = true;
+
+      # sched_ext scheduler (kernel 6.12+) tuned for laptops: favours the
+      # tasks the user is waiting on (input, compositor, audio, the focused
+      # app) and packs background work onto fewer cores. Falls back to the
+      # kernel's EEVDF scheduler if it stops. --autopower follows
+      # power-profiles-daemon (performance / balanced / power-saver).
+      scx = {
+        enable = true;
+        package = pkgs.scx.rustscheds;
+        scheduler = "scx_lavd";
+        extraArgs = [ "--autopower" ];
+      };
 
       # Set SATA link power management to the most aggressive power-saving policy
       # that still allows DIPM (Device Initiated Power Management) — safe on NVMe+SATA.

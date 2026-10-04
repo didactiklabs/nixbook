@@ -135,7 +135,8 @@ let
 
       imagemagick # magick / convert / identify
       matugen
-      ffmpeg
+      ffmpeg # ffplay: sounds pw-play can't decode
+      pipewire # pw-play: sounds
       mpvpaper
 
       wl-clipboard

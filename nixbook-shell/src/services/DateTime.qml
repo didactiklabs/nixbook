@@ -13,6 +13,9 @@ Singleton {
     property var clock: SystemClock {
         id: clock
         precision: {
+            // Screens off (Idle): nothing shows seconds, don't wake every second.
+            if (Idle.screensOff)
+            return SystemClock.Minutes;
             if (Config.options.time.secondPrecision || GlobalStates.screenLocked)
             return SystemClock.Seconds;
             return SystemClock.Minutes;

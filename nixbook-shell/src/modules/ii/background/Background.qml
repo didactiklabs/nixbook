@@ -229,8 +229,14 @@ Variants {
                 // layer, they were never sampled, but were built (and uploaded,
                 // +1/3) on the transition's first frame.
                 smooth: true
-                layer.enabled: true
+                // Its layer (the cropped image the transition shader samples)
+                // only exists for a transition: otherwise a full-screen
+                // buffer in (shared) GPU memory and an extra pass per repaint.
+                layer.enabled: bgRoot.transitionPending || transitionEffect.visible
+                // Drawn only where `wallpaper` doesn't cover it (loading,
+                // transitioning, fading): not underneath on every repaint.
                 visible: !bgRoot.videoRevealed
+                    && !(wallpaper.visible && wallpaper.opacity >= 1 && wallpaper.status === Image.Ready)
                 opacity: bgRoot.videoRevealed ? 0 : 1
             }
 

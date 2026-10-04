@@ -351,8 +351,10 @@ Item {
                 Layout.leftMargin: -10
                 Layout.rightMargin: -10
                 sourceComponent: Player {
+                    id: sidebarPlayer
                     player: root.activePlayer
-                    visualizerPoints: GlobalStates.visualizerPoints
+                    // Hidden (sidebar closed): no copy of every cava frame.
+                    visualizerPoints: ObjectUtils.shown(sidebarPlayer) ? GlobalStates.visualizerPoints : []
                     implicitHeight: 160
                     radius: Appearance.rounding.normal
                 }

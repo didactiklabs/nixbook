@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Window
 import Qt5Compat.GraphicalEffects
 import Quickshell.Services.UPower
 import Quickshell.Services.Mpris
@@ -127,12 +128,14 @@ MouseArea {
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 cache: true
-                visible: false
-            }
-            FastBlur {
-                anchors.fill: parent
-                source: lockBgSource
-                radius: 0 // fixme
+                // Decoded at screen resolution, like Background.qml (the same
+                // size there, so the same wallpaper comes from the cache), not
+                // the original 4K–8K file on every lock. Drawn directly: the
+                // radius-0 FastBlur it went through drew nothing different.
+                // (0 = the original size: wait for the surface's size.)
+                sourceSize: width > 0 && height > 0
+                    ? Qt.size(Math.ceil(width * Screen.devicePixelRatio), Math.ceil(height * Screen.devicePixelRatio))
+                    : Qt.size(1, 1)
             }
         }
     }
@@ -389,7 +392,7 @@ MouseArea {
                 readonly property string cleanedTitle: StringUtils.cleanMusicTitle(activePlayer?.trackTitle) || ""
                 
                 Timer {
-                    running: activePlayer?.playbackState == MprisPlaybackState.Playing
+                    running: activePlayer?.playbackState == MprisPlaybackState.Playing && !Idle.screensOff
                     interval: Config.options.resources.updateInterval
                     repeat: true
                     onTriggered: activePlayer.positionChanged()

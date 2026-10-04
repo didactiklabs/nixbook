@@ -135,7 +135,8 @@ Singleton {
     property int _diskTick: 0
     Timer {
         interval: 1
-        running: true
+        // Paused while the screens are off (Idle): it only feeds the display.
+        running: !Idle.screensOff
         repeat: true
         onTriggered: {
             fileMeminfo.reload()

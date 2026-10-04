@@ -36,6 +36,9 @@ Item {
     readonly property int clockHour: parseInt(clockNumbers[0]) % 12
     readonly property int clockMinute: DateTime.clock.minutes
     readonly property int clockSecond: DateTime.clock.seconds
+    // False while the clock is hidden behind windows or the screens are off
+    // (ClockWidget): the second hand is unloaded, nothing redraws per second.
+    property bool secondsVisible: true
 
     implicitWidth: implicitSize
     implicitHeight: implicitSize
@@ -173,7 +176,7 @@ Item {
     FadeLoader {
         id: secondHandLoader
         z: (Config.options.background.widgets.clock.cookie.secondHandStyle === "line") ? 2 : 3
-        shown: Config.options.time.secondPrecision && Config.options.background.widgets.clock.cookie.secondHandStyle !== "hide"
+        shown: root.secondsVisible && Config.options.time.secondPrecision && Config.options.background.widgets.clock.cookie.secondHandStyle !== "hide"
         anchors.fill: parent
         sourceComponent: SecondHand {
             id: secondHand

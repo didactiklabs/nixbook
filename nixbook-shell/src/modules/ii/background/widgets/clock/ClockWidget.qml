@@ -58,6 +58,9 @@ AbstractBackgroundWidget {
             fade: false
             sourceComponent: CookieClock {
                 anchors.horizontalCenter: parent.horizontalCenter
+                // The second hand repaints the whole wallpaper layer every
+                // second: only while it can be seen.
+                secondsVisible: root.desktopVisible || (GlobalStates.screenLocked && !Idle.screensOff)
                 wallpaperItem: root.wallpaperItem
                 originX: root.x
                 originY: root.y

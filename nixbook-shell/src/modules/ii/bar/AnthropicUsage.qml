@@ -70,8 +70,10 @@ MouseArea {
     Timer {
         interval: 120000
         repeat: true
-        running: true
+        // Paused while the screens are off (Idle); refreshed when they're back.
+        running: !Idle.screensOff
         onTriggered: root.refresh()
+        onRunningChanged: if (running) root.refresh()
     }
 
     // Hover shows the details (short intent delay so sweeping across the bar

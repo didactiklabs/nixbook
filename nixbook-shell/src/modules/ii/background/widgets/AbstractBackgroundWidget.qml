@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs
+import qs.services
 import qs.modules.common
 import qs.modules.common.functions
 import qs.modules.common.widgets.widgetCanvas
@@ -31,6 +32,33 @@ AbstractWidget {
     // (background.widgets.screenPositions); a screen without one uses the
     // widget's shared x/y/z.
     property string screenName: ""
+    // This widget can be seen (niri): false when the active workspace on its
+    // screen has a tiled window (they fill the view; niri gives no position
+    // for them), or a floating window over the widget's own area — a floating
+    // window elsewhere on the desktop doesn't count. Widgets that redraw
+    // continuously (visualizer, the clock's second hand) pause behind windows:
+    // each redraw repaints the whole wallpaper layer and makes niri re-blur
+    // the windows above it. Also false while the screens are off (Idle).
+    // `screenName` is set by WidgetsLoader: the attached Window isn't there
+    // yet at creation.
+    // A floating window's blur samples a little around it (3 passes, offset 3).
+    readonly property real blurReach: 48
+    readonly property bool desktopVisible: {
+        if (Idle.screensOff) return false;
+        const niri = WM.backend;
+        if (!niri || root.screenName === "") return true;
+        const ws = niri.activeWorkspaceForMonitor(root.screenName);
+        if (!ws) return true;
+        // The widget's rect in output-logical coordinates (the widget layer
+        // fills the output at scale 1).
+        const vx = root.x, vy = root.y, vw = root.width, vh = root.height, m = root.blurReach;
+        return !niri.windowList.some(w => {
+            if (w.workspaceId !== ws.id) return false;
+            if (!w.floating || w.tileX === null) return true; // tiled: covers the view
+            return w.tileX - m < vx + vw && w.tileX + w.tileWidth + m > vx
+                && w.tileY - m < vy + vh && w.tileY + w.tileHeight + m > vy;
+        });
+    }
     // This widget's setting `prop` on this monitor (DesktopWidgets: its
     // per-monitor override, else the shared value); `setScreenValues` stores
     // values for this monitor only. Widgets read/write their size through these.
