@@ -50,8 +50,18 @@ Scope {
         WlrLayershell.keyboardFocus: GlobalStates.overviewOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
         color: "transparent"
 
+        // The unscaled box, not columnLayout: Region maps its item through
+        // the item's scale but isn't told when the scale changes, so masking
+        // columnLayout kept the 0.85 scale of the opening animation and the
+        // bottom of the launcher (its last row) and its sides took no clicks.
         mask: Region {
-            item: GlobalStates.overviewOpen ? columnLayout : null
+            item: GlobalStates.overviewOpen ? inputArea : null
+        }
+
+        // anchors ignore the scale: this is the launcher at full size.
+        Item {
+            id: inputArea
+            anchors.fill: columnLayout
         }
 
         anchors {
