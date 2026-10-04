@@ -21,32 +21,10 @@ AbstractBackgroundWidget {
     readonly property bool useCoverColors: shaderStyle && (configEntry.colorSource ?? "theme") === "cover"
 
     // Animate only while the visualizer on this screen can actually be seen
-    // (niri): pause when the active workspace has a tiled window (they fill
-    // the view; niri gives no position for them), or a floating window over
-    // the visualizer's own area — a floating window elsewhere on the desktop
-    // doesn't pause it. Behind windows it would only show blurred through
-    // them, while redrawing the wallpaper layer every frame and forcing niri
-    // to re-blur the windows above it — measured ~50% of the GPU. It fades
-    // out/in instead of freezing.
-    // `screenName` (AbstractBackgroundWidget) is set by WidgetsLoader: the
-    // attached Window isn't there yet at creation.
-    // A floating window's blur samples a little around it (3 passes, offset 3).
-    readonly property real blurReach: 48
-    readonly property bool desktopVisible: {
-        const niri = WM.backend;
-        if (!niri || root.screenName === "") return true;
-        const ws = niri.activeWorkspaceForMonitor(root.screenName);
-        if (!ws) return true;
-        // The widget's rect in output-logical coordinates (the widget layer
-        // fills the output at scale 1).
-        const vx = root.x, vy = root.y, vw = root.width, vh = root.height, m = root.blurReach;
-        return !niri.windowList.some(w => {
-            if (w.workspaceId !== ws.id) return false;
-            if (!w.floating || w.tileX === null) return true; // tiled: covers the view
-            return w.tileX - m < vx + vw && w.tileX + w.tileWidth + m > vx
-                && w.tileY - m < vy + vh && w.tileY + w.tileHeight + m > vy;
-        });
-    }
+    // (AbstractBackgroundWidget.desktopVisible). Behind windows it would only
+    // show blurred through them, while redrawing the wallpaper layer every
+    // frame and forcing niri to re-blur the windows above it — measured ~50%
+    // of the GPU. It fades out/in instead of freezing.
     readonly property bool animate: !(configEntry.pauseBehindWindows ?? true) || root.desktopVisible
     // Counted for cava: it only runs while some visualizer can be seen.
     property bool counted: false

@@ -38,7 +38,7 @@ Singleton {
         id: syncTimer
         interval: 300
         repeat: true
-        running: root.status === "ok" && root.lyricsLines.length > 0
+        running: root.status === "ok" && root.lyricsLines.length > 0 && !Idle.screensOff
         onTriggered: {
             const pos = root.activePlayer?.position ?? 0
             let idx = -1

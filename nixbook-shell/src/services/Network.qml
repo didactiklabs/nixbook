@@ -177,8 +177,30 @@ Singleton {
         wifiStatusProcess.running = true
         updateNetworkName.running = true;
         updateNetworkStrength.running = true;
-        updateNetworkDetails.running = true;
-        updatePublicIp.running = true;
+        updateNetworkDetails.running = true; // public IP too, if the connection changed
+    }
+
+    // `nmcli monitor` prints bursts of lines (connecting, roaming, resume,
+    // connectivity checks), and each update() starts ~10 processes: one
+    // update per burst. While the screens are off (Idle) nothing shows it:
+    // catch up once they're back on.
+    property bool updatePending: false
+    Timer {
+        id: updateDebounce
+        interval: 500
+        onTriggered: {
+            if (Idle.screensOff) root.updatePending = true;
+            else root.update();
+        }
+    }
+    Connections {
+        target: Idle
+        function onScreensOffChanged() {
+            if (!Idle.screensOff && root.updatePending) {
+                root.updatePending = false;
+                root.update();
+            }
+        }
     }
 
     Process {
@@ -186,7 +208,7 @@ Singleton {
         running: true
         command: ["nmcli", "monitor"]
         stdout: SplitParser {
-            onRead: root.update()
+            onRead: updateDebounce.restart()
         }
     }
 
@@ -254,7 +276,9 @@ Singleton {
     Process {
         id: updateNetworkStrength
         running: true
-        command: ["sh", "-c", "nmcli -f IN-USE,SIGNAL,SSID device wifi | awk '/^\\*/{if (NR!=1) {print $2}}'"]
+        // --rescan no: the cached scan results; a status refresh must not
+        // trigger a Wi-Fi scan (radio power). rescanProcess scans on request.
+        command: ["sh", "-c", "nmcli -f IN-USE,SIGNAL,SSID device wifi list --rescan no | awk '/^\\*/{if (NR!=1) {print $2}}'"]
         stdout: SplitParser {
             onRead: data => {
                 root.networkStrength = parseInt(data);
@@ -293,13 +317,23 @@ Singleton {
                 root.ipAddress = ipAddress;
                 root.gateway = gateway;
                 root.macAddress = macAddress;
+
+                // The public IP (a request to api.ipify.org) only changes with
+                // the connection: not on every nmcli event (retried while it
+                // couldn't be fetched, e.g. offline).
+                const connectionKey = [root.networkName, root.wifiStatus, networkInterface, ipAddress, gateway].join("|");
+                if (connectionKey !== updatePublicIp.connectionKey || root.publicIpAddress === "") {
+                    updatePublicIp.connectionKey = connectionKey;
+                    updatePublicIp.running = true;
+                }
             }
         }
     }
 
     Process {
         id: updatePublicIp
-        running: true
+        // The connection it was fetched for (updateNetworkDetails).
+        property string connectionKey: ""
         command: ["curl", "-fsS", "--max-time", "5", "https://api.ipify.org"]
         stdout: StdioCollector {
             onStreamFinished: {

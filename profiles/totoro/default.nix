@@ -44,6 +44,9 @@ in
   };
   services.xserver.videoDrivers = lib.mkForce [ "modesetting" ];
   customNixOSModules = {
+    # Panel Self Refresh back on for the OLED (idle battery), minus Selective
+    # Update. If the amdgpu freezes return, set "off" (see core.amdgpuPsr).
+    core.amdgpuPsr = "no-su";
     laptopProfile.enable = true;
     # greetd with nixbook-shell's own login screen: the greeter's default
     # when a user runs nixbook-shell (tuigreet stays the fallback).

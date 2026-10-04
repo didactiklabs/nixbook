@@ -19,7 +19,13 @@ in
       mpv = {
         enable = true;
         scripts = mpvScripts;
-        config = { };
+        config = {
+          # Hardware decoding (VA-API on AMD/Intel, NVDEC on NVIDIA) instead
+          # of the CPU: far less power and heat for video. auto-safe only
+          # picks decoders known to be correct, and falls back to software.
+          hwdec = "auto-safe";
+          vo = "gpu-next";
+        };
       };
     };
     home = {

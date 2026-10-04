@@ -187,8 +187,10 @@ Singleton {
         id: pollTimer
         interval: 15000
         repeat: true
-        running: root.probeDone && (root.tsAvailable || root.nbAvailable)
+        // Paused while the screens are off (Idle); refreshed when they're back.
+        running: root.probeDone && (root.tsAvailable || root.nbAvailable) && !Idle.screensOff
         onTriggered: root.refreshStatus()
+        onRunningChanged: if (running) root.refreshStatus()
     }
 
     // ------------------------------------------------------------- Tailscale

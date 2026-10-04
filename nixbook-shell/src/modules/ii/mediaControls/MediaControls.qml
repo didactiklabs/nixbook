@@ -83,8 +83,9 @@ Scope {
     // start, and it used to start/stop with each sidebar/media popup
     // open/close. Keep it running for a grace period after the last consumer
     // goes away, as long as something is playing.
+    // The right sidebar only shows it in its media player (sidebar.mediaPlayer).
     readonly property bool cavaWanted: (GlobalStates.mediaControlsOpen ||
-            GlobalStates.sidebarRightOpen ||
+            (GlobalStates.sidebarRightOpen && Config.options.sidebar.mediaPlayer) ||
             (GlobalStates.sidebarLeftOpen && !GlobalStates.mediaLyricsVisible) ||
             GlobalStates.equalizerOpen ||
             Config.options.bar.layouts.leftLayout.includes("visualizer") ||
@@ -102,7 +103,8 @@ Scope {
     }
     Process {
         id: cavaProc
-        running: root.playing && (root.cavaWanted || cavaGrace.running)
+        // Not while the screens are off (Idle): nothing shows it.
+        running: root.playing && (root.cavaWanted || cavaGrace.running) && !Idle.screensOff
         onRunningChanged: {
             if (!cavaProc.running) {
                 GlobalStates.visualizerPoints = [];
@@ -275,9 +277,11 @@ Scope {
                         values: root.meaningfulPlayers
                     }
                     delegate: Player {
+                        id: mediaPlayer
                         required property MprisPlayer modelData
                         player: modelData
-                        visualizerPoints: GlobalStates.visualizerPoints  
+                        // Hidden (popup closed): no copy of every cava frame.
+                        visualizerPoints: ObjectUtils.shown(mediaPlayer) ? GlobalStates.visualizerPoints : []
                         implicitWidth: root.widgetWidth
                         implicitHeight: showLyrics ? 290 : Appearance.sizes.mediaControlsHeight
                         radius: root.popupRounding

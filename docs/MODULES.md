@@ -127,12 +127,19 @@ Whether to install the RPCU internal CA certificate system-wide. Adds assets/cer
 
 ## core
 
+### `customNixOSModules.core.amdgpuPsr`
+
+- **Type:** `one of "off", "no-su", "on"`
+- **Default:** `"off"`
+
+AMD Panel Self Refresh (eDP panels): lets the display pipe sleep while the screen content is static, a real idle-battery saving on laptops. - "off": PSR disabled (amdgpu.dcdebugmask=0x10), the long-standing workaround for amdgpu freezes (commit ac1c7574 "amd freeze"). - "no-su": PSR on, only Selective Update disabled (dcdebugmask=0x200), the part behind most Rembrandt/Phoenix freezes and flicker. - "on": the kernel default. Ignored with the AMD gaming profile, which sets its own dcdebugmask.
+
 ### `customNixOSModules.core.enable`
 
 - **Type:** `boolean`
 - **Default:** `true`
 
-Whether to enable the core NixOS module. This is the foundational system module that configures: - Boot: systemd-boot UEFI loader, plymouth splash screen (silent boot: only errors on the console, no cursor), latest kernel, LVM support, LUKS dm-crypt modules, keyboard backlight on initrd, IOMMU, NTFS + exFAT filesystem support for external drives - Kernel hardening: sysctl security settings (restrict BPF, perf events, ICMP redirects, source routing, suid dumps, kexec, TTY ldisc autoload, mmap ASLR entropy, etc.) and boot parameters (slab_nomerge, page allocator randomisation) - Boot: kernel command-line editor disabled (systemd-boot and lanzaboote) - Locale: Europe/Paris timezone, en_US locale for everything (messages, dates, numbers, units), French keyboard layout - Audio: PipeWire with ALSA and PulseAudio compatibility (PulseAudio disabled) - Hardware: firmware, Intel/AMD CPU microcode, Bluetooth (bluez), uinput - Security: rtkit, polkit (power actions without a password for the local user), U2F PAM (login + sudo), passwordless sudo for wheel, sudo executable by wheel members only - XDG portals: enabled (backends come from the compositor modules) - Nix daemon: lix package, weekly GC via nh clean (keeps the last 5 generations and 7d), store optimisation at 03:45, nix-command + flakes features, custom S3 binary cache, OOM-managed nix-daemon slice - Display: xserver disabled (Wayland-only), fonts dir enabled - Env: NIXOS_OZONE_WL=1, NIXPKGS_ALLOW_UNFREE=1 - System state version: 24.05
+Whether to enable the core NixOS module. This is the foundational system module that configures: - Boot: systemd-boot UEFI loader, plymouth splash screen (silent boot: only errors on the console, no cursor), latest kernel, LVM support, LUKS dm-crypt modules, keyboard backlight on initrd, IOMMU, NTFS + exFAT filesystem support for external drives - Kernel hardening: sysctl security settings (restrict BPF, perf events, ICMP redirects, source routing, suid dumps, kexec, TTY ldisc autoload, mmap ASLR entropy, etc.) and boot parameters (slab_nomerge, page allocator randomisation) - Boot: kernel command-line editor disabled (systemd-boot and lanzaboote) - Locale: Europe/Paris timezone, en_US locale for everything (messages, dates, numbers, units), French keyboard layout - Audio: PipeWire with ALSA and PulseAudio compatibility (PulseAudio disabled) - Hardware: firmware, Intel/AMD CPU microcode, Bluetooth (bluez), uinput - Security: rtkit, polkit (power actions without a password for the local user), U2F PAM (login + sudo), passwordless sudo for wheel, sudo executable by wheel members only - XDG portals: enabled (backends come from the compositor modules) - Nix daemon: lix package, weekly GC via nh clean (keeps the last 5 generations and 7d), store optimisation at 03:45, nix-command + flakes features, custom S3 binary cache, OOM-managed nix-daemon slice, builds at idle CPU/IO priority (no desktop stutter during updates) - Display: xserver disabled (Wayland-only), fonts dir enabled - Env: NIXOS_OZONE_WL=1, NIXPKGS_ALLOW_UNFREE=1 - System state version: 24.05
 
 ---
 
@@ -148,7 +155,7 @@ Whether to enable Fcitx5 Lotus — an open-source Vietnamese input method for fc
 ### `customNixOSModules.fcitx5-lotus.package`
 
 - **Type:** `package`
-- **Default:** `"/nix/store/hmzs8x2z13s5a02hqrqlklzndrh4aj6w-fcitx5-lotus-3.6.0"`
+- **Default:** `"/nix/store/grynz4r0idf7w6qg8jykpydgk96rf4ld-fcitx5-lotus-4.0.0"`
 
 The fcitx5-lotus package to install.
 
@@ -265,7 +272,7 @@ Whether to enable lanzaboote for UEFI Secure Boot. Lanzaboote replaces systemd-b
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable laptop-specific power and display optimisations. Configures: - logind lid-switch behaviour: suspend on close, lock when on external power, ignore when docked - power-profiles-daemon: dynamic CPU frequency scaling (performance / balanced / power-saver profiles, switchable via e.g. the DMS control centre) - thermald: Intel thermal management daemon to prevent CPU throttling - powerManagement: general power management framework - powertop: power consumption analyser available in the system PATH Enable this on machines that are laptops (totoro, nishinoya). Leave disabled on desktop/server machines (anya).
+Whether to enable laptop-specific power and display optimisations. Configures: - logind lid-switch behaviour: suspend on close, lock when on external power, ignore when docked - power-profiles-daemon: dynamic CPU frequency scaling (performance / balanced / power-saver profiles, switchable via e.g. the DMS control centre) - thermald: Intel thermal management daemon to prevent CPU throttling - scx_lavd: sched_ext CPU scheduler built for interactivity and battery life (latency-critical tasks first, fewer cores awake) - powerManagement: general power management framework - powertop: power consumption analyser available in the system PATH Enable this on machines that are laptops (totoro, nishinoya, tanjiro). Leave disabled on desktop/server machines (anya).
 
 ---
 

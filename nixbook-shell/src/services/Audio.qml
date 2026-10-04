@@ -119,6 +119,14 @@ Singleton {
         }
     }
 
+    // Plays an audio file once with pw-play (PipeWire's own client: starts in
+    // a few ms, little memory) when libsndfile reads the format, else ffplay.
+    // Always exec'd: stopping a ringtone (TimerService) kills the player.
+    readonly property string playScript: 'case "$1" in *.wav|*.ogg|*.oga|*.flac|*.opus|*.mp3|*.WAV|*.OGG|*.FLAC|*.MP3) exec pw-play "$1" ;; *) exec ffplay -nodisp -autoexit -loglevel quiet "$1" ;; esac'
+    function playFileCommand(path) {
+        return ["sh", "-c", root.playScript, "sh", path.replace(/^file:\/\//, "")];
+    }
+
     // The command playing `soundName` from the sound theme (sounds.theme,
     // else freedesktop), looked up in $XDG_DATA_DIRS: the first file found.
     function systemSoundCommand(soundName) {
@@ -129,7 +137,7 @@ Singleton {
                 for (const ext of ["oga", "ogg", "wav"])
                     candidates.push(`${dir}/sounds/${theme}/stereo/${soundName}.${ext}`);
         return ["sh", "-c",
-            'for f in "$@"; do [ -f "$f" ] && exec ffplay -nodisp -autoexit -loglevel quiet "$f"; done',
+            `for f in "$@"; do [ -f "$f" ] && { set -- "$f"; ${root.playScript}; }; done`,
             "sh", ...candidates];
     }
     function playSystemSound(soundName) {
@@ -141,7 +149,7 @@ Singleton {
     // ("alarm-clock-elapsed"). The command plays it once.
     function ringtoneCommand(ringtone) {
         if ((ringtone ?? "").includes("/"))
-            return ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", ringtone.replace(/^file:\/\//, "")];
+            return root.playFileCommand(ringtone);
         return root.systemSoundCommand(ringtone || "alarm-clock-elapsed");
     }
     function playRingtone(ringtone) {
@@ -165,12 +173,6 @@ Singleton {
 
     // Play an arbitrary audio file (absolute path or file:// URL).
     function playSoundFile(path) {
-        Quickshell.execDetached([
-            "ffplay",
-            "-nodisp",
-            "-autoexit",
-            "-loglevel", "quiet",
-            path.replace(/^file:\/\//, "")
-        ]);
+        Quickshell.execDetached(root.playFileCommand(path));
     }
 }

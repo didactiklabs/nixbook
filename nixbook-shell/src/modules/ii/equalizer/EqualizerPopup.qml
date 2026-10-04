@@ -318,9 +318,11 @@ Scope {
                 }
 
                 WaveVisualizer {
+                    id: eqWave
                     anchors.fill: parent
                     live: root.activePlayer?.isPlaying ?? false
-                    points: GlobalStates.visualizerPoints
+                    // Hidden (popup closed): no copy of every cava frame.
+                    points: ObjectUtils.shown(eqWave) ? GlobalStates.visualizerPoints : []
                     maxVisualizerValue: 1000
                     smoothing: 2
                     color: root.blendedColors.colPrimary

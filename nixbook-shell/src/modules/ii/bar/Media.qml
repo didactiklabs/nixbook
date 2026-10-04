@@ -77,7 +77,7 @@ Item {
     implicitHeight: vertical ? (isMaterial ? 32 : mediaCircProg.implicitHeight + 12) : Appearance.sizes.barHeight
 
     Timer {
-        running: activePlayer?.playbackState == MprisPlaybackState.Playing
+        running: activePlayer?.playbackState == MprisPlaybackState.Playing && !Idle.screensOff
         interval: Config.options.resources.updateInterval
         repeat: true
         onTriggered: activePlayer.positionChanged()

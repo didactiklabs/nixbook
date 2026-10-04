@@ -10,6 +10,24 @@ let
 in
 {
   options.customNixOSModules.core = {
+    amdgpuPsr = lib.mkOption {
+      type = lib.types.enum [
+        "off"
+        "no-su"
+        "on"
+      ];
+      default = "off";
+      description = ''
+        AMD Panel Self Refresh (eDP panels): lets the display pipe sleep while
+        the screen content is static, a real idle-battery saving on laptops.
+        - "off": PSR disabled (amdgpu.dcdebugmask=0x10), the long-standing
+          workaround for amdgpu freezes (commit ac1c7574 "amd freeze").
+        - "no-su": PSR on, only Selective Update disabled (dcdebugmask=0x200),
+          the part behind most Rembrandt/Phoenix freezes and flicker.
+        - "on": the kernel default.
+        Ignored with the AMD gaming profile, which sets its own dcdebugmask.
+      '';
+    };
     enable = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -34,7 +52,8 @@ in
           sudo executable by wheel members only
         - XDG portals: enabled (backends come from the compositor modules)
         - Nix daemon: lix package, weekly GC via nh clean (keeps the last 5 generations and 7d), store optimisation at 03:45,
-          nix-command + flakes features, custom S3 binary cache, OOM-managed nix-daemon slice
+          nix-command + flakes features, custom S3 binary cache, OOM-managed nix-daemon slice,
+          builds at idle CPU/IO priority (no desktop stutter during updates)
         - Display: xserver disabled (Wayland-only), fonts dir enabled
         - Env: NIXOS_OZONE_WL=1, NIXPKGS_ALLOW_UNFREE=1
         - System state version: 24.05
@@ -231,11 +250,12 @@ in
         # on by default in the NixOS kernel.)
         "page_alloc.shuffle=1"
       ]
-      # The AMD gaming profile sets its own dcdebugmask, which includes this
-      # 0x10 bit (only one amdgpu.dcdebugmask= takes effect: the last one).
+      # Panel Self Refresh (core.amdgpuPsr). The AMD gaming profile sets its
+      # own dcdebugmask, which includes the 0x10 bit (only one
+      # amdgpu.dcdebugmask= takes effect: the last one).
       ++ lib.optional (
-        !(cfg.gamingConfig.enable && cfg.gamingConfig.gpu == "amd")
-      ) "amdgpu.dcdebugmask=0x10";
+        !(cfg.gamingConfig.enable && cfg.gamingConfig.gpu == "amd") && cfg.core.amdgpuPsr != "on"
+      ) "amdgpu.dcdebugmask=${if cfg.core.amdgpuPsr == "off" then "0x10" else "0x200"}";
       kernelPackages = pkgs.linuxPackages_latest;
       plymouth.enable = true;
       # Kernel messages below "error" stay off the console (dmesg keeps them).
@@ -444,6 +464,11 @@ in
         };
       };
       package = pkgs.lixPackageSets.stable.lix;
+      # Builds (rebuilds, nix-shell, CI-like evals) only get the CPU and disk
+      # time the desktop leaves: no stutter while a system update compiles.
+      # Builds still run at full speed on an otherwise idle machine.
+      daemonCPUSchedPolicy = "idle";
+      daemonIOSchedClass = "idle";
       optimise = {
         automatic = true;
         dates = [ "03:45" ];
