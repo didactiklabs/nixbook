@@ -418,6 +418,10 @@ in
             opacity = 1.0;
           }
           {
+            matches = [ { app-id = "^org\\.moonfin\\.linux$"; } ];
+            opacity = 1.0;
+          }
+          {
             matches = [ { app-id = "^firefox$"; } ];
             opacity = 1.0;
           }

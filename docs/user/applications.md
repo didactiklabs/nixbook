@@ -33,7 +33,7 @@ With nixbook-shell, Zen follows the shell's colours ([app colours](/nixbook-shel
 
 ## Per-profile apps
 
-Profiles add their own packages with `home.packages`, for example Slack, Moonlight, Anki, and nixbook's AppImage packages [Actual Budget](/packages/#actual-budget) and [Pear Desktop](/packages/#pear-desktop) (YouTube Music) on totoro.
+Profiles add their own packages with `home.packages`, for example Slack, Moonlight, Anki, and nixbook's AppImage packages [Actual Budget](/packages/#actual-budget) and [Pear Desktop](/packages/#pear-desktop) (YouTube Music) on totoro, and [Moonfin](/packages/#moonfin) (Jellyfin) on every profile.
 
 ## KDE Connect
 

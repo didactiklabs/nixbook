@@ -1,6 +1,6 @@
 { pkgs, ... }:
 let
-  inherit (pkgs.customPkgs) pear-desktop;
+  inherit (pkgs.customPkgs) moonfin pear-desktop;
 in
 {
   imports = [
@@ -14,6 +14,7 @@ in
   home.packages = [
     pkgs.moonlight-qt
     pkgs.anki
+    moonfin
     pear-desktop
   ];
 

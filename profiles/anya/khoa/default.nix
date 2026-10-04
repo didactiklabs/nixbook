@@ -5,7 +5,7 @@
   ...
 }:
 let
-  inherit (pkgs.customPkgs) pear-desktop;
+  inherit (pkgs.customPkgs) moonfin pear-desktop;
 in
 {
   imports = [
@@ -37,6 +37,7 @@ in
     pkgs.moonlight-qt
     pkgs.wineWow64Packages.waylandFull
     pkgs.firefox
+    moonfin
     pear-desktop
   ];
   systemd.user.services.opencode-web = {

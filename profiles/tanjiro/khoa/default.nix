@@ -12,7 +12,7 @@ let
   #   (import sources.flake-compat {
   #     src = sources.globalprotect-openconnect;
   #   }).defaultNix.packages.${pkgs.stdenv.hostPlatform.system}.fromSource;
-  inherit (pkgs.customPkgs) pear-desktop;
+  inherit (pkgs.customPkgs) moonfin pear-desktop;
 in
 {
   imports = [
@@ -34,6 +34,7 @@ in
     pkgs.zoom-us
     pkgs.element-desktop
     # globalprotect-openconnect
+    moonfin
     pear-desktop
   ];
   programs = {
