@@ -821,7 +821,9 @@ def t_list_apps(ctx, args):
     "windows",
     "Start an installed application by its id or name (see list_apps), wait "
     "for its window (up to 10 s) and say which it is. Only .desktop entries "
-    "can be started: no arbitrary commands or arguments.",
+    "can be started: no arbitrary commands or arguments. On a desktop of "
+    "your own it shows one app at a time, fullscreen: the apps you had open "
+    "stay in the background (focus_window brings one back).",
     obj({"app": {"type": "string", "description": "Application id (e.g. firefox) or name"}}, ["app"]),
 )
 def t_launch_app(ctx, args):
@@ -863,20 +865,12 @@ def t_launch_app(ctx, args):
             new = [w for w in windows() if w.get("id") not in before] or new
             main = next((w for w in new if w.get("is_focused")), new[-1])
             if ctx.desktop == "agent":
-                # One app at a time on the agent desktop, filling it: the
-                # user watches a window, not a layout. Its own other windows
-                # (dialogs, a splash) stay.
-                before_ids = {w.get("id") for w in windows()
-                              if w.get("id") not in {n.get("id") for n in new} and w.get("pid") != main.get("pid")}
-                for wid in before_ids:
-                    niri_action("close-window", "--id", str(wid))
-                if before_ids:
-                    time.sleep(0.5)
-                    left = [slim_window(w) for w in windows() if w.get("id") in before_ids]
-                    if left:
-                        return [text({"started": name, "window": slim_window(main), "still_open": left,
-                                      "note": "the previous app didn't close: it's probably asking whether to save "
-                                              "(focus_window it and answer), or close it with close_window"})]
+                # One app shown at a time on the agent desktop, fullscreen:
+                # the others stay open behind it (focus_window shows one).
+                others = [slim_window(w) for w in windows()
+                          if w.get("id") not in {n.get("id") for n in new} and w.get("pid") != main.get("pid")]
+                if others:
+                    return [text({"started": name, "window": slim_window(main), "in_background": others})]
             return [text({"started": name, "window": slim_window(main)})]
     if ctx.desktop == "agent":
         if user_windows_ids() - user_before:
@@ -896,9 +890,12 @@ def t_launch_app(ctx, args):
 
 
 def user_windows_ids():
-    """The windows on the user's desktop (seen from the agent desktop)."""
+    """The windows on the user's desktop (seen from the agent desktop), but
+    the agent desktop's own: launch_app opening it maps that window there
+    while it waits for the app, which isn't the app opening on the user's."""
     try:
-        return {w.get("id") for w in niri_json("windows", env=user_desktop_env())}
+        return {w.get("id") for w in niri_json("windows", env=user_desktop_env())
+                if w.get("app_id") not in ("nixbook-agent-desktop", "niri")}
     except ToolError:
         return set()
 
@@ -4501,11 +4498,15 @@ AGENT_DESKTOP_INSTRUCTIONS = (
     "user's: their own profiles, logged out of the user's accounts, and none "
     "of the user's windows; start what you need with launch_app, which opens "
     "your desktop (it closes by itself once your last app is gone; if the "
-    "user closes it, launch_app opens it again). It shows "
-    "one app at a time, fullscreen (a browser may hide its tabs and address "
-    "bar: use its shortcuts, ctrl+l to type an address, ctrl+t/ctrl+tab "
-    "for tabs): launch_app closes the one before, so "
-    "finish with an app (save, note what you need) before starting another. "
+    "user closes it, launch_app opens it again). It can only show one app "
+    "at a time, because that app is fullscreen: no side-by-side, so the "
+    "screenshot shows only the focused app. Other apps you started stay open "
+    "in the background, hidden behind it: list_windows shows them, "
+    "focus_window brings one to the front (the one before goes to the "
+    "background, nothing closes), and launching an app again may just "
+    "focus its open window. Close an app with close_window once you're done "
+    "with it. Fullscreen, a browser may hide its tabs and address bar: use "
+    "its shortcuts (ctrl+l to type an address, ctrl+t/ctrl+tab for tabs). "
     "The shell "
     "tools (widget: notes, to-do list, timers; calendar; notify; set_theme) "
     "still reach the user's desktop: hand results over there, e.g. write a "

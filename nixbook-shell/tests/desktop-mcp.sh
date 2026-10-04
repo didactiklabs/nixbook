@@ -72,6 +72,8 @@ if [ "$1 $2" = "msg --json" ]; then
   case "$3" in
     windows)
       # A launched app's window (spawn below) appears after the others.
+      # With $STUB_LAUNCH_NO_WINDOW it opens none anywhere, and the agent
+      # desktop (just started) maps its own window on the user's meanwhile.
       # Hidden: ids listed in $STUB_CALLS.hidden (closed windows).
       hidden="$(cat "$STUB_CALLS.hidden" 2>/dev/null || echo '[]')"
       launched_app="$(cat "$STUB_CALLS.launched" 2>/dev/null || true)"
@@ -85,8 +87,8 @@ if [ "$1 $2" = "msg --json" ]; then
          layout: {window_size: [1000, 1900], tile_pos_in_workspace_view: null, pos_in_scrolling_layout: [2, 1]}},
         {id: 5, app_id: "org.gnome.Calculator", title: "Calculator", workspace_id: 10, is_focused: false, is_floating: true,
          layout: {window_size: [400, 300], tile_pos_in_workspace_view: [10, 20], window_offset_in_tile: [2, 3]}}
-      ] + (if $launched then [{id: 6, app_id: $launched_app, title: "New Tab", workspace_id: 10, is_focused: false, is_floating: false}] else [] end)
-      + (if env.STUB_NESTED_WINDOW then [{id: 9, app_id: "niri", title: "niri", pid: 1, workspace_id: 10, is_focused: false, is_floating: false}] else [] end)
+      ] + (if $launched and (env.STUB_LAUNCH_NO_WINDOW | not) then [{id: 6, app_id: $launched_app, title: "New Tab", workspace_id: 10, is_focused: false, is_floating: false}] else [] end)
+      + (if env.STUB_NESTED_WINDOW or ($launched and env.STUB_LAUNCH_NO_WINDOW) then [{id: 9, app_id: "niri", title: "niri", pid: 1, workspace_id: 10, is_focused: false, is_floating: false}] else [] end)
       | map(select(.id as $i | $hidden | index($i) | not))' ;;
     workspaces)
       echo '[{"id":10,"idx":1,"name":null,"output":"eDP-1","is_active":true,"is_focused":true,"active_window_id":1},
@@ -1222,6 +1224,11 @@ out=$(call launch_app '{"app": "firefox"}')
 expect_eq "launch_app: opens the agent desktop" "systemctl --user start nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
 expect_contains "agent desktop: an app opening on the user's desktop is reported" "$out" "opened its window on the user's desktop"
 rm -f "$calls.launched"
+# The agent desktop's own window appearing on the user's while the app
+# starts isn't the app opening there.
+out=$(STUB_LAUNCH_NO_WINDOW=1 call launch_app '{"app": "firefox"}')
+expect_contains "agent desktop: its own window isn't the app's on the user's desktop" "$out" "no window opened on your desktop"
+rm -f "$calls.launched"
 call focus_window '{"id": 1}' >/dev/null
 expect_eq "agent desktop: tools reach its niri" "$STUB_AGENT_SOCKET" "$(cat "$calls.socket")"
 # Its apps' trees are on its own accessibility bus (run/at-spi/bus_N), never the user's.
@@ -1244,12 +1251,12 @@ STUB_NESTED_WINDOW=1 python3 "$mcp" desktop agent >/dev/null
 expect_eq "desktop agent: an open agent desktop is focused" "niri msg action focus-window --id 9" "$(grep focus-window "$calls")"
 expect_eq "desktop agent: focused through the user's niri" /dev/null "$(cat "$calls.socket")"
 rm -f "$calls.launched"
-# One app at a time: the one before closes, the new app's own windows stay.
+# One app shown at a time: the one before stays open in the background.
 reset_calls
 out=$(STUB_AGENT_HAS_WINDOW=1 call launch_app '{"app": "firefox"}')
 expect_contains "agent desktop: launch_app starts the app" "$out" '"started"'
-expect_eq "agent desktop: one app at a time, the one before closed" "niri msg action close-window --id 20" "$(grep close-window "$calls")"
-expect_eq "agent desktop: an app that won't close (save prompt) is reported" 20 "$(jq '.still_open[0].id' <<<"$out")"
+expect_eq "agent desktop: the app before isn't closed" "" "$(grep close-window "$calls" || true)"
+expect_eq "agent desktop: the app before is said to be in the background" 20 "$(jq -n 'input.in_background[0].id' <<<"$out")"
 rm -f "$calls.launched"
 # The user takes over (to log in somewhere): the agent's input waits.
 python3 "$mcp" desktop interact on >/dev/null
