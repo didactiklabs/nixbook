@@ -21,3 +21,8 @@ devenv.local.yaml
 
 # colmena build --keep-result
 .gcroots
+
+# Documentation website (docs/, VitePress)
+docs/node_modules
+docs/.vitepress/cache
+docs/.vitepress/dist

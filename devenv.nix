@@ -14,10 +14,18 @@
     jq
     yq-go
     python3
+    # documentation website (docs/, VitePress)
+    nodejs_24
+    pnpm_10
   ];
 
   treefmt.config.programs.prettier.excludes = [
     "assets/dms/plugins/**/translations.js"
+    # documentation website: dependencies, build output, generated lockfile
+    "docs/node_modules/**"
+    "docs/.vitepress/cache/**"
+    "docs/.vitepress/dist/**"
+    "docs/pnpm-lock.yaml"
   ];
 
   # nixbook-shell/src is a vendored upstream tree (nixbook-shell, merged by
@@ -45,6 +53,15 @@
     run-tests.exec = ''
       "$DEVENV_ROOT/tests/run.sh" "$@"
     '';
+    doc-dev.exec = ''
+      cd "$DEVENV_ROOT/docs" && pnpm install --frozen-lockfile && pnpm run docs:dev "$@"
+    '';
+    doc-build.exec = ''
+      cd "$DEVENV_ROOT/docs" && pnpm install --frozen-lockfile && pnpm run docs:build "$@"
+    '';
+    doc-preview.exec = ''
+      cd "$DEVENV_ROOT/docs" && pnpm run docs:preview "$@"
+    '';
   };
 
   enterShell = ''
@@ -57,6 +74,9 @@
     echo "  test-iso       - Builds and tests the installation ISO in a VM"
     echo "  generate-docs  - Auto-generates module documentation to docs/MODULES.md"
     echo "  run-tests      - Cheap regression checks (tests/run.sh; run-tests for usage)"
+    echo "  doc-dev        - Run the documentation website locally (VitePress, port 5173)"
+    echo "  doc-build      - Build the documentation website (docs/.vitepress/dist)"
+    echo "  doc-preview    - Preview the built documentation website"
   '';
 
   # https://devenv.sh/tests/
