@@ -32,15 +32,25 @@ Scope { // Scope
             else if (key === Qt.Key_P) root.togglePin();
         }
         function onSidebarLeftOpenChanged() {
+            root.enforcePinnedOpen();
             if (Persistent.ready && root.pin) Persistent.states.sidebar.left.open = GlobalStates.sidebarLeftOpen;
         }
     }
 
-    // Pinned survives restarts and reboots (Persistent states.json), and a
-    // sidebar left open pinned opens again.
+    // Pinned and docked, the sidebar reserves its strip (exclusiveZone):
+    // closed, it would leave a blank space. Every close (Escape, toggle/close
+    // IPC, keybinds, links) is refused; unpin first.
+    readonly property bool forcedOpen: root.pin && !root.detach
+    function enforcePinnedOpen() {
+        if (root.forcedOpen && !GlobalStates.sidebarLeftOpen) GlobalStates.sidebarLeftOpen = true;
+    }
+    onForcedOpenChanged: root.enforcePinnedOpen()
+
+    // Pinned survives restarts and reboots (Persistent states.json); a
+    // pinned sidebar is always open.
     function restorePin() {
         root.pin = Persistent.states.sidebar.left.pinned;
-        if (root.pin && Persistent.states.sidebar.left.open) GlobalStates.sidebarLeftOpen = true;
+        root.enforcePinnedOpen();
     }
     Connections {
         target: Persistent
