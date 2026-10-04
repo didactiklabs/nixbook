@@ -120,23 +120,43 @@ Item { // Wrapper
     // Diff by object identity: app results are cached per desktop entry
     // (LauncherSearch.appResultFor), so results that survive a keystroke keep
     // their delegate. `objectProp: "key"` named a property
-    // LauncherSearchResult doesn't have. Only the shown view gets it.
+    // LauncherSearchResult doesn't have.
+    // One model per view, never swapped: only the shown view gets the
+    // results, the hidden one an empty list. Swapping a view's `model`
+    // (null ↔ the shared model) left its recycled delegates (reuseItems)
+    // holding the `modelData` of the rows they last showed: after a few mode
+    // changes, layouts and apps appeared among the themes, or theme rows in
+    // the app grid.
     ScriptModel {
-        id: resultModel
+        id: listModel
     }
+    ScriptModel {
+        id: gridModel
+    }
+    property var shownResults: []
+    function setShownResults(values) {
+        root.shownResults = values;
+        root.applyShownResults();
+    }
+    function applyShownResults() {
+        (root.gridMode ? gridModel : listModel).values = root.shownResults;
+        (root.gridMode ? listModel : gridModel).values = [];
+    }
+    // The mode can change after the results did (both follow the query).
+    onGridModeChanged: root.applyShownResults()
 
     Timer {
         id: debounceTimer
         interval: root.typingDebounceInterval
         onTriggered: {
-            resultModel.values = LauncherSearch.results ?? [];
+            root.setShownResults(LauncherSearch.results ?? []);
         }
     }
 
     Connections {
         target: LauncherSearch
         function onResultsChanged() {
-            resultModel.values = LauncherSearch.results.slice(0, root.typingResultLimit);
+            root.setShownResults(LauncherSearch.results.slice(0, root.typingResultLimit));
             root.focusFirstItem();
             debounceTimer.restart();
         }
@@ -315,7 +335,7 @@ Item { // Wrapper
                         appResults.currentIndex = 1;
                 }
 
-                model: root.gridMode ? null : resultModel
+                model: listModel
 
                 delegate: SearchItem {
                     id: searchItem
@@ -355,7 +375,7 @@ Item { // Wrapper
                 cacheBuffer: cellHeight * 2
                 highlightMoveDuration: 100
                 reuseItems: true
-                model: root.gridMode ? resultModel : null
+                model: gridModel
 
                 SelectOnHover {
                     view: appGrid
