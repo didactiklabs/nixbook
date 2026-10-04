@@ -81,10 +81,12 @@ Singleton {
                     property int tab: 0
                 }
                 // The left sidebar pinned (Ctrl+P), and open while pinned:
-                // it opens pinned again after a restart or reboot.
+                // it opens pinned again after a restart or reboot, on the
+                // monitor it was pinned on (output name, e.g. "eDP-1").
                 property JsonObject left: JsonObject {
                     property bool pinned: false
                     property bool open: false
+                    property string screen: ""
                 }
             }
 

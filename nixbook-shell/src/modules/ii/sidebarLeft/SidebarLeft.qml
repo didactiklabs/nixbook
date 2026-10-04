@@ -47,9 +47,13 @@ Scope { // Scope
     onForcedOpenChanged: root.enforcePinnedOpen()
 
     // Pinned survives restarts and reboots (Persistent states.json); a
-    // pinned sidebar is always open.
+    // pinned sidebar is always open, on the monitor it was pinned on.
+    property bool restoringPin: false
     function restorePin() {
+        root.restoringPin = true; // keep the saved monitor (onPinChanged)
         root.pin = Persistent.states.sidebar.left.pinned;
+        root.restoringPin = false;
+        sidebarLoader.item?.restorePinnedScreen();
         root.enforcePinnedOpen();
     }
     Connections {
@@ -62,6 +66,8 @@ Scope { // Scope
         if (!Persistent.ready) return;
         Persistent.states.sidebar.left.pinned = root.pin;
         Persistent.states.sidebar.left.open = root.pin && GlobalStates.sidebarLeftOpen;
+        if (root.pin && !root.restoringPin)
+            Persistent.states.sidebar.left.screen = sidebarLoader.item?.screen?.name ?? WM.focusedMonitor?.name ?? "";
     }
 
     function toggleDetach() {
@@ -122,15 +128,36 @@ Scope { // Scope
                 const s = Quickshell.screens.find(s => s.name === WM.focusedMonitor?.name);
                 if (s && panelWindow.screen !== s) panelWindow.screen = s;
             }
+            // Pinned: back on the monitor it was pinned on. Not connected (yet:
+            // a dock or external screen can show up after the shell starts),
+            // it waits on the focused one and moves there once it appears.
+            function restorePinnedScreen() {
+                if (!root.pin || root.detach) return;
+                const name = Persistent.states.sidebar.left.screen;
+                const s = Quickshell.screens.find(s => s.name === name);
+                if (s) {
+                    if (panelWindow.screen !== s) panelWindow.screen = s;
+                } else if (!panelWindow.screen) {
+                    panelWindow.followFocusedScreen();
+                }
+            }
+            Connections {
+                target: Quickshell
+                function onScreensChanged() { panelWindow.restorePinnedScreen() }
+            }
 
-            Component.onCompleted: reallyVisible = GlobalStates.sidebarLeftOpen
+            Component.onCompleted: {
+                panelWindow.restorePinnedScreen(); // re-attached (Ctrl+D) while pinned
+                reallyVisible = GlobalStates.sidebarLeftOpen;
+            }
 
             Connections {
                 target: GlobalStates
                 function onSidebarLeftOpenChanged() {
                     if (GlobalStates.sidebarLeftOpen) {
                         closeAnimTimer.stop();
-                        if (!root.pin) panelWindow.followFocusedScreen();
+                        if (root.pin) panelWindow.restorePinnedScreen();
+                        else panelWindow.followFocusedScreen();
                         panelWindow.reallyVisible = true;
                         panelWindow.keepMapped = true;
                         // Focus the current tab (the chat's input): without an
