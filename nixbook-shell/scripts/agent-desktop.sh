@@ -205,6 +205,9 @@ sandbox=(
   --proc /proc
   --tmpfs /tmp
   --unshare-pid --unshare-ipc --unshare-uts --unshare-cgroup-try
+  # The user's own ids inside: pasta's namespace (privateNetwork) maps them
+  # to root, and Chromium-based apps (Electron: Vesktop…) abort as root.
+  --unshare-user --uid "$(id -u)" --gid "$(id -g)"
   --die-with-parent --new-session
 )
 # /run: only what apps need, the system's programs, graphics drivers and
