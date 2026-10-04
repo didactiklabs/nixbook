@@ -12,9 +12,8 @@
 # from the user, so the user can move, resize and close the window but not
 # click or type into the agent's desktop; except while the user takes it over
 # (`desktop interact`, Mod+Ctrl+A: while agent-desktop-input exists). Nothing
-# is on it but the one app the agent works in, fullscreen (its niri keeps it
-# so, whatever the app asks; desktop-mcp closes the previous app when it
-# starts another).
+# is shown on it but the one app the agent works in, fullscreen (its niri
+# keeps it so, whatever the app asks); its other apps stay open behind it.
 #
 # Sandboxed (bubblewrap): its niri and every app on it see none of the
 # user's files. Their home is $XDG_DATA_HOME/nixbook-shell/agent-home (their

@@ -471,14 +471,15 @@ agent's tools then act there: its own pointer,
 keyboard focus, clipboard and windows, so nothing the agent does moves your
 windows, takes your focus or types into what you're typing in.
 
-To you it's one more app window: nothing is on the agent's desktop but the
-one app it works in, fullscreen, and kept so even when the app asks to
+To you it's one more app window: the agent's desktop shows only the one
+app it works in, fullscreen, and kept so even when the app asks to
 leave it (Zen and Firefox restore their window size on start; a browser
 may hide its tabs and address bar then, so the agents are told to use its
 shortcuts): no bar, no focus ring or
-borders, no hot corner, and `launch_app` closes the agent's previous app
-when it starts another (that app's own dialogs stay), so there's never a
-layout inside. The bar widget shows a window icon beside its robot while
+borders, no hot corner, and never a layout inside. The agent's other apps
+stay open in the background, behind it: `launch_app` leaves them open
+(its reply lists them), and `focus_window` brings one back to the front;
+the agents are told the desktop can show only one app at a time. The bar widget shows a window icon beside its robot while
 agents are on their own desktop (red once you've closed it).
 
 The window is a view, not a way in: its niri drops your clicks and keys
