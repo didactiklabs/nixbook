@@ -262,6 +262,31 @@ MouseArea {
                         }
                         spacing: 8
 
+                        // Back to the previous folder (also Alt+Left, the
+                        // mouse's back button).
+                        RippleButton {
+                            visible: root.source === "local"
+                            enabled: Wallpapers.canNavigateBack
+                            opacity: enabled ? 1 : 0.4
+                            implicitWidth: 36
+                            implicitHeight: 36
+                            buttonRadius: height / 2
+                            colBackground: Appearance.colors.colSecondaryContainer
+                            onClicked: {
+                                Wallpapers.navigateBack();
+                                root.forceActiveFocus();
+                            }
+                            contentItem: MaterialSymbol {
+                                anchors.centerIn: parent
+                                text: "arrow_back"
+                                iconSize: Appearance.font.pixelSize.larger
+                                color: Appearance.colors.colOnSecondaryContainer
+                            }
+                            StyledToolTip {
+                                text: Translation.tr("Back (Alt+Left)")
+                            }
+                        }
+
                         MaterialShapeWrappedMaterialSymbol {
                             wrappedShape: MaterialShape.Shape.Gem
                             text: "image"
