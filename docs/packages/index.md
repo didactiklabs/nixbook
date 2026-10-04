@@ -22,6 +22,7 @@
 | [schnelle-umlaute](#schnelle-umlaute) | German umlauts with a hold-letter + Space gesture                               | `fcitx5Config`                 |
 | [actual-budget](#actual-budget)       | Local-first personal finance app (AppImage)                                     | profiles                       |
 | [pear-desktop](#pear-desktop)         | YouTube Music desktop player (AppImage)                                         | profiles                       |
+| [moonfin](#moonfin)                   | Jellyfin & Emby media client (AppImage)                                         | profiles                       |
 
 ## ginx
 
@@ -98,6 +99,10 @@ A k9s-style TUI to create, attach, edit and tear down isolated OpenCode / Claude
 ## pear-desktop
 
 [Pear Desktop](https://github.com/pear-devs/pear-desktop), a YouTube Music desktop player with extensions, packaged from its release AppImage.
+
+## moonfin
+
+[Moonfin](https://github.com/Moonfin-Client/Moonfin-Core), a Jellyfin & Emby media client, packaged from its release AppImage (installed on every profile, kept opaque in niri and sway).
 
 ## Adding a package
 

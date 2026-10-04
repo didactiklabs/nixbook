@@ -294,6 +294,12 @@
       "url": "https://api.github.com/repos/nix-community/lanzaboote/tarball/refs/tags/v1.2.0",
       "hash": "sha256-sr4Kfp6yaXUeyKL6n0Y8/ElcR3momIRC20HFc+LF22s="
     },
+    "moonfin": {
+      "type": "Url",
+      "url": "https://github.com/Moonfin-Client/Moonfin-Core/releases/download/2.6.0/Moonfin_Linux_v2.6.0.AppImage",
+      "unpack": false,
+      "hash": "sha256-bwZfOCFS3Kg5HawcznI4wIpABk82ubA3Y+SbgCrmejI="
+    },
     "niri-flake": {
       "type": "Git",
       "repository": {

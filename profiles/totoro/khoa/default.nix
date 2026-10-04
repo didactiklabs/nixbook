@@ -5,7 +5,7 @@
   ...
 }:
 let
-  inherit (pkgs.customPkgs) actual-budget pear-desktop;
+  inherit (pkgs.customPkgs) actual-budget moonfin pear-desktop;
 in
 {
   imports = [
@@ -20,6 +20,7 @@ in
     pkgs.moonlight-qt
     pkgs.anki
     actual-budget
+    moonfin
     pear-desktop
   ];
   programs = {

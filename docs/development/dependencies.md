@@ -4,14 +4,14 @@ Nixbook uses no flakes: every external input is pinned with [npins](https://gith
 
 ## What is pinned
 
-| Kind              | Pins                                                                                                                                                                                                                     |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Core              | `nixpkgs` (nixos-unstable), `home-manager`, `agenix`, `disko`, `stylix`, `nixvim`, `nixos-hardware`, `flake-compat`                                                                                                      |
-| Boot              | `lanzaboote`, `crane`, `rust-overlay`                                                                                                                                                                                    |
-| Desktop           | `niri-flake`, `quickshell`, `dms`, `dms-plugin-registry`, `dankcalendar`, `zen-browser-flake`                                                                                                                            |
-| Gaming & hardware | `nix-proton-cachyos`, `ds4drv`, `foxblat`                                                                                                                                                                                |
-| Applications      | `globalprotect-openconnect`, `99` (NixVim plugin)                                                                                                                                                                        |
-| Custom packages   | `ginx`, `goji`, `rtk`, `opencode-manager`, `openchoreo`, `crd-wizard`, `kl`, `sofka`, `kratix-cli`, `pvmigrate`, `songbird`, `witr`, `ytui`, `jtui`, `fcitx5-lotus`, `schnelle-umlaute`, `actual-budget`, `pear-desktop` |
+| Kind              | Pins                                                                                                                                                                                                                                |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Core              | `nixpkgs` (nixos-unstable), `home-manager`, `agenix`, `disko`, `stylix`, `nixvim`, `nixos-hardware`, `flake-compat`                                                                                                                 |
+| Boot              | `lanzaboote`, `crane`, `rust-overlay`                                                                                                                                                                                               |
+| Desktop           | `niri-flake`, `quickshell`, `dms`, `dms-plugin-registry`, `dankcalendar`, `zen-browser-flake`                                                                                                                                       |
+| Gaming & hardware | `nix-proton-cachyos`, `ds4drv`, `foxblat`                                                                                                                                                                                           |
+| Applications      | `globalprotect-openconnect`, `99` (NixVim plugin)                                                                                                                                                                                   |
+| Custom packages   | `ginx`, `goji`, `rtk`, `opencode-manager`, `openchoreo`, `crd-wizard`, `kl`, `sofka`, `kratix-cli`, `pvmigrate`, `songbird`, `witr`, `ytui`, `jtui`, `fcitx5-lotus`, `schnelle-umlaute`, `actual-budget`, `pear-desktop`, `moonfin` |
 
 Some pins are **frozen** (`npins freeze`) to stay on a known-good version; the update workflow skips them.
 

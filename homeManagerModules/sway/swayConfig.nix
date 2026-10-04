@@ -187,6 +187,12 @@ in
                 app_id = "thunderbird";
               };
             }
+            {
+              command = "opacity 1.0";
+              criteria = {
+                app_id = "org.moonfin.linux";
+              };
+            }
           ];
 
           fonts = {

@@ -22,6 +22,7 @@ in
     pkgs.kanidm_1_9
     pkgs.oapi-codegen
     pkgs.spotify
+    pkgs.customPkgs.moonfin
   ];
 
   xdg.mimeApps.defaultApplications = {

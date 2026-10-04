@@ -13,7 +13,7 @@
 - **Active Machines:** 5 (totoro, anya, nishinoya, tanjiro, hanamichi)
 - **Home Manager Modules:** 33 (29 standalone files + 4 subdirectories)
 - **NixOS Modules:** 19 files
-- **Custom Packages:** 19
+- **Custom Packages:** 20
 - **CI/CD Workflows:** 4
 - **NixVim Plugins:** 25
 - **VSCode Extensions:** 32
@@ -343,7 +343,7 @@ customPkgs/ → base.nix
 npins/ → dependency sources
 ```
 
-## Custom Packages (19 total)
+## Custom Packages (20 total)
 
 | Package            | Version | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -365,8 +365,9 @@ npins/ → dependency sources
 | `schnelle-umlaute` | main    | German umlauts (ä/ö/ü/ß) via hold-letter+Space gesture for fcitx5                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `actual-budget`    | v26.5.2 | Actual Budget local-first personal finance app (AppImage)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `pear-desktop`     | v3.11.0 | YouTube Music desktop player (AppImage)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `moonfin`          | 2.6.0   | Jellyfin & Emby media client (AppImage)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
-## Dependencies & Pinning (41 total)
+## Dependencies & Pinning (42 total)
 
 **Core Framework:**
 
@@ -392,7 +393,7 @@ npins/ → dependency sources
 - `flake-compat` - Flake compatibility layer
 - `99` - ThePrimeagen's 99 NixVim plugin
 
-**Custom Package Sources:** ginx, goji, ytui, jtui, crd-wizard, pvmigrate (frozen), rtk, songbird, witr, kl (frozen), opencode-manager (v2.5.1), openchoreo (v1.3.0), kratix-cli (v0.19.0), fcitx5-lotus (v3.6.0), schnelle-umlaute, sofka, actual-budget (v26.5.2), pear-desktop (v3.11.0)
+**Custom Package Sources:** ginx, goji, ytui, jtui, crd-wizard, pvmigrate (frozen), rtk, songbird, witr, kl (frozen), opencode-manager (v2.5.1), openchoreo (v1.3.0), kratix-cli (v0.19.0), fcitx5-lotus (v3.6.0), schnelle-umlaute, sofka, actual-budget (v26.5.2), pear-desktop (v3.11.0), moonfin (2.6.0, prebuilt AppImage; release tags have no `v`)
 
 ## Assets (37 files)
 
