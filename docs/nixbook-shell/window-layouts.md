@@ -15,7 +15,7 @@ A **window layout** remembers where every window is — monitor, workspace, colu
 
 - **Close the other windows when restoring** (`windowLayouts.closeOthers`, off by default) also closes windows the layout doesn't have, as their close button would.
 - Apps whose first window is a splash screen (e.g. Vesktop's "Loading") are placed once their real window replaces it.
-- A layout works with any monitors: restored with a monitor unplugged, each of its workspaces goes on a new workspace of the focused monitor, with its columns, widths and floating windows. The layout can't be overwritten until the monitor is back (save under another name).
+- A layout works with any monitors: it keeps one arrangement per set of monitors it was saved with (saving off the dock replaces the laptop's and keeps the docked one), and restoring uses the one for the monitors connected. Without one, the largest is restored, each workspace of an unplugged monitor on a new workspace of the focused monitor, with its columns, widths and floating windows.
 
 ## From key bindings and scripts
 

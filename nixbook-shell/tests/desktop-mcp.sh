@@ -726,8 +726,9 @@ expect_contains "save_layout" "$out" "saved layout 'work': 5 windows on eDP-1"
 layout="$XDG_STATE_HOME/nixbook-shell/layouts/work.json"
 expect_eq "save_layout: private file" 600 "$(stat -c %a "$layout")"
 expect_eq "save_layout: a floating window's place" '{"monitor":"eDP-1","workspace":{"index":1,"name":null},"position":[10,20],"size":[400,300],"desktop":"org.gnome.Calculator"}' \
-  "$(jq -c '.windows[] | select(.app_id=="org.gnome.Calculator") | {monitor, workspace, position, size, desktop}' "$layout")"
-expect_eq "save_layout: a tiled window's column (no app to reopen it)" '2 1 null' "$(jq -r '.windows[] | select(.app_id=="org.gnome.TextEditor") | "\(.column) \(.tile) \(.desktop)"' "$layout")"
+  "$(jq -c '.setups[0].windows[] | select(.app_id=="org.gnome.Calculator") | {monitor, workspace, position, size, desktop}' "$layout")"
+expect_eq "save_layout: a tiled window's column (no app to reopen it)" '2 1 null' "$(jq -r '.setups[0].windows[] | select(.app_id=="org.gnome.TextEditor") | "\(.column) \(.tile) \(.desktop)"' "$layout")"
+expect_eq "save_layout: for the monitors connected" '["HDMI-A-1","eDP-1"]' "$(jq -c '[.setups[].monitors] | .[0]' "$layout")"
 expect_contains "save_layout: says what can't be reopened" "$out" "no .desktop entry found): kitty, org.gnome.Nautilus, org.gnome.TextEditor"
 out=$(call save_layout '{"name":"../etc"}')
 expect_contains "save_layout: names can't escape the directory" "$out" "invalid value"
@@ -782,7 +783,7 @@ expect_contains "layout rename: no overwrite" "$(layout_cmd rename games work)" 
 # Saved with DP-2 (disconnected now) and a monitor gone from the list: each
 # of their workspaces goes on a new workspace of the focused monitor, named
 # while arranging; the layout isn't overwritten.
-jq -c '.name = "docked" | .windows |= map(if .app_id == "org.gnome.TextEditor" then .monitor = "DP-2"
+jq -c '{name: "docked", saved, windows: .setups[0].windows} | .windows |= map(if .app_id == "org.gnome.TextEditor" then .monitor = "DP-2"
   elif .app_id == "kitty" then .monitor = "DP-3" | .workspace = {index: 1, name: null}
   elif .app_id == "org.gnome.Nautilus" then .monitor = "DP-3" else . end)' \
   "$layout" >"$XDG_STATE_HOME/nixbook-shell/layouts/docked.json"
@@ -802,10 +803,24 @@ expect_not_contains "layout restore, monitors unplugged: not to the gone monitor
 expect_contains "layout restore, monitors unplugged: names unset after" "$(cat "$calls")" "niri msg action unset-workspace-name DP-3-1
 niri msg action unset-workspace-name DP-2-1"
 expect_contains "layout restore, monitors unplugged: the others placed" "$(cat "$calls")" "move-window-to-monitor --id 1 eDP-1"
-expect_contains "layout save, monitors unplugged: not overwritten" "$(layout_cmd save docked)" "has windows on DP-2, DP-3, not connected now"
-expect_eq "layout save, monitors unplugged: file kept" DP-2 "$(jq -r '.windows[] | select(.app_id=="org.gnome.TextEditor") | .monitor' "$XDG_STATE_HOME/nixbook-shell/layouts/docked.json")"
+# Saved again off the dock: the docked arrangement is kept beside it, and
+# restoring picks the one for the monitors connected.
+out=$(layout_cmd save docked)
+expect_contains "layout save, monitors unplugged: saved" "$out" "saved layout 'docked': 5 windows on eDP-1. Kept for other monitors: DP-2, DP-3, eDP-1"
+docked="$XDG_STATE_HOME/nixbook-shell/layouts/docked.json"
+expect_eq "layout save, monitors unplugged: docked one kept" DP-2 "$(jq -r '.setups[] | select(.monitors == ["DP-2","DP-3","eDP-1"]) | .windows[] | select(.app_id=="org.gnome.TextEditor") | .monitor' "$docked")"
+expect_eq "layout save, monitors unplugged: one per monitor set" '[["DP-2","DP-3","eDP-1"],["HDMI-A-1","eDP-1"]]' "$(jq -c '[.setups[].monitors]' "$docked")"
+expect_eq "layout save again: replaces its own" 2 "$(
+  layout_cmd save docked >/dev/null
+  jq '.setups | length' "$docked"
+)"
+reset_calls
+out=$(layout_cmd restore docked)
+expect_contains "layout restore: the arrangement for these monitors" "$out" "the arrangement saved with HDMI-A-1, eDP-1"
+expect_not_contains "layout restore: nothing folded" "$(cat "$calls")" "set-workspace-name"
+expect_contains "layout list: windows of that arrangement" "$(layout_cmd list | jq -c '.layouts[] | select(.name == "docked") | .windows')" "5"
 # The setting (--close-others): the windows the layout doesn't have close.
-jq -c '.name = "browsing" | .windows |= map(select(.app_id == "firefox" or .app_id == "kitty"))' \
+jq -c '{name: "browsing", saved, windows: .setups[0].windows} | .windows |= map(select(.app_id == "firefox" or .app_id == "kitty"))' \
   "$layout" >"$XDG_STATE_HOME/nixbook-shell/layouts/browsing.json"
 reset_calls
 out=$(layout_cmd restore browsing)
