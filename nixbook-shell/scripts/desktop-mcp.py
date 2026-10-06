@@ -1551,29 +1551,27 @@ def layout_entry(w, ws, apps):
     "observe",
     "Remember the window layout under a name: every window's monitor, "
     "workspace, column (or floating position) and size, and the app that "
-    "opens it. restore_layout puts it back.",
+    "opens it, for the monitors connected now (the layout keeps the one "
+    "saved with other monitors). restore_layout puts it back.",
     obj({"name": {"type": "string", "description": "e.g. work, gaming, default"}}, ["name"]),
 )
 def t_save_layout(ctx, args):
     name = as_str(args, "name", max_len=64, pattern=LAYOUT_NAME)
     path = os.path.join(layouts_dir(), f"{name}.json")
-    # A layout made with more monitors than are connected now (a laptop off
-    # its dock) isn't overwritten with the windows squeezed onto the rest.
-    try:
-        with open(path, encoding="utf-8") as f:
-            saved_on = {e.get("monitor") for e in json.load(f).get("windows", [])}
-    except (OSError, ValueError, AttributeError):
-        saved_on = set()
-    gone = sorted(m for m in saved_on - connected_monitors() if m)
-    if gone:
-        raise ToolError(
-            f"layout {name!r} has windows on {', '.join(gone)}, not connected now: "
-            f"save under another name, or reconnect {'it' if len(gone) == 1 else 'them'} first"
-        )
     wss = {w["id"]: w for w in niri_json("workspaces")}
     apps = applications()
     entries = [layout_entry(w, wss[w["workspace_id"]], apps) for w in windows() if w.get("workspace_id") in wss]
-    doc = {"name": name, "saved": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "windows": entries}
+    # One arrangement per set of monitors: saving off the dock replaces the
+    # laptop's and keeps the docked one, for when the dock is back.
+    connected = sorted(connected_monitors())
+    saved = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+    try:
+        with open(path, encoding="utf-8") as f:
+            kept = [x for x in layout_setups(json.load(f)) if x["monitors"] != connected]
+    except (OSError, ValueError, AttributeError):
+        kept = []
+    kept = sorted(kept, key=lambda x: x.get("saved") or "")[-(MAX_SETUPS - 1):]
+    doc = {"name": name, "saved": saved, "setups": [*kept, {"monitors": connected, "saved": saved, "windows": entries}]}
     fd = os.open(path + ".tmp", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         json.dump(doc, f, indent=1, ensure_ascii=False)
@@ -1582,9 +1580,35 @@ def t_save_layout(ctx, args):
     monitors = sorted({e["monitor"] for e in entries})
     no_launcher = sorted({e["app_id"] or "?" for e in entries if not e["desktop"]})
     summary = f"saved layout {name!r}: {len(entries)} windows on {', '.join(monitors) or 'no monitor'}"
+    if kept:
+        summary += ". Kept for other monitors: " + "; ".join(", ".join(x["monitors"]) or "none" for x in kept)
     if no_launcher:
         summary += f". Can't be reopened if closed (no .desktop entry found): {', '.join(no_launcher)}"
     return [text(summary)]
+
+
+MAX_SETUPS = 8
+
+
+def layout_setups(doc):
+    """A layout's arrangements, one per set of monitors it was saved with:
+    [{monitors, saved, windows}]. A layout saved before there were several
+    has its windows' monitors."""
+    if isinstance(doc.get("setups"), list):
+        return [x for x in doc["setups"] if isinstance(x, dict) and isinstance(x.get("windows"), list)]
+    entries = doc.get("windows")
+    if not isinstance(entries, list):
+        return []
+    return [{"monitors": sorted({e.get("monitor") for e in entries if e.get("monitor")}),
+             "saved": doc.get("saved"), "windows": entries}]
+
+
+def pick_setup(setups, connected):
+    """The arrangement for these monitors: the largest one they all are in
+    (exactly the monitors connected, a dock's), else the largest one, its
+    unplugged monitors folded onto the connected ones."""
+    fits = [x for x in setups if set(x["monitors"]) <= connected]
+    return max(fits or setups, key=lambda x: (len(x["monitors"]), x.get("saved") or ""), default=None)
 
 
 @tool(
@@ -1599,15 +1623,17 @@ def t_list_layouts(ctx, args):
 
 def layouts_index():
     out = []
+    connected = connected_monitors()
     for fn in sorted(os.listdir(layouts_dir())):
         if not fn.endswith(".json"):
             continue
         try:
             with open(os.path.join(layouts_dir(), fn), encoding="utf-8") as f:
                 doc = json.load(f)
-            apps = sorted({w.get("app_id") or "?" for w in doc.get("windows", [])})
-            out.append({"name": fn[:-5], "saved": doc.get("saved"), "windows": len(doc.get("windows", [])), "apps": apps})
-        except (OSError, ValueError):
+            setup = pick_setup(layout_setups(doc), connected) or {"windows": []}
+            apps = sorted({w.get("app_id") or "?" for w in setup["windows"]})
+            out.append({"name": fn[:-5], "saved": doc.get("saved"), "windows": len(setup["windows"]), "apps": apps})
+        except (OSError, ValueError, AttributeError):
             continue
     return out
 
@@ -1711,8 +1737,10 @@ def fold_unplugged(pairs, outputs):
     "Put the windows back as a saved layout had them (see list_layouts): "
     "monitors, workspaces, column order and widths, floating positions and "
     "sizes; apps that aren't open are started first (launch_missing, default "
-    "true). Each workspace of a monitor that isn't connected goes on a new "
-    "workspace of the focused monitor. One call does it all.",
+    "true). A layout saved with several monitor setups uses the one for the "
+    "monitors connected now; each workspace of a monitor that isn't "
+    "connected goes on a new workspace of the focused monitor. One call "
+    "does it all.",
     obj(
         {
             "name": {"type": "string"},
@@ -1728,14 +1756,20 @@ def t_restore_layout(ctx, args, close_others=False):
     path = os.path.join(layouts_dir(), f"{name}.json")
     try:
         with open(path, encoding="utf-8") as f:
-            entries = json.load(f)["windows"]
-    except (OSError, ValueError, KeyError, TypeError):
+            setups = layout_setups(json.load(f))
+    except (OSError, ValueError, AttributeError):
+        setups = []
+    setup = pick_setup(setups, connected_monitors())
+    if setup is None:
         raise ToolError(f"no saved layout {name!r} (see list_layouts)")
+    entries = setup["windows"]
     ctx.guard.check_rate()
     current = windows()
     focused_before = next((w["id"] for w in current if w.get("is_focused")), None)
     pairs, missing, others = match_windows(entries, current)
     report = []
+    if len(setups) > 1:
+        report.append(f"the arrangement saved with {', '.join(setup['monitors']) or 'no monitor'}")
     started = []  # [entry, window, when it appeared] of the apps started here
 
     # Start what isn't open, all at once, then wait for their windows.

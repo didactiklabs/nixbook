@@ -336,11 +336,12 @@ update, rename or delete. Key bindings can also call the `layouts` IPC target
 (`cycle`, `saveCurrent`, `restoreNumber N`, `restore NAME`, `save NAME`;
 agents can't call it), and scripts `nixbook-desktop-mcp layout …`.
 They live in `~/.local/state/nixbook-shell/layouts/`. A layout works with
-any monitors: restored with a monitor unplugged, each of its workspaces goes
-on a new workspace of the focused monitor, columns, widths and floating
-windows as saved (a named workspace, which niri keeps, is used as it is), and
-the layout can't be overwritten until the monitor is back: save under another
-name. Settings → Window layouts → _Close the other windows when restoring_
+any monitors: it keeps one arrangement per set of monitors it was saved with
+(saving off the dock replaces the laptop's and keeps the docked one), and
+restoring uses the one for the monitors connected. Without one, the largest
+is restored, each workspace of an unplugged monitor on a new workspace of the
+focused monitor, columns, widths and floating windows as saved (a named
+workspace, which niri keeps, is used as it is). Settings → Window layouts → _Close the other windows when restoring_
 (`windowLayouts.closeOthers`, off by default; `layout restore|cycle
 --close-others`) makes your restores also close the windows the layout
 doesn't have, as their close button would. Never the agents' `restore_layout`.
