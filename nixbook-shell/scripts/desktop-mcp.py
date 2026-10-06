@@ -1658,14 +1658,61 @@ def match_windows(entries, current):
     return pairs, missing, free
 
 
+def fold_unplugged(pairs, outputs):
+    """Moves the entries saved on monitors not connected now onto the focused
+    one. A named workspace niri still has (it parks an unplugged monitor's
+    workspaces on another) is used as it is; each other saved (monitor,
+    workspace) gets the empty last workspace of the focused monitor, named
+    for the restore. Returns (pairs, the names to unset, that monitor)."""
+    target = (niri_json("focused-output") or {}).get("name")
+    if target not in outputs:
+        target = min(outputs, default=None)
+    taken = {ws.get("name") for ws in niri_json("workspaces") if ws.get("name")}
+    existing = set(taken)
+    named, out = {}, []
+    for e, w in pairs:
+        monitor = e.get("monitor")
+        ws = e.get("workspace") or {}
+        if not monitor or monitor in outputs:
+            out.append((e, w))
+            continue
+        if ws.get("name") in existing:
+            out.append(({**e, "monitor": None}, w))
+            continue
+        key = (monitor, ws.get("name") or ws.get("index"))
+        if key not in named and target:
+            # niri keeps an empty workspace last on each monitor, and adds
+            # another when that one gets a name.
+            last = max(
+                (x["idx"] for x in niri_json("workspaces")
+                 if x.get("output") == target and x.get("active_window_id") is None),
+                default=None,
+            )
+            if last is not None:
+                ref = base = f"{monitor}-{ws.get('name') or ws.get('index') or 1}"
+                n = 1
+                while ref in taken:
+                    n += 1
+                    ref = f"{base}-{n}"
+                taken.add(ref)
+                # An index is on the focused monitor: the target.
+                niri_action("set-workspace-name", "--workspace", str(last), ref)
+                named[key] = ref
+        if key in named:
+            out.append(({**e, "monitor": target, "workspace": {"index": None, "name": named[key]}}, w))
+        else:
+            out.append(({**e, "monitor": None}, w))
+    return out, list(named.values()), target
+
+
 @tool(
     "restore_layout",
     "windows",
     "Put the windows back as a saved layout had them (see list_layouts): "
     "monitors, workspaces, column order and widths, floating positions and "
     "sizes; apps that aren't open are started first (launch_missing, default "
-    "true). Windows saved on a monitor that isn't connected are left where "
-    "they are. One call does it all.",
+    "true). Each workspace of a monitor that isn't connected goes on a new "
+    "workspace of the focused monitor. One call does it all.",
     obj(
         {
             "name": {"type": "string"},
@@ -1722,20 +1769,21 @@ def t_restore_layout(ctx, args, close_others=False):
     else:
         report += [f"not open: {e.get('app_id')} {e.get('title')!r}" for e in missing]
 
-    # Windows saved on a monitor that isn't connected now stay where they
-    # are: niri has moved that monitor's workspaces, windows and columns
-    # intact, to another one and moves them back when it's plugged in again.
-    # Put on the saved workspace index instead, they would pile up on this
-    # monitor's workspace 1, 2… with its own windows.
+    # Windows saved on a monitor that isn't connected now (a laptop off its
+    # dock): each of its workspaces goes on a new workspace of the focused
+    # monitor, with its columns, widths and floating windows, so a layout
+    # works with any monitors. Put on the saved workspace index instead, they
+    # would pile up on this monitor's workspace 1, 2… with its own windows.
     outputs = connected_monitors()
     gone = sorted({e["monitor"] for e, w in pairs if e.get("monitor") and e["monitor"] not in outputs})
-    left = [(e, w) for e, w in pairs if e.get("monitor") in gone]
-    pairs = [(e, w) for e, w in pairs if e.get("monitor") not in gone]
-    if left:
+    temp_names, target = [], None
+    if gone:
+        pairs, temp_names, target = fold_unplugged(pairs, outputs)
         report.append(
-            f"{len(left)} window(s) of {', '.join(gone)} (not connected) left where they are: "
-            + ", ".join(sorted({e.get("app_id") or "?" for e, w in left}))
+            f"windows of {', '.join(gone)} (not connected) on "
+            + (f"{len(temp_names)} new workspace(s) of {target}" if temp_names else "their named workspaces")
         )
+
     def arrange(pairs):
         # 1. Monitor, workspace, floating or tiled.
         now = {w["id"]: w for w in windows()}
@@ -1824,18 +1872,18 @@ def t_restore_layout(ctx, args, close_others=False):
             pairs = [(e, swapped.get(w["id"], w)) for e, w in pairs]
             arrange(pairs)
 
-    # 4. Close the windows the layout doesn't have. Not with a monitor of the
-    # layout unplugged: its windows are on the connected ones now, and which
-    # are which can't be told.
+    # The new workspaces were named only to be found while arranging (an
+    # index shifts as windows leave others).
+    for ref in temp_names:
+        niri_action("unset-workspace-name", ref)
+
+    # 4. Close the windows the layout doesn't have.
     closed = []
     if close_others and others:
-        if gone:
-            report.append(f"other windows not closed: {', '.join(gone)} not connected")
-        else:
-            for w in others:
-                niri_action("close-window", "--id", str(w["id"]))
-                closed.append(w)
-            report.append("closed: " + ", ".join(sorted({w.get("app_id") or "?" for w in closed})))
+        for w in others:
+            niri_action("close-window", "--id", str(w["id"]))
+            closed.append(w)
+        report.append("closed: " + ", ".join(sorted({w.get("app_id") or "?" for w in closed})))
 
     if focused_before is not None and not any(w["id"] == focused_before for w in closed) \
             and any(w["id"] == focused_before for w in windows()):
@@ -1844,7 +1892,7 @@ def t_restore_layout(ctx, args, close_others=False):
     count_use("layouts", name)
     summary = f"restored layout {name!r}: {len(pairs)} of {len(entries)} windows placed"
     if gone:
-        summary += f" ({', '.join(gone)} not connected: {len(left)} left where they are)"
+        summary += f" ({', '.join(gone)} not connected: on workspaces of {target or 'the others'})"
     if closed:
         summary += f", {len(closed)} other{'s' if len(closed) > 1 else ''} closed"
     report.insert(0, summary)
