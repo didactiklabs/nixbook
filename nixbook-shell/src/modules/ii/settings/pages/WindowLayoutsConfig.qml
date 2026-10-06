@@ -79,7 +79,7 @@ ContentPage {
                     Config.options.windowLayouts.closeOthers = checked;
                 }
                 StyledToolTip {
-                    text: Translation.tr("Windows the layout doesn't have are closed as their close button would (apps may ask to save). Not while a monitor of the layout is unplugged. Only your restores: agents' never close windows.")
+                    text: Translation.tr("Windows the layout doesn't have are closed as their close button would (apps may ask to save). Only your restores: agents' never close windows.")
                 }
             }
 

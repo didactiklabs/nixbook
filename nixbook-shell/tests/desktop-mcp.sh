@@ -116,7 +116,8 @@ if [ "$1 $2" = "msg --json" ]; then
       | map(select(.id as $i | $hidden | index($i) | not))' ;;
     workspaces)
       echo '[{"id":10,"idx":1,"name":null,"output":"eDP-1","is_active":true,"is_focused":true,"active_window_id":1},
-             {"id":11,"idx":2,"name":"chat","output":"eDP-1","is_active":false,"is_focused":false,"active_window_id":3}]' ;;
+             {"id":11,"idx":2,"name":"chat","output":"eDP-1","is_active":false,"is_focused":false,"active_window_id":3},
+             {"id":12,"idx":3,"name":null,"output":"eDP-1","is_active":false,"is_focused":false,"active_window_id":null}]' ;;
     outputs)
       echo '{"eDP-1":{"name":"eDP-1","logical":{"x":0,"y":0,"width":3136,"height":1960,"scale":1.0}},
              "HDMI-A-1":{"name":"HDMI-A-1","logical":{"x":3136,"y":200,"width":1920,"height":1080,"scale":2.0}},
@@ -778,17 +779,28 @@ expect_contains "layout cycle: wraps around" "$out" "restored layout 'gaming'"
 layout_cmd rename gaming games >/dev/null
 expect_eq "layout rename: current follows" "games|games work" "$(layout_cmd list | jq -r '"\(.current)|\([.layouts[].name] | join(" "))"')"
 expect_contains "layout rename: no overwrite" "$(layout_cmd rename games work)" "exists already"
-# Saved with DP-2 (disconnected now) and a monitor gone from the list: those
-# windows stay where niri parked them; the layout isn't overwritten.
+# Saved with DP-2 (disconnected now) and a monitor gone from the list: each
+# of their workspaces goes on a new workspace of the focused monitor, named
+# while arranging; the layout isn't overwritten.
 jq -c '.name = "docked" | .windows |= map(if .app_id == "org.gnome.TextEditor" then .monitor = "DP-2"
-  elif .app_id == "kitty" then .monitor = "DP-3" | .workspace = {index: 1, name: null} else . end)' \
+  elif .app_id == "kitty" then .monitor = "DP-3" | .workspace = {index: 1, name: null}
+  elif .app_id == "org.gnome.Nautilus" then .monitor = "DP-3" else . end)' \
   "$layout" >"$XDG_STATE_HOME/nixbook-shell/layouts/docked.json"
 reset_calls
 out=$(layout_cmd restore docked)
-expect_contains "layout restore, monitors unplugged: says so" "$out" "restored layout 'docked': 3 of 5 windows placed (DP-2, DP-3 not connected: 2 left where they are)"
-expect_contains "layout restore, monitors unplugged: which windows" "$out" "left where they are: kitty, org.gnome.TextEditor"
-expect_not_contains "layout restore, monitors unplugged: their windows not moved" "$(cat "$calls")" "--id 4"
-expect_not_contains "layout restore, monitors unplugged: nor piled onto a workspace" "$(cat "$calls")" "--window-id 2"
+expect_contains "layout restore, monitors unplugged: says so" "$out" "restored layout 'docked': 5 of 5 windows placed (DP-2, DP-3 not connected: on workspaces of eDP-1)"
+expect_contains "layout restore, monitors unplugged: where" "$out" "windows of DP-2, DP-3 (not connected) on 2 new workspace(s) of eDP-1"
+expect_contains "layout restore, monitors unplugged: a new workspace each" "$(cat "$calls")" "niri msg action set-workspace-name --workspace 3 DP-3-1"
+expect_contains "layout restore, monitors unplugged: per monitor" "$(cat "$calls")" "niri msg action set-workspace-name --workspace 3 DP-2-1"
+expect_contains "layout restore, monitors unplugged: their windows on it" "$(cat "$calls")" "niri msg action move-window-to-monitor --id 4 eDP-1
+niri msg action move-window-to-workspace --window-id 4 --focus false DP-2-1"
+expect_contains "layout restore, monitors unplugged: columns kept" "$(cat "$calls")" "niri msg action focus-window --id 4
+niri msg action move-column-to-index 1
+niri msg action set-window-width --id 4 1000"
+expect_contains "layout restore, monitors unplugged: a named workspace niri kept" "$(cat "$calls")" "niri msg action move-window-to-workspace --window-id 3 --focus false chat"
+expect_not_contains "layout restore, monitors unplugged: not to the gone monitor" "$(cat "$calls")" "move-window-to-monitor --id 3"
+expect_contains "layout restore, monitors unplugged: names unset after" "$(cat "$calls")" "niri msg action unset-workspace-name DP-3-1
+niri msg action unset-workspace-name DP-2-1"
 expect_contains "layout restore, monitors unplugged: the others placed" "$(cat "$calls")" "move-window-to-monitor --id 1 eDP-1"
 expect_contains "layout save, monitors unplugged: not overwritten" "$(layout_cmd save docked)" "has windows on DP-2, DP-3, not connected now"
 expect_eq "layout save, monitors unplugged: file kept" DP-2 "$(jq -r '.windows[] | select(.app_id=="org.gnome.TextEditor") | .monitor' "$XDG_STATE_HOME/nixbook-shell/layouts/docked.json")"
@@ -814,8 +826,7 @@ jq -c '.name = "browsing-docked" | .windows |= map(if .app_id == "kitty" then .m
   "$XDG_STATE_HOME/nixbook-shell/layouts/browsing.json" >"$XDG_STATE_HOME/nixbook-shell/layouts/browsing-docked.json"
 reset_calls
 out=$(layout_cmd restore browsing-docked --close-others)
-expect_contains "layout restore --close-others, monitor unplugged: says so" "$out" "other windows not closed: DP-3 not connected"
-expect_not_contains "layout restore --close-others, monitor unplugged: nothing closed" "$(cat "$calls")" "close-window"
+expect_contains "layout restore --close-others, monitor unplugged: still closes the others" "$out" "2 of 2 windows placed (DP-3 not connected: on workspaces of eDP-1), 3 others closed"
 # Not for agents: their restore_layout never closes windows.
 reset_calls
 out=$(call restore_layout '{"name":"browsing","close_others":true}')
