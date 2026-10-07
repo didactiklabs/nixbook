@@ -54,7 +54,7 @@ rec {
     echo "Starting VM with ISO in UEFI mode..."
     ${pkgs.qemu}/bin/qemu-system-x86_64 \
       -enable-kvm \
-      -m 4096 \
+      -m 8192 \
       -smp 4 \
       -drive if=pflash,format=raw,readonly=on,file=${pkgs.OVMF.fd}/FV/OVMF_CODE.fd \
       -drive if=pflash,format=raw,file=.tmp/OVMF_VARS.fd \
