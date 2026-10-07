@@ -60,7 +60,7 @@ hive.nix                          Colmena deployment config
 
 ### Installation & Deployment
 
-- `installer/` - Interactive NixOS installer with LUKS encryption, LVM, and Disko support
+- `installer/` - Interactive NixOS installer ISO with LUKS encryption, LVM, and Disko support. One shot: it clones the repo, lets you pick a `hive.nix` machine, partitions, then builds that node with colmena's own evaluator (`installer/eval-host.nix`) straight into `/mnt`'s store and runs `nixos-install --system` (no first-boot bootstrap). `base.nix` reads the hardware configuration from `$NIXBOOK_HARDWARE_CONFIG` when set (the installer points it at `/mnt/etc/nixos/hardware-configuration.nix`), else `/etc/nixos/hardware-configuration.nix`
 - `.github/workflows/` - GitHub Actions CI/CD for all 5 machines
 - `devenv.nix/.envrc` - Development environment with direnv integration
 - `devenvModules/` - Shared devenv config module imported by nixbook, hephaestus, and aletheia via npins

@@ -103,27 +103,23 @@ You can test the ISO in a QEMU virtual machine with UEFI support:
 nix-build default.nix -A testVm && ./result/bin/test-iso-vm
 ```
 
-This launches a VM with KVM acceleration, 4 GB RAM, 4 CPUs, and a 64 GB virtual disk.
+This launches a VM with KVM acceleration, 8 GB RAM, 4 CPUs, and a 64 GB virtual disk.
 
 ### Installation Process
 
-Boot from the ISO on the target machine. The installer starts automatically and guides you through the following steps:
+Boot from the ISO on the target machine. The installer starts automatically, downloads the nixbook configuration from GitHub (`main`) and asks everything up front:
 
-1. **Disk selection** -- choose the target disk from the list of available block devices.
-2. **Hostname** -- enter the machine hostname (must match a profile: `totoro`, `anya`, or `nishinoya`).
-3. **Disk encryption** -- optionally enable LUKS full-disk encryption and set a passphrase.
-4. **User account** -- set a username and password.
-5. **Partition layout** -- define LVM logical volumes one by one (name, size, filesystem type, mountpoint). A root partition (`/`) is mandatory.
-6. **Formatting and installation** -- the installer wipes the disk, partitions it using Disko, and runs `nixos-install`.
+1. **Network** -- if there is no connection, connect to Wi-Fi from the installer (`nmtui`) or plug in Ethernet.
+2. **Machine** -- pick one of the machines defined in `hive.nix`. The keyboard switches to that machine's layout, so passphrases are typed the way they will be at boot.
+3. **Disk** -- the target disk (the installer's own USB drive is not listed).
+4. **Disk encryption** -- optionally LUKS, with its passphrase.
+5. **Partition layout** -- the recommended layout (swap the size of the RAM, at most a quarter of the disk, and ext4 `/` on the rest) or custom LVM volumes.
+6. **Passwords** -- one for each account the machine's profile defines.
+7. **Confirmation** -- a summary, then the disk is erased.
 
-After installation, the system reboots. On first boot, the bootstrap environment automatically:
+Then, without further questions, it partitions the disk with Disko, generates the hardware configuration, builds the machine's full configuration (exactly what `colmena build` builds) and installs it with `nixos-install`. One reboot later the machine is fully configured. The log is kept in `/var/log/nixbook-install.log`.
 
-1. Regenerates the hardware configuration.
-2. Injects LUKS device references if encryption was enabled.
-3. Clones the nixbook repository from GitHub and runs `colmena apply-local --sudo` to apply the full profile configuration. **This step requires internet access.**
-4. Cleans up bootstrap files and reboots into the final system.
-
-After this second reboot, the machine is fully configured.
+`NIXBOOK_BRANCH` and `NIXBOOK_REPO` install from another branch or repository: `sudo NIXBOOK_BRANCH=my-branch installer`.
 
 ### Secure Boot (Lanzaboote)
 
@@ -139,7 +135,7 @@ customNixOSModules.lanzaboote.enable = true;
 
 #### What happens automatically
 
-When lanzaboote is enabled, the following occurs over the first few boots after `colmena apply-local --sudo` (or after the installer's bootstrap applies your profile):
+When lanzaboote is enabled, the following occurs over the first few boots after `colmena apply-local --sudo` (or after installing with the installer):
 
 1. **First boot under lanzaboote** -- a systemd service generates Secure Boot signing keys (PK, KEK, db) in `/var/lib/sbctl`.
 2. **Same boot** -- another service prepares EFI Authenticated Variables on the ESP, re-signs all boot artifacts, and triggers an automatic reboot.

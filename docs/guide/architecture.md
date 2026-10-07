@@ -18,7 +18,7 @@ nixbook/
 ├── nixbook-shell/           Standalone Quickshell desktop shell (package + modules)
 ├── customPkgs/              Packages not in nixpkgs (pkgs.customPkgs.<name>)
 ├── lib/                     pkgs.nix, overlays.nix, userConfig.nix (mkUser)
-├── installer/               Interactive installer ISO and first-boot bootstrap
+├── installer/               Interactive installer ISO (installs a machine's full configuration)
 ├── assets/                  Certificates, kubeconfigs, wallpapers, DMS plugins…
 ├── npins/                   Pinned sources (sources.json)
 ├── tests/                   Cheap regression checks (tests/run.sh)

@@ -16,6 +16,13 @@ let
       pkgs
       ;
   };
+  # The installer evaluates the target system from the live ISO, before
+  # /etc/nixos exists: it points this at /mnt/etc/nixos/hardware-configuration.nix.
+  hardwareConfig =
+    let
+      override = builtins.getEnv "NIXBOOK_HARDWARE_CONFIG";
+    in
+    if override != "" then /. + override else /etc/nixos/hardware-configuration.nix;
   extraConfig =
     if builtins.pathExists /etc/nixos/extraConfiguration.nix then
       [ /etc/nixos/extraConfiguration.nix ]
@@ -41,7 +48,7 @@ in
   };
 
   imports = [
-    /etc/nixos/hardware-configuration.nix
+    hardwareConfig
     ./nixosModules
     (import "${sources.home-manager}/nixos")
     (import "${sources.agenix}/modules/age.nix")

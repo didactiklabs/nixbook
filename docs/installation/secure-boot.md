@@ -14,7 +14,7 @@ Lanzaboote replaces systemd-boot and signs the kernel and initrd with a machine-
 
 ## What happens automatically
 
-Over the first boots after `colmena apply-local --sudo` (or after the installer's bootstrap applied the profile):
+Over the first boots after `colmena apply-local --sudo` (or after installing with the installer):
 
 1. **First boot under Lanzaboote** — a systemd service generates the Secure Boot signing keys (PK, KEK, db) in `/var/lib/sbctl`.
 2. **Same boot** — another service prepares EFI Authenticated Variables on the ESP, re-signs every boot artifact and triggers an automatic reboot.

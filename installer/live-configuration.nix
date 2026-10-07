@@ -21,13 +21,18 @@
     "sd_mod"
     "thunderbolt"
   ];
+  # enableAllFirmware includes unfree firmware (Broadcom, ...).
+  nixpkgs.config.allowUnfree = true;
   hardware.enableAllFirmware = true;
 
   services.getty.autologinUser = "nixos";
   console.keyMap = "fr";
   networking = {
     hostName = "";
-    useDHCP = lib.mkForce true; # Ensures this value takes precedence
+    # Wired connections come up by themselves; the installer offers nmtui for
+    # Wi-Fi.
+    networkmanager.enable = true;
+    wireless.enable = lib.mkForce false;
   };
   environment.systemPackages = [
     pkgs.hwinfo

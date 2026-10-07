@@ -20,7 +20,7 @@ See the dedicated page: [Secure Boot](/installation/secure-boot).
 
 ## Disk encryption
 
-The installer optionally sets up **LUKS** under LVM. The first-boot bootstrap injects the LUKS device into the generated hardware configuration, since `nixos-generate-config` cannot see a LUKS container below LVM. LUKS is strongly recommended together with Secure Boot, whose signing keys are stored on disk.
+The installer optionally sets up **LUKS** under LVM. The installer adds the LUKS device into the generated hardware configuration, since `nixos-generate-config` cannot see a LUKS container below LVM. LUKS is strongly recommended together with Secure Boot, whose signing keys are stored on disk.
 
 ## Security keys and fingerprints
 
