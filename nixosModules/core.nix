@@ -502,6 +502,15 @@ in
         trusted-public-keys = [
           "didactiklabs-nixcache:PxLKN0+ZkP07M8g8/B6xbP6A4MYpqQg6LH7V3muiy/0="
         ];
+        # The defaults (max-jobs = auto, cores = 0) run one build per CPU,
+        # each using every CPU: up to 16 × 16 compiler threads on totoro's
+        # 14 GiB. A rebuild of the custom Go/Rust packages then ran out of
+        # memory spawning threads (Go "failed to create new OS thread
+        # (errno=12)", rustc "failed to spawn work thread … Resource
+        # temporarily unavailable") and failed the whole switch. 4 × 4 still
+        # fills the CPUs.
+        max-jobs = lib.mkDefault 4;
+        cores = lib.mkDefault 4;
       };
       extraOptions = ''
         fallback = true
