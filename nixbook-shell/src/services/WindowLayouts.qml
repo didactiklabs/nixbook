@@ -29,6 +29,11 @@ Singleton {
     property var layouts: []
     property string current: ""
     property bool busy: runner.running
+    // A restore (or cycle) running: modules/ii/layoutRestore covers the
+    // screens and takes the input until it's done, so clicks and keys don't
+    // land on windows while they move. The name, "" for a cycle.
+    property bool restoring: false
+    property string restoringName: ""
 
     function load() {
         root.refresh();
@@ -50,7 +55,7 @@ Singleton {
         return `layout-${i}`;
     }
 
-    function run(args) {
+    function run(args, restoring = false, name = "") {
         // One at a time (a restore waits up to 15 s for the apps it starts):
         // said, not silently dropped, which looked like nothing working.
         if (runner.running) {
@@ -59,6 +64,8 @@ Singleton {
             return false;
         }
         runner.command = [root.command, "layout", ...args];
+        root.restoringName = name;
+        root.restoring = restoring;
         runner.running = true;
         return true;
     }
@@ -71,7 +78,7 @@ Singleton {
 
     function restore(name) {
         if (!root.validName(name)) return false;
-        return root.run(["restore", name, ...root.restoreFlags]);
+        return root.run(["restore", name, ...root.restoreFlags], true, name);
     }
     function remove(name) {
         if (!root.validName(name)) return false;
@@ -82,7 +89,7 @@ Singleton {
         return root.run(["rename", from, to]);
     }
     function cycle() {
-        return root.run(["cycle", ...root.restoreFlags]);
+        return root.run(["cycle", ...root.restoreFlags], true);
     }
     // Into the current layout (the last saved or restored), else a new one.
     function saveCurrent() {
@@ -125,7 +132,10 @@ Singleton {
                 }
             }
         }
-        onExited: root.refresh()
+        onExited: {
+            root.restoring = false;
+            root.refresh();
+        }
     }
 
     IpcHandler {
