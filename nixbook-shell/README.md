@@ -345,6 +345,10 @@ workspace, which niri keeps, is used as it is). Settings → Window layouts → 
 (`windowLayouts.closeOthers`, off by default; `layout restore|cycle
 --close-others`) makes your restores also close the windows the layout
 doesn't have, as their close button would. Never the agents' `restore_layout`.
+While one of your restores (or `cycle`) runs, every monitor is dimmed under a
+"Restoring the window layout" card that takes the keyboard and pointer, so a
+click or key doesn't land on a window being moved; it lifts when the restore
+is done (after 30 s at the latest).
 
 **Claude in the side panel**: when Claude Code is installed (`claude` on the
 PATH, in `~/.local/bin` or a Nix profile), the AI chat offers a **Claude**
