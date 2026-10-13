@@ -326,7 +326,10 @@ workspace, column and its width, or floating position and size, and the app
 that opens it) under a name; `restore_layout` puts them back in one call,
 starting the apps that were closed (an app whose first window is a splash,
 like Vesktop's "Loading", is placed again once its own window replaces
-it: restores that start apps watch them for 5 s). The same layouts are yours in the shell,
+it: restores that start apps watch them for 5 s). A window already where the
+layout has it (monitor, workspace, column and stack, width, floating place) is
+left alone, so restoring the layout you're in moves nothing; with two windows of
+an app whose titles changed, each goes with the saved place it is in. The same layouts are yours in the shell,
 where the agents' pause doesn't apply: **Mod+G** opens the launcher as a
 layout picker (the `#` prefix: pick one to restore it, update or delete it
 with its row's buttons or Shift+Delete, "Save the windows as a new layout",

@@ -93,6 +93,7 @@ if [ "$1 $2" = "msg --json" ]; then
       # With $STUB_USER_SPLASH it's a splash (id 6) for 3 window lists, then
       # the app's own window (id 7).
       # Hidden: ids listed in $STUB_CALLS.hidden (closed windows).
+      # With $STUB_KITTY_POS ([column, tile]) kitty is tiled there.
       hidden="$(cat "$STUB_CALLS.hidden" 2>/dev/null || echo '[]')"
       launched_app="$(cat "$STUB_CALLS.launched" 2>/dev/null || true)"
       launched_id=6
@@ -104,7 +105,8 @@ if [ "$1 $2" = "msg --json" ]; then
       jq -nc --arg f "$focus" --argjson launched "$([ -e "$STUB_CALLS.launched" ] && echo true || echo false)" \
         --arg launched_app "${launched_app:-firefox}" --argjson launched_id "$launched_id" --argjson hidden "$hidden" '[
         {id: 1, app_id: "firefox", title: "Mozilla Firefox", workspace_id: 10, is_focused: ($f == "firefox"), is_floating: false},
-        {id: 2, app_id: "kitty", title: "~", workspace_id: 10, is_focused: ($f == "kitty"), is_floating: false},
+        {id: 2, app_id: "kitty", title: "~", workspace_id: 10, is_focused: ($f == "kitty"), is_floating: false,
+         layout: (if env.STUB_KITTY_POS then {window_size: [1000, 900], pos_in_scrolling_layout: (env.STUB_KITTY_POS | fromjson)} else null end)},
         {id: 3, app_id: "org.gnome.Nautilus", title: "Enter password", workspace_id: 11, is_focused: ($f == "prompt"), is_floating: true,
          layout: {window_size: [800, 600], tile_pos_in_workspace_view: [100.4, 50], pos_in_scrolling_layout: null}},
         {id: 4, app_id: "org.gnome.TextEditor", title: "notes", workspace_id: 10, is_focused: false, is_floating: false,
@@ -741,11 +743,9 @@ reset_calls
 out=$(call restore_layout '{"name":"work"}')
 expect_contains "restore_layout: starts what isn't open" "$(cat "$calls")" "niri msg action spawn -- org.gnome.Calculator"
 expect_contains "restore_layout: every window placed" "$out" "5 of 5 windows placed"
-expect_contains "restore_layout: monitor then workspace" "$(cat "$calls")" "niri msg action move-window-to-monitor --id 4 eDP-1
-niri msg action move-window-to-workspace --window-id 4 --focus false 1"
-expect_contains "restore_layout: tiled column order and width" "$(cat "$calls")" "niri msg action focus-window --id 4
-niri msg action move-column-to-index 2
-niri msg action set-window-width --id 4 1000"
+for moved in move-window-to-monitor move-window-to-workspace move-column-to-index "set-window-width --id 4" "move-floating-window --id 3"; do
+  expect_not_contains "restore_layout: the windows in place aren't moved ($moved)" "$(cat "$calls")" "$moved"
+done
 expect_contains "restore_layout: floating size and position" "$(cat "$calls")" "niri msg action set-window-width --id 6 400
 niri msg action set-window-height --id 6 300
 niri msg action move-floating-window --id 6 -x 10 -y 20"
@@ -761,6 +761,32 @@ niri msg action set-window-height --id 7 300
 niri msg action move-floating-window --id 7 -x 10 -y 20"
 expect_contains "restore_layout: and made floating" "$(cat "$calls")" "niri msg action move-window-to-floating --id 7"
 rm -f "$calls.hidden" "$calls.launched" "$calls.splash"
+# Elsewhere since: on another workspace, another width.
+jq '.setups[0].windows |= map(if .app_id == "org.gnome.TextEditor" then .workspace = {index: 3, name: null} | .size = [900, 1900] else . end)' \
+  "$layout" >"$XDG_STATE_HOME/nixbook-shell/layouts/moved.json"
+reset_calls
+call restore_layout '{"name":"moved"}' >/dev/null
+expect_contains "restore_layout: monitor then workspace" "$(cat "$calls")" "niri msg action move-window-to-monitor --id 4 eDP-1
+niri msg action move-window-to-workspace --window-id 4 --focus false 3"
+expect_contains "restore_layout: width" "$(cat "$calls")" "niri msg action set-window-width --id 4 900"
+expect_not_contains "restore_layout: only that window moved" "$(cat "$calls")" "--window-id 1 "
+# Two windows stacked in a column: restored as they are, nothing changes
+# (consume-or-expel would take the second out of its column).
+STUB_KITTY_POS='[2, 2]' call save_layout '{"name":"stacked"}' >/dev/null
+reset_calls
+STUB_KITTY_POS='[2, 2]' call restore_layout '{"name":"stacked"}' >/dev/null
+for moved in consume-or-expel move-column-to-index set-window-height set-window-width; do
+  expect_not_contains "restore_layout: a stack in place is left alone ($moved)" "$(cat "$calls")" "$moved"
+done
+# Out of its column since: columns in order, then stacked again.
+reset_calls
+STUB_KITTY_POS='[1, 1]' call restore_layout '{"name":"stacked"}' >/dev/null
+expect_contains "restore_layout: tiled column order, stacked tiles" "$(cat "$calls")" "niri msg action focus-window --id 4
+niri msg action move-column-to-index 1
+niri msg action focus-window --id 2
+niri msg action move-column-to-index 2
+niri msg action consume-or-expel-window-left --id 2"
+rm "$XDG_STATE_HOME"/nixbook-shell/layouts/{moved,stacked}.json
 out=$(call restore_layout '{"name":"nope"}')
 expect_contains "restore_layout: unknown layout" "$out" "no saved layout 'nope'"
 
@@ -795,14 +821,11 @@ expect_contains "layout restore, monitors unplugged: a new workspace each" "$(ca
 expect_contains "layout restore, monitors unplugged: per monitor" "$(cat "$calls")" "niri msg action set-workspace-name --workspace 3 DP-2-1"
 expect_contains "layout restore, monitors unplugged: their windows on it" "$(cat "$calls")" "niri msg action move-window-to-monitor --id 4 eDP-1
 niri msg action move-window-to-workspace --window-id 4 --focus false DP-2-1"
-expect_contains "layout restore, monitors unplugged: columns kept" "$(cat "$calls")" "niri msg action focus-window --id 4
-niri msg action move-column-to-index 1
-niri msg action set-window-width --id 4 1000"
-expect_contains "layout restore, monitors unplugged: a named workspace niri kept" "$(cat "$calls")" "niri msg action move-window-to-workspace --window-id 3 --focus false chat"
+expect_not_contains "layout restore, monitors unplugged: a named workspace niri kept, already there" "$(cat "$calls")" "--window-id 3 "
 expect_not_contains "layout restore, monitors unplugged: not to the gone monitor" "$(cat "$calls")" "move-window-to-monitor --id 3"
 expect_contains "layout restore, monitors unplugged: names unset after" "$(cat "$calls")" "niri msg action unset-workspace-name DP-3-1
 niri msg action unset-workspace-name DP-2-1"
-expect_contains "layout restore, monitors unplugged: the others placed" "$(cat "$calls")" "move-window-to-monitor --id 1 eDP-1"
+expect_not_contains "layout restore, monitors unplugged: the others in place" "$(cat "$calls")" "--id 1 eDP-1"
 # Saved again off the dock: the docked arrangement is kept beside it, and
 # restoring picks the one for the monitors connected.
 out=$(layout_cmd save docked)
