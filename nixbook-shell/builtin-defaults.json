@@ -460,6 +460,7 @@
     "pinnedOnStartup": false,
     "showAppsButton": true,
     "showBackground": true,
+    "showHandle": true,
     "showMedia": true,
     "showPinButton": true
   },
