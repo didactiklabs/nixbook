@@ -96,9 +96,19 @@ Scope {
                     panelWindow.reallyVisible = true;
                     panelWindow.keepMapped = true;
                 } else {
+                    GlobalStates.sidebarRightPeek = false;
                     closeAnimTimer.restart();
                 }
             }
+        }
+
+        // Opened as a peek (edge handle hover): close once the pointer has
+        // been outside it a moment.
+        Timer {
+            interval: 350
+            running: GlobalStates.sidebarRightOpen && GlobalStates.sidebarRightPeek
+                && outsideClickArea.containsMouse
+            onTriggered: panelWindow.hide()
         }
 
         Timer {

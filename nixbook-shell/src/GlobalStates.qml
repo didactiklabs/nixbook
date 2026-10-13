@@ -20,6 +20,10 @@ Singleton {
     property bool equalizerOpen: false
     property bool sidebarLeftOpen: false
     property bool sidebarRightOpen: false
+    // Opened by hovering its edge handle (sidebarHandles): the sidebar closes
+    // again once the pointer leaves it. Cleared when it closes.
+    property bool sidebarLeftPeek: false
+    property bool sidebarRightPeek: false
     property bool mediaControlsOpen: false
     property bool osdBrightnessOpen: false
     property bool settingsOpen: false
