@@ -194,6 +194,10 @@ Scope {
                 clip: true
 
                 readonly property bool open: GlobalStates.sidebarRightOpen
+                // A peek (edge handle hover) slides in at the dock's pace.
+                readonly property var enterAnim: GlobalStates.sidebarRightPeek
+                    ? Appearance.animation.elementMoveFast
+                    : Appearance.animation.sidebarSlideEnter
                 // Right-anchored and slid with a transform (no re-layout while
                 // it slides).
                 anchors.right: parent.right
@@ -202,13 +206,13 @@ Scope {
                     Behavior on x {
                         NumberAnimation {
                             duration: entranceWrapper.open
-                                ? Appearance.animation.sidebarSlideEnter.duration
+                                ? entranceWrapper.enterAnim.duration
                                 : Appearance.animation.sidebarSlideExit.duration
                             easing.type: entranceWrapper.open
-                                ? Appearance.animation.sidebarSlideEnter.type
+                                ? entranceWrapper.enterAnim.type
                                 : Appearance.animation.sidebarSlideExit.type
                             easing.bezierCurve: entranceWrapper.open
-                                ? Appearance.animation.sidebarSlideEnter.bezierCurve
+                                ? entranceWrapper.enterAnim.bezierCurve
                                 : Appearance.animation.sidebarSlideExit.bezierCurve
                         }
                     }

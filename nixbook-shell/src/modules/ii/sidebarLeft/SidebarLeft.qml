@@ -349,16 +349,20 @@ Scope { // Scope
                 opacity: panelWindow.reallyVisible ? 1 : (Preloader.prerender ? 0.004 : 0)
                 x: Appearance.sizes.gapsOut - (!sidebarOpen ? width : 0)
 
+                // A peek (edge handle hover) slides in at the dock's pace.
+                readonly property var enterAnim: GlobalStates.sidebarLeftPeek
+                    ? Appearance.animation.elementMoveFast
+                    : Appearance.animation.elementMoveEnter
                 Behavior on x {
                     NumberAnimation {
                         duration: sidebarLeftBackground.sidebarOpen
-                            ? Appearance.animation.elementMoveEnter.duration
+                            ? sidebarLeftBackground.enterAnim.duration
                             : Appearance.animation.elementMoveExit.duration
                         easing.type: sidebarLeftBackground.sidebarOpen
-                            ? Appearance.animation.elementMoveEnter.type
+                            ? sidebarLeftBackground.enterAnim.type
                             : Appearance.animation.elementMoveExit.type
                         easing.bezierCurve: sidebarLeftBackground.sidebarOpen
-                            ? Appearance.animation.elementMoveEnter.bezierCurve
+                            ? sidebarLeftBackground.enterAnim.bezierCurve
                             : Appearance.animation.elementMoveExit.bezierCurve
                     }
                 }
