@@ -9,11 +9,14 @@ import Quickshell.Wayland
 /**
  * Edge handles for the sidebars: a small pill (EdgePill) half-way down the
  * left and right screen edges of the focused monitor, where the sidebars
- * open. Clicking one opens that sidebar; hovering it a moment
- * (sidebar.edgeHandles.hoverToOpen) opens it as a peek, which closes again
- * when the pointer leaves the sidebar. Each is a tiny surface with no exclusive zone, so
- * windows keep the whole screen; only a 6px strip of it takes input.
- * Hidden while its sidebar is open, on fullscreen and on the lock screen.
+ * open. Like the dock, the whole middle stretch of the edge (40% of the
+ * screen height) is the trigger, not only the pill: pushing the pointer
+ * against it opens that sidebar almost at once as a peek
+ * (sidebar.edgeHandles.hoverToOpen), which closes again when the pointer
+ * leaves the sidebar; clicking opens it to stay. Each is a narrow surface
+ * with no exclusive zone, so windows keep the whole screen; only a 3px edge
+ * strip (6px at the pill) takes input. Hidden while its sidebar is open, on
+ * fullscreen and on the lock screen.
  */
 Scope {
     id: root
@@ -29,7 +32,7 @@ Scope {
             && !GlobalStates.screenLocked
             && WM.focusedMonitor?.name === monitor?.name
             && !WM.fullscreenOnMonitor(monitor?.name)
-        readonly property bool hovered: shown && hitArea.containsMouse
+        readonly property bool hovered: shown && (edgeArea.containsMouse || pillArea.containsMouse)
 
         function open(peek) {
             if (right) {
@@ -50,27 +53,47 @@ Scope {
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
         color: "transparent"
         implicitWidth: pill.implicitWidth + 4
-        implicitHeight: pill.implicitHeight + 24
+        implicitHeight: Math.max(pill.implicitHeight + 24, (screen?.height ?? 0) * 0.4)
 
         Region { id: noInput }
         mask: shown ? hitRegion : noInput
-        Region { id: hitRegion; item: hitArea }
+        Region {
+            id: hitRegion
+            item: edgeArea
+            Region { item: pillArea }
+        }
 
+        // The edge strip: thin, so it barely overlaps what's beside the edge
+        // (a scrollbar), but the pointer stops on it when pushed to the edge.
         MouseArea {
-            id: hitArea
+            id: edgeArea
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             anchors.left: handleWindow.right ? undefined : parent.left
             anchors.right: handleWindow.right ? parent.right : undefined
-            // Grows with the tab once hovered, so it doesn't flicker away
-            width: containsMouse ? parent.width : 6
+            width: 3
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: handleWindow.open(false)
+        }
+        // Around the pill: a bit wider, and the whole tab once hovered so it
+        // doesn't flicker away.
+        MouseArea {
+            id: pillArea
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: handleWindow.right ? undefined : parent.left
+            anchors.right: handleWindow.right ? parent.right : undefined
+            height: pill.implicitHeight + 24
+            width: handleWindow.hovered ? parent.width : 6
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: handleWindow.open(false)
         }
 
+        // A short delay only, so the pointer just sweeping past the edge
+        // doesn't open it.
         Timer {
-            interval: 250
+            interval: 80
             running: handleWindow.hovered && (root.cfg?.hoverToOpen ?? true)
             onTriggered: handleWindow.open(true)
         }
