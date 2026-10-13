@@ -716,6 +716,7 @@ Singleton {
                 property bool showPinButton: true
                 property bool showAppsButton: true
                 property bool showMedia: true
+                property bool showHandle: true // Pill at the bottom edge marking where to hover while the dock hides
                 property bool monochromeIcons: true
                 property real height: 60
                 property real hoverRegionHeight: 2

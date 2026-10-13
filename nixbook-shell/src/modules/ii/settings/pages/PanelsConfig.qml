@@ -299,6 +299,14 @@ ContentPage {
                     onCheckedChanged: { Config.options.dock.hoverToReveal = checked }
                 }
                 ConfigSwitch {
+                    configKey: "dock.showHandle";
+                    enabled: !nixManaged && Config.options.dock.hoverToReveal;
+                    buttonIcon: "horizontal_rule"
+                    text: Translation.tr("Hover handle")
+                    checked: Config.options.dock.showHandle
+                    onCheckedChanged: { Config.options.dock.showHandle = checked }
+                }
+                ConfigSwitch {
                     configKey: "dock.pinnedOnStartup";
                     enabled: !nixManaged;
                     buttonIcon: "push_pin"

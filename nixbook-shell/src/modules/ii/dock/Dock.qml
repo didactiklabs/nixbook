@@ -33,6 +33,7 @@ Scope {
                     return Config.options?.dock.hoverToReveal && dockMouseArea.containsMouse
                 return root.pinned
                     || (Config.options?.dock.hoverToReveal && dockMouseArea.containsMouse)
+                    || peekHandle.hovered
                     || activeAppsArea.requestDockShow
                     || GlobalStates.dockPopupsOpen > 0
                     || (!ToplevelManager.activeToplevel?.activated)
@@ -52,7 +53,111 @@ Scope {
                 + Appearance.sizes.elevationMargin
                 + Appearance.sizes.gapsOut
 
-            mask: Region { item: dockMouseArea }
+            mask: Region {
+                item: dockMouseArea
+                Region { item: peekHandle.active ? peekHandle : null }
+            }
+
+            // Peek handle: while the dock is hidden, a small pill at the
+            // bottom edge shows where to hover. It lights up and stretches
+            // under the cursor, sweeps a shine across when the dock tucks
+            // away, and its own hit area (taller than the edge strip) also
+            // reveals the dock. Declared before dockMouseArea so the dock
+            // takes the hover over once it has slid up.
+            Item {
+                id: peekHandle
+                readonly property bool active: (Config.options?.dock.showHandle ?? true)
+                    && (Config.options?.dock.hoverToReveal ?? true)
+                    && !root.pinned
+                    && !dockRoot.fullscreenOnThisMonitor
+                readonly property bool shown: active && !dockRoot.reveal
+                readonly property bool hovered: active && peekArea.containsMouse
+
+                anchors.bottom: parent.bottom
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Math.min(dockMouseArea.width, Math.max(140, dockBackground.implicitWidth * 0.4))
+                height: 12
+
+                MouseArea {
+                    id: peekArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    enabled: peekHandle.active
+                    cursorShape: Qt.PointingHandCursor
+                }
+
+                onShownChanged: if (shown) shine.restart()
+
+                Item {
+                    id: pillHolder
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 4
+                    width: peekHandle.hovered ? 76 : 44
+                    height: peekHandle.hovered ? 5 : 4
+                    opacity: peekHandle.shown ? 1 : 0
+                    scale: peekHandle.shown ? 1 : 0.4
+                    transform: Matrix4x4 {
+                        readonly property real k: Persona.shapes ? Persona.skew * 2 : 0
+                        matrix: Qt.matrix4x4(1, k, 0, -k * pillHolder.height / 2, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
+                    }
+
+                    Behavior on width { animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this) }
+                    Behavior on height { animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this) }
+                    Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                    Behavior on scale { NumberAnimation { duration: 260; easing.type: Easing.OutBack } }
+
+                    // Soft halo in the accent colour while hovered
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: parent.width + 14
+                        height: parent.height + 8
+                        radius: Persona.shapes ? 0 : height / 2
+                        color: Appearance.colors.colPrimary
+                        opacity: peekHandle.hovered ? 0.22 : 0
+                        Behavior on opacity { NumberAnimation { duration: 180 } }
+                    }
+
+                    Rectangle {
+                        id: pill
+                        anchors.fill: parent
+                        radius: Persona.shapes ? 0 : height / 2
+                        clip: true
+                        color: peekHandle.hovered
+                            ? Appearance.colors.colPrimary
+                            : ColorUtils.transparentize(Appearance.colors.colOnLayer0, 0.55)
+                        border.width: 1
+                        border.color: ColorUtils.transparentize(Appearance.colors.colLayer0, 0.4)
+                        Behavior on color { ColorAnimation { duration: 180 } }
+
+                        // Shine that runs across the pill once as it appears
+                        Rectangle {
+                            id: shineBar
+                            width: pill.width * 0.45
+                            height: pill.height
+                            x: -width
+                            opacity: 0
+                            gradient: Gradient {
+                                orientation: Gradient.Horizontal
+                                GradientStop { position: 0; color: "transparent" }
+                                GradientStop { position: 0.5; color: Appearance.colors.colPrimary }
+                                GradientStop { position: 1; color: "transparent" }
+                            }
+                        }
+                        SequentialAnimation {
+                            id: shine
+                            PauseAnimation { duration: 200 }
+                            PropertyAction { target: shineBar; property: "opacity"; value: 1 }
+                            NumberAnimation {
+                                target: shineBar; property: "x"
+                                from: -shineBar.width; to: pill.width
+                                duration: 650; easing.type: Easing.InOutQuad
+                            }
+                            PropertyAction { target: shineBar; property: "opacity"; value: 0 }
+                        }
+                    }
+                }
+            }
 
             MouseArea {
                 cursorShape: Qt.PointingHandCursor
