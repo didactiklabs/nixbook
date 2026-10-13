@@ -299,14 +299,6 @@ ContentPage {
                     onCheckedChanged: { Config.options.dock.hoverToReveal = checked }
                 }
                 ConfigSwitch {
-                    configKey: "dock.showHandle";
-                    enabled: !nixManaged && Config.options.dock.hoverToReveal;
-                    buttonIcon: "horizontal_rule"
-                    text: Translation.tr("Hover handle")
-                    checked: Config.options.dock.showHandle
-                    onCheckedChanged: { Config.options.dock.showHandle = checked }
-                }
-                ConfigSwitch {
                     configKey: "dock.pinnedOnStartup";
                     enabled: !nixManaged;
                     buttonIcon: "push_pin"
@@ -373,6 +365,46 @@ ContentPage {
                     onValueChanged: {
                         Config.options.osd.timeout = value;
                     }
+                }
+            }
+        }
+
+        ContentSection {
+            icon: "drag_handle"
+            title: Translation.tr("Edge handles")
+
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "dock.showHandle";
+                    enabled: !nixManaged && Config.options.dock.hoverToReveal;
+                    buttonIcon: "horizontal_rule"
+                    text: Translation.tr("Dock")
+                    checked: Config.options.dock.showHandle
+                    onCheckedChanged: { Config.options.dock.showHandle = checked }
+                }
+                ConfigSwitch {
+                    configKey: "sidebar.edgeHandles.left";
+                    enabled: !nixManaged;
+                    buttonIcon: "left_panel_open"
+                    text: Translation.tr("Left sidebar")
+                    checked: Config.options.sidebar.edgeHandles.left
+                    onCheckedChanged: { Config.options.sidebar.edgeHandles.left = checked }
+                }
+                ConfigSwitch {
+                    configKey: "sidebar.edgeHandles.right";
+                    enabled: !nixManaged;
+                    buttonIcon: "right_panel_open"
+                    text: Translation.tr("Right sidebar")
+                    checked: Config.options.sidebar.edgeHandles.right
+                    onCheckedChanged: { Config.options.sidebar.edgeHandles.right = checked }
+                }
+                ConfigSwitch {
+                    configKey: "sidebar.edgeHandles.hoverToOpen";
+                    enabled: !nixManaged && (Config.options.sidebar.edgeHandles.left || Config.options.sidebar.edgeHandles.right);
+                    buttonIcon: "highlight_mouse_cursor"
+                    text: Translation.tr("Open sidebars on hover")
+                    checked: Config.options.sidebar.edgeHandles.hoverToOpen
+                    onCheckedChanged: { Config.options.sidebar.edgeHandles.hoverToOpen = checked }
                 }
             }
         }

@@ -954,6 +954,12 @@ Singleton {
                 property JsonObject ai: JsonObject {
                     property bool textFadeIn: false
                 }
+                // Pills on the left/right screen edges that open the sidebars
+                property JsonObject edgeHandles: JsonObject {
+                    property bool left: true
+                    property bool right: true
+                    property bool hoverToOpen: true // Open after a short hover, not only on click
+                }
                 property JsonObject cornerOpen: JsonObject {
                     property bool enable: true
                     property bool bottom: false

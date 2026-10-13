@@ -667,6 +667,11 @@
       "valueScroll": true,
       "visualize": false
     },
+    "edgeHandles": {
+      "hoverToOpen": true,
+      "left": true,
+      "right": true
+    },
     "keepRightSidebarLoaded": true,
     "mediaPlayer": false,
     "quickSliders": {
