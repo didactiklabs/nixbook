@@ -289,6 +289,36 @@ Singleton {
         return prompt;
     }
 
+    // The personal memory entries sent with this Claude session's messages
+    // (`nixbook-desktop-mcp personal context`), not to send twice.
+    property var personalShown: []
+    Process {
+        id: personalContext
+        property string prompt: ""
+        property string attached: ""
+        property bool sent: false
+        function send(found) {
+            if (sent) return;
+            sent = true;
+            requester.sendPrompt(found.length > 0 ? `${found}\n\n${prompt}` : prompt, attached);
+        }
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let found = "";
+                try {
+                    const result = JSON.parse(text);
+                    found = result.text ?? "";
+                    root.personalShown = [...root.personalShown, ...(result.ids ?? [])];
+                } catch (e) {
+                    console.log("[Ai] Personal memory unavailable:", e);
+                }
+                personalContext.send(found);
+            }
+        }
+        // Without it (an error) the message goes as it is.
+        onExited: Qt.callLater(() => personalContext.send(""))
+    }
+
     // The task, for the desktop MCP server's memory (NIXBOOK_DESKTOP_MCP_QUERY_FILE):
     // written before each message, read by the running server on its next call.
     readonly property string desktopTaskFilePath: `${Directories.aiTemp}/desktop-task.txt`
@@ -369,7 +399,8 @@ Singleton {
         // with its next reply.
         const mcpServers = Object.assign({}, extraServers, desktop ? { desktop: {
             command: root.desktopMcpCommand,
-            env: { NIXBOOK_DESKTOP_MCP_QUERY_FILE: root.desktopTaskFilePath },
+            // The personal memory about each message: sent with it, above.
+            env: { NIXBOOK_DESKTOP_MCP_QUERY_FILE: root.desktopTaskFilePath, NIXBOOK_DESKTOP_MCP_PERSONAL: "shell" },
         } } : {});
         if (Object.keys(mcpServers).length > 0)
             args.push("--mcp-config", JSON.stringify({ mcpServers }));
@@ -575,6 +606,24 @@ Singleton {
             const turns = filteredMessageArray.filter(m => m.role === "user");
             desktopTaskFile.path = Qt.resolvedUrl(root.desktopTaskFilePath);
             desktopTaskFile.setText((turns[turns.length - 1]?.rawContent ?? "").slice(0, 500));
+            // What Claude remembers about the user that this message is
+            // about goes with it (the personal memory, in the desktop MCP
+            // server): no recall round trip.
+            if (root.claudeSessionId.length === 0) root.personalShown = [];
+            const desktop = root.currentTool !== "none" && root.desktopTools.some(t => t.name === "recall_about_user");
+            if (desktop && !personalContext.running) {
+                personalContext.prompt = prompt;
+                personalContext.attached = attached;
+                personalContext.sent = false;
+                personalContext.command = [root.desktopMcpCommand, "personal", "context",
+                    "--exclude", root.personalShown.join(",") || ",", turns[turns.length - 1]?.rawContent ?? ""];
+                personalContext.running = true;
+                return;
+            }
+            requester.sendPrompt(prompt, attached);
+        }
+
+        function sendPrompt(prompt, attached) {
             requester.pendingLine = JSON.stringify({ type: "user", message: { role: "user", content: prompt } }) + "\n";
             requester.start(attached);
         }

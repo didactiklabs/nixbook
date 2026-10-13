@@ -321,6 +321,40 @@ shows, clears or prints the digest; the `memory` tool group
 (`desktopMcp.settings.tools`) turns it off; `memoryPromptChars` and
 `memoryMaxNotes` size it.
 
+**Personal memory**, so a conversation knows what the user told agents
+before: life events (past or planned, with dates), plans, people close to
+them, preferences, interests. Agents are told to save the meaningful part
+of what the user shares (`remember_about_user`: a few condensed facts, not a
+transcript), never small talk, one-off requests, desktop how-tos or secrets,
+and to do it without asking; `recall_about_user`, `forget_about_user`. It is
+kept small and relevant:
+
+- one entry per subject ("japan", "work", "Lan (sister)") of at most 400
+  characters, merged as things change: `remember_about_user` on a subject
+  that exists is refused until the agent passes the entry's `id` with the
+  merged text, and it lists entries on the same subject under another name
+  to merge;
+- each entry has a kind: `profile` (who the user is: sent in every
+  conversation, the agent is told when it grows past 500 characters),
+  `person`, `event` (with a `date`: YYYY, YYYY-MM or YYYY-MM-DD) or `topic`;
+- when an agent connects it gets, at most `personalPromptChars` (900): the
+  profile, events from 14 days ago to 60 days ahead, the subjects talked
+  about in the last 14 days and every other subject by name only;
+- the entries a message is about come in full with it: the AI chat sends
+  them with each message (`nixbook-desktop-mcp personal context`, which
+  leaves out those it sent already in the session); other clients that pass
+  the task (`NIXBOOK_DESKTOP_MCP_QUERY[_FILE]`) get them in the
+  instructions or with the next reply, once.
+
+The personal memory isn't the desktop: its tools work while desktop control
+is paused, and the audit log has their ids and kinds only. It lives in
+`~/.local/state/nixbook-shell/personal-memory.json` (private), apart from the
+desktop memory; **Settings → Desktop agents → About you** shows the entries,
+deletes any or all; `nixbook-desktop-mcp personal` shows, forgets, clears or
+prints the digest; the `personal` tool group turns it off;
+`personalMaxEntries` (200) caps it (the least used go first, never the
+profile).
+
 **Window layouts**: `save_layout` remembers where every window is (monitor,
 workspace, column and its width, or floating position and size, and the app
 that opens it) under a name; `restore_layout` puts them back in one call,

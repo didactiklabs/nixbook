@@ -33,6 +33,7 @@ notify-send, and the shell's `qs` for its IPC.
 """
 
 import base64
+import datetime
 import hmac
 import fcntl
 import json
@@ -62,7 +63,7 @@ SERVER_NAME = "nixbook-desktop"
 
 DEFAULT_CONFIG = {
     # Tool groups on offer; the others are neither listed nor callable.
-    "tools": ["observe", "screen", "windows", "input", "shell", "memory", "ui"],
+    "tools": ["observe", "screen", "windows", "input", "shell", "memory", "personal", "ui"],
     # No keyboard/pointer input while the focused window's app_id (or title)
     # matches one of these (Python regexes, case-insensitive, searched).
     "inputDenyApps": [
@@ -98,10 +99,14 @@ DEFAULT_CONFIG = {
     # this many characters; notes kept (the least used and oldest go first).
     "memoryPromptChars": 1500,
     "memoryMaxNotes": 100,
+    # Personal memory (what the user told agents about their life): the part
+    # sent when an agent connects, at most this many characters; entries kept.
+    "personalPromptChars": 900,
+    "personalMaxEntries": 200,
     "http": {"port": 7823},
 }
 
-TOOL_GROUPS = ["observe", "screen", "windows", "input", "shell", "memory", "ui"]
+TOOL_GROUPS = ["observe", "screen", "windows", "input", "shell", "memory", "personal", "ui"]
 
 
 def xdg(var, fallback):
@@ -1058,8 +1063,11 @@ class Memory:
     """The memory file, read and written under an exclusive lock (several
     agents' servers and the shell may write at once)."""
 
+    path = staticmethod(memory_path)
+    empty = staticmethod(empty_memory)
+
     def __enter__(self):
-        path = memory_path()
+        path = self.path()
         os.makedirs(os.path.dirname(path), exist_ok=True)
         self.lockfd = os.open(path + ".lock", os.O_WRONLY | os.O_CREAT, 0o600)
         fcntl.flock(self.lockfd, fcntl.LOCK_EX)
@@ -1069,12 +1077,16 @@ class Memory:
             if not isinstance(self.data, dict):
                 raise ValueError
         except (OSError, ValueError):
-            self.data = empty_memory()
-        for k, v in empty_memory().items():
+            self.data = self.empty()
+        for k, v in self.empty().items():
             self.data.setdefault(k, v)
+        self.changed = False
+        self.migrate()
+        return self
+
+    def migrate(self):
         for k, v in empty_memory()["usage"].items():
             self.data["usage"].setdefault(k, v)
-        self.changed = False
         if self.data.get("version", 1) < 2:
             # Version 1 linked notes to any app sharing a word with their
             # topic ("search" -> Web Search Keywords): link them again.
@@ -1082,7 +1094,6 @@ class Memory:
                 n["apps"] = note_apps(n.get("topic", ""), self.data["aliases"], self.data["usage"]["apps"])
             self.data["version"] = 2
             self.changed = True
-        return self
 
     def save(self):
         self.changed = True
@@ -1090,7 +1101,7 @@ class Memory:
     def __exit__(self, exc_type, *rest):
         try:
             if self.changed and exc_type is None:
-                path = memory_path()
+                path = self.path()
                 fd = os.open(path + ".tmp", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
                 with os.fdopen(fd, "w", encoding="utf-8") as f:
                     json.dump(self.data, f, indent=1, ensure_ascii=False)
@@ -1491,6 +1502,342 @@ def t_forget(ctx, args):
             raise ToolError(f"no note {note_id}")
         m.save()
     return [text(f"forgot note {note_id}")]
+
+
+# -- personal memory -------------------------------------------------------------
+# What the user told agents about their life, so the next conversation
+# knows it: one entry per subject ("japan", "work", "Lan (sister)"), a few
+# condensed facts each, merged by the agent as things change, never a
+# transcript. Only what bears on a conversation reaches the model: when an
+# agent connects, the profile (who the user is), events coming up or just
+# past, the subjects talked about lately and the other subjects by name
+# only; the entries about a message in full when it mentions them (the
+# shell's AI chat sends them with the message, `personal context`; other
+# clients get them with the next reply). recall_about_user has the rest.
+# ~/.local/state/nixbook-shell/personal-memory.json, private, and apart from
+# the desktop memory: Settings > Desktop agents > About you, or
+# `nixbook-desktop-mcp personal`.
+
+PERSONAL_TOPIC_MAX = 40
+PERSONAL_TEXT_MAX = 400
+# profile: who the user is (always sent, so few and short); person: someone
+# in their life; event: something that happened or will, on `date`; topic:
+# an interest, a project, a plan, a conversation's subject.
+PERSONAL_KINDS = ("profile", "person", "event", "topic")
+PERSONAL_DATE = r"\d{4}(-\d{2}(-\d{2})?)?"
+
+
+def personal_path():
+    return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-shell", "personal-memory.json")
+
+
+def empty_personal():
+    return {"version": 1, "entries": []}
+
+
+class PersonalMemory(Memory):
+    path = staticmethod(personal_path)
+    empty = staticmethod(empty_personal)
+
+    def migrate(self):
+        if not isinstance(self.data.get("entries"), list):
+            self.data["entries"] = []
+
+
+def read_personal():
+    try:
+        with PersonalMemory() as m:
+            return m.data["entries"]
+    except OSError:
+        return []
+
+
+def count_entry_uses(ids):
+    if not ids:
+        return
+    try:
+        with PersonalMemory() as m:
+            for e in m.data["entries"]:
+                if e["id"] in ids:
+                    e["uses"] = e.get("uses", 0) + 1
+            m.save()
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+
+
+def date_span(value):
+    """The days a date covers: 2027-04-03, all April 2027, all 2027."""
+    try:
+        parts = [int(p) for p in (value or "").split("-")]
+        if len(parts) == 3:
+            start = datetime.date(*parts)
+            return start, start
+        if len(parts) == 2:
+            start = datetime.date(parts[0], parts[1], 1)
+            nxt = datetime.date(parts[0] + parts[1] // 12, parts[1] % 12 + 1, 1)
+            return start, nxt - datetime.timedelta(days=1)
+        if len(parts) == 1:
+            return datetime.date(parts[0], 1, 1), datetime.date(parts[0], 12, 31)
+    except (ValueError, TypeError):
+        pass
+    return None
+
+
+def entry_line(e, limit=PERSONAL_TEXT_MAX):
+    label = e["topic"] + (f", {e['date']}" if e.get("date") else "")
+    return f"- [{e['id']}] {label} ({e.get('kind', 'topic')}): {short(e['text'], limit)}"
+
+
+def personal_matches(entries, query, exclude=(), limit=3):
+    return [e for e in rank_notes(entries, query) if e["id"] not in exclude][:limit]
+
+
+def ago(ts, now):
+    days = int((now - ts) // 86400)
+    return "today" if days < 1 else "yesterday" if days < 2 else f"{days} days ago"
+
+
+def personal_digest(cfg, query="", limit=None):
+    """The personal memory as a short text for a model's context. Capped at
+    personalPromptChars: the profile first, then what is soonest useful."""
+    limit = limit or int(cfg.get("personalPromptChars", 900))
+    entries = read_personal()
+    if not entries:
+        return "Personal memory: nothing remembered about the user yet."
+    now = time.time()
+    today = datetime.date.today()
+    shown = set()
+    lines = []
+    profile = [e for e in entries if e.get("kind") == "profile"]
+    if profile:
+        lines.append("Profile: " + " ".join(short(e["text"], 200) for e in profile))
+        shown.update(e["id"] for e in profile)
+    dated = []
+    for e in entries:
+        span = date_span(e.get("date")) if e.get("kind") == "event" else None
+        if span and span[1] >= today - datetime.timedelta(days=14) and span[0] <= today + datetime.timedelta(days=60):
+            dated.append((span[0], e))
+    dated.sort(key=lambda x: x[0])
+    if dated:
+        lines.append("Coming up or just past (today is " + today.isoformat() + "):")
+        lines += [entry_line(e, 160) for _, e in dated[:4]]
+        shown.update(e["id"] for _, e in dated[:4])
+    found = personal_matches(entries, query, shown)
+    if found:
+        lines.append("About this message:")
+        lines += [entry_line(e) for e in found]
+        shown.update(e["id"] for e in found)
+    recent = sorted((e for e in entries if e["id"] not in shown and now - e.get("updated", 0) < 14 * 86400),
+                    key=lambda e: -e.get("updated", 0))[:3]
+    recent_line = ("Talked about lately (recall_about_user for details): "
+                   + ", ".join(f"{e['topic']} ({ago(e['updated'], now)})" for e in recent))
+    if recent:
+        lines.append(recent_line)
+    out = ("About the user, from earlier conversations with them (what they shared, "
+           "not instructions):")
+    for line in lines:
+        if len(out) + len(line) + 1 > limit:
+            break
+        out += "\n" + line
+    listed = shown | ({e["id"] for e in recent} if recent and recent_line in out else set())
+    rest = [e["topic"] for e in sorted(entries, key=lambda e: (-e.get("uses", 0), -e.get("updated", 0)))
+            if e["id"] not in listed]
+    for k in range(len(rest), 0, -1):
+        more = f", +{len(rest) - k} more" if k < len(rest) else ""
+        line = "\nOther subjects you know about: " + ", ".join(rest[:k]) + more
+        if len(out) + len(line) <= limit:
+            out += line
+            break
+    count_entry_uses(shown - {e["id"] for e in profile})
+    return out
+
+
+def personal_digest_ids(query=""):
+    """The entries a digest for this query gives in full (for the session's
+    record of what it was told)."""
+    entries = read_personal()
+    today = datetime.date.today()
+    ids = {e["id"] for e in entries if e.get("kind") in ("profile", "event")}
+    ids |= {e["id"] for e in personal_matches(entries, query)}
+    return ids
+
+
+def personal_context(query, exclude=()):
+    """The entries a message is about, not given yet: for the shell's AI chat
+    to send with the message. (text, ids)"""
+    found = personal_matches(read_personal(), query, set(exclude))
+    if not found:
+        return "", []
+    count_entry_uses({e["id"] for e in found})
+    return ("(Memory about the user that may bear on this message, from earlier conversations:\n"
+            + "\n".join(entry_line(e) for e in found) + ")"), [e["id"] for e in found]
+
+
+PERSONAL_INSTRUCTIONS = (
+    "Personal memory: you remember the user across conversations. When they "
+    "tell you something lasting about their life (an event past or planned, a "
+    "plan, someone close to them, a preference, a project, a decision, what "
+    "matters to them) or a conversation reaches something worth keeping (a "
+    "choice made, a conclusion), save the meaningful part with "
+    "remember_about_user: a few condensed facts in plain words, not a "
+    "transcript or a summary of what you said; absolute dates (\"2027-04\", "
+    "not \"next spring\"). One entry per subject: the entries below and "
+    "recall_about_user give their ids; update one (its id, the old and new "
+    "facts merged, what no longer holds dropped) rather than adding another. "
+    "Don't save small talk, one-off requests, what is only true today, "
+    "desktop how-tos (remember is for those), or secrets (passwords, numbers "
+    "of cards or accounts); health and other sensitive matters only when "
+    "they ask. Save without asking and without more than a few words about "
+    "it; when they ask you to remember or forget something, do it; when they "
+    "ask what you know about them, recall it. Use what you know naturally, "
+    "don't recite it."
+)
+
+
+def personal_injected():
+    # The shell's AI chat sends the entries about each message itself.
+    return os.environ.get("NIXBOOK_DESKTOP_MCP_PERSONAL") == "shell"
+
+
+def personal_task_note(ctx, query):
+    if not query or personal_injected() or "personal" not in ctx.cfg["tools"]:
+        return None
+    found = personal_matches(read_personal(), query, ctx.entries_shown)
+    if not found:
+        return None
+    ctx.entries_shown.update(e["id"] for e in found)
+    count_entry_uses({e["id"] for e in found})
+    return "Memory about the user for this message:\n" + "\n".join(entry_line(e) for e in found)
+
+
+@tool(
+    "recall_about_user",
+    "personal",
+    "What the user told you in earlier conversations about their life "
+    "(events, plans, people, preferences, interests), by subject. Call it "
+    "when a conversation touches a subject listed in your instructions "
+    "whose entry you haven't seen, or when they ask what you remember; with "
+    "no query, every subject.",
+    obj({"query": {"type": "string"}}),
+    read_only=True,
+)
+def t_recall_about_user(ctx, args):
+    q = (args.get("query") or "").strip()
+    entries = read_personal()
+    if not q:
+        return [text({"subjects": [
+            f"{e['topic']} ({e.get('kind', 'topic')}{', ' + e['date'] if e.get('date') else ''}) [{e['id']}]"
+            for e in sorted(entries, key=lambda e: (e.get("kind") != "profile", -e.get("updated", 0)))]}
+            if entries else "nothing remembered about the user yet")]
+    found = personal_matches(entries, q, limit=5) or [
+        e for e in entries if fold(q) in fold(e["topic"]) or fold(q) in fold(e["text"])][:5]
+    ctx.entries_shown.update(e["id"] for e in found)
+    count_entry_uses({e["id"] for e in found})
+    return [text("\n".join(entry_line(e) for e in found) if found else f"nothing remembered about {q!r}")]
+
+
+@tool(
+    "remember_about_user",
+    "personal",
+    "Save what the user told you about their life, for later conversations "
+    "(e.g. topic \"japan\", kind \"topic\", text \"Trip planned for 2027-04 "
+    "with Mai (partner): Kyoto, Hakone; budget ~3000 EUR; learning Japanese, "
+    "JLPT N4 goal\"). Condensed facts, one entry per subject: give an "
+    "existing entry's id to replace it with the merged text.",
+    obj(
+        {
+            "topic": {"type": "string", "description": "The subject, a few words: japan, work, Lan (sister)"},
+            "text": {"type": "string", "description": f"The facts, at most {PERSONAL_TEXT_MAX} characters"},
+            "kind": {"type": "string", "enum": list(PERSONAL_KINDS),
+                     "description": "profile: who the user is (name, home, work, family; sent in every "
+                                    "conversation, keep it short); person: someone in their life; event: "
+                                    "something that happened or will (give date); topic: an interest, plan, "
+                                    "project (default)"},
+            "date": {"type": "string", "description": "YYYY, YYYY-MM or YYYY-MM-DD: when an event is or was"},
+            "id": {"type": "string", "description": "The entry to replace (see recall_about_user)"},
+        },
+        ["topic", "text"],
+    ),
+)
+def t_remember_about_user(ctx, args):
+    topic = clean_text(as_str(args, "topic", max_len=PERSONAL_TOPIC_MAX), PERSONAL_TOPIC_MAX)
+    body = clean_text(as_str(args, "text", max_len=PERSONAL_TEXT_MAX), PERSONAL_TEXT_MAX)
+    kind = as_str(args, "kind", required=False, max_len=10) or "topic"
+    if kind not in PERSONAL_KINDS:
+        raise ToolError(f"kind: one of {', '.join(PERSONAL_KINDS)}")
+    date = as_str(args, "date", required=False, max_len=10, pattern=PERSONAL_DATE)
+    if date and not date_span(date):
+        raise ToolError(f"date: {date!r} is no date")
+    entry_id = as_str(args, "id", required=False, max_len=16, pattern=r"[0-9a-f]{1,16}")
+    if not topic or not body:
+        raise ToolError("topic and text can't be empty")
+    now = int(time.time())
+    with PersonalMemory() as m:
+        entries = m.data["entries"]
+        if entry_id:
+            existing = next((e for e in entries if e["id"] == entry_id), None)
+            if not existing:
+                raise ToolError(f"no entry {entry_id}")
+        else:
+            existing = next((e for e in entries if fold(e["topic"]) == fold(topic)), None)
+            if existing and existing["text"] != body:
+                raise ToolError(
+                    f"an entry on {existing['topic']!r} exists:\n{entry_line(existing)}\n"
+                    f"Call again with id {existing['id']} and the merged text (what still holds "
+                    "and what is new; drop what no longer holds).")
+        if existing:
+            existing.update(topic=topic, text=body, kind=kind, updated=now, client=ctx.client)
+            if date:
+                existing["date"] = date
+            entry = existing
+            reply = f"updated {entry['id']}"
+        else:
+            entry = {"id": secrets.token_hex(3), "topic": topic, "text": body, "kind": kind,
+                     "client": ctx.client, "created": now, "updated": now, "uses": 0}
+            if date:
+                entry["date"] = date
+            entries.append(entry)
+            reply = f"remembered as {entry['id']}"
+        cap = int(ctx.cfg.get("personalMaxEntries", 200))
+        if len(entries) > cap:
+            # The least used and oldest go first; never the profile.
+            drop = sorted((e for e in entries if e.get("kind") != "profile" and e is not entry),
+                          key=lambda e: (e.get("uses", 0), e.get("updated", 0)))[: len(entries) - cap]
+            m.data["entries"] = entries = [e for e in entries if e not in drop]
+        m.save()
+    ctx.entries_shown.add(entry["id"])
+    notes = []
+    if kind == "profile":
+        size = sum(len(e["text"]) for e in entries if e.get("kind") == "profile")
+        if size > 500:
+            notes.append(f"The profile is {size} characters, sent in every conversation: keep only what "
+                         "matters often (merge or shorten profile entries, or make details topics).")
+    # Entries on the same subject under another name: one per subject keeps
+    # the memory short, so the agent merges them now while it knows.
+    same = [e for e in rank_notes(entries, topic) if e is not entry and note_score(e, words(topic)) >= 3][:3]
+    if same:
+        notes.append("Other entries on this subject:\n" + "\n".join(entry_line(e, 200) for e in same)
+                     + f"\nIf one is the same subject, merge them: remember_about_user with its id (the "
+                       f"merged text), then forget_about_user {entry['id']}.")
+    return [text("\n".join([reply] + notes))]
+
+
+@tool(
+    "forget_about_user",
+    "personal",
+    "Delete an entry about the user: one that is wrong, no longer true, "
+    "merged into another, or that they asked you to forget.",
+    obj({"id": {"type": "string"}}, ["id"]),
+)
+def t_forget_about_user(ctx, args):
+    entry_id = as_str(args, "id", max_len=16, pattern=r"[0-9a-f]{1,16}")
+    with PersonalMemory() as m:
+        before = len(m.data["entries"])
+        m.data["entries"] = [e for e in m.data["entries"] if e["id"] != entry_id]
+        if len(m.data["entries"]) == before:
+            raise ToolError(f"no entry {entry_id}")
+        m.save()
+    return [text(f"forgot {entry_id}")]
 
 
 # -- window layouts ------------------------------------------------------------
@@ -4589,6 +4936,8 @@ class Context:
         # Just-in-time memory: the apps and notes this session was given.
         self.apps_seen = set()
         self.notes_shown = set()
+        # The personal memory entries this session was given.
+        self.entries_shown = set()
         # The MCP session of the call running (call_tool), and the last
         # monitor capture each was sent (monitor_screenshot).
         self.session = None
@@ -4609,6 +4958,8 @@ def call_tool(ctx, name, args, session=None):
         raise KeyError(name)
     if not isinstance(args, dict):
         args = {}
+    if t["group"] == "personal":
+        return call_personal(ctx, t, name, args)
     if name != "get_status":
         try:
             paused = is_paused()
@@ -4644,6 +4995,20 @@ def call_tool(ctx, name, args, session=None):
     audit(ctx.client, name, args, "ok")
     if name not in ("recall", "remember", "forget"):
         count_use("tools", name)
+    return content, False
+
+
+def call_personal(ctx, t, name, args):
+    """The personal memory tools: not the desktop, so neither the pause nor
+    the desktop's state apply, and the audit log has no word of the user's
+    life (ids and kinds only)."""
+    logged = {k: args[k] for k in ("id", "kind") if isinstance(args.get(k), str)}
+    try:
+        content = t["fn"](ctx, args)
+    except (ToolError, OSError) as e:
+        audit(ctx.client, name, logged, "error")
+        return [text(str(e))], True
+    audit(ctx.client, name, logged, "ok")
     return content, False
 
 
@@ -4794,25 +5159,30 @@ def task_note(ctx):
     if query == ctx.task_told:
         return None
     ctx.task_told = query
+    personal = personal_task_note(ctx, query)
     if not query or "memory" not in ctx.cfg["tools"]:
-        return None
+        return personal
     found = [n for n in rank_notes(read_memory()["notes"], query)[:4] if n["id"] not in ctx.notes_shown]
     if not found:
-        return None
+        return personal
     ctx.notes_shown.update(n["id"] for n in found)
     count_note_uses({n["id"] for n in found})
-    return "Memory about this task:\n" + "\n".join(f"- [{n['id']}] {n['topic']}: {short(n['text'], 400)}" for n in found)
+    note = "Memory about this task:\n" + "\n".join(f"- [{n['id']}] {n['topic']}: {short(n['text'], 400)}" for n in found)
+    return note + ("\n\n" + personal if personal else "")
 
 
 def instructions_with_memory(cfg):
-    if "memory" not in cfg["tools"]:
-        return instructions_with_desktop()
+    out = instructions_with_desktop()
     # The client may say what the task is (the shell's AI chat passes the
     # user's message): the notes about it then come in full.
     query = task_query()
-    digest = memory_digest(cfg, query)
-    count_note_uses({n["id"] for n in rank_notes(read_memory()["notes"], query)[:4]})
-    return instructions_with_desktop() + ("\n\n" + digest if digest else "\n\nDesktop memory: empty so far.")
+    if "memory" in cfg["tools"]:
+        digest = memory_digest(cfg, query)
+        count_note_uses({n["id"] for n in rank_notes(read_memory()["notes"], query)[:4]})
+        out += "\n\n" + digest if digest else "\n\nDesktop memory: empty so far."
+    if "personal" in cfg["tools"]:
+        out += "\n\n" + PERSONAL_INSTRUCTIONS + "\n" + personal_digest(cfg, "" if personal_injected() else query)
+    return out
 
 
 class Session:
@@ -4851,6 +5221,8 @@ class Session:
             # The instructions carry the notes about the task as it is now.
             self.ctx.task_told = task_query()
             self.ctx.notes_shown.update(n["id"] for n in rank_notes(read_memory()["notes"], self.ctx.task_told)[:4])
+            if "personal" in self.ctx.cfg["tools"]:
+                self.ctx.entries_shown.update(personal_digest_ids("" if personal_injected() else self.ctx.task_told))
             info = params.get("clientInfo") or {}
             if info.get("name"):
                 name = re.sub(r"[^\w .\-]", "", str(info["name"]))[:40]
@@ -5075,6 +5447,11 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
   layout restore|cycle --close-others  also close the windows not in the layout
   memory [show]           the desktop memory (JSON); memory prompt [QUERY]: the digest
   memory forget ID | clear [notes] [usage] [aliases] (default: all)
+  personal [show]         what agents remember about you (JSON); personal prompt
+                          [QUERY]: the part sent when an agent connects
+  personal context [--exclude ID,…] MESSAGE  the entries a message is about
+                          (JSON: text, ids), for the shell's AI chat
+  personal forget ID | clear
   config                  the effective configuration
   desktop [status]        where agents work: on the user's desktop or their own
   desktop agent | user | toggle  agents use their own desktop (a nested niri,
@@ -5180,6 +5557,8 @@ def main(argv):
         return layout_command(cfg, argv[1:])
     if cmd == "memory":
         return memory_command(cfg, argv[1:])
+    if cmd == "personal":
+        return personal_command(cfg, argv[1:])
     if cmd == "token":
         print(ensure_token())
         return 0
@@ -5315,6 +5694,43 @@ def memory_command(cfg, argv):
             m.data.pop("lastFailedLaunch", None)
             m.save()
         print(f"cleared {', '.join(keys)}")
+        return 0
+    print(USAGE, end="", file=sys.stderr)
+    return 2
+
+
+def personal_command(cfg, argv):
+    """The personal memory for the user (Settings > Desktop agents > About
+    you) and the shell's AI chat (`context`)."""
+    sub = argv[0] if argv else "show"
+    if sub == "show":
+        print(json.dumps(read_personal(), ensure_ascii=False))
+        return 0
+    if sub == "prompt":
+        print(personal_digest(cfg, " ".join(argv[1:])))
+        return 0
+    if sub == "context":
+        rest = argv[1:]
+        exclude = []
+        if len(rest) > 1 and rest[0] == "--exclude":
+            exclude = [i for i in rest[1].split(",") if i]
+            rest = rest[2:]
+        found, ids = personal_context(" ".join(rest)[:2000], exclude) if "personal" in cfg["tools"] else ("", [])
+        print(json.dumps({"text": found, "ids": ids}, ensure_ascii=False))
+        return 0
+    if sub == "forget" and len(argv) > 1:
+        try:
+            t_forget_about_user(Context(cfg, "cli", "you", notify=False), {"id": argv[1]})
+        except ToolError as e:
+            log(str(e))
+            return 1
+        print(f"forgot {argv[1]}")
+        return 0
+    if sub == "clear" and len(argv) == 1:
+        with PersonalMemory() as m:
+            m.data["entries"] = []
+            m.save()
+        print("cleared")
         return 0
     print(USAGE, end="", file=sys.stderr)
     return 2

@@ -347,7 +347,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 41 tools" 41 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 44 tools" 44 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -956,7 +956,7 @@ expect_contains "memory prompt QUERY: ranked by topic" "$(sed -n '/Notes about t
 
 echo '{"memoryPromptChars":200}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
 out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 "$mcp")
-digest=$(jq -r .result.instructions <<<"$out" | sed -n '/^Desktop memory/,$p')
+digest=$(jq -r .result.instructions <<<"$out" | sed -n '/^Desktop memory/,/^$/p')
 # Characters, not bytes (the locale may be C): the digest has "—" and "…".
 chars=$(printf '%s' "$digest" | python3 -c 'import sys; print(len(sys.stdin.read()))')
 if [ "$chars" -le 200 ]; then pass "digest: capped ($chars chars)"; else fail "digest: capped" "$chars chars:"$'\n'"$digest"; fi
@@ -1010,6 +1010,92 @@ expect_eq "memory clear: several parts at once" "0 0" "$(jq -r '"\(.aliases | le
 python3 "$mcp" memory clear >/dev/null
 expect_eq "memory clear: all" "0 0" "$(jq -r '"\(.aliases | length) \(.usage.apps | length)"' "$mem")"
 rm -f "$calls.launched"
+
+# -- personal memory ----------------------------------------------------------------------------
+
+pmem="$XDG_STATE_HOME/nixbook-shell/personal-memory.json"
+out=$(call remember_about_user '{"topic":"japan","text":"Trip planned for 2027-04 with Mai (partner): Kyoto, Hakone. Learning Japanese, JLPT N4 goal."}')
+expect_contains "remember_about_user" "$out" "remembered as"
+japan=$(jq -r '.entries[] | select(.topic=="japan") | .id' "$pmem")
+expect_eq "personal memory: private file, apart from the desktop memory" "600 0" "$(stat -c %a "$pmem") $(jq '.notes | length' "$mem")"
+out=$(call remember_about_user '{"topic":"Japan","text":"Going in April"}')
+expect_contains "remember_about_user: one entry per subject" "$out" "Call again with id $japan and the merged text"
+call remember_about_user "$(jq -nc --arg id "$japan" '{id: $id, topic: "japan", text: "Trip 2027-04 with Mai: Kyoto, Hakone, Osaka. JLPT N4 goal."}')" >/dev/null
+expect_eq "remember_about_user: the id updates the entry" "1 Trip 2027-04 with Mai: Kyoto, Hakone, Osaka. JLPT N4 goal." \
+  "$(jq -r '"\(.entries | length) \(.entries[0].text)"' "$pmem")"
+out=$(call remember_about_user '{"topic":"japan trip","text":"Booked the flight"}')
+expect_contains "remember_about_user: asks to merge entries on the same subject" "$out" "Other entries on this subject:
+- [$japan] japan (topic)"
+call forget_about_user "{\"id\":\"$(jq -r '.entries[] | select(.topic=="japan trip") | .id' "$pmem")\"}" >/dev/null
+call remember_about_user '{"topic":"me","kind":"profile","text":"Victor, lives in Paris, software engineer."}' >/dev/null
+soon=$(date -d '+5 days' +%F)
+call remember_about_user "{\"topic\":\"Mai's birthday\",\"kind\":\"event\",\"date\":\"$soon\",\"text\":\"Mai turns 30; a dinner out\"}" >/dev/null
+call remember_about_user '{"topic":"school","kind":"event","date":"2010","text":"Graduated in Lyon"}' >/dev/null
+call remember_about_user '{"topic":"guitar","text":"Learning fingerstyle on an acoustic guitar"}' >/dev/null
+expect_contains "remember_about_user: dates checked" "$(call remember_about_user '{"topic":"x","text":"y","date":"2026-13"}')" "is no date"
+expect_contains "remember_about_user: kinds checked" "$(call remember_about_user '{"topic":"x","text":"y","kind":"secret"}')" "kind: one of"
+expect_contains "remember_about_user: text capped" "$(call remember_about_user "$(jq -nc '{topic: "x", text: ("y" * 500)}')")" "longer than 400"
+expect_not_contains "personal memory: no word of it in the audit log" "$(tail -n 20 "$XDG_STATE_HOME/nixbook-shell/desktop-mcp.log")" "Kyoto"
+
+digest=$(python3 "$mcp" personal prompt)
+expect_contains "personal digest: the profile" "$digest" "Profile: Victor, lives in Paris"
+expect_contains "personal digest: events coming up" "$digest" "Mai's birthday, $soon (event)"
+expect_not_contains "personal digest: not old events in full" "$digest" "Graduated in Lyon"
+expect_not_contains "personal digest: the other entries not in full" "$digest" "fingerstyle"
+expect_contains "personal digest: the other subjects by name" "$digest" "guitar"
+expect_contains "personal digest: the entries about the message in full" "$(python3 "$mcp" personal prompt "what should I pack for Japan")" "About this message:
+- [$japan] japan (topic): Trip 2027-04"
+echo '{"personalPromptChars":150}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+chars=$(python3 "$mcp" personal prompt | python3 -c 'import sys; print(len(sys.stdin.read().rstrip("\n")))')
+if [ "$chars" -le 150 ]; then pass "personal digest: capped ($chars chars)"; else fail "personal digest: capped" "$chars chars"; fi
+rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+
+out=$(python3 "$mcp" personal context "I booked the flight to Kyoto")
+expect_eq "personal context: the entries a message is about" "[\"$japan\"]" "$(jq -c .ids <<<"$out")"
+expect_contains "personal context: their text" "$(jq -r .text <<<"$out")" "japan (topic): Trip 2027-04"
+expect_eq "personal context: not those sent already" '[]' "$(python3 "$mcp" personal context --exclude "abc,$japan" "Kyoto again" | jq -c .ids)"
+
+out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | NIXBOOK_DESKTOP_MCP_QUERY="japan budget" python3 "$mcp")
+instr=$(jq -r .result.instructions <<<"$out")
+expect_contains "instructions: how to keep the personal memory" "$instr" "Personal memory: you remember the user across conversations"
+expect_contains "instructions: the entries about the task" "$instr" "[$japan] japan (topic)"
+out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | NIXBOOK_DESKTOP_MCP_QUERY="japan budget" NIXBOOK_DESKTOP_MCP_PERSONAL=shell python3 "$mcp")
+expect_not_contains "instructions: the shell's chat sends them itself" "$(jq -r .result.instructions <<<"$out")" "[$japan] japan (topic)"
+# Another client that outlives a message: a new message's entries come with the next reply, once.
+echo "send Alesio a message" >"$task"
+out=$({
+  printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
+  task_call 2
+  sleep 1
+  echo "any tips for my guitar practice" >"$task"
+  task_call 3
+  task_call 4
+} | NIXBOOK_DESKTOP_MCP_QUERY_FILE="$task" python3 "$mcp")
+expect_not_contains "task file: no personal entry for an unrelated message" "$(jq -c 'select(.id==2).result.content' <<<"$out")" "Memory about the user"
+expect_contains "task file: a new message's personal entries with the next reply" "$(jq -r 'select(.id==3).result.content[0].text' <<<"$out")" "Memory about the user for this message:
+- ["
+expect_not_contains "task file: personal entries once" "$(jq -c 'select(.id==4).result.content' <<<"$out")" "Memory about the user"
+out=$({
+  printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
+  sleep 1
+  echo "more guitar tips" >"$task"
+  task_call 2
+} | NIXBOOK_DESKTOP_MCP_QUERY_FILE="$task" NIXBOOK_DESKTOP_MCP_PERSONAL=shell python3 "$mcp")
+expect_not_contains "task file: not from the server when the shell's chat sends them" "$(jq -c 'select(.id==2).result.content' <<<"$out")" "Memory about the user"
+python3 "$mcp" pause >/dev/null
+expect_contains "personal memory: not the desktop, so not paused" "$(call recall_about_user '{"query":"guitar"}')" "fingerstyle"
+python3 "$mcp" resume >/dev/null
+expect_contains "recall_about_user: every subject" "$(call recall_about_user '{}')" "me (profile) ["
+expect_contains "recall_about_user: nothing" "$(call recall_about_user '{"query":"chess"}')" "nothing remembered about 'chess'"
+echo '{"tools":["observe"]}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 "$mcp")
+expect_not_contains "personal memory: not sent with the group turned off" "$(jq -r .result.instructions <<<"$out")" "Personal memory"
+expect_eq "personal context: nothing with the group turned off" '[]' "$(python3 "$mcp" personal context "Kyoto" | jq -c .ids)"
+rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+python3 "$mcp" personal forget "$japan" >/dev/null
+expect_eq "personal forget" 0 "$(jq --arg id "$japan" '[.entries[] | select(.id==$id)] | length' "$pmem")"
+python3 "$mcp" personal clear >/dev/null
+expect_eq "personal clear" 0 "$(jq '.entries | length' "$pmem")"
 
 # -- the state file the bar widget reads ------------------------------------------------------
 
