@@ -132,15 +132,29 @@ Singleton {
         if (!parts.every(p => ["notes", "usage", "aliases", "all"].includes(p))) return;
         root.memoryCommand(["clear", ...parts]);
     }
+    // What agents remember about the user's life (Settings > Desktop agents >
+    // About you), as `nixbook-desktop-mcp personal show` prints.
+    property var personal: []
+    function refreshPersonal() {
+        if (!personalReader.running) personalReader.running = true;
+    }
+    function forgetPersonal(id) {
+        if (!/^[0-9a-f]{1,16}$/.test(id ?? "")) return;
+        root.memoryCommand(["forget", id], "personal");
+    }
+    function clearPersonal() {
+        root.memoryCommand(["clear"], "personal");
+    }
     // One command at a time, in order (quick clicks queue up).
     property var memoryQueue: []
-    function memoryCommand(args) {
-        root.memoryQueue = [...root.memoryQueue, ["nixbook-desktop-mcp", "memory", ...args]];
+    function memoryCommand(args, part) {
+        root.memoryQueue = [...root.memoryQueue, ["nixbook-desktop-mcp", part ?? "memory", ...args]];
         if (!memoryWriter.running) root.nextMemoryCommand();
     }
     function nextMemoryCommand() {
         if (root.memoryQueue.length === 0) {
             root.refreshMemory();
+            root.refreshPersonal();
             return;
         }
         memoryWriter.command = root.memoryQueue[0];
@@ -157,6 +171,20 @@ Singleton {
                     root.memory = JSON.parse(text);
                 } catch (e) {
                     console.warn("[DesktopControl] can't read the desktop memory:", e);
+                }
+            }
+        }
+    }
+    Process {
+        id: personalReader
+        command: ["nixbook-desktop-mcp", "personal", "show"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const entries = JSON.parse(text);
+                    if (Array.isArray(entries)) root.personal = entries;
+                } catch (e) {
+                    console.warn("[DesktopControl] can't read the personal memory:", e);
                 }
             }
         }

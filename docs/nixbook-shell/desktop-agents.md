@@ -13,15 +13,16 @@ Desktop control **starts paused**. Allow it with the bar's Desktop Control widge
 
 ## What agents can do
 
-| Group     | Tools                                                                                                                                                                                                                                                     |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `observe` | List windows, workspaces and apps                                                                                                                                                                                                                         |
-| `screen`  | Silent screenshots (a monitor, a zoomed-in region, a window); **OCR** of the screen with positions to click (~150 tokens instead of ~1,250 for a screenshot); the clipboard; recent notifications as text; save screenshots and record the screen for you |
-| `windows` | Focus, move, resize, close windows; launch apps (waits for the window); [window layouts](./window-layouts)                                                                                                                                                |
-| `input`   | Type, press keys, click, drag, scroll — exact to the pixel on any monitor and scale; up to 20 steps in one call (`run_steps`)                                                                                                                             |
-| `ui`      | Read any app's window through its **accessibility tree** (buttons, fields, labels as numbered text lines) and press, toggle or fill elements without coordinates; wait for an element to appear or disappear                                              |
-| `shell`   | Themes and variants, the wallpaper, **desktop widgets** (notes, to-do, timers, alarms, images, music recognition), the **equalizer**, the **calendar** (read-only), notifications, shell panels                                                           |
-| `memory`  | [Desktop memory](#desktop-memory): remember, recall, forget                                                                                                                                                                                               |
+| Group      | Tools                                                                                                                                                                                                                                                     |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `observe`  | List windows, workspaces and apps                                                                                                                                                                                                                         |
+| `screen`   | Silent screenshots (a monitor, a zoomed-in region, a window); **OCR** of the screen with positions to click (~150 tokens instead of ~1,250 for a screenshot); the clipboard; recent notifications as text; save screenshots and record the screen for you |
+| `windows`  | Focus, move, resize, close windows; launch apps (waits for the window); [window layouts](./window-layouts)                                                                                                                                                |
+| `input`    | Type, press keys, click, drag, scroll — exact to the pixel on any monitor and scale; up to 20 steps in one call (`run_steps`)                                                                                                                             |
+| `ui`       | Read any app's window through its **accessibility tree** (buttons, fields, labels as numbered text lines) and press, toggle or fill elements without coordinates; wait for an element to appear or disappear                                              |
+| `shell`    | Themes and variants, the wallpaper, **desktop widgets** (notes, to-do, timers, alarms, images, music recognition), the **equalizer**, the **calendar** (read-only), notifications, shell panels                                                           |
+| `memory`   | [Desktop memory](#desktop-memory): remember, recall, forget                                                                                                                                                                                               |
+| `personal` | [Personal memory](#personal-memory): what you told agents about your life                                                                                                                                                                                 |
 
 Agents are told to read through OCR or the accessibility tree before taking a screenshot, and screenshots are JPEG and **incremental** — only what changed since the agent's last one — to keep each call cheap. Action tools can return a screenshot of the result in the same call, once the screen stops changing.
 
@@ -52,6 +53,21 @@ Only the relevant part reaches a model: when an agent connects it gets a short d
 - `nixbook-desktop-mcp memory show|prompt|forget ID|clear`.
 - Stored in `~/.local/state/nixbook-shell/desktop-memory.json` (private).
 
+## Personal memory
+
+Tell Claude in the side panel (or any agent) about your life — a trip you're planning, someone close to you, an event coming up — and later conversations know it. Agents keep **the meaningful part**, without asking: a few condensed facts, never a transcript, small talk, one-off requests or secrets. Ask them to remember or forget something, or what they know about you.
+
+It is organised so it costs few tokens:
+
+- **one entry per subject** ("japan", "work", "Lan (sister)"), at most 400 characters, merged as things change (agents must update the existing entry rather than add another);
+- each entry is your **profile** (who you are: sent in every conversation, so kept short), a **person**, an **event** (with a date) or a **topic**;
+- a conversation starts with your profile, the events coming up or just past, and the other subjects **by name only** (about 900 characters at most);
+- when you talk about a subject, its entry comes with your message: say "I booked the flight to Kyoto" and the "japan" entry is there, so Claude can update it.
+
+- **Settings → Desktop agents → About you** shows the entries (delete any, or all).
+- `nixbook-desktop-mcp personal show|prompt|forget ID|clear`.
+- Stored in `~/.local/state/nixbook-shell/personal-memory.json` (private), apart from the desktop memory. Its tools work while desktop control is paused (they don't touch the desktop), and the audit log never has their text.
+
 ## HTTP transport
 
 Over stdio nothing listens anywhere. For an agent that can only reach a URL, `programs.nixbook-shell.desktopMcp.http.enable` runs the server at `http://127.0.0.1:7823/mcp`:
@@ -72,6 +88,6 @@ programs.nixbook-shell.desktopMcp.settings = {
 };
 ```
 
-Written to `~/.config/nixbook-shell/desktop-mcp.json`; `nixbook-desktop-mcp config` prints what applies. Other keys tune screenshots (`screenshotFormat`, `screenshotQuality`, `screenshotMaxEdge`) and memory (`memoryPromptChars`, `memoryMaxNotes`).
+Written to `~/.config/nixbook-shell/desktop-mcp.json`; `nixbook-desktop-mcp config` prints what applies. Other keys tune screenshots (`screenshotFormat`, `screenshotQuality`, `screenshotMaxEdge`) and memory (`memoryPromptChars`, `memoryMaxNotes`, `personalPromptChars`, `personalMaxEntries`).
 
 The `ui` group needs the accessibility bus (`customNixOSModules.niri.accessibility`, on by default); the module sets the variables that make Firefox-based and Chromium/Electron apps publish their tree (apps started before need a restart).

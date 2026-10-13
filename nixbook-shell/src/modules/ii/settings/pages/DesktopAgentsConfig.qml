@@ -14,7 +14,10 @@ ContentPage {
     id: page
     forceWidth: true
 
-    Component.onCompleted: DesktopControl.refreshMemory()
+    Component.onCompleted: {
+        DesktopControl.refreshMemory();
+        DesktopControl.refreshPersonal();
+    }
 
     function goTo(term) {
         const t = term.toLowerCase().trim()
@@ -485,6 +488,96 @@ ContentPage {
                     materialIcon: "refresh"
                     mainText: Translation.tr("Refresh")
                     onClicked: DesktopControl.refreshMemory()
+                }
+            }
+        }
+
+        ContentSection {
+            icon: "person_book"
+            title: Translation.tr("About you")
+            shape: MaterialShape.Shape.Cookie4Sided
+
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("What you told agents about your life — events, plans, people, interests — so later conversations know it. They keep the meaningful parts, one entry per subject, merged as things change. Only what a conversation needs is sent: your profile, events coming up, and the entries about what you're talking about; the rest by subject only. Kept apart from the desktop memory; delete anything.")
+            }
+
+            StyledText {
+                visible: DesktopControl.personal.length === 0
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("Nothing yet. Tell Claude in the side panel about yourself, or ask it to remember something.")
+            }
+
+            Repeater {
+                model: [...DesktopControl.personal].sort((a, b) =>
+                    ((a.kind === "profile" ? 0 : 1) - (b.kind === "profile" ? 0 : 1)) || (b.updated ?? 0) - (a.updated ?? 0))
+                delegate: Rectangle {
+                    id: entryRow
+                    required property var modelData
+                    Layout.fillWidth: true
+                    implicitHeight: entryLayout.implicitHeight + 20
+                    radius: Appearance.rounding.normal
+                    color: Appearance.colors.colLayer1
+
+                    RowLayout {
+                        id: entryLayout
+                        anchors { fill: parent; margins: 10; leftMargin: 14 }
+                        spacing: 10
+
+                        MaterialSymbol {
+                            text: ({ profile: "badge", person: "person", event: "event" })[entryRow.modelData.kind] ?? "label"
+                            iconSize: Appearance.font.pixelSize.larger
+                            color: Appearance.colors.colOnLayer1
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+                            StyledText {
+                                Layout.fillWidth: true
+                                text: entryRow.modelData.topic + (entryRow.modelData.date ? ` · ${entryRow.modelData.date}` : "")
+                                font.weight: Font.DemiBold
+                                color: Appearance.colors.colOnLayer1
+                            }
+                            StyledText {
+                                Layout.fillWidth: true
+                                wrapMode: Text.Wrap
+                                maximumLineCount: 5
+                                elide: Text.ElideRight
+                                text: entryRow.modelData.text
+                                font.pixelSize: Appearance.font.pixelSize.small
+                                color: Appearance.colors.colOnLayer1
+                            }
+                            StyledText {
+                                text: Translation.tr("by %1 · %2 · used %3 times")
+                                    .arg(entryRow.modelData.client ?? "?")
+                                    .arg(page.ago(entryRow.modelData.updated))
+                                    .arg(entryRow.modelData.uses ?? 0)
+                                font.pixelSize: Appearance.font.pixelSize.smaller
+                                color: Appearance.colors.colSubtext
+                            }
+                        }
+                        SmallButton {
+                            materialIcon: "delete"
+                            mainText: Translation.tr("Delete")
+                            onClicked: DesktopControl.forgetPersonal(entryRow.modelData.id)
+                        }
+                    }
+                }
+            }
+
+            RowLayout {
+                spacing: 8
+                SmallButton {
+                    materialIcon: "delete_sweep"
+                    mainText: Translation.tr("Forget everything")
+                    onClicked: DesktopControl.clearPersonal()
+                }
+                SmallButton {
+                    materialIcon: "refresh"
+                    mainText: Translation.tr("Refresh")
+                    onClicked: DesktopControl.refreshPersonal()
                 }
             }
         }

@@ -310,6 +310,12 @@ let
       de = "KI-Agenten führen ein Gedächtnis dieses Desktops, damit wiederholte Aufgaben schneller gehen: Notizen, die sie schreiben (App-Tastenkürzel, wo Dinge sind, Rezepte), gelernte App-Namen und was genutzt wird. Jeder Agent bekommt es beim Verbinden als Hinweise. Ansehen, löschen oder leeren unter Einstellungen > Desktop-Agenten > Desktop-Gedächtnis oder mit nixbook-desktop-mcp memory show.";
       vi = "Các tác nhân AI giữ một bộ nhớ về màn hình này để các việc lặp lại nhanh hơn: ghi chú chúng viết (phím tắt ứng dụng, vị trí các thứ, công thức), tên ứng dụng đã học và những gì được dùng. Mỗi tác nhân nhận nó khi kết nối, dưới dạng gợi ý. Xem, xóa hoặc dọn sạch trong Cài đặt > Tác nhân màn hình > Bộ nhớ màn hình, hoặc bằng nixbook-desktop-mcp memory show.";
     };
+    personalMemory = {
+      en = "Claude in the side panel remembers what you tell it about your life (events, plans, people, interests) across conversations: it keeps the meaningful parts, one entry per subject, and gets only what a conversation needs (your profile, events coming up, the entries about what you talk about). Ask it to remember or forget something; review or delete entries in Settings > Desktop agents > About you, or with nixbook-desktop-mcp personal show.";
+      fr = "Claude dans le panneau latéral se souvient de ce que vous lui dites de votre vie (événements, projets, proches, centres d'intérêt) d'une conversation à l'autre : il garde l'essentiel, une entrée par sujet, et ne reçoit que ce dont une conversation a besoin (votre profil, les événements à venir, les entrées sur ce dont vous parlez). Demandez-lui de retenir ou d'oublier quelque chose ; consultez ou supprimez les entrées dans Paramètres > Agents du bureau > À propos de vous, ou avec nixbook-desktop-mcp personal show.";
+      de = "Claude in der Seitenleiste merkt sich über Gespräche hinweg, was du ihm über dein Leben erzählst (Ereignisse, Pläne, Menschen, Interessen): Es behält das Wesentliche, einen Eintrag pro Thema, und bekommt nur, was ein Gespräch braucht (dein Profil, anstehende Ereignisse, die Einträge zu dem, worüber du sprichst). Bitte es, sich etwas zu merken oder zu vergessen; Einträge ansehen oder löschen unter Einstellungen > Desktop-Agenten > Über dich oder mit nixbook-desktop-mcp personal show.";
+      vi = "Claude trong bảng bên ghi nhớ những gì bạn kể về cuộc sống của mình (sự kiện, kế hoạch, người thân, sở thích) qua các cuộc trò chuyện: nó giữ những phần quan trọng, mỗi chủ đề một mục, và chỉ nhận những gì cuộc trò chuyện cần (hồ sơ của bạn, sự kiện sắp tới, các mục về điều bạn đang nói). Hãy bảo nó nhớ hoặc quên điều gì đó; xem hoặc xóa các mục trong Cài đặt > Tác nhân màn hình > Về bạn, hoặc bằng nixbook-desktop-mcp personal show.";
+    };
   };
 
   # Generic answers to "how do I …" questions; the configuration's own way
@@ -650,6 +656,7 @@ in
                 "input"
                 "shell"
                 "memory"
+                "personal"
                 "ui"
               ]
             );
@@ -660,6 +667,7 @@ in
               "input"
               "shell"
               "memory"
+              "personal"
               "ui"
             ];
             description = ''
@@ -669,7 +677,9 @@ in
               (focus, move, close, launch apps), `input` (keyboard, pointer,
               writing the clipboard), `shell` (the shell's IPC, notifications),
               `memory` (notes agents keep about this desktop, and the digest of
-              it they get when they connect), `ui` (any app's window as text
+              it they get when they connect), `personal` (what you tell
+              agents about your life, remembered across conversations: an
+              entry per subject, only the relevant part sent), `ui` (any app's window as text
               through its accessibility tree, and acting on its elements;
               needs the accessibility bus, nixbook's `niri.accessibility`, and
               sets `GNOME_ACCESSIBILITY` and `ACCESSIBILITY_ENABLED` so
