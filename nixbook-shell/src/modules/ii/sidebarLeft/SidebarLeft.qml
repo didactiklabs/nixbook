@@ -165,9 +165,22 @@ Scope { // Scope
                         // key — typing, Ctrl+O/P/D — went nowhere until a click.
                         Qt.callLater(() => root.sidebarContent?.focusActiveItem());
                     } else {
+                        GlobalStates.sidebarLeftPeek = false;
                         closeAnimTimer.restart();
                     }
                 }
+            }
+
+            // Opened as a peek (edge handle hover): close once the pointer has
+            // been outside the panel a moment — beside it in this window (not
+            // the edge margin it was opened from) or anywhere else on screen.
+            Timer {
+                interval: 350
+                running: GlobalStates.sidebarLeftOpen && GlobalStates.sidebarLeftPeek && !root.pin
+                    && ((outsideClickArea.containsMouse
+                         && outsideClickArea.mouseX > sidebarLeftBackground.x + sidebarLeftBackground.width)
+                        || GlobalFocusGrab.pointerOutside)
+                onTriggered: panelWindow.hide()
             }
 
             Timer {

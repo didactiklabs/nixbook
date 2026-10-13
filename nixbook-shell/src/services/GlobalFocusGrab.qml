@@ -109,6 +109,13 @@ Singleton {
     // Top layer (dismissable popups live on Overlay, so they stay above it),
     // with the bar cut out so bar widgets keep working in one click.
     readonly property bool catcherActive: root.dismissable.length > 0
+    // The pointer is over a catcher, i.e. outside every popup and the bar
+    // (sidebars opened by hover close on it).
+    // Reset when the catchers go away: an unmapped surface may never get
+    // its leave event.
+    property int catchersHovered: 0
+    readonly property bool pointerOutside: root.catcherActive && root.catchersHovered > 0
+    onCatcherActiveChanged: if (!root.catcherActive) root.catchersHovered = 0
     readonly property bool barVertical: Config.options?.bar?.vertical ?? false
     readonly property bool barBottom: Config.options?.bar?.bottom ?? false
     readonly property real barThickness: (root.barVertical ? Appearance.sizes.verticalBarWidth : Appearance.sizes.barHeight) + (Appearance.sizes.gapsOut ?? 0)
@@ -142,6 +149,8 @@ Singleton {
                 id: catchArea
                 anchors.fill: parent
                 acceptedButtons: Qt.AllButtons
+                hoverEnabled: true
+                onContainsMouseChanged: root.catchersHovered = Math.max(0, root.catchersHovered + (containsMouse ? 1 : -1))
                 onPressed: root.dismiss()
             }
         }

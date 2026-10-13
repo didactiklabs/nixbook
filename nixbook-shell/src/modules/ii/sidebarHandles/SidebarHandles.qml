@@ -9,8 +9,9 @@ import Quickshell.Wayland
 /**
  * Edge handles for the sidebars: a small pill (EdgePill) half-way down the
  * left and right screen edges of the focused monitor, where the sidebars
- * open. Hovering one a moment (sidebar.edgeHandles.hoverToOpen) or clicking
- * it opens that sidebar. Each is a tiny surface with no exclusive zone, so
+ * open. Clicking one opens that sidebar; hovering it a moment
+ * (sidebar.edgeHandles.hoverToOpen) opens it as a peek, which closes again
+ * when the pointer leaves the sidebar. Each is a tiny surface with no exclusive zone, so
  * windows keep the whole screen; only a 6px strip of it takes input.
  * Hidden while its sidebar is open, on fullscreen and on the lock screen.
  */
@@ -30,9 +31,14 @@ Scope {
             && !WM.fullscreenOnMonitor(monitor?.name)
         readonly property bool hovered: shown && hitArea.containsMouse
 
-        function open() {
-            if (right) GlobalStates.sidebarRightOpen = true;
-            else GlobalStates.sidebarLeftOpen = true;
+        function open(peek) {
+            if (right) {
+                GlobalStates.sidebarRightPeek = peek;
+                GlobalStates.sidebarRightOpen = true;
+            } else {
+                GlobalStates.sidebarLeftPeek = peek;
+                GlobalStates.sidebarLeftOpen = true;
+            }
         }
 
         anchors.left: !right
@@ -60,13 +66,13 @@ Scope {
             width: containsMouse ? parent.width : 6
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: handleWindow.open()
+            onClicked: handleWindow.open(false)
         }
 
         Timer {
             interval: 250
             running: handleWindow.hovered && (root.cfg?.hoverToOpen ?? true)
-            onTriggered: handleWindow.open()
+            onTriggered: handleWindow.open(true)
         }
 
         EdgePill {
