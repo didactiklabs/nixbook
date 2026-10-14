@@ -1013,6 +1013,21 @@ in
           settings.Keywords = "settings;preferences;shell;nixbook;bar;dock;theme;wallpaper;persona;";
         };
 
+        # Launcher entry for the Tasks window (the to-do list, Google Tasks-like).
+        xdg.desktopEntries.nixbook-shell-tasks = {
+          name = "Tasks";
+          genericName = "To-do list";
+          comment = "Your tasks and their deadlines (Google Tasks once an account is connected)";
+          exec = "${lib.getExe cfg.package} ipc call tasks open";
+          icon = "x-office-calendar";
+          terminal = false;
+          categories = [
+            "Office"
+            "ProjectManagement"
+          ];
+          settings.Keywords = "tasks;todo;to-do;google tasks;deadline;checklist;";
+        };
+
         home.packages = [
           cfg.package
           cfg.package.passthru.quickshell

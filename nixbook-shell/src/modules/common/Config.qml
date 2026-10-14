@@ -462,6 +462,9 @@ Singleton {
                     property JsonObject todo: JsonObject {
                         property bool enable: false
                         property string placementStrategy: "free"
+                        // Resized from its corner (per monitor too).
+                        property real width: 340
+                        property real height: 380
                         property real x: 400
                         property real y: 100
                         property real z: 0

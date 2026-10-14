@@ -134,8 +134,19 @@ service) and keeps every calendar surface in sync:
   desktop widget (`background.widgets.nextEvent`: the next one large with a
   Join button, the three after it);
 - tasks: the to-do list (sidebar, desktop widget, bar clock popup, the
-  launcher's "add task") is the account's task list (Google Tasks…) once one
-  is connected, a local list before that (`src/services/Todo.qml`);
+  launcher's "add task") is the account's task lists (Google Tasks…) once one
+  is connected, a local list before that (`src/services/Todo.qml`). The
+  **Tasks** window (`src/modules/ii/tasks/`, Google Tasks-like; launcher entry
+  "Tasks", `nixbook-shell ipc call tasks open|toggle|close`) shows each list
+  as a column (subtasks under their parent, "Completed" folded) and a
+  "Deadlines" column of every dated task (Overdue, Today, Tomorrow, Next 7
+  days, Later); a task opens its details (title, notes, deadline, list:
+  moving one recreates it in the other list, dcal can't move tasks), "Create"
+  (Ctrl+N) adds one to any list with a deadline. The desktop to-do widget
+  lists open tasks by deadline (overdue in red), opens the window on a click,
+  adds tasks to any list with a deadline, and resizes from its corner
+  (`background.widgets.todo.width`/`height`, per monitor); new Google task
+  lists are made in Google Tasks or DankCalendar;
 - reminders: DankCalendar's own notifications (before each event, at its
   Google reminder times or 10 minutes before; Join, Open, Snooze, Dismiss),
   shown by the shell's notification server and silenced by Do Not Disturb.
