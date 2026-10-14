@@ -2,13 +2,13 @@
 """Generate the Chiikawa theme's art for each variant: a scattered pattern of
 tiny stars, hearts and dots for the sidebars' background (<variant>-tall.svg)
 and its default wallpaper (<variant>-wallpaper.svg, themes.json `wallpaper`),
-with the three friends (friends.gif: Momonga, momonga.gif as is, with
-Chiikawa and Usagi beside him, made by friends.py) standing on a hill.
+with the three friends (chiikawa.gif, momonga.gif and usagi.gif, each as
+is) standing on a hill.
 
 Colours come from each variant's palette in modules/common/themes.json
 (accent, stripe, blush, line, surfaces), so the art follows the theme's single
 definition. qml.nix rasterises the SVGs to PNG with resvg, which reads the
-GIF's first frame next to the SVG.
+GIFs' first frames next to the SVG.
 Run: python3 generate.py
 """
 import json
@@ -54,11 +54,16 @@ def svg(w, h, body):
 
 
 # -------------------------------------------------------------- character
-# The characters: Momonga's animated GIF (momonga.gif) with his two friends
-# beside him (friends.gif, friends.py), used by ChiikawaMascot for every
-# variant; the wallpapers show its first frame.
-CHARACTER = "friends.gif"
-CHARACTER_SIZE = (460, 177)
+# The characters: Chiikawa, Momonga and Usagi's animated GIFs side by side
+# in a 407x151 frame, as ChiikawaMascot shows them for every variant
+# (Chiikawa.qml friendsLayout: keep the two in step); the wallpapers show
+# their first frames.
+FRIENDS_SIZE = (407, 151)
+FRIENDS = (
+    ("chiikawa.gif", 0, 18, 144, 132),
+    ("momonga.gif", 93, 0, 200, 151),
+    ("usagi.gif", 273, 2, 134, 144),
+)
 
 
 # ---------------------------------------------------------------- pattern
@@ -123,12 +128,14 @@ def wallpaper(p, seed):
             body.append(heart(x, y, rnd.uniform(7, 14), color, 0.5))
         else:
             body.append(ellipse(x, y, rnd.uniform(3, 7), rnd.uniform(3, 7), color, opacity=0.45))
-    # the hill, and the character on it (the GIF's first frame, scaled)
+    # the hill, and the friends on it (the GIFs' first frames, scaled)
     body.append(ellipse(1340, 1180, 900, 330, p["surface4"]))
     body.append(ellipse(1340, 1200, 860, 300, p["surface3"], opacity=0.7))
     body.append(ellipse(1400, 882, 290, 22, p["line"], opacity=0.12))
-    cw, ch = (x * 1.45 for x in CHARACTER_SIZE)
-    body.append(f'<image x="{f(1400 - cw / 2)}" y="{f(892 - ch)}" width="{f(cw)}" height="{f(ch)}" href="{CHARACTER}"/>')
+    k = 1.45 * 460 / FRIENDS_SIZE[0]
+    x0, y0 = 1400 - FRIENDS_SIZE[0] * k / 2, 892 - FRIENDS_SIZE[1] * k
+    for name, x, y, iw, ih in FRIENDS:
+        body.append(f'<image x="{f(x0 + x * k)}" y="{f(y0 + y * k)}" width="{f(iw * k)}" height="{f(ih * k)}" href="{name}"/>')
     return svg(w, h, body)
 
 
