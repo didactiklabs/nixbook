@@ -14,8 +14,9 @@ import Quickshell
  * Variants: momonga (periwinkle), usagi (yellow), chiikawa (cream and pink).
  * The character is the same animated GIF for every variant
  * (assets/chiikawa/momonga.gif); where there is room (the loading screen,
- * the alert, the wallpapers) it is the three friends (friends.gif: Momonga
- * with Chiikawa and Usagi beside him, friends.py); the rest of the art is drawn by
+ * the alert, the wallpapers) it is the three friends: Chiikawa
+ * (chiikawa.gif), Momonga and Usagi (usagi.gif) side by side, each GIF as
+ * is (friendsLayout); the rest of the art is drawn by
  * assets/chiikawa/generate.py, rasterised to PNG when the package is built
  * (qml.nix).
  */
@@ -32,11 +33,19 @@ Singleton {
     function mascotUrl() {
         return Quickshell.shellPath("assets/chiikawa/momonga.gif");
     }
-    // Momonga with Chiikawa and Usagi: 460x177.
-    function friendsUrl() {
-        return Quickshell.shellPath("assets/chiikawa/friends.gif");
+    // The three friends in a 407x151 frame, feet on one line (y 143):
+    // Momonga at his own size, his friends at 0.72 of theirs. Mirrored by
+    // assets/chiikawa/generate.py for the wallpapers.
+    readonly property size friendsSize: Qt.size(407, 151)
+    readonly property var friendsLayout: [
+        { file: "chiikawa.gif", x: 0, y: 18, width: 144, height: 132 },
+        { file: "momonga.gif", x: 93, y: 0, width: 200, height: 151 },
+        { file: "usagi.gif", x: 273, y: 2, width: 134, height: 144 },
+    ]
+    function friendUrl(file) {
+        return Quickshell.shellPath(`assets/chiikawa/${file}`);
     }
-    readonly property real friendsAspect: 460 / 177
+    readonly property real friendsAspect: root.friendsSize.width / root.friendsSize.height
     function patternUrl(variant) {
         return Quickshell.shellPath(`assets/chiikawa/${variant ?? root.variant}-tall.png`);
     }
@@ -44,7 +53,7 @@ Singleton {
     // Keep the current variant's art decoded (served from the pixmap cache
     // when a sidebar opens), only while the theme is on.
     Instantiator {
-        model: root.mascot ? [root.mascotUrl(), root.friendsUrl(), root.patternUrl()] : []
+        model: root.mascot ? [...root.friendsLayout.map(f => root.friendUrl(f.file)), root.patternUrl()] : []
         delegate: Image {
             required property string modelData
             source: modelData

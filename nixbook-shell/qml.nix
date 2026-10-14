@@ -159,7 +159,7 @@ pkgs.stdenvNoCC.mkDerivation {
     done
     # Chiikawa theme art (assets/chiikawa/*.svg, generate.py): the sidebar
     # patterns and the wallpapers (1920x1080 viewBox: 4K). The character is
-    # momonga.gif and friends.gif, shipped as they are.
+    # chiikawa.gif, momonga.gif and usagi.gif, shipped as they are.
     for svg in assets/chiikawa/*.svg; do
       resvg --zoom 2 "$svg" "''${svg%.svg}.png"
     done

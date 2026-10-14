@@ -798,10 +798,9 @@ shell (`Themes.qml`), the Nix options (`lib.nix`), the login screen
 The Chiikawa character is an animated GIF of Momonga
 (`src/assets/chiikawa/momonga.gif`), the same for every variant; where
 there is room (the loading screen, the alert, the wallpapers) it is the three
-friends, `friends.gif`: Momonga's frames as they are, with Chiikawa swaying
-and Usagi hopping beside him, drawn by `src/assets/chiikawa/friends.py`
-(committed; rerun it with Pillow and resvg after changing the drawing); the rest of
-its art (the sidebar patterns and the wallpapers, the GIF's first frame on a
+friends side by side, each its own GIF as is: `chiikawa.gif`, `momonga.gif`
+and `usagi.gif` (laid out by `Chiikawa.friendsLayout`); the rest of
+its art (the sidebar patterns and the wallpapers, the GIFs' first frames on a
 hill) is drawn by `src/assets/chiikawa/generate.py` from the variants'
 palettes; rerun it after changing them. Its sounds are synthesized when the package is built
 (`src/assets/chiikawa/sounds.py`, no audio file in git): the chimes, with
