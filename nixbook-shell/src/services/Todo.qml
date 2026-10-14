@@ -1,6 +1,7 @@
 pragma Singleton
 pragma ComponentBehavior: Bound
 
+import qs
 import qs.modules.common
 import Quickshell;
 import Quickshell.Io;
@@ -15,7 +16,8 @@ import QtQuick;
  * task list (CalendarEvents.taskLists: Google Tasks, CalDAV VTODO…), the
  * list is that account's tasks, and adding, editing, ticking and deleting go
  * through dcal, which syncs them: `synced` is true and items also carry
- * "id", "uid" and "parentUid" (subtasks). New tasks go to the list asked
+ * "uid" and "parentUid" (subtasks); every item has an "id" (dcal's, or a
+ * local one; "" while a new synced task waits for its reload). New tasks go to the list asked
  * for, else the first one (Google's "My Tasks"). Otherwise it is the local
  * list in Directories.todoPath, as before (one list, `localListId`); that
  * file is left alone while synced.
@@ -147,8 +149,13 @@ Singleton {
             CalendarEvents.call("tasks.create", params, () => root.reloadRemote())
             return
         }
+        full.id = root._newLocalId()
         root._localList.push(full)
         root._saveLocal()
+    }
+
+    function _newLocalId() {
+        return `local-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`
     }
 
     // `options`: { listId, notes, due (Date) }, all optional.
@@ -329,6 +336,7 @@ Singleton {
             const fileContents = todoFileView.text()
             // JSON keeps dates as strings; older files have no list or notes.
             root._localList = JSON.parse(fileContents).map(t => Object.assign(t, {
+                id: t.id || root._newLocalId(),
                 listId: root.localListId,
                 notes: t.notes ?? "",
                 due: t.due ? new Date(t.due) : null,
@@ -360,13 +368,218 @@ Singleton {
         return "";
     }
 
+    // -- Agents (the desktop MCP server's `tasks` tool) ------------------
+    // Requests and replies travel through files (a large IPC message can
+    // wedge Quickshell's IPC), like the notes': only tasks-*.json directly in
+    // the MCP server's private runtime directory.
+    readonly property string transferDir: `${Quickshell.env("XDG_RUNTIME_DIR")}/nixbook-desktop-mcp/`
+    function _isTransferPath(path) {
+        if (typeof path !== "string" || !path.startsWith(root.transferDir + "tasks-"))
+            return false
+        return /^tasks-[A-Za-z0-9_-]{1,64}\.json$/.test(path.slice(root.transferDir.length))
+    }
+
+    function _dayKey(date) {
+        const pad = n => (n < 10 ? "0" : "") + n
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+    }
+
+    // Everything an agent needs to organize the tasks: the lists (with
+    // their counts) and every task, by id.
+    function agentState() {
+        const byUid = {}
+        for (const t of root.list) if (t.uid) byUid[t.uid] = t
+        return {
+            synced: root.synced,
+            today: root._dayKey(new Date()),
+            lists: root.lists.map(l => ({
+                id: l.id,
+                name: l.name,
+                open: root.list.filter(t => t.listId === l.id && !t.done).length,
+                completed: root.list.filter(t => t.listId === l.id && t.done).length,
+            })),
+            tasks: root.list.map(t => {
+                const out = {
+                    id: t.id || null,
+                    title: t.content,
+                    list: root.listName(t.listId),
+                    listId: t.listId,
+                    done: t.done,
+                    notes: t.notes ?? "",
+                    due: t.due ? root._dayKey(t.due) : null,
+                    deadline: t.done ? null : root.deadlineGroup(t),
+                }
+                const parent = t.parentUid ? byUid[t.parentUid] : null
+                if (parent) out.parent = parent.id
+                if (!t.id) out.syncing = true
+                return out
+            }),
+        }
+    }
+
+    function _findList(ref) {
+        if (ref === undefined || ref === null || ref === "") return null
+        const want = String(ref).toLowerCase()
+        return root.lists.find(l => l.id === ref) ?? root.lists.find(l => l.name.toLowerCase() === want) ?? null
+    }
+    // "YYYY-MM-DD", "today", "tomorrow", "+N" (days from today); null or ""
+    // clears. undefined: not given.
+    function _parseDue(value) {
+        if (value === undefined) return undefined
+        if (value === null || value === "") return null
+        const v = String(value).trim().toLowerCase()
+        const now = new Date()
+        const inDays = n => new Date(now.getFullYear(), now.getMonth(), now.getDate() + n)
+        if (v === "today") return inDays(0)
+        if (v === "tomorrow") return inDays(1)
+        let m = /^\+(\d{1,4})$/.exec(v)
+        if (m) return inDays(Number(m[1]))
+        m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v)
+        if (m) {
+            const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+            if (d.getMonth() === Number(m[2]) - 1) return d
+        }
+        throw `bad due date "${value}": YYYY-MM-DD, today, tomorrow, +N, or "" to clear`
+    }
+    function _findTask(ref) {
+        if (!ref) throw "which task? give its id (from list)"
+        const t = root.list.find(t => t.id === ref)
+        if (!t) throw `no task "${ref}" (list again: ids change once a moved or new task syncs)`
+        return t
+    }
+    function _text(value, what, max) {
+        if (typeof value !== "string") throw `${what} must be text`
+        const v = value.trim()
+        if (v.length > max) throw `${what}: at most ${max} characters`
+        return v
+    }
+
+    // One operation: { op: create | update | done | undone | delete | move
+    // | clear_completed | open, … }. Returns what it did; throws an error.
+    function agentOp(o) {
+        switch (o?.op) {
+        case "create": {
+            const title = root._text(o.title ?? "", "title", 1000)
+            if (!title) throw "create: needs a title"
+            const list = o.list !== undefined ? root._findList(o.list) : null
+            if (o.list !== undefined && !list) throw `no list "${o.list}": ${root.lists.map(l => l.name).join(", ")}`
+            const listId = list?.id ?? root.defaultListId
+            root.addTask(title, {
+                listId: listId,
+                notes: o.notes !== undefined ? root._text(o.notes, "notes", 8000) : "",
+                due: root._parseDue(o.due) ?? null,
+            })
+            return `created "${title}" in ${root.listName(listId)}`
+        }
+        case "update": {
+            const t = root._findTask(o.task)
+            if (root.synced && !t.id) throw "that task is still syncing, try again in a moment"
+            const changes = {}
+            if (o.title !== undefined) {
+                changes.content = root._text(o.title, "title", 1000)
+                if (!changes.content) throw "update: the title can't be empty"
+            }
+            if (o.notes !== undefined) changes.notes = root._text(o.notes ?? "", "notes", 8000)
+            const due = root._parseDue(o.due)
+            if (due !== undefined) changes.due = due
+            if (Object.keys(changes).length === 0) throw "update: give title, notes or due"
+            root.updateTask(t, changes)
+            return `updated "${t.content}"`
+        }
+        case "done":
+        case "undone": {
+            const t = root._findTask(o.task)
+            root.setTaskDone(t, o.op === "done")
+            return `${o.op === "done" ? "completed" : "reopened"} "${t.content}"`
+        }
+        case "delete": {
+            const t = root._findTask(o.task)
+            root.deleteTask(t)
+            return `deleted "${t.content}"`
+        }
+        case "move": {
+            const t = root._findTask(o.task)
+            const list = root._findList(o.list)
+            if (!list) throw `no list "${o.list}": ${root.lists.map(l => l.name).join(", ")}`
+            if (t.listId === list.id) return `"${t.content}" is already in ${list.name}`
+            root.moveTask(t, list.id)
+            return `moved "${t.content}" to ${list.name}`
+        }
+        case "clear_completed": {
+            const list = o.list !== undefined ? root._findList(o.list) : null
+            if (o.list !== undefined && !list) throw `no list "${o.list}": ${root.lists.map(l => l.name).join(", ")}`
+            const done = root.list.filter(t => t.done && (!list || t.listId === list.id))
+            for (const t of done) root.deleteTask(t)
+            return `deleted ${done.length} completed task${done.length === 1 ? "" : "s"}`
+        }
+        case "open": {
+            if (o.task) root._findTask(o.task)
+            GlobalStates.openTasksPanel(o.task ?? "")
+            return "opened the Tasks window"
+        }
+        default:
+            throw `unknown op "${o?.op}": create, update, done, undone, delete, move, clear_completed, open`
+        }
+    }
+
+    FileView {
+        id: agentIn
+        blockLoading: true
+        printErrors: false
+    }
+    // Loads (nothing: the file doesn't exist yet) and writes synchronously.
+    FileView {
+        id: agentOut
+        blockLoading: true
+        blockWrites: true
+        atomicWrites: true
+        printErrors: false
+    }
+
     IpcHandler {
         target: "todo"
+
+        // The lists and tasks (agentState), written to a transfer file.
+        function query(path: string): string {
+            if (!root._isTransferPath(path))
+                return "error: not a transfer file";
+            agentOut.path = "";
+            agentOut.path = path;
+            agentOut.setText(JSON.stringify(root.agentState()));
+            return "ok";
+        }
+        // Runs the operations in a transfer file ({op…} or {ops: […]}, in
+        // order, each on its own) and writes back [{ ok, result | error }].
+        function apply(path: string): string {
+            if (!root._isTransferPath(path))
+                return "error: not a transfer file";
+            agentIn.path = "";
+            agentIn.path = path;
+            agentIn.reload();
+            let request;
+            try {
+                request = JSON.parse(agentIn.text());
+            } catch (e) {
+                return "error: the request isn't JSON";
+            }
+            const ops = Array.isArray(request?.ops) ? request.ops : [request];
+            const results = ops.map(o => {
+                try {
+                    return { ok: true, result: root.agentOp(o) };
+                } catch (e) {
+                    return { ok: false, error: String(e) };
+                }
+            });
+            agentOut.path = "";
+            agentOut.path = path;
+            agentOut.setText(JSON.stringify(results));
+            return "ok";
+        }
 
         function list(): string {
             return JSON.stringify({
                 synced: root.synced,
-                tasks: root.list.map((t, i) => ({ index: i, content: t.content, done: t.done, due: t.due ?? null })),
+                tasks: root.list.map((t, i) => ({ index: i, id: t.id || null, content: t.content, done: t.done, due: t.due ? root._dayKey(t.due) : null, list: root.listName(t.listId) })),
             });
         }
         function add(content: string): string {

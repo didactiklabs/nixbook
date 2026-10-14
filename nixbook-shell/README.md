@@ -235,7 +235,13 @@ chip, Settings > Desktop agents), has a short Claude Code task with only
 this tool tune the curve for each new song, `equalizer.agentModel`, Haiku
 by default); the user's calendar, read-only
 (`calendar`: the next event, the coming days, a given day, from DankCalendar
-through the `calendar` IPC target); the shell's own IPC (sidebars, launcher, lock…);
+through the `calendar` IPC target); the to-do lists, all of them (`tasks`:
+every list and task with its notes, deadline, overdue state and parent;
+create in any list with notes and a deadline, rename, re-date, move to
+another list, complete, delete, clear the completed ones, open the Tasks
+window on a task, and up to 50 of these in one `batch` to reorganize; the
+`todo` IPC target's query/apply, which pass JSON through private transfer
+files like the notes'); the shell's own IPC (sidebars, launcher, lock…);
 notifications. It is a Model Context Protocol server, so
 any agent that speaks MCP can use it:
 
@@ -603,7 +609,7 @@ that account. File choosers are GTK's own there (the portal's would open on
 your desktop).
 
 The shell tools still act on your desktop: `widget` (notes, to-do list,
-timers), `calendar`, `notify`, `set_theme` reach your shell over its IPC,
+timers), `tasks`, `calendar`, `notify`, `set_theme` reach your shell over its IPC,
 whichever desktop the agent works on. So an agent can, say, look for flats
 in its browser and write what it found into your notes widget. Only the
 generic `shell_ipc` is refused from the agent desktop: the panels it opens
