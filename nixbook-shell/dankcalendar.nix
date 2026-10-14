@@ -11,7 +11,9 @@
 # patches/dankcalendar-tasklists.patch: `tasks.listCreate`, `listRename` and
 # `listDelete`, which create, rename and delete Google task lists themselves
 # (upstream only renames its local copy and creates lists in local accounts);
-# the Tasks app and the desktop agents' `tasks` tool use them. Made against
+# the Tasks app and the desktop agents' `tasks` tool use them. Also: a call
+# held back after Google rate-limited it ("Google API retry deferred for
+# 2s") names Google's answer (429, rateLimitExceeded, a 5xx…). Made against
 # the pinned revision (npins/, the same as nixbook's).
 ((import flakeCompatSrc { src = dankcalendarSrc; }).defaultNix.lib.buildDcalPkgs pkgs)
 .dankcalendar.overrideAttrs

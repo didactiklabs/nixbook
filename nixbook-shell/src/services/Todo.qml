@@ -81,8 +81,24 @@ Singleton {
 
     function _fail(message) {
         // dcal's CLI says "Error: ipc error: …".
-        const text = String(message || Translation.tr("it didn't work")).split("\n")[0].replace(/^Error:\s*/, "").replace(/^ipc error:\s*/, "")
+        let text = String(message || Translation.tr("it didn't work")).split("\n")[0].replace(/^Error:\s*/, "").replace(/^ipc error:\s*/, "")
+        // Google answered with a rate limit or an outage: dcal holds every
+        // call a moment. Said plainly, Google's reason (when dcal gives it)
+        // kept for the curious.
+        if (/retry deferred/i.test(text)) {
+            const why = /\((.*)\)\s*$/.exec(text)?.[1] ?? ""
+            text = Translation.tr("Google is limiting requests right now: nothing changed, try again in a minute") + (why ? ` (${why})` : "")
+        } else if (/daemon not running/i.test(text)) {
+            text = Translation.tr("DankCalendar isn't running: nothing changed")
+        }
         root.lastError = { message: text, at: Date.now() }
+    }
+
+    // After a task call: a failure is said (the reload puts the task back as
+    // the account has it, which alone looked like the click didn't take).
+    function _done(ok, result, error) {
+        if (!ok) root._fail(error)
+        root.reloadRemote()
     }
 
     // -- The lists themselves ------------------------------------------------
@@ -275,7 +291,7 @@ Singleton {
                 params.due = root._dueParam(full.due)
                 params.allDay = true
             }
-            CalendarEvents.call("tasks.create", params, () => root.reloadRemote())
+            CalendarEvents.call("tasks.create", params, root._done)
             return
         }
         full.id = root._newLocalId()
@@ -303,7 +319,7 @@ Singleton {
             if (!task.id) return
             task.done = done
             root._publish()
-            CalendarEvents.call("tasks.complete", { id: task.id, completed: done }, () => root.reloadRemote())
+            CalendarEvents.call("tasks.complete", { id: task.id, completed: done }, root._done)
             return
         }
         task.done = done
@@ -335,7 +351,7 @@ Singleton {
         if (root.synced) {
             root._publish()
             params.id = task.id
-            CalendarEvents.call("tasks.update", params, () => root.reloadRemote())
+            CalendarEvents.call("tasks.update", params, root._done)
             return
         }
         root._saveLocal()
@@ -362,11 +378,11 @@ Singleton {
         task.listId = listId
         task.id = ""
         root._publish()
-        CalendarEvents.call("tasks.create", params, ok => {
+        CalendarEvents.call("tasks.create", params, (ok, result, error) => {
             if (ok)
-                CalendarEvents.call("tasks.delete", { id: oldId }, () => root.reloadRemote())
+                CalendarEvents.call("tasks.delete", { id: oldId }, root._done)
             else
-                root.reloadRemote()
+                root._done(ok, result, error)
         })
     }
 
@@ -376,7 +392,7 @@ Singleton {
             if (!task.id) return
             root._remoteList.splice(root._remoteList.indexOf(task), 1)
             root._publish()
-            CalendarEvents.call("tasks.delete", { id: task.id }, () => root.reloadRemote())
+            CalendarEvents.call("tasks.delete", { id: task.id }, root._done)
             return
         }
         const i = root._localList.indexOf(task)
