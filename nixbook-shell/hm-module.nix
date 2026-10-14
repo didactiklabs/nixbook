@@ -1028,6 +1028,21 @@ in
           settings.Keywords = "tasks;todo;to-do;google tasks;deadline;checklist;";
         };
 
+        # Launcher entry for the Notes window (the notes widget's notes).
+        xdg.desktopEntries.nixbook-shell-notes = {
+          name = "Notes";
+          genericName = "Notes";
+          comment = "Your desktop notes, searchable, pinned first";
+          exec = "${lib.getExe cfg.package} ipc call notes show";
+          icon = "accessories-text-editor";
+          terminal = false;
+          categories = [
+            "Office"
+            "Utility"
+          ];
+          settings.Keywords = "notes;note;memo;sticky;jot;";
+        };
+
         home.packages = [
           cfg.package
           cfg.package.passthru.quickshell

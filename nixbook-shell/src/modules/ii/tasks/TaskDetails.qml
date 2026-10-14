@@ -25,6 +25,13 @@ Rectangle {
         color: Appearance.colors.colOutlineVariant
     }
 
+    // What is shown of it: a copy made on every change of the list (edits
+    // change the task object in place, which bindings on it don't see).
+    readonly property var info: {
+        Todo.list
+        return root.task ? Object.assign({}, root.task) : null
+    }
+
     // Another task: reload the fields (not when a sync hands back the same
     // task, so what is being typed stays).
     readonly property string taskKey: root.task ? (root.task.id || `local:${Todo.list.indexOf(root.task)}`) : ""
@@ -113,16 +120,16 @@ Rectangle {
                 Rectangle {
                     anchors.fill: parent
                     radius: width / 2
-                    color: root.task?.done ? Appearance.colors.colPrimary : "transparent"
+                    color: root.info?.done ? Appearance.colors.colPrimary : "transparent"
                     border.width: 2
-                    border.color: root.task?.done || doneMouse.containsMouse ? Appearance.colors.colPrimary : Appearance.colors.colSubtext
+                    border.color: root.info?.done || doneMouse.containsMouse ? Appearance.colors.colPrimary : Appearance.colors.colSubtext
                 }
                 MaterialSymbol {
                     anchors.centerIn: parent
-                    visible: root.task?.done || doneMouse.containsMouse
+                    visible: root.info?.done || doneMouse.containsMouse
                     text: "check"
                     iconSize: Appearance.font.pixelSize.normal
-                    color: root.task?.done ? Appearance.colors.colOnPrimary : Appearance.colors.colPrimary
+                    color: root.info?.done ? Appearance.colors.colOnPrimary : Appearance.colors.colPrimary
                 }
                 MouseArea {
                     id: doneMouse
@@ -140,7 +147,7 @@ Rectangle {
                 color: Appearance.colors.colOnLayer0
                 font.pixelSize: Appearance.font.pixelSize.hugeass
                 font.family: Appearance.font.family.main
-                font.strikeout: root.task?.done ?? false
+                font.strikeout: root.info?.done ?? false
                 wrapMode: TextEdit.Wrap
                 background: null
                 onTextChanged: if (activeFocus) saveTimer.restart()
@@ -194,25 +201,25 @@ Rectangle {
                 Layout.topMargin: 6
                 text: "event"
                 iconSize: Appearance.font.pixelSize.larger
-                color: Todo.isOverdue(root.task) ? Appearance.colors.colError : Appearance.colors.colSubtext
+                color: Todo.isOverdue(root.info) ? Appearance.colors.colError : Appearance.colors.colSubtext
             }
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 6
                 StyledText {
-                    text: root.task?.due ? Translation.tr("Deadline: %1").arg(Todo.dueText(root.task.due)) : Translation.tr("No deadline")
+                    text: root.info?.due ? Translation.tr("Deadline: %1").arg(Todo.dueText(root.info.due)) : Translation.tr("No deadline")
                     font.weight: Font.Medium
-                    color: Todo.isOverdue(root.task) ? Appearance.colors.colError : Appearance.colors.colOnLayer0
+                    color: Todo.isOverdue(root.info) ? Appearance.colors.colError : Appearance.colors.colOnLayer0
                 }
                 StyledText {
                     visible: text !== ""
-                    text: Todo.deadlineText(root.task)
+                    text: Todo.deadlineText(root.info)
                     font.pixelSize: Appearance.font.pixelSize.smaller
-                    color: Todo.isOverdue(root.task) ? Appearance.colors.colError : Appearance.colors.colSubtext
+                    color: Todo.isOverdue(root.info) ? Appearance.colors.colError : Appearance.colors.colSubtext
                 }
                 DueChips {
                     Layout.fillWidth: true
-                    due: root.task?.due ?? null
+                    due: root.info?.due ?? null
                     onDueEdited: due => Todo.updateTask(root.task, { due: due })
                 }
             }
@@ -239,7 +246,7 @@ Rectangle {
                         required property var modelData
                         compact: true
                         text: modelData.name
-                        toggled: root.task?.listId === modelData.id
+                        toggled: root.info?.listId === modelData.id
                         onClicked: {
                             root.save()
                             Todo.moveTask(root.task, modelData.id)
@@ -253,7 +260,7 @@ Rectangle {
 
         StyledText {
             Layout.fillWidth: true
-            visible: Todo.synced && !(root.task?.id)
+            visible: Todo.synced && !(root.info?.id)
             wrapMode: Text.Wrap
             font.pixelSize: Appearance.font.pixelSize.smaller
             color: Appearance.colors.colSubtext
@@ -262,9 +269,9 @@ Rectangle {
 
         PanelButton {
             Layout.fillWidth: true
-            filled: !(root.task?.done ?? false)
-            icon: root.task?.done ? "undo" : "check"
-            text: root.task?.done ? Translation.tr("Mark uncompleted") : Translation.tr("Mark completed")
+            filled: !(root.info?.done ?? false)
+            icon: root.info?.done ? "undo" : "check"
+            text: root.info?.done ? Translation.tr("Mark uncompleted") : Translation.tr("Mark completed")
             onClicked: {
                 root.save()
                 Todo.setTaskDone(root.task, !root.task.done)

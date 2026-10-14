@@ -41,6 +41,13 @@ Singleton {
     property bool wallpaperSelectorOpen: false
     // The Tasks app window (modules/ii/tasks), Google Tasks-like; opened from
     // the to-do widget. `tasksPanelTaskId`: the task to show in it first.
+    // The Notes app window (modules/ii/notesApp), on `notesAppNoteId` first.
+    property bool notesAppOpen: false
+    property string notesAppNoteId: ""
+    function openNotesApp(noteId) {
+        root.notesAppNoteId = noteId ?? ""
+        root.notesAppOpen = true
+    }
     property bool tasksPanelOpen: false
     property string tasksPanelTaskId: ""
     function openTasksPanel(taskId) {

@@ -1,6 +1,7 @@
 pragma Singleton
 pragma ComponentBehavior: Bound
 
+import qs
 import qs.modules.common
 import Quickshell
 import Quickshell.Io
@@ -8,7 +9,9 @@ import QtQuick
 
 /**
  * Simple notes manager.
- * Each item is an object with "id", "content", "attachments" (array of file paths), "createdAt".
+ * Each item is an object with "id", "content", "attachments" (array of file paths), "createdAt",
+ * "updatedAt" (last edit; createdAt for older notes) and "pinned".
+ * Shown by the notes desktop widget and the Notes app (modules/ii/notesApp).
  */
 Singleton {
     id: root
@@ -16,13 +19,19 @@ Singleton {
     function load() {}
     property var filePath: Directories.desktopNotesPath ?? (Directories.config + "/notes.json")
     property var list: []
+    // Pinned first, then the most recently edited: what the widget and the
+    // Notes app show.
+    readonly property var sorted: root.list.slice(0).sort((a, b) =>
+        (!!b.pinned - !!a.pinned) || ((b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0)))
 
     function addNote(content, attachments) {
         const item = {
             "id": Date.now().toString() + "-" + Math.floor(Math.random() * 10000),
             "content": content ?? "",
             "attachments": attachments ?? [],
-            "createdAt": Date.now()
+            "createdAt": Date.now(),
+            "updatedAt": Date.now(),
+            "pinned": false
         }
         list.push(item)
         root.list = list.slice(0)
@@ -34,11 +43,28 @@ Singleton {
         const idx = list.findIndex(n => n.id === id)
         if (idx >= 0) {
             list[idx].content = content
+            list[idx].updatedAt = Date.now()
             if (attachments !== undefined)
                 list[idx].attachments = attachments
             root.list = list.slice(0)
             notesFileView.setText(JSON.stringify(root.list))
         }
+    }
+
+    function setPinned(id, pinned) {
+        const note = list.find(n => n.id === id)
+        if (!note) return
+        note.pinned = pinned
+        root.list = list.slice(0)
+        notesFileView.setText(JSON.stringify(root.list))
+    }
+
+    // A deleted note back as it was (the Notes app's Undo).
+    function restoreNote(note) {
+        if (!note || list.some(n => n.id === note.id)) return
+        list.push(note)
+        root.list = list.slice(0)
+        notesFileView.setText(JSON.stringify(root.list))
     }
 
     function deleteNote(id) {
@@ -126,6 +152,18 @@ Singleton {
         function list(): string {
             return JSON.stringify(root.list.map(n => ({ id: n.id, content: n.content, createdAt: n.createdAt })));
         }
+        // The Notes app (its launcher entry).
+        function show(): string {
+            GlobalStates.openNotesApp("");
+            return "ok: opened the Notes app";
+        }
+        // The Notes app, on that note ("" for none).
+        function open(id: string): string {
+            if (id && !root.list.some(n => n.id === id))
+                return `error: no note "${id}"`;
+            GlobalStates.openNotesApp(id);
+            return "ok: opened the Notes app";
+        }
         function add(content: string): string {
             if (content.length === 0)
                 return "error: empty note";
@@ -163,7 +201,7 @@ Singleton {
                 return "error: not a transfer file";
             transferOut.path = "";
             transferOut.path = path;
-            transferOut.setText(JSON.stringify(root.list.map(n => ({ id: n.id, content: n.content, createdAt: n.createdAt }))));
+            transferOut.setText(JSON.stringify(root.list.map(n => ({ id: n.id, content: n.content, createdAt: n.createdAt, updatedAt: n.updatedAt ?? n.createdAt, pinned: !!n.pinned }))));
             return "ok";
         }
         function remove(id: string): string {
