@@ -1352,6 +1352,13 @@ out=$(call tasks '{"action":"batch","ops":[{"action":"move","task":"t1","list":"
 expect_contains "tasks batch: counted" "$out" "2/3 done"
 expect_contains "tasks batch: each reported" "$out" '2. error: no task "nope"'
 expect_eq "tasks batch: one request, in order" "move,done,update" "$(jq -r '[.ops[].op] | join(",")' "$calls.tasks")"
+call tasks '{"action":"create_list","name":"Groceries"}' >/dev/null
+expect_eq "tasks create_list: the request" '{"op":"create_list","name":"Groceries"}' "$(jq -c . "$calls.tasks")"
+call tasks '{"action":"rename_list","list":"Work","name":"Job"}' >/dev/null
+expect_eq "tasks rename_list: the request" '{"op":"rename_list","list":"Work","name":"Job"}' "$(jq -c . "$calls.tasks")"
+call tasks '{"action":"delete_list","list":"Work"}' >/dev/null
+expect_eq "tasks delete_list: the request" '{"op":"delete_list","list":"Work"}' "$(jq -c . "$calls.tasks")"
+expect_contains "tasks: list name capped" "$(call tasks "{\"action\":\"create_list\",\"name\":\"$too_long\"}")" "at most 200"
 expect_contains "tasks batch: at most 50" "$(call tasks "{\"action\":\"batch\",\"ops\":$(jq -nc '[range(51) | {action: "done", task: "t1"}]')}")" "1 to 50"
 
 # Music recognition and the calendar (SongRec.qml, CalendarEvents.qml).
