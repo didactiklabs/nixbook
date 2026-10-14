@@ -35,7 +35,9 @@ Singleton {
     property var rangeStart: new Date(0)
     property var rangeEnd: new Date(0)
     // dcal's task lists (Google Tasks, CalDAV VTODO…) that aren't hidden:
-    // [{ id, name, color }].
+    // [{ id, name, color, accountId, manageable }]; manageable: the list
+    // itself can be created, renamed and deleted (Google, through the
+    // patched dcal's tasks.list* methods).
     property var taskLists: []
     // At least one calendar synced: some account is connected.
     readonly property bool hasAccounts: Object.keys(root._calendars).length > 0
@@ -111,7 +113,8 @@ Singleton {
         return `${Qt.locale().toString(event.start, "ddd")} ${at(event.start)}`
     }
 
-    // `dcal ipc <method> key=value…`; onDone(ok, result) gets the parsed JSON.
+    // `dcal ipc <method> key=value…`; onDone(ok, result, error) gets the
+    // parsed JSON, or dcal's error message.
     function call(method, params, onDone) {
         const args = [root.dcal, "ipc", method]
         for (const key in params) args.push(`${key}=${params[key]}`)
@@ -255,7 +258,13 @@ Singleton {
                 for (const c of JSON.parse(calendarsOut.text)) {
                     map[c.id] = c
                     if (c.holdsTasks && !c.hidden && !c.syncDisabled)
-                        lists.push({ id: c.id, name: c.name, color: c.color || "" })
+                        lists.push({
+                            id: c.id,
+                            name: c.name,
+                            color: c.color || "",
+                            accountId: c.accountId || "",
+                            manageable: c.accountKind === "google",
+                        })
                 }
                 root._calendars = map
                 root.taskLists = lists
@@ -320,7 +329,7 @@ Singleton {
             } else {
                 console.warn(`CalendarEvents: ${done.args.slice(2, 3)} failed: ${callErr.text.trim()}`)
             }
-            if (done.onDone) done.onDone(code === 0, result)
+            if (done.onDone) done.onDone(code === 0, result, code === 0 ? "" : callErr.text.trim())
             // Not from inside this process's own exit handler.
             Qt.callLater(root._nextCall)
         }

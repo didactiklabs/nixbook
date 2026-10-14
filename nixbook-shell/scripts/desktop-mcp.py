@@ -4392,7 +4392,8 @@ def t_calendar(ctx, args):
         return [text(out)]
 
 
-TASK_OPS = ("create", "update", "done", "undone", "delete", "move", "clear_completed", "open")
+TASK_OPS = ("create", "update", "done", "undone", "delete", "move", "clear_completed", "open",
+            "create_list", "rename_list", "delete_list")
 
 
 def tasks_call(fn, request=None):
@@ -4422,7 +4423,7 @@ def task_op(args, op):
     if op not in TASK_OPS:
         raise ToolError(f"unknown action {op!r}: list, {', '.join(TASK_OPS)}, batch")
     out = {"op": op}
-    for key, cap in (("task", 128), ("title", 1000), ("notes", 8000), ("list", 200), ("due", 10)):
+    for key, cap in (("task", 128), ("title", 1000), ("notes", 8000), ("list", 200), ("due", 10), ("name", 200)):
         if key not in args or args[key] is None and key != "due":
             continue
         value = args[key]
@@ -4446,23 +4447,28 @@ def task_op(args, op):
     "{title, list?, notes?, due?}, update {task, title?, notes?, due?}, "
     "done/undone/delete {task}, move {task, list} (to another list), "
     "clear_completed {list?} (deletes the completed tasks), open {task?} "
-    "(the Tasks window on the user's screen). `list` is a list's name or id "
+    "(the Tasks window on the user's screen). The lists themselves: "
+    "create_list {name}, rename_list {list, name}, delete_list {list} (with "
+    "all its tasks: ask the user first); Google's default list can't be "
+    "deleted, and a new Google list gets its id after a moment (list again). "
+    "`list` is a list's name or id "
     "(default: the first, \"My Tasks\"). `due`: YYYY-MM-DD, today, tomorrow, "
     "+N (days), or \"\" to clear it; Google keeps dates, not times. batch "
     "{ops: [{action, …}, …]} runs up to 50 changes in order (organizing: "
     "moving, dating, renaming many tasks at once), each reported on its own. "
     "A moved or new task gets a new id once it syncs: list again before "
-    "changing it. New task lists and subtasks are made in Google Tasks.",
+    "changing it. Subtasks are made in Google Tasks.",
     obj({
         "action": {"type": "string", "enum": ["list", *TASK_OPS, "batch"]},
         "task": {"type": "string", "description": "A task's id (from list)"},
         "title": {"type": "string"},
         "notes": {"type": "string", "description": "The task's details"},
         "list": {"type": "string", "description": "A list's name or id"},
+        "name": {"type": "string", "description": "create_list, rename_list: the list's (new) name"},
         "due": {"type": ["string", "null"], "description": "YYYY-MM-DD, today, tomorrow, +N, or \"\" to clear"},
         "include_done": {"type": "boolean", "description": "list: also the completed tasks (the last 14 days)"},
         "ops": {"type": "array", "items": {"type": "object"}, "maxItems": 50,
-                "description": "batch: [{action, task?, title?, notes?, list?, due?}, …]"},
+                "description": "batch: [{action, task?, title?, notes?, list?, due?, name?}, …]"},
     }, ["action"]),
     destructive=True,
 )

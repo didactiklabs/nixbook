@@ -4,6 +4,7 @@ import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 
 // The Tasks window's content: the side bar (Create, Deadlines, the lists to
@@ -26,6 +27,28 @@ Rectangle {
     property var hiddenListIds: []
     readonly property var shownLists: Todo.lists.filter(l => !root.hiddenListIds.includes(l.id))
     property bool creating: false
+    // The list dialog: { mode: "create" | "rename" | "delete", listId }.
+    property var listDialog: null
+    function askList(mode, listId) {
+        root.sideOpen = false
+        root.listDialog = { mode: mode, listId: listId ?? "" }
+    }
+    // A list operation that failed (Todo.lastError), shown a few seconds.
+    property string errorText: ""
+    Connections {
+        target: Todo
+        function onLastErrorChanged() {
+            if (!Todo.lastError) return
+            root.errorText = Todo.lastError.message
+            errorTimer.restart()
+        }
+    }
+    Timer {
+        id: errorTimer
+        interval: 7000
+        onTriggered: root.errorText = ""
+    }
+
     // The Deadlines column (every list's tasks with a date, by deadline).
     property bool showDeadlines: true
 
@@ -62,7 +85,8 @@ Rectangle {
     }
 
     Keys.onEscapePressed: {
-        if (root.creating) root.creating = false
+        if (root.listDialog) root.listDialog = null
+        else if (root.creating) root.creating = false
         else if (root.selected) root.selected = null
         else if (root.sideOpen) root.sideOpen = false
     }
@@ -176,6 +200,7 @@ Rectangle {
                         list: modelData
                         selected: root.selected
                         onTaskClicked: task => root.selected = (root.selected === task ? null : task)
+                        onListAction: action => root.askList(action, modelData.id)
                     }
                 }
             }
@@ -287,16 +312,34 @@ Rectangle {
 
             Repeater {
                 model: Todo.lists
-                delegate: PanelButton {
-                    id: listButton
+                delegate: RowLayout {
+                    id: listRow
                     required property var modelData
                     Layout.fillWidth: true
-                    icon: root.hiddenListIds.includes(modelData.id) ? "check_box_outline_blank" : "check_box"
-                    iconColor: modelData.color || Appearance.colors.colPrimary
-                    text: modelData.name
-                    trailingText: String(Todo.list.filter(t => t.listId === listButton.modelData.id && !t.done).length || "")
-                    onClicked: root.toggleList(modelData.id)
+                    spacing: 0
+                    PanelButton {
+                        id: listButton
+                        Layout.fillWidth: true
+                        icon: root.hiddenListIds.includes(listRow.modelData.id) ? "check_box_outline_blank" : "check_box"
+                        iconColor: listRow.modelData.color || Appearance.colors.colPrimary
+                        text: listRow.modelData.name
+                        trailingText: String(Todo.list.filter(t => t.listId === listRow.modelData.id && !t.done).length || "")
+                        onClicked: root.toggleList(listRow.modelData.id)
+                    }
+                    ListMenuButton {
+                        visible: !!listRow.modelData.manageable
+                        onAction: action => root.askList(action, listRow.modelData.id)
+                    }
                 }
+            }
+
+            PanelButton {
+                Layout.fillWidth: true
+                visible: Todo.canCreateLists
+                icon: "playlist_add"
+                iconColor: Appearance.colors.colPrimary
+                text: Translation.tr("New list")
+                onClicked: root.askList("create", "")
             }
 
             Item { Layout.fillHeight: true }
@@ -387,5 +430,184 @@ Rectangle {
             }
         }
         onVisibleChanged: if (visible) createEditor.start()
+    }
+
+    // New list / rename / delete
+    Rectangle {
+        id: listDialogScrim
+        anchors.fill: parent
+        visible: root.listDialog !== null
+        color: Qt.rgba(0, 0, 0, 0.35)
+        readonly property string mode: root.listDialog?.mode ?? ""
+        readonly property var list: Todo.lists.find(l => l.id === root.listDialog?.listId) ?? null
+        readonly property int taskCount: Todo.list.filter(t => t.listId === root.listDialog?.listId).length
+
+        function confirm() {
+            const name = nameField.text.trim()
+            if (mode === "create" && name) Todo.createList(name)
+            else if (mode === "rename" && name && list) Todo.renameList(list.id, name)
+            else if (mode === "delete" && list) {
+                if (root.selected?.listId === list.id) root.selected = null
+                Todo.deleteList(list.id)
+            } else return
+            root.listDialog = null
+        }
+        onVisibleChanged: {
+            if (!visible) return
+            nameField.text = mode === "rename" ? (list?.name ?? "") : ""
+            if (mode !== "delete") {
+                nameField.forceActiveFocus()
+                nameField.selectAll()
+            } else {
+                root.forceActiveFocus()
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: root.listDialog = null
+        }
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 48, 440)
+            height: dialogColumn.implicitHeight + 40
+            radius: Appearance.rounding.large
+            color: Appearance.colors.colLayer3Base
+            MouseArea {
+                anchors.fill: parent
+            }
+
+            ColumnLayout {
+                id: dialogColumn
+                anchors {
+                    left: parent.left
+                    right: parent.right
+                    top: parent.top
+                    margins: 20
+                }
+                spacing: 14
+
+                StyledText {
+                    Layout.fillWidth: true
+                    wrapMode: Text.Wrap
+                    font.pixelSize: Appearance.font.pixelSize.huge
+                    color: Appearance.colors.colOnLayer3
+                    text: listDialogScrim.mode === "create" ? Translation.tr("New list")
+                        : listDialogScrim.mode === "rename" ? Translation.tr("Rename list")
+                        : Translation.tr("Delete \u201c%1\u201d?").arg(listDialogScrim.list?.name ?? "")
+                }
+                StyledText {
+                    Layout.fillWidth: true
+                    visible: listDialogScrim.mode === "delete"
+                    wrapMode: Text.Wrap
+                    color: Appearance.colors.colOnLayer3
+                    text: (listDialogScrim.taskCount === 0 ? Translation.tr("The list is empty.")
+                        : listDialogScrim.taskCount === 1 ? Translation.tr("Its task is deleted with it.")
+                        : Translation.tr("Its %1 tasks are deleted with it.").arg(listDialogScrim.taskCount))
+                        + (Todo.synced ? " " + Translation.tr("This deletes it in Google Tasks too.") : "")
+                }
+                Rectangle {
+                    Layout.fillWidth: true
+                    visible: listDialogScrim.mode !== "delete"
+                    implicitHeight: 48
+                    radius: Appearance.rounding.normal
+                    color: Appearance.colors.colLayer2Base
+                    border.width: nameField.activeFocus ? 2 : 1
+                    border.color: nameField.activeFocus ? Appearance.colors.colPrimary : Appearance.colors.colOutlineVariant
+                    TextField {
+                        id: nameField
+                        anchors.fill: parent
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 10
+                        placeholderText: Translation.tr("List name")
+                        placeholderTextColor: Appearance.colors.colSubtext
+                        color: Appearance.colors.colOnLayer2
+                        font.pixelSize: Appearance.font.pixelSize.normal
+                        font.family: Appearance.font.family.main
+                        background: null
+                        maximumLength: 200
+                        onAccepted: listDialogScrim.confirm()
+                        Keys.onEscapePressed: event => {
+                            root.listDialog = null
+                            event.accepted = true
+                        }
+                    }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Item { Layout.fillWidth: true }
+                    PanelButton {
+                        compact: true
+                        text: Translation.tr("Cancel")
+                        onClicked: root.listDialog = null
+                    }
+                    Rectangle {
+                        visible: listDialogScrim.mode === "delete"
+                        implicitWidth: deleteLabel.implicitWidth + 32
+                        implicitHeight: 32
+                        radius: Appearance.rounding.full
+                        color: deleteMouse.containsMouse ? Appearance.colors.colErrorHover : Appearance.colors.colError
+                        StyledText {
+                            id: deleteLabel
+                            anchors.centerIn: parent
+                            text: Translation.tr("Delete")
+                            font.weight: Font.Medium
+                            color: Appearance.colors.colOnError
+                        }
+                        MouseArea {
+                            id: deleteMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: listDialogScrim.confirm()
+                        }
+                    }
+                    PanelButton {
+                        visible: listDialogScrim.mode !== "delete"
+                        compact: true
+                        filled: true
+                        text: listDialogScrim.mode === "create" ? Translation.tr("Create") : Translation.tr("Rename")
+                        opacity: nameField.text.trim().length > 0 ? 1 : 0.5
+                        onClicked: listDialogScrim.confirm()
+                    }
+                }
+            }
+        }
+    }
+
+    // What Google refused (e.g. deleting its default list)
+    Rectangle {
+        anchors {
+            horizontalCenter: parent.horizontalCenter
+            bottom: parent.bottom
+            bottomMargin: 20
+        }
+        visible: root.errorText !== ""
+        width: Math.min(parent.width - 32, errorRow.implicitWidth + 32)
+        implicitHeight: 48
+        radius: Appearance.rounding.normal
+        color: Appearance.colors.colErrorContainer
+        RowLayout {
+            id: errorRow
+            anchors.centerIn: parent
+            width: Math.min(implicitWidth, parent.width - 32)
+            spacing: 10
+            MaterialSymbol {
+                text: "error"
+                iconSize: Appearance.font.pixelSize.larger
+                color: Appearance.colors.colOnErrorContainer
+            }
+            StyledText {
+                Layout.fillWidth: true
+                elide: Text.ElideRight
+                text: root.errorText
+                color: Appearance.colors.colOnErrorContainer
+            }
+        }
+        MouseArea {
+            anchors.fill: parent
+            onClicked: root.errorText = ""
+        }
     }
 }

@@ -17,6 +17,8 @@ Rectangle {
     property bool deadlines: false
     property bool sortByDeadline: root.deadlines
     signal taskClicked(var task)
+    // ⋮ on the header: "rename" | "delete" this list.
+    signal listAction(string action)
 
     radius: Appearance.rounding.large
     color: Appearance.colors.colLayer0Base
@@ -86,6 +88,11 @@ Rectangle {
                 text: root.openRows.length > 0 ? Translation.tr("%1 open").arg(root.openRows.length) : ""
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colSubtext
+            }
+            ListMenuButton {
+                visible: !root.deadlines && !!root.list.manageable
+                iconColor: Appearance.colors.colOnLayer0
+                onAction: action => root.listAction(action)
             }
             // My order / by deadline
             Rectangle {

@@ -1,0 +1,347 @@
+diff --git a/core/internal/ipc/registry.go b/core/internal/ipc/registry.go
+index d5d21b9..eb65eac 100644
+--- a/core/internal/ipc/registry.go
++++ b/core/internal/ipc/registry.go
+@@ -69,6 +69,9 @@ var Methods = []MethodSpec{
+ 	{Name: "tasks.update", Group: "tasks", Desc: "Update a task", Params: []ParamSpec{req("id", ""), opt("summary", ""), opt("description", ""), opt("location", ""), opt("due", "RFC3339"), opt("start", "RFC3339"), opt("allDay", "true|false"), opt("priority", "0-9"), opt("percentComplete", "0-100"), opt("status", "needs_action|in_process|completed|cancelled"), opt("parentUid", ""), opt("reminders", ""), opt("recurrence", "RRULE list")}},
+ 	{Name: "tasks.complete", Group: "tasks", Desc: "Mark a task complete or reopen it", Params: []ParamSpec{req("id", ""), opt("completed", "true|false, default true")}},
+ 	{Name: "tasks.delete", Group: "tasks", Desc: "Delete a task", Params: []ParamSpec{req("id", "")}},
++	{Name: "tasks.listCreate", Group: "tasks", Desc: "Create a task list on the account (Google)", Params: []ParamSpec{req("accountId", ""), req("name", "")}},
++	{Name: "tasks.listRename", Group: "tasks", Desc: "Rename a task list on the account (Google)", Params: []ParamSpec{req("calendarId", ""), req("name", "")}},
++	{Name: "tasks.listDelete", Group: "tasks", Desc: "Delete a task list and its tasks on the account (Google)", Params: []ParamSpec{req("calendarId", "")}},
+ 
+ 	{Name: "reminders.upcoming", Group: "reminders", Desc: "List upcoming reminders", Params: []ParamSpec{opt("limit", "default 20")}},
+ 	{Name: "reminders.test", Group: "reminders", Desc: "Fire a test reminder notification"},
+diff --git a/core/internal/ipc/tasklists.go b/core/internal/ipc/tasklists.go
+new file mode 100644
+index 0000000..f55866e
+--- /dev/null
++++ b/core/internal/ipc/tasklists.go
+@@ -0,0 +1,140 @@
++package ipc
++
++import (
++	"context"
++	"strings"
++
++	"github.com/AvengeMedia/dankcalendar/core/internal/calendar"
++	"github.com/AvengeMedia/dankgo/log"
++)
++
++// taskListManager: a provider that can create, rename and delete the task
++// lists themselves (Google).
++type taskListManager interface {
++	CreateTaskList(ctx context.Context, name string) (calendar.Calendar, error)
++	RenameTaskList(ctx context.Context, c calendar.Calendar, name string) error
++	DeleteTaskList(ctx context.Context, c calendar.Calendar) error
++}
++
++func handleTaskListCreate(ctx context.Context, w *ConnWriter, req Request, deps Deps) {
++	accountID := ParamString(req.Params, "accountId")
++	name := strings.TrimSpace(ParamString(req.Params, "name"))
++	if accountID == "" || name == "" {
++		w.RespondError(req.ID, "accountId and name are required")
++		return
++	}
++	acc, err := deps.Repo.GetAccount(ctx, accountID)
++	if err != nil {
++		w.RespondError(req.ID, err.Error())
++		return
++	}
++	provider, err := deps.Registry.Build(ctx, calendar.Account{
++		ID:          acc.ID,
++		Kind:        calendar.AccountKind(acc.Kind),
++		DisplayName: acc.DisplayName,
++		Settings:    acc.Settings,
++	}, deps.Secrets)
++	if err != nil {
++		w.RespondError(req.ID, err.Error())
++		return
++	}
++	defer provider.Close()
++	manager, ok := provider.(taskListManager)
++	if !ok {
++		w.RespondError(req.ID, "this account can't create task lists")
++		return
++	}
++	created, err := manager.CreateTaskList(ctx, name)
++	if err != nil {
++		w.RespondError(req.ID, err.Error())
++		return
++	}
++
++	// Sync so the list is stored with an id before the reply.
++	if deps.Sync != nil {
++		if err := deps.Sync.SyncAccount(ctx, acc); err != nil {
++			log.Warnf("sync after task list create: %v", err)
++		}
++	}
++	calendarID := ""
++	if cals, err := deps.Repo.ListCalendarsForAccount(ctx, acc.ID); err == nil {
++		for _, c := range cals {
++			if c.RemoteID == created.RemoteID {
++				calendarID = c.ID
++			}
++		}
++	}
++	if deps.Bus != nil {
++		deps.Bus.Publish("calendars", map[string]any{"type": "created", "accountId": acc.ID})
++	}
++	w.Respond(req.ID, map[string]any{"calendarId": calendarID, "name": created.Name})
++}
++
++func handleTaskListRename(ctx context.Context, w *ConnWriter, req Request, deps Deps) {
++	id := ParamString(req.Params, "calendarId")
++	name := strings.TrimSpace(ParamString(req.Params, "name"))
++	if id == "" || name == "" {
++		w.RespondError(req.ID, "calendarId and name are required")
++		return
++	}
++	provider, domCal, err := providerForCalendar(ctx, deps, id)
++	if err != nil {
++		w.RespondError(req.ID, err.Error())
++		return
++	}
++	defer provider.Close()
++	manager, ok := provider.(taskListManager)
++	if !ok {
++		w.RespondError(req.ID, "this account can't rename task lists")
++		return
++	}
++	if err := manager.RenameTaskList(ctx, domCal, name); err != nil {
++		w.RespondError(req.ID, err.Error())
++		return
++	}
++	// The provider's name now; a local override would hide it.
++	if err := deps.Repo.SetCalendarNameOverride(ctx, id, ""); err != nil {
++		log.Warnf("clear name override after rename: %v", err)
++	}
++	if entCal, err := deps.Repo.GetCalendar(ctx, id); err == nil && deps.Sync != nil && entCal.Edges.Account != nil {
++		if err := deps.Sync.SyncAccount(ctx, entCal.Edges.Account); err != nil {
++			log.Warnf("sync after task list rename: %v", err)
++		}
++	}
++	if deps.Bus != nil {
++		deps.Bus.Publish("calendars", map[string]any{"type": "changed", "calendarId": id})
++	}
++	w.Respond(req.ID, map[string]any{"calendarId": id, "name": name})
++}
++
++func handleTaskListDelete(ctx context.Context, w *ConnWriter, req Request, deps Deps) {
++	id := ParamString(req.Params, "calendarId")
++	if id == "" {
++		w.RespondError(req.ID, "calendarId is required")
++		return
++	}
++	provider, domCal, err := providerForCalendar(ctx, deps, id)
++	if err != nil {
++		w.RespondError(req.ID, err.Error())
++		return
++	}
++	defer provider.Close()
++	manager, ok := provider.(taskListManager)
++	if !ok {
++		w.RespondError(req.ID, "this account can't delete task lists")
++		return
++	}
++	if err := manager.DeleteTaskList(ctx, domCal); err != nil {
++		w.RespondError(req.ID, err.Error())
++		return
++	}
++	// A sync never drops a list: remove the local copy (and its tasks).
++	if err := deps.Repo.DeleteCalendar(ctx, id); err != nil {
++		w.RespondError(req.ID, err.Error())
++		return
++	}
++	if deps.Bus != nil {
++		deps.Bus.Publish("calendars", map[string]any{"type": "deleted", "calendarId": id})
++	}
++	w.Respond(req.ID, map[string]any{"deleted": true})
++}
+diff --git a/core/internal/ipc/tasks.go b/core/internal/ipc/tasks.go
+index 9b786d3..16950aa 100644
+--- a/core/internal/ipc/tasks.go
++++ b/core/internal/ipc/tasks.go
+@@ -28,6 +28,12 @@ func HandleTasks(ctx context.Context, w *ConnWriter, req Request, deps Deps) {
+ 		handleTaskComplete(ctx, w, req, deps)
+ 	case "tasks.delete":
+ 		handleTaskDelete(ctx, w, req, deps)
++	case "tasks.listCreate":
++		handleTaskListCreate(ctx, w, req, deps)
++	case "tasks.listRename":
++		handleTaskListRename(ctx, w, req, deps)
++	case "tasks.listDelete":
++		handleTaskListDelete(ctx, w, req, deps)
+ 	default:
+ 		w.RespondError(req.ID, "unknown tasks method: "+req.Method)
+ 	}
+diff --git a/core/internal/providers/google/tasklists.go b/core/internal/providers/google/tasklists.go
+new file mode 100644
+index 0000000..4baa203
+--- /dev/null
++++ b/core/internal/providers/google/tasklists.go
+@@ -0,0 +1,68 @@
++package google
++
++import (
++	"context"
++	"errors"
++	"fmt"
++	"net/http"
++	"strings"
++
++	"google.golang.org/api/googleapi"
++	gtasks "google.golang.org/api/tasks/v1"
++
++	cal "github.com/AvengeMedia/dankcalendar/core/internal/calendar"
++)
++
++// The account's task lists themselves: create, rename, delete (the
++// tasks.listCreate / listRename / listDelete IPC methods).
++
++func (p *Provider) CreateTaskList(ctx context.Context, name string) (cal.Calendar, error) {
++	created, err := googleCall(ctx, p, false, func() (*gtasks.TaskList, error) {
++		return p.tasksSvc.Tasklists.Insert(&gtasks.TaskList{Title: name}).Context(ctx).Do()
++	})
++	if err != nil {
++		return cal.Calendar{}, fmt.Errorf("create google task list: %w", classifyAuthErr(err))
++	}
++	return cal.Calendar{
++		AccountID:           p.account.ID,
++		RemoteID:            taskListPrefix + created.Id,
++		Name:                created.Title,
++		SupportedComponents: []string{cal.ComponentVTodo},
++	}, nil
++}
++
++func (p *Provider) RenameTaskList(ctx context.Context, c cal.Calendar, name string) error {
++	if !strings.HasPrefix(c.RemoteID, taskListPrefix) {
++		return errors.New("not a task list")
++	}
++	_, err := googleCall(ctx, p, false, func() (*gtasks.TaskList, error) {
++		return p.tasksSvc.Tasklists.Patch(taskListID(c.RemoteID), &gtasks.TaskList{Title: name}).Context(ctx).Do()
++	})
++	if err != nil {
++		return fmt.Errorf("rename google task list: %w", classifyAuthErr(err))
++	}
++	return nil
++}
++
++func (p *Provider) DeleteTaskList(ctx context.Context, c cal.Calendar) error {
++	if !strings.HasPrefix(c.RemoteID, taskListPrefix) {
++		return errors.New("not a task list")
++	}
++	_, err := googleCall(ctx, p, false, func() (*struct{}, error) {
++		return nil, p.tasksSvc.Tasklists.Delete(taskListID(c.RemoteID)).Context(ctx).Do()
++	})
++	if err == nil {
++		return nil
++	}
++	var apiErr *googleapi.Error
++	if errors.As(err, &apiErr) {
++		switch apiErr.Code {
++		case http.StatusNotFound, http.StatusGone:
++			return nil
++		case http.StatusBadRequest:
++			// Google refuses to delete the account's default list.
++			return errors.New("google won't delete this list (the default list can't be deleted)")
++		}
++	}
++	return fmt.Errorf("delete google task list: %w", classifyAuthErr(err))
++}
+diff --git a/core/internal/providers/google/tasklists_test.go b/core/internal/providers/google/tasklists_test.go
+new file mode 100644
+index 0000000..d216ac7
+--- /dev/null
++++ b/core/internal/providers/google/tasklists_test.go
+@@ -0,0 +1,90 @@
++package google
++
++import (
++	"context"
++	"encoding/json"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++
++	"google.golang.org/api/option"
++	gtasks "google.golang.org/api/tasks/v1"
++
++	cal "github.com/AvengeMedia/dankcalendar/core/internal/calendar"
++)
++
++// A fake Tasks API: records each request, answers create and rename, and
++// refuses to delete the list "default" the way Google does.
++func taskListsServer(t *testing.T, calls *[]string) *Provider {
++	t.Helper()
++	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		body, _ := io.ReadAll(r.Body)
++		*calls = append(*calls, r.Method+" "+r.URL.Path+" "+strings.TrimSpace(string(body)))
++		switch {
++		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/users/@me/lists"):
++			var in gtasks.TaskList
++			_ = json.Unmarshal(body, &in)
++			_ = json.NewEncoder(w).Encode(gtasks.TaskList{Id: "new1", Title: in.Title})
++		case r.Method == http.MethodPatch:
++			_, _ = w.Write(body)
++		case r.Method == http.MethodDelete && strings.HasSuffix(r.URL.Path, "/default"):
++			w.WriteHeader(http.StatusBadRequest)
++			_, _ = w.Write([]byte(`{"error":{"code":400,"message":"Invalid Value"}}`))
++		case r.Method == http.MethodDelete && strings.HasSuffix(r.URL.Path, "/gone"):
++			w.WriteHeader(http.StatusNotFound)
++		case r.Method == http.MethodDelete:
++			w.WriteHeader(http.StatusNoContent)
++		default:
++			w.WriteHeader(http.StatusNotImplemented)
++		}
++	}))
++	t.Cleanup(srv.Close)
++	svc, err := gtasks.NewService(context.Background(), option.WithEndpoint(srv.URL+"/"), option.WithHTTPClient(srv.Client()))
++	if err != nil {
++		t.Fatal(err)
++	}
++	return &Provider{account: cal.Account{ID: "acc-tasklists-test"}, tasksSvc: svc}
++}
++
++func TestTaskLists(t *testing.T) {
++	var calls []string
++	p := taskListsServer(t, &calls)
++	ctx := context.Background()
++
++	created, err := p.CreateTaskList(ctx, "Groceries")
++	if err != nil {
++		t.Fatal(err)
++	}
++	if created.RemoteID != taskListPrefix+"new1" || created.Name != "Groceries" || created.AccountID != "acc-tasklists-test" {
++		t.Fatalf("created: %+v", created)
++	}
++
++	list := cal.Calendar{RemoteID: taskListPrefix + "abc"}
++	if err := p.RenameTaskList(ctx, list, "Errands"); err != nil {
++		t.Fatal(err)
++	}
++	if last := calls[len(calls)-1]; !strings.HasPrefix(last, "PATCH /tasks/v1/users/@me/lists/abc") || !strings.Contains(last, `"title":"Errands"`) {
++		t.Fatalf("rename call: %s", last)
++	}
++
++	if err := p.DeleteTaskList(ctx, list); err != nil {
++		t.Fatal(err)
++	}
++	if err := p.DeleteTaskList(ctx, cal.Calendar{RemoteID: taskListPrefix + "gone"}); err != nil {
++		t.Fatalf("an already deleted list: %v", err)
++	}
++	err = p.DeleteTaskList(ctx, cal.Calendar{RemoteID: taskListPrefix + "default"})
++	if err == nil || !strings.Contains(err.Error(), "default list") {
++		t.Fatalf("the default list: %v", err)
++	}
++
++	// Event calendars aren't task lists.
++	if err := p.RenameTaskList(ctx, cal.Calendar{RemoteID: "primary"}, "x"); err == nil {
++		t.Fatal("renamed an event calendar")
++	}
++	if err := p.DeleteTaskList(ctx, cal.Calendar{RemoteID: "primary"}); err == nil {
++		t.Fatal("deleted an event calendar")
++	}
++}

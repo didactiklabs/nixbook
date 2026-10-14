@@ -7,4 +7,14 @@
 # OAuth client, Microsoft, CalDAV, iCloud, iCal feeds) behind the shell's
 # calendars and to-do list (src/services/CalendarEvents.qml, Todo.qml). Built
 # from its flake against our nixpkgs.
-((import flakeCompatSrc { src = dankcalendarSrc; }).defaultNix.lib.buildDcalPkgs pkgs).dankcalendar
+#
+# patches/dankcalendar-tasklists.patch: `tasks.listCreate`, `listRename` and
+# `listDelete`, which create, rename and delete Google task lists themselves
+# (upstream only renames its local copy and creates lists in local accounts);
+# the Tasks app and the desktop agents' `tasks` tool use them. Made against
+# the pinned revision (npins/, the same as nixbook's).
+((import flakeCompatSrc { src = dankcalendarSrc; }).defaultNix.lib.buildDcalPkgs pkgs)
+.dankcalendar.overrideAttrs
+  (old: {
+    patches = (old.patches or [ ]) ++ [ ./patches/dankcalendar-tasklists.patch ];
+  })

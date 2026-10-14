@@ -19,8 +19,13 @@ import QtQuick;
  * "uid" and "parentUid" (subtasks); every item has an "id" (dcal's, or a
  * local one; "" while a new synced task waits for its reload). New tasks go to the list asked
  * for, else the first one (Google's "My Tasks"). Otherwise it is the local
- * list in Directories.todoPath, as before (one list, `localListId`); that
- * file is left alone while synced.
+ * list in Directories.todoPath, as before; that file is left alone while
+ * synced.
+ *
+ * The lists themselves can be created, renamed and deleted (createList,
+ * renameList, deleteList): Google's through the patched dcal (`manageable`
+ * lists), the local ones in todo-lists.json next to the tasks (the first,
+ * `localListId`, always stays). A failure lands in `lastError`.
  *
  * The index functions (markDone, deleteItem…) address `list`; the task
  * functions (setTaskDone, updateTask, moveTask, deleteTask) take one of its
@@ -35,14 +40,32 @@ Singleton {
 
     readonly property bool synced: CalendarEvents.available && CalendarEvents.taskLists.length > 0
     readonly property string localListId: "local"
-    // The lists tasks can go in: [{ id, name, color }].
-    readonly property var lists: root.synced ? CalendarEvents.taskLists
-        : [{ id: root.localListId, name: Translation.tr("My Tasks"), color: "" }]
+    // The lists tasks can go in: [{ id, name, color, manageable }].
+    readonly property var lists: root.synced
+        ? CalendarEvents.taskLists.map(l => root._pendingNames[l.id] ? Object.assign({}, l, { name: root._pendingNames[l.id] }) : l)
+        : root._localLists
+    // Google renames shown at once, until the reloaded lists carry them.
+    property var _pendingNames: ({})
+    Connections {
+        target: CalendarEvents
+        function onTaskListsChanged() {
+            const pending = Object.assign({}, root._pendingNames)
+            for (const id in pending)
+                if (!CalendarEvents.taskLists.some(l => l.id === id && l.name !== pending[id])) delete pending[id]
+            root._pendingNames = pending
+        }
+    }
+    // Lists can be added (a Google account, or the local lists).
+    readonly property bool canCreateLists: !root.synced || root.lists.some(l => l.manageable)
+    // The last list operation that failed ({ message, at }), for the Tasks
+    // app's message bar; null when none.
+    property var lastError: null
     readonly property string defaultListId: root.lists[0]?.id ?? root.localListId
     // Completed tasks older than this stay in the account, not in the list.
     readonly property int keepDoneDays: 14
 
     property var _localList: []
+    property var _localLists: [{ id: root.localListId, name: Translation.tr("My Tasks"), color: "", manageable: true }]
     property var _remoteList: []
 
     onSyncedChanged: root._publish()
@@ -54,6 +77,112 @@ Singleton {
     function _saveLocal() {
         root._publish()
         todoFileView.setText(JSON.stringify(root._localList))
+    }
+
+    function _fail(message) {
+        // dcal's CLI says "Error: ipc error: …".
+        const text = String(message || Translation.tr("it didn't work")).split("\n")[0].replace(/^Error:\s*/, "").replace(/^ipc error:\s*/, "")
+        root.lastError = { message: text, at: Date.now() }
+    }
+
+    // -- The lists themselves ------------------------------------------------
+    // onDone(ok, listId | error) when given. Google answers after a moment:
+    // the lists reload once it did.
+    function createList(name, onDone) {
+        name = (name ?? "").trim()
+        if (!name) return
+        if (!root.synced) {
+            const id = `local-list-${Date.now().toString(36)}`
+            root._localLists = root._localLists.concat([{ id: id, name: name, color: "", manageable: true }])
+            root._saveLocalLists()
+            if (onDone) onDone(true, id)
+            return
+        }
+        const account = root.lists.find(l => l.manageable)?.accountId
+        if (!account) {
+            root._fail(Translation.tr("this account can't create task lists"))
+            if (onDone) onDone(false, root.lastError.message)
+            return
+        }
+        CalendarEvents.call("tasks.listCreate", { accountId: account, name: name }, (ok, result, error) => {
+            if (!ok) root._fail(error)
+            CalendarEvents.refresh()
+            if (onDone) onDone(ok, ok ? (result?.calendarId ?? "") : root.lastError.message)
+        })
+    }
+
+    function renameList(listId, name) {
+        name = (name ?? "").trim()
+        const list = root.lists.find(l => l.id === listId)
+        if (!list || !name || name === list.name) return
+        if (!root.synced) {
+            root._localLists = root._localLists.map(l => l.id === listId ? Object.assign({}, l, { name: name }) : l)
+            root._saveLocalLists()
+            return
+        }
+        if (!list.manageable) {
+            root._fail(Translation.tr("this account can't rename task lists"))
+            return
+        }
+        root._pendingNames = Object.assign({}, root._pendingNames, { [listId]: name })
+        CalendarEvents.call("tasks.listRename", { calendarId: listId, name: name }, (ok, result, error) => {
+            if (!ok) {
+                root._fail(error)
+                const pending = Object.assign({}, root._pendingNames)
+                delete pending[listId]
+                root._pendingNames = pending
+            }
+            CalendarEvents.refresh()
+        })
+    }
+
+    // The list and every task in it.
+    function deleteList(listId) {
+        const list = root.lists.find(l => l.id === listId)
+        if (!list) return
+        if (!root.synced) {
+            if (listId === root.localListId) {
+                root._fail(Translation.tr("the first list can't be deleted"))
+                return
+            }
+            root._localLists = root._localLists.filter(l => l.id !== listId)
+            root._localList = root._localList.filter(t => t.listId !== listId)
+            root._saveLocalLists()
+            root._saveLocal()
+            return
+        }
+        if (!list.manageable) {
+            root._fail(Translation.tr("this account can't delete task lists"))
+            return
+        }
+        // Gone at once here; back if Google refuses.
+        root._remoteList = root._remoteList.filter(t => t.listId !== listId)
+        root._publish()
+        CalendarEvents.call("tasks.listDelete", { calendarId: listId }, (ok, result, error) => {
+            if (!ok) root._fail(error)
+            CalendarEvents.refresh()
+        })
+    }
+
+    // A task in a list that isn't there (the lists file lost) goes to the
+    // first one; only once both files are read, whichever comes first.
+    property bool _listsRead: false
+    property bool _tasksRead: false
+    function _fixLocalListIds() {
+        if (!root._listsRead || !root._tasksRead) return
+        let changed = false
+        for (const t of root._localList) {
+            if (!root._localLists.some(l => l.id === t.listId)) {
+                t.listId = root.localListId
+                changed = true
+            }
+        }
+        if (changed) root._saveLocal()
+        else root._publish()
+    }
+
+    function _saveLocalLists() {
+        listsFileView.setText(JSON.stringify(root._localLists.map(l => ({ id: l.id, name: l.name }))))
     }
 
     // A list's name ("" when it is gone).
@@ -329,19 +458,54 @@ Singleton {
         }
     }
 
+    // The local lists (read at once, before the tasks that refer to them).
+    FileView {
+        id: listsFileView
+        path: Qt.resolvedUrl(String(root.filePath).replace(/todo\.json$/, "todo-lists.json"))
+        blockLoading: true
+        // Written at once, in order: a batch of changes (an agent's) writes
+        // several times in a row, and a slower earlier write could land last.
+        blockWrites: true
+        atomicWrites: true
+        printErrors: false
+        onLoaded: {
+            try {
+                const saved = JSON.parse(listsFileView.text())
+                const rest = saved.filter(l => l.id && l.id !== root.localListId && l.name)
+                const first = saved.find(l => l.id === root.localListId)
+                root._localLists = [{ id: root.localListId, name: first?.name || Translation.tr("My Tasks"), color: "", manageable: true }]
+                    .concat(rest.map(l => ({ id: l.id, name: l.name, color: "", manageable: true })))
+            } catch (e) {
+                console.log("[To Do] Bad lists file: " + e)
+            }
+            root._listsRead = true
+            root._fixLocalListIds()
+        }
+        onLoadFailed: {
+            root._listsRead = true
+            root._fixLocalListIds()
+        }
+    }
+
     FileView {
         id: todoFileView
         path: Qt.resolvedUrl(root.filePath)
+        // As the lists': written at once and in order.
+        blockWrites: true
+        atomicWrites: true
         onLoaded: {
             const fileContents = todoFileView.text()
             // JSON keeps dates as strings; older files have no list or notes.
             root._localList = JSON.parse(fileContents).map(t => Object.assign(t, {
                 id: t.id || root._newLocalId(),
-                listId: root.localListId,
+                // Older files have no list.
+                listId: t.listId || root.localListId,
                 notes: t.notes ?? "",
                 due: t.due ? new Date(t.due) : null,
                 allDay: !!t.due,
             }))
+            root._tasksRead = true
+            root._fixLocalListIds()
             root._publish()
             console.log("[To Do] File loaded")
         }
@@ -392,9 +556,11 @@ Singleton {
         return {
             synced: root.synced,
             today: root._dayKey(new Date()),
+            canCreateLists: root.canCreateLists,
             lists: root.lists.map(l => ({
                 id: l.id,
                 name: l.name,
+                manageable: !!l.manageable,
                 open: root.list.filter(t => t.listId === l.id && !t.done).length,
                 completed: root.list.filter(t => t.listId === l.id && t.done).length,
             })),
@@ -512,13 +678,42 @@ Singleton {
             for (const t of done) root.deleteTask(t)
             return `deleted ${done.length} completed task${done.length === 1 ? "" : "s"}`
         }
+        case "create_list": {
+            const name = root._text(o.name ?? "", "name", 200)
+            if (!name) throw "create_list: needs a name"
+            if (root.lists.some(l => l.name.toLowerCase() === name.toLowerCase())) throw `there is already a list "${name}"`
+            if (!root.canCreateLists) throw "this account can't create task lists"
+            root.createList(name)
+            return root.synced ? `creating list "${name}" (list again in a moment for its id)` : `created list "${name}"`
+        }
+        case "rename_list": {
+            const list = root._findList(o.list)
+            if (!list) throw `no list "${o.list}": ${root.lists.map(l => l.name).join(", ")}`
+            const name = root._text(o.name ?? "", "name", 200)
+            if (!name) throw "rename_list: needs a name"
+            if (!list.manageable) throw `"${list.name}" can't be renamed from here`
+            root.renameList(list.id, name)
+            return `renamed "${list.name}" to "${name}"`
+        }
+        case "delete_list": {
+            const list = root._findList(o.list)
+            if (!list) throw `no list "${o.list}": ${root.lists.map(l => l.name).join(", ")}`
+            if (!list.manageable) throw `"${list.name}" can't be deleted from here`
+            if (!root.synced && list.id === root.localListId) throw "the first list can't be deleted"
+            const count = root.list.filter(t => t.listId === list.id).length
+            root.deleteList(list.id)
+            const tasks = `${count} task${count === 1 ? "" : "s"}`
+            return root.synced
+                ? `asked Google to delete list "${list.name}" and its ${tasks} (Google refuses its default list: list again to check)`
+                : `deleted list "${list.name}" and its ${tasks}`
+        }
         case "open": {
             if (o.task) root._findTask(o.task)
             GlobalStates.openTasksPanel(o.task ?? "")
             return "opened the Tasks window"
         }
         default:
-            throw `unknown op "${o?.op}": create, update, done, undone, delete, move, clear_completed, open`
+            throw `unknown op "${o?.op}": create, update, done, undone, delete, move, clear_completed, open, create_list, rename_list, delete_list`
         }
     }
 

@@ -145,8 +145,14 @@ service) and keeps every calendar surface in sync:
   (Ctrl+N) adds one to any list with a deadline. The desktop to-do widget
   lists open tasks by deadline (overdue in red), opens the window on a click,
   adds tasks to any list with a deadline, and resizes from its corner
-  (`background.widgets.todo.width`/`height`, per monitor); new Google task
-  lists are made in Google Tasks or DankCalendar;
+  (`background.widgets.todo.width`/`height`, per monitor). The lists
+  themselves are made, renamed and deleted from the window ("New list", ⋮ on
+  a list; deleting one deletes its tasks, after a confirmation): Google's
+  through `patches/dankcalendar-tasklists.patch` (dcal's `tasks.listCreate`,
+  `listRename`, `listDelete`; upstream dcal only renames its local copy),
+  the local ones in `todo-lists.json` next to `todo.json` (the first stays).
+  What Google refuses (its default list can't be deleted) shows in a
+  message bar;
 - notes: the desktop notes widget's notes (`src/services/Notes.qml`) also
   open in the **Notes** window (`src/modules/ii/notesApp/`; launcher entry
   "Notes", `nixbook-shell ipc call notes show`, or `notes open <id>`): the
@@ -249,7 +255,8 @@ through the `calendar` IPC target); the to-do lists, all of them (`tasks`:
 every list and task with its notes, deadline, overdue state and parent;
 create in any list with notes and a deadline, rename, re-date, move to
 another list, complete, delete, clear the completed ones, open the Tasks
-window on a task, and up to 50 of these in one `batch` to reorganize; the
+window on a task; create, rename and delete the lists themselves; and up to
+50 of these in one `batch` to reorganize; the
 `todo` IPC target's query/apply, which pass JSON through private transfer
 files like the notes'); the shell's own IPC (sidebars, launcher, lock…);
 notifications. It is a Model Context Protocol server, so
@@ -837,7 +844,7 @@ ignored.
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | `default.nix`      | entry point (`package`, `homeManagerModules.default`, `lib`)                                                                 |
 | `package.nix`      | the launcher: runtime `PATH`, QML import path, `config` CLI                                                                  |
-| `dankcalendar.nix` | DankCalendar (`dcal`), the calendar and task sync, from `npins/`                                                             |
+| `dankcalendar.nix` | DankCalendar (`dcal`), the calendar and task sync, from `npins/` plus `patches/` (Google task lists)                         |
 | `qml.nix`          | the QML tree as installed (store-path fixups, Persona, Chiikawa, Cyberpunk and Ghibli art and sounds, emoji list)            |
 | `fonts.nix`        | the faces `appearance.fonts` names that nixpkgs lacks (Google Sans Flex, Space Grotesk, Rajdhani, Zen Maru Gothic, Klee One) |
 | `quickshell.nix`   | Quickshell from `quickshellSrc` plus `patches/`                                                                              |
