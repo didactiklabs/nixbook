@@ -4133,7 +4133,8 @@ def arrange_widget(ctx, action, want, args):
     "monitor?} (in front), placement {widget, strategy: free, leastBusy, "
     "mostBusy}. Lay widgets out from `layout` so they don't overlap. notes (the notes "
     "widget): list, add {text}, update {id, text}, remove {id}. todo (the "
-    "task list): list, add {text}, done/undone/remove {index}. timers: "
+    "task list, simply; the `tasks` tool does lists, deadlines, moves): list, "
+    "add {text}, done/undone/remove {index}. timers: "
     "status, pomodoro_toggle, pomodoro_reset, stopwatch_toggle, "
     "stopwatch_lap, stopwatch_reset, countdown_add {minutes} (starts it), "
     "countdown_toggle, countdown_reset, countdown_dismiss (it rings at "
@@ -4385,6 +4386,126 @@ def t_calendar(ctx, args):
         return [text(json.loads(out))]
     except ValueError:
         return [text(out)]
+
+
+TASK_OPS = ("create", "update", "done", "undone", "delete", "move", "clear_completed", "open")
+
+
+def tasks_call(fn, request=None):
+    """A todo `query` or `apply` call, through a private transfer file both
+    ways (services/Todo.qml): task lists with notes can be long."""
+    path = os.path.join(runtime_dir(), f"tasks-{secrets.token_hex(8)}.json")
+    try:
+        if request is not None:
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(request, f)
+        widget_call("todo", fn, path)
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError) as e:
+        raise ToolError(f"the tasks transfer failed: {e}")
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+
+
+def task_op(args, op):
+    """One operation for the shell, from the tool's arguments: only the
+    fields given (an absent `due` keeps the deadline, "" clears it)."""
+    if op not in TASK_OPS:
+        raise ToolError(f"unknown action {op!r}: list, {', '.join(TASK_OPS)}, batch")
+    out = {"op": op}
+    for key, cap in (("task", 128), ("title", 1000), ("notes", 8000), ("list", 200), ("due", 10)):
+        if key not in args or args[key] is None and key != "due":
+            continue
+        value = args[key]
+        if key == "due" and value is None:
+            value = ""
+        if not isinstance(value, str) or len(value) > cap:
+            raise ToolError(f"`{key}` must be a string of at most {cap} characters")
+        out[key] = value
+    return out
+
+
+@tool(
+    "tasks",
+    "shell",
+    "The user's to-do lists (the shell's Tasks app and to-do widget; synced "
+    "with Google Tasks through DankCalendar once an account is connected, "
+    "else one local list). `list` {list?, include_done?}: today's date, the "
+    "lists (id, name, open/completed counts) and the tasks (id, title, list, "
+    "notes, due YYYY-MM-DD, deadline: overdue/today/tomorrow/week/later/none, "
+    "parent: a subtask's parent id). Changes, by task id from list: create "
+    "{title, list?, notes?, due?}, update {task, title?, notes?, due?}, "
+    "done/undone/delete {task}, move {task, list} (to another list), "
+    "clear_completed {list?} (deletes the completed tasks), open {task?} "
+    "(the Tasks window on the user's screen). `list` is a list's name or id "
+    "(default: the first, \"My Tasks\"). `due`: YYYY-MM-DD, today, tomorrow, "
+    "+N (days), or \"\" to clear it; Google keeps dates, not times. batch "
+    "{ops: [{action, …}, …]} runs up to 50 changes in order (organizing: "
+    "moving, dating, renaming many tasks at once), each reported on its own. "
+    "A moved or new task gets a new id once it syncs: list again before "
+    "changing it. New task lists and subtasks are made in Google Tasks.",
+    obj({
+        "action": {"type": "string", "enum": ["list", *TASK_OPS, "batch"]},
+        "task": {"type": "string", "description": "A task's id (from list)"},
+        "title": {"type": "string"},
+        "notes": {"type": "string", "description": "The task's details"},
+        "list": {"type": "string", "description": "A list's name or id"},
+        "due": {"type": ["string", "null"], "description": "YYYY-MM-DD, today, tomorrow, +N, or \"\" to clear"},
+        "include_done": {"type": "boolean", "description": "list: also the completed tasks (the last 14 days)"},
+        "ops": {"type": "array", "items": {"type": "object"}, "maxItems": 50,
+                "description": "batch: [{action, task?, title?, notes?, list?, due?}, …]"},
+    }, ["action"]),
+    destructive=True,
+)
+def t_tasks(ctx, args):
+    action = as_str(args, "action", max_len=32).strip().lower()
+    if action == "list":
+        state = tasks_call("query")
+        want = args.get("list")
+        if want is not None:
+            if not isinstance(want, str):
+                raise ToolError("`list` must be a list's name or id")
+            match = next((l for l in state["lists"] if l["id"] == want or l["name"].lower() == want.lower()), None)
+            if not match:
+                raise ToolError(f"no list {want!r}: {', '.join(l['name'] for l in state['lists'])}")
+            state["tasks"] = [t for t in state["tasks"] if t["listId"] == match["id"]]
+        include_done = args.get("include_done", False)
+        if not isinstance(include_done, bool):
+            raise ToolError("`include_done` must be true or false")
+        if not include_done:
+            state["tasks"] = [t for t in state["tasks"] if not t["done"]]
+        return [text(state)]
+    if action == "batch":
+        ops = args.get("ops")
+        if not isinstance(ops, list) or not ops or len(ops) > 50:
+            raise ToolError("`ops` must be a list of 1 to 50 changes")
+        request = {"ops": []}
+        for i, o in enumerate(ops):
+            if not isinstance(o, dict):
+                raise ToolError(f"ops[{i}] must be an object")
+            op = o.get("action", o.get("op"))
+            if not isinstance(op, str):
+                raise ToolError(f"ops[{i}]: needs an action")
+            request["ops"].append(task_op(o, op.strip().lower()))
+    else:
+        request = task_op(args, action)
+    ctx.guard.check_rate()
+    results = tasks_call("apply", request)
+    if action != "batch":
+        r = results[0]
+        if not r.get("ok"):
+            raise ToolError(r.get("error", "failed"))
+        return [text(r["result"])]
+    done = sum(1 for r in results if r.get("ok"))
+    lines = [f"{done}/{len(results)} done"]
+    for i, r in enumerate(results):
+        lines.append(f"{i + 1}. " + (r["result"] if r.get("ok") else f"error: {r.get('error')}"))
+    return [text("\n".join(lines))]
 
 
 @tool(

@@ -247,6 +247,17 @@ case "$*" in
   *"notes updateFromFile"*) cat "${*: -1}" >"$STUB_CALLS.note"; echo "ok: 17-1" ;;
   *"notes remove"*)
     if [ "${*: -1}" = "nope" ]; then echo 'error: no note "nope"'; else echo "ok: 17-1"; fi ;;
+  # Tasks travel through transfer files both ways (Todo.qml query/apply):
+  # the request kept in $STUB_CALLS.tasks, each op answered (task "nope"
+  # fails).
+  *"todo query"*)
+    echo '{"synced":true,"today":"2026-10-14","lists":[{"id":"my","name":"My Tasks","open":1,"completed":1},{"id":"w","name":"Work","open":1,"completed":0}],"tasks":[{"id":"t1","title":"call mum","list":"My Tasks","listId":"my","done":false,"notes":"","due":"2026-10-12","deadline":"overdue"},{"id":"t2","title":"review PR","list":"Work","listId":"w","done":false,"notes":"","due":null,"deadline":"none"},{"id":"t3","title":"buy milk","list":"My Tasks","listId":"my","done":true,"notes":"","due":null,"deadline":null}]}' >"${*: -1}"
+    echo ok ;;
+  *"todo apply"*)
+    cp "${*: -1}" "$STUB_CALLS.tasks"
+    jq -c '(if .ops then .ops else [.] end) | map(if .task == "nope" then {ok: false, error: "no task \"nope\""} else {ok: true, result: "\(.op) \(.title // .task // "")"} end)' "${*: -1}" >"${*: -1}.new" &&
+      mv "${*: -1}.new" "${*: -1}"
+    echo ok ;;
   *"todo list"*) echo '{"synced":false,"tasks":[{"index":0,"content":"call mum","done":false,"due":null}]}' ;;
   *"todo "*) echo "ok: call mum" ;;
   *"timers status"*) echo '{"pomodoro":{"running":false},"stopwatch":{"running":false},"countdown":{"running":false,"secondsLeft":0}}' ;;
@@ -347,7 +358,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 44 tools" 44 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 45 tools" 45 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -1314,6 +1325,30 @@ call equalizer '{"action":"auto","on":false}' >/dev/null
 expect_eq "equalizer auto" "qs -c nixbook-shell ipc call -- equalizer auto false" "$(last_call)"
 call equalizer '{"action":"agent","on":true}' >/dev/null
 expect_eq "equalizer agent mode" "qs -c nixbook-shell ipc call -- equalizer agent true" "$(last_call)"
+
+# Tasks (Todo.qml query/apply, through transfer files).
+out=$(call tasks '{"action":"list"}')
+expect_eq "tasks list: open tasks only by default" "call mum,review PR" "$(jq -r '[.tasks[].title] | join(",")' <<<"$out")"
+expect_eq "tasks list: the lists" "My Tasks,Work" "$(jq -r '[.lists[].name] | join(",")' <<<"$out")"
+expect_eq "tasks list: one list, by name" "review PR" "$(call tasks '{"action":"list","list":"work"}' | jq -r '[.tasks[].title] | join(",")')"
+expect_eq "tasks list: include_done" 3 "$(call tasks '{"action":"list","include_done":true}' | jq '.tasks | length')"
+expect_contains "tasks list: unknown list" "$(call tasks '{"action":"list","list":"Home"}')" "no list 'Home': My Tasks, Work"
+left=$(compgen -G "$XDG_RUNTIME_DIR/nixbook-desktop-mcp/tasks-*" || true)
+expect_eq "tasks: no transfer file left" "" "$left"
+out=$(call tasks '{"action":"create","title":"pay rent","list":"Work","notes":"by transfer","due":"tomorrow"}')
+expect_eq "tasks create: the shell's answer" "create pay rent" "$out"
+expect_eq "tasks create: the request" '{"op":"create","title":"pay rent","notes":"by transfer","list":"Work","due":"tomorrow"}' "$(jq -c . "$calls.tasks")"
+expect_contains "tasks create: through a transfer file" "$(last_call)" "todo apply $XDG_RUNTIME_DIR/nixbook-desktop-mcp/tasks-"
+call tasks '{"action":"update","task":"t1","due":null}' >/dev/null
+expect_eq "tasks update: a null due clears it" '{"op":"update","task":"t1","due":""}' "$(jq -c . "$calls.tasks")"
+expect_contains "tasks: the shell's errors" "$(call tasks '{"action":"done","task":"nope"}')" 'no task "nope"'
+expect_contains "tasks: unknown action" "$(call tasks '{"action":"archive","task":"t1"}')" "unknown action 'archive'"
+expect_contains "tasks: title capped" "$(call tasks "{\"action\":\"create\",\"title\":\"$too_long\"}")" "at most 1000"
+out=$(call tasks '{"action":"batch","ops":[{"action":"move","task":"t1","list":"Work"},{"action":"done","task":"nope"},{"action":"update","task":"t2","due":"+3"}]}')
+expect_contains "tasks batch: counted" "$out" "2/3 done"
+expect_contains "tasks batch: each reported" "$out" '2. error: no task "nope"'
+expect_eq "tasks batch: one request, in order" "move,done,update" "$(jq -r '[.ops[].op] | join(",")' "$calls.tasks")"
+expect_contains "tasks batch: at most 50" "$(call tasks "{\"action\":\"batch\",\"ops\":$(jq -nc '[range(51) | {action: "done", task: "t1"}]')}")" "1 to 50"
 
 # Music recognition and the calendar (SongRec.qml, CalendarEvents.qml).
 out=$(call widget '{"widget":"shazam","action":"status"}')
