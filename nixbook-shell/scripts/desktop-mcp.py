@@ -1873,7 +1873,32 @@ def desktop_for_app(app_id, apps):
     return None
 
 
-def layout_entry(w, ws, apps):
+# A maximized column (maximize-column, Mod+Z) is as wide as its monitor less
+# the gaps, and niri doesn't say whether a column is maximized: a column at
+# least this share of its monitor's width counts as one. Restored as a fixed
+# width, it couldn't be unmaximized (maximize-column would toggle between
+# two full widths).
+MAXIMIZED_SHARE = 0.9
+# The width under a maximized column restored: what Mod+Z goes back to.
+UNMAXIMIZED_WIDTH = "50%"
+
+
+def monitor_widths():
+    return {n: o["logical"]["width"] for n, o in (niri_json("outputs") or {}).items()
+            if (o.get("logical") or {}).get("width")}
+
+
+def is_maximized(e, widths):
+    """Whether a saved tiled window's column was maximized: so marked when
+    saved, or (a layout saved before) about as wide as its monitor."""
+    if "maximized" in e:
+        return bool(e["maximized"])
+    width = widths.get(e.get("monitor")) or max(widths.values(), default=0)
+    size = e.get("size") or []
+    return bool(width and size and size[0] >= MAXIMIZED_SHARE * width)
+
+
+def layout_entry(w, ws, apps, widths=None):
     layout = w.get("layout") or {}
     e = {
         "app_id": w.get("app_id"),
@@ -1890,6 +1915,9 @@ def layout_entry(w, ws, apps):
     else:
         col = layout.get("pos_in_scrolling_layout") or [None, None]
         e["column"], e["tile"] = col
+        width = (widths or {}).get(e["monitor"])
+        tile = layout.get("tile_size") or layout.get("window_size") or [0]
+        e["maximized"] = bool(width and tile[0] >= MAXIMIZED_SHARE * width)
     return e
 
 
@@ -1907,7 +1935,8 @@ def t_save_layout(ctx, args):
     path = os.path.join(layouts_dir(), f"{name}.json")
     wss = {w["id"]: w for w in niri_json("workspaces")}
     apps = applications()
-    entries = [layout_entry(w, wss[w["workspace_id"]], apps) for w in windows() if w.get("workspace_id") in wss]
+    widths = monitor_widths()
+    entries = [layout_entry(w, wss[w["workspace_id"]], apps, widths) for w in windows() if w.get("workspace_id") in wss]
     # One arrangement per set of monitors: saving off the dock replaces the
     # laptop's and keeps the docked one, for when the dock is back.
     connected = sorted(connected_monitors())
@@ -2245,6 +2274,7 @@ def t_restore_layout(ctx, args, close_others=False):
             return layout.get("pos_in_scrolling_layout") or [None, None], layout.get("window_size")
 
         now = {w["id"]: w for w in windows()}
+        widths = monitor_widths()
         for group in groups.values():
             columns = {}
             for e, w in group:
@@ -2269,7 +2299,13 @@ def t_restore_layout(ctx, args, close_others=False):
             for tiles in stacks:
                 head = tiles[0][1]
                 size = tiles[0][0].get("size")
-                if size and not close(size[:1], (placed(head)[1] or [])[:1]):
+                if is_maximized(tiles[0][0], widths):
+                    # Maximized over a width of its own, whatever it is now
+                    # (a fixed full width from an older restore included).
+                    niri_action("set-window-width", "--id", str(head["id"]), UNMAXIMIZED_WIDTH)
+                    niri_action("focus-window", "--id", str(head["id"]))
+                    niri_action("maximize-column")
+                elif size and not close(size[:1], (placed(head)[1] or [])[:1]):
                     niri_action("set-window-width", "--id", str(head["id"]), str(int(size[0])))
                 if len(tiles) > 1:
                     for e, w in tiles:

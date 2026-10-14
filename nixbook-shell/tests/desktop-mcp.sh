@@ -770,6 +770,23 @@ expect_contains "restore_layout: monitor then workspace" "$(cat "$calls")" "niri
 niri msg action move-window-to-workspace --window-id 4 --focus false 3"
 expect_contains "restore_layout: width" "$(cat "$calls")" "niri msg action set-window-width --id 4 900"
 expect_not_contains "restore_layout: only that window moved" "$(cat "$calls")" "--window-id 1 "
+# A maximized column (Mod+Z): maximized again, over a width of its own, so
+# Mod+Z can unmaximize it; not a fixed full width.
+expect_eq "save_layout: a column not maximized" false "$(jq -r '.setups[0].windows[] | select(.app_id=="org.gnome.TextEditor") | .maximized' "$layout")"
+jq '.setups[0].windows |= map(if .app_id == "org.gnome.TextEditor" then .maximized = true | .size = [3116, 1900] else . end)' \
+  "$layout" >"$XDG_STATE_HOME/nixbook-shell/layouts/maximized.json"
+reset_calls
+call restore_layout '{"name":"maximized"}' >/dev/null
+expect_contains "restore_layout: a maximized column maximized again" "$(cat "$calls")" "niri msg action set-window-width --id 4 50%
+niri msg action focus-window --id 4
+niri msg action maximize-column"
+expect_not_contains "restore_layout: not as a fixed full width" "$(cat "$calls")" "set-window-width --id 4 3116"
+jq '.setups[0].windows |= map(if .app_id == "org.gnome.TextEditor" then del(.maximized) | .size = [3116, 1900] else . end)' \
+  "$layout" >"$XDG_STATE_HOME/nixbook-shell/layouts/maximized.json"
+reset_calls
+call restore_layout '{"name":"maximized"}' >/dev/null
+expect_contains "restore_layout: a layout saved before: a column as wide as its monitor is maximized" "$(cat "$calls")" "niri msg action maximize-column"
+rm "$XDG_STATE_HOME/nixbook-shell/layouts/maximized.json"
 # Two windows stacked in a column: restored as they are, nothing changes
 # (consume-or-expel would take the second out of its column).
 STUB_KITTY_POS='[2, 2]' call save_layout '{"name":"stacked"}' >/dev/null

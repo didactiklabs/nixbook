@@ -363,7 +363,10 @@ like Vesktop's "Loading", is placed again once its own window replaces
 it: restores that start apps watch them for 5 s). A window already where the
 layout has it (monitor, workspace, column and stack, width, floating place) is
 left alone, so restoring the layout you're in moves nothing; with two windows of
-an app whose titles changed, each goes with the saved place it is in. The same layouts are yours in the shell,
+an app whose titles changed, each goes with the saved place it is in. A maximized
+column (Mod+Z) is saved as maximized and maximized again over half the
+width, so Mod+Z still unmaximizes it (a column at least 90% of its
+monitor's width counts, layouts saved before included). The same layouts are yours in the shell,
 where the agents' pause doesn't apply: **Mod+G** opens the launcher as a
 layout picker (the `#` prefix: pick one to restore it, update or delete it
 with its row's buttons or Shift+Delete, "Save the windows as a new layout",
