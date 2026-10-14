@@ -42,6 +42,22 @@ AbstractBackgroundWidget {
     }
     readonly property var rows: root.openTasks.concat(Todo.list.filter(t => t.done))
     readonly property bool manyLists: Todo.lists.length > 1
+    // A change that failed (Todo.lastError: Google rate-limiting…), shown
+    // in the summary line a few seconds instead of a silent revert.
+    property string errorText: ""
+    Connections {
+        target: Todo
+        function onLastErrorChanged() {
+            if (!Todo.lastError) return
+            root.errorText = Todo.lastError.message
+            errorTimer.restart()
+        }
+    }
+    Timer {
+        id: errorTimer
+        interval: 7000
+        onTriggered: root.errorText = ""
+    }
 
     function toggleFlip() { flipAnim.start() }
 
@@ -141,8 +157,9 @@ AbstractBackgroundWidget {
                                 Layout.fillWidth: true
                                 elide: Text.ElideRight
                                 font.pixelSize: Appearance.font.pixelSize.smaller * root.textScale
-                                color: Todo.overdueCount > 0 ? Appearance.colors.colError : Appearance.colors.colSubtext
+                                color: root.errorText || Todo.overdueCount > 0 ? Appearance.colors.colError : Appearance.colors.colSubtext
                                 text: {
+                                    if (root.errorText) return root.errorText
                                     const parts = [Translation.tr("%1 open").arg(root.openTasks.length)]
                                     if (Todo.overdueCount > 0) parts.push(Translation.tr("%1 overdue").arg(Todo.overdueCount))
                                     if (Todo.dueTodayCount > 0) parts.push(Translation.tr("%1 today").arg(Todo.dueTodayCount))

@@ -175,6 +175,21 @@ index 9b786d3..16950aa 100644
  	default:
  		w.RespondError(req.ID, "unknown tasks method: "+req.Method)
  	}
+diff --git a/core/internal/providers/google/quota.go b/core/internal/providers/google/quota.go
+index 733ef00..981218a 100644
+--- a/core/internal/providers/google/quota.go
++++ b/core/internal/providers/google/quota.go
+@@ -41,6 +41,10 @@ type deferredRetry struct {
+ }
+ 
+ func (e *deferredRetry) Error() string {
++	// Google's own answer (429, rateLimitExceeded, a 5xx…) says why.
++	if e.cause != nil {
++		return fmt.Sprintf("Google API retry deferred for %s (%v)", e.RetryAfter(), e.cause)
++	}
+ 	return fmt.Sprintf("Google API retry deferred for %s", e.RetryAfter())
+ }
+ func (e *deferredRetry) Unwrap() error             { return e.cause }
 diff --git a/core/internal/providers/google/tasklists.go b/core/internal/providers/google/tasklists.go
 new file mode 100644
 index 0000000..4baa203
@@ -251,10 +266,10 @@ index 0000000..4baa203
 +}
 diff --git a/core/internal/providers/google/tasklists_test.go b/core/internal/providers/google/tasklists_test.go
 new file mode 100644
-index 0000000..d216ac7
+index 0000000..c520c7d
 --- /dev/null
 +++ b/core/internal/providers/google/tasklists_test.go
-@@ -0,0 +1,90 @@
+@@ -0,0 +1,101 @@
 +package google
 +
 +import (
@@ -265,7 +280,9 @@ index 0000000..d216ac7
 +	"net/http/httptest"
 +	"strings"
 +	"testing"
++	"time"
 +
++	"google.golang.org/api/googleapi"
 +	"google.golang.org/api/option"
 +	gtasks "google.golang.org/api/tasks/v1"
 +
@@ -343,5 +360,14 @@ index 0000000..d216ac7
 +	}
 +	if err := p.DeleteTaskList(ctx, cal.Calendar{RemoteID: "primary"}); err == nil {
 +		t.Fatal("deleted an event calendar")
++	}
++}
++
++// A deferral names Google's answer, so the logs say why a call waits.
++func TestDeferredRetryNamesCause(t *testing.T) {
++	cause := &googleapi.Error{Code: 429, Message: "Too Many Requests"}
++	err := (&deferredRetry{until: time.Now().Add(time.Second), now: time.Now, cause: cause}).Error()
++	if !strings.Contains(err, "retry deferred") || !strings.Contains(err, "429") {
++		t.Fatalf("message: %s", err)
 +	}
 +}
