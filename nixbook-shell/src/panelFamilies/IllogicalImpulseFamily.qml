@@ -23,6 +23,7 @@ import qs.modules.ii.sidebarHandles
 import qs.modules.ii.sidebarLeft
 import qs.modules.ii.sidebarRight
 import qs.modules.ii.splash
+import qs.modules.ii.tasks
 import qs.modules.ii.overlay
 import qs.modules.ii.verticalBar
 import qs.modules.ii.wallpaperSelector
@@ -52,6 +53,7 @@ Scope {
     PanelLoader { component: SidebarRight {} }
     PanelLoader { extraCondition: Config.options.bar.vertical; component: VerticalBar {} }
     PanelLoader { component: WallpaperSelector {} }
+    PanelLoader { component: TasksApp {} }
     PanelLoader { component: Settings {} }
     PanelLoader { component: DesktopMenu {} }
     PanelLoader { component: DropShelfPanel {} }

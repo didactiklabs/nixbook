@@ -284,6 +284,8 @@
       "todo": {
         "enable": false,
         "placementStrategy": "free",
+        "width": 340,
+        "height": 380,
         "x": 400,
         "y": 100,
         "z": 0

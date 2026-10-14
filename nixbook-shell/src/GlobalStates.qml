@@ -39,6 +39,14 @@ Singleton {
     property bool screenTranslatorOpen: false
     property bool sessionOpen: false
     property bool wallpaperSelectorOpen: false
+    // The Tasks app window (modules/ii/tasks), Google Tasks-like; opened from
+    // the to-do widget. `tasksPanelTaskId`: the task to show in it first.
+    property bool tasksPanelOpen: false
+    property string tasksPanelTaskId: ""
+    function openTasksPanel(taskId) {
+        root.tasksPanelTaskId = taskId ?? ""
+        root.tasksPanelOpen = true
+    }
     property string settingsPage: ""
     property Item currentPageInstance: null
     property list<real> visualizerPoints: []
