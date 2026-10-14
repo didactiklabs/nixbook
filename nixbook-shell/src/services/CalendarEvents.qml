@@ -116,13 +116,15 @@ Singleton {
         const args = [root.dcal, "ipc", method]
         for (const key in params) args.push(`${key}=${params[key]}`)
         root._calls.push({ args: args, onDone: onDone })
-        // Otherwise the running call starts the next one when it ends.
-        if (root._calls.length === 1) root._nextCall()
+        // Otherwise the running call starts the next one when it ends. Later,
+        // not now: this may run inside the last call's onDone, from its own
+        // exit handler (Qt.callLater runs _nextCall once however often asked).
+        if (root._calls.length === 1) Qt.callLater(root._nextCall)
     }
 
     function _nextCall() {
         const next = root._calls[0]
-        if (!next) return
+        if (!next || callProc.running) return
         callProc.command = next.args
         callProc.running = true
     }
@@ -309,6 +311,7 @@ Singleton {
         }
         onExited: code => {
             const done = root._calls.shift()
+            if (!done) return
             let result = null
             if (code === 0) {
                 try {

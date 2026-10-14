@@ -10,6 +10,9 @@ import qs.modules.common.widgets
 import qs.modules.common.widgets.widgetCanvas
 import qs.modules.ii.background.widgets
 
+// The notes on the desktop, pinned first then the latest edited. "+" jots
+// one down in a quick floating editor; a note, the title or ⤢ opens the
+// Notes app (modules/ii/notesApp), which shows the same notes.
 AbstractBackgroundWidget {
     id: root
     configEntryName: "notes"
@@ -22,7 +25,6 @@ AbstractBackgroundWidget {
     property var editingNote: null
 
     function openNewNote() { root.editingNote = {} }
-    function openNote(note) { root.editingNote = note }
 
     LazyLoader {
         active: root.editingNote !== null
@@ -77,12 +79,42 @@ AbstractBackgroundWidget {
                     StyledText {
                         Layout.topMargin: -4
                         Layout.leftMargin: 8
+                        Layout.fillWidth: true
                         font.pixelSize: Appearance.font.pixelSize.huge
                         font.weight: Font.Medium
                         color: Appearance.colors.colOnPrimaryContainer
                         text: "Notes"
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: GlobalStates.openNotesApp("")
+                        }
                     }
-                    Item { Layout.fillWidth: true }
+
+                    Rectangle {
+                        Layout.alignment: Qt.AlignVCenter
+                        implicitWidth: 34
+                        implicitHeight: 34
+                        radius: 17
+                        color: expandMouse.containsMouse ? Appearance.colors.colLayer1Hover : "transparent"
+                        MaterialSymbol {
+                            anchors.centerIn: parent
+                            text: "open_in_full"
+                            iconSize: Appearance.font.pixelSize.larger
+                            color: Appearance.colors.colOnPrimaryContainer
+                        }
+                        MouseArea {
+                            id: expandMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: GlobalStates.openNotesApp("")
+                        }
+                        PopupToolTip {
+                            text: Translation.tr("Open Notes")
+                            extraVisibleCondition: expandMouse.containsMouse
+                        }
+                    }
 
                     ToolbarPairedFab {
                         Layout.rightMargin: 4
@@ -99,7 +131,7 @@ AbstractBackgroundWidget {
                     Layout.fillHeight: true
                     clip: true
                     spacing: 6
-                    model: Notes.list
+                    model: Notes.sorted
 
                     delegate: SwipeDelegate {
                         id: noteCard
@@ -126,7 +158,8 @@ AbstractBackgroundWidget {
                             return Appearance.colors.colOnTertiary
                         }
 
-                        onClicked: root.openNote(noteCard.modelData)
+                        // A click (not a swipe) opens the note in the Notes app.
+                        onClicked: if (swipe.position === 0) GlobalStates.openNotesApp(noteCard.modelData.id)
 
                         contentItem: Rectangle {
                             radius: Appearance.rounding.normal
@@ -138,7 +171,7 @@ AbstractBackgroundWidget {
                                 anchors {
                                     left: parent.left; right: parent.right
                                     verticalCenter: parent.verticalCenter
-                                    leftMargin: 12; rightMargin: 12
+                                    leftMargin: 12; rightMargin: noteCard.modelData.pinned ? 30 : 12
                                 }
                                 color: noteCard.fg
                                 linkColor: noteCard.fg
@@ -161,6 +194,15 @@ AbstractBackgroundWidget {
                                     cursorShape: preview.hoveredUrl !== "" ? Qt.PointingHandCursor : Qt.ArrowCursor
                                 }
                             }
+                        }
+
+                        MaterialSymbol {
+                            anchors { right: parent.right; top: parent.top; margins: 8 }
+                            visible: !!noteCard.modelData.pinned
+                            text: "push_pin"
+                            iconSize: Appearance.font.pixelSize.normal
+                            fill: 1
+                            color: noteCard.fg
                         }
 
                         swipe.right: Rectangle {

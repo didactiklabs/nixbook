@@ -147,6 +147,16 @@ service) and keeps every calendar surface in sync:
   adds tasks to any list with a deadline, and resizes from its corner
   (`background.widgets.todo.width`/`height`, per monitor); new Google task
   lists are made in Google Tasks or DankCalendar;
+- notes: the desktop notes widget's notes (`src/services/Notes.qml`) also
+  open in the **Notes** window (`src/modules/ii/notesApp/`; launcher entry
+  "Notes", `nixbook-shell ipc call notes show`, or `notes open <id>`): the
+  notes on the left (search, pinned first, then the latest edited), the
+  selected one in a full editor saved as you type (an emptied note is
+  dropped when you leave it; Delete has Undo), Ctrl+N new, Ctrl+F search,
+  Ctrl+P pin; narrow, the list then the note. The widget lists them in the
+  same order and opens a note, its title or ⤢ in the window; "+" still
+  jots one down in the quick floating editor. Agents' changes (the `widget`
+  tool's notes, which can also `open` one) show live;
 - reminders: DankCalendar's own notifications (before each event, at its
   Google reminder times or 10 minutes before; Join, Open, Snooze, Dismiss),
   shown by the shell's notification server and silenced by Do Not Disturb.

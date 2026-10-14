@@ -3757,6 +3757,7 @@ WIDGET_ACTIONS = {
         "add": ("notes", "addFromFile", ("text",), True),
         "update": ("notes", "updateFromFile", ("id", "text"), True),
         "remove": ("notes", "remove", ("id",), True),
+        "open": ("notes", "open", ("note",), True),
     },
     "todo": {
         "list": ("todo", "list", (), False),
@@ -4132,7 +4133,8 @@ def arrange_widget(ctx, action, want, args):
     "following the wallpaper), hide_on {widget, monitor?}, raise {widget, "
     "monitor?} (in front), placement {widget, strategy: free, leastBusy, "
     "mostBusy}. Lay widgets out from `layout` so they don't overlap. notes (the notes "
-    "widget): list, add {text}, update {id, text}, remove {id}. todo (the "
+    "widget): list, add {text}, update {id, text}, remove {id}, open {id?} (the "
+    "Notes app on the user's screen, on that note). todo (the "
     "task list, simply; the `tasks` tool does lists, deadlines, moves): list, "
     "add {text}, done/undone/remove {index}. timers: "
     "status, pomodoro_toggle, pomodoro_reset, stopwatch_toggle, "
@@ -4209,6 +4211,8 @@ def t_widget(ctx, args):
                 raise ToolError("`text` is empty")
         elif name == "id":
             value = as_str(args, "id", max_len=64, pattern=r"[\w.-]{1,64}")
+        elif name == "note":
+            value = as_str(args, "id", required=False, max_len=64, pattern=r"[\w.-]{1,64}") or ""
         elif name == "when":
             value = as_str(args, "when", max_len=20, pattern=r"(\d{4}-\d{1,2}-\d{1,2}[ T])?\d{1,2}:\d{2}")
         elif name == "label":

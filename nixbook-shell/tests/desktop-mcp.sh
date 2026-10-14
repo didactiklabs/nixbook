@@ -245,6 +245,7 @@ case "$*" in
   *"notes listToFile"*) echo '[{"id":"17-1","content":"buy milk","createdAt":17}]' >"${*: -1}"; echo ok ;;
   *"notes addFromFile"*) cat "${*: -1}" >"$STUB_CALLS.note"; echo "ok: 18-2" ;;
   *"notes updateFromFile"*) cat "${*: -1}" >"$STUB_CALLS.note"; echo "ok: 17-1" ;;
+  *"notes open"*) echo "ok: opened the Notes app" ;;
   *"notes remove"*)
     if [ "${*: -1}" = "nope" ]; then echo 'error: no note "nope"'; else echo "ok: 17-1"; fi ;;
   # Tasks travel through transfer files both ways (Todo.qml query/apply):
@@ -1215,7 +1216,10 @@ expect_contains "shell_ipc: the notes' file functions only through the widget to
   "$(call shell_ipc '{"target":"notes","function":"addFromFile","args":["/home/x/.ssh/id_rsa"]}')" "refused"
 expect_contains "widget notes: the shell's errors" "$(call widget '{"widget":"notes","action":"remove","id":"nope"}')" 'no note "nope"'
 expect_contains "widget notes update: needs text" "$(call widget '{"widget":"notes","action":"update","id":"17-1"}')" "must be a non-empty string"
-expect_contains "widget notes: unknown action" "$(call widget '{"widget":"notes","action":"done"}')" "notes can't 'done': list, add, update, remove"
+expect_contains "widget notes: unknown action" "$(call widget '{"widget":"notes","action":"done"}')" "notes can't 'done': list, add, update, remove, open"
+call widget '{"widget":"notes","action":"open","id":"17-1"}' >/dev/null
+expect_eq "widget notes open: on a note" "qs -c nixbook-shell ipc call -- notes open 17-1" "$(last_call)"
+expect_eq "widget notes open: the app" "opened the Notes app" "$(call widget '{"widget":"notes","action":"open"}')"
 out=$(call widget '{"widget":"tasks","action":"list"}')
 expect_eq "widget todo list" "call mum" "$(jq -r '.tasks[0].content' <<<"$out")"
 call widget '{"widget":"todo","action":"done","index":0}' >/dev/null
