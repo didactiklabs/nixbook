@@ -35,6 +35,15 @@
   # are still checked.
   treefmt.config.settings.global.excludes = [ "nixbook-shell/src/**" ];
   git-hooks.hooks.shellcheck.excludes = [ "^nixbook-shell/src/" ];
+  # devenv's nixpkgs must stay the npins one: a manual `npins update` that
+  # skipped it left main red. `npins-update` keeps them together.
+  git-hooks.hooks.nixpkgs-sync = {
+    enable = true;
+    name = "devenv nixpkgs is the npins nixpkgs";
+    entry = "tests/nixpkgs-sync.sh --check";
+    files = "^(npins/sources\\.json|devenv\\.(yaml|lock))$";
+    pass_filenames = false;
+  };
 
   scripts = {
     # https://devenv.sh/scripts/
@@ -49,6 +58,9 @@
     '';
     generate-docs.exec = ''
       nix-build docs/generate-docs.nix "$@" && cp result/MODULES.md docs/MODULES.md && treefmt docs/MODULES.md && echo "Documentation written to docs/MODULES.md"
+    '';
+    npins-update.exec = ''
+      npins update "$@" && "$DEVENV_ROOT/tests/nixpkgs-sync.sh"
     '';
     run-tests.exec = ''
       "$DEVENV_ROOT/tests/run.sh" "$@"
@@ -73,6 +85,7 @@
     echo "  build-iso - Builds the installation ISO"
     echo "  test-iso       - Builds and tests the installation ISO in a VM"
     echo "  generate-docs  - Auto-generates module documentation to docs/MODULES.md"
+    echo "  npins-update   - npins update [PINS...], keeping devenv's nixpkgs in sync"
     echo "  run-tests      - Cheap regression checks (tests/run.sh; run-tests for usage)"
     echo "  doc-dev        - Run the documentation website locally (VitePress, port 5173)"
     echo "  doc-build      - Build the documentation website (docs/.vitepress/dist)"

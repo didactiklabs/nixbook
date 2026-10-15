@@ -14,7 +14,8 @@
 #
 # Needs: nix, jq, yq (mikefarah), python3; `host` also needs colmena and an
 # /etc/nixos/hardware-configuration.nix (on a non-NixOS machine or a CI
-# runner, install tests/hardware-stub.nix there).
+# runner, install tests/hardware-stub.nix there, or point
+# $NIXBOOK_HARDWARE_CONFIG at it).
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -94,15 +95,7 @@ cmd_repo() {
     echo "FAIL - build.yaml build matrix $matrix != hive nodes $nodes" >&2
     failed=1
   fi
-  local npins_rev devenv_rev
-  npins_rev=$(jq -r .pins.nixpkgs.revision npins/sources.json)
-  devenv_rev=$(yq -r '.inputs.nixpkgs.url' devenv.yaml | sed 's|.*/||')
-  if [ "$npins_rev" = "$devenv_rev" ]; then
-    echo "ok   - devenv.yaml nixpkgs is the npins nixpkgs ($npins_rev)"
-  else
-    echo "FAIL - devenv.yaml nixpkgs $devenv_rev != npins nixpkgs $npins_rev" >&2
-    failed=1
-  fi
+  tests/nixpkgs-sync.sh --check || failed=1
   return "$failed"
 }
 
@@ -148,9 +141,10 @@ cmd_host() {
   local host="${1:?usage: tests/run.sh host NAME [--all-modules]}" all=false
   [ "${2:-}" = "--all-modules" ] && all=true
   need colmena nix-store jq
-  if [ ! -e /etc/nixos/hardware-configuration.nix ]; then
+  if [ -z "${NIXBOOK_HARDWARE_CONFIG:-}" ] && [ ! -e /etc/nixos/hardware-configuration.nix ]; then
     echo "tests/run.sh: /etc/nixos/hardware-configuration.nix is missing; for an evaluation-only machine:" >&2
-    echo "  sudo install -D -m 644 tests/hardware-stub.nix /etc/nixos/hardware-configuration.nix" >&2
+    echo "  NIXBOOK_HARDWARE_CONFIG=$repo/tests/hardware-stub.nix tests/run.sh host $host" >&2
+    echo "  or: sudo install -D -m 644 tests/hardware-stub.nix /etc/nixos/hardware-configuration.nix" >&2
     exit 2
   fi
 

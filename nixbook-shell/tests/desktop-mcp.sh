@@ -11,6 +11,10 @@
 #   - HTTP: loopback only, bearer token, Host/Origin checks.
 # Needs bash, python3, jq and curl. Run: bash tests/desktop-mcp.sh
 set -euo pipefail
+# nix-shell exports $out (the derivation output). The tests capture replies
+# in $out, and an exported multi-megabyte one (screenshots) overflows every
+# command's environment: "Argument list too long".
+export -n out 2>/dev/null || true
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 mcp="$root/scripts/desktop-mcp.py"

@@ -155,7 +155,7 @@ Whether to enable Fcitx5 Lotus — an open-source Vietnamese input method for fc
 ### `customNixOSModules.fcitx5-lotus.package`
 
 - **Type:** `package`
-- **Default:** `"/nix/store/grynz4r0idf7w6qg8jykpydgk96rf4ld-fcitx5-lotus-4.0.0"`
+- **Default:** `pkgs.fcitx5-lotus`
 
 The fcitx5-lotus package to install.
 
@@ -519,7 +519,7 @@ Whether to enable Fastfetch system information display. Fastfetch is a neofetch-
 ### `customHomeManagerModules.fcitx5Config.addons`
 
 - **Type:** `list of package`
-- **Default:** `["/nix/store/psxg9jx9ynz3fwfv2c8zy9n6904yzxn2-fcitx5-mozc-2.30.5544.102","/nix/store/0n3danf5wqdlqbxh39rd7299gkmfyvv5-fcitx5-gtk-5.1.7"]`
+- **Default:** `[ pkgs.fcitx5-mozc pkgs.fcitx5-gtk ]`
 
 Fcitx5 addon packages to install (IME engines and integrations). Defaults to the Japanese Mozc engine plus GTK integration.
 
@@ -823,7 +823,7 @@ Whether to install the `kubeswitch` ocm module (`~/.config/opencode-manager/modu
 ### `customHomeManagerModules.ocmConfig.kubeswitch.package`
 
 - **Type:** `package`
-- **Default:** `"/nix/store/4qd1x27rnhqzcmi0iis0m27745bl6pgx-kubeswitch-0.9.3"`
+- **Default:** `pkgs.kubeswitch`
 
 kubeswitch package whose `switcher` the host hooks run.
 
