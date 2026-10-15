@@ -504,6 +504,14 @@ ContentPage {
                 text: Translation.tr("What you told agents about your life — events, plans, people, interests — so later conversations know it. They keep the meaningful parts, one entry per subject, merged as things change. Only what a conversation needs is sent: your profile, events coming up, and the entries about what you're talking about; the rest by subject only. Kept apart from the desktop memory; delete anything.")
             }
 
+            ConfigSwitch {
+                configKey: "ai.claudeCode.autoMemory"
+                buttonIcon: "auto_awesome"
+                text: Translation.tr("Remember on their own: after a chat in the side panel, a small model keeps what matters")
+                checked: Config.options.ai.claudeCode.autoMemory
+                onCheckedChanged: Config.options.ai.claudeCode.autoMemory = checked
+            }
+
             StyledText {
                 visible: DesktopControl.personal.length === 0
                 color: Appearance.colors.colSubtext
@@ -550,7 +558,9 @@ ContentPage {
                                 color: Appearance.colors.colOnLayer1
                             }
                             StyledText {
-                                text: Translation.tr("by %1 · %2 · used %3 times")
+                                text: (entryRow.modelData.tentative ? Translation.tr("tentative (kept if it comes up again)") + " · " : "")
+                                    + Translation.tr("importance %1/5 · by %2 · %3 · used %4 times")
+                                    .arg(entryRow.modelData.kind === "profile" ? 5 : (entryRow.modelData.importance ?? 3))
                                     .arg(entryRow.modelData.client ?? "?")
                                     .arg(page.ago(entryRow.modelData.updated))
                                     .arg(entryRow.modelData.uses ?? 0)

@@ -380,6 +380,40 @@ kept small and relevant:
   the task (`NIXBOOK_DESKTOP_MCP_QUERY[_FILE]`) get them in the
   instructions or with the next reply, once.
 
+Agents often don't save mid-task, so the AI chat also runs a **memory
+pass**: two minutes after Claude's last answer (or when the chat is cleared
+or another loaded), the turns not read yet go to `nixbook-desktop-mcp
+personal learn`, which hands them, with the entries they bear on, to a
+small model (`ai.claudeCode.memoryModel`, `haiku`) through Claude Code with
+no tools, MCP servers or settings, and applies its answer under the same
+rules (an existing subject only by id, at most 6 saves and 3 forgets, and
+only of entries it was shown); its entries are "by memory pass".
+`ai.claudeCode.autoMemory` (on; **Settings → Desktop agents → About you**)
+turns it off, and so does the `personal` tool group.
+
+It keeps memories the way a person does, without a token spent in the
+conversation (the pass is detached, ~4 s and ~2k tokens of Haiku):
+
+- **importance** 1-5, rated by the pass (agents' own saves: 3; the
+  profile: 5);
+- **tentative**: what mattered little (1-2) is kept but never sent to a
+  conversation (digest, `personal context`; `recall_about_user` still
+  finds it) until it comes up again, and is dropped after 60 days;
+- **repetition**: the pass lists the entries brought up again with nothing
+  new (`recalled`, ids only); each time is a `mention`, ends tentativeness
+  and restarts fading, and the 3rd and 6th raise the importance (to 4 at
+  most);
+- **fading**, in plain Python on each pass: an entry neither updated nor
+  used for 90 / 180 / 365 days (importance 1 / 2 / 3) is forgotten; 4-5 and
+  the profile never fade; past `personalMaxEntries`, the tentative and least
+  important go first;
+- **a weekly tidy-up** (`nixbook-desktop-mcp personal tidy` to run it now),
+  only when the memory changed and holds 6 entries or more: one call with
+  every entry in short (≤ 10k characters) that merges entries on the same
+  subject, keeps past events in short, drops what no longer holds and
+  re-rates importance; at most 10 changes, and it never forgets the profile
+  or an important entry unless merging it into another of its kind.
+
 The personal memory isn't the desktop: its tools work while desktop control
 is paused, and the audit log has their ids and kinds only. It lives in
 `~/.local/state/nixbook-shell/personal-memory.json` (private), apart from the

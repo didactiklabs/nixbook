@@ -1121,6 +1121,107 @@ out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
 expect_not_contains "personal memory: not sent with the group turned off" "$(jq -r .result.instructions <<<"$out")" "Personal memory"
 expect_eq "personal context: nothing with the group turned off" '[]' "$(python3 "$mcp" personal context "Kyoto" | jq -c .ids)"
 rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+
+# The memory pass, against a fake Claude Code that logs its prompt and
+# arguments and answers $FAKE_ANSWER (its --output-format json).
+fake_claude="$tmp/fake-claude"
+cat >"$fake_claude" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$@" >"$FAKE_LOG.args"
+cat >"$FAKE_LOG.prompt"
+printf '%s\n' "$FAKE_ANSWER"
+EOF
+chmod +x "$fake_claude"
+export FAKE_LOG="$tmp/fake-claude-log"
+# Tidied just now: the weekly tidy-up is tested on its own below.
+jq '.tidied = now' "$pmem" >"$pmem.new" && mv "$pmem.new" "$pmem"
+transcript="$tmp/memory-pass.txt"
+printf 'User: I booked the flight to Kyoto, we land 2027-04-03\n\nAssistant: Nice! Want a packing list?\n\nUser: later. Also I started playing chess at a club on Tuesdays\n' >"$transcript"
+export FAKE_ANSWER
+FAKE_ANSWER=$(jq -nc --arg id "$japan" '{structured_output: {save: [
+  {id: $id, topic: "japan", kind: "topic", text: "Trip 2027-04 with Mai: Kyoto, Hakone, Osaka; flight booked, landing 2027-04-03. JLPT N4 goal."},
+  {topic: "chess", kind: "topic", text: "Plays chess at a club on Tuesdays (started 2026)"},
+  {topic: "guitar", kind: "topic", text: "Gave up guitar"}], forget: ["abcdef"]}}') \
+out=$(python3 "$mcp" personal learn --claude "$fake_claude" --model haiku --delete "$transcript")
+expect_eq "memory pass: saves and updates by id" '["japan","chess"]' "$(jq -c .saved <<<"$out")"
+expect_contains "memory pass: the update merged" "$(jq -r --arg id "$japan" '.entries[] | select(.id==$id) | .text' "$pmem")" "landing 2027-04-03"
+expect_eq "memory pass: by the memory pass" "memory pass" "$(jq -r '.entries[] | select(.topic=="chess") | .client' "$pmem")"
+expect_contains "memory pass: a subject that exists only by id" "$(jq -r '.skipped[]' <<<"$out")" "guitar: an entry on 'guitar' exists"
+expect_contains "memory pass: forgets only entries it was shown" "$(jq -r '.skipped[]' <<<"$out")" "forget abcdef: not shown"
+expect_eq "memory pass: --delete removes the transcript" "no" "$([ -e "$transcript" ] && echo yes || echo no)"
+expect_contains "memory pass: the conversation in the prompt" "$(cat "$FAKE_LOG.prompt")" "<conversation>
+User: I booked the flight to Kyoto"
+expect_contains "memory pass: the entries it bears on, in full" "$(cat "$FAKE_LOG.prompt")" "[$japan] japan (topic, i3): Trip 2027-04"
+args=$(cat "$FAKE_LOG.args")
+for a in --no-session-persistence --strict-mcp-config --json-schema haiku; do
+  expect_contains "memory pass: claude $a" "$args" "$a"
+done
+expect_not_contains "memory pass: no word of it in the audit log" "$(tail -n 20 "$XDG_STATE_HOME/nixbook-shell/desktop-mcp.log")" "Tuesdays"
+chess=$(jq -r '.entries[] | select(.topic=="chess") | .id' "$pmem")
+FAKE_ANSWER=$(jq -nc --arg id "$chess" '{result: ("Here: {\"save\": [], \"forget\": [\"" + $id + "\"]}")}')
+out=$(echo "User: forget that I play chess" | python3 "$mcp" personal learn --claude "$fake_claude" -)
+expect_eq "memory pass: an answer in the result text, forget" "[\"$chess\"]" "$(jq -c .forgot <<<"$out")"
+rm -f "$FAKE_LOG.args"
+echo '{"tools":["observe"]}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+out=$(echo "User: I live in Lyon" | python3 "$mcp" personal learn --claude "$fake_claude" -)
+expect_eq "memory pass: not with the group turned off" "no" "$([ -e "$FAKE_LOG.args" ] && echo yes || echo no)"
+rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+
+# Like a person's memory: what mattered little is tentative until it comes
+# up again, what comes up again is held more firmly, what isn't used fades.
+guitar0=$(jq -r '.entries[] | select(.topic=="guitar") | .id' "$pmem")
+learn() { printf '%s\n' "$1" | python3 "$mcp" personal learn --claude "$fake_claude" -; }
+FAKE_ANSWER='{"structured_output": {"save": [{"topic": "pottery", "kind": "topic", "importance": 2, "text": "Considering a pottery class"}], "forget": []}}'
+learn "User: I might try a pottery class someday" >/dev/null
+pottery=$(jq -r '.entries[] | select(.topic=="pottery") | .id' "$pmem")
+expect_eq "importance: a passing mention is tentative" "2 true" "$(jq -r --arg id "$pottery" '.entries[] | select(.id==$id) | "\(.importance) \(.tentative)"' "$pmem")"
+FAKE_ANSWER='{"structured_output": {"save": [], "forget": []}}'
+expect_contains "importance: the pass sees importance and tentative" "$(
+  learn "User: what about pottery" >/dev/null
+  cat "$FAKE_LOG.prompt"
+)" "[$pottery] pottery (topic, i2, tentative)"
+expect_not_contains "tentative: not in the digest" "$(python3 "$mcp" personal prompt)" "pottery"
+expect_eq "tentative: not sent with a message" '[]' "$(python3 "$mcp" personal context "pottery class" | jq -c .ids)"
+expect_contains "tentative: recall still finds it" "$(call recall_about_user '{"query":"pottery"}')" "(topic, tentative)"
+FAKE_ANSWER="{\"structured_output\": {\"save\": [], \"recalled\": [\"$pottery\"], \"forget\": []}}"
+out=$(learn "User: signed up for the pottery class")
+expect_eq "recalled: brought up again" "[\"$pottery\"]" "$(jq -c .recalled <<<"$out")"
+expect_eq "recalled: no longer tentative" "null 2" "$(jq -r --arg id "$pottery" '.entries[] | select(.id==$id) | "\(.tentative) \(.mentions)"' "$pmem")"
+learn "User: pottery" >/dev/null
+expect_eq "recalled: the third time, more important" "3 3" "$(jq -r --arg id "$pottery" '.entries[] | select(.id==$id) | "\(.mentions) \(.importance)"' "$pmem")"
+expect_eq "importance: agents' saves default to 3, not tentative" "3 null" "$(jq -r --arg id "$guitar0" '.entries[] | select(.id==$id) | "\(.importance) \(.tentative)"' "$pmem")"
+expect_eq "importance: the profile counts as 5" "5" "$(
+  PYTHONDONTWRITEBYTECODE=1 python3 - "$mcp" <<'EOF'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("m", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+print(m.importance({"kind": "profile", "importance": 2}))
+EOF
+)"
+# Fading: an old tentative entry, an unused unimportant one, an old important one.
+old=$(($(date +%s) - 400 * 86400))
+jq --argjson old "$old" '.entries += [
+  {id: "aaa001", topic: "kite", kind: "topic", text: "Maybe kite surfing", importance: 2, tentative: true, created: $old, updated: $old, uses: 0},
+  {id: "aaa002", topic: "podcast", kind: "topic", text: "Liked a podcast", importance: 1, created: $old, updated: $old, uses: 0},
+  {id: "aaa003", topic: "Lan (sister)", kind: "person", text: "Sister Lan, lives in Hanoi", importance: 4, created: $old, updated: $old, uses: 0}]
+  | .tidied = now' "$pmem" >"$pmem.new" && mv "$pmem.new" "$pmem" && chmod 600 "$pmem"
+FAKE_ANSWER='{"structured_output": {"save": [], "forget": []}}'
+out=$(python3 "$mcp" personal learn --claude "$fake_claude" - </dev/null)
+expect_eq "fading: the tentative and the unimportant fade, the important stays" '["aaa001","aaa002"]' "$(jq -c '.faded | sort' <<<"$out")"
+expect_eq "fading: gone from the file" "0 1" "$(jq -r '"\([.entries[] | select(.id=="aaa001" or .id=="aaa002")] | length) \([.entries[] | select(.id=="aaa003")] | length)"' "$pmem")"
+expect_eq "fading: no tidy-up before a week" "false" "$(jq -r .tidied <<<"$out")"
+# The tidy-up: merges, but never forgets an important entry merged into nothing.
+guitar=$(jq -r '.entries[] | select(.topic=="guitar") | .id' "$pmem")
+me=$(jq -r '.entries[] | select(.topic=="me") | .id' "$pmem")
+mentions=$(jq -r --arg id "$pottery" '.entries[] | select(.id==$id) | .mentions' "$pmem")
+FAKE_ANSWER=$(jq -nc --arg p "$pottery" --arg g "$guitar" --arg me "$me" '{structured_output: {save: [
+  {id: $p, topic: "hobbies", kind: "topic", importance: 3, text: "Pottery class on Tuesdays; learning fingerstyle guitar"}],
+  recalled: [$p], forget: [$g, $me]}}')
+out=$(python3 "$mcp" personal tidy --claude "$fake_claude")
+expect_eq "tidy: merged" "true[\"hobbies\"][\"$guitar\"]" "$(jq -c -r '"\(.tidied) \(.saved) \(.forgot)"' <<<"$out" | tr -d ' ')"
+expect_contains "tidy: not the profile, merged into nothing" "$(jq -r '.skipped[]' <<<"$out")" "forget $me: important"
+expect_eq "tidy: a rewrite isn't the subject coming up again" "$mentions" "$(jq -r --arg id "$pottery" '.entries[] | select(.id==$id) | .mentions' "$pmem")"
+expect_contains "tidy: the entries in short, with importance" "$(cat "$FAKE_LOG.prompt")" "[$me] me (profile, i5)"
+
 python3 "$mcp" personal forget "$japan" >/dev/null
 expect_eq "personal forget" 0 "$(jq --arg id "$japan" '[.entries[] | select(.id==$id)] | length' "$pmem")"
 python3 "$mcp" personal clear >/dev/null
