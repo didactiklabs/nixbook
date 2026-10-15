@@ -47,6 +47,7 @@ let
           imagemagick # scales window captures down
           tesseract # read_screen
           systemd # systemctl: starts the agent desktop (agentDesktop)
+          pciutils # lspci: GPU names (system_info)
         ]
       )
     }:$PATH"

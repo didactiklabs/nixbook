@@ -12,6 +12,7 @@
     },
     "claudeCode": {
       "allowedTools": ["WebSearch", "WebFetch"],
+      "asComputer": true,
       "command": "",
       "connectors": false,
       "effort": "low",

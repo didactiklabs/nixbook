@@ -239,6 +239,17 @@ ContentPage {
                     onCheckedChanged: claudeSection.setTools(["WebSearch", "WebFetch"], checked)
                 }
                 ConfigSwitch {
+                    configKey: "ai.claudeCode.asComputer"
+                    enabled: !nixManaged
+                    buttonIcon: "computer"
+                    text: Translation.tr("Speak as this computer")
+                    checked: Config.options.ai.claudeCode.asComputer
+                    onCheckedChanged: Config.options.ai.claudeCode.asComputer = checked
+                    StyledToolTip {
+                        text: Translation.tr("Claude answers as the machine itself, from its live hardware, OS and kernel readings")
+                    }
+                }
+                ConfigSwitch {
                     configKey: "ai.claudeCode.connectors"
                     enabled: !nixManaged
                     buttonIcon: "hub"

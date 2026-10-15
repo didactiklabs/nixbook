@@ -338,6 +338,10 @@ reset_calls() { : >"$calls"; }
 allowed="$XDG_STATE_HOME/nixbook-shell/desktop-control-allowed"
 out=$(call list_windows)
 expect_contains "default: paused on a fresh install" "$out" "paused by the user"
+out=$(call system_info '{"sections":["os","cpu","memory"]}')
+expect_eq "system_info: answers while paused" "$(uname -r)" "$(jq -r .os.kernel.release <<<"$out")"
+expect_eq "system_info: only the sections asked" "cpu memory os" "$(jq -r 'keys | join(" ")' <<<"$out")"
+expect_eq "system_info: CPU threads" "$(nproc --all)" "$(jq -r .cpu.threads <<<"$out")"
 expect_eq "default: status says paused" true "$(python3 "$mcp" status | jq .paused)"
 python3 "$mcp" resume >/dev/null
 expect_eq "resume: persisted in the state directory" 600 "$(stat -c %a "$allowed")"
@@ -363,7 +367,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 45 tools" 45 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 46 tools" 46 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -1495,7 +1499,7 @@ out=$(call focus_window '{"id":1}')
 expect_eq "resume" "focused window 1" "$(head -n 1 <<<"$out")"
 
 echo '{"tools":["observe"],"actionsPerMinute":2}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
-expect_eq "config: disabled groups not listed" 6 "$(python3 "$mcp" tools | jq length)"
+expect_eq "config: disabled groups not listed" 7 "$(python3 "$mcp" tools | jq length)"
 out=$(call type_text '{"text":"x"}')
 expect_contains "config: disabled tool not callable" "$out" "unknown or disabled tool"
 echo '{"actionsPerMinute":2}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"

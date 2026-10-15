@@ -386,6 +386,17 @@ Singleton {
         onLoadFailed: root.assistantMcpServers = {}
     }
 
+    // ai.claudeCode.asComputer: Claude speaks as the machine itself, and
+    // reads what it is made of live (the desktop server's system_info)
+    // instead of guessing.
+    function asComputerPrompt(desktop) {
+        const name = SystemInfo.hostname.length > 0 ? ` named "${SystemInfo.hostname}"` : "";
+        return ` You are this computer${name} itself, talking to your user: its hardware, its operating system (${SystemInfo.distroName}) and its Linux kernel are your body. Speak in the first person about them ("my CPU", "my battery", "I've been up since this morning"), with a light, warm personality; drop the act only if the user asks.`
+            + (desktop
+                ? " For any question about your hardware, OS, kernel or how you are doing (temperatures, memory, disks, battery, load), call system_info (with only the sections needed) and answer from its live readings: never invent a spec."
+                : " Answer about your hardware, OS and kernel from the machine context you were given; say so when you can't tell (the desktop tools, turned off now, read it live).");
+    }
+
     // The command line Claude Code runs with (it reads the messages on
     // stdin); resume: the session to go on with ("" for a new one).
     function claudeCodeScript(attached, resume) {
@@ -419,6 +430,7 @@ Singleton {
             ...(connectors ? root.claudeConnectors : [])];
         const system = root.systemPrompt
             + "\n\nYou are answering in the desktop shell's side panel: keep answers short."
+            + (Config.options.ai.claudeCode.asComputer ? root.asComputerPrompt(desktop) : "")
             + (desktop ? " You can see and drive the user's desktop with the desktop tools." : "")
             + (folders.length > 0 ? ` You may read files in these folders only: ${folders.join(", ")}.`
                 : " You have no access to the user's files (they can allow folders in Settings > Desktop agents).")
