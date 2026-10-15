@@ -319,6 +319,44 @@ Singleton {
         onExited: Qt.callLater(() => personalContext.send(""))
     }
 
+    // The memory pass (`nixbook-desktop-mcp personal learn`): Claude is told
+    // to save what matters about the user, but mid-task it often doesn't.
+    // So once a chat with Claude goes quiet (ai.claudeCode.autoMemory), or
+    // is left (cleared, another loaded), the turns the pass hasn't read go
+    // to a small model that saves what is worth keeping. Detached: it
+    // outlives the chat, and costs nothing while the chat goes on.
+    property int memoryReadUpTo: 0 // the messages the pass has read
+    FileView {
+        id: memoryPassFile
+        blockWrites: true
+    }
+    Timer {
+        id: memoryPassTimer
+        interval: 2 * 60 * 1000
+        onTriggered: requester.turnActive ? restart() : root.runMemoryPass()
+    }
+    function runMemoryPass() {
+        memoryPassTimer.stop();
+        const messages = root.messageIDs.map(id => root.messageByID[id]);
+        const from = Math.min(root.memoryReadUpTo, messages.length);
+        root.memoryReadUpTo = messages.length;
+        if (!(Config.options?.ai?.claudeCode?.autoMemory ?? true) || root.claudeCodePath.length === 0) return;
+        const isTurn = m => m && (m.role === "user" || m.role === "assistant") && !m.functionName && (m.rawContent ?? "").length > 0;
+        const fresh = messages.slice(from).filter(isTurn);
+        // Only what the user said to Claude (not the config assistant).
+        if (!fresh.some(m => m.role === "user") || !fresh.some(m => m.role === "assistant" && m.model === "claude")) return;
+        const line = m => m.role === "user" ? `User: ${m.rawContent}`
+            : `Assistant: ${m.rawContent.length > 1200 ? m.rawContent.slice(0, 1200) + "…" : m.rawContent}`;
+        const earlier = messages.slice(0, from).filter(isTurn).slice(-2);
+        const transcript = (earlier.length > 0 ? `(Earlier, read already:)\n${earlier.map(line).join("\n\n")}\n\n(New:)\n` : "")
+            + fresh.map(line).join("\n\n");
+        const path = `${Directories.aiTemp}/memory-pass-${Date.now()}.txt`;
+        memoryPassFile.path = Qt.resolvedUrl(path);
+        memoryPassFile.setText(transcript);
+        Quickshell.execDetached([root.desktopMcpCommand, "personal", "learn", "--claude", root.claudeCodePath,
+            "--model", Config.options.ai.claudeCode.memoryModel || "haiku", "--delete", path]);
+    }
+
     // The task, for the desktop MCP server's memory (NIXBOOK_DESKTOP_MCP_QUERY_FILE):
     // written before each message, read by the running server on its next call.
     readonly property string desktopTaskFilePath: `${Directories.aiTemp}/desktop-task.txt`
@@ -500,6 +538,8 @@ Singleton {
     }
     
     function clearMessages() {
+        root.runMemoryPass(); // the chat being left
+        root.memoryReadUpTo = 0;
         root.claudeSessionId = "";
         root.messageIDs = [];
         root.messageByID = ({});
@@ -547,6 +587,7 @@ Singleton {
             requester.activeMessage.thinking = false;
             root.saveChat("lastSession")
             root.responseFinished()
+            memoryPassTimer.restart();
             // Stopped by the user: they're there already.
             if (!stopped) root.notifyDone(requester.activeMessage);
         }
@@ -902,6 +943,8 @@ Singleton {
                     "visibleToUser": message.visibleToUser,
                 });
             }
+            // A saved chat: the pass read it, or it is from before the pass.
+            root.memoryReadUpTo = saveData.length;
         } catch (e) {
             console.log("[AI] Could not load chat: ", e);
         } finally {

@@ -201,6 +201,11 @@ Singleton {
                     // The claude.ai connectors of the Claude account (Gmail,
                     // Calendar, Drive…), all their tools allowed.
                     property bool connectors: false
+                    // The memory pass: once a chat goes quiet, a small model
+                    // reads it and saves what is worth keeping about the user
+                    // (personal memory), without being asked.
+                    property bool autoMemory: true
+                    property string memoryModel: "haiku"
                 }
             }
 

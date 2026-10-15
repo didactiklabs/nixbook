@@ -64,8 +64,20 @@ It is organised so it costs few tokens:
 - a conversation starts with your profile, the events coming up or just past, and the other subjects **by name only** (about 900 characters at most);
 - when you talk about a subject, its entry comes with your message: say "I booked the flight to Kyoto" and the "japan" entry is there, so Claude can update it.
 
+Claude doesn't always stop to save mid-task, so the side panel also runs a **memory pass**: a couple of minutes after the last answer (or when you clear the chat or load another), a small model (`ai.claudeCode.memoryModel`, Haiku by default) reads the new turns and saves or updates what is worth keeping, by the same rules. Turn it off with **Remember on their own** in **About you** (`ai.claudeCode.autoMemory`).
+
+It remembers the way a person does:
+
+- each memory has an **importance** (1-5): who you are and the people closest to you never fade; big plans and events matter more than passing interests;
+- a **passing mention** ("I might try pottery") is kept only tentatively: never brought into a conversation, and forgotten after two months unless it comes up again;
+- what **comes up again** is held more firmly: it stops being tentative, and the third and sixth time it becomes more important;
+- what is **never used fades**: after 3, 6 or 12 months for importance 1, 2 or 3;
+- once a week it **tidies up**: merges memories about the same subject, shortens past events, drops what no longer holds.
+
+All of it runs in the background after the chat, with a small model (about 4 s and a fraction of a cent a pass): your conversation is no slower and carries no more tokens — tentative memories even keep it smaller. **About you** shows each entry's importance and whether it is tentative.
+
 - **Settings → Desktop agents → About you** shows the entries (delete any, or all).
-- `nixbook-desktop-mcp personal show|prompt|forget ID|clear`.
+- `nixbook-desktop-mcp personal show|prompt|learn|forget ID|clear`.
 - Stored in `~/.local/state/nixbook-shell/personal-memory.json` (private), apart from the desktop memory. Its tools work while desktop control is paused (they don't touch the desktop), and the audit log never has their text.
 
 ## HTTP transport
