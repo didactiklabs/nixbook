@@ -87,6 +87,7 @@ let
 
   # -- Option extraction -------------------------------------------------------
   isOption = v: v ? _type && v._type == "option";
+  renderPackage = v: if lib.isDerivation v then "pkgs.${lib.getName v}" else builtins.toJSON v;
 
   collectOptions =
     prefix: tree:
@@ -116,7 +117,14 @@ let
                 if val ? default then
                   let
                     rendered = builtins.tryEval (
-                      if builtins.isBool val.default then
+                      # A package as its name, not its store path: the path
+                      # changes with every pin bump, and MODULES.md went stale
+                      # (failing the docs check) on each dependency update.
+                      if lib.isDerivation val.default then
+                        renderPackage val.default
+                      else if builtins.isList val.default && builtins.any lib.isDerivation val.default then
+                        "[ ${lib.concatMapStringsSep " " renderPackage val.default} ]"
+                      else if builtins.isBool val.default then
                         (if val.default then "true" else "false")
                       else if builtins.isInt val.default then
                         builtins.toString val.default

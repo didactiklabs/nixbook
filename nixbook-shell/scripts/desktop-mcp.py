@@ -37,6 +37,7 @@ import datetime
 import hmac
 import fcntl
 import json
+import math
 import os
 import re
 import secrets
@@ -489,7 +490,10 @@ class Guard:
         self.client = client
         self.notify = notify and cfg.get("notifyOnControl", True)
         self.actions = []  # timestamps of recent actions
-        self.last_action = 0.0
+        # None until the first action: time.monotonic() counts from boot, so a
+        # 0.0 start made the first action look recent within 5 minutes of
+        # boot and the takeover went unannounced.
+        self.last_action = None
         self.lock = threading.Lock()
 
     def check_rate(self):
@@ -502,7 +506,7 @@ class Guard:
                     f"rate limit: more than {limit} actions in a minute; slow down"
                 )
             self.actions.append(now)
-            idle = now - self.last_action
+            idle = math.inf if self.last_action is None else now - self.last_action
             self.last_action = now
         # Tell the user an agent took over (again after 5 idle minutes).
         if self.notify and idle > 300 and notify_enabled():

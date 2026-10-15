@@ -22,6 +22,13 @@ defaults:
     # Explicit `bash` makes Actions run with `-eo pipefail`, so a failing
     # command in a pipeline fails the step.
     shell: bash
+env:
+  # base.nix imports this instead of the runner's own
+  # /etc/nixos/hardware-configuration.nix: that one has no /boot file system,
+  # and since core.nix adds /boot mount options every profile failed with
+  # "fileSystems."/boot".fsType was accessed but has no value defined". The
+  # same stub the Checks workflow evaluates with.
+  NIXBOOK_HARDWARE_CONFIG: ${{ github.workspace }}/tests/hardware-stub.nix
 jobs:
   pre_job:
     if: ${{ github.event.action != 'closed' }}

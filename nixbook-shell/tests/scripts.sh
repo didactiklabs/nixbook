@@ -12,6 +12,10 @@
 # The jq programs are single-quoted on purpose: `$n`, `$a`, ... are jq variables.
 # shellcheck disable=SC2016
 set -euo pipefail
+# nix-shell exports $out (the derivation output). The tests capture replies
+# in $out, and an exported multi-megabyte one (screenshots) overflows every
+# command's environment: "Argument list too long".
+export -n out 2>/dev/null || true
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 scripts="$root/scripts"
