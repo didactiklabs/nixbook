@@ -734,6 +734,449 @@ def t_list_workspaces(ctx, args):
     return [text({"workspaces": sorted(wss, key=lambda w: (w["monitor"] or "", w["index"] or 0)), "monitors": outputs})]
 
 
+# -- the machine itself --------------------------------------------------------
+# Read from /proc and /sys (and lspci for GPU names when it is installed):
+# nothing on the desktop, so it answers while desktop control is paused.
+
+
+def read_sys(path, default=None):
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return f.read().strip()
+    except OSError:
+        return default
+
+
+def sys_int(path):
+    try:
+        return int(read_sys(path, ""))
+    except ValueError:
+        return None
+
+
+def human_bytes(n):
+    if n is None:
+        return None
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if n < 1024 or unit == "TiB":
+            return f"{n:.1f} {unit}" if unit != "B" else f"{n} B"
+        n /= 1024
+
+
+def human_duration(seconds):
+    m, _ = divmod(int(seconds), 60)
+    h, m = divmod(m, 60)
+    d, h = divmod(h, 24)
+    return " ".join(f"{v}{u}" for v, u in ((d, "d"), (h, "h"), (m, "min")) if v) or "under a minute"
+
+
+def meminfo():
+    out = {}
+    for line in (read_sys("/proc/meminfo", "") or "").splitlines():
+        key, _, value = line.partition(":")
+        parts = value.split()
+        if parts and parts[0].isdigit():
+            out[key] = int(parts[0]) * 1024
+    return out
+
+
+def cpu_times():
+    fields = (read_sys("/proc/stat", "") or "").splitlines()[0].split()[1:]
+    values = [int(v) for v in fields]
+    idle = values[3] + (values[4] if len(values) > 4 else 0)
+    return idle, sum(values)
+
+
+CHASSIS = {3: "desktop", 4: "desktop", 6: "desktop", 7: "tower", 8: "portable", 9: "laptop", 10: "notebook",
+           13: "all-in-one", 14: "notebook", 30: "tablet", 31: "convertible", 32: "detachable", 35: "mini PC"}
+
+
+def machine_info():
+    dmi = "/sys/class/dmi/id"
+    get = lambda k: (read_sys(f"{dmi}/{k}") or "").strip() or None  # noqa: E731
+    junk = {"To Be Filled By O.E.M.", "Default string", "System Product Name", "System manufacturer", "None"}
+    clean = lambda v: None if v in junk else v  # noqa: E731
+    chassis = sys_int(f"{dmi}/chassis_type")
+    out = {
+        "vendor": clean(get("sys_vendor")),
+        "model": clean(get("product_name")),
+        "version": clean(get("product_version")),
+        "kind": CHASSIS.get(chassis),
+        "motherboard": " ".join(v for v in (clean(get("board_vendor")), clean(get("board_name"))) if v) or None,
+        "firmware": {
+            "type": "UEFI" if os.path.isdir("/sys/firmware/efi") else "BIOS (legacy)",
+            "vendor": get("bios_vendor"),
+            "version": get("bios_version"),
+            "date": get("bios_date"),
+        },
+    }
+    if clean(get("sys_vendor")) in ("QEMU", "innotek GmbH", "VMware, Inc.", "Microsoft Corporation", "Xen"):
+        out["virtual_machine"] = True
+    return {k: v for k, v in out.items() if v is not None}
+
+
+def os_info():
+    rel = {}
+    for line in (read_sys("/etc/os-release", "") or "").splitlines():
+        k, _, v = line.partition("=")
+        rel[k] = v.strip().strip('"')
+    u = os.uname()
+    out = {
+        "name": rel.get("PRETTY_NAME") or rel.get("NAME"),
+        "kernel": {"name": u.sysname, "release": u.release, "build": u.version, "architecture": u.machine},
+        "hostname": u.nodename,
+        "init": os.path.basename(os.path.realpath("/sbin/init")) if os.path.exists("/sbin/init") else None,
+    }
+    nixos = read_sys("/run/current-system/nixos-version")
+    if nixos:
+        out["nixos_version"] = nixos
+        try:
+            m = re.search(r"system-(\d+)-link", os.readlink("/nix/var/nix/profiles/system"))
+        except OSError:
+            m = None
+        if m:
+            out["nixos_generation"] = int(m.group(1))
+        booted, current = os.path.realpath("/run/booted-system"), os.path.realpath("/run/current-system")
+        if os.path.exists("/run/booted-system") and booted != current:
+            out["reboot_pending"] = "the running system differs from the one booted (a reboot applies the new kernel or initrd)"
+    kver = re.match(r"(\d+)\.(\d+)", u.release)
+    if kver:
+        out["kernel"]["series"] = f"{kver.group(1)}.{kver.group(2)}"
+    tainted = sys_int("/proc/sys/kernel/tainted")
+    if tainted:
+        out["kernel"]["tainted"] = tainted
+    modules = read_sys("/proc/modules")
+    if modules is not None:
+        out["kernel"]["loaded_modules"] = len(modules.splitlines())
+    uptime = read_sys("/proc/uptime", "0").split()[0]
+    up = float(uptime)
+    out["uptime"] = human_duration(up)
+    out["booted_at"] = datetime.datetime.fromtimestamp(time.time() - up).isoformat(timespec="minutes")
+    load = read_sys("/proc/loadavg", "").split()
+    if len(load) >= 4:
+        out["load_average"] = {"1min": float(load[0]), "5min": float(load[1]), "15min": float(load[2])}
+        out["processes"] = int(load[3].split("/")[1])
+    return out
+
+
+def cpu_info():
+    text = read_sys("/proc/cpuinfo", "") or ""
+    first = {}
+    cores, mhz = set(), []
+    phys = "0"
+    for line in text.splitlines():
+        k, _, v = line.partition(":")
+        k, v = k.strip(), v.strip()
+        if k == "physical id":
+            phys = v
+        elif k == "core id":
+            cores.add((phys, v))
+        elif k == "cpu MHz":
+            try:
+                mhz.append(float(v))
+            except ValueError:
+                pass
+        if k and k not in first:
+            first[k] = v
+    model = first.get("model name") or first.get("Model") or first.get("Hardware")
+    out = {
+        "model": re.sub(r"\s+", " ", model) if model else None,
+        "vendor": first.get("vendor_id"),
+        "cores": len(cores) or None,
+        "threads": os.cpu_count(),
+    }
+    freq = "/sys/devices/system/cpu/cpu0/cpufreq"
+    top = sys_int(f"{freq}/cpuinfo_max_freq")
+    if top:
+        out["max_mhz"] = round(top / 1000)
+    cur = []
+    for c in range(os.cpu_count() or 0):
+        f = sys_int(f"/sys/devices/system/cpu/cpu{c}/cpufreq/scaling_cur_freq")
+        if f:
+            cur.append(f / 1000)
+    cur = cur or mhz
+    if cur:
+        out["current_mhz"] = {"average": round(sum(cur) / len(cur)), "highest": round(max(cur))}
+    out["governor"] = read_sys(f"{freq}/scaling_governor")
+    out["energy_profile"] = read_sys(f"{freq}/energy_performance_preference")
+    flags = set(first.get("flags", "").split())
+    if flags:
+        out["virtualization"] = "VT-x" if "vmx" in flags else "AMD-V" if "svm" in flags else None
+    try:
+        idle0, total0 = cpu_times()
+        time.sleep(0.2)
+        idle1, total1 = cpu_times()
+        out["usage_percent"] = round(100 * (1 - (idle1 - idle0) / max(1, total1 - total0)))
+    except (ValueError, IndexError):
+        pass
+    return {k: v for k, v in out.items() if v is not None}
+
+
+def memory_info():
+    m = meminfo()
+    total, avail = m.get("MemTotal"), m.get("MemAvailable")
+    out = {
+        "total": human_bytes(total),
+        "used": human_bytes(total - avail) if total and avail is not None else None,
+        "available": human_bytes(avail),
+        "used_percent": round(100 * (total - avail) / total) if total and avail is not None else None,
+    }
+    if m.get("SwapTotal"):
+        out["swap"] = {"total": human_bytes(m["SwapTotal"]), "used": human_bytes(m["SwapTotal"] - m.get("SwapFree", 0))}
+        zram = [d for d in os.listdir("/sys/block") if d.startswith("zram")] if os.path.isdir("/sys/block") else []
+        if zram:
+            out["swap"]["zram"] = True
+    return out
+
+
+def gpu_info():
+    gpus = []
+    drm = "/sys/class/drm"
+    try:
+        cards = sorted(c for c in os.listdir(drm) if re.fullmatch(r"card\d+", c))
+    except OSError:
+        return gpus
+    for card in cards:
+        dev = f"{drm}/{card}/device"
+        g = {"card": card}
+        driver = os.path.realpath(f"{dev}/driver") if os.path.exists(f"{dev}/driver") else None
+        if driver:
+            g["driver"] = os.path.basename(driver)
+        slot = os.path.basename(os.path.realpath(dev))
+        name = None
+        if re.fullmatch(r"[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\.[0-9a-f]", slot) and shutil.which("lspci"):
+            try:
+                p = run(["lspci", "-mm", "-s", slot], check=False, timeout=3)
+                fields = shlex.split(p.stdout.strip()) if p.stdout else []
+                if len(fields) >= 4:
+                    name = f"{fields[2]} {fields[3]}"
+            except (ToolError, ValueError):
+                pass
+        g["name"] = name or f"PCI {read_sys(f'{dev}/vendor', '?')}:{read_sys(f'{dev}/device', '?')}"
+        vram, used = sys_int(f"{dev}/mem_info_vram_total"), sys_int(f"{dev}/mem_info_vram_used")
+        if vram:
+            g["vram"] = human_bytes(vram)
+            if used is not None:
+                g["vram_used"] = human_bytes(used)
+        busy = sys_int(f"{dev}/gpu_busy_percent")
+        if busy is not None:
+            g["busy_percent"] = busy
+        if sys_int(f"{dev}/boot_vga") == 1:
+            g["primary"] = True
+        gpus.append(g)
+    return gpus
+
+
+def display_info():
+    try:
+        outputs = niri_json("outputs") or {}
+    except ToolError:
+        return None
+    out = []
+    for name, o in outputs.items():
+        mode = None
+        modes, cur = o.get("modes") or [], o.get("current_mode")
+        if isinstance(cur, int) and 0 <= cur < len(modes):
+            m = modes[cur]
+            mode = f"{m.get('width')}x{m.get('height')} @ {round((m.get('refresh_rate') or 0) / 1000)} Hz"
+        size = o.get("physical_size")
+        inches = round(math.hypot(*size) / 25.4, 1) if size and all(size) else None
+        out.append({
+            "connector": name,
+            "screen": " ".join(v for v in (o.get("make"), o.get("model")) if v and v != "Unknown") or None,
+            "mode": mode,
+            "size_inches": inches,
+            "scale": (o.get("logical") or {}).get("scale"),
+        })
+    return out
+
+
+def storage_info():
+    disks = []
+    try:
+        names = sorted(os.listdir("/sys/block"))
+    except OSError:
+        names = []
+    for d in names:
+        if re.match(r"(loop|ram|zram|dm-|md|sr|fd)", d):
+            continue
+        base = f"/sys/block/{d}"
+        sectors = sys_int(f"{base}/size")
+        if not sectors:
+            continue
+        kind = "NVMe SSD" if d.startswith("nvme") else (
+            "HDD" if sys_int(f"{base}/queue/rotational") == 1 else "SSD")
+        if d.startswith("mmcblk"):
+            kind = "SD/eMMC"
+        if sys_int(f"{base}/removable") == 1:
+            kind += " (removable)"
+        model = read_sys(f"{base}/device/model") or read_sys(f"{base}/device/name")
+        disks.append({"device": d, "model": (model or "").strip() or None, "type": kind,
+                      "size": human_bytes(sectors * 512)})
+    mounts, seen = [], set()
+    for line in (read_sys("/proc/self/mounts", "") or "").splitlines():
+        parts = line.split()
+        if len(parts) < 3:
+            continue
+        src, target, fstype = parts[0], parts[1].replace("\\040", " "), parts[2]
+        if not src.startswith("/dev/") or target.startswith("/nix/store") or src in seen:
+            continue
+        seen.add(src)
+        try:
+            st = os.statvfs(target)
+        except OSError:
+            continue
+        size, free = st.f_blocks * st.f_frsize, st.f_bavail * st.f_frsize
+        if not size:
+            continue
+        mounts.append({"mount": target, "filesystem": fstype, "size": human_bytes(size),
+                       "free": human_bytes(free), "used_percent": round(100 * (1 - free / size))})
+    return {"disks": disks, "filesystems": mounts}
+
+
+def temperature_info():
+    out = {}
+    try:
+        mons = sorted(os.listdir("/sys/class/hwmon"))
+    except OSError:
+        return out
+    for mon in mons:
+        base = f"/sys/class/hwmon/{mon}"
+        name = read_sys(f"{base}/name", mon)
+        try:
+            inputs = sorted(f for f in os.listdir(base) if re.fullmatch(r"temp\d+_input", f))
+        except OSError:
+            continue
+        readings = {}
+        for f in inputs:
+            v = sys_int(f"{base}/{f}")
+            if v is None or v <= 0:
+                continue
+            label = read_sys(f"{base}/{f.replace('_input', '_label')}") or f.split("_")[0]
+            readings[label] = round(v / 1000, 1)
+        if readings:
+            key = name if name not in out else f"{name} ({mon})"
+            out[key] = readings
+        fans = {}
+        for f in sorted(os.listdir(base)):
+            if re.fullmatch(r"fan\d+_input", f):
+                rpm = sys_int(f"{base}/{f}")
+                if rpm is not None:
+                    fans[read_sys(f"{base}/{f.replace('_input', '_label')}") or f.split("_")[0]] = rpm
+        if fans:
+            out.setdefault("fans_rpm", {}).update(fans)
+    return out
+
+
+def power_info():
+    out = {"batteries": []}
+    base = "/sys/class/power_supply"
+    try:
+        supplies = sorted(os.listdir(base))
+    except OSError:
+        return None
+    for s in supplies:
+        p = f"{base}/{s}"
+        kind = read_sys(f"{p}/type")
+        if kind == "Mains":
+            out["plugged_in"] = sys_int(f"{p}/online") == 1
+        elif kind == "Battery" and read_sys(f"{p}/scope") != "Device":
+            b = {"name": s, "level_percent": sys_int(f"{p}/capacity"), "status": read_sys(f"{p}/status"),
+                 "model": " ".join(v for v in (read_sys(f"{p}/manufacturer"), read_sys(f"{p}/model_name")) if v) or None,
+                 "technology": read_sys(f"{p}/technology")}
+            full = sys_int(f"{p}/energy_full") or sys_int(f"{p}/charge_full")
+            design = sys_int(f"{p}/energy_full_design") or sys_int(f"{p}/charge_full_design")
+            if full and design:
+                b["health_percent"] = round(100 * full / design)
+            cycles = sys_int(f"{p}/cycle_count")
+            if cycles:
+                b["cycles"] = cycles
+            power = sys_int(f"{p}/power_now")
+            if power:
+                b["power_draw_watts"] = round(power / 1e6, 1)
+            limit = sys_int(f"{p}/charge_control_end_threshold")
+            if limit:
+                b["charge_limit_percent"] = limit
+            out["batteries"].append({k: v for k, v in b.items() if v is not None})
+    profile = read_sys("/sys/firmware/acpi/platform_profile")
+    if profile:
+        out["platform_profile"] = profile
+    return out if out["batteries"] or "plugged_in" in out else None
+
+
+def network_info():
+    out = []
+    try:
+        ifaces = sorted(os.listdir("/sys/class/net"))
+    except OSError:
+        return out
+    for i in ifaces:
+        p = f"/sys/class/net/{i}"
+        if i == "lo" or not os.path.exists(f"{p}/device"):
+            continue  # virtual (bridges, VPNs, containers)
+        kind = "Wi-Fi" if os.path.isdir(f"{p}/wireless") or os.path.isdir(f"{p}/phy80211") else "Ethernet"
+        state = read_sys(f"{p}/operstate")
+        n = {"interface": i, "type": kind, "state": state}
+        drv = f"{p}/device/driver"
+        if os.path.exists(drv):
+            n["driver"] = os.path.basename(os.path.realpath(drv))
+        speed = sys_int(f"{p}/speed") if state == "up" and kind == "Ethernet" else None
+        if speed and speed > 0:
+            n["speed_mbps"] = speed
+        out.append(n)
+    vpns = [i for i in ifaces if re.match(r"(tailscale|wt|wg|tun)\d*", i)]
+    if vpns:
+        out.append({"vpn_interfaces": vpns})
+    return out
+
+
+SYSTEM_SECTIONS = {
+    "os": os_info,
+    "machine": machine_info,
+    "cpu": cpu_info,
+    "memory": memory_info,
+    "gpu": gpu_info,
+    "displays": display_info,
+    "storage": storage_info,
+    "temperatures": temperature_info,
+    "power": power_info,
+    "network": network_info,
+}
+
+
+@tool(
+    "system_info",
+    "observe",
+    "This computer itself, read live: the OS (distribution, NixOS version and "
+    "generation, uptime, load), the kernel (release, build, architecture, "
+    "modules), the machine (vendor, model, firmware), CPU (model, cores, "
+    "frequency, usage), memory and swap, GPUs, displays, disks and free "
+    "space, temperatures and fans, battery and power, network adapters. "
+    "Use it for any question about the hardware, the OS or the kernel, or "
+    "how the machine is doing. Works while desktop control is paused.",
+    obj({"sections": {"type": "array", "items": {"enum": list(SYSTEM_SECTIONS)},
+                      "description": "Only these sections (default: all)"}}),
+    read_only=True,
+)
+def t_system_info(ctx, args):
+    wanted = args.get("sections")
+    if not isinstance(wanted, list) or not wanted:
+        wanted = list(SYSTEM_SECTIONS)
+    out = {}
+    for name in wanted:
+        fn = SYSTEM_SECTIONS.get(name)
+        if not fn:
+            continue
+        try:
+            value = fn()
+        except Exception as e:  # one unreadable section must not hide the rest
+            log(f"system_info {name}: {e!r}")
+            value = None
+        if value not in (None, {}, []):
+            out[name] = value
+    return [text(out)]
+
+
 # -- applications ------------------------------------------------------------
 
 
@@ -5501,7 +5944,7 @@ def call_tool(ctx, name, args, session=None):
         args = {}
     if t["group"] == "personal":
         return call_personal(ctx, t, name, args)
-    if name != "get_status":
+    if name not in PAUSE_FREE:
         try:
             paused = is_paused()
         except ToolError as e:
@@ -5537,6 +5980,10 @@ def call_tool(ctx, name, args, session=None):
     if name not in ("recall", "remember", "forget"):
         count_use("tools", name)
     return content, False
+
+
+# Tools that don't touch the desktop: they answer while it is paused.
+PAUSE_FREE = ("get_status", "system_info")
 
 
 def call_personal(ctx, t, name, args):
