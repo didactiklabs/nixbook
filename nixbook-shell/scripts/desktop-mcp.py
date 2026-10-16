@@ -33,16 +33,19 @@ notify-send, and the shell's `qs` for its IPC.
 """
 
 import base64
+import bisect
 import datetime
 import hmac
 import fcntl
 import json
 import math
 import os
+import queue
 import re
 import secrets
 import shlex
 import shutil
+import signal
 import socket
 import stat
 import struct
@@ -104,6 +107,28 @@ DEFAULT_CONFIG = {
     # sent when an agent connects, at most this many characters; entries kept.
     "personalPromptChars": 900,
     "personalMaxEntries": 200,
+    # Usage habits (desktopMcp.habits.enable, the nixbook-habits service):
+    # what the user does, counted on this machine. App ids and times only,
+    # kept habitsKeepDays days; never these apps or windows (password
+    # managers and prompts, private browser windows).
+    "habits": False,
+    "habitsKeepDays": 28,
+    "habitsIgnoreApps": [
+        r"keepass|bitwarden|1password|enpass|proton-?pass|seahorse|gnome-keyring|"
+        r"gcr-prompter|pinentry|polkit|lxqt-policykit|kdesu",
+    ],
+    "habitsIgnoreTitles": [r"private browsing|incognito|inprivate|\bpassword\b|\bpassphrase\b"],
+    # What agents get: "digest" (a line: the usual apps and layout now, how
+    # sessions start, the week's top apps), "timeline" (also a day hour by
+    # hour, on request) or "off".
+    "habitsAgents": "digest",
+    "habitsWeeklyReport": True,
+    # A theme switched to at the same hour on several days: "suggest" it
+    # then (a notification), switch to it on its own ("auto"), or "off".
+    "habitsTheme": "suggest",
+    # Desktop ids of apps opened on their own at the time the user usually
+    # opens them (none by default: a window appearing unasked is intrusive).
+    "habitsOpenAtUsualTime": [],
     "http": {"port": 7823},
 }
 
@@ -1732,6 +1757,9 @@ def memory_digest(cfg, query="", limit=None):
     layouts = sorted(mem["usage"]["layouts"].items(), key=lambda kv: -kv[1].get("count", 0))[:3]
     if layouts:
         lines.append("Layouts: " + ", ".join(k for k, _ in layouts))
+    habits = habits_digest(cfg)
+    if habits:
+        lines.append(habits)
     if relevant:
         lines.append(heading)
         lines += [f"- [{n['id']}] {n['topic']}: {short(n['text'], 400)}" for n in relevant]
@@ -1949,6 +1977,930 @@ def t_forget(ctx, args):
             raise ToolError(f"no note {note_id}")
         m.save()
     return [text(f"forgot note {note_id}")]
+
+
+# -- usage habits ---------------------------------------------------------------
+# What the user does, learned on this machine by counting (no model reads
+# it): which app has the focus and for how long, the windows opened, the
+# layouts restored and the themes chosen. `habits watch` (the nixbook-habits
+# user service; on from Settings > Desktop agents, `habits on`, or
+# desktopMcp.habits.enable) records it from niri's event stream. The launcher ranks apps with it (habits-rank.json), a weekly
+# report sums it up, a theme switched at the same hour on several days is
+# suggested then, apps the user lists open at their usual time, and agents
+# get a line of it in the memory digest.
+# Private by design:
+#   - app ids and times only: never a window title, a file, a URL or any
+#     content (titles are read to skip private windows, never stored);
+#   - nothing while the screen is locked, while paused, while an agent acts,
+#     for ignored apps (password managers…) or private browser windows
+#     (habitsIgnoreApps, habitsIgnoreTitles);
+#   - kept habitsKeepDays (28) days, in 0600 files;
+#   - agents get a line of it (habitsAgents "digest"), the hour by hour day
+#     only with "timeline", nothing with "off".
+# Light on the battery: the recorder sleeps between niri's events (a
+# minute at most), appends a line per span to habits.log rather than
+# rewriting habits.json (compacted once a day), and rewrites the launcher's
+# habits-rank.json only when it changes, every 10 minutes at most.
+# ~/.local/state/nixbook-shell/habits.json; `nixbook-desktop-mcp habits`.
+
+HABIT_MIN_SPAN = 5  # s: passing through a window (alt-tab) isn't using it
+HABIT_MERGE_GAP = 60  # s: back to the same app within a minute, one span
+HABIT_AGENT_QUIET = 30  # s after an agent's last action: not the user's doing
+HABIT_SESSION_GAP = 3 * 3600  # s without use before a new session (morning)
+HABIT_MIN_DAYS = 3  # days a pattern must be seen on before it counts
+HABIT_ALIAS_SEEN = 2  # times a launcher word must lead to an app
+HABIT_IGNORED_IDS = {"nixbook-agent-desktop", "niri"}  # the agents' desktop
+HABIT_WAKE = 60  # s: the longest the recorder sleeps without a niri event
+HABIT_CHECKPOINT = 1800  # s: a long span is written in pieces (merged back)
+HABIT_JOBS_EVERY = 600  # s: the launcher's ranking and the notifications
+HABIT_UNIT = "nixbook-habits.service"
+
+
+def habits_dir():
+    return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-shell")
+
+
+def habits_path():
+    return os.path.join(habits_dir(), "habits.json")
+
+
+def habits_rank_path():
+    return os.path.join(habits_dir(), "habits-rank.json")
+
+
+def habits_log_path():
+    return os.path.join(habits_dir(), "habits.log")
+
+
+def habits_paused_flag():
+    return os.path.join(habits_dir(), "habits-paused")
+
+
+def habits_enabled_flag():
+    """On from Settings (`habits on`); the nixbook-habits unit starts only
+    while it exists, unless Nix turned the habits on."""
+    return os.path.join(habits_dir(), "habits-enabled")
+
+
+def empty_habits():
+    return {"version": 1, "spans": [], "opens": [], "events": [], "aliasSeen": {}, "sent": {}}
+
+
+def add_span(spans, s):
+    """A span after the others: back to the same app within
+    HABIT_MERGE_GAP (or a checkpoint's next piece), one span."""
+    last = spans[-1] if spans else None
+    if last and last[2] == s[2] and 0 <= s[0] - last[1] <= HABIT_MERGE_GAP:
+        last[1] = max(last[1], s[1])
+    else:
+        spans.append(list(s))
+
+
+class Habits(Memory):
+    """habits.json: spans [start, end, app] of focus, opens [time, app],
+    events [time, "layout"|"theme", value], aliasSeen {word: {app: n}},
+    sent {what: when} (the notifications already given); and habits.log,
+    the records appended since ({"s": span}, {"o": open}, {"e": event}),
+    read into it here (habits_append writes them). save() writes it whole
+    and empties the log."""
+
+    path = staticmethod(habits_path)
+    empty = staticmethod(empty_habits)
+
+    def migrate(self):
+        try:
+            with open(habits_log_path(), encoding="utf-8") as f:
+                lines = f.read().splitlines()
+        except OSError:
+            return
+        for line in lines:
+            try:
+                rec = json.loads(line)
+                if "s" in rec:
+                    add_span(self.data["spans"], rec["s"])
+                elif "o" in rec:
+                    self.data["opens"].append(rec["o"])
+                elif "e" in rec:
+                    self.data["events"].append(rec["e"])
+            except (ValueError, TypeError, IndexError, KeyError):
+                continue  # a line cut short by a crash
+
+    def __exit__(self, exc_type, *rest):
+        try:
+            if self.changed and exc_type is None:
+                path = self.path()
+                fd = os.open(path + ".tmp", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(self.data, f, separators=(",", ":"), ensure_ascii=False)
+                os.replace(path + ".tmp", path)
+                try:
+                    os.unlink(habits_log_path())  # in habits.json now
+                except FileNotFoundError:
+                    pass
+        finally:
+            fcntl.flock(self.lockfd, fcntl.LOCK_UN)
+            os.close(self.lockfd)
+
+
+def habits_compact(cfg, now):
+    """habits.json rewritten with the log in it, the old records dropped
+    (habitsKeepDays): once a day."""
+    keep = now - int(cfg.get("habitsKeepDays", 28)) * 86400
+    with Habits() as h:
+        d = h.data
+        d["spans"] = [x for x in d["spans"] if x[1] >= keep]
+        d["opens"] = [x for x in d["opens"] if x[0] >= keep]
+        d["events"] = [x for x in d["events"] if x[0] >= keep]
+        h.save()
+
+
+def read_habits():
+    try:
+        with Habits() as h:
+            return h.data
+    except OSError:
+        return empty_habits()
+
+
+def habits_nix(cfg):
+    """Turned on in Nix (desktopMcp.habits.enable): Settings can't turn it off."""
+    return bool(cfg.get("habits"))
+
+
+def habits_on(cfg):
+    return habits_nix(cfg) or os.path.exists(habits_enabled_flag())
+
+
+def habits_paused():
+    return os.path.exists(habits_paused_flag())
+
+
+def screen_locked():
+    base = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+    return os.path.exists(os.path.join(base, "nixbook-shell-locked"))
+
+
+def agent_acting(now):
+    last = (read_state().get("last") or {}).get("time", 0) / 1000
+    return now - last < HABIT_AGENT_QUIET
+
+
+def _any_match(patterns, value):
+    for pat in patterns or []:
+        try:
+            if re.search(pat, value or "", re.IGNORECASE):
+                return True
+        except re.error:
+            continue
+    return False
+
+
+def habit_private(cfg, app_id, title):
+    """A window never recorded: no app id, the agents' desktop, an ignored
+    app, a private browser window or a password prompt."""
+    return (not app_id or app_id in HABIT_IGNORED_IDS
+            or _any_match(cfg.get("habitsIgnoreApps"), app_id)
+            or _any_match(cfg.get("habitsIgnoreTitles"), title))
+
+
+def habit_event(cfg, kind, value):
+    """A layout restored or a theme chosen by the user (best effort)."""
+    if not habits_on(cfg) or habits_paused():
+        return
+    try:
+        habits_append([{"e": [int(time.time()), kind, value]}])
+    except OSError:
+        pass
+
+
+def app_name(app):
+    return (applications().get(app) or {}).get("Name") or app
+
+
+def hours_text(seconds):
+    m = int(seconds // 60)
+    return f"{m // 60}h{m % 60:02d}" if m >= 60 else f"{m} min"
+
+
+def split_by_hour(start, end):
+    """[start, end) cut at the hours: (hour start, seconds) pairs."""
+    t = start
+    while t < end:
+        lt = time.localtime(t)
+        hour_start = t - lt.tm_min * 60 - lt.tm_sec
+        nxt = min(end, hour_start + 3600)
+        yield hour_start, nxt - t
+        t = nxt
+
+
+def usual_apps(data, now):
+    """The apps used around this hour: the same weekday's hour counts most,
+    the hour next to it and the same hour on days of the same kind (week
+    day or weekend) less. (app, score) pairs, most used first."""
+    lt = time.localtime(now)
+    weekend = lt.tm_wday >= 5
+    scores, days = {}, {}
+    for start, end, app in data["spans"]:
+        for hour_start, secs in split_by_hour(start, end):
+            h = time.localtime(hour_start)
+            gap = min(abs(h.tm_hour - lt.tm_hour), 24 - abs(h.tm_hour - lt.tm_hour))
+            if h.tm_wday == lt.tm_wday:
+                weight = 2 if gap == 0 else 1 if gap == 1 else 0
+            else:
+                weight = 1 if gap == 0 and (h.tm_wday >= 5) == weekend else 0
+            if weight:
+                scores[app] = scores.get(app, 0) + secs * weight
+                days.setdefault(app, set()).add(time.strftime("%Y-%m-%d", h))
+    out = [(a, s) for a, s in scores.items() if len(days[a]) >= 2 and s >= 600]
+    out.sort(key=lambda x: -x[1])
+    return out
+
+
+def usual_layout(data, now):
+    """The layout restored around this hour on HABIT_MIN_DAYS days or more."""
+    lt = time.localtime(now)
+    days = {}
+    for t, kind, value in data["events"]:
+        h = time.localtime(t)
+        if kind == "layout" and abs(h.tm_hour - lt.tm_hour) <= 1 and (h.tm_wday >= 5) == (lt.tm_wday >= 5):
+            days.setdefault(value, set()).add(time.strftime("%Y-%m-%d", h))
+    best = max(days.items(), key=lambda kv: len(kv[1]), default=None)
+    return best[0] if best and len(best[1]) >= HABIT_MIN_DAYS else None
+
+
+def session_starts(data):
+    """When the user came back after HABIT_SESSION_GAP or more: the first
+    span of each session."""
+    out, last_end = [], None
+    for start, end, app in sorted(data["spans"]):
+        if last_end is None or start - last_end >= HABIT_SESSION_GAP:
+            out.append(start)
+        last_end = end if last_end is None else max(last_end, end)
+    return out
+
+
+def usual_session(data):
+    """How sessions usually start: the layout restored and the apps opened
+    in their first 30 minutes, when seen on HABIT_MIN_DAYS sessions or more.
+    (layout or None, [apps], sessions seen)."""
+    starts = session_starts(data)
+    if len(starts) < HABIT_MIN_DAYS:
+        return None, [], len(starts)
+    layouts, apps = {}, {}
+    for s in starts:
+        seen_layout = {v for t, k, v in data["events"] if k == "layout" and s - 120 <= t <= s + 1800}
+        for v in seen_layout:
+            layouts[v] = layouts.get(v, 0) + 1
+        opened = []
+        for t, app in sorted(data["opens"]):
+            if s - 120 <= t <= s + 1800 and app not in opened:
+                opened.append(app)
+        for i, app in enumerate(opened[:5]):
+            apps.setdefault(app, []).append(i)
+    need = max(HABIT_MIN_DAYS, len(starts) // 2)
+    layout = max(layouts.items(), key=lambda kv: kv[1], default=(None, 0))
+    common = [a for a, order in apps.items() if len(order) >= need]
+    common.sort(key=lambda a: sum(apps[a]) / len(apps[a]))  # in their usual order
+    return (layout[0] if layout[1] >= need else None), common[:4], len(starts)
+
+
+def transitions(data):
+    """The app opened after each app: {app: {opened: share}}, from the app
+    that had the focus when another one opened (seen twice or more)."""
+    spans = sorted(data["spans"])
+    starts = [s[0] for s in spans]
+    counts = {}
+    for t, opened in sorted(data["opens"]):
+        i = bisect.bisect_right(starts, t) - 1
+        steps = 0
+        while i >= 0 and steps < 3 and spans[i][2] == opened:
+            i -= 1
+            steps += 1
+        if i < 0 or spans[i][2] == opened or t - spans[i][1] > 120:
+            continue
+        before = spans[i][2]
+        row = counts.setdefault(before, {})
+        row[opened] = row.get(opened, 0) + 1
+    out = {}
+    for before, row in counts.items():
+        total = sum(row.values())
+        kept = {a: round(n / total, 2) for a, n in sorted(row.items(), key=lambda kv: -kv[1])[:5] if n >= 2}
+        if kept:
+            out[before] = kept
+    return out
+
+
+def app_totals(data, since, until):
+    totals = {}
+    for start, end, app in data["spans"]:
+        s, e = max(start, since), min(end, until)
+        if e > s:
+            totals[app] = totals.get(app, 0) + e - s
+    return totals
+
+
+def week_report(data, now, days=7):
+    """Time per app over the last `days` days, against the days before."""
+    since = now - days * 86400
+    cur = app_totals(data, since, now)
+    prev = app_totals(data, since - days * 86400, since)
+    if not cur:
+        return f"No usage recorded in the last {days} days."
+    total = sum(cur.values())
+    lines = [f"Active time, last {days} days: {hours_text(total)}"
+             + (f" ({hours_text(sum(prev.values()))} the {days} days before)" if prev else "")]
+    for app, secs in sorted(cur.items(), key=lambda kv: -kv[1])[:8]:
+        change = ""
+        if app in prev:
+            delta = secs - prev[app]
+            if abs(delta) >= 1800:
+                change = f" ({'+' if delta > 0 else '-'}{hours_text(abs(delta))})"
+        elif prev:
+            change = " (new)"
+        lines.append(f"- {app_name(app)}: {hours_text(secs)}{change}")
+    per_day = {}
+    for start, end, app in data["spans"]:
+        if end > since:
+            day = time.strftime("%A", time.localtime(max(start, since)))
+            per_day[day] = per_day.get(day, 0) + end - max(start, since)
+    if per_day:
+        day, secs = max(per_day.items(), key=lambda kv: kv[1])
+        lines.append(f"Busiest day: {day} ({hours_text(secs)})")
+    layouts = {}
+    for t, kind, value in data["events"]:
+        if kind == "layout" and t >= since:
+            layouts[value] = layouts.get(value, 0) + 1
+    if layouts:
+        lines.append("Layouts: " + ", ".join(f"{k} ({n}x)" for k, n in sorted(layouts.items(), key=lambda kv: -kv[1])))
+    return "\n".join(lines)
+
+
+def day_timeline(data, date):
+    """One day hour by hour: the apps used a minute or more each hour."""
+    try:
+        day = time.mktime(time.strptime(date, "%Y-%m-%d"))
+    except ValueError:
+        raise ToolError("a date as YYYY-MM-DD")
+    hours = {}
+    for start, end, app in data["spans"]:
+        s, e = max(start, day), min(end, day + 86400)
+        for hour_start, secs in split_by_hour(s, e) if e > s else ():
+            row = hours.setdefault(time.localtime(hour_start).tm_hour, {})
+            row[app] = row.get(app, 0) + secs
+    events = [(time.localtime(t), k, v) for t, k, v in data["events"] if day <= t < day + 86400]
+    if not hours and not events:
+        return f"Nothing recorded on {date}."
+    lines = [f"{date} ({time.strftime('%A', time.localtime(day))}):"]
+    for h in sorted(hours):
+        apps = [(a, s) for a, s in sorted(hours[h].items(), key=lambda kv: -kv[1]) if s >= 60]
+        marks = [f"{k} {v}" for lt, k, v in events if lt.tm_hour == h]
+        if apps or marks:
+            lines.append(f"{h:02d}h: " + ", ".join([f"{app_name(a)} {hours_text(s)}" for a, s in apps] + marks))
+    return "\n".join(lines)
+
+
+def theme_hint(data, now):
+    """The theme the user switched to during this hour on HABIT_MIN_DAYS of
+    the last 14 days, as "theme/variant"."""
+    hour = time.localtime(now).tm_hour
+    days = {}
+    for t, kind, value in data["events"]:
+        lt = time.localtime(t)
+        if kind == "theme" and now - t < 14 * 86400 and lt.tm_hour == hour:
+            days.setdefault(value, set()).add(time.strftime("%Y-%m-%d", lt))
+    best = max(days.items(), key=lambda kv: len(kv[1]), default=None)
+    return best[0] if best and len(best[1]) >= HABIT_MIN_DAYS else None
+
+
+def usually_opened_now(data, app, now):
+    """Opened within half an hour of this time of day on HABIT_MIN_DAYS of
+    the last four same weekdays, and not yet today."""
+    lt = time.localtime(now)
+    today = time.strftime("%Y-%m-%d", lt)
+    minute = lt.tm_hour * 60 + lt.tm_min
+    days = set()
+    for t, opened in data["opens"]:
+        if opened != app:
+            continue
+        ot = time.localtime(t)
+        day = time.strftime("%Y-%m-%d", ot)
+        if day == today:
+            return False
+        if ot.tm_wday == lt.tm_wday and now - t < 29 * 86400 and abs(ot.tm_hour * 60 + ot.tm_min - minute) <= 30:
+            days.add(day)
+    return len(days) >= HABIT_MIN_DAYS
+
+
+def habits_now(data, now):
+    """The habits for this moment, as short lines (the digest, the tool)."""
+    lines = []
+    when = time.strftime("%a %Hh", time.localtime(now))
+    apps = [app_name(a) for a, _ in usual_apps(data, now)[:4]]
+    layout = usual_layout(data, now)
+    if apps or layout:
+        lines.append(f"Around now ({when}) they usually use "
+                     + ", ".join(apps + ([f"the {layout!r} layout"] if layout else [])))
+    s_layout, s_apps, _ = usual_session(data)
+    if s_layout or s_apps:
+        lines.append("Their sessions usually start with "
+                     + ", then ".join(([f"layout {s_layout!r}"] if s_layout else []) + [app_name(a) for a in s_apps]))
+    week = app_totals(data, now - 7 * 86400, now)
+    if week:
+        lines.append("Most used this week: " + ", ".join(
+            f"{app_name(a)} {hours_text(s)}" for a, s in sorted(week.items(), key=lambda kv: -kv[1])[:4]))
+    return lines
+
+
+def habits_digest(cfg, now=None):
+    """The line of the memory digest about the user's habits."""
+    if not habits_on(cfg) or cfg.get("habitsAgents", "digest") == "off":
+        return ""
+    lines = habits_now(read_habits(), now or time.time())
+    if not lines:
+        return ""
+    return "The user's habits (counted on this machine from their own use). " + ". ".join(lines) + "."
+
+
+@tool(
+    "habits",
+    "memory",
+    "What the user usually does on this computer, learned from their own "
+    "use (apps and times only): `now` (default) the apps and layout they "
+    "use at this time and how their sessions usually start, to set up "
+    "\"my usual session\" or tell what a vague request means; `week` the "
+    "time per app this week; `day` what they used on a date, hour by hour "
+    "(only if the user shares it).",
+    obj({
+        "what": {"type": "string", "enum": ["now", "week", "day"]},
+        "date": {"type": "string", "description": "For day: YYYY-MM-DD (default: yesterday)"},
+    }),
+    read_only=True,
+)
+def t_habits(ctx, args):
+    cfg = ctx.cfg
+    share = cfg.get("habitsAgents", "digest")
+    if not habits_on(cfg) or share == "off":
+        raise ToolError("the user doesn't share their usage habits with agents")
+    what = args.get("what") or "now"
+    data, now = read_habits(), time.time()
+    if what == "week":
+        return [text(week_report(data, now))]
+    if what == "day":
+        if share != "timeline":
+            raise ToolError("the user doesn't share their day by day timeline with agents (only their habits: `now`)")
+        date = as_str(args, "date", required=False, max_len=10) or time.strftime(
+            "%Y-%m-%d", time.localtime(now - 86400))
+        return [text(day_timeline(data, date))]
+    lines = habits_now(data, now)
+    return [text("\n".join(lines) if lines else "Not enough usage recorded yet to tell habits.")]
+
+
+def learn_alias(cfg, word, app):
+    """A word typed in the launcher before opening an app that its name
+    doesn't contain ("photo" -> darktable): after HABIT_ALIAS_SEEN times,
+    an alias of the desktop memory (launch_app resolves it)."""
+    word = fold(word).strip()
+    if not habits_on(cfg) or habits_paused() or not re.fullmatch(r"[a-z][a-z0-9 ]{2,23}", word):
+        return None
+    entry = applications().get(app)
+    if not entry or _any_match(cfg.get("habitsIgnoreApps"), app):
+        return None
+    if word in app.lower() or word in fold(entry.get("Name") or ""):
+        return None  # found by its name already
+    with Habits() as h:
+        seen = h.data["aliasSeen"].setdefault(word, {})
+        seen[app] = seen.get(app, 0) + 1
+        if len(h.data["aliasSeen"]) > 200:
+            del h.data["aliasSeen"][next(iter(h.data["aliasSeen"]))]
+        h.save()
+        n = seen[app]
+    if n < HABIT_ALIAS_SEEN:
+        return None
+    with Memory() as m:
+        if m.data["aliases"].get(word) == app:
+            return None
+        m.data["aliases"][word] = app
+        m.save()
+    return word
+
+
+def habits_append(records):
+    """Records appended to habits.log, under the lock but without reading
+    habits.json: what the recorder and the layouts write."""
+    if not records:
+        return
+    os.makedirs(habits_dir(), mode=0o700, exist_ok=True)
+    lockfd = os.open(habits_path() + ".lock", os.O_WRONLY | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(lockfd, fcntl.LOCK_EX)
+        fd = os.open(habits_log_path(), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        with os.fdopen(fd, "a", encoding="utf-8") as f:
+            f.write("".join(json.dumps(r, separators=(",", ":"), ensure_ascii=False) + "\n" for r in records))
+    finally:
+        fcntl.flock(lockfd, fcntl.LOCK_UN)
+        os.close(lockfd)
+
+
+class HabitRecorder:
+    """The user's focus and windows, from niri's event stream."""
+
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.windows = {}  # niri id -> {"app", "private"}
+        self.focused = None
+        self.span = None  # [start, app]: the focus now
+        self.pending = []  # records not appended yet
+        self.ready = False  # the first WindowsChanged is the state, not new windows
+        self.ids = {}  # niri app_id -> desktop id
+        self.theme = None
+        self.theme_mtime = None
+        self.rank = None  # the launcher's ranking as last written
+        self.own_opens = {}  # app -> until: opened by the habits, not the user
+
+    def recording(self, now):
+        return not habits_paused() and not screen_locked() and not agent_acting(now)
+
+    def stop_times(self):
+        """When recording may have stopped: the lock, the pause, an agent's
+        last action. The recorder sleeps between niri's events, so a span
+        ends then, not when it wakes up."""
+        base = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+        out = []
+        for path in (os.path.join(base, "nixbook-shell-locked"), habits_paused_flag()):
+            try:
+                out.append(os.stat(path).st_mtime)
+            except OSError:
+                pass
+        last = (read_state().get("last") or {}).get("time", 0) / 1000
+        if last:
+            out.append(last)
+        return out
+
+    def app_of(self, app_id):
+        if app_id not in self.ids:
+            self.ids[app_id] = desktop_for_app(app_id, applications()) or app_id
+        return self.ids[app_id]
+
+    def window(self, w, now, opened):
+        app_id = w.get("app_id") or ""
+        self.windows[w.get("id")] = info = {
+            "app": self.app_of(app_id),
+            "private": habit_private(self.cfg, app_id, w.get("title")),
+        }
+        if opened and self.ready and not info["private"] and self.recording(now) \
+                and self.own_opens.get(info["app"], 0) < now:
+            self.pending.append({"o": [int(now), info["app"]]})
+        if w.get("is_focused"):
+            self.focused = w.get("id")
+
+    def handle(self, ev, now):
+        if "WindowsChanged" in ev:
+            before = self.windows
+            self.windows = {}
+            for w in ev["WindowsChanged"].get("windows") or []:
+                self.window(w, now, w.get("id") not in before)
+            self.ready = True
+        elif "WindowOpenedOrChanged" in ev:
+            w = ev["WindowOpenedOrChanged"].get("window") or {}
+            self.window(w, now, w.get("id") not in self.windows)
+        elif "WindowClosed" in ev:
+            wid = ev["WindowClosed"].get("id")
+            self.windows.pop(wid, None)
+            if self.focused == wid:
+                self.focused = None
+        elif "WindowFocusChanged" in ev:
+            self.focused = ev["WindowFocusChanged"].get("id")
+        self.refresh(now)
+
+    def refresh(self, now):
+        w = self.windows.get(self.focused)
+        recording = self.recording(now)
+        app = w["app"] if w and not w["private"] and recording else None
+        if self.span and self.span[1] == app:
+            if now - self.span[0] >= HABIT_CHECKPOINT:
+                # A long one, in pieces: a crash loses half an hour at most.
+                self.close(now)
+                self.span = [now, app]
+            return
+        end = now
+        if self.span and not recording:
+            end = min([t for t in self.stop_times() if self.span[0] < t < now] or [now])
+        self.close(end)
+        if app:
+            self.span = [now, app]
+
+    def close(self, now):
+        if self.span:
+            start, app = self.span
+            if now - start >= HABIT_MIN_SPAN:
+                self.pending.append({"s": [int(start), int(now), app]})
+            self.span = None
+
+    def read_theme(self):
+        """The theme in the shell's config.json, read again only when the
+        file changed."""
+        path = os.path.join(xdg("XDG_CONFIG_HOME", "~/.config"), "nixbook-shell", "config.json")
+        try:
+            mtime = os.stat(path).st_mtime_ns
+            if mtime == self.theme_mtime:
+                return self.theme
+            with open(path, encoding="utf-8") as f:
+                appearance = json.load(f).get("appearance") or {}
+            self.theme_mtime = mtime
+            theme = appearance.get("theme") or ""
+            variant = ((appearance.get(theme) or {}).get("variant") or "") if theme else ""
+            return f"{theme}/{variant}" if theme else None
+        except (OSError, ValueError, AttributeError):
+            return None
+
+    def flush(self, now):
+        """The records since the last time, appended to habits.log (nothing
+        when nothing happened), with a theme the user chose."""
+        theme = self.read_theme()
+        if theme and self.theme and theme != self.theme and self.recording(now):
+            self.pending.append({"e": [int(now), "theme", theme]})
+        self.theme = theme or self.theme
+        records, self.pending = self.pending, []
+        habits_append(records)
+
+    def write_rank(self, data, now):
+        """habits-rank.json, for the launcher, rewritten only when it
+        changed (the launcher re-sorts on each write): the apps used around
+        this hour (0-1) and the apps opened after each app, by desktop id;
+        `ids` maps niri's app ids to desktop ids."""
+        usual = usual_apps(data, now)[:12]
+        top = usual[0][1] if usual else 1
+        doc = {
+            "now": {a: round(s / top, 1) for a, s in usual},
+            "after": transitions(data),
+            "ids": {k: v for k, v in self.ids.items() if k and k != v},
+        }
+        path = habits_rank_path()
+        if doc == self.rank and os.path.exists(path):
+            return
+        fd = os.open(path + ".tmp", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(doc, f)
+        os.replace(path + ".tmp", path)
+        self.rank = doc
+
+
+def habits_notify(title, body, icon, action=None):
+    """A notification; with an action, its label: True once clicked (waits
+    for it, so call it in a thread)."""
+    if not shutil.which("notify-send"):
+        return False
+    argv = ["notify-send", "-a", "Usage habits", "-i", icon]
+    if action:
+        argv += ["-A", f"yes={action}"]
+    try:
+        out = subprocess.run(argv + [title, body], capture_output=True, text=True,
+                             timeout=600 if action else 10, env=user_desktop_env())
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return out.stdout.strip() == "yes"
+
+
+def habits_jobs(cfg, rec, data, now):
+    """What the habits do on their own, each at most once a day (the
+    report once a week): the weekly report, the theme hint, the apps that
+    open at their usual time."""
+    lt = time.localtime(now)
+    today = time.strftime("%Y-%m-%d", lt)
+    sent = data.get("sent") or {}
+    marks = {}
+
+    week = time.strftime("%G-W%V", lt)
+    if cfg.get("habitsWeeklyReport", True) and sent.get("report") != week and lt.tm_hour >= 9 \
+            and data["spans"] and now - data["spans"][0][0] >= 6 * 86400 and rec.span:
+        marks["report"] = week
+        report = week_report(data, now)
+        threading.Thread(target=habits_notify, daemon=True,
+                         args=("Your week on this computer", report, "data_usage")).start()
+
+    mode = cfg.get("habitsTheme", "suggest")
+    hint = theme_hint(data, now) if mode in ("suggest", "auto") and rec.span else None
+    if hint and hint != rec.theme and sent.get("theme") != today:
+        marks["theme"] = today
+        theme, _, variant = hint.partition("/")
+        label = f"{theme} ({variant})" if variant else theme
+
+        def switch(ask):
+            if not ask or habits_notify(f"Switch to {label}?",
+                                        "You usually switch to it around this time.", "palette", "Switch"):
+                try:
+                    qs_ipc("call", "theme", "set", theme, variant)
+                except ToolError as e:
+                    log(f"habits: theme: {e}")
+                else:
+                    # Not a choice of the user's: it mustn't feed the hint.
+                    rec.theme = hint
+                    if not ask:
+                        habits_notify(f"Switched to {label}", "As you usually do around this time "
+                                      "(Settings > Desktop agents > Usage habits).", "palette")
+        threading.Thread(target=switch, args=(mode == "suggest",), daemon=True).start()
+
+    opened = dict(sent.get("open") or {})
+    running = {w["app"] for w in rec.windows.values()}
+    for app in cfg.get("habitsOpenAtUsualTime") or []:
+        entry = applications().get(app)
+        if not entry or entry.get("Terminal") == "true" or app in running or opened.get(app) == today \
+                or not rec.span or not usually_opened_now(data, app, now):
+            continue
+        opened[app] = today
+        rec.own_opens[app] = now + 20
+        try:
+            run(["niri", "msg", "action", "spawn", "--", *exec_argv(entry)], env=user_desktop_env())
+            habits_notify(f"Opened {entry.get('Name') or app}", "You usually open it around this time.", "schedule")
+        except ToolError as e:
+            log(f"habits: open {app}: {e}")
+    if opened != (sent.get("open") or {}):
+        marks["open"] = opened
+
+    if marks:
+        with Habits() as h:
+            h.data["sent"].update(marks)
+            h.save()
+
+
+def habits_watch(cfg):
+    """The recorder (the nixbook-habits user service): niri's event stream
+    read in a thread, the main loop asleep until an event or HABIT_WAKE;
+    the records appended once a minute at most, the launcher's ranking and
+    the notifications every HABIT_JOBS_EVERY, habits.json compacted daily."""
+    if not habits_on(cfg):
+        log("usage habits are off (Settings > Desktop agents > Usage habits)")
+        return 0
+    rec = HabitRecorder(cfg)
+    rec.theme = rec.read_theme()
+    events = queue.Queue()
+    stop = threading.Event()
+    procs = []
+
+    def stream():
+        while not stop.is_set():
+            try:
+                proc = subprocess.Popen(["niri", "msg", "-j", "event-stream"], stdout=subprocess.PIPE,
+                                        stderr=subprocess.DEVNULL, text=True, env=user_desktop_env())
+            except OSError as e:
+                log(f"habits: niri: {e}")
+                time.sleep(5)
+                continue
+            procs[:] = [proc]
+            for line in proc.stdout:
+                try:
+                    events.put(json.loads(line))
+                except ValueError:
+                    pass
+            proc.wait()
+            time.sleep(2)
+
+    def on_term(*_):
+        stop.set()
+        events.put(None)
+
+    signal.signal(signal.SIGTERM, on_term)
+    signal.signal(signal.SIGINT, on_term)
+    threading.Thread(target=stream, daemon=True).start()
+    last_flush = time.time()
+    last_jobs, last_hour, compacted = 0.0, None, None
+    while not stop.is_set():
+        try:
+            ev = events.get(timeout=HABIT_WAKE)
+        except queue.Empty:
+            ev = None
+        now = time.time()
+        if isinstance(ev, dict):
+            rec.handle(ev, now)
+        else:
+            rec.refresh(now)
+        try:
+            if now - last_flush >= 60:
+                last_flush = now
+                rec.flush(now)
+            hour = time.localtime(now).tm_hour
+            if now - last_jobs >= HABIT_JOBS_EVERY or hour != last_hour:
+                last_jobs, last_hour = now, hour
+                today = time.strftime("%Y-%m-%d", time.localtime(now))
+                if compacted != today:
+                    compacted = today
+                    habits_compact(cfg, now)
+                data = read_habits()
+                rec.write_rank(data, now)
+                habits_jobs(cfg, rec, data, now)
+        except (OSError, ValueError, KeyError, TypeError) as e:
+            log(f"habits: {e}")
+    for proc in procs:
+        proc.terminate()
+    rec.close(time.time())
+    try:
+        rec.flush(time.time())
+    except (OSError, ValueError):
+        pass
+    return 0
+
+
+def habits_command(cfg, argv):
+    """Usage habits, for the user (Settings > Desktop agents > Usage habits)
+    and the shell (the launcher's aliases)."""
+    sub = argv[0] if argv else "status"
+    now = time.time()
+    if sub == "watch":
+        return habits_watch(cfg)
+    if sub == "on":
+        os.makedirs(habits_dir(), mode=0o700, exist_ok=True)
+        with open(habits_enabled_flag(), "w", encoding="utf-8") as f:
+            f.write("on\n")
+        habits_unit("start")
+        print("usage habits on")
+        return 0
+    if sub == "off":
+        if habits_nix(cfg):
+            print("usage habits are on in the Nix configuration (desktopMcp.habits.enable)", file=sys.stderr)
+            return 1
+        try:
+            os.unlink(habits_enabled_flag())
+        except FileNotFoundError:
+            pass
+        habits_unit("stop")
+        if "--forget" in argv:
+            habits_clear()
+        print("usage habits off" + (", everything recorded forgotten" if "--forget" in argv else ""))
+        return 0
+    if sub == "toggle":
+        sub = "resume" if habits_paused() else "pause"
+    if sub == "pause":
+        os.makedirs(habits_dir(), mode=0o700, exist_ok=True)
+        with open(habits_paused_flag(), "w", encoding="utf-8") as f:
+            f.write("paused\n")
+        print("usage habits paused: nothing is recorded")
+        return 0
+    if sub == "resume":
+        try:
+            os.unlink(habits_paused_flag())
+        except FileNotFoundError:
+            pass
+        print("usage habits recording")
+        return 0
+    if sub == "status":
+        data = read_habits()
+        first = data["spans"][0][0] if data["spans"] else None
+        print(json.dumps({
+            "enabled": habits_on(cfg), "nix": habits_nix(cfg), "paused": habits_paused(),
+            "agents": cfg.get("habitsAgents", "digest"),
+            "keepDays": cfg.get("habitsKeepDays", 28), "theme": cfg.get("habitsTheme", "suggest"),
+            "openAtUsualTime": cfg.get("habitsOpenAtUsualTime") or [],
+            "days": round((now - first) / 86400, 1) if first else 0,
+            "now": habits_now(data, now), "report": week_report(data, now) if first else "",
+            "path": habits_path(),
+        }, ensure_ascii=False))
+        return 0
+    if sub == "show":
+        print(json.dumps(read_habits(), ensure_ascii=False))
+        return 0
+    if sub == "now":
+        print("\n".join(habits_now(read_habits(), now)) or "not enough usage recorded yet")
+        return 0
+    if sub == "report":
+        days = int(argv[1]) if len(argv) > 1 and argv[1].isdigit() else 7
+        print(week_report(read_habits(), now, days))
+        return 0
+    if sub == "day":
+        date = argv[1] if len(argv) > 1 else time.strftime("%Y-%m-%d", time.localtime(now))
+        print(day_timeline(read_habits(), date))
+        return 0
+    if sub == "digest":
+        print(habits_digest(cfg, now))
+        return 0
+    if sub == "alias" and len(argv) == 3:
+        word = learn_alias(cfg, argv[1], argv[2])
+        if word:
+            print(f"learned alias {word!r} -> {argv[2]}")
+        return 0
+    if sub == "clear":
+        habits_clear()
+        print("cleared the usage habits")
+        return 0
+    print(USAGE, end="", file=sys.stderr)
+    return 2
+
+
+def habits_unit(action):
+    """The recorder started or stopped now (it also starts with the session
+    while on)."""
+    try:
+        run(["systemctl", "--user", action, HABIT_UNIT], check=False, timeout=20)
+    except ToolError as e:
+        log(f"habits: {e}")
+
+
+def habits_clear():
+    with Habits():  # not halfway through a write
+        for path in (habits_path(), habits_log_path(), habits_rank_path()):
+            try:
+                os.unlink(path)
+            except FileNotFoundError:
+                pass
 
 
 # -- personal memory -------------------------------------------------------------
@@ -6448,6 +7400,14 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
   personal tidy [--claude PATH] [--model M]  the tidy-up now: merges entries on
                           the same subject, drops what no longer holds
   personal forget ID | clear
+  habits [status]         usage habits learned on this machine (JSON), when
+                          on: app ids and times only
+  habits watch            the recorder (the nixbook-habits user service)
+  habits now | report [DAYS] | day [YYYY-MM-DD]  what they say, as text
+  habits on | off [--forget]  turn them on or off (Settings > Desktop agents;
+                          not off when on in Nix): starts / stops nixbook-habits
+  habits pause | resume | toggle | clear | show (JSON)
+  habits alias WORD DESKTOP_ID  the launcher: a word that led to an app
   config                  the effective configuration
   desktop [status]        where agents work: on the user's desktop or their own
   desktop agent | user | toggle  agents use their own desktop (a nested niri,
@@ -6555,6 +7515,8 @@ def main(argv):
         return memory_command(cfg, argv[1:])
     if cmd == "personal":
         return personal_command(cfg, argv[1:])
+    if cmd == "habits":
+        return habits_command(cfg, argv[1:])
     if cmd == "token":
         print(ensure_token())
         return 0
@@ -6806,6 +7768,8 @@ def layout_command(cfg, argv):
             audit("you", f"{sub}_layout", args, f"error: {e}")
             raise
         audit("you", f"{sub}_layout", args, "ok")
+        if sub == "restore":
+            habit_event(cfg, "layout", name)
         print("\n".join(c["text"] for c in out))
         if shutil.which("notify-send"):
             subprocess.run(["notify-send", "-a", "Window layouts", "-i", "view-grid",

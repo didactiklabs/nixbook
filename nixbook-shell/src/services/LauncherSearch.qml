@@ -391,10 +391,20 @@ Singleton {
     // list them all without building them in one go inside the binding.
     property bool appsReady: false
 
+    // Usage habits: the word typed before opening an app its name doesn't
+    // contain ("photo" -> darktable) becomes an alias agents' launch_app
+    // knows, once seen twice (the server ignores it when habits are off).
+    function learnAlias(id) {
+        const word = root.query.trim();
+        if (id && word.length >= 3 && word.length <= 24 && !word.includes("/"))
+            Quickshell.execDetached(["nixbook-desktop-mcp", "habits", "alias", word, id]);
+    }
+
     // Shown before anything is typed (like DankLauncher): every app, the most
     // used first (AppSearch frecency), then A-Z. Typing filters from there.
     function allAppResults() {
         AppSearch.usageRevision; // Re-sort after a launch
+        AppSearch.habitsFocus; // and with the focused app (usage habits)
         return AppSearch.list
             .map(entry => ({ entry: entry, score: AppSearch.frecencyBonus(entry.id) }))
             .sort((a, b) => (b.score - a.score) || a.entry.name.localeCompare(b.entry.name))
@@ -419,6 +429,7 @@ Singleton {
             verb: Translation.tr("Open"),
             execute: () => {
                 AppSearch.recordLaunch(entry.id);
+                root.learnAlias(entry.id);
                 AppLaunch.launchEntry(entry);
             },
             comment: entry.comment,

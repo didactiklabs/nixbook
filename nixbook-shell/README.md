@@ -423,6 +423,35 @@ prints the digest; the `personal` tool group turns it off;
 `personalMaxEntries` (200) caps it (the least used go first, never the
 profile).
 
+**Usage habits** (off by default; on from **Settings → Desktop agents**,
+`nixbook-desktop-mcp habits on|off`: the `habits-enabled` flag the unit's
+`ConditionPathExists` checks, and the unit started or stopped; or for good,
+the switch locked, with `desktopMcp.habits.enable`): the
+`nixbook-habits` user service (`nixbook-desktop-mcp habits watch`) reads
+niri's event stream and counts, in plain Python, the focused app's time,
+the windows opened, the layouts restored (`layout restore` from the shell)
+and the themes chosen (`appearance.theme` in config.json, read every
+minute). Desktop ids and times only, never titles (read only to skip
+private windows); nothing while locked (`$XDG_RUNTIME_DIR/nixbook-shell-locked`),
+paused (`habits-paused`), within 30 s of an agent's action (the state
+file's `last`), or for `habitsIgnoreApps` / `habitsIgnoreTitles`; spans
+under 5 s are dropped; `habitsKeepDays` (28) kept, in `habits.json` (0600).
+For the battery it sleeps until a niri event (60 s at most; a span cut by
+the lock or the pause ends at the marker's mtime, not at the wake-up),
+appends records to `habits.log` once a minute at most (a long span in
+30-minute pieces, merged back on reading), compacts both into `habits.json`
+daily, and every 10 minutes (and on the hour) writes `habits-rank.json`
+only if it changed (the apps used around this hour, 0-1, and the apps
+opened after each app), which `AppSearch.qml` adds to its frecency; then,
+at most once a day each: the Monday report notification,
+the theme hint (`habitsTheme`), the apps of `habitsOpenAtUsualTime`. A
+pattern counts once seen on 3 days. The launcher hands the typed word and
+the app opened to `habits alias` (an alias in the desktop memory after two
+times, unless the word is in the app's name). Agents get a line in the
+memory digest and the `habits` tool (`habitsAgents`: `digest`, `timeline`
+for a day hour by hour, `off`). **Settings → Desktop agents → Usage
+habits** pauses, shows and clears it.
+
 **Window layouts**: `save_layout` remembers where every window is (monitor,
 workspace, column and its width, or floating position and size, and the app
 that opens it) under a name; `restore_layout` puts them back in one call,

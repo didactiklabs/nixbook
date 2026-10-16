@@ -725,6 +725,22 @@ in
           description = "Port on 127.0.0.1 of the HTTP MCP endpoint (`/mcp`).";
         };
       };
+
+      habits.enable = lib.mkEnableOption ''
+        usage habits for good (otherwise Settings > Desktop agents turns them
+        on and off): the `nixbook-habits` user service counts, on this
+        machine and without any model, which app has the focus and for how
+        long, the windows opened, the layouts restored and the themes chosen
+        (app ids and times only: never window titles, files or input;
+        nothing while locked, while an agent acts, for password managers or
+        private browser windows). The launcher ranks apps with it, a weekly
+        report sums it up, a theme switched at the same hour is suggested
+        then, and agents get a short summary. Tune it with the
+        `desktopMcp.settings` keys `habitsKeepDays` (28), `habitsAgents`
+        (`digest`, `timeline` or `off`), `habitsTheme` (`suggest`, `auto` or
+        `off`), `habitsWeeklyReport`, `habitsOpenAtUsualTime` (desktop ids
+        opened at their usual time), `habitsIgnoreApps` and
+        `habitsIgnoreTitles`'';
     };
 
     assistant = {
@@ -986,7 +1002,13 @@ in
         # Desktop control for AI agents (scripts/desktop-mcp.py).
         xdg.configFile."nixbook-shell/desktop-mcp.json".source =
           (pkgs.formats.json { }).generate "desktop-mcp.json"
-            (cfg.desktopMcp.settings // { http.port = cfg.desktopMcp.http.port; });
+            (
+              cfg.desktopMcp.settings
+              // {
+                http.port = cfg.desktopMcp.http.port;
+                habits = cfg.desktopMcp.habits.enable;
+              }
+            );
         # The AI chat's other MCP servers (assistant.mcpServers, services/Ai.qml).
         xdg.configFile."nixbook-shell/assistant-mcp.json".source =
           (pkgs.formats.json { }).generate "assistant-mcp.json"
@@ -1197,6 +1219,32 @@ in
               "AF_UNIX"
               "AF_INET"
             ];
+            UMask = "0077";
+          };
+          Install.WantedBy = [ "graphical-session.target" ];
+        };
+
+        # Usage habits: the recorder reads niri's event stream and writes
+        # ~/.local/state/nixbook-shell/habits.* (0600). It needs no network
+        # at all. On from Settings > Desktop agents (`habits on`: the flag
+        # file, and the unit started), or always with desktopMcp.habits.enable.
+        systemd.user.services.nixbook-habits = {
+          Unit = {
+            Description = "nixbook-shell usage habits (counted locally, no model)";
+            PartOf = [ "graphical-session.target" ];
+            After = [ "graphical-session.target" ];
+            ConditionPathExists = lib.mkIf (
+              !cfg.desktopMcp.habits.enable
+            ) "${config.xdg.stateHome}/nixbook-shell/habits-enabled";
+          };
+          Service = {
+            ExecStart = "${lib.getExe cfg.package.passthru.desktopMcp} habits watch";
+            Restart = "on-failure";
+            RestartSec = 5;
+            Slice = "background.slice";
+            NoNewPrivileges = true;
+            RestrictAddressFamilies = [ "AF_UNIX" ];
+            IPAddressDeny = "any";
             UMask = "0077";
           };
           Install.WantedBy = [ "graphical-session.target" ];

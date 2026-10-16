@@ -24,6 +24,8 @@ Desktop control **starts paused**. Allow it with the bar's Desktop Control widge
 | `memory`   | [Desktop memory](#desktop-memory): remember, recall, forget                                                                                                                                                                                               |
 | `personal` | [Personal memory](#personal-memory): what you told agents about your life                                                                                                                                                                                 |
 
+The `memory` group also has `habits`: what you usually do, from [usage habits](#usage-habits) when you turned them on.
+
 Agents are told to read through OCR or the accessibility tree before taking a screenshot, and screenshots are JPEG and **incremental** — only what changed since the agent's last one — to keep each call cheap. Action tools can return a screenshot of the result in the same call, once the screen stops changing.
 
 ## Guardrails
@@ -79,6 +81,42 @@ All of it runs in the background after the chat, with a small model (about 4 s a
 - **Settings → Desktop agents → About you** shows the entries (delete any, or all).
 - `nixbook-desktop-mcp personal show|prompt|learn|forget ID|clear`.
 - Stored in `~/.local/state/nixbook-shell/personal-memory.json` (private), apart from the desktop memory. Its tools work while desktop control is paused (they don't touch the desktop), and the audit log never has their text.
+
+## Usage habits
+
+Off unless you turn it on: **Settings → Desktop agents → Usage habits → Learn from my usage** (or `nixbook-desktop-mcp habits on`; `programs.nixbook-shell.desktopMcp.habits.enable = true;` turns it on for good and locks the switch). The `nixbook-habits` user service then learns from **your own** use of the computer, counted on this machine in plain code: no model, no network.
+
+- It counts which app has the focus and for how long, the windows you open, the [layouts](./window-layouts) you restore and the themes you choose.
+- **App names and times only**: never window titles, files, sites, or anything you type (titles are read only to skip private windows, never stored).
+- **Nothing is recorded** while the screen is locked, while you pause it, while an agent acts on the desktop, for password managers and password prompts (`habitsIgnoreApps`) or in private browser windows (`habitsIgnoreTitles`).
+- It is kept **28 days** (`habitsKeepDays`), in `~/.local/state/nixbook-shell/habits.json` (private, 0600).
+- It is light on the battery: the recorder sleeps until a window changes (a minute at most), appends a few bytes per app switch instead of rewriting its file (compacted once a day), and updates the launcher's ranking only when it changes, every 10 minutes at most. While off, nothing runs.
+
+What it does with it:
+
+- **Launcher**: apps you use at this hour, and the ones you usually open after the app in front of you, rank higher.
+- **Your usual session**: agents get one line with the apps and layout you use around now, how your sessions start and your top apps this week. "Set up my work session" works without you listing what that means.
+- **Your words for apps**: a word you type in the launcher before opening an app whose name doesn't contain it ("photo" → darktable) becomes, the second time, an alias agents' `launch_app` knows.
+- **Weekly report**: a notification on Monday with the time per app, compared with the week before, the busiest day and the layouts used (`habitsWeeklyReport`). Also in Settings, and `nixbook-desktop-mcp habits report`.
+- **Theme by time of day**: a theme you switched to at the same hour on 3 of the last 14 days is suggested then, with a Switch button (`habitsTheme`: `suggest`, `auto` to switch on its own, or `off`).
+- **Open at the usual time**: apps you list in `habitsOpenAtUsualTime` (desktop ids) open on their own when you usually open them (on 3 of the last 4 same weekdays, within half an hour), once a day. None by default: a window appearing unasked is intrusive.
+- **What did I do?**: `nixbook-desktop-mcp habits day [YYYY-MM-DD]` shows a day hour by hour. Agents get it only with `habitsAgents = "timeline"`.
+
+What agents receive is set by `habitsAgents`: `digest` (the default: the line above, and the `habits` tool's `now` and `week`), `timeline` (also a day hour by hour, when asked) or `off`. What agents receive goes to their model provider; the rest never leaves the machine.
+
+- **Settings → Desktop agents → Usage habits** turns it on or off, pauses recording, shows what it learned and this week's report, and forgets everything.
+- `nixbook-desktop-mcp habits on|off [--forget]|status|now|report [DAYS]|day [DATE]|pause|resume|clear|show`.
+
+```nix
+programs.nixbook-shell.desktopMcp = {
+  habits.enable = true; # optional: on for good, the Settings switch locked
+  settings = {
+    habitsAgents = "digest"; # or "timeline", "off"
+    habitsTheme = "suggest"; # or "auto", "off"
+    habitsOpenAtUsualTime = [ "vesktop" ];
+  };
+};
+```
 
 ## HTTP transport
 
