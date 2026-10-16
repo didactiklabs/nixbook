@@ -1,0 +1,19 @@
+{
+  "name": "youtube-music-mcp",
+  "version": "0.1.0",
+  "description": "MCP server that controls the YouTube Music desktop app (th-ch/youtube-music) through its API Server plugin",
+  "type": "module",
+  "bin": {
+    "youtube-music-mcp": "./src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "zod": "^4.6.7"
+  }
+}

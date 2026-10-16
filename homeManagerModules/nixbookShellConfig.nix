@@ -1,5 +1,6 @@
 {
   config,
+  options,
   pkgs,
   lib,
   osConfig ? null,
@@ -27,6 +28,14 @@ let
   osModules = if os != null then enabledIn (os.customNixOSModules or { }) else [ ];
   hmModules = enabledIn (config.customHomeManagerModules or { });
   niriEnabled = config.customHomeManagerModules.niriConfig.enable or false;
+  # Music apps the AI chat gets an MCP server for, where they're installed.
+  musicMcpServers =
+    lib.optionalAttrs (lib.elem pkgs.customPkgs.pear-desktop config.home.packages) {
+      youtube-music.command = lib.getExe pkgs.customPkgs.youtube-music-mcp;
+    }
+    // lib.optionalAttrs (lib.elem pkgs.spotify config.home.packages) {
+      spotify.command = lib.getExe pkgs.customPkgs.spotify-mcp;
+    };
 
   # What this machine's Nix configuration sets up, for the Intelligence tab's
   # system prompt: the assistant can then answer "how do I change X" with the
@@ -158,6 +167,14 @@ in
       assistant = {
         inherit context;
         niriConfig = if niriEnabled then (config.programs.niri.finalConfig or "") else "";
+        # Where pear-desktop or Spotify is installed, the chat can also play and
+        # control it (YouTube Music through the app's API Server plugin, turned
+        # on in the app; Spotify through MPRIS, and its Web API after the
+        # server's `login`). Added to the option's default servers, not
+        # instead of them.
+        mcpServers = lib.mkIf (musicMcpServers != { }) (
+          options.programs.nixbook-shell.assistant.mcpServers.default // musicMcpServers
+        );
         modules = {
           all =
             lib.optionals (os != null) (declared (os.customNixOSModules or { }))
