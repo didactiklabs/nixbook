@@ -87,6 +87,11 @@ if [ "$1 $2 $3" = "msg --json windows" ] && [ "${NIRI_SOCKET:-}" = "${STUB_AGENT
   fi
   exit 0
 fi
+# The event stream (usage habits): what $STUB_EVENTS prints, then quiet.
+if [ "$1 $2 $3" = "msg -j event-stream" ]; then
+  [ -z "${STUB_EVENTS:-}" ] || bash "$STUB_EVENTS"
+  exec sleep 600
+fi
 if [ "$1 $2" = "msg --json" ]; then
   focus=$(cat "$STUB_FOCUS")
   case "$3" in
@@ -367,7 +372,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 46 tools" 46 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 47 tools" 47 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -1047,6 +1052,113 @@ expect_eq "memory clear: several parts at once" "0 0" "$(jq -r '"\(.aliases | le
 python3 "$mcp" memory clear >/dev/null
 expect_eq "memory clear: all" "0 0" "$(jq -r '"\(.aliases | length) \(.usage.apps | length)"' "$mem")"
 rm -f "$calls.launched"
+
+# -- usage habits ------------------------------------------------------------------------------
+
+habits="$XDG_STATE_HOME/nixbook-shell/habits.json"
+mcpcfg="$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+hlog="$XDG_STATE_HOME/nixbook-shell/habits.log"
+expect_eq "habits: off by default" false "$(python3 "$mcp" habits status | jq .enabled)"
+expect_contains "habits: watch exits while off" "$(python3 "$mcp" habits watch 2>&1 || true)" "usage habits are off"
+expect_contains "habits: the tool refuses while off" "$(call habits '{}')" "doesn't share their usage habits"
+
+# On and off from Settings: a flag file the unit's condition checks, and
+# the unit started or stopped now. Not off when Nix turned them on.
+cat >"$bin/systemctl" <<'EOF'
+#!/usr/bin/env bash
+echo "systemctl $*" >>"$STUB_CALLS"
+EOF
+chmod +x "$bin/systemctl"
+: >"$calls"
+python3 "$mcp" habits on >/dev/null
+expect_eq "habits on: from Settings" "true false" "$(python3 "$mcp" habits status | jq -r '"\(.enabled) \(.nix)"')"
+expect_contains "habits on: the recorder started" "$(cat "$calls")" "systemctl --user start nixbook-habits.service"
+python3 "$mcp" habits off >/dev/null
+expect_eq "habits off" false "$(python3 "$mcp" habits status | jq .enabled)"
+expect_contains "habits off: the recorder stopped" "$(cat "$calls")" "systemctl --user stop nixbook-habits.service"
+echo '{"habits":true}' >"$mcpcfg"
+expect_eq "habits: on in Nix" "true true" "$(python3 "$mcp" habits status | jq -r '"\(.enabled) \(.nix)"')"
+expect_contains "habits off: not when on in Nix" "$(python3 "$mcp" habits off 2>&1 || true)" "on in the Nix configuration"
+rm "$mcpcfg"
+python3 "$mcp" habits on >/dev/null
+# The recorder: focus spans and windows opened, never titles, nothing of
+# private windows or password managers.
+cat >"$tmp/events.sh" <<'EVENTS'
+echo '{"WindowsChanged":{"windows":[{"id":1,"app_id":"org.gnome.Calculator","title":"Calc","is_focused":true}]}}'
+sleep 6
+echo '{"WindowOpenedOrChanged":{"window":{"id":2,"app_id":"firefox","title":"Secret plans - Mozilla Firefox","is_focused":true}}}'
+sleep 6
+echo '{"WindowOpenedOrChanged":{"window":{"id":3,"app_id":"firefox","title":"Mozilla Firefox Private Browsing","is_focused":true}}}'
+echo '{"WindowOpenedOrChanged":{"window":{"id":4,"app_id":"org.keepassxc.KeePassXC","title":"Passwords.kdbx","is_focused":true}}}'
+EVENTS
+rm -f "$XDG_RUNTIME_DIR/nixbook-desktop-mcp/state.json" # the call above was an agent's action
+STUB_EVENTS="$tmp/events.sh" python3 "$mcp" habits watch 2>"$tmp/habits.log" &
+watch_pid=$!
+sleep 13
+kill -TERM "$watch_pid"
+wait "$watch_pid" || true
+out=$(python3 "$mcp" habits show)
+expect_eq "habits watch: focus spans by desktop id" "org.gnome.Calculator org.mozilla.firefox" \
+  "$(jq -r '[.spans[] | select(.[1] - .[0] >= 5) | .[2]] | join(" ")' <<<"$out")"
+expect_eq "habits watch: a window opened, not the private one" '["org.mozilla.firefox"]' "$(jq -c '[.opens[][1]]' <<<"$out")"
+expect_eq "habits watch: appended, not rewritten" 3 "$(wc -l <"$hlog" | tr -d ' ')"
+expect_eq "habits watch: no title kept" 0 "$(cat "$habits" "$hlog" | grep -ci 'secret\|private\|kdbx\|keepass' || true)"
+expect_eq "habits files are private" "600 600" "$(stat -c %a "$habits") $(stat -c %a "$hlog")"
+expect_eq "habits rank file is private" 600 "$(stat -c %a "$XDG_STATE_HOME/nixbook-shell/habits-rank.json")"
+
+# Four past weeks, this weekday and hour: the work layout, then Firefox,
+# then the Calculator.
+rm -f "$hlog"
+python3 - "$habits" <<'FIXTURE'
+import json, sys, time
+now = time.time(); lt = time.localtime(now)
+d = {"version": 1, "spans": [], "opens": [], "events": [], "aliasSeen": {}, "sent": {}}
+for wk in range(1, 5):
+    day = time.localtime(now - wk * 7 * 86400)
+    b = int(time.mktime((day.tm_year, day.tm_mon, day.tm_mday, lt.tm_hour, 0, 0, 0, 0, -1)))
+    d["events"] += [[b, "layout", "work"], [b + 60, "theme", "cyberpunk/red"]]
+    d["opens"] += [[b + 30, "org.mozilla.firefox"], [b + 900, "org.gnome.Calculator"]]
+    d["spans"] += [[b + 30, b + 900, "org.mozilla.firefox"], [b + 900, b + 2400, "org.gnome.Calculator"]]
+json.dump(d, open(sys.argv[1], "w"))
+FIXTURE
+out=$(python3 "$mcp" habits now)
+expect_contains "habits now: usual apps and layout" "$out" "usually use Calculator, Firefox, the 'work' layout"
+expect_contains "habits now: how sessions start" "$out" "sessions usually start with layout 'work', then Firefox, then Calculator"
+expect_contains "habits: in the memory digest" "$(python3 "$mcp" memory prompt)" "The user's habits (counted on this machine from their own use)"
+expect_contains "habits tool: now" "$(call habits '{}')" "usually use Calculator"
+expect_contains "habits tool: week" "$(call habits '{"what":"week"}')" "last 7 days"
+expect_contains "habits tool: no timeline unless shared" "$(call habits '{"what":"day"}')" "doesn't share their day by day timeline"
+expect_contains "habits report" "$(python3 "$mcp" habits report 29)" "- Calculator: 1h40"
+day=$(python3 -c 'import time; print(time.strftime("%Y-%m-%d", time.localtime(time.time() - 7 * 86400)))')
+echo '{"habits":true,"habitsAgents":"timeline"}' >"$mcpcfg"
+expect_contains "habits tool: the timeline when shared" "$(call habits "{\"what\":\"day\",\"date\":\"$day\"}")" \
+  "Firefox 14 min, layout work, theme cyberpunk/red"
+echo '{"habits":true,"habitsAgents":"off"}' >"$mcpcfg"
+expect_contains "habits tool: off for agents" "$(call habits '{}')" "doesn't share their usage habits"
+expect_eq "habits: not in the digest when off for agents" 0 "$(python3 "$mcp" memory prompt | grep -c "habits" || true)"
+echo '{"habits":true}' >"$mcpcfg"
+
+# Launcher words: an alias once seen twice, not a word of the app's name.
+python3 "$mcp" habits alias numbers org.gnome.Calculator >/dev/null
+expect_eq "habits alias: not after once" null "$(jq -r '.aliases.numbers' "$mem")"
+expect_contains "habits alias: learned the second time" "$(python3 "$mcp" habits alias Numbers org.gnome.Calculator)" "learned alias 'numbers'"
+expect_eq "habits alias: in the desktop memory" org.gnome.Calculator "$(jq -r '.aliases.numbers' "$mem")"
+python3 "$mcp" habits alias calc org.gnome.Calculator >/dev/null
+python3 "$mcp" habits alias calc org.gnome.Calculator >/dev/null
+expect_eq "habits alias: not a word of its name" null "$(jq -r '.aliases.calc' "$mem")"
+python3 "$mcp" habits pause >/dev/null
+expect_eq "habits pause" true "$(python3 "$mcp" habits status | jq .paused)"
+python3 "$mcp" habits alias sums org.gnome.Calculator >/dev/null
+python3 "$mcp" habits alias sums org.gnome.Calculator >/dev/null
+expect_eq "habits alias: nothing learned while paused" null "$(jq -r '.aliases.sums' "$mem")"
+python3 "$mcp" habits resume >/dev/null
+expect_eq "habits resume" false "$(python3 "$mcp" habits status | jq .paused)"
+python3 "$mcp" habits clear >/dev/null
+expect_eq "habits clear" "no no no" \
+  "$(for f in "$habits" "$hlog" "$XDG_STATE_HOME/nixbook-shell/habits-rank.json"; do [ -e "$f" ] && echo yes || echo no; done | xargs)"
+rm "$mcpcfg"
+python3 "$mcp" habits off >/dev/null
+python3 "$mcp" memory clear >/dev/null
 
 # -- personal memory ----------------------------------------------------------------------------
 

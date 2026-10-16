@@ -17,6 +17,7 @@ ContentPage {
     Component.onCompleted: {
         DesktopControl.refreshMemory();
         DesktopControl.refreshPersonal();
+        DesktopControl.refreshHabits();
     }
 
     function goTo(term) {
@@ -499,6 +500,84 @@ ContentPage {
                     materialIcon: "refresh"
                     mainText: Translation.tr("Refresh")
                     onClicked: DesktopControl.refreshMemory()
+                }
+            }
+        }
+
+        ContentSection {
+            icon: "insights"
+            title: Translation.tr("Usage habits")
+            shape: MaterialShape.Shape.Cookie4Sided
+
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: DesktopControl.habits.enabled
+                    ? Translation.tr("What you do on this computer, counted here without any model: which app has the focus and for how long, the windows you open, the layouts and themes you choose. App names and times only — never window titles, files, sites or what you type — and nothing while the screen is locked, while an agent acts, for password managers or in private browser windows. Kept %1 days. The launcher ranks apps with it; agents get %2.")
+                        .arg(DesktopControl.habits.keepDays ?? 28)
+                        .arg(DesktopControl.habits.agents === "off" ? Translation.tr("nothing of it")
+                            : DesktopControl.habits.agents === "timeline" ? Translation.tr("a short summary, and what you used on a given day when they ask")
+                            : Translation.tr("a short summary (usual apps and layout now, how your sessions start, the week's top apps)"))
+                    : Translation.tr("Off. When on, the launcher, a weekly report and agents learn from your own use of this computer, counted here without any model: app names and times only, never titles, files, sites or what you type.")
+            }
+
+            ConfigSwitch {
+                enabled: !(DesktopControl.habits.nix ?? false)
+                buttonIcon: "insights"
+                text: Translation.tr("Learn from my usage")
+                checked: DesktopControl.habits.enabled ?? false
+                onCheckedChanged: if (checked !== (DesktopControl.habits.enabled ?? false)) DesktopControl.setHabitsEnabled(checked, false)
+                StyledToolTip {
+                    text: (DesktopControl.habits.nix ?? false)
+                        ? Translation.tr("On in the Nix configuration (programs.nixbook-shell.desktopMcp.habits.enable)")
+                        : Translation.tr("Starts or stops the recorder; what it recorded stays until you forget it")
+                }
+            }
+
+            ConfigSwitch {
+                visible: DesktopControl.habits.enabled ?? false
+                buttonIcon: "pause_circle"
+                text: Translation.tr("Record my usage")
+                checked: !(DesktopControl.habits.paused ?? false)
+                onCheckedChanged: if (checked === (DesktopControl.habits.paused ?? false)) DesktopControl.setHabitsPaused(!checked)
+            }
+
+            ContentSubsection {
+                visible: DesktopControl.habits.enabled ?? false
+                title: Translation.tr("What it learned")
+
+                StyledText {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    color: Appearance.colors.colOnLayer1
+                    readonly property var lines: DesktopControl.habits.now ?? []
+                    text: lines.length === 0 ? Translation.tr("Not enough recorded yet (%1 days).").arg(DesktopControl.habits.days ?? 0)
+                        : lines.join("\n")
+                }
+                StyledText {
+                    Layout.fillWidth: true
+                    visible: (DesktopControl.habits.report ?? "").length > 0
+                    wrapMode: Text.WordWrap
+                    font.family: Appearance.font.family.monospace
+                    font.pixelSize: Appearance.font.pixelSize.small
+                    color: Appearance.colors.colOnLayer1
+                    text: DesktopControl.habits.report ?? ""
+                }
+            }
+
+            RowLayout {
+                visible: (DesktopControl.habits.enabled ?? false) || (DesktopControl.habits.days ?? 0) > 0
+                spacing: 8
+                SmallButton {
+                    materialIcon: "delete_sweep"
+                    mainText: Translation.tr("Forget everything")
+                    onClicked: DesktopControl.clearHabits()
+                }
+                SmallButton {
+                    materialIcon: "refresh"
+                    mainText: Translation.tr("Refresh")
+                    onClicked: DesktopControl.refreshHabits()
                 }
             }
         }

@@ -145,6 +145,25 @@ Singleton {
     function clearPersonal() {
         root.memoryCommand(["clear"], "personal");
     }
+    // Usage habits (Settings > Desktop agents > Usage habits), as
+    // `nixbook-desktop-mcp habits status` prints: on or not (and whether Nix
+    // turned them on, then the switch is locked), paused, what they say now
+    // and the week's report.
+    property var habits: ({ enabled: false })
+    function refreshHabits() {
+        if (!habitsReader.running) habitsReader.running = true;
+    }
+    // On: the nixbook-habits service starts now and with each session; off:
+    // it stops, and with `forget` what it recorded is deleted.
+    function setHabitsEnabled(on, forget) {
+        root.memoryCommand(on ? ["on"] : (forget ? ["off", "--forget"] : ["off"]), "habits");
+    }
+    function setHabitsPaused(paused) {
+        root.memoryCommand([paused ? "pause" : "resume"], "habits");
+    }
+    function clearHabits() {
+        root.memoryCommand(["clear"], "habits");
+    }
     // One command at a time, in order (quick clicks queue up).
     property var memoryQueue: []
     function memoryCommand(args, part) {
@@ -155,6 +174,7 @@ Singleton {
         if (root.memoryQueue.length === 0) {
             root.refreshMemory();
             root.refreshPersonal();
+            root.refreshHabits();
             return;
         }
         memoryWriter.command = root.memoryQueue[0];
@@ -171,6 +191,19 @@ Singleton {
                     root.memory = JSON.parse(text);
                 } catch (e) {
                     console.warn("[DesktopControl] can't read the desktop memory:", e);
+                }
+            }
+        }
+    }
+    Process {
+        id: habitsReader
+        command: ["nixbook-desktop-mcp", "habits", "status"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    root.habits = JSON.parse(text);
+                } catch (e) {
+                    console.warn("[DesktopControl] can't read the usage habits:", e);
                 }
             }
         }

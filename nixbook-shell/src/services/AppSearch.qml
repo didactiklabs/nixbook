@@ -1,5 +1,6 @@
 pragma Singleton
 
+import qs.services
 import qs.modules.common
 import qs.modules.common.functions
 import QtQuick
@@ -224,11 +225,12 @@ Singleton {
     property int usageRevision: 0
     function frecencyBonus(id) {
         const u = root.usage[id];
+        const habits = root.habitsBonus(id);
         if (!u)
-            return 0;
+            return habits;
         const days = (Date.now() - (u.last || 0)) / 86400000;
         const recency = days < 1 ? 1200 : days < 7 ? 800 : days < 30 ? 400 : 100;
-        return recency + Math.min(u.count || 0, 50) * 20;
+        return recency + Math.min(u.count || 0, 50) * 20 + habits;
     }
     function recordLaunch(id) {
         if (!id)
@@ -257,6 +259,33 @@ Singleton {
         id: usageSaveTimer
         interval: 2000
         onTriggered: usageFile.setText(JSON.stringify(root.usage))
+    }
+
+    // ------------------------------------------------------- usage habits
+    // habits-rank.json, rewritten every minute by `nixbook-desktop-mcp habits
+    // watch` when usage habits are on: the apps used around this hour (0-1)
+    // and the apps usually opened after the focused one. Absent: no bonus.
+    property var habits: ({})
+    // The app focused now (niri's app id): the launcher re-sorts when it changes.
+    readonly property string habitsFocus: WM.windowList.find(w => w.focused)?.appId ?? ""
+    function habitsBonus(id) {
+        const from = root.habits.ids?.[root.habitsFocus] ?? root.habitsFocus;
+        return 600 * (root.habits.now?.[id] ?? 0) + 800 * (root.habits.after?.[from]?.[id] ?? 0);
+    }
+    FileView {
+        id: habitsFile
+        path: `${DesktopControl.stateHome}/habits-rank.json`
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: {
+            try {
+                root.habits = JSON.parse(habitsFile.text()) || {};
+            } catch (e) {
+                root.habits = {};
+            }
+            root.usageRevision++;
+        }
+        onLoadFailed: root.habits = {}
     }
 
     function iconExists(iconName) {
