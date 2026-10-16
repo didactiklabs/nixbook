@@ -48,6 +48,7 @@ let
           tesseract # read_screen
           systemd # systemctl: starts the agent desktop (agentDesktop)
           pciutils # lspci: GPU names (system_info)
+          playerctl # the music every player plays (usage habits: music taste)
         ]
       )
     }:$PATH"

@@ -164,6 +164,10 @@ Singleton {
     function clearHabits() {
         root.memoryCommand(["clear"], "habits");
     }
+    // The music listened to only (the music taste), the rest kept.
+    function clearMusic() {
+        root.memoryCommand(["music-clear"], "habits");
+    }
     // One command at a time, in order (quick clicks queue up).
     property var memoryQueue: []
     function memoryCommand(args, part) {

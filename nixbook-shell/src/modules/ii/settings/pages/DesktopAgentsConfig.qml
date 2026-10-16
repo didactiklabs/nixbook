@@ -526,11 +526,13 @@ ContentPage {
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
                 text: DesktopControl.habits.enabled
-                    ? Translation.tr("What you do on this computer, counted here without any model: which app has the focus and for how long, the windows you open, the layouts and themes you choose. App names and times only — never window titles, files, sites or what you type — and nothing while the screen is locked, while an agent acts, for password managers or in private browser windows. Kept %1 days. The launcher ranks apps with it; agents get %2.")
+                    ? Translation.tr("What you do on this computer, counted here without any model: which app has the focus and for how long, the windows you open, the layouts and themes you choose, the music you play. App names and times only — never window titles, files, sites or what you type; for music, the artist, title and album — and nothing but music while the screen is locked or an agent acts, nothing for password managers or in private browser windows. Kept %1 days (music: %3). The launcher ranks apps with it; agents get %2.")
                         .arg(DesktopControl.habits.keepDays ?? 28)
                         .arg(DesktopControl.habits.agents === "off" ? Translation.tr("nothing of it")
                             : DesktopControl.habits.agents === "timeline" ? Translation.tr("a short summary, and what you used on a given day when they ask")
-                            : Translation.tr("a short summary (usual apps and layout now, how your sessions start, the week's top apps)"))
+                            : Translation.tr("a short summary (usual apps and layout now, how your sessions start, the week's top apps, your favourite artists)"))
+                        .arg(!(DesktopControl.habits.musicOn ?? true) ? Translation.tr("not recorded")
+                            : Translation.tr("%1 days").arg(DesktopControl.habits.musicKeepDays ?? 365))
                     : Translation.tr("Off. When on, the launcher, a weekly report and agents learn from your own use of this computer, counted here without any model: app names and times only, never titles, files, sites or what you type.")
             }
 
@@ -569,6 +571,16 @@ ContentPage {
                 }
                 StyledText {
                     Layout.fillWidth: true
+                    visible: DesktopControl.habits.musicOn ?? false
+                    wrapMode: Text.WordWrap
+                    color: Appearance.colors.colOnLayer1
+                    readonly property var lines: DesktopControl.habits.music ?? []
+                    text: lines.length === 0
+                        ? Translation.tr("Music: nothing played yet. What you play on any player (Spotify, YouTube Music…, not web browsers) teaches agents your taste: artist, title and album only.")
+                        : Translation.tr("Music:") + "\n" + lines.join("\n")
+                }
+                StyledText {
+                    Layout.fillWidth: true
                     visible: (DesktopControl.habits.report ?? "").length > 0
                     wrapMode: Text.WordWrap
                     font.family: Appearance.font.family.monospace
@@ -585,6 +597,12 @@ ContentPage {
                     materialIcon: "delete_sweep"
                     mainText: Translation.tr("Forget everything")
                     onClicked: DesktopControl.clearHabits()
+                }
+                SmallButton {
+                    visible: (DesktopControl.habits.music ?? []).length > 0
+                    materialIcon: "music_off"
+                    mainText: Translation.tr("Forget my music")
+                    onClicked: DesktopControl.clearMusic()
                 }
                 SmallButton {
                     materialIcon: "refresh"

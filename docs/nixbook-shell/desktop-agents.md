@@ -102,12 +102,13 @@ What it does with it:
 - **Weekly report**: a notification on Monday with the time per app, compared with the week before, the busiest day and the layouts used (`habitsWeeklyReport`). Also in Settings, and `nixbook-desktop-mcp habits report`.
 - **Theme by time of day**: a theme you switched to at the same hour on 3 of the last 14 days is suggested then, with a Switch button (`habitsTheme`: `suggest`, `auto` to switch on its own, or `off`).
 - **Open at the usual time**: apps you list in `habitsOpenAtUsualTime` (desktop ids) open on their own when you usually open them (on 3 of the last 4 same weekdays, within half an hour), once a day. None by default: a window appearing unasked is intrusive.
+- **Your music taste**: what you play on **any player** — Spotify, YouTube Music, mpv, your phone through KDE Connect — is counted too: the artist, title and album of each track, and whether you listened (30 s or more) or skipped it. Agents then know your favourite artists, what you've been into lately (and which artists are new to you), your most played tracks, what you play around this hour and what you skip, so "play something I'd like" or "a playlist for the evening" works without you naming anything. Ads and podcast episodes aren't counted, nor web browsers (videos, not music: `habitsMusicIgnorePlayers`); music keeps being counted while the screen is locked. Kept a year (`habitsMusicKeepDays`); `habitsMusic = false` turns it off. `nixbook-desktop-mcp habits music` shows it, **Forget my music** (or `habits music-clear`) forgets it alone.
 - **What did I do?**: `nixbook-desktop-mcp habits day [YYYY-MM-DD]` shows a day hour by hour. Agents get it only with `habitsAgents = "timeline"`.
 
-What agents receive is set by `habitsAgents`: `digest` (the default: the line above, and the `habits` tool's `now` and `week`), `timeline` (also a day hour by hour, when asked) or `off`. What agents receive goes to their model provider; the rest never leaves the machine.
+What agents receive is set by `habitsAgents`: `digest` (the default: the line above and your favourite artists, and the `habits` tool's `now`, `week` and `music`), `timeline` (also a day hour by hour, when asked) or `off`. What agents receive goes to their model provider; the rest never leaves the machine.
 
 - **Settings → Desktop agents → Usage habits** turns it on or off, pauses recording, shows what it learned and this week's report, and forgets everything.
-- `nixbook-desktop-mcp habits on|off [--forget]|status|now|report [DAYS]|day [DATE]|pause|resume|clear|show`.
+- `nixbook-desktop-mcp habits on|off [--forget]|status|now|report [DAYS]|day [DATE]|music|music-clear|pause|resume|clear|show`.
 
 ```nix
 programs.nixbook-shell.desktopMcp = {
