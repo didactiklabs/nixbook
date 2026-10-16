@@ -1053,6 +1053,177 @@ python3 "$mcp" memory clear >/dev/null
 expect_eq "memory clear: all" "0 0" "$(jq -r '"\(.aliases | length) \(.usage.apps | length)"' "$mem")"
 rm -f "$calls.launched"
 
+# Learned targets: a fake libatspi (PyGObject's `gi`) reading a window's
+# tree from $FAKE_ATSPI_TREE; an action done is logged to $STUB_CALLS.
+mkdir -p "$tmp/fakegi/gi/repository"
+echo 'def require_version(*_): pass' >"$tmp/fakegi/gi/__init__.py"
+cat >"$tmp/fakegi/gi/repository/__init__.py" <<'FAKEGI'
+import json, os
+
+
+class _Error(Exception):
+    pass
+
+
+class GLib:
+    Error = _Error
+
+    class VariantType:
+        @staticmethod
+        def new(s):
+            return s
+
+
+class _Reply:
+    def unpack(self):
+        return ("unix:path=/nowhere",)
+
+
+class _Bus:
+    def call_sync(self, *_):
+        return _Reply()
+
+    def close_sync(self, *_):
+        pass
+
+
+class Gio:
+    class BusType:
+        SESSION = 0
+
+    class DBusCallFlags:
+        NONE = 0
+
+    class DBusConnectionFlags:
+        AUTHENTICATION_CLIENT = 1
+        MESSAGE_BUS_CONNECTION = 2
+
+    @staticmethod
+    def bus_get_sync(*_):
+        return _Bus()
+
+    class DBusConnection:
+        @staticmethod
+        def new_for_address_sync(*_):
+            return _Bus()
+
+
+class _States:
+    def __init__(self, states):
+        self.states = set(states)
+
+    def contains(self, s):
+        return s in self.states
+
+
+class _Node:
+    def __init__(self, d):
+        self.d = d
+
+    def get_child_count(self):
+        return len(self.d.get("children", []))
+
+    def get_child_at_index(self, i):
+        kids = self.d.get("children", [])
+        return _Node(kids[i]) if 0 <= i < len(kids) else None
+
+    def get_process_id(self):
+        return self.d.get("pid")
+
+    def get_name(self):
+        return self.d.get("name", "")
+
+    def get_role_name(self):
+        return self.d.get("role", "panel")
+
+    def get_state_set(self):
+        return _States(self.d.get("states", ["showing", "enabled"]))
+
+    def get_text_iface(self):
+        return None
+
+    def get_value_iface(self):
+        return None
+
+    def get_component_iface(self):
+        return None
+
+    def get_editable_text_iface(self):
+        return None
+
+    def get_action_iface(self):
+        return self if self.d.get("actions") else None
+
+
+class Atspi:
+    class StateType:
+        ACTIVE, SHOWING, FOCUSED, CHECKED, SELECTED = "active", "showing", "focused", "checked", "selected"
+        EXPANDED, PRESSED, ENABLED, SENSITIVE, EDITABLE = "expanded", "pressed", "enabled", "sensitive", "editable"
+
+    class Action:
+        @staticmethod
+        def get_n_actions(node):
+            return len(node.d["actions"])
+
+        @staticmethod
+        def get_action_name(node, i):
+            return node.d["actions"][i]
+
+        @staticmethod
+        def do_action(node, i):
+            with open(os.environ["STUB_CALLS"], "a") as f:
+                f.write(f"atspi {node.d['actions'][i]} {node.d.get('name', '')}\n")
+
+    @staticmethod
+    def set_timeout(*_):
+        pass
+
+    @staticmethod
+    def get_desktop(_):
+        with open(os.environ["FAKE_ATSPI_TREE"]) as f:
+            return _Node(json.load(f))
+FAKEGI
+tree="$tmp/atspi-tree.json"
+# Firefox's window: [Send] (or an Undo button before it, moving it), a list
+# item whose name is content, two Close buttons.
+fake_tree() {
+  jq -nc --argjson undo "$1" '{children: [{pid: null, children: [{role: "frame", name: "Mozilla Firefox",
+    states: ["active", "showing"], children: [{role: "panel", children: (
+      (if $undo then [{role: "push button", name: "Undo", actions: ["press"]}] else [] end) + [
+      {role: "push button", name: "Send", actions: ["press"]},
+      {role: "list item", name: "Re: secret project", actions: ["activate"]},
+      {role: "push button", name: "Close", actions: ["press"]},
+      {role: "push button", name: "Close", actions: ["press"]},
+      {role: "push button", name: "Reload", actions: ["press"]}])}]}]}]}' >"$tree"
+}
+uicall() { FAKE_ATSPI_TREE="$tree" PYTHONPATH="$tmp/fakegi" call "$@"; }
+fake_tree false
+: >"$calls"
+expect_contains "ui_act target: found without ui_read" "$(uicall ui_act '{"target":"send","action":"click"}')" "done (found): push button 'Send'"
+expect_contains "ui_act target: the app's own action" "$(cat "$calls")" "atspi press Send"
+expect_eq "ui_act target: learned, its place in the window" "push button [0,0]" \
+  "$(jq -r '.targets.firefox[] | select(.name=="Send") | "\(.role) \(.path | tojson)"' "$mem")"
+expect_contains "ui_act target: reached where it was learned" "$(uicall ui_act '{"target":"Send","action":"click"}')" "done (learned)"
+fake_tree true
+expect_contains "ui_act target: moved, found again" "$(uicall ui_act '{"target":"Send","action":"click"}')" "done (found)"
+expect_eq "ui_act target: its new place learned" "[0,1] 3" \
+  "$(jq -r '.targets.firefox[] | select(.name=="Send") | "\(.path | tojson) \(.uses)"' "$mem")"
+expect_contains "ui_act target: content isn't learned" "$(uicall ui_act '{"target":"re: secret project","action":"click"}')" "done (found): list item"
+expect_eq "ui_act target: no content in the memory" 0 "$(grep -c "secret" "$mem" || true)"
+out=$(uicall ui_act '{"target":"Close","action":"click"}')
+expect_contains "ui_act target: same names refused" "$out" "2 elements are named 'Close'"
+expect_contains "ui_act target: numbered to pick one" "$out" "[2] push button 'Close'"
+expect_contains "ui_act target: then by index" "$(uicall ui_act '{"index":2,"action":"click"}')" "done: push button 'Close'"
+expect_contains "ui_act target: nothing by that name" "$(uicall ui_act '{"target":"Print","action":"click"}')" "no element named 'Print' showing"
+uicall ui_read '{"find":"reload"}' >/dev/null
+uicall ui_act '{"index":1,"action":"click"}' >/dev/null
+expect_eq "ui_act index: learned too" Reload "$(jq -r '.targets.firefox[] | select(.name=="Reload") | .name' "$mem")"
+echo kitty >"$STUB_FOCUS"
+expect_contains "ui_act target: terminals refused" "$(uicall ui_act '{"target":"Send","action":"click"}')" "refused: 'kitty' is off limits"
+echo firefox >"$STUB_FOCUS"
+python3 "$mcp" memory clear targets >/dev/null
+expect_eq "memory clear targets" 0 "$(jq '.targets | length' "$mem")"
+
 # -- usage habits ------------------------------------------------------------------------------
 
 habits="$XDG_STATE_HOME/nixbook-shell/habits.json"

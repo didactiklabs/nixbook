@@ -276,7 +276,18 @@ tokens where a screenshot costs ~1,250, and `ui_act` presses, toggles,
 focuses or sets the text of one through the app itself, without
 coordinates. `ui_wait` waits until an element shows (a page loaded, a
 dialog opened) or is gone, reading the window again on each change the app
-reports, instead of a fixed wait and a screenshot. Agents are told to look
+reports, instead of a fixed wait and a screenshot. `ui_act` also takes a
+`target`, an element's name, instead of an `index`: one call instead of
+`ui_read` then `ui_act`. A control acted on (button, tab, menu item, check
+box… with a name of 40 characters at most; never list items, links, texts
+or cells, whose names are content) is learned per app with its place in
+the window's tree (`targets` in the desktop memory, 40 per app, 60 apps):
+next time it's reached there directly, after checking its role, name and
+that it's showing, with no walk through the tree; a stale place falls back
+to a search and is learned again, and several elements with that name are
+listed for an `index`. The names learned in an app come with the agent's
+first action there. Learned from agents' actions only, never the user's
+input. Agents are told to look
 through these before taking a screenshot. On the agent desktop they read its
 apps through its own accessibility bus (its sandbox's), never yours. After `type_text` and `press_keys` the result says which
 element has the keyboard focus, so agents needn't screenshot to check where
