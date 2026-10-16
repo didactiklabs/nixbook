@@ -1528,7 +1528,8 @@ def memory_path():
 
 
 def empty_memory():
-    return {"version": 2, "notes": [], "aliases": {}, "usage": {"apps": {}, "layouts": {}, "tools": {}}}
+    return {"version": 2, "notes": [], "aliases": {}, "usage": {"apps": {}, "layouts": {}, "tools": {}},
+            "targets": {}}
 
 
 class Memory:
@@ -1811,14 +1812,19 @@ def notes_for_window(ctx, window):
     found = [n for n in read_memory()["notes"]
              if n["id"] not in ctx.notes_shown
              and (desktop in n.get("apps", []) or set(words(n.get("topic", ""))) & names)]
-    if not found:
+    # The controls learned there: ui_act reaches them by name, no ui_read.
+    targets = ui_targets_for(app_id)[:15] if "ui" in ctx.cfg["tools"] else []
+    if not found and not targets:
         return None
     found.sort(key=lambda n: (-n.get("uses", 0), -n.get("updated", 0)))
     found = found[:3]
     ctx.notes_shown.update(n["id"] for n in found)
     count_note_uses({n["id"] for n in found})
-    return text(f"Memory about {entry.get('Name') or app_id}:\n"
-                + "\n".join(f"- [{n['id']}] {n['topic']}: {short(n['text'], 400)}" for n in found))
+    lines = [f"- [{n['id']}] {n['topic']}: {short(n['text'], 400)}" for n in found]
+    if targets:
+        lines.append("Controls used here before (ui_act `target`, no ui_read needed): "
+                     + ", ".join(repr(t) for t in targets))
+    return text(f"Memory about {entry.get('Name') or app_id}:\n" + "\n".join(lines))
 
 
 def strings_in(value, limit=2000):
@@ -6611,15 +6617,16 @@ def t_ui_read(ctx, args):
     found, truncated = ui_walk(Atspi, frame, frame_path, find, cap)
     head = f"{w.get('app_id')} — {w.get('title')!r} (window {w.get('id')})"
     if not found:
-        ui_listing(w, found)
+        ui_listing(w, found, frame_path)
         return [text(head + "\n" + ("nothing matches" if find else "no element showing"))]
     more = "\n… (more: raise max_elements or use find)" if truncated else ""
-    return [text(head + "\n" + ui_listing(w, found) + more)]
+    return [text(head + "\n" + ui_listing(w, found, frame_path) + more)]
 
 
-def ui_listing(w, found):
-    """The elements as numbered lines, saved for ui_act's `index`."""
-    refs = {"window": w.get("id"), "pid": w.get("pid"), "items": []}
+def ui_listing(w, found, frame_path=None):
+    """The elements as numbered lines, saved for ui_act's `index` (with the
+    window's frame, for the targets ui_act learns)."""
+    refs = {"window": w.get("id"), "pid": w.get("pid"), "frame": frame_path, "items": []}
     lines = []
     for n, (path, role, name, line, states) in enumerate(found, 1):
         refs["items"].append({"path": path, "role": role, "name": name})
@@ -6739,51 +6746,158 @@ def t_ui_wait(ctx, args):
     head = f"{now_w.get('app_id')} — {now_w.get('title')!r} (window {now_w.get('id')})"
     if gone:
         return [text(f"{head}\n{find!r} gone {took}")]
-    return [text(f"{head}\n{find!r} showing {took}:\n" + ui_listing(now_w, found))]
+    return [text(f"{head}\n{find!r} showing {took}:\n" + ui_listing(now_w, found, frame_path))]
 
 
 # Actions an element offers, by what ui_act's `click` may use.
 UI_CLICK_ACTIONS = ("click", "press", "activate", "toggle", "jump", "open", "select")
 
 
+# -- learned targets ---------------------------------------------------------
+# A control the agent acted on (a button, a tab, a menu item…) is remembered
+# per app with its place in the window's tree, so the next time ui_act's
+# `target` (its name) reaches it directly: no ui_read, one call instead of
+# two, and no walk through a large tree. The place is checked before use
+# (same role, same name, showing); a stale one falls back to a search and
+# is learned again. Only controls with short names: never list items,
+# links, texts or cells, whose names are content (a message, a subject).
+# Learned from the agent's own actions only, never from the user's input.
+# In the desktop memory (`targets`), cleared with it.
+
+UI_TARGET_ROLES = {
+    "push button", "toggle button", "check box", "radio button", "menu item", "check menu item",
+    "radio menu item", "menu", "page tab", "combo box", "switch", "button", "spin button", "slider",
+}
+UI_TARGET_NAME_MAX = 40
+UI_TARGETS_PER_APP = 40
+UI_TARGET_APPS = 60
+
+
+def ui_learn(w, frame_path, path, role, name):
+    """Remember a control acted on (best effort)."""
+    if role not in UI_TARGET_ROLES or not name or len(name) > UI_TARGET_NAME_MAX:
+        return
+    if not frame_path or list(path[: len(frame_path)]) != list(frame_path):
+        return
+    app = w.get("app_id") or ""
+    if not app:
+        return
+    rel, now = list(path[len(frame_path):]), int(time.time())
+    try:
+        with Memory() as m:
+            targets = m.data.setdefault("targets", {})
+            known = targets.setdefault(app, [])
+            t = next((t for t in known if t["role"] == role and t["name"] == name), None)
+            if t:
+                t.update(path=rel, uses=t.get("uses", 0) + 1, last=now)
+            else:
+                known.append({"role": role, "name": name, "path": rel, "uses": 1, "last": now})
+                if len(known) > UI_TARGETS_PER_APP:
+                    known.sort(key=lambda t: (-t.get("uses", 0), -t.get("last", 0)))
+                    del known[UI_TARGETS_PER_APP:]
+            if len(targets) > UI_TARGET_APPS:
+                oldest = min(targets, key=lambda a: max((t.get("last", 0) for t in targets[a]), default=0))
+                del targets[oldest]
+            m.save()
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+
+
+def ui_targets_for(app_id):
+    """The controls learned in an app, most used first: their names."""
+    known = (read_memory().get("targets") or {}).get(app_id or "", [])
+    return [t["name"] for t in sorted(known, key=lambda t: (-t.get("uses", 0), -t.get("last", 0)))]
+
+
+def ui_node_is(Atspi, node, role, name):
+    try:
+        return (node is not None and node.get_role_name() == role
+                and (node.get_name() or "").strip() == name
+                and node.get_state_set().contains(Atspi.StateType.SHOWING))
+    except Exception:
+        return False
+
+
+def ui_find_target(Atspi, w, frame_path, frame, target, role=None):
+    """The element named `target` (any case; `role` to tell same names
+    apart): where it was learned if it's still there, else searched.
+    (node, path, role, name, how)."""
+    want = target.strip().lower()
+    known = [t for t in (read_memory().get("targets") or {}).get(w.get("app_id") or "", [])
+             if t["name"].lower() == want and (not role or t["role"] == role)]
+    for t in sorted(known, key=lambda t: -t.get("uses", 0)):
+        path = list(frame_path) + t["path"]
+        node = ui_resolve(Atspi, path)
+        if ui_node_is(Atspi, node, t["role"], t["name"]):
+            return node, path, t["role"], t["name"], "learned"
+    found, _ = ui_walk(Atspi, frame, frame_path, want, 60)
+    exact = [f for f in found if f[2].lower() == want and (not role or f[1] == role)]
+    if len(exact) > 1:
+        controls = [f for f in exact if f[1] in UI_TARGET_ROLES]
+        exact = controls or exact
+    if not exact:
+        raise ToolError(f"no element named {target!r} showing in {w.get('app_id')}: ui_read (with `find`) to see what is")
+    if len(exact) > 1:
+        listing = ui_listing(w, exact, frame_path)
+        raise ToolError(f"{len(exact)} elements are named {target!r}: give `role`, or ui_act with an `index`:\n{listing}")
+    path, role_, name = exact[0][0], exact[0][1], exact[0][2]
+    return ui_resolve(Atspi, path), path, role_, name, "found"
+
+
 @tool(
     "ui_act",
     "ui",
-    "Act on element `index` from the last ui_read, through the app itself "
-    "(no coordinates): `click` (its press/toggle/activate action), `focus`, "
+    "Act on an element through the app itself (no coordinates): `index` "
+    "from the last ui_read, or `target`, an element's name (e.g. \"Send\", "
+    "with `role` when names repeat) to act without reading first: controls "
+    "you used before are reached directly, others are searched for. "
+    "Actions: `click` (its press/toggle/activate action), `focus`, "
     "`set_text` (replaces a field's text with `value`, accents and all), or "
     "any action name the app lists for it. Returns the element after. "
     "Password fields are refused.",
     obj({
         "index": {"type": "integer"},
+        "target": {"type": "string", "description": "An element's name, instead of index"},
+        "role": {"type": "string", "description": "With target: its role (push button, page tab…)"},
+        "window_id": {"type": "integer", "description": "With target: from list_windows; default: the focused window"},
         "action": {"type": "string", "description": "click, focus, set_text, or an action name"},
         "value": {"type": "string", "description": "The text, for set_text"},
-    }, ["index", "action"]),
+    }, ["action"]),
     destructive=True,
 )
 @in_ui_worker
 def t_ui_act(ctx, args):
-    index, action = args.get("index"), as_str(args, "action", max_len=40).lower()
-    try:
-        with open(ui_refs_path(), encoding="utf-8") as f:
-            refs = json.load(f)
-        item = refs["items"][index - 1] if isinstance(index, int) and index >= 1 else None
-    except (OSError, ValueError, KeyError, IndexError):
-        item = None
-    if not item:
-        raise ToolError(f"no element [{index}]: ui_read first")
-    w = window_by_id(refs["window"])
-    if not w or w.get("pid") != refs["pid"]:
-        raise ToolError("that window is gone: ui_read again")
-    ui_window(ctx, {"window_id": refs["window"]})
-    Atspi = atspi()
-    node = ui_resolve(Atspi, item["path"])
-    try:
-        role, name = node.get_role_name(), (node.get_name() or "").strip()
-    except Exception:
-        node, role, name = None, None, None
-    if node is None or role != item["role"] or name != item["name"]:
-        raise ToolError("the window changed since ui_read: read it again")
+    action = as_str(args, "action", max_len=40).lower()
+    target = as_str(args, "target", max_len=UI_TARGET_NAME_MAX * 2, required=False)
+    if target:
+        w = ui_window(ctx, args)
+        Atspi = atspi()
+        frame_path, frame = ui_frame(Atspi, w)
+        role_want = as_str(args, "role", max_len=40, required=False) or None
+        node, path, role, name, how = ui_find_target(Atspi, w, frame_path, frame, target, role_want)
+    else:
+        index = args.get("index")
+        try:
+            with open(ui_refs_path(), encoding="utf-8") as f:
+                refs = json.load(f)
+            item = refs["items"][index - 1] if isinstance(index, int) and index >= 1 else None
+        except (OSError, ValueError, KeyError, IndexError):
+            item = None
+        if not item:
+            raise ToolError(f"no element [{index}]: ui_read first (or give a `target` name)")
+        w = window_by_id(refs["window"])
+        if not w or w.get("pid") != refs["pid"]:
+            raise ToolError("that window is gone: ui_read again")
+        ui_window(ctx, {"window_id": refs["window"]})
+        Atspi = atspi()
+        frame_path, path, how = refs.get("frame"), item["path"], ""
+        node = ui_resolve(Atspi, path)
+        try:
+            role, name = node.get_role_name(), (node.get_name() or "").strip()
+        except Exception:
+            node, role, name = None, None, None
+        if node is None or role != item["role"] or name != item["name"]:
+            raise ToolError("the window changed since ui_read: read it again")
     if role == "password text":
         raise ToolError("refused: password fields are off limits; ask the user to do this step")
     ctx.guard.check_rate()
@@ -6809,6 +6923,7 @@ def t_ui_act(ctx, args):
             raise ToolError(f"{role} {name!r} has no {action!r} action (it has: {', '.join(names) or 'none'}); "
                             "click it at its position from a screenshot instead")
         Atspi.Action.do_action(node, pick)
+    ui_learn(w, frame_path, path, role, name)
     time.sleep(0.3)
     try:
         after = f"{node.get_role_name()} {(node.get_name() or '').strip()!r}"
@@ -6817,7 +6932,7 @@ def t_ui_act(ctx, args):
         after += (f" = {t[:80]!r}" if t else "") + (f" ({', '.join(states)})" if states else "")
     except Exception:
         after = "(the element is gone: the window changed)"
-    return [text(f"done: {after}")]
+    return [text(f"done{f' ({how})' if how else ''}: {after}")]
 
 
 def ui_focus_summary(cfg):
@@ -7386,7 +7501,7 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
   layout delete NAME | rename OLD NEW | cycle (restore the next one)
   layout restore|cycle --close-others  also close the windows not in the layout
   memory [show]           the desktop memory (JSON); memory prompt [QUERY]: the digest
-  memory forget ID | clear [notes] [usage] [aliases] (default: all)
+  memory forget ID | clear [notes] [usage] [aliases] [targets] (default: all)
   personal [show]         what agents remember about you (JSON); personal prompt
                           [QUERY]: the part sent when an agent connects
   personal context [--exclude ID,…] MESSAGE  the entries a message is about
@@ -7641,10 +7756,10 @@ def memory_command(cfg, argv):
         return 0 if call_forget(argv[1]) else 1
     if sub == "clear":
         parts = argv[1:] or ["all"]
-        if not all(p in ("notes", "usage", "aliases", "all") for p in parts):
+        if not all(p in ("notes", "usage", "aliases", "targets", "all") for p in parts):
             print(USAGE, end="", file=sys.stderr)
             return 2
-        keys = ["notes", "usage", "aliases"] if "all" in parts else parts
+        keys = ["notes", "usage", "aliases", "targets"] if "all" in parts else parts
         with Memory() as m:
             fresh = empty_memory()
             for key in keys:

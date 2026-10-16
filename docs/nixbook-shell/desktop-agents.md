@@ -49,9 +49,11 @@ The `desktopControl` bar widget shows a **faint robot** when idle, a **pulsing r
 
 So the next task is faster, agents keep **notes** about your desktop — an app's shortcut, where a setting is, which app does what — and **recipes** (`run_steps` saved with `remember_as`). Usage is counted as they work, and `launch_app` learns **aliases** ("discord" → Vesktop).
 
+Agents also learn the **controls** they use: a button, tab or menu item they pressed in an app is remembered with its place in the window, so next time `ui_act` reaches it by name in one call, without reading the window first. A control that moved is searched for again. Only short control names are learned, never list items, links or texts, whose names are content, and only from what agents do, never from your own clicks.
+
 Only the relevant part reaches a model: when an agent connects it gets a short digest (aliases, most-used apps, the notes about the task in full, the other notes by topic only); notes about an app also arrive with the action that opens it. With 40 notes, the digest is about 165 tokens. Notes are labelled as hints written by agents, never your instructions.
 
-- **Settings → Desktop agents** shows the notes (delete any), aliases and usage, and clears them.
+- **Settings → Desktop agents** shows the notes (delete any), aliases, usage and learned controls, and clears them.
 - `nixbook-desktop-mcp memory show|prompt|forget ID|clear`.
 - Stored in `~/.local/state/nixbook-shell/desktop-memory.json` (private).
 

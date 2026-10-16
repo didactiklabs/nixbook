@@ -119,7 +119,7 @@ Singleton {
 
     // The desktop memory (Settings > Desktop agents): notes agents wrote,
     // aliases and usage learned, as `nixbook-desktop-mcp memory show` prints.
-    property var memory: ({ notes: [], aliases: {}, usage: { apps: {}, layouts: {}, tools: {} } })
+    property var memory: ({ notes: [], aliases: {}, usage: { apps: {}, layouts: {}, tools: {} }, targets: {} })
     function refreshMemory() {
         if (!memoryReader.running) memoryReader.running = true;
     }
@@ -127,9 +127,9 @@ Singleton {
         if (!/^[0-9a-f]{1,16}$/.test(id ?? "")) return;
         root.memoryCommand(["forget", id]);
     }
-    // parts: any of "notes", "usage", "aliases", "all"
+    // parts: any of "notes", "usage", "aliases", "targets", "all"
     function clearMemory(parts) {
-        if (!parts.every(p => ["notes", "usage", "aliases", "all"].includes(p))) return;
+        if (!parts.every(p => ["notes", "usage", "aliases", "targets", "all"].includes(p))) return;
         root.memoryCommand(["clear", ...parts]);
     }
     // What agents remember about the user's life (Settings > Desktop agents >

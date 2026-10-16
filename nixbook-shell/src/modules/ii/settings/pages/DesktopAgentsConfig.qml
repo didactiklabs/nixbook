@@ -482,6 +482,18 @@ ContentPage {
                     text: tools.length === 0 ? Translation.tr("Tools used: none yet.")
                         : Translation.tr("Tools used: %1").arg(tools.map(([k, v]) => `${k} (${v.count})`).join(", "))
                 }
+                StyledText {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    color: Appearance.colors.colOnLayer1
+                    // Buttons, tabs, menu items agents acted on: the next
+                    // time they reach them by name, without reading the window.
+                    readonly property var apps: Object.entries(DesktopControl.memory.targets ?? {})
+                        .sort((a, b) => b[1].length - a[1].length)
+                    text: apps.length === 0 ? Translation.tr("Controls learned: none yet.")
+                        : Translation.tr("Controls learned: %1").arg(apps.slice(0, 6)
+                            .map(([k, v]) => `${k} (${v.slice(0, 4).map(t => t.name).join(", ")}${v.length > 4 ? ", …" : ""})`).join("; "))
+                }
             }
 
             RowLayout {
@@ -493,8 +505,8 @@ ContentPage {
                 }
                 SmallButton {
                     materialIcon: "restart_alt"
-                    mainText: Translation.tr("Clear usage and aliases")
-                    onClicked: DesktopControl.clearMemory(["usage", "aliases"])
+                    mainText: Translation.tr("Clear usage, aliases and controls")
+                    onClicked: DesktopControl.clearMemory(["usage", "aliases", "targets"])
                 }
                 SmallButton {
                     materialIcon: "refresh"
