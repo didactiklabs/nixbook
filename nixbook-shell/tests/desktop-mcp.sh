@@ -768,7 +768,7 @@ reset_calls
 out=$(call restore_layout '{"name":"work"}')
 expect_contains "restore_layout: starts what isn't open" "$(cat "$calls")" "niri msg action spawn -- org.gnome.Calculator"
 expect_contains "restore_layout: every window placed" "$out" "5 of 5 windows placed"
-for moved in move-window-to-monitor move-window-to-workspace move-column-to-index "set-window-width --id 4" "move-floating-window --id 3"; do
+for moved in move-window-to-monitor move-window-to-workspace move-column-to-index "set-window-width --id 4" "move-floating-window --id 3" set-workspace-name; do
   expect_not_contains "restore_layout: the windows in place aren't moved ($moved)" "$(cat "$calls")" "$moved"
 done
 expect_contains "restore_layout: floating size and position" "$(cat "$calls")" "niri msg action set-window-width --id 6 400
@@ -791,8 +791,16 @@ jq '.setups[0].windows |= map(if .app_id == "org.gnome.TextEditor" then .workspa
   "$layout" >"$XDG_STATE_HOME/nixbook-shell/layouts/moved.json"
 reset_calls
 call restore_layout '{"name":"moved"}' >/dev/null
+# Workspaces 1-3 named first: niri removes a workspace that empties (its
+# windows closed, or moved by the restore), and the indices after it shift.
+expect_contains "restore_layout: the saved workspaces held by name" "$(cat "$calls")" "niri msg action focus-monitor eDP-1
+niri msg action set-workspace-name --workspace 1 eDP-1-1
+niri msg action set-workspace-name --workspace 3 eDP-1-3"
+expect_not_contains "restore_layout: a named workspace kept as it is" "$(cat "$calls")" "--workspace 2 "
 expect_contains "restore_layout: monitor then workspace" "$(cat "$calls")" "niri msg action move-window-to-monitor --id 4 eDP-1
-niri msg action move-window-to-workspace --window-id 4 --focus false 3"
+niri msg action move-window-to-workspace --window-id 4 --focus false eDP-1-3"
+expect_contains "restore_layout: the names unset after" "$(cat "$calls")" "niri msg action unset-workspace-name eDP-1-1
+niri msg action unset-workspace-name eDP-1-3"
 expect_contains "restore_layout: width" "$(cat "$calls")" "niri msg action set-window-width --id 4 900"
 expect_not_contains "restore_layout: only that window moved" "$(cat "$calls")" "--window-id 1 "
 # A maximized column (Mod+Z): maximized again, over a width of its own, so

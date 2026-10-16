@@ -4130,6 +4130,8 @@ def on_workspace(e, w, wss):
     if e.get("monitor") and ws.get("output") != e["monitor"]:
         return False
     saved = e.get("workspace") or {}
+    if saved.get("id"):
+        return ws.get("id") == saved["id"]
     if saved.get("name"):
         return ws.get("name") == saved["name"]
     return not saved.get("index") or ws.get("idx") == saved["index"]
@@ -4240,6 +4242,58 @@ def fold_unplugged(pairs, outputs):
     return out, list(named.values()), target
 
 
+def pin_workspaces(pairs, outputs):
+    """Names the workspaces 1…N of each connected monitor that windows go to
+    by index, so they stay put while the windows move: niri removes a
+    workspace that empties and adds one where a window lands, so the indices
+    shift (workspace 2's windows closed, 3 became 2: a window restored to 2
+    joins them and the ones for 3 go after). Only when a window isn't on its
+    saved workspace already. Returns (pairs, the names to unset)."""
+    wss = {ws["id"]: ws for ws in niri_json("workspaces")}
+    now = {w["id"]: w for w in windows()}
+    want = {}
+    for e, w in pairs:
+        ws = e.get("workspace") or {}
+        if e.get("monitor") in outputs and not ws.get("name") and ws.get("index"):
+            want.setdefault(e["monitor"], [0, False])
+            want[e["monitor"]][0] = max(want[e["monitor"]][0], min(int(ws["index"]), 255))
+            want[e["monitor"]][1] |= not on_workspace(e, now.get(w["id"], w), wss)
+    want = {m: n for m, (n, moves) in want.items() if moves}
+    if not want:
+        return pairs, []
+    focused = (niri_json("focused-output") or {}).get("name")
+    taken = {ws.get("name") for ws in wss.values() if ws.get("name")}
+    slots, temp = {}, []
+    for monitor, count in sorted(want.items()):
+        # An index is on the focused monitor. Each one named that is the last
+        # (empty) workspace gives the monitor another: slot i is always there.
+        niri_action("focus-monitor", monitor)
+        for i in range(1, count + 1):
+            ws = next((x for x in niri_json("workspaces") if x.get("output") == monitor and x.get("idx") == i), None)
+            if ws is None:
+                break
+            if ws.get("name"):
+                slots[(monitor, i)] = ws["name"], ws["id"]
+                continue
+            ref = base = f"{monitor}-{i}"
+            n = 1
+            while ref in taken:
+                n += 1
+                ref = f"{base}-{n}"
+            taken.add(ref)
+            niri_action("set-workspace-name", "--workspace", str(i), ref)
+            slots[(monitor, i)] = ref, ws["id"]
+            temp.append(ref)
+    if focused and focused != monitor:
+        niri_action("focus-monitor", focused)
+    out = []
+    for e, w in pairs:
+        ws = e.get("workspace") or {}
+        slot = None if ws.get("name") else slots.get((e.get("monitor"), ws.get("index")))
+        out.append(({**e, "workspace": {"index": None, "name": slot[0], "id": slot[1]}}, w) if slot else (e, w))
+    return out, temp
+
+
 @tool(
     "restore_layout",
     "windows",
@@ -4312,19 +4366,24 @@ def t_restore_layout(ctx, args, close_others=False):
     else:
         report += [f"not open: {e.get('app_id')} {e.get('title')!r}" for e in missing]
 
+    # The saved workspaces by index held in place while windows move (the
+    # unplugged monitors' new workspaces then go after them).
+    outputs = connected_monitors()
+    pairs, temp_names = pin_workspaces(pairs, outputs)
+
     # Windows saved on a monitor that isn't connected now (a laptop off its
     # dock): each of its workspaces goes on a new workspace of the focused
     # monitor, with its columns, widths and floating windows, so a layout
     # works with any monitors. Put on the saved workspace index instead, they
     # would pile up on this monitor's workspace 1, 2… with its own windows.
-    outputs = connected_monitors()
     gone = sorted({e["monitor"] for e, w in pairs if e.get("monitor") and e["monitor"] not in outputs})
-    temp_names, target = [], None
+    target = None
     if gone:
-        pairs, temp_names, target = fold_unplugged(pairs, outputs)
+        pairs, folded, target = fold_unplugged(pairs, outputs)
+        temp_names += folded
         report.append(
             f"windows of {', '.join(gone)} (not connected) on "
-            + (f"{len(temp_names)} new workspace(s) of {target}" if temp_names else "their named workspaces")
+            + (f"{len(folded)} new workspace(s) of {target}" if folded else "their named workspaces")
         )
 
     # Every step leaves alone what is where the layout has it already: a
