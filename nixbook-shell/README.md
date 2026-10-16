@@ -463,6 +463,26 @@ memory digest and the `habits` tool (`habitsAgents`: `digest`, `timeline`
 for a day hour by hour, `off`). **Settings → Desktop agents → Usage
 habits** pauses, shows and clears it.
 
+**Music taste** (part of the usage habits, `habitsMusic`, on with them):
+the recorder also follows every MPRIS player (`playerctl --all-players
+--follow metadata`, in a thread beside niri's stream: Spotify, YouTube
+Music, mpv, KDE Connect…) and records each track as `[start, seconds heard,
+player, artist, title, album, length]` (`plays`, `{"m": …}` in the log)
+when the player moves on, stops or goes away (`playerctl --list-all` on its
+blank line), or after three times its length without an event. Heard 30 s
+or half a short track: a play (a repeated track counts each time round);
+less: a skip; under 3 s: nothing. No ads or podcast episodes (`/ad/`,
+`episode` track ids), no player of `habitsMusicIgnorePlayers` (web
+browsers: their tabs' videos); recorded while locked or an agent acts
+(the user is still listening), not while paused; `habitsMusicKeepDays`
+(365) kept. Artists are split on commas and "feat.", YouTube's "- Topic"
+and "VEVO" and title tags ("(Official Audio)") dropped. Agents get the
+favourite artists and the last 14 days (new artists marked) in the digest;
+`habits` `what=music` adds the top tracks, the artists played around this
+hour, the often skipped ones and the players used (`habits music` on the
+command line, `habits music-clear` forgets it). Genres aren't recorded:
+the model infers them from the artists.
+
 **Window layouts**: `save_layout` remembers where every window is (monitor,
 workspace, column and its width, or floating position and size, and the app
 that opens it) under a name; `restore_layout` puts them back in one call,

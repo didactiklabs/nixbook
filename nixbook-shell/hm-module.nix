@@ -740,7 +740,10 @@ in
         (`digest`, `timeline` or `off`), `habitsTheme` (`suggest`, `auto` or
         `off`), `habitsWeeklyReport`, `habitsOpenAtUsualTime` (desktop ids
         opened at their usual time), `habitsIgnoreApps` and
-        `habitsIgnoreTitles`'';
+        `habitsIgnoreTitles`. The music every player plays (MPRIS: artist,
+        title, album, played or skipped) teaches agents the user's taste:
+        `habitsMusic` (true), `habitsMusicKeepDays` (365),
+        `habitsMusicIgnorePlayers` (regexes; default: web browsers)'';
     };
 
     assistant = {

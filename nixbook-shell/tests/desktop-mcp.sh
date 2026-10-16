@@ -1324,6 +1324,85 @@ python3 "$mcp" habits alias sums org.gnome.Calculator >/dev/null
 expect_eq "habits alias: nothing learned while paused" null "$(jq -r '.aliases.sums' "$mem")"
 python3 "$mcp" habits resume >/dev/null
 expect_eq "habits resume" false "$(python3 "$mcp" habits status | jq .paused)"
+# Music taste: what every player plays (playerctl), artist/title/album only;
+# a short listen is a skip, ads and browsers' videos aren't music.
+cat >"$bin/playerctl" <<'EOF'
+#!/usr/bin/env bash
+echo "playerctl $*" >>"$STUB_CALLS"
+case "$*" in
+  *--list-all*) echo spotify ;;
+  *--follow*) [ -z "${STUB_PLAYERS:-}" ] || bash "$STUB_PLAYERS"; exec sleep 600 ;;
+esac
+EOF
+chmod +x "$bin/playerctl"
+cat >"$tmp/players.sh" <<'PLAYERS'
+t=$'\t'
+echo "spotify${t}Playing${t}Radiohead, Thom Yorke${t}Reckoner${t}In Rainbows${t}6000000${t}/com/spotify/track/1"
+sleep 4
+echo "spotify${t}Playing${t}Daft Punk${t}One More Time${t}Discovery${t}20000000${t}/com/spotify/track/2"
+echo "firefox.instance_1_2${t}Playing${t}Some Vlogger${t}My day in Paris${t}${t}600000000${t}/org/mpris/MediaPlayer2/firefox"
+sleep 4
+echo "spotify${t}Playing${t}${t}Advertisement${t}${t}30000000${t}/com/spotify/ad/3"
+echo "YoutubeMusic${t}Playing${t}Nujabes - Topic${t}Aruarian Dance (Official Audio)${t}Modal Soul${t}6000000${t}/org/youtubemusic/4"
+sleep 4
+echo ""
+PLAYERS
+rm -f "$XDG_RUNTIME_DIR/nixbook-desktop-mcp/state.json"
+STUB_PLAYERS="$tmp/players.sh" STUB_EVENTS=/dev/null python3 "$mcp" habits watch 2>"$tmp/habits.log" &
+watch_pid=$!
+sleep 14
+kill -TERM "$watch_pid"
+wait "$watch_pid" || true
+out=$(python3 "$mcp" habits show)
+expect_eq "music: every player's tracks, how long each was heard" \
+  "spotify|Radiohead, Thom Yorke|Reckoner|4 spotify|Daft Punk|One More Time|4 YoutubeMusic|Nujabes - Topic|Aruarian Dance (Official Audio)|4" \
+  "$(jq -r '[.plays[] | "\(.[2])|\(.[3])|\(.[4])|\((.[1] + 0.5) | floor | if . >= 4 and . <= 5 then 4 else . end)"] | join(" ")' <<<"$out")"
+expect_eq "music: no ads, no browser videos" 0 "$(grep -ci 'advertisement\|vlogger' <<<"$out" || true)"
+expect_contains "music: the players followed" "$(cat "$calls")" "playerctl --all-players --follow metadata --format"
+out=$(python3 "$mcp" habits music)
+expect_contains "music: a short track heard through is a play, artists split" "$out" "Radiohead (1), Thom Yorke (1)"
+expect_contains "music: YouTube's channel names and title tags cleaned" "$out" "Aruarian Dance – Nujabes (1)"
+expect_not_contains "music: a track left after 4 s of 20 is a skip" "$out" "Daft Punk (1)"
+
+# A year of listening: favourites, lately (new ones marked), around this
+# hour, skipped.
+rm -f "$hlog" # the plays recorded above: the fixture replaces them
+python3 - "$habits" <<'FIXTURE'
+import json, sys, time
+now = time.time(); lt = time.localtime(now)
+d = json.load(open(sys.argv[1]))
+d["plays"] = []
+def at(days_ago, hour_shift=0):
+    day = time.localtime(now - days_ago * 86400)
+    return int(time.mktime((day.tm_year, day.tm_mon, day.tm_mday, lt.tm_hour, 0, 0, 0, 0, -1))) + hour_shift * 3600
+for i in range(40, 100, 3):
+    d["plays"].append([at(i), 240, "spotify", "Radiohead", "Weird Fishes", "In Rainbows", 318000000 // 1000000])
+for i in range(20, 80, 5):
+    d["plays"].append([at(i, 6), 200, "YoutubeMusic", "Bonobo", "Kerala", "Migration", 250])
+for i in range(1, 10):
+    d["plays"].append([at(i), 230, "YoutubeMusic", "Khruangbin", "Time (You and I)", "Mordechai", 240])
+for i in range(1, 5):
+    d["plays"].append([at(i), 5, "spotify", "Nickelback", "Photograph", "All the Right Reasons", 259])
+json.dump(d, open(sys.argv[1], "w"))
+FIXTURE
+out=$(python3 "$mcp" habits music)
+expect_contains "music: favourite artists" "$out" "Radiohead (20), Bonobo (12), Khruangbin (9)"
+expect_contains "music: lately, the new ones marked" "$out" "Lately (14 days): Khruangbin; new to them: Khruangbin"
+expect_contains "music: around this hour" "$out" "they usually play: Radiohead, Khruangbin"
+expect_contains "music: often skipped" "$out" "Often skipped: Nickelback (4 skips, 0 plays)"
+expect_contains "music: the players" "$out" "Listens on: Spotify"
+expect_contains "music: the habits tool" "$(call habits '{"what":"music"}')" "Most played tracks: Weird Fishes – Radiohead (20)"
+expect_contains "music: in the memory digest" "$(python3 "$mcp" memory prompt)" "The user's music taste (from what they play, on any player"
+expect_contains "music: in the status Settings shows" "$(python3 "$mcp" habits status | jq -r '.music[0]')" "Favourite artists"
+echo '{"habits":true,"habitsMusic":false}' >"$mcpcfg"
+expect_contains "music: the tool refuses when not recorded" "$(call habits '{"what":"music"}')" "doesn't let their music be recorded"
+expect_not_contains "music: not in the digest when not recorded" "$(python3 "$mcp" memory prompt)" "music taste"
+echo '{"habits":true}' >"$mcpcfg"
+spans_before=$(python3 "$mcp" habits show | jq '.spans | length')
+python3 "$mcp" habits music-clear >/dev/null
+expect_eq "music-clear: the music forgotten, the rest kept" "0 $spans_before" \
+  "$(python3 "$mcp" habits show | jq -r '"\(.plays | length) \(.spans | length)"')"
+
 python3 "$mcp" habits clear >/dev/null
 expect_eq "habits clear" "no no no" \
   "$(for f in "$habits" "$hlog" "$XDG_STATE_HOME/nixbook-shell/habits-rank.json"; do [ -e "$f" ] && echo yes || echo no; done | xargs)"

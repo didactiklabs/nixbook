@@ -129,6 +129,15 @@ DEFAULT_CONFIG = {
     # Desktop ids of apps opened on their own at the time the user usually
     # opens them (none by default: a window appearing unasked is intrusive).
     "habitsOpenAtUsualTime": [],
+    # Music taste: the tracks every player plays (artist, title, album),
+    # kept habitsMusicKeepDays days; never from these players (regexes on
+    # the MPRIS name: web browsers publish their tabs' videos).
+    "habitsMusic": True,
+    "habitsMusicKeepDays": 365,
+    "habitsMusicIgnorePlayers": [
+        r"^(firefox|chromium|chrome|brave|zen|librewolf|floorp|vivaldi|opera|"
+        r"microsoft-edge|plasma-browser-integration)",
+    ],
     "http": {"port": 7823},
 }
 
@@ -1761,6 +1770,9 @@ def memory_digest(cfg, query="", limit=None):
     habits = habits_digest(cfg)
     if habits:
         lines.append(habits)
+    music = music_digest(cfg)
+    if music:
+        lines.append(music)
     if relevant:
         lines.append(heading)
         lines += [f"- [{n['id']}] {n['topic']}: {short(n['text'], 400)}" for n in relevant]
@@ -2049,7 +2061,7 @@ def habits_enabled_flag():
 
 
 def empty_habits():
-    return {"version": 1, "spans": [], "opens": [], "events": [], "aliasSeen": {}, "sent": {}}
+    return {"version": 1, "spans": [], "opens": [], "events": [], "plays": [], "aliasSeen": {}, "sent": {}}
 
 
 def add_span(spans, s):
@@ -2064,9 +2076,11 @@ def add_span(spans, s):
 
 class Habits(Memory):
     """habits.json: spans [start, end, app] of focus, opens [time, app],
-    events [time, "layout"|"theme", value], aliasSeen {word: {app: n}},
-    sent {what: when} (the notifications already given); and habits.log,
-    the records appended since ({"s": span}, {"o": open}, {"e": event}),
+    events [time, "layout"|"theme", value], plays [start, seconds heard,
+    player, artist, title, album, length] (music, any player),
+    aliasSeen {word: {app: n}}, sent {what: when} (the notifications
+    already given); and habits.log, the records appended since ({"s":
+    span}, {"o": open}, {"e": event}, {"m": play}),
     read into it here (habits_append writes them). save() writes it whole
     and empties the log."""
 
@@ -2088,6 +2102,8 @@ class Habits(Memory):
                     self.data["opens"].append(rec["o"])
                 elif "e" in rec:
                     self.data["events"].append(rec["e"])
+                elif "m" in rec:
+                    self.data["plays"].append(rec["m"])
             except (ValueError, TypeError, IndexError, KeyError):
                 continue  # a line cut short by a crash
 
@@ -2117,6 +2133,9 @@ def habits_compact(cfg, now):
         d["spans"] = [x for x in d["spans"] if x[1] >= keep]
         d["opens"] = [x for x in d["opens"] if x[0] >= keep]
         d["events"] = [x for x in d["events"] if x[0] >= keep]
+        # Tastes last longer than habits: a year of plays by default.
+        keep_music = now - int(cfg.get("habitsMusicKeepDays") or 365) * 86400
+        d["plays"] = [x for x in d["plays"] if x[0] >= keep_music]
         h.save()
 
 
@@ -2435,9 +2454,11 @@ def habits_digest(cfg, now=None):
     "use at this time and how their sessions usually start, to set up "
     "\"my usual session\" or tell what a vague request means; `week` the "
     "time per app this week; `day` what they used on a date, hour by hour "
-    "(only if the user shares it).",
+    "(only if the user shares it); `music` their music taste from what they "
+    "play on any player (favourite artists and tracks, lately, around this "
+    "hour, often skipped), to pick music they'll like or talk about it.",
     obj({
-        "what": {"type": "string", "enum": ["now", "week", "day"]},
+        "what": {"type": "string", "enum": ["now", "week", "day", "music"]},
         "date": {"type": "string", "description": "For day: YYYY-MM-DD (default: yesterday)"},
     }),
     read_only=True,
@@ -2449,6 +2470,11 @@ def t_habits(ctx, args):
         raise ToolError("the user doesn't share their usage habits with agents")
     what = args.get("what") or "now"
     data, now = read_habits(), time.time()
+    if what == "music":
+        if not music_on(cfg):
+            raise ToolError("the user doesn't let their music be recorded")
+        lines = music_taste(data, now, full=True)
+        return [text("\n".join(lines) if lines else "No music recorded yet.")]
     if what == "week":
         return [text(week_report(data, now))]
     if what == "day":
@@ -2505,6 +2531,246 @@ def habits_append(records):
     finally:
         fcntl.flock(lockfd, fcntl.LOCK_UN)
         os.close(lockfd)
+
+
+
+# -- music taste ---------------------------------------------------------------
+# What the user listens to, on any player (MPRIS: Spotify, YouTube Music,
+# mpv…), counted by the habits recorder from `playerctl --follow`: a track
+# heard MUSIC_MIN_PLAY seconds (or half of a short one) is a play, less is
+# a skip. Artist, title and album only; no ads or podcast episodes, nothing
+# from web browsers (videos, not music: habitsMusicIgnorePlayers), nothing
+# while the habits are paused. Agents get the favourite artists and what
+# the user has been listening to lately; `habits music` the whole picture.
+
+MUSIC_MIN_PLAY = 30  # s: listened this long (or half a short track): a play
+MUSIC_MIN_HEARD = 3  # s: less is passing through, not even a skip
+MUSIC_FORMAT = "\t".join(["{{playerName}}", "{{status}}", "{{xesam:artist}}", "{{xesam:title}}",
+                          "{{xesam:album}}", "{{mpris:length}}", "{{mpris:trackid}}"])
+MUSIC_NOT_MUSIC = re.compile(r"(^|[:/])(ad|ads|episode|episodes)([:/]|$)", re.IGNORECASE)
+MUSIC_TITLE_NOISE = re.compile(
+    r"\s*[(\[](?:official|lyrics?|audio|video|music video|visuali[sz]er|hd|hq|4k|explicit|"
+    r"(?:\d{4} )?remaster(?:ed)?(?: \d{4})?|live)[^)\]]*[)\]]", re.IGNORECASE)
+
+
+def music_on(cfg):
+    return habits_on(cfg) and bool(cfg.get("habitsMusic"))
+
+
+def music_artists(artist):
+    """The artists of a track: Spotify joins several with commas, YouTube
+    names channels "X - Topic" or "XVEVO"; a featured artist counts too."""
+    a = re.sub(r"\s*-\s*Topic$|VEVO$", "", artist or "").strip()
+    parts = re.split(r"\s*,\s*|\s+(?:feat\.?|ft\.?|featuring)\s+", a, flags=re.IGNORECASE)
+    out = []
+    for p in parts:
+        p = p.strip()
+        if p and p.lower() not in (x.lower() for x in out):
+            out.append(p)
+    return out
+
+
+def music_title(title):
+    return MUSIC_TITLE_NOISE.sub("", title or "").strip()
+
+
+def player_label(player):
+    name = player.split(".")[0]
+    return {"spotify": "Spotify", "youtubemusic": "YouTube Music", "pear": "YouTube Music",
+            "mpv": "mpv", "vlc": "VLC", "kdeconnect": "phone (KDE Connect)"}.get(name.lower(), name)
+
+
+class MusicTracker:
+    """The track each player is on and how long it played: a play record
+    when the player moves to another track, stops for good or goes away."""
+
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.players = {}  # player -> {"key", "start", "heard", "since", "length"}
+
+    def ignored(self, player):
+        # playerctld mirrors the other players.
+        return player.startswith("playerctld") or _any_match(self.cfg.get("habitsMusicIgnorePlayers"), player)
+
+    def line(self, line, now):
+        """A line of `playerctl --follow` (MUSIC_FORMAT); the play records
+        it ends."""
+        f = line.rstrip("\n").split("\t")
+        if len(f) < 7 or not f[0] or self.ignored(f[0]):
+            return []
+        player, status, artist, title, album, length, trackid = f[:7]
+        player = player.split(".")[0]
+        key = [artist.strip(), title.strip(), album.strip()]
+        out = []
+        cur = self.players.get(player)
+        if cur and cur["key"] != key:
+            out += self.end(player, now)
+            cur = None
+        if not key[0] or not key[1] or MUSIC_NOT_MUSIC.search(trackid):
+            return out
+        if not cur:
+            try:
+                secs = int(length) / 1e6 if length else 0
+            except ValueError:
+                secs = 0
+            cur = self.players[player] = {"key": key, "start": now, "heard": 0.0, "since": None, "length": secs}
+        if status == "Playing":
+            if cur["since"] is None:
+                cur["since"] = now
+        elif cur["since"] is not None:
+            cur["heard"] += now - cur["since"]
+            cur["since"] = None
+            if status == "Stopped":
+                out += self.end(player, now)
+        return out
+
+    def end(self, player, now):
+        cur = self.players.pop(player, None)
+        if not cur:
+            return []
+        heard = cur["heard"] + (now - cur["since"] if cur["since"] is not None else 0)
+        if heard < MUSIC_MIN_HEARD or habits_paused():
+            return []
+        artist, title, album = cur["key"]
+        return [{"m": [int(cur["start"]), int(heard), player, artist, title, album, int(cur["length"])]}]
+
+    def gone(self, players, now):
+        """The players still there (`playerctl -l`): the others' tracks end."""
+        out = []
+        for player in [p for p in self.players if p not in players]:
+            out += self.end(player, now)
+        return out
+
+    def stale(self, now):
+        """A track playing far longer than it lasts: its player stopped
+        without a word (crashed, or a missed event)."""
+        out = []
+        for player, cur in list(self.players.items()):
+            heard = cur["heard"] + (now - cur["since"] if cur["since"] is not None else 0)
+            limit = (cur["length"] * 3 if cur["length"] else 1800) + 300
+            if heard > limit or (cur["since"] is None and now - cur["start"] > 6 * 3600):
+                out += self.end(player, now)
+        return out
+
+    def close(self, now):
+        out = []
+        for player in list(self.players):
+            out += self.end(player, now)
+        return out
+
+
+def music_plays(data, since=0):
+    """The plays since `since`: (start, heard, player, [artists], title,
+    album, times played, skipped)."""
+    out = []
+    for rec in data.get("plays") or []:
+        try:
+            start, heard, player, artist, title, album, length = rec[:7]
+        except (TypeError, ValueError):
+            continue
+        if start < since:
+            continue
+        need = min(MUSIC_MIN_PLAY, length / 2) if length else MUSIC_MIN_PLAY
+        skipped = heard < need
+        times = 0 if skipped else max(1, round(heard / length)) if length else 1
+        out.append((start, heard, player, music_artists(artist), music_title(title), album, times, skipped))
+    return out
+
+
+def music_counts(plays):
+    """{artist: [plays, skips]}, the artist's name as most often written."""
+    counts, names = {}, {}
+    for _, _, _, artists, _, _, times, skipped in plays:
+        for a in artists:
+            k = fold(a)
+            names.setdefault(k, {})[a] = names.get(k, {}).get(a, 0) + 1
+            c = counts.setdefault(k, [0, 0])
+            c[0] += times
+            c[1] += 1 if skipped else 0
+    return {max(names[k].items(), key=lambda kv: kv[1])[0]: c for k, c in counts.items()}
+
+
+def top_artists(plays, n):
+    counts = music_counts(plays)
+    ranked = sorted(((a, c[0]) for a, c in counts.items() if c[0] > 0), key=lambda kv: -kv[1])
+    return ranked[:n]
+
+
+def music_taste(data, now, full=False):
+    """What the user's listening says about their taste, as short lines:
+    favourite artists, lately (new ones marked), and with `full` the top
+    tracks, around this hour, often skipped and the players used."""
+    plays = music_plays(data)
+    if not any(not p[7] for p in plays):
+        return []
+    lines = []
+    fav = top_artists(plays, 10 if full else 8)
+    first = min(p[0] for p in plays)
+    span = max(1, round((now - first) / 86400))
+    lines.append(f"Favourite artists (last {span} days): " + ", ".join(f"{a} ({n})" for a, n in fav))
+    recent_since = now - 14 * 86400
+    recent = [p for p in plays if p[0] >= recent_since]
+    before = {fold(a) for p in plays if p[0] < recent_since and not p[7] for a in p[3]}
+    lately = top_artists(recent, 6)
+    if lately and span > 14:
+        new = [a for a, _ in lately if fold(a) not in before]
+        lines.append("Lately (14 days): " + ", ".join(a for a, _ in lately)
+                     + (f"; new to them: {', '.join(new)}" if new else ""))
+    if not full:
+        return lines
+    tracks, names = {}, {}
+    for _, _, _, artists, title, _, times, skipped in plays:
+        if skipped or not artists:
+            continue
+        k = (fold(title), fold(artists[0]))
+        tracks[k] = tracks.get(k, 0) + times
+        names[k] = f"{title} – {artists[0]}"
+    top = sorted(tracks.items(), key=lambda kv: -kv[1])[:8]
+    if top:
+        lines.append("Most played tracks: " + "; ".join(f"{names[k]} ({n})" for k, n in top))
+    hour = time.localtime(now).tm_hour
+    around, days = [], {}
+    for p in plays:
+        lt = time.localtime(p[0])
+        gap = min(abs(lt.tm_hour - hour), 24 - abs(lt.tm_hour - hour))
+        if gap <= 1 and not p[7]:
+            around.append(p)
+            for a in p[3]:
+                days.setdefault(fold(a), set()).add(time.strftime("%Y-%m-%d", lt))
+    usual = [(a, n) for a, n in top_artists(around, 8) if len(days.get(fold(a), ())) >= HABIT_MIN_DAYS][:5]
+    if usual:
+        lines.append(f"Around this hour ({hour:02d}h) they usually play: " + ", ".join(a for a, _ in usual))
+    skipped = [(a, c) for a, c in music_counts(plays).items() if c[1] >= 3 and c[1] >= 2 * c[0]]
+    if skipped:
+        skipped.sort(key=lambda kv: -kv[1][1])
+        lines.append("Often skipped: " + ", ".join(f"{a} ({c[1]} skips, {c[0]} plays)" for a, c in skipped[:5]))
+    players = {}
+    for p in plays:
+        players[p[2]] = players.get(p[2], 0) + p[1]
+    total = sum(players.values()) or 1
+    lines.append("Listens on: " + ", ".join(f"{player_label(k)} {round(100 * v / total)}%"
+                                             for k, v in sorted(players.items(), key=lambda kv: -kv[1])))
+    lines.append(f"{sum(p[6] for p in plays)} plays and {sum(1 for p in plays if p[7])} skips recorded "
+                 "(artists and tracks from the players; genres are for you to infer from the artists).")
+    return lines
+
+
+def music_digest(cfg, now=None):
+    """The line of the memory digest about the user's music."""
+    if not music_on(cfg) or cfg.get("habitsAgents", "digest") == "off":
+        return ""
+    lines = music_taste(read_habits(), now or time.time())
+    if not lines:
+        return ""
+    return ("The user's music taste (from what they play, on any player; `habits` what=music for more): "
+            + ". ".join(lines) + ".")
+
+
+def music_clear():
+    """The plays forgotten, the rest of the habits kept."""
+    with Habits() as h:
+        h.data["plays"] = []  # and those in the log: read in, then emptied
+        h.save()
 
 
 class HabitRecorder:
@@ -2733,11 +2999,13 @@ def habits_watch(cfg):
     """The recorder (the nixbook-habits user service): niri's event stream
     read in a thread, the main loop asleep until an event or HABIT_WAKE;
     the records appended once a minute at most, the launcher's ranking and
-    the notifications every HABIT_JOBS_EVERY, habits.json compacted daily."""
+    the notifications every HABIT_JOBS_EVERY, habits.json compacted daily.
+    The players' tracks (music taste) come the same way, from playerctl."""
     if not habits_on(cfg):
         log("usage habits are off (Settings > Desktop agents > Usage habits)")
         return 0
     rec = HabitRecorder(cfg)
+    music = MusicTracker(cfg)
     rec.theme = rec.read_theme()
     events = queue.Queue()
     stop = threading.Event()
@@ -2752,14 +3020,34 @@ def habits_watch(cfg):
                 log(f"habits: niri: {e}")
                 time.sleep(5)
                 continue
-            procs[:] = [proc]
+            procs.append(proc)
             for line in proc.stdout:
                 try:
                     events.put(json.loads(line))
                 except ValueError:
                     pass
             proc.wait()
+            procs.remove(proc)
             time.sleep(2)
+
+    def players():
+        # Every player's track and status as they change; a blank line when
+        # a player goes away.
+        while not stop.is_set():
+            try:
+                proc = subprocess.Popen(["playerctl", "--all-players", "--follow", "metadata",
+                                         "--format", MUSIC_FORMAT], stdout=subprocess.PIPE,
+                                        stderr=subprocess.DEVNULL, text=True, env=user_desktop_env())
+            except OSError as e:
+                log(f"habits: playerctl: {e}")
+                stop.wait(300)
+                continue
+            procs.append(proc)
+            for line in proc.stdout:
+                events.put(("music", line))
+            proc.wait()
+            procs.remove(proc)
+            stop.wait(5)
 
     def on_term(*_):
         stop.set()
@@ -2768,6 +3056,8 @@ def habits_watch(cfg):
     signal.signal(signal.SIGTERM, on_term)
     signal.signal(signal.SIGINT, on_term)
     threading.Thread(target=stream, daemon=True).start()
+    if music_on(cfg):
+        threading.Thread(target=players, daemon=True).start()
     last_flush = time.time()
     last_jobs, last_hour, compacted = 0.0, None, None
     while not stop.is_set():
@@ -2776,13 +3066,23 @@ def habits_watch(cfg):
         except queue.Empty:
             ev = None
         now = time.time()
-        if isinstance(ev, dict):
+        if isinstance(ev, tuple):
+            if ev[1].strip():
+                rec.pending += music.line(ev[1], now)
+            else:
+                try:
+                    left = run(["playerctl", "--list-all"], check=False, timeout=5, env=user_desktop_env()).stdout
+                    rec.pending += music.gone({p.split(".")[0] for p in left.split()}, now)
+                except ToolError:
+                    pass
+        elif isinstance(ev, dict):
             rec.handle(ev, now)
         else:
             rec.refresh(now)
         try:
             if now - last_flush >= 60:
                 last_flush = now
+                rec.pending += music.stale(now)
                 rec.flush(now)
             hour = time.localtime(now).tm_hour
             if now - last_jobs >= HABIT_JOBS_EVERY or hour != last_hour:
@@ -2796,9 +3096,10 @@ def habits_watch(cfg):
                 habits_jobs(cfg, rec, data, now)
         except (OSError, ValueError, KeyError, TypeError) as e:
             log(f"habits: {e}")
-    for proc in procs:
+    for proc in list(procs):
         proc.terminate()
     rec.close(time.time())
+    rec.pending += music.close(time.time())
     try:
         rec.flush(time.time())
     except (OSError, ValueError):
@@ -2858,6 +3159,8 @@ def habits_command(cfg, argv):
             "openAtUsualTime": cfg.get("habitsOpenAtUsualTime") or [],
             "days": round((now - first) / 86400, 1) if first else 0,
             "now": habits_now(data, now), "report": week_report(data, now) if first else "",
+            "musicOn": music_on(cfg), "musicKeepDays": cfg.get("habitsMusicKeepDays", 365),
+            "music": music_taste(data, now, full=True),
             "path": habits_path(),
         }, ensure_ascii=False))
         return 0
@@ -2876,7 +3179,14 @@ def habits_command(cfg, argv):
         print(day_timeline(read_habits(), date))
         return 0
     if sub == "digest":
-        print(habits_digest(cfg, now))
+        print("\n".join(x for x in (habits_digest(cfg, now), music_digest(cfg, now)) if x))
+        return 0
+    if sub == "music":
+        print("\n".join(music_taste(read_habits(), now, full=True)) or "no music recorded yet")
+        return 0
+    if sub == "music-clear":
+        music_clear()
+        print("forgot the music listened to")
         return 0
     if sub == "alias" and len(argv) == 3:
         word = learn_alias(cfg, argv[1], argv[2])
@@ -7519,6 +7829,8 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
                           on: app ids and times only
   habits watch            the recorder (the nixbook-habits user service)
   habits now | report [DAYS] | day [YYYY-MM-DD]  what they say, as text
+  habits music            the music taste learned from every player (MPRIS)
+  habits music-clear      forget the music listened to (the rest stays)
   habits on | off [--forget]  turn them on or off (Settings > Desktop agents;
                           not off when on in Nix): starts / stops nixbook-habits
   habits pause | resume | toggle | clear | show (JSON)
