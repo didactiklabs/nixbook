@@ -2,27 +2,29 @@
 
 `customPkgs/` packages software that nixpkgs lacks, or needs at a different version. Every `customPkgs/<name>.nix` is exposed as **`pkgs.customPkgs.<name>`** by the overlay in `customPkgs/default.nix`, which `lib/pkgs.nix` adds for the machines, the tests and the docs. Their sources are pinned with [npins](/development/dependencies), and CI instantiates every one of them on each push.
 
-| Package                               | What it is                                                                      | Used by                        |
-| ------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------ |
-| [ginx](#ginx)                         | Run a command whenever a Git repository changes                                 | `tools` (`osupdate`)           |
-| [goji](#goji)                         | Conventional Commits with emoji                                                 | `gojiConfig`                   |
-| [rtk](#rtk)                           | Shrinks command output for LLMs (60–90 % fewer tokens)                          | `rtk`                          |
-| [opencode-manager](#opencode-manager) | TUI for isolated coding-agent workspaces (`ocm`)                                | `devTools`, `ocmConfig`        |
-| [openchoreo-cli](#openchoreo-cli)     | OpenChoreo developer platform CLI (`occ`)                                       | `devTools`                     |
-| [crd-wizard](#crd-wizard)             | Web/TUI dashboard for Kubernetes CRDs and custom resources                      | `kubeTools`                    |
-| [kl](#kl)                             | Interactive Kubernetes log viewer                                               | `kubeTools`                    |
-| [sofka](#sofka)                       | A Kubernetes TUI in Rust                                                        | `kubeTools`                    |
-| [kratix-cli](#kratix-cli)             | Build Kratix Promises                                                           | `kubeTools`                    |
-| [pvmigrate](#pvmigrate)               | Migrate PVCs between StorageClasses                                             | `kubeTools`                    |
-| [songbird](#songbird)                 | Evaluate Kubernetes network policies for connectivity                           | `kubeTools`                    |
-| [witr](#witr)                         | "Why is this running?" — trace a process, port, container or file to its origin | shell                          |
-| [ytui](#ytui)                         | Search YouTube and play in your local player                                    | `desktopApps`                  |
-| [jtui](#jtui)                         | Browse Jellyfin and play in your local player                                   | `desktopApps`                  |
-| [fcitx5-lotus](#fcitx5-lotus)         | Vietnamese input method for fcitx5                                              | `fcitx5-lotus`, `fcitx5Config` |
-| [schnelle-umlaute](#schnelle-umlaute) | German umlauts with a hold-letter + Space gesture                               | `fcitx5Config`                 |
-| [actual-budget](#actual-budget)       | Local-first personal finance app (AppImage)                                     | profiles                       |
-| [pear-desktop](#pear-desktop)         | YouTube Music desktop player (AppImage)                                         | profiles                       |
-| [moonfin](#moonfin)                   | Jellyfin & Emby media client (AppImage)                                         | profiles                       |
+| Package                                 | What it is                                                                      | Used by                        |
+| --------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------ |
+| [ginx](#ginx)                           | Run a command whenever a Git repository changes                                 | `tools` (`osupdate`)           |
+| [goji](#goji)                           | Conventional Commits with emoji                                                 | `gojiConfig`                   |
+| [rtk](#rtk)                             | Shrinks command output for LLMs (60–90 % fewer tokens)                          | `rtk`                          |
+| [opencode-manager](#opencode-manager)   | TUI for isolated coding-agent workspaces (`ocm`)                                | `devTools`, `ocmConfig`        |
+| [openchoreo-cli](#openchoreo-cli)       | OpenChoreo developer platform CLI (`occ`)                                       | `devTools`                     |
+| [crd-wizard](#crd-wizard)               | Web/TUI dashboard for Kubernetes CRDs and custom resources                      | `kubeTools`                    |
+| [kl](#kl)                               | Interactive Kubernetes log viewer                                               | `kubeTools`                    |
+| [sofka](#sofka)                         | A Kubernetes TUI in Rust                                                        | `kubeTools`                    |
+| [kratix-cli](#kratix-cli)               | Build Kratix Promises                                                           | `kubeTools`                    |
+| [pvmigrate](#pvmigrate)                 | Migrate PVCs between StorageClasses                                             | `kubeTools`                    |
+| [songbird](#songbird)                   | Evaluate Kubernetes network policies for connectivity                           | `kubeTools`                    |
+| [witr](#witr)                           | "Why is this running?" — trace a process, port, container or file to its origin | shell                          |
+| [ytui](#ytui)                           | Search YouTube and play in your local player                                    | `desktopApps`                  |
+| [jtui](#jtui)                           | Browse Jellyfin and play in your local player                                   | `desktopApps`                  |
+| [fcitx5-lotus](#fcitx5-lotus)           | Vietnamese input method for fcitx5                                              | `fcitx5-lotus`, `fcitx5Config` |
+| [schnelle-umlaute](#schnelle-umlaute)   | German umlauts with a hold-letter + Space gesture                               | `fcitx5Config`                 |
+| [actual-budget](#actual-budget)         | Local-first personal finance app (AppImage)                                     | profiles                       |
+| [pear-desktop](#pear-desktop)           | YouTube Music desktop player (AppImage)                                         | profiles                       |
+| [youtube-music-mcp](#youtube-music-mcp) | MCP server that plays and controls YouTube Music (pear-desktop)                 | `nixbookShellConfig`           |
+| [spotify-mcp](#spotify-mcp)             | MCP server that plays and controls the Spotify app                              | `nixbookShellConfig`           |
+| [moonfin](#moonfin)                     | Jellyfin & Emby media client (AppImage)                                         | profiles                       |
 
 ## ginx
 
@@ -99,6 +101,21 @@ A k9s-style TUI to create, attach, edit and tear down isolated OpenCode / Claude
 ## pear-desktop
 
 [Pear Desktop](https://github.com/pear-devs/pear-desktop), a YouTube Music desktop player with extensions, packaged from its release AppImage.
+
+## youtube-music-mcp
+
+An MCP server (source in `customPkgs/youtube-music-mcp/`) that lets an AI assistant search, play and queue songs and control playback in pear-desktop, through the app's own **API Server** plugin (no Google API key, no browser). `nixbookShellConfig` gives it to the nixbook-shell AI chat on every profile that installs pear-desktop.
+
+To use it, turn on **Plugins → API Server** in the app (port 26538). On the first request the app asks to **Allow** the client `claude-mcp`; the token is then kept in `~/.config/youtube-music-mcp/token.json`. Playing a song needs something already loaded in the player. `YTM_API_URL`, `YTM_CLIENT_ID`, `YTM_TOKEN` and `YTM_TOKEN_FILE` override the defaults.
+
+## spotify-mcp
+
+An MCP server (source in `customPkgs/spotify-mcp/`) for the Spotify desktop app. `nixbookShellConfig` gives it to the nixbook-shell AI chat on every profile that installs Spotify.
+
+- **Without setup**, through the app's MPRIS interface (playerctl): play, pause, next, previous, seek, volume, what's playing, and playing any `spotify:` uri or `open.spotify.com` link.
+- **After a one-time `login`**, through the Spotify Web API: search (at most 10 results per call), play the first match for a query, the queue, your playlists, shuffle and repeat. Spotify's Development Mode needs your own app: create one at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) with the Web API, redirect URI `http://127.0.0.1:8898/callback`, owned by a Premium account. Then ask the chat to log in to Spotify with its client ID: it opens the approval page in the browser and keeps the tokens in `~/.config/spotify-mcp/auth.json`.
+
+`SPOTIFY_CLIENT_ID`, `SPOTIFY_REDIRECT_PORT` and `SPOTIFY_MCP_CONFIG` override the defaults.
 
 ## moonfin
 
