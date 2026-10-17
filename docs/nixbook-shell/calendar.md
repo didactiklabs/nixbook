@@ -14,6 +14,8 @@ Open it from the launcher (**Calendar**), a click on the bar clock or on a day o
 - **The selected day** on the right: its events with their time, place and calendar, and **Join** for a meeting.
 - **An event** opens in the editor: title, all day, start and end (a date picker and the time), calendar (several accounts: which one), repeat (daily, weekdays, weekly, monthly, yearly), reminders (none, at the start, 5, 10, 30 minutes, 1 hour, 1 day before; or the calendar's own), place or meeting link, notes. For a recurring event, choose **This event** or **All events**: changing all of them from one occurrence moves every occurrence the way that one moved. **Delete** asks first. Events of a read-only calendar (holidays, someone's shared calendar) open without editing.
 
+- **Calendars shown** (the eye button): every calendar of every account, Google's subscribed calendars included (holidays, birthdays, a colleague's), each with a switch. A calendar turned off has its events hidden everywhere (the window, the widgets, the next events) and no reminders, and Google's aren't fetched any more. Each starts as in Google Calendar (unticked or hidden there: off); your choice is kept on this computer and Google Calendar's own selection doesn't change. New events go to a shown calendar.
+
 Changes go to the event's account at once. The shell syncs every `calendar.refreshMinutes` (30), and on demand.
 
 ## Where events show up
@@ -33,4 +35,4 @@ Reminders are the shell's own notifications (app **Calendar**): one at each remi
 
 ## Ask the assistant
 
-The [config assistant](./ai-assistant) answers questions such as "how do I sync my Google calendar?", and desktop agents read and change your calendar through the [`calendar` tool](./desktop-agents#what-agents-can-do): the next events, a day, the calendars, creating, changing and deleting events (they ask you before deleting).
+The [config assistant](./ai-assistant) answers questions such as "how do I sync my Google calendar?", and desktop agents read and change your calendar through the [`calendar` tool](./desktop-agents#what-agents-can-do): the next events, a day, the calendars, creating, changing and deleting events (they ask you before deleting), and turning calendars on or off ("hide the holidays").

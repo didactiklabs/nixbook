@@ -11,7 +11,8 @@
 #   - tasks: full and incremental sync (paged, deletions, a new list),
 #     create, update (a due date cleared), done/undone, move, subtasks
 #     deleted with their parent, lists made, renamed and deleted.
-#   - calendar: the calendars shown (a hidden one left out, a read-only
+#   - calendar: every calendar subscribed to (one hidden in Google off, its
+#     events not fetched, turned on and off in the shell), a read-only
 #     one), events created (single, a series, all-day), a series expanded,
 #     one occurrence moved or deleted (Google's instance ids), sync tokens
 #     (an expired one: everything again), moving, deleting;
@@ -301,9 +302,9 @@ expect_eq "status: tasks" "3" "$(nc status | jq -r .tasks.lists)"
 events_cache="$tmp/state/nixbook-accounts/events.json"
 capply() { nc calendar apply "$1"; }
 out=$(nc calendar sync)
-expect_eq "calendar sync: the shown calendars (and the local one)" "3 0" "$(jq -r '"\(.calendars) \(.count)"' <<<"$out")"
+expect_eq "calendar sync: every calendar (and the local one)" "4 0" "$(jq -r '"\(.calendars) \(.count)"' <<<"$out")"
 out=$(nc calendar calendars)
-expect_eq "calendar calendars" "Me true false 10|Holidays false true|Personal true false 10" "$(jq -r '[.calendars[] | "\(.name) \(.primary) \(.readOnly)\(if .defaultReminders | length > 0 then " \(.defaultReminders | join(","))" else "" end)"] | join("|")' <<<"$out")"
+expect_eq "calendar calendars" "Me true false 10|Holidays false true|Hidden false false|Personal true false 10" "$(jq -r '[.calendars[] | "\(.name) \(.primary) \(.readOnly)\(if .defaultReminders | length > 0 then " \(.defaultReminders | join(","))" else "" end)"] | join("|")' <<<"$out")"
 out=$(capply '{"ops":[{"op":"create","summary":"Dentist","start":"2026-11-03T09:00","location":"12 rue X, https://zoom.us/j/123"},{"op":"create","summary":"Standup","start":"2026-10-19T09:30","end":"2026-10-19T09:45","recurrence":"weekdays","reminders":[5]},{"op":"create","summary":"Holidays","start":"2026-12-24","end":"2026-12-26","reminders":null},{"op":"create","summary":"x","calendar":"Holidays","start":"2026-11-03"},{"op":"create","start":"2026-11-03"}]}')
 expect_eq "calendar create: each reported" "true,true,true,false,false" "$(jq -r '[.[].ok] | join(",")' <<<"$out")"
 expect_contains "calendar create: a read-only calendar" "$(jq -r '.[3].error' <<<"$out")" "read-only"
@@ -347,7 +348,29 @@ out=$(capply "{\"op\":\"delete\",\"id\":\"$standup\"}")
 expect_eq "calendar delete: the series and its occurrences" "0" "$(nc calendar events --from 2026-10-01 --to 2027-01-01 | jq '[.events[] | select(.summary | test("tandup"))] | length')"
 out=$(nc calendar sync)
 expect_eq "calendar sync: the deletion seen by Google" "0" "$(nc calendar events --from 2026-10-01 --to 2027-01-01 | jq '[.events[] | select(.summary | test("tandup"))] | length')"
-expect_eq "status: calendar" "3" "$(nc status | jq -r .calendar.calendars)"
+expect_eq "status: calendar" "4" "$(nc status | jq -r .calendar.calendars)"
+
+# Calendars turned on and off: Google's hidden one starts off, its events not fetched.
+expect_eq "calendars: hidden in Google, off" "Me false|Holidays false|Hidden true|Personal false" "$(nc calendar calendars | jq -r '[.calendars[] | "\(.name) \(.hidden)"] | join("|")')"
+if grep -q "GET /calendarapi/calendars/hidden-cal/events" "$log"; then fail "calendars: an off one's events not fetched"; else pass "calendars: an off one's events not fetched"; fi
+curl -s -X POST -H 'Authorization: Bearer x' -H 'Content-Type: application/json' "$api/calendarapi/calendars/hidden-cal/events" \
+  --data '{"summary":"Gym","start":{"dateTime":"2026-11-05T18:00:00+01:00"},"end":{"dateTime":"2026-11-05T19:00:00+01:00"}}' >/dev/null
+out=$(capply '{"op":"show_calendar","calendar":"Hidden"}')
+expect_eq "show_calendar: on" "google-1:hidden-cal false" "$(jq -r '.[0].result | "\(.id) \(.hidden)"' <<<"$out")"
+nc calendar sync >/dev/null
+expect_eq "show_calendar: its events fetched with the next sync" "Gym" "$(nc calendar events --from 2026-11-05 --to 2026-11-06 | jq -r '[.events[].summary] | join(",")')"
+expect_eq "show_calendar: kept over syncs (Google's selection left alone)" "false" "$(nc calendar calendars | jq -r '.calendars[] | select(.name == "Hidden") | .hidden')"
+capply '{"op":"hide_calendar","calendar":"google-1:hidden-cal"}' >/dev/null
+expect_eq "hide_calendar: its events not listed at once" "" "$(nc calendar events --from 2026-11-05 --to 2026-11-06 | jq -r '[.events[].summary] | join(",")')"
+fetches=$(grep -c "GET /calendarapi/calendars/hidden-cal/events" "$log")
+nc calendar sync >/dev/null
+expect_eq "hide_calendar: not fetched any more" "$fetches" "$(grep -c "GET /calendarapi/calendars/hidden-cal/events" "$log")"
+capply '{"op":"hide_calendar","calendar":"Me"}' >/dev/null
+out=$(capply '{"op":"create","summary":"Haircut","start":"2026-11-06T10:00"}')
+expect_eq "hide_calendar: new events go to a shown calendar" "local:personal" "$(jq -r '.[0].result.calendarId' <<<"$out")"
+capply "{\"op\":\"delete\",\"id\":\"$(jq -r '.[0].result.id' <<<"$out")\"}" >/dev/null
+capply '{"op":"show_calendar","calendar":"Me"}' >/dev/null
+expect_contains "show_calendar: a calendar needed" "$(capply '{"op":"show_calendar"}')" "is required (a calendar's id or name)"
 
 # -- several accounts -----------------------------------------------------------
 
@@ -362,7 +385,7 @@ curl -s "$redirect/?state=$state&code=work-code" >/dev/null
 wait "$login_pid"
 out=$(tail -1 "$tmp/login2")
 expect_eq "second account" "google-2 work@example.com" "$(jq -r '"\(.account.id) \(.account.email)"' <<<"$out")"
-expect_eq "second account: its own data" "0 1 2" "$(jq -r '"\(.contacts.accounts[0].count) \(.tasks.accounts[0].lists) \(.calendar.accounts[0].calendars)"' <<<"$out")"
+expect_eq "second account: its own data" "0 1 3" "$(jq -r '"\(.contacts.accounts[0].count) \(.tasks.accounts[0].lists) \(.calendar.accounts[0].calendars)"' <<<"$out")"
 expect_eq "status: two accounts, then the local one" "google-1,google-2,local" "$(nc status | jq -r '[.accounts[].id] | join(",")')"
 
 out=$(apply '{"op":"create","account":"work@example.com","name":"Carla Boss","labels":["Job"]}')

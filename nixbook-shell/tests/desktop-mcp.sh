@@ -314,11 +314,13 @@ case "$1 $2" in
     if [ "$3" = "google-1:c2" ]; then echo '{"id":"google-1:c2","name":"Bob","notes":"Likes cycling.\n\n— Remembered by desktop agents —\nold","emails":[],"phones":[],"labels":[],"starred":false,"photo":""}'; exit; fi
     echo '{"id":"c2","name":"Bob","emails":[],"phones":[{"value":"0123","type":"mobile"}],"labels":[],"starred":false,"photo":""}' ;;
   "contacts sync") echo '{"full":false,"changed":3,"count":2,"syncedAt":1792224000000}' ;;
-  "calendar calendars") echo '{"calendars":[{"id":"google-1:primary","account":"google-1","name":"Me","color":"#039be5","primary":true,"readOnly":false,"order":0,"defaultReminders":[10]}]}' ;;
+  "calendar calendars") echo '{"calendars":[{"id":"google-1:primary","account":"google-1","name":"Me","color":"#039be5","primary":true,"readOnly":false,"order":0,"defaultReminders":[10],"hidden":false}]}' ;;
+  "calendar sync") echo '{"accounts":[],"calendars":2,"count":0}' ;;
   "calendar apply")
     printf '%s' "$3" >"$STUB_CALLS.calendar"
     jq -c 'if .id == "nope" then [{ok: false, error: "no event '"'"'nope'"'"' (list or sync first)"}]
       elif .op == "delete" then [{ok: true, result: {deleted: .id, summary: "Standup"}}]
+      elif (.op | test("_calendar$")) then [{ok: true, result: {id: "google-1:holidays", name: .calendar, hidden: (.op == "hide_calendar")}}]
       else [{ok: true, result: {id: (.id // "google-1:ev9"), account: "google-1", calendarId: "google-1:primary", summary: (.summary // "Standup"), start: (.start // "2026-10-20T09:30:00+02:00"), end: "2026-10-20T10:30:00+02:00", allDay: false, location: "", recurrence: null, updated: "x"}}] end' <<<"$3" ;;
   "contacts apply")
     printf '%s' "$3" >"$STUB_CALLS.contacts"
@@ -1969,7 +1971,10 @@ expect_eq "calendar day" "qs -c nixbook-shell ipc call -- calendar day 2026-10-0
 expect_contains "calendar: date checked" "$(call calendar '{"action":"day","date":"tomorrow"}')" "invalid value"
 expect_contains "calendar: days checked" "$(call calendar '{"action":"upcoming","days":400}')" "from 1 to 60"
 expect_contains "calendar: no account said" "$(STUB_NO_ACCOUNT=1 call calendar '{"action":"next"}')" "no account connected"
-expect_eq "calendar calendars" '[{"id":"google-1:primary","name":"Me","account":"google-1","primary":true,"readOnly":false}]' "$(call calendar '{"action":"calendars"}' | jq -c .calendars)"
+expect_eq "calendar calendars" '[{"id":"google-1:primary","name":"Me","account":"google-1","primary":true,"readOnly":false,"hidden":false}]' "$(call calendar '{"action":"calendars"}' | jq -c .calendars)"
+expect_eq "calendar hide_calendar" "Holidays hidden" "$(call calendar '{"action":"hide_calendar","calendar":"Holidays"}')"
+expect_eq "calendar hide_calendar: the request" '{"op":"hide_calendar","calendar":"Holidays"}' "$(jq -c . "$calls.calendar")"
+expect_eq "calendar show_calendar: then a sync, for its events" "Holidays shown|calendar sync" "$(call calendar '{"action":"show_calendar","calendar":"Holidays"}')|$(tail -1 "$calls.google")"
 out=$(call calendar '{"action":"create","summary":"Dentist","start":"2026-11-03T09:00","reminders":[30],"recurrence":"weekly","calendar":"Me"}')
 expect_eq "calendar create: the request" '{"op":"create","calendar":"Me","summary":"Dentist","start":"2026-11-03T09:00","reminders":[30],"recurrence":"weekly"}' "$(jq -c . "$STUB_CALLS.calendar")"
 expect_eq "calendar create: the event back, empty fields left out" '{"id":"google-1:ev9","calendarId":"google-1:primary","summary":"Dentist","start":"2026-11-03T09:00","end":"2026-10-20T10:30:00+02:00","allDay":false}' "$(jq -c . <<<"$out")"

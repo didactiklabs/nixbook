@@ -72,7 +72,9 @@ const usage = `nixbook-accounts: the accounts behind nixbook-shell's contacts an
                                          before), recurrence? (daily, weekdays, weekly,
                                          monthly, yearly, none, RRULE…)}, update {id,
                                          occurrence? (that one only), calendar? (move)…},
-                                         delete {id, occurrence?}), each on its own
+                                         delete {id, occurrence?}, show_calendar and
+                                         hide_calendar {calendar}: listed and reminded
+                                         or not, Google's fetched or not), each on its own
 
 ACCOUNT: an account's id (google-1), name or email; "local" is the built-in one,
 kept on this computer only ($XDG_DATA_HOME/nixbook-accounts/local/). Ids are

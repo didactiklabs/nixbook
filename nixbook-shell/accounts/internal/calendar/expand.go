@@ -101,7 +101,7 @@ func sameStart(original string, t time.Time, allDay bool) bool {
 
 // Occurrences are the events happening between from and to (overlapping),
 // series expanded, sorted by start; only those calendars' when calendars
-// is given.
+// is given, else the shown calendars'.
 func Occurrences(from, to time.Time, calendars []string) []Occurrence {
 	c := Load()
 	cals := map[string]Calendar{}
@@ -119,10 +119,10 @@ func Occurrences(from, to time.Time, calendars []string) []Occurrence {
 		if !end.After(from) || !start.Before(to) {
 			return
 		}
-		if len(calendars) > 0 && !slices.Contains(calendars, e.CalendarID) {
+		cal := cals[e.CalendarID]
+		if len(calendars) > 0 && !slices.Contains(calendars, e.CalendarID) || len(calendars) == 0 && cal.Hidden {
 			return
 		}
-		cal := cals[e.CalendarID]
 		reminders := e.Reminders
 		if reminders == nil {
 			reminders = cal.DefaultReminders
