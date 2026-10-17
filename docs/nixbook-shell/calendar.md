@@ -4,11 +4,11 @@ nixbook-shell's calendars, reminders and to-do lists come from your [accounts](.
 
 ## Connect an account
 
-Every calendar widget has the same button: it opens the Calendar window; right-click syncs now. Accounts are added from the [accounts window](./accounts#add-an-account) (the Calendar window's account button, or `nixbook-shell ipc call accounts show`).
+Every calendar widget has the same button: it opens the Calendar window; right-click syncs now. Accounts are added from the [accounts window](./accounts#add-an-account) (the Calendar window's account button, or `nixbook-shell ipc call accounts launch`).
 
 ## The Calendar window
 
-Open it from the launcher (**Calendar**), a click on the bar clock or on a day of the desktop calendar, a calendar widget's button, or `nixbook-shell ipc call calendar show` (`open YYYY-MM-DD` for a day).
+Open it from the launcher (**Calendar**), a click on the bar clock or on a day of the desktop calendar, a calendar widget's button, or `nixbook-shell ipc call calendar launch` (`open YYYY-MM-DD` for a day).
 
 - **The month** on the left: each day's events (all-day ones as bars), today circled, "+N more" when a day is full. A click selects the day, a double-click adds an event on it. **Today** (T), the arrows (Page Up/Down), **Sync** (F5), **New** (Ctrl+N).
 - **The selected day** on the right: its events with their time, place and calendar, and **Join** for a meeting.

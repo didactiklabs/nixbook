@@ -127,7 +127,7 @@ recurring series expanded by nixbook-accounts):
   the sidebar (with an "add event" button); clicking the bar clock (right
   click: sync) or a day of the desktop calendar opens the **Calendar**
   window (`src/modules/ii/calendarApp/`; launcher entry "Calendar",
-  `nixbook-shell ipc call calendar show|open YYYY-MM-DD`): the month (each
+  `nixbook-shell ipc call calendar launch|open YYYY-MM-DD`): the month (each
   day's events, "+N more"), the selected day's events, and the event editor
   (title, all day, start and end, calendar, repeat, reminders, place, notes;
   a recurring event's occurrence alone or all of them, all of them moving
@@ -163,7 +163,7 @@ recurring series expanded by nixbook-accounts):
   message bar;
 - notes: the desktop notes widget's notes (`src/services/Notes.qml`) also
   open in the **Notes** window (`src/modules/ii/notesApp/`; launcher entry
-  "Notes", `nixbook-shell ipc call notes show`, or `notes open <id>`): the
+  "Notes", `nixbook-shell ipc call notes launch`, or `notes open <id>`): the
   notes on the left (search, pinned first, then the latest edited), the
   selected one in a full editor saved as you type (an emptied note is
   dropped when you leave it; Delete has Undo), Ctrl+N new, Ctrl+F search,
@@ -228,7 +228,7 @@ and `tests/dav.sh` against a real CalDAV/CardDAV server (Radicale).
 `src/services/Accounts.qml` holds the accounts (status, Google's setup,
 adding one, removing one; one command lane per service, so a contacts sync
 doesn't hold up a ticked task); the accounts window
-(`src/modules/ii/accounts/`, `nixbook-shell ipc call accounts show`) lists
+(`src/modules/ii/accounts/`, `nixbook-shell ipc call accounts launch`) lists
 them and adds one (Google's one-time client setup first; a DAV server's
 form, the password given to nixbook-accounts on stdin); the task widgets'
 account button and the apps open it.
@@ -236,7 +236,7 @@ account button and the apps open it.
 - contacts: `src/services/Contacts.qml` reads the copy and calls
   `nixbook-accounts` (a sync on first use, every 30 minutes, on demand).
   The **Contacts** window (`src/modules/ii/contactsApp/`; launcher entry
-  "Contacts", `nixbook-shell ipc call contacts show|open <id>|toggle|close|sync`)
+  "Contacts", `nixbook-shell ipc call contacts launch|open <id>|toggle|close|sync`)
   shows the accounts page until one is added, then lists the contacts
   (search, All/Starred/account/label chips, starred first, then A–Z) and
   shows the selected one (its account, write, call, message, map, copy;

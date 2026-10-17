@@ -275,12 +275,12 @@ Singleton {
         }
     }
 
-    // `nixbook-shell ipc call accounts show|status`.
+    // `nixbook-shell ipc call accounts launch|status`.
     IpcHandler {
         target: "accounts"
 
         // The accounts window: the accounts, add one, remove one.
-        function show(): string {
+        function launch(): string {
             root.load();
             root.openWindow();
             return "ok: opened the accounts window";

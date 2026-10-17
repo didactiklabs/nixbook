@@ -214,11 +214,11 @@ Singleton {
         }
     }
 
-    // `nixbook-shell ipc call contacts show|open ID|toggle|close|sync`.
+    // `nixbook-shell ipc call contacts launch|open ID|toggle|close|sync`.
     IpcHandler {
         target: "contacts"
 
-        function show(): string {
+        function launch(): string {
             root.load();
             GlobalStates.openContactsApp("");
             return "ok: opened the Contacts app";
