@@ -48,6 +48,30 @@ Singleton {
         root.notesAppNoteId = noteId ?? ""
         root.notesAppOpen = true
     }
+    // The Calendar window (modules/ii/calendarApp), on `calendarAppDate`
+    // (a Date, or null: today); `calendarAppMode` "new" opens the editor
+    // for a new event there.
+    property bool calendarAppOpen: false
+    property var calendarAppDate: null
+    property string calendarAppMode: ""
+    function openCalendarApp(date, mode) {
+        root.calendarAppDate = date ?? null
+        root.calendarAppMode = mode ?? ""
+        root.calendarAppOpen = true
+        root.calendarAppRequest++
+    }
+    // Bumped on each open (the same date asked again still shows it).
+    property int calendarAppRequest: 0
+    // The accounts window (modules/ii/accounts): add, remove, sign in.
+    property bool accountsOpen: false
+    // The Contacts app window (modules/ii/contactsApp), on
+    // `contactsAppContactId` first.
+    property bool contactsAppOpen: false
+    property string contactsAppContactId: ""
+    function openContactsApp(contactId) {
+        root.contactsAppContactId = contactId ?? ""
+        root.contactsAppOpen = true
+    }
     property bool tasksPanelOpen: false
     property string tasksPanelTaskId: ""
     function openTasksPanel(taskId) {

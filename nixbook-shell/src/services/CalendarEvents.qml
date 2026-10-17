@@ -5,63 +5,68 @@ import Quickshell.Io
 import qs.modules.common
 
 /**
- * Calendar events from DankCalendar's daemon (`dcal`), for every calendar in
- * the shell (sidebar, desktop widget, bar clock popup); its task lists back
- * services/Todo.qml.
+ * Calendar events from every account (services/Accounts.qml: Google,
+ * CalDAV), through `nixbook-accounts`, for every calendar in the shell
+ * (sidebar, desktop widget, bar clock popup, next-event widgets), the
+ * Calendar window (modules/ii/calendarApp/) and the reminders
+ * (services/CalendarReminders.qml).
  *
- * dcal keeps the accounts (Google, Microsoft, CalDAV, iCloud, iCal feeds,
- * local) signed in and in sync; this only reads its local copy over IPC
- * (`dcal ipc calendars.list` / `events.list`, recurring series expanded by
- * the daemon) and asks it to sync or to show its window. Adding and editing
- * events happens in dcal's own window, which syncs them back.
- *
- * `dcal` is on the shell's PATH (package.nix) and its daemon is the `dcal`
- * user service (hm-module.nix). Until it answers, `available` stays false
- * and the widgets show a plain calendar and the local to-do list.
+ * nixbook-accounts keeps each account's events in its local copy
+ * ($XDG_STATE_HOME/nixbook-accounts/events.json, watched) and expands
+ * recurring series for the window asked (`calendar events`); this reads
+ * that window around the month shown, and asks it to sync (at start, every
+ * `calendar.refreshMinutes`, on demand). Changes (`apply`) go to the
+ * event's account first.
  */
 Singleton {
     id: root
 
-    readonly property string dcal: "dcal"
-
-    property bool available: false
+    // Some account with calendars added.
+    readonly property bool available: Accounts.statusKnown && Accounts.accounts.some(a => a.calendar)
     property bool loading: false
+    property bool syncing: false
     // "YYYY-MM-DD" (local) -> events on that day, all-day ones first, then
-    // by start. Each event: { id, summary, location, meetingUrl, start, end
-    // (Date), allDay, color, calendarName }.
+    // by start. Each event: { id (the event or its series), occurrence (a
+    // series' occurrence's original start, "" for a single event), recurring,
+    // summary, description, location, meetingUrl, start, end (Date), allDay,
+    // color, calendarName, calendarId, account, readOnly, reminders (minutes
+    // before) }.
     property var eventsByDay: ({})
     // Loaded window: from the first day of the month before `anchor` to
     // the end of the second month after it.
     property var rangeStart: new Date(0)
     property var rangeEnd: new Date(0)
-    // dcal's task lists (Google Tasks, CalDAV VTODO…) that aren't hidden:
-    // [{ id, name, color, accountId, manageable }]; manageable: the list
-    // itself can be created, renamed and deleted (Google, through the
-    // patched dcal's tasks.list* methods).
-    property var taskLists: []
-    // At least one calendar synced: some account is connected.
-    readonly property bool hasAccounts: Object.keys(root._calendars).length > 0
-    // A Google sign-in is waiting for the browser.
-    property bool connecting: false
+    // [{ id, account, name, color, primary, readOnly, defaultReminders }]
+    property var calendars: []
+    readonly property var writableCalendars: root.calendars.filter(c => !c.readOnly)
+    // Some calendar synced: some account has calendars.
+    readonly property bool hasAccounts: root.calendars.length > 0
+    // An account being signed in (Accounts').
+    readonly property bool connecting: Accounts.connecting
+    // The last change that failed ({ message, at }), for the Calendar
+    // window's message bar; null when none. `error` is the last sync's.
+    property var lastError: null
+    property string error: ""
 
-    // After each successful reload (Todo reloads its tasks then).
+    // After each successful reload.
     signal refreshed()
 
-    property var _calendars: ({})
     property var _anchor: new Date()
     property bool _started: false
     // A refresh asked for while one runs (e.g. month navigation): run it
     // once the current one ends, so its window isn't lost.
     property bool _pending: false
-    // Queued `dcal ipc` calls: [{ args, onDone }], run one at a time.
-    property var _calls: []
-    property string _lastCalendarsText: ""
-    property string _lastEventsText: ""
-    property bool _calendarsChanged: false
+    property string _lastText: ""
+
+    readonly property string cachePath: {
+        const state = Quickshell.env("XDG_STATE_HOME") || `${Quickshell.env("HOME")}/.local/state`
+        return `${state}/nixbook-accounts/events.json`
+    }
 
     function load() {
         if (root._started) return
         root._started = true
+        Accounts.load()
         root.refresh()
     }
 
@@ -113,27 +118,8 @@ Singleton {
         return `${Qt.locale().toString(event.start, "ddd")} ${at(event.start)}`
     }
 
-    // `dcal ipc <method> key=value…`; onDone(ok, result, error) gets the
-    // parsed JSON, or dcal's error message.
-    function call(method, params, onDone) {
-        const args = [root.dcal, "ipc", method]
-        for (const key in params) args.push(`${key}=${params[key]}`)
-        root._calls.push({ args: args, onDone: onDone })
-        // Otherwise the running call starts the next one when it ends. Later,
-        // not now: this may run inside the last call's onDone, from its own
-        // exit handler (Qt.callLater runs _nextCall once however often asked).
-        if (root._calls.length === 1) Qt.callLater(root._nextCall)
-    }
-
-    function _nextCall() {
-        const next = root._calls[0]
-        if (!next || callProc.running) return
-        callProc.command = next.args
-        callProc.running = true
-    }
-
     // Reload around `date` when it falls outside the loaded window (month
-    // navigation in the widgets).
+    // navigation).
     function ensureMonth(date) {
         const first = new Date(date.getFullYear(), date.getMonth(), 1)
         const last = new Date(date.getFullYear(), date.getMonth() + 1, 1)
@@ -143,83 +129,115 @@ Singleton {
         }
     }
 
+    // `YYYY-MM-DDTHH:MM` (local) for nixbook-accounts.
+    function localIso(d) {
+        const pad = n => (n < 10 ? "0" : "") + n
+        return `${root.dayKey(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+    }
+
+    // The loaded window read again from the copy.
     function refresh() {
+        if (!root._started) return
         if (root.loading) {
             root._pending = true
             return
         }
+        const a = root._anchor
+        const start = new Date(a.getFullYear(), a.getMonth() - 1, 1)
+        const end = new Date(a.getFullYear(), a.getMonth() + 2, 1)
         root.loading = true
-        calendarsProc.running = true
+        Accounts.call(["calendar", "events", "--from", root.dayKey(start), "--to", root.dayKey(end)], (ok, result) => {
+            root.loading = false
+            if (ok && result) {
+                if (start.getTime() !== root.rangeStart.getTime()) root.rangeStart = start
+                if (end.getTime() !== root.rangeEnd.getTime()) root.rangeEnd = end
+                // Re-indexed only when something changed: a new eventsByDay
+                // redraws every calendar (sidebar, desktop, bar).
+                const text = JSON.stringify([result.events, result.calendars])
+                if (text !== root._lastText) {
+                    root._lastText = text
+                    root.calendars = result.calendars ?? []
+                    root.eventsByDay = root._index(result.events ?? [])
+                }
+                root.error = result.error ?? ""
+                root.refreshed()
+            }
+            if (root._pending) {
+                root._pending = false
+                Qt.callLater(root.refresh)
+            }
+        }, "calendar")
     }
 
-    // Sync every account now, then reload.
+    // Every account's changes now, then reload.
     function sync() {
-        syncProc.running = true
+        if (root.syncing || !Accounts.connected) return
+        root.syncing = true
+        Accounts.call(["calendar", "sync"], () => {
+            root.syncing = false
+            root.refresh()
+        }, "calendar")
     }
-    readonly property bool syncing: syncProc.running
 
-    // DankCalendar's window: events, tasks, and its settings (accounts:
-    // Google, Microsoft, CalDAV, iCloud, iCal feeds).
+    // The Calendar window (events, day by day; the editor).
     function openApp() {
-        Quickshell.execDetached([root.dcal, "show"])
+        GlobalStates.openCalendarApp(null, null)
     }
 
     // Its new-event editor, starting at `date` (a Date; default: the next
     // half hour).
     function newEvent(date) {
-        root.call("ui.newEvent", date ? { start: date.toISOString() } : {})
+        GlobalStates.openCalendarApp(date ?? null, "new")
     }
 
-    // Google sign-in with dcal's built-in OAuth client: the browser opens
-    // Google's consent page, dcal gets the token on 127.0.0.1 and keeps it
-    // in the keyring. No client ID or Cloud project needed.
+    // Adding an account (Accounts').
     function connectGoogle() {
-        if (root.connecting) return
-        root.connecting = true
-        root.call("accounts.google.start", {}, (ok, result) => {
-            if (!ok || !result?.authUrl) {
-                root.connecting = false
-                return
-            }
-            Qt.openUrlExternally(result.authUrl)
-            connectProc.command = [root.dcal, "ipc", "accounts.google.complete", `state=${result.state}`]
-            connectProc.running = true
-        })
+        Accounts.connect()
     }
 
-    // All-day events are dates stored at UTC midnight, their end exclusive.
-    function _dayBoundary(iso) {
-        const d = new Date(iso)
-        return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
-    }
-
-    function _finish() {
-        root.loading = false
-        if (root._pending) {
-            root._pending = false
+    // Changes ({ op: create | update | delete, … } or a list); onDone(results)
+    // with [{ ok, result | error }], a failure also in lastError.
+    function apply(ops, onDone) {
+        const request = Array.isArray(ops) ? { ops: ops } : ops
+        Accounts.call(["calendar", "apply", JSON.stringify(request)], (ok, result, error) => {
+            const results = ok && Array.isArray(result) ? result : [{ ok: false, error: error }]
+            const failed = results.find(r => !r.ok)
+            root.lastError = failed ? { message: failed.error, at: Date.now() } : null
             root.refresh()
-        }
+            if (onDone) onDone(results)
+        }, "calendar")
+    }
+
+    // All-day events are dates, their end exclusive.
+    function _day(s) {
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s)
+        return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(s)
     }
 
     function _index(events) {
         const byDay = {}
         for (const e of events) {
-            const cal = root._calendars[e.calendarId]
-            if (cal?.hidden || e.status === "cancelled") continue
             const allDay = !!e.allDay
-            const start = allDay ? root._dayBoundary(e.start) : new Date(e.start)
-            let end = allDay ? root._dayBoundary(e.end) : new Date(e.end)
+            const start = allDay ? root._day(e.start) : new Date(e.start)
+            let end = allDay ? root._day(e.end) : new Date(e.end)
             if (allDay && end <= start) end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1)
             const item = {
                 id: e.id,
+                occurrence: e.occurrence ?? "",
+                recurring: !!e.recurring,
                 summary: e.summary || Translation.tr("(No title)"),
-                location: e.location || "",
-                meetingUrl: e.meetingUrl || "",
+                description: e.description ?? "",
+                location: e.location ?? "",
+                meetingUrl: e.meetingUrl ?? "",
                 start: start,
                 end: end,
                 allDay: allDay,
-                color: cal?.color || "",
-                calendarName: cal?.name || "",
+                color: e.color || "",
+                calendarName: e.calendar ?? "",
+                calendarId: e.calendarId,
+                account: e.account,
+                readOnly: !!e.readOnly,
+                reminders: e.reminders ?? [],
             }
             // One entry per day the event touches (the end is exclusive).
             const day = new Date(start.getFullYear(), start.getMonth(), start.getDate())
@@ -235,141 +253,48 @@ Singleton {
         return byDay
     }
 
-    Process {
-        id: calendarsProc
-        command: [root.dcal, "ipc", "calendars.list"]
-        stdout: StdioCollector {
-            id: calendarsOut
+    // Accounts known (at start): sync; one added synced already, one removed
+    // is gone from the copy: read it.
+    Connections {
+        target: Accounts
+        function onConnectedChanged() {
+            if (Accounts.connected && root._started) root.sync()
         }
-        onExited: code => {
-            if (code !== 0) {
-                // No daemon (not installed, not started yet, or no accounts).
-                root.available = false
-                root._finish()
-                return
-            }
-            // Unchanged since the last read (the usual case): keep the same
-            // objects, so nothing bound to them re-evaluates or redraws.
-            const calendarsChanged = calendarsOut.text !== root._lastCalendarsText
-            if (calendarsChanged) try {
-                root._lastCalendarsText = calendarsOut.text
-                const map = {}
-                const lists = []
-                for (const c of JSON.parse(calendarsOut.text)) {
-                    map[c.id] = c
-                    if (c.holdsTasks && !c.hidden && !c.syncDisabled)
-                        lists.push({
-                            id: c.id,
-                            name: c.name,
-                            color: c.color || "",
-                            accountId: c.accountId || "",
-                            manageable: c.accountKind === "google",
-                        })
-                }
-                root._calendars = map
-                root.taskLists = lists
-            } catch (e) {
-                console.warn("CalendarEvents: cannot parse calendars:", e)
-            }
-            root._calendarsChanged = calendarsChanged
-            const a = root._anchor
-            const start = new Date(a.getFullYear(), a.getMonth() - 1, 1)
-            const end = new Date(a.getFullYear(), a.getMonth() + 2, 1)
-            if (start.getTime() !== root.rangeStart.getTime()) root.rangeStart = start
-            if (end.getTime() !== root.rangeEnd.getTime()) root.rangeEnd = end
-            eventsProc.command = [root.dcal, "ipc", "events.list",
-                `from=${root.rangeStart.toISOString()}`, `to=${root.rangeEnd.toISOString()}`]
-            eventsProc.running = true
+        function onAdded() {
+            root.refresh()
+        }
+        function onAccountsChanged() {
+            root.refresh()
         }
     }
 
-    Process {
-        id: eventsProc
-        stdout: StdioCollector {
-            id: eventsOut
-        }
-        onExited: code => {
-            if (code !== 0) {
-                root.available = false
-            } else {
-                try {
-                    // Re-indexed only when the events (or the calendars'
-                    // colours/visibility) changed: a new eventsByDay redraws
-                    // every calendar (sidebar, desktop, bar).
-                    if (root._calendarsChanged || eventsOut.text !== root._lastEventsText) {
-                        root.eventsByDay = root._index(JSON.parse(eventsOut.text).events ?? [])
-                        root._lastEventsText = eventsOut.text
-                    }
-                    root.available = true
-                } catch (e) {
-                    console.warn("CalendarEvents: cannot parse events:", e)
-                }
-            }
-            root._finish()
-            if (root.available) root.refreshed()
-        }
+    // The copy changed (a sync, an agent's change): read the window again.
+    FileView {
+        path: root._started ? root.cachePath : ""
+        watchChanges: true
+        printErrors: false
+        onFileChanged: root.refresh()
     }
 
-    Process {
-        id: callProc
-        stdout: StdioCollector {
-            id: callOut
-        }
-        stderr: StdioCollector {
-            id: callErr
-        }
-        onExited: code => {
-            const done = root._calls.shift()
-            if (!done) return
-            let result = null
-            if (code === 0) {
-                try {
-                    result = JSON.parse(callOut.text)
-                } catch (e) {}
-            } else {
-                console.warn(`CalendarEvents: ${done.args.slice(2, 3)} failed: ${callErr.text.trim()}`)
-            }
-            if (done.onDone) done.onDone(code === 0, result, code === 0 ? "" : callErr.text.trim())
-            // Not from inside this process's own exit handler.
-            Qt.callLater(root._nextCall)
-        }
-    }
-
-    // Waits (up to 5 minutes) for the browser to hand the token back.
-    Process {
-        id: connectProc
-        onExited: code => {
-            root.connecting = false
-            if (code === 0) root.sync()
-        }
-    }
-
-    Process {
-        id: syncProc
-        command: [root.dcal, "ipc", "accounts.refresh"]
-        onExited: root.refresh()
-    }
-
-    // dcal syncs on its own schedule; re-read its copy regularly (unchanged
-    // data is dropped above). The sidebar calendar's refresh button syncs
-    // right away.
+    // Sync regularly; the sidebar calendar's refresh button syncs now.
     Timer {
         interval: Math.max(1, Config.options.calendar.refreshMinutes ?? 30) * 60 * 1000
-        running: root._started
+        running: root._started && Accounts.connected
         repeat: true
-        onTriggered: root.refresh()
+        onTriggered: root.sync()
     }
 
     // `nixbook-shell ipc call calendar next|upcoming DAYS|day YYYY-MM-DD`:
-    // the synced events (DankCalendar), read-only, for key bindings and the
-    // desktop MCP server's `calendar` tool. JSON; times in local ISO form.
+    // the synced events, read-only, for key bindings and the desktop MCP
+    // server's `calendar` tool. JSON; times in local ISO form.
     function _localIso(d) {
-        const pad = n => (n < 10 ? "0" : "") + n
-        return `${root.dayKey(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+        return root.localIso(d)
     }
     function _eventJson(e, now) {
         const iso = d => e.allDay ? root.dayKey(d) : root._localIso(d)
         return {
+            id: e.id,
+            occurrence: e.occurrence || undefined,
             summary: e.summary,
             start: iso(e.start),
             end: iso(e.end),
@@ -381,10 +306,10 @@ Singleton {
         }
     }
     function _ipcState() {
-        if (!root.available)
-            return "error: DankCalendar (dcal) isn't running";
+        if (!Accounts.connected)
+            return "error: no account connected (add one in the accounts window)";
         if (!root.hasAccounts)
-            return "error: no calendar account connected (connect Google from the calendar widget)";
+            return "error: no calendar yet: the accounts are syncing, or have none";
         return "";
     }
 
@@ -435,6 +360,19 @@ Singleton {
             }
             const now = new Date();
             return JSON.stringify({ date: root.dayKey(d), events: root.eventsOn(d).map(e => root._eventJson(e, now)) });
+        }
+        // The Calendar window, on today.
+        function show(): string {
+            root.load();
+            GlobalStates.openCalendarApp(null, null);
+            return "ok: opened the Calendar window";
+        }
+        // The Calendar window (on that day, YYYY-MM-DD, or today).
+        function open(date: string): string {
+            root.load();
+            const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+            GlobalStates.openCalendarApp(m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null, null);
+            return "ok: opened the Calendar window";
         }
     }
 }

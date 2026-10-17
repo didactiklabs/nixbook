@@ -27,6 +27,7 @@ ShellRoot {
         Wallpapers.load()
         UpdateState.load()
         CalendarEvents.load()
+        CalendarReminders.load()
         ThemeWallpapers.load()
         NiriThemeAnimations.load()
         LyricsService.restartLyrics()
@@ -34,11 +35,12 @@ ShellRoot {
         DesktopControl.load()
         WindowLayouts.load()
         AppTheming.load()
-        // Their IPC targets (widgets, notes, todo, timers, musicRecognition,
-        // equalizer) exist once they are loaded.
+        // Their IPC targets (widgets, notes, todo, contacts, timers,
+        // musicRecognition, equalizer) exist once they are loaded.
         DesktopWidgets.load()
         Notes.load()
         Todo.load()
+        Contacts.load()
         TimerService.load()
         SongRec.load()
         EqualizerAutoService.load()

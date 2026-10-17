@@ -37,7 +37,7 @@ StyledPopup {
 
             Item { Layout.fillWidth: true }
 
-            // DankCalendar: connect an account, or open it (events, tasks).
+            // The accounts: add one, or open the Calendar window.
             CalendarAccountButton {
                 size: 32
             }
@@ -122,7 +122,7 @@ StyledPopup {
             }
         }
 
-        // Next events (the coming week), from DankCalendar.
+        // Next events (the coming week).
         Column {
             id: nextUp
             readonly property var events: CalendarEvents.upcoming(3)

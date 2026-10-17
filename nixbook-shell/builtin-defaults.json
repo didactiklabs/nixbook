@@ -184,6 +184,13 @@
         "y": 100,
         "z": 0
       },
+      "contacts": {
+        "enable": false,
+        "placementStrategy": "free",
+        "x": 700,
+        "y": 100,
+        "z": 0
+      },
       "customImage": {
         "enable": false,
         "grayscale": false,

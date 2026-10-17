@@ -4,10 +4,10 @@ import qs.services
 import QtQuick
 import QtQuick.Layouts
 
-// The next calendar event (DankCalendar, services/CalendarEvents.qml): its
+// The next calendar event (services/CalendarEvents.qml): its
 // time ("in 12 min", "Now · until 10:30", "14:00") and title; hovering lists
 // the following ones. Left click: join the meeting when it has a link and
-// starts within 10 minutes (or is on), else open DankCalendar; right click:
+// starts within 10 minutes (or is on), else open the Calendar window; right click:
 // sync now. Just an icon when nothing is coming up this week.
 BarWidgetSwitcher {
     id: root

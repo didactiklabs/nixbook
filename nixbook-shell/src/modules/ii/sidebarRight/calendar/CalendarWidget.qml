@@ -227,7 +227,7 @@ Item {
             }
             CalendarHeaderButton {
                 forceCircle: true
-                tooltipText: Translation.tr("Open DankCalendar (events, accounts)")
+                tooltipText: Translation.tr("Open the calendar (events, new event)")
                 downAction: () => {
                     CalendarEvents.openApp();
                 }

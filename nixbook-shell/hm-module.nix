@@ -181,44 +181,44 @@ let
     toggles = osToggles ++ hmToggles;
   };
 
-  # How the calendars and to-do list sync, through DankCalendar (`dcal`,
-  # always part of the shell): for the config assistant and the AI chat.
+  # How the calendars, contacts and to-do list sync, through the shell's
+  # accounts (nixbook-accounts): for the config assistant and the AI chat.
   calendarHowTo = {
     calendarConnect = {
-      en = "To sync the shell's calendar with Google Calendar, click the person icon (Connect a Google account) in a calendar or to-do widget (sidebar, desktop, bar clock popup), or run `dcal account add google`: the browser opens Google's login, you sign in and accept, and that's all. DankCalendar (dcal) ships its own Google OAuth client, so no client ID, secret or Google Cloud project is needed; the token is kept in the keyring and renewed by dcal.";
-      fr = "Pour synchroniser le calendrier du shell avec Google Agenda, cliquez sur l'icône de personne (Connecter un compte Google) dans un widget calendrier ou tâches (panneau latéral, bureau, horloge de la barre), ou lancez `dcal account add google` : le navigateur ouvre la connexion Google, vous vous connectez et acceptez, c'est tout. DankCalendar (dcal) fournit son propre client OAuth Google : aucun identifiant client, secret ni projet Google Cloud n'est nécessaire ; le jeton est gardé dans le trousseau et renouvelé par dcal.";
-      de = "Um den Kalender der Shell mit Google Kalender zu synchronisieren, klicke auf das Personensymbol (Google-Konto verbinden) in einem Kalender- oder Aufgaben-Widget (Seitenleiste, Desktop, Uhr-Popup der Leiste) oder führe `dcal account add google` aus: Der Browser öffnet die Google-Anmeldung, du meldest dich an und stimmst zu, fertig. DankCalendar (dcal) bringt einen eigenen Google-OAuth-Client mit, es braucht also keine Client-ID, kein Secret und kein Google-Cloud-Projekt; das Token liegt im Schlüsselbund und wird von dcal erneuert.";
-      vi = "Để đồng bộ lịch của shell với Google Lịch, bấm biểu tượng người (Kết nối tài khoản Google) trong widget lịch hoặc công việc (thanh bên, màn hình nền, popup đồng hồ trên thanh), hoặc chạy `dcal account add google`: trình duyệt mở trang đăng nhập Google, bạn đăng nhập và chấp nhận, vậy là xong. DankCalendar (dcal) có sẵn client OAuth Google riêng nên không cần client ID, secret hay dự án Google Cloud; token được giữ trong keyring và dcal tự gia hạn.";
+      en = "To sync the shell's calendar, contacts and tasks with Google, open the accounts window (the person icon in a calendar or to-do widget, the Contacts or Calendar window, or `nixbook-shell ipc call accounts show`) and add Google. The first time, it walks you through making your own Google Cloud app (about 5 minutes: a project with the People, Tasks and Calendar APIs, a published app, a Desktop client whose JSON you download); then the browser opens Google's sign-in. iCloud, Fastmail, Nextcloud or another CalDAV/CardDAV server are added in the same window with a user name and an app password. Tokens and passwords are kept in the keyring.";
+      fr = "Pour synchroniser le calendrier, les contacts et les tâches du shell avec Google, ouvrez la fenêtre des comptes (l'icône de personne d'un widget calendrier ou tâches, la fenêtre Contacts ou Agenda, ou `nixbook-shell ipc call accounts show`) et ajoutez Google. La première fois, elle vous guide pour créer votre propre application Google Cloud (environ 5 minutes : un projet avec les API People, Tasks et Calendar, une application publiée, un client Desktop dont vous téléchargez le JSON) ; ensuite le navigateur ouvre la connexion Google. iCloud, Fastmail, Nextcloud ou un autre serveur CalDAV/CardDAV s'ajoutent dans la même fenêtre avec un nom d'utilisateur et un mot de passe d'application. Jetons et mots de passe sont gardés dans le trousseau.";
+      de = "Um Kalender, Kontakte und Aufgaben der Shell mit Google zu synchronisieren, öffne das Kontenfenster (das Personensymbol in einem Kalender- oder Aufgaben-Widget, das Kontakte- oder Kalenderfenster, oder `nixbook-shell ipc call accounts show`) und füge Google hinzu. Beim ersten Mal führt es dich durch das Anlegen einer eigenen Google-Cloud-App (etwa 5 Minuten: ein Projekt mit den People-, Tasks- und Calendar-APIs, eine veröffentlichte App, ein Desktop-Client, dessen JSON du herunterlädst); danach öffnet der Browser die Google-Anmeldung. iCloud, Fastmail, Nextcloud oder ein anderer CalDAV/CardDAV-Server werden im selben Fenster mit Benutzername und App-Passwort hinzugefügt. Tokens und Passwörter liegen im Schlüsselbund.";
+      vi = "Để đồng bộ lịch, danh bạ và công việc của shell với Google, mở cửa sổ tài khoản (biểu tượng người trong widget lịch hoặc công việc, cửa sổ Danh bạ hoặc Lịch, hoặc `nixbook-shell ipc call accounts show`) và thêm Google. Lần đầu, cửa sổ hướng dẫn bạn tạo ứng dụng Google Cloud của riêng mình (khoảng 5 phút: một dự án bật các API People, Tasks và Calendar, một ứng dụng đã xuất bản, một client Desktop có tệp JSON để tải về); sau đó trình duyệt mở trang đăng nhập Google. iCloud, Fastmail, Nextcloud hoặc máy chủ CalDAV/CardDAV khác được thêm trong cùng cửa sổ bằng tên người dùng và mật khẩu ứng dụng. Token và mật khẩu được giữ trong keyring.";
     };
     calendarOtherAccounts = {
-      en = "To add another calendar account (Microsoft/Outlook, CalDAV such as Nextcloud, iCloud, an iCal feed URL, a local calendar) or remove one, open DankCalendar (the calendar icon in a calendar or to-do widget, or `dcal show`) and use its settings; `dcal account list` lists the accounts.";
-      fr = "Pour ajouter un autre compte de calendrier (Microsoft/Outlook, CalDAV comme Nextcloud, iCloud, une URL de flux iCal, un calendrier local) ou en retirer un, ouvrez DankCalendar (l'icône calendrier d'un widget calendrier ou tâches, ou `dcal show`) et passez par ses paramètres ; `dcal account list` liste les comptes.";
-      de = "Um ein weiteres Kalenderkonto (Microsoft/Outlook, CalDAV wie Nextcloud, iCloud, eine iCal-Feed-URL, einen lokalen Kalender) hinzuzufügen oder eines zu entfernen, öffne DankCalendar (das Kalendersymbol in einem Kalender- oder Aufgaben-Widget, oder `dcal show`) und nutze seine Einstellungen; `dcal account list` listet die Konten auf.";
-      vi = "Để thêm tài khoản lịch khác (Microsoft/Outlook, CalDAV như Nextcloud, iCloud, URL nguồn iCal, lịch cục bộ) hoặc gỡ một tài khoản, mở DankCalendar (biểu tượng lịch trong widget lịch hoặc công việc, hoặc `dcal show`) và dùng phần cài đặt của nó; `dcal account list` liệt kê các tài khoản.";
+      en = "Accounts are added and removed in the accounts window (`nixbook-shell ipc call accounts show`): Google, iCloud, Fastmail, Nextcloud or any CalDAV/CardDAV server (a user name and an app password; iCloud and Fastmail need an app password made in their settings). Several accounts work together: their calendars, contacts and task lists show side by side. Removing an account takes its data out of the shell, not out of the account. From a terminal: `nixbook-accounts status`, `nixbook-accounts add google`, `nixbook-accounts remove <account>`.";
+      fr = "Les comptes s'ajoutent et se retirent dans la fenêtre des comptes (`nixbook-shell ipc call accounts show`) : Google, iCloud, Fastmail, Nextcloud ou tout serveur CalDAV/CardDAV (un nom d'utilisateur et un mot de passe d'application ; iCloud et Fastmail demandent un mot de passe d'application créé dans leurs réglages). Plusieurs comptes fonctionnent ensemble : leurs calendriers, contacts et listes de tâches s'affichent côte à côte. Retirer un compte enlève ses données du shell, pas du compte. Depuis un terminal : `nixbook-accounts status`, `nixbook-accounts add google`, `nixbook-accounts remove <compte>`.";
+      de = "Konten werden im Kontenfenster hinzugefügt und entfernt (`nixbook-shell ipc call accounts show`): Google, iCloud, Fastmail, Nextcloud oder jeder CalDAV/CardDAV-Server (Benutzername und App-Passwort; iCloud und Fastmail brauchen ein App-Passwort aus ihren Einstellungen). Mehrere Konten arbeiten zusammen: ihre Kalender, Kontakte und Aufgabenlisten erscheinen nebeneinander. Ein Konto zu entfernen nimmt seine Daten aus der Shell, nicht aus dem Konto. Im Terminal: `nixbook-accounts status`, `nixbook-accounts add google`, `nixbook-accounts remove <konto>`.";
+      vi = "Tài khoản được thêm và gỡ trong cửa sổ tài khoản (`nixbook-shell ipc call accounts show`): Google, iCloud, Fastmail, Nextcloud hoặc bất kỳ máy chủ CalDAV/CardDAV nào (tên người dùng và mật khẩu ứng dụng; iCloud và Fastmail cần mật khẩu ứng dụng tạo trong phần cài đặt của chúng). Nhiều tài khoản dùng cùng lúc: lịch, danh bạ và danh sách công việc của chúng hiện cạnh nhau. Gỡ một tài khoản chỉ xóa dữ liệu khỏi shell, không xóa khỏi tài khoản. Từ terminal: `nixbook-accounts status`, `nixbook-accounts add google`, `nixbook-accounts remove <tài-khoản>`.";
     };
     calendarEvents = {
-      en = "Calendar events show as dots in the sidebar, desktop and bar clock calendars; the Next Event bar widget and desktop widget (desktop right click > Widgets) show the next ones, with a Join button for meetings; click a day in the sidebar calendar to see its events and add one (+); clicking the bar clock, the Next Event widget or a day in the desktop calendar opens DankCalendar. Events are created and edited in DankCalendar's window, which syncs them to Google; the shell rereads them every 30 minutes (setting `calendar.refreshMinutes`), and the refresh button in the sidebar calendar's header (or the sync button, right click on the calendar icon) syncs now.";
-      fr = "Les événements du calendrier apparaissent en points dans les calendriers du panneau latéral, du bureau et de l'horloge de la barre ; le widget de barre et le widget de bureau Prochain événement (clic droit sur le bureau > Widgets) montrent les prochains, avec un bouton Rejoindre pour les réunions ; cliquez sur un jour du calendrier du panneau latéral pour voir ses événements et en ajouter un (+) ; un clic sur l'horloge de la barre, le widget Prochain événement ou un jour du calendrier du bureau ouvre DankCalendar. Les événements se créent et se modifient dans la fenêtre de DankCalendar, qui les synchronise avec Google ; le shell les relit toutes les 30 minutes (réglage `calendar.refreshMinutes`), et le bouton d'actualisation dans l'en-tête du calendrier du panneau latéral (ou le bouton de synchronisation, clic droit sur l'icône calendrier) synchronise tout de suite.";
-      de = "Kalendertermine erscheinen als Punkte in den Kalendern der Seitenleiste, des Desktops und der Leistenuhr; das Leisten- und das Desktop-Widget Nächster Termin (Rechtsklick auf den Desktop > Widgets) zeigen die nächsten, mit einem Beitreten-Knopf für Besprechungen; klicke auf einen Tag im Seitenleisten-Kalender, um seine Termine zu sehen und einen hinzuzufügen (+); ein Klick auf die Leistenuhr, das Widget Nächster Termin oder einen Tag im Desktop-Kalender öffnet DankCalendar. Termine werden im Fenster von DankCalendar erstellt und bearbeitet, das sie mit Google synchronisiert; die Shell liest sie alle 30 Minuten neu (Einstellung `calendar.refreshMinutes`), und der Aktualisieren-Knopf im Kopf des Seitenleisten-Kalenders (oder die Synchronisieren-Aktion, Rechtsklick auf das Kalendersymbol) synchronisiert sofort.";
-      vi = "Sự kiện lịch hiện thành chấm trong lịch ở thanh bên, màn hình nền và đồng hồ trên thanh; widget Sự kiện tiếp theo trên thanh và trên màn hình nền (chuột phải màn hình nền > Widgets) hiện các sự kiện sắp tới, có nút Tham gia cho cuộc họp; bấm vào một ngày trong lịch thanh bên để xem sự kiện và thêm mới (+); bấm vào đồng hồ trên thanh, widget Sự kiện tiếp theo hoặc một ngày trong lịch màn hình nền sẽ mở DankCalendar. Sự kiện được tạo và sửa trong cửa sổ DankCalendar, nơi đồng bộ chúng lên Google; shell đọc lại mỗi 30 phút (cài đặt `calendar.refreshMinutes`), và nút làm mới ở đầu lịch thanh bên (hoặc nút đồng bộ, chuột phải vào biểu tượng lịch) đồng bộ ngay.";
+      en = "Calendar events show as dots in the sidebar, desktop and bar clock calendars; the Next Event bar widget and desktop widget (desktop right click > Widgets) show the next ones, with a Join button for meetings. The Calendar window (launcher entry Calendar, a click on the bar clock or a calendar day, `nixbook-shell ipc call calendar show`) shows the month and each day's events; an event opens in its editor (title, time, calendar, repeat, reminders, place; for a recurring event, this occurrence or all of them), New (Ctrl+N) adds one. Changes go to the event's account at once; the shell syncs every 30 minutes (setting `calendar.refreshMinutes`), and the sync button (the sidebar calendar's header, the Calendar window, F5) syncs now.";
+      fr = "Les événements du calendrier apparaissent en points dans les calendriers du panneau latéral, du bureau et de l'horloge de la barre ; le widget de barre et le widget de bureau Prochain événement (clic droit sur le bureau > Widgets) montrent les prochains, avec un bouton Rejoindre pour les réunions. La fenêtre Agenda (entrée Calendar du lanceur, un clic sur l'horloge de la barre ou un jour du calendrier, `nixbook-shell ipc call calendar show`) montre le mois et les événements de chaque jour ; un événement s'ouvre dans son éditeur (titre, heure, calendrier, répétition, rappels, lieu ; pour un événement récurrent, cette occurrence ou toutes), Nouveau (Ctrl+N) en ajoute un. Les modifications partent tout de suite vers le compte de l'événement ; le shell synchronise toutes les 30 minutes (réglage `calendar.refreshMinutes`), et le bouton de synchronisation (en-tête du calendrier du panneau latéral, fenêtre Agenda, F5) synchronise tout de suite.";
+      de = "Kalendertermine erscheinen als Punkte in den Kalendern der Seitenleiste, des Desktops und der Leistenuhr; das Leisten- und das Desktop-Widget Nächster Termin (Rechtsklick auf den Desktop > Widgets) zeigen die nächsten, mit einem Beitreten-Knopf für Besprechungen. Das Kalenderfenster (Starter-Eintrag Calendar, ein Klick auf die Leistenuhr oder einen Kalendertag, `nixbook-shell ipc call calendar show`) zeigt den Monat und die Termine jedes Tages; ein Termin öffnet sich im Editor (Titel, Zeit, Kalender, Wiederholung, Erinnerungen, Ort; bei wiederkehrenden Terminen dieses Vorkommen oder alle), Neu (Strg+N) legt einen an. Änderungen gehen sofort an das Konto des Termins; die Shell synchronisiert alle 30 Minuten (Einstellung `calendar.refreshMinutes`), und der Synchronisieren-Knopf (Kopf des Seitenleisten-Kalenders, Kalenderfenster, F5) synchronisiert sofort.";
+      vi = "Sự kiện lịch hiện thành chấm trong lịch ở thanh bên, màn hình nền và đồng hồ trên thanh; widget Sự kiện tiếp theo trên thanh và trên màn hình nền (chuột phải màn hình nền > Widgets) hiện các sự kiện sắp tới, có nút Tham gia cho cuộc họp. Cửa sổ Lịch (mục Calendar trong trình khởi chạy, bấm vào đồng hồ trên thanh hoặc một ngày trong lịch, `nixbook-shell ipc call calendar show`) hiện cả tháng và sự kiện từng ngày; một sự kiện mở trong trình chỉnh sửa (tiêu đề, thời gian, lịch, lặp lại, nhắc nhở, địa điểm; với sự kiện lặp lại: lần này hoặc tất cả), Mới (Ctrl+N) thêm sự kiện. Thay đổi được gửi ngay đến tài khoản của sự kiện; shell đồng bộ mỗi 30 phút (cài đặt `calendar.refreshMinutes`), và nút đồng bộ (đầu lịch thanh bên, cửa sổ Lịch, F5) đồng bộ ngay.";
     };
     calendarReminders = {
-      en = "Calendar reminders (event notifications) come from DankCalendar: a notification before each event at the event's own Google reminder times, or 10 minutes before by default, with Join (meeting link), Open, Snooze and Dismiss buttons; it stays until handled and respects Do Not Disturb. The default time, sound, snooze length and all-day reminders are set in DankCalendar's settings (open it from a calendar widget); `dcal reminders test` sends a test one.";
-      fr = "Les rappels du calendrier (notifications d'événements) viennent de DankCalendar : une notification avant chaque événement aux horaires de rappel Google de l'événement, ou 10 minutes avant par défaut, avec les boutons Rejoindre (lien de réunion), Ouvrir, Reporter et Ignorer ; elle reste jusqu'à ce qu'on la traite et respecte le mode Ne pas déranger. Le délai par défaut, le son, la durée de report et les rappels des journées entières se règlent dans les paramètres de DankCalendar (ouvrez-le depuis un widget calendrier) ; `dcal reminders test` en envoie un de test.";
-      de = "Kalendererinnerungen (Terminbenachrichtigungen) kommen von DankCalendar: eine Benachrichtigung vor jedem Termin zu dessen Google-Erinnerungszeiten, sonst standardmäßig 10 Minuten vorher, mit den Knöpfen Beitreten (Besprechungslink), Öffnen, Schlummern und Verwerfen; sie bleibt, bis sie erledigt ist, und respektiert Nicht stören. Standardzeit, Ton, Schlummerdauer und ganztägige Erinnerungen stellst du in den Einstellungen von DankCalendar ein (über ein Kalender-Widget öffnen); `dcal reminders test` schickt eine Testerinnerung.";
-      vi = "Nhắc nhở lịch (thông báo sự kiện) đến từ DankCalendar: một thông báo trước mỗi sự kiện theo thời gian nhắc của sự kiện trên Google, hoặc mặc định 10 phút trước, có các nút Tham gia (liên kết họp), Mở, Báo lại và Bỏ qua; thông báo ở lại đến khi được xử lý và tôn trọng chế độ Không làm phiền. Thời gian mặc định, âm thanh, thời lượng báo lại và nhắc cả ngày được đặt trong cài đặt của DankCalendar (mở từ widget lịch); `dcal reminders test` gửi một thông báo thử.";
+      en = "Calendar reminders are the shell's own notifications (app \"Calendar\"): one at each reminder time of an event (its own reminders, else its calendar's defaults, as set in Google Calendar or on the server), with Join (a meeting link), Snooze 5 min and Open (the Calendar window on that day); it stays until handled and respects Do Not Disturb. An event's reminders are set in its editor (none, at the start, 5, 10, 30 minutes, 1 hour, 1 day before). A reminder missed while the shell wasn't running shows if at most 10 minutes late.";
+      fr = "Les rappels du calendrier sont des notifications du shell lui-même (application « Calendar ») : une à chaque horaire de rappel d'un événement (ses propres rappels, sinon ceux par défaut de son calendrier, tels que réglés dans Google Agenda ou sur le serveur), avec Rejoindre (lien de réunion), Reporter 5 min et Ouvrir (la fenêtre Agenda sur ce jour) ; elle reste jusqu'à ce qu'on la traite et respecte Ne pas déranger. Les rappels d'un événement se règlent dans son éditeur (aucun, au début, 5, 10, 30 minutes, 1 heure, 1 jour avant). Un rappel manqué pendant que le shell ne tournait pas s'affiche s'il a au plus 10 minutes de retard.";
+      de = "Kalendererinnerungen sind Benachrichtigungen der Shell selbst (App „Calendar“): eine zu jeder Erinnerungszeit eines Termins (seine eigenen Erinnerungen, sonst die Standardwerte seines Kalenders, wie in Google Kalender oder auf dem Server eingestellt), mit Beitreten (Besprechungslink), 5 Min. schlummern und Öffnen (das Kalenderfenster an diesem Tag); sie bleibt, bis sie erledigt ist, und respektiert Nicht stören. Die Erinnerungen eines Termins stellst du in seinem Editor ein (keine, zu Beginn, 5, 10, 30 Minuten, 1 Stunde, 1 Tag vorher). Eine verpasste Erinnerung, während die Shell nicht lief, erscheint, wenn sie höchstens 10 Minuten zu spät ist.";
+      vi = "Nhắc nhở lịch là thông báo của chính shell (ứng dụng \"Calendar\"): một thông báo vào mỗi thời điểm nhắc của sự kiện (nhắc nhở riêng của sự kiện, nếu không thì mặc định của lịch, như đã đặt trong Google Lịch hoặc trên máy chủ), có nút Tham gia (liên kết họp), Báo lại 5 phút và Mở (cửa sổ Lịch vào ngày đó); thông báo ở lại đến khi được xử lý và tôn trọng chế độ Không làm phiền. Nhắc nhở của sự kiện được đặt trong trình chỉnh sửa (không có, lúc bắt đầu, 5, 10, 30 phút, 1 giờ, 1 ngày trước). Nhắc nhở bị lỡ khi shell không chạy vẫn hiện nếu trễ không quá 10 phút.";
     };
     calendarTasks = {
-      en = "The to-do list (sidebar, desktop widget, bar clock popup, the launcher's add task) is synced with Google Tasks once a Google account is connected: adding, ticking and deleting a task changes it in the account, new tasks go to the first task list, and finished tasks stay listed for 14 days. Without an account it is a local list.";
-      fr = "La liste de tâches (panneau latéral, widget du bureau, popup de l'horloge, l'ajout de tâche du lanceur) est synchronisée avec Google Tasks dès qu'un compte Google est connecté : ajouter, cocher ou supprimer une tâche la modifie dans le compte, les nouvelles tâches vont dans la première liste, et les tâches terminées restent affichées 14 jours. Sans compte, c'est une liste locale.";
-      de = "Die Aufgabenliste (Seitenleiste, Desktop-Widget, Uhr-Popup der Leiste, Aufgabe hinzufügen im Starter) wird mit Google Tasks synchronisiert, sobald ein Google-Konto verbunden ist: Hinzufügen, Abhaken und Löschen ändert die Aufgabe im Konto, neue Aufgaben landen in der ersten Aufgabenliste, und erledigte bleiben 14 Tage sichtbar. Ohne Konto ist es eine lokale Liste.";
-      vi = "Danh sách công việc (thanh bên, widget màn hình nền, popup đồng hồ trên thanh, thêm công việc từ trình khởi chạy) được đồng bộ với Google Tasks khi đã kết nối tài khoản Google: thêm, đánh dấu xong và xóa công việc sẽ thay đổi trong tài khoản, công việc mới vào danh sách đầu tiên, và công việc đã xong vẫn hiện trong 14 ngày. Khi chưa có tài khoản, đó là danh sách cục bộ.";
+      en = "The to-do list (sidebar, desktop widget, bar clock popup, the launcher's add task) is your accounts' task lists (Google Tasks, the to-do lists of a CalDAV server such as iCloud's Reminders) once an account is added: adding, ticking, moving and deleting a task changes it in its account, new tasks go to the first task list, and finished tasks stay listed for 14 days. Without an account it is a local list.";
+      fr = "La liste de tâches (panneau latéral, widget du bureau, popup de l'horloge, l'ajout de tâche du lanceur) est formée des listes de tâches de vos comptes (Google Tasks, les listes de tâches d'un serveur CalDAV comme les Rappels d'iCloud) dès qu'un compte est ajouté : ajouter, cocher, déplacer ou supprimer une tâche la modifie dans son compte, les nouvelles tâches vont dans la première liste, et les tâches terminées restent affichées 14 jours. Sans compte, c'est une liste locale.";
+      de = "Die Aufgabenliste (Seitenleiste, Desktop-Widget, Uhr-Popup der Leiste, Aufgabe hinzufügen im Starter) besteht aus den Aufgabenlisten deiner Konten (Google Tasks, die Aufgabenlisten eines CalDAV-Servers wie die Erinnerungen von iCloud), sobald ein Konto hinzugefügt ist: Hinzufügen, Abhaken, Verschieben und Löschen ändert die Aufgabe in ihrem Konto, neue Aufgaben landen in der ersten Aufgabenliste, und erledigte bleiben 14 Tage sichtbar. Ohne Konto ist es eine lokale Liste.";
+      vi = "Danh sách công việc (thanh bên, widget màn hình nền, popup đồng hồ trên thanh, thêm công việc từ trình khởi chạy) là các danh sách công việc của tài khoản bạn (Google Tasks, danh sách việc của máy chủ CalDAV như Lời nhắc của iCloud) khi đã thêm tài khoản: thêm, đánh dấu xong, chuyển và xóa công việc sẽ thay đổi trong tài khoản của nó, công việc mới vào danh sách đầu tiên, và công việc đã xong vẫn hiện trong 14 ngày. Khi chưa có tài khoản, đó là danh sách cục bộ.";
     };
     calendarTroubleshoot = {
-      en = "If the calendar shows no events or the to-do list isn't synced, check the DankCalendar daemon with `systemctl --user status dcal` and its logs with `journalctl --user -u dcal`; `dcal account list` shows the accounts, `dcal sync` syncs now, and `dcal account reauth <account-id>` signs in again when Google asks.";
-      fr = "Si le calendrier n'affiche aucun événement ou si la liste de tâches n'est pas synchronisée, vérifiez le démon DankCalendar avec `systemctl --user status dcal` et ses journaux avec `journalctl --user -u dcal` ; `dcal account list` montre les comptes, `dcal sync` synchronise tout de suite, et `dcal account reauth <id-du-compte>` reconnecte quand Google le demande.";
-      de = "Wenn der Kalender keine Termine zeigt oder die Aufgabenliste nicht synchronisiert wird, prüfe den DankCalendar-Dienst mit `systemctl --user status dcal` und seine Logs mit `journalctl --user -u dcal`; `dcal account list` zeigt die Konten, `dcal sync` synchronisiert sofort, und `dcal account reauth <konto-id>` meldet neu an, wenn Google danach fragt.";
-      vi = "Nếu lịch không hiện sự kiện hoặc danh sách công việc không đồng bộ, kiểm tra dịch vụ DankCalendar bằng `systemctl --user status dcal` và nhật ký bằng `journalctl --user -u dcal`; `dcal account list` hiện các tài khoản, `dcal sync` đồng bộ ngay, và `dcal account reauth <id-tài-khoản>` đăng nhập lại khi Google yêu cầu.";
+      en = "If the calendar, contacts or to-do list aren't synced, open the accounts window (`nixbook-shell ipc call accounts show`): an account that needs signing in again says so (Sign in). From a terminal, `nixbook-accounts status` shows each account and its last sync failure, and `nixbook-accounts calendar sync`, `contacts sync` or `tasks sync` sync now (their error, if any, is printed). The local copies are in ~/.local/state/nixbook-accounts/.";
+      fr = "Si le calendrier, les contacts ou la liste de tâches ne se synchronisent pas, ouvrez la fenêtre des comptes (`nixbook-shell ipc call accounts show`) : un compte à reconnecter le signale (Se connecter). Depuis un terminal, `nixbook-accounts status` montre chaque compte et son dernier échec de synchronisation, et `nixbook-accounts calendar sync`, `contacts sync` ou `tasks sync` synchronisent tout de suite (en affichant l'erreur s'il y en a une). Les copies locales sont dans ~/.local/state/nixbook-accounts/.";
+      de = "Wenn Kalender, Kontakte oder Aufgabenliste nicht synchronisiert werden, öffne das Kontenfenster (`nixbook-shell ipc call accounts show`): ein Konto, das neu angemeldet werden muss, sagt es (Anmelden). Im Terminal zeigt `nixbook-accounts status` jedes Konto und seinen letzten Synchronisierungsfehler, und `nixbook-accounts calendar sync`, `contacts sync` oder `tasks sync` synchronisieren sofort (mit dem Fehler, falls einer auftritt). Die lokalen Kopien liegen in ~/.local/state/nixbook-accounts/.";
+      vi = "Nếu lịch, danh bạ hoặc danh sách công việc không đồng bộ, mở cửa sổ tài khoản (`nixbook-shell ipc call accounts show`): tài khoản cần đăng nhập lại sẽ báo (Đăng nhập). Từ terminal, `nixbook-accounts status` hiện từng tài khoản và lỗi đồng bộ gần nhất, và `nixbook-accounts calendar sync`, `contacts sync` hoặc `tasks sync` đồng bộ ngay (in ra lỗi nếu có). Bản sao cục bộ nằm trong ~/.local/state/nixbook-accounts/.";
     };
   };
 
@@ -877,8 +877,8 @@ in
           Answers to "how do I …" questions about the system, by name: `apply`,
           `update`, `rollback`, `generations`, `gc`, `search`, `try`,
           `install`, `logs`, `options` (generic NixOS ones by default, Home
-          Manager ones without NixOS), and how the calendars and to-do list
-          sync through DankCalendar: `calendarConnect`,
+          Manager ones without NixOS), and how the calendars, contacts and
+          to-do list sync through the shell's accounts: `calendarConnect`,
           `calendarOtherAccounts`, `calendarEvents`, `calendarReminders`, `calendarTasks`,
           `calendarTroubleshoot`. Set one to your configuration's own way
           (a deploy tool, an update script), or to null to drop it; the others
@@ -1068,9 +1068,43 @@ in
           settings.Keywords = "notes;note;memo;sticky;jot;";
         };
 
+        # Launcher entry for the Calendar window (every account's events,
+        # through nixbook-accounts).
+        xdg.desktopEntries.nixbook-shell-calendar = {
+          name = "Calendar";
+          genericName = "Calendar";
+          comment = "Your calendars: the month, each day's events, new events";
+          exec = "${lib.getExe cfg.package} ipc call calendar show";
+          icon = "x-office-calendar";
+          terminal = false;
+          categories = [
+            "Office"
+            "Calendar"
+          ];
+          settings.Keywords = "calendar;events;agenda;meeting;appointment;schedule;google calendar;icloud;";
+        };
+
+        # Launcher entry for the Contacts window (Google Contacts, through
+        # nixbook-accounts).
+        xdg.desktopEntries.nixbook-shell-contacts = {
+          name = "Contacts";
+          genericName = "Contacts";
+          comment = "Your contacts: search, call, write, edit";
+          exec = "${lib.getExe cfg.package} ipc call contacts show";
+          icon = "x-office-address-book";
+          terminal = false;
+          categories = [
+            "Office"
+            "ContactManagement"
+          ];
+          settings.Keywords = "contacts;people;address book;phone;email;google contacts;birthday;";
+        };
+
         home.packages = [
           cfg.package
           cfg.package.passthru.quickshell
+          # `nixbook-accounts status|add|remove…` from a terminal too.
+          cfg.package.passthru.accounts
           # The faces appearance.fonts names (fonts.nix).
           cfg.package.passthru.fonts
           # Condensed display face used by the optional Persona theme
@@ -1082,8 +1116,6 @@ in
           # (Rajdhani, the Cyberpunk 2077 theme's condensed tech face, and
           # Zen Maru Gothic and Klee One, the Studio Ghibli theme's faces, are
           # in fonts.nix: nixpkgs doesn't ship them.)
-          # `dcal`: DankCalendar's CLI (accounts, sync) for the user too.
-          cfg.package.passthru.dankcalendar
           # `nixbook-desktop-mcp`: the desktop control MCP server, for
           # `claude mcp add` and the like, and its pause/resume kill switch.
           cfg.package.passthru.desktopMcp
@@ -1146,32 +1178,6 @@ in
           };
           Service = {
             ExecStart = lib.getExe cfg.package;
-            Restart = "on-failure";
-            RestartSec = 2;
-            Slice = "app.slice";
-          };
-          Install.WantedBy = [ "graphical-session.target" ];
-        };
-
-        # DankCalendar's daemon, behind the shell's calendars and to-do list
-        # (sync, reminders, tray icon; its window opens on demand), as its own
-        # dcal.service does. Its window is a quickshell instance started from
-        # PATH: the shell's quickshell is put first, so the window (what
-        # "Open DankCalendar" and the calendar clicks show) exists whatever the
-        # user manager's PATH holds.
-        systemd.user.services.dcal = {
-          Unit = {
-            Description = "DankCalendar (calendar sync for nixbook-shell)";
-            PartOf = [ "graphical-session.target" ];
-            After = [ "graphical-session.target" ];
-          };
-          Service = {
-            ExecStart = toString (
-              pkgs.writeShellScript "dcal-session" ''
-                export PATH=${lib.makeBinPath [ cfg.package.passthru.quickshell ]}''${PATH:+:$PATH}
-                exec ${lib.getExe cfg.package.passthru.dankcalendar} run --session --hidden
-              ''
-            );
             Restart = "on-failure";
             RestartSec = 2;
             Slice = "app.slice";

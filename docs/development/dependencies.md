@@ -15,7 +15,7 @@ Nixbook uses no flakes: every external input is pinned with [npins](https://gith
 
 Some pins are **frozen** (`npins freeze`) to stay on a known-good version; the update workflow skips them.
 
-`nixbook-shell/` has its own `npins/` (nixpkgs, quickshell, dankcalendar) so it can be used outside nixbook; inside nixbook, the repository's pins are passed to it instead.
+`nixbook-shell/` has its own `npins/` (nixpkgs, quickshell) so it can be used outside nixbook; inside nixbook, the repository's pins are passed to it instead.
 
 ## Updating
 

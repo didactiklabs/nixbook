@@ -255,6 +255,8 @@ case "$*" in
   *"notes addFromFile"*) cat "${*: -1}" >"$STUB_CALLS.note"; echo "ok: 18-2" ;;
   *"notes updateFromFile"*) cat "${*: -1}" >"$STUB_CALLS.note"; echo "ok: 17-1" ;;
   *"notes open"*) echo "ok: opened the Notes app" ;;
+  *"contacts open nope"*) echo 'error: no contact "nope"' ;;
+  *"contacts open"*) echo "ok: opened the Contacts app" ;;
   *"notes remove"*)
     if [ "${*: -1}" = "nope" ]; then echo 'error: no note "nope"'; else echo "ok: 17-1"; fi ;;
   # Tasks travel through transfer files both ways (Todo.qml query/apply):
@@ -289,10 +291,40 @@ case "$*" in
   *"musicRecognition status"*) echo '{"listening":false,"source":"system sound","last":{"title":"Take Flight","subtitle":"SPYAIR"}}' ;;
   *"musicRecognition "*) echo "ok: ${*: -1}" ;;
   *"calendar next"*)
-    if [ -n "${STUB_NO_DCAL:-}" ]; then echo "error: DankCalendar (dcal) isn't running"; else
+    if [ -n "${STUB_NO_ACCOUNT:-}" ]; then echo "error: no account connected (add one in the accounts window)"; else
       echo '{"now":"2026-09-30T10:00","next":{"summary":"Standup","start":"2026-09-30T10:30","when":"in 30 min"}}'; fi ;;
   *"calendar upcoming"*) echo "{\"days\":${*: -1},\"events\":[]}" ;;
   *"calendar day"*) echo "{\"date\":\"${*: -1}\",\"events\":[]}" ;;
+  *"calendar open"*|*"calendar show"*) echo "ok: opened the Calendar window" ;;
+esac
+EOF
+# The shell's accounts backend: its arguments logged ($STUB_CALLS.google), a
+# request kept ($STUB_CALLS.contacts), each change answered (id "nope"
+# fails); STUB_GOOGLE_SIGNED_OUT: no account (exit 2).
+cat >"$bin/nixbook-accounts" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$STUB_CALLS.google"
+if [ -n "${STUB_GOOGLE_SIGNED_OUT:-}" ]; then echo '{"error":"no Google account connected","auth":true}'; exit 2; fi
+case "$1 $2" in
+  "status ") echo '{"accounts":[{"id":"google-1","provider":"google","name":"me@example.com","connected":true}]}' ;;
+  "contacts list")
+    echo '{"account":"me@example.com","syncedAt":1792224000000,"total":2,"labels":[{"id":"g1","name":"Family","count":1}],"contacts":[{"id":"google-1:c1","account":"google-1","name":"Élodie Martin","givenName":"Élodie","familyName":"Martin","nickname":"","emails":[{"value":"elodie@example.com","type":"work"}],"phones":[{"value":"+33 6 12 34 56 78","type":""}],"organization":"Acme","title":"","addresses":[{"value":"1 Main St\nSpringfield","type":"home"}],"birthday":"--04-02","notes":"","urls":[],"photo":"https://x/p","starred":true,"labels":["Family"],"updated":"2026-10-01T10:00:00Z"},{"id":"google-1:c2","account":"google-1","name":"Bob","givenName":"Bob","familyName":"","nickname":"","emails":[],"phones":[],"organization":"","title":"","addresses":[],"birthday":"","notes":"","urls":[],"photo":"","starred":false,"labels":[],"updated":""}]}' ;;
+  "contacts get")
+    if [ "$3" = "nope" ]; then echo "{\"error\":\"no contact 'nope' (list or sync first)\"}"; exit 1; fi
+    echo '{"id":"c2","name":"Bob","emails":[],"phones":[{"value":"0123","type":"mobile"}],"labels":[],"starred":false,"photo":""}' ;;
+  "contacts sync") echo '{"full":false,"changed":3,"count":2,"syncedAt":1792224000000}' ;;
+  "calendar calendars") echo '{"calendars":[{"id":"google-1:primary","account":"google-1","name":"Me","color":"#039be5","primary":true,"readOnly":false,"order":0,"defaultReminders":[10]}]}' ;;
+  "calendar apply")
+    printf '%s' "$3" >"$STUB_CALLS.calendar"
+    jq -c 'if .id == "nope" then [{ok: false, error: "no event '"'"'nope'"'"' (list or sync first)"}]
+      elif .op == "delete" then [{ok: true, result: {deleted: .id, summary: "Standup"}}]
+      else [{ok: true, result: {id: (.id // "google-1:ev9"), account: "google-1", calendarId: "google-1:primary", summary: (.summary // "Standup"), start: (.start // "2026-10-20T09:30:00+02:00"), end: "2026-10-20T10:30:00+02:00", allDay: false, location: "", recurrence: null, updated: "x"}}] end' <<<"$3" ;;
+  "contacts apply")
+    printf '%s' "$3" >"$STUB_CALLS.contacts"
+    jq -c '(if .ops then .ops else [.] end) | map(if .id == "nope" then {ok: false, error: "no contact '"'"'nope'"'"'"}
+      elif .op == "delete" then {ok: true, result: {deleted: .id, name: "Bob"}}
+      else {ok: true, result: {id: (.id // "c9"), name: (.name // .givenName // "Bob"), emails: [], phones: [], starred: (.op == "star"), labels: [], photo: ""}} end)' <<<"$3" ;;
+  *) echo '{"error":"unexpected"}'; exit 1 ;;
 esac
 EOF
 chmod +x "$bin"/*
@@ -372,7 +404,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 47 tools" 47 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 48 tools" 48 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -1840,6 +1872,40 @@ expect_eq "tasks delete_list: the request" '{"op":"delete_list","list":"Work"}' 
 expect_contains "tasks: list name capped" "$(call tasks "{\"action\":\"create_list\",\"name\":\"$too_long\"}")" "at most 200"
 expect_contains "tasks batch: at most 50" "$(call tasks "{\"action\":\"batch\",\"ops\":$(jq -nc '[range(51) | {action: "done", task: "t1"}]')}")" "1 to 50"
 
+# Contacts (nixbook-accounts, called directly; the app through the shell).
+out=$(call contacts '{"action":"list","query":"elodie"}')
+expect_eq "contacts list: the backend's arguments" "contacts list --query elodie --limit 25" "$(grep '^contacts list' "$STUB_CALLS.google" | tail -1)"
+expect_eq "contacts list: compact contacts" '{"id":"google-1:c1","account":"google-1","name":"Élodie Martin","givenName":"Élodie","familyName":"Martin","emails":["elodie@example.com (work)"],"phones":["+33 6 12 34 56 78"],"organization":"Acme","addresses":["1 Main St, Springfield (home)"],"birthday":"--04-02","starred":true,"labels":["Family"]}' "$(jq -c '.contacts[0]' <<<"$out")"
+expect_eq "contacts list: empty fields left out" '{"id":"google-1:c2","account":"google-1","name":"Bob","givenName":"Bob"}' "$(jq -c '.contacts[1]' <<<"$out")"
+expect_eq "contacts list: labels, total" "Family 2" "$(jq -r '"\(.labels[0].name) \(.total)"' <<<"$out")"
+expect_eq "contacts list: the accounts" "google-1 me@example.com" "$(jq -r '.accounts[0] | "\(.id) \(.name)"' <<<"$out")"
+call contacts '{"action":"list","label":"Family","account":"google-1","starred":true,"limit":5}' >/dev/null
+expect_eq "contacts list: filters" "contacts list --label Family --account google-1 --starred --limit 5" "$(grep '^contacts list' "$STUB_CALLS.google" | tail -1)"
+expect_contains "contacts list: limit checked" "$(call contacts '{"action":"list","limit":0}')" "1 to 500"
+expect_eq "contacts get" "0123 (mobile)" "$(call contacts '{"action":"get","id":"c2"}' | jq -r '.phones[0]')"
+expect_contains "contacts get: unknown" "$(call contacts '{"action":"get","id":"nope"}')" "no contact 'nope'"
+call contacts '{"action":"sync","full":true}' >/dev/null
+expect_eq "contacts sync" "contacts sync --full" "$(tail -1 "$STUB_CALLS.google")"
+out=$(call contacts '{"action":"create","account":"work@example.com","name":"Zoé Durand","phones":["+33 7 00 11 22 33"],"emails":[{"value":"zoe@example.com","type":"home"}],"labels":["Family"],"birthday":"1990-04-02","starred":true}')
+expect_eq "contacts create: the request" '{"op":"create","name":"Zoé Durand","birthday":"1990-04-02","account":"work@example.com","emails":[{"value":"zoe@example.com","type":"home"}],"phones":["+33 7 00 11 22 33"],"labels":["Family"],"starred":true}' "$(jq -c . "$STUB_CALLS.contacts")"
+expect_eq "contacts create: the contact back" '{"id":"c9","name":"Zoé Durand"}' "$(jq -c . <<<"$out")"
+call contacts '{"action":"update","id":"c2","birthday":null,"emails":"bob@example.com"}' >/dev/null
+expect_eq "contacts update: null clears, one string is a list" '{"op":"update","birthday":"","id":"c2","emails":["bob@example.com"]}' "$(jq -c . "$STUB_CALLS.contacts")"
+expect_eq "contacts delete" "deleted Bob" "$(call contacts '{"action":"delete","id":"c2"}')"
+expect_contains "contacts update: unknown contact" "$(call contacts '{"action":"update","id":"nope","title":"x"}')" "no contact 'nope'"
+call contacts '{"action":"rename_label","label":"Family","label_name":"Famille"}' >/dev/null
+expect_eq "contacts rename_label: the request" '{"op":"rename_label","label":"Family","name":"Famille"}' "$(jq -c . "$STUB_CALLS.contacts")"
+out=$(call contacts '{"action":"batch","ops":[{"action":"star","id":"c1"},{"action":"star","id":"nope"}]}')
+expect_contains "contacts batch: each reported" "$out" "1/2 done"
+expect_contains "contacts batch: the error" "$out" "2. error: no contact 'nope'"
+expect_contains "contacts batch: at most 50" "$(call contacts "{\"action\":\"batch\",\"ops\":$(jq -nc '[range(51) | {action: "star", id: "c1"}]')}")" "1 to 50"
+expect_contains "contacts: names capped" "$(call contacts "{\"action\":\"update\",\"id\":\"c1\",\"name\":\"$(printf 'a%.0s' $(seq 400))\"}")" "at most 300"
+expect_contains "contacts: unknown action" "$(call contacts '{"action":"merge"}')" "merge"
+expect_contains "contacts: signed out" "$(STUB_GOOGLE_SIGNED_OUT=1 call contacts '{"action":"list"}')" "No account is connected"
+call contacts '{"action":"open","id":"google-1:c1"}' >/dev/null
+expect_eq "contacts open: the app, on that contact" "qs -c nixbook-shell ipc call -- contacts open google-1:c1" "$(last_call)"
+expect_contains "contacts open: unknown" "$(call contacts '{"action":"open","id":"nope"}')" "no contact"
+
 # Music recognition and the calendar (SongRec.qml, CalendarEvents.qml).
 out=$(call widget '{"widget":"shazam","action":"status"}')
 expect_eq "widget music status" "Take Flight" "$(jq -r '.last.title' <<<"$out")"
@@ -1855,7 +1921,18 @@ call calendar '{"action":"day","date":"2026-10-02"}' >/dev/null
 expect_eq "calendar day" "qs -c nixbook-shell ipc call -- calendar day 2026-10-02" "$(last_call)"
 expect_contains "calendar: date checked" "$(call calendar '{"action":"day","date":"tomorrow"}')" "invalid value"
 expect_contains "calendar: days checked" "$(call calendar '{"action":"upcoming","days":400}')" "from 1 to 60"
-expect_contains "calendar: no dcal reported" "$(STUB_NO_DCAL=1 call calendar '{"action":"next"}')" "isn't running"
+expect_contains "calendar: no account said" "$(STUB_NO_ACCOUNT=1 call calendar '{"action":"next"}')" "no account connected"
+expect_eq "calendar calendars" '[{"id":"google-1:primary","name":"Me","account":"google-1","primary":true,"readOnly":false}]' "$(call calendar '{"action":"calendars"}' | jq -c .calendars)"
+out=$(call calendar '{"action":"create","summary":"Dentist","start":"2026-11-03T09:00","reminders":[30],"recurrence":"weekly","calendar":"Me"}')
+expect_eq "calendar create: the request" '{"op":"create","calendar":"Me","summary":"Dentist","start":"2026-11-03T09:00","reminders":[30],"recurrence":"weekly"}' "$(jq -c . "$STUB_CALLS.calendar")"
+expect_eq "calendar create: the event back, empty fields left out" '{"id":"google-1:ev9","calendarId":"google-1:primary","summary":"Dentist","start":"2026-11-03T09:00","end":"2026-10-20T10:30:00+02:00","allDay":false}' "$(jq -c . <<<"$out")"
+call calendar '{"action":"update","id":"google-1:ev1","occurrence":"2026-10-27T09:30:00+01:00","all":true,"start":"2026-10-27T10:00","location":null}' >/dev/null
+expect_eq "calendar update: a series from an occurrence" '{"op":"update","id":"google-1:ev1","occurrence":"2026-10-27T09:30:00+01:00","start":"2026-10-27T10:00","location":"","all":true}' "$(jq -c . "$STUB_CALLS.calendar")"
+expect_contains "calendar delete" "$(call calendar '{"action":"delete","id":"google-1:ev1"}')" "Standup"
+expect_contains "calendar: an unknown event" "$(call calendar '{"action":"delete","id":"nope"}')" "no event 'nope'"
+expect_contains "calendar: reminders checked" "$(call calendar '{"action":"create","summary":"x","start":"2026-11-03","reminders":[-5]}')" "minutes before"
+call calendar '{"action":"open","date":"2026-11-03"}' >/dev/null
+expect_eq "calendar open: on that day" "qs -c nixbook-shell ipc call -- calendar open 2026-11-03" "$(last_call)"
 
 # -- pause, groups, rate limit ---------------------------------------------------
 

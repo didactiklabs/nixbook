@@ -190,7 +190,7 @@ BarWidgetSwitcher {
         id: mouseArea
         anchors.fill: parent
         hoverEnabled: !Config.options.bar.tooltips.clickToShow
-        // Left click: DankCalendar (the calendar and its events); right
+        // Left click: the Calendar window (the month and its events); right
         // click: sync now. Hover: the calendar popup.
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         cursorShape: Qt.PointingHandCursor

@@ -41,7 +41,7 @@ nixbook-shell ipc call personaCutIn explain                 # why the last one d
 
 ## Quiet rules
 
-`notifications.quiet` (Settings → Bar → Notifications → Quiet) keeps matching notifications out of popups, cut-ins and the chime — they still reach the centre and history. nixbook quiets the copies of calendar reminders that the phone (via KDE Connect) and the browser also send, so only DankCalendar's reminder pops up.
+`notifications.quiet` (Settings → Bar → Notifications → Quiet) keeps matching notifications out of popups, cut-ins and the chime — they still reach the centre and history. nixbook quiets the copies of calendar reminders that the phone (via KDE Connect) and the browser also send, so only the shell's own reminder pops up.
 
 ## Duplicates
 

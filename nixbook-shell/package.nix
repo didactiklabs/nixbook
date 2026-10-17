@@ -1,8 +1,6 @@
 {
   pkgs,
   quickshellSrc,
-  dankcalendarSrc,
-  flakeCompatSrc,
   # The VPN CLIs behind the VpnStatus bar widget (services/VpnState.qml probes
   # them with `command -v`, so the widget only shows the ones it finds). Off
   # where they are on the PATH anyway or not used, to keep them out of the
@@ -20,7 +18,7 @@ let
 
   shell = import ./qml.nix { inherit pkgs; };
   quickshell = import ./quickshell.nix { inherit pkgs quickshellSrc; };
-  dankcalendar = import ./dankcalendar.nix { inherit pkgs dankcalendarSrc flakeCompatSrc; };
+  accounts = import ./accounts.nix { inherit pkgs; };
   settingsLib = import ./lib.nix { inherit lib; };
   fonts = import ./fonts.nix { inherit pkgs; };
   inherit (shell.passthru) configName;
@@ -49,6 +47,7 @@ let
           systemd # systemctl: starts the agent desktop (agentDesktop)
           pciutils # lspci: GPU names (system_info)
           playerctl # the music every player plays (usage habits: music taste)
+          accounts # nixbook-accounts: the contacts tool
         ]
       )
     }:$PATH"
@@ -173,7 +172,7 @@ let
     ++ lib.optional withNetbird pkgs.netbird # VpnStatus bar widget — `netbird status/up/down/profile`
     ++ [
       quickshell # `qs` — the shell re-invokes itself for sub-windows
-      dankcalendar # `dcal` — calendar events and tasks (CalendarEvents, Todo)
+      accounts # `nixbook-accounts` — the accounts, contacts and tasks (services/Accounts.qml)
       shell.passthru.pythonEnv
       anthropicUsage # `anthropic-usage` — AnthropicUsage bar widget
       desktopMcp # `nixbook-desktop-mcp` — desktop tools of the AI chat
@@ -288,7 +287,7 @@ launcher.overrideAttrs (old: {
     inherit
       shell
       quickshell
-      dankcalendar
+      accounts
       configName
       settingsLib
       cliphistWatch

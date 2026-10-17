@@ -6502,22 +6502,95 @@ def t_equalizer(ctx, args):
     return [text(out[3:].strip() if out.startswith("ok:") else out)]
 
 
+CALENDAR_OPS = ("create", "update", "delete")
+
+
+def calendar_op(args, op):
+    """One change for nixbook-accounts' calendar, from the tool's
+    arguments: only the fields given."""
+    out = {"op": op}
+    for key, cap in (("id", 400), ("occurrence", 40), ("calendar", 400), ("summary", 1000), ("start", 40),
+                     ("end", 40), ("location", 1000), ("description", 8000)):
+        if key not in args:
+            continue
+        value = args[key]
+        if value is None and key in ("location", "description"):
+            value = ""
+        if not isinstance(value, str) or len(value) > cap:
+            raise ToolError(f"`{key}` must be a string of at most {cap} characters")
+        out[key] = value
+    for key in ("allDay", "all"):
+        if key in args:
+            if not isinstance(args[key], bool):
+                raise ToolError(f"`{key}` must be true or false")
+            out[key] = args[key]
+    if "reminders" in args:
+        r = args["reminders"]
+        if r is not None and (not isinstance(r, list) or len(r) > 10
+                              or not all(isinstance(m, int) and not isinstance(m, bool) and 0 <= m <= 40320 for m in r)):
+            raise ToolError("`reminders` must be minutes before (0 to 40320), at most 10, or null for the calendar's")
+        out["reminders"] = r
+    if "recurrence" in args:
+        r = args["recurrence"]
+        if r is not None and not isinstance(r, str) or isinstance(r, str) and len(r) > 300:
+            raise ToolError("`recurrence` must be daily, weekdays, weekly, monthly, yearly, none or an RRULE")
+        out["recurrence"] = r or "none"
+    return out
+
+
 @tool(
     "calendar",
     "shell",
-    "The user's calendar events (synced by DankCalendar: Google, CalDAV…), "
-    "read-only: `next` (the next event, with a \"when\" like \"in 12 min\"), "
-    "`upcoming` {days: 1 = today, up to 60}, or `day` {date: YYYY-MM-DD}. "
-    "Local times.",
+    "The user's calendars, every account's merged (Google, iCloud, Fastmail, Nextcloud…, and "
+    "\"local\", kept on this computer; the "
+    "shell's Calendar window and widgets). Reading: `next` (the next event, with a \"when\" like "
+    "\"in 12 min\"), `upcoming` {days: 1 = today, up to 60}, `day` {date: YYYY-MM-DD}, "
+    "`calendars` (id, name, account, read-only); events come with their id and, for an occurrence "
+    "of a recurring event, its `occurrence` (its start). Changes: create {summary, start, end?, "
+    "allDay?, calendar? (name or id; default the primary), location?, description?, reminders? "
+    "(minutes before, [] none, null the calendar's), recurrence? (daily, weekdays, weekly, "
+    "monthly, yearly, none, an RRULE)}; update {id, occurrence? (that occurrence only), …the "
+    "fields to change, calendar? (move)}; to change a whole series from one of its occurrences: "
+    "{id, occurrence, all: true, start?, end?…} (every occurrence moves as that one does); "
+    "delete {id, occurrence?} (ask the user first). Times: YYYY-MM-DDTHH:MM (local) or "
+    "YYYY-MM-DD (all-day; end: its last day). open {date?}: the Calendar window. Local times.",
     obj({
-        "action": {"type": "string", "enum": ["next", "upcoming", "day"]},
+        "action": {"type": "string", "enum": ["next", "upcoming", "day", "calendars", "open", *CALENDAR_OPS]},
         "days": {"type": "integer", "description": "upcoming: how many days from today (default 7)"},
-        "date": {"type": "string", "description": "day: YYYY-MM-DD"},
+        "date": {"type": "string", "description": "day, open: YYYY-MM-DD"},
+        "id": {"type": "string", "description": "An event's id (from next, upcoming, day)"},
+        "occurrence": {"type": "string", "description": "A recurring event's occurrence (its start, as given)"},
+        "all": {"type": "boolean", "description": "update: the whole series, from that occurrence"},
+        "calendar": {"type": "string", "description": "A calendar's name or id"},
+        "summary": {"type": "string"},
+        "start": {"type": "string", "description": "YYYY-MM-DDTHH:MM (local) or YYYY-MM-DD"},
+        "end": {"type": "string", "description": "Default: an hour later (all-day: that day)"},
+        "allDay": {"type": "boolean"},
+        "location": {"type": ["string", "null"]},
+        "description": {"type": ["string", "null"]},
+        "reminders": {"type": ["array", "null"], "items": {"type": "integer"}},
+        "recurrence": {"type": ["string", "null"]},
     }, ["action"]),
-    read_only=True,
+    destructive=True,
 )
 def t_calendar(ctx, args):
     action = as_str(args, "action", max_len=16)
+    if action == "calendars":
+        out = accounts_call("calendar", "calendars")
+        return [text({"calendars": [{k: c[k] for k in ("id", "name", "account", "primary", "readOnly")}
+                                    for c in out.get("calendars", [])]})]
+    if action == "open":
+        date = as_str(args, "date", required=False, max_len=10, pattern=r"\d{4}-\d{2}-\d{2}") or ""
+        return [text(widget_call("calendar", "open", date) if date else widget_call("calendar", "show"))]
+    if action in CALENDAR_OPS:
+        ctx.guard.check_rate()
+        r = accounts_call("calendar", "apply", json.dumps(calendar_op(args, action)), timeout=120)[0]
+        if not r.get("ok"):
+            raise ToolError(r.get("error", "failed"))
+        res = r["result"]
+        if isinstance(res, dict) and "start" in res:
+            res = {k: v for k, v in res.items() if v not in ("", None, []) and k not in ("account", "updated")}
+        return [text(res)]
     if action == "next":
         argv = ["next"]
     elif action == "upcoming":
@@ -6528,7 +6601,7 @@ def t_calendar(ctx, args):
     elif action == "day":
         argv = ["day", as_str(args, "date", max_len=10, pattern=r"\d{4}-\d{2}-\d{2}")]
     else:
-        raise ToolError("`action` must be next, upcoming or day")
+        raise ToolError("`action` must be next, upcoming, day, calendars, open, create, update or delete")
     out = widget_call("calendar", *argv)
     try:
         return [text(json.loads(out))]
@@ -6583,7 +6656,7 @@ def task_op(args, op):
     "tasks",
     "shell",
     "The user's to-do lists (the shell's Tasks app and to-do widget; synced "
-    "with Google Tasks through DankCalendar once an account is connected, "
+    "with Google Tasks once the shell's Google account is connected, "
     "else one local list). `list` {list?, include_done?}: today's date, the "
     "lists (id, name, open/completed counts) and the tasks (id, title, list, "
     "notes, due YYYY-MM-DD, deadline: overdue/today/tomorrow/week/later/none, "
@@ -6600,8 +6673,8 @@ def task_op(args, op):
     "+N (days), or \"\" to clear it; Google keeps dates, not times. batch "
     "{ops: [{action, …}, …]} runs up to 50 changes in order (organizing: "
     "moving, dating, renaming many tasks at once), each reported on its own. "
-    "A moved or new task gets a new id once it syncs: list again before "
-    "changing it. Subtasks are made in Google Tasks.",
+    "A new task gets its id once Google answers: list again before "
+    "changing it (a moved one keeps its id). Subtasks are made in Google Tasks.",
     obj({
         "action": {"type": "string", "enum": ["list", *TASK_OPS, "batch"]},
         "task": {"type": "string", "description": "A task's id (from list)"},
@@ -6659,6 +6732,198 @@ def t_tasks(ctx, args):
     lines = [f"{done}/{len(results)} done"]
     for i, r in enumerate(results):
         lines.append(f"{i + 1}. " + (r["result"] if r.get("ok") else f"error: {r.get('error')}"))
+    return [text("\n".join(lines))]
+
+
+CONTACT_OPS = ("create", "update", "delete", "star", "unstar", "create_label", "rename_label", "delete_label")
+CONTACT_TEXT = {"name": 300, "givenName": 200, "familyName": 200, "nickname": 200, "organization": 300,
+                "title": 300, "birthday": 10, "notes": 8000, "id": 300, "label": 300, "account": 200}
+CONTACT_LISTS = ("emails", "phones", "urls", "addresses", "labels")
+
+
+def accounts_call(*args, timeout=60):
+    """`nixbook-accounts` (the shell's accounts backend) and its JSON answer."""
+    proc = run(["nixbook-accounts", *args], timeout=timeout, check=False)
+    try:
+        out = json.loads(proc.stdout or "null")
+    except ValueError:
+        out = None
+    if proc.returncode == 2:
+        raise ToolError("No account is connected (or its provider signed it out): the user adds or signs it "
+                        "in again in the Contacts app (`contacts` action open), which walks them through it")
+    if proc.returncode != 0:
+        msg = out.get("error") if isinstance(out, dict) else (proc.stderr or "").strip()[-300:]
+        raise ToolError(msg or f"nixbook-accounts failed ({proc.returncode})")
+    return out
+
+
+def compact_contact(c):
+    """A contact without its empty fields, photo or ids it doesn't need."""
+    out = {k: v for k, v in c.items() if v not in ("", [], None, False) and k not in ("photo", "updated")}
+    for key in ("emails", "phones", "urls"):
+        if key in out:
+            out[key] = [e["value"] + (f" ({e['type']})" if e.get("type") else "") for e in out[key]]
+    if "addresses" in out:
+        out["addresses"] = [a["value"].replace("\n", ", ") + (f" ({a['type']})" if a.get("type") else "")
+                            for a in out["addresses"]]
+    return out
+
+
+def contact_op(args, op):
+    """One change for nixbook-accounts, from the tool's arguments: only the
+    fields given (they replace the contact's)."""
+    if op not in CONTACT_OPS:
+        raise ToolError(f"unknown action {op!r}: list, get, sync, open, {', '.join(CONTACT_OPS)}, batch")
+    out = {"op": op}
+    for key, cap in CONTACT_TEXT.items():
+        if key not in args:
+            continue
+        value = args[key]
+        if value is None and key not in ("id", "label"):
+            value = ""
+        if not isinstance(value, str) or len(value) > cap:
+            raise ToolError(f"`{key}` must be a string of at most {cap} characters")
+        out[key] = value
+    if "label_name" in args:
+        out["name"] = as_str(args, "label_name", max_len=200)
+    for key in CONTACT_LISTS:
+        if key not in args:
+            continue
+        value = args[key]
+        if value is None:
+            value = []
+        if isinstance(value, (str, dict)):
+            value = [value]
+        if not isinstance(value, list) or len(value) > 50 or len(json.dumps(value)) > 20000:
+            raise ToolError(f"`{key}` must be a list of at most 50 entries")
+        out[key] = value
+    if "starred" in args:
+        if not isinstance(args["starred"], bool):
+            raise ToolError("`starred` must be true or false")
+        out["starred"] = args["starred"]
+    return out
+
+
+@tool(
+    "contacts",
+    "shell",
+    "The user's contacts, every account's merged (the shell's Contacts app and widget; through "
+    "nixbook-accounts: Google, CalDAV/CardDAV servers, and \"local\", kept on this computer). `list` {query?, label?, account?, starred?, limit? (25)}: the "
+    "accounts, the labels (with counts and account) and the matching contacts (every word of query, "
+    "accents and case ignored, phone numbers by digits; empty fields left out). Ids are "
+    "\"<account>:…\". get {id}: one in full. Changes, by id from list (each goes to its account); "
+    "the fields given replace the contact's, the others stay: create {account? (id, name or email; "
+    "default the first), name | givenName, "
+    "familyName, emails?, phones?, organization?, title?, addresses?, birthday?, notes?, urls?, "
+    "nickname?, labels?, starred?}, update {id, …same fields}, star/unstar {id}, delete {id} "
+    "(ask the user first; Google keeps it 30 days in its Trash, other servers don't). emails/phones/urls: strings or "
+    "{value, type} (home, work, mobile, other…); addresses: strings or {street, city, postalCode, "
+    "region, country, type}; birthday YYYY-MM-DD or MM-DD (\"\" clears); labels: names (a new name "
+    "makes the label) or ids, replacing the contact's; a contact's labels are its account's. "
+    "Labels themselves: create_label {label_name, account?}, rename_label {label, label_name}, "
+    "delete_label {label} (its contacts stay); a label name in several accounts needs its id. "
+    "sync {full?}: Google's changes now (list reads the local copy, synced every 30 min). open "
+    "{id?}: the Contacts app on the user's screen. batch {ops: [{action, …}, …]} runs up to 50 "
+    "changes in order (cleaning up, labelling many), each reported on its own.",
+    obj({
+        "action": {"type": "string", "enum": ["list", "get", "sync", "open", *CONTACT_OPS, "batch"]},
+        "id": {"type": "string", "description": "A contact's id (from list)"},
+        "query": {"type": "string"},
+        "label": {"type": "string", "description": "A label's name or id"},
+        "account": {"type": "string", "description": "An account's id, name or email (from list)"},
+        "label_name": {"type": "string", "description": "create_label, rename_label: the label's (new) name"},
+        "limit": {"type": "integer"},
+        "full": {"type": "boolean", "description": "sync: everything again, not only the changes"},
+        "name": {"type": "string", "description": "The full name (Google splits it); or givenName/familyName"},
+        "givenName": {"type": "string"},
+        "familyName": {"type": "string"},
+        "nickname": {"type": "string"},
+        "emails": {"type": "array", "items": {"type": ["string", "object"]}},
+        "phones": {"type": "array", "items": {"type": ["string", "object"]}},
+        "urls": {"type": "array", "items": {"type": ["string", "object"]}},
+        "addresses": {"type": "array", "items": {"type": ["string", "object"]}},
+        "organization": {"type": "string", "description": "Company"},
+        "title": {"type": "string", "description": "Job title"},
+        "birthday": {"type": ["string", "null"], "description": "YYYY-MM-DD or MM-DD; \"\" clears it"},
+        "notes": {"type": "string"},
+        "labels": {"type": "array", "items": {"type": "string"}},
+        "starred": {"type": "boolean"},
+        "ops": {"type": "array", "items": {"type": "object"}, "maxItems": 50,
+                "description": "batch: [{action, id?, …fields}, …]"},
+    }, ["action"]),
+    destructive=True,
+)
+def t_contacts(ctx, args):
+    action = as_str(args, "action", max_len=32).strip().lower()
+    if action == "list":
+        argv = ["contacts", "list"]
+        for key in ("query", "label", "account"):
+            if args.get(key) is not None:
+                argv += [f"--{key}", as_str(args, key, max_len=300)]
+        if args.get("starred") is True:
+            argv.append("--starred")
+        limit = args.get("limit", 25)
+        if not isinstance(limit, int) or not 1 <= limit <= 500:
+            raise ToolError("`limit` must be 1 to 500")
+        out = accounts_call(*argv, "--limit", str(limit))
+        accounts = accounts_call("status").get("accounts", [])
+        return [text({
+            "accounts": [{"id": a["id"], "name": a["name"], "connected": a["connected"]} for a in accounts],
+            "synced": time.strftime("%Y-%m-%d %H:%M", time.localtime(out["syncedAt"] / 1000)) if out["syncedAt"] else None,
+            "total": out["total"],
+            "shown": len(out["contacts"]),
+            "labels": out["labels"],
+            "contacts": [compact_contact(c) for c in out["contacts"]],
+        })]
+    if action == "get":
+        return [text(compact_contact(accounts_call("contacts", "get", as_str(args, "id", max_len=300))))]
+    if action == "sync":
+        ctx.guard.check_rate()
+        full = args.get("full", False)
+        if not isinstance(full, bool):
+            raise ToolError("`full` must be true or false")
+        return [text(accounts_call("contacts", "sync", *(["--full"] if full else []), timeout=120))]
+    if action == "open":
+        cid = as_str(args, "id", required=False, max_len=300, pattern=r"[\w.:@/-]{1,300}") or ""
+        return [text(widget_call("contacts", "open", cid))]
+    if action == "batch":
+        ops = args.get("ops")
+        if not isinstance(ops, list) or not ops or len(ops) > 50:
+            raise ToolError("`ops` must be a list of 1 to 50 changes")
+        request = {"ops": []}
+        for i, o in enumerate(ops):
+            if not isinstance(o, dict):
+                raise ToolError(f"ops[{i}] must be an object")
+            op = o.get("action", o.get("op"))
+            if not isinstance(op, str):
+                raise ToolError(f"ops[{i}]: needs an action")
+            request["ops"].append(contact_op(o, op.strip().lower()))
+    else:
+        request = contact_op(args, action)
+    ctx.guard.check_rate()
+    results = accounts_call("contacts", "apply", json.dumps(request), timeout=120)
+
+    def summary(r):
+        res = r.get("result")
+        if isinstance(res, dict) and "deleted" in res:
+            return f"deleted {res.get('name') or res['deleted']}"
+        if isinstance(res, dict) and "emails" in res:
+            return compact_contact(res)
+        return res
+
+    if action != "batch":
+        r = results[0]
+        if not r.get("ok"):
+            raise ToolError(r.get("error", "failed"))
+        return [text(summary(r))]
+    done = sum(1 for r in results if r.get("ok"))
+    lines = [f"{done}/{len(results)} done"]
+    for i, r in enumerate(results):
+        if r.get("ok"):
+            res = summary(r)
+            lines.append(f"{i + 1}. " + (res if isinstance(res, str) else json.dumps(res, ensure_ascii=False)))
+        else:
+            lines.append(f"{i + 1}. error: {r.get('error')}")
     return [text("\n".join(lines))]
 
 

@@ -7,8 +7,9 @@
     # every message, mine included.
     notifications.cutIn = {
       keywords = [
-        # Calendar reminders (the shared rule, replaced by this list).
-        "app:^\"Dank Calendar\""
+        # Calendar reminders, the shell's own (the shared rule, replaced by
+        # this list).
+        "app:^\"Calendar\""
         # Khoa (profiles/totoro/khoa). "Khoa" as a whole word only: not
         # "khoai" nor "khóa".
         "\"Khoa\""
