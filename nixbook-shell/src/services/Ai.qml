@@ -443,11 +443,6 @@ Singleton {
             + "\n\nYou are answering in the desktop shell's side panel: keep answers short."
             + (Config.options.ai.claudeCode.asComputer ? root.asComputerPrompt(desktop) : "")
             + (desktop ? " You can see and drive the user's desktop with the desktop tools." : "")
-            // Its tools are all allowed (-p can't ask): what acts on the
-            // user's account waits for their yes in the chat.
-            + (extraServers.linkedin
-                ? " The linkedin tools act on the user's real LinkedIn account, and LinkedIn may restrict accounts it sees automating: use them only when asked, with as few calls as the task needs. Before send_message or connect_with_person, show the user exactly what would be sent and to whom, and call it only after they say yes in this chat."
-                : "")
             + (folders.length > 0 ? ` You may read files in these folders only: ${folders.join(", ")}.`
                 : " You have no access to the user's files (they can allow folders in Settings > Desktop agents).")
             + (desktop && writable.length > 0

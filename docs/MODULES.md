@@ -707,13 +707,6 @@ Whether to enable per-user Niri compositor configuration. Manages the full Niri 
 
 Whether to enable nixbook-shell, nixbook's Quickshell (QML) desktop shell (`programs.nixbook-shell`, packaged in nixbook-shell/), with the settings shared by every nixbook machine (nixbookShellConfig/settings.nix, as defaults a profile's `nixbookShellConfig.settings` override key by key). This is an alternative to DankMaterialShell (`dmsConfig`) — the two are mutually exclusive, since both draw a top bar, own the lock screen and register overlapping layer-shell surfaces. Flip `dmsConfig.enable` off when turning this on. The shell runs as the `nixbook-shell` user service, bound to `graphical-session.target`. Works under niri and Hyprland; under niri every panel is driven through `nixbook-shell ipc call <target> <function>` keybinds (homeManagerModules/niri/niriConfig.nix, KEYBINDS.md).
 
-### `customHomeManagerModules.nixbookShellConfig.linkedinMcp.enable`
-
-- **Type:** `boolean`
-- **Default:** `true`
-
-Whether to offer the nixbook-shell AI chat (Claude in the side panel, and nothing else: not your own Claude Code or other agents) LinkedIn, through [linkedin-mcp-server](https://github.com/stickerdaniel/linkedin-mcp-server) (`customPkgs.linkedin-mcp-server`): profiles, people and company search, messages, jobs, the feed, on your own account in a browser session of its own (`~/.linkedin-mcp`, signed in from Settings > Desktop agents or `mcp-server-linkedin --login`). Installed, but off in the chat until you turn it on in Settings > Desktop agents > Apps it can use. LinkedIn's terms forbid automated access and it may restrict accounts using it. Pulls in Chromium: `false` leaves it out entirely.
-
 ### `customHomeManagerModules.nixbookShellConfig.settings`
 
 - **Type:** `submodule`
