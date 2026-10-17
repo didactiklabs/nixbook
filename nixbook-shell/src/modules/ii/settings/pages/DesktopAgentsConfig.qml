@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import qs
+import Quickshell
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
@@ -259,6 +260,58 @@ ContentPage {
                     onCheckedChanged: Config.options.ai.claudeCode.connectors = checked
                     StyledToolTip {
                         text: Translation.tr("Gmail, Calendar, Drive… as connected on claude.ai, without asking before each use")
+                    }
+                }
+            }
+
+            // The MCP servers Nix gives this chat (assistant.mcpServers), each
+            // with its switch. Only this chat has them.
+            ContentSubsection {
+                visible: Object.keys(Ai.assistantMcpServers).length > 0
+                title: Translation.tr("Apps it can use (this chat only)")
+
+                GroupedList {
+                    Repeater {
+                        model: Object.keys(Ai.assistantMcpServers).sort()
+                        delegate: ConfigSwitch {
+                            id: serverSwitch
+                            required property string modelData
+                            readonly property var known: ({
+                                nixos: ["deployed_code", Translation.tr("NixOS packages and options (MCP-NixOS)")],
+                                "youtube-music": ["music_note", Translation.tr("YouTube Music: play and control")],
+                                spotify: ["queue_music", Translation.tr("Spotify: play and control")],
+                                linkedin: ["work", Translation.tr("LinkedIn: profiles, messages, jobs (your account)")]
+                            })[serverSwitch.modelData] ?? ["extension", serverSwitch.modelData]
+                            configKey: "ai.claudeCode.mcpServersOff"
+                            enabled: !nixManaged
+                            buttonIcon: serverSwitch.known[0]
+                            text: serverSwitch.known[1]
+                            checked: !(Config.options.ai.claudeCode.mcpServersOff ?? []).includes(serverSwitch.modelData)
+                            onCheckedChanged: {
+                                const off = Config.options.ai.claudeCode.mcpServersOff ?? []
+                                if (checked === !off.includes(serverSwitch.modelData)) return
+                                Config.options.ai.claudeCode.mcpServersOff = checked
+                                    ? off.filter(n => n !== serverSwitch.modelData) : [...off, serverSwitch.modelData]
+                            }
+                        }
+                    }
+                }
+
+                // LinkedIn: what turning it on means, and its sign-in.
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: Ai.assistantMcpServers.linkedin !== undefined
+                    spacing: 10
+                    StyledText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: Appearance.colors.colSubtext
+                        text: Translation.tr("LinkedIn works through your own session in a browser of its own (~/.linkedin-mcp). LinkedIn's terms forbid automated access and it may restrict accounts using it: use it lightly. Before sending a message or an invitation, Claude shows it and waits for your yes.")
+                    }
+                    SmallButton {
+                        materialIcon: "login"
+                        mainText: Translation.tr("Sign in to LinkedIn")
+                        onClicked: Quickshell.execDetached([Ai.assistantMcpServers.linkedin.command, "--login"])
                     }
                 }
             }

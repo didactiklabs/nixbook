@@ -214,7 +214,8 @@ Singleton {
     // message: no ~2 s start, the desktop MCP server already connected), and
     // starts again, resuming the session, when its command line changes; it
     // gets the desktop tools (the desktop MCP server, whose guardrails, pause
-    // and memory apply), the MCP servers of assistant-mcp.json (mcp-nixos…),
+    // and memory apply), the MCP servers of assistant-mcp.json (mcp-nixos…)
+    // not turned off (ai.claudeCode.mcpServersOff),
     // Config ai.claudeCode.allowedTools and, with ai.claudeCode.connectors,
     // the user's claude.ai connectors; nothing else.
     property string claudeCodePath: ""
@@ -367,6 +368,8 @@ Singleton {
 
     // Claude's other MCP servers (Home Manager assistant.mcpServers, e.g.
     // mcp-nixos), in Claude Code's mcpServers format; "desktop" is ours.
+    // Only this chat gets them (Claude Code runs with --strict-mcp-config),
+    // never the user's own Claude Code or other agents.
     property var assistantMcpServers: ({})
     FileView {
         id: assistantMcpFile
@@ -423,7 +426,10 @@ Singleton {
             .filter(t => !fileTools.some(f => t === f || t.startsWith(`${f}(`)));
         const desktop = root.currentTool !== "none" && root.desktopTools.length > 0;
         const connectors = root.claudeConnectorsSetting;
-        const extraServers = root.currentTool !== "none" ? root.assistantMcpServers : {};
+        // Those turned off in Settings (ai.claudeCode.mcpServersOff) left out.
+        const off = Config.options.ai.claudeCode.mcpServersOff ?? [];
+        const extraServers = root.currentTool !== "none"
+            ? Object.fromEntries(Object.entries(root.assistantMcpServers).filter(([name]) => !off.includes(name))) : {};
         const allowed = [...(desktop ? ["mcp__desktop"] : []),
             ...Object.keys(extraServers).map(name => `mcp__${name}`), ...configured,
             ...(attached.length > 0 ? [`Read(/${attached})`] : []),
@@ -432,6 +438,11 @@ Singleton {
             + "\n\nYou are answering in the desktop shell's side panel: keep answers short."
             + (Config.options.ai.claudeCode.asComputer ? root.asComputerPrompt(desktop) : "")
             + (desktop ? " You can see and drive the user's desktop with the desktop tools." : "")
+            // Its tools are all allowed (-p can't ask): what acts on the
+            // user's account waits for their yes in the chat.
+            + (extraServers.linkedin
+                ? " The linkedin tools act on the user's real LinkedIn account, and LinkedIn may restrict accounts it sees automating: use them only when asked, with as few calls as the task needs. Before send_message or connect_with_person, show the user exactly what would be sent and to whom, and call it only after they say yes in this chat."
+                : "")
             + (folders.length > 0 ? ` You may read files in these folders only: ${folders.join(", ")}.`
                 : " You have no access to the user's files (they can allow folders in Settings > Desktop agents).")
             + (desktop && writable.length > 0
