@@ -1522,6 +1522,20 @@ out=$(python3 "$mcp" personal context "I booked the flight to Kyoto")
 expect_eq "personal context: the entries a message is about" "[\"$japan\"]" "$(jq -c .ids <<<"$out")"
 expect_contains "personal context: their text" "$(jq -r .text <<<"$out")" "japan (topic): Trip 2027-04"
 expect_eq "personal context: not those sent already" '[]' "$(python3 "$mcp" personal context --exclude "abc,$japan" "Kyoto again" | jq -c .ids)"
+# A person named: their contacts come with the message (any case, accents
+# ignored), with what agents remember about them; a common word only with a
+# capital.
+out=$(python3 "$mcp" personal context "ask elodie whether lunch works")
+expect_eq "personal context: the contact a message names" '["contact:google-1:c1"]' "$(jq -c .ids <<<"$out")"
+expect_contains "personal context: who they are" "$(jq -r .text <<<"$out")" "Élodie Martin [google-1:c1]: at Acme; elodie@example.com (work)"
+expect_contains "personal context: a full name, family name first" "$(python3 "$mcp" personal context "write to Martin Élodie" | jq -r .text)" "Élodie Martin [google-1:c1]"
+expect_eq "personal context: a contact not sent twice" '[]' "$(python3 "$mcp" personal context --exclude "contact:google-1:c1" "and elodie again" | jq -c .ids)"
+expect_eq "personal context: no one named" '[]' "$(python3 "$mcp" personal context "what's the weather" | jq -c .ids)"
+echo '{"personalContacts":false}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+expect_eq "personal context: no contacts with personalContacts off" '[]' "$(python3 "$mcp" personal context "ask elodie" | jq -c .ids)"
+rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 "$mcp")
+expect_contains "personal memory: agents told to work out who is named" "$(jq -r .result.instructions <<<"$out")" "When the user names someone, work out who"
 
 out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | NIXBOOK_DESKTOP_MCP_QUERY="japan budget" python3 "$mcp")
 instr=$(jq -r .result.instructions <<<"$out")
