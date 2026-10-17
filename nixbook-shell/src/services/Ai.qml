@@ -12,14 +12,14 @@ import qs.services.ai
 
 /**
  * The side panel's chat: the config assistant (answers from this machine's
- * configuration, no AI) and Claude through Claude Code.
+ * configuration, no AI) and Claude through Claude Code, in tabs that run in
+ * parallel (AiChatSession.qml), and the conversation history.
  */
 Singleton {
     id: root
 
     property Component aiMessageComponent: AiMessageData {}
     property Component aiModelComponent: AiModel {}
-    property ClaudeCodeApiStrategy claudeCodeApiStrategy: ClaudeCodeApiStrategy {}
     readonly property string interfaceRole: "interface"
 
     signal responseFinished()
@@ -65,14 +65,65 @@ Singleton {
         ];
         return lines.join("\n");
     }
-    // property var messages: []
-    property var messageIDs: []
-    property var messageByID: ({})
-    property QtObject tokenCount: QtObject {
+    // The chats, one per tab of the panel (services/AiChatSession.qml): each
+    // with its own messages, Claude Code and agent desktop, so they answer
+    // in parallel. Each takes the lowest slot free (slot 1: the first agent
+    // desktop). The panel shows the current one; the properties and
+    // functions below are the current chat's.
+    readonly property int maxChats: 8
+    property var chats: []
+    property int currentIndex: 0
+    readonly property AiChatSession current: root.chats[root.currentIndex] ?? null
+    Component {
+        id: chatComponent
+        AiChatSession {}
+    }
+    function newChat() {
+        if (root.chats.length >= root.maxChats) return null;
+        let slot = 1;
+        while (root.chats.some(c => c.slot === slot)) slot++;
+        const chat = chatComponent.createObject(root, { slot });
+        root.chats = [...root.chats, chat];
+        root.currentIndex = root.chats.length - 1;
+        return chat;
+    }
+    // Its conversation stays in the history. The last tab is cleared instead.
+    function closeChat(index) {
+        const chat = root.chats[index];
+        if (!chat) return;
+        if (root.chats.length === 1) {
+            chat.stopResponse();
+            chat.clearMessages();
+            return;
+        }
+        if (chat.responding) {
+            chat.stopResponse();
+            root.saveHistory(chat);
+        }
+        chat.close();
+        const current = root.current;
+        root.chats = root.chats.filter(c => c !== chat);
+        root.currentIndex = current === chat ? Math.min(index, root.chats.length - 1) : root.chats.indexOf(current);
+        chat.destroy(10000); // once its Claude Code is gone
+    }
+    function selectChat(chat) {
+        const index = root.chats.indexOf(chat);
+        if (index >= 0) root.currentIndex = index;
+    }
+
+    readonly property var messageIDs: root.current?.messageIDs ?? []
+    readonly property var messageByID: root.current?.messageByID ?? ({})
+    readonly property QtObject tokenCount: root.current?.tokenCount ?? noTokens
+    QtObject {
+        id: noTokens
         property int input: -1
         property int output: -1
         property int total: -1
     }
+    readonly property string pendingFilePath: root.current?.pendingFilePath ?? ""
+    readonly property bool responding: root.current?.responding ?? false
+    readonly property string chatId: root.current?.chatId ?? ""
+
 
     function idForMessage(message) {
         // Generate a unique ID using timestamp and random value
@@ -131,10 +182,9 @@ Singleton {
     }
     readonly property bool usingConfigAssistant: root.currentModelId === root.configAssistantId
 
-    property string requestScriptFilePath: `${Directories.aiTemp}/request.sh`
-    property string pendingFilePath: ""
 
     Component.onCompleted: {
+        root.newChat();
         setModel(currentModelId, false, false); // Do necessary setup for model
     }
 
@@ -219,7 +269,6 @@ Singleton {
     // Config ai.claudeCode.allowedTools and, with ai.claudeCode.connectors,
     // the user's claude.ai connectors; nothing else.
     property string claudeCodePath: ""
-    property string claudeSessionId: ""
     // Settings > Desktop agents can change where Claude Code is: look again.
     readonly property string claudeCodeCommandSetting: Config.options?.ai?.claudeCode?.command ?? ""
     onClaudeCodeCommandSettingChanged: claudeCodeRelocate.restart()
@@ -267,12 +316,15 @@ Singleton {
     property string claudeConnectorsState: "" // "name status" lines
     property bool claudeConnectorsNeedAuth: false
     property double claudeConnectorsCheckedAt: 0
+    // Whether they are being listed (a message can wait for it).
     function checkClaudeConnectors() {
         if (root.claudeConnectorsSetting && root.claudeCodePath.length > 0 && !listClaudeConnectors.running)
             listClaudeConnectors.running = true;
+        return listClaudeConnectors.running;
     }
     Process {
         id: listClaudeConnectors
+        property bool changed: false
         command: [root.claudeCodePath, "mcp", "list"]
         workingDirectory: Quickshell.env("HOME")
         stdout: StdioCollector {
@@ -283,22 +335,23 @@ Singleton {
                 root.claudeConnectors = found.map(m => "mcp__" + m[1].replace(/[^A-Za-z0-9_-]/g, "_"));
                 root.claudeConnectorsNeedAuth = found.some(m => /auth/i.test(m[2]));
                 const state = found.map(m => `${m[1]} ${m[2]}`).join("\n");
-                if (root.claudeConnectorsState.length > 0 && state !== root.claudeConnectorsState)
-                    requester.connectorsStale = true;
+                listClaudeConnectors.changed = root.claudeConnectorsState.length > 0 && state !== root.claudeConnectorsState;
                 root.claudeConnectorsState = state;
             }
         }
         onExited: {
             root.claudeConnectorsCheckedAt = Date.now();
-            requester.connectorsChecked();
+            for (const chat of root.chats) chat.connectorsChecked(listClaudeConnectors.changed);
+            listClaudeConnectors.changed = false;
         }
     }
 
-    function claudeCodePrompt(messages, attached) {
+    // sessionId: the chat's Claude Code session ("" for a new one).
+    function claudeCodePrompt(messages, attached, sessionId) {
         const turns = messages.filter(m => (m.role === "user" || m.role === "assistant") && !m.functionName);
         const last = turns[turns.length - 1];
         let prompt = last?.role === "user" ? last.rawContent : "";
-        if (root.claudeSessionId.length === 0 && turns.length > 1) {
+        if (sessionId.length === 0 && turns.length > 1) {
             // A new session for a chat that already has turns (another model,
             // a loaded chat, a regenerated answer): the chat so far, as context.
             let earlier = turns.slice(0, -1).map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.rawContent}`).join("\n\n");
@@ -308,82 +361,6 @@ Singleton {
         if (attached.length > 0)
             prompt += `\n\n(Attached file: ${attached}; read it with the Read tool.)`;
         return prompt;
-    }
-
-    // The personal memory entries sent with this Claude session's messages
-    // (`nixbook-desktop-mcp personal context`), not to send twice.
-    property var personalShown: []
-    Process {
-        id: personalContext
-        property string prompt: ""
-        property string attached: ""
-        property bool sent: false
-        function send(found) {
-            if (sent) return;
-            sent = true;
-            requester.sendPrompt(found.length > 0 ? `${found}\n\n${prompt}` : prompt, attached);
-        }
-        stdout: StdioCollector {
-            onStreamFinished: {
-                let found = "";
-                try {
-                    const result = JSON.parse(text);
-                    found = result.text ?? "";
-                    root.personalShown = [...root.personalShown, ...(result.ids ?? [])];
-                } catch (e) {
-                    console.log("[Ai] Personal memory unavailable:", e);
-                }
-                personalContext.send(found);
-            }
-        }
-        // Without it (an error) the message goes as it is.
-        onExited: Qt.callLater(() => personalContext.send(""))
-    }
-
-    // The memory pass (`nixbook-desktop-mcp personal learn`): Claude is told
-    // to save what matters about the user, but mid-task it often doesn't.
-    // So once a chat with Claude goes quiet (ai.claudeCode.autoMemory), or
-    // is left (cleared, another loaded), the turns the pass hasn't read go
-    // to a small model that saves what is worth keeping. Detached: it
-    // outlives the chat, and costs nothing while the chat goes on.
-    property int memoryReadUpTo: 0 // the messages the pass has read
-    FileView {
-        id: memoryPassFile
-        blockWrites: true
-    }
-    Timer {
-        id: memoryPassTimer
-        interval: 2 * 60 * 1000
-        onTriggered: requester.turnActive ? restart() : root.runMemoryPass()
-    }
-    function runMemoryPass() {
-        memoryPassTimer.stop();
-        const messages = root.messageIDs.map(id => root.messageByID[id]);
-        const from = Math.min(root.memoryReadUpTo, messages.length);
-        root.memoryReadUpTo = messages.length;
-        if (!(Config.options?.ai?.claudeCode?.autoMemory ?? true) || root.claudeCodePath.length === 0) return;
-        const isTurn = m => m && (m.role === "user" || m.role === "assistant") && !m.functionName && (m.rawContent ?? "").length > 0;
-        const fresh = messages.slice(from).filter(isTurn);
-        // Only what the user said to Claude (not the config assistant).
-        if (!fresh.some(m => m.role === "user") || !fresh.some(m => m.role === "assistant" && m.model === "claude")) return;
-        const line = m => m.role === "user" ? `User: ${m.rawContent}`
-            : `Assistant: ${m.rawContent.length > 1200 ? m.rawContent.slice(0, 1200) + "…" : m.rawContent}`;
-        const earlier = messages.slice(0, from).filter(isTurn).slice(-2);
-        const transcript = (earlier.length > 0 ? `(Earlier, read already:)\n${earlier.map(line).join("\n\n")}\n\n(New:)\n` : "")
-            + fresh.map(line).join("\n\n");
-        const path = `${Directories.aiTemp}/memory-pass-${Date.now()}.txt`;
-        memoryPassFile.path = Qt.resolvedUrl(path);
-        memoryPassFile.setText(transcript);
-        Quickshell.execDetached([root.desktopMcpCommand, "personal", "learn", "--claude", root.claudeCodePath,
-            "--model", Config.options.ai.claudeCode.memoryModel || "haiku", "--delete", path]);
-    }
-
-    // The task, for the desktop MCP server's memory (NIXBOOK_DESKTOP_MCP_QUERY_FILE):
-    // written before each message, read by the running server on its next call.
-    readonly property string desktopTaskFilePath: `${Directories.aiTemp}/desktop-task.txt`
-    FileView {
-        id: desktopTaskFile
-        blockWrites: true
     }
 
     // Claude's other MCP servers (Home Manager assistant.mcpServers, e.g.
@@ -420,9 +397,9 @@ Singleton {
                 : " Answer about your hardware, OS and kernel from the machine context you were given; say so when you can't tell (the desktop tools, turned off now, read it live).");
     }
 
-    // The command line Claude Code runs with (it reads the messages on
-    // stdin); resume: the session to go on with ("" for a new one).
-    function claudeCodeScript(attached, resume) {
+    // The command line a chat's Claude Code runs with (it reads the
+    // messages on stdin); resume: the session to go on with ("" for a new one).
+    function claudeCodeScript(chat, attached, resume) {
         const q = s => `'${CF.StringUtils.shellSingleQuoteEscape(String(s))}'`;
         // No access to the user's files but the folders they allow
         // (ai.allowedFolders: working directories, readable without asking)
@@ -499,8 +476,11 @@ Singleton {
         // with its next reply.
         const mcpServers = Object.assign({}, extraServers, desktop ? { desktop: {
             command: root.desktopMcpCommand,
-            // The personal memory about each message: sent with it, above.
-            env: { NIXBOOK_DESKTOP_MCP_QUERY_FILE: root.desktopTaskFilePath, NIXBOOK_DESKTOP_MCP_PERSONAL: "shell" },
+            // The personal memory about each message: sent with it (AiChatSession.qml).
+            // The chat's own agent desktop (NIXBOOK_AGENT_DESKTOP), when
+            // agents work on theirs.
+            env: { NIXBOOK_DESKTOP_MCP_QUERY_FILE: chat.desktopTaskFilePath, NIXBOOK_DESKTOP_MCP_PERSONAL: "shell",
+                NIXBOOK_AGENT_DESKTOP: chat.desktopInstance },
         } } : {});
         if (Object.keys(mcpServers).length > 0)
             args.push("--mcp-config", JSON.stringify({ mcpServers }));
@@ -544,26 +524,12 @@ Singleton {
         promptLoader.reload();
     }
 
+    // The current chat's.
     function addMessage(message, role) {
-        if (message.length === 0) return;
-        const aiMessage = aiMessageComponent.createObject(root, {
-            "role": role,
-            "content": message,
-            "rawContent": message,
-            "thinking": false,
-            "done": true,
-        });
-        const id = idForMessage(aiMessage);
-        root.messageIDs = [...root.messageIDs, id];
-        root.messageByID[id] = aiMessage;
+        root.current?.addMessage(message, role);
     }
-
     function removeMessage(index) {
-        if (index < 0 || index >= messageIDs.length) return;
-        const id = root.messageIDs[index];
-        root.messageIDs.splice(index, 1);
-        root.messageIDs = [...root.messageIDs];
-        delete root.messageByID[id];
+        root.current?.removeMessage(index);
     }
 
     function getModel() {
@@ -599,388 +565,37 @@ Singleton {
         return true;
     }
     
+    // A new conversation in the current tab (the one there stays in the history).
     function clearMessages() {
-        root.runMemoryPass(); // the chat being left
-        root.memoryReadUpTo = 0;
-        root.claudeSessionId = "";
-        root.chatId = "";
-        root.messageIDs = [];
-        root.messageByID = ({});
-        root.tokenCount.input = -1;
-        root.tokenCount.output = -1;
-        root.tokenCount.total = -1;
+        root.current?.clearMessages();
     }
 
-    FileView {
-        id: requesterScriptFile
-        blockWrites: true
-    }
-
-    // Claude Code, kept running between messages: a message is one line on
-    // its stdin, the answer ends with a "result" event. Started again
-    // (resuming the session) when the command line it needs changes (the
-    // settings, an attached file) or for another chat; started ahead when
-    // the panel opens; closed after a while unused.
-    Process {
-        id: requester
-        property list<string> baseCommand: ["bash"]
-        stdinEnabled: true
-        property AiMessageData message
-        property AiMessageData activeMessage
-        property bool restartPending: false
-        // The command line it runs, without --resume, and the session it
-        // goes on with ("" for a new one, until its first answer names it);
-        // ready once started (stdin open).
-        property string script: ""
-        property string session: ""
-        property bool ready: false
-        // The line to send once it has started; the message being answered.
-        property string pendingLine: ""
-        property bool turnActive: false
-        property bool interrupting: false
-        // The connectors changed since it started; a message waiting for
-        // them to be listed again (its attached file).
-        property bool connectorsStale: false
-        property bool connectorsHold: false
-        property string heldAttached: ""
-
-        function markDone() {
-            const stopped = requester.interrupting;
-            requester.turnActive = false;
-            requester.interrupting = false;
-            stopFallback.stop();
-            idleClose.restart();
-            if (!requester.activeMessage || requester.activeMessage.done) return;
-            requester.activeMessage.done = true;
-            requester.activeMessage.thinking = false;
-            root.saveChat("lastSession")
-            // Not when another conversation was opened meanwhile.
-            if (Object.values(root.messageByID).includes(requester.activeMessage)) root.saveHistory();
-            root.responseFinished()
-            memoryPassTimer.restart();
-            // Stopped by the user: they're there already.
-            if (!stopped) root.notifyDone(requester.activeMessage);
-        }
-
-        function makeRequest() {
-            const model = models[currentModelId];
-
-            // The config assistant: answered here from the configuration, no request.
-            if (root.usingConfigAssistant) {
-                const turns = root.messageIDs.map(id => root.messageByID[id]).filter(m => m?.role === "user");
-                const question = turns[turns.length - 1]?.rawContent ?? "";
-                const previous = turns[turns.length - 2]?.rawContent ?? "";
-                let answer = Translation.tr("The configuration facts aren't loaded (~/.config/nixbook-shell/system-facts.json, generated by the Home Manager module).");
-                try {
-                    if (ConfigAssistant.ready) answer = ConfigAssistant.answer(question, previous);
-                } catch (e) {
-                    console.warn("[Ai] ConfigAssistant.answer failed:", e);
-                }
-                const reply = root.aiMessageComponent.createObject(root, {
-                    "role": "assistant", "model": currentModelId,
-                    "content": answer, "rawContent": answer, "thinking": false, "done": true,
-                });
-                const replyId = idForMessage(reply);
-                root.messageIDs = [...root.messageIDs, replyId];
-                root.messageByID[replyId] = reply;
-                root.saveChat("lastSession");
-                root.saveHistory();
-                root.responseFinished();
-                return;
-            }
-
-            const messageArray = root.messageIDs.map(id => root.messageByID[id]);
-            const filteredMessageArray = messageArray.filter(message => message.role !== Ai.interfaceRole);
-            root.claudeCodeApiStrategy.reset();
-
-            /* Create local message object */
-            requester.message = root.aiMessageComponent.createObject(root, {
-                "role": "assistant",
-                "model": currentModelId,
-                "content": "",
-                "rawContent": "",
-                "thinking": true,
-                "done": false,
-            });
-            const id = idForMessage(requester.message);
-            root.messageIDs = [...root.messageIDs, id];
-            root.messageByID[id] = requester.message;
-
-            let attachedFile = root.pendingFilePath;
-            if (attachedFile && attachedFile.length > 0) {
-                requester.message.localFilePath = attachedFile;
-                root.pendingFilePath = ""
-            }
-            const attached = attachedFile && attachedFile.length > 0 && attachedFile.startsWith("/") ? attachedFile : "";
-
-            /* Send the request */
-            const prompt = root.claudeCodePrompt(filteredMessageArray, attached);
-            const turns = filteredMessageArray.filter(m => m.role === "user");
-            desktopTaskFile.path = Qt.resolvedUrl(root.desktopTaskFilePath);
-            desktopTaskFile.setText((turns[turns.length - 1]?.rawContent ?? "").slice(0, 500));
-            // What Claude remembers about the user that this message is
-            // about goes with it (the personal memory, in the desktop MCP
-            // server): no recall round trip.
-            if (root.claudeSessionId.length === 0) root.personalShown = [];
-            const desktop = root.currentTool !== "none" && root.desktopTools.some(t => t.name === "recall_about_user");
-            if (desktop && !personalContext.running) {
-                personalContext.prompt = prompt;
-                personalContext.attached = attached;
-                personalContext.sent = false;
-                personalContext.command = [root.desktopMcpCommand, "personal", "context",
-                    "--exclude", root.personalShown.join(",") || ",", turns[turns.length - 1]?.rawContent ?? ""];
-                personalContext.running = true;
-                return;
-            }
-            requester.sendPrompt(prompt, attached);
-        }
-
-        function sendPrompt(prompt, attached) {
-            requester.pendingLine = JSON.stringify({ type: "user", message: { role: "user", content: prompt } }) + "\n";
-            // A connector needed signing in to: perhaps it's done now.
-            if (root.claudeConnectorsSetting && root.claudeConnectorsNeedAuth
-                    && Date.now() - root.claudeConnectorsCheckedAt > 20000) {
-                requester.connectorsHold = true;
-                requester.heldAttached = attached;
-                root.checkClaudeConnectors();
-                if (listClaudeConnectors.running) return;
-                requester.connectorsHold = false;
-            }
-            requester.start(attached);
-        }
-
-        function connectorsChecked() {
-            if (requester.connectorsHold) {
-                requester.connectorsHold = false;
-                requester.start(requester.heldAttached);
-            } else if (requester.connectorsStale && requester.running && !requester.turnActive) {
-                // Idle: started again now, not on the next message.
-                requester.pendingLine = "";
-                requester.launch("", requester.session);
-            }
-        }
-
-        // Sends the pending message: to the Claude Code running, when it
-        // fits, else to one started for it.
-        function start(attached) {
-            if (requester.running && !requester.restartPending && !requester.turnActive && !requester.connectorsStale
-                    && requester.script === root.claudeCodeScript(attached, "")
-                    && requester.session === root.claudeSessionId) {
-                if (requester.ready) requester.send(); // else once started
-                return;
-            }
-            if (requester.activeMessage && requester.activeMessage !== requester.message && !requester.activeMessage.done) {
-                requester.activeMessage.done = true;
-                requester.activeMessage.thinking = false;
-            }
-            requester.launch(attached, root.claudeSessionId);
-        }
-
-        // Starts Claude Code (after stopping the one running): resume, the
-        // session to go on with.
-        function launch(attached, resume) {
-            requester.connectorsStale = false;
-            requester.script = root.claudeCodeScript(attached, "");
-            requester.session = resume;
-            requesterScriptFile.path = Qt.resolvedUrl(CF.FileUtils.trimFileProtocol(root.requestScriptFilePath));
-            requesterScriptFile.setText("#!/usr/bin/env bash\n" + root.claudeCodeScript(attached, resume));
-            if (requester.running) {
-                requester.restartPending = true;
-                requester.signal(15);
-            } else {
-                requester.spawn();
-            }
-        }
-
-        function spawn() {
-            requester.turnActive = false;
-            requester.ready = false;
-            requester.command = baseCommand.concat([CF.FileUtils.trimFileProtocol(root.requestScriptFilePath)]);
-            requester.running = true;
-        }
-
-        function send() {
-            if (requester.pendingLine.length === 0) return;
-            requester.activeMessage = requester.message;
-            requester.turnActive = true;
-            idleClose.stop();
-            requester.write(requester.pendingLine);
-            requester.pendingLine = "";
-        }
-
-        onStarted: {
-            requester.ready = true;
-            requester.send();
-        }
-
-        stdout: SplitParser {
-            onRead: data => {
-                if (data.length === 0 || !requester.activeMessage || !requester.turnActive) return;
-                if (requester.activeMessage.thinking) requester.activeMessage.thinking = false;
-                // console.log("[Ai] Raw response line: ", data);
-
-                // Handle response line
-                try {
-                    // Stopped: the "result" that ends the answer is no error to show.
-                    if (requester.interrupting && data.trim().startsWith("{") && JSON.parse(data).type === "result") {
-                        root.claudeCodeApiStrategy.finished = true;
-                        requester.markDone();
-                        return;
-                    }
-                    const result = root.claudeCodeApiStrategy.parseResponseLine(data, requester.activeMessage);
-                    // console.log("[Ai] Parsed response result: ", JSON.stringify(result, null, 2));
-
-                    if (result.sessionId) {
-                        root.claudeSessionId = result.sessionId;
-                        requester.session = result.sessionId;
-                    }
-                    if (result.tokenUsage) {
-                        root.tokenCount.input = result.tokenUsage.input;
-                        root.tokenCount.output = result.tokenUsage.output;
-                        root.tokenCount.total = result.tokenUsage.total;
-                    }
-                    if (result.finished) {
-                        requester.markDone();
-                    }
-                    
-                } catch (e) {
-                    console.log("[AI] Could not parse response: ", e);
-                    requester.activeMessage.rawContent += data;
-                    requester.activeMessage.content += data;
-                }
-            }
-        }
-
-        onExited: (exitCode, exitStatus) => {
-            if (requester.turnActive && requester.activeMessage && !requester.activeMessage.done && !requester.interrupting)
-                root.claudeCodeApiStrategy.onRequestFinished(requester.activeMessage);
-            requester.markDone();
-            requester.ready = false;
-            idleClose.stop();
-            if (requester.restartPending) {
-                requester.restartPending = false;
-                requester.spawn();
-            }
-        }
-    }
-
-    // Stop: Claude Code interrupts the answer and waits for the next
-    // message; stopped if it doesn't.
-    Timer {
-        id: stopFallback
-        interval: 5000
-        onTriggered: if (requester.turnActive) { requester.restartPending = false; requester.signal(15); }
-    }
-
-    // Unused for a while: closed (a few hundred MB); the next message
-    // resumes the session.
-    Timer {
-        id: idleClose
-        interval: 15 * 60 * 1000
-        onTriggered: if (requester.running && !requester.turnActive) { requester.restartPending = false; requester.signal(15); }
-    }
-
-    // The panel opened on Claude: Claude Code started ahead, so the first
-    // message doesn't wait for it.
+    // The panel opened on Claude: the current tab's Claude Code started
+    // ahead, so the first message doesn't wait for it.
     readonly property bool claudeWanted: GlobalStates.sidebarLeftOpen && root.claudeCodePath.length > 0
         && (root.models[root.currentModelId]?.api_format ?? "") === "claude-code" && Config.options.policies.ai !== 2
     onClaudeWantedChanged: if (claudeWanted) {
         prewarm.restart();
         root.checkClaudeConnectors();
     }
+    onCurrentChanged: if (claudeWanted) prewarm.restart()
     Timer {
         id: prewarm
         interval: 300
-        onTriggered: {
-            if (!root.claudeWanted || requester.running || requester.turnActive) return;
-            // Only a new chat or the session of this one, with no file attached.
-            requester.pendingLine = "";
-            requester.launch("", root.claudeSessionId);
-        }
+        onTriggered: if (root.claudeWanted) root.current?.prewarm()
     }
 
-    readonly property bool responding: requester.turnActive
-
-    // Claude finished a turn while the panel is closed (ai.notifyWhenDone):
-    // a notification says so, "waiting for you" when it ends on a question,
-    // and its Open button opens the panel. Not in Do Not Disturb.
-    property string doneNotice: ""
-    function notifyDone(message) {
-        if (!(Config.options?.ai?.notifyWhenDone ?? true) || GlobalStates.sidebarLeftOpen || Notifications.silent) return;
-        const lines = (message?.rawContent ?? "").split("\n")
-            .map(l => l.replace(/[*_`#>]+/g, "").replace(/\s+/g, " ").trim())
-            .filter(l => l.length > 0);
-        const last = lines.length > 0 ? lines[lines.length - 1] : "";
-        const asks = /[?？]$/.test(last);
-        root.doneNotice = last.length > 140 ? last.slice(0, 139) + "…" : last;
-        doneNotifier.command = ["notify-send", "-a", "Shell", "-A", "open=" + Translation.tr("Open"), "--",
-            asks ? Translation.tr("The assistant is waiting for you") : Translation.tr("The assistant is done"),
-            root.doneNotice];
-        doneNotifier.running = false;
-        doneNotifier.running = true;
-    }
-    Process {
-        id: doneNotifier
-        stdout: StdioCollector {
-            onStreamFinished: if (this.text.trim() === "open") GlobalStates.sidebarLeftOpen = true
-        }
-    }
-
-    // Stops the answer being written (and, for Claude, what it is doing).
     function stopResponse() {
-        if (!requester.turnActive) return;
-        requester.restartPending = false;
-        requester.interrupting = true;
-        requester.write(JSON.stringify({ type: "control_request", request_id: `stop-${Date.now()}`,
-            request: { subtype: "interrupt" } }) + "\n");
-        stopFallback.restart();
+        root.current?.stopResponse();
     }
-
     function sendUserMessage(message) {
-        if (message.length === 0) return;
-        root.addMessage(message, "user");
-        requester.makeRequest();
+        root.current?.sendUserMessage(message);
     }
-
     function attachFile(filePath: string) {
-        root.pendingFilePath = CF.FileUtils.trimFileProtocol(filePath);
+        root.current?.attachFile(filePath);
     }
-
     function regenerate(messageIndex) {
-        if (messageIndex < 0 || messageIndex >= messageIDs.length) return;
-        const id = root.messageIDs[messageIndex];
-        const message = root.messageByID[id];
-        if (message.role !== "assistant") return;
-        // Remove all messages after this one
-        for (let i = root.messageIDs.length - 1; i >= messageIndex; i--) {
-            root.removeMessage(i);
-        }
-        // Claude Code's session still holds the removed answer: start a new
-        // one, with the chat so far as context.
-        root.claudeSessionId = "";
-        requester.makeRequest();
-    }
-
-    function chatToJson() {
-        return root.messageIDs.map(id => {
-            const message = root.messageByID[id]
-            return ({
-                "role": message.role,
-                "rawContent": message.rawContent,
-                "fileMimeType": message.fileMimeType,
-                "fileUri": message.fileUri,
-                "localFilePath": message.localFilePath,
-                "model": message.model,
-                "thinking": false,
-                "done": true,
-                "annotations": message.annotations,
-                "annotationSources": message.annotationSources,
-                "functionName": message.functionName,
-                "functionCall": message.functionCall,
-                "functionResponse": message.functionResponse,
-                "visibleToUser": message.visibleToUser,
-            })
-        })
+        root.current?.regenerate(messageIndex);
     }
 
     FileView {
@@ -991,55 +606,26 @@ Singleton {
     }
 
     /**
-     * Saves chat to a JSON list of message objects.
+     * Saves the current chat to a JSON list of message objects.
      * @param chatName name of the chat
      */
     function saveChat(chatName) {
+        if (!root.current) return;
         chatSaveFile.chatName = chatName.trim()
-        const saveContent = JSON.stringify(root.chatToJson())
-        chatSaveFile.setText(saveContent)
+        chatSaveFile.setText(JSON.stringify(root.current.chatToJson()))
         getSavedChats.running = true;
     }
 
     /**
-     * Loads chat from a JSON list of message objects.
+     * Loads a chat saved with saveChat into the current tab.
      * @param chatName name of the chat
      */
     function loadChat(chatName) {
-        root.claudeSessionId = "";
+        if (!root.current) return;
         try {
             chatSaveFile.chatName = chatName.trim()
             chatSaveFile.reload()
-            const saveContent = chatSaveFile.text()
-            // console.log(saveContent)
-            const saveData = JSON.parse(saveContent)
-            root.clearMessages()
-            root.messageIDs = saveData.map((_, i) => {
-                return i
-            })
-            // console.log(JSON.stringify(messageIDs))
-            for (let i = 0; i < saveData.length; i++) {
-                const message = saveData[i];
-                root.messageByID[i] = root.aiMessageComponent.createObject(root, {
-                    "role": message.role,
-                    "rawContent": message.rawContent,
-                    "content": message.rawContent,
-                    "fileMimeType": message.fileMimeType,
-                    "fileUri": message.fileUri,
-                    "localFilePath": message.localFilePath,
-                    "model": message.model,
-                    "thinking": message.thinking,
-                    "done": message.done,
-                    "annotations": message.annotations,
-                    "annotationSources": message.annotationSources,
-                    "functionName": message.functionName,
-                    "functionCall": message.functionCall,
-                    "functionResponse": message.functionResponse,
-                    "visibleToUser": message.visibleToUser,
-                });
-            }
-            // A saved chat: the pass read it, or it is from before the pass.
-            root.memoryReadUpTo = saveData.length;
+            root.current.setMessages(JSON.parse(chatSaveFile.text()))
         } catch (e) {
             console.log("[AI] Could not load chat: ", e);
         } finally {
@@ -1047,13 +633,13 @@ Singleton {
         }
     }
 
+
     // The conversation history: each conversation saved as it goes, after
     // every answer (Directories.aiHistory/<id>.json: its messages and
     // Claude Code's session, so going back to it resumes that session),
     // listed in index.json (id, title, times, model, pinned) for the
     // panel's history. Deleted ai.history.keepDays after its last message
-    // (0: kept for good), unless pinned; or by hand.
-    property string chatId: "" // the conversation on screen ("" until saved)
+    // (0: kept for good), unless pinned or open in a tab; or by hand.
     property var history: [] // its entries, the latest first
     property bool historyReady: false
     readonly property int historyKeepDays: Config.options?.ai?.history?.keepDays ?? 30
@@ -1095,19 +681,19 @@ Singleton {
         return line.length > 60 ? line.slice(0, 59) + "…" : line;
     }
 
-    // Saves the conversation on screen (once it has a message of the user's).
-    function saveHistory() {
-        if (!root.historyReady) return;
-        const messages = root.chatToJson();
+    // Saves a chat's conversation (once it has a message of the user's).
+    function saveHistory(chat) {
+        if (!root.historyReady || !chat) return;
+        const messages = chat.chatToJson();
         const turns = messages.filter(m => (m.role === "user" || m.role === "assistant") && !m.functionName);
         const first = turns.find(m => m.role === "user" && (m.rawContent ?? "").trim().length > 0);
         if (!first) return;
-        if (root.chatId.length === 0) root.chatId = root.idForMessage();
-        const old = root.history.find(c => c.id === root.chatId);
+        if (chat.chatId.length === 0) chat.chatId = root.idForMessage();
+        const old = root.history.find(c => c.id === chat.chatId);
         const answers = turns.filter(m => m.role === "assistant");
         const now = Date.now();
         const entry = {
-            id: root.chatId,
+            id: chat.chatId,
             title: old?.title ?? (root.titleFor(first.rawContent) || Translation.tr("Conversation")),
             created: old?.created ?? now,
             updated: now,
@@ -1115,17 +701,21 @@ Singleton {
             pinned: old?.pinned ?? false,
             turns: turns.length,
         };
-        historyChatFile.path = root.historyChatPath(root.chatId);
-        historyChatFile.setText(JSON.stringify({ version: 1, id: root.chatId, claudeSessionId: root.claudeSessionId, messages }));
-        root.history = [entry, ...root.history.filter(c => c.id !== root.chatId)];
+        historyChatFile.path = root.historyChatPath(chat.chatId);
+        historyChatFile.setText(JSON.stringify({ version: 1, id: chat.chatId, claudeSessionId: chat.claudeSessionId, messages }));
+        root.history = [entry, ...root.history.filter(c => c.id !== chat.chatId)];
         root.writeHistoryIndex();
     }
 
-    // Opens a conversation of the history: its messages, and Claude Code's
-    // session when Claude Code still has it (else the next message sends
-    // the conversation so far as context).
+    // Opens a conversation of the history: its tab when one has it open,
+    // else in the current tab.
     function openChat(id) {
-        if (id === root.chatId || !root.history.some(c => c.id === id)) return;
+        const open = root.chats.find(c => c.chatId === id);
+        if (open) {
+            root.selectChat(open);
+            return;
+        }
+        if (!root.current || !root.history.some(c => c.id === id)) return;
         let saved;
         try {
             historyChatFile.path = root.historyChatPath(id);
@@ -1136,53 +726,20 @@ Singleton {
             root.addMessage(Translation.tr("That conversation can't be read any more."), root.interfaceRole);
             return;
         }
-        // The answer being written stays with the conversation it is for.
-        if (requester.turnActive) {
-            root.stopResponse();
-            root.saveHistory();
-        }
-        root.clearMessages();
-        const ids = [];
-        const byID = {};
-        for (const message of (saved.messages ?? [])) {
-            const messageId = root.idForMessage();
-            ids.push(messageId);
-            byID[messageId] = root.aiMessageComponent.createObject(root, Object.assign({}, message, {
-                "content": message.rawContent ?? "",
-                "thinking": false,
-                "done": true,
-            }));
-        }
-        root.messageByID = byID;
-        root.messageIDs = ids;
-        root.chatId = id;
-        // The memory pass read it when it was left.
-        root.memoryReadUpTo = ids.length;
-        const session = saved.claudeSessionId ?? "";
-        if (/^[0-9a-f-]{36}$/.test(session)) {
-            claudeSessionCheck.chat = id;
-            claudeSessionCheck.session = session;
-            claudeSessionCheck.running = true;
-        }
+        root.current.openSaved(id, saved);
     }
-    // Claude Code deletes its sessions after a while (cleanupPeriodDays).
-    Process {
-        id: claudeSessionCheck
-        property string chat
-        property string session
-        command: ["bash", "-c", `test -n "$(find "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects" -maxdepth 2 -name "$1.jsonl" -print -quit 2>/dev/null)"`,
-            "claude-session", session]
-        onExited: (exitCode, exitStatus) => {
-            if (exitCode === 0 && root.chatId === chat && root.claudeSessionId.length === 0)
-                root.claudeSessionId = session;
-        }
+    // In a new tab (or the current one, when it is empty).
+    function openChatInNewTab(id) {
+        if (root.chats.some(c => c.chatId === id) || (root.current?.messageIDs.length ?? 0) === 0 || root.newChat())
+            root.openChat(id);
     }
 
     function deleteChats(ids) {
         if (ids.length === 0) return;
-        if (ids.includes(root.chatId)) {
-            root.stopResponse();
-            root.clearMessages();
+        for (const chat of root.chats) {
+            if (!ids.includes(chat.chatId)) continue;
+            chat.stopResponse();
+            chat.clearMessages();
         }
         root.history = root.history.filter(c => !ids.includes(c.id));
         root.writeHistoryIndex();
@@ -1206,11 +763,12 @@ Singleton {
         root.writeHistoryIndex();
     }
 
-    // Expired: no message for ai.history.keepDays, not pinned, not on screen.
+    // Expired: no message for ai.history.keepDays, not pinned, not open.
     function pruneHistory() {
         if (!root.historyReady || root.historyKeepDays <= 0) return;
         const before = Date.now() - root.historyKeepDays * 24 * 60 * 60 * 1000;
-        root.deleteChats(root.history.filter(c => !c.pinned && c.id !== root.chatId && (c.updated ?? 0) < before).map(c => c.id));
+        const open = root.chats.map(c => c.chatId);
+        root.deleteChats(root.history.filter(c => !c.pinned && !open.includes(c.id) && (c.updated ?? 0) < before).map(c => c.id));
     }
     onHistoryKeepDaysChanged: historyPrune.restart()
     Timer {

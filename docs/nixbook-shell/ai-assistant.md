@@ -59,11 +59,17 @@ Replies stream in, each tool call shows with its result in a collapsible block, 
 
 With a model selected, the configuration facts become reference for the model: it answers with its own knowledge too, and says when it isn't sure. `ai.includeSystemContext` (on by default; Settings → Services → AI) controls whether the machine context is sent.
 
+## Tabs
+
+The chat has **tabs**, each its own conversation answering on its own, so Claude can work on several things at once: **+** above the chat (or **Ctrl+T**) opens one, **Ctrl+Tab** / **Ctrl+Shift+Tab** go through them, and **×**, a middle-click or **Ctrl+W** closes one (its conversation stays in the history). A tab shows a spinner while it works and a dot when it answered while you were elsewhere; when the panel is closed, the notification's **Open** opens that tab. Up to 8 tabs.
+
+Each tab runs its own Claude Code. When agents work on [their own desktop](./agent-desktop), each tab also gets **its own desktop**, so they don't fight over one pointer and keyboard: the first tab uses "Assistant's desktop", the others "Assistant's desktop 2", "3"… (the number shows on the tab). Closing a tab closes its desktop.
+
 ## Conversations
 
 Every conversation is saved as you chat, after each answer. The **history** button at the top of the chat (or **Ctrl+H**, or `/history`) lists them — pinned first, then by day — to go back to one:
 
-- **click** one to open it; with Claude, it resumes the same Claude Code session when Claude Code still has it (it keeps sessions about a month), otherwise the conversation so far goes with your next message;
+- **click** one to open it (in its tab, if a tab has it open; the **tab** button or a middle-click opens it in a new one); with Claude, it resumes the same Claude Code session when Claude Code still has it (it keeps sessions about a month), otherwise the conversation so far goes with your next message;
 - **search** by title; Up/Down and Enter open one from the keyboard, Esc goes back;
 - **rename** one (its pencil, or right-click), **pin** it to keep it for good, or **delete** it; **Delete all** deletes every conversation but the pinned ones (click twice);
 - **New conversation** (the button beside the token count, or `/clear`) starts a fresh one; the current one stays in the history.

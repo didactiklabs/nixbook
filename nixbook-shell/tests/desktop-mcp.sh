@@ -2030,12 +2030,19 @@ cat >"$bin/systemctl" <<'EOF'
 echo "systemctl $*" >>"$STUB_CALLS"
 [ -z "${STUB_SYSTEMCTL_FAIL:-}" ] || { echo "Unit nixbook-agent-desktop.service not found." >&2; exit 5; }
 if [ "$2" = start ]; then
+  # The Nth (nixbook-agent-desktop@N): its own directory, display and socket.
+  dir=nixbook-agent-desktop display=wayland-9 socket="$STUB_AGENT_SOCKET"
+  case "$3" in nixbook-agent-desktop@*.service)
+    n="${3#nixbook-agent-desktop@}" n="${n%.service}"
+    dir="nixbook-agent-desktop-$n" display="wayland-1$n" socket="${STUB_AGENT_SOCKET%/*}/niri.wayland-1$n.$n.sock"
+    ;;
+  esac
   python3 -c 'import os, socket, sys
 for p in sys.argv[1:]:
     if os.path.exists(p): os.unlink(p)
-    socket.socket(socket.AF_UNIX).bind(p)' "$XDG_RUNTIME_DIR/wayland-9" "$STUB_AGENT_SOCKET"
-  mkdir -p "$XDG_RUNTIME_DIR/nixbook-agent-desktop"
-  printf 'WAYLAND_DISPLAY=wayland-9\nNIRI_SOCKET=%s\n' "$STUB_AGENT_SOCKET" >"$XDG_RUNTIME_DIR/nixbook-agent-desktop/agent-desktop.env"
+    socket.socket(socket.AF_UNIX).bind(p)' "$XDG_RUNTIME_DIR/$display" "$socket"
+  mkdir -p "$XDG_RUNTIME_DIR/$dir"
+  printf 'WAYLAND_DISPLAY=%s\nNIRI_SOCKET=%s\n' "$display" "$socket" >"$XDG_RUNTIME_DIR/$dir/agent-desktop.env"
 fi
 EOF
 chmod +x "$bin/systemctl"
@@ -2134,9 +2141,29 @@ call launch_app '{"app": "firefox"}' >/dev/null
 expect_eq "closed by the user: the next app opens it again" "systemctl --user start nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
 expect_eq "closed by the user: still their desktop" agent "$(python3 "$mcp" desktop status | jq -r .desktop)"
 rm -f "$calls.launched"
+# Another chat tab's server (NIXBOOK_AGENT_DESKTOP=2): a desktop of its own,
+# side by side with the first.
+reset_calls
+NIXBOOK_AGENT_DESKTOP=2 call launch_app '{"app": "firefox"}' >/dev/null
+expect_eq "second agent desktop: its own service" "systemctl --user start nixbook-agent-desktop@2.service" "$(grep systemctl "$calls")"
+rm -f "$calls.launched"
+NIXBOOK_AGENT_DESKTOP=2 call focus_window '{"id": 1}' >/dev/null
+expect_eq "second agent desktop: tools reach its own niri" "$tmp/runtime/niri.wayland-12.2.sock" "$(cat "$calls.socket")"
+call focus_window '{"id": 1}' >/dev/null
+expect_eq "second agent desktop: the first one's tools unchanged" "$STUB_AGENT_SOCKET" "$(cat "$calls.socket")"
+expect_eq "desktop status: lists them" "1 2" "$(python3 "$mcp" desktop status | jq -r '.agent_desktops | keys | join(" ")')"
+python3 "$mcp" desktop interact on --instance 2 >/dev/null
+expect_eq "desktop interact --instance 2: that one's flag" true "$(python3 "$mcp" desktop status --instance 2 | jq .user_has_control)"
+expect_eq "desktop interact --instance 2: not the first's" false "$(python3 "$mcp" desktop status | jq .user_has_control)"
+expect_contains "desktop interact --instance 2: its agent waits" "$(NIXBOOK_AGENT_DESKTOP=2 call type_text '{"text": "x"}')" "the user took over your desktop"
+expect_not_contains "desktop interact --instance 2: the first's agent types" "$(call type_text '{"text": "x"}')" "took over"
+python3 "$mcp" desktop interact off --instance 2 >/dev/null
+reset_calls
+python3 "$mcp" desktop stop --instance 2 >/dev/null
+expect_eq "desktop stop --instance 2: only that one" "systemctl --user stop nixbook-agent-desktop@2.service" "$(grep systemctl "$calls")"
 reset_calls
 python3 "$mcp" desktop stop >/dev/null
-expect_eq "desktop stop: stops the service" "systemctl --user stop nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
+expect_eq "desktop stop: stops them all" "systemctl --user stop nixbook-agent-desktop.service nixbook-agent-desktop@*.service" "$(grep systemctl "$calls")"
 expect_eq "desktop stop: agents stay on their desktop" agent "$(python3 "$mcp" desktop status | jq -r .desktop)"
 python3 "$mcp" desktop toggle >/dev/null
 expect_eq "desktop toggle: back to the user's" user "$(python3 "$mcp" desktop status | jq -r .desktop)"

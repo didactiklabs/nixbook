@@ -25,6 +25,24 @@ Item {
         root.historyOpen = !root.historyOpen;
         if (!root.historyOpen) messageInputField.forceActiveFocus();
     }
+    // The tabs' keys (ChatTabBar): Ctrl+T, Ctrl+W, Ctrl+Tab, Ctrl+Shift+Tab.
+    function tabKey(event) {
+        const mods = event.modifiers & ~Qt.KeypadModifier;
+        if (mods === Qt.ControlModifier && event.key === Qt.Key_T) {
+            Ai.newChat();
+        } else if (mods === Qt.ControlModifier && event.key === Qt.Key_W) {
+            Ai.closeChat(Ai.currentIndex);
+        } else if (mods === Qt.ControlModifier && event.key === Qt.Key_Tab) {
+            Ai.currentIndex = (Ai.currentIndex + 1) % Ai.chats.length;
+        } else if ((mods === (Qt.ControlModifier | Qt.ShiftModifier)) && (event.key === Qt.Key_Backtab || event.key === Qt.Key_Tab)) {
+            Ai.currentIndex = (Ai.currentIndex + Ai.chats.length - 1) % Ai.chats.length;
+        } else {
+            return false;
+        }
+        root.historyOpen = false;
+        messageInputField.forceActiveFocus();
+        return true;
+    }
 
     onFocusChanged: focus => {
         if (focus) {
@@ -33,6 +51,10 @@ Item {
     }
 
     Keys.onPressed: event => {
+        if (root.tabKey(event)) {
+            event.accepted = true;
+            return;
+        }
         if (event.modifiers === Qt.ControlModifier && event.key === Qt.Key_H) {
             root.toggleHistory();
             event.accepted = true;
@@ -314,6 +336,10 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
         }
         spacing: root.padding
 
+        ChatTabBar {
+            Layout.fillWidth: true
+        }
+
         Item {
             // Messages
             Layout.fillWidth: true
@@ -453,7 +479,7 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                 descriptionHorizontalAlignment: configAssistant ? Text.AlignHCenter : Text.AlignLeft
                 description: configAssistant
                     ? Translation.tr("Your machine's config: shortcuts, modules, packages, settings.\n\nOne question, naming the thing:\n“shortcut for the launcher”\n“is tailscale enabled?”\n“all shortcuts”\n\nEnglish · Français · Deutsch · Tiếng Việt")
-                    : Translation.tr("Type /model to switch models\nCtrl+H for past conversations\nCtrl+O to expand sidebar\nCtrl+P to pin sidebar\nCtrl+D to detach sidebar")
+                    : Translation.tr("Type /model to switch models\nCtrl+T for a new tab, side by side\nCtrl+H for past conversations\nCtrl+O to expand sidebar\nCtrl+P to pin sidebar\nCtrl+D to detach sidebar")
                 shape: MaterialShape.Shape.PixelCircle
             }
 
@@ -705,6 +731,10 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
 
                         Keys.onPressed: event => {
                             if (GlobalStates.sidebarLeftKey(event)) {
+                                event.accepted = true;
+                                return;
+                            }
+                            if (root.tabKey(event)) {
                                 event.accepted = true;
                                 return;
                             }

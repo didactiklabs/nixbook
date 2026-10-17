@@ -265,7 +265,38 @@ def log(msg):
 # switching desktops is switching those two.
 DESKTOP_ENV = ("WAYLAND_DISPLAY", "NIRI_SOCKET")
 USER_DESKTOP_ENV = {k: os.environ.get(k) for k in DESKTOP_ENV}
-AGENT_DESKTOP_UNIT = "nixbook-agent-desktop.service"
+AGENT_DESKTOP_DIR = "nixbook-agent-desktop"
+
+
+# Several agent desktops can run side by side, one per chat tab of the side
+# panel working at once: the shell gives each tab's server its own
+# (NIXBOOK_AGENT_DESKTOP=N: nixbook-agent-desktop@N, the launcher's
+# nixbook-agent-desktop-N directory); "" (or 1) is the first, the
+# nixbook-agent-desktop service, which other agents use.
+def agent_desktop_instance():
+    instance = os.environ.get("NIXBOOK_AGENT_DESKTOP", "").strip()
+    return instance if instance.isdigit() and int(instance) > 1 else ""
+
+
+def agent_desktop_unit(instance=None):
+    instance = agent_desktop_instance() if instance is None else instance
+    return f"nixbook-agent-desktop@{instance}.service" if instance else "nixbook-agent-desktop.service"
+
+
+def agent_desktop_instances():
+    """The agent desktops whose launcher runs (its directory exists)."""
+    runtime = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+    found = []
+    try:
+        names = os.listdir(runtime)
+    except OSError:
+        return found
+    for name in names:
+        if name == AGENT_DESKTOP_DIR:
+            found.append("")
+        elif name.startswith(AGENT_DESKTOP_DIR + "-") and name[len(AGENT_DESKTOP_DIR) + 1:].isdigit():
+            found.append(name[len(AGENT_DESKTOP_DIR) + 1:])
+    return sorted(found, key=lambda i: int(i or 1))
 
 
 def agent_desktop_flag():
@@ -281,7 +312,9 @@ def on_agent_desktop():
 def agent_desktop_dir():
     """The launcher's directory (scripts/agent-desktop.sh): written by it
     only, read-only inside the agent desktop's sandbox."""
-    return os.path.join(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}", "nixbook-agent-desktop")
+    instance = agent_desktop_instance()
+    return os.path.join(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}",
+                        AGENT_DESKTOP_DIR + (f"-{instance}" if instance else ""))
 
 
 def agent_desktop_env():
@@ -310,14 +343,14 @@ def start_agent_desktop():
     env = agent_desktop_env()
     if env:
         return env
-    run(["systemctl", "--user", "start", AGENT_DESKTOP_UNIT], timeout=20)
+    run(["systemctl", "--user", "start", agent_desktop_unit()], timeout=20)
     deadline = time.monotonic() + 15
     while time.monotonic() < deadline:
         env = agent_desktop_env()
         if env:
             return env
         time.sleep(0.2)
-    raise ToolError(f"the agent desktop didn't start (journalctl --user -u {AGENT_DESKTOP_UNIT})")
+    raise ToolError(f"the agent desktop didn't start (journalctl --user -u {agent_desktop_unit()})")
 
 
 def agent_input_flag():
@@ -8346,9 +8379,13 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
   desktop [status]        where agents work: on the user's desktop or their own
   desktop agent | user | toggle  agents use their own desktop (a nested niri,
                           started as needed) / the user's
-  desktop stop            close the agent desktop and its windows
+  desktop stop            close the agent desktops and their windows
   desktop interact on | off | toggle  take over the agent desktop (your clicks
-                          and keys reach it; the agent's input is refused)
+                          and keys reach it; the agent's input is refused):
+                          the one focused, else the first open
+  desktop … --instance N  stop, interact or status: the Nth agent desktop
+                          (one per chat tab of the side panel; also
+                          NIXBOOK_AGENT_DESKTOP=N)
 """
 
 
@@ -8463,7 +8500,20 @@ def main(argv):
 
 def desktop_command(argv):
     """Where agents work, for the user (and the shell): `desktop agent` gives
-    them their own desktop, `desktop user` brings them back to the user's."""
+    them their own desktop, `desktop user` brings them back to the user's.
+    stop, interact and status act on the agent desktop --instance N (or
+    NIXBOOK_AGENT_DESKTOP) names; without it, stop closes them all, status
+    lists them all and interact takes the one focused, else the first open."""
+    argv = list(argv)
+    chosen = "NIXBOOK_AGENT_DESKTOP" in os.environ
+    if "--instance" in argv:
+        i = argv.index("--instance")
+        if i + 1 >= len(argv) or not argv[i + 1].isdigit():
+            print(USAGE, end="", file=sys.stderr)
+            return 2
+        os.environ["NIXBOOK_AGENT_DESKTOP"] = argv[i + 1]
+        del argv[i:i + 2]
+        chosen = True
     sub = argv[0] if argv else "status"
     if sub == "toggle":
         sub = "user" if on_agent_desktop() else "agent"
@@ -8493,6 +8543,8 @@ def desktop_command(argv):
         print("agents work on your desktop" + (" (theirs closes once its apps are gone)" if open_now else ""))
         return 0
     if sub == "interact":
+        if not chosen:
+            os.environ["NIXBOOK_AGENT_DESKTOP"] = focused_agent_desktop()
         want = argv[1] if len(argv) > 1 else "toggle"
         if want == "toggle":
             want = "off" if user_has_control() else "on"
@@ -8521,17 +8573,53 @@ def desktop_command(argv):
         print(USAGE, end="", file=sys.stderr)
         return 2
     if sub == "stop":
-        run(["systemctl", "--user", "stop", AGENT_DESKTOP_UNIT], timeout=20, check=False)
-        print("agent desktop closed" + (" (their next app opens it again; `desktop user` brings them back to yours)"
+        units = [agent_desktop_unit()] if chosen else ["nixbook-agent-desktop.service", "nixbook-agent-desktop@*.service"]
+        run(["systemctl", "--user", "stop", *units], timeout=20, check=False)
+        print(("agent desktop closed" if chosen else "agent desktops closed") + (" (their next app opens it again; `desktop user` brings them back to yours)"
                                         if on_agent_desktop() else ""))
         return 0
     if sub == "status":
         env = agent_desktop_env()
-        print(json.dumps({"desktop": "agent" if on_agent_desktop() else "user", "agent_desktop_running": bool(env),
-                          "agent_desktop": env, "user_has_control": user_has_control()}, indent=1))
+        status = {"desktop": "agent" if on_agent_desktop() else "user", "agent_desktop_running": bool(env),
+                  "agent_desktop": env, "user_has_control": user_has_control()}
+        if not chosen:
+            status["agent_desktops"] = {}
+            for instance in agent_desktop_instances():
+                os.environ["NIXBOOK_AGENT_DESKTOP"] = instance
+                status["agent_desktops"][instance or "1"] = {"running": bool(agent_desktop_env()),
+                                                            "user_has_control": user_has_control()}
+            os.environ.pop("NIXBOOK_AGENT_DESKTOP", None)
+        print(json.dumps(status, indent=1))
         return 0
     print(USAGE, end="", file=sys.stderr)
     return 2
+
+
+def focused_agent_desktop():
+    """The agent desktop whose window has the user's focus, else the first
+    open (else the first): its instance."""
+    running = [i for i in agent_desktop_instances() if instance_env(i)]
+    try:
+        focused = niri_json("focused-window", env=user_desktop_env()) or {}
+    except ToolError:
+        focused = {}
+    if focused.get("app_id") in ("nixbook-agent-desktop", "niri"):
+        for instance in running:
+            if os.path.basename(instance_env(instance)["NIRI_SOCKET"]).split(".")[-2] == str(focused.get("pid")):
+                return instance
+    return running[0] if running else ""
+
+
+def instance_env(instance):
+    saved = os.environ.get("NIXBOOK_AGENT_DESKTOP")
+    os.environ["NIXBOOK_AGENT_DESKTOP"] = instance
+    try:
+        return agent_desktop_env()
+    finally:
+        if saved is None:
+            os.environ.pop("NIXBOOK_AGENT_DESKTOP", None)
+        else:
+            os.environ["NIXBOOK_AGENT_DESKTOP"] = saved
 
 
 def show_agent_desktop(env):

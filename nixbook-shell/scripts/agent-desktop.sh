@@ -52,14 +52,32 @@
 # sandbox): agent-desktop.env (the nested niri's WAYLAND_DISPLAY and
 # NIRI_SOCKET, once it's up), agent-desktop-input, the niri config; run/,
 # writable in the sandbox, is the nested session's runtime directory.
+#
+# Several can run side by side, one per chat tab of the side panel working
+# at once: NIXBOOK_AGENT_DESKTOP=N (the nixbook-agent-desktop@N user
+# service; empty or 1: the first) gives the Nth its own directory
+# (nixbook-agent-desktop-N), window title ("Assistant's desktop N") and home
+# (agent-home-N: a browser profile can't be open twice), made the first time
+# as a copy of the first one's, so its logins come along.
 set -euo pipefail
+
+instance="${NIXBOOK_AGENT_DESKTOP:-}"
+case "$instance" in
+"" | 1) instance="" ;;
+*[!0-9]*)
+  echo "nixbook-agent-desktop: NIXBOOK_AGENT_DESKTOP must be a number, not $instance" >&2
+  exit 1
+  ;;
+esac
+suffix="${instance:+-$instance}"
+unit="nixbook-agent-desktop${instance:+@$instance}"
 
 if [ -z "${WAYLAND_DISPLAY:-}" ]; then
   echo "nixbook-agent-desktop: no WAYLAND_DISPLAY: it runs as a window on the user's desktop" >&2
   exit 1
 fi
 user_runtime="${XDG_RUNTIME_DIR:?no XDG_RUNTIME_DIR}"
-control="$user_runtime/nixbook-agent-desktop"
+control="$user_runtime/nixbook-agent-desktop$suffix"
 session_runtime="$control/run"
 env_file="$control/agent-desktop.env"
 input_file="$control/agent-desktop-input"
@@ -67,9 +85,25 @@ config="$control/agent-desktop.kdl"
 data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
 config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
 shell_config="$config_home/nixbook-shell/config.json"
-agent_home="${NIXBOOK_AGENT_HOME:-$data_home/nixbook-shell/agent-home}"
+first_home="${NIXBOOK_AGENT_HOME:-$data_home/nixbook-shell/agent-home}"
+agent_home="$first_home$suffix"
 
 rm -rf "$control"
+# Another desktop's home, the first time: the first one's, but its caches and
+# the links to the user's folders (made again below).
+if [ -n "$instance" ] && [ ! -e "$agent_home" ] && [ -d "$first_home" ]; then
+  mkdir -p "$agent_home.tmp"
+  tar -C "$first_home" --exclude=./.cache --exclude=./Downloads -cf - . | tar -C "$agent_home.tmp" -xf - ||
+    echo "nixbook-agent-desktop: copying $first_home partly failed" >&2
+  if [ -r "$agent_home.tmp/.config/nixbook-shared-links" ]; then
+    while IFS= read -r link; do
+      link="$agent_home.tmp/${link#"$first_home"/}"
+      [ -L "$link" ] && rm -f "$link"
+    done <"$agent_home.tmp/.config/nixbook-shared-links"
+    rm -f "$agent_home.tmp/.config/nixbook-shared-links"
+  fi
+  mv "$agent_home.tmp" "$agent_home"
+fi
 mkdir -p "$session_runtime" "$agent_home"
 chmod 700 "$control" "$session_runtime" "$agent_home"
 mkdir -p "$agent_home/.config" "$agent_home/.local/share" "$agent_home/.local/state" "$agent_home/.cache"
@@ -374,7 +408,7 @@ ${network[@]+"${network[@]}"} bwrap "${sandbox[@]}" \
   --setenv WAYLAND_DISPLAY "$restricted_display" \
   --setenv NIRI_WINIT_IGNORE_INPUT 1 \
   --setenv NIRI_WINIT_ALLOW_INPUT_FILE "$input_file" \
-  --setenv NIRI_WINIT_TITLE "Assistant's desktop" \
+  --setenv NIRI_WINIT_TITLE "Assistant's desktop${instance:+ $instance}" \
   --setenv NIRI_WINIT_APP_ID nixbook-agent-desktop \
   --setenv NIRI_KEEP_FULLSCREEN 1 \
   --setenv vblank_mode 0 \
@@ -393,8 +427,8 @@ for _ in $(seq 150); do
   sleep 0.1
 done
 if [ -z "$niri_socket" ]; then
-  $private_network && fail "niri didn't start; its private network (pasta) may be the cause: the journal says (journalctl --user -u nixbook-agent-desktop), Settings > Desktop agents can turn it off"
-  fail "niri didn't start (journalctl --user -u nixbook-agent-desktop)"
+  $private_network && fail "niri didn't start; its private network (pasta) may be the cause: the journal says (journalctl --user -u $unit), Settings > Desktop agents can turn it off"
+  fail "niri didn't start (journalctl --user -u $unit)"
 fi
 display="${niri_socket##*/niri.}"
 display="${display%.*.sock}"
