@@ -1273,6 +1273,20 @@ in
             Slice = "app.slice";
           };
         };
+        # The others, one per chat tab of the side panel working at once
+        # (nixbook-agent-desktop@2, @3…): the same, each its own desktop.
+        systemd.user.services."nixbook-agent-desktop@" = {
+          Unit = {
+            Description = "A desktop of their own for AI agents, number %i (nested niri)";
+            PartOf = [ "graphical-session.target" ];
+            After = [ "graphical-session.target" ];
+          };
+          Service = {
+            ExecStart = lib.getExe cfg.package.passthru.agentDesktop;
+            Environment = [ "NIXBOOK_AGENT_DESKTOP=%i" ];
+            Slice = "app.slice";
+          };
+        };
 
         systemd.user.services.cliphist = lib.mkIf cfg.cliphist.enable {
           Unit = {

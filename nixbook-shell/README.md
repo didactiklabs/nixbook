@@ -726,6 +726,13 @@ agent's tools then act there: its own pointer,
 keyboard focus, clipboard and windows, so nothing the agent does moves your
 windows, takes your focus or types into what you're typing in.
 
+Several run side by side, one per tab of the side panel's chat working at
+once: the tab's desktop MCP server gets `NIXBOOK_AGENT_DESKTOP=N`, and the
+Nth desktop is the `nixbook-agent-desktop@N` service ("Assistant's desktop
+N", home `agent-home-N`, first copied from `agent-home` without its caches);
+the first tab and every other agent use the first. `desktop interact`
+takes the one focused, `desktop stop` closes them all (`--instance N`: one).
+
 To you it's one more app window: the agent's desktop shows only the one
 app it works in, fullscreen, and kept so even when the app asks to
 leave it (Zen and Firefox restore their window size on start; a browser

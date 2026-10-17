@@ -21,6 +21,12 @@ The choice survives reboots, and an agent already at work is told when you switc
 - Closing the window only closes it: the agent's next app opens it again. To stop agents, switch them back to your desktop or pause them (Mod+Shift+Escape).
 - The bar widget shows a window icon beside the robot while agents are on their own desktop.
 
+## Several at once
+
+Each tab of the side panel's chat works on a desktop of its own, so several agents can work side by side: the first tab (and every other agent) uses **"Assistant's desktop"**, the side panel's next tabs **"Assistant's desktop 2"**, **"3"**… (the `nixbook-agent-desktop@N` user service). Each has its own home, `agent-home-N`, made the first time as a copy of the first one's (without its caches), so the logins you made there come along; after that their logins are separate. Closing the tab closes its desktop.
+
+**Mod+Ctrl+A** takes over the one whose window has the focus (else the first open). `nixbook-desktop-mcp desktop status` lists them; `stop` closes them all, `stop --instance N` one.
+
 ## Sandbox
 
 Its apps are the agent's, not yours, and run in a **bubblewrap sandbox**:

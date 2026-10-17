@@ -164,6 +164,7 @@ Rectangle {
                     required property var modelData
                     required property int index
                     readonly property bool current: modelData.id === Ai.chatId
+                    readonly property bool inTab: Ai.chats.some(c => c.chatId === modelData.id)
                     readonly property bool selected: index === root.selectedIndex
                     property bool editing: false
                     width: historyList.width
@@ -191,6 +192,10 @@ Rectangle {
                         colRippleToggled: Appearance.colors.colSecondaryContainerActive
                         onClicked: if (!entry.editing) root.open(entry.modelData)
                         altAction: () => entry.editing = true
+                        middleClickAction: () => {
+                            Ai.openChatInNewTab(entry.modelData.id);
+                            root.closed();
+                        }
                         onHoveredChanged: if (hovered) root.selectedIndex = entry.index
 
                         contentItem: RowLayout {
@@ -262,6 +267,7 @@ Rectangle {
                                     Layout.fillWidth: true
                                     text: [root.when(entry.modelData),
                                         Translation.tr("%1 messages").arg(entry.modelData.turns ?? 0),
+                                        entry.inTab && !entry.current ? Translation.tr("open in a tab") : "",
                                         Ai.models[entry.modelData.model]?.name ?? ""].filter(s => s.length > 0).join(" · ")
                                     elide: Text.ElideRight
                                     font.pixelSize: Appearance.font.pixelSize.smaller
@@ -273,6 +279,15 @@ Rectangle {
                             RowLayout {
                                 spacing: 0
                                 readonly property bool reveal: entryButton.hovered || entry.selected || entry.editing
+                                SmallIconButton {
+                                    visible: parent.reveal && !entry.inTab && Ai.chats.length < Ai.maxChats
+                                    symbol: "tab"
+                                    hint: Translation.tr("Open in a new tab (middle-click)")
+                                    onClicked: {
+                                        Ai.openChatInNewTab(entry.modelData.id);
+                                        root.closed();
+                                    }
+                                }
                                 SmallIconButton {
                                     visible: parent.reveal
                                     symbol: "edit"
