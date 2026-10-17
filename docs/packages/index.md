@@ -120,10 +120,11 @@ An MCP server (source in `customPkgs/spotify-mcp/`) for the Spotify desktop app.
 
 ## linkedin-mcp-server
 
-[stickerdaniel/linkedin-mcp-server](https://github.com/stickerdaniel/linkedin-mcp-server) (4.25.1, the last release on the fastmcp 3 / mcp 1 that nixpkgs has), for the nixbook-shell AI chat only: profiles and people search, companies, messages, jobs and the feed, on your own LinkedIn account. `nixbookShellConfig` installs it (`linkedinMcp.enable`, on by default; `false` leaves it and its Chromium out), but the chat doesn't get it until you turn it on in **Settings → Desktop agents → Apps it can use**, where **Sign in to LinkedIn** opens its login window.
+[stickerdaniel/linkedin-mcp-server](https://github.com/stickerdaniel/linkedin-mcp-server) (4.25.1, the last release on the fastmcp 3 / mcp 1 that nixpkgs has), for the nixbook-shell AI chat only: profiles and people search, companies, messages, jobs and the feed, on your own LinkedIn account. `nixbookShellConfig` installs it (`linkedinMcp.enable`, on by default; `false` leaves it and its Chromium out), but the chat doesn't get it until you turn it on in **Settings → Desktop agents → Apps it can use**. There, **Use my browser's session** takes the LinkedIn session of the browser you're signed in with (the most recently used one, checked with LinkedIn; the outcome comes as a notification), and **Sign in to LinkedIn** opens its own login window instead.
 
 - It drives nixpkgs' Chromium (`CHROME_PATH`, so it never downloads a browser of its own) through [patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright-python), packaged from its PyPI wheel with nixpkgs' Node as its driver (nixpkgs' own patchright is marked broken). It doesn't check PyPI for updates.
-- The session is kept in `~/.linkedin-mcp/profile`; `mcp-server-linkedin --login` and `--logout` sign in and out.
+- The session is kept in `~/.linkedin-mcp/profile`; `mcp-server-linkedin --login` and `--logout` sign in and out, `--import-from-browser [zen|firefox|chrome|…]` takes a browser's session.
+- Upstream imports sessions from Chromium browsers only; a patch (`customPkgs/linkedin-mcp-server/gecko-import.patch`) adds Firefox-family ones: **Zen**, Firefox, LibreWolf and Floorp (their `profiles.ini` and plain-text `cookies.sqlite`, the default container's cookies). The same import runs on its own on the first request needing a session.
 - LinkedIn's User Agreement forbids automated access and it may restrict accounts using such tools: the chat is told to use it sparingly, and to show a message or invitation and wait for your yes before sending it.
 
 ## moonfin
