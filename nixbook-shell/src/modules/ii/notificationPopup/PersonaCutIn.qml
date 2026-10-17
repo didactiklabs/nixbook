@@ -131,9 +131,14 @@ Scope {
             const n = root.lastSeen;
             if (!n) return "no notification received since the shell started";
             const hints = n.hints ?? {};
+            // A loop: Qt's JavaScript engine has no Object.fromEntries.
+            const plainHints = {};
+            for (const k of Object.keys(hints)) {
+                if (typeof hints[k] !== "object") plainHints[k] = hints[k];
+            }
             return JSON.stringify({
                 app: n.appName, title: n.summary, text: n.body, urgency: n.urgency,
-                hints: Object.fromEntries(Object.keys(hints).filter(k => typeof hints[k] !== "object").map(k => [k, hints[k]])),
+                hints: plainHints,
                 cutIn: (v => v.cutIn ? v.reason : (v.reason ? `no (${v.reason})` : "no"))(Notifications.cutInVerdict(n))
             }, null, 2);
         }
