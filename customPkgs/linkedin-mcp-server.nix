@@ -11,6 +11,13 @@
 # wouldn't run on NixOS) through patchright (below), and doesn't poll PyPI
 # for updates. The session lives in ~/.linkedin-mcp/profile
 # (`mcp-server-linkedin --login` signs in, `--logout` forgets it).
+#
+# Patched (./linkedin-mcp-server/gecko-import.patch) so that importing a
+# session from a signed-in browser (`--import-from-browser [zen|firefox|…]`,
+# and the import tried on the first call needing a session) also reads
+# Firefox-family browsers (Zen, Firefox, LibreWolf, Floorp): their
+# profiles.ini and plain-text cookies.sqlite. Upstream reads Chromium
+# browsers only.
 let
   py = pkgs.python313Packages;
   # nixpkgs' patchright is a placeholder (marked broken: the real package
@@ -47,6 +54,8 @@ py.buildPythonApplication rec {
     inherit version;
     hash = "sha256-6yWnHNWdGwmItPF8tRkwdiryEegJ+c+qoXKjD9UTiSA=";
   };
+
+  patches = [ ./linkedin-mcp-server/gecko-import.patch ];
 
   build-system = [ py.setuptools ];
   dependencies = [

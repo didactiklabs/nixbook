@@ -1,0 +1,222 @@
+diff -ruN a/linkedin_mcp_server/browser_import/discovery.py b/linkedin_mcp_server/browser_import/discovery.py
+--- a/linkedin_mcp_server/browser_import/discovery.py	2026-10-17 15:40:09.948538796 +0000
++++ b/linkedin_mcp_server/browser_import/discovery.py	2026-10-17 15:40:10.032623379 +0000
+@@ -45,7 +45,8 @@
+     mac_keychain_account: str = ""
+     # On-disk profile layout. "profiles" = standard Default/Profile N subdirs;
+     # "flat" = cookies at the user-data root with no Default/ subdir (Opera and
+-    # Opera GX, see docs/browser-import-support.md).
++    # Opera GX, see docs/browser-import-support.md); "gecko" = a Firefox-family
++    # profile (profiles.ini, cookies.sqlite in plain text: no keystore).
+     layout: str = "profiles"
+ 
+ 
+@@ -173,9 +174,85 @@
+         "win_subpath": "Opera Software/Opera GX Stable",
+         "layout": "flat",
+     },
++    # Firefox-family browsers (nixbook patch): their profiles are listed in
++    # profiles.ini under these roots (relative to $HOME, Linux only), each
++    # with an unencrypted cookies.sqlite. Validation and storage are the
++    # Chromium import's.
++    "zen": {
++        "label": "Zen",
++        "safe_storage": "",
++        "mac_subpath": "",
++        "linux_subpaths": (),
++        "win_subpath": "",
++        "layout": "gecko",
++        "gecko_roots": (".zen", ".config/zen", ".var/app/app.zen_browser.zen/.zen"),
++    },
++    "firefox": {
++        "label": "Firefox",
++        "safe_storage": "",
++        "mac_subpath": "",
++        "linux_subpaths": (),
++        "win_subpath": "",
++        "layout": "gecko",
++        "gecko_roots": (".mozilla/firefox", ".config/mozilla/firefox", ".var/app/org.mozilla.firefox/.mozilla/firefox"),
++    },
++    "librewolf": {
++        "label": "LibreWolf",
++        "safe_storage": "",
++        "mac_subpath": "",
++        "linux_subpaths": (),
++        "win_subpath": "",
++        "layout": "gecko",
++        "gecko_roots": (".librewolf", ".config/librewolf/librewolf"),
++    },
++    "floorp": {
++        "label": "Floorp",
++        "safe_storage": "",
++        "mac_subpath": "",
++        "linux_subpaths": (),
++        "win_subpath": "",
++        "layout": "gecko",
++        "gecko_roots": (".floorp",),
++    },
+ }
+ 
+ 
++def gecko_profiles(browser_key: str) -> list[tuple[Path, Path, str]]:
++    """``(root, profile_path, name)`` of a Firefox-family browser's profiles
++    with a cookies.sqlite, from each root's profiles.ini (Linux only)."""
++    import configparser
++
++    spec = SUPPORTED_BROWSERS[browser_key]
++    if sys.platform == "darwin" or os.name == "nt":
++        return []
++    found: list[tuple[Path, Path, str]] = []
++    seen: set[Path] = set()
++    for sub in cast("tuple[str, ...]", spec.get("gecko_roots", ())):
++        root = Path.home() / sub
++        ini = root / "profiles.ini"
++        if not ini.is_file():
++            continue
++        parser = configparser.RawConfigParser()
++        try:
++            parser.read(ini)
++        except configparser.Error:
++            continue
++        for section in parser.sections():
++            if not section.startswith("Profile"):
++                continue
++            raw = parser.get(section, "Path", fallback="")
++            if not raw:
++                continue
++            relative = parser.get(section, "IsRelative", fallback="1") == "1"
++            path = (root / raw) if relative else Path(raw)
++            resolved = path.resolve() if path.exists() else path
++            if resolved in seen or not (path / "cookies.sqlite").is_file():
++                continue
++            seen.add(resolved)
++            found.append((root, path, parser.get(section, "Name", fallback=path.name)))
++    return found
++
++
+ def _os_base_dirs() -> tuple[str, list[Path]]:
+     """Return the current OS key and the base directories browsers live under."""
+     if sys.platform == "darwin":
+@@ -221,7 +298,7 @@
+     seen: set[Path] = set()
+ 
+     for key in keys:
+-        if key not in SUPPORTED_BROWSERS:
++        if key not in SUPPORTED_BROWSERS or SUPPORTED_BROWSERS[key].get("layout") == "gecko":
+             continue
+         for subpath in _subpaths_for(key, os_key):
+             for base in base_dirs:
+@@ -370,6 +447,24 @@
+                     layout=layout,
+                 )
+             )
++    for browser_key, spec in SUPPORTED_BROWSERS.items():
++        if spec.get("layout") != "gecko" or (browser and browser != browser_key):
++            continue
++        for root, profile_path, name in gecko_profiles(browser_key):
++            discovered.append(
++                BrowserProfile(
++                    browser=browser_key,
++                    browser_label=str(spec["label"]),
++                    safe_storage_label="",
++                    profile_dir_name=profile_path.name,
++                    display_name=name,
++                    user_data_root=root,
++                    profile_path=profile_path,
++                    cookies_db=profile_path / "cookies.sqlite",
++                    local_state_path=root / "profiles.ini",
++                    layout="gecko",
++                )
++            )
+     logger.debug(
+         "Discovered %d browser profile(s)%s",
+         len(discovered),
+diff -ruN a/linkedin_mcp_server/browser_import/extract.py b/linkedin_mcp_server/browser_import/extract.py
+--- a/linkedin_mcp_server/browser_import/extract.py	2026-10-17 15:40:09.948609408 +0000
++++ b/linkedin_mcp_server/browser_import/extract.py	2026-10-17 15:40:10.035871501 +0000
+@@ -427,6 +427,59 @@
+     return _derive_cbc_key(password, iterations=_LINUX_ITERATIONS), None, True
+ 
+ 
++def _gecko_expiry(value: int) -> float:
++    """moz_cookies.expiry: seconds, milliseconds in newer Firefox."""
++    if not value:
++        return -1.0
++    return value / 1000.0 if value > 100_000_000_000 else float(value)
++
++
++def _gecko_rows(profile: BrowserProfile) -> list[sqlite3.Row]:
++    """A Firefox-family profile's LinkedIn rows of moz_cookies (plain text),
++    from a copy (the browser keeps the database locked), the default
++    container's first."""
++    temp_dir, db_copy = _copy_cookies_db(profile.cookies_db)
++    try:
++        connection = sqlite3.connect(f"file:{db_copy}?mode=ro", uri=True)
++        try:
++            connection.row_factory = sqlite3.Row
++            rows = connection.execute(
++                "SELECT host, name, value, path, expiry, lastAccessed, isSecure, "
++                "isHttpOnly, sameSite, originAttributes FROM moz_cookies"
++            ).fetchall()
++        finally:
++            connection.close()
++    finally:
++        shutil.rmtree(temp_dir, ignore_errors=True)
++    rows = [r for r in rows if "linkedin.com" in (r["host"] or "")]
++    default = [r for r in rows if not r["originAttributes"]]
++    return default or rows
++
++
++def _gecko_cookies(profile: BrowserProfile) -> list[LinkedInCookie]:
++    cookies = [
++        LinkedInCookie(
++            name=row["name"],
++            value=row["value"] or "",
++            domain=row["host"],
++            path=row["path"] or "/",
++            expires=_gecko_expiry(row["expiry"] or 0),
++            secure=bool(row["isSecure"]),
++            http_only=bool(row["isHttpOnly"]),
++            # moz_cookies.sameSite: 0 None, 1 Lax, 2 Strict.
++            same_site={0: "None", 1: "Lax", 2: "Strict"}.get(row["sameSite"], "Lax"),
++        )
++        for row in _gecko_rows(profile)
++    ]
++    logger.info(
++        "Extracted %d LinkedIn cookies from %s/%s",
++        len(cookies),
++        profile.browser,
++        profile.profile_dir_name,
++    )
++    return cookies
++
++
+ def extract_linkedin_cookies(profile: BrowserProfile) -> list[LinkedInCookie]:
+     """Copy *profile*'s Cookies DB and return its decrypted LinkedIn cookies.
+ 
+@@ -441,6 +494,8 @@
+ 
+     Raises :class:`KeystoreUnavailableError` when the OS keystore is unavailable.
+     """
++    if profile.layout == "gecko":
++        return _gecko_cookies(profile)
+     cbc_key, win_master_key, is_macos_or_linux = _resolve_keystore(profile)
+ 
+     temp_dir, db_copy = _copy_cookies_db(profile.cookies_db)
+@@ -545,6 +600,16 @@
+     the encryption prefix. It never derives a key, so it works -- and stays
+     silent on the keychain -- even when the keystore is unavailable.
+     """
++    if profile.layout == "gecko":
++        for row in _gecko_rows(profile):
++            if row["name"] == "li_at":
++                return LiAtMeta(
++                    expires=_gecko_expiry(row["expiry"] or 0),
++                    # moz_cookies.lastAccessed: microseconds since the epoch.
++                    last_access=(row["lastAccessed"] or 0) / 1_000_000,
++                    app_bound=False,
++                )
++        return None
+     temp_dir, db_copy = _copy_cookies_db(profile.cookies_db)
+     try:
+         connection = sqlite3.connect(f"file:{db_copy}?mode=ro", uri=True)

@@ -334,13 +334,30 @@ ContentPage {
                     visible: Ai.assistantMcpServers.linkedin !== undefined
                     wrapMode: Text.WordWrap
                     color: Appearance.colors.colSubtext
-                    text: Translation.tr("LinkedIn works through your own session in a browser of its own (~/.linkedin-mcp). LinkedIn's terms forbid automated access and it may restrict accounts using it: use it lightly. Before sending a message or an invitation, Claude shows it and waits for your yes.")
+                    text: Translation.tr("LinkedIn works through your own session in a browser of its own (~/.linkedin-mcp): take the one of the browser you're signed in with (Zen, Firefox, Chrome, Brave…), or sign in there. LinkedIn's terms forbid automated access and it may restrict accounts using it: use it lightly. Before sending a message or an invitation, Claude shows it and waits for your yes.")
                 }
-                SmallButton {
+                RowLayout {
                     visible: Ai.assistantMcpServers.linkedin !== undefined
-                    materialIcon: "login"
-                    mainText: Translation.tr("Sign in to LinkedIn")
-                    onClicked: Quickshell.execDetached([Ai.assistantMcpServers.linkedin.command, "--login"])
+                    spacing: 8
+                    // The session of the browser LinkedIn was used in last
+                    // (Firefox-family ones too: nixbook's patch), checked with
+                    // LinkedIn; the outcome as a notification.
+                    SmallButton {
+                        materialIcon: "cookie"
+                        mainText: Translation.tr("Use my browser's session")
+                        onClicked: Quickshell.execDetached(["bash", "-c",
+                            'if out=$("$1" --import-from-browser 2>&1); then notify-send -a LinkedIn "$2" "$3"; '
+                            + 'else notify-send -a LinkedIn "$4" "$(printf "%s\n" "$out" | grep -E "^(❌|   )" | head -3)"; fi',
+                            "linkedin-import", Ai.assistantMcpServers.linkedin.command,
+                            Translation.tr("LinkedIn connected"),
+                            Translation.tr("Claude uses your browser's LinkedIn session now."),
+                            Translation.tr("No LinkedIn session taken")])
+                    }
+                    SmallButton {
+                        materialIcon: "login"
+                        mainText: Translation.tr("Sign in to LinkedIn")
+                        onClicked: Quickshell.execDetached([Ai.assistantMcpServers.linkedin.command, "--login"])
+                    }
                 }
             }
 
