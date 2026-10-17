@@ -133,8 +133,8 @@ diff -ruN a/linkedin_mcp_server/browser_import/discovery.py b/linkedin_mcp_serve
          len(discovered),
 diff -ruN a/linkedin_mcp_server/browser_import/extract.py b/linkedin_mcp_server/browser_import/extract.py
 --- a/linkedin_mcp_server/browser_import/extract.py	2026-10-17 15:40:09.948609408 +0000
-+++ b/linkedin_mcp_server/browser_import/extract.py	2026-10-17 15:40:10.035871501 +0000
-@@ -427,6 +427,59 @@
++++ b/linkedin_mcp_server/browser_import/extract.py	2026-10-17 16:01:57.312500971 +0000
+@@ -427,6 +427,64 @@
      return _derive_cbc_key(password, iterations=_LINUX_ITERATIONS), None, True
  
  
@@ -147,8 +147,10 @@ diff -ruN a/linkedin_mcp_server/browser_import/extract.py b/linkedin_mcp_server/
 +
 +def _gecko_rows(profile: BrowserProfile) -> list[sqlite3.Row]:
 +    """A Firefox-family profile's LinkedIn rows of moz_cookies (plain text),
-+    from a copy (the browser keeps the database locked), the default
-+    container's first."""
++    from a copy (the browser keeps the database locked): those of the
++    container (originAttributes: Zen workspaces, Firefox containers, or
++    none) whose li_at was used last, the live session; a stale one in
++    another container is left out."""
 +    temp_dir, db_copy = _copy_cookies_db(profile.cookies_db)
 +    try:
 +        connection = sqlite3.connect(f"file:{db_copy}?mode=ro", uri=True)
@@ -163,8 +165,11 @@ diff -ruN a/linkedin_mcp_server/browser_import/extract.py b/linkedin_mcp_server/
 +    finally:
 +        shutil.rmtree(temp_dir, ignore_errors=True)
 +    rows = [r for r in rows if "linkedin.com" in (r["host"] or "")]
-+    default = [r for r in rows if not r["originAttributes"]]
-+    return default or rows
++    sessions = [r for r in rows if r["name"] == "li_at"]
++    if not sessions:
++        return []
++    live = max(sessions, key=lambda r: r["lastAccessed"] or 0)["originAttributes"]
++    return [r for r in rows if r["originAttributes"] == live]
 +
 +
 +def _gecko_cookies(profile: BrowserProfile) -> list[LinkedInCookie]:
@@ -194,7 +199,7 @@ diff -ruN a/linkedin_mcp_server/browser_import/extract.py b/linkedin_mcp_server/
  def extract_linkedin_cookies(profile: BrowserProfile) -> list[LinkedInCookie]:
      """Copy *profile*'s Cookies DB and return its decrypted LinkedIn cookies.
  
-@@ -441,6 +494,8 @@
+@@ -441,6 +499,8 @@
  
      Raises :class:`KeystoreUnavailableError` when the OS keystore is unavailable.
      """
@@ -203,7 +208,7 @@ diff -ruN a/linkedin_mcp_server/browser_import/extract.py b/linkedin_mcp_server/
      cbc_key, win_master_key, is_macos_or_linux = _resolve_keystore(profile)
  
      temp_dir, db_copy = _copy_cookies_db(profile.cookies_db)
-@@ -545,6 +600,16 @@
+@@ -545,6 +605,16 @@
      the encryption prefix. It never derives a key, so it works -- and stays
      silent on the keychain -- even when the keystore is unavailable.
      """
