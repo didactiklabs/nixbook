@@ -315,6 +315,21 @@ class Handler(BaseHTTPRequestHandler):
                 people[pid] = stored(pid, p)
                 bump(pid)
                 return self.reply(200, people[pid])
+            # The photo: the JPEG's bytes in, a URL out (Google's default
+            # silhouette, `default`, once removed); the person back.
+            if method == "PATCH" and verb == "updateContactPhoto":
+                data = base64.b64decode(body.get("photoBytes", ""))
+                if not data.startswith(b"\xff\xd8"):
+                    return self.error(400, "Invalid photo.", "INVALID_ARGUMENT")
+                counter[0] += 1
+                people[pid]["photos"] = [{"url": f"https://lh3.googleusercontent.com/fake/{pid}-{counter[0]}=s100",
+                                          "_bytes": len(data)}]
+                bump(pid)
+                return self.reply(200, {"person": people[pid]})
+            if method == "DELETE" and verb == "deleteContactPhoto":
+                people[pid]["photos"] = [{"url": "https://lh3.googleusercontent.com/default=s100", "default": True}]
+                bump(pid)
+                return self.reply(200, {"person": people[pid]})
             if method == "DELETE" and verb == "deleteContact":
                 del people[pid]
                 counter[0] += 1

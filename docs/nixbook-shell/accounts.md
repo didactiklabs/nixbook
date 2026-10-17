@@ -58,4 +58,4 @@ A desktop widget (desktop right-click → **Widgets → Contacts**, or Settings 
 
 ## For AI agents
 
-Desktop agents manage contacts with the [`contacts` tool](./desktop-agents#what-agents-can-do): search and read them, create them in an account, update, star, label and delete them (deleting: they ask you first), manage labels, sync, open the window on a contact, and batch up to 50 changes, for example to clean up or label many contacts at once. Tasks go through the `tasks` tool.
+Desktop agents manage contacts with the [`contacts` tool](./desktop-agents#what-agents-can-do): search and read them, create them in an account, update, star, label and delete them (deleting: they ask you first), set or remove a contact's photo (from an image file, a screenshot for example, or an image on the web: checked to be an image and sent as a JPEG of at most 720 pixels; on Google its contact photo, on a CardDAV server inline in the vCard, on this computer in `~/.local/share/nixbook-accounts/local/photos/`), manage labels, sync, open the window on a contact, and batch up to 50 changes, for example to clean up or label many contacts at once. Tasks go through the `tasks` tool.

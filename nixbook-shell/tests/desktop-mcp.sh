@@ -322,6 +322,8 @@ case "$1 $2" in
       else [{ok: true, result: {id: (.id // "google-1:ev9"), account: "google-1", calendarId: "google-1:primary", summary: (.summary // "Standup"), start: (.start // "2026-10-20T09:30:00+02:00"), end: "2026-10-20T10:30:00+02:00", allDay: false, location: "", recurrence: null, updated: "x"}}] end' <<<"$3" ;;
   "contacts apply")
     printf '%s' "$3" >"$STUB_CALLS.contacts"
+    photo=$(jq -r '.photo // empty' <<<"$3")
+    if [ -f "$photo" ]; then cp "$photo" "$STUB_CALLS.photo"; fi
     jq -c '(if .ops then .ops else [.] end) | map(if .id == "nope" then {ok: false, error: "no contact '"'"'nope'"'"'"}
       elif .op == "delete" then {ok: true, result: {deleted: .id, name: "Bob"}}
       else {ok: true, result: {id: (.id // "c9"), name: (.name // .givenName // "Bob"), emails: [], phones: [], starred: (.op == "star"), labels: [], photo: ""}} end)' <<<"$3" ;;
@@ -1900,7 +1902,7 @@ expect_contains "tasks batch: at most 50" "$(call tasks "{\"action\":\"batch\",\
 # Contacts (nixbook-accounts, called directly; the app through the shell).
 out=$(call contacts '{"action":"list","query":"elodie"}')
 expect_eq "contacts list: the backend's arguments" "contacts list --query elodie --limit 25" "$(grep '^contacts list' "$STUB_CALLS.google" | tail -1)"
-expect_eq "contacts list: compact contacts" '{"id":"google-1:c1","account":"google-1","name":"Élodie Martin","givenName":"Élodie","familyName":"Martin","emails":["elodie@example.com (work)"],"phones":["+33 6 12 34 56 78"],"organization":"Acme","addresses":["1 Main St, Springfield (home)"],"birthday":"--04-02","starred":true,"labels":["Family"]}' "$(jq -c '.contacts[0]' <<<"$out")"
+expect_eq "contacts list: compact contacts" '{"id":"google-1:c1","account":"google-1","name":"Élodie Martin","givenName":"Élodie","familyName":"Martin","emails":["elodie@example.com (work)"],"phones":["+33 6 12 34 56 78"],"organization":"Acme","addresses":["1 Main St, Springfield (home)"],"birthday":"--04-02","starred":true,"labels":["Family"],"photo":true}' "$(jq -c '.contacts[0]' <<<"$out")"
 expect_eq "contacts list: empty fields left out" '{"id":"google-1:c2","account":"google-1","name":"Bob","givenName":"Bob"}' "$(jq -c '.contacts[1]' <<<"$out")"
 expect_eq "contacts list: labels, total" "Family 2" "$(jq -r '"\(.labels[0].name) \(.total)"' <<<"$out")"
 expect_eq "contacts list: the accounts" "google-1 me@example.com" "$(jq -r '.accounts[0] | "\(.id) \(.name)"' <<<"$out")"
@@ -1927,6 +1929,26 @@ expect_contains "contacts batch: at most 50" "$(call contacts "{\"action\":\"bat
 expect_contains "contacts: names capped" "$(call contacts "{\"action\":\"update\",\"id\":\"c1\",\"name\":\"$(printf 'a%.0s' $(seq 400))\"}")" "at most 300"
 expect_contains "contacts: unknown action" "$(call contacts '{"action":"merge"}')" "merge"
 expect_contains "contacts: signed out" "$(STUB_GOOGLE_SIGNED_OUT=1 call contacts '{"action":"list"}')" "No account is connected"
+call contacts "{\"action\":\"set_photo\",\"id\":\"c2\",\"photo\":\"$tmp/face.png\"}" >/dev/null
+expect_eq "contacts set_photo: a file" "{\"op\":\"set_photo\",\"id\":\"c2\",\"photo\":\"$tmp/face.png\"}" "$(jq -c . "$calls.contacts")"
+call contacts '{"action":"set_photo","id":"c2","photo":"~/face.png"}' >/dev/null
+expect_eq "contacts set_photo: ~ expanded" "$HOME/face.png" "$(jq -r .photo "$calls.contacts")"
+call contacts '{"action":"set_photo","id":"c2","photo":""}' >/dev/null
+expect_eq 'contacts set_photo: "" removes it' '{"op":"set_photo","id":"c2","photo":""}' "$(jq -c . "$calls.contacts")"
+expect_contains "contacts set_photo: not a relative path" "$(call contacts '{"action":"set_photo","id":"c2","photo":"face.png"}')" "absolute path or an http(s) URL"
+mkdir -p "$tmp/web" && printf 'PNGDATA' >"$tmp/web/face.png"
+python3 -u -m http.server 0 --bind 127.0.0.1 --directory "$tmp/web" >"$tmp/web.log" 2>&1 &
+web_pid=$!
+for _ in $(seq 50); do
+  web_port=$(grep -o 'port [0-9]*' "$tmp/web.log" | grep -o '[0-9]*$' || true)
+  [ -n "$web_port" ] && break
+  sleep 0.1
+done
+call contacts "{\"action\":\"set_photo\",\"id\":\"c2\",\"photo\":\"http://127.0.0.1:$web_port/face.png\"}" >/dev/null
+expect_eq "contacts set_photo: a web image downloaded first" "PNGDATA" "$(cat "$calls.photo" 2>/dev/null)"
+expect_eq "contacts set_photo: the download not kept" "" "$(find "$XDG_RUNTIME_DIR/nixbook-desktop-mcp" -name 'tmp*' 2>/dev/null)"
+expect_contains "contacts set_photo: a failed download" "$(call contacts "{\"action\":\"set_photo\",\"id\":\"c2\",\"photo\":\"http://127.0.0.1:$web_port/nope.png\"}")" "couldn't download"
+kill "$web_pid" 2>/dev/null || true
 call contacts '{"action":"open","id":"google-1:c1"}' >/dev/null
 expect_eq "contacts open: the app, on that contact" "qs -c nixbook-shell ipc call -- contacts open google-1:c1" "$(last_call)"
 expect_contains "contacts open: unknown" "$(call contacts '{"action":"open","id":"nope"}')" "no contact"

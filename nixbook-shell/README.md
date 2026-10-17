@@ -219,7 +219,10 @@ tokens in the keyring, `secret-tool`). Each service keeps one merged copy
 there (`contacts.json`, `tasks.json`; a section per account, with its sync
 state), ids being global (`<account>:<provider's id>`, e.g.
 `google-1:c123`): changes go to their account's provider first and its
-answer lands in the copy, which the shell watches. `nixbook-accounts
+answer lands in the copy, which the shell watches (a vCard's inline
+photo as a file in `$XDG_STATE_HOME/nixbook-accounts/photos/`, named by
+its content; `set_photo` takes an image file, made a JPEG of at most 720
+px). `nixbook-accounts
 --help` lists the commands (`setup google`, `add google`, `add dav`,
 `remove`, `status`, `contacts sync|list|get|apply`, `tasks
 sync|list|apply`, `calendar sync|calendars|events|apply`); `tests/accounts.sh` runs them against fake Google APIs

@@ -23,9 +23,10 @@ type Provider interface {
 	// and whether it fetched everything.
 	Sync(sec *Section, full bool) (changed int, fetchedAll bool, err error)
 	// Apply runs one change (ops: create, update, delete, star, unstar,
-	// create_label, rename_label, delete_label), with the provider's own
-	// ids; label references in "labels" are its label ids or names (a new
-	// name makes a label). It updates the section.
+	// set_photo, create_label, rename_label, delete_label), with the
+	// provider's own ids; label references in "labels" are its label ids or
+	// names (a new name makes a label); set_photo's "photoBytes" is the
+	// JPEG (LoadPhoto), nil to remove the photo. It updates the section.
 	Apply(sec *Section, op map[string]any) (any, error)
 }
 
@@ -291,7 +292,7 @@ func Sync(account string, full bool) (*SyncResult, error) {
 // -- changes ---------------------------------------------------------------
 
 // Ops are the changes apply takes, as {"op": …} (or "action").
-var Ops = []string{"create", "update", "delete", "star", "unstar", "create_label", "rename_label", "delete_label"}
+var Ops = []string{"create", "update", "delete", "star", "unstar", "set_photo", "create_label", "rename_label", "delete_label"}
 
 // Result is one change's outcome.
 type Result struct {
@@ -434,6 +435,17 @@ func apply(c *Cache, op map[string]any) (any, error) {
 		op = clone(op)
 		op["id"] = id
 		delete(op, "contact")
+	}
+	if kind == "set_photo" {
+		var data []byte
+		if path, _ := op["photo"].(string); strings.TrimSpace(path) != "" {
+			var err error
+			if data, err = LoadPhoto(strings.TrimSpace(path)); err != nil {
+				return nil, err
+			}
+		}
+		op["photoBytes"] = data
+		delete(op, "photo")
 	}
 	// Labels given by global id: this account's, as its own ids.
 	if raw, ok := op["labels"]; ok {

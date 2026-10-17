@@ -2,6 +2,7 @@ package dav
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"path"
@@ -160,9 +161,11 @@ func fromCard(id string, card vcard.Card) contacts.Contact {
 			Region: a.Region, PostalCode: a.PostalCode, Country: a.Country,
 		})
 	}
-	// A photo by link only: inline ones would bloat the copy.
-	if ph := card.PreferredValue(vcard.FieldPhoto); strings.HasPrefix(ph, "http") {
-		c.Photo = ph
+	// A link as it is; an inline photo as a file, not in the copy.
+	if f := card.Preferred(vcard.FieldPhoto); f != nil && strings.HasPrefix(f.Value, "http") {
+		c.Photo = f.Value
+	} else if f != nil {
+		c.Photo = inlinePhoto(f)
 	}
 	for _, cat := range card.Categories() {
 		cat = strings.TrimSpace(cat)
@@ -181,6 +184,52 @@ func fromCard(id string, card vcard.Card) contacts.Contact {
 		c.Name = c.Organization
 	}
 	return c
+}
+
+// inlinePhoto is an inline PHOTO (vCard 4's data: URI, vCard 3's
+// ENCODING=b) kept as a file: its URL, "" when it isn't one.
+func inlinePhoto(f *vcard.Field) string {
+	value, mime := f.Value, strings.ToLower(f.Params.Get(vcard.ParamType))
+	if rest, ok := strings.CutPrefix(value, "data:"); ok {
+		head, body, found := strings.Cut(rest, ",")
+		if !found || !strings.HasSuffix(head, ";base64") {
+			return ""
+		}
+		value, mime = body, strings.TrimSuffix(head, ";base64")
+	} else if enc := strings.ToLower(f.Params.Get("ENCODING")); enc != "b" && enc != "base64" {
+		return ""
+	}
+	data, err := base64.StdEncoding.DecodeString(strings.Join(strings.Fields(value), ""))
+	if err != nil || len(data) == 0 {
+		return ""
+	}
+	ext := ".jpg"
+	switch {
+	case strings.Contains(mime, "png"):
+		ext = ".png"
+	case strings.Contains(mime, "gif"):
+		ext = ".gif"
+	}
+	url, err := contacts.PhotoFile(data, ext)
+	if err != nil {
+		return ""
+	}
+	return url
+}
+
+// setPhoto puts the JPEG inline in the card, in its version's way (none
+// without data).
+func setPhoto(card vcard.Card, data []byte) {
+	delete(card, vcard.FieldPhoto)
+	if len(data) == 0 {
+		return
+	}
+	b64 := base64.StdEncoding.EncodeToString(data)
+	if strings.HasPrefix(card.Value(vcard.FieldVersion), "4") {
+		card.Set(vcard.FieldPhoto, &vcard.Field{Value: "data:image/jpeg;base64," + b64})
+		return
+	}
+	card.Set(vcard.FieldPhoto, &vcard.Field{Value: b64, Params: vcard.Params{"ENCODING": {"b"}, vcard.ParamType: {"JPEG"}}})
 }
 
 // labelsOf is the labels in use, with their counts (a label exists while
@@ -668,6 +717,14 @@ func (p *cards) Apply(sec *contacts.Section, op map[string]any) (any, error) {
 		return map[string]any{"deleted": id, "name": current.Name}, nil
 	}
 	switch kind {
+	case "set_photo":
+		o, err := cc.GetAddressObject(c, id)
+		if err != nil {
+			return nil, asError(p.account, err)
+		}
+		data, _ := op["photoBytes"].([]byte)
+		setPhoto(o.Card, data)
+		return p.put(sec, id, o.Card)
 	case "star", "unstar":
 		op = map[string]any{"starred": kind == "star"}
 	case "update":

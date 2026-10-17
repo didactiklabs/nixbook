@@ -1,6 +1,7 @@
 package google
 
 import (
+	"encoding/base64"
 	"errors"
 	"net/url"
 	"slices"
@@ -279,6 +280,26 @@ func (p *people) Apply(sec *contacts.Section, op obj) (any, error) {
 		}
 		sec.Contacts = slices.DeleteFunc(sec.Contacts, func(x contacts.Contact) bool { return x.ID == c.ID })
 		return obj{"deleted": c.ID, "name": c.Name}, nil
+	}
+	if kind == "set_photo" {
+		data, _ := op["photoBytes"].([]byte)
+		var r struct {
+			Person obj `json:"person"`
+		}
+		var err error
+		if len(data) == 0 {
+			err = p.call("DELETE", "/people/"+c.ID+":deleteContactPhoto?personFields="+personFields, nil, &r)
+		} else {
+			err = p.call("PATCH", "/people/"+c.ID+":updateContactPhoto", obj{
+				"photoBytes": base64.StdEncoding.EncodeToString(data), "personFields": personFields,
+			}, &r)
+		}
+		if err != nil {
+			return nil, err
+		}
+		c = simplify(r.Person)
+		sec.Upsert(c)
+		return c, nil
 	}
 	fields := obj{"starred": kind == "star"}
 	if kind == "update" {

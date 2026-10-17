@@ -124,6 +124,15 @@ expect_contains "update: phone types as vCard's" "$card" "TEL;TYPE=cell:+33 6 12
 out=$(apply "{\"op\":\"unstar\",\"id\":\"$id1\"}")
 expect_eq "unstar: the labels stay" 'false ["dav-1:Family"]' "$(jq -r '.[0].result | "\(.starred) \(.labels | tojson)"' <<<"$out")"
 expect_contains "update: a bad birthday" "$(apply "{\"op\":\"update\",\"id\":\"$id1\",\"birthday\":\"April\"}")" "YYYY-MM-DD or MM-DD"
+python3 "$root/tests/test-image.py" png "$tmp/photo.png"
+out=$(apply "{\"op\":\"set_photo\",\"id\":\"$id1\",\"photo\":\"$tmp/photo.png\"}")
+photo=$(jq -r '.[0].result.photo' <<<"$out")
+expect_contains "set_photo: inline in the vCard" "$(dav "$U$(local_id "$id1")")" "PHOTO;ENCODING=b;TYPE=JPEG:/9j/"
+expect_contains "set_photo: shown from a file, not the copy" "$photo" "file://$tmp/state/nixbook-accounts/photos/"
+expect_eq "set_photo: the file a JPEG" "720x360" "$(python3 "$root/tests/test-image.py" size "${photo#file://}")"
+expect_eq "set_photo: the other lines kept" "1" "$(dav "$U$(local_id "$id1")" | grep -c X-SOCIAL)"
+out=$(apply "{\"op\":\"set_photo\",\"id\":\"$id1\",\"photo\":\"\"}")
+expect_eq "set_photo: removed" "0 " "$(dav "$U$(local_id "$id1")" | grep -c PHOTO) $(jq -r '.[0].result.photo' <<<"$out")"
 
 out=$(na contacts sync)
 expect_eq "sync: with the sync token" "false" "$(jq -r '.accounts[0].full' <<<"$out")"
