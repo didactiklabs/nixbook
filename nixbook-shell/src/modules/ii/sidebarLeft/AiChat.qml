@@ -433,6 +433,10 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                 // Messages are heavy (markdown, code highlighting): keep a few
                 // screens of them built instead of re-parsing while scrolling.
                 cacheBuffer: Math.max(2000, height * 3)
+                // Those built off screen sit above and below the list: clipped,
+                // so they don't take the clicks meant for the tabs above (the
+                // rounded mask hides them, but doesn't stop their input).
+                clip: true
 
                 touchpadScrollFactor: Config.options.interactions.scrolling.touchpadScrollFactor * 1.4
                 mouseScrollFactor: Config.options.interactions.scrolling.mouseScrollFactor * 1.4
