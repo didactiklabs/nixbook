@@ -264,58 +264,6 @@ ContentPage {
                 }
             }
 
-            // The MCP servers Nix gives this chat (assistant.mcpServers), each
-            // with its switch. Only this chat has them.
-            ContentSubsection {
-                visible: Object.keys(Ai.assistantMcpServers).length > 0
-                title: Translation.tr("Apps it can use (this chat only)")
-
-                GroupedList {
-                    Repeater {
-                        model: Object.keys(Ai.assistantMcpServers).sort()
-                        delegate: ConfigSwitch {
-                            id: serverSwitch
-                            required property string modelData
-                            readonly property var known: ({
-                                nixos: ["deployed_code", Translation.tr("NixOS packages and options (MCP-NixOS)")],
-                                "youtube-music": ["music_note", Translation.tr("YouTube Music: play and control")],
-                                spotify: ["queue_music", Translation.tr("Spotify: play and control")],
-                                linkedin: ["work", Translation.tr("LinkedIn: profiles, messages, jobs (your account)")]
-                            })[serverSwitch.modelData] ?? ["extension", serverSwitch.modelData]
-                            configKey: "ai.claudeCode.mcpServersOff"
-                            enabled: !nixManaged
-                            buttonIcon: serverSwitch.known[0]
-                            text: serverSwitch.known[1]
-                            checked: !(Config.options.ai.claudeCode.mcpServersOff ?? []).includes(serverSwitch.modelData)
-                            onCheckedChanged: {
-                                const off = Config.options.ai.claudeCode.mcpServersOff ?? []
-                                if (checked === !off.includes(serverSwitch.modelData)) return
-                                Config.options.ai.claudeCode.mcpServersOff = checked
-                                    ? off.filter(n => n !== serverSwitch.modelData) : [...off, serverSwitch.modelData]
-                            }
-                        }
-                    }
-                }
-
-                // LinkedIn: what turning it on means, and its sign-in.
-                RowLayout {
-                    Layout.fillWidth: true
-                    visible: Ai.assistantMcpServers.linkedin !== undefined
-                    spacing: 10
-                    StyledText {
-                        Layout.fillWidth: true
-                        wrapMode: Text.WordWrap
-                        color: Appearance.colors.colSubtext
-                        text: Translation.tr("LinkedIn works through your own session in a browser of its own (~/.linkedin-mcp). LinkedIn's terms forbid automated access and it may restrict accounts using it: use it lightly. Before sending a message or an invitation, Claude shows it and waits for your yes.")
-                    }
-                    SmallButton {
-                        materialIcon: "login"
-                        mainText: Translation.tr("Sign in to LinkedIn")
-                        onClicked: Quickshell.execDetached([Ai.assistantMcpServers.linkedin.command, "--login"])
-                    }
-                }
-            }
-
             StyledText {
                 visible: Config.options.ai.claudeCode.connectors
                 Layout.fillWidth: true
@@ -325,6 +273,77 @@ ContentPage {
                     ? Translation.tr("Connectors: %1").arg(Ai.claudeConnectors.map(c => c.replace(/^mcp__claude_ai_/, "").replace(/_/g, " ")).join(", "))
                     : Translation.tr("No connectors found. Add them on claude.ai (Settings → Connectors).")
             }
+
+            // The MCP servers Nix gives this chat (assistant.mcpServers), each
+            // with its switch. Only this chat has them. Rows of their own, in
+            // GroupedList's look: GroupedList lays out fixed items only, not
+            // a Repeater's.
+            ContentSubsection {
+                visible: Object.keys(Ai.assistantMcpServers).length > 0
+                title: Translation.tr("Apps it can use (this chat only)")
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 2
+                    Repeater {
+                        id: serverRows
+                        model: Object.keys(Ai.assistantMcpServers).sort()
+                        delegate: Rectangle {
+                            id: serverRow
+                            required property string modelData
+                            required property int index
+                            readonly property real outer: Appearance.rounding.normal
+                            readonly property real inner: Appearance.rounding.unsharpenmore
+                            Layout.fillWidth: true
+                            implicitHeight: serverSwitch.implicitHeight + 24
+                            color: Appearance.colors.colLayer1
+                            topLeftRadius: serverRow.index === 0 ? serverRow.outer : serverRow.inner
+                            topRightRadius: serverRow.index === 0 ? serverRow.outer : serverRow.inner
+                            bottomLeftRadius: serverRow.index === serverRows.count - 1 ? serverRow.outer : serverRow.inner
+                            bottomRightRadius: serverRow.index === serverRows.count - 1 ? serverRow.outer : serverRow.inner
+
+                            ConfigSwitch {
+                                id: serverSwitch
+                                readonly property var known: ({
+                                    nixos: ["deployed_code", Translation.tr("NixOS packages and options (MCP-NixOS)")],
+                                    "youtube-music": ["music_note", Translation.tr("YouTube Music: play and control")],
+                                    spotify: ["queue_music", Translation.tr("Spotify: play and control")],
+                                    linkedin: ["work", Translation.tr("LinkedIn: profiles, messages, jobs (your account)")]
+                                })[serverRow.modelData] ?? ["extension", serverRow.modelData]
+                                anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 8 }
+                                configKey: "ai.claudeCode.mcpServersOff"
+                                enabled: !nixManaged
+                                buttonIcon: serverSwitch.known[0]
+                                text: serverSwitch.known[1]
+                                checked: !(Config.options.ai.claudeCode.mcpServersOff ?? []).includes(serverRow.modelData)
+                                onCheckedChanged: {
+                                    const off = Config.options.ai.claudeCode.mcpServersOff ?? []
+                                    if (checked === !off.includes(serverRow.modelData)) return
+                                    Config.options.ai.claudeCode.mcpServersOff = checked
+                                        ? off.filter(n => n !== serverRow.modelData) : [...off, serverRow.modelData]
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // LinkedIn: what turning it on means, and its sign-in.
+                StyledText {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 6
+                    visible: Ai.assistantMcpServers.linkedin !== undefined
+                    wrapMode: Text.WordWrap
+                    color: Appearance.colors.colSubtext
+                    text: Translation.tr("LinkedIn works through your own session in a browser of its own (~/.linkedin-mcp). LinkedIn's terms forbid automated access and it may restrict accounts using it: use it lightly. Before sending a message or an invitation, Claude shows it and waits for your yes.")
+                }
+                SmallButton {
+                    visible: Ai.assistantMcpServers.linkedin !== undefined
+                    materialIcon: "login"
+                    mainText: Translation.tr("Sign in to LinkedIn")
+                    onClicked: Quickshell.execDetached([Ai.assistantMcpServers.linkedin.command, "--login"])
+                }
+            }
+
 
             // The folders AI agents may read (Claude here, and the apps on
             // their own desktop): none unless listed. Saved when editing ends,
