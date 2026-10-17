@@ -460,6 +460,12 @@ Rectangle {
                         background: null
                         onTextChanged: if (activeFocus) saveTimer.restart()
                         onActiveFocusChanged: if (!activeFocus) root.flush()
+                        selectByMouse: true
+
+                        // Links: a click opens one in the browser.
+                        TextLinks {
+                            textArea: noteText
+                        }
                     }
                 }
 

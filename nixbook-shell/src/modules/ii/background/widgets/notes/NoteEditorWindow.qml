@@ -241,74 +241,11 @@ PanelWindow {
                         selectByMouse: true
                         Keys.onEscapePressed: root.close()
 
-                        // Links: underlined, highlighted under the pointer;
-                        // a click opens one in the browser and closes the
-                        // editor (it would cover the browser). A drag still
-                        // selects.
-                        property var linkSegments: linkLayout(text, width, contentHeight)
-                        property int hoveredLink: -1
-
-                        // For each link, one rectangle per line it spans:
-                        // [{link, url, x, y, width, height}]
-                        function linkLayout() {
-                            const segs = []
-                            StringUtils.findUrls(textArea.text).forEach((link, n) => {
-                                let seg = null
-                                for (let i = link.start; i < link.end; i++) {
-                                    const r = textArea.positionToRectangle(i)
-                                    const next = textArea.positionToRectangle(i + 1)
-                                    const right = next.y === r.y && next.x > r.x ? next.x
-                                        : r.x + linkMetrics.advanceWidth(textArea.text[i])
-                                    if (seg && seg.y === r.y) {
-                                        seg.width = right - seg.x
-                                    } else {
-                                        seg = { link: n, url: link.url, x: r.x, y: r.y, width: right - r.x, height: r.height }
-                                        segs.push(seg)
-                                    }
-                                }
-                            })
-                            return segs
-                        }
-                        function linkSegmentAt(x, y) {
-                            return linkSegments.find(s => x >= s.x && x < s.x + s.width && y >= s.y && y < s.y + s.height) ?? null
-                        }
-
-                        FontMetrics {
-                            id: linkMetrics
-                            font: textArea.font
-                        }
-                        Repeater {
-                            model: textArea.linkSegments
-                            delegate: Rectangle {
-                                required property var modelData
-                                readonly property bool hovered: modelData.link === textArea.hoveredLink
-                                z: -1 // under the text
-                                x: modelData.x - 2
-                                y: modelData.y
-                                width: modelData.width + 4
-                                height: modelData.height
-                                radius: 4
-                                color: hovered ? ColorUtils.transparentize(Appearance.colors.colPrimary, 0.8) : "transparent"
-                                Rectangle {
-                                    anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: 2; bottomMargin: 1 }
-                                    height: parent.hovered ? 2 : 1
-                                    color: Appearance.colors.colPrimary
-                                }
-                            }
-                        }
-                        HoverHandler {
-                            id: linkHover
-                            cursorShape: textArea.hoveredLink >= 0 ? Qt.PointingHandCursor : Qt.IBeamCursor
-                            onPointChanged: textArea.hoveredLink = hovered ? (textArea.linkSegmentAt(point.position.x, point.position.y)?.link ?? -1) : -1
-                            onHoveredChanged: if (!hovered) textArea.hoveredLink = -1
-                        }
-                        TapHandler {
-                            onTapped: (eventPoint) => {
-                                const seg = textArea.linkSegmentAt(eventPoint.position.x, eventPoint.position.y)
-                                if (!seg) return
-                                AppLaunch.openUrl(seg.url)
-                                root.close()
-                            }
+                        // Links: a click opens one in the browser and closes
+                        // the editor (it would cover the browser).
+                        TextLinks {
+                            textArea: textArea
+                            onOpened: root.close()
                         }
                         Keys.onPressed: (event) => {
                             if (event.key === Qt.Key_S && (event.modifiers & Qt.ControlModifier)) {
