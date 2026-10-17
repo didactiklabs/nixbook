@@ -107,6 +107,10 @@ DEFAULT_CONFIG = {
     # sent when an agent connects, at most this many characters; entries kept.
     "personalPromptChars": 900,
     "personalMaxEntries": 200,
+    # A person's entry also in the notes of their contact (added when none
+    # has their name, in this account: an id, name or email; "" the first).
+    "personalContacts": True,
+    "personalContactsAccount": "",
     # Usage habits (desktopMcp.habits.enable, the nixbook-habits service):
     # what the user does, counted on this machine. App ids and times only,
     # kept habitsKeepDays days; never these apps or windows (password
@@ -3455,8 +3459,9 @@ PERSONAL_INSTRUCTIONS = (
     "Don't save small talk, one-off requests, what is only true today, "
     "desktop how-tos (remember is for those), or secrets (passwords, numbers "
     "of cards or accounts); health and other sensitive matters only when "
-    "they ask. Save without asking and without more than a few words about "
-    "it; when they ask you to remember or forget something, do it; when they "
+    "they ask. Name a person's entry \"Name (relation)\": it is also kept in "
+    "the notes of their contact. Save without asking and without more than "
+    "a few words about it; when they ask you to remember or forget something, do it; when they "
     "ask what you know about them, recall it. Use what you know naturally, "
     "don't recite it."
 )
@@ -3476,6 +3481,121 @@ def personal_task_note(ctx, query):
     ctx.entries_shown.update(e["id"] for e in found)
     count_entry_uses({e["id"] for e in found})
     return "Memory about the user for this message:\n" + "\n".join(entry_line(e) for e in found)
+
+
+# A person the user talks about gets their contact (the Contacts app's,
+# through nixbook-accounts) with what agents remember about them: a section
+# at the end of its notes, kept in step with the entry, the user's own
+# notes above it left alone. Found by name (the topic without its
+# "(relation)"), else created (in personalContactsAccount, default the
+# first account); when several contacts have the name, the agent says which
+# (remember_about_user's `contact`). The entry keeps the contact's id, or
+# "none". personalContacts: false turns it off.
+CONTACT_NOTES_MARK = "— Remembered by desktop agents —"
+
+
+def person_name(topic):
+    """"Lan (sister)" -> "Lan"."""
+    return " ".join(re.sub(r"\([^)]*\)", " ", topic).split())
+
+
+def with_memory_notes(notes, body):
+    """A contact's notes with the agents' section set to body (none when
+    body is empty)."""
+    own = (notes or "").split(CONTACT_NOTES_MARK)[0].rstrip()
+    if not body:
+        return own
+    return (own + "\n\n" if own else "") + CONTACT_NOTES_MARK + "\n" + body
+
+
+def contacts_named(name):
+    key = fold(name)
+
+    def names(c):
+        full = " ".join(p for p in (c.get("givenName"), c.get("familyName")) if p)
+        return {fold(n) for n in (c.get("name"), c.get("givenName"), c.get("nickname"), full) if n}
+
+    out = accounts_call("contacts", "list", "--query", name, "--limit", "20")
+    return [c for c in out.get("contacts") or [] if key in names(c)]
+
+
+def contact_apply(op):
+    r = accounts_call("contacts", "apply", json.dumps(op), timeout=120)[0]
+    if not r.get("ok"):
+        raise ToolError(r.get("error", "failed"))
+    return r.get("result") or {}
+
+
+def set_contact_link(entry_id, cid):
+    with PersonalMemory() as m:
+        for e in m.data["entries"]:
+            if e["id"] == entry_id:
+                e["contact"] = cid
+        m.save()
+
+
+def sync_person_contact(cfg, entry, contact=None):
+    """Puts a person entry's text in their contact's notes. Returns a line
+    for the agent ("" for nothing to say); never fails the save."""
+    if entry.get("kind") != "person" or not cfg.get("personalContacts", True):
+        return ""
+    if contact == "none" or (not contact and entry.get("contact") == "none"):
+        if contact:
+            set_contact_link(entry["id"], "none")
+        return ""
+    name = person_name(entry["topic"])
+    try:
+        current, cid = None, contact or entry.get("contact")
+        if cid:
+            try:
+                current = accounts_call("contacts", "get", cid)
+            except ToolError:
+                if contact:
+                    raise ToolError(f"no contact {contact!r} (contacts list gives their ids)")
+        if current is None and name:
+            found = contacts_named(name)
+            if len(found) > 1:
+                return (f"Several contacts are named {name}: "
+                        + ", ".join(f"{c.get('name')} [{c['id']}]" for c in found[:5])
+                        + f". Call remember_about_user again with id {entry['id']} and `contact`: the "
+                          "one this is about (or \"none\").")
+            current = found[0] if found else None
+        if current is None:
+            # Not a name ("my boss"): no contact made up for it.
+            if not name[:1].isupper():
+                return ""
+            op = {"op": "create", "name": name, "notes": with_memory_notes("", entry["text"])}
+            if cfg.get("personalContactsAccount"):
+                op["account"] = cfg["personalContactsAccount"]
+            current = contact_apply(op)
+            said = f"Added {name} to the contacts, with these notes"
+        else:
+            notes = with_memory_notes(current.get("notes"), entry["text"])
+            if notes != (current.get("notes") or ""):
+                contact_apply({"op": "update", "id": current["id"], "notes": notes})
+            said = f"{current.get('name') or name}'s contact notes updated"
+    except ToolError as e:
+        return f"(Their contact wasn't updated: {str(e).splitlines()[0]})"
+    if current.get("id") and current["id"] != entry.get("contact"):
+        set_contact_link(entry["id"], current["id"])
+    return f"{said} [{current.get('id', '?')}]."
+
+
+def unsync_person_contact(cfg, entry, entries):
+    """The agents' section off the contact of a person entry forgotten,
+    unless another entry is about the same contact."""
+    cid = entry.get("contact")
+    if not cid or cid == "none" or not cfg.get("personalContacts", True):
+        return
+    if any(e.get("contact") == cid for e in entries if e["id"] != entry["id"]):
+        return
+    try:
+        current = accounts_call("contacts", "get", cid)
+        notes = with_memory_notes(current.get("notes"), "")
+        if notes != (current.get("notes") or ""):
+            contact_apply({"op": "update", "id": cid, "notes": notes})
+    except ToolError:
+        pass
 
 
 @tool(
@@ -3511,10 +3631,13 @@ def t_recall_about_user(ctx, args):
     "(e.g. topic \"japan\", kind \"topic\", text \"Trip planned for 2027-04 "
     "with Mai (partner): Kyoto, Hakone; budget ~3000 EUR; learning Japanese, "
     "JLPT N4 goal\"). Condensed facts, one entry per subject: give an "
-    "existing entry's id to replace it with the merged text.",
+    "existing entry's id to replace it with the merged text. A person's "
+    "entry (topic \"Name (relation)\") also goes in the notes of their "
+    "contact, found by name or added.",
     obj(
         {
-            "topic": {"type": "string", "description": "The subject, a few words: japan, work, Lan (sister)"},
+            "topic": {"type": "string", "description": "The subject, a few words: japan, work; a person: "
+                                                       "their name and relation, Lan (sister)"},
             "text": {"type": "string", "description": f"The facts, at most {PERSONAL_TEXT_MAX} characters"},
             "kind": {"type": "string", "enum": list(PERSONAL_KINDS),
                      "description": "profile: who the user is (name, home, work, family; sent in every "
@@ -3523,6 +3646,8 @@ def t_recall_about_user(ctx, args):
                                     "project (default)"},
             "date": {"type": "string", "description": "YYYY, YYYY-MM or YYYY-MM-DD: when an event is or was"},
             "id": {"type": "string", "description": "The entry to replace (see recall_about_user)"},
+            "contact": {"type": "string", "description": "person: the id of their contact (contacts list), "
+                                                         "when several have their name; \"none\" for no contact"},
         },
         ["topic", "text"],
     ),
@@ -3540,6 +3665,7 @@ def t_remember_about_user(ctx, args, weight=None, mention=True):
     if date and not date_span(date):
         raise ToolError(f"date: {date!r} is no date")
     entry_id = as_str(args, "id", required=False, max_len=16, pattern=r"[0-9a-f]{1,16}")
+    contact = as_str(args, "contact", required=False, max_len=300, pattern=r"[\w.:@/-]{1,300}")
     if not topic or not body:
         raise ToolError("topic and text can't be empty")
     now = int(time.time())
@@ -3587,7 +3713,7 @@ def t_remember_about_user(ctx, args, weight=None, mention=True):
             m.data["entries"] = entries = [e for e in entries if e not in drop]
         m.save()
     ctx.entries_shown.add(entry["id"])
-    notes = []
+    notes = [n for n in [sync_person_contact(ctx.cfg, entry, contact)] if n]
     if kind == "profile":
         size = sum(len(e["text"]) for e in entries if e.get("kind") == "profile")
         if size > 500:
@@ -3613,11 +3739,12 @@ def t_remember_about_user(ctx, args, weight=None, mention=True):
 def t_forget_about_user(ctx, args):
     entry_id = as_str(args, "id", max_len=16, pattern=r"[0-9a-f]{1,16}")
     with PersonalMemory() as m:
-        before = len(m.data["entries"])
-        m.data["entries"] = [e for e in m.data["entries"] if e["id"] != entry_id]
-        if len(m.data["entries"]) == before:
+        gone = next((e for e in m.data["entries"] if e["id"] == entry_id), None)
+        if not gone:
             raise ToolError(f"no entry {entry_id}")
+        m.data["entries"] = left = [e for e in m.data["entries"] if e is not gone]
         m.save()
+    unsync_person_contact(ctx.cfg, gone, left)
     return [text(f"forgot {entry_id}")]
 
 
@@ -3674,7 +3801,8 @@ LEARN_SYSTEM = (
     "Write condensed facts in plain words about the user (\"Trip to Japan "
     "booked for 2027-04 with Mai (partner)\"; no pronouns for the user or "
     "anyone whose pronouns weren't said), at most "
-    f"{PERSONAL_TEXT_MAX} characters, never a transcript. " + LEARN_IMPORTANCE + " One entry "
+    f"{PERSONAL_TEXT_MAX} characters, never a transcript; a person's topic is "
+    "their name and relation (\"Lan (sister)\"). " + LEARN_IMPORTANCE + " One entry "
     "per subject: when one on the subject exists, update it (its id, its "
     "facts and the new ones merged, what no longer holds dropped) instead of "
     "adding one. When the user brings up an entry's subject again with "
@@ -8462,8 +8590,10 @@ def personal_command(cfg, argv):
         return 0
     if sub == "clear" and len(argv) == 1:
         with PersonalMemory() as m:
-            m.data["entries"] = []
+            gone, m.data["entries"] = m.data["entries"], []
             m.save()
+        for e in gone:
+            unsync_person_contact(cfg, e, [])
         print("cleared")
         return 0
     print(USAGE, end="", file=sys.stderr)

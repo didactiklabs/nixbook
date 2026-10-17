@@ -311,6 +311,7 @@ case "$1 $2" in
     echo '{"account":"me@example.com","syncedAt":1792224000000,"total":2,"labels":[{"id":"g1","name":"Family","count":1}],"contacts":[{"id":"google-1:c1","account":"google-1","name":"Élodie Martin","givenName":"Élodie","familyName":"Martin","nickname":"","emails":[{"value":"elodie@example.com","type":"work"}],"phones":[{"value":"+33 6 12 34 56 78","type":""}],"organization":"Acme","title":"","addresses":[{"value":"1 Main St\nSpringfield","type":"home"}],"birthday":"--04-02","notes":"","urls":[],"photo":"https://x/p","starred":true,"labels":["Family"],"updated":"2026-10-01T10:00:00Z"},{"id":"google-1:c2","account":"google-1","name":"Bob","givenName":"Bob","familyName":"","nickname":"","emails":[],"phones":[],"organization":"","title":"","addresses":[],"birthday":"","notes":"","urls":[],"photo":"","starred":false,"labels":[],"updated":""}]}' ;;
   "contacts get")
     if [ "$3" = "nope" ]; then echo "{\"error\":\"no contact 'nope' (list or sync first)\"}"; exit 1; fi
+    if [ "$3" = "google-1:c2" ]; then echo '{"id":"google-1:c2","name":"Bob","notes":"Likes cycling.\n\n— Remembered by desktop agents —\nold","emails":[],"phones":[],"labels":[],"starred":false,"photo":""}'; exit; fi
     echo '{"id":"c2","name":"Bob","emails":[],"phones":[{"value":"0123","type":"mobile"}],"labels":[],"starred":false,"photo":""}' ;;
   "contacts sync") echo '{"full":false,"changed":3,"count":2,"syncedAt":1792224000000}' ;;
   "calendar calendars") echo '{"calendars":[{"id":"google-1:primary","account":"google-1","name":"Me","color":"#039be5","primary":true,"readOnly":false,"order":0,"defaultReminders":[10]}]}' ;;
@@ -1475,6 +1476,30 @@ expect_contains "remember_about_user: dates checked" "$(call remember_about_user
 expect_contains "remember_about_user: kinds checked" "$(call remember_about_user '{"topic":"x","text":"y","kind":"secret"}')" "kind: one of"
 expect_contains "remember_about_user: text capped" "$(call remember_about_user "$(jq -nc '{topic: "x", text: ("y" * 500)}')")" "longer than 400"
 expect_not_contains "personal memory: no word of it in the audit log" "$(tail -n 20 "$XDG_STATE_HOME/nixbook-shell/desktop-mcp.log")" "Kyoto"
+
+# A person's entry in their contact's notes (the stub's list has Élodie and Bob).
+out=$(call remember_about_user '{"topic":"Bob (colleague)","kind":"person","text":"Works with Victor on billing"}')
+expect_contains "person: their contact found by name" "$out" "Bob's contact notes updated [google-1:c2]"
+expect_eq "person: the entry in the contact's notes" '{"op":"update","id":"google-1:c2","notes":"— Remembered by desktop agents —\nWorks with Victor on billing"}' "$(jq -c . "$calls.contacts")"
+bob=$(jq -r '.entries[] | select(.topic=="Bob (colleague)") | .id' "$pmem")
+expect_eq "person: the contact linked" "google-1:c2" "$(jq -r --arg id "$bob" '.entries[] | select(.id==$id) | .contact' "$pmem")"
+call remember_about_user "$(jq -nc --arg id "$bob" '{id: $id, topic: "Bob (colleague)", kind: "person", text: "Works with Victor on billing; moving to Lyon"}')" >/dev/null
+expect_eq "person: updated, the user's own notes kept" '{"op":"update","id":"google-1:c2","notes":"Likes cycling.\n\n— Remembered by desktop agents —\nWorks with Victor on billing; moving to Lyon"}' "$(jq -c . "$calls.contacts")"
+out=$(call remember_about_user '{"topic":"Zoé (cousin)","kind":"person","text":"Lives in Nantes, a nurse"}')
+expect_contains "person: no contact, one added" "$out" "Added Zoé to the contacts"
+expect_eq "person: the contact added" '{"op":"create","name":"Zoé","notes":"— Remembered by desktop agents —\nLives in Nantes, a nurse"}' "$(jq -c . "$calls.contacts")"
+rm "$calls.contacts"
+expect_not_contains "person: none made up for what isn't a name" "$(call remember_about_user '{"topic":"my boss","kind":"person","text":"Strict about deadlines"}')" "contact"
+call remember_about_user '{"topic":"Élodie (friend)","kind":"person","text":"Climbing on Sundays","contact":"none"}' >/dev/null
+echo '{"personalContacts":false}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+call remember_about_user '{"topic":"Bob Marley","kind":"person","text":"Favourite singer"}' >/dev/null
+rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+expect_eq "person: no contact when told so, or turned off" "no" "$([ -e "$calls.contacts" ] && echo yes || echo no)"
+call forget_about_user "{\"id\":\"$bob\"}" >/dev/null
+expect_eq "person: forgotten, off their contact's notes" '{"op":"update","id":"google-1:c2","notes":"Likes cycling."}' "$(jq -c . "$calls.contacts")"
+for t in "Zoé (cousin)" "my boss" "Élodie (friend)" "Bob Marley"; do
+  call forget_about_user "{\"id\":\"$(jq -r --arg t "$t" '.entries[] | select(.topic==$t) | .id' "$pmem")\"}" >/dev/null
+done
 
 digest=$(python3 "$mcp" personal prompt)
 expect_contains "personal digest: the profile" "$digest" "Profile: Victor, lives in Paris"

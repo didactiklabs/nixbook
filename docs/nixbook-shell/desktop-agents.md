@@ -68,6 +68,8 @@ It is organised so it costs few tokens:
 - a conversation starts with your profile, the events coming up or just past, and the other subjects **by name only** (about 900 characters at most);
 - when you talk about a subject, its entry comes with your message: say "I booked the flight to Kyoto" and the "japan" entry is there, so Claude can update it.
 
+**People go in your contacts too.** An entry about someone ("Lan (sister)") is also written in the notes of their [contact](./accounts), under a _— Remembered by desktop agents —_ line, and kept in step as the entry changes: the contact with that name is found (or added, in the first account, when there is none), and your own notes above the line stay as they are. When several contacts have the name, the agent asks which. Forgetting the entry takes it off the contact. `personalContacts = false` turns this off; `personalContactsAccount` picks the account new contacts go in (e.g. `"local"`, kept on this computer).
+
 Claude doesn't always stop to save mid-task, so the side panel also runs a **memory pass**: a couple of minutes after the last answer (or when you clear the chat or load another), a small model (`ai.claudeCode.memoryModel`, Haiku by default) reads the new turns and saves or updates what is worth keeping, by the same rules. Turn it off with **Remember on their own** in **About you** (`ai.claudeCode.autoMemory`).
 
 It remembers the way a person does:
@@ -141,6 +143,6 @@ programs.nixbook-shell.desktopMcp.settings = {
 };
 ```
 
-Written to `~/.config/nixbook-shell/desktop-mcp.json`; `nixbook-desktop-mcp config` prints what applies. Other keys tune screenshots (`screenshotFormat`, `screenshotQuality`, `screenshotMaxEdge`) and memory (`memoryPromptChars`, `memoryMaxNotes`, `personalPromptChars`, `personalMaxEntries`).
+Written to `~/.config/nixbook-shell/desktop-mcp.json`; `nixbook-desktop-mcp config` prints what applies. Other keys tune screenshots (`screenshotFormat`, `screenshotQuality`, `screenshotMaxEdge`) and memory (`memoryPromptChars`, `memoryMaxNotes`, `personalPromptChars`, `personalMaxEntries`, `personalContacts`, `personalContactsAccount`).
 
 The `ui` group needs the accessibility bus (`customNixOSModules.niri.accessibility`, on by default); the module sets the variables that make Firefox-based and Chromium/Electron apps publish their tree (apps started before need a restart).
