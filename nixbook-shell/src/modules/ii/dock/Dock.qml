@@ -48,6 +48,16 @@ Scope {
             implicitWidth: dockBackground.implicitWidth
             WlrLayershell.namespace: "quickshell:dock"
             color: "transparent"
+            // Niri's blur behind its background (NiriConfig.panelBlur). It
+            // slides in and out with dockMouseArea: y (unused with an item)
+            // follows it so the region is recomputed from where it is.
+            BackgroundEffect.blurRegion: NiriConfig.panelBlur && Config.options.dock.showBackground ? blurArea : null
+            Region {
+                id: blurArea
+                item: dockVisualBackground
+                radius: dockVisualBackground.radius
+                y: dockMouseArea.y
+            }
 
             implicitHeight: (Config.options?.dock.height ?? 70)
                 + Appearance.sizes.elevationMargin

@@ -20,6 +20,7 @@ Pages are grouped as:
 - **Ctrl+F** searches every setting and section on every page and scrolls to it.
 - Notification rules live on the **Bar** page (_Notifications_ section); AI and update settings on **Services**.
 - Settings pinned in Nix show a **red lock** and are disabled. A header toggle, _Editable only_, hides them.
+- **Niri → Blur** blurs behind the shell's own sidebars, bar and dock too, not only windows, while they are see-through (**Appearance → Transparency**). Like windows, they show the blurred wallpaper. Not with Persona's slanted frames.
 
 ## Setting values from Nix
 

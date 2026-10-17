@@ -69,6 +69,17 @@ Scope {
         property bool keepMapped: false
         visible: reallyVisible || keepMapped
         Region { id: noInput }
+        // Niri's blur behind the body (NiriConfig.panelBlur), while open.
+        // It slides with a transform, which a region isn't told about: x
+        // (unused with an item) follows the slide so the region is
+        // recomputed (from the item's place on screen, transform included).
+        BackgroundEffect.blurRegion: NiriConfig.panelBlur && panelWindow.reallyVisible ? blurArea : null
+        Region {
+            id: blurArea
+            item: sidebarContentLoader
+            radius: Appearance.rounding.screenRounding - Appearance.sizes.gapsOut + 5 // SidebarRightContent's
+            x: slide.x
+        }
         mask: reallyVisible ? null : noInput
         Connections {
             target: Preloader
@@ -202,6 +213,7 @@ Scope {
                 // it slides).
                 anchors.right: parent.right
                 transform: Translate {
+                    id: slide
                     x: !entranceWrapper.open ? entranceWrapper.width : 0
                     Behavior on x {
                         NumberAnimation {
