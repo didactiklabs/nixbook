@@ -65,6 +65,17 @@ Scope {
                     item: hoverMaskRegion
                 }
                 color: "transparent"
+                // Niri's blur behind the bar's body (NiriConfig.panelBlur),
+                // in the styles that have one. Auto-hide slides it with
+                // barContent: y (unused with an item) follows it so the
+                // region is recomputed from where it is.
+                BackgroundEffect.blurRegion: NiriConfig.panelBlur && barContent.background.color.a > 0 ? blurArea : null
+                Region {
+                    id: blurArea
+                    item: barContent.background
+                    radius: barContent.background.radius
+                    y: barContent.y
+                }
 
                 // Positioning
                 anchors {

@@ -71,6 +71,9 @@ Item {
     property real useShortenedForm: (Appearance.sizes.barHellaShortenScreenWidthThreshold >= screen?.width) ? 2 : (Appearance.sizes.barShortenScreenWidthThreshold >= screen?.width) ? 1 : 0
 
 
+    // The bar's body, for niri's blur (Bar.qml); transparent in the styles
+    // that have none (islands, center-only).
+    readonly property Rectangle background: barBackground
     Rectangle {
         id: barBackground
         anchors.fill: parent

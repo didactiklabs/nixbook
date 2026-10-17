@@ -14,6 +14,14 @@ Singleton {
     id: root
 
     property alias options: adapter
+    // Niri's blur (Settings > Niri > Blur) behind the shell's own panels
+    // too (the sidebars, the dock, the bar): each asks for it over its
+    // rounded body only (BackgroundEffect.blurRegion, ext-background-effect),
+    // while open. Only while they are see-through (Settings > Appearance >
+    // Transparency): behind an opaque panel it would cost GPU for nothing.
+    // Not with Persona's slanted frames, which a region can't follow.
+    readonly property bool panelBlur: (root.options.decoration?.blur?.enable ?? false)
+        && Appearance.backgroundTransparency > 0 && !Persona.shapes
     property bool ready: false
     property int readWriteDelay: 150
 

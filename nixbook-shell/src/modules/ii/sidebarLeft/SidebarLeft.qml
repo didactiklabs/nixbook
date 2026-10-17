@@ -258,6 +258,13 @@ Scope { // Scope
                 item: pinnedMaskArea
             }
             Region { id: noInput }
+            // Niri's blur behind the body (NiriConfig.panelBlur), while open.
+            BackgroundEffect.blurRegion: NiriConfig.panelBlur && panelWindow.reallyVisible ? blurArea : null
+            Region {
+                id: blurArea
+                item: sidebarLeftBackground
+                radius: sidebarLeftBackground.radius
+            }
 
             // A pinned sidebar is part of the layout, not a popup: keep it out
             // of the dismissable set (it would also keep the click catcher up).
