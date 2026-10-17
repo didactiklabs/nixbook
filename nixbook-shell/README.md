@@ -637,7 +637,10 @@ own permissions.
 default) also gives it the connectors of your Claude account (Gmail,
 Calendar, Drive… as connected on claude.ai, found with `claude mcp list`),
 every tool of each allowed without asking; it then drops
-`--strict-mcp-config` and keeps their tools behind ToolSearch.
+`--strict-mcp-config` and keeps their tools behind ToolSearch. A connector
+that needs signing in to is signed in to from the panel: Claude gives its
+sign-in link, and its tools come once it's done; one signed in to on claude.ai
+instead is seen when the panel next opens.
 Replies stream in, each tool call shows with its result in a collapsible
 block, and the send button stops the answer (and what Claude is doing), as
 does `/stop`. Sonnet is faster than Opus for desktop tasks.
