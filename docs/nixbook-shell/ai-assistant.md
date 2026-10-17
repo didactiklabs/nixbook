@@ -50,8 +50,9 @@ Replies stream in, each tool call shows with its result in a collapsible block, 
 
 - It drives the desktop through the [desktop control tools](./desktop-agents) — with their guardrails, the pause button and the memory.
 - It remembers what you tell it about your life across conversations — the [personal memory](./desktop-agents#personal-memory): one short entry per subject, and only the entries about what you're talking about come with your message.
-- It gets the MCP servers of `assistant.mcpServers` and only the built-in tools in `ai.claudeCode.allowedTools` (web search and fetch). **Running commands and editing files are refused.**
+- It gets the MCP servers of `assistant.mcpServers` and only the built-in tools in `ai.claudeCode.allowedTools` (web search and fetch). **Running commands is refused.**
 - **It reads none of your files** unless you allow it: _Folders AI agents may read_ (`ai.allowedFolders`, none by default) become read-only working directories, and a file attached to a message is readable on its own.
+- **It writes files only where you let it**: in _Folders AI agents may write_ (`ai.writableFolders`, none by default) it can create and edit files; anywhere else is refused.
 - It runs in an empty directory of its own, without your `~/.claude` settings, so permission rules from your own Claude Code sessions don't apply.
 - **Speak as this computer** (`ai.claudeCode.asComputer`, on by default): Claude answers as the machine itself — "my CPU is an AMD Ryzen 7 6800U", "my battery is at 80%, though its health is down to 46%" — reading its hardware, OS and kernel live through the desktop tools' `system_info` rather than guessing.
 - **Use your claude.ai connectors** (`ai.claudeCode.connectors`, off by default) gives it the connectors of your Claude account (Gmail, Calendar, Drive…).

@@ -173,7 +173,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("The AI chat's Claude model runs Claude Code on your own Claude account (no API key), with the desktop tools. It can't run commands or edit files, and reads none of your files but the folders you allow below (and a file you attach to a message); below, what else it may do.")
+                text: Translation.tr("The AI chat's Claude model runs Claude Code on your own Claude account (no API key), with the desktop tools. It can't run commands, reads none of your files but the folders you allow below (and a file you attach to a message) and writes only in the folders you let it write; below, what else it may do.")
             }
 
             RowLayout {
@@ -374,8 +374,8 @@ ContentPage {
                 text: Translation.tr("Read-only, for Claude here and for the apps on the agents' own desktop (from its next start). Absolute paths or ~/…, separated by commas. Other agents (Claude Code in a terminal…) follow their own permissions.")
             }
 
-            // The folders the apps on the agents' desktop may write too: the
-            // first is where its browser downloads.
+            // The folders Claude here and the apps on the agents' desktop may
+            // write too: the first is where its browser downloads.
             ConfigTextArea {
                 id: writableField
                 configKey: "ai.writableFolders"
@@ -383,7 +383,7 @@ ContentPage {
                 Layout.fillWidth: true
                 fieldWidth: 320
                 buttonIcon: "drive_folder_upload"
-                text: Translation.tr("Folders the agents' desktop may write")
+                text: Translation.tr("Folders AI agents may write")
                 placeholderText: Translation.tr("none: e.g. ~/Pictures/Assistant")
                 value: (Config.options.ai.writableFolders ?? []).join(", ")
                 Connections {
@@ -399,7 +399,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("The apps on the agents' own desktop can save files there (from its next start), and its browser downloads into the first one, so an agent can fetch a file for you, a wallpaper say. Claude here can read them but not write them. Made if missing; not your whole home.")
+                text: Translation.tr("Claude here can create and edit files there (nowhere else), and so can the apps on the agents' own desktop (from its next start), whose browser downloads into the first one, so an agent can fetch a file for you, a wallpaper say. Made if missing; not your whole home.")
             }
 
             ConfigTextArea {
