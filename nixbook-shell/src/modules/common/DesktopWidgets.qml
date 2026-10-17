@@ -179,7 +179,7 @@ Singleton {
     }
 
     // The desktop widgets WidgetsLoader shows, by config key.
-    readonly property var names: ["customImage", "sticker", "calendar", "nextEvent", "musicRecognition", "weather", "clock", "notes", "media", "images",
+    readonly property var names: ["customImage", "sticker", "calendar", "nextEvent", "contacts", "musicRecognition", "weather", "clock", "notes", "media", "images",
         "resources", "worldClock", "userCard", "todo", "timers", "customText"]
 
     // `nixbook-shell ipc call widgets list|show|hide NAME`: for key bindings

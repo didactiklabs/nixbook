@@ -36,11 +36,11 @@
     # every message, mine included.
     notifications.cutIn = {
       keywords = [
-        # Calendar reminders: DankCalendar's own (the phone's and browser's
-        # copies are quiet, see the shared settings). Not "Calendar" or
-        # "Reminder" anywhere: mails about Google Calendar, invitations and
-        # "quick reminder" newsletters matched too.
-        "app:^\"Dank Calendar\""
+        # Calendar reminders: the shell's own, app "Calendar" (the phone's and
+        # browser's copies are quiet, see the shared settings). Not
+        # "Calendar" or "Reminder" anywhere: mails about Google Calendar,
+        # invitations and "quick reminder" newsletters matched too.
+        "app:^\"Calendar\""
         # Family and friends
         "Alesio"
         "chocomooncake"

@@ -117,40 +117,48 @@ editable there. The options are generated from the built-in defaults
 
 ### Calendars and to-do list
 
-[DankCalendar](https://github.com/AvengeMedia/dankcalendar) (`dcal`) is part of
-the shell (`dankcalendar.nix`, on its PATH; its daemon is the `dcal` user
-service) and keeps every calendar surface in sync:
+The accounts (nixbook-accounts, see "Accounts, contacts, tasks and
+calendars" below) keep every calendar surface in sync
+(`src/services/CalendarEvents.qml` reads the events around the month shown,
+recurring series expanded by nixbook-accounts):
 
 - events: dots on the days of the sidebar, desktop and bar clock calendars,
   the next events in the bar clock popup, a day's events when you click it in
   the sidebar (with an "add event" button); clicking the bar clock (right
-  click: sync) or a day of the desktop calendar opens DankCalendar. The
-  shell rereads them every `calendar.refreshMinutes` (30), keeping the same
-  data (no redraw) when nothing changed; the refresh button in the sidebar
-  calendar's header syncs the accounts now;
+  click: sync) or a day of the desktop calendar opens the **Calendar**
+  window (`src/modules/ii/calendarApp/`; launcher entry "Calendar",
+  `nixbook-shell ipc call calendar show|open YYYY-MM-DD`): the month (each
+  day's events, "+N more"), the selected day's events, and the event editor
+  (title, all day, start and end, calendar, repeat, reminders, place, notes;
+  a recurring event's occurrence alone or all of them, all of them moving
+  as that occurrence did; read-only calendars shown, not edited); Ctrl+N
+  new, T today, Page Up/Down, F5 sync. The shell syncs every
+  `calendar.refreshMinutes` (30) and rereads the local copy whenever it
+  changes, keeping the same data (no redraw) when nothing changed; the
+  refresh button in the sidebar calendar's header syncs now;
 - the next events: the "Next Event" bar widget (`nextEvent` in a bar layout:
   "in 12 min" and the title, the following ones on hover; click joins the
-  meeting when it starts within 10 minutes, else opens DankCalendar) and
+  meeting when it starts within 10 minutes, else opens the Calendar) and
   desktop widget (`background.widgets.nextEvent`: the next one large with a
   Join button, the three after it);
 - tasks: the to-do list (sidebar, desktop widget, bar clock popup, the
-  launcher's "add task") is the account's task lists (Google Tasks…) once one
-  is connected, a local list before that (`src/services/Todo.qml`). The
+  launcher's "add task") is your accounts' tasks (Google Tasks…) once one
+  is added (nixbook-accounts, see below), a local list before that
+  (`src/services/Todo.qml`). The
   **Tasks** window (`src/modules/ii/tasks/`, Google Tasks-like; launcher entry
   "Tasks", `nixbook-shell ipc call tasks open|toggle|close`) shows each list
   as a column (subtasks under their parent, "Completed" folded) and a
   "Deadlines" column of every dated task (Overdue, Today, Tomorrow, Next 7
   days, Later); a task opens its details (title, notes, deadline, list:
-  moving one recreates it in the other list, dcal can't move tasks), "Create"
+  Google moves it, subtasks and id kept), "Create"
   (Ctrl+N) adds one to any list with a deadline. The desktop to-do widget
   lists open tasks by deadline (overdue in red), opens the window on a click,
   adds tasks to any list with a deadline, and resizes from its corner
   (`background.widgets.todo.width`/`height`, per monitor). The lists
   themselves are made, renamed and deleted from the window ("New list", ⋮ on
   a list; deleting one deletes its tasks, after a confirmation): Google's
-  through `patches/dankcalendar-tasklists.patch` (dcal's `tasks.listCreate`,
-  `listRename`, `listDelete`; upstream dcal only renames its local copy),
-  the local ones in `todo-lists.json` next to `todo.json` (the first stays).
+  through nixbook-accounts, the local ones in `todo-lists.json` next to
+  `todo.json` (the first stays).
   What Google refuses (its default list can't be deleted) shows in a
   message bar;
 - notes: the desktop notes widget's notes (`src/services/Notes.qml`) also
@@ -163,22 +171,86 @@ service) and keeps every calendar surface in sync:
   same order and opens a note, its title or ⤢ in the window; "+" still
   jots one down in the quick floating editor. Agents' changes (the `widget`
   tool's notes, which can also `open` one) show live;
-- reminders: DankCalendar's own notifications (before each event, at its
-  Google reminder times or 10 minutes before; Join, Open, Snooze, Dismiss),
-  shown by the shell's notification server and silenced by Do Not Disturb.
+- reminders: the shell's own notifications (`src/services/CalendarReminders.qml`,
+  app "Calendar", through notify-send: at each reminder time of an event, its
+  own or its calendar's; Join, Snooze 5 min, Open), shown by the shell's
+  notification server and silenced by Do Not Disturb; the ones shown are
+  remembered (`calendar-reminders.json` in the state directory), one missed
+  while the shell wasn't running shows if at most 10 minutes late.
   Other copies of the same reminder (the phone's calendar app mirrored by KDE
   Connect, Google Calendar in the browser) can be made quiet with
   `notifications.quiet` (Settings → Notifications → Quiet: apps and rules, in
   the cut-in rule syntax, whose notifications don't pop up, cut in or chime
   but still reach the notification centre and the history).
 
-Each of these widgets has the same account button: "Connect a Google account"
-until one is connected (the browser opens Google's login: dcal ships its own
-OAuth client, so no Google Cloud project is needed), then "Open DankCalendar"
-(events, tasks, the other accounts: Microsoft, CalDAV, iCloud, iCal feeds);
-right click syncs now. The desktop menu's widget list scrolls when it is
+The calendar widgets have the same account button: "Add an account" until
+one is (the accounts window), then "Open the calendar"; right click syncs
+now. The to-do widgets' button syncs the tasks. The desktop menu's widget list scrolls when it is
 taller than the screen. The assistant answers "how do I sync my Google
 calendar?" and the like (`assistant.howTo.calendar*`).
+
+### Accounts, contacts, tasks and calendars
+
+`nixbook-accounts` (`accounts/`, Go, `accounts.nix`; on the shell's and the
+desktop MCP server's PATH, and installed) is the shell's accounts backend. A
+built-in account, `local` ("This computer", `internal/local`), keeps
+contacts, task lists and calendars on this computer only, in
+`$XDG_DATA_HOME/nixbook-accounts/local/` (the data, not a copy: a sync
+rereads it); always there, last, so new things go to a synced account when
+there is one; it can't be removed. Todo.qml moves its former local list
+(`todo.json`) into it once (files kept as .bak).
+the user's accounts, each signed in once, and their contacts and tasks
+merged. Providers register with each service (`internal/contacts`,
+`internal/tasks`, `internal/calendar`): Google (`internal/google`: the user's own OAuth client,
+Google Cloud "Desktop app", since DankCalendar's built-in one is for
+DankCalendar only; one consent covering contacts, tasks and calendars, a
+token per account) and CalDAV/CardDAV servers (`internal/dav`, emersion's
+go-webdav: presets for iCloud, Fastmail, Nextcloud, or any server; a user
+name and an app password, checked on the server when added; address books
+as contacts, synced with sync-collection; the calendars that hold to-dos as
+task lists; the calendars that hold events, read within a window around
+now; labels as vCard categories, the star as the "Starred" category). The
+calendar copy keeps events as their providers do (a series once, with its
+RRULE/EXDATE lines, its changed or cancelled occurrences beside it) and
+`calendar events --from --to` expands them (rrule-go), so every provider's
+recurrences read alike. The accounts are in
+`$XDG_STATE_HOME/nixbook-accounts/accounts.json` (no secrets: client and
+tokens in the keyring, `secret-tool`). Each service keeps one merged copy
+there (`contacts.json`, `tasks.json`; a section per account, with its sync
+state), ids being global (`<account>:<provider's id>`, e.g.
+`google-1:c123`): changes go to their account's provider first and its
+answer lands in the copy, which the shell watches. `nixbook-accounts
+--help` lists the commands (`setup google`, `add google`, `add dav`,
+`remove`, `status`, `contacts sync|list|get|apply`, `tasks
+sync|list|apply`, `calendar sync|calendars|events|apply`); `tests/accounts.sh` runs them against fake Google APIs
+(`tests/fake-google.py`, data per signed-in user), two accounts included,
+and `tests/dav.sh` against a real CalDAV/CardDAV server (Radicale).
+`src/services/Accounts.qml` holds the accounts (status, Google's setup,
+adding one, removing one; one command lane per service, so a contacts sync
+doesn't hold up a ticked task); the accounts window
+(`src/modules/ii/accounts/`, `nixbook-shell ipc call accounts show`) lists
+them and adds one (Google's one-time client setup first; a DAV server's
+form, the password given to nixbook-accounts on stdin); the task widgets'
+account button and the apps open it.
+
+- contacts: `src/services/Contacts.qml` reads the copy and calls
+  `nixbook-accounts` (a sync on first use, every 30 minutes, on demand).
+  The **Contacts** window (`src/modules/ii/contactsApp/`; launcher entry
+  "Contacts", `nixbook-shell ipc call contacts show|open <id>|toggle|close|sync`)
+  shows the accounts page until one is added, then lists the contacts
+  (search, All/Starred/account/label chips, starred first, then A–Z) and
+  shows the selected one (its account, write, call, message, map, copy;
+  birthday and age) or edits it: only the fields changed go to the
+  account, the rest of the contact stays; a new one goes to the account
+  picked. The desktop widget (`background.widgets.contacts`) shows the
+  birthdays of the next two weeks and the starred contacts; one opens the
+  window on them. Agents use the MCP server's `contacts` tool (list, get,
+  create in an account, update, star, delete, labels, sync, open, batch).
+- tasks: `src/services/Todo.qml` (above) reads the tasks copy and changes
+  tasks and lists through `nixbook-accounts tasks apply` (a sync at start,
+  every 10 minutes, when the Tasks window opens, and from the widgets'
+  account button); with several accounts a list's name says its account
+  ("My Tasks · work"), and tasks move between lists of one account.
 
 The bar's update indicator compares `/etc/nixos/version` (JSON `{rev, branch}`)
 with `updates.repoUrl`; it stays idle while that is empty (the default).
@@ -249,9 +321,10 @@ preamp, or Auto, which follows each song's genre; the `equalizer` IPC
 target; its agent mode, `equalizer.agent` (the equalizer window's Agent
 chip, Settings > Desktop agents), has a short Claude Code task with only
 this tool tune the curve for each new song, `equalizer.agentModel`, Haiku
-by default); the user's calendar, read-only
-(`calendar`: the next event, the coming days, a given day, from DankCalendar
-through the `calendar` IPC target); the to-do lists, all of them (`tasks`:
+by default); the user's calendars (`calendar`: the next event, the coming
+days, a given day through the `calendar` IPC target; the calendars, and
+creating, changing and deleting events, an occurrence or a whole series,
+through nixbook-accounts); the user's contacts (`contacts`); the to-do lists, all of them (`tasks`:
 every list and task with its notes, deadline, overdue state and parent;
 create in any list with notes and a deadline, rename, re-date, move to
 another list, complete, delete, clear the completed ones, open the Tasks
@@ -937,7 +1010,7 @@ ignored.
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | `default.nix`      | entry point (`package`, `homeManagerModules.default`, `lib`)                                                                 |
 | `package.nix`      | the launcher: runtime `PATH`, QML import path, `config` CLI                                                                  |
-| `dankcalendar.nix` | DankCalendar (`dcal`), the calendar and task sync, from `npins/` plus `patches/` (Google task lists)                         |
+| `accounts.nix`     | `nixbook-accounts` (`accounts/`, Go): the accounts (Google, CalDAV/CardDAV), contacts, tasks, calendars                      |
 | `qml.nix`          | the QML tree as installed (store-path fixups, Persona, Chiikawa, Cyberpunk and Ghibli art and sounds, emoji list)            |
 | `fonts.nix`        | the faces `appearance.fonts` names that nixpkgs lacks (Google Sans Flex, Space Grotesk, Rajdhani, Zen Maru Gothic, Klee One) |
 | `quickshell.nix`   | Quickshell from `quickshellSrc` plus `patches/`                                                                              |
@@ -947,7 +1020,7 @@ ignored.
 | `greeter.nix`      | the login screen (`nixbook-shell.greeter`, imported by it)                                                                   |
 | `toggles.nix`      | discovers the `enable` toggles from an options tree                                                                          |
 | `scripts/`         | `config` CLI, its jq library, assistant facts, Anthropic usage, login screen theme, emoji list, desktop control MCP server   |
-| `npins/`           | default nixpkgs, quickshell, dankcalendar (+ flake-compat) pins                                                              |
+| `npins/`           | default nixpkgs and quickshell pins                                                                                          |
 | `src/`             | the QML tree                                                                                                                 |
 | `tests/`           | script tests, lib unit tests, the self-containment check                                                                     |
 

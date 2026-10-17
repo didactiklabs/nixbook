@@ -145,10 +145,6 @@ in
         (import ../nixbook-shell {
           inherit pkgs;
           quickshellSrc = sources.quickshell;
-          # DankCalendar (the shell's calendar and task sync), the same pin
-          # as dmsConfig's.
-          dankcalendarSrc = sources.dankcalendar;
-          flakeCompatSrc = sources.flake-compat;
           # The VPN CLIs of the VpnStatus widget, only where the machine runs
           # that VPN (standalone Home Manager: both).
           withTailscale = os == null || (os.services.tailscale.enable or false);

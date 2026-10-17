@@ -348,29 +348,29 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.leftMargin: 12
                 Layout.rightMargin: 12
-                visible: !Todo.synced
+                visible: !Accounts.syncing
                 wrapMode: Text.Wrap
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("Local list. Connect a Google account to sync your Google Tasks and their lists.")
+                text: Translation.tr("Kept on this computer. Add an account to sync your tasks and their lists (Google Tasks, iCloud, Nextcloud…).")
             }
             PanelButton {
-                visible: !Todo.synced && !CalendarEvents.hasAccounts
+                visible: !Accounts.syncing
                 icon: "account_circle"
-                text: CalendarEvents.connecting ? Translation.tr("Waiting for the browser…") : Translation.tr("Connect Google")
-                onClicked: CalendarEvents.connectGoogle()
+                text: Translation.tr("Add an account")
+                onClicked: Accounts.openWindow()
             }
             PanelButton {
-                visible: Todo.synced
+                visible: Accounts.syncing
                 icon: "sync"
-                text: CalendarEvents.syncing ? Translation.tr("Syncing…") : Translation.tr("Sync now")
-                onClicked: CalendarEvents.sync()
+                text: Todo.syncing ? Translation.tr("Syncing…") : Translation.tr("Sync now")
+                onClicked: Todo.sync()
             }
             PanelButton {
-                visible: CalendarEvents.available
-                icon: "open_in_new"
-                text: Translation.tr("Open DankCalendar")
-                onClicked: CalendarEvents.openApp()
+                visible: Accounts.syncing
+                icon: "manage_accounts"
+                text: Translation.tr("Accounts")
+                onClicked: Accounts.openWindow()
             }
         }
     }
@@ -505,7 +505,8 @@ Rectangle {
                     text: (listDialogScrim.taskCount === 0 ? Translation.tr("The list is empty.")
                         : listDialogScrim.taskCount === 1 ? Translation.tr("Its task is deleted with it.")
                         : Translation.tr("Its %1 tasks are deleted with it.").arg(listDialogScrim.taskCount))
-                        + (Todo.synced ? " " + Translation.tr("This deletes it in Google Tasks too.") : "")
+                        + (listDialogScrim.list?.account && listDialogScrim.list.account !== "local"
+                            ? " " + Translation.tr("This deletes it in %1 too.").arg(Accounts.nameOf(listDialogScrim.list.account)) : "")
                 }
                 Rectangle {
                     Layout.fillWidth: true

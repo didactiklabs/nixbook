@@ -25,6 +25,9 @@ import qs.modules.ii.sidebarRight
 import qs.modules.ii.splash
 import qs.modules.ii.tasks
 import qs.modules.ii.notesApp
+import qs.modules.ii.contactsApp
+import qs.modules.ii.accounts
+import qs.modules.ii.calendarApp
 import qs.modules.ii.overlay
 import qs.modules.ii.verticalBar
 import qs.modules.ii.wallpaperSelector
@@ -56,6 +59,9 @@ Scope {
     PanelLoader { component: WallpaperSelector {} }
     PanelLoader { component: TasksApp {} }
     PanelLoader { component: NotesApp {} }
+    PanelLoader { component: ContactsApp {} }
+    PanelLoader { component: AccountsWindow {} }
+    PanelLoader { component: CalendarApp {} }
     PanelLoader { component: Settings {} }
     PanelLoader { component: DesktopMenu {} }
     PanelLoader { component: DropShelfPanel {} }

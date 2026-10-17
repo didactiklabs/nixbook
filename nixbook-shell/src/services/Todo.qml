@@ -12,20 +12,27 @@ import QtQuick;
  * the launcher's "add task").
  *
  * Each item has "content", "done", "listId", "notes" and "due" (a Date, or
- * null; date-only, local midnight, when "allDay"). While DankCalendar has a
- * task list (CalendarEvents.taskLists: Google Tasks, CalDAV VTODO…), the
- * list is that account's tasks, and adding, editing, ticking and deleting go
- * through dcal, which syncs them: `synced` is true and items also carry
- * "uid" and "parentUid" (subtasks); every item has an "id" (dcal's, or a
- * local one; "" while a new synced task waits for its reload). New tasks go to the list asked
- * for, else the first one (Google's "My Tasks"). Otherwise it is the local
- * list in Directories.todoPath, as before; that file is left alone while
- * synced.
+ * null; date-only, local midnight, when "allDay"). Once an account with
+ * tasks is added (services/Accounts.qml) and has its task lists, the list is
+ * every account's tasks (Google Tasks…), merged by nixbook-accounts in its
+ * local copy ($XDG_STATE_HOME/nixbook-accounts/tasks.json, watched: an
+ * agent's or a sync's changes show at once); adding, editing, ticking,
+ * moving and deleting go to the task's account through it: `synced` is true
+ * and items also carry "uid" and "parentUid" (subtasks) and "account";
+ * every item has an "id" (the account's, "<account>:…", or a local one; ""
+ * while a new synced task waits for its account's answer). New tasks go to
+ * the list asked for, else the first one (the first account's "My Tasks").
+ * Otherwise (nixbook-accounts not answering) it is the local list in
+ * Directories.todoPath, as before; with the built-in local account ("This
+ * computer"), that list is moved into it once (`_migrateLocal`: its lists
+ * and tasks created there, the files kept as .bak, then emptied). Synced on first use, every 10 minutes,
+ * when the Tasks window opens, and on demand (`sync`).
  *
- * The lists themselves can be created, renamed and deleted (createList,
- * renameList, deleteList): Google's through the patched dcal (`manageable`
- * lists), the local ones in todo-lists.json next to the tasks (the first,
- * `localListId`, always stays). A failure lands in `lastError`.
+ * The lists themselves can be created (in an account), renamed and deleted
+ * (createList, renameList, deleteList): the accounts' (all `manageable`;
+ * their names say their account when there are several), the local ones in
+ * todo-lists.json next to the tasks (the first, `localListId`, always
+ * stays). A failure lands in `lastError`.
  *
  * The index functions (markDone, deleteItem…) address `list`; the task
  * functions (setTaskDone, updateTask, moveTask, deleteTask) take one of its
@@ -34,29 +41,39 @@ import QtQuick;
 Singleton {
     id: root
 
-    function load() {}
+    property bool _started: false
+    function load() {
+        if (root._started) return
+        root._started = true
+        Accounts.load()
+    }
     property var filePath: Directories.todoPath
     property var list: []
 
-    readonly property bool synced: CalendarEvents.available && CalendarEvents.taskLists.length > 0
+    readonly property bool synced: Accounts.connected && root._googleLists.length > 0
     readonly property string localListId: "local"
-    // The lists tasks can go in: [{ id, name, color, manageable }].
+    // The lists tasks can go in: [{ id, name, color, manageable, account }].
     readonly property var lists: root.synced
-        ? CalendarEvents.taskLists.map(l => root._pendingNames[l.id] ? Object.assign({}, l, { name: root._pendingNames[l.id] }) : l)
+        ? root._googleLists.map(l => {
+            const name = root._pendingNames[l.id] ?? l.name
+            return { id: l.id, name: root._severalAccounts ? `${name} · ${Accounts.shortName(l.account)}` : name,
+                color: "", manageable: true, account: l.account }
+        })
         : root._localLists
-    // Google renames shown at once, until the reloaded lists carry them.
+    readonly property bool _severalAccounts: new Set(root._googleLists.map(l => l.account)).size > 1
+    // Google renames shown at once, until the copy carries them.
     property var _pendingNames: ({})
-    Connections {
-        target: CalendarEvents
-        function onTaskListsChanged() {
-            const pending = Object.assign({}, root._pendingNames)
-            for (const id in pending)
-                if (!CalendarEvents.taskLists.some(l => l.id === id && l.name !== pending[id])) delete pending[id]
-            root._pendingNames = pending
-        }
+    // nixbook-accounts' copy: [{ id, account, name }] and its tasks.
+    property var _googleLists: []
+    property var _googleTasks: []
+    property bool syncing: false
+    property real syncedAt: 0
+    readonly property string cachePath: {
+        const state = Quickshell.env("XDG_STATE_HOME") || `${Quickshell.env("HOME")}/.local/state`
+        return `${state}/nixbook-accounts/tasks.json`
     }
-    // Lists can be added (a Google account, or the local lists).
-    readonly property bool canCreateLists: !root.synced || root.lists.some(l => l.manageable)
+    // Lists can be added (Google's or the local ones).
+    readonly property bool canCreateLists: true
     // The last list operation that failed ({ message, at }), for the Tasks
     // app's message bar; null when none.
     property var lastError: null
@@ -80,31 +97,33 @@ Singleton {
     }
 
     function _fail(message) {
-        // dcal's CLI says "Error: ipc error: …".
-        let text = String(message || Translation.tr("it didn't work")).split("\n")[0].replace(/^Error:\s*/, "").replace(/^ipc error:\s*/, "")
-        // Google answered with a rate limit or an outage: dcal holds every
-        // call a moment. Said plainly, Google's reason (when dcal gives it)
-        // kept for the curious.
-        if (/retry deferred/i.test(text)) {
-            const why = /\((.*)\)\s*$/.exec(text)?.[1] ?? ""
-            text = Translation.tr("Google is limiting requests right now: nothing changed, try again in a minute") + (why ? ` (${why})` : "")
-        } else if (/daemon not running/i.test(text)) {
-            text = Translation.tr("DankCalendar isn't running: nothing changed")
-        }
+        let text = String(message || Translation.tr("it didn't work")).split("\n")[0]
+        // Google answered with a rate limit: said plainly.
+        if (/rate ?limit|quota|too many requests/i.test(text))
+            text = Translation.tr("Google is limiting requests right now: nothing changed, try again in a minute")
         root.lastError = { message: text, at: Date.now() }
     }
 
-    // After a task call: a failure is said (the reload puts the task back as
-    // the account has it, which alone looked like the click didn't take).
-    function _done(ok, result, error) {
-        if (!ok) root._fail(error)
-        root.reloadRemote()
+    // Changes to Google's tasks, in order: onDone(results) with
+    // [{ ok, result | error }]. A failure is said (the copy, read again,
+    // puts the task back as the account has it, which alone looked like the
+    // click didn't take).
+    function _apply(ops, onDone) {
+        const request = Array.isArray(ops) ? { ops: ops } : ops
+        Accounts.call(["tasks", "apply", JSON.stringify(request)], (ok, result, error) => {
+            const results = ok && Array.isArray(result) ? result : [{ ok: false, error: error }]
+            const failed = results.find(r => !r.ok)
+            if (failed) root._fail(failed.error)
+            root.reloadRemote()
+            if (onDone) onDone(results)
+        }, "tasks")
     }
 
     // -- The lists themselves ------------------------------------------------
-    // onDone(ok, listId | error) when given. Google answers after a moment:
-    // the lists reload once it did.
-    function createList(name, onDone) {
+    // onDone(ok, listId | error) when given. The account answers after a
+    // moment: the lists reload once it did. `account`: where (an account's
+    // id; default: the first with tasks).
+    function createList(name, onDone, account) {
         name = (name ?? "").trim()
         if (!name) return
         if (!root.synced) {
@@ -114,16 +133,8 @@ Singleton {
             if (onDone) onDone(true, id)
             return
         }
-        const account = root.lists.find(l => l.manageable)?.accountId
-        if (!account) {
-            root._fail(Translation.tr("this account can't create task lists"))
-            if (onDone) onDone(false, root.lastError.message)
-            return
-        }
-        CalendarEvents.call("tasks.listCreate", { accountId: account, name: name }, (ok, result, error) => {
-            if (!ok) root._fail(error)
-            CalendarEvents.refresh()
-            if (onDone) onDone(ok, ok ? (result?.calendarId ?? "") : root.lastError.message)
+        root._apply(account ? { op: "create_list", name: name, account: account } : { op: "create_list", name: name }, results => {
+            if (onDone) onDone(results[0].ok, results[0].ok ? results[0].result.id : results[0].error)
         })
     }
 
@@ -136,19 +147,11 @@ Singleton {
             root._saveLocalLists()
             return
         }
-        if (!list.manageable) {
-            root._fail(Translation.tr("this account can't rename task lists"))
-            return
-        }
         root._pendingNames = Object.assign({}, root._pendingNames, { [listId]: name })
-        CalendarEvents.call("tasks.listRename", { calendarId: listId, name: name }, (ok, result, error) => {
-            if (!ok) {
-                root._fail(error)
-                const pending = Object.assign({}, root._pendingNames)
-                delete pending[listId]
-                root._pendingNames = pending
-            }
-            CalendarEvents.refresh()
+        root._apply({ op: "rename_list", list: listId, name: name }, () => {
+            const pending = Object.assign({}, root._pendingNames)
+            delete pending[listId]
+            root._pendingNames = pending
         })
     }
 
@@ -167,17 +170,10 @@ Singleton {
             root._saveLocal()
             return
         }
-        if (!list.manageable) {
-            root._fail(Translation.tr("this account can't delete task lists"))
-            return
-        }
         // Gone at once here; back if Google refuses.
         root._remoteList = root._remoteList.filter(t => t.listId !== listId)
         root._publish()
-        CalendarEvents.call("tasks.listDelete", { calendarId: listId }, (ok, result, error) => {
-            if (!ok) root._fail(error)
-            CalendarEvents.refresh()
-        })
+        root._apply({ op: "delete_list", list: listId })
     }
 
     // A task in a list that isn't there (the lists file lost) goes to the
@@ -195,6 +191,7 @@ Singleton {
         }
         if (changed) root._saveLocal()
         else root._publish()
+        root._migrateLocal()
     }
 
     function _saveLocalLists() {
@@ -266,12 +263,9 @@ Singleton {
         return root._dayOnly(task.due) < new Date(now.getFullYear(), now.getMonth(), now.getDate())
     }
 
-    // Google keeps a due date as that day's UTC midnight: send the local
-    // date the same way.
+    // A due date for nixbook-accounts: the local day, YYYY-MM-DD ("" none).
     function _dueParam(due) {
-        if (!due) return ""
-        const pad = n => (n < 10 ? "0" : "") + n
-        return `${due.getFullYear()}-${pad(due.getMonth() + 1)}-${pad(due.getDate())}T00:00:00Z`
+        return due ? root._dayKey(due) : ""
     }
 
     function _dayOnly(date) {
@@ -285,13 +279,10 @@ Singleton {
             // Shown at once; the reload brings its id.
             root._remoteList.push(Object.assign({ id: "", uid: "", parentUid: "" }, full))
             root._publish()
-            const params = { calendarId: listId, summary: full.content }
-            if (full.notes) params.description = full.notes
-            if (full.due) {
-                params.due = root._dueParam(full.due)
-                params.allDay = true
-            }
-            CalendarEvents.call("tasks.create", params, root._done)
+            const op = { op: "create", list: listId, title: full.content }
+            if (full.notes) op.notes = full.notes
+            if (full.due) op.due = root._dueParam(full.due)
+            root._apply(op)
             return
         }
         full.id = root._newLocalId()
@@ -319,7 +310,7 @@ Singleton {
             if (!task.id) return
             task.done = done
             root._publish()
-            CalendarEvents.call("tasks.complete", { id: task.id, completed: done }, root._done)
+            root._apply({ op: done ? "done" : "undone", id: task.id })
             return
         }
         task.done = done
@@ -332,11 +323,11 @@ Singleton {
         const params = {}
         if (changes.content !== undefined && changes.content.trim().length > 0 && changes.content !== task.content) {
             task.content = changes.content
-            params.summary = changes.content
+            params.title = changes.content
         }
         if (changes.notes !== undefined && changes.notes !== (task.notes ?? "")) {
             task.notes = changes.notes
-            params.description = changes.notes
+            params.notes = changes.notes
         }
         if (changes.due !== undefined) {
             const due = root._dayOnly(changes.due)
@@ -344,21 +335,18 @@ Singleton {
                 task.due = due
                 task.allDay = !!due
                 params.due = root._dueParam(due)
-                if (due) params.allDay = true
             }
         }
         if (Object.keys(params).length === 0) return
         if (root.synced) {
             root._publish()
-            params.id = task.id
-            CalendarEvents.call("tasks.update", params, root._done)
+            root._apply(Object.assign({ op: "update", id: task.id }, params))
             return
         }
         root._saveLocal()
     }
 
-    // dcal can't move a task between lists: it is created in the other one
-    // (title, notes, due, done) and then deleted from this one.
+    // Google moves it (its subtasks with it); it keeps its id.
     function moveTask(task, listId) {
         if (!task || task.listId === listId || !root.lists.some(l => l.id === listId)) return
         if (!root.synced) {
@@ -367,23 +355,9 @@ Singleton {
             return
         }
         if (!task.id) return
-        const params = { calendarId: listId, summary: task.content }
-        if (task.notes) params.description = task.notes
-        if (task.due) {
-            params.due = root._dueParam(task.due)
-            params.allDay = true
-        }
-        if (task.done) params.status = "completed"
-        const oldId = task.id
         task.listId = listId
-        task.id = ""
         root._publish()
-        CalendarEvents.call("tasks.create", params, (ok, result, error) => {
-            if (ok)
-                CalendarEvents.call("tasks.delete", { id: oldId }, root._done)
-            else
-                root._done(ok, result, error)
-        })
+        root._apply({ op: "move", id: task.id, list: listId })
     }
 
     function deleteTask(task) {
@@ -392,7 +366,7 @@ Singleton {
             if (!task.id) return
             root._remoteList.splice(root._remoteList.indexOf(task), 1)
             root._publish()
-            CalendarEvents.call("tasks.delete", { id: task.id }, root._done)
+            root._apply({ op: "delete", id: task.id })
             return
         }
         const i = root._localList.indexOf(task)
@@ -420,42 +394,49 @@ Singleton {
         return root.synced ? open.slice(0, count) : open.slice(-count).reverse()
     }
 
+    // The local list read again, Google's synced.
     function refresh() {
         todoFileView.reload()
-        root.reloadRemote()
+        root.sync()
     }
 
+    // Google's changes now.
+    function sync() {
+        if (!Accounts.connected || root.syncing) return
+        root.syncing = true
+        Accounts.call(["tasks", "sync"], () => {
+            root.syncing = false
+            root.reloadRemote()
+        }, "tasks")
+    }
+
+    // nixbook-accounts' copy read again (a watch misses a new file).
     function reloadRemote() {
-        if (!root.synced) return
-        CalendarEvents.call("tasks.list", { includeCompleted: true }, (ok, result) => {
-            if (ok && result) root._remoteList = root._fromDcal(result.tasks ?? [])
-            root._publish()
-        })
+        tasksFile.reload()
     }
 
     // Unfinished tasks first, soonest due first (none last), then the
     // recently finished ones.
-    function _fromDcal(tasks) {
+    function _fromGoogle(tasks) {
         const lists = {}
-        for (const l of CalendarEvents.taskLists) lists[l.id] = l
+        for (const l of root._googleLists) lists[l.id] = l
         const cutoff = Date.now() - root.keepDoneDays * 24 * 3600 * 1000
         const items = []
         for (const t of tasks) {
-            if (!lists[t.calendarId] || t.status === "cancelled") continue
-            const done = t.status === "completed"
-            if (done && t.completed && new Date(t.completed).getTime() < cutoff) continue
-            // An all-day due date is that day's UTC midnight.
-            const due = t.due ? new Date(t.due) : null
+            if (!lists[t.listId]) continue
+            if (t.done && t.completed && new Date(t.completed).getTime() < cutoff) continue
+            const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t.due ?? "")
             items.push({
-                content: t.summary || Translation.tr("(No title)"),
-                done: done,
+                content: t.title || Translation.tr("(No title)"),
+                done: !!t.done,
                 id: t.id,
-                uid: t.uid ?? "",
-                parentUid: t.parentUid ?? "",
-                listId: t.calendarId,
-                notes: t.description ?? "",
-                due: due && t.allDay ? new Date(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate()) : due,
-                allDay: !!t.allDay,
+                uid: t.id,
+                parentUid: t.parent ?? "",
+                listId: t.listId,
+                account: t.account ?? "",
+                notes: t.notes ?? "",
+                due: m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null,
+                allDay: !!m,
             })
         }
         const dueKey = item => item.due ? item.due.getTime() : Number.MAX_SAFE_INTEGER
@@ -464,13 +445,116 @@ Singleton {
     }
 
     Component.onCompleted: {
-        refresh()
+        todoFileView.reload()
     }
 
+    // Accounts known (at start): sync. An account added synced already, one
+    // removed is gone from the copy: read it.
     Connections {
-        target: CalendarEvents
-        function onRefreshed() {
+        target: Accounts
+        function onConnectedChanged() {
+            if (Accounts.connected) root.sync()
+            else root._publish()
+        }
+        function onAdded() {
             root.reloadRemote()
+        }
+        function onAccountsChanged() {
+            root.reloadRemote()
+        }
+    }
+
+    Timer {
+        interval: 10 * 60 * 1000
+        running: Accounts.connected
+        repeat: true
+        onTriggered: root.sync()
+    }
+
+    FileView {
+        id: tasksFile
+        path: root.cachePath
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: {
+            try {
+                const data = JSON.parse(tasksFile.text())
+                root._googleLists = Array.isArray(data.lists) ? data.lists : []
+                root._googleTasks = Array.isArray(data.tasks) ? data.tasks : []
+                root.syncedAt = data.syncedAt ?? 0
+            } catch (e) {
+                console.warn("[To Do] unreadable tasks copy: " + e)
+            }
+            root._remoteList = root._fromGoogle(root._googleTasks)
+            root._publish()
+            root._migrateLocal()
+        }
+    }
+
+    // The old local list (todo.json, todo-lists.json) moved into the local
+    // account, once: its lists (the first one is the account's "Tasks"),
+    // then its tasks; the files kept as .bak, then emptied.
+    property bool _migrating: false
+    function _migrateLocal() {
+        if (root._migrating || !root._tasksRead || !root._listsRead || root._localList.length === 0) return
+        const target = root._googleLists.filter(l => l.account === "local")
+        if (target.length === 0) return
+        root._migrating = true
+        const newLists = root._localLists.slice(1).filter(l => !target.some(t => t.name === l.name))
+        const afterLists = results => {
+            const ids = {}
+            ids[root.localListId] = target[0].id
+            for (const l of root._localLists.slice(1)) {
+                const found = target.find(t => t.name === l.name)
+                if (found) ids[l.id] = found.id
+            }
+            newLists.forEach((l, i) => { if (results[i]?.ok) ids[l.id] = results[i].result.id })
+            const ops = root._localList.map(t => {
+                const op = { op: "create", list: ids[t.listId] ?? target[0].id, title: t.content || Translation.tr("(No title)") }
+                if (t.notes) op.notes = t.notes
+                if (t.due) op.due = root._dayKey(t.due)
+                if (t.done) op.done = true
+                return op
+            })
+            // Up to 50 changes a call.
+            const batches = []
+            for (let i = 0; i < ops.length; i += 50) batches.push(ops.slice(i, i + 50))
+            const next = () => {
+                const batch = batches.shift()
+                if (!batch) {
+                    const path = String(root.filePath)
+                    Quickshell.execDetached(["cp", "-f", path, path + ".bak"])
+                    Quickshell.execDetached(["cp", "-f", path.replace(/todo\.json$/, "todo-lists.json"), path.replace(/todo\.json$/, "todo-lists.json.bak")])
+                    // After the copies (detached: a moment later).
+                    migrateDone.start()
+                    return
+                }
+                root._apply(batch, results => {
+                    if (results.some(r => !r.ok)) {
+                        // Kept as it is: tried again at the next start.
+                        console.warn("[To Do] moving the local list into the local account failed: " + results.find(r => !r.ok).error)
+                        return
+                    }
+                    next()
+                })
+            }
+            next()
+        }
+        if (newLists.length > 0)
+            root._apply(newLists.map(l => ({ op: "create_list", name: l.name, account: "local" })), afterLists)
+        else
+            afterLists([])
+    }
+    Timer {
+        id: migrateDone
+        interval: 1500
+        onTriggered: {
+            root._localList = []
+            root._localLists = root._localLists.slice(0, 1)
+            todoFileView.setText("[]")
+            root._saveLocalLists()
+            console.log("[To Do] the local list moved into the local account (files kept as .bak)")
         }
     }
 
@@ -573,9 +657,11 @@ Singleton {
             synced: root.synced,
             today: root._dayKey(new Date()),
             canCreateLists: root.canCreateLists,
+            accounts: Accounts.accounts.map(a => ({ id: a.id, name: a.name })),
             lists: root.lists.map(l => ({
                 id: l.id,
                 name: l.name,
+                account: l.account ?? "",
                 manageable: !!l.manageable,
                 open: root.list.filter(t => t.listId === l.id && !t.done).length,
                 completed: root.list.filter(t => t.listId === l.id && t.done).length,
@@ -602,7 +688,12 @@ Singleton {
     function _findList(ref) {
         if (ref === undefined || ref === null || ref === "") return null
         const want = String(ref).toLowerCase()
-        return root.lists.find(l => l.id === ref) ?? root.lists.find(l => l.name.toLowerCase() === want) ?? null
+        const found = root.lists.find(l => l.id === ref) ?? root.lists.find(l => l.name.toLowerCase() === want)
+        if (found) return found
+        // The list's own name, without its account: when only one has it.
+        const bare = root._googleLists.filter(l => l.name.toLowerCase() === want)
+        if (bare.length > 1) throw `"${ref}" is a list in several accounts: give its id`
+        return bare.length === 1 ? root.lists.find(l => l.id === bare[0].id) : null
     }
     // "YYYY-MM-DD", "today", "tomorrow", "+N" (days from today); null or ""
     // clears. undefined: not given.
@@ -698,8 +789,10 @@ Singleton {
             const name = root._text(o.name ?? "", "name", 200)
             if (!name) throw "create_list: needs a name"
             if (root.lists.some(l => l.name.toLowerCase() === name.toLowerCase())) throw `there is already a list "${name}"`
-            if (!root.canCreateLists) throw "this account can't create task lists"
-            root.createList(name)
+            if (o.account !== undefined && o.account !== null && !Accounts.accounts.some(a => a.id === o.account || a.name === o.account))
+                throw `no account "${o.account}": ${Accounts.accounts.map(a => a.id).join(", ")}`
+            const account = Accounts.accounts.find(a => a.id === o.account || a.name === o.account)?.id
+            root.createList(name, null, account)
             return root.synced ? `creating list "${name}" (list again in a moment for its id)` : `created list "${name}"`
         }
         case "rename_list": {

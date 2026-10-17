@@ -152,6 +152,7 @@ export default defineConfig({
           { text: 'Bar, launcher & panels', link: '/nixbook-shell/bar-and-panels' },
           { text: 'Notifications', link: '/nixbook-shell/notifications' },
           { text: 'Calendar & tasks', link: '/nixbook-shell/calendar' },
+          { text: 'Accounts, contacts, tasks & calendar', link: '/nixbook-shell/accounts' },
           { text: 'Desktop widgets & wallpapers', link: '/nixbook-shell/desktop-and-wallpapers' },
           { text: 'Media & phone', link: '/nixbook-shell/media' },
           { text: 'Screenshots & recording', link: '/nixbook-shell/screenshots' },

@@ -245,7 +245,7 @@ Singleton {
              ["=vm", "virtual machines"], ["=vms", "virtual machines"], ["=wm", "window manager desktop"],
              ["=dm", "login manager"], ["=specs", "system info"],
              ["=agenda", "calendar"], ["=gcal", "google calendar"], ["=todo", "task"], ["=todos", "task"], ["to do", "task"],
-             ["=outlook", "microsoft"], ["nextcloud", "caldav"], ["=dcal", "dankcalendar"], ["remind", "reminder"],
+             ["=outlook", "microsoft"], ["nextcloud", "caldav"], ["remind", "reminder"],
              ["upcoming", "next event"], ["next meeting", "next event"],
              ["=look", "theme"], ["=skin", "theme"], ["=style", "theme"], ["chikawa", "chiikawa theme"],
              ["momonga", "chiikawa theme"], ["usagi", "chiikawa theme"], ["persona", "persona theme"],

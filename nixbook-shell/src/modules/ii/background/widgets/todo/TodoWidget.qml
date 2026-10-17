@@ -174,8 +174,8 @@ AbstractBackgroundWidget {
                         }
                     }
 
-                    // Tasks synced through DankCalendar (Google Tasks…).
-                    CalendarAccountButton {
+                    // The accounts (nixbook-accounts): add one, or sync now.
+                    AccountsButton {
                         Layout.alignment: Qt.AlignVCenter
                         size: 34
                         colIcon: Appearance.colors.colOnPrimaryContainer

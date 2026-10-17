@@ -12,7 +12,7 @@ It started as a fork of [pctrade/end4-pC](https://github.com/pctrade/end4-pC), i
 | [Themes](./themes)                                       | Material (from the wallpaper), Persona, Chiikawa, Cyberpunk 2077, Studio Ghibli — with their own art, sounds and motion |
 | [Bar, launcher & panels](./bar-and-panels)               | ~25 bar widgets, a fuzzy launcher with prefixes, two sidebars, dock, OSD, overview                                      |
 | [Notifications](./notifications)                         | Inline replies, cut-ins for important messages, de-duplication, quiet rules, a searchable history                       |
-| [Calendar & tasks](./calendar)                           | Google/Microsoft/CalDAV calendars and tasks through DankCalendar, in the bar, sidebar and desktop                       |
+| [Calendar & tasks](./calendar)                           | Your accounts' calendars, reminders and tasks: the Calendar window, the bar, sidebar and desktop                        |
 | [Desktop widgets & wallpapers](./desktop-and-wallpapers) | Clock, weather, notes, to-do, timers, visualiser… per monitor; live video wallpapers                                    |
 | [Media & phone](./media)                                 | Player selection, per-player volume, equalizer, music recognition, KDE Connect                                          |
 | [Screenshots & recording](./screenshots)                 | Rectangle, circle, window or screen selection; annotation; recording with audio                                         |
@@ -114,7 +114,7 @@ Arguments: `pkgs`, `quickshellSrc` (another Quickshell pin), `withTailscale` / `
 | `package.nix`                     | The launcher: runtime `PATH`, QML import path, `config` CLI                                |
 | `qml.nix`                         | The installed QML tree, with theme art and sounds built at build time                      |
 | `quickshell.nix`                  | Quickshell from its pin plus `patches/`                                                    |
-| `dankcalendar.nix`                | DankCalendar (`dcal`), the calendar and task sync                                          |
+| `accounts.nix`                    | `nixbook-accounts`: the accounts, contacts, tasks and calendars                            |
 | `fonts.nix`                       | Fonts nixpkgs lacks (Google Sans Flex, Space Grotesk, Rajdhani, Zen Maru Gothic, Klee One) |
 | `lib.nix`                         | Typed settings options generated from `builtin-defaults.json`                              |
 | `hm-module.nix`                   | `programs.nixbook-shell`                                                                   |

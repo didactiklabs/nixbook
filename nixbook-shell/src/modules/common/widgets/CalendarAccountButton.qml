@@ -4,17 +4,16 @@ import qs.modules.common.widgets
 import QtQuick
 
 /**
- * DankCalendar's state in the calendar and task widgets, as one round
- * button: "Connect a Google account" (the browser sign-in, dcal's built-in
- * OAuth client) while no account is connected; afterwards it opens dcal's
- * window (events, tasks, accounts), and right click syncs now.
+ * The calendars' state in the calendar widgets, as one round button: "Add
+ * an account" (services/Accounts.qml: Google's setup and sign-in, or a
+ * CalDAV server) while none is added; afterwards it opens the Calendar
+ * window, and right click syncs now.
  */
 RippleButton {
     id: button
     property real size: 30
     property color colIcon: Appearance.colors.colOnLayer1
 
-    visible: CalendarEvents.available
     implicitWidth: size
     implicitHeight: size
     buttonRadius: Appearance.rounding.full
@@ -22,31 +21,33 @@ RippleButton {
     colBackgroundHover: Appearance.colors.colLayer2Hover
     colRipple: Appearance.colors.colLayer2Active
 
+    Component.onCompleted: Accounts.load()
+
     downAction: () => {
-        if (CalendarEvents.hasAccounts)
+        if (Accounts.connected)
             CalendarEvents.openApp();
         else
-            CalendarEvents.connectGoogle();
+            Accounts.connect();
     }
     altAction: () => {
-        if (CalendarEvents.hasAccounts)
+        if (Accounts.connected)
             CalendarEvents.sync();
         else
-            CalendarEvents.openApp();
+            Accounts.openWindow();
     }
 
     contentItem: MaterialSymbol {
         anchors.centerIn: parent
-        text: CalendarEvents.connecting ? "hourglass_top"
-            : CalendarEvents.hasAccounts ? "edit_calendar" : "person_add"
+        text: Accounts.connecting || CalendarEvents.syncing ? "hourglass_top"
+            : Accounts.connected ? "edit_calendar" : "person_add"
         iconSize: Math.round(button.size * 0.55)
         horizontalAlignment: Text.AlignHCenter
         color: button.colIcon
     }
 
     StyledToolTip {
-        text: CalendarEvents.connecting ? Translation.tr("Finish signing in in your browser")
-            : CalendarEvents.hasAccounts ? Translation.tr("Open DankCalendar (events, tasks, accounts) • right click: sync now")
-            : Translation.tr("Connect a Google account • right click: other accounts (DankCalendar)")
+        text: Accounts.connecting ? Translation.tr("Finish signing in in your browser")
+            : Accounts.connected ? Translation.tr("Open the calendar • right click: sync now")
+            : Translation.tr("Add an account (Google, iCloud, Fastmail, Nextcloud…)")
     }
 }

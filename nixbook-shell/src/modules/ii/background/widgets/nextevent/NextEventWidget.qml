@@ -8,10 +8,10 @@ import qs.modules.common.widgets
 import qs.modules.common.widgets.widgetCanvas
 import qs.modules.ii.background.widgets
 
-// The next calendar events (DankCalendar, services/CalendarEvents.qml): the
+// The next calendar events (services/CalendarEvents.qml): the
 // next one large (when, title, time and place, a Join button for a meeting
 // link), the three after it below. The account button connects Google or
-// opens DankCalendar.
+// adds an account or opens the Calendar window.
 AbstractBackgroundWidget {
     id: root
     configEntryName: "nextEvent"
@@ -180,7 +180,8 @@ AbstractBackgroundWidget {
                         Layout.fillWidth: true
                         horizontalAlignment: Text.AlignHCenter
                         wrapMode: Text.Wrap
-                        text: !CalendarEvents.available ? Translation.tr("DankCalendar isn't running")
+                        text: !Accounts.connected ? Translation.tr("Add an account with the button above")
+                            : !CalendarEvents.available ? Translation.tr("No calendar in your accounts")
                             : CalendarEvents.hasAccounts ? Translation.tr("Nothing this week")
                             : Translation.tr("Connect a Google account with the button above")
                         color: Appearance.colors.colOnPrimaryContainer

@@ -433,7 +433,7 @@ Singleton {
                         property real z: 0
                         property string sizeMode: "2x2"
                     }
-                    // The next calendar events (DankCalendar).
+                    // The next calendar events (the accounts' calendars).
                     property JsonObject musicRecognition: JsonObject {
                         property bool enable: false
                         property string placementStrategy: "free"
@@ -445,6 +445,15 @@ Singleton {
                         property bool enable: false
                         property string placementStrategy: "free"
                         property real x: 400
+                        property real y: 100
+                        property real z: 0
+                    }
+                    // Birthdays coming up and starred contacts (every
+                    // account's, through nixbook-accounts).
+                    property JsonObject contacts: JsonObject {
+                        property bool enable: false
+                        property string placementStrategy: "free"
+                        property real x: 700
                         property real y: 100
                         property real z: 0
                     }
@@ -708,7 +717,7 @@ Singleton {
 
             property JsonObject calendar: JsonObject {
                 property string locale: "en-GB"
-                property int refreshMinutes: 30 // Re-read DankCalendar's events (the refresh button syncs now)
+                property int refreshMinutes: 30 // Sync the accounts' calendars (the refresh button syncs now)
             }
 
             property JsonObject conflictKiller: JsonObject {
@@ -817,7 +826,7 @@ Singleton {
                 // Quiet: notifications that don't pop up, cut in or chime, but
                 // still go to the notification centre and the history — e.g.
                 // the phone's or the browser's copy of a calendar reminder
-                // DankCalendar already shows. Apps (exact name) and rules
+                // the shell already shows. Apps (exact name) and rules
                 // (the cut-in syntax, NotificationUtils.ruleMatches).
                 property JsonObject quiet: JsonObject {
                     property bool enable: true

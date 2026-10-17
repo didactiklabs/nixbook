@@ -548,7 +548,7 @@ ContentPage {
                         Layout.fillWidth: true
                         Layout.margins: 8
                         wrapMode: Text.Wrap
-                        text: Translation.tr("Notifications from these apps, or matching one of the rules (same syntax as the Persona cut-in rules below), don't pop up, cut in or chime: they only go to the notification centre and the history. For copies you already get elsewhere, e.g. the phone's calendar reminders now that DankCalendar shows them.")
+                        text: Translation.tr("Notifications from these apps, or matching one of the rules (same syntax as the Persona cut-in rules below), don't pop up, cut in or chime: they only go to the notification centre and the history. For copies you already get elsewhere, e.g. the phone's calendar reminders now that the shell shows them.")
                         font.pixelSize: Appearance.font.pixelSize.small
                         color: Appearance.colors.colSubtext
                     }

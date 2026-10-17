@@ -1783,6 +1783,12 @@ ContentPage {
                             enabled: Config.options.background.widgets.nextEvent.enable
                         },
                         {
+                            icon: "contacts",
+                            name: Translation.tr("Contacts"),
+                            key: "contacts",
+                            enabled: Config.options.background.widgets.contacts.enable
+                        },
+                        {
                             icon: "music_cast",
                             name: Translation.tr("Music Recognition"),
                             key: "musicRecognition",

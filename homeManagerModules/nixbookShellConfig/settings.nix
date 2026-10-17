@@ -79,7 +79,7 @@
       ];
     };
     # No popup, cut-in or chime (still in the notification centre and the
-    # history): calendar reminders DankCalendar already shows, as the
+    # history): calendar reminders the shell already shows, as the
     # phone's Google Calendar app mirrors them (KDE Connect, title
     # "Calendar"/"Agenda") and as Google Calendar in the browser does
     # (the site in the notification hints).
@@ -89,7 +89,8 @@
       "hint:calendar.google.com"
     ];
     # Persona style: full-screen cut-in for critical notifications and
-    # calendar reminders (DankCalendar's; the other copies are quiet above);
+    # calendar reminders (the shell's own, app "Calendar"; the other copies
+    # are quiet above);
     # people (friends, mentions of the user) are personal and
     # added per user profile (e.g. profiles/totoro/khoa). Rules are matched
     # case-insensitively on app name, title, text and hints; "a + b" needs
@@ -97,7 +98,7 @@
     # word, "^" the start of the field (NotificationUtils.ruleMatches). Test
     # them live in Settings → Notifications → Persona cut-in.
     cutIn.keywords = [
-      "app:^\"Dank Calendar\""
+      "app:^\"Calendar\""
     ];
     # Never a cut-in, whatever matched above: my own replies. The phone
     # updates the chat notification with the message I just sent and KDE

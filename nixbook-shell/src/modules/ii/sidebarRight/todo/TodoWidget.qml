@@ -81,9 +81,8 @@ Item {
         }
     }
 
-    // Tasks synced through DankCalendar (Google Tasks…): connect an
-    // account, or open it.
-    CalendarAccountButton {
+    // The accounts (nixbook-accounts): add one, or sync the tasks now.
+    AccountsButton {
         anchors.left: parent.left
         anchors.bottom: parent.bottom
         anchors.leftMargin: root.fabMargins

@@ -12,7 +12,7 @@ The bar's layout (left, centre, right) is edited in **Settings → Bar** (or pin
 | Left sidebar button | Opens the AI chat / translator sidebar                                                                    |
 | Workspaces          | Niri workspaces of the monitor                                                                            |
 | Active window       | Title and app of the focused window                                                                       |
-| Clock               | Time and date; popup with the week's events and pending tasks; click opens DankCalendar                   |
+| Clock               | Time and date; popup with the week's events and pending tasks; click opens the Calendar                   |
 | Next event          | "in 12 min" and the title; joins the meeting when it is about to start ([Calendar](./calendar))           |
 | Media               | Now playing; scroll switches player ([Media](./media))                                                    |
 | Visualizer          | Audio spectrum                                                                                            |

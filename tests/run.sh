@@ -4,7 +4,9 @@
 #
 #   tests/run.sh repo                  repository consistency, custom packages, nixbook-shell unit
 #                                      tests and self-containment
-#   tests/run.sh shell                 nixbook-shell script tests
+#   tests/run.sh shell                 nixbook-shell script tests (helper scripts,
+#                                      desktop MCP server, nixbook-accounts,
+#                                      its CalDAV/CardDAV provider against Radicale)
 #   tests/run.sh iso                   the installer ISO evaluates
 #   tests/run.sh docs                  docs/MODULES.md lists the modules' current options
 #   tests/run.sh hosts                 print the hive's node names (JSON)
@@ -106,6 +108,14 @@ cmd_shell() {
   bash nixbook-shell/tests/scripts.sh || failed=1
   section "nixbook-shell desktop control MCP server"
   bash nixbook-shell/tests/desktop-mcp.sh || failed=1
+  section "nixbook-shell accounts backend (nixbook-accounts)"
+  local accounts
+  accounts=$(nix-build --no-out-link -E '(import ./nixbook-shell { }).package.passthru.accounts' 2> >(annotate >&2)) &&
+    NIXBOOK_ACCOUNTS="$accounts/bin/nixbook-accounts" bash nixbook-shell/tests/accounts.sh || failed=1
+  section "nixbook-shell accounts: CalDAV/CardDAV against Radicale"
+  local radicale
+  radicale=$(nix-build --no-out-link -E '(import ./lib/pkgs.nix { }).radicale' 2> >(annotate >&2)) &&
+    PATH="$radicale/bin:$PATH" NIXBOOK_ACCOUNTS="$accounts/bin/nixbook-accounts" bash nixbook-shell/tests/dav.sh || failed=1
   return "$failed"
 }
 
