@@ -474,6 +474,12 @@ Singleton {
             + (extraServers.linkedin
                 ? " The linkedin tools act on the user's real LinkedIn account, and LinkedIn may restrict accounts it sees automating: use them only when asked, with as few calls as the task needs. Before send_message or connect_with_person, show the user exactly what would be sent and to whom, and call it only after they say yes in this chat."
                 : "")
+            // A connector not signed in to has only its authenticate tool:
+            // its link signs in from here (the callback reaches this Claude
+            // Code), and its tools come once that's done.
+            + (connectors
+                ? " A claude.ai connector that needs signing in to has an authenticate tool: call it and give the user its sign-in URL as a link to click (they open it in their browser), and once they say it's done, use its tools (call complete_authentication with the URL they paste if they say the page failed). Don't send them to claude.ai's settings instead."
+                : "")
             + (folders.length > 0 ? ` You may read files in these folders only: ${folders.join(", ")}.`
                 : " You have no access to the user's files (they can allow folders in Settings > Desktop agents).")
             + (writable.length > 0
