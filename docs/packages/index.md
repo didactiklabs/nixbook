@@ -2,30 +2,29 @@
 
 `customPkgs/` packages software that nixpkgs lacks, or needs at a different version. Every `customPkgs/<name>.nix` is exposed as **`pkgs.customPkgs.<name>`** by the overlay in `customPkgs/default.nix`, which `lib/pkgs.nix` adds for the machines, the tests and the docs. Their sources are pinned with [npins](/development/dependencies), and CI instantiates every one of them on each push.
 
-| Package                                     | What it is                                                                      | Used by                        |
-| ------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------ |
-| [ginx](#ginx)                               | Run a command whenever a Git repository changes                                 | `tools` (`osupdate`)           |
-| [goji](#goji)                               | Conventional Commits with emoji                                                 | `gojiConfig`                   |
-| [rtk](#rtk)                                 | Shrinks command output for LLMs (60–90 % fewer tokens)                          | `rtk`                          |
-| [opencode-manager](#opencode-manager)       | TUI for isolated coding-agent workspaces (`ocm`)                                | `devTools`, `ocmConfig`        |
-| [openchoreo-cli](#openchoreo-cli)           | OpenChoreo developer platform CLI (`occ`)                                       | `devTools`                     |
-| [crd-wizard](#crd-wizard)                   | Web/TUI dashboard for Kubernetes CRDs and custom resources                      | `kubeTools`                    |
-| [kl](#kl)                                   | Interactive Kubernetes log viewer                                               | `kubeTools`                    |
-| [sofka](#sofka)                             | A Kubernetes TUI in Rust                                                        | `kubeTools`                    |
-| [kratix-cli](#kratix-cli)                   | Build Kratix Promises                                                           | `kubeTools`                    |
-| [pvmigrate](#pvmigrate)                     | Migrate PVCs between StorageClasses                                             | `kubeTools`                    |
-| [songbird](#songbird)                       | Evaluate Kubernetes network policies for connectivity                           | `kubeTools`                    |
-| [witr](#witr)                               | "Why is this running?" — trace a process, port, container or file to its origin | shell                          |
-| [ytui](#ytui)                               | Search YouTube and play in your local player                                    | `desktopApps`                  |
-| [jtui](#jtui)                               | Browse Jellyfin and play in your local player                                   | `desktopApps`                  |
-| [fcitx5-lotus](#fcitx5-lotus)               | Vietnamese input method for fcitx5                                              | `fcitx5-lotus`, `fcitx5Config` |
-| [schnelle-umlaute](#schnelle-umlaute)       | German umlauts with a hold-letter + Space gesture                               | `fcitx5Config`                 |
-| [actual-budget](#actual-budget)             | Local-first personal finance app (AppImage)                                     | profiles                       |
-| [pear-desktop](#pear-desktop)               | YouTube Music desktop player (AppImage)                                         | profiles                       |
-| [youtube-music-mcp](#youtube-music-mcp)     | MCP server that plays and controls YouTube Music (pear-desktop)                 | `nixbookShellConfig`           |
-| [spotify-mcp](#spotify-mcp)                 | MCP server that plays and controls the Spotify app                              | `nixbookShellConfig`           |
-| [linkedin-mcp-server](#linkedin-mcp-server) | MCP server for LinkedIn through your own browser session                        | `nixbookShellConfig`           |
-| [moonfin](#moonfin)                         | Jellyfin & Emby media client (AppImage)                                         | profiles                       |
+| Package                                 | What it is                                                                      | Used by                        |
+| --------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------ |
+| [ginx](#ginx)                           | Run a command whenever a Git repository changes                                 | `tools` (`osupdate`)           |
+| [goji](#goji)                           | Conventional Commits with emoji                                                 | `gojiConfig`                   |
+| [rtk](#rtk)                             | Shrinks command output for LLMs (60–90 % fewer tokens)                          | `rtk`                          |
+| [opencode-manager](#opencode-manager)   | TUI for isolated coding-agent workspaces (`ocm`)                                | `devTools`, `ocmConfig`        |
+| [openchoreo-cli](#openchoreo-cli)       | OpenChoreo developer platform CLI (`occ`)                                       | `devTools`                     |
+| [crd-wizard](#crd-wizard)               | Web/TUI dashboard for Kubernetes CRDs and custom resources                      | `kubeTools`                    |
+| [kl](#kl)                               | Interactive Kubernetes log viewer                                               | `kubeTools`                    |
+| [sofka](#sofka)                         | A Kubernetes TUI in Rust                                                        | `kubeTools`                    |
+| [kratix-cli](#kratix-cli)               | Build Kratix Promises                                                           | `kubeTools`                    |
+| [pvmigrate](#pvmigrate)                 | Migrate PVCs between StorageClasses                                             | `kubeTools`                    |
+| [songbird](#songbird)                   | Evaluate Kubernetes network policies for connectivity                           | `kubeTools`                    |
+| [witr](#witr)                           | "Why is this running?" — trace a process, port, container or file to its origin | shell                          |
+| [ytui](#ytui)                           | Search YouTube and play in your local player                                    | `desktopApps`                  |
+| [jtui](#jtui)                           | Browse Jellyfin and play in your local player                                   | `desktopApps`                  |
+| [fcitx5-lotus](#fcitx5-lotus)           | Vietnamese input method for fcitx5                                              | `fcitx5-lotus`, `fcitx5Config` |
+| [schnelle-umlaute](#schnelle-umlaute)   | German umlauts with a hold-letter + Space gesture                               | `fcitx5Config`                 |
+| [actual-budget](#actual-budget)         | Local-first personal finance app (AppImage)                                     | profiles                       |
+| [pear-desktop](#pear-desktop)           | YouTube Music desktop player (AppImage)                                         | profiles                       |
+| [youtube-music-mcp](#youtube-music-mcp) | MCP server that plays and controls YouTube Music (pear-desktop)                 | `nixbookShellConfig`           |
+| [spotify-mcp](#spotify-mcp)             | MCP server that plays and controls the Spotify app                              | `nixbookShellConfig`           |
+| [moonfin](#moonfin)                     | Jellyfin & Emby media client (AppImage)                                         | profiles                       |
 
 ## ginx
 
@@ -117,16 +116,6 @@ An MCP server (source in `customPkgs/spotify-mcp/`) for the Spotify desktop app.
 - **After a one-time `login`**, through the Spotify Web API: search (at most 10 results per call), play the first match for a query, the queue, your playlists, shuffle and repeat. Spotify's Development Mode needs your own app: create one at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) with the Web API, redirect URI `http://127.0.0.1:8898/callback`, owned by a Premium account. Then ask the chat to log in to Spotify with its client ID: it opens the approval page in the browser and keeps the tokens in `~/.config/spotify-mcp/auth.json`.
 
 `SPOTIFY_CLIENT_ID`, `SPOTIFY_REDIRECT_PORT` and `SPOTIFY_MCP_CONFIG` override the defaults.
-
-## linkedin-mcp-server
-
-[stickerdaniel/linkedin-mcp-server](https://github.com/stickerdaniel/linkedin-mcp-server) (4.25.1, the last release on the fastmcp 3 / mcp 1 that nixpkgs has), for the nixbook-shell AI chat only: profiles and people search, companies, messages, jobs and the feed, on your own LinkedIn account. `nixbookShellConfig` installs it (`linkedinMcp.enable`, on by default; `false` leaves it and its Chromium out), but the chat doesn't get it until you turn it on in **Settings → Desktop agents → Apps it can use**. There, **Use my browser's session** takes the LinkedIn session of the browser you're signed in with (the most recently used one, checked with LinkedIn; the outcome comes as a notification), and **Sign in to LinkedIn** opens its own login window instead.
-
-- Its Chromium runs as a normal, windowed browser on an invisible X display (Xvfb), never on your screen, as in upstream's container image: headless Chromium calls itself `HeadlessChrome`, which LinkedIn throttles (HTTP 429). Only `--login` (**Sign in to LinkedIn**) opens on your screen.
-- It drives nixpkgs' Chromium (`CHROME_PATH`, so it never downloads a browser of its own) through [patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright-python), packaged from its PyPI wheel with nixpkgs' Node as its driver (nixpkgs' own patchright is marked broken). It doesn't check PyPI for updates.
-- The session is kept in `~/.linkedin-mcp/profile`; `mcp-server-linkedin --login` and `--logout` sign in and out, `--import-from-browser [zen|firefox|chrome|…]` takes a browser's session.
-- Upstream imports sessions from Chromium browsers only; a patch (`customPkgs/linkedin-mcp-server/gecko-import.patch`) adds Firefox-family ones: **Zen**, Firefox, LibreWolf and Floorp (their `profiles.ini` and plain-text `cookies.sqlite`, the cookies of the container — Zen workspace or Firefox container — whose session was used last). The same import runs on its own on the first request needing a session.
-- LinkedIn's User Agreement forbids automated access and it may restrict accounts using such tools: the chat is told to use it sparingly, and to show a message or invitation and wait for your yes before sending it.
 
 ## moonfin
 

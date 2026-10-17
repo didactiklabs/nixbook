@@ -16,7 +16,7 @@
       "command": "",
       "connectors": false,
       "effort": "low",
-      "mcpServersOff": ["linkedin"],
+      "mcpServersOff": [],
       "model": "sonnet"
     }
   },
