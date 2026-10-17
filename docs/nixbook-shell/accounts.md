@@ -50,7 +50,7 @@ Contacts sync when the window opens, every 30 minutes, and on demand (the sync b
 
 ## Tasks
 
-The to-do list, the [Tasks window](./calendar#tasks) and the to-do widgets show every account's task lists; with several accounts a list's name says its account (_My Tasks · work_). Tasks move between the lists of one account. They sync at start, every 10 minutes, when the Tasks window opens, and from a to-do widget's account button.
+The to-do list, the [Tasks window](./calendar#tasks) and the to-do widgets show every account's task lists; with several accounts a list's name says its account (_My Tasks · work_). Tasks move between the lists of one account. They sync at start, every 10 minutes, when the Tasks window opens, and from a to-do widget's account button. The sync at start, and one a day, fetch every task again (Google Tasks only tells what changed), so a copy that went wrong is put right.
 
 ## The contacts widget
 

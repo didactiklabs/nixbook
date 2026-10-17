@@ -261,6 +261,15 @@ expect_eq "tasks list: one list" "chore 1,chore 2,chore 3" "$(nc tasks list --li
 tapply "{\"op\":\"done\",\"id\":\"$t1\"}" >/dev/null
 expect_eq "tasks list: open ones by default" "0 1" "$(nc tasks list --list Job | jq -r '.tasks | length') $(nc tasks list --list Job --done | jq -r '.tasks | length')"
 expect_eq "tasks sync --full" "true 4" "$(nc tasks sync --full | jq -r '"\(.accounts[0].full) \(.count)"')"
+# A copy that lost its open tasks (as an older version left it): only
+# "changed since" can't bring them back, a full sync does. (Synced after
+# they last changed: the test's tasks are seconds old.)
+jq --argjson later "$((($(date +%s) + 3600) * 1000))" \
+  '.tasks |= map(select(.done)) | .accounts[] |= (.syncedAt = $later)' "$tasks_cache" >"$tmp/broken.json" && mv "$tmp/broken.json" "$tasks_cache"
+nc tasks sync >/dev/null
+expect_eq "tasks sync: a broken copy stays broken" "1" "$(jq -r '.tasks | length' "$tasks_cache")"
+nc tasks sync --full >/dev/null
+expect_eq "tasks sync --full: the open tasks back" "4" "$(jq -r '.tasks | length' "$tasks_cache")"
 
 expect_contains "tasks delete_list: Google's refusal" "$(tapply '{"op":"delete_list","list":"My Tasks"}')" "default list can't be deleted"
 out=$(tapply '{"op":"delete_list","list":"Home"}')
