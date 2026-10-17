@@ -37,6 +37,10 @@ type Calendar struct {
 	Order    int    `json:"order"`
 	// Minutes before an event, for events with no reminders of their own.
 	DefaultReminders []int `json:"defaultReminders"`
+	// Turned off in the shell (show_calendar, hide_calendar), else as its
+	// provider has it (Google: unticked or hidden in Google Calendar): its
+	// events aren't listed, nor reminded, and Google's aren't fetched.
+	Hidden bool `json:"hidden"`
 }
 
 // Event is an event as its provider keeps it: a single one, a recurring
@@ -76,6 +80,17 @@ type Section struct {
 	Error     string
 	Calendars []Calendar
 	Events    []Event
+	// The calendars the user turned on (true) or off, by id.
+	Shown map[string]bool
+}
+
+// Visible says whether a calendar is shown: as the user chose, else
+// byDefault (the provider's own choice).
+func (s *Section) Visible(id string, byDefault bool) bool {
+	if v, ok := s.Shown[id]; ok {
+		return v
+	}
+	return byDefault
 }
 
 // Upsert puts the event in, replacing the one with its id.
@@ -109,6 +124,8 @@ type Cache struct {
 	Error     string           `json:"error"`
 	Calendars []Calendar       `json:"calendars"`
 	Events    []Event          `json:"events"`
+	// The calendars the user turned on (true) or off, by global id.
+	Shown map[string]bool `json:"shown,omitempty"`
 }
 
 // Provider is one account's calendars at its provider.
@@ -224,7 +241,15 @@ func section(c *Cache, account string) *Section {
 	if m == nil {
 		m = &Meta{}
 	}
-	s := &Section{SyncToken: m.SyncToken, SyncedAt: m.SyncedAt, Error: m.Error, Calendars: []Calendar{}, Events: []Event{}}
+	s := &Section{
+		SyncToken: m.SyncToken, SyncedAt: m.SyncedAt, Error: m.Error, Calendars: []Calendar{}, Events: []Event{},
+		Shown: map[string]bool{},
+	}
+	for id, v := range c.Shown {
+		if l := local(account, id); l != "" {
+			s.Shown[l] = v
+		}
+	}
 	for _, cal := range c.Calendars {
 		if cal.Account == account {
 			cal.ID = local(account, cal.ID)
@@ -255,6 +280,9 @@ func put(c *Cache, account string, s *Section) {
 		cal.ID, cal.Account = registry.GlobalID(account, cal.ID), account
 		if cal.DefaultReminders == nil {
 			cal.DefaultReminders = []int{}
+		}
+		if v, ok := c.Shown[cal.ID]; ok {
+			cal.Hidden = !v
 		}
 		c.Calendars = append(c.Calendars, cal)
 	}
@@ -364,7 +392,7 @@ func Sync(account string, full bool) (*SyncResult, error) {
 // -- changes ---------------------------------------------------------------
 
 // Ops are the changes apply takes, as {"op": …} (or "action").
-var Ops = []string{"create", "update", "delete"}
+var Ops = []string{"create", "update", "delete", "show_calendar", "hide_calendar"}
 
 // Result is one change's outcome.
 type Result struct {
@@ -430,12 +458,14 @@ func findCalendar(c *Cache, want string) (Calendar, error) {
 	want = strings.TrimSpace(want)
 	if want == "" {
 		// The accounts in their order (the local one last), each one's
-		// primary first.
-		for _, a := range registry.List() {
-			for _, primary := range []bool{true, false} {
-				for _, cal := range c.Calendars {
-					if cal.Account == a.ID && !cal.ReadOnly && cal.Primary == primary {
-						return cal, nil
+		// primary first; shown calendars before hidden ones.
+		for _, hidden := range []bool{false, true} {
+			for _, a := range registry.List() {
+				for _, primary := range []bool{true, false} {
+					for _, cal := range c.Calendars {
+						if cal.Account == a.ID && !cal.ReadOnly && cal.Primary == primary && cal.Hidden == hidden {
+							return cal, nil
+						}
 					}
 				}
 			}
@@ -473,6 +503,30 @@ func apply(c *Cache, op map[string]any) (any, error) {
 		return nil, core.Errorf("unknown op '%s': %s", kind, strings.Join(Ops, ", "))
 	}
 	op = clone(op)
+	// Shown or not: the user's choice, kept in the copy (Google's own
+	// selection left as it is); a calendar turned on gets its events with
+	// the next sync.
+	if kind == "show_calendar" || kind == "hide_calendar" {
+		want, _ := op["calendar"].(string)
+		if strings.TrimSpace(want) == "" {
+			return nil, core.Errorf("`calendar` is required (a calendar's id or name)")
+		}
+		cal, err := findCalendar(c, want)
+		if err != nil {
+			return nil, err
+		}
+		if c.Shown == nil {
+			c.Shown = map[string]bool{}
+		}
+		c.Shown[cal.ID] = kind == "show_calendar"
+		for i := range c.Calendars {
+			if c.Calendars[i].ID == cal.ID {
+				c.Calendars[i].Hidden = kind == "hide_calendar"
+				cal = c.Calendars[i]
+			}
+		}
+		return cal, nil
+	}
 	var account string
 	if kind == "create" {
 		want, _ := op["calendar"].(string)

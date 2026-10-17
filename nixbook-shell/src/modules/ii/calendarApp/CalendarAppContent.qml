@@ -11,9 +11,10 @@ import QtQuick.Layouts
 import Quickshell
 
 // The Calendar window's content: the month (each day's events, the
-// selected day marked) and, beside it, the selected day's events or the
-// event editor. Ctrl+N new event, T today, Page Up/Down months, F5 sync,
-// Escape closes the editor. Narrow: the month, then the day or the editor
+// selected day marked) and, beside it, the selected day's events, the
+// event editor or the calendars (each turned on or off). Ctrl+N new event,
+// T today, Page Up/Down months, F5 sync, Escape closes the editor or the
+// calendars. Narrow: the month, then the day or the editor
 // full width with a back arrow. Before an account is added: the accounts
 // (AccountsContent).
 Rectangle {
@@ -28,6 +29,8 @@ Rectangle {
     property var editing: null
     property bool creating: false
     property var newStart: null
+    // The calendars, each with its switch, in place of the day.
+    property bool showingCalendars: false
     readonly property bool narrow: root.width < 900
     // Narrow: the side (day or editor) instead of the month.
     property bool sidePage: false
@@ -59,6 +62,7 @@ Rectangle {
         CalendarEvents.ensureMonth(root.month)
         root.editing = null
         root.creating = false
+        root.showingCalendars = false
         root.sidePage = true
     }
 
@@ -70,6 +74,7 @@ Rectangle {
     function openEvent(event) {
         root.editing = event
         root.creating = false
+        root.showingCalendars = false
         root.sidePage = true
     }
 
@@ -88,6 +93,7 @@ Rectangle {
         root.newStart = start
         root.editing = null
         root.creating = true
+        root.showingCalendars = false
         root.sidePage = true
     }
 
@@ -119,9 +125,10 @@ Rectangle {
             root.showMonth(1)
         } else if (event.key === Qt.Key_T && !(event.modifiers & Qt.ControlModifier)) {
             root.selectDay(root._today())
-        } else if (event.key === Qt.Key_Escape && (root.editing || root.creating)) {
+        } else if (event.key === Qt.Key_Escape && (root.editing || root.creating || root.showingCalendars)) {
             root.editing = null
             root.creating = false
+            root.showingCalendars = false
         } else {
             return
         }
@@ -181,6 +188,16 @@ Rectangle {
                     icon: CalendarEvents.syncing ? "hourglass_top" : "sync"
                     tip: Translation.tr("Sync now (F5)")
                     onClicked: CalendarEvents.sync()
+                }
+                CalButton {
+                    icon: "visibility"
+                    tip: Translation.tr("Calendars shown")
+                    onClicked: {
+                        root.editing = null
+                        root.creating = false
+                        root.showingCalendars = !root.showingCalendars
+                        root.sidePage = root.showingCalendars || !root.narrow
+                    }
                 }
                 CalButton {
                     icon: "manage_accounts"
@@ -385,12 +402,128 @@ Rectangle {
                     }
                 }
 
+                // The calendars, each turned on or off
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.margins: 14
+                    visible: root.showingCalendars && root.editing === null && !root.creating
+                    spacing: 8
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
+                        CalButton {
+                            visible: root.narrow
+                            icon: "arrow_back"
+                            tip: Translation.tr("The month")
+                            onClicked: {
+                                root.showingCalendars = false
+                                root.sidePage = false
+                            }
+                        }
+                        StyledText {
+                            Layout.fillWidth: true
+                            Layout.leftMargin: 6
+                            text: Translation.tr("Calendars")
+                            font.pixelSize: Appearance.font.pixelSize.larger
+                            font.weight: Font.Medium
+                            color: Appearance.colors.colOnLayer1
+                        }
+                        CalButton {
+                            visible: !root.narrow
+                            icon: "close"
+                            tip: Translation.tr("Back to the day (Escape)")
+                            onClicked: root.showingCalendars = false
+                        }
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 6
+                        text: Translation.tr("Turned off, a calendar's events aren't shown or reminded.")
+                        wrapMode: Text.Wrap
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
+                    }
+
+                    StyledListView {
+                        id: calendarList
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+                        spacing: 2
+                        // Each account's name, then its calendars.
+                        model: {
+                            const rows = []
+                            for (const c of CalendarEvents.calendars) {
+                                if (rows.length === 0 || rows[rows.length - 1].account !== c.account)
+                                    rows.push({ header: Accounts.nameOf(c.account) || c.account, account: c.account })
+                                rows.push(c)
+                            }
+                            return rows
+                        }
+                        delegate: Rectangle {
+                            id: calRow
+                            required property var modelData
+                            readonly property bool header: calRow.modelData.header !== undefined
+                            width: calendarList.width
+                            implicitHeight: calRow.header ? 34 : 44
+                            StyledText {
+                                visible: calRow.header
+                                anchors { left: parent.left; right: parent.right; bottom: parent.bottom; leftMargin: 6; bottomMargin: 4 }
+                                text: calRow.modelData.header ?? ""
+                                font.weight: Font.DemiBold
+                                color: Appearance.colors.colPrimary
+                                elide: Text.ElideRight
+                            }
+                            radius: Appearance.rounding.normal
+                            color: calMouse.containsMouse ? Appearance.colors.colLayer2Hover : "transparent"
+                            MouseArea {
+                                id: calMouse
+                                anchors.fill: parent
+                                visible: !calRow.header
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: CalendarEvents.setShown(calRow.modelData.id, calRow.modelData.hidden)
+                            }
+                            RowLayout {
+                                visible: !calRow.header
+                                anchors { fill: parent; leftMargin: 10; rightMargin: 8 }
+                                spacing: 10
+                                Rectangle {
+                                    implicitWidth: 14
+                                    implicitHeight: 14
+                                    radius: 4
+                                    color: calRow.modelData.color || Appearance.colors.colPrimary
+                                    opacity: calRow.modelData.hidden ? 0.35 : 1
+                                }
+                                StyledText {
+                                    Layout.fillWidth: true
+                                    text: calRow.modelData.name
+                                    elide: Text.ElideRight
+                                    color: calRow.modelData.hidden ? Appearance.colors.colSubtext : Appearance.colors.colOnLayer1
+                                }
+                                MaterialSymbol {
+                                    visible: calRow.modelData.readOnly
+                                    text: "lock"
+                                    iconSize: Appearance.font.pixelSize.normal
+                                    color: Appearance.colors.colSubtext
+                                }
+                                StyledSwitch {
+                                    checked: !calRow.modelData.hidden
+                                    onToggled: CalendarEvents.setShown(calRow.modelData.id, checked)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // The day's events
                 ColumnLayout {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Layout.margins: 14
-                    visible: root.editing === null && !root.creating
+                    visible: root.editing === null && !root.creating && !root.showingCalendars
                     spacing: 8
 
                     RowLayout {

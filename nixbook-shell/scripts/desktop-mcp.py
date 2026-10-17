@@ -6631,7 +6631,7 @@ def t_equalizer(ctx, args):
     return [text(out[3:].strip() if out.startswith("ok:") else out)]
 
 
-CALENDAR_OPS = ("create", "update", "delete")
+CALENDAR_OPS = ("create", "update", "delete", "show_calendar", "hide_calendar")
 
 
 def calendar_op(args, op):
@@ -6674,14 +6674,16 @@ def calendar_op(args, op):
     "\"local\", kept on this computer; the "
     "shell's Calendar window and widgets). Reading: `next` (the next event, with a \"when\" like "
     "\"in 12 min\"), `upcoming` {days: 1 = today, up to 60}, `day` {date: YYYY-MM-DD}, "
-    "`calendars` (id, name, account, read-only); events come with their id and, for an occurrence "
+    "`calendars` (id, name, account, read-only, hidden); events come with their id and, for an occurrence "
     "of a recurring event, its `occurrence` (its start). Changes: create {summary, start, end?, "
     "allDay?, calendar? (name or id; default the primary), location?, description?, reminders? "
     "(minutes before, [] none, null the calendar's), recurrence? (daily, weekdays, weekly, "
     "monthly, yearly, none, an RRULE)}; update {id, occurrence? (that occurrence only), …the "
     "fields to change, calendar? (move)}; to change a whole series from one of its occurrences: "
     "{id, occurrence, all: true, start?, end?…} (every occurrence moves as that one does); "
-    "delete {id, occurrence?} (ask the user first). Times: YYYY-MM-DDTHH:MM (local) or "
+    "delete {id, occurrence?} (ask the user first); show_calendar / hide_calendar {calendar}: "
+    "a calendar on or off in the shell (off: its events aren't shown, reminded or listed here; "
+    "Google Calendar's own selection stays). Times: YYYY-MM-DDTHH:MM (local) or "
     "YYYY-MM-DD (all-day; end: its last day). open {date?}: the Calendar window. Local times.",
     obj({
         "action": {"type": "string", "enum": ["next", "upcoming", "day", "calendars", "open", *CALENDAR_OPS]},
@@ -6706,7 +6708,7 @@ def t_calendar(ctx, args):
     action = as_str(args, "action", max_len=16)
     if action == "calendars":
         out = accounts_call("calendar", "calendars")
-        return [text({"calendars": [{k: c[k] for k in ("id", "name", "account", "primary", "readOnly")}
+        return [text({"calendars": [{k: c.get(k, False) for k in ("id", "name", "account", "primary", "readOnly", "hidden")}
                                     for c in out.get("calendars", [])]})]
     if action == "open":
         date = as_str(args, "date", required=False, max_len=10, pattern=r"\d{4}-\d{2}-\d{2}") or ""
@@ -6717,6 +6719,11 @@ def t_calendar(ctx, args):
         if not r.get("ok"):
             raise ToolError(r.get("error", "failed"))
         res = r["result"]
+        if action == "show_calendar":
+            # Its events now (Google's aren't fetched while it is off).
+            accounts_call("calendar", "sync", timeout=120)
+        if action in ("show_calendar", "hide_calendar"):
+            return [text(f"{res.get('name')} {'shown' if action == 'show_calendar' else 'hidden'}")]
         if isinstance(res, dict) and "start" in res:
             res = {k: v for k, v in res.items() if v not in ("", None, []) and k not in ("account", "updated")}
         return [text(res)]
@@ -6730,7 +6737,8 @@ def t_calendar(ctx, args):
     elif action == "day":
         argv = ["day", as_str(args, "date", max_len=10, pattern=r"\d{4}-\d{2}-\d{2}")]
     else:
-        raise ToolError("`action` must be next, upcoming, day, calendars, open, create, update or delete")
+        raise ToolError("`action` must be next, upcoming, day, calendars, open, create, update, delete, "
+                        "show_calendar or hide_calendar")
     out = widget_call("calendar", *argv)
     try:
         return [text(json.loads(out))]

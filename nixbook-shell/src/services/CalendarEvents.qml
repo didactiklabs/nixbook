@@ -37,9 +37,11 @@ Singleton {
     // the end of the second month after it.
     property var rangeStart: new Date(0)
     property var rangeEnd: new Date(0)
-    // [{ id, account, name, color, primary, readOnly, defaultReminders }]
+    // [{ id, account, name, color, primary, readOnly, defaultReminders,
+    // hidden }]: every calendar, those turned off (hidden: their events
+    // not shown nor reminded) included.
     property var calendars: []
-    readonly property var writableCalendars: root.calendars.filter(c => !c.readOnly)
+    readonly property var writableCalendars: root.calendars.filter(c => !c.readOnly && !c.hidden)
     // Some calendar synced: some account has calendars.
     readonly property bool hasAccounts: root.calendars.length > 0
     // An account being signed in (Accounts').
@@ -57,6 +59,7 @@ Singleton {
     // A refresh asked for while one runs (e.g. month navigation): run it
     // once the current one ends, so its window isn't lost.
     property bool _pending: false
+    property bool _syncAgain: false
     property string _lastText: ""
 
     readonly property string cachePath: {
@@ -172,11 +175,20 @@ Singleton {
 
     // Every account's changes now, then reload.
     function sync() {
-        if (root.syncing || !Accounts.connected) return
+        if (!Accounts.connected) return
+        if (root.syncing) {
+            // Asked during one (a calendar just turned on): once more after.
+            root._syncAgain = true
+            return
+        }
         root.syncing = true
         Accounts.call(["calendar", "sync"], () => {
             root.syncing = false
             root.refresh()
+            if (root._syncAgain) {
+                root._syncAgain = false
+                root.sync()
+            }
         }, "calendar")
     }
 
@@ -207,6 +219,16 @@ Singleton {
             root.refresh()
             if (onDone) onDone(results)
         }, "calendar")
+    }
+
+    // A calendar on or off (the user's choice, kept by nixbook-accounts;
+    // Google's own selection left alone). Turned on: its events come with
+    // a sync (Google's aren't fetched while it is off).
+    function setShown(calendarId, shown) {
+        root.calendars = root.calendars.map(c => c.id === calendarId ? Object.assign({}, c, { hidden: !shown }) : c)
+        root.apply({ op: shown ? "show_calendar" : "hide_calendar", calendar: calendarId }, results => {
+            if (shown && results[0]?.ok) root.sync()
+        })
     }
 
     // All-day events are dates, their end exclusive.

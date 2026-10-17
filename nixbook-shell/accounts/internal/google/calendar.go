@@ -25,9 +25,9 @@ func init() {
 // Past events older than this aren't kept (a series is, while it repeats).
 const keepPast = 400 * 24 * time.Hour
 
-// googleCalendar is a Google account's calendars (the ones shown in Google
-// Calendar), each synced with its sync token; series kept whole, with
-// their changed and cancelled occurrences.
+// googleCalendar is a Google account's calendars (every one subscribed to;
+// the shown ones' events), each synced with its sync token; series kept
+// whole, with their changed and cancelled occurrences.
 type googleCalendar struct {
 	account registry.Account
 	token   string
@@ -59,11 +59,11 @@ func (g *googleCalendar) calendars() ([]calendar.Calendar, error) {
 			return nil, err
 		}
 		for _, c := range r.Items {
-			if hidden, _ := c["hidden"].(bool); hidden {
-				continue
-			}
+			// Every calendar subscribed to; those unticked or hidden in
+			// Google Calendar start off.
+			hidden, _ := c["hidden"].(bool)
 			if selected, ok := c["selected"].(bool); ok && !selected {
-				continue
+				hidden = true
 			}
 			name := str(c, "summaryOverride")
 			if name == "" {
@@ -80,6 +80,7 @@ func (g *googleCalendar) calendars() ([]calendar.Calendar, error) {
 			out = append(out, calendar.Calendar{
 				ID: str(c, "id"), Name: name, Color: str(c, "backgroundColor"), Primary: primary,
 				ReadOnly: role != "owner" && role != "writer", Order: len(out), DefaultReminders: reminders,
+				Hidden: hidden,
 			})
 		}
 		if page = r.Next; page == "" {
@@ -191,7 +192,13 @@ func (g *googleCalendar) Sync(sec *calendar.Section, full bool) (int, bool, erro
 		byCal[e.CalendarID] = append(byCal[e.CalendarID], e)
 	}
 	all, changed, fetchedAll := []calendar.Event{}, 0, true
-	for _, cal := range cals {
+	for i, cal := range cals {
+		// A calendar turned off: no events fetched or kept (all of them
+		// again, without its sync token, once it is turned on).
+		cals[i].Hidden = !sec.Visible(cal.ID, !cal.Hidden)
+		if cals[i].Hidden {
+			continue
+		}
 		current := map[string]calendar.Event{}
 		token := ""
 		if !full {
