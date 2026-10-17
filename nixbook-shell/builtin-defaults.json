@@ -4,6 +4,9 @@
     "tool": "functions",
     "includeSystemContext": true,
     "notifyWhenDone": true,
+    "history": {
+      "keepDays": 30
+    },
     "allowedFolders": [],
     "writableFolders": [],
     "agentDesktop": {

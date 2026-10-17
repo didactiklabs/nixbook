@@ -59,6 +59,17 @@ Replies stream in, each tool call shows with its result in a collapsible block, 
 
 With a model selected, the configuration facts become reference for the model: it answers with its own knowledge too, and says when it isn't sure. `ai.includeSystemContext` (on by default; Settings → Services → AI) controls whether the machine context is sent.
 
+## Conversations
+
+Every conversation is saved as you chat, after each answer. The **history** button at the top of the chat (or **Ctrl+H**, or `/history`) lists them — pinned first, then by day — to go back to one:
+
+- **click** one to open it; with Claude, it resumes the same Claude Code session when Claude Code still has it (it keeps sessions about a month), otherwise the conversation so far goes with your next message;
+- **search** by title; Up/Down and Enter open one from the keyboard, Esc goes back;
+- **rename** one (its pencil, or right-click), **pin** it to keep it for good, or **delete** it; **Delete all** deletes every conversation but the pinned ones (click twice);
+- **New conversation** (the button beside the token count, or `/clear`) starts a fresh one; the current one stays in the history.
+
+Conversations are deleted **30 days after their last message**, unless pinned. Change that in **Settings → Services → AI** (_Keep conversations for_, `ai.history.keepDays`; `0` keeps them until you delete them), which also deletes them all but the pinned ones. They're stored in `~/.local/state/quickshell/user/ai/history/`.
+
 ## Translator
 
 The sidebar's second tab translates text between languages.
