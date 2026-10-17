@@ -1,6 +1,10 @@
 package local
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
@@ -231,6 +235,38 @@ func applyContact(c *contacts.Contact, op map[string]any) error {
 	return nil
 }
 
+// savePhoto keeps a contact's photo in the data directory (photos/, named
+// by its content: the app shows a new one, not its cached old one), the old
+// one removed; its file:// URL, "" without data.
+func savePhoto(c contacts.Contact, data []byte) (string, error) {
+	removePhoto(c.Photo)
+	if len(data) == 0 {
+		return "", nil
+	}
+	dir, err := path("photos")
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(data)
+	file := filepath.Join(dir, c.ID+"-"+hex.EncodeToString(sum[:4])+".jpg")
+	if err := os.WriteFile(file, data, 0o600); err != nil {
+		return "", err
+	}
+	return "file://" + file, nil
+}
+
+// removePhoto deletes a photo savePhoto kept (only from photos/).
+func removePhoto(url string) {
+	dir, err := path("photos")
+	file := strings.TrimPrefix(url, "file://")
+	if err == nil && file != url && filepath.Dir(file) == dir {
+		_ = os.Remove(file)
+	}
+}
+
 // Apply changes the file, then the section.
 func (localContacts) Apply(sec *contacts.Section, op map[string]any) (any, error) {
 	d, err := loadContacts()
@@ -295,7 +331,16 @@ func (localContacts) Apply(sec *contacts.Section, op map[string]any) (any, error
 		switch kind {
 		case "delete":
 			res = map[string]any{"deleted": id, "name": d.Contacts[i].Name}
+			removePhoto(d.Contacts[i].Photo)
 			d.Contacts = slices.Delete(d.Contacts, i, i+1)
+		case "set_photo":
+			data, _ := op["photoBytes"].([]byte)
+			photo, err := savePhoto(d.Contacts[i], data)
+			if err != nil {
+				return nil, err
+			}
+			d.Contacts[i].Photo, d.Contacts[i].Updated = photo, now()
+			res = d.Contacts[i]
 		case "star", "unstar":
 			d.Contacts[i].Starred = kind == "star"
 			d.Contacts[i].Updated = now()

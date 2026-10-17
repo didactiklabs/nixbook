@@ -51,8 +51,9 @@ const usage = `nixbook-accounts: the accounts behind nixbook-shell's contacts an
   nixbook-accounts contacts get ID
   nixbook-accounts contacts apply JSON|@FILE|-
                                          {op…} or {ops: […]} (create {account?…}, update,
-                                         delete, star, unstar, create_label, rename_label,
-                                         delete_label), each on its own
+                                         delete, star, unstar, set_photo {id, photo: an
+                                         image file's path, "" removes it}, create_label,
+                                         rename_label, delete_label), each on its own
   nixbook-accounts tasks sync [--account A] [--full]
   nixbook-accounts tasks list [--list L] [--account A] [--done]
   nixbook-accounts tasks apply JSON|@FILE|-

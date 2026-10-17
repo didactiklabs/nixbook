@@ -51,6 +51,7 @@ import stat
 import struct
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import unicodedata
@@ -6863,9 +6864,12 @@ def t_tasks(ctx, args):
     return [text("\n".join(lines))]
 
 
-CONTACT_OPS = ("create", "update", "delete", "star", "unstar", "create_label", "rename_label", "delete_label")
+CONTACT_OPS = ("create", "update", "delete", "star", "unstar", "set_photo", "create_label", "rename_label",
+               "delete_label")
 CONTACT_TEXT = {"name": 300, "givenName": 200, "familyName": 200, "nickname": 200, "organization": 300,
-                "title": 300, "birthday": 10, "notes": 8000, "id": 300, "label": 300, "account": 200}
+                "title": 300, "birthday": 10, "notes": 8000, "id": 300, "label": 300, "account": 200,
+                "photo": 2000}
+PHOTO_MAX_BYTES = 20 << 20
 CONTACT_LISTS = ("emails", "phones", "urls", "addresses", "labels")
 
 
@@ -6885,9 +6889,46 @@ def accounts_call(*args, timeout=60):
     return out
 
 
+def fetch_photo(url, folder):
+    """An image on the web, saved in folder for set_photo (nixbook-accounts
+    checks it is an image)."""
+    import urllib.request
+    path = os.path.join(folder, secrets.token_hex(8))
+    req = urllib.request.Request(url, headers={"User-Agent": "nixbook-desktop-mcp"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r, open(path, "wb") as f:
+            data = r.read(PHOTO_MAX_BYTES + 1)
+            if len(data) > PHOTO_MAX_BYTES:
+                raise ToolError(f"the image at {short(url, 100)} is over {PHOTO_MAX_BYTES >> 20} MB")
+            f.write(data)
+    except OSError as e:
+        raise ToolError(f"couldn't download {short(url, 100)}: {e}")
+    return path
+
+
+def photo_paths(ops, folder):
+    """set_photo's `photo` as nixbook-accounts takes it: an absolute path
+    (~ expanded), a web image downloaded first, "" to remove it."""
+    for o in ops:
+        if o["op"] != "set_photo":
+            continue
+        photo = (o.get("photo") or "").strip()
+        if re.match(r"https?://", photo, re.I):
+            o["photo"] = fetch_photo(photo, folder)
+        elif photo:
+            o["photo"] = os.path.expanduser(photo)
+            if not os.path.isabs(o["photo"]):
+                raise ToolError("`photo` must be an image file's absolute path or an http(s) URL")
+        else:
+            o["photo"] = ""
+
+
 def compact_contact(c):
-    """A contact without its empty fields, photo or ids it doesn't need."""
+    """A contact without its empty fields or ids it doesn't need; whether it
+    has a photo, not its URL."""
     out = {k: v for k, v in c.items() if v not in ("", [], None, False) and k not in ("photo", "updated")}
+    if c.get("photo"):
+        out["photo"] = True
     for key in ("emails", "phones", "urls"):
         if key in out:
             out[key] = [e["value"] + (f" ({e['type']})" if e.get("type") else "") for e in out[key]]
@@ -6951,7 +6992,9 @@ def contact_op(args, op):
     "Labels themselves: create_label {label_name, account?}, rename_label {label, label_name}, "
     "delete_label {label} (its contacts stay); a label name in several accounts needs its id. "
     "sync {full?}: Google's changes now (list reads the local copy, synced every 30 min). open "
-    "{id?}: the Contacts app on the user's screen. batch {ops: [{action, …}, …]} runs up to 50 "
+    "{id?}: the Contacts app on the user's screen. set_photo {id, photo}: the contact's picture from "
+    "an image file (absolute path: a screenshot, a download) or an http(s) image URL (PNG, JPEG or GIF; "
+    "sent as a JPEG of at most 720 px); photo \"\" removes it. batch {ops: [{action, …}, …]} runs up to 50 "
     "changes in order (cleaning up, labelling many), each reported on its own.",
     obj({
         "action": {"type": "string", "enum": ["list", "get", "sync", "open", *CONTACT_OPS, "batch"]},
@@ -6974,6 +7017,8 @@ def contact_op(args, op):
         "title": {"type": "string", "description": "Job title"},
         "birthday": {"type": ["string", "null"], "description": "YYYY-MM-DD or MM-DD; \"\" clears it"},
         "notes": {"type": "string"},
+        "photo": {"type": "string", "description": "set_photo: an image file's absolute path or an "
+                                                    "http(s) image URL; \"\" removes the photo"},
         "labels": {"type": "array", "items": {"type": "string"}},
         "starred": {"type": "boolean"},
         "ops": {"type": "array", "items": {"type": "object"}, "maxItems": 50,
@@ -7029,7 +7074,9 @@ def t_contacts(ctx, args):
     else:
         request = contact_op(args, action)
     ctx.guard.check_rate()
-    results = accounts_call("contacts", "apply", json.dumps(request), timeout=120)
+    with tempfile.TemporaryDirectory(dir=runtime_dir()) as folder:
+        photo_paths(request.get("ops") or [request], folder)
+        results = accounts_call("contacts", "apply", json.dumps(request), timeout=120)
 
     def summary(r):
         res = r.get("result")

@@ -4,7 +4,7 @@ import qs.modules.common.widgets
 import QtQuick
 import Quickshell.Widgets
 
-// A contact's photo (Google's), else their initials in a circle.
+// A contact's photo, else their initials in a circle.
 Rectangle {
     id: root
     property var contact: null
@@ -32,8 +32,14 @@ Rectangle {
         Image {
             id: photo
             anchors.fill: parent
-            // Google serves the size asked for (=sNN).
-            source: root.contact?.photo ? root.contact.photo.replace(/=s\d+(-c)?$/, "") + `=s${Math.round(root.size * 2)}` : ""
+            // Google serves the size asked for (=sNN); other photos (a
+            // server's link, a file) as they are.
+            source: {
+                const url = root.contact?.photo ?? "";
+                if (!/^https:\/\/[^/]*googleusercontent\.com\//.test(url))
+                    return url;
+                return url.replace(/=s\d+(-c)?$/, "") + `=s${Math.round(root.size * 2)}`;
+            }
             sourceSize: Qt.size(root.size * 2, root.size * 2)
             fillMode: Image.PreserveAspectCrop
             asynchronous: true

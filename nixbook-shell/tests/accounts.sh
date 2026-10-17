@@ -158,6 +158,23 @@ expect_contains "update: a bad birthday" "$(apply "{\"op\":\"update\",\"id\":\"$
 expect_contains "update: nothing to change" "$(apply "{\"op\":\"update\",\"id\":\"$id1\"}")" "nothing to change"
 expect_contains "update: unknown contact" "$(apply '{"op":"update","id":"nope","name":"x"}')" "no contact 'nope'"
 expect_contains "unknown op" "$(apply '{"op":"merge"}')" "unknown op 'merge'"
+
+# -- photos ----------------------------------------------------------------------
+
+img() { python3 "$root/tests/test-image.py" "$@"; }
+img png "$tmp/photo.png"
+echo "not an image" >"$tmp/photo.txt"
+out=$(apply "{\"op\":\"set_photo\",\"id\":\"$id1\",\"photo\":\"$tmp/photo.png\"}")
+expect_contains "set_photo: Google's photo URL back" "$(jq -r '.[0].result.photo' <<<"$out")" "https://lh3.googleusercontent.com/fake/${id1#google-1:}-"
+grep "PATCH /people/${id1#google-1:}:updateContactPhoto" "$log" | tail -1 | cut -d' ' -f3- | jq -r .photoBytes | base64 -d >"$tmp/sent.jpg"
+expect_eq "set_photo: a JPEG, fit in 720 pixels" "720x360" "$(img size "$tmp/sent.jpg")"
+expect_eq "set_photo: in the local copy" "$(jq -r '.[0].result.photo' <<<"$out")" "$(nc contacts get "$id1" | jq -r .photo)"
+out=$(apply "{\"op\":\"set_photo\",\"id\":\"$id1\",\"photo\":\"\"}")
+expect_eq "set_photo: \"\" removes it (Google's silhouette left out)" "" "$(jq -r '.[0].result.photo' <<<"$out")"
+expect_contains "set_photo: removed at Google" "$(grep -c "DELETE /people/${id1#google-1:}:deleteContactPhoto" "$log")" "1"
+expect_contains "set_photo: only an image" "$(apply "{\"op\":\"set_photo\",\"id\":\"$id1\",\"photo\":\"$tmp/photo.txt\"}")" "isn't a PNG, JPEG or GIF image"
+expect_contains "set_photo: an absolute path" "$(apply "{\"op\":\"set_photo\",\"id\":\"$id1\",\"photo\":\"photo.png\"}")" "absolute path"
+expect_contains "set_photo: a missing file" "$(apply "{\"op\":\"set_photo\",\"id\":\"$id1\",\"photo\":\"$tmp/nope.png\"}")" "no file"
 expect_contains "apply: not JSON" "$(nc contacts apply '{' || true)" "isn't JSON"
 expect_contains "apply: too many" "$(nc contacts apply "{\"ops\":[$(printf '{"op":"star"},%.0s' $(seq 50)){\"op\":\"star\"}]}" || true)" "1 to 50"
 
@@ -399,6 +416,12 @@ expect_eq "local contacts: in the data directory, not a copy" "Zoé Durand --04-
 zoe=$(jq -r '.[0].result.id' <<<"$out")
 out=$(nc contacts apply "{\"ops\":[{\"op\":\"update\",\"id\":\"$zoe\",\"emails\":[\"zoe@example.com\"],\"labels\":[\"Famille\",\"Amis\"]},{\"op\":\"rename_label\",\"label\":\"Famille\",\"name\":\"Family\"},{\"op\":\"unstar\",\"id\":\"$zoe\"}]}")
 expect_eq "local contacts: update, labels" "true,true,true Amis,Family false" "$(jq -r '[.[].ok] | join(",")' <<<"$out") $(nc contacts get "$zoe" | jq -r '"\(.labels | sort | join(",")) \(.starred)"')"
+out=$(nc contacts apply "{\"op\":\"set_photo\",\"id\":\"$zoe\",\"photo\":\"$tmp/photo.png\"}")
+photo=$(jq -r '.[0].result.photo' <<<"$out")
+expect_contains "local contacts: the photo a file in the data directory" "$photo" "file://$local_data/photos/${zoe#local:}-"
+expect_eq "local contacts: the photo private, a JPEG" "600 720x360" "$(stat -c %a "${photo#file://}") $(img size "${photo#file://}")"
+nc contacts apply "{\"op\":\"set_photo\",\"id\":\"$zoe\",\"photo\":\"\"}" >/dev/null
+expect_eq "local contacts: the photo removed, its file too" " no" "$(nc contacts get "$zoe" | jq -r .photo) $([ -e "${photo#file://}" ] && echo yes || echo no)"
 out=$(nc tasks apply '{"ops":[{"op":"create","title":"Water plants","due":"2026-10-20"},{"op":"create_list","name":"Home"},{"op":"create","list":"Home","title":"Fix the door"}]}')
 expect_eq "local tasks: the first list, a new one" "Tasks Home" "$(nc tasks list | jq -r '[.lists[].name] | join(" ")')"
 door=$(jq -r '.[2].result.id' <<<"$out")
