@@ -400,11 +400,16 @@ Singleton {
         root.sync()
     }
 
-    // Google's changes now.
+    // Google's changes now. Google Tasks has no sync tokens (only "changed
+    // since"), so a copy gone wrong would stay wrong: the first sync after
+    // start and one a day fetch everything again.
+    property real _fullSyncedAt: 0
     function sync() {
         if (!Accounts.connected || root.syncing) return
         root.syncing = true
-        Accounts.call(["tasks", "sync"], () => {
+        const full = Date.now() - root._fullSyncedAt > 24 * 3600 * 1000
+        Accounts.call(full ? ["tasks", "sync", "--full"] : ["tasks", "sync"], ok => {
+            if (ok && full) root._fullSyncedAt = Date.now()
             root.syncing = false
             root.reloadRemote()
         }, "tasks")
