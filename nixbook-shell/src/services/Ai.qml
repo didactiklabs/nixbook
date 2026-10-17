@@ -428,8 +428,13 @@ Singleton {
         const connectors = root.claudeConnectorsSetting;
         // Those turned off in Settings (ai.claudeCode.mcpServersOff) left out.
         const off = Config.options.ai.claudeCode.mcpServersOff ?? [];
-        const extraServers = root.currentTool !== "none"
-            ? Object.fromEntries(Object.entries(root.assistantMcpServers).filter(([name]) => !off.includes(name))) : {};
+        // A loop: Qt's JavaScript engine has no Object.fromEntries.
+        const extraServers = {};
+        if (root.currentTool !== "none") {
+            for (const name of Object.keys(root.assistantMcpServers)) {
+                if (!off.includes(name)) extraServers[name] = root.assistantMcpServers[name];
+            }
+        }
         const allowed = [...(desktop ? ["mcp__desktop"] : []),
             ...Object.keys(extraServers).map(name => `mcp__${name}`), ...configured,
             ...(attached.length > 0 ? [`Read(/${attached})`] : []),
