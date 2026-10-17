@@ -260,17 +260,37 @@ Singleton {
     property list<string> claudeConnectors: []
     readonly property bool claudeConnectorsSetting: Config.options?.ai?.claudeCode?.connectors ?? false
     onClaudeConnectorsSettingChanged: if (claudeConnectorsSetting && claudeCodePath.length > 0) listClaudeConnectors.running = true
+    // Claude Code learns a connector's state once, when it starts: one added
+    // or signed in to on claude.ai since (it then had only its authenticate
+    // tool) needs Claude Code started again. So they're listed again when
+    // the panel opens, and before a message while one needs signing in to.
+    property string claudeConnectorsState: "" // "name status" lines
+    property bool claudeConnectorsNeedAuth: false
+    property double claudeConnectorsCheckedAt: 0
+    function checkClaudeConnectors() {
+        if (root.claudeConnectorsSetting && root.claudeCodePath.length > 0 && !listClaudeConnectors.running)
+            listClaudeConnectors.running = true;
+    }
     Process {
         id: listClaudeConnectors
         command: [root.claudeCodePath, "mcp", "list"]
         workingDirectory: Quickshell.env("HOME")
         stdout: StdioCollector {
             onStreamFinished: {
-                root.claudeConnectors = text.split("\n")
-                    .map(l => /^(claude\.ai [^:]+):/.exec(l.trim()))
-                    .filter(m => m)
-                    .map(m => "mcp__" + m[1].replace(/[^A-Za-z0-9_-]/g, "_"));
+                const found = text.split("\n")
+                    .map(l => /^(claude\.ai [^:]+):.* - (.+)$/.exec(l.trim()))
+                    .filter(m => m);
+                root.claudeConnectors = found.map(m => "mcp__" + m[1].replace(/[^A-Za-z0-9_-]/g, "_"));
+                root.claudeConnectorsNeedAuth = found.some(m => /auth/i.test(m[2]));
+                const state = found.map(m => `${m[1]} ${m[2]}`).join("\n");
+                if (root.claudeConnectorsState.length > 0 && state !== root.claudeConnectorsState)
+                    requester.connectorsStale = true;
+                root.claudeConnectorsState = state;
             }
+        }
+        onExited: {
+            root.claudeConnectorsCheckedAt = Date.now();
+            requester.connectorsChecked();
         }
     }
 
@@ -611,6 +631,11 @@ Singleton {
         property string pendingLine: ""
         property bool turnActive: false
         property bool interrupting: false
+        // The connectors changed since it started; a message waiting for
+        // them to be listed again (its attached file).
+        property bool connectorsStale: false
+        property bool connectorsHold: false
+        property string heldAttached: ""
 
         function markDone() {
             const stopped = requester.interrupting;
@@ -702,13 +727,33 @@ Singleton {
 
         function sendPrompt(prompt, attached) {
             requester.pendingLine = JSON.stringify({ type: "user", message: { role: "user", content: prompt } }) + "\n";
+            // A connector needed signing in to: perhaps it's done now.
+            if (root.claudeConnectorsSetting && root.claudeConnectorsNeedAuth
+                    && Date.now() - root.claudeConnectorsCheckedAt > 20000) {
+                requester.connectorsHold = true;
+                requester.heldAttached = attached;
+                root.checkClaudeConnectors();
+                if (listClaudeConnectors.running) return;
+                requester.connectorsHold = false;
+            }
             requester.start(attached);
+        }
+
+        function connectorsChecked() {
+            if (requester.connectorsHold) {
+                requester.connectorsHold = false;
+                requester.start(requester.heldAttached);
+            } else if (requester.connectorsStale && requester.running && !requester.turnActive) {
+                // Idle: started again now, not on the next message.
+                requester.pendingLine = "";
+                requester.launch("", requester.session);
+            }
         }
 
         // Sends the pending message: to the Claude Code running, when it
         // fits, else to one started for it.
         function start(attached) {
-            if (requester.running && !requester.restartPending && !requester.turnActive
+            if (requester.running && !requester.restartPending && !requester.turnActive && !requester.connectorsStale
                     && requester.script === root.claudeCodeScript(attached, "")
                     && requester.session === root.claudeSessionId) {
                 if (requester.ready) requester.send(); // else once started
@@ -724,6 +769,7 @@ Singleton {
         // Starts Claude Code (after stopping the one running): resume, the
         // session to go on with.
         function launch(attached, resume) {
+            requester.connectorsStale = false;
             requester.script = root.claudeCodeScript(attached, "");
             requester.session = resume;
             requesterScriptFile.path = Qt.resolvedUrl(CF.FileUtils.trimFileProtocol(root.requestScriptFilePath));
@@ -828,7 +874,10 @@ Singleton {
     // message doesn't wait for it.
     readonly property bool claudeWanted: GlobalStates.sidebarLeftOpen && root.claudeCodePath.length > 0
         && (root.models[root.currentModelId]?.api_format ?? "") === "claude-code" && Config.options.policies.ai !== 2
-    onClaudeWantedChanged: if (claudeWanted) prewarm.restart()
+    onClaudeWantedChanged: if (claudeWanted) {
+        prewarm.restart();
+        root.checkClaudeConnectors();
+    }
     Timer {
         id: prewarm
         interval: 300
