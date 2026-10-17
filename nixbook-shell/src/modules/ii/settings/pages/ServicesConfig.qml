@@ -77,6 +77,56 @@ ContentPage {
                     text: Translation.tr("Only while the side panel is closed, and not in Do Not Disturb.")
                 }
             }
+            ConfigSpinBox {
+                configKey: "ai.history.keepDays"
+                enabled: !nixManaged
+                icon: "auto_delete"
+                text: Translation.tr("Keep conversations for (days, 0: until deleted)")
+                value: Config.options.ai.history.keepDays
+                from: 0
+                to: 3650
+                stepSize: 1
+                onValueChanged: Config.options.ai.history.keepDays = value
+                StyledToolTip {
+                    text: Translation.tr("Counted from a conversation's last message. Pinned conversations are kept.")
+                }
+            }
+            RowLayout {
+                id: chatHistoryRow
+                Layout.fillWidth: true
+                property bool confirm: false
+                readonly property int unpinned: Ai.history.filter(c => !c.pinned).length
+                StyledText {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 8
+                    wrapMode: Text.Wrap
+                    text: Translation.tr("%1 saved conversations, %2 pinned (open them with Ctrl+H in the side panel)")
+                        .arg(Ai.history.length).arg(Ai.history.length - chatHistoryRow.unpinned)
+                    color: Appearance.colors.colSubtext
+                    font.pixelSize: Appearance.font.pixelSize.small
+                }
+                Timer {
+                    id: chatHistoryConfirmReset
+                    interval: 4000
+                    onTriggered: chatHistoryRow.confirm = false
+                }
+                RippleButtonWithIcon {
+                    enabled: chatHistoryRow.unpinned > 0
+                    buttonRadius: Appearance.rounding.normal
+                    materialIcon: "delete_sweep"
+                    mainText: chatHistoryRow.confirm ? Translation.tr("Delete %1?").arg(chatHistoryRow.unpinned)
+                        : Translation.tr("Delete all but pinned")
+                    onClicked: {
+                        if (!chatHistoryRow.confirm) {
+                            chatHistoryRow.confirm = true;
+                            chatHistoryConfirmReset.restart();
+                            return;
+                        }
+                        chatHistoryRow.confirm = false;
+                        Ai.deleteUnpinnedChats();
+                    }
+                }
+            }
         }
 
         ContentSection {

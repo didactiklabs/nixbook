@@ -19,6 +19,12 @@ Item {
 
     property var suggestionQuery: ""
     property var suggestionList: []
+    // The conversation history over the chat (Ctrl+H).
+    property bool historyOpen: false
+    function toggleHistory() {
+        root.historyOpen = !root.historyOpen;
+        if (!root.historyOpen) messageInputField.forceActiveFocus();
+    }
 
     onFocusChanged: focus => {
         if (focus) {
@@ -27,6 +33,12 @@ Item {
     }
 
     Keys.onPressed: event => {
+        if (event.modifiers === Qt.ControlModifier && event.key === Qt.Key_H) {
+            root.toggleHistory();
+            event.accepted = true;
+            return;
+        }
+        if (root.historyOpen) return;
         messageInputField.forceActiveFocus();
         if (event.modifiers === Qt.NoModifier) {
             if (event.key === Qt.Key_PageUp) {
@@ -127,9 +139,16 @@ Item {
         },
         {
             name: "clear",
-            description: Translation.tr("Clear chat history"),
+            description: Translation.tr("Start a new conversation (this one stays in the history)"),
             execute: () => {
                 Ai.clearMessages();
+            }
+        },
+        {
+            name: "history",
+            description: Translation.tr("The conversations to go back to (Ctrl+H)"),
+            execute: () => {
+                root.historyOpen = true;
             }
         },
         {
@@ -259,6 +278,27 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
         }
     }
 
+    component StatusButton: RippleButton {
+        id: statusButton
+        property string symbol
+        property string hint
+        implicitWidth: 28
+        implicitHeight: 28
+        buttonRadius: Appearance.rounding.full
+        colBackground: "transparent"
+        colBackgroundHover: Appearance.colors.colLayer2Hover
+        contentItem: MaterialSymbol {
+            anchors.centerIn: parent
+            horizontalAlignment: Text.AlignHCenter
+            text: statusButton.symbol
+            iconSize: Appearance.font.pixelSize.huge
+            color: statusButton.enabled ? Appearance.colors.colSubtext : Appearance.colors.colOnLayer2Disabled
+        }
+        StyledToolTip {
+            text: statusButton.hint
+        }
+    }
+
     component StatusSeparator: Rectangle {
         implicitWidth: 4
         implicitHeight: 4
@@ -308,6 +348,7 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
             Rectangle {
                 id: statusBg
                 z: 2
+                visible: !root.historyOpen
                 anchors {
                     horizontalCenter: parent.horizontalCenter
                     top: parent.top
@@ -325,10 +366,26 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                     anchors.centerIn: parent
                     spacing: 10
 
+                    StatusButton {
+                        symbol: "history"
+                        hint: Translation.tr("Conversations (Ctrl+H)")
+                        onClicked: root.toggleHistory()
+                    }
+                    StatusSeparator {}
                     StatusItem {
                         icon: "token"
                         statusText: Ai.tokenCount.total > 0 ? Ai.tokenCount.total : "–"
                         description: Translation.tr("Total token count\nInput: %1\nOutput: %2").arg(Ai.tokenCount.input).arg(Ai.tokenCount.output)
+                    }
+                    StatusSeparator {}
+                    StatusButton {
+                        symbol: "add_comment"
+                        hint: Translation.tr("New conversation (the current one stays in the history)")
+                        enabled: Ai.messageIDs.length > 0
+                        onClicked: {
+                            Ai.clearMessages();
+                            messageInputField.forceActiveFocus();
+                        }
                     }
                 }
             }
@@ -342,6 +399,7 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
             StyledListView { // Message list
                 id: messageListView
                 z: 0
+                visible: !root.historyOpen
                 anchors.fill: parent
                 spacing: 10
                 popin: false
@@ -385,7 +443,7 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
 
             PagePlaceholder {
                 z: 2
-                shown: Ai.messageIDs.length === 0
+                shown: Ai.messageIDs.length === 0 && !root.historyOpen
                 // The local configuration assistant: how to ask for answers it
                 // gets right.
                 readonly property bool configAssistant: Ai.usingConfigAssistant
@@ -395,13 +453,25 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                 descriptionHorizontalAlignment: configAssistant ? Text.AlignHCenter : Text.AlignLeft
                 description: configAssistant
                     ? Translation.tr("Your machine's config: shortcuts, modules, packages, settings.\n\nOne question, naming the thing:\n“shortcut for the launcher”\n“is tailscale enabled?”\n“all shortcuts”\n\nEnglish · Français · Deutsch · Tiếng Việt")
-                    : Translation.tr("Type /model to switch models\nCtrl+O to expand sidebar\nCtrl+P to pin sidebar\nCtrl+D to detach sidebar")
+                    : Translation.tr("Type /model to switch models\nCtrl+H for past conversations\nCtrl+O to expand sidebar\nCtrl+P to pin sidebar\nCtrl+D to detach sidebar")
                 shape: MaterialShape.Shape.PixelCircle
             }
 
             ScrollToBottomButton {
                 z: 3
                 target: messageListView
+            }
+
+            Loader {
+                id: historyLoader
+                z: 4
+                anchors.fill: parent
+                active: root.historyOpen
+                visible: active
+                sourceComponent: ChatHistory {
+                    onClosed: root.toggleHistory()
+                }
+                onLoaded: item.searchField.forceActiveFocus()
             }
         }
 
@@ -635,6 +705,11 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
 
                         Keys.onPressed: event => {
                             if (GlobalStates.sidebarLeftKey(event)) {
+                                event.accepted = true;
+                                return;
+                            }
+                            if (event.modifiers === Qt.ControlModifier && event.key === Qt.Key_H) {
+                                root.toggleHistory();
                                 event.accepted = true;
                                 return;
                             }

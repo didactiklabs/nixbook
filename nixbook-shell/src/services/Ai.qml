@@ -603,6 +603,7 @@ Singleton {
         root.runMemoryPass(); // the chat being left
         root.memoryReadUpTo = 0;
         root.claudeSessionId = "";
+        root.chatId = "";
         root.messageIDs = [];
         root.messageByID = ({});
         root.tokenCount.input = -1;
@@ -653,6 +654,8 @@ Singleton {
             requester.activeMessage.done = true;
             requester.activeMessage.thinking = false;
             root.saveChat("lastSession")
+            // Not when another conversation was opened meanwhile.
+            if (Object.values(root.messageByID).includes(requester.activeMessage)) root.saveHistory();
             root.responseFinished()
             memoryPassTimer.restart();
             // Stopped by the user: they're there already.
@@ -681,6 +684,7 @@ Singleton {
                 root.messageIDs = [...root.messageIDs, replyId];
                 root.messageByID[replyId] = reply;
                 root.saveChat("lastSession");
+                root.saveHistory();
                 root.responseFinished();
                 return;
             }
@@ -1041,5 +1045,183 @@ Singleton {
         } finally {
             getSavedChats.running = true;
         }
+    }
+
+    // The conversation history: each conversation saved as it goes, after
+    // every answer (Directories.aiHistory/<id>.json: its messages and
+    // Claude Code's session, so going back to it resumes that session),
+    // listed in index.json (id, title, times, model, pinned) for the
+    // panel's history. Deleted ai.history.keepDays after its last message
+    // (0: kept for good), unless pinned; or by hand.
+    property string chatId: "" // the conversation on screen ("" until saved)
+    property var history: [] // its entries, the latest first
+    property bool historyReady: false
+    readonly property int historyKeepDays: Config.options?.ai?.history?.keepDays ?? 30
+
+    FileView {
+        id: historyIndexFile
+        path: `${Directories.aiHistory}/index.json`
+        blockWrites: true
+        onLoaded: {
+            try {
+                const chats = JSON.parse(text()).chats;
+                root.history = Array.isArray(chats) ? chats : [];
+            } catch (e) {
+                console.log("[Ai] History index unreadable:", e);
+                root.history = [];
+            }
+            root.historyReady = true;
+            root.pruneHistory();
+        }
+        // No history yet.
+        onLoadFailed: root.historyReady = true
+    }
+    FileView {
+        id: historyChatFile
+        blockLoading: true
+        blockWrites: true
+    }
+    function historyChatPath(id) {
+        return `${Directories.aiHistory}/${id}.json`;
+    }
+    function writeHistoryIndex() {
+        historyIndexFile.setText(JSON.stringify({ version: 1, chats: root.history }));
+    }
+
+    // The first line of the first message, as the user wrote it.
+    function titleFor(text) {
+        const line = (text ?? "").split("\n").map(l => l.replace(/[*_`#>]+/g, "").replace(/\s+/g, " ").trim())
+            .find(l => l.length > 0) ?? "";
+        return line.length > 60 ? line.slice(0, 59) + "…" : line;
+    }
+
+    // Saves the conversation on screen (once it has a message of the user's).
+    function saveHistory() {
+        if (!root.historyReady) return;
+        const messages = root.chatToJson();
+        const turns = messages.filter(m => (m.role === "user" || m.role === "assistant") && !m.functionName);
+        const first = turns.find(m => m.role === "user" && (m.rawContent ?? "").trim().length > 0);
+        if (!first) return;
+        if (root.chatId.length === 0) root.chatId = root.idForMessage();
+        const old = root.history.find(c => c.id === root.chatId);
+        const answers = turns.filter(m => m.role === "assistant");
+        const now = Date.now();
+        const entry = {
+            id: root.chatId,
+            title: old?.title ?? (root.titleFor(first.rawContent) || Translation.tr("Conversation")),
+            created: old?.created ?? now,
+            updated: now,
+            model: answers.length > 0 ? answers[answers.length - 1].model : root.currentModelId,
+            pinned: old?.pinned ?? false,
+            turns: turns.length,
+        };
+        historyChatFile.path = root.historyChatPath(root.chatId);
+        historyChatFile.setText(JSON.stringify({ version: 1, id: root.chatId, claudeSessionId: root.claudeSessionId, messages }));
+        root.history = [entry, ...root.history.filter(c => c.id !== root.chatId)];
+        root.writeHistoryIndex();
+    }
+
+    // Opens a conversation of the history: its messages, and Claude Code's
+    // session when Claude Code still has it (else the next message sends
+    // the conversation so far as context).
+    function openChat(id) {
+        if (id === root.chatId || !root.history.some(c => c.id === id)) return;
+        let saved;
+        try {
+            historyChatFile.path = root.historyChatPath(id);
+            historyChatFile.reload();
+            saved = JSON.parse(historyChatFile.text());
+        } catch (e) {
+            console.log("[Ai] Could not open conversation:", id, e);
+            root.addMessage(Translation.tr("That conversation can't be read any more."), root.interfaceRole);
+            return;
+        }
+        // The answer being written stays with the conversation it is for.
+        if (requester.turnActive) {
+            root.stopResponse();
+            root.saveHistory();
+        }
+        root.clearMessages();
+        const ids = [];
+        const byID = {};
+        for (const message of (saved.messages ?? [])) {
+            const messageId = root.idForMessage();
+            ids.push(messageId);
+            byID[messageId] = root.aiMessageComponent.createObject(root, Object.assign({}, message, {
+                "content": message.rawContent ?? "",
+                "thinking": false,
+                "done": true,
+            }));
+        }
+        root.messageByID = byID;
+        root.messageIDs = ids;
+        root.chatId = id;
+        // The memory pass read it when it was left.
+        root.memoryReadUpTo = ids.length;
+        const session = saved.claudeSessionId ?? "";
+        if (/^[0-9a-f-]{36}$/.test(session)) {
+            claudeSessionCheck.chat = id;
+            claudeSessionCheck.session = session;
+            claudeSessionCheck.running = true;
+        }
+    }
+    // Claude Code deletes its sessions after a while (cleanupPeriodDays).
+    Process {
+        id: claudeSessionCheck
+        property string chat
+        property string session
+        command: ["bash", "-c", `test -n "$(find "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects" -maxdepth 2 -name "$1.jsonl" -print -quit 2>/dev/null)"`,
+            "claude-session", session]
+        onExited: (exitCode, exitStatus) => {
+            if (exitCode === 0 && root.chatId === chat && root.claudeSessionId.length === 0)
+                root.claudeSessionId = session;
+        }
+    }
+
+    function deleteChats(ids) {
+        if (ids.length === 0) return;
+        if (ids.includes(root.chatId)) {
+            root.stopResponse();
+            root.clearMessages();
+        }
+        root.history = root.history.filter(c => !ids.includes(c.id));
+        root.writeHistoryIndex();
+        Quickshell.execDetached(["rm", "-f", "--", ...ids.map(id => root.historyChatPath(id))]);
+    }
+    function deleteChat(id) {
+        root.deleteChats([id]);
+    }
+    // All of them but the pinned ones.
+    function deleteUnpinnedChats() {
+        root.deleteChats(root.history.filter(c => !c.pinned).map(c => c.id));
+    }
+    function setChatPinned(id, pinned) {
+        root.history = root.history.map(c => c.id === id ? Object.assign({}, c, { pinned }) : c);
+        root.writeHistoryIndex();
+    }
+    function renameChat(id, title) {
+        title = title.trim();
+        if (title.length === 0) return;
+        root.history = root.history.map(c => c.id === id ? Object.assign({}, c, { title }) : c);
+        root.writeHistoryIndex();
+    }
+
+    // Expired: no message for ai.history.keepDays, not pinned, not on screen.
+    function pruneHistory() {
+        if (!root.historyReady || root.historyKeepDays <= 0) return;
+        const before = Date.now() - root.historyKeepDays * 24 * 60 * 60 * 1000;
+        root.deleteChats(root.history.filter(c => !c.pinned && c.id !== root.chatId && (c.updated ?? 0) < before).map(c => c.id));
+    }
+    onHistoryKeepDaysChanged: historyPrune.restart()
+    Timer {
+        id: historyPrune
+        interval: 2000
+        onTriggered: root.pruneHistory()
+    }
+    Timer {
+        interval: 60 * 60 * 1000
+        running: true
+        repeat: true
+        onTriggered: root.pruneHistory()
     }
 }

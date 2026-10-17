@@ -164,6 +164,12 @@ Singleton {
                 // A notification when Claude finishes a turn while the side
                 // panel is closed ("waiting for you" when it ends on a question).
                 property bool notifyWhenDone: true
+                // The side panel's conversations, saved as they go (Ai.qml):
+                // deleted keepDays days after their last message (0: kept
+                // for good), unless pinned.
+                property JsonObject history: JsonObject {
+                    property int keepDays: 30
+                }
                 // The folders AI agents may read (absolute, or ~/…), read-only:
                 // the side panel's Claude (Claude Code --add-dir; no file tools
                 // at all without any) and the apps on the agent desktop
