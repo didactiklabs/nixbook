@@ -124,7 +124,7 @@ An MCP server (source in `customPkgs/spotify-mcp/`) for the Spotify desktop app.
 
 - It drives nixpkgs' Chromium (`CHROME_PATH`, so it never downloads a browser of its own) through [patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright-python), packaged from its PyPI wheel with nixpkgs' Node as its driver (nixpkgs' own patchright is marked broken). It doesn't check PyPI for updates.
 - The session is kept in `~/.linkedin-mcp/profile`; `mcp-server-linkedin --login` and `--logout` sign in and out, `--import-from-browser [zen|firefox|chrome|…]` takes a browser's session.
-- Upstream imports sessions from Chromium browsers only; a patch (`customPkgs/linkedin-mcp-server/gecko-import.patch`) adds Firefox-family ones: **Zen**, Firefox, LibreWolf and Floorp (their `profiles.ini` and plain-text `cookies.sqlite`, the default container's cookies). The same import runs on its own on the first request needing a session.
+- Upstream imports sessions from Chromium browsers only; a patch (`customPkgs/linkedin-mcp-server/gecko-import.patch`) adds Firefox-family ones: **Zen**, Firefox, LibreWolf and Floorp (their `profiles.ini` and plain-text `cookies.sqlite`, the cookies of the container — Zen workspace or Firefox container — whose session was used last). The same import runs on its own on the first request needing a session.
 - LinkedIn's User Agreement forbids automated access and it may restrict accounts using such tools: the chat is told to use it sparingly, and to show a message or invitation and wait for your yes before sending it.
 
 ## moonfin
