@@ -36,6 +36,11 @@ let
     // lib.optionalAttrs (lib.elem pkgs.spotify config.home.packages) {
       spotify.command = lib.getExe pkgs.customPkgs.spotify-mcp;
     };
+  extraMcpServers =
+    musicMcpServers
+    // lib.optionalAttrs cfg.linkedinMcp.enable {
+      linkedin.command = lib.getExe pkgs.customPkgs.linkedin-mcp-server;
+    };
 
   # What this machine's Nix configuration sets up, for the Intelligence tab's
   # system prompt: the assistant can then answer "how do I change X" with the
@@ -125,6 +130,23 @@ in
     '';
   };
 
+  options.customHomeManagerModules.nixbookShellConfig.linkedinMcp.enable = lib.mkOption {
+    type = lib.types.bool;
+    default = true;
+    description = ''
+      Whether to offer the nixbook-shell AI chat (Claude in the side panel, and
+      nothing else: not your own Claude Code or other agents) LinkedIn, through
+      [linkedin-mcp-server](https://github.com/stickerdaniel/linkedin-mcp-server)
+      (`customPkgs.linkedin-mcp-server`): profiles, people and company
+      search, messages, jobs, the feed, on your own account in a browser
+      session of its own (`~/.linkedin-mcp`, signed in from Settings > Desktop
+      agents or `mcp-server-linkedin --login`). Installed, but off in the chat
+      until you turn it on in Settings > Desktop agents > Apps it can use.
+      LinkedIn's terms forbid automated access and it may restrict accounts
+      using it. Pulls in Chromium: `false` leaves it out entirely.
+    '';
+  };
+
   config = lib.mkIf cfg.enable {
     assertions = [
       {
@@ -166,10 +188,11 @@ in
         # Where pear-desktop or Spotify is installed, the chat can also play and
         # control it (YouTube Music through the app's API Server plugin, turned
         # on in the app; Spotify through MPRIS, and its Web API after the
-        # server's `login`). Added to the option's default servers, not
-        # instead of them.
-        mcpServers = lib.mkIf (musicMcpServers != { }) (
-          options.programs.nixbook-shell.assistant.mcpServers.default // musicMcpServers
+        # server's `login`); LinkedIn (linkedinMcp.enable), off in the chat
+        # until turned on in Settings. Added to the option's default servers,
+        # not instead of them.
+        mcpServers = lib.mkIf (extraMcpServers != { }) (
+          options.programs.nixbook-shell.assistant.mcpServers.default // extraMcpServers
         );
         modules = {
           all =
