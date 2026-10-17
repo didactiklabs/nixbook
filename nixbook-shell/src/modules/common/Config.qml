@@ -202,9 +202,11 @@ Singleton {
                     // Calendar, Drive…), all their tools allowed.
                     property bool connectors: false
                     // The MCP servers of assistant-mcp.json (assistant.mcpServers:
-                    // mcp-nixos, the music apps…) turned off in Settings >
-                    // Desktop agents.
-                    property list<string> mcpServersOff: []
+                    // mcp-nixos, the music apps, LinkedIn…) turned off in
+                    // Settings > Desktop agents. LinkedIn starts off: it acts
+                    // on the user's account, and LinkedIn may restrict
+                    // accounts using automation.
+                    property list<string> mcpServersOff: ["linkedin"]
                     // Claude speaks as the computer itself, its hardware,
                     // OS and kernel read live (system_info).
                     property bool asComputer: true

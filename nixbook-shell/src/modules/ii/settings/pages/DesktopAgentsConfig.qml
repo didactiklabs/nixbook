@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import qs
+import Quickshell
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
@@ -306,7 +307,8 @@ ContentPage {
                                 readonly property var known: ({
                                     nixos: ["deployed_code", Translation.tr("NixOS packages and options (MCP-NixOS)")],
                                     "youtube-music": ["music_note", Translation.tr("YouTube Music: play and control")],
-                                    spotify: ["queue_music", Translation.tr("Spotify: play and control")]
+                                    spotify: ["queue_music", Translation.tr("Spotify: play and control")],
+                                    linkedin: ["work", Translation.tr("LinkedIn: profiles, messages, jobs (your account)")]
                                 })[serverRow.modelData] ?? ["extension", serverRow.modelData]
                                 anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 8 }
                                 configKey: "ai.claudeCode.mcpServersOff"
@@ -323,6 +325,22 @@ ContentPage {
                             }
                         }
                     }
+                }
+
+                // LinkedIn: what turning it on means, and its sign-in.
+                StyledText {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 6
+                    visible: Ai.assistantMcpServers.linkedin !== undefined
+                    wrapMode: Text.WordWrap
+                    color: Appearance.colors.colSubtext
+                    text: Translation.tr("LinkedIn works through your own session in a browser of its own (~/.linkedin-mcp). LinkedIn's terms forbid automated access and it may restrict accounts using it: use it lightly. Before sending a message or an invitation, Claude shows it and waits for your yes.")
+                }
+                SmallButton {
+                    visible: Ai.assistantMcpServers.linkedin !== undefined
+                    materialIcon: "login"
+                    mainText: Translation.tr("Sign in to LinkedIn")
+                    onClicked: Quickshell.execDetached([Ai.assistantMcpServers.linkedin.command, "--login"])
                 }
             }
 
