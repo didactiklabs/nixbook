@@ -18,6 +18,12 @@
 # Firefox-family browsers (Zen, Firefox, LibreWolf, Floorp): their
 # profiles.ini and plain-text cookies.sqlite. Upstream reads Chromium
 # browsers only.
+#
+# Its browser runs headed on an invisible X display (Xvfb), never on the
+# user's screen, like upstream's container image: headless Chromium calls
+# itself HeadlessChrome, which LinkedIn throttles (HTTP 429). `--login`
+# alone opens on the user's screen. (./linkedin-mcp-server/virtual-display.patch:
+# LINKEDIN_MCP_VIRTUAL_DISPLAY=1 turns every launch headed.)
 let
   py = pkgs.python313Packages;
   # nixpkgs' patchright is a placeholder (marked broken: the real package
@@ -55,7 +61,10 @@ py.buildPythonApplication rec {
     hash = "sha256-6yWnHNWdGwmItPF8tRkwdiryEegJ+c+qoXKjD9UTiSA=";
   };
 
-  patches = [ ./linkedin-mcp-server/gecko-import.patch ];
+  patches = [
+    ./linkedin-mcp-server/gecko-import.patch
+    ./linkedin-mcp-server/virtual-display.patch
+  ];
 
   build-system = [ py.setuptools ];
   dependencies = [
@@ -88,6 +97,23 @@ py.buildPythonApplication rec {
     "LINKEDIN_MCP_CHECK_FOR_UPDATES"
     "false"
   ];
+
+  # mcp-server-linkedin: the server on its own Xvfb display (stdio passes
+  # through xvfb-run untouched), Wayland left out so Chromium uses it;
+  # `--login` runs it directly, on the user's screen.
+  postFixup = ''
+    mv $out/bin/mcp-server-linkedin $out/bin/.mcp-server-linkedin-direct
+    cat > $out/bin/mcp-server-linkedin <<EOF
+    #!${pkgs.runtimeShell}
+    for arg in "\$@"; do
+      if [ "\$arg" = --login ]; then exec $out/bin/.mcp-server-linkedin-direct "\$@"; fi
+    done
+    export HEADLESS=false LINKEDIN_MCP_VIRTUAL_DISPLAY=1
+    unset WAYLAND_DISPLAY NIXOS_OZONE_WL
+    exec ${pkgs.lib.getExe pkgs.xvfb-run} -a -s "-screen 0 1920x1080x24 -nolisten tcp" $out/bin/.mcp-server-linkedin-direct "\$@"
+    EOF
+    chmod +x $out/bin/mcp-server-linkedin
+  '';
 
   passthru = { inherit patchright; };
 
