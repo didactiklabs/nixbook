@@ -341,13 +341,17 @@ ContentPage {
                     spacing: 8
                     // The session of the browser LinkedIn was used in last
                     // (Firefox-family ones too: nixbook's patch), checked with
-                    // LinkedIn; the outcome as a notification.
+                    // LinkedIn; the outcome as a notification: the server's ❌
+                    // lines, else the last line (an uncaught error's message,
+                    // e.g. the chat's server holding the browser).
                     SmallButton {
                         materialIcon: "cookie"
                         mainText: Translation.tr("Use my browser's session")
                         onClicked: Quickshell.execDetached(["bash", "-c",
-                            'if out=$("$1" --import-from-browser 2>&1); then notify-send -a LinkedIn "$2" "$3"; '
-                            + 'else notify-send -a LinkedIn "$4" "$(printf "%s\n" "$out" | grep -E "^(❌|   )" | head -3)"; fi',
+                            'if out=$("$1" --import-from-browser 2>&1); then notify-send -a LinkedIn "$2" "$3"; else '
+                            + 'msg=$(printf "%s\n" "$out" | grep -E "^(❌|   [^ ])" | head -3); '
+                            + '[ -n "$msg" ] || msg=$(printf "%s\n" "$out" | grep -v "^[[:space:]]*$" | tail -1 | sed "s/^[A-Za-z_.]*Error: //"); '
+                            + 'notify-send -a LinkedIn "$4" "$msg"; fi',
                             "linkedin-import", Ai.assistantMcpServers.linkedin.command,
                             Translation.tr("LinkedIn connected"),
                             Translation.tr("Claude uses your browser's LinkedIn session now."),
