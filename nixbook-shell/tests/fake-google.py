@@ -151,7 +151,9 @@ def handle_tasks(h, method, path, q, body):
             since = q.get("updatedMin")
             out = [public(t) for t in tasks.values() if t["_list"] == lid
                    and (not t.get("deleted") or (since and q.get("showDeleted") == "true"))
-                   and (not since or t["updated"] >= since)]
+                   and (not since or t["updated"] >= since)
+                   # As Google does: completedMin leaves out the tasks not completed.
+                   and (not q.get("completedMin") or t.get("completed", "") >= q["completedMin"])]
             return h.reply(200, page(out, q))
         if len(parts) == 3 and method == "POST":
             tid = new_id("t")

@@ -10,7 +10,7 @@ The shell's former local to-do list (`todo.json`) is moved into it the first tim
 
 ## Add an account
 
-Open the accounts window from the Contacts window, the Tasks window (**Accounts**), a to-do widget's account button (right click), or `nixbook-shell ipc call accounts show`.
+Open the accounts window from the Contacts window, the Tasks window (**Accounts**), a to-do widget's account button (right click), or `nixbook-shell ipc call accounts launch`.
 
 ### Google
 
@@ -38,7 +38,7 @@ The password is kept in the keyring. From a terminal: `echo 'app-password' | nix
 
 ## The Contacts window
 
-Open it from the launcher (**Contacts**), the contacts widget, or `nixbook-shell ipc call contacts show` (`open <id>` for one contact).
+Open it from the launcher (**Contacts**), the contacts widget, or `nixbook-shell ipc call contacts launch` (`open <id>` for one contact).
 
 - **On the left**: search (names, emails, companies, notes, labels; accents ignored; phone numbers by their digits), the **All / Starred / account / label** chips (accounts and the label's account appear when you have several), then starred contacts and the rest from A to Z.
 - **On the right**: the selected contact, and its account when you have several. A click on an email writes, on a phone calls (`tel:`, e.g. through KDE Connect), on an address opens the map; the copy button copies it. **Email**, **Call** and **Message** buttons, the birthday with the age it turns, labels, notes.

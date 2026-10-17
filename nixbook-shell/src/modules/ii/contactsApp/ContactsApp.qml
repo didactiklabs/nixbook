@@ -13,7 +13,7 @@ import Quickshell
  * A normal application window (xdg-toplevel, title "Contacts"), tiled like
  * any app: its layout follows the width it gets. Opened from the contacts
  * widget (GlobalStates.openContactsApp), its launcher entry or
- * `nixbook-shell ipc call contacts show|open <id>`.
+ * `nixbook-shell ipc call contacts launch|open <id>`.
  */
 Scope {
     id: root

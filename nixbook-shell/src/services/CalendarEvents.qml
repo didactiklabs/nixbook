@@ -1,4 +1,5 @@
 pragma Singleton
+import qs
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -362,7 +363,7 @@ Singleton {
             return JSON.stringify({ date: root.dayKey(d), events: root.eventsOn(d).map(e => root._eventJson(e, now)) });
         }
         // The Calendar window, on today.
-        function show(): string {
+        function launch(): string {
             root.load();
             GlobalStates.openCalendarApp(null, null);
             return "ok: opened the Calendar window";

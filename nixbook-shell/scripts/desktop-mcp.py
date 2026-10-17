@@ -6581,7 +6581,7 @@ def t_calendar(ctx, args):
                                     for c in out.get("calendars", [])]})]
     if action == "open":
         date = as_str(args, "date", required=False, max_len=10, pattern=r"\d{4}-\d{2}-\d{2}") or ""
-        return [text(widget_call("calendar", "open", date) if date else widget_call("calendar", "show"))]
+        return [text(widget_call("calendar", "open", date) if date else widget_call("calendar", "launch"))]
     if action in CALENDAR_OPS:
         ctx.guard.check_rate()
         r = accounts_call("calendar", "apply", json.dumps(calendar_op(args, action)), timeout=120)[0]

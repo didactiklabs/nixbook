@@ -95,10 +95,9 @@ func (g *googleTasks) lists() ([]tasks.List, error) {
 func (g *googleTasks) listTasks(listID string, since time.Time) ([]obj, error) {
 	out, page := []obj{}, ""
 	for {
-		q := url.Values{
-			"maxResults": {"100"}, "showCompleted": {"true"}, "showHidden": {"true"},
-			"completedMin": {time.Now().Add(-keepCompleted).UTC().Format(time.RFC3339)},
-		}
+		// No completedMin: Google then leaves out every task not completed
+		// (old completed ones are dropped here instead).
+		q := url.Values{"maxResults": {"100"}, "showCompleted": {"true"}, "showHidden": {"true"}}
 		if !since.IsZero() {
 			q.Set("updatedMin", since.UTC().Format(time.RFC3339))
 			q.Set("showDeleted", "true")
@@ -163,7 +162,14 @@ func (g *googleTasks) Sync(sec *tasks.Section, full bool) (int, bool, error) {
 				}
 				continue
 			}
-			current[id] = fromGoogle(l.ID, item)
+			t := fromGoogle(l.ID, item)
+			if t.Done && t.Completed != "" {
+				if when, err := time.Parse(time.RFC3339, t.Completed); err == nil && when.Before(time.Now().Add(-keepCompleted)) {
+					delete(current, id)
+					continue
+				}
+			}
+			current[id] = t
 			changed++
 		}
 		for _, t := range current {

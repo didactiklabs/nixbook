@@ -295,7 +295,7 @@ case "$*" in
       echo '{"now":"2026-09-30T10:00","next":{"summary":"Standup","start":"2026-09-30T10:30","when":"in 30 min"}}'; fi ;;
   *"calendar upcoming"*) echo "{\"days\":${*: -1},\"events\":[]}" ;;
   *"calendar day"*) echo "{\"date\":\"${*: -1}\",\"events\":[]}" ;;
-  *"calendar open"*|*"calendar show"*) echo "ok: opened the Calendar window" ;;
+  *"calendar open"*|*"calendar launch"*) echo "ok: opened the Calendar window" ;;
 esac
 EOF
 # The shell's accounts backend: its arguments logged ($STUB_CALLS.google), a

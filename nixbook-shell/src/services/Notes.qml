@@ -153,7 +153,7 @@ Singleton {
             return JSON.stringify(root.list.map(n => ({ id: n.id, content: n.content, createdAt: n.createdAt })));
         }
         // The Notes app (its launcher entry).
-        function show(): string {
+        function launch(): string {
             GlobalStates.openNotesApp("");
             return "ok: opened the Notes app";
         }
