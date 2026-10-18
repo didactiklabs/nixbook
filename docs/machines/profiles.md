@@ -53,6 +53,6 @@ profiles/totoro/
 **Gaming and streaming desktop** — AMD GPU.
 
 - **System:** [gaming](/system/gaming-and-streaming#gaming) with AMD tuning, [sim racing](/system/gaming-and-streaming#sim-racing) (Moza), [Sunshine](/system/gaming-and-streaming#sunshine) streaming with a headless virtual display, SwayFX, OpenSSH, Wake-on-LAN, CA certificates. Tailscale and NetBird off. Sleep, suspend and hibernation are disabled.
-- **Session:** greetd logs `khoa` straight into SwayFX (no greeter), and Steam Big Picture starts with the session and restarts if closed.
+- **Session:** greetd logs `khoa` straight into SwayFX (no greeter), and Steam Big Picture starts with the session and restarts if it crashes.
 - **Extras:** Immich timers upload game screenshots (Cyberpunk 2077, The Witcher 3) to the photo server.
 - **User (khoa):** Foxblat presets for the Moza wheelbase, Kitty, Zsh, NixVim, Zen Browser, OpenCode.

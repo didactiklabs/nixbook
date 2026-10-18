@@ -272,7 +272,7 @@ Whether to enable lanzaboote for UEFI Secure Boot. Lanzaboote replaces systemd-b
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable laptop-specific power and display optimisations. Configures: - logind lid-switch behaviour: suspend on close, lock when on external power, ignore when docked - power-profiles-daemon: dynamic CPU frequency scaling (performance / balanced / power-saver profiles, switchable via e.g. the DMS control centre) - thermald: Intel thermal management daemon to prevent CPU throttling - scx_lavd: sched_ext CPU scheduler built for interactivity and battery life (latency-critical tasks first, fewer cores awake) - powerManagement: general power management framework - powertop: power consumption analyser available in the system PATH Enable this on machines that are laptops (totoro, nishinoya, tanjiro). Leave disabled on desktop/server machines (anya).
+Whether to enable laptop-specific power and display optimisations. Configures: - logind lid-switch behaviour: suspend on close, lock when on external power, ignore when docked - power-profiles-daemon: dynamic CPU frequency scaling (performance / balanced / power-saver profiles, switchable via e.g. the DMS control centre) - thermald: Intel thermal management daemon to prevent CPU throttling (Intel CPUs only: the hardware configuration loads kvm-intel) - scx_lavd: sched_ext CPU scheduler built for interactivity and battery life (latency-critical tasks first, fewer cores awake) - powerManagement: general power management framework - powertop: power consumption analyser available in the system PATH Enable this on machines that are laptops (totoro, nishinoya, tanjiro). Leave disabled on desktop/server machines (anya).
 
 ---
 
