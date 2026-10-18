@@ -77,9 +77,11 @@ in
       "uhid"
     ];
 
-    # Règle UDEV for uinput
+    # Règle UDEV for uinput. Group uinput (hardware.uinput, core.nix): the
+    # former "docker" group doesn't exist here, so udev logged an unresolved
+    # group on every boot.
     services.udev.extraRules = ''
-      KERNEL=="uinput", MODE="0660", GROUP="docker", OPTIONS+="static_node=uinput"
+      KERNEL=="uinput", MODE="0660", GROUP="uinput", OPTIONS+="static_node=uinput"
     '';
     systemd = {
       tmpfiles.rules = [
@@ -100,9 +102,19 @@ in
             RestartMaxDelaySec = lib.mkOverride 90 "1m";
             RestartSec = lib.mkOverride 90 "5s";
             RestartSteps = lib.mkOverride 90 9;
+            # Only Wolf's own leftovers: wolf-wolf and the session containers
+            # it starts (named Wolf… in its config: WolfPulseAudio, WolfSteam…).
+            # `podman kill --all; podman rm --all` removed every root
+            # container on the host, wolf-den included, on each restart.
             ExecStartPre = lib.mkOverride 90 [
-              "-${pkgs.podman}/bin/podman kill --all"
-              "-${pkgs.podman}/bin/podman rm --all -f"
+              "-${pkgs.writeShellScript "wolf-cleanup" ''
+                ${pkgs.podman}/bin/podman rm -f --ignore wolf-wolf
+                ids=$(${pkgs.podman}/bin/podman ps -aq --filter name='^Wolf')
+                if [ -n "$ids" ]; then
+                  # shellcheck disable=SC2086 # one id per word
+                  ${pkgs.podman}/bin/podman rm -f $ids
+                fi
+              ''}"
             ];
             ExecStopPost = lib.mkOverride 90 [
               "-${pkgs.podman}/bin/podman rm -f wolf-wolf"
