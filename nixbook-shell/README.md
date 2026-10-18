@@ -490,7 +490,7 @@ today's events and tasks, personal-memory events within 3 days or 2 days
 past, the usual session when not set up), `focus` (a new app in front, at
 most every 3 minutes: a broken recipe of it) with
 `ai.initiative.readNotifications`, `notifications` (batched for 45 s), and
-`moment` (at random, 40 to 120 minutes apart while active: a light word,
+`moment` (asked every 5 min; due at random 40 to 120 minutes apart, kept as `momentAt` in initiative.json with `activeSince`, the last break, so shell restarts don't reset them; while active: a light word,
 skipped 40% of the time, at most `initiativeChatPerDay`, 3 h apart and 45 min
 after anything else, only in the bar: a long stretch, music on repeat, tasks
 due after 17h, rain, a tip from a proven note or a macro it has, a plan within

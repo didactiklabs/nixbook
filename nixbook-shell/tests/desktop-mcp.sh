@@ -1288,6 +1288,11 @@ python3 "$mcp" memory clear >/dev/null
 
 ini="$XDG_STATE_HOME/nixbook-shell/initiative.json"
 consider() { python3 "$mcp" initiative consider "$1"; }
+# A moment the light word is due at (kept in initiative.json: `momentAt`).
+moment() {
+  jq '.momentAt = 1' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
+  consider "$1"
+}
 rm -f "$ini"
 today=$(date +%F)
 in2=$(date -d "+2 days" +%F)
@@ -1374,24 +1379,43 @@ python3 "$mcp" initiative clear
 python3 "$mcp" initiative clear
 
 # Now and then a light word, at random moments: often nothing, only in the bar, rarely.
-expect_eq "moment: often nothing" "nothing to say this time" "$(consider '{"event":"moment","roll":0.1,"activeMinutes":150}' | jq -r .why)"
-out=$(consider '{"event":"moment","roll":0.9,"activeMinutes":150}')
+expect_eq "moment: often nothing" "nothing to say this time" "$(moment '{"event":"moment","roll":0.1,"activeMinutes":150}' | jq -r .why)"
+out=$(moment '{"event":"moment","roll":0.9,"activeMinutes":150}')
 expect_eq "moment: a word in the bar, never a notification" badge "$(jq -r .action <<<"$out")"
 expect_contains "moment: a long stretch" "$(jq -r .item.text <<<"$out")" "2 hours"
-expect_eq "moment: not again soon" "said one lately" "$(consider '{"event":"moment","roll":0.9,"tasksDue":2}' | jq -r .why)"
-expect_eq "moment: not while busy" "the user is busy" "$(consider '{"event":"moment","roll":0.9,"busy":true}' | jq -r .why)"
+expect_eq "moment: not again soon" "said one lately" "$(moment '{"event":"moment","roll":0.9,"tasksDue":2}' | jq -r .why)"
+expect_eq "moment: not while busy" "the user is busy" "$(moment '{"event":"moment","roll":0.9,"busy":true}' | jq -r .why)"
 jq '.said = [.said[] | .time -= 4 * 3600]' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
 jq '.said += [.said[0] | .key = "y" | .id = "000002"]' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
-expect_eq "moment: at most 2 a day" "enough for today" "$(consider '{"event":"moment","roll":0.9,"tasksDue":2}' | jq -r .why)"
+expect_eq "moment: at most 2 a day" "enough for today" "$(moment '{"event":"moment","roll":0.9,"tasksDue":2}' | jq -r .why)"
 python3 "$mcp" initiative clear
 
 # Settings > Say something now: at once, out loud, even with nothing on its mind.
 out=$(consider '{"event":"moment","force":true}')
 expect_eq "say something now: out loud" notify "$(jq -r .action <<<"$out")"
 expect_contains "say something now: a hello when nothing is on its mind" "$(jq -r .item.text <<<"$out")" "I'll"
-consider '{"event":"moment","roll":0.9}' >/dev/null
+# ...and spends nothing: no budget, no gap.
+expect_eq "say something now: a test, it spends nothing" badge "$(moment '{"event":"moment","roll":0.9,"activeMinutes":150}' | jq -r .action)"
+moment '{"event":"moment","roll":0.9}' >/dev/null
 expect_eq "log: why it kept quiet" "said one lately" "$(jq -r '[.log[] | select(.action=="none")] | last | .why' "$ini")"
 expect_eq "log: what it said" true "$(jq '[.log[] | select(.action=="notify")] | length > 0' "$ini")"
+# When the next light word is due is kept, so a shell restart (every switch) doesn't start the wait over.
+logged=$(jq '.log | length' "$ini")
+jq --argjson t "$(date +%s)" '.momentAt = $t + 3600' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
+expect_eq "moment: not due yet" "not time yet" "$(consider '{"event":"moment","roll":0.9}' | jq -r .why)"
+expect_eq "moment: not due, not logged (asked every few minutes)" "$logged" "$(jq '.log | length' "$ini")"
+jq 'del(.momentAt)' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
+consider '{"event":"moment","roll":0.9}' >/dev/null
+expect_eq "moment: the first chance within 20 to 60 minutes" true "$(jq --argjson t "$(date +%s)" '.momentAt - $t | . >= 1190 and . <= 3610' "$ini")"
+moment '{"event":"moment","roll":0.9}' >/dev/null
+expect_eq "moment: the next one 40 to 120 minutes on" true "$(jq --argjson t "$(date +%s)" '.momentAt - $t | . >= 2390 and . <= 7210' "$ini")"
+# Time at the computer since the last break, whatever restarted in between.
+python3 "$mcp" initiative clear
+consider '{"event":"back","away":30}' >/dev/null
+expect_eq "back from a break: active since now" true "$(jq --argjson t "$(date +%s)" '$t - .activeSince | . >= 0 and . < 60' "$ini")"
+jq --argjson t "$(date +%s)" '.activeSince = $t - 150 * 60 | .said = [] | .pending = []' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
+consider '{"event":"back","away":0}' >/dev/null
+expect_contains "moment: a long stretch, across shell restarts" "$(moment '{"event":"moment","roll":0.9}' | jq -r .item.text)" "2 hours"
 # The shell gives its Claude Code (its PATH may not have one).
 cp "$bin/claude" "$tmp/own-claude"
 python3 "$mcp" initiative clear
@@ -1399,6 +1423,7 @@ python3 "$mcp" memory clear >/dev/null
 call remember '{"topic":"firefox tabs","text":"ctrl+shift+t reopens the last closed tab"}' >/dev/null
 jq '.notes[0].ok = 2' "$mem" >"$mem.new" && mv "$mem.new" "$mem"
 rm -f "$calls.claude-args"
+jq '.momentAt = 1' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
 STUB_CLAUDE_ANSWER='{"structured_output": {"text": "Firefox tip: ctrl+shift+t."}}' PATH="${PATH//$bin:/}" \
   python3 "$mcp" initiative consider "$(jq -nc --arg c "$tmp/own-claude" '{event: "moment", roll: 0.9, app: "firefox", claude: $c}')" >/dev/null
 expect_eq "claude: the shell's own, off PATH" yes "$([ -e "$calls.claude-args" ] && echo yes || echo no)"
@@ -1410,29 +1435,29 @@ call remember '{"topic":"firefox tabs","text":"ctrl+shift+t reopens the last clo
 jq '.notes[0].ok = 2' "$mem" >"$mem.new" && mv "$mem.new" "$mem"
 export STUB_CLAUDE_ANSWER
 STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {text: "Firefox tip: ctrl+shift+t brings back the tab you just closed."}}')
-out=$(consider '{"event":"moment","roll":0.9,"app":"firefox"}')
+out=$(moment '{"event":"moment","roll":0.9,"app":"firefox"}')
 expect_eq "moment: a tip for the app in front" "Firefox tip: ctrl+shift+t brings back the tab you just closed." "$(jq -r .item.text <<<"$out")"
 expect_contains "moment: from the note" "$(cat "$calls.claude-prompt")" "The note: ctrl+shift+t reopens the last closed tab"
 # ...or nothing when the note is only for agents, never asked again.
 python3 "$mcp" initiative clear
 STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {text: ""}}')
-consider '{"event":"moment","roll":0.9,"app":"firefox"}' >/dev/null
+moment '{"event":"moment","roll":0.9,"app":"firefox"}' >/dev/null
 rm -f "$calls.claude-prompt"
-expect_eq "moment: an agent's note, not asked again" "nothing to say" "$(consider '{"event":"moment","roll":0.9,"app":"firefox"}' | jq -r .why)"
+expect_eq "moment: an agent's note, not asked again" "nothing to say" "$(moment '{"event":"moment","roll":0.9,"app":"firefox"}' | jq -r .why)"
 expect_eq "moment: no model call for it" no "$([ -e "$calls.claude-prompt" ] && echo yes || echo no)"
 # A macro it can do in one step, in plain words.
 python3 "$mcp" initiative clear
 python3 "$mcp" memory clear >/dev/null
 call run_steps '{"steps":[{"tool":"press_keys","args":{"keys":["ctrl+k"]},"wait_ms":0}],"remember_as":"discord: open a chat"}' >/dev/null
 jq '.notes[0].runs = ["2026-01-01", "2026-01-02", "2026-01-03"]' "$mem" >"$mem.new" && mv "$mem.new" "$mem"
-expect_contains "moment: what it can do in one step" "$(consider '{"event":"moment","roll":0.9}' | jq -r .item.text)" "discord: open a chat"
+expect_contains "moment: what it can do in one step" "$(moment '{"event":"moment","roll":0.9}' | jq -r .item.text)" "discord: open a chat"
 # A casual question on what the user cares about, unmentioned for a while.
 python3 "$mcp" initiative clear
 python3 "$mcp" memory clear >/dev/null
 call remember_about_user '{"topic":"jlpt","text":"Preparing the JLPT N4, exam in December"}' >/dev/null
 jq '(.entries[] | select(.topic=="jlpt")) |= (.updated = 1 | .used = 1)' "$XDG_STATE_HOME/nixbook-shell/personal-memory.json" >"$tmp/p.json" && mv "$tmp/p.json" "$XDG_STATE_HOME/nixbook-shell/personal-memory.json"
 STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {text: "How is the JLPT prep going? December is getting close!"}}')
-expect_eq "moment: a casual question" "How is the JLPT prep going? December is getting close!" "$(consider '{"event":"moment","roll":0.9}' | jq -r .item.text)"
+expect_eq "moment: a casual question" "How is the JLPT prep going? December is getting close!" "$(moment '{"event":"moment","roll":0.9}' | jq -r .item.text)"
 expect_contains "moment: from the memory entry" "$(cat "$calls.claude-prompt")" "Preparing the JLPT N4"
 unset STUB_CLAUDE_ANSWER
 python3 "$mcp" initiative clear
