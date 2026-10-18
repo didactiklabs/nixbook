@@ -327,6 +327,32 @@ Scope {
         property bool connectorsStale: false
         property bool connectorsHold: false
         property string heldAttached: ""
+        // The message line sent and its attached file, to send again when
+        // Claude Code started with a connector it wasn't allowed (once per
+        // message).
+        property string sentLine: ""
+        property string sentAttached: ""
+        property bool connectorRetried: false
+
+        // Claude Code names the servers it loaded at the start of a turn.
+        // A claude.ai connector missing from the allowed ones (added on
+        // claude.ai since they were listed): allowed, and Claude Code started
+        // again on the same message before the model answers. True if so.
+        function restartForConnectors(ev) {
+            if (!Ai.claudeConnectorsSetting || requester.connectorRetried) return false;
+            const found = (ev.mcp_servers ?? []).filter(s => /^claude\.ai /.test(s.name ?? ""))
+                .map(s => "mcp__" + s.name.replace(/[^A-Za-z0-9_-]/g, "_"));
+            const missing = found.filter(n => !Ai.claudeConnectors.includes(n));
+            if (missing.length === 0) return false;
+            Ai.claudeConnectors = [...Ai.claudeConnectors, ...missing];
+            requester.connectorRetried = true;
+            requester.pendingLine = requester.sentLine;
+            // Not an answer: the message stays open for the new one.
+            requester.activeMessage = null;
+            requester.turnActive = false;
+            requester.launch(requester.sentAttached, chat.claudeSessionId);
+            return true;
+        }
 
         function markDone() {
             const stopped = requester.interrupting;
@@ -422,6 +448,8 @@ Scope {
 
         function sendPrompt(prompt, attached) {
             requester.pendingLine = JSON.stringify({ type: "user", message: { role: "user", content: Ai.messageContext() + prompt } }) + "\n";
+            requester.sentAttached = attached;
+            requester.connectorRetried = false;
             // A connector needed signing in to: perhaps it's done now.
             if (Ai.claudeConnectorsSetting && Ai.claudeConnectorsNeedAuth
                     && Date.now() - Ai.claudeConnectorsCheckedAt > 20000) {
@@ -488,6 +516,7 @@ Scope {
             requester.activeMessage = requester.message;
             requester.turnActive = true;
             idleClose.stop();
+            requester.sentLine = requester.pendingLine;
             requester.write(requester.pendingLine);
             requester.pendingLine = "";
         }
@@ -508,6 +537,10 @@ Scope {
                         chat.strategy.finished = true;
                         requester.markDone();
                         return;
+                    }
+                    if (data.includes('"subtype":"init"')) {
+                        const ev = JSON.parse(data);
+                        if (ev.type === "system" && ev.subtype === "init" && requester.restartForConnectors(ev)) return;
                     }
                     const result = chat.strategy.parseResponseLine(data, requester.activeMessage);
 
