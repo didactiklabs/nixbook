@@ -19,8 +19,12 @@
       "command": "",
       "connectors": false,
       "effort": "low",
-      "mcpServersOff": ["linkedin"],
+      "mcpServersOff": ["linkedin", "immich"],
       "model": "sonnet"
+    },
+    "immich": {
+      "apiKeyFile": "",
+      "url": ""
     }
   },
   "appearance": {

@@ -2,16 +2,13 @@
 # MCP server giving an AI agent the user's Immich library (search by place,
 # date, text, faces; albums, tags, duplicates, sharing, video frames, PDF
 # reports), from drolosoft/immich-photo-manager. nixbook-shell gives it to
-# its own AI chat only (nixbookShellConfig.immichMcp).
+# its own AI chat only (Settings > Desktop agents, the ai.immich settings).
 #
 # It is built on the MCP Python SDK 2 (`mcp.server.mcpserver`), and nixpkgs
 # has mcp 1: mcp 2.2.0 and its mcp-types are packaged below from their PyPI
-# wheels (2.3 wants httpx2 2.10, nixpkgs has 2.9). The credentials come from
-# IMMICH_BASE_URL and IMMICH_API_KEY, or IMMICH_API_KEY_FILE (read by the
-# wrapper, so the key never sits in the environment of a Nix-generated file),
-# or what its update_credentials tool or nixbook-shell's Settings
-# (immich-photo-manager-credentials) saved in ~/.immich-photo-manager, which
-# wins over the environment.
+# wheels (2.3 wants httpx2 2.10, nixpkgs has 2.9). The server comes from
+# IMMICH_BASE_URL, the API key from the environment, a file or the keyring
+# (credentialsEnv below), so it never has to be on a command line.
 let
   py = pkgs.python313Packages;
   mcp-types = py.buildPythonPackage rec {
@@ -56,15 +53,28 @@ let
     ]);
     pythonImportsCheck = [ "mcp.server.mcpserver" ];
   };
-  # Sourced by the wrapper: a writable home for update_credentials (the
-  # default is next to the module, in the store), and the key from a file.
+  # Sourced by the wrapper. The API key: IMMICH_API_KEY, else the file
+  # IMMICH_API_KEY_FILE names (`~/` allowed), else the keyring's
+  # service=immich-photo-manager secret (nixbook-shell's Settings saves it
+  # there); IMMICH_API_KEY_SOURCE says which. What its update_credentials
+  # tool saves (and then prefers to the environment) lives in the session's
+  # runtime directory, so it lasts until logout instead of overriding the
+  # settings for good (the default is next to the module, in the store).
   credentialsEnv = pkgs.writeText "immich-photo-manager-env.sh" ''
-    export IMMICH_CACHE_DIR="''${IMMICH_CACHE_DIR:-$HOME/.immich-photo-manager}"
+    runtime="''${XDG_RUNTIME_DIR:-$HOME/.cache}/immich-photo-manager"
+    export IMMICH_CACHE_DIR="''${IMMICH_CACHE_DIR:-$runtime}"
+    export IMMICH_CONFIG_HOME="''${IMMICH_CONFIG_HOME:-$runtime}"
     key_file=''${IMMICH_API_KEY_FILE:-}
     key_file=''${key_file/#\~\//$HOME/}
-    if [ -z "''${IMMICH_API_KEY:-}" ] && [ -n "$key_file" ] && [ -r "$key_file" ]; then
+    if [ -n "''${IMMICH_API_KEY:-}" ]; then
+      export IMMICH_API_KEY_SOURCE=env
+    elif [ -n "$key_file" ] && [ -r "$key_file" ]; then
       IMMICH_API_KEY=$(${pkgs.coreutils}/bin/tr -d '\n' < "$key_file")
-      export IMMICH_API_KEY
+      export IMMICH_API_KEY IMMICH_API_KEY_SOURCE=file
+    elif IMMICH_API_KEY=$(${pkgs.libsecret}/bin/secret-tool lookup service immich-photo-manager 2>/dev/null) && [ -n "$IMMICH_API_KEY" ]; then
+      export IMMICH_API_KEY IMMICH_API_KEY_SOURCE=keyring
+    else
+      unset IMMICH_API_KEY
     fi
   '';
 in
@@ -109,11 +119,14 @@ py.buildPythonApplication rec {
     export HOME=$(mktemp -d)
   '';
 
-  # immich-photo-manager-credentials: show, set and clear the connection
-  # from nixbook-shell's Settings (./immich-photo-manager/credentials.py).
+  # immich-photo-manager-credentials: check a server and key, save or
+  # forget the key, for nixbook-shell's Settings
+  # (./immich-photo-manager/credentials.py).
   postInstall = ''
     install -Dm755 ${./immich-photo-manager/credentials.py} $out/bin/immich-photo-manager-credentials
     sed -i '1i #!/usr/bin/env python3' $out/bin/immich-photo-manager-credentials
+    substituteInPlace $out/bin/immich-photo-manager-credentials \
+      --replace-fail @secretTool@ ${pkgs.libsecret}/bin/secret-tool
   '';
   postFixup = ''
     for program in immich-photo-manager immich-photo-manager-credentials; do

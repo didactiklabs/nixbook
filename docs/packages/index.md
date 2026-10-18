@@ -129,18 +129,22 @@ An MCP server (source in `customPkgs/spotify-mcp/`) for the Spotify desktop app.
 
 ## immich-photo-manager
 
-[drolosoft/immich-photo-manager](https://github.com/drolosoft/immich-photo-manager) (2.0.13), for the nixbook-shell AI chat only: search your [Immich](https://immich.app) library by place, date, text and faces, albums, tags, duplicates, shared links, video frames and PDF reports. It runs as a local stdio server started by the chat: nothing listens on the network. Turn it on per user with `nixbookShellConfig.immichMcp`, optionally with the server and key:
+[drolosoft/immich-photo-manager](https://github.com/drolosoft/immich-photo-manager) (2.0.13), for the nixbook-shell AI chat only: search your [Immich](https://immich.app) library by place, date, text and faces, albums, tags, duplicates, shared links, video frames and PDF reports. The chat starts it as a local stdio server: nothing listens on the network. `nixbookShellConfig` offers it on every machine, off until you turn it on.
+
+Set it up in **Settings → Desktop agents → Apps it can use**: turn **Immich** on, enter the server URL and an API key (Immich: **Account Settings → API Keys**), then **Save and check**, which tries them on the server first. The URL is the `ai.immich.url` setting. The key goes to your keyring (`secret-tool`, `service=immich-photo-manager`), never into a file, the Nix store or a command line. Or set them in Nix, which locks them in Settings:
 
 ```nix
-customHomeManagerModules.nixbookShellConfig.immichMcp = {
-  enable = true;
-  url = "https://photos.example.org";
-  apiKeyFile = "~/.config/immich/api-key"; # or config.age.secrets.immich.path
+customHomeManagerModules.nixbookShellConfig.settings.ai = {
+  immich = {
+    url = "https://photos.example.org";
+    apiKeyFile = "~/.config/immich/api-key"; # optional, instead of the keyring; or an agenix secret's path
+  };
+  claudeCode.mcpServersOff = [ "linkedin" ]; # Immich on
 };
 ```
 
-- The API key (Immich: **Account Settings → API Keys**) is read from `apiKeyFile` each time the server starts, so it never enters the Nix store. `~/` is your home.
-- Or set the server and API key in **Settings → Desktop agents → Apps it can use** (**Save and check** tries them on the server first), or from the chat ("update my Immich credentials to … with API key …"). Both save them in `~/.immich-photo-manager/config.json` (readable by you only), which wins over `url` and `apiKeyFile` until **Forget** removes it. Settings calls `immich-photo-manager-credentials show | set URL | clear` (the key on stdin, never printed).
+- The wrapper takes the key from `IMMICH_API_KEY`, else `apiKeyFile` (`~/` is your home; a store path fails an assertion), else the keyring. `immich-photo-manager-credentials status | save URL | forget` is what Settings calls (the key on stdin, never printed).
+- Asked in the chat ("update my Immich credentials to …"), its `update_credentials` tool switches servers until you log out (it saves in `$XDG_RUNTIME_DIR`); **Save and check** clears that.
 - It is built on the MCP Python SDK 2, which nixpkgs doesn't have yet: `mcp` 2.2.0 and `mcp-types` are packaged from their PyPI wheels next to it.
 - The chat is told to say what would be deleted or shared, and wait for your yes, before deleting assets, emptying the trash or creating a public shared link.
 

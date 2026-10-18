@@ -217,11 +217,12 @@ Singleton {
                     // Calendar, Drive…), all their tools allowed.
                     property bool connectors: false
                     // The MCP servers of assistant-mcp.json (assistant.mcpServers:
-                    // mcp-nixos, the music apps, LinkedIn…) turned off in
-                    // Settings > Desktop agents. LinkedIn starts off: it acts
+                    // mcp-nixos, the music apps, LinkedIn, Immich…) turned off
+                    // in Settings > Desktop agents. LinkedIn starts off: it acts
                     // on the user's account, and LinkedIn may restrict
-                    // accounts using automation.
-                    property list<string> mcpServersOff: ["linkedin"]
+                    // accounts using automation. Immich, until it is set up
+                    // (ai.immich).
+                    property list<string> mcpServersOff: ["linkedin", "immich"]
                     // Claude speaks as the computer itself, its hardware,
                     // OS and kernel read live (system_info).
                     property bool asComputer: true
@@ -230,6 +231,16 @@ Singleton {
                     // (personal memory), without being asked.
                     property bool autoMemory: true
                     property string memoryModel: "haiku"
+                }
+                // The Immich photo library the side panel's Claude can use
+                // (immich-photo-manager, in assistant.mcpServers): its server,
+                // and optionally a file holding the API key. Otherwise the key
+                // is the one saved in Settings > Desktop agents, kept in the
+                // keyring (secret-tool, service=immich-photo-manager), never
+                // in this file.
+                property JsonObject immich: JsonObject {
+                    property string url: ""
+                    property string apiKeyFile: ""
                 }
             }
 

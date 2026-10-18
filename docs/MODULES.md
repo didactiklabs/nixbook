@@ -714,27 +714,6 @@ Whether to enable per-user Niri compositor configuration. Manages the full Niri 
 
 Whether to enable nixbook-shell, nixbook's Quickshell (QML) desktop shell (`programs.nixbook-shell`, packaged in nixbook-shell/), with the settings shared by every nixbook machine (nixbookShellConfig/settings.nix, as defaults a profile's `nixbookShellConfig.settings` override key by key). This is an alternative to DankMaterialShell (`dmsConfig`) — the two are mutually exclusive, since both draw a top bar, own the lock screen and register overlapping layer-shell surfaces. Flip `dmsConfig.enable` off when turning this on. The shell runs as the `nixbook-shell` user service, bound to `graphical-session.target`. Works under niri and Hyprland; under niri every panel is driven through `nixbook-shell ipc call <target> <function>` keybinds (homeManagerModules/niri/niriConfig.nix, KEYBINDS.md).
 
-### `customHomeManagerModules.nixbookShellConfig.immichMcp.apiKeyFile`
-
-- **Type:** `null or string`
-- **Default:** `null`
-
-File holding an Immich API key (Immich: Account Settings > API Keys), read each time the server starts; `~/` is your home. A path string, not a Nix path, so the key stays out of the store: keep it in a file of your own or an agenix secret (`config.age.secrets.<name>.path`).
-
-### `customHomeManagerModules.nixbookShellConfig.immichMcp.enable`
-
-- **Type:** `boolean`
-- **Default:** `false`
-
-Whether to give the nixbook-shell AI chat (Claude in the side panel, and nothing else: not your own Claude Code or other agents) an Immich photo library, through [immich-photo-manager](https://github.com/drolosoft/immich-photo-manager) (`customPkgs.immich-photo-manager`): search by place, date, text and faces, albums, tags, duplicates, sharing. A local stdio server: nothing listens on the network. The server and API key can also be set in Settings > Desktop agents (checked on the server first) or from the chat ("update my Immich credentials to … with API key …"): both save them in `~/.immich-photo-manager/config.json`, which wins over `url` and `apiKeyFile` until Forget in Settings removes it.
-
-### `customHomeManagerModules.nixbookShellConfig.immichMcp.url`
-
-- **Type:** `null or string`
-- **Default:** `null`
-
-The Immich server's URL.
-
 ### `customHomeManagerModules.nixbookShellConfig.linkedinMcp.enable`
 
 - **Type:** `boolean`
