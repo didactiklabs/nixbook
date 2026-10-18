@@ -171,6 +171,16 @@ ContentPage {
                 color: Appearance.colors.colSubtext
                 text: Translation.tr("None yet.")
             }
+            // What it saw lately and what came of it: why a routine ran or didn't.
+            StyledText {
+                Layout.fillWidth: true
+                visible: Routines.recent.length > 0
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                font.pixelSize: Appearance.font.pixelSize.small
+                text: Translation.tr("Seen lately:") + "\n" + Routines.recent.slice(-6).reverse().map(n =>
+                    `${Qt.formatDateTime(new Date(n.time), "hh:mm")} · ${n.what} · ${n.outcome}`).join("\n")
+            }
             Repeater {
                 model: DesktopControl.memory.routines ?? []
                 delegate: RowLayout {

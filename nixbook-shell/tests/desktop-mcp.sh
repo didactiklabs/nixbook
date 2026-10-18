@@ -1487,6 +1487,13 @@ python3 "$mcp" resume >/dev/null
 python3 "$mcp" routine off "$keys"
 expect_eq "routine off" "it is off" "$(python3 "$mcp" routine run "$keys" '{"event":"plugged"}' | jq -r .why)"
 python3 "$mcp" routine on "$keys"
+# A routine that fails says so in the bar, once a day (failing quietly looks like doing nothing).
+call routine '{"action":"add","text":"When unplugged, press Super+L","when":{"event":"unplugged","cooldown":0},"do":{"tool":"press_keys","args":{"keys":["super+l"]}}}' >/dev/null
+bad=$(jq -r '.routines[-1].id' "$mem")
+expect_contains "routine fails: why" "$(python3 "$mcp" routine run "$bad" '{"event":"unplugged"}' | jq -r .why)" "Super combinations"
+python3 "$mcp" routine run "$bad" '{"event":"unplugged"}' >/dev/null
+expect_eq "routine fails: said once a day" 1 "$(python3 "$mcp" initiative pending | jq '[.[] | select(.text | contains("didn'"'"'t work"))] | length')"
+call routine "{\"action\":\"remove\",\"id\":\"$bad\"}" >/dev/null
 
 # One that takes judgment: a short Claude run with only the servers it names.
 call routine '{"action":"add","text":"When music ends, play something I would like","when":{"event":"music_ended"},"do":{"agent":"Play something the user would like now","servers":["youtube-music"]}}' >/dev/null
