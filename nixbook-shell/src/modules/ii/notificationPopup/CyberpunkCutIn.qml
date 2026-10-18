@@ -274,7 +274,13 @@ Scope {
             focus: true
             Keys.onPressed: event => {
                 if ([Qt.Key_Return, Qt.Key_Enter].includes(event.key)) {
-                    root.activate();
+                    // A key typed while the call opens or types out (e.g.
+                    // Enter in a terminal) only finishes it: the next one
+                    // activates.
+                    if (enterAnim.running || call.typing) {
+                        enterAnim.complete();
+                        typeAnim.complete();
+                    } else root.activate();
                     event.accepted = true;
                 } else if ([Qt.Key_Escape, Qt.Key_Space].includes(event.key)) {
                     root.dismiss();
@@ -591,7 +597,7 @@ Scope {
                         Flow {
                             Layout.fillWidth: true
                             spacing: 10
-                            visible: replyButton.visible || actionsRepeater.count > 0
+                            visible: call.replyMethod !== null || actionsRepeater.count > 0
                             HudButton {
                                 id: replyButton
                                 visible: call.replyMethod !== null

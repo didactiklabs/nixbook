@@ -271,7 +271,13 @@ Scope {
                                     }
 
                                     Repeater {
-                                        model: activeAppsArea.activeUnpinned
+                                        // Keyed by app: TaskbarApps rebuilds its entries on
+                                        // every window change, and a plain array recreated
+                                        // every button (cutting the launch hop, losing hover).
+                                        model: ScriptModel {
+                                            values: activeAppsArea.activeUnpinned
+                                            objectProp: "appId"
+                                        }
                                         delegate: DockAppButton {
                                             required property var modelData
                                             appToplevel: modelData

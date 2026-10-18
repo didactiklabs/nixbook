@@ -324,10 +324,13 @@ Singleton {
     }
 
     // Safety net for a missed change (the watches above cover the rest: the
-    // launcher creates their directories before the shell starts).
+    // launcher creates their directories before the shell starts). Not while
+    // the screens are off (Idle): nothing shows it; caught up on wake. The
+    // MCP server checks the files itself.
     Timer {
         interval: 10000
-        running: true
+        running: !Idle.screensOff
+        triggeredOnStart: true
         repeat: true
         onTriggered: {
             root.now = Date.now();

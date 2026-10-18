@@ -49,10 +49,12 @@ Item {
         return Qt.resolvedUrl(artFilePath)
     }
 
-    property color artDominantColor: ColorUtils.mix(
-        colorQuantizer?.colors[0] ?? Appearance.colors.colPrimary,
-        Appearance.colors.colPrimaryContainer,
-        0.8)
+    // The fallback lives in the binding (assigning it replaced the binding).
+    property color artDominantColor: !root.artUrl ? Appearance.m3colors.m3secondaryContainer
+        : ColorUtils.mix(
+            colorQuantizer?.colors[0] ?? Appearance.colors.colPrimary,
+            Appearance.colors.colPrimaryContainer,
+            0.8)
 
     property QtObject blendedColors: AdaptedMaterialScheme {
         color: root.artDominantColor
@@ -60,7 +62,6 @@ Item {
 
     onArtFilePathChanged: {
         if (!root.artUrl || root.artUrl.length === 0) {
-            root.artDominantColor = Appearance.m3colors.m3secondaryContainer
             root.artDownloaded = false
             return
         }
@@ -80,9 +81,12 @@ Item {
         id: artDownloader
         property string targetFile:  root.artUrl
         property string artFilePath: root.artFilePath
-        command: ["bash", "-c",
-            `[ -f ${artFilePath} ] || curl -sSL '${targetFile}' -o '${artFilePath}'`]
-        onExited: { root.artDownloaded = true }
+        command: ["bash", "-c", '[ -f "$1" ] || { curl -sSL "$2" -o "$1.part.$$" && mv -f "$1.part.$$" "$1"; }; rm -f "$1.part.$$"', "_", artFilePath, targetFile]
+        // A track change while a download runs queues a rerun for the new
+        // cover: only the run fetching the current one marks it ready.
+        property string startedPath
+        onStarted: startedPath = artFilePath
+        onExited: if (startedPath === root.artFilePath) root.artDownloaded = true
     }
 
     ColorQuantizer {

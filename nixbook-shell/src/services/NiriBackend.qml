@@ -11,6 +11,10 @@ Scope {
     property var activeWorkspace: null
     property var monitors: []
     property var focusedMonitor: null
+    // Keyboard layouts (NiriXkb reads them: one event stream for the shell)
+    property var keyboardLayoutNames: []
+    property int keyboardLayoutIdx: 0
+    property bool keyboardLayoutsKnown: false
 
     function switchWorkspaceRelative(direction) {
         Quickshell.execDetached(["niri", "msg", "action", direction === "next" ? "focus-workspace-down" : "focus-workspace-up"]);
@@ -212,8 +216,16 @@ Scope {
         case "ConfigLoaded":
             getOutputs.running = true;
             return;
+        case "KeyboardLayoutsChanged":
+            root.keyboardLayoutNames = d.keyboard_layouts?.names ?? [];
+            root.keyboardLayoutIdx = d.keyboard_layouts?.current_idx ?? 0;
+            root.keyboardLayoutsKnown = true;
+            return;
+        case "KeyboardLayoutSwitched":
+            root.keyboardLayoutIdx = d.idx ?? 0;
+            return;
         default:
-            return; // keyboard layouts, overview, casts, screenshots...
+            return; // overview, casts, screenshots...
         }
         root.publish();
     }

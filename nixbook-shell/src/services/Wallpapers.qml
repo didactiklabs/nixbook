@@ -189,16 +189,19 @@ Singleton {
         function setDirectoryIfValid(path) {
             validateDirProc.nicePath = FileUtils.trimFileProtocol(path).replace(/\/+$/, "")
             if (/^\/*$/.test(validateDirProc.nicePath)) validateDirProc.nicePath = "/";
+            // The path is an argument, never part of the script (folder names
+            // can hold quotes, `$(` or backticks).
             validateDirProc.exec([
                 "bash", "-c",
-                `if [ -d "${validateDirProc.nicePath}" ]; then echo dir; elif [ -f "${validateDirProc.nicePath}" ]; then echo file; else echo invalid; fi`
+                'if [ -d "$1" ]; then echo dir; elif [ -f "$1" ]; then echo file; else echo invalid; fi',
+                "_", validateDirProc.nicePath
             ])
         }
         stdout: StdioCollector {
             onStreamFinished: {
-                    root.directory = Qt.resolvedUrl(validateDirProc.nicePath)
                 const result = text.trim()
                 if (result === "dir") {
+                    root.directory = Qt.resolvedUrl(validateDirProc.nicePath)
                 } else if (result === "file") {
                     root.directory = Qt.resolvedUrl(FileUtils.parentDirectory(validateDirProc.nicePath))
                 } else {
@@ -512,7 +515,9 @@ Singleton {
         thumbgenProc.directory = dir
         thumbgenProc.command = [
             "bash", "-c",
-            `${thumbgenScriptPath} --size ${size} --machine_progress -d ${FileUtils.trimFileProtocol(dir)} || ${generateThumbnailsMagickScriptPath} --size ${size} -d ${FileUtils.trimFileProtocol(dir)}`,
+            // Arguments, not interpolated: folders with spaces or quotes got no thumbnails.
+            '"$1" --size "$3" --machine_progress -d "$4" || "$2" --size "$3" -d "$4"',
+            "_", thumbgenScriptPath, generateThumbnailsMagickScriptPath, String(size), FileUtils.trimFileProtocol(dir),
         ]
         // console.log("[Wallpapers] Updating thumbnails with command ", thumbgenProc.command.join(" "))
         root.thumbnailGenerationProgress = 0

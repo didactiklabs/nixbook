@@ -14,35 +14,35 @@ RippleButton {
     required property QsMenuEntry menuEntry
     property bool forceIconColumn: false
     property bool forceSpecialInteractionColumn: false
-    readonly property bool hasIcon: menuEntry.icon.length > 0
-    readonly property bool hasSpecialInteraction: menuEntry.buttonType !== QsMenuButtonType.None
+    readonly property bool hasIcon: (menuEntry?.icon ?? "").length > 0
+    readonly property bool hasSpecialInteraction: (menuEntry?.buttonType ?? QsMenuButtonType.None) !== QsMenuButtonType.None
 
     signal dismiss()
     signal openSubmenu(handle: QsMenuHandle)
 
-    colBackground: menuEntry.isSeparator ? Appearance.m3colors.m3outlineVariant : ColorUtils.transparentize(Appearance.colors.colLayer0)
-    enabled: !menuEntry.isSeparator
+    colBackground: menuEntry?.isSeparator ? Appearance.m3colors.m3outlineVariant : ColorUtils.transparentize(Appearance.colors.colLayer0)
+    enabled: !menuEntry?.isSeparator
     opacity: 1
 
     horizontalPadding: 12
     implicitWidth: contentItem.implicitWidth + horizontalPadding * 2
-    implicitHeight: menuEntry.isSeparator ? 1 : 36
-    Layout.topMargin: menuEntry.isSeparator ? 4 : 0
-    Layout.bottomMargin: menuEntry.isSeparator ? 4 : 0
+    implicitHeight: menuEntry?.isSeparator ? 1 : 36
+    Layout.topMargin: menuEntry?.isSeparator ? 4 : 0
+    Layout.bottomMargin: menuEntry?.isSeparator ? 4 : 0
     Layout.fillWidth: true
 
     Component.onCompleted: {
-        if (menuEntry.isSeparator) {
+        if (menuEntry?.isSeparator) {
             root.buttonColor = root.colBackground;
         }
     }
 
     releaseAction: () => { 
-        if (menuEntry.hasChildren) {
+        if (menuEntry?.hasChildren) {
             root.openSubmenu(root.menuEntry);
             return;
         }
-        menuEntry.triggered();
+        menuEntry?.triggered();
         root.dismiss(); 
     }
     altAction: (event) => { // Not hog right-click
@@ -59,7 +59,7 @@ RippleButton {
             rightMargin: root.horizontalPadding
         }
         spacing: 8
-        visible: !root.menuEntry.isSeparator
+        visible: !root.menuEntry?.isSeparator
 
         // Interaction: checkbox or radio button
         Item {
@@ -69,21 +69,21 @@ RippleButton {
 
             Loader {
                 anchors.fill: parent
-                active: root.menuEntry.buttonType === QsMenuButtonType.RadioButton
+                active: root.menuEntry?.buttonType === QsMenuButtonType.RadioButton
 
                 sourceComponent: StyledRadioButton {
                     enabled: false
                     padding: 0
-                    checked: root.menuEntry.checkState === Qt.Checked
+                    checked: root.menuEntry?.checkState === Qt.Checked
                 }
             }
 
             Loader {
                 anchors.fill: parent
-                active: root.menuEntry.buttonType === QsMenuButtonType.CheckBox && root.menuEntry.checkState !== Qt.Unchecked
+                active: root.menuEntry?.buttonType === QsMenuButtonType.CheckBox && root.menuEntry?.checkState !== Qt.Unchecked
 
                 sourceComponent: MaterialSymbol {
-                    text: root.menuEntry.checkState === Qt.PartiallyChecked ? "check_indeterminate_small" : "check"
+                    text: root.menuEntry?.checkState === Qt.PartiallyChecked ? "check_indeterminate_small" : "check"
                     iconSize: 20
                 }
             }
@@ -97,10 +97,10 @@ RippleButton {
 
             Loader {
                 anchors.centerIn: parent
-                active: root.menuEntry.icon.length > 0
+                active: (root.menuEntry?.icon ?? "").length > 0
                 sourceComponent: IconImage {
                     asynchronous: true
-                    source: root.menuEntry.icon
+                    source: root.menuEntry?.icon ?? ""
                     implicitSize: 20
                     mipmap: true
                 }
@@ -109,13 +109,13 @@ RippleButton {
 
         StyledText {
             id: label
-            text: root.menuEntry.text
+            text: root.menuEntry?.text ?? ""
             font.pixelSize: Appearance.font.pixelSize.smallie
             Layout.fillWidth: true
         }
 
         Loader {
-            active: root.menuEntry.hasChildren
+            active: root.menuEntry?.hasChildren ?? false
 
             sourceComponent: MaterialSymbol {
                 text: "chevron_right"

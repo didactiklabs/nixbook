@@ -133,6 +133,7 @@ Singleton {
     }
 
     function startLogs() {
+        root.logLines = []
         root.logText = ""
         root.viewingLogs = true
         root.logProcess.running = true
@@ -199,27 +200,26 @@ Singleton {
 
     property Process changelogProcess: Process {
         command: ["curl", "-sfL", "--max-time", "15", `https://api.github.com/repos/${root.repoOwner}/${root.repoName}/compare/${root.localRev}...${root.remoteRev}`]
-        property string buffer: ""
-        stdout: SplitParser {
-            onRead: line => root.changelogProcess.buffer += line
+        // The whole response at once: /compare is pretty-printed JSON with
+        // the file patches (can be MBs), and `buffer += line` per line forced
+        // full GC passes.
+        stdout: StdioCollector {
+            id: changelogCollector
         }
         onExited: code => {
-            if (!root.checking) { // the watchdog gave up on it
-                root.changelogProcess.buffer = ""
-                return
-            }
+            if (!root.checking) return // the watchdog gave up on it
             // The changelog is a bonus: the check succeeded without it
             // (e.g. GitHub's API rate limit).
             root.finishCheck()
-            if (code === 0 && root.changelogProcess.buffer.trim()) {
+            const text = changelogCollector.text
+            if (code === 0 && text.trim()) {
                 try {
-                    const data = JSON.parse(root.changelogProcess.buffer)
+                    const data = JSON.parse(text)
                     root.changelogText = (data.commits || []).map(c => `- ${c.commit.message.split('\n')[0]}`).join('\n')
                 } catch (e) {
                     console.error("UpdateState: Failed to parse changelog:", e)
                 }
             }
-            root.changelogProcess.buffer = ""
         }
     }
 
@@ -299,19 +299,25 @@ Singleton {
 
     property Process logProcess: Process {
         command: ["journalctl", "-u", "nixos-upgrade-manual", "-f", "--no-pager", "-o", "cat"]
+        // Lines collect in a plain array (last 500) and logText is published
+        // at most every 100 ms: re-splitting and re-joining the whole text on
+        // each line was quadratic while colmena streams.
         stdout: SplitParser {
             onRead: line => {
-                root.logText += line + "\n"
-                // Keep last 500 lines to avoid unbounded growth
-                const lines = root.logText.split("\n")
-                if (lines.length > 500) {
-                    root.logText = lines.slice(-500).join("\n")
-                }
+                root.logLines.push(line)
+                if (root.logLines.length > 500) root.logLines.splice(0, root.logLines.length - 500)
+                if (!root.logPublishTimer.running) root.logPublishTimer.start()
             }
         }
         onExited: code => {
             root.viewingLogs = false
         }
+    }
+
+    property var logLines: []
+    property Timer logPublishTimer: Timer {
+        interval: 100
+        onTriggered: root.logText = root.logLines.join("\n") + "\n"
     }
 
     // Periodic check — driven by the same config as the old service, so the

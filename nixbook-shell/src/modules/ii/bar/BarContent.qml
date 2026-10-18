@@ -225,13 +225,18 @@ Item {
                             paintMaterialPill: root.shouldPaintMaterialPill(modelData)
                             bgColor: root.getMaterialPillColor(modelData)
                             Loader {
+                                id: barWidget1
                                 Layout.fillHeight: true
                                 active: root.isMaterial
                                 source: root.getWidgetUrl(modelData)
                                 InteractionFx {} // hover lift / press squish
-                                onLoaded: {
-                                    if (item && item.hasOwnProperty("mirrored"))
-                                        item.mirrored = root.getMirroredForIndex(root.effectiveLeftLayout, index)
+                                // A binding, not a one-shot assignment: a reordered layout keeps
+                                // the delegate (ScriptModel) and moves its index.
+                                Binding {
+                                    target: barWidget1.item
+                                    property: "barMirrored"
+                                    value: root.getMirroredForIndex(root.effectiveLeftLayout, index)
+                                    when: barWidget1.item?.barMirrored !== undefined
                                 }
                             }
                         }
@@ -263,13 +268,16 @@ Item {
                         currentIndex: index
                         totalCount: root.effectiveLeftLayout.length
                         Loader {
+                            id: barWidget2
                             Layout.fillHeight: true
                             active: !root.isMaterial
                             source: root.getWidgetUrl(modelData)
                             InteractionFx {} // hover lift / press squish
-                            onLoaded: {
-                                if (item && item.hasOwnProperty("mirrored"))
-                                    item.mirrored = root.getMirroredForIndex(root.effectiveLeftLayout, index)
+                            Binding {
+                                target: barWidget2.item
+                                property: "barMirrored"
+                                value: root.getMirroredForIndex(root.effectiveLeftLayout, index)
+                                when: barWidget2.item?.barMirrored !== undefined
                             }
                         }
                     }
@@ -278,15 +286,18 @@ Item {
                 Component {
                     id: leftNoGroupDelegate
                     Loader {
+                        id: barWidget3
                         Layout.fillHeight: false
                         Layout.topMargin: Config.options.bar.bottom ? -5 : 3
                         Layout.alignment: Qt.AlignVCenter
                         active: !root.isMaterial
                         source: root.getWidgetUrl(modelData)
                         InteractionFx {} // hover lift / press squish
-                        onLoaded: {
-                            if (item && item.hasOwnProperty("mirrored"))
-                                item.mirrored = root.getMirroredForIndex(root.effectiveLeftLayout, index)
+                        Binding {
+                            target: barWidget3.item
+                            property: "barMirrored"
+                            value: root.getMirroredForIndex(root.effectiveLeftLayout, index)
+                            when: barWidget3.item?.barMirrored !== undefined
                         }
                     }
                 }
@@ -354,13 +365,16 @@ Item {
                             paintMaterialPill: root.shouldPaintMaterialPill(modelData)
                             bgColor: root.getMaterialPillColor(modelData)
                             Loader {
+                                id: barWidget4
                                 Layout.fillHeight: true
                                 active: root.isMaterial
                                 source: root.getWidgetUrl(modelData)
                                 InteractionFx {} // hover lift / press squish
-                                onLoaded: {
-                                    if (item && item.hasOwnProperty("mirrored"))
-                                        item.mirrored = root.getMirroredForIndex(root.effectiveMiddleLayout, index)
+                                Binding {
+                                    target: barWidget4.item
+                                    property: "barMirrored"
+                                    value: root.getMirroredForIndex(root.effectiveMiddleLayout, index)
+                                    when: barWidget4.item?.barMirrored !== undefined
                                 }
                             }
                         }
@@ -393,13 +407,16 @@ Item {
                         paintBackground: modelData !== "dynamicIsland"
                         totalCount: root.effectiveMiddleLayout.length
                         Loader {
+                            id: barWidget5
                             Layout.fillHeight: true
                             active: !root.isMaterial
                             source: root.getWidgetUrl(modelData)
                             InteractionFx {} // hover lift / press squish
-                            onLoaded: {
-                                if (item && item.hasOwnProperty("mirrored"))
-                                    item.mirrored = root.getMirroredForIndex(root.effectiveMiddleLayout, index)
+                            Binding {
+                                target: barWidget5.item
+                                property: "barMirrored"
+                                value: root.getMirroredForIndex(root.effectiveMiddleLayout, index)
+                                when: barWidget5.item?.barMirrored !== undefined
                             }
                         }
                     }
@@ -408,14 +425,17 @@ Item {
                 Component {
                     id: middleNoGroupDelegate
                     Loader {
+                        id: barWidget6
                         Layout.fillHeight: false
                         Layout.topMargin: Config.options.bar.bottom ? -5 : 3
                         active: !root.isMaterial
                         source: root.getWidgetUrl(modelData)
                         InteractionFx {} // hover lift / press squish
-                        onLoaded: {
-                            if (item && item.hasOwnProperty("mirrored"))
-                                item.mirrored = root.getMirroredForIndex(root.effectiveMiddleLayout, index)
+                        Binding {
+                            target: barWidget6.item
+                            property: "barMirrored"
+                            value: root.getMirroredForIndex(root.effectiveMiddleLayout, index)
+                            when: barWidget6.item?.barMirrored !== undefined
                         }
                     }
                 }
@@ -461,16 +481,16 @@ Item {
                             paintMaterialPill: root.shouldPaintMaterialPill(modelData)
                             bgColor: root.getMaterialPillColor(modelData)
                             Loader {
+                                id: barWidget7
                                 Layout.fillHeight: true
                                 active: root.isMaterial
                                 source: root.getWidgetUrl(modelData)
                                 InteractionFx {} // hover lift / press squish
-                                onLoaded: {
-                                    if (item && item.hasOwnProperty("mirrored")) {
-                                        try {
-                                            item.mirrored = root.getMirroredForIndex(root.effectiveRightLayout, index);
-                                        } catch (e) {}
-                                    }
+                                Binding {
+                                    target: barWidget7.item
+                                    property: "barMirrored"
+                                    value: root.getMirroredForIndex(root.effectiveRightLayout, index)
+                                    when: barWidget7.item?.barMirrored !== undefined
                                 }
                             }
                         }
@@ -502,16 +522,16 @@ Item {
                         currentIndex: index
                         totalCount: root.effectiveRightLayout.length
                         Loader {
+                            id: barWidget8
                             Layout.fillHeight: true
                             active: !root.isMaterial
                             source: root.getWidgetUrl(modelData)
                             InteractionFx {} // hover lift / press squish
-                            onLoaded: {
-                                if (item && item.hasOwnProperty("mirrored")) {
-                                    try {
-                                        item.mirrored = root.getMirroredForIndex(root.effectiveRightLayout, index);
-                                    } catch (e) {}
-                                }
+                            Binding {
+                                target: barWidget8.item
+                                property: "barMirrored"
+                                value: root.getMirroredForIndex(root.effectiveRightLayout, index)
+                                when: barWidget8.item?.barMirrored !== undefined
                             }
                         }
                     }
@@ -520,17 +540,17 @@ Item {
                 Component {
                     id: rightNoGroupDelegate
                     Loader {
+                        id: barWidget9
                         Layout.fillHeight: false
                         Layout.topMargin: Config.options.bar.bottom ? -5 : 3
                         active: !root.isMaterial
                         source: root.getWidgetUrl(modelData)
                         InteractionFx {} // hover lift / press squish
-                        onLoaded: {
-                            if (item && item.hasOwnProperty("mirrored")) {
-                                try {
-                                    item.mirrored = root.getMirroredForIndex(root.effectiveRightLayout, index);
-                                } catch (e) {}
-                            }
+                        Binding {
+                            target: barWidget9.item
+                            property: "barMirrored"
+                            value: root.getMirroredForIndex(root.effectiveRightLayout, index)
+                            when: barWidget9.item?.barMirrored !== undefined
                         }
                     }
                 }

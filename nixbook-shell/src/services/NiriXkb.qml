@@ -86,23 +86,25 @@ Singleton {
         }
     }
 
-    Component.onCompleted: {
-        refresh();
-        eventStream.running = true;
+    // Layout changes come from the niri backend's event stream (a second
+    // `niri msg event-stream` here parsed every niri event twice, including
+    // the per-frame WindowLayoutsChanged ones).
+    function applyFromBackend() {
+        const backend = WM.backend;
+        if (!backend?.keyboardLayoutsKnown) return;
+        root.layoutNames = backend.keyboardLayoutNames;
+        root.currentIdx = backend.keyboardLayoutIdx;
+        root.currentLayoutName = root.layoutNames[root.currentIdx] ?? "";
+    }
+    Connections {
+        target: WM.backend
+        function onKeyboardLayoutNamesChanged() { root.applyFromBackend() }
+        function onKeyboardLayoutIdxChanged() { root.applyFromBackend() }
+        function onKeyboardLayoutsKnownChanged() { root.applyFromBackend() }
     }
 
-    Process {
-        id: eventStream
-        running: false
-        command: ["niri", "msg", "-j", "event-stream"]
-        stdout: SplitParser {
-            splitMarker: "\n"
-            onRead: (line) => {
-                if (line.indexOf("KeyboardLayout") !== -1) refreshDebounce.restart();
-            }
-        }
-        onExited: restartTimer.restart()
+    Component.onCompleted: {
+        if (WM.backend?.keyboardLayoutsKnown) applyFromBackend();
+        else refresh();
     }
-    Timer { id: restartTimer; interval: 1000; onTriggered: eventStream.running = true }
-    Timer { id: refreshDebounce; interval: 80; onTriggered: root.refresh() }
 }

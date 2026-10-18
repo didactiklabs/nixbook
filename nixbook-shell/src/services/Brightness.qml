@@ -18,9 +18,15 @@ Singleton {
     signal brightnessChanged()
 
     property var ddcMonitors: []
-    readonly property list<BrightnessMonitor> monitors: Quickshell.screens.map(screen => monitorComp.createObject(root, {
-        screen
-    }))
+    // One per screen, kept across hotplugs (Variants reuses the instances of
+    // screens still there and destroys the others): createObject() in this
+    // binding left every old set alive on each screen change.
+    readonly property var monitors: monitorVariants.instances
+    Variants {
+        id: monitorVariants
+        model: Quickshell.screens
+        BrightnessMonitor {}
+    }
 
     function getMonitorForScreen(screen: ShellScreen): var {
         return monitors.find(m => m.screen === screen);
@@ -86,14 +92,11 @@ Singleton {
         onExited: root.ddcDetectFinished()
     }
 
-    Process {
-        id: setProc
-    }
-
     component BrightnessMonitor: QtObject {
         id: monitor
 
-        required property ShellScreen screen
+        required property var modelData
+        readonly property ShellScreen screen: modelData
         property bool isDdc
         property string busNum
         property int rawMaxBrightness: 100
@@ -115,10 +118,7 @@ Singleton {
                 easing.bezierCurve: Appearance.animationCurves.expressiveEffects
             }
         }
-        onAppliedBrightnessChanged: {
-            if (monitor.animationEnabled) syncBrightness();
-            else setTimer.restart();
-        }
+        onAppliedBrightnessChanged: setTimer.restart()
 
         function initialize() {
             monitor.ready = false;
@@ -143,6 +143,10 @@ Singleton {
             }
         }
 
+        // Its own: with one shared process, exec() killed another monitor's
+        // write still in flight (two DDC monitors syncing together).
+        readonly property Process setProc: Process {}
+
         // We need a delay for DDC monitors because they can be quite slow and might act weird with rapid changes
         property var setTimer: Timer {
             id: setTimer
@@ -156,12 +160,12 @@ Singleton {
             const brightnessValue = Math.max(monitor.appliedBrightness, 0);
             if (isDdc) {
                 const rawValueRounded = Math.max(Math.floor(brightnessValue * monitor.rawMaxBrightness), 1);
-                setProc.exec(["ddcutil", "-b", busNum, "setvcp", "10", rawValueRounded]);
+                monitor.setProc.exec(["ddcutil", "-b", busNum, "setvcp", "10", rawValueRounded]);
             } else {
                 const valuePercentNumber = Math.floor(brightnessValue * 100);
                 let valuePercent = `${valuePercentNumber}%`;
                 if (valuePercentNumber == 0) valuePercent = "1%"; // Prevent fully black
-                setProc.exec(["brightnessctl", "--class", "backlight", "s", valuePercent, "--quiet"])
+                monitor.setProc.exec(["brightnessctl", "--class", "backlight", "s", valuePercent, "--quiet"])
             }
         }
 
@@ -169,12 +173,6 @@ Singleton {
             value = Math.max(0, Math.min(1, value));
             monitor.brightness = value;
         }
-    }
-
-    Component {
-        id: monitorComp
-
-        BrightnessMonitor {}
     }
 
     // External trigger points

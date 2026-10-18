@@ -499,12 +499,12 @@ Rectangle {
                                 }
                                 StyledText {
                                     Layout.fillWidth: true
-                                    text: calRow.modelData.name
+                                    text: calRow.modelData.name ?? ""
                                     elide: Text.ElideRight
                                     color: calRow.modelData.hidden ? Appearance.colors.colSubtext : Appearance.colors.colOnLayer1
                                 }
                                 MaterialSymbol {
-                                    visible: calRow.modelData.readOnly
+                                    visible: calRow.modelData.readOnly ?? false
                                     text: "lock"
                                     iconSize: Appearance.font.pixelSize.normal
                                     color: Appearance.colors.colSubtext

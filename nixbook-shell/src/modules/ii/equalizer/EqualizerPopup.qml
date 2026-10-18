@@ -129,7 +129,12 @@ Scope {
         id: coverArtDownloader
         property string targetFile: root.artUrl
         property string targetPath: root.artFilePath
-        command: ["bash", "-c", `[ -f ${targetPath} ] || curl -4 -sSL '${targetFile}' -o '${targetPath}'`]
+        // Arguments, never interpolated: the URL is player-supplied. Fetched to
+        // a per-process .part file and renamed, so a half-written cover shared
+        // with the other media widgets is never kept.
+        command: ["bash", "-c", '[ -f "$1" ] || { curl -4 -sSL "$2" -o "$1.part.$$" && mv -f "$1.part.$$" "$1"; }; rm -f "$1.part.$$"', "_", targetPath, targetFile]
+        property string startedPath
+        onStarted: startedPath = targetPath
         // Keep the visible art on the live MPRIS URL for the current frame -
         // do not replace it on download completion, since that can make the
         // background briefly wait on a local-file reload and can race when
@@ -137,7 +142,8 @@ Scope {
         // points at local files, so swapping it here is safe and is what
         // actually lets ColorQuantizer read the art at all.
         onExited: (exitCode, exitStatus) => {
-            if (exitCode === 0) root.colorSourceFilePath = Qt.resolvedUrl(root.artFilePath)
+            // A rerun queued by a track change follows: only the current cover counts.
+            if (exitCode === 0 && startedPath === root.artFilePath) root.colorSourceFilePath = Qt.resolvedUrl(root.artFilePath)
         }
     }
 

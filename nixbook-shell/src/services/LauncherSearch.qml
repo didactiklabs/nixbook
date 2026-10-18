@@ -376,8 +376,7 @@ Singleton {
             const start = Date.now();
             while (pending.length > 0 && Date.now() - start < 6) {
                 const entry = pending.shift();
-                root.appResultFor(entry);
-                Quickshell.iconPath(entry.icon, true);
+                if (root.appResultFor(entry)) Quickshell.iconPath(entry.icon, true);
             }
             if (pending.length === 0) {
                 stop();
@@ -408,10 +407,15 @@ Singleton {
         return AppSearch.list
             .map(entry => ({ entry: entry, score: AppSearch.frecencyBonus(entry.id) }))
             .sort((a, b) => (b.score - a.score) || a.entry.name.localeCompare(b.entry.name))
-            .map(item => root.appResultFor(item.entry));
+            .map(item => root.appResultFor(item.entry))
+            .filter(r => r !== null);
     }
 
     function appResultFor(entry) {
+        // A desktop entry destroyed by a rescan still sits in the old list
+        // until it is re-read: every field undefined ("Could not set initial
+        // property" × 9), and a tile that launches nothing.
+        if (!entry || entry.id === undefined) return null;
         const key = entry.id || entry.name;
         const cached = root.appResultCache[key];
         if (cached && root.appResultEntries[key] === entry && cached.name === entry.name && cached.iconName === entry.icon)
@@ -724,7 +728,7 @@ Singleton {
             });
         }
 
-        const appResultObjects = AppSearch.fuzzyQuery(StringUtils.cleanPrefix(root.query, Config.options.search.prefix.app)).map(entry => root.appResultFor(entry));
+        const appResultObjects = AppSearch.fuzzyQuery(StringUtils.cleanPrefix(root.query, Config.options.search.prefix.app)).map(entry => root.appResultFor(entry)).filter(r => r !== null);
         ////////////////// Settings search //////////////////
         const settingsQuery = root.query.toLowerCase().trim();
         const settingsResults = settingsQuery === "" ? [] : root.settingsIndex.reduce((acc, page) => {

@@ -127,7 +127,7 @@ Item {
         root.error = ""
         const finish = r => {
             root.saving = false
-            if (r?.ok) root.done(r.result.id)
+            if (r?.ok) root.done(r.result?.id ?? root.contact?.id ?? "")
             else root.error = r?.error ?? Translation.tr("Couldn't save")
         }
         if (root.isNew) Contacts.create(Object.assign({ account: root.account }, f), finish)

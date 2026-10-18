@@ -193,7 +193,10 @@ Scope {
             focus: true
             Keys.onPressed: event => {
                 if ([Qt.Key_Return, Qt.Key_Enter].includes(event.key)) {
-                    root.activate();
+                    // A key typed while the card drifts in (e.g. Enter in a
+                    // terminal) only settles it: the next one activates.
+                    if (enterAnim.running) enterAnim.complete();
+                    else root.activate();
                     event.accepted = true;
                 } else if ([Qt.Key_Escape, Qt.Key_Space].includes(event.key)) {
                     root.dismiss();
@@ -499,7 +502,7 @@ Scope {
                         Flow {
                             Layout.fillWidth: true
                             spacing: 10
-                            visible: replyButton.visible || actionsRepeater.count > 0
+                            visible: card.replyMethod !== null || actionsRepeater.count > 0
                             SoftButton {
                                 id: replyButton
                                 visible: card.replyMethod !== null

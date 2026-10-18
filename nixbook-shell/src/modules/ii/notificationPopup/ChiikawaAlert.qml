@@ -332,7 +332,7 @@ Scope {
                         Flow {
                             Layout.fillWidth: true
                             spacing: 8
-                            visible: replyButton.visible || actionsRepeater.count > 0
+                            visible: alert.replyMethod !== null || actionsRepeater.count > 0
                             PillButton {
                                 id: replyButton
                                 visible: alert.replyMethod !== null

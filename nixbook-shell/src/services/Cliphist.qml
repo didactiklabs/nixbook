@@ -49,13 +49,15 @@ Singleton {
     }
 
     function refresh() {
-        readProc.buffer = []
+        // While a run is in flight this queues one more (Process restarts it).
         readProc.running = true
     }
 
+    // Entries go to the commands as arguments: as printf's format string a
+    // `%` or `\` in the copied text broke the decode.
     function copy(entry) {
         if (root.cliphistBinary.includes("cliphist")) // Classic cliphist
-            Quickshell.execDetached(["bash", "-c", `printf '${StringUtils.shellSingleQuoteEscape(entry)}' | ${root.cliphistBinary} decode | wl-copy`]);
+            Quickshell.execDetached(["bash", "-c", `printf '%s' "$1" | ${root.cliphistBinary} decode | wl-copy`, "_", entry]);
         else { // Stash
             const entryNumber = entry.split("\t")[0];
             Quickshell.execDetached(["bash", "-c", `${root.cliphistBinary} decode ${entryNumber} | wl-copy`]);
@@ -64,7 +66,7 @@ Singleton {
 
     function paste(entry) {
         if (root.cliphistBinary.includes("cliphist")) // Classic cliphist
-            Quickshell.execDetached(["bash", "-c", `printf '${StringUtils.shellSingleQuoteEscape(entry)}' | ${root.cliphistBinary} decode | wl-copy && wl-paste`]);
+            Quickshell.execDetached(["bash", "-c", `printf '%s' "$1" | ${root.cliphistBinary} decode | wl-copy && wl-paste`, "_", entry]);
         else { // Stash
             const entryNumber = entry.split("\t")[0];
             Quickshell.execDetached(["bash", "-c", `${root.cliphistBinary} decode ${entryNumber} | wl-copy; ${root.pressPasteCommand}`]);
@@ -77,22 +79,31 @@ Singleton {
             if (!isImage) return true;
             return entryIsImage(entry);
         }).slice(0, count)
-        const pasteCommands = [...targetEntries].reverse().map(entry => `printf '${StringUtils.shellSingleQuoteEscape(entry)}' | ${root.cliphistBinary} decode | wl-copy && sleep ${root.pasteDelay} && ${root.pressPasteCommand}`)
-        // Act
-        Quickshell.execDetached(["bash", "-c", pasteCommands.join(` && sleep ${root.pasteDelay} && `)]);
+        // Act: oldest first, stopping at the first failure
+        Quickshell.execDetached(["bash", "-c", `first=1; for e in "$@"; do `
+            + `[ "$first" = 1 ] || sleep ${root.pasteDelay}; first=0; `
+            + `printf '%s' "$e" | ${root.cliphistBinary} decode | wl-copy && sleep ${root.pasteDelay} && ${root.pressPasteCommand} || exit 1; done`,
+            "_", ...[...targetEntries].reverse()]);
     }
 
+    // Deletes requested while one runs are queued and sent together (cliphist
+    // deletes every line it reads): the old single `entry` property was
+    // cleared right after starting, so a second delete ran with nothing.
     Process {
         id: deleteProc
-        property string entry: ""
-        command: ["bash", "-c", `echo '${StringUtils.shellSingleQuoteEscape(deleteProc.entry)}' | ${root.cliphistBinary} delete`]
+        property list<string> queue: []
         function deleteEntry(entry) {
-            deleteProc.entry = entry;
-            deleteProc.running = true;
-            deleteProc.entry = "";
+            deleteProc.queue = [...deleteProc.queue, entry];
+            if (!deleteProc.running) deleteProc.startNext();
+        }
+        function startNext() {
+            const entries = deleteProc.queue;
+            deleteProc.queue = [];
+            deleteProc.exec(["bash", "-c", `printf '%s\\n' "$@" | ${root.cliphistBinary} delete`, "_", ...entries]);
         }
         onExited: (exitCode, exitStatus) => {
-            root.refresh();
+            if (deleteProc.queue.length > 0) deleteProc.startNext();
+            else root.refresh();
         }
     }
 
@@ -132,19 +143,20 @@ Singleton {
 
     Process {
         id: readProc
-        property list<string> buffer: []
 
         command: [root.cliphistBinary, "list"]
 
-        stdout: SplitParser {
-            onRead: (line) => {
-                readProc.buffer.push(line)
-            }
+        // The whole list at once: pushing each line onto a list property
+        // rewrote it per line (O(n²)), and refresh() resetting it mid-run
+        // duplicated the history.
+        stdout: StdioCollector {
+            id: readCollector
         }
 
         onExited: (exitCode, exitStatus) => {
             if (exitCode === 0) {
-                root.entries = readProc.buffer
+                const text = readCollector.text;
+                root.entries = text.length > 0 ? text.replace(/\n$/, "").split("\n") : []
             } else {
                 root.entries = []
                 console.error("[Cliphist] Failed to refresh with code", exitCode, "and status", exitStatus)

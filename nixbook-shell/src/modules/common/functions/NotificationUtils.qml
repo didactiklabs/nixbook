@@ -104,6 +104,9 @@ Singleton {
             }
         }
 
+        // Remote images would be fetched by the text renderer as soon as the
+        // notification shows (a tracking pixel): only local ones are kept.
+        processedBody = processedBody.replace(/<img\b[^>]*\bsrc\s*=\s*["']?\s*(?:https?:)?\/\/[^>]*>/gi, '');
         processedBody = processedBody.replace(/<img/gi, '\n\n<img');
 
         return processedBody

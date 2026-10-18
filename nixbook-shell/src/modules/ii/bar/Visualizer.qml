@@ -11,7 +11,7 @@ Item {
     id: root
     property bool vertical: Config.options.bar.vertical
     property bool isMaterial: Config.options.bar.cornerStyle === 3
-    property bool mirrored: false
+    property bool barMirrored: false
     readonly property MprisPlayer activePlayer: MprisController.activePlayer
     readonly property bool isPlaying: activePlayer?.isPlaying ?? false
     readonly property list<real> points: GlobalStates.visualizerPoints
@@ -35,7 +35,7 @@ Item {
         : Appearance.sizes.barHeight
 
     transform: Scale {
-        xScale: !root.vertical && root.mirrored ? -1 : 1
+        xScale: !root.vertical && root.barMirrored ? -1 : 1
         origin.x: root.width / 2
     }
 
@@ -81,7 +81,7 @@ Item {
                 height: root.dotSize
                 property real pointValue: {
                     if (!root.isPlaying || root.points.length === 0) return root.dotSize
-                    const rawIndex = root.mirrored ? (root.barCount - 1 - index) : index
+                    const rawIndex = root.barMirrored ? (root.barCount - 1 - index) : index
                     const idx = Math.floor(rawIndex * root.points.length / root.barCount)
                     const v = root.points[idx] ?? 0
                     return Math.max(root.dotSize, (v / root.maxVisualizerValue) * root.maxBarHeight)

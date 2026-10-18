@@ -163,11 +163,11 @@ Singleton {
     Process {
         id: rescanProcess
         command: ["nmcli", "dev", "wifi", "list", "--rescan", "yes"]
-        stdout: SplitParser {
-            onRead: {
-                wifiScanning = false;
-                getNetworks.running = true;
-            }
+        // On exit, not on the first line: a failed scan prints nothing and
+        // left the spinner on.
+        onExited: {
+            root.wifiScanning = false;
+            getNetworks.running = true;
         }
     }
 
@@ -178,6 +178,7 @@ Singleton {
         updateNetworkName.running = true;
         updateNetworkStrength.running = true;
         updateNetworkDetails.running = true; // public IP too, if the connection changed
+        getNetworks.running = true; // `active` (the bar's signal icon) comes from it
     }
 
     // `nmcli monitor` prints bursts of lines (connecting, roaming, resume,
@@ -214,32 +215,34 @@ Singleton {
 
     Process {
         id: updateConnectionType
-        property string buffer
         command: ["sh", "-c", "nmcli -t -f TYPE,STATE d status && nmcli -t -f CONNECTIVITY g"]
         running: true
         function startCheck() {
-            buffer = "";
             updateConnectionType.running = true;
         }
-        stdout: SplitParser {
-            onRead: data => {
-                updateConnectionType.buffer += data + "\n";
-            }
+        // One run's whole output: a buffer reset by startCheck() while a run was
+        // in flight mixed two runs' lines.
+        stdout: StdioCollector {
+            onStreamFinished: updateConnectionType.parse(text)
         }
-        onExited: (exitCode, exitStatus) => {
-            const lines = updateConnectionType.buffer.trim().split('\n');
+        function parse(text) {
+            const lines = text.trim().split('\n');
             const connectivity = lines.pop() // none, limited, full
             let hasEthernet = false;
             let hasWifi = false;
             let wifiStatus = "disconnected";
             lines.forEach(line => {
-                if (line.includes("ethernet") && line.includes("connected"))
+                // TYPE:STATE; "disconnected" contains "connected", so compare
+                // the fields (an unplugged dock port showed as Ethernet).
+                const type = line.slice(0, line.indexOf(":"));
+                const state = line.slice(line.indexOf(":") + 1);
+                if (type === "ethernet" && state === "connected")
                     hasEthernet = true;
-                else if (line.includes("wifi:")) {
-                    if (line.includes("disconnected")) {
+                else if (type === "wifi") {
+                    if (state.startsWith("disconnected")) {
                         wifiStatus = "disconnected"
                     }
-                    else if (line.includes("connected")) {
+                    else if (state === "connected") {
                         hasWifi = true;
                         wifiStatus = "connected"
 
@@ -363,7 +366,8 @@ Singleton {
     Process {
         id: getNetworks
         running: true
-        command: ["nmcli", "-g", "ACTIVE,SIGNAL,FREQ,SSID,BSSID,SECURITY", "d", "w"]
+        // --rescan no: refreshed with every status update (see updateNetworkStrength)
+        command: ["nmcli", "-g", "ACTIVE,SIGNAL,FREQ,SSID,BSSID,SECURITY", "d", "w", "list", "--rescan", "no"]
         environment: ({
             LANG: "C",
             LC_ALL: "C"

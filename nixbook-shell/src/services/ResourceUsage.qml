@@ -138,16 +138,15 @@ Singleton {
         // Paused while the screens are off (Idle): it only feeds the display.
         running: !Idle.screensOff
         repeat: true
+        // reload() is asynchronous: the files are parsed in their onLoaded
+        // (reading text() right after it gave the previous sample, and an
+        // empty one on the first tick).
         onTriggered: {
             fileMeminfo.reload()
             fileStat.reload()
 
             if (root.thermalPath.length > 0) {
                 fileTemp.reload()
-                const raw = parseFloat(fileTemp.text().trim())
-                if (!isNaN(raw) && raw > 0) {
-                    root.cpuTemp = raw > 200 ? Math.round(raw / 100) / 10 : raw
-                }
             } else if (!findThermalPathProc.running && !root.noTempSensor) {
                 tempProcFallback.running = false
                 tempProcFallback.running = true
@@ -159,33 +158,41 @@ Singleton {
                 diskProc.running = true
             }
 
-            const textMeminfo = fileMeminfo.text()
-            memoryTotal = Number(textMeminfo.match(/MemTotal: *(\d+)/)?.[1] ?? 1)
-            memoryFree  = Number(textMeminfo.match(/MemAvailable: *(\d+)/)?.[1] ?? 0)
-            swapTotal   = Number(textMeminfo.match(/SwapTotal: *(\d+)/)?.[1] ?? 1)
-            swapFree    = Number(textMeminfo.match(/SwapFree: *(\d+)/)?.[1] ?? 0)
+            interval = Config.options?.resources?.updateInterval ?? 3000
+        }
+    }
 
+    FileView {
+        id: fileMeminfo
+        path: "/proc/meminfo"
+        onLoaded: {
+            const textMeminfo = fileMeminfo.text()
+            root.memoryTotal = Number(textMeminfo.match(/MemTotal: *(\d+)/)?.[1] ?? 1)
+            root.memoryFree  = Number(textMeminfo.match(/MemAvailable: *(\d+)/)?.[1] ?? 0)
+            root.swapTotal   = Number(textMeminfo.match(/SwapTotal: *(\d+)/)?.[1] ?? 1)
+            root.swapFree    = Number(textMeminfo.match(/SwapFree: *(\d+)/)?.[1] ?? 0)
+        }
+    }
+    FileView {
+        id: fileStat
+        path: "/proc/stat"
+        onLoaded: {
             const textStat = fileStat.text()
             const cpuLine  = textStat.match(/^cpu\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/)
             if (cpuLine) {
                 const stats = cpuLine.slice(1).map(Number)
                 const total = stats.reduce((a, b) => a + b, 0)
                 const idle  = stats[3]
-                if (previousCpuStats) {
-                    const totalDiff = total - previousCpuStats.total
-                    const idleDiff  = idle  - previousCpuStats.idle
-                    cpuUsage = totalDiff > 0 ? (1 - idleDiff / totalDiff) : 0
+                if (root.previousCpuStats) {
+                    const totalDiff = total - root.previousCpuStats.total
+                    const idleDiff  = idle  - root.previousCpuStats.idle
+                    root.cpuUsage = totalDiff > 0 ? (1 - idleDiff / totalDiff) : 0
                 }
-                previousCpuStats = { total, idle }
+                root.previousCpuStats = { total, idle }
             }
-
             root.updateHistories()
-            interval = Config.options?.resources?.updateInterval ?? 3000
         }
     }
-
-    FileView { id: fileMeminfo; path: "/proc/meminfo" }
-    FileView { id: fileStat;    path: "/proc/stat" }
 
     Process {
         id: findCpuMaxFreqProc

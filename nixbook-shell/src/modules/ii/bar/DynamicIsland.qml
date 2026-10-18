@@ -12,7 +12,7 @@ import qs.modules.common.widgets
 
 Item {
     id: root
-    property bool mirrored: false
+    property bool barMirrored: false
 
     readonly property real pillHeight: 32
     readonly property real idleCollapsedWidth: 144

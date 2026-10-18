@@ -154,14 +154,19 @@ Item {
                             paintMaterialPill: root.shouldPaintMaterialPill(modelData)
                             bgColor: root.getMaterialPillColor(modelData)
                             Loader {
+                                id: barWidget10
                                 Layout.fillWidth: true
                                 active: root.isMaterial
                                 source: root.getWidgetUrl(modelData)
                                 InteractionFx {} // hover lift / press squish
                                 onLoaded: {
                                     if (item && "vertical" in item) item.vertical = true
-                                    if (item && item.hasOwnProperty("mirrored"))
-                                        item.mirrored = root.getMirroredForIndex(root.effectiveLeftLayout, index)
+                                }
+                                Binding {
+                                    target: barWidget10.item
+                                    property: "barMirrored"
+                                    value: root.getMirroredForIndex(root.effectiveLeftLayout, index)
+                                    when: barWidget10.item?.barMirrored !== undefined
                                 }
                             }
                         }
@@ -188,14 +193,19 @@ Item {
                         currentIndex: index
                         totalCount: root.effectiveLeftLayout.length
                         Loader {
+                            id: barWidget11
                             Layout.fillWidth: true
                             active: !root.isMaterial
                             source: root.getWidgetUrl(modelData)
                             InteractionFx {} // hover lift / press squish
                             onLoaded: {
                                 if (item && "vertical" in item) item.vertical = true
-                                if (item && item.hasOwnProperty("mirrored"))
-                                    item.mirrored = root.getMirroredForIndex(root.effectiveLeftLayout, index)
+                            }
+                            Binding {
+                                target: barWidget11.item
+                                property: "barMirrored"
+                                value: root.getMirroredForIndex(root.effectiveLeftLayout, index)
+                                when: barWidget11.item?.barMirrored !== undefined
                             }
                         }
                     }
@@ -242,14 +252,19 @@ Item {
                             paintMaterialPill: root.shouldPaintMaterialPill(modelData)
                             bgColor: root.getMaterialPillColor(modelData)
                             Loader {
+                                id: barWidget12
                                 Layout.fillWidth: true
                                 active: root.isMaterial
                                 source: root.getWidgetUrl(modelData)
                                 InteractionFx {} // hover lift / press squish
                                 onLoaded: {
                                     if (item && "vertical" in item) item.vertical = true
-                                    if (item && item.hasOwnProperty("mirrored"))
-                                        item.mirrored = root.getMirroredForIndex(root.effectiveMiddleLayout, index)
+                                }
+                                Binding {
+                                    target: barWidget12.item
+                                    property: "barMirrored"
+                                    value: root.getMirroredForIndex(root.effectiveMiddleLayout, index)
+                                    when: barWidget12.item?.barMirrored !== undefined
                                 }
                             }
                         }
@@ -277,14 +292,19 @@ Item {
                         paintBackground: modelData !== "dynamicIsland"
                         totalCount: root.effectiveMiddleLayout.length
                         Loader {
+                            id: barWidget13
                             Layout.fillWidth: true
                             active: !root.isMaterial
                             source: root.getWidgetUrl(modelData)
                             InteractionFx {} // hover lift / press squish
                             onLoaded: {
                                 if (item && "vertical" in item) item.vertical = true
-                                if (item && item.hasOwnProperty("mirrored"))
-                                    item.mirrored = root.getMirroredForIndex(root.effectiveMiddleLayout, index)
+                            }
+                            Binding {
+                                target: barWidget13.item
+                                property: "barMirrored"
+                                value: root.getMirroredForIndex(root.effectiveMiddleLayout, index)
+                                when: barWidget13.item?.barMirrored !== undefined
                             }
                         }
                     }
@@ -331,14 +351,19 @@ Item {
                             paintMaterialPill: root.shouldPaintMaterialPill(modelData)
                             bgColor: root.getMaterialPillColor(modelData)
                             Loader {
+                                id: barWidget14
                                 Layout.fillWidth: true
                                 active: root.isMaterial
                                 source: root.getWidgetUrl(modelData)
                                 InteractionFx {} // hover lift / press squish
                                 onLoaded: {
                                     if (item && "vertical" in item) item.vertical = true
-                                    if (item && item.hasOwnProperty("mirrored"))
-                                        item.mirrored = root.getMirroredForIndex(root.effectiveRightLayout, index)
+                                }
+                                Binding {
+                                    target: barWidget14.item
+                                    property: "barMirrored"
+                                    value: root.getMirroredForIndex(root.effectiveRightLayout, index)
+                                    when: barWidget14.item?.barMirrored !== undefined
                                 }
                             }
                         }
@@ -365,14 +390,19 @@ Item {
                         currentIndex: index
                         totalCount: root.effectiveRightLayout.length
                         Loader {
+                            id: barWidget15
                             Layout.fillWidth: true
                             active: !root.isMaterial
                             source: root.getWidgetUrl(modelData)
                             InteractionFx {} // hover lift / press squish
                             onLoaded: {
                                 if (item && "vertical" in item) item.vertical = true
-                                if (item && item.hasOwnProperty("mirrored"))
-                                    item.mirrored = root.getMirroredForIndex(root.effectiveRightLayout, index)
+                            }
+                            Binding {
+                                target: barWidget15.item
+                                property: "barMirrored"
+                                value: root.getMirroredForIndex(root.effectiveRightLayout, index)
+                                when: barWidget15.item?.barMirrored !== undefined
                             }
                         }
                     }
