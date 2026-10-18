@@ -411,7 +411,10 @@ Singleton {
     // What to do with incoming `n`: { drop, replaces, supersedes }. drop =
     // why it is not shown ("" = show it); supersedes = ids of the earlier
     // copies it supersedes, replaces = those still in the list.
-    //  - a mirrored copy of a desktop notification: dropped;
+    //  - a mirrored copy of a desktop notification: dropped, unless the
+    //    desktop title is only the phone app's name (Instagram in the
+    //    browser, no sender): then the mirrored copy replaces it, and a
+    //    desktop copy arriving after it is dropped (relayIsRicher);
     //  - a mirrored copy whose newest message is the user's own ("You:"),
     //    with `hideOwnMessages`: dropped;
     //  - a mirrored thread holding a desktop notification's message and
@@ -446,15 +449,18 @@ Singleton {
             }
             if (relayed && !r.relayed) {
                 const match = NotificationUtils.relayMatch(r, n);
-                if (match === "same")
+                if (match === "same" && !NotificationUtils.relayIsRicher(r, n))
                     return { drop: `mirrors ${r.appName} #${r.notificationId}`, replaces: [], supersedes: [] };
-                if (match === "contains") {
+                if (match !== "") {
                     verdict.supersedes.push(r.notificationId);
                     continue;
                 }
             }
-            if ((!relayed && r.relayed && NotificationUtils.isRelayOf(n, r))
-                    || NotificationUtils.isThreadUpdateOf(n, r))
+            if (!relayed && r.relayed && NotificationUtils.isRelayOf(n, r)) {
+                if (NotificationUtils.relayIsRicher(n, r))
+                    return { drop: `${r.appName} #${r.notificationId} names the sender`, replaces: [], supersedes: [] };
+                verdict.supersedes.push(r.notificationId);
+            } else if (NotificationUtils.isThreadUpdateOf(n, r))
                 verdict.supersedes.push(r.notificationId);
         }
         verdict.replaces = verdict.supersedes.filter(id => root.list.some(notif => notif.notificationId === id));
