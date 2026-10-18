@@ -126,6 +126,77 @@ ContentPage {
         }
 
         ContentSection {
+            icon: "bolt"
+            title: Translation.tr("Routines")
+
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("Ask Claude \"whenever the music ends, play something I like\", \"when my headphones connect, resume the music\", \"when a PDF lands in Downloads, open it\": it does it on its own when that happens. Cues: music, apps, window titles, notifications, coming back, the lock, a time, battery and power, Wi-Fi, VPN, audio output, monitors, Downloads, calendar events. A fixed action costs nothing; one that takes judgment is a short Claude run. It never fights you: music you stop stays stopped, and a routine you undo twice turns itself off. Desktop control's pause stops routines too.")
+            }
+
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "ai.routines.enable"
+                    buttonIcon: "bolt"
+                    text: Translation.tr("Run my routines")
+                    checked: Config.options.ai.routines.enable
+                    onCheckedChanged: Config.options.ai.routines.enable = checked
+                }
+            }
+
+            StyledText {
+                visible: (DesktopControl.memory.routines ?? []).length === 0
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("None yet.")
+            }
+            Repeater {
+                model: DesktopControl.memory.routines ?? []
+                delegate: RowLayout {
+                    id: routineRow
+                    required property var modelData
+                    Layout.fillWidth: true
+                    spacing: 10
+                    MaterialSymbol {
+                        text: routineRow.modelData.do?.agent ? "psychology" : "bolt"
+                        iconSize: Appearance.font.pixelSize.larger
+                        color: Appearance.colors.colOnLayer1
+                        opacity: routineRow.modelData.on === false ? 0.4 : 1
+                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+                        StyledText {
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            text: routineRow.modelData.text
+                            color: Appearance.colors.colOnLayer1
+                        }
+                        StyledText {
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            font.pixelSize: Appearance.font.pixelSize.smaller
+                            color: Appearance.colors.colSubtext
+                            text: [Translation.tr("ran %1 times").arg(routineRow.modelData.runs ?? 0),
+                                   routineRow.modelData.last ? page.ago(routineRow.modelData.last) : "",
+                                   routineRow.modelData.lastResult ?? ""].filter(x => x).join(" · ")
+                        }
+                    }
+                    StyledSwitch {
+                        checked: routineRow.modelData.on !== false
+                        onClicked: DesktopControl.routineCommand(checked ? "on" : "off", routineRow.modelData.id)
+                    }
+                    SmallButton {
+                        materialIcon: "delete"
+                        mainText: Translation.tr("Delete")
+                        onClicked: DesktopControl.routineCommand("remove", routineRow.modelData.id)
+                    }
+                }
+            }
+        }
+
+        ContentSection {
             icon: "smart_toy"
             title: Translation.tr("Desktop control")
             shape: MaterialShape.Shape.Pentagon

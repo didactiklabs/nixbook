@@ -21,7 +21,7 @@ Desktop control **starts paused**. Allow it with the bar's Desktop Control widge
 | `input`    | Type, press keys, click, drag, scroll — exact to the pixel on any monitor and scale; up to 20 steps in one call (`run_steps`), a saved recipe in one call (`run_recipe`)                                                                                                                        |
 | `ui`       | Read any app's window through its **accessibility tree** (buttons, fields, labels as numbered text lines) and press, toggle or fill elements without coordinates; wait for an element to appear or disappear                                                                                    |
 | `shell`    | Themes and variants, the wallpaper, **desktop widgets** (notes, to-do, timers, alarms, images, music recognition), the **equalizer**, the **calendar** (read-only), the **to-do lists**, **[contacts](./accounts)** (every account's: search, edit, label, photos), notifications, shell panels |
-| `memory`   | [Desktop memory](#desktop-memory): remember, recall, forget; remind (reminders on a cue)                                                                                                                                                                                                        |
+| `memory`   | [Desktop memory](#desktop-memory): remember, recall, forget; remind (reminders on a cue); [routine](#routines)                                                                                                                                                                                  |
 | `personal` | [Personal memory](#personal-memory): what you told agents about your life                                                                                                                                                                                                                       |
 
 The `memory` group also has `habits`: what you usually do, from [usage habits](#usage-habits) when you turned them on.
@@ -75,6 +75,17 @@ It costs little and learns what you value:
 **Say something now** (Settings) makes it speak at once, to try it. Under it, **Lately** lists its last decisions: what it said, or why it kept quiet ("nothing to say", "said one lately", "the user is busy"…).
 
 Keys in `desktop-mcp.json` (`programs.nixbook-shell.desktopMcp.settings`): `initiativeMaxPerDay` (6), `initiativeGapMinutes` (30), `initiativeQuietHours` (`"22-8"`), `initiativeCallsPerDay` (30), `initiativeChatPerDay` (2). The switches are `ai.initiative.enable` and `ai.initiative.readNotifications` in the shell's settings. State lives in `~/.local/state/nixbook-shell/initiative.json` (private); `nixbook-desktop-mcp initiative show|pending|unmute|clear`.
+
+## Routines
+
+Ask Claude for something to happen on its own whenever something happens on the computer: "whenever the music ends, play something I like", "when my headphones connect, resume the music", "when a PDF lands in Downloads, open it", "every weekday at 9:00, restore my work layout".
+
+- **Cues**, watched by the shell in plain code: music (ended on its own, started, a new track), an app opened or closed, words in a window title, a notification, coming back, the screen locking or unlocking, a time (and days), the battery falling below a level, the power cable, Wi-Fi, the VPN, the audio output (headphones, Bluetooth), a monitor, a file arriving in Downloads, a calendar event starting.
+- **Actions:** a fixed tool call that costs nothing each time, either a desktop tool (with the agents' guardrails) or a tool of the side panel's MCP servers (YouTube Music, Spotify…). When the action takes judgment ("something I'd like for this time of day"), it is a short Claude run instead, with only the tools of the servers it names and none of the built-in ones; at most `routineAgentPerDay` (20) a day, on `routineModel` (Haiku).
+- **It never fights you.** Music routines fire only on music that ended on its own (the track played to its end, the queue ran out) and stayed quiet for 45 seconds, never after you paused or stopped it; music you stop holds music routines for 10 minutes. Each routine waits its `cooldown` (10 minutes) between runs. Undo what a routine just did twice (pause the music it started, close the app it opened) and it turns itself off and tells you. The pause of desktop control stops routines too.
+- What a routine did comes as a word in the bar.
+
+**Settings → Desktop agents → Routines** lists them (on/off, delete, last result) and has the **Run my routines** switch (`ai.routines.enable`). `nixbook-desktop-mcp routine list|run ID|on ID|off ID|remove ID`.
 
 ## Desktop memory
 

@@ -119,17 +119,23 @@ Singleton {
 
     // The desktop memory (Settings > Desktop agents): notes agents wrote,
     // aliases and usage learned, as `nixbook-desktop-mcp memory show` prints.
-    property var memory: ({ notes: [], aliases: {}, usage: { apps: {}, layouts: {}, tools: {} }, targets: {}, triggers: [], archive: [] })
+    property var memory: ({ notes: [], aliases: {}, usage: { apps: {}, layouts: {}, tools: {} }, targets: {}, triggers: [], archive: [], routines: [] })
     function refreshMemory() {
         if (!memoryReader.running) memoryReader.running = true;
+    }
+    // A routine on, off or removed (`nixbook-desktop-mcp routine`).
+    function routineCommand(action, id) {
+        if (!["on", "off", "remove"].includes(action) || !/^[0-9a-f]{1,16}$/.test(id ?? "")) return;
+        root.memoryQueue = [...root.memoryQueue, ["nixbook-desktop-mcp", "routine", action, id]];
+        if (!memoryWriter.running) root.nextMemoryCommand();
     }
     function forgetNote(id) {
         if (!/^[0-9a-f]{1,16}$/.test(id ?? "")) return;
         root.memoryCommand(["forget", id]);
     }
-    // parts: any of "notes", "usage", "aliases", "targets", "triggers", "all"
+    // parts: any of "notes", "usage", "aliases", "targets", "triggers", "routines", "all"
     function clearMemory(parts) {
-        if (!parts.every(p => ["notes", "usage", "aliases", "targets", "triggers", "all"].includes(p))) return;
+        if (!parts.every(p => ["notes", "usage", "aliases", "targets", "triggers", "routines", "all"].includes(p))) return;
         root.memoryCommand(["clear", ...parts]);
     }
     // What agents remember about the user's life (Settings > Desktop agents >

@@ -519,6 +519,23 @@ loud, a hello when nothing is on its mind). The small model's Claude Code:
 `memoryClaude`, the shell's own (`claude` in the event), PATH, or the usual
 install places (`claude_path`). State in `~/.local/state/nixbook-shell/initiative.json`.
 
+**Routines**: "whenever X happens, do Y", asked of Claude (`routine` tool:
+`when` {event + filters: app, words, at, days, percent, name, ext, minutes,
+cooldown}, `do` a fixed call {tool, args, server: "desktop" or an
+assistant-mcp.json server} or {agent, servers}), kept in the desktop memory
+(`routines`). `services/Routines.qml` (ai.routines.enable) watches MPRIS
+(music ended on its own: position at the track's end or the queue out, 45 s
+quiet; a mid-track pause is the user's and holds music routines 10 min),
+toplevels, titles, notifications, idle and lock, a 30 s clock (times,
+calendar events), UPower, NetworkManager, the VPNs, the default sink,
+monitors and ~/Downloads (FolderListModel), and runs `routine run ID EVENT`:
+`routine_run` checks on, pause, cooldown, the day's agent runs, then calls the
+desktop tool (`call_tool`), the MCP server (`mcp_call`, a one-shot stdio
+client) or Claude Code (`routine_agent`: --strict-mcp-config with the
+desktop and the named servers, --tools "" and --allowedTools mcp__…, a few
+turns). What it did goes to the bar (`routine_say`). The shell reports a
+routine's action undone within 3 min (`routine undone`): twice, it is off.
+
 **Personal memory**, so a conversation knows what the user told agents
 before: life events (past or planned, with dates), plans, people close to
 them, preferences, interests. Agents are told to save the meaningful part
