@@ -31,6 +31,23 @@ in
         Leave disabled on desktop/server machines (anya).
       '';
     };
+    powerProfileOnBoot = lib.mkOption {
+      type = lib.types.nullOr (
+        lib.types.enum [
+          "power-saver"
+          "balanced"
+          "performance"
+        ]
+      );
+      default = "balanced";
+      description = ''
+        Power profile set at every boot. power-profiles-daemon otherwise
+        keeps the last one chosen across reboots, so a single click on the
+        bar's power button left a laptop in performance (on totoro: 23 W
+        instead of 6-11 W at the same light load, ~10 °C hotter) until
+        changed back. null keeps the saved profile.
+      '';
+    };
   };
   config = lib.mkIf cfg.enable {
     services = {
@@ -67,6 +84,17 @@ in
         ACTION=="add", SUBSYSTEM=="scsi_host", KERNEL=="host*", TEST=="link_power_management_policy", ATTR{link_power_management_policy}="med_power_with_dipm"
       '';
     };
+    systemd.services.power-profile-on-boot = lib.mkIf (cfg.powerProfileOnBoot != null) {
+      description = "Start in the ${cfg.powerProfileOnBoot} power profile";
+      after = [ "power-profiles-daemon.service" ];
+      requires = [ "power-profiles-daemon.service" ];
+      wantedBy = [ "multi-user.target" ];
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = "${lib.getExe' config.services.power-profiles-daemon.package "powerprofilesctl"} set ${cfg.powerProfileOnBoot}";
+      };
+    };
+
     powerManagement = lib.mkForce {
       enable = true;
     };

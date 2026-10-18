@@ -84,9 +84,10 @@ Scope {
     // open/close. Keep it running for a grace period after the last consumer
     // goes away, as long as something is playing.
     // The right sidebar only shows it in its media player (sidebar.mediaPlayer).
+    // Not the left sidebar: its media tab is gone, and a pinned (always open)
+    // left sidebar kept cava running whenever music played, feeding nothing.
     readonly property bool cavaWanted: (GlobalStates.mediaControlsOpen ||
             (GlobalStates.sidebarRightOpen && Config.options.sidebar.mediaPlayer) ||
-            (GlobalStates.sidebarLeftOpen && !GlobalStates.mediaLyricsVisible) ||
             GlobalStates.equalizerOpen ||
             Config.options.bar.layouts.leftLayout.includes("visualizer") ||
             Config.options.bar.layouts.middleLayout.includes("visualizer") ||

@@ -274,6 +274,13 @@ Whether to enable lanzaboote for UEFI Secure Boot. Lanzaboote replaces systemd-b
 
 Whether to enable laptop-specific power and display optimisations. Configures: - logind lid-switch behaviour: suspend on close, lock when on external power, ignore when docked - power-profiles-daemon: dynamic CPU frequency scaling (performance / balanced / power-saver profiles, switchable via e.g. the DMS control centre) - thermald: Intel thermal management daemon to prevent CPU throttling (Intel CPUs only: the hardware configuration loads kvm-intel) - scx_lavd: sched_ext CPU scheduler built for interactivity and battery life (latency-critical tasks first, fewer cores awake) - powerManagement: general power management framework - powertop: power consumption analyser available in the system PATH Enable this on machines that are laptops (totoro, nishinoya, tanjiro). Leave disabled on desktop/server machines (anya).
 
+### `customNixOSModules.laptopProfile.powerProfileOnBoot`
+
+- **Type:** `null or one of "power-saver", "balanced", "performance"`
+- **Default:** `"balanced"`
+
+Power profile set at every boot. power-profiles-daemon otherwise keeps the last one chosen across reboots, so a single click on the bar's power button left a laptop in performance (on totoro: 23 W instead of 6-11 W at the same light load, ~10 °C hotter) until changed back. null keeps the saved profile.
+
 ---
 
 ## netbird-tools
