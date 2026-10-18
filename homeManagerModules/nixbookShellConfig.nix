@@ -41,15 +41,10 @@ let
     // lib.optionalAttrs cfg.linkedinMcp.enable {
       linkedin.command = lib.getExe pkgs.customPkgs.linkedin-mcp-server;
     }
-    // lib.optionalAttrs cfg.immichMcp.enable {
-      immich = {
-        command = lib.getExe pkgs.customPkgs.immich-photo-manager;
-        env =
-          lib.optionalAttrs (cfg.immichMcp.url != null) { IMMICH_BASE_URL = cfg.immichMcp.url; }
-          // lib.optionalAttrs (cfg.immichMcp.apiKeyFile != null) {
-            IMMICH_API_KEY_FILE = cfg.immichMcp.apiKeyFile;
-          };
-      };
+    // {
+      # Off in the chat until turned on in Settings, where its server and
+      # API key are set (or in Nix: the ai.immich settings).
+      immich.command = lib.getExe pkgs.customPkgs.immich-photo-manager;
     };
 
   # What this machine's Nix configuration sets up, for the Intelligence tab's
@@ -157,51 +152,16 @@ in
     '';
   };
 
-  options.customHomeManagerModules.nixbookShellConfig.immichMcp = {
-    enable = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
-      description = ''
-        Whether to give the nixbook-shell AI chat (Claude in the side panel,
-        and nothing else: not your own Claude Code or other agents) an Immich
-        photo library, through
-        [immich-photo-manager](https://github.com/drolosoft/immich-photo-manager)
-        (`customPkgs.immich-photo-manager`): search by place, date, text and
-        faces, albums, tags, duplicates, sharing. A local stdio server: nothing
-        listens on the network. The server and API key can also be set in
-        Settings > Desktop agents (checked on the server first) or from the
-        chat ("update my Immich credentials to … with API key …"): both save
-        them in `~/.immich-photo-manager/config.json`, which wins over `url`
-        and `apiKeyFile` until Forget in Settings removes it.
-      '';
-    };
-    url = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      example = "https://photos.example.org";
-      description = "The Immich server's URL.";
-    };
-    apiKeyFile = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      example = "~/.config/immich/api-key";
-      description = ''
-        File holding an Immich API key (Immich: Account Settings > API Keys),
-        read each time the server starts; `~/` is your home. A path string, not
-        a Nix path, so the key stays out of the store: keep it in a file of
-        your own or an agenix secret (`config.age.secrets.<name>.path`).
-      '';
-    };
-  };
-
   config = lib.mkIf cfg.enable {
     assertions = [
       {
         assertion =
-          cfg.immichMcp.apiKeyFile == null || !lib.hasPrefix builtins.storeDir cfg.immichMcp.apiKeyFile;
+          !lib.hasPrefix builtins.storeDir (
+            toString (lib.attrByPath [ "ai" "immich" "apiKeyFile" ] "" config.programs.nixbook-shell.settings)
+          );
         message = ''
-          customHomeManagerModules.nixbookShellConfig.immichMcp.apiKeyFile is in
-          the Nix store, readable by every user: point it at a file outside it.
+          nixbookShellConfig.settings.ai.immich.apiKeyFile is in the Nix store,
+          readable by every user: point it at a file outside it.
         '';
       }
       {
@@ -244,7 +204,7 @@ in
         # control it (YouTube Music through the app's API Server plugin, turned
         # on in the app; Spotify through MPRIS, and its Web API after the
         # server's `login`); LinkedIn (linkedinMcp.enable), off in the chat
-        # until turned on in Settings; Immich (immichMcp.enable). Added to the
+        # until turned on in Settings, and Immich, set up there. Added to the
         # option's default servers, not instead of them.
         mcpServers = lib.mkIf (extraMcpServers != { }) (
           options.programs.nixbook-shell.assistant.mcpServers.default // extraMcpServers

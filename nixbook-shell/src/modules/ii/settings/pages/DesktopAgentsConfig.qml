@@ -345,11 +345,11 @@ ContentPage {
                     onClicked: Quickshell.execDetached([Ai.assistantMcpServers.linkedin.command, "--login"])
                 }
 
-                // Immich: the server and API key, saved where the server's
-                // own update_credentials tool saves them (they win over
-                // nixbookShellConfig.immichMcp's url and apiKeyFile; Forget
-                // goes back to those). The key goes on stdin, is checked on
-                // the server first, and is never shown again.
+                // Immich: its server is a setting (ai.immich.url, locked when
+                // set in Nix), its API key goes to the keyring through
+                // immich-photo-manager-credentials (on stdin, checked on the
+                // server first, never shown again); or a key file set in Nix
+                // (ai.immich.apiKeyFile).
                 ColumnLayout {
                     id: immich
                     Layout.fillWidth: true
@@ -358,7 +358,7 @@ ContentPage {
                     spacing: 6
                     readonly property string bin: Ai.assistantMcpServers.immich
                         ? Ai.assistantMcpServers.immich.command + "-credentials" : ""
-                    // {base_url, has_key, source: saved|nix|none}
+                    // {has_key, key_source: env|file|keyring|null}
                     property var conn: ({})
                     property string status: ""
                     property bool busy: false
@@ -368,14 +368,13 @@ ContentPage {
                         immich.busy = true
                         immichProc.key = key ?? ""
                         immichProc.command = [immich.bin, ...args]
-                        // The server's url and key file from Nix, to show and fall back to.
-                        immichProc.environment = Ai.assistantMcpServers.immich?.env ?? {}
-                        immichProc.stdinEnabled = args[0] === "set"
+                        immichProc.environment = Ai.immichEnv
+                        immichProc.stdinEnabled = args[0] === "save"
                         immichProc.running = true
                     }
                     // assistant-mcp.json is read asynchronously.
-                    Component.onCompleted: run(["show"])
-                    onBinChanged: run(["show"])
+                    Component.onCompleted: run(["status"])
+                    onBinChanged: run(["status"])
 
                     Process {
                         id: immichProc
@@ -398,7 +397,6 @@ ContentPage {
                                 return
                             }
                             immich.conn = result
-                            immichUrl.text = result.base_url ?? ""
                             immichKey.text = ""
                             immich.status = result.photos !== undefined && result.photos !== null
                                 ? Translation.tr("Connected: %1 photos, %2 videos").arg(result.photos).arg(result.videos ?? 0)
@@ -410,24 +408,37 @@ ContentPage {
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
                         color: Appearance.colors.colSubtext
-                        text: immich.conn.source === "saved"
-                            ? Translation.tr("Immich: connected with the server and API key saved here (~/.immich-photo-manager).")
-                            : immich.conn.source === "nix"
-                                ? Translation.tr("Immich: using the server and API key from your Nix configuration. Saving here overrides them.")
-                                : Translation.tr("Immich: not connected yet. Create an API key in Immich (Account Settings > API Keys).")
+                        text: Translation.tr("Immich: your photo library, through its API. Create an API key in Immich (Account Settings > API Keys); it is kept in your keyring. Before deleting photos or making a public link, Claude says what it would do and waits for your yes.")
                     }
-                    MaterialTextField {
+                    ConfigTextArea {
                         id: immichUrl
+                        configKey: "ai.immich.url"
                         Layout.fillWidth: true
-                        placeholderText: Translation.tr("Server URL, e.g. https://photos.example.org")
-                        inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase
-                        onAccepted: immichSave.clicked()
+                        fieldWidth: 320
+                        buttonIcon: "dns"
+                        text: Translation.tr("Immich server")
+                        placeholderText: Translation.tr("e.g. https://photos.example.org")
+                        value: Config.options.ai.immich.url ?? ""
+                        Connections {
+                            target: immichUrl.textArea
+                            function onEditingFinished() {
+                                Config.options.ai.immich.url = immichUrl.value.trim().replace(/\/+$/, "")
+                            }
+                        }
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: immich.conn.key_source === "file"
+                        wrapMode: Text.WordWrap
+                        color: Appearance.colors.colSubtext
+                        text: Translation.tr("API key: read from %1 (ai.immich.apiKeyFile).").arg(Config.options.ai.immich.apiKeyFile)
                     }
                     MaterialTextField {
                         id: immichKey
                         Layout.fillWidth: true
+                        visible: immich.conn.key_source !== "file"
                         placeholderText: immich.conn.has_key
-                            ? Translation.tr("API key (leave empty to keep the current one)")
+                            ? Translation.tr("API key (saved: leave empty to keep it)")
                             : Translation.tr("API key")
                         echoMode: TextInput.Password
                         onAccepted: immichSave.clicked()
@@ -436,18 +447,23 @@ ContentPage {
                         spacing: 6
                         SmallButton {
                             id: immichSave
-                            enabled: !immich.busy && immichUrl.text.trim() !== ""
+                            readonly property string url: immichUrl.value.trim().replace(/\/+$/, "")
+                            enabled: !immich.busy && url !== ""
                                 && (immichKey.text !== "" || immich.conn.has_key)
                             materialIcon: "link"
                             mainText: immich.busy ? Translation.tr("Checking…") : Translation.tr("Save and check")
-                            onClicked: immich.run(["set", immichUrl.text.trim()], immichKey.text)
+                            onClicked: {
+                                // The field saves when it loses focus, which a click may not take.
+                                if (!immichUrl.nixManaged) Config.options.ai.immich.url = url
+                                immich.run(["save", url], immichKey.text)
+                            }
                         }
                         SmallButton {
-                            visible: immich.conn.source === "saved"
+                            visible: immich.conn.key_source === "keyring"
                             enabled: !immich.busy
-                            materialIcon: "link_off"
-                            mainText: Translation.tr("Forget")
-                            onClicked: immich.run(["clear"])
+                            materialIcon: "key_off"
+                            mainText: Translation.tr("Forget the key")
+                            onClicked: immich.run(["forget"])
                         }
                     }
                     StyledText {

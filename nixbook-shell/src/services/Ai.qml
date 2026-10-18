@@ -388,6 +388,16 @@ Singleton {
     // Only this chat gets them (Claude Code runs with --strict-mcp-config),
     // never the user's own Claude Code or other agents.
     property var assistantMcpServers: ({})
+    // The environment immich-photo-manager gets from the ai.immich settings
+    // (also used by Settings > Desktop agents for its helper).
+    readonly property var immichEnv: {
+        const env = {};
+        const url = Config.options.ai.immich.url ?? "";
+        const keyFile = Config.options.ai.immich.apiKeyFile ?? "";
+        if (url.length > 0) env.IMMICH_BASE_URL = url;
+        if (keyFile.length > 0) env.IMMICH_API_KEY_FILE = keyFile;
+        return env;
+    }
     FileView {
         id: assistantMcpFile
         path: `${Directories.shellConfig}/assistant-mcp.json`
@@ -457,6 +467,11 @@ Singleton {
                 if (!off.includes(name)) extraServers[name] = root.assistantMcpServers[name];
             }
         }
+        // Immich's server and key file are shell settings (ai.immich); the
+        // key itself the server reads from the keyring, so it never reaches
+        // this command line.
+        if (extraServers.immich) extraServers.immich = Object.assign({}, extraServers.immich, {
+            env: Object.assign({}, extraServers.immich.env ?? {}, root.immichEnv) });
         const allowed = [...(desktop ? ["mcp__desktop"] : []),
             ...Object.keys(extraServers).map(name => `mcp__${name}`), ...configured,
             ...(attached.length > 0 ? [`Read(/${attached})`] : []),
