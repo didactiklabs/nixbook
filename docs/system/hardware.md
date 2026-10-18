@@ -6,6 +6,7 @@
 
 - **lid switch**: suspend when closed, lock when on external power, ignore when docked;
 - **power-profiles-daemon**: performance / balanced / power-saver profiles, switchable from the desktop shell;
+- **power profile on boot** (`laptopProfile.powerProfileOnBoot`, default `balanced`): power-profiles-daemon otherwise keeps the last profile chosen, so one click on the bar's power button kept the laptop in _performance_ (hotter, louder, ~2–3× the power at light load) across reboots; `null` keeps the saved profile;
 - **thermald** thermal management (Intel CPUs only; it exits on AMD);
 - **scx_lavd**, a sched_ext CPU scheduler built for interactivity and battery life (latency-critical tasks first, fewer cores awake);
 - SATA link power management, deep sleep, and `powertop` for analysis.
