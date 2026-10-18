@@ -1371,6 +1371,52 @@ python3 "$mcp" initiative answer "$id" never
 expect_eq "never: a notice silences its app" '["notice:power"]' "$(jq -c .muted "$ini")"
 unset STUB_CLAUDE_ANSWER
 python3 "$mcp" initiative clear
+python3 "$mcp" initiative clear
+
+# Now and then a light word, at random moments: often nothing, only in the bar, rarely.
+expect_eq "moment: often nothing" "nothing to say this time" "$(consider '{"event":"moment","roll":0.1,"activeMinutes":150}' | jq -r .why)"
+out=$(consider '{"event":"moment","roll":0.9,"activeMinutes":150}')
+expect_eq "moment: a word in the bar, never a notification" badge "$(jq -r .action <<<"$out")"
+expect_contains "moment: a long stretch" "$(jq -r .item.text <<<"$out")" "2 hours"
+expect_eq "moment: not again soon" "said one lately" "$(consider '{"event":"moment","roll":0.9,"tasksDue":2}' | jq -r .why)"
+expect_eq "moment: not while busy" "the user is busy" "$(consider '{"event":"moment","roll":0.9,"busy":true}' | jq -r .why)"
+jq '.said = [.said[] | .time -= 4 * 3600]' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
+jq '.said += [.said[0] | .key = "y" | .id = "000002"]' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
+expect_eq "moment: at most 2 a day" "enough for today" "$(consider '{"event":"moment","roll":0.9,"tasksDue":2}' | jq -r .why)"
+python3 "$mcp" initiative clear
+
+# What it knows that may serve the user: a tip from a proven note, worded by the small model...
+python3 "$mcp" memory clear >/dev/null
+call remember '{"topic":"firefox tabs","text":"ctrl+shift+t reopens the last closed tab"}' >/dev/null
+jq '.notes[0].ok = 2' "$mem" >"$mem.new" && mv "$mem.new" "$mem"
+export STUB_CLAUDE_ANSWER
+STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {text: "Firefox tip: ctrl+shift+t brings back the tab you just closed."}}')
+out=$(consider '{"event":"moment","roll":0.9,"app":"firefox"}')
+expect_eq "moment: a tip for the app in front" "Firefox tip: ctrl+shift+t brings back the tab you just closed." "$(jq -r .item.text <<<"$out")"
+expect_contains "moment: from the note" "$(cat "$calls.claude-prompt")" "The note: ctrl+shift+t reopens the last closed tab"
+# ...or nothing when the note is only for agents, never asked again.
+python3 "$mcp" initiative clear
+STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {text: ""}}')
+consider '{"event":"moment","roll":0.9,"app":"firefox"}' >/dev/null
+rm -f "$calls.claude-prompt"
+expect_eq "moment: an agent's note, not asked again" "nothing to say" "$(consider '{"event":"moment","roll":0.9,"app":"firefox"}' | jq -r .why)"
+expect_eq "moment: no model call for it" no "$([ -e "$calls.claude-prompt" ] && echo yes || echo no)"
+# A macro it can do in one step, in plain words.
+python3 "$mcp" initiative clear
+python3 "$mcp" memory clear >/dev/null
+call run_steps '{"steps":[{"tool":"press_keys","args":{"keys":["ctrl+k"]},"wait_ms":0}],"remember_as":"discord: open a chat"}' >/dev/null
+jq '.notes[0].runs = ["2026-01-01", "2026-01-02", "2026-01-03"]' "$mem" >"$mem.new" && mv "$mem.new" "$mem"
+expect_contains "moment: what it can do in one step" "$(consider '{"event":"moment","roll":0.9}' | jq -r .item.text)" "discord: open a chat"
+# A casual question on what the user cares about, unmentioned for a while.
+python3 "$mcp" initiative clear
+python3 "$mcp" memory clear >/dev/null
+call remember_about_user '{"topic":"jlpt","text":"Preparing the JLPT N4, exam in December"}' >/dev/null
+jq '(.entries[] | select(.topic=="jlpt")) |= (.updated = 1 | .used = 1)' "$XDG_STATE_HOME/nixbook-shell/personal-memory.json" >"$tmp/p.json" && mv "$tmp/p.json" "$XDG_STATE_HOME/nixbook-shell/personal-memory.json"
+STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {text: "How is the JLPT prep going? December is getting close!"}}')
+expect_eq "moment: a casual question" "How is the JLPT prep going? December is getting close!" "$(consider '{"event":"moment","roll":0.9}' | jq -r .item.text)"
+expect_contains "moment: from the memory entry" "$(cat "$calls.claude-prompt")" "Preparing the JLPT N4"
+unset STUB_CLAUDE_ANSWER
+python3 "$mcp" initiative clear
 expect_eq "initiative clear" '0 0' "$(jq -r '"\(.said | length) \(.pending | length)"' "$ini")"
 python3 "$mcp" memory clear >/dev/null
 python3 "$mcp" personal clear >/dev/null

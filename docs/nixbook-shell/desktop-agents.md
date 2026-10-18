@@ -54,6 +54,12 @@ Turn on **Settings → Desktop agents → Talk to me on its own** (off by defaul
 - **When it learned something** (a recipe from a task): it tells you, and you can see it or have it forget it.
 - **Notifications**, with **Read my notifications** also on: it reacts to what comes in, of any kind, with advice or a suggestion. For example: a low battery before a meeting, a full disk, a failed build or backup, a delivery, a bank or security alert, a message that asks something.
 
+- **Now and then, a light word**, the way someone in the room would. At random moments (every 40 minutes to 2 hours while you are at the computer), it may say something, and most of the time it doesn't. What it can say:
+  - from what is happening: you have worked for 2 hours straight, you have had an artist on repeat today, tasks are still due late in the day, it's raining outside;
+  - from what it knows that may help you: a tip for the app in front (from a note of its own that proved itself), something it can now do in one step (a macro), a plan of yours a few days away, a casual question on something you care about that hasn't come up in a while.
+
+  At most 2 a day (`initiativeChatPerDay`), 3 hours apart, never soon after anything else, and only as the bubble in the bar, never a notification. A small model words only the tips (and drops notes that are only for agents, never asking about them again) and the casual questions; the rest is plain code.
+
 How it reaches you:
 
 - **A notification from "Claude"** for what is time-critical. It has **Reply** (the side panel opens with its message in the chat, so you just answer), **Not now** and **Don't tell me this**. There are at most 6 a day, 30 minutes apart, and none at night (22:00–8:00), in a meeting, fullscreen or on Do Not Disturb.
@@ -65,7 +71,7 @@ It costs little and learns what you value:
 - **A small model** (`memoryModel`, Haiku) only reads notifications, in batches of up to 6, after the triage has dropped its own, the focused app's (you see them), low-urgency ones and kinds it found not worth a word before (those are never sent again). There are at most 30 calls a day (`initiativeCallsPerDay`). Everything else is worded in code.
 - **Your answers teach it:** a reply makes that kind more likely, a dismissal less, and **Don't tell me this** silences that kind (or that app's notifications). Settings has a button to undo every "don't".
 
-Keys in `desktop-mcp.json` (`programs.nixbook-shell.desktopMcp.settings`): `initiativeMaxPerDay` (6), `initiativeGapMinutes` (30), `initiativeQuietHours` (`"22-8"`), `initiativeCallsPerDay` (30). The switches are `ai.initiative.enable` and `ai.initiative.readNotifications` in the shell's settings. State lives in `~/.local/state/nixbook-shell/initiative.json` (private); `nixbook-desktop-mcp initiative show|pending|unmute|clear`.
+Keys in `desktop-mcp.json` (`programs.nixbook-shell.desktopMcp.settings`): `initiativeMaxPerDay` (6), `initiativeGapMinutes` (30), `initiativeQuietHours` (`"22-8"`), `initiativeCallsPerDay` (30), `initiativeChatPerDay` (2). The switches are `ai.initiative.enable` and `ai.initiative.readNotifications` in the shell's settings. State lives in `~/.local/state/nixbook-shell/initiative.json` (private); `nixbook-desktop-mcp initiative show|pending|unmute|clear`.
 
 ## Desktop memory
 

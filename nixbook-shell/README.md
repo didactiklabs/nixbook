@@ -488,8 +488,14 @@ hands events to `nixbook-desktop-mcp initiative consider`: `back` (the
 screens on again or unlocked after a while, or the first start of the day:
 today's events and tasks, personal-memory events within 3 days or 2 days
 past, the usual session when not set up), `focus` (a new app in front, at
-most every 3 minutes: a broken recipe of it) and, with
-`ai.initiative.readNotifications`, `notifications` (batched for 45 s). Plain
+most every 3 minutes: a broken recipe of it) with
+`ai.initiative.readNotifications`, `notifications` (batched for 45 s), and
+`moment` (at random, 40 to 120 minutes apart while active: a light word,
+skipped 40% of the time, at most `initiativeChatPerDay`, 3 h apart and 45 min
+after anything else, only in the bar: a long stretch, music on repeat, tasks
+due after 17h, rain, a tip from a proven note or a macro it has, a plan within
+a week, a question on a personal topic unmentioned for 14 days; the model
+words only tips and questions, `chat_candidates`/`chat_item`). Plain
 code triages (own apps, the focused app's, low urgency, kinds found boring,
 silenced apps), checks the value of the kind (replies over words said,
 from a prior), dedupes, and delivers: a notification (time-critical; at

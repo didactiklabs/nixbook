@@ -18,7 +18,10 @@ import QtQuick
  *   - back: the screens come on, or the session unlocks, after a while;
  *   - focus: an app gets the focus (at most every few minutes);
  *   - notifications (ai.initiative.readNotifications, off by default):
- *     what came in, in batches.
+ *     what came in, in batches;
+ *   - moment: now and then, at random (40 minutes to 2 hours apart while
+ *     the user is at the computer), a chance for a light word: most of the
+ *     time nothing is said, at most a couple a day, only in the bar.
  * What it says comes as a notification from "Claude" (Reply, Not now,
  * Don't) or waits in the bar (`pending`: the robot's bubble), until it
  * expires. Reply opens the side panel's chat with it as Claude's message, so
@@ -37,6 +40,8 @@ Singleton {
 
     property var _batch: []
     property real _awaySince: 0
+    // At the computer since (back from the last break).
+    property real _activeSince: Date.now()
     property real _lastFocus: 0
     property string _lastApp: ""
 
@@ -186,6 +191,7 @@ Singleton {
             else if (root._awaySince > 0 && !GlobalStates.screenLocked) {
                 root.back((Date.now() - root._awaySince) / 60000)
                 root._awaySince = 0
+                root._activeSince = Date.now()
             }
         }
     }
@@ -197,6 +203,7 @@ Singleton {
             } else if (root._awaySince > 0) {
                 root.back((Date.now() - root._awaySince) / 60000)
                 root._awaySince = 0
+                root._activeSince = Date.now()
             }
         }
     }
@@ -211,6 +218,25 @@ Singleton {
             root._lastFocus = Date.now()
             root.consider({ event: "focus", app: app })
         }
+    }
+
+    // Now and then, at random, a chance for a light word.
+    Timer {
+        id: momentTimer
+        running: root.enabled
+        interval: root._nextMoment()
+        repeat: true
+        onTriggered: {
+            interval = root._nextMoment()
+            if (Idle.screensOff || GlobalStates.screenLocked) return
+            root.consider({ event: "moment", app: ToplevelManager.activeToplevel?.appId ?? "",
+                            activeMinutes: Math.round((Date.now() - root._activeSince) / 60000),
+                            tasksDue: Todo.dueTodayCount, weatherCode: Weather.data?.wCode ?? 0,
+                            weather: Weather.data?.description ?? "" })
+        }
+    }
+    function _nextMoment() {
+        return (40 + Math.random() * 80) * 60000
     }
 
     // The first start of the day counts as coming back.
