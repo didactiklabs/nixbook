@@ -3,8 +3,10 @@ pragma ComponentBehavior: Bound
 
 import qs
 import qs.modules.common
+import qs.modules.common.functions
 import Qt.labs.folderlistmodel
 import Quickshell
+import Quickshell.Bluetooth
 import Quickshell.Io
 import Quickshell.Services.Mpris
 import Quickshell.Wayland
@@ -55,6 +57,8 @@ Singleton {
         if (when.name && !lower(ev.name).includes(when.name)) return false
         if (when.ext && lower(ev.ext) !== when.ext.replace(/^\./, "")) return false
         if (when.event === "back" && (ev.away ?? 0) < (when.minutes ?? 30)) return false
+        if (when.event === "music_silent" && (ev.minutes ?? 0) < (when.minutes ?? 2)) return false
+        if (when.event === "charged" && (ev.percent ?? 0) !== (when.percent ?? 100)) return false
         if (when.event === "battery_low") {
             const th = (when.percent ?? 20)
             if (!(ev.prev > th && ev.percent <= th)) return false
@@ -86,6 +90,13 @@ Singleton {
 
     // Something happened: the routines it is the cue of.
     function happen(ev) {
+        if (ev.event === "back") {
+            root._sittingSince = Date.now()
+            root._longFired = []
+            root._userPausedAt = 0
+            root._silentSince = root.anyPlaying ? 0 : Date.now()
+            root._silentFired = []
+        }
         if (root.enabled && root.learn !== "off" && root.cueEvents.includes(ev.event))
             Quickshell.execDetached(["nixbook-desktop-mcp", "habits", "cue", ev.event, ev.name ?? ""])
         if (!root.enabled || root.active.length === 0) return
@@ -173,7 +184,11 @@ Singleton {
     readonly property bool anyPlaying: Mpris.players.values.some(p => p.isPlaying)
     property bool _wasPlaying: false
     onAnyPlayingChanged: {
+        // Silence counted from when the music stops (music_silent).
+        root._silentSince = root.anyPlaying ? 0 : Date.now()
+        root._silentFired = []
         if (root.anyPlaying) {
+            root._userPausedAt = 0
             quietTimer.stop()
             if (!root._wasPlaying) root.happen({ event: "music_started", app: MprisController.activePlayer?.identity ?? "",
                                                  text: `${MprisController.activeTrack?.artist ?? ""} ${MprisController.activeTrack?.title ?? ""}` })
@@ -212,11 +227,11 @@ Singleton {
                 if (nearEnd || movedOn || unknown) {
                     // `anyPlaying` still counts this player here (it updates
                     // after): the timer checks for other music when it runs out.
-                    root.note("music", `${name}: ended on its own, waiting 45 s`)
+                    root.note("music", `${name}: ended on its own, waiting 20 s`)
                     quietTimer.restart()
                 } else {
                     root._userPausedAt = Date.now()
-                    root.note("music", `${name}: paused by you (holding music routines 10 min)`)
+                    root.note("music", `${name}: paused by you (holding music routines until you play music or come back)`)
                     root._undone(f => f.music)
                 }
             }
@@ -229,15 +244,53 @@ Singleton {
             }
         }
     }
+    // No music for a while, while the user is here (music_silent: "whenever
+    // there's no music…"): from the shell's start, a stop, coming back. Once
+    // per silence and routine; held while the user stopped it themselves,
+    // until music plays again, they come back from a break, or an hour.
+    property real _silentSince: Date.now()
+    property var _silentFired: []
+    Timer {
+        interval: 20000
+        repeat: true
+        running: root.enabled && root._has("music_silent")
+        onTriggered: {
+            if (root.anyPlaying || root._silentSince === 0 || GlobalStates.screenLocked || Idle.screensOff) return
+            const minutes = Math.floor((Date.now() - root._silentSince) / 60000)
+            if (root._userPausedAt > 0 && Date.now() - root._userPausedAt < 3600000) return
+            for (const r of root.active.filter(r => r.when?.event === "music_silent")) {
+                if (root._silentFired.includes(r.id) || minutes < (r.when.minutes ?? 2)) continue
+                root._silentFired = [...root._silentFired, r.id]
+                root.note("music", Translation.tr("no music for %1 min").arg(minutes))
+                root._run(r, { event: "music_silent", minutes: minutes })
+            }
+        }
+    }
+    // An app comes to the front (app_focused), the same one once in a row.
+    property string _focusedApp: ""
+    Connections {
+        target: ToplevelManager
+        function onActiveToplevelChanged() {
+            const app = (ToplevelManager.activeToplevel?.appId ?? "").toLowerCase()
+            if (!app || app === root._focusedApp) return
+            root._focusedApp = app
+            focusSettle.restart()
+        }
+    }
+    Timer {
+        id: focusSettle
+        interval: 1500
+        onTriggered: if (root._has("app_focused")) root.happen({ event: "app_focused", app: root._focusedApp })
+    }
     Timer {
         id: quietTimer
-        interval: 45000
+        interval: 20000
         onTriggered: {
             if (root.anyPlaying) {
                 root.note("music", Translation.tr("other music plays: nothing to do"))
                 return
             }
-            if (!root._has("music_ended")) root.note("music", Translation.tr("quiet for 45 s, no routine for it"))
+            if (!root._has("music_ended")) root.note("music", Translation.tr("quiet for 20 s, no routine for it"))
             root.happen({ event: "music_ended", app: MprisController.activePlayer?.identity ?? "",
                           text: `${MprisController.activeTrack?.artist ?? ""} ${MprisController.activeTrack?.title ?? ""}` })
         }
@@ -370,6 +423,131 @@ Singleton {
                 for (const n of names.filter(n => !root._downloads.includes(n) && !/\.(part|crdownload|tmp|download)$/i.test(n)))
                     root.happen({ event: "download", name: n, ext: (n.match(/\.([^.]+)$/)?.[1] ?? "").toLowerCase() })
             root._downloads = names
+        }
+    }
+
+    // -- the day, the sitting -------------------------------------------------
+    // day_start: the first time at the computer today (here at start, back,
+    // unlocked; nixbook-desktop-mcp runs such a routine once a day). away:
+    // the screens go off. long_session: at it `minutes` (90) without a break,
+    // once a sitting.
+    property real _sittingSince: Date.now()
+    property var _longFired: []
+    Timer {
+        interval: 20000
+        running: root.enabled
+        onTriggered: root.happen({ event: "day_start" })
+    }
+    Connections {
+        target: Idle
+        function onScreensOffChanged() {
+            if (Idle.screensOff) root.happen({ event: "away" })
+        }
+    }
+    Timer {
+        interval: 60000
+        repeat: true
+        running: root.enabled && root._has("long_session")
+        onTriggered: {
+            if (GlobalStates.screenLocked || Idle.screensOff) return
+            const minutes = Math.floor((Date.now() - root._sittingSince) / 60000)
+            for (const r of root.active.filter(r => r.when?.event === "long_session")) {
+                if (root._longFired.includes(r.id) || minutes < (r.when.minutes ?? 90)) continue
+                root._longFired = [...root._longFired, r.id]
+                root._run(r, { event: "long_session", minutes: minutes })
+            }
+        }
+    }
+
+    // -- modes: fullscreen, Do Not Disturb ----------------------------------------
+    readonly property bool _fullscreen: WM.fullscreenOnMonitor(WM.focusedMonitor?.name ?? "")
+    on_FullscreenChanged: root.happen({ event: root._fullscreen ? "fullscreen_started" : "fullscreen_ended",
+                                        app: ToplevelManager.activeToplevel?.appId ?? "" })
+    Connections {
+        target: Notifications
+        function onSilentChanged() {
+            root.happen({ event: Notifications.silent ? "dnd_on" : "dnd_off" })
+        }
+    }
+
+    // -- devices: charge, Bluetooth, the phone, drives ----------------------------
+    Connections {
+        target: Battery
+        function onPercentageChanged() {
+            if (Battery.isCharging) root.happen({ event: "charged", percent: Math.round(Battery.percentage * 100) })
+        }
+    }
+    property var _bluetooth: null
+    readonly property var _bluetoothNow: Bluetooth.devices.values.filter(d => d.connected).map(d => d.name ?? "")
+    on_BluetoothNowChanged: {
+        const now = root._bluetoothNow
+        if (root._bluetooth !== null) {
+            for (const n of now.filter(n => !root._bluetooth.includes(n))) root.happen({ event: "bluetooth_connected", name: n })
+            for (const n of root._bluetooth.filter(n => !now.includes(n))) root.happen({ event: "bluetooth_disconnected", name: n })
+        }
+        root._bluetooth = now
+    }
+    property var _phones: null
+    readonly property var _phonesNow: KdeConnect.reachableDevices.map(d => d.name ?? "")
+    on_PhonesNowChanged: {
+        const now = root._phonesNow
+        if (root._phones !== null) {
+            for (const n of now.filter(n => !root._phones.includes(n))) root.happen({ event: "phone_connected", name: n })
+            for (const n of root._phones.filter(n => !now.includes(n))) root.happen({ event: "phone_disconnected", name: n })
+        }
+        root._phones = now
+    }
+    property var _drives: null
+    FolderListModel {
+        id: drives
+        folder: `file:///run/media/${Quickshell.env("USER")}`
+        showFiles: false
+        onCountChanged: drivesTimer.restart()
+    }
+    Timer {
+        id: drivesTimer
+        interval: 2000
+        onTriggered: {
+            const now = []
+            for (let i = 0; i < drives.count; i++) now.push(drives.get(i, "fileName"))
+            if (root._drives !== null) {
+                for (const n of now.filter(n => !root._drives.includes(n))) root.happen({ event: "drive_connected", name: n })
+                for (const n of root._drives.filter(n => !now.includes(n))) root.happen({ event: "drive_disconnected", name: n })
+            }
+            root._drives = now
+        }
+    }
+
+    // -- the disk, the weather, screenshots -------------------------------------
+    property bool _diskWasLow: false
+    Connections {
+        target: ResourceUsage
+        function onDiskUsedPercentageChanged() {
+            const used = Math.round(ResourceUsage.diskUsedPercentage * 100)
+            const low = root.active.some(r => r.when?.event === "disk_low" && used >= (r.when.percent ?? 90))
+            if (low && !root._diskWasLow) root.happen({ event: "disk_low", percent: used })
+            root._diskWasLow = low
+        }
+    }
+    // OpenWeather condition ids: 2xx storms, 3xx drizzle, 5xx rain, 6xx snow.
+    readonly property bool _raining: (Weather.data?.wCode ?? 0) >= 200 && (Weather.data?.wCode ?? 0) < 700
+    on_RainingChanged: if (root._raining) root.happen({ event: "rain", text: Weather.data?.description ?? "" })
+    property var _shots: null
+    FolderListModel {
+        id: shots
+        folder: `file://${FileUtils.expandHome(Config.options?.screenSnip?.savePath || "~/Pictures/Screenshots")}`
+        showDirs: false
+        onCountChanged: shotsTimer.restart()
+    }
+    Timer {
+        id: shotsTimer
+        interval: 1500
+        onTriggered: {
+            const now = []
+            for (let i = 0; i < shots.count; i++) now.push(shots.get(i, "fileName"))
+            if (root._shots !== null)
+                for (const n of now.filter(n => !root._shots.includes(n))) root.happen({ event: "screenshot", name: n })
+            root._shots = now
         }
     }
 
