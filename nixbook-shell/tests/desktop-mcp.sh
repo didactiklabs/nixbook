@@ -1385,6 +1385,25 @@ jq '.said += [.said[0] | .key = "y" | .id = "000002"]' "$ini" >"$ini.new" && mv 
 expect_eq "moment: at most 2 a day" "enough for today" "$(consider '{"event":"moment","roll":0.9,"tasksDue":2}' | jq -r .why)"
 python3 "$mcp" initiative clear
 
+# Settings > Say something now: at once, out loud, even with nothing on its mind.
+out=$(consider '{"event":"moment","force":true}')
+expect_eq "say something now: out loud" notify "$(jq -r .action <<<"$out")"
+expect_contains "say something now: a hello when nothing is on its mind" "$(jq -r .item.text <<<"$out")" "I'll"
+consider '{"event":"moment","roll":0.9}' >/dev/null
+expect_eq "log: why it kept quiet" "said one lately" "$(jq -r '[.log[] | select(.action=="none")] | last | .why' "$ini")"
+expect_eq "log: what it said" true "$(jq '[.log[] | select(.action=="notify")] | length > 0' "$ini")"
+# The shell gives its Claude Code (its PATH may not have one).
+cp "$bin/claude" "$tmp/own-claude"
+python3 "$mcp" initiative clear
+python3 "$mcp" memory clear >/dev/null
+call remember '{"topic":"firefox tabs","text":"ctrl+shift+t reopens the last closed tab"}' >/dev/null
+jq '.notes[0].ok = 2' "$mem" >"$mem.new" && mv "$mem.new" "$mem"
+rm -f "$calls.claude-args"
+STUB_CLAUDE_ANSWER='{"structured_output": {"text": "Firefox tip: ctrl+shift+t."}}' PATH="${PATH//$bin:/}" \
+  python3 "$mcp" initiative consider "$(jq -nc --arg c "$tmp/own-claude" '{event: "moment", roll: 0.9, app: "firefox", claude: $c}')" >/dev/null
+expect_eq "claude: the shell's own, off PATH" yes "$([ -e "$calls.claude-args" ] && echo yes || echo no)"
+python3 "$mcp" initiative clear
+
 # What it knows that may serve the user: a tip from a proven note, worded by the small model...
 python3 "$mcp" memory clear >/dev/null
 call remember '{"topic":"firefox tabs","text":"ctrl+shift+t reopens the last closed tab"}' >/dev/null

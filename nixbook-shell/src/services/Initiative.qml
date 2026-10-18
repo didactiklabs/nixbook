@@ -36,6 +36,8 @@ Singleton {
     readonly property string statePath: `${Quickshell.env("XDG_STATE_HOME") || `${Quickshell.env("HOME")}/.local/state`}/nixbook-shell/initiative.json`
     // What waits for the user, newest last: {id, kind, text, chat, time, expires}.
     property var pending: []
+    // Its last decisions, newest last: {time, event, action, said, why}.
+    property var log: []
     property real now: Date.now()
     readonly property var live: root.pending.filter(p => (p.expires ?? 0) * 1000 > root.now)
 
@@ -67,7 +69,9 @@ Singleton {
 
     function consider(event) {
         if (!root.enabled) return
-        event.busy = root.busy()
+        event.busy = event.force === true ? false : root.busy()
+        // The shell's PATH may not have Claude Code: its own, for the small model.
+        if (Ai.claudeCodePath.length > 0) event.claude = Ai.claudeCodePath
         considerer.createObject(root, { command: ["nixbook-desktop-mcp", "initiative", "consider", JSON.stringify(event)], running: true })
     }
 
@@ -89,6 +93,13 @@ Singleton {
         GlobalStates.sidebarLeftOpen = true
         GlobalStates.aiChatRequested()
         root.answer(item.id, "replied")
+    }
+    // Settings > Say something now: a light word at once, to try it.
+    function sayNow() {
+        root.consider({ event: "moment", force: true, app: ToplevelManager.activeToplevel?.appId ?? "",
+                        activeMinutes: Math.round((Date.now() - root._activeSince) / 60000),
+                        tasksDue: Todo.dueTodayCount, weatherCode: Weather.data?.wCode ?? 0,
+                        weather: Weather.data?.description ?? "" })
     }
     function openLatest() {
         root.open(root.live[root.live.length - 1])
@@ -148,9 +159,12 @@ Singleton {
         onFileChanged: reload()
         onLoaded: {
             try {
-                root.pending = JSON.parse(stateFile.text()).pending ?? []
+                const data = JSON.parse(stateFile.text())
+                root.pending = data.pending ?? []
+                root.log = data.log ?? []
             } catch (e) {
                 root.pending = []
+                root.log = []
             }
         }
     }

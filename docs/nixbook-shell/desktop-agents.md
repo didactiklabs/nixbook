@@ -72,6 +72,8 @@ It costs little and learns what you value:
 - **A small model** (`memoryModel`, Haiku) only reads notifications, in batches of up to 6, after the triage has dropped its own, the focused app's (you see them), low-urgency ones and kinds it found not worth a word before (those are never sent again). There are at most 30 calls a day (`initiativeCallsPerDay`). Everything else is worded in code.
 - **Your answers teach it:** a reply makes that kind more likely, a dismissal less, and **Don't tell me this** silences that kind (or that app's notifications). Settings has a button to undo every "don't".
 
+**Say something now** (Settings) makes it speak at once, to try it. Under it, **Lately** lists its last decisions: what it said, or why it kept quiet ("nothing to say", "said one lately", "the user is busy"…).
+
 Keys in `desktop-mcp.json` (`programs.nixbook-shell.desktopMcp.settings`): `initiativeMaxPerDay` (6), `initiativeGapMinutes` (30), `initiativeQuietHours` (`"22-8"`), `initiativeCallsPerDay` (30), `initiativeChatPerDay` (2). The switches are `ai.initiative.enable` and `ai.initiative.readNotifications` in the shell's settings. State lives in `~/.local/state/nixbook-shell/initiative.json` (private); `nixbook-desktop-mcp initiative show|pending|unmute|clear`.
 
 ## Desktop memory

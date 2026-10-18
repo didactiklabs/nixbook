@@ -513,7 +513,11 @@ side panel's "From Claude" tab (`Ai.claudeTab()`, one, reused, past
 `maxChats`) with the message as Claude's (`unsent`: it goes with the user's
 next message when the tab's session already runs; `GlobalStates.aiChatRequested`);
 answers (`initiative answer ID replied|later|dismissed|never`) teach it.
-State in `~/.local/state/nixbook-shell/initiative.json`.
+Each decision is logged (`log`, 30 kept; Settings shows the last ones, and
+**Say something now** sends a `moment` with `force`: no chance or gap, out
+loud, a hello when nothing is on its mind). The small model's Claude Code:
+`memoryClaude`, the shell's own (`claude` in the event), PATH, or the usual
+install places (`claude_path`). State in `~/.local/state/nixbook-shell/initiative.json`.
 
 **Personal memory**, so a conversation knows what the user told agents
 before: life events (past or planned, with dates), plans, people close to

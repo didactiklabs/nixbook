@@ -100,10 +100,28 @@ ContentPage {
             RowLayout {
                 spacing: 8
                 SmallButton {
+                    materialIcon: "campaign"
+                    enabled: Config.options.ai.initiative.enable
+                    mainText: Translation.tr("Say something now")
+                    onClicked: Initiative.sayNow()
+                }
+                SmallButton {
                     materialIcon: "restart_alt"
                     mainText: Translation.tr("Undo every \"Don't tell me this\"")
                     onClicked: Quickshell.execDetached(["nixbook-desktop-mcp", "initiative", "unmute"])
                 }
+            }
+
+            // Why it spoke or kept quiet lately: its last decisions.
+            StyledText {
+                Layout.fillWidth: true
+                visible: Initiative.log.length > 0
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                font.pixelSize: Appearance.font.pixelSize.small
+                text: Translation.tr("Lately:") + "\n" + Initiative.log.slice(-6).reverse().map(l =>
+                    `${Qt.formatDateTime(new Date(l.time * 1000), "hh:mm")} · ${l.event} · `
+                    + (l.action === "none" ? Translation.tr("kept quiet: %1").arg(l.why) : (l.said || l.action))).join("\n")
             }
         }
 
