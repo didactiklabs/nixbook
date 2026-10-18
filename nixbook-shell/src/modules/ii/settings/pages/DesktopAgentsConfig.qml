@@ -627,7 +627,9 @@ ContentPage {
                             spacing: 10
 
                             MaterialSymbol {
-                                text: noteRow.modelData.kind === "recipe" ? "format_list_numbered" : "sticky_note_2"
+                                text: noteRow.modelData.kind !== "recipe" ? "sticky_note_2"
+                                    : (noteRow.modelData.steps && new Set(noteRow.modelData.runs ?? []).size >= 3 && !noteRow.modelData.failStep) ? "bolt"
+                                    : "format_list_numbered"
                                 iconSize: Appearance.font.pixelSize.larger
                                 color: Appearance.colors.colOnLayer1
                             }
@@ -650,10 +652,19 @@ ContentPage {
                                     color: Appearance.colors.colOnLayer1
                                 }
                                 StyledText {
-                                    text: Translation.tr("by %1 · %2 · used %3 times")
-                                        .arg(noteRow.modelData.client ?? "?")
-                                        .arg(page.ago(noteRow.modelData.updated))
-                                        .arg(noteRow.modelData.uses ?? 0)
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.WordWrap
+                                    // What it proved (tasks it helped, failed), how
+                                    // often agents got it, and where it came from.
+                                    text: [Translation.tr("by %1 · %2").arg(noteRow.modelData.client ?? "?").arg(page.ago(noteRow.modelData.updated)),
+                                           Translation.tr("helped %1 · failed %2 · shown %3 times")
+                                               .arg(noteRow.modelData.ok ?? 0).arg(noteRow.modelData.fail ?? 0)
+                                               .arg(noteRow.modelData.shown ?? noteRow.modelData.uses ?? 0),
+                                           ({ user: Translation.tr("told by you"), read: Translation.tr("read in content, unverified"),
+                                              inferred: Translation.tr("learned in the background") })[noteRow.modelData.source] ?? "",
+                                           noteRow.modelData.tentative ? Translation.tr("tentative") : "",
+                                           noteRow.modelData.failStep ? Translation.tr("step %1 failed").arg(noteRow.modelData.failStep.step) : ""]
+                                        .filter(x => x).join(" · ")
                                     font.pixelSize: Appearance.font.pixelSize.smaller
                                     color: Appearance.colors.colSubtext
                                 }
@@ -663,6 +674,53 @@ ContentPage {
                                 mainText: Translation.tr("Delete")
                                 onClicked: DesktopControl.forgetNote(noteRow.modelData.id)
                             }
+                        }
+                    }
+                }
+            }
+
+            ContentSubsection {
+                title: Translation.tr("Reminders")
+
+                StyledText {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    color: Appearance.colors.colSubtext
+                    readonly property int archived: (DesktopControl.memory.archive ?? []).length
+                    text: Translation.tr("Ask an agent \"remind me when I open Gmail to…\" or \"…at 18:00\": a notification comes then.")
+                        + (archived > 0 ? " " + Translation.tr("%1 faded notes are in the archive: agents find them again when they need them.").arg(archived) : "")
+                }
+                StyledText {
+                    visible: (DesktopControl.memory.triggers ?? []).length === 0
+                    color: Appearance.colors.colSubtext
+                    text: Translation.tr("None yet.")
+                }
+                Repeater {
+                    model: DesktopControl.memory.triggers ?? []
+                    delegate: RowLayout {
+                        id: triggerRow
+                        required property var modelData
+                        Layout.fillWidth: true
+                        spacing: 10
+                        MaterialSymbol {
+                            text: "alarm"
+                            iconSize: Appearance.font.pixelSize.larger
+                            color: Appearance.colors.colOnLayer1
+                        }
+                        StyledText {
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            color: Appearance.colors.colOnLayer1
+                            text: [triggerRow.modelData.app ? Translation.tr("when %1 opens").arg(triggerRow.modelData.app) : "",
+                                   triggerRow.modelData.title ? Translation.tr("when a title has \"%1\"").arg(triggerRow.modelData.title) : "",
+                                   triggerRow.modelData.at ? Translation.tr("at %1").arg(triggerRow.modelData.at) : "",
+                                   triggerRow.modelData.repeat ? Translation.tr("every day") : ""]
+                                .filter(x => x).join(", ") + " — " + triggerRow.modelData.text
+                        }
+                        SmallButton {
+                            materialIcon: "delete"
+                            mainText: Translation.tr("Delete")
+                            onClicked: DesktopControl.forgetNote(triggerRow.modelData.id)
                         }
                     }
                 }

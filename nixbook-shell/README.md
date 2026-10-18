@@ -422,14 +422,54 @@ time. Only the right part reaches a model, to keep its context small:
   generic words aside ("search", "settings", "tab"…), is named by the
   focused window's title or the text an action types (typing "furnished
   apartments in tokyo" brings the "apartment search" note);
-- `recall` ranks notes by the words of a question (topic first) and returns
-  the best five; without a question, the list of topics;
-- a note counts as used each time it goes to an agent (recalled, about its
-  task, or just in time), so the useful ones rank first and are kept at the
-  cap;
+- `recall` ranks notes by the words of a question (topic first, then the
+  keywords the memory pass gave them) and returns the best five; without a
+  question, the list of topics and the reminders;
 - `remember` answers with the notes already on its topic, so the agent
   merges them into one (`remember` with an `id`) instead of piling up
   near-duplicates.
+
+It learns as a person does, in plain code (no model call, no token), from
+what agents do — an **episode** is one task, ending at the next one, after
+10 idle minutes or when the client leaves:
+
+- a note is judged by its task's outcome: given for it (about the task, the
+  app reached, or recalled) and the actions in its apps went well, it
+  helped (`ok`, and a trace); most of them failed, it failed (`fail`,
+  flagged to the next agent once it fails more than it helped); being shown
+  is only counted (`shown`), and a note the agent rewrote is judged next time;
+- notes rank by ACT-R's base-level activation, ln Σ tⱼ^-0.5 over the times
+  they helped (spaced: uses within an hour count once), plus what they
+  proved; unasked, the digest gives only notes above a threshold;
+- unused 90 days (180 if it helped, 365 if it helped 3 times or more), a
+  note moves to the archive (`archive`, 200 kept): `recall` finds it there
+  and brings it back; at the cap the weakest go there too;
+- each note has its `source`: `seen` working, said by the `user`, `read` in
+  content (tentative, flagged, never given unasked, can't say always/never/
+  must) or `inferred` by the memory pass; no note but the user's can tell
+  agents to ignore their rules or send something somewhere; a replaced text
+  is kept as `was`;
+- recipes: `run_steps` `vars` fill `{name}` placeholders, and with
+  `remember_as` the recipe keeps them (the same topic replaces it);
+  `run_recipe` runs one in a call (its steps never go through the model
+  again), counting the days it worked; worked on 3 days, it is a macro,
+  offered in one line; a failing step demotes it (`failStep`);
+- `remind` keeps a reminder with its cue (an app, words in a window's
+  title, a time; once, or daily with `repeat`): the shell
+  (`services/MemoryReminders.qml`) checks them on focus and title changes
+  and every half minute, notifies (app "Reminder") and fires them
+  (`memory fire ID`).
+
+Model calls only where they pay, in the background, by Claude Code with no
+tools (`memoryModel`, Haiku; `memoryClaude`; `memoryLearn = false` turns
+them off): an episode new to the memory (no note helped, no recipe ran)
+that went well and took work (8 actions, or 2 failures) goes to `memory
+learn`, which sees the request, the actions in short (typed text as its
+length only) and the notes on those apps, and may save notes or recipes
+(`inferred`, tentative until they help; recipes typing only placeholders)
+with keywords; weekly (`memory tidy`), notes on the same app or task with
+one changed since are merged (the kept note sums what they proved) and
+notes without keywords get some; no call when nothing is to tidy.
 
 With 40 notes, the digest went from about 745 tokens (and the notes about
 the task could be cut off) to about 165, with those notes in full. It is
