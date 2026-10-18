@@ -50,6 +50,9 @@ Item {
 
         RotationAnimation on rotation {
             running: Config.options.background.widgets.clock.cookie.constantlyRotate
+            // Each frame redraws the wallpaper layer (and niri re-blurs every
+            // window over it): hold the angle while nothing shows the clock.
+            paused: running && !root.secondsVisible
             duration: 30000
             easing.type: Easing.Linear
             loops: Animation.Infinite

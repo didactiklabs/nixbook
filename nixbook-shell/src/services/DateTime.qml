@@ -10,6 +10,7 @@ import Quickshell.Io
  * A nice wrapper for date and time strings.
  */
 Singleton {
+    id: root
     property var clock: SystemClock {
         id: clock
         precision: {
@@ -38,36 +39,39 @@ Singleton {
     readonly property string digitM1: minuteStr.charAt(1)
     property string uptime: "0h, 0m"
 
+    // Shown to the minute; paused while the screens are off (Idle), refreshed
+    // as soon as they're back.
     Timer {
-        interval: 10
-        running: true
+        interval: 60000
+        running: !Idle.screensOff
         repeat: true
-        onTriggered: {
-            fileUptime.reload();
-            const textUptime = fileUptime.text();
-            const uptimeSeconds = Number(textUptime.split(" ")[0] ?? 0);
-
-            // Convert seconds to days, hours, and minutes
-            const days = Math.floor(uptimeSeconds / 86400);
-            const hours = Math.floor((uptimeSeconds % 86400) / 3600);
-            const minutes = Math.floor((uptimeSeconds % 3600) / 60);
-
-            // Build the formatted uptime string
-            let formatted = "";
-            if (days > 0)
-                formatted += `${days}d`;
-            if (hours > 0)
-            formatted += `${formatted ? ", " : ""}${hours}h`;
-            if (minutes > 0 || !formatted)
-                formatted += `${formatted ? ", " : ""}${minutes}m`;
-                uptime = formatted;
-                // Shown to the minute.
-                interval = 60000;
-        }
+        triggeredOnStart: true
+        onTriggered: fileUptime.reload()
     }
 
     FileView {
         id: fileUptime
         path: "/proc/uptime"
+        // Parsed once loaded: text() right after reload() is the previous read.
+        onLoaded: root.formatUptime(fileUptime.text())
+    }
+
+    function formatUptime(textUptime) {
+        const uptimeSeconds = Number(textUptime.split(" ")[0] ?? 0);
+
+        // Convert seconds to days, hours, and minutes
+        const days = Math.floor(uptimeSeconds / 86400);
+        const hours = Math.floor((uptimeSeconds % 86400) / 3600);
+        const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+
+        // Build the formatted uptime string
+        let formatted = "";
+        if (days > 0)
+            formatted += `${days}d`;
+        if (hours > 0)
+            formatted += `${formatted ? ", " : ""}${hours}h`;
+        if (minutes > 0 || !formatted)
+            formatted += `${formatted ? ", " : ""}${minutes}m`;
+        root.uptime = formatted;
     }
 }

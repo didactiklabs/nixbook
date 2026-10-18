@@ -18,7 +18,12 @@ Item {
     readonly property var monitor: WM.monitorFor(root.QsWindow.window?.screen)
     readonly property Toplevel activeWindow: ToplevelManager.activeToplevel
     property bool focusingThisMonitor: WM.focusedMonitor?.name === monitor?.name
-    property var biggestWindow: WM.biggestWindowForWorkspace(WM.activeWorkspaceForMonitor(monitor?.name)?.id ?? 1)
+    // This monitor's own workspace only: a fallback id (niri numbers
+    // workspaces globally) showed a window from another output.
+    property var biggestWindow: {
+        const ws = WM.activeWorkspaceForMonitor(monitor?.name);
+        return ws ? WM.biggestWindowForWorkspace(ws.id) : null;
+    }
 
     property string activeAppClass: {
         if (!root.focusingThisMonitor || !root.activeWindow?.activated)
@@ -31,13 +36,6 @@ Item {
             return Quickshell.iconPath("user-desktop", "image-missing")
         return Quickshell.iconPath(AppSearch.guessIcon(root.activeAppClass), 
             Quickshell.iconPath("user-desktop", "image-missing"))     // ← fallback Desktop
-    }
-
-    Component.onCompleted: {
-        console.log("appId:", root.activeWindow?.appId)
-        console.log("class:", root.biggestWindow?.class)
-        console.log("guessIcon:", AppSearch.guessIcon(root.activeAppClass))
-        console.log("iconPath:", root.mainAppIconSource)
     }
 
     implicitWidth:  vertical ? Appearance.sizes.verticalBarWidth : Math.min(colLayout.implicitWidth + 12, 280)

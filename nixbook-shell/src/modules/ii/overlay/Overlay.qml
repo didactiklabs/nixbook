@@ -12,10 +12,6 @@ import Quickshell.Wayland
 Scope {
     id: root
 
-    property Component regionComponent: Component {
-        Region {}
-    }
-    
     // The overlay window is built the first time it is needed (opened, or a
     // widget pinned) and kept alive afterwards; only the layer surface is
     // mapped/unmapped, so reopening skips rebuilding every overlay widget.
@@ -46,11 +42,20 @@ Scope {
                     overlayContent.rearmEntrance();
             }
 
+            // One Region per pinned widget, kept while that widget stays
+            // pinned (creating them in the mask binding leaked a new set on
+            // every change).
+            Variants {
+                id: clickableRegions
+                model: OverlayContext.clickableWidgets
+                delegate: Region {
+                    required property var modelData
+                    item: modelData
+                }
+            }
             mask: Region {
                 item: GlobalStates.overlayOpen ? overlayContent : null
-                regions: OverlayContext.clickableWidgets.map((widget) => regionComponent.createObject(this, {
-                    item: widget
-                }));
+                regions: clickableRegions.instances
             }
 
             anchors {

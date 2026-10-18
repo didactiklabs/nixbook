@@ -377,15 +377,19 @@ MouseArea {
                     }
                     Rectangle {
                         id: bubble
-                        width: Math.min(parent.width, bodyText.implicitWidth + 28)
+                        width: Math.min(parent.width, bodyText.contentWidth + 28)
                         height: bodyText.implicitHeight + 18
                         radius: 16
                         color: root.spec.bubble
                         StyledText {
                             id: bodyText
                             anchors { left: parent.left; top: parent.top; margins: 14; topMargin: 9 }
-                            width: Math.min(implicitWidth, bubbleItem.width - 28)
-                            text: bubbleItem.text.replace(/\n/g, "<br/>")
+                            // A fixed width (the bubble follows contentWidth):
+                            // min(implicitWidth, …) on wrapped text re-entered
+                            // its own layout (a binding loop).
+                            width: bubbleItem.width - 28
+                            // A chat bubble shows no inline images.
+                            text: bubbleItem.text.replace(/<img\b[^>]*>/gi, "").replace(/\n/g, "<br/>")
                             textFormat: Text.StyledText
                             wrapMode: Text.Wrap
                             maximumLineCount: root.expanded ? 1000 : 4

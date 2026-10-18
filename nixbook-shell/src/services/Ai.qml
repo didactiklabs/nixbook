@@ -26,12 +26,32 @@ Singleton {
 
     // Without the desktop memory: Claude Code gets that from the desktop MCP
     // server itself.
-    property string systemPrompt: {
+    property string systemPrompt: root.substitutedPrompt(root.promptSubstitutions)
+    // What Claude Code is started with: the date and the focused app change
+    // between messages, and a different command line restarted Claude Code
+    // for nearly every message (~2 s, the MCP server too). They go with each
+    // message instead (messageContext()).
+    readonly property var volatilePromptKeys: ["{DATETIME}", "{WINDOWCLASS}"]
+    property string stableSystemPrompt: {
+        const subs = {};
+        for (let key in root.promptSubstitutions)
+            subs[key] = root.volatilePromptKeys.includes(key) ? "(given with each message)" : root.promptSubstitutions[key];
+        return root.substitutedPrompt(subs);
+    }
+    // The volatile values the configured prompt asks for, put before a message.
+    function messageContext() {
+        const prompt = Config.options?.ai?.systemPrompt ?? "";
+        const parts = [];
+        if (prompt.includes("{DATETIME}")) parts.push(`Current date & time: ${root.promptSubstitutions["{DATETIME}"]}`);
+        if (prompt.includes("{WINDOWCLASS}")) parts.push(`Focused app: ${root.promptSubstitutions["{WINDOWCLASS}"]}`);
+        return parts.length > 0 ? `[${parts.join("; ")}]\n\n` : "";
+    }
+    function substitutedPrompt(substitutions) {
         let prompt = Config.options?.ai?.systemPrompt ?? "";
-        for (let key in root.promptSubstitutions) {
+        for (let key in substitutions) {
             // prompt = prompt.replaceAll(key, root.promptSubstitutions[key]);
             // QML/JS doesn't support replaceAll, so use split/join
-            prompt = prompt.split(key).join(root.promptSubstitutions[key]);
+            prompt = prompt.split(key).join(substitutions[key]);
         }
         if (Config.options?.ai?.includeSystemContext ?? true) {
             const machine = systemContextFile.loaded ? systemContextFile.text().trim() : "";
@@ -442,7 +462,7 @@ Singleton {
             ...(attached.length > 0 ? [`Read(/${attached})`] : []),
             ...writable.map(f => `Edit(/${f}/**)`),
             ...(connectors ? root.claudeConnectors : [])];
-        const system = root.systemPrompt
+        const system = root.stableSystemPrompt
             + "\n\nYou are answering in the desktop shell's side panel: keep answers short."
             + (Config.options.ai.claudeCode.asComputer ? root.asComputerPrompt(desktop) : "")
             + (desktop ? " You can see and drive the user's desktop with the desktop tools." : "")
@@ -602,7 +622,10 @@ Singleton {
         id: chatSaveFile
         property string chatName: ""
         path: chatName.length > 0 ? `${Directories.aiChats}/${chatName}.json` : ""
-        blockLoading: true // Prevent race conditions
+        // blockAllReads, not blockLoading: with blockLoading, once a file is
+        // loaded, changing the path returns the previous file's text until the
+        // new one loads, so /load read the chat saved last.
+        blockAllReads: true
     }
 
     /**
@@ -664,7 +687,9 @@ Singleton {
     }
     FileView {
         id: historyChatFile
-        blockLoading: true
+        // Not blockLoading: after the first save, opening another conversation
+        // read the one saved last, then saved it under the opened one's id.
+        blockAllReads: true
         blockWrites: true
     }
     function historyChatPath(id) {

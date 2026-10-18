@@ -19,10 +19,13 @@ Item {
     property string artDownloadLocation: Directories.coverArt
     property string artFileName: Qt.md5(artUrl)
     property string artFilePath: `${artDownloadLocation}/${artFileName}`
-    property color artDominantColor: ColorUtils.mix(
-        (colorQuantizer?.colors[0] ?? Appearance.colors.colPrimary),
-        Appearance.colors.colPrimaryContainer,
-        0.8) || Appearance.m3colors.m3secondaryContainer
+    // The fallback lives in the binding: assigning it on a track without art
+    // replaced the binding, so every later track kept the fallback colour.
+    property color artDominantColor: !root.artUrl ? Appearance.m3colors.m3secondaryContainer
+        : ColorUtils.mix(
+            (colorQuantizer?.colors[0] ?? Appearance.colors.colPrimary),
+            Appearance.colors.colPrimaryContainer,
+            0.8) || Appearance.m3colors.m3secondaryContainer
     property bool downloaded: false
     property list<real> visualizerPoints: []
     property real maxVisualizerValue: 1000
@@ -51,7 +54,6 @@ Item {
 
     onArtFilePathChanged: {
         if (!root.artUrl || root.artUrl.length === 0) {
-            root.artDominantColor = Appearance.m3colors.m3secondaryContainer
             root.downloaded = false
             return
         }
@@ -71,10 +73,12 @@ Item {
         id: coverArtDownloader
         property string targetFile: root.artUrl
         property string artFilePath: root.artFilePath
-        command: ["bash", "-c", `[ -f ${artFilePath} ] || curl -4 -sSL '${targetFile}' -o '${artFilePath}'`]
-        onExited: (exitCode, exitStatus) => {
-            root.downloaded = true
-        }
+        command: ["bash", "-c", '[ -f "$1" ] || { curl -4 -sSL "$2" -o "$1.part.$$" && mv -f "$1.part.$$" "$1"; }; rm -f "$1.part.$$"', "_", artFilePath, targetFile]
+        // A track change while a download runs queues a rerun for the new
+        // cover: only the run fetching the current one marks it ready.
+        property string startedPath
+        onStarted: startedPath = artFilePath
+        onExited: if (startedPath === root.artFilePath) root.downloaded = true
     }
 
     ColorQuantizer {

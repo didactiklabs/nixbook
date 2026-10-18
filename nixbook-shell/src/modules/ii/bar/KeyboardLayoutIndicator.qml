@@ -27,7 +27,7 @@ Loader {
                 horizontalAlignment: Text.AlignHCenter
                 text: NiriXkb.currentLayoutCode
                 font.pixelSize: Appearance.font.pixelSize.small
-                color: Appearance.colors.colOnLayer0
+                color: root.color
                 animateChange: true
             }
         }

@@ -421,7 +421,7 @@ Scope {
         }
 
         function sendPrompt(prompt, attached) {
-            requester.pendingLine = JSON.stringify({ type: "user", message: { role: "user", content: prompt } }) + "\n";
+            requester.pendingLine = JSON.stringify({ type: "user", message: { role: "user", content: Ai.messageContext() + prompt } }) + "\n";
             // A connector needed signing in to: perhaps it's done now.
             if (Ai.claudeConnectorsSetting && Ai.claudeConnectorsNeedAuth
                     && Date.now() - Ai.claudeConnectorsCheckedAt > 20000) {

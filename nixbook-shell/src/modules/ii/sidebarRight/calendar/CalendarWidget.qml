@@ -1,6 +1,7 @@
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.modules.common.functions
 import "calendar_layout.js" as CalendarLayout
 import QtQuick
 import QtQuick.Layouts
@@ -88,7 +89,8 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                     color: Appearance.colors.colOnLayer1
                     RotationAnimation on rotation {
-                        running: CalendarEvents.syncing
+                        // Background syncs run while the (kept-mapped) sidebar is closed.
+                        running: CalendarEvents.syncing && ObjectUtils.shown(refreshIcon)
                         from: 0
                         to: 360
                         duration: 900

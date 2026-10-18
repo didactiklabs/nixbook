@@ -157,7 +157,8 @@ ContentPage {
 
                 Timer {
                     interval: Config.options.time.secondPrecision ? 1000 : 15000
-                    running: true
+                    // The page outlives the Settings window: tick only while shown.
+                    running: ObjectUtils.shown(previewCard)
                     repeat: true
                     triggeredOnStart: true
                     onTriggered: previewCard.now = new Date()

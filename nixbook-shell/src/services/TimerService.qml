@@ -145,9 +145,12 @@ Singleton {
         id: stopwatchTimer
         // Reads the clock on each tick, so a slower tick loses no accuracy:
         // once per frame with the sidebar open (10 ms was faster than the
-        // display), 10/s when only the bar shows it.
+        // display), 10/s when only the bar shows it, not at all while the
+        // screens are off (Idle; caught up when they're back, and pause/lap
+        // read the clock themselves).
         interval: GlobalStates.sidebarRightOpen ? 16 : 100
-        running: root.stopwatchRunning
+        running: root.stopwatchRunning && !Idle.screensOff
+        triggeredOnStart: true
         repeat: true
         onTriggered: refreshStopwatch()
     }
@@ -160,6 +163,7 @@ Singleton {
     }
 
     function stopwatchPause() {
+        if (stopwatchRunning) refreshStopwatch();
         Persistent.states.timer.stopwatch.running = false;
     }
 
@@ -176,6 +180,7 @@ Singleton {
     }
 
     function stopwatchRecordLap() {
+        if (stopwatchRunning) refreshStopwatch();
         Persistent.states.timer.stopwatch.laps.push(stopwatchTime);
     }
 

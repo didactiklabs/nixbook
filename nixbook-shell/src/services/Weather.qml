@@ -113,14 +113,13 @@ Singleton {
         url += `&units=${units}`
         url += `&appid=${apiKey}`
 
-        let command = `curl -s "${url}"`
-
-        fetcher.command[2] = command
+        // curl gets the URL as an argument: the city name used to go through bash.
+        fetcher.command = ["curl", "-s", url]
         fetcher.running = true
     }
 
     function formatCityName(cityName) {
-        return cityName.trim().split(/\s+/).join('+')
+        return cityName.trim().split(/\s+/).map(w => encodeURIComponent(w)).join('+')
     }
 
     Component.onCompleted: {
@@ -131,7 +130,6 @@ Singleton {
 
     Process {
         id: fetcher
-        command: ["bash", "-c", ""]
         stdout: StdioCollector {
             onStreamFinished: {
                 if (text.length === 0)

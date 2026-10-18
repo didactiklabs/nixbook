@@ -243,9 +243,8 @@ Item {
                 hintDetail: Audio.source ? Audio.friendlyDeviceName(Audio.source) : ""
             }
         }
-        Loader {
-            source: "KeyboardLayoutIndicator.qml"
-            onLoaded: item.color = root.iconColor
+        KeyboardLayoutIndicator {
+            color: root.iconColor
         }
         HintedIcon {
             text: Network.materialSymbol
@@ -275,8 +274,6 @@ Item {
             id: notifLoader
             active: Notifications.silent || Notifications.unread > 0
             visible: active
-            width: active ? item?.implicitWidth ?? 0 : 0
-            height: active ? item?.implicitHeight ?? 0 : 0
             source: "NotificationUnreadCount.qml"
             MouseArea {
                 id: notifArea

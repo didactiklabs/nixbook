@@ -79,6 +79,7 @@ Singleton {
     }
 
     component NotifTimer: Timer {
+        id: notifTimer
         required property int notificationId
         interval: 7000
         running: true
@@ -91,6 +92,7 @@ Singleton {
                 destroy();
                 return;
             }
+            if (notifObject.timer === notifTimer) notifObject.timer = null; // destroyed below, not by destroyTimers()
             if (notifObject.isTransient) root.discardNotification(notificationId);
             else root.timeoutNotification(notificationId);
             destroy()
@@ -360,9 +362,11 @@ Singleton {
         // shifts the following elements one by one and emits listChanged for each,
         // re-running the grouping and every model bound to the list each time.
         const remaining = root.list.filter((notif) => !idSet.has(notif.notificationId));
-        const discardedUnread = root.list.filter((notif) => idSet.has(notif.notificationId) && !notif.read).length;
+        const discarded = root.list.filter((notif) => idSet.has(notif.notificationId));
+        const discardedUnread = discarded.filter((notif) => !notif.read).length;
         if (discardedUnread > 0)
             root.unread = Math.max(0, root.unread - discardedUnread);
+        root.destroyTimers(discarded);
         if (remaining.length !== root.list.length) {
             root.list = remaining;
             notifFileView.setText(stringifyList(root.list));
@@ -440,7 +444,20 @@ Singleton {
         return verdict;
     }
 
+    // A popup's expiry timer paused by hovering (or never started) destroys
+    // itself only when it fires: discarding the notification first leaked it.
+    function destroyTimers(notifs) {
+        notifs.forEach((notif) => {
+            if (notif.timer == null) return;
+            const timer = notif.timer;
+            notif.timer = null;
+            timer.stop();
+            timer.destroy();
+        });
+    }
+
     function discardAllNotifications() {
+        root.destroyTimers(root.list);
         root.list = []
         triggerListChange()
         notifFileView.setText(stringifyList(root.list));

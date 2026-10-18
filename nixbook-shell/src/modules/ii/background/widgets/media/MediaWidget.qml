@@ -115,8 +115,12 @@ AbstractBackgroundWidget {
         id: coverArtDownloader
         property string targetFile: root.artUrl
         property string artFilePath: root.artFilePath
-        command: ["bash", "-c", `[ -f ${artFilePath} ] || curl -sSL '${targetFile}' -o '${artFilePath}'`]
-        onExited: { root.downloaded = true }
+        command: ["bash", "-c", '[ -f "$1" ] || { curl -sSL "$2" -o "$1.part.$$" && mv -f "$1.part.$$" "$1"; }; rm -f "$1.part.$$"', "_", artFilePath, targetFile]
+        // A track change while a download runs queues a rerun for the new
+        // cover: only the run fetching the current one marks it ready.
+        property string startedPath
+        onStarted: startedPath = artFilePath
+        onExited: if (startedPath === root.artFilePath) root.downloaded = true
     }
 
     WidgetShadow {

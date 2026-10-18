@@ -58,14 +58,33 @@ Singleton {
             map.get(toplevel.appId.toLowerCase()).toplevels.push(toplevel);
         }
 
+        // One entry object per app, kept while the app is in the dock and
+        // updated in place: new objects on every window open/close made every
+        // dock button be destroyed and rebuilt (hover lost, launch hop cut).
+        // `_entries` is a plain object mutated in place, so filling it from
+        // this binding notifies nothing.
         var values = [];
+        const kept = {};
 
         for (const [key, value] of map) {
-            values.push(appEntryComp.createObject(null, { appId: key, toplevels: value.toplevels, pinned: value.pinned }));
+            let entry = root._entries[key];
+            if (!entry) {
+                entry = appEntryComp.createObject(null, { appId: key, toplevels: value.toplevels, pinned: value.pinned });
+            } else {
+                entry.toplevels = value.toplevels;
+                entry.pinned = value.pinned;
+            }
+            kept[key] = entry;
+            values.push(entry);
         }
+        for (const key in root._entries)
+            if (!kept[key]) delete root._entries[key];
+        for (const key in kept)
+            root._entries[key] = kept[key];
 
         return values;
     }
+    readonly property var _entries: ({})
 
     component TaskbarAppEntry: QtObject {
         id: wrapper

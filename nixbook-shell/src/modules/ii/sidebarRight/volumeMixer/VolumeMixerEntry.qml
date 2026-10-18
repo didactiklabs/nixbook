@@ -28,12 +28,12 @@ Item {
             Layout.preferredHeight: size
 
             cursorShape: Qt.PointingHandCursor
-            onClicked: root.node.audio.muted = !root.node.audio.muted
+            onClicked: if (root.node?.audio) root.node.audio.muted = !root.node.audio.muted
 
             hoverEnabled: true
             property bool hovered: containsMouse
             StyledToolTip {
-                text: root.node?.audio.muted ? Translation.tr("Click to unmute") : Translation.tr("Click to mute")
+                text: root.node?.audio?.muted ? Translation.tr("Click to unmute") : Translation.tr("Click to mute")
             }
 
             Image {
@@ -44,10 +44,10 @@ Item {
                 sourceSize.height: parent.size
                 source: {
                     let icon;
-                    icon = AppSearch.guessIcon(root.node?.properties["application.icon-name"] ?? "");
+                    icon = AppSearch.guessIcon(root.node?.properties?.["application.icon-name"] ?? "");
                     if (AppSearch.iconExists(icon))
                         return Quickshell.iconPath(icon, "image-missing");
-                    icon = AppSearch.guessIcon(root.node?.properties["node.name"] ?? "");
+                    icon = AppSearch.guessIcon(root.node?.properties?.["node.name"] ?? "");
                     return Quickshell.iconPath(icon, "image-missing");
                 }
             }
@@ -55,9 +55,9 @@ Item {
             Desaturate {
                 anchors.fill: iconImg
                 source: iconImg
-                desaturation: root.node?.audio.muted ? 1.0 : 0.0
+                desaturation: root.node?.audio?.muted ? 1.0 : 0.0
                 visible: iconImg.source !== ""
-                opacity: root.node?.audio.muted ? 0.4 : 1.0
+                opacity: root.node?.audio?.muted ? 0.4 : 1.0
 
                 Behavior on opacity {
                     NumberAnimation {
@@ -73,7 +73,7 @@ Item {
 
             MaterialSymbol {
                 anchors.centerIn: parent
-                visible: root.node?.audio.muted ?? false
+                visible: root.node?.audio?.muted ?? false
                 text: root.node?.isSink ? "volume_off" : "mic_off"
                 iconSize: 22
                 color: Appearance.colors.colOnLayer1
@@ -92,15 +92,15 @@ Item {
                 text: {
                     // application.name -> description -> name
                     const app = Audio.appNodeDisplayName(root.node);
-                    const media = root.node.properties["media.name"];
+                    const media = root.node?.properties?.["media.name"];
                     return media != undefined ? `${app} • ${media}` : app;
                 }
             }
 
             StyledSlider {
                 id: slider
-                value: root.node?.audio.volume ?? 0
-                onMoved: root.node.audio.volume = value
+                value: root.node?.audio?.volume ?? 0
+                onMoved: if (root.node?.audio) root.node.audio.volume = value
                 configuration: StyledSlider.Configuration.S
             }
         }

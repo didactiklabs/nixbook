@@ -146,9 +146,14 @@ Singleton {
             root._pending = true
             return
         }
+        // The month browsed to and, always, today's: reminders, the next
+        // event and the bar read today from the same index, so browsing a few
+        // months away (or a long uptime) used to leave today unloaded and
+        // silence them.
         const a = root._anchor
-        const start = new Date(a.getFullYear(), a.getMonth() - 1, 1)
-        const end = new Date(a.getFullYear(), a.getMonth() + 2, 1)
+        const now = new Date()
+        const start = new Date(Math.min(new Date(a.getFullYear(), a.getMonth() - 1, 1), new Date(now.getFullYear(), now.getMonth() - 1, 1)))
+        const end = new Date(Math.max(new Date(a.getFullYear(), a.getMonth() + 2, 1), new Date(now.getFullYear(), now.getMonth() + 2, 1)))
         root.loading = true
         Accounts.call(["calendar", "events", "--from", root.dayKey(start), "--to", root.dayKey(end)], (ok, result) => {
             root.loading = false
@@ -305,6 +310,14 @@ Singleton {
         running: root._started && Accounts.connected
         repeat: true
         onTriggered: root.sync()
+    }
+    // A new month (after midnight) needs loading even without a sync.
+    Connections {
+        target: DateTime
+        function onDateChanged() {
+            const now = new Date()
+            if (new Date(now.getFullYear(), now.getMonth() + 2, 1) > root.rangeEnd) root.refresh()
+        }
     }
 
     // `nixbook-shell ipc call calendar next|upcoming DAYS|day YYYY-MM-DD`:

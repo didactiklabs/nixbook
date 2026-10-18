@@ -401,7 +401,11 @@ Item {
 
             Repeater {
                 id: activeRepeater
-                model: ScriptModel { values: root.activeUnpinned }
+                // Keyed by app: TaskbarApps rebuilds its entries on every window change.
+                model: ScriptModel {
+                    values: root.activeUnpinned
+                    objectProp: "appId"
+                }
 
                 delegate: Item {
                     id: activeSlot
