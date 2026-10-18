@@ -186,6 +186,11 @@ Singleton {
     signal initDone();
     signal notify(notification: var);
     signal discard(id: int);
+    // The user acted on a notification (an action, a click), or dismissed
+    // it: what the agent learns which apps matter from (Initiative.qml).
+    signal acted(appName: string);
+    signal dismissed(appName: string);
+    property var _actedIds: ({})
     signal discardAll();
     signal timeout(id: var);
 
@@ -364,6 +369,11 @@ Singleton {
         const remaining = root.list.filter((notif) => !idSet.has(notif.notificationId));
         const discarded = root.list.filter((notif) => idSet.has(notif.notificationId));
         const discardedUnread = discarded.filter((notif) => !notif.read).length;
+        if (!expired)
+            for (const notif of discarded) {
+                if (root._actedIds[notif.notificationId]) delete root._actedIds[notif.notificationId];
+                else root.dismissed(notif.appName);
+            }
         if (discardedUnread > 0)
             root.unread = Math.max(0, root.unread - discardedUnread);
         root.destroyTimers(discarded);
@@ -575,6 +585,8 @@ Singleton {
             const action = notifServerNotif.actions.find((action) => action.identifier === notifIdentifier);
             // console.log("Action found: " + JSON.stringify(action));
             if (action) {
+                root._actedIds[id] = true;
+                root.acted(root.list.find(n => n.notificationId === id)?.appName ?? "");
                 action.invoke();
             } else {
                 console.warn("[Notifications] Action not found:", notifIdentifier);

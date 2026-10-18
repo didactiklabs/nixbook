@@ -31,7 +31,8 @@
       "readNotifications": false
     },
     "routines": {
-      "enable": true
+      "enable": true,
+      "learn": "off"
     }
   },
   "appearance": {

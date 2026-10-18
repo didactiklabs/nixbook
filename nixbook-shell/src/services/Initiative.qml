@@ -85,10 +85,16 @@ Singleton {
                         open: WM.windowList.map(w => w.appId) })
     }
 
-    // Opens what it said in the side panel's chat, as Claude's message.
+    // Opens what it said in the side panel's chat, as Claude's message; a
+    // learned routine offered (`accept`) is just turned on.
     function open(item) {
         if (!item) return
         if (root.speaking?.id === item.id) root.speaking = null
+        if (item.accept) {
+            root.answer(item.id, "replied")
+            return
+        }
+        root._opened = { id: item.id, time: Date.now() }
         Ai.claudeTab().addMessage(item.chat || item.text, "assistant", true)
         GlobalStates.sidebarLeftOpen = true
         GlobalStates.aiChatRequested()
@@ -103,6 +109,12 @@ Singleton {
     }
     function openLatest() {
         root.open(root.live[root.live.length - 1])
+    }
+    // The conversation it opened goes on: worth more than a one-word reply.
+    property var _opened: null
+    function engaged() {
+        if (root._opened && Date.now() - root._opened.time < 1800000)
+            Quickshell.execDetached(["nixbook-desktop-mcp", "initiative", "answer", root._opened.id, "engaged"])
     }
     function answer(id, outcome) {
         if (!/^[0-9a-f]{1,16}$/.test(id ?? "")) return
@@ -166,6 +178,31 @@ Singleton {
                 root.pending = []
                 root.log = []
             }
+        }
+    }
+
+    // What the user does with their notifications, sent every few minutes:
+    // the apps they act on, the ones they dismiss.
+    property var _seen: ({})
+    function _count(app, what) {
+        if (!root.enabled || !app) return
+        const c = root._seen[app] ?? { acted: 0, dismissed: 0 }
+        c[what] += 1
+        root._seen = Object.assign({}, root._seen, { [app]: c })
+        if (!seenTimer.running) seenTimer.start()
+    }
+    Connections {
+        target: Notifications
+        function onActed(app) { root._count(app, "acted") }
+        function onDismissed(app) { root._count(app, "dismissed") }
+    }
+    Timer {
+        id: seenTimer
+        interval: 300000
+        onTriggered: {
+            const seen = root._seen
+            root._seen = {}
+            Quickshell.execDetached(["nixbook-desktop-mcp", "initiative", "notices", JSON.stringify(seen)])
         }
     }
 
