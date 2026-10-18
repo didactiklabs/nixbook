@@ -55,7 +55,7 @@ Replies stream in, each tool call shows with its result in a collapsible block, 
 - **It writes files only where you let it**: in _Folders AI agents may write_ (`ai.writableFolders`, none by default) it can create and edit files; anywhere else is refused.
 - It runs in an empty directory of its own, without your `~/.claude` settings, so permission rules from your own Claude Code sessions don't apply.
 - **Speak as this computer** (`ai.claudeCode.asComputer`, on by default): Claude answers as the machine itself — "my CPU is an AMD Ryzen 7 6800U", "my battery is at 80%, though its health is down to 46%" — reading its hardware, OS and kernel live through the desktop tools' `system_info` rather than guessing.
-- **Use your claude.ai connectors** (`ai.claudeCode.connectors`, off by default) gives it the connectors of your Claude account (Gmail, Calendar, Drive…).
+- **Use your claude.ai connectors** (`ai.claudeCode.connectors`, off by default) gives it the connectors of your Claude account (Gmail, Calendar, Drive…). They are listed again each time the panel opens. After adding or signing in to one on claude.ai while the panel is open, **Reload connectors** (or `nixbook-shell ipc call ai reloadConnectors`) starts Claude again with it, keeping the conversation.
 
 With a model selected, the configuration facts become reference for the model: it answers with its own knowledge too, and says when it isn't sure. `ai.includeSystemContext` (on by default; Settings → Services → AI) controls whether the machine context is sent.
 

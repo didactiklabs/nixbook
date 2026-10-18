@@ -336,6 +336,25 @@ Singleton {
     property string claudeConnectorsState: "" // "name status" lines
     property bool claudeConnectorsNeedAuth: false
     property double claudeConnectorsCheckedAt: 0
+    // Settings > Desktop agents' Reload connectors (and `nixbook-shell ipc
+    // call ai reloadConnectors`): listed again, and every chat's Claude Code
+    // started again even if the list looks the same (a connector added or
+    // signed in to on claude.ai since it started) — an idle one now, resuming
+    // its conversation, a busy one at its next message.
+    function reloadClaudeConnectors() {
+        listClaudeConnectors.forceRestart = true;
+        if (!root.checkClaudeConnectors()) {
+            // Connectors off or no Claude Code: nothing to list, restart anyway.
+            listClaudeConnectors.forceRestart = false;
+            for (const chat of root.chats) chat.connectorsChecked(true);
+        }
+    }
+    IpcHandler {
+        target: "ai"
+        function reloadConnectors(): void {
+            root.reloadClaudeConnectors();
+        }
+    }
     // Whether they are being listed (a message can wait for it).
     function checkClaudeConnectors() {
         if (root.claudeConnectorsSetting && root.claudeCodePath.length > 0 && !listClaudeConnectors.running)
@@ -345,6 +364,7 @@ Singleton {
     Process {
         id: listClaudeConnectors
         property bool changed: false
+        property bool forceRestart: false
         command: [root.claudeCodePath, "mcp", "list"]
         workingDirectory: Quickshell.env("HOME")
         stdout: StdioCollector {
@@ -361,8 +381,10 @@ Singleton {
         }
         onExited: {
             root.claudeConnectorsCheckedAt = Date.now();
-            for (const chat of root.chats) chat.connectorsChecked(listClaudeConnectors.changed);
+            const restart = listClaudeConnectors.changed || listClaudeConnectors.forceRestart;
             listClaudeConnectors.changed = false;
+            listClaudeConnectors.forceRestart = false;
+            for (const chat of root.chats) chat.connectorsChecked(restart);
         }
     }
 
