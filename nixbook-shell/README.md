@@ -501,11 +501,17 @@ silenced apps), checks the value of the kind (replies over words said,
 from a prior), dedupes, and delivers: a notification (time-critical; at
 most `initiativeMaxPerDay`, `initiativeGapMinutes` apart, none in
 `initiativeQuietHours`, in a meeting, fullscreen, on Do Not Disturb) or a
-word waiting in the bar (`pending`, the robot's bubble, 6 hours). Only
+word waiting in the bar (`pending`, the robot's bubble, 6 hours). Spoken out
+loud is not a notification: `Initiative.speaking` shows
+`modules/ii/notificationPopup/AgentSpeech.qml`, a speech bubble on the left
+under the bar, styled per theme (Material, Persona, Chiikawa, Cyberpunk,
+Ghibli), to the bar after 25 s unanswered. Only
 notifications go to the small model (`INITIATIVE_SYSTEM`, at most
 `initiativeCallsPerDay`), which also names kinds never worth a word. The
 memory pass offers what it learned (`initiative_offer`). Reply opens the
-side panel's chat with the message as Claude's (`GlobalStates.aiChatRequested`);
+side panel's "From Claude" tab (`Ai.claudeTab()`, one, reused, past
+`maxChats`) with the message as Claude's (`unsent`: it goes with the user's
+next message when the tab's session already runs; `GlobalStates.aiChatRequested`);
 answers (`initiative answer ID replied|later|dismissed|never`) teach it.
 State in `~/.local/state/nixbook-shell/initiative.json`.
 

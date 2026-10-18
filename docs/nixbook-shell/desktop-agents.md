@@ -62,7 +62,8 @@ Turn on **Settings → Desktop agents → Talk to me on its own** (off by defaul
 
 How it reaches you:
 
-- **A notification from "Claude"** for what is time-critical. It has **Reply** (the side panel opens with its message in the chat, so you just answer), **Not now** and **Don't tell me this**. There are at most 6 a day, 30 minutes apart, and none at night (22:00–8:00), in a meeting, fullscreen or on Do Not Disturb.
+- **Its own speech bubble**, for what is time-critical: not a notification but Claude itself, on the left under the bar (your notifications stay where they are), in the theme's look: a Material card, a slanted Persona frame, a round pastel Chiikawa bubble, a notched neon Cyberpunk panel or a paper Ghibli card. It has **Reply**, **Not now** and **Don't tell me this**; unanswered after 25 seconds (it waits while you hover it), it moves to the bar. At most 6 a day, 30 minutes apart, and none at night (22:00–8:00), in a meeting, fullscreen or on Do Not Disturb.
+- **Reply** opens the side panel on its own **From Claude** tab, always the same one (made when missing, even with every tab in use), with its message there, so you just answer. Claude knows what it said, even when that tab already has a conversation going.
 - **A bubble beside the robot in the bar** for the rest, breathing slowly. Click it to answer in the chat, right-click for not now. These expire after a few hours.
 
 It costs little and learns what you value:

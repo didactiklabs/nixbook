@@ -13,6 +13,9 @@ QtObject {
     property string model
     property bool thinking: true
     property bool done: false
+    // Said by Claude on its own (services/Initiative.qml) and not yet in its
+    // Claude Code session: goes with the user's next message.
+    property bool unsent: false
     property var annotations: []
     property var annotationSources: []
     property list<string> searchQueries: []

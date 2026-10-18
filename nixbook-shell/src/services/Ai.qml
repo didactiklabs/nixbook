@@ -126,6 +126,19 @@ Singleton {
         root.currentIndex = current === chat ? Math.min(index, root.chats.length - 1) : root.chats.indexOf(current);
         chat.destroy(10000); // once its Claude Code is gone
     }
+    // The "From Claude" tab, made when missing (even past maxChats: it is
+    // one tab, and what Claude says must land somewhere).
+    function claudeTab() {
+        let chat = root.chats.find(c => c.fromClaude);
+        if (!chat) {
+            let slot = 1;
+            while (root.chats.some(c => c.slot === slot)) slot++;
+            chat = chatComponent.createObject(root, { slot: slot, fromClaude: true });
+            root.chats = [...root.chats, chat];
+        }
+        root.selectChat(chat);
+        return chat;
+    }
     function selectChat(chat) {
         const index = root.chats.indexOf(chat);
         if (index >= 0) root.currentIndex = index;
@@ -420,6 +433,10 @@ Singleton {
         const turns = messages.filter(m => (m.role === "user" || m.role === "assistant") && !m.functionName);
         const last = turns[turns.length - 1];
         let prompt = last?.role === "user" ? last.rawContent : "";
+        // What Claude said on its own since (Initiative), unknown to its session.
+        const unsent = sessionId.length > 0 ? turns.filter(m => m.role === "assistant" && m.unsent) : [];
+        if (unsent.length > 0)
+            prompt = `(Meanwhile you told the user, on your own:\n\n${unsent.map(m => m.rawContent).join("\n\n")})\n\nThe user now says:\n\n${prompt}`;
         if (sessionId.length === 0 && turns.length > 1) {
             // A new session for a chat that already has turns (another model,
             // a loaded chat, a regenerated answer): the chat so far, as context.
