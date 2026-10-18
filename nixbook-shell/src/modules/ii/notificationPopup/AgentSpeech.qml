@@ -197,6 +197,7 @@ Scope {
                 StyledText {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
+                    textFormat: Text.PlainText // its words may quote third-party text
                     text: root.item?.text ?? ""
                     font.family: root.font
                     font.pixelSize: Appearance.font.pixelSize.normal

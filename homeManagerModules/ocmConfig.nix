@@ -452,9 +452,11 @@ in
           hints and `LIBGL_ALWAYS_SOFTWARE=1` (no GPU is passed through) in a
           marked `~/.env` block that `uninstall` removes.
 
-          A workspace with it can capture the whole desktop (wlr-screencopy)
-          and, on sway and Hyprland, send input through virtual-keyboard and
-          virtual-pointer: add it only to workspaces you trust with that. The
+          A workspace with it can capture the whole desktop (wlr-screencopy),
+          read and set the clipboard, and send input through virtual-keyboard
+          and virtual-pointer (niri, sway and Hyprland all offer them) past
+          the desktop agents' pause and denylists: add it only to workspaces
+          you trust with that. The
           socket is bound by inode, so after the compositor restarts (a new
           login) restart the workspaces that have it.
         '';

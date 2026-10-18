@@ -481,6 +481,7 @@ Singleton {
         iconName: "terminal"
         iconType: LauncherSearchResult.IconType.Material
         execute: () => {
+            if (DesktopControl.refuseIfAgentInput(Translation.tr("a command from the launcher"))) return;
             let cleanedCommand = root.query.replace("file://", "");
             cleanedCommand = StringUtils.cleanPrefix(cleanedCommand, Config.options.search.prefix.shellCommand);
             if (cleanedCommand.startsWith(Config.options.search.prefix.shellCommand)) {

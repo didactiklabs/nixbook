@@ -246,6 +246,31 @@ Singleton {
         }
     }
 
+    // Agents' keys and clicks look like the user's: nixbook-desktop-mcp
+    // stamps the time before each input (mark_agent_input), and what would
+    // run something with the user's full rights from typed text (a launcher
+    // `$` command, a side-panel chat message) waits until AGENT_INPUT_MS
+    // after the last one. Read synchronously, at the moment it would run.
+    readonly property int agentInputMs: 3000
+    function agentInputRecent(): bool {
+        agentInputFile.reload()
+        const t = parseInt(agentInputFile.text())
+        return !isNaN(t) && Date.now() - t < root.agentInputMs && Date.now() >= t - 1000
+    }
+    // Refuses with a word to the user; true when refused.
+    function refuseIfAgentInput(what: string): bool {
+        if (!root.agentInputRecent()) return false
+        Quickshell.execDetached(["notify-send", "--app-name=Desktop agent", "--icon=smart_toy",
+            Translation.tr("Blocked: %1").arg(what),
+            Translation.tr("An agent was typing or clicking just now, so this didn't run (agents can't run commands this way). Do it again in a few seconds if it was you.")])
+        return true
+    }
+    FileView {
+        id: agentInputFile
+        path: `${Directories.runtimeTemp}/agent-input`
+        blockLoading: true
+        printErrors: false
+    }
     FileView {
         id: stateFile
         path: `${root.stateDir}/state.json`

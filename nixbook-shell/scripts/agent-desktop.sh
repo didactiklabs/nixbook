@@ -105,6 +105,38 @@ in_agent_home() {
   [ "$dir" = "$home" ] || case "$dir" in "$home"/*) ;; *) return 1 ;; esac
 }
 
+# A folder the user shares with agents, normalized ("//", ".", ".."), or
+# nothing (said why) for the system root, /home, the home or a parent of
+# it, and anything in a hidden folder of the home (~/.config, ~/.ssh,
+# ~/.claude…: settings, keys, logins; from there an app could change how
+# the host runs).
+safe_folder() {
+  local f
+  # shellcheck disable=SC2088 # a literal ~ from the setting, expanded here
+  case "$1" in "~") f="$HOME" ;; "~/"*) f="$HOME/${1#"~/"}" ;; *) f="$1" ;; esac
+  case "$f" in /*) ;; *)
+    echo "nixbook-agent-desktop: ignoring $1 (not an absolute path)" >&2
+    return 1
+    ;;
+  esac
+  f="$(realpath -ms -- "$f")" || return 1
+  if [ "$f" = / ]; then
+    echo "nixbook-agent-desktop: not sharing / (the whole system)" >&2
+    return 1
+  fi
+  case "$HOME/" in "$f"/*)
+    echo "nixbook-agent-desktop: not sharing $f (the whole home, or a folder holding it)" >&2
+    return 1
+    ;;
+  esac
+  case "$f" in "$HOME"/.*)
+    echo "nixbook-agent-desktop: not sharing $f (a hidden folder of the home: settings, keys, logins)" >&2
+    return 1
+    ;;
+  esac
+  printf '%s\n' "$f"
+}
+
 rm -rf "$control"
 # Another desktop's home, the first time: the first one's, but its caches and
 # the links to the user's folders (made again below).
@@ -315,17 +347,11 @@ shared=()
 if [ -r "$shell_config" ]; then
   while IFS= read -r folder; do
     [ -n "$folder" ] || continue
-    # shellcheck disable=SC2088 # a literal ~ from the setting, expanded here
-    case "$folder" in "~") folder="$HOME" ;; "~/"*) folder="$HOME/${folder#"~/"}" ;; esac
-    case "$folder" in
-    /*)
-      if [ -d "$folder" ]; then
-        sandbox+=(--ro-bind "$folder" "$folder")
-        shared+=("${folder%/}")
-      fi
-      ;;
-    *) echo "nixbook-agent-desktop: ignoring $folder (not an absolute path)" >&2 ;;
-    esac
+    folder="$(safe_folder "$folder")" || continue
+    if [ -d "$folder" ]; then
+      sandbox+=(--ro-bind "$folder" "$folder")
+      shared+=("$folder")
+    fi
   done < <(jq -r '.ai.allowedFolders // [] | .[] | strings' "$shell_config" 2>/dev/null || true)
 fi
 # The folders they may also write (ai.writableFolders), bound after the
@@ -337,21 +363,13 @@ if [ -r "$shell_config" ]; then
   first=true
   while IFS= read -r folder; do
     [ -n "$folder" ] || continue
-    # shellcheck disable=SC2088 # a literal ~ from the setting, expanded here
-    case "$folder" in "~") folder="$HOME" ;; "~/"*) folder="$HOME/${folder#"~/"}" ;; esac
-    folder="${folder%/}"
-    case "$folder" in
-    "" | "$HOME") echo "nixbook-agent-desktop: not making ${folder:-/} writable (the whole home or /)" >&2 ;;
-    /*)
-      mkdir -p "$folder" && sandbox+=(--bind "$folder" "$folder")
-      shared+=("$folder")
-      if $first; then
-        download_dir="$folder"
-        first=false
-      fi
-      ;;
-    *) echo "nixbook-agent-desktop: ignoring $folder (not an absolute path)" >&2 ;;
-    esac
+    folder="$(safe_folder "$folder")" || continue
+    mkdir -p "$folder" && sandbox+=(--bind "$folder" "$folder")
+    shared+=("$folder")
+    if $first; then
+      download_dir="$folder"
+      first=false
+    fi
   done < <(jq -r '.ai.writableFolders // [] | .[] | strings' "$shell_config" 2>/dev/null || true)
 fi
 
@@ -374,6 +392,9 @@ while IFS= read -r folder; do
   case "$folder" in "$HOME"/*) ;; *) continue ;; esac
   link="$agent_home/${folder#"$HOME"/}"
   if [ ! -e "$link" ] && [ ! -L "$link" ]; then
+    # Checked before making its parents too: a link an app planted there
+    # would have them made outside its home.
+    in_agent_home "$link" "$agent_home" || continue
     mkdir -p "$(dirname "$link")"
     in_agent_home "$link" "$agent_home" || continue
     ln -s "$folder" "$link"
@@ -382,7 +403,9 @@ while IFS= read -r folder; do
 done < <(printf '%s\n' ${shared[@]+"${shared[@]}"} | sort -u)
 
 # Their XDG folders: Downloads, and those of the user's (Pictures,
-# Documents…) that are shared, so apps open them by default.
+# Documents…) that are shared, so apps open them by default. Written to a
+# new file (mktemp: a name an app can't have linked elsewhere first).
+user_dirs_tmp="$(mktemp "$agent_home/.config/.user-dirs.XXXXXX")"
 {
   printf 'XDG_DOWNLOAD_DIR="%s"\n' "$download_dir"
   if [ -r "$config_home/user-dirs.dirs" ]; then
@@ -403,10 +426,10 @@ done < <(printf '%s\n' ${shared[@]+"${shared[@]}"} | sort -u)
       done
     done <"$config_home/user-dirs.dirs"
   fi
-} >"$agent_home/.config/user-dirs.dirs.tmp"
+} >"$user_dirs_tmp"
 # Renamed into place: replaces a symlink an app put there instead of
 # writing through it.
-mv -f "$agent_home/.config/user-dirs.dirs.tmp" "$agent_home/.config/user-dirs.dirs"
+mv -f "$user_dirs_tmp" "$agent_home/.config/user-dirs.dirs"
 
 # Their own network: pasta gives it the internet and the LAN through this
 # computer's connection, without its loopback (-T/-U none, --no-map-gw: the
@@ -460,6 +483,14 @@ if [ -z "$niri_socket" ]; then
   $private_network && fail "niri didn't start; its private network (pasta) may be the cause: the journal says (journalctl --user -u $unit), Settings > Desktop agents can turn it off"
   fail "niri didn't start (journalctl --user -u $unit)"
 fi
+# The restricted socket to the user's desktop is for its niri only: once
+# niri is connected (its window is up), its name goes, so no app in the
+# sandbox can connect to the user's desktop too (the connection made stays).
+for _ in $(seq 50); do
+  niri msg --json windows 2>/dev/null | jq -e 'any(.[]; .app_id == "nixbook-agent-desktop")' >/dev/null && break
+  sleep 0.1
+done
+rm -f "$restricted_display"
 display="${niri_socket##*/niri.}"
 display="${display%.*.sock}"
 umask 077
