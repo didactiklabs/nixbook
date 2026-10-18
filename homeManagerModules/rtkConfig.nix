@@ -37,15 +37,18 @@ in
   config = lib.mkIf cfg.enable {
     home.packages = [ rtk ];
 
-    # Initialize RTK with optional auto-rewrite hook
+    # Initialize RTK with optional auto-rewrite hook. `--auto-patch`: the
+    # activation is non-interactive, so without it rtk answered its own
+    # "Patch settings.json?" prompt with N and the Claude hook never got
+    # registered. `run` skips it on dry runs.
     home.activation.rtkInit = lib.hm.dag.entryAfter [ "writeBoundary" ] (
       if config.customHomeManagerModules.opencodeConfig.enable then
         ''
-          ${rtk}/bin/rtk init -g --opencode
+          run ${rtk}/bin/rtk init -g --opencode --auto-patch
         ''
       else
         ''
-          ${rtk}/bin/rtk init --global
+          run ${rtk}/bin/rtk init --global --auto-patch
         ''
     );
   };

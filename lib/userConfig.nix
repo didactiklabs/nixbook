@@ -126,7 +126,20 @@ let
       home-manager = {
         useUserPackages = true;
         useGlobalPkgs = true;
-        backupCommand = "for b in $(ls -t $1.* 2>/dev/null | tail -n +4); do rm $b; done; cp $1 $1.$(date +%Y%m%d%H%M%S)";
+        # Home Manager runs this as `run $HOME_MANAGER_BACKUP_COMMAND "$path"`
+        # (word-split, not through a shell), so it must be a single executable:
+        # a shell one-liner here ran `for` as a command, failed, and the
+        # colliding file was replaced without a backup.
+        # Keeps the three newest backups next to the file.
+        backupCommand = pkgs.writeShellScript "hm-backup" ''
+          shopt -s nullglob
+          backups=("$1".[0-9]*)
+          if [ "''${#backups[@]}" -gt 3 ]; then
+            mapfile -t old < <(ls -t -- "''${backups[@]}" | tail -n +4)
+            rm -f -- "''${old[@]}"
+          fi
+          cp -a -- "$1" "$1.$(date +%Y%m%d%H%M%S)"
+        '';
         users.${username} =
           { config, ... }:
           {
