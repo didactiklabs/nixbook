@@ -55,7 +55,10 @@ Scope {
                     bottom: true
                 }
 
-                Component.onCompleted: { GlobalFocusGrab.addPersistent(barRoot); }
+                Component.onCompleted: {
+                    GlobalFocusGrab.addPersistent(barRoot);
+                    GlobalStates.barCreated(barLoader.modelData?.name ?? "");
+                }
                 Component.onDestruction: { GlobalFocusGrab.removePersistent(barRoot); }
 
                 MouseArea {

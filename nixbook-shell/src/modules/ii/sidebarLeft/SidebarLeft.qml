@@ -68,6 +68,9 @@ Scope { // Scope
         Persistent.states.sidebar.left.open = root.pin && GlobalStates.sidebarLeftOpen;
         if (root.pin && !root.restoringPin)
             Persistent.states.sidebar.left.screen = sidebarLoader.item?.screen?.name ?? WM.focusedMonitor?.name ?? "";
+        // A sidebar kept mapped since before the bar was created squeezes it
+        // once it reserves its strip.
+        if (root.pin) sidebarLoader.item?.checkBarOrder();
     }
 
     function toggleDetach() {
@@ -116,7 +119,68 @@ Scope { // Scope
             // surface and Qt rebuilt the GL context on every open). Closed =
             // no input region, no keyboard focus, transparent content.
             property bool keepMapped: false
-            visible: reallyVisible || keepMapped
+            visible: (reallyVisible || keepMapped) && !remapping
+
+            // Pinned, the sidebar reserves its strip (exclusiveZone), and niri
+            // places the surfaces that reserve space in the order they were
+            // mapped, each in what the earlier ones left: mapped before the
+            // bar, it squeezed the bar into the space on its right. That
+            // happened whenever the bar was created after it (every unlock
+            // destroys the bar, startup, a screen plugged in). So when a bar is
+            // created on its screen, or it gets pinned, the order is read back
+            // from niri (`niri msg layers` lists them in that order) and, when
+            // it comes first, the sidebar is mapped again: behind the bar.
+            property bool remapping: false
+            function checkBarOrder() {
+                if (!root.pin || root.detach) return;
+                barOrderCheck.tries = 0;
+                barOrderCheck.restart();
+            }
+            Connections {
+                target: GlobalStates
+                function onBarCreated(screenName) {
+                    if (screenName === panelWindow.screen?.name) panelWindow.checkBarOrder();
+                }
+            }
+            Timer {
+                id: barOrderCheck
+                property int tries: 0
+                interval: 300 // the bar maps once it has drawn its first frame
+                onTriggered: barOrderProc.running = true
+            }
+            Process {
+                id: barOrderProc
+                command: ["niri", "msg", "--json", "layers"]
+                stdout: StdioCollector {
+                    onStreamFinished: panelWindow.applyBarOrder(text)
+                }
+            }
+            function applyBarOrder(text) {
+                if (!root.pin || root.detach) return;
+                let layers;
+                try {
+                    layers = JSON.parse(text);
+                } catch (e) {
+                    return;
+                }
+                const here = layers.filter(l => l.output === panelWindow.screen?.name).map(l => l.namespace);
+                const sidebar = here.indexOf("quickshell:sidebarLeft");
+                const bar = here.findIndex(n => n === "quickshell:bar" || n === "quickshell:verticalBar");
+                // Not mapped: it goes behind whatever is there when it maps.
+                if (sidebar < 0) return;
+                // No bar yet (still drawing its first frame): look again.
+                if (bar < 0) {
+                    if (++barOrderCheck.tries < 10) barOrderCheck.restart();
+                    return;
+                }
+                if (sidebar > bar) return;
+                console.log("[SidebarLeft] mapped before the bar on", panelWindow.screen?.name, "- mapping it again behind it");
+                panelWindow.remapping = true;
+                Qt.callLater(() => {
+                    panelWindow.remapping = false;
+                    if (++barOrderCheck.tries < 10) barOrderCheck.restart(); // confirm
+                });
+            }
             Connections {
                 target: Preloader
                 function onSidebarLeftChanged() {

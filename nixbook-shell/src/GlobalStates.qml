@@ -93,6 +93,10 @@ Singleton {
     // a text field takes Ctrl+D as "delete", so the key never reached the
     // panel's own handler.
     signal sidebarLeftShortcut(int key)
+    // A bar window was created on this output (startup, every unlock, a
+    // screen plugged in): a pinned left sidebar checks it is placed behind it
+    // (SidebarLeft.checkBarOrder).
+    signal barCreated(string screenName)
     function sidebarLeftKey(event): bool {
         const mods = event.modifiers & ~Qt.KeypadModifier;
         if (mods !== Qt.ControlModifier || ![Qt.Key_O, Qt.Key_P, Qt.Key_D].includes(event.key)) return false;
