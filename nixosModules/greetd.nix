@@ -104,7 +104,11 @@ in
             sessionsArg = lib.optionalString (
               sessionPaths != [ ]
             ) "--sessions ${lib.concatStringsSep ":" sessionPaths}";
-            wrapperArg = lib.optionalString cfg.niri.enable "--session-wrapper '${pkgs.niri}/bin/niri-session'";
+            # tuigreet wraps every session in it, so only while niri is the one
+            # session: with sway too, picking sway would have started niri.
+            wrapperArg = lib.optionalString (
+              cfg.niri.enable && !cfg.sway.enable
+            ) "--session-wrapper '${pkgs.niri}/bin/niri-session'";
           in
           lib.concatStringsSep " " (
             lib.filter (s: s != "") [

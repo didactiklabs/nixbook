@@ -35,7 +35,11 @@ in
         wantedBy = [ "graphical-session.target" ];
         serviceConfig = {
           ExecStart = "/run/current-system/sw/bin/steam steam://open/bigpicture";
-          Restart = "always";
+          # on-failure, not always: with Steam already running the command
+          # hands the URL over and exits 0 at once, so `always` restarted it
+          # back to back until the start limit left the unit failed.
+          Restart = "on-failure";
+          RestartSec = "5s";
         };
       };
     };

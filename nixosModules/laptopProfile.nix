@@ -21,6 +21,7 @@ in
         - power-profiles-daemon: dynamic CPU frequency scaling (performance / balanced /
           power-saver profiles, switchable via e.g. the DMS control centre)
         - thermald: Intel thermal management daemon to prevent CPU throttling
+          (Intel CPUs only: the hardware configuration loads kvm-intel)
         - scx_lavd: sched_ext CPU scheduler built for interactivity and
           battery life (latency-critical tasks first, fewer cores awake)
         - powerManagement: general power management framework
@@ -40,7 +41,10 @@ in
       };
 
       power-profiles-daemon.enable = true;
-      thermald.enable = true;
+      # Intel only: on AMD it exits at every boot ("Unsupported cpu model or
+      # platform"). The generated hardware configuration loads kvm-intel or
+      # kvm-amd, the one sure sign of the CPU vendor here.
+      thermald.enable = lib.elem "kvm-intel" config.boot.kernelModules;
 
       # sched_ext scheduler (kernel 6.12+) tuned for laptops: favours the
       # tasks the user is waiting on (input, compositor, audio, the focused

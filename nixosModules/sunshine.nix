@@ -38,8 +38,13 @@ in
       after = [ "graphical-session.target" ];
       wantedBy = [ "graphical-session.target" ];
       serviceConfig = {
-        ExecStart = "${pkgs.sunshine}/bin/sunshine";
+        # The capability wrapper below, not the bare binary: without
+        # cap_sys_admin Sunshine can't use KMS capture.
+        ExecStart = "${config.security.wrapperDir}/sunshine";
         Restart = "always";
+        # Not the 100 ms default: a port clash or a missing display would
+        # hit the start limit in a second and leave the unit failed.
+        RestartSec = "5s";
       };
     };
     security.wrappers.sunshine = {

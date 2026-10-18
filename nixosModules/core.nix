@@ -517,8 +517,11 @@ in
         # Give up quickly on an unreachable substituter (then build or use
         # cache.nixos.org) instead of stalling on the default 300 s timeout.
         connect-timeout = 5
+        # Below 10 GiB free during a build, collect garbage up to 30 GiB free:
+        # with both at 10 GiB it stopped right at the threshold and collected
+        # again at the next dip.
         min-free = ${toString (10240 * 1024 * 1024)}
-        max-free = ${toString (10240 * 1024 * 1024)}
+        max-free = ${toString (30720 * 1024 * 1024)}
       '';
     };
 
