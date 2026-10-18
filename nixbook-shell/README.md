@@ -521,6 +521,16 @@ shell's counts of notifications acted on or dismissed, from
 Notifications.acted/dismissed) skip apps always dismissed unread and tell the
 model the apps acted on. Urgent ones pass a spent budget (not busy; quiet
 hours only critical).
+Curiosity (`ai.initiative.curious`, off): each moment ask also carries the
+focused app and title; `curious_observe` counts them in `observed` (no
+habitsIgnoreApps/Titles, not the shell's own windows, 7 days, 400 kept), and
+once a day with 6 new ones `curious_digest` sends the unread titles and the
+personal entries to the small model (`CURIOUS_SYSTEM`), saves up to 3 facts
+with `remember_about_user` (client `curiosity`), marks the titles read and
+says what it learned (a question only when unclear) as a `curious` word;
+its chat message carries `learnHint`, added to the user's next prompt, so
+Claude fixes the memory when corrected. **Say something now** reads what is
+new at once.
 Each decision is logged (`log`, 30 kept; Settings shows the last ones, and
 **Say something now** sends a `moment` with `force`: no chance or gap, out
 loud, a hello when nothing is on its mind). The small model's Claude Code:

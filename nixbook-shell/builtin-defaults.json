@@ -27,6 +27,7 @@
       "url": ""
     },
     "initiative": {
+      "curious": false,
       "enable": false,
       "readNotifications": false
     },

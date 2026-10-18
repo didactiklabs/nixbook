@@ -1654,6 +1654,53 @@ python3 "$mcp" memory clear >/dev/null
 python3 "$mcp" personal clear >/dev/null
 rm -f "$XDG_STATE_HOME/nixbook-shell/personal-memory.json"
 
+# Curiosity: it watches what is in front (app, window title), learns it once a
+# day through the small model, saves it to the personal memory and says what
+# it learned; private windows never seen.
+python3 "$mcp" initiative clear
+python3 "$mcp" personal clear >/dev/null
+look() { consider "$(jq -nc --arg a "$1" --arg t "$2" '{event: "moment", curious: true, app: $a, title: $t}')"; }
+consider '{"event":"moment","app":"kitty","title":"nvim flake.nix"}' >/dev/null
+expect_eq "curious off: nothing watched" 0 "$(jq '.observed // {} | length' "$ini")"
+{
+  look kitty "nvim desktop-mcp.py"
+  look kitty "nvim desktop-mcp.py"
+  look org.mozilla.firefox "(3) NixOS options search — Mozilla Firefox"
+  look org.mozilla.firefox "Private Browsing — Mozilla Firefox"
+  look org.keepassxc.KeePassXC "Passwords.kdbx"
+  look org.quickshell "Shell settings"
+} >/dev/null
+expect_eq "curious: counted, the browser's name and counter dropped" '2 NixOS options search' \
+  "$(jq -r '"\(.observed["kitty|nvim desktop-mcp.py"].n) \(.observed | to_entries[] | select(.value.app == "org.mozilla.firefox") | .value.title)"' "$ini")"
+expect_eq "curious: no private window, password manager or the shell's own" 2 "$(jq '.observed | length' "$ini")"
+rm -f "$calls.claude-prompt"
+look kitty "nvim hm-module.nix" >/dev/null
+expect_eq "curious: not read before enough new things" no "$([ -e "$calls.claude-prompt" ] && echo yes || echo no)"
+call remember_about_user '{"topic":"music taste","text":"Likes lofi"}' >/dev/null
+answer=$(jq -nc '{structured_output: {learned: [{topic: "nixbook", text: "Works on nixbook, their NixOS config, in nvim"}], question: "Is nixbook just for you, or shared with others?"}}')
+export STUB_CLAUDE_ANSWER="$answer"
+said=$(for f in Routines.qml Ai.qml Initiative.qml Config.qml; do look kitty "nvim $f"; done | jq -rs 'map(select(.item)) | last | .item.text')
+prompt=$(cat "$calls.claude-prompt")
+expect_contains "curious: what it saw, read once enough is new" "$prompt" "kitty — nvim desktop-mcp.py — 2"
+expect_contains "curious: with what it knows already" "$prompt" "music taste: Likes lofi"
+expect_not_contains "curious: never a private window" "$prompt" "Private Browsing"
+expect_eq "curious: learned, in the personal memory" "Works on nixbook, their NixOS config, in nvim" \
+  "$(jq -r '.entries[] | select(.topic == "nixbook") | .text' "$XDG_STATE_HOME/nixbook-shell/personal-memory.json")"
+expect_contains "curious: says what it learned" "$said" "noticed: Works on nixbook"
+expect_contains "curious: a question only when unclear" "$said" "Is nixbook just for you"
+expect_eq "curious: what it read is marked" "true true" "$(jq -r '"\(.observed["kitty|nvim desktop-mcp.py"].read) \(.observed["kitty|nvim initiative.qml"].read)"' "$ini")"
+rm -f "$calls.claude-prompt"
+for f in a b c d e f g; do look kitty "nvim $f.qml"; done >/dev/null
+expect_eq "curious: once a day" no "$([ -e "$calls.claude-prompt" ] && echo yes || echo no)"
+# Say something now reads what is new at once; nothing to learn: nothing said.
+STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {learned: [], question: ""}}')
+expect_eq "curious: nothing new to learn, nothing said" "curious: nothing new to learn" \
+  "$(consider '{"event":"moment","force":true,"curious":true}' | jq -r .why)"
+expect_not_contains "curious: what it read isn't sent again" "$(cat "$calls.claude-prompt")" "desktop-mcp.py"
+unset STUB_CLAUDE_ANSWER
+python3 "$mcp" initiative clear
+python3 "$mcp" personal clear >/dev/null
+
 # Learned targets: a fake libatspi (PyGObject's `gi`) reading a window's
 # tree from $FAKE_ATSPI_TREE; an action done is logged to $STUB_CALLS.
 mkdir -p "$tmp/fakegi/gi/repository"

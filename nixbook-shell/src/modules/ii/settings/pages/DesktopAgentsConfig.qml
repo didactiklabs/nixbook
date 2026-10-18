@@ -95,6 +95,14 @@ ContentPage {
                     checked: Config.options.ai.initiative.readNotifications
                     onCheckedChanged: Config.options.ai.initiative.readNotifications = checked
                 }
+                ConfigSwitch {
+                    configKey: "ai.initiative.curious"
+                    buttonIcon: "psychology_alt"
+                    enabled: Config.options.ai.initiative.enable
+                    text: Translation.tr("Be curious: watch what I do (the app and window title in front, read once a day by the small model), learn it, and tell me what it learned")
+                    checked: Config.options.ai.initiative.curious
+                    onCheckedChanged: Config.options.ai.initiative.curious = checked
+                }
             }
 
             RowLayout {

@@ -444,6 +444,10 @@ Singleton {
             if (earlier.length > 8000) earlier = "…" + earlier.slice(-8000);
             prompt = `Earlier in this conversation:\n\n${earlier}\n\nThe user now says:\n\n${prompt}`;
         }
+        // A question Claude asked to learn, just before this answer.
+        const asked = turns.slice(-3).filter(m => m.role === "assistant" && m.learnHint);
+        if (asked.length > 0)
+            prompt += `\n\n(${asked[asked.length - 1].learnHint})`;
         if (attached.length > 0)
             prompt += `\n\n(Attached file: ${attached}; read it with the Read tool.)`;
         return prompt;

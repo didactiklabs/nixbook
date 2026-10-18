@@ -248,6 +248,9 @@ Singleton {
                 property JsonObject initiative: JsonObject {
                     property bool enable: false
                     property bool readNotifications: false
+                    // Watches what is in front (app, window title) and learns
+                    // what the user does from it, saying what it learned.
+                    property bool curious: false
                 }
                 // The routines the user asked agents for ("whenever the music
                 // ends, play something", services/Routines.qml): run on their cue.
