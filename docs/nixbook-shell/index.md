@@ -60,7 +60,7 @@ nixbook-shell ipc call search themeToggle     # theme switcher
 nixbook-shell ipc call lock activate          # lock the screen
 ```
 
-The IPC targets include `bar`, `background`, `brightness`, `calendar`, `desktopControl`, `equalizer`, `images`, `layouts`, `lock`, `mediaControls`, `mpris`, `musicRecognition`, `notes`, `notificationHistory`, `osk`, `overlay`, `region`, `screenTranslator`, `search`, `session`, `settings`, `sidebarLeft`, `sidebarRight`, `theme`, `timers`, `todo`, `wallpaper`, `wallpaperSelector`, `widgets`.
+The IPC targets include `ai`, `bar`, `background`, `brightness`, `calendar`, `desktopControl`, `equalizer`, `images`, `layouts`, `lock`, `mediaControls`, `mpris`, `musicRecognition`, `notes`, `notificationHistory`, `osk`, `overlay`, `region`, `screenTranslator`, `search`, `session`, `settings`, `sidebarLeft`, `sidebarRight`, `theme`, `timers`, `todo`, `wallpaper`, `wallpaperSelector`, `widgets`.
 
 See the [keybindings](/desktop/keybindings#applications-shell) for what is bound by default.
 

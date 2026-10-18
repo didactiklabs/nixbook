@@ -274,6 +274,15 @@ ContentPage {
                     ? Translation.tr("Connectors: %1").arg(Ai.claudeConnectors.map(c => c.replace(/^mcp__claude_ai_/, "").replace(/_/g, " ")).join(", "))
                     : Translation.tr("No connectors found. Add them on claude.ai (Settings → Connectors).")
             }
+            SmallButton {
+                visible: Config.options.ai.claudeCode.connectors
+                materialIcon: "refresh"
+                mainText: Translation.tr("Reload connectors")
+                onClicked: Ai.reloadClaudeConnectors()
+                StyledToolTip {
+                    text: Translation.tr("After adding or signing in to a connector on claude.ai: Claude starts again with it, keeping the conversation")
+                }
+            }
 
             // The MCP servers Nix gives this chat (assistant.mcpServers), each
             // with its switch. Only this chat has them. Rows of their own, in
