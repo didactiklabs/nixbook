@@ -65,6 +65,7 @@ Singleton {
                 property bool screenshotSavePath: false
                 property bool appCommands: false
                 property bool sidebarIconNoGemini: false
+                property bool dedupWindow: false
             }
 
             property JsonObject ai: JsonObject {

@@ -45,7 +45,7 @@ nixbook-shell ipc call personaCutIn explain                 # why the last one d
 
 ## Duplicates
 
-`notifications.deduplicate` drops copies: a notification **relayed from your phone** (KDE Connect, GSConnect) of a message a desktop app already showed — within 30 minutes by default, matched strictly on the message — is expired unseen, or replaced by the desktop one if it came first. Bursts of the same app, title and text within 2 seconds are dropped too, and a thread re-posted with new lines replaces the old popup. Each message is logged once in the history.
+`notifications.deduplicate` drops copies: a notification **relayed from your phone** (KDE Connect, GSConnect) of a message a desktop app already showed — within 30 minutes by default, matched strictly on the message — is expired unseen, or replaced by the desktop one if it came first. Bursts of the same app, title and text within 2 seconds are dropped too; the same notification again later in the window (a web app repeating "You have unseen notifications.", a phone re-posting a message) replaces the earlier copy, and a thread re-posted with new lines replaces the old popup. Each message is logged once in the history, and the history is cleaned of duplicates by the same rules when the shell starts or the window changes (`nixbook-shell ipc call notificationHistory dedupe` does it on demand and prints how many it removed). The window used to default to 2 minutes; a config still on that value is raised to 30 minutes once.
 
 ## History
 
@@ -54,6 +54,7 @@ Every notification is kept in a **history** (`notifications.history`, 30 days by
 ```bash
 nixbook-shell ipc call notificationHistory count
 nixbook-shell ipc call notificationHistory deleteOlderThan 7
+nixbook-shell ipc call notificationHistory dedupe
 ```
 
 AI coding workspaces can read it with the [`notification-history` ocm module](/user/ai-workspaces#modules-for-workspaces), and desktop agents with their `notifications` tool.

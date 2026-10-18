@@ -281,7 +281,7 @@ Singleton {
              ["conteneur", "containers"], ["ecran de connexion", "login screen"], ["gestionnaire de connexion", "login manager"],
              ["empreinte", "fingerprint"], ["batterie", "battery"], ["infos systeme", "system info"], ["information", "info"],
              ["agenda", "calendar"], ["calendrier", "calendar"], ["=tache", "task"], ["=taches", "task"], ["evenement", "event"],
-             ["rendez vous", "event"], ["synchro", "sync"], ["connect", "connect"], ["rappel", "reminder"], ["reunion", "meeting event"],
+             ["rendez vous", "event"], ["synchro", "sync"], ["connect", "connect"], ["rappel", "reminder"], ["reunion", "meeting event"], ["doublon", "duplicate"], ["en double", "duplicate"],
              ["prochain", "next"]],
         de: [["anhalt", "stop"], ["stopp", "stop"], ["gedachtnis", "memory"], ["merkt", "memory"], ["erinnert", "memory"], ["anordnung", "layout window"], ["agent", "ai agent"], ["steuer", "control"], ["offn", "open"], ["schliess", "close"], ["fenster", "window"], ["tastenkurz", "shortcut"], ["kurzel", "shortcut"],
              ["tastatur", "keyboard"], ["=taste", "key"], ["starter", "launcher"], ["programm", "app"], ["=app", "app"],
@@ -309,7 +309,7 @@ Singleton {
              ["anmeldebildschirm", "login screen"], ["anmeldemanager", "login manager"], ["fingerabdruck", "fingerprint"],
              ["=akku", "battery"], ["=dienst", "service"], ["systeminfo", "system info"], ["freigeb", "free"],
              ["=termin", "event"], ["=termine", "event"], ["aufgabe", "task"], ["synchron", "sync"], ["verbind", "connect"],
-             ["erinner", "reminder"], ["terminerinner", "event reminder"], ["besprechung", "meeting event"]],
+             ["erinner", "reminder"], ["terminerinner", "event reminder"], ["besprechung", "meeting event"], ["duplikat", "duplicate"], ["doppelt", "duplicate"]],
         vi: [["tam dung", "stop"], ["dung lai", "stop"], ["bo nho", "memory"], ["ghi nho", "memory"], ["bo cuc", "layout window"], ["tac nhan", "ai agent"], ["dieu khien", "control"], ["phim tat", "shortcut"], ["=phim", "key"], ["=mo", "open"], ["=dong", "close"], ["cua so", "window"],
              ["trinh khoi chay", "launcher"], ["khoi chay", "launcher"], ["ung dung", "app"], ["hinh nen", "wallpaper"],
              ["chup man hinh", "screenshot"], ["=chup", "screenshot"], ["toan man hinh", "fullscreen"], ["man hinh", "screen"],
@@ -333,7 +333,7 @@ Singleton {
              ["nhat ky", "logs"], ["nguoi dung", "user"], ["tai khoan", "account"], ["soan thao", "editor"], ["tuong lua", "firewall"],
              ["=mang", "network"], ["may ao", "virtual machines"], ["dang nhap", "login"], ["van tay", "fingerprint"],
              ["dich vu", "service"], ["thong tin he thong", "system info"], ["thong tin", "info"],
-             ["cong viec", "task"], ["su kien", "event"], ["dong bo", "sync"], ["ket noi", "connect"], ["nhac nho", "reminder"],
+             ["cong viec", "task"], ["su kien", "event"], ["dong bo", "sync"], ["ket noi", "connect"], ["nhac nho", "reminder"], ["trung lap", "duplicate"],
              ["cuoc hop", "meeting event"]]
     })
     // English words for the question: its words mapped through the
