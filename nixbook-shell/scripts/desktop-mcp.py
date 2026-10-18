@@ -2572,7 +2572,7 @@ def deliver(cfg, data, item, level, busy, now):
         return {"action": "none", "why": "the user doesn't take these up"}
     if level == "notify":
         today = time.strftime("%Y-%m-%d", time.localtime(now))
-        notified = [s for s in data["said"] if s.get("level") == "notify"]
+        notified = [s for s in data["said"] if s.get("level") == "notify" and not s.get("test")]
         urgent = item.get("urgent") is True
         # Something urgent gets through a spent budget, a short gap and a
         # time of day the user rarely answers at; never through busy, and
@@ -2591,7 +2591,8 @@ def deliver(cfg, data, item, level, busy, now):
     item = dict(item, id=secrets.token_hex(3), time=int(now), level=level,
                 expires=int(now + INITIATIVE_PENDING_HOURS * 3600))
     data["said"].append({"id": item["id"], "key": key, "kind": kind, "app": item.get("app"), "level": level,
-                         "time": int(now), "day": time.strftime("%Y-%m-%d", time.localtime(now))})
+                         "time": int(now), "day": time.strftime("%Y-%m-%d", time.localtime(now)),
+                         **({"test": True} if item.get("test") else {})})
     del data["said"][:-INITIATIVE_SAID_KEEP]
     for key_ in [kind] + ([f"{kind}:{item['app'].lower()}"] if item.get("app") else []) + [hour_key(now)]:
         counts = data["stats"].setdefault(key_, {})
@@ -2606,8 +2607,8 @@ def budget(cfg, data, key, base, now):
     up most of what it says, half when they ignore it (the last two weeks'
     answers, from an even start)."""
     since = now - 14 * 86400
-    answered = [s for s in data["said"] if s.get("time", 0) >= since and s.get("outcome") in
-                ("replied", "dismissed", "never")]
+    answered = [s for s in data["said"] if s.get("time", 0) >= since and not s.get("test")
+                and s.get("outcome") in ("replied", "dismissed", "never")]
     replied = sum(1 + 0.5 * s.get("engaged", 0) for s in answered if s["outcome"] == "replied")
     rate = (replied + 0.4 * 4) / (len(answered) + 4)
     return max(1, round(int(cfg.get(key, base)) * min(2.0, max(0.5, 0.5 + 1.5 * rate))))
@@ -2802,15 +2803,18 @@ def chat_candidates(cfg, event, now):
 def chat_item(cfg, data, event, now):
     """A word for no reason, or None: (item, why)."""
     today = time.strftime("%Y-%m-%d", time.localtime(now))
-    chats = [s for s in data["said"] if s["kind"] == "chat"]
-    force = event.get("force") is True  # Settings > Say something now
+    # A test (Settings > Say something now) spends no budget and no gap.
+    # (A hello only ever comes from it: older ones weren't marked.)
+    real = [s for s in data["said"] if not s.get("test") and not s["key"].startswith("chat:hello:")]
+    chats = [s for s in real if s["kind"] == "chat"]
+    force = event.get("force") is True
     if force:
         pass
     elif sum(1 for s in chats if s.get("day") == today) >= budget(cfg, data, "initiativeChatPerDay", 2, now):
         return None, "enough for today"
     elif chats and now - chats[-1]["time"] < INITIATIVE_CHAT_GAP:
         return None, "said one lately"
-    elif data["said"] and now - data["said"][-1]["time"] < INITIATIVE_QUIET_AFTER:
+    elif real and now - real[-1]["time"] < INITIATIVE_QUIET_AFTER:
         return None, "said something else lately"
     roll = event.get("roll")
     if not force and (roll if isinstance(roll, (int, float)) else random.random()) < INITIATIVE_CHAT_SKIP:
@@ -2819,7 +2823,7 @@ def chat_item(cfg, data, event, now):
     cands = [c for c in chat_candidates(cfg, event, now) if c[1] not in said
              and c[1] not in data["boring"] and f"chat:{c[0]}" not in data["muted"]]
     if not cands and force:
-        return {"kind": "chat", "key": f"chat:hello:{int(now)}", "title": "Claude", "app": "hello",
+        return {"kind": "chat", "key": f"chat:hello:{int(now)}", "title": "Claude", "app": "hello", "test": True,
                 "text": pick("Hi! Nothing on my mind right now. I'll speak up when something comes up.",
                              "Here! All quiet on my side for now. I'll tell you when something's worth it.")}, ""
     if not cands:
@@ -2846,7 +2850,8 @@ def chat_item(cfg, data, event, now):
                 m.data["boring"] = (m.data["boring"] + [key])[-INITIATIVE_BORING_MAX:]
                 m.save()
             return None, "nothing to say"
-    return {"kind": "chat", "key": key, "title": "Claude", "text": text_, "app": sub}, ""
+    return {"kind": "chat", "key": key, "title": "Claude", "text": text_, "app": sub,
+            **({"test": True} if force else {})}, ""
 
 
 def notice_triage(cfg, data, items, focused):
@@ -2929,6 +2934,13 @@ def notice_apply(data, items, answer, now):
 
 
 INITIATIVE_LOG = 30
+# A light word is due at a random time 40 to 120 minutes after the last
+# chance: kept in initiative.json (`momentAt`), as the shell restarts on
+# every switch (several times an hour while the config is worked on) and a
+# timer of its own never got that far. The shell asks every few minutes.
+INITIATIVE_MOMENT_MINUTES = (40, 120)
+# Away this long, the user is back from a break (`activeSince`).
+INITIATIVE_BREAK_MINUTES = 10
 
 
 def initiative_consider(cfg, event, now=None):
@@ -2936,6 +2948,8 @@ def initiative_consider(cfg, event, now=None):
     the log (Settings shows why it said nothing)."""
     now = now or time.time()
     out = consider_event(cfg, event, now)
+    if out.get("unlogged"):  # a moment not due yet: asked every few minutes
+        return out
     try:
         with Initiative() as m:
             m.data["log"] = (m.data.get("log", []) + [{
@@ -2976,6 +2990,21 @@ def consider_event(cfg, event, now=None):
             m.save()
         return out
     if kind == "moment":
+        force = event.get("force") is True
+        with Initiative() as m:
+            since = m.data.get("activeSince") or now
+            if not force:
+                due = m.data.get("momentAt")
+                if not due:  # the first ask: a first chance within the next while
+                    m.data["momentAt"] = now + random.uniform(*INITIATIVE_MOMENT_MINUTES) * 30
+                    m.save()
+                    return {"action": "none", "why": "not time yet", "unlogged": True}
+                if now < due:
+                    return {"action": "none", "why": "not time yet", "unlogged": True}
+                m.data["momentAt"] = now + random.uniform(*INITIATIVE_MOMENT_MINUTES) * 60
+                m.save()
+        # How long at the computer: since the last break, whatever restarted.
+        event = dict(event, activeMinutes=max(int(event.get("activeMinutes") or 0), int((now - since) / 60)))
         if busy:
             return {"action": "none", "why": "the user is busy"}
         data = read_initiative()
@@ -2994,6 +3023,10 @@ def consider_event(cfg, event, now=None):
         item, level, why = None, "badge", "nothing to say"
         if kind == "back":
             today = time.strftime("%Y-%m-%d", time.localtime(now))
+            since = data.get("activeSince") or 0
+            if (event.get("away") or 0) >= INITIATIVE_BREAK_MINUTES or \
+                    time.strftime("%Y-%m-%d", time.localtime(since)) != today:
+                data["activeSince"] = int(now)
             if (event.get("away") or 0) < INITIATIVE_BACK_MINUTES and data.get("briefDay") == today:
                 why = "not away long enough"
             else:

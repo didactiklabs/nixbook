@@ -267,11 +267,13 @@ Singleton {
     // Now and then, at random, a chance for a light word.
     Timer {
         id: momentTimer
+        // Asks every few minutes; when a light word is due (40 to 120 minutes
+        // apart, at random) is kept by nixbook-desktop-mcp, so a shell
+        // restart doesn't start the wait over.
         running: root.enabled
-        interval: root._nextMoment()
+        interval: 5 * 60000
         repeat: true
         onTriggered: {
-            interval = root._nextMoment()
             if (Idle.screensOff || GlobalStates.screenLocked) return
             root.consider({ event: "moment", app: ToplevelManager.activeToplevel?.appId ?? "",
                             activeMinutes: Math.round((Date.now() - root._activeSince) / 60000),
@@ -279,10 +281,6 @@ Singleton {
                             weather: Weather.data?.description ?? "" })
         }
     }
-    function _nextMoment() {
-        return (40 + Math.random() * 80) * 60000
-    }
-
     // The first start of the day counts as coming back.
     Timer {
         interval: 20000
