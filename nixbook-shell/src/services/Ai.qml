@@ -636,16 +636,20 @@ Singleton {
         // The desktop tools loaded up front: Claude Code otherwise defers MCP
         // tools behind a ToolSearch call, one more round trip per session.
         // Not with the connectors: hundreds of tools would fill every message.
-        // The plugins enabled on claude.ai (Hunter…) are synced to
-        // ~/.claude/plugins/synced, but Claude Code loads them only with the
-        // user's settings, left out here: each passed by its folder instead
-        // (one with .claude-plugin/plugin.json or .mcp.json), found when it
-        // starts, as the sync adds and removes them. Only the signed-in
-        // account's (its folder is <org>_<account>), and no hidden folders
-        // (the sync's own, unfinished ones).
+        // The user's plugins come with the user's settings, left out here:
+        // each passed by its folder instead, found when Claude Code starts.
+        // Those installed and enabled for the user (`claude plugin install`,
+        // Hunter…): installed_plugins.json, enabledPlugins in settings.json.
+        // Those enabled on claude.ai, synced to ~/.claude/plugins/synced
+        // (a folder with .claude-plugin/plugin.json or .mcp.json): only the
+        // signed-in account's (its folder is <org>_<account>), and no hidden
+        // folders (the sync's own, unfinished ones).
         const plugins = connectors
-            ? `plugins=()\nbucket=$(jq -r '.oauthAccount | "\\(.organizationUuid)_\\(.accountUuid)" | ascii_downcase' "\${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json" 2>/dev/null)\n`
-                + `[ -n "$bucket" ] && while IFS= read -r -d '' d; do plugins+=(--plugin-dir "$d"); done < <(find "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/synced/$bucket" -mindepth 1 -maxdepth 4 `
+            ? `plugins=()\ncfg="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"\n`
+                + `while IFS= read -r -d '' d; do [ -d "$d" ] && plugins+=(--plugin-dir "$d"); done < <(jq -j --slurpfile s "$cfg/settings.json" `
+                + `'.plugins | to_entries[] | select($s[0].enabledPlugins[.key] == true) | .value[] | select(.scope == "user") | .installPath + "\\u0000"' "$cfg/plugins/installed_plugins.json" 2>/dev/null)\n`
+                + `bucket=$(jq -r '.oauthAccount | "\\(.organizationUuid)_\\(.accountUuid)" | ascii_downcase' "\${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json" 2>/dev/null)\n`
+                + `[ -n "$bucket" ] && while IFS= read -r -d '' d; do plugins+=(--plugin-dir "$d"); done < <(find "$cfg/plugins/synced/$bucket" -mindepth 1 -maxdepth 4 `
                 + `-type d -name '.*' ! -name .claude-plugin -prune -o \\( -path '*/.claude-plugin/plugin.json' -o -name .mcp.json \\) -printf '%h\\0' 2>/dev/null | sed -z 's#/\\.claude-plugin$##' | sort -zu)\n`
             : "";
         return `workdir="\${XDG_DATA_HOME:-$HOME/.local/share}/nixbook-shell/assistant"\n`
