@@ -411,11 +411,22 @@ ContentPage {
                     configKey: "ai.claudeCode.commandLine"
                     enabled: !nixManaged
                     buttonIcon: "terminal"
-                    text: Translation.tr("Command line and terminal")
+                    text: Translation.tr("Command line")
                     checked: Config.options.ai.claudeCode.commandLine
                     onCheckedChanged: Config.options.ai.claudeCode.commandLine = checked
                     StyledToolTip {
-                        text: Translation.tr("Claude may run commands as you (Bash) and type into terminal windows; it asks in the chat before anything that changes the system or your files. It can then read any of your files, whatever the folders below")
+                        text: Translation.tr("Claude may run commands as you (Bash); it asks in the chat before anything that changes the system or your files")
+                    }
+                }
+                ConfigSwitch {
+                    configKey: "ai.claudeCode.commandLineFolders"
+                    enabled: !nixManaged && Config.options.ai.claudeCode.commandLine
+                    buttonIcon: "folder_managed"
+                    text: Translation.tr("Only in the allowed folders")
+                    checked: Config.options.ai.claudeCode.commandLineFolders
+                    onCheckedChanged: Config.options.ai.claudeCode.commandLineFolders = checked
+                    StyledToolTip {
+                        text: Translation.tr("On: its commands, and what they start, run in a sandbox where only the folders below can be read and the writable ones written. Off: they have your full access")
                     }
                 }
                 ConfigSwitch {

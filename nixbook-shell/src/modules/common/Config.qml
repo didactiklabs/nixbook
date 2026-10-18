@@ -216,10 +216,13 @@ Singleton {
                     // The claude.ai connectors of the Claude account (Gmail,
                     // Calendar, Drive…), all their tools allowed.
                     property bool connectors: false
-                    // The command line: Bash for Claude in the side panel, and
-                    // its desktop tools may type into terminals (the other
-                    // agents still may not). Asks before changing anything.
+                    // The command line: Bash for Claude in the side panel (never
+                    // terminal windows). Asks before changing anything.
                     property bool commandLine: false
+                    // Its commands confined to ai.allowedFolders (read) and
+                    // ai.writableFolders (write) by Claude Code's sandbox
+                    // (bubblewrap).
+                    property bool commandLineFolders: true
                     // The MCP servers of assistant-mcp.json (assistant.mcpServers:
                     // mcp-nixos, the music apps, LinkedIn, Immich…) turned off
                     // in Settings > Desktop agents. LinkedIn starts off: it acts

@@ -545,8 +545,18 @@ Singleton {
         const folders = [...new Set([...expand(Config.options.ai.allowedFolders), ...writable])];
         const readTools = folders.length > 0 ? ["Read", "Glob", "Grep"] : attached.length > 0 ? ["Read"] : [];
         const writeTools = writable.length > 0 ? ["Write", "Edit"] : [];
-        // ai.claudeCode.commandLine: Bash, and terminals for its desktop tools.
+        // ai.claudeCode.commandLine: Bash (never terminal windows: a terminal
+        // has the user's full access); with ai.claudeCode.commandLineFolders,
+        // in Claude Code's sandbox (bubblewrap): in the home only the allowed
+        // folders are read, the writable ones written (writes elsewhere don't
+        // last), no unsandboxed retry, the network open; what its commands
+        // start stays inside (systemd, D-Bus and niri are out of reach).
         const shellTools = Config.options.ai.claudeCode.commandLine ? ["Bash"] : [];
+        const confined = shellTools.length > 0 && (Config.options.ai.claudeCode.commandLineFolders ?? true);
+        const assistantDir = `${Quickshell.env("XDG_DATA_HOME") || `${home}/.local/share`}/nixbook-shell/assistant`;
+        const sandbox = { sandbox: { enabled: true, allowUnsandboxedCommands: false, failIfUnavailable: true,
+            network: { allowedDomains: ["*"] },
+            filesystem: { denyRead: [`${home}/`], allowRead: [...folders, assistantDir], allowWrite: [...writable, assistantDir] } } };
         const configured = (Config.options.ai.claudeCode.allowedTools ?? [])
             .filter(t => ![...fileTools, "Write", "Edit"].some(f => t === f || t.startsWith(`${f}(`)));
         const desktop = root.currentTool !== "none" && root.desktopTools.length > 0;
@@ -590,10 +600,14 @@ Singleton {
                 : "")
             + (shellTools.length > 0
                 ? " You can run commands on this computer, as the user, with Bash"
-                    + (desktop ? ", and type into terminal windows and open terminal apps with the desktop tools, for the user to watch" : "")
+                    + (confined
+                        ? ` in a sandbox: in the user's home only ${folders.length > 0 ? `these folders can be read: ${folders.join(", ")}` : "nothing can be read"}`
+                            + (writable.length > 0 ? `, and written: ${writable.join(", ")}` : ", and nothing written")
+                            + " (elsewhere in the home files are hidden and writes don't last; the rest of the system and the network work)"
+                        : "")
                     + ". Look around freely (commands that only read), but before anything that changes the system or the user's files (installing, removing, moving or editing files, sudo, systemctl, git commit or push, nixos or colmena switches, sending data off the machine), say exactly what you will run and run it only after they say yes in this chat. Never print or copy secrets."
                 : "")
-            + (shellTools.length > 0 ? ""
+            + (shellTools.length > 0 && !confined ? ""
                 : folders.length > 0 ? ` You may read files in these folders only: ${folders.join(", ")}.`
                 : " You have no access to the user's files (they can allow folders in Settings > Desktop agents).")
             + (writable.length > 0
@@ -604,7 +618,7 @@ Singleton {
         // claude.ai connectors included: dropped when they are wanted.
         let args = ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
             ...(connectors ? [] : ["--strict-mcp-config"]), "--append-system-prompt", system,
-            "--setting-sources", "project",
+            "--setting-sources", "project", ...(confined ? ["--settings", JSON.stringify(sandbox)] : []),
             "--disallowedTools", ...(shellTools.length > 0 ? [] : ["Bash"]), "NotebookEdit", ...["Edit", "Write"].filter(t => !writeTools.includes(t)),
             ...fileTools.filter(t => !readTools.includes(t))];
         for (const folder of folders) args.push("--add-dir", folder);
@@ -617,7 +631,7 @@ Singleton {
             // The chat's own agent desktop (NIXBOOK_AGENT_DESKTOP), when
             // agents work on theirs.
             env: { NIXBOOK_DESKTOP_MCP_QUERY_FILE: chat.desktopTaskFilePath, NIXBOOK_DESKTOP_MCP_PERSONAL: "shell",
-                NIXBOOK_AGENT_DESKTOP: chat.desktopInstance, NIXBOOK_DESKTOP_MCP_TERMINALS: shellTools.length > 0 ? "1" : "" },
+                NIXBOOK_AGENT_DESKTOP: chat.desktopInstance },
         } } : {});
         if (Object.keys(mcpServers).length > 0)
             args.push("--mcp-config", JSON.stringify({ mcpServers }));
