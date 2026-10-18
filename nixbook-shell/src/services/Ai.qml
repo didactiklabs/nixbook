@@ -471,6 +471,9 @@ Singleton {
             + (extraServers.linkedin
                 ? " The linkedin tools act on the user's real LinkedIn account, and LinkedIn may restrict accounts it sees automating: use them only when asked, with as few calls as the task needs. Before send_message or connect_with_person, show the user exactly what would be sent and to whom, and call it only after they say yes in this chat."
                 : "")
+            + (extraServers.immich
+                ? " The immich tools act on the user's real photo library. Before deleting assets, emptying the trash, or creating a shared link (anyone with the URL can open it), say exactly what would be affected and call it only after they say yes in this chat. Never pass force=true unless they asked for permanent deletion."
+                : "")
             // A connector not signed in to has only its authenticate tool:
             // its link signs in from here (the callback reaches this Claude
             // Code), and its tools come once that's done.

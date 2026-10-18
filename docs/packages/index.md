@@ -2,30 +2,31 @@
 
 `customPkgs/` packages software that nixpkgs lacks, or needs at a different version. Every `customPkgs/<name>.nix` is exposed as **`pkgs.customPkgs.<name>`** by the overlay in `customPkgs/default.nix`, which `lib/pkgs.nix` adds for the machines, the tests and the docs. Their sources are pinned with [npins](/development/dependencies), and CI instantiates every one of them on each push.
 
-| Package                                     | What it is                                                                      | Used by                        |
-| ------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------ |
-| [ginx](#ginx)                               | Run a command whenever a Git repository changes                                 | `tools` (`osupdate`)           |
-| [goji](#goji)                               | Conventional Commits with emoji                                                 | `gojiConfig`                   |
-| [rtk](#rtk)                                 | Shrinks command output for LLMs (60–90 % fewer tokens)                          | `rtk`                          |
-| [opencode-manager](#opencode-manager)       | TUI for isolated coding-agent workspaces (`ocm`)                                | `devTools`, `ocmConfig`        |
-| [openchoreo-cli](#openchoreo-cli)           | OpenChoreo developer platform CLI (`occ`)                                       | `devTools`                     |
-| [crd-wizard](#crd-wizard)                   | Web/TUI dashboard for Kubernetes CRDs and custom resources                      | `kubeTools`                    |
-| [kl](#kl)                                   | Interactive Kubernetes log viewer                                               | `kubeTools`                    |
-| [sofka](#sofka)                             | A Kubernetes TUI in Rust                                                        | `kubeTools`                    |
-| [kratix-cli](#kratix-cli)                   | Build Kratix Promises                                                           | `kubeTools`                    |
-| [pvmigrate](#pvmigrate)                     | Migrate PVCs between StorageClasses                                             | `kubeTools`                    |
-| [songbird](#songbird)                       | Evaluate Kubernetes network policies for connectivity                           | `kubeTools`                    |
-| [witr](#witr)                               | "Why is this running?" — trace a process, port, container or file to its origin | shell                          |
-| [ytui](#ytui)                               | Search YouTube and play in your local player                                    | `desktopApps`                  |
-| [jtui](#jtui)                               | Browse Jellyfin and play in your local player                                   | `desktopApps`                  |
-| [fcitx5-lotus](#fcitx5-lotus)               | Vietnamese input method for fcitx5                                              | `fcitx5-lotus`, `fcitx5Config` |
-| [schnelle-umlaute](#schnelle-umlaute)       | German umlauts with a hold-letter + Space gesture                               | `fcitx5Config`                 |
-| [actual-budget](#actual-budget)             | Local-first personal finance app (AppImage)                                     | profiles                       |
-| [pear-desktop](#pear-desktop)               | YouTube Music desktop player (AppImage)                                         | profiles                       |
-| [youtube-music-mcp](#youtube-music-mcp)     | MCP server that plays and controls YouTube Music (pear-desktop)                 | `nixbookShellConfig`           |
-| [spotify-mcp](#spotify-mcp)                 | MCP server that plays and controls the Spotify app                              | `nixbookShellConfig`           |
-| [linkedin-mcp-server](#linkedin-mcp-server) | MCP server for LinkedIn through your own browser session                        | `nixbookShellConfig`           |
-| [moonfin](#moonfin)                         | Jellyfin & Emby media client (AppImage)                                         | profiles                       |
+| Package                                       | What it is                                                                      | Used by                        |
+| --------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------ |
+| [ginx](#ginx)                                 | Run a command whenever a Git repository changes                                 | `tools` (`osupdate`)           |
+| [goji](#goji)                                 | Conventional Commits with emoji                                                 | `gojiConfig`                   |
+| [rtk](#rtk)                                   | Shrinks command output for LLMs (60–90 % fewer tokens)                          | `rtk`                          |
+| [opencode-manager](#opencode-manager)         | TUI for isolated coding-agent workspaces (`ocm`)                                | `devTools`, `ocmConfig`        |
+| [openchoreo-cli](#openchoreo-cli)             | OpenChoreo developer platform CLI (`occ`)                                       | `devTools`                     |
+| [crd-wizard](#crd-wizard)                     | Web/TUI dashboard for Kubernetes CRDs and custom resources                      | `kubeTools`                    |
+| [kl](#kl)                                     | Interactive Kubernetes log viewer                                               | `kubeTools`                    |
+| [sofka](#sofka)                               | A Kubernetes TUI in Rust                                                        | `kubeTools`                    |
+| [kratix-cli](#kratix-cli)                     | Build Kratix Promises                                                           | `kubeTools`                    |
+| [pvmigrate](#pvmigrate)                       | Migrate PVCs between StorageClasses                                             | `kubeTools`                    |
+| [songbird](#songbird)                         | Evaluate Kubernetes network policies for connectivity                           | `kubeTools`                    |
+| [witr](#witr)                                 | "Why is this running?" — trace a process, port, container or file to its origin | shell                          |
+| [ytui](#ytui)                                 | Search YouTube and play in your local player                                    | `desktopApps`                  |
+| [jtui](#jtui)                                 | Browse Jellyfin and play in your local player                                   | `desktopApps`                  |
+| [fcitx5-lotus](#fcitx5-lotus)                 | Vietnamese input method for fcitx5                                              | `fcitx5-lotus`, `fcitx5Config` |
+| [schnelle-umlaute](#schnelle-umlaute)         | German umlauts with a hold-letter + Space gesture                               | `fcitx5Config`                 |
+| [actual-budget](#actual-budget)               | Local-first personal finance app (AppImage)                                     | profiles                       |
+| [pear-desktop](#pear-desktop)                 | YouTube Music desktop player (AppImage)                                         | profiles                       |
+| [youtube-music-mcp](#youtube-music-mcp)       | MCP server that plays and controls YouTube Music (pear-desktop)                 | `nixbookShellConfig`           |
+| [spotify-mcp](#spotify-mcp)                   | MCP server that plays and controls the Spotify app                              | `nixbookShellConfig`           |
+| [linkedin-mcp-server](#linkedin-mcp-server)   | MCP server for LinkedIn through your own browser session                        | `nixbookShellConfig`           |
+| [immich-photo-manager](#immich-photo-manager) | MCP server for your Immich photo library                                        | `nixbookShellConfig`           |
+| [moonfin](#moonfin)                           | Jellyfin & Emby media client (AppImage)                                         | profiles                       |
 
 ## ginx
 
@@ -125,6 +126,23 @@ An MCP server (source in `customPkgs/spotify-mcp/`) for the Spotify desktop app.
 - It drives nixpkgs' Chromium (`CHROME_PATH`, so it never downloads a browser of its own) through [patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright-python), packaged from its PyPI wheel with nixpkgs' Node as its driver (nixpkgs' own patchright is marked broken). It doesn't check PyPI for updates.
 - The session is kept in `~/.linkedin-mcp/profile`; `mcp-server-linkedin --login` and `--logout` sign in and out.
 - LinkedIn's User Agreement forbids automated access and it may restrict accounts using such tools: the chat is told to use it sparingly, and to show a message or invitation and wait for your yes before sending it.
+
+## immich-photo-manager
+
+[drolosoft/immich-photo-manager](https://github.com/drolosoft/immich-photo-manager) (2.0.13), for the nixbook-shell AI chat only: search your [Immich](https://immich.app) library by place, date, text and faces, albums, tags, duplicates, shared links, video frames and PDF reports. It runs as a local stdio server started by the chat: nothing listens on the network. Turn it on per user with `nixbookShellConfig.immichMcp`, optionally with the server and key:
+
+```nix
+customHomeManagerModules.nixbookShellConfig.immichMcp = {
+  enable = true;
+  url = "https://photos.example.org";
+  apiKeyFile = "~/.config/immich/api-key"; # or config.age.secrets.immich.path
+};
+```
+
+- The API key (Immich: **Account Settings → API Keys**) is read from `apiKeyFile` each time the server starts, so it never enters the Nix store. `~/` is your home.
+- Or set the server and API key in **Settings → Desktop agents → Apps it can use** (**Save and check** tries them on the server first), or from the chat ("update my Immich credentials to … with API key …"). Both save them in `~/.immich-photo-manager/config.json` (readable by you only), which wins over `url` and `apiKeyFile` until **Forget** removes it. Settings calls `immich-photo-manager-credentials show | set URL | clear` (the key on stdin, never printed).
+- It is built on the MCP Python SDK 2, which nixpkgs doesn't have yet: `mcp` 2.2.0 and `mcp-types` are packaged from their PyPI wheels next to it.
+- The chat is told to say what would be deleted or shared, and wait for your yes, before deleting assets, emptying the trash or creating a public shared link.
 
 ## moonfin
 

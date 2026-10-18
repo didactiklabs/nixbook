@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import qs
 import Quickshell
+import Quickshell.Io
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
@@ -308,7 +309,8 @@ ContentPage {
                                     nixos: ["deployed_code", Translation.tr("NixOS packages and options (MCP-NixOS)")],
                                     "youtube-music": ["music_note", Translation.tr("YouTube Music: play and control")],
                                     spotify: ["queue_music", Translation.tr("Spotify: play and control")],
-                                    linkedin: ["work", Translation.tr("LinkedIn: profiles, messages, jobs (your account)")]
+                                    linkedin: ["work", Translation.tr("LinkedIn: profiles, messages, jobs (your account)")],
+                                    immich: ["photo_library", Translation.tr("Immich: search and organize your photos")]
                                 })[serverRow.modelData] ?? ["extension", serverRow.modelData]
                                 anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 8 }
                                 configKey: "ai.claudeCode.mcpServersOff"
@@ -341,6 +343,120 @@ ContentPage {
                     materialIcon: "login"
                     mainText: Translation.tr("Sign in to LinkedIn")
                     onClicked: Quickshell.execDetached([Ai.assistantMcpServers.linkedin.command, "--login"])
+                }
+
+                // Immich: the server and API key, saved where the server's
+                // own update_credentials tool saves them (they win over
+                // nixbookShellConfig.immichMcp's url and apiKeyFile; Forget
+                // goes back to those). The key goes on stdin, is checked on
+                // the server first, and is never shown again.
+                ColumnLayout {
+                    id: immich
+                    Layout.fillWidth: true
+                    Layout.topMargin: 6
+                    visible: Ai.assistantMcpServers.immich !== undefined
+                    spacing: 6
+                    readonly property string bin: Ai.assistantMcpServers.immich
+                        ? Ai.assistantMcpServers.immich.command + "-credentials" : ""
+                    // {base_url, has_key, source: saved|nix|none}
+                    property var conn: ({})
+                    property string status: ""
+                    property bool busy: false
+
+                    function run(args, key) {
+                        if (immich.busy || !immich.bin) return
+                        immich.busy = true
+                        immichProc.key = key ?? ""
+                        immichProc.command = [immich.bin, ...args]
+                        // The server's url and key file from Nix, to show and fall back to.
+                        immichProc.environment = Ai.assistantMcpServers.immich?.env ?? {}
+                        immichProc.stdinEnabled = args[0] === "set"
+                        immichProc.running = true
+                    }
+                    // assistant-mcp.json is read asynchronously.
+                    Component.onCompleted: run(["show"])
+                    onBinChanged: run(["show"])
+
+                    Process {
+                        id: immichProc
+                        property string key: ""
+                        stdout: StdioCollector { id: immichOut }
+                        onRunningChanged: {
+                            if (!immichProc.running || !immichProc.stdinEnabled) return
+                            immichProc.write(immichProc.key + "\n")
+                            immichProc.key = ""
+                            immichProc.stdinEnabled = false
+                        }
+                        onExited: code => {
+                            immich.busy = false
+                            let result = null
+                            try {
+                                result = JSON.parse(immichOut.text)
+                            } catch (e) {}
+                            if (code !== 0 || !result) {
+                                immich.status = result?.error ?? Translation.tr("Couldn't reach the Immich helper")
+                                return
+                            }
+                            immich.conn = result
+                            immichUrl.text = result.base_url ?? ""
+                            immichKey.text = ""
+                            immich.status = result.photos !== undefined && result.photos !== null
+                                ? Translation.tr("Connected: %1 photos, %2 videos").arg(result.photos).arg(result.videos ?? 0)
+                                : ""
+                        }
+                    }
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: Appearance.colors.colSubtext
+                        text: immich.conn.source === "saved"
+                            ? Translation.tr("Immich: connected with the server and API key saved here (~/.immich-photo-manager).")
+                            : immich.conn.source === "nix"
+                                ? Translation.tr("Immich: using the server and API key from your Nix configuration. Saving here overrides them.")
+                                : Translation.tr("Immich: not connected yet. Create an API key in Immich (Account Settings > API Keys).")
+                    }
+                    MaterialTextField {
+                        id: immichUrl
+                        Layout.fillWidth: true
+                        placeholderText: Translation.tr("Server URL, e.g. https://photos.example.org")
+                        inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase
+                        onAccepted: immichSave.clicked()
+                    }
+                    MaterialTextField {
+                        id: immichKey
+                        Layout.fillWidth: true
+                        placeholderText: immich.conn.has_key
+                            ? Translation.tr("API key (leave empty to keep the current one)")
+                            : Translation.tr("API key")
+                        echoMode: TextInput.Password
+                        onAccepted: immichSave.clicked()
+                    }
+                    RowLayout {
+                        spacing: 6
+                        SmallButton {
+                            id: immichSave
+                            enabled: !immich.busy && immichUrl.text.trim() !== ""
+                                && (immichKey.text !== "" || immich.conn.has_key)
+                            materialIcon: "link"
+                            mainText: immich.busy ? Translation.tr("Checking…") : Translation.tr("Save and check")
+                            onClicked: immich.run(["set", immichUrl.text.trim()], immichKey.text)
+                        }
+                        SmallButton {
+                            visible: immich.conn.source === "saved"
+                            enabled: !immich.busy
+                            materialIcon: "link_off"
+                            mainText: Translation.tr("Forget")
+                            onClicked: immich.run(["clear"])
+                        }
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: immich.status !== ""
+                        wrapMode: Text.WordWrap
+                        color: Appearance.colors.colSubtext
+                        text: immich.status
+                    }
                 }
             }
 
