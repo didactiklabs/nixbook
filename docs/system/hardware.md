@@ -6,7 +6,7 @@
 
 - **lid switch**: suspend when closed, lock when on external power, ignore when docked;
 - **power-profiles-daemon**: performance / balanced / power-saver profiles, switchable from the desktop shell;
-- **thermald** thermal management;
+- **thermald** thermal management (Intel CPUs only; it exits on AMD);
 - **scx_lavd**, a sched_ext CPU scheduler built for interactivity and battery life (latency-critical tasks first, fewer cores awake);
 - SATA link power management, deep sleep, and `powertop` for analysis.
 
