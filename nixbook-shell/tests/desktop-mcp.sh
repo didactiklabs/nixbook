@@ -1591,6 +1591,20 @@ python3 "$mcp" initiative answer "$offer" never
 expect_eq "learn: no forgets it" 1 "$(jq '.routines | length' "$mem")"
 jq '.routineLearnDay = ""' "$mem" >"$mem.new" && mv "$mem.new" "$mem"
 expect_eq "learn: a declined one isn't offered again" "no new pattern" "$(python3 "$mcp" routine learn suggest | jq -r .why)"
+# Not the user's: the shell's own windows, a virtual sink before the real output.
+cp "$habits" "$habits.keep"
+python3 - "$habits" <<'PY'
+import json, sys, datetime
+opens, events = [], []
+for i in range(1, 6):
+    t = int(datetime.datetime.combine(datetime.date.today() - datetime.timedelta(days=i), datetime.time(16, 0)).timestamp())
+    opens += [[t, "org.quickshell"], [t + 30, "kitty"], [t + 400, "org.gnome.Calculator"]]
+    events.append([t + 360, "cue", "audio_output:Easy Effects Sink"])
+json.dump({"spans": [], "opens": opens, "events": events, "plays": []}, open(sys.argv[1], "w"))
+PY
+jq '.routineLearnDay = ""' "$mem" >"$mem.new" && mv "$mem.new" "$mem"
+expect_eq "learn: not the shell's windows, not a virtual sink" "no new pattern" "$(python3 "$mcp" routine learn suggest | jq -r .why)"
+mv "$habits.keep" "$habits"
 # On its own: a strong one is on at once, and says so.
 python3 "$mcp" memory clear >/dev/null
 python3 "$mcp" initiative clear
@@ -1931,9 +1945,21 @@ echo "firefox.instance_1_2${t}Playing${t}Some Vlogger${t}My day in Paris${t}${t}
 sleep 4
 echo "spotify${t}Playing${t}${t}Advertisement${t}${t}30000000${t}/com/spotify/ad/3"
 echo "YoutubeMusic${t}Playing${t}Nujabes - Topic${t}Aruarian Dance (Official Audio)${t}Modal Soul${t}6000000${t}/org/youtubemusic/4"
+echo "chromium.instance77${t}Playing${t}Forrest Rose${t}Headlights${t}${t}6000000${t}/org/chromium/MediaPlayer2/TrackList/Track1"
+echo "chromium.instance88${t}Playing${t}A Streamer${t}Live now${t}${t}600000000${t}/org/chromium/MediaPlayer2/TrackList/Track2"
 sleep 4
 echo ""
 PLAYERS
+# Electron apps take a browser's bus name (YouTube Music: chromium.instanceN): told apart by their Identity.
+cat >"$bin/busctl" <<'BUSCTL'
+#!/usr/bin/env bash
+case "$*" in
+  *chromium.instance77*) echo 's "com.github.th_ch.youtube_music"' ;;
+  *chromium.instance88*) echo 's "Chromium"' ;;
+  *) exit 1 ;;
+esac
+BUSCTL
+chmod +x "$bin/busctl"
 rm -f "$XDG_RUNTIME_DIR/nixbook-desktop-mcp/state.json"
 STUB_PLAYERS="$tmp/players.sh" STUB_EVENTS=/dev/null python3 "$mcp" habits watch 2>"$tmp/habits.log" &
 watch_pid=$!
@@ -1943,8 +1969,11 @@ wait "$watch_pid" || true
 out=$(python3 "$mcp" habits show)
 expect_eq "music: every player's tracks, how long each was heard" \
   "spotify|Radiohead, Thom Yorke|Reckoner|4 spotify|Daft Punk|One More Time|4 YoutubeMusic|Nujabes - Topic|Aruarian Dance (Official Audio)|4" \
-  "$(jq -r '[.plays[] | "\(.[2])|\(.[3])|\(.[4])|\((.[1] + 0.5) | floor | if . >= 4 and . <= 5 then 4 else . end)"] | join(" ")' <<<"$out")"
-expect_eq "music: no ads, no browser videos" 0 "$(grep -ci 'advertisement\|vlogger' <<<"$out" || true)"
+  "$(jq -r '[.plays[] | select(.[2] != "youtube_music") | "\(.[2])|\(.[3])|\(.[4])|\((.[1] + 0.5) | floor | if . >= 4 and . <= 5 then 4 else . end)"] | join(" ")' <<<"$out")"
+expect_eq "music: no ads, no browser videos" 0 "$(grep -ci 'advertisement\|vlogger\|streamer' <<<"$out" || true)"
+expect_eq "music: an Electron app under a browser's bus name counts" "Forrest Rose|Headlights" \
+  "$(jq -r '.plays[] | select(.[2] == "youtube_music") | "\(.[3])|\(.[4])"' <<<"$out")"
+rm "$bin/busctl"
 expect_contains "music: the players followed" "$(cat "$calls")" "playerctl --all-players --follow metadata --format"
 out=$(python3 "$mcp" habits music)
 expect_contains "music: a short track heard through is a play, artists split" "$out" "Radiohead (1), Thom Yorke (1)"

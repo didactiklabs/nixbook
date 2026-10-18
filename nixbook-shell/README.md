@@ -664,7 +664,7 @@ blank line), or after three times its length without an event. Heard 30 s
 or half a short track: a play (a repeated track counts each time round);
 less: a skip; under 3 s: nothing. No ads or podcast episodes (`/ad/`,
 `episode` track ids), no player of `habitsMusicIgnorePlayers` (web
-browsers: their tabs' videos); recorded while locked or an agent acts
+browsers: their tabs' videos; an Electron app under a browser's bus name, YouTube Music's `chromium.instanceN`, counts by its MPRIS Identity, `MusicTracker.name`); recorded while locked or an agent acts
 (the user is still listening), not while paused; `habitsMusicKeepDays`
 (365) kept. Artists are split on commas and "feat.", YouTube's "- Topic"
 and "VEVO" and title tags ("(Official Audio)") dropped. Agents get the
