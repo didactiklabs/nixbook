@@ -28,6 +28,7 @@ ShellRoot {
         UpdateState.load()
         CalendarEvents.load()
         CalendarReminders.load()
+        MemoryReminders.load()
         ThemeWallpapers.load()
         NiriThemeAnimations.load()
         LyricsService.restartLyrics()

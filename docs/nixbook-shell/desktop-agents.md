@@ -18,10 +18,10 @@ Desktop control **starts paused**. Allow it with the bar's Desktop Control widge
 | `observe`  | List windows, workspaces and apps; **the machine itself**, read live: OS, kernel, CPU, memory, GPUs, displays, disks, temperatures, battery, network (`system_info`, also while paused)                                                                                                         |
 | `screen`   | Silent screenshots (a monitor, a zoomed-in region, a window); **OCR** of the screen with positions to click (~150 tokens instead of ~1,250 for a screenshot); the clipboard; recent notifications as text; save screenshots and record the screen for you                                       |
 | `windows`  | Focus, move, resize, close windows; launch apps (waits for the window); [window layouts](./window-layouts)                                                                                                                                                                                      |
-| `input`    | Type, press keys, click, drag, scroll — exact to the pixel on any monitor and scale; up to 20 steps in one call (`run_steps`)                                                                                                                                                                   |
+| `input`    | Type, press keys, click, drag, scroll — exact to the pixel on any monitor and scale; up to 20 steps in one call (`run_steps`), a saved recipe in one call (`run_recipe`)                                                                                                                        |
 | `ui`       | Read any app's window through its **accessibility tree** (buttons, fields, labels as numbered text lines) and press, toggle or fill elements without coordinates; wait for an element to appear or disappear                                                                                    |
 | `shell`    | Themes and variants, the wallpaper, **desktop widgets** (notes, to-do, timers, alarms, images, music recognition), the **equalizer**, the **calendar** (read-only), the **to-do lists**, **[contacts](./accounts)** (every account's: search, edit, label, photos), notifications, shell panels |
-| `memory`   | [Desktop memory](#desktop-memory): remember, recall, forget                                                                                                                                                                                                                                     |
+| `memory`   | [Desktop memory](#desktop-memory): remember, recall, forget; remind (reminders on a cue)                                                                                                                                                                                                        |
 | `personal` | [Personal memory](#personal-memory): what you told agents about your life                                                                                                                                                                                                                       |
 
 The `memory` group also has `habits`: what you usually do, from [usage habits](#usage-habits) when you turned them on.
@@ -53,8 +53,20 @@ Agents also learn the **controls** they use: a button, tab or menu item they pre
 
 Only the relevant part reaches a model: when an agent connects it gets a short digest (aliases, most-used apps, the notes about the task in full, the other notes by topic only); notes about an app also arrive with the action that opens it. With 40 notes, the digest is about 165 tokens. Notes are labelled as hints written by agents, never your instructions.
 
-- **Settings → Desktop agents** shows the notes (delete any), aliases, usage and learned controls, and clears them.
-- `nixbook-desktop-mcp memory show|prompt|forget ID|clear`.
+It learns the way a person does, mostly in plain code, without spending a token:
+
+- **What works gets stronger.** A note gets stronger when the task it was given for goes well (the agent's actions in that app worked) and weaker when it fails. Being shown to an agent doesn't count. Notes are ranked by how recently and how often they helped, the way human memory is (ACT-R's activation): several uses in one session count once, and uses spread over days count more. A note that keeps failing comes flagged, so the agent checks it, fixes it or forgets it.
+- **What isn't used fades.** A note unused for 3 months (6 if it helped, a year if it helped often) moves to an **archive**. The digest stays short, and when an agent asks for that topic again, `recall` finds the note there and brings it back.
+- **Recipes become habits.** `run_steps` with `remember_as` saves a recipe, with `{name}` placeholders (`vars`) for what changes. `run_recipe` runs it again in one call, so the steps never go through the model again. A recipe that worked on 3 days is a **macro**, offered in one line. A failing step demotes it, and the agent fixes that step.
+- **Where a note came from.** Each note says whether an agent saw it work, you said it, or it was read in a page or message. A note read in content stays tentative until it works, and is never given unasked. No note can tell agents to ignore their rules or to send something somewhere, unless you said it.
+- **Reminders.** "Remind me when I open Gmail to label the invoices", "…at 18:00": the `remind` tool keeps it with its cue (an app, words in a window title, a time). The shell shows a notification when the cue comes, once or every day.
+- **A memory pass, only when it pays.** When an agent finished a task the memory knew nothing about and it took work (8 actions, or failures on the way), a small model (`memoryModel`, Haiku) reads it in the background afterwards. It sees what was asked and the actions in short, and what was typed only as its length. It may save a note or a recipe, tentative until it helps, plus **keywords** (the other words a task is asked with, so a search for "music" finds the Spotify note). Every other task costs no model call.
+- **A weekly tidy-up**, like sleep: a small model merges notes on the same app or task that changed during the week (the merged note keeps what they proved), and gives keywords to the notes without them. There is no call when there is nothing to tidy.
+
+`memoryLearn = false` turns the model passes off; the rest needs none.
+
+- **Settings → Desktop agents** shows the notes (what each helped and failed, where it came from, recipes and macros; delete any), reminders, aliases, usage and learned controls, and clears them.
+- `nixbook-desktop-mcp memory show|prompt|forget ID|fire ID|learn|tidy|clear`.
 - Stored in `~/.local/state/nixbook-shell/desktop-memory.json` (private).
 
 ## Personal memory
@@ -145,6 +157,6 @@ programs.nixbook-shell.desktopMcp.settings = {
 };
 ```
 
-Written to `~/.config/nixbook-shell/desktop-mcp.json`; `nixbook-desktop-mcp config` prints what applies. Other keys tune screenshots (`screenshotFormat`, `screenshotQuality`, `screenshotMaxEdge`) and memory (`memoryPromptChars`, `memoryMaxNotes`, `personalPromptChars`, `personalMaxEntries`, `personalContacts`, `personalContactsAccount`).
+Written to `~/.config/nixbook-shell/desktop-mcp.json`; `nixbook-desktop-mcp config` prints what applies. Other keys tune screenshots (`screenshotFormat`, `screenshotQuality`, `screenshotMaxEdge`) and memory (`memoryPromptChars`, `memoryMaxNotes`, `memoryLearn`, `memoryModel`, `memoryClaude`, `personalPromptChars`, `personalMaxEntries`, `personalContacts`, `personalContactsAccount`).
 
 The `ui` group needs the accessibility bus (`customNixOSModules.niri.accessibility`, on by default); the module sets the variables that make Firefox-based and Chromium/Electron apps publish their tree (apps started before need a restart).
