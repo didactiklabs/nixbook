@@ -482,6 +482,27 @@ shows, clears or prints the digest; the `memory` tool group
 (`desktopMcp.settings.tools`) turns it off; `memoryPromptChars` and
 `memoryMaxNotes` size it.
 
+**Initiative**: the agent speaks first, when something happens it can help
+with (`ai.initiative.enable`, off by default). `services/Initiative.qml`
+hands events to `nixbook-desktop-mcp initiative consider`: `back` (the
+screens on again or unlocked after a while, or the first start of the day:
+today's events and tasks, personal-memory events within 3 days or 2 days
+past, the usual session when not set up), `focus` (a new app in front, at
+most every 3 minutes: a broken recipe of it) and, with
+`ai.initiative.readNotifications`, `notifications` (batched for 45 s). Plain
+code triages (own apps, the focused app's, low urgency, kinds found boring,
+silenced apps), checks the value of the kind (replies over words said,
+from a prior), dedupes, and delivers: a notification (time-critical; at
+most `initiativeMaxPerDay`, `initiativeGapMinutes` apart, none in
+`initiativeQuietHours`, in a meeting, fullscreen, on Do Not Disturb) or a
+word waiting in the bar (`pending`, the robot's bubble, 6 hours). Only
+notifications go to the small model (`INITIATIVE_SYSTEM`, at most
+`initiativeCallsPerDay`), which also names kinds never worth a word. The
+memory pass offers what it learned (`initiative_offer`). Reply opens the
+side panel's chat with the message as Claude's (`GlobalStates.aiChatRequested`);
+answers (`initiative answer ID replied|later|dismissed|never`) teach it.
+State in `~/.local/state/nixbook-shell/initiative.json`.
+
 **Personal memory**, so a conversation knows what the user told agents
 before: life events (past or planned, with dates), plans, people close to
 them, preferences, interests. Agents are told to save the meaningful part

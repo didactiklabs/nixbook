@@ -1251,6 +1251,11 @@ expect_not_contains "memory pass: never what was typed" "$prompt" "hello"
 expect_eq "memory pass: a recipe, tentative, learned in the background" '"recipe" "inferred" true ["bookmark","favorite"]' \
   "$(note_of "firefox: rename a bookmark" '"\(.kind | tojson) \(.source | tojson) \(.tentative) \(.keys | tojson)"' -r)"
 expect_eq "memory pass: no recipe that types fixed text" "" "$(note_of "firefox: typed" .id)"
+for _ in $(seq 20); do
+  [ -n "$(python3 "$mcp" initiative pending | jq -r '.[] | select(.kind=="learned") | .id')" ] && break
+  sleep 0.2
+done
+expect_contains "memory pass: says what it learned, in the bar" "$(python3 "$mcp" initiative pending | jq -r '.[] | select(.kind=="learned") | .text')" "next time it takes me one step"
 expect_contains "memory pass: by Claude Code with no tools" "$(cat "$calls.claude-args")" "--strict-mcp-config"
 rm -f "$calls.claude-prompt"
 session "rename my bookmark in firefox" 'press_keys {"keys":["ctrl+t"]}' >/dev/null
@@ -1276,6 +1281,100 @@ expect_eq "tidy-up: keywords for a note without" '["music","play"]' "$(note_of s
 expect_eq "keywords: found by them" spotify "$(call recall '{"query":"music"}' | jq -r '.notes[0].topic')"
 unset STUB_CLAUDE_ANSWER
 python3 "$mcp" memory clear >/dev/null
+
+# -- initiative ------------------------------------------------------------------------------
+# The agent speaking first: what the shell's events are worth saying, in
+# plain code (a small model only for notifications), learned from the answers.
+
+ini="$XDG_STATE_HOME/nixbook-shell/initiative.json"
+consider() { python3 "$mcp" initiative consider "$1"; }
+rm -f "$ini"
+today=$(date +%F)
+in2=$(date -d "+2 days" +%F)
+call remember_about_user "$(jq -nc --arg d "$in2" '{topic: "kyoto trip", kind: "event", date: $d, text: "Trip to Kyoto with Mai"}')" >/dev/null
+echo '{"initiativeQuietHours":"0-0"}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+out=$(consider '{"event":"back","away":300,"events":[{"title":"Standup","start":"10:00","inMinutes":15}],"tasksDue":2}')
+expect_eq "back: a meeting soon, a notification" notify "$(jq -r .action <<<"$out")"
+expect_contains "back: the day in a few lines" "$(jq -r .item.text <<<"$out")" "Today: Standup at 10:00. 2 tasks due today. kyoto trip: in 2 days. Want help getting ready?"
+expect_eq "back: not again soon after" none "$(consider '{"event":"back","away":5}' | jq -r .action)"
+out=$(consider '{"event":"back","away":0}')
+expect_eq "back: nothing new, nothing said" "none" "$(jq -r .action <<<"$out")"
+# Not time-critical, or busy, or past the day's budget: it waits in the bar.
+jq '.said = [] | .briefDay = ""' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
+out=$(consider '{"event":"back","away":300,"busy":true,"events":[{"title":"Review","start":"11:00","inMinutes":10}]}')
+expect_eq "busy: it waits" badge "$(jq -r .action <<<"$out")"
+expect_eq "busy: in the bar" 1 "$(python3 "$mcp" initiative pending | jq length)"
+echo '{"initiativeQuietHours":"0-0","initiativeMaxPerDay":1}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+jq --argjson t "$(date +%s)" --arg d "$today" '.said = [{id: "000001", key: "x", kind: "brief", level: "notify", time: ($t - 7200), day: $d}] | .pending = [] | .briefDay = ""' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
+out=$(consider '{"event":"back","away":300,"events":[{"title":"Lunch","start":"12:00","inMinutes":5}]}')
+expect_eq "budget: spent, it waits" badge "$(jq -r .action <<<"$out")"
+echo '{"initiativeQuietHours":"0-24"}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+jq '.briefDay = "" | .said = [] | .pending = []' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
+expect_eq "quiet hours: it waits" badge "$(consider '{"event":"back","away":300,"events":[{"title":"Call","start":"12:00","inMinutes":5}]}' | jq -r .action)"
+rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+
+# The answers teach it: a reply counts for the kind, "don't" silences it.
+id=$(python3 "$mcp" initiative pending | jq -r '.[0].id')
+python3 "$mcp" initiative answer "$id" replied
+expect_eq "answer: a reply counted, out of the bar" '1 0' "$(jq -r '"\(.stats.brief.replied) \(.pending | length)"' "$ini")"
+expect_contains "answer: unknown" "$(python3 "$mcp" initiative answer 999999 replied 2>&1)" "nothing said as 999999"
+jq '.stats.brief = {said: 20, replied: 0} | .briefDay = "" | .said = []' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
+expect_contains "value: a kind never taken up isn't said" "$(consider '{"event":"back","away":300,"tasksDue":1}' | jq -r .why)" "doesn't take these up"
+jq '.stats = {} | .briefDay = "" | .said = []' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
+id=$(consider '{"event":"back","away":300,"tasksDue":1}' | jq -r .item.id)
+python3 "$mcp" initiative answer "$id" never
+jq '.briefDay = "" | .said = [] | .pending = []' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
+expect_contains "never: silenced" "$(consider '{"event":"back","away":300,"tasksDue":3}' | jq -r .why)" "asked for none of these"
+python3 "$mcp" initiative unmute
+expect_eq "unmute" 0 "$(jq '.muted | length' "$ini")"
+
+# An app in front with a recipe that broke: offered, once.
+python3 "$mcp" memory clear >/dev/null
+call run_steps '{"steps":[{"tool":"press_keys","args":{"keys":["ctrl+k"]},"wait_ms":0}],"remember_as":"firefox: quick switcher"}' >/dev/null
+jq '(.notes[] | select(.topic=="firefox: quick switcher")) |= (.failStep = {step: 1, error: "no window", time: 5})' "$mem" >"$mem.new" && mv "$mem.new" "$mem"
+out=$(consider '{"event":"focus","app":"org.mozilla.firefox"}')
+expect_contains "focus: a broken recipe to fix" "$(jq -r .item.text <<<"$out")" "broke at step 1 last time (no window). Want me to fix it now?"
+expect_eq "focus: said once" none "$(consider '{"event":"focus","app":"org.mozilla.firefox"}' | jq -r .action)"
+expect_eq "focus: nothing for another app" none "$(consider '{"event":"focus","app":"org.gnome.Calculator"}' | jq -r .action)"
+
+# Notifications: only when reading them is on; triaged in plain code, read by the small model.
+expect_contains "notifications: not read unless allowed" "$(consider '{"event":"notifications","items":[{"app":"Power","summary":"Battery low"}]}' | jq -r .why)" "reading notifications is off"
+rm -f "$calls.claude-prompt"
+export STUB_CLAUDE_ANSWER
+STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {react: true, urgent: true, about: 1, text: "Battery at 8% and your review starts in 10 min: plug in now?", boring: [2]}}')
+out=$(consider '{"event":"notifications","read":true,"focused":"firefox","next":"Review in 10 min","items":[
+  {"app":"Power","summary":"Battery at 8%","body":"Plug in soon","urgency":"critical"},
+  {"app":"Spotify","summary":"Now playing 3 songs"},
+  {"app":"Claude","summary":"I have something"},
+  {"app":"firefox","summary":"Download done"}]}')
+expect_eq "notifications: a reaction, urgent" notify "$(jq -r .action <<<"$out")"
+expect_contains "notifications: what it says, with what it is about" "$(jq -r .item.chat <<<"$out")" "> Power: Battery at 8% — Plug in soon"
+prompt=$(cat "$calls.claude-prompt")
+expect_contains "notifications: the model sees them, numbered" "$prompt" "1. [Power] Battery at 8% — Plug in soon (critical)"
+expect_contains "notifications: and the moment" "$prompt" "Their next event: Review in 10 min"
+expect_not_contains "notifications: never its own" "$prompt" "I have something"
+expect_not_contains "notifications: not the focused app's (the user sees them)" "$prompt" "Download done"
+STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {react: false}}')
+rm -f "$calls.claude-prompt"
+expect_eq "notifications: a kind found boring isn't read again" "nothing worth a look" \
+  "$(consider '{"event":"notifications","read":true,"items":[{"app":"Spotify","summary":"Now playing 5 songs"}]}' | jq -r .why)"
+expect_eq "notifications: no model call for it" no "$([ -e "$calls.claude-prompt" ] && echo yes || echo no)"
+expect_eq "notifications: most aren't worth a word" "not worth a word" \
+  "$(consider '{"event":"notifications","read":true,"items":[{"app":"Mail","summary":"Your weekly digest"}]}' | jq -r .why)"
+echo '{"initiativeCallsPerDay":2}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+expect_eq "notifications: the day's calls capped" "the day's model calls are spent" \
+  "$(consider '{"event":"notifications","read":true,"items":[{"app":"Mail","summary":"Invoice due"}]}' | jq -r .why)"
+rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+# A notice answered "don't": that app's notices only.
+id=$(jq -r '.said[] | select(.kind=="notice") | .id' "$ini" | head -1)
+python3 "$mcp" initiative answer "$id" never
+expect_eq "never: a notice silences its app" '["notice:power"]' "$(jq -c .muted "$ini")"
+unset STUB_CLAUDE_ANSWER
+python3 "$mcp" initiative clear
+expect_eq "initiative clear" '0 0' "$(jq -r '"\(.said | length) \(.pending | length)"' "$ini")"
+python3 "$mcp" memory clear >/dev/null
+python3 "$mcp" personal clear >/dev/null
+rm -f "$XDG_STATE_HOME/nixbook-shell/personal-memory.json"
 
 # Learned targets: a fake libatspi (PyGObject's `gi`) reading a window's
 # tree from $FAKE_ATSPI_TREE; an action done is logged to $STUB_CALLS.

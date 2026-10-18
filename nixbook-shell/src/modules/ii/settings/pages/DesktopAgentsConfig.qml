@@ -69,6 +69,45 @@ ContentPage {
         spacing: 20
 
         ContentSection {
+            icon: "chat_bubble"
+            title: Translation.tr("Talks to you on its own")
+
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("Claude speaks first when it can help, not on a schedule: when you come back (your day, a plan coming up or just past, your usual setup), when an app it has a broken recipe for is in front, when it learned something. Time-critical things come as a notification (Reply, Not now, Don't tell me this; at most 6 a day, none at night, in a meeting or fullscreen); the rest waits as a bubble beside the robot in the bar. It learns from your answers what is worth saying. Plain code decides; a small model only reads notifications.")
+            }
+
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "ai.initiative.enable"
+                    buttonIcon: "record_voice_over"
+                    text: Translation.tr("Talk to me on its own")
+                    checked: Config.options.ai.initiative.enable
+                    onCheckedChanged: Config.options.ai.initiative.enable = checked
+                }
+                ConfigSwitch {
+                    configKey: "ai.initiative.readNotifications"
+                    buttonIcon: "notifications_active"
+                    enabled: Config.options.ai.initiative.enable
+                    text: Translation.tr("Read my notifications, to react, advise or suggest (what they say goes to the small model)")
+                    checked: Config.options.ai.initiative.readNotifications
+                    onCheckedChanged: Config.options.ai.initiative.readNotifications = checked
+                }
+            }
+
+            RowLayout {
+                spacing: 8
+                SmallButton {
+                    materialIcon: "restart_alt"
+                    mainText: Translation.tr("Undo every \"Don't tell me this\"")
+                    onClicked: Quickshell.execDetached(["nixbook-desktop-mcp", "initiative", "unmute"])
+                }
+            }
+        }
+
+        ContentSection {
             icon: "smart_toy"
             title: Translation.tr("Desktop control")
             shape: MaterialShape.Shape.Pentagon

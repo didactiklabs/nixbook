@@ -19,6 +19,8 @@ Singleton {
     property bool crosshairOpen: false
     property bool equalizerOpen: false
     property bool sidebarLeftOpen: false
+    // The side panel's chat to the front (services/Initiative.qml: a reply).
+    signal aiChatRequested()
     property bool sidebarRightOpen: false
     // Opened by hovering its edge handle (sidebarHandles): the sidebar closes
     // again once the pointer leaves it. Cleared when it closes.

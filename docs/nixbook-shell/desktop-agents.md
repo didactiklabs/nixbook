@@ -45,6 +45,28 @@ For agents to work without touching your windows at all, give them [their own de
 
 The `desktopControl` bar widget shows a **faint robot** when idle, a **pulsing robot** while an agent acts, and a **red hand** when paused; its tooltip names the last agent and tool. Click pauses or allows every agent; right-click switches the agents to [their own desktop](./agent-desktop). Settings → Desktop agents has the same switches, the memory, and the Claude panel setup.
 
+## Talks to you on its own
+
+Turn on **Settings → Desktop agents → Talk to me on its own** (off by default) and Claude speaks first when it can help. There is no schedule: it reacts to what happens.
+
+- **When you come back** (the screens come on, you unlock, the first start of the day): a word on your day. It covers today's events and tasks due, a plan from [what it remembers about you](#personal-memory) coming up ("Kyoto trip: in 2 days. Want help getting ready?") or just past ("how did it go?"), and your [usual start](#usage-habits) when it isn't set up.
+- **When an app is in front** that has a recipe it knows is broken: it offers to fix it.
+- **When it learned something** (a recipe from a task): it tells you, and you can see it or have it forget it.
+- **Notifications**, with **Read my notifications** also on: it reacts to what comes in, of any kind, with advice or a suggestion. For example: a low battery before a meeting, a full disk, a failed build or backup, a delivery, a bank or security alert, a message that asks something.
+
+How it reaches you:
+
+- **A notification from "Claude"** for what is time-critical. It has **Reply** (the side panel opens with its message in the chat, so you just answer), **Not now** and **Don't tell me this**. There are at most 6 a day, 30 minutes apart, and none at night (22:00–8:00), in a meeting, fullscreen or on Do Not Disturb.
+- **A bubble beside the robot in the bar** for the rest, breathing slowly. Click it to answer in the chat, right-click for not now. These expire after a few hours.
+
+It costs little and learns what you value:
+
+- **Plain code decides** whether a word is worth it: is it new, are you free, is the day's budget spent, do you usually take up this kind (and this app's notifications). No model runs for that.
+- **A small model** (`memoryModel`, Haiku) only reads notifications, in batches of up to 6, after the triage has dropped its own, the focused app's (you see them), low-urgency ones and kinds it found not worth a word before (those are never sent again). There are at most 30 calls a day (`initiativeCallsPerDay`). Everything else is worded in code.
+- **Your answers teach it:** a reply makes that kind more likely, a dismissal less, and **Don't tell me this** silences that kind (or that app's notifications). Settings has a button to undo every "don't".
+
+Keys in `desktop-mcp.json` (`programs.nixbook-shell.desktopMcp.settings`): `initiativeMaxPerDay` (6), `initiativeGapMinutes` (30), `initiativeQuietHours` (`"22-8"`), `initiativeCallsPerDay` (30). The switches are `ai.initiative.enable` and `ai.initiative.readNotifications` in the shell's settings. State lives in `~/.local/state/nixbook-shell/initiative.json` (private); `nixbook-desktop-mcp initiative show|pending|unmute|clear`.
+
 ## Desktop memory
 
 So the next task is faster, agents keep **notes** about your desktop — an app's shortcut, where a setting is, which app does what — and **recipes** (`run_steps` saved with `remember_as`). Usage is counted as they work, and `launch_app` learns **aliases** ("discord" → Vesktop).

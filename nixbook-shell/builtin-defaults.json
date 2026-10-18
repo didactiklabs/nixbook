@@ -25,6 +25,10 @@
     "immich": {
       "apiKeyFile": "",
       "url": ""
+    },
+    "initiative": {
+      "enable": false,
+      "readNotifications": false
     }
   },
   "appearance": {
