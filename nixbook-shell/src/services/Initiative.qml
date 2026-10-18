@@ -87,6 +87,13 @@ Singleton {
 
     // Opens what it said in the side panel's chat, as Claude's message; a
     // learned routine offered (`accept`) is just turned on.
+    // Curiosity (ai.initiative.curious): it watches what is in front (app and
+    // window title, every few minutes) and learns what the user does from it,
+    // saying what it learned; the reply corrects or completes it.
+    readonly property bool curious: Config.options?.ai?.initiative?.curious ?? false
+    readonly property string learnHint: "You said this from watching what the user does, to learn about them. "
+        + "If they correct what you noticed or tell you more, update your memory of them (recall_about_user, then "
+        + "remember_about_user with the entry's id; forget_about_user what was wrong), briefly, then answer naturally."
     function open(item) {
         if (!item) return
         if (root.speaking?.id === item.id) root.speaking = null
@@ -95,14 +102,15 @@ Singleton {
             return
         }
         root._opened = { id: item.id, time: Date.now() }
-        Ai.claudeTab().addMessage(item.chat || item.text, "assistant", true)
+        Ai.claudeTab().addMessage(item.chat || item.text, "assistant", true, item.curious ? root.learnHint : "")
         GlobalStates.sidebarLeftOpen = true
         GlobalStates.aiChatRequested()
         root.answer(item.id, "replied")
     }
     // Settings > Say something now: a light word at once, to try it.
     function sayNow() {
-        root.consider({ event: "moment", force: true, app: ToplevelManager.activeToplevel?.appId ?? "",
+        root.consider({ event: "moment", force: true, curious: root.curious, app: ToplevelManager.activeToplevel?.appId ?? "",
+                        title: root.curious ? (ToplevelManager.activeToplevel?.title ?? "") : "",
                         activeMinutes: Math.round((Date.now() - root._activeSince) / 60000),
                         tasksDue: Todo.dueTodayCount, weatherCode: Weather.data?.wCode ?? 0,
                         weather: Weather.data?.description ?? "" })
@@ -275,7 +283,8 @@ Singleton {
         repeat: true
         onTriggered: {
             if (Idle.screensOff || GlobalStates.screenLocked) return
-            root.consider({ event: "moment", app: ToplevelManager.activeToplevel?.appId ?? "",
+            root.consider({ event: "moment", curious: root.curious, app: ToplevelManager.activeToplevel?.appId ?? "",
+                        title: root.curious ? (ToplevelManager.activeToplevel?.title ?? "") : "",
                             activeMinutes: Math.round((Date.now() - root._activeSince) / 60000),
                             tasksDue: Todo.dueTodayCount, weatherCode: Weather.data?.wCode ?? 0,
                             weather: Weather.data?.description ?? "" })

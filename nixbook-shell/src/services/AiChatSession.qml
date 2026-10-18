@@ -68,7 +68,7 @@ Scope {
         blockWrites: true
     }
 
-    function addMessage(message, role, unsent = false) {
+    function addMessage(message, role, unsent = false, learnHint = "") {
         if (message.length === 0) return;
         const aiMessage = Ai.aiMessageComponent.createObject(chat, {
             "role": role,
@@ -77,6 +77,7 @@ Scope {
             "thinking": false,
             "done": true,
             "unsent": unsent,
+            "learnHint": learnHint,
         });
         const id = Ai.idForMessage(aiMessage);
         chat.messageIDs = [...chat.messageIDs, id];
@@ -435,7 +436,10 @@ Scope {
 
             /* Send the request */
             const prompt = Ai.claudeCodePrompt(filteredMessageArray, attached, chat.claudeSessionId);
-            for (const m of filteredMessageArray) m.unsent = false;
+            for (const m of filteredMessageArray) {
+                m.unsent = false;
+                m.learnHint = "";
+            }
             const turns = filteredMessageArray.filter(m => m.role === "user");
             desktopTaskFile.path = Qt.resolvedUrl(chat.desktopTaskFilePath);
             desktopTaskFile.setText((turns[turns.length - 1]?.rawContent ?? "").slice(0, 500));

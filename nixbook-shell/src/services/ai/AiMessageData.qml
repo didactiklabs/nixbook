@@ -16,6 +16,9 @@ QtObject {
     // Said by Claude on its own (services/Initiative.qml) and not yet in its
     // Claude Code session: goes with the user's next message.
     property bool unsent: false
+    // What Claude is to do with the user's answer (a question it asked to
+    // learn: save it), told with the answer and then dropped.
+    property string learnHint: ""
     property var annotations: []
     property var annotationSources: []
     property list<string> searchQueries: []
