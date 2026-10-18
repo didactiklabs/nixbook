@@ -44,6 +44,10 @@ Singleton {
         memoryFile.reload()
     }
 
+    function _has(event) {
+        return root.active.some(r => r.when?.event === event)
+    }
+
     function _matches(when, ev) {
         const lower = s => String(s ?? "").toLowerCase()
         if (when.app && !lower(ev.app).includes(when.app)) return false
@@ -74,6 +78,12 @@ Singleton {
         onTriggered: Quickshell.execDetached(["nixbook-desktop-mcp", "routine", "learn", root.learn])
     }
 
+    // What it saw lately and what came of it (Settings > Routines): newest last.
+    property var recent: []
+    function note(what, outcome) {
+        root.recent = [...root.recent, { time: Date.now(), what: what, outcome: outcome }].slice(-12)
+    }
+
     // Something happened: the routines it is the cue of.
     function happen(ev) {
         if (root.enabled && root.learn !== "off" && root.cueEvents.includes(ev.event))
@@ -81,10 +91,23 @@ Singleton {
         if (!root.enabled || root.active.length === 0) return
         const music = ev.event.startsWith("music") || ev.event === "track_changed"
         // Music the user just stopped stays stopped.
-        if (music && ev.event !== "music_ended" && Date.now() - root._userPausedAt < 600000) return
+        if (music && ev.event !== "music_ended" && Date.now() - root._userPausedAt < 600000) {
+            if (root._has(ev.event)) root.note(ev.event, Translation.tr("held: you stopped the music lately"))
+            return
+        }
         for (const r of root.active) {
             if (r.when?.event !== ev.event || !root._matches(r.when, ev)) continue
             root._run(r, ev)
+        }
+    }
+
+    function _outcome(r, text) {
+        try {
+            const out = JSON.parse(text)
+            const said = out.said && !out.said.endsWith(": done.") ? out.said : ""
+            root.note(r.text, out.ran ? (said ? Translation.tr("ran: %1").arg(said) : Translation.tr("ran")) : out.why)
+        } catch (e) {
+            root.note(r.text, Translation.tr("didn't run"))
         }
     }
 
@@ -99,7 +122,7 @@ Singleton {
         if (Ai.claudeCodePath.length > 0) event.claude = Ai.claudeCodePath
         root._fired = Object.assign({}, root._fired, { [r.id]: { time: Date.now(), music: root._touchesMusic(r),
             app: r.do?.tool === "launch_app" ? String(r.do?.args?.app ?? "").toLowerCase() : "" } })
-        runner.createObject(root, { command: ["nixbook-desktop-mcp", "routine", "run", r.id, JSON.stringify(event)], running: true })
+        runner.createObject(root, { routine: r, command: ["nixbook-desktop-mcp", "routine", "run", r.id, JSON.stringify(event)], running: true })
     }
 
     // The user undid what a routine just did (within 3 minutes).
@@ -120,7 +143,13 @@ Singleton {
         id: runner
         Process {
             id: proc
-            onExited: proc.destroy()
+            property var routine
+            stdout: StdioCollector {
+                onStreamFinished: {
+                    root._outcome(proc.routine, text)
+                    proc.destroy()
+                }
+            }
         }
     }
 
@@ -156,39 +185,62 @@ Singleton {
         delegate: QtObject {
             id: watched
             required property MprisPlayer modelData
-            // Where the track was, read while it plays (a stop resets it).
+            // The track as it was last seen playing (sampled: when it stops,
+            // the position may be reset, the length the next track's or gone).
             property real lastPos: 0
             property real lastLen: 0
+            property string lastTrack: ""
+            readonly property string track: `${watched.modelData?.trackArtist ?? ""} ${watched.modelData?.trackTitle ?? ""}`
             property bool playing: watched.modelData?.isPlaying ?? false
+            function sample() {
+                watched.lastPos = watched.modelData?.position ?? 0
+                watched.lastLen = watched.modelData?.length ?? 0
+                watched.lastTrack = watched.track
+            }
             onPlayingChanged: {
-                if (watched.playing) return
-                const len = watched.modelData?.length ?? watched.lastLen
-                const pos = Math.max(watched.modelData?.position ?? 0, watched.lastPos)
-                // At its end (or a queue that ran out): on its own; else the user.
-                const ended = len > 0 ? pos >= len - 20 : watched.modelData?.playbackState === MprisPlaybackState.Stopped
-                if (ended) {
-                    if (!root.anyPlaying) quietTimer.restart()
+                if (watched.playing) {
+                    watched.sample()
+                    return
+                }
+                const name = watched.modelData?.identity ?? ""
+                // On its own: it was a few seconds from the end, or the player
+                // moved on to the next track and stopped there (the queue ran
+                // out), or it stopped with no position to tell. Else the user.
+                const nearEnd = watched.lastLen > 0 && watched.lastLen - watched.lastPos <= 8
+                const movedOn = watched.lastTrack !== "" && watched.track !== watched.lastTrack
+                const unknown = watched.lastLen <= 0 && watched.modelData?.playbackState === MprisPlaybackState.Stopped
+                if (nearEnd || movedOn || unknown) {
+                    // `anyPlaying` still counts this player here (it updates
+                    // after): the timer checks for other music when it runs out.
+                    root.note("music", `${name}: ended on its own, waiting 45 s`)
+                    quietTimer.restart()
                 } else {
                     root._userPausedAt = Date.now()
+                    root.note("music", `${name}: paused by you (holding music routines 10 min)`)
                     root._undone(f => f.music)
                 }
             }
+            // Every 2 s while it plays: the end is seen within a few seconds.
             property Timer sampler: Timer {
-                interval: 5000
+                interval: 2000
                 repeat: true
                 running: watched.playing && root.active.length > 0
-                onTriggered: {
-                    watched.lastPos = watched.modelData?.position ?? watched.lastPos
-                    watched.lastLen = watched.modelData?.length ?? watched.lastLen
-                }
+                onTriggered: watched.sample()
             }
         }
     }
     Timer {
         id: quietTimer
         interval: 45000
-        onTriggered: if (!root.anyPlaying) root.happen({ event: "music_ended", app: MprisController.activePlayer?.identity ?? "",
-                                                         text: `${MprisController.activeTrack?.artist ?? ""} ${MprisController.activeTrack?.title ?? ""}` })
+        onTriggered: {
+            if (root.anyPlaying) {
+                root.note("music", Translation.tr("other music plays: nothing to do"))
+                return
+            }
+            if (!root._has("music_ended")) root.note("music", Translation.tr("quiet for 45 s, no routine for it"))
+            root.happen({ event: "music_ended", app: MprisController.activePlayer?.identity ?? "",
+                          text: `${MprisController.activeTrack?.artist ?? ""} ${MprisController.activeTrack?.title ?? ""}` })
+        }
     }
     Connections {
         target: MprisController

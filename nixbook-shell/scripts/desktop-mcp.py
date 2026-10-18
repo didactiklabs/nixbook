@@ -3477,12 +3477,20 @@ def routine_run(cfg, rid, event, now=None):
             mcp_call(assistant_servers()[r["do"]["server"]], r["do"]["tool"], dict(r["do"]["args"]))
             said = f"{r['text']}: done."
     except (ToolError, KeyError) as e:
+        today = time.strftime("%Y-%m-%d", time.localtime(now))
+        tell = False
         with Memory() as m:
             for x in m.data.get("routines") or []:
                 if x["id"] == rid:
                     x["lastResult"] = f"failed: {short(str(e), 200)}"
+                    # Said in the bar, once a day: a routine failing quietly
+                    # looks like one that does nothing.
+                    tell = x.get("failDay") != today
+                    x["failDay"] = today
             m.save()
         audit("routine", "routine", {"id": rid}, f"error: {e}")
+        if tell:
+            routine_say(r, f"I tried \u201c{r['text']}\u201d, but it didn't work: {short(str(e), 160)}")
         return {"ran": False, "why": f"failed: {e}"}
     with Memory() as m:
         for x in m.data.get("routines") or []:

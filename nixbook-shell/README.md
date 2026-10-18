@@ -534,7 +534,11 @@ assistant-mcp.json server} or {agent, servers}), kept in the desktop memory
 (`routines`). `services/Routines.qml` (ai.routines.enable) watches MPRIS
 (music ended on its own: position at the track's end or the queue out, 45 s
 quiet; a mid-track pause is the user's and holds music routines 10 min),
-toplevels, titles, notifications, idle and lock, a 30 s clock (times,
+toplevels, titles, notifications, idle and lock (the end of a track is told from
+the track as sampled every 2 s while playing: within 8 s of its end, moved on
+to another track, or stopped with no length; the 45 s wait starts in every
+such case, as `anyPlaying` still counts the stopping player when it fires;
+`Routines.recent` keeps what was seen and what came of it, shown in Settings), a 30 s clock (times,
 calendar events), UPower, NetworkManager, the VPNs, the default sink,
 monitors and ~/Downloads (FolderListModel), and runs `routine run ID EVENT`:
 `routine_run` checks on, pause, cooldown, the day's agent runs, then calls the
