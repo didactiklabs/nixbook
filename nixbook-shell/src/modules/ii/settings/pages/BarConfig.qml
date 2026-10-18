@@ -578,7 +578,7 @@ ContentPage {
                         Layout.fillWidth: true
                         Layout.margins: 8
                         wrapMode: Text.Wrap
-                        text: Translation.tr("A message shown by a desktop app and mirrored from your phone (%1) appears once, from the desktop app, whichever copy arrives first. The phone's copy must end with the same message and mention the same sender or channel; when it also brings newer messages, it replaces the desktop one, so a conversation shows once.").arg((Config.options.notifications.deduplicate.relayApps ?? []).join(", "))
+                        text: Translation.tr("A message shown by a desktop app and mirrored from your phone (%1) appears once, from the desktop app, whichever copy arrives first. The phone's copy must end with the same message and mention the same sender or channel; when it also brings newer messages, or names the sender the desktop one lacks (Instagram in the browser), it replaces the desktop one, so a conversation shows once.").arg((Config.options.notifications.deduplicate.relayApps ?? []).join(", "))
                         font.pixelSize: Appearance.font.pixelSize.small
                         color: Appearance.colors.colSubtext
                     }

@@ -64,7 +64,8 @@ Singleton {
     // would have caught on arrival (notifications.deduplicate): within the
     // window, a later identical notification or re-posted thread replaces the
     // earlier one, and a phone's copy of a desktop app's message gives way to
-    // the desktop one. Entries recorded before those rules existed, or with a
+    // the desktop one (or replaces it when it names the sender the desktop
+    // one lacks: NotificationUtils.relayIsRicher). Entries recorded before those rules existed, or with a
     // shorter window, are cleaned on load. `list` is oldest first.
     function deduplicated(list) {
         const options = Config.options?.notifications?.deduplicate;
@@ -82,12 +83,16 @@ Singleton {
                     dropped.add(j);
                 } else if (relayed[i] && !relayed[j]) {
                     const match = NotificationUtils.relayMatch(o, n);
-                    if (match === "same") {
+                    if (match === "same" && !NotificationUtils.relayIsRicher(o, n)) {
                         dropped.add(i);
                         break;
                     }
-                    if (match === "contains") dropped.add(j);
+                    if (match !== "") dropped.add(j);
                 } else if (!relayed[i] && relayed[j] && NotificationUtils.isRelayOf(n, o)) {
+                    if (NotificationUtils.relayIsRicher(n, o)) {
+                        dropped.add(i);
+                        break;
+                    }
                     dropped.add(j);
                 }
             }

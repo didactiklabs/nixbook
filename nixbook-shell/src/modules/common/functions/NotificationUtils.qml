@@ -288,6 +288,17 @@ Singleton {
         return title.replace(/ /g, "").length >= 6 && before.includes(` ${title} `) ? verdict : "";
     }
 
+    /**
+     * Is `relay` the better copy of `local`'s message? When the desktop
+     * app's title is only the phone app's name (Instagram in the browser:
+     * "Instagram" / "ja"), the phone's copy names the sender
+     * ("huyền: ja") and is the one to keep, cut-in rules included.
+     */
+    function relayIsRicher(local, relay) {
+        const title = root.matchText(local?.summary);
+        return title !== "" && title === root.matchText(relay?.summary);
+    }
+
     // Same app, title and text.
     function isRepeatOf(n, older) {
         return `${n?.appName}` === `${older?.appName}`
