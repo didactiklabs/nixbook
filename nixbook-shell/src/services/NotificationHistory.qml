@@ -2,6 +2,7 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 
 import qs.modules.common
+import qs.modules.common.functions
 import Quickshell
 import Quickshell.Io
 import QtQuick
@@ -11,6 +12,8 @@ import QtQuick
  * dismissed from the notification centre (Notifications.list only holds the
  * undismissed ones). Entries older than notifications.history.retentionDays
  * (0 = forever) are pruned on load, on each new entry and hourly.
+ * Duplicates (deduplicated()) are removed on load and with
+ * `nixbook-shell ipc call notificationHistory dedupe`.
  * Stored in ~/.local/state/…/user/notification-history.json, oldest first.
  */
 Singleton {
@@ -57,6 +60,51 @@ Singleton {
         root.save(root.pruned([...root.entries.filter(e => !isReplaced(e)), entry]));
     }
 
+    // The history without the duplicates Notifications.duplicateVerdict
+    // would have caught on arrival (notifications.deduplicate): within the
+    // window, a later identical notification or re-posted thread replaces the
+    // earlier one, and a phone's copy of a desktop app's message gives way to
+    // the desktop one. Entries recorded before those rules existed, or with a
+    // shorter window, are cleaned on load. `list` is oldest first.
+    function deduplicated(list) {
+        const options = Config.options?.notifications?.deduplicate;
+        if (!(options?.enable ?? true) || !(options?.history ?? true)) return list;
+        const windowMs = Math.max(0, options?.window ?? 1800) * 1000;
+        const relayApps = options?.relayApps ?? ["KDE Connect", "GSConnect"];
+        const relayed = list.map(e => NotificationUtils.isRelayed(e, relayApps));
+        const dropped = new Set();
+        for (let i = 0; i < list.length; i++) {
+            const n = list[i];
+            for (let j = i - 1; j >= 0 && n.time - list[j].time <= windowMs; j--) {
+                if (dropped.has(j)) continue;
+                const o = list[j];
+                if (NotificationUtils.isRepeatOf(n, o) || NotificationUtils.isThreadUpdateOf(n, o)) {
+                    dropped.add(j);
+                } else if (relayed[i] && !relayed[j]) {
+                    const match = NotificationUtils.relayMatch(o, n);
+                    if (match === "same") {
+                        dropped.add(i);
+                        break;
+                    }
+                    if (match === "contains") dropped.add(j);
+                } else if (!relayed[i] && relayed[j] && NotificationUtils.isRelayOf(n, o)) {
+                    dropped.add(j);
+                }
+            }
+        }
+        return dropped.size === 0 ? list : list.filter((_, i) => !dropped.has(i));
+    }
+    function dedupe() {
+        if (!root.loaded) return 0;
+        const kept = root.deduplicated(root.entries);
+        const removed = root.entries.length - kept.length;
+        if (removed > 0) {
+            console.log(`[NotificationHistory] Removed ${removed} duplicate(s)`);
+            root.save(kept);
+        }
+        return removed;
+    }
+
     function deleteOlderThan(days) {
         const cutoff = Date.now() - days * root.dayMs;
         root.save(root.entries.filter(e => e.time >= cutoff));
@@ -87,6 +135,10 @@ Singleton {
     }
 
     onRetentionDaysChanged: root.prune()
+    // A longer window (the migration from the old 120 s default, Settings)
+    // catches more of what is already recorded.
+    readonly property int dedupWindow: Config.options?.notifications?.deduplicate?.window ?? 1800
+    onDedupWindowChanged: root.dedupe()
 
     // Batch bursts of notifications into one write.
     Timer {
@@ -109,6 +161,7 @@ Singleton {
         function count(): int { return root.entries.length; }
         function clear(): void { root.clear(); }
         function deleteOlderThan(days: int): void { root.deleteOlderThan(days); }
+        function dedupe(): int { return root.dedupe(); }
     }
 
     FileView {
@@ -117,7 +170,7 @@ Singleton {
         function finishLoad(list) {
             root.loaded = true;
             root.entries = list;
-            const merged = root.pruned([...list, ...root.pending]);
+            const merged = root.deduplicated(root.pruned([...list, ...root.pending]));
             root.pending = [];
             if (merged.length !== list.length || merged.some((e, i) => e !== list[i])) root.save(merged);
         }

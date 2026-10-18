@@ -48,6 +48,15 @@ Singleton {
                 root.options.custom.distroIcon = "spark-symbolic";
             done.sidebarIconNoGemini = true;
         }
+        // notifications.deduplicate.window used to default to 120 s, but
+        // KDE Connect's copy of a Discord message can lag the desktop one by
+        // up to ~17 min: every later copy got through. Raise the old default.
+        if (!done.dedupWindow) {
+            const dedup = root.options.notifications.deduplicate;
+            if (dedup.window === 120 && !NixManaged.isPinned("notifications.deduplicate.window"))
+                dedup.window = 1800;
+            done.dedupWindow = true;
+        }
     }
     property int readWriteDelay: 50 // milliseconds
     property bool blockWrites: false

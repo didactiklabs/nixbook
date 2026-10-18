@@ -425,8 +425,15 @@ Singleton {
         if (relayed && (options?.hideOwnMessages ?? true) && NotificationUtils.isOwnMessage(n))
             return { drop: "the user's own message", replaces: [], supersedes: [] };
         for (const r of [...root.recent].reverse()) {
-            if (now - r.time <= repeatMs && NotificationUtils.isRepeatOf(n, r))
-                return { drop: `repeat of #${r.notificationId}`, replaces: [], supersedes: [] };
+            if (NotificationUtils.isRepeatOf(n, r)) {
+                if (now - r.time <= repeatMs)
+                    return { drop: `repeat of #${r.notificationId}`, replaces: [], supersedes: [] };
+                // The same notification again later in the window (a web
+                // app's "You have unseen notifications." every minute, a
+                // phone re-posting a message): it replaces the earlier copy.
+                verdict.supersedes.push(r.notificationId);
+                continue;
+            }
             if (relayed && !r.relayed) {
                 const match = NotificationUtils.relayMatch(r, n);
                 if (match === "same")
