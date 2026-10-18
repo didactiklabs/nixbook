@@ -636,9 +636,19 @@ Singleton {
         // The desktop tools loaded up front: Claude Code otherwise defers MCP
         // tools behind a ToolSearch call, one more round trip per session.
         // Not with the connectors: hundreds of tools would fill every message.
+        // The plugins enabled on claude.ai (Hunter…) are synced to
+        // ~/.claude/plugins/synced, but Claude Code loads them only with the
+        // user's settings, left out here: each passed by its folder instead
+        // (one with .claude-plugin/plugin.json or .mcp.json), found when it
+        // starts, as the sync adds and removes them.
+        const plugins = connectors
+            ? `plugins=()\nwhile IFS= read -r -d '' d; do plugins+=(--plugin-dir "$d"); done < <(find "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/synced" -mindepth 2 -maxdepth 5 `
+                + `\\( -path '*/.claude-plugin/plugin.json' -o -name .mcp.json \\) -printf '%h\\0' 2>/dev/null | sed -z 's#/\\.claude-plugin$##' | sort -zu)\n`
+            : "";
         return `workdir="\${XDG_DATA_HOME:-$HOME/.local/share}/nixbook-shell/assistant"\n`
-            + `mkdir -p "$workdir" && cd "$workdir" || exit 1\n${connectors ? "" : "export ENABLE_TOOL_SEARCH=false\n"}`
-            + `exec ${q(root.claudeCodePath)} ${args.map(q).join(" ")}\n`;
+            + `mkdir -p "$workdir" && cd "$workdir" || exit 1\n${connectors ? "" : "export ENABLE_TOOL_SEARCH=false\n"}${plugins}`
+            // First: --tools and the like take every argument up to the next option.
+            + `exec ${q(root.claudeCodePath)} ${connectors ? '"${plugins[@]}" ' : ""}${args.map(q).join(" ")}\n`;
     }
 
     FileView {
