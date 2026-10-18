@@ -567,6 +567,8 @@ the same kind (weekdays, weekends) in two weeks; one new routine a day,
 it on, no forgets it and `routinesDeclined` keeps it out) or, auto and strong,
 on with a trial (said each run until 3 runs undone by nobody).
 
+Routine events added (Routines.qml): `music_silent` (no music for `minutes` while present, once a silence, held after the user's own stop until music plays, a break or an hour), `app_focused`, `day_start` (once a day: `routine_run`), `away`, `long_session`, `fullscreen_started|ended`, `dnd_on|off`, `charged`, `bluetooth_connected|disconnected`, `phone_connected|disconnected` (KDE Connect), `drive_connected|disconnected` (/run/media), `disk_low`, `rain` (OpenWeather 2xx–6xx), `screenshot`. `music_ended` waits 20 s. Routine ideas (`routine_idea`, `IDEA_SYSTEM`, daily, `initiative ideas`): personal entries (people by name only, contacts redacted), habits, music, cue names, routines, events and actions → one routine added off and offered with why (`routine_ask(r, why)`); declined ones in `ideasDeclined`. Curiosity reads every 5 h with 4 new titles and may `offer` help with what is in front ("now").
+
 **Personal memory**, so a conversation knows what the user told agents
 before: life events (past or planned, with dates), plans, people close to
 them, preferences, interests. Agents are told to save the meaningful part

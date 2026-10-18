@@ -93,7 +93,8 @@ Singleton {
     readonly property bool curious: Config.options?.ai?.initiative?.curious ?? false
     readonly property string learnHint: "You said this from watching what the user does, to learn about them. "
         + "If they correct what you noticed or tell you more, update your memory of them (recall_about_user, then "
-        + "remember_about_user with the entry's id; forget_about_user what was wrong), briefly, then answer naturally."
+        + "remember_about_user with the entry's id; forget_about_user what was wrong), briefly. If you offered help "
+        + "and they want it, do it now with your tools (look at their screen first if needed); then answer naturally."
     function open(item) {
         if (!item) return
         if (root.speaking?.id === item.id) root.speaking = null

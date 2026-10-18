@@ -1427,8 +1427,8 @@ expect_contains "moment: a long stretch" "$(jq -r .item.text <<<"$out")" "2 hour
 expect_eq "moment: not again soon" "said one lately" "$(moment '{"event":"moment","roll":0.9,"tasksDue":2}' | jq -r .why)"
 expect_eq "moment: not while busy" "the user is busy" "$(moment '{"event":"moment","roll":0.9,"busy":true}' | jq -r .why)"
 jq '.said = [.said[] | .time -= 4 * 3600]' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
-jq '.said += [.said[0] | .key = "y" | .id = "000002"]' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
-expect_eq "moment: at most 2 a day" "enough for today" "$(moment '{"event":"moment","roll":0.9,"tasksDue":2}' | jq -r .why)"
+jq '.said += [range(3) as $i | .said[0] | .key = "y\($i)" | .id = "00000\($i + 2)"]' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
+expect_eq "moment: at most 4 a day" "enough for today" "$(moment '{"event":"moment","roll":0.9,"tasksDue":2}' | jq -r .why)"
 python3 "$mcp" initiative clear
 
 # Settings > Say something now: at once, out loud, even with nothing on its mind.
@@ -1447,9 +1447,9 @@ expect_eq "moment: not due yet" "not time yet" "$(consider '{"event":"moment","r
 expect_eq "moment: not due, not logged (asked every few minutes)" "$logged" "$(jq '.log | length' "$ini")"
 jq 'del(.momentAt)' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
 consider '{"event":"moment","roll":0.9}' >/dev/null
-expect_eq "moment: the first chance within 20 to 60 minutes" true "$(jq --argjson t "$(date +%s)" '.momentAt - $t | . >= 1190 and . <= 3610' "$ini")"
+expect_eq "moment: the first chance within 10 to 30 minutes" true "$(jq --argjson t "$(date +%s)" '.momentAt - $t | . >= 590 and . <= 1810' "$ini")"
 moment '{"event":"moment","roll":0.9}' >/dev/null
-expect_eq "moment: the next one 40 to 120 minutes on" true "$(jq --argjson t "$(date +%s)" '.momentAt - $t | . >= 2390 and . <= 7210' "$ini")"
+expect_eq "moment: the next one 20 to 60 minutes on" true "$(jq --argjson t "$(date +%s)" '.momentAt - $t | . >= 1190 and . <= 3610' "$ini")"
 # Time at the computer since the last break, whatever restarted in between.
 python3 "$mcp" initiative clear
 consider '{"event":"back","away":30}' >/dev/null
@@ -1610,6 +1610,46 @@ jq --arg a "$agent" '(.routines[] | select(.id == $a)) |= (.last = 0)' "$mem" >"
 expect_contains "routine agent: not while the screen is locked" "$(python3 "$mcp" routine run "$agent" '{"event":"music_ended"}' | jq -r .why)" "the screen is locked"
 rm "$XDG_RUNTIME_DIR/nixbook-shell-locked"
 unset STUB_CLAUDE_ANSWER
+# Events for what happens: a state (no music for a while), the day, devices.
+out=$(call routine '{"action":"add","text":"Whenever there is no music, play my liked songs","when":{"event":"music_silent","minutes":3},"do":{"server":"youtube-music","tool":"play","args":{"playlist":"liked"}}}')
+expect_contains "routine: music_silent, with its minutes" "$out" "when music_silent minutes=3"
+call routine '{"action":"add","text":"Each morning, restore my work layout","when":{"event":"day_start","cooldown":0},"do":{"tool":"restore_layout","args":{"name":"work"}}}' >/dev/null
+day=$(jq -r '.routines[-1].id' "$mem")
+say_yes "$day"
+python3 "$mcp" routine run "$day" '{"event":"day_start"}' >/dev/null
+expect_eq "day_start: once a day" "it ran today already" "$(python3 "$mcp" routine run "$day" '{"event":"day_start"}' | jq -r .why)"
+for e in long_session dnd_on charged bluetooth_connected phone_connected drive_connected disk_low rain screenshot app_focused away; do
+  expect_contains "routine: event $e" "$(call routine "{\"action\":\"add\",\"text\":\"t $e\",\"when\":{\"event\":\"$e\"},\"do\":{\"tool\":\"notify\",\"args\":{\"title\":\"x\",\"body\":\"y\"}}}")" "off until the user says yes"
+done
+jq --arg d "$day" '.routines = [.routines[] | select((.text | startswith("t ")) or .id == $d or .when.event == "music_silent" | not)]' "$mem" >"$mem.new" && mv "$mem.new" "$mem"
+
+# Routine ideas: once a day, from what it knows; offered off, with why.
+call remember_about_user '{"topic":"Lan (sister)","kind":"person","text":"Sister, lan@example.org, +33 6 12 34 56 78"}' >/dev/null
+call remember_about_user '{"topic":"evening backups","text":"Backs up photos to a USB drive most evenings"}' >/dev/null
+answer=$(jq -nc '{structured_output: {routine: {text: "When my backup drive is plugged in, open it in Dolphin", why: "You back up photos most evenings.", when: {event: "drive_connected"}, do: {tool: "launch_app", args: {app: "org.kde.dolphin"}}}}}')
+export STUB_CLAUDE_ANSWER="$answer"
+rm -f "$calls.claude-prompt"
+out=$(python3 "$mcp" initiative ideas)
+prompt=$(cat "$calls.claude-prompt")
+expect_contains "ideas: from what it knows" "$prompt" "evening backups: Backs up photos"
+expect_contains "ideas: the events it can use" "$prompt" "drive_connected:"
+expect_not_contains "ideas: no contact details sent" "$prompt" "lan@example.org"
+expect_not_contains "ideas: no phone numbers sent" "$prompt" "12 34 56"
+idea=$(jq -r '.routines[] | select(.idea) | .id' "$mem")
+expect_eq "ideas: added off" false "$(jq --arg i "$idea" '.routines[] | select(.id == $i) | .on' "$mem")"
+expect_contains "ideas: offered with why" "$(python3 "$mcp" initiative pending | jq -r '.[] | select(.accept) | .text')" "You back up photos most evenings. Shall I add this routine?"
+offer=$(python3 "$mcp" initiative pending | jq -r --arg i "$idea" '[.[] | select(.accept == $i)] | last | .id')
+python3 "$mcp" initiative answer "$offer" never >/dev/null
+expect_eq "ideas: declined, gone" "" "$(jq -r '.routines[] | select(.idea) | .id' "$mem")"
+expect_eq "ideas: once a day" "null" "$(python3 "$mcp" initiative consider '{"event":"moment","roll":0.9}' | jq -r '.item.text // "null" | if test("Shall I add") then . else "null" end')"
+out=$(python3 "$mcp" initiative ideas)
+expect_contains "ideas: a declined one isn't offered again" "$(jq -r .why <<<"$out")" "nothing new"
+answer=$(jq -nc '{structured_output: {routine: {text: "When I unlock, type my password", why: "x", when: {event: "unlocked"}, do: {tool: "type_text", args: {text: "x"}}}}}')
+export STUB_CLAUDE_ANSWER="$answer"
+expect_contains "ideas: only what a routine may do" "$(python3 "$mcp" initiative ideas | jq -r .why)" "not a routine it can make"
+unset STUB_CLAUDE_ANSWER
+python3 "$mcp" personal clear >/dev/null
+
 # A desktop server limited to some groups.
 expect_eq "groups: limited by the environment" '["observe","windows"]' \
   "$(NIXBOOK_DESKTOP_MCP_GROUPS=observe,windows python3 "$mcp" config | jq -c .tools)"
@@ -1771,7 +1811,7 @@ expect_eq "curious: learned, in the personal memory" "Works on nixbook, their Ni
   "$(jq -r '.entries[] | select(.topic == "nixbook") | .text' "$XDG_STATE_HOME/nixbook-shell/personal-memory.json")"
 expect_contains "curious: says what it learned" "$said" "noticed: Works on nixbook"
 expect_contains "curious: a question only when unclear" "$said" "Is nixbook just for you"
-expect_eq "curious: what it read is marked" "true true" "$(jq -r '"\(.observed["kitty|nvim desktop-mcp.py"].read) \(.observed["kitty|nvim initiative.qml"].read)"' "$ini")"
+expect_eq "curious: what it read is marked" "true true" "$(jq -r '"\(.observed["kitty|nvim desktop-mcp.py"].read) \(.observed["kitty|nvim routines.qml"].read)"' "$ini")"
 rm -f "$calls.claude-prompt"
 for f in a b c d e f g; do look kitty "nvim $f.qml"; done >/dev/null
 expect_eq "curious: once a day" no "$([ -e "$calls.claude-prompt" ] && echo yes || echo no)"
