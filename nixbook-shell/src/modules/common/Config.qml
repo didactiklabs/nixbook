@@ -249,6 +249,11 @@ Singleton {
                     property bool enable: false
                     property bool readNotifications: false
                 }
+                // The routines the user asked agents for ("whenever the music
+                // ends, play something", services/Routines.qml): run on their cue.
+                property JsonObject routines: JsonObject {
+                    property bool enable: true
+                }
             }
 
             property JsonObject appearance: JsonObject {

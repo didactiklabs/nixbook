@@ -122,6 +122,9 @@ DEFAULT_CONFIG = {
     "initiativeCallsPerDay": 30,
     # Words for no reason but being there (at random moments): at most this many a day.
     "initiativeChatPerDay": 2,
+    # Routines that take judgment: a short Claude run each, at most this many a day.
+    "routineAgentPerDay": 20,
+    "routineModel": "haiku",
     # Personal memory (what the user told agents about their life): the part
     # sent when an agent connects, at most this many characters; entries kept.
     "personalPromptChars": 900,
@@ -1628,7 +1631,7 @@ def memory_path():
 
 def empty_memory():
     return {"version": 3, "notes": [], "aliases": {}, "usage": {"apps": {}, "layouts": {}, "tools": {}},
-            "targets": {}, "triggers": [], "archive": []}
+            "targets": {}, "triggers": [], "archive": [], "routines": []}
 
 
 class Memory:
@@ -3037,6 +3040,420 @@ def initiative_command(cfg, argv):
             m.data = empty_initiative()
             m.save()
         return 0
+    print(USAGE, end="", file=sys.stderr)
+    return 2
+
+
+# -- routines --------------------------------------------------------------------
+# "Whenever the music ends, play something I like", "when my headphones
+# connect, resume the music", "when a PDF lands in Downloads, open it": what
+# the user asked agents to do on their own when something happens on the
+# computer. The shell (services/Routines.qml) watches in plain code, at no
+# token: music (ended on its own, started, a new track), apps opened or
+# closed, a window title, notifications, coming back, the screen locking or
+# unlocking, a time, the battery, the power cable, Wi-Fi, the VPN, the audio
+# output, monitors, a file in Downloads, a calendar event starting. When a
+# routine's cue comes, `routine run ID` does its action:
+#   - a fixed tool call, at no token: a desktop tool (the same guardrails and
+#     pause as an agent's), or a tool of one of the side panel's MCP servers
+#     (assistant-mcp.json: YouTube Music, Spotify…);
+#   - or, when it takes judgment ("something I'd like for this time of day"),
+#     a short headless Claude turn with only those servers' tools, at most
+#     routineAgentPerDay a day.
+# It never fights the user: music routines fire only on music that ended on
+# its own (never on a pause), each routine waits `cooldown` minutes between
+# runs, and one the user undid twice (the shell tells, `routine undone`)
+# turns itself off and says so. What it did comes as a word in the bar.
+# In the desktop memory (`routines`), cleared with it.
+
+ROUTINES_MAX = 40
+ROUTINE_EVENTS = {
+    "music_ended": "the music ended on its own (not paused or stopped by the user) and nothing plays",
+    "music_started": "music starts playing",
+    "track_changed": "a new track plays (artist, words: in its title or artist)",
+    "app_opened": "an app is opened (app)",
+    "app_closed": "an app is closed (app)",
+    "window_title": "a window's title has these words (words)",
+    "notification": "a notification comes (app, words)",
+    "back": "the user is back at the computer (after `minutes` away, default 30)",
+    "locked": "the screen locks",
+    "unlocked": "the screen unlocks",
+    "time": "a time of day (at: HH:MM; days: mon,tue…)",
+    "battery_low": "the battery falls below `percent` (default 20) on battery",
+    "plugged": "the power cable is plugged in",
+    "unplugged": "the power cable is unplugged",
+    "wifi_connected": "Wi-Fi connects (name: the network)",
+    "wifi_disconnected": "Wi-Fi disconnects",
+    "vpn_connected": "the VPN connects",
+    "vpn_disconnected": "the VPN disconnects",
+    "audio_output": "the audio output changes (name: words of the device, e.g. headphones, bluetooth)",
+    "monitor_connected": "a monitor is connected",
+    "monitor_disconnected": "a monitor is disconnected",
+    "download": "a file arrives in Downloads (ext: pdf, zip…; words: in its name)",
+    "calendar_event": "a calendar event starts in `minutes` (default 0; words: in its title)",
+}
+ROUTINE_FILTERS = ("app", "words", "at", "days", "percent", "name", "ext", "minutes")
+ROUTINE_COOLDOWN = 10
+ROUTINE_FIGHTS = 2
+ROUTINE_AGENT_TURNS = 8
+ROUTINE_TEXT_MAX = 200
+ROUTINE_INSTRUCTION_MAX = 600
+ROUTINE_DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+
+ROUTINE_SYSTEM = (
+    "You are the user's desktop assistant, running one of the routines they "
+    "asked for, on your own: they are not here to answer. Do what the routine "
+    "says, with your tools, in as few steps as you can, for what just "
+    "happened (given). Don't do anything else, don't ask questions. Then "
+    "answer in one short sentence, to the user, what you did (\"Music ended, "
+    "so I put on Bonobo's latest album.\"), or why you did nothing."
+)
+
+
+def assistant_servers():
+    """The side panel's MCP servers ({name: {command, args, env}}): what a
+    routine may use beside the desktop."""
+    path = os.path.join(xdg("XDG_CONFIG_HOME", "~/.config"), "nixbook-shell", "assistant-mcp.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            servers = json.load(f).get("mcpServers") or {}
+    except (OSError, ValueError, AttributeError):
+        return {}
+    servers.pop("desktop", None)
+    return {k: v for k, v in servers.items() if isinstance(v, dict) and v.get("command")}
+
+
+def routine_when(when):
+    if not isinstance(when, dict) or when.get("event") not in ROUTINE_EVENTS:
+        raise ToolError("when.event: one of " + ", ".join(ROUTINE_EVENTS))
+    out = {"event": when["event"]}
+    for k in ROUTINE_FILTERS:
+        v = when.get(k)
+        if v is None or v == "":
+            continue
+        if k in ("percent", "minutes"):
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or not 0 <= v <= 1440:
+                raise ToolError(f"when.{k}: a number")
+            out[k] = int(v)
+        elif k == "at":
+            if not isinstance(v, str) or not re.fullmatch(r"\d{2}:\d{2}", v):
+                raise ToolError("when.at: HH:MM")
+            out[k] = v
+        elif k == "days":
+            days = [d.strip().lower()[:3] for d in (v if isinstance(v, list) else str(v).split(","))]
+            if not days or any(d not in ROUTINE_DAYS for d in days):
+                raise ToolError("when.days: mon, tue, wed, thu, fri, sat, sun")
+            out[k] = days
+        else:
+            out[k] = clean_text(str(v), 60).lower()
+    if out["event"] == "time" and "at" not in out:
+        raise ToolError("when.at: the time, HH:MM")
+    return out
+
+
+def routine_do(cfg, do):
+    """The action, checked: {tool, args, server?} or {agent, servers?}."""
+    if not isinstance(do, dict):
+        raise ToolError("do: {tool, args, server} or {agent, servers}")
+    servers = assistant_servers()
+    if do.get("agent"):
+        named = [s for s in do.get("servers") or [] if isinstance(s, str)]
+        unknown = [s for s in named if s not in servers and s != "desktop"]
+        if unknown:
+            raise ToolError(f"do.servers: no MCP server {', '.join(unknown)} (there are: {', '.join(servers) or 'none'})")
+        return {"agent": clean_text(str(do["agent"]), ROUTINE_INSTRUCTION_MAX), "servers": named}
+    tool_name = do.get("tool")
+    args = do.get("args") or {}
+    if not isinstance(tool_name, str) or not isinstance(args, dict):
+        raise ToolError("do.tool: a tool name, do.args: its arguments")
+    server = do.get("server") or "desktop"
+    if server == "desktop":
+        t = enabled_tools(cfg).get(tool_name)
+        if not t or t["group"] in ("memory", "personal") or tool_name in ("routine", "screenshot"):
+            raise ToolError(f"do.tool: {tool_name!r} is not a desktop tool a routine can run")
+    elif server not in servers:
+        raise ToolError(f"do.server: no MCP server {server!r} (there are: {', '.join(servers) or 'none'})")
+    if len(json.dumps(args)) > 2000:
+        raise ToolError("do.args: at most 2000 characters")
+    return {"tool": tool_name, "args": args, "server": server}
+
+
+def routine_line(r):
+    when = r["when"]
+    cue = when["event"] + "".join(f" {k}={when[k]}" for k in ROUTINE_FILTERS if k in when)
+    how = f"agent: {short(r['do']['agent'], 80)}" if r["do"].get("agent") else \
+        f"{r['do']['server']}.{r['do']['tool']}"
+    return f"[{r['id']}] {r['text']} — when {cue} → {how}" + ("" if r.get("on", True) else " (off)")
+
+
+@tool(
+    "routine",
+    "memory",
+    "Routines: what the user asks you to do on your own whenever something "
+    "happens on the computer (\"whenever the music ends, play something I "
+    "like\", \"when my headphones connect, resume the music\"). Only when "
+    "they ask for one. action add: `text` (their words), `when` {event, "
+    "filters} and `do`: a fixed tool call {tool, args, server} (server: "
+    "\"desktop\" or one of your MCP servers, e.g. youtube-music; costs "
+    "nothing each time), or, when it takes judgment, {agent: \"what to do\", "
+    "servers: [the MCP servers it needs]} (a short Claude run each time). "
+    "Prefer a fixed call. action list, remove (id), on/off (id). Events: "
+    + "; ".join(f"{k}: {v}" for k, v in ROUTINE_EVENTS.items()) + ". Optional "
+    "when.cooldown: minutes between two runs (default 10).",
+    obj(
+        {
+            "action": {"type": "string", "enum": ["add", "list", "remove", "on", "off"]},
+            "id": {"type": "string"},
+            "text": {"type": "string", "description": "What it does, in the user's words"},
+            "when": {"type": "object", "description": "{event, app, words, at, days, percent, name, ext, minutes, cooldown}"},
+            "do": {"type": "object", "description": "{tool, args, server} or {agent, servers}"},
+        },
+        ["action"],
+    ),
+)
+def t_routine(ctx, args):
+    action = args.get("action")
+    if action == "list":
+        routines = read_memory().get("routines") or []
+        return [text("\n".join(routine_line(r) for r in routines) if routines else "no routines yet")]
+    if action == "add":
+        body = clean_text(as_str(args, "text", max_len=ROUTINE_TEXT_MAX), ROUTINE_TEXT_MAX)
+        check_note(body, "user")
+        when = routine_when(args.get("when"))
+        cooldown = (args.get("when") or {}).get("cooldown")
+        do = routine_do(ctx.cfg, args.get("do"))
+        r = {"id": secrets.token_hex(3), "text": body, "when": when, "do": do, "on": True,
+             "cooldown": int(cooldown) if isinstance(cooldown, (int, float)) and not isinstance(cooldown, bool)
+             and 0 <= cooldown <= 1440 else ROUTINE_COOLDOWN,
+             "created": int(time.time()), "client": ctx.client, "runs": 0, "fights": 0}
+        with Memory() as m:
+            routines = m.data.setdefault("routines", [])
+            if len(routines) >= ROUTINES_MAX:
+                raise ToolError(f"{ROUTINES_MAX} routines already: remove one first")
+            routines.append(r)
+            m.save()
+        return [text(f"routine added: {routine_line(r)}")]
+    if action not in ("remove", "on", "off"):
+        raise ToolError("action: add, list, remove, on or off")
+    rid = as_str(args, "id", max_len=16, pattern=r"[0-9a-f]{1,16}")
+    with Memory() as m:
+        r = next((r for r in m.data.get("routines") or [] if r["id"] == rid), None)
+        if not r:
+            raise ToolError(f"no routine {rid}")
+        if action == "remove":
+            m.data["routines"].remove(r)
+        else:
+            r["on"] = action == "on"
+            if r["on"]:
+                r["fights"] = 0
+        m.save()
+    return [text(f"routine {rid}: {action}")]
+
+
+def mcp_call(server, tool_name, args, timeout=60):
+    """One tool call to a stdio MCP server, as a client: start it, initialize,
+    call, stop. The result's text."""
+    env = dict(os.environ, **{k: str(v) for k, v in (server.get("env") or {}).items()})
+    try:
+        proc = subprocess.Popen([server["command"], *[str(a) for a in server.get("args") or []]],
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                text=True, env=env)
+    except OSError as e:
+        raise ToolError(f"the MCP server didn't start: {e}")
+    msgs = [{"jsonrpc": "2.0", "id": 1, "method": "initialize",
+             "params": {"protocolVersion": PROTOCOL_VERSIONS[0], "capabilities": {},
+                        "clientInfo": {"name": "nixbook-routine", "version": VERSION}}},
+            {"jsonrpc": "2.0", "method": "notifications/initialized"},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": tool_name, "arguments": args}}]
+    result = {}
+
+    def talk():
+        try:
+            for msg in msgs:
+                proc.stdin.write(json.dumps(msg) + "\n")
+                proc.stdin.flush()
+                if "id" in msg:
+                    for line in proc.stdout:
+                        try:
+                            reply = json.loads(line)
+                        except ValueError:
+                            continue
+                        if reply.get("id") == msg["id"]:
+                            result[msg["id"]] = reply
+                            break
+        except (OSError, ValueError):
+            pass
+
+    worker = threading.Thread(target=talk, daemon=True)
+    worker.start()
+    worker.join(timeout)
+    proc.kill()
+    reply = result.get(2)
+    if not reply:
+        raise ToolError("the MCP server gave no answer")
+    if reply.get("error"):
+        raise ToolError(f"the MCP server refused: {short(str(reply['error'].get('message')), 200)}")
+    res = reply.get("result") or {}
+    said = " ".join(c.get("text", "") for c in res.get("content") or [] if isinstance(c, dict))
+    if res.get("isError"):
+        raise ToolError(short(said or "the tool failed", 200))
+    return said
+
+
+def routine_agent(cfg, r, event):
+    """A short headless Claude turn for a routine that takes judgment, with
+    the desktop and the servers it named only: its one-line report."""
+    claude = claude_path(cfg, event.get("claude"))
+    if not claude:
+        raise ToolError("no Claude Code")
+    servers = assistant_servers()
+    desktop = shutil.which("nixbook-desktop-mcp")
+    config = {"mcpServers": {"desktop": {"command": desktop, "args": []} if desktop else
+                             {"command": sys.executable, "args": [os.path.abspath(__file__)]}}}
+    config["mcpServers"]["desktop"]["env"] = {"NIXBOOK_DESKTOP_MCP_QUERY": r["do"]["agent"][:500]}
+    for s in r["do"].get("servers") or []:
+        if s in servers:
+            config["mcpServers"][s] = servers[s]
+    happened = {k: v for k, v in event.items() if k not in ("claude", "busy")}
+    taste = music_digest(cfg) if "music" in r["when"]["event"] or "music" in r["do"]["agent"].lower() else ""
+    prompt = (f"The routine: {r['text']}\nWhat to do: {r['do']['agent']}\n"
+              f"What just happened: {json.dumps(happened, ensure_ascii=False)[:800]}\n"
+              f"Now: {time.strftime('%a %Y-%m-%d %H:%M')}" + (f"\n{taste}" if taste else ""))
+    workdir = os.path.join(xdg("XDG_DATA_HOME", "~/.local/share"), "nixbook-shell", "routines")
+    os.makedirs(workdir, mode=0o700, exist_ok=True)
+    cmd = [claude, "-p", "--output-format", "json", "--no-session-persistence", "--strict-mcp-config",
+           "--mcp-config", json.dumps(config), "--setting-sources", "project",
+           # Only its servers' tools: no built-in one (shell, files, web).
+           "--tools", "", "--allowedTools", ",".join(f"mcp__{s}" for s in config["mcpServers"]),
+           "--max-turns", str(ROUTINE_AGENT_TURNS), "--append-system-prompt", ROUTINE_SYSTEM,
+           "--model", cfg.get("routineModel") or "haiku"]
+    try:
+        proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=workdir, timeout=240)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise ToolError(f"the routine's run didn't finish: {e}")
+    try:
+        said = json.loads(proc.stdout).get("result") or ""
+    except (ValueError, AttributeError):
+        said = ""
+    if proc.returncode != 0 and not said:
+        raise ToolError(f"the routine's run failed: {short((proc.stderr or proc.stdout).strip(), 200)}")
+    return clean_text(said, 300)
+
+
+def routine_say(r, said):
+    """What a routine did, as a word in the bar (it was asked for: no
+    budget, no learning)."""
+    now = int(time.time())
+    item = {"id": secrets.token_hex(3), "kind": "routine", "key": f"routine:{r['id']}:{now}", "title": "Claude",
+            "text": said, "time": now, "level": "badge", "expires": now + INITIATIVE_PENDING_HOURS * 3600}
+    try:
+        with Initiative() as m:
+            m.data["said"] = (m.data["said"] + [{"id": item["id"], "key": item["key"], "kind": "routine",
+                                                 "level": "badge", "time": now,
+                                                 "day": time.strftime("%Y-%m-%d")}])[-INITIATIVE_SAID_KEEP:]
+            m.data["pending"] = (m.data["pending"] + [item])[-INITIATIVE_PENDING_MAX:]
+            m.save()
+    except (OSError, ValueError):
+        pass
+
+
+def routine_run(cfg, rid, event, now=None):
+    """A routine's cue came (the shell): its action, if it may run now.
+    {ran: bool, said|why}."""
+    now = int(now or time.time())
+    with Memory() as m:
+        r = next((r for r in m.data.get("routines") or [] if r["id"] == rid), None)
+        if not r:
+            raise ToolError(f"no routine {rid}")
+        if not r.get("on", True):
+            return {"ran": False, "why": "it is off"}
+        try:
+            paused = is_paused()
+        except ToolError:
+            paused = True
+        if paused:  # the pause stops every agent, routines too
+            return {"ran": False, "why": "desktop control is paused"}
+        if now - r.get("last", 0) < r.get("cooldown", ROUTINE_COOLDOWN) * 60:
+            return {"ran": False, "why": "it ran a moment ago"}
+        if r["do"].get("agent"):
+            today = time.strftime("%Y-%m-%d", time.localtime(now))
+            runs = sum(x.get("agentToday", 0) for x in m.data["routines"] if x.get("lastAgentDay") == today)
+            if runs >= int(cfg.get("routineAgentPerDay", 20)):
+                return {"ran": False, "why": "the day's routine runs are spent"}
+            r["agentToday"] = r.get("agentToday", 0) + 1 if r.get("lastAgentDay") == today else 1
+            r["lastAgentDay"] = today
+        r["last"] = now
+        r["runs"] = r.get("runs", 0) + 1
+        m.save()
+        r = dict(r)
+    try:
+        if r["do"].get("agent"):
+            said = routine_agent(cfg, r, event)
+        elif r["do"]["server"] == "desktop":
+            ctx = Context(cfg, "routine", "routine", notify=False)
+            content, is_error = call_tool(ctx, r["do"]["tool"], dict(r["do"]["args"]))
+            first = next((c.get("text", "") for c in content if c.get("type") == "text"), "")
+            if is_error:
+                raise ToolError(first.splitlines()[0] if first else "the tool failed")
+            said = f"{r['text']}: done."
+        else:
+            mcp_call(assistant_servers()[r["do"]["server"]], r["do"]["tool"], dict(r["do"]["args"]))
+            said = f"{r['text']}: done."
+    except (ToolError, KeyError) as e:
+        with Memory() as m:
+            for x in m.data.get("routines") or []:
+                if x["id"] == rid:
+                    x["lastResult"] = f"failed: {short(str(e), 200)}"
+            m.save()
+        audit("routine", "routine", {"id": rid}, f"error: {e}")
+        return {"ran": False, "why": f"failed: {e}"}
+    with Memory() as m:
+        for x in m.data.get("routines") or []:
+            if x["id"] == rid:
+                x["lastResult"] = short(said, 200)
+        m.save()
+    audit("routine", "routine", {"id": rid}, "ok")
+    routine_say(r, said or f"{r['text']}: done.")
+    return {"ran": True, "said": said}
+
+
+def routine_undone(rid):
+    """The user undid what the routine just did (the shell saw it): twice,
+    and the routine turns itself off, saying so."""
+    with Memory() as m:
+        r = next((r for r in m.data.get("routines") or [] if r["id"] == rid), None)
+        if not r:
+            raise ToolError(f"no routine {rid}")
+        r["fights"] = r.get("fights", 0) + 1
+        off = r["fights"] >= ROUTINE_FIGHTS and r.get("on", True)
+        if off:
+            r["on"] = False
+        m.save()
+    if off:
+        routine_say(r, f"You undid “{r['text']}” twice, so I turned it off. "
+                       "Turn it back on in Settings > Desktop agents whenever you like.")
+    return off
+
+
+def routine_command(cfg, argv):
+    sub = argv[0] if argv else "list"
+    if sub == "list":
+        print(json.dumps(read_memory().get("routines") or [], ensure_ascii=False))
+        return 0
+    try:
+        if sub == "run" and len(argv) in (2, 3):
+            event = json.loads(argv[2]) if len(argv) == 3 else {}
+            print(json.dumps(routine_run(cfg, argv[1], event if isinstance(event, dict) else {}), ensure_ascii=False))
+            return 0
+        if sub == "undone" and len(argv) == 2:
+            print(json.dumps({"off": routine_undone(argv[1])}))
+            return 0
+        if sub in ("on", "off", "remove") and len(argv) == 2:
+            t_routine(Context(cfg, "cli", "you", notify=False), {"action": sub, "id": argv[1]})
+            return 0
+    except (ToolError, ValueError) as e:
+        print(e, file=sys.stderr)
+        return 1
     print(USAGE, end="", file=sys.stderr)
     return 2
 
@@ -10097,12 +10514,14 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
   layout delete NAME | rename OLD NEW | cycle (restore the next one)
   layout restore|cycle --close-others  also close the windows not in the layout
   memory [show]           the desktop memory (JSON); memory prompt [QUERY]: the digest
-  memory forget ID | clear [notes] [usage] [aliases] [targets] [triggers] [archive]
+  memory forget ID | clear [notes] [usage] [aliases] [targets] [triggers] [archive] [routines]
                           (default: all; notes with their archive)
   memory fire ID          a reminder was shown (the shell): gone, or not before tomorrow
   initiative consider JSON|-  what the agent would say about an event (the shell):
                           {"event": "back"|"focus"|"notifications", …}
   initiative pending|show|answer ID replied|later|dismissed|never|unmute [KEY…]|clear
+  routine list|run ID [EVENT_JSON]|undone ID|on ID|off ID|remove ID
+                          the user's routines (the shell runs them on their cue)
   memory learn [--claude PATH] [--model M] [--delete] [EPISODE.json]
                           the memory pass on an agent's task (servers start it
                           in the background), the fading, the weekly tidy-up
@@ -10241,6 +10660,8 @@ def main(argv):
         return memory_command(cfg, argv[1:])
     if cmd == "initiative":
         return initiative_command(cfg, argv[1:])
+    if cmd == "routine":
+        return routine_command(cfg, argv[1:])
     if cmd == "personal":
         return personal_command(cfg, argv[1:])
     if cmd == "habits":
@@ -10424,7 +10845,7 @@ def memory_command(cfg, argv):
         return memory_learn_command(cfg, sub, argv[1:])
     if sub == "clear":
         parts = argv[1:] or ["all"]
-        every = ["notes", "usage", "aliases", "targets", "triggers", "archive"]
+        every = ["notes", "usage", "aliases", "targets", "triggers", "archive", "routines"]
         if not all(p in every + ["all"] for p in parts):
             print(USAGE, end="", file=sys.stderr)
             return 2

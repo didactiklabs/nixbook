@@ -424,7 +424,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 50 tools" 50 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 51 tools" 51 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -1437,6 +1437,80 @@ expect_contains "moment: from the memory entry" "$(cat "$calls.claude-prompt")" 
 unset STUB_CLAUDE_ANSWER
 python3 "$mcp" initiative clear
 expect_eq "initiative clear" '0 0' "$(jq -r '"\(.said | length) \(.pending | length)"' "$ini")"
+
+# -- routines ----------------------------------------------------------------------------------
+# What the user asked agents to do on their own when something happens:
+# fixed tool calls (no token), or a short Claude run; never fighting them.
+
+python3 "$mcp" memory clear >/dev/null
+python3 "$mcp" initiative clear
+# A stand-in for one of the side panel's MCP servers (YouTube Music): logs its calls.
+cat >"$tmp/fake-music-mcp.py" <<'EOF'
+import json, os, sys
+for line in sys.stdin:
+    msg = json.loads(line)
+    if msg.get("method") == "initialize":
+        print(json.dumps({"jsonrpc": "2.0", "id": msg["id"], "result": {"protocolVersion": "2025-06-18", "capabilities": {}, "serverInfo": {"name": "fake"}}}), flush=True)
+    elif msg.get("method") == "tools/call":
+        with open(os.environ["FAKE_MUSIC_LOG"], "a") as f:
+            f.write(json.dumps(msg["params"]) + "\n")
+        print(json.dumps({"jsonrpc": "2.0", "id": msg["id"], "result": {"content": [{"type": "text", "text": "playing"}]}}), flush=True)
+EOF
+export FAKE_MUSIC_LOG="$tmp/fake-music.log"
+jq -n --arg py "$(command -v python3)" --arg s "$tmp/fake-music-mcp.py" '{mcpServers: {"youtube-music": {command: $py, args: [$s]}}}' \
+  >"$XDG_CONFIG_HOME/nixbook-shell/assistant-mcp.json"
+
+expect_contains "routine: a known event" "$(call routine '{"action":"add","text":"x","when":{"event":"music_exploded"},"do":{"tool":"press_keys","args":{}}}')" "when.event: one of"
+expect_contains "routine: a known server" "$(call routine '{"action":"add","text":"x","when":{"event":"plugged"},"do":{"tool":"play","server":"spotify"}}')" "no MCP server 'spotify' (there are: youtube-music)"
+expect_contains "routine: not the memory tools" "$(call routine '{"action":"add","text":"x","when":{"event":"plugged"},"do":{"tool":"forget","args":{"id":"1"}}}')" "not a desktop tool a routine can run"
+out=$(call routine '{"action":"add","text":"Whenever the music ends, play my liked songs","when":{"event":"music_ended"},"do":{"server":"youtube-music","tool":"play","args":{"playlist":"liked"}}}')
+expect_contains "routine: added" "$out" "when music_ended → youtube-music.play"
+music=$(jq -r '.routines[0].id' "$mem")
+call routine '{"action":"add","text":"When the cable is plugged, press F5","when":{"event":"plugged","cooldown":0},"do":{"tool":"press_keys","args":{"keys":["F5"]}}}' >/dev/null
+keys=$(jq -r '.routines[1].id' "$mem")
+expect_contains "routine list" "$(call routine '{"action":"list"}')" "[$keys] When the cable is plugged, press F5"
+
+# A fixed call to one of the side panel's servers: no model.
+rm -f "$calls.claude-args" "$FAKE_MUSIC_LOG"
+out=$(python3 "$mcp" routine run "$music" '{"event":"music_ended"}')
+expect_eq "routine run: through the MCP server" '{"name":"play","arguments":{"playlist":"liked"}}' "$(jq -c . "$FAKE_MUSIC_LOG")"
+expect_eq "routine run: no model for a fixed call" no "$([ -e "$calls.claude-args" ] && echo yes || echo no)"
+expect_contains "routine run: said in the bar" "$(python3 "$mcp" initiative pending | jq -r '.[].text')" "Whenever the music ends, play my liked songs: done."
+expect_eq "routine run: not again right away" "it ran a moment ago" "$(python3 "$mcp" routine run "$music" '{"event":"music_ended"}' | jq -r .why)"
+# A desktop tool: the agents' guardrails and pause apply.
+reset_calls
+python3 "$mcp" routine run "$keys" '{"event":"plugged"}' >/dev/null
+expect_contains "routine run: a desktop tool" "$(cat "$calls")" "wtype -k F5"
+python3 "$mcp" pause >/dev/null
+expect_eq "routine run: the pause stops routines" "desktop control is paused" "$(python3 "$mcp" routine run "$keys" '{"event":"plugged"}' | jq -r .why)"
+python3 "$mcp" resume >/dev/null
+python3 "$mcp" routine off "$keys"
+expect_eq "routine off" "it is off" "$(python3 "$mcp" routine run "$keys" '{"event":"plugged"}' | jq -r .why)"
+python3 "$mcp" routine on "$keys"
+
+# One that takes judgment: a short Claude run with only the servers it names.
+call routine '{"action":"add","text":"When music ends, play something I would like","when":{"event":"music_ended"},"do":{"agent":"Play something the user would like now","servers":["youtube-music"]}}' >/dev/null
+agent=$(jq -r '.routines[2].id' "$mem")
+export STUB_CLAUDE_ANSWER='{"result": "Music ended, so I put on some Bonobo."}'
+out=$(python3 "$mcp" routine run "$agent" '{"event":"music_ended","text":"Daft Punk"}')
+expect_eq "routine agent: what it did" "Music ended, so I put on some Bonobo." "$(jq -r .said <<<"$out")"
+args=$(cat "$calls.claude-args")
+expect_contains "routine agent: only its servers" "$args" "mcp__desktop,mcp__youtube-music"
+expect_contains "routine agent: a strict MCP config" "$args" "--strict-mcp-config"
+expect_contains "routine agent: no built-in tools" "$args" "--tools
+"
+expect_contains "routine agent: told what happened" "$(cat "$calls.claude-prompt")" 'What just happened: {"event": "music_ended", "text": "Daft Punk"}'
+unset STUB_CLAUDE_ANSWER
+
+# Undone twice by the user: it turns itself off, and says so.
+expect_eq "undone once: still on" '{"off": false}' "$(python3 "$mcp" routine undone "$music")"
+expect_eq "undone twice: off" '{"off": true}' "$(python3 "$mcp" routine undone "$music")"
+expect_contains "undone: says why" "$(python3 "$mcp" initiative pending | jq -r '.[].text')" "twice, so I turned it off"
+call routine "{\"action\":\"remove\",\"id\":\"$agent\"}" >/dev/null
+expect_eq "routine remove" 2 "$(jq '.routines | length' "$mem")"
+rm "$XDG_CONFIG_HOME/nixbook-shell/assistant-mcp.json"
+python3 "$mcp" memory clear >/dev/null
+python3 "$mcp" initiative clear
 python3 "$mcp" memory clear >/dev/null
 python3 "$mcp" personal clear >/dev/null
 rm -f "$XDG_STATE_HOME/nixbook-shell/personal-memory.json"

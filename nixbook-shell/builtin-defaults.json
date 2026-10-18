@@ -29,6 +29,9 @@
     "initiative": {
       "enable": false,
       "readNotifications": false
+    },
+    "routines": {
+      "enable": true
     }
   },
   "appearance": {
