@@ -104,10 +104,12 @@ get_token() {
   fi
 
   local resp new_access new_refresh new_expires
-  resp=$(curl -s --max-time 10 -X POST "$TOKEN_URL" \
-    -H "Content-Type: application/x-www-form-urlencoded" \
-    -d "grant_type=refresh_token&refresh_token=${refresh}&client_id=${OAUTH_CLIENT_ID}" \
-    2>/dev/null) || resp=""
+  # The token goes on stdin (`-d @-`), not the command line other users can
+  # read in ps.
+  resp=$(printf 'grant_type=refresh_token&refresh_token=%s&client_id=%s' "$refresh" "$OAUTH_CLIENT_ID" |
+    curl -s --max-time 10 -X POST "$TOKEN_URL" \
+      -H "Content-Type: application/x-www-form-urlencoded" \
+      -d @- 2>/dev/null) || resp=""
   new_access=$(printf '%s' "$resp" | jq -r '.access_token // empty' 2>/dev/null)
   new_refresh=$(printf '%s' "$resp" | jq -r '.refresh_token // empty' 2>/dev/null)
   new_expires=$(printf '%s' "$resp" | jq -r '.expires_in // empty' 2>/dev/null)
@@ -122,7 +124,7 @@ get_token() {
 
   local new_expires_ms=$((now_ms + ${new_expires:-3600} * 1000))
   local tmp
-  tmp=$(mktemp)
+  tmp=$(mktemp "$AUTH_FILE.XXXXXX")
   if jq --arg a "$new_access" \
     --arg r "${new_refresh:-$refresh}" \
     --argjson e "$new_expires_ms" \
@@ -179,8 +181,8 @@ main() {
 
   local hdrs body http
   hdrs=$(mktemp)
-  body=$(curl -s --max-time 8 -D "$hdrs" \
-    -H "Authorization: Bearer $token" \
+  body=$(printf 'Authorization: Bearer %s\n' "$token" | curl -s --max-time 8 -D "$hdrs" \
+    -H @- \
     -H "Accept: application/json" \
     -H "Content-Type: application/json" \
     -H "User-Agent: opencode/1.0" \
@@ -193,9 +195,13 @@ main() {
   case "$http" in
   200)
     if printf '%s' "$body" | jq -e '.five_hour' >/dev/null 2>&1; then
+      # Renamed into place: another instance never reads a half-written cache.
       if jq -n --argjson data "$body" --argjson ts "$now" \
-        '{cached_at: $ts, data: $data}' >"$USAGE_CACHE" 2>/dev/null; then
+        '{cached_at: $ts, data: $data}' >"$USAGE_CACHE.tmp.$$" 2>/dev/null &&
+        mv -f "$USAGE_CACHE.tmp.$$" "$USAGE_CACHE"; then
         rm -f "$BACKOFF_FILE"
+      else
+        rm -f "$USAGE_CACHE.tmp.$$"
       fi
       emit ok "$body"
     else
@@ -226,5 +232,11 @@ main() {
   return 0
 }
 
+# One at a time: the widget runs one per bar (one per monitor), all at
+# startup, and refresh tokens rotate, so two refreshing the same one would
+# leave one of them with a revoked token. The ones waiting then find the
+# fresh cache. Without flock (or after 20 s) it runs unlocked.
+exec 9>"$CACHE_DIR/lock"
+flock -w 20 9 2>/dev/null || true
 main
 exit 0

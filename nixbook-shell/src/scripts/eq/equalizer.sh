@@ -153,8 +153,38 @@ if [ ! -f "$ACTIVE_PRESET_FILE" ]; then
   echo 'output' >"$ACTIVE_PRESET_FILE"
 fi
 
-if [ ! -f "$STATE_FILE" ]; then
-  echo '{"b1": 0, "b2": 0, "b3": 0, "b4": 0, "b5": 0, "b6": 0, "b7": 0, "b8": 0, "b9": 0, "b10": 0, "preset": "Flat", "preamp": 0, "dim": 0.3, "pending": false}' >"$STATE_FILE"
+# STATE_FILE is written by one call at a time (the sliders send them back to
+# back), through a temp file renamed into place, and never with an empty or
+# failed jq result: an overlapping call used to read it mid-truncate and
+# write the empty result back, losing the state for good.
+# write_state: the new state on stdin. update_state ARGS…: jq ARGS on it.
+write_state() {
+  (
+    flock -w 5 9 || true
+    tmp="$STATE_FILE.tmp.$$"
+    if cat >"$tmp" && jq -e . "$tmp" >/dev/null 2>&1; then
+      mv -f "$tmp" "$STATE_FILE"
+    else
+      rm -f "$tmp"
+      exit 1
+    fi
+  ) 9>"$STATE_FILE.lock"
+}
+update_state() {
+  (
+    flock -w 5 9 || true
+    tmp="$STATE_FILE.tmp.$$"
+    if jq -c "$@" "$STATE_FILE" >"$tmp" 2>/dev/null && [ -s "$tmp" ]; then
+      mv -f "$tmp" "$STATE_FILE"
+    else
+      rm -f "$tmp"
+      exit 1
+    fi
+  ) 9>"$STATE_FILE.lock"
+}
+
+if [ ! -s "$STATE_FILE" ] || ! jq -e . "$STATE_FILE" >/dev/null 2>&1; then
+  echo '{"b1": 0, "b2": 0, "b3": 0, "b4": 0, "b5": 0, "b6": 0, "b7": 0, "b8": 0, "b9": 0, "b10": 0, "preset": "Flat", "preamp": 0, "dim": 0.3, "pending": false}' | write_state
 fi
 
 apply_custom_preset() {
@@ -171,7 +201,7 @@ apply_custom_preset() {
   current_dim=$(jq -r '.dim // 0.3' "$STATE_FILE" 2>/dev/null)
   case "$current_dim" in '' | null) current_dim=0.3 ;; esac
   echo "$vals" | jq -c '{b1:.b1,b2:.b2,b3:.b3,b4:.b4,b5:.b5,b6:.b6,b7:.b7,b8:.b8,b9:.b9,b10:.b10,preset:$name,preamp:($preamp|tonumber),dim:($dim|tonumber),pending:false}' \
-    --arg name "$name" --arg preamp "$current_preamp" --arg dim "$current_dim" >"$STATE_FILE"
+    --arg name "$name" --arg preamp "$current_preamp" --arg dim "$current_dim" | write_state || exit 1
   apply_eq
 }
 
@@ -474,10 +504,8 @@ preamp = eq_block.get('output-gain', 0)
 print(json.dumps({'bands': bands, 'preamp': preamp}))
 " "$active_preset_path")
 
-  tmp=$(cat "$STATE_FILE")
-  updated=$(echo "$tmp" | jq -c --argjson r "$restored" \
-    '.b1=($r.bands[0]|tostring) | .b2=($r.bands[1]|tostring) | .b3=($r.bands[2]|tostring) | .b4=($r.bands[3]|tostring) | .b5=($r.bands[4]|tostring) | .b6=($r.bands[5]|tostring) | .b7=($r.bands[6]|tostring) | .b8=($r.bands[7]|tostring) | .b9=($r.bands[8]|tostring) | .b10=($r.bands[9]|tostring) | .preamp=($r.preamp|tostring) | .preset="Custom" | .pending=false')
-  echo "$updated" >"$STATE_FILE"
+  update_state --argjson r "$restored" \
+    '.b1=($r.bands[0]|tostring) | .b2=($r.bands[1]|tostring) | .b3=($r.bands[2]|tostring) | .b4=($r.bands[3]|tostring) | .b5=($r.bands[4]|tostring) | .b6=($r.bands[5]|tostring) | .b7=($r.bands[6]|tostring) | .b8=($r.bands[7]|tostring) | .b9=($r.bands[8]|tostring) | .b10=($r.bands[9]|tostring) | .preamp=($r.preamp|tostring) | .preset="Custom" | .pending=false'
 
   ee_load "$active_preset"
 }
@@ -490,53 +518,45 @@ save_preset() {
   case "$current_dim" in '' | null) current_dim=0.3 ;; esac
   jq -n -c --arg b1 "$1" --arg b2 "$2" --arg b3 "$3" --arg b4 "$4" --arg b5 "$5" \
     --arg b6 "$6" --arg b7 "$7" --arg b8 "$8" --arg b9 "$9" --arg b10 "${10}" --arg p "${11}" --arg preamp "$current_preamp" --arg dim "$current_dim" \
-    '{"b1": $b1, "b2": $b2, "b3": $b3, "b4": $b4, "b5": $b5, "b6": $b6, "b7": $b7, "b8": $b8, "b9": $b9, "b10": $b10, "preset": $p, "preamp": ($preamp|tonumber), "dim": ($dim|tonumber), "pending": false}' >"$STATE_FILE"
+    '{"b1": $b1, "b2": $b2, "b3": $b3, "b4": $b4, "b5": $b5, "b6": $b6, "b7": $b7, "b8": $b8, "b9": $b9, "b10": $b10, "preset": $p, "preamp": ($preamp|tonumber), "dim": ($dim|tonumber), "pending": false}' | write_state
 }
 
 case "$cmd" in
 "get") cat "$STATE_FILE" ;;
 "set_band")
-  tmp=$(cat "$STATE_FILE")
-  updated=$(echo "$tmp" | jq -c --arg val "$arg2" ".b$arg1 = \$val | .preset = \"Custom\" | .pending = true")
-  echo "$updated" >"$STATE_FILE"
+  # The band is an index (1-10), not jq code.
+  case "$arg1" in [1-9] | 10) ;; *) exit 1 ;; esac
+  update_state --arg val "$arg2" --arg band "b$arg1" '.[$band] = $val | .preset = "Custom" | .pending = true'
   ;;
 "set_preamp")
   # Doesn't touch .preset - preamp is a master gain layered on top
   # of whichever curve is active, not part of the curve's identity.
-  tmp=$(cat "$STATE_FILE")
-  updated=$(echo "$tmp" | jq -c --arg val "$arg1" '.preamp = $val | .pending = true')
-  echo "$updated" >"$STATE_FILE"
+  update_state --arg val "$arg1" '.preamp = $val | .pending = true'
   ;;
 "set_dim")
   # Purely a UI/background setting (how dark the blurred-art scrim
   # sits behind the popup) - unlike set_preamp, this never touches
   # .pending. There's nothing for EasyEffects to apply; writing it
   # straight through is the whole job.
-  tmp=$(cat "$STATE_FILE")
-  updated=$(echo "$tmp" | jq -c --arg val "$arg1" '.dim = $val')
-  echo "$updated" >"$STATE_FILE"
+  update_state --arg val "$arg1" '.dim = $val'
   ;;
 "song_curve")
   # The song's own curve, heard now through the live preview (the saved
   # preset never changes); .songBase remembers the preset it replaces,
   # once, for song_revert.
   [ "$(tr -cd , <<<"$arg1" | wc -c)" -eq 9 ] || exit 1
-  tmp=$(cat "$STATE_FILE")
-  updated=$(echo "$tmp" | jq -c --arg g "$arg1" --arg p "${arg2:-0}" '
+  update_state --arg g "$arg1" --arg p "${arg2:-0}" '
     ($g | split(",")) as $v
     | (if has("songBase") then . else .songBase = (.preset // "Custom") end)
     | reduce range(0; 10) as $i (.; .["b\($i + 1)"] = $v[$i])
-    | .preamp = $p | .preset = "Song" | .pending = false')
-  echo "$updated" >"$STATE_FILE"
+    | .preamp = $p | .preset = "Song" | .pending = false' || exit 1
   apply_eq_preview
   ;;
 "song_revert")
   base=$(jq -r '.songBase // empty' "$STATE_FILE" 2>/dev/null)
   [ -n "$base" ] || exit 0
   revert_preview
-  tmp=$(cat "$STATE_FILE")
-  updated=$(echo "$tmp" | jq -c --arg b "$base" '.preset = $b | del(.songBase)')
-  echo "$updated" >"$STATE_FILE"
+  update_state --arg b "$base" '.preset = $b | del(.songBase)'
   ;;
 "save")
   # The real commit: writes the current slider state into the
@@ -544,9 +564,7 @@ case "$cmd" in
   # triggered by the user explicitly hitting Save now - dragging a
   # slider triggers "preview" below instead, which never touches
   # this file.
-  tmp=$(cat "$STATE_FILE")
-  updated=$(echo "$tmp" | jq -c ".pending = false | del(.songBase)")
-  echo "$updated" >"$STATE_FILE"
+  update_state '.pending = false | del(.songBase)'
   apply_eq
   ;;
 "preview")

@@ -8,8 +8,14 @@ theme="$1"
   exit 1
 }
 
+# Files Home Manager links from the Nix store are left alone: `sed -i` would
+# turn the link into a plain file (which the next switch replaces, losing the
+# change) and writing through it fails. gsettings carries the choice there.
+nix_managed() { [[ -L $1 && $(readlink -f -- "$1") == /nix/store/* ]]; }
+
 set_ini_key() { # file key value
   local file="$1" key="$2" value="$3"
+  nix_managed "$file" && return 0
   mkdir -p "$(dirname "$file")"
   if grep -q "^${key}=" "$file" 2>/dev/null; then
     sed -i "s|^${key}=.*|${key}=${value}|" "$file"
@@ -26,7 +32,9 @@ set_ini_key "$HOME/.config/gtk-4.0/settings.ini" gtk-theme-name "$theme"
 
 # GTK 2
 GTK2_CONFIG="$HOME/.gtkrc-2.0"
-if grep -q "^gtk-theme-name=" "$GTK2_CONFIG" 2>/dev/null; then
+if nix_managed "$GTK2_CONFIG"; then
+  :
+elif grep -q "^gtk-theme-name=" "$GTK2_CONFIG" 2>/dev/null; then
   sed -i "s|^gtk-theme-name=.*|gtk-theme-name=\"$theme\"|" "$GTK2_CONFIG"
 else
   echo "gtk-theme-name=\"$theme\"" >>"$GTK2_CONFIG"
