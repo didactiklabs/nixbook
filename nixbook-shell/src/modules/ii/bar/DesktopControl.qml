@@ -225,7 +225,7 @@ MouseArea {
             StyledText {
                 visible: root.said !== null
                 Layout.fillWidth: true
-                text: Translation.tr("Click the bubble to answer, right-click for not now")
+                text: Translation.tr("Click the bubble to answer (or say yes), right-click for not now")
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colSubtext
             }

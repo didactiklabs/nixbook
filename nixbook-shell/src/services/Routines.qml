@@ -62,8 +62,22 @@ Singleton {
         return true
     }
 
+    // Learning routines from the habits (ai.routines.learn: off, suggest,
+    // auto): the cues are counted with them, and once a day `routine learn`.
+    readonly property string learn: Config.options?.ai?.routines?.learn ?? "off"
+    readonly property var cueEvents: ["audio_output", "wifi_connected", "monitor_connected", "plugged", "unplugged", "unlocked"]
+    Timer {
+        interval: 3600000
+        running: root.enabled && root.learn !== "off"
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: Quickshell.execDetached(["nixbook-desktop-mcp", "routine", "learn", root.learn])
+    }
+
     // Something happened: the routines it is the cue of.
     function happen(ev) {
+        if (root.enabled && root.learn !== "off" && root.cueEvents.includes(ev.event))
+            Quickshell.execDetached(["nixbook-desktop-mcp", "habits", "cue", ev.event, ev.name ?? ""])
         if (!root.enabled || root.active.length === 0) return
         const music = ev.event.startsWith("music") || ev.event === "track_changed"
         // Music the user just stopped stays stopped.

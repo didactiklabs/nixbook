@@ -181,6 +181,7 @@ Scope {
     }
 
     function sendUserMessage(message) {
+        if (chat.fromClaude) Initiative.engaged();
         if (message.length === 0) return;
         chat.addMessage(message, "user");
         requester.makeRequest();

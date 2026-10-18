@@ -203,11 +203,13 @@ Scope {
                     color: root.fg
                 }
 
-                RowLayout {
+                // Wraps when the labels don't fit on one line.
+                Flow {
+                    Layout.fillWidth: true
                     spacing: 6
                     Repeater {
                         model: [
-                            { id: "reply", label: Translation.tr("Reply"), main: true },
+                            { id: "reply", label: root.item?.accept ? Translation.tr("Yes, do it") : Translation.tr("Reply"), main: true },
                             { id: "later", label: Translation.tr("Not now"), main: false },
                             { id: "never", label: Translation.tr("Don't tell me this"), main: false },
                         ]

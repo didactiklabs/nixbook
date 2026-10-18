@@ -512,7 +512,15 @@ memory pass offers what it learned (`initiative_offer`). Reply opens the
 side panel's "From Claude" tab (`Ai.claudeTab()`, one, reused, past
 `maxChats`) with the message as Claude's (`unsent`: it goes with the user's
 next message when the tab's session already runs; `GlobalStates.aiChatRequested`);
-answers (`initiative answer ID replied|later|dismissed|never`) teach it.
+answers (`initiative answer ID replied|later|dismissed|never|engaged`) teach
+it: `budget()` scales the day's notifications and chats by the reply rate
+(×0.5 to ×2), `hour_key` stats hold back speaking out loud at times the user
+rarely answers, `engaged` (each message of the user in the From Claude tab
+within 30 min, up to 4) adds half a reply, and `initiative notices` (the
+shell's counts of notifications acted on or dismissed, from
+Notifications.acted/dismissed) skip apps always dismissed unread and tell the
+model the apps acted on. Urgent ones pass a spent budget (not busy; quiet
+hours only critical).
 Each decision is logged (`log`, 30 kept; Settings shows the last ones, and
 **Say something now** sends a `moment` with `force`: no chance or gap, out
 loud, a hello when nothing is on its mind). The small model's Claude Code:
@@ -535,6 +543,15 @@ client) or Claude Code (`routine_agent`: --strict-mcp-config with the
 desktop and the named servers, --tools "" and --allowedTools mcp__…, a few
 turns). What it did goes to the bar (`routine_say`). The shell reports a
 routine's action undone within 3 min (`routine undone`): twice, it is off.
+Learned routines (`ai.routines.learn` off/suggest/auto; `routine learn MODE`,
+hourly from Routines.qml, once a day in effect): `learn_patterns` mines the
+habits' `opens`, layout and theme `events`, music starts and `cue` events
+(`habits cue EVENT NAME`, from the shell) for cue → action within 180 s on
+≥3 days and ≥60% of the cue's days, or the same action ±20 min on ≥4 days of
+the same kind (weekdays, weekends) in two weeks; one new routine a day,
+`learned` {key, days, of, trial}, suggested (`accept` on the word: yes turns
+it on, no forgets it and `routinesDeclined` keeps it out) or, auto and strong,
+on with a trial (said each run until 3 runs undone by nobody).
 
 **Personal memory**, so a conversation knows what the user told agents
 before: life events (past or planned, with dates), plans, people close to

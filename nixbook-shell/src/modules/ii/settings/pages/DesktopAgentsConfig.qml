@@ -146,6 +146,26 @@ ContentPage {
                 }
             }
 
+            ConfigSelectionArray {
+                configKey: "ai.routines.learn"
+                text: Translation.tr("Learn routines from my habits")
+                icon: "auto_awesome"
+                currentValue: Config.options.ai.routines.learn
+                onSelected: newValue => { Config.options.ai.routines.learn = newValue }
+                options: [
+                    { displayName: Translation.tr("Off"), icon: "block", value: "off" },
+                    { displayName: Translation.tr("Suggest"), icon: "help", value: "suggest" },
+                    { displayName: Translation.tr("On its own"), icon: "auto_awesome", value: "auto" }
+                ]
+            }
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                font.pixelSize: Appearance.font.pixelSize.small
+                text: Translation.tr("Once a day it looks at your usage habits (which need to be on, below) for what you do by hand after the same cue (headphones connecting, unlocking, opening an app…) or at the same time of day, on 3 days or more. Suggest: it asks first. On its own: a strong pattern (5 days, 4 times out of 5) is turned on at once, and it tells you each time it acts; undo it twice and it stops. It never costs a token: a learned routine is a fixed action.")
+            }
+
             StyledText {
                 visible: (DesktopControl.memory.routines ?? []).length === 0
                 color: Appearance.colors.colSubtext

@@ -1511,6 +1511,99 @@ expect_eq "routine remove" 2 "$(jq '.routines | length' "$mem")"
 rm "$XDG_CONFIG_HOME/nixbook-shell/assistant-mcp.json"
 python3 "$mcp" memory clear >/dev/null
 python3 "$mcp" initiative clear
+
+# -- adapting to the user ----------------------------------------------------------------------
+# Routines learned from the habits, in plain code; a budget that follows the
+# user's answers; the times they answer at; what they do with notifications.
+
+python3 "$mcp" memory clear >/dev/null
+python3 "$mcp" initiative clear
+habits="$XDG_STATE_HOME/nixbook-shell/habits.json"
+touch "$XDG_STATE_HOME/nixbook-shell/habits-enabled"
+# Five days: the headphones connect, Firefox opens a minute later; and the
+# "work" layout restored at 9:00 on the five last weekdays.
+python3 - "$habits" <<'EOF'
+import json, sys, time, datetime
+opens, events = [], []
+today = datetime.date.today()
+d, weekdays = today - datetime.timedelta(days=1), 0
+for i in range(1, 6):
+    day = today - datetime.timedelta(days=i)
+    t = int(datetime.datetime.combine(day, datetime.time(14, 0)).timestamp())
+    events.append([t, "cue", "audio_output:Headphones WH-1000"])
+    opens.append([t + 60, "org.mozilla.firefox"])
+while weekdays < 7:
+    if d.weekday() < 5:
+        events.append([int(datetime.datetime.combine(d, datetime.time(9, 2)).timestamp()), "layout", "work"])
+        weekdays += 1
+    d -= datetime.timedelta(days=1)
+json.dump({"spans": [], "opens": opens, "events": events, "plays": []}, open(sys.argv[1], "w"))
+EOF
+expect_eq "learn: off, nothing" "learning routines is off" "$(python3 "$mcp" routine learn off | jq -r .why)"
+out=$(python3 "$mcp" routine learn suggest)
+expect_contains "learn: a pattern after a cue" "$(jq -r .learned <<<"$out")" "When your Headphones WH-1000 audio output is on, open Firefox"
+expect_eq "learn: suggested, off until yes" false "$(jq '.routines[0].on' "$mem")"
+expect_eq "learn: a fixed action, no token" '{"tool":"launch_app","args":{"app":"org.mozilla.firefox"},"server":"desktop"}' "$(jq -c '.routines[0].do' "$mem")"
+expect_eq "learn: the cue's filter" '{"event":"audio_output","name":"headphones"}' "$(jq -c '.routines[0].when' "$mem")"
+offer=$(python3 "$mcp" initiative pending | jq -r '.[] | select(.accept) | .id')
+expect_contains "learn: asked, with how often" "$(python3 "$mcp" initiative pending | jq -r '.[] | select(.accept) | .text')" "(5 of 5 days). Want me to do it for you?"
+expect_eq "learn: once a day" "looked today already" "$(python3 "$mcp" routine learn suggest | jq -r .why)"
+python3 "$mcp" initiative answer "$offer" replied
+expect_eq "learn: yes turns it on" true "$(jq '.routines[0].on' "$mem")"
+# The next day, the next pattern: declined, never offered again.
+jq '.routineLearnDay = ""' "$mem" >"$mem.new" && mv "$mem.new" "$mem"
+out=$(python3 "$mcp" routine learn suggest)
+expect_contains "learn: the same time on weekdays" "$(jq -r .learned <<<"$out")" "On weekdays at 09:02, restore the 'work' layout"
+offer=$(python3 "$mcp" initiative pending | jq -r '[.[] | select(.accept)] | last | .id')
+python3 "$mcp" initiative answer "$offer" never
+expect_eq "learn: no forgets it" 1 "$(jq '.routines | length' "$mem")"
+jq '.routineLearnDay = ""' "$mem" >"$mem.new" && mv "$mem.new" "$mem"
+expect_eq "learn: a declined one isn't offered again" "no new pattern" "$(python3 "$mcp" routine learn suggest | jq -r .why)"
+# On its own: a strong one is on at once, and says so.
+python3 "$mcp" memory clear >/dev/null
+python3 "$mcp" initiative clear
+out=$(python3 "$mcp" routine learn auto)
+expect_eq "learn auto: a strong pattern on at once" "true true" "$(jq -r '"\(.routines[0].on) \(.routines[0].learned.trial)"' "$mem")"
+expect_contains "learn auto: says it" "$(python3 "$mcp" initiative pending | jq -r '.[].text')" "so I'll do it for you from now on"
+python3 "$mcp" habits cue audio_output "Headphones WH-1000"
+expect_contains "habits cue: counted with the habits" "$(cat "$XDG_STATE_HOME/nixbook-shell/habits.log")" '"cue","audio_output:Headphones WH-1000"'
+rm -f "$habits" "$XDG_STATE_HOME/nixbook-shell/habits.log" "$XDG_STATE_HOME/nixbook-shell/habits-enabled"
+python3 "$mcp" memory clear >/dev/null
+python3 "$mcp" initiative clear
+
+# The budget follows the answers: more room when the user takes them up, less when not.
+echo '{"initiativeQuietHours":"0-0","initiativeGapMinutes":0}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+said_today() { # COUNT OUTCOME: COUNT notifications said today, answered OUTCOME
+  jq --argjson n "$1" --arg o "$2" --argjson t "$(date +%s)" --arg d "$(date +%F)" \
+    '.said = [range($n) | {id: "s\(.)", key: "k\(.)", kind: "notice", level: "notify", time: ($t - 3600), day: $d, outcome: $o}] | .pending = [] | .stats = {} | .briefDay = ""' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
+}
+said_today 6 replied
+expect_eq "budget: taken up, more room than 6" notify "$(consider '{"event":"back","away":300,"events":[{"title":"Call","start":"12:00","inMinutes":5}]}' | jq -r .action)"
+said_today 6 dismissed
+expect_eq "budget: ignored, less than 6" badge "$(consider '{"event":"back","away":300,"events":[{"title":"Call","start":"12:00","inMinutes":5}]}' | jq -r .action)"
+# A time of day the user rarely answers at: it waits.
+said_today 0 replied
+jq --arg h "$(python3 -c 'import time; print("hour:" + ("night", "morning", "afternoon", "evening")[time.localtime().tm_hour // 6])')" '.stats[$h] = {said: 20, replied: 0}' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
+expect_eq "hours: not when they rarely answer" badge "$(consider '{"event":"back","away":300,"events":[{"title":"Call","start":"12:00","inMinutes":5}]}' | jq -r .action)"
+# Something urgent gets through a spent budget.
+said_today 12 dismissed
+export STUB_CLAUDE_ANSWER='{"structured_output": {"react": true, "urgent": true, "about": 1, "text": "Your bank flags a payment: check it now?"}}'
+expect_eq "urgent: through a spent budget" notify "$(consider '{"event":"notifications","read":true,"items":[{"app":"Bank","summary":"Unusual payment"}]}' | jq -r .action)"
+# A conversation it opened counts more than a one-word reply.
+id=$(jq -r '.said[-1].id' "$ini")
+python3 "$mcp" initiative answer "$id" replied
+python3 "$mcp" initiative answer "$id" engaged
+expect_eq "engaged: a talk counts more" 1.5 "$(jq '.stats.notice.replied' "$ini")"
+# Apps whose notifications the user always dismisses unread: not even read.
+python3 "$mcp" initiative notices '{"Promo":{"dismissed":12},"Mail":{"acted":5}}'
+rm -f "$calls.claude-prompt"
+expect_eq "notices: an app always dismissed, skipped" "nothing worth a look" \
+  "$(consider '{"event":"notifications","read":true,"items":[{"app":"Promo","summary":"50% off"}]}' | jq -r .why)"
+consider '{"event":"notifications","read":true,"items":[{"app":"Shop","summary":"Order shipped"}]}' >/dev/null
+expect_contains "notices: the apps they act on, told" "$(cat "$calls.claude-prompt")" "They usually act on notifications from: mail"
+unset STUB_CLAUDE_ANSWER
+rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+python3 "$mcp" initiative clear
 python3 "$mcp" memory clear >/dev/null
 python3 "$mcp" personal clear >/dev/null
 rm -f "$XDG_STATE_HOME/nixbook-shell/personal-memory.json"

@@ -413,6 +413,10 @@ Singleton {
 		}
 
 		function playPause(): void { root.togglePlaying(); }
+		// Resume (a routine: "put the music back on"); nothing if it plays.
+		function play(): void {
+			if (root.activePlayer && !root.activePlayer.isPlaying && root.activePlayer.canPlay) root.activePlayer.play();
+		}
 		function previous(): void { root.previous(); }
 		function next(): void { root.next(); }
 	}

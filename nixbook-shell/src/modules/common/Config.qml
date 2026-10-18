@@ -253,6 +253,9 @@ Singleton {
                 // ends, play something", services/Routines.qml): run on their cue.
                 property JsonObject routines: JsonObject {
                     property bool enable: true
+                    // Routines learned from the usage habits: "off",
+                    // "suggest" (asked first) or "auto" (strong ones on at once).
+                    property string learn: "off"
                 }
             }
 

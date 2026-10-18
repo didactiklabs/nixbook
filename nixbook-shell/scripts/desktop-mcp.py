@@ -2573,11 +2573,19 @@ def deliver(cfg, data, item, level, busy, now):
     if level == "notify":
         today = time.strftime("%Y-%m-%d", time.localtime(now))
         notified = [s for s in data["said"] if s.get("level") == "notify"]
-        why = ("the user is busy" if busy else "quiet hours" if quiet_hours(cfg, now)
+        urgent = item.get("urgent") is True
+        # Something urgent gets through a spent budget, a short gap and a
+        # time of day the user rarely answers at; never through busy, and
+        # through quiet hours only when critical.
+        why = ("the user is busy" if busy
+               else "quiet hours" if quiet_hours(cfg, now) and not item.get("critical")
+               else "" if urgent
                else "the day's budget is spent" if sum(1 for s in notified if s.get("day") == today)
-               >= int(cfg.get("initiativeMaxPerDay", 6))
+               >= budget(cfg, data, "initiativeMaxPerDay", 6, now)
                else "too soon after the last one" if notified and now - notified[-1]["time"]
-               < int(cfg.get("initiativeGapMinutes", 30)) * 60 else "")
+               < int(cfg.get("initiativeGapMinutes", 30)) * 60
+               else "the user rarely answers at this time" if initiative_value(data, hour_key(now)) < INITIATIVE_MIN_VALUE
+               else "")
         if why:
             level = "badge"
     item = dict(item, id=secrets.token_hex(3), time=int(now), level=level,
@@ -2585,12 +2593,24 @@ def deliver(cfg, data, item, level, busy, now):
     data["said"].append({"id": item["id"], "key": key, "kind": kind, "app": item.get("app"), "level": level,
                          "time": int(now), "day": time.strftime("%Y-%m-%d", time.localtime(now))})
     del data["said"][:-INITIATIVE_SAID_KEEP]
-    for key_ in [kind] + ([f"{kind}:{item['app'].lower()}"] if item.get("app") else []):
+    for key_ in [kind] + ([f"{kind}:{item['app'].lower()}"] if item.get("app") else []) + [hour_key(now)]:
         counts = data["stats"].setdefault(key_, {})
         counts["said"] = counts.get("said", 0) + 1
     if level == "badge":
         data["pending"] = (data["pending"] + [item])[-INITIATIVE_PENDING_MAX:]
     return {"action": "notify" if level == "notify" else "badge", "item": item}
+
+
+def budget(cfg, data, key, base, now):
+    """The day's budget, adapted to the user: twice the base when they take
+    up most of what it says, half when they ignore it (the last two weeks'
+    answers, from an even start)."""
+    since = now - 14 * 86400
+    answered = [s for s in data["said"] if s.get("time", 0) >= since and s.get("outcome") in
+                ("replied", "dismissed", "never")]
+    replied = sum(1 + 0.5 * s.get("engaged", 0) for s in answered if s["outcome"] == "replied")
+    rate = (replied + 0.4 * 4) / (len(answered) + 4)
+    return max(1, round(int(cfg.get(key, base)) * min(2.0, max(0.5, 0.5 + 1.5 * rate))))
 
 
 def personal_events_near(now, before=3, after=2):
@@ -2786,7 +2806,7 @@ def chat_item(cfg, data, event, now):
     force = event.get("force") is True  # Settings > Say something now
     if force:
         pass
-    elif sum(1 for s in chats if s.get("day") == today) >= int(cfg.get("initiativeChatPerDay", 2)):
+    elif sum(1 for s in chats if s.get("day") == today) >= budget(cfg, data, "initiativeChatPerDay", 2, now):
         return None, "enough for today"
     elif chats and now - chats[-1]["time"] < INITIATIVE_CHAT_GAP:
         return None, "said one lately"
@@ -2844,12 +2864,16 @@ def notice_triage(cfg, data, items, focused):
             continue
         if notice_pattern(app, summary) in data["boring"] or f"notice:{app.lower()}" in data["muted"]:
             continue
+        # An app whose notifications the user dismisses unread, always.
+        seen = (data.get("apps") or {}).get(app.lower()) or {}
+        if seen.get("dismissed", 0) >= 10 and seen.get("acted", 0) <= 0.1 * seen["dismissed"]:
+            continue
         out.append({"app": app, "summary": summary, "body": str(i.get("body") or "")[:300],
                     "urgency": str(i.get("urgency") or "normal")})
     return out[:INITIATIVE_NOTICE_BATCH]
 
 
-def notice_prompt(event, items, now):
+def notice_prompt(event, items, now, data_apps=None):
     profile = "; ".join(short(e["text"], 120) for e in read_personal() if e.get("kind") == "profile")[:300]
     lines = [f"Now: {time.strftime('%a %Y-%m-%d %H:%M', time.localtime(now))}",
              f"They are in: {event.get('focused') or 'no app'}"]
@@ -2857,6 +2881,10 @@ def notice_prompt(event, items, now):
         lines.append(f"Their next event: {short(str(event['next']), 100)}")
     if profile:
         lines.append(f"About them: {profile}")
+    acted = sorted(((a, c) for a, c in (data_apps or {}).items() if c.get("acted", 0) >= 3
+                    and c["acted"] >= c.get("dismissed", 0)), key=lambda x: -x[1]["acted"])[:4]
+    if acted:
+        lines.append("They usually act on notifications from: " + ", ".join(a for a, _ in acted))
     lines += ["", "Notifications:"]
     lines += [f"{k}. [{i['app']}] {i['summary']}" + (f" — {i['body']}" if i["body"] else "")
               + (" (critical)" if i["urgency"] == "critical" else "") for k, i in enumerate(items, 1)]
@@ -2892,9 +2920,12 @@ def notice_apply(data, items, answer, now):
         return None, None
     said = clean_text(said, 400)
     chat = f"{said}\n\n> {about['app']}: {about['summary']}" + (f" — {about['body']}" if about["body"] else "")
+    critical = about["urgency"] == "critical"
+    urgent = bool(answer.get("urgent")) or critical
     return ({"kind": "notice", "key": "notice:" + notice_pattern(about["app"], about["summary"] + about["body"][:60])
-             + f":{int(now) // 600}", "title": "Claude", "text": said, "chat": chat, "app": about["app"]},
-            "notify" if answer.get("urgent") or about["urgency"] == "critical" else "badge")
+             + f":{int(now) // 600}", "title": "Claude", "text": said, "chat": chat, "app": about["app"],
+             "urgent": urgent, "critical": critical},
+            "notify" if urgent else "badge")
 
 
 INITIATIVE_LOG = 30
@@ -2936,7 +2967,7 @@ def consider_event(cfg, event, now=None):
         # The model reads them without holding the file: other events go on.
         try:
             answer = ask_claude(claude, cfg.get("memoryModel") or "haiku", INITIATIVE_SYSTEM,
-                                notice_prompt(event, items, now), INITIATIVE_SCHEMA)
+                                notice_prompt(event, items, now, read_initiative().get("apps")), INITIATIVE_SCHEMA)
         except ToolError as e:
             return {"action": "none", "why": str(e)}
         with Initiative() as m:
@@ -2975,17 +3006,39 @@ def consider_event(cfg, event, now=None):
     return out
 
 
+INITIATIVE_ENGAGED_MAX = 4
+
+
+def hour_key(t):
+    """When in the day: night, morning, afternoon or evening."""
+    return "hour:" + ("night", "morning", "afternoon", "evening")[time.localtime(t).tm_hour // 6]
+
+
 def initiative_answer(item_id, outcome):
-    """The user's answer: replied, later, dismissed or never."""
-    if outcome not in ("replied", "later", "dismissed", "never"):
-        raise ToolError("outcome: replied, later, dismissed or never")
+    """The user's answer: replied, later, dismissed or never; engaged: one
+    more message of theirs in the conversation it opened (a reply that
+    turned into a talk counts more)."""
+    if outcome not in ("replied", "later", "dismissed", "never", "engaged"):
+        raise ToolError("outcome: replied, later, dismissed, never or engaged")
     with Initiative() as m:
         said = next((s for s in m.data["said"] if s["id"] == item_id), None)
         if not said:
             raise ToolError(f"nothing said as {item_id}")
+        if outcome == "engaged":
+            if said.get("engaged", 0) < INITIATIVE_ENGAGED_MAX:
+                said["engaged"] = said.get("engaged", 0) + 1
+                for key_ in [said["kind"], hour_key(said["time"])]:
+                    counts = m.data["stats"].setdefault(key_, {})
+                    counts["replied"] = counts.get("replied", 0) + 0.5
+                m.save()
+            return said
         m.data["pending"] = [p for p in m.data["pending"] if p["id"] != item_id]
         said["outcome"] = outcome
-        keys = [said["kind"]] + ([f"{said['kind']}:{said['app'].lower()}"] if said.get("app") else [])
+        if said.get("accept"):
+            routine_accept(said["accept"], outcome == "replied")
+            m.save()
+            return said
+        keys = [said["kind"]] + ([f"{said['kind']}:{said['app'].lower()}"] if said.get("app") else []) + [hour_key(said["time"])]
         for key_ in keys:
             s = m.data["stats"].setdefault(key_, {})
             if outcome == "replied":
@@ -2994,7 +3047,7 @@ def initiative_answer(item_id, outcome):
                 s["said"] = max(0, s.get("said", 0) - 1)  # neither taken nor refused
         if outcome == "never":
             # A notice: that app's notices only; else the kind.
-            m.data["muted"] = list(dict.fromkeys(m.data["muted"] + [keys[-1]]))
+            m.data["muted"] = list(dict.fromkeys(m.data["muted"] + [keys[-2] if len(keys) > 2 else keys[0]]))
         m.save()
     return said
 
@@ -3029,6 +3082,26 @@ def initiative_command(cfg, argv):
         except ToolError as e:
             print(e, file=sys.stderr)
             return 1
+        return 0
+    if sub == "notices" and len(argv) == 2:
+        # What the user did with their notifications: {app: {acted, dismissed}}.
+        try:
+            counts = json.loads(argv[1])
+        except ValueError:
+            counts = None
+        if not isinstance(counts, dict):
+            print("initiative notices: {app: {acted, dismissed}}", file=sys.stderr)
+            return 2
+        with Initiative() as m:
+            apps = m.data.setdefault("apps", {})
+            for app, c in list(counts.items())[:50]:
+                if not isinstance(c, dict):
+                    continue
+                a = apps.setdefault(str(app).lower()[:60], {"acted": 0, "dismissed": 0})
+                for k in ("acted", "dismissed"):
+                    if isinstance(c.get(k), int) and 0 <= c[k] <= 1000:
+                        a[k] += c[k]
+            m.save()
         return 0
     if sub == "unmute":
         with Initiative() as m:
@@ -3340,16 +3413,20 @@ def routine_agent(cfg, r, event):
     return clean_text(said, 300)
 
 
-def routine_say(r, said):
+def routine_say(r, said, accept=None):
     """What a routine did, as a word in the bar (it was asked for: no
-    budget, no learning)."""
+    budget, no learning); `accept`: a learned routine offered, its id (the
+    word's yes turns it on, a no forgets it)."""
     now = int(time.time())
     item = {"id": secrets.token_hex(3), "kind": "routine", "key": f"routine:{r['id']}:{now}", "title": "Claude",
-            "text": said, "time": now, "level": "badge", "expires": now + INITIATIVE_PENDING_HOURS * 3600}
+            "text": said, "time": now, "level": "badge", "expires": now + (3 * 86400 if accept else
+                                                                         INITIATIVE_PENDING_HOURS * 3600)}
+    if accept:
+        item["accept"] = accept
     try:
         with Initiative() as m:
             m.data["said"] = (m.data["said"] + [{"id": item["id"], "key": item["key"], "kind": "routine",
-                                                 "level": "badge", "time": now,
+                                                 "level": "badge", "time": now, "accept": accept,
                                                  "day": time.strftime("%Y-%m-%d")}])[-INITIATIVE_SAID_KEEP:]
             m.data["pending"] = (m.data["pending"] + [item])[-INITIATIVE_PENDING_MAX:]
             m.save()
@@ -3411,9 +3488,13 @@ def routine_run(cfg, rid, event, now=None):
         for x in m.data.get("routines") or []:
             if x["id"] == rid:
                 x["lastResult"] = short(said, 200)
+                # A learned one not undone in its first runs: kept, quietly.
+                if (x.get("learned") or {}).get("trial") and x.get("runs", 0) >= 3 and not x.get("fights"):
+                    x["learned"]["trial"] = False
         m.save()
     audit("routine", "routine", {"id": rid}, "ok")
-    routine_say(r, said or f"{r['text']}: done.")
+    if not (r.get("learned") and not r["learned"].get("trial")):
+        routine_say(r, (said or f"{r['text']}: done.") + (" (learned from your habits)" if r.get("learned") else ""))
     return {"ran": True, "said": said}
 
 
@@ -3445,6 +3526,10 @@ def routine_command(cfg, argv):
             event = json.loads(argv[2]) if len(argv) == 3 else {}
             print(json.dumps(routine_run(cfg, argv[1], event if isinstance(event, dict) else {}), ensure_ascii=False))
             return 0
+        if sub == "learn":
+            mode = argv[1] if len(argv) > 1 else "suggest"
+            print(json.dumps(learn_routines(cfg, mode), ensure_ascii=False))
+            return 0
         if sub == "undone" and len(argv) == 2:
             print(json.dumps({"off": routine_undone(argv[1])}))
             return 0
@@ -3456,6 +3541,209 @@ def routine_command(cfg, argv):
         return 1
     print(USAGE, end="", file=sys.stderr)
     return 2
+
+
+# Routines learned from the user's habits (Settings > Desktop agents >
+# Routines > Learn routines from my habits: off, suggest, on its own): once
+# a day (the shell, `routine learn`), plain code reads what usage habits
+# counted (apps opened, layouts restored, themes chosen, music started, and
+# the cues the shell saw: audio output, Wi-Fi, monitors, the power cable,
+# unlocking) and finds what the user does by hand after the same cue, or
+# at the same time of day:
+#   - after a cue, the same action within LEARN_FOLLOW_S, on at least
+#     LEARN_MIN_DAYS days and LEARN_MIN_SHARE of the days the cue came;
+#   - an action at the same time (± LEARN_TIME_SPAN minutes) on at least
+#     LEARN_MIN_TIME_DAYS of the last two weeks' days of the same kind.
+# A pattern becomes a routine with a fixed action (no token, ever):
+# suggested (off until the user says yes), or, on its own and when strong
+# (LEARN_STRONG_DAYS days, LEARN_STRONG_SHARE), on at once, saying so each
+# time it acts; undone twice, it is off, like any routine. One new pattern
+# a day at most; a declined one is never offered again.
+
+LEARN_FOLLOW_S = 180
+LEARN_MIN_DAYS = 3
+LEARN_MIN_SHARE = 0.6
+LEARN_STRONG_DAYS = 5
+LEARN_STRONG_SHARE = 0.8
+LEARN_TIME_SPAN = 20
+LEARN_MIN_TIME_DAYS = 4
+LEARN_WINDOW_DAYS = 14
+LEARN_MUSIC_GAP = 600
+
+
+def habit_actions(data):
+    """What the user did by hand: [(time, key, do, words)]."""
+    apps = applications()
+    out = []
+    for t, app in data.get("opens") or []:
+        desktop = app if app in apps else (desktop_for_app(app, apps) or app)
+        out.append((t, f"open:{desktop}", {"tool": "launch_app", "args": {"app": desktop}, "server": "desktop"},
+                    f"open {app_name(desktop)}"))
+    for t, kind, value in data.get("events") or []:
+        if kind == "layout":
+            out.append((t, f"layout:{value}", {"tool": "restore_layout", "args": {"name": value}, "server": "desktop"},
+                        f"restore the {value!r} layout"))
+        elif kind == "theme" and value:
+            theme, _, variant = str(value).partition(":")
+            args = {"theme": theme} | ({"variant": variant} if variant else {})
+            out.append((t, f"theme:{value}", {"tool": "set_theme", "args": args, "server": "desktop"},
+                        f"switch to the {variant or theme} theme"))
+    last_end = 0
+    for p in sorted(data.get("plays") or [], key=lambda p: p[0]):
+        start, heard = p[0], p[1]
+        if start - last_end >= LEARN_MUSIC_GAP:
+            out.append((start, "music", {"tool": "shell_ipc", "args": {"target": "mpris", "function": "play"},
+                                         "server": "desktop"}, "put your music back on"))
+        last_end = max(last_end, start + heard)
+    return sorted(out, key=lambda a: a[0])
+
+
+CUE_WORDS = {
+    "audio_output": "your {} audio output is on", "wifi_connected": "you're on the {} Wi-Fi",
+    "monitor_connected": "a monitor is plugged in", "plugged": "you plug the power in",
+    "unplugged": "you unplug the power", "unlocked": "you unlock the screen",
+}
+
+
+def habit_cues(data, apps_as_cues=True):
+    """What came before: [(time, key, when, words)]."""
+    out = []
+    for t, kind, value in data.get("events") or []:
+        if kind != "cue":
+            continue
+        event, _, name = str(value).partition(":")
+        if event not in CUE_WORDS:
+            continue
+        when = {"event": event}
+        word = ""
+        if name and event in ("audio_output", "wifi_connected"):
+            word = (words(name) or [name.lower()])[0]
+            when["name"] = word
+        out.append((t, f"{event}:{word}", when, CUE_WORDS[event].format(name or word).replace("  ", " ")))
+    if apps_as_cues:
+        for t, app in data.get("opens") or []:
+            short_id = app.rsplit(".", 1)[-1].lower()
+            out.append((t, f"app:{short_id}", {"event": "app_opened", "app": short_id}, f"you open {app_name(app)}"))
+    return sorted(out, key=lambda c: c[0])
+
+
+def day_of(t):
+    return time.strftime("%Y-%m-%d", time.localtime(t))
+
+
+def learn_patterns(data, now):
+    """The patterns in the habits, strongest first: [{key, when, do, text,
+    days, of, strong}]."""
+    since = now - LEARN_WINDOW_DAYS * 86400
+    actions = [a for a in habit_actions(data) if a[0] >= since]
+    cues = [c for c in habit_cues(data) if c[0] >= since]
+    found = []
+    # After a cue, the same action, by hand, within a few minutes.
+    by_cue = {}
+    for c in cues:
+        by_cue.setdefault(c[1], []).append(c)
+    for ckey, occurrences in by_cue.items():
+        cue_days = {day_of(c[0]) for c in occurrences}
+        if len(cue_days) < LEARN_MIN_DAYS:
+            continue
+        follows = {}
+        for c in occurrences:
+            for a in actions:
+                if 0 < a[0] - c[0] <= LEARN_FOLLOW_S and not (ckey.startswith("app:") and a[1].startswith("open:")
+                                                              and a[1].lower().endswith(ckey[4:])):
+                    follows.setdefault(a[1], (a, set()))[1].add(day_of(c[0]))
+        for akey, (a, days) in follows.items():
+            share = len(days) / len(cue_days)
+            if len(days) >= LEARN_MIN_DAYS and share >= LEARN_MIN_SHARE:
+                c = occurrences[-1]
+                found.append({"key": f"{ckey}>{akey}", "when": c[2], "do": a[2], "days": len(days), "of": len(cue_days),
+                              "text": f"When {c[3]}, {a[3]}",
+                              "said": f"you {a[3]} when {c[3]}",
+                              "strong": len(days) >= LEARN_STRONG_DAYS and share >= LEARN_STRONG_SHARE})
+    # The same action at the same time of day, on days of the same kind.
+    by_action = {}
+    for a in actions:
+        by_action.setdefault(a[1], []).append(a)
+    for akey, occurrences in by_action.items():
+        for weekend in (False, True):
+            mine = [a for a in occurrences if (time.localtime(a[0]).tm_wday >= 5) == weekend]
+            kind_days = {day_of(t) for t in range(int(since), int(now), 86400)
+                         if (time.localtime(t).tm_wday >= 5) == weekend}
+            if not mine or not kind_days:
+                continue
+            minutes = sorted(time.localtime(a[0]).tm_hour * 60 + time.localtime(a[0]).tm_min for a in mine)
+            best = max(minutes, key=lambda m: len({day_of(a[0]) for a in mine if abs(
+                time.localtime(a[0]).tm_hour * 60 + time.localtime(a[0]).tm_min - m) <= LEARN_TIME_SPAN}))
+            days = {day_of(a[0]) for a in mine
+                    if abs(time.localtime(a[0]).tm_hour * 60 + time.localtime(a[0]).tm_min - best) <= LEARN_TIME_SPAN}
+            share = len(days) / len(kind_days)
+            if len(days) >= LEARN_MIN_TIME_DAYS and share >= LEARN_MIN_SHARE:
+                at = f"{best // 60:02d}:{best % 60:02d}"
+                which = "weekends" if weekend else "weekdays"
+                a = mine[-1]
+                found.append({"key": f"time:{which}>{akey}",
+                              "when": {"event": "time", "at": at,
+                                       "days": ["sat", "sun"] if weekend else ["mon", "tue", "wed", "thu", "fri"]},
+                              "do": a[2], "days": len(days), "of": len(kind_days),
+                              "text": f"On {which} at {at}, {a[3]}", "said": f"you {a[3]} around {at} on {which}",
+                              "strong": len(days) >= LEARN_STRONG_DAYS + 2 and share >= LEARN_STRONG_SHARE})
+    found.sort(key=lambda p: (-p["strong"], -p["days"] / max(p["of"], 1), -p["days"]))
+    return found
+
+
+def learn_routines(cfg, mode, now=None):
+    """The day's look at the habits (`routine learn`): at most one new
+    routine, suggested or (on its own, strong) on. What it did."""
+    now = int(now or time.time())
+    if mode not in ("suggest", "auto"):
+        return {"learned": None, "why": "learning routines is off"}
+    if not habits_on(cfg):
+        return {"learned": None, "why": "usage habits are off: nothing to learn from"}
+    with Memory() as m:
+        if m.data.get("routineLearnDay") == day_of(now):
+            return {"learned": None, "why": "looked today already"}
+        m.data["routineLearnDay"] = day_of(now)
+        m.save()
+        known = {(r.get("learned") or {}).get("key") for r in m.data.get("routines") or []}
+        known |= {json.dumps(r.get("do"), sort_keys=True) + json.dumps(r.get("when"), sort_keys=True)
+                  for r in m.data.get("routines") or []}
+        declined = set(m.data.get("routinesDeclined") or [])
+    for p in learn_patterns(read_habits(), now):
+        if p["key"] in known or p["key"] in declined or \
+                json.dumps(p["do"], sort_keys=True) + json.dumps(p["when"], sort_keys=True) in known:
+            continue
+        on = mode == "auto" and p["strong"]
+        r = {"id": secrets.token_hex(3), "text": p["text"], "when": p["when"], "do": p["do"], "on": on,
+             "cooldown": 30, "created": now, "client": "learned", "runs": 0, "fights": 0,
+             "learned": {"key": p["key"], "days": p["days"], "of": p["of"], "trial": on}}
+        with Memory() as m:
+            m.data.setdefault("routines", []).append(r)
+            m.save()
+        if on:
+            routine_say(r, f"I noticed {p['said']} ({p['days']} of {p['of']} days), so I'll do it for you from "
+                           "now on. Undo it twice, or turn it off in Settings, and I'll stop.")
+        else:
+            routine_say(r, f"I noticed {p['said']} ({p['days']} of {p['of']} days). Want me to do it for you?",
+                        accept=r["id"])
+        return {"learned": routine_line(r), "on": on}
+    return {"learned": None, "why": "no new pattern"}
+
+
+def routine_accept(rid, yes):
+    """The answer to a learned routine offered: on, or gone for good."""
+    with Memory() as m:
+        r = next((r for r in m.data.get("routines") or [] if r["id"] == rid), None)
+        if not r:
+            return False
+        if yes:
+            r["on"] = True
+        else:
+            m.data["routines"].remove(r)
+            key = (r.get("learned") or {}).get("key")
+            if key:
+                m.data["routinesDeclined"] = (m.data.get("routinesDeclined") or []) + [key]
+        m.save()
+    return True
 
 
 # -- episodes --------------------------------------------------------------------
@@ -4709,6 +4997,14 @@ def habits_command(cfg, argv):
     now = time.time()
     if sub == "watch":
         return habits_watch(cfg)
+    if sub == "cue" and len(argv) in (2, 3):
+        # A cue the shell saw (audio output, Wi-Fi, a monitor, the power
+        # cable, unlocking): what learned routines start from. Device and
+        # network names only.
+        if argv[1] in CUE_WORDS and habits_on(cfg) and not habits_paused():
+            name = clean_text(argv[2], 60) if len(argv) == 3 else ""
+            habits_append([{"e": [int(now), "cue", f"{argv[1]}:{name}"]}])
+        return 0
     if sub == "on":
         os.makedirs(habits_dir(), mode=0o700, exist_ok=True)
         with open(habits_enabled_flag(), "w", encoding="utf-8") as f:
@@ -10520,7 +10816,7 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
   initiative consider JSON|-  what the agent would say about an event (the shell):
                           {"event": "back"|"focus"|"notifications", …}
   initiative pending|show|answer ID replied|later|dismissed|never|unmute [KEY…]|clear
-  routine list|run ID [EVENT_JSON]|undone ID|on ID|off ID|remove ID
+  routine list|run ID [EVENT_JSON]|undone ID|on ID|off ID|remove ID|learn suggest|auto
                           the user's routines (the shell runs them on their cue)
   memory learn [--claude PATH] [--model M] [--delete] [EPISODE.json]
                           the memory pass on an agent's task (servers start it
@@ -10857,6 +11153,9 @@ def memory_command(cfg, argv):
             for key in keys:
                 m.data[key] = fresh[key]
             m.data.pop("lastFailedLaunch", None)
+            if "routines" in keys:  # what learning routines knew goes with them
+                m.data.pop("routinesDeclined", None)
+                m.data.pop("routineLearnDay", None)
             m.save()
         print(f"cleared {', '.join(keys)}")
         return 0
