@@ -2492,6 +2492,19 @@ INITIATIVE_SYSTEM = (
 )
 
 
+def claude_path(cfg, hint=None):
+    """Claude Code for the small model's passes: memoryClaude, the path the
+    shell gives (its own Claude Code: the shell's PATH may not have it), on
+    PATH, or where it is usually installed."""
+    home = os.path.expanduser("~")
+    for c in [cfg.get("memoryClaude"), hint, shutil.which("claude"), f"{home}/.local/bin/claude",
+              f"{home}/.claude/local/claude", f"/etc/profiles/per-user/{os.environ.get('USER', '')}/bin/claude",
+              f"{home}/.nix-profile/bin/claude", "/run/current-system/sw/bin/claude"]:
+        if isinstance(c, str) and c and os.path.isfile(c) and os.access(c, os.X_OK):
+            return c
+    return None
+
+
 def initiative_path():
     return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-shell", "initiative.json")
 
@@ -2767,25 +2780,32 @@ def chat_item(cfg, data, event, now):
     """A word for no reason, or None: (item, why)."""
     today = time.strftime("%Y-%m-%d", time.localtime(now))
     chats = [s for s in data["said"] if s["kind"] == "chat"]
-    if sum(1 for s in chats if s.get("day") == today) >= int(cfg.get("initiativeChatPerDay", 2)):
+    force = event.get("force") is True  # Settings > Say something now
+    if force:
+        pass
+    elif sum(1 for s in chats if s.get("day") == today) >= int(cfg.get("initiativeChatPerDay", 2)):
         return None, "enough for today"
-    if chats and now - chats[-1]["time"] < INITIATIVE_CHAT_GAP:
+    elif chats and now - chats[-1]["time"] < INITIATIVE_CHAT_GAP:
         return None, "said one lately"
-    if data["said"] and now - data["said"][-1]["time"] < INITIATIVE_QUIET_AFTER:
+    elif data["said"] and now - data["said"][-1]["time"] < INITIATIVE_QUIET_AFTER:
         return None, "said something else lately"
     roll = event.get("roll")
-    if (roll if isinstance(roll, (int, float)) else random.random()) < INITIATIVE_CHAT_SKIP:
+    if not force and (roll if isinstance(roll, (int, float)) else random.random()) < INITIATIVE_CHAT_SKIP:
         return None, "nothing to say this time"
     said = {s["key"] for s in data["said"]}
     cands = [c for c in chat_candidates(cfg, event, now) if c[1] not in said
              and c[1] not in data["boring"] and f"chat:{c[0]}" not in data["muted"]]
+    if not cands and force:
+        return {"kind": "chat", "key": f"chat:hello:{int(now)}", "title": "Claude", "app": "hello",
+                "text": pick("Hi! Nothing on my mind right now. I'll speak up when something comes up.",
+                             "Here! All quiet on my side for now. I'll tell you when something's worth it.")}, ""
     if not cands:
         return None, "nothing to say"
     # The kinds the user takes up most, with some chance for the others.
     weights = [initiative_value(data, "chat", c[0]) + 0.05 for c in cands]
     sub, key, text_, entry = random.choices(cands, weights)[0]
     if text_ is None:
-        claude = cfg.get("memoryClaude") or shutil.which("claude")
+        claude = claude_path(cfg, event.get("claude"))
         if not claude:
             return None, "no Claude Code"
         if sub == "tip":
@@ -2874,7 +2894,27 @@ def notice_apply(data, items, answer, now):
             "notify" if answer.get("urgent") or about["urgency"] == "critical" else "badge")
 
 
+INITIATIVE_LOG = 30
+
+
 def initiative_consider(cfg, event, now=None):
+    """What to say about an event, if anything: {action, item, why}; kept in
+    the log (Settings shows why it said nothing)."""
+    now = now or time.time()
+    out = consider_event(cfg, event, now)
+    try:
+        with Initiative() as m:
+            m.data["log"] = (m.data.get("log", []) + [{
+                "time": int(now), "event": str(event.get("event")), "action": out["action"],
+                "said": short(out["item"]["text"], 120) if out.get("item") else "",
+                "why": out.get("why", "")}])[-INITIATIVE_LOG:]
+            m.save()
+    except (OSError, ValueError):
+        pass
+    return out
+
+
+def consider_event(cfg, event, now=None):
     """What to say about an event, if anything: {action, item, why}."""
     now = now or time.time()
     if not cfg.get("initiative", True):
@@ -2887,7 +2927,7 @@ def initiative_consider(cfg, event, now=None):
             m.save()
         if not items:
             return {"action": "none", "why": why}
-        claude = cfg.get("memoryClaude") or shutil.which("claude")
+        claude = claude_path(cfg, event.get("claude"))
         if not claude:
             return {"action": "none", "why": "no Claude Code"}
         # The model reads them without holding the file: other events go on.
@@ -2909,7 +2949,7 @@ def initiative_consider(cfg, event, now=None):
         if not item:
             return {"action": "none", "why": why}
         with Initiative() as m:
-            out = deliver(cfg, m.data, item, "badge", busy, now)
+            out = deliver(cfg, m.data, item, "notify" if event.get("force") is True else "badge", busy, now)
             m.save()
         return out
     if kind not in ("back", "focus"):
@@ -3118,7 +3158,7 @@ def start_learning(cfg, episode):
     `memory learn` on the episode, the fading, the weekly tidy-up when due."""
     if not cfg.get("memoryLearn", True):
         return
-    claude = cfg.get("memoryClaude") or shutil.which("claude")
+    claude = claude_path(cfg)
     if not claude:
         return
     cmd = [sys.executable, os.path.abspath(__file__), "memory", "learn",
@@ -5551,7 +5591,7 @@ def tidy_desktop(cfg, claude, model, done):
 
 
 def memory_learn_command(cfg, sub, argv):
-    opts = {"--claude": cfg.get("memoryClaude") or shutil.which("claude") or "claude",
+    opts = {"--claude": claude_path(cfg) or "claude",
             "--model": cfg.get("memoryModel") or "haiku"}
     delete = "--delete" in argv
     rest = [a for a in argv if a != "--delete"]
@@ -10424,7 +10464,7 @@ def personal_command(cfg, argv):
         return 0
     if sub in ("learn", "tidy"):
         rest = argv[1:]
-        opts = {"--claude": shutil.which("claude") or "claude", "--model": "haiku"}
+        opts = {"--claude": claude_path(cfg) or "claude", "--model": "haiku"}
         delete = "--delete" in rest
         rest = [a for a in rest if a != "--delete"]
         while len(rest) > 1 and rest[0] in opts:
