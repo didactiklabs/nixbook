@@ -437,7 +437,7 @@ ContentPage {
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
                 text: Ai.claudeConnectors.length > 0
-                    ? Translation.tr("Connectors: %1").arg(Ai.claudeConnectors.map(c => c.replace(/^mcp__claude_ai_/, "").replace(/_/g, " ")).join(", "))
+                    ? Translation.tr("Connectors: %1").arg(Ai.claudeConnectors.map(c => c.replace(/^mcp__(claude_ai|plugin)_/, "").replace(/_/g, " ")).join(", "))
                     : Translation.tr("No connectors found. Add them on claude.ai (Settings → Connectors).")
             }
             SmallButton {
