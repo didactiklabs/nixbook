@@ -18,6 +18,7 @@
       "asComputer": true,
       "command": "",
       "commandLine": false,
+      "commandLineFolders": true,
       "connectors": false,
       "effort": "low",
       "mcpServersOff": ["linkedin", "immich"],

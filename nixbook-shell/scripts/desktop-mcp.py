@@ -421,20 +421,6 @@ def use_desktop(name="get_status", group="observe"):
     return "user"
 
 
-# Terminals: off limits to agents, but for the session the user gave the
-# command line (Claude in the side panel with ai.claudeCode.commandLine on:
-# NIXBOOK_DESKTOP_MCP_TERMINALS=1). Password managers stay off limits.
-TERMINAL_APPS = re.compile(DEFAULT_CONFIG["inputDenyApps"][0], re.IGNORECASE)
-
-
-def terminals_allowed():
-    return os.environ.get("NIXBOOK_DESKTOP_MCP_TERMINALS") == "1"
-
-
-def terminal_allowed(app):
-    return terminals_allowed() and bool(TERMINAL_APPS.search(app or ""))
-
-
 def user_desktop_env():
     """The environment of a command meant for the user's desktop."""
     env = dict(os.environ)
@@ -641,7 +627,7 @@ class Guard:
         app = w.get("app_id") or ""
         title = w.get("title") or ""
         for pat in self.cfg.get("inputDenyApps", []):
-            if re.search(pat, app, re.IGNORECASE) and not terminal_allowed(app):
+            if re.search(pat, app, re.IGNORECASE):
                 raise ToolError(
                     f"refused: input into {app!r} is not allowed (terminals, password "
                     "managers and password prompts are off limits). Focus another "
@@ -1415,7 +1401,7 @@ def t_launch_app(ctx, args):
                 raise ToolError(f"no application matches {want!r}; see list_apps")
             raise ToolError(f"{want!r} is ambiguous: {', '.join(sorted(matches)[:15])}")
         want, entry = matches[0], visible[matches[0]]
-    if entry.get("Terminal") == "true" and not terminals_allowed():
+    if entry.get("Terminal") == "true":
         raise ToolError("refused: terminal applications can't be started by the agent")
     ctx.guard.check_rate()
     before = {w.get("id") for w in windows()}
@@ -2591,7 +2577,9 @@ def deliver(cfg, data, item, level, busy, now):
         # Something urgent gets through a spent budget, a short gap and a
         # time of day the user rarely answers at; never through busy, and
         # through quiet hours only when critical.
-        why = ("the user is busy" if busy
+        # Asked for (Settings > Say something now): out loud, whatever the hour.
+        why = ("" if item.get("test") or item.get("asked")
+               else "the user is busy" if busy
                else "quiet hours" if quiet_hours(cfg, now) and not item.get("critical")
                else "" if urgent
                else "the day's budget is spent" if sum(1 for s in notified if s.get("day") == today)
@@ -3072,7 +3060,8 @@ def curious_digest(cfg, event, now):
             if question:
                 parts.append(question)
             item = {"kind": "curious", "key": f"curious:{day_of(now)}:{int(now)}", "title": "Claude",
-                    "text": " ".join(parts), "app": "noticed" if learned else "question", "curious": True}
+                    "text": " ".join(parts), "app": "noticed" if learned else "question", "curious": True,
+                    **({"asked": True} if force else {})}
             out = deliver(cfg, m.data, item, "notify", False, now)
         m.save()
     return out
@@ -9972,7 +9961,7 @@ def ui_window(ctx, args):
         raise ToolError("no window: give `window_id` (list_windows)")
     app, title = w.get("app_id") or "", w.get("title") or ""
     for pat in ctx.cfg.get("inputDenyApps", []):
-        if re.search(pat, app, re.IGNORECASE) and not terminal_allowed(app):
+        if re.search(pat, app, re.IGNORECASE):
             raise ToolError(f"refused: {app!r} is off limits (terminals, password managers)")
     for pat in ctx.cfg.get("inputDenyTitles", []):
         if re.search(pat, title, re.IGNORECASE):

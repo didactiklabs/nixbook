@@ -770,10 +770,14 @@ Replies stream in, each tool call shows with its result in a collapsible
 block, and the send button stops the answer (and what Claude is doing), as
 does `/stop`. Sonnet is faster than Opus for desktop tasks.
 `ai.claudeCode.commandLine` (off): Bash in `--tools`/`--allowedTools` (not
-disallowed), a system-prompt rule to ask before changes, and
-`NIXBOOK_DESKTOP_MCP_TERMINALS=1` for its desktop server, where
-`terminal_allowed()` lets input, `ui_*` and `launch_app` reach terminals
-(`TERMINAL_APPS`, the first `inputDenyApps` pattern); other agents keep the ban.
+disallowed) and a system-prompt rule to ask before changes; never terminal
+windows (the desktop tools keep refusing them). With
+`ai.claudeCode.commandLineFolders` (on), `--settings` turns on Claude Code's
+Bash sandbox (bubblewrap: `denyRead` the home, `allowRead` the allowed and
+writable folders, `allowWrite` the writable ones, plus the assistant workdir;
+`allowUnsandboxedCommands: false`, `failIfUnavailable`, network `*`); what
+its commands start stays inside (systemd-run, D-Bus and the niri socket
+are unreachable from it: checked).
 
 The side panel's other model is the offline **Config assistant** (the
 default), which answers from this machine's configuration without any AI.

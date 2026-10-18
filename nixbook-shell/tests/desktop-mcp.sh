@@ -589,16 +589,7 @@ out=$(call type_text '{"text":"rm -rf ~"}')
 expect_contains "type_text into a terminal refused" "$out" "refused: input into 'kitty'"
 out=$(call click '{"x":1,"y":1}')
 expect_contains "click into a terminal refused" "$out" "refused"
-# The command line given (Claude in the side panel, ai.claudeCode.commandLine): terminals, nothing more.
-reset_calls
-out=$(NIXBOOK_DESKTOP_MCP_TERMINALS=1 call type_text '{"text":"ls"}')
-expect_not_contains "command line given: typing into a terminal" "$out" "refused"
-expect_contains "command line given: typed" "$(cat "$calls")" "wtype"
-expect_not_contains "command line given: reading a terminal" "$(NIXBOOK_DESKTOP_MCP_TERMINALS=1 call ui_read)" "off limits"
-expect_not_contains "command line given: terminal apps started" "$(NIXBOOK_DESKTOP_MCP_TERMINALS=1 call launch_app '{"app":"htop"}')" "terminal applications"
 echo prompt >"$STUB_FOCUS"
-expect_contains "command line given: password prompts still refused" "$(NIXBOOK_DESKTOP_MCP_TERMINALS=1 call type_text '{"text":"x"}')" "refused"
-reset_calls
 out=$(call press_keys '{"keys":["Return"]}')
 expect_contains "input into a password prompt refused" "$out" "password or authentication prompt"
 expect_eq "nothing ran while refused" "" "$(cat "$calls")"
