@@ -923,6 +923,9 @@ Singleton {
                     // thread re-posted with one more message) takes its place
                     // instead of a second cut-in.
                     property bool mergeUpdates: true
+                    // Seconds after a cut-in during which the next ones are
+                    // regular popups (no chain of cut-ins); 0 = off.
+                    property int cooldown: 10
                 }
             }
 

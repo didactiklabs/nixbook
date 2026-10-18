@@ -47,6 +47,9 @@ Singleton {
         // Ids of the earlier copies this one supersedes (duplicateVerdict):
         // a thread re-post, or the desktop copy of a phone-mirrored message.
         property var replaces: []
+        // Arrived within the cut-in cooldown of another cut-in: a regular
+        // popup instead (cutInCooldown).
+        property bool cutInCooledDown: false
 
         onNotificationChanged: {
             if (notification === null) {
@@ -231,6 +234,8 @@ Singleton {
             const quiet = root.quietRule(newNotifObject);
             if (quiet !== "")
                 console.log(`[Notifications] Quiet "${notification.appName}: ${notification.summary}" (${quiet})`);
+            else if (!root.silent)
+                root.cutInCooldown(newNotifObject);
 
             // Popup
             if (!root.popupInhibited && quiet === "") {
@@ -518,9 +523,31 @@ Singleton {
         return (rules.keywords ?? []).some(k => k.trim().length > 0 && text.includes(k.trim().toLowerCase()));
     }
 
+    // Cut-in cooldown (notifications.cutIn.cooldown s, 0 = off): after a
+    // cut-in, the next ones within the cooldown are regular popups, so a
+    // burst of messages doesn't chain cut-ins. A newer copy of the last
+    // cut-in (a thread re-posted, mergeUpdates) still updates it in place.
+    // Decided once, on arrival: `n.cutInCooledDown`.
+    property var lastCutIn: ({ id: -1, time: 0 })
+    function cutInCooldown(n) {
+        if (!root.cutInVerdict(n).cutIn) return;
+        const now = n.time;
+        if ((n.replaces ?? []).includes(root.lastCutIn.id)) {
+            root.lastCutIn = { id: n.notificationId, time: root.lastCutIn.time };
+            return;
+        }
+        const cooldownMs = Math.max(0, Config.options?.notifications?.cutIn?.cooldown ?? 10) * 1000;
+        if (now - root.lastCutIn.time < cooldownMs) {
+            n.cutInCooledDown = true;
+            return;
+        }
+        root.lastCutIn = { id: n.notificationId, time: now };
+    }
+
     // Persona cut-in decision (Settings → Notifications → Persona cut-in):
     // { cutIn, reason }. A blacklist rule vetoes everything; otherwise
-    // critical urgency, a chosen app or a keyword rule gives a cut-in.
+    // critical urgency, a chosen app or a keyword rule gives a cut-in,
+    // unless it came within the cooldown of the last one.
     // Rule syntax ("Victor + Instagram", "!x", "app:x", "\"word\""):
     // NotificationUtils.ruleMatches.
     function cutInVerdict(n) {
@@ -529,6 +556,7 @@ Singleton {
         if (!(rules.enable ?? true)) return { cutIn: false, reason: "cut-ins off" };
         const blocked = NotificationUtils.firstMatchingRule(n, rules.blacklist);
         if (blocked) return { cutIn: false, reason: `blacklist "${blocked}"` };
+        if (n.cutInCooledDown) return { cutIn: false, reason: "cooldown" };
         if ((rules.critical ?? true) && (n.urgency == NotificationUrgency.Critical || n.urgency === "critical"))
             return { cutIn: true, reason: "critical" };
         const app = (n.appName ?? "").toLowerCase();

@@ -740,6 +740,17 @@ ContentPage {
                         checked: cutInSection.rules.mergeUpdates
                         onCheckedChanged: Config.options.notifications.cutIn.mergeUpdates = checked
                     }
+                    ConfigSpinBox {
+                        configKey: "notifications.cutIn.cooldown"
+                        enabled: cutInSection.rules.enable
+                        icon: "timer"
+                        text: Translation.tr("After a cut-in, show the next ones as regular popups for (s, 0 = off)")
+                        value: cutInSection.rules.cooldown
+                        from: 0
+                        to: 300
+                        stepSize: 5
+                        onValueChanged: Config.options.notifications.cutIn.cooldown = value
+                    }
                     NotificationRuleEditor {
                         Layout.fillWidth: true
                         enabled: cutInSection.rules.enable
