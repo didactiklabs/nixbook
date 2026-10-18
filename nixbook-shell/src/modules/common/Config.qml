@@ -242,6 +242,13 @@ Singleton {
                     property string url: ""
                     property string apiKeyFile: ""
                 }
+                // The desktop agent speaking first, when it can help
+                // (services/Initiative.qml): off until turned on; reading
+                // notifications (what they say) is a step further, off too.
+                property JsonObject initiative: JsonObject {
+                    property bool enable: false
+                    property bool readNotifications: false
+                }
             }
 
             property JsonObject appearance: JsonObject {

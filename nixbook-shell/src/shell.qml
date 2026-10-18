@@ -29,6 +29,7 @@ ShellRoot {
         CalendarEvents.load()
         CalendarReminders.load()
         MemoryReminders.load()
+        Initiative.load()
         ThemeWallpapers.load()
         NiriThemeAnimations.load()
         LyricsService.restartLyrics()

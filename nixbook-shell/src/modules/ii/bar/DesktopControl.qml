@@ -15,6 +15,9 @@ import Quickshell
 // own (accent while its window is open, faint while it waits for their next
 // app, red once the user closed it: they're stopped; a hand while the user
 // has taken it over); right-click switches between theirs and the user's.
+// A speech bubble beside it while the agent has something to tell the user
+// (services/Initiative.qml), breathing slowly: click opens it in the chat,
+// right-click is "not now".
 MouseArea {
     id: root
     property bool vertical: Config.options.bar.vertical
@@ -49,6 +52,33 @@ MouseArea {
         NumberAnimation { to: 0.35; duration: 700; easing.type: Easing.InOutSine }
         NumberAnimation { to: 1; duration: 700; easing.type: Easing.InOutSine }
         onRunningChanged: if (!running) root.pulse = 1
+    }
+
+    // What the agent waits to tell the user, the latest.
+    readonly property var said: Initiative.live.length > 0 ? Initiative.live[Initiative.live.length - 1] : null
+    component Bubble: MaterialSymbol {
+        id: bubble
+        readonly property var said: Initiative.live.length > 0 ? Initiative.live[Initiative.live.length - 1] : null
+        visible: bubble.said !== null
+        text: "chat_bubble"
+        fill: 1
+        color: Appearance.colors.colPrimary
+        SequentialAnimation on opacity {
+            running: bubble.said !== null
+            loops: Animation.Infinite
+            NumberAnimation { to: 0.5; duration: 1600; easing.type: Easing.InOutSine }
+            NumberAnimation { to: 1; duration: 1600; easing.type: Easing.InOutSine }
+        }
+        MouseArea {
+            anchors.fill: parent
+            anchors.margins: -3
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            cursorShape: Qt.PointingHandCursor
+            onClicked: mouse => {
+                if (mouse.button === Qt.RightButton) Initiative.answer(bubble.said.id, "later");
+                else Initiative.open(bubble.said);
+            }
+        }
     }
 
     function ago(ms) {
@@ -89,6 +119,10 @@ MouseArea {
                     color: root.deskColor
                     anchors.verticalCenter: parent.verticalCenter
                 }
+                Bubble {
+                    iconSize: Appearance.font.pixelSize.small
+                    anchors.verticalCenter: parent.verticalCenter
+                }
             }
         }
     }
@@ -98,6 +132,12 @@ MouseArea {
         Item {
             implicitWidth: 24 + 8
             implicitHeight: 24 + 6
+            // Something to tell: a bubble on the button's top corner.
+            Bubble {
+                z: 1
+                anchors { right: parent.right; top: parent.top; rightMargin: -2; topMargin: -1 }
+                iconSize: 12
+            }
             // Their own desktop: a badge on the button's corner.
             Rectangle {
                 z: 1
@@ -165,6 +205,29 @@ MouseArea {
                     : DesktopControl.userHasControl ? Translation.tr("Its own, you have control")
                     : DesktopControl.agentDesktopOpen ? Translation.tr("Its own, in a window")
                     : Translation.tr("Its own, opens with its next app")
+            }
+
+            StyledPopupValueRow {
+                Layout.fillWidth: true
+                visible: root.said !== null
+                icon: "chat_bubble"
+                label: Translation.tr("Has something for you")
+                value: ""
+            }
+            StyledText {
+                visible: root.said !== null
+                Layout.fillWidth: true
+                Layout.maximumWidth: 320
+                wrapMode: Text.WordWrap
+                text: root.said ? root.said.text : ""
+                color: Appearance.colors.colOnSurfaceVariant
+            }
+            StyledText {
+                visible: root.said !== null
+                Layout.fillWidth: true
+                text: Translation.tr("Click the bubble to answer, right-click for not now")
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
             }
 
             StyledPopupValueRow {

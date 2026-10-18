@@ -44,6 +44,16 @@ Item {
         else item?.forceActiveFocus();
     }
 
+    // A reply to what the agent said first (services/Initiative.qml): the
+    // chat, its first tab.
+    Connections {
+        target: GlobalStates
+        function onAiChatRequested() {
+            if (root.aiChatEnabled) swipeView.currentIndex = 0
+            root.focusActiveItem()
+        }
+    }
+
     Keys.onPressed: (event) => {
         if (event.modifiers === Qt.ControlModifier) {
             if (event.key === Qt.Key_PageDown) {
