@@ -131,6 +131,21 @@ Scope { // Scope
             // from niri (`niri msg layers` lists them in that order) and, when
             // it comes first, the sidebar is mapped again: behind the bar.
             property bool remapping: false
+
+            // Pinned, it is open from the start, and on the Overlay layer a
+            // surface mapped later is drawn on top: it showed over the loading
+            // screen (mapped once the saved pin loads, or again behind the
+            // bar, and always after the early splash, another process). While
+            // the shell boots it stays mapped (its strip stays reserved, no
+            // window reflow) but draws nothing, blurs nothing and takes no
+            // input; it fades in with the loading screen's fade-out. Not tied
+            // to the pin: the saved open state can arrive before the pin.
+            readonly property bool bootHidden: Preloader.booting
+            // Changes once, at the end of the boot: only that is animated.
+            property real bootFade: Preloader.booting ? 0 : 1
+            Behavior on bootFade {
+                NumberAnimation { duration: 320; easing.type: Easing.OutCubic } // BootSplash's fade-out
+            }
             function checkBarOrder() {
                 if (!root.pin || root.detach) return;
                 barOrderCheck.tries = 0;
@@ -312,7 +327,7 @@ Scope { // Scope
             // Pinned, only the panel's own reserved strip takes input: the
             // window is wider (extended width, shadow), and that transparent
             // rest lies over the windows beside it.
-            mask: !panelWindow.reallyVisible ? noInput : root.pin ? pinnedMask : openMask
+            mask: !panelWindow.reallyVisible || panelWindow.bootHidden ? noInput : root.pin ? pinnedMask : openMask
             Region {
                 id: openMask
                 item: fullMaskArea
@@ -323,7 +338,7 @@ Scope { // Scope
             }
             Region { id: noInput }
             // Niri's blur behind the body (NiriConfig.panelBlur), while open.
-            BackgroundEffect.blurRegion: NiriConfig.panelBlur && panelWindow.reallyVisible ? blurArea : null
+            BackgroundEffect.blurRegion: NiriConfig.panelBlur && panelWindow.reallyVisible && !panelWindow.bootHidden ? blurArea : null
             Region {
                 id: blurArea
                 item: sidebarLeftBackground
@@ -417,7 +432,9 @@ Scope { // Scope
                 readonly property bool sidebarOpen: GlobalStates.sidebarLeftOpen
                 // Nothing drawn while closed (the surface stays mapped).
                 // (≈invisible while booting: draws once so textures are uploaded)
-                opacity: panelWindow.reallyVisible ? 1 : (Preloader.prerender ? 0.004 : 0)
+                opacity: panelWindow.reallyVisible
+                    ? Math.max(panelWindow.bootFade, Preloader.prerender ? 0.004 : 0)
+                    : (Preloader.prerender ? 0.004 : 0)
                 x: Appearance.sizes.gapsOut - (!sidebarOpen ? width : 0)
 
                 // A peek (edge handle hover) slides in at the dock's pace.
