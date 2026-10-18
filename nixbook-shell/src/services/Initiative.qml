@@ -22,10 +22,11 @@ import QtQuick
  *   - moment: now and then, at random (40 minutes to 2 hours apart while
  *     the user is at the computer), a chance for a light word: most of the
  *     time nothing is said, at most a couple a day, only in the bar.
- * What it says comes as a notification from "Claude" (Reply, Not now,
- * Don't) or waits in the bar (`pending`: the robot's bubble), until it
- * expires. Reply opens the side panel's chat with it as Claude's message, so
- * the user just answers; the answer teaches it what the user values.
+ * What it says comes out loud (`speaking`: its own bubble on the left,
+ * AgentSpeech.qml, with Reply, Not now, Don't) or waits in the bar
+ * (`pending`: the robot's bubble), until it expires. Reply opens the side
+ * panel's "From Claude" tab with it as Claude's message, so the user just
+ * answers; the answer teaches it what the user values.
  */
 Singleton {
     id: root
@@ -83,8 +84,8 @@ Singleton {
     // Opens what it said in the side panel's chat, as Claude's message.
     function open(item) {
         if (!item) return
-        Ai.newChat()
-        Ai.addMessage(item.chat || item.text, "assistant")
+        if (root.speaking?.id === item.id) root.speaking = null
+        Ai.claudeTab().addMessage(item.chat || item.text, "assistant", true)
         GlobalStates.sidebarLeftOpen = true
         GlobalStates.aiChatRequested()
         root.answer(item.id, "replied")
@@ -98,11 +99,21 @@ Singleton {
         Quickshell.execDetached(["nixbook-desktop-mcp", "initiative", "answer", id, outcome])
     }
 
+    // What it says out loud now (modules/ii/notificationPopup/AgentSpeech.qml,
+    // on the left under the bar): one at a time, the one before to the bar.
+    property var speaking: null
     function _notify(item) {
-        notifier.createObject(root, { item: item, running: true, command: ["notify-send", "--app-name=Claude",
-            "--icon=smart_toy", "--urgency=normal", "--wait",
-            "--action=reply=" + Translation.tr("Reply"), "--action=later=" + Translation.tr("Not now"),
-            "--action=never=" + Translation.tr("Don't tell me this"), item.title || "Claude", item.text] })
+        if (root.speaking) root.pending = [...root.pending, root.speaking]
+        root.speaking = item
+    }
+    // Its speech answered without a reply: later, never, or "wait" (no
+    // answer: to the bar's bubble).
+    function hush(outcome) {
+        const item = root.speaking
+        if (!item) return
+        root.speaking = null
+        if (outcome === "wait") root.pending = [...root.pending.filter(p => p.id !== item.id), item]
+        else root.answer(item.id, outcome)
     }
 
     function _urgency(n) {
@@ -125,24 +136,6 @@ Singleton {
                     // Nothing to say, or the server is missing: silence.
                 }
                 proc.destroy()
-            }
-        }
-    }
-
-    Component {
-        id: notifier
-        Process {
-            id: notifyProc
-            property var item
-            stdout: StdioCollector { id: chosen }
-            onExited: {
-                const action = chosen.text.trim()
-                if (action === "reply") root.open(notifyProc.item)
-                else if (action === "never") root.answer(notifyProc.item.id, "never")
-                else if (action === "later") root.answer(notifyProc.item.id, "later")
-                // Closed or expired: it waits in the bar a while instead.
-                else root.pending = [...root.pending.filter(p => p.id !== notifyProc.item.id), notifyProc.item]
-                notifyProc.destroy()
             }
         }
     }

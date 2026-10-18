@@ -38,7 +38,11 @@ Scope {
     property bool unread: false
     readonly property bool responding: requester.turnActive || personalContext.running
 
+    // The tab for what Claude says on its own (services/Initiative.qml): one,
+    // reused, whatever the tab count.
+    property bool fromClaude: false
     readonly property string title: {
+        if (chat.fromClaude) return Translation.tr("From Claude");
         const saved = Ai.history.find(c => c.id === chat.chatId)?.title;
         if (saved) return saved;
         const first = chat.messageIDs.map(id => chat.messageByID[id]).find(m => m?.role === "user");
@@ -64,7 +68,7 @@ Scope {
         blockWrites: true
     }
 
-    function addMessage(message, role) {
+    function addMessage(message, role, unsent = false) {
         if (message.length === 0) return;
         const aiMessage = Ai.aiMessageComponent.createObject(chat, {
             "role": role,
@@ -72,6 +76,7 @@ Scope {
             "rawContent": message,
             "thinking": false,
             "done": true,
+            "unsent": unsent,
         });
         const id = Ai.idForMessage(aiMessage);
         chat.messageIDs = [...chat.messageIDs, id];
@@ -429,6 +434,7 @@ Scope {
 
             /* Send the request */
             const prompt = Ai.claudeCodePrompt(filteredMessageArray, attached, chat.claudeSessionId);
+            for (const m of filteredMessageArray) m.unsent = false;
             const turns = filteredMessageArray.filter(m => m.role === "user");
             desktopTaskFile.path = Qt.resolvedUrl(chat.desktopTaskFilePath);
             desktopTaskFile.setText((turns[turns.length - 1]?.rawContent ?? "").slice(0, 500));

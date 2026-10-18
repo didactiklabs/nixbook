@@ -15,6 +15,8 @@ Scope {
     // Chiikawa theme, the incoming holocall in the Cyberpunk theme, the
     // frosted-glass card on the wind in the Ghibli theme (loaded only then).
     PersonaCutIn {}
+    // Claude speaking first: its own bubble, on the left, in the theme's look.
+    AgentSpeech {}
     LazyLoader {
         active: Chiikawa.enabled
         component: ChiikawaAlert {}
