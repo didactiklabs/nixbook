@@ -1945,10 +1945,20 @@ expect_contains "contacts batch: at most 50" "$(call contacts "{\"action\":\"bat
 expect_contains "contacts: names capped" "$(call contacts "{\"action\":\"update\",\"id\":\"c1\",\"name\":\"$(printf 'a%.0s' $(seq 400))\"}")" "at most 300"
 expect_contains "contacts: unknown action" "$(call contacts '{"action":"merge"}')" "merge"
 expect_contains "contacts: signed out" "$(STUB_GOOGLE_SIGNED_OUT=1 call contacts '{"action":"list"}')" "No account is connected"
-call contacts "{\"action\":\"set_photo\",\"id\":\"c2\",\"photo\":\"$tmp/face.png\"}" >/dev/null
-expect_eq "contacts set_photo: a file" "{\"op\":\"set_photo\",\"id\":\"c2\",\"photo\":\"$tmp/face.png\"}" "$(jq -c . "$calls.contacts")"
-call contacts '{"action":"set_photo","id":"c2","photo":"~/face.png"}' >/dev/null
-expect_eq "contacts set_photo: ~ expanded" "$HOME/face.png" "$(jq -r .photo "$calls.contacts")"
+# A picture from a folder the user shares with agents only, like the wallpaper.
+photos="$tmp/home/Pictures"
+mkdir -p "$photos"
+printf '\x89PNG\r\n\x1a\n0000IHDR' >"$photos/face.png"
+printf '\x89PNG\r\n\x1a\n0000IHDR' >"$tmp/private.png"
+saved_config=$(cat "$XDG_CONFIG_HOME/nixbook-shell/config.json" 2>/dev/null || true)
+mkdir -p "$XDG_CONFIG_HOME/nixbook-shell"
+jq -n --arg d "$photos" '{ai: {allowedFolders: [$d], writableFolders: []}}' >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
+call contacts "{\"action\":\"set_photo\",\"id\":\"c2\",\"photo\":\"$photos/face.png\"}" >/dev/null
+expect_eq "contacts set_photo: a file" "{\"op\":\"set_photo\",\"id\":\"c2\",\"photo\":\"$(realpath "$photos/face.png")\"}" "$(jq -c . "$calls.contacts")"
+HOME="$tmp/home" call contacts '{"action":"set_photo","id":"c2","photo":"~/Pictures/face.png"}' >/dev/null
+expect_eq "contacts set_photo: ~ expanded" "$(realpath "$photos/face.png")" "$(jq -r .photo "$calls.contacts")"
+expect_contains "contacts set_photo: outside the shared folders" "$(call contacts "{\"action\":\"set_photo\",\"id\":\"c2\",\"photo\":\"$tmp/private.png\"}")" "isn't in a folder the user shares"
+if [ -n "$saved_config" ]; then printf '%s\n' "$saved_config" >"$XDG_CONFIG_HOME/nixbook-shell/config.json"; else rm -f "$XDG_CONFIG_HOME/nixbook-shell/config.json"; fi
 call contacts '{"action":"set_photo","id":"c2","photo":""}' >/dev/null
 expect_eq 'contacts set_photo: "" removes it' '{"op":"set_photo","id":"c2","photo":""}' "$(jq -c . "$calls.contacts")"
 expect_contains "contacts set_photo: not a relative path" "$(call contacts '{"action":"set_photo","id":"c2","photo":"face.png"}')" "absolute path or an http(s) URL"

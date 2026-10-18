@@ -67,7 +67,15 @@ generate_thumbnail() {
   if [ -f "$out" ]; then
     return
   fi
-  magick "$abs_path" -resize "${THUMBNAIL_SIZE}x${THUMBNAIL_SIZE}" "$out"
+  # Written beside it, then renamed: an interrupted run used to leave a
+  # truncated PNG that, existing, was never made again.
+  local tmp="$out.$BASHPID.tmp"
+  if magick "$abs_path" -resize "${THUMBNAIL_SIZE}x${THUMBNAIL_SIZE}" "png:$tmp"; then
+    mv -f "$tmp" "$out"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
 }
 
 # Parse arguments
@@ -94,8 +102,6 @@ while [[ $# -gt 0 ]]; do
     usage
     ;;
   esac
-  # Only one mode allowed
-  [[ -n $MODE ]] && break
 done
 
 THUMBNAIL_SIZE="$(get_thumbnail_size "$SIZE_NAME")"
@@ -118,9 +124,18 @@ dir)
     echo "Directory not found: $TARGET"
     exit 2
   fi
+  # A few at a time (one per CPU): one magick per file at once started
+  # thousands of decoders on a big folder and could run out of memory.
+  max_jobs="$(nproc 2>/dev/null || echo 4)"
+  running=0
   for f in "$TARGET"/*; do
     [ -f "$f" ] || continue
     generate_thumbnail "$f" &
+    running=$((running + 1))
+    if [ "$running" -ge "$max_jobs" ]; then
+      wait -n || true
+      running=$((running - 1))
+    fi
   done
   wait
   ;;

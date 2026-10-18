@@ -87,6 +87,23 @@ config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
 shell_config="$config_home/nixbook-shell/config.json"
 first_home="${NIXBOOK_AGENT_HOME:-$data_home/nixbook-shell/agent-home}"
 agent_home="$first_home$suffix"
+# The links this script made in the agent's home to the user's shared folders
+# (removed again on the next start): kept outside that home, which the
+# sandboxed apps can write, so they can't add paths for this script to delete.
+links_file="$first_home$suffix.links"
+
+# A path in the agent's home this script may delete or write: no `..`, and
+# its folder (symlinks resolved) is in that home, so a link an app planted
+# (`.config` -> the user's ~/.config) can't redirect it to the user's files.
+in_agent_home() {
+  local p="$1" home="$2" dir
+  case "/$p/" in */../* | */./*) return 1 ;; esac
+  case "$p" in "$home"/*) ;; *) return 1 ;; esac
+  dir="$(realpath -m -- "$(dirname -- "$p")")"
+  home="$(realpath -m -- "$home")"
+  [ -n "$dir" ] && [ -n "$home" ] || return 1
+  [ "$dir" = "$home" ] || case "$dir" in "$home"/*) ;; *) return 1 ;; esac
+}
 
 rm -rf "$control"
 # Another desktop's home, the first time: the first one's, but its caches and
@@ -95,18 +112,29 @@ if [ -n "$instance" ] && [ ! -e "$agent_home" ] && [ -d "$first_home" ]; then
   mkdir -p "$agent_home.tmp"
   tar -C "$first_home" --exclude=./.cache --exclude=./Downloads -cf - . | tar -C "$agent_home.tmp" -xf - ||
     echo "nixbook-agent-desktop: copying $first_home partly failed" >&2
-  if [ -r "$agent_home.tmp/.config/nixbook-shared-links" ]; then
+  if [ -r "$first_home.links" ]; then
     while IFS= read -r link; do
       link="$agent_home.tmp/${link#"$first_home"/}"
-      [ -L "$link" ] && rm -f "$link"
-    done <"$agent_home.tmp/.config/nixbook-shared-links"
-    rm -f "$agent_home.tmp/.config/nixbook-shared-links"
+      in_agent_home "$link" "$agent_home.tmp" && [ -L "$link" ] && rm -f "$link"
+    done <"$first_home.links"
   fi
+  rm -f "$agent_home.tmp/.config/nixbook-shared-links"
   mv "$agent_home.tmp" "$agent_home"
 fi
 mkdir -p "$session_runtime" "$agent_home"
 chmod 700 "$control" "$session_runtime" "$agent_home"
+# The folders written below are real folders of the agent's home: a symlink
+# an app put in their place (to the user's own) is removed, not followed.
+for dir in .config .config/dconf .local .local/share .local/state .cache; do
+  [ -L "$agent_home/$dir" ] && rm -f "$agent_home/$dir"
+done
 mkdir -p "$agent_home/.config" "$agent_home/.local/share" "$agent_home/.local/state" "$agent_home/.cache"
+# The list of an older version, kept in the agent's home (see links_file):
+# taken over once, its entries checked like any other.
+if [ ! -e "$links_file" ] && [ -f "$agent_home/.config/nixbook-shared-links" ] && [ ! -L "$agent_home/.config/nixbook-shared-links" ]; then
+  cp "$agent_home/.config/nixbook-shared-links" "$links_file"
+fi
+rm -f "$agent_home/.config/nixbook-shared-links"
 
 # The user's look: links, so a theme change reaches the agent's apps too (the
 # sandbox shows their targets read-only, see `look` below). Nothing with
@@ -130,7 +158,7 @@ done
 link "$HOME/.icons" "$agent_home/.icons"
 # dconf (GTK theme, fonts) is copied once: it can't be shared read-only and
 # the agent's apps must not rewrite the user's settings.
-if [ -e "$config_home/dconf/user" ] && [ ! -e "$agent_home/.config/dconf/user" ]; then
+if [ -e "$config_home/dconf/user" ] && [ ! -e "$agent_home/.config/dconf/user" ] && [ ! -L "$agent_home/.config/dconf/user" ]; then
   mkdir -p "$agent_home/.config/dconf"
   cp "$config_home/dconf/user" "$agent_home/.config/dconf/user"
 fi
@@ -331,17 +359,15 @@ fi
 # for them: the same place in their own home (~/Pictures, a link to the
 # user's), so file dialogs, darktable's import… find them. The links of the
 # last start go first (a folder may be shared no more).
-links_file="$agent_home/.config/nixbook-shared-links"
 if [ -r "$links_file" ]; then
   while IFS= read -r link; do
-    case "$link" in "$agent_home"/*) ;; *) continue ;; esac
+    in_agent_home "$link" "$agent_home" || continue
     if [ -L "$link" ]; then
       rm -f "$link"
       rmdir -p --ignore-fail-on-non-empty "$(dirname "$link")" 2>/dev/null || true
     fi
   done <"$links_file"
 fi
-mkdir -p "$agent_home/.config"
 : >"$links_file"
 # Sorted: a folder before those inside it (inside a linked one, they are there).
 while IFS= read -r folder; do
@@ -349,6 +375,7 @@ while IFS= read -r folder; do
   link="$agent_home/${folder#"$HOME"/}"
   if [ ! -e "$link" ] && [ ! -L "$link" ]; then
     mkdir -p "$(dirname "$link")"
+    in_agent_home "$link" "$agent_home" || continue
     ln -s "$folder" "$link"
     printf '%s\n' "$link" >>"$links_file"
   fi
@@ -376,7 +403,10 @@ done < <(printf '%s\n' ${shared[@]+"${shared[@]}"} | sort -u)
       done
     done <"$config_home/user-dirs.dirs"
   fi
-} >"$agent_home/.config/user-dirs.dirs"
+} >"$agent_home/.config/user-dirs.dirs.tmp"
+# Renamed into place: replaces a symlink an app put there instead of
+# writing through it.
+mv -f "$agent_home/.config/user-dirs.dirs.tmp" "$agent_home/.config/user-dirs.dirs"
 
 # Their own network: pasta gives it the internet and the LAN through this
 # computer's connection, without its loopback (-T/-U none, --no-map-gw: the

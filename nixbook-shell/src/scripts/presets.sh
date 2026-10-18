@@ -19,11 +19,23 @@ mkdir -p "$LOCAL_PRESETS_DIR" "$ONLINE_PRESETS_DIR" "$IMPORTED_PRESETS_DIR"
 
 # Blacklist: General (time/battery/audio/sounds/language/workSafety) + Services (ai/networking/musicRecognition/search/screenRecord/screenSnip/updates/bar.weather)
 # Keep: appearance/background/bar(non-weather)/dock/lock/overview/panelFamily etc.
-# Note: apps/profile/wallpaperSelector are NOT blacklisted here (would make preset look empty) - only General+Services per Settings tabs
+# Note: profile/wallpaperSelector are NOT blacklisted here (would make preset look empty) - only General+Services per Settings tabs
+# .apps is: its values are commands the shell runs (terminal, network, volume
+# mixer… through AppLaunch.spawnShell), so an online or imported preset could
+# otherwise plant one. (.ai's claudeCode.command and .search's shellCommand
+# prefix go with their sections.)
 BLACKLIST_FILTER='del(._presetMeta)
   | del(.time, .battery, .audio, .sounds, .language, .workSafety)
   | del(.ai, .networking, .musicRecognition, .search, .screenRecord, .screenSnip, .updates)
+  | del(.apps)
   | del(.bar.weather)'
+
+# A preset name is a file name: no path (it ends up in `rm -rf …/<name>`).
+valid_name() {
+  case "$1" in
+  "" | . | .. | */* | -*) return 1 ;;
+  esac
+}
 
 action="$1"
 shift
@@ -68,6 +80,10 @@ if [ "$action" = "--import-zip" ]; then
     exit 1
   fi
   base=$(basename "$json_file" .json)
+  if ! valid_name "$base"; then
+    echo "Error: invalid preset name in zip: $base" >&2
+    exit 1
+  fi
   # Collect assets from the same folder as the json (images etc, exclude json/meta).
   # Anchoring to the json dir (instead of the zip root) supports flat zips as well
   # as folder-wrapped ones (e.g. Blapples' assets/ layout).
@@ -90,6 +106,10 @@ fi
 
 if [ -z "$name" ]; then
   echo "Error: missing preset name" >&2
+  exit 1
+fi
+if ! valid_name "$name"; then
+  echo "Error: invalid preset name: $name" >&2
   exit 1
 fi
 

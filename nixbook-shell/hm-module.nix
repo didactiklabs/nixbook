@@ -1252,8 +1252,9 @@ in
             RestartSec = 5;
             Slice = "background.slice";
             NoNewPrivileges = true;
+            # AF_UNIX only already keeps it off the network (IPAddressDeny
+            # needs root's BPF firewall: a user unit only logged a warning).
             RestrictAddressFamilies = [ "AF_UNIX" ];
-            IPAddressDeny = "any";
             UMask = "0077";
           };
           Install.WantedBy = [ "graphical-session.target" ];

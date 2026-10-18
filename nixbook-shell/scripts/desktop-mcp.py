@@ -634,6 +634,16 @@ TOOLS = {}
 
 # Tools that change something; they can return a screenshot of the result.
 ACTION_GROUPS = ("windows", "input")
+# Tools refused while the user has taken over the agent desktop: the action
+# groups and ui_act, which presses and fills the same windows over AT-SPI.
+TAKEOVER_REFUSED = ("ui_act",)
+TAKEOVER_MESSAGE = ("refused: the user took over your desktop for a moment (to log in somewhere, "
+                    "say). Wait and try again later; screenshots still show what they do.")
+
+
+def refused_by_takeover(ctx, name, group):
+    return (ctx.desktop == "agent" and (group in ACTION_GROUPS or name in TAKEOVER_REFUSED)
+            and user_has_control())
 AFTER_PROPS = {
     "screenshot_after": {
         "type": "boolean",
@@ -6010,6 +6020,9 @@ def t_run_steps(ctx, args):
         if is_paused():
             audit(ctx.client, name, step_args, "paused (run_steps)")
             raise ToolError("\n".join(done + [f"stopped before step {i}: desktop control was paused by the user"]))
+        if refused_by_takeover(ctx, name, t["group"]):
+            audit(ctx.client, name, step_args, "user took over (run_steps)")
+            raise ToolError("\n".join(done + [f"stopped before step {i}: {TAKEOVER_MESSAGE}"]))
         try:
             out = t["fn"](ctx, step_args)
         except ToolError as e:
@@ -7080,9 +7093,11 @@ def photo_paths(ops, folder):
         if re.match(r"https?://", photo, re.I):
             o["photo"] = fetch_photo(photo, folder)
         elif photo:
-            o["photo"] = os.path.expanduser(photo)
-            if not os.path.isabs(o["photo"]):
+            if not os.path.isabs(os.path.expanduser(photo)):
                 raise ToolError("`photo` must be an image file's absolute path or an http(s) URL")
+            # Only a picture from a folder the user shares with agents, like
+            # the wallpaper and the image widget: not any file of theirs.
+            o["photo"] = shared_image(photo, "set the contact's picture in the Contacts app")
         else:
             o["photo"] = ""
 
@@ -7995,14 +8010,24 @@ def call_tool(ctx, name, args, session=None):
             return [text("refused: desktop control is paused by the user (`nixbook-desktop-mcp resume` to allow it again)")], True
     # One action at a time, whatever the number of clients or threads.
     with ctx.lock:
+        # Again once it's this call's turn: over HTTP it may have waited
+        # behind a long run_steps while the user paused.
+        if name not in PAUSE_FREE:
+            try:
+                paused = is_paused()
+            except ToolError as e:
+                audit(ctx.client, name, args, f"error: {e}")
+                return [text(f"refused: {e}")], True
+            if paused:
+                audit(ctx.client, name, args, "paused")
+                return [text("refused: desktop control is paused by the user (`nixbook-desktop-mcp resume` to allow it again)")], True
         ctx.session = session
         write_state(last={"time": int(time.time() * 1000), "client": ctx.client, "tool": name, "outcome": "running"})
         try:
             if name != "get_status":  # it says why the agent desktop can't start
                 ctx.desktop = use_desktop(name, t["group"])
-            if ctx.desktop == "agent" and t["group"] in ACTION_GROUPS and user_has_control():
-                raise ToolError("refused: the user took over your desktop for a moment (to log in somewhere, "
-                                "say). Wait and try again later; screenshots still show what they do.")
+            if refused_by_takeover(ctx, name, t["group"]):
+                raise ToolError(TAKEOVER_MESSAGE)
             content = t["fn"](ctx, args)
         except ToolError as e:
             audit(ctx.client, name, args, f"error: {e}")
