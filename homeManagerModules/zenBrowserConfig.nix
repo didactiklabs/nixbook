@@ -314,7 +314,7 @@ in
           }
         ];
 
-        keyboardShortcutsVersion = 20;
+        keyboardShortcutsVersion = 21;
       };
     };
 
