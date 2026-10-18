@@ -77,6 +77,7 @@ Scope {
             "thinking": false,
             "done": true,
             "unsent": unsent,
+            "initiative": unsent,
             "learnHint": learnHint,
         });
         const id = Ai.idForMessage(aiMessage);
@@ -122,6 +123,7 @@ Scope {
                 "functionCall": message.functionCall,
                 "functionResponse": message.functionResponse,
                 "visibleToUser": message.visibleToUser,
+                "initiative": message.initiative,
             });
         });
     }
@@ -182,6 +184,8 @@ Scope {
     }
 
     function sendUserMessage(message) {
+        // An agent typing into this chat would act with this Claude's tools.
+        if (DesktopControl.refuseIfAgentInput(Translation.tr("a message to Claude in the side panel"))) return;
         if (chat.fromClaude) Initiative.engaged();
         if (message.length === 0) return;
         chat.addMessage(message, "user");

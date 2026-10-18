@@ -219,6 +219,7 @@ MouseArea {
                 Layout.fillWidth: true
                 Layout.maximumWidth: 320
                 wrapMode: Text.WordWrap
+                textFormat: Text.PlainText
                 text: root.said ? root.said.text : ""
                 color: Appearance.colors.colOnSurfaceVariant
             }

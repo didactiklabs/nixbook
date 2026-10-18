@@ -807,6 +807,30 @@ Guardrails, whatever the transport:
   password manager or a password prompt (`inputDenyApps`,
   `inputDenyTitles`), no Super combinations (compositor bindings) or
   Ctrl+Alt+Delete/F-keys;
+- hardening (`check_input_target`): the shell's Settings window (`org.quickshell`)
+  is in `inputDenyApps` and `settings` in `shellIpcDenyTargets`; in apps with a
+  terminal inside (`TERMINAL_HOSTS`: Dolphin, Kate, editors) the keys opening it
+  (`TERMINAL_HOST_KEYS`) are refused and the keyboard needs an accessibility
+  role that isn't `terminal` (`focused_a11y_role`, refused when unknown);
+  browsers' devtools keys (`DEVTOOLS_KEYS`) are refused; `ui_act` refuses
+  `terminal` elements; every input first writes `mark_agent_input()`
+  (`$XDG_RUNTIME_DIR/nixbook-shell/agent-input`, ms), and the shell
+  (`DesktopControl.refuseIfAgentInput`, 3 s) won't run a launcher `$` command
+  or send a side-panel chat message right after; `clipboard_get` refuses and
+  `paste_text` doesn't restore what a password manager marked
+  (`x-kde-passwordManagerHint`); notes can't hold `NOTE_DIRECTIVES` whatever
+  their claimed source, personal entries no `NOTE_OVERRIDES`, tentative notes
+  aren't injected unasked, the weekly tidy checks merges as the least trusted
+  note; the notifications sent to the small model skip `NOTICE_SECRET` (codes,
+  payments) and bank/authenticator/password-manager apps, and none are batched
+  while locked or on Do Not Disturb; routines an agent adds (or turns on) start
+  off and ask (`routine_ask`, the accept word; `routine on` from the user turns
+  one on), fixed actions use `ROUTINE_DESKTOP_TOOLS` (shell_ipc: `mpris`),
+  `assistant_servers()` drops `ai.claudeCode.mcpServersOff`, a routine's Claude
+  run gets only `ROUTINE_EVENT_FIELDS` of its event, a desktop server limited by
+  `NIXBOOK_DESKTOP_MCP_GROUPS` (`observe,windows,shell`), and doesn't run while
+  locked; person entries reach the contacts only from the user's chats, never
+  from the memory pass, curiosity or routines, nor while paused.
 - the bar widget, `nixbook-desktop-mcp pause` (or `toggle`) stops every
   tool (for every agent, until `resume`): bind it to a key as a panic button.
   Desktop control starts paused: agents may act only while

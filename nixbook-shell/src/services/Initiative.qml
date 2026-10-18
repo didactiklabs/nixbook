@@ -219,6 +219,9 @@ Singleton {
         target: Notifications
         function onNotify(n) {
             if (!root.enabled || !root.readNotifications) return
+            // Not while away (locked) or on Do Not Disturb: nobody to tell,
+            // and what comes then isn't read by the model either.
+            if (GlobalStates.screenLocked || Notifications.silent) return
             root._batch = [...root._batch, { app: n.appName, summary: n.summary, body: n.body, urgency: root._urgency(n) }].slice(-12)
             if (!batchTimer.running) batchTimer.start()
         }
