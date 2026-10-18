@@ -365,10 +365,13 @@ Singleton {
         id: listClaudeConnectors
         property bool changed: false
         property bool forceRestart: false
+        property bool timedOut: false
         command: [root.claudeCodePath, "mcp", "list"]
         workingDirectory: Quickshell.env("HOME")
         stdout: StdioCollector {
             onStreamFinished: {
+                // Cut short: its partial list would take permissions away.
+                if (listClaudeConnectors.timedOut) return;
                 const found = text.split("\n")
                     .map(l => /^(claude\.ai [^:]+):.* - (.+)$/.exec(l.trim()))
                     .filter(m => m);
@@ -379,12 +382,28 @@ Singleton {
                 root.claudeConnectorsState = state;
             }
         }
+        // `claude mcp list` health-checks every server: one that never
+        // answers would hold a message waiting for the list for good.
+        onRunningChanged: if (running) {
+            timedOut = false;
+            listTimeout.restart();
+        }
         onExited: {
+            listTimeout.stop();
             root.claudeConnectorsCheckedAt = Date.now();
             const restart = listClaudeConnectors.changed || listClaudeConnectors.forceRestart;
             listClaudeConnectors.changed = false;
             listClaudeConnectors.forceRestart = false;
             for (const chat of root.chats) chat.connectorsChecked(restart);
+        }
+    }
+
+    Timer {
+        id: listTimeout
+        interval: 20000
+        onTriggered: if (listClaudeConnectors.running) {
+            listClaudeConnectors.timedOut = true;
+            listClaudeConnectors.signal(15);
         }
     }
 
