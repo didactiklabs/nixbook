@@ -349,9 +349,9 @@ Scope {
             if (!Ai.claudeConnectorsSetting || requester.connectorRetried) return false;
             // From its servers' names and, exactly, from its tools' names
             // (mcp__<server>__<tool>).
-            const found = [...(ev.mcp_servers ?? []).filter(s => /^claude\.ai /.test(s.name ?? ""))
+            const found = [...(ev.mcp_servers ?? []).filter(s => /^(claude\.ai |plugin:)/.test(s.name ?? ""))
                     .map(s => Ai.connectorRule(s.name)),
-                ...(ev.tools ?? []).map(t => /^(mcp__claude_ai_.+?)__/.exec(t)?.[1]).filter(r => r)];
+                ...(ev.tools ?? []).map(t => /^(mcp__(?:claude_ai_|plugin_).+?)__/.exec(t)?.[1]).filter(r => r)];
             const missing = [...new Set(found)].filter(n => !Ai.claudeConnectors.includes(n));
             if (missing.length === 0) return false;
             Ai.claudeConnectors = [...Ai.claudeConnectors, ...missing];

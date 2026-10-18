@@ -337,8 +337,10 @@ Singleton {
 
     // The claude.ai connectors (Gmail, Calendar, Drive…) of the user's Claude
     // account, as permission rules: `claude mcp list` names them "claude.ai
-    // Gmail", their tools are mcp__claude_ai_Gmail__*. Claude Code takes no
-    // wildcard over servers, so each one is allowed by name.
+    // Gmail", their tools are mcp__claude_ai_Gmail__*. With them, the MCP
+    // servers of the plugins enabled on claude.ai (synced to Claude Code):
+    // "plugin:hunter:hunter", tools mcp__plugin_hunter_hunter__*. Claude
+    // Code takes no wildcard over servers, so each one is allowed by name.
     property list<string> claudeConnectors: []
     // A server's name as Claude Code puts it in its tools' names: "claude.ai
     // LetsFG: Book the best flights or hotels" ->
@@ -377,13 +379,14 @@ Singleton {
         }
     }
     // Claude Code remembers a claude.ai connector that needed signing in to
-    // for 4 hours (mcp-needs-auth-cache.json, keyed by server name) and
+    // for 4 hours, a plugin's for 15 minutes (mcp-needs-auth-cache.json,
+    // keyed by server name) and
     // doesn't try it again at start meanwhile: once signed in on claude.ai,
     // it would still have only its authenticate tool. Forgotten first.
     Process {
         id: clearConnectorAuthCache
         command: ["bash", "-c", 'f="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/mcp-needs-auth-cache.json"; [ -f "$f" ] || exit 0; '
-            + 'jq -c \'with_entries(select(.key | startswith("claude.ai ") | not))\' "$f" > "$f.tmp" && mv "$f.tmp" "$f"']
+            + 'jq -c \'with_entries(select(.key | (startswith("claude.ai ") or startswith("plugin:")) | not))\' "$f" > "$f.tmp" && mv "$f.tmp" "$f"']
         onExited: root.relistClaudeConnectors()
     }
     IpcHandler {
@@ -409,9 +412,10 @@ Singleton {
             onStreamFinished: {
                 // Cut short: its partial list would take permissions away.
                 if (listClaudeConnectors.timedOut) return;
-                // "claude.ai <name>: <url> - <status>"; the name can hold colons.
+                // "claude.ai <name>: <url> - <status>" (the name can hold
+                // colons), "plugin:<plugin>:<server>: <url or command> - <status>".
                 const found = text.split("\n")
-                    .map(l => /^(claude\.ai .+?): \S+ - (.+)$/.exec(l.trim()))
+                    .map(l => /^(claude\.ai .+?): \S+ - (.+)$/.exec(l.trim()) ?? /^(plugin:[^:\s]+:[^:\s]+): .* - (.+)$/.exec(l.trim()))
                     .filter(m => m);
                 root.claudeConnectors = found.map(m => root.connectorRule(m[1]));
                 root.claudeConnectorsNeedAuth = found.some(m => /auth/i.test(m[2]));
