@@ -421,6 +421,20 @@ def use_desktop(name="get_status", group="observe"):
     return "user"
 
 
+# Terminals: off limits to agents, but for the session the user gave the
+# command line (Claude in the side panel with ai.claudeCode.commandLine on:
+# NIXBOOK_DESKTOP_MCP_TERMINALS=1). Password managers stay off limits.
+TERMINAL_APPS = re.compile(DEFAULT_CONFIG["inputDenyApps"][0], re.IGNORECASE)
+
+
+def terminals_allowed():
+    return os.environ.get("NIXBOOK_DESKTOP_MCP_TERMINALS") == "1"
+
+
+def terminal_allowed(app):
+    return terminals_allowed() and bool(TERMINAL_APPS.search(app or ""))
+
+
 def user_desktop_env():
     """The environment of a command meant for the user's desktop."""
     env = dict(os.environ)
@@ -627,7 +641,7 @@ class Guard:
         app = w.get("app_id") or ""
         title = w.get("title") or ""
         for pat in self.cfg.get("inputDenyApps", []):
-            if re.search(pat, app, re.IGNORECASE):
+            if re.search(pat, app, re.IGNORECASE) and not terminal_allowed(app):
                 raise ToolError(
                     f"refused: input into {app!r} is not allowed (terminals, password "
                     "managers and password prompts are off limits). Focus another "
@@ -1401,7 +1415,7 @@ def t_launch_app(ctx, args):
                 raise ToolError(f"no application matches {want!r}; see list_apps")
             raise ToolError(f"{want!r} is ambiguous: {', '.join(sorted(matches)[:15])}")
         want, entry = matches[0], visible[matches[0]]
-    if entry.get("Terminal") == "true":
+    if entry.get("Terminal") == "true" and not terminals_allowed():
         raise ToolError("refused: terminal applications can't be started by the agent")
     ctx.guard.check_rate()
     before = {w.get("id") for w in windows()}
@@ -9958,7 +9972,7 @@ def ui_window(ctx, args):
         raise ToolError("no window: give `window_id` (list_windows)")
     app, title = w.get("app_id") or "", w.get("title") or ""
     for pat in ctx.cfg.get("inputDenyApps", []):
-        if re.search(pat, app, re.IGNORECASE):
+        if re.search(pat, app, re.IGNORECASE) and not terminal_allowed(app):
             raise ToolError(f"refused: {app!r} is off limits (terminals, password managers)")
     for pat in ctx.cfg.get("inputDenyTitles", []):
         if re.search(pat, title, re.IGNORECASE):
