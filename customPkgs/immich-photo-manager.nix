@@ -107,12 +107,15 @@ py.buildPythonApplication rec {
     pypdf
     respx
   ];
-  # Live tests need a running Immich; the others here start the server as a
-  # subprocess, which doesn't get the build's PYTHONPATH.
+  # Live tests need a running Immich; the next two start the server as a
+  # subprocess, which doesn't get the build's PYTHONPATH; the last runs
+  # upstream's Claude plugin setup script (not shipped here) with a bash
+  # the sandbox doesn't have.
   disabledTestPaths = [
     "tests/live"
     "tests/test_dual_era.py"
     "tests/test_e2e_both_eras.py"
+    "tests/test_setup_script.py"
   ];
   disabledTests = [ "test_the_launcher_serves_mcp_over_stdio_without_credentials" ];
   preCheck = ''
