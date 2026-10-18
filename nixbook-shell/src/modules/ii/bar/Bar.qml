@@ -93,6 +93,7 @@ Scope {
                 // Include in focus grab
                 Component.onCompleted: {
                     GlobalFocusGrab.addPersistent(barRoot);
+                    GlobalStates.barCreated(barLoader.modelData?.name ?? "");
                 }
                 Component.onDestruction: {
                     GlobalFocusGrab.removePersistent(barRoot);
