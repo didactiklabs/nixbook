@@ -327,6 +327,13 @@ Singleton {
     // Gmail", their tools are mcp__claude_ai_Gmail__*. Claude Code takes no
     // wildcard over servers, so each one is allowed by name.
     property list<string> claudeConnectors: []
+    // A server's name as Claude Code puts it in its tools' names: "claude.ai
+    // LetsFG: Book the best flights or hotels" ->
+    // mcp__claude_ai_LetsFG_Book_the_best_flights_or_hotels (each run of
+    // other characters one underscore).
+    function connectorRule(name) {
+        return "mcp__" + name.replace(/[^A-Za-z0-9_-]+/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
+    }
     readonly property bool claudeConnectorsSetting: Config.options?.ai?.claudeCode?.connectors ?? false
     onClaudeConnectorsSettingChanged: if (claudeConnectorsSetting && claudeCodePath.length > 0) listClaudeConnectors.running = true
     // Claude Code learns a connector's state once, when it starts: one added
@@ -372,10 +379,11 @@ Singleton {
             onStreamFinished: {
                 // Cut short: its partial list would take permissions away.
                 if (listClaudeConnectors.timedOut) return;
+                // "claude.ai <name>: <url> - <status>"; the name can hold colons.
                 const found = text.split("\n")
-                    .map(l => /^(claude\.ai [^:]+):.* - (.+)$/.exec(l.trim()))
+                    .map(l => /^(claude\.ai .+?): \S+ - (.+)$/.exec(l.trim()))
                     .filter(m => m);
-                root.claudeConnectors = found.map(m => "mcp__" + m[1].replace(/[^A-Za-z0-9_-]/g, "_"));
+                root.claudeConnectors = found.map(m => root.connectorRule(m[1]));
                 root.claudeConnectorsNeedAuth = found.some(m => /auth/i.test(m[2]));
                 const state = found.map(m => `${m[1]} ${m[2]}`).join("\n");
                 listClaudeConnectors.changed = root.claudeConnectorsState.length > 0 && state !== root.claudeConnectorsState;

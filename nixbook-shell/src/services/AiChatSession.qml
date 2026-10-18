@@ -340,9 +340,12 @@ Scope {
         // again on the same message before the model answers. True if so.
         function restartForConnectors(ev) {
             if (!Ai.claudeConnectorsSetting || requester.connectorRetried) return false;
-            const found = (ev.mcp_servers ?? []).filter(s => /^claude\.ai /.test(s.name ?? ""))
-                .map(s => "mcp__" + s.name.replace(/[^A-Za-z0-9_-]/g, "_"));
-            const missing = found.filter(n => !Ai.claudeConnectors.includes(n));
+            // From its servers' names and, exactly, from its tools' names
+            // (mcp__<server>__<tool>).
+            const found = [...(ev.mcp_servers ?? []).filter(s => /^claude\.ai /.test(s.name ?? ""))
+                    .map(s => Ai.connectorRule(s.name)),
+                ...(ev.tools ?? []).map(t => /^(mcp__claude_ai_.+?)__/.exec(t)?.[1]).filter(r => r)];
+            const missing = [...new Set(found)].filter(n => !Ai.claudeConnectors.includes(n));
             if (missing.length === 0) return false;
             Ai.claudeConnectors = [...Ai.claudeConnectors, ...missing];
             requester.connectorRetried = true;
