@@ -541,6 +541,8 @@ Singleton {
         const folders = [...new Set([...expand(Config.options.ai.allowedFolders), ...writable])];
         const readTools = folders.length > 0 ? ["Read", "Glob", "Grep"] : attached.length > 0 ? ["Read"] : [];
         const writeTools = writable.length > 0 ? ["Write", "Edit"] : [];
+        // ai.claudeCode.commandLine: Bash, and terminals for its desktop tools.
+        const shellTools = Config.options.ai.claudeCode.commandLine ? ["Bash"] : [];
         const configured = (Config.options.ai.claudeCode.allowedTools ?? [])
             .filter(t => ![...fileTools, "Write", "Edit"].some(f => t === f || t.startsWith(`${f}(`)));
         const desktop = root.currentTool !== "none" && root.desktopTools.length > 0;
@@ -561,7 +563,7 @@ Singleton {
             env: Object.assign({}, extraServers.immich.env ?? {}, root.immichEnv) });
         const allowed = [...(desktop ? ["mcp__desktop"] : []),
             ...Object.keys(extraServers).map(name => `mcp__${name}`), ...configured,
-            ...(attached.length > 0 ? [`Read(/${attached})`] : []),
+            ...(attached.length > 0 ? [`Read(/${attached})`] : []), ...shellTools,
             ...writable.map(f => `Edit(/${f}/**)`),
             ...(connectors ? root.claudeConnectors : [])];
         const system = root.stableSystemPrompt
@@ -582,7 +584,13 @@ Singleton {
             + (connectors
                 ? " A claude.ai connector that needs signing in to has an authenticate tool: call it and give the user its sign-in URL as a link to click (they open it in their browser), and once they say it's done, use its tools (call complete_authentication with the URL they paste if they say the page failed). Don't send them to claude.ai's settings instead."
                 : "")
-            + (folders.length > 0 ? ` You may read files in these folders only: ${folders.join(", ")}.`
+            + (shellTools.length > 0
+                ? " You can run commands on this computer, as the user, with Bash"
+                    + (desktop ? ", and type into terminal windows and open terminal apps with the desktop tools, for the user to watch" : "")
+                    + ". Look around freely (commands that only read), but before anything that changes the system or the user's files (installing, removing, moving or editing files, sudo, systemctl, git commit or push, nixos or colmena switches, sending data off the machine), say exactly what you will run and run it only after they say yes in this chat. Never print or copy secrets."
+                : "")
+            + (shellTools.length > 0 ? ""
+                : folders.length > 0 ? ` You may read files in these folders only: ${folders.join(", ")}.`
                 : " You have no access to the user's files (they can allow folders in Settings > Desktop agents).")
             + (writable.length > 0
                 ? ` You may create and edit files in these folders only, with Write and Edit: ${writable.join(", ")}; anywhere else is refused.`
@@ -593,7 +601,7 @@ Singleton {
         let args = ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
             ...(connectors ? [] : ["--strict-mcp-config"]), "--append-system-prompt", system,
             "--setting-sources", "project",
-            "--disallowedTools", "Bash", "NotebookEdit", ...["Edit", "Write"].filter(t => !writeTools.includes(t)),
+            "--disallowedTools", ...(shellTools.length > 0 ? [] : ["Bash"]), "NotebookEdit", ...["Edit", "Write"].filter(t => !writeTools.includes(t)),
             ...fileTools.filter(t => !readTools.includes(t))];
         for (const folder of folders) args.push("--add-dir", folder);
         // Each message tells the desktop MCP server what the task is (a
@@ -605,7 +613,7 @@ Singleton {
             // The chat's own agent desktop (NIXBOOK_AGENT_DESKTOP), when
             // agents work on theirs.
             env: { NIXBOOK_DESKTOP_MCP_QUERY_FILE: chat.desktopTaskFilePath, NIXBOOK_DESKTOP_MCP_PERSONAL: "shell",
-                NIXBOOK_AGENT_DESKTOP: chat.desktopInstance },
+                NIXBOOK_AGENT_DESKTOP: chat.desktopInstance, NIXBOOK_DESKTOP_MCP_TERMINALS: shellTools.length > 0 ? "1" : "" },
         } } : {});
         if (Object.keys(mcpServers).length > 0)
             args.push("--mcp-config", JSON.stringify({ mcpServers }));
@@ -613,7 +621,7 @@ Singleton {
         // full set would double the context of every message.
         // With the connectors, ToolSearch too: their tools stay deferred
         // behind it (without it they all load, ~130k tokens a message).
-        const builtins = [...configured, ...readTools, ...writeTools, ...(connectors ? ["ToolSearch"] : [])];
+        const builtins = [...configured, ...readTools, ...writeTools, ...shellTools, ...(connectors ? ["ToolSearch"] : [])];
         args.push("--tools", ...(builtins.length > 0 ? builtins : [""]));
         if (allowed.length > 0) args.push("--allowedTools", ...allowed);
         const claudeModel = Config.options.ai.claudeCode.model ?? "";

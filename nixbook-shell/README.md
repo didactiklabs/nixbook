@@ -769,6 +769,11 @@ instead is seen when the panel next opens.
 Replies stream in, each tool call shows with its result in a collapsible
 block, and the send button stops the answer (and what Claude is doing), as
 does `/stop`. Sonnet is faster than Opus for desktop tasks.
+`ai.claudeCode.commandLine` (off): Bash in `--tools`/`--allowedTools` (not
+disallowed), a system-prompt rule to ask before changes, and
+`NIXBOOK_DESKTOP_MCP_TERMINALS=1` for its desktop server, where
+`terminal_allowed()` lets input, `ui_*` and `launch_app` reach terminals
+(`TERMINAL_APPS`, the first `inputDenyApps` pattern); other agents keep the ban.
 
 The side panel's other model is the offline **Config assistant** (the
 default), which answers from this machine's configuration without any AI.

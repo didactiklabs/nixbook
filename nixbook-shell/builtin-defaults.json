@@ -17,6 +17,7 @@
       "allowedTools": ["WebSearch", "WebFetch"],
       "asComputer": true,
       "command": "",
+      "commandLine": false,
       "connectors": false,
       "effort": "low",
       "mcpServersOff": ["linkedin", "immich"],

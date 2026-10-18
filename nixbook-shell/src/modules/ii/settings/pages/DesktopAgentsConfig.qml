@@ -408,6 +408,17 @@ ContentPage {
                     onCheckedChanged: claudeSection.setTools(["WebSearch", "WebFetch"], checked)
                 }
                 ConfigSwitch {
+                    configKey: "ai.claudeCode.commandLine"
+                    enabled: !nixManaged
+                    buttonIcon: "terminal"
+                    text: Translation.tr("Command line and terminal")
+                    checked: Config.options.ai.claudeCode.commandLine
+                    onCheckedChanged: Config.options.ai.claudeCode.commandLine = checked
+                    StyledToolTip {
+                        text: Translation.tr("Claude may run commands as you (Bash) and type into terminal windows; it asks in the chat before anything that changes the system or your files. It can then read any of your files, whatever the folders below")
+                    }
+                }
+                ConfigSwitch {
                     configKey: "ai.claudeCode.asComputer"
                     enabled: !nixManaged
                     buttonIcon: "computer"
