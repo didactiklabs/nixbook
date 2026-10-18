@@ -561,6 +561,7 @@
     "cutIn": {
       "apps": [],
       "blacklist": [],
+      "cooldown": 10,
       "critical": true,
       "enable": true,
       "keywords": [],
