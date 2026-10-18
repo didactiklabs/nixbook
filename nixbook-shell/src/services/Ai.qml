@@ -363,11 +363,28 @@ Singleton {
     // its conversation, a busy one at its next message.
     function reloadClaudeConnectors() {
         listClaudeConnectors.forceRestart = true;
+        if (root.claudeConnectorsSetting && root.claudeCodePath.length > 0) {
+            clearConnectorAuthCache.running = true;
+            return;
+        }
+        root.relistClaudeConnectors();
+    }
+    function relistClaudeConnectors() {
         if (!root.checkClaudeConnectors()) {
             // Connectors off or no Claude Code: nothing to list, restart anyway.
             listClaudeConnectors.forceRestart = false;
             for (const chat of root.chats) chat.connectorsChecked(true);
         }
+    }
+    // Claude Code remembers a claude.ai connector that needed signing in to
+    // for 4 hours (mcp-needs-auth-cache.json, keyed by server name) and
+    // doesn't try it again at start meanwhile: once signed in on claude.ai,
+    // it would still have only its authenticate tool. Forgotten first.
+    Process {
+        id: clearConnectorAuthCache
+        command: ["bash", "-c", 'f="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/mcp-needs-auth-cache.json"; [ -f "$f" ] || exit 0; '
+            + 'jq -c \'with_entries(select(.key | startswith("claude.ai ") | not))\' "$f" > "$f.tmp" && mv "$f.tmp" "$f"']
+        onExited: root.relistClaudeConnectors()
     }
     IpcHandler {
         target: "ai"
