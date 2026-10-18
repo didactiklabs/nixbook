@@ -3610,6 +3610,11 @@ LEARN_TIME_SPAN = 20
 LEARN_MIN_TIME_DAYS = 4
 LEARN_WINDOW_DAYS = 14
 LEARN_MUSIC_GAP = 600
+# Not the user's apps or devices: the shell's own windows (its Settings is
+# org.quickshell; the agents' desktop) and virtual sinks set before the
+# real output (EasyEffects), which would make routines about nothing.
+LEARN_NOT_APPS = {"org.quickshell", "quickshell", "nixbook-agent-desktop"}
+LEARN_NOT_OUTPUTS = ("easy effects", "easyeffects")
 
 
 def habit_actions(data):
@@ -3617,6 +3622,8 @@ def habit_actions(data):
     apps = applications()
     out = []
     for t, app in data.get("opens") or []:
+        if app.lower() in LEARN_NOT_APPS:
+            continue
         desktop = app if app in apps else (desktop_for_app(app, apps) or app)
         out.append((t, f"open:{desktop}", {"tool": "launch_app", "args": {"app": desktop}, "server": "desktop"},
                     f"open {app_name(desktop)}"))
@@ -3653,7 +3660,7 @@ def habit_cues(data, apps_as_cues=True):
         if kind != "cue":
             continue
         event, _, name = str(value).partition(":")
-        if event not in CUE_WORDS:
+        if event not in CUE_WORDS or (event == "audio_output" and any(v in name.lower() for v in LEARN_NOT_OUTPUTS)):
             continue
         when = {"event": event}
         word = ""
@@ -3663,6 +3670,8 @@ def habit_cues(data, apps_as_cues=True):
         out.append((t, f"{event}:{word}", when, CUE_WORDS[event].format(name or word).replace("  ", " ")))
     if apps_as_cues:
         for t, app in data.get("opens") or []:
+            if app.lower() in LEARN_NOT_APPS:
+                continue
             short_id = app.rsplit(".", 1)[-1].lower()
             out.append((t, f"app:{short_id}", {"event": "app_opened", "app": short_id}, f"you open {app_name(app)}"))
     return sorted(out, key=lambda c: c[0])
@@ -4500,8 +4509,28 @@ def music_title(title):
 
 def player_label(player):
     name = player.split(".")[0]
-    return {"spotify": "Spotify", "youtubemusic": "YouTube Music", "pear": "YouTube Music",
+    return {"spotify": "Spotify", "youtubemusic": "YouTube Music", "youtube_music": "YouTube Music", "pear": "YouTube Music",
             "mpv": "mpv", "vlc": "VLC", "kdeconnect": "phone (KDE Connect)"}.get(name.lower(), name)
+
+
+MUSIC_BROWSER_IDENTITY = re.compile(r"chrom|firefox|mozilla|brave|vivaldi|opera|edge|zen|librewolf|floorp|browser",
+                                    re.IGNORECASE)
+
+
+def mpris_identity(player):
+    """A player's MPRIS Identity ("Chromium", "com.github.th_ch.youtube_music"), None if unknown."""
+    try:
+        out = subprocess.run(["busctl", "--user", "get-property", f"org.mpris.MediaPlayer2.{player}",
+                              "/org/mpris/MediaPlayer2", "org.mpris.MediaPlayer2", "Identity"],
+                             capture_output=True, text=True, timeout=3, env=user_desktop_env()).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if not out.startswith("s "):
+        return None
+    try:
+        return str(json.loads(out[2:].strip()))
+    except ValueError:
+        return None
 
 
 class MusicTracker:
@@ -4511,19 +4540,35 @@ class MusicTracker:
     def __init__(self, cfg):
         self.cfg = cfg
         self.players = {}  # player -> {"key", "start", "heard", "since", "length"}
+        self.names = {}  # MPRIS name -> the player's name (None: ignored)
 
-    def ignored(self, player):
-        # playerctld mirrors the other players.
-        return player.startswith("playerctld") or _any_match(self.cfg.get("habitsMusicIgnorePlayers"), player)
+    def name(self, player):
+        """What a player's tracks count under, None when ignored: playerctld
+        mirrors the others, browsers publish their tabs' videos. Electron
+        apps take a browser's bus name too (YouTube Music is
+        chromium.instanceN): those count, told apart by their MPRIS Identity
+        (com.github.th_ch.youtube_music, not Chromium)."""
+        if player in self.names:
+            return self.names[player]
+        name = player.split(".")[0]
+        if player.startswith("playerctld"):
+            name = None
+        elif _any_match(self.cfg.get("habitsMusicIgnorePlayers"), player):
+            ident = mpris_identity(player)
+            if ident is None:
+                return None  # not cached: asked again on its next track
+            name = None if MUSIC_BROWSER_IDENTITY.search(ident) else (ident.rsplit(".", 1)[-1] if " " not in ident else ident)
+        self.names[player] = name
+        return name
 
     def line(self, line, now):
         """A line of `playerctl --follow` (MUSIC_FORMAT); the play records
         it ends."""
         f = line.rstrip("\n").split("\t")
-        if len(f) < 7 or not f[0] or self.ignored(f[0]):
+        player = self.name(f[0]) if len(f) >= 7 and f[0] else None
+        if not player:
             return []
-        player, status, artist, title, album, length, trackid = f[:7]
-        player = player.split(".")[0]
+        _, status, artist, title, album, length, trackid = f[:7]
         key = [artist.strip(), title.strip(), album.strip()]
         out = []
         cur = self.players.get(player)
@@ -4996,7 +5041,7 @@ def habits_watch(cfg):
             else:
                 try:
                     left = run(["playerctl", "--list-all"], check=False, timeout=5, env=user_desktop_env()).stdout
-                    rec.pending += music.gone({p.split(".")[0] for p in left.split()}, now)
+                    rec.pending += music.gone({music.name(p) for p in left.split()} - {None}, now)
                 except ToolError:
                     pass
         elif isinstance(ev, dict):
