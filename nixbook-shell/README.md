@@ -509,8 +509,11 @@ Ghibli), to the bar after 25 s unanswered. Only
 notifications go to the small model (`INITIATIVE_SYSTEM`, at most
 `initiativeCallsPerDay`), which also names kinds never worth a word. The
 memory pass offers what it learned (`initiative_offer`). Reply opens the
-side panel's "From Claude" tab (`Ai.claudeTab()`, one, reused, past
-`maxChats`) with the message as Claude's (`unsent`: it goes with the user's
+side panel's "From Claude" tab with the message as Claude's, in a thread of
+its own (`Ai.claudeThread()`: the thread before saved to the history,
+`fromClaude: true`, listed under the tabs by `aiChat/ClaudeThreads.qml` to go
+back to; a second "From Claude" tab, past `maxChats`, when the first is still
+answering) (`unsent`: it goes with the user's
 next message when the tab's session already runs; `GlobalStates.aiChatRequested`);
 answers (`initiative answer ID replied|later|dismissed|never|engaged`) teach
 it: `budget()` scales the day's notifications and chats by the reply rate

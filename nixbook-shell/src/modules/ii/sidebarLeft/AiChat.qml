@@ -339,6 +339,9 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
         ChatTabBar {
             Layout.fillWidth: true
         }
+        ClaudeThreads {
+            Layout.fillWidth: true
+        }
 
         Item {
             // Messages

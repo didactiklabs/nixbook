@@ -126,11 +126,18 @@ Singleton {
         root.currentIndex = current === chat ? Math.min(index, root.chats.length - 1) : root.chats.indexOf(current);
         chat.destroy(10000); // once its Claude Code is gone
     }
-    // The "From Claude" tab, made when missing (even past maxChats: it is
-    // one tab, and what Claude says must land somewhere).
-    function claudeTab() {
-        let chat = root.chats.find(c => c.fromClaude);
-        if (!chat) {
+    // A thread of its own for what Claude says (services/Initiative.qml),
+    // in the "From Claude" tab: the thread there so far stays in the history
+    // (the tab's thread strip lists them, AiChat.qml) and the tab starts
+    // this one. One still answering is left alone: this one gets another
+    // "From Claude" tab (even past maxChats: what Claude says must land
+    // somewhere).
+    function claudeThread() {
+        let chat = root.chats.find(c => c.fromClaude && !c.responding);
+        if (chat) {
+            root.saveHistory(chat);
+            if (chat.messageIDs.length > 0) chat.clearMessages();
+        } else {
             let slot = 1;
             while (root.chats.some(c => c.slot === slot)) slot++;
             chat = chatComponent.createObject(root, { slot: slot, fromClaude: true });
@@ -886,12 +893,13 @@ Singleton {
         return line.length > 60 ? line.slice(0, 59) + "…" : line;
     }
 
-    // Saves a chat's conversation (once it has a message of the user's).
+    // Saves a chat's conversation (once it has a message of the user's; a
+    // thread of the "From Claude" tab from Claude's first word, titled by it).
     function saveHistory(chat) {
         if (!root.historyReady || !chat) return;
         const messages = chat.chatToJson();
         const turns = messages.filter(m => (m.role === "user" || m.role === "assistant") && !m.functionName);
-        const first = turns.find(m => m.role === "user" && (m.rawContent ?? "").trim().length > 0);
+        const first = turns.find(m => (m.role === "user" || (chat.fromClaude && m.initiative)) && (m.rawContent ?? "").trim().length > 0);
         if (!first) return;
         if (chat.chatId.length === 0) chat.chatId = root.idForMessage();
         const old = root.history.find(c => c.id === chat.chatId);
@@ -905,6 +913,7 @@ Singleton {
             model: answers.length > 0 ? answers[answers.length - 1].model : root.currentModelId,
             pinned: old?.pinned ?? false,
             turns: turns.length,
+            fromClaude: old?.fromClaude ?? chat.fromClaude,
         };
         historyChatFile.path = root.historyChatPath(chat.chatId);
         historyChatFile.setText(JSON.stringify({ version: 1, id: chat.chatId, claudeSessionId: chat.claudeSessionId, messages }));
