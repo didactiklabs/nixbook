@@ -84,7 +84,7 @@ Keys in `desktop-mcp.json` (`programs.nixbook-shell.desktopMcp.settings`): `init
 Ask Claude for something to happen on its own whenever something happens on the computer: "whenever the music ends, play something I like", "when my headphones connect, resume the music", "when a PDF lands in Downloads, open it", "every weekday at 9:00, restore my work layout".
 
 - **Cues**, watched by the shell in plain code:
-  - music: ended on its own, started, a new track, and **no music for a while** (`music_silent`, `minutes`: "whenever there's no music", also when you sit down to silence; held while you stopped it yourself, until you play something or come back from a break);
+  - music: ended on its own, started, a new track, **on repeat** (`music_repeating`: the same song `times` times in a row, 3 by default, a loop on repeat-one included, or the same artist for `minutes`, 30 by default; seen by the shell, so no Claude run until it happens), and **no music for a while** (`music_silent`, `minutes`: "whenever there's no music", also when you sit down to silence; held while you stopped it yourself, until you play something or come back from a break);
   - apps: opened, closed, **in front** (`app_focused`), words in a window title, a notification;
   - you: the **first time at the computer today** (`day_start`, once a day), coming back, leaving (`away`), **a long sitting** (`long_session`, 90 minutes), the screen locking or unlocking;
   - modes: fullscreen on or off, Do Not Disturb on or off;

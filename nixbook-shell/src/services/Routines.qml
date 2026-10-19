@@ -58,6 +58,7 @@ Singleton {
         if (when.ext && lower(ev.ext) !== when.ext.replace(/^\./, "")) return false
         if (when.event === "back" && (ev.away ?? 0) < (when.minutes ?? 30)) return false
         if (when.event === "music_silent" && (ev.minutes ?? 0) < (when.minutes ?? 2)) return false
+        if (when.event === "music_repeating" && (ev.times ?? 0) < (when.times ?? 3) && (ev.minutes ?? 0) < (when.minutes ?? 30)) return false
         if (when.event === "charged" && (ev.percent ?? 0) !== (when.percent ?? 100)) return false
         if (when.event === "battery_low") {
             const th = (when.percent ?? 20)
@@ -208,6 +209,9 @@ Singleton {
             readonly property string track: `${watched.modelData?.trackArtist ?? ""} ${watched.modelData?.trackTitle ?? ""}`
             property bool playing: watched.modelData?.isPlaying ?? false
             function sample() {
+                if (watched.playing && watched.track.trim() !== "")
+                    root._heard(watched.track, watched.modelData?.trackArtist ?? "", watched.modelData?.identity ?? "",
+                                watched.lastTrack, watched.lastPos, watched.modelData?.position ?? 0, watched.lastLen)
                 watched.lastPos = watched.modelData?.position ?? 0
                 watched.lastLen = watched.modelData?.length ?? 0
                 watched.lastTrack = watched.track
@@ -244,6 +248,44 @@ Singleton {
             }
         }
     }
+    // The same song on and on (music_repeating): its plays in a row, a loop
+    // seen as the position jumping back to the start, and how long the same
+    // artist has played. Once per streak and routine.
+    property string _repeatTrack: ""
+    property int _repeatTimes: 0
+    property string _repeatArtist: ""
+    property real _artistSecs: 0
+    property real _heardAt: 0
+    property var _repeatFired: []
+    function _heard(track, artist, app, lastTrack, lastPos, pos, lastLen) {
+        const now = Date.now()
+        const secs = root._heardAt > 0 ? Math.min(10, (now - root._heardAt) / 1000) : 0
+        root._heardAt = now
+        if (track !== root._repeatTrack) {
+            root._repeatTrack = track
+            root._repeatTimes = 1
+            root._repeatFired = []
+        } else if (track === lastTrack && lastLen > 0 && lastPos > lastLen * 0.6 && pos < 15) {
+            root._repeatTimes += 1
+        }
+        if (artist !== root._repeatArtist) {
+            root._repeatArtist = artist
+            root._artistSecs = 0
+            root._repeatFired = []
+        }
+        root._artistSecs += secs
+        if (!root._has("music_repeating")) return
+        const minutes = Math.floor(root._artistSecs / 60)
+        for (const r of root.active.filter(r => r.when?.event === "music_repeating")) {
+            if (root._repeatFired.includes(r.id)) continue
+            const ev = { event: "music_repeating", app: app, text: track, times: root._repeatTimes, minutes: minutes }
+            if (!root._matches(r.when, ev)) continue
+            root._repeatFired = [...root._repeatFired, r.id]
+            root.note("music", Translation.tr("on repeat: %1 times, %2 min of the artist").arg(root._repeatTimes).arg(minutes))
+            root._run(r, ev)
+        }
+    }
+
     // No music for a while, while the user is here (music_silent: "whenever
     // there's no music…"): from the shell's start, a stop, coming back. Once
     // per silence and routine; held while the user stopped it themselves,

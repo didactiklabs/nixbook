@@ -1539,6 +1539,12 @@ expect_contains "routine: a known server" "$(call routine '{"action":"add","text
 expect_contains "routine: not the memory tools" "$(call routine '{"action":"add","text":"x","when":{"event":"plugged"},"do":{"tool":"forget","args":{"id":"1"}}}')" "not a desktop tool a routine can run"
 expect_contains "routine: never typing" "$(call routine '{"action":"add","text":"x","when":{"event":"unlocked"},"do":{"tool":"type_text","args":{"text":"x"}}}')" "not a desktop tool a routine can run"
 expect_contains "routine: never steps of input" "$(call routine '{"action":"add","text":"x","when":{"event":"unlocked"},"do":{"tool":"run_steps","args":{"steps":[]}}}')" "not a desktop tool a routine can run"
+out=$(call routine '{"action":"add","text":"When a song loops too long, change it","when":{"event":"music_repeating","times":4},"do":{"agent":"switch the music","servers":["youtube-music"]}}')
+expect_contains "routine: music on repeat, how many times" "$(call routine '{"action":"list"}')" "when music_repeating times=4"
+offer=$(python3 "$mcp" initiative pending | jq -r --arg r "$(jq -r '.routines[-1].id' "$mem")" '[.[] | select(.accept == $r)] | last | .id')
+python3 "$mcp" initiative answer "$offer" never >/dev/null
+expect_eq "routine: no forgets it, and its offer" "0 0" "$(jq '.routines | length' "$mem") $(python3 "$mcp" initiative pending | jq '[.[] | select(.accept)] | length')"
+expect_contains "routine: times, a number" "$(call routine '{"action":"add","text":"x","when":{"event":"music_repeating","times":"lots"},"do":{"tool":"launch_app","args":{}}}')" "when.times: a number"
 expect_contains "routine: shell IPC for the music only" "$(call routine '{"action":"add","text":"x","when":{"event":"unlocked"},"do":{"tool":"shell_ipc","args":{"target":"search","function":"open"}}}')" "music only"
 out=$(call routine '{"action":"add","text":"Whenever the music ends, play my liked songs","when":{"event":"music_ended"},"do":{"server":"youtube-music","tool":"play","args":{"playlist":"liked"}}}')
 expect_contains "routine: added, off until the user says yes" "$out" "off until the user says yes"
