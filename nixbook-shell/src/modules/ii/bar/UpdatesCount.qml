@@ -254,7 +254,7 @@ MouseArea {
             // Panel width (a ColumnLayout recomputes its own implicitWidth,
             // so a zero-height row sets it): wider while a log is shown.
             Item {
-                Layout.minimumWidth: (UpdateState.viewingLogs || failureCard.visible) ? 600 : 420
+                Layout.minimumWidth: failureCard.visible ? 600 : 420
                 implicitHeight: 0
             }
 
@@ -320,15 +320,20 @@ MouseArea {
                     Layout.fillWidth: true
                     buttonRadius: Appearance.rounding.normal
                     materialIcon: "terminal"
-                    mainText: UpdateState.viewingLogs ? Translation.tr("Stop Logs") : Translation.tr("Logs")
-                    onClicked: {
-                        if (UpdateState.viewingLogs) {
-                            UpdateState.stopLogs()
-                        } else {
-                            UpdateState.startLogs()
-                        }
-                    }
+                    mainText: Translation.tr("Logs")
+                    onClicked: UpdateState.openLogs()
                 }
+            }
+
+            // The running update's latest log line (the whole log: Logs).
+            StyledText {
+                Layout.fillWidth: true
+                visible: UpdateState.updating && UpdateState.step !== ""
+                elide: Text.ElideRight
+                font.family: Appearance.font.family.monospace
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+                text: UpdateState.step
             }
 
             StyledText {
@@ -367,19 +372,12 @@ MouseArea {
             // The last run failed: its log, selectable, with a copy button.
             LogView {
                 id: failureCard
-                visible: UpdateState.lastResult === "failed" && !UpdateState.updating && !UpdateState.viewingLogs
+                visible: UpdateState.lastResult === "failed" && !UpdateState.updating
                 title: UpdateState.lastRunTime !== ""
                     ? Translation.tr("Last update failed (%1)").arg(UpdateState.lastRunTime)
                     : Translation.tr("Last update failed")
                 titleColor: Appearance.m3colors.m3error
                 log: UpdateState.lastRunLog
-            }
-
-            LogView {
-                visible: UpdateState.viewingLogs
-                title: Translation.tr("Live log")
-                log: UpdateState.logText
-                placeholder: Translation.tr("Waiting for logs...")
             }
         }
     }

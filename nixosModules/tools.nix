@@ -167,7 +167,15 @@ in
           stopIfChanged = false;
           serviceConfig = {
             Type = "oneshot";
+            # What the desktop shell's updates widget watches (it no longer
+            # follows the journal itself): /run/nixos-upgrade/status.json,
+            # {state: running|success|failed, started, finished, step (the
+            # latest log line, every 2 s), rev, tail (the log's last lines)}.
+            RuntimeDirectory = "nixos-upgrade";
+            RuntimeDirectoryMode = "0755";
+            RuntimeDirectoryPreserve = "yes";
             ExecStart = "${pkgs.writeShellScript "nixos-upgrade-wrapper" ''
+              set -o pipefail
               export NIXPKGS_ALLOW_UNFREE=1
               export PATH=$PATH:${
                 lib.makeBinPath [
@@ -178,7 +186,30 @@ in
                   osupdate
                 ]
               }
-              exec osupdate
+              dir=/run/nixos-upgrade
+              : >"$dir/log"
+              started=$(date +%s)
+              running() {
+                jq -nc --argjson s "$started" --arg step "$(tail -n 1 "$dir/log" | cut -c1-200)" \
+                  '{state: "running", started: $s, step: $step}' >"$dir/status.json.tmp" &&
+                  mv -f "$dir/status.json.tmp" "$dir/status.json"
+              }
+              running
+              (while sleep 2; do running; done) &
+              ticker=$!
+              trap 'kill $ticker 2>/dev/null' EXIT
+              osupdate 2>&1 | tee -a "$dir/log"
+            ''}";
+            ExecStopPost = "${pkgs.writeShellScript "nixos-upgrade-status" ''
+              dir=/run/nixos-upgrade
+              state=failed
+              [ "''${SERVICE_RESULT:-}" = success ] && [ "''${EXIT_STATUS:-0}" = 0 ] && state=success
+              started=$(${pkgs.jq}/bin/jq '.started // null' "$dir/status.json" 2>/dev/null) || started=null
+              tail -n 60 "$dir/log" 2>/dev/null |
+                ${pkgs.jq}/bin/jq -Rsc --arg st "$state" --argjson s "''${started:-null}" --argjson f "$(date +%s)" \
+                  --arg rev "$(${pkgs.jq}/bin/jq -r '.rev // ""' /etc/nixos/version 2>/dev/null)" \
+                  '{state: $st, started: $s, finished: $f, rev: $rev, tail: (. | rtrimstr("\n"))}' >"$dir/status.json.tmp" &&
+                mv -f "$dir/status.json.tmp" "$dir/status.json"
             ''}";
             StandardOutput = "journal";
             StandardError = "journal";

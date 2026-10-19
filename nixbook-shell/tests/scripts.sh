@@ -624,6 +624,61 @@ expect_contains "applycolor.sh --reset-terminal: the terminals' own colours back
 expect_eq "applycolor.sh --reset-terminal: the generated theme gone (kitty, new shells)" "" \
   "$(ls "$ac_home/state/quickshell/user/generated/terminal")"
 
+# -- update-check.sh: the update check, outside the shell ---------------------------
+uc="$tmp/update-check"
+mkdir -p "$uc/bin" "$uc/state"
+cat >"$uc/bin/git" <<'STUB'
+#!/usr/bin/env bash
+case "${UC_GIT:-ok}" in
+  ok) printf 'bbbbbbb2222222222222222222222222222222222\trefs/heads/main\n' ;;
+  down) exit 128 ;;
+  slow) exit 124 ;;
+esac
+STUB
+cat >"$uc/bin/curl" <<'STUB'
+#!/usr/bin/env bash
+echo "$*" >"$UC_CURL_LOG"
+printf '%s' '{"commits":[{"commit":{"message":"feat: one\n\nbody"}},{"commit":{"message":"fix: two"}}],"files":[]}'
+STUB
+chmod +x "$uc/bin/git" "$uc/bin/curl"
+update_check() {
+  PATH="$uc/bin:$PATH" XDG_STATE_HOME="$uc/state" NIXBOOK_VERSION_FILE="$uc/version" UC_CURL_LOG="$uc/curl" \
+    bash "$scripts/update-check.sh" "$@"
+}
+uc_out="$uc/state/nixbook-shell/update-check.json"
+repo=https://github.com/didactiklabs/nixbook
+old=aaaaaaa1111111111111111111111111111111111
+new=bbbbbbb2222222222222222222222222222222222
+echo "{\"rev\":\"$old\",\"branch\":\"refs/heads/main\",\"dirty\":false}" >"$uc/version"
+update_check "$repo"
+expect_eq "update-check: an update, with its changelog" \
+  "false \"\" $old $new true [\"feat: one\",\"fix: two\"]" \
+  "$(jq -r '"\(.checking) \(.error | tojson) \(.localRev) \(.remoteRev) \(.available) \(.changelog | tojson)"' "$uc_out")"
+expect_contains "update-check: the changelog from GitHub's compare" "$(cat "$uc/curl")" \
+  "repos/didactiklabs/nixbook/compare/$old...$new"
+echo "{\"rev\":\"$new\",\"branch\":\"refs/heads/main\"}" >"$uc/version"
+rm -f "$uc/curl"
+update_check "$repo"
+expect_eq "update-check: up to date, no changelog fetched" "false [] no-curl" \
+  "$(jq -r '"\(.available) \(.changelog | tojson)"' "$uc_out") $([ -e "$uc/curl" ] && echo curl || echo no-curl)"
+echo '{"rev":"0000000000000000000000000000000000000000","branch":"refs/heads/main"}' >"$uc/version"
+update_check "$repo"
+expect_eq "update-check: a dirty deploy, any remote commit is an update" "Unknown true true" \
+  "$(jq -r '"\(.localRev) \(.localDirty) \(.available)"' "$uc_out")"
+UC_GIT=down update_check "$repo"
+expect_eq "update-check: unreachable, the last answer kept" "unreachable false true" \
+  "$(jq -r '"\(.error) \(.checking) \(.available)"' "$uc_out")"
+UC_GIT=slow update_check "$repo"
+expect_eq "update-check: timed out" timeout "$(jq -r .error "$uc_out")"
+update_check ""
+expect_eq "update-check: no repository" no-repo "$(jq -r .error "$uc_out")"
+rm "$uc/version"
+update_check "$repo"
+expect_eq "update-check: no /etc/nixos/version" no-version "$(jq -r .error "$uc_out")"
+echo 'not json' >"$uc/version"
+update_check "$repo"
+expect_eq "update-check: unreadable /etc/nixos/version" bad-version "$(jq -r .error "$uc_out")"
+
 if [ "$failures" -ne 0 ]; then
   echo "$failures nixbook-shell test(s) failed" >&2
   exit 1
