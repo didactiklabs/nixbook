@@ -6,7 +6,8 @@
 #                                      tests and self-containment
 #   tests/run.sh shell                 nixbook-shell script tests (helper scripts,
 #                                      desktop MCP server, nixbook-accounts,
-#                                      its CalDAV/CardDAV provider against Radicale)
+#                                      its CalDAV/CardDAV provider against Radicale,
+#                                      the Google Keep sync of the notes)
 #   tests/run.sh iso                   the installer ISO evaluates
 #   tests/run.sh docs                  docs/MODULES.md lists the modules' current options
 #   tests/run.sh hosts                 print the hive's node names (JSON)
@@ -116,6 +117,10 @@ cmd_shell() {
   local radicale
   radicale=$(nix-build --no-out-link -E '(import ./lib/pkgs.nix { }).radicale' 2> >(annotate >&2)) &&
     PATH="$radicale/bin:$PATH" NIXBOOK_ACCOUNTS="$accounts/bin/nixbook-accounts" bash nixbook-shell/tests/dav.sh || failed=1
+  section "nixbook-shell Google Keep sync of the notes"
+  local keep
+  keep=$(nix-build --no-out-link -E '(import ./nixbook-shell { }).package.passthru.keep.pythonEnv' 2> >(annotate >&2)) &&
+    NIXBOOK_KEEP_PYTHON="$keep/bin/python3" bash nixbook-shell/tests/keep.sh || failed=1
   return "$failed"
 }
 

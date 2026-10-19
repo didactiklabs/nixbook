@@ -1,5 +1,18 @@
 {
   "pins": {
+    "gkeepapi": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "kiwiz",
+        "repo": "gkeepapi"
+      },
+      "branch": "main",
+      "submodules": false,
+      "revision": "1a94b25c18a7abfdc23d1412091129cd63652877",
+      "url": "https://github.com/kiwiz/gkeepapi/archive/1a94b25c18a7abfdc23d1412091129cd63652877.tar.gz",
+      "hash": "sha256-3NT6GFVcN4HDPbcJAmino0FXmyoohZWl/kQqFzJTnbw="
+    },
     "nixpkgs": {
       "type": "Git",
       "repository": {

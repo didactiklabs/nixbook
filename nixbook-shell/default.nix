@@ -17,6 +17,8 @@
   pkgs ? import sources.nixpkgs { },
   # A quickshell checkout with a `revision` attribute (an npins pin).
   quickshellSrc ? sources.quickshell,
+  # The Google Keep client (an npins pin): the notes' sync with Keep.
+  gkeepapiSrc ? sources.gkeepapi,
   # Put the tailscale / netbird CLIs on the shell's PATH (VpnStatus widget).
   withTailscale ? true,
   withNetbird ? true,
@@ -26,6 +28,7 @@
     inherit
       pkgs
       quickshellSrc
+      gkeepapiSrc
       withTailscale
       withNetbird
       ;

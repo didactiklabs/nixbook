@@ -245,6 +245,7 @@ Singleton {
              ["=vm", "virtual machines"], ["=vms", "virtual machines"], ["=wm", "window manager desktop"],
              ["=dm", "login manager"], ["=specs", "system info"],
              ["=agenda", "calendar"], ["=gcal", "google calendar"], ["=todo", "task"], ["=todos", "task"], ["to do", "task"],
+             ["=keep", "google keep notes sync"],
              ["=outlook", "microsoft"], ["nextcloud", "caldav"], ["remind", "reminder"],
              ["upcoming", "next event"], ["next meeting", "next event"],
              ["=look", "theme"], ["=skin", "theme"], ["=style", "theme"], ["chikawa", "chiikawa theme"],
@@ -308,7 +309,7 @@ Singleton {
              ["=drucken", "printing"], ["=drucker", "printing"], ["netzwerk", "network"], ["virtuelle maschine", "virtual machines"],
              ["anmeldebildschirm", "login screen"], ["anmeldemanager", "login manager"], ["fingerabdruck", "fingerprint"],
              ["=akku", "battery"], ["=dienst", "service"], ["systeminfo", "system info"], ["freigeb", "free"],
-             ["=termin", "event"], ["=termine", "event"], ["aufgabe", "task"], ["synchron", "sync"], ["verbind", "connect"],
+             ["=termin", "event"], ["=termine", "event"], ["aufgabe", "task"], ["synchron", "sync"], ["verbind", "connect"], ["notiz", "notes"],
              ["erinner", "reminder"], ["terminerinner", "event reminder"], ["besprechung", "meeting event"], ["duplikat", "duplicate"], ["doppelt", "duplicate"]],
         vi: [["tam dung", "stop"], ["dung lai", "stop"], ["bo nho", "memory"], ["ghi nho", "memory"], ["bo cuc", "layout window"], ["tac nhan", "ai agent"], ["dieu khien", "control"], ["phim tat", "shortcut"], ["=phim", "key"], ["=mo", "open"], ["=dong", "close"], ["cua so", "window"],
              ["trinh khoi chay", "launcher"], ["khoi chay", "launcher"], ["ung dung", "app"], ["hinh nen", "wallpaper"],
@@ -333,7 +334,7 @@ Singleton {
              ["nhat ky", "logs"], ["nguoi dung", "user"], ["tai khoan", "account"], ["soan thao", "editor"], ["tuong lua", "firewall"],
              ["=mang", "network"], ["may ao", "virtual machines"], ["dang nhap", "login"], ["van tay", "fingerprint"],
              ["dich vu", "service"], ["thong tin he thong", "system info"], ["thong tin", "info"],
-             ["cong viec", "task"], ["su kien", "event"], ["dong bo", "sync"], ["ket noi", "connect"], ["nhac nho", "reminder"], ["trung lap", "duplicate"],
+             ["cong viec", "task"], ["su kien", "event"], ["dong bo", "sync"], ["ket noi", "connect"], ["nhac nho", "reminder"], ["trung lap", "duplicate"], ["ghi chu", "notes"],
              ["cuoc hop", "meeting event"]]
     })
     // English words for the question: its words mapped through the

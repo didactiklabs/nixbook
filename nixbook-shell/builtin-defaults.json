@@ -512,6 +512,12 @@
       "touchpadScrollFactor": 450
     }
   },
+  "keep": {
+    "enable": true,
+    "pull": true,
+    "push": true,
+    "refreshMinutes": 15
+  },
   "language": {
     "translator": {
       "engine": "auto",

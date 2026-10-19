@@ -282,6 +282,42 @@ With a model selected in the chat, all of this is only reference for the
 model's system prompt: it answers with its own knowledge too, and says when it
 isn't sure.
 
+### Google Keep
+
+Google has no public Keep API (only for Workspace), so the shell's notes can
+be synced with Keep through [gkeepapi](https://github.com/kiwiz/gkeepapi),
+the unofficial client: `nixbook-keep` (`scripts/keep-sync.py`, `keep.nix`,
+gkeepapi pinned in `npins/`; on the shell's PATH) talks to Keep and merges
+its notes with the shell's (`src/services/KeepSync.qml`).
+
+The **Keep** panel of the Notes window (the "Keep" button next to "New")
+holds the account and the sync:
+
+- **connecting**: the account's email and its **master token** (the one
+  [gpsoauth's alternative flow](https://github.com/simon-weber/gpsoauth#alternative-flow)
+  explains — a token with full access to the account, to be kept like a
+  password). They go to the keyring (`secret-tool`), never to the notes file
+  nor to the settings, and are checked against Keep right away, so a wrong
+  one is said at once. "Disconnect" forgets them; the notes stay;
+- **syncing**: "Sync now" (the shell also syncs every `keep.refreshMinutes`,
+  15, when `keep.enable` is on), and what the last sync did (notes sent,
+  notes from Keep, notes updated, conflicts). The account's email and the
+  last sync are shown;
+- **the merge**: a note's first line is Keep's title, the rest its text; a
+  note whose lines are all "- [ ] item" is a Keep list (a checklist), the
+  others are Keep notes; "pinned" is Keep's pin. What changes in the shell
+  is pushed to Keep, what changes in Keep comes back; when both changed, the
+  newer one wins. Each note remembers its Keep note and when it was last
+  synced, so the shell knows which side changed. Deletions are **not**
+  synced: a note deleted in one place stays in the other, and is not
+  brought back;
+- **the directions**: `keep.push` (the shell's new notes go to Keep) and
+  `keep.pull` (Keep's new notes come in) in Settings → General → Google
+  Keep.
+
+`nixbook-shell ipc call keep status|sync` does the same from the command
+line.
+
 ## Desktop control for AI agents
 
 `nixbook-desktop-mcp` (`scripts/desktop-mcp.py`, also `nixbook-shell mcp`)
