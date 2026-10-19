@@ -3993,7 +3993,10 @@ def routine_undone(rid):
         r = next((r for r in m.data.get("routines") or [] if r["id"] == rid), None)
         if not r:
             raise ToolError(f"no routine {rid}")
-        r["fights"] = r.get("fights", 0) + 1
+        # Twice in a day: an undo long ago doesn't count against it.
+        now = int(time.time())
+        r["fights"] = (r.get("fights", 0) if now - r.get("foughtAt", 0) < 86400 else 0) + 1
+        r["foughtAt"] = now
         off = r["fights"] >= ROUTINE_FIGHTS and r.get("on", True)
         if off:
             r["on"] = False
