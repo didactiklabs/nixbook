@@ -33,7 +33,7 @@ See [Security](./security) for Secure Boot, encryption, secrets and the firewall
 ## Nix
 
 - **Lix** as the Nix implementation, `nix-command` and flakes enabled.
-- A custom **S3 binary cache** (`didactiklabs-nixcache`) in front of cache.nixos.org, which CI fills from `main`.
+- A custom **S3 binary cache** (`didactiklabs-nixcache`) next to cache.nixos.org, which CI fills from `main` with what cache.nixos.org doesn't have. `always-allow-substitutes` fetches even wrappers and FHS environments from the caches instead of rebuilding them (and re-downloading their sources) locally.
 - Weekly garbage collection (keeps the last 5 generations and 7 days), store optimisation at night.
 - The Nix daemon builds at **idle CPU/IO priority** in an OOM-managed slice, so updates don't make the desktop stutter.
 

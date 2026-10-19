@@ -125,6 +125,10 @@ func Fold(s string) string {
 
 var spaces = regexp.MustCompile(`\s+`)
 
+// BirthdayInput is a birthday a change gives: YYYY-MM-DD, or MM-DD (--MM-DD)
+// without the year; the year, month and day matched.
+var BirthdayInput = regexp.MustCompile(`^(?:(\d{4})|-?-?)-?(\d{1,2})-(\d{1,2})$`)
+
 // Normalize is s folded, its spaces made single.
 func Normalize(s string) string { return strings.TrimSpace(spaces.ReplaceAllString(Fold(s), " ")) }
 

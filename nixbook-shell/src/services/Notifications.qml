@@ -50,9 +50,17 @@ Singleton {
         // Arrived within the cut-in cooldown of another cut-in: a regular
         // popup instead (cutInCooldown).
         property bool cutInCooledDown: false
+        // Its app replaced it in place (D-Bus replaces_id: KDE Connect
+        // re-posting a phone notification, a chat thread updated): Quickshell
+        // updates the Notification without a new `notification` signal, so
+        // it arrives again as a new copy (root.arrive) and this one goes.
+        property bool arrived: false
+        property bool superseded: false
+        onSummaryChanged: root.updated(wrapper)
+        onBodyChanged: root.updated(wrapper)
 
         onNotificationChanged: {
-            if (notification === null) {
+            if (notification === null && !superseded) {
                 root.discardNotification(notificationId);
             }
         }
@@ -210,65 +218,103 @@ Singleton {
         keepOnReload: false
         persistenceSupported: true
 
-        onNotification: (notification) => {
-            const duplicate = root.duplicateVerdict(notification, Date.now());
-            if (duplicate.drop !== "") {
-                console.log(`[Notifications] Dropped "${notification.appName}: ${notification.summary}" (${duplicate.drop})`);
-                notification.expire();
-                return;
+        onNotification: (notification) => root.arrive(notification, null)
+    }
+
+    // Replaced in place: summary and body change together, so once per
+    // update, after both. Progress (a `value` hint: a file transfer, a
+    // download) just updates where it is, without a popup each time.
+    property var _updated: []
+    function updated(notif) {
+        if (!notif.arrived || notif.superseded || !notif.notification || root._updated.includes(notif)) return;
+        if (notif.hints?.value !== undefined) return;
+        root._updated = [...root._updated, notif];
+        Qt.callLater(root.arriveUpdates);
+    }
+    function arriveUpdates() {
+        const updated = root._updated;
+        root._updated = [];
+        for (const notif of updated)
+            if (!notif.superseded && notif.notification && root.list.includes(notif))
+                root.arrive(notif.notification, notif);
+    }
+
+    // A notification arriving, or arriving again replaced in place
+    // (`previous`: its copy in the list, which the new one replaces).
+    function arrive(notification, previous) {
+        const id = notification.id + root.idOffset;
+        const duplicate = root.duplicateVerdict(notification, Date.now());
+        if (duplicate.drop !== "") {
+            console.log(`[Notifications] Dropped "${notification.appName}: ${notification.summary}" (${duplicate.drop})`);
+            if (previous) root.discardNotifications([id], true);
+            else notification.expire();
+            return;
+        }
+        // Its earlier copy is replaced here, not discarded: that would close
+        // the notification itself.
+        const replaces = duplicate.replaces.filter(r => r !== id);
+        const supersedes = previous ? [...duplicate.supersedes.filter(r => r !== id), id] : duplicate.supersedes;
+        notification.tracked = true
+        const newNotifObject = notifComponent.createObject(root, {
+            "notificationId": id,
+            "notification": notification,
+            "time": Date.now(),
+            "replaces": supersedes,
+        });
+        const replaced = (root.dedupOptions?.history ?? true)
+            ? root.recent.filter(r => supersedes.includes(r.notificationId)) : [];
+        root.remember(newNotifObject);
+        if (previous) {
+            previous.superseded = true;
+            newNotifObject.read = previous.read;
+            root.destroyTimers([previous]);
+            root.list = [...root.list.filter(n => n !== previous), newNotifObject];
+        } else {
+            root.list = [...root.list, newNotifObject];
+        }
+
+        // Quiet (Settings → Notifications → Quiet): no popup, cut-in or
+        // chime, only the notification centre and the history.
+        const quiet = root.quietRule(newNotifObject);
+        if (quiet !== "")
+            console.log(`[Notifications] Quiet "${notification.appName}: ${notification.summary}" (${quiet})`);
+        else if (!root.silent)
+            root.cutInCooldown(newNotifObject);
+
+        // Popup
+        if (!root.popupInhibited && quiet === "") {
+            newNotifObject.popup = true;
+            // Messages (Settings → Notifications → Keep on screen) stay until
+            // dismissed: no expiry timer at all.
+            if (notification.expireTimeout != 0 && !root.staysOnScreen(newNotifObject)) {
+                newNotifObject.timer = notifTimerComponent.createObject(root, {
+                    "notificationId": newNotifObject.notificationId,
+                    "interval": notification.expireTimeout < 0 ? (Config?.options.notifications.timeout ?? 7000) : notification.expireTimeout,
+                });
             }
-            notification.tracked = true
-            const newNotifObject = notifComponent.createObject(root, {
-                "notificationId": notification.id + root.idOffset,
-                "notification": notification,
-                "time": Date.now(),
-                "replaces": duplicate.supersedes,
-            });
-            const replaced = (root.dedupOptions?.history ?? true)
-                ? root.recent.filter(r => duplicate.supersedes.includes(r.notificationId)) : [];
-            root.remember(newNotifObject);
-			root.list = [...root.list, newNotifObject];
-
-            // Quiet (Settings → Notifications → Quiet): no popup, cut-in or
-            // chime, only the notification centre and the history.
-            const quiet = root.quietRule(newNotifObject);
-            if (quiet !== "")
-                console.log(`[Notifications] Quiet "${notification.appName}: ${notification.summary}" (${quiet})`);
-            else if (!root.silent)
-                root.cutInCooldown(newNotifObject);
-
-            // Popup
-            if (!root.popupInhibited && quiet === "") {
-                newNotifObject.popup = true;
-                // Messages (Settings → Notifications → Keep on screen) stay until
-                // dismissed: no expiry timer at all.
-                if (notification.expireTimeout != 0 && !root.staysOnScreen(newNotifObject)) {
-                    newNotifObject.timer = notifTimerComponent.createObject(root, {
-                        "notificationId": newNotifObject.notificationId,
-                        "interval": notification.expireTimeout < 0 ? (Config?.options.notifications.timeout ?? 7000) : notification.expireTimeout,
-                    });
-                }
+            if (newNotifObject.read) {
                 newNotifObject.read = false;
                 root.unread++;
             }
-            NotificationHistory.record(newNotifObject,
-                quiet !== "" ? "" : (v => v.cutIn ? v.reason : "")(root.cutInVerdict(newNotifObject)),
-                replaced.map(r => ({ id: r.notificationId, time: r.time })));
-            // notify first: a cut-in plays its own sound, and the chime then
-            // falls within the 300 ms gap instead of doubling it. Before
-            // discarding what it replaces, so a cut-in on screen for the old
-            // copy is updated in place instead of leaving and coming back.
-            if (quiet === "")
-                root.notify(newNotifObject);
-            if (duplicate.replaces.length > 0) {
-                console.log(`[Notifications] "${notification.appName}: ${notification.summary}" replaces ${duplicate.replaces.join(", ")}`);
-                root.discardNotifications(duplicate.replaces, true);
-            }
-            if (quiet === "")
-                root.playNotificationSound(notification);
-            // console.log(notifToString(newNotifObject));
-            notifFileView.setText(stringifyList(root.list));
         }
+        newNotifObject.arrived = true;
+        NotificationHistory.record(newNotifObject,
+            quiet !== "" ? "" : (v => v.cutIn ? v.reason : "")(root.cutInVerdict(newNotifObject)),
+            replaced.map(r => ({ id: r.notificationId, time: r.time })));
+        // notify first: a cut-in plays its own sound, and the chime then
+        // falls within the 300 ms gap instead of doubling it. Before
+        // discarding what it replaces, so a cut-in on screen for the old
+        // copy is updated in place instead of leaving and coming back.
+        if (quiet === "")
+            root.notify(newNotifObject);
+        if (replaces.length > 0) {
+            console.log(`[Notifications] "${notification.appName}: ${notification.summary}" replaces ${replaces.join(", ")}`);
+            root.discardNotifications(replaces, true);
+        }
+        if (quiet === "")
+            root.playNotificationSound(notification);
+        // console.log(notifToString(newNotifObject));
+        notifFileView.setText(stringifyList(root.list));
     }
 
     // Notification chime (Settings → General → Sounds; the theme's on themes

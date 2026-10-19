@@ -1,9 +1,8 @@
 { pkgs }:
 # nixbook-accounts (accounts/): the shell's accounts backend. The user's
-# accounts (Google, with the user's own OAuth client: DankCalendar's built-in
-# one is for DankCalendar only), secrets in the keyring through secret-tool,
-# and their contacts and tasks merged; the calendar is to move here from
-# DankCalendar.
+# accounts (Google, with the user's own OAuth client; CalDAV/CardDAV; the
+# built-in local one), secrets in the keyring through secret-tool, and their
+# contacts, tasks and calendars merged.
 pkgs.buildGoModule {
   pname = "nixbook-accounts";
   version = "0.1.0";

@@ -73,7 +73,9 @@ Item {
         id: coverArtDownloader
         property string targetFile: root.artUrl
         property string artFilePath: root.artFilePath
-        command: ["bash", "-c", '[ -f "$1" ] || { curl -4 -sSL "$2" -o "$1.part.$$" && mv -f "$1.part.$$" "$1"; }; rm -f "$1.part.$$"', "_", artFilePath, targetFile]
+        // The URL is the player's (a web page's, through the browser): only
+        // http(s), never an option or another curl protocol.
+        command: ["bash", "-c", '[ -f "$1" ] || { curl -4 -sSL --proto =http,https --proto-redir =http,https --url "$2" -o "$1.part.$$" && mv -f "$1.part.$$" "$1"; }; rm -f "$1.part.$$"', "_", artFilePath, targetFile]
         // A track change while a download runs queues a rerun for the new
         // cover: only the run fetching the current one marks it ready.
         property string startedPath

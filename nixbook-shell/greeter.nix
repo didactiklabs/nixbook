@@ -253,7 +253,8 @@ let
       src=${stateDir}
       [ -s "$src/bg" ] || src=${fallbackTheme}
       bg=$(${pkgs.coreutils}/bin/head -c 9 "$src/bg" 2>/dev/null)
-      case "$bg" in \#[0-9a-fA-F]*) ;; *) bg="#000000" ;; esac
+      # A colour only: it goes into niri's config, and the user writes it.
+      [[ $bg =~ ^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$ ]] || bg="#000000"
       wallpaper=""
       wall=""
       [ -s ${stateDir}/background ] && wall=${stateDir}/background

@@ -1341,14 +1341,16 @@ call remember_about_user "$(jq -nc --arg d "$in2" '{topic: "kyoto trip", kind: "
 echo '{"initiativeQuietHours":"0-0"}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
 out=$(consider '{"event":"back","away":300,"events":[{"title":"Standup","start":"10:00","inMinutes":15}],"tasksDue":2}')
 expect_eq "back: a meeting soon, a notification" notify "$(jq -r .action <<<"$out")"
+expect_eq "back: out loud, and kept for the bar" "$(jq -r .item.id <<<"$out")" "$(python3 "$mcp" initiative pending | jq -r '.[0].id')"
 expect_contains "back: the day in a few lines" "$(jq -r .item.text <<<"$out")" "Today: Standup at 10:00. 2 tasks due today. kyoto trip: in 2 days. Want help getting ready?"
 expect_eq "back: not again soon after" none "$(consider '{"event":"back","away":5}' | jq -r .action)"
 out=$(consider '{"event":"back","away":0}')
 expect_eq "back: nothing new, nothing said" "none" "$(jq -r .action <<<"$out")"
 # Not time-critical, or busy, or past the day's budget: it waits in the bar.
-jq '.said = [] | .briefDay = ""' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
+jq '.said = [] | .pending = [] | .briefDay = ""' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
 out=$(consider '{"event":"back","away":300,"busy":true,"events":[{"title":"Review","start":"11:00","inMinutes":10}]}')
 expect_eq "busy: it waits" badge "$(jq -r .action <<<"$out")"
+expect_eq "busy: why, for the log" "the user is busy" "$(jq -r .why <<<"$out")"
 expect_eq "busy: in the bar" 1 "$(python3 "$mcp" initiative pending | jq length)"
 echo '{"initiativeQuietHours":"0-0","initiativeMaxPerDay":1}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
 jq --argjson t "$(date +%s)" --arg d "$today" '.said = [{id: "000001", key: "x", kind: "brief", level: "notify", time: ($t - 7200), day: $d}] | .pending = [] | .briefDay = ""' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
@@ -1537,6 +1539,12 @@ expect_contains "routine: a known server" "$(call routine '{"action":"add","text
 expect_contains "routine: not the memory tools" "$(call routine '{"action":"add","text":"x","when":{"event":"plugged"},"do":{"tool":"forget","args":{"id":"1"}}}')" "not a desktop tool a routine can run"
 expect_contains "routine: never typing" "$(call routine '{"action":"add","text":"x","when":{"event":"unlocked"},"do":{"tool":"type_text","args":{"text":"x"}}}')" "not a desktop tool a routine can run"
 expect_contains "routine: never steps of input" "$(call routine '{"action":"add","text":"x","when":{"event":"unlocked"},"do":{"tool":"run_steps","args":{"steps":[]}}}')" "not a desktop tool a routine can run"
+out=$(call routine '{"action":"add","text":"When a song loops too long, change it","when":{"event":"music_repeating","times":4},"do":{"agent":"switch the music","servers":["youtube-music"]}}')
+expect_contains "routine: music on repeat, how many times" "$(call routine '{"action":"list"}')" "when music_repeating times=4"
+offer=$(python3 "$mcp" initiative pending | jq -r --arg r "$(jq -r '.routines[-1].id' "$mem")" '[.[] | select(.accept == $r)] | last | .id')
+python3 "$mcp" initiative answer "$offer" never >/dev/null
+expect_eq "routine: no forgets it, and its offer" "0 0" "$(jq '.routines | length' "$mem") $(python3 "$mcp" initiative pending | jq '[.[] | select(.accept)] | length')"
+expect_contains "routine: times, a number" "$(call routine '{"action":"add","text":"x","when":{"event":"music_repeating","times":"lots"},"do":{"tool":"launch_app","args":{}}}')" "when.times: a number"
 expect_contains "routine: shell IPC for the music only" "$(call routine '{"action":"add","text":"x","when":{"event":"unlocked"},"do":{"tool":"shell_ipc","args":{"target":"search","function":"open"}}}')" "music only"
 out=$(call routine '{"action":"add","text":"Whenever the music ends, play my liked songs","when":{"event":"music_ended"},"do":{"server":"youtube-music","tool":"play","args":{"playlist":"liked"}}}')
 expect_contains "routine: added, off until the user says yes" "$out" "off until the user says yes"
@@ -1546,6 +1554,10 @@ expect_contains "routine: the user is asked, with what it does" "$(python3 "$mcp
 expect_eq "routine: off, it doesn't run" "it is off" "$(python3 "$mcp" routine run "$music" '{"event":"music_ended"}' | jq -r .why)"
 expect_contains "routine: an agent can't turn it on, only ask" "$(call routine "{\"action\":\"on\",\"id\":\"$music\"}")" "asked the user"
 expect_eq "routine: still off" false "$(jq '.routines[0].on' "$mem")"
+offer=$(python3 "$mcp" initiative pending | jq -r --arg r "$music" '[.[] | select(.accept == $r)] | last | .id')
+python3 "$mcp" initiative answer "$offer" later >/dev/null
+expect_eq "routine: not now keeps it, off" false "$(jq '.routines[0].on' "$mem")"
+call routine "{\"action\":\"on\",\"id\":\"$music\"}" >/dev/null
 say_yes "$music"
 expect_eq "routine: the user's yes turns it on" true "$(jq '.routines[0].on' "$mem")"
 call routine '{"action":"add","text":"When the cable is plugged, open Firefox","when":{"event":"plugged","cooldown":0},"do":{"tool":"launch_app","args":{"app":"firefox"}}}' >/dev/null
@@ -1656,6 +1668,8 @@ expect_eq "groups: limited by the environment" '["observe","windows"]' \
 
 # Undone twice by the user: it turns itself off, and says so.
 expect_eq "undone once: still on" '{"off": false}' "$(python3 "$mcp" routine undone "$music")"
+jq --arg id "$music" '(.routines[] | select(.id == $id) | .foughtAt) -= 90000' "$mem" >"$mem.new" && mv "$mem.new" "$mem"
+expect_eq "undone again a day later: still on" '{"off": false}' "$(python3 "$mcp" routine undone "$music")"
 expect_eq "undone twice: off" '{"off": true}' "$(python3 "$mcp" routine undone "$music")"
 expect_contains "undone: says why" "$(python3 "$mcp" initiative pending | jq -r '.[].text')" "twice, so I turned it off"
 call routine "{\"action\":\"remove\",\"id\":\"$agent\"}" >/dev/null

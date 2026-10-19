@@ -76,9 +76,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "c4e6925dc79be5227fc28d7e9b763523da4838c7",
-      "url": "https://github.com/AvengeMedia/dankcalendar/archive/c4e6925dc79be5227fc28d7e9b763523da4838c7.tar.gz",
-      "hash": "sha256-XDT7nymmNLlO7+As0I2rE41UxzzWDrdXjFVnIhYO1yI="
+      "revision": "ecdfbac5271e68a5989d8d86689fb8c2ea8ddca1",
+      "url": "https://github.com/AvengeMedia/dankcalendar/archive/ecdfbac5271e68a5989d8d86689fb8c2ea8ddca1.tar.gz",
+      "hash": "sha256-82Xu6hExsPLlQJ9c3930ObR5sxqhTf3zJbXdg7w+978="
     },
     "disko": {
       "type": "GitRelease",
@@ -105,9 +105,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "b08f3f8ea19068c85e14b1fbf6f288520b61fd74",
-      "url": "https://github.com/AvengeMedia/DankMaterialShell/archive/b08f3f8ea19068c85e14b1fbf6f288520b61fd74.tar.gz",
-      "hash": "sha256-cRYeCsLIk1asW01e0JZpG0w1gjr5wLjBA8+XkTtiCkw="
+      "revision": "a72f2ac43dddcc7d1699f759736bbe8e65c6b1e9",
+      "url": "https://github.com/AvengeMedia/DankMaterialShell/archive/a72f2ac43dddcc7d1699f759736bbe8e65c6b1e9.tar.gz",
+      "hash": "sha256-xZjuHIXZfNgFkEu4r0p1F9cPqFJfe0QxNAZ9LAqrAtE="
     },
     "dms-plugin-registry": {
       "type": "Git",
@@ -118,9 +118,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "eeb223105a57141ab8827c6630fc36cd5927c360",
-      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/eeb223105a57141ab8827c6630fc36cd5927c360.tar.gz",
-      "hash": "sha256-PuDGx8rpObMfISeUxwHseyLrlxjmaqNqVuYsm45QRkQ="
+      "revision": "e6ee64a6945f9b1259fee4efa0c0697e2097d80d",
+      "url": "https://github.com/AvengeMedia/dms-plugin-registry/archive/e6ee64a6945f9b1259fee4efa0c0697e2097d80d.tar.gz",
+      "hash": "sha256-heWD2eLRgzLxJWpF+944dVDQbPqQVrqpGuCEe7+rlfY="
     },
     "ds4drv": {
       "type": "Git",
@@ -146,10 +146,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "v5.0.3",
-      "revision": "1da96c7bbf1990693e49a9db82bb74edf83fa655",
-      "url": "https://api.github.com/repos/LotusInputMethod/fcitx5-lotus/tarball/refs/tags/v5.0.3",
-      "hash": "sha256-XTyXzO0rF0zkW9li0sFBSAf+qakU9uFxl1CrQVlbMms="
+      "version": "v5.0.6",
+      "revision": "234b7c3987ae91cb4785816a4bdb9161fb2040c8",
+      "url": "https://api.github.com/repos/LotusInputMethod/fcitx5-lotus/tarball/refs/tags/v5.0.6",
+      "hash": "sha256-8j+eQ8Uje3Zi5MegN++GPDa+xUCYeiFxPm9Jm1VYMBM="
     },
     "flake-compat": {
       "type": "Git",
@@ -348,9 +348,9 @@
       },
       "branch": "nixos-unstable",
       "submodules": false,
-      "revision": "e7439b6b14ad3cc35d05608ebca9bce01a25f5f8",
-      "url": "https://github.com/NixOS/nixpkgs/archive/e7439b6b14ad3cc35d05608ebca9bce01a25f5f8.tar.gz",
-      "hash": "sha256-H83yz/do+hjOO0uujHyH8RgtIQP2v7Mw+cLwcZK/xKc="
+      "revision": "fe13242281a67641c0102cdb1087f0ebe586c7df",
+      "url": "https://github.com/NixOS/nixpkgs/archive/fe13242281a67641c0102cdb1087f0ebe586c7df.tar.gz",
+      "hash": "sha256-zp8ToDMnqZcu4o4IH9pdwXFXGp7yLm/M0dEnNWnyd7I="
     },
     "nixvim": {
       "type": "Git",
@@ -361,9 +361,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "8485794923eb406ce3728af320392226608f724b",
-      "url": "https://github.com/nix-community/nixvim/archive/8485794923eb406ce3728af320392226608f724b.tar.gz",
-      "hash": "sha256-DApZIjaKdU4XzglZ56yrPYLhG/ajoyuQ4g4s8tkHqxU="
+      "revision": "453dc9c5037e6d1bec81d2a51ddacd58a2f44e9c",
+      "url": "https://github.com/nix-community/nixvim/archive/453dc9c5037e6d1bec81d2a51ddacd58a2f44e9c.tar.gz",
+      "hash": "sha256-yJ072hxngo/srNdLTp4BlFeo0hedwnKicI3TGlSXLFE="
     },
     "openchoreo": {
       "type": "GitRelease",
@@ -426,9 +426,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "4f508be500dea6e5732cc3d50382a0048b17e7b1",
-      "url": "https://github.com/quickshell-mirror/quickshell/archive/4f508be500dea6e5732cc3d50382a0048b17e7b1.tar.gz",
-      "hash": "sha256-lPbqsyAD5ZoGFMZ1eqAlTULfeP5Nwhy+XvOowF7BE+E="
+      "revision": "2b4501a282689792b62e94f3fb30d8f512324fe6",
+      "url": "https://github.com/quickshell-mirror/quickshell/archive/2b4501a282689792b62e94f3fb30d8f512324fe6.tar.gz",
+      "hash": "sha256-tq6x6CRG8Qikrjri59tzu9+b2gri8TjnShkGeh8kUgQ="
     },
     "rtk": {
       "type": "GitRelease",
@@ -455,9 +455,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "87ffb7f777aef2e2647fd8fd718a5b3cbc825588",
-      "url": "https://github.com/oxalica/rust-overlay/archive/87ffb7f777aef2e2647fd8fd718a5b3cbc825588.tar.gz",
-      "hash": "sha256-vQHkG9lwSHJI3MVnyilP50hWW3TNnBWFTbLIurWgPhI="
+      "revision": "42076d1c6a0fb405ed04f9a674e4a8f69de62ba3",
+      "url": "https://github.com/oxalica/rust-overlay/archive/42076d1c6a0fb405ed04f9a674e4a8f69de62ba3.tar.gz",
+      "hash": "sha256-wJgFFtw/vlzsjWrQFmTn40TTkSkqHM4XXN0nh4q4uMk="
     },
     "schnelle-umlaute": {
       "type": "Git",
@@ -468,9 +468,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "3671e5547331c538fef45a2a379149cd0b0e6afa",
-      "url": "https://github.com/Maik-0000FF/schnelle-umlaute/archive/3671e5547331c538fef45a2a379149cd0b0e6afa.tar.gz",
-      "hash": "sha256-s7vPIOi+6oGX0lpliIfBRPipAGe+umAZ0956jw/GNQw="
+      "revision": "a6873a63eb7de47f1f258f4fa43a493f517695e9",
+      "url": "https://github.com/Maik-0000FF/schnelle-umlaute/archive/a6873a63eb7de47f1f258f4fa43a493f517695e9.tar.gz",
+      "hash": "sha256-t2Ac1JuoN78iQYXBitb7eM3h5ov6iQzOuwOw3L8bMck="
     },
     "sofka": {
       "type": "Git",
@@ -481,9 +481,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "9e25d95321b1756ccb0cc25737d033df822fd0a9",
-      "url": "https://github.com/nklmilojevic/sofka/archive/9e25d95321b1756ccb0cc25737d033df822fd0a9.tar.gz",
-      "hash": "sha256-s1kmHf8L0vrHI/FlfgvnpmwA0/tQz0F2EcCoBU10ido="
+      "revision": "b83c33769a23cf900a13847c3876e14ef5a08a6d",
+      "url": "https://github.com/nklmilojevic/sofka/archive/b83c33769a23cf900a13847c3876e14ef5a08a6d.tar.gz",
+      "hash": "sha256-OuKFQuWFCe1fISUwh06E0GSFDlZG7GLUvgxbu74BBLw="
     },
     "songbird": {
       "type": "GitRelease",
@@ -552,9 +552,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "9342d127aa8c585e82f3f57ddb25800fd546029f",
-      "url": "https://github.com/0xc000022070/zen-browser-flake/archive/9342d127aa8c585e82f3f57ddb25800fd546029f.tar.gz",
-      "hash": "sha256-Ks46+ZukSOvdgmextucbLykzpAmygNZ2I+HWxCe03ok="
+      "revision": "e1b9b3578ebb388b56012cd9ddd80e19681d2d39",
+      "url": "https://github.com/0xc000022070/zen-browser-flake/archive/e1b9b3578ebb388b56012cd9ddd80e19681d2d39.tar.gz",
+      "hash": "sha256-LYN8miMEew9CxgRrF/RCnAyOe6476dQM/JzELnFQef0="
     }
   },
   "version": 8

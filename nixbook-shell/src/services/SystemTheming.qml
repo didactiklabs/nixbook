@@ -103,10 +103,10 @@ Singleton {
         id: matugenSourceProc
         running: true
         command: ["bash", "-c", `
-            cfg='${root.matugenConfigPath}'
+            cfg=$1
             [ -f "$cfg" ] && [ ! -f "$cfg.orig" ] && cp "$cfg" "$cfg.orig"
             cat "$cfg.orig" 2>/dev/null || true
-        `]
+        `, "matugen-source", root.matugenConfigPath]
         stdout: StdioCollector {
             onStreamFinished: {
                 const templates = []

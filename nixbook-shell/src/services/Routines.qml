@@ -36,8 +36,11 @@ Singleton {
     property var routines: []
     readonly property var active: root.routines.filter(r => r.on !== false)
 
-    // routine id -> {time, music: bool, app}: what it just did, to see it undone.
+    // routine id -> {time, music: bool, app}: what it just did, to see it undone
+    // (set once its run is over, and for the music only when the music changed).
     property var _fired: ({})
+    // Routine runs going on: a pause then is theirs (switching tracks), not the user's.
+    property int _running: 0
     property real _userPausedAt: 0
     property var _timeFired: ({})
     property var _eventsFired: ({})
@@ -58,6 +61,7 @@ Singleton {
         if (when.ext && lower(ev.ext) !== when.ext.replace(/^\./, "")) return false
         if (when.event === "back" && (ev.away ?? 0) < (when.minutes ?? 30)) return false
         if (when.event === "music_silent" && (ev.minutes ?? 0) < (when.minutes ?? 2)) return false
+        if (when.event === "music_repeating" && (ev.times ?? 0) < (when.times ?? 3) && (ev.minutes ?? 0) < (when.minutes ?? 30)) return false
         if (when.event === "charged" && (ev.percent ?? 0) !== (when.percent ?? 100)) return false
         if (when.event === "battery_low") {
             const th = (when.percent ?? 20)
@@ -112,14 +116,24 @@ Singleton {
         }
     }
 
-    function _outcome(r, text) {
+    function _outcome(r, text, before) {
+        root._running = Math.max(0, root._running - 1)
         try {
             const out = JSON.parse(text)
+            const music = root._touchesMusic(r)
+            // A run that left the music as it was did nothing to undo.
+            if (out.ran && (!music || root._musicNow() !== before))
+                root._fired = Object.assign({}, root._fired, { [r.id]: { time: Date.now(), music: music,
+                    app: r.do?.tool === "launch_app" ? String(r.do?.args?.app ?? "").toLowerCase() : "" } })
             const said = out.said && !out.said.endsWith(": done.") ? out.said : ""
             root.note(r.text, out.ran ? (said ? Translation.tr("ran: %1").arg(said) : Translation.tr("ran")) : out.why)
         } catch (e) {
             root.note(r.text, Translation.tr("didn't run"))
         }
+    }
+
+    function _musicNow() {
+        return `${root.anyPlaying} ${MprisController.activeTrack?.artist ?? ""} ${MprisController.activeTrack?.title ?? ""}`
     }
 
     function _touchesMusic(r) {
@@ -131,9 +145,8 @@ Singleton {
     function _run(r, ev) {
         const event = Object.assign({}, ev)
         if (Ai.claudeCodePath.length > 0) event.claude = Ai.claudeCodePath
-        root._fired = Object.assign({}, root._fired, { [r.id]: { time: Date.now(), music: root._touchesMusic(r),
-            app: r.do?.tool === "launch_app" ? String(r.do?.args?.app ?? "").toLowerCase() : "" } })
-        runner.createObject(root, { routine: r, command: ["nixbook-desktop-mcp", "routine", "run", r.id, JSON.stringify(event)], running: true })
+        root._running += 1
+        runner.createObject(root, { routine: r, before: root._musicNow(), command: ["nixbook-desktop-mcp", "routine", "run", r.id, JSON.stringify(event)], running: true })
     }
 
     // The user undid what a routine just did (within 3 minutes).
@@ -155,9 +168,10 @@ Singleton {
         Process {
             id: proc
             property var routine
+            property string before
             stdout: StdioCollector {
                 onStreamFinished: {
-                    root._outcome(proc.routine, text)
+                    root._outcome(proc.routine, text, proc.before)
                     proc.destroy()
                 }
             }
@@ -208,6 +222,9 @@ Singleton {
             readonly property string track: `${watched.modelData?.trackArtist ?? ""} ${watched.modelData?.trackTitle ?? ""}`
             property bool playing: watched.modelData?.isPlaying ?? false
             function sample() {
+                if (watched.playing && watched.track.trim() !== "")
+                    root._heard(watched.track, watched.modelData?.trackArtist ?? "", watched.modelData?.identity ?? "",
+                                watched.lastTrack, watched.lastPos, watched.modelData?.position ?? 0, watched.lastLen)
                 watched.lastPos = watched.modelData?.position ?? 0
                 watched.lastLen = watched.modelData?.length ?? 0
                 watched.lastTrack = watched.track
@@ -229,6 +246,8 @@ Singleton {
                     // after): the timer checks for other music when it runs out.
                     root.note("music", `${name}: ended on its own, waiting 20 s`)
                     quietTimer.restart()
+                } else if (root._running > 0) {
+                    root.note("music", `${name}: paused while a routine ran (not counted as yours)`)
                 } else {
                     root._userPausedAt = Date.now()
                     root.note("music", `${name}: paused by you (holding music routines until you play music or come back)`)
@@ -244,6 +263,44 @@ Singleton {
             }
         }
     }
+    // The same song on and on (music_repeating): its plays in a row, a loop
+    // seen as the position jumping back to the start, and how long the same
+    // artist has played. Once per streak and routine.
+    property string _repeatTrack: ""
+    property int _repeatTimes: 0
+    property string _repeatArtist: ""
+    property real _artistSecs: 0
+    property real _heardAt: 0
+    property var _repeatFired: []
+    function _heard(track, artist, app, lastTrack, lastPos, pos, lastLen) {
+        const now = Date.now()
+        const secs = root._heardAt > 0 ? Math.min(10, (now - root._heardAt) / 1000) : 0
+        root._heardAt = now
+        if (track !== root._repeatTrack) {
+            root._repeatTrack = track
+            root._repeatTimes = 1
+            root._repeatFired = []
+        } else if (track === lastTrack && lastLen > 0 && lastPos > lastLen * 0.6 && pos < 15) {
+            root._repeatTimes += 1
+        }
+        if (artist !== root._repeatArtist) {
+            root._repeatArtist = artist
+            root._artistSecs = 0
+            root._repeatFired = []
+        }
+        root._artistSecs += secs
+        if (!root._has("music_repeating")) return
+        const minutes = Math.floor(root._artistSecs / 60)
+        for (const r of root.active.filter(r => r.when?.event === "music_repeating")) {
+            if (root._repeatFired.includes(r.id)) continue
+            const ev = { event: "music_repeating", app: app, text: track, times: root._repeatTimes, minutes: minutes }
+            if (!root._matches(r.when, ev)) continue
+            root._repeatFired = [...root._repeatFired, r.id]
+            root.note("music", Translation.tr("on repeat: %1 times, %2 min of the artist").arg(root._repeatTimes).arg(minutes))
+            root._run(r, ev)
+        }
+    }
+
     // No music for a while, while the user is here (music_silent: "whenever
     // there's no music…"): from the shell's start, a stop, coming back. Once
     // per silence and routine; held while the user stopped it themselves,

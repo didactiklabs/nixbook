@@ -325,10 +325,7 @@ func strOf(op map[string]any, key string) (string, bool, error) {
 
 // Apply runs one change on the server, its answer put in the section.
 func (p *todos) Apply(sec *tasks.Section, op map[string]any) (any, error) {
-	kind, _ := op["op"].(string)
-	if kind == "" {
-		kind, _ = op["action"].(string)
-	}
+	kind := core.Kind(op)
 	title, hasTitle, err := strOf(op, "title")
 	if err != nil {
 		return nil, err

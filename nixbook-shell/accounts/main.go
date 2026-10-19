@@ -399,7 +399,7 @@ func runCalendar(argv []string) (any, error) {
 		c := calendar.Load()
 		return map[string]any{
 			"syncedAt": c.SyncedAt, "error": c.Error, "calendars": c.Calendars,
-			"events": calendar.Occurrences(from, to, cals),
+			"events": c.Occurrences(from, to, cals),
 		}, nil
 	case "apply":
 		if len(args) == 0 {
@@ -422,7 +422,9 @@ func truncate(s string, n int) string {
 }
 
 func status() map[string]any {
-	out := map[string]any{"contacts": contacts.Summary(), "tasks": tasks.Summary(), "calendar": calendar.Summary()}
+	// Each copy read once, however many accounts.
+	cc, tc, kc := contacts.Load(), tasks.Load(), calendar.Load()
+	out := map[string]any{"contacts": cc.Summary(), "tasks": tc.Summary(), "calendar": kc.Summary()}
 	googleSetup := map[string]any{"configured": false, "console": google.ConsoleURL, "apis": google.APILibrary}
 	if ok, err := google.Configured(); err != nil {
 		out["error"] = err.Error()
@@ -445,10 +447,10 @@ func status() map[string]any {
 			"id": a.ID, "provider": a.Provider, "name": a.Name, "email": a.Email, "url": a.URL, "preset": a.Preset,
 			"username": a.Username, "contacts": contacts.Supported(a), "tasks": tasks.Supported(a),
 			"calendar":      calendar.Supported(a),
-			"calendarError": calendar.AccountError(a.ID),
+			"calendarError": kc.AccountError(a.ID),
 			"connected":     connected,
-			"contactsError": contacts.AccountError(a.ID),
-			"tasksError":    tasks.AccountError(a.ID),
+			"contactsError": cc.AccountError(a.ID),
+			"tasksError":    tc.AccountError(a.ID),
 		})
 	}
 	out["accounts"] = accounts

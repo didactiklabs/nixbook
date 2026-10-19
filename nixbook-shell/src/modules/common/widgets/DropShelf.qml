@@ -48,6 +48,6 @@ Singleton {
     Process {
         id: copyProc
         property string payload: ""
-        command: ["bash", "-c", `printf '%s' '${StringUtils.shellSingleQuoteEscape(copyProc.payload)}' | wl-copy --type text/uri-list`]
+        command: ["bash", "-c", 'printf "%s" "$1" | wl-copy --type text/uri-list', "_", copyProc.payload]
     }
 }

@@ -44,6 +44,19 @@ func (e *APIError) Error() string { return e.Message }
 
 var client = &http.Client{Timeout: 30 * time.Second}
 
+// MaxBody is the most of an answer read (a page of contacts or events is
+// far less): a server can't fill the memory.
+const MaxBody = 64 << 20
+
+// ReadCapped reads an answer's body, at most MaxBody.
+func ReadCapped(r io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(r, MaxBody+1))
+	if err == nil && len(data) > MaxBody {
+		err = errors.New("the answer is too large")
+	}
+	return data, err
+}
+
 // Getenv is os.Getenv (the endpoints and paths the tests move).
 var Getenv = os.Getenv
 
@@ -91,7 +104,7 @@ func Call(method, rawURL string, body any, form url.Values, token string, out an
 			}
 			return Errorf("can't reach %s: %v", host(rawURL), err)
 		}
-		data, err := io.ReadAll(resp.Body)
+		data, err := ReadCapped(resp.Body)
 		resp.Body.Close()
 		if err != nil {
 			return Errorf("can't reach %s: %v", host(rawURL), err)

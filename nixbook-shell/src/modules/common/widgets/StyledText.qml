@@ -1,4 +1,5 @@
 import qs.modules.common
+import qs.modules.common.functions
 import QtQuick
 
 Text {
@@ -7,6 +8,12 @@ Text {
     property real animationDistanceX: 0
     property real animationDistanceY: 6
 
+    // Auto-detected markup as before, except a string carrying remote markup
+    // (a window/track/event title with <img src="https://…">, a tracking
+    // pixel) shows as plain text: no styled view of it fetches anything.
+    // The shell's own markup never points anywhere remote. Views that set
+    // textFormat themselves sanitise their text (NotificationUtils).
+    textFormat: StringUtils.hasRemoteMarkup(root.text) ? Text.PlainText : Text.AutoText
     renderType: Text.NativeRendering
     verticalAlignment: Text.AlignVCenter
     property bool shouldUseNumberFont: /^\d+$/.test(root.text)

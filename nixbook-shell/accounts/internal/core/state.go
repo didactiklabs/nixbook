@@ -80,11 +80,22 @@ func WriteJSON(name string, v any) error {
 	if err != nil {
 		return err
 	}
+	return replaceFile(path, data)
+}
+
+// replaceFile writes data next to path, then puts it in its place at once;
+// the temporary file is gone either way.
+func replaceFile(path string, data []byte) error {
 	tmp := fmt.Sprintf("%s.%d.tmp", path, os.Getpid())
 	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		os.Remove(tmp)
 		return err
 	}
-	return os.Rename(tmp, path)
+	if err := os.Rename(tmp, path); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	return nil
 }
 
 // DataDir is $XDG_DATA_HOME/nixbook-accounts/<name>: data that exists
@@ -123,11 +134,7 @@ func WriteFile(path string, v any) error {
 	if err != nil {
 		return err
 	}
-	tmp := fmt.Sprintf("%s.%d.tmp", path, os.Getpid())
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	return replaceFile(path, data)
 }
 
 // RemoveState deletes a state file, if there.

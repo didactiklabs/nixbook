@@ -141,6 +141,15 @@ func GlobalID(account, id string) string {
 	return account + ":" + id
 }
 
+// LocalID is the provider's own id in a global id of that account; "" when
+// it is another account's.
+func LocalID(account, global string) string {
+	if id, ok := strings.CutPrefix(global, account+":"); ok {
+		return id
+	}
+	return ""
+}
+
 // SplitID is a global id's account and the provider's own id.
 func SplitID(global string) (account, id string, err error) {
 	account, id, ok := strings.Cut(strings.TrimSpace(global), ":")

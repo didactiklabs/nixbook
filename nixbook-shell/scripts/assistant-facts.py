@@ -504,8 +504,8 @@ def binds(kdl: str):
 
 
 def main():
-    info = json.load(open(sys.argv[1]))
-    kdl = open(sys.argv[2]).read() if len(sys.argv) > 2 else ""
+    info = json.load(open(sys.argv[1], encoding="utf-8"))
+    kdl = open(sys.argv[2], encoding="utf-8").read() if len(sys.argv) > 2 else ""
     host, user = info["host"], info["user"]
     facts = {lang: [] for lang in LANGS}
     kinds = []  # "bind:<key>", "nvim:<index>", "nvim-leader", "core", "os", "toggle:<path>", "howto:<name>", "setting", "package"
@@ -566,7 +566,7 @@ def main():
 def markdown(info_path):
     """The operating system, the how-tos and the Neovim keymaps as Markdown
     sections for the AI chat's prompt."""
-    info = json.load(open(info_path))
+    info = json.load(open(info_path, encoding="utf-8"))
     facts = os_facts(info)
     if facts:
         print("\n## Operating system (from the configuration)")

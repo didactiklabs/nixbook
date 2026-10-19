@@ -43,8 +43,11 @@ StyledImage {
         command: {
             const maxSize = Images.thumbnailSizes[root.thumbnailSizeName];
             const thumbPath = FileUtils.trimFileProtocol(root.thumbnailPath);
+            // Paths as arguments, not spliced into the script: a file name
+            // with a quote would otherwise run as shell code.
             return ["bash", "-c",
-                `[ -f '${thumbPath}' ] && exit 0 || { tmp='${thumbPath}.$$.tmp.png'; magick '${root.sourcePath}' -resize ${maxSize}x${maxSize} "\${tmp}" && mv "\${tmp}" '${thumbPath}' && exit 1; exit 2; }`
+                `[ -f "$1" ] && exit 0 || { tmp="$1.$$.tmp.png"; magick "$2" -resize ${maxSize}x${maxSize} "$tmp" && mv "$tmp" "$1" && exit 1; rm -f "$tmp"; exit 2; }`,
+                "_", thumbPath, root.sourcePath
             ]
         }
         onExited: (exitCode, exitStatus) => {

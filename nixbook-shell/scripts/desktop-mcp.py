@@ -506,17 +506,24 @@ def audit_path():
     return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-shell", "desktop-mcp.log")
 
 
-# Arguments whose content is private: only their length is logged.
-PRIVATE_ARGS = {"text", "value"}
+# Arguments whose content is private: only their length is logged, also
+# inside others (run_steps' steps); vars fill the steps' text.
+PRIVATE_ARGS = {"text", "value", "vars"}
+
+
+def redact(v):
+    if isinstance(v, dict):
+        return {k: (f"<{len(x)} chars>" if isinstance(x, str) else "<private>") if k in PRIVATE_ARGS
+                else redact(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [redact(x) for x in v]
+    return v
 
 
 def audit(client, tool, args, outcome):
     safe = {}
-    for k, v in (args or {}).items():
-        if k in PRIVATE_ARGS and isinstance(v, str):
-            safe[k] = f"<{len(v)} chars>"
-        else:
-            safe[k] = v if len(json.dumps(v)) <= 200 else "<long>"
+    for k, v in redact(args or {}).items():
+        safe[k] = v if len(json.dumps(v)) <= 200 else "<long>"
     entry = {
         "time": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "client": client,
@@ -2653,6 +2660,7 @@ def quiet_hours(cfg, now):
 def deliver(cfg, data, item, level, busy, now):
     """Notification, waiting word, or nothing: {action, item, why}."""
     key, kind = item["key"], item["kind"]
+    down = ""  # why a word to say out loud waits in the bar instead
     if any(s["key"] == key for s in data["said"]) or any(p["key"] == key for p in data["pending"]):
         return {"action": "none", "why": "said already"}
     muted = data["muted"]
@@ -2680,6 +2688,7 @@ def deliver(cfg, data, item, level, busy, now):
                else "")
         if why:
             level = "badge"
+            down = why
     item = dict(item, id=secrets.token_hex(3), time=int(now), level=level,
                 expires=int(now + INITIATIVE_PENDING_HOURS * 3600))
     data["said"].append({"id": item["id"], "key": key, "kind": kind, "app": item.get("app"), "level": level,
@@ -2689,9 +2698,10 @@ def deliver(cfg, data, item, level, busy, now):
     for key_ in [kind] + ([f"{kind}:{item['app'].lower()}"] if item.get("app") else []) + [hour_key(now)]:
         counts = data["stats"].setdefault(key_, {})
         counts["said"] = counts.get("said", 0) + 1
-    if level == "badge":
-        data["pending"] = (data["pending"] + [item])[-INITIATIVE_PENDING_MAX:]
-    return {"action": "notify" if level == "notify" else "badge", "item": item}
+    # Said out loud too: it waits in the bar once its bubble goes (unanswered,
+    # or a newer word in its place), until answered.
+    data["pending"] = (data["pending"] + [item])[-INITIATIVE_PENDING_MAX:]
+    return {"action": "notify" if level == "notify" else "badge", "item": item, "why": down}
 
 
 def budget(cfg, data, key, base, now):
@@ -3434,7 +3444,9 @@ def initiative_answer(item_id, outcome):
         m.data["pending"] = [p for p in m.data["pending"] if p["id"] != item_id]
         said["outcome"] = outcome
         if said.get("accept"):
-            routine_accept(said["accept"], outcome == "replied")
+            # Not now leaves the routine off (Settings can turn it on), no forgets it.
+            if outcome in ("replied", "never"):
+                routine_accept(said["accept"], outcome == "replied")
             m.save()
             return said
         keys = [said["kind"]] + ([f"{said['kind']}:{said['app'].lower()}"] if said.get("app") else []) + [hour_key(said["time"])]
@@ -3549,6 +3561,9 @@ ROUTINE_EVENTS = {
                     "\"whenever there's no music\" (also when they sit down to silence; held while they stopped it themselves)",
     "music_started": "music starts playing",
     "track_changed": "a new track plays (artist, words: in its title or artist)",
+    "music_repeating": "the same song has played `times` (default 3) times in a row (a loop counts), or the "
+                       "same artist for `minutes` (default 30): for \"when a song is on repeat too long\" "
+                       "(told: times, minutes)",
     "app_opened": "an app is opened (app)",
     "app_closed": "an app is closed (app)",
     "app_focused": "an app comes to the front (app)",
@@ -3588,7 +3603,7 @@ ROUTINE_EVENTS = {
     "rain": "the weather turns to rain, snow or storm",
     "screenshot": "a screenshot is saved (name)",
 }
-ROUTINE_FILTERS = ("app", "words", "at", "days", "percent", "name", "ext", "minutes")
+ROUTINE_FILTERS = ("app", "words", "at", "days", "percent", "name", "ext", "minutes", "times")
 ROUTINE_COOLDOWN = 10
 ROUTINE_FIGHTS = 2
 ROUTINE_AGENT_TURNS = 8
@@ -3617,7 +3632,7 @@ ROUTINE_DESKTOP_TOOLS = {"focus_window", "focus_workspace", "launch_app", "move_
 ROUTINE_IPC_TARGETS = {"mpris"}
 ROUTINE_AGENT_GROUPS = "observe,windows,shell"
 # What of the event a routine's Claude run is told: no text from anyone else.
-ROUTINE_EVENT_FIELDS = ("event", "app", "name", "percent", "ext", "at", "minutes", "matched")
+ROUTINE_EVENT_FIELDS = ("event", "app", "name", "percent", "ext", "at", "minutes", "times", "matched")
 
 
 def assistant_servers():
@@ -3647,7 +3662,7 @@ def routine_when(when):
         v = when.get(k)
         if v is None or v == "":
             continue
-        if k in ("percent", "minutes"):
+        if k in ("percent", "minutes", "times"):
             if isinstance(v, bool) or not isinstance(v, (int, float)) or not 0 <= v <= 1440:
                 raise ToolError(f"when.{k}: a number")
             out[k] = int(v)
@@ -3718,7 +3733,8 @@ def routine_line(r):
     "servers: [the MCP servers it needs]} (a short Claude run each time, not "
     "while the screen is locked). Prefer a fixed call. Pick the event that "
     "means what they said: a state (\"whenever there's no music\") is "
-    "music_silent, an end (\"when the album ends\") music_ended. A routine you add (or "
+    "music_silent, an end (\"when the album ends\") music_ended, a repeat (\"when a song loops too "
+    "long\") music_repeating, not track_changed. A routine you add (or "
     "turn on) stays off until the user says yes to it: they are asked. action list, remove (id), on/off (id). Events: "
     + "; ".join(f"{k}: {v}" for k, v in ROUTINE_EVENTS.items()) + ". Optional "
     "when.cooldown: minutes between two runs (default 10).",
@@ -3727,7 +3743,7 @@ def routine_line(r):
             "action": {"type": "string", "enum": ["add", "list", "remove", "on", "off"]},
             "id": {"type": "string"},
             "text": {"type": "string", "description": "What it does, in the user's words"},
-            "when": {"type": "object", "description": "{event, app, words, at, days, percent, name, ext, minutes, cooldown}"},
+            "when": {"type": "object", "description": "{event, app, words, at, days, percent, name, ext, minutes, times, cooldown}"},
             "do": {"type": "object", "description": "{tool, args, server} or {agent, servers}"},
         },
         ["action"],
@@ -3823,6 +3839,10 @@ def mcp_call(server, tool_name, args, timeout=60):
     worker.start()
     worker.join(timeout)
     proc.kill()
+    try:
+        proc.wait(5)
+    except subprocess.TimeoutExpired:
+        pass
     reply = result.get(2)
     if not reply:
         raise ToolError("the MCP server gave no answer")
@@ -3984,7 +4004,10 @@ def routine_undone(rid):
         r = next((r for r in m.data.get("routines") or [] if r["id"] == rid), None)
         if not r:
             raise ToolError(f"no routine {rid}")
-        r["fights"] = r.get("fights", 0) + 1
+        # Twice in a day: an undo long ago doesn't count against it.
+        now = int(time.time())
+        r["fights"] = (r.get("fights", 0) if now - r.get("foughtAt", 0) < 86400 else 0) + 1
+        r["foughtAt"] = now
         off = r["fights"] >= ROUTINE_FIGHTS and r.get("on", True)
         if off:
             r["on"] = False
@@ -5376,7 +5399,7 @@ def habits_jobs(cfg, rec, data, now):
             if not ask or habits_notify(f"Switch to {label}?",
                                         "You usually switch to it around this time.", "palette", "Switch"):
                 try:
-                    qs_ipc("call", "theme", "set", theme, variant)
+                    qs_ipc("call", "--", "theme", "set", theme, variant)
                 except ToolError as e:
                     log(f"habits: theme: {e}")
                 else:
@@ -7854,7 +7877,13 @@ def screenshot_window(ctx, wid):
         if ctx.cfg.get("screenshotFormat") != "png":
             out = path[: -len(".png")] + ".jpg"
         quality = min(max(int(ctx.cfg.get("screenshotQuality", 80)), 10), 100)
-        run(["magick", path, "-resize", f"{max_edge}x{max_edge}>", "-quality", str(quality), out], timeout=15)
+        try:
+            run(["magick", path, "-resize", f"{max_edge}x{max_edge}>", "-quality", str(quality), out], timeout=15)
+        except BaseException:
+            for p in {path, out}:
+                if os.path.exists(p):
+                    os.unlink(p)
+            raise
         if out != path:
             os.unlink(path)
             os.chmod(out, 0o600)
@@ -7872,8 +7901,11 @@ def screenshot_reply(ctx, path, info):
         # The caller reads the file later; drop the ones left from before.
         for old in os.listdir(runtime_dir()):
             p = os.path.join(runtime_dir(), old)
-            if old.startswith("screenshot-") and time.time() - os.path.getmtime(p) > 600:
-                os.unlink(p)
+            try:
+                if old.startswith("screenshot-") and time.time() - os.path.getmtime(p) > 600:
+                    os.unlink(p)
+            except FileNotFoundError:  # another server's cleanup
+                pass
         os.chmod(path, 0o600)
         return [text(f"{info}\nSaved to {path}")]
     try:
@@ -9152,7 +9184,11 @@ def shared_folders():
             if not os.path.isabs(folder):
                 continue
             real = os.path.realpath(folder)
-            if real not in (home, "/") and real not in out:
+            # As the agent desktop's launcher (agent-desktop.sh): never a
+            # folder holding the home, nor a hidden one of it (settings, keys).
+            if (home + os.sep).startswith(real.rstrip(os.sep) + os.sep) or real.startswith(home + os.sep + "."):
+                continue
+            if real not in out:
                 out.append(real)
     return out
 
@@ -9310,12 +9346,16 @@ def t_screen_capture(ctx, args):
             folder = os.path.expanduser(str(shell_setting("screenSnip.savePath", "~/Pictures/Screenshots")))
             os.makedirs(folder, exist_ok=True)
             path = os.path.join(folder, time.strftime("Screenshot-%Y-%m-%d-%H-%M-%S.png"))
-        run(["grim", *grim, "-t", "png", path], timeout=15)
-        if to != "file":
-            with open(path, "rb") as f:
-                wl_copy(f.read(), "image/png")
+        try:
+            run(["grim", *grim, "-t", "png", path], timeout=15)
+            if to != "file":
+                with open(path, "rb") as f:
+                    wl_copy(f.read(), "image/png")
+        finally:
+            # Only in the clipboard: no copy of the screen left behind.
+            if to == "clipboard" and os.path.exists(path):
+                os.unlink(path)
         if to == "clipboard":
-            os.unlink(path)
             return [text(f"screenshot of the {what} copied to the clipboard")]
         return [text(f"screenshot of the {what} saved to {path}" + (" and copied to the clipboard" if to == "both" else ""))]
     if ctx.desktop == "agent":
@@ -11310,7 +11350,10 @@ def make_handler(cfg, token, port):
         def do_POST(self):
             if not self.authorized():
                 return
-            length = int(self.headers.get("Content-Length") or 0)
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                length = 0
             if length <= 0 or length > 1 << 20:
                 return self.refuse(413, "request body missing or over 1 MiB")
             try:

@@ -498,14 +498,8 @@ ContentPage {
                     Layout.fillWidth: true
                     buttonRadius: Appearance.rounding.normal
                     materialIcon: "terminal"
-                    mainText: UpdateState.viewingLogs ? Translation.tr("Stop Logs") : Translation.tr("View Logs")
-                    onClicked: {
-                        if (UpdateState.viewingLogs) {
-                            UpdateState.stopLogs()
-                        } else {
-                            UpdateState.startLogs()
-                        }
-                    }
+                    mainText: Translation.tr("View Logs")
+                    onClicked: UpdateState.openLogs()
                 }
             }
 
@@ -542,33 +536,14 @@ ContentPage {
                 }
             }
 
-            Rectangle {
+            StyledText {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 200
-                visible: UpdateState.viewingLogs
-                clip: true
-                radius: Appearance.rounding.small
-                color: Appearance.colors.colLayer1
-
-                Flickable {
-                    id: logFlickable
-                    anchors.fill: parent
-                    anchors.margins: 8
-                    contentWidth: width
-                    contentHeight: logLabel.paintedHeight
-                    clip: true
-
-                    StyledText {
-                        id: logLabel
-                        width: parent.width
-                        text: UpdateState.logText || Translation.tr("Waiting for logs...")
-                        color: Appearance.colors.colOnLayer1
-                        wrapMode: Text.Wrap
-                        onTextChanged: {
-                            logFlickable.contentY = Math.max(0, logFlickable.contentHeight - logFlickable.height)
-                        }
-                    }
-                }
+                visible: UpdateState.updating && UpdateState.step !== ""
+                elide: Text.ElideRight
+                font.family: Appearance.font.family.monospace
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+                text: UpdateState.step
             }
         }
 

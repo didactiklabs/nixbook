@@ -25,8 +25,8 @@ import QtQuick
  * What it says comes out loud (`speaking`: its own bubble on the left,
  * AgentSpeech.qml, with Reply, Not now, Don't) or waits in the bar
  * (`pending`: the robot's bubble), until it expires. Reply opens the side
- * panel's "From Claude" tab with it as Claude's message, so the user just
- * answers; the answer teaches it what the user values.
+ * panel's "From Claude" tab with it as Claude's message, in a thread of its
+ * own, so the user just answers; the answer teaches it what the user values.
  */
 Singleton {
     id: root
@@ -34,12 +34,13 @@ Singleton {
     readonly property bool enabled: Config.options?.ai?.initiative?.enable ?? false
     readonly property bool readNotifications: Config.options?.ai?.initiative?.readNotifications ?? false
     readonly property string statePath: `${Quickshell.env("XDG_STATE_HOME") || `${Quickshell.env("HOME")}/.local/state`}/nixbook-shell/initiative.json`
-    // What waits for the user, newest last: {id, kind, text, chat, time, expires}.
+    // What waits for the user, newest last: {id, kind, text, chat, time, expires}
+    // (what it says out loud too: the bar shows it once its bubble goes).
     property var pending: []
     // Its last decisions, newest last: {time, event, action, said, why}.
     property var log: []
     property real now: Date.now()
-    readonly property var live: root.pending.filter(p => (p.expires ?? 0) * 1000 > root.now)
+    readonly property var live: root.pending.filter(p => (p.expires ?? 0) * 1000 > root.now && p.id !== root.speaking?.id)
 
     property var _batch: []
     property real _awaySince: 0
@@ -86,7 +87,8 @@ Singleton {
     }
 
     // Opens what it said in the side panel's chat, as Claude's message; a
-    // learned routine offered (`accept`) is just turned on.
+    // routine offered (`accept`) is shown first in its speech bubble (what
+    // it would do, Yes, do it), and turned on by that Yes.
     // Curiosity (ai.initiative.curious): it watches what is in front (app and
     // window title, every few minutes) and learns what the user does from it,
     // saying what it learned; the reply corrects or completes it.
@@ -97,13 +99,19 @@ Singleton {
         + "and they want it, do it now with your tools (look at their screen first if needed); then answer naturally."
     function open(item) {
         if (!item) return
+        if (item.accept && root.speaking?.id !== item.id) {
+            root._notify(item)
+            return
+        }
         if (root.speaking?.id === item.id) root.speaking = null
         if (item.accept) {
             root.answer(item.id, "replied")
             return
         }
         root._opened = { id: item.id, time: Date.now() }
-        Ai.claudeTab().addMessage(item.chat || item.text, "assistant", true, item.curious ? root.learnHint : "")
+        const thread = Ai.claudeThread()
+        thread.addMessage(item.chat || item.text, "assistant", true, item.curious ? root.learnHint : "")
+        Ai.saveHistory(thread)
         GlobalStates.sidebarLeftOpen = true
         GlobalStates.aiChatRequested()
         root.answer(item.id, "replied")
@@ -135,7 +143,8 @@ Singleton {
     // on the left under the bar): one at a time, the one before to the bar.
     property var speaking: null
     function _notify(item) {
-        if (root.speaking) root.pending = [...root.pending, root.speaking]
+        const before = root.speaking
+        if (before) root.pending = [...root.pending.filter(p => p.id !== before.id), before]
         root.speaking = item
     }
     // Its speech answered without a reply: later, never, or "wait" (no
@@ -211,7 +220,8 @@ Singleton {
         onTriggered: {
             const seen = root._seen
             root._seen = {}
-            Quickshell.execDetached(["nixbook-desktop-mcp", "initiative", "notices", JSON.stringify(seen)])
+            if (root.enabled)
+                Quickshell.execDetached(["nixbook-desktop-mcp", "initiative", "notices", JSON.stringify(seen)])
         }
     }
 
@@ -233,7 +243,8 @@ Singleton {
         onTriggered: {
             const items = root._batch
             root._batch = []
-            if (items.length > 0)
+            // The switch may have gone off while the batch waited.
+            if (items.length > 0 && root.enabled && root.readNotifications)
                 root.consider({ event: "notifications", read: true, items: items,
                                 focused: ToplevelManager.activeToplevel?.appId ?? "", next: root._nextEvent() })
         }

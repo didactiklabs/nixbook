@@ -14,7 +14,19 @@
 # (package.nix).
 let
   inherit (pkgs) lib;
-  src = ./src;
+  # Without local Python caches (a script run in place): they aren't the
+  # shell's, and would change the tree's hash (a rebuild) for nothing.
+  src = lib.cleanSourceWith {
+    name = "src";
+    src = ./src;
+    filter =
+      path: _:
+      !(builtins.elem (baseNameOf path) [
+        "__pycache__"
+        ".ruff_cache"
+      ])
+      && !(lib.hasSuffix ".pyc" path);
+  };
   generatedAssets = import ./generated-assets.nix { inherit pkgs; };
 
   # Quickshell config directory name, i.e. the `qs -c <name>` argument.

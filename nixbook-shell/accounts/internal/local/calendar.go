@@ -103,7 +103,7 @@ func (localCalendar) Apply(sec *calendar.Section, op map[string]any) (any, error
 	if err != nil {
 		return nil, err
 	}
-	kind := kindOf(op)
+	kind := core.Kind(op)
 	fields, err := calendar.ParseFields(op, kind == "create")
 	if err != nil && kind != "delete" {
 		return nil, err

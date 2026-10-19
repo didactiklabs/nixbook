@@ -249,6 +249,12 @@ Singleton {
                     property string url: ""
                     property string apiKeyFile: ""
                 }
+                // The phone (kdeconnect-mcp, the "phone" server of
+                // assistant.mcpServers): reading its texts, notifications
+                // and contacts, beside sending, off until turned on.
+                property JsonObject phone: JsonObject {
+                    property bool readMessages: false
+                }
                 // The desktop agent speaking first, when it can help
                 // (services/Initiative.qml): off until turned on; reading
                 // notifications (what they say) is a step further, off too.

@@ -137,6 +137,17 @@ safe_folder() {
   printf '%s\n' "$f"
 }
 
+# What a shared folder really is (symlinks resolved), checked like the
+# folder itself: a link in a folder the agents may write (~/Work/notes ->
+# the home, or ~/.ssh) must not share more on their next start. Bound by
+# that path (a folder the user linked elsewhere, ~/Pictures -> /mnt/data,
+# still works).
+shared_target() {
+  local t
+  t="$(realpath -m -- "$1")" || return 1
+  HOME="$(realpath -m -- "$HOME")" safe_folder "$t"
+}
+
 rm -rf "$control"
 # Another desktop's home, the first time: the first one's, but its caches and
 # the links to the user's folders (made again below).
@@ -348,8 +359,9 @@ if [ -r "$shell_config" ]; then
   while IFS= read -r folder; do
     [ -n "$folder" ] || continue
     folder="$(safe_folder "$folder")" || continue
-    if [ -d "$folder" ]; then
-      sandbox+=(--ro-bind "$folder" "$folder")
+    target="$(shared_target "$folder")" || continue
+    if [ -d "$target" ]; then
+      sandbox+=(--ro-bind "$target" "$folder")
       shared+=("$folder")
     fi
   done < <(jq -r '.ai.allowedFolders // [] | .[] | strings' "$shell_config" 2>/dev/null || true)
@@ -364,7 +376,8 @@ if [ -r "$shell_config" ]; then
   while IFS= read -r folder; do
     [ -n "$folder" ] || continue
     folder="$(safe_folder "$folder")" || continue
-    mkdir -p "$folder" && sandbox+=(--bind "$folder" "$folder")
+    target="$(shared_target "$folder")" || continue
+    mkdir -p "$target" && sandbox+=(--bind "$target" "$folder")
     shared+=("$folder")
     if $first; then
       download_dir="$folder"

@@ -13,6 +13,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/didactiklabs/nixbook/nixbook-shell/accounts/internal/core"
 )
@@ -111,15 +112,22 @@ func shrink(src image.Image, edge int) image.Image {
 	return dst
 }
 
-// PhotoFile keeps an image (a vCard's inline photo) as a file in the state
-// directory, named by its content, and gives its file:// URL: the copy
-// holds the link, not the image.
-func PhotoFile(data []byte, ext string) (string, error) {
+func photoDir() (string, error) {
 	dir, err := core.StateDir()
 	if err != nil {
 		return "", err
 	}
-	dir = filepath.Join(dir, "photos")
+	return filepath.Join(dir, "photos"), nil
+}
+
+// PhotoFile keeps an image (a vCard's inline photo) as a file in the state
+// directory, named by its content, and gives its file:// URL: the copy
+// holds the link, not the image.
+func PhotoFile(data []byte, ext string) (string, error) {
+	dir, err := photoDir()
+	if err != nil {
+		return "", err
+	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", err
 	}
@@ -131,4 +139,29 @@ func PhotoFile(data []byte, ext string) (string, error) {
 		}
 	}
 	return "file://" + path, nil
+}
+
+// prunePhotos removes the kept photos no contact in the copy links to any
+// more (its contact deleted, its photo changed, its account removed): they
+// don't stay on the computer.
+func prunePhotos(c *Cache) {
+	dir, err := photoDir()
+	if err != nil {
+		return
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	used := map[string]bool{}
+	for _, x := range c.Contacts {
+		if p, ok := strings.CutPrefix(x.Photo, "file://"); ok {
+			used[p] = true
+		}
+	}
+	for _, e := range entries {
+		if p := filepath.Join(dir, e.Name()); !used[p] {
+			_ = os.Remove(p)
+		}
+	}
 }

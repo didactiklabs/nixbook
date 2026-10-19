@@ -60,7 +60,7 @@ Singleton {
             Quickshell.execDetached(["bash", "-c", `printf '%s' "$1" | ${root.cliphistBinary} decode | wl-copy`, "_", entry]);
         else { // Stash
             const entryNumber = entry.split("\t")[0];
-            Quickshell.execDetached(["bash", "-c", `${root.cliphistBinary} decode ${entryNumber} | wl-copy`]);
+            Quickshell.execDetached(["bash", "-c", `${root.cliphistBinary} decode "$1" | wl-copy`, "_", entryNumber]);
         }
     }
 
@@ -69,7 +69,7 @@ Singleton {
             Quickshell.execDetached(["bash", "-c", `printf '%s' "$1" | ${root.cliphistBinary} decode | wl-copy && wl-paste`, "_", entry]);
         else { // Stash
             const entryNumber = entry.split("\t")[0];
-            Quickshell.execDetached(["bash", "-c", `${root.cliphistBinary} decode ${entryNumber} | wl-copy; ${root.pressPasteCommand}`]);
+            Quickshell.execDetached(["bash", "-c", `${root.cliphistBinary} decode "$1" | wl-copy; ${root.pressPasteCommand}`, "_", entryNumber]);
         }
     }
 

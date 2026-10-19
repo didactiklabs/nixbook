@@ -93,24 +93,6 @@ MouseArea {
         forceFieldFocus();
     }
 
-    // RippleButton {
-    //     anchors {
-    //         top: parent.top
-    //         left: parent.left
-    //         leftMargin: 10
-    //         topMargin: 10
-    //     }
-    //     implicitHeight: 40
-    //     colBackground: Appearance.colors.colLayer2
-    //     onClicked: {
-    //         context.unlocked(LockContext.ActionEnum.Unlock);
-    //         GlobalStates.screenLocked = false;
-    //     }
-    //     contentItem: StyledText {
-    //         text: "[[ DEBUG BYPASS ]]"
-    //     }
-    // }
-
     Loader {
         anchors.fill: parent
         z: -1
@@ -381,14 +363,16 @@ MouseArea {
             Layout.leftMargin: 2
             Layout.rightMargin: 2
             Layout.alignment: Qt.AlignVCenter
-            active: MprisController.activePlayer !== null
-            visible: active && Config.options.lock.showMedia
+            // Not loaded when hidden: its position timer would run for nothing.
+            active: MprisController.activePlayer !== null && Config.options.lock.showMedia
+            visible: active
             
             sourceComponent: Item {
                 implicitWidth: mediaRow.implicitWidth
                 implicitHeight: mediaRow.implicitHeight
                 
-                readonly property MprisPlayer activePlayer: MprisController.activePlayer
+                // The same player as the cover art (root.artUrl).
+                readonly property MprisPlayer activePlayer: root.activePlayer
                 readonly property string cleanedTitle: StringUtils.cleanMusicTitle(activePlayer?.trackTitle) || ""
                 
                 Timer {
@@ -454,6 +438,7 @@ MouseArea {
                             maximumLineCount: 1
                             width: Math.min(implicitWidth, 180) 
                             color: Appearance.colors.colOnSurfaceVariant
+                            textFormat: Text.PlainText // the player's text, not markup
                             text: {
                                 var artist = activePlayer?.trackArtist || " ";
                                 return artist.length > 25 ? artist.substring(0, 25) + "..." : artist;
@@ -467,6 +452,7 @@ MouseArea {
                             maximumLineCount: 1
                             width: Math.min(implicitWidth, 180) 
                             color: Appearance.colors.colOnSurfaceVariant
+                            textFormat: Text.PlainText
                             text: {
                                 var title = cleanedTitle;
                                 return title.length > 30 ? title.substring(0, 30) + "..." : title;

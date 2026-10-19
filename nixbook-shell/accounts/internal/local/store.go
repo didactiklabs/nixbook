@@ -65,11 +65,3 @@ func str(op map[string]any, key string) (string, bool, error) {
 	}
 	return strings.TrimRight(s, " \t"), true, nil
 }
-
-func kindOf(op map[string]any) string {
-	k, _ := op["op"].(string)
-	if k == "" {
-		k, _ = op["action"].(string)
-	}
-	return k
-}

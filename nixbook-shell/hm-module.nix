@@ -822,7 +822,9 @@ in
           allowed. Not given while the chat's tools are disabled. The default,
           [MCP-NixOS](https://mcp-nixos.io), answers from the real NixOS,
           Home Manager and nix-darwin package and option data instead of
-          guessing. `desktop` is reserved.
+          guessing. `desktop` is reserved. The file is in the Nix store,
+          which every user can read: no tokens or secrets in `env` or
+          `headers` (point the server at a file of its own instead).
         '';
       };
 
@@ -1180,7 +1182,8 @@ in
                   --slurpfile live "$shell_live" \
                   --slurpfile pinned ${pinnedFile} \
                   '$live[0] * $pinned[0]' > "$shell_tmp/config.json"; then
-              run install -m644 "$shell_tmp/config.json" "$shell_config"
+              # The user's only (their location, shared folders…).
+              run install -m600 "$shell_tmp/config.json" "$shell_config"
             else
               warnEcho "nixbook-shell: failed to merge settings into $shell_config"
             fi
@@ -1326,6 +1329,11 @@ in
             Restart = "on-failure";
             RestartSec = 2;
             Slice = "background.slice";
+            # The clipboard history (passwords copied, too): kept the user's
+            # only, and off the network (it only talks to the compositor).
+            NoNewPrivileges = true;
+            RestrictAddressFamilies = [ "AF_UNIX" ];
+            UMask = "0077";
           };
           Install.WantedBy = [ "graphical-session.target" ];
         };

@@ -256,8 +256,12 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
         property string imageDecodeFileName: "image"
         property string imageDecodeFilePath: `${imageDecodePath}/${imageDecodeFileName}`
         function handleEntry(entry: string) {
-            imageDecodeFileName = parseInt(entry.match(/^(\d+)\t/)[1]);
-            decodeImageAndAttachProc.exec(["bash", "-c", `[ -f ${imageDecodeFilePath} ] || echo '${StringUtils.shellSingleQuoteEscape(entry)}' | ${Cliphist.cliphistBinary} decode > '${imageDecodeFilePath}'`]);
+            const id = entry.match(/^(\d+)\t/);
+            if (!id) return;
+            imageDecodeFileName = id[1];
+            // Arguments, never interpolated: the entry is clipboard text.
+            decodeImageAndAttachProc.exec(["bash", "-c", '[ -f "$1" ] || printf "%s\\n" "$2" | "$3" decode > "$1"',
+                "_", imageDecodeFilePath, entry, Cliphist.cliphistBinary]);
         }
         onExited: (exitCode, exitStatus) => {
             if (exitCode === 0) {
@@ -337,6 +341,9 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
         spacing: root.padding
 
         ChatTabBar {
+            Layout.fillWidth: true
+        }
+        ClaudeThreads {
             Layout.fillWidth: true
         }
 

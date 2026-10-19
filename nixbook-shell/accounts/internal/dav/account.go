@@ -74,9 +74,39 @@ func Connected(a registry.Account) bool {
 	return err == nil
 }
 
+// davHTTP is every DAV request's client: a redirect from https to http
+// (the password then sent in clear) refused, an answer read up to
+// core.MaxBody only.
+var davHTTP = &http.Client{
+	Timeout:   timeout,
+	Transport: cappedTransport{http.DefaultTransport},
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return errors.New("stopped after 10 redirects")
+		}
+		if via[0].URL.Scheme == "https" && req.URL.Scheme != "https" {
+			return errors.New("refused a redirect from https to http")
+		}
+		return nil
+	},
+}
+
+type cappedTransport struct{ http.RoundTripper }
+
+func (t cappedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.RoundTripper.RoundTrip(req)
+	if err == nil {
+		resp.Body = struct {
+			io.Reader
+			io.Closer
+		}{io.LimitReader(resp.Body, core.MaxBody), resp.Body}
+	}
+	return resp, err
+}
+
 // httpClient is a client signed in as the account.
 func httpClient(user, pass string) webdav.HTTPClient {
-	return webdav.HTTPClientWithBasicAuth(&http.Client{Timeout: timeout}, user, pass)
+	return webdav.HTTPClientWithBasicAuth(davHTTP, user, pass)
 }
 
 // asError says a DAV failure plainly: a refused password is a sign-in to
@@ -259,7 +289,7 @@ func rawRequest(c context.Context, a registry.Account, method, endpoint, path, b
 	}
 	req.Header.Set("Content-Type", "application/xml; charset=utf-8")
 	req.SetBasicAuth(a.Username, pass)
-	resp, err := (&http.Client{Timeout: timeout}).Do(req)
+	resp, err := davHTTP.Do(req)
 	if err != nil {
 		return asError(a, err)
 	}

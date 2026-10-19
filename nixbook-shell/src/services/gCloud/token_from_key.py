@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import calendar
+import os
 import sys
 import json
 import google.auth.transport.requests
@@ -31,8 +32,11 @@ def get_token(json_str):
         sys.exit(1)
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        sys.stderr.write("Usage: python3 get_token.py '<json_string>'\n")
+    # The key comes in $SERVICE_KEY_CONTENT (GoogleCloud.qml): an argument
+    # is readable by every user through /proc.
+    key = os.environ.get("SERVICE_KEY_CONTENT") or (sys.argv[1] if len(sys.argv) > 1 else "")
+    if not key:
+        sys.stderr.write("Usage: SERVICE_KEY_CONTENT='<json_string>' python3 token_from_key.py\n")
         sys.exit(1)
-    
-    get_token(sys.argv[1])
+
+    get_token(key)

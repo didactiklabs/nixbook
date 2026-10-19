@@ -71,7 +71,8 @@ in
           mode for DualShock 4 controllers
         - osupdate: shell script that applies the latest nixbook main branch via ginx +
           colmena apply-local
-        - udev: game-devices rules and uinput (MODE=0666) for unprivileged input access
+        - udev: game-devices rules, and uinput for the users (the uinput group, which
+          every nixbook user is in, and the active seat), not every local account
 
         Note: User-level packages belong in homeManagerModules (devTools, cliTools, etc.).
       '';
@@ -143,7 +144,12 @@ in
         libfido2 # FIDO2 device access rules for SSH security keys
       ];
       extraRules = ''
-        KERNEL=="uinput", MODE="0666"
+        # Virtual input (Steam, Sunshine, controller drivers) for the users,
+        # not world-writable: with 0666 any account (a service user, a
+        # container) could type into the desktop session, i.e. run commands as
+        # its user. Users are in the uinput group (lib/userConfig.nix); uaccess
+        # also covers a session started before that group was added.
+        KERNEL=="uinput", SUBSYSTEM=="misc", MODE="0660", GROUP="uinput", TAG+="uaccess"
         KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="05c4", MODE="0666"
         KERNEL=="hidraw*", SUBSYSTEM=="hidraw", KERNELS=="0005:054C:05C4.*", MODE="0666"
         KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="09cc", MODE="0666"
@@ -167,7 +173,15 @@ in
           stopIfChanged = false;
           serviceConfig = {
             Type = "oneshot";
+            # What the desktop shell's updates widget watches (it no longer
+            # follows the journal itself): /run/nixos-upgrade/status.json,
+            # {state: running|success|failed, started, finished, step (the
+            # latest log line, every 2 s), rev, tail (the log's last lines)}.
+            RuntimeDirectory = "nixos-upgrade";
+            RuntimeDirectoryMode = "0755";
+            RuntimeDirectoryPreserve = "yes";
             ExecStart = "${pkgs.writeShellScript "nixos-upgrade-wrapper" ''
+              set -o pipefail
               export NIXPKGS_ALLOW_UNFREE=1
               export PATH=$PATH:${
                 lib.makeBinPath [
@@ -178,7 +192,30 @@ in
                   osupdate
                 ]
               }
-              exec osupdate
+              dir=/run/nixos-upgrade
+              : >"$dir/log"
+              started=$(date +%s)
+              running() {
+                jq -nc --argjson s "$started" --arg step "$(tail -n 1 "$dir/log" | cut -c1-200)" \
+                  '{state: "running", started: $s, step: $step}' >"$dir/status.json.tmp" &&
+                  mv -f "$dir/status.json.tmp" "$dir/status.json"
+              }
+              running
+              (while sleep 2; do running; done) &
+              ticker=$!
+              trap 'kill $ticker 2>/dev/null' EXIT
+              osupdate 2>&1 | tee -a "$dir/log"
+            ''}";
+            ExecStopPost = "${pkgs.writeShellScript "nixos-upgrade-status" ''
+              dir=/run/nixos-upgrade
+              state=failed
+              [ "''${SERVICE_RESULT:-}" = success ] && [ "''${EXIT_STATUS:-0}" = 0 ] && state=success
+              started=$(${pkgs.jq}/bin/jq '.started // null' "$dir/status.json" 2>/dev/null) || started=null
+              tail -n 60 "$dir/log" 2>/dev/null |
+                ${pkgs.jq}/bin/jq -Rsc --arg st "$state" --argjson s "''${started:-null}" --argjson f "$(date +%s)" \
+                  --arg rev "$(${pkgs.jq}/bin/jq -r '.rev // ""' /etc/nixos/version 2>/dev/null)" \
+                  '{state: $st, started: $s, finished: $f, rev: $rev, tail: (. | rtrimstr("\n"))}' >"$dir/status.json.tmp" &&
+                mv -f "$dir/status.json.tmp" "$dir/status.json"
             ''}";
             StandardOutput = "journal";
             StandardError = "journal";

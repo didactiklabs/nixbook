@@ -84,6 +84,30 @@ async function search(query, filter, limit) {
   return parseSearchResults(response).slice(0, limit);
 }
 
+/**
+ * Wait until the app really plays (`videoId`, if given): a play sent while it
+ * is still switching tracks is lost, leaving it paused, so press play again,
+ * and `retry` (switch again) when another track stays loaded. Throws with
+ * what is loaded when it never starts, so a caller can't report it playing.
+ */
+async function ensurePlaying(videoId, retry) {
+  let song;
+  for (let i = 0; i < 12; i++) {
+    song = await currentSong();
+    const right = song && (!videoId || song.videoId === videoId);
+    if (right && !song.isPaused) return song;
+    if (right) await api("POST", "/play");
+    else if (retry && i % 4 === 3) await retry();
+    await sleep(500);
+  }
+  throw new Error(
+    song
+      ? `YouTube Music didn't start playing: it has "${song.title}" by ${song.artist} loaded, ` +
+          `${song.isPaused ? "paused" : "playing"}${videoId && song.videoId !== videoId ? ", not the requested track" : ""}.`
+      : "YouTube Music didn't start playing: nothing is loaded.",
+  );
+}
+
 /** Put a track right after the current one and switch to it. */
 async function playVideo(videoId) {
   await api("POST", "/queue", {
@@ -100,11 +124,10 @@ async function playVideo(videoId) {
         (it) => it.videoId === videoId && it.index === currentIndex + 1,
       ) ?? items.find((it) => it.videoId === videoId);
     if (target) {
-      if (!target.current)
-        await api("PATCH", "/queue", { index: target.index });
+      const jump = () => api("PATCH", "/queue", { index: target.index });
+      if (!target.current) await jump();
       await api("POST", "/play");
-      await sleep(1000);
-      return currentSong();
+      return ensurePlaying(videoId, jump);
     }
   }
   throw new Error(
@@ -133,7 +156,8 @@ tool(
 
 tool(
   "play",
-  "Play a song now in the YouTube Music app. Give either a search query (song and artist) or a videoId from search.",
+  "Play a song now in the YouTube Music app. Give either a search query (song and artist) or a videoId from search. " +
+    "Returns once it really plays; an error says what is loaded instead.",
   {
     query: z
       .string()
@@ -211,6 +235,7 @@ tool(
   { action: z.enum(Object.keys(CONTROLS)) },
   async ({ action }) => {
     await api(...CONTROLS[action]);
+    if (action === "play") return text({ nowPlaying: await ensurePlaying() });
     return text(`Done: ${action}.`);
   },
 );

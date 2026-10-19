@@ -24,8 +24,8 @@ pkgs.buildGoModule rec {
 
   meta = {
     homepage = "https://github.com/banh-canh/ytui";
-    description = " ytui is a TUI tool that allows users to query videos on youtube and play them in their local player.";
-    license = "mit";
+    description = "TUI to search YouTube videos and play them in a local player";
+    license = pkgs.lib.licenses.mit;
     mainProgram = "ytui";
   };
 }

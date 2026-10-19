@@ -24,7 +24,9 @@ Item {
 
     Timer {
         interval: 1000
-        running:  root.autoTime
+        // Not while hidden (the settings page stays loaded once opened);
+        // triggeredOnStart catches the hands up when it shows again.
+        running:  root.autoTime && root.visible && (root.Window.window?.visible ?? false)
         repeat:   true
         triggeredOnStart: true
         onTriggered: {
