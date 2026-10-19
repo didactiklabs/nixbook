@@ -1548,6 +1548,10 @@ expect_contains "routine: the user is asked, with what it does" "$(python3 "$mcp
 expect_eq "routine: off, it doesn't run" "it is off" "$(python3 "$mcp" routine run "$music" '{"event":"music_ended"}' | jq -r .why)"
 expect_contains "routine: an agent can't turn it on, only ask" "$(call routine "{\"action\":\"on\",\"id\":\"$music\"}")" "asked the user"
 expect_eq "routine: still off" false "$(jq '.routines[0].on' "$mem")"
+offer=$(python3 "$mcp" initiative pending | jq -r --arg r "$music" '[.[] | select(.accept == $r)] | last | .id')
+python3 "$mcp" initiative answer "$offer" later >/dev/null
+expect_eq "routine: not now keeps it, off" false "$(jq '.routines[0].on' "$mem")"
+call routine "{\"action\":\"on\",\"id\":\"$music\"}" >/dev/null
 say_yes "$music"
 expect_eq "routine: the user's yes turns it on" true "$(jq '.routines[0].on' "$mem")"
 call routine '{"action":"add","text":"When the cable is plugged, open Firefox","when":{"event":"plugged","cooldown":0},"do":{"tool":"launch_app","args":{"app":"firefox"}}}' >/dev/null

@@ -87,7 +87,8 @@ Singleton {
     }
 
     // Opens what it said in the side panel's chat, as Claude's message; a
-    // learned routine offered (`accept`) is just turned on.
+    // routine offered (`accept`) is shown first in its speech bubble (what
+    // it would do, Yes, do it), and turned on by that Yes.
     // Curiosity (ai.initiative.curious): it watches what is in front (app and
     // window title, every few minutes) and learns what the user does from it,
     // saying what it learned; the reply corrects or completes it.
@@ -98,6 +99,10 @@ Singleton {
         + "and they want it, do it now with your tools (look at their screen first if needed); then answer naturally."
     function open(item) {
         if (!item) return
+        if (item.accept && root.speaking?.id !== item.id) {
+            root._notify(item)
+            return
+        }
         if (root.speaking?.id === item.id) root.speaking = null
         if (item.accept) {
             root.answer(item.id, "replied")

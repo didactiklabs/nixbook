@@ -3437,7 +3437,9 @@ def initiative_answer(item_id, outcome):
         m.data["pending"] = [p for p in m.data["pending"] if p["id"] != item_id]
         said["outcome"] = outcome
         if said.get("accept"):
-            routine_accept(said["accept"], outcome == "replied")
+            # Not now leaves the routine off (Settings can turn it on), no forgets it.
+            if outcome in ("replied", "never"):
+                routine_accept(said["accept"], outcome == "replied")
             m.save()
             return said
         keys = [said["kind"]] + ([f"{said['kind']}:{said['app'].lower()}"] if said.get("app") else []) + [hour_key(said["time"])]
