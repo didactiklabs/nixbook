@@ -146,10 +146,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "v5.0.3",
-      "revision": "1da96c7bbf1990693e49a9db82bb74edf83fa655",
-      "url": "https://api.github.com/repos/LotusInputMethod/fcitx5-lotus/tarball/refs/tags/v5.0.3",
-      "hash": "sha256-XTyXzO0rF0zkW9li0sFBSAf+qakU9uFxl1CrQVlbMms="
+      "version": "v5.0.6",
+      "revision": "234b7c3987ae91cb4785816a4bdb9161fb2040c8",
+      "url": "https://api.github.com/repos/LotusInputMethod/fcitx5-lotus/tarball/refs/tags/v5.0.6",
+      "hash": "sha256-8j+eQ8Uje3Zi5MegN++GPDa+xUCYeiFxPm9Jm1VYMBM="
     },
     "flake-compat": {
       "type": "Git",
