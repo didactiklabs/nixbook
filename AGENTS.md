@@ -54,7 +54,7 @@ hive.nix                          Colmena deployment config
 ### Dependency & Package Management
 
 - `npins/` - Pinned external dependencies (nixpkgs, home-manager, agenix, disko, stylix, lanzaboote, etc.). Update with `npins-update [PINS...]` in `devenv shell` (plain `npins update` then `tests/nixpkgs-sync.sh`), never a bare `npins update`: a nixpkgs bump must move devenv's nixpkgs with it
-- `customPkgs/` - 24 custom packages (ginx, goji, ytui, jtui, crd-wizard, opencode-manager, youtube-music-mcp, spotify-mcp, linkedin-mcp-server, immich-photo-manager, etc.), exposed as `pkgs.customPkgs.<name>` by the `customPkgs/default.nix` overlay (every `<name>.nix` there, called with `{ pkgs }`); `lib/pkgs.nix` adds it (and `lib/overlays.nix`) for the machines, the tests and the docs, `homeManagerModules/entrypoint.nix` for standalone Home Manager
+- `customPkgs/` - 24 custom packages (ginx, goji, ytui, jtui, crd-wizard, opencode-manager, youtube-music-mcp, spotify-mcp, linkedin-mcp-server, immich-photo-manager, kdeconnect-mcp, etc.), exposed as `pkgs.customPkgs.<name>` by the `customPkgs/default.nix` overlay (every `<name>.nix` there, called with `{ pkgs }`); `lib/pkgs.nix` adds it (and `lib/overlays.nix`) for the machines, the tests and the docs, `homeManagerModules/entrypoint.nix` for standalone Home Manager
 - `lib/userConfig.nix` - User management framework with mkUser helper, Home Manager integration, per-user gnome-keyring daemon (`services.gnome-keyring`, components pkcs11+secrets only — ssh stays with gpg-agent), Qt theming (qt5ct/qt6ct installed system-wide with their launcher .desktop entries hidden via a NoDisplay=true postInstall override), Go dev environment
 - `assets/` - Static assets: themes, plugins, images, certificates, VPN configs
 

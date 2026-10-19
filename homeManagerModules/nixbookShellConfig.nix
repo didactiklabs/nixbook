@@ -41,6 +41,12 @@ let
     // lib.optionalAttrs cfg.linkedinMcp.enable {
       linkedin.command = lib.getExe pkgs.customPkgs.linkedin-mcp-server;
     }
+    # The phone through KDE Connect, for the side panel's Claude only: not on
+    # the PATH, so no other agent gets it. Reading its texts and
+    # notifications is a separate switch (ai.phone.readMessages, off).
+    // lib.optionalAttrs config.services.kdeconnect.enable {
+      phone.command = lib.getExe pkgs.customPkgs.kdeconnect-mcp;
+    }
     // {
       # Off in the chat until turned on in Settings, where its server and
       # API key are set (or in Nix: the ai.immich settings).
