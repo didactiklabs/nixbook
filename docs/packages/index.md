@@ -26,6 +26,7 @@
 | [spotify-mcp](#spotify-mcp)                   | MCP server that plays and controls the Spotify app                              | `nixbookShellConfig`           |
 | [linkedin-mcp-server](#linkedin-mcp-server)   | MCP server for LinkedIn through your own browser session                        | `nixbookShellConfig`           |
 | [immich-photo-manager](#immich-photo-manager) | MCP server for your Immich photo library                                        | `nixbookShellConfig`           |
+| [kdeconnect-mcp](#kdeconnect-mcp)             | MCP server for your phone through KDE Connect: texts, sharing, notifications    | `nixbookShellConfig`           |
 | [moonfin](#moonfin)                           | Jellyfin & Emby media client (AppImage)                                         | profiles                       |
 
 ## ginx
@@ -126,6 +127,14 @@ An MCP server (source in `customPkgs/spotify-mcp/`) for the Spotify desktop app.
 - It drives nixpkgs' Chromium (`CHROME_PATH`, so it never downloads a browser of its own) through [patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright-python), packaged from its PyPI wheel with nixpkgs' Node as its driver (nixpkgs' own patchright is marked broken). It doesn't check PyPI for updates.
 - The session is kept in `~/.linkedin-mcp/profile`; `mcp-server-linkedin --login` and `--logout` sign in and out.
 - LinkedIn's User Agreement forbids automated access and it may restrict accounts using such tools: the chat is told to use it sparingly, and to show a message or invitation and wait for your yes before sending it.
+
+## kdeconnect-mcp
+
+An MCP server (Go, source in `customPkgs/kdeconnect-mcp/`) for the phones paired with KDE Connect, talking to `kdeconnectd` on the session bus. `nixbookShellConfig` gives it to the nixbook-shell side panel's Claude, and only to it (and its routines), on every machine with `services.kdeconnect` (on by default): it isn't installed on the PATH, so your terminal Claude Code and other agents don't get it. Turn it off in **Settings → Desktop agents → Apps it can use** (**Phone**).
+
+- **Always**: `devices` (reachable, battery, what each can do), `send_sms` (numbers, up to 5, 1600 characters), `share` (an http(s) link opened on the phone, or text to its share sheet; never a local file), `clipboard` (text on the phone's clipboard), `ring`, `ping`.
+- **With Read my phone's texts and notifications** (`ai.phone.readMessages`, off by default; `KDECONNECT_MCP_READ=1`): `conversations` (threads, newest first, named from the contacts KDE Connect synced), `messages` (a thread), `notifications`, `reply_notification` (a messaging app's inline reply) and `contacts`.
+- Claude is told to show the exact text and recipients and send only after your yes. Every send, share, clipboard and reply is logged, without its text, to `~/.local/state/kdeconnect-mcp/actions.log`.
 
 ## immich-photo-manager
 

@@ -28,6 +28,9 @@
       "apiKeyFile": "",
       "url": ""
     },
+    "phone": {
+      "readMessages": false
+    },
     "initiative": {
       "curious": false,
       "enable": false,

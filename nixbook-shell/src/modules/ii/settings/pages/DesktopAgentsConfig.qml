@@ -507,7 +507,8 @@ ContentPage {
                                     "youtube-music": ["music_note", Translation.tr("YouTube Music: play and control")],
                                     spotify: ["queue_music", Translation.tr("Spotify: play and control")],
                                     linkedin: ["work", Translation.tr("LinkedIn: profiles, messages, jobs (your account)")],
-                                    immich: ["photo_library", Translation.tr("Immich: search and organize your photos")]
+                                    immich: ["photo_library", Translation.tr("Immich: search and organize your photos")],
+                                    phone: ["smartphone", Translation.tr("Phone (KDE Connect): send texts, share links, ring it")]
                                 })[serverRow.modelData] ?? ["extension", serverRow.modelData]
                                 anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 8 }
                                 configKey: "ai.claudeCode.mcpServersOff"
@@ -540,6 +541,19 @@ ContentPage {
                     materialIcon: "login"
                     mainText: Translation.tr("Sign in to LinkedIn")
                     onClicked: Quickshell.execDetached([Ai.assistantMcpServers.linkedin.command, "--login"])
+                }
+
+                // The phone: reading what it holds is its own switch.
+                ConfigSwitch {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 6
+                    visible: Ai.assistantMcpServers.phone !== undefined
+                    configKey: "ai.phone.readMessages"
+                    enabled: !nixManaged && !(Config.options.ai.claudeCode.mcpServersOff ?? []).includes("phone")
+                    buttonIcon: "sms"
+                    text: Translation.tr("Let it read my phone's texts, notifications and contacts (what they say goes to Claude)")
+                    checked: Config.options.ai.phone.readMessages
+                    onCheckedChanged: Config.options.ai.phone.readMessages = checked
                 }
 
                 // Immich: its server is a setting (ai.immich.url, locked when
