@@ -988,6 +988,10 @@ done`, "prune-transcripts", project, Directories.aiHistory]);
     function deleteUnpinnedChats() {
         root.deleteChats(root.history.filter(c => !c.pinned).map(c => c.id));
     }
+    // The "From Claude" tab's threads (ClaudeThreads.qml), but the pinned ones.
+    function deleteClaudeThreads() {
+        root.deleteChats(root.history.filter(c => c.fromClaude && !c.pinned).map(c => c.id));
+    }
     function setChatPinned(id, pinned) {
         root.history = root.history.map(c => c.id === id ? Object.assign({}, c, { pinned }) : c);
         root.writeHistoryIndex();

@@ -9,18 +9,75 @@ import QtQuick.Layouts
  * The "From Claude" tab's threads: each thing Claude said on its own is a
  * conversation of its own (Ai.claudeThread), saved in the history; the
  * latest are listed here, newest first, a dot on those not answered yet.
- * Clicking one goes back to it in this tab.
+ * Clicking one goes back to it in this tab; the button at the end deletes
+ * them all but the pinned ones (a second click to confirm).
  */
 ListView {
     id: root
     readonly property var threads: Ai.history.filter(c => c.fromClaude).slice(0, 20)
-    visible: Ai.current?.fromClaude === true && root.threads.length > 1
+    readonly property int unpinned: Ai.history.filter(c => c.fromClaude && !c.pinned).length
+    property bool confirmClear: false
+    visible: Ai.current?.fromClaude === true && root.threads.length > 0
     implicitHeight: 28
     orientation: ListView.Horizontal
     spacing: 4
     clip: true
     boundsBehavior: Flickable.StopAtBounds
     model: root.threads
+
+    Timer {
+        id: confirmReset
+        interval: 4000
+        onTriggered: root.confirmClear = false
+    }
+
+    footerPositioning: ListView.PinnedFooter
+    footer: Item {
+        visible: root.unpinned > 0
+        implicitWidth: visible ? clearButton.implicitWidth + 4 : 0
+        implicitHeight: 28
+        RippleButton {
+            id: clearButton
+            anchors.right: parent.right
+            implicitHeight: 28
+            implicitWidth: clearRow.implicitWidth + 20
+            buttonRadius: Appearance.rounding.full
+            toggled: root.confirmClear
+            colBackground: Appearance.colors.colLayer1
+            colBackgroundHover: Appearance.colors.colLayer2Hover
+            colBackgroundToggled: Appearance.colors.colError
+            colBackgroundToggledHover: Appearance.colors.colErrorHover
+            colRippleToggled: Appearance.colors.colErrorActive
+            onClicked: {
+                if (!root.confirmClear) {
+                    root.confirmClear = true;
+                    confirmReset.restart();
+                    return;
+                }
+                root.confirmClear = false;
+                Ai.deleteClaudeThreads();
+            }
+            contentItem: RowLayout {
+                id: clearRow
+                anchors.centerIn: parent
+                spacing: 4
+                MaterialSymbol {
+                    text: "delete_sweep"
+                    iconSize: Appearance.font.pixelSize.normal
+                    color: root.confirmClear ? Appearance.colors.colOnError : Appearance.colors.colOnLayer2
+                }
+                StyledText {
+                    visible: root.confirmClear
+                    text: Translation.tr("Delete %1?").arg(root.unpinned)
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colOnError
+                }
+            }
+            StyledToolTip {
+                text: Translation.tr("Clear the threads from Claude (but the pinned ones)")
+            }
+        }
+    }
 
     delegate: RippleButton {
         id: thread

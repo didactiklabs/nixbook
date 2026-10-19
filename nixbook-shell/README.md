@@ -512,7 +512,7 @@ memory pass offers what it learned (`initiative_offer`). Reply opens the
 side panel's "From Claude" tab with the message as Claude's, in a thread of
 its own (`Ai.claudeThread()`: the thread before saved to the history,
 `fromClaude: true`, listed under the tabs by `aiChat/ClaudeThreads.qml` to go
-back to; a second "From Claude" tab, past `maxChats`, when the first is still
+back to, with a button clearing them, pinned ones kept: `Ai.deleteClaudeThreads()`; a second "From Claude" tab, past `maxChats`, when the first is still
 answering) (`unsent`: it goes with the user's
 next message when the tab's session already runs; `GlobalStates.aiChatRequested`);
 answers (`initiative answer ID replied|later|dismissed|never|engaged`) teach
