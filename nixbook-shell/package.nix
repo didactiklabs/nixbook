@@ -23,6 +23,25 @@ let
   fonts = import ./fonts.nix { inherit pkgs; };
   inherit (shell.passthru) configName;
 
+  # The update check (scripts/update-check.sh), run by the updates widget
+  # through systemd-run: a user unit doesn't get the shell's PATH.
+  updateCheck = pkgs.writeShellScriptBin "nixbook-update-check" ''
+    export PATH=${
+      lib.makeBinPath (
+        with pkgs;
+        [
+          coreutils
+          gawk
+          gitMinimal
+          openssh
+          jq
+          curl
+        ]
+      )
+    }:$PATH
+    exec ${pkgs.bash}/bin/bash ${./scripts/update-check.sh} "$@"
+  '';
+
   # Claude usage reader for the AnthropicUsage bar widget (OpenCode OAuth).
   anthropicUsage = pkgs.writeShellScriptBin "anthropic-usage" (
     builtins.readFile ./scripts/anthropic-usage.sh
@@ -127,7 +146,6 @@ let
 
       jq
       curl
-      gitMinimal # `git ls-remote` for the update check (services/UpdateState.qml)
       wget
       libnotify # notify-send
       glib # gsettings
@@ -176,6 +194,7 @@ let
       shell.passthru.pythonEnv
       anthropicUsage # `anthropic-usage` — AnthropicUsage bar widget
       desktopMcp # `nixbook-desktop-mcp` — desktop tools of the AI chat
+      updateCheck # `nixbook-update-check` — the update check (services/UpdateState.qml)
     ];
 
   # QML modules the shell imports that quickshell itself is not built against,
