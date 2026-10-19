@@ -3554,6 +3554,9 @@ ROUTINE_EVENTS = {
                     "\"whenever there's no music\" (also when they sit down to silence; held while they stopped it themselves)",
     "music_started": "music starts playing",
     "track_changed": "a new track plays (artist, words: in its title or artist)",
+    "music_repeating": "the same song has played `times` (default 3) times in a row (a loop counts), or the "
+                       "same artist for `minutes` (default 30): for \"when a song is on repeat too long\" "
+                       "(told: times, minutes)",
     "app_opened": "an app is opened (app)",
     "app_closed": "an app is closed (app)",
     "app_focused": "an app comes to the front (app)",
@@ -3593,7 +3596,7 @@ ROUTINE_EVENTS = {
     "rain": "the weather turns to rain, snow or storm",
     "screenshot": "a screenshot is saved (name)",
 }
-ROUTINE_FILTERS = ("app", "words", "at", "days", "percent", "name", "ext", "minutes")
+ROUTINE_FILTERS = ("app", "words", "at", "days", "percent", "name", "ext", "minutes", "times")
 ROUTINE_COOLDOWN = 10
 ROUTINE_FIGHTS = 2
 ROUTINE_AGENT_TURNS = 8
@@ -3622,7 +3625,7 @@ ROUTINE_DESKTOP_TOOLS = {"focus_window", "focus_workspace", "launch_app", "move_
 ROUTINE_IPC_TARGETS = {"mpris"}
 ROUTINE_AGENT_GROUPS = "observe,windows,shell"
 # What of the event a routine's Claude run is told: no text from anyone else.
-ROUTINE_EVENT_FIELDS = ("event", "app", "name", "percent", "ext", "at", "minutes", "matched")
+ROUTINE_EVENT_FIELDS = ("event", "app", "name", "percent", "ext", "at", "minutes", "times", "matched")
 
 
 def assistant_servers():
@@ -3652,7 +3655,7 @@ def routine_when(when):
         v = when.get(k)
         if v is None or v == "":
             continue
-        if k in ("percent", "minutes"):
+        if k in ("percent", "minutes", "times"):
             if isinstance(v, bool) or not isinstance(v, (int, float)) or not 0 <= v <= 1440:
                 raise ToolError(f"when.{k}: a number")
             out[k] = int(v)
@@ -3723,7 +3726,8 @@ def routine_line(r):
     "servers: [the MCP servers it needs]} (a short Claude run each time, not "
     "while the screen is locked). Prefer a fixed call. Pick the event that "
     "means what they said: a state (\"whenever there's no music\") is "
-    "music_silent, an end (\"when the album ends\") music_ended. A routine you add (or "
+    "music_silent, an end (\"when the album ends\") music_ended, a repeat (\"when a song loops too "
+    "long\") music_repeating, not track_changed. A routine you add (or "
     "turn on) stays off until the user says yes to it: they are asked. action list, remove (id), on/off (id). Events: "
     + "; ".join(f"{k}: {v}" for k, v in ROUTINE_EVENTS.items()) + ". Optional "
     "when.cooldown: minutes between two runs (default 10).",
@@ -3732,7 +3736,7 @@ def routine_line(r):
             "action": {"type": "string", "enum": ["add", "list", "remove", "on", "off"]},
             "id": {"type": "string"},
             "text": {"type": "string", "description": "What it does, in the user's words"},
-            "when": {"type": "object", "description": "{event, app, words, at, days, percent, name, ext, minutes, cooldown}"},
+            "when": {"type": "object", "description": "{event, app, words, at, days, percent, name, ext, minutes, times, cooldown}"},
             "do": {"type": "object", "description": "{tool, args, server} or {agent, servers}"},
         },
         ["action"],
