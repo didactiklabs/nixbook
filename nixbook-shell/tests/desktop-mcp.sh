@@ -1668,6 +1668,8 @@ expect_eq "groups: limited by the environment" '["observe","windows"]' \
 
 # Undone twice by the user: it turns itself off, and says so.
 expect_eq "undone once: still on" '{"off": false}' "$(python3 "$mcp" routine undone "$music")"
+jq --arg id "$music" '(.routines[] | select(.id == $id) | .foughtAt) -= 90000' "$mem" >"$mem.new" && mv "$mem.new" "$mem"
+expect_eq "undone again a day later: still on" '{"off": false}' "$(python3 "$mcp" routine undone "$music")"
 expect_eq "undone twice: off" '{"off": true}' "$(python3 "$mcp" routine undone "$music")"
 expect_contains "undone: says why" "$(python3 "$mcp" initiative pending | jq -r '.[].text')" "twice, so I turned it off"
 call routine "{\"action\":\"remove\",\"id\":\"$agent\"}" >/dev/null

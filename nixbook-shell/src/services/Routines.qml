@@ -36,8 +36,11 @@ Singleton {
     property var routines: []
     readonly property var active: root.routines.filter(r => r.on !== false)
 
-    // routine id -> {time, music: bool, app}: what it just did, to see it undone.
+    // routine id -> {time, music: bool, app}: what it just did, to see it undone
+    // (set once its run is over, and for the music only when the music changed).
     property var _fired: ({})
+    // Routine runs going on: a pause then is theirs (switching tracks), not the user's.
+    property int _running: 0
     property real _userPausedAt: 0
     property var _timeFired: ({})
     property var _eventsFired: ({})
@@ -113,14 +116,24 @@ Singleton {
         }
     }
 
-    function _outcome(r, text) {
+    function _outcome(r, text, before) {
+        root._running = Math.max(0, root._running - 1)
         try {
             const out = JSON.parse(text)
+            const music = root._touchesMusic(r)
+            // A run that left the music as it was did nothing to undo.
+            if (out.ran && (!music || root._musicNow() !== before))
+                root._fired = Object.assign({}, root._fired, { [r.id]: { time: Date.now(), music: music,
+                    app: r.do?.tool === "launch_app" ? String(r.do?.args?.app ?? "").toLowerCase() : "" } })
             const said = out.said && !out.said.endsWith(": done.") ? out.said : ""
             root.note(r.text, out.ran ? (said ? Translation.tr("ran: %1").arg(said) : Translation.tr("ran")) : out.why)
         } catch (e) {
             root.note(r.text, Translation.tr("didn't run"))
         }
+    }
+
+    function _musicNow() {
+        return `${root.anyPlaying} ${MprisController.activeTrack?.artist ?? ""} ${MprisController.activeTrack?.title ?? ""}`
     }
 
     function _touchesMusic(r) {
@@ -132,9 +145,8 @@ Singleton {
     function _run(r, ev) {
         const event = Object.assign({}, ev)
         if (Ai.claudeCodePath.length > 0) event.claude = Ai.claudeCodePath
-        root._fired = Object.assign({}, root._fired, { [r.id]: { time: Date.now(), music: root._touchesMusic(r),
-            app: r.do?.tool === "launch_app" ? String(r.do?.args?.app ?? "").toLowerCase() : "" } })
-        runner.createObject(root, { routine: r, command: ["nixbook-desktop-mcp", "routine", "run", r.id, JSON.stringify(event)], running: true })
+        root._running += 1
+        runner.createObject(root, { routine: r, before: root._musicNow(), command: ["nixbook-desktop-mcp", "routine", "run", r.id, JSON.stringify(event)], running: true })
     }
 
     // The user undid what a routine just did (within 3 minutes).
@@ -156,9 +168,10 @@ Singleton {
         Process {
             id: proc
             property var routine
+            property string before
             stdout: StdioCollector {
                 onStreamFinished: {
-                    root._outcome(proc.routine, text)
+                    root._outcome(proc.routine, text, proc.before)
                     proc.destroy()
                 }
             }
@@ -233,6 +246,8 @@ Singleton {
                     // after): the timer checks for other music when it runs out.
                     root.note("music", `${name}: ended on its own, waiting 20 s`)
                     quietTimer.restart()
+                } else if (root._running > 0) {
+                    root.note("music", `${name}: paused while a routine ran (not counted as yours)`)
                 } else {
                     root._userPausedAt = Date.now()
                     root.note("music", `${name}: paused by you (holding music routines until you play music or come back)`)
