@@ -12,6 +12,10 @@ import QtQuick
  * Each item is an object with "id", "content", "attachments" (array of file paths), "createdAt",
  * "updatedAt" (last edit; createdAt for older notes) and "pinned".
  * Shown by the notes desktop widget and the Notes app (modules/ii/notesApp).
+ *
+ * A note synced with Google Keep also carries "keepId" (the Keep note's id)
+ * and "keepEdited" (when it was last synced): the sync of the notes with
+ * Keep (services/KeepSync.qml) needs them to tell which side changed.
  */
 Singleton {
     id: root
@@ -74,6 +78,13 @@ Singleton {
             root.list = list.slice(0)
             notesFileView.setText(JSON.stringify(root.list))
         }
+    }
+
+    // The sync's merged notes (services/KeepSync.qml): the whole list is
+    // replaced and the file written once, like every other change.
+    function applySynced(items) {
+        root.list = (items ?? []).slice(0)
+        notesFileView.setText(JSON.stringify(root.list))
     }
 
     function refresh() {

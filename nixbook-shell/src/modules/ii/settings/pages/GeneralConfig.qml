@@ -569,5 +569,58 @@ ContentPage {
                 }
             }
         }
+        ContentSection {
+            icon: "cloud_sync"
+            shape: MaterialShape.Shape.PuffyDiamond
+            title: Translation.tr("Google Keep")
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "keep.enable";
+                    enabled: !nixManaged;
+                    buttonIcon: "sync"
+                    text: Translation.tr("Sync the notes with Google Keep")
+                    checked: Config.options.keep.enable
+                    onCheckedChanged: {
+                        Config.options.keep.enable = checked;
+                    }
+                }
+                ConfigRow {
+                    uniform: true
+                    ConfigSpinBox {
+                        configKey: "keep.refreshMinutes";
+                        enabled: !nixManaged;
+                        icon: "timer"
+                        text: Translation.tr("Every")
+                        value: Config.options.keep.refreshMinutes
+                        from: 5
+                        to: 240
+                        stepSize: 5
+                        onValueChanged: {
+                            Config.options.keep.refreshMinutes = value;
+                        }
+                    }
+                }
+                ConfigSwitch {
+                    configKey: "keep.push";
+                    enabled: !nixManaged;
+                    buttonIcon: "north_east"
+                    text: Translation.tr("Send the shell's new notes to Keep")
+                    checked: Config.options.keep.push
+                    onCheckedChanged: {
+                        Config.options.keep.push = checked;
+                    }
+                }
+                ConfigSwitch {
+                    configKey: "keep.pull";
+                    enabled: !nixManaged;
+                    buttonIcon: "south_west"
+                    text: Translation.tr("Bring Keep's new notes in")
+                    checked: Config.options.keep.pull
+                    onCheckedChanged: {
+                        Config.options.keep.pull = checked;
+                    }
+                }
+            }
+        }
     }
 }

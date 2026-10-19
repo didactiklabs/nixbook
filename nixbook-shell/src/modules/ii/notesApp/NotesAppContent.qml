@@ -42,6 +42,8 @@ Rectangle {
     }
     // The last deleted note, for Undo.
     property var deleted: null
+    // The Google Keep panel (the sync of the notes with Keep).
+    property bool keepOpen: false
 
     function opened(noteId) {
         if (noteId && Notes.list.some(n => n.id === noteId)) root.select(noteId)
@@ -214,6 +216,12 @@ Rectangle {
                         color: Appearance.colors.colOnLayer1
                     }
                     PanelButton {
+                        icon: "cloud_sync"
+                        text: Translation.tr("Keep")
+                        toggled: root.keepOpen
+                        onClicked: root.keepOpen = !root.keepOpen
+                    }
+                    PanelButton {
                         icon: "edit_note"
                         text: Translation.tr("New")
                         filled: true
@@ -269,6 +277,18 @@ Rectangle {
                                 onClicked: searchField.text = ""
                             }
                         }
+                    }
+                }
+
+                // The Google Keep sync (services/KeepSync.qml).
+                KeepPanel {
+                    Layout.fillWidth: true
+                    visible: root.keepOpen
+                    onSyncRequested: {
+                        // What is being typed is saved first: the sync sends
+                        // the notes as they are.
+                        root.flush()
+                        KeepSync.sync()
                     }
                 }
 

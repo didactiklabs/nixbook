@@ -819,6 +819,14 @@ Singleton {
                 }
             }
 
+            property JsonObject keep: JsonObject {
+                // The notes' sync with Google Keep (services/KeepSync.qml).
+                property bool enable: true // The sync on its own, every refreshMinutes
+                property int refreshMinutes: 15
+                property bool push: true // The shell's new notes go to Keep
+                property bool pull: true // Keep's new notes come in
+            }
+
             property JsonObject language: JsonObject {
                 property string ui: "auto" // UI language. "auto" for system locale, or specific language code like "zh_CN", "en_US"
                 property JsonObject translator: JsonObject {

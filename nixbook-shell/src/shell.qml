@@ -42,6 +42,7 @@ ShellRoot {
         // musicRecognition, equalizer) exist once they are loaded.
         DesktopWidgets.load()
         Notes.load()
+        KeepSync.load()
         Todo.load()
         Contacts.load()
         TimerService.load()

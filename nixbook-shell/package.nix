@@ -1,6 +1,8 @@
 {
   pkgs,
   quickshellSrc,
+  # The Google Keep client for the notes' sync with Keep (an npins pin).
+  gkeepapiSrc,
   # The VPN CLIs behind the VpnStatus bar widget (services/VpnState.qml probes
   # them with `command -v`, so the widget only shows the ones it finds). Off
   # where they are on the PATH anyway or not used, to keep them out of the
@@ -19,6 +21,8 @@ let
   shell = import ./qml.nix { inherit pkgs; };
   quickshell = import ./quickshell.nix { inherit pkgs quickshellSrc; };
   accounts = import ./accounts.nix { inherit pkgs; };
+  # The notes' sync with Google Keep (`nixbook-keep`, services/KeepSync.qml).
+  keep = import ./keep.nix { inherit pkgs gkeepapiSrc; };
   settingsLib = import ./lib.nix { inherit lib; };
   fonts = import ./fonts.nix { inherit pkgs; };
   inherit (shell.passthru) configName;
@@ -191,6 +195,7 @@ let
     ++ [
       quickshell # `qs` — the shell re-invokes itself for sub-windows
       accounts # `nixbook-accounts` — the accounts, contacts and tasks (services/Accounts.qml)
+      keep # `nixbook-keep` — the notes' sync with Google Keep (services/KeepSync.qml)
       shell.passthru.pythonEnv
       anthropicUsage # `anthropic-usage` — AnthropicUsage bar widget
       desktopMcp # `nixbook-desktop-mcp` — desktop tools of the AI chat
@@ -314,6 +319,7 @@ launcher.overrideAttrs (old: {
       agentDesktop
       securityContext
       fonts
+      keep
       ;
   };
   meta = shell.meta // {
