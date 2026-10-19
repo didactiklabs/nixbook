@@ -25,7 +25,7 @@ Evaluation warnings become annotations. A Nix store cache (saved from `main` onl
 
 1. **changed** — `tests/changed-hosts.sh` evaluates every machine's system derivation and compares it with the base commit's (the PR's base, or the previous `main`). Only machines whose derivation changed need building.
 2. **build** — a matrix leg per profile (totoro, anya, nishinoya, tanjiro, hanamichi). Unchanged legs report "unchanged" and pass in seconds — every leg still reports, because the `build (<profile>)` checks are the **merge gate**. If anything about the comparison fails, every profile is built.
-3. **push-cache** — on `main` only, once the matrix finishes: builds the whole hive with `colmena build --keep-result` (a no-op on the shared store) and uploads every system to the **S3 binary cache**, signed, with retries.
+3. **push-cache** — on `main` only, once the matrix finishes: builds the whole hive with `colmena build --keep-result` (a no-op on the shared store) and uploads every system to the **S3 binary cache**, signed, with retries. Only paths cache.nixos.org doesn't already serve are uploaded: the machines substitute from both.
 
 A new push to a PR cancels its previous run; `main` runs are never cancelled half-way.
 
