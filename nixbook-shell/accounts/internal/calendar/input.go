@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/didactiklabs/nixbook/nixbook-shell/accounts/internal/core"
 )
@@ -167,6 +168,10 @@ func ParseFields(op map[string]any, create bool) (Fields, error) {
 		f.Recurrence = []string{}
 		for _, l := range lines {
 			l = strings.TrimSpace(l)
+			// One line each: a line break would add properties to the event.
+			if strings.ContainsFunc(l, unicode.IsControl) {
+				return f, core.Errorf("`recurrence`: one rule per line, no line breaks")
+			}
 			switch {
 			case l == "" || strings.EqualFold(l, "none"):
 			case simpleRules[strings.ToLower(l)] != "":

@@ -261,7 +261,8 @@ RippleButton {
                     wrapMode: Text.WrapAtWordBoundaryOrAnywhere
                     maximumLineCount: (typeText.visible || tagsText.visible) ? 1 : 2
                     elide: Text.ElideRight
-                    text: root.selected ? root.itemName : root.displayContent
+                    // Escaped either way: the name may be clipboard text or a window title.
+                    text: root.selected ? StringUtils.escapeHtml(root.itemName) : root.displayContent
                 }
             }
             StyledText { // Symbol tags, window layout windows and apps
@@ -271,6 +272,7 @@ RippleButton {
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: root.selected ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colSubtext
                 elide: Text.ElideRight
+                textFormat: Text.PlainText // window titles, not markup
                 text: root.itemTags
             }
             Loader { // Clipboard image preview

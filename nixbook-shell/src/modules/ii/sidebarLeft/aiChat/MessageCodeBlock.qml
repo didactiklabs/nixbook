@@ -89,13 +89,14 @@ ColumnLayout {
                     buttonIcon: activated ? "check" : "save"
 
                     onClicked: {
-                        const downloadPath = FileUtils.trimFileProtocol(Directories.downloads)
-                        Quickshell.execDetached(["bash", "-c", 
-                            `echo '${StringUtils.shellSingleQuoteEscape(segmentContent)}' > '${downloadPath}/code.${segmentLang || "txt"}'`
-                        ])
+                        // The language comes from the AI's answer: only a
+                        // plain extension, and both passed as arguments.
+                        const ext = /^[A-Za-z0-9_+-]{1,16}$/.test(segmentLang ?? "") ? segmentLang : "txt"
+                        const filePath = `${FileUtils.trimFileProtocol(Directories.downloads)}/code.${ext}`
+                        Quickshell.execDetached(["bash", "-c", 'printf "%s\\n" "$1" > "$2"', "_", String(segmentContent), filePath])
                         Quickshell.execDetached(["notify-send", 
                             Translation.tr("Code saved to file"), 
-                            Translation.tr("Saved to %1").arg(`${downloadPath}/code.${segmentLang || "txt"}`),
+                            Translation.tr("Saved to %1").arg(filePath),
                             "-a", "Shell"
                         ])
                         saveCodeButton.activated = true

@@ -140,7 +140,8 @@ Singleton {
 
     Process {
         id: offsetProc
-        command: ["bash", "-c", root.timezones.map(tz => `TZ='${tz}' date +%z`).join("; ")]
+        // The zones (from the config) go in as arguments, not into the script.
+        command: ["bash", "-c", 'for tz; do TZ="$tz" date +%z; done', "_", ...root.timezones]
         stdout: StdioCollector {
             id: offsetCollector
             onStreamFinished: {

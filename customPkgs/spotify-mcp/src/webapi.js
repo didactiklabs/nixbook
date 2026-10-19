@@ -4,7 +4,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { execFile } from "node:child_process";
 import { createServer } from "node:http";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -49,9 +49,12 @@ async function loadAuth() {
   return auth;
 }
 
+// The tokens: private to the user, also when the file was there already
+// (writeFile's mode only applies to a new file).
 async function saveAuth() {
-  await mkdir(dirname(CONFIG_FILE), { recursive: true });
+  await mkdir(dirname(CONFIG_FILE), { recursive: true, mode: 0o700 });
   await writeFile(CONFIG_FILE, JSON.stringify(auth), { mode: 0o600 });
+  await chmod(CONFIG_FILE, 0o600);
 }
 
 async function tokenRequest(params) {
@@ -84,6 +87,7 @@ export async function isLoggedIn() {
 }
 
 let pendingLogin;
+let refreshing; // one refresh at a time: Spotify may rotate the refresh token
 
 /**
  * Start a login: returns the URL the user opens (also opened in the browser).
@@ -167,11 +171,14 @@ async function accessToken() {
     );
   }
   if (!auth.accessToken || Date.now() >= auth.expiresAt) {
-    await tokenRequest({
+    refreshing ??= tokenRequest({
       grant_type: "refresh_token",
       refresh_token: auth.refreshToken,
       client_id: auth.clientId,
+    }).finally(() => {
+      refreshing = undefined;
     });
+    await refreshing;
   }
   return auth.accessToken;
 }
@@ -205,7 +212,13 @@ export async function api(method, path, { query, body } = {}) {
     }
     if (res.status === 204 || res.status === 202) return null;
     const text = await res.text();
-    const data = text ? JSON.parse(text) : null;
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      if (res.ok)
+        throw new WebApiError(`${method} ${path}: not JSON from Spotify`);
+    }
     if (!res.ok) {
       const reason = data?.error?.message ?? res.statusText;
       if (res.status === 404 && path.startsWith("/me/player")) {

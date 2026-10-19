@@ -300,7 +300,9 @@ Item {
                     runSequence([ //
                         [ //
                             "bash", "-c", //
-                            `magick ${StringUtils.shellSingleQuoteEscape(root.screenshotPath)} +repage -crop ${StringUtils.shellSingleQuoteEscape(ti.unscaledWidth)}x${StringUtils.shellSingleQuoteEscape(ti.unscaledHeight)}+${StringUtils.shellSingleQuoteEscape(ti.unscaledX)}+${StringUtils.shellSingleQuoteEscape(ti.unscaledY)} png:- | ${root.textColorDetectionScriptPath}`
+                            'magick "$1" +repage -crop "$2" png:- | "$3"', //
+                            "_", root.screenshotPath, `${ti.unscaledWidth}x${ti.unscaledHeight}+${ti.unscaledX}+${ti.unscaledY}`, //
+                            root.textColorDetectionScriptPath
                         ],
                         (out => {
                             var colorData = JSON.parse(out);

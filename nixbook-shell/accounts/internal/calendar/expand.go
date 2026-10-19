@@ -87,6 +87,23 @@ func recurrenceSet(e Event, start time.Time) (*rrule.Set, error) {
 	return rrule.StrSliceToRRuleSetInLoc(lines, loc)
 }
 
+// between is the set's starts from after to before (both included), at
+// most maxOccurrences: stops there rather than expanding all of them.
+func between(set *rrule.Set, after, before time.Time) []time.Time {
+	out := []time.Time{}
+	next := set.Iterator()
+	for len(out) < maxOccurrences {
+		t, ok := next()
+		if !ok || t.After(before) {
+			break
+		}
+		if !t.Before(after) {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
 // sameStart says whether an override's original start is that occurrence.
 func sameStart(original string, t time.Time, allDay bool) bool {
 	o, err := ParseTime(original)
@@ -103,7 +120,11 @@ func sameStart(original string, t time.Time, allDay bool) bool {
 // series expanded, sorted by start; only those calendars' when calendars
 // is given, else the shown calendars'.
 func Occurrences(from, to time.Time, calendars []string) []Occurrence {
-	c := Load()
+	return Load().Occurrences(from, to, calendars)
+}
+
+// Occurrences is Occurrences from this copy.
+func (c *Cache) Occurrences(from, to time.Time, calendars []string) []Occurrence {
 	cals := map[string]Calendar{}
 	for _, cal := range c.Calendars {
 		cals[cal.ID] = cal
@@ -162,11 +183,7 @@ func Occurrences(from, to time.Time, calendars []string) []Occurrence {
 			continue
 		}
 		length := end.Sub(start)
-		starts := set.Between(from.Add(-length), to, true)
-		if len(starts) > maxOccurrences {
-			starts = starts[:maxOccurrences]
-		}
-		for _, s := range starts {
+		for _, s := range between(set, from.Add(-length), to) {
 			if e.AllDay {
 				s = time.Date(s.Year(), s.Month(), s.Day(), 0, 0, 0, 0, time.Local)
 			}

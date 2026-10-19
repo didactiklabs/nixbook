@@ -33,15 +33,22 @@ GCloudApi {
 
         // print("PENDING STRINGS:", root.pendingStrings)
 
+        // The token and the text go through the environment, never an
+        // argument: command lines are readable by any local process
+        // (/proc/<pid>/cmdline).
+        multiproc.environment = ({
+            "GCLOUD_TOKEN": GoogleCloud.token,
+            "GCLOUD_PROJECT": GoogleCloud.projectId,
+            "GCLOUD_PAYLOAD": JSON.stringify(payload)
+        });
         var seq = [];
         seq.push([ //
             "bash", "-c", //
             `curl -sL -X POST \
--H "Authorization: Bearer ${GoogleCloud.token}" \
--H "x-goog-user-project: ${GoogleCloud.projectId}" \
+-H @<(printf 'Authorization: Bearer %s\\nx-goog-user-project: %s\\n' "$GCLOUD_TOKEN" "$GCLOUD_PROJECT") \
 -H "Content-Type: application/json" \
--d '${StringUtils.shellSingleQuoteEscape(JSON.stringify(payload))}' \
-"https://translation.googleapis.com/v3/projects/${GoogleCloud.projectId}:translateText"`
+--data-binary @<(printf '%s' "$GCLOUD_PAYLOAD") \
+"https://translation.googleapis.com/v3/projects/$GCLOUD_PROJECT:translateText"`
         ]);
 
         seq.push(((out) => {

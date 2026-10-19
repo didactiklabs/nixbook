@@ -20,9 +20,9 @@ LockScreen {
 
     Process {
         id: lockThemeProc
-        command: ["bash", "-c",
-            `${Directories.wallpaperSwitchScriptPath} --mode ${Appearance.m3colors.darkmode ? "dark" : "light"} --colors_lock --image '${Config.options.background.lockWall}'`
-        ]
+        // Arguments, not a script: the wallpaper's path may hold any character.
+        command: [Directories.wallpaperSwitchScriptPath, "--mode", Appearance.m3colors.darkmode ? "dark" : "light",
+            "--colors_lock", "--image", Config.options.background.lockWall]
         onExited: {
             // Generating the palette takes a while: when the screen was
             // unlocked meanwhile, the live palette stays (switching now would

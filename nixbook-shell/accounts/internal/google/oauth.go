@@ -27,8 +27,8 @@ import (
 	"github.com/didactiklabs/nixbook/nixbook-shell/accounts/internal/registry"
 )
 
-// Scopes: the one consent covers every service, so the calendar coming
-// here later needs no new sign-in.
+// Scopes: the one consent covers every service (contacts, tasks,
+// calendar).
 var Scopes = []string{
 	"https://www.googleapis.com/auth/contacts",
 	"https://www.googleapis.com/auth/tasks",

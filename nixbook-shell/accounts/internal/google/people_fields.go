@@ -2,7 +2,6 @@ package google
 
 import (
 	"maps"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -94,8 +93,6 @@ func reuse(existing []obj, key, value string) obj {
 	}
 	return nil
 }
-
-var birthdayRe = regexp.MustCompile(`^(?:(\d{4})|-?-?)-?(\d{1,2})-(\d{1,2})$`)
 
 func membership(group string) obj {
 	return obj{"contactGroupMembership": obj{"contactGroupResourceName": "contactGroups/" + group}}
@@ -230,7 +227,7 @@ func (p *people) buildFields(sec *contacts.Section, fields obj, raw obj) (obj, [
 	if has("birthday") {
 		body["birthdays"] = []obj{}
 		if b := strings.TrimSpace(sval("birthday")); b != "" {
-			m := birthdayRe.FindStringSubmatch(b)
+			m := contacts.BirthdayInput.FindStringSubmatch(b)
 			var month, day int
 			if m != nil {
 				month, _ = strconv.Atoi(m[2])

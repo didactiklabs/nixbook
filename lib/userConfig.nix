@@ -16,6 +16,9 @@ let
       "ydotool"
       "storage"
       "input"
+      # /dev/uinput (virtual input for Steam, Sunshine, controllers): 0660
+      # root:uinput, see nixosModules/tools.nix.
+      "uinput"
       "wheel"
       "scanner"
       "lp"

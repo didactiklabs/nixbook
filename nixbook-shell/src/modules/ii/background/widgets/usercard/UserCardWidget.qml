@@ -104,23 +104,22 @@ AbstractBackgroundWidget {
     readonly property int uptimeHours: Math.floor((root.uptimeSeconds % 86400) / 3600)
     readonly property int uptimeMinutes: Math.floor((root.uptimeSeconds % 3600) / 60)
 
-    Process {
-        id: uptimeProc
-        command: ["cat", "/proc/uptime"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const secs = parseFloat(text.trim().split(" ")[0])
-                if (!isNaN(secs)) root.uptimeSeconds = Math.floor(secs)
-            }
+    // Read in place (no `cat` spawned each minute), paused while the screens are off.
+    FileView {
+        id: uptimeFile
+        path: "/proc/uptime"
+        onLoaded: {
+            const secs = parseFloat(uptimeFile.text().trim().split(" ")[0])
+            if (!isNaN(secs)) root.uptimeSeconds = Math.floor(secs)
         }
     }
 
     Timer {
         interval: 60000
-        running: true
+        running: !Idle.screensOff
         repeat: true
         triggeredOnStart: true
-        onTriggered: uptimeProc.running = true
+        onTriggered: uptimeFile.reload()
     }
 
     implicitWidth:  card.implicitWidth

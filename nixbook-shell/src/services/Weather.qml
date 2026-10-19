@@ -113,8 +113,12 @@ Singleton {
         url += `&units=${units}`
         url += `&appid=${apiKey}`
 
-        // curl gets the URL as an argument: the city name used to go through bash.
-        fetcher.command = ["curl", "-s", url]
+        // curl reads the URL from a config on stdin (`-K -`): as an argument
+        // the API key would be readable by every user through /proc (and the
+        // city name never goes through a shell).
+        if (fetcher.running) return
+        fetcher.config = `url = "${url.replace(/[\r\n]/g, "").replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"\n`
+        fetcher.stdinEnabled = true
         fetcher.running = true
     }
 
@@ -130,6 +134,12 @@ Singleton {
 
     Process {
         id: fetcher
+        property string config: ""
+        command: ["curl", "-s", "-K", "-"]
+        onStarted: {
+            fetcher.write(fetcher.config)
+            fetcher.stdinEnabled = false // EOF: curl reads the config to the end
+        }
         stdout: StdioCollector {
             onStreamFinished: {
                 if (text.length === 0)

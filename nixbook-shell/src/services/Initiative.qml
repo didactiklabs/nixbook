@@ -220,7 +220,8 @@ Singleton {
         onTriggered: {
             const seen = root._seen
             root._seen = {}
-            Quickshell.execDetached(["nixbook-desktop-mcp", "initiative", "notices", JSON.stringify(seen)])
+            if (root.enabled)
+                Quickshell.execDetached(["nixbook-desktop-mcp", "initiative", "notices", JSON.stringify(seen)])
         }
     }
 
@@ -242,7 +243,8 @@ Singleton {
         onTriggered: {
             const items = root._batch
             root._batch = []
-            if (items.length > 0)
+            // The switch may have gone off while the batch waited.
+            if (items.length > 0 && root.enabled && root.readNotifications)
                 root.consider({ event: "notifications", read: true, items: items,
                                 focused: ToplevelManager.activeToplevel?.appId ?? "", next: root._nextEvent() })
         }

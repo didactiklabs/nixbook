@@ -1,7 +1,6 @@
 package contacts
 
 import (
-	"errors"
 	"regexp"
 	"slices"
 	"strings"
@@ -115,13 +114,6 @@ func save(c *Cache) error {
 	return core.WriteJSON(CacheFile, c)
 }
 
-func local(account, global string) string {
-	if strings.HasPrefix(global, account+":") {
-		return global[len(account)+1:]
-	}
-	return ""
-}
-
 // section is the account's part of the copy, with the provider's own ids.
 func section(c *Cache, account string) *Section {
 	m := c.Accounts[account]
@@ -131,7 +123,7 @@ func section(c *Cache, account string) *Section {
 	s := &Section{SyncToken: m.SyncToken, SyncedAt: m.SyncedAt, Error: m.Error, Labels: []Label{}, Contacts: []Contact{}}
 	for _, l := range c.Labels {
 		if l.Account == account {
-			l.ID = local(account, l.ID)
+			l.ID = registry.LocalID(account, l.ID)
 			s.Labels = append(s.Labels, l)
 		}
 	}
@@ -144,10 +136,10 @@ func section(c *Cache, account string) *Section {
 }
 
 func toLocal(account string, x Contact) Contact {
-	x.ID = local(account, x.ID)
+	x.ID = registry.LocalID(account, x.ID)
 	labels := []string{}
 	for _, l := range x.Labels {
-		if id := local(account, l); id != "" {
+		if id := registry.LocalID(account, l); id != "" {
 			labels = append(labels, id)
 		}
 	}
@@ -204,11 +196,14 @@ func Forget(account string) error {
 	if account == "" {
 		c = &Cache{Accounts: map[string]*Meta{}, Labels: []Label{}, Contacts: []Contact{}}
 	} else {
-		delete(c.Accounts, account)
 		put(c, account, &Section{})
 		delete(c.Accounts, account)
 	}
-	return save(c)
+	if err := save(c); err != nil {
+		return err
+	}
+	prunePhotos(c)
+	return nil
 }
 
 // -- sync ------------------------------------------------------------------
@@ -282,6 +277,7 @@ func Sync(account string, full bool) (*SyncResult, error) {
 	if err := save(c); err != nil {
 		return nil, err
 	}
+	prunePhotos(c)
 	res.Count, res.SyncedAt = len(c.Contacts), c.SyncedAt
 	if failed == len(accounts) {
 		return res, firstErr
@@ -295,25 +291,14 @@ func Sync(account string, full bool) (*SyncResult, error) {
 var Ops = []string{"create", "update", "delete", "star", "unstar", "set_photo", "create_label", "rename_label", "delete_label"}
 
 // Result is one change's outcome.
-type Result struct {
-	OK     bool   `json:"ok"`
-	Result any    `json:"result,omitempty"`
-	Error  string `json:"error,omitempty"`
-}
+type Result = core.Result
 
 // Apply runs {op…} or {ops: […]}, in order, each on its own, each at its
 // account's provider.
 func Apply(request any) ([]Result, error) {
-	var ops []any
-	if m, ok := request.(map[string]any); ok {
-		if v, has := m["ops"]; has {
-			ops, _ = v.([]any)
-		} else {
-			ops = []any{m}
-		}
-	}
-	if len(ops) == 0 || len(ops) > MaxOps {
-		return nil, core.Errorf("`ops` must be a list of 1 to %d changes", MaxOps)
+	ops, err := core.Ops(request, MaxOps)
+	if err != nil {
+		return nil, err
 	}
 	unlock, err := core.Lock("contacts")
 	if err != nil {
@@ -321,32 +306,12 @@ func Apply(request any) ([]Result, error) {
 	}
 	defer unlock()
 	c := Load()
-	results := make([]Result, 0, len(ops))
-	var authErr error
-	for _, o := range ops {
-		op, ok := o.(map[string]any)
-		var res any
-		var err error
-		if ok {
-			res, err = apply(c, op)
-		} else {
-			err = core.Errorf("each change must be an object")
-		}
-		var auth *core.AuthError
-		if errors.As(err, &auth) && authErr == nil {
-			authErr = err
-		}
-		if err != nil {
-			results = append(results, Result{Error: err.Error()})
-		} else {
-			results = append(results, Result{OK: true, Result: res})
-		}
-	}
+	results, authErr := core.RunOps(ops, func(op map[string]any) (any, error) { return apply(c, op) })
 	if err := save(c); err != nil {
 		return nil, err
 	}
 	// Every change refused for want of a sign-in: say so (exit 2).
-	if authErr != nil && !slices.ContainsFunc(results, func(r Result) bool { return r.OK }) {
+	if authErr != nil {
 		return nil, authErr
 	}
 	return results, nil
@@ -388,14 +353,11 @@ func labelAccount(c *Cache, want string) (string, string, error) {
 	case len(matches) > 1 && matches[0].ID != want:
 		return "", "", core.Errorf("'%s' is a label in several accounts: give its id", want)
 	}
-	return matches[0].Account, local(matches[0].Account, matches[0].ID), nil
+	return matches[0].Account, registry.LocalID(matches[0].Account, matches[0].ID), nil
 }
 
 func apply(c *Cache, op map[string]any) (any, error) {
-	kind, _ := op["op"].(string)
-	if kind == "" {
-		kind, _ = op["action"].(string)
-	}
+	kind := core.Kind(op)
 	if !slices.Contains(Ops, kind) {
 		return nil, core.Errorf("unknown op '%s': %s", kind, strings.Join(Ops, ", "))
 	}
@@ -414,7 +376,7 @@ func apply(c *Cache, op map[string]any) (any, error) {
 			return nil, err
 		}
 		account = acc
-		op = clone(op)
+		op = core.Clone(op)
 		op["label"] = id
 	default:
 		want, _ := op["id"].(string)
@@ -432,7 +394,7 @@ func apply(c *Cache, op map[string]any) (any, error) {
 			return nil, err
 		}
 		account = acc
-		op = clone(op)
+		op = core.Clone(op)
 		op["id"] = id
 		delete(op, "contact")
 	}
@@ -469,7 +431,7 @@ func apply(c *Cache, op map[string]any) (any, error) {
 				}
 				out = append(out, name)
 			}
-			op = clone(op)
+			op = core.Clone(op)
 			op["labels"] = out
 		}
 	}
@@ -500,14 +462,6 @@ func apply(c *Cache, op map[string]any) (any, error) {
 		return r, nil
 	}
 	return res, nil
-}
-
-func clone(m map[string]any) map[string]any {
-	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
 }
 
 // -- reading ---------------------------------------------------------------
@@ -603,16 +557,15 @@ func Get(id string) (Contact, error) {
 	return Contact{}, core.Errorf("no contact '%s' (list or sync first)", id)
 }
 
-// Summary is the contacts part of status.
-func Summary() map[string]any {
-	c := Load()
+// Summary is the contacts part of status, from the copy (Load).
+func (c *Cache) Summary() map[string]any {
 	path, _ := core.StatePath(CacheFile)
 	return map[string]any{"count": len(c.Contacts), "syncedAt": c.SyncedAt, "error": c.Error, "cache": path}
 }
 
 // AccountError is the account's last contacts sync failure.
-func AccountError(account string) string {
-	if m := Load().Accounts[account]; m != nil {
+func (c *Cache) AccountError(account string) string {
+	if m := c.Accounts[account]; m != nil {
 		return m.Error
 	}
 	return ""

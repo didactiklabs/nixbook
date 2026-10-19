@@ -10,7 +10,6 @@
 package calendar
 
 import (
-	"errors"
 	"slices"
 	"strings"
 	"time"
@@ -229,13 +228,6 @@ func save(c *Cache) error {
 	return core.WriteJSON(CacheFile, c)
 }
 
-func local(account, global string) string {
-	if strings.HasPrefix(global, account+":") {
-		return global[len(account)+1:]
-	}
-	return ""
-}
-
 func section(c *Cache, account string) *Section {
 	m := c.Accounts[account]
 	if m == nil {
@@ -246,19 +238,19 @@ func section(c *Cache, account string) *Section {
 		Shown: map[string]bool{},
 	}
 	for id, v := range c.Shown {
-		if l := local(account, id); l != "" {
+		if l := registry.LocalID(account, id); l != "" {
 			s.Shown[l] = v
 		}
 	}
 	for _, cal := range c.Calendars {
 		if cal.Account == account {
-			cal.ID = local(account, cal.ID)
+			cal.ID = registry.LocalID(account, cal.ID)
 			s.Calendars = append(s.Calendars, cal)
 		}
 	}
 	for _, e := range c.Events {
 		if e.Account == account {
-			e.ID, e.CalendarID, e.RecurringID = local(account, e.ID), local(account, e.CalendarID), local(account, e.RecurringID)
+			e.ID, e.CalendarID, e.RecurringID = registry.LocalID(account, e.ID), registry.LocalID(account, e.CalendarID), registry.LocalID(account, e.RecurringID)
 			s.Events = append(s.Events, e)
 		}
 	}
@@ -395,25 +387,14 @@ func Sync(account string, full bool) (*SyncResult, error) {
 var Ops = []string{"create", "update", "delete", "show_calendar", "hide_calendar"}
 
 // Result is one change's outcome.
-type Result struct {
-	OK     bool   `json:"ok"`
-	Result any    `json:"result,omitempty"`
-	Error  string `json:"error,omitempty"`
-}
+type Result = core.Result
 
 // Apply runs {op…} or {ops: […]}, in order, each on its own, each at its
 // account's provider.
 func Apply(request any) ([]Result, error) {
-	var ops []any
-	if m, ok := request.(map[string]any); ok {
-		if v, has := m["ops"]; has {
-			ops, _ = v.([]any)
-		} else {
-			ops = []any{m}
-		}
-	}
-	if len(ops) == 0 || len(ops) > MaxOps {
-		return nil, core.Errorf("`ops` must be a list of 1 to %d changes", MaxOps)
+	ops, err := core.Ops(request, MaxOps)
+	if err != nil {
+		return nil, err
 	}
 	unlock, err := core.Lock("calendar")
 	if err != nil {
@@ -421,31 +402,12 @@ func Apply(request any) ([]Result, error) {
 	}
 	defer unlock()
 	c := Load()
-	results := make([]Result, 0, len(ops))
-	var authErr error
-	for _, o := range ops {
-		op, ok := o.(map[string]any)
-		var res any
-		var err error
-		if ok {
-			res, err = apply(c, op)
-		} else {
-			err = core.Errorf("each change must be an object")
-		}
-		var auth *core.AuthError
-		if errors.As(err, &auth) && authErr == nil {
-			authErr = err
-		}
-		if err != nil {
-			results = append(results, Result{Error: err.Error()})
-		} else {
-			results = append(results, Result{OK: true, Result: res})
-		}
-	}
+	results, authErr := core.RunOps(ops, func(op map[string]any) (any, error) { return apply(c, op) })
 	if err := save(c); err != nil {
 		return nil, err
 	}
-	if authErr != nil && !slices.ContainsFunc(results, func(r Result) bool { return r.OK }) {
+	// Every change refused for want of a sign-in: say so (exit 2).
+	if authErr != nil {
 		return nil, authErr
 	}
 	return results, nil
@@ -495,14 +457,11 @@ func findCalendar(c *Cache, want string) (Calendar, error) {
 }
 
 func apply(c *Cache, op map[string]any) (any, error) {
-	kind, _ := op["op"].(string)
-	if kind == "" {
-		kind, _ = op["action"].(string)
-	}
+	kind := core.Kind(op)
 	if !slices.Contains(Ops, kind) {
 		return nil, core.Errorf("unknown op '%s': %s", kind, strings.Join(Ops, ", "))
 	}
-	op = clone(op)
+	op = core.Clone(op)
 	// Shown or not: the user's choice, kept in the copy (Google's own
 	// selection left as it is); a calendar turned on gets its events with
 	// the next sync.
@@ -537,7 +496,7 @@ func apply(c *Cache, op map[string]any) (any, error) {
 		if cal.ReadOnly {
 			return nil, core.Errorf("'%s' is read-only", cal.Name)
 		}
-		account, op["calendar"] = cal.Account, local(cal.Account, cal.ID)
+		account, op["calendar"] = cal.Account, registry.LocalID(cal.Account, cal.ID)
 	} else {
 		want, _ := op["id"].(string)
 		if strings.TrimSpace(want) == "" {
@@ -547,7 +506,7 @@ func apply(c *Cache, op map[string]any) (any, error) {
 		if !ok {
 			return nil, core.Errorf("no event '%s' (list or sync first)", want)
 		}
-		account, op["id"] = e.Account, local(e.Account, e.ID)
+		account, op["id"] = e.Account, registry.LocalID(e.Account, e.ID)
 		// The whole series changed from one of its occurrences ("all"): its
 		// times move as that occurrence's did.
 		if all, _ := op["all"].(bool); all {
@@ -566,7 +525,7 @@ func apply(c *Cache, op map[string]any) (any, error) {
 			if cal.Account != account {
 				return nil, core.Errorf("events move between calendars of the same account only")
 			}
-			op["calendar"] = local(account, cal.ID)
+			op["calendar"] = registry.LocalID(account, cal.ID)
 		}
 	}
 	a, err := registry.Get(account)
@@ -669,24 +628,15 @@ func calendarOf(c *Cache, id string) (Calendar, bool) {
 	return Calendar{}, false
 }
 
-func clone(m map[string]any) map[string]any {
-	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
-}
-
-// Summary is the calendar part of status.
-func Summary() map[string]any {
-	c := Load()
+// Summary is the calendar part of status, from the copy (Load).
+func (c *Cache) Summary() map[string]any {
 	path, _ := core.StatePath(CacheFile)
 	return map[string]any{"calendars": len(c.Calendars), "count": len(c.Events), "syncedAt": c.SyncedAt, "error": c.Error, "cache": path}
 }
 
 // AccountError is the account's last calendar sync failure.
-func AccountError(account string) string {
-	if m := Load().Accounts[account]; m != nil {
+func (c *Cache) AccountError(account string) string {
+	if m := c.Accounts[account]; m != nil {
 		return m.Error
 	}
 	return ""

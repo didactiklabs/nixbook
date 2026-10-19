@@ -25,8 +25,13 @@ in
       pkgs.gparted
     ];
 
-    xdg.configFile."menus/applications.menu".text =
-      builtins.readFile "${pkgs.kdePackages.plasma-workspace}/etc/xdg/menus/plasma-applications.menu";
+    # KDE's application menu layout (Dolphin's "Open With" reads it). Copied at
+    # build time: reading it with builtins.readFile was an import-from-
+    # derivation, building/substituting plasma-workspace during evaluation.
+    # The copy keeps plasma-workspace out of the closure, as before.
+    xdg.configFile."menus/applications.menu".source = pkgs.runCommand "plasma-applications.menu" { } ''
+      cp ${pkgs.kdePackages.plasma-workspace}/etc/xdg/menus/plasma-applications.menu "$out"
+    '';
     # Ensure dolphin plugins and thumbnailers are found
     home.sessionVariables = {
       QT_PLUGIN_PATH = lib.concatMapStringsSep ":" (p: "${p}/${pkgs.qt6.qtbase.qtPluginPrefix}") [

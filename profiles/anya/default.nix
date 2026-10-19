@@ -93,14 +93,6 @@ in
       didactiklabs.enable = true;
     };
   };
-  nix = {
-    settings = {
-      trusted-users = [
-        "root"
-        "@wheel"
-      ];
-    };
-  };
   imports = [
     ./immich.nix
     ./wakeonlan.nix

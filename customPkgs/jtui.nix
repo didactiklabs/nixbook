@@ -24,7 +24,7 @@ pkgs.buildGoModule rec {
 
   meta = {
     homepage = "https://github.com/banh-canh/jtui";
-    license = "mit";
+    license = pkgs.lib.licenses.mit;
     mainProgram = "jtui";
   };
 }

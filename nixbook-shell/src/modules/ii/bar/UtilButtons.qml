@@ -245,10 +245,7 @@ Item {
             UtilButton {
                 iconText: Appearance.m3colors.darkmode ? "light_mode" : "dark_mode"
                 onClicked: (e) => {
-                    if (Appearance.m3colors.darkmode)
-                        Quickshell.execDetached(["bash", "-c", `${Directories.wallpaperSwitchScriptPath} --mode light --noswitch`])
-                    else
-                        Quickshell.execDetached(["bash", "-c", `${Directories.wallpaperSwitchScriptPath} --mode dark --noswitch`])
+                    Quickshell.execDetached([Directories.wallpaperSwitchScriptPath, "--mode", Appearance.m3colors.darkmode ? "light" : "dark", "--noswitch"])
                 }
             }
         }
@@ -256,10 +253,7 @@ Item {
             id: legacyDarkMode
             CircleUtilButton {
                 onClicked: (e) => {
-                    if (Appearance.m3colors.darkmode)
-                        Quickshell.execDetached(["bash", "-c", `${Directories.wallpaperSwitchScriptPath} --mode light --noswitch`])
-                    else
-                        Quickshell.execDetached(["bash", "-c", `${Directories.wallpaperSwitchScriptPath} --mode dark --noswitch`])
+                    Quickshell.execDetached([Directories.wallpaperSwitchScriptPath, "--mode", Appearance.m3colors.darkmode ? "light" : "dark", "--noswitch"])
                 }
                 MaterialSymbol {
                     horizontalAlignment: Qt.AlignHCenter

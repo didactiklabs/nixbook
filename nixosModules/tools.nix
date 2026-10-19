@@ -71,7 +71,8 @@ in
           mode for DualShock 4 controllers
         - osupdate: shell script that applies the latest nixbook main branch via ginx +
           colmena apply-local
-        - udev: game-devices rules and uinput (MODE=0666) for unprivileged input access
+        - udev: game-devices rules, and uinput for the users (the uinput group, which
+          every nixbook user is in, and the active seat), not every local account
 
         Note: User-level packages belong in homeManagerModules (devTools, cliTools, etc.).
       '';
@@ -143,7 +144,12 @@ in
         libfido2 # FIDO2 device access rules for SSH security keys
       ];
       extraRules = ''
-        KERNEL=="uinput", MODE="0666"
+        # Virtual input (Steam, Sunshine, controller drivers) for the users,
+        # not world-writable: with 0666 any account (a service user, a
+        # container) could type into the desktop session, i.e. run commands as
+        # its user. Users are in the uinput group (lib/userConfig.nix); uaccess
+        # also covers a session started before that group was added.
+        KERNEL=="uinput", SUBSYSTEM=="misc", MODE="0660", GROUP="uinput", TAG+="uaccess"
         KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="05c4", MODE="0666"
         KERNEL=="hidraw*", SUBSYSTEM=="hidraw", KERNELS=="0005:054C:05C4.*", MODE="0666"
         KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="09cc", MODE="0666"

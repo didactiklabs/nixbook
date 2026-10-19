@@ -81,7 +81,7 @@ func (localTasks) Apply(sec *tasks.Section, op map[string]any) (any, error) {
 		return slices.IndexFunc(d.Lists, func(l tasks.List) bool { return l.ID == id })
 	}
 	var res any
-	switch kind := kindOf(op); kind {
+	switch kind := core.Kind(op); kind {
 	case "create_list":
 		name, _, _ := str(op, "name")
 		if name = strings.TrimSpace(name); name == "" {

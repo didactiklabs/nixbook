@@ -42,7 +42,8 @@ NestableObject {
             root.state = GCloudApi.State.Done;
             return true
         } catch (e) {
-            print("Failed to parse API response: " + e + "\n" + out)
+            // Only its start: a response can carry the user's text or OCR.
+            print("Failed to parse API response: " + e + "\n" + String(out ?? "").slice(0, 200))
             root.state = GCloudApi.State.Error;
             root.errorMessage = "Failed to parse API response";
             root.error(root.errorMessage);

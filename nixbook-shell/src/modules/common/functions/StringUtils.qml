@@ -46,6 +46,22 @@ Singleton {
     }
 
     /**
+     * Whether a string has markup that would make a rich/styled text view
+     * fetch something remote: a tag (other than a link) with an attribute or
+     * CSS url() pointing at http(s):// or //, e.g. a tracking <img src>.
+     * Cheap for the usual string (no "<" or no "//").
+     * @param { string } str
+     * @returns { boolean }
+     */
+    function hasRemoteMarkup(str) {
+        const s = String(str ?? "");
+        if (s.indexOf("<") < 0 || s.indexOf("//") < 0)
+            return false;
+        return /<(?!a[\s>])[a-z][^>]*?(?:=|url\()\s*["']?\s*(?:https?:)?\/\//i.test(s)
+            || /url\(\s*["']?\s*(?:https?:)?\/\//i.test(s);
+    }
+
+    /**
      * Splits markdown blocks into three different types: text, think, and code.
      * @param { string } markdown
      * @returns {Array<{type: "text" | "think" | "code", content: string, lang?: string, completed?: boolean}>}

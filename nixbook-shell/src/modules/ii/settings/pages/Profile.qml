@@ -59,7 +59,10 @@ ContentPage {
         presetAssetsFetchProc.stagingJsonPath = stagingJsonPath
         presetAssetsFetchProc.assetCacheDirPath = dir
 
-        const wallpaperAssets = wallpaperFiles.map(f => ({ filename: f.split("/").pop(), url: page.rawPresetUrl(f) }))
+        // meta.json is the preset's own: only strings, and file names that stay in the folder.
+        const wallpaperAssets = wallpaperFiles.filter(f => typeof f === "string")
+            .map(f => ({ filename: f.split("/").pop(), url: page.rawPresetUrl(f) }))
+            .filter(a => a.filename !== "" && a.filename !== "." && a.filename !== "..")
         const seen = new Set()
         const toDownload = [...wallpaperAssets, ...folderAssets].filter(a => {
             if (seen.has(a.filename)) return false

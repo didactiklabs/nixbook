@@ -53,19 +53,20 @@ Rectangle {
 
     Process {
         id: decodeImageProcess
-        command: ["bash", "-c", `[ -f ${imageDecodeFilePath} ] || echo '${StringUtils.shellSingleQuoteEscape(root.entry)}' | ${Cliphist.cliphistBinary} decode > '${imageDecodeFilePath}'`]
+        command: ["bash", "-c", '[ -f "$1" ] || printf \'%s\\n\' "$2" | "$3" decode > "$1"', "_", root.imageDecodeFilePath, root.entry, Cliphist.cliphistBinary]
         onExited: (exitCode, exitStatus) => {
             if (exitCode === 0) {
                 root.source = imageDecodeFilePath;
             } else {
-                console.error("[CliphistImage] Failed to decode image for entry:", root.entry);
+                // Not the entry itself: it is clipboard content.
+                console.error("[CliphistImage] Failed to decode image for entry", root.entryNumber);
                 root.source = "";
             }
         }
     }
 
     Component.onDestruction: {
-        Quickshell.execDetached(["bash", "-c", `[ -f '${imageDecodeFilePath}' ] && rm -f '${imageDecodeFilePath}'`]);
+        Quickshell.execDetached(["rm", "-f", root.imageDecodeFilePath]);
     }
 
     layer.enabled: true

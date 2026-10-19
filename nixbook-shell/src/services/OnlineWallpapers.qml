@@ -153,7 +153,7 @@ Singleton {
 
         const url = `https://wallhaven.cc/api/v1/search?sorting=random&purity=${purity}&categories=100&ratios=16x9&atleast=${res}&page=${root.page}${seedParam}${q}${apikey}`;
 
-        root._run("wallhaven", ["curl", "-s", url]);
+        root._runKeyed("wallhaven", url, []);
     }
 
     function _fetchUnsplash() {
@@ -164,13 +164,13 @@ Singleton {
 
         const url = `https://api.unsplash.com/photos/random?orientation=${orientation}&count=${count}${q}&client_id=${clientId}`;
 
-        root._run("unsplash", ["curl", "-s", url]);
+        root._runKeyed("unsplash", url, []);
     }
 
     function _fetchPexels() {
         const q = root.query.length > 0 ? root.query : "wallpaper landscape";
         const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(q)}&per_page=24&page=${root.page}`;
-        root._run("pexels", ["curl", "-s", "-H", `Authorization: ${root.pexelsApiKey}`, url]);
+        root._runKeyed("pexels", url, [`Authorization: ${root.pexelsApiKey}`]);
     }
 
     function _fetchBlapples() {
@@ -359,10 +359,25 @@ Singleton {
     // (`buffer += data`) re-allocates the whole buffer per line and forces GC.
     property int _generation: 0
 
-    function _run(provider, command) {
+    // Requests carrying an API key (in the URL or a header) hand curl its
+    // URL and headers as a config on stdin (`-K -`), never as arguments:
+    // a command line is readable by every user through /proc.
+    function _curlConfigValue(value) {
+        return '"' + String(value).replace(/[\r\n]/g, "").replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+    }
+
+    function _runKeyed(provider, url, headers) {
+        const config = [`url = ${root._curlConfigValue(url)}`]
+            .concat(headers.map(h => `header = ${root._curlConfigValue(h)}`))
+            .join("\n") + "\n";
+        root._run(provider, ["curl", "-s", "-K", "-"], config);
+    }
+
+    function _run(provider, command, stdinConfig) {
         root._generation += 1;
         fetchProc.nextProvider = provider;
         fetchProc.nextCommand = command;
+        fetchProc.nextStdin = stdinConfig ?? "";
         fetchProc.nextGeneration = root._generation;
         root.loading = true;
         if (fetchProc.running) {
@@ -381,12 +396,23 @@ Singleton {
         property var nextCommand: []
         property int nextGeneration: 0
         property bool restartPending: false
+        property string nextStdin: ""
+        property string stdinData: ""
 
         function startNext() {
             provider = nextProvider;
             generation = nextGeneration;
             command = nextCommand;
+            stdinData = nextStdin;
+            stdinEnabled = stdinData.length > 0;
             running = true;
+        }
+
+        onStarted: {
+            if (fetchProc.stdinData.length === 0) return;
+            fetchProc.write(fetchProc.stdinData);
+            fetchProc.stdinData = "";
+            fetchProc.stdinEnabled = false; // EOF: curl reads the config to the end
         }
 
         stdout: StdioCollector {
@@ -437,7 +463,11 @@ Singleton {
             : urlLower.includes(".webp") ? "webp"
             : "jpg";
         const picturesPath = Directories.pictures.toString().replace("file://", "");
-        return `${picturesPath}/Wallpapers/${item.provider}-${item.id}.${ext}`;
+        // The id comes from the provider's JSON (for blapples / na-ive a
+        // third-party repo): keep it to a plain file name, so it can't climb
+        // out of the folder ("../").
+        const id = String(item.id).replace(/[\/\x00]/g, "_").replace(/^\.+/, "_");
+        return `${picturesPath}/Wallpapers/${item.provider}-${id}.${ext}`;
     }
 
     function download(item, apply, target) {
@@ -458,9 +488,11 @@ Singleton {
         downloadProc.apply = next.apply;
         downloadProc.target = next.target;
         // Write to a temp file and rename, so a half-downloaded file never
-        // shows up in the wallpaper folder.
+        // shows up in the wallpaper folder. The URL comes from the provider's
+        // JSON: `--url` keeps one starting with "-" from being read as an
+        // option, and only https is fetched.
         downloadProc.command = ["bash", "-c",
-            'mkdir -p "$(dirname "$2")" && curl -fL --silent "$1" -o "$2.part" && mv "$2.part" "$2" || { rm -f "$2.part"; exit 1; }',
+            'mkdir -p "$(dirname "$2")" && curl -fL --silent --proto =https --proto-redir =https --url "$1" -o "$2.part" && mv "$2.part" "$2" || { rm -f "$2.part"; exit 1; }',
             "download", next.url, next.path];
         downloadProc.running = true;
     }

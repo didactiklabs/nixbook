@@ -313,10 +313,7 @@ func instanceID(master, occurrence string) (string, error) {
 
 // Apply runs one change on Google, its answer put in the section.
 func (g *googleCalendar) Apply(sec *calendar.Section, op obj) (any, error) {
-	kind := str(op, "op")
-	if kind == "" {
-		kind = str(op, "action")
-	}
+	kind := core.Kind(op)
 	fields, err := calendar.ParseFields(op, kind == "create")
 	if err != nil && kind != "delete" {
 		return nil, err
@@ -335,11 +332,10 @@ func (g *googleCalendar) Apply(sec *calendar.Section, op obj) (any, error) {
 	if !ok {
 		return nil, core.Errorf("no event '%s' (sync first)", str(op, "id"))
 	}
+	// A changed occurrence is itself; one of a series' others, Google's
+	// instance of it.
 	id := e.ID
-	if e.RecurringID != "" {
-		// A changed occurrence: itself.
-		id = e.ID
-	} else if occ := str(op, "occurrence"); occ != "" {
+	if occ := str(op, "occurrence"); e.RecurringID == "" && occ != "" {
 		if len(e.Recurrence) == 0 {
 			return nil, core.Errorf("'%s' isn't a recurring event", e.Summary)
 		}

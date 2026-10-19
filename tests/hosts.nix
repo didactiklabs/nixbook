@@ -120,7 +120,7 @@ let
         let
           pam = config.security.pam.services.greetd;
         in
-        pam.u2fAuth && pam.fprintAuth && pam.enableGnomeKeyring
+        pam.u2f.enable && pam.fprintAuth && pam.enableGnomeKeyring
       );
     "a switch can't log the session out: nothing pulls in plymouth-quit, which greetd conflicts with" =
       lib.elem "plymouth-quit.service" (config.systemd.services.greetd.conflicts or [ ])

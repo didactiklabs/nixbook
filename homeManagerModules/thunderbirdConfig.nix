@@ -20,6 +20,9 @@ in
         and profiles are managed manually through the Thunderbird UI (not
         declaratively, as mail credentials are sensitive).
 
+        Telemetry and health reports to Mozilla are switched off in every
+        declared profile.
+
         Used on: totoro, nishinoya.
       '';
     };
@@ -29,6 +32,14 @@ in
     programs.thunderbird = {
       enable = true;
       package = pkgs.thunderbird;
+      # Applied to every profile Home Manager manages (user.js).
+      settings = {
+        "toolkit.telemetry.enabled" = false;
+        "toolkit.telemetry.unified" = false;
+        "toolkit.telemetry.archive.enabled" = false;
+        "datareporting.healthreport.uploadEnabled" = false;
+        "datareporting.policy.dataSubmissionEnabled" = false;
+      };
     };
   };
 }

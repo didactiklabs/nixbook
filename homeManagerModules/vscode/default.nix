@@ -85,6 +85,7 @@ in
           - Ansible: full OIDC collection names, lint enabled
           - GitHub Copilot: inline suggestions (3), completions (10)
           - kitty integration: sets kitty as external terminal
+          - Telemetry off (VSCode's own and the Red Hat extensions')
 
         Extra packages installed alongside VSCode:
           - exercism   — coding challenge CLI
@@ -310,6 +311,10 @@ in
         "search.useGlobalIgnoreFiles" = true;
         "git.confirmSync" = false;
         "update.mode" = "none";
+        # No usage/crash reports to Microsoft, and no Red Hat (YAML, Java…)
+        # extension telemetry or its opt-in prompt.
+        "telemetry.telemetryLevel" = "off";
+        "redhat.telemetry.enabled" = false;
         "vsicons.dontShowNewVersionMessage" = true;
       };
     };

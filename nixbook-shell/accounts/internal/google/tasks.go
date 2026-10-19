@@ -228,10 +228,7 @@ func dueValue(day string) (any, error) {
 
 // Apply runs one change on Google, its answer put in the section.
 func (g *googleTasks) Apply(sec *tasks.Section, op obj) (any, error) {
-	kind := str(op, "op")
-	if kind == "" {
-		kind = str(op, "action")
-	}
+	kind := core.Kind(op)
 	title, hasTitle, err := text(op, "title", 1024)
 	if err != nil {
 		return nil, err
