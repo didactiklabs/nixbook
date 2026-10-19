@@ -25,8 +25,8 @@ import QtQuick
  * What it says comes out loud (`speaking`: its own bubble on the left,
  * AgentSpeech.qml, with Reply, Not now, Don't) or waits in the bar
  * (`pending`: the robot's bubble), until it expires. Reply opens the side
- * panel's "From Claude" tab with it as Claude's message, so the user just
- * answers; the answer teaches it what the user values.
+ * panel's "From Claude" tab with it as Claude's message, in a thread of its
+ * own, so the user just answers; the answer teaches it what the user values.
  */
 Singleton {
     id: root
@@ -104,7 +104,9 @@ Singleton {
             return
         }
         root._opened = { id: item.id, time: Date.now() }
-        Ai.claudeTab().addMessage(item.chat || item.text, "assistant", true, item.curious ? root.learnHint : "")
+        const thread = Ai.claudeThread()
+        thread.addMessage(item.chat || item.text, "assistant", true, item.curious ? root.learnHint : "")
+        Ai.saveHistory(thread)
         GlobalStates.sidebarLeftOpen = true
         GlobalStates.aiChatRequested()
         root.answer(item.id, "replied")

@@ -38,8 +38,8 @@ Scope {
     property bool unread: false
     readonly property bool responding: requester.turnActive || personalContext.running
 
-    // The tab for what Claude says on its own (services/Initiative.qml): one,
-    // reused, whatever the tab count.
+    // The tab for what Claude says on its own (services/Initiative.qml): a
+    // thread for each, one at a time (Ai.claudeThread).
     property bool fromClaude: false
     readonly property string title: {
         if (chat.fromClaude) return Translation.tr("From Claude");
@@ -124,6 +124,7 @@ Scope {
                 "functionResponse": message.functionResponse,
                 "visibleToUser": message.visibleToUser,
                 "initiative": message.initiative,
+                "learnHint": message.learnHint,
             });
         });
     }
