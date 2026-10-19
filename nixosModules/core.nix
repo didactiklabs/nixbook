@@ -502,6 +502,11 @@ in
         trusted-public-keys = [
           "didactiklabs-nixcache:PxLKN0+ZkP07M8g8/B6xbP6A4MYpqQg6LH7V3muiy/0="
         ];
+        # Fetch even the outputs of allowSubstitutes = false derivations
+        # (wrappers, symlink joins, FHS envs) when a cache has them: building
+        # those locally re-downloaded their sources (AppImages, the gcloud
+        # components) on every update.
+        always-allow-substitutes = true;
         # The defaults (max-jobs = auto, cores = 0) run one build per CPU,
         # each using every CPU: up to 16 × 16 compiler threads on totoro's
         # 14 GiB. A rebuild of the custom Go/Rust packages then ran out of
