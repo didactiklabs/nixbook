@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -95,8 +94,6 @@ func typedList(v any, key string) ([]contacts.Typed, error) {
 	}
 	return out, nil
 }
-
-var birthdayRe = regexp.MustCompile(`^(?:(\d{4})|-?-?)-?(\d{1,2})-(\d{1,2})$`)
 
 func pad2(n int) string {
 	if n < 10 {
@@ -188,7 +185,7 @@ func applyContact(c *contacts.Contact, op map[string]any) error {
 		return err
 	} else if has {
 		b = strings.TrimSpace(b)
-		m := birthdayRe.FindStringSubmatch(b)
+		m := contacts.BirthdayInput.FindStringSubmatch(b)
 		switch {
 		case b == "":
 			c.Birthday = ""
@@ -274,7 +271,7 @@ func (localContacts) Apply(sec *contacts.Section, op map[string]any) (any, error
 		return nil, err
 	}
 	var res any
-	switch kind := kindOf(op); kind {
+	switch kind := core.Kind(op); kind {
 	case "create":
 		c := contacts.Contact{
 			ID: newID(), Emails: []contacts.Typed{}, Phones: []contacts.Typed{}, URLs: []contacts.Typed{},

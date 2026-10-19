@@ -74,6 +74,8 @@ class Client:
             self.buf += chunk
         obj, word = struct.unpack_from("<II", self.buf)
         size, opcode = word >> 16, word & 0xFFFF
+        if size < 8:  # never consumed: this would spin
+            raise RuntimeError(f"malformed Wayland message (size {size})")
         body, self.buf = self.buf[8:size], self.buf[size:]
         return obj, opcode, body
 

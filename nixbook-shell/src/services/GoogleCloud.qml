@@ -57,10 +57,12 @@ Singleton {
             return;
         }
         tokenProc.runSequence([(() => { // prep token fetcher
-                tokenProc.environment.SERVICE_KEY_CONTENT = JSON.stringify(root.keyContent);
-                tokenProc.command = [ //
-                    "bash", "-c" //
-                    , `${tokenForKeyScriptPath} "$SERVICE_KEY_CONTENT"`];
+                // The key (a private key) goes in the environment only: as an
+                // argument it was readable by every user through /proc.
+                // (Assigned whole: a key set on the map property may not stick.)
+                tokenProc.environment = Object.assign({}, tokenProc.environment,
+                    { SERVICE_KEY_CONTENT: JSON.stringify(root.keyContent) });
+                tokenProc.command = [tokenForKeyScriptPath];
             }), //
             [], // run token fetcher
             ((out) => {

@@ -37,7 +37,7 @@ jobs:
         name: Pin nixpkgs
         run: echo "NIXPKGS_URL=$(jq -r .pins.nixpkgs.url npins/sources.json)" >> "$GITHUB_ENV"
       - &install-nix
-        uses: cachix/install-nix-action@v31
+        uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
         with:
           nix_path: nixpkgs=${{ env.NIXPKGS_URL }}
           extra_nix_config: |

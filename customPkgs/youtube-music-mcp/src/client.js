@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -21,6 +21,7 @@ const REQUEST_TIMEOUT_MS = 15_000;
 export class ApiError extends Error {}
 
 let token;
+let authenticating; // one "Allow" dialog for concurrent calls
 
 async function loadToken() {
   if (process.env.YTM_TOKEN) return process.env.YTM_TOKEN;
@@ -65,14 +66,15 @@ async function authenticate() {
   }
   if (!res.ok) throw new ApiError(`Authorization failed: HTTP ${res.status}`);
   const { accessToken } = await res.json();
-  await mkdir(dirname(TOKEN_FILE), { recursive: true });
+  // Private to the user, also when the file was there already (writeFile's
+  // mode only applies to a new file).
+  await mkdir(dirname(TOKEN_FILE), { recursive: true, mode: 0o700 });
   await writeFile(
     TOKEN_FILE,
     JSON.stringify({ baseUrl: BASE_URL, clientId: CLIENT_ID, accessToken }),
-    {
-      mode: 0o600,
-    },
+    { mode: 0o600 },
   );
+  await chmod(TOKEN_FILE, 0o600);
   return accessToken;
 }
 
@@ -96,7 +98,10 @@ export async function api(method, path, body) {
       REQUEST_TIMEOUT_MS,
     );
     if (res.status === 401 && attempt === 0 && !process.env.YTM_TOKEN) {
-      token = await authenticate();
+      authenticating ??= authenticate().finally(() => {
+        authenticating = undefined;
+      });
+      token = await authenticating;
       continue;
     }
     if (!res.ok) {

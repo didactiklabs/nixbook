@@ -417,10 +417,7 @@ func occurrenceProp(name string, series *ical.Component, occurrence string) (*ic
 
 // Apply runs one change on the server, its answer put in the section.
 func (p *events) Apply(sec *calendar.Section, op map[string]any) (any, error) {
-	kind, _ := op["op"].(string)
-	if kind == "" {
-		kind, _ = op["action"].(string)
-	}
+	kind := core.Kind(op)
 	fields, err := calendar.ParseFields(op, kind == "create")
 	if err != nil && kind != "delete" {
 		return nil, err
@@ -522,11 +519,12 @@ func (p *events) Apply(sec *calendar.Section, op map[string]any) (any, error) {
 					target.Children = slices.Clone(series.Children)
 					target.Props.Set(rid)
 					// The occurrence's own time.
-					if t, err := calendar.ParseTime(occurrence); err == nil {
+					if t, err := calendar.ParseTime(occurrence); err == nil && series.Props.Get(ical.PropDateTimeStart) != nil {
 						s, end, _ := spanOf(series)
 						length := end.Sub(s)
-						allDay := series.Props.Get(ical.PropDateTimeStart).ValueType() == ical.ValueDate
-						tz := series.Props.Get(ical.PropDateTimeStart).Params.Get(ical.PropTimezoneID)
+						start := series.Props.Get(ical.PropDateTimeStart)
+						allDay := start.ValueType() == ical.ValueDate
+						tz := start.Params.Get(ical.PropTimezoneID)
 						setTime(target, ical.PropDateTimeStart, t, allDay, tz)
 						setTime(target, ical.PropDateTimeEnd, t.Add(length), allDay, tz)
 						target.Props.Del(ical.PropDuration)

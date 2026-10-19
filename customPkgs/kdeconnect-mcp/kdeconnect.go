@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -64,8 +65,11 @@ func (k *KDEConnect) call(ctx context.Context, path dbus.ObjectPath, iface, meth
 	return k.conn.Object(service, path).CallWithContext(ctx, iface+"."+method, 0, args...)
 }
 
-func (k *KDEConnect) prop(path dbus.ObjectPath, iface, name string) (dbus.Variant, error) {
-	return k.conn.Object(service, path).GetProperty(iface + "." + name)
+// getAll reads every property of an interface, with call's timeout.
+func (k *KDEConnect) getAll(ctx context.Context, path dbus.ObjectPath, iface string) (map[string]dbus.Variant, error) {
+	props := map[string]dbus.Variant{}
+	err := k.call(ctx, path, "org.freedesktop.DBus.Properties", "GetAll", iface).Store(&props)
+	return props, err
 }
 
 func unreachable(err error) error {
@@ -85,8 +89,8 @@ func (k *KDEConnect) Devices(ctx context.Context) ([]Device, error) {
 	out := make([]Device, 0, len(ids))
 	for _, id := range ids {
 		p := devicePath(id)
-		props := map[string]dbus.Variant{}
-		if err := k.conn.Object(service, p).CallWithContext(ctx, "org.freedesktop.DBus.Properties.GetAll", 0, deviceIf).Store(&props); err != nil {
+		props, err := k.getAll(ctx, p, deviceIf)
+		if err != nil {
 			continue
 		}
 		d := Device{ID: id, Can: []string{}}
@@ -102,11 +106,11 @@ func (k *KDEConnect) Devices(ctx context.Context) ([]Device, error) {
 				}
 			}
 			sort.Strings(d.Can)
-			if contains(loaded, "kdeconnect_battery") {
-				bp := p + "/battery"
-				c, err1 := k.prop(bp, "org.kde.kdeconnect.device.battery", "charge")
-				ch, err2 := k.prop(bp, "org.kde.kdeconnect.device.battery", "isCharging")
-				if err1 == nil && err2 == nil {
+			if slices.Contains(loaded, "kdeconnect_battery") {
+				bat, err := k.getAll(ctx, p+"/battery", "org.kde.kdeconnect.device.battery")
+				c, okC := bat["charge"]
+				ch, okCh := bat["isCharging"]
+				if err == nil && okC && okCh {
 					charge, _ := c.Value().(int32)
 					charging, _ := ch.Value().(bool)
 					if charge >= 0 {
@@ -137,7 +141,7 @@ func (k *KDEConnect) Pick(ctx context.Context, want, can string) (Device, error)
 				if !d.Reachable {
 					return Device{}, fmt.Errorf("%s isn't reachable now (same network, KDE Connect running on it?)", d.Name)
 				}
-				if !has(d.Can, can) {
+				if !slices.Contains(d.Can, can) {
 					return Device{}, fmt.Errorf("%s can't do %s (its KDE Connect plugin is off or missing)", d.Name, can)
 				}
 				return d, nil
@@ -147,7 +151,7 @@ func (k *KDEConnect) Pick(ctx context.Context, want, can string) (Device, error)
 	}
 	var ok []Device
 	for _, d := range devs {
-		if d.Reachable && has(d.Can, can) {
+		if d.Reachable && slices.Contains(d.Can, can) {
 			ok = append(ok, d)
 		}
 	}
@@ -169,17 +173,6 @@ func names(devs []Device) string {
 		}
 	}
 	return strings.Join(s, ", ")
-}
-
-func has(list []string, s string) bool { return contains(list, s) }
-
-func contains(list []string, s string) bool {
-	for _, v := range list {
-		if v == s {
-			return true
-		}
-	}
-	return false
 }
 
 // address is ConversationAddress on the bus: a struct of one string.
@@ -365,9 +358,12 @@ func (k *KDEConnect) Notifications(ctx context.Context, id string) ([]Notificati
 	}
 	out := make([]Notification, 0, len(ids))
 	for _, nid := range ids {
-		props := map[string]dbus.Variant{}
 		p := devicePath(id) + "/notifications/" + dbus.ObjectPath(nid)
-		if err := k.conn.Object(service, p).CallWithContext(ctx, "org.freedesktop.DBus.Properties.GetAll", 0, notifObjIf).Store(&props); err != nil {
+		if !p.IsValid() {
+			continue
+		}
+		props, err := k.getAll(ctx, p, notifObjIf)
+		if err != nil {
 			continue
 		}
 		n := Notification{ID: nid}

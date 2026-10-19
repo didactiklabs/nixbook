@@ -90,10 +90,6 @@ in
         "d ${cfg.hostAppsStateFolder}/covers 0755 root root -"
         "d /tmp/sockets 0755 root root -"
         "d /var/run/wolf 0755 root root -"
-      ]
-      ++ [
-        "d ${cfg.hostAppsStateFolder}/wolf-den 0755 root root -"
-        "d ${cfg.hostAppsStateFolder}/covers 0755 root root -"
       ];
       services = {
         "podman-wolf-wolf" = {

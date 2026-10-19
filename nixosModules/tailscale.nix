@@ -223,6 +223,13 @@ in
           RestartSec = 5;
           # Cleanup is a handful of `ip route del`; never hold up shutdown.
           TimeoutStopSec = 10;
+          # It only edits routing tables over netlink (`ip route`): keep
+          # CAP_NET_ADMIN, drop the rest of root's powers and write access.
+          CapabilityBoundingSet = [ "CAP_NET_ADMIN" ];
+          NoNewPrivileges = true;
+          ProtectSystem = "strict";
+          ProtectHome = true;
+          PrivateTmp = true;
         };
       };
     };

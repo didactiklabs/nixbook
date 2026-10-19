@@ -7,7 +7,6 @@
 import sources.nixpkgs {
   config = {
     allowUnfree = true;
-    allowUnfreePredicate = true;
     permittedInsecurePackages = [
       "qtwebengine-5.15.19"
       "pnpm-10.29.2"

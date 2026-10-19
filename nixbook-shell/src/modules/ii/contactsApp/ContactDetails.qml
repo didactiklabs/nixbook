@@ -262,7 +262,11 @@ Item {
                             icon: "link"
                             value: modelData.value
                             caption: Contacts.typeText(modelData.type)
-                            onActivated: Qt.openUrlExternally(/^[a-z]+:/i.test(modelData.value) ? modelData.value : `https://${modelData.value}`)
+                            // A web page only (a shared address book's card could point at a local file).
+                            onActivated: {
+                                if (/^https?:/i.test(modelData.value)) Qt.openUrlExternally(modelData.value)
+                                else if (!/^[a-z][a-z0-9+.-]*:/i.test(modelData.value)) Qt.openUrlExternally(`https://${modelData.value}`)
+                            }
                         }
                     }
                 }

@@ -506,17 +506,24 @@ def audit_path():
     return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-shell", "desktop-mcp.log")
 
 
-# Arguments whose content is private: only their length is logged.
-PRIVATE_ARGS = {"text", "value"}
+# Arguments whose content is private: only their length is logged, also
+# inside others (run_steps' steps); vars fill the steps' text.
+PRIVATE_ARGS = {"text", "value", "vars"}
+
+
+def redact(v):
+    if isinstance(v, dict):
+        return {k: (f"<{len(x)} chars>" if isinstance(x, str) else "<private>") if k in PRIVATE_ARGS
+                else redact(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [redact(x) for x in v]
+    return v
 
 
 def audit(client, tool, args, outcome):
     safe = {}
-    for k, v in (args or {}).items():
-        if k in PRIVATE_ARGS and isinstance(v, str):
-            safe[k] = f"<{len(v)} chars>"
-        else:
-            safe[k] = v if len(json.dumps(v)) <= 200 else "<long>"
+    for k, v in redact(args or {}).items():
+        safe[k] = v if len(json.dumps(v)) <= 200 else "<long>"
     entry = {
         "time": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "client": client,
@@ -3832,6 +3839,10 @@ def mcp_call(server, tool_name, args, timeout=60):
     worker.start()
     worker.join(timeout)
     proc.kill()
+    try:
+        proc.wait(5)
+    except subprocess.TimeoutExpired:
+        pass
     reply = result.get(2)
     if not reply:
         raise ToolError("the MCP server gave no answer")
@@ -5388,7 +5399,7 @@ def habits_jobs(cfg, rec, data, now):
             if not ask or habits_notify(f"Switch to {label}?",
                                         "You usually switch to it around this time.", "palette", "Switch"):
                 try:
-                    qs_ipc("call", "theme", "set", theme, variant)
+                    qs_ipc("call", "--", "theme", "set", theme, variant)
                 except ToolError as e:
                     log(f"habits: theme: {e}")
                 else:
@@ -7866,7 +7877,13 @@ def screenshot_window(ctx, wid):
         if ctx.cfg.get("screenshotFormat") != "png":
             out = path[: -len(".png")] + ".jpg"
         quality = min(max(int(ctx.cfg.get("screenshotQuality", 80)), 10), 100)
-        run(["magick", path, "-resize", f"{max_edge}x{max_edge}>", "-quality", str(quality), out], timeout=15)
+        try:
+            run(["magick", path, "-resize", f"{max_edge}x{max_edge}>", "-quality", str(quality), out], timeout=15)
+        except BaseException:
+            for p in {path, out}:
+                if os.path.exists(p):
+                    os.unlink(p)
+            raise
         if out != path:
             os.unlink(path)
             os.chmod(out, 0o600)
@@ -7884,8 +7901,11 @@ def screenshot_reply(ctx, path, info):
         # The caller reads the file later; drop the ones left from before.
         for old in os.listdir(runtime_dir()):
             p = os.path.join(runtime_dir(), old)
-            if old.startswith("screenshot-") and time.time() - os.path.getmtime(p) > 600:
-                os.unlink(p)
+            try:
+                if old.startswith("screenshot-") and time.time() - os.path.getmtime(p) > 600:
+                    os.unlink(p)
+            except FileNotFoundError:  # another server's cleanup
+                pass
         os.chmod(path, 0o600)
         return [text(f"{info}\nSaved to {path}")]
     try:
@@ -9164,7 +9184,11 @@ def shared_folders():
             if not os.path.isabs(folder):
                 continue
             real = os.path.realpath(folder)
-            if real not in (home, "/") and real not in out:
+            # As the agent desktop's launcher (agent-desktop.sh): never a
+            # folder holding the home, nor a hidden one of it (settings, keys).
+            if (home + os.sep).startswith(real.rstrip(os.sep) + os.sep) or real.startswith(home + os.sep + "."):
+                continue
+            if real not in out:
                 out.append(real)
     return out
 
@@ -9322,12 +9346,16 @@ def t_screen_capture(ctx, args):
             folder = os.path.expanduser(str(shell_setting("screenSnip.savePath", "~/Pictures/Screenshots")))
             os.makedirs(folder, exist_ok=True)
             path = os.path.join(folder, time.strftime("Screenshot-%Y-%m-%d-%H-%M-%S.png"))
-        run(["grim", *grim, "-t", "png", path], timeout=15)
-        if to != "file":
-            with open(path, "rb") as f:
-                wl_copy(f.read(), "image/png")
+        try:
+            run(["grim", *grim, "-t", "png", path], timeout=15)
+            if to != "file":
+                with open(path, "rb") as f:
+                    wl_copy(f.read(), "image/png")
+        finally:
+            # Only in the clipboard: no copy of the screen left behind.
+            if to == "clipboard" and os.path.exists(path):
+                os.unlink(path)
         if to == "clipboard":
-            os.unlink(path)
             return [text(f"screenshot of the {what} copied to the clipboard")]
         return [text(f"screenshot of the {what} saved to {path}" + (" and copied to the clipboard" if to == "both" else ""))]
     if ctx.desktop == "agent":
@@ -11322,7 +11350,10 @@ def make_handler(cfg, token, port):
         def do_POST(self):
             if not self.authorized():
                 return
-            length = int(self.headers.get("Content-Length") or 0)
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                length = 0
             if length <= 0 or length > 1 << 20:
                 return self.refuse(413, "request body missing or over 1 MiB")
             try:

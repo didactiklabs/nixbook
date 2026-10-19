@@ -221,6 +221,7 @@ out=$(capply "{\"op\":\"update\",\"id\":\"$dentist\",\"calendar\":\"Work\"}")
 expect_eq "calendar update: moved to another calendar" "$work_cal" "$(na calendar events --from 2026-11-03 --to 2026-11-04 | jq -r '.events[] | select(.summary == "Dentist") | .calendarId')"
 moved=$(na calendar events --from 2026-11-03 --to 2026-11-04 | jq -r '.events[] | select(.summary == "Dentist") | .id')
 expect_eq "calendar update: moved on the server" "404 200" "$(curl -s -o /dev/null -w '%{http_code}' -u me:secret "$U$(local_id "$dentist")") $(curl -s -o /dev/null -w '%{http_code}' -u me:secret "$U$(local_id "$moved")")"
+expect_contains "calendar update: a rule with a line break refused" "$(capply "{\"op\":\"update\",\"id\":\"$standup\",\"recurrence\":\"FREQ=DAILY\\r\\nATTENDEE:mailto:x@example.com\"}")" "no line breaks"
 capply "{\"op\":\"delete\",\"id\":\"$standup\"}" >/dev/null
 na calendar sync >/dev/null
 expect_eq "calendar delete: the series" "Dentist,Holidays,Lunch" "$(na calendar events --from 2026-10-01 --to 2027-01-01 | jq -r '[.events[].summary] | unique | join(",")')"
@@ -236,6 +237,7 @@ out=$(echo changed | na add dav --preset custom --url "$U" --username me --passw
 expect_eq "signed in again: the same account, synced" "dav-1 0" "$(jq -r .account.id <<<"$out") $(jq -r .contacts.count <<<"$out")"
 na remove dav-1 >/dev/null
 expect_eq "remove: the account, its copies, its password (the local account stays)" "1 0 1 1 no" "$(na status | jq -r '"\(.accounts | length) \(.contacts.count) \(.tasks.lists) \(.calendar.calendars)"') $([ -e "$tmp/secrets/account-dav-1" ] && echo yes || echo no)"
+expect_eq "remove: the contacts' photos gone from the computer" "0" "$(find "$tmp/state/nixbook-accounts/photos" -type f | wc -l)"
 
 echo
 if [ "$failures" -gt 0 ]; then

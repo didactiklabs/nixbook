@@ -94,7 +94,7 @@ AbstractBackgroundWidget {
     function fetchCover() {
         root.coverDownloaded = false;
         if (!root.needsCover || root.artUrl.length === 0 || root.artUrl.startsWith("file://")) return;
-        coverDownloader.command = ["bash", "-c", '[ -f "$1" ] || curl -sSL "$2" -o "$1"', "_", root.artFilePath, root.artUrl];
+        coverDownloader.command = ["bash", "-c", '[ -f "$1" ] || curl --proto =http,https --proto-redir =http,https -sSL "$2" -o "$1"', "_", root.artFilePath, root.artUrl];
         coverDownloader.running = true;
     }
     Process {

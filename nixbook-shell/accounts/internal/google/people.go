@@ -189,10 +189,7 @@ func nonEmptyString(op obj, key string) (string, error) {
 
 // Apply runs one change on Google, its answer put in the section.
 func (p *people) Apply(sec *contacts.Section, op obj) (any, error) {
-	kind := str(op, "op")
-	if kind == "" {
-		kind = str(op, "action")
-	}
+	kind := core.Kind(op)
 	switch kind {
 	case "create":
 		fields, err := pickFields(op)

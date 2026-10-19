@@ -72,6 +72,7 @@ export function toUri(value) {
       value,
     );
   if (match) return `spotify:${match[1]}:${match[2]}`;
-  if (/^spotify:\w+:\w+/.test(value)) return value;
+  // Whole value only: it is handed to the app as is.
+  if (/^spotify:\w+:\S+$/.test(value)) return value;
   throw new MprisError(`Not a Spotify URI or link: ${value}`);
 }

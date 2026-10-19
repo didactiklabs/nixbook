@@ -59,9 +59,11 @@ available=false
 # The changelog is a bonus: the check worked without it (GitHub's rate limit).
 changelog='[]'
 if [ "$available" = true ] && [ "$branch" = refs/heads/main ] && [ "$local_rev" != Unknown ]; then
-  IFS=/ read -r _ _ _ owner name _ <<<"$repo"
+  # Only a GitHub repository's (https://github.com/OWNER/NAME): another
+  # host's owner and name aren't GitHub's.
+  IFS=/ read -r _ _ host owner name _ <<<"$repo"
   name=${name%.git}
-  if [ -n "${owner:-}" ] && [ -n "$name" ]; then
+  if [ "${host,,}" = github.com ] && [ -n "${owner:-}" ] && [ -n "$name" ]; then
     changelog=$(curl -sfL --max-time 15 "https://api.github.com/repos/$owner/$name/compare/$local_rev...$remote_rev" |
       jq -c '[.commits[]?.commit.message | split("\n")[0]]' 2>/dev/null) || changelog='[]'
     [ -n "$changelog" ] || changelog='[]'

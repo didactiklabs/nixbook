@@ -91,7 +91,7 @@ in
         security = {
           pam.services = {
             greetd = {
-              u2fAuth = true;
+              u2f.enable = true;
               fprintAuth = true;
               enableGnomeKeyring = true;
             };

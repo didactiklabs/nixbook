@@ -476,7 +476,7 @@ func apply(card vcard.Card, op map[string]any, categories []string) error {
 	}
 	if v, has := strField(op, "birthday"); has {
 		v = strings.TrimSpace(v)
-		switch m := regexp.MustCompile(`^(?:(\d{4})|-?-?)-?(\d{1,2})-(\d{1,2})$`).FindStringSubmatch(v); {
+		switch m := contacts.BirthdayInput.FindStringSubmatch(v); {
 		case v == "":
 			delete(card, vcard.FieldBirthday)
 		case m == nil:
@@ -597,10 +597,7 @@ func (p *cards) put(sec *contacts.Section, path string, card vcard.Card) (contac
 
 // Apply runs one change on the server, its answer put in the section.
 func (p *cards) Apply(sec *contacts.Section, op map[string]any) (any, error) {
-	kind, _ := op["op"].(string)
-	if kind == "" {
-		kind, _ = op["action"].(string)
-	}
+	kind := core.Kind(op)
 	cc, err := p.cc()
 	if err != nil {
 		return nil, err
@@ -698,7 +695,6 @@ func (p *cards) Apply(sec *contacts.Section, op map[string]any) (any, error) {
 			sec.Labels = slices.DeleteFunc(sec.Labels, func(l contacts.Label) bool { return l.ID == want })
 			return map[string]any{"deleted": want, "contacts": changed}, nil
 		}
-		sec.Labels = slices.DeleteFunc(sec.Labels, func(l contacts.Label) bool { return l.ID == want })
 		sec.Labels = labelsOf(sec.Contacts)
 		return contacts.Label{ID: strings.TrimSpace(name), Name: strings.TrimSpace(name), Count: changed}, nil
 	}

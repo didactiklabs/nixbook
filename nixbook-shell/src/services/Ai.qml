@@ -975,10 +975,14 @@ Singleton {
     function pruneClaudeTranscripts() {
         const home = Quickshell.env("HOME");
         const workdir = `${Quickshell.env("XDG_DATA_HOME") || `${home}/.local/share`}/nixbook-shell/assistant`;
-        const project = `${home}/.claude/projects/${workdir.replace(/[\/.]/g, "-")}`;
-        Quickshell.execDetached(["bash", "-c", `dir=$1 hist=$2
+        const project = workdir.replace(/[\/.]/g, "-");
+        // The saved chats are read one by one: with jq missing, or one file
+        // it can't parse, the list of sessions to keep came out short and
+        // their transcripts went too.
+        Quickshell.execDetached(["bash", "-c", `dir=\${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/$1 hist=$2
 [ -d "$dir" ] || exit 0
-keep=$(jq -r '.claudeSessionId // empty' "$hist"/*.json 2>/dev/null | sort -u)
+command -v jq >/dev/null || exit 0
+keep=$(for h in "$hist"/*.json; do [ -f "$h" ] || continue; jq -r '.claudeSessionId // empty' "$h" 2>/dev/null; done | sort -u)
 find "$dir" -mindepth 1 -maxdepth 1 -mmin +1440 -print0 | while IFS= read -r -d '' f; do
   id=$(basename -- "$f" .jsonl)
   printf '%s\\n' "$keep" | grep -qxF -- "$id" || rm -rf -- "$f"

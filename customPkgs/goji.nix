@@ -29,9 +29,9 @@ pkgs.buildGoModule rec {
 
   meta = {
     homepage = "https://github.com/muandane/goji";
-    description = " Commitizen-like Emoji Commit Tool written in Go (think cz-emoji and other commitizen adapters but in go) 🚀 ";
+    description = "Commitizen-like emoji commit tool written in Go";
     changelog = "https://github.com/muandane/goji/blob/${gojiSrc.revision}/CHANGELOG.md";
-    license = "Apache 2.0 license Zine El Abidine Moualhi";
+    license = pkgs.lib.licenses.asl20;
     mainProgram = "goji";
   };
 }

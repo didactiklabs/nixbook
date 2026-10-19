@@ -445,8 +445,8 @@ in
       };
       pam = {
         services = {
-          login.u2fAuth = true;
-          sudo.u2fAuth = true;
+          login.u2f.enable = true;
+          sudo.u2f.enable = true;
         };
         u2f = {
           enable = true;

@@ -56,11 +56,17 @@ GCloudApi {
 > '${payloadFilePath}'`
         ]);
 
+        // The token goes through the environment and a process-substitution header
+        // file, never an argument: command lines are readable by any local
+        // process (/proc/<pid>/cmdline).
+        lookMultiproc.environment = ({
+            "GCLOUD_TOKEN": GoogleCloud.token,
+            "GCLOUD_PROJECT": GoogleCloud.projectId
+        });
         seq.push([
             "bash", "-c",
             `curl -s -X POST \
--H "Authorization: Bearer ${GoogleCloud.token}" \
--H "x-goog-user-project: ${GoogleCloud.projectId}" \
+-H @<(printf 'Authorization: Bearer %s\\nx-goog-user-project: %s\\n' "$GCLOUD_TOKEN" "$GCLOUD_PROJECT") \
 -H "Content-Type: application/json" \
 https://vision.googleapis.com/v1/images:annotate \
 -d @'${payloadFilePath}'`

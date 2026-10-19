@@ -6,7 +6,6 @@
 package tasks
 
 import (
-	"errors"
 	"slices"
 	"strings"
 
@@ -189,13 +188,6 @@ func save(c *Cache) error {
 	return core.WriteJSON(CacheFile, c)
 }
 
-func local(account, global string) string {
-	if strings.HasPrefix(global, account+":") {
-		return global[len(account)+1:]
-	}
-	return ""
-}
-
 func section(c *Cache, account string) *Section {
 	m := c.Accounts[account]
 	if m == nil {
@@ -204,13 +196,13 @@ func section(c *Cache, account string) *Section {
 	s := &Section{SyncedAt: m.SyncedAt, Error: m.Error, Lists: []List{}, Tasks: []Task{}}
 	for _, l := range c.Lists {
 		if l.Account == account {
-			l.ID = local(account, l.ID)
+			l.ID = registry.LocalID(account, l.ID)
 			s.Lists = append(s.Lists, l)
 		}
 	}
 	for _, t := range c.Tasks {
 		if t.Account == account {
-			t.ID, t.ListID, t.Parent = local(account, t.ID), local(account, t.ListID), local(account, t.Parent)
+			t.ID, t.ListID, t.Parent = registry.LocalID(account, t.ID), registry.LocalID(account, t.ListID), registry.LocalID(account, t.Parent)
 			s.Tasks = append(s.Tasks, t)
 		}
 	}
@@ -341,25 +333,14 @@ func Sync(account string, full bool) (*SyncResult, error) {
 var Ops = []string{"create", "update", "done", "undone", "move", "delete", "create_list", "rename_list", "delete_list"}
 
 // Result is one change's outcome.
-type Result struct {
-	OK     bool   `json:"ok"`
-	Result any    `json:"result,omitempty"`
-	Error  string `json:"error,omitempty"`
-}
+type Result = core.Result
 
 // Apply runs {op…} or {ops: […]}, in order, each on its own, each at its
 // account's provider.
 func Apply(request any) ([]Result, error) {
-	var ops []any
-	if m, ok := request.(map[string]any); ok {
-		if v, has := m["ops"]; has {
-			ops, _ = v.([]any)
-		} else {
-			ops = []any{m}
-		}
-	}
-	if len(ops) == 0 || len(ops) > MaxOps {
-		return nil, core.Errorf("`ops` must be a list of 1 to %d changes", MaxOps)
+	ops, err := core.Ops(request, MaxOps)
+	if err != nil {
+		return nil, err
 	}
 	unlock, err := core.Lock("tasks")
 	if err != nil {
@@ -367,31 +348,12 @@ func Apply(request any) ([]Result, error) {
 	}
 	defer unlock()
 	c := Load()
-	results := make([]Result, 0, len(ops))
-	var authErr error
-	for _, o := range ops {
-		op, ok := o.(map[string]any)
-		var res any
-		var err error
-		if ok {
-			res, err = apply(c, op)
-		} else {
-			err = core.Errorf("each change must be an object")
-		}
-		var auth *core.AuthError
-		if errors.As(err, &auth) && authErr == nil {
-			authErr = err
-		}
-		if err != nil {
-			results = append(results, Result{Error: err.Error()})
-		} else {
-			results = append(results, Result{OK: true, Result: res})
-		}
-	}
+	results, authErr := core.RunOps(ops, func(op map[string]any) (any, error) { return apply(c, op) })
 	if err := save(c); err != nil {
 		return nil, err
 	}
-	if authErr != nil && !slices.ContainsFunc(results, func(r Result) bool { return r.OK }) {
+	// Every change refused for want of a sign-in: say so (exit 2).
+	if authErr != nil {
 		return nil, authErr
 	}
 	return results, nil
@@ -448,14 +410,11 @@ func defaultAccount(op map[string]any) (registry.Account, error) {
 }
 
 func apply(c *Cache, op map[string]any) (any, error) {
-	kind, _ := op["op"].(string)
-	if kind == "" {
-		kind, _ = op["action"].(string)
-	}
+	kind := core.Kind(op)
 	if !slices.Contains(Ops, kind) {
 		return nil, core.Errorf("unknown op '%s': %s", kind, strings.Join(Ops, ", "))
 	}
-	op = clone(op)
+	op = core.Clone(op)
 	listRef, _ := op["list"].(string)
 	var account string
 	switch kind {
@@ -471,7 +430,7 @@ func apply(c *Cache, op map[string]any) (any, error) {
 			if err != nil {
 				return nil, err
 			}
-			account, op["list"] = l.Account, local(l.Account, l.ID)
+			account, op["list"] = l.Account, registry.LocalID(l.Account, l.ID)
 		} else {
 			a, err := defaultAccount(op)
 			if err != nil {
@@ -480,17 +439,17 @@ func apply(c *Cache, op map[string]any) (any, error) {
 			account = a.ID
 		}
 		if parent, _ := op["parent"].(string); parent != "" {
-			if local(account, parent) == "" {
+			if registry.LocalID(account, parent) == "" {
 				return nil, core.Errorf("the parent task '%s' is in another account", parent)
 			}
-			op["parent"] = local(account, parent)
+			op["parent"] = registry.LocalID(account, parent)
 		}
 	case "rename_list", "delete_list":
 		l, err := findList(c, listRef)
 		if err != nil {
 			return nil, err
 		}
-		account, op["list"] = l.Account, local(l.Account, l.ID)
+		account, op["list"] = l.Account, registry.LocalID(l.Account, l.ID)
 	default:
 		want, _ := op["id"].(string)
 		if want == "" {
@@ -516,7 +475,7 @@ func apply(c *Cache, op map[string]any) (any, error) {
 			if l.Account != account {
 				return nil, core.Errorf("tasks move between lists of the same account only")
 			}
-			op["list"] = local(account, l.ID)
+			op["list"] = registry.LocalID(account, l.ID)
 		}
 	}
 	a, err := registry.Get(account)
@@ -546,14 +505,6 @@ func apply(c *Cache, op map[string]any) (any, error) {
 		return r, nil
 	}
 	return res, nil
-}
-
-func clone(m map[string]any) map[string]any {
-	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
 }
 
 // -- reading ---------------------------------------------------------------
@@ -593,16 +544,15 @@ func ListTasks(list, account string, done bool) (*Listing, error) {
 	return &Listing{SyncedAt: c.SyncedAt, Lists: c.Lists, Tasks: out}, nil
 }
 
-// Summary is the tasks part of status.
-func Summary() map[string]any {
-	c := Load()
+// Summary is the tasks part of status, from the copy (Load).
+func (c *Cache) Summary() map[string]any {
 	path, _ := core.StatePath(CacheFile)
 	return map[string]any{"lists": len(c.Lists), "count": len(c.Tasks), "syncedAt": c.SyncedAt, "error": c.Error, "cache": path}
 }
 
 // AccountError is the account's last tasks sync failure.
-func AccountError(account string) string {
-	if m := Load().Accounts[account]; m != nil {
+func (c *Cache) AccountError(account string) string {
+	if m := c.Accounts[account]; m != nil {
 		return m.Error
 	}
 	return ""

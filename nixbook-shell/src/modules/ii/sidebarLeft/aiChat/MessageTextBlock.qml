@@ -107,6 +107,15 @@ ColumnLayout {
         }
     }
 
+    // The answer's images that are on the web shown as links: rendering one
+    // would fetch it, and a prompt injection could put what it read in its
+    // URL. (The LaTeX renders are local files.)
+    function withoutRemoteImages(markdown) {
+        return markdown
+            .replace(/!\[([^\]]*)\]\((\s*<?(?:https?|ftp):[^)]*)\)/gi, (m, alt, target) => `[${alt || target.trim()}](${target})`)
+            .replace(/<img\b/gi, "&lt;img");
+    }
+
     spacing: 0
     // The shown text in chunks (paragraphs / list items while fading in,
     // else one). Delegates are keyed by position, so while an answer streams
@@ -161,7 +170,7 @@ ColumnLayout {
                 : Persona.shapes ? "white" : Appearance.colors.colOnLayer1
             font.weight: Persona.shapes ? Font.DemiBold : Font.Normal
             textFormat: renderMarkdown ? TextEdit.MarkdownText : TextEdit.PlainText
-            text: textArea.chunk
+            text: root.renderMarkdown && !root.editing ? root.withoutRemoteImages(textArea.chunk) : textArea.chunk
 
             onTextChanged: {
                 if (!root.editing) return
@@ -169,6 +178,8 @@ ColumnLayout {
             }
 
             onLinkActivated: (link) => {
+                // Web and mail links only: the answer could point xdg-open at a local file.
+                if (!/^(https?|mailto):/i.test(link)) return
                 AppLaunch.openUrl(link)
                 GlobalStates.sidebarLeftOpen = false
             }

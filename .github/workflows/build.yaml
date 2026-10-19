@@ -17,6 +17,11 @@ concurrency:
   # or cache push half-way; a newer main push just waits (and replaces any
   # older run still pending).
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+# GITHUB_TOKEN only reads: the checkout, and skip-duplicate-actions listing
+# this workflow's runs. The S3 cache push uses its own secrets.
+permissions:
+  contents: read
+  actions: read
 defaults:
   run:
     # Explicit `bash` makes Actions run with `-eo pipefail`, so a failing
@@ -30,8 +35,13 @@ env:
   # same stub the Checks workflow evaluates with.
   NIXBOOK_HARDWARE_CONFIG: ${{ github.workspace }}/tests/hardware-stub.nix
 jobs:
+  # A pull request from a fork never runs on the self-hosted runners: they
+  # share one Nix store with the main builds and the cache push (which holds
+  # the S3 and signing keys), so a fork's code must not run there. Its build
+  # legs fail on a GitHub-hosted runner instead (see `build`), so the merge gate
+  # stays red; push the branch to this repository to build it.
   pre_job:
-    if: ${{ github.event.action != 'closed' }}
+    if: ${{ github.event.action != 'closed' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: self-hosted
     # Map a step output to a job output
     outputs:
@@ -117,8 +127,8 @@ jobs:
     needs: [pre_job, changed]
     # Runs even if `changed` failed (then it builds everything): its
     # `build (<profile>)` checks are the merge gate, so every leg must report.
-    if: ${{ !cancelled() && needs.pre_job.outputs.should_skip != 'true' }}
-    runs-on: self-hosted
+    if: ${{ !cancelled() && github.event.action != 'closed' && needs.pre_job.outputs.should_skip != 'true' }}
+    runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || 'self-hosted' }}
     env:
       # This machine's system changed (or `changed` couldn't tell).
       BUILD: ${{ needs.changed.result != 'success' || needs.changed.outputs.all == 'true' || contains(fromJson(needs.changed.outputs.profiles), matrix.profile) }}
@@ -136,6 +146,11 @@ jobs:
           - tanjiro
           - hanamichi
     steps:
+      - name: Fork pull request
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+        run: |
+          echo "::error::pull requests from forks are not built on the self-hosted runners; push the branch to ${{ github.repository }}"
+          exit 1
       - name: Unchanged (${{ matrix.profile }})
         if: ${{ env.BUILD != 'true' }}
         run: echo "::notice::${{ matrix.profile }}'s system derivation is unchanged, not rebuilt (see the changed job)"

@@ -4,6 +4,7 @@ import Quickshell
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.modules.common.functions
 
 Item {
     id: diNotifsRoot
@@ -57,7 +58,9 @@ Item {
 
         StyledText {
             Layout.fillWidth: true
-            text: (notif?.summary ?? "").replace(/\n/g, " ")
+            // Markup stripped, never rendered: no remote images from a notification.
+            textFormat: Text.PlainText
+            text: NotificationUtils.plainText(notif?.summary ?? "").replace(/\n/g, " ")
             font.pixelSize: Appearance.font.pixelSize.smaller
             font.weight: Font.DemiBold
             color: Appearance.colors.colOnLayer0
@@ -67,7 +70,8 @@ Item {
         }
         StyledText {
             Layout.fillWidth: true
-            text: (notif?.body ?? "").replace(/\n/g, " ")
+            textFormat: Text.PlainText
+            text: NotificationUtils.plainText(notif?.body ?? "").replace(/\n/g, " ")
             font.pixelSize: Appearance.font.pixelSize.smallest
             color: Appearance.colors.colOnLayer0
             opacity: 0.7

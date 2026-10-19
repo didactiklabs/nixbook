@@ -60,7 +60,7 @@ ContentPage {
         }
         colBackground: toggled ? Appearance.colors.colPrimary : ColorUtils.transparentize(Appearance.colors.colLayer2, 0.45)
         onClicked: {
-            Quickshell.execDetached(["bash", "-c", `${Directories.wallpaperSwitchScriptPath} --mode ${dark ? "dark" : "light"} --noswitch`]);
+            Quickshell.execDetached([Directories.wallpaperSwitchScriptPath, "--mode", dark ? "dark" : "light", "--noswitch"]);
         }
         contentItem: RowLayout {
             anchors.fill: parent

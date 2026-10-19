@@ -34,12 +34,16 @@ emit() {
   local data="${2:-}"
   echo "STATUS=$status"
   echo "UPDATED_AT=$(jq -r '.cached_at // 0' "$USAGE_CACHE" 2>/dev/null || printf '0')"
-  if [ -n "$data" ] && printf '%s' "$data" | jq -e '.five_hour' >/dev/null 2>&1; then
-    echo "PLAN_TYPE=$(printf '%s' "$data" | jq -r '.plan_type // "pro"')"
-    echo "FIVE_HOUR_UTIL=$(printf '%s' "$data" | jq -r '.five_hour.utilization // -1')"
-    echo "FIVE_HOUR_RESET=$(printf '%s' "$data" | jq -r '.five_hour.resets_at // ""')"
-    echo "SEVEN_DAY_UTIL=$(printf '%s' "$data" | jq -r '.seven_day.utilization // -1')"
-    echo "SEVEN_DAY_RESET=$(printf '%s' "$data" | jq -r '.seven_day.resets_at // ""')"
+  local lines=""
+  # One jq for every line (the widget runs this once per bar).
+  [ -n "$data" ] && lines=$(printf '%s' "$data" | jq -r 'select(.five_hour) |
+    "PLAN_TYPE=\(.plan_type // "pro")",
+    "FIVE_HOUR_UTIL=\(.five_hour.utilization // -1)",
+    "FIVE_HOUR_RESET=\(.five_hour.resets_at // "")",
+    "SEVEN_DAY_UTIL=\(.seven_day.utilization // -1)",
+    "SEVEN_DAY_RESET=\(.seven_day.resets_at // "")"' 2>/dev/null)
+  if [ -n "$lines" ]; then
+    printf '%s\n' "$lines"
   else
     echo "PLAN_TYPE="
     echo "FIVE_HOUR_UTIL=-1"
@@ -180,7 +184,7 @@ main() {
   fi
 
   local hdrs body http
-  hdrs=$(mktemp)
+  hdrs=$(mktemp "$CACHE_DIR/headers.XXXXXX")
   body=$(printf 'Authorization: Bearer %s\n' "$token" | curl -s --max-time 8 -D "$hdrs" \
     -H @- \
     -H "Accept: application/json" \

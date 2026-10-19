@@ -307,7 +307,10 @@ Singleton {
             }
         }
         const filePath = `${Directories.shellConfig}/wallpaper_order.json`;
-        Quickshell.execDetached(["bash", "-c", `mkdir -p '${Directories.shellConfig}' && cat << 'EOF' > '${filePath}.tmp' && mv '${filePath}.tmp' '${filePath}'\n${jsonStr}\nEOF`]);
+        // Path and JSON (wallpaper file names) go in as arguments: in the
+        // script, a quote in either broke it.
+        Quickshell.execDetached(["bash", "-c", 'mkdir -p "$(dirname "$1")" && printf \'%s\\n\' "$2" > "$1.tmp" && mv "$1.tmp" "$1"',
+            "_", filePath, jsonStr]);
     }
 
     function moveWallpaper(fromIndex, toIndex) {

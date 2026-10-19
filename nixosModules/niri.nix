@@ -75,7 +75,7 @@ in
       # keyring on password screen-unlock (covers fingerprint/U2F greeter logins
       # where PAM got no password and the keyring stayed locked).
       security.pam.services.hyprlock = {
-        u2fAuth = true;
+        u2f.enable = true;
         enableGnomeKeyring = true;
       };
 

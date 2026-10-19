@@ -47,6 +47,9 @@ in
             - opencode-manager (`ocm`) — k9s-style TUI to manage isolated
               OpenCode workspaces in containers; seeds the built-in module
               catalogue into ~/.config/opencode-manager/modules on activation
+
+        Telemetry: sets CHECKPOINT_DISABLE (HashiCorp version/usage pings from
+        terraform) and DO_NOT_TRACK (honoured by devbox, runme and other CLIs).
       '';
     };
   };
@@ -96,6 +99,12 @@ in
       openchoreo-cli
       opencode-manager
     ];
+
+    # Opt out of usage telemetry; neither variable turns a feature off.
+    home.sessionVariables = {
+      CHECKPOINT_DISABLE = "1";
+      DO_NOT_TRACK = "1";
+    };
 
     # Seed the built-in module catalogue the way the npm postinstall does:
     # copy it into ~/.config/opencode-manager/modules, replacing built-in
