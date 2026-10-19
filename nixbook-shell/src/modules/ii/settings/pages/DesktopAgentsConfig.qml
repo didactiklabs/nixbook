@@ -175,7 +175,7 @@ ContentPage {
             }
 
             StyledText {
-                visible: (DesktopControl.memory.routines ?? []).length === 0
+                visible: Routines.routines.length === 0
                 color: Appearance.colors.colSubtext
                 text: Translation.tr("None yet.")
             }
@@ -190,7 +190,7 @@ ContentPage {
                     `${Qt.formatDateTime(new Date(n.time), "hh:mm")} · ${n.what} · ${n.outcome}`).join("\n")
             }
             Repeater {
-                model: DesktopControl.memory.routines ?? []
+                model: Routines.routines
                 delegate: RowLayout {
                     id: routineRow
                     required property var modelData
