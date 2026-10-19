@@ -82,7 +82,7 @@ Scope {
                 function onItemChanged() {
                     if (root.item) {
                         enter.restart()
-                        unanswered.restart()
+                        if (window.visible) unanswered.restart()
                     }
                 }
             }
@@ -247,11 +247,12 @@ Scope {
                 }
             }
 
-            // Unanswered: into the bar's bubble (the timer waits while hovered).
+            // Unanswered: into the bar's bubble (the timer waits while hovered,
+            // and while hidden: the screen locked).
             Timer {
                 id: unanswered
                 interval: 25000
-                running: root.item !== null && !hover.hovered
+                running: root.item !== null && window.visible && !hover.hovered
                 onTriggered: Initiative.hush("wait")
             }
         }

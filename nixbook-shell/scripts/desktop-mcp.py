@@ -2653,6 +2653,7 @@ def quiet_hours(cfg, now):
 def deliver(cfg, data, item, level, busy, now):
     """Notification, waiting word, or nothing: {action, item, why}."""
     key, kind = item["key"], item["kind"]
+    down = ""  # why a word to say out loud waits in the bar instead
     if any(s["key"] == key for s in data["said"]) or any(p["key"] == key for p in data["pending"]):
         return {"action": "none", "why": "said already"}
     muted = data["muted"]
@@ -2680,6 +2681,7 @@ def deliver(cfg, data, item, level, busy, now):
                else "")
         if why:
             level = "badge"
+            down = why
     item = dict(item, id=secrets.token_hex(3), time=int(now), level=level,
                 expires=int(now + INITIATIVE_PENDING_HOURS * 3600))
     data["said"].append({"id": item["id"], "key": key, "kind": kind, "app": item.get("app"), "level": level,
@@ -2689,9 +2691,10 @@ def deliver(cfg, data, item, level, busy, now):
     for key_ in [kind] + ([f"{kind}:{item['app'].lower()}"] if item.get("app") else []) + [hour_key(now)]:
         counts = data["stats"].setdefault(key_, {})
         counts["said"] = counts.get("said", 0) + 1
-    if level == "badge":
-        data["pending"] = (data["pending"] + [item])[-INITIATIVE_PENDING_MAX:]
-    return {"action": "notify" if level == "notify" else "badge", "item": item}
+    # Said out loud too: it waits in the bar once its bubble goes (unanswered,
+    # or a newer word in its place), until answered.
+    data["pending"] = (data["pending"] + [item])[-INITIATIVE_PENDING_MAX:]
+    return {"action": "notify" if level == "notify" else "badge", "item": item, "why": down}
 
 
 def budget(cfg, data, key, base, now):

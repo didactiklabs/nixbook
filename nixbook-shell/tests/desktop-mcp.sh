@@ -1341,14 +1341,16 @@ call remember_about_user "$(jq -nc --arg d "$in2" '{topic: "kyoto trip", kind: "
 echo '{"initiativeQuietHours":"0-0"}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
 out=$(consider '{"event":"back","away":300,"events":[{"title":"Standup","start":"10:00","inMinutes":15}],"tasksDue":2}')
 expect_eq "back: a meeting soon, a notification" notify "$(jq -r .action <<<"$out")"
+expect_eq "back: out loud, and kept for the bar" "$(jq -r .item.id <<<"$out")" "$(python3 "$mcp" initiative pending | jq -r '.[0].id')"
 expect_contains "back: the day in a few lines" "$(jq -r .item.text <<<"$out")" "Today: Standup at 10:00. 2 tasks due today. kyoto trip: in 2 days. Want help getting ready?"
 expect_eq "back: not again soon after" none "$(consider '{"event":"back","away":5}' | jq -r .action)"
 out=$(consider '{"event":"back","away":0}')
 expect_eq "back: nothing new, nothing said" "none" "$(jq -r .action <<<"$out")"
 # Not time-critical, or busy, or past the day's budget: it waits in the bar.
-jq '.said = [] | .briefDay = ""' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
+jq '.said = [] | .pending = [] | .briefDay = ""' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
 out=$(consider '{"event":"back","away":300,"busy":true,"events":[{"title":"Review","start":"11:00","inMinutes":10}]}')
 expect_eq "busy: it waits" badge "$(jq -r .action <<<"$out")"
+expect_eq "busy: why, for the log" "the user is busy" "$(jq -r .why <<<"$out")"
 expect_eq "busy: in the bar" 1 "$(python3 "$mcp" initiative pending | jq length)"
 echo '{"initiativeQuietHours":"0-0","initiativeMaxPerDay":1}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
 jq --argjson t "$(date +%s)" --arg d "$today" '.said = [{id: "000001", key: "x", kind: "brief", level: "notify", time: ($t - 7200), day: $d}] | .pending = [] | .briefDay = ""' "$ini" >"$ini.new" && mv "$ini.new" "$ini"

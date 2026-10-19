@@ -34,12 +34,13 @@ Singleton {
     readonly property bool enabled: Config.options?.ai?.initiative?.enable ?? false
     readonly property bool readNotifications: Config.options?.ai?.initiative?.readNotifications ?? false
     readonly property string statePath: `${Quickshell.env("XDG_STATE_HOME") || `${Quickshell.env("HOME")}/.local/state`}/nixbook-shell/initiative.json`
-    // What waits for the user, newest last: {id, kind, text, chat, time, expires}.
+    // What waits for the user, newest last: {id, kind, text, chat, time, expires}
+    // (what it says out loud too: the bar shows it once its bubble goes).
     property var pending: []
     // Its last decisions, newest last: {time, event, action, said, why}.
     property var log: []
     property real now: Date.now()
-    readonly property var live: root.pending.filter(p => (p.expires ?? 0) * 1000 > root.now)
+    readonly property var live: root.pending.filter(p => (p.expires ?? 0) * 1000 > root.now && p.id !== root.speaking?.id)
 
     property var _batch: []
     property real _awaySince: 0
@@ -135,7 +136,8 @@ Singleton {
     // on the left under the bar): one at a time, the one before to the bar.
     property var speaking: null
     function _notify(item) {
-        if (root.speaking) root.pending = [...root.pending, root.speaking]
+        const before = root.speaking
+        if (before) root.pending = [...root.pending.filter(p => p.id !== before.id), before]
         root.speaking = item
     }
     // Its speech answered without a reply: later, never, or "wait" (no
