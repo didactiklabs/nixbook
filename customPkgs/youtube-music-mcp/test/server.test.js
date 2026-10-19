@@ -83,6 +83,9 @@ test("parseSearchResults flattens and dedupes list items", () => {
 const state = {
   queue: [{ videoId: "cur", title: "Current" }],
   index: 0,
+  paused: false,
+  // Plays the app drops (sent while it switches tracks).
+  lostPlays: 0,
   calls: [],
 };
 const queueResponse = () => ({
@@ -136,11 +139,16 @@ before(async () => {
           title: q.title,
           artist: "X",
           videoId: q.videoId,
-          isPaused: false,
+          isPaused: state.paused,
           songDuration: 100,
         });
       }
       case "POST /play":
+        if (state.lostPlays > 0) state.lostPlays--;
+        else state.paused = false;
+        return send(204);
+      case "POST /pause":
+        state.paused = true;
         return send(204);
       default:
         return send(404);
@@ -190,6 +198,31 @@ test("play searches, queues after current, and jumps to it", async () => {
   assert.equal(JSON.parse(result.content[0].text).nowPlaying.videoId, "abc123");
   assert.equal(state.index, 1);
   assert.ok(state.calls.includes("PATCH /queue"));
+});
+
+test("play presses play again when the first one is lost", async () => {
+  state.paused = true;
+  state.lostPlays = 1;
+  const result = await client.callTool({
+    name: "play",
+    arguments: { videoId: "def456" },
+  });
+  assert.ok(!result.isError, result.content[0].text);
+  const { nowPlaying } = JSON.parse(result.content[0].text);
+  assert.equal(nowPlaying.videoId, "def456");
+  assert.equal(nowPlaying.isPaused, false);
+});
+
+test("play errors when the app stays paused", async () => {
+  state.paused = true;
+  state.lostPlays = 100;
+  const result = await client.callTool({
+    name: "playback",
+    arguments: { action: "play" },
+  });
+  state.lostPlays = 0;
+  assert.equal(result.isError, true);
+  assert.match(result.content[0].text, /didn't start playing: .* paused/);
 });
 
 test("unreachable app gives a helpful error", async () => {
