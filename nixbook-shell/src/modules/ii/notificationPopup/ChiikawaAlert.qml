@@ -65,6 +65,10 @@ Scope {
             if (root.current?.notificationId === id) root.dismiss();
             else root.queue = root.queue.filter(n => n.notificationId !== id);
         }
+        // Long gone from the list and about to be destroyed.
+        function onRetiring(notifs) {
+            root.queue = root.queue.filter(n => !notifs.includes(n));
+        }
     }
     // Settings → "Preview cut-in" shows this one in the Chiikawa theme.
     Connections {
