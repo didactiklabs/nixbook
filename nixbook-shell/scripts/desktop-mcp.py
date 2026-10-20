@@ -372,11 +372,14 @@ def mark_agent_input():
 # through them to the apps, and they are invisible in its screenshots,
 # while the user still sees them (faded). The shell lists what is on screen
 # in overlays.json, read before each action (a file read: nothing to do,
-# no cost, when none is up); make-way.json asks, held MAKE_WAY_HOLD_MS past
-# the last action so the windows don't flicker between steps; the shell
-# answers in make-way.ack once it is on screen (waited for, at most
-# MAKE_WAY_WAIT s, only when it changes).
-MAKE_WAY_HOLD_MS = 5000
+# no cost, when none is up); make-way.json asks, only while the action or
+# the look is going on (MAKE_WAY_ACTION_MS at most, should the server die
+# meanwhile) and MAKE_WAY_AFTER_MS after: between the agent's steps, while
+# it thinks, the user has them back to use; the shell answers in
+# make-way.ack once it is on screen (waited for, at most MAKE_WAY_WAIT s,
+# only when it changes).
+MAKE_WAY_ACTION_MS = 30000
+MAKE_WAY_AFTER_MS = 1500
 MAKE_WAY_WAIT = 0.3
 
 
@@ -395,7 +398,7 @@ def shell_overlays():
         return []
 
 
-def make_way(capture=False, wait=True):
+def make_way(capture=False, wait=True, hold_ms=MAKE_WAY_ACTION_MS):
     """Asks the shell's overlays to let the agent through (and, `capture`, to
     vanish for a screenshot): the ones on screen, [] when none."""
     if on_agent_desktop():
@@ -416,7 +419,7 @@ def make_way(capture=False, wait=True):
     try:
         # Written in place: the shell watches this path.
         with open(path, "w", encoding="utf-8") as f:
-            json.dump({"seq": seq, "until": now + MAKE_WAY_HOLD_MS, "capture": capture}, f)
+            json.dump({"seq": seq, "until": now + hold_ms, "capture": capture}, f)
     except OSError:
         return overlays
     if wait and not same:
@@ -450,7 +453,9 @@ def overlays_hidden(ctx):
     finally:
         ctx.hiding = depth
         if depth == 0 and shown:
-            make_way(capture=False, wait=False)
+            # Still in the action: held for it, else only a moment more.
+            make_way(capture=False, wait=False,
+                     hold_ms=MAKE_WAY_ACTION_MS if getattr(ctx, "in_action", False) else MAKE_WAY_AFTER_MS)
 
 
 def overlays_note(ctx, shown):
@@ -11207,10 +11212,18 @@ def call_tool(ctx, name, args, session=None):
             if refused_by_takeover(ctx, name, t["group"]):
                 raise ToolError(TAKEOVER_MESSAGE)
             # The shell's windows over the apps let the action through.
-            note = None
+            note, made_way = None, []
             if ctx.desktop == "user" and (t["group"] in ACTION_GROUPS or name == "ui_act"):
-                note = overlays_note(ctx, make_way())
-            content = t["fn"](ctx, args)
+                made_way = make_way()
+                note = overlays_note(ctx, made_way)
+            ctx.in_action = bool(made_way)
+            try:
+                content = t["fn"](ctx, args)
+            finally:
+                # Done: the user has them back in a moment.
+                ctx.in_action = False
+                if made_way:
+                    make_way(wait=False, hold_ms=MAKE_WAY_AFTER_MS)
             if note:
                 content = list(content) + [note]
         except ToolError as e:
