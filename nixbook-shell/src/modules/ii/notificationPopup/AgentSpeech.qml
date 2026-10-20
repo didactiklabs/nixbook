@@ -321,6 +321,19 @@ Scope {
                         }
                     }
                     HeaderButton {
+                        visible: Initiative.threads.length > 0 && !(root.item?.accept)
+                        text: "forum"
+                        color: threadList.visible ? root.accent : root.fg
+                        tip: Translation.tr("Earlier conversations")
+                        onClicked: threadList.shown = !threadList.shown
+                    }
+                    HeaderButton {
+                        visible: root.conversing
+                        text: "add_comment"
+                        tip: Translation.tr("New conversation (this one stays in the side panel's history)")
+                        onClicked: Initiative.fresh()
+                    }
+                    HeaderButton {
                         visible: !(root.item?.accept)
                         text: "open_in_full"
                         tip: Translation.tr("Continue in the side panel")
@@ -333,10 +346,75 @@ Scope {
                     }
                 }
 
+                // Its earlier threads: one clicked comes back here.
+                ColumnLayout {
+                    id: threadList
+                    property bool shown: false
+                    Layout.fillWidth: true
+                    visible: shown && Initiative.threads.length > 0
+                    spacing: 2
+                    Connections {
+                        target: root
+                        function onItemChanged() { threadList.shown = false }
+                    }
+                    Repeater {
+                        model: Initiative.threads
+                        delegate: Rectangle {
+                            id: threadRow
+                            required property var modelData
+                            readonly property bool current: modelData.id === (root.chat?.chatId ?? "")
+                            Layout.fillWidth: true
+                            implicitHeight: 28
+                            radius: root.square ? 0 : 8
+                            color: threadRow.current ? Qt.alpha(root.accent, 0.22)
+                                : threadMouse.containsMouse ? Qt.alpha(root.accent, 0.12) : "transparent"
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 8
+                                anchors.rightMargin: 8
+                                spacing: 6
+                                Rectangle { // not answered yet
+                                    visible: (threadRow.modelData.turns ?? 0) <= 1
+                                    implicitWidth: 6
+                                    implicitHeight: 6
+                                    radius: 3
+                                    color: root.accent
+                                }
+                                StyledText {
+                                    Layout.fillWidth: true
+                                    elide: Text.ElideRight
+                                    textFormat: Text.PlainText
+                                    text: threadRow.modelData.title
+                                    font.family: root.font
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                    color: root.fg
+                                }
+                                StyledText {
+                                    text: Qt.locale().toString(new Date(threadRow.modelData.updated ?? 0),
+                                        new Date(threadRow.modelData.updated ?? 0).toDateString() === new Date().toDateString() ? "hh:mm" : "d MMM")
+                                    font.pixelSize: Appearance.font.pixelSize.smaller
+                                    color: root.fg
+                                    opacity: 0.6
+                                }
+                            }
+                            MouseArea {
+                                id: threadMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    threadList.shown = false
+                                    Initiative.openThread(threadRow.modelData.id)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // What it said, before any answer.
                 StyledText {
                     Layout.fillWidth: true
-                    visible: !root.conversing && text.length > 0
+                    visible: !root.conversing && !threadList.visible && text.length > 0
                     wrapMode: Text.WordWrap
                     textFormat: Text.PlainText // its words may quote third-party text
                     text: root.item?.text ?? ""
@@ -350,7 +428,7 @@ Scope {
                 Flickable {
                     id: talk
                     Layout.fillWidth: true
-                    visible: root.conversing
+                    visible: root.conversing && !threadList.visible
                     implicitHeight: Math.min(lines.implicitHeight, 300)
                     contentHeight: lines.implicitHeight
                     clip: true
@@ -482,7 +560,7 @@ Scope {
                                 color: root.fg
                                 placeholderTextColor: Qt.alpha(root.fg, 0.5)
                                 font.family: root.font
-                                placeholderText: window.grab ? Translation.tr("Message Claude… (Esc: put away)")
+                                placeholderText: window.grab ? Translation.tr("Message Claude… (Esc: put away, /new: start over)")
                                     : root.conversing || root.item?.kind === "ask" ? Translation.tr("Message Claude…")
                                     : Translation.tr("Answer Claude…")
                                 onActiveFocusChanged: {
@@ -538,6 +616,8 @@ Scope {
         const text = input.text.trim()
         if (text.length === 0) return
         input.text = ""
-        Initiative.reply(text)
+        // A new conversation, typed.
+        if (/^\/(new|clear)$/i.test(text)) Initiative.fresh()
+        else Initiative.reply(text)
     }
 }

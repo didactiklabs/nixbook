@@ -147,9 +147,40 @@ Singleton {
     // anything; the conversation put away comes back instead.
     function summon() {
         if (root.parked && !root.speaking) root.resume()
-        else if (!root.speaking) root.speaking = { id: "", kind: "ask", text: root._pick([
-            Translation.tr("What can I do for you?"), Translation.tr("I'm here. What do you need?"),
-            Translation.tr("Yes? Ask me anything.")]) }
+        else if (!root.speaking) root.speaking = root._ask()
+        root.focusWanted()
+    }
+    function _ask() {
+        return { id: "", kind: "ask", text: root._pick([Translation.tr("What can I do for you?"),
+            Translation.tr("I'm here. What do you need?"), Translation.tr("Yes? Ask me anything.")]) }
+    }
+    // Its threads (the "From Claude" ones of the history), newest first, to
+    // go back to one in the bubble.
+    readonly property var threads: Ai.history.filter(c => c.fromClaude).slice(0, 8)
+    function openThread(id) {
+        let chat = Ai.chats.find(c => c.chatId === id)
+        if (!chat) {
+            if (root.chat?.chatId === id) chat = root.chat
+            else {
+                chat = Ai.claudeThread(false)
+                if (!Ai.openChatIn(chat, id)) return
+            }
+        }
+        if (root.parked?.chat === chat) root.parked = null
+        if (root.chat !== chat) root._aside()
+        root.chat = chat
+        root.speaking = { id: "", kind: "done", text: "", title: Ai.history.find(c => c.id === id)?.title ?? "" }
+    }
+    // A new conversation in the bubble (its new-chat button, /new or
+    // /clear): the one before is left as it is, in the side panel's history
+    // (the next message's thread saves it, Ai.claudeThread); one still
+    // answering goes on in its tab.
+    function fresh() {
+        const before = root.chat
+        if (before && !root.conversing && before.fromClaude && !before.responding) before.clearMessages()
+        if (root.parked?.chat === before) root.parked = null
+        root.chat = null
+        root.speaking = root._ask()
         root.focusWanted()
     }
     function _pick(list) {
