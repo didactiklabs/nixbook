@@ -139,6 +139,8 @@ Rectangle {
         interval: 600
         onTriggered: root.save()
     }
+    // The shell reloading right after typing: what is pending is saved.
+    Component.onDestruction: root.flush()
     Timer {
         id: undoTimer
         interval: 6000
@@ -298,7 +300,13 @@ Rectangle {
                     Layout.fillHeight: true
                     clip: true
                     spacing: 4
-                    model: root.shown
+                    // Keyed by the note's id: a save changes that note's row
+                    // (or moves it) instead of rebuilding the list, which
+                    // jumped back to the top on every autosave.
+                    model: ScriptModel {
+                        values: root.shown
+                        objectProp: "id"
+                    }
 
                     delegate: Rectangle {
                         id: noteItem

@@ -170,7 +170,9 @@ recurring series expanded by nixbook-accounts):
   Ctrl+P pin; narrow, the list then the note. The widget lists them in the
   same order and opens a note, its title or ⤢ in the window; "+" still
   jots one down in the quick floating editor. Agents' changes (the `widget`
-  tool's notes, which can also `open` one) show live;
+  tool's notes, which can also `open` one) show live. A notes file that
+  can't be read is kept aside (`desktopnotes.txt.corrupt-<ms>`) before the
+  notes start over;
 - reminders: the shell's own notifications (`src/services/CalendarReminders.qml`,
   app "Calendar", through notify-send: at each reminder time of an event, its
   own or its calendar's; Join, Snooze 5 min, Open), shown by the shell's
@@ -308,9 +310,13 @@ holds the account and the sync:
   others are Keep notes; "pinned" is Keep's pin. What changes in the shell
   is pushed to Keep, what changes in Keep comes back; when both changed, the
   newer one wins. Each note remembers its Keep note and when it was last
-  synced, so the shell knows which side changed. Deletions are **not**
-  synced: a note deleted in one place stays in the other, and is not
-  brought back;
+  synced, so the shell knows which side changed. A note that turns from a
+  checklist into a note (or back) replaces its Keep note with one of the
+  new kind (Keep can't convert them), the old one going to Keep's trash.
+  What is typed, pinned, added or deleted while a sync runs stays as it is
+  and goes with the next one. Deletions are **not** synced: a note deleted
+  in one place (or trashed in Keep) stays in the other, and is not brought
+  back;
 - **the directions**: `keep.push` (the shell's new notes go to Keep) and
   `keep.pull` (Keep's new notes come in) in Settings → General → Google
   Keep.

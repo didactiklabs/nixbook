@@ -131,7 +131,13 @@ AbstractBackgroundWidget {
                     Layout.fillHeight: true
                     clip: true
                     spacing: 6
-                    model: Notes.sorted
+                    // Keyed by the note's id, so a save elsewhere (the Notes
+                    // app autosaves as you type) doesn't rebuild the list and
+                    // scroll it back to the top.
+                    model: ScriptModel {
+                        values: Notes.sorted
+                        objectProp: "id"
+                    }
 
                     delegate: SwipeDelegate {
                         id: noteCard

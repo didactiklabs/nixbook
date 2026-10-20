@@ -232,6 +232,14 @@ trashed["trashed"] = True
 merged, actions, stats = keep_sync.merge_notes([], [trashed])
 check("a trashed note is not imported", 0, stats["imported"])
 
+# A note whose Keep note was trashed there stays here, and nothing is pushed
+# into Keep's trash.
+merged, actions, stats = keep_sync.merge_notes(
+    [local("1", "Shopping\nbread", updated=3000, keep_id="k1", keep_edited=2000)], [trashed]
+)
+check("a note trashed in Keep stays here", "Shopping\nbread", merged[0]["content"])
+check("a note trashed in Keep is not pushed", [], [a for a in actions if a["op"] == "push"])
+
 # -- With gkeepapi itself ----------------------------------------------------
 #
 # The tests above need no account; these need the library (the shell's
@@ -332,6 +340,44 @@ if gkeepapi is not None:
         [("milk", False)],
         [(item.text, item.checked) for item in created_list.items],
     )
+
+    # A note that changed kind: Keep can't turn a list into a note (or the
+    # other way), so a new Keep note of the right kind takes its place and
+    # the old one goes to the trash.
+    old_list = keep.createList("Errands", [("post", False)])
+    replaced = keep_sync.apply_action(
+        keep,
+        {
+            "op": "push",
+            "keepId": old_list.id,
+            "title": "Errands",
+            "text": "post the letter\ncall the bank",
+            "items": None,
+            "pinned": True,
+        },
+    )
+    check("a list that became a note is a new Keep note", False, hasattr(replaced, "items"))
+    check("its text is pushed", "post the letter\ncall the bank", replaced.text)
+    check("its pin is pushed", True, replaced.pinned)
+    check("the old list goes to the trash", True, keep.get(old_list.id).trashed)
+    old_note = keep.createNote("Errands", "post")
+    replaced = keep_sync.apply_action(
+        keep,
+        {
+            "op": "push",
+            "keepId": old_note.id,
+            "title": "Errands",
+            "text": "",
+            "items": [("post", True), ("bank", False)],
+            "pinned": False,
+        },
+    )
+    check(
+        "a note that became a checklist is a new Keep list",
+        [("post", True), ("bank", False)],
+        [(item.text, item.checked) for item in replaced.items],
+    )
+    check("the old note goes to the trash", True, keep.get(old_note.id).trashed)
 
     # What the shell reads back from a Keep note.
     check(

@@ -23,6 +23,15 @@ OverlayBackground {
         noteFile.reload();
         updateCopyListEntries();
     }
+    // Closing the widget (or reloading the shell) right after typing: what
+    // waits for the save debounce is written now, synchronously.
+    Component.onDestruction: {
+        if (saveDebounce.running) {
+            saveDebounce.stop();
+            noteFile.blockWrites = true;
+            saveContent();
+        }
+    }
 
     function saveContent() {
         if (!textInput)
