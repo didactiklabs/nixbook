@@ -71,7 +71,7 @@ in
           Languages:     Go, Rust, Python (Pylance + pylint + black), TypeScript,
                          Nix, Ansible, Terraform/OpenTofu, YAML, TOML, Markdown,
                          Docker, Kubernetes, Helm, SQL, Java, C/C++, HTML/CSS
-          AI assistants: GitHub Copilot (inline + chat), Continue
+          AI assistants: GitHub Copilot (inline + chat), Claude Code, Continue
           Git:           GitLens, Git Graph, GitHub Pull Requests
           Formatting:    Prettier, EditorConfig, run-on-save (golines for Go,
                          nixfmt for Nix files)
