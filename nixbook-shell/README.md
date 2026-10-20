@@ -585,7 +585,7 @@ the user's next message when the tab's session already runs;
 `GlobalStates.aiChatRequested`). A chat of the side panel that answers
 while the panel is closed says so in the bubble too, its answer there to
 reply to (`Initiative.chatDone`; `notify-send` only while the user is
-typing in the bubble). **Mod+Shift+Space** (`nixbook-shell ipc call
+typing in the bubble). **Mod+C** (`nixbook-shell ipc call
 claude ask`) or a middle-click on the bar's robot calls the bubble up to
 ask anything (`Initiative.summon()`, the keys taken until sent). The
 robot hops when Claude has something new to say.

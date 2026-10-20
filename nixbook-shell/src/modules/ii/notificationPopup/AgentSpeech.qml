@@ -19,7 +19,7 @@ import Quickshell.Wayland
  * it is doing meanwhile; the conversation goes to the side panel only when
  * asked (the expand button). Also how a chat of the side panel says it has
  * answered while the panel is closed (Initiative.chatDone), and what
- * Mod+Shift+Space calls up to ask anything. Looks like the theme: a
+ * Mod+C calls up to ask anything. Looks like the theme: a
  * Material card with a tail, a slanted Persona frame, a round pastel
  * Chiikawa bubble, a chamfered neon Cyberpunk panel, a paper Ghibli card.
  * Left alone (not hovered, not typed in: 25 s for a word, 15 s for a
@@ -124,7 +124,7 @@ Scope {
 
         WlrLayershell.namespace: "quickshell:agentSpeech"
         WlrLayershell.layer: WlrLayer.Overlay
-        // The keys when called up with them (Mod+Shift+Space), until put
+        // The keys when called up with them (Mod+C), until put
         // away (Escape, close, expand); else only once clicked into, never
         // taken from the app.
         property bool grab: false

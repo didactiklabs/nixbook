@@ -29,7 +29,7 @@ import QtQuick
  * until it expires. The bubble is a small chat: the user answers in it and
  * Claude answers there (`chat`, a thread of its own, the side panel's "From
  * Claude" tab, opened there only on expand()); the answer teaches it what
- * the user values. Mod+Shift+Space calls the bubble up to ask anything.
+ * the user values. Mod+C calls the bubble up to ask anything.
  */
 Singleton {
     id: root
@@ -106,7 +106,7 @@ Singleton {
     // What it says out loud now (modules/ii/notificationPopup/AgentSpeech.qml,
     // on the left under the bar): one at a time, the one before to the bar.
     // {id, kind, text, chat?, accept?, actions?}; kind "ask" (the user
-    // called it: Mod+Shift+Space) and "done" (a chat of the side panel
+    // called it: Mod+C) and "done" (a chat of the side panel
     // answered while it was closed) have no id: nothing to learn from.
     property var speaking: null
     // The conversation in the bubble (an AiChatSession): Claude's own thread
@@ -143,7 +143,7 @@ Singleton {
                         tasksDue: Todo.dueTodayCount, weatherCode: Weather.data?.wCode ?? 0,
                         weather: Weather.data?.description ?? "" })
     }
-    // Called up (Mod+Shift+Space, the bar's robot): its bubble, to ask
+    // Called up (Mod+C, the bar's robot): its bubble, to ask
     // anything; the conversation put away comes back instead.
     function summon() {
         if (root.parked && !root.speaking) root.resume()
@@ -424,7 +424,7 @@ Singleton {
         }
     }
 
-    // `nixbook-shell ipc call claude ask` (Mod+Shift+Space): its bubble, to ask.
+    // `nixbook-shell ipc call claude ask` (Mod+C): its bubble, to ask.
     IpcHandler {
         target: "claude"
         function ask(): void {
