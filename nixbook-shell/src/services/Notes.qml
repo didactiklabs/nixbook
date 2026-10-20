@@ -16,6 +16,13 @@ import QtQuick
  * A note synced with Google Keep also carries "keepId" (the Keep note's id)
  * and "keepEdited" (when it was last synced): the sync of the notes with
  * Keep (services/KeepSync.qml) needs them to tell which side changed.
+ *
+ * The overlay's Notes widget (modules/ii/overlay/notes) is the editor of one
+ * of these notes, the scratchpad: the note with "scratchpad": true (Keep
+ * can't store the flag, but the sync hands every note back with its fields,
+ * so it stays). It is created with the overlay's first text, and again after
+ * it was deleted. Its older file (notes.txt, a single text) is imported once
+ * as the scratchpad, then renamed notes.txt.migrated.
  */
 Singleton {
     id: root
@@ -24,8 +31,9 @@ Singleton {
     property var filePath: Directories.desktopNotesPath ?? (Directories.config + "/notes.json")
     property var list: []
     // Pinned first, then the most recently edited: what the widget and the
-    // Notes app show.
-    readonly property var sorted: root.list.slice(0).sort((a, b) =>
+    // Notes app show. An emptied scratchpad stays (linked to its Keep note)
+    // but isn't listed.
+    readonly property var sorted: root.list.filter(n => !(n.scratchpad && n.content.trim() === "")).sort((a, b) =>
         (!!b.pinned - !!a.pinned) || ((b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0)))
 
     // Whether the notes file has been read: a change before that (an IPC call
@@ -38,16 +46,17 @@ Singleton {
         if (!root.ready) notesFileView.text()
     }
 
-    function addNote(content, attachments) {
+    // `extra`: more fields for the new note (the scratchpad's flag).
+    function addNote(content, attachments, extra) {
         root.ensureLoaded()
-        const item = {
+        const item = Object.assign({
             "id": Date.now().toString() + "-" + Math.floor(Math.random() * 10000),
             "content": content ?? "",
             "attachments": attachments ?? [],
             "createdAt": Date.now(),
             "updatedAt": Date.now(),
             "pinned": false
-        }
+        }, extra ?? {})
         list.push(item)
         root.list = list.slice(0)
         notesFileView.setText(JSON.stringify(root.list))
@@ -78,10 +87,14 @@ Singleton {
         notesFileView.setText(JSON.stringify(root.list))
     }
 
-    // A deleted note back as it was (the Notes app's Undo).
+    // A deleted note back as it was (the Notes app's Undo). A scratchpad
+    // restored after the overlay started a new one comes back as a plain
+    // note: there is one scratchpad.
     function restoreNote(note) {
         root.ensureLoaded()
         if (!note || list.some(n => n.id === note.id)) return
+        if (note.scratchpad && root.scratchpad)
+            note = Object.assign({}, note, { "scratchpad": false })
         list.push(note)
         root.list = list.slice(0)
         notesFileView.setText(JSON.stringify(root.list))
@@ -103,6 +116,59 @@ Singleton {
         root.ensureLoaded()
         root.list = (items ?? []).slice(0)
         notesFileView.setText(JSON.stringify(root.list))
+    }
+
+    // The overlay's scratchpad (see above), null until its first text.
+    readonly property var scratchpad: root.list.find(n => n.scratchpad === true) ?? null
+
+    // The scratchpad's new text: the note is updated, or created with its
+    // first text (an emptied one stays, unlisted). `now`: written before
+    // this returns (the overlay closing or the shell reloading).
+    function setScratchpad(content, now) {
+        root.ensureLoaded()
+        const text = content ?? ""
+        const note = root.list.find(n => n.scratchpad === true)
+        if (note ? note.content === text : text.trim() === "") return
+        if (now) notesFileView.blockWrites = true
+        try {
+            if (note) root.updateNote(note.id, text)
+            else root.addNote(text, [], { "scratchpad": true })
+        } finally {
+            notesFileView.blockWrites = false
+        }
+    }
+
+    // Once, after the first read: the overlay's older notes file (one
+    // text, not in the Notes app nor synced) becomes the scratchpad, if
+    // there isn't one yet, and is renamed notes.txt.migrated (an older
+    // .migrated kept as .migrated.~1~): nothing is deleted.
+    property bool _scratchpadMigrated: false
+    function migrateScratchpad() {
+        if (root._scratchpadMigrated) return
+        root._scratchpadMigrated = true
+        const path = Directories.legacyNotesPath
+        legacyScratchpad.path = ""
+        legacyScratchpad.path = path
+        legacyScratchpad.reload()
+        const text = legacyScratchpad.text()
+        legacyScratchpad.path = ""
+        if (text.trim() === "") return
+        if (!root.scratchpad) {
+            // Written before the rename.
+            notesFileView.blockWrites = true
+            try {
+                root.addNote(text, [], { "scratchpad": true })
+            } finally {
+                notesFileView.blockWrites = false
+            }
+            console.log("[Notes] The overlay's notes.txt is now the scratchpad note")
+        }
+        Quickshell.execDetached(["mv", "--backup=numbered", "--", path, `${path}.migrated`])
+    }
+    FileView {
+        id: legacyScratchpad
+        blockLoading: true
+        printErrors: false
     }
 
     function refresh() {
@@ -199,6 +265,7 @@ Singleton {
             }
             root.ready = true
             console.log("[Notes] File loaded")
+            Qt.callLater(root.migrateScratchpad)
         }
         onLoadFailed: (error) => {
             root.ready = true
@@ -206,6 +273,7 @@ Singleton {
                 console.log("[Notes] File not found, creating new file.")
                 root.list = []
                 notesFileView.setText(JSON.stringify(root.list))
+                Qt.callLater(root.migrateScratchpad)
             } else {
                 console.log("[Notes] Error loading file: " + error)
             }
@@ -270,7 +338,7 @@ Singleton {
                 return "error: not a transfer file";
             transferOut.path = "";
             transferOut.path = path;
-            transferOut.setText(JSON.stringify(root.list.map(n => ({ id: n.id, content: n.content, createdAt: n.createdAt, updatedAt: n.updatedAt ?? n.createdAt, pinned: !!n.pinned }))));
+            transferOut.setText(JSON.stringify(root.list.map(n => Object.assign({ id: n.id, content: n.content, createdAt: n.createdAt, updatedAt: n.updatedAt ?? n.createdAt, pinned: !!n.pinned }, n.scratchpad ? { scratchpad: true } : {}))));
             return "ok";
         }
         function remove(id: string): string {
