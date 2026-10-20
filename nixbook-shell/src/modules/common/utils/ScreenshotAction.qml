@@ -66,7 +66,7 @@ Singleton {
                 const failed = `notify-send -a Shell '${StringUtils.shellSingleQuoteEscape(Translation.tr("Image search failed"))}' `
                     + `'${StringUtils.shellSingleQuoteEscape(Translation.tr("Couldn't upload the image"))} (${root.fileUploadApiEndpoint})'`;
                 return ["bash", "-c", `${cropInPlace} && url=$(${uploadAndGetUrl(screenshotPath)}); ${cleanup}; `
-                    + `case "$url" in https://*) xdg-open "${root.imageSearchEngineBaseUrl}$(jq -rn --arg u "$url" '$u | @uri')" ;; *) ${failed} ;; esac`]
+                    + `case "$url" in https://*) xdg-open '${StringUtils.shellSingleQuoteEscape(root.imageSearchEngineBaseUrl)}'"$(jq -rn --arg u "$url" '$u | @uri')" ;; *) ${failed} ;; esac`]
             }
             case ScreenshotAction.Action.CharRecognition:
                 return ["bash", "-c", `${cropInPlace} && tesseract '${StringUtils.shellSingleQuoteEscape(screenshotPath)}' stdout -l $(tesseract --list-langs | awk 'NR>1{print $1}' | tr '\\n' '+' | sed 's/\\+$/\\n/') | wl-copy && ${cleanup}`]

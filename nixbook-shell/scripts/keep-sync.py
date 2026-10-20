@@ -41,6 +41,7 @@ not imported again.
 
 import json
 import os
+import random
 import re
 import subprocess
 import sys
@@ -81,6 +82,18 @@ def cache_path():
 
 
 # -- The credentials (the keyring) -------------------------------------------
+
+
+def write_private(path, text):
+    """Writes a file only the user can read (0600 from its creation, not
+    chmod-ed afterwards), atomically: a temporary file renamed over it."""
+    tmp = path + ".new"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    # O_CREAT's mode doesn't change a .new left over by an older version.
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write(text)
+    os.replace(tmp, path)
 
 
 def secret_tool(args, stdin=None):
@@ -139,10 +152,7 @@ def save_credentials(email, token):
     directory = secrets_dir()
     if directory:
         os.makedirs(directory, exist_ok=True)
-        path = os.path.join(directory, SECRET_KIND)
-        with open(path, "w", encoding="utf-8") as handle:
-            handle.write(data)
-        os.chmod(path, 0o600)
+        write_private(os.path.join(directory, SECRET_KIND), data)
         return
     code, _, err = secret_tool(
         [
@@ -198,12 +208,7 @@ def load_state():
 def save_state(state):
     """Writes the sync state."""
     os.makedirs(state_dir(), exist_ok=True)
-    path = state_path()
-    tmp = path + ".new"
-    with open(tmp, "w", encoding="utf-8") as handle:
-        json.dump(state, handle)
-    os.replace(tmp, path)
-    os.chmod(path, 0o600)
+    write_private(state_path(), json.dumps(state))
 
 
 def load_cache():
@@ -221,12 +226,7 @@ def save_cache(cache):
         return
     try:
         os.makedirs(state_dir(), exist_ok=True)
-        path = cache_path()
-        tmp = path + ".new"
-        with open(tmp, "w", encoding="utf-8") as handle:
-            json.dump(cache, handle)
-        os.replace(tmp, path)
-        os.chmod(path, 0o600)
+        write_private(cache_path(), json.dumps(cache))
     except OSError:
         pass  # a cache we can't write is not worth failing the sync for
 
@@ -293,8 +293,10 @@ def remote_content(remote):
 
 
 def new_local_id():
-    """An id for a note that came from Keep (the Notes app's own shape)."""
-    return f"{int(time.time() * 1000)}-{int(time.time() * 1000) % 10000}"
+    """An id for a note that came from Keep (the Notes app's own shape:
+    the time in ms and a random number, so two notes imported in the same
+    millisecond don't share an id)."""
+    return f"{int(time.time() * 1000)}-{random.randrange(10000)}"
 
 
 def merge_notes(local_notes, remote_notes, push=True, pull=True, ignored=()):
@@ -316,6 +318,9 @@ def merge_notes(local_notes, remote_notes, push=True, pull=True, ignored=()):
         not created again.
     """
     remote_by_id = {remote["id"]: remote for remote in remote_notes}
+    # Each Keep note's content, rendered once (the twin search and the
+    # imports compare against it).
+    contents = {remote["id"]: remote_content(remote) for remote in remote_notes}
     ignored = set(ignored or ())
     merged = []
     actions = []
@@ -341,7 +346,7 @@ def merge_notes(local_notes, remote_notes, push=True, pull=True, ignored=()):
         if not keep_id:
             # A note that isn't in Keep yet: an identical Keep note (the
             # first sync) takes it, else it is created there.
-            twin = _find_twin(content, remote_notes, used_remote)
+            twin = _find_twin(content, remote_notes, contents, used_remote)
             if twin is None:
                 if push:
                     title, body, items = parse_note(content)
@@ -376,7 +381,7 @@ def merge_notes(local_notes, remote_notes, push=True, pull=True, ignored=()):
             continue
 
         used_remote.add(keep_id)
-        remote_text = remote_content(remote)
+        remote_text = contents[keep_id]
         remote_pinned = bool(remote.get("pinned"))
         last = note.get("keepEdited") or 0
         local_changed = (note.get("updatedAt") or 0) > last
@@ -431,7 +436,7 @@ def merge_notes(local_notes, remote_notes, push=True, pull=True, ignored=()):
         if not pull:
             stats["skipped"] += 1
             continue
-        content = remote_content(remote)
+        content = contents[remote["id"]]
         if content.strip() == "":
             continue
         note = {
@@ -451,7 +456,7 @@ def merge_notes(local_notes, remote_notes, push=True, pull=True, ignored=()):
     return merged, actions, stats
 
 
-def _find_twin(content, remote_notes, used_remote):
+def _find_twin(content, remote_notes, contents, used_remote):
     """A Keep note with exactly this content (the first sync: the notes are
     already in Keep, they just aren't linked yet)."""
     for remote in remote_notes:
@@ -459,7 +464,7 @@ def _find_twin(content, remote_notes, used_remote):
             continue
         if remote.get("trashed") or remote.get("deleted"):
             continue
-        if remote_content(remote) == content:
+        if contents[remote["id"]] == content:
             return remote
     return None
 

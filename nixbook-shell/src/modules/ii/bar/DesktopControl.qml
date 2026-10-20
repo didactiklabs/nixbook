@@ -58,7 +58,7 @@ MouseArea {
     readonly property var said: Initiative.live.length > 0 ? Initiative.live[Initiative.live.length - 1] : null
     component Bubble: MaterialSymbol {
         id: bubble
-        readonly property var said: Initiative.live.length > 0 ? Initiative.live[Initiative.live.length - 1] : null
+        readonly property var said: root.said
         visible: bubble.said !== null
         text: "chat_bubble"
         fill: 1

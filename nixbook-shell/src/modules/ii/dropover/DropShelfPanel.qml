@@ -102,7 +102,6 @@ PanelWindow {
                                     anchors.fill: parent
                                     drag.target: parent
                                     cursorShape: Qt.OpenHandCursor
-                                    onPressed: parent.grabToImage(() => {})
                                     onReleased: {
                                         if (parent.Drag.active) {
                                             parent.Drag.drop()

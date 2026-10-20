@@ -680,6 +680,7 @@ class Guard:
                         "Desktop agent",
                         "-i",
                         "input-mouse",
+                        "--",
                         f"{self.client} is driving the desktop",
                         "Stop it with `nixbook-desktop-mcp pause`.",
                     ],
@@ -7838,7 +7839,12 @@ def wl_copy(data, mime=None):
     argv = [exe] + (["--type", mime] if mime else [])
     # wl-copy forks to serve the selection; don't wait for it.
     p = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-    p.communicate(data, timeout=5)
+    try:
+        p.communicate(data, timeout=5)
+    except subprocess.TimeoutExpired:
+        p.kill()
+        p.wait()
+        raise ToolError("`wl-copy` timed out")
 
 
 def screenshot_window(ctx, wid):
@@ -8980,6 +8986,9 @@ def t_shell_ipc(ctx, args):
     extra = args.get("args") or []
     if not isinstance(extra, list) or len(extra) > 8 or not all(isinstance(a, str) and len(a) <= 256 for a in extra):
         raise ToolError("`args` must be up to 8 strings of at most 256 characters")
+    instead = IPC_IMAGE_PATH_FUNCTIONS.get((target, fn))
+    if instead and (fn != "set" or (len(extra) > 1 and extra[1] == "path")):
+        raise ToolError(f"refused: use the {instead} tool for a picture (it must be in a folder the user shares with agents)")
     ctx.guard.check_rate()
     out = qs_ipc("call", "--", target, fn, *extra).stdout.strip()
     return [text(out or f"called {target}.{fn}")]
@@ -9126,6 +9135,12 @@ WIDGET_NAMES = {"note": "notes", "todos": "todo", "todolist": "todo", "task": "t
 # The notes' functions that take a transfer file (services/Notes.qml): only
 # through the widget tool, which writes and reads those files itself.
 NOTES_FILE_FUNCTIONS = {"addFromFile", "updateFromFile", "listToFile"}
+
+# The shell's IPC functions that take a picture's path: only through the
+# tools that check it is an image in a folder the user shares with agents
+# (shared_image), not any file of theirs. images.set only with key "path".
+IPC_IMAGE_PATH_FUNCTIONS = {("wallpapers", "apply"): "set_wallpaper", ("images", "add"): "widget",
+                            ("images", "set"): "widget"}
 
 
 def notes_call(fn, *args):
@@ -11309,6 +11324,10 @@ def make_handler(cfg, token, port):
     class Handler(BaseHTTPRequestHandler):
         server_version = f"{SERVER_NAME}/{VERSION}"
         protocol_version = "HTTP/1.1"
+        # The socket's timeout: a connection that sends nothing (or stalls
+        # mid-request) can't hold a thread forever. Long enough for a client
+        # keeping its connection open between calls.
+        timeout = 300
 
         def log_message(self, fmt, *args):
             pass
@@ -11522,8 +11541,7 @@ def main(argv):
         except FileNotFoundError:
             pass
         write_state()
-        if shutil.which("notify-send"):
-            subprocess.run(["notify-send", "-a", "Desktop agent", "Desktop control paused"], capture_output=True)
+        notify(["-a", "Desktop agent", "--", "Desktop control paused"])
         print("desktop control paused")
         return 0
     if cmd == "resume":
@@ -11726,10 +11744,19 @@ def show_agent_desktop(env):
     return False
 
 
+def notify(argv, env=None):
+    """A notification (notify-send ARGV), if it can be sent: a missing or
+    hung notification daemon never blocks or fails the caller."""
+    if not shutil.which("notify-send"):
+        return
+    try:
+        subprocess.run(["notify-send", *argv], capture_output=True, timeout=10, env=env)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+
 def notify_desktop(message):
-    if shutil.which("notify-send"):
-        subprocess.run(["notify-send", "-a", "Desktop agent", "-i", "computer", message],
-                       capture_output=True, env=user_desktop_env())
+    notify(["-a", "Desktop agent", "-i", "computer", "--", message], env=user_desktop_env())
 
 
 def memory_command(cfg, argv):
@@ -11887,9 +11914,7 @@ def layout_command(cfg, argv):
         if sub == "restore":
             habit_event(cfg, "layout", name)
         print("\n".join(c["text"] for c in out))
-        if shutil.which("notify-send"):
-            subprocess.run(["notify-send", "-a", "Window layouts", "-i", "view-grid",
-                            out[0]["text"].splitlines()[0].capitalize()], capture_output=True)
+        notify(["-a", "Window layouts", "-i", "view-grid", "--", out[0]["text"].splitlines()[0].capitalize()])
         return 0
     if sub == "delete":
         name = name_arg(1)

@@ -33,43 +33,31 @@ Singleton {
         }
     }
     
+    // The settings pages' titles, as extra search keywords for each page:
+    // one grep over every page (it used to be a bash + grep + sed + tr
+    // pipeline per page, one after the other).
     Process {
         id: keywordHarvester
-        property var pendingPages: []
-        property string currentPageName: ""
-        
+        property var pagePaths: []
+
         function startHarvesting() {
-            root.settingsKeywordsCache = {}; 
-            pendingPages = root.settingsIndex.slice();
-            next();
-        }
-
-        function next() {
-            if (pendingPages.length === 0) {
-                return;
-            }
-            
-            let currentPage = pendingPages.shift();
-            let fullPath = FileUtils.trimFileProtocol(
-                Quickshell.shellPath("modules/ii/settings/pages/" + currentPage.path)
-            )
-
-            let rawCommand = "grep -oP \"title:\\s*Translation.tr\\(['\\\"].*?['\\\"]\\)\" " + fullPath + " | sed -E \"s/title:\\s*Translation.tr\\(['\\\"](.*)['\\\"]\\)/\\1/g\" | tr '\\n' ' '";
-            
-            command = ["bash", "-c", rawCommand];
-            
-            keywordHarvester.currentPageName = currentPage.page;
+            root.settingsKeywordsCache = {};
+            pagePaths = root.settingsIndex.map(p => ({
+                page: p.page,
+                path: FileUtils.trimFileProtocol(Quickshell.shellPath("modules/ii/settings/pages/" + p.path)),
+            }));
+            command = ["grep", "-oHP", "title:\\s*Translation.tr\\(['\"].*?['\"]\\)", ...pagePaths.map(p => p.path)];
             running = true;
         }
 
-        onExited: (exitCode, exitStatus) => {
-            keywordHarvester.next();
-        }
-
-        stdout: SplitParser {
-            onRead: data => {
-                let cache = root.settingsKeywordsCache;
-                cache[keywordHarvester.currentPageName] = (cache[keywordHarvester.currentPageName] || "") + " " + data;
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const cache = {};
+                for (const line of text.split("\n")) {
+                    const page = keywordHarvester.pagePaths.find(p => line.startsWith(p.path + ":"));
+                    const title = page ? /title:\s*Translation.tr\(['"](.*)['"]\)/.exec(line.slice(page.path.length + 1)) : null;
+                    if (title) cache[page.page] = (cache[page.page] || "") + " " + title[1];
+                }
                 root.settingsKeywordsCache = cache;
             }
         }

@@ -69,7 +69,7 @@ QuickToggleButton {
     Process {
         id: fetchActiveState
         running: true
-        command: ["bash", "-c", "warp-cli status"]
+        command: ["warp-cli", "status"]
         stdout: StdioCollector {
             id: warpStatusCollector
             onStreamFinished: {

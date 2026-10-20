@@ -41,7 +41,9 @@ MouseArea {
     property real now: Date.now()
     Timer {
         interval: 15000
-        running: root.hasTrack && !root.vertical
+        // Stops once the track has been shown long enough (a new recognition
+        // resets `now` and restarts it).
+        running: root.hasTrack && !root.vertical && root.now - SongRec.recognizedAt < root.showTrackMs
         repeat: true
         onTriggered: root.now = Date.now()
     }

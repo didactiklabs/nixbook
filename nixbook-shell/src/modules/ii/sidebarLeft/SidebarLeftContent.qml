@@ -188,7 +188,6 @@ Item {
                 id: swipeView
                 anchors.fill: parent
                 spacing: 10
-                currentIndex: tabBar.currentIndex
 
                 clip: true
                 // Rounds the pages' corners while they slide. At rest the page

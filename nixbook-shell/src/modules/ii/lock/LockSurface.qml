@@ -17,8 +17,6 @@ import Quickshell.Services.SystemTray
 MouseArea {
     id: root
     required property LockContext context
-    property bool active: false
-    property bool showInputField: active || context.currentText.length > 0
     readonly property bool requirePasswordToPower: Config.options.lock.security.requirePasswordToPower
     readonly property MprisPlayer activePlayer: {
         const preferred = Config.options.bar.media.preferredPlayer.trim().toLowerCase()

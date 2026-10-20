@@ -133,8 +133,10 @@ func PhotoFile(data []byte, ext string) (string, error) {
 	}
 	sum := sha256.Sum256(data)
 	path := filepath.Join(dir, hex.EncodeToString(sum[:16])+ext)
+	// Written whole or not at all: a file cut short (a crash) would stay,
+	// never written again.
 	if _, err := os.Stat(path); err != nil {
-		if err := os.WriteFile(path, data, 0o600); err != nil {
+		if err := core.ReplaceFile(path, data); err != nil {
 			return "", err
 		}
 	}

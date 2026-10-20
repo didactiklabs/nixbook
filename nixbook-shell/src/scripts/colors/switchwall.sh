@@ -1,15 +1,12 @@
 #!/usr/bin/env bash
 
-QUICKSHELL_CONFIG_NAME="nixbook-shell"
 XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 XDG_STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
-CONFIG_DIR="$XDG_CONFIG_HOME/quickshell/$QUICKSHELL_CONFIG_NAME"
 CACHE_DIR="$XDG_CACHE_HOME/quickshell"
 STATE_DIR="$XDG_STATE_HOME/quickshell"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SHELL_CONFIG_FILE="$XDG_CONFIG_HOME/nixbook-shell/config.json"
-MATUGEN_DIR="$XDG_CONFIG_HOME/matugen"
 terminalscheme="$SCRIPT_DIR/terminal/scheme-base.json"
 
 pre_process() {
@@ -187,9 +184,12 @@ switch() {
   fi
 
   if [ -f "$SHELL_CONFIG_FILE" ]; then
-    harmony=$(jq -r '.appearance.wallpaperTheming.terminalGenerationProps.harmony' "$SHELL_CONFIG_FILE")
-    harmonize_threshold=$(jq -r '.appearance.wallpaperTheming.terminalGenerationProps.harmonizeThreshold' "$SHELL_CONFIG_FILE")
-    term_fg_boost=$(jq -r '.appearance.wallpaperTheming.terminalGenerationProps.termFgBoost' "$SHELL_CONFIG_FILE")
+    # One jq for the three, a line each.
+    mapfile -t term_props < <(jq -r '.appearance.wallpaperTheming.terminalGenerationProps
+      | .harmony, .harmonizeThreshold, .termFgBoost' "$SHELL_CONFIG_FILE")
+    harmony=${term_props[0]:-}
+    harmonize_threshold=${term_props[1]:-}
+    term_fg_boost=${term_props[2]:-}
     [[ $harmony != "null" && -n $harmony ]] && generate_colors_material_args+=(--harmony "$harmony")
     [[ $harmonize_threshold != "null" && -n $harmonize_threshold ]] && generate_colors_material_args+=(--harmonize_threshold "$harmonize_threshold")
     [[ $term_fg_boost != "null" && -n $term_fg_boost ]] && generate_colors_material_args+=(--term_fg_boost "$term_fg_boost")
@@ -229,8 +229,6 @@ switch() {
     done
   fi
 
-  source "$(eval echo $ILLOGICAL_IMPULSE_VIRTUAL_ENV)/bin/activate"
-
   if [[ -n $colors_lock_flag ]]; then
     output_scss="$STATE_DIR/user/generated/material_colors_lock.scss"
   else
@@ -239,7 +237,6 @@ switch() {
 
   python3 "$SCRIPT_DIR/generate_colors_material.py" "${generate_colors_material_args[@]}" \
     >"$output_scss"
-  deactivate
 
   if [[ -z $colors_lock_flag ]]; then
     "$SCRIPT_DIR"/applycolor.sh
@@ -273,9 +270,7 @@ main() {
 
   detect_scheme_type_from_image() {
     local img="$1"
-    source "$(eval echo $ILLOGICAL_IMPULSE_VIRTUAL_ENV)/bin/activate"
     "$SCRIPT_DIR"/scheme_for_image.py "$img" 2>/dev/null | tr -d '\n'
-    deactivate
   }
 
   while [[ $# -gt 0 ]]; do

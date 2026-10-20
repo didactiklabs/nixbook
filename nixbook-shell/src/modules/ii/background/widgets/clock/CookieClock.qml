@@ -209,6 +209,7 @@ Item {
 
         sourceComponent: DateIndicator {
             color: root.colBackgroundInfo
+            secondsVisible: root.secondsVisible
             style: Config.options.background.widgets.clock.cookie.dateStyle
         }
     }

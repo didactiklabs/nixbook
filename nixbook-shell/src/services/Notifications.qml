@@ -533,7 +533,6 @@ Singleton {
     function discardAllNotifications() {
         root.destroyTimers(root.list);
         root.list = []
-        triggerListChange()
         notifFileView.setText(stringifyList(root.list));
         notifServer.trackedNotifications.values.forEach((notif) => {
             notif.dismiss()

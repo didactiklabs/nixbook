@@ -22,9 +22,10 @@ AbstractBackgroundWidget {
 
     // Ticks so "in N min" and the next event follow the clock.
     property var now: new Date()
+    // Paused while the screens are off; triggeredOnStart catches up on wake.
     Timer {
         interval: 30000
-        running: true
+        running: !Idle.screensOff
         repeat: true
         triggeredOnStart: true
         onTriggered: root.now = new Date()

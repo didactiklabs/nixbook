@@ -10,6 +10,7 @@ Item {
     property string style: "bubble"
     property color color: Appearance.colors.colOnSecondaryContainer
     property real dateSquareSize: 64
+    property bool secondsVisible: true
 
     // Rotating date
     FadeLoader {
@@ -17,6 +18,7 @@ Item {
         shown: Config.options.background.widgets.clock.cookie.dateStyle === "border"
         sourceComponent: RotatingDate {
             color: root.color
+            secondsVisible: root.secondsVisible
         }
     }
 

@@ -248,54 +248,13 @@ Item {
                                 }
                             }
 
-                            ButtonGroup {
+                            SystemButtons {
                                 anchors {
                                     right: parent.right
                                     bottom: parent.bottom
                                     margins: 4
                                 }
                                 color: "transparent"
-                                padding: 4
-
-                                QuickToggleButton {
-                                    toggled: root.editMode
-                                    visible: Config.options.sidebar.quickToggles.style === "android"
-                                    buttonIcon: "edit"
-                                    onClicked: root.editMode = !root.editMode
-                                    StyledToolTip {
-                                        text: Translation.tr("Edit quick toggles") + (root.editMode ? Translation.tr("\nLMB to enable/disable\nRMB to toggle size\nScroll to swap position") : "")
-                                    }
-                                }
-                                QuickToggleButton {
-                                    toggled: false
-                                    buttonIcon: "restart_alt"
-                                    onClicked: {
-                                        Quickshell.execDetached(["niri", "msg", "action", "reload-config"])
-                                        Quickshell.reload(true);
-                                    }
-                                    StyledToolTip {
-                                        text: Translation.tr("Reload Niri & Quickshell")
-                                    }
-                                }
-                                QuickToggleButton {
-                                    toggled: GlobalStates.settingsOpen
-                                    buttonIcon: "settings"
-                                    onClicked: {
-                                        GlobalStates.sidebarRightOpen = false;
-                                        GlobalStates.settingsOpen = !GlobalStates.settingsOpen
-                                    }
-                                    StyledToolTip {
-                                        text: Translation.tr("Settings")
-                                    }
-                                }
-                                QuickToggleButton {
-                                    toggled: false
-                                    buttonIcon: "mode_off_on"
-                                    onClicked: GlobalStates.sessionOpen = true
-                                    StyledToolTip {
-                                        text: Translation.tr("Session")
-                                    }
-                                }
                             }
                         }
                     }
@@ -510,7 +469,7 @@ Item {
             }
         }
 
-        ButtonGroup {
+        SystemButtons {
             id: systemButtonsRow
             anchors {
                 top: parent.top
@@ -518,46 +477,51 @@ Item {
                 right: parent.right
             }
             color: Appearance.colors.colLayer1
-            padding: 4
+        }
+    }
 
-            QuickToggleButton {
-                toggled: root.editMode
-                visible: Config.options.sidebar.quickToggles.style === "android"
-                buttonIcon: "edit"
-                onClicked: root.editMode = !root.editMode
-                StyledToolTip {
-                    text: Translation.tr("Edit quick toggles") + (root.editMode ? Translation.tr("\nLMB to enable/disable\nRMB to toggle size\nScroll to swap position") : "")
-                }
+    // Edit toggles, reload, settings and session: in the banner and the
+    // plain header row alike.
+    component SystemButtons: ButtonGroup {
+        padding: 4
+
+        QuickToggleButton {
+            toggled: root.editMode
+            visible: Config.options.sidebar.quickToggles.style === "android"
+            buttonIcon: "edit"
+            onClicked: root.editMode = !root.editMode
+            StyledToolTip {
+                text: Translation.tr("Edit quick toggles") + (root.editMode ? Translation.tr("\nLMB to enable/disable\nRMB to toggle size\nScroll to swap position") : "")
             }
-            QuickToggleButton {
-                toggled: false
-                buttonIcon: "restart_alt"
-                onClicked: {
-                    Quickshell.execDetached(["niri", "msg", "action", "reload-config"]);
-                    Quickshell.reload(true);
-                }
-                StyledToolTip {
-                    text: Translation.tr("Reload Niri & Quickshell")
-                }
+        }
+        QuickToggleButton {
+            toggled: false
+            buttonIcon: "restart_alt"
+            onClicked: {
+                Quickshell.execDetached(["niri", "msg", "action", "reload-config"]);
+                Quickshell.reload(true);
             }
-            QuickToggleButton {
-                toggled: GlobalStates.settingsOpen
-                buttonIcon: "settings"
-                onClicked: {
-                    GlobalStates.sidebarRightOpen = false;
-                    GlobalStates.settingsOpen = !GlobalStates.settingsOpen
-                }
-                StyledToolTip {
-                    text: Translation.tr("Settings")
-                }
+            StyledToolTip {
+                text: Translation.tr("Reload Niri & Quickshell")
             }
-            QuickToggleButton {
-                toggled: false
-                buttonIcon: "mode_off_on"
-                onClicked: GlobalStates.sessionOpen = true
-                StyledToolTip {
-                    text: Translation.tr("Session")
-                }
+        }
+        QuickToggleButton {
+            toggled: GlobalStates.settingsOpen
+            buttonIcon: "settings"
+            onClicked: {
+                GlobalStates.sidebarRightOpen = false;
+                GlobalStates.settingsOpen = !GlobalStates.settingsOpen
+            }
+            StyledToolTip {
+                text: Translation.tr("Settings")
+            }
+        }
+        QuickToggleButton {
+            toggled: false
+            buttonIcon: "mode_off_on"
+            onClicked: GlobalStates.sessionOpen = true
+            StyledToolTip {
+                text: Translation.tr("Session")
             }
         }
     }

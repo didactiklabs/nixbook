@@ -33,19 +33,16 @@ NestableObject {
     function applyMonitor(m) {
         if (!m.name) return
         if (m.disabled) {
-            applyProc.command = ["sh", "-c", `niri msg output "${m.name}" off`]
+            applyProc.command = ["niri", "msg", "output", m.name, "off"]
             applyProc.running = true
             return
         }
         const mode = m.currentMode.replace(/Hz$/, "")
-        const cmds = [
-            `niri msg output "${m.name}" on`,
-            `niri msg output "${m.name}" mode "${mode}"`,
-            `niri msg output "${m.name}" scale ${m.scale}`,
-            `niri msg output "${m.name}" transform "${root.transformNames[m.transform] ?? "normal"}"`,
-            `niri msg output "${m.name}" position set ${m.x} ${m.y}`
-        ]
-        applyProc.command = ["sh", "-c", cmds.join(" && ")]
+        // Values as arguments, not spliced into the script.
+        applyProc.command = ["sh", "-c",
+            'niri msg output "$1" on && niri msg output "$1" mode "$2" && niri msg output "$1" scale "$3"'
+            + ' && niri msg output "$1" transform "$4" && niri msg output "$1" position set "$5" "$6"',
+            "_", m.name, mode, String(m.scale), root.transformNames[m.transform] ?? "normal", String(m.x), String(m.y)]
         applyProc.running = true
     }
 

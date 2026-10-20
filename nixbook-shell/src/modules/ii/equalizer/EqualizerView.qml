@@ -226,7 +226,19 @@ Item {
         eqGetProc.running = true
     }
 
+    // The last set_band / set_preamp sent. onMoved fires on every pixel of
+    // a drag but the backend stores whole dB: the same value again is not
+    // re-sent (a bash + jq write each, which could also land out of order).
+    // A band write only counts while root.bands is the same array (every
+    // preset/refresh path assigns a new one); the preamp one is forgotten
+    // whenever the state is read back or reverted.
+    property var lastBandWrite: null
+    property real lastPreampWrite: NaN
+
     function setBand(index, value) {
+        const rounded = Math.round(value)
+        const w = root.lastBandWrite
+        const unchanged = w !== null && w.bands === root.bands && w.index === index && w.value === rounded
         root.bands[index] = value
         root.bandsChanged()
         root.presetName = "Custom"
@@ -236,7 +248,10 @@ Item {
         // re-applying it, even though the real active preset is now Custom.
         EqualizerAutoService.currentPresetName = "Custom"
         root.pending = true
-        Quickshell.execDetached(["bash", Directories.eqScriptPath, Directories.eqStateDir, "set_band", String(index + 1), String(Math.round(value))])
+        if (!unchanged) {
+            Quickshell.execDetached(["bash", Directories.eqScriptPath, Directories.eqStateDir, "set_band", String(index + 1), String(rounded)])
+            root.lastBandWrite = { bands: root.bands, index: index, value: rounded }
+        }
         liveApplyTimer.restart()
     }
 
@@ -244,9 +259,13 @@ Item {
     // of whichever curve is active, not part of the curve's identity, so
     // adjusting it shouldn't make the preset display flip to "Custom".
     function setPreamp(value) {
+        const rounded = Math.round(value)
         root.preamp = value
         root.pending = true
-        Quickshell.execDetached(["bash", Directories.eqScriptPath, Directories.eqStateDir, "set_preamp", String(Math.round(value))])
+        if (rounded !== root.lastPreampWrite) {
+            Quickshell.execDetached(["bash", Directories.eqScriptPath, Directories.eqStateDir, "set_preamp", String(rounded)])
+            root.lastPreampWrite = rounded
+        }
         liveApplyTimer.restart()
     }
 
@@ -526,6 +545,8 @@ Item {
     Connections {
         target: GlobalStates
         function onEqualizerOpenChanged() {
+            root.lastBandWrite = null
+            root.lastPreampWrite = NaN
             if (GlobalStates.equalizerOpen) {
                 // The view is preloaded (EqualizerPopup's Loader): what was
                 // read at startup may be stale by now - Auto, the
@@ -581,6 +602,8 @@ Item {
                     EqualizerAutoService.currentPresetName = root.presetName
                     root.pending = !!data.pending
                     root.preamp = Number(data.preamp) || 0
+                    root.lastBandWrite = null
+                    root.lastPreampWrite = NaN
                     // Only pick up a value once it's actually a number - an
                     // absent/null .dim (e.g. an eq_state.json from before
                     // this feature existed) should keep whatever's already

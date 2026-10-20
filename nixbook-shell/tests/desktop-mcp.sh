@@ -2523,6 +2523,14 @@ expect_contains "widget notes update" "$(last_call)" "notes updateFromFile 17-1 
 expect_eq "widget notes update: the text" "buy oat milk" "$(cat "$calls.note")"
 expect_contains "shell_ipc: the notes' file functions only through the widget tool" \
   "$(call shell_ipc '{"target":"notes","function":"addFromFile","args":["/home/x/.ssh/id_rsa"]}')" "refused"
+expect_contains "shell_ipc: a wallpaper only through set_wallpaper (shared folders)" \
+  "$(call shell_ipc '{"target":"wallpapers","function":"apply","args":["/home/x/private.png"]}')" "refused: use the set_wallpaper tool"
+expect_contains "shell_ipc: an image widget's picture only through the widget tool" \
+  "$(call shell_ipc '{"target":"images","function":"add","args":["/home/x/private.png",""]}')" "refused: use the widget tool"
+expect_contains "shell_ipc: nor its path through images.set" \
+  "$(call shell_ipc '{"target":"images","function":"set","args":["1","path","/home/x/private.png"]}')" "refused: use the widget tool"
+call shell_ipc '{"target":"images","function":"set","args":["1","zoom","2"]}' >/dev/null
+expect_eq "shell_ipc: images.set's other keys still work" "qs -c nixbook-shell ipc call -- images set 1 zoom 2" "$(last_call)"
 expect_contains "widget notes: the shell's errors" "$(call widget '{"widget":"notes","action":"remove","id":"nope"}')" 'no note "nope"'
 expect_contains "widget notes update: needs text" "$(call widget '{"widget":"notes","action":"update","id":"17-1"}')" "must be a non-empty string"
 expect_contains "widget notes: unknown action" "$(call widget '{"widget":"notes","action":"done"}')" "notes can't 'done': list, add, update, remove, open"

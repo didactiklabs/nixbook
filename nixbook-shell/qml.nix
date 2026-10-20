@@ -179,7 +179,8 @@ pkgs.stdenvNoCC.mkDerivation {
     done
 
     # 3. ...and neutralise the matching activate/deactivate calls in the shell
-    #    wrappers (`scripts/**/*-venv.sh`, switchwall.sh).
+    #    wrappers still carrying them (services/gCloud/token-from-key-venv.sh;
+    #    the scripts/ ones no longer activate anything).
     find . -name '*.sh' -type f -print0 | while IFS= read -r -d "" f; do
       sed -i \
         -e '1!s|^\([[:space:]]*\)source .*ILLOGICAL_IMPULSE_VIRTUAL_ENV.*/bin/activate.*$|\1:|' \

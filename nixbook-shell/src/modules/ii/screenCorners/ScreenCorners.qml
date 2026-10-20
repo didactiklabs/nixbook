@@ -107,10 +107,8 @@ Scope {
                     onMovedAway: {
                         if (!Config.options.sidebar.cornerOpen.valueScroll)
                             return;
-                        if (cornerWidget.isLeft)
-                            GlobalStates.osdBrightnessOpen = false;
-                        else
-                            GlobalStates.osdVolumeOpen = false;
+                        // One OSD shows every indicator (brightness included).
+                        GlobalStates.osdVolumeOpen = false;
                     }
 
                     Loader {

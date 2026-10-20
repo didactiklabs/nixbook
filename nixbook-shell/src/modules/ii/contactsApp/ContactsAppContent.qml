@@ -84,7 +84,9 @@ Rectangle {
     property real now: Date.now()
     Timer {
         interval: 30000
-        running: root.visible
+        // The window stays loaded once opened: tick only while it's shown.
+        running: GlobalStates.contactsAppOpen
+        triggeredOnStart: true
         repeat: true
         onTriggered: root.now = Date.now()
     }

@@ -416,11 +416,12 @@ func apply(c *Cache, op map[string]any) (any, error) {
 			list, isList = []any{s}, true
 		}
 		if isList {
+			accounts := registry.List()
 			out := []any{}
 			for _, l := range list {
 				name, _ := l.(string)
 				// A label id (an account's prefix): this account's, known.
-				if acc, id, err := registry.SplitID(name); err == nil && slices.ContainsFunc(registry.List(), func(a registry.Account) bool { return a.ID == acc }) {
+				if acc, id, err := registry.SplitID(name); err == nil && slices.ContainsFunc(accounts, func(a registry.Account) bool { return a.ID == acc }) {
 					if !slices.ContainsFunc(c.Labels, func(x Label) bool { return x.ID == name }) {
 						return nil, core.Errorf("no label '%s'", name)
 					}
@@ -468,7 +469,26 @@ func apply(c *Cache, op map[string]any) (any, error) {
 
 var nonDigits = regexp.MustCompile(`\D`)
 
-func matches(c Contact, words []string, cache *Cache) bool {
+// queryWord is a word of a search, folded, and its digits (a phone number
+// as typed, when the word is mostly digits).
+type queryWord struct{ folded, digits string }
+
+func queryWords(query string) []queryWord {
+	out := []queryWord{}
+	for _, w := range strings.Fields(query) {
+		q := queryWord{folded: Fold(w)}
+		if d := nonDigits.ReplaceAllString(w, ""); len(d) >= 3 && len(d) >= len(w)-3 {
+			q.digits = d
+		}
+		out = append(out, q)
+	}
+	return out
+}
+
+func matches(c Contact, words []queryWord, labels map[string]string) bool {
+	if len(words) == 0 {
+		return true
+	}
 	parts := []string{c.Name, c.Nickname, c.Organization, c.Title, c.Notes}
 	for _, e := range c.Emails {
 		parts = append(parts, e.Value)
@@ -476,19 +496,17 @@ func matches(c Contact, words []string, cache *Cache) bool {
 	for _, a := range c.Addresses {
 		parts = append(parts, a.Value)
 	}
-	parts = append(parts, labelNames(cache, c.Labels)...)
+	parts = append(parts, labelNames(labels, c.Labels)...)
 	hay := Fold(strings.Join(parts, " "))
 	digits := ""
 	for _, p := range c.Phones {
 		digits += nonDigits.ReplaceAllString(p.Value, "") + " "
 	}
 	for _, w := range words {
-		if strings.Contains(hay, Fold(w)) {
+		if strings.Contains(hay, w.folded) {
 			continue
 		}
-		// A phone number as typed: its digits, when the word is mostly digits.
-		d := nonDigits.ReplaceAllString(w, "")
-		if len(d) >= 3 && len(d) >= len(w)-3 && strings.Contains(digits, d) {
+		if w.digits != "" && strings.Contains(digits, w.digits) {
 			continue
 		}
 		return false
@@ -527,11 +545,11 @@ func List(query, label, account string, starred bool, limit int) (*Listing, erro
 		}
 		account = a.ID
 	}
-	words := strings.Fields(query)
+	words, labels := queryWords(query), labelIndex(cache)
 	out := []Contact{}
 	for _, c := range cache.Contacts {
 		if (len(labelIDs) == 0 || slices.ContainsFunc(c.Labels, func(l string) bool { return slices.Contains(labelIDs, l) })) &&
-			(account == "" || c.Account == account) && (!starred || c.Starred) && matches(c, words, cache) {
+			(account == "" || c.Account == account) && (!starred || c.Starred) && matches(c, words, labels) {
 			out = append(out, c)
 		}
 	}
@@ -540,7 +558,7 @@ func List(query, label, account string, starred bool, limit int) (*Listing, erro
 		out = out[:limit]
 	}
 	for i := range out {
-		out[i].Labels = labelNames(cache, out[i].Labels)
+		out[i].Labels = labelNames(labels, out[i].Labels)
 	}
 	return &Listing{SyncedAt: cache.SyncedAt, Total: total, Labels: cache.Labels, Contacts: out}, nil
 }
@@ -550,7 +568,7 @@ func Get(id string) (Contact, error) {
 	cache := Load()
 	for _, c := range cache.Contacts {
 		if c.ID == strings.TrimSpace(id) {
-			c.Labels = labelNames(cache, c.Labels)
+			c.Labels = labelNames(labelIndex(cache), c.Labels)
 			return c, nil
 		}
 	}

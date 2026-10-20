@@ -134,11 +134,16 @@ func flags(args *[]string, names ...string) (map[string]string, error) {
 func readRequest(arg string) (any, error) {
 	var data []byte
 	var err error
+	// Stdin and files read up to core.MaxBody: a request is far less.
 	switch {
 	case arg == "-":
-		data, err = io.ReadAll(os.Stdin)
+		data, err = core.ReadCapped(os.Stdin)
 	case strings.HasPrefix(arg, "@"):
-		data, err = os.ReadFile(arg[1:])
+		var f *os.File
+		if f, err = os.Open(arg[1:]); err == nil {
+			data, err = core.ReadCapped(f)
+			f.Close()
+		}
 	default:
 		data = []byte(arg)
 	}

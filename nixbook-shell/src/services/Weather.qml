@@ -135,7 +135,9 @@ Singleton {
     Process {
         id: fetcher
         property string config: ""
-        command: ["curl", "-s", "-K", "-"]
+        // Time-limited: a hung request kept `running` set and every later
+        // refresh returned early.
+        command: ["curl", "-s", "--max-time", "20", "-K", "-"]
         onStarted: {
             fetcher.write(fetcher.config)
             fetcher.stdinEnabled = false // EOF: curl reads the config to the end

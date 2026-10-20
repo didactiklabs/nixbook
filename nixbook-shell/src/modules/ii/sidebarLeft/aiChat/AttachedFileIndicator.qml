@@ -26,12 +26,11 @@ Rectangle {
         root.mimeType = "";
         root.imageWidth = -1;
         root.imageHeight = -1;
-        fileTypeProc.exec(["file", "-b", "--mime-type", filePath]);
+        fileTypeProc.exec(["file", "-b", "--mime-type", "--", filePath]);
     }
 
     Process {
         id: fileTypeProc
-        command: ["file", "-b", "--mime-type", filePath]
         stdout: StdioCollector {
             onStreamFinished: {
                 root.mimeType = this.text;
@@ -43,7 +42,6 @@ Rectangle {
 
     Process {
         id: imageSizeProc
-        command: ["identify", "-format", "%wx%h", filePath]
         stdout: StdioCollector {
             onStreamFinished: {
                 const dimensions = this.text.split("x");

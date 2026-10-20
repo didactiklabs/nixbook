@@ -256,7 +256,9 @@ Singleton {
                 summary: e.summary || Translation.tr("(No title)"),
                 description: e.description ?? "",
                 location: e.location ?? "",
-                meetingUrl: e.meetingUrl ?? "",
+                // Opened with Qt.openUrlExternally: only web links, never
+                // file:// or other schemes a shared calendar could plant.
+                meetingUrl: /^https?:\/\//i.test(e.meetingUrl ?? "") ? e.meetingUrl : "",
                 start: start,
                 end: end,
                 allDay: allDay,

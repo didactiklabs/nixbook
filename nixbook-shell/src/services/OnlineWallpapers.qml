@@ -174,11 +174,11 @@ Singleton {
     }
 
     function _fetchBlapples() {
-        root._run("blapples", ["curl", "-sL", root.blapplesJsonUrl]);
+        root._run("blapples", ["curl", "-sL", "--max-time", "30", root.blapplesJsonUrl]);
     }
 
     function _fetchNaive() {
-        root._run("naive", ["curl", "-sL", root.naiveJsonUrl]);
+        root._run("naive", ["curl", "-sL", "--max-time", "30", root.naiveJsonUrl]);
     }
 
     function _parseWallhaven(jsonStr) {
@@ -370,7 +370,7 @@ Singleton {
         const config = [`url = ${root._curlConfigValue(url)}`]
             .concat(headers.map(h => `header = ${root._curlConfigValue(h)}`))
             .join("\n") + "\n";
-        root._run(provider, ["curl", "-s", "-K", "-"], config);
+        root._run(provider, ["curl", "-s", "--max-time", "30", "-K", "-"], config);
     }
 
     function _run(provider, command, stdinConfig) {
@@ -490,9 +490,11 @@ Singleton {
         // Write to a temp file and rename, so a half-downloaded file never
         // shows up in the wallpaper folder. The URL comes from the provider's
         // JSON: `--url` keeps one starting with "-" from being read as an
-        // option, and only https is fetched.
+        // option, and only https is fetched. A stalled transfer (under 1 KB/s
+        // for 30 s) gives up instead of holding up the queue; a slow but
+        // moving one of a large image doesn't.
         downloadProc.command = ["bash", "-c",
-            'mkdir -p "$(dirname "$2")" && curl -fL --silent --proto =https --proto-redir =https --url "$1" -o "$2.part" && mv "$2.part" "$2" || { rm -f "$2.part"; exit 1; }',
+            'mkdir -p "$(dirname "$2")" && curl -fL --silent --connect-timeout 15 --speed-limit 1024 --speed-time 30 --proto =https --proto-redir =https --url "$1" -o "$2.part" && mv "$2.part" "$2" || { rm -f "$2.part"; exit 1; }',
             "download", next.url, next.path];
         downloadProc.running = true;
     }

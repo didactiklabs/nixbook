@@ -20,6 +20,19 @@ Scope { // Scope
     readonly property real barCenterOnlyOffset: (Config.options.bar.centerOnlyReserveFrame && root.centerOnly)
         ? Config.options.bar.frameThickness
         : Appearance.sizes.barHeight
+    // The margin on the bar's edge (top or bottom): with only a center
+    // section, over the strip the bar leaves free.
+    readonly property real barEdgeMargin: {
+        if (Config?.options.bar.autoHide.enable) return 0;
+        if (!root.centerOnly) return 0;
+        switch (Config.options.bar.cornerStyle) {
+        case 0: return -root.barCenterOnlyOffset;
+        case 1:
+        case 2: return -root.barCenterOnlyOffset + Appearance.sizes.gapsOut;
+        case 3: return -root.barCenterOnlyOffset - Appearance.sizes.gapsOut;
+        default: return 0;
+        }
+    }
 
     // Ctrl+O extend and Ctrl+P pin (docked), Ctrl+D detach/attach — from
     // the panel's key handler or its text fields (GlobalStates.sidebarLeftKey).
@@ -298,30 +311,8 @@ Scope { // Scope
             }
 
             margins {
-                top: {
-                    if (Config.options.bar.bottom) return 0;
-                    if (Config?.options.bar.autoHide.enable) return 0;
-                    if (!centerOnly) return 0;
-                    switch (Config.options.bar.cornerStyle) {
-                    case 0: return -root.barCenterOnlyOffset;
-                    case 1: return -root.barCenterOnlyOffset + Appearance.sizes.gapsOut;
-                    case 2: return -root.barCenterOnlyOffset + Appearance.sizes.gapsOut;
-                    case 3: return -root.barCenterOnlyOffset - Appearance.sizes.gapsOut;
-                    default: return 0;
-                    }
-                }
-                bottom: {
-                    if (!Config.options.bar.bottom) return 0;
-                    if (Config?.options.bar.autoHide.enable) return 0;
-                    if (!centerOnly) return 0;
-                    switch (Config.options.bar.cornerStyle) {
-                    case 0: return -root.barCenterOnlyOffset;
-                    case 1: return -root.barCenterOnlyOffset + Appearance.sizes.gapsOut;
-                    case 2: return -root.barCenterOnlyOffset + Appearance.sizes.gapsOut;
-                    case 3: return -root.barCenterOnlyOffset - Appearance.sizes.gapsOut;
-                    default: return 0;
-                    }
-                }
+                top: Config.options.bar.bottom ? 0 : root.barEdgeMargin
+                bottom: Config.options.bar.bottom ? root.barEdgeMargin : 0
             }
 
             // Pinned, only the panel's own reserved strip takes input: the

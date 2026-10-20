@@ -47,7 +47,7 @@ Item {
     }
 
     function reattemptAsNeeded() {
-        if (root.visionParagraphs == [] && GoogleCloud.tokenReady && !GoogleCloud.tokenError) {
+        if (root.visionParagraphs.length === 0 && GoogleCloud.tokenReady && !GoogleCloud.tokenError) {
             root.error = false;
             cloudVision.annotateImage(root.screenshotPath);
         }
@@ -305,9 +305,12 @@ Item {
                             root.textColorDetectionScriptPath
                         ],
                         (out => {
-                            var colorData = JSON.parse(out);
-                            ti.color = ColorUtils.transparentize(colorData.background, 0.4);
-                            tiText.color = colorData.text;
+                            // No colours (the detector failed): keep the defaults.
+                            try {
+                                var colorData = JSON.parse(out);
+                                ti.color = ColorUtils.transparentize(colorData.background, 0.4);
+                                tiText.color = colorData.text;
+                            } catch (e) {}
                         })
                     ]);
                 }

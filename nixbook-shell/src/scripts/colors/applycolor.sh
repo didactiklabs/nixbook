@@ -2,10 +2,8 @@
 
 QUICKSHELL_CONFIG_NAME="nixbook-shell"
 XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
-XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 XDG_STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
 CONFIG_DIR="$XDG_CONFIG_HOME/quickshell/$QUICKSHELL_CONFIG_NAME"
-CACHE_DIR="$XDG_CACHE_HOME/quickshell"
 STATE_DIR="$XDG_STATE_HOME/quickshell"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -48,11 +46,20 @@ colorstrings=''
 colorlist=()
 colorvalues=()
 
-colornames=$(cat $STATE_DIR/user/generated/material_colors.scss | cut -d: -f1)
-colorstrings=$(cat $STATE_DIR/user/generated/material_colors.scss | cut -d: -f2 | cut -d ' ' -f2 | cut -d ";" -f1)
+colornames=$(cut -d: -f1 "$STATE_DIR"/user/generated/material_colors.scss)
+colorstrings=$(cut -d: -f2 "$STATE_DIR"/user/generated/material_colors.scss | cut -d ' ' -f2 | cut -d ";" -f1)
 IFS=$'\n'
-colorlist=($colornames)     # Array of color names
+# shellcheck disable=SC2206 # one colour per line (IFS), no glob characters
+colorlist=($colornames) # Array of color names
+# shellcheck disable=SC2206
 colorvalues=($colorstrings) # Array of color values
+
+# Every placeholder ("$name #") replaced by its colour, in one sed run per
+# file (it used to be one run per colour: ~130 processes per switch).
+colorsed=''
+for i in "${!colorlist[@]}"; do
+  colorsed+="s/${colorlist[$i]} #/${colorvalues[$i]#\#}/g"$'\n'
+done
 
 apply_kitty() {
   # Check if terminal escape sequence template exists
@@ -67,9 +74,7 @@ apply_kitty() {
   rm -f "$STATE_DIR"/user/generated/terminal/kitty-theme.conf
   cp --no-preserve=mode "$SCRIPT_DIR/terminal/kitty-theme.conf" "$STATE_DIR"/user/generated/terminal/kitty-theme.conf
   # Apply colors
-  for i in "${!colorlist[@]}"; do
-    sed -i "s/${colorlist[$i]} #/${colorvalues[$i]#\#}/g" "$STATE_DIR"/user/generated/terminal/kitty-theme.conf
-  done
+  sed -i "$colorsed" "$STATE_DIR"/user/generated/terminal/kitty-theme.conf
 
   reload_kitty
 }
@@ -87,9 +92,7 @@ apply_anyterm() {
   rm -f "$STATE_DIR"/user/generated/terminal/sequences.txt
   cp --no-preserve=mode "$SCRIPT_DIR/terminal/sequences.txt" "$STATE_DIR"/user/generated/terminal/sequences.txt
   # Apply colors
-  for i in "${!colorlist[@]}"; do
-    sed -i "s/${colorlist[$i]} #/${colorvalues[$i]#\#}/g" "$STATE_DIR"/user/generated/terminal/sequences.txt
-  done
+  sed -i "$colorsed" "$STATE_DIR"/user/generated/terminal/sequences.txt
 
   for file in "$PTS_DIR"/*; do
     if [[ $file =~ /[0-9]+$ ]]; then

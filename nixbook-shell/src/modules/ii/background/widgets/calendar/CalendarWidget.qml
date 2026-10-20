@@ -57,10 +57,15 @@ AbstractBackgroundWidget {
     }
 
     property int monthShift: 0
-    readonly property var today: new Date()
+    // Follows the clock but only changes with the day (was frozen at startup).
+    readonly property int dayOfMonth: DateTime.clock.date.getDate()
+    readonly property var today: {
+        root.dayOfMonth; // dependency only
+        return new Date();
+    }
 
     property var viewingDate: {
-        let d = new Date()
+        let d = new Date(root.today)
         d.setDate(1)
         d.setMonth(d.getMonth() + monthShift)
         return d

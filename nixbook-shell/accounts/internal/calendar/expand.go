@@ -3,6 +3,7 @@ package calendar
 import (
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/teambition/rrule-go"
@@ -61,11 +62,27 @@ func span(e Event) (time.Time, time.Time, bool) {
 	return start, end, true
 }
 
+// zones are the IANA zones loaded so far: time.LoadLocation reads the zone
+// file each time, and many series share a zone.
+var zones sync.Map
+
+func zone(name string) (*time.Location, bool) {
+	if l, ok := zones.Load(name); ok {
+		return l.(*time.Location), true
+	}
+	l, err := time.LoadLocation(name)
+	if err != nil {
+		return nil, false
+	}
+	zones.Store(name, l)
+	return l, true
+}
+
 // recurrenceSet is a series' occurrences' starts, in its own zone.
 func recurrenceSet(e Event, start time.Time) (*rrule.Set, error) {
 	loc := time.Local
 	if e.TimeZone != "" && !e.AllDay {
-		if l, err := time.LoadLocation(e.TimeZone); err == nil {
+		if l, ok := zone(e.TimeZone); ok {
 			loc = l
 		}
 	}
@@ -136,6 +153,8 @@ func (c *Cache) Occurrences(from, to time.Time, calendars []string) []Occurrence
 		}
 	}
 	out := []Occurrence{}
+	// Each occurrence's sort key (its start in UTC), made once.
+	keys := []string{}
 	add := func(e Event, id, occurrence string, recurring bool, start, end time.Time) {
 		if !end.After(from) || !start.Before(to) {
 			return
@@ -157,6 +176,7 @@ func (c *Cache) Occurrences(from, to time.Time, calendars []string) []Occurrence
 			Location: e.Location, MeetingURL: e.MeetingURL, Start: format(start, e.AllDay), End: format(end, e.AllDay),
 			AllDay: e.AllDay, Reminders: reminders,
 		})
+		keys = append(keys, sortKey(out[len(out)-1]))
 	}
 	for _, e := range c.Events {
 		if e.Cancelled {
@@ -183,6 +203,7 @@ func (c *Cache) Occurrences(from, to time.Time, calendars []string) []Occurrence
 			continue
 		}
 		length := end.Sub(start)
+		days := int(length.Hours()/24 + 0.5)
 		for _, s := range between(set, from.Add(-length), to) {
 			if e.AllDay {
 				s = time.Date(s.Year(), s.Month(), s.Day(), 0, 0, 0, 0, time.Local)
@@ -192,22 +213,30 @@ func (c *Cache) Occurrences(from, to time.Time, calendars []string) []Occurrence
 			}
 			finish := s.Add(length)
 			if e.AllDay {
-				days := int(end.Sub(start).Hours()/24 + 0.5)
 				finish = s.AddDate(0, 0, days)
 			}
 			add(e, e.ID, format(s, e.AllDay), true, s, finish)
 		}
 	}
-	slices.SortStableFunc(out, func(a, b Occurrence) int {
+	order := make([]int, len(out))
+	for i := range order {
+		order[i] = i
+	}
+	slices.SortStableFunc(order, func(i, j int) int {
+		a, b := out[i], out[j]
 		if a.AllDay != b.AllDay && a.Start[:10] == b.Start[:10] {
 			if a.AllDay {
 				return -1
 			}
 			return 1
 		}
-		return strings.Compare(sortKey(a), sortKey(b))
+		return strings.Compare(keys[i], keys[j])
 	})
-	return out
+	sorted := make([]Occurrence, len(out))
+	for i, j := range order {
+		sorted[i] = out[j]
+	}
+	return sorted
 }
 
 func sortKey(o Occurrence) string {
