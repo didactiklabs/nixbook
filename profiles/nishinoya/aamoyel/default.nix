@@ -22,6 +22,7 @@ in
     pkgs.oapi-codegen
     pkgs.spotify
     pkgs.customPkgs.moonfin
+    pkgs.customPkgs.cerbos
   ];
 
   xdg.mimeApps.defaultApplications = {

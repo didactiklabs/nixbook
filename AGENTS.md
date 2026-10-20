@@ -197,7 +197,7 @@ hive.nix                          Colmena deployment config
 - **NixOS Modules:** laptopProfile, greetd, niri, caCertificates (didactiklabs + logicmg)
 - **Special Features:** Yubico security key lock on removal, unprivileged port access (sysctl port_start=80)
 - **Work Environments:** didactiklabs, logicmg kubeconfigs
-- **Extra Packages:** Google Chrome, GitKraken, Slack, Kanidm, Moonlight Qt, immich-go, oapi-codegen
+- **Extra Packages:** Google Chrome, GitKraken, Slack, Kanidm, Moonlight Qt, immich-go, oapi-codegen, cerbos
 - **Home Manager Modules:** cliTools, devTools, ocmConfig, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, vscode, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, fcitx5Config, dmsConfig
 
 ### hanamichi - Gaming/Normal-Use Desktop (NVIDIA)
@@ -366,6 +366,7 @@ npins/ → dependency sources
 | `actual-budget`    | v26.5.2 | Actual Budget local-first personal finance app (AppImage)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `pear-desktop`     | v3.11.0 | YouTube Music desktop player (AppImage)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `moonfin`          | 2.6.0   | Jellyfin & Emby media client (AppImage)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `cerbos`           | v0.56.0 | Stateless authorization policy decision point (PDP); upstream prebuilt Linux x86_64 release tarball (`cerbos` + `cerbosctl` binaries)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 ## Dependencies & Pinning (42 total)
 
@@ -393,7 +394,7 @@ npins/ → dependency sources
 - `flake-compat` - Flake compatibility layer
 - `99` - ThePrimeagen's 99 NixVim plugin
 
-**Custom Package Sources:** ginx, goji, ytui, jtui, crd-wizard, pvmigrate (frozen), rtk, songbird, witr, kl (frozen), opencode-manager (v2.5.1), openchoreo (v1.3.0), kratix-cli (v0.19.0), fcitx5-lotus (v5.0.0), schnelle-umlaute, sofka, actual-budget (v26.5.2), pear-desktop (v3.11.0), moonfin (2.6.0, prebuilt AppImage; release tags have no `v`)
+**Custom Package Sources:** ginx, goji, ytui, jtui, crd-wizard, pvmigrate (frozen), rtk, songbird, witr, kl (frozen), opencode-manager (v2.5.1), openchoreo (v1.3.0), kratix-cli (v0.19.0), fcitx5-lotus (v5.0.0), schnelle-umlaute, sofka, actual-budget (v26.5.2), pear-desktop (v3.11.0), moonfin (2.6.0, prebuilt AppImage; release tags have no `v`), cerbos (v0.56.0, prebuilt Linux x86_64 release tarball)
 
 ## Assets (37 files)
 
