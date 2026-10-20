@@ -33,6 +33,7 @@ notify-send, and the shell's `qs` for its IPC.
 """
 
 import base64
+import contextlib
 import bisect
 import datetime
 import hmac
@@ -89,7 +90,7 @@ DEFAULT_CONFIG = {
     # desktopControl: the bar widget's pause/resume; layouts: the user's
     # window layouts, which don't honour the pause (agents have their own
     # layout tools). Only the user may use them.
-    "shellIpcDenyTargets": ["session", "nixManaged", "desktopControl", "layouts", "settings"],
+    "shellIpcDenyTargets": ["session", "nixManaged", "desktopControl", "layouts", "settings", "makeWay"],
     "allowSuperKey": False,
     "maxTextLength": 4000,
     # A note written into the notes widget (it goes through a file, not the
@@ -363,6 +364,105 @@ def mark_agent_input():
         os.replace(tmp, os.path.join(base, "agent-input"))
     except OSError:
         pass
+
+
+# The shell's own windows over the apps (services/MakeWay.qml: the side
+# panel, Claude's speech bubble, notification popups, a theme's cut-in)
+# make way for an agent on the user's desktop: its clicks and keys go
+# through them to the apps, and they are invisible in its screenshots,
+# while the user still sees them (faded). The shell lists what is on screen
+# in overlays.json, read before each action (a file read: nothing to do,
+# no cost, when none is up); make-way.json asks, held MAKE_WAY_HOLD_MS past
+# the last action so the windows don't flicker between steps; the shell
+# answers in make-way.ack once it is on screen (waited for, at most
+# MAKE_WAY_WAIT s, only when it changes).
+MAKE_WAY_HOLD_MS = 12000
+MAKE_WAY_WAIT = 0.3
+
+
+def shell_runtime_dir():
+    return os.path.join(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}", "nixbook-shell")
+
+
+def shell_overlays():
+    """What of the shell is over the apps now: names (sidePanel, speechBubble,
+    notificationPopups, cutIn)."""
+    try:
+        with open(os.path.join(shell_runtime_dir(), "overlays.json"), encoding="utf-8") as f:
+            names = (json.load(f) or {}).get("overlays") or []
+        return [n for n in names if isinstance(n, str)][:8]
+    except (OSError, ValueError, AttributeError):
+        return []
+
+
+def make_way(capture=False, wait=True):
+    """Asks the shell's overlays to let the agent through (and, `capture`, to
+    vanish for a screenshot): the ones on screen, [] when none."""
+    if on_agent_desktop():
+        return []
+    overlays = shell_overlays()
+    if not overlays:
+        return []
+    path = os.path.join(shell_runtime_dir(), "make-way.json")
+    now = int(time.time() * 1000)
+    try:
+        with open(path, encoding="utf-8") as f:
+            before = json.load(f) or {}
+    except (OSError, ValueError):
+        before = {}
+    seq = int(before.get("seq") or 0) + 1 if isinstance(before.get("seq"), int) else 1
+    # Already so on screen: only held on, nothing to wait for.
+    same = before.get("until", 0) > now + 500 and bool(before.get("capture")) == capture
+    try:
+        # Written in place: the shell watches this path.
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"seq": seq, "until": now + MAKE_WAY_HOLD_MS, "capture": capture}, f)
+    except OSError:
+        return overlays
+    if wait and not same:
+        ack = os.path.join(shell_runtime_dir(), "make-way.ack")
+        deadline = time.monotonic() + MAKE_WAY_WAIT
+        while time.monotonic() < deadline:
+            try:
+                with open(ack, encoding="utf-8") as f:
+                    if f.read().strip() == str(seq):
+                        break
+            except OSError:
+                pass
+            time.sleep(0.01)
+    return overlays
+
+
+@contextlib.contextmanager
+def overlays_hidden(ctx):
+    """The shell's overlays invisible while the agent looks at the screen
+    (nested: shown again when the outermost look is done)."""
+    if ctx.desktop != "user":
+        yield []
+        return
+    depth = getattr(ctx, "hiding", 0)
+    ctx.hiding = depth + 1
+    shown = make_way(capture=True) if depth == 0 else ctx.hidden_overlays
+    if depth == 0:
+        ctx.hidden_overlays = shown
+    try:
+        yield shown
+    finally:
+        ctx.hiding = depth
+        if depth == 0 and shown:
+            make_way(capture=False, wait=False)
+
+
+def overlays_note(ctx, shown):
+    """What the agent is told of the overlays it was let through: once for
+    each set of them (a cut-in coming up is told)."""
+    if not shown or getattr(ctx, "overlays_told", None) == shown:
+        return None
+    ctx.overlays_told = shown
+    return text("On screen, the shell's " + ", ".join(shown) + ": made click-through, keyboard released and "
+                "hidden from your screenshots while you work, so act on the windows under them as if they "
+                "weren't there. If one still gets in your way, set_aside dismisses notificationPopups, a "
+                "cutIn or the speechBubble (never the sidePanel: the user's chat with you).")
 
 
 def focused_a11y_role(w):
@@ -7700,6 +7800,13 @@ COORD = {"type": "number"}
     read_only=True,
 )
 def t_screenshot(ctx, args):
+    with overlays_hidden(ctx) as shown:
+        out = screenshot_now(ctx, args)
+    note = overlays_note(ctx, shown) if getattr(ctx, "hiding", 0) == 0 else None
+    return out + [note] if note else out
+
+
+def screenshot_now(ctx, args):
     outputs = {n: o for n, o in (niri_json("outputs") or {}).items() if o.get("logical")}
     if args.get("window_id") is not None:
         wid = as_int(args, "window_id")
@@ -7722,8 +7829,8 @@ def t_screenshot(ctx, args):
         if w.get("is_floating") and pos and size:
             off = layout.get("window_offset_in_tile") or [0, 0]
             region = {"x": lg["x"] + pos[0] + off[0], "y": lg["y"] + pos[1] + off[1], "width": size[0], "height": size[1]}
-            return t_screenshot(ctx, {"region": region})
-        out = t_screenshot(ctx, {"monitor": ws["output"]})
+            return screenshot_now(ctx, {"region": region})
+        out = screenshot_now(ctx, {"monitor": ws["output"]})
         out[0]["text"] = f"Window {wid} ({w.get('app_id')}) is tiled on {ws['output']}: the whole monitor.\n" + out[0]["text"]
         return out
     max_edge = int(ctx.cfg.get("screenshotMaxEdge", 1280))
@@ -7822,7 +7929,14 @@ def nearly_same(a, b, w, h):
 
 def wait_settled(ctx):
     """Waits until the focused monitor stops changing. Returns whether it
-    did within SETTLE_MAX_MS (no screen tools: SETTLE_QUIET_MS, then True)."""
+    did within SETTLE_MAX_MS (no screen tools: SETTLE_QUIET_MS, then True).
+    The shell's overlays hidden meanwhile: a chat streaming in the side
+    panel would never let it settle."""
+    with overlays_hidden(ctx):
+        return settled_now(ctx)
+
+
+def settled_now(ctx):
     start = time.monotonic()
     name = None
     if "screen" in ctx.cfg["tools"]:
@@ -8088,6 +8202,11 @@ OCR_MAX_CHARS = 6000
     read_only=True,
 )
 def t_read_screen(ctx, args):
+    with overlays_hidden(ctx):
+        return read_screen_now(ctx, args)
+
+
+def read_screen_now(ctx, args):
     find = as_str(args, "find", required=False, max_len=200)
     if args.get("region") is not None:
         r = args["region"]
@@ -9452,6 +9571,26 @@ def capture_geometry(args):
     if name not in outputs:
         raise ToolError(f"no monitor {name!r}; monitors: {', '.join(outputs)}")
     return ["-o", name], f"monitor {name}", name
+
+
+@tool(
+    "set_aside",
+    "windows",
+    "Dismiss something of the shell that is over the apps and in your way "
+    "(your screenshots and actions say when they are on screen): "
+    "notificationPopups (they stay in the notification center), cutIn (a "
+    "theme's full-screen alert), speechBubble (Claude's bubble, to the bar). "
+    "Rarely needed: they let your clicks and keys through and are hidden "
+    "from your screenshots already. Never the sidePanel (the user's chat with "
+    "you), the lock screen or a password prompt.",
+    obj({"name": {"type": "string", "enum": ["notificationPopups", "cutIn", "speechBubble"]}}, ["name"]),
+)
+def t_set_aside(ctx, args):
+    name = as_str(args, "name", max_len=32)
+    if ctx.desktop != "user":
+        raise ToolError("nothing of the shell is over your own desktop: it is only on the user's")
+    ctx.guard.check_rate()
+    return [text(widget_call("makeWay", "setAside", name).removeprefix("ok:").strip())]
 
 
 @tool(
@@ -11065,7 +11204,13 @@ def call_tool(ctx, name, args, session=None):
                 ctx.desktop = use_desktop(name, t["group"])
             if refused_by_takeover(ctx, name, t["group"]):
                 raise ToolError(TAKEOVER_MESSAGE)
+            # The shell's windows over the apps let the action through.
+            note = None
+            if ctx.desktop == "user" and (t["group"] in ACTION_GROUPS or name == "ui_act"):
+                note = overlays_note(ctx, make_way())
             content = t["fn"](ctx, args)
+            if note:
+                content = list(content) + [note]
         except ToolError as e:
             audit(ctx.client, name, args, f"error: {e}")
             write_state(last={"time": int(time.time() * 1000), "client": ctx.client, "tool": name, "outcome": "error"})
@@ -11119,6 +11264,11 @@ def after_action(ctx, args):
     with screenshot_after, a screenshot of the result."""
     extra = []
     shot = args.get("screenshot_after") is True and "screen" in ctx.cfg["tools"]
+    with overlays_hidden(ctx) if shot else contextlib.nullcontext():
+        return after_action_now(ctx, args, shot, extra)
+
+
+def after_action_now(ctx, args, shot, extra):
     if shot:
         wait = args.get("wait_ms")
         if isinstance(wait, int) and not isinstance(wait, bool) and 0 <= wait <= 5000:

@@ -63,7 +63,7 @@ Scope {
         WlrLayershell.namespace: "quickshell:notificationPopup"
         WlrLayershell.layer: WlrLayer.Overlay
         // Typing an inline reply in a popup needs the keyboard.
-        WlrLayershell.keyboardFocus: Notifications.replyingPopups > 0 ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        WlrLayershell.keyboardFocus: Notifications.replyingPopups > 0 && !MakeWay.active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
         exclusiveZone: 0
 
         anchors {
@@ -73,9 +73,14 @@ Scope {
             right: root.isRight
         }
 
-        mask: Region {
+        // An agent working underneath (services/MakeWay.qml): clicks go
+        // through, faded, gone from its screenshots.
+        mask: MakeWay.active ? noInput : listRegion
+        Region {
+            id: listRegion
             item: listview.contentItem
         }
+        Region { id: noInput }
 
         color: "transparent"
         implicitWidth: Appearance.sizes.notificationPopupWidth + 8
@@ -90,6 +95,7 @@ Scope {
             anchors.bottomMargin: 4
             popup: true
             interactive: false
+            opacity: MakeWay.fade(0.5)
             verticalLayoutDirection: root.isBottom ? ListView.BottomToTop : ListView.TopToBottom
         }
     }

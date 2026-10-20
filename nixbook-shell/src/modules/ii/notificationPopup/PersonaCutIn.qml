@@ -33,6 +33,18 @@ Scope {
 
     property var queue: []
     readonly property var current: root.queue.length > 0 ? root.queue[0] : null
+    // An agent working underneath (services/MakeWay.qml) is told it shows,
+    // and may set it aside: this one and those queued behind it go.
+    onCurrentChanged: MakeWay.setCutIn("persona", root.current !== null)
+    Component.onDestruction: MakeWay.setCutIn("persona", false)
+    Connections {
+        target: MakeWay
+        function onSetAsideCutIns() {
+            if (!root.current) return
+            root.queue = [root.current]
+            root.dismiss()
+        }
+    }
     readonly property bool enabled: Persona.enabled && Persona.shapes
 
     // Why `n` gets a cut-in ("" = it doesn't): Notifications.cutInVerdict.
@@ -167,7 +179,10 @@ Scope {
         screen: Quickshell.screens.find(s => s.name === WM.focusedMonitor?.name) ?? null
         WlrLayershell.namespace: "quickshell:personaCutIn"
         WlrLayershell.layer: WlrLayer.Overlay
-        WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        WlrLayershell.keyboardFocus: visible && !MakeWay.active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        // While an agent works underneath, its clicks go through.
+        mask: MakeWay.active ? makeWayNoInput : null
+        Region { id: makeWayNoInput }
         exclusionMode: ExclusionMode.Ignore
         anchors { top: true; bottom: true; left: true; right: true }
         color: "transparent"
@@ -245,6 +260,7 @@ Scope {
 
         Item {
             id: keyTarget
+            opacity: MakeWay.fade(0.5)
             anchors.fill: parent
             focus: true
             Keys.onPressed: event => {

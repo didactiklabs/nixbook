@@ -157,6 +157,9 @@ done
 cat >"$bin/grim" <<'EOF'
 #!/usr/bin/env bash
 echo "grim $*" >>"$STUB_CALLS"
+# What the shell's overlays were asked when the screen was captured.
+mw="$XDG_RUNTIME_DIR/nixbook-shell/make-way.json"
+[ ! -e "$mw" ] || jq -c '{capture}' "$mw" >>"$STUB_CALLS.mw"
 # PPM: the next of $STUB_FRAMES/1.ppm, 2.ppm… (then the last one again, or
 # with $STUB_FRAMES_CYCLE the first), else a grey 64x36. To a file, or "-": stdout.
 out="${*: -1}"
@@ -243,6 +246,9 @@ case "$*" in
       "widgets":[{"name":"clock","monitor":"eDP-1","x":100,"y":100,"width":300,"height":300,"z":0,"placement":"leastBusy"},
                  {"name":"customImage:ab12","monitor":"HDMI-A-1","x":50,"y":60,"width":200,"height":200,"z":1,"placement":"free"}]}' ;;
   *"widgets place"* | *"widgets hideOn"* | *"widgets raise"* | *"widgets placement"*) echo "ok: done" ;;
+  # MakeWay.qml: the shell's overlays set aside.
+  *"makeWay setAside sidePanel"*) echo "error: the side panel is the user's chat with you: leave it" ;;
+  *"makeWay setAside"*) echo "ok: ${*: -1} dismissed" ;;
   # WindowLayouts.qml: the cover over the screens while an agent restores.
   *"layouts coverBegin"* | *"layouts coverEnd"*) echo "ok" ;;
   # Recording (RegionSelector.qml `region`): a marker while it runs; stopping
@@ -426,7 +432,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 51 tools" 51 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 52 tools" 52 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -835,6 +841,28 @@ out=$(call run_steps '{"steps":[{"tool":"type_text","args":{"text":"rm -rf ~"}}]
 expect_contains "run_steps: guardrails apply to every step" "$out" "refused: input into 'kitty'"
 expect_eq "run_steps: nothing typed into the terminal" "" "$(cat "$calls")"
 echo firefox >"$STUB_FOCUS"
+
+# -- the shell's overlays make way ---------------------------------------------------------------
+# The side panel, the bubble, popups, cut-ins over the apps (MakeWay.qml):
+# the agent's clicks and screenshots go through them, it is told once.
+sh_rt="$XDG_RUNTIME_DIR/nixbook-shell"
+mkdir -p "$sh_rt"
+rm -f "$sh_rt/make-way.json" "$calls.mw"
+out=$(call click '{"x":10,"y":10}')
+expect_eq "make way: nothing on screen, nothing asked" no "$([ -e "$sh_rt/make-way.json" ] && echo yes || echo no)"
+expect_not_contains "make way: nothing on screen, nothing told" "$out" "click-through"
+echo '{"overlays":["sidePanel","cutIn"]}' >"$sh_rt/overlays.json"
+out=$(call click '{"x":10,"y":10}')
+expect_eq "make way: an action lets the agent through, held a while" "false true" \
+  "$(jq -r --argjson now "$(date +%s%3N)" '"\(.capture) \(.until > $now + 5000)"' "$sh_rt/make-way.json")"
+expect_contains "make way: the agent is told what it is let through" "$out" "the shell's sidePanel, cutIn: made click-through"
+: >"$calls.mw"
+out=$(call screenshot '{}')
+expect_eq "make way: overlays hidden while the screen is captured" '{"capture":true}' "$(sort -u "$calls.mw")"
+expect_eq "make way: shown again after" false "$(jq .capture "$sh_rt/make-way.json")"
+expect_contains "make way: set_aside dismisses a cut-in" "$(call set_aside '{"name":"cutIn"}')" "cutIn dismissed"
+expect_contains "make way: never the side panel" "$(call set_aside '{"name":"sidePanel"}')" "the user's chat with you"
+rm -f "$sh_rt/overlays.json" "$sh_rt/make-way.json" "$calls.mw"
 
 # -- window layouts ----------------------------------------------------------------------------
 
