@@ -938,7 +938,12 @@ Singleton {
             root.selectChat(open);
             return;
         }
-        if (!root.current || !root.history.some(c => c.id === id)) return;
+        if (root.current) root.openChatIn(root.current, id);
+    }
+    // A conversation of the history, in that chat (Claude's speech bubble
+    // opens its threads in its own): whether it could be read.
+    function openChatIn(chat, id) {
+        if (!chat || !root.history.some(c => c.id === id)) return false;
         let saved;
         try {
             historyChatFile.path = root.historyChatPath(id);
@@ -946,10 +951,11 @@ Singleton {
             saved = JSON.parse(historyChatFile.text());
         } catch (e) {
             console.log("[Ai] Could not open conversation:", id, e);
-            root.addMessage(Translation.tr("That conversation can't be read any more."), root.interfaceRole);
-            return;
+            if (chat === root.current) root.addMessage(Translation.tr("That conversation can't be read any more."), root.interfaceRole);
+            return false;
         }
-        root.current.openSaved(id, saved);
+        chat.openSaved(id, saved);
+        return true;
     }
     // In a new tab (or the current one, when it is empty).
     function openChatInNewTab(id) {

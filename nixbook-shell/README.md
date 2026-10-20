@@ -558,7 +558,9 @@ loud is not a notification: `Initiative.speaking` shows
 `modules/ii/notificationPopup/AgentSpeech.qml`, a speech bubble on the left
 under the bar, styled per theme (Material, Persona, Chiikawa, Cyberpunk,
 Ghibli), that is a small chat of its own: the user answers in its field
-(Enter sends, Shift+Enter a new line, Escape puts it away) or with a quick
+(Enter sends, Shift+Enter a new line, Escape puts it away; its new-chat
+button, or /new or /clear typed, starts a new conversation,
+`Initiative.fresh()`: the one before stays in the side panel's history) or with a quick
 answer (Yes please / No thanks under a question, Yes do it for a routine,
 a reaction's buttons, Not now, Don't tell me this), and Claude answers in
 the bubble, saying what it is doing meanwhile (thinking, the tool it used:
