@@ -16,7 +16,8 @@ import QtQuick
  *
  * Used by the desktop's right-click menu, Settings > Window layouts and the
  * `layouts` IPC target for key bindings (`cycle`, `restoreNumber N`,
- * `saveCurrent`, `restore NAME`, `save NAME`), which agents can't call.
+ * `saveCurrent`, `restore NAME`, `save NAME`), which agents can't call
+ * (their restore_layout asks for the same cover: coverBegin, coverEnd).
  * With windowLayouts.closeOthers on, restoring also closes the windows the
  * layout doesn't have (the agents' restore_layout never does).
  * The list is read again after every change and when a menu shows it.
@@ -158,6 +159,20 @@ Singleton {
         }
         function list(): string {
             return JSON.stringify({ current: root.current, layouts: root.layouts.map(l => l.name) });
+        }
+        // An agent's restore_layout (nixbook-desktop-mcp, not callable by
+        // agents through shell_ipc): the same cover over the screens while
+        // it moves the windows, lifted by coverEnd (or after 30 s, by the
+        // overlay itself).
+        function coverBegin(name: string): string {
+            root.restoringName = root.validName(name) ? name : "";
+            root.restoring = true;
+            return "ok";
+        }
+        function coverEnd(): string {
+            if (!runner.running) root.restoring = false;
+            root.refresh();
+            return "ok";
         }
     }
 }

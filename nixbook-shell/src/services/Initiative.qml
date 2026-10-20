@@ -150,6 +150,11 @@ Singleton {
         else if (!root.speaking) root.speaking = root._ask()
         root.focusWanted()
     }
+    // Mod+C, the robot's middle-click: called up, or put away when shown.
+    function toggle() {
+        if (root.speaking) root.hush("wait")
+        else root.summon()
+    }
     function _ask() {
         return { id: "", kind: "ask", text: root._pick([Translation.tr("What can I do for you?"),
             Translation.tr("I'm here. What do you need?"), Translation.tr("Yes? Ask me anything.")]) }
@@ -424,11 +429,15 @@ Singleton {
         }
     }
 
-    // `nixbook-shell ipc call claude ask` (Mod+C): its bubble, to ask.
+    // `nixbook-shell ipc call claude toggle` (Mod+C): its bubble, to ask, or
+    // put away; `ask`: always called up.
     IpcHandler {
         target: "claude"
         function ask(): void {
             root.summon()
+        }
+        function toggle(): void {
+            root.toggle()
         }
     }
 

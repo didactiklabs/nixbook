@@ -33,7 +33,7 @@ MouseArea {
     hoverEnabled: true
     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
     onClicked: mouse => {
-        if (mouse.button === Qt.MiddleButton) Initiative.summon();
+        if (mouse.button === Qt.MiddleButton) Initiative.toggle();
         else if (mouse.button === Qt.RightButton) DesktopControl.toggleDesktop();
         else DesktopControl.toggle();
     }
@@ -291,7 +291,7 @@ MouseArea {
 
             StyledText {
                 Layout.fillWidth: true
-                text: Translation.tr("Middle-click to ask Claude anything (Mod+C)")
+                text: Translation.tr("Middle-click to ask Claude anything, again to put it away (Mod+C)")
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colSubtext
             }

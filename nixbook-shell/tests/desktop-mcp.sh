@@ -243,6 +243,8 @@ case "$*" in
       "widgets":[{"name":"clock","monitor":"eDP-1","x":100,"y":100,"width":300,"height":300,"z":0,"placement":"leastBusy"},
                  {"name":"customImage:ab12","monitor":"HDMI-A-1","x":50,"y":60,"width":200,"height":200,"z":1,"placement":"free"}]}' ;;
   *"widgets place"* | *"widgets hideOn"* | *"widgets raise"* | *"widgets placement"*) echo "ok: done" ;;
+  # WindowLayouts.qml: the cover over the screens while an agent restores.
+  *"layouts coverBegin"* | *"layouts coverEnd"*) echo "ok" ;;
   # Recording (RegionSelector.qml `region`): a marker while it runs; stopping
   # leaves a video in $STUB_VIDEOS.
   *"region recordStatus"*)
@@ -863,7 +865,10 @@ done
 expect_contains "restore_layout: floating size and position" "$(cat "$calls")" "niri msg action set-window-width --id 6 400
 niri msg action set-window-height --id 6 300
 niri msg action move-floating-window --id 6 -x 10 -y 20"
-expect_eq "restore_layout: focus given back" "niri msg action focus-window --id 1" "$(grep -v '^notify' "$calls" | tail -n 1)"
+expect_eq "restore_layout: focus given back" "niri msg action focus-window --id 1" "$(grep -v '^notify\|^qs' "$calls" | tail -n 1)"
+expect_eq "restore_layout: the shell covers the screens first, lifts the cover last (as Mod+G)" \
+  "qs -c nixbook-shell ipc call -- layouts coverBegin work|qs -c nixbook-shell ipc call -- layouts coverEnd" \
+  "$(grep -v '^notify' "$calls" | sed -n '1p;$p' | paste -sd'|')"
 rm -f "$calls.hidden" "$calls.launched"
 # An app that shows a splash first (Vesktop's "Loading", same app id): the
 # window that replaces it is the one placed.
@@ -2909,6 +2914,9 @@ expect_eq "agent desktop: tools reach its niri" "$STUB_AGENT_SOCKET" "$(cat "$ca
 expect_contains "agent desktop: ui tools use its own accessibility bus" \
   "$(STUB_AGENT_HAS_WINDOW=1 call ui_read)" "no accessibility tree on your desktop"
 expect_eq "agent desktop: status says so" agent "$(call get_status | jq -r .desktop)"
+reset_calls
+call restore_layout '{"name":"work"}' >/dev/null || true
+expect_eq "agent desktop: its restore_layout doesn't cover the user's screens" "" "$(grep 'layouts cover' "$calls" || true)"
 # Its niri has no virtual pointer here: refused, never ydotool (uinput: the user's desktop).
 reset_calls
 expect_contains "agent desktop: no ydotool fallback for the pointer" "$(call click '{"x": 10, "y": 10}')" "ydotool would click on the user's desktop"

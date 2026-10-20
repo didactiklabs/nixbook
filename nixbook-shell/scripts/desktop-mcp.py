@@ -7413,6 +7413,29 @@ def pin_workspaces(pairs, outputs):
     ),
 )
 def t_restore_layout(ctx, args, close_others=False):
+    # On the user's desktop, the shell covers the screens and takes the input
+    # while the windows move, as for the user's own restore (Mod+G,
+    # WindowLayouts.qml: `layouts coverBegin|coverEnd`; it lifts by itself
+    # after 30 s), so a click or a key doesn't land on a window being moved.
+    # Best effort: without the shell, the restore goes on uncovered.
+    name = as_str(args, "name", max_len=64, pattern=LAYOUT_NAME)
+    covered = False
+    if ctx.desktop != "agent":
+        try:
+            covered = widget_call("layouts", "coverBegin", name).startswith("ok")
+        except (ToolError, OSError, subprocess.SubprocessError):
+            pass
+    try:
+        return restore_layout_now(ctx, args, close_others)
+    finally:
+        if covered:
+            try:
+                widget_call("layouts", "coverEnd")
+            except (ToolError, OSError, subprocess.SubprocessError):
+                pass
+
+
+def restore_layout_now(ctx, args, close_others=False):
     # close_others (the user's setting, not the agents' tool): close the
     # windows the layout doesn't have, as their close button would.
     name = as_str(args, "name", max_len=64, pattern=LAYOUT_NAME)
