@@ -376,7 +376,7 @@ def mark_agent_input():
 # the last action so the windows don't flicker between steps; the shell
 # answers in make-way.ack once it is on screen (waited for, at most
 # MAKE_WAY_WAIT s, only when it changes).
-MAKE_WAY_HOLD_MS = 12000
+MAKE_WAY_HOLD_MS = 5000
 MAKE_WAY_WAIT = 0.3
 
 
@@ -461,8 +461,9 @@ def overlays_note(ctx, shown):
     ctx.overlays_told = shown
     return text("On screen, the shell's " + ", ".join(shown) + ": made click-through, keyboard released and "
                 "hidden from your screenshots while you work, so act on the windows under them as if they "
-                "weren't there. If one still gets in your way, set_aside dismisses notificationPopups, a "
-                "cutIn or the speechBubble (never the sidePanel: the user's chat with you).")
+                "weren't there. If one still gets in your way, set_aside hides notificationPopups, a "
+                "cutIn or the speechBubble while you work (they come back for the user after; never the "
+                "sidePanel: the user's chat with you).")
 
 
 def focused_a11y_role(w):
@@ -9576,13 +9577,14 @@ def capture_geometry(args):
 @tool(
     "set_aside",
     "windows",
-    "Dismiss something of the shell that is over the apps and in your way "
-    "(your screenshots and actions say when they are on screen): "
-    "notificationPopups (they stay in the notification center), cutIn (a "
-    "theme's full-screen alert), speechBubble (Claude's bubble, to the bar). "
-    "Rarely needed: they let your clicks and keys through and are hidden "
-    "from your screenshots already. Never the sidePanel (the user's chat with "
-    "you), the lock screen or a password prompt.",
+    "Hide something of the shell that is over the apps and in your way "
+    "while you work (your screenshots and actions say when they are on "
+    "screen; it comes back for the user a few seconds after your last "
+    "action, nothing is dismissed): notificationPopups, cutIn (a theme's "
+    "full-screen alert), speechBubble (Claude's bubble). Rarely needed: they "
+    "let your clicks and keys through and are hidden from your screenshots "
+    "already. Never the sidePanel (the user's chat with you), the lock "
+    "screen or a password prompt.",
     obj({"name": {"type": "string", "enum": ["notificationPopups", "cutIn", "speechBubble"]}}, ["name"]),
 )
 def t_set_aside(ctx, args):

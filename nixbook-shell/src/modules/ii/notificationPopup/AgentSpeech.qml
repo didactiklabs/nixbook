@@ -171,7 +171,7 @@ Scope {
         // from its screenshots.
         Item {
             anchors.fill: parent
-            opacity: MakeWay.fade(0.85)
+            opacity: MakeWay.fade(0.85, "speechBubble")
             // Slides in from the left, a little bounce (a snap in Persona).
             Item {
                 id: card
@@ -620,6 +620,7 @@ Scope {
                     id: unanswered
                     interval: root.conversing ? 90000 : root.item?.kind === "react" ? 15000 : 25000
                     running: root.item !== null && window.visible && !hover.hovered && !Initiative.typing && !root.responding
+                    && !MakeWay.active
                     onTriggered: Initiative.hush("wait")
                 }
             }

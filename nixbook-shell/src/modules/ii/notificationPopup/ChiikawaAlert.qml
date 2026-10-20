@@ -29,17 +29,9 @@ Scope {
     property var queue: []
     readonly property var current: root.queue.length > 0 ? root.queue[0] : null
     // An agent working underneath (services/MakeWay.qml) is told it shows,
-    // and may set it aside: this one and those queued behind it go.
+    // and may set it aside: hidden while it works, back after.
     onCurrentChanged: MakeWay.setCutIn("chiikawa", root.current !== null)
     Component.onDestruction: MakeWay.setCutIn("chiikawa", false)
-    Connections {
-        target: MakeWay
-        function onSetAsideCutIns() {
-            if (!root.current) return
-            root.queue = [root.current]
-            root.dismiss()
-        }
-    }
     readonly property bool enabled: Chiikawa.enabled
 
     function show(n) {
@@ -183,7 +175,7 @@ Scope {
 
         Item {
             id: keyTarget
-            opacity: MakeWay.fade(0.5)
+            opacity: MakeWay.fade(0.5, "cutIn")
             anchors.fill: parent
             focus: true
             Keys.onPressed: event => {

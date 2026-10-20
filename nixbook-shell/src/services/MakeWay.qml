@@ -16,15 +16,17 @@ import QtQuick
  *     screen, written when that changes: nixbook-desktop-mcp reads it before
  *     an action or a screenshot on the user's desktop (a file read, no IPC);
  *   - with any on screen, it writes `make-way.json` {seq, until, capture}:
- *     until `until` (ms; the server pushes it on at each action), they let
- *     clicks through and give up the keyboard, faded a little, with a word
- *     that Claude works underneath; `capture` (its screenshot being taken)
- *     makes them invisible for that moment. `make-way.ack` says when that is
+ *     until `until` (ms; the server pushes it on at each action, a few
+ *     seconds), they let clicks through and give up the keyboard, faded a
+ *     little, with a word that Claude works underneath; `capture` (its
+ *     screenshot being taken) makes them invisible for that moment. Then
+ *     they are back as they were: nothing is dismissed or put away. `make-way.ack` says when that is
  *     on screen (a couple of frames after), the server waits for it;
- *   - `makeWay setAside NAME` (the server's set_aside tool): popups and
- *     cut-ins dismissed, the bubble put away; never the side panel (it lets
- *     the agent through already) nor the lock screen or a password prompt.
- * The windows read `active`, `capture`, `fade(base)`.
+ *   - `makeWay setAside NAME` (the server's set_aside tool): the popups, a
+ *     cut-in or the bubble hidden while the agent works, back when it
+ *     stops; never the side panel (it lets the agent through already) nor
+ *     the lock screen or a password prompt.
+ * The windows read `active`, `capture`, `fade(base, name)`.
  */
 Singleton {
     id: root
@@ -35,11 +37,15 @@ Singleton {
     readonly property bool active: (root.request.until ?? 0) > root.now
     readonly property bool capture: root.active && root.request.capture === true
 
-    // A window's opacity while making way: hidden for a screenshot, else a
-    // little faded (`base`: how much shows, the side panel more than a cut-in).
-    function fade(base) {
-        return root.capture ? 0 : root.active ? base : 1
+    // A window's opacity while making way: hidden for a screenshot or set
+    // aside, else a little faded (`base`: how much shows, the side panel more
+    // than a cut-in).
+    function fade(base, name) {
+        return root.capture || (root.active && (root.aside[name] ?? false)) ? 0 : root.active ? base : 1
     }
+    // Set aside by the agent (by name): hidden while it works, back after.
+    property var aside: ({})
+    onActiveChanged: if (!root.active) root.aside = {}
 
     // The theme cut-ins say when they show (several kinds may exist).
     property var cutIns: ({})
@@ -47,7 +53,6 @@ Singleton {
         if ((root.cutIns[kind] ?? false) === on) return
         root.cutIns = Object.assign({}, root.cutIns, { [kind]: on })
     }
-    signal setAsideCutIns()
 
     readonly property var overlays: {
         const out = []
@@ -111,17 +116,10 @@ Singleton {
     IpcHandler {
         target: "makeWay"
         function setAside(name: string): string {
-            if (name === "notificationPopups") {
-                Notifications.timeoutAll()
-                return "ok: notification popups dismissed (still in the notification center)"
-            }
-            if (name === "cutIn") {
-                root.setAsideCutIns()
-                return "ok: cut-in dismissed"
-            }
-            if (name === "speechBubble") {
-                Initiative.hush("wait")
-                return "ok: Claude's bubble put away (in the bar)"
+            if (["notificationPopups", "cutIn", "speechBubble"].includes(name)) {
+                if (!root.active) return "error: set aside only while you work on the user's desktop"
+                root.aside = Object.assign({}, root.aside, { [name]: true })
+                return `ok: ${name} hidden while you work; back for the user when you stop`
             }
             if (name === "sidePanel")
                 return "error: the side panel is the user's chat with you: leave it; it lets your clicks through and is hidden from your screenshots"
