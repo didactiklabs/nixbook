@@ -48,9 +48,10 @@ Singleton {
     readonly property bool pullEnabled: Config.options?.keep?.pull ?? true
 
     property bool _started: false
-    // The notes as they were when the sync started: a note changed while it
-    // ran makes its answer stale (the sync runs again, once).
-    property string _snapshot: ""
+    // The notes as they were when the sync started ({ id: note }): a note
+    // changed, added or removed while it ran keeps that change (the merged
+    // copy of it is stale), and the sync runs again, once, to send it.
+    property var _sent: ({})
     property bool _resynced: false
     // The account being signed in (the credentials go to the keyring, they
     // are not kept here).
@@ -103,7 +104,7 @@ Singleton {
         }
         root.syncing = true
         root.lastError = ""
-        root._snapshot = root._stamp()
+        root._sent = root._stamps()
         syncProc.payload = JSON.stringify({
             notes: Notes.list,
             push: root.pushEnabled,
@@ -116,25 +117,74 @@ Singleton {
         syncProc.onDone = then ?? null
     }
 
-    // The notes' ids and edit times: what changed while the sync ran.
-    function _stamp() {
-        return Notes.list.map(n => `${n.id}:${n.updatedAt || 0}`).join("|")
+    // Each note's text and pin as sent: what changed while the sync ran.
+    function _stamps() {
+        const stamps = {}
+        for (const n of Notes.list) stamps[n.id] = { content: n.content, pinned: !!n.pinned }
+        return stamps
     }
 
-    // The sync's answer: the merged notes replace the current ones.
+    // The sync's answer: the merged notes replace the current ones, except
+    // what changed here while it ran (typed, pinned, added, deleted), which
+    // stays as it is now: the merged copy of it is stale.
     function _apply(answer, then) {
         root.stats = answer.stats ?? {}
         root.lastSync = root.stats.lastSync ?? Date.now()
         const merged = answer.notes ?? []
-        // A note changed while the sync ran: the merged copy is stale, so it
-        // runs again (once), with the same callback.
-        if (root._stamp() !== root._snapshot && !root._resynced) {
+        const sent = root._sent
+        const current = {}
+        for (const n of Notes.list) current[n.id] = n
+        const result = []
+        const seen = {}
+        let stale = false
+        for (const m of merged) {
+            seen[m.id] = true
+            if (!Object.prototype.hasOwnProperty.call(sent, m.id)) {
+                // From Keep.
+                result.push(m)
+                continue
+            }
+            const now = current[m.id]
+            const was = sent[m.id]
+            if (!now) {
+                // Deleted here meanwhile.
+                stale = true
+                continue
+            }
+            // Changed here meanwhile: what changed (the text, the pin) stays
+            // as it is now, on the merged note (linked to its Keep note, so
+            // a note just created there isn't created twice).
+            const changes = {}
+            if (now.content !== was.content) {
+                changes.content = now.content
+                changes.updatedAt = now.updatedAt
+                changes.attachments = now.attachments
+            }
+            if (!!now.pinned !== was.pinned)
+                changes.pinned = !!now.pinned
+            if (Object.keys(changes).length > 0) {
+                stale = true
+                result.push(Object.assign({}, m, changes))
+            } else {
+                result.push(m)
+            }
+        }
+        // Added here meanwhile. A note that was sent and isn't in the answer
+        // was removed by the merge (deleted in Keep): it stays removed.
+        for (const n of Notes.list) {
+            if (!seen[n.id] && !Object.prototype.hasOwnProperty.call(sent, n.id)) {
+                stale = true
+                result.push(n)
+            }
+        }
+        Notes.applySynced(result)
+        // What changed meanwhile is sent now (once), with the same callback.
+        if (stale && !root._resynced) {
             root._resynced = true
             root.sync(then)
             return false
         }
         root._resynced = false
-        Notes.applySynced(merged)
         return true
     }
 
@@ -237,6 +287,7 @@ Singleton {
             } catch (e) {}
             if (code !== 0 || !answer || answer.error) {
                 root.lastError = answer?.error ?? Translation.tr("the sync failed")
+                root._resynced = false
                 const failed = syncProc.onDone
                 syncProc.onDone = null
                 if (failed) failed(false, root.lastError)

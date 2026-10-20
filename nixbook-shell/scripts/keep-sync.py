@@ -373,7 +373,7 @@ def merge_notes(local_notes, remote_notes, push=True, pull=True, ignored=()):
             stats["linked"] += 1
 
         remote = remote_by_id.get(keep_id)
-        if remote is None:
+        if remote is None or remote.get("trashed") or remote.get("deleted"):
             # Deleted (or trashed) in Keep: the note stays here, nothing is
             # pushed and nothing is brought back.
             stats["skipped"] += 1
@@ -533,7 +533,16 @@ def apply_action(keep, action):
         node = keep.get(action["keepId"])
         if node is None:
             return None
-        if action.get("items") is not None and hasattr(node, "items"):
+        if (action.get("items") is not None) != hasattr(node, "items"):
+            # The note changed kind (a checklist became a note, or a note a
+            # checklist): Keep can't turn one into the other (a list's text
+            # can't be set, a note has no items), so it is written as a new
+            # Keep note of the right kind, and the old one goes to Keep's
+            # trash (where it can still be restored).
+            replacement = apply_action(keep, dict(action, op="create"))
+            node.trash()
+            return replacement
+        if action.get("items") is not None:
             _push_list(node, action)
         else:
             title = action.get("title") or ""
@@ -617,8 +626,11 @@ def do_sync(local_notes, push=True, pull=True):
         note = by_id.get(action["localId"])
         if note is None:
             continue
-        if action["op"] == "create":
-            note["keepId"] = node.id
+        if action["op"] == "push" and node.id != action["keepId"]:
+            # Replaced by a Keep note of another kind: the old one (trashed)
+            # is not imported again.
+            ignored.add(action["keepId"])
+        note["keepId"] = node.id
         # The note was changed on Keep's side: the next sync compares with
         # this moment, not with the one before the change.
         note["keepEdited"] = _ms(node.timestamps.edited)
