@@ -18,7 +18,7 @@ import Quickshell
 // A speech bubble beside it while the agent has something to tell the user
 // (services/Initiative.qml), or a conversation put away, breathing slowly:
 // click brings it back in Claude's speech bubble, right-click is "not now".
-// Middle-click (or Mod+Shift+Space) calls Claude up to ask anything. The
+// Middle-click (or Mod+C) calls Claude up to ask anything. The
 // robot hops when Claude has something new to say, and nods while Claude
 // answers in its bubble.
 MouseArea {
@@ -291,7 +291,7 @@ MouseArea {
 
             StyledText {
                 Layout.fillWidth: true
-                text: Translation.tr("Middle-click to ask Claude anything (Mod+Shift+Space)")
+                text: Translation.tr("Middle-click to ask Claude anything (Mod+C)")
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colSubtext
             }
