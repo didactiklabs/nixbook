@@ -43,9 +43,6 @@
         "app:^\"Calendar\""
         # Family and friends
         "Alesio"
-        "chocomooncake"
-        "choco mooncake"
-        "wolfey182"
         "Trang HANG"
         "Tin Dinh"
         "aamoyel"
