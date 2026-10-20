@@ -926,6 +926,11 @@ in
                   "desktopControl"
                   "toggle"
                 ];
+                # Claude's speech bubble, to ask anything (it answers there).
+                "Mod+Shift+Space" = [
+                  "claude"
+                  "ask"
+                ];
               }
           )
         )

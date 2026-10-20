@@ -76,7 +76,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("Claude speaks first when it can help, not on a schedule: when you come back (your day, a plan coming up or just past, your usual setup), when an app it has a broken recipe for is in front, when it learned something. Time-critical things come as its own speech bubble on the left, in the theme's look (Reply opens its From Claude tab, Not now, Don't tell me this; at most 8 a day, none at night, in a meeting or fullscreen); the rest waits as a bubble beside the robot in the bar. Now and then, at random and up to four times a day, it says a light word in the bar: a break after a long stretch, a tip for the app you're in, a plan coming up, a question about something you care about. It learns from your answers what is worth saying. Plain code decides; a small model only reads notifications and words tips and questions.")
+                text: Translation.tr("Claude speaks first when it can help, not on a schedule: when you come back (your day, a plan coming up or just past, your usual setup), when an app it has a broken recipe for is in front, when it learned something. Time-critical things come as its own speech bubble on the left, in the theme's look: answer right in it and Claude answers there (the expand button moves the talk to the side panel; quick answers, Not now, Don't tell me this; at most 8 a day, none at night, in a meeting or fullscreen); the rest waits as a bubble beside the robot in the bar. Now and then, at random and up to four times a day, it says a light word in the bar: a break after a long stretch, a tip for the app you're in, a plan coming up, a question about something you care about. It learns from your answers what is worth saying. Plain code decides; a small model only reads notifications and words tips and questions.")
             }
 
             GroupedList {
@@ -102,6 +102,14 @@ ContentPage {
                     text: Translation.tr("Be curious: watch what I do (the app and window title in front, read once a day by the small model), learn it, and tell me what it learned")
                     checked: Config.options.ai.initiative.curious
                     onCheckedChanged: Config.options.ai.initiative.curious = checked
+                }
+                ConfigSwitch {
+                    configKey: "ai.initiative.reactions"
+                    buttonIcon: "bolt"
+                    enabled: Config.options.ai.initiative.enable
+                    text: Translation.tr("React to what I do: a file downloaded, a screenshot, a drive plugged in, with one-click help (open, show in folder, summarize, what's in it). No model call until I click")
+                    checked: Config.options.ai.initiative.reactions
+                    onCheckedChanged: Config.options.ai.initiative.reactions = checked
                 }
             }
 

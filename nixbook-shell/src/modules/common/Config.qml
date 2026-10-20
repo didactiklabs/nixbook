@@ -262,6 +262,9 @@ Singleton {
                     // Watches what is in front (app, window title) and learns
                     // what the user does from it, saying what it learned.
                     property bool curious: false
+                    // Reacts to what the user just did (a download, a
+                    // screenshot, a drive plugged in) with one-click help.
+                    property bool reactions: false
                 }
                 // The routines the user asked agents for ("whenever the music
                 // ends, play something", services/Routines.qml): run on their cue.

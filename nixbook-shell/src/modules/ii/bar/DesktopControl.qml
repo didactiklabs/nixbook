@@ -16,8 +16,11 @@ import Quickshell
 // app, red once the user closed it: they're stopped; a hand while the user
 // has taken it over); right-click switches between theirs and the user's.
 // A speech bubble beside it while the agent has something to tell the user
-// (services/Initiative.qml), breathing slowly: click opens it in the chat,
-// right-click is "not now".
+// (services/Initiative.qml), or a conversation put away, breathing slowly:
+// click brings it back in Claude's speech bubble, right-click is "not now".
+// Middle-click (or Mod+Shift+Space) calls Claude up to ask anything. The
+// robot hops when Claude has something new to say, and nods while Claude
+// answers in its bubble.
 MouseArea {
     id: root
     property bool vertical: Config.options.bar.vertical
@@ -28,9 +31,10 @@ MouseArea {
 
     cursorShape: Qt.PointingHandCursor
     hoverEnabled: true
-    acceptedButtons: Qt.LeftButton | Qt.RightButton
+    acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
     onClicked: mouse => {
-        if (mouse.button === Qt.RightButton) DesktopControl.toggleDesktop();
+        if (mouse.button === Qt.MiddleButton) Initiative.summon();
+        else if (mouse.button === Qt.RightButton) DesktopControl.toggleDesktop();
         else DesktopControl.toggle();
     }
 
@@ -40,31 +44,47 @@ MouseArea {
         : Appearance.colors.colOnLayer1
 
     readonly property string icon: DesktopControl.paused ? "pan_tool" : "smart_toy"
+    readonly property bool lively: DesktopControl.active || Initiative.thinking
     readonly property color iconColor: DesktopControl.paused ? Appearance.m3colors.m3error
-        : DesktopControl.active ? Appearance.colors.colPrimary
+        : root.lively ? Appearance.colors.colPrimary
         : Appearance.colors.colOnLayer1
 
     // Breathes while an agent acts, so it's noticed from the corner of an eye.
     property real pulse: 1
     SequentialAnimation on pulse {
-        running: DesktopControl.active
+        running: root.lively
         loops: Animation.Infinite
         NumberAnimation { to: 0.35; duration: 700; easing.type: Easing.InOutSine }
         NumberAnimation { to: 1; duration: 700; easing.type: Easing.InOutSine }
         onRunningChanged: if (!running) root.pulse = 1
     }
 
-    // What the agent waits to tell the user, the latest.
+    // A hop when Claude has something new to say (out loud or waiting).
+    property real hop: 0
+    SequentialAnimation {
+        id: hopAnim
+        NumberAnimation { target: root; property: "hop"; to: -4; duration: 140; easing.type: Easing.OutQuad }
+        NumberAnimation { target: root; property: "hop"; to: 0; duration: 380; easing.type: Easing.OutBounce }
+    }
+    Connections {
+        target: Initiative
+        function onSpeakingChanged() { if (Initiative.speaking) hopAnim.restart(); }
+        function onLiveChanged() { if (Initiative.live.length > 0) hopAnim.restart(); }
+    }
+
+    // What the agent waits to tell the user, the latest, or the
+    // conversation put away.
     readonly property var said: Initiative.live.length > 0 ? Initiative.live[Initiative.live.length - 1] : null
+    readonly property bool waiting: root.said !== null || Initiative.parked !== null
     component Bubble: MaterialSymbol {
         id: bubble
         readonly property var said: root.said
-        visible: bubble.said !== null
+        visible: root.waiting
         text: "chat_bubble"
         fill: 1
         color: Appearance.colors.colPrimary
         SequentialAnimation on opacity {
-            running: bubble.said !== null
+            running: root.waiting
             loops: Animation.Infinite
             NumberAnimation { to: 0.5; duration: 1600; easing.type: Easing.InOutSine }
             NumberAnimation { to: 1; duration: 1600; easing.type: Easing.InOutSine }
@@ -75,8 +95,11 @@ MouseArea {
             acceptedButtons: Qt.LeftButton | Qt.RightButton
             cursorShape: Qt.PointingHandCursor
             onClicked: mouse => {
-                if (mouse.button === Qt.RightButton) Initiative.answer(bubble.said.id, "later");
-                else Initiative.open(bubble.said);
+                if (mouse.button === Qt.RightButton) {
+                    if (bubble.said) Initiative.answer(bubble.said.id, "later");
+                    else Initiative.parked = null;
+                } else if (bubble.said) Initiative.open(bubble.said);
+                else Initiative.resume();
             }
         }
     }
@@ -102,14 +125,15 @@ MouseArea {
             Row {
                 id: plainRow
                 anchors.centerIn: parent
+                anchors.verticalCenterOffset: root.hop
                 spacing: 2
                 MaterialSymbol {
                     text: root.icon
-                    fill: DesktopControl.paused || DesktopControl.active ? 1 : 0
+                    fill: DesktopControl.paused || root.lively ? 1 : 0
                     iconSize: Appearance.font.pixelSize.normal
                     color: root.iconColor
                     // Idle: faint, so the accent colour of an acting agent stands out.
-                    opacity: DesktopControl.active ? root.pulse : DesktopControl.paused ? 1 : 0.45
+                    opacity: root.lively ? root.pulse : DesktopControl.paused ? 1 : 0.45
                 }
                 MaterialSymbol {
                     visible: root.ownDesktop
@@ -157,18 +181,19 @@ MouseArea {
             }
             Rectangle {
                 anchors.centerIn: parent
+                anchors.verticalCenterOffset: root.hop
                 width: 24
                 height: 24
                 radius: Appearance.rounding.full
                 color: DesktopControl.paused ? Appearance.m3colors.m3error
-                    : DesktopControl.active ? Appearance.colors.colPrimary
+                    : root.lively ? Appearance.colors.colPrimary
                     : Appearance.colors.colLayer2
                 MaterialSymbol {
                     anchors.centerIn: parent
                     text: root.icon
                     fill: 1
                     iconSize: Appearance.font.pixelSize.normal
-                    color: DesktopControl.paused || DesktopControl.active ? Appearance.colors.colOnPrimary
+                    color: DesktopControl.paused || root.lively ? Appearance.colors.colOnPrimary
                         : Appearance.colors.colOnLayer2
                     opacity: root.pulse
                 }
@@ -223,10 +248,17 @@ MouseArea {
                 text: root.said ? root.said.text : ""
                 color: Appearance.colors.colOnSurfaceVariant
             }
-            StyledText {
-                visible: root.said !== null
+            StyledPopupValueRow {
                 Layout.fillWidth: true
-                text: Translation.tr("Click the bubble to answer (or say yes), right-click for not now")
+                visible: root.said === null && Initiative.parked !== null
+                icon: "forum"
+                label: Translation.tr("Your conversation with Claude")
+                value: Initiative.thinking ? Translation.tr("Answering…") : ""
+            }
+            StyledText {
+                visible: root.waiting
+                Layout.fillWidth: true
+                text: Translation.tr("Click the bubble to bring it back, right-click for not now")
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colSubtext
             }
@@ -253,6 +285,13 @@ MouseArea {
                 Layout.fillWidth: true
                 text: !root.ownDesktop ? Translation.tr("Right-click to give them their own desktop")
                     : Translation.tr("Right-click to bring them back to yours")
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                text: Translation.tr("Middle-click to ask Claude anything (Mod+Shift+Space)")
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colSubtext
             }

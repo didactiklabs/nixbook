@@ -52,6 +52,7 @@ Niri is column/scroll based; it has no numbered workspaces (workspaces stack ver
 | `Mod+X`            | —                                                        | Launcher in theme/variant switcher mode                    |
 | `Mod+G`            | —                                                        | Launcher as window layout picker (restore / save / delete) |
 | `Mod+Shift+Escape` | —                                                        | Pause / allow AI desktop control (every agent)             |
+| `Mod+Shift+Space`  | —                                                        | Ask Claude in its speech bubble                            |
 | `Mod+Shift+A`      | —                                                        | AI agents: own desktop (nested niri) / yours               |
 | `Mod+Ctrl+A`       | —                                                        | Take over / give back the agents' desktop                  |
 | `Ctrl+Space`       | Toggle fcitx5 input method (when `fcitx5Config` enabled) | same                                                       |

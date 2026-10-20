@@ -22,11 +22,14 @@ import QtQuick
  *   - moment: now and then, at random (40 minutes to 2 hours apart while
  *     the user is at the computer), a chance for a light word: most of the
  *     time nothing is said, at most a couple a day, only in the bar.
+ *   - happened (ai.initiative.reactions, off by default): what the user
+ *     just did (a download, a screenshot, a drive), with one-click help.
  * What it says comes out loud (`speaking`: its own bubble on the left,
- * AgentSpeech.qml, with Reply, Not now, Don't) or waits in the bar
- * (`pending`: the robot's bubble), until it expires. Reply opens the side
- * panel's "From Claude" tab with it as Claude's message, in a thread of its
- * own, so the user just answers; the answer teaches it what the user values.
+ * AgentSpeech.qml) or waits in the bar (`pending`: the robot's bubble),
+ * until it expires. The bubble is a small chat: the user answers in it and
+ * Claude answers there (`chat`, a thread of its own, the side panel's "From
+ * Claude" tab, opened there only on expand()); the answer teaches it what
+ * the user values. Mod+Shift+Space calls the bubble up to ask anything.
  */
 Singleton {
     id: root
@@ -86,9 +89,6 @@ Singleton {
                         open: WM.windowList.map(w => w.appId) })
     }
 
-    // Opens what it said in the side panel's chat, as Claude's message; a
-    // routine offered (`accept`) is shown first in its speech bubble (what
-    // it would do, Yes, do it), and turned on by that Yes.
     // Curiosity (ai.initiative.curious): it watches what is in front (app and
     // window title, every few minutes) and learns what the user does from it,
     // saying what it learned; the reply corrects or completes it.
@@ -97,24 +97,43 @@ Singleton {
         + "If they correct what you noticed or tell you more, update your memory of them (recall_about_user, then "
         + "remember_about_user with the entry's id; forget_about_user what was wrong), briefly. If you offered help "
         + "and they want it, do it now with your tools (look at their screen first if needed); then answer naturally."
+    // Reactions (ai.initiative.reactions): what the user just did (a file
+    // downloaded, a screenshot, a drive plugged in), offered at once with
+    // buttons that act in one click (services/Routines.qml sees them).
+    readonly property bool reactions: Config.options?.ai?.initiative?.reactions ?? false
+    readonly property var reactTo: ["download", "screenshot", "drive_connected"]
+
+    // What it says out loud now (modules/ii/notificationPopup/AgentSpeech.qml,
+    // on the left under the bar): one at a time, the one before to the bar.
+    // {id, kind, text, chat?, accept?, actions?}; kind "ask" (the user
+    // called it: Mod+Shift+Space) and "done" (a chat of the side panel
+    // answered while it was closed) have no id: nothing to learn from.
+    property var speaking: null
+    // The conversation in the bubble (an AiChatSession): Claude's own thread
+    // (Ai.claudeThread, the side panel's "From Claude" tab) once the user
+    // answers in the bubble, or the panel's tab whose answer it shows. The
+    // bubble is the chat: the panel only when asked (expand()).
+    property var chat: null
+    readonly property bool conversing: root.chat !== null && (root.chat.messageIDs ?? []).some(id => root.chat.messageByID[id]?.role === "user")
+    // Put away with its conversation (closed, or left a while): the bar's
+    // bubble brings it back, and so does Claude's next answer in it.
+    property var parked: null
+    readonly property bool thinking: (root.chat?.responding ?? false) || (root.parked?.chat?.responding ?? false)
+    // The user is writing in the bubble: nothing takes its place meanwhile.
+    property bool typing: false
+    // The bubble's field wants the keys (it was called up with the keyboard).
+    signal focusWanted()
+    property string _answeredId: ""
+
+    // Shows it in the bubble (the bar's bubble, a word waiting).
     function open(item) {
         if (!item) return
-        if (item.accept && root.speaking?.id !== item.id) {
-            root._notify(item)
-            return
-        }
-        if (root.speaking?.id === item.id) root.speaking = null
-        if (item.accept) {
-            root.answer(item.id, "replied")
-            return
-        }
-        root._opened = { id: item.id, time: Date.now() }
-        const thread = Ai.claudeThread()
-        thread.addMessage(item.chat || item.text, "assistant", true, item.curious ? root.learnHint : "")
-        Ai.saveHistory(thread)
-        GlobalStates.sidebarLeftOpen = true
-        GlobalStates.aiChatRequested()
-        root.answer(item.id, "replied")
+        if (root.speaking && root.speaking === item) return
+        root._notify(item)
+    }
+    function openLatest() {
+        if (root.parked) root.resume()
+        else root.open(root.live[root.live.length - 1])
     }
     // Settings > Say something now: a light word at once, to try it.
     function sayNow() {
@@ -124,9 +143,166 @@ Singleton {
                         tasksDue: Todo.dueTodayCount, weatherCode: Weather.data?.wCode ?? 0,
                         weather: Weather.data?.description ?? "" })
     }
-    function openLatest() {
-        root.open(root.live[root.live.length - 1])
+    // Called up (Mod+Shift+Space, the bar's robot): its bubble, to ask
+    // anything; the conversation put away comes back instead.
+    function summon() {
+        if (root.parked && !root.speaking) root.resume()
+        else if (!root.speaking) root.speaking = { id: "", kind: "ask", text: root._pick([
+            Translation.tr("What can I do for you?"), Translation.tr("I'm here. What do you need?"),
+            Translation.tr("Yes? Ask me anything.")]) }
+        root.focusWanted()
     }
+    function _pick(list) {
+        return list[Math.floor(Math.random() * list.length)]
+    }
+
+    // The conversation with what it said as Claude's first message, in its
+    // own thread (the "From Claude" tab, not selected): made when the user
+    // starts typing, so Claude Code is warm by the time they send.
+    function prepare() {
+        const item = root.speaking
+        if (root.chat || !item) return
+        const thread = Ai.claudeThread(false)
+        if (item.kind !== "ask")
+            thread.addMessage(item.chat || item.text, "assistant", true, item.curious ? root.learnHint : "")
+        root.chat = thread
+        if ((Ai.models[Ai.currentModelId]?.api_format ?? "") === "claude-code" && Ai.claudeCodePath.length > 0)
+            thread.prewarm()
+    }
+    // What it said, taken up: counted once, and the talk that follows too.
+    function _taken(item) {
+        if (!item?.id || root._answeredId === item.id) return
+        root._answeredId = item.id
+        root._opened = { id: item.id, time: Date.now() }
+        root.answer(item.id, "replied")
+    }
+    // The user's answer, in the bubble: Claude answers there.
+    function reply(text, attach) {
+        const said = String(text ?? "").trim()
+        if (said.length === 0) return
+        const item = root.speaking
+        if (!root.chat) root.prepare()
+        if (!root.chat) return
+        root._taken(item)
+        if (attach) root.chat.attachFile(attach)
+        root.chat.sendUserMessage(said)
+    }
+    // A routine it offered: "Yes, do it" turns it on.
+    function accept() {
+        const item = root.speaking
+        if (!item?.accept) return
+        root.speaking = null
+        root.answer(item.id, "replied")
+    }
+    // A button of a reaction: open the file, show it in its folder, or ask
+    // Claude about it (in the bubble, the file attached).
+    function act(a) {
+        const item = root.speaking
+        if (!a || !item) return
+        if (a.do === "ask") {
+            root.reply(a.text, a.attach ?? "")
+            return
+        }
+        const path = String(a.path ?? "")
+        if (!path.startsWith("/")) return
+        if (a.do === "open") Quickshell.execDetached(["xdg-open", path])
+        else if (a.do === "reveal") {
+            // The file manager with the file selected, else its folder.
+            const uri = "file://" + path.split("/").map(encodeURIComponent).join("/")
+            Quickshell.execDetached(["bash", "-c", 'dbus-send --session --print-reply --dest=org.freedesktop.FileManager1 '
+                + '/org/freedesktop/FileManager1 org.freedesktop.FileManager1.ShowItems array:string:"$1" string:"" >/dev/null 2>&1 '
+                + '|| xdg-open "$(dirname "$2")"', "reveal", uri, path])
+        }
+        root._taken(item)
+        root.speaking = null
+    }
+    // The conversation (or what it said) in the side panel, for more room.
+    function expand() {
+        const item = root.speaking
+        if (!root.chat && item) {
+            const thread = Ai.claudeThread()
+            if (item.kind !== "ask")
+                thread.addMessage(item.chat || item.text, "assistant", true, item.curious ? root.learnHint : "")
+            root.chat = thread
+        }
+        if (root.chat) Ai.selectChat(root.chat)
+        root._taken(item)
+        root.speaking = null
+        root.chat = null
+        root.typing = false
+        GlobalStates.sidebarLeftOpen = true
+        GlobalStates.aiChatRequested()
+    }
+    // The conversation put away, to the bar's bubble; brought back.
+    function park() {
+        if (!root.conversing) return
+        root.parked = { item: root.speaking, chat: root.chat }
+        root.speaking = null
+        root.chat = null
+        root.typing = false
+    }
+    function resume() {
+        const p = root.parked
+        if (!p) return
+        root._aside()
+        root.parked = null
+        root.chat = p.chat
+        root.speaking = p.item ?? { id: "", kind: "done", text: "" }
+    }
+    // Whether the bubble holds this chat, now or put away.
+    function holds(c) {
+        return c !== null && (root.chat === c || root.parked?.chat === c)
+    }
+    // Claude answered in a conversation of the bubble: one put away comes
+    // back to say it (not while the user is busy: the bar's bubble then).
+    function chatAnswered(c) {
+        if (root.parked?.chat === c && !root.speaking && !root.busy()) root.resume()
+    }
+    // A chat of the side panel answered while it is closed: said in the
+    // bubble, to answer there. False when the bubble is taken.
+    function chatDone(c) {
+        if (root.typing || (root.speaking && root.chat?.responding)) return false
+        root._aside()
+        root.chat = c
+        root.speaking = { id: "", kind: "done", text: "", title: Ai.chats.length > 1 ? c.title : "" }
+        return true
+    }
+    // What the bubble shows now goes aside for something new: a
+    // conversation put away, a word to the bar.
+    function _aside() {
+        const before = root.speaking
+        if (root.conversing) root.park()
+        else if (before) {
+            if (root.chat && root.chat.fromClaude && !root.chat.responding) root.chat.clearMessages()
+            if (before.id) root.pending = [...root.pending.filter(p => p.id !== before.id), before]
+        }
+        root.speaking = null
+        root.chat = null
+        root.typing = false
+    }
+    function _notify(item) {
+        root._aside()
+        root.speaking = item
+    }
+    // Something new to say: not over what the user is writing or talking
+    // about in the bubble (to the bar then).
+    function _say(item) {
+        if (root.typing || (root.conversing && root.speaking)) root.pending = [...root.pending, item]
+        else root._notify(item)
+    }
+    // Its speech answered without a reply: later, never, or "wait" (no
+    // answer: to the bar's bubble). A conversation is put away instead.
+    function hush(outcome) {
+        const item = root.speaking
+        if (!item) return
+        if (root.conversing) {
+            root.park()
+            return
+        }
+        root._aside()
+        if (outcome !== "wait" && item.id) root.answer(item.id, outcome)
+    }
+
     // The conversation it opened goes on: worth more than a one-word reply.
     property var _opened: null
     function engaged() {
@@ -137,24 +313,6 @@ Singleton {
         if (!/^[0-9a-f]{1,16}$/.test(id ?? "")) return
         root.pending = root.pending.filter(p => p.id !== id)
         Quickshell.execDetached(["nixbook-desktop-mcp", "initiative", "answer", id, outcome])
-    }
-
-    // What it says out loud now (modules/ii/notificationPopup/AgentSpeech.qml,
-    // on the left under the bar): one at a time, the one before to the bar.
-    property var speaking: null
-    function _notify(item) {
-        const before = root.speaking
-        if (before) root.pending = [...root.pending.filter(p => p.id !== before.id), before]
-        root.speaking = item
-    }
-    // Its speech answered without a reply: later, never, or "wait" (no
-    // answer: to the bar's bubble).
-    function hush(outcome) {
-        const item = root.speaking
-        if (!item) return
-        root.speaking = null
-        if (outcome === "wait") root.pending = [...root.pending.filter(p => p.id !== item.id), item]
-        else root.answer(item.id, outcome)
     }
 
     function _urgency(n) {
@@ -171,7 +329,7 @@ Singleton {
             onExited: {
                 try {
                     const answer = JSON.parse(out.text)
-                    if (answer.action === "notify") root._notify(answer.item)
+                    if (answer.action === "notify") root._say(answer.item)
                     if (answer.action === "badge") root.pending = [...root.pending, answer.item]
                 } catch (e) {
                     // Nothing to say, or the server is missing: silence.
@@ -222,6 +380,24 @@ Singleton {
             root._seen = {}
             if (root.enabled)
                 Quickshell.execDetached(["nixbook-desktop-mcp", "initiative", "notices", JSON.stringify(seen)])
+        }
+    }
+
+    // What the user just did, to lend a hand with (reactions): not what an
+    // agent did (its downloads, its screenshots).
+    Connections {
+        target: Routines
+        function onHappened(ev) {
+            if (!root.enabled || !root.reactions || !root.reactTo.includes(ev.event) || !ev.path || DesktopControl.active) return
+            root.consider({ event: "happened", what: ev.event, name: ev.name ?? "", path: ev.path })
+        }
+    }
+
+    // `nixbook-shell ipc call claude ask` (Mod+Shift+Space): its bubble, to ask.
+    IpcHandler {
+        target: "claude"
+        function ask(): void {
+            root.summon()
         }
     }
 

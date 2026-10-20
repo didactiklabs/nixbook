@@ -131,8 +131,9 @@ Singleton {
     // (the tab's thread strip lists them, AiChat.qml) and the tab starts
     // this one. One still answering is left alone: this one gets another
     // "From Claude" tab (even past maxChats: what Claude says must land
-    // somewhere).
-    function claudeThread() {
+    // somewhere). Not selected in the panel when its conversation happens in
+    // Claude's speech bubble (`select` false: the panel is left as it was).
+    function claudeThread(select = true) {
         let chat = root.chats.find(c => c.fromClaude && !c.responding);
         if (chat) {
             root.saveHistory(chat);
@@ -143,7 +144,7 @@ Singleton {
             chat = chatComponent.createObject(root, { slot: slot, fromClaude: true });
             root.chats = [...root.chats, chat];
         }
-        root.selectChat(chat);
+        if (select) root.selectChat(chat);
         return chat;
     }
     function selectChat(chat) {

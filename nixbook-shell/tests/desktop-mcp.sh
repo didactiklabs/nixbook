@@ -1396,6 +1396,27 @@ expect_contains "focus: a broken recipe to fix" "$(jq -r .item.text <<<"$out")" 
 expect_eq "focus: said once" none "$(consider '{"event":"focus","app":"org.mozilla.firefox"}' | jq -r .action)"
 expect_eq "focus: nothing for another app" none "$(consider '{"event":"focus","app":"org.gnome.Calculator"}' | jq -r .action)"
 
+# Reactions: something the user just did, offered at once with one-click actions, no model call.
+echo '{"initiativeQuietHours":"0-0","initiativeMaxPerDay":0}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+rm -f "$calls.claude-prompt"
+out=$(consider '{"event":"happened","what":"download","name":"report.pdf","path":"/home/u/Downloads/report.pdf"}')
+expect_eq "react: out loud, past a spent budget" notify "$(jq -r .action <<<"$out")"
+expect_eq "react: a download to read, summarize it (attached), open, show" "ask /home/u/Downloads/report.pdf open reveal" \
+  "$(jq -r '[.item.actions[0].do, .item.actions[0].attach, .item.actions[1].do, .item.actions[2].do] | join(" ")' <<<"$out")"
+expect_eq "react: gone from the bar in 30 min" 1800 "$(jq -r '.item.expires - .item.time' <<<"$out")"
+expect_eq "react: no model call" no "$([ -e "$calls.claude-prompt" ] && echo yes || echo no)"
+expect_eq "react: once per file" "said already" "$(consider '{"event":"happened","what":"download","name":"report.pdf","path":"/home/u/Downloads/report.pdf"}' | jq -r .why)"
+expect_contains "react: an installer, asked about for NixOS" \
+  "$(consider '{"event":"happened","what":"download","name":"tool.AppImage","path":"/home/u/Downloads/tool.AppImage"}' | jq -r '.item.actions[0].text')" "on this NixOS machine"
+expect_eq "react: not while busy" "the user is busy" "$(consider '{"event":"happened","what":"screenshot","name":"s.png","path":"/p/s.png","busy":true}' | jq -r .why)"
+expect_eq "react: a path it can act on only" none "$(consider '{"event":"happened","what":"screenshot","name":"t.png","path":"p/t.png"}' | jq -r .action)"
+id=$(consider '{"event":"happened","what":"screenshot","name":"u.png","path":"/p/u.png"}' | jq -r .item.id)
+python3 "$mcp" initiative answer "$id" never
+expect_contains "react: \"don't\" silences that kind only" "$(consider '{"event":"happened","what":"screenshot","name":"v.png","path":"/p/v.png"}' | jq -r .why)" "asked for none of these"
+expect_eq "react: other kinds still" notify "$(consider '{"event":"happened","what":"drive_connected","name":"USB","path":"/run/media/u/USB"}' | jq -r .action)"
+python3 "$mcp" initiative unmute
+rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+
 # Notifications: only when reading them is on; triaged in plain code, read by the small model.
 expect_contains "notifications: not read unless allowed" "$(consider '{"event":"notifications","items":[{"app":"Power","summary":"Battery low"}]}' | jq -r .why)" "reading notifications is off"
 rm -f "$calls.claude-prompt"
