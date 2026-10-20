@@ -458,7 +458,7 @@ model=()
 exec "$1" -p "$2" --output-format text --strict-mcp-config --setting-sources project \\
   --mcp-config "$3" --tools "" --allowedTools mcp__desktop__equalizer \\
   --disallowedTools Bash Edit Write NotebookEdit Read Glob Grep "\${model[@]}" \\
-  --append-system-prompt "$5"`,
+  --append-system-prompt "$5" </dev/null`,
             "equalizer-agent", Ai.claudeCodePath, agentProc.prompt,
             JSON.stringify({ mcpServers: { desktop: { command: Ai.desktopMcpCommand } } }),
             Config.options?.equalizer?.agentModel ?? "",
@@ -479,8 +479,10 @@ exec "$1" -p "$2" --output-format text --strict-mcp-config --setting-sources pro
             if (code === 0 && answer !== "") {
                 root.agentNote = answer
             } else if (code !== 0) {
+                // Claude Code's own warnings (stdin, updates) aren't why it failed.
+                const why = agentErr.text.split("\n").filter(l => l.trim() !== "" && !/^\s*warning\b/i.test(l)).pop() ?? ""
                 root.agentProblem(Translation.tr("The agent couldn't tune the equalizer: %1")
-                    .arg((agentErr.text.trim().split("\n").pop() || answer || `exit ${code}`).slice(0, 200)))
+                    .arg((why.trim() || answer || `exit ${code}`).slice(0, 200)))
             }
         }
     }
