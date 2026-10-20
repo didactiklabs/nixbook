@@ -344,7 +344,16 @@ and record the screen for the user (`screen_capture`: a monitor, region or
 window to a file in `screenSnip.savePath` and/or the clipboard; recordings
 of a monitor or region, with or without the desktop audio, through the
 shell's recorder and its indicator: start, stop with the video's path,
-status; never from the agent desktop); read the text on
+status; never from the agent desktop); have the shell's own windows over
+the apps make way (`services/MakeWay.qml`: the side panel, Claude's
+bubble, notification popups, a theme's cut-in, listed in
+$XDG_RUNTIME_DIR/nixbook-shell/overlays.json; before an action on the
+user's desktop the server writes `make-way.json` {seq, until, capture}:
+they let clicks through and give up the keyboard, faded, until 12 s after
+the last action, and vanish while the agent's screenshot, OCR or settle
+wait captures the screen; `make-way.ack` once on screen, waited for at
+most 0.3 s; the agent told once per set of them; `set_aside` dismisses
+popups, a cut-in or the bubble, never the side panel); read the text on
 screen (`read_screen`: OCR, each line with its position to click, ~150
 tokens instead of a screenshot's ~1,250; `find` returns only the lines
 containing the given text; `ocrLanguages`, `eng` by default); type, press

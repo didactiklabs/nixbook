@@ -1,0 +1,134 @@
+pragma Singleton
+pragma ComponentBehavior: Bound
+
+import qs
+import qs.modules.common
+import Quickshell
+import Quickshell.Io
+import QtQuick
+
+/**
+ * The shell's own windows over the apps (the side panel, Claude's speech
+ * bubble, notification popups, a theme's cut-in) making way for an agent
+ * working underneath, so its clicks, keys and screenshots reach the app
+ * windows while the user still follows the chat:
+ *   - `overlays.json` ($XDG_RUNTIME_DIR/nixbook-shell) says which are on
+ *     screen, written when that changes: nixbook-desktop-mcp reads it before
+ *     an action or a screenshot on the user's desktop (a file read, no IPC);
+ *   - with any on screen, it writes `make-way.json` {seq, until, capture}:
+ *     until `until` (ms; the server pushes it on at each action), they let
+ *     clicks through and give up the keyboard, faded a little, with a word
+ *     that Claude works underneath; `capture` (its screenshot being taken)
+ *     makes them invisible for that moment. `make-way.ack` says when that is
+ *     on screen (a couple of frames after), the server waits for it;
+ *   - `makeWay setAside NAME` (the server's set_aside tool): popups and
+ *     cut-ins dismissed, the bubble put away; never the side panel (it lets
+ *     the agent through already) nor the lock screen or a password prompt.
+ * The windows read `active`, `capture`, `fade(base)`.
+ */
+Singleton {
+    id: root
+
+    readonly property string dir: Directories.runtimeTemp
+    property var request: ({})
+    property real now: Date.now()
+    readonly property bool active: (root.request.until ?? 0) > root.now
+    readonly property bool capture: root.active && root.request.capture === true
+
+    // A window's opacity while making way: hidden for a screenshot, else a
+    // little faded (`base`: how much shows, the side panel more than a cut-in).
+    function fade(base) {
+        return root.capture ? 0 : root.active ? base : 1
+    }
+
+    // The theme cut-ins say when they show (several kinds may exist).
+    property var cutIns: ({})
+    function setCutIn(kind, on) {
+        if ((root.cutIns[kind] ?? false) === on) return
+        root.cutIns = Object.assign({}, root.cutIns, { [kind]: on })
+    }
+    signal setAsideCutIns()
+
+    readonly property var overlays: {
+        const out = []
+        if (GlobalStates.sidebarLeftOpen) out.push("sidePanel")
+        if (Initiative.speaking !== null) out.push("speechBubble")
+        if (Notifications.popupList.length > 0) out.push("notificationPopups")
+        if (Object.values(root.cutIns).some(v => v)) out.push("cutIn")
+        return out
+    }
+    onOverlaysChanged: overlaysWrite.restart()
+    Timer {
+        id: overlaysWrite
+        interval: 30
+        onTriggered: overlaysFile.setText(JSON.stringify({ overlays: root.overlays }))
+    }
+    FileView {
+        id: overlaysFile
+        path: `${root.dir}/overlays.json`
+        blockWrites: true
+        printErrors: false
+    }
+    Component.onCompleted: overlaysWrite.restart()
+
+    FileView {
+        id: requestFile
+        path: `${root.dir}/make-way.json`
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: {
+            try {
+                root.request = JSON.parse(text()) ?? {}
+            } catch (e) {
+                return // caught mid-write: the next change has it
+            }
+            root.now = Date.now()
+            if (root.active) expire.restart()
+            // On screen after a couple of frames: then the server goes on.
+            acknowledge.restart()
+        }
+        onLoadFailed: root.request = {}
+    }
+    Timer {
+        id: acknowledge
+        interval: 50
+        onTriggered: ackFile.setText(String(root.request.seq ?? ""))
+    }
+    FileView {
+        id: ackFile
+        path: `${root.dir}/make-way.ack`
+        blockWrites: true
+        printErrors: false
+    }
+    // Lifts once `until` is past, without a word from the server.
+    Timer {
+        id: expire
+        interval: Math.max(50, (root.request.until ?? 0) - Date.now() + 20)
+        onTriggered: root.now = Date.now()
+    }
+
+    IpcHandler {
+        target: "makeWay"
+        function setAside(name: string): string {
+            if (name === "notificationPopups") {
+                Notifications.timeoutAll()
+                return "ok: notification popups dismissed (still in the notification center)"
+            }
+            if (name === "cutIn") {
+                root.setAsideCutIns()
+                return "ok: cut-in dismissed"
+            }
+            if (name === "speechBubble") {
+                Initiative.hush("wait")
+                return "ok: Claude's bubble put away (in the bar)"
+            }
+            if (name === "sidePanel")
+                return "error: the side panel is the user's chat with you: leave it; it lets your clicks through and is hidden from your screenshots"
+            return `error: no overlay "${name}" (${root.overlays.join(", ") || "none on screen"})`
+        }
+        function list(): string {
+            return JSON.stringify(root.overlays)
+        }
+    }
+}

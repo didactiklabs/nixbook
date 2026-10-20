@@ -300,7 +300,8 @@ Scope { // Scope
             // only got the keyboard after a click — typing went to the window
             // underneath. Closing releases it.
             // A pinned sidebar is permanent: click-to-focus only.
-            WlrLayershell.keyboardFocus: !panelWindow.reallyVisible ? WlrKeyboardFocus.None
+            // An agent working underneath (MakeWay): its keys go to the apps.
+            WlrLayershell.keyboardFocus: !panelWindow.reallyVisible || MakeWay.active ? WlrKeyboardFocus.None
                 : root.pin ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive
             color: "transparent"
 
@@ -318,7 +319,8 @@ Scope { // Scope
             // Pinned, only the panel's own reserved strip takes input: the
             // window is wider (extended width, shadow), and that transparent
             // rest lies over the windows beside it.
-            mask: !panelWindow.reallyVisible || panelWindow.bootHidden ? noInput : root.pin ? pinnedMask : openMask
+            // An agent working underneath (MakeWay): its clicks go through.
+            mask: !panelWindow.reallyVisible || panelWindow.bootHidden || MakeWay.active ? noInput : root.pin ? pinnedMask : openMask
             Region {
                 id: openMask
                 item: fullMaskArea
@@ -381,6 +383,7 @@ Scope { // Scope
                 target: sidebarLeftBackground
                 radius: sidebarLeftBackground.radius
                 visible: !Persona.shapes // PersonaFrame draws its own hard shadow
+                opacity: MakeWay.fade(1)
             }
             Rectangle {
                 id: sidebarLeftBackground
@@ -423,9 +426,30 @@ Scope { // Scope
                 readonly property bool sidebarOpen: GlobalStates.sidebarLeftOpen
                 // Nothing drawn while closed (the surface stays mapped).
                 // (≈invisible while booting: draws once so textures are uploaded)
-                opacity: panelWindow.reallyVisible
+                // Faded while an agent works underneath, gone from its screenshots.
+                opacity: (panelWindow.reallyVisible
                     ? Math.max(panelWindow.bootFade, Preloader.prerender ? 0.004 : 0)
-                    : (Preloader.prerender ? 0.004 : 0)
+                    : (Preloader.prerender ? 0.004 : 0)) * MakeWay.fade(0.9)
+
+                // Why clicks go through it now, and how to stop the agent.
+                Rectangle {
+                    z: 100
+                    visible: MakeWay.active
+                    anchors.top: parent.top
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.topMargin: 8
+                    width: makeWayLabel.implicitWidth + 24
+                    height: makeWayLabel.implicitHeight + 10
+                    radius: height / 2
+                    color: Appearance.colors.colPrimary
+                    StyledText {
+                        id: makeWayLabel
+                        anchors.centerIn: parent
+                        text: Translation.tr("Claude is working under this panel · Mod+Shift+Esc stops it")
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colOnPrimary
+                    }
+                }
                 x: Appearance.sizes.gapsOut - (!sidebarOpen ? width : 0)
 
                 // A peek (edge handle hover) slides in at the dock's pace.

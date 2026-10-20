@@ -128,7 +128,15 @@ Scope {
         // away (Escape, close, expand); else only once clicked into, never
         // taken from the app.
         property bool grab: false
-        WlrLayershell.keyboardFocus: window.grab ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
+        WlrLayershell.keyboardFocus: MakeWay.active ? WlrKeyboardFocus.None
+            : window.grab ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
+        // Only the card takes clicks; none while an agent works underneath.
+        mask: MakeWay.active ? noInput : cardRegion
+        Region {
+            id: cardRegion
+            item: card
+        }
+        Region { id: noInput }
         exclusiveZone: 0
         color: "transparent"
         anchors { top: true; left: true }
@@ -159,455 +167,461 @@ Scope {
             onTriggered: input.forceActiveFocus()
         }
 
-        // Slides in from the left, a little bounce (a snap in Persona).
+        // An agent working underneath (services/MakeWay.qml): faded, and gone
+        // from its screenshots.
         Item {
-            id: card
-            x: 12
-            y: 14
-            width: 376
-            implicitHeight: body.implicitHeight + 28
-            opacity: 0
-            transform: Translate { id: slide; x: -60 }
-            Connections {
-                target: root
-                function onItemChanged() {
-                    if (root.item) {
-                        enter.restart()
-                        if (window.visible) unanswered.restart()
-                    }
-                }
-                function onLinesChanged() {
-                    if (unanswered.running) unanswered.restart()
-                }
-            }
-            Component.onCompleted: if (root.item) enter.restart()
-            ParallelAnimation {
-                id: enter
-                NumberAnimation { target: card; property: "opacity"; from: 0; to: 1; duration: root.style === "persona" ? 120 : 260 }
-                NumberAnimation { target: slide; property: "x"; from: -60; to: 0; duration: root.style === "persona" ? 140 : 420
-                                  easing.type: root.style === "persona" ? Easing.OutQuart : Easing.OutBack }
-            }
-
-            // The tail, pointing up to the bar's robot.
-            Rectangle {
-                visible: root.style !== "persona" && root.style !== "cyberpunk"
-                x: 26
-                y: -7
-                width: 16
-                height: 16
-                rotation: 45
-                color: root.bg
-                border.color: root.edge
-                border.width: root.style === "material" ? 0 : 2
-            }
-            PersonaFrame {
-                visible: root.style === "persona"
-                anchors.fill: parent
-            }
-            Rectangle {
-                visible: root.style !== "persona"
-                anchors.fill: parent
-                radius: root.radius
-                color: root.bg
-                border.color: root.edge
-                border.width: root.style === "material" ? 0 : root.style === "cyberpunk" ? 2 : 3
-                // Covers the tail's base, so the bubble and the tail are one.
-                Rectangle {
-                    visible: root.style !== "cyberpunk"
-                    x: 22
-                    y: root.style === "material" ? 0 : 3
-                    width: 24
-                    height: 8
-                    color: root.bg
-                }
-            }
-            // Cyberpunk: a notched corner and a neon stripe.
+            anchors.fill: parent
+            opacity: MakeWay.fade(0.85)
+            // Slides in from the left, a little bounce (a snap in Persona).
             Item {
-                visible: root.style === "cyberpunk"
-                anchors { top: parent.top; right: parent.right }
-                width: Cyberpunk.chamfer * 0.7
-                height: width
-                clip: true
+                id: card
+                x: 12
+                y: 14
+                width: 376
+                implicitHeight: body.implicitHeight + 28
+                opacity: 0
+                transform: Translate { id: slide; x: -60 }
+                Connections {
+                    target: root
+                    function onItemChanged() {
+                        if (root.item) {
+                            enter.restart()
+                            if (window.visible) unanswered.restart()
+                        }
+                    }
+                    function onLinesChanged() {
+                        if (unanswered.running) unanswered.restart()
+                    }
+                }
+                Component.onCompleted: if (root.item) enter.restart()
+                ParallelAnimation {
+                    id: enter
+                    NumberAnimation { target: card; property: "opacity"; from: 0; to: 1; duration: root.style === "persona" ? 120 : 260 }
+                    NumberAnimation { target: slide; property: "x"; from: -60; to: 0; duration: root.style === "persona" ? 140 : 420
+                                      easing.type: root.style === "persona" ? Easing.OutQuart : Easing.OutBack }
+                }
+
+                // The tail, pointing up to the bar's robot.
                 Rectangle {
-                    width: parent.width * 1.42
-                    height: width
-                    x: parent.width - width / 2
-                    y: -height / 2
+                    visible: root.style !== "persona" && root.style !== "cyberpunk"
+                    x: 26
+                    y: -7
+                    width: 16
+                    height: 16
                     rotation: 45
-                    color: Cyberpunk.accent
+                    color: root.bg
+                    border.color: root.edge
+                    border.width: root.style === "material" ? 0 : 2
                 }
-            }
-            Rectangle {
-                visible: root.style === "cyberpunk"
-                width: 4
-                anchors { top: parent.top; bottom: parent.bottom; left: parent.left; margins: 6 }
-                color: root.accent
-            }
-
-            HoverHandler { id: hover }
-
-            component HeaderButton: MaterialSymbol {
-                id: headerButton
-                signal clicked()
-                property string tip: ""
-                iconSize: Appearance.font.pixelSize.normal
-                color: root.fg
-                opacity: headerMouse.containsMouse ? 1 : 0.6
-                MouseArea {
-                    id: headerMouse
+                PersonaFrame {
+                    visible: root.style === "persona"
                     anchors.fill: parent
-                    anchors.margins: -4
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: headerButton.clicked()
                 }
-                StyledToolTip {
-                    text: headerButton.tip
-                    extraVisibleCondition: headerMouse.containsMouse
-                }
-            }
-
-            ColumnLayout {
-                id: body
-                anchors { left: parent.left; right: parent.right; top: parent.top; margins: 14; leftMargin: root.style === "cyberpunk" ? 20 : 14 }
-                spacing: 8
-
-                RowLayout {
-                    spacing: 8
+                Rectangle {
+                    visible: root.style !== "persona"
+                    anchors.fill: parent
+                    radius: root.radius
+                    color: root.bg
+                    border.color: root.edge
+                    border.width: root.style === "material" ? 0 : root.style === "cyberpunk" ? 2 : 3
+                    // Covers the tail's base, so the bubble and the tail are one.
                     Rectangle {
-                        implicitWidth: 26
-                        implicitHeight: 26
-                        radius: root.square ? 0 : 13
-                        color: root.accent
-                        MaterialSymbol {
-                            anchors.centerIn: parent
-                            text: "smart_toy"
-                            fill: 1
-                            iconSize: 17
-                            color: root.bg
-                            // Bobs while it thinks.
-                            transform: Translate { id: bob }
-                            SequentialAnimation {
-                                running: root.responding
-                                loops: Animation.Infinite
-                                NumberAnimation { target: bob; property: "y"; to: -2; duration: 260; easing.type: Easing.OutSine }
-                                NumberAnimation { target: bob; property: "y"; to: 1; duration: 260; easing.type: Easing.InOutSine }
-                                NumberAnimation { target: bob; property: "y"; to: 0; duration: 200; easing.type: Easing.InSine }
-                                PauseAnimation { duration: 240 }
-                                onRunningChanged: if (!running) bob.y = 0
-                            }
-                        }
-                    }
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 0
-                        StyledText {
-                            text: root.style === "cyberpunk" ? "CLAUDE //" : "Claude"
-                            font.family: root.font
-                            font.weight: Font.Bold
-                            font.pixelSize: Appearance.font.pixelSize.normal
-                            color: root.style === "persona" ? root.accent : root.fg
-                        }
-                        StyledText {
-                            Layout.fillWidth: true
-                            visible: text.length > 0
-                            elide: Text.ElideRight
-                            // What it is doing, or the side panel's chat it speaks for.
-                            text: root.status || (root.item?.kind === "done" ? (root.item?.title ?? "") : "")
-                            font.family: root.font
-                            font.pixelSize: Appearance.font.pixelSize.smaller
-                            color: root.fg
-                            opacity: 0.7
-                        }
-                    }
-                    HeaderButton {
-                        visible: Initiative.threads.length > 0 && !(root.item?.accept)
-                        text: "forum"
-                        color: threadList.visible ? root.accent : root.fg
-                        tip: Translation.tr("Earlier conversations")
-                        onClicked: threadList.shown = !threadList.shown
-                    }
-                    HeaderButton {
-                        visible: root.conversing
-                        text: "add_comment"
-                        tip: Translation.tr("New conversation (this one stays in the side panel's history)")
-                        onClicked: Initiative.fresh()
-                    }
-                    HeaderButton {
-                        visible: !(root.item?.accept)
-                        text: "open_in_full"
-                        tip: Translation.tr("Continue in the side panel")
-                        onClicked: Initiative.expand()
-                    }
-                    HeaderButton {
-                        text: "close"
-                        tip: root.conversing ? Translation.tr("Put away (the robot's bubble brings it back)") : Translation.tr("Not now")
-                        onClicked: Initiative.hush("later")
+                        visible: root.style !== "cyberpunk"
+                        x: 22
+                        y: root.style === "material" ? 0 : 3
+                        width: 24
+                        height: 8
+                        color: root.bg
                     }
                 }
-
-                // Its earlier threads: one clicked comes back here.
-                ColumnLayout {
-                    id: threadList
-                    property bool shown: false
-                    Layout.fillWidth: true
-                    visible: shown && Initiative.threads.length > 0
-                    spacing: 2
-                    Connections {
-                        target: root
-                        function onItemChanged() { threadList.shown = false }
-                    }
-                    Repeater {
-                        model: Initiative.threads
-                        delegate: Rectangle {
-                            id: threadRow
-                            required property var modelData
-                            readonly property bool current: modelData.id === (root.chat?.chatId ?? "")
-                            Layout.fillWidth: true
-                            implicitHeight: 28
-                            radius: root.square ? 0 : 8
-                            color: threadRow.current ? Qt.alpha(root.accent, 0.22)
-                                : threadMouse.containsMouse ? Qt.alpha(root.accent, 0.12) : "transparent"
-                            RowLayout {
-                                anchors.fill: parent
-                                anchors.leftMargin: 8
-                                anchors.rightMargin: 8
-                                spacing: 6
-                                Rectangle { // not answered yet
-                                    visible: (threadRow.modelData.turns ?? 0) <= 1
-                                    implicitWidth: 6
-                                    implicitHeight: 6
-                                    radius: 3
-                                    color: root.accent
-                                }
-                                StyledText {
-                                    Layout.fillWidth: true
-                                    elide: Text.ElideRight
-                                    textFormat: Text.PlainText
-                                    text: threadRow.modelData.title
-                                    font.family: root.font
-                                    font.pixelSize: Appearance.font.pixelSize.small
-                                    color: root.fg
-                                }
-                                StyledText {
-                                    text: Qt.locale().toString(new Date(threadRow.modelData.updated ?? 0),
-                                        new Date(threadRow.modelData.updated ?? 0).toDateString() === new Date().toDateString() ? "hh:mm" : "d MMM")
-                                    font.pixelSize: Appearance.font.pixelSize.smaller
-                                    color: root.fg
-                                    opacity: 0.6
-                                }
-                            }
-                            MouseArea {
-                                id: threadMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    threadList.shown = false
-                                    Initiative.openThread(threadRow.modelData.id)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // What it said, before any answer.
-                StyledText {
-                    Layout.fillWidth: true
-                    visible: !root.conversing && !threadList.visible && text.length > 0
-                    wrapMode: Text.WordWrap
-                    textFormat: Text.PlainText // its words may quote third-party text
-                    text: root.item?.text ?? ""
-                    font.family: root.font
-                    font.pixelSize: Appearance.font.pixelSize.normal
-                    color: root.fg
-                }
-
-                // The conversation: Claude's words plain, the user's in a pill
-                // on the right; follows the newest.
-                Flickable {
-                    id: talk
-                    Layout.fillWidth: true
-                    visible: root.conversing && !threadList.visible
-                    implicitHeight: Math.min(lines.implicitHeight, 300)
-                    contentHeight: lines.implicitHeight
+                // Cyberpunk: a notched corner and a neon stripe.
+                Item {
+                    visible: root.style === "cyberpunk"
+                    anchors { top: parent.top; right: parent.right }
+                    width: Cyberpunk.chamfer * 0.7
+                    height: width
                     clip: true
-                    boundsBehavior: Flickable.StopAtBounds
-                    onContentHeightChanged: talk.contentY = Math.max(0, talk.contentHeight - talk.height)
+                    Rectangle {
+                        width: parent.width * 1.42
+                        height: width
+                        x: parent.width - width / 2
+                        y: -height / 2
+                        rotation: 45
+                        color: Cyberpunk.accent
+                    }
+                }
+                Rectangle {
+                    visible: root.style === "cyberpunk"
+                    width: 4
+                    anchors { top: parent.top; bottom: parent.bottom; left: parent.left; margins: 6 }
+                    color: root.accent
+                }
+
+                HoverHandler { id: hover }
+
+                component HeaderButton: MaterialSymbol {
+                    id: headerButton
+                    signal clicked()
+                    property string tip: ""
+                    iconSize: Appearance.font.pixelSize.normal
+                    color: root.fg
+                    opacity: headerMouse.containsMouse ? 1 : 0.6
+                    MouseArea {
+                        id: headerMouse
+                        anchors.fill: parent
+                        anchors.margins: -4
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: headerButton.clicked()
+                    }
+                    StyledToolTip {
+                        text: headerButton.tip
+                        extraVisibleCondition: headerMouse.containsMouse
+                    }
+                }
+
+                ColumnLayout {
+                    id: body
+                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: 14; leftMargin: root.style === "cyberpunk" ? 20 : 14 }
+                    spacing: 8
+
+                    RowLayout {
+                        spacing: 8
+                        Rectangle {
+                            implicitWidth: 26
+                            implicitHeight: 26
+                            radius: root.square ? 0 : 13
+                            color: root.accent
+                            MaterialSymbol {
+                                anchors.centerIn: parent
+                                text: "smart_toy"
+                                fill: 1
+                                iconSize: 17
+                                color: root.bg
+                                // Bobs while it thinks.
+                                transform: Translate { id: bob }
+                                SequentialAnimation {
+                                    running: root.responding
+                                    loops: Animation.Infinite
+                                    NumberAnimation { target: bob; property: "y"; to: -2; duration: 260; easing.type: Easing.OutSine }
+                                    NumberAnimation { target: bob; property: "y"; to: 1; duration: 260; easing.type: Easing.InOutSine }
+                                    NumberAnimation { target: bob; property: "y"; to: 0; duration: 200; easing.type: Easing.InSine }
+                                    PauseAnimation { duration: 240 }
+                                    onRunningChanged: if (!running) bob.y = 0
+                                }
+                            }
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 0
+                            StyledText {
+                                text: root.style === "cyberpunk" ? "CLAUDE //" : "Claude"
+                                font.family: root.font
+                                font.weight: Font.Bold
+                                font.pixelSize: Appearance.font.pixelSize.normal
+                                color: root.style === "persona" ? root.accent : root.fg
+                            }
+                            StyledText {
+                                Layout.fillWidth: true
+                                visible: text.length > 0
+                                elide: Text.ElideRight
+                                // What it is doing, or the side panel's chat it speaks for.
+                                text: root.status || (root.item?.kind === "done" ? (root.item?.title ?? "") : "")
+                                font.family: root.font
+                                font.pixelSize: Appearance.font.pixelSize.smaller
+                                color: root.fg
+                                opacity: 0.7
+                            }
+                        }
+                        HeaderButton {
+                            visible: Initiative.threads.length > 0 && !(root.item?.accept)
+                            text: "forum"
+                            color: threadList.visible ? root.accent : root.fg
+                            tip: Translation.tr("Earlier conversations")
+                            onClicked: threadList.shown = !threadList.shown
+                        }
+                        HeaderButton {
+                            visible: root.conversing
+                            text: "add_comment"
+                            tip: Translation.tr("New conversation (this one stays in the side panel's history)")
+                            onClicked: Initiative.fresh()
+                        }
+                        HeaderButton {
+                            visible: !(root.item?.accept)
+                            text: "open_in_full"
+                            tip: Translation.tr("Continue in the side panel")
+                            onClicked: Initiative.expand()
+                        }
+                        HeaderButton {
+                            text: "close"
+                            tip: root.conversing ? Translation.tr("Put away (the robot's bubble brings it back)") : Translation.tr("Not now")
+                            onClicked: Initiative.hush("later")
+                        }
+                    }
+
+                    // Its earlier threads: one clicked comes back here.
                     ColumnLayout {
-                        id: lines
-                        width: talk.width
+                        id: threadList
+                        property bool shown: false
+                        Layout.fillWidth: true
+                        visible: shown && Initiative.threads.length > 0
+                        spacing: 2
+                        Connections {
+                            target: root
+                            function onItemChanged() { threadList.shown = false }
+                        }
+                        Repeater {
+                            model: Initiative.threads
+                            delegate: Rectangle {
+                                id: threadRow
+                                required property var modelData
+                                readonly property bool current: modelData.id === (root.chat?.chatId ?? "")
+                                Layout.fillWidth: true
+                                implicitHeight: 28
+                                radius: root.square ? 0 : 8
+                                color: threadRow.current ? Qt.alpha(root.accent, 0.22)
+                                    : threadMouse.containsMouse ? Qt.alpha(root.accent, 0.12) : "transparent"
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 8
+                                    anchors.rightMargin: 8
+                                    spacing: 6
+                                    Rectangle { // not answered yet
+                                        visible: (threadRow.modelData.turns ?? 0) <= 1
+                                        implicitWidth: 6
+                                        implicitHeight: 6
+                                        radius: 3
+                                        color: root.accent
+                                    }
+                                    StyledText {
+                                        Layout.fillWidth: true
+                                        elide: Text.ElideRight
+                                        textFormat: Text.PlainText
+                                        text: threadRow.modelData.title
+                                        font.family: root.font
+                                        font.pixelSize: Appearance.font.pixelSize.small
+                                        color: root.fg
+                                    }
+                                    StyledText {
+                                        text: Qt.locale().toString(new Date(threadRow.modelData.updated ?? 0),
+                                            new Date(threadRow.modelData.updated ?? 0).toDateString() === new Date().toDateString() ? "hh:mm" : "d MMM")
+                                        font.pixelSize: Appearance.font.pixelSize.smaller
+                                        color: root.fg
+                                        opacity: 0.6
+                                    }
+                                }
+                                MouseArea {
+                                    id: threadMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        threadList.shown = false
+                                        Initiative.openThread(threadRow.modelData.id)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // What it said, before any answer.
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: !root.conversing && !threadList.visible && text.length > 0
+                        wrapMode: Text.WordWrap
+                        textFormat: Text.PlainText // its words may quote third-party text
+                        text: root.item?.text ?? ""
+                        font.family: root.font
+                        font.pixelSize: Appearance.font.pixelSize.normal
+                        color: root.fg
+                    }
+
+                    // The conversation: Claude's words plain, the user's in a pill
+                    // on the right; follows the newest.
+                    Flickable {
+                        id: talk
+                        Layout.fillWidth: true
+                        visible: root.conversing && !threadList.visible
+                        implicitHeight: Math.min(lines.implicitHeight, 300)
+                        contentHeight: lines.implicitHeight
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        onContentHeightChanged: talk.contentY = Math.max(0, talk.contentHeight - talk.height)
+                        ColumnLayout {
+                            id: lines
+                            width: talk.width
+                            spacing: 6
+                            Repeater {
+                                model: root.lines
+                                delegate: Item {
+                                    id: line
+                                    required property var modelData
+                                    readonly property bool mine: line.modelData.role === "user"
+                                    Layout.fillWidth: true
+                                    visible: lineText.text.length > 0
+                                    implicitHeight: lineText.implicitHeight + (line.mine ? 10 : 0)
+                                    Rectangle {
+                                        visible: line.mine
+                                        anchors.right: parent.right
+                                        width: Math.min(lineText.implicitWidth + 20, parent.width * 0.85)
+                                        height: parent.height
+                                        radius: root.square ? 0 : 12
+                                        color: Qt.alpha(root.accent, 0.22)
+                                    }
+                                    StyledText {
+                                        id: lineText
+                                        anchors.right: line.mine ? parent.right : undefined
+                                        anchors.rightMargin: line.mine ? 10 : 0
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: Math.min(implicitWidth, line.mine ? parent.width * 0.85 - 20 : parent.width)
+                                        wrapMode: Text.Wrap
+                                        textFormat: Text.PlainText
+                                        text: line.modelData.text
+                                        font.family: root.font
+                                        font.pixelSize: line.mine ? Appearance.font.pixelSize.small : Appearance.font.pixelSize.normal
+                                        color: root.fg
+                                    }
+                                }
+                            }
+                            // Thinking: three dots.
+                            Row {
+                                visible: root.responding && (root.lines[root.lines.length - 1]?.text ?? "").length === 0
+                                spacing: 4
+                                Repeater {
+                                    model: 3
+                                    delegate: Rectangle {
+                                        id: dot
+                                        required property int index
+                                        width: 6
+                                        height: 6
+                                        radius: root.square ? 0 : 3
+                                        color: root.fg
+                                        SequentialAnimation on opacity {
+                                            running: root.responding
+                                            loops: Animation.Infinite
+                                            PauseAnimation { duration: dot.index * 160 }
+                                            NumberAnimation { from: 0.25; to: 1; duration: 320 }
+                                            NumberAnimation { from: 1; to: 0.25; duration: 320 }
+                                            PauseAnimation { duration: (2 - dot.index) * 160 }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Quick answers. Wraps when the labels don't fit on one line.
+                    Flow {
+                        Layout.fillWidth: true
+                        visible: root.chips.length > 0
                         spacing: 6
                         Repeater {
-                            model: root.lines
-                            delegate: Item {
-                                id: line
+                            model: root.chips
+                            delegate: Rectangle {
+                                id: button
                                 required property var modelData
-                                readonly property bool mine: line.modelData.role === "user"
-                                Layout.fillWidth: true
-                                visible: lineText.text.length > 0
-                                implicitHeight: lineText.implicitHeight + (line.mine ? 10 : 0)
-                                Rectangle {
-                                    visible: line.mine
-                                    anchors.right: parent.right
-                                    width: Math.min(lineText.implicitWidth + 20, parent.width * 0.85)
-                                    height: parent.height
-                                    radius: root.square ? 0 : 12
-                                    color: Qt.alpha(root.accent, 0.22)
-                                }
+                                implicitWidth: label.implicitWidth + 22
+                                implicitHeight: 28
+                                radius: root.square ? 0 : 14
+                                color: button.modelData.main ? (mouse.containsMouse ? Qt.lighter(root.accent, 1.1) : root.accent)
+                                    : (mouse.containsMouse ? Qt.alpha(root.accent, 0.18) : "transparent")
+                                border.color: root.accent
+                                border.width: button.modelData.main ? 0 : 1
                                 StyledText {
-                                    id: lineText
-                                    anchors.right: line.mine ? parent.right : undefined
-                                    anchors.rightMargin: line.mine ? 10 : 0
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: Math.min(implicitWidth, line.mine ? parent.width * 0.85 - 20 : parent.width)
-                                    wrapMode: Text.Wrap
-                                    textFormat: Text.PlainText
-                                    text: line.modelData.text
+                                    id: label
+                                    anchors.centerIn: parent
+                                    text: button.modelData.label
                                     font.family: root.font
-                                    font.pixelSize: line.mine ? Appearance.font.pixelSize.small : Appearance.font.pixelSize.normal
-                                    color: root.fg
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                    font.weight: button.modelData.main ? Font.Bold : Font.Normal
+                                    color: button.modelData.main ? root.bg : root.fg
+                                }
+                                MouseArea {
+                                    id: mouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: button.modelData.run()
                                 }
                             }
                         }
-                        // Thinking: three dots.
-                        Row {
-                            visible: root.responding && (root.lines[root.lines.length - 1]?.text ?? "").length === 0
-                            spacing: 4
-                            Repeater {
-                                model: 3
-                                delegate: Rectangle {
-                                    id: dot
-                                    required property int index
-                                    width: 6
-                                    height: 6
-                                    radius: root.square ? 0 : 3
+                    }
+
+                    // The answer, typed: Enter sends (Shift+Enter: a new line),
+                    // Escape puts it away. Not for a routine to say yes to.
+                    Rectangle {
+                        Layout.fillWidth: true
+                        visible: !(root.item?.accept)
+                        implicitHeight: Math.max(34, Math.min(input.implicitHeight, 96))
+                        radius: root.square ? 0 : 17
+                        color: Qt.alpha(root.fg, input.activeFocus ? 0.10 : 0.06)
+                        border.color: input.activeFocus ? root.accent : "transparent"
+                        border.width: 1
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 4
+                            anchors.rightMargin: 4
+                            spacing: 2
+                            ScrollView {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                StyledTextArea {
+                                    id: input
+                                    wrapMode: TextArea.Wrap
+                                    padding: 8
+                                    background: null
                                     color: root.fg
-                                    SequentialAnimation on opacity {
-                                        running: root.responding
-                                        loops: Animation.Infinite
-                                        PauseAnimation { duration: dot.index * 160 }
-                                        NumberAnimation { from: 0.25; to: 1; duration: 320 }
-                                        NumberAnimation { from: 1; to: 0.25; duration: 320 }
-                                        PauseAnimation { duration: (2 - dot.index) * 160 }
+                                    placeholderTextColor: Qt.alpha(root.fg, 0.5)
+                                    font.family: root.font
+                                    placeholderText: window.grab ? Translation.tr("Message Claude… (Esc: put away, /new: start over)")
+                                        : root.conversing || root.item?.kind === "ask" ? Translation.tr("Message Claude…")
+                                        : Translation.tr("Answer Claude…")
+                                    onActiveFocusChanged: {
+                                        Initiative.typing = activeFocus || text.length > 0
+                                        if (activeFocus) Initiative.prepare()
+                                    }
+                                    onTextChanged: Initiative.typing = activeFocus || text.length > 0
+                                    Keys.onPressed: event => {
+                                        if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(event.modifiers & Qt.ShiftModifier)) {
+                                            event.accepted = true
+                                            root.send()
+                                        } else if (event.key === Qt.Key_Escape) {
+                                            event.accepted = true
+                                            window.grab = false
+                                            input.focus = false
+                                            Initiative.hush("wait")
+                                        }
                                     }
                                 }
                             }
-                        }
-                    }
-                }
-
-                // Quick answers. Wraps when the labels don't fit on one line.
-                Flow {
-                    Layout.fillWidth: true
-                    visible: root.chips.length > 0
-                    spacing: 6
-                    Repeater {
-                        model: root.chips
-                        delegate: Rectangle {
-                            id: button
-                            required property var modelData
-                            implicitWidth: label.implicitWidth + 22
-                            implicitHeight: 28
-                            radius: root.square ? 0 : 14
-                            color: button.modelData.main ? (mouse.containsMouse ? Qt.lighter(root.accent, 1.1) : root.accent)
-                                : (mouse.containsMouse ? Qt.alpha(root.accent, 0.18) : "transparent")
-                            border.color: root.accent
-                            border.width: button.modelData.main ? 0 : 1
-                            StyledText {
-                                id: label
-                                anchors.centerIn: parent
-                                text: button.modelData.label
-                                font.family: root.font
-                                font.pixelSize: Appearance.font.pixelSize.small
-                                font.weight: button.modelData.main ? Font.Bold : Font.Normal
-                                color: button.modelData.main ? root.bg : root.fg
-                            }
-                            MouseArea {
-                                id: mouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: button.modelData.run()
-                            }
-                        }
-                    }
-                }
-
-                // The answer, typed: Enter sends (Shift+Enter: a new line),
-                // Escape puts it away. Not for a routine to say yes to.
-                Rectangle {
-                    Layout.fillWidth: true
-                    visible: !(root.item?.accept)
-                    implicitHeight: Math.max(34, Math.min(input.implicitHeight, 96))
-                    radius: root.square ? 0 : 17
-                    color: Qt.alpha(root.fg, input.activeFocus ? 0.10 : 0.06)
-                    border.color: input.activeFocus ? root.accent : "transparent"
-                    border.width: 1
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 4
-                        anchors.rightMargin: 4
-                        spacing: 2
-                        ScrollView {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            StyledTextArea {
-                                id: input
-                                wrapMode: TextArea.Wrap
-                                padding: 8
-                                background: null
-                                color: root.fg
-                                placeholderTextColor: Qt.alpha(root.fg, 0.5)
-                                font.family: root.font
-                                placeholderText: window.grab ? Translation.tr("Message Claude… (Esc: put away, /new: start over)")
-                                    : root.conversing || root.item?.kind === "ask" ? Translation.tr("Message Claude…")
-                                    : Translation.tr("Answer Claude…")
-                                onActiveFocusChanged: {
-                                    Initiative.typing = activeFocus || text.length > 0
-                                    if (activeFocus) Initiative.prepare()
-                                }
-                                onTextChanged: Initiative.typing = activeFocus || text.length > 0
-                                Keys.onPressed: event => {
-                                    if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(event.modifiers & Qt.ShiftModifier)) {
-                                        event.accepted = true
-                                        root.send()
-                                    } else if (event.key === Qt.Key_Escape) {
-                                        event.accepted = true
-                                        window.grab = false
-                                        input.focus = false
-                                        Initiative.hush("wait")
-                                    }
+                            MaterialSymbol {
+                                readonly property bool stop: root.responding && input.text.trim().length === 0
+                                Layout.alignment: Qt.AlignVCenter
+                                Layout.rightMargin: 6
+                                text: stop ? "stop_circle" : "send"
+                                fill: 1
+                                iconSize: Appearance.font.pixelSize.larger
+                                color: root.accent
+                                opacity: stop || input.text.trim().length > 0 ? 1 : 0.4
+                                MouseArea {
+                                    anchors.fill: parent
+                                    anchors.margins: -4
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: parent.stop ? root.chat?.stopResponse() : root.send()
                                 }
                             }
                         }
-                        MaterialSymbol {
-                            readonly property bool stop: root.responding && input.text.trim().length === 0
-                            Layout.alignment: Qt.AlignVCenter
-                            Layout.rightMargin: 6
-                            text: stop ? "stop_circle" : "send"
-                            fill: 1
-                            iconSize: Appearance.font.pixelSize.larger
-                            color: root.accent
-                            opacity: stop || input.text.trim().length > 0 ? 1 : 0.4
-                            MouseArea {
-                                anchors.fill: parent
-                                anchors.margins: -4
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: parent.stop ? root.chat?.stopResponse() : root.send()
-                            }
-                        }
                     }
                 }
-            }
 
-            // Left alone: to the bar's bubble, a conversation with it (the
-            // timer waits while hovered, typed in, answering, and while hidden).
-            Timer {
-                id: unanswered
-                interval: root.conversing ? 90000 : root.item?.kind === "react" ? 15000 : 25000
-                running: root.item !== null && window.visible && !hover.hovered && !Initiative.typing && !root.responding
-                onTriggered: Initiative.hush("wait")
+                // Left alone: to the bar's bubble, a conversation with it (the
+                // timer waits while hovered, typed in, answering, and while hidden).
+                Timer {
+                    id: unanswered
+                    interval: root.conversing ? 90000 : root.item?.kind === "react" ? 15000 : 25000
+                    running: root.item !== null && window.visible && !hover.hovered && !Initiative.typing && !root.responding
+                    onTriggered: Initiative.hush("wait")
+                }
             }
         }
     }
