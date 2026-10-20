@@ -586,7 +586,7 @@ the user's next message when the tab's session already runs;
 while the panel is closed says so in the bubble too, its answer there to
 reply to (`Initiative.chatDone`; `notify-send` only while the user is
 typing in the bubble). **Mod+C** (`nixbook-shell ipc call
-claude ask`) or a middle-click on the bar's robot calls the bubble up to
+claude toggle`, again: put away) or a middle-click on the bar's robot calls the bubble up to
 ask anything (`Initiative.summon()`, the keys taken until sent). The
 robot hops when Claude has something new to say.
 Reactions (`ai.initiative.reactions`, off): what the user just did, seen by
@@ -775,7 +775,9 @@ the model infers them from the artists.
 
 **Window layouts**: `save_layout` remembers where every window is (monitor,
 workspace, column and its width, or floating position and size, and the app
-that opens it) under a name; `restore_layout` puts them back in one call,
+that opens it) under a name; `restore_layout` puts them back in one call
+(on the user's desktop under the shell's cover, as Mod+G: `layouts
+coverBegin`/`coverEnd`, so the user's clicks and keys wait),
 starting the apps that were closed (an app whose first window is a splash,
 like Vesktop's "Loading", is placed again once its own window replaces
 it: restores that start apps watch them for 5 s). A window already where the

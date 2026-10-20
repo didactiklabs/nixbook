@@ -930,7 +930,7 @@ in
                 # Takes Mod+C: centering the column moves to Mod+Shift+C.
                 "Mod+C" = [
                   "claude"
-                  "ask"
+                  "toggle"
                 ];
               }
           )
