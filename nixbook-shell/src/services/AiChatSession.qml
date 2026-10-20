@@ -81,8 +81,9 @@ Scope {
             "learnHint": learnHint,
         });
         const id = Ai.idForMessage(aiMessage);
-        chat.messageIDs = [...chat.messageIDs, id];
+        // The message first: what reads the list as it changes finds it.
         chat.messageByID[id] = aiMessage;
+        chat.messageIDs = [...chat.messageIDs, id];
     }
 
     function removeMessage(index) {
@@ -407,8 +408,8 @@ Scope {
                     "content": answer, "rawContent": answer, "thinking": false, "done": true,
                 });
                 const replyId = Ai.idForMessage(reply);
-                chat.messageIDs = [...chat.messageIDs, replyId];
                 chat.messageByID[replyId] = reply;
+                chat.messageIDs = [...chat.messageIDs, replyId];
                 if (chat.isCurrent) Ai.saveChat("lastSession");
                 Ai.saveHistory(chat);
                 Ai.responseFinished();
@@ -429,8 +430,8 @@ Scope {
                 "done": false,
             });
             const id = Ai.idForMessage(requester.message);
-            chat.messageIDs = [...chat.messageIDs, id];
             chat.messageByID[id] = requester.message;
+            chat.messageIDs = [...chat.messageIDs, id];
 
             let attachedFile = chat.pendingFilePath;
             if (attachedFile && attachedFile.length > 0) {
@@ -613,10 +614,18 @@ Scope {
     }
 
     // Claude finished a turn while the panel is closed (ai.notifyWhenDone):
-    // a notification says so, "waiting for you" when it ends on a question,
+    // Claude's speech bubble says so with its answer, to reply to right
+    // there (Initiative.chatDone); a notification when the bubble is taken
+    // (the user typing in it), "waiting for you" when it ends on a question,
     // and its Open button opens the panel on this tab. Not in Do Not Disturb.
+    // A conversation held in the bubble shows its answers there itself.
     function notifyDone(message) {
+        if (Initiative.holds(chat)) {
+            Initiative.chatAnswered(chat);
+            return;
+        }
         if (!(Config.options?.ai?.notifyWhenDone ?? true) || GlobalStates.sidebarLeftOpen || Notifications.silent) return;
+        if (Initiative.chatDone(chat)) return;
         const lines = (message?.rawContent ?? "").split("\n")
             .map(l => l.replace(/[*_`#>]+/g, "").replace(/\s+/g, " ").trim())
             .filter(l => l.length > 0);

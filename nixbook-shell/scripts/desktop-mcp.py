@@ -2560,7 +2560,8 @@ def expire_triggers(now=None):
 # leaves it, a dismissal makes it less likely, "don't" silences it.
 # ~/.local/state/nixbook-shell/initiative.json, private.
 
-INITIATIVE_PRIORS = {"brief": 0.6, "recipe": 0.5, "learned": 0.5, "notice": 0.5, "chat": 0.4, "curious": 0.5}
+INITIATIVE_PRIORS = {"brief": 0.6, "recipe": 0.5, "learned": 0.5, "notice": 0.5, "chat": 0.4, "curious": 0.5,
+                     "react": 0.5}
 INITIATIVE_PRIOR_WEIGHT = 4
 INITIATIVE_MIN_VALUE = 0.25
 INITIATIVE_PENDING_MAX = 5
@@ -2687,12 +2688,13 @@ def deliver(cfg, data, item, level, busy, now):
         urgent = item.get("urgent") is True
         # Something urgent gets through a spent budget, a short gap and a
         # time of day the user rarely answers at; never through busy, and
-        # through quiet hours only when critical.
+        # through quiet hours only when critical. So does a reaction to what
+        # the user just did (it is now or never).
         # Asked for (Settings > Say something now): out loud, whatever the hour.
         why = ("" if item.get("test") or item.get("asked")
                else "the user is busy" if busy
                else "quiet hours" if quiet_hours(cfg, now) and not item.get("critical")
-               else "" if urgent
+               else "" if urgent or kind == "react"
                else "the day's budget is spent" if sum(1 for s in notified if s.get("day") == today)
                >= budget(cfg, data, "initiativeMaxPerDay", 6, now)
                else "too soon after the last one" if notified and now - notified[-1]["time"]
@@ -2702,8 +2704,8 @@ def deliver(cfg, data, item, level, busy, now):
         if why:
             level = "badge"
             down = why
-    item = dict(item, id=secrets.token_hex(3), time=int(now), level=level,
-                expires=int(now + INITIATIVE_PENDING_HOURS * 3600))
+    ttl = item.pop("ttl", INITIATIVE_PENDING_HOURS * 3600)
+    item = dict(item, id=secrets.token_hex(3), time=int(now), level=level, expires=int(now + ttl))
     data["said"].append({"id": item["id"], "key": key, "kind": kind, "app": item.get("app"), "level": level,
                          "time": int(now), "day": time.strftime("%Y-%m-%d", time.localtime(now)),
                          **({"test": True} if item.get("test") else {})})
@@ -3308,6 +3310,64 @@ def routine_idea(cfg, event, now):
     return {"action": "badge", "why": "", "item": {"text": f"{why} {text_}".strip()}}
 
 
+# Reactions (ai.initiative.reactions, off by default): something the user
+# just did on the computer that Claude can lend a hand with, said at once in
+# its bubble with buttons that act in one click: a file downloaded (open it,
+# show it in its folder; summarize it, extract it, how to install it, what is
+# in it: those ask Claude, the file attached), a screenshot taken (what is in
+# it), a drive plugged in (open it). Plain code, no model call; the value of
+# each kind, "don't tell me this" and the dedupe as for the rest, but neither
+# the day's budget nor the gap: a reaction is now or never. Never while busy
+# (it would wait in the bar for nothing), and gone from the bar in 30 min.
+REACT_TTL = 30 * 60
+REACT_READ = {"pdf", "txt", "md", "doc", "docx", "odt", "rtf", "html", "htm", "csv", "json", "epub", "pptx", "xlsx", "ods", "odp"}
+REACT_IMAGE = {"png", "jpg", "jpeg", "webp", "gif", "bmp"}
+REACT_ARCHIVE = {"zip", "tar", "gz", "tgz", "xz", "bz2", "zst", "7z", "rar"}
+REACT_INSTALL = {"deb", "rpm", "appimage", "exe", "msi", "dmg", "flatpakref", "pkg"}
+
+
+def happened_item(event):
+    """What it offers for something that just happened, or None:
+    {kind: react, app: what, text, actions: [{label, do: open|reveal|ask,
+    path, text?, attach?}]}."""
+    what = str(event.get("what") or "")
+    name = clean_text(str(event.get("name") or ""), 120)
+    path = str(event.get("path") or "")
+    if not name or not os.path.isabs(path) or "\n" in path:
+        return None
+    ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+    open_, reveal = {"label": "Open", "do": "open", "path": path}, {"label": "Show in folder", "do": "reveal", "path": path}
+    ask = lambda label, text_, attach=True: {"label": label, "do": "ask", "text": text_, "path": path,
+                                              **({"attach": path} if attach else {})}
+    if what == "download":
+        if ext in REACT_READ:
+            text_, extra = pick(f"{name} just landed in Downloads. Want the gist of it?",
+                                f"Got {name} in Downloads. I can summarize it for you."), ask("Summarize it", "Summarize this file for me.")
+        elif ext in REACT_IMAGE:
+            text_, extra = f"{name} is in Downloads.", ask("What's in it?", "What's in this image?")
+        elif ext in REACT_ARCHIVE:
+            text_, extra = f"{name} downloaded. Shall I extract it?", ask(
+                "Extract it", f"Extract {path} into a folder next to it, then tell me what's inside.", False)
+        elif ext in REACT_INSTALL:
+            text_, extra = f"{name} downloaded. On NixOS that usually needs another way in: want me to look?", ask(
+                "How do I install it?", f"I downloaded {path}. How do I install or run it on this NixOS machine? "
+                "Prefer a nixpkgs package if there is one.", False)
+        else:
+            text_, extra = f"{name} just landed in Downloads.", None
+        actions = [a for a in (extra, open_, reveal) if a]
+    elif what == "screenshot":
+        text_ = pick("Nice shot. Want me to look at it?", "Screenshot saved. Need anything from it?")
+        actions = [ask("What's in it?", "Look at this screenshot and tell me what matters in it."), open_, reveal]
+    elif what == "drive_connected":
+        text_ = f"{name} is plugged in."
+        actions = [{"label": "Open", "do": "open", "path": path},
+                   ask("What's on it?", f"A drive was plugged in at {path}: tell me briefly what's on it.", False)]
+    else:
+        return None
+    return {"kind": "react", "key": f"react:{what}:{fold(name)}", "title": "Claude", "text": text_,
+            "app": what, "actions": actions, "ttl": REACT_TTL}
+
+
 INITIATIVE_LOG = 30
 # A light word is due at a random time 40 to 120 minutes after the last
 # chance: kept in initiative.json (`momentAt`), as the shell restarts on
@@ -3403,8 +3463,18 @@ def consider_event(cfg, event, now=None):
             out = deliver(cfg, m.data, item, "notify" if event.get("force") is True else "badge", busy, now)
             m.save()
         return out
+    if kind == "happened":
+        if busy:
+            return {"action": "none", "why": "the user is busy"}
+        item = happened_item(event)
+        if not item:
+            return {"action": "none", "why": "nothing to offer for this"}
+        with Initiative() as m:
+            out = deliver(cfg, m.data, item, "notify", busy, now)
+            m.save()
+        return out
     if kind not in ("back", "focus"):
-        raise ToolError(f"unknown event {kind!r}: back, focus, notifications or moment")
+        raise ToolError(f"unknown event {kind!r}: back, focus, happened, notifications or moment")
     with Initiative() as m:
         data = m.data
         data["pending"] = [p for p in data["pending"] if p.get("expires", 0) > now]
@@ -11481,7 +11551,7 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
                           (default: all; notes with their archive)
   memory fire ID          a reminder was shown (the shell): gone, or not before tomorrow
   initiative consider JSON|-  what the agent would say about an event (the shell):
-                          {"event": "back"|"focus"|"notifications", …}
+                          {"event": "back"|"focus"|"happened"|"notifications"|"moment", …}
   initiative pending|show|answer ID replied|later|dismissed|never|unmute [KEY…]|clear
   routine list|run ID [EVENT_JSON]|undone ID|on ID|off ID|remove ID|learn suggest|auto
                           the user's routines (the shell runs them on their cue)

@@ -557,16 +557,46 @@ word waiting in the bar (`pending`, the robot's bubble, 6 hours). Spoken out
 loud is not a notification: `Initiative.speaking` shows
 `modules/ii/notificationPopup/AgentSpeech.qml`, a speech bubble on the left
 under the bar, styled per theme (Material, Persona, Chiikawa, Cyberpunk,
-Ghibli), to the bar after 25 s unanswered. Only
+Ghibli), that is a small chat of its own: the user answers in its field
+(Enter sends, Shift+Enter a new line, Escape puts it away) or with a quick
+answer (Yes please / No thanks under a question, Yes do it for a routine,
+a reaction's buttons, Not now, Don't tell me this), and Claude answers in
+the bubble, saying what it is doing meanwhile (thinking, the tool it used:
+`Initiative.chat`, the thread made by `Initiative.prepare()` as soon as the
+field gets the focus, so Claude Code is warm when the message goes; the
+robot nods meanwhile). Only
 notifications go to the small model (`INITIATIVE_SYSTEM`, at most
 `initiativeCallsPerDay`), which also names kinds never worth a word. The
-memory pass offers what it learned (`initiative_offer`). Reply opens the
-side panel's "From Claude" tab with the message as Claude's, in a thread of
-its own (`Ai.claudeThread()`: the thread before saved to the history,
-`fromClaude: true`, listed under the tabs by `aiChat/ClaudeThreads.qml` to go
-back to, with a button clearing them, pinned ones kept: `Ai.deleteClaudeThreads()`; a second "From Claude" tab, past `maxChats`, when the first is still
-answering) (`unsent`: it goes with the user's
-next message when the tab's session already runs; `GlobalStates.aiChatRequested`);
+memory pass offers what it learned (`initiative_offer`). Left alone (25 s,
+15 s for a reaction, 90 s after an answer; never while hovered, typed in
+or answering) the bubble goes to the bar, a conversation with it
+(`Initiative.parked`): the bar's bubble brings it back, and so does
+Claude's next answer in it (not when busy). Its expand button moves the
+talk to the side panel's "From Claude" tab: what it said is Claude's
+message in a thread of its own (`Ai.claudeThread()`, not selected in the
+panel while the talk is in the bubble: the thread before saved to the
+history, `fromClaude: true`, listed under the tabs by
+`aiChat/ClaudeThreads.qml` to go back to, with a button clearing them,
+pinned ones kept: `Ai.deleteClaudeThreads()`; a second "From Claude" tab,
+past `maxChats`, when the first is still answering) (`unsent`: it goes with
+the user's next message when the tab's session already runs;
+`GlobalStates.aiChatRequested`). A chat of the side panel that answers
+while the panel is closed says so in the bubble too, its answer there to
+reply to (`Initiative.chatDone`; `notify-send` only while the user is
+typing in the bubble). **Mod+Shift+Space** (`nixbook-shell ipc call
+claude ask`) or a middle-click on the bar's robot calls the bubble up to
+ask anything (`Initiative.summon()`, the keys taken until sent). The
+robot hops when Claude has something new to say.
+Reactions (`ai.initiative.reactions`, off): what the user just did, seen by
+`services/Routines.qml` (`happened`, every event with a `path` for files),
+goes to `initiative consider` as `happened` (`happened_item`, plain code, no
+model call): a file downloaded (open, show in folder with
+org.freedesktop.FileManager1, and by its type summarize it, what's in it,
+extract it, how to install it on NixOS: those ask Claude in the bubble,
+the file attached), a screenshot (what's in it), a drive plugged in (open,
+what's on it). Not what an agent did (DesktopControl.active), never while
+busy, once per file, past the day's budget and gap (now or never), 30 min
+in the bar; "Don't tell me this" silences that kind of reaction only.
 answers (`initiative answer ID replied|later|dismissed|never|engaged`) teach
 it: `budget()` scales the day's notifications and chats by the reply rate
 (×0.5 to ×2), `hour_key` stats hold back speaking out loud at times the user

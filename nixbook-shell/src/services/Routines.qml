@@ -92,8 +92,12 @@ Singleton {
         root.recent = [...root.recent, { time: Date.now(), what: what, outcome: outcome }].slice(-12)
     }
 
+    // Everything it sees happen, routines or not (Initiative.qml reacts to some).
+    signal happened(var ev)
+
     // Something happened: the routines it is the cue of.
     function happen(ev) {
+        root.happened(ev)
         if (ev.event === "back") {
             root._sittingSince = Date.now()
             root._longFired = []
@@ -479,6 +483,8 @@ Singleton {
         showDirs: false
         showHidden: false
         onCountChanged: downloadTimer.restart()
+        // Read once even when empty: else the first file is taken for what was there.
+        onStatusChanged: if (status === FolderListModel.Ready) downloadTimer.restart()
     }
     // A finished file only: partial ones are renamed when done.
     Timer {
@@ -489,7 +495,8 @@ Singleton {
             for (let i = 0; i < downloads.count; i++) names.push(downloads.get(i, "fileName"))
             if (root._downloads !== null)
                 for (const n of names.filter(n => !root._downloads.includes(n) && !/\.(part|crdownload|tmp|download)$/i.test(n)))
-                    root.happen({ event: "download", name: n, ext: (n.match(/\.([^.]+)$/)?.[1] ?? "").toLowerCase() })
+                    root.happen({ event: "download", name: n, ext: (n.match(/\.([^.]+)$/)?.[1] ?? "").toLowerCase(),
+                                  path: `${decodeURIComponent(FileUtils.trimFileProtocol(downloads.folder.toString()))}/${n}` })
             root._downloads = names
         }
     }
@@ -571,6 +578,7 @@ Singleton {
         folder: `file:///run/media/${Quickshell.env("USER")}`
         showFiles: false
         onCountChanged: drivesTimer.restart()
+        onStatusChanged: if (status === FolderListModel.Ready) drivesTimer.restart()
     }
     Timer {
         id: drivesTimer
@@ -579,7 +587,8 @@ Singleton {
             const now = []
             for (let i = 0; i < drives.count; i++) now.push(drives.get(i, "fileName"))
             if (root._drives !== null) {
-                for (const n of now.filter(n => !root._drives.includes(n))) root.happen({ event: "drive_connected", name: n })
+                for (const n of now.filter(n => !root._drives.includes(n)))
+                    root.happen({ event: "drive_connected", name: n, path: `${decodeURIComponent(FileUtils.trimFileProtocol(drives.folder.toString()))}/${n}` })
                 for (const n of root._drives.filter(n => !now.includes(n))) root.happen({ event: "drive_disconnected", name: n })
             }
             root._drives = now
@@ -606,6 +615,7 @@ Singleton {
         folder: `file://${FileUtils.expandHome(Config.options?.screenSnip?.savePath || "~/Pictures/Screenshots")}`
         showDirs: false
         onCountChanged: shotsTimer.restart()
+        onStatusChanged: if (status === FolderListModel.Ready) shotsTimer.restart()
     }
     Timer {
         id: shotsTimer
@@ -614,7 +624,8 @@ Singleton {
             const now = []
             for (let i = 0; i < shots.count; i++) now.push(shots.get(i, "fileName"))
             if (root._shots !== null)
-                for (const n of now.filter(n => !root._shots.includes(n))) root.happen({ event: "screenshot", name: n })
+                for (const n of now.filter(n => !root._shots.includes(n)))
+                    root.happen({ event: "screenshot", name: n, path: `${decodeURIComponent(FileUtils.trimFileProtocol(shots.folder.toString()))}/${n}` })
             root._shots = now
         }
     }
