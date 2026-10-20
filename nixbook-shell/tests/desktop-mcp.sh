@@ -248,7 +248,7 @@ case "$*" in
   *"widgets place"* | *"widgets hideOn"* | *"widgets raise"* | *"widgets placement"*) echo "ok: done" ;;
   # MakeWay.qml: the shell's overlays set aside.
   *"makeWay setAside sidePanel"*) echo "error: the side panel is the user's chat with you: leave it" ;;
-  *"makeWay setAside"*) echo "ok: ${*: -1} dismissed" ;;
+  *"makeWay setAside"*) echo "ok: ${*: -1} hidden while you work; back for the user when you stop" ;;
   # WindowLayouts.qml: the cover over the screens while an agent restores.
   *"layouts coverBegin"* | *"layouts coverEnd"*) echo "ok" ;;
   # Recording (RegionSelector.qml `region`): a marker while it runs; stopping
@@ -854,13 +854,13 @@ expect_not_contains "make way: nothing on screen, nothing told" "$out" "click-th
 echo '{"overlays":["sidePanel","cutIn"]}' >"$sh_rt/overlays.json"
 out=$(call click '{"x":10,"y":10}')
 expect_eq "make way: an action lets the agent through, held a while" "false true" \
-  "$(jq -r --argjson now "$(date +%s%3N)" '"\(.capture) \(.until > $now + 5000)"' "$sh_rt/make-way.json")"
+  "$(jq -r --argjson now "$(date +%s%3N)" '"\(.capture) \(.until > $now + 3000)"' "$sh_rt/make-way.json")"
 expect_contains "make way: the agent is told what it is let through" "$out" "the shell's sidePanel, cutIn: made click-through"
 : >"$calls.mw"
 out=$(call screenshot '{}')
 expect_eq "make way: overlays hidden while the screen is captured" '{"capture":true}' "$(sort -u "$calls.mw")"
 expect_eq "make way: shown again after" false "$(jq .capture "$sh_rt/make-way.json")"
-expect_contains "make way: set_aside dismisses a cut-in" "$(call set_aside '{"name":"cutIn"}')" "cutIn dismissed"
+expect_contains "make way: set_aside hides a cut-in for a while, never for good" "$(call set_aside '{"name":"cutIn"}')" "cutIn hidden while you work; back"
 expect_contains "make way: never the side panel" "$(call set_aside '{"name":"sidePanel"}')" "the user's chat with you"
 rm -f "$sh_rt/overlays.json" "$sh_rt/make-way.json" "$calls.mw"
 

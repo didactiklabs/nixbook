@@ -349,11 +349,13 @@ the apps make way (`services/MakeWay.qml`: the side panel, Claude's
 bubble, notification popups, a theme's cut-in, listed in
 $XDG_RUNTIME_DIR/nixbook-shell/overlays.json; before an action on the
 user's desktop the server writes `make-way.json` {seq, until, capture}:
-they let clicks through and give up the keyboard, faded, until 12 s after
+they let clicks through and give up the keyboard, faded, until 5 s after
 the last action, and vanish while the agent's screenshot, OCR or settle
-wait captures the screen; `make-way.ack` once on screen, waited for at
-most 0.3 s; the agent told once per set of them; `set_aside` dismisses
-popups, a cut-in or the bubble, never the side panel); read the text on
+wait captures the screen; then they are back as they were, nothing
+dismissed (the bubble's timer to the bar waits meanwhile); `make-way.ack`
+once on screen, waited for at most 0.3 s; the agent told once per set of
+them; `set_aside` hides popups, a cut-in or the bubble while it works,
+never the side panel); read the text on
 screen (`read_screen`: OCR, each line with its position to click, ~150
 tokens instead of a screenshot's ~1,250; `find` returns only the lines
 containing the given text; `ocrLanguages`, `eng` by default); type, press

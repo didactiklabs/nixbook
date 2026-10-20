@@ -95,7 +95,7 @@ Scope {
             anchors.bottomMargin: 4
             popup: true
             interactive: false
-            opacity: MakeWay.fade(0.5)
+            opacity: MakeWay.fade(0.5, "notificationPopups")
             verticalLayoutDirection: root.isBottom ? ListView.BottomToTop : ListView.TopToBottom
         }
     }
