@@ -172,7 +172,17 @@ recurring series expanded by nixbook-accounts):
   jots one down in the quick floating editor. Agents' changes (the `widget`
   tool's notes, which can also `open` one) show live. A notes file that
   can't be read is kept aside (`desktopnotes.txt.corrupt-<ms>`) before the
-  notes start over;
+  notes start over. The overlay's **Notes** widget (`src/modules/ii/overlay/notes/`:
+  a text area whose "- item" lines get copy buttons, clickthrough like the
+  other overlay widgets) edits one of these notes, the scratchpad (flagged
+  `"scratchpad": true`, marked in the Notes window's list), so it is in the
+  window and the widget and syncs with Keep like the others; it follows
+  their changes while nothing typed in it waits to be saved. It is created
+  with its first text; deleted elsewhere, the next text starts a new one;
+  emptied, it stays (and stays linked to its Keep note) but isn't listed.
+  The overlay's older file, `notes.txt` (one text, in the notes' state
+  directory), is imported once as the scratchpad when there is none yet,
+  then renamed `notes.txt.migrated`;
 - reminders: the shell's own notifications (`src/services/CalendarReminders.qml`,
   app "Calendar", through notify-send: at each reminder time of an event, its
   own or its calendar's; Join, Snooze 5 min, Open), shown by the shell's

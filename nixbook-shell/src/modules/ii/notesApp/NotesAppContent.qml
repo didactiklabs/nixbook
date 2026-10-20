@@ -345,6 +345,13 @@ Rectangle {
                                     iconSize: Appearance.font.pixelSize.small
                                     color: Appearance.colors.colPrimary
                                 }
+                                // The overlay's Notes scratchpad.
+                                MaterialSymbol {
+                                    visible: !!noteItem.modelData.scratchpad
+                                    text: "note_stack"
+                                    iconSize: Appearance.font.pixelSize.small
+                                    color: Appearance.colors.colSubtext
+                                }
                                 StyledText {
                                     Layout.fillWidth: true
                                     text: root.titleOf(noteItem.modelData.content) || Translation.tr("Empty note")

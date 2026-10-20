@@ -240,6 +240,42 @@ merged, actions, stats = keep_sync.merge_notes(
 check("a note trashed in Keep stays here", "Shopping\nbread", merged[0]["content"])
 check("a note trashed in Keep is not pushed", [], [a for a in actions if a["op"] == "push"])
 
+# The overlay's scratchpad (a note flagged "scratchpad": Keep can't store
+# the flag) stays the scratchpad through every kind of sync.
+def scratchpad(note):
+    return dict(note, scratchpad=True)
+
+
+merged, actions, stats = keep_sync.merge_notes([scratchpad(local("s", "Scratch\nmilk"))], [])
+check("a new scratchpad is created in Keep", 1, stats["created"])
+check("a new scratchpad stays the scratchpad", True, merged[0].get("scratchpad"))
+merged, actions, stats = keep_sync.merge_notes(
+    [scratchpad(local("s", "Scratch\nmilk"))], [remote("k1", title="Scratch", text="milk")]
+)
+check("a linked scratchpad stays the scratchpad", (True, "k1"), (merged[0].get("scratchpad"), merged[0]["keepId"]))
+merged, actions, stats = keep_sync.merge_notes(
+    [scratchpad(local("s", "Scratch\nmilk", updated=2000, keep_id="k1", keep_edited=2000))],
+    [remote("k1", title="Scratch", text="bread", edited=3000)],
+)
+check("a scratchpad changed in Keep comes back", "Scratch\nbread", merged[0]["content"])
+check("a scratchpad changed in Keep stays the scratchpad", True, merged[0].get("scratchpad"))
+merged, actions, stats = keep_sync.merge_notes(
+    [scratchpad(local("s", "Scratch\neggs", updated=3000, keep_id="k1", keep_edited=2000))],
+    [remote("k1", title="Scratch", text="milk", edited=2000)],
+)
+check("a scratchpad changed here is pushed", 1, stats["pushed"])
+check("a pushed scratchpad stays the scratchpad", True, merged[0].get("scratchpad"))
+merged, actions, stats = keep_sync.merge_notes(
+    [scratchpad(local("s", "", updated=3000, keep_id="k1", keep_edited=2000))],
+    [remote("k1", title="Scratch", text="milk", edited=2000)],
+)
+check("an emptied scratchpad is pushed empty", ("", ""), (actions[0]["title"], actions[0]["text"]))
+check("an emptied scratchpad stays the scratchpad", (True, ""), (merged[0].get("scratchpad"), merged[0]["content"]))
+merged, actions, stats = keep_sync.merge_notes(
+    [local("1", "Shopping\nmilk")], [remote("k1", title="Scratch", text="bread")]
+)
+check("a note from Keep is never the scratchpad", [False, False], [bool(n.get("scratchpad")) for n in merged])
+
 # -- With gkeepapi itself ----------------------------------------------------
 #
 # The tests above need no account; these need the library (the shell's

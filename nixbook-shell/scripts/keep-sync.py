@@ -31,7 +31,10 @@ How a note maps to a Keep note:
   - "pinned" is Keep's pin;
   - the note's id and the Keep note's id are kept together ("keepId"), with
     the Keep timestamp of the last sync ("keepEdited"), to tell which side
-    changed.
+    changed;
+  - the note's other fields (its attachments, the overlay scratchpad's
+    "scratchpad" flag) have no place in Keep: each note is handed back with
+    them as they were.
 
 Deletions are not synced: a note deleted in the shell stays in Keep, a note
 deleted in Keep stays in the shell, and neither is brought back. The Keep

@@ -2,13 +2,19 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Io
 import qs
 import qs.services
+// Qualified: this directory's own Notes.qml (the overlay widget) would hide
+// the notes store.
+import qs.services as Services
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.ii.overlay
 
+// The overlay's Notes: the scratchpad, one note of the notes store
+// (services/Notes.qml), so it is also in the Notes app and the desktop notes
+// widget, and synced with Google Keep. Saved as you type; changes made
+// elsewhere show while nothing typed here waits to be saved.
 OverlayBackground {
     id: root
 
@@ -20,23 +26,50 @@ OverlayBackground {
     property real maxCopyButtonSize: 20
 
     Component.onCompleted: {
-        noteFile.reload();
-        updateCopyListEntries();
+        Services.Notes.ensureLoaded();
+        root.loadContent();
     }
     // Closing the widget (or reloading the shell) right after typing: what
     // waits for the save debounce is written now, synchronously.
     Component.onDestruction: {
         if (saveDebounce.running) {
             saveDebounce.stop();
-            noteFile.blockWrites = true;
-            saveContent();
+            root.saveContent(true);
         }
     }
 
-    function saveContent() {
+    // Set while the text comes from the store, so it isn't saved back.
+    property bool loading: false
+    // The scratchpad's text into the editor (empty when there is none: a
+    // deleted scratchpad isn't brought back, the next text starts a new one),
+    // the cursor kept where it was.
+    function loadContent() {
         if (!textInput)
             return;
-        noteFile.setText(root.content);
+        const text = Services.Notes.scratchpad?.content ?? "";
+        if (text !== root.content) {
+            const cursor = textInput.cursorPosition;
+            root.loading = true;
+            root.content = text;
+            root.loading = false;
+            textInput.cursorPosition = Math.min(cursor, text.length);
+        }
+        Qt.callLater(root.updateCopyListEntries);
+    }
+
+    function saveContent(now = false) {
+        if (!textInput)
+            return;
+        Services.Notes.setScratchpad(root.content, now);
+    }
+
+    // The Notes app, the desktop widget, agents and Keep edit it too.
+    Connections {
+        target: Services.Notes
+        function onListChanged() {
+            if (!saveDebounce.running)
+                root.loadContent();
+        }
     }
 
     function scheduleCopylistUpdate(immediate = false) {
@@ -156,7 +189,7 @@ OverlayBackground {
                 padding: 24
 
                 onTextChanged: {
-                    if (textInput.activeFocus) {
+                    if (textInput.activeFocus && !root.loading) {
                         saveDebounce.restart();
                     }
                     root.scheduleCopylistUpdate(true);
@@ -245,23 +278,5 @@ OverlayBackground {
         interval: 100
         repeat: false
         onTriggered: updateCopylistPositions()
-    }
-
-    FileView {
-        id: noteFile
-        path: Qt.resolvedUrl(Directories.notesPath)
-        onLoaded: {
-            root.content = noteFile.text();
-            Qt.callLater(root.updateCopyListEntries);
-        }
-        onLoadFailed: error => {
-            if (error === FileViewError.FileNotFound) {
-                root.content = "";
-                noteFile.setText(root.content);
-                Qt.callLater(root.updateCopyListEntries);
-            } else {
-                console.log("[Overlay Notes] Error loading file: " + error);
-            }
-        }
     }
 }
