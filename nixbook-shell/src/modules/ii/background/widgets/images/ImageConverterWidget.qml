@@ -106,7 +106,11 @@ AbstractBackgroundWidget {
     function enqueueFiles(urls) {
         var valid = []
         for (var i = 0; i < urls.length; i++) {
-            var cleanPath = urls[i].toString().replace(/^file:\/\//, "")
+            // Local files only (ffmpeg would fetch a dropped http:// link);
+            // their URLs are percent-encoded ("My%20Pic.png").
+            var url = urls[i].toString()
+            if (!url.startsWith("file:///")) continue
+            var cleanPath = decodeURIComponent(url.replace(/^file:\/\//, ""))
             var ext = cleanPath.split(".").pop().toLowerCase()
             if (root.acceptedExtensions.indexOf(ext) !== -1)
                 valid.push(cleanPath)

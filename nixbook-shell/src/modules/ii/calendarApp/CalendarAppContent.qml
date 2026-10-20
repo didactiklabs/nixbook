@@ -39,7 +39,9 @@ Rectangle {
     property var now: new Date()
     Timer {
         interval: 60000
-        running: root.visible
+        // The window stays loaded once opened: tick only while it's shown.
+        running: GlobalStates.calendarAppOpen
+        triggeredOnStart: true
         repeat: true
         onTriggered: root.now = new Date()
     }
@@ -58,7 +60,9 @@ Rectangle {
 
     function selectDay(day) {
         root.selectedDay = day
-        root.month = new Date(day.getFullYear(), day.getMonth(), 1)
+        // A new Date always notifies: same month, keep the grid's model.
+        if (root.month.getFullYear() !== day.getFullYear() || root.month.getMonth() !== day.getMonth())
+            root.month = new Date(day.getFullYear(), day.getMonth(), 1)
         CalendarEvents.ensureMonth(root.month)
         root.editing = null
         root.creating = false

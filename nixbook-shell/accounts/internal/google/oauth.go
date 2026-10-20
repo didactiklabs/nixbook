@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -274,9 +275,11 @@ func Login(openBrowser bool, out io.Writer) (registry.Account, error) {
 	}
 	redirect := fmt.Sprintf("http://127.0.0.1:%d", ln.Addr().(*net.TCPAddr).Port)
 	got := make(chan url.Values, 1)
-	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Anything on this computer can reach the port: a request without the
+	// state is refused, and a slow one can't hold the server.
+	srv := &http.Server{ReadHeaderTimeout: 10 * time.Second, Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
-		if q.Get("state") != state {
+		if subtle.ConstantTimeCompare([]byte(q.Get("state")), []byte(state)) != 1 {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}

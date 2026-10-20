@@ -71,10 +71,10 @@ Item {
 
     Process {
         id: translateProc
-        command: ["bash", "-c", `trans -e bing -brief -no-bidi`
-            + ` -source '${StringUtils.shellSingleQuoteEscape(root.sourceLanguage)}'`
-            + ` -target '${StringUtils.shellSingleQuoteEscape(root.targetLanguage)}'`
-            + ` '${StringUtils.shellSingleQuoteEscape(root.inputField.text.trim())}'`]
+        // Arguments, no shell: the text is whatever was typed or pasted.
+        command: ["trans", "-e", "bing", "-brief", "-no-bidi",
+            "-source", root.sourceLanguage, "-target", root.targetLanguage,
+            root.inputField.text.trim()]
         property string buffer: ""
         stdout: SplitParser {
             onRead: data => {

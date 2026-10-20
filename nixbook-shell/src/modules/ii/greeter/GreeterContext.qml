@@ -146,6 +146,8 @@ Scope {
             root.failure();
         }
         function onReadyToLaunch() {
+            // Authenticated: the typed secret isn't needed any more.
+            root.currentText = "";
             root.remember();
             const s = root.session;
             const command = (s?.exec ?? "").replace(/%[a-zA-Z]/g, "").trim().split(/\s+/).filter(a => a.length > 0);

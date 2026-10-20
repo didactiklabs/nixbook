@@ -3,7 +3,7 @@
 # Niri's own cursor is handled separately via qssettings/shell.kdl.
 set -u
 
-theme="$1"
+theme="${1:-}"
 size="${2:-24}"
 [[ -z $theme ]] && {
   echo "usage: $0 <cursor-theme> [size]" >&2

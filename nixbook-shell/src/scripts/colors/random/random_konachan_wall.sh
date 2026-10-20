@@ -20,14 +20,8 @@ get_pictures_dir() {
   echo "$HOME/Pictures"
 }
 
-QUICKSHELL_CONFIG_NAME="nixbook-shell"
 XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
-XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
-XDG_STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
 PICTURES_DIR=$(get_pictures_dir)
-CONFIG_DIR="$XDG_CONFIG_HOME/quickshell/$QUICKSHELL_CONFIG_NAME"
-CACHE_DIR="$XDG_CACHE_HOME/quickshell"
-STATE_DIR="$XDG_STATE_HOME/quickshell"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 mkdir -p "$PICTURES_DIR/Wallpapers"
@@ -37,10 +31,17 @@ userAgent=$(jq -r '.networking.userAgent // empty' "$illogicalImpulseConfigPath"
 response=$(curl -A "$userAgent" "https://konachan.net/post.json?tags=rating%3Asafe&limit=1&page=$page")
 link=$(echo "$response" | jq '.[0].file_url' -r)
 ext=$(echo "$link" | awk -F. '{print $NF}')
+ext=${ext%%[?#]*}
+# The link and its extension come from the server: only a web URL, and an
+# extension that can't reach outside the Wallpapers folder.
+if [[ ! $link =~ ^https?:// || ! $ext =~ ^[A-Za-z0-9]+$ ]]; then
+  echo "No usable image link in the response" >&2
+  exit 1
+fi
 downloadPath="$PICTURES_DIR/Wallpapers/random_wallpaper.$ext"
 currentWallpaperPath=$(jq -r '.background.wallpaperPath' "$illogicalImpulseConfigPath")
 if [ "$downloadPath" == "$currentWallpaperPath" ]; then
   downloadPath="$PICTURES_DIR/Wallpapers/random_wallpaper-1.$ext"
 fi
-curl -A "$userAgent" "$link" -o "$downloadPath"
+curl -f --proto =http,https --proto-redir =http,https -A "$userAgent" "$link" -o "$downloadPath" || exit 1
 "$SCRIPT_DIR/../switchwall.sh" --image "$downloadPath"

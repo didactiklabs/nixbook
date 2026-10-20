@@ -18,6 +18,8 @@ Item {
 
     function submit() {
         PolkitService.submit(inputField.text);
+        // The field is disabled until polkit answers: don't keep the secret.
+        inputField.text = "";
     }
     Connections {
         target: PolkitService
@@ -76,6 +78,7 @@ Item {
             enabled: PolkitService.interactionAvailable
             placeholderText: PolkitService.cleanPrompt
             echoMode: root.usePasswordChars ? TextInput.Password : TextInput.Normal
+            inputMethodHints: root.usePasswordChars ? Qt.ImhSensitiveData : Qt.ImhNone
             onAccepted: root.submit();
 
             Keys.onPressed: event => { // Esc to close

@@ -18,10 +18,24 @@ Singleton {
     property real scoreThreshold: 0.2
     property list<string> entries: []
 
-    readonly property var preparedEntries: entries.map(a => ({
-        name: Fuzzy.prepare(`${a.replace(/^\s*\S+\s+/, "")}`),
-        entry: a
-    }))
+    // Prepared for fuzzy search the first time a search needs them, not on
+    // every clipboard change (a binding re-prepared the whole history each
+    // copy, launcher open or not). Kept in a plain object: written from
+    // inside the launcher's results binding, a property would notify it.
+    property int _entriesGeneration: 0
+    onEntriesChanged: root._entriesGeneration++
+    readonly property var _prepared: ({ generation: -1, entries: [] })
+    function preparedEntries() {
+        const generation = root._entriesGeneration;
+        if (root._prepared.generation !== generation) {
+            root._prepared.entries = root.entries.map(a => ({
+                name: Fuzzy.prepare(`${a.replace(/^\s*\S+\s+/, "")}`),
+                entry: a
+            }));
+            root._prepared.generation = generation;
+        }
+        return root._prepared.entries;
+    }
 
     function fuzzyQuery(search: string): var {
         if (search.trim() === "") {
@@ -36,7 +50,7 @@ Singleton {
             return results.map(item => item.entry)
         }
 
-        return Fuzzy.go(search, preparedEntries, {
+        return Fuzzy.go(search, root.preparedEntries(), {
             all: true,
             key: "name"
         }).map(r => {

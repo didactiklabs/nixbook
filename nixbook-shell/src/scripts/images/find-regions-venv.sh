@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
+# (The Nix build gives the script an interpreter with its modules: no
+# virtualenv to activate.)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-source $(eval echo $ILLOGICAL_IMPULSE_VIRTUAL_ENV)/bin/activate
-"$SCRIPT_DIR/find_regions.py" "$@"
-deactivate
+exec "$SCRIPT_DIR/find_regions.py" "$@"

@@ -8,16 +8,15 @@ BarWidgetSwitcher {
     id: root
     property bool borderless: Config.options.bar.borderless
     property bool showDate: Config.options.time.showDate
-    property var today: new Date()
+    // Follows DateTime's clock (paused with the screens off) but only changes
+    // with the day: no timer of its own, no popup rebuild every minute.
+    readonly property int dayOfMonth: DateTime.clock.date.getDate()
+    readonly property var today: {
+        root.dayOfMonth; // dependency only
+        return new Date();
+    }
     readonly property string dateTimeString: DateTime.time
     readonly property bool hasAmPm: dateTimeString.toLowerCase().includes("am") || dateTimeString.toLowerCase().includes("pm")
-
-    Timer {
-        interval: 60000
-        running: true
-        repeat: true
-        onTriggered: root.today = new Date()
-    }
 
     colDefault: Component {
         ColumnLayout {

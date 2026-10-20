@@ -14,7 +14,9 @@ Item {
     property bool barMirrored: false
     readonly property MprisPlayer activePlayer: MprisController.activePlayer
     readonly property bool isPlaying: activePlayer?.isPlaying ?? false
-    readonly property list<real> points: GlobalStates.visualizerPoints
+    // Not bound while paused or hidden: each cava update (60 Hz) would copy
+    // the list and re-run every bar's binding.
+    readonly property list<real> points: root.isPlaying && root.visible ? GlobalStates.visualizerPoints : []
     property int barCount: 20
     property real dotSize: 3
     property real dotSpacing: 3
@@ -52,7 +54,7 @@ Item {
                 required property int index
                 width: root.dotSize
                 property real pointValue: {
-                    if (!root.isPlaying || root.points.length === 0) return root.dotSize
+                    if (!barsRow.visible || root.points.length === 0) return root.dotSize
                     const idx = Math.floor(index * root.points.length / root.barCount)
                     const v = root.points[idx] ?? 0
                     return Math.max(root.dotSize, (v / root.maxVisualizerValue) * root.maxBarHeight)
@@ -80,7 +82,7 @@ Item {
                 required property int index
                 height: root.dotSize
                 property real pointValue: {
-                    if (!root.isPlaying || root.points.length === 0) return root.dotSize
+                    if (!barsColumn.visible || root.points.length === 0) return root.dotSize
                     const rawIndex = root.barMirrored ? (root.barCount - 1 - index) : index
                     const idx = Math.floor(rawIndex * root.points.length / root.barCount)
                     const v = root.points[idx] ?? 0

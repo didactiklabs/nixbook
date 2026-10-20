@@ -17,7 +17,6 @@ Item {
     property string colorGroup: ""
     property int columns: Config.options.wallpaperSelector.columns || 4
     property real previewCellAspectRatio: 4 / 3
-    property var hoveredItem: null
 
     signal wallpaperSelected(string path)
     signal updateThumbnailsRequested()
@@ -32,7 +31,7 @@ Item {
         
     readonly property bool missingKey: root.unsplashMissingKey || root.pexelsMissingKey
 
-    onProviderChanged:   { root.hoveredItem = null; _syncAndFetch() }
+    onProviderChanged:   _syncAndFetch()
     onResolutionChanged: _syncAndFetch()
     onColorGroupChanged: { if (root.provider === "naive" || root.provider === "blapples") _syncAndFetch() }
 
@@ -75,10 +74,8 @@ Item {
     Connections {
         target: OnlineWallpapers
         function onFetched() {
-            if (!OnlineWallpapers.appending) {
+            if (!OnlineWallpapers.appending)
                 wallpaperModel.clear()
-                root.hoveredItem = null
-            }
             const startIndex = wallpaperModel.count
             for (const item of OnlineWallpapers.results.slice(startIndex)) {
                 wallpaperModel.append(item)
@@ -237,12 +234,7 @@ Item {
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                     onEntered: {
                         grid.currentIndex = delegateItem.index
-                        root.hoveredItem = delegateItem.model
                         root.forceActiveFocus()
-                    }
-                    onExited: {
-                        if (root.hoveredItem === delegateItem.model)
-                            root.hoveredItem = null
                     }
                     onClicked: event => {
                         root.downloadItem(delegateItem.model, event.button === Qt.LeftButton)

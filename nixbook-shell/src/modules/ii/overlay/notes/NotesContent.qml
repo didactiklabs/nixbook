@@ -13,7 +13,6 @@ OverlayBackground {
     id: root
 
     property alias content: textInput.text
-    property bool pendingReload: false
     property var copyListEntries: []
     property string lastParsedCopylistText: ""
     property var parsedCopylistLines: []
@@ -29,25 +28,6 @@ OverlayBackground {
         if (!textInput)
             return;
         noteFile.setText(root.content);
-    }
-
-    function focusAtEnd() {
-        if (!textInput)
-            return;
-        textInput.forceActiveFocus();
-        const endPos = root.content.length;
-        applySelection(endPos, endPos);
-    }
-
-    function applySelection(cursorPos, anchorPos) {
-        if (!textInput)
-            return;
-        const textLength = root.content.length;
-        const cursor = Math.max(0, Math.min(cursorPos, textLength));
-        const anchor = Math.max(0, Math.min(anchorPos, textLength));
-        textInput.select(anchor, cursor);
-        if (cursor === anchor)
-            textInput.deselect();
     }
 
     function scheduleCopylistUpdate(immediate = false) {
@@ -263,26 +243,12 @@ OverlayBackground {
         path: Qt.resolvedUrl(Directories.notesPath)
         onLoaded: {
             root.content = noteFile.text();
-            if (root.content !== root.content) {
-                const previousCursor = textInput.cursorPosition;
-                const previousAnchor = textInput.selectionStart;
-                root.content = root.content;
-                applySelection(previousCursor, previousAnchor);
-            }
-            if (pendingReload) {
-                pendingReload = false;
-                Qt.callLater(root.focusAtEnd);
-            }
             Qt.callLater(root.updateCopyListEntries);
         }
         onLoadFailed: error => {
             if (error === FileViewError.FileNotFound) {
                 root.content = "";
                 noteFile.setText(root.content);
-                if (pendingReload) {
-                    pendingReload = false;
-                    Qt.callLater(root.focusAtEnd);
-                }
                 Qt.callLater(root.updateCopyListEntries);
             } else {
                 console.log("[Overlay Notes] Error loading file: " + error);

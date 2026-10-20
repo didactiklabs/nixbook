@@ -283,6 +283,10 @@ func rawRequest(c context.Context, a registry.Account, method, endpoint, path, b
 	if err != nil {
 		return err
 	}
+	// The password goes to the account's own server only.
+	if target.Scheme != base.Scheme || target.Host != base.Host {
+		return core.Errorf("%s: refused to send the password to %s", a.Name, hostOf(target.String()))
+	}
 	req, err := http.NewRequestWithContext(c, method, target.String(), bytes.NewBufferString(body))
 	if err != nil {
 		return err
@@ -294,6 +298,7 @@ func rawRequest(c context.Context, a registry.Account, method, endpoint, path, b
 		return asError(a, err)
 	}
 	defer resp.Body.Close()
+	// Capped by davHTTP's transport.
 	data, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		return refused(a)

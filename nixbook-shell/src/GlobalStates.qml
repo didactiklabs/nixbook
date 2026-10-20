@@ -27,7 +27,6 @@ Singleton {
     property bool sidebarLeftPeek: false
     property bool sidebarRightPeek: false
     property bool mediaControlsOpen: false
-    property bool osdBrightnessOpen: false
     property bool settingsOpen: false
     property bool osdVolumeOpen: false
     property bool oskOpen: false

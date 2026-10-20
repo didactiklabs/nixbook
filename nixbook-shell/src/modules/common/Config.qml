@@ -64,15 +64,13 @@ Singleton {
     function setNestedValue(nestedKey, value) {
         let keys = nestedKey.split(".");
         let obj = root.options;
-        let parents = [obj];
 
-        // Traverse and collect parent objects
+        // Traverse (creating missing objects) down to the parent
         for (let i = 0; i < keys.length - 1; ++i) {
             if (!obj[keys[i]] || typeof obj[keys[i]] !== "object") {
                 obj[keys[i]] = {};
             }
             obj = obj[keys[i]];
-            parents.push(obj);
         }
 
         // Convert value to correct type using JSON.parse when safe

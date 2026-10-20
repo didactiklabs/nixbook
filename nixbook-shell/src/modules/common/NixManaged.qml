@@ -11,16 +11,27 @@ Singleton {
     // activation to ~/.config/nixbook-shell/nix-managed.json.
     property var pinned: []
 
+    // Every pinned path and each of its parents ("a.b.c": "a", "a.b",
+    // "a.b.c"), once per manifest: isPinned is called from every setting's
+    // bindings, and scanned the whole list each time.
+    readonly property var pinnedKeys: {
+        const keys = ({});
+        const paths = root.pinned;
+        for (let n = 0; n < paths.length; n++) {
+            const p = paths[n];
+            let i = -1;
+            while ((i = p.indexOf(".", i + 1)) !== -1)
+                keys[p.slice(0, i)] = true;
+            keys[p] = true;
+        }
+        return keys;
+    }
+
+    // Exact leaf match, or a parent of one: a setting holding a pinned one
+    // (e.g. "ai" when "ai.model" is set in Nix) counts as pinned too.
     function isPinned(key) {
         if (!key) return false
-        const paths = root.pinned
-        for (let i = 0; i < paths.length; i++) {
-            const p = paths[i]
-            // Exact leaf match, or prefix match: pinning a whole object
-            // (e.g. "ai") locks every setting underneath it too.
-            if (p === key || p.startsWith(key + ".")) return true
-        }
-        return false
+        return Object.prototype.hasOwnProperty.call(root.pinnedKeys, key)
     }
 
     // ------------------------------------------------------ menu filter
@@ -70,6 +81,9 @@ Singleton {
     // setting set in Nix can't be changed live by any path (the menu controls
     // are also disabled, see Config*.qml `Binding on enabled`).
     property var pinnedValues: ({})
+    // [path, value, value as JSON] per pinned leaf, once per file load
+    // rather than on every config change.
+    readonly property var pinnedLeaves: root.leafEntries(root.pinnedValues, "", []).map(([path, value]) => [path, value, JSON.stringify(value)])
 
     function leafEntries(obj, prefix, out) {
         for (const k in obj) {
@@ -102,17 +116,11 @@ Singleton {
         o[keys[keys.length - 1]] = value;
     }
 
-    function same(a, b) {
-        return JSON.stringify(a) === JSON.stringify(b);
-    }
-
     function enforce() {
         if (!Config.ready) return;
-        for (const [path, value] of root.leafEntries(root.pinnedValues, "", [])) {
-            const cur = root.readPath(path);
-            // QML list properties compare as arrays after a copy
-            const curPlain = (cur !== null && typeof cur === "object") ? JSON.parse(JSON.stringify(cur)) : cur;
-            if (!root.same(curPlain, value)) {
+        for (const [path, value, json] of root.pinnedLeaves) {
+            // QML list properties serialise as arrays too.
+            if (JSON.stringify(root.readPath(path)) !== json) {
                 console.log(`[NixManaged] ${path} is set in Nix; restoring it`);
                 root.writePath(path, value);
             }

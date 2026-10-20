@@ -5,6 +5,7 @@ import qs.modules.common.functions
 import qs.modules.common
 import QtQuick
 import Quickshell
+import Quickshell.Io
 
 /**
  * Renders LaTeX snippets with MicroTeX.
@@ -47,37 +48,37 @@ Singleton {
             // console.log("Rendering expression: " + expression)
         }
 
-        // 3. If not, render it with MicroTeX and mark as processed
-        // console.log(`[LatexRenderer] Rendering expression: ${expression} with hash: ${hash}`)
-        // console.log(`                to file: ${imagePath}`)
-        // console.log(`                with command: cd ${microtexBinaryDir} && ./${microtexBinaryName} -headless -input=${StringUtils.shellSingleQuoteEscape(expression)} -output=${imagePath} -textsize=${Appearance.font.pixelSize.normal} -padding=${renderPadding} -background=${Appearance.m3colors.m3tertiary} -foreground=${Appearance.m3colors.m3onTertiary} -maxwidth=0.85`)
-        const processQml = `
-            import Quickshell.Io
-            Process {
-                id: microtexProcess${hash}
-                running: true
-                command: [ "bash", "-c", 
-                    "cd ${root.microtexBinaryDir} && ./${root.microtexBinaryName} -headless '-input=${StringUtils.shellSingleQuoteEscape(StringUtils.escapeBackslashes(expression))}' "
-                    + "'-output=${imagePath}' " 
-                    + "'-textsize=${Appearance.font.pixelSize.normal}' "
-                    + "'-padding=${renderPadding}' "
-                    // + "'-background=${Appearance.m3colors.m3tertiary}' "
-                    + "'-foreground=${Appearance.colors.colOnLayer1}' "
-                    + "-maxwidth=0.85 "
-                ]
-                // stdout: SplitParser {
-                //     onRead: data => { console.log("MicroTeX: " + data) }
-                // }
-                onExited: (exitCode, exitStatus) => {
-                    // console.log("[LatexRenderer] MicroTeX process exited with code: " + exitCode + ", status: " + exitStatus)
-                    renderedImagePaths["${hash}"] = "${imagePath}"
-                    root.renderFinished("${hash}", "${imagePath}")
-                    microtexProcess${hash}.destroy()
-                }
-            }
-        `
-        // console.log("MicroTeX: " + processQml)
-        Qt.createQmlObject(processQml, root, `MicroTeXProcess_${hash}`)
+        // 3. If not, render it with MicroTeX and mark as processed. The
+        // expression (AI output) is an argument, never part of the script or
+        // of QML source: it used to be spliced into a Qt.createQmlObject
+        // string, where a `"` broke out into running code.
+        microtexComponent.createObject(root, {
+            hash: hash,
+            imagePath: imagePath,
+            command: ["bash", "-c", 'cd "$1" && shift && exec ./"$@"', "microtex",
+                root.microtexBinaryDir, root.microtexBinaryName, "-headless",
+                `-input=${expression}`,
+                `-output=${imagePath}`,
+                `-textsize=${Appearance.font.pixelSize.normal}`,
+                `-padding=${root.renderPadding}`,
+                `-foreground=${Appearance.colors.colOnLayer1}`,
+                "-maxwidth=0.85"]
+        })
         return [hash, true]
+    }
+
+    Component {
+        id: microtexComponent
+        Process {
+            id: microtexProcess
+            property string hash
+            property string imagePath
+            running: true
+            onExited: (exitCode, exitStatus) => {
+                root.renderedImagePaths[microtexProcess.hash] = microtexProcess.imagePath
+                root.renderFinished(microtexProcess.hash, microtexProcess.imagePath)
+                microtexProcess.destroy()
+            }
+        }
     }
 }

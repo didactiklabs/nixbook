@@ -12,24 +12,12 @@ Process {
     required property string sourceUrl;
     property string downloadUserAgent: Config.options?.networking.userAgent ?? ""
     
-    function processFilePath() {
-        return StringUtils.shellSingleQuoteEscape(FileUtils.trimFileProtocol(filePath));
-    }
-
-    function processSourceUrl() {
-        return StringUtils.shellSingleQuoteEscape(sourceUrl);
-    }
-
-    function curlUserAgentArg() {
-        if (!downloadUserAgent) {
-            return "";
-        }
-        return ` -H 'User-Agent: ${StringUtils.shellSingleQuoteEscape(downloadUserAgent)}'`;
-    }
-
     running: true
-    command: ["bash", "-c", 
-        `mkdir -p $(dirname '${processFilePath()}'); [ -f '${processFilePath()}' ] || curl -sSL '${processSourceUrl()}'${curlUserAgentArg()} -o '${processFilePath()}' && file '${processFilePath()}'`
+    // Path, URL and user agent as arguments, not spliced into the script
+    // (a folder with a space broke `mkdir`).
+    command: ["bash", "-c",
+        'mkdir -p "$(dirname "$1")"; [ -f "$1" ] || curl -sSL --url "$2" ${3:+-H "User-Agent: $3"} -o "$1" && file "$1"',
+        "_", FileUtils.trimFileProtocol(root.filePath), root.sourceUrl, root.downloadUserAgent
     ]
     stdout: StdioCollector {
         id: imageSizeOutputCollector

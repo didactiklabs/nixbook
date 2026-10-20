@@ -155,7 +155,8 @@ RowLayout {
         colText: toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colOnSurfaceVariant
         background: MaterialShape {
             RotationAnimation on rotation {
-                running: songRecButton.toggled
+                // The overview stays mapped (transparent) once closed.
+                running: songRecButton.toggled && GlobalStates.overviewOpen
                 duration: 12000
                 easing.type: Easing.Linear
                 loops: Animation.Infinite

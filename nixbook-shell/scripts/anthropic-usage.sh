@@ -126,7 +126,10 @@ get_token() {
     return 1
   fi
 
-  local new_expires_ms=$((now_ms + ${new_expires:-3600} * 1000))
+  # A whole number of seconds, or the default: the answer's text never
+  # reaches the arithmetic below (bash evaluates a name or `a[$(…)]` there).
+  case "$new_expires" in '' | *[!0-9]*) new_expires=3600 ;; esac
+  local new_expires_ms=$((now_ms + new_expires * 1000))
   local tmp
   tmp=$(mktemp "$AUTH_FILE.XXXXXX")
   if jq --arg a "$new_access" \

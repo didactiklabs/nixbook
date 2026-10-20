@@ -147,7 +147,9 @@ Item {
             width: root.isMaterial ? 60 : 50
             height: root.isMaterial ? root.pillHeight * 1.5 : root.pillHeight * 0.85
             live: root.activePlayer?.isPlaying
-            points: GlobalStates.visualizerPoints
+            // Not bound while hidden (dots style, island showing something else):
+            // each cava update (60 Hz) would copy the list.
+            points: visualizerCanvas.onScreen ? GlobalStates.visualizerPoints : []
             maxVisualizerValue: 1000
             smoothing: 2
             color: Appearance.colors.colOnLayer0

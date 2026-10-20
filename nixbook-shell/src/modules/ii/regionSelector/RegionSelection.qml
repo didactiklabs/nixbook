@@ -219,16 +219,21 @@ PanelWindow {
 
     Process {
         id: imageDetectionProcess
-        command: ["bash", "-c", `${Directories.scriptPath}/images/find-regions-venv.sh ` 
-            + `--image '${StringUtils.shellSingleQuoteEscape(root.screenshotPath)}' ` 
-            + `--max-width ${Math.round(root.screen.width * root.falsePositivePreventionRatio)} ` 
-            + `--max-height ${Math.round(root.screen.height * root.falsePositivePreventionRatio)} `]
+        // Arguments, not a script: no shell between the paths and the script.
+        command: [FileUtils.trimFileProtocol(`${Directories.scriptPath}/images/find-regions-venv.sh`),
+            "--image", root.screenshotPath,
+            "--max-width", String(Math.round(root.screen.width * root.falsePositivePreventionRatio)),
+            "--max-height", String(Math.round(root.screen.height * root.falsePositivePreventionRatio))]
         stdout: StdioCollector {
             id: imageDimensionCollector
             onStreamFinished: {
-                imageRegions = RegionFunctions.filterOverlappingImageRegions(
-                    JSON.parse(imageDimensionCollector.text).map(r => ({ at: [r.x, r.y], size: [r.width, r.height] }))
-                );
+                try {
+                    imageRegions = RegionFunctions.filterOverlappingImageRegions(
+                        JSON.parse(imageDimensionCollector.text).map(r => ({ at: [r.x, r.y], size: [r.width, r.height] }))
+                    );
+                } catch (e) {
+                    // No regions (the detector failed or printed nothing).
+                }
             }
         }
     }

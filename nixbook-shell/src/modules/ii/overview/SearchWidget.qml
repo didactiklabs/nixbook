@@ -14,7 +14,6 @@ import qs.modules.common.functions
 Item { // Wrapper
     id: root
 
-    readonly property string xdgConfigHome: Directories.config
     readonly property int typingDebounceInterval: 200
     readonly property int typingResultLimit: 15 // Should be enough to cover the whole view
 

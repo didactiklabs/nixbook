@@ -90,7 +90,6 @@ ButtonMouseArea {
                 delegate: Item {
                     id: wsBg
                     required property int index
-                    readonly property int wsId: wsModel.getWorkspaceIdAt(index)
                     property bool currentOccupied: wsModel.occupied[index]
                     property bool previousOccupied: index > 0 && wsModel.occupied[index - 1]
                     property bool nextOccupied: index < wsModel.shownCount - 1 && wsModel.occupied[index + 1]
@@ -284,7 +283,6 @@ ButtonMouseArea {
     component NumberWorkspaceItem: WorkspaceItem {
         id: wsNum
         property bool hasBiggestWindow: !!wsModel.biggestWindow[index]
-        property int wsId: wsModel.getWorkspaceIdAt(index)
         property color contentColor: wsModel.occupied[wsNum.index] ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1Inactive
         property bool showingNumbers: {
             if (GlobalStates.screenLocked)

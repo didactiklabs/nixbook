@@ -5,7 +5,6 @@ import QtQuick.Layouts
 import Qt.labs.folderlistmodel
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Io
 import qs
 import qs.services
 import qs.modules.common
@@ -49,7 +48,6 @@ Scope {
     }
 
     property int carouselExtraCount: 5
-    property bool useDarkMode: Appearance.m3colors.darkmode
     property var randomWallpapers: {
         const current = FileUtils.trimFileProtocol(Config.options.background.wallpaperPath)
         let all = []

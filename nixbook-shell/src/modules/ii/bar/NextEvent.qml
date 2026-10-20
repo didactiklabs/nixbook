@@ -18,7 +18,7 @@ BarWidgetSwitcher {
     property var now: new Date()
     Timer {
         interval: 30000
-        running: root.visible
+        running: root.visible && !Idle.screensOff
         repeat: true
         triggeredOnStart: true
         onTriggered: root.now = new Date()

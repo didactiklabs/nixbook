@@ -767,7 +767,7 @@ Singleton {
             if (setPersistentState) Persistent.states.ai.model = modelId;
             if (feedback) root.addMessage(Translation.tr("Model set to %1").arg(model.name), root.interfaceRole);
         } else {
-            if (feedback) root.addMessage(Translation.tr("Invalid model. Supported: \n```\n") + modelList.join("\n```\n```\n"), Ai.interfaceRole) + "\n```"
+            if (feedback) root.addMessage(Translation.tr("Invalid model. Supported: \n```\n") + modelList.join("\n```\n```\n") + "\n```", root.interfaceRole)
         }
     }
 

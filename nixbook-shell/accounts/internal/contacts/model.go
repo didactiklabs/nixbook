@@ -132,11 +132,17 @@ var BirthdayInput = regexp.MustCompile(`^(?:(\d{4})|-?-?)-?(\d{1,2})-(\d{1,2})$`
 // Normalize is s folded, its spaces made single.
 func Normalize(s string) string { return strings.TrimSpace(spaces.ReplaceAllString(Fold(s), " ")) }
 
-func labelNames(cache *Cache, ids []string) []string {
-	names := map[string]string{}
+// labelIndex is each label's name by its id.
+func labelIndex(cache *Cache) map[string]string {
+	names := make(map[string]string, len(cache.Labels))
 	for _, l := range cache.Labels {
 		names[l.ID] = l.Name
 	}
+	return names
+}
+
+// labelNames are the names of the labels ids (labelIndex), those known.
+func labelNames(names map[string]string, ids []string) []string {
 	out := []string{}
 	for _, id := range ids {
 		if n, ok := names[id]; ok {
@@ -146,19 +152,26 @@ func labelNames(cache *Cache, ids []string) []string {
 	return out
 }
 
+// sortContacts sorts by name (folded once each, not at every comparison),
+// then id; nameless last.
 func sortContacts(cs []Contact) {
-	slices.SortStableFunc(cs, func(a, b Contact) int {
-		ka, kb := Fold(a.Name), Fold(b.Name)
-		// Nameless last.
-		if ka == "" {
-			ka = "￿"
+	keys := make([]string, len(cs))
+	order := make([]int, len(cs))
+	for i := range cs {
+		if keys[i] = Fold(cs[i].Name); keys[i] == "" {
+			keys[i] = "\uffff"
 		}
-		if kb == "" {
-			kb = "￿"
-		}
-		if c := strings.Compare(ka, kb); c != 0 {
+		order[i] = i
+	}
+	slices.SortStableFunc(order, func(a, b int) int {
+		if c := strings.Compare(keys[a], keys[b]); c != 0 {
 			return c
 		}
-		return strings.Compare(a.ID, b.ID)
+		return strings.Compare(cs[a].ID, cs[b].ID)
 	})
+	sorted := make([]Contact, len(cs))
+	for i, j := range order {
+		sorted[i] = cs[j]
+	}
+	copy(cs, sorted)
 }

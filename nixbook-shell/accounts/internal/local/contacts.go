@@ -249,7 +249,7 @@ func savePhoto(c contacts.Contact, data []byte) (string, error) {
 	}
 	sum := sha256.Sum256(data)
 	file := filepath.Join(dir, c.ID+"-"+hex.EncodeToString(sum[:4])+".jpg")
-	if err := os.WriteFile(file, data, 0o600); err != nil {
+	if err := core.ReplaceFile(file, data); err != nil {
 		return "", err
 	}
 	return "file://" + file, nil

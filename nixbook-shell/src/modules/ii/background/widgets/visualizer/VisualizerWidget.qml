@@ -94,12 +94,25 @@ AbstractBackgroundWidget {
     function fetchCover() {
         root.coverDownloaded = false;
         if (!root.needsCover || root.artUrl.length === 0 || root.artUrl.startsWith("file://")) return;
-        coverDownloader.command = ["bash", "-c", '[ -f "$1" ] || curl --proto =http,https --proto-redir =http,https -sSL "$2" -o "$1"', "_", root.artFilePath, root.artUrl];
+        coverDownloader.artFilePath = root.artFilePath;
+        coverDownloader.targetFile = root.artUrl;
         coverDownloader.running = true;
     }
     Process {
         id: coverDownloader
-        onExited: root.coverDownloaded = true
+        property string artFilePath
+        property string targetFile
+        // Downloaded to a .part file and renamed, as the media widgets do: an
+        // interrupted download is never cached as the cover.
+        command: ["bash", "-c", '[ -f "$1" ] || { curl --proto =http,https --proto-redir =http,https -sSL "$2" -o "$1.part.$$" && mv -f "$1.part.$$" "$1"; }; rm -f "$1.part.$$"', "_", artFilePath, targetFile]
+        // A track change while a download runs: only the run fetching the
+        // current cover marks it ready, a stale one fetches the current one.
+        property string startedPath
+        onStarted: startedPath = artFilePath
+        onExited: {
+            if (startedPath === root.artFilePath) root.coverDownloaded = true;
+            else Qt.callLater(root.fetchCover);
+        }
     }
     ColorQuantizer {
         id: coverQuantizer

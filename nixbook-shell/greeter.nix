@@ -433,7 +433,14 @@ in
         ProtectControlGroups = true;
         ProtectClock = true;
         ProtectHostname = true;
+        ProtectKernelLogs = true;
+        ProtectProc = "invisible";
+        RestrictRealtime = true;
+        RestrictSUIDSGID = true;
         SystemCallArchitectures = "native";
+        # jq, coreutils, bash and ffmpeg (a video frame): ordinary syscalls.
+        SystemCallFilter = [ "@system-service" ];
+        SystemCallErrorNumber = "EPERM";
       };
     };
     # Re-rendered when the shell rewrites its settings or its palette (a new
