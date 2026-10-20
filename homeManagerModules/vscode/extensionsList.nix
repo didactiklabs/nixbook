@@ -57,8 +57,8 @@
     {
       name = "bash-ide-vscode";
       publisher = "mads-hartmann";
-      version = "1.43.0";
-      sha256 = "sha256-IpJCzoYZ+L39HqBts487E00RfVnZhLa9wUYs2FIV9pQ=";
+      version = "1.43.2";
+      sha256 = "sha256-dNSkfsp3o3ErFQrQjtoU9B8d9fz3tcyB5gSwt3S36F0=";
     }
     {
       name = "marp-vscode";
@@ -99,8 +99,8 @@
     {
       name = "material-icon-theme";
       publisher = "pkief";
-      version = "5.38.1";
-      sha256 = "sha256-+nUVgxotaLH3i9At5A+WJgv+dO+wOiOMK95wJl4EtpY=";
+      version = "5.39.0";
+      sha256 = "sha256-8/2k4dYJXZQskkZ8GtbzIqdMYhYPfSl0EFjk1yaSL70=";
     }
     {
       name = "material-product-icons";
@@ -111,8 +111,8 @@
     {
       name = "vscode-yaml";
       publisher = "redhat";
-      version = "1.24.0";
-      sha256 = "sha256-Bmh1gxKn+mvtolnKWmhJ2QxdUZ32QV7b4kbBNeBtcWg=";
+      version = "2.0.0";
+      sha256 = "sha256-S7pizNqWK3INywgp6Fz0EJyU6GZT3NOf11AMNoetjGA=";
     }
     {
       name = "jinjahtml";
@@ -135,8 +135,8 @@
     {
       name = "ayu";
       publisher = "teabyii";
-      version = "1.1.12";
-      sha256 = "sha256-pwLvik3GRMLyr6GeTmZh1MrkgH1MgbyoembNmQxg4I0=";
+      version = "1.5.0";
+      sha256 = "sha256-t+/6ngxlcIKC0vF4FAXnP3cnQDshynQvVFOQGOlTv84=";
     }
     {
       name = "pdf";
@@ -147,14 +147,14 @@
     {
       name = "vscode-icons";
       publisher = "vscode-icons-team";
-      version = "12.19.0";
-      sha256 = "sha256-aJEJVFkjSAm5xRYYUPLavJGoCz7KLa9ZnQUKiLRV6WA=";
+      version = "13.0.0";
+      sha256 = "sha256-DzjqQaepOV150spxK1kwAJQW+mCbmnf565AkcSUliYM=";
     }
     {
       name = "jinja";
       publisher = "wholroyd";
-      version = "0.0.8";
-      sha256 = "sha256-kU2uMIBChHOE76npA9u1CSJCMPHK0hj/2vasVTx9ydI=";
+      version = "0.0.10";
+      sha256 = "sha256-o8wawmBQLkYzuc18bHi+Gd6v2sboqgQb3hOhQo8gzqo=";
     }
     {
       name = "markdown-mermaid";
@@ -171,8 +171,8 @@
     {
       name = "gitlens";
       publisher = "eamodio";
-      version = "19.1.0";
-      sha256 = "sha256-+J5WU7qfV//I8yqHcfWtnpYi0JCrOb3P2MFWJcrFaM4=";
+      version = "19.4.0";
+      sha256 = "sha256-WUG/CeCsY+lmDb7/L/5sJtPzoRhp0powtIDOjlNezvQ=";
     }
     {
       name = "copilot-chat";
@@ -181,10 +181,16 @@
       sha256 = "sha256-eFLfYMFxvgtZtmwLsxfneMjD4jOg8/Uk0Eu/6+A6odY=";
     }
     {
+      name = "claude-code";
+      publisher = "anthropic";
+      version = "2.1.304";
+      sha256 = "sha256-aj4hR9NPjtrP/HoVZ2GfM3+SlPDPA+kMS/jzMpZ/xdU=";
+    }
+    {
       name = "terraform";
       publisher = "hashicorp";
       version = "2.40.0";
-      sha256 = "sha256-PXcKAo8YgF3f5If0uNNMEm6nmFQ+7w0IKx6qBmyZA8w=";
+      sha256 = "sha256-UsyKO7zTSDovproPUaIWfqmJxIjZfNTwhaQuH2xIzyE=";
     }
     {
       name = "vscode-task";

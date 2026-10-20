@@ -16,7 +16,7 @@
 - **Custom Packages:** 24
 - **CI/CD Workflows:** 4
 - **NixVim Plugins:** 25
-- **VSCode Extensions:** 32
+- **VSCode Extensions:** 33
 - **Pinned Dependencies:** 40
 - **Assets:** 44 files
 
@@ -152,7 +152,7 @@ hive.nix                          Colmena deployment config
 - `fcitx5Config.nix` (~210 LOC) - Input method framework with configurable layouts/IMEs; defaults to US + Japanese Mozc. Ctrl+Space cycles forward through all IMs in the group (EnumerateForwardKeys; Ctrl+Shift+Space cycles back). Optional addons: `schnelleUmlaute` (German ä/ö/ü/ß via hold-letter+Space gesture) and `lotus` (Vietnamese; also needs the `customNixOSModules.fcitx5-lotus` system module)
 - `rtkConfig.nix` (52 LOC) - RTK CLI proxy for LLM token optimization
 - `sshConfig.nix` (43 LOC) - SSH key management
-- `vscode/` - VSCode with 32 extensions (4 .nix + 2 .sh files, 982 LOC)
+- `vscode/` - VSCode with 33 extensions (4 .nix + 2 .sh files, 982 LOC)
 
 ## Machine Profiles (5 machines)
 
@@ -225,7 +225,7 @@ hive.nix                          Colmena deployment config
 - Podman container support with Docker compat
 - Go development with $GOPATH
 - NeoVim with extensive plugin ecosystem (25 plugins)
-- VSCode with 32 extensions
+- VSCode with 33 extensions
 - OpenCode AI coding assistant
 
 ### Security
