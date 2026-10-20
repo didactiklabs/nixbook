@@ -204,6 +204,31 @@ Singleton {
     property var _actedIds: ({})
     signal discardAll();
     signal timeout(id: var);
+    // Notif objects that left the list are destroyed (they used to pile up
+    // for the whole session), but only a while later: a popup's exit
+    // animation or a queued cut-in may still hold one. `retiring` comes
+    // first, for those that keep one longer to let go of it.
+    signal retiring(notifs: var);
+    property var _retired: []
+    function retire(notifs) {
+        if (notifs.length === 0) return;
+        const now = Date.now();
+        root._retired = [...root._retired, ...notifs.map(n => ({ notif: n, at: now }))];
+    }
+    Timer {
+        interval: 60 * 1000
+        repeat: true
+        running: root._retired.length > 0
+        onTriggered: {
+            const cutoff = Date.now() - 10 * 60 * 1000;
+            const due = root._retired.filter(r => r.at <= cutoff).map(r => r.notif)
+                .filter(n => !root.list.some(l => l === n));
+            root._retired = root._retired.filter(r => r.at > cutoff);
+            if (due.length === 0) return;
+            root.retiring(due);
+            due.forEach(n => n.destroy());
+        }
+    }
 
 	NotificationServer {
         id: notifServer
@@ -269,6 +294,7 @@ Singleton {
             newNotifObject.read = previous.read;
             root.destroyTimers([previous]);
             root.list = [...root.list.filter(n => n !== previous), newNotifObject];
+            root.retire([previous]);
         } else {
             root.list = [...root.list, newNotifObject];
         }
@@ -432,6 +458,7 @@ Singleton {
             root.list = remaining;
             notifFileView.setText(stringifyList(root.list));
         }
+        root.retire(discarded);
         notifServer.trackedNotifications.values
             .filter((notif) => idSet.has(notif.id + root.idOffset))
             .forEach((notif) => expired ? notif.expire() : notif.dismiss());
@@ -531,8 +558,10 @@ Singleton {
     }
 
     function discardAllNotifications() {
-        root.destroyTimers(root.list);
+        const discarded = root.list.slice(0);
+        root.destroyTimers(discarded);
         root.list = []
+        root.retire(discarded);
         notifFileView.setText(stringifyList(root.list));
         notifServer.trackedNotifications.values.forEach((notif) => {
             notif.dismiss()
@@ -695,6 +724,7 @@ Singleton {
         onLoaded: {
             try {
                 const fileContents = notifFileView.text()
+                root.retire(root.list.slice(0))
                 root.list = JSON.parse(fileContents).map((notif) => {
                     return notifComponent.createObject(root, {
                         "notificationId": notif.notificationId,

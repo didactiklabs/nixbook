@@ -201,15 +201,17 @@ Rectangle {
 
                 Component.onCompleted: {
                     tabStack.source = root.tabs[root.selectedTab].widget;
+                    root.previousIndex = root.selectedTab;
                 }
 
                 Connections {
                     target: root
                     function onSelectedTabChanged() {
-                        if (root.currentTab > root.previousIndex)
+                        if (root.selectedTab > root.previousIndex)
                             tabSwitchBehavior.animation.down = true;
-                        else if (root.currentTab < root.previousIndex)
+                        else if (root.selectedTab < root.previousIndex)
                             tabSwitchBehavior.animation.down = false;
+                        root.previousIndex = root.selectedTab;
                         tabStack.source = root.tabs[root.selectedTab].widget;
                     }
                 }

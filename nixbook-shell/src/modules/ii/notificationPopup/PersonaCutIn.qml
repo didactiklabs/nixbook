@@ -109,6 +109,14 @@ Scope {
             if (root.current?.notificationId === id) root.dismiss();
             else root.queue = root.queue.filter(n => n.notificationId !== id);
         }
+        // Long gone from the list and about to be destroyed.
+        function onRetiring(notifs) {
+            root.queue = root.queue.filter(n => !notifs.includes(n));
+            const n = root.lastSeen;
+            if (n && notifs.includes(n))
+                root.lastSeen = { appName: n.appName, summary: n.summary, body: n.body, urgency: n.urgency,
+                    hints: n.hints, cutInCooledDown: n.cutInCooledDown };
+        }
     }
 
     Connections {
