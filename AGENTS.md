@@ -197,7 +197,7 @@ hive.nix                          Colmena deployment config
 - **NixOS Modules:** laptopProfile, greetd, niri, caCertificates (didactiklabs + logicmg)
 - **Special Features:** Yubico security key lock on removal, unprivileged port access (sysctl port_start=80)
 - **Work Environments:** didactiklabs, logicmg kubeconfigs
-- **Extra Packages:** Google Chrome, GitKraken, Slack, Kanidm, Moonlight Qt, immich-go, oapi-codegen, cerbos
+- **Extra Packages:** Google Chrome, GitKraken, Slack, Kanidm, Moonlight Qt, immich-go, oapi-codegen, cerbos, fluxcd-operator-mcp
 - **Home Manager Modules:** cliTools, devTools, ocmConfig, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, vscode, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, fcitx5Config, dmsConfig
 
 ### hanamichi - Gaming/Normal-Use Desktop (NVIDIA)
