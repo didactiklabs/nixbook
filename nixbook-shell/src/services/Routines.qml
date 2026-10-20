@@ -265,15 +265,23 @@ Singleton {
     }
     // The same song on and on (music_repeating): its plays in a row, a loop
     // seen as the position jumping back to the start, and how long the same
-    // artist has played. Once per streak and routine.
+    // artist has played (a track with no artist, a browser's video, counts no
+    // minutes). Once per streak and routine: again for another song in a row,
+    // not for the same artist's next track. A stop of 5 minutes or more ends
+    // the streak: an artist played this morning and again now isn't on repeat.
     property string _repeatTrack: ""
     property int _repeatTimes: 0
     property string _repeatArtist: ""
     property real _artistSecs: 0
     property real _heardAt: 0
     property var _repeatFired: []
+    property var _artistFired: []
     function _heard(track, artist, app, lastTrack, lastPos, pos, lastLen) {
         const now = Date.now()
+        if (root._heardAt > 0 && now - root._heardAt > 300000) {
+            root._repeatTrack = ""
+            root._repeatArtist = ""
+        }
         const secs = root._heardAt > 0 ? Math.min(10, (now - root._heardAt) / 1000) : 0
         root._heardAt = now
         if (track !== root._repeatTrack) {
@@ -286,16 +294,19 @@ Singleton {
         if (artist !== root._repeatArtist) {
             root._repeatArtist = artist
             root._artistSecs = 0
-            root._repeatFired = []
+            root._artistFired = []
         }
-        root._artistSecs += secs
+        if (artist.trim() !== "") root._artistSecs += secs
         if (!root._has("music_repeating")) return
         const minutes = Math.floor(root._artistSecs / 60)
         for (const r of root.active.filter(r => r.when?.event === "music_repeating")) {
-            if (root._repeatFired.includes(r.id)) continue
+            const fresh = (root._repeatTimes >= (r.when.times ?? 3) && !root._repeatFired.includes(r.id))
+                || (minutes >= (r.when.minutes ?? 30) && !root._artistFired.includes(r.id))
+            if (!fresh) continue
             const ev = { event: "music_repeating", app: app, text: track, times: root._repeatTimes, minutes: minutes }
             if (!root._matches(r.when, ev)) continue
             root._repeatFired = [...root._repeatFired, r.id]
+            root._artistFired = [...root._artistFired, r.id]
             root.note("music", Translation.tr("on repeat: %1 times, %2 min of the artist").arg(root._repeatTimes).arg(minutes))
             root._run(r, ev)
         }

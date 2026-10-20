@@ -1718,7 +1718,7 @@ def memory_path():
 
 
 def empty_memory():
-    return {"version": 3, "notes": [], "aliases": {}, "usage": {"apps": {}, "layouts": {}, "tools": {}},
+    return {"version": 4, "notes": [], "aliases": {}, "usage": {"apps": {}, "layouts": {}, "tools": {}},
             "targets": {}, "triggers": [], "archive": [], "routines": []}
 
 
@@ -1777,6 +1777,18 @@ class Memory:
                         n["steps"], n["vars"] = steps, recipe_vars(steps)
                         n["text"] = recipe_gist(steps)
             self.data["version"] = 3
+            self.changed = True
+        if self.data["version"] < 4:
+            # Before music_repeating, "when a song repeats too long" could
+            # only be a track_changed routine whose Claude run guessed the
+            # repeat at each new track (and never saw a loop): the cue now.
+            for r in self.data.get("routines") or []:
+                when = r.get("when") if isinstance(r, dict) else None
+                if (isinstance(when, dict) and when.get("event") == "track_changed"
+                        and not any(when.get(k) for k in ("app", "words"))
+                        and ROUTINE_REPEAT_WORDS.search(str(r.get("text") or ""))):
+                    when["event"] = "music_repeating"
+            self.data["version"] = 4
             self.changed = True
 
     def save(self):
@@ -3604,6 +3616,8 @@ ROUTINE_EVENTS = {
     "rain": "the weather turns to rain, snow or storm",
     "screenshot": "a screenshot is saved (name)",
 }
+# A routine's words that mean music_repeating (the memory's version 4).
+ROUTINE_REPEAT_WORDS = re.compile(r"\b(repeat\w*|loop\w*|same (song|track|artist))\b", re.IGNORECASE)
 ROUTINE_FILTERS = ("app", "words", "at", "days", "percent", "name", "ext", "minutes", "times")
 ROUTINE_COOLDOWN = 10
 ROUTINE_FIGHTS = 2
@@ -3874,10 +3888,18 @@ def routine_agent(cfg, r, event):
     happened = {k: event[k] for k in ROUTINE_EVENT_FIELDS if k in event}
     if r["when"].get("words"):
         happened["matched"] = r["when"]["words"]
-    taste = music_digest(cfg) if "music" in r["when"]["event"] or "music" in r["do"]["agent"].lower() else ""
+    why = routine_why(r["when"], event)
+    if why:
+        happened["why"] = why
+    music = "music" in r["when"]["event"] or "music" in r["do"]["agent"].lower()
+    taste = music_digest(cfg, tool=False) if music else ""
     prompt = (f"The routine: {r['text']}\nWhat to do: {r['do']['agent']}\n"
               f"What just happened: {json.dumps(happened, ensure_ascii=False)[:800]}\n"
-              f"Now: {time.strftime('%a %Y-%m-%d %H:%M')}" + (f"\n{taste}" if taste else ""))
+              f"Now: {time.strftime('%a %Y-%m-%d %H:%M')}" + (f"\n{taste}" if taste else "")
+              # Its desktop has no memory tools (no `habits`): what the
+              # shell saw is given, don't send it looking for a history.
+              + ("\nThere is no listening history to read here (no habits or memory tools): what just "
+                 "happened, as the shell saw it, and the player's own tools are what you have." if music else ""))
     workdir = os.path.join(xdg("XDG_DATA_HOME", "~/.local/share"), "nixbook-shell", "routines")
     os.makedirs(workdir, mode=0o700, exist_ok=True)
     cmd = [claude, "-p", "--output-format", "json", "--no-session-persistence", "--strict-mcp-config",
@@ -3897,6 +3919,20 @@ def routine_agent(cfg, r, event):
     if proc.returncode != 0 and not said:
         raise ToolError(f"the routine's run failed: {short((proc.stderr or proc.stdout).strip(), 200)}")
     return clean_text(said, 300)
+
+
+def routine_why(when, event):
+    """Why a counted cue fired, in plain words (the agent needn't look for
+    it): music_repeating's song in a row or artist's minutes."""
+    if when.get("event") != "music_repeating":
+        return ""
+    times, minutes = event.get("times"), event.get("minutes")
+    out = []
+    if isinstance(times, int) and times >= when.get("times", 3):
+        out.append(f"the same song has played {times} times in a row (a loop counts)")
+    if isinstance(minutes, int) and minutes >= when.get("minutes", 30):
+        out.append(f"the same artist has played for {minutes} minutes")
+    return (" and ".join(out) + ", as the shell counted it: it is on repeat") if out else ""
 
 
 def routine_say(r, said, accept=None):
@@ -3930,6 +3966,8 @@ def routine_run(cfg, rid, event, now=None):
             raise ToolError(f"no routine {rid}")
         if not r.get("on", True):
             return {"ran": False, "why": "it is off"}
+        if event.get("event") and event["event"] != r["when"]["event"]:
+            return {"ran": False, "why": f"its cue is {r['when']['event']} now"}
         try:
             paused = is_paused()
         except ToolError:
@@ -5194,15 +5232,16 @@ def music_taste(data, now, full=False):
     return lines
 
 
-def music_digest(cfg, now=None):
-    """The line of the memory digest about the user's music."""
+def music_digest(cfg, now=None, tool=True):
+    """The line of the memory digest about the user's music (`tool`: the
+    reader has the `habits` tool for more)."""
     if not music_on(cfg) or cfg.get("habitsAgents", "digest") == "off":
         return ""
     lines = music_taste(read_habits(), now or time.time())
     if not lines:
         return ""
-    return ("The user's music taste (from what they play, on any player; `habits` what=music for more): "
-            + ". ".join(lines) + ".")
+    return ("The user's music taste (from what they play, on any player"
+            + ("; `habits` what=music for more" if tool else "") + "): " + ". ".join(lines) + ".")
 
 
 def music_clear():
