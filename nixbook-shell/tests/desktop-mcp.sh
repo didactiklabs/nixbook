@@ -853,8 +853,8 @@ expect_eq "make way: nothing on screen, nothing asked" no "$([ -e "$sh_rt/make-w
 expect_not_contains "make way: nothing on screen, nothing told" "$out" "click-through"
 echo '{"overlays":["sidePanel","cutIn"]}' >"$sh_rt/overlays.json"
 out=$(call click '{"x":10,"y":10}')
-expect_eq "make way: an action lets the agent through, held a while" "false true" \
-  "$(jq -r --argjson now "$(date +%s%3N)" '"\(.capture) \(.until > $now + 3000)"' "$sh_rt/make-way.json")"
+expect_eq "make way: an action lets the agent through, the user gets them back a moment after" "false true" \
+  "$(jq -r --argjson now "$(date +%s%3N)" '"\(.capture) \(.until < $now + 2000)"' "$sh_rt/make-way.json")"
 expect_contains "make way: the agent is told what it is let through" "$out" "the shell's sidePanel, cutIn: made click-through"
 : >"$calls.mw"
 out=$(call screenshot '{}')

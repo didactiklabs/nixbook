@@ -16,8 +16,8 @@ import QtQuick
  *     screen, written when that changes: nixbook-desktop-mcp reads it before
  *     an action or a screenshot on the user's desktop (a file read, no IPC);
  *   - with any on screen, it writes `make-way.json` {seq, until, capture}:
- *     until `until` (ms; the server pushes it on at each action, a few
- *     seconds), they let clicks through and give up the keyboard, faded a
+ *     until `until` (ms; while each action or screenshot of the agent goes
+ *     on, and a moment after), they let clicks through and give up the keyboard, faded a
  *     little, with a word that Claude works underneath; `capture` (its
  *     screenshot being taken) makes them invisible for that moment. Then
  *     they are back as they were: nothing is dismissed or put away. `make-way.ack` says when that is
@@ -111,6 +111,17 @@ Singleton {
         id: expire
         interval: Math.max(50, (root.request.until ?? 0) - Date.now() + 20)
         onTriggered: root.now = Date.now()
+    }
+    // A change caught half-written is read again: the server giving them
+    // back is never missed, at most a second late.
+    Timer {
+        interval: 1000
+        repeat: true
+        running: root.active
+        onTriggered: {
+            requestFile.reload()
+            root.now = Date.now()
+        }
     }
 
     IpcHandler {

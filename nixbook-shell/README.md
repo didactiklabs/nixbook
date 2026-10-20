@@ -349,8 +349,9 @@ the apps make way (`services/MakeWay.qml`: the side panel, Claude's
 bubble, notification popups, a theme's cut-in, listed in
 $XDG_RUNTIME_DIR/nixbook-shell/overlays.json; before an action on the
 user's desktop the server writes `make-way.json` {seq, until, capture}:
-they let clicks through and give up the keyboard, faded, until 5 s after
-the last action, and vanish while the agent's screenshot, OCR or settle
+they let clicks through and give up the keyboard, faded, only while each
+action or look goes on and 1.5 s after (the user has them back between
+the agent's steps; 30 s at most should the server die), and vanish while the agent's screenshot, OCR or settle
 wait captures the screen; then they are back as they were, nothing
 dismissed (the bubble's timer to the bar waits meanwhile); `make-way.ack`
 once on screen, waited for at most 0.3 s; the agent told once per set of
