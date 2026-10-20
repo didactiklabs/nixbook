@@ -23,6 +23,7 @@ in
     pkgs.spotify
     pkgs.customPkgs.moonfin
     pkgs.customPkgs.cerbos
+    pkgs.fluxcd-operator-mcp
   ];
 
   xdg.mimeApps.defaultApplications = {

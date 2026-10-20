@@ -37,7 +37,7 @@ profiles/totoro/
 
 - **System:** laptop power profile, greetd, Niri, CA certificates (DidactikLabs, LogicMG), unprivileged ports from 80 (`net.ipv4.ip_unprivileged_port_start = 80`).
 - **Desktop:** Niri + [DankMaterialShell](/desktop/dms) (no dock).
-- **User (aamoyel):** CLI and dev tools, AI workspaces, VS Code, Kubernetes tools with DidactikLabs/LogicMG/RPCU kubeconfigs, NixVim, Goji, Atuin, kubeswitch, fcitx5.
+- **User (aamoyel):** CLI and dev tools, AI workspaces, VS Code, Kubernetes tools with DidactikLabs/LogicMG/RPCU kubeconfigs, the Flux Operator MCP server (`fluxcd-operator-mcp`), NixVim, Goji, Atuin, kubeswitch, fcitx5.
 
 ## hanamichi
 
