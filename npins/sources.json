@@ -35,6 +35,12 @@
       "url": "https://api.github.com/repos/ryantm/agenix/tarball/refs/tags/0.18.0",
       "hash": "sha256-/FjF9A8HVLVftjdmz1MPA2G0wSYWRaC628NTAsCqeyI="
     },
+    "cerbos": {
+      "type": "Url",
+      "url": "https://github.com/cerbos/cerbos/releases/download/v0.56.0/cerbos_0.56.0_Linux_x86_64.tar.gz",
+      "unpack": false,
+      "hash": "sha256-rv2XOKcFu9RWV3Kx4RInFN5ZowdY1YeclI9WAvs41uM="
+    },
     "crane": {
       "type": "GitRelease",
       "repository": {

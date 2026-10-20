@@ -28,6 +28,7 @@
 | [immich-photo-manager](#immich-photo-manager) | MCP server for your Immich photo library                                        | `nixbookShellConfig`           |
 | [kdeconnect-mcp](#kdeconnect-mcp)             | MCP server for your phone through KDE Connect: texts, sharing, notifications    | `nixbookShellConfig`           |
 | [moonfin](#moonfin)                           | Jellyfin & Emby media client (AppImage)                                         | profiles                       |
+| [cerbos](#cerbos)                             | Stateless authorization policy decision point (PDP)                             | profiles                       |
 
 ## ginx
 
@@ -160,6 +161,10 @@ customHomeManagerModules.nixbookShellConfig.settings.ai = {
 ## moonfin
 
 [Moonfin](https://github.com/Moonfin-Client/Moonfin-Core), a Jellyfin & Emby media client, packaged from its release AppImage (installed on every profile, kept opaque in niri and sway).
+
+## cerbos
+
+[Cerbos](https://cerbos.dev/), a stateless authorization policy decision point (PDP), packaged from its upstream prebuilt Linux x86_64 release tarball (which ships the `cerbos` and `cerbosctl` binaries) instead of building the large Go project from source.
 
 ## Adding a package
 
