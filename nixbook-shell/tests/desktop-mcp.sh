@@ -1956,6 +1956,48 @@ rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
 python3 "$mcp" initiative clear
 python3 "$mcp" personal clear >/dev/null
 
+# Pairing: a look at what the user is on (app, title; the screen's text when
+# asked), plain-code gates first, a word only when the model finds it truly
+# helps, said quietly (badge, popped by the shell on a pause).
+python3 "$mcp" initiative clear
+rm -f "$XDG_RUNTIME_DIR/nixbook-desktop-mcp/state.json" # the calls above were an agent's actions
+pairing() { consider "$(jq -nc --arg a "$1" --arg t "$2" '{event: "pair", app: $a, title: $t}')"; }
+rm -f "$calls.claude-prompt"
+expect_eq "pair: never a password manager" "pairing: a private app or window" "$(pairing org.keepassxc.KeePassXC "Passwords.kdbx" | jq -r .why)"
+expect_eq "pair: never a chat" "pairing: a private app or window" "$(pairing org.signal.Signal "Signal" | jq -r .why)"
+expect_eq "pair: never a private window" "pairing: a private app or window" "$(pairing firefox "Private Browsing — Mozilla Firefox" | jq -r .why)"
+expect_eq "pair: busy, no look" "pairing: the user is busy" "$(consider '{"event":"pair","app":"kitty","title":"nvim","busy":true}' | jq -r .why)"
+expect_eq "pair: gates cost no model call" no "$([ -e "$calls.claude-prompt" ] && echo yes || echo no)"
+STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {say: false, guess: "editing a nix file"}}')
+export STUB_CLAUDE_ANSWER
+expect_contains "pair: nothing worth a word, nothing said" "$(pairing kitty "nvim flake.nix — me@example.com")" "nothing worth a word (editing a nix file)"
+expect_contains "pair: the title, redacted" "$(cat "$calls.claude-prompt")" "nvim flake.nix — [email]"
+expect_contains "pair: the web to look things up" "$(cat "$calls.claude-args")" "WebSearch,WebFetch"
+rm -f "$calls.claude-prompt"
+expect_eq "pair: one look a few minutes apart" "pairing: looked lately" "$(pairing code "main.rs" | jq -r .why)"
+python3 "$mcp" initiative clear
+STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {say: true, guess: "fixing a build", text: "That error is a missing lib: add pkg-config. Want me to?",
+  links: [{title: "NixOS wiki", url: "https://wiki.nixos.org/wiki/Rust"}, {title: "bad", url: "file:///etc/passwd"}]}}')
+out=$(pairing kitty "cargo build")
+expect_eq "pair: a word, quiet, popped on a pause, its link a button" "badge pair true 1 https://wiki.nixos.org/wiki/Rust" \
+  "$(jq -r '"\(.action) \(.item.kind) \(.item.pop) \(.item.actions | length) \(.item.actions[0].url)"' <<<"$out")"
+expect_contains "pair: the thread has the link" "$(jq -r .item.chat <<<"$out")" "[NixOS wiki](https://wiki.nixos.org/wiki/Rust)"
+expect_eq "pair: then quiet a while" "pairing: said something lately" \
+  "$(
+    python3 - "$ini" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1])); d["pair"]["lastCall"] = 0
+json.dump(d, open(sys.argv[1], "w"))
+PY
+    pairing code "main.rs" | jq -r .why
+  )"
+expect_eq "pair: nothing it read is kept" no "$(grep -q 'cargo build' "$ini" && grep -q 'missing lib' <(jq -c '.pair' "$ini") && echo yes || echo no)"
+redacted=$(cd "$root/scripts" && python3 -I -c 'import importlib.util as u; s=u.spec_from_file_location("m", "desktop-mcp.py"); m=u.module_from_spec(s); s.loader.exec_module(m); print(m.pair_redact("password: hunter2 key sk-ant-api03-AbCdEf1234567890GhIjKlMnOp bob@x.org +33 6 12 34 56 78 https://a.io/p?t=1 error at line 42"))')
+expect_eq "pair: secrets, addresses and queries redacted, errors kept" \
+  "password [redacted] key sk-ant-api03-[secret] [email] [phone] https://a.io/p error at line 42" "$redacted"
+unset STUB_CLAUDE_ANSWER
+python3 "$mcp" initiative clear
+
 # Learned targets: a fake libatspi (PyGObject's `gi`) reading a window's
 # tree from $FAKE_ATSPI_TREE; an action done is logged to $STUB_CALLS.
 mkdir -p "$tmp/fakegi/gi/repository"

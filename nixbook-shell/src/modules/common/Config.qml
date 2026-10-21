@@ -271,6 +271,11 @@ Singleton {
                     // About once a day, news on what the user talks about
                     // most, searched on the web by the small model, with links.
                     property bool news: false
+                    // Pairing: what the user is on (app, window title) looked
+                    // at every couple of minutes, a word when it truly helps;
+                    // the screen's text (OCR, redacted) a step further.
+                    property bool pair: false
+                    property bool pairReadScreen: false
                 }
                 // The routines the user asked agents for ("whenever the music
                 // ends, play something", services/Routines.qml): run on their cue.

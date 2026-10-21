@@ -703,6 +703,26 @@ the first 3 links as buttons (`do: "link"`, `Qt.openUrlExternally`, the
 bubble stays), Markdown links and summaries in its thread, with `newsHint`.
 **Find news now** (Settings; `nixbook-desktop-mcp initiative news`) runs it
 at once.
+Pairing (`ai.initiative.pair`, off; `ai.initiative.pairReadScreen` a step
+further, off): every 2 minutes while the same window stays in front (a
+minute after a switch at least), the shell sends `{event: "pair", app,
+title, screen}`. `pair_consider` gates in plain code, unlogged (no token):
+busy, an agent acting, private apps and titles (`pair_private`:
+habitsIgnoreApps/Titles, `pairIgnoreApps`/`pairIgnoreTitles` — chats, mail,
+banking, private windows), muted or not taken up, `PAIR_CALL_GAP` (5 min)
+between looks, `PAIR_AFTER_SAID` (20 min) after a word, `pairCallsPerDay`
+(30), the same window again only once what it shows changed (a hash in
+`pair.seen`, nothing it read kept). With the screen on, `pair_screen_text`
+OCRs the focused monitor (`read_screen_now`, local tesseract), none when a
+private window is on the workspace, `pair_redact` (keys, tokens, passwords,
+card/IBAN numbers, e-mail addresses, phone numbers, URL queries, one-time
+codes) and `PAIR_TEXT_MAX`. The small model (`PAIR_SYSTEM`, WebSearch and
+WebFetch, generic queries only) says a word only when it truly helps: a
+`pair` item, a badge with `pop` and up to 2 links as buttons
+(`PAIR_TTL` 20 min); the shell pops it (`Initiative._pairWaiting`) once an
+IdleMonitor sees 4 s without input, not while another word shows, the user
+types in the bubble or is busy, and drops the pop when another app comes
+in front.
 Each decision is logged (`log`, 30 kept; Settings shows the last ones, and
 **Say something now** sends a `moment` with `force`: no chance or gap, out
 loud, a hello when nothing is on its mind). The small model's Claude Code:
