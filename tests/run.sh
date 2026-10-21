@@ -7,7 +7,8 @@
 #   tests/run.sh shell                 nixbook-shell script tests (helper scripts,
 #                                      desktop MCP server, nixbook-accounts,
 #                                      its CalDAV/CardDAV provider against Radicale,
-#                                      the Google Keep sync of the notes)
+#                                      the Google Keep sync of the notes,
+#                                      nixbook-improve against a local repository)
 #   tests/run.sh iso                   the installer ISO evaluates
 #   tests/run.sh docs                  docs/MODULES.md lists the modules' current options
 #   tests/run.sh hosts                 print the hive's node names (JSON)
@@ -121,6 +122,10 @@ cmd_shell() {
   local keep
   keep=$(nix-build --no-out-link -E '(import ./nixbook-shell { }).package.passthru.keep.pythonEnv' 2> >(annotate >&2)) &&
     NIXBOOK_KEEP_PYTHON="$keep/bin/python3" bash nixbook-shell/tests/keep.sh || failed=1
+  section "nixbook-shell fixes to nixbook (nixbook-improve)"
+  local improve
+  improve=$(nix-build --no-out-link -E '(import ./nixbook-shell { }).package.passthru.improve' 2> >(annotate >&2)) &&
+    NIXBOOK_IMPROVE="$improve/bin/nixbook-improve" bash nixbook-shell/tests/improve.sh || failed=1
   return "$failed"
 }
 

@@ -31,6 +31,7 @@ ShellRoot {
         MemoryReminders.load()
         Initiative.load()
         Routines.load()
+        SelfImprove.load()
         ThemeWallpapers.load()
         NiriThemeAnimations.load()
         LyricsService.restartLyrics()

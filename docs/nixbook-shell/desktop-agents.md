@@ -105,6 +105,10 @@ Ask Claude for something to happen on its own whenever something happens on the 
 
 **Settings → Desktop agents → Routines** lists them (on/off, delete, last result) and has the **Run my routines** switch (`ai.routines.enable`). `nixbook-desktop-mcp routine list|run ID|on ID|off ID|remove ID`.
 
+## Fixes it makes itself
+
+Tell an agent something of nixbook is broken ("report this") and, with **Fixes it makes itself** on, its `report_problem` tool files it for the fixer. The fixer makes a small fix in a confined Claude Code session, checks it and opens a pull request you merge. See [Fixes it makes itself](./self-improve).
+
 ## What agents can't do
 
 Whatever an agent is told (a page or a message can try to steer it), the desktop tools refuse:

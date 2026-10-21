@@ -21,6 +21,8 @@ let
   shell = import ./qml.nix { inherit pkgs; };
   quickshell = import ./quickshell.nix { inherit pkgs quickshellSrc; };
   accounts = import ./accounts.nix { inherit pkgs; };
+  # The desktop agent's fixes to nixbook (`nixbook-improve`, services/SelfImprove.qml).
+  improve = import ./improve.nix { inherit pkgs; };
   # The notes' sync with Google Keep (`nixbook-keep`, services/KeepSync.qml).
   keep = import ./keep.nix { inherit pkgs gkeepapiSrc; };
   settingsLib = import ./lib.nix { inherit lib; };
@@ -71,6 +73,7 @@ let
           pciutils # lspci: GPU names (system_info)
           playerctl # the music every player plays (usage habits: music taste)
           accounts # nixbook-accounts: the contacts tool
+          improve # nixbook-improve: report_problem
         ]
       )
     }:$PATH"
@@ -200,6 +203,7 @@ let
       anthropicUsage # `anthropic-usage` — AnthropicUsage bar widget
       desktopMcp # `nixbook-desktop-mcp` — desktop tools of the AI chat
       updateCheck # `nixbook-update-check` — the update check (services/UpdateState.qml)
+      improve # `nixbook-improve` — the desktop agent's fixes to nixbook (services/SelfImprove.qml)
     ];
 
   # QML modules the shell imports that quickshell itself is not built against,
@@ -294,12 +298,13 @@ let
       shift
       exec ${quickshell}/bin/qs -p ${shell}/greeter.qml "$@"
     fi
-    # The directories services/DesktopControl.qml watches: a file watch needs
+    # The directories services/DesktopControl.qml and SelfImprove.qml watch: a file watch needs
     # its directory to exist when the shell starts (desktop-mcp.py creates
     # them the same way, 0700, on first use).
     if [ "''${1:-}" != "ipc" ]; then
       for dir in "''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/nixbook-desktop-mcp" \
-        "''${XDG_STATE_HOME:-$HOME/.local/state}/nixbook-shell"; do
+        "''${XDG_STATE_HOME:-$HOME/.local/state}/nixbook-shell" \
+        "''${XDG_STATE_HOME:-$HOME/.local/state}/nixbook-shell/improve"; do
         [ -d "$dir" ] || mkdir -p -m 700 "$dir"
       done
     fi
@@ -312,6 +317,7 @@ launcher.overrideAttrs (old: {
       shell
       quickshell
       accounts
+      improve
       configName
       settingsLib
       cliphistWatch

@@ -274,6 +274,25 @@ Singleton {
                     // "suggest" (asked first) or "auto" (strong ones on at once).
                     property string learn: "off"
                 }
+                // The desktop agent fixing nixbook itself (services/SelfImprove.qml,
+                // nixbook-improve): fixes and polish only, each a PR with its
+                // changelog entry, merged when the user says so. Off until
+                // turned on.
+                property JsonObject improve: JsonObject {
+                    property bool enable: false
+                    property string model: "sonnet"
+                    // Fixes started on its own per day ("Fix now" isn't counted).
+                    property int perDay: 2
+                    // A bigger change isn't a fix: refused.
+                    property int maxFiles: 5
+                    property int maxLines: 150
+                    property real budgetUsd: 3
+                    // Merged without asking once CI passes, when every file
+                    // matches autoMergePaths (none of what agents may do).
+                    property bool autoMerge: false
+                    property list<string> autoMergePaths: ["docs/**", "**/*.md"]
+                    property string repo: "" // empty: updates.repoUrl
+                }
             }
 
             property JsonObject appearance: JsonObject {

@@ -40,6 +40,17 @@
     "routines": {
       "enable": true,
       "learn": "off"
+    },
+    "improve": {
+      "enable": false,
+      "model": "sonnet",
+      "perDay": 2,
+      "maxFiles": 5,
+      "maxLines": 150,
+      "budgetUsd": 3,
+      "autoMerge": false,
+      "autoMergePaths": ["docs/**", "**/*.md"],
+      "repo": ""
     }
   },
   "appearance": {

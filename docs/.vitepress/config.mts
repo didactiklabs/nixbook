@@ -162,6 +162,7 @@ export default defineConfig({
           { text: 'AI chat & config assistant', link: '/nixbook-shell/ai-assistant' },
           { text: 'Desktop control for AI agents', link: '/nixbook-shell/desktop-agents' },
           { text: "The agents' own desktop", link: '/nixbook-shell/agent-desktop' },
+          { text: 'Fixes it makes itself', link: '/nixbook-shell/self-improve' },
         ],
       },
       {

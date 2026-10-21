@@ -80,6 +80,30 @@ jobs:
             exit 1
           fi
 
+  # The desktop agent's PRs (agent/ branches, nixbook-improve) are fixes and
+  # polish only: no forbidden path, small, each commit a changelog entry. The
+  # guard is built from the base branch, never from the PR it judges.
+  agent-guard:
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'agent/')
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    env:
+      BASE: origin/${{ github.base_ref }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - *pin-nixpkgs
+      - *install-nix
+      - name: Build the guard from the base branch
+        run: |
+          git worktree add "$RUNNER_TEMP/base" "$BASE"
+          nix-build --out-link "$RUNNER_TEMP/improve" -E "(import $RUNNER_TEMP/base/nixbook-shell { }).package.passthru.improve"
+      - name: Fixes and polish only
+        # The PR's own commits (not the merge commit Actions checks out).
+        run: '"$RUNNER_TEMP/improve/bin/nixbook-improve" guard "$BASE" "$HEAD_SHA"'
+
   # Repository consistency, every custom package instantiates, nixbook-shell
   # lib/script unit tests, the installer ISO evaluates, docs/MODULES.md is fresh.
   repo:

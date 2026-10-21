@@ -546,6 +546,34 @@ shows, clears or prints the digest; the `memory` tool group
 (`desktopMcp.settings.tools`) turns it off; `memoryPromptChars` and
 `memoryMaxNotes` size it.
 
+**Fixes it makes itself** (`ai.improve.enable`, off by default; docs:
+`docs/nixbook-shell/self-improve.md`): `nixbook-improve` (`improve/`, Go,
+`improve.nix`) keeps an inbox in `~/.local/state/nixbook-shell/improve/`
+(the user's reports: the `report_problem` tool and Settings; the shell's
+QML errors from its journal; the desktop tools' `crash:` audit entries;
+`collect` is plain reading). `services/SelfImprove.qml` starts it in user
+units of its own (systemd-run, the shell's `PATH` and Claude Code's path):
+`run --auto` when a report comes in or a collect made an item ripe, at
+most `perDay`. A run brings a clone (`~/.local/share/nixbook-shell/improve/repo`)
+to `origin/main` and runs Claude Code `--restricted --safe-mode` there (file
+tools only, confined to the clone, no Bash, web, settings, hooks or MCP;
+`--json-schema`: fixed, skip or too_big, and the changelog entry). Then
+plain code applies `guard.go` (forbidden paths, `maxFiles`/`maxLines`, no
+new non-Markdown, deleted or binary files) and the checks (`treefmt`,
+`tests/run.sh shell|repo` by path, `tests/shell-loads.sh` at the base and
+with the change, comparing QML warnings without line numbers). It gives the
+session one retry with the output, then commits `fix|polish(scope): …`
+with an `Agent-Fix:` trailer, pushes with gh's credentials, opens the PR
+(label `agent-fix`) and waits for CI (one retry with the failed logs).
+After that it notifies Merge/Look/Drop (`notify-send --wait`), or merges
+on its own when `autoMerge` and every file matches `autoMergePaths`, none
+sensitive. A merged fix's commit on main is watched; `health REV` reads
+the deployed shell's journal (its invocation) for new warnings in the
+fix's files, or restarts. Either offers a revert PR. CI's `agent-guard`
+runs `nixbook-improve guard` from the base branch on `agent/` PRs.
+`tests/improve.sh` runs it end to end with stand-ins for claude, gh and
+notify-send.
+
 **Initiative**: the agent speaks first, when something happens it can help
 with (`ai.initiative.enable`, off by default). `services/Initiative.qml`
 hands events to `nixbook-desktop-mcp initiative consider`: `back` (the
@@ -1286,6 +1314,7 @@ ignored.
 | `default.nix`      | entry point (`package`, `homeManagerModules.default`, `lib`)                                                                 |
 | `package.nix`      | the launcher: runtime `PATH`, QML import path, `config` CLI                                                                  |
 | `accounts.nix`     | `nixbook-accounts` (`accounts/`, Go): the accounts (Google, CalDAV/CardDAV), contacts, tasks, calendars                      |
+| `improve.nix`      | `nixbook-improve` (`improve/`, Go): the desktop agent's fixes to nixbook (inbox, confined session, checks, PR, revert)       |
 | `qml.nix`          | the QML tree as installed (store-path fixups, Persona, Chiikawa, Cyberpunk and Ghibli art and sounds, emoji list)            |
 | `fonts.nix`        | the faces `appearance.fonts` names that nixpkgs lacks (Google Sans Flex, Space Grotesk, Rajdhani, Zen Maru Gothic, Klee One) |
 | `quickshell.nix`   | Quickshell from `quickshellSrc` plus `patches/`                                                                              |
@@ -1297,7 +1326,7 @@ ignored.
 | `scripts/`         | `config` CLI, its jq library, assistant facts, Anthropic usage, login screen theme, emoji list, desktop control MCP server   |
 | `npins/`           | default nixpkgs and quickshell pins                                                                                          |
 | `src/`             | the QML tree                                                                                                                 |
-| `tests/`           | script tests, lib unit tests, the self-containment check                                                                     |
+| `tests/`           | script tests, lib unit tests, the self-containment check, the shell started headless (`shell-loads.sh`)                      |
 
 ## Tests
 
