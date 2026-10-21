@@ -964,7 +964,7 @@ ContentPage {
                             id: immichSave
                             readonly property string url: immichUrl.value.trim().replace(/\/+$/, "")
                             enabled: !immich.busy && url !== ""
-                                && (immichKey.text !== "" || immich.conn.has_key)
+                                && (immichKey.text !== "" || immich.conn.has_key === true)
                             materialIcon: "link"
                             mainText: immich.busy ? Translation.tr("Checking…") : Translation.tr("Save and check")
                             onClicked: {
