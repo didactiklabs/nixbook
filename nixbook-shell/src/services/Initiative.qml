@@ -108,6 +108,18 @@ Singleton {
     // downloaded, a screenshot, a drive plugged in), offered at once with
     // buttons that act in one click (services/Routines.qml sees them).
     readonly property bool reactions: Config.options?.ai?.initiative?.reactions ?? false
+    // News (ai.initiative.news): about once a day, what's new on the subjects
+    // the user talks about most, found on the web by the small model, said
+    // with its links (buttons under the bubble).
+    readonly property bool news: Config.options?.ai?.initiative?.news ?? false
+    readonly property string newsHint: "You found this news for the user, from what they talk about with you. "
+        + "If they want more on one, read it (WebFetch) or search for more (WebSearch) and tell them, with links. "
+        + "If they say a subject doesn't interest them (any more), update your memory of them, briefly."
+    // Settings > Find news now: at once, whatever the day's already had.
+    function newsNow() {
+        if (!root.enabled) return
+        considerer.createObject(root, { command: ["nixbook-desktop-mcp", "initiative", "news", Ai.claudeCodePath], running: true })
+    }
     readonly property var reactTo: ["download", "screenshot", "drive_connected"]
 
     // What it says out loud now (modules/ii/notificationPopup/AgentSpeech.qml,
@@ -220,10 +232,13 @@ Singleton {
         if (root.chat || !item) return
         const thread = item.kind === "ask" ? Ai.askThread(false) : Ai.claudeThread(false)
         if (item.kind !== "ask")
-            thread.addMessage(item.chat || item.text, "assistant", true, item.curious ? root.learnHint : "")
+            thread.addMessage(item.chat || item.text, "assistant", true, root._hint(item))
         root.chat = thread
         if ((Ai.models[Ai.currentModelId]?.api_format ?? "") === "claude-code" && Ai.claudeCodePath.length > 0)
             thread.prewarm()
+    }
+    function _hint(item) {
+        return item.curious ? root.learnHint : item.kind === "news" ? root.newsHint : ""
     }
     // What it said, taken up: counted once, and the talk that follows too.
     function _taken(item) {
@@ -260,6 +275,14 @@ Singleton {
             root.reply(a.text, a.attach ?? "")
             return
         }
+        // A link of the news: opened in the browser, the bubble left as it
+        // is (the others to open too).
+        if (a.do === "link") {
+            const url = String(a.url ?? "")
+            if (/^https?:\/\//.test(url)) Qt.openUrlExternally(url)
+            root._taken(item)
+            return
+        }
         const path = String(a.path ?? "")
         if (!path.startsWith("/")) return
         if (a.do === "open") Quickshell.execDetached(["xdg-open", path])
@@ -279,7 +302,7 @@ Singleton {
         if (!root.chat && item) {
             const thread = item.kind === "ask" ? Ai.askThread() : Ai.claudeThread()
             if (item.kind !== "ask")
-                thread.addMessage(item.chat || item.text, "assistant", true, item.curious ? root.learnHint : "")
+                thread.addMessage(item.chat || item.text, "assistant", true, root._hint(item))
             root.chat = thread
         }
         if (root.chat) Ai.selectChat(root.chat)
@@ -539,7 +562,7 @@ Singleton {
         repeat: true
         onTriggered: {
             if (Idle.screensOff || GlobalStates.screenLocked) return
-            root.consider({ event: "moment", curious: root.curious, app: ToplevelManager.activeToplevel?.appId ?? "",
+            root.consider({ event: "moment", curious: root.curious, news: root.news, app: ToplevelManager.activeToplevel?.appId ?? "",
                         title: root.curious ? (ToplevelManager.activeToplevel?.title ?? "") : "",
                             activeMinutes: Math.round((Date.now() - root._activeSince) / 60000),
                             tasksDue: Todo.dueTodayCount, weatherCode: Weather.data?.wCode ?? 0,

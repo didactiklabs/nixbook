@@ -35,6 +35,7 @@
     "initiative": {
       "curious": false,
       "enable": false,
+      "news": false,
       "reactions": false,
       "readNotifications": false
     },

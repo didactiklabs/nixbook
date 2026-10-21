@@ -268,6 +268,9 @@ Singleton {
                     // Reacts to what the user just did (a download, a
                     // screenshot, a drive plugged in) with one-click help.
                     property bool reactions: false
+                    // About once a day, news on what the user talks about
+                    // most, searched on the web by the small model, with links.
+                    property bool news: false
                 }
                 // The routines the user asked agents for ("whenever the music
                 // ends, play something", services/Routines.qml): run on their cue.

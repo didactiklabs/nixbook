@@ -143,6 +143,14 @@ ContentPage {
                     checked: Config.options.ai.initiative.reactions
                     onCheckedChanged: Config.options.ai.initiative.reactions = checked
                 }
+                ConfigSwitch {
+                    configKey: "ai.initiative.news"
+                    buttonIcon: "newspaper"
+                    enabled: Config.options.ai.initiative.enable
+                    text: Translation.tr("Tell me the news I'd care about: about once a day, the small model searches the web for what's new on the subjects I talk about most (from its memory of me; the subjects go to the search) and sums it up, with links")
+                    checked: Config.options.ai.initiative.news
+                    onCheckedChanged: Config.options.ai.initiative.news = checked
+                }
             }
 
             RowLayout {
@@ -152,6 +160,13 @@ ContentPage {
                     enabled: Config.options.ai.initiative.enable
                     mainText: Translation.tr("Say something now")
                     onClicked: Initiative.sayNow()
+                }
+                SmallButton {
+                    materialIcon: "newspaper"
+                    visible: Config.options.ai.initiative.news
+                    enabled: Config.options.ai.initiative.enable
+                    mainText: Translation.tr("Find news now")
+                    onClicked: Initiative.newsNow()
                 }
                 SmallButton {
                     materialIcon: "restart_alt"
