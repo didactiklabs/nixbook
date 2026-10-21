@@ -4136,7 +4136,8 @@ def routine_why(when, event):
 def routine_say(r, said, accept=None):
     """What a routine did, as a word in the bar (it was asked for: no
     budget, no learning); `accept`: a learned routine offered, its id (the
-    word's yes turns it on, a no forgets it)."""
+    word's yes turns it on, a no forgets it). Its reports stop once the
+    user said "don't tell me this" to one (muted: routine:ID)."""
     now = int(time.time())
     item = {"id": secrets.token_hex(3), "kind": "routine", "key": f"routine:{r['id']}:{now}", "title": "Claude",
             "text": said, "time": now, "level": "badge", "expires": now + (3 * 86400 if accept else
@@ -4145,8 +4146,10 @@ def routine_say(r, said, accept=None):
         item["accept"] = accept
     try:
         with Initiative() as m:
+            if not accept and ("routine" in m.data["muted"] or f"routine:{r['id'].lower()}" in m.data["muted"]):
+                return
             m.data["said"] = (m.data["said"] + [{"id": item["id"], "key": item["key"], "kind": "routine",
-                                                 "level": "badge", "time": now, "accept": accept,
+                                                 "app": r["id"], "level": "badge", "time": now, "accept": accept,
                                                  "day": time.strftime("%Y-%m-%d")}])[-INITIATIVE_SAID_KEEP:]
             m.data["pending"] = (m.data["pending"] + [item])[-INITIATIVE_PENDING_MAX:]
             m.save()
