@@ -48,6 +48,9 @@ func health(rev string) (map[string]any, error) {
 			}
 		}
 	}
+	if checked > 0 {
+		logEvent("look", fmt.Sprintf("Checked the updated shell running %d merged fix(es)", checked))
+	}
 	return map[string]any{"checked": checked}, nil
 }
 

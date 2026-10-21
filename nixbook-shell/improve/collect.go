@@ -14,7 +14,7 @@ import (
 // collect files what the shell's log and the desktop tools' audit log
 // showed since the last time: plain reading and counting, no model.
 func collect() (map[string]any, error) {
-	var found int
+	var found, fresh int
 	in, err := editInbox(func(in *Inbox) error {
 		since := in.LastCollect
 		if since == 0 {
@@ -26,24 +26,39 @@ func collect() (map[string]any, error) {
 			return err
 		}
 		ws, counts := uniqueWarnings(parseWarnings(log))
+		rev := deployedRev()
 		for _, w := range ws {
 			// A warning printed in a loop counts a few times, not hundreds.
-			in.add("qml", "qml:"+w.key(), fmt.Sprintf("The shell prints %q (%s:%d).", w.Msg, w.File, w.Line),
-				w.File, min(counts[w.key()], 5), now)
+			n := min(counts[w.key()], 5)
+			it := in.add("qml", "qml:"+w.key(), fmt.Sprintf("The shell prints %q (%s:%d).", w.Msg, w.File, w.Line),
+				w.File, n, now)
+			if it.Count == n {
+				fresh++
+			}
+			it.Line, it.Rev = w.Line, rev
 			found++
 		}
 		for _, c := range toolCrashes(since) {
-			in.add("crash", "crash:"+c.tool+":"+c.msg, fmt.Sprintf("The desktop tool %s crashed: %s", c.tool, c.msg),
-				"nixbook-shell/scripts/desktop-mcp.py", 1, now)
+			if in.add("crash", "crash:"+c.tool+":"+c.msg, fmt.Sprintf("The desktop tool %s crashed: %s", c.tool, c.msg),
+				"nixbook-shell/scripts/desktop-mcp.py", 1, now).Count == 1 {
+				fresh++
+			}
 			found++
 		}
 		in.LastCollect = now
 		return nil
 	})
 	if err != nil {
+		logEvent("error", "Looking for bugs: "+err.Error())
 		return nil, err
 	}
-	return map[string]any{"found": found, "items": len(in.Items)}, nil
+	switch {
+	case found == 0:
+		logEvent("look", "Looked for bugs in the shell's log and the tools' crashes: nothing new")
+	default:
+		logEvent("look", fmt.Sprintf("Looked for bugs: %d new, %d seen again", fresh, found-fresh))
+	}
+	return map[string]any{"found": found, "new": fresh, "items": len(in.Items)}, nil
 }
 
 // shellLog: the nixbook-shell unit's journal since then (NIXBOOK_IMPROVE_LOG,
@@ -89,4 +104,22 @@ func toolCrashes(sinceMs int64) []crash {
 		f.Close()
 	}
 	return out
+}
+
+// deployedRev: the revision this computer runs (/etc/nixos/version, as the
+// update check reads it; NIXBOOK_VERSION_FILE in tests), "" if unknown or
+// built from uncommitted changes.
+func deployedRev() string {
+	path := os.Getenv("NIXBOOK_VERSION_FILE")
+	if path == "" {
+		path = "/etc/nixos/version"
+	}
+	var v struct {
+		Rev   string `json:"rev"`
+		Dirty bool   `json:"dirty"`
+	}
+	if readJSON(path, &v) != nil || v.Dirty || strings.Trim(v.Rev, "0") == "" {
+		return ""
+	}
+	return v.Rev
 }

@@ -14,6 +14,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"syscall"
 )
 
 const usage = `nixbook-improve: the desktop agent's fixes to nixbook (Settings > Desktop agents)
@@ -29,6 +30,7 @@ const usage = `nixbook-improve: the desktop agent's fixes to nixbook (Settings >
                                          checks, the commit, the PR, then CI and the
                                          user's answer; --auto: the day's limit applies;
                                          --no-push: stop at the local commit
+  nixbook-improve stop                   stop the fix being made (Settings' Stop)
   nixbook-improve merge|drop|look PR     what the notification's buttons do
   nixbook-improve token set|forget|status
                                          its GitHub token (set: on stdin, checked on the
@@ -47,6 +49,9 @@ the clone and logs: $XDG_DATA_HOME/nixbook-shell/improve/.`
 
 func main() {
 	out, err := dispatch(os.Args[1:])
+	if err != nil && len(os.Args) > 1 && slices.Contains([]string{"run", "collect", "health", "merge", "drop"}, os.Args[1]) {
+		logEvent("error", os.Args[1]+": "+err.Error())
+	}
 	if err != nil {
 		emit(map[string]any{"error": err.Error()})
 		os.Exit(1)
@@ -99,6 +104,8 @@ func dispatch(args []string) (any, error) {
 		return tokenCmd(args)
 	case "status":
 		return status()
+	case "stop":
+		return stop()
 	case "note":
 		where, err := flag(&args, "--where")
 		if err != nil {
@@ -159,6 +166,31 @@ func dispatch(args []string) (any, error) {
 		return guardCmd(args)
 	}
 	return nil, errorf("unknown command %q (nixbook-improve help)", cmdName)
+}
+
+// stop ends the fix being made (before its PR is out): its process
+// stopped, its run marked so.
+func stop() (any, error) {
+	rs, err := readRuns()
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rs {
+		// Still nixbook-improve (after a reboot the pid is someone else's).
+		cmdline, _ := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", r.PID))
+		if r.Outcome == "" && r.PID > 0 && strings.Contains(string(cmdline), "nixbook-improve") {
+			// Its whole process group: the Claude session and the checks too.
+			syscall.Kill(-r.PID, syscall.SIGTERM)
+			syscall.Kill(r.PID, syscall.SIGTERM)
+		}
+	}
+	unlock, err := lock("run.lock", true)
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+	interrupted("stopped by you")
+	return map[string]any{"stopped": true}, nil
 }
 
 func status() (any, error) {

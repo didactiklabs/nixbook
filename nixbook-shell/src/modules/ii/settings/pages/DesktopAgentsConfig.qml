@@ -257,6 +257,46 @@ ContentPage {
                 text: Translation.tr("Claude fixes nixbook itself: fixes and polish only (a bug, a rough edge, wording), never a new feature or a big change — those it leaves for you. What to fix: what you tell an agent is broken (\"report this\") or write below (your words stay on this computer: the PR says it in its own), the errors the shell prints, the desktop tools' crashes. Each fix is made in a clone of the repository by a Claude Code session that can only edit files there (no commands, none of your files or logins), checked (its size and files, the tests, the shell started headless with no new error), committed with a changelog entry and opened as a pull request. Once CI passes you get Merge, Look, Drop; nothing reaches main without you, but what you let merge on its own. After a merge, main's checks and the updated shell are watched, and a revert is offered if it broke something. Its sandbox, the tests, CI and its own code are off limits; what agents may do is never merged on its own. It reaches GitHub only with its own token, below (never your gh login or ssh key; Claude never sees it), and uses your Claude Code; at most %1 a day.").arg(Config.options.ai.improve.perDay)
             }
 
+            // What it is doing now, or why nothing: always shown.
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: statusColumn.implicitHeight + 20
+                radius: Appearance.rounding.small
+                color: Appearance.colors.colLayer2
+                ColumnLayout {
+                    id: statusColumn
+                    anchors.fill: parent
+                    anchors.margins: 10
+                    spacing: 6
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+                        MaterialSymbol {
+                            text: SelfImprove.running ? "build" : !SelfImprove.enabled ? "pause_circle"
+                                : !SelfImprove.tokenSaved ? "key" : SelfImprove.waiting.length > 0 ? "pending_actions" : "check_circle"
+                            iconSize: Appearance.font.pixelSize.larger
+                            color: Appearance.colors.colOnLayer2
+                        }
+                        StyledText {
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            color: Appearance.colors.colOnLayer2
+                            text: SelfImprove.status
+                        }
+                        SmallButton {
+                            visible: SelfImprove.running !== null
+                            materialIcon: "stop"
+                            mainText: Translation.tr("Stop")
+                            onClicked: SelfImprove.stop()
+                        }
+                    }
+                    StyledIndeterminateProgressBar {
+                        visible: SelfImprove.running !== null
+                        Layout.fillWidth: true
+                    }
+                }
+            }
+
             // Its GitHub token, kept in the keyring.
             StyledText {
                 Layout.fillWidth: true
@@ -313,7 +353,7 @@ ContentPage {
                     configKey: "ai.improve.autoMerge"
                     buttonIcon: "merge"
                     enabled: Config.options.ai.improve.enable
-                    text: Translation.tr("Merge on its own once CI passes, when it only touched the docs")
+                    text: Translation.tr("Merge docs-only fixes on its own")
                     checked: Config.options.ai.improve.autoMerge
                     onCheckedChanged: Config.options.ai.improve.autoMerge = checked
                 }
@@ -359,13 +399,6 @@ ContentPage {
                 }
             }
 
-            StyledText {
-                Layout.fillWidth: true
-                visible: SelfImprove.running !== null
-                wrapMode: Text.WordWrap
-                color: Appearance.colors.colSubtext
-                text: SelfImprove.running ? Translation.tr("Working on: %1 (%2)").arg(SelfImprove.running.itemText).arg(SelfImprove.running.stage) : ""
-            }
 
             // The fixes waiting for the user: a PR each.
             Repeater {
@@ -408,7 +441,8 @@ ContentPage {
 
             // What it has to fix: the user's reports first.
             Repeater {
-                model: SelfImprove.open.filter(i => i.status === "new")
+                // Tried and not fixed too (failed, skipped, too big): Fix now tries again.
+                model: SelfImprove.inbox.filter(i => ["new", "failed", "skipped", "too_big"].includes(i.status))
                 delegate: RowLayout {
                     id: itemRow
                     required property var modelData
@@ -435,6 +469,7 @@ ContentPage {
                             color: Appearance.colors.colSubtext
                             text: [itemRow.modelData.count === 1 ? Translation.tr("seen once") : Translation.tr("seen %1 times").arg(itemRow.modelData.count),
                                    Qt.formatDateTime(new Date(itemRow.modelData.last), "d MMM, hh:mm"),
+                                   ({ failed: Translation.tr("failed"), skipped: Translation.tr("skipped"), too_big: Translation.tr("too big for a fix") })[itemRow.modelData.status] ?? "",
                                    itemRow.modelData.note ?? ""].filter(x => x).join(" · ")
                         }
                     }
@@ -452,16 +487,35 @@ ContentPage {
                 }
             }
 
-            // How the last tries ended.
+            // What it did and decided lately (activity.json), newest first.
             StyledText {
                 Layout.fillWidth: true
-                visible: SelfImprove.runs.some(r => r.outcome && r.outcome !== "pr")
-                wrapMode: Text.WordWrap
-                color: Appearance.colors.colSubtext
-                font.pixelSize: Appearance.font.pixelSize.small
-                text: Translation.tr("Lately:") + "\n" + SelfImprove.runs.filter(r => r.outcome && r.outcome !== "pr").slice(0, 6).map(r =>
-                    `${Qt.formatDateTime(new Date(r.started), "d MMM hh:mm")} · ${r.title || r.itemText} · ${r.outcome}`
-                    + (r.note ? `: ${r.note}` : "")).join("\n")
+                visible: SelfImprove.activity.length > 0
+                text: Translation.tr("Activity")
+                color: Appearance.colors.colOnLayer1
+            }
+            Repeater {
+                model: SelfImprove.activity.slice(0, 8)
+                delegate: RowLayout {
+                    id: eventRow
+                    required property var modelData
+                    Layout.fillWidth: true
+                    spacing: 8
+                    MaterialSymbol {
+                        Layout.alignment: Qt.AlignTop
+                        text: ({ look: "search", wait: "hourglass_empty", start: "build", retry: "replay", done: "flag",
+                                 pr: "call_split", ci: "fact_check", merged: "merge", revert: "undo", error: "error" })[eventRow.modelData.kind] ?? "info"
+                        iconSize: Appearance.font.pixelSize.normal
+                        color: eventRow.modelData.kind === "error" ? Appearance.colors.colError : Appearance.colors.colSubtext
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        color: Appearance.colors.colSubtext
+                        text: `${Qt.formatDateTime(new Date(eventRow.modelData.time), "d MMM hh:mm")} · ${eventRow.modelData.text}`
+                    }
+                }
             }
         }
 

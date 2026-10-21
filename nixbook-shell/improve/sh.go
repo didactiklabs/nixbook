@@ -103,6 +103,8 @@ func tail(s string, n int) string {
 	return "…" + s[len(s)-n:]
 }
 
+func itoa(n int) string { return strconv.Itoa(n) }
+
 func atoi(s string) int {
 	n, _ := strconv.Atoi(strings.TrimSpace(s))
 	return n

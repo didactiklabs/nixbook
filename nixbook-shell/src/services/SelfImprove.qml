@@ -43,11 +43,67 @@ Singleton {
     readonly property var open: root.inbox.filter(i => ["new", "working", "pr"].includes(i.status))
     readonly property var waiting: root.runs.filter(r => r.outcome === "pr")
     readonly property var running: root.runs.find(r => !r.outcome && r.stage !== "done") ?? null
+    // What it did and decided, newest first: {time, kind, text} (activity.json).
+    property var activity: []
+    // Ticks while a fix is made: its elapsed time in Settings.
+    property real now: Date.now()
+    Timer {
+        interval: 1000
+        repeat: true
+        running: root.running !== null
+        onTriggered: root.now = Date.now()
+    }
+    // A run's stage in words (its `doing` says what right now).
+    function stageText(stage) {
+        return ({
+            clone: Translation.tr("getting the repository up to date"),
+            fix: Translation.tr("Claude looks for the cause"),
+            check: Translation.tr("checking the change"),
+            push: Translation.tr("opening the pull request"),
+            ci: Translation.tr("waiting for CI")
+        })[stage] ?? stage
+    }
+    // One line: what it is doing, or why nothing.
+    readonly property string status: {
+        if (!root.enabled) return Translation.tr("Off.")
+        if (!root.tokenSaved) return Translation.tr("Needs its GitHub token (below) to open pull requests.")
+        if (root.running) {
+            const mins = Math.max(0, Math.round((root.now - root.running.started) / 60000))
+            return Translation.tr("Fixing “%1” — %2 (%3 min)").arg(root.running.itemText)
+                .arg(root.running.doing || root.stageText(root.running.stage)).arg(mins)
+        }
+        const ci = root.waiting.filter(r => r.ci === "pending")
+        if (ci.length > 0) return Translation.tr("#%1 waits for CI.").arg(ci[0].pr)
+        if (root.waiting.length > 0) return Translation.tr("%1 fix(es) wait for you below.").arg(root.waiting.length)
+        const last = root.activity[0]
+        return last ? Translation.tr("Idle. Last: %1 — %2").arg(Qt.formatDateTime(new Date(last.time), "d MMM hh:mm")).arg(last.text)
+            : Translation.tr("Idle: nothing yet. It looks for bugs 10 minutes after the shell starts; Look for bugs now does it at once.")
+    }
+
+    // Stop the fix being made.
+    function stop() {
+        Quickshell.execDetached(["nixbook-improve", "stop"])
+    }
 
     function load() {
         mcpConfig.reload()
         inboxFile.reload()
         runsFile.reload()
+        activityFile.reload()
+    }
+
+    FileView {
+        id: activityFile
+        path: `${root.dir}/activity.json`
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: {
+            try {
+                root.activity = (JSON.parse(activityFile.text()) ?? []).slice().reverse()
+            } catch (e) {
+            }
+        }
     }
 
     // The token: checked on the repository, then kept in the keyring
@@ -122,7 +178,11 @@ Singleton {
     }
 
     // Its own unit, the shell's PATH (nix, devenv) and Claude Code with it.
-    function _start(unit, args) {
+    // Named per call: a run waiting on CI or the user's answer keeps its
+    // unit for hours, and a second one by the same name wouldn't start
+    // (nixbook-improve's run lock keeps it to one fix at a time).
+    function _start(name, args) {
+        const unit = `${name}-${Date.now()}`
         const env = [`--setenv=PATH=${Quickshell.env("PATH")}`]
         if (Ai.claudeCodePath.length > 0) env.push(`--setenv=NIXBOOK_IMPROVE_CLAUDE=${Ai.claudeCodePath}`)
         Quickshell.execDetached(["systemd-run", "--user", "--collect", "--quiet", `--unit=${unit}`,
@@ -145,8 +205,9 @@ Singleton {
         if (action === "look") Quickshell.execDetached(["nixbook-improve", "look", String(pr)])
         else root._start(`nixbook-improve-${action}-${pr}`, [action, String(pr)])
     }
+    // Then a run, if that made an item ripe (its answer in the activity).
     function collectNow() {
-        root._start("nixbook-improve-collect", ["collect"])
+        collectProc.running = true
     }
 
     // A ripe item of the user's: a run (nixbook-improve decides, the day's

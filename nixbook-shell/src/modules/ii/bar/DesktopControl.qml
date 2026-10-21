@@ -146,6 +146,15 @@ MouseArea {
                     color: root.deskColor
                     anchors.verticalCenter: parent.verticalCenter
                 }
+                // Fixing nixbook (services/SelfImprove.qml).
+                MaterialSymbol {
+                    visible: SelfImprove.running !== null
+                    text: "build"
+                    fill: 1
+                    iconSize: Appearance.font.pixelSize.small
+                    color: Appearance.colors.colPrimary
+                    anchors.verticalCenter: parent.verticalCenter
+                }
                 Bubble {
                     iconSize: Appearance.font.pixelSize.small
                     anchors.verticalCenter: parent.verticalCenter
@@ -180,6 +189,23 @@ MouseArea {
                     fill: DesktopControl.agentDesktopOpen ? 1 : 0
                     iconSize: 10
                     color: root.deskColor
+                }
+            }
+            // Fixing nixbook: a wrench on the button's other corner.
+            Rectangle {
+                z: 1
+                visible: SelfImprove.running !== null
+                anchors { left: parent.left; bottom: parent.bottom; leftMargin: 1; bottomMargin: 1 }
+                width: 14
+                height: 14
+                radius: Appearance.rounding.full
+                color: Appearance.colors.colLayer1
+                MaterialSymbol {
+                    anchors.centerIn: parent
+                    text: "build"
+                    fill: 1
+                    iconSize: 10
+                    color: Appearance.colors.colPrimary
                 }
             }
             Rectangle {
@@ -264,6 +290,22 @@ MouseArea {
                 text: Translation.tr("Click the bubble to bring it back, right-click for not now")
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colSubtext
+            }
+
+            StyledPopupValueRow {
+                Layout.fillWidth: true
+                visible: SelfImprove.running !== null
+                icon: "build"
+                label: Translation.tr("Fixing nixbook")
+                value: ""
+            }
+            StyledText {
+                visible: SelfImprove.running !== null
+                Layout.fillWidth: true
+                Layout.maximumWidth: 320
+                wrapMode: Text.WordWrap
+                text: SelfImprove.status
+                color: Appearance.colors.colOnSurfaceVariant
             }
 
             StyledPopupValueRow {

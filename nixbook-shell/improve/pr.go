@@ -72,7 +72,7 @@ func watch(cfg Config, id string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	editRun(id, func(r *Run) { r.Stage, r.CI = "ci", "pending" })
+	editRun(id, func(r *Run) { r.Stage, r.CI, r.Doing = "ci", "pending", "Waiting for CI" })
 	start := time.Now()
 	for {
 		state, failed := ciState(repo, r.PR)
@@ -85,13 +85,19 @@ func watch(cfg Config, id string) (map[string]any, error) {
 		}
 		if state == "fail" && !r.CIRetried && r.Session != "" {
 			editRun(id, func(r *Run) { r.CIRetried = true })
+			logEvent("retry", fmt.Sprintf("CI failed on #%d: Claude tries again with its logs", r.PR))
 			if r, err = retryCI(cfg, r, failedLogs(repo, failed)); err == nil {
 				start = time.Now()
 				time.Sleep(time.Minute)
 				continue
 			}
 		}
-		r, _ = editRun(id, func(r *Run) { r.CI, r.Stage = state, "ready" })
+		r, _ = editRun(id, func(r *Run) { r.CI, r.Stage, r.Doing = state, "ready", "" })
+		if state == "pass" {
+			logEvent("ci", fmt.Sprintf("CI passed on #%d: it waits for you (Merge, Look, Drop)", r.PR))
+		} else {
+			logEvent("ci", fmt.Sprintf("CI failed on #%d: left open for you", r.PR))
+		}
 		break
 	}
 	if r.CI == "pass" && cfg.AutoMerge && r.AutoMerge {
@@ -130,6 +136,8 @@ func answer(cfg Config, r Run, action string) (map[string]any, error) {
 // retryCI gives the session CI's failure, checks its new change as the
 // first, and pushes it over the PR's commit.
 func retryCI(cfg Config, r Run, logs string) (Run, error) {
+	doing = doingFor(r.ID)
+	defer func() { doing = func(string) {} }()
 	unlock, err := lock("run.lock", true)
 	if err != nil {
 		return r, err
@@ -196,6 +204,7 @@ func merge(cfg Config, r Run) error {
 		return err
 	}
 	r, err = editRun(r.ID, func(x *Run) { x.Outcome, x.Merged, x.Stage, x.Finished = "merged", sha, "merged", nowMs() })
+	logEvent("merged", fmt.Sprintf("Merged #%d: %s", r.PR, r.Title))
 	editInbox(func(in *Inbox) error {
 		if p := in.find(r.Item); p != nil {
 			p.Status = "merged"
@@ -225,6 +234,7 @@ func drop(cfg Config, r Run) (map[string]any, error) {
 		}
 	}
 	r, _ = editRun(r.ID, func(x *Run) { x.Outcome, x.Stage, x.Finished = "dropped", "done", nowMs() })
+	logEvent("done", fmt.Sprintf("Dropped #%d: %s", r.PR, r.Title))
 	editInbox(func(in *Inbox) error {
 		if p := in.find(r.Item); p != nil {
 			p.Status = "dropped"
@@ -257,6 +267,7 @@ func watchMain(cfg Config, id string) (map[string]any, error) {
 			return c.Conclusion == "failure" || c.Conclusion == "timed_out"
 		}) {
 			editRun(id, func(x *Run) { x.MainCI, x.Stage = "fail", "done" })
+			logEvent("revert", "main's checks failed after "+r.Title+": a revert is opened")
 			return revert(cfg, r, "main's checks failed after it")
 		}
 		editRun(id, func(x *Run) { x.MainCI, x.Stage = "pass", "done" })
@@ -301,6 +312,7 @@ func revert(cfg Config, r Run, why string) (map[string]any, error) {
 	url = strings.TrimSpace(url)
 	pr := atoi(url[strings.LastIndex(url, "/")+1:])
 	editRun(r.ID, func(x *Run) { x.Note = why + " — revert: " + url })
+	logEvent("revert", fmt.Sprintf("%s broke something (%s): revert #%d is ready", r.Title, why, pr))
 	switch notify("A fix broke something: "+r.Title, why+". A revert is ready.\n"+url, "critical",
 		"revert=Merge the revert", "look=Look") {
 	case "revert":
@@ -308,6 +320,7 @@ func revert(cfg Config, r Run, why string) (map[string]any, error) {
 			return nil, err
 		}
 		editRun(r.ID, func(x *Run) { x.Outcome = "reverted" })
+		logEvent("revert", "Reverted: "+r.Title)
 		editInbox(func(in *Inbox) error {
 			if p := in.find(r.Item); p != nil {
 				p.Status, p.Note = "failed", "reverted: "+why
