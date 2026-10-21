@@ -326,8 +326,10 @@ MouseArea {
             }
 
             // The running update's latest log line (the whole log: Logs).
+            // No preferred width: a long line elides instead of widening the panel.
             StyledText {
                 Layout.fillWidth: true
+                Layout.preferredWidth: 0
                 visible: UpdateState.updating && UpdateState.step !== ""
                 elide: Text.ElideRight
                 font.family: Appearance.font.family.monospace
