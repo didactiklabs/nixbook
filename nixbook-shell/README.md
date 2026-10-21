@@ -442,11 +442,16 @@ the module sets in the session (apps started before need a restart);
 their tree up to date all session long, a CPU and scrolling cost on heavy
 pages.
 
-The **Desktop Control** bar widget (`desktopControl` in a bar layout) shows
-it: a faint robot when idle, a pulsing one in the accent colour while an
-agent acts (its calls within the last 20 s), a red hand when paused; its
-tooltip names the last agent and tool. A click pauses every agent at once
-(even between the steps of a `run_steps` batch), another allows them again;
+The **Desktop Control** bar widget (`desktopControl` in a bar layout) is a
+button per action, each with its own tooltip (`bar/DesktopControl.qml`):
+the robot asks Claude (`Initiative.toggle`), a speech bubble (only when
+Claude has something for the user) opens it (right-click: not now), the
+pause button (faint idle, pulsing in the accent colour while an agent acts,
+its calls within the last 20 s; a red play button while paused; its tooltip
+names the last agent and tool), the desktop button (theirs or yours,
+`DesktopControl.toggleDesktop`) and a wrench while the fixer works (opens
+Settings). The pause button pauses every agent at once
+(even between the steps of a `run_steps` batch), another click allows them again;
 it starts paused and remembers its position across reboots.
 `nixbook-shell ipc call desktopControl toggle` (or `pause`, `resume`,
 `status`) does the same from a key binding (nixbook binds it to
@@ -663,7 +668,7 @@ messages (`Ai.claudeThreadMinMessages`): shorter ones go with their tab. A chat 
 while the panel is closed says so in the bubble too, its answer there to
 reply to (`Initiative.chatDone`; `notify-send` only while the user is
 typing in the bubble). **Mod+C** (`nixbook-shell ipc call
-claude toggle`, again: put away) or a middle-click on the bar's robot calls the bubble up to
+claude toggle`, again: put away) or a click on the bar's robot calls the bubble up to
 ask anything (`Initiative.summon()`, the keys taken until sent): a new
 conversation there is a normal one, not a "From Claude" thread
 (`Ai.askThread()`: an empty tab, else a new one, closed again when left
@@ -1078,7 +1083,7 @@ notifies (the previous clipboard is put back, but cliphist records it).
 
 So an agent can work while you work, it can be given its own desktop:
 `nixbook-desktop-mcp desktop agent` (or `Mod+Shift+A`, which toggles; also
-right-clicking the Desktop Control bar widget, the desktop menu's
+the Desktop Control bar widget's desktop button, the desktop menu's
 "Assistant's desktop" entry and Settings > Desktop agents) gives
 them `nixbook-agent-desktop` (`scripts/agent-desktop.sh`, the user service of
 the same name): a nested niri, shown on your desktop as a window called
