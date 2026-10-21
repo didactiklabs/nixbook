@@ -330,8 +330,10 @@ Scope { // Scope
                 item: pinnedMaskArea
             }
             Region { id: noInput }
-            // Niri's blur behind the body (NiriConfig.panelBlur), while open.
+            // Niri's blur behind the body (NiriConfig.panelBlur), while open;
+            // not while an agent's screenshot hides the panel (MakeWay.capture).
             readonly property bool blurred: NiriConfig.panelBlur && panelWindow.reallyVisible && !panelWindow.bootHidden
+                && !MakeWay.capture
             BackgroundEffect.blurRegion: panelWindow.blurred ? blurArea : null
             BlurCommit { blur: panelWindow.blurred }
             Region {
