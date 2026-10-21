@@ -3710,7 +3710,9 @@ def idea_prompt(cfg, data, now):
     lines += [f"- {k}: {v}" for k, v in ROUTINE_EVENTS.items()]
     lines += ["", "Actions (do): a fixed desktop tool {tool, args} among " + ", ".join(sorted(ROUTINE_DESKTOP_TOOLS))
               + " (shell_ipc: target mpris only); a tool of their servers {server, tool, args} ("
-              + (", ".join(assistant_servers()) or "none") + "); or {agent: \"what to do\", servers: [...]}."]
+              + (", ".join(assistant_servers()) or "none") + "); a few of those {steps: [...]}; or "
+              "{agent: \"what to do\", servers: [...]}. Prefer fixed calls: \"{liked}\" in their args is a song "
+              "the user likes (\"Title Artist\"), picked from their listening history at no token."]
     return "\n".join(lines)
 
 
@@ -4094,7 +4096,10 @@ def initiative_command(cfg, argv):
 # routine's cue comes, `routine run ID` does its action:
 #   - a fixed tool call, at no token: a desktop tool (the same guardrails and
 #     pause as an agent's), or a tool of one of the side panel's MCP servers
-#     (assistant-mcp.json: YouTube Music, Spotify…);
+#     (assistant-mcp.json: YouTube Music, Spotify…); or a few in a row
+#     (steps). `{liked}` in their arguments is a track the user likes,
+#     picked in code from their listening history: "play something I like"
+#     at no token;
 #   - or, when it takes judgment ("something I'd like for this time of day"),
 #     a short headless Claude turn with only those servers' tools, at most
 #     routineAgentPerDay a day.
@@ -4162,6 +4167,10 @@ ROUTINE_AGENT_TURNS = 8
 ROUTINE_TEXT_MAX = 200
 ROUTINE_INSTRUCTION_MAX = 600
 ROUTINE_DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+ROUTINE_STEPS_MAX = 5
+ROUTINE_LIKED = "{liked}"
+# A track heard this lately isn't picked again for {liked}.
+ROUTINE_LIKED_FRESH_S = 3 * 3600
 
 ROUTINE_SYSTEM = (
     "You are the user's desktop assistant, running one of the routines they "
@@ -4236,9 +4245,17 @@ def routine_when(when):
 
 
 def routine_do(cfg, do):
-    """The action, checked: {tool, args, server?} or {agent, servers?}."""
+    """The action, checked: {tool, args, server?}, {steps: [those]} or
+    {agent, servers?}."""
     if not isinstance(do, dict):
-        raise ToolError("do: {tool, args, server} or {agent, servers}")
+        raise ToolError("do: {tool, args, server}, {steps: [{tool, args, server}…]} or {agent, servers}")
+    if do.get("steps") is not None:
+        steps = do["steps"]
+        if not isinstance(steps, list) or not 1 <= len(steps) <= ROUTINE_STEPS_MAX:
+            raise ToolError(f"do.steps: 1 to {ROUTINE_STEPS_MAX} fixed calls {{tool, args, server}}")
+        if any(not isinstance(x, dict) or x.get("agent") or x.get("steps") is not None for x in steps):
+            raise ToolError("do.steps: fixed calls only {tool, args, server}")
+        return {"steps": [routine_do(cfg, x) for x in steps]}
     servers = assistant_servers()
     if do.get("agent"):
         named = [s for s in do.get("servers") or [] if isinstance(s, str)]
@@ -4261,14 +4278,73 @@ def routine_do(cfg, do):
         raise ToolError(f"do.server: no MCP server {server!r} (there are: {', '.join(servers) or 'none'})")
     if len(json.dumps(args)) > 2000:
         raise ToolError("do.args: at most 2000 characters")
+    if ROUTINE_LIKED in json.dumps(args) and not music_on(cfg):
+        raise ToolError(f"do.args: {ROUTINE_LIKED} is picked from the user's listening history, which isn't "
+                        "recorded (Settings > Desktop agents > usage habits, music)")
     return {"tool": tool_name, "args": args, "server": server}
+
+
+def routine_steps(do):
+    """A fixed action's calls, in order."""
+    return do["steps"] if do.get("steps") else [do]
+
+
+def music_pick(n, avoid=(), now=None):
+    """`n` tracks the user likes ("Title Artist", each of another artist),
+    picked by chance from their plays: those played in full most, more so
+    around this hour and lately, but none heard in the last hours, none
+    often skipped and none of `avoid`'s artists (the one on repeat)."""
+    now = now or time.time()
+    plays = music_plays(read_habits())
+    skipped = {fold(a) for a, c in music_counts(plays).items() if c[1] >= 3 and c[1] >= 2 * c[0]}
+    shun = skipped | {fold(a) for x in avoid if x for a in music_artists(x)}
+    heard = {(fold(p[4]), fold(p[3][0])) for p in plays if p[3] and now - p[0] < ROUTINE_LIKED_FRESH_S}
+    hour = time.localtime(now).tm_hour
+    tracks = {}
+    for start, _, _, artists, title, _, times, skip in plays:
+        k = (fold(title), fold(artists[0])) if artists and title else None
+        if skip or not k or k in heard or any(fold(a) in shun for a in artists):
+            continue
+        gap = abs(time.localtime(start).tm_hour - hour)
+        weight = times * (2 if min(gap, 24 - gap) <= 1 else 1) * (2 if now - start < 14 * 86400 else 1)
+        tracks.setdefault(k, [0, f"{title} {artists[0]}", f"{title} – {artists[0]}"])[0] += weight
+    picks, pool = [], list(tracks.items())
+    while pool and len(picks) < n:
+        # The square root: a favourite comes up often, not every time.
+        k, t = random.choices(pool, weights=[math.sqrt(t[0]) for _, t in pool])[0]
+        picks.append(t)
+        pool = [x for x in pool if x[0][1] != k[1]]
+    return picks
+
+
+def routine_fill(value, picks):
+    """The arguments with each {liked} replaced by the next pick."""
+    if isinstance(value, dict):
+        return {k: routine_fill(v, picks) for k, v in value.items()}
+    if isinstance(value, list):
+        return [routine_fill(v, picks) for v in value]
+    if isinstance(value, str):
+        return re.sub(re.escape(ROUTINE_LIKED), lambda _: picks.pop(0)[1], value)
+    return value
+
+
+def routine_call(cfg, call):
+    """One fixed call of a routine, its arguments filled."""
+    if call["server"] == "desktop":
+        ctx = Context(cfg, "routine", "routine", notify=False)
+        content, is_error = call_tool(ctx, call["tool"], dict(call["args"]))
+        first = next((c.get("text", "") for c in content if c.get("type") == "text"), "")
+        if is_error:
+            raise ToolError(first.splitlines()[0] if first else "the tool failed")
+    else:
+        mcp_call(assistant_servers()[call["server"]], call["tool"], dict(call["args"]))
 
 
 def routine_line(r):
     when = r["when"]
     cue = when["event"] + "".join(f" {k}={when[k]}" for k in ROUTINE_FILTERS if k in when)
     how = f"agent: {short(r['do']['agent'], 80)}" if r["do"].get("agent") else \
-        f"{r['do']['server']}.{r['do']['tool']}"
+        " + ".join(f"{x['server']}.{x['tool']}" for x in routine_steps(r["do"]))
     return f"[{r['id']}] {r['text']} — when {cue} → {how}" + ("" if r.get("on", True) else " (off)")
 
 
@@ -4280,11 +4356,17 @@ def routine_line(r):
     "like\", \"when my headphones connect, resume the music\"). Only when "
     "they ask for one. action add: `text` (their words), `when` {event, "
     "filters} and `do`: a fixed tool call {tool, args, server} (server: "
-    "\"desktop\" or one of your MCP servers, e.g. youtube-music; costs "
-    "nothing each time; desktop tools: " + ", ".join(sorted(ROUTINE_DESKTOP_TOOLS)) + ", shell_ipc "
-    "for mpris only), or, when it takes judgment, {agent: \"what to do\", "
-    "servers: [the MCP servers it needs]} (a short Claude run each time, not "
-    "while the screen is locked). Prefer a fixed call. Pick the event that "
+    "\"desktop\" or one of your MCP servers, e.g. youtube-music; runs at "
+    "once and costs nothing; desktop tools: " + ", ".join(sorted(ROUTINE_DESKTOP_TOOLS)) + ", shell_ipc "
+    "for mpris only), a few in a row {steps: [{tool, args, server}…]} (at "
+    "most " + str(ROUTINE_STEPS_MAX) + "), or, when it truly takes judgment, {agent: \"what to do\", "
+    "servers: [the MCP servers it needs]} (a short Claude run each time, slower, not "
+    "while the screen is locked). Prefer a fixed call: \"{liked}\" in its args is "
+    "filled at no token with a song the user likes (\"Title Artist\", from their "
+    "listening history, another each time, never the artist on repeat), so "
+    "\"play something I like\" or \"change the song on repeat\" is e.g. steps "
+    "[{server: youtube-music, tool: play, args: {query: \"{liked}\"}}, {server: "
+    "youtube-music, tool: add_to_queue, args: {query: \"{liked}\"}}]. Pick the event that "
     "means what they said: a state (\"whenever there's no music\") is "
     "music_silent, an end (\"when the album ends\") music_ended, a repeat (\"when a song loops too "
     "long\") music_repeating, not track_changed. A routine you add (or "
@@ -4297,7 +4379,7 @@ def routine_line(r):
             "id": {"type": "string"},
             "text": {"type": "string", "description": "What it does, in the user's words"},
             "when": {"type": "object", "description": "{event, app, words, at, days, percent, name, ext, minutes, times, cooldown}"},
-            "do": {"type": "object", "description": "{tool, args, server} or {agent, servers}"},
+            "do": {"type": "object", "description": "{tool, args, server}, {steps: [{tool, args, server}…]} or {agent, servers}"},
         },
         ["action"],
     ),
@@ -4349,7 +4431,10 @@ def routine_ask(r, why=""):
     do = r["do"]
     how = f"a short Claude run: \u201c{short(do['agent'], 120)}\u201d" + (
         f" with {', '.join(do.get('servers') or [])}" if do.get("servers") else "") if do.get("agent") else \
-        f"{do['server']}: {do['tool']} {short(json.dumps(do.get('args') or {}, ensure_ascii=False), 120)}"
+        ", then ".join(f"{x['server']}: {x['tool']} {short(json.dumps(x.get('args') or {}, ensure_ascii=False), 120)}"
+                       for x in routine_steps(do)) + (
+            " (\u201c{liked}\u201d: a song you like, picked from what you play)"
+            if ROUTINE_LIKED in json.dumps(do) else "")
     routine_say(r, (f"{why} " if why else "") + f"Shall I add this routine? \u201c{r['text']}\u201d: when {routine_line(r).split(' — when ', 1)[1].split(' → ')[0]}, {how}.",
                 accept=r["id"])
 
@@ -4533,20 +4618,20 @@ def routine_run(cfg, rid, event, now=None):
         m.save()
         r = dict(r)
     try:
-        if not r["do"].get("agent"):
-            routine_do(cfg, r["do"])
         if r["do"].get("agent"):
             said = routine_agent(cfg, r, event)
-        elif r["do"]["server"] == "desktop":
-            ctx = Context(cfg, "routine", "routine", notify=False)
-            content, is_error = call_tool(ctx, r["do"]["tool"], dict(r["do"]["args"]))
-            first = next((c.get("text", "") for c in content if c.get("type") == "text"), "")
-            if is_error:
-                raise ToolError(first.splitlines()[0] if first else "the tool failed")
-            said = f"{r['text']}: done."
         else:
-            mcp_call(assistant_servers()[r["do"]["server"]], r["do"]["tool"], dict(r["do"]["args"]))
-            said = f"{r['text']}: done."
+            routine_do(cfg, r["do"])
+            steps = routine_steps(r["do"])
+            want = sum(json.dumps(x["args"]).count(ROUTINE_LIKED) for x in steps)
+            # Never the artist playing now (the one on repeat).
+            picks = music_pick(want, [event.get("artist")], now) if want else []
+            if len(picks) < want:
+                raise ToolError("no song left to pick from the listening history (too little played yet)")
+            played = [p[2] for p in picks]
+            for x in steps:
+                routine_call(cfg, dict(x, args=routine_fill(x["args"], picks)))
+            said = (f"{r['text']}: I put on {'; '.join(played)}." if played else f"{r['text']}: done.")
     except (ToolError, KeyError) as e:
         today = time.strftime("%Y-%m-%d", time.localtime(now))
         tell = False

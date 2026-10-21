@@ -2358,8 +2358,35 @@ expect_contains "music: the players" "$out" "Listens on: Spotify"
 expect_contains "music: the habits tool" "$(call habits '{"what":"music"}')" "Most played tracks: Weird Fishes – Radiohead (20)"
 expect_contains "music: in the memory digest" "$(python3 "$mcp" memory prompt)" "The user's music taste (from what they play, on any player"
 expect_contains "music: in the status Settings shows" "$(python3 "$mcp" habits status | jq -r '.music[0]')" "Favourite artists"
+# A routine that plays something the user likes, at once and no model:
+# {liked} picked in code from the plays, another artist each, never the one
+# on repeat or one often skipped.
+jq -n --arg py "$(command -v python3)" --arg s "$tmp/fake-music-mcp.py" '{mcpServers: {"youtube-music": {command: $py, args: [$s]}}}' \
+  >"$XDG_CONFIG_HOME/nixbook-shell/assistant-mcp.json"
+call routine '{"action":"add","text":"When a song loops, change it","when":{"event":"music_repeating","cooldown":0},"do":{"steps":[{"server":"youtube-music","tool":"play","args":{"query":"{liked}"}},{"server":"youtube-music","tool":"add_to_queue","args":{"query":"{liked}"}}]}}' >/dev/null
+liked=$(jq -r '.routines[-1].id' "$mem")
+expect_contains "routine liked: the user is asked, told what {liked} is" "$(python3 "$mcp" initiative pending | jq -r '.[] | select(.accept) | .text')" "then youtube-music: add_to_queue"
+say_yes "$liked"
+expect_contains "routine liked: steps in the list" "$(call routine '{"action":"list"}')" "→ youtube-music.play + youtube-music.add_to_queue"
+rm -f "$calls.claude-args" "$FAKE_MUSIC_LOG"
+out=$(python3 "$mcp" routine run "$liked" '{"event":"music_repeating","artist":"Khruangbin","times":4}')
+expect_eq "routine liked: the steps in order" "play add_to_queue" "$(jq -r .name "$FAKE_MUSIC_LOG" | xargs)"
+expect_eq "routine liked: liked songs, not the artist on repeat" "Kerala Bonobo|Weird Fishes Radiohead" \
+  "$(jq -r .arguments.query "$FAKE_MUSIC_LOG" | sort | paste -sd'|')"
+expect_eq "routine liked: no model" no "$([ -e "$calls.claude-args" ] && echo yes || echo no)"
+expect_contains "routine liked: what it put on" "$(jq -r .said <<<"$out")" "When a song loops, change it: I put on "
+call routine "{\"action\":\"remove\",\"id\":\"$liked\"}" >/dev/null
+call routine '{"action":"add","text":"x","when":{"event":"music_silent","cooldown":0},"do":{"steps":[{"server":"youtube-music","tool":"play","args":{"query":"{liked}"}},{"server":"youtube-music","tool":"add_to_queue","args":{"query":"{liked}"}},{"server":"youtube-music","tool":"add_to_queue","args":{"query":"{liked}"}}]}}' >/dev/null
+liked=$(jq -r '.routines[-1].id' "$mem")
+say_yes "$liked"
+expect_contains "routine liked: too few songs to pick, said" "$(python3 "$mcp" routine run "$liked" '{"event":"music_silent","artist":"Bonobo"}' | jq -r .why)" "no song left to pick"
+call routine "{\"action\":\"remove\",\"id\":\"$liked\"}" >/dev/null
+expect_contains "routine steps: fixed calls only" "$(call routine '{"action":"add","text":"x","when":{"event":"plugged"},"do":{"steps":[{"agent":"do it"}]}}')" "fixed calls only"
+expect_contains "routine steps: a few" "$(call routine '{"action":"add","text":"x","when":{"event":"plugged"},"do":{"steps":[]}}')" "1 to 5 fixed calls"
+rm "$XDG_CONFIG_HOME/nixbook-shell/assistant-mcp.json"
 echo '{"habits":true,"habitsMusic":false}' >"$mcpcfg"
 expect_contains "music: the tool refuses when not recorded" "$(call habits '{"what":"music"}')" "doesn't let their music be recorded"
+expect_contains "routine liked: not without the listening history" "$(call routine '{"action":"add","text":"x","when":{"event":"plugged"},"do":{"tool":"notify","args":{"title":"{liked}","body":"x"}}}')" "isn't recorded"
 expect_not_contains "music: not in the digest when not recorded" "$(python3 "$mcp" memory prompt)" "music taste"
 echo '{"habits":true}' >"$mcpcfg"
 spans_before=$(python3 "$mcp" habits show | jq '.spans | length')
