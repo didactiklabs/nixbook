@@ -235,6 +235,21 @@ func firstPrompt(it Item, context string) string {
 		fmt.Fprintf(&b, "The running shell printed this warning %d times lately (its journal):\n\n", it.Count)
 	case "crash":
 		fmt.Fprintf(&b, "A desktop tool of nixbook-desktop-mcp crashed %d times lately (an exception, not a refusal):\n\n", it.Count)
+	case "service":
+		b.WriteString("A systemd unit nixbook defines (or configures) is in the failed state on this computer:\n\n")
+	case "log":
+		fmt.Fprintf(&b, "A systemd unit nixbook defines logged this error %d times lately:\n\n", it.Count)
+	case "deploy":
+		b.WriteString("The last system update of this computer (osupdate: colmena with this repository) failed:\n\n")
+	case "warning":
+		fmt.Fprintf(&b, "The system update printed this Nix warning (%d updates):\n\n", it.Count)
+	case "ci":
+		b.WriteString("A CI workflow fails on main:\n\n")
+	case "coredump":
+		fmt.Fprintf(&b, "A program nixbook packages (customPkgs/ or nixbook-shell) crashed %d times lately:\n\n", it.Count)
+	case "info":
+		b.WriteString("This was seen on the computer. It isn't obviously nixbook's: if no change to this repository " +
+			"can fix it (an upstream app's bug, hardware, the kernel), answer skip and say so.\n\n")
 	}
 	b.WriteString("    " + strings.ReplaceAll(it.Text, "\n", "\n    ") + "\n")
 	if it.Where != "" {

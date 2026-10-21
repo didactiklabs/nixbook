@@ -103,6 +103,8 @@ case "$1 $2" in
     echo "https://github.com/o/r/pull/7"
     ;;
   "pr checks") echo '[{"bucket":"pass","name":"lint","link":"https://github.com/o/r/actions/runs/1/job/2"}]' ;;
+  "run list") cat "$FAKE_LOG/runs" 2>/dev/null || echo '[]' ;;
+  "run view") echo "lint: tests/hosts.nix: assertion failed at line 12" ;;
   "pr merge")
     # A rebase merge: the branch's commits onto main.
     git -C "$FAKE_REMOTE" update-ref refs/heads/main "$(git -C "$FAKE_REMOTE" rev-parse "refs/heads/$FAKE_BRANCH")"
@@ -122,6 +124,29 @@ cat >"$fake/devenv" <<'EOF'
 #!/usr/bin/env bash
 shift 2 # shell --
 exec "$@"
+EOF
+# The machine's logs: what FAKE_LOG holds (nothing by default).
+cat >"$fake/systemctl" <<'EOF'
+#!/usr/bin/env bash
+case "$*" in
+  "--user --failed"*) cat "$FAKE_LOG/failed-user" 2>/dev/null ;;
+  "--failed"*) cat "$FAKE_LOG/failed-system" 2>/dev/null ;;
+esac
+exit 0
+EOF
+cat >"$fake/journalctl" <<'EOF'
+#!/usr/bin/env bash
+case "$*" in
+  "-k "*) cat "$FAKE_LOG/kernel" 2>/dev/null ;;
+  "--user -p err"*) cat "$FAKE_LOG/errors-user" 2>/dev/null ;;
+  "-p err"*) cat "$FAKE_LOG/errors-system" 2>/dev/null ;;
+  *"-u nixbook-habits.service"*) printf 'habits: opening the database\nhabits: database is locked\n' ;;
+esac
+exit 0
+EOF
+cat >"$fake/coredumpctl" <<'EOF'
+#!/usr/bin/env bash
+cat "$FAKE_LOG/cores" 2>/dev/null || exit 1
 EOF
 cat >"$fake/secret-tool" <<'EOF'
 #!/usr/bin/env bash
@@ -234,6 +259,58 @@ export FAKE_CLAUDE=too_big
 "$improve" run --item "$qid" >/dev/null
 expect_match "prompt: the code at that revision" ">     3      property string label: clock.text()" "$(cat "$FAKE_LOG/prompt")"
 expect_match "prompt: main may have moved" "main may have moved since" "$(cat "$FAKE_LOG/prompt")"
+
+# --- the machine: units, their logs, the update, CI, crashes, the kernel ----------
+export NIXBOOK_IMPROVE_OWNED="$tmp/owned.json" NIXBOOK_IMPROVE_OWNED_SYSTEM="$tmp/owned-units.json" \
+  NIXBOOK_IMPROVE_UPGRADE="$tmp/upgrade.json"
+echo '{"userServices": ["nixbook-habits"], "packages": ["youtube-music-mcp"]}' >"$tmp/owned.json"
+echo '{"services": ["nixos-upgrade-manual"]}' >"$tmp/owned-units.json"
+printf 'nixbook-habits.service loaded failed failed Usage habits\npipewire.service loaded failed failed PipeWire\n' >"$FAKE_LOG/failed-user"
+{
+  echo '{"_SYSTEMD_USER_UNIT": "nixbook-habits.service", "MESSAGE": "habits: database is locked"}'
+  echo '{"_SYSTEMD_USER_UNIT": "pipewire.service", "MESSAGE": "pipewire: no such device"}'
+  echo '{"_SYSTEMD_USER_UNIT": "nixbook-habits.service", "MESSAGE": [104, 105]}'
+} >"$FAKE_LOG/errors-user"
+jq -n --argjson f "$(($(date +%s) + 5))" '{state: "failed", finished: $f,
+  tail: "building...\nevaluation warning: services.foo is deprecated\nerror: attribute '\''bar'\'' missing\n"}' >"$tmp/upgrade.json"
+echo '[{"databaseId": 42, "status": "completed", "conclusion": "failure", "workflowName": "Checks",
+  "headSha": "abcdef1234", "displayTitle": "fix: x", "url": "https://github.com/o/r/actions/runs/42"}]' >"$FAKE_LOG/runs"
+echo '[{"exe": "/nix/store/aaa-youtube-music-mcp-1.0/bin/youtube-music-mcp", "sig": 11},
+  {"exe": "/nix/store/bbb-zen-1.0/bin/zen", "sig": 11}]' >"$FAKE_LOG/cores"
+echo "iwlwifi 0000:00:14.3: Microcode SW error detected" >"$FAKE_LOG/kernel"
+NIXBOOK_IMPROVE_LOG=/dev/null "$improve" collect >/dev/null
+kinds() { "$improve" status | jq -r '.inbox[] | select(.status != "dropped") | "\(.kind) \(.status) \(.text | split("\n")[0])"'; }
+expect_match "sources: a failed unit nixbook defines" "^service new The user unit nixbook-habits.service, which nixbook defines, has failed" "$(kinds)"
+expect_match "sources: its last log lines" "database is locked" "$("$improve" status | jq -r '.inbox[] | select(.kind == "service") | .text')"
+expect_match "sources: a failed unit it doesn't, to know" "^info new The user unit pipewire.service failed (not one nixbook defines)" "$(kinds)"
+expect_match "sources: an error of its unit" "^log new The user unit nixbook-habits.service, which nixbook defines, logged this error: habits: database is locked" "$(kinds)"
+expect_no_match "sources: other units' errors aren't kept" "no such device" "$(kinds)"
+expect_match "sources: the failed update" "^deploy new The last system update (osupdate) failed" "$(kinds)"
+expect_match "sources: its Nix warning" "^warning new The system update printed this Nix warning: services.foo is deprecated" "$(kinds)"
+expect_match "sources: CI red on main" "^ci new CI's \"Checks\" workflow fails on main (abcdef1: fix: x)" "$(kinds)"
+expect_match "sources: a crash of nixbook's package" "^coredump new youtube-music-mcp (youtube-music-mcp-1.0, packaged by nixbook) crashed" "$(kinds)"
+expect_match "sources: another app's crash, to know" "^info new zen crashed (signal 11; not a program nixbook packages)" "$(kinds)"
+expect_match "sources: the kernel, to know" "^info new Kernel: iwlwifi" "$(kinds)"
+expect_match "activity: what it looked at" "Looked for bugs: .*failed units.*not nixbook's" "$(jq -r '.[].text' "$XDG_STATE_HOME/nixbook-shell/improve/activity.json")"
+
+# Fixed meanwhile: the unit running, CI green.
+rm "$FAKE_LOG/failed-user"
+echo '[{"databaseId": 43, "status": "completed", "conclusion": "success", "workflowName": "Checks",
+  "headSha": "fedcba", "displayTitle": "fix: y", "url": "u"}]' >"$FAKE_LOG/runs"
+NIXBOOK_IMPROVE_LOG=/dev/null "$improve" collect >/dev/null
+expect_match "sources: a unit running again is gone" "^service gone" "$(kinds)"
+expect_match "sources: CI green again is gone" "^ci gone" "$(kinds)"
+
+# What isn't nixbook's goes to Claude on Fix now only, told so.
+iid=$("$improve" status | jq -r '.inbox[] | select(.text | startswith("Kernel:")) | .id')
+export FAKE_CLAUDE=too_big
+"$improve" run --item "$iid" >/dev/null
+expect_match "info: Claude told it may not be nixbook's" "isn't obviously nixbook's" "$(cat "$FAKE_LOG/prompt")"
+# CI's failed logs go with a CI item.
+cid=$("$improve" status | jq -r '.inbox[] | select(.kind == "ci") | .id')
+"$improve" run --item "$cid" >/dev/null
+expect_match "ci: its failed logs in the prompt" "assertion failed at line 12" "$(cat "$FAKE_LOG/prompt")"
+rm -f "$FAKE_LOG"/{runs,cores,kernel,errors-user} "$tmp/upgrade.json"
 
 # --- live progress, and Stop --------------------------------------------------------
 id=$(item "the guide is slow to fix")

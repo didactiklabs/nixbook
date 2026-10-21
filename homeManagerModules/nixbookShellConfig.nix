@@ -186,6 +186,25 @@ in
       }
     ];
 
+    # What nixbook defines itself, for the fixer: the user units of its own
+    # modules (the system ones: /etc/nixbook/owned-units.json,
+    # nixosModules/ownedUnits.nix) and its own packages. Errors from
+    # anything else are "not nixbook's", never sent to it unasked.
+    xdg.configFile."nixbook-shell/owned.json" = lib.mkIf cfg.selfImprove.enable {
+      text =
+        let
+          ours = import ../lib/ownedUnits.nix { inherit lib; } (toString ../.);
+        in
+        builtins.toJSON {
+          userServices = ours options.systemd.user.services.definitionsWithLocations;
+          userTimers = ours options.systemd.user.timers.definitionsWithLocations;
+          packages = lib.attrNames pkgs.customPkgs ++ [
+            "nixbook-shell"
+            "quickshell"
+          ];
+        };
+    };
+
     programs.nixbook-shell = {
       enable = true;
       # The repository's quickshell pin, shared with dmsConfig.nix so the two

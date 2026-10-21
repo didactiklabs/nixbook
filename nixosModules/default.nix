@@ -13,6 +13,7 @@
     ./lanzaboote.nix
     ./netbird-tools.nix
     ./niri.nix
+    ./ownedUnits.nix
     ./printTools.nix
     ./simracing.nix
     ./sunshine.nix

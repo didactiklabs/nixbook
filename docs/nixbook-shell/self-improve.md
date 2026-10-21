@@ -24,14 +24,23 @@ It reaches GitHub **only with its own token**, never your `gh` login or ssh key.
 
 ## What it fixes
 
-Things to fix arrive in an inbox. Filing them is plain code, with no model call:
+Things to fix arrive in an inbox. Filing them is plain code, with no model call, and uses only what your user can already read: a source it can't read is skipped (no new permission; `dmesg` itself stays restricted). It looks 10 minutes after the shell starts, then every 6 hours, or when you press **Look for bugs now**.
 
 - **What you report.** Tell an agent something of nixbook is broken or annoying ("the bar's clock is cut off, report this"): its `report_problem` tool files it. You can also type it in Settings. Your words stay on this computer: the PR says it in the session's own words, since the repository is public.
 - **The shell's errors.** The QML errors the running shell prints (a `TypeError`, an `Unable to assign`, a binding loop…), read from its journal 10 minutes after it starts, then every 6 hours. A missing optional file or an icon the theme lacks isn't counted.
 - Each error keeps the revision the shell printing it ran (`/etc/nixos/version`). `main` may have moved since, so the session gets the lines around it at that revision and finds the same code on `main`.
 - **The desktop tools' crashes.** An exception in `nixbook-desktop-mcp`, as opposed to a refusal, read from its audit log.
+- **Failed units.** A systemd unit nixbook defines (system or user) in the failed state, with its last log lines. One running again later is dropped from the list.
+- **Errors in nixbook's units' logs.** Error lines (priority `err` and worse) in the journal of a unit nixbook defines, even when it keeps running.
+- **The system update.** The last `osupdate` failed (the end of its log), or printed a Nix warning (`evaluation warning:`, `trace: warning:`).
+- **CI on `main`.** A workflow whose latest run on `main` failed (read with the token); the session gets the failed jobs' logs. One green again is dropped from the list.
+- **Crashes of nixbook's programs.** A coredump of a program nixbook packages (`customPkgs/`, the shell).
 
-What you report gets a fix soon. An error has to show up 3 times first, and a crash twice. It makes at most `perDay` fixes on its own (2 by default). **Fix now** next to an item starts one at once, without counting toward that limit. Items it tried without fixing them (failed, skipped, too big) stay listed, with why, so **Fix now** can try again, after you give the token a missing permission for instance.
+**Only what nixbook defines is sent to Claude unasked.** Nix writes out what that is: the units of its own module files (system: `/etc/nixbook/owned-units.json`, from `nixosModules/ownedUnits.nix`; user: `~/.config/nixbook-shell/owned.json`) and its packages. The rest is listed under **Seen, not nixbook's**, for you to know: another unit failing, another app's crash, the kernel's errors (from the journal). It never starts a session; **Fix now** sends one anyway, telling Claude it may not be nixbook's to fix.
+
+Logs stay on this computer: they go to the Claude session as context, never into a commit or a pull request.
+
+What you report, a failed update or a red CI get a fix soon. A shell or unit error has to show up 3 times first; a crash, a failed unit (two looks) or a Nix warning (two updates) twice. It makes at most `perDay` fixes on its own (2 by default). **Fix now** next to an item starts one at once, without counting toward that limit. Items it tried without fixing them (failed, skipped, too big) stay listed, with why, so **Fix now** can try again, after you give the token a missing permission for instance.
 
 ## How a fix is made
 
