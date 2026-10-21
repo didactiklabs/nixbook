@@ -9343,6 +9343,43 @@ def t_set_theme(ctx, args):
     return [text(f"theme set: {out[3:].strip()}")]
 
 
+@tool(
+    "report_problem",
+    "shell",
+    "File something broken or rough in nixbook itself (this desktop shell, its "
+    "widgets and settings, these desktop tools, its configuration) for its fixer "
+    "(nixbook-improve), which makes small fixes as pull requests the user merges. "
+    "Use it when the user says something of nixbook doesn't work, looks wrong or "
+    "is annoying (\"report this\", \"that's broken\"), or a desktop tool failed in a "
+    "way that looks like a bug rather than a refusal. Not for feature requests or "
+    "other apps' bugs. Say what happens and what was expected, plainly; it stays "
+    "on this computer. Only while the user has turned it on (Settings > Desktop "
+    "agents > Fixes it makes itself).",
+    obj({
+        "what": {"type": "string", "description": "What is wrong: what happens, what was expected"},
+        "where": {"type": "string", "description": "The widget, setting, tool or file, when known"},
+    }, ["what"]),
+)
+def t_report_problem(ctx, args):
+    what = as_str(args, "what", max_len=1000)
+    where = as_str(args, "where", required=False, max_len=200) or ""
+    if not shell_setting("ai.improve.enable", False):
+        raise ToolError("the fixer is off: the user turns it on in Settings > Desktop agents > "
+                        "Fixes it makes itself. Tell them, don't retry.")
+    ctx.guard.check_rate()
+    proc = run(["nixbook-improve", "note", "--where", where, what], timeout=10, check=False)
+    try:
+        out = json.loads(proc.stdout or "null")
+    except ValueError:
+        out = None
+    if proc.returncode != 0 or not isinstance(out, dict):
+        msg = out.get("error") if isinstance(out, dict) else (proc.stderr or "").strip()[-300:]
+        raise ToolError(msg or f"nixbook-improve failed ({proc.returncode})")
+    again = f" (reported {out['count']} times now)" if out.get("count", 1) > 1 else ""
+    return [text(f"filed for the fixer{again}: it makes a fix as a pull request when it can, and the "
+                 "user gets Merge, Look, Drop once its checks pass. Big changes are left for a real session.")]
+
+
 # The shell's desktop widgets (DesktopWidgets.qml, Notes.qml, Todo.qml,
 # TimerService.qml IPC targets): widget -> action -> (target, function, the
 # arguments it takes, whether it changes something).

@@ -9,7 +9,8 @@ import qs.modules.common.widgets
 
 // Settings > Desktop agents (services/DesktopControl.qml): whether AI agents
 // may drive the desktop (nixbook-desktop-mcp), Claude in the AI chat
-// (ai.claudeCode, services/Ai.qml), and the memory agents keep of the
+// (ai.claudeCode, services/Ai.qml), the fixes it makes to nixbook itself
+// (ai.improve, services/SelfImprove.qml), and the memory agents keep of the
 // desktop — notes they wrote, app aliases and usage learned — to review,
 // prune or clear.
 ContentPage {
@@ -239,6 +240,182 @@ ContentPage {
                         onClicked: DesktopControl.routineCommand("remove", routineRow.modelData.id)
                     }
                 }
+            }
+        }
+
+        // services/SelfImprove.qml, nixbook-improve.
+        ContentSection {
+            icon: "build"
+            title: Translation.tr("Fixes it makes itself")
+
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("Claude fixes nixbook itself: fixes and polish only (a bug, a rough edge, wording), never a new feature or a big change — those it leaves for you. What to fix: what you tell an agent is broken (\"report this\") or write below (your words stay on this computer: the PR says it in its own), the errors the shell prints, the desktop tools' crashes. Each fix is made in a clone of the repository by a Claude Code session that can only edit files there (no commands, none of your files or logins), checked (its size and files, the tests, the shell started headless with no new error), committed with a changelog entry and opened as a pull request. Once CI passes you get Merge, Look, Drop; nothing reaches main without you, but what you let merge on its own. After a merge, main's checks and the updated shell are watched, and a revert is offered if it broke something. Its sandbox, the tests, CI and its own code are off limits; what agents may do is never merged on its own. Uses your gh login and Claude Code; at most %1 a day.").arg(Config.options.ai.improve.perDay)
+            }
+
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "ai.improve.enable"
+                    buttonIcon: "build"
+                    text: Translation.tr("Make fixes on its own")
+                    checked: Config.options.ai.improve.enable
+                    onCheckedChanged: Config.options.ai.improve.enable = checked
+                }
+                ConfigSwitch {
+                    configKey: "ai.improve.autoMerge"
+                    buttonIcon: "merge"
+                    enabled: Config.options.ai.improve.enable
+                    text: Translation.tr("Merge on its own once CI passes, when it only touched the docs")
+                    checked: Config.options.ai.improve.autoMerge
+                    onCheckedChanged: Config.options.ai.improve.autoMerge = checked
+                }
+            }
+
+            ConfigSelectionArray {
+                configKey: "ai.improve.model"
+                text: Translation.tr("Model")
+                icon: "psychology"
+                currentValue: Config.options.ai.improve.model
+                onSelected: newValue => { Config.options.ai.improve.model = newValue }
+                options: [
+                    { displayName: "Sonnet", icon: "speed", value: "sonnet" },
+                    { displayName: "Opus", icon: "psychology", value: "opus" }
+                ]
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+                MaterialTextField {
+                    id: improveNote
+                    Layout.fillWidth: true
+                    enabled: Config.options.ai.improve.enable
+                    placeholderText: Translation.tr("Something to fix…")
+                    onAccepted: improveAdd.clicked()
+                }
+                SmallButton {
+                    id: improveAdd
+                    enabled: Config.options.ai.improve.enable && improveNote.text.trim() !== ""
+                    materialIcon: "add"
+                    mainText: Translation.tr("Add")
+                    onClicked: {
+                        SelfImprove.note(improveNote.text)
+                        improveNote.text = ""
+                    }
+                }
+                SmallButton {
+                    enabled: Config.options.ai.improve.enable
+                    materialIcon: "search"
+                    mainText: Translation.tr("Look for bugs now")
+                    onClicked: SelfImprove.collectNow()
+                }
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                visible: SelfImprove.running !== null
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: SelfImprove.running ? Translation.tr("Working on: %1 (%2)").arg(SelfImprove.running.itemText).arg(SelfImprove.running.stage) : ""
+            }
+
+            // The fixes waiting for the user: a PR each.
+            Repeater {
+                model: SelfImprove.waiting
+                delegate: RowLayout {
+                    id: prRow
+                    required property var modelData
+                    Layout.fillWidth: true
+                    spacing: 10
+                    MaterialSymbol {
+                        text: prRow.modelData.ci === "fail" ? "error" : prRow.modelData.ci === "pass" ? "check_circle" : "pending"
+                        iconSize: Appearance.font.pixelSize.larger
+                        color: Appearance.colors.colOnLayer1
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: Appearance.colors.colOnLayer1
+                        text: `#${prRow.modelData.pr} ${prRow.modelData.title}`
+                            + (prRow.modelData.sensitive ? " · " + Translation.tr("touches what agents may do") : "")
+                    }
+                    SmallButton {
+                        enabled: prRow.modelData.ci === "pass"
+                        materialIcon: "merge"
+                        mainText: Translation.tr("Merge")
+                        onClicked: SelfImprove.act("merge", prRow.modelData.pr)
+                    }
+                    SmallButton {
+                        materialIcon: "open_in_new"
+                        mainText: Translation.tr("Look")
+                        onClicked: SelfImprove.act("look", prRow.modelData.pr)
+                    }
+                    SmallButton {
+                        materialIcon: "close"
+                        mainText: Translation.tr("Drop")
+                        onClicked: SelfImprove.act("drop", prRow.modelData.pr)
+                    }
+                }
+            }
+
+            // What it has to fix: the user's reports first.
+            Repeater {
+                model: SelfImprove.open.filter(i => i.status === "new")
+                delegate: RowLayout {
+                    id: itemRow
+                    required property var modelData
+                    Layout.fillWidth: true
+                    spacing: 10
+                    MaterialSymbol {
+                        text: itemRow.modelData.kind === "user" ? "person" : itemRow.modelData.kind === "crash" ? "bug_report" : "warning"
+                        iconSize: Appearance.font.pixelSize.larger
+                        color: Appearance.colors.colOnLayer1
+                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+                        StyledText {
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            color: Appearance.colors.colOnLayer1
+                            text: itemRow.modelData.text
+                        }
+                        StyledText {
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            font.pixelSize: Appearance.font.pixelSize.smaller
+                            color: Appearance.colors.colSubtext
+                            text: [itemRow.modelData.count === 1 ? Translation.tr("seen once") : Translation.tr("seen %1 times").arg(itemRow.modelData.count),
+                                   Qt.formatDateTime(new Date(itemRow.modelData.last), "d MMM, hh:mm"),
+                                   itemRow.modelData.note ?? ""].filter(x => x).join(" · ")
+                        }
+                    }
+                    SmallButton {
+                        enabled: Config.options.ai.improve.enable && SelfImprove.running === null
+                        materialIcon: "build"
+                        mainText: Translation.tr("Fix now")
+                        onClicked: SelfImprove.fixNow(itemRow.modelData.id)
+                    }
+                    SmallButton {
+                        materialIcon: "delete"
+                        mainText: Translation.tr("Drop")
+                        onClicked: SelfImprove.dropItem(itemRow.modelData.id)
+                    }
+                }
+            }
+
+            // How the last tries ended.
+            StyledText {
+                Layout.fillWidth: true
+                visible: SelfImprove.runs.some(r => r.outcome && r.outcome !== "pr")
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                font.pixelSize: Appearance.font.pixelSize.small
+                text: Translation.tr("Lately:") + "\n" + SelfImprove.runs.filter(r => r.outcome && r.outcome !== "pr").slice(0, 6).map(r =>
+                    `${Qt.formatDateTime(new Date(r.started), "d MMM hh:mm")} · ${r.title || r.itemText} · ${r.outcome}`
+                    + (r.note ? `: ${r.note}` : "")).join("\n")
             }
         }
 

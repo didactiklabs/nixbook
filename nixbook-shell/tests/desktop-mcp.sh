@@ -432,7 +432,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 52 tools" 52 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 53 tools" 53 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -2556,6 +2556,24 @@ expect_contains "set_wallpaper: a link out of them" "$(call set_wallpaper "{\"pa
 expect_contains "set_wallpaper: not an image" "$(call set_wallpaper "{\"path\":\"$shared/notes.txt\"}")" "isn't a JPEG, PNG, WebP or AVIF image"
 expect_contains "set_wallpaper: a web address" "$(call set_wallpaper '{"path":"https://example.com/w.jpg"}')" "download the image"
 expect_eq "set_wallpaper: nothing applied when refused" "" "$(grep 'wallpapers apply' "$calls" || true)"
+rm "$XDG_CONFIG_HOME/nixbook-shell/config.json"
+
+# -- report_problem: the fixer's inbox (nixbook-improve) ----------------------------------------
+
+improve_bin="$tmp/improve-bin"
+mkdir -p "$improve_bin"
+cat >"$improve_bin/nixbook-improve" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"$tmp/improve-calls"
+echo '{"id":"0123abcd","count":2}'
+EOF
+chmod +x "$improve_bin/nixbook-improve"
+expect_contains "report_problem: off by default" "$(PATH="$improve_bin:$PATH" call report_problem '{"what":"the clock is cut off"}')" "the fixer is off"
+expect_eq "report_problem: nothing filed while off" "" "$(cat "$tmp/improve-calls" 2>/dev/null || true)"
+echo '{"ai": {"improve": {"enable": true}}}' >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
+out=$(PATH="$improve_bin:$PATH" call report_problem '{"what":"the clock is cut off","where":"bar clock"}')
+expect_contains "report_problem: filed" "$out" "filed for the fixer (reported 2 times now)"
+expect_eq "report_problem: nixbook-improve note" "note --where bar clock the clock is cut off" "$(cat "$tmp/improve-calls")"
 rm "$XDG_CONFIG_HOME/nixbook-shell/config.json"
 
 # -- themes and variants ---------------------------------------------------------------------
