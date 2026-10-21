@@ -60,8 +60,25 @@ func gitNet(dir string, args ...string) (string, error) {
 	if tok == "" {
 		return "", errNoToken
 	}
-	out, err := cmdEnv(dir, 30*time.Minute, "", ghEnv(tok), "git", append(append([]string{}, gitAuth...), args...)...)
+	out, err := cmdEnv(dir, 30*time.Minute, "", append(ghEnv(tok), gitIsolated...), "git",
+		append(append([]string{}, gitAuth...), args...)...)
+	if err != nil && strings.Contains(err.Error(), "Invalid username or token") {
+		err = errorf("GitHub doesn't accept the saved token for git (expired, deleted or regenerated?): " +
+			"save the current one in Settings > Desktop agents > Fixes it makes itself")
+	}
 	return strings.TrimSpace(out), err
+}
+
+// gitIsolated: none of the user's or the system's git config for what
+// reaches GitHub: their credential helpers, URL rewrites (https to ssh) or
+// proxies don't get in the way of the token.
+var gitIsolated = []string{"GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1"}
+
+// unsigned: a commit of the fixer's (Claude's work, not one the user
+// signed): never signed with the user's key, so no pinentry prompt from a
+// background job either.
+func unsigned(args ...string) []string {
+	return append([]string{"-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false"}, args...)
 }
 
 // gh runs gh with the token only (none: refused).

@@ -144,6 +144,10 @@ config() { # AUTOMERGE
 item() { "$improve" note "$1" | jq -r .id; }
 run_of() { jq -c --arg i "$1" '[.[] | select(.item == $i)] | last' "$XDG_STATE_HOME/nixbook-shell/improve/runs.json"; }
 
+# The user's git signs every commit (totoro's does) with a signer that
+# can't here: neither the token check nor its commits may depend on it.
+printf '[commit]\n\tgpgsign = true\n[gpg]\n\tprogram = false\n' >"$HOME/.gitconfig"
+
 # The user's own gh login, which it must never use.
 mkdir -p "$HOME/.config/gh"
 echo "github.com: {oauth_token: the-users-own}" >"$HOME/.config/gh/hosts.yml"
@@ -266,7 +270,7 @@ expect_match "activity: no token" "^error no GitHub token" "$(activity)"
   cd "$tmp/check"
   git checkout --quiet -b feature
   echo "x" >>docs/guide.md
-  git commit --quiet -am "feat(docs): a whole new section"
+  git -c commit.gpgsign=false commit --quiet -am "feat(docs): a whole new section"
 )
 if (cd "$tmp/check" && "$improve" guard main HEAD >"$tmp/guard.json"); then
   fail "guard: a feature refused" "$(cat "$tmp/guard.json")"

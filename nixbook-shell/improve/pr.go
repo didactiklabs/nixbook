@@ -188,7 +188,7 @@ func retryCI(cfg Config, r Run, logs string) (Run, error) {
 	if why := checkMessage(msg); len(why) > 0 {
 		return r, errorf("%s", strings.Join(why, "; "))
 	}
-	if _, err := cmd(repo, 10*time.Minute, msg, "git", "commit", "--quiet", "-F", "-"); err != nil {
+	if _, err := cmd(repo, 10*time.Minute, msg, "git", unsigned("commit", "--quiet", "-F", "-")...); err != nil {
 		return r, err
 	}
 	if _, err := gitNet(repo, "push", "--force", "origin", "HEAD:refs/heads/"+r.Branch); err != nil {
@@ -288,12 +288,12 @@ func revert(cfg Config, r Run, why string) (map[string]any, error) {
 	branch := "agent/revert-" + r.Item
 	_, err = prepare(repo, branch)
 	if err == nil {
-		_, err = git(repoDir(), "revert", "--no-edit", r.Merged)
+		_, err = git(repoDir(), unsigned("revert", "--no-edit", r.Merged)...)
 	}
 	if err == nil {
 		msg := fmt.Sprintf("Revert %q\n\n%s\n\nThis reverts commit %s: %s.\n\nAgent-Fix: %s\n",
 			r.Title, wrap("The desktop agent's fix is taken back out until it is made again: "+why+".", 72), r.Merged, why, r.Item)
-		_, err = cmd(repoDir(), time.Minute, msg, "git", "commit", "--amend", "--quiet", "-F", "-")
+		_, err = cmd(repoDir(), time.Minute, msg, "git", unsigned("commit", "--amend", "--quiet", "-F", "-")...)
 	}
 	if err == nil {
 		_, err = gitNet(repoDir(), "push", "--force", "origin", "HEAD:refs/heads/"+branch)

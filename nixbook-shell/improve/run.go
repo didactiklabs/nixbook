@@ -216,7 +216,7 @@ func run(o runOpts) (map[string]any, error) {
 	if why := checkMessage(msg); len(why) > 0 {
 		return end("failed", "its commit message: "+strings.Join(why, "; "), "failed")
 	}
-	if _, err := cmd(repo, 10*time.Minute, msg, "git", "commit", "--quiet", "-F", "-"); err != nil {
+	if _, err := cmd(repo, 10*time.Minute, msg, "git", unsigned("commit", "--quiet", "-F", "-")...); err != nil {
 		return end("failed", "the commit: "+err.Error(), "failed")
 	}
 	title := firstLine(msg)
