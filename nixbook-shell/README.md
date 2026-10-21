@@ -634,7 +634,15 @@ field gets the focus, so Claude Code is warm when the message goes; the
 robot nods meanwhile). Only
 notifications go to the small model (`INITIATIVE_SYSTEM`, at most
 `initiativeCallsPerDay`), which also names kinds never worth a word. The
-memory pass offers what it learned (`initiative_offer`). Left alone (25 s,
+memory pass offers what it learned (`initiative_offer`). While the bubble
+is taken, a new word goes to `Initiative.stack` (`_say`; 3 at most, newest
+last), small bubbles under it (`AgentSpeech.qml`, `stacked`): a click opens
+one in the bubble (`open`: `unstack`, the bubble's conversation parked), its
+buttons act from there (`act(a, item)`, `accept(item)`, Reply opens it with
+the keys), × is `dismissStacked` (later). `waits` (a question, a Yes,
+buttons) keeps one until it expires, and the bubble's own word goes there
+when put aside unanswered; the others `unstack` to the bar after 30 s
+unhovered. Only the bubble holds a conversation. Left alone (25 s,
 15 s for a reaction, 90 s after an answer; never while hovered, typed in
 or answering) the bubble goes to the bar, a conversation with it
 (`Initiative.parked`): the bar's bubble brings it back, and so does

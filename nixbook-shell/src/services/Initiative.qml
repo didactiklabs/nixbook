@@ -44,7 +44,34 @@ Singleton {
     // Its last decisions, newest last: {time, event, action, said, why}.
     property var log: []
     property real now: Date.now()
-    readonly property var live: root.pending.filter(p => (p.expires ?? 0) * 1000 > root.now && p.id !== root.speaking?.id)
+    readonly property var live: root.pending.filter(p => (p.expires ?? 0) * 1000 > root.now && p.id !== root.speaking?.id
+        && !root.stack.some(q => q.id === p.id))
+    // Its other words while the bubble is taken, newest last: small bubbles
+    // under it, like notifications (AgentSpeech.qml). Only the bubble holds
+    // a conversation (and only it comes back from the bar or Mod+C); a small
+    // one is opened into it with a click. One that waits for an answer (a
+    // question, a Yes, buttons: `waits`) stays until it expires; the others
+    // go to the bar after a while (`unstack`).
+    property var stack: []
+    readonly property int stackMax: 3
+    readonly property var stacked: root.stack.filter(p => (p.expires ?? 0) * 1000 > root.now && p.id !== root.speaking?.id)
+    function waits(item) {
+        return !!item && (!!item.accept || (item.actions ?? []).length > 0 || /[?？]\s*$/.test(item.text ?? ""))
+    }
+    function _stackPush(item) {
+        if (!item?.id) return
+        root.stack = [...root.stack.filter(p => p.id !== item.id), item].slice(-root.stackMax)
+    }
+    // To the bar (still there, answered later).
+    function unstack(item) {
+        root.stack = root.stack.filter(p => p.id !== item?.id)
+    }
+    // Closed (its x): seen, not taken up, as "Not now" in the bubble.
+    function dismissStacked(item, outcome) {
+        root.unstack(item)
+        root.markRead(item)
+        if (item?.id) root.answer(item.id, outcome ?? "later")
+    }
     // Read: what the user has seen in the bubble (hovered, answered, closed
     // or opened from the bar), by id. Still there, but the bar's bubble only
     // lights up for what they haven't, and for a routine it offered until
@@ -160,9 +187,9 @@ Singleton {
             root._pairWaiting = null
             return
         }
-        if (root.speaking || root.typing || root.busy()) return
+        if (root.typing || root.busy()) return
         root._pairWaiting = null
-        root._notify(item)
+        root._say(item)
     }
     // Settings > Find news now: at once, whatever the day's already had.
     function newsNow() {
@@ -198,6 +225,7 @@ Singleton {
     // Shows it in the bubble (the bar's bubble, a word waiting).
     function open(item) {
         if (!item) return
+        root.unstack(item)
         root.markRead(item)
         if (root.speaking && root.speaking === item) return
         root._notify(item)
@@ -309,18 +337,21 @@ Singleton {
         root.chat.sendUserMessage(said)
     }
     // A routine it offered: "Yes, do it" turns it on.
-    function accept() {
-        const item = root.speaking
+    function accept(from) {
+        const item = from ?? root.speaking
         if (!item?.accept) return
-        root.speaking = null
+        if (root.speaking === item) root.speaking = null
         root.answer(item.id, "replied")
     }
     // A button of a reaction: open the file, show it in its folder, or ask
     // Claude about it (in the bubble, the file attached).
-    function act(a) {
-        const item = root.speaking
+    // `from`: a small bubble's (Initiative.stack); "ask" opens it in the
+    // bubble first, the others act from where it is.
+    function act(a, from) {
+        const item = from ?? root.speaking
         if (!a || !item) return
         if (a.do === "ask") {
+            if (item !== root.speaking) root.open(item)
             root.reply(a.text, a.attach ?? "")
             return
         }
@@ -343,7 +374,7 @@ Singleton {
                 + '|| xdg-open "$(dirname "$2")"', "reveal", uri, path])
         }
         root._taken(item)
-        root.speaking = null
+        if (root.speaking === item) root.speaking = null
     }
     // The conversation (or what it said) in the side panel, for more room.
     function expand() {
@@ -406,6 +437,8 @@ Singleton {
         else if (before) {
             if (root.chat && root.chat.fromClaude && !root.chat.responding) root.chat.clearMessages()
             if (before.id) root.pending = [...root.pending.filter(p => p.id !== before.id), before]
+            // Still waiting for an answer: a small bubble, not out of sight.
+            if (root.waits(before)) root._stackPush(before)
         }
         const left = root.chat
         root.speaking = null
@@ -419,8 +452,13 @@ Singleton {
     }
     // Something new to say: not over what the user is writing or talking
     // about in the bubble (to the bar then).
+    // Something new to say: the bubble when free, else a small bubble under
+    // it (never over what the user is reading, writing or talking about).
     function _say(item) {
-        if (root.typing || (root.conversing && root.speaking)) root.pending = [...root.pending, item]
+        if (root.speaking && item?.id) {
+            if (!root.pending.some(p => p.id === item.id)) root.pending = [...root.pending, item]
+            root._stackPush(item)
+        } else if (root.typing) root.pending = [...root.pending, item]
         else root._notify(item)
     }
     // Its speech answered without a reply: later, never, or "wait" (no
@@ -445,6 +483,7 @@ Singleton {
     function answer(id, outcome) {
         if (!/^[0-9a-f]{1,16}$/.test(id ?? "")) return
         root.pending = root.pending.filter(p => p.id !== id)
+        root.stack = root.stack.filter(p => p.id !== id)
         Quickshell.execDetached(["nixbook-desktop-mcp", "initiative", "answer", id, outcome])
     }
 
@@ -629,7 +668,7 @@ Singleton {
     }
     Timer {
         interval: 60000
-        running: root.live.length > 0
+        running: root.live.length > 0 || root.stack.length > 0
         repeat: true
         onTriggered: root.now = Date.now()
     }
