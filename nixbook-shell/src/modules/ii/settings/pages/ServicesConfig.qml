@@ -102,7 +102,7 @@ ContentPage {
                 stepSize: 5
                 onValueChanged: Config.options.ai.claudeThreadIdleMinutes = value
                 StyledToolTip {
-                    text: Translation.tr("Its thread stays in the conversation history.")
+                    text: Translation.tr("Its thread stays in the conversation history when it has more than 5 messages.")
                 }
             }
             RowLayout {

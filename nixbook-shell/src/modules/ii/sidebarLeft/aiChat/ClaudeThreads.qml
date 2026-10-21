@@ -7,7 +7,8 @@ import QtQuick.Layouts
 
 /**
  * The "From Claude" tab's threads: each thing Claude said on its own is a
- * conversation of its own (Ai.claudeThread), saved in the history; the
+ * conversation of its own (Ai.claudeThread), saved in the history once it
+ * has more than 5 messages (Ai.saveHistory); the
  * latest are listed here, newest first, a dot on those not answered yet.
  * Clicking one goes back to it in this tab; the button at the end deletes
  * them all but the pinned ones (a second click to confirm).
