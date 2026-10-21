@@ -417,7 +417,11 @@ PanelWindow {
             root.draggingY = mouse.y;
             root.dragDiffX = mouse.x - root.dragStartX;
             root.dragDiffY = mouse.y - root.dragStartY;
-            root.points.push({ x: mouse.x, y: mouse.y });
+            // Points under 3 px apart add nothing to the stroke but grow the
+            // path the circle redraws on every move.
+            const last = root.points.length > 0 ? root.points[root.points.length - 1] : null;
+            if (!last || Math.hypot(mouse.x - last.x, mouse.y - last.y) >= 3)
+                root.points.push({ x: mouse.x, y: mouse.y });
         }
         
         Loader {

@@ -167,22 +167,36 @@ Scope {
 
     PanelWindow {
         id: cutIn
-        visible: root.current !== null
-        screen: Quickshell.screens.find(s => s.name === WM.focusedMonitor?.name) ?? null
+        // Stays mapped while the theme is on: mapping a new surface (and Qt's
+        // new GL context) stalled the first frames of the slam-in. Between
+        // cut-ins it is a transparent 1 px surface with no input region and
+        // no keyboard focus; the screen follows focus only when one shows.
+        readonly property bool shown: root.current !== null
+        visible: root.enabled || shown
+        function followFocusedScreen() {
+            const s = Quickshell.screens.find(s => s.name === WM.focusedMonitor?.name);
+            if (s && cutIn.screen !== s) cutIn.screen = s;
+        }
+        Component.onCompleted: followFocusedScreen()
+        onShownChanged: if (shown) followFocusedScreen()
         WlrLayershell.namespace: "quickshell:personaCutIn"
         WlrLayershell.layer: WlrLayer.Overlay
-        WlrLayershell.keyboardFocus: visible && !MakeWay.active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        WlrLayershell.keyboardFocus: shown && !MakeWay.active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
         // While an agent works underneath, its clicks go through.
-        mask: MakeWay.active ? makeWayNoInput : null
-        Region { id: makeWayNoInput }
+        mask: shown && !MakeWay.active ? null : noInput
+        Region { id: noInput }
         exclusionMode: ExclusionMode.Ignore
-        anchors { top: true; bottom: true; left: true; right: true }
+        anchors { top: shown; bottom: shown; left: shown; right: shown }
+        implicitWidth: shown ? (cutIn.screen?.width ?? 1) : 1
+        implicitHeight: shown ? (cutIn.screen?.height ?? 1) : 1
         color: "transparent"
 
         readonly property var n: root.current
         readonly property var spec: Persona.spec
-        readonly property real w: width
-        readonly property real h: height
+        // The screen's size, not the window's: the entrance starts before
+        // the 1 px surface has grown.
+        readonly property real w: cutIn.screen?.width ?? width
+        readonly property real h: cutIn.screen?.height ?? height
         readonly property string fullBody: NotificationUtils.plainText(
             NotificationUtils.processNotificationBody(n?.body ?? "", n?.appName ?? "")).trim()
         // Phone chats mirrored by KDE Connect: title = the phone app or the
@@ -244,7 +258,7 @@ Scope {
         // Typewriter reveal of the message.
         property int typed: 0
         Timer {
-            running: cutIn.visible && cutIn.t > 0.6 && cutIn.typed < cutIn.bodyText.length
+            running: cutIn.shown && cutIn.t > 0.6 && cutIn.typed < cutIn.bodyText.length
             interval: 16
             repeat: true
             onTriggered: cutIn.typed = Math.min(cutIn.bodyText.length, cutIn.typed + 2)
@@ -252,8 +266,9 @@ Scope {
 
         Item {
             id: keyTarget
-            opacity: MakeWay.fade(0.5, "cutIn")
-            anchors.fill: parent
+            opacity: cutIn.shown ? MakeWay.fade(0.5, "cutIn") : 0
+            width: cutIn.w
+            height: cutIn.h
             focus: true
             Keys.onPressed: event => {
                 if ([Qt.Key_Escape, Qt.Key_Return, Qt.Key_Enter, Qt.Key_Space].includes(event.key)) {
@@ -326,10 +341,15 @@ Scope {
                     }
                 }
 
-                // Picture, masked to the inner polygon
+                // Picture, masked to the inner polygon. The layer covers only
+                // the polygon's columns (from w * 0.40): a smaller pass on each
+                // frame of the face's zoom-in.
+                readonly property real layerX: cutIn.w * 0.40
                 Item {
                     id: pictureLayer
-                    anchors.fill: parent
+                    x: band.layerX
+                    width: cutIn.w + 40 - band.layerX
+                    height: parent.height
                     layer.enabled: true
                     layer.effect: MultiEffect {
                         maskEnabled: true
@@ -348,7 +368,7 @@ Scope {
                         id: face
                         readonly property bool ok: (cutIn.n?.image ?? "") !== "" && status !== Image.Error
                         visible: ok
-                        x: cutIn.w * 0.42; y: -cutIn.h * 0.05
+                        x: cutIn.w * 0.42 - band.layerX; y: -cutIn.h * 0.05
                         width: cutIn.w * 0.62; height: cutIn.h * 0.95
                         source: cutIn.n?.image ?? ""
                         fillMode: Image.PreserveAspectCrop
@@ -358,7 +378,7 @@ Scope {
                     }
                     IconImage {
                         visible: !face.ok
-                        x: cutIn.w * 0.60; y: cutIn.h * 0.14
+                        x: cutIn.w * 0.60 - band.layerX; y: cutIn.h * 0.14
                         implicitSize: Math.min(cutIn.w, cutIn.h) * 0.42
                         rotation: -8
                         source: (cutIn.n?.appIcon ?? "") !== "" ? Quickshell.iconPath(cutIn.n.appIcon, "dialog-warning") : Quickshell.iconPath("dialog-warning")
@@ -366,13 +386,15 @@ Scope {
                 }
                 Shape {
                     id: bandMask
-                    anchors.fill: parent
+                    x: pictureLayer.x
+                    width: pictureLayer.width
+                    height: pictureLayer.height
                     visible: false
                     layer.enabled: true
                     ShapePath {
                         fillColor: "white"
                         strokeWidth: 0
-                        PathPolyline { path: band.poly(0) }
+                        PathPolyline { path: band.poly(0).map(p => Qt.point(p.x - band.layerX, p.y)) }
                     }
                 }
             }

@@ -18,6 +18,14 @@ Singleton {
     property string status: "loading"
     property var slots: ["", "", "", "", "", "", ""]
 
+    // Shown Lyrics views (Lyrics.qml counts itself in): fetched and synced
+    // only for them, a track change marking the lyrics stale otherwise
+    // (lyrics are off by default, and each fetch is a Python + lrclib call).
+    property int consumers: 0
+    readonly property bool wanted: root.consumers > 0
+    property bool _stale: true
+    onWantedChanged: if (root.wanted && root._stale) root.restartLyrics()
+
     readonly property int before: 3
     readonly property int after:  3
     readonly property int total:  7
@@ -38,7 +46,7 @@ Singleton {
         id: syncTimer
         interval: 300
         repeat: true
-        running: root.status === "ok" && root.lyricsLines.length > 0 && !Idle.screensOff
+        running: root.wanted && root.status === "ok" && root.lyricsLines.length > 0 && !Idle.screensOff
         onTriggered: {
             const pos = root.activePlayer?.position ?? 0
             let idx = -1
@@ -84,6 +92,7 @@ Singleton {
     }
 
     function restartLyrics() {
+        root._stale = false
         lyricsProc.running = false
         root.lyricsLines = []
         root.activeIndex = -1
@@ -106,8 +115,13 @@ Singleton {
 
     Connections {
         target: root.activePlayer
-        function onTrackTitleChanged() { root.restartLyrics() }
+        function onTrackTitleChanged() {
+            if (root.wanted) root.restartLyrics()
+            else root._stale = true
+        }
     }
-
-    Component.onCompleted: root.restartLyrics()
+    onActivePlayerChanged: {
+        if (root.wanted) root.restartLyrics()
+        else root._stale = true
+    }
 }

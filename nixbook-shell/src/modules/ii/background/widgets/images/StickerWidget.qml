@@ -47,8 +47,10 @@ AbstractBackgroundWidget {
             fillMode: Image.PreserveAspectFit
             cache: false
             antialiasing: true
-            sourceSize.width: parent.width * 2
-            sourceSize.height: parent.height * 2
+            // Rounded up in steps so resizing (and its animation) doesn't
+            // reload the image on every frame.
+            sourceSize.width: Math.ceil(parent.width * 2 / 128) * 128
+            sourceSize.height: Math.ceil(parent.height * 2 / 128) * 128
             visible: root.imagePath !== ""
 
             layer.enabled: true

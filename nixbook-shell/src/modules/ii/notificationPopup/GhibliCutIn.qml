@@ -112,17 +112,33 @@ Scope {
 
     PanelWindow {
         id: card
-        visible: root.current !== null
-        screen: Quickshell.screens.find(s => s.name === WM.focusedMonitor?.name) ?? null
+        // Stays mapped while the theme is on: mapping a new surface (and Qt's
+        // new GL context) stalled the first frames of the entrance. Between
+        // alerts it is a transparent 1 px surface with no input region and
+        // no keyboard focus; the screen follows focus only when one shows.
+        readonly property bool shown: root.current !== null
+        visible: true
+        function followFocusedScreen() {
+            const s = Quickshell.screens.find(s => s.name === WM.focusedMonitor?.name);
+            if (s && card.screen !== s) card.screen = s;
+        }
+        Component.onCompleted: followFocusedScreen()
+        onShownChanged: if (shown) followFocusedScreen()
         WlrLayershell.namespace: "quickshell:ghibliCutIn"
         WlrLayershell.layer: WlrLayer.Overlay
-        WlrLayershell.keyboardFocus: visible && !MakeWay.active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        WlrLayershell.keyboardFocus: shown && !MakeWay.active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
         // While an agent works underneath, its clicks go through.
-        mask: MakeWay.active ? makeWayNoInput : null
-        Region { id: makeWayNoInput }
+        mask: shown && !MakeWay.active ? null : noInput
+        Region { id: noInput }
         exclusionMode: ExclusionMode.Ignore
-        anchors { top: true; bottom: true; left: true; right: true }
+        anchors { top: shown; bottom: shown; left: shown; right: shown }
+        implicitWidth: shown ? (card.screen?.width ?? 1) : 1
+        implicitHeight: shown ? (card.screen?.height ?? 1) : 1
         color: "transparent"
+        // The screen's size, not the window's: the entrance starts before
+        // the 1 px surface has grown.
+        readonly property real w: card.screen?.width ?? width
+        readonly property real h: card.screen?.height ?? height
 
         readonly property var n: root.current
         readonly property string fullBody: NotificationUtils.plainText(
@@ -200,8 +216,9 @@ Scope {
 
         Item {
             id: keyTarget
-            opacity: MakeWay.fade(0.5, "cutIn")
-            anchors.fill: parent
+            opacity: card.shown ? MakeWay.fade(0.5, "cutIn") : 0
+            width: card.w
+            height: card.h
             focus: true
             Keys.onPressed: event => {
                 if ([Qt.Key_Return, Qt.Key_Enter].includes(event.key)) {
@@ -250,10 +267,10 @@ Scope {
                     readonly property bool stays: index % 4 === 0
                     // Where along the gust it is (staggered), then where it rests.
                     readonly property real p: Math.max(0, Math.min(1, card.g * 1.6 - r1 * 0.6))
-                    readonly property real restX: card.width * (0.1 + 0.8 * r2)
-                    readonly property real restY: card.height * (0.15 + 0.6 * r3)
-                    readonly property real flyX: -80 + (card.width + 160) * p
-                    readonly property real flyY: card.height * (0.2 + 0.7 * r3) - Math.sin(p * Math.PI) * card.height * 0.18 * (0.5 + r2)
+                    readonly property real restX: card.w * (0.1 + 0.8 * r2)
+                    readonly property real restY: card.h * (0.15 + 0.6 * r3)
+                    readonly property real flyX: -80 + (card.w + 160) * p
+                    readonly property real flyY: card.h * (0.2 + 0.7 * r3) - Math.sin(p * Math.PI) * card.h * 0.18 * (0.5 + r2)
                     x: stays ? flyX + (restX - flyX) * Math.max(0, (card.g - 0.6) / 0.4) : flyX
                     y: (stays ? flyY + (restY - flyY) * Math.max(0, (card.g - 0.6) / 0.4) : flyY) + bob
                     visible: stays || (p > 0 && p < 1)
@@ -262,7 +279,7 @@ Scope {
                     height: width
                     property real bob: 0
                     SequentialAnimation on bob {
-                        running: card.visible && mote.stays
+                        running: card.shown && mote.stays
                         loops: Animation.Infinite
                         NumberAnimation { to: -10 - mote.r1 * 10; duration: 1600 + mote.r2 * 900; easing.type: Easing.InOutSine }
                         NumberAnimation { to: 0; duration: 1600 + mote.r2 * 900; easing.type: Easing.InOutSine }
@@ -307,7 +324,7 @@ Scope {
                         radius: width / 2
                         color: Ghibli.drift
                         SequentialAnimation on opacity {
-                            running: card.visible && Ghibli.variant === "mononoke"
+                            running: card.shown && Ghibli.variant === "mononoke"
                             loops: Animation.Infinite
                             NumberAnimation { to: 0.35; duration: 900 + mote.r1 * 700; easing.type: Easing.InOutSine }
                             NumberAnimation { to: 1; duration: 900 + mote.r1 * 700; easing.type: Easing.InOutSine }
@@ -319,11 +336,11 @@ Scope {
             // The card.
             Item {
                 id: cardArea
-                width: Math.min(760, card.width - 64)
+                width: Math.min(760, card.w - 64)
                 height: paper.height
                 anchors.horizontalCenter: parent.horizontalCenter
-                anchors.horizontalCenterOffset: card.drift * card.width * 0.6
-                y: card.height * 0.62 - height / 2 + (1 - card.t) * 40
+                anchors.horizontalCenterOffset: card.drift * card.w * 0.6
+                y: card.h * 0.62 - height / 2 + (1 - card.t) * 40
                 opacity: Math.min(1, card.t * 1.8)
                 rotation: card.drift * 8
 

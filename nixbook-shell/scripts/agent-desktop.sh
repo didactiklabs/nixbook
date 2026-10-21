@@ -260,6 +260,10 @@ environment {
     // GTK's own file chooser: the portal's would open on the user's desktop.
     GDK_DEBUG "no-portals"
     GTK_USE_PORTAL "0"
+    // Browsers and Electron apps publish their accessibility tree here for
+    // the ui tools (the user's desktop: desktopMcp.browserAccessibility).
+    GNOME_ACCESSIBILITY "1"
+    ACCESSIBILITY_ENABLED "1"
     // This niri's own, not its apps' (see its bwrap below).
     vblank_mode null
 }
@@ -512,16 +516,18 @@ mv "$env_file.tmp" "$env_file"
 
 idle=0
 uptime=0
+# Every 2 s: a niri msg spawn a second all session long was the most of its
+# idle cost; it quits after ~20 s without a window either way.
 while kill -0 "$niri_pid" 2>/dev/null; do
-  sleep 1
-  uptime=$((uptime + 1))
+  sleep 2
+  uptime=$((uptime + 2))
   windows="$(NIRI_SOCKET="$niri_socket" niri msg --json windows 2>/dev/null)" || continue
   if [ "$windows" = "[]" ]; then
     idle=$((idle + 1))
   else
     idle=0
   fi
-  if [ "$idle" -ge 10 ] && [ "$uptime" -ge 15 ]; then
+  if [ "$idle" -ge 5 ] && [ "$uptime" -ge 15 ]; then
     NIRI_SOCKET="$niri_socket" niri msg action quit --skip-confirmation || true
     break
   fi

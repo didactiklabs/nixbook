@@ -122,8 +122,10 @@ Scope {
     // Scope is first created - onArtFilePathChanged alone misses it, since
     // QML doesn't fire onXChanged for a property's initial value, only for
     // later changes.
-    Component.onCompleted: root.syncArt()
-    onArtFilePathChanged: root.syncArt()
+    // Only while open: closed, nothing shows the art (the download, its
+    // decode and the quantized scheme waited on every track change).
+    Component.onCompleted: if (GlobalStates.equalizerOpen) root.syncArt()
+    onArtFilePathChanged: if (GlobalStates.equalizerOpen) root.syncArt()
 
     Process {
         id: coverArtDownloader
@@ -149,7 +151,8 @@ Scope {
 
     ColorQuantizer {
         id: colorQuantizer
-        source: root.colorSourceFilePath
+        // Only the album look uses its colours.
+        source: root.albumLook ? root.colorSourceFilePath : ""
         depth: 0
         rescaleSize: 1
     }
@@ -162,8 +165,10 @@ Scope {
     Connections {
         target: GlobalStates
         function onEqualizerOpenChanged() {
-            if (GlobalStates.equalizerOpen)
+            if (GlobalStates.equalizerOpen) {
                 root.eqEverOpened = true;
+                root.syncArt();
+            }
         }
     }
 
@@ -280,7 +285,8 @@ Scope {
                 Image {
                     id: blurredArt
                     anchors.fill: parent
-                    source: root.displayedArtFilePath
+                    // A hidden Image still decodes its source.
+                    source: root.albumLook ? root.displayedArtFilePath : ""
                     sourceSize.width: cardBackground.width
                     sourceSize.height: cardBackground.height
                     fillMode: Image.PreserveAspectCrop

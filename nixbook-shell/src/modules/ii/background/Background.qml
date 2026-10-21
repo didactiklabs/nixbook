@@ -108,7 +108,8 @@ Variants {
         }
 
         Component.onCompleted: {
-            previousWallpaper.source = bgRoot.wallpaperSafetyTriggered ? "" : bgRoot.wallpaperPath
+            // previousWallpaper follows once `wallpaper` has decoded it (see
+            // its onStatusChanged): set now, it decoded on the GUI thread.
             wallpaper.source = bgRoot.wallpaperSafetyTriggered ? "" : bgRoot.wallpaperPath
             bgRoot.currentWallpaperSource = bgRoot.wallpaperPath
             bgRoot.previousWallpaperSource = ""
@@ -132,8 +133,9 @@ Variants {
             }
             if (bgRoot.wallpaperAnimation === "" || GlobalStates.startupLockPending) {
                 bgRoot.transitionPending = false
+                // previousWallpaper keeps the old one showing until this has
+                // decoded, then follows it from the cache (onStatusChanged).
                 wallpaper.source = wallpaperPath
-                previousWallpaper.source = wallpaperPath
                 bgRoot.currentWallpaperSource = wallpaperPath
                 if (!bgRoot.wallpaperIsVideo) return
                 bgRoot.videoRevealed = true
@@ -222,7 +224,9 @@ Variants {
                 id: previousWallpaper
                 anchors.fill: parent
                 fillMode: Image.PreserveAspectCrop
-                // Same size as `wallpaper` so this synchronous Image reuses its cached pixmap
+                // Same size as `wallpaper` so this synchronous Image reuses its
+                // cached pixmap: it is only ever given a source `wallpaper` has
+                // already decoded (a cache hit, never a GUI-thread decode).
                 sourceSize: bgRoot.wallpaperSourceSize
                 cache: true
                 // No mipmaps: decoded at screen size and drawn 1:1 into its
@@ -258,6 +262,9 @@ Variants {
                         bgRoot.transitionPending = false
                         bgRoot.transitionProgress = 0.0
                         transitionAnim.restart()
+                    } else if (status === Image.Ready && !transitionAnim.running
+                            && String(previousWallpaper.source) !== String(source)) {
+                        previousWallpaper.source = source
                     }
                 }
             }

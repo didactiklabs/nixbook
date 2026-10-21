@@ -43,13 +43,24 @@ Singleton {
         }
     ]
 
-    // Deduped list to fix double icons
-    readonly property list<DesktopEntry> list: Array.from(DesktopEntries.applications.values)
-        .filter((app, index, self) => 
-            index === self.findIndex((t) => (
-                t.id === app.id
-            ))
-    )
+    // Deduped list to fix double icons. Rebuilt once per burst: the model
+    // signals every entry it adds (one by one at startup and on a rescan),
+    // and each rebuild re-prepares every name and icon for fuzzy search.
+    property list<DesktopEntry> list: []
+    function _rebuildList() {
+        const seen = new Set();
+        root.list = DesktopEntries.applications.values.filter(app => {
+            if (seen.has(app.id)) return false;
+            seen.add(app.id);
+            return true;
+        });
+    }
+    Connections {
+        target: DesktopEntries.applications
+        function onValuesChanged() { Qt.callLater(root._rebuildList) }
+    }
+    Component.onCompleted: root._rebuildList()
+
     // The caches live in a plain JS object mutated in place: they are filled
     // lazily from inside bindings (dock, taskbar, media chips…), and assigning
     // a notifying property there would re-trigger the very binding that is
@@ -96,6 +107,7 @@ Singleton {
         root._generation; // dependency only
         if (root._caches.index !== null)
             return root._caches.index;
+        const prepared = new Map(root.preppedNames.map(p => [p.entry, p.name]));
         root._caches.index = root.list.map(app => {
             const exec = (app.command && app.command.length > 0) ? app.command[0].split("/").pop().toLowerCase() : "";
             return {
@@ -108,7 +120,7 @@ Singleton {
                 id: (app.id || "").toLowerCase(),
                 exec: exec,
                 keywords: (app.keywords || []).map(k => k.toLowerCase()),
-                prepared: root.preppedNames.find(p => p.entry === app)?.name
+                prepared: prepared.get(app)
             };
         });
         return root._caches.index;

@@ -84,7 +84,10 @@ Scope {
 
         color: "transparent"
         implicitWidth: Appearance.sizes.notificationPopupWidth + 8
-        implicitHeight: Math.max(1, listview.contentHeight + 8)
+        // In 128 px steps: an expanding popup animates the content height, and
+        // a surface resize per frame is a configure and new buffers each. The
+        // slack is transparent and outside the input mask.
+        implicitHeight: listview.contentHeight > 0 ? Math.ceil((listview.contentHeight + 8) / 128) * 128 : 1
 
         NotificationListView {
             id: listview

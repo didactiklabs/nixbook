@@ -194,13 +194,17 @@ Rectangle {
             Layout.fillHeight: true
             // implicitHeight: tabStack.implicitHeight
 
-            Loader {
+            // Each tab's widget is built on its first visit and kept, then only
+            // shown/hidden: swapping one Loader's source rebuilt the calendar
+            // (or list) on every switch, mid-fade.
+            Item {
                 id: tabStack
                 anchors.fill: parent
                 anchors.bottomMargin: -anchors.topMargin
+                property int shownTab: -1
 
                 Component.onCompleted: {
-                    tabStack.source = root.tabs[root.selectedTab].widget;
+                    tabStack.shownTab = root.selectedTab;
                     root.previousIndex = root.selectedTab;
                 }
 
@@ -212,15 +216,27 @@ Rectangle {
                         else if (root.selectedTab < root.previousIndex)
                             tabSwitchBehavior.animation.down = false;
                         root.previousIndex = root.selectedTab;
-                        tabStack.source = root.tabs[root.selectedTab].widget;
+                        tabStack.shownTab = root.selectedTab;
                     }
                 }
 
-                Behavior on source {
+                Behavior on shownTab {
                     id: tabSwitchBehavior
                     animation: TabSwitchAnim {
                         id: upAnim
                         down: true
+                    }
+                }
+
+                Repeater {
+                    model: root.tabs
+                    delegate: Loader {
+                        required property var modelData
+                        required property int index
+                        anchors.fill: parent
+                        active: tabStack.shownTab === index || item !== null
+                        visible: tabStack.shownTab === index
+                        source: modelData.widget
                     }
                 }
             }
@@ -250,9 +266,9 @@ Rectangle {
         }
         PropertyAction {
             target: tabStack
-            property: "source"
-            value: root.tabs[root.selectedTab].widget
-        } // The source change happens here
+            property: "shownTab"
+            value: root.selectedTab
+        } // The tab change happens here
         ParallelAnimation {
             PropertyAnimation {
                 target: tabStack.anchors

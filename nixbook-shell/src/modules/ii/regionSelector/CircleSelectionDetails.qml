@@ -27,8 +27,8 @@ Item {
         id: shape
         z: 2
         anchors.fill: parent
-        layer.enabled: true
-        layer.smooth: true
+        // No layer: the curve renderer antialiases already, and a full-screen
+        // offscreen pass re-ran on every pointer move.
         preferredRendererType: Shape.CurveRenderer
 
         ShapePath {

@@ -347,6 +347,9 @@ Item {
         clip: true
         keyNavigationWraps: true
         boundsBehavior: Flickable.StopAtBounds
+        // A row of cells kept built either side, so scrolling doesn't create
+        // them on the spot.
+        cacheBuffer: cellHeight * 2
         ScrollBar.vertical: StyledScrollBar {}
 
         function getModelProp(idx, prop) {

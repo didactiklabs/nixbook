@@ -34,7 +34,6 @@ ShellRoot {
         SelfImprove.load()
         ThemeWallpapers.load()
         NiriThemeAnimations.load()
-        LyricsService.restartLyrics()
         Preloader.load()
         DesktopControl.load()
         WindowLayouts.load()

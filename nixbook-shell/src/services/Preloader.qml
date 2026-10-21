@@ -45,13 +45,14 @@ Singleton {
     property bool equalizer: false
     property bool overlay: false
     property bool wallpaperSelector: false
+    property bool settings: false
 
     readonly property var lightStages: ["osd", "session", "media", "desktopMenu", "launcher", "sidebarRight", "sidebarLeft"]
-    readonly property var heavyStages: ["equalizer", "overlay", "wallpaperSelector"]
+    readonly property var heavyStages: ["equalizer", "overlay", "wallpaperSelector", "settings"]
     readonly property var stageLabels: ({
         osd: "On-screen display", session: "Power menu", media: "Media controls",
         desktopMenu: "Desktop menu", launcher: "Launcher", sidebarRight: "Quick settings",
-        sidebarLeft: "Sidebar", equalizer: "Equalizer", overlay: "Overlay", wallpaperSelector: "Wallpapers"
+        sidebarLeft: "Sidebar", equalizer: "Equalizer", overlay: "Overlay", wallpaperSelector: "Wallpapers", settings: "Settings"
     })
 
     // ---- boot

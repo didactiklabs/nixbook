@@ -94,6 +94,12 @@ in
         };
       };
     };
+    # Weekly and Persistent like nh-clean: idle priority when it catches up
+    # at boot or resume.
+    systemd.services.podman-prune.serviceConfig = {
+      Nice = 19;
+      IOSchedulingClass = "idle";
+    };
     boot = {
       # No legacy ip_tables/iptable_nat/ip6_tables/ip6table_nat: the kernel no
       # longer builds them (CONFIG_IP_NF_IPTABLES_LEGACY off) and podman uses

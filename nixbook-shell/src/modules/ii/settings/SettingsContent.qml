@@ -197,16 +197,9 @@ Item {
         return { total: total, pinned: pinned };
     }
 
-    Component.onCompleted: {
-        Config.readWriteDelay = 0
-        Qt.callLater(() => {
-            for (let i = 0; i < root.pages.length; i++) {
-                let loader = pagesRepeater.itemAt(i)
-                if (loader) loader.active = true
-            }
-            if (profileLoader) profileLoader.active = true
-        })
-    }
+    // Pages load when first shown and stay loaded (their Loader's `item !==
+    // null`). Config writes keep the shell's debounce: a slider drag is one
+    // write, not one per tick.
 
     // One sidebar entry: icon + label, pill-shaped highlight when selected.
     component NavItem: RippleButton {
@@ -743,7 +736,7 @@ Item {
 
                 Loader {
                     id: profileLoader
-                    active: false
+                    active: root.showingProfile || item !== null
                     anchors.fill: parent
                     source: Qt.resolvedUrl("pages/Profile.qml")
 
@@ -752,6 +745,10 @@ Item {
                     enabled: isActive
                     visible: isActive
                     anchors.topMargin: isActive ? 0 : 12
+
+                    onLoaded: {
+                        if (isActive) GlobalStates.currentPageInstance = item;
+                    }
 
                     onIsActiveChanged: {
                         if (isActive && item) {

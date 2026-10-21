@@ -437,7 +437,10 @@ fields never show their text. It needs the accessibility bus (nixbook's
 `customNixOSModules.niri.accessibility`, on by default; NixOS otherwise sets
 `NO_AT_BRIDGE=1`), and Firefox-based and Chromium/Electron apps only publish
 their tree with `GNOME_ACCESSIBILITY=1` / `ACCESSIBILITY_ENABLED=1`, which
-the module sets in the session (apps started before need a restart).
+the module sets in the session (apps started before need a restart);
+`desktopMcp.browserAccessibility = false` leaves them out: those apps keep
+their tree up to date all session long, a CPU and scrolling cost on heavy
+pages.
 
 The **Desktop Control** bar widget (`desktopControl` in a bar layout) shows
 it: a faint robot when idle, a pulsing one in the accent colour while an

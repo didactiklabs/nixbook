@@ -69,7 +69,8 @@ Item {
 
                         generateThumbnail: false
                         sourcePath: (fileModelData && fileModelData.filePath) ? fileModelData.filePath : ""
-                        cache: false
+                        // Cached: scrolling back or reopening doesn't decode it again.
+                        cache: true
                         fillMode: Image.PreserveAspectCrop
                         clip: true
                         sourceSize.width: wallpaperItemColumnLayout.width

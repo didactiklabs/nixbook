@@ -23,83 +23,98 @@ Scope {
         GlobalStates.settingsOpen = false;
     }
 
+    // Built ahead by the Preloader (or on the first open) and kept; each page
+    // is built on its first visit.
+    property bool everOpened: false
+
+    Connections {
+        target: GlobalStates
+        function onSettingsOpenChanged() {
+            if (GlobalStates.settingsOpen) root.everOpened = true;
+        }
+    }
+
     // A normal application window (xdg-toplevel), managed by the compositor
     // like any app: it can be moved, resized, tiled/floated, focused and
     // closed from the WM (e.g. Mod+Q), and it no longer closes itself when you
     // click elsewhere. It used to be a full-screen Overlay layer surface
     // dismissed by any outside click.
-    FloatingWindow {
-        id: settingsWindow
-        title: Translation.tr("Shell settings")
-        visible: false
-        implicitWidth: Math.round(1180 * root.sizeScale)
-        implicitHeight: Math.round(800 * root.sizeScale)
-        minimumSize: Qt.size(640, 460)
-        color: Appearance.colors.colLayer0
+    Loader {
+        active: root.everOpened || Preloader.settings
 
-        // Two-way sync with GlobalStates.settingsOpen (IPC, sidebar button,
-        // launcher…): the window's own visibility changes when the compositor
-        // closes it, so it isn't a plain binding.
-        Connections {
-            target: GlobalStates
-            function onSettingsOpenChanged() {
-                settingsWindow.visible = GlobalStates.settingsOpen;
-            }
-        }
-        onClosed: GlobalStates.settingsOpen = false
-        onVisibleChanged: {
-            if (!visible && GlobalStates.settingsOpen)
-                GlobalStates.settingsOpen = false;
-        }
+        sourceComponent: FloatingWindow {
+            id: settingsWindow
+            title: Translation.tr("Shell settings")
+            visible: GlobalStates.settingsOpen
+            implicitWidth: Math.round(1180 * root.sizeScale)
+            implicitHeight: Math.round(800 * root.sizeScale)
+            minimumSize: Qt.size(640, 460)
+            color: Appearance.colors.colLayer0
 
-        Item {
-            id: keyHandler
-            anchors.fill: parent
-            focus: true
-
-            Keys.onTabPressed: (event) => {
-                const count = settingsContent.pages.length;
-                settingsContent.currentPage = (settingsContent.currentPage + 1) % count;
-                settingsContent.showingProfile = false;
-                event.accepted = true;
-            }
-
-            Keys.onBacktabPressed: (event) => {
-                const count = settingsContent.pages.length;
-                settingsContent.currentPage = (settingsContent.currentPage - 1 + count) % count;
-                settingsContent.showingProfile = false;
-                event.accepted = true;
-            }
-
-            Keys.onPressed: (event) => {
-                // Ctrl+F: the sidebar's search.
-                if (event.key === Qt.Key_F && (event.modifiers & Qt.ControlModifier)) {
-                    settingsContent.focusSearch();
-                    event.accepted = true;
-                    return;
+            // Two-way sync with GlobalStates.settingsOpen (IPC, sidebar button,
+            // launcher…): the window's own visibility changes when the compositor
+            // closes it, so it isn't a plain binding.
+            Connections {
+                target: GlobalStates
+                function onSettingsOpenChanged() {
+                    settingsWindow.visible = GlobalStates.settingsOpen;
                 }
-                if (event.key === Qt.Key_Escape) {
+            }
+            onClosed: GlobalStates.settingsOpen = false
+            onVisibleChanged: {
+                if (!visible && GlobalStates.settingsOpen)
                     GlobalStates.settingsOpen = false;
-                    event.accepted = true;
-                    return;
-                }
-
-                if (event.key === Qt.Key_Down || event.key === Qt.Key_Up) {
-                    const instance = GlobalStates.currentPageInstance;
-                    if (instance && instance.contentY !== undefined) {
-                        const step = 60;
-                        const delta = event.key === Qt.Key_Down ? step : -step;
-                        const maxY = Math.max(0, (instance.contentHeight ?? 0) - instance.height);
-                        instance.contentY = Math.max(0, Math.min(maxY, instance.contentY + delta));
-                    }
-                    event.accepted = true;
-                    return;
-                }
             }
 
-            SettingsContent {
-                id: settingsContent
+            Item {
+                id: keyHandler
                 anchors.fill: parent
+                focus: true
+
+                Keys.onTabPressed: (event) => {
+                    const count = settingsContent.pages.length;
+                    settingsContent.currentPage = (settingsContent.currentPage + 1) % count;
+                    settingsContent.showingProfile = false;
+                    event.accepted = true;
+                }
+
+                Keys.onBacktabPressed: (event) => {
+                    const count = settingsContent.pages.length;
+                    settingsContent.currentPage = (settingsContent.currentPage - 1 + count) % count;
+                    settingsContent.showingProfile = false;
+                    event.accepted = true;
+                }
+
+                Keys.onPressed: (event) => {
+                    // Ctrl+F: the sidebar's search.
+                    if (event.key === Qt.Key_F && (event.modifiers & Qt.ControlModifier)) {
+                        settingsContent.focusSearch();
+                        event.accepted = true;
+                        return;
+                    }
+                    if (event.key === Qt.Key_Escape) {
+                        GlobalStates.settingsOpen = false;
+                        event.accepted = true;
+                        return;
+                    }
+
+                    if (event.key === Qt.Key_Down || event.key === Qt.Key_Up) {
+                        const instance = GlobalStates.currentPageInstance;
+                        if (instance && instance.contentY !== undefined) {
+                            const step = 60;
+                            const delta = event.key === Qt.Key_Down ? step : -step;
+                            const maxY = Math.max(0, (instance.contentHeight ?? 0) - instance.height);
+                            instance.contentY = Math.max(0, Math.min(maxY, instance.contentY + delta));
+                        }
+                        event.accepted = true;
+                        return;
+                    }
+                }
+
+                SettingsContent {
+                    id: settingsContent
+                    anchors.fill: parent
+                }
             }
         }
     }

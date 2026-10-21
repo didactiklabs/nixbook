@@ -312,8 +312,9 @@ AbstractBackgroundWidget {
                         fillMode: Image.PreserveAspectCrop
                         cache: false
                         antialiasing: true
-                        sourceSize.width: artBlock.width * 2
-                        sourceSize.height: artBlock.height * 2
+                        // In steps: the size animates when the widget changes size.
+                        sourceSize.width: Math.ceil(artBlock.width * 2 / 128) * 128
+                        sourceSize.height: Math.ceil(artBlock.height * 2 / 128) * 128
                         visible: root.displayedArtFilePath !== ""
                     }
 
@@ -458,8 +459,9 @@ AbstractBackgroundWidget {
                         fillMode: Image.PreserveAspectCrop
                         cache: false
                         antialiasing: true
-                        sourceSize.width: bigArt.width * 2
-                        sourceSize.height: bigArt.height * 2
+                        // In steps: the size animates when the widget changes size.
+                        sourceSize.width: Math.ceil(bigArt.width * 2 / 128) * 128
+                        sourceSize.height: Math.ceil(bigArt.height * 2 / 128) * 128
                         visible: root.displayedArtFilePath !== ""
                     }
 

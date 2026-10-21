@@ -16,8 +16,8 @@ Scope {
     // Keep the selector instantiated once it has been opened the first time:
     // building the whole content tree (folder list, thumbnail grids, delegates)
     // is what made the panel pop up slowly, and there is nothing to gain from
-    // tearing it down again — while hidden the window is unmapped and the only
-    // live timers in the content only run during a drag.
+    // tearing it down again — while hidden the only live timers in the
+    // content only run during a drag.
     property bool everOpened: false
 
     Connections {
@@ -25,6 +25,8 @@ Scope {
         function onWallpaperSelectorOpenChanged() {
             if (GlobalStates.wallpaperSelectorOpen) {
                 closeAnimTimer.stop();
+                // Before the content's own handlers: it checks the monitor.
+                wallpaperSelectorLoader.item?.followFocusedScreen();
                 root.reallyOpen = true;
                 root.everOpened = true;
             } else {
@@ -48,7 +50,16 @@ Scope {
             readonly property var monitor: WM.monitorFor(panelWindow.screen)
             property bool monitorIsFocused: WM.focusedMonitor?.name == monitor?.name
 
-            visible: root.reallyOpen
+            // Stays mapped once opened or preloaded: unmapping destroys the
+            // surface and Qt rebuilt its GL context on the next open
+            // (≈100–200 ms, the start of the slide-in). Closed = no input
+            // region, no keyboard focus, content slid out of the window.
+            property bool keepMapped: false
+            visible: keepMapped || root.reallyOpen
+            function followFocusedScreen() {
+                const s = Quickshell.screens.find(s => s.name === WM.focusedMonitor?.name);
+                if (s && panelWindow.screen !== s) panelWindow.screen = s;
+            }
             exclusionMode: ExclusionMode.Ignore
             WlrLayershell.namespace: "quickshell:wallpaperSelector"
             WlrLayershell.layer: WlrLayer.Overlay
@@ -62,23 +73,31 @@ Scope {
             }
 
             mask: Region {
-                item: content
+                item: root.reallyOpen ? content : null
             }
 
             implicitHeight: Appearance.sizes.wallpaperSelectorHeight
             implicitWidth: Appearance.sizes.wallpaperSelectorWidth
 
             Component.onCompleted: {
-                if (!panelWindow.visible) return; // preloaded hidden
+                panelWindow.keepMapped = true;
+                panelWindow.followFocusedScreen();
+                if (!root.reallyOpen) { // preloaded hidden
+                    content.y = -content.height;
+                    return;
+                }
                 GlobalFocusGrab.addDismissable(panelWindow);
                 content.slideIn();
             }
-            // The window survives a close now, so the focus grab has to follow
-            // visibility instead of the window's lifetime — a hidden member of
+            // The window survives a close, so the focus grab has to follow
+            // being open instead of the window's lifetime — a closed member of
             // the grab list would keep the grab armed with nothing on screen.
-            onVisibleChanged: {
-                if (panelWindow.visible) GlobalFocusGrab.addDismissable(panelWindow);
-                else GlobalFocusGrab.removeDismissable(panelWindow);
+            Connections {
+                target: root
+                function onReallyOpenChanged() {
+                    if (root.reallyOpen) GlobalFocusGrab.addDismissable(panelWindow);
+                    else GlobalFocusGrab.removeDismissable(panelWindow);
+                }
             }
             Component.onDestruction: {
                 GlobalFocusGrab.removeDismissable(panelWindow);
@@ -97,6 +116,9 @@ Scope {
                 height: parent.height
                 x: 0
                 y: 0
+                // Closed: transparent too, so what's gated on being shown
+                // (spinners, ObjectUtils.shown) stops.
+                opacity: root.reallyOpen ? 1 : 0
 
                 function slideIn() {
                     content.y = -content.height;

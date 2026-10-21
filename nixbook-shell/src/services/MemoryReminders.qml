@@ -57,23 +57,38 @@ Singleton {
         }
     }
 
+    property string _triggersSig: ""
+    Timer {
+        id: memoryReloadTimer
+        interval: 500
+        onTriggered: memoryFile.reload()
+    }
     FileView {
         id: memoryFile
         path: root.memoryPath
         watchChanges: true
         printErrors: false
-        onFileChanged: reload()
+        // Agents' tool calls rewrite it (usage counts) about once a second
+        // while they act: read it once a burst settles, and only take the
+        // triggers when they changed.
+        onFileChanged: memoryReloadTimer.restart()
         onLoaded: {
             try {
                 const data = JSON.parse(memoryFile.text())
-                root.triggers = Array.isArray(data.triggers) ? data.triggers : []
-                // Fired ones the file no longer has (or has for tomorrow)
-                // are done; the others wait for the file.
-                const kept = {}
-                for (const t of root.triggers)
-                    if (root.fired[t.id] && !(t.after && t.after * 1000 > root.fired[t.id])) kept[t.id] = root.fired[t.id]
-                root.fired = kept
+                const next = Array.isArray(data.triggers) ? data.triggers : []
+                const sig = JSON.stringify(next)
+                if (sig !== root._triggersSig) {
+                    root._triggersSig = sig
+                    root.triggers = next
+                    // Fired ones the file no longer has (or has for tomorrow)
+                    // are done; the others wait for the file.
+                    const kept = {}
+                    for (const t of root.triggers)
+                        if (root.fired[t.id] && !(t.after && t.after * 1000 > root.fired[t.id])) kept[t.id] = root.fired[t.id]
+                    root.fired = kept
+                }
             } catch (e) {
+                root._triggersSig = ""
                 root.triggers = []
             }
             root.check()
