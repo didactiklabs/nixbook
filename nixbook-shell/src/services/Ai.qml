@@ -172,8 +172,9 @@ Singleton {
     }
 
     // The "From Claude" tab goes once left alone ai.claudeThreadIdleMinutes
-    // (0: kept): its thread saved in the history first (the history's
-    // "From Claude" ones, the tab's thread strip), the tab closed (the last
+    // (0: kept): its thread saved in the history first when long enough
+    // (saveHistory; the history's "From Claude" ones, the tab's thread
+    // strip), the tab closed (the last
     // one becomes a new chat). Not while it answers, is shown in the panel,
     // or is the bubble's conversation (shown or put away).
     readonly property int claudeThreadIdleMinutes: Config.options?.ai?.claudeThreadIdleMinutes ?? 30
@@ -954,15 +955,19 @@ Singleton {
     }
 
     // Saves a chat's conversation (once it has a message of the user's; a
-    // thread of the "From Claude" tab from Claude's first word, titled by it).
+    // thread of the "From Claude" tab once it has more than
+    // claudeThreadMinMessages, titled by Claude's first word: a word and a
+    // short answer aren't worth keeping).
+    readonly property int claudeThreadMinMessages: 5
     function saveHistory(chat) {
         if (!root.historyReady || !chat) return;
         const messages = chat.chatToJson();
         const turns = messages.filter(m => (m.role === "user" || m.role === "assistant") && !m.functionName);
         const first = turns.find(m => (m.role === "user" || (chat.fromClaude && m.initiative)) && (m.rawContent ?? "").trim().length > 0);
         if (!first) return;
-        if (chat.chatId.length === 0) chat.chatId = root.idForMessage();
         const old = root.history.find(c => c.id === chat.chatId);
+        if (chat.fromClaude && !old && turns.length <= root.claudeThreadMinMessages) return;
+        if (chat.chatId.length === 0) chat.chatId = root.idForMessage();
         const answers = turns.filter(m => m.role === "assistant");
         const now = Date.now();
         const entry = {

@@ -650,7 +650,8 @@ the user's next message when the tab's session already runs;
 `GlobalStates.aiChatRequested`). Left alone `ai.claudeThreadIdleMinutes`
 (30; 0: stays), not answering, shown or the bubble's, the tab closes, its
 thread saved in the history first (`Ai.expireClaudeThreads`); the history
-marks those "From Claude". A chat of the side panel that answers
+marks those "From Claude". A thread is saved only once it has more than 5
+messages (`Ai.claudeThreadMinMessages`): shorter ones go with their tab. A chat of the side panel that answers
 while the panel is closed says so in the bubble too, its answer there to
 reply to (`Initiative.chatDone`; `notify-send` only while the user is
 typing in the bubble). **Mod+C** (`nixbook-shell ipc call
