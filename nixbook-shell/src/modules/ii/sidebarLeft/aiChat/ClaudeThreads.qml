@@ -33,6 +33,7 @@ ListView {
 
     footerPositioning: ListView.OverlayFooter
     footer: Item {
+        z: 2 // over the delegates (z 1) it overlays, so it gets the clicks
         visible: root.unpinned > 0
         implicitWidth: visible ? clearButton.implicitWidth + 4 : 0
         implicitHeight: 28
