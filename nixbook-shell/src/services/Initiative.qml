@@ -46,9 +46,10 @@ Singleton {
     readonly property var live: root.pending.filter(p => (p.expires ?? 0) * 1000 > root.now && p.id !== root.speaking?.id)
     // Read: what the user has seen in the bubble (hovered, answered, closed
     // or opened from the bar), by id. Still there, but the bar's bubble only
-    // lights up for what they haven't.
+    // lights up for what they haven't, and for a routine it offered until
+    // they answer it (its Yes is there).
     property var _read: ({})
-    readonly property var unread: root.live.filter(p => !root._read[p.id])
+    readonly property var unread: root.live.filter(p => p.accept || !root._read[p.id])
 
     property var _batch: []
     property real _awaySince: 0
