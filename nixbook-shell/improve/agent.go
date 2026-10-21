@@ -58,8 +58,9 @@ Answer with:
 - type: fix or polish;
 - scope: what it is in, as in the git log (nixbook-shell, niri, docs…);
 - title: lowercase, a sentence saying what is now right, like the git log
-  ("the clock widget keeps its seconds after a theme switch"), 60
-  characters at most, no final period;
+  ("the clock widget keeps its seconds after a theme switch"), no final
+  period; with "fix(scope): " before it the line is 72 characters at most,
+  so 50 for the title with the nixbook-shell scope;
 - body: the changelog entry, in plain sentences, wrapped at 72 columns: what
   was wrong (what the user saw), the cause, what you changed and where, and
   how to see it is fixed. 40 to 150 words;

@@ -78,8 +78,16 @@ case "$FAKE_CLAUDE" in
     exit 0
     ;;
 esac
-jq -nc --arg b "$body" '{type:"result",subtype:"success",session_id:"s1",total_cost_usd:0.25,
-  structured_output:{outcome:"fixed",type:"polish",scope:"docs",title:"The guide says the clock shows minutes too",body:$b}}'
+title="The guide says the clock shows minutes too"
+# FAKE_LONG: a title too long at first, short once asked again (--resume).
+if [ -n "${FAKE_LONG:-}" ]; then
+  case "$*" in
+    *--resume*) title="the guide shows the minutes too" ;;
+    *) title="the guide now says that the clock in the bar shows the minutes as well as the hours" ;;
+  esac
+fi
+jq -nc --arg b "$body" --arg t "$title" '{type:"result",subtype:"success",session_id:"s1",total_cost_usd:0.25,
+  structured_output:{outcome:"fixed",type:"polish",scope:"docs",title:$t,body:$b}}'
 EOF
 cat >"$fake/gh" <<'EOF'
 #!/usr/bin/env bash
@@ -311,6 +319,16 @@ cid=$("$improve" status | jq -r '.inbox[] | select(.kind == "ci") | .id')
 "$improve" run --item "$cid" >/dev/null
 expect_match "ci: its failed logs in the prompt" "assertion failed at line 12" "$(cat "$FAKE_LOG/prompt")"
 rm -f "$FAKE_LOG"/{runs,cores,kernel,errors-user} "$tmp/upgrade.json"
+
+# --- a title too long: shortened by the session, not cut ----------------------------
+id=$(item "the guide still says hours only")
+export FAKE_CLAUDE=docs FAKE_LONG=1 FAKE_BRANCH="agent/fix-$id" NOTIFY_ANSWER=drop
+# main back to its first commit: the guide says "hours" again, for the stand-in to edit.
+git -C "$tmp/remote.git" update-ref refs/heads/main "$(git -C "$tmp/remote.git" rev-list --max-parents=0 main)"
+"$improve" run --item "$id" >/dev/null
+expect_eq "title: shortened when asked" "polish(docs): the guide shows the minutes too" \
+  "$(git -C "$tmp/remote.git" log -1 --format=%s "agent/fix-$id")"
+unset FAKE_LONG
 
 # --- live progress, and Stop --------------------------------------------------------
 id=$(item "the guide is slow to fix")
