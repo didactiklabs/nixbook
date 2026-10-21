@@ -340,7 +340,7 @@ Singleton {
         if (quiet === "")
             root.playNotificationSound(notification);
         // console.log(notifToString(newNotifObject));
-        notifFileView.setText(stringifyList(root.list));
+        root.save();
     }
 
     // Notification chime (Settings → General → Sounds; the theme's on themes
@@ -456,7 +456,7 @@ Singleton {
         root.destroyTimers(discarded);
         if (remaining.length !== root.list.length) {
             root.list = remaining;
-            notifFileView.setText(stringifyList(root.list));
+            root.save();
         }
         root.retire(discarded);
         notifServer.trackedNotifications.values
@@ -562,7 +562,7 @@ Singleton {
         root.destroyTimers(discarded);
         root.list = []
         root.retire(discarded);
-        notifFileView.setText(stringifyList(root.list));
+        root.save();
         notifServer.trackedNotifications.values.forEach((notif) => {
             notif.dismiss()
         })
@@ -704,6 +704,17 @@ Singleton {
             console.log("Notification not found in server: " + id)
         }
         root.discardNotification(id);
+    }
+
+    // Saved once a burst settles (a flood of notifications, a clear-all), not
+    // the whole list serialized on the GUI thread per notification.
+    function save() {
+        saveTimer.restart();
+    }
+    Timer {
+        id: saveTimer
+        interval: 500
+        onTriggered: notifFileView.setText(root.stringifyList(root.list))
     }
 
     function triggerListChange() {

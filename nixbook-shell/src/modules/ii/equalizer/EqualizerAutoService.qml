@@ -507,9 +507,9 @@ exec "$1" -p "$2" --output-format text --strict-mcp-config --setting-sources pro
     FileView {
         id: eqStateFile
         path: `${Directories.eqStateDir}/eq_state.json`
+        // Read by status() only: not watched (the script rewrites it on
+        // every band step of a drag).
         blockLoading: true
-        watchChanges: true
-        onFileChanged: reload()
     }
     Process {
         id: listPresetsProc
@@ -566,6 +566,7 @@ exec "$1" -p "$2" --output-format text --strict-mcp-config --setting-sources pro
             listPresetsProc.running = true;
             root.refreshEasyEffects();
             let state = {};
+            eqStateFile.reload();
             try { state = JSON.parse(eqStateFile.text()) } catch (e) {}
             const p = root.player;
             const resolved = p ? (p.trackArtist ? { artist: p.trackArtist, track: p.trackTitle } : root.deriveYouTubeArtistTrack(p.trackTitle)) : null;

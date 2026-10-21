@@ -19,6 +19,17 @@ Item {
     implicitWidth: 200
     implicitHeight: 200
 
+    // Counted in LyricsService.consumers while shown: it fetches only then.
+    property bool _counted: false
+    function _syncShown() {
+        if (root.visible === root._counted) return
+        root._counted = root.visible
+        LyricsService.consumers += root._counted ? 1 : -1
+    }
+    onVisibleChanged: root._syncShown()
+    Component.onCompleted: root._syncShown()
+    Component.onDestruction: if (root._counted) LyricsService.consumers--
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 4

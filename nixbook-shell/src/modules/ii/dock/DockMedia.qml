@@ -140,7 +140,11 @@ Item {
             anchors.fill: parent
             source: root.displayedArtFilePath
             fillMode: Image.PreserveAspectCrop
-            cache: false
+            // Blurred to nothing anyway: a small shared decode, not the full
+            // cover once per screen's dock on every track change.
+            sourceSize.width: 128
+            sourceSize.height: 128
+            cache: true
             antialiasing: true
             asynchronous: true
             z: 1
@@ -210,10 +214,10 @@ Item {
                     anchors.fill: parent
                     source: root.displayedArtFilePath
                     fillMode: Image.PreserveAspectCrop
-                    cache: false
+                    cache: true
                     antialiasing: true
-                    sourceSize.width:  artRect.width
-                    sourceSize.height: artRect.height
+                    sourceSize.width:  artRect.width * 2
+                    sourceSize.height: artRect.height * 2
                 }
             }
 

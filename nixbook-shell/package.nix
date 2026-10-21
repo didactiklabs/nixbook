@@ -90,9 +90,14 @@ let
         ]
       )
     }''${GI_TYPELIB_PATH:+:$GI_TYPELIB_PATH}"
-    exec ${
-      pkgs.python3.withPackages (ps: [ ps.pygobject3 ])
-    }/bin/python3 ${./scripts/desktop-mcp.py} "$@"
+    exec ${desktopMcpPython}/bin/python3 ${desktopMcpPyc} "$@"
+  '';
+  desktopMcpPython = pkgs.python3.withPackages (ps: [ ps.pygobject3 ]);
+  # Precompiled: the shell runs it on every habit cue, memory lookup and agent
+  # tool call, and a script run as __main__ is never cached (compiling its
+  # 12k lines was ~160 ms of CPU per run). Tracebacks still show the source.
+  desktopMcpPyc = pkgs.runCommand "desktop-mcp.pyc" { } ''
+    ${desktopMcpPython}/bin/python3 -c 'import py_compile, sys; py_compile.compile(sys.argv[1], cfile=sys.argv[2], dfile=sys.argv[1], doraise=True, invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH)' ${./scripts/desktop-mcp.py} $out
   '';
 
   # A desktop of their own for AI agents (scripts/agent-desktop.sh): a nested

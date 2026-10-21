@@ -171,6 +171,8 @@ Item {
             acceptedButtons: Qt.NoButton
             clip: true
             boundsBehavior: Flickable.StopAtBounds
+            // A row of cells kept built either side.
+            cacheBuffer: cellHeight * 2
 
             model: wallpaperModel
 
@@ -199,31 +201,33 @@ Item {
                             radius: Appearance.rounding.normal
                         }
                     }
+                }
 
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: Appearance.rounding.normal
-                        color: delegateItem.index === grid.currentIndex
-                            ? Qt.rgba(
-                                Appearance.colors.colPrimary.r,
-                                Appearance.colors.colPrimary.g,
-                                Appearance.colors.colPrimary.b, 0.15)
-                            : "transparent"
-                        border.width: delegateItem.index === grid.currentIndex ? 2 : 0
-                        border.color: Appearance.colors.colPrimary
-                    }
+                // Outside the thumb: its mask layer re-rendered on every
+                // highlight change.
+                Rectangle {
+                    anchors.fill: thumb
+                    radius: Appearance.rounding.normal
+                    color: delegateItem.index === grid.currentIndex
+                        ? Qt.rgba(
+                            Appearance.colors.colPrimary.r,
+                            Appearance.colors.colPrimary.g,
+                            Appearance.colors.colPrimary.b, 0.15)
+                        : "transparent"
+                    border.width: delegateItem.index === grid.currentIndex ? 2 : 0
+                    border.color: Appearance.colors.colPrimary
+                }
 
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: Appearance.rounding.normal
-                        color: Appearance.colors.colLayer2
-                        visible: thumb.status !== Image.Ready
-                        MaterialSymbol {
-                            anchors.centerIn: parent
-                            text: "image"
-                            iconSize: 32
-                            color: Appearance.colors.colSubtext
-                        }
+                Rectangle {
+                    anchors.fill: thumb
+                    radius: Appearance.rounding.normal
+                    color: Appearance.colors.colLayer2
+                    visible: thumb.status !== Image.Ready
+                    MaterialSymbol {
+                        anchors.centerIn: parent
+                        text: "image"
+                        iconSize: 32
+                        color: Appearance.colors.colSubtext
                     }
                 }
 

@@ -2193,17 +2193,21 @@ Item {
                                             lineGrad.addColorStop(0, root.blendedColors.colPrimary)
                                             lineGrad.addColorStop(1, root.blendedColors.colSecondary)
 
-                                            ctx.save()
-                                            ctx.shadowColor = ColorUtils.transparentize(root.blendedColors.colPrimary, 0.6)
-                                            ctx.shadowBlur = 6
-                                            ctx.strokeStyle = lineGrad
-                                            ctx.lineWidth = 3
+                                            // The glow is a wide translucent stroke under the
+                                            // line: a shadowBlur is a CPU blur of the whole
+                                            // canvas on every frame of a drag or ease.
                                             ctx.lineJoin = "round"
                                             ctx.lineCap = "round"
+                                            ctx.strokeStyle = ColorUtils.transparentize(root.blendedColors.colPrimary, 0.82)
+                                            ctx.lineWidth = 9
                                             ctx.beginPath()
                                             tracePath()
                                             ctx.stroke()
-                                            ctx.restore()
+                                            ctx.strokeStyle = lineGrad
+                                            ctx.lineWidth = 3
+                                            ctx.beginPath()
+                                            tracePath()
+                                            ctx.stroke()
 
                                             // Dots drawn as little slider thumbs - a solid
                                             // accent-colored center fenced by a ring in the

@@ -105,17 +105,33 @@ Scope {
 
     PanelWindow {
         id: alert
-        visible: root.current !== null
-        screen: Quickshell.screens.find(s => s.name === WM.focusedMonitor?.name) ?? null
+        // Stays mapped while the theme is on: mapping a new surface (and Qt's
+        // new GL context) stalled the first frames of the entrance. Between
+        // alerts it is a transparent 1 px surface with no input region and
+        // no keyboard focus; the screen follows focus only when one shows.
+        readonly property bool shown: root.current !== null
+        visible: true
+        function followFocusedScreen() {
+            const s = Quickshell.screens.find(s => s.name === WM.focusedMonitor?.name);
+            if (s && alert.screen !== s) alert.screen = s;
+        }
+        Component.onCompleted: followFocusedScreen()
+        onShownChanged: if (shown) followFocusedScreen()
         WlrLayershell.namespace: "quickshell:chiikawaAlert"
         WlrLayershell.layer: WlrLayer.Overlay
-        WlrLayershell.keyboardFocus: visible && !MakeWay.active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        WlrLayershell.keyboardFocus: shown && !MakeWay.active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
         // While an agent works underneath, its clicks go through.
-        mask: MakeWay.active ? makeWayNoInput : null
-        Region { id: makeWayNoInput }
+        mask: shown && !MakeWay.active ? null : noInput
+        Region { id: noInput }
         exclusionMode: ExclusionMode.Ignore
-        anchors { top: true; bottom: true; left: true; right: true }
+        anchors { top: shown; bottom: shown; left: shown; right: shown }
+        implicitWidth: shown ? (alert.screen?.width ?? 1) : 1
+        implicitHeight: shown ? (alert.screen?.height ?? 1) : 1
         color: "transparent"
+        // The screen's size, not the window's: the entrance starts before
+        // the 1 px surface has grown.
+        readonly property real w: alert.screen?.width ?? width
+        readonly property real h: alert.screen?.height ?? height
 
         readonly property var n: root.current
         readonly property var spec: Chiikawa.spec
@@ -175,8 +191,9 @@ Scope {
 
         Item {
             id: keyTarget
-            opacity: MakeWay.fade(0.5, "cutIn")
-            anchors.fill: parent
+            opacity: alert.shown ? MakeWay.fade(0.5, "cutIn") : 0
+            width: alert.w
+            height: alert.h
             focus: true
             Keys.onPressed: event => {
                 if ([Qt.Key_Escape, Qt.Key_Return, Qt.Key_Enter, Qt.Key_Space].includes(event.key)) {
@@ -209,8 +226,8 @@ Scope {
                     fill: 1
                     iconSize: 18 + seed * 22
                     color: index % 2 === 0 ? (alert.spec.accent ?? Appearance.colors.colPrimary) : (alert.spec.blush ?? Appearance.colors.colTertiary)
-                    x: alert.width * (0.2 + 0.6 * ((index * 0.137 + seed) % 1))
-                    y: alert.height * (0.25 + 0.55 * seed) - alert.t * 40 * (1 + seed)
+                    x: alert.w * (0.2 + 0.6 * ((index * 0.137 + seed) % 1))
+                    y: alert.h * (0.25 + 0.55 * seed) - alert.t * 40 * (1 + seed)
                     opacity: Math.min(1, alert.t) * (0.5 + seed * 0.5)
                     rotation: (seed - 0.5) * 60
                 }
@@ -223,17 +240,17 @@ Scope {
                 friends: true
                 hopOnHover: false
                 // Only while showing: the window outlives the alerts.
-                idle: alert.visible
-                width: Math.min(620, alert.height * 0.3 * Chiikawa.friendsAspect, alert.width - 64)
+                idle: alert.shown
+                width: Math.min(620, alert.h * 0.3 * Chiikawa.friendsAspect, alert.w - 64)
                 height: width / Chiikawa.friendsAspect
                 anchors.horizontalCenter: parent.horizontalCenter
-                y: alert.height - height * (0.92 * alert.t) + 8
+                y: alert.h - height * (0.92 * alert.t) + 8
             }
 
             // The speech bubble, just above the character.
             Item {
                 id: bubbleArea
-                width: Math.min(640, alert.width - 64)
+                width: Math.min(640, alert.w - 64)
                 height: bubble.height + 22
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: mascot.y - height + 18
@@ -323,7 +340,7 @@ Scope {
                                 iconSize: 30
                                 color: Appearance.colors.colPrimary
                                 SequentialAnimation on scale {
-                                    running: alert.visible
+                                    running: alert.shown
                                     loops: Animation.Infinite
                                     NumberAnimation { from: 1; to: 1.25; duration: 380; easing.type: Easing.OutQuad }
                                     NumberAnimation { from: 1.25; to: 1; duration: 520; easing.type: Easing.OutBounce }

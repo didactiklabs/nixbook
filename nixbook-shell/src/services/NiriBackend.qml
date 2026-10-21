@@ -106,6 +106,9 @@ Scope {
     property var _windows: ({})      // id -> raw niri window
     property var _workspaces: ({})   // id -> raw niri workspace
     property bool _dirty: false
+    // Layout-only events (every frame of a scroll/resize/open animation)
+    // leave the workspace list as it is: its consumers don't re-run.
+    property bool _workspacesDirty: false
 
     function updateAll() {
         getWindows.running = true;
@@ -113,8 +116,9 @@ Scope {
         getOutputs.running = true;
     }
 
-    function publish() {
+    function publish(workspacesToo = true) {
         root._dirty = true;
+        if (workspacesToo) root._workspacesDirty = true;
         publishTimer.restart();
     }
 
@@ -129,13 +133,16 @@ Scope {
     function flush() {
         if (!root._dirty) return;
         root._dirty = false;
-        const wsList = Object.values(root._workspaces).sort((a, b) =>
-            (a.output ?? "").localeCompare(b.output ?? "") || (a.idx ?? 0) - (b.idx ?? 0));
-        const byId = {};
-        for (const ws of wsList) byId[ws.id] = ws;
-        root.workspaces = wsList;
-        root.workspaceById = byId;
-        root.activeWorkspace = wsList.find(ws => ws.is_focused) ?? null;
+        if (root._workspacesDirty) {
+            root._workspacesDirty = false;
+            const wsList = Object.values(root._workspaces).sort((a, b) =>
+                (a.output ?? "").localeCompare(b.output ?? "") || (a.idx ?? 0) - (b.idx ?? 0));
+            const byId = {};
+            for (const ws of wsList) byId[ws.id] = ws;
+            root.workspaces = wsList;
+            root.workspaceById = byId;
+            root.activeWorkspace = wsList.find(ws => ws.is_focused) ?? null;
+        }
         root.windowList = Object.values(root._windows).map(root.normalizeWindow);
         root.updateFocusedMonitor();
     }
@@ -212,7 +219,8 @@ Scope {
                 const w = root._windows[id];
                 if (w) w.layout = layout;
             }
-            break;
+            root.publish(false);
+            return;
         case "ConfigLoaded":
             getOutputs.running = true;
             return;

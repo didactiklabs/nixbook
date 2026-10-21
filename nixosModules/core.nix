@@ -538,6 +538,18 @@ in
       dates = "weekly";
       extraArgs = "--keep 5 --keep-since 7d";
     };
+    # The timer is Persistent: a laptop asleep at the hour runs it at the next
+    # boot or resume, as root outside nix-daemon's idle priority. Idle CPU/IO
+    # (and on AC only, later), so deleting the store paths doesn't stall login.
+    systemd.services.nh-clean = {
+      unitConfig.ConditionACPower = true;
+      serviceConfig = {
+        Nice = 19;
+        CPUSchedulingPolicy = "idle";
+        IOSchedulingClass = "idle";
+      };
+    };
+    systemd.timers.nh-clean.timerConfig.RandomizedDelaySec = "1h";
 
     # zram swap (compressed RAM) with disk fallback
     zramSwap = {

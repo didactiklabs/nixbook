@@ -732,10 +732,9 @@ in
               agents about your life, remembered across conversations: an
               entry per subject, only the relevant part sent), `ui` (any app's window as text
               through its accessibility tree, and acting on its elements;
-              needs the accessibility bus, nixbook's `niri.accessibility`, and
-              sets `GNOME_ACCESSIBILITY` and `ACCESSIBILITY_ENABLED` so
-              Firefox-based and Chromium/Electron apps publish their tree, at
-              some memory and CPU cost).
+              needs the accessibility bus, nixbook's `niri.accessibility`;
+              Firefox-based and Chromium/Electron apps through
+              `desktopMcp.browserAccessibility`, on by default).
             '';
           };
         };
@@ -775,6 +774,19 @@ in
           default = 7823;
           description = "Port on 127.0.0.1 of the HTTP MCP endpoint (`/mcp`).";
         };
+      };
+
+      browserAccessibility = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          The `ui` tools in Firefox-based and Chromium/Electron apps: sets
+          `GNOME_ACCESSIBILITY` and `ACCESSIBILITY_ENABLED` in the session so
+          they publish their accessibility tree (GTK and Qt apps always do).
+          They then keep it up to date on every page change, all session long:
+          more CPU, memory and scrolling jank in heavy pages. Off, agents read
+          those apps with screenshots. Apps started before need a restart.
+        '';
       };
 
       habits.enable = lib.mkEnableOption ''
@@ -1075,10 +1087,12 @@ in
             { inherit (cfg.assistant) mcpServers; };
         # The ui tools: Firefox-based and Chromium/Electron apps publish their
         # accessibility tree only when asked to (GTK and Qt apps always do).
-        systemd.user.sessionVariables = lib.mkIf (lib.elem "ui" cfg.desktopMcp.settings.tools) {
-          GNOME_ACCESSIBILITY = "1";
-          ACCESSIBILITY_ENABLED = "1";
-        };
+        systemd.user.sessionVariables =
+          lib.mkIf (cfg.desktopMcp.browserAccessibility && lib.elem "ui" cfg.desktopMcp.settings.tools)
+            {
+              GNOME_ACCESSIBILITY = "1";
+              ACCESSIBILITY_ENABLED = "1";
+            };
 
         # Launcher entry for the Settings window (nixbook-shell's own launcher, fuzzel…).
         xdg.desktopEntries.nixbook-shell-settings = {
@@ -1330,6 +1344,9 @@ in
           Service = {
             ExecStart = lib.getExe cfg.package.passthru.agentDesktop;
             Slice = "app.slice";
+            # Usable, but second to the user's own apps.
+            CPUWeight = 50;
+            IOWeight = 50;
           };
         };
         # The others, one per chat tab of the side panel working at once
@@ -1344,6 +1361,9 @@ in
             ExecStart = lib.getExe cfg.package.passthru.agentDesktop;
             Environment = [ "NIXBOOK_AGENT_DESKTOP=%i" ];
             Slice = "app.slice";
+            # Usable, but second to the user's own apps.
+            CPUWeight = 50;
+            IOWeight = 50;
           };
         };
 

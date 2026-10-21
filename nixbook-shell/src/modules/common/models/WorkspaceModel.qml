@@ -20,10 +20,11 @@ NestableObject {
 
     property list<bool> occupied: []
     readonly property bool shouldShowAppIcons: Boolean(C.Config.options.bar?.workspaces?.showAppIcons || C.Config.options.bar?.workspaces?.indicatorStyle === "icon")
-    property list<var> biggestWindow: shouldShowAppIcons ? occupied.map((_, index) => {
-        const number = getWorkspaceIdAt(index)
-        return root.biggestWindowForNumber(number)
-    }) : []
+    // Filled by updateWorkspaceOccupied, reassigned only when what it shows
+    // changes: niri republishes the window list on every frame of a layout
+    // animation, and every workspace button binds to these.
+    property list<var> biggestWindow: []
+    onShouldShowAppIconsChanged: updateWorkspaceOccupied()
 
     function getWorkspaceId(group, index) {
         return group * root.shownCount + index + 1
@@ -55,7 +56,14 @@ NestableObject {
             const realId = root._niriRealId(number);
             newOccupied[i] = (realId !== null) && winList.some(w => w.workspaceId === realId);
         }
-        root.occupied = newOccupied;
+        if (newOccupied.length !== root.occupied.length || newOccupied.some((o, i) => o !== root.occupied[i]))
+            root.occupied = newOccupied;
+        const newBiggest = root.shouldShowAppIcons
+            ? newOccupied.map((_, i) => root.biggestWindowForNumber(getWorkspaceId(root.group, i))) : [];
+        const same = (a, b) => a === b || (a !== null && b !== null && a !== undefined && b !== undefined
+            && a.id === b.id && a.class === b.class && a.title === b.title);
+        if (newBiggest.length !== root.biggestWindow.length || newBiggest.some((b, i) => !same(b, root.biggestWindow[i])))
+            root.biggestWindow = newBiggest;
     }
 
     Component.onCompleted: updateWorkspaceOccupied()

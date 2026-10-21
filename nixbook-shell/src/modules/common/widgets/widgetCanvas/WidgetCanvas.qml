@@ -159,34 +159,33 @@ MouseArea {
         root.selecting = false
     }
 
-    Repeater {
-        id: crossRepeater
-        readonly property int cols: Math.ceil(root.width / root.gridSize) + 1
-        readonly property int rows: Math.ceil(root.height / root.gridSize) + 1
-        model: root.gridVisible ? cols * rows : 0
-        delegate: Item {
-            id: crossPoint
-            required property int index
-            readonly property int col: index % crossRepeater.cols
-            readonly property int row: Math.floor(index / crossRepeater.cols)
+    // The snap grid's crosses, painted once into one Canvas (built on the
+    // first drag, then only shown/hidden): a delegate per cross was
+    // thousands of items created on every drag start.
+    property bool gridEverShown: false
+    onGridVisibleChanged: if (gridVisible) gridEverShown = true
+    Loader {
+        anchors.fill: parent
+        active: root.gridEverShown
+        visible: root.gridVisible
+        sourceComponent: Canvas {
+            id: crossCanvas
+            readonly property color crossColor: Appearance.colors.colLayer0Border
             readonly property int crossSize: 5
-
-            x: col * root.gridSize - crossSize / 2
-            y: row * root.gridSize - crossSize / 2
-            width: crossSize
-            height: crossSize
-
-            Rectangle {
-                anchors.centerIn: parent
-                width: crossPoint.crossSize
-                height: 1
-                color: Appearance.colors.colLayer0Border
-            }
-            Rectangle {
-                anchors.centerIn: parent
-                width: 1
-                height: crossPoint.crossSize
-                color: Appearance.colors.colLayer0Border
+            onCrossColorChanged: requestPaint()
+            onWidthChanged: requestPaint()
+            onHeightChanged: requestPaint()
+            onPaint: {
+                const ctx = getContext("2d")
+                ctx.reset()
+                ctx.fillStyle = crossColor
+                const g = root.gridSize
+                const half = crossSize / 2
+                for (let x = 0; x <= width + g; x += g)
+                    for (let y = 0; y <= height + g; y += g) {
+                        ctx.fillRect(x - half, y - 0.5, crossSize, 1)
+                        ctx.fillRect(x - 0.5, y - half, 1, crossSize)
+                    }
             }
         }
     }

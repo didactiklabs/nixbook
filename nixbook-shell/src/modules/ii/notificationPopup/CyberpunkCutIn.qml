@@ -143,17 +143,33 @@ Scope {
 
     PanelWindow {
         id: call
-        visible: root.current !== null
-        screen: Quickshell.screens.find(s => s.name === WM.focusedMonitor?.name) ?? null
+        // Stays mapped while the theme is on: mapping a new surface (and Qt's
+        // new GL context) stalled the first frames of the entrance. Between
+        // alerts it is a transparent 1 px surface with no input region and
+        // no keyboard focus; the screen follows focus only when one shows.
+        readonly property bool shown: root.current !== null
+        visible: true
+        function followFocusedScreen() {
+            const s = Quickshell.screens.find(s => s.name === WM.focusedMonitor?.name);
+            if (s && call.screen !== s) call.screen = s;
+        }
+        Component.onCompleted: followFocusedScreen()
+        onShownChanged: if (shown) followFocusedScreen()
         WlrLayershell.namespace: "quickshell:cyberpunkCutIn"
         WlrLayershell.layer: WlrLayer.Overlay
-        WlrLayershell.keyboardFocus: visible && !MakeWay.active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        WlrLayershell.keyboardFocus: shown && !MakeWay.active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
         // While an agent works underneath, its clicks go through.
-        mask: MakeWay.active ? makeWayNoInput : null
-        Region { id: makeWayNoInput }
+        mask: shown && !MakeWay.active ? null : noInput
+        Region { id: noInput }
         exclusionMode: ExclusionMode.Ignore
-        anchors { top: true; bottom: true; left: true; right: true }
+        anchors { top: shown; bottom: shown; left: shown; right: shown }
+        implicitWidth: shown ? (call.screen?.width ?? 1) : 1
+        implicitHeight: shown ? (call.screen?.height ?? 1) : 1
         color: "transparent"
+        // The screen's size, not the window's: the entrance starts before
+        // the 1 px surface has grown.
+        readonly property real w: call.screen?.width ?? width
+        readonly property real h: call.screen?.height ?? height
 
         readonly property var n: root.current
         readonly property string fullBody: NotificationUtils.plainText(
@@ -270,7 +286,7 @@ Scope {
             }
         }
         Timer {
-            running: call.visible && Cyberpunk.glitch && call.t >= 1
+            running: call.shown && Cyberpunk.glitch && call.t >= 1
             repeat: true
             interval: 1800 + Math.random() * 2200
             onTriggered: {
@@ -281,8 +297,9 @@ Scope {
 
         Item {
             id: keyTarget
-            opacity: MakeWay.fade(0.5, "cutIn")
-            anchors.fill: parent
+            opacity: call.shown ? MakeWay.fade(0.5, "cutIn") : 0
+            width: call.w
+            height: call.h
             focus: true
             Keys.onPressed: event => {
                 if ([Qt.Key_Return, Qt.Key_Enter].includes(event.key)) {
@@ -332,10 +349,10 @@ Scope {
             // The holocall.
             Item {
                 id: panelArea
-                width: Math.min(820, call.width - 64)
+                width: Math.min(820, call.w - 64)
                 height: panel.height
                 anchors.horizontalCenter: parent.horizontalCenter
-                y: Math.max(32, call.height * 0.3 - height / 3)
+                y: Math.max(32, call.h * 0.3 - height / 3)
                 opacity: Math.min(1, call.t * 2) * call.flicker
                 transform: [
                     Scale {
@@ -430,7 +447,7 @@ Scope {
                                     width: 8; height: 8
                                     color: Cyberpunk.alertColor
                                     SequentialAnimation on opacity {
-                                        running: call.visible
+                                        running: call.shown
                                         loops: Animation.Infinite
                                         NumberAnimation { to: 0.15; duration: 420 }
                                         NumberAnimation { to: 1; duration: 420 }
@@ -516,7 +533,7 @@ Scope {
                                         color: Cyberpunk.glitchColor
                                         opacity: 0.85
                                         NumberAnimation on y {
-                                            running: call.visible
+                                            running: call.shown
                                             loops: Animation.Infinite
                                             from: 0
                                             to: 98

@@ -184,17 +184,31 @@ Singleton {
         }
     }
 
+    property string _routinesSig: ""
+    Timer {
+        id: memoryReloadTimer
+        interval: 500
+        onTriggered: memoryFile.reload()
+    }
     FileView {
         id: memoryFile
         path: root.memoryPath
         watchChanges: true
         printErrors: false
-        onFileChanged: reload()
+        // Agents' tool calls rewrite it (usage counts) about once a second
+        // while they act: read it once a burst settles, and only take the
+        // routines when they changed.
+        onFileChanged: memoryReloadTimer.restart()
         onLoaded: {
             try {
                 const data = JSON.parse(memoryFile.text())
-                root.routines = Array.isArray(data.routines) ? data.routines : []
+                const next = Array.isArray(data.routines) ? data.routines : []
+                const sig = JSON.stringify(next)
+                if (sig === root._routinesSig) return
+                root._routinesSig = sig
+                root.routines = next
             } catch (e) {
+                root._routinesSig = ""
                 root.routines = []
             }
         }
@@ -495,8 +509,10 @@ Singleton {
         onTriggered: {
             const names = []
             for (let i = 0; i < downloads.count; i++) names.push(downloads.get(i, "fileName"))
+            // A Set: a folder of thousands made this O(n²) per new file.
+            const old = new Set(root._downloads ?? [])
             if (root._downloads !== null)
-                for (const n of names.filter(n => !root._downloads.includes(n) && !/\.(part|crdownload|tmp|download)$/i.test(n)))
+                for (const n of names.filter(n => !old.has(n) && !/\.(part|crdownload|tmp|download)$/i.test(n)))
                     root.happen({ event: "download", name: n, ext: (n.match(/\.([^.]+)$/)?.[1] ?? "").toLowerCase(),
                                   path: `${decodeURIComponent(FileUtils.trimFileProtocol(downloads.folder.toString()))}/${n}` })
             root._downloads = names
@@ -625,8 +641,9 @@ Singleton {
         onTriggered: {
             const now = []
             for (let i = 0; i < shots.count; i++) now.push(shots.get(i, "fileName"))
+            const old = new Set(root._shots ?? [])
             if (root._shots !== null)
-                for (const n of now.filter(n => !root._shots.includes(n)))
+                for (const n of now.filter(n => !old.has(n)))
                     root.happen({ event: "screenshot", name: n, path: `${decodeURIComponent(FileUtils.trimFileProtocol(shots.folder.toString()))}/${n}` })
             root._shots = now
         }

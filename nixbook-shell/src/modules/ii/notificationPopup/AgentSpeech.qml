@@ -75,14 +75,16 @@ Scope {
             .replace(/\n{3,}/g, "\n\n")
             .trim()
     }
-    // The conversation, the last messages: {role, text}.
+    // The conversation, the last messages (their AiMessageData). The
+    // messages themselves, not copies of their text: a streamed chunk then
+    // re-reads only its own line, instead of every line being rebuilt.
     readonly property var lines: {
         if (!root.conversing || !root.chat) return []
         const out = []
         for (const id of root.chat.messageIDs) {
             const m = root.chat.messageByID[id]
             if (!m || (m.role !== "user" && m.role !== "assistant") || m.visibleToUser === false) continue
-            out.push({ role: m.role, text: root.plain(m.rawContent || m.content), done: m.done })
+            out.push(m)
         }
         return out.slice(-8)
     }
@@ -464,7 +466,7 @@ Scope {
                             width: talk.width
                             spacing: 6
                             Repeater {
-                                model: root.lines
+                                model: ScriptModel { values: root.lines }
                                 delegate: Item {
                                     id: line
                                     required property var modelData
@@ -488,7 +490,7 @@ Scope {
                                         width: Math.min(implicitWidth, line.mine ? parent.width * 0.85 - 20 : parent.width)
                                         wrapMode: Text.Wrap
                                         textFormat: Text.PlainText
-                                        text: line.modelData.text
+                                        text: root.plain(line.modelData.rawContent || line.modelData.content)
                                         font.family: root.font
                                         font.pixelSize: line.mine ? Appearance.font.pixelSize.small : Appearance.font.pixelSize.normal
                                         color: root.fg
@@ -497,7 +499,7 @@ Scope {
                             }
                             // Thinking: three dots.
                             Row {
-                                visible: root.responding && (root.lines[root.lines.length - 1]?.text ?? "").length === 0
+                                visible: root.responding && root.plain((m => m?.rawContent || m?.content)(root.lines[root.lines.length - 1])).length === 0
                                 spacing: 4
                                 Repeater {
                                     model: 3
