@@ -36,6 +36,8 @@
       "curious": false,
       "enable": false,
       "news": false,
+      "pair": false,
+      "pairReadScreen": false,
       "reactions": false,
       "readNotifications": false
     },

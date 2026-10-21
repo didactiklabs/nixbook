@@ -151,6 +151,22 @@ ContentPage {
                     checked: Config.options.ai.initiative.news
                     onCheckedChanged: Config.options.ai.initiative.news = checked
                 }
+                ConfigSwitch {
+                    configKey: "ai.initiative.pair"
+                    buttonIcon: "group"
+                    enabled: Config.options.ai.initiative.enable
+                    text: Translation.tr("Pair with me: while I stay on something, it looks at what (the app and window title, never chats, mail, password managers or private windows), guesses what I'm doing and, only when it truly helps, says a tip or a fix (searching the web first if useful). Quietly: it waits in the bar and shows when I pause")
+                    checked: Config.options.ai.initiative.pair
+                    onCheckedChanged: Config.options.ai.initiative.pair = checked
+                }
+                ConfigSwitch {
+                    configKey: "ai.initiative.pairReadScreen"
+                    buttonIcon: "document_scanner"
+                    enabled: Config.options.ai.initiative.enable && Config.options.ai.initiative.pair
+                    text: Translation.tr("While pairing, read the screen's text too (OCR on this computer; secrets, addresses and numbers removed before the small model sees it; never while a private window is on the workspace; nothing kept)")
+                    checked: Config.options.ai.initiative.pairReadScreen
+                    onCheckedChanged: Config.options.ai.initiative.pairReadScreen = checked
+                }
             }
 
             RowLayout {

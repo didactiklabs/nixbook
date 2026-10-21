@@ -115,6 +115,55 @@ Singleton {
     readonly property string newsHint: "You found this news for the user, from what they talk about with you. "
         + "If they want more on one, read it (WebFetch) or search for more (WebSearch) and tell them, with links. "
         + "If they say a subject doesn't interest them (any more), update your memory of them, briefly."
+    // Pairing (ai.initiative.pair): while the user stays on one thing, a look
+    // at it every couple of minutes (nixbook-desktop-mcp decides whether a
+    // look is worth it, at no token); with ai.initiative.pairReadScreen the
+    // screen's text too (OCR, redacted). A word it has waits in the bar and
+    // pops its bubble only once the user pauses (no input for a few
+    // seconds), never over what they type.
+    readonly property bool pair: Config.options?.ai?.initiative?.pair ?? false
+    readonly property bool pairReadScreen: Config.options?.ai?.initiative?.pairReadScreen ?? false
+    property var _pairWaiting: null
+    property real _pairSince: Date.now()
+    // Another window: the word waiting was about the one before (it stays
+    // in the bar).
+    Connections {
+        target: ToplevelManager
+        function onActiveToplevelChanged() {
+            root._pairSince = Date.now()
+            if (root._pairWaiting && root._pairWaiting.app !== (ToplevelManager.activeToplevel?.appId ?? "")) root._pairWaiting = null
+        }
+    }
+    Timer {
+        interval: 2 * 60000
+        running: root.enabled && root.pair && !Idle.screensOff
+        repeat: true
+        onTriggered: {
+            // Not right after a switch: on something, not passing through.
+            if (GlobalStates.screenLocked || Date.now() - root._pairSince < 60000) return
+            const top = ToplevelManager.activeToplevel
+            if (!top) return
+            root.consider({ event: "pair", app: top.appId ?? "", title: top.title ?? "", screen: root.pairReadScreen })
+        }
+    }
+    IdleMonitor {
+        id: pairPause
+        enabled: root._pairWaiting !== null
+        timeout: 4
+        respectInhibitors: false
+        onIsIdleChanged: if (isIdle) root._popPair()
+    }
+    function _popPair() {
+        const item = root._pairWaiting
+        if (!item) return
+        if ((item.expires ?? 0) * 1000 < Date.now() || !root.pending.some(p => p.id === item.id)) {
+            root._pairWaiting = null
+            return
+        }
+        if (root.speaking || root.typing || root.busy()) return
+        root._pairWaiting = null
+        root._notify(item)
+    }
     // Settings > Find news now: at once, whatever the day's already had.
     function newsNow() {
         if (!root.enabled) return
@@ -414,7 +463,10 @@ Singleton {
                 try {
                     const answer = JSON.parse(out.text)
                     if (answer.action === "notify") root._say(answer.item)
-                    if (answer.action === "badge") root.pending = [...root.pending, answer.item]
+                    if (answer.action === "badge") {
+                        root.pending = [...root.pending, answer.item]
+                        if (answer.item?.pop) root._pairWaiting = answer.item
+                    }
                 } catch (e) {
                     // Nothing to say, or the server is missing: silence.
                 }
