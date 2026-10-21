@@ -62,10 +62,13 @@ Scope {
     readonly property real radius: root.style === "chiikawa" ? 28 : root.style === "ghibli" ? 16
         : root.style === "material" ? Appearance.rounding.large : 0
 
-    // A message as plain text: no thinking or tool blocks, little markdown.
+    // A message as plain text: no thinking or tool blocks, little markdown;
+    // a table's rows as "a · b", its |---| line gone.
     function plain(text) {
         return String(text ?? "")
             .replace(/<think>[\s\S]*?(<\/think>|$)/g, "")
+            .replace(/^[ \t]*\|?[ \t]*:?-{2,}:?[ \t]*(\|[ \t]*:?-{2,}:?[ \t]*)*\|?[ \t]*\n?/gm, "")
+            .replace(/^[ \t]*\|(.*)\|[ \t]*$/gm, (_, row) => row.split("|").map(c => c.trim()).join(" · "))
             .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
             .replace(/^#{1,6}\s+/gm, "")
             .replace(/(\*\*|__|`)/g, "")
@@ -126,8 +129,9 @@ Scope {
         WlrLayershell.namespace: "quickshell:agentSpeech"
         WlrLayershell.layer: WlrLayer.Overlay
         // The keys when called up with them (Mod+C), until put
-        // away (Escape, close, expand); else only once clicked into, never
-        // taken from the app.
+        // away (Escape, close, expand) or an agent starts acting (its keys
+        // and clicks go to the apps then, the field only once clicked into);
+        // else only once clicked into, never taken from the app.
         property bool grab: false
         WlrLayershell.keyboardFocus: MakeWay.active ? WlrKeyboardFocus.None
             : window.grab ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
@@ -155,6 +159,10 @@ Scope {
             input.text = ""
         }
 
+        Connections {
+            target: MakeWay
+            function onActiveChanged() { if (MakeWay.active) window.grab = false }
+        }
         Connections {
             target: Initiative
             function onFocusWanted() {
