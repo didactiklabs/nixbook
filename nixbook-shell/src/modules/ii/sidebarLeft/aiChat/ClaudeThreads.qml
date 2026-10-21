@@ -31,7 +31,7 @@ ListView {
         onTriggered: root.confirmClear = false
     }
 
-    footerPositioning: ListView.PinnedFooter
+    footerPositioning: ListView.OverlayFooter
     footer: Item {
         visible: root.unpinned > 0
         implicitWidth: visible ? clearButton.implicitWidth + 4 : 0
