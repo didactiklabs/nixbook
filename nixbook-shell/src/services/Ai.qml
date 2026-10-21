@@ -147,6 +147,57 @@ Singleton {
         if (select) root.selectChat(chat);
         return chat;
     }
+    // A normal conversation for Claude's speech bubble when the user called
+    // it up (Mod+C, the bar's robot) for a new one: an empty tab, the panel's
+    // own first, else a new one (even past maxChats, like claudeThread). Not
+    // selected (`select` false) while the talk happens in the bubble.
+    function askThread(select = true) {
+        let chat = [root.current, ...root.chats].find(c => c && !c.fromClaude && !c.responding && c.messageIDs.length === 0);
+        if (!chat) {
+            let slot = 1;
+            while (root.chats.some(c => c.slot === slot)) slot++;
+            chat = chatComponent.createObject(root, { slot: slot, fromBubble: true });
+            root.chats = [...root.chats, chat];
+        }
+        if (select) root.selectChat(chat);
+        return chat;
+    }
+    // A tab the bubble made and left empty goes (not the last one, not the
+    // one shown in the panel).
+    function dropIfEmpty(chat) {
+        if (!chat || !chat.fromBubble || chat.responding || chat.messageIDs.length > 0 || root.chats.length <= 1) return;
+        if (chat.seen) return;
+        const index = root.chats.indexOf(chat);
+        if (index >= 0) root.closeChat(index);
+    }
+
+    // The "From Claude" tab goes once left alone ai.claudeThreadIdleMinutes
+    // (0: kept): its thread saved in the history first (the history's
+    // "From Claude" ones, the tab's thread strip), the tab closed (the last
+    // one becomes a new chat). Not while it answers, is shown in the panel,
+    // or is the bubble's conversation (shown or put away).
+    readonly property int claudeThreadIdleMinutes: Config.options?.ai?.claudeThreadIdleMinutes ?? 30
+    function expireClaudeThreads() {
+        if (root.claudeThreadIdleMinutes <= 0) return;
+        const before = Date.now() - root.claudeThreadIdleMinutes * 60 * 1000;
+        for (const chat of root.chats.filter(c => c.fromClaude)) {
+            if (chat.responding || chat.seen || Initiative.holds(chat) || chat.lastActivity > before) continue;
+            root.saveHistory(chat);
+            if (root.chats.length > 1) {
+                root.closeChat(root.chats.indexOf(chat));
+            } else {
+                chat.clearMessages();
+                chat.fromClaude = false;
+            }
+        }
+    }
+    Timer {
+        interval: 60 * 1000
+        running: root.claudeThreadIdleMinutes > 0 && root.chats.some(c => c.fromClaude)
+        repeat: true
+        onTriggered: root.expireClaudeThreads()
+    }
+
     function selectChat(chat) {
         const index = root.chats.indexOf(chat);
         if (index >= 0) root.currentIndex = index;

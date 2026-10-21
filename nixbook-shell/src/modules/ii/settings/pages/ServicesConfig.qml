@@ -91,6 +91,20 @@ ContentPage {
                     text: Translation.tr("Counted from a conversation's last message. Pinned conversations are kept.")
                 }
             }
+            ConfigSpinBox {
+                configKey: "ai.claudeThreadIdleMinutes"
+                enabled: !nixManaged
+                icon: "timer_off"
+                text: Translation.tr("Close the \"From Claude\" tab after (minutes idle, 0: never)")
+                value: Config.options.ai.claudeThreadIdleMinutes
+                from: 0
+                to: 1440
+                stepSize: 5
+                onValueChanged: Config.options.ai.claudeThreadIdleMinutes = value
+                StyledToolTip {
+                    text: Translation.tr("Its thread stays in the conversation history.")
+                }
+            }
             RowLayout {
                 id: chatHistoryRow
                 Layout.fillWidth: true

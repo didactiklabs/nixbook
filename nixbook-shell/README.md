@@ -647,12 +647,18 @@ history, `fromClaude: true`, listed under the tabs by
 pinned ones kept: `Ai.deleteClaudeThreads()`; a second "From Claude" tab,
 past `maxChats`, when the first is still answering) (`unsent`: it goes with
 the user's next message when the tab's session already runs;
-`GlobalStates.aiChatRequested`). A chat of the side panel that answers
+`GlobalStates.aiChatRequested`). Left alone `ai.claudeThreadIdleMinutes`
+(30; 0: stays), not answering, shown or the bubble's, the tab closes, its
+thread saved in the history first (`Ai.expireClaudeThreads`); the history
+marks those "From Claude". A chat of the side panel that answers
 while the panel is closed says so in the bubble too, its answer there to
 reply to (`Initiative.chatDone`; `notify-send` only while the user is
 typing in the bubble). **Mod+C** (`nixbook-shell ipc call
 claude toggle`, again: put away) or a middle-click on the bar's robot calls the bubble up to
-ask anything (`Initiative.summon()`, the keys taken until sent). The
+ask anything (`Initiative.summon()`, the keys taken until sent): a new
+conversation there is a normal one, not a "From Claude" thread
+(`Ai.askThread()`: an empty tab, else a new one, closed again when left
+empty). The
 robot hops when Claude has something new to say.
 Reactions (`ai.initiative.reactions`, off): what the user just did, seen by
 `services/Routines.qml` (`happened`, every event with a `path` for files),

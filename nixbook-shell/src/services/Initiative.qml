@@ -197,6 +197,7 @@ Singleton {
         if (before && !root.conversing && before.fromClaude && !before.responding) before.clearMessages()
         if (root.parked?.chat === before) root.parked = null
         root.chat = null
+        if (before && !before.fromClaude) Ai.dropIfEmpty(before)
         root.speaking = root._ask()
         root.focusWanted()
     }
@@ -212,10 +213,12 @@ Singleton {
     // The conversation with what it said as Claude's first message, in its
     // own thread (the "From Claude" tab, not selected): made when the user
     // starts typing, so Claude Code is warm by the time they send.
+    // Called up by the user for a new conversation (kind "ask"): a normal
+    // one (Ai.askThread), not a "From Claude" thread: Claude said nothing yet.
     function prepare() {
         const item = root.speaking
         if (root.chat || !item) return
-        const thread = Ai.claudeThread(false)
+        const thread = item.kind === "ask" ? Ai.askThread(false) : Ai.claudeThread(false)
         if (item.kind !== "ask")
             thread.addMessage(item.chat || item.text, "assistant", true, item.curious ? root.learnHint : "")
         root.chat = thread
@@ -274,7 +277,7 @@ Singleton {
     function expand() {
         const item = root.speaking
         if (!root.chat && item) {
-            const thread = Ai.claudeThread()
+            const thread = item.kind === "ask" ? Ai.askThread() : Ai.claudeThread()
             if (item.kind !== "ask")
                 thread.addMessage(item.chat || item.text, "assistant", true, item.curious ? root.learnHint : "")
             root.chat = thread
@@ -332,9 +335,11 @@ Singleton {
             if (root.chat && root.chat.fromClaude && !root.chat.responding) root.chat.clearMessages()
             if (before.id) root.pending = [...root.pending.filter(p => p.id !== before.id), before]
         }
+        const left = root.chat
         root.speaking = null
         root.chat = null
         root.typing = false
+        if (left && !left.fromClaude && !root.holds(left)) Ai.dropIfEmpty(left)
     }
     function _notify(item) {
         root._aside()
