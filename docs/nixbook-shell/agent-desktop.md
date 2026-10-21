@@ -4,12 +4,12 @@ So an agent can work **while you work**, it can be given a desktop of its own: a
 
 ## Switching
 
-| To…                                             | Use                                                                                                                                                |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Give agents their own desktop / bring them back | **Mod+Shift+A**, right-click the Desktop Control widget, the desktop menu, Settings → Desktop agents, `nixbook-desktop-mcp desktop agent` / `user` |
-| Take it over for a moment                       | **Mod+Ctrl+A**, the desktop menu's _Use it myself_, `nixbook-desktop-mcp desktop interact on/off`                                                  |
-| Close it                                        | Close its window, or `nixbook-desktop-mcp desktop stop`                                                                                            |
-| Check                                           | `nixbook-desktop-mcp desktop status`                                                                                                               |
+| To…                                             | Use                                                                                                                                                     |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Give agents their own desktop / bring them back | **Mod+Shift+A**, the Desktop Control widget's desktop button, the desktop menu, Settings → Desktop agents, `nixbook-desktop-mcp desktop agent` / `user` |
+| Take it over for a moment                       | **Mod+Ctrl+A**, the desktop menu's _Use it myself_, `nixbook-desktop-mcp desktop interact on/off`                                                       |
+| Close it                                        | Close its window, or `nixbook-desktop-mcp desktop stop`                                                                                                 |
+| Check                                           | `nixbook-desktop-mcp desktop status`                                                                                                                    |
 
 The choice survives reboots, and an agent already at work is told when you switch.
 

@@ -258,7 +258,7 @@ Singleton {
         else if (!root.speaking) root.speaking = root._ask()
         root.focusWanted()
     }
-    // Mod+C, the robot's middle-click: called up, or put away when shown.
+    // Mod+C, the bar's robot button: called up, or put away when shown.
     function toggle() {
         if (root.speaking) root.hush("wait")
         else root.summon()
