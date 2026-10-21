@@ -86,6 +86,8 @@ const state = {
   paused: false,
   // Plays the app drops (sent while it switches tracks).
   lostPlays: 0,
+  // At the end of the queue: jumps in the queue are ignored, next works.
+  ended: false,
   calls: [],
 };
 const queueResponse = () => ({
@@ -131,7 +133,12 @@ before(async () => {
       case "GET /queue":
         return send(200, queueResponse());
       case "PATCH /queue":
-        state.index = json.index;
+        if (!state.ended) state.index = json.index;
+        return send(204);
+      case "POST /next":
+        state.ended = false;
+        state.index = Math.min(state.index + 1, state.queue.length - 1);
+        state.paused = false;
         return send(204);
       case "GET /song": {
         const q = state.queue[state.index];
@@ -210,6 +217,20 @@ test("play presses play again when the first one is lost", async () => {
   assert.ok(!result.isError, result.content[0].text);
   const { nowPlaying } = JSON.parse(result.content[0].text);
   assert.equal(nowPlaying.videoId, "def456");
+  assert.equal(nowPlaying.isPaused, false);
+});
+
+test("play moves on with next when the ended queue ignores the jump", async () => {
+  state.paused = true;
+  state.ended = true;
+  const result = await client.callTool({
+    name: "play",
+    arguments: { videoId: "ghi789" },
+  });
+  state.ended = false;
+  assert.ok(!result.isError, result.content[0].text);
+  const { nowPlaying } = JSON.parse(result.content[0].text);
+  assert.equal(nowPlaying.videoId, "ghi789");
   assert.equal(nowPlaying.isPaused, false);
 });
 
