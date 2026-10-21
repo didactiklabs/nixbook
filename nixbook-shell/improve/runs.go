@@ -21,7 +21,7 @@ type Run struct {
 	// What it does right now, live: "Claude reads …", a check running.
 	Doing string `json:"doing,omitempty"`
 	// "" (going on), pr (open, waiting for the user), merged, skipped,
-	// too_big, failed, dropped, reverted.
+	// ignored, too_big, failed, dropped, reverted.
 	Outcome   string   `json:"outcome"`
 	Note      string   `json:"note,omitempty"`
 	Type      string   `json:"type,omitempty"` // fix, polish
