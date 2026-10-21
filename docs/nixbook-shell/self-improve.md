@@ -40,12 +40,12 @@ Things to fix arrive in an inbox. Filing them is plain code, with no model call,
 
 Logs stay on this computer: they go to the Claude session as context, never into a commit or a pull request.
 
-What you report, a failed update or a red CI get a fix soon. A shell or unit error has to show up 3 times first; a crash, a failed unit (two looks) or a Nix warning (two updates) twice. It makes at most `perDay` fixes on its own (2 by default). **Fix now** next to an item starts one at once, without counting toward that limit. Items it tried without fixing them (failed, skipped, too big) stay listed, with why, so **Fix now** can try again, after you give the token a missing permission for instance.
+What you report, a failed update or a red CI get a fix soon. A shell or unit error has to show up 3 times first; a crash, a failed unit (two looks) or a Nix warning (two updates) twice. It makes at most `perDay` fixes on its own (2 by default). **Fix now** next to an item starts one at once, without counting toward that limit. Items it tried without fixing them (failed, skipped, too big) stay listed, with why (but those it found harmless and unfixable, which leave on their own), so **Fix now** can try again, after you give the token a missing permission for instance.
 
 ## How a fix is made
 
 1. A clone of the repository (`~/.local/share/nixbook-shell/improve/repo`) is brought to `main`, on an `agent/fix-<item>` branch.
-2. A **Claude Code session** (your Claude Code login) reads the item and changes the files. It runs in `--restricted` mode: its file tools stay inside the clone, and it can't run commands, browse the web, or use settings, hooks or MCP servers. It never sees your files, your logins or a token. It may answer _skip_ (not a bug, or not enough to go on) or _too big_ (a feature or a refactor: you get a notification saying what a real change would be).
+2. A **Claude Code session** (your Claude Code login) reads the item and changes the files. It runs in `--restricted` mode: its file tools stay inside the clone, and it can't run commands, browse the web, or use settings, hooks or MCP servers. It never sees your files, your logins or a token. It may answer _skip_ (not a bug, or not enough to go on; when nothing here can fix it and it does no harm, such as another app's log noise, it is _ignored_: dropped from the list and never tried again) or _too big_ (a feature or a refactor: you get a notification saying what a real change would be).
 3. **The guard** refuses what isn't a fix: more than `maxFiles` files (5) or `maxLines` changed lines (150), a new file (except Markdown), a deleted or binary file, or anything off limits (below).
 4. **The checks** (on this computer):
    - `treefmt`;

@@ -27,7 +27,8 @@ type Item struct {
 	First int64  `json:"first"`
 	Last  int64  `json:"last"`
 	// new, working, pr (a PR is open), merged, skipped (not a bug, or not
-	// enough to go on), too_big (a feature or a refactor: a real session's
+	// enough to go on), ignored (skipped as harmless and unfixable: never
+	// tried again), too_big (a feature or a refactor: a real session's
 	// job), failed (its change never passed), dropped (by the user), gone
 	// (a failed unit running again, CI green again before a fix).
 	Status string `json:"status"`

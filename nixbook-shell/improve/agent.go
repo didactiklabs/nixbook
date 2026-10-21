@@ -32,6 +32,11 @@ If the problem needs more than that, answer outcome "too_big" and say what a
 real change would be. If it isn't a bug, is already fixed, or you can't find
 its cause in the code, answer "skip" and say why. Don't guess: a wrong fix
 costs more than none.
+With skip, set harmless when it can be left as it is for good: nothing in
+this repository can fix it and it does no harm (noise in a log, another
+app's or the kernel's message, a warning nixbook can't silence). It is then
+dropped and never tried again. Leave harmless out when the user notices it
+or it may break something, or when a fix may be possible with more to go on.
 
 These are off limits (a change to them is refused): .github/, tests/,
 nixbook-shell/tests/, nixbook-shell/improve/, SelfImprove.qml, the agent
@@ -64,7 +69,8 @@ Answer with:
 - body: the changelog entry, in plain sentences, wrapped at 72 columns: what
   was wrong (what the user saw), the cause, what you changed and where, and
   how to see it is fixed. 40 to 150 words;
-- reason: for skip and too_big, why.`
+- reason: for skip and too_big, why;
+- harmless: for skip, true when it can be ignored for good (see above).`
 
 var answerSchema = `{"type":"object","properties":{
 "outcome":{"type":"string","enum":["fixed","skip","too_big"]},
@@ -72,7 +78,8 @@ var answerSchema = `{"type":"object","properties":{
 "scope":{"type":"string"},
 "title":{"type":"string"},
 "body":{"type":"string"},
-"reason":{"type":"string"}},
+"reason":{"type":"string"},
+"harmless":{"type":"boolean"}},
 "required":["outcome"]}`
 
 type Answer struct {
@@ -82,6 +89,8 @@ type Answer struct {
 	Title   string `json:"title"`
 	Body    string `json:"body"`
 	Reason  string `json:"reason"`
+	// A skip that can be left for good: dropped, never tried again.
+	Harmless bool `json:"harmless,omitempty"`
 }
 
 type session struct {
@@ -250,7 +259,7 @@ func firstPrompt(it Item, context string) string {
 		fmt.Fprintf(&b, "A program nixbook packages (customPkgs/ or nixbook-shell) crashed %d times lately:\n\n", it.Count)
 	case "info":
 		b.WriteString("This was seen on the computer. It isn't obviously nixbook's: if no change to this repository " +
-			"can fix it (an upstream app's bug, hardware, the kernel), answer skip and say so.\n\n")
+			"can fix it (an upstream app's bug, hardware, the kernel), answer skip and say so, harmless if it does no harm.\n\n")
 	}
 	b.WriteString("    " + strings.ReplaceAll(it.Text, "\n", "\n    ") + "\n")
 	if it.Where != "" {

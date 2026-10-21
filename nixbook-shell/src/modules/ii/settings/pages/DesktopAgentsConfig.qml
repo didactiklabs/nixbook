@@ -482,7 +482,8 @@ ContentPage {
             }
 
             // What it has to fix: the user's reports first. Tried and not fixed
-            // too (failed, skipped, too big): Fix now tries again.
+            // too (failed, skipped, too big): Fix now tries again. What it
+            // skipped as harmless (ignored) isn't listed.
             Component {
                 id: inboxItem
                 RowLayout {
@@ -538,7 +539,7 @@ ContentPage {
             // doesn't define): to know; sent to Claude only by Fix now.
             StyledText {
                 Layout.fillWidth: true
-                visible: SelfImprove.inbox.some(i => i.kind === "info" && i.status !== "dropped")
+                visible: SelfImprove.inbox.some(i => i.kind === "info" && ["new", "failed", "skipped", "too_big"].includes(i.status))
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colOnLayer1
                 text: Translation.tr("Seen, not nixbook's (never sent to Claude unless you press Fix now)")

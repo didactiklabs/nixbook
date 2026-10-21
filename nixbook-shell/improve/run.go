@@ -181,6 +181,10 @@ func run(o runOpts) (map[string]any, error) {
 				// (a clone in a place it guards, ~/.claude…).
 				return end("failed", "Claude Code refused its edits: "+s.answer.Reason, "new")
 			}
+			if s.answer.Harmless {
+				// Nothing to fix and no harm left: out of the list for good.
+				return end("ignored", s.answer.Reason, "ignored")
+			}
 			return end("skipped", s.answer.Reason, "skipped")
 		case "too_big":
 			notify("Needs a real change: "+clip(it.Text, 80), clip(s.answer.Reason, 300), "low")
@@ -310,7 +314,7 @@ var stageText = map[string]string{
 }
 
 var outcomeText = map[string]string{
-	"skipped": "Skipped", "too_big": "Too big for a fix", "failed": "Failed", "checked": "Dry run done",
+	"skipped": "Skipped", "ignored": "Ignored, harmless", "too_big": "Too big for a fix", "failed": "Failed", "checked": "Dry run done",
 }
 
 var scopeRe = regexp.MustCompile(`[^a-z0-9./-]+`)
