@@ -576,7 +576,11 @@ sensitive. A merged fix's commit on main is watched; `health REV` reads
 the deployed shell's journal (its invocation) for new warnings in the
 fix's files, or restarts. Either offers a revert PR. CI's `agent-guard`
 runs `nixbook-improve guard` from the base branch on `agent/` PRs.
-`tests/improve.sh` runs it end to end with stand-ins for claude, gh and
+What it did and decided goes to `activity.json`, and a run's `doing` is
+updated live from Claude Code's `stream-json` tool calls and each check:
+Settings' status line and Activity and the bar robot's wrench show them;
+`stop` ends a run by its recorded PID (each call its own unit name, as a
+run waiting on CI keeps its unit for hours). `tests/improve.sh` runs it end to end with stand-ins for claude, gh and
 notify-send.
 
 **Initiative**: the agent speaks first, when something happens it can help

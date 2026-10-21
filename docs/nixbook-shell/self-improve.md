@@ -13,7 +13,7 @@ Elsewhere there is no Settings section, agents don't get the `report_problem` to
 
 ## Its GitHub token
 
-It reaches GitHub **only with its own token**, never your `gh` login or ssh key. Create a **fine-grained token** (GitHub → Settings → Developer settings → Fine-grained tokens) for the repository only. Set **Contents** and **Pull requests** to _Read and write_ and nothing else (no _Workflows_, no _Administration_). Paste it in the section's **GitHub token** field: **Save and check** checks that it can read the repository, then keeps it in your keyring (`secret-tool`, service `nixbook-improve`). It warns you about a classic token, which reaches every repository you can, and about an admin token. **Forget the token** removes it. Without a token it opens no pull request.
+It reaches GitHub **only with its own token**, never your `gh` login or ssh key. Create a **fine-grained token** (GitHub → Settings → Developer settings → Fine-grained tokens) for the repository only. Set **Contents** and **Pull requests** to _Read and write_ and nothing else (no _Workflows_, no _Administration_). Paste it in the section's **GitHub token** field: **Save and check** checks that it can read the repository, push and open pull requests (a dry-run push and a pull request from a branch that doesn't exist: nothing is created) and names a missing permission; then it keeps it in your keyring (`secret-tool`, service `nixbook-improve`). It warns you about a classic token, which reaches every repository you can, and about an admin token. **Forget the token** removes it. Without a token it opens no pull request.
 
 - `gh` runs with that token and an empty config directory, so it can't fall back to your login. git pushes and fetches over https with the token alone; an ssh repository URL is used as https.
 - The fixing session never has it: it isn't in its environment, and its file tools can't reach the keyring.
@@ -26,9 +26,10 @@ Things to fix arrive in an inbox. Filing them is plain code, with no model call:
 
 - **What you report.** Tell an agent something of nixbook is broken or annoying ("the bar's clock is cut off, report this"): its `report_problem` tool files it. You can also type it in Settings. Your words stay on this computer: the PR says it in the session's own words, since the repository is public.
 - **The shell's errors.** The QML errors the running shell prints (a `TypeError`, an `Unable to assign`, a binding loop…), read from its journal 10 minutes after it starts, then every 6 hours. A missing optional file or an icon the theme lacks isn't counted.
+- Each error keeps the revision the shell printing it ran (`/etc/nixos/version`). `main` may have moved since, so the session gets the lines around it at that revision and finds the same code on `main`.
 - **The desktop tools' crashes.** An exception in `nixbook-desktop-mcp`, as opposed to a refusal, read from its audit log.
 
-What you report gets a fix soon. An error has to show up 3 times first, and a crash twice. It makes at most `perDay` fixes on its own (2 by default). **Fix now** next to an item starts one at once, without counting toward that limit.
+What you report gets a fix soon. An error has to show up 3 times first, and a crash twice. It makes at most `perDay` fixes on its own (2 by default). **Fix now** next to an item starts one at once, without counting toward that limit. Items it tried without fixing them (failed, skipped, too big) stay listed, with why, so **Fix now** can try again, after you give the token a missing permission for instance.
 
 ## How a fix is made
 
@@ -46,9 +47,25 @@ What you report gets a fix soon. An error has to show up 3 times first, and a cr
 6. The branch is pushed and a **pull request** opened (label `agent-fix`), with what was checked and the files changed.
 7. Once **CI** finishes, a notification says **Fix ready** with **Merge**, **Look** and **Drop** (the same buttons are in Settings). If CI fails, the session gets the failed jobs' logs and tries once more, then the PR is left to you. Merge is a rebase merge, made with its token.
 
+## Seeing what it does
+
+- **The status line** at the top of the section always says something:
+  - _Off_, or that it needs its token;
+  - while fixing, _Fixing "…" — Claude reads ThumbnailImage.qml (3 min)_, live, with a progress bar and **Stop**;
+  - a PR waiting for CI or for you;
+  - otherwise _Idle_, with its last activity.
+- **Activity** lists what it did and decided lately:
+  - each look for bugs and what it found;
+  - why no fix was started (nothing seen often enough yet, with the counts; today's fixes made; no token);
+  - a fix's start, retries and end;
+  - CI, merges and reverts;
+  - errors.
+- **The bar.** The bar's robot shows a wrench while a fix is being made, and its tooltip says what it is doing.
+- **Stop** ends the fix being made before its PR is out: the Claude session and the checks are stopped, and the item goes back to the inbox.
+
 ## Merged on its own
 
-**Merge on its own once CI passes, when it only touched the docs** (`ai.improve.autoMerge`, off by default) merges a fix without asking when every file it changed matches `autoMergePaths` (`docs/**`, `**/*.md`) and none is sensitive. You get a notification after the merge.
+**Merge docs-only fixes on its own** (`ai.improve.autoMerge`, off by default) merges a fix without asking once CI passes, when every file it changed matches `autoMergePaths` (`docs/**`, `**/*.md`) and none is sensitive. You get a notification after the merge.
 
 ## Off limits
 
@@ -80,4 +97,4 @@ CI's guard always uses the default limits, so raising `maxFiles` or `maxLines` h
 
 ## Command line
 
-`nixbook-improve status` (the inbox and the runs), `note TEXT`, `collect`, `run [--item ID] [--no-push]` (`--no-push`: a dry run that stops at the local commit), `merge|drop|look PR`, `token set|forget|status` (`set` reads it on stdin), `health REV`, `guard BASE [HEAD]`. State lives in `~/.local/state/nixbook-shell/improve/`; the clone and each run's logs in `~/.local/share/nixbook-shell/improve/`.
+`nixbook-improve status` (the inbox and the runs), `stop`, `note TEXT`, `collect`, `run [--item ID] [--no-push]` (`--no-push`: a dry run that stops at the local commit), `merge|drop|look PR`, `token set|forget|status` (`set` reads it on stdin), `health REV`, `guard BASE [HEAD]`. State lives in `~/.local/state/nixbook-shell/improve/`; the clone and each run's logs in `~/.local/share/nixbook-shell/improve/`.

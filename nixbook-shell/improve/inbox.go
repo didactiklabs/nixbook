@@ -17,6 +17,10 @@ type Item struct {
 	Kind  string `json:"kind"` // user, qml, crash
 	Text  string `json:"text"`
 	Where string `json:"where,omitempty"` // a file or feature, when known
+	// A QML warning's line, and the revision the shell printing it ran
+	// (/etc/nixos/version): main may have moved since.
+	Line  int    `json:"line,omitempty"`
+	Rev   string `json:"rev,omitempty"`
 	Count int    `json:"count"`
 	First int64  `json:"first"`
 	Last  int64  `json:"last"`

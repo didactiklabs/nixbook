@@ -18,6 +18,8 @@ type Run struct {
 	Finished int64  `json:"finished,omitempty"`
 	// clone, fix, check, push, ci, ready, merged, health; done once over.
 	Stage string `json:"stage"`
+	// What it does right now, live: "Claude reads …", a check running.
+	Doing string `json:"doing,omitempty"`
 	// "" (going on), pr (open, waiting for the user), merged, skipped,
 	// too_big, failed, dropped, reverted.
 	Outcome   string   `json:"outcome"`
@@ -40,6 +42,8 @@ type Run struct {
 	Checked bool      `json:"checked,omitempty"` // the deployed shell was checked
 	Cost    float64   `json:"cost,omitempty"`
 	Session string    `json:"session,omitempty"`
+	// The process making it, until its PR is out: what Stop ends.
+	PID int `json:"pid,omitempty"`
 }
 
 const runsMax = 40

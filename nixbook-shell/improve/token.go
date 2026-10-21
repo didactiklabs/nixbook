@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,6 +53,40 @@ var gitAuth = []string{
 // user's key.
 func httpsURL(repo string) string { return "https://github.com/" + repo + ".git" }
 
+// probe: what the token can't do of what a fix needs ("" when it can),
+// tried without changing anything: a pull request from a branch that
+// doesn't exist (refused as invalid when allowed, as not accessible when
+// not), and a dry-run push (authenticated, nothing sent).
+func probe(tok, repo string) string {
+	var missing []string
+	out, err := cmdEnv("", time.Minute, "", ghEnv(tok), "gh", "api", "-X", "POST", "repos/"+repo+"/pulls",
+		"-f", "title=nixbook-improve permission check", "-f", "head=nixbook-improve-no-such-branch", "-f", "base=main")
+	if err == nil {
+		// Can't happen (no such branch): never leave a PR behind.
+		var pr struct{ Number int }
+		if json.Unmarshal([]byte(out), &pr) == nil && pr.Number > 0 {
+			cmdEnv("", time.Minute, "", ghEnv(tok), "gh", "pr", "close", itoa(pr.Number), "--repo", repo)
+		}
+	} else if !strings.Contains(out+err.Error(), "HTTP 422") {
+		missing = append(missing, "Pull requests: Read and write")
+	}
+	tmp, err := os.MkdirTemp("", "nixbook-improve-probe")
+	if err == nil {
+		defer os.RemoveAll(tmp)
+		git(tmp, "init", "--quiet")
+		git(tmp, "-c", "user.name=probe", "-c", "user.email=probe@localhost", "commit", "--quiet", "--allow-empty", "-m", "probe")
+		if _, err := cmdEnv(tmp, time.Minute, "", ghEnv(tok), "git", append(append([]string{}, gitAuth...),
+			"push", "--dry-run", httpsURL(repo), "HEAD:refs/heads/nixbook-improve-permission-check")...); err != nil {
+			missing = append([]string{"Contents: Read and write"}, missing...)
+		}
+	}
+	if len(missing) == 0 {
+		return ""
+	}
+	return "the token can read " + repo + " but lacks " + strings.Join(missing, " and ") +
+		" (GitHub > Settings > Developer settings > Fine-grained tokens > the token > Permissions)"
+}
+
 func tokenCmd(args []string) (any, error) {
 	if len(args) != 1 {
 		return nil, errorf("token set|forget|status")
@@ -86,6 +121,9 @@ func tokenCmd(args []string) (any, error) {
 		}
 		if err := ghJSONWith(tok, &r, "api", "repos/"+repo); err != nil {
 			return nil, errorf("the token can't read %s: %v", repo, err)
+		}
+		if why := probe(tok, repo); why != "" {
+			return nil, errorf("%s", why)
 		}
 		if _, err := cmd("", 20*time.Second, tok, "secret-tool", append([]string{
 			"store",

@@ -89,6 +89,7 @@ func check(repo, base string, changes []Change, runDir string) checkResult {
 	}
 	// treefmt formats what it knows (not the QML); its changes are kept.
 	if devenv != "" {
+		doing("Formatting (treefmt)")
 		if _, err := inDevenv(20*time.Minute, append([]string{"treefmt", "--no-cache"}, files...)...); err != nil {
 			// Not the change's fault: CI's lint job has the last word.
 			res.report = append(res.report, "- ⚠️ treefmt didn't run: "+clip(err.Error(), 200))
@@ -99,6 +100,7 @@ func check(repo, base string, changes []Change, runDir string) checkResult {
 	}
 
 	if touches(changes, "nixbook-shell/scripts/", "nixbook-shell/accounts/", "nixbook-shell/keep") {
+		doing("Running tests/run.sh shell")
 		if out, err := inDevenv(40*time.Minute, "bash", "tests/run.sh", "shell"); err != nil {
 			fail("tests/run.sh shell", out+err.Error())
 		} else {
@@ -106,6 +108,7 @@ func check(repo, base string, changes []Change, runDir string) checkResult {
 		}
 	}
 	if touches(changes, "*.nix") {
+		doing("Running tests/run.sh repo")
 		if out, err := inDevenv(40*time.Minute, "bash", "tests/run.sh", "repo"); err != nil {
 			fail("tests/run.sh repo", out+err.Error())
 		} else {
@@ -114,6 +117,7 @@ func check(repo, base string, changes []Change, runDir string) checkResult {
 	}
 
 	if touches(changes, "nixbook-shell/") {
+		doing("Starting the shell headless, as it was (once per revision)")
 		baseOK, before, err := baseline(repo, base)
 		res.before = before
 		switch {
@@ -122,6 +126,7 @@ func check(repo, base string, changes []Change, runDir string) checkResult {
 		default:
 			out := filepath.Join(runDir, "shell")
 			os.RemoveAll(out)
+			doing("Starting the shell headless, with the change")
 			_, lerr := cmd(repo, 15*time.Minute, "", "bash", filepath.Join(repo, "nixbook-shell/tests/shell-loads.sh"),
 				filepath.Join(repo, "nixbook-shell"), out)
 			log, _ := os.ReadFile(filepath.Join(out, "log.txt"))

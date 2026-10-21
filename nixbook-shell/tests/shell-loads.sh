@@ -21,12 +21,29 @@ mkdir -p "$out"
 # A short runtime dir: the scratch paths can be too long for a Unix socket.
 run=$(mktemp -d /tmp/shell-loads.XXXXXX)
 home=$(mktemp -d)
-sway_pid=
-shell_pid=
+# Every process of this load: whatever runs with its runtime dir. A process
+# group isn't enough, Quickshell's instance leaves it, and a leftover shell
+# and sway would hold their shared memory for good.
+ours() {
+  local p
+  for p in /proc/[0-9]*; do
+    if grep -qzx "XDG_RUNTIME_DIR=$run" "$p/environ" 2>/dev/null; then echo "${p#/proc/}"; fi
+  done
+  return 0
+}
+stop_all() {
+  local -a pids
+  mapfile -t pids < <(ours)
+  [ "${#pids[@]}" = 0 ] || kill "${pids[@]}" 2>/dev/null || true
+  for _ in $(seq 30); do
+    [ -n "$(ours)" ] || return 0
+    sleep 0.1
+  done
+  mapfile -t pids < <(ours)
+  [ "${#pids[@]}" = 0 ] || kill -9 "${pids[@]}" 2>/dev/null || true
+}
 cleanup() {
-  # The shell's own children (cliphist, its helper scripts) go with it.
-  [ -z "$shell_pid" ] || kill -- -"$shell_pid" 2>/dev/null || true
-  [ -z "$sway_pid" ] || kill "$sway_pid" 2>/dev/null || true
+  stop_all
   wait 2>/dev/null || true
   rm -rf "$run" "$home" 2>/dev/null || true
 }
@@ -43,7 +60,6 @@ ln -s "$config" "$home/config/quickshell/nixbook-shell"
 printf 'output HEADLESS-1 resolution 1280x800\nxwayland disable\n' >"$home/sway.cfg"
 XDG_RUNTIME_DIR=$run WAYLAND_DISPLAY='' WLR_BACKENDS=headless WLR_RENDERER=pixman \
   WLR_LIBINPUT_NO_DEVICES=1 sway -c "$home/sway.cfg" >"$out/sway.txt" 2>&1 &
-sway_pid=$!
 display=
 for _ in $(seq 100); do
   display=$(find "$run" -maxdepth 1 -name 'wayland-*' ! -name '*.lock' -printf '%f\n' | head -n 1)
@@ -55,7 +71,7 @@ done
   exit 1
 }
 
-setsid env XDG_RUNTIME_DIR="$run" WAYLAND_DISPLAY="$display" QT_QUICK_BACKEND=software LANG=C.UTF-8 \
+env XDG_RUNTIME_DIR="$run" WAYLAND_DISPLAY="$display" QT_QUICK_BACKEND=software LANG=C.UTF-8 \
   XDG_CONFIG_HOME="$home/config" XDG_STATE_HOME="$home/state" XDG_CACHE_HOME="$home/cache" \
   XDG_DATA_HOME="$home/data" "$package/bin/nixbook-shell" >"$out/raw.txt" 2>&1 &
 shell_pid=$!
@@ -64,10 +80,9 @@ up=0
 if kill -0 "$shell_pid" 2>/dev/null; then
   up=1
   XDG_RUNTIME_DIR=$run WAYLAND_DISPLAY=$display grim "$out/screen.png" 2>/dev/null || true
-  kill -- -"$shell_pid" 2>/dev/null || true
 fi
+stop_all
 wait "$shell_pid" 2>/dev/null || true
-shell_pid=
 sed 's/\x1b\[[0-9;]*m//g' "$out/raw.txt" >"$out/log.txt"
 rm -f "$out/raw.txt"
 if [ "$up" != 1 ]; then

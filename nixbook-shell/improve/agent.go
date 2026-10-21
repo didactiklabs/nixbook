@@ -1,8 +1,13 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/exec"
 	"strings"
 	"time"
 )
@@ -92,7 +97,7 @@ func ask(cfg Config, dir, prompt, resume string, fixLimits Limits) (session, err
 		return session{}, errorf("no Claude Code (claude) found")
 	}
 	args := []string{
-		"-p", "--restricted", "--safe-mode", "--strict-mcp-config", "--output-format", "json",
+		"-p", "--restricted", "--safe-mode", "--strict-mcp-config", "--output-format", "stream-json", "--verbose",
 		"--tools", "Read,Edit,Write,Glob,Grep", "--permission-mode", "acceptEdits",
 		"--model", cfg.Model, "--max-turns", "60", "--max-budget-usd", fmt.Sprintf("%.2f", cfg.BudgetUsd),
 		"--append-system-prompt", fmt.Sprintf(agentRules, fixLimits.Files, fixLimits.Lines),
@@ -101,7 +106,27 @@ func ask(cfg Config, dir, prompt, resume string, fixLimits Limits) (session, err
 	if resume != "" {
 		args = append(args, "--resume", resume)
 	}
-	out, err := cmd(dir, 40*time.Minute, prompt, cfg.claude, args...)
+	// Streamed: each tool call shows live (doing), the result comes last.
+	out, err := stream(dir, 40*time.Minute, prompt, func(line string) {
+		var ev struct {
+			Type    string `json:"type"`
+			Message struct {
+				Content []struct {
+					Type  string         `json:"type"`
+					Name  string         `json:"name"`
+					Input map[string]any `json:"input"`
+				} `json:"content"`
+			} `json:"message"`
+		}
+		if json.Unmarshal([]byte(line), &ev) != nil || ev.Type != "assistant" {
+			return
+		}
+		for _, c := range ev.Message.Content {
+			if c.Type == "tool_use" {
+				doing(describeTool(c.Name, c.Input, dir))
+			}
+		}
+	}, cfg.claude, args...)
 	var res struct {
 		IsError    bool            `json:"is_error"`
 		Subtype    string          `json:"subtype"`
@@ -125,6 +150,43 @@ func ask(cfg Config, dir, prompt, resume string, fixLimits Limits) (session, err
 	return s, nil
 }
 
+// stream runs a command, handing each line of its output to onLine as it
+// comes; the output whole, and an error with its end.
+func stream(dir string, limit time.Duration, stdin string, onLine func(string), name string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), limit)
+	defer cancel()
+	c := exec.CommandContext(ctx, name, args...)
+	c.Dir = dir
+	c.Env = append(append(os.Environ(), secretEnv...), "GIT_TERMINAL_PROMPT=0")
+	c.Stdin = strings.NewReader(stdin)
+	var errb bytes.Buffer
+	c.Stderr = &errb
+	pipe, err := c.StdoutPipe()
+	if err != nil {
+		return "", err
+	}
+	if err := c.Start(); err != nil {
+		return "", err
+	}
+	var out strings.Builder
+	sc := bufio.NewScanner(pipe)
+	// A Write's whole file is on one line.
+	sc.Buffer(make([]byte, 64*1024), 64<<20)
+	for sc.Scan() {
+		line := sc.Text()
+		out.WriteString(line + "\n")
+		onLine(line)
+	}
+	err = c.Wait()
+	if ctx.Err() == context.DeadlineExceeded {
+		return out.String(), errorf("%s: timed out after %s", name, limit)
+	}
+	if err != nil {
+		return out.String(), errorf("%s: %v: %s", name, err, tail(strings.TrimSpace(errb.String()), 1500))
+	}
+	return out.String(), nil
+}
+
 func lastJSONLine(out string) string {
 	lines := strings.Split(strings.TrimSpace(out), "\n")
 	for i := len(lines) - 1; i >= 0; i-- {
@@ -136,7 +198,35 @@ func lastJSONLine(out string) string {
 }
 
 // firstPrompt: the item, as the session gets it.
-func firstPrompt(it Item) string {
+// atRev: the lines around a QML warning in the revision that printed it
+// (the clone has its history; main may have moved since), "" if unknown.
+func atRev(repo string, it Item) string {
+	if it.Kind != "qml" || it.Rev == "" || it.Line <= 0 {
+		return ""
+	}
+	src, err := git(repo, "show", it.Rev+":"+it.Where)
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(src, "\n")
+	from, to := max(it.Line-8, 1), min(it.Line+8, len(lines))
+	if from > to {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "\nThe line numbers are from revision %s, which the shell printing it runs; main may have moved since. There, %s:\n", it.Rev[:min(len(it.Rev), 12)], it.Where)
+	for i := from; i <= to; i++ {
+		mark := "  "
+		if i == it.Line {
+			mark = "> "
+		}
+		fmt.Fprintf(&b, "%s%5d  %s\n", mark, i, lines[i-1])
+	}
+	b.WriteString("Find the same code on main and fix it there.\n")
+	return b.String()
+}
+
+func firstPrompt(it Item, context string) string {
 	var b strings.Builder
 	switch it.Kind {
 	case "user":
@@ -150,6 +240,7 @@ func firstPrompt(it Item) string {
 	if it.Where != "" {
 		fmt.Fprintf(&b, "\nWhere: %s\n", it.Where)
 	}
+	b.WriteString(context)
 	if it.Note != "" {
 		fmt.Fprintf(&b, "\nLast time: %s\n", it.Note)
 	}

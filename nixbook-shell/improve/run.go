@@ -68,10 +68,16 @@ func run(o runOpts) (map[string]any, error) {
 	if !available() {
 		return nil, errUnavailable
 	}
+	// notStarted: no fix this time, and why (in the activity too).
+	notStarted := func(why string) (map[string]any, error) {
+		logEvent("wait", "No fix started: "+why)
+		return map[string]any{"ran": false, "why": why}, nil
+	}
 	if !cfg.Enable {
-		return map[string]any{"ran": false, "why": "off (Settings > Desktop agents)"}, nil
+		return notStarted("it's off (Settings > Desktop agents)")
 	}
 	if !o.noPush && token() == "" {
+		logEvent("error", errNoToken.Error())
 		return nil, errNoToken
 	}
 	unlock, err := lock("run.lock", false)
@@ -82,13 +88,13 @@ func run(o runOpts) (map[string]any, error) {
 		return nil, err
 	}
 	defer unlock()
-	interrupted()
+	interrupted("interrupted")
 	rs, err := readRuns()
 	if err != nil {
 		return nil, err
 	}
 	if o.auto && runsToday(rs) >= cfg.PerDay {
-		return map[string]any{"ran": false, "why": "today's fixes are made"}, nil
+		return notStarted(fmt.Sprintf("today's fixes are made (%d a day; Fix now still works)", cfg.PerDay))
 	}
 	repoName := ghRepo(cfg.Repo)
 	if repoName == "" {
@@ -96,6 +102,7 @@ func run(o runOpts) (map[string]any, error) {
 	}
 
 	var it Item
+	var waiting string
 	now := nowMs()
 	_, err = editInbox(func(in *Inbox) error {
 		var p *Item
@@ -107,6 +114,7 @@ func run(o runOpts) (map[string]any, error) {
 				return errorf("item %s is being fixed already", o.item)
 			}
 		} else if p = in.pick(now); p == nil {
+			waiting = waitingSummary(*in)
 			return errNothing
 		}
 		p.Status, p.Tried, p.TriedCount = "working", now, p.Count
@@ -114,7 +122,7 @@ func run(o runOpts) (map[string]any, error) {
 		return nil
 	})
 	if errors.Is(err, errNothing) {
-		return map[string]any{"ran": false, "why": "nothing to fix"}, nil
+		return notStarted(waiting)
 	}
 	if err != nil {
 		return nil, err
@@ -123,13 +131,19 @@ func run(o runOpts) (map[string]any, error) {
 	id := newRunID()
 	runDir := filepath.Join(dataDir(), "runs", id)
 	os.MkdirAll(runDir, 0o700)
-	stage := func(s string) { editRun(id, func(r *Run) { r.Stage = s }) }
+	stage := func(s string) { editRun(id, func(r *Run) { r.Stage, r.Doing = s, stageText[s] }) }
 	editRun(id, func(r *Run) {
-		r.Item, r.ItemText, r.Manual, r.Stage = it.ID, clip(it.Text, 200), !o.auto, "clone"
+		r.Item, r.ItemText, r.Manual, r.Stage, r.Doing = it.ID, clip(it.Text, 200), !o.auto, "clone", stageText["clone"]
+		r.PID = os.Getpid()
 	})
+	doing = doingFor(id)
+	logEvent("start", "Fixing: "+clip(it.Text, 200))
 	// end: the run is over, and so the item's try.
 	end := func(outcome, note, status string) (map[string]any, error) {
-		r, _ := editRun(id, func(r *Run) { r.Outcome, r.Note, r.Stage, r.Finished = outcome, clip(note, 600), "done", nowMs() })
+		r, _ := editRun(id, func(r *Run) {
+			r.Outcome, r.Note, r.Stage, r.Doing, r.Finished = outcome, clip(note, 600), "done", "", nowMs()
+		})
+		logEvent("done", outcomeText[outcome]+": "+clip(note, 300))
 		editInbox(func(in *Inbox) error {
 			if p := in.find(it.ID); p != nil {
 				p.Status, p.Note = status, clip(note, 300)
@@ -148,7 +162,7 @@ func run(o runOpts) (map[string]any, error) {
 	lim := Limits{cfg.MaxFiles, cfg.MaxLines}
 
 	stage("fix")
-	s, err := ask(cfg, repo, firstPrompt(it), "", lim)
+	s, err := ask(cfg, repo, firstPrompt(it, atRev(repo, it)), "", lim)
 	cost := s.cost
 	editRun(id, func(r *Run) { r.Session, r.Cost = s.id, cost })
 	if err != nil {
@@ -187,6 +201,7 @@ func run(o runOpts) (map[string]any, error) {
 		if try == 1 {
 			return end("failed", strings.Join(strings.Fields(feedback), " "), "failed")
 		}
+		logEvent("retry", "Its change didn't pass ("+clip(firstLine(feedback), 120)+"): Claude tries again")
 		stage("fix")
 		s, err = ask(cfg, repo, "Your change didn't pass its checks:\n\n"+feedback+
 			"\nFix that (within the same rules), or answer skip or too_big.", s.id, lim)
@@ -223,11 +238,16 @@ func run(o runOpts) (map[string]any, error) {
 	url, err := ghIn(2*time.Minute, prBody(s.answer, it, res.report, changes, sensitiveFiles), "pr", "create",
 		"--repo", repoName, "--base", "main", "--head", branch, "--title", title, "--label", "agent-fix", "--body-file", "-")
 	if err != nil {
+		if strings.Contains(err.Error(), "not accessible by personal access token") {
+			return end("failed", "the token can't open pull requests: give it Pull requests: Read and write "+
+				"(GitHub > Settings > Developer settings > Fine-grained tokens), then Fix now", "failed")
+		}
 		return end("failed", "the pull request: "+err.Error(), "failed")
 	}
 	url = strings.TrimSpace(url)
 	pr := atoi(url[strings.LastIndex(url, "/")+1:])
-	editRun(id, func(r *Run) { r.PR, r.URL, r.Outcome = pr, url, "pr" })
+	editRun(id, func(r *Run) { r.PR, r.URL, r.Outcome, r.Doing = pr, url, "pr", "" })
+	logEvent("pr", fmt.Sprintf("Opened #%d: %s — CI runs now", pr, title))
 	editInbox(func(in *Inbox) error {
 		if p := in.find(it.ID); p != nil {
 			p.Status, p.PR = "pr", pr
@@ -241,7 +261,7 @@ func run(o runOpts) (map[string]any, error) {
 // interrupted ends the runs a stopped process left going (a reboot, the
 // unit's time limit). Only called under the run lock: until its PR is out,
 // a run holds it, so none of them is still going.
-func interrupted() {
+func interrupted(note string) {
 	rs, err := readRuns()
 	if err != nil {
 		return
@@ -249,7 +269,8 @@ func interrupted() {
 	var items []string
 	for _, r := range rs {
 		if r.Outcome == "" {
-			editRun(r.ID, func(x *Run) { x.Outcome, x.Note, x.Stage, x.Finished = "failed", "interrupted", "done", nowMs() })
+			editRun(r.ID, func(x *Run) { x.Outcome, x.Note, x.Stage, x.Doing, x.Finished = "failed", note, "done", "", nowMs() })
+			logEvent("done", "Stopped: "+clip(r.ItemText, 120)+" ("+note+")")
 			items = append(items, r.Item)
 		}
 	}
@@ -257,12 +278,24 @@ func interrupted() {
 		editInbox(func(in *Inbox) error {
 			for _, id := range items {
 				if p := in.find(id); p != nil && p.Status == "working" {
-					p.Status, p.Note = "new", "interrupted"
+					p.Status, p.Note = "new", note
 				}
 			}
 			return nil
 		})
 	}
+}
+
+// In words, for Settings and the activity.
+var stageText = map[string]string{
+	"clone": "Getting the repository up to date",
+	"fix":   "Claude looks for the cause",
+	"check": "Checking the change",
+	"push":  "Pushing and opening the pull request",
+}
+
+var outcomeText = map[string]string{
+	"skipped": "Skipped", "too_big": "Too big for a fix", "failed": "Failed", "checked": "Dry run done",
 }
 
 var scopeRe = regexp.MustCompile(`[^a-z0-9./-]+`)
