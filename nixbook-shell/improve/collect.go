@@ -11,39 +11,77 @@ import (
 	"time"
 )
 
-// collect files what the shell's log and the desktop tools' audit log
-// showed since the last time: plain reading and counting, no model.
+// collect files what was seen since the last time: the shell's QML
+// errors, the desktop tools' crashes, failed units and their logs, the
+// last update, CI on main, coredumps, the kernel (sources.go). Plain
+// reading and counting, no model; a source it can't read is skipped.
 func collect() (map[string]any, error) {
-	var found, fresh int
-	in, err := editInbox(func(in *Inbox) error {
-		since := in.LastCollect
-		if since == 0 {
-			since = nowMs() - 24*3600*1000
-		}
-		now := nowMs()
-		log, err := shellLog(since)
-		if err != nil {
-			return err
-		}
+	var prev Inbox
+	readJSON(inboxPath(), &prev)
+	since := prev.LastCollect
+	if since == 0 {
+		since = nowMs() - 24*3600*1000
+	}
+	cfg, _ := loadConfig()
+	o := loadOwned()
+
+	// Read first, file after: the inbox stays locked only for the filing.
+	var fs []found
+	var skipped []string
+	if log, err := shellLog(since); err != nil {
+		skipped = append(skipped, "the shell's log")
+	} else {
 		ws, counts := uniqueWarnings(parseWarnings(log))
-		rev := deployedRev()
 		for _, w := range ws {
 			// A warning printed in a loop counts a few times, not hundreds.
-			n := min(counts[w.key()], 5)
-			it := in.add("qml", "qml:"+w.key(), fmt.Sprintf("The shell prints %q (%s:%d).", w.Msg, w.File, w.Line),
-				w.File, n, now)
-			if it.Count == n {
-				fresh++
-			}
-			it.Line, it.Rev = w.Line, rev
-			found++
+			fs = append(fs, found{
+				kind: "qml", key: "qml:" + w.key(), where: w.File, times: min(counts[w.key()], 5),
+				text: fmt.Sprintf("The shell prints %q (%s:%d).", w.Msg, w.File, w.Line), ref: itoa(w.Line),
+			})
 		}
-		for _, c := range toolCrashes(since) {
-			if in.add("crash", "crash:"+c.tool+":"+c.msg, fmt.Sprintf("The desktop tool %s crashed: %s", c.tool, c.msg),
-				"nixbook-shell/scripts/desktop-mcp.py", 1, now).Count == 1 {
+	}
+	for _, c := range toolCrashes(since) {
+		fs = append(fs, found{
+			kind: "crash", key: "crash:" + c.tool + ":" + c.msg, times: 1,
+			text: fmt.Sprintf("The desktop tool %s crashed: %s", c.tool, c.msg), where: "nixbook-shell/scripts/desktop-mcp.py",
+		})
+	}
+	failed, stillFailed := failedUnits(o)
+	fs = append(fs, failed...)
+	fs = append(fs, unitErrors(o, since)...)
+	fs = append(fs, deploy(since)...)
+	ci, stillRed, ciRead := ciFailures(ghRepo(cfg.Repo))
+	fs = append(fs, ci...)
+	fs = append(fs, coredumps(o, since)...)
+	fs = append(fs, kernelErrors(since)...)
+
+	rev := deployedRev()
+	byKind := map[string]int{}
+	var fresh, gone int
+	in, err := editInbox(func(in *Inbox) error {
+		now := nowMs()
+		for _, f := range fs {
+			it := in.add(f.kind, f.key, f.text, f.where, f.times, now)
+			if it.Count == f.times {
 				fresh++
 			}
-			found++
+			if f.kind == "qml" {
+				it.Line, it.Rev = atoi(f.ref), rev
+			} else if f.ref != "" {
+				it.Ref = f.ref
+			}
+			byKind[f.kind]++
+		}
+		// A unit running again, a workflow green again: nothing left to fix.
+		for i := range in.Items {
+			it := &in.Items[i]
+			if it.Status != "new" {
+				continue
+			}
+			if (it.Kind == "service" && !stillFailed[it.Key]) || (it.Kind == "ci" && ciRead && !stillRed[it.Key]) {
+				it.Status, it.Note = "gone", "fixed meanwhile"
+				gone++
+			}
 		}
 		in.LastCollect = now
 		return nil
@@ -52,13 +90,31 @@ func collect() (map[string]any, error) {
 		logEvent("error", "Looking for bugs: "+err.Error())
 		return nil, err
 	}
-	switch {
-	case found == 0:
-		logEvent("look", "Looked for bugs in the shell's log and the tools' crashes: nothing new")
-	default:
-		logEvent("look", fmt.Sprintf("Looked for bugs: %d new, %d seen again", fresh, found-fresh))
+	what := "nothing new"
+	if len(fs) > 0 {
+		var parts []string
+		for _, k := range []string{"qml", "crash", "service", "log", "deploy", "warning", "ci", "coredump", "info"} {
+			if byKind[k] > 0 {
+				parts = append(parts, fmt.Sprintf("%d %s", byKind[k], kindText[k]))
+			}
+		}
+		what = fmt.Sprintf("%d new, %d seen again (%s)", fresh, len(fs)-fresh, strings.Join(parts, ", "))
 	}
-	return map[string]any{"found": found, "new": fresh, "items": len(in.Items)}, nil
+	if gone > 0 {
+		what += fmt.Sprintf("; %d gone by themselves", gone)
+	}
+	if len(skipped) > 0 {
+		what += "; couldn't read " + strings.Join(skipped, ", ")
+	}
+	logEvent("look", "Looked for bugs: "+what)
+	return map[string]any{"found": len(fs), "new": fresh, "gone": gone, "items": len(in.Items)}, nil
+}
+
+// In words, for the activity.
+var kindText = map[string]string{
+	"qml": "shell errors", "crash": "tool crashes", "service": "failed units", "log": "unit errors",
+	"deploy": "failed updates", "warning": "Nix warnings", "ci": "CI failures", "coredump": "crashes",
+	"info": "not nixbook's",
 }
 
 // shellLog: the nixbook-shell unit's journal since then (NIXBOOK_IMPROVE_LOG,

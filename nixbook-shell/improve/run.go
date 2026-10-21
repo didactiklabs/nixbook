@@ -162,7 +162,7 @@ func run(o runOpts) (map[string]any, error) {
 	lim := Limits{cfg.MaxFiles, cfg.MaxLines}
 
 	stage("fix")
-	s, err := ask(cfg, repo, firstPrompt(it, atRev(repo, it)), "", lim)
+	s, err := ask(cfg, repo, firstPrompt(it, contextFor(repoName, repo, it)), "", lim)
 	cost := s.cost
 	editRun(id, func(r *Run) { r.Session, r.Cost = s.id, cost })
 	if err != nil {
@@ -333,6 +333,25 @@ func commitMessage(a Answer, it Item) string {
 	return b.String()
 }
 
+// contextFor: what the session gets besides the item: the code at the
+// revision that printed a QML warning, the failed jobs' logs of CI.
+func contextFor(repoName, repo string, it Item) string {
+	switch it.Kind {
+	case "qml":
+		return atRev(repo, it)
+	case "ci":
+		if it.Ref == "" {
+			return ""
+		}
+		logs, _ := ghIn(3*time.Minute, "", "run", "view", it.Ref, "--repo", repoName, "--log-failed")
+		if logs == "" {
+			return ""
+		}
+		return "\nThe failed jobs' logs (their end):\n" + tail(logs, 6000) + "\n"
+	}
+	return ""
+}
+
 // reported: what the fix answers, without the user's words (the
 // repository is public; the session's body says it in its own).
 func reported(it Item) string {
@@ -341,6 +360,20 @@ func reported(it Item) string {
 		return fmt.Sprintf("Seen %d times in the shell's log.", it.Count)
 	case "crash":
 		return fmt.Sprintf("The desktop tool crashed %d times.", it.Count)
+	case "service":
+		return "A unit nixbook defines had failed on the machine."
+	case "log":
+		return fmt.Sprintf("A unit nixbook defines logged the error %d times.", it.Count)
+	case "deploy":
+		return "The system update failed on the machine."
+	case "warning":
+		return "The system update printed a Nix warning."
+	case "ci":
+		return "CI failed on main."
+	case "coredump":
+		return fmt.Sprintf("A program nixbook packages crashed %d times.", it.Count)
+	case "info":
+		return "Seen on the machine; fixed on the user's request."
 	}
 	return "Reported by the user."
 }

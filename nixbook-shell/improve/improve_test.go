@@ -213,3 +213,45 @@ func TestWrap(t *testing.T) {
 		t.Errorf("wrap:\n%s\nwant:\n%s", got, want)
 	}
 }
+
+func TestOwned(t *testing.T) {
+	o := owned{
+		system: map[string]bool{"nixos-upgrade-manual": true}, user: map[string]bool{"nixbook-habits": true, "nixbook-agent-desktop@": true},
+		packages: []string{"youtube-music-mcp"},
+	}
+	for _, c := range []struct {
+		scope, unit string
+		want        bool
+	}{
+		{"user", "nixbook-habits.service", true},
+		{"user", "nixbook-agent-desktop@2.service", true},
+		{"user", "pipewire.service", false},
+		{"system", "nixos-upgrade-manual.service", true},
+		{"system", "home-manager-khoa.service", true},
+		{"system", "bluetooth.service", false},
+		{"user", "nixos-upgrade-manual.service", false},
+	} {
+		if got := o.unit(c.scope, c.unit); got != c.want {
+			t.Errorf("unit(%s, %s) = %v", c.scope, c.unit, got)
+		}
+	}
+	if n := storeName("/nix/store/abc123-youtube-music-mcp-0.4.1/bin/youtube-music-mcp"); n != "youtube-music-mcp-0.4.1" {
+		t.Errorf("storeName: %q", n)
+	}
+	if storeName("/usr/bin/zen") != "" {
+		t.Error("storeName outside the store")
+	}
+}
+
+func TestInfoNeverRipe(t *testing.T) {
+	var in Inbox
+	in.add("info", "info:kernel:x", "Kernel: x", "", 5, 1)
+	in.add("ci", "ci:Checks", "CI fails", "", 1, 1)
+	if p := in.pick(2); p == nil || p.Kind != "ci" {
+		t.Fatalf("picked %+v", p)
+	}
+	in.find(itemID("ci:Checks")).Status = "pr"
+	if p := in.pick(2); p != nil {
+		t.Errorf("info picked: %+v", p)
+	}
+}

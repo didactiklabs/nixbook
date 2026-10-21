@@ -553,6 +553,11 @@ in desktop-mcp.json, which also lists `report_problem`; then
 `improve.nix`) keeps an inbox in `~/.local/state/nixbook-shell/improve/`
 (the user's reports: the `report_problem` tool and Settings; the shell's
 QML errors from its journal; the desktop tools' `crash:` audit entries;
+`sources.go`: failed units and `err` journal lines of the units nixbook
+defines (`owned.json` from the nixbook HM module, `/etc/nixbook/owned-units.json`
+from nixosModules/ownedUnits.nix), the last `osupdate` (failure, Nix
+warnings), CI on main, coredumps of its packages; the rest (other units,
+apps, the kernel) as never-ripe `info` items; only what the user can read;
 `collect` is plain reading). `services/SelfImprove.qml` starts it in user
 units of its own (systemd-run, the shell's `PATH` and Claude Code's path):
 `run --auto` when a report comes in or a collect made an item ripe, at

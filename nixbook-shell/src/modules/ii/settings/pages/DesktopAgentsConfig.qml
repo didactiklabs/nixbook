@@ -254,7 +254,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("Claude fixes nixbook itself: fixes and polish only (a bug, a rough edge, wording), never a new feature or a big change — those it leaves for you. What to fix: what you tell an agent is broken (\"report this\") or write below (your words stay on this computer: the PR says it in its own), the errors the shell prints, the desktop tools' crashes. Each fix is made in a clone of the repository by a Claude Code session that can only edit files there (no commands, none of your files or logins), checked (its size and files, the tests, the shell started headless with no new error), committed with a changelog entry and opened as a pull request. Once CI passes you get Merge, Look, Drop; nothing reaches main without you, but what you let merge on its own. After a merge, main's checks and the updated shell are watched, and a revert is offered if it broke something. Its sandbox, the tests, CI and its own code are off limits; what agents may do is never merged on its own. It reaches GitHub only with its own token, below (never your gh login or ssh key; Claude never sees it), and uses your Claude Code; at most %1 a day.").arg(Config.options.ai.improve.perDay)
+                text: Translation.tr("Claude fixes nixbook itself: fixes and polish only (a bug, a rough edge, wording), never a new feature or a big change — those it leaves for you. What to fix: what you tell an agent is broken (\"report this\") or write below (your words stay on this computer: the PR says it in its own), the errors the shell prints, the desktop tools' crashes, failed units and errors in the logs of what nixbook defines, a failed update or Nix warning, CI red on main, crashes of nixbook's programs (only what you can already read; what isn't nixbook's is listed below, never sent unasked). Each fix is made in a clone of the repository by a Claude Code session that can only edit files there (no commands, none of your files or logins), checked (its size and files, the tests, the shell started headless with no new error), committed with a changelog entry and opened as a pull request. Once CI passes you get Merge, Look, Drop; nothing reaches main without you, but what you let merge on its own. After a merge, main's checks and the updated shell are watched, and a revert is offered if it broke something. Its sandbox, the tests, CI and its own code are off limits; what agents may do is never merged on its own. It reaches GitHub only with its own token, below (never your gh login or ssh key; Claude never sees it), and uses your Claude Code; at most %1 a day.").arg(Config.options.ai.improve.perDay)
             }
 
             // What it is doing now, or why nothing: always shown.
@@ -439,17 +439,18 @@ ContentPage {
                 }
             }
 
-            // What it has to fix: the user's reports first.
-            Repeater {
-                // Tried and not fixed too (failed, skipped, too big): Fix now tries again.
-                model: SelfImprove.inbox.filter(i => ["new", "failed", "skipped", "too_big"].includes(i.status))
-                delegate: RowLayout {
+            // What it has to fix: the user's reports first. Tried and not fixed
+            // too (failed, skipped, too big): Fix now tries again.
+            Component {
+                id: inboxItem
+                RowLayout {
                     id: itemRow
                     required property var modelData
                     Layout.fillWidth: true
                     spacing: 10
                     MaterialSymbol {
-                        text: itemRow.modelData.kind === "user" ? "person" : itemRow.modelData.kind === "crash" ? "bug_report" : "warning"
+                        text: ({ user: "person", crash: "bug_report", coredump: "bug_report", service: "dns", log: "receipt_long",
+                                 deploy: "system_update", warning: "warning", ci: "fact_check", qml: "code", info: "info" })[itemRow.modelData.kind] ?? "warning"
                         iconSize: Appearance.font.pixelSize.larger
                         color: Appearance.colors.colOnLayer1
                     }
@@ -460,7 +461,8 @@ ContentPage {
                             Layout.fillWidth: true
                             wrapMode: Text.WordWrap
                             color: Appearance.colors.colOnLayer1
-                            text: itemRow.modelData.text
+                            // A failed unit carries its last log lines: the first few here.
+                            text: itemRow.modelData.text.split("\n").slice(0, 3).join("\n")
                         }
                         StyledText {
                             Layout.fillWidth: true
@@ -485,6 +487,23 @@ ContentPage {
                         onClicked: SelfImprove.dropItem(itemRow.modelData.id)
                     }
                 }
+            }
+            Repeater {
+                model: SelfImprove.inbox.filter(i => i.kind !== "info" && ["new", "failed", "skipped", "too_big"].includes(i.status))
+                delegate: inboxItem
+            }
+            // What isn't nixbook's (another app's crash, the kernel, a unit it
+            // doesn't define): to know; sent to Claude only by Fix now.
+            StyledText {
+                Layout.fillWidth: true
+                visible: SelfImprove.inbox.some(i => i.kind === "info" && i.status !== "dropped")
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colOnLayer1
+                text: Translation.tr("Seen, not nixbook's (never sent to Claude unless you press Fix now)")
+            }
+            Repeater {
+                model: SelfImprove.inbox.filter(i => i.kind === "info" && ["new", "failed", "skipped", "too_big"].includes(i.status)).slice(0, 10)
+                delegate: inboxItem
             }
 
             // What it did and decided lately (activity.json), newest first.

@@ -19,14 +19,17 @@ type Item struct {
 	Where string `json:"where,omitempty"` // a file or feature, when known
 	// A QML warning's line, and the revision the shell printing it ran
 	// (/etc/nixos/version): main may have moved since.
-	Line  int    `json:"line,omitempty"`
-	Rev   string `json:"rev,omitempty"`
+	Line int    `json:"line,omitempty"`
+	Rev  string `json:"rev,omitempty"`
+	// A CI item's failed run (its logs go to the session).
+	Ref   string `json:"ref,omitempty"`
 	Count int    `json:"count"`
 	First int64  `json:"first"`
 	Last  int64  `json:"last"`
 	// new, working, pr (a PR is open), merged, skipped (not a bug, or not
 	// enough to go on), too_big (a feature or a refactor: a real session's
-	// job), failed (its change never passed), dropped (by the user).
+	// job), failed (its change never passed), dropped (by the user), gone
+	// (a failed unit running again, CI green again before a fix).
 	Status string `json:"status"`
 	Note   string `json:"note,omitempty"` // why it was skipped, failed…
 	PR     int    `json:"pr,omitempty"`
@@ -77,8 +80,9 @@ func (in *Inbox) add(kind, key, text, where string, times int, now int64) *Item 
 		it := &in.Items[i]
 		it.Count += times
 		it.Last = now
-		if text != "" && kind == "user" {
-			it.Text = text
+		// The latest words: a failed unit's last log lines, CI's last run.
+		if text != "" {
+			it.Text = clip(text, 1500)
 		}
 		return it
 	}
@@ -115,14 +119,19 @@ func (in *Inbox) find(id string) *Item {
 
 // How often a bug must be seen before a run is spent on it: what the user
 // reported is worth it at once.
-var ripeCount = map[string]int{"user": 1, "qml": 3, "crash": 2}
+var ripeCount = map[string]int{
+	"user": 1, "qml": 3, "crash": 2,
+	"service": 2, "log": 3, "deploy": 1, "warning": 2, "ci": 1, "coredump": 2,
+}
 
 const retryAfterMs = 7 * 24 * 3600 * 1000
 
 // ripe: worth a run now. Tried before (skipped, failed), only a week later
 // and seen more since.
 func (it Item) ripe(now int64) bool {
-	if it.Count < ripeCount[it.Kind] {
+	need, known := ripeCount[it.Kind]
+	// What isn't nixbook's ("info") is never fixed unasked.
+	if !known || it.Count < need {
 		return false
 	}
 	switch it.Status {
