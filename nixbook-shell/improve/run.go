@@ -212,6 +212,18 @@ func run(o runOpts) (map[string]any, error) {
 		}
 	}
 
+	// A title too long for the changelog's line: the session shortens it
+	// (one short turn) rather than having it cut mid-sentence.
+	if over := titleRoom(s.answer); over < 0 && s.id != "" {
+		max := len([]rune(s.answer.Title)) + over
+		if s2, err := ask(cfg, repo, fmt.Sprintf("Your title is %d characters too long for the commit's first line. "+
+			"Answer the same again, changing nothing in the files, with a title of at most %d characters.",
+			-over, max), s.id, lim); err == nil && s2.answer.Outcome == "fixed" {
+			cost += s2.cost
+			s.answer.Title = s2.answer.Title
+		}
+		editRun(id, func(r *Run) { r.Cost = cost })
+	}
 	msg := commitMessage(s.answer, it)
 	if why := checkMessage(msg); len(why) > 0 {
 		return end("failed", "its commit message: "+strings.Join(why, "; "), "failed")
@@ -302,7 +314,8 @@ var scopeRe = regexp.MustCompile(`[^a-z0-9./-]+`)
 
 // commitMessage: "fix(scope): title", the session's changelog entry, what
 // it answers, and the trailers.
-func commitMessage(a Answer, it Item) string {
+// titlePrefix: "fix(scope): " as commitMessage writes it.
+func titlePrefix(a Answer) string {
 	typ := a.Type
 	if typ != "polish" {
 		typ = "fix"
@@ -311,13 +324,25 @@ func commitMessage(a Answer, it Item) string {
 	if scope == "" {
 		scope = "nixbook-shell"
 	}
-	prefix := typ + "(" + scope + "): "
+	return typ + "(" + scope + "): "
+}
+
+// titleRoom: what is left of the 72 columns after the title (negative:
+// too long).
+func titleRoom(a Answer) int {
+	title := strings.TrimRight(strings.TrimSpace(firstLine(a.Title)), ".")
+	return 72 - len([]rune(titlePrefix(a))) - len([]rune(title))
+}
+
+func commitMessage(a Answer, it Item) string {
+	prefix := titlePrefix(a)
 	title := strings.TrimRight(strings.TrimSpace(firstLine(a.Title)), ".")
 	if r := []rune(title); len(r) > 0 {
 		r[0] = unicode.ToLower(r[0])
 		title = string(r)
 	}
-	// Too long: cut at a word, without "…" (it is the changelog's line).
+	// Still too long (the session didn't shorten it): cut at a word,
+	// without "…" (it is the changelog's line).
 	if r, max := []rune(title), 72-len([]rune(prefix)); len(r) > max {
 		title = string(r[:max])
 		if i := strings.LastIndex(title, " "); i > max/2 {
