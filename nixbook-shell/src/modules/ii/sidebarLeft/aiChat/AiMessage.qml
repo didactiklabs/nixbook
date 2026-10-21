@@ -271,7 +271,7 @@ Rectangle {
                             CustomIcon {
                                 id: modelIcon
                                 anchors.centerIn: parent
-                                visible: messageData?.role == 'assistant' && Ai.models[messageData?.model]?.icon
+                                visible: messageData?.role == 'assistant' && !!Ai.models[messageData?.model]?.icon
                                 width: Appearance.font.pixelSize.large
                                 height: Appearance.font.pixelSize.large
                                 source: messageData?.role == 'assistant' ? Ai.models[messageData?.model]?.icon :
