@@ -1921,6 +1921,41 @@ unset STUB_CLAUDE_ANSWER
 python3 "$mcp" initiative clear
 python3 "$mcp" personal clear >/dev/null
 
+# News: about once a day, the small model searches the web (WebSearch and
+# WebFetch only) for what is new on the subjects the user talks about most,
+# and Claude says it with the links; a link is never told twice.
+python3 "$mcp" initiative clear
+python3 "$mcp" personal clear >/dev/null
+echo '{"initiativeQuietHours": "0-0"}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+call remember_about_user '{"topic":"NixOS","kind":"topic","text":"Runs NixOS everywhere, follows nixpkgs unstable"}' >/dev/null
+call remember_about_user '{"topic":"Sam","kind":"person","text":"Their brother"}' >/dev/null
+rm -f "$calls.claude-prompt"
+consider '{"event":"moment"}' >/dev/null
+expect_eq "news off: no search" no "$([ -e "$calls.claude-prompt" ] && echo yes || echo no)"
+STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {intro: "NixOS 27.05 is out.", items: [
+  {topic: "NixOS", headline: "NixOS 27.05 released", summary: "The new stable is out.", url: "https://nixos.org/blog/27.05", source: "NixOS"},
+  {topic: "NixOS", headline: "Made up", summary: "x", url: "javascript:alert(1)", source: "x"}]}}')
+export STUB_CLAUDE_ANSWER
+out=$(consider '{"event":"moment","news":true}')
+expect_contains "news: the subjects they talk about" "$(cat "$calls.claude-prompt")" "NixOS: Runs NixOS everywhere"
+expect_not_contains "news: never people" "$(cat "$calls.claude-prompt")" "Sam"
+expect_contains "news: web search only" "$(cat "$calls.claude-args")" "WebSearch,WebFetch"
+expect_eq "news: said, the item with a link only, a button to open it" \
+  "news 1 https://nixos.org/blog/27.05 link" \
+  "$(jq -r '"\(.item.kind) \(.item.actions | length) \(.item.actions[0].url) \(.item.actions[0].do)"' <<<"$out")"
+expect_contains "news: the thread has Markdown links" "$(jq -r .item.chat <<<"$out")" "[NixOS 27.05 released](https://nixos.org/blog/27.05)"
+expect_not_contains "news: no made-up link" "$(jq -r .item.text <<<"$out")" "Made up"
+rm -f "$calls.claude-prompt"
+consider '{"event":"moment","news":true}' >/dev/null
+expect_eq "news: once a day" no "$([ -e "$calls.claude-prompt" ] && echo yes || echo no)"
+expect_eq "news: now, a link told already is not told again" "news: nothing new on their subjects" \
+  "$(python3 "$mcp" initiative news | jq -r .why)"
+expect_contains "news: what was told, given to the model" "$(cat "$calls.claude-prompt")" "Already told"
+unset STUB_CLAUDE_ANSWER
+rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+python3 "$mcp" initiative clear
+python3 "$mcp" personal clear >/dev/null
+
 # Learned targets: a fake libatspi (PyGObject's `gi`) reading a window's
 # tree from $FAKE_ATSPI_TREE; an action done is logged to $STUB_CALLS.
 mkdir -p "$tmp/fakegi/gi/repository"

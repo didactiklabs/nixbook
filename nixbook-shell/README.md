@@ -690,6 +690,19 @@ says what it learned (a question only when unclear) as a `curious` word;
 its chat message carries `learnHint`, added to the user's next prompt, so
 Claude fixes the memory when corrected. **Say something now** reads what is
 new at once.
+News (`ai.initiative.news`, off): each moment ask carries `news`; about
+once a day (`NEWS_EVERY`, 20 h; not in quiet hours, not while busy)
+`news_digest` sends the personal memory's top topics (`news_topics`: kind
+`topic` only, never people or events, by importance, mentions and how
+lately; plus `initiativeNewsTopics`, up to 4) and the links told already
+(`newsSeen`, 200 kept) to the small model (`newsModel`, else `memoryModel`)
+with WebSearch and WebFetch only (`ask_claude(..., web=True)`,
+`NEWS_SYSTEM`). Up to 4 items with an http(s) link not told before
+(`news_items`) make a `news` word: the intro and headlines in the bubble,
+the first 3 links as buttons (`do: "link"`, `Qt.openUrlExternally`, the
+bubble stays), Markdown links and summaries in its thread, with `newsHint`.
+**Find news now** (Settings; `nixbook-desktop-mcp initiative news`) runs it
+at once.
 Each decision is logged (`log`, 30 kept; Settings shows the last ones, and
 **Say something now** sends a `moment` with `force`: no chance or gap, out
 loud, a hello when nothing is on its mind). The small model's Claude Code:
