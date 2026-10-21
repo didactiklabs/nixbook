@@ -125,9 +125,16 @@ async function playVideo(videoId) {
       ) ?? items.find((it) => it.videoId === videoId);
     if (target) {
       const jump = () => api("PATCH", "/queue", { index: target.index });
+      // Once the queue has run out, the app sits paused at the end of the
+      // last song and can ignore the jump; "next" still moves on to the
+      // track queued right after it.
+      const afterCurrent = target.index === currentIndex + 1;
+      let tries = 0;
+      const retry = () =>
+        afterCurrent && tries++ % 2 === 0 ? api("POST", "/next") : jump();
       if (!target.current) await jump();
       await api("POST", "/play");
-      return ensurePlaying(videoId, jump);
+      return ensurePlaying(videoId, retry);
     }
   }
   throw new Error(
