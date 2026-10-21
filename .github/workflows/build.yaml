@@ -228,44 +228,16 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_ID }}
           CACHE_PRIVATE_KEY: ${{ secrets.CACHE_PRIVATE_KEY }}
+        # Only the paths cache.nixos.org doesn't serve, through a local
+        # staging cache: `nix copy` straight to S3 refuses a path whose
+        # references (stock packages, on cache.nixos.org) aren't in S3 too.
+        # See .github/push-cache.sh.
         run: |
           key="$RUNNER_TEMP/cache-priv.pem"
           trap 'rm -f "$key"' EXIT
           printf '%s\n' "$CACHE_PRIVATE_KEY" > "$key"
-          # secret-key signs the narinfos as they are uploaded, instead of a
-          # separate `nix store sign -r` writing to the local (shared, often
-          # "busy") store database.
-          store="s3://nix-cache?scheme=https&endpoint=s3.didactiklabs.io&compression=zstd&secret-key=$key"
-          mapfile -t builds < "$RUNNER_TEMP/builds"
-          # Only the paths cache.nixos.org doesn't serve: the machines
-          # substitute from it too, and it holds most of every closure (a
-          # nixpkgs bump otherwise re-uploads hundreds of stock packages, e.g.
-          # mesa or the kernel modules, over the runner's slow link to the S3
-          # endpoint, and the push never finishes). If cache.nixos.org can't
-          # be queried, push the whole closure.
-          nix path-info --recursive "${builds[@]}" > "$RUNNER_TEMP/closure"
-          mapfile -t closure < "$RUNNER_TEMP/closure"
-          if upstream=$(nix path-info --json --store https://cache.nixos.org "${closure[@]}" 2>/dev/null |
-            # Missing paths: null values (Nix >= 2.19), or "valid": false
-            # entries in older Nix's array output.
-            jq -r 'if type == "array" then .[] | select(.valid != false) | .path
-              else to_entries[] | select(.value != null) | .key end'); then
-            mapfile -t paths < <(grep -vxF -f <(printf '%s\n' "$upstream") "$RUNNER_TEMP/closure")
-          else
-            echo "::warning::cannot query cache.nixos.org, pushing the whole closure"
-            paths=("${closure[@]}")
-          fi
-          echo "pushing ${#paths[@]} of ${#closure[@]} paths (the rest is on cache.nixos.org)"
-          # nix copy skips paths the cache already has, so each retry resumes
-          # where the previous attempt died. narinfo-cache-negative-ttl=0: Nix
-          # otherwise remembers "not in the cache" for an hour, so every retry
-          # re-uploaded the paths the previous attempt had already pushed.
-          for attempt in 1 2 3 4 5; do
-            if nix copy --no-recursive --option narinfo-cache-negative-ttl 0 --to "$store" "${paths[@]}"; then
-              exit 0
-            fi
-            echo "::warning::nix copy attempt $attempt failed, retrying in $((attempt * 30))s"
-            sleep $((attempt * 30))
-          done
-          echo "::error::nix copy failed after 5 attempts"
-          exit 1
+          # The systems resolved above ($RUNNER_TEMP/builds), one per line;
+          # expanded in nix-shell's shell, hence the single quotes.
+          # shellcheck disable=SC2016
+          CACHE_KEY="$key" nix-shell -p awscli2 jq curl --run \
+            'mapfile -t builds < "$RUNNER_TEMP/builds" && bash .github/push-cache.sh "${builds[@]}"'
