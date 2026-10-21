@@ -1673,6 +1673,31 @@ expect_contains "routine fails: why" "$(python3 "$mcp" routine run "$bad" '{"eve
 python3 "$mcp" routine run "$bad" '{"event":"unplugged"}' >/dev/null
 expect_eq "routine fails: said once a day" 1 "$(python3 "$mcp" initiative pending | jq '[.[] | select(.text | contains("didn'"'"'t work"))] | length')"
 call routine "{\"action\":\"remove\",\"id\":\"$bad\"}" >/dev/null
+# What just happened, in a fixed call's args at no token: {file}, {app},
+# {name}, {time}, {date} (never a text from anyone else); open_file opens
+# {file} with its default app, never a program.
+expect_contains "routine values: only from the events that tell them" "$(call routine '{"action":"add","text":"x","when":{"event":"plugged"},"do":{"tool":"open_file","args":{"path":"{file}"}}}')" "{file} comes with the events download"
+expect_contains "routine open_file: a path only" "$(call routine '{"action":"add","text":"x","when":{"event":"download"},"do":{"tool":"open_file","args":{"path":"{file}","with":"sh"}}}')" "open_file takes {path}"
+call routine '{"action":"add","text":"When a PDF lands in Downloads, open it","when":{"event":"download","ext":"pdf","cooldown":0},"do":{"tool":"open_file","args":{"path":"{file}"}}}' >/dev/null
+pdf=$(jq -r '.routines[-1].id' "$mem")
+say_yes "$pdf"
+mkdir -p "$tmp/home/Downloads"
+: >"$tmp/home/Downloads/bill.pdf"
+printf '#!/bin/sh\n' >"$tmp/home/Downloads/run.pdf" && chmod +x "$tmp/home/Downloads/run.pdf"
+reset_calls
+HOME="$tmp/home" python3 "$mcp" routine run "$pdf" "$(jq -nc --arg p "$tmp/home/Downloads/bill.pdf" '{event: "download", name: "bill.pdf", ext: "pdf", path: $p}')" >/dev/null
+expect_contains "routine open_file: the download, with its default app" "$(cat "$calls")" "niri msg action spawn -- xdg-open $(realpath "$tmp/home/Downloads/bill.pdf")"
+expect_contains "routine open_file: never outside the home" "$(HOME="$tmp/home" python3 "$mcp" routine run "$pdf" '{"event":"download","name":"passwd","path":"/etc/passwd"}' | jq -r .why)" "isn't in your home"
+expect_contains "routine open_file: never a program" "$(HOME="$tmp/home" python3 "$mcp" routine run "$pdf" "$(jq -nc --arg p "$tmp/home/Downloads/run.pdf" '{event: "download", name: "run.pdf", path: $p}')" | jq -r .why)" "is a program"
+expect_contains "routine values: one the event lacks, said" "$(python3 "$mcp" routine run "$pdf" '{"event":"download","name":"x.pdf"}' | jq -r .why)" "had no {file}"
+call routine "{\"action\":\"remove\",\"id\":\"$pdf\"}" >/dev/null
+call routine '{"action":"add","text":"When Vesktop opens, play its playlist","when":{"event":"app_opened","cooldown":0},"do":{"server":"youtube-music","tool":"play","args":{"query":"{app} mix {text}"}}}' >/dev/null
+app=$(jq -r '.routines[-1].id' "$mem")
+say_yes "$app"
+rm -f "$FAKE_MUSIC_LOG"
+python3 "$mcp" routine run "$app" '{"event":"app_opened","app":"vesktop","text":"secret"}' >/dev/null
+expect_eq "routine values: {app} in, never the event's text" "vesktop mix {text}" "$(jq -r .arguments.query "$FAKE_MUSIC_LOG")"
+call routine "{\"action\":\"remove\",\"id\":\"$app\"}" >/dev/null
 
 # One that takes judgment: a short Claude run with only the servers it names,
 # a desktop without input, screen or memory, and no text from the event.

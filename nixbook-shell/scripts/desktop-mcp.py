@@ -3712,7 +3712,9 @@ def idea_prompt(cfg, data, now):
               + " (shell_ipc: target mpris only); a tool of their servers {server, tool, args} ("
               + (", ".join(assistant_servers()) or "none") + "); a few of those {steps: [...]}; or "
               "{agent: \"what to do\", servers: [...]}. Prefer fixed calls: \"{liked}\" in their args is a song "
-              "the user likes (\"Title Artist\"), picked from their listening history at no token."]
+              "the user likes (\"Title Artist\"), picked from their listening history at no token; {file}, "
+              "{app}, {name}, {time}, {date} are what just happened; open_file {path: \"{file}\"} opens a "
+              "download or screenshot."]
     return "\n".join(lines)
 
 
@@ -3752,6 +3754,7 @@ def routine_idea(cfg, event, now):
     try:
         when = routine_when(idea.get("when"))
         do = routine_do(cfg, idea.get("do"))
+        routine_values_check(when, do)
     except ToolError as e:
         return {"action": "none", "why": f"ideas: not a routine it can make ({short(str(e), 80)})"}
     r = {"id": secrets.token_hex(3), "text": text_, "when": when, "do": do, "on": False, "idea": True,
@@ -4097,9 +4100,12 @@ def initiative_command(cfg, argv):
 #   - a fixed tool call, at no token: a desktop tool (the same guardrails and
 #     pause as an agent's), or a tool of one of the side panel's MCP servers
 #     (assistant-mcp.json: YouTube Music, Spotify…); or a few in a row
-#     (steps). `{liked}` in their arguments is a track the user likes,
-#     picked in code from their listening history: "play something I like"
-#     at no token;
+#     (steps). Their arguments may hold what just happened, filled in code:
+#     `{file}` (the download, screenshot or drive), `{app}`, `{name}` (the
+#     network, device, monitor, file name), `{time}`, `{date}`, and `{liked}`,
+#     a track the user likes picked from their listening history ("play
+#     something I like" at no token); never a text someone else wrote. And
+#     open_file, for {file}: the file with its default app;
 #   - or, when it takes judgment ("something I'd like for this time of day"),
 #     a short headless Claude turn with only those servers' tools, at most
 #     routineAgentPerDay a day.
@@ -4169,6 +4175,22 @@ ROUTINE_INSTRUCTION_MAX = 600
 ROUTINE_DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 ROUTINE_STEPS_MAX = 5
 ROUTINE_LIKED = "{liked}"
+# What a fixed call's arguments may hold of what just happened ({name}),
+# and the events that tell it: never a text from anyone else (a
+# notification's, a window title's).
+ROUTINE_VALUES = {
+    "file": ("download", "screenshot", "drive_connected"),
+    "app": ("app_opened", "app_closed", "app_focused", "window_title", "notification", "fullscreen_started",
+            "fullscreen_ended", "music_started", "music_ended", "track_changed", "music_repeating"),
+    "name": ("wifi_connected", "wifi_disconnected", "audio_output", "monitor_connected", "monitor_disconnected",
+             "bluetooth_connected", "bluetooth_disconnected", "phone_connected", "phone_disconnected",
+             "drive_connected", "drive_disconnected", "download", "screenshot"),
+    "time": None, "date": None,
+}
+ROUTINE_VALUE = re.compile(r"\{(" + "|".join([*ROUTINE_VALUES, "liked"]) + r")\}")
+# open_file, a routine's own action: what it never opens (it would run).
+ROUTINE_OPEN_NEVER = re.compile(r"\.(desktop|sh|bash|zsh|fish|py|pl|rb|run|bin|appimage|exe|msi|bat|cmd|jar|"
+                                r"flatpakref|deb|rpm)$", re.IGNORECASE)
 # A track heard this lately isn't picked again for {liked}.
 ROUTINE_LIKED_FRESH_S = 3 * 3600
 
@@ -4268,10 +4290,13 @@ def routine_do(cfg, do):
     if not isinstance(tool_name, str) or not isinstance(args, dict):
         raise ToolError("do.tool: a tool name, do.args: its arguments")
     server = do.get("server") or "desktop"
-    if server == "desktop":
+    if server == "desktop" and tool_name == "open_file":
+        if set(args) != {"path"} or not isinstance(args["path"], str) or not args["path"]:
+            raise ToolError("do.args: open_file takes {path} (\"{file}\": the file that just came)")
+    elif server == "desktop":
         if tool_name not in ROUTINE_DESKTOP_TOOLS or tool_name not in enabled_tools(cfg):
             raise ToolError(f"do.tool: {tool_name!r} is not a desktop tool a routine can run (they can: "
-                            + ", ".join(sorted(ROUTINE_DESKTOP_TOOLS)) + ")")
+                            + ", ".join(sorted(ROUTINE_DESKTOP_TOOLS)) + ", and open_file)")
         if tool_name == "shell_ipc" and args.get("target") not in ROUTINE_IPC_TARGETS:
             raise ToolError("do.args: a routine's shell_ipc is for the music only (target mpris)")
     elif server not in servers:
@@ -4287,6 +4312,25 @@ def routine_do(cfg, do):
 def routine_steps(do):
     """A fixed action's calls, in order."""
     return do["steps"] if do.get("steps") else [do]
+
+
+def routine_values_check(when, do):
+    """What just happened that the calls' arguments use: told by its event."""
+    for name in sorted(set(ROUTINE_VALUE.findall(json.dumps(do)))):
+        events = ROUTINE_VALUES.get(name)
+        if events is not None and when["event"] not in events:
+            raise ToolError(f"do.args: {{{name}}} comes with the events " + ", ".join(events)
+                            + f", not {when['event']}")
+
+
+def routine_values(event, now):
+    """What just happened, for {file}, {app}, {name}, {time}, {date}."""
+    out = {"time": time.strftime("%H:%M", time.localtime(now)), "date": time.strftime("%a %d %b", time.localtime(now))}
+    for name, key in (("file", "path"), ("app", "app"), ("name", "name")):
+        v = event.get(key)
+        if isinstance(v, str) and v.strip():
+            out[name] = clean_text(v, 500 if name == "file" else 120)
+    return out
 
 
 def music_pick(n, avoid=(), now=None):
@@ -4317,20 +4361,43 @@ def music_pick(n, avoid=(), now=None):
     return picks
 
 
-def routine_fill(value, picks):
-    """The arguments with each {liked} replaced by the next pick."""
+def routine_fill(value, values, picks):
+    """The arguments with what just happened in, and each {liked}
+    replaced by the next pick."""
     if isinstance(value, dict):
-        return {k: routine_fill(v, picks) for k, v in value.items()}
+        return {k: routine_fill(v, values, picks) for k, v in value.items()}
     if isinstance(value, list):
-        return [routine_fill(v, picks) for v in value]
+        return [routine_fill(v, values, picks) for v in value]
     if isinstance(value, str):
-        return re.sub(re.escape(ROUTINE_LIKED), lambda _: picks.pop(0)[1], value)
+        def one(m):
+            if m.group(1) == "liked":
+                return picks.pop(0)[1]
+            if m.group(1) not in values:
+                raise ToolError(f"what just happened had no {{{m.group(1)}}}")
+            return values[m.group(1)]
+        return ROUTINE_VALUE.sub(one, value)
     return value
+
+
+def routine_open_file(path):
+    """open_file: a file (or a drive's folder) the user has, with its
+    default app; never one that would run."""
+    real = os.path.realpath(os.path.expanduser(path))
+    roots = [os.path.realpath(os.path.expanduser("~")), "/run/media", "/media", "/mnt"]
+    if not any(real == r or real.startswith(r + os.sep) for r in roots):
+        raise ToolError(f"open_file: {path} isn't in your home or on a drive")
+    if not os.path.exists(real):
+        raise ToolError(f"open_file: {path} isn't there (any more)")
+    if os.path.isfile(real) and (ROUTINE_OPEN_NEVER.search(real) or os.access(real, os.X_OK)):
+        raise ToolError(f"open_file: {os.path.basename(real)} is a program, never opened by a routine")
+    niri_action("spawn", "--", "xdg-open", real)
 
 
 def routine_call(cfg, call):
     """One fixed call of a routine, its arguments filled."""
-    if call["server"] == "desktop":
+    if call["server"] == "desktop" and call["tool"] == "open_file":
+        routine_open_file(call["args"]["path"])
+    elif call["server"] == "desktop":
         ctx = Context(cfg, "routine", "routine", notify=False)
         content, is_error = call_tool(ctx, call["tool"], dict(call["args"]))
         first = next((c.get("text", "") for c in content if c.get("type") == "text"), "")
@@ -4366,7 +4433,13 @@ def routine_line(r):
     "listening history, another each time, never the artist on repeat), so "
     "\"play something I like\" or \"change the song on repeat\" is e.g. steps "
     "[{server: youtube-music, tool: play, args: {query: \"{liked}\"}}, {server: "
-    "youtube-music, tool: add_to_queue, args: {query: \"{liked}\"}}]. Pick the event that "
+    "youtube-music, tool: add_to_queue, args: {query: \"{liked}\"}}]. "
+    "Args may also hold what just happened, filled at no token: {file} (the "
+    "download, screenshot or drive), {app}, {name} (the network, device, "
+    "monitor or file name), {time}, {date}; and the routine's own desktop "
+    "action open_file {path: \"{file}\"} opens it with its default app "
+    "(\"when a PDF lands in Downloads, open it\": when download ext=pdf, do "
+    "{tool: open_file, args: {path: \"{file}\"}}). Pick the event that "
     "means what they said: a state (\"whenever there's no music\") is "
     "music_silent, an end (\"when the album ends\") music_ended, a repeat (\"when a song loops too "
     "long\") music_repeating, not track_changed. A routine you add (or "
@@ -4394,6 +4467,7 @@ def t_routine(ctx, args):
         when = routine_when(args.get("when"))
         cooldown = (args.get("when") or {}).get("cooldown")
         do = routine_do(ctx.cfg, args.get("do"))
+        routine_values_check(when, do)
         r = {"id": secrets.token_hex(3), "text": body, "when": when, "do": do, "on": False,
              "cooldown": int(cooldown) if isinstance(cooldown, (int, float)) and not isinstance(cooldown, bool)
              and 0 <= cooldown <= 1440 else ROUTINE_COOLDOWN,
@@ -4629,8 +4703,9 @@ def routine_run(cfg, rid, event, now=None):
             if len(picks) < want:
                 raise ToolError("no song left to pick from the listening history (too little played yet)")
             played = [p[2] for p in picks]
+            values = routine_values(event, now)
             for x in steps:
-                routine_call(cfg, dict(x, args=routine_fill(x["args"], picks)))
+                routine_call(cfg, dict(x, args=routine_fill(x["args"], values, picks)))
             said = (f"{r['text']}: I put on {'; '.join(played)}." if played else f"{r['text']}: done.")
     except (ToolError, KeyError) as e:
         today = time.strftime("%Y-%m-%d", time.localtime(now))
