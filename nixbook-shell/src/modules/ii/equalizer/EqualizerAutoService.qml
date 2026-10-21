@@ -429,8 +429,9 @@ Singleton {
         if (!root.agentEnabled || !p?.isPlaying) return
         const key = root.songKey(p)
         if (key === root.agentSong) return
-        if (Config.options.policies.ai === 0)
-            return root.agentProblem(Translation.tr("AI is turned off (Settings > Services > AI policy)."))
+        // Its agent is Claude: online models only.
+        if (Config.options.policies.ai !== 1)
+            return root.agentProblem(Translation.tr("AI is off, or local models only (Settings > Desktop agents > AI features)."))
         if (Ai.claudeCodePath === "")
             return root.agentProblem(Translation.tr("Claude Code isn't installed or signed in: the agent mode needs it."))
         root.agentSong = key

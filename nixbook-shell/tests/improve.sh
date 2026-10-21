@@ -196,6 +196,12 @@ echo '{"improve": true}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
 echo '{}' >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
 expect_eq "off: no run" "false" "$("$improve" run | jq -r .ran)"
 
+# --- AI features off, or local models only: no fix ---------------------------------
+echo '{"ai": {"improve": {"enable": true}}, "policies": {"ai": 0}}' >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
+expect_match "AI off: no fix" "AI features are off" "$("$improve" run | jq -r .why)"
+echo '{"ai": {"improve": {"enable": true}}, "policies": {"ai": 2}}' >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
+expect_match "local only: no fix" "local models only" "$("$improve" run | jq -r .why)"
+
 # --- its token ----------------------------------------------------------------------
 config true
 expect_match "no token: no run" "no GitHub token" "$("$improve" run 2>&1 || true)"
@@ -248,13 +254,17 @@ export FAKE_CLAUDE=too_big
 "$improve" run --item "$id" >/dev/null
 expect_eq "too big: filed" "too_big" "$("$improve" status | jq -r --arg i "$id" '.inbox[] | select(.id == $i) | .status')"
 
-# --- a sensitive file: the user drops it ----------------------------------------
+# --- a sensitive file: the user drops it, even with every fix merging --------------
+jq '.ai.improve.autoMergeFixes = true' "$XDG_CONFIG_HOME/nixbook-shell/config.json" >"$tmp/c" && mv "$tmp/c" "$XDG_CONFIG_HOME/nixbook-shell/config.json"
 id=$(item "the foo package comment is missing")
+merges=$(grep -c "pr merge" "$FAKE_LOG/gh")
 export FAKE_CLAUDE=nix FAKE_BRANCH="agent/fix-$id" NOTIFY_ANSWER=drop
 "$improve" run --item "$id" >/dev/null
 r=$(run_of "$id")
 expect_eq "sensitive: not auto-merged, dropped" "dropped false true" "$(jq -r '"\(.outcome) \(.autoMerge // false) \(.sensitive)"' <<<"$r")"
 expect_match "sensitive: PR closed" "pr close 7" "$(cat "$FAKE_LOG/gh")"
+expect_eq "sensitive: not merged, with every fix merging" "$merges" "$(grep -c "pr merge" "$FAKE_LOG/gh")"
+expect_match "sensitive: asked instead" "Fix ready: polish(docs)" "$(cat "$FAKE_LOG/notify")"
 
 # --- a QML warning: Claude gets the code at the revision that printed it -------------
 seed=$(git -C "$tmp/remote.git" rev-list --max-parents=0 main)

@@ -76,6 +76,9 @@ func run(o runOpts) (map[string]any, error) {
 	if !cfg.Enable {
 		return notStarted("it's off (Settings > Desktop agents)")
 	}
+	if cfg.aiPolicy != 1 {
+		return notStarted("AI features are off, or local models only (Settings > Desktop agents > AI features)")
+	}
 	if !o.noPush && token() == "" {
 		logEvent("error", errNoToken.Error())
 		return nil, errNoToken
@@ -235,7 +238,7 @@ func run(o runOpts) (map[string]any, error) {
 	sensitiveFiles := anySensitive(changes)
 	editRun(id, func(r *Run) {
 		r.Type, r.Title, r.Branch, r.Files, r.Before = s.answer.Type, title, branch, changes, res.before
-		r.Sensitive, r.AutoMerge = sensitiveFiles, autoMergeable(changes, cfg.AutoMergePaths)
+		r.Sensitive, r.AutoMerge = sensitiveFiles, autoMergeWhy(cfg, changes) != ""
 	})
 	if o.noPush {
 		return end("checked", "a dry run: committed on "+branch+" in "+repo+", not pushed", "new")

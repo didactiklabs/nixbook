@@ -32,6 +32,7 @@ Singleton {
     // "improve" in desktop-mcp.json (Nix's). Otherwise no section, no runs.
     property bool available: false
     readonly property bool enabled: root.available && (Config.options?.ai?.improve?.enable ?? false)
+        && (Config.options?.policies?.ai ?? 1) === 1 // AI off, or local models only: no Claude
     // Its GitHub token is in the keyring; what the last save said.
     property bool tokenSaved: false
     property bool tokenBusy: false

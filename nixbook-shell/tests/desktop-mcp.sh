@@ -2558,6 +2558,15 @@ expect_contains "set_wallpaper: a web address" "$(call set_wallpaper '{"path":"h
 expect_eq "set_wallpaper: nothing applied when refused" "" "$(grep 'wallpapers apply' "$calls" || true)"
 rm "$XDG_CONFIG_HOME/nixbook-shell/config.json"
 
+# -- AI features off (policies.ai 0): no agent acts, no model pass ------------------------------
+echo '{"policies": {"ai": 0}}' >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
+expect_contains "AI off: tools refused" "$(call list_windows)" "the user turned AI features off"
+expect_eq "AI off: no Claude Code for the passes" "None" "$(cd "$root/scripts" && python3 -c 'import importlib.util as u; s=u.spec_from_file_location("m", "desktop-mcp.py"); m=u.module_from_spec(s); s.loader.exec_module(m); print(m.claude_path({}, "/bin/sh"))')"
+echo '{"policies": {"ai": 2}}' >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
+expect_contains "local only: tools still answer" "$(call list_windows)" "kitty"
+expect_eq "local only: no Claude Code either" "None" "$(cd "$root/scripts" && python3 -c 'import importlib.util as u; s=u.spec_from_file_location("m", "desktop-mcp.py"); m=u.module_from_spec(s); s.loader.exec_module(m); print(m.claude_path({}, "/bin/sh"))')"
+rm "$XDG_CONFIG_HOME/nixbook-shell/config.json"
+
 # -- report_problem: the fixer's inbox (nixbook-improve) ----------------------------------------
 
 improve_bin="$tmp/improve-bin"

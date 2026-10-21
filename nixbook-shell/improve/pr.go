@@ -100,9 +100,10 @@ func watch(cfg Config, id string) (map[string]any, error) {
 		}
 		break
 	}
-	if r.CI == "pass" && cfg.AutoMerge && r.AutoMerge {
+	if why := autoMergeWhy(cfg, r.Files); r.CI == "pass" && why != "" {
 		if err := merge(cfg, r); err == nil {
-			notify("Merged on its own: "+r.Title, "Its checks passed and it only touched "+strings.Join(cfg.AutoMergePaths, ", ")+".", "low")
+			logEvent("merged", fmt.Sprintf("Merged #%d on its own (%s)", r.PR, why))
+			notify("Merged on its own: "+r.Title, "Its checks passed; "+why+". Update the system to get it.", "low")
 			return watchMain(cfg, r.ID)
 		}
 	}

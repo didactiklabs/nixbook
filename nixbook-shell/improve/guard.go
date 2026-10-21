@@ -127,6 +127,22 @@ func anySensitive(changes []Change) bool {
 	return false
 }
 
+// autoMergeWhy: why this change may merge without the user ("" when it
+// may not): every fix (autoMergeFixes) or a docs-only one (autoMerge and
+// autoMergePaths). Never one touching what agents may do (sensitive): the
+// fixer would otherwise merge a loosening of its own limits unseen.
+func autoMergeWhy(cfg Config, changes []Change) string {
+	switch {
+	case len(changes) == 0 || anySensitive(changes):
+		return ""
+	case cfg.AutoMergeFixes:
+		return "every fix merges on its own"
+	case cfg.AutoMerge && autoMergeable(changes, cfg.AutoMergePaths):
+		return "it only touched " + strings.Join(cfg.AutoMergePaths, ", ")
+	}
+	return ""
+}
+
 // autoMergeable: every file is in the user's low-risk paths, none sensitive.
 func autoMergeable(changes []Change, paths []string) bool {
 	if len(changes) == 0 || anySensitive(changes) {

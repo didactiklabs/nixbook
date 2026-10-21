@@ -46,6 +46,19 @@ For agents to work without touching your windows at all, give them [their own de
 
 The `desktopControl` bar widget shows a **faint robot** when idle, a **pulsing robot** while an agent acts, and a **red hand** when paused; its tooltip names the last agent and tool. Click pauses or allows every agent; right-click switches the agents to [their own desktop](./agent-desktop). Settings → Desktop agents has the same switches, the memory, and the Claude panel setup.
 
+## Turning AI off
+
+**Settings → Desktop agents → AI features** (also Settings → Panels → AI: _No_, _Yes_, _Local_; `policies.ai`: 0, 1, 2) switches all of it at once:
+
+- **Off** (`0`): nothing calls a model, and no agent acts:
+  - no chat in the side panel, and Claude never speaks on its own (Mod+C included);
+  - no routine runs, no memory pass, no fix (nixbook-improve), and the equalizer agent rests;
+  - every agent's desktop tools are refused, Claude Code in a terminal included.
+
+  What agents remember stays, unused, and each feature's own switch keeps its position for when you turn AI back on.
+
+- **Local** (`2`): nothing goes to an online model like Claude: no Claude chat, speaking on its own, memory pass, fix or equalizer agent. Local agents keep the desktop tools, and routines with a fixed action still run.
+
 ## Talks to you on its own
 
 Turn on **Settings → Desktop agents → Talk to me on its own** (off by default) and Claude speaks first when it can help. There is no schedule: it reacts to what happens.

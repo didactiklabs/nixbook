@@ -31,7 +31,9 @@ import QtQuick
 Singleton {
     id: root
 
-    readonly property bool enabled: Config.options?.ai?.routines?.enable ?? true
+    // AI off (policies.ai 0): no routine runs (they are agents' tools);
+    // local only (2): fixed ones run, one taking judgment finds no Claude.
+    readonly property bool enabled: (Config.options?.ai?.routines?.enable ?? true) && (Config.options?.policies?.ai ?? 1) !== 0
     readonly property string memoryPath: `${Quickshell.env("XDG_STATE_HOME") || `${Quickshell.env("HOME")}/.local/state`}/nixbook-shell/desktop-memory.json`
     property var routines: []
     readonly property var active: root.routines.filter(r => r.on !== false)

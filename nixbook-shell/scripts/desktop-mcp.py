@@ -2724,10 +2724,19 @@ INITIATIVE_SYSTEM = (
 )
 
 
+def ai_policy():
+    """The shell's policies.ai: 0 no AI at all, 1 yes, 2 local models only."""
+    v = shell_setting("policies.ai", 1)
+    return v if v in (0, 1, 2) else 1
+
+
 def claude_path(cfg, hint=None):
     """Claude Code for the small model's passes: memoryClaude, the path the
     shell gives (its own Claude Code: the shell's PATH may not have it), on
-    PATH, or where it is usually installed."""
+    PATH, or where it is usually installed. None while AI is off or local
+    only (policies.ai): Claude is an online model, so every pass skips."""
+    if ai_policy() != 1:
+        return None
     home = os.path.expanduser("~")
     for c in [cfg.get("memoryClaude"), hint, shutil.which("claude"), f"{home}/.local/bin/claude",
               f"{home}/.claude/local/claude", f"/etc/profiles/per-user/{os.environ.get('USER', '')}/bin/claude",
@@ -11234,6 +11243,10 @@ def call_tool(ctx, name, args, session=None):
         raise KeyError(name)
     if not isinstance(args, dict):
         args = {}
+    # AI off: no agent acts on the desktop, whoever it is (local only: they may).
+    if ai_policy() == 0:
+        audit(ctx.client, name, args, "AI off")
+        return [text("refused: the user turned AI features off (Settings > Desktop agents > AI features)")], True
     if t["group"] == "personal":
         return call_personal(ctx, t, name, args)
     if name not in PAUSE_FREE:
