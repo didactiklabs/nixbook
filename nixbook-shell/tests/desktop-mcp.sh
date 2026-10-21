@@ -2232,6 +2232,9 @@ expect_eq "music: an Electron app under a browser's bus name counts" "Forrest Ro
   "$(jq -r '.plays[] | select(.[2] == "youtube_music") | "\(.[3])|\(.[4])"' <<<"$out")"
 rm "$bin/busctl"
 expect_contains "music: the players followed" "$(cat "$calls")" "playerctl --all-players --follow metadata --format"
+# Real playerctl's {{playerName}} is "chromium" for chromium.instanceN: its
+# Identity can't be asked then, YouTube Music never counted.
+expect_contains "music: the players by their whole bus name" "$(cat "$calls")" "--format {{playerInstance}}"
 out=$(python3 "$mcp" habits music)
 expect_contains "music: a short track heard through is a play, artists split" "$out" "Radiohead (1), Thom Yorke (1)"
 expect_contains "music: YouTube's channel names and title tags cleaned" "$out" "Aruarian Dance – Nujabes (1)"
