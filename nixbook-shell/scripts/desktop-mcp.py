@@ -168,6 +168,9 @@ DEFAULT_CONFIG = {
         r"microsoft-edge|plasma-browser-integration)",
     ],
     "http": {"port": 7823},
+    # The fixer is on this machine (programs.nixbook-shell.selfImprove.enable):
+    # report_problem is listed only then.
+    "improve": False,
 }
 
 TOOL_GROUPS = ["observe", "screen", "windows", "input", "shell", "memory", "personal", "ui"]
@@ -11219,7 +11222,8 @@ class Context:
 
 
 def enabled_tools(cfg):
-    return {n: t for n, t in TOOLS.items() if t["group"] in cfg["tools"]}
+    return {n: t for n, t in TOOLS.items() if t["group"] in cfg["tools"]
+            and (n != "report_problem" or cfg.get("improve"))}
 
 
 def call_tool(ctx, name, args, session=None):

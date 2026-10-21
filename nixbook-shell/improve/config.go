@@ -78,6 +78,22 @@ func loadConfig() (Config, error) {
 	return cfg, nil
 }
 
+// available: this machine has the feature (programs.nixbook-shell.selfImprove.enable,
+// written by Nix into desktop-mcp.json as "improve"). Without it nothing
+// runs, whatever config.json says.
+func available() bool {
+	path := os.Getenv("NIXBOOK_DESKTOP_MCP_CONFIG")
+	if path == "" {
+		path = filepath.Join(xdg("XDG_CONFIG_HOME", ".config"), "nixbook-shell", "desktop-mcp.json")
+	}
+	var c struct {
+		Improve bool `json:"improve"`
+	}
+	return readJSON(path, &c) == nil && c.Improve
+}
+
+var errUnavailable = errorf("not available on this machine (programs.nixbook-shell.selfImprove.enable)")
+
 // findClaude looks where Ai.qml and desktop-mcp.py look.
 func findClaude(hint string) string {
 	home, _ := os.UserHomeDir()

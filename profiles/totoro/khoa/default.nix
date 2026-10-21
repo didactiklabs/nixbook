@@ -97,6 +97,8 @@ in
     };
     nixbookShellConfig = {
       enable = true;
+      # The desktop agent fixing nixbook by PR: this machine only, for now.
+      selfImprove.enable = true;
     };
     rbwConfig = {
       enable = true;

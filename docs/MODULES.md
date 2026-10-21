@@ -721,6 +721,13 @@ Whether to enable nixbook-shell, nixbook's Quickshell (QML) desktop shell (`prog
 
 Whether to offer the nixbook-shell AI chat (Claude in the side panel, and nothing else: not your own Claude Code or other agents) LinkedIn, through [linkedin-mcp-server](https://github.com/stickerdaniel/linkedin-mcp-server) (`customPkgs.linkedin-mcp-server`): profiles, people and company search, messages, jobs, the feed, on your own account in a browser session of its own (`~/.linkedin-mcp`, signed in from Settings > Desktop agents or `mcp-server-linkedin --login`). Installed, but off in the chat until you turn it on in Settings > Desktop agents > Apps it can use. LinkedIn's terms forbid automated access and it may restrict accounts using it. Pulls in Chromium: `false` leaves it out entirely.
 
+### `customHomeManagerModules.nixbookShellConfig.selfImprove.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to enable the desktop agent fixing nixbook itself on this machine (programs.nixbook-shell.selfImprove.enable): fixes and polish only, as pull requests made with a GitHub token set in Settings > Desktop agents. Only machines whose profile turns it on have it.
+
 ### `customHomeManagerModules.nixbookShellConfig.settings`
 
 - **Type:** `submodule`

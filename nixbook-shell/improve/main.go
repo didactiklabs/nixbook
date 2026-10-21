@@ -30,12 +30,18 @@ const usage = `nixbook-improve: the desktop agent's fixes to nixbook (Settings >
                                          user's answer; --auto: the day's limit applies;
                                          --no-push: stop at the local commit
   nixbook-improve merge|drop|look PR     what the notification's buttons do
+  nixbook-improve token set|forget|status
+                                         its GitHub token (set: on stdin, checked on the
+                                         repository, kept in the keyring): the only
+                                         credential it uses, never the user's gh or ssh
   nixbook-improve health REV             the shell running a deployed fix (REV: the
                                          deployed revision): a revert offered if it broke
   nixbook-improve guard BASE [HEAD] [--max-files N] [--max-lines N]
                                          CI's agent-guard: an agent/ branch's commits are
                                          fixes (paths, size, messages)
 
+Only where Nix made it available (programs.nixbook-shell.selfImprove.enable:
+"improve" in desktop-mcp.json); guard and status run anywhere.
 Every command prints JSON. State: $XDG_STATE_HOME/nixbook-shell/improve/,
 the clone and logs: $XDG_DATA_HOME/nixbook-shell/improve/.`
 
@@ -84,7 +90,13 @@ func dispatch(args []string) (any, error) {
 		return nil, nil
 	}
 	cmdName, args := args[0], args[1:]
+	// The guard is CI's; status says whether it is available.
+	if cmdName != "guard" && cmdName != "status" && !available() {
+		return nil, errUnavailable
+	}
 	switch cmdName {
+	case "token":
+		return tokenCmd(args)
 	case "status":
 		return status()
 	case "note":
@@ -163,6 +175,7 @@ func status() (any, error) {
 		return nil, err
 	}
 	return map[string]any{
+		"available": available(), "token": available() && token() != "",
 		"enable": cfg.Enable, "repo": ghRepo(cfg.Repo), "claude": cfg.claude != "",
 		"today": runsToday(rs), "perDay": cfg.PerDay, "inbox": in.Items, "runs": rs,
 	}, nil

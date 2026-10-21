@@ -31,7 +31,7 @@ func health(rev string) (map[string]any, error) {
 		return map[string]any{"checked": 0}, nil
 	}
 	repo := repoDir()
-	git(repo, "fetch", "origin", "main")
+	fetchGit(repo, "fetch", "origin", "main")
 	log, restarts := runningShell()
 	var known Inbox
 	readJSON(inboxPath(), &known)

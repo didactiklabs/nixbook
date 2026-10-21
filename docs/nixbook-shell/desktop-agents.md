@@ -107,7 +107,7 @@ Ask Claude for something to happen on its own whenever something happens on the 
 
 ## Fixes it makes itself
 
-Tell an agent something of nixbook is broken ("report this") and, with **Fixes it makes itself** on, its `report_problem` tool files it for the fixer. The fixer makes a small fix in a confined Claude Code session, checks it and opens a pull request you merge. See [Fixes it makes itself](./self-improve).
+On machines that have it (totoro), tell an agent something of nixbook is broken ("report this") and, with **Fixes it makes itself** on, its `report_problem` tool files it for the fixer. The fixer makes a small fix in a confined Claude Code session, checks it and opens a pull request you merge. See [Fixes it makes itself](./self-improve).
 
 ## What agents can't do
 

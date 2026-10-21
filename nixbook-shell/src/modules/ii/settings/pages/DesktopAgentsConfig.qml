@@ -243,8 +243,10 @@ ContentPage {
             }
         }
 
-        // services/SelfImprove.qml, nixbook-improve.
+        // services/SelfImprove.qml, nixbook-improve: only where Nix made it
+        // available (programs.nixbook-shell.selfImprove.enable).
         ContentSection {
+            visible: SelfImprove.available
             icon: "build"
             title: Translation.tr("Fixes it makes itself")
 
@@ -252,7 +254,51 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("Claude fixes nixbook itself: fixes and polish only (a bug, a rough edge, wording), never a new feature or a big change — those it leaves for you. What to fix: what you tell an agent is broken (\"report this\") or write below (your words stay on this computer: the PR says it in its own), the errors the shell prints, the desktop tools' crashes. Each fix is made in a clone of the repository by a Claude Code session that can only edit files there (no commands, none of your files or logins), checked (its size and files, the tests, the shell started headless with no new error), committed with a changelog entry and opened as a pull request. Once CI passes you get Merge, Look, Drop; nothing reaches main without you, but what you let merge on its own. After a merge, main's checks and the updated shell are watched, and a revert is offered if it broke something. Its sandbox, the tests, CI and its own code are off limits; what agents may do is never merged on its own. Uses your gh login and Claude Code; at most %1 a day.").arg(Config.options.ai.improve.perDay)
+                text: Translation.tr("Claude fixes nixbook itself: fixes and polish only (a bug, a rough edge, wording), never a new feature or a big change — those it leaves for you. What to fix: what you tell an agent is broken (\"report this\") or write below (your words stay on this computer: the PR says it in its own), the errors the shell prints, the desktop tools' crashes. Each fix is made in a clone of the repository by a Claude Code session that can only edit files there (no commands, none of your files or logins), checked (its size and files, the tests, the shell started headless with no new error), committed with a changelog entry and opened as a pull request. Once CI passes you get Merge, Look, Drop; nothing reaches main without you, but what you let merge on its own. After a merge, main's checks and the updated shell are watched, and a revert is offered if it broke something. Its sandbox, the tests, CI and its own code are off limits; what agents may do is never merged on its own. It reaches GitHub only with its own token, below (never your gh login or ssh key; Claude never sees it), and uses your Claude Code; at most %1 a day.").arg(Config.options.ai.improve.perDay)
+            }
+
+            // Its GitHub token, kept in the keyring.
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("GitHub token: a fine-grained token (GitHub > Settings > Developer settings > Fine-grained tokens) for this repository only, with Contents and Pull requests set to Read and write, nothing else. Kept in your keyring.")
+                    + " " + (SelfImprove.tokenSaved ? Translation.tr("A token is saved.") : Translation.tr("No token yet: it opens no pull request until you add one."))
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+                MaterialTextField {
+                    id: improveToken
+                    Layout.fillWidth: true
+                    placeholderText: SelfImprove.tokenSaved ? Translation.tr("Token (saved: paste a new one to replace it)") : Translation.tr("Token")
+                    echoMode: TextInput.Password
+                    onAccepted: improveTokenSave.clicked()
+                }
+                SmallButton {
+                    id: improveTokenSave
+                    enabled: !SelfImprove.tokenBusy && improveToken.text.trim() !== ""
+                    materialIcon: "key"
+                    mainText: SelfImprove.tokenBusy ? Translation.tr("Checking…") : Translation.tr("Save and check")
+                    onClicked: {
+                        SelfImprove.setToken(improveToken.text)
+                        improveToken.text = ""
+                    }
+                }
+                SmallButton {
+                    visible: SelfImprove.tokenSaved
+                    enabled: !SelfImprove.tokenBusy
+                    materialIcon: "key_off"
+                    mainText: Translation.tr("Forget the token")
+                    onClicked: SelfImprove.forgetToken()
+                }
+            }
+            StyledText {
+                Layout.fillWidth: true
+                visible: SelfImprove.tokenStatus !== ""
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: SelfImprove.tokenStatus
             }
 
             GroupedList {
