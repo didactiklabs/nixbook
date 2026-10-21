@@ -44,6 +44,11 @@ Singleton {
     property var log: []
     property real now: Date.now()
     readonly property var live: root.pending.filter(p => (p.expires ?? 0) * 1000 > root.now && p.id !== root.speaking?.id)
+    // Read: what the user has seen in the bubble (hovered, answered, closed
+    // or opened from the bar), by id. Still there, but the bar's bubble only
+    // lights up for what they haven't.
+    property var _read: ({})
+    readonly property var unread: root.live.filter(p => !root._read[p.id])
 
     property var _batch: []
     property real _awaySince: 0
@@ -117,6 +122,8 @@ Singleton {
     readonly property bool conversing: root.chat !== null && (root.chat.messageIDs ?? []).some(id => root.chat.messageByID[id]?.role === "user")
     // Put away with its conversation (closed, or left a while): the bar's
     // bubble brings it back, and so does Claude's next answer in it.
+    // {item, chat, unread}: unread once Claude answered in it put away (not
+    // brought back then: the user busy), so the bar's bubble lights up.
     property var parked: null
     readonly property bool thinking: (root.chat?.responding ?? false) || (root.parked?.chat?.responding ?? false)
     // The user is writing in the bubble: nothing takes its place meanwhile.
@@ -128,6 +135,7 @@ Singleton {
     // Shows it in the bubble (the bar's bubble, a word waiting).
     function open(item) {
         if (!item) return
+        root.markRead(item)
         if (root.speaking && root.speaking === item) return
         root._notify(item)
     }
@@ -188,6 +196,11 @@ Singleton {
         root.speaking = root._ask()
         root.focusWanted()
     }
+    // The user saw it (the bubble hovered, typed in, closed).
+    function markRead(item) {
+        const it = item ?? root.speaking
+        if (it?.id && !root._read[it.id]) root._read = Object.assign({}, root._read, { [it.id]: true })
+    }
     function _pick(list) {
         return list[Math.floor(Math.random() * list.length)]
     }
@@ -209,6 +222,7 @@ Singleton {
     function _taken(item) {
         if (!item?.id || root._answeredId === item.id) return
         root._answeredId = item.id
+        root.markRead(item)
         root._opened = { id: item.id, time: Date.now() }
         root.answer(item.id, "replied")
     }
@@ -272,7 +286,7 @@ Singleton {
     // The conversation put away, to the bar's bubble; brought back.
     function park() {
         if (!root.conversing) return
-        root.parked = { item: root.speaking, chat: root.chat }
+        root.parked = { item: root.speaking, chat: root.chat, unread: false }
         root.speaking = null
         root.chat = null
         root.typing = false
@@ -292,7 +306,9 @@ Singleton {
     // Claude answered in a conversation of the bubble: one put away comes
     // back to say it (not while the user is busy: the bar's bubble then).
     function chatAnswered(c) {
-        if (root.parked?.chat === c && !root.speaking && !root.busy()) root.resume()
+        if (root.parked?.chat !== c) return
+        if (!root.speaking && !root.busy()) root.resume()
+        else if (!root.parked.unread) root.parked = Object.assign({}, root.parked, { unread: true })
     }
     // A chat of the side panel answered while it is closed: said in the
     // bubble, to answer there. False when the bubble is taken.
