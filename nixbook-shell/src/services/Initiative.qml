@@ -110,7 +110,19 @@ Singleton {
         event.busy = event.force === true ? false : root.busy()
         // The shell's PATH may not have Claude Code: its own, for the small model.
         if (Ai.claudeCodePath.length > 0) event.claude = Ai.claudeCodePath
-        considerer.createObject(root, { command: ["nixbook-desktop-mcp", "initiative", "consider", JSON.stringify(event)], running: true })
+        const what = event.force !== true ? "" : event.event === "news" ? "news" : "say"
+        if (what !== "") root._askNow(what)
+        considerer.createObject(root, { command: ["nixbook-desktop-mcp", "initiative", "consider", JSON.stringify(event)], running: true,
+                                        asked: what })
+    }
+    // Say something now / Find news now waiting for their answer ("say",
+    // "news"; Settings shows it), and what came of the last one (its
+    // action: "notify", "badge" or "none").
+    property string asking: ""
+    property string asked: ""
+    function _askNow(what) {
+        root.asking = what
+        root.asked = ""
     }
 
     function back(awayMinutes) {
@@ -504,8 +516,10 @@ Singleton {
         id: considerer
         Process {
             id: proc
+            property string asked: ""
             stdout: StdioCollector { id: out }
             onExited: {
+                let action = "none"
                 try {
                     const answer = JSON.parse(out.text)
                     if (answer.action === "notify") root._say(answer.item)
@@ -513,8 +527,13 @@ Singleton {
                         root.pending = [...root.pending, answer.item]
                         if (answer.item?.pop) root._pairWaiting = answer.item
                     }
+                    if (answer.action === "notify" || answer.action === "badge") action = answer.action
                 } catch (e) {
                     // Nothing to say, or the server is missing: silence.
+                }
+                if (proc.asked !== "" && proc.asked === root.asking) {
+                    root.asking = ""
+                    root.asked = action
                 }
                 proc.destroy()
             }

@@ -173,15 +173,15 @@ ContentPage {
                 spacing: 8
                 SmallButton {
                     materialIcon: "campaign"
-                    enabled: Config.options.ai.initiative.enable
-                    mainText: Translation.tr("Say something now")
+                    enabled: Config.options.ai.initiative.enable && Initiative.asking === ""
+                    mainText: Initiative.asking === "say" ? Translation.tr("Thinking…") : Translation.tr("Say something now")
                     onClicked: Initiative.sayNow()
                 }
                 SmallButton {
                     materialIcon: "newspaper"
                     visible: Config.options.ai.initiative.news
-                    enabled: Config.options.ai.initiative.enable
-                    mainText: Translation.tr("Find news now")
+                    enabled: Config.options.ai.initiative.enable && Initiative.asking === ""
+                    mainText: Initiative.asking === "news" ? Translation.tr("Searching the news…") : Translation.tr("Find news now")
                     onClicked: Initiative.newsNow()
                 }
                 SmallButton {
@@ -189,6 +189,20 @@ ContentPage {
                     mainText: Translation.tr("Undo every \"Don't tell me this\"")
                     onClicked: Quickshell.execDetached(["nixbook-desktop-mcp", "initiative", "unmute"])
                 }
+            }
+            // Say something now / Find news now: working, then what came of it.
+            StyledIndeterminateProgressBar {
+                visible: Initiative.asking !== ""
+                Layout.fillWidth: true
+            }
+            StyledText {
+                Layout.fillWidth: true
+                visible: Initiative.asking === "" && Initiative.asked !== ""
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Initiative.asked === "notify" ? Translation.tr("Said in its bubble, on the left under the bar.")
+                    : Initiative.asked === "badge" ? Translation.tr("It waits in the bar: click the robot's bubble.")
+                    : Translation.tr("Nothing worth saying right now.")
             }
 
             // Why it spoke or kept quiet lately: its last decisions.
