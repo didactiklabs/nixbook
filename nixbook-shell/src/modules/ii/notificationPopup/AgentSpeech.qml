@@ -26,6 +26,9 @@ import Quickshell.Wayland
  * reaction, 90 s after an answer) it goes to the bar's bubble, its
  * conversation with it. Hovered, typed in or closed, it was read: the bar's
  * bubble then stays dark (Initiative.markRead).
+ * What it says while the bubble is taken comes as small bubbles under it
+ * (Initiative.stacked), like notifications: a click opens one in the
+ * bubble; one waiting for an answer stays, the others go to the bar.
  */
 Scope {
     id: root
@@ -125,7 +128,7 @@ Scope {
 
     PanelWindow {
         id: window
-        visible: root.item !== null && !GlobalStates.screenLocked
+        visible: (root.item !== null || Initiative.stacked.length > 0) && !GlobalStates.screenLocked
         screen: Quickshell.screens.find(s => s.name === WM.focusedMonitor?.name) ?? null
 
         WlrLayershell.namespace: "quickshell:agentSpeech"
@@ -141,7 +144,8 @@ Scope {
         mask: MakeWay.active ? noInput : cardRegion
         Region {
             id: cardRegion
-            item: card
+            item: root.item ? card : null
+            Region { item: stackColumn }
         }
         Region { id: noInput }
         exclusiveZone: 0
@@ -154,7 +158,7 @@ Scope {
             left: window.barLeft ? Appearance.sizes.verticalBarWidth + 6 : 12
         }
         implicitWidth: 404
-        implicitHeight: card.implicitHeight + 24
+        implicitHeight: stackColumn.y + stackColumn.implicitHeight + 24
         onVisibleChanged: if (!visible) {
             window.grab = false
             input.focus = false
@@ -186,6 +190,7 @@ Scope {
             // Slides in from the left, a little bounce (a snap in Persona).
             Item {
                 id: card
+                visible: root.item !== null
                 x: 12
                 y: 14
                 width: 376
@@ -640,6 +645,149 @@ Scope {
                     running: root.item !== null && window.visible && !hover.hovered && !Initiative.typing && !root.responding
                     && !MakeWay.active
                     onTriggered: Initiative.hush("wait")
+                }
+            }
+
+            // Its other words (Initiative.stacked), small, under the bubble:
+            // like notifications. A click opens one in the bubble (the
+            // conversation there is put away to the bar); one waiting for an
+            // answer stays, the others go to the bar after 30 s left alone.
+            Column {
+                id: stackColumn
+                x: 12
+                y: root.item ? card.y + card.implicitHeight + 10 : 14
+                width: 376
+                spacing: 8
+                Repeater {
+                    model: ScriptModel { values: Initiative.stacked; objectProp: "id" }
+                    delegate: Item {
+                        id: small
+                        required property var modelData
+                        readonly property bool waits: Initiative.waits(small.modelData)
+                        readonly property var chips: {
+                            const it = small.modelData
+                            if (it.accept) return [{ label: Translation.tr("Yes, do it"), run: () => Initiative.accept(it) }]
+                            const acts = (it.actions ?? []).slice(0, 2).map(a => ({ label: a.label, run: () => Initiative.act(a, it) }))
+                            if (acts.length > 0) return acts
+                            return small.waits ? [{ label: Translation.tr("Reply"), run: () => { Initiative.open(it); Initiative.focusWanted() } }] : []
+                        }
+                        width: stackColumn.width
+                        implicitHeight: smallBody.implicitHeight + 20
+                        opacity: 0
+                        transform: Translate { id: smallSlide; x: -40 }
+                        Component.onCompleted: smallEnter.start()
+                        ParallelAnimation {
+                            id: smallEnter
+                            NumberAnimation { target: small; property: "opacity"; to: 1; duration: 220 }
+                            NumberAnimation { target: smallSlide; property: "x"; to: 0; duration: root.style === "persona" ? 140 : 320
+                                              easing.type: root.style === "persona" ? Easing.OutQuart : Easing.OutCubic }
+                        }
+                        Timer {
+                            interval: 30000
+                            running: !small.waits && !smallHover.hovered && !MakeWay.active
+                            onTriggered: Initiative.unstack(small.modelData)
+                        }
+                        HoverHandler {
+                            id: smallHover
+                            onHoveredChanged: if (hovered) Initiative.markRead(small.modelData)
+                        }
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: root.square ? 0 : Math.min(root.radius, 16)
+                            color: root.bg
+                            border.color: root.edge
+                            border.width: root.style === "material" ? 0 : 2
+                        }
+                        Rectangle {
+                            visible: root.style === "cyberpunk" || root.style === "persona"
+                            width: 3
+                            anchors { top: parent.top; bottom: parent.bottom; left: parent.left; margins: 5 }
+                            color: root.accent
+                        }
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: Initiative.open(small.modelData)
+                        }
+                        ColumnLayout {
+                            id: smallBody
+                            anchors { left: parent.left; right: parent.right; top: parent.top; margins: 10; leftMargin: 14 }
+                            spacing: 6
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                MaterialSymbol {
+                                    text: small.waits ? "chat_bubble" : "smart_toy"
+                                    fill: 1
+                                    iconSize: 15
+                                    color: root.accent
+                                }
+                                StyledText {
+                                    Layout.fillWidth: true
+                                    textFormat: Text.PlainText // its words may quote third-party text
+                                    text: small.modelData.text ?? ""
+                                    wrapMode: Text.Wrap
+                                    maximumLineCount: 3
+                                    elide: Text.ElideRight
+                                    font.family: root.font
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                    color: root.fg
+                                }
+                                MaterialSymbol {
+                                    Layout.alignment: Qt.AlignTop
+                                    text: "close"
+                                    iconSize: Appearance.font.pixelSize.normal
+                                    color: root.fg
+                                    opacity: smallClose.containsMouse ? 1 : 0.6
+                                    MouseArea {
+                                        id: smallClose
+                                        anchors.fill: parent
+                                        anchors.margins: -4
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: Initiative.dismissStacked(small.modelData, "later")
+                                    }
+                                }
+                            }
+                            Flow {
+                                Layout.fillWidth: true
+                                Layout.leftMargin: 23
+                                visible: small.chips.length > 0
+                                spacing: 6
+                                Repeater {
+                                    model: small.chips
+                                    delegate: Rectangle {
+                                        id: smallChip
+                                        required property var modelData
+                                        required property int index
+                                        implicitWidth: smallLabel.implicitWidth + 18
+                                        implicitHeight: 24
+                                        radius: root.square ? 0 : 12
+                                        color: smallChip.index === 0 ? (smallChipMouse.containsMouse ? Qt.lighter(root.accent, 1.1) : root.accent)
+                                            : (smallChipMouse.containsMouse ? Qt.alpha(root.accent, 0.18) : "transparent")
+                                        border.color: root.accent
+                                        border.width: smallChip.index === 0 ? 0 : 1
+                                        StyledText {
+                                            id: smallLabel
+                                            anchors.centerIn: parent
+                                            text: smallChip.modelData.label
+                                            font.family: root.font
+                                            font.pixelSize: Appearance.font.pixelSize.smaller
+                                            font.weight: smallChip.index === 0 ? Font.Bold : Font.Normal
+                                            color: smallChip.index === 0 ? root.bg : root.fg
+                                        }
+                                        MouseArea {
+                                            id: smallChipMouse
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: smallChip.modelData.run()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
