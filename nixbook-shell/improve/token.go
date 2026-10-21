@@ -73,11 +73,27 @@ func probe(tok, repo string) string {
 	tmp, err := os.MkdirTemp("", "nixbook-improve-probe")
 	if err == nil {
 		defer os.RemoveAll(tmp)
-		git(tmp, "init", "--quiet")
-		git(tmp, "-c", "user.name=probe", "-c", "user.email=probe@localhost", "commit", "--quiet", "--allow-empty", "-m", "probe")
-		if _, err := cmdEnv(tmp, time.Minute, "", ghEnv(tok), "git", append(append([]string{}, gitAuth...),
+		// A throwaway repository with none of the user's git config (their
+		// commit signing would fail the probe's commit, not the token).
+		local := func(args ...string) (string, error) {
+			return cmdEnv(tmp, time.Minute, "", gitIsolated, "git", args...)
+		}
+		local("init", "--quiet")
+		if _, err := local("-c", "user.name=probe", "-c", "user.email=probe@localhost",
+			"commit", "--quiet", "--allow-empty", "-m", "probe"); err != nil {
+			return "the permission check itself failed: " + err.Error()
+		}
+		if _, err := cmdEnv(tmp, time.Minute, "", append(ghEnv(tok), gitIsolated...), "git", append(append([]string{}, gitAuth...),
 			"push", "--dry-run", httpsURL(repo), "HEAD:refs/heads/nixbook-improve-permission-check")...); err != nil {
-			missing = append([]string{"Contents: Read and write"}, missing...)
+			switch msg := err.Error(); {
+			case strings.Contains(msg, "Invalid username or token"):
+				return "GitHub doesn't accept this token for git (" + gitReason(msg) + "): is it the token you just created, " +
+					"not expired, and approved for " + strings.Split(repo, "/")[0] + " if the organization requires it?"
+			case strings.Contains(msg, "403") || strings.Contains(msg, "denied") || strings.Contains(msg, "not granted"):
+				missing = append([]string{"Contents: Read and write (git: " + gitReason(msg) + ")"}, missing...)
+			default:
+				return "the push check failed: " + gitReason(msg)
+			}
 		}
 	}
 	if len(missing) == 0 {
@@ -85,6 +101,21 @@ func probe(tok, repo string) string {
 	}
 	return "the token can read " + repo + " but lacks " + strings.Join(missing, " and ") +
 		" (GitHub > Settings > Developer settings > Fine-grained tokens > the token > Permissions)"
+}
+
+// gitReason: the remote's own words in a git error, short.
+func gitReason(msg string) string {
+	var lines []string
+	for _, l := range strings.Split(msg, "\n") {
+		l = strings.TrimSpace(l)
+		if strings.HasPrefix(l, "remote:") || strings.HasPrefix(l, "fatal:") || strings.HasPrefix(l, "error:") {
+			lines = append(lines, l)
+		}
+	}
+	if len(lines) == 0 {
+		return clip(msg, 200)
+	}
+	return clip(strings.Join(lines, " "), 300)
 }
 
 func tokenCmd(args []string) (any, error) {
