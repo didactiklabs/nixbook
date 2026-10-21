@@ -130,7 +130,7 @@ Singleton {
             // A run that left the music as it was did nothing to undo.
             if (out.ran && (!music || root._musicNow() !== before))
                 root._fired = Object.assign({}, root._fired, { [r.id]: { time: Date.now(), music: music,
-                    app: r.do?.tool === "launch_app" ? String(r.do?.args?.app ?? "").toLowerCase() : "" } })
+                    app: String(root._steps(r).find(s => s.tool === "launch_app")?.args?.app ?? "").toLowerCase() } })
             const said = out.said && !out.said.endsWith(": done.") ? out.said : ""
             root.note(r.text, out.ran ? (said ? Translation.tr("ran: %1").arg(said) : Translation.tr("ran")) : out.why)
         } catch (e) {
@@ -142,9 +142,14 @@ Singleton {
         return `${root.anyPlaying} ${MprisController.activeTrack?.artist ?? ""} ${MprisController.activeTrack?.title ?? ""}`
     }
 
+    // A fixed action's calls ({steps} or the one).
+    function _steps(r) {
+        return r.do?.steps ?? [r.do ?? {}]
+    }
+
     function _touchesMusic(r) {
-        const d = r.do ?? {}
-        const what = `${r.when?.event ?? ""} ${d.server ?? ""} ${d.tool ?? ""} ${d.agent ?? ""}`.toLowerCase()
+        const calls = root._steps(r).map(s => `${s.server ?? ""} ${s.tool ?? ""}`).join(" ")
+        const what = `${r.when?.event ?? ""} ${calls} ${r.do?.agent ?? ""}`.toLowerCase()
         return /music|spotify|play|song|track|playlist/.test(what)
     }
 
@@ -323,7 +328,7 @@ Singleton {
             const fresh = (root._repeatTimes >= (r.when.times ?? 3) && !root._repeatFired.includes(r.id))
                 || (minutes >= (r.when.minutes ?? 30) && !root._artistFired.includes(r.id))
             if (!fresh) continue
-            const ev = { event: "music_repeating", app: app, text: track, times: root._repeatTimes, minutes: minutes }
+            const ev = { event: "music_repeating", app: app, text: track, artist: artist, times: root._repeatTimes, minutes: minutes }
             if (!root._matches(r.when, ev)) continue
             root._repeatFired = [...root._repeatFired, r.id]
             root._artistFired = [...root._artistFired, r.id]
@@ -388,6 +393,7 @@ Singleton {
         function onTrackChanged() {
             if (!root.anyPlaying) return
             root.happen({ event: "track_changed", app: MprisController.activePlayer?.identity ?? "",
+                          artist: MprisController.activeTrack?.artist ?? "",
                           text: `${MprisController.activeTrack?.artist ?? ""} ${MprisController.activeTrack?.title ?? ""}` })
         }
     }
