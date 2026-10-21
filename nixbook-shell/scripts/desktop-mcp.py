@@ -2890,10 +2890,12 @@ def brief_item(cfg, event, now):
     """Back after a while: their day in a few lines, all in plain code."""
     hour = time.localtime(now).tm_hour
     lines = []
-    events = [e for e in event.get("events") or [] if isinstance(e, dict) and e.get("title")][:3]
+    # An untitled event is still said by its time ("an event at 14:45").
+    events = [e for e in event.get("events") or [] if isinstance(e, dict)
+              and (e.get("title") or (e.get("start") and not e.get("allDay")))][:3]
     if events:
         lines.append("Today: " + ", ".join(
-            f"{short(str(e['title']), 40)}" + (f" at {e['start']}" if e.get("start") and not e.get("allDay") else "")
+            (short(str(e["title"]), 40) if e.get("title") else "an event") + (f" at {e['start']}" if e.get("start") and not e.get("allDay") else "")
             for e in events) + ".")
     due = event.get("tasksDue")
     if isinstance(due, int) and due > 0:

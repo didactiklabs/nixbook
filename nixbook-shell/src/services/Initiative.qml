@@ -129,7 +129,8 @@ Singleton {
         const t = new Date()
         const fmt = Config.options?.time.format ?? "hh:mm"
         const events = CalendarEvents.upcoming(4, t).filter(e => e.allDay || e.start.toDateString() === t.toDateString())
-            .map(e => ({ title: e.summary, start: e.allDay ? "" : Qt.locale().toString(e.start, fmt), allDay: e.allDay,
+            // Untitled: no title (the calendar's "(No title)" means nothing in the brief).
+            .map(e => ({ title: e.summary === Translation.tr("(No title)") ? "" : e.summary, start: e.allDay ? "" : Qt.locale().toString(e.start, fmt), allDay: e.allDay,
                          inMinutes: e.allDay ? null : Math.round((e.start - t) / 60000) }))
         root.consider({ event: "back", away: Math.round(awayMinutes), events: events, tasksDue: Todo.dueTodayCount,
                         open: WM.windowList.map(w => w.appId) })
