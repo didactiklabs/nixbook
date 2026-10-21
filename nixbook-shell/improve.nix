@@ -20,7 +20,8 @@ pkgs.buildGoModule {
         [
           gitMinimal
           openssh
-          gh # the PRs, with the user's own gh login
+          gh # the PRs, with its own token only
+          libsecret # secret-tool: the token in the keyring
           libnotify # notify-send: Merge, Look, Drop
           xdg-utils # xdg-open: Look
           systemd # journalctl, systemctl: the shell's log

@@ -432,7 +432,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 53 tools" 53 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 52 tools" 52 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -2568,6 +2568,10 @@ printf '%s\n' "\$*" >>"$tmp/improve-calls"
 echo '{"id":"0123abcd","count":2}'
 EOF
 chmod +x "$improve_bin/nixbook-improve"
+expect_contains "report_problem: absent where Nix didn't make the fixer available" \
+  "$(PATH="$improve_bin:$PATH" call report_problem '{"what":"the clock is cut off"}')" "unknown or disabled tool"
+saved_mcp=$(cat "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json" 2>/dev/null || true)
+echo '{"improve": true}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
 expect_contains "report_problem: off by default" "$(PATH="$improve_bin:$PATH" call report_problem '{"what":"the clock is cut off"}')" "the fixer is off"
 expect_eq "report_problem: nothing filed while off" "" "$(cat "$tmp/improve-calls" 2>/dev/null || true)"
 echo '{"ai": {"improve": {"enable": true}}}' >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
@@ -2575,6 +2579,7 @@ out=$(PATH="$improve_bin:$PATH" call report_problem '{"what":"the clock is cut o
 expect_contains "report_problem: filed" "$out" "filed for the fixer (reported 2 times now)"
 expect_eq "report_problem: nixbook-improve note" "note --where bar clock the clock is cut off" "$(cat "$tmp/improve-calls")"
 rm "$XDG_CONFIG_HOME/nixbook-shell/config.json"
+if [ -n "$saved_mcp" ]; then printf '%s\n' "$saved_mcp" >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"; else rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"; fi
 
 # -- themes and variants ---------------------------------------------------------------------
 

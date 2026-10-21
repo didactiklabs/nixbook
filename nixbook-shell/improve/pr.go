@@ -24,7 +24,7 @@ type ciCheck struct {
 func ciState(repo string, pr int) (string, []ciCheck) {
 	var cs []ciCheck
 	// gh exits non-zero while checks fail or wait: the JSON is still there.
-	out, _ := cmd("", 2*time.Minute, "", "gh", "pr", "checks", fmt.Sprint(pr), "--repo", repo, "--json", "bucket,name,link")
+	out, _ := ghIn(2*time.Minute, "", "pr", "checks", fmt.Sprint(pr), "--repo", repo, "--json", "bucket,name,link")
 	if json.Unmarshal([]byte(out), &cs) != nil || len(cs) == 0 {
 		return "pending", nil
 	}
@@ -58,7 +58,7 @@ func failedLogs(repo string, failed []ciCheck) string {
 			continue
 		}
 		seen[m[1]] = true
-		out, _ := cmd("", 3*time.Minute, "", "gh", "run", "view", m[1], "--repo", repo, "--log-failed")
+		out, _ := ghIn(3*time.Minute, "", "run", "view", m[1], "--repo", repo, "--log-failed")
 		fmt.Fprintf(&b, "== %s ==\n%s\n", c.Name, tail(out, 5000))
 	}
 	return b.String()
@@ -136,7 +136,7 @@ func retryCI(cfg Config, r Run, logs string) (Run, error) {
 	}
 	defer unlock()
 	repo := repoDir()
-	if _, err := git(repo, "fetch", "origin", "main", r.Branch); err != nil {
+	if _, err := gitNet(repo, "fetch", "origin", "main", r.Branch); err != nil {
 		return r, err
 	}
 	if _, err := git(repo, "checkout", "--force", "-B", r.Branch, "origin/"+r.Branch); err != nil {
@@ -183,14 +183,13 @@ func retryCI(cfg Config, r Run, logs string) (Run, error) {
 	if _, err := cmd(repo, 10*time.Minute, msg, "git", "commit", "--quiet", "-F", "-"); err != nil {
 		return r, err
 	}
-	if _, err := git(repo, append(ghCred, "push", "--force", "origin", "HEAD:refs/heads/"+r.Branch)...); err != nil {
+	if _, err := gitNet(repo, "push", "--force", "origin", "HEAD:refs/heads/"+r.Branch); err != nil {
 		return r, err
 	}
 	return editRun(r.ID, func(x *Run) { x.Files, x.Title, x.CI = changes, firstLine(msg), "pending" })
 }
 
-// merge: a rebase merge, as every PR of nixbook (--admin past main's
-// rules when the user may).
+// merge: a rebase merge, as every PR of nixbook, with the token.
 func merge(cfg Config, r Run) error {
 	sha, err := ghMerge(ghRepo(cfg.Repo), r.PR)
 	if err != nil {
@@ -209,8 +208,9 @@ func merge(cfg Config, r Run) error {
 // ghMerge merges a PR: its commit on main.
 func ghMerge(repo string, pr int) (string, error) {
 	n := fmt.Sprint(pr)
-	if _, err := gh("pr", "merge", n, "--repo", repo, "--rebase", "--admin", "--delete-branch"); err != nil {
-		if _, err2 := gh("pr", "merge", n, "--repo", repo, "--rebase", "--delete-branch"); err2 != nil {
+	if _, err := gh("pr", "merge", n, "--repo", repo, "--rebase", "--delete-branch"); err != nil {
+		// Past main's rules only if the token may (an admin's: not advised).
+		if _, err2 := gh("pr", "merge", n, "--repo", repo, "--rebase", "--admin", "--delete-branch"); err2 != nil {
 			return "", err
 		}
 	}
@@ -275,7 +275,7 @@ func revert(cfg Config, r Run, why string) (map[string]any, error) {
 		return nil, err
 	}
 	branch := "agent/revert-" + r.Item
-	_, err = prepare(cfg.Repo, branch)
+	_, err = prepare(repo, branch)
 	if err == nil {
 		_, err = git(repoDir(), "revert", "--no-edit", r.Merged)
 	}
@@ -285,12 +285,12 @@ func revert(cfg Config, r Run, why string) (map[string]any, error) {
 		_, err = cmd(repoDir(), time.Minute, msg, "git", "commit", "--amend", "--quiet", "-F", "-")
 	}
 	if err == nil {
-		_, err = git(repoDir(), append(ghCred, "push", "--force", "origin", "HEAD:refs/heads/"+branch)...)
+		_, err = gitNet(repoDir(), "push", "--force", "origin", "HEAD:refs/heads/"+branch)
 	}
 	var url string
 	if err == nil {
-		url, err = cmd("", 2*time.Minute, fmt.Sprintf("Reverts #%d: %s.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n", r.PR, why),
-			"gh", "pr", "create", "--repo", repo, "--base", "main", "--head", branch,
+		url, err = ghIn(2*time.Minute, fmt.Sprintf("Reverts #%d: %s.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n", r.PR, why),
+			"pr", "create", "--repo", repo, "--base", "main", "--head", branch,
 			"--title", fmt.Sprintf("Revert %q", r.Title), "--label", "agent-fix", "--body-file", "-")
 	}
 	unlock()

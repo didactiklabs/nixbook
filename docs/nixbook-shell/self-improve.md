@@ -2,7 +2,23 @@
 
 The desktop agent can fix nixbook itself: **fixes and polish only** (a bug, a rough edge, wrong wording), each as a pull request with its changelog entry, merged when you say so. New features and big changes are never made here: those it leaves for you, saying what a real change would be.
 
-It is off until you turn it on: **Settings → Desktop agents → Fixes it makes itself → Make fixes on its own** (`ai.improve.enable`). It uses your Claude Code login and your `gh` login.
+Only machines whose Nix configuration enables it have it (totoro, for now):
+
+```nix
+customHomeManagerModules.nixbookShellConfig.selfImprove.enable = true;
+# outside nixbook: programs.nixbook-shell.selfImprove.enable = true;
+```
+
+Elsewhere there is no Settings section, agents don't get the `report_problem` tool, and `nixbook-improve` refuses to run. Where it is enabled, it stays off until you turn it on: **Settings → Desktop agents → Fixes it makes itself → Make fixes on its own** (`ai.improve.enable`). It uses your Claude Code login for the fixing session, and its own GitHub token (below) for GitHub.
+
+## Its GitHub token
+
+It reaches GitHub **only with its own token**, never your `gh` login or ssh key. Create a **fine-grained token** (GitHub → Settings → Developer settings → Fine-grained tokens) for the repository only. Set **Contents** and **Pull requests** to _Read and write_ and nothing else (no _Workflows_, no _Administration_). Paste it in the section's **GitHub token** field: **Save and check** checks that it can read the repository, then keeps it in your keyring (`secret-tool`, service `nixbook-improve`). It warns you about a classic token, which reaches every repository you can, and about an admin token. **Forget the token** removes it. Without a token it opens no pull request.
+
+- `gh` runs with that token and an empty config directory, so it can't fall back to your login. git pushes and fetches over https with the token alone; an ssh repository URL is used as https.
+- The fixing session never has it: it isn't in its environment, and its file tools can't reach the keyring.
+- Without _Workflows_ permission, GitHub itself refuses a push that touches `.github/workflows`, on top of the guard.
+- Merging uses the same token. If `main`'s rules require more than the token may do (a review, an admin bypass), the merge fails and the notification says why: merge it on GitHub instead.
 
 ## What it fixes
 
@@ -17,7 +33,7 @@ What you report gets a fix soon. An error has to show up 3 times first, and a cr
 ## How a fix is made
 
 1. A clone of the repository (`~/.local/share/nixbook-shell/improve/repo`) is brought to `main`, on an `agent/fix-<item>` branch.
-2. A **Claude Code session** reads the item and changes the files. It runs in `--restricted` mode: its file tools stay inside the clone, and it can't run commands, browse the web, or use settings, hooks or MCP servers. It never sees your files, your logins or a token. It may answer _skip_ (not a bug, or not enough to go on) or _too big_ (a feature or a refactor: you get a notification saying what a real change would be).
+2. A **Claude Code session** (your Claude Code login) reads the item and changes the files. It runs in `--restricted` mode: its file tools stay inside the clone, and it can't run commands, browse the web, or use settings, hooks or MCP servers. It never sees your files, your logins or a token. It may answer _skip_ (not a bug, or not enough to go on) or _too big_ (a feature or a refactor: you get a notification saying what a real change would be).
 3. **The guard** refuses what isn't a fix: more than `maxFiles` files (5) or `maxLines` changed lines (150), a new file (except Markdown), a deleted or binary file, or anything off limits (below).
 4. **The checks** (on this computer):
    - `treefmt`;
@@ -28,7 +44,7 @@ What you report gets a fix soon. An error has to show up 3 times first, and a cr
 
 5. **The commit** is its changelog entry: `fix(scope): …` or `polish(scope): …`, then what was wrong, the cause, what changed and how to see it. Below that come where the report came from and an `Agent-Fix: <item>` trailer. These titles are what the updates widget lists as the changelog.
 6. The branch is pushed and a **pull request** opened (label `agent-fix`), with what was checked and the files changed.
-7. Once **CI** finishes, a notification says **Fix ready** with **Merge**, **Look** and **Drop** (the same buttons are in Settings). If CI fails, the session gets the failed jobs' logs and tries once more, then the PR is left to you. Merge is a rebase merge (`--admin` when main's rules require it).
+7. Once **CI** finishes, a notification says **Fix ready** with **Merge**, **Look** and **Drop** (the same buttons are in Settings). If CI fails, the session gets the failed jobs' logs and tries once more, then the PR is left to you. Merge is a rebase merge, made with its token.
 
 ## Merged on its own
 
@@ -64,4 +80,4 @@ CI's guard always uses the default limits, so raising `maxFiles` or `maxLines` h
 
 ## Command line
 
-`nixbook-improve status` (the inbox and the runs), `note TEXT`, `collect`, `run [--item ID] [--no-push]` (`--no-push`: a dry run that stops at the local commit), `merge|drop|look PR`, `health REV`, `guard BASE [HEAD]`. State lives in `~/.local/state/nixbook-shell/improve/`; the clone and each run's logs in `~/.local/share/nixbook-shell/improve/`.
+`nixbook-improve status` (the inbox and the runs), `note TEXT`, `collect`, `run [--item ID] [--no-push]` (`--no-push`: a dry run that stops at the local commit), `merge|drop|look PR`, `token set|forget|status` (`set` reads it on stdin), `health REV`, `guard BASE [HEAD]`. State lives in `~/.local/state/nixbook-shell/improve/`; the clone and each run's logs in `~/.local/share/nixbook-shell/improve/`.

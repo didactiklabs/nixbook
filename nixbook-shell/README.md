@@ -546,7 +546,9 @@ shows, clears or prints the digest; the `memory` tool group
 (`desktopMcp.settings.tools`) turns it off; `memoryPromptChars` and
 `memoryMaxNotes` size it.
 
-**Fixes it makes itself** (`ai.improve.enable`, off by default; docs:
+**Fixes it makes itself** (only where `selfImprove.enable` is set: "improve"
+in desktop-mcp.json, which also lists `report_problem`; then
+`ai.improve.enable`, off by default; docs:
 `docs/nixbook-shell/self-improve.md`): `nixbook-improve` (`improve/`, Go,
 `improve.nix`) keeps an inbox in `~/.local/state/nixbook-shell/improve/`
 (the user's reports: the `report_problem` tool and Settings; the shell's
@@ -563,7 +565,10 @@ new non-Markdown, deleted or binary files) and the checks (`treefmt`,
 `tests/run.sh shell|repo` by path, `tests/shell-loads.sh` at the base and
 with the change, comparing QML warnings without line numbers). It gives the
 session one retry with the output, then commits `fix|polish(scope): …`
-with an `Agent-Fix:` trailer, pushes with gh's credentials, opens the PR
+with an `Agent-Fix:` trailer, pushes and opens the PR with its own token
+(`token.go`: kept by secret-tool, `token set` on stdin from Settings; gh
+with it and an empty `GH_CONFIG_DIR`, git over https with it alone, never
+the user's gh login or ssh key; the session's environment has no token)
 (label `agent-fix`) and waits for CI (one retry with the failed logs).
 After that it notifies Merge/Look/Drop (`notify-send --wait`), or merges
 on its own when `autoMerge` and every file matches `autoMergePaths`, none

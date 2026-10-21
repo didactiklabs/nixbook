@@ -21,20 +21,32 @@ var errNothing = errors.New("nothing to fix")
 
 func repoDir() string { return filepath.Join(dataDir(), "repo") }
 
-// prepare brings the clone to origin/main on a fresh branch: its base.
-func prepare(url, branch string) (string, error) {
+// fetchGit: git over the network, with the token when there is one (a
+// dry run reads a public repository without).
+func fetchGit(dir string, args ...string) (string, error) {
+	if token() == "" {
+		out, err := cmd(dir, 30*time.Minute, "", "git", args...)
+		return strings.TrimSpace(out), err
+	}
+	return gitNet(dir, args...)
+}
+
+// prepare brings the clone (of OWNER/NAME, over https) to origin/main on a
+// fresh branch: its base.
+func prepare(name, branch string) (string, error) {
 	repo := repoDir()
+	url := httpsURL(name)
 	if _, err := os.Stat(filepath.Join(repo, ".git")); err != nil {
 		os.RemoveAll(repo)
 		if err := os.MkdirAll(filepath.Dir(repo), 0o700); err != nil {
 			return "", err
 		}
-		if _, err := cmd("", 30*time.Minute, "", "git", "clone", "--filter=blob:none", url, repo); err != nil {
+		if _, err := fetchGit("", "clone", "--filter=blob:none", url, repo); err != nil {
 			return "", err
 		}
 	}
 	git(repo, "remote", "set-url", "origin", url)
-	if _, err := git(repo, "fetch", "--prune", "origin", "main"); err != nil {
+	if _, err := fetchGit(repo, "fetch", "--prune", "origin", "main"); err != nil {
 		return "", err
 	}
 	git(repo, "worktree", "prune")
@@ -53,8 +65,14 @@ func run(o runOpts) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	if !available() {
+		return nil, errUnavailable
+	}
 	if !cfg.Enable {
 		return map[string]any{"ran": false, "why": "off (Settings > Desktop agents)"}, nil
+	}
+	if !o.noPush && token() == "" {
+		return nil, errNoToken
 	}
 	unlock, err := lock("run.lock", false)
 	if errors.Is(err, errBusy) {
@@ -73,7 +91,7 @@ func run(o runOpts) (map[string]any, error) {
 		return map[string]any{"ran": false, "why": "today's fixes are made"}, nil
 	}
 	repoName := ghRepo(cfg.Repo)
-	if repoName == "" && !o.noPush {
+	if repoName == "" {
 		return nil, errorf("no GitHub repository: set updates.repoUrl (Settings > Services) or ai.improve.repo")
 	}
 
@@ -122,7 +140,7 @@ func run(o runOpts) (map[string]any, error) {
 	}
 
 	branch := "agent/fix-" + it.ID
-	base, err := prepare(cfg.Repo, branch)
+	base, err := prepare(repoName, branch)
 	if err != nil {
 		return end("failed", "the repository: "+err.Error(), "new")
 	}
@@ -197,12 +215,12 @@ func run(o runOpts) (map[string]any, error) {
 	}
 
 	stage("push")
-	if _, err := git(repo, append(ghCred, "push", "--force", "origin", "HEAD:refs/heads/"+branch)...); err != nil {
+	if _, err := gitNet(repo, "push", "--force", "origin", "HEAD:refs/heads/"+branch); err != nil {
 		return end("failed", "the push: "+err.Error(), "failed")
 	}
 	gh("label", "create", "agent-fix", "--repo", repoName, "--color", "C5DEF5",
 		"--description", "A fix or polish made by the desktop agent (nixbook-improve)")
-	url, err := cmd("", 2*time.Minute, prBody(s.answer, it, res.report, changes, sensitiveFiles), "gh", "pr", "create",
+	url, err := ghIn(2*time.Minute, prBody(s.answer, it, res.report, changes, sensitiveFiles), "pr", "create",
 		"--repo", repoName, "--base", "main", "--head", branch, "--title", title, "--label", "agent-fix", "--body-file", "-")
 	if err != nil {
 		return end("failed", "the pull request: "+err.Error(), "failed")

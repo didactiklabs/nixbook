@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -14,12 +15,21 @@ import (
 // cmd runs a command in dir with a time limit: its output, and an error
 // carrying the end of what it printed.
 func cmd(dir string, limit time.Duration, stdin string, name string, args ...string) (string, error) {
+	return cmdEnv(dir, limit, stdin, nil, name, args...)
+}
+
+// secretEnv: tokens of the user's environment, never passed on (the
+// fixing session included).
+var secretEnv = []string{"GH_TOKEN=", "GITHUB_TOKEN=", "GH_ENTERPRISE_TOKEN=", "NIXBOOK_IMPROVE_GIT_TOKEN="}
+
+func cmdEnv(dir string, limit time.Duration, stdin string, env []string, name string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), limit)
 	defer cancel()
 	c := exec.CommandContext(ctx, name, args...)
 	c.Dir = dir
 	// Never a prompt (credentials, ssh host keys): it runs unattended.
-	c.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GH_PROMPT_DISABLED=1", "GIT_SSH_COMMAND=ssh -o BatchMode=yes")
+	c.Env = append(append(append(os.Environ(), secretEnv...), "GIT_TERMINAL_PROMPT=0", "GH_PROMPT_DISABLED=1",
+		"GIT_SSH_COMMAND=ssh -o BatchMode=yes"), env...)
 	if stdin != "" {
 		c.Stdin = strings.NewReader(stdin)
 	}
@@ -44,12 +54,27 @@ func git(dir string, args ...string) (string, error) {
 	return strings.TrimSpace(out), err
 }
 
-// ghCred: pushes to an https remote with gh's login (ssh ones use the
-// user's ssh agent).
-var ghCred = []string{"-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential"}
+// gitNet: git reaching GitHub, with the token only.
+func gitNet(dir string, args ...string) (string, error) {
+	tok := token()
+	if tok == "" {
+		return "", errNoToken
+	}
+	out, err := cmdEnv(dir, 30*time.Minute, "", ghEnv(tok), "git", append(append([]string{}, gitAuth...), args...)...)
+	return strings.TrimSpace(out), err
+}
 
+// gh runs gh with the token only (none: refused).
 func gh(args ...string) (string, error) {
-	out, err := cmd("", 2*time.Minute, "", "gh", args...)
+	return ghIn(2*time.Minute, "", args...)
+}
+
+func ghIn(limit time.Duration, stdin string, args ...string) (string, error) {
+	tok := token()
+	if tok == "" {
+		return "", errNoToken
+	}
+	out, err := cmdEnv("", limit, stdin, ghEnv(tok), "gh", args...)
 	return strings.TrimSpace(out), err
 }
 
@@ -60,6 +85,16 @@ func ghJSON(v any, args ...string) error {
 	}
 	return json.Unmarshal([]byte(out), v)
 }
+
+func ghJSONWith(tok string, v any, args ...string) error {
+	out, err := cmdEnv("", 2*time.Minute, "", ghEnv(tok), "gh", args...)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal([]byte(out), v)
+}
+
+func readAll(r io.Reader) ([]byte, error) { return io.ReadAll(io.LimitReader(r, 1<<16)) }
 
 func tail(s string, n int) string {
 	if len(s) <= n {

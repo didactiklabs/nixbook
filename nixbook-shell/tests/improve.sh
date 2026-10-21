@@ -7,7 +7,10 @@
 #   - a fix touching AGENTS.md: refused twice, nothing pushed;
 #   - too big: filed as such, nothing pushed;
 #   - a sensitive file: never merged on its own, dropped by the user;
-#   - the guard refuses a feature commit.
+#   - the guard refuses a feature commit;
+#   - only where Nix made it available ("improve" in desktop-mcp.json);
+#   - GitHub only through its own token (set on stdin, kept by secret-tool):
+#     gh never sees the user's login, nothing runs without the token.
 # Needs bash, git, jq. Run: NIXBOOK_IMPROVE=path/to/nixbook-improve bash tests/improve.sh
 set -euo pipefail
 
@@ -37,7 +40,7 @@ export HOME="$tmp/home" XDG_CONFIG_HOME="$tmp/config" XDG_STATE_HOME="$tmp/state
 mkdir -p "$HOME" "$XDG_CONFIG_HOME/nixbook-shell"
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@example.org GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@example.org
 # The GitHub URL of the config is this bare repository.
-export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="url.$tmp/remote.git.insteadOf" GIT_CONFIG_VALUE_0=https://github.com/o/r
+export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="url.$tmp/remote.git.insteadOf" GIT_CONFIG_VALUE_0=https://github.com/o/r.git
 
 git init --quiet --bare -b main "$tmp/remote.git"
 git init --quiet -b main "$tmp/seed"
@@ -60,6 +63,7 @@ cat >"$fake/claude" <<'EOF'
 #!/usr/bin/env bash
 cat >/dev/null
 echo "$*" >>"$FAKE_LOG/claude"
+env >>"$FAKE_LOG/claude-env"
 body="The guide said the clock only shows hours, which was wrong since it shows minutes too. The sentence in the guide now says hours and minutes, so it matches what the bar shows."
 case "$FAKE_CLAUDE" in
   docs) sed -i 's/shows hours/shows hours and minutes/' docs/guide.md ;;
@@ -76,7 +80,9 @@ EOF
 cat >"$fake/gh" <<'EOF'
 #!/usr/bin/env bash
 echo "$*" >>"$FAKE_LOG/gh"
+echo "token=$GH_TOKEN config=$GH_CONFIG_DIR" >>"$FAKE_LOG/gh-env"
 case "$1 $2" in
+  "api repos/o/r") echo '{"full_name":"o/r","permissions":{"admin":false,"push":true}}' ;;
   "pr create")
     cat >"$FAKE_LOG/pr-body"
     echo "https://github.com/o/r/pull/7"
@@ -102,6 +108,14 @@ cat >"$fake/devenv" <<'EOF'
 shift 2 # shell --
 exec "$@"
 EOF
+cat >"$fake/secret-tool" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+  store) cat >"$FAKE_LOG/secret" ;;
+  lookup) cat "$FAKE_LOG/secret" 2>/dev/null || exit 1 ;;
+  clear) rm -f "$FAKE_LOG/secret" ;;
+esac
+EOF
 printf '#!/usr/bin/env bash\nexit 0\n' >"$fake/treefmt"
 printf '#!/usr/bin/env bash\nexit 0\n' >"$fake/xdg-open"
 chmod +x "$fake"/*
@@ -115,9 +129,28 @@ config() { # AUTOMERGE
 item() { "$improve" note "$1" | jq -r .id; }
 run_of() { jq -c --arg i "$1" '[.[] | select(.item == $i)] | last' "$XDG_STATE_HOME/nixbook-shell/improve/runs.json"; }
 
+# The user's own gh login, which it must never use.
+mkdir -p "$HOME/.config/gh"
+echo "github.com: {oauth_token: the-users-own}" >"$HOME/.config/gh/hosts.yml"
+
+# --- not on this machine: nothing runs -------------------------------------------
+config true
+expect_match "unavailable: no run" "not available on this machine" "$("$improve" run 2>&1 || true)"
+expect_match "unavailable: no note" "not available on this machine" "$("$improve" note x 2>&1 || true)"
+expect_eq "unavailable: status says so" "false" "$("$improve" status | jq -r .available)"
+echo '{"improve": true}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+
 # --- off: nothing runs --------------------------------------------------------
 echo '{}' >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
 expect_eq "off: no run" "false" "$("$improve" run | jq -r .ran)"
+
+# --- its token ----------------------------------------------------------------------
+config true
+expect_match "no token: no run" "no GitHub token" "$("$improve" run 2>&1 || true)"
+expect_eq "token: set, checked on the repository" "true o/r" \
+  "$(printf 'github_pat_test\n' | "$improve" token set | jq -r '"\(.saved) \(.repo)"')"
+expect_eq "token: kept by secret-tool" "github_pat_test" "$(cat "$FAKE_LOG/secret")"
+expect_eq "token: status" "true" "$("$improve" token status | jq -r .saved)"
 
 # --- a docs fix, merged on its own ----------------------------------------------
 config true
@@ -135,6 +168,9 @@ expect_match "docs fix: its changelog entry" "which was wrong since" "$msg"
 expect_no_match "docs fix: the user's words stay out of the public repository" "the clock shows hours only" "$msg$(cat "$FAKE_LOG/pr-body")"
 expect_match "the session: --restricted" "--restricted" "$(cat "$FAKE_LOG/claude")"
 expect_match "docs fix: rebase merge" "pr merge 7 --repo o/r --rebase" "$(cat "$FAKE_LOG/gh")"
+expect_eq "gh: its token only" "token=github_pat_test" "$(cut -d' ' -f1 "$FAKE_LOG/gh-env" | sort -u)"
+expect_no_match "gh: never the user's gh config" "config=$HOME/.config/gh" "$(cat "$FAKE_LOG/gh-env")"
+expect_no_match "the session: no token in its environment" "github_pat_test" "$(cat "$FAKE_LOG/claude-env")"
 expect_match "docs fix: told" "Merged on its own" "$(cat "$FAKE_LOG/notify" 2>/dev/null)"
 expect_eq "docs fix: item merged" "merged" "$("$improve" status | jq -r --arg i "$id" '.inbox[] | select(.id == $i) | .status')"
 expect_eq "docs fix: counted today" "1" "$("$improve" status | jq -r .today)"

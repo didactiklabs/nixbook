@@ -21,11 +21,21 @@ import QtQuick
  *   - 5 minutes after the start, the shell running a deployed fix is
  *     checked (`health`): a revert is offered if it broke.
  * The PR's Merge, Look, Drop come as a notification, and in Settings.
+ * Only on machines whose Nix configuration made it available
+ * (programs.nixbook-shell.selfImprove.enable), and with its own GitHub
+ * token (Settings, kept in the keyring): never the user's gh or ssh.
  */
 Singleton {
     id: root
 
-    readonly property bool enabled: Config.options?.ai?.improve?.enable ?? false
+    // On this machine at all: programs.nixbook-shell.selfImprove.enable,
+    // "improve" in desktop-mcp.json (Nix's). Otherwise no section, no runs.
+    property bool available: false
+    readonly property bool enabled: root.available && (Config.options?.ai?.improve?.enable ?? false)
+    // Its GitHub token is in the keyring; what the last save said.
+    property bool tokenSaved: false
+    property bool tokenBusy: false
+    property string tokenStatus: ""
     readonly property string dir: `${Quickshell.env("XDG_STATE_HOME") || `${Quickshell.env("HOME")}/.local/state`}/nixbook-shell/improve`
     // Inbox items (newest first) and runs (newest first), as nixbook-improve wrote them.
     property var inbox: []
@@ -35,8 +45,80 @@ Singleton {
     readonly property var running: root.runs.find(r => !r.outcome && r.stage !== "done") ?? null
 
     function load() {
+        mcpConfig.reload()
         inboxFile.reload()
         runsFile.reload()
+    }
+
+    // The token: checked on the repository, then kept in the keyring
+    // (nixbook-improve token set, on stdin: never on a command line).
+    function setToken(token) {
+        if (token.trim().length === 0) return
+        root.tokenBusy = true
+        tokenProc.secret = token.trim()
+        tokenProc.command = ["nixbook-improve", "token", "set"]
+        tokenProc.stdinEnabled = true
+        tokenProc.running = true
+    }
+    function forgetToken() {
+        root.tokenBusy = true
+        tokenProc.command = ["nixbook-improve", "token", "forget"]
+        tokenProc.stdinEnabled = false
+        tokenProc.running = true
+    }
+    Process {
+        id: tokenProc
+        property string secret: ""
+        onRunningChanged: {
+            if (!tokenProc.running || !tokenProc.stdinEnabled) return
+            tokenProc.write(tokenProc.secret + "\n")
+            tokenProc.secret = ""
+            // End of the token.
+            tokenProc.stdinEnabled = false
+        }
+        stdout: StdioCollector {
+            onStreamFinished: {
+                root.tokenBusy = false
+                try {
+                    const out = JSON.parse(text)
+                    if (out.error) {
+                        root.tokenStatus = out.error
+                    } else {
+                        root.tokenSaved = out.saved === true
+                        root.tokenStatus = out.saved ? Translation.tr("Saved: it can reach %1.").arg(out.repo) + (out.warning ? ` ${out.warning}` : "")
+                            : Translation.tr("Forgotten.")
+                    }
+                } catch (e) {
+                    root.tokenStatus = Translation.tr("nixbook-improve didn't answer")
+                }
+            }
+        }
+    }
+    Process {
+        id: tokenCheck
+        command: ["nixbook-improve", "token", "status"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    root.tokenSaved = JSON.parse(text).saved === true
+                } catch (e) {
+                }
+            }
+        }
+    }
+
+    FileView {
+        id: mcpConfig
+        path: `${Quickshell.env("XDG_CONFIG_HOME") || `${Quickshell.env("HOME")}/.config`}/nixbook-shell/desktop-mcp.json`
+        printErrors: false
+        onLoaded: {
+            try {
+                root.available = JSON.parse(mcpConfig.text()).improve === true
+            } catch (e) {
+                root.available = false
+            }
+            if (root.available) tokenCheck.running = true
+        }
     }
 
     // Its own unit, the shell's PATH (nix, devenv) and Claude Code with it.
