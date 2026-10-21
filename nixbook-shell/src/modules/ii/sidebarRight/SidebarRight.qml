@@ -1,6 +1,7 @@
 import qs
 import qs.services
 import qs.modules.common
+import qs.modules.common.widgets
 import QtQuick
 import Quickshell.Io
 import Quickshell
@@ -86,7 +87,9 @@ Scope {
         // It slides with a transform, which a region isn't told about: x
         // (unused with an item) follows the slide so the region is
         // recomputed (from the item's place on screen, transform included).
-        BackgroundEffect.blurRegion: NiriConfig.panelBlur && panelWindow.reallyVisible ? blurArea : null
+        readonly property bool blurred: NiriConfig.panelBlur && panelWindow.reallyVisible
+        BackgroundEffect.blurRegion: panelWindow.blurred ? blurArea : null
+        BlurCommit { blur: panelWindow.blurred }
         Region {
             id: blurArea
             item: sidebarContentLoader

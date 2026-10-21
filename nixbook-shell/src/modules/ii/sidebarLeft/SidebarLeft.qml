@@ -331,7 +331,9 @@ Scope { // Scope
             }
             Region { id: noInput }
             // Niri's blur behind the body (NiriConfig.panelBlur), while open.
-            BackgroundEffect.blurRegion: NiriConfig.panelBlur && panelWindow.reallyVisible && !panelWindow.bootHidden ? blurArea : null
+            readonly property bool blurred: NiriConfig.panelBlur && panelWindow.reallyVisible && !panelWindow.bootHidden
+            BackgroundEffect.blurRegion: panelWindow.blurred ? blurArea : null
+            BlurCommit { blur: panelWindow.blurred }
             Region {
                 id: blurArea
                 item: sidebarLeftBackground
