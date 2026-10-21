@@ -3347,7 +3347,8 @@ def curious_digest(cfg, event, now):
 # talks about most with agents (the personal memory's topics: importance,
 # how often they came up, how lately; never people, events or the profile's
 # details) and searches the web (WebSearch/WebFetch only) for what is new on
-# them. Claude says it in its bubble: what's happening in a sentence or two,
+# them, and where they are (the city and country: the shell's weather, or
+# newsLocation), what's happening there. Claude says it in its bubble: what's happening in a sentence or two,
 # then the items, the most interesting for the user first, each with its
 # link (a button under the bubble; the thread has them as Markdown links).
 # Links come from the search only, http(s); one told is never told again.
@@ -3367,7 +3368,11 @@ NEWS_SYSTEM = (
     "user first, at most 2 per subject; skip a subject with nothing new, and "
     "never one already told (listed below). Every item needs the real URL of "
     "the article from your search results: never make one up, never a search "
-    "page. `intro`: one or two short friendly sentences on what's happening "
+    "page. When you know where they are, also look for what's happening "
+    "there that they'd care about (on their subjects nearby, local events, "
+    "transport, strikes, weather alerts, big local news), at most 1 or 2 "
+    "items, and prefer the place's own sources and language for those. "
+    "`intro`: one or two short friendly sentences on what's happening "
     "overall, no greeting. Each item: `topic` (the subject), `headline` "
     "(short), `summary` (one sentence: what happened and why it matters to "
     "them), `url`, `source` (the site's name). Nothing new at all: an empty "
@@ -3399,8 +3404,11 @@ def news_topics(now, limit=NEWS_TOPICS):
     return sorted(topics, key=score, reverse=True)[:limit]
 
 
-def news_prompt(topics, extra, seen, now):
-    lines = [f"Today: {time.strftime('%a %Y-%m-%d', time.localtime(now))}", "", "Their subjects:"]
+def news_prompt(topics, extra, seen, now, location=""):
+    lines = [f"Today: {time.strftime('%a %Y-%m-%d', time.localtime(now))}"]
+    if location:
+        lines.append(f"Where they are: {location}")
+    lines += ["", "Their subjects:"]
     lines += [f"- {e['topic']}: {short(e.get('text', ''), 140)}" for e in topics]
     lines += [f"- {t}" for t in extra]
     if seen:
@@ -3430,7 +3438,9 @@ def news_digest(cfg, event, now):
         return None
     topics = news_topics(now)
     extra = [clean_text(str(t), 60) for t in cfg.get("initiativeNewsTopics") or [] if isinstance(t, str) and t.strip()][:4]
-    if not topics and not extra:
+    # The city and country only (the shell's weather, or newsLocation).
+    location = clean_text(str(cfg.get("newsLocation") or event.get("location") or ""), 80)
+    if not topics and not extra and not location:
         return {"action": "none", "why": "news: no subjects known yet"} if force else None
     with Initiative() as m:
         if not force and now - m.data.get("newsAt", 0) < NEWS_EVERY:
@@ -3443,7 +3453,7 @@ def news_digest(cfg, event, now):
         return {"action": "none", "why": "news: no Claude Code"}
     try:
         answer = ask_claude(claude, cfg.get("newsModel") or cfg.get("memoryModel") or "haiku", NEWS_SYSTEM,
-                            news_prompt(topics, extra, seen, now), NEWS_SCHEMA, web=True)
+                            news_prompt(topics, extra, seen, now, location), NEWS_SCHEMA, web=True)
     except ToolError as e:
         return {"action": "none", "why": f"news: {e}"}
     items = news_items(answer, seen)

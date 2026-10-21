@@ -194,7 +194,14 @@ Singleton {
     // Settings > Find news now: at once, whatever the day's already had.
     function newsNow() {
         if (!root.enabled) return
-        considerer.createObject(root, { command: ["nixbook-desktop-mcp", "initiative", "news", Ai.claudeCodePath], running: true })
+        root.consider({ event: "news", force: true, location: root.newsLocation() })
+    }
+    // Where the user is, for local news: the weather's city (the one set,
+    // or found by GPS), city and country only.
+    function newsLocation() {
+        const city = Weather.data?.city ?? ""
+        if (city.length === 0 || city === "City") return ""
+        return [city, Weather.data?.country ?? ""].filter(s => s.length > 0).join(", ")
     }
     readonly property var reactTo: ["download", "screenshot", "drive_connected"]
 
@@ -359,7 +366,7 @@ Singleton {
         // is (the others to open too).
         if (a.do === "link") {
             const url = String(a.url ?? "")
-            if (/^https?:\/\//.test(url)) Qt.openUrlExternally(url)
+            if (/^https?:\/\//.test(url)) AppLaunch.openUrl(url) // the browser brought to the front too
             root._taken(item)
             return
         }
@@ -653,7 +660,8 @@ Singleton {
         repeat: true
         onTriggered: {
             if (Idle.screensOff || GlobalStates.screenLocked) return
-            root.consider({ event: "moment", curious: root.curious, news: root.news, app: ToplevelManager.activeToplevel?.appId ?? "",
+            root.consider({ event: "moment", curious: root.curious, news: root.news,
+                            location: root.news ? root.newsLocation() : "", app: ToplevelManager.activeToplevel?.appId ?? "",
                         title: root.curious ? (ToplevelManager.activeToplevel?.title ?? "") : "",
                             activeMinutes: Math.round((Date.now() - root._activeSince) / 60000),
                             tasksDue: Todo.dueTodayCount, weatherCode: Weather.data?.wCode ?? 0,

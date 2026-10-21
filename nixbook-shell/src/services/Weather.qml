@@ -34,6 +34,7 @@ Singleton {
         windDir: 0,
         wCode: 0,
         city: "",
+        country: "",
         wind: "",
         precip: "",
         visib: "",
@@ -67,6 +68,7 @@ Singleton {
         temp.windDir = data?.wind?.deg || 0
         temp.wCode = data?.weather?.[0]?.id || 0
         temp.city = data?.name || "City"
+        temp.country = data?.sys?.country || ""
 
         if (root.useUSCS) {
             temp.wind = (data?.wind?.speed || 0) + " mph"
