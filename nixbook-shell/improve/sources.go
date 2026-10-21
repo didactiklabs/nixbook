@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 )
@@ -223,7 +224,7 @@ func deploy(sinceMs int64) []found {
 
 // ciFailures: workflows whose latest run on main failed (with the token),
 // and which keys still fail.
-func ciFailures(repo string) (fs []found, still map[string]bool, ok bool) {
+func ciFailures(repo string, ignoreJobs []string) (fs []found, still map[string]bool, ok bool) {
 	still = map[string]bool{}
 	if repo == "" || token() == "" {
 		return nil, still, false
@@ -250,14 +251,48 @@ func ciFailures(repo string) (fs []found, still map[string]bool, ok bool) {
 		if r.Conclusion != "failure" {
 			continue
 		}
+		jobs := failedJobs(repo, r.DatabaseID, ignoreJobs)
+		if len(jobs) == 0 {
+			continue // a runner's or the cache's problem: nothing for a fix
+		}
 		key := "ci:" + r.WorkflowName
 		still[key] = true
 		fs = append(fs, found{
 			kind: "ci", key: key, where: r.URL, ref: fmt.Sprint(r.DatabaseID), times: 1,
-			text: fmt.Sprintf("CI's %q workflow fails on main (%s: %s).", r.WorkflowName, r.HeadSha[:min(7, len(r.HeadSha))], clip(r.DisplayTitle, 120)),
+			text: fmt.Sprintf("CI's %q workflow fails on main (%s: %s), in %s.", r.WorkflowName,
+				r.HeadSha[:min(7, len(r.HeadSha))], clip(r.DisplayTitle, 120), strings.Join(jobs, ", ")),
 		})
 	}
 	return fs, still, true
+}
+
+// failedJobs: a run's jobs that failed in one of their steps, but the
+// ignored ones (ai.improve.ciIgnoreJobs: uploading to the cache, say). A
+// job failed with no failed step lost its runner: not the code's doing.
+func failedJobs(repo string, run int64, ignore []string) []string {
+	type step struct {
+		Conclusion string `json:"conclusion"`
+	}
+	var r struct {
+		Jobs []struct {
+			Name       string `json:"name"`
+			Conclusion string `json:"conclusion"`
+			Steps      []step `json:"steps"`
+		} `json:"jobs"`
+	}
+	if ghJSON(&r, "run", "view", fmt.Sprint(run), "--repo", repo, "--json", "jobs") != nil {
+		return nil
+	}
+	var out []string
+	for _, j := range r.Jobs {
+		if j.Conclusion != "failure" || slices.Contains(ignore, j.Name) {
+			continue
+		}
+		if slices.ContainsFunc(j.Steps, func(s step) bool { return s.Conclusion == "failure" }) {
+			out = append(out, j.Name)
+		}
+	}
+	return out
 }
 
 // coredumps: programs that crashed since then (the user's own, which

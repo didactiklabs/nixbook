@@ -294,6 +294,9 @@ Singleton {
                     // Every fix merged once CI passes, not only docs; what
                     // agents may do (sensitive files) still waits for the user.
                     property bool autoMergeFixes: false
+                    // CI jobs whose failure isn't the code's (uploading to
+                    // the binary cache): CI red only through them isn't a bug.
+                    property list<string> ciIgnoreJobs: ["push-cache"]
                     property string repo: "" // empty: updates.repoUrl
                 }
             }

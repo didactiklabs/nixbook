@@ -51,6 +51,7 @@
       "autoMerge": false,
       "autoMergePaths": ["docs/**", "**/*.md"],
       "autoMergeFixes": false,
+      "ciIgnoreJobs": ["push-cache"],
       "repo": ""
     }
   },

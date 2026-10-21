@@ -31,6 +31,7 @@ const usage = `nixbook-improve: the desktop agent's fixes to nixbook (Settings >
                                          user's answer; --auto: the day's limit applies;
                                          --no-push: stop at the local commit
   nixbook-improve stop                   stop the fix being made (Settings' Stop)
+  nixbook-improve sync                   learn which open PRs were merged or closed on GitHub
   nixbook-improve merge|drop|look PR     what the notification's buttons do
   nixbook-improve token set|forget|status
                                          its GitHub token (set: on stdin, checked on the
@@ -106,6 +107,12 @@ func dispatch(args []string) (any, error) {
 		return status()
 	case "stop":
 		return stop()
+	case "sync":
+		cfg, err := loadConfig()
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"changed": syncPRs(cfg)}, nil
 	case "note":
 		where, err := flag(&args, "--where")
 		if err != nil {

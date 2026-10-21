@@ -33,7 +33,7 @@ Things to fix arrive in an inbox. Filing them is plain code, with no model call,
 - **Failed units.** A systemd unit nixbook defines (system or user) in the failed state, with its last log lines. One running again later is dropped from the list.
 - **Errors in nixbook's units' logs.** Error lines (priority `err` and worse) in the journal of a unit nixbook defines, even when it keeps running.
 - **The system update.** The last `osupdate` failed (the end of its log), or printed a Nix warning (`evaluation warning:`, `trace: warning:`).
-- **CI on `main`.** A workflow whose latest run on `main` failed (read with the token); the session gets the failed jobs' logs. One green again is dropped from the list.
+- **CI on `main`.** A workflow whose latest run on `main` failed in a job's step (read with the token); the session gets the failed jobs' logs. One green again is dropped from the list. A failure only in `ciIgnoreJobs` (`push-cache`: uploading to the binary cache), or of a job that lost its runner (no failed step), isn't a bug for a fix.
 - **Crashes of nixbook's programs.** A coredump of a program nixbook packages (`customPkgs/`, the shell).
 
 **Only what nixbook defines is sent to Claude unasked.** Nix writes out what that is: the units of its own module files (system: `/etc/nixbook/owned-units.json`, from `nixosModules/ownedUnits.nix`; user: `~/.config/nixbook-shell/owned.json`) and its packages. The rest is listed under **Seen, not nixbook's**, for you to know: another unit failing, another app's crash, the kernel's errors (from the journal). It never starts a session; **Fix now** sends one anyway, telling Claude it may not be nixbook's to fix.
@@ -56,7 +56,11 @@ What you report, a failed update or a red CI get a fix soon. A shell or unit err
 
 5. **The commit** is its changelog entry: `fix(scope): …` or `polish(scope): …`, then what was wrong, the cause, what changed and how to see it. Below that come where the report came from and an `Agent-Fix: <item>` trailer. These titles are what the updates widget lists as the changelog.
 6. The branch is pushed and a **pull request** opened (label `agent-fix`), with what was checked and the files changed.
-7. Once **CI** finishes, a notification says **Fix ready** with **Merge**, **Look** and **Drop** (the same buttons are in Settings). If CI fails, the session gets the failed jobs' logs and tries once more, then the PR is left to you. Merge is a rebase merge, made with its token.
+7. Once **CI** finishes (a cancelled or skipped job isn't a failure; a failure without a log, a lost runner, gets no retry), a notification says **Fix ready** with **Merge**, **Look** and **Drop** (the same buttons are in Settings). If CI fails, the session gets the failed jobs' logs and tries once more, then the PR is left to you. Merge is a rebase merge, made with its token.
+
+## What it costs
+
+Nothing runs between fixes but the shell's timers: it looks for bugs 10 minutes after the shell starts and then every 6 hours (a few log reads and GitHub calls, seconds of CPU), and checks its open PRs every 30 minutes while one waits. A run waiting on CI or on you is an idle process. A fix itself (at most `perDay` a day on its own, plus each **Fix now**) is a few minutes of work: the Claude Code session, the tests of what it touched, and the shell started headless (a headless sway and a second, software-rendered shell for about 25 seconds). Fixes run at the lowest CPU and disk priority (`Nice=19`, `CPUWeight=idle`, `IOSchedulingClass=idle`), so they only take what your own work leaves; the Nix builds they start are the system's `nix-daemon`'s, at its usual priority.
 
 ## Seeing what it does
 
@@ -73,6 +77,8 @@ What you report, a failed update or a red CI get a fix soon. A shell or unit err
   - errors.
 - **The bar.** The bar's robot shows a wrench while a fix is being made, and its tooltip says what it is doing.
 - **Stop** ends the fix being made before its PR is out: the Claude session and the checks are stopped, and the item goes back to the inbox.
+
+A PR you merge or close on GitHub leaves the list too: it checks its open PRs when the shell starts, every 30 minutes while one waits, and when it looks for bugs (`nixbook-improve sync`). Merged there, it is watched after the update like the others.
 
 ## Merged on its own
 
@@ -108,10 +114,11 @@ CI's **agent-guard** job (`checks.yaml`) runs `nixbook-improve guard` on every `
 | `ai.improve.autoMerge`      | `false`                  | Merge low-risk fixes on its own                    |
 | `ai.improve.autoMergePaths` | `["docs/**", "**/*.md"]` | What counts as low-risk                            |
 | `ai.improve.autoMergeFixes` | `false`                  | Merge every fix on its own (never a sensitive one) |
+| `ai.improve.ciIgnoreJobs`   | `["push-cache"]`         | CI jobs whose failure isn't the code's             |
 | `ai.improve.repo`           | `""` (`updates.repoUrl`) | The GitHub repository                              |
 
 CI's guard always uses the default limits, so raising `maxFiles` or `maxLines` here gets a bigger fix refused there.
 
 ## Command line
 
-`nixbook-improve status` (the inbox and the runs), `stop`, `note TEXT`, `collect`, `run [--item ID] [--no-push]` (`--no-push`: a dry run that stops at the local commit), `merge|drop|look PR`, `token set|forget|status` (`set` reads it on stdin), `health REV`, `guard BASE [HEAD]`. State lives in `~/.local/state/nixbook-shell/improve/`; the clone and each run's logs in `~/.local/share/nixbook-shell/improve/`.
+`nixbook-improve status` (the inbox and the runs), `stop`, `sync`, `note TEXT`, `collect`, `run [--item ID] [--no-push]` (`--no-push`: a dry run that stops at the local commit), `merge|drop|look PR`, `token set|forget|status` (`set` reads it on stdin), `health REV`, `guard BASE [HEAD]`. State lives in `~/.local/state/nixbook-shell/improve/`; the clone and each run's logs in `~/.local/share/nixbook-shell/improve/`.

@@ -110,14 +110,28 @@ case "$1 $2" in
     cat >"$FAKE_LOG/pr-body"
     echo "https://github.com/o/r/pull/7"
     ;;
-  "pr checks") echo '[{"bucket":"pass","name":"lint","link":"https://github.com/o/r/actions/runs/1/job/2"}]' ;;
+  "pr checks") cat "$FAKE_LOG/checks" 2>/dev/null || echo '[{"bucket":"pass","name":"lint","link":"https://github.com/o/r/actions/runs/1/job/2"}]' ;;
   "run list") cat "$FAKE_LOG/runs" 2>/dev/null || echo '[]' ;;
-  "run view") echo "lint: tests/hosts.nix: assertion failed at line 12" ;;
+  "run view")
+    if [[ "$*" == *"--json jobs"* ]]; then
+      cat "$FAKE_LOG/jobs" 2>/dev/null ||
+        echo '{"jobs": [{"name": "lint", "conclusion": "failure", "steps": [{"conclusion": "failure"}]}]}'
+    else
+      echo "lint: tests/hosts.nix: assertion failed at line 12"
+    fi
+    ;;
   "pr merge")
     # A rebase merge: the branch's commits onto main.
     git -C "$FAKE_REMOTE" update-ref refs/heads/main "$(git -C "$FAKE_REMOTE" rev-parse "refs/heads/$FAKE_BRANCH")"
     ;;
-  "pr view") git -C "$FAKE_REMOTE" rev-parse refs/heads/main ;;
+  "pr view")
+    # What became of it on GitHub (sync), or its merge commit.
+    if [[ "$*" == *state,mergeCommit* ]]; then
+      jq -nc --arg s "$(cat "$FAKE_LOG/pr-state" 2>/dev/null || echo OPEN)" '{state: $s, mergeCommit: {oid: "abc123"}}'
+    else
+      git -C "$FAKE_REMOTE" rev-parse refs/heads/main
+    fi
+    ;;
   "pr close") ;;
   "label create") ;;
   "api "*) echo '[{"Status":"completed","Conclusion":"success"}]' ;;
@@ -311,6 +325,17 @@ expect_match "sources: another app's crash, to know" "^info new zen crashed (sig
 expect_match "sources: the kernel, to know" "^info new Kernel: iwlwifi" "$(kinds)"
 expect_match "activity: what it looked at" "Looked for bugs: .*failed units.*not nixbook's" "$(jq -r '.[].text' "$XDG_STATE_HOME/nixbook-shell/improve/activity.json")"
 
+# CI red only through the cache upload or a lost runner: nothing to fix.
+cp "$FAKE_LOG/runs" "$tmp/runs.keep"
+echo '[{"databaseId": 44, "status": "completed", "conclusion": "failure", "workflowName": "Build",
+  "headSha": "0123456789", "displayTitle": "z", "url": "u"}]' >"$FAKE_LOG/runs"
+echo '{"jobs": [{"name": "push-cache", "conclusion": "failure", "steps": [{"conclusion": "failure"}]},
+  {"name": "changed", "conclusion": "failure", "steps": []}]}' >"$FAKE_LOG/jobs"
+NIXBOOK_IMPROVE_LOG=/dev/null "$improve" collect >/dev/null
+expect_no_match "ci: the cache upload or a lost runner isn't a bug" "Build" "$(kinds)"
+rm "$FAKE_LOG/jobs"
+mv "$tmp/runs.keep" "$FAKE_LOG/runs"
+
 # Fixed meanwhile: the unit running, CI green.
 rm "$FAKE_LOG/failed-user"
 echo '[{"databaseId": 43, "status": "completed", "conclusion": "success", "workflowName": "Checks",
@@ -339,6 +364,22 @@ git -C "$tmp/remote.git" update-ref refs/heads/main "$(git -C "$tmp/remote.git" 
 expect_eq "title: shortened when asked" "polish(docs): the guide shows the minutes too" \
   "$(git -C "$tmp/remote.git" log -1 --format=%s "agent/fix-$id")"
 unset FAKE_LONG
+
+# --- a PR merged on GitHub leaves the list; a cancelled check isn't a failure -------
+jq '.ai.improve.autoMergeFixes = false | .ai.improve.autoMerge = false' "$XDG_CONFIG_HOME/nixbook-shell/config.json" >"$tmp/c" && mv "$tmp/c" "$XDG_CONFIG_HOME/nixbook-shell/config.json"
+id=$(item "the guide is merged elsewhere")
+export FAKE_CLAUDE=docs FAKE_BRANCH="agent/fix-$id" NOTIFY_ANSWER=
+git -C "$tmp/remote.git" update-ref refs/heads/main "$(git -C "$tmp/remote.git" rev-list --max-parents=0 main)"
+echo '[{"bucket":"pass","name":"lint","link":""},{"bucket":"cancel","name":"push-cache","link":""}]' >"$FAKE_LOG/checks"
+"$improve" run --item "$id" >/dev/null
+expect_eq "cancelled check: CI passes, waits for the user" "pr pass" "$(run_of "$id" | jq -r '"\(.outcome) \(.ci)"')"
+echo MERGED >"$FAKE_LOG/pr-state"
+expect_eq "sync: one PR merged on GitHub" "1" "$("$improve" sync | jq -r .changed)"
+expect_eq "sync: the run is merged" "merged abc123" "$(run_of "$id" | jq -r '"\(.outcome) \(.merged)"')"
+expect_eq "sync: so is its item" "merged" "$("$improve" status | jq -r --arg i "$id" '.inbox[] | select(.id == $i) | .status')"
+expect_eq "sync: nothing more" "0" "$("$improve" sync | jq -r .changed)"
+expect_match "activity: merged on GitHub" "was merged on GitHub" "$(jq -r '.[].text' "$XDG_STATE_HOME/nixbook-shell/improve/activity.json")"
+rm -f "$FAKE_LOG/checks" "$FAKE_LOG/pr-state"
 
 # --- live progress, and Stop --------------------------------------------------------
 id=$(item "the guide is slow to fix")

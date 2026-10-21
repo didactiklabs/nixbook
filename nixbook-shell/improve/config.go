@@ -28,6 +28,8 @@ type Config struct {
 	// Every fix merged once CI passes, not only docs (sensitive files
 	// still wait for the user).
 	AutoMergeFixes bool `json:"autoMergeFixes"`
+	// CI jobs whose failure isn't the code's (uploading to the binary cache).
+	CIIgnoreJobs []string `json:"ciIgnoreJobs"`
 	// The repository (empty: updates.repoUrl, the one the update check reads).
 	Repo string `json:"repo"`
 
@@ -39,7 +41,7 @@ type Config struct {
 func defaults() Config {
 	return Config{
 		Model: "sonnet", PerDay: 2, MaxFiles: 5, MaxLines: 150, BudgetUsd: 3,
-		AutoMergePaths: []string{"docs/**", "**/*.md"},
+		AutoMergePaths: []string{"docs/**", "**/*.md"}, CIIgnoreJobs: []string{"push-cache"},
 	}
 }
 
