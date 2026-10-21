@@ -1572,6 +1572,16 @@ python3 "$mcp" initiative clear
 expect_eq "initiative clear" '0 0' "$(jq -r '"\(.said | length) \(.pending | length)"' "$ini")"
 
 # -- routines ----------------------------------------------------------------------------------
+# A routine's report in the bar: whole sentences, never cut off mid-word.
+said=$(
+  python3 - "$mcp" <<'PY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("dm", sys.argv[1]); dm = importlib.util.module_from_spec(spec); spec.loader.exec_module(dm)
+print(dm.sentences("I started a song. " + "It was picked well. " * 30 + "I couldn't start it.", 400))
+PY
+)
+expect_eq "routine: its report cut at a sentence's end" "I started a song. It was picked well." "${said:0:37}"
+expect_eq "routine: its report ends on a whole sentence" "well." "${said: -5}"
 # What the user asked agents to do on their own when something happens:
 # fixed tool calls (no token), or a short Claude run; never fighting them.
 
