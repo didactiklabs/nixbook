@@ -5162,7 +5162,10 @@ def habits_append(records):
 
 MUSIC_MIN_PLAY = 30  # s: listened this long (or half a short track): a play
 MUSIC_MIN_HEARD = 3  # s: less is passing through, not even a skip
-MUSIC_FORMAT = "\t".join(["{{playerName}}", "{{status}}", "{{xesam:artist}}", "{{xesam:title}}",
+# The player's whole bus name ({{playerInstance}}, "chromium.instance1234"):
+# {{playerName}} is only its first word ("chromium"), not enough to ask an
+# Electron app's Identity (MusicTracker.name).
+MUSIC_FORMAT = "\t".join(["{{playerInstance}}", "{{status}}", "{{xesam:artist}}", "{{xesam:title}}",
                           "{{xesam:album}}", "{{mpris:length}}", "{{mpris:trackid}}"])
 MUSIC_NOT_MUSIC = re.compile(r"(^|[:/])(ad|ads|episode|episodes)([:/]|$)", re.IGNORECASE)
 MUSIC_TITLE_NOISE = re.compile(
