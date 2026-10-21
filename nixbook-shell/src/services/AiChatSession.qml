@@ -41,6 +41,9 @@ Scope {
     // The tab for what Claude says on its own (services/Initiative.qml): a
     // thread for each, one at a time (Ai.claudeThread).
     property bool fromClaude: false
+    // Made for a conversation of the bubble (Ai.askThread): closed again
+    // when left empty (Ai.dropIfEmpty).
+    property bool fromBubble: false
     readonly property string title: {
         if (chat.fromClaude) return Translation.tr("From Claude");
         const saved = Ai.history.find(c => c.id === chat.chatId)?.title;
@@ -50,7 +53,13 @@ Scope {
     }
 
     readonly property bool seen: chat.isCurrent && GlobalStates.sidebarLeftOpen
-    onSeenChanged: if (seen) chat.unread = false
+    // Its last message, or the last time it was looked at: when a "From
+    // Claude" tab left alone expires (Ai.expireClaudeThreads).
+    property real lastActivity: Date.now()
+    onSeenChanged: {
+        chat.lastActivity = Date.now();
+        if (seen) chat.unread = false;
+    }
 
     property ClaudeCodeApiStrategy strategy: ClaudeCodeApiStrategy {}
 
@@ -84,6 +93,7 @@ Scope {
         // The message first: what reads the list as it changes finds it.
         chat.messageByID[id] = aiMessage;
         chat.messageIDs = [...chat.messageIDs, id];
+        chat.lastActivity = Date.now();
     }
 
     function removeMessage(index) {
@@ -162,6 +172,7 @@ Scope {
         }
         chat.setMessages(saved.messages ?? []);
         chat.chatId = id;
+        chat.lastActivity = Date.now();
         const session = saved.claudeSessionId ?? "";
         if (/^[0-9a-f-]{36}$/.test(session)) {
             claudeSessionCheck.chat = id;
@@ -376,6 +387,7 @@ Scope {
             requester.interrupting = false;
             stopFallback.stop();
             idleClose.restart();
+            chat.lastActivity = Date.now();
             if (!requester.activeMessage || requester.activeMessage.done) return;
             requester.activeMessage.done = true;
             requester.activeMessage.thinking = false;

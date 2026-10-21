@@ -177,6 +177,9 @@ Singleton {
                 property JsonObject history: JsonObject {
                     property int keepDays: 30
                 }
+                // The side panel's "From Claude" tab closes after this many
+                // minutes left alone, its thread kept in the history (0: stays).
+                property int claudeThreadIdleMinutes: 30
                 // The folders AI agents may read (absolute, or ~/…), read-only:
                 // the side panel's Claude (Claude Code --add-dir; no file tools
                 // at all without any) and the apps on the agent desktop

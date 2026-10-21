@@ -7,6 +7,7 @@
     "history": {
       "keepDays": 30
     },
+    "claudeThreadIdleMinutes": 30,
     "allowedFolders": [],
     "writableFolders": [],
     "agentDesktop": {
