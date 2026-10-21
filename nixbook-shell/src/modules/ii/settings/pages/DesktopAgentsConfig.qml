@@ -69,6 +69,37 @@ ContentPage {
         Layout.fillHeight: true
         spacing: 20
 
+        // policies.ai, the one switch for all of it (also Settings > Panels:
+        // No, Yes, Local).
+        ContentSection {
+            icon: "neurology"
+            title: Translation.tr("AI features")
+
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Config.options.policies.ai === 0
+                    ? Translation.tr("Off: no AI anywhere. No chat in the side panel, Claude never speaks on its own, no routine runs, no memory pass, no fix made, the equalizer agent rests, and every agent's desktop tools are refused (desktop control). What it remembers stays, unused.")
+                    : Config.options.policies.ai === 2
+                    ? Translation.tr("Local models only: nothing goes to an online model like Claude (no Claude chat, speaking on its own, memory pass, fix or equalizer agent); local agents keep the desktop tools, and fixed routines run.")
+                    : Translation.tr("On: the features below, each with its own switch. Turn this off to stop all of them at once (Settings > Panels also has \"Local\": local models only).")
+            }
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "policies.ai"
+                    enabled: !nixManaged
+                    buttonIcon: "neurology"
+                    text: Translation.tr("AI features")
+                    checked: Config.options.policies.ai !== 0
+                    onCheckedChanged: {
+                        if (checked !== (Config.options.policies.ai !== 0))
+                            Config.options.policies.ai = checked ? 1 : 0
+                    }
+                }
+            }
+        }
+
         ContentSection {
             icon: "chat_bubble"
             title: Translation.tr("Talks to you on its own")
@@ -356,6 +387,17 @@ ContentPage {
                     text: Translation.tr("Merge docs-only fixes on its own")
                     checked: Config.options.ai.improve.autoMerge
                     onCheckedChanged: Config.options.ai.improve.autoMerge = checked
+                }
+                ConfigSwitch {
+                    configKey: "ai.improve.autoMergeFixes"
+                    buttonIcon: "auto_mode"
+                    enabled: Config.options.ai.improve.enable
+                    text: Translation.tr("Merge every fix on its own once CI passes")
+                    checked: Config.options.ai.improve.autoMergeFixes
+                    onCheckedChanged: Config.options.ai.improve.autoMergeFixes = checked
+                    StyledToolTip {
+                        text: Translation.tr("Except a fix touching what agents may do (their tools, permissions, switches): that one always waits for your Merge. Main's checks and the updated shell are still watched, and a revert offered if it broke something.")
+                    }
                 }
             }
 

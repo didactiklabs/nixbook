@@ -255,3 +255,24 @@ func TestInfoNeverRipe(t *testing.T) {
 		t.Errorf("info picked: %+v", p)
 	}
 }
+
+func TestAutoMergeWhy(t *testing.T) {
+	qml := []Change{{Path: "nixbook-shell/src/modules/ii/bar/Clock.qml"}}
+	docs := []Change{{Path: "docs/x.md"}}
+	sensitive := []Change{{Path: "nixbook-shell/src/services/Ai.qml"}}
+	cfg := defaults()
+	if autoMergeWhy(cfg, qml) != "" || autoMergeWhy(cfg, docs) != "" {
+		t.Error("merged on its own with both switches off")
+	}
+	cfg.AutoMerge = true
+	if autoMergeWhy(cfg, docs) == "" || autoMergeWhy(cfg, qml) != "" {
+		t.Error("docs-only: wrong")
+	}
+	cfg.AutoMergeFixes = true
+	if autoMergeWhy(cfg, qml) == "" {
+		t.Error("every fix: a QML fix not merged")
+	}
+	if autoMergeWhy(cfg, sensitive) != "" || autoMergeWhy(cfg, append(qml, sensitive...)) != "" {
+		t.Error("every fix: a sensitive file merged on its own")
+	}
+}

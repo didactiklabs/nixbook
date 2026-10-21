@@ -50,6 +50,7 @@
       "budgetUsd": 3,
       "autoMerge": false,
       "autoMergePaths": ["docs/**", "**/*.md"],
+      "autoMergeFixes": false,
       "repo": ""
     }
   },

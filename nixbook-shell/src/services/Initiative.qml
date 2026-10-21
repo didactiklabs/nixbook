@@ -34,7 +34,8 @@ import QtQuick
 Singleton {
     id: root
 
-    readonly property bool enabled: Config.options?.ai?.initiative?.enable ?? false
+    // policies.ai: 1 (online models) only; Claude is one.
+    readonly property bool enabled: (Config.options?.ai?.initiative?.enable ?? false) && (Config.options?.policies?.ai ?? 1) === 1
     readonly property bool readNotifications: Config.options?.ai?.initiative?.readNotifications ?? false
     readonly property string statePath: `${Quickshell.env("XDG_STATE_HOME") || `${Quickshell.env("HOME")}/.local/state`}/nixbook-shell/initiative.json`
     // What waits for the user, newest last: {id, kind, text, chat, time, expires}
@@ -155,6 +156,8 @@ Singleton {
     // Called up (Mod+C, the bar's robot): its bubble, to ask
     // anything; the conversation put away comes back instead.
     function summon() {
+        // AI off (policies.ai): no bubble to ask Claude in.
+        if ((Config.options?.policies?.ai ?? 1) !== 1) return
         if (root.parked && !root.speaking) root.resume()
         else if (!root.speaking) root.speaking = root._ask()
         root.focusWanted()

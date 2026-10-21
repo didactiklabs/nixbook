@@ -291,6 +291,9 @@ Singleton {
                     // matches autoMergePaths (none of what agents may do).
                     property bool autoMerge: false
                     property list<string> autoMergePaths: ["docs/**", "**/*.md"]
+                    // Every fix merged once CI passes, not only docs; what
+                    // agents may do (sensitive files) still waits for the user.
+                    property bool autoMergeFixes: false
                     property string repo: "" // empty: updates.repoUrl
                 }
             }

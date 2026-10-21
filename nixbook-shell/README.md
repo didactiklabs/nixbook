@@ -546,6 +546,14 @@ shows, clears or prints the digest; the `memory` tool group
 (`desktopMcp.settings.tools`) turns it off; `memoryPromptChars` and
 `memoryMaxNotes` size it.
 
+**Turning AI off**: `policies.ai` (0 no, 1 yes, 2 local; Settings >
+Desktop agents > AI features, or Panels) gates everything: 0 hides the
+chat, `Initiative.enabled`/`summon()`, `Routines.enabled`,
+`SelfImprove.enabled` and the equalizer agent go off; desktop-mcp's
+`ai_policy()` makes `claude_path()` None (every model pass skips) unless
+1, and `call_tool()` refuses every tool at 0; nixbook-improve starts no
+fix unless 1.
+
 **Fixes it makes itself** (only where `selfImprove.enable` is set: "improve"
 in desktop-mcp.json, which also lists `report_problem`; then
 `ai.improve.enable`, off by default; docs:
@@ -576,8 +584,8 @@ with it and an empty `GH_CONFIG_DIR`, git over https with it alone, never
 the user's gh login or ssh key; the session's environment has no token)
 (label `agent-fix`) and waits for CI (one retry with the failed logs).
 After that it notifies Merge/Look/Drop (`notify-send --wait`), or merges
-on its own when `autoMerge` and every file matches `autoMergePaths`, none
-sensitive. A merged fix's commit on main is watched; `health REV` reads
+on its own (`autoMergeWhy`): with `autoMergeFixes` any fix, with `autoMerge`
+one whose files all match `autoMergePaths`; never one touching a sensitive file. A merged fix's commit on main is watched; `health REV` reads
 the deployed shell's journal (its invocation) for new warnings in the
 fix's files, or restarts. Either offers a revert PR. CI's `agent-guard`
 runs `nixbook-improve guard` from the base branch on `agent/` PRs.

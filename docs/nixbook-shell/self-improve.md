@@ -76,7 +76,12 @@ What you report, a failed update or a red CI get a fix soon. A shell or unit err
 
 ## Merged on its own
 
-**Merge docs-only fixes on its own** (`ai.improve.autoMerge`, off by default) merges a fix without asking once CI passes, when every file it changed matches `autoMergePaths` (`docs/**`, `**/*.md`) and none is sensitive. You get a notification after the merge.
+Two switches, both off by default, merge a fix without asking once its CI passes:
+
+- **Merge docs-only fixes on its own** (`ai.improve.autoMerge`): when every file it changed matches `autoMergePaths` (`docs/**`, `**/*.md`).
+- **Merge every fix on its own once CI passes** (`ai.improve.autoMergeFixes`): any fix.
+
+Either way, a fix touching what agents may do (their tools, permissions, switches and defaults: the sensitive files below) always waits for your **Merge**: otherwise the fixer could merge a loosening of its own limits without you seeing it. You get a notification after each merge, the Activity says why it merged, and the watch after the merge (main's checks, the updated shell, a revert offered) applies the same. A merged fix reaches this computer with your next update.
 
 ## Off limits
 
@@ -92,17 +97,18 @@ CI's **agent-guard** job (`checks.yaml`) runs `nixbook-improve guard` on every `
 
 ## Settings
 
-| Setting                     | Default                  | What                                            |
-| --------------------------- | ------------------------ | ----------------------------------------------- |
-| `ai.improve.enable`         | `false`                  | Make fixes on its own                           |
-| `ai.improve.model`          | `"sonnet"`               | The fixing session's model (`opus`…)            |
-| `ai.improve.perDay`         | `2`                      | Fixes started on their own per day              |
-| `ai.improve.maxFiles`       | `5`                      | Files a fix may change                          |
-| `ai.improve.maxLines`       | `150`                    | Lines a fix may change                          |
-| `ai.improve.budgetUsd`      | `3`                      | A session's spending limit (`--max-budget-usd`) |
-| `ai.improve.autoMerge`      | `false`                  | Merge low-risk fixes on its own                 |
-| `ai.improve.autoMergePaths` | `["docs/**", "**/*.md"]` | What counts as low-risk                         |
-| `ai.improve.repo`           | `""` (`updates.repoUrl`) | The GitHub repository                           |
+| Setting                     | Default                  | What                                               |
+| --------------------------- | ------------------------ | -------------------------------------------------- |
+| `ai.improve.enable`         | `false`                  | Make fixes on its own                              |
+| `ai.improve.model`          | `"sonnet"`               | The fixing session's model (`opus`…)               |
+| `ai.improve.perDay`         | `2`                      | Fixes started on their own per day                 |
+| `ai.improve.maxFiles`       | `5`                      | Files a fix may change                             |
+| `ai.improve.maxLines`       | `150`                    | Lines a fix may change                             |
+| `ai.improve.budgetUsd`      | `3`                      | A session's spending limit (`--max-budget-usd`)    |
+| `ai.improve.autoMerge`      | `false`                  | Merge low-risk fixes on its own                    |
+| `ai.improve.autoMergePaths` | `["docs/**", "**/*.md"]` | What counts as low-risk                            |
+| `ai.improve.autoMergeFixes` | `false`                  | Merge every fix on its own (never a sensitive one) |
+| `ai.improve.repo`           | `""` (`updates.repoUrl`) | The GitHub repository                              |
 
 CI's guard always uses the default limits, so raising `maxFiles` or `maxLines` here gets a bigger fix refused there.
 

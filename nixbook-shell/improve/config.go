@@ -25,10 +25,15 @@ type Config struct {
 	// matches AutoMergePaths and none is sensitive.
 	AutoMerge      bool     `json:"autoMerge"`
 	AutoMergePaths []string `json:"autoMergePaths"`
+	// Every fix merged once CI passes, not only docs (sensitive files
+	// still wait for the user).
+	AutoMergeFixes bool `json:"autoMergeFixes"`
 	// The repository (empty: updates.repoUrl, the one the update check reads).
 	Repo string `json:"repo"`
 
 	claude string
+	// policies.ai of the shell: 0 no AI, 1 yes, 2 local models only.
+	aiPolicy int
 }
 
 func defaults() Config {
@@ -49,6 +54,9 @@ func loadConfig() (Config, error) {
 		Updates struct {
 			RepoURL string `json:"repoUrl"`
 		} `json:"updates"`
+		Policies struct {
+			Ai *int `json:"ai"`
+		} `json:"policies"`
 	}
 	cfg := defaults()
 	raw.Ai.Improve = &cfg
@@ -75,6 +83,10 @@ func loadConfig() (Config, error) {
 		cfg.Repo = raw.Updates.RepoURL
 	}
 	cfg.claude = findClaude(raw.Ai.ClaudeCode.Command)
+	cfg.aiPolicy = 1
+	if raw.Policies.Ai != nil {
+		cfg.aiPolicy = *raw.Policies.Ai
+	}
 	return cfg, nil
 }
 
