@@ -24,7 +24,8 @@ import Quickshell.Wayland
  * Chiikawa bubble, a chamfered neon Cyberpunk panel, a paper Ghibli card.
  * Left alone (not hovered, not typed in: 25 s for a word, 15 s for a
  * reaction, 90 s after an answer) it goes to the bar's bubble, its
- * conversation with it.
+ * conversation with it. Hovered, typed in or closed, it was read: the bar's
+ * bubble then stays dark (Initiative.markRead).
  */
 Scope {
     id: root
@@ -257,7 +258,10 @@ Scope {
                     color: root.accent
                 }
 
-                HoverHandler { id: hover }
+                HoverHandler {
+                    id: hover
+                    onHoveredChanged: if (hovered) Initiative.markRead()
+                }
 
                 component HeaderButton: MaterialSymbol {
                     id: headerButton
@@ -578,7 +582,10 @@ Scope {
                                         : Translation.tr("Answer Claude…")
                                     onActiveFocusChanged: {
                                         Initiative.typing = activeFocus || text.length > 0
-                                        if (activeFocus) Initiative.prepare()
+                                        if (activeFocus) {
+                                            Initiative.markRead()
+                                            Initiative.prepare()
+                                        }
                                     }
                                     onTextChanged: Initiative.typing = activeFocus || text.length > 0
                                     Keys.onPressed: event => {
@@ -589,6 +596,7 @@ Scope {
                                             event.accepted = true
                                             window.grab = false
                                             input.focus = false
+                                            Initiative.markRead()
                                             Initiative.hush("wait")
                                         }
                                     }

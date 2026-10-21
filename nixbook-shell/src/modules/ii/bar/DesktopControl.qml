@@ -15,9 +15,11 @@ import Quickshell
 // own (accent while its window is open, faint while it waits for their next
 // app, red once the user closed it: they're stopped; a hand while the user
 // has taken it over); right-click switches between theirs and the user's.
-// A speech bubble beside it while the agent has something to tell the user
-// (services/Initiative.qml), or a conversation put away, breathing slowly:
-// click brings it back in Claude's speech bubble, right-click is "not now".
+// A speech bubble beside it while the agent has something new to tell the
+// user (services/Initiative.qml), or an answer they haven't read in a
+// conversation put away, breathing slowly: click brings it back in Claude's
+// speech bubble, right-click is "not now". What they've read stays dark
+// (Mod+C brings a conversation put away back).
 // Middle-click (or Mod+C) calls Claude up to ask anything. The
 // robot hops when Claude has something new to say, and nods while Claude
 // answers in its bubble.
@@ -69,13 +71,14 @@ MouseArea {
     Connections {
         target: Initiative
         function onSpeakingChanged() { if (Initiative.speaking) hopAnim.restart(); }
-        function onLiveChanged() { if (Initiative.live.length > 0) hopAnim.restart(); }
+        function onUnreadChanged() { if (Initiative.unread.length > 0) hopAnim.restart(); }
+        function onParkedChanged() { if (Initiative.parked?.unread) hopAnim.restart(); }
     }
 
-    // What the agent waits to tell the user, the latest, or the
-    // conversation put away.
-    readonly property var said: Initiative.live.length > 0 ? Initiative.live[Initiative.live.length - 1] : null
-    readonly property bool waiting: root.said !== null || Initiative.parked !== null
+    // What the agent waits to tell the user and they haven't read, the
+    // latest, or an unread answer in the conversation put away.
+    readonly property var said: Initiative.unread.length > 0 ? Initiative.unread[Initiative.unread.length - 1] : null
+    readonly property bool waiting: root.said !== null || (Initiative.parked?.unread ?? false)
     component Bubble: MaterialSymbol {
         id: bubble
         readonly property var said: root.said
@@ -250,7 +253,7 @@ MouseArea {
             }
             StyledPopupValueRow {
                 Layout.fillWidth: true
-                visible: root.said === null && Initiative.parked !== null
+                visible: root.said === null && (Initiative.parked?.unread ?? false)
                 icon: "forum"
                 label: Translation.tr("Your conversation with Claude")
                 value: Initiative.thinking ? Translation.tr("Answering…") : ""
