@@ -1936,9 +1936,10 @@ STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {intro: "NixOS 27.05 is out.", 
   {topic: "NixOS", headline: "NixOS 27.05 released", summary: "The new stable is out.", url: "https://nixos.org/blog/27.05", source: "NixOS"},
   {topic: "NixOS", headline: "Made up", summary: "x", url: "javascript:alert(1)", source: "x"}]}}')
 export STUB_CLAUDE_ANSWER
-out=$(consider '{"event":"moment","news":true}')
+out=$(consider '{"event":"moment","news":true,"location":"Lyon, FR"}')
 expect_contains "news: the subjects they talk about" "$(cat "$calls.claude-prompt")" "NixOS: Runs NixOS everywhere"
 expect_not_contains "news: never people" "$(cat "$calls.claude-prompt")" "Sam"
+expect_contains "news: where they are, for local news" "$(cat "$calls.claude-prompt")" "Where they are: Lyon, FR"
 expect_contains "news: web search only" "$(cat "$calls.claude-args")" "WebSearch,WebFetch"
 expect_eq "news: said, the item with a link only, a button to open it" \
   "news 1 https://nixos.org/blog/27.05 link" \

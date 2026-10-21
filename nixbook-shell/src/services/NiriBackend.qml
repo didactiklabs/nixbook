@@ -29,6 +29,8 @@ Scope {
             class: w.app_id ?? "",
             workspaceId: w.workspace_id,
             focused: w.is_focused ?? false,
+            // When it last had the focus (niri's focus_timestamp), in ms.
+            focusedAt: (w.focus_timestamp?.secs ?? 0) * 1000 + Math.floor((w.focus_timestamp?.nanos ?? 0) / 1e6),
             width: w.layout?.window_size?.[0] ?? 0,
             height: w.layout?.window_size?.[1] ?? 0,
             floating: w.is_floating ?? false,
@@ -209,6 +211,12 @@ Scope {
         case "WindowFocusChanged":
             for (const id in root._windows) root._windows[id].is_focused = (d.id !== null && Number(id) === d.id);
             break;
+        case "WindowFocusTimestampChanged": {
+            // Kept for the next publish (a focus change publishes anyway).
+            const w = root._windows[d.id];
+            if (w) w.focus_timestamp = d.focus_timestamp;
+            return;
+        }
         case "WindowUrgencyChanged": {
             const w = root._windows[d.id];
             if (w) w.is_urgent = d.urgent;

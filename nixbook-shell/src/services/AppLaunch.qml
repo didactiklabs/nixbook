@@ -5,6 +5,7 @@ import qs.modules.common
 import qs.modules.common.functions
 import QtQuick
 import Quickshell
+import Quickshell.Io
 
 /**
  * Launches user applications outside the shell's own process tree.
@@ -54,11 +55,56 @@ Singleton {
 
     // Replacement for Qt.openUrlExternally(): the browser/file manager xdg-open
     // starts must not end up in the shell's cgroup either.
+    // A web link also brings the browser to the front: a running one opens
+    // the tab in its window without being focused (niri doesn't activate a
+    // window for the remote call), so the link seemed to do nothing.
     function openUrl(url) {
         const u = String(url ?? "");
         if (u.length === 0)
             return;
         root.spawn(["xdg-open", u]);
+        if (/^https?:\/\//i.test(u)) {
+            if (!browserQuery.queried) {
+                browserQuery.queried = true;
+                browserQuery.running = true;
+            }
+            browserFocus.tries = 0;
+            browserFocus.restart();
+        }
+    }
+
+    // The default browser's app ids (its desktop entry's StartupWMClass,
+    // else the entry's name), from xdg-mime, read once.
+    property var browserAppIds: []
+    Process {
+        id: browserQuery
+        property bool queried: false
+        command: ["xdg-mime", "query", "default", "x-scheme-handler/https"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const id = text.trim().replace(/\.desktop$/, "");
+                if (id.length === 0)
+                    return;
+                const entry = DesktopEntries.byId(id);
+                root.browserAppIds = [...new Set([entry?.startupClass, id, id.split(".").pop()]
+                    .filter(a => a && a.length > 0).map(a => a.toLowerCase()))];
+            }
+        }
+    }
+    // Its most recent window, focused once the tab is opened (and again a
+    // moment later: a browser just started maps its window late).
+    Timer {
+        id: browserFocus
+        property int tries: 0
+        interval: 350
+        onTriggered: {
+            const wins = WM.windowList.filter(w => root.browserAppIds.includes((w.appId ?? "").toLowerCase()));
+            const win = wins.find(w => w.focused) ?? wins.sort((a, b) => b.focusedAt - a.focusedAt)[0];
+            if (win && !win.focused)
+                WM.focusWindow(win.id);
+            if (!win && ++browserFocus.tries < 6)
+                browserFocus.restart();
+        }
     }
 
     // DesktopEntry (or DesktopAction, which has no workingDirectory/runInTerminal).

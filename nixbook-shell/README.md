@@ -702,12 +702,14 @@ News (`ai.initiative.news`, off): each moment ask carries `news`; about
 once a day (`NEWS_EVERY`, 20 h; not in quiet hours, not while busy)
 `news_digest` sends the personal memory's top topics (`news_topics`: kind
 `topic` only, never people or events, by importance, mentions and how
-lately; plus `initiativeNewsTopics`, up to 4) and the links told already
+lately; plus `initiativeNewsTopics`, up to 4), where the user is (the
+event's `location`: the weather's city and country, or `newsLocation`;
+local news, 1 or 2 items) and the links told already
 (`newsSeen`, 200 kept) to the small model (`newsModel`, else `memoryModel`)
 with WebSearch and WebFetch only (`ask_claude(..., web=True)`,
 `NEWS_SYSTEM`). Up to 4 items with an http(s) link not told before
 (`news_items`) make a `news` word: the intro and headlines in the bubble,
-the first 3 links as buttons (`do: "link"`, `Qt.openUrlExternally`, the
+the first 3 links as buttons (`do: "link"`, `AppLaunch.openUrl`, the
 bubble stays), Markdown links and summaries in its thread, with `newsHint`.
 **Find news now** (Settings; `nixbook-desktop-mcp initiative news`) runs it
 at once.
