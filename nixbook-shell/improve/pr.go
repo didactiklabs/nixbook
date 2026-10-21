@@ -32,7 +32,8 @@ func ciState(repo string, pr int) (string, []ciCheck) {
 	var failed []ciCheck
 	for _, c := range cs {
 		switch c.Bucket {
-		case "fail", "cancel":
+		// Cancelled (superseded by a newer run) or skipped: not a failure.
+		case "fail":
 			failed = append(failed, c)
 		case "pending":
 			if state == "pass" {
@@ -83,10 +84,15 @@ func watch(cfg Config, id string) (map[string]any, error) {
 			time.Sleep(time.Minute)
 			continue
 		}
-		if state == "fail" && !r.CIRetried && r.Session != "" {
+		logs := ""
+		if state == "fail" {
+			logs = failedLogs(repo, failed)
+		}
+		// No log to read (a runner's problem, not the change's): no retry.
+		if state == "fail" && strings.TrimSpace(strings.ReplaceAll(logs, "==", "")) != "" && !r.CIRetried && r.Session != "" {
 			editRun(id, func(r *Run) { r.CIRetried = true })
 			logEvent("retry", fmt.Sprintf("CI failed on #%d: Claude tries again with its logs", r.PR))
-			if r, err = retryCI(cfg, r, failedLogs(repo, failed)); err == nil {
+			if r, err = retryCI(cfg, r, logs); err == nil {
 				start = time.Now()
 				time.Sleep(time.Minute)
 				continue
@@ -119,6 +125,12 @@ func watch(cfg Config, id string) (map[string]any, error) {
 
 // answer does what the user picked in a notification or Settings.
 func answer(cfg Config, r Run, action string) (map[string]any, error) {
+	// Merged or closed on GitHub meanwhile: so be it, whatever was asked.
+	if action != "look" {
+		if r2, changed := syncRun(cfg, r); changed {
+			return map[string]any{"run": r2.ID, "outcome": r2.Outcome}, nil
+		}
+	}
 	switch action {
 	case "merge":
 		if err := merge(cfg, r); err != nil {
@@ -333,4 +345,65 @@ func revert(cfg Config, r Run, why string) (map[string]any, error) {
 		exec.Command("xdg-open", url).Start()
 	}
 	return map[string]any{"run": r.ID, "revert": url}, nil
+}
+
+// syncRun learns what became of an open PR on GitHub (merged or closed by
+// the user there): merged, it is watched as if merged here; closed, dropped.
+// changed: it was.
+func syncRun(cfg Config, r Run) (Run, bool) {
+	if r.Outcome != "pr" || r.PR == 0 {
+		return r, false
+	}
+	var pr struct {
+		State       string `json:"state"`
+		MergeCommit struct {
+			Oid string `json:"oid"`
+		} `json:"mergeCommit"`
+	}
+	if ghJSON(&pr, "pr", "view", fmt.Sprint(r.PR), "--repo", ghRepo(cfg.Repo), "--json", "state,mergeCommit") != nil {
+		return r, false
+	}
+	switch pr.State {
+	case "MERGED":
+		r, _ = editRun(r.ID, func(x *Run) {
+			x.Outcome, x.Merged, x.Stage, x.Doing, x.Finished = "merged", pr.MergeCommit.Oid, "merged", "", nowMs()
+		})
+		logEvent("merged", fmt.Sprintf("#%d was merged on GitHub: %s", r.PR, r.Title))
+		editInbox(func(in *Inbox) error {
+			if p := in.find(r.Item); p != nil {
+				p.Status = "merged"
+			}
+			return nil
+		})
+		return r, true
+	case "CLOSED":
+		r, _ = editRun(r.ID, func(x *Run) { x.Outcome, x.Stage, x.Doing, x.Finished = "dropped", "done", "", nowMs() })
+		logEvent("done", fmt.Sprintf("#%d was closed on GitHub: %s", r.PR, r.Title))
+		editInbox(func(in *Inbox) error {
+			if p := in.find(r.Item); p != nil {
+				p.Status = "dropped"
+			}
+			return nil
+		})
+		return r, true
+	}
+	return r, false
+}
+
+// syncPRs: every open PR's fate on GitHub (sync, collect).
+func syncPRs(cfg Config) int {
+	if token() == "" || ghRepo(cfg.Repo) == "" {
+		return 0
+	}
+	rs, err := readRuns()
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, r := range rs {
+		if _, changed := syncRun(cfg, r); changed {
+			n++
+		}
+	}
+	return n
 }

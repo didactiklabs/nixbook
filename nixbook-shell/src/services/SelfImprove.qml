@@ -164,6 +164,19 @@ Singleton {
         }
     }
 
+    // Its open PRs merged or closed on GitHub meanwhile leave the list
+    // (nixbook-improve sync): at the start, then every 30 minutes while one waits.
+    Process {
+        id: syncProc
+        command: ["nixbook-improve", "sync"]
+    }
+    Timer {
+        interval: 30 * 60000
+        repeat: true
+        running: root.available && root.waiting.length > 0
+        onTriggered: syncProc.running = true
+    }
+
     FileView {
         id: mcpConfig
         path: `${Quickshell.env("XDG_CONFIG_HOME") || `${Quickshell.env("HOME")}/.config`}/nixbook-shell/desktop-mcp.json`
@@ -174,7 +187,10 @@ Singleton {
             } catch (e) {
                 root.available = false
             }
-            if (root.available) tokenCheck.running = true
+            if (root.available) {
+                tokenCheck.running = true
+                syncProc.running = true
+            }
         }
     }
 
@@ -186,8 +202,11 @@ Singleton {
         const unit = `${name}-${Date.now()}`
         const env = [`--setenv=PATH=${Quickshell.env("PATH")}`]
         if (Ai.claudeCodePath.length > 0) env.push(`--setenv=NIXBOOK_IMPROVE_CLAUDE=${Ai.claudeCodePath}`)
+        // At the lowest CPU and disk priority: a fix's tests and headless
+        // shell take only what the user's own work leaves.
         Quickshell.execDetached(["systemd-run", "--user", "--collect", "--quiet", `--unit=${unit}`,
-            "-p", "RuntimeMaxSec=8h", ...env, "nixbook-improve", ...args])
+            "-p", "RuntimeMaxSec=8h", "-p", "Nice=19", "-p", "CPUWeight=idle", "-p", "IOSchedulingClass=idle",
+            ...env, "nixbook-improve", ...args])
     }
 
     // Something to fix, in the user's words (Settings).

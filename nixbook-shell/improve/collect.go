@@ -23,6 +23,7 @@ func collect() (map[string]any, error) {
 		since = nowMs() - 24*3600*1000
 	}
 	cfg, _ := loadConfig()
+	syncPRs(cfg)
 	o := loadOwned()
 
 	// Read first, file after: the inbox stays locked only for the filing.
@@ -50,7 +51,7 @@ func collect() (map[string]any, error) {
 	fs = append(fs, failed...)
 	fs = append(fs, unitErrors(o, since)...)
 	fs = append(fs, deploy(since)...)
-	ci, stillRed, ciRead := ciFailures(ghRepo(cfg.Repo))
+	ci, stillRed, ciRead := ciFailures(ghRepo(cfg.Repo), cfg.CIIgnoreJobs)
 	fs = append(fs, ci...)
 	fs = append(fs, coredumps(o, since)...)
 	fs = append(fs, kernelErrors(since)...)
