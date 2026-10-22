@@ -205,8 +205,28 @@ Singleton {
         // Reading the screen (pairing): the eye in the bar meanwhile.
         const looks = event.event === "pair" && event.screen === true
         if (looks) root.looking += 1
-        considerer.createObject(root, { command: ["nixbook-desktop-mcp", "initiative", "consider", JSON.stringify(event)], running: true,
-                                        asked: what, looks: looks })
+        // The helper decides on a thread of its own (a model's answer can take
+        // seconds): no Python start each time.
+        DesktopHelper.run(["initiative", "consider", JSON.stringify(event)], "", (code, out) => root._considered(out, what, looks))
+    }
+    function _considered(out, asked, looks) {
+        if (looks) root.looking = Math.max(0, root.looking - 1)
+        let action = "none"
+        try {
+            const answer = JSON.parse(out)
+            if (answer.action === "notify") root._say(answer.item)
+            if (answer.action === "badge") {
+                root.pending = [...root.pending, answer.item]
+                root._feed(answer.item)
+            }
+            if (answer.action === "notify" || answer.action === "badge") action = answer.action
+        } catch (e) {
+            // Nothing to say, or the server is missing: silence.
+        }
+        if (asked !== "" && asked === root.asking) {
+            root.asking = ""
+            root.asked = action
+        }
     }
     // Looks at the screen now (pairing with the screen read): the bar shows
     // an eye (DesktopControl.qml), so it never reads it unseen.
@@ -663,36 +683,6 @@ Singleton {
         const u = n.urgency
         return (u == NotificationUrgency.Critical || u === "critical") ? "critical"
             : (u == NotificationUrgency.Low || u === "low") ? "low" : "normal"
-    }
-
-    Component {
-        id: considerer
-        Process {
-            id: proc
-            property string asked: ""
-            property bool looks: false
-            stdout: StdioCollector { id: out }
-            onExited: {
-                if (proc.looks) root.looking = Math.max(0, root.looking - 1)
-                let action = "none"
-                try {
-                    const answer = JSON.parse(out.text)
-                    if (answer.action === "notify") root._say(answer.item)
-                    if (answer.action === "badge") {
-                        root.pending = [...root.pending, answer.item]
-                        root._feed(answer.item)
-                    }
-                    if (answer.action === "notify" || answer.action === "badge") action = answer.action
-                } catch (e) {
-                    // Nothing to say, or the server is missing: silence.
-                }
-                if (proc.asked !== "" && proc.asked === root.asking) {
-                    root.asking = ""
-                    root.asked = action
-                }
-                proc.destroy()
-            }
-        }
     }
 
     FileView {

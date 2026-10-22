@@ -1224,8 +1224,10 @@ The shell keeps one `nixbook-desktop-mcp helper` running
 context and privacy mask, cues, a bubble's answer, the pause switch…) are
 JSON lines on its stdin, answered in about a millisecond instead of a
 Python start each (~60 ms, ~150 ms before `-P`). Only the commands in
-`HELPER_COMMANDS` (no model, no long wait); the others, and any while it is
-down (it restarts after 2 s), run as a process as before. It also serves
+`HELPER_COMMANDS` (no model, no long wait), and the initiative's decisions
+(`initiative consider`), each on a thread of its own since a model's answer
+can take seconds; the others, and any while it is down (it restarts after
+2 s), run as a process as before. It also serves
 the side panel's privacy hooks over HTTP (Claude Code's `http` hooks) on
 127.0.0.1: a random port, a bearer token, the caller checked to be the same
 user.

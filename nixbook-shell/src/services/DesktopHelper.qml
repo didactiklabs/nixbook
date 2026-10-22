@@ -9,7 +9,8 @@ import QtQuick
 /**
  * `nixbook-desktop-mcp helper`, kept running: the shell's quick commands
  * (the privacy mask and the personal context of each message, cues, a
- * bubble's answer…) answered in a millisecond instead of starting Python
+ * bubble's answer, the initiative's decisions on a thread of their own…)
+ * answered in a millisecond instead of starting Python
  * each time (~150 ms of CPU each). `run(argv, input, done)`: done(code,
  * stdout) once answered; the commands the helper doesn't take (see
  * desktop-mcp.py's HELPER_COMMANDS), and any while it isn't up, run as a
@@ -28,7 +29,7 @@ Singleton {
     readonly property var _commands: ({
         privacy: null, context: null, sent: null, pause: null, resume: null, status: null, notify: null,
         personal: ["context", "show", "forget"], habits: ["cue", "alias", "status"],
-        memory: ["show", "forget", "fire"], initiative: ["show", "pending", "answer", "notices", "unmute"],
+        memory: ["show", "forget", "fire"], initiative: ["show", "pending", "answer", "notices", "unmute", "consider"],
         routine: ["list", "undone", "on", "off", "remove"]
     })
 

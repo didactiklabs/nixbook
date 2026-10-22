@@ -211,6 +211,19 @@ Scope {
         case "WindowOpenedOrChanged": {
             const w = d.window;
             if (!w) return;
+            // Only its title changed (a browser tab loading, a terminal's
+            // command, a player's track: all day long): updated in place,
+            // like a layout change; nothing reading the list uses titles but
+            // when it opens (the region selector).
+            const before = root._windows[w.id];
+            const shown = root._published[String(w.id)];
+            if (before && shown && before.app_id === w.app_id && before.workspace_id === w.workspace_id
+                    && before.is_focused === w.is_focused && before.is_floating === w.is_floating
+                    && before.is_urgent === w.is_urgent) {
+                root._windows[w.id] = w;
+                Object.assign(shown, { title: w.title ?? "" }, root.layoutFields(w.layout));
+                return;
+            }
             if (w.is_focused)
                 for (const id in root._windows) root._windows[id].is_focused = false;
             root._windows[w.id] = w;
