@@ -40,6 +40,9 @@ in
           height = 1440;
           refresh = 143.91;
         };
+        # VRR while a video or a game shows (window-rules: variable-refresh-rate):
+        # 24/30/60 fps no longer uneven on 144 Hz; the rest stays at 144 Hz.
+        variable-refresh-rate = "on-demand";
         position = {
           x = 3720;
           y = 0;
@@ -51,6 +54,9 @@ in
           height = 1080;
           refresh = 144.0;
         };
+        # VRR while a video or a game shows (window-rules: variable-refresh-rate):
+        # 24/30/60 fps no longer uneven on 144 Hz; the rest stays at 144 Hz.
+        variable-refresh-rate = "on-demand";
         position = {
           x = 1800;
           y = 0;
@@ -62,6 +68,9 @@ in
           height = 1440;
           refresh = 143.91;
         };
+        # VRR while a video or a game shows (window-rules: variable-refresh-rate):
+        # 24/30/60 fps no longer uneven on 144 Hz; the rest stays at 144 Hz.
+        variable-refresh-rate = "on-demand";
         position = {
           x = 3720;
           y = 0;
