@@ -13,10 +13,12 @@ type Run struct {
 	ID       string `json:"id"`
 	Item     string `json:"item"`
 	ItemText string `json:"itemText"`
-	Manual   bool   `json:"manual,omitempty"` // "Fix now": not counted in the day's runs
+	Manual   bool   `json:"manual,omitempty"`  // "Fix now": not counted in the day's runs
+	Feature  bool   `json:"feature,omitempty"` // a feature built, not a fix
 	Started  int64  `json:"started"`
 	Finished int64  `json:"finished,omitempty"`
-	// clone, fix, check, push, ci, ready, merged, health; done once over.
+	// clone, fix (build for a feature), check, push, ci, ready, merged,
+	// health; done once over.
 	Stage string `json:"stage"`
 	// What it does right now, live: "Claude reads …", a check running.
 	Doing string `json:"doing,omitempty"`
@@ -24,7 +26,7 @@ type Run struct {
 	// ignored, too_big, failed, dropped, reverted.
 	Outcome   string   `json:"outcome"`
 	Note      string   `json:"note,omitempty"`
-	Type      string   `json:"type,omitempty"` // fix, polish
+	Type      string   `json:"type,omitempty"` // fix, polish, feat
 	Title     string   `json:"title,omitempty"`
 	Branch    string   `json:"branch,omitempty"`
 	PR        int      `json:"pr,omitempty"`
@@ -94,18 +96,19 @@ func findRun(pr int, id string) (Run, error) {
 		}
 	}
 	if pr != 0 {
-		return Run{}, errorf("no fix with PR #%d", pr)
+		return Run{}, errorf("no fix or feature with PR #%d", pr)
 	}
 	return Run{}, errorf("no run %s", id)
 }
 
-// runsToday: the runs started on its own today ("Fix now" isn't counted).
-func runsToday(rs []Run) int {
+// runsToday: the fixes (or features) started on its own today ("Fix now"
+// isn't counted).
+func runsToday(rs []Run, feature bool) int {
 	y, m, d := time.Now().Date()
 	start := time.Date(y, m, d, 0, 0, 0, 0, time.Local).UnixMilli()
 	n := 0
 	for _, r := range rs {
-		if !r.Manual && r.Started >= start {
+		if !r.Manual && r.Feature == feature && r.Started >= start {
 			n++
 		}
 	}
@@ -113,3 +116,11 @@ func runsToday(rs []Run) int {
 }
 
 func newRunID() string { return fmt.Sprintf("%x", time.Now().UnixNano())[:12] }
+
+// noun: what it made, in the notifications and the activity.
+func (r Run) noun() string {
+	if r.Feature {
+		return "feature"
+	}
+	return "fix"
+}

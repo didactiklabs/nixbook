@@ -302,6 +302,10 @@ Singleton {
                     property bool terminal: false
                     // An error or stack trace copied: an "Explain it" chip.
                     property bool clipboardErrors: false
+                    // Every two days at most, a fix or feature of nixbook
+                    // proposed from what it saw go wrong (only with fixes or
+                    // features on, where the fixer is): yes files it.
+                    property bool improveIdeas: true
                 }
                 // The routines the user asked agents for ("whenever the music
                 // ends, play something", services/Routines.qml): run on their cue.
@@ -335,6 +339,16 @@ Singleton {
                     // the binary cache): CI red only through them isn't a bug.
                     property list<string> ciIgnoreJobs: ["push-cache"]
                     property string repo: "" // empty: updates.repoUrl
+                    // Features it builds, apart from the fixes: what the user
+                    // asks for (request_feature, Settings) and fixes found too
+                    // big. Same model and token; never merged on its own.
+                    property JsonObject features: JsonObject {
+                        property bool enable: false
+                        property int perDay: 1
+                        property int maxFiles: 15
+                        property int maxLines: 600
+                        property real budgetUsd: 8
+                    }
                 }
             }
 

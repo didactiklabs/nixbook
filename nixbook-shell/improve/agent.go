@@ -72,6 +72,69 @@ Answer with:
 - reason: for skip and too_big, why;
 - harmless: for skip, true when it can be ignored for good (see above).`
 
+// featureRules: a feature's session. Bigger, new files allowed, never
+// merged on its own; the same places off limits.
+const featureRules = `You build a feature into nixbook, a NixOS configuration with its own
+desktop shell (nixbook-shell, Quickshell/QML). The repository is your
+working directory.
+
+The user asked for this feature (or a fix turned out to need one). Build it
+whole but small: the least code that does what was asked, in the places
+such code already lives, reusing the services, widgets and settings that
+exist. No refactor of what is around it, no dependency or pin bump, no
+rename across files. At most %d files and %d changed lines; new files are
+fine, deleting one isn't.
+If it needs more than that, or a design choice only the user can make,
+answer outcome "too_big" and say what it would take and what to decide. If
+it exists already, can't be done in this repository, or the request is too
+vague to build, answer "skip" and say why (for one that exists: how to use
+it).
+
+These are off limits (a change to them is refused): .github/, tests/,
+nixbook-shell/tests/, nixbook-shell/improve/, SelfImprove.qml, the agent
+desktop's sandbox (agent-desktop.sh, wayland-security-context.py),
+nixosModules/, installer/, lib/, profiles/, npins/, hive.nix, base.nix,
+AGENTS.md, CLAUDE.md, secrets. Never widen what agents may do (their
+tools, permissions, sandbox, switches) unless that is exactly what was
+asked.
+
+You can't run anything. Afterwards your change is built and checked: the
+shell is started headless and must not print new QML warnings, and the
+tests of what you touched run. So read the code around your change (its
+imports, the properties it uses) and keep QML and Nix syntax exact.
+
+Match the code around you: its naming, idioms and comment density. AGENTS.md
+holds the conventions (it is long: Grep it for what you touch). A new
+setting goes in the shell's Config.qml and builtin-defaults.json with a
+control on its Settings page; a new shortcut in KEYBINDS.md; what users see
+in its docs page (docs/nixbook-shell/) and in the assistant's how-to
+answers (nixbook-shell/hm-module.nix, four languages), all in the same
+change.
+
+The repository is public. Your title and body become a commit message and
+a pull request: never put the user's data in them (names, file paths in
+their home, window titles, message or notification contents).
+
+Answer with:
+- outcome: built, skip or too_big;
+- scope: what it is in, as in the git log (nixbook-shell, niri, docs…);
+- title: lowercase, a sentence saying what one can now do, like the git
+  log ("the clock widget can show the week number"), no final period;
+  with "feat(scope): " before it the line is 72 characters at most, so 51
+  for the title with the nixbook-shell scope;
+- body: the changelog entry, in plain sentences, wrapped at 72 columns:
+  what it does, how to use it (where the setting, button or shortcut is),
+  how it is made and where. 40 to 200 words;
+- reason: for skip and too_big, why.`
+
+var featureSchema = `{"type":"object","properties":{
+"outcome":{"type":"string","enum":["built","skip","too_big"]},
+"scope":{"type":"string"},
+"title":{"type":"string"},
+"body":{"type":"string"},
+"reason":{"type":"string"}},
+"required":["outcome"]}`
+
 var answerSchema = `{"type":"object","properties":{
 "outcome":{"type":"string","enum":["fixed","skip","too_big"]},
 "type":{"type":"string","enum":["fix","polish"]},
@@ -92,6 +155,9 @@ type Answer struct {
 	// A skip that can be left for good: dropped, never tried again.
 	Harmless bool `json:"harmless,omitempty"`
 }
+
+// made: the change is in the files (a fix fixed, a feature built).
+func (a Answer) made() bool { return a.Outcome == "fixed" || a.Outcome == "built" }
 
 type session struct {
 	answer  Answer
@@ -114,8 +180,9 @@ func maskPrivate(text string) (string, error) {
 	return out, nil
 }
 
-// ask runs the session (resume: the earlier one, told what went wrong).
-func ask(cfg Config, dir, prompt, resume string, fixLimits Limits) (session, error) {
+// ask runs the session, a fix's or a feature's (resume: the earlier one,
+// told what went wrong).
+func ask(cfg Config, dir, prompt, resume string, feature bool) (session, error) {
 	if cfg.claude == "" {
 		return session{}, errorf("no Claude Code (claude) found")
 	}
@@ -123,18 +190,23 @@ func ask(cfg Config, dir, prompt, resume string, fixLimits Limits) (session, err
 	if err != nil {
 		return session{}, err
 	}
+	lim := cfg.limits(feature)
+	rules, schema, turns, budget, limit := agentRules, answerSchema, "60", cfg.BudgetUsd, 40*time.Minute
+	if feature {
+		rules, schema, turns, budget, limit = featureRules, featureSchema, "150", cfg.Features.BudgetUsd, 90*time.Minute
+	}
 	args := []string{
 		"-p", "--restricted", "--safe-mode", "--strict-mcp-config", "--output-format", "stream-json", "--verbose",
 		"--tools", "Read,Edit,Write,Glob,Grep", "--permission-mode", "acceptEdits",
-		"--model", cfg.Model, "--max-turns", "60", "--max-budget-usd", fmt.Sprintf("%.2f", cfg.BudgetUsd),
-		"--append-system-prompt", fmt.Sprintf(agentRules, fixLimits.Files, fixLimits.Lines),
-		"--json-schema", answerSchema,
+		"--model", cfg.Model, "--max-turns", turns, "--max-budget-usd", fmt.Sprintf("%.2f", budget),
+		"--append-system-prompt", fmt.Sprintf(rules, lim.Files, lim.Lines),
+		"--json-schema", schema,
 	}
 	if resume != "" {
 		args = append(args, "--resume", resume)
 	}
 	// Streamed: each tool call shows live (doing), the result comes last.
-	out, err := stream(dir, 40*time.Minute, prompt, func(line string) {
+	out, err := stream(dir, limit, prompt, func(line string) {
 		var ev struct {
 			Type    string `json:"type"`
 			Message struct {
@@ -172,7 +244,10 @@ func ask(cfg Config, dir, prompt, resume string, fixLimits Limits) (session, err
 	s := session{id: res.SessionID, cost: res.Cost, denials: len(res.Denials)}
 	if len(res.Structured) == 0 || json.Unmarshal(res.Structured, &s.answer) != nil || s.answer.Outcome == "" {
 		s.err = clip(fmt.Sprintf("%s: %s", res.Subtype, res.Result), 400)
-		return s, errorf("the fixing session gave no answer (%s)", s.err)
+		return s, errorf("the session gave no answer (%s)", s.err)
+	}
+	if feature {
+		s.answer.Type, s.answer.Harmless = "feat", false
 	}
 	return s, nil
 }
@@ -277,6 +352,12 @@ func firstPrompt(it Item, context string) string {
 	case "info":
 		b.WriteString("This was seen on the computer. It isn't obviously nixbook's: if no change to this repository " +
 			"can fix it (an upstream app's bug, hardware, the kernel), answer skip and say so, harmless if it does no harm.\n\n")
+	case "feature":
+		if it.From != "" {
+			b.WriteString("This was filed as something to fix, and found too big for a fix (what the fixer found is at its end). Build it as a feature:\n\n")
+		} else {
+			b.WriteString("The user asked for this feature in nixbook (through their desktop agent or Settings):\n\n")
+		}
 	}
 	b.WriteString("    " + strings.ReplaceAll(it.Text, "\n", "\n    ") + "\n")
 	if it.Where != "" {
@@ -286,6 +367,10 @@ func firstPrompt(it Item, context string) string {
 	if it.Note != "" {
 		fmt.Fprintf(&b, "\nLast time: %s\n", it.Note)
 	}
-	b.WriteString("\nFind the cause and fix it, or say why not (skip, too_big).")
+	if it.feature() {
+		b.WriteString("\nBuild it, or say why not (skip, too_big).")
+	} else {
+		b.WriteString("\nFind the cause and fix it, or say why not (skip, too_big).")
+	}
 	return b.String()
 }

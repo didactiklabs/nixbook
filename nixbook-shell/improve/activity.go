@@ -13,7 +13,13 @@ type Event struct {
 	Time int64  `json:"time"`
 	Kind string `json:"kind"` // look, wait, start, retry, done, pr, ci, merged, revert, error
 	Text string `json:"text"`
+	// About a feature (Settings shows it with the features).
+	Feature bool `json:"feature,omitempty"`
 }
+
+// forFeature: the events logged now are a feature's (set once the run, or
+// the PR answered, is known).
+var forFeature bool
 
 const activityMax = 40
 
@@ -27,7 +33,7 @@ func logEvent(kind, text string) {
 	defer unlock()
 	var evs []Event
 	readJSON(activityPath(), &evs)
-	evs = append(evs, Event{Time: nowMs(), Kind: kind, Text: clip(text, 400)})
+	evs = append(evs, Event{Time: nowMs(), Kind: kind, Text: clip(text, 400), Feature: forFeature})
 	if len(evs) > activityMax {
 		evs = evs[len(evs)-activityMax:]
 	}
@@ -67,7 +73,7 @@ func describeTool(name string, input map[string]any, dir string) string {
 func waitingSummary(in Inbox) string {
 	var parts []string
 	for _, it := range in.Items {
-		if it.Status != "new" {
+		if it.Status != "new" || it.feature() {
 			continue
 		}
 		need := ripeCount[it.Kind]
@@ -76,7 +82,7 @@ func waitingSummary(in Inbox) string {
 		}
 	}
 	if len(parts) == 0 {
-		return "nothing to fix in the inbox"
+		return "nothing to fix or build in the inbox"
 	}
 	return "nothing seen often enough yet: " + strings.Join(parts[:min(len(parts), 3)], "; ")
 }

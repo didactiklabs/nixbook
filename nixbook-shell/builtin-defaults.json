@@ -39,7 +39,8 @@
       "pair": false,
       "pairReadScreen": false,
       "reactions": false,
-      "readNotifications": false
+      "readNotifications": false,
+      "improveIdeas": true
     },
     "routines": {
       "enable": true,
@@ -56,7 +57,14 @@
       "autoMergePaths": ["docs/**", "**/*.md"],
       "autoMergeFixes": false,
       "ciIgnoreJobs": ["push-cache"],
-      "repo": ""
+      "repo": "",
+      "features": {
+        "enable": false,
+        "perDay": 1,
+        "maxFiles": 15,
+        "maxLines": 600,
+        "budgetUsd": 8
+      }
     }
   },
   "appearance": {

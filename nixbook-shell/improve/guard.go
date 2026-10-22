@@ -87,33 +87,55 @@ type Change struct {
 	Binary  bool   `json:"binary,omitempty"`
 }
 
-type Limits struct{ Files, Lines int }
+type Limits struct {
+	Files, Lines int
+	// A feature may add files (a fix only Markdown ones).
+	NewFiles bool
+}
 
-// checkDiff: why this change can't be a fix ("" when it can).
+// checkDiff: why this change can't be a fix, or a feature with
+// lim.NewFiles ("" when it can).
 func checkDiff(changes []Change, lim Limits) []string {
 	var why []string
 	if len(changes) == 0 {
 		return []string{"nothing changed"}
 	}
+	what := "a fix"
+	if lim.NewFiles {
+		what = "a feature"
+	}
 	if len(changes) > lim.Files {
-		why = append(why, fmt.Sprintf("%d files changed, a fix changes at most %d", len(changes), lim.Files))
+		why = append(why, fmt.Sprintf("%d files changed, %s changes at most %d", len(changes), what, lim.Files))
 	}
 	lines := 0
 	for _, c := range changes {
 		lines += c.Added + c.Deleted
 		switch {
 		case matchAny(forbidden, c.Path):
-			why = append(why, c.Path+" is off limits to fixes")
+			why = append(why, c.Path+" is off limits to agents")
 		case c.Binary:
 			why = append(why, c.Path+": a binary file")
 		case c.Status == "D":
-			why = append(why, c.Path+": deleting a file isn't a fix")
-		case c.Status == "A" && !strings.HasSuffix(c.Path, ".md"):
+			why = append(why, c.Path+": deleting a file isn't "+what)
+		case c.Status == "A" && !lim.NewFiles && !strings.HasSuffix(c.Path, ".md"):
 			why = append(why, c.Path+": a new file isn't a fix")
 		}
 	}
 	if lines > lim.Lines {
-		why = append(why, fmt.Sprintf("%d lines changed, a fix changes at most %d", lines, lim.Lines))
+		why = append(why, fmt.Sprintf("%d lines changed, %s changes at most %d", lines, what, lim.Lines))
+	}
+	return why
+}
+
+// checkReverts: a revert this program made only takes a change back, so
+// only its paths are checked (it deletes what a feature added, and may be
+// as big).
+func checkReverts(changes []Change) []string {
+	var why []string
+	for _, c := range changes {
+		if matchAny(forbidden, c.Path) {
+			why = append(why, c.Path+" is off limits to agents")
+		}
 	}
 	return why
 }
@@ -129,11 +151,12 @@ func anySensitive(changes []Change) bool {
 
 // autoMergeWhy: why this change may merge without the user ("" when it
 // may not): every fix (autoMergeFixes) or a docs-only one (autoMerge and
-// autoMergePaths). Never one touching what agents may do (sensitive): the
-// fixer would otherwise merge a loosening of its own limits unseen.
-func autoMergeWhy(cfg Config, changes []Change) string {
+// autoMergePaths). Never a feature (the user looks at what it adds), nor
+// one touching what agents may do (sensitive): the fixer would otherwise
+// merge a loosening of its own limits unseen.
+func autoMergeWhy(cfg Config, changes []Change, feature bool) string {
 	switch {
-	case len(changes) == 0 || anySensitive(changes):
+	case feature || len(changes) == 0 || anySensitive(changes):
 		return ""
 	case cfg.AutoMergeFixes:
 		return "every fix merges on its own"
@@ -157,28 +180,41 @@ func autoMergeable(changes []Change, paths []string) bool {
 }
 
 var (
-	titleRe   = regexp.MustCompile(`^(fix|polish)\([a-z0-9][a-z0-9./-]*\): \S.{6,}$`)
-	trailerRe = regexp.MustCompile(`(?m)^Agent-Fix: [0-9a-f]{8}$`)
+	titleRe       = regexp.MustCompile(`^(fix|polish)\([a-z0-9][a-z0-9./-]*\): \S.{6,}$`)
+	featTitleRe   = regexp.MustCompile(`^feat\([a-z0-9][a-z0-9./-]*\): \S.{6,}$`)
+	trailerRe     = regexp.MustCompile(`(?m)^Agent-Fix: [0-9a-f]{8}$`)
+	featTrailerRe = regexp.MustCompile(`(?m)^Agent-Feature: [0-9a-f]{8}$`)
+	anyTrailerRe  = regexp.MustCompile(`(?m)^Agent-(Fix|Feature): [0-9a-f]{8}$`)
+	revertTitleRe = regexp.MustCompile(`^Revert "(fix|polish|feat)\(`)
 )
 
 // checkMessage: a fix's commit says what it does, so the commits read as a
 // changelog: "fix(scope): …" or "polish(scope): …", a body of whole
-// sentences, and the inbox item it answers.
-func checkMessage(msg string) []string {
+// sentences, and the inbox item it answers. A feature's (feature: an
+// agent/feature- branch) is "feat(scope): …" with an Agent-Feature: trailer.
+func checkMessage(msg string, feature bool) []string {
 	var why []string
 	title, body, _ := strings.Cut(strings.TrimSpace(msg), "\n")
-	if !titleRe.MatchString(title) {
-		why = append(why, fmt.Sprintf("title %q isn't fix(scope): … or polish(scope): …", title))
+	tre, tr, trailer := titleRe, trailerRe, "Agent-Fix:"
+	if feature {
+		tre, tr, trailer = featTitleRe, featTrailerRe, "Agent-Feature:"
+	}
+	if !tre.MatchString(title) {
+		if feature {
+			why = append(why, fmt.Sprintf("title %q isn't feat(scope): …", title))
+		} else {
+			why = append(why, fmt.Sprintf("title %q isn't fix(scope): … or polish(scope): …", title))
+		}
 	}
 	if len([]rune(title)) > 72 {
 		why = append(why, "title longer than 72 characters")
 	}
-	text := trailerRe.ReplaceAllString(body, "")
+	text := anyTrailerRe.ReplaceAllString(body, "")
 	if len(strings.Fields(text)) < 20 {
 		why = append(why, "the body doesn't say what changed and why (20 words at least)")
 	}
-	if !trailerRe.MatchString(body) {
-		why = append(why, "no Agent-Fix: trailer")
+	if !tr.MatchString(body) {
+		why = append(why, "no "+trailer+" trailer")
 	}
 	return why
 }

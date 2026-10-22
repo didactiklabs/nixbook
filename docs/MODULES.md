@@ -733,7 +733,7 @@ Whether to offer the nixbook-shell AI chat (Claude in the side panel, and nothin
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable the desktop agent fixing nixbook itself on this machine (programs.nixbook-shell.selfImprove.enable): fixes and polish only, as pull requests made with a GitHub token set in Settings > Desktop agents. Only machines whose profile turns it on have it.
+Whether to enable the desktop agent fixing nixbook itself on this machine (programs.nixbook-shell.selfImprove.enable): fixes and polish, and apart the features asked for (never merged on their own), as pull requests made with a GitHub token set in Settings > Desktop agents. Only machines whose profile turns it on have it.
 
 ### `customHomeManagerModules.nixbookShellConfig.settings`
 

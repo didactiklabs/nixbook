@@ -1,10 +1,12 @@
-// nixbook-improve: the desktop agent fixing nixbook itself, fixes and
-// polish only. What to fix comes in an inbox (what the user reported, the
-// shell's QML errors, the desktop tools' crashes); a Claude Code session
-// confined to a clone of the repository makes the change; this program
+// nixbook-improve: the desktop agent fixing nixbook itself: fixes and
+// polish, and apart from them the features the user asks for. What to do
+// comes in an inbox (what the user reported or asked for, the shell's QML
+// errors, the desktop tools' crashes, fixes found too big); a Claude Code
+// session confined to a clone of the repository makes the change; this program
 // checks it (size and paths, the tests, the shell started headless), commits
 // it with a changelog entry, opens a PR and, once CI passes, asks the user
-// (Merge, Look, Drop) or merges it on its own (low-risk files only). Then
+// (Merge, Look, Drop) or merges a fix on its own (low-risk files only;
+// never a feature). Then
 // main's checks and the deployed shell are watched, and a revert offered.
 package main
 
@@ -17,19 +19,25 @@ import (
 	"syscall"
 )
 
-const usage = `nixbook-improve: the desktop agent's fixes to nixbook (Settings > Desktop agents)
+const usage = `nixbook-improve: the desktop agent's fixes and features to nixbook (Settings > Desktop agents)
 
   nixbook-improve status                 the inbox, the runs, today's count, whether it is on
   nixbook-improve note TEXT [--where W]  something to fix, from the user (an agent's
                                          report_problem, Settings)
+  nixbook-improve request TEXT [--where W]
+                                         a feature to build, from the user (an agent's
+                                         request_feature, Settings)
+  nixbook-improve to-feature ID          move a fix item to the feature requests
   nixbook-improve drop-item ID           forget an inbox item
   nixbook-improve collect                file the shell's QML errors and the desktop tools'
                                          crashes since the last time (no model)
   nixbook-improve run [--item ID] [--auto] [--no-push]
-                                         fix the ripest item (or ID): the session, the
-                                         checks, the commit, the PR, then CI and the
-                                         user's answer; --auto: the day's limit applies;
-                                         --no-push: stop at the local commit
+                                         fix the ripest item (or ID; a feature request
+                                         builds it): the session, the checks, the
+                                         commit, the PR, then CI and the user's answer;
+                                         --auto: the days' limits apply (fixes first,
+                                         then features); --no-push: stop at the local
+                                         commit
   nixbook-improve stop                   stop the fix being made (Settings' Stop)
   nixbook-improve sync                   learn which open PRs were merged or closed on GitHub
   nixbook-improve merge|drop|look PR     what the notification's buttons do
@@ -39,9 +47,10 @@ const usage = `nixbook-improve: the desktop agent's fixes to nixbook (Settings >
                                          credential it uses, never the user's gh or ssh
   nixbook-improve health REV             the shell running a deployed fix (REV: the
                                          deployed revision): a revert offered if it broke
-  nixbook-improve guard BASE [HEAD] [--max-files N] [--max-lines N]
+  nixbook-improve guard BASE [HEAD] [--feature] [--max-files N] [--max-lines N]
                                          CI's agent-guard: an agent/ branch's commits are
-                                         fixes (paths, size, messages)
+                                         fixes, or features with --feature (paths, size,
+                                         messages)
 
 Only where Nix made it available (programs.nixbook-shell.selfImprove.enable:
 "improve" in desktop-mcp.json); guard and status run anywhere.
@@ -113,21 +122,46 @@ func dispatch(args []string) (any, error) {
 			return nil, err
 		}
 		return map[string]any{"changed": syncPRs(cfg)}, nil
-	case "note":
+	case "note", "request":
 		where, err := flag(&args, "--where")
 		if err != nil {
 			return nil, err
 		}
 		text := strings.TrimSpace(strings.Join(args, " "))
+		kind, empty := "user", "say what to fix"
+		if cmdName == "request" {
+			kind, empty = "feature", "say what to build"
+		}
 		if text == "" {
-			return nil, errorf("say what to fix")
+			return nil, errorf("%s", empty)
 		}
 		var it Item
 		_, err = editInbox(func(in *Inbox) error {
 			// The same words again count up instead of adding an item.
-			key := "user:" + strings.ToLower(strings.Join(strings.Fields(text), " "))
-			it = *in.add("user", clip(key, 200), text, clip(where, 200), 1, nowMs())
+			key := kind + ":" + strings.ToLower(strings.Join(strings.Fields(text), " "))
+			it = *in.add(kind, clip(key, 200), text, clip(where, 200), 1, nowMs())
 			return nil
+		})
+		return it, err
+	case "to-feature":
+		if len(args) != 1 {
+			return nil, errorf("to-feature ID")
+		}
+		var it Item
+		_, err := editInbox(func(in *Inbox) error {
+			old := in.find(args[0])
+			why := ""
+			if old != nil && old.Status == "working" {
+				return errorf("item %s is being fixed", args[0])
+			}
+			if old != nil && old.Status == "too_big" {
+				why = old.Note
+			}
+			f, err := in.toFeature(args[0], why, nowMs())
+			if err == nil {
+				it = *f
+			}
+			return err
 		})
 		return it, err
 	case "drop-item":
@@ -163,6 +197,7 @@ func dispatch(args []string) (any, error) {
 		if err != nil {
 			return nil, err
 		}
+		forFeature = r.Feature
 		return answer(cfg, r, cmdName)
 	case "health":
 		if len(args) != 1 {
@@ -216,12 +251,15 @@ func status() (any, error) {
 	return map[string]any{
 		"available": available(), "token": available() && token() != "",
 		"enable": cfg.Enable, "repo": ghRepo(cfg.Repo), "claude": cfg.claude != "",
-		"today": runsToday(rs), "perDay": cfg.PerDay, "inbox": in.Items, "runs": rs,
+		"today": runsToday(rs, false), "perDay": cfg.PerDay, "inbox": in.Items, "runs": rs,
+		"features": map[string]any{"enable": cfg.Features.Enable, "today": runsToday(rs, true), "perDay": cfg.Features.PerDay},
 	}, nil
 }
 
 // guardCmd checks BASE..HEAD of the repository in the working directory as
-// run() checks a change before pushing it.
+// run() checks a change before pushing it: a fix's limits, a feature's with
+// --feature (CI passes it for agent/feature- branches). A branch of reverts
+// this program made is only checked for its paths.
 func guardCmd(args []string) (any, error) {
 	files, err := flag(&args, "--max-files")
 	if err != nil {
@@ -231,8 +269,8 @@ func guardCmd(args []string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	d := defaults()
-	lim := Limits{d.MaxFiles, d.MaxLines}
+	feature := boolFlag(&args, "--feature")
+	lim := defaults().limits(feature)
 	if files != "" {
 		lim.Files = atoi(files)
 	}
@@ -240,7 +278,7 @@ func guardCmd(args []string) (any, error) {
 		lim.Lines = atoi(lines)
 	}
 	if len(args) < 1 || len(args) > 2 {
-		return nil, errorf("guard BASE [HEAD]")
+		return nil, errorf("guard BASE [HEAD] [--feature]")
 	}
 	base, head := args[0], "HEAD"
 	if len(args) == 2 {
@@ -255,27 +293,37 @@ func guardCmd(args []string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	why := checkDiff(parseDiff(num, names), lim)
 	log, err := git(".", "log", "--format=%B%x00", base+".."+head)
 	if err != nil {
 		return nil, err
 	}
+	var why []string
+	reverts := 0
+	var msgs []string
 	for _, msg := range strings.Split(log, "\x00") {
-		if msg = strings.TrimSpace(msg); msg == "" {
-			continue
+		if msg = strings.TrimSpace(msg); msg != "" {
+			msgs = append(msgs, msg)
 		}
+	}
+	for _, msg := range msgs {
 		var bad []string
-		if strings.HasPrefix(msg, "Revert \"fix(") || strings.HasPrefix(msg, "Revert \"polish(") {
+		if revertTitleRe.MatchString(msg) {
 			// A revert this program made: its trailer only.
-			if !trailerRe.MatchString(msg) {
-				bad = []string{"no Agent-Fix: trailer"}
+			reverts++
+			if !anyTrailerRe.MatchString(msg) {
+				bad = []string{"no Agent-Fix: or Agent-Feature: trailer"}
 			}
 		} else {
-			bad = checkMessage(msg)
+			bad = checkMessage(msg, feature)
 		}
 		for _, b := range bad {
 			why = append(why, fmt.Sprintf("commit %q: %s", firstLine(msg), b))
 		}
+	}
+	if changes := parseDiff(num, names); len(msgs) > 0 && reverts == len(msgs) {
+		why = append(checkReverts(changes), why...)
+	} else {
+		why = append(checkDiff(changes, lim), why...)
 	}
 	if len(why) > 0 {
 		emit(map[string]any{"ok": false, "why": why})

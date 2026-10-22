@@ -316,6 +316,15 @@ ContentPage {
                     checked: Config.options.ai.initiative.clipboardErrors
                     onCheckedChanged: Config.options.ai.initiative.clipboardErrors = checked
                 }
+                ConfigSwitch {
+                    configKey: "ai.initiative.improveIdeas"
+                    shown: SelfImprove.available
+                    buttonIcon: "tips_and_updates"
+                    enabled: Config.options.ai.initiative.enable && (SelfImprove.enabled || SelfImprove.featuresEnabled)
+                    text: Translation.tr("Propose fixes and features of nixbook: every two days at most, from what it saw go wrong or get in my way (what failed in its memory, routines I undid, its tools' errors, the apps pairing saw me in), one fix or feature, offered with why. My yes files it for the fixer, a no is never proposed again. Needs Fixes it makes itself or Features it builds on")
+                    checked: Config.options.ai.initiative.improveIdeas
+                    onCheckedChanged: Config.options.ai.initiative.improveIdeas = checked
+                }
             }
 
             // What agents watch for me (the watch tool): cancel one.
@@ -591,7 +600,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("Claude fixes nixbook itself: fixes and polish only (a bug, a rough edge, wording), never a new feature or a big change — those it leaves for you. What to fix: what you tell an agent is broken (\"report this\") or write below (your words stay on this computer: the PR says it in its own), the errors the shell prints, the desktop tools' crashes, failed units and errors in the logs of what nixbook defines, a failed update or Nix warning, CI red on main, crashes of nixbook's programs (only what you can already read; what isn't nixbook's is listed below, never sent unasked). Each fix is made in a clone of the repository by a Claude Code session that can only edit files there (no commands, none of your files or logins), checked (its size and files, the tests, the shell started headless with no new error), committed with a changelog entry and opened as a pull request. Once CI passes you get Merge, Look, Drop; nothing reaches main without you, but what you let merge on its own. After a merge, main's checks and the updated shell are watched, and a revert is offered if it broke something. Its sandbox, the tests, CI and its own code are off limits; what agents may do is never merged on its own. It reaches GitHub only with its own token, below (never your gh login or ssh key; Claude never sees it), and uses your Claude Code; at most %1 a day.").arg(Config.options.ai.improve.perDay)
+                text: Translation.tr("Claude fixes nixbook itself: fixes and polish only (a bug, a rough edge, wording); a new feature, or a fix found too big, goes to Features it builds (below). What to fix: what you tell an agent is broken (\"report this\") or write below (your words stay on this computer: the PR says it in its own), the errors the shell prints, the desktop tools' crashes, failed units and errors in the logs of what nixbook defines, a failed update or Nix warning, CI red on main, crashes of nixbook's programs (only what you can already read; what isn't nixbook's is listed below, never sent unasked). Each fix is made in a clone of the repository by a Claude Code session that can only edit files there (no commands, none of your files or logins), checked (its size and files, the tests, the shell started headless with no new error), committed with a changelog entry and opened as a pull request. Once CI passes you get Merge, Look, Drop; nothing reaches main without you, but what you let merge on its own. After a merge, main's checks and the updated shell are watched, and a revert is offered if it broke something. Its sandbox, the tests, CI and its own code are off limits; what agents may do is never merged on its own. It reaches GitHub only with its own token, below (never your gh login or ssh key; Claude never sees it), and uses your Claude Code; at most %1 a day.").arg(Config.options.ai.improve.perDay)
             }
 
             // What it is doing now, or why nothing: always shown.
@@ -609,8 +618,8 @@ ContentPage {
                         Layout.fillWidth: true
                         spacing: 10
                         MaterialSymbol {
-                            text: SelfImprove.running ? "build" : !SelfImprove.enabled ? "pause_circle"
-                                : !SelfImprove.tokenSaved ? "key" : SelfImprove.waiting.length > 0 ? "pending_actions" : "check_circle"
+                            text: SelfImprove.running?.feature === false ? "build" : !SelfImprove.enabled ? "pause_circle"
+                                : !SelfImprove.tokenSaved ? "key" : SelfImprove.waitingOf(false).length > 0 ? "pending_actions" : "check_circle"
                             iconSize: Appearance.font.pixelSize.larger
                             color: Appearance.colors.colOnLayer2
                         }
@@ -618,17 +627,17 @@ ContentPage {
                             Layout.fillWidth: true
                             wrapMode: Text.WordWrap
                             color: Appearance.colors.colOnLayer2
-                            text: SelfImprove.status
+                            text: SelfImprove.statusOf(false)
                         }
                         SmallButton {
-                            visible: SelfImprove.running !== null
+                            visible: SelfImprove.running !== null && SelfImprove.running.feature !== true
                             materialIcon: "stop"
                             mainText: Translation.tr("Stop")
                             onClicked: SelfImprove.stop()
                         }
                     }
                     StyledIndeterminateProgressBar {
-                        visible: SelfImprove.running !== null
+                        visible: SelfImprove.running !== null && SelfImprove.running.feature !== true
                         Layout.fillWidth: true
                     }
                 }
@@ -748,10 +757,10 @@ ContentPage {
             }
 
 
-            // The fixes waiting for the user: a PR each.
-            Repeater {
-                model: SelfImprove.waiting
-                delegate: RowLayout {
+            // The fixes waiting for the user: a PR each (features' below).
+            Component {
+                id: prItem
+                RowLayout {
                     id: prRow
                     required property var modelData
                     Layout.fillWidth: true
@@ -786,10 +795,15 @@ ContentPage {
                     }
                 }
             }
+            Repeater {
+                model: SelfImprove.waitingOf(false)
+                delegate: prItem
+            }
 
             // What it has to fix: the user's reports first. Tried and not fixed
             // too (failed, skipped, too big): Fix now tries again. What it
-            // skipped as harmless (ignored) isn't listed.
+            // skipped as harmless (ignored) or moved to the features isn't
+            // listed. The features' list (below) uses it too.
             Component {
                 id: inboxItem
                 RowLayout {
@@ -797,9 +811,11 @@ ContentPage {
                     required property var modelData
                     Layout.fillWidth: true
                     spacing: 10
+                    readonly property bool feature: itemRow.modelData.kind === "feature"
                     MaterialSymbol {
                         text: ({ user: "person", crash: "bug_report", coredump: "bug_report", service: "dns", log: "receipt_long",
-                                 deploy: "system_update", warning: "warning", ci: "fact_check", qml: "code", info: "info" })[itemRow.modelData.kind] ?? "warning"
+                                 deploy: "system_update", warning: "warning", ci: "fact_check", qml: "code", info: "info",
+                                 feature: itemRow.modelData.from ? "call_split" : "lightbulb" })[itemRow.modelData.kind] ?? "warning"
                         iconSize: Appearance.font.pixelSize.larger
                         color: Appearance.colors.colOnLayer1
                     }
@@ -818,17 +834,25 @@ ContentPage {
                             wrapMode: Text.WordWrap
                             font.pixelSize: Appearance.font.pixelSize.smaller
                             color: Appearance.colors.colSubtext
-                            text: [itemRow.modelData.count === 1 ? Translation.tr("seen once") : Translation.tr("seen %1 times").arg(itemRow.modelData.count),
+                            text: [itemRow.feature ? (itemRow.modelData.from ? Translation.tr("too big for a fix") : itemRow.modelData.count === 1 ? Translation.tr("asked once") : Translation.tr("asked %1 times").arg(itemRow.modelData.count))
+                                   : itemRow.modelData.count === 1 ? Translation.tr("seen once") : Translation.tr("seen %1 times").arg(itemRow.modelData.count),
                                    Qt.formatDateTime(new Date(itemRow.modelData.last), "d MMM, hh:mm"),
                                    ({ failed: Translation.tr("failed"), skipped: Translation.tr("skipped"), too_big: Translation.tr("too big for a fix") })[itemRow.modelData.status] ?? "",
                                    itemRow.modelData.note ?? ""].filter(x => x).join(" · ")
                         }
                     }
                     SmallButton {
-                        enabled: Config.options.ai.improve.enable && SelfImprove.running === null
-                        materialIcon: "build"
-                        mainText: Translation.tr("Fix now")
+                        enabled: (itemRow.feature ? SelfImprove.featuresEnabled : Config.options.ai.improve.enable) && SelfImprove.running === null
+                        materialIcon: itemRow.feature ? "construction" : "build"
+                        mainText: itemRow.feature ? Translation.tr("Build now") : Translation.tr("Fix now")
                         onClicked: SelfImprove.fixNow(itemRow.modelData.id)
+                    }
+                    // A fix found too big before they moved on their own.
+                    SmallButton {
+                        visible: !itemRow.feature && itemRow.modelData.status === "too_big"
+                        materialIcon: "lightbulb"
+                        mainText: Translation.tr("As a feature")
+                        onClicked: SelfImprove.toFeature(itemRow.modelData.id)
                     }
                     SmallButton {
                         materialIcon: "delete"
@@ -838,7 +862,7 @@ ContentPage {
                 }
             }
             Repeater {
-                model: SelfImprove.inbox.filter(i => i.kind !== "info" && ["new", "failed", "skipped", "too_big"].includes(i.status))
+                model: SelfImprove.inbox.filter(i => i.kind !== "info" && i.kind !== "feature" && ["new", "failed", "skipped", "too_big"].includes(i.status))
                 delegate: inboxItem
             }
             // What isn't nixbook's (another app's crash, the kernel, a unit it
@@ -858,13 +882,13 @@ ContentPage {
             // What it did and decided lately (activity.json), newest first.
             StyledText {
                 Layout.fillWidth: true
-                visible: SelfImprove.activity.length > 0
+                visible: SelfImprove.activityOf(false).length > 0
                 text: Translation.tr("Activity")
                 color: Appearance.colors.colOnLayer1
             }
-            Repeater {
-                model: SelfImprove.activity.slice(0, 8)
-                delegate: RowLayout {
+            Component {
+                id: activityItem
+                RowLayout {
                     id: eventRow
                     required property var modelData
                     Layout.fillWidth: true
@@ -884,6 +908,118 @@ ContentPage {
                         text: `${Qt.formatDateTime(new Date(eventRow.modelData.time), "d MMM hh:mm")} · ${eventRow.modelData.text}`
                     }
                 }
+            }
+            Repeater {
+                model: SelfImprove.activityOf(false).slice(0, 8)
+                delegate: activityItem
+            }
+        }
+
+        // The features it builds (ai.improve.features), apart from the fixes:
+        // the same nixbook-improve, token and model; other rules (bigger, new
+        // files), never merged on its own.
+        ContentSection {
+            visible: SelfImprove.available
+            icon: "lightbulb"
+            title: Translation.tr("Features it builds")
+
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("Claude builds what you ask nixbook to do: a new widget, setting, shortcut or behaviour. Ask an agent (\"I wish the bar showed…\": its request_feature tool files it) or type it below; a fix Claude finds too big for a fix comes here too, with what it found, and with Propose fixes and features on, the agent may offer one itself from what it saw get in your way. Each is built like a fix (a clone, a session that can only edit files there, the same checks and off-limits places) but may be bigger (up to %1 files and %2 lines, new files allowed), committed as feat(…) and opened as a pull request. It is never merged on its own: once CI passes you get Merge, Look, Drop. One that needs a design choice or more than that is left to you with what it would take. It uses the GitHub token and model of Fixes it makes itself; at most %3 a day on its own, Build now starts one at once.")
+                    .arg(Config.options.ai.improve.features.maxFiles).arg(Config.options.ai.improve.features.maxLines).arg(Config.options.ai.improve.features.perDay)
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: featureStatusColumn.implicitHeight + 20
+                radius: Appearance.rounding.small
+                color: Appearance.colors.colLayer2
+                ColumnLayout {
+                    id: featureStatusColumn
+                    anchors.fill: parent
+                    anchors.margins: 10
+                    spacing: 6
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+                        MaterialSymbol {
+                            text: SelfImprove.running?.feature === true ? "construction" : !SelfImprove.featuresEnabled ? "pause_circle"
+                                : !SelfImprove.tokenSaved ? "key" : SelfImprove.waitingOf(true).length > 0 ? "pending_actions" : "check_circle"
+                            iconSize: Appearance.font.pixelSize.larger
+                            color: Appearance.colors.colOnLayer2
+                        }
+                        StyledText {
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            color: Appearance.colors.colOnLayer2
+                            text: SelfImprove.statusOf(true)
+                        }
+                        SmallButton {
+                            visible: SelfImprove.running?.feature === true
+                            materialIcon: "stop"
+                            mainText: Translation.tr("Stop")
+                            onClicked: SelfImprove.stop()
+                        }
+                    }
+                    StyledIndeterminateProgressBar {
+                        visible: SelfImprove.running?.feature === true
+                        Layout.fillWidth: true
+                    }
+                }
+            }
+
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "ai.improve.features.enable"
+                    buttonIcon: "construction"
+                    text: Translation.tr("Build the features I ask for")
+                    checked: Config.options.ai.improve.features.enable
+                    onCheckedChanged: Config.options.ai.improve.features.enable = checked
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+                MaterialTextField {
+                    id: featureRequest
+                    Layout.fillWidth: true
+                    enabled: Config.options.ai.improve.features.enable
+                    placeholderText: Translation.tr("A feature to add…")
+                    onAccepted: featureAdd.clicked()
+                }
+                SmallButton {
+                    id: featureAdd
+                    enabled: Config.options.ai.improve.features.enable && featureRequest.text.trim() !== ""
+                    materialIcon: "add"
+                    mainText: Translation.tr("Ask")
+                    onClicked: {
+                        SelfImprove.request(featureRequest.text)
+                        featureRequest.text = ""
+                    }
+                }
+            }
+
+            Repeater {
+                model: SelfImprove.waitingOf(true)
+                delegate: prItem
+            }
+            Repeater {
+                model: SelfImprove.inbox.filter(i => i.kind === "feature" && ["new", "failed", "skipped", "too_big"].includes(i.status))
+                delegate: inboxItem
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                visible: SelfImprove.activityOf(true).length > 0
+                text: Translation.tr("Activity")
+                color: Appearance.colors.colOnLayer1
+            }
+            Repeater {
+                model: SelfImprove.activityOf(true).slice(0, 8)
+                delegate: activityItem
             }
         }
 

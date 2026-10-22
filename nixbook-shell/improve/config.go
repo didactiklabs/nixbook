@@ -32,17 +32,47 @@ type Config struct {
 	CIIgnoreJobs []string `json:"ciIgnoreJobs"`
 	// The repository (empty: updates.repoUrl, the one the update check reads).
 	Repo string `json:"repo"`
+	// Features it builds (ai.improve.features), apart from the fixes: what
+	// the user asks for and fixes found too big. Same model, token and
+	// repository; never merged on its own.
+	Features Features `json:"features"`
 
 	claude string
 	// policies.ai of the shell: 0 no AI, 1 yes, 2 local models only.
 	aiPolicy int
 }
 
+type Features struct {
+	Enable bool `json:"enable"`
+	// Features started on its own per day ("Build now" isn't counted).
+	PerDay    int     `json:"perDay"`
+	MaxFiles  int     `json:"maxFiles"`
+	MaxLines  int     `json:"maxLines"`
+	BudgetUsd float64 `json:"budgetUsd"`
+}
+
 func defaults() Config {
 	return Config{
 		Model: "sonnet", PerDay: 2, MaxFiles: 5, MaxLines: 150, BudgetUsd: 3,
 		AutoMergePaths: []string{"docs/**", "**/*.md"}, CIIgnoreJobs: []string{"push-cache"},
+		Features: Features{PerDay: 1, MaxFiles: 15, MaxLines: 600, BudgetUsd: 8},
 	}
+}
+
+// limits: the size a change may have, a fix's or a feature's.
+func (c Config) limits(feature bool) Limits {
+	if feature {
+		return Limits{Files: c.Features.MaxFiles, Lines: c.Features.MaxLines, NewFiles: true}
+	}
+	return Limits{Files: c.MaxFiles, Lines: c.MaxLines}
+}
+
+// on: runs of this kind are allowed.
+func (c Config) on(feature bool) bool {
+	if feature {
+		return c.Features.Enable
+	}
+	return c.Enable
 }
 
 func loadConfig() (Config, error) {
@@ -80,6 +110,18 @@ func loadConfig() (Config, error) {
 	}
 	if cfg.BudgetUsd <= 0 {
 		cfg.BudgetUsd = d.BudgetUsd
+	}
+	if cfg.Features.PerDay < 0 {
+		cfg.Features.PerDay = 0
+	}
+	if cfg.Features.MaxFiles <= 0 {
+		cfg.Features.MaxFiles = d.Features.MaxFiles
+	}
+	if cfg.Features.MaxLines <= 0 {
+		cfg.Features.MaxLines = d.Features.MaxLines
+	}
+	if cfg.Features.BudgetUsd <= 0 {
+		cfg.Features.BudgetUsd = d.Features.BudgetUsd
 	}
 	if cfg.Repo == "" {
 		cfg.Repo = raw.Updates.RepoURL

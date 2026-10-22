@@ -563,7 +563,8 @@ chat, `Initiative.enabled`/`summon()`, `Routines.enabled`,
 fix unless 1.
 
 **Fixes it makes itself** (only where `selfImprove.enable` is set: "improve"
-in desktop-mcp.json, which also lists `report_problem`; then
+in desktop-mcp.json, which also lists `report_problem` and
+`request_feature`; then
 `ai.improve.enable`, off by default; docs:
 `docs/nixbook-shell/self-improve.md`): `nixbook-improve` (`improve/`, Go,
 `improve.nix`) keeps an inbox in `~/.local/state/nixbook-shell/improve/`
@@ -606,6 +607,31 @@ Settings' status line and Activity and the bar robot's wrench show them;
 `stop` ends a run by its recorded PID (each call its own unit name, as a
 run waiting on CI keeps its unit for hours). `tests/improve.sh` runs it end to end with stand-ins for claude, gh and
 notify-send.
+
+**Features it builds** (`ai.improve.features`, off by default, same
+availability): kind `feature` items in the same inbox (`nixbook-improve
+request`: the `request_feature` tool and Settings; a fix the session answers
+too_big moves there itself, `Inbox.toFeature`, with its reason; `to-feature
+ID` by hand). `run --auto` picks fixes first, then features, each with its
+own `perDay` (`runsToday(rs, feature)`); a feature run uses
+`agent/feature-<item>`, `featureRules`/`featureSchema` (built, skip,
+too_big), `cfg.limits(true)` (`maxFiles` 15, `maxLines` 600, new files
+allowed), its own budget, 150 turns and 90 minutes, commits
+`feat(scope): …` with an `Agent-Feature:` trailer, the label
+`agent-feature`, and is never auto-merged (`autoMergeWhy(…, feature)`).
+Runs and activity events carry `feature`, so Settings splits them into two
+sections; CI's agent-guard passes `--feature` on `agent/feature-` branches,
+and a branch of reverts is checked for its paths only (`checkReverts`).
+**Improvement ideas** (`improve_idea` in desktop-mcp.py, part of the
+initiative's `moment`, after `routine_idea`): every 48 h at most, where the
+fixer is and fixes or features are on (`ai.initiative.improveIdeas`), the
+small model gets what failed in the desktop memory, `lastFailedLaunch`,
+undone routines, the week's tool errors (audit log), the apps pairing and
+curiosity counted, cold or muted initiative kinds, habits and devices,
+topics, what is filed (`nixbook-improve status`) and declined
+(`improveDeclined`), and may propose one fix or feature; offered as an
+`accept: "improve:<id>"` word, yes files it (`improve_file`), never
+remembers it. `initiative improve` asks for one now.
 
 **Initiative**: the agent speaks first, when something happens it can help
 with (`ai.initiative.enable`, off by default). `services/Initiative.qml`
@@ -1300,9 +1326,11 @@ answers you read. It works in plain code, with no model involved:
   - A routine's agent (`routine_agent`): masked prompt, the hook on its
     other servers, its report unmasked. The equalizer agent: masked prompt
     (a local file's path), its note unmasked.
-  - The self-fix agent (`nixbook-improve`): its prompt (logs, your reports)
-    masked through `privacy mask`, nothing sent if that fails. Its answer
-    keeps the placeholders: it becomes a public pull request.
+  - The self-fix agent (`nixbook-improve`): its prompt (logs, your reports
+    and feature requests) masked through `privacy mask`, nothing sent if
+    that fails. Its answer keeps the placeholders: it becomes a public pull
+    request. The improvement ideas go through `ask_claude` (masked too);
+    people's names and contact details are left out of their prompt.
   - With `ai.privacy.screenshots`, the images in any tool's reply too (an
     attached image read by Claude, a photo from another server), boxed in
     place, the reply's shape kept.
