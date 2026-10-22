@@ -134,7 +134,8 @@ DEFAULT_CONFIG = {
         r"signal|whatsapp|telegram|discord|vesktop|slack|element|fractal|thunderbird|evolution|geary|"
         r"kmail|betterbird|messenger|teams|zoom|kdeconnect|bank|paypal|authenticator",
     ],
-    "pairIgnoreTitles": [r"\b(inbox|gmail|outlook|messenger|whatsapp|private browsing|incognito)\b"],
+    "pairIgnoreTitles": [r"\b(inbox|gmail|outlook|proton ?mail|messenger|whatsapp|telegram|signal|discord|slack|teams|"
+                         r"private browsing|incognito|bank|banque|paypal|doctolib|ameli|health|medical)\b"],
     # Routines that take judgment: a short Claude run each, at most this many a day.
     "routineAgentPerDay": 20,
     "routineModel": "haiku",
@@ -2831,7 +2832,7 @@ def deliver(cfg, data, item, level, busy, now):
         why = ("" if item.get("test") or item.get("asked")
                else "the user is busy" if busy
                else "quiet hours" if quiet_hours(cfg, now) and not item.get("critical")
-               else "" if urgent or kind == "react"
+               else "" if urgent or kind in ("react", "watch")
                else "the day's budget is spent" if sum(1 for s in notified if s.get("day") == today)
                >= budget(cfg, data, "initiativeMaxPerDay", 6, now)
                else "too soon after the last one" if notified and now - notified[-1]["time"]
@@ -2915,6 +2916,9 @@ def brief_item(cfg, event, now):
         if (layout and layout != event.get("layout")) or missing:
             lines.append("Your usual start: " + ", ".join(([f"the {layout!r} layout"] if layout else [])
                                                          + [app_name(a) for a in missing[:3]]) + ". Set it up?")
+    back = where_were_we(cfg, event.get("recent"))
+    if back:
+        lines.append(back)
     if not lines:
         return None, None
     hello = "Good morning!" if 5 <= hour < 12 else "Welcome back."
@@ -3620,9 +3624,8 @@ def pair_consider(cfg, event, now):
     digest = hashlib.sha256(f"{key}\n{screen or ''}".encode()).hexdigest()[:16]
     if seen and (seen.get("hash") == digest or now - seen.get("at", 0) < PAIR_SAME_GAP):
         return quiet("the same as before")
-    claude = claude_path(cfg, event.get("claude"))
-    if not claude:
-        return quiet("no Claude Code")
+    if not model_ready(cfg, event.get("claude")):
+        return quiet("no model (Claude Code, or localModel when local only)")
     with Initiative() as m:
         p = m.data.setdefault("pair", {})
         p["lastCall"] = int(now)
@@ -3634,8 +3637,8 @@ def pair_consider(cfg, event, now):
     notes = [f"{n['topic']}: {short(n.get('text', ''), 160)}" for n in read_memory()["notes"]
              if n.get("kind") != "recipe" and app in (n.get("apps") or [])][:4]
     try:
-        answer = ask_claude(claude, cfg.get("memoryModel") or "haiku", PAIR_SYSTEM,
-                            pair_prompt(app, title, screen, notes, now), PAIR_SCHEMA, web=True)
+        answer = ask_model(cfg, event.get("claude"), PAIR_SYSTEM,
+                           pair_prompt(app, title, screen, notes, now), PAIR_SCHEMA, web=True)
     except ToolError as e:
         return {"action": "none", "why": f"pairing: {e}"}
     said = clean_text(str(answer.get("text") or ""), 300)
@@ -3648,10 +3651,10 @@ def pair_consider(cfg, event, now):
         if NEWS_URL.match(url) and len(url) <= 500 and url not in [x["url"] for x in links]:
             links.append({"title": clean_text(str(ln.get("title") or ""), 80) or re.sub(r"^www\.", "", url.split("/")[2]),
                           "url": url})
-    links = links[:2]
+    links = links[:2] if ai_policy() == 1 else []
     chat = said + ("\n\n" + "\n".join(f"- [{ln['title']}]({ln['url']})" for ln in links) if links else "")
     item = {"kind": "pair", "key": f"pair:{key}:{digest[:8]}", "title": "Claude", "text": said, "chat": chat,
-            "app": app, "pop": True, "ttl": PAIR_TTL,
+            "app": app, "ttl": PAIR_TTL,
             "actions": [{"label": short(ln["title"], 24), "do": "link", "url": ln["url"]} for ln in links]}
     with Initiative() as m:
         out = deliver(cfg, m.data, item, "badge", False, now)
@@ -3790,8 +3793,51 @@ REACT_INSTALL = {"deb", "rpm", "appimage", "exe", "msi", "dmg", "flatpakref", "p
 def happened_item(event):
     """What it offers for something that just happened, or None:
     {kind: react, app: what, text, actions: [{label, do: open|reveal|ask,
-    path, text?, attach?}]}."""
+    path, text?, attach?}]}. Local only (policies.ai 2): no asking Claude."""
+    item = _happened_item(event)
+    if item and ai_policy() != 1:
+        item["actions"] = [a for a in item["actions"] if a["do"] != "ask"]
+        if not item["actions"]:
+            return None
+    return item
+
+
+# A command failing again in a terminal (ai.initiative.terminal), an error
+# copied (ai.initiative.clipboardErrors): plain code offers "Explain it";
+# only that click sends it to Claude, redacted like pairing's screen text.
+COMMAND_MAX = 300
+COPIED_MAX = 2000
+
+
+def _happened_item(event):
     what = str(event.get("what") or "")
+    if what == "command_failed":
+        command = pair_redact(clean_text(str(event.get("name") or ""), COMMAND_MAX))
+        cwd = str(event.get("path") or "")
+        code = event.get("exit") if isinstance(event.get("exit"), int) else None
+        if not command or not os.path.isabs(cwd) or "\n" in cwd:
+            return None
+        head = short(command, 40)
+        return {"kind": "react", "key": f"react:command_failed:{fold(command)[:80]}:{int(time.time() // 1800)}",
+                "title": "Claude", "app": what, "ttl": REACT_TTL,
+                "text": pick(f"“{head}” failed again. Want me to look into it?",
+                             f"“{head}” keeps failing{f' (exit {code})' if code else ''}. Shall I help?"),
+                "actions": [{"label": "Explain it", "do": "ask", "path": cwd,
+                             "text": f"This command keeps failing in my terminal, in {cwd}: `{command}`"
+                                     + (f" (exit {code})" if code else "")
+                                     + ". What is likely wrong, and how do I fix it? If you need its error output, ask me for it."}]}
+    if what == "copied_error":
+        if clipboard_secret():
+            return None
+        copied = pair_redact(str(event.get("text") or "").strip())[:COPIED_MAX]
+        line = short(clean_text(pair_redact(str(event.get("name") or "")), 200), 60)
+        if len(copied) < 20:
+            return None
+        return {"kind": "react", "key": f"react:copied_error:{hashlib.sha256(copied.encode()).hexdigest()[:12]}",
+                "title": "Claude", "app": what, "ttl": 15 * 60,
+                "text": f"You copied an error{f' (“{line}”)' if line else ''}. Want me to explain it?",
+                "actions": [{"label": "Explain it", "do": "ask", "path": os.path.expanduser("~"),
+                             "text": f"I copied this error. What does it mean, and how do I fix it?\n\n```\n{copied}\n```"}]}
     name = clean_text(str(event.get("name") or ""), 120)
     path = str(event.get("path") or "")
     if not name or not os.path.isabs(path) or "\n" in path:
@@ -3827,6 +3873,68 @@ def happened_item(event):
         return None
     return {"kind": "react", "key": f"react:{what}:{fold(name)}", "title": "Claude", "text": text_,
             "app": what, "actions": actions, "ttl": REACT_TTL}
+
+
+# What the user did the last few minutes (ai.initiative.recentContext):
+# the shell keeps it in memory only and has it filtered here before it goes
+# anywhere: private apps and windows out (as for pairing), secrets, numbers
+# and addresses redacted, capped. `context` prints it for a question asked
+# in Claude's bubble; the brief says where they were before a break.
+CONTEXT_LINES = 15
+
+
+def context_lines(cfg, events, now=None):
+    """[(time, line)], oldest first, from the shell's events: {time, kind:
+    window|command|copied, app, title, command, cwd, exit, text}."""
+    now = now or time.time()
+    home = os.path.expanduser("~")
+    out = []
+    events = [e for e in events if isinstance(e, dict) and isinstance(e.get("time"), (int, float))]
+    events.sort(key=lambda e: e["time"])
+    for i, e in enumerate(events):
+        t, kind = e["time"], e.get("kind")
+        if kind == "window":
+            app, title = str(e.get("app") or ""), re.sub(r"\s+", " ", str(e.get("title") or "")).strip()[:200]
+            if pair_private(cfg, app, title) or NOTICE_SECRET.search(title):
+                continue
+            end = events[i + 1]["time"] if i + 1 < len(events) else now
+            spent = int((end - t) // 60)
+            line = f"{app_name(app)}: {short(pair_redact(title), 120)}" if title else app_name(app)
+            if out and out[-1][1].split(" (")[0] == line:
+                continue
+            out.append((t, line + (f" ({spent} min)" if spent >= 1 else "")))
+        elif kind == "command":
+            cmd = short(pair_redact(clean_text(str(e.get("command") or ""), COMMAND_MAX)), 160)
+            cwd = str(e.get("cwd") or "")
+            cwd = "~" + cwd[len(home):] if cwd.startswith(home) else cwd
+            code = e.get("exit") if isinstance(e.get("exit"), int) else None
+            if cmd:
+                out.append((t, f"a command failed in {short(cwd, 60)}: `{cmd}`" + (f" (exit {code})" if code else "")))
+        elif kind == "copied":
+            copied = short(re.sub(r"\s+", " ", pair_redact(str(e.get("text") or ""))).strip(), 240)
+            if not clipboard_secret() and copied:
+                out.append((t, f"copied: {copied}"))
+    return out[-CONTEXT_LINES:]
+
+
+def context_text(cfg, events, now=None):
+    return "\n".join(f"- {time.strftime('%H:%M', time.localtime(t))} {line}"
+                     for t, line in context_lines(cfg, events, now))
+
+
+def where_were_we(cfg, recent):
+    """Back from a break: what they were on before, in a line, or ""."""
+    lines = context_lines(cfg, recent or [])
+    if not lines:
+        return ""
+    failed = next((ln for _, ln in reversed(lines) if ln.startswith("a command failed")), "")
+    last = next((ln for _, ln in reversed(lines) if not ln.startswith(("a command", "copied"))), "")
+    if not last and not failed:
+        return ""
+    said = f"Before the break you were on {re.sub(r' [(][0-9]+ min[)]$', '', last)}" if last else "Before the break"
+    if failed:
+        said += f", and {failed.replace('a command failed', 'a command was failing', 1)}"
+    return said + "."
 
 
 INITIATIVE_LOG = 30
@@ -3871,13 +3979,12 @@ def consider_event(cfg, event, now=None):
             m.save()
         if not items:
             return {"action": "none", "why": why}
-        claude = claude_path(cfg, event.get("claude"))
-        if not claude:
-            return {"action": "none", "why": "no Claude Code"}
+        if not model_ready(cfg, event.get("claude")):
+            return {"action": "none", "why": "no model (Claude Code, or localModel when local only)"}
         # The model reads them without holding the file: other events go on.
         try:
-            answer = ask_claude(claude, cfg.get("memoryModel") or "haiku", INITIATIVE_SYSTEM,
-                                notice_prompt(event, items, now, read_initiative().get("apps")), INITIATIVE_SCHEMA)
+            answer = ask_model(cfg, event.get("claude"), INITIATIVE_SYSTEM,
+                               notice_prompt(event, items, now, read_initiative().get("apps")), INITIATIVE_SCHEMA)
         except ToolError as e:
             return {"action": "none", "why": str(e)}
         with Initiative() as m:
@@ -3956,7 +4063,13 @@ def consider_event(cfg, event, now=None):
             if (event.get("away") or 0) >= INITIATIVE_BREAK_MINUTES or now - since > 16 * 3600:
                 data["activeSince"] = int(now)
             if (event.get("away") or 0) < INITIATIVE_BACK_MINUTES and data.get("briefDay") == today:
-                why = "not away long enough"
+                # A shorter break: only where they were, when the shell kept it.
+                back = where_were_we(cfg, event.get("recent")) if (event.get("away") or 0) >= INITIATIVE_BREAK_MINUTES else ""
+                if back:
+                    item = {"kind": "brief", "key": f"back:{int(now // 600)}", "title": "Claude",
+                            "text": "Welcome back. " + back}
+                else:
+                    why = "not away long enough"
             else:
                 item, level = brief_item(cfg, event, now)
                 data["briefDay"] = today
@@ -3965,6 +4078,226 @@ def consider_event(cfg, event, now=None):
         out = deliver(cfg, data, item, level, busy, now) if item else {"action": "none", "why": why}
         m.save()
     return out
+
+
+# Watches: "tell me when the build is done", "ping me when CI passes", "let
+# me know when the site is back". An agent adds one (the watch tool); the
+# shell asks `watch check` every minute while there are some, and what
+# finished is said in Claude's bubble (a notification when it is off). Plain
+# code, no token: a process (pid or exact name), a systemd unit, a file done
+# growing (a download), a GitHub Actions run or a pull request's checks
+# (gh, the user's login, read only), a web page answering again. In
+# initiative.json (`watches`); gone after WATCH_HOURS.
+WATCHES_MAX = 10
+WATCH_HOURS = 12
+WATCH_NET_GAP = 120
+WATCH_PARTIAL = (".part", ".crdownload", ".download", ".partial")
+REPO = r"[\w.-]{1,100}/[\w.-]{1,100}"
+UNIT = r"[\w@:.\\-]{1,200}"
+
+
+def watch_state(w):
+    """running, done, failed or gone (it never ran: nothing to wait for)."""
+    kind = w["kind"]
+    if kind == "pid":
+        return "running" if os.path.exists(f"/proc/{w['pid']}") else "done"
+    if kind == "process":
+        return "running" if run(["pgrep", "-x", w["process"]], check=False).returncode == 0 else "done"
+    if kind == "unit":
+        out = run(["systemctl", *([] if w.get("system") else ["--user"]), "show", "-p", "ActiveState,Result",
+                   "--value", w["unit"]], check=False).stdout.split()
+        active, result = (out + ["", ""])[:2]
+        if active in ("active", "activating", "reloading", "deactivating"):
+            return "running"
+        return "failed" if active == "failed" or (result and result != "success") else "done"
+    if kind == "path":
+        path = w["path"]
+        if not os.path.exists(path) or any(os.path.exists(path + x) for x in WATCH_PARTIAL):
+            return "running"
+        size = os.path.getsize(path) if os.path.isfile(path) else -1
+        if w.get("size") != size:
+            w["size"] = size
+            return "running"
+        return "done"
+    if kind == "run":
+        out = run(["gh", "run", "view", str(w["run"]), "--repo", w["repo"], "--json", "status,conclusion,url"],
+                  check=False, timeout=20)
+        info = json.loads(out.stdout or "{}") if out.returncode == 0 else {}
+        if info.get("url"):
+            w["url"] = info["url"]
+        if info.get("status") != "completed":
+            return "running"
+        return "done" if info.get("conclusion") in ("success", "skipped", "neutral") else "failed"
+    if kind == "pr":
+        out = run(["gh", "pr", "checks", str(w["pr"]), "--repo", w["repo"], "--json", "bucket"], check=False, timeout=20)
+        try:
+            buckets = [c.get("bucket") for c in json.loads(out.stdout or "[]")]
+        except ValueError:
+            return "running"
+        if not buckets or "pending" in buckets:
+            return "running"
+        return "failed" if "fail" in buckets or "cancel" in buckets else "done"
+    if kind == "url":
+        import urllib.request
+        try:
+            with urllib.request.urlopen(urllib.request.Request(w["url"], method="HEAD",
+                                                               headers={"User-Agent": "nixbook-desktop-mcp"}), timeout=8) as r:
+                return "done" if r.status < 400 else "running"
+        except Exception:
+            return "running"
+    return "gone"
+
+
+def watch_item(w, state, now):
+    label = w["label"]
+    link = w.get("url") or (f"https://github.com/{w['repo']}/pull/{w['pr']}" if w["kind"] == "pr" else "")
+    actions = [{"label": "Open", "do": "link", "url": link}] if NEWS_URL.match(link or "") else []
+    if state == "expired":
+        text_ = f"I stopped watching {label}: still not done after {WATCH_HOURS} hours."
+    elif w["kind"] == "path":
+        text_ = f"{label} is done."
+        actions = [{"label": "Open", "do": "open", "path": w["path"]}, {"label": "Show in folder", "do": "reveal", "path": w["path"]}]
+    elif w["kind"] == "url":
+        text_ = f"{label} answers again."
+    elif state == "failed":
+        text_ = f"{label} failed."
+        if w["kind"] == "unit" and ai_policy() == 1:
+            actions.append({"label": "Why?", "do": "ask", "text": f"The systemd unit {w['unit']}"
+                            f"{' (system)' if w.get('system') else ''} failed: read its journal and tell me why, briefly."})
+    else:
+        text_ = f"{label}: done" + (", all green." if w["kind"] in ("run", "pr") else ".")
+    return {"kind": "watch", "key": f"watch:{w['id']}", "title": "Claude", "text": text_[:300], "app": w["kind"],
+            "actions": actions, "ttl": 6 * 3600, **({"urgent": True, "critical": True} if state != "expired" else {})}
+
+
+def watch_add(args, now=None):
+    now = int(now or time.time())
+    label = clean_text(as_str(args, "label", required=False, max_len=80) or "", 80)
+    w = {"id": secrets.token_hex(3), "created": now, "expires": now + WATCH_HOURS * 3600}
+    if args.get("pid") is not None:
+        pid = as_int(args, "pid")
+        if pid <= 1 or not os.path.exists(f"/proc/{pid}"):
+            raise ToolError(f"no process {pid} running")
+        w |= {"kind": "pid", "pid": pid}
+        label = label or short(open(f"/proc/{pid}/comm").read().strip(), 40)
+    elif args.get("process"):
+        w |= {"kind": "process", "process": as_str(args, "process", max_len=15, pattern=r"[\w.+-]{1,15}")}
+        label = label or w["process"]
+    elif args.get("unit"):
+        w |= {"kind": "unit", "unit": as_str(args, "unit", max_len=200, pattern=UNIT), "system": args.get("system") is True}
+        label = label or w["unit"]
+    elif args.get("path"):
+        path = os.path.realpath(os.path.expanduser(as_str(args, "path", max_len=1000)))
+        w |= {"kind": "path", "path": path}
+        label = label or os.path.basename(path)
+    elif args.get("repo") and (args.get("run") is not None or args.get("pr") is not None):
+        if not shutil.which("gh"):
+            raise ToolError("watching GitHub needs gh, not installed")
+        repo = as_str(args, "repo", max_len=200, pattern=REPO)
+        if args.get("run") is not None:
+            w |= {"kind": "run", "repo": repo, "run": as_int(args, "run")}
+            label = label or f"the CI run {w['run']}"
+        else:
+            w |= {"kind": "pr", "repo": repo, "pr": as_int(args, "pr")}
+            label = label or f"the checks of {repo}#{w['pr']}"
+    elif args.get("url"):
+        url = as_str(args, "url", max_len=500)
+        if not NEWS_URL.match(url):
+            raise ToolError("`url`: an http(s) address")
+        w |= {"kind": "url", "url": url}
+        label = label or re.sub(r"^www\.", "", url.split("/")[2])
+    else:
+        raise ToolError("what to watch: pid, process, unit, path, repo with run or pr, or url")
+    w["label"] = label
+    state = watch_state(w)
+    if state != "running":
+        raise ToolError(f"{label} is {'already done' if state == 'done' else state}: nothing to wait for")
+    w["checked"] = now
+    with Initiative() as m:
+        watches = [x for x in m.data.get("watches") or [] if x.get("expires", 0) > now]
+        if len(watches) >= WATCHES_MAX:
+            raise ToolError(f"{WATCHES_MAX} watches already: cancel one first")
+        m.data["watches"] = watches + [w]
+        m.save()
+    return w
+
+
+@tool(
+    "watch",
+    "memory",
+    "Watch something for the user and tell them when it is done, in plain "
+    "code at no token: a process ends (`pid`, or `process`: its exact name), "
+    "a systemd unit stops or fails (`unit`; `system` for a system unit), a "
+    "file is there and done growing (`path`: a download), a GitHub Actions "
+    "run or a pull request's checks finish (`repo` owner/name with `run` or "
+    "`pr`, through the user's gh, read only), a web page answers again "
+    "(`url`). For \"tell me when … is done / back\". `label`: what to call "
+    "it (\"the nixos build\"). `cancel` (an id) stops one; with nothing, it "
+    "lists them. A watch ends after 12 hours.",
+    obj({
+        "pid": {"type": "integer"}, "process": {"type": "string"}, "unit": {"type": "string"},
+        "system": {"type": "boolean"}, "path": {"type": "string"}, "repo": {"type": "string"},
+        "run": {"type": "integer"}, "pr": {"type": "integer"}, "url": {"type": "string"},
+        "label": {"type": "string", "description": "What to call it, at most 80 characters"},
+        "cancel": {"type": "string", "description": "The id of a watch to stop"},
+    }),
+)
+def t_watch(ctx, args):
+    if args.get("cancel"):
+        wid = as_str(args, "cancel", max_len=16)
+        with Initiative() as m:
+            before = m.data.get("watches") or []
+            m.data["watches"] = [w for w in before if w["id"] != wid]
+            m.save()
+        if len(m.data["watches"]) == len(before):
+            raise ToolError(f"no watch {wid}")
+        return [text(f"stopped watch {wid}")]
+    if not any(args.get(k) is not None for k in ("pid", "process", "unit", "path", "repo", "url")):
+        now = time.time()
+        watches = [w for w in read_initiative().get("watches") or [] if w.get("expires", 0) > now]
+        return [text("\n".join(f"{w['id']}: {w['label']} ({w['kind']})" for w in watches) or "no watches")]
+    w = watch_add(args)
+    return [text(f"watching {w['label']} (watch {w['id']}); I'll tell them when it's done")]
+
+
+def watch_check(cfg, busy=False, now=None):
+    """The watches due: what finished, said ({said: [items]}); the shell
+    shows them. With the initiative off, as notifications."""
+    now = now or time.time()
+    with Initiative() as m:
+        watches = list(m.data.get("watches") or [])
+    finished, keep = [], []
+    for w in watches:
+        if w.get("expires", 0) <= now:
+            finished.append((w, "expired"))
+            continue
+        if w["kind"] in ("run", "pr", "url") and now - w.get("checked", 0) < WATCH_NET_GAP:
+            keep.append(w)
+            continue
+        w["checked"] = int(now)
+        try:
+            state = watch_state(w)
+        except (ToolError, OSError, ValueError):
+            state = "running"
+        (keep.append(w) if state == "running" else finished.append((w, state)))
+    said = []
+    with Initiative() as m:
+        ids = {w["id"] for w, _ in finished}
+        current = {w["id"]: w for w in keep}
+        # Added or cancelled meanwhile: theirs.
+        m.data["watches"] = [current.get(w["id"], w) for w in m.data.get("watches") or [] if w["id"] not in ids]
+        on = shell_setting("ai.initiative.enable", False) is True and ai_policy() != 0
+        for w, state in finished:
+            item = watch_item(w, state, now)
+            if not on:
+                with contextlib.suppress(ToolError):
+                    run(["notify-send", "-a", "Claude", "--", "Claude", item["text"]])
+                continue
+            out = deliver(cfg, m.data, item, "badge" if state == "expired" else "notify", busy, now)
+            if out.get("item"):
+                said.append(dict(out["item"], level=out["action"]))
+        m.save()
+    return {"said": said}
 
 
 INITIATIVE_ENGAGED_MAX = 4
@@ -4083,6 +4416,24 @@ def initiative_command(cfg, argv):
     if sub == "clear":
         with Initiative() as m:
             m.data = empty_initiative()
+            m.save()
+        return 0
+    print(USAGE, end="", file=sys.stderr)
+    return 2
+
+
+def watch_command(cfg, argv):
+    sub = argv[0] if argv else "list"
+    now = time.time()
+    if sub == "check":
+        print(json.dumps(watch_check(cfg, "--busy" in argv[1:], now), ensure_ascii=False))
+        return 0
+    if sub == "list":
+        print(json.dumps([w for w in read_initiative().get("watches") or [] if w.get("expires", 0) > now], ensure_ascii=False))
+        return 0
+    if sub == "cancel" and len(argv) == 2:
+        with Initiative() as m:
+            m.data["watches"] = [w for w in m.data.get("watches") or [] if w["id"] != argv[1]]
             m.save()
         return 0
     print(USAGE, end="", file=sys.stderr)
@@ -7210,10 +7561,123 @@ def learn_answer(out):
     return answer
 
 
+# What was sent to a model: each small-model pass (what for, which model,
+# the prompt as sent) and the context sent with a question asked in the
+# bubble, newest last; SENT_KEEP entries over SENT_DAYS days at most, 0600.
+# Settings > Desktop agents > What it sent shows it; `sent clear` empties it.
+# Not the side panel's chats: the user wrote those.
+SENT_KEEP = 200
+SENT_DAYS = 7
+SENT_TEXT_MAX = 12000
+
+
+def sent_path():
+    return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-shell", "sent.jsonl")
+
+
+def sent_purpose(system):
+    return {INITIATIVE_SYSTEM: "notifications", CHAT_SYSTEM: "a light word", TIP_SYSTEM: "a tip",
+            CURIOUS_SYSTEM: "curiosity", NEWS_SYSTEM: "news", PAIR_SYSTEM: "pairing", IDEA_SYSTEM: "a routine idea",
+            LEARN_SYSTEM: "memory pass", TIDY_SYSTEM: "memory tidy-up", DLEARN_SYSTEM: "desktop memory pass",
+            DTIDY_SYSTEM: "desktop memory tidy-up"}.get(system, "other")
+
+
+def sent_read():
+    try:
+        with open(sent_path(), encoding="utf-8") as f:
+            entries = [json.loads(ln) for ln in f if ln.strip()]
+    except (OSError, ValueError):
+        return []
+    since = time.time() - SENT_DAYS * 86400
+    return [e for e in entries if isinstance(e, dict) and e.get("time", 0) >= since][-SENT_KEEP:]
+
+
+def sent_note(purpose, model, prompt, web=False):
+    """Kept for the user to see; never fails the call it records."""
+    entry = {"time": int(time.time()), "purpose": purpose, "model": model, "web": web,
+             "local": str(model).startswith("local:"), "text": str(prompt)[:SENT_TEXT_MAX]}
+    path = sent_path()
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+        with os.fdopen(fd, "r+", encoding="utf-8") as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            f.seek(0, os.SEEK_END)
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            if f.tell() > 2_000_000 or random.random() < 0.05:
+                f.flush()
+                kept = sent_read()
+                f.seek(0)
+                f.truncate()
+                f.write("".join(json.dumps(e, ensure_ascii=False) + "\n" for e in kept))
+    except OSError:
+        pass
+
+
+# Local only (policies.ai 2): the passes that read what happens (pairing,
+# notifications) can use a model running on this computer instead, an
+# OpenAI-compatible server on the loopback (Ollama, llama.cpp, LM Studio):
+# `localModel: {"url": "http://127.0.0.1:11434/v1", "model": "qwen2.5:7b"}`
+# in desktop-mcp.json. Never another host. No web search there.
+LOCAL_URL = re.compile(r"^http://(127\.0\.0\.1|localhost|\[::1\])(:\d{1,5})?(/[\w./-]*)?$")
+
+
+def local_model(cfg):
+    lm = cfg.get("localModel")
+    if not isinstance(lm, dict):
+        return None
+    url, model = str(lm.get("url") or "").rstrip("/"), str(lm.get("model") or "")
+    return (url, model) if LOCAL_URL.match(url) and model else None
+
+
+def ask_local(cfg, system, prompt, schema=None):
+    import urllib.request
+    url, model = local_model(cfg)
+    body = {"model": model, "stream": False, "temperature": 0.2, "response_format": {"type": "json_object"},
+            "messages": [{"role": "system", "content": system + "\nAnswer with one JSON object only, matching: "
+                          + json.dumps(schema or LEARN_SCHEMA)},
+                         {"role": "user", "content": prompt}]}
+    sent_note(sent_purpose(system), f"local:{model}", prompt)
+    req = urllib.request.Request(url + "/chat/completions", data=json.dumps(body).encode(),
+                                 headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=240) as r:
+            reply = json.load(r)
+        content = reply["choices"][0]["message"]["content"]
+    except Exception as e:
+        raise ToolError(f"the local model didn't answer: {short(str(e), 200)}")
+    start, end = content.find("{"), content.rfind("}")
+    try:
+        answer = json.loads(content[start:end + 1]) if start >= 0 else None
+    except ValueError:
+        answer = None
+    if not isinstance(answer, dict):
+        raise ToolError(f"the local model answered no JSON: {short(content, 200)!r}")
+    return answer
+
+
+def model_ready(cfg, hint=None):
+    return bool(claude_path(cfg, hint)) if ai_policy() == 1 else ai_policy() == 2 and bool(local_model(cfg))
+
+
+def ask_model(cfg, hint, system, prompt, schema=None, web=False):
+    """The small model: Claude Code's (memoryModel), or the local one when
+    AI is local only."""
+    if ai_policy() == 1:
+        claude = claude_path(cfg, hint)
+        if not claude:
+            raise ToolError("no Claude Code")
+        return ask_claude(claude, cfg.get("memoryModel") or "haiku", system, prompt, schema, web)
+    if ai_policy() == 2 and local_model(cfg):
+        return ask_local(cfg, system, prompt, schema)
+    raise ToolError("no model: AI is off, or local only without localModel")
+
+
 def ask_claude(claude, model, system, prompt, schema=None, web=False):
     """One answer from a small model through Claude Code: no tools (with
     `web`, only WebSearch and WebFetch), no MCP servers, no settings, no
     session kept."""
+    sent_note(sent_purpose(system), model or "default", prompt, web)
     workdir = os.path.join(xdg("XDG_DATA_HOME", "~/.local/share"), "nixbook-shell", "memory-pass")
     os.makedirs(workdir, mode=0o700, exist_ok=True)
     tools = "WebSearch,WebFetch" if web else ""
@@ -12318,6 +12782,11 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
   initiative consider JSON|-  what the agent would say about an event (the shell):
                           {"event": "back"|"focus"|"happened"|"notifications"|"moment", …}
   initiative pending|show|answer ID replied|later|dismissed|never|unmute [KEY…]|clear
+  watch check [--busy] | list | cancel ID
+                          what agents watch for the user (the shell checks every minute)
+  context JSON|-          the shell's recent events ({now, events}), filtered and redacted
+  sent [show] | note PURPOSE TEXT | clear
+                          what was sent to a model (JSON, newest first)
   routine list|run ID [EVENT_JSON]|undone ID|on ID|off ID|remove ID|learn suggest|auto
                           the user's routines (the shell runs them on their cue)
   memory learn [--claude PATH] [--model M] [--delete] [EPISODE.json]
@@ -12457,6 +12926,34 @@ def main(argv):
         return memory_command(cfg, argv[1:])
     if cmd == "initiative":
         return initiative_command(cfg, argv[1:])
+    if cmd == "watch":
+        return watch_command(cfg, argv[1:])
+    if cmd == "context":
+        # What a question asked in the bubble takes along: the shell's
+        # recent events, filtered ({now, events}).
+        try:
+            data = json.loads(argv[1] if len(argv) > 1 and argv[1] != "-" else sys.stdin.read())
+        except ValueError:
+            data = None
+        if not isinstance(data, dict) or not isinstance(data.get("events"), list):
+            print("context: {\"now\": T, \"events\": [...]}", file=sys.stderr)
+            return 2
+        print(context_text(cfg, data["events"][:60], data.get("now") if isinstance(data.get("now"), (int, float)) else None))
+        return 0
+    if cmd == "sent":
+        sub = argv[1] if len(argv) > 1 else "show"
+        if sub == "show":
+            print(json.dumps(list(reversed(sent_read())), ensure_ascii=False))
+            return 0
+        if sub == "note" and len(argv) == 4:
+            sent_note(clean_text(argv[2], 40), "claude (chat)", argv[3])
+            return 0
+        if sub == "clear":
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(sent_path())
+            return 0
+        print(USAGE, end="", file=sys.stderr)
+        return 2
     if cmd == "routine":
         return routine_command(cfg, argv[1:])
     if cmd == "personal":

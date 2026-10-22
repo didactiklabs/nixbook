@@ -276,6 +276,19 @@ Singleton {
                     // the screen's text (OCR, redacted) a step further.
                     property bool pair: false
                     property bool pairReadScreen: false
+                    // Its quiet words wait while the user is deep in
+                    // something (10 minutes at it), until a break.
+                    property bool holdInFocus: true
+                    // What the user did the last 15 minutes (windows, a
+                    // failed command, an error copied), kept in memory only,
+                    // sent with a question asked in the bubble, and a word on
+                    // it when back from a break.
+                    property bool recentContext: false
+                    // A command failing again in a terminal (the shell hook
+                    // writes it only while this is on): an "Explain it" chip.
+                    property bool terminal: false
+                    // An error or stack trace copied: an "Explain it" chip.
+                    property bool clipboardErrors: false
                 }
                 // The routines the user asked agents for ("whenever the music
                 // ends, play something", services/Routines.qml): run on their cue.

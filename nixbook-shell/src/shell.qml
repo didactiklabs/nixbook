@@ -30,6 +30,7 @@ ShellRoot {
         CalendarReminders.load()
         MemoryReminders.load()
         Initiative.load()
+        RecentContext.load()
         Routines.load()
         SelfImprove.load()
         ThemeWallpapers.load()

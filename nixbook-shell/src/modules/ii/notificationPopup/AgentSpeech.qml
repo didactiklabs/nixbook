@@ -26,9 +26,10 @@ import Quickshell.Wayland
  * reaction, 90 s after an answer) it goes to the bar's bubble, its
  * conversation with it. Hovered, typed in or closed, it was read: the bar's
  * bubble then stays dark (Initiative.markRead).
- * What it says while the bubble is taken comes as small bubbles under it
- * (Initiative.stacked), like notifications: a click opens one in the
- * bubble; one waiting for an answer stays, the others go to the bar.
+ * Its other words come as small bubbles under it (Initiative.stacked), like
+ * notifications: what it says while the bubble is taken, a word put aside
+ * unread, its quiet words. A click opens one in the bubble; one waiting
+ * for an answer stays, the others go to the bar.
  */
 Scope {
     id: root
@@ -115,11 +116,14 @@ Scope {
         else if ((it.actions ?? []).length > 0)
             for (const [i, a] of it.actions.entries())
                 out.push({ label: a.label, main: i === 0, run: () => Initiative.act(a) })
-        else if (root.asks && it.kind !== "ask") {
+        else if (root.asks && it.kind !== "ask" && Initiative.online) {
             out.push({ label: Translation.tr("Yes, please"), main: true, run: () => Initiative.reply(Translation.tr("Yes, please.")) })
             out.push({ label: Translation.tr("No thanks"), main: false, run: () => Initiative.hush("dismissed") })
         }
-        if (it.id) {
+        // A watch the user asked for: seen, nothing to silence.
+        if (it.id && it.kind === "watch")
+            out.push({ label: Translation.tr("OK"), main: out.length === 0, run: () => Initiative.hush("later") })
+        else if (it.id) {
             out.push({ label: Translation.tr("Not now"), main: false, run: () => Initiative.hush("later") })
             out.push({ label: Translation.tr("Don't tell me this"), main: false, run: () => Initiative.hush("never") })
         }
@@ -529,6 +533,47 @@ Scope {
                         }
                     }
 
+                    // What a question asked here takes along (RecentContext):
+                    // said, its text on hover, and × leaves it out.
+                    RowLayout {
+                        id: context
+                        Layout.fillWidth: true
+                        visible: root.item?.kind === "ask" && !root.conversing && RecentContext.enabled
+                            && RecentContext.text.length > 0
+                        spacing: 6
+                        opacity: Initiative.skipContext ? 0.5 : 0.8
+                        MaterialSymbol {
+                            text: Initiative.skipContext ? "visibility_off" : "history"
+                            iconSize: Appearance.font.pixelSize.normal
+                            color: root.accent
+                        }
+                        StyledText {
+                            Layout.fillWidth: true
+                            text: Initiative.skipContext ? Translation.tr("Not sending what you were just doing")
+                                : Translation.tr("Knows what you were just doing")
+                            font.family: root.font
+                            font.pixelSize: Appearance.font.pixelSize.smaller
+                            font.strikeout: Initiative.skipContext
+                            color: root.fg
+                            HoverHandler { id: contextHover }
+                            StyledToolTip {
+                                text: RecentContext.text
+                                extraVisibleCondition: contextHover.hovered
+                            }
+                        }
+                        MaterialSymbol {
+                            text: Initiative.skipContext ? "undo" : "close"
+                            iconSize: Appearance.font.pixelSize.normal
+                            color: root.fg
+                            MouseArea {
+                                anchors.fill: parent
+                                anchors.margins: -4
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: Initiative.skipContext = !Initiative.skipContext
+                            }
+                        }
+                    }
+
                     // Quick answers. Wraps when the labels don't fit on one line.
                     Flow {
                         Layout.fillWidth: true
@@ -570,7 +615,7 @@ Scope {
                     // Escape puts it away. Not for a routine to say yes to.
                     Rectangle {
                         Layout.fillWidth: true
-                        visible: !(root.item?.accept)
+                        visible: !(root.item?.accept) && Initiative.online
                         implicitHeight: Math.max(34, Math.min(input.implicitHeight, 96))
                         radius: root.square ? 0 : 17
                         color: Qt.alpha(root.fg, input.activeFocus ? 0.10 : 0.06)
@@ -651,7 +696,8 @@ Scope {
             // Its other words (Initiative.stacked), small, under the bubble:
             // like notifications. A click opens one in the bubble (the
             // conversation there is put away to the bar); one waiting for an
-            // answer stays, the others go to the bar after 30 s left alone.
+            // answer stays, the others go to the bar once read or after 10
+            // minutes.
             Column {
                 id: stackColumn
                 x: 12
@@ -669,7 +715,7 @@ Scope {
                             if (it.accept) return [{ label: Translation.tr("Yes, do it"), run: () => Initiative.accept(it) }]
                             const acts = (it.actions ?? []).slice(0, 2).map(a => ({ label: a.label, run: () => Initiative.act(a, it) }))
                             if (acts.length > 0) return acts
-                            return small.waits ? [{ label: Translation.tr("Reply"), run: () => { Initiative.open(it); Initiative.focusWanted() } }] : []
+                            return small.waits && Initiative.online ? [{ label: Translation.tr("Reply"), run: () => { Initiative.open(it); Initiative.focusWanted() } }] : []
                         }
                         width: stackColumn.width
                         implicitHeight: smallBody.implicitHeight + 20
@@ -682,8 +728,10 @@ Scope {
                             NumberAnimation { target: smallSlide; property: "x"; to: 0; duration: root.style === "persona" ? 140 : 320
                                               easing.type: root.style === "persona" ? Easing.OutQuart : Easing.OutCubic }
                         }
+                        // Not waiting for an answer: to the bar a minute after
+                        // it was read, else after 10 minutes.
                         Timer {
-                            interval: 30000
+                            interval: Initiative._read[small.modelData.id] ? 60000 : 600000
                             running: !small.waits && !smallHover.hovered && !MakeWay.active
                             onTriggered: Initiative.unstack(small.modelData)
                         }

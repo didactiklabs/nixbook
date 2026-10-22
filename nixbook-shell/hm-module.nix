@@ -41,6 +41,47 @@ let
     fi
   '';
 
+  # A failed command, for Claude (ai.initiative.terminal / recentContext,
+  # src/services/RecentContext.qml): the last one, written to the shell's
+  # runtime dir only while the shell made terminal-on there; the command
+  # and its exit code, never its output; not Ctrl+C, nor a command starting
+  # with a space.
+  failedCommandZsh = ''
+    if [[ -o interactive ]]; then
+      zmodload zsh/datetime 2>/dev/null
+      __nixbook_cmd=""
+      __nixbook_preexec() { __nixbook_cmd="$1"; }
+      __nixbook_precmd() {
+        local code=$? cmd=$__nixbook_cmd dir="''${XDG_RUNTIME_DIR:-/run/user/$UID}/nixbook-shell"
+        __nixbook_cmd=""
+        [[ -n $cmd && $cmd != " "* && -e $dir/terminal-on ]] || return 0
+        (( code != 0 && code != 130 && code != 148 )) || return 0
+        cmd=''${cmd//$'\n'/ }
+        printf '%s\t%s\t%s\t%s\n' "$EPOCHSECONDS" "$code" "$PWD" "''${cmd//$'\t'/ }" >| "$dir/terminal-failed"
+      }
+      autoload -Uz add-zsh-hook
+      add-zsh-hook preexec __nixbook_preexec
+      add-zsh-hook precmd __nixbook_precmd
+    fi
+  '';
+  failedCommandBash = ''
+    if [[ $- == *i* ]]; then
+      __nixbook_last=""
+      __nixbook_precmd() {
+        local code=$? dir="''${XDG_RUNTIME_DIR:-/run/user/$UID}/nixbook-shell" n cmd
+        [[ -e $dir/terminal-on ]] || return 0
+        read -r n cmd < <(HISTTIMEFORMAT= history 1)
+        # No new command (an empty line), or one kept out of the history.
+        [[ $n != "$__nixbook_last" ]] || return 0
+        __nixbook_last=$n
+        [[ -n $cmd ]] || return 0
+        (( code != 0 && code != 130 && code != 148 )) || return 0
+        printf '%s\t%s\t%s\t%s\n' "$(date +%s)" "$code" "$PWD" "''${cmd//$'\t'/ }" >| "$dir/terminal-failed"
+      }
+      PROMPT_COMMAND="__nixbook_precmd''${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+    fi
+  '';
+
   # Neovim keymaps from an evaluated nixvim configuration
   # (`programs.nixvim`, when its Home Manager module is imported): read after
   # every override, so they are the keys Neovim really gets. Only these
@@ -1055,8 +1096,12 @@ in
         programs.kitty.extraConfig = lib.mkIf config.programs.kitty.enable (
           lib.mkAfter "include ${terminalThemeDir}/kitty-theme.conf"
         );
-        programs.zsh.initContent = lib.mkIf config.programs.zsh.enable (lib.mkAfter replayTerminalColors);
-        programs.bash.initExtra = lib.mkIf config.programs.bash.enable (lib.mkAfter replayTerminalColors);
+        programs.zsh.initContent = lib.mkIf config.programs.zsh.enable (
+          lib.mkAfter (replayTerminalColors + failedCommandZsh)
+        );
+        programs.bash.initExtra = lib.mkIf config.programs.bash.enable (
+          lib.mkAfter (replayTerminalColors + failedCommandBash)
+        );
 
         # The manifest the shell reads to know which settings Nix owns: every
         # pinned leaf path. Drives the red lock icon and the disabled control in

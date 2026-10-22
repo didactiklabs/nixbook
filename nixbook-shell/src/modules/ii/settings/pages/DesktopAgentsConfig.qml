@@ -167,6 +167,64 @@ ContentPage {
                     checked: Config.options.ai.initiative.pairReadScreen
                     onCheckedChanged: Config.options.ai.initiative.pairReadScreen = checked
                 }
+                ConfigSwitch {
+                    configKey: "ai.initiative.holdInFocus"
+                    buttonIcon: "do_not_disturb_on"
+                    enabled: Config.options.ai.initiative.enable
+                    text: Translation.tr("Don't interrupt me while I'm focused: after 10 minutes at something (one or two apps, no break), its quiet words wait and come together at the next break (another app, a minute away). Urgent ones still come")
+                    checked: Config.options.ai.initiative.holdInFocus
+                    onCheckedChanged: Config.options.ai.initiative.holdInFocus = checked
+                }
+                ConfigSwitch {
+                    configKey: "ai.initiative.recentContext"
+                    buttonIcon: "history"
+                    enabled: Config.options.ai.initiative.enable
+                    text: Translation.tr("Know what I was just doing: the windows of the last 15 minutes, a command that failed, an error I copied, kept in memory only (never on disk). Sent only with a question I ask in its bubble (it says so; × leaves it out), private apps and windows left out and secrets removed; and a word on where I was when I'm back from a break")
+                    checked: Config.options.ai.initiative.recentContext
+                    onCheckedChanged: Config.options.ai.initiative.recentContext = checked
+                }
+                ConfigSwitch {
+                    configKey: "ai.initiative.terminal"
+                    buttonIcon: "terminal"
+                    enabled: Config.options.ai.initiative.enable
+                    text: Translation.tr("Help when a terminal command keeps failing: the same command failing twice in 10 minutes offers \"Explain it\" (zsh and bash; only the command and its exit code, never its output; a command starting with a space is never seen). Nothing goes to Claude until I click")
+                    checked: Config.options.ai.initiative.terminal
+                    onCheckedChanged: Config.options.ai.initiative.terminal = checked
+                }
+                ConfigSwitch {
+                    configKey: "ai.initiative.clipboardErrors"
+                    buttonIcon: "content_paste_search"
+                    enabled: Config.options.ai.initiative.enable
+                    text: Translation.tr("Help with an error I copy: copying an error or a stack trace offers \"Explain it\" (never what a password manager copied). Nothing goes to Claude until I click")
+                    checked: Config.options.ai.initiative.clipboardErrors
+                    onCheckedChanged: Config.options.ai.initiative.clipboardErrors = checked
+                }
+            }
+
+            // What agents watch for me (the watch tool): cancel one.
+            Repeater {
+                model: Initiative.watches
+                delegate: RowLayout {
+                    id: watchRow
+                    required property var modelData
+                    Layout.fillWidth: true
+                    spacing: 8
+                    MaterialSymbol {
+                        text: "visibility"
+                        iconSize: Appearance.font.pixelSize.normal
+                        color: Appearance.colors.colPrimary
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                        text: Translation.tr("Watching %1, to tell you when it's done").arg(watchRow.modelData.label)
+                    }
+                    SmallButton {
+                        materialIcon: "close"
+                        mainText: Translation.tr("Stop")
+                        onClicked: Quickshell.execDetached(["nixbook-desktop-mcp", "watch", "cancel", watchRow.modelData.id])
+                    }
+                }
             }
 
             RowLayout {
@@ -215,6 +273,92 @@ ContentPage {
                 text: Translation.tr("Lately:") + "\n" + Initiative.log.slice(-6).reverse().map(l =>
                     `${Qt.formatDateTime(new Date(l.time * 1000), "hh:mm")} · ${l.event} · `
                     + (l.action === "none" ? Translation.tr("kept quiet: %1").arg(l.why) : (l.said || l.action))).join("\n")
+            }
+
+            // What was sent to a model (`nixbook-desktop-mcp sent`): each
+            // small-model pass and the context sent with a question, as sent.
+            ContentSubsection {
+                title: Translation.tr("What it sent")
+                tooltip: Translation.tr("Everything the small model was given (notifications, pairing, news, memory passes…) and what went with a question asked in the bubble, the last 7 days. A local model's are marked: they never left this computer. Not your chats in the side panel: you wrote those.")
+                RowLayout {
+                    spacing: 8
+                    SmallButton {
+                        materialIcon: sentList.shown ? "expand_less" : "receipt_long"
+                        mainText: sentList.shown ? Translation.tr("Hide") : Translation.tr("Show what it sent")
+                        onClicked: {
+                            sentList.shown = !sentList.shown
+                            if (sentList.shown) sentRead.running = true
+                        }
+                    }
+                    SmallButton {
+                        materialIcon: "delete"
+                        mainText: Translation.tr("Forget it")
+                        onClicked: {
+                            Quickshell.execDetached(["nixbook-desktop-mcp", "sent", "clear"])
+                            sentList.entries = []
+                        }
+                    }
+                }
+                Process {
+                    id: sentRead
+                    command: ["nixbook-desktop-mcp", "sent", "show"]
+                    stdout: StdioCollector {
+                        id: sentOut
+                        onStreamFinished: {
+                            try {
+                                sentList.entries = JSON.parse(sentOut.text).slice(0, 30)
+                            } catch (e) {
+                                sentList.entries = []
+                            }
+                        }
+                    }
+                }
+                ColumnLayout {
+                    id: sentList
+                    property bool shown: false
+                    property var entries: []
+                    visible: shown
+                    Layout.fillWidth: true
+                    spacing: 6
+                    StyledText {
+                        visible: sentList.entries.length === 0
+                        color: Appearance.colors.colSubtext
+                        text: Translation.tr("Nothing sent lately.")
+                    }
+                    Repeater {
+                        model: sentList.entries
+                        delegate: ColumnLayout {
+                            id: sentRow
+                            required property var modelData
+                            property bool open: false
+                            Layout.fillWidth: true
+                            spacing: 2
+                            StyledText {
+                                Layout.fillWidth: true
+                                font.weight: Font.Medium
+                                text: `${Qt.formatDateTime(new Date(sentRow.modelData.time * 1000), "ddd hh:mm")} · ${sentRow.modelData.purpose} · `
+                                    + (sentRow.modelData.local ? Translation.tr("%1, on this computer").arg(sentRow.modelData.model.replace(/^local:/, ""))
+                                       : sentRow.modelData.model) + (sentRow.modelData.web ? Translation.tr(" · could search the web") : "")
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: sentRow.open = !sentRow.open
+                                }
+                            }
+                            StyledText {
+                                Layout.fillWidth: true
+                                wrapMode: Text.Wrap
+                                textFormat: Text.PlainText
+                                maximumLineCount: sentRow.open ? 400 : 2
+                                elide: Text.ElideRight
+                                font.family: Appearance.font.family.monospace
+                                font.pixelSize: Appearance.font.pixelSize.smaller
+                                color: Appearance.colors.colSubtext
+                                text: sentRow.modelData.text
+                            }
+                        }
+                    }
+                }
             }
         }
 
