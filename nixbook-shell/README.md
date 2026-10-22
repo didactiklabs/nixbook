@@ -563,8 +563,9 @@ chat, `Initiative.enabled`/`summon()`, `Routines.enabled`,
 fix unless 1.
 
 **Fixes it makes itself** (only where `selfImprove.enable` is set: "improve"
-in desktop-mcp.json, which also lists `report_problem` and
-`request_feature`; then
+in desktop-mcp.json, which also lists `report_problem`,
+`request_feature` and `list_requests`, the read-only view of the inbox
+and its runs from `nixbook-improve status`; then
 `ai.improve.enable`, off by default; docs:
 `docs/nixbook-shell/self-improve.md`): `nixbook-improve` (`improve/`, Go,
 `improve.nix`) keeps an inbox in `~/.local/state/nixbook-shell/improve/`
