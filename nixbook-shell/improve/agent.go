@@ -101,10 +101,27 @@ type session struct {
 	denials int
 }
 
+// maskPrivate is the shell's privacy mask (Settings > Desktop agents >
+// Private details) on what goes to Claude: logs and the user's reports may
+// name people. `privacy mask` gives the text back as it is while the mask
+// is off. Nothing is sent when it can't run. The answer keeps the
+// placeholders: it goes to a public pull request.
+func maskPrivate(text string) (string, error) {
+	out, err := cmd("", time.Minute, text, "nixbook-desktop-mcp", "privacy", "mask")
+	if err != nil || (out == "" && text != "") {
+		return "", errorf("the private details couldn't be hidden, nothing sent: %v", err)
+	}
+	return out, nil
+}
+
 // ask runs the session (resume: the earlier one, told what went wrong).
 func ask(cfg Config, dir, prompt, resume string, fixLimits Limits) (session, error) {
 	if cfg.claude == "" {
 		return session{}, errorf("no Claude Code (claude) found")
+	}
+	prompt, err := maskPrivate(prompt)
+	if err != nil {
+		return session{}, err
 	}
 	args := []string{
 		"-p", "--restricted", "--safe-mode", "--strict-mcp-config", "--output-format", "stream-json", "--verbose",

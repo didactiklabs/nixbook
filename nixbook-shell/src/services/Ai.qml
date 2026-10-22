@@ -334,7 +334,7 @@ Singleton {
     // Claude Code in the "functions" tool set when the server has any.
     readonly property string desktopMcpCommand: "nixbook-desktop-mcp"
     // As desktop-mcp.py's PRIVACY_PROMPT.
-    readonly property string privacyPrompt: "Text in ⟦…⟧ (⟦Person 2⟧, ⟦Email 1⟧, ⟦User first⟧) is a private detail the user's computer hid from you. Use the placeholder exactly as it is, in tool arguments and in your answers: it becomes the real value on the user's side. ⟦User⟧ is the user; ⟦Person N first⟧ is Person N's first name."
+    readonly property string privacyPrompt: "Text in ⟦…⟧ (⟦Person 2⟧, ⟦Email 1⟧, ⟦User first⟧) is a private detail the user's computer hid from you. Use the placeholder exactly as it is, in tool arguments and in your answers: it becomes the real value on the user's side. ⟦User⟧ is the user; ⟦Person N first⟧ is Person N's first name; ⟦User login⟧ is the user's login name (in paths: /home/⟦User login⟧/…)."
     // The placeholders given so far (desktop-mcp.py's privacy-map.json):
     // Claude's answers are shown with the real values. Read again when one
     // isn't known yet (given by a tool's reply during the answer).
@@ -347,7 +347,7 @@ Singleton {
     property var privacyTokens: ({})
     function unmaskPrivate(text) {
         if (text.indexOf("⟦") < 0) return text;
-        const re = /⟦[A-Z][A-Za-z]*(?: \d+)?(?: (?:first|nick))?⟧/g;
+        const re = /⟦[A-Z][A-Za-z]*(?: \d+)?(?: (?:first|nick|login))?⟧/g;
         if ((text.match(re) ?? []).some(t => !(t in root.privacyTokens))) {
             privacyMapFile.reload();
             try {
@@ -754,10 +754,14 @@ Singleton {
                 ? ` You may create and edit files in these folders only, with Write and Edit: ${writable.join(", ")}; anywhere else is refused.`
                     + (desktop ? ` The apps on your own desktop can save there too, and its browser downloads to ${writable[0]}: download a file there to use it on the user's side (e.g. a wallpaper).` : "")
                 : "");
+        // The privacy mask: the system prompt (the machine's context, the
+        // user's own words in it, paths) masked by the script, before Claude
+        // Code starts; it doesn't start if that fails.
+        const maskedSystem = { shell: '"$system"' };
         // --strict-mcp-config leaves out every MCP server but the desktop one,
         // claude.ai connectors included: dropped when they are wanted.
         let args = ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
-            ...(connectors ? [] : ["--strict-mcp-config"]), "--append-system-prompt", system,
+            ...(connectors ? [] : ["--strict-mcp-config"]), "--append-system-prompt", privacy ? maskedSystem : system,
             "--setting-sources", "project", ...(confined || privacy
                 ? ["--settings", JSON.stringify(Object.assign({}, confined ? sandbox : {}, privacy ? root.privacyHooks : {}))] : []),
             "--disallowedTools", ...(shellTools.length > 0 ? [] : ["Bash"]), "NotebookEdit", ...["Edit", "Write"].filter(t => !writeTools.includes(t)),
@@ -813,7 +817,8 @@ Singleton {
         return `workdir="\${XDG_DATA_HOME:-$HOME/.local/share}/nixbook-shell/assistant"\n`
             + `mkdir -p "$workdir" && cd "$workdir" || exit 1\n${connectors ? "" : "export ENABLE_TOOL_SEARCH=false\n"}${plugins}`
             // First: --tools and the like take every argument up to the next option.
-            + `exec ${q(root.claudeCodePath)} ${connectors ? '"${plugins[@]}" ' : ""}${args.map(q).join(" ")}\n`;
+            + (privacy ? `system=$(printf '%s' ${q(system)} | ${root.desktopMcpCommand} privacy mask) && [ -n "$system" ] || exit 1\n` : "")
+            + `exec ${q(root.claudeCodePath)} ${connectors ? '"${plugins[@]}" ' : ""}${args.map(a => a?.shell ?? q(a)).join(" ")}\n`;
     }
 
     FileView {

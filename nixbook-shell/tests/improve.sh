@@ -186,6 +186,12 @@ case "$1" in
   clear) rm -f "$FAKE_LOG/secret" ;;
 esac
 EOF
+# The privacy mask: Alice Martin private; FAKE_MASK_FAIL: it can't run.
+cat >"$fake/nixbook-desktop-mcp" <<'EOF'
+#!/usr/bin/env bash
+[ "$1 $2" = "privacy mask" ] && [ -z "${FAKE_MASK_FAIL:-}" ] || exit 1
+sed 's/Alice Martin/⟦Person 1⟧/g'
+EOF
 printf '#!/usr/bin/env bash\nexit 0\n' >"$fake/treefmt"
 printf '#!/usr/bin/env bash\nexit 0\n' >"$fake/xdg-open"
 chmod +x "$fake"/*
@@ -451,6 +457,17 @@ if (cd "$tmp/check" && "$improve" guard main HEAD >"$tmp/guard.json"); then
 else
   expect_match "guard: a feature refused" "isn't fix(scope)" "$(cat "$tmp/guard.json")"
 fi
+
+# --- the privacy mask: what goes to Claude ----------
+jq '.ai.improve.perDay = 100' "$XDG_CONFIG_HOME/nixbook-shell/config.json" >"$tmp/c" && mv "$tmp/c" "$XDG_CONFIG_HOME/nixbook-shell/config.json"
+pid=$(item "Alice Martin says the clock shows the wrong hour")
+"$improve" run --item "$pid" >/dev/null
+expect_match "privacy: the report masked" "⟦Person 1⟧ says the clock" "$(cat "$FAKE_LOG/prompt")"
+expect_eq "privacy: no real name sent" 0 "$(grep -c "Alice Martin" "$FAKE_LOG/prompt")"
+rm -f "$FAKE_LOG/prompt"
+pid=$(item "Alice Martin again: the clock is late")
+FAKE_MASK_FAIL=1 "$improve" run --item "$pid" >/dev/null 2>&1 || true
+expect_eq "privacy: can't mask, nothing sent" "no prompt" "$([ -e "$FAKE_LOG/prompt" ] && echo sent || echo "no prompt")"
 
 if [ "$failures" -gt 0 ]; then
   echo "$failures failure(s)" >&2
