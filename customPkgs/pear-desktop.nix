@@ -1,32 +1,68 @@
+# YouTube Music (pear-desktop): nixpkgs' build (from source, on nixpkgs'
+# Electron, in cache.nixos.org) wrapped for nixbook. It replaced the upstream
+# AppImage, which ran under XWayland with no GPU process: software
+# compositing, and the window never throttled while hidden (renderer ~23% CPU
+# paused, ~43% playing, versus ~5% / ~8% for this build). nixpkgs' wrapper
+# starts it as a native Wayland client under NIXOS_OZONE_WL.
+#
+# The wrapper adds:
+# - the launcher entry named "YouTube Music" (nixpkgs calls it "Pear
+#   Desktop"), under the desktop id matching the Wayland app-id
+#   (com.github.th-ch.youtube-music) so docks and window lists find its icon,
+#   plus a hidden `pear-desktop.desktop` alias: saved window layouts and the
+#   desktop agents' memory launch it by that id.
+# - the "performance-improvement" plugin (on by default) turned off once, the
+#   first time it is launched with a config that doesn't mention it (a choice
+#   made in its Plugins menu is kept). Its "CPU Tamer by AnimationFrame" runs
+#   a 1 ms infinite CSS animation on a hidden element as a timer clock: a
+#   style recalc on every frame, ~45% CPU on the page's main thread. It skips
+#   itself without WebGL, which is why the AppImage never paid for it.
 { pkgs }:
 let
-  sources = import ../npins;
-  # The AppImage release asset (URL + hash) is tracked by npins as a `url` pin
-  # in npins/sources.json. To bump the version, update that pin's URL (npins
-  # will refetch and record the new hash) — nothing here is hardcoded.
-  pin = sources.pear-desktop;
-  pname = "pear-desktop";
-  # Extract the version from the pinned asset URL (.../download/vX.Y.Z/...).
-  version = pkgs.lib.removePrefix "v" (
-    builtins.head (builtins.match ".*/download/([^/]+)/.*" pin.url)
-  );
-  src = pkgs.fetchurl { inherit (pin) url hash; };
-  appimageContents = pkgs.appimageTools.extract { inherit pname version src; };
-in
-pkgs.appimageTools.wrapType2 {
-  inherit pname version src;
-
-  extraInstallCommands = ''
-    install -m 444 -D ${appimageContents}/youtube-music.desktop $out/share/applications/${pname}.desktop
-    install -m 444 -D ${appimageContents}/usr/share/icons/hicolor/1024x1024/apps/youtube-music.png $out/share/pixmaps/${pname}.png
-    substituteInPlace $out/share/applications/${pname}.desktop \
-      --replace-fail 'Exec=AppRun --no-sandbox %U' 'Exec=${pname} --no-sandbox %U'
+  inherit (pkgs) lib;
+  app = pkgs.pear-desktop;
+  appId = "com.github.th-ch.youtube-music";
+  launcher = pkgs.writeShellScript "pear-desktop" ''
+    cfg="''${XDG_CONFIG_HOME:-$HOME/.config}/YouTube Music/config.json"
+    if [ -f "$cfg" ] && ! ${lib.getExe pkgs.jq} -e '.plugins | has("performance-improvement")' "$cfg" >/dev/null 2>&1; then
+      tmp=$(mktemp "$cfg.XXXXXX") \
+        && ${lib.getExe pkgs.jq} '.plugins["performance-improvement"] = {enabled: false}' "$cfg" >"$tmp" \
+        && mv "$tmp" "$cfg" || rm -f "$tmp"
+    fi
+    exec ${lib.getExe app} "$@"
   '';
-
-  meta = with pkgs.lib; {
-    description = "YouTube Music Desktop Player";
-    homepage = "https://github.com/pear-devs/pear-desktop";
-    license = licenses.mit;
-    mainProgram = pname;
-  };
-}
+  desktopEntry =
+    extra:
+    lib.generators.toINI { } {
+      "Desktop Entry" = {
+        Type = "Application";
+        Name = "YouTube Music";
+        GenericName = "Music Player";
+        Comment = "YouTube Music desktop app (pear-desktop)";
+        Exec = "pear-desktop %u";
+        Icon = "pear-desktop";
+        StartupWMClass = appId;
+        Categories = "AudioVideo;Audio;Player;";
+        Keywords = "youtube;music;pear;";
+      }
+      // extra;
+    };
+in
+pkgs.runCommand "pear-desktop-${app.version}"
+  {
+    inherit (app) version;
+    meta = app.meta // {
+      mainProgram = "pear-desktop";
+    };
+  }
+  ''
+    mkdir -p $out/bin $out/share/applications
+    ln -s ${launcher} $out/bin/pear-desktop
+    ln -s ${app}/share/icons $out/share/icons
+    cat >$out/share/applications/${appId}.desktop <<'EOF'
+    ${desktopEntry { }}
+    EOF
+    cat >$out/share/applications/pear-desktop.desktop <<'EOF'
+    ${desktopEntry { NoDisplay = true; }}
+    EOF
+  ''

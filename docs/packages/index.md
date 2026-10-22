@@ -21,7 +21,7 @@
 | [fcitx5-lotus](#fcitx5-lotus)                 | Vietnamese input method for fcitx5                                              | `fcitx5-lotus`, `fcitx5Config` |
 | [schnelle-umlaute](#schnelle-umlaute)         | German umlauts with a hold-letter + Space gesture                               | `fcitx5Config`                 |
 | [actual-budget](#actual-budget)               | Local-first personal finance app (AppImage)                                     | profiles                       |
-| [pear-desktop](#pear-desktop)                 | YouTube Music desktop player (AppImage)                                         | profiles                       |
+| [pear-desktop](#pear-desktop)                 | YouTube Music desktop player (nixpkgs build, native Wayland)                    | profiles                       |
 | [youtube-music-mcp](#youtube-music-mcp)       | MCP server that plays and controls YouTube Music (pear-desktop)                 | `nixbookShellConfig`           |
 | [spotify-mcp](#spotify-mcp)                   | MCP server that plays and controls the Spotify app                              | `nixbookShellConfig`           |
 | [linkedin-mcp-server](#linkedin-mcp-server)   | MCP server for LinkedIn through your own browser session                        | `nixbookShellConfig`           |
@@ -104,7 +104,7 @@ A k9s-style TUI to create, attach, edit and tear down isolated OpenCode / Claude
 
 ## pear-desktop
 
-[Pear Desktop](https://github.com/pear-devs/pear-desktop), a YouTube Music desktop player with extensions, packaged from its release AppImage.
+[Pear Desktop](https://github.com/pear-devs/pear-desktop), a YouTube Music desktop player with extensions: nixpkgs' build (from source, on nixpkgs' Electron), wrapped by nixbook. It runs as a native Wayland client with GPU compositing — the release AppImage it replaced ran under XWayland in software and used three to five times the CPU, playing or paused. The launcher entry is named "YouTube Music", and the first launch turns off the app's beta **performance-improvement** plugin, whose "CPU Tamer" script restyles the page on every frame (~45% CPU); turning it back on from the app's Plugins menu is kept.
 
 ## youtube-music-mcp
 

@@ -6150,7 +6150,7 @@ def music_title(title):
 
 def player_label(player):
     name = player.split(".")[0]
-    return {"spotify": "Spotify", "youtubemusic": "YouTube Music", "youtube_music": "YouTube Music", "pear": "YouTube Music",
+    return {"spotify": "Spotify", "youtubemusic": "YouTube Music", "youtube_music": "YouTube Music", "youtube-music": "YouTube Music", "pear": "YouTube Music",
             "mpv": "mpv", "vlc": "VLC", "kdeconnect": "phone (KDE Connect)"}.get(name.lower(), name)
 
 
@@ -6198,7 +6198,10 @@ class MusicTracker:
             ident = mpris_identity(player)
             if ident is None:
                 return None  # not cached: asked again on its next track
-            name = None if MUSIC_BROWSER_IDENTITY.search(ident) else (ident.rsplit(".", 1)[-1] if " " not in ident else ident)
+            # "youtube_music" either way: its AppImage said com.github.th_ch.youtube_music,
+            # the native build com.github.th-ch.youtube-music (one history).
+            name = None if MUSIC_BROWSER_IDENTITY.search(ident) else (
+                ident.rsplit(".", 1)[-1].replace("-", "_") if " " not in ident else ident)
         self.names[player] = name
         return name
 
@@ -9160,6 +9163,14 @@ def close(a, b, slack=2):
     return bool(a) and bool(b) and all(abs(x - y) <= slack for x, y in zip(a, b))
 
 
+def same_app(a, b):
+    """Two Wayland app-ids naming the same app: Electron apps change `_` for
+    `-` between XWayland and native Wayland (YouTube Music was
+    com.github.th_ch.youtube_music as an AppImage, is
+    com.github.th-ch.youtube-music natively), and saved layouts keep the old."""
+    return bool(a) and bool(b) and a.replace("_", "-").lower() == b.replace("_", "-").lower()
+
+
 def match_windows(entries, current, wss=None):
     """Pairs saved entries with open windows: same app_id, the same title
     first, then (titles change: a terminal's directory) the window already
@@ -9182,7 +9193,7 @@ def match_windows(entries, current, wss=None):
         rest = []
         for e in (entries if exact else missing):
             w = min(
-                (w for w in free if w.get("app_id") == e.get("app_id") and (not exact or w.get("title") == e.get("title"))),
+                (w for w in free if same_app(w.get("app_id"), e.get("app_id")) and (not exact or w.get("title") == e.get("title"))),
                 key=lambda w: misplacement(e, w),
                 default=None,
             )
@@ -9395,7 +9406,7 @@ def restore_layout_now(ctx, args, close_others=False):
             for w in windows():
                 if w["id"] in before or w["id"] in taken:
                     continue
-                e = next((e for e in waiting if e.get("app_id") == w.get("app_id")), None)
+                e = next((e for e in waiting if same_app(e.get("app_id"), w.get("app_id"))), None)
                 if e:
                     taken.add(w["id"])
                     waiting.remove(e)
@@ -9540,7 +9551,7 @@ def restore_layout_now(ctx, args, close_others=False):
             if s[1]["id"] in ids:
                 continue
             new = next((w for w in now if w["id"] not in before and w["id"] not in taken
-                        and w.get("app_id") == s[0].get("app_id")), None)
+                        and same_app(w.get("app_id"), s[0].get("app_id"))), None)
             if new:
                 taken.add(new["id"])
                 swapped[s[1]["id"]] = new

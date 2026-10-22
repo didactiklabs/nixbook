@@ -400,12 +400,6 @@
       "url": "https://github.com/Banh-Canh/opencode-manager/archive/307985547ef8cc65271fe7671a7ed53f35e2dc84.tar.gz",
       "hash": "sha256-zYnOAU7tP/o5uGYpPjM7IqCWxsjrNj6trAdKpwDKGyE="
     },
-    "pear-desktop": {
-      "type": "Url",
-      "url": "https://github.com/pear-devs/pear-desktop/releases/download/v3.11.0/YouTube-Music-3.11.0.AppImage",
-      "unpack": false,
-      "hash": "sha256-z8Cg1b5iReLGW/5UN0c5m2v3wCpJzifharmdFDtoBW0="
-    },
     "pvmigrate": {
       "type": "GitRelease",
       "repository": {

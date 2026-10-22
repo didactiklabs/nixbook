@@ -556,7 +556,8 @@ in
             opacity = 1.0;
           }
           {
-            matches = [ { app-id = "^com\\.github\\.th_ch\\.youtube_music$"; } ];
+            # YouTube Music: th-ch/youtube-music natively, th_ch/youtube_music under XWayland.
+            matches = [ { app-id = "^com\\.github\\.th[-_]ch\\.youtube[-_]music$"; } ];
             opacity = 1.0;
           }
         ];
