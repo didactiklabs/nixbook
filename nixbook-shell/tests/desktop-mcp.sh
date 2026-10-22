@@ -2434,6 +2434,8 @@ chmod +x "$bin/playerctl"
 cat >"$tmp/players.sh" <<'PLAYERS'
 t=$'\t'
 echo "spotify${t}Playing${t}Radiohead, Thom Yorke${t}Reckoner${t}In Rainbows${t}6000000${t}/com/spotify/track/1"
+# The native build of YouTube Music (com.github.th-ch.youtube-music), before its AppImage.
+echo "chromium.instance99${t}Playing${t}Phoebe Bridgers${t}Motion Sickness${t}${t}6000000${t}/org/chromium/MediaPlayer2/TrackList/Track3"
 sleep 4
 echo "spotify${t}Playing${t}Daft Punk${t}One More Time${t}Discovery${t}20000000${t}/com/spotify/track/2"
 echo "firefox.instance_1_2${t}Playing${t}Some Vlogger${t}My day in Paris${t}${t}600000000${t}/org/mpris/MediaPlayer2/firefox"
@@ -2450,6 +2452,7 @@ cat >"$bin/busctl" <<'BUSCTL'
 #!/usr/bin/env bash
 case "$*" in
   *chromium.instance77*) echo 's "com.github.th_ch.youtube_music"' ;;
+  *chromium.instance99*) echo 's "com.github.th-ch.youtube-music"' ;;
   *chromium.instance88*) echo 's "Chromium"' ;;
   *) exit 1 ;;
 esac
@@ -2466,8 +2469,10 @@ expect_eq "music: every player's tracks, how long each was heard" \
   "spotify|Radiohead, Thom Yorke|Reckoner|4 spotify|Daft Punk|One More Time|4 YoutubeMusic|Nujabes - Topic|Aruarian Dance (Official Audio)|4" \
   "$(jq -r '[.plays[] | select(.[2] != "youtube_music") | "\(.[2])|\(.[3])|\(.[4])|\((.[1] + 0.5) | floor | if . >= 4 and . <= 5 then 4 else . end)"] | join(" ")' <<<"$out")"
 expect_eq "music: no ads, no browser videos" 0 "$(grep -ci 'advertisement\|vlogger\|streamer' <<<"$out" || true)"
-expect_eq "music: an Electron app under a browser's bus name counts" "Forrest Rose|Headlights" \
-  "$(jq -r '.plays[] | select(.[2] == "youtube_music") | "\(.[3])|\(.[4])"' <<<"$out")"
+# Its AppImage (XWayland) and nixpkgs' native build name it th_ch/youtube_music
+# and th-ch/youtube-music: one history.
+expect_eq "music: an Electron app under a browser's bus name counts" "Forrest Rose|Headlights Phoebe Bridgers|Motion Sickness" \
+  "$(jq -r '[.plays[] | select(.[2] == "youtube_music") | "\(.[3])|\(.[4])"] | sort | join(" ")' <<<"$out")"
 rm "$bin/busctl"
 expect_contains "music: the players followed" "$(cat "$calls")" "playerctl --all-players --follow metadata --format"
 # Real playerctl's {{playerName}} is "chromium" for chromium.instanceN: its
