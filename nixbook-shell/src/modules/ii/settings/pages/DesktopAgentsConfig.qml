@@ -148,6 +148,65 @@ ContentPage {
                     }
                 }
             }
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "ai.privacy.learn"
+                    buttonIcon: "person_search"
+                    enabled: Config.options.ai.privacy.mask
+                    text: Translation.tr("Learn who else is private: a stranger named where only people are (a mail's sender, a chat's, \"Hi Anna,\") or a personal email, seen in %1 different places, is hidden from then on. Counted on this computer; until then it is sent as it is").arg(Config.options.ai.privacy.learnAfter)
+                    checked: Config.options.ai.privacy.learn
+                    onCheckedChanged: Config.options.ai.privacy.learn = checked
+                }
+            }
+            // The names learned (`privacy learned`): × says one isn't private.
+            ContentSubsection {
+                title: Translation.tr("Learned private")
+                visible: Config.options.ai.privacy.mask && Config.options.ai.privacy.learn
+                Process {
+                    id: learnedRead
+                    running: true
+                    command: ["nixbook-desktop-mcp", "privacy", "learned"]
+                    stdout: StdioCollector {
+                        onStreamFinished: {
+                            try {
+                                learnedList.entries = JSON.parse(text)
+                            } catch (e) {
+                                learnedList.entries = []
+                            }
+                        }
+                    }
+                }
+                Flow {
+                    id: learnedList
+                    property var entries: []
+                    Layout.fillWidth: true
+                    spacing: 6
+                    StyledText {
+                        visible: learnedList.entries.length === 0
+                        color: Appearance.colors.colSubtext
+                        text: Translation.tr("None yet.")
+                    }
+                    Repeater {
+                        model: learnedList.entries
+                        delegate: SmallButton {
+                            required property var modelData
+                            materialIcon: "close"
+                            mainText: modelData.value
+                            onClicked: {
+                                Quickshell.execDetached(["nixbook-desktop-mcp", "privacy", "unlearn", modelData.key])
+                                learnedList.entries = learnedList.entries.filter(e => e.key !== modelData.key)
+                            }
+                        }
+                    }
+                }
+                StyledText {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    color: Appearance.colors.colSubtext
+                    font.pixelSize: Appearance.font.pixelSize.small
+                    text: Translation.tr("× : not private, never learned again.")
+                }
+            }
             RowLayout {
                 spacing: 8
                 SmallButton {

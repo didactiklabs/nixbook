@@ -1239,6 +1239,19 @@ answers you read. It works in plain code, with no model involved:
   often public (Martin Luther King). Public names, sites and support
   addresses stay as they are, so answers lose nothing but who those people
   are.
+- **Learning strangers** (`ai.privacy.learn`, on by default): a name is
+  counted when it appears where only people's names go: a mail's
+  `From:`/`To:`/`Cc:`, `Name <email>`, a chat app's notification sender
+  (`[Signal] Name:`), or a greeting ("Hi Name,"). A personal email address
+  (not `support@`, `noreply@`…) is counted too. Each distinct line counts
+  once, so the same notification read again counts once. Companies, roles
+  and groups (GitHub, Team, General…), acronyms and common words are
+  skipped. Seen in `ai.privacy.learnAfter` (3) different lines, the name is
+  private from that reply on, like a contact; until then it is sent as it
+  is. The counts are in `privacy-seen.json` (a stranger unseen for 60 days
+  is forgotten). The names learned are in `privacy-learned.json`, listed in
+  Settings, where × marks one as not private and it is never learned again
+  (`privacy learned`, `privacy unlearn KEY`).
 - **The table**: `$XDG_STATE_HOME/nixbook-shell/privacy-map.json` (0600). A
   value always gets the same placeholder, across sessions. `privacy clear`
   forgets the values but never reuses a number, so a placeholder in an old
@@ -1254,7 +1267,8 @@ answers you read. It works in plain code, with no model involved:
   unless the input holds a placeholder. Answers are unmasked as they stream
   (`ClaudeCodeApiStrategy.qml`, `Ai.unmaskPrivate`).
 - **Cost**: one compiled regex (common prefixes factored for thousands of
-  contacts), well under a millisecond a reply, and about 60 ms for each
+  contacts) and a few for the learning, about 1.6 ms for a 6 KB reply
+  (0.8 ms without learning), and about 60 ms for each
   non-desktop tool call in the side panel (the post-hook). Screenshots
   (`ai.privacy.screenshots`, off by default) take about 1.3 s of OCR for a
   full screen of text. They are read by tesseract, the words regrouped into

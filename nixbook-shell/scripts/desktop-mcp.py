@@ -7662,7 +7662,15 @@ def privacy_map_path():
 def privacy_files():
     state = os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-accounts")
     return [os.path.join(xdg("XDG_CONFIG_HOME", "~/.config"), "nixbook-shell", "config.json"),
-            os.path.join(state, "contacts.json"), os.path.join(state, "accounts.json")]
+            os.path.join(state, "contacts.json"), os.path.join(state, "accounts.json"), privacy_learned_path()]
+
+
+def privacy_learned_path():
+    return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-shell", "privacy-learned.json")
+
+
+def privacy_seen_path():
+    return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-shell", "privacy-seen.json")
 
 
 def read_json(path):
@@ -7710,7 +7718,7 @@ def privacy_people():
         gecos = pwd.getpwuid(os.getuid()).pw_gecos.split(",")[0].strip()
     except KeyError:
         gecos = ""
-    config, contacts, accounts = (read_json(p) for p in privacy_files())
+    config, contacts, accounts = (read_json(p) for p in privacy_files()[:3])
     shown = ((config or {}).get("profile") or {}).get("displayName") or ""
     mails = list(dict.fromkeys(emails_in(accounts, [])))
     people = []
@@ -7726,6 +7734,17 @@ def privacy_people():
                        c.get("familyName") or "", c.get("nickname") or "", vals("emails"), vals("phones"),
                        [*vals("addresses"), *(a.get("street") for a in c.get("addresses") or []
                                               if isinstance(a, dict) and isinstance(a.get("street"), str))]))
+    # Learned: "Alice Durand" a person, "Alice" alone her first name (case
+    # kept: never "alice").
+    learned = (read_json(privacy_learned_path()) or {}).get("learned") or {}
+    for key, e in learned.items() if isinstance(learned, dict) else []:
+        value = str(e.get("value") or "") if isinstance(e, dict) else ""
+        if e.get("kind") == "Email":
+            people.append((f"learned:{key}", "", "", "", "", [value], [], []))
+        elif len(value.split()) > 1:
+            people.append((f"learned:{key}", value, value.split()[0], "", "", [], [], []))
+        elif value:
+            people.append((f"learned:{key}", "", value, "", "", [], [], []))
     terms = (config or {}).get("ai", {}).get("privacy", {}).get("terms") if isinstance(config, dict) else None
     return people, [t for t in terms or [] if isinstance(t, str)]
 
@@ -7793,6 +7812,13 @@ def privacy_vocab():
         if len(t) >= PRIVACY_MIN:
             ci.setdefault(t.lower(), ("Private", t.lower(), None, t))
     bound = lambda body: re.compile(rf"(?<![\w@.]){body}(?![\w@])" if body else r"(?!)")
+    learn = read_json(privacy_learned_path()) or {}
+    config = read_json(privacy_files()[0]) or {}
+    settings = (config.get("ai") or {}).get("privacy") or {} if isinstance(config, dict) else {}
+    after = settings.get("learnAfter", PRIVACY_LEARN_AFTER)
+    _PRIVACY.update(learn=settings.get("learn", True) is True,
+                    after=after if isinstance(after, int) and not isinstance(after, bool) and after >= 1 else PRIVACY_LEARN_AFTER,
+                    ignored=set(learn.get("ignored") or []) if isinstance(learn, dict) else set())
     _PRIVACY.update(key=key, ci=re.compile(bound(trie_regex(ci)).pattern, re.I), cs=bound(trie_regex(cs)),
                     keys={**{("ci", k): v for k, v in ci.items()}, **{("cs", k): v for k, v in cs.items()}},
                     phones=phones)
@@ -7846,21 +7872,176 @@ def privacy_spans(value, vocab):
     return out
 
 
-class PrivacyMap:
-    """The table of placeholders, under an exclusive lock: kept between
-    sessions so a value keeps its placeholder."""
+class LockedJson:
+    """A JSON object in a 0600 file, read and written under an exclusive
+    lock (several servers and the shell at once); written back if changed."""
+    keys = ()
+
+    def path(self):
+        raise NotImplementedError
 
     def __enter__(self):
-        path = privacy_map_path()
+        path = self.path()
         os.makedirs(os.path.dirname(path), exist_ok=True)
         self.lockfd = os.open(path + ".lock", os.O_WRONLY | os.O_CREAT, 0o600)
         fcntl.flock(self.lockfd, fcntl.LOCK_EX)
         data = read_json(path)
         self.data = data if isinstance(data, dict) else {}
-        for k in ("tokens", "keys", "next", "people"):
+        for k in self.keys:
             self.data.setdefault(k, {})
         self.changed = False
         return self
+
+    def __exit__(self, *exc):
+        try:
+            if self.changed:
+                path = self.path()
+                fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".privacy.")
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(self.data, f, ensure_ascii=False)
+                os.replace(tmp, path)
+        finally:
+            os.close(self.lockfd)
+
+
+# Learning who else is private (ai.privacy.learn, on by default): a name a
+# model would read where only a person's name goes (a mail's From:/To:,
+# "Name <email>", a chat app's notification sender, "Hi Name,") and a
+# personal email address (not support@, noreply@…) are counted, once per
+# distinct line (the same notification read again counts once). Seen in
+# ai.privacy.learnAfter (3) lines, it is private from then on, like a
+# contact; until then it is sent as it is. Plain regexes on the text masked
+# anyway, a few microseconds; a file written only when something is found.
+# The counts (privacy-seen.json: a stranger unseen for 60 days is
+# forgotten) and the names learned (privacy-learned.json, with those the
+# user said aren't private: "ignored") stay here, 0600.
+PRIVACY_LEARN_AFTER = 3
+PRIVACY_SEEN_DAYS = 60
+PRIVACY_SEEN_MAX = 2000
+PRIVACY_NAME = r"(?<![\w'’-])([^\W\d_][\w'’-]*(?: [^\W\d_][\w'’-]*){0,2})"
+PRIVACY_EMAIL = r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+"
+PRIVACY_CUES = [
+    re.compile(r'"?' + PRIVACY_NAME + r'"? <(' + PRIVACY_EMAIL + r")>"),
+    re.compile(r"(?im)^[ \t]*(?:from|to|cc|de|à|von|an)[ \t]*:[ \t]*\"?" + PRIVACY_NAME + r"\"?[ \t]*(?:<|,|$)"),
+    re.compile(r"\[(?i:signal|whatsapp|telegram|discord|vesktop|slack|element|fractal|messenger|teams|kdeconnect|"
+               r"messages|sms|beeper|session|threema|wire)[^\]]{0,40}\] " + PRIVACY_NAME + r":"),
+    re.compile(r"(?im)^[ \t]*(?:hi|hello|hey|dear|bonjour|salut|coucou|hallo|hola|ciao)[ \t]+" + PRIVACY_NAME + r"[ \t]*[,!]"),
+]
+PRIVACY_EMAIL_RE = re.compile(r"(?<![\w.+-])" + PRIVACY_EMAIL)
+PRIVACY_ROLE = re.compile(
+    r"^(no-?reply|do-?not-?reply|notifications?|notify|support|info|contact|hello|hi|team|news(letter)?|admin|"
+    r"billing|sales|security|service|help|mailer-daemon|postmaster|updates?|alerts?|bot|jobs|careers|press|"
+    r"privacy|marketing|feedback|invoice|receipts?|orders?|account|accounts|bounces?|webmaster|root|example)\b", re.I)
+PRIVACY_NOT_NAMES = set(
+    "team support notifications notification noreply github gitlab google amazon apple microsoft facebook meta "
+    "linkedin twitter slack discord inc ltd llc sas gmbh sa app bot service admin newsletter news info security "
+    "account update updates store shop bank the your you all everyone there world folks guys group channel "
+    "general bonjour me us them unknown sender customer client user friend friends family mom mum dad".split())
+
+
+def looks_like_name(name):
+    """Looks like someone's name: one to three capitalized words, no
+    acronym, no word that says it's a company or a role."""
+    words_ = name.split()
+    return (len(name) >= PRIVACY_MIN and 1 <= len(words_) <= 3
+            and all(w[0].isupper() and not (len(w) > 1 and w.isupper()) for w in words_)
+            and not any(fold(w) in PRIVACY_NOT_NAMES for w in words_)
+            and not (len(words_) == 1 and fold(name) in PRIVACY_COMMON))
+
+
+def privacy_known(value, vocab):
+    """Already private (or a placeholder)."""
+    if "⟦" in value:
+        return True
+    norm = " ".join(value.split())
+    return bool(vocab["ci"].fullmatch(norm) or vocab["cs"].fullmatch(norm))
+
+
+def privacy_candidates(value, vocab):
+    """{(kind, value): the line it was seen on} in a text."""
+    found = {}
+
+    def line_at(i):
+        end = value.find("\n", i)
+        return value[value.rfind("\n", 0, i) + 1:end if end >= 0 else len(value)]
+    for cue in PRIVACY_CUES:
+        for m in cue.finditer(value):
+            # The capitalized words just before the cue ("Message from
+            # Alice Martin <…>": Alice Martin).
+            words_ = m.group(1).split()
+            while words_ and not words_[0][0].isupper():
+                words_.pop(0)
+            name = " ".join(words_)
+            if looks_like_name(name) and not privacy_known(name, vocab):
+                found.setdefault(("Person", name), line_at(m.start()))
+    for m in PRIVACY_EMAIL_RE.finditer(value):
+        email = m.group().lower().rstrip(".")
+        if not PRIVACY_ROLE.match(email.split("@")[0]) and not privacy_known(email, vocab):
+            found.setdefault(("Email", email), line_at(m.start()))
+    return {k: v for k, v in found.items() if f"{k[0]}:{fold(k[1])}" not in vocab["ignored"]}
+
+
+class PrivacySeen(LockedJson):
+    keys = ("seen",)
+    path = staticmethod(privacy_seen_path)
+
+
+class PrivacyLearned(LockedJson):
+    keys = ("learned",)
+    path = staticmethod(privacy_learned_path)
+
+
+def privacy_learn(value, vocab):
+    """Counts the strangers a text names; True when one became private."""
+    found = privacy_candidates(value, vocab)
+    if not found:
+        return False
+    now = int(time.time())
+    promoted = []
+    with PrivacySeen() as s:
+        seen = s.data["seen"]
+        for (kind, name), line in found.items():
+            key = f"{kind}:{fold(name)}"
+            e = seen.setdefault(key, {"kind": kind, "value": name, "lines": []})
+            h = hashlib.sha256(" ".join(line.split()).encode()).hexdigest()[:12]
+            if h in e["lines"]:
+                continue
+            e["lines"] = (e["lines"] + [h])[-10:]
+            e["n"], e["last"] = e.get("n", 0) + 1, now
+            s.changed = True
+            if e["n"] >= vocab["after"]:
+                promoted.append((key, seen.pop(key)))
+        if s.changed:
+            since = now - PRIVACY_SEEN_DAYS * 86400
+            kept = sorted(((k, e) for k, e in seen.items() if e.get("last", 0) >= since), key=lambda x: -x[1].get("last", 0))
+            s.data["seen"] = dict(kept[:PRIVACY_SEEN_MAX])
+    if not promoted:
+        return False
+    with PrivacyLearned() as m:
+        for key, e in promoted:
+            m.data["learned"][key] = {"kind": e["kind"], "value": e["value"], "since": now, "seen": e["n"]}
+        m.changed = True
+    return True
+
+
+def privacy_unlearn(key):
+    """Not private after all: forgotten, and never learned again."""
+    with PrivacyLearned() as m:
+        e = m.data["learned"].pop(key, None)
+        ignored = m.data.get("ignored") or []
+        if key not in ignored:
+            m.data["ignored"] = ignored + [key]
+        m.changed = True
+    with PrivacySeen() as s:
+        s.changed = s.data["seen"].pop(key, None) is not None
+    return e is not None
+
+
+class PrivacyMap(LockedJson):
+    """The table of placeholders: kept between sessions so a value keeps
+    its placeholder."""
+    keys = ("tokens", "keys", "next", "people")
+    path = staticmethod(privacy_map_path)
 
     def token(self, spec):
         """spec: (kind, id, part, real value[, the person's full name])."""
@@ -7891,17 +8072,6 @@ class PrivacyMap:
             self.changed = True
         return tok
 
-    def __exit__(self, *exc):
-        try:
-            if self.changed:
-                path = privacy_map_path()
-                fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".privacy-map.")
-                with os.fdopen(fd, "w", encoding="utf-8") as f:
-                    json.dump(self.data, f, ensure_ascii=False)
-                os.replace(tmp, path)
-        finally:
-            os.close(self.lockfd)
-
 
 def mask_text(value, vocab=None):
     if not value:
@@ -7909,6 +8079,8 @@ def mask_text(value, vocab=None):
     if vocab is None:
         if not privacy_on():
             return value
+        vocab = privacy_vocab()
+    if vocab["learn"] and privacy_learn(value, vocab):
         vocab = privacy_vocab()
     spans = privacy_spans(value, vocab)
     if not spans:
@@ -13319,6 +13491,8 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
   privacy mask|unmask     stdin to stdout: private details as placeholders, or back
   privacy hook            Claude Code's PreToolUse/PostToolUse hook for the same
   privacy show|clear      the placeholders given so far (JSON), or forget them
+  privacy learned | unlearn KEY
+                          the strangers' names learned private (JSON), or one not private
   routine list|run ID [EVENT_JSON]|undone ID|on ID|off ID|remove ID|learn suggest|auto
                           the user's routines (the shell runs them on their cue)
   memory learn [--claude PATH] [--model M] [--delete] [EPISODE.json]
@@ -13490,6 +13664,13 @@ def main(argv):
         if sub == "show":
             print(json.dumps(privacy_tokens(), ensure_ascii=False))
             return 0
+        if sub == "learned":
+            learned = (read_json(privacy_learned_path()) or {}).get("learned") or {}
+            print(json.dumps(sorted(({"key": k, **e} for k, e in learned.items()), key=lambda e: -e.get("since", 0)),
+                             ensure_ascii=False))
+            return 0
+        if sub == "unlearn" and len(argv) == 3:
+            return 0 if privacy_unlearn(argv[2]) else 1
         if sub == "clear":
             # The numbers go on: a placeholder in an old chat never
             # becomes someone else.
