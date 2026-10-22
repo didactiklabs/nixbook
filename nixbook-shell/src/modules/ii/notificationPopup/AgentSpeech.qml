@@ -611,21 +611,72 @@ Scope {
                         }
                     }
 
+                    // The image or file to go with the answer, on the bubble's
+                    // chat: still there when the talk is expanded to the panel.
+                    AttachedFileIndicator {
+                        Layout.fillWidth: true
+                        highlight: false
+                        maxHeight: 72
+                        color: Qt.alpha(root.fg, 0.06)
+                        filePath: root.chat?.pendingFilePath ?? ""
+                        onRemove: root.chat?.attachFile("")
+                    }
+
+                    ChatAttacher {
+                        id: attacher
+                        visible: false // no space in the layout
+                        onAttached: path => {
+                            Initiative.prepare()
+                            root.chat?.attachFile(path)
+                            input.forceActiveFocus()
+                        }
+                    }
+
                     // The answer, typed: Enter sends (Shift+Enter: a new line),
                     // Escape puts it away. Not for a routine to say yes to.
+                    // Ctrl+V of an image, a file dropped or the clip button
+                    // attaches it (ChatAttacher, as in the side panel).
                     Rectangle {
                         Layout.fillWidth: true
                         visible: !(root.item?.accept) && Initiative.online
                         implicitHeight: Math.max(34, Math.min(input.implicitHeight, 96))
                         radius: root.square ? 0 : 17
-                        color: Qt.alpha(root.fg, input.activeFocus ? 0.10 : 0.06)
-                        border.color: input.activeFocus ? root.accent : "transparent"
+                        color: Qt.alpha(root.fg, input.activeFocus || drop.containsDrag ? 0.10 : 0.06)
+                        border.color: input.activeFocus || drop.containsDrag ? root.accent : "transparent"
                         border.width: 1
+                        DropArea {
+                            id: drop
+                            anchors.fill: parent
+                            keys: ["text/uri-list"]
+                            onDropped: event => {
+                                if (attacher.dropped(event)) event.acceptProposedAction()
+                            }
+                        }
                         RowLayout {
                             anchors.fill: parent
                             anchors.leftMargin: 4
                             anchors.rightMargin: 4
                             spacing: 2
+                            MaterialSymbol {
+                                Layout.alignment: Qt.AlignVCenter
+                                Layout.leftMargin: 6
+                                text: "attach_file"
+                                iconSize: Appearance.font.pixelSize.larger
+                                color: root.fg
+                                opacity: attachMouse.containsMouse ? 1 : 0.6
+                                MouseArea {
+                                    id: attachMouse
+                                    anchors.fill: parent
+                                    anchors.margins: -4
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: attacher.pick()
+                                }
+                                StyledToolTip {
+                                    text: Translation.tr("Attach an image")
+                                    extraVisibleCondition: attachMouse.containsMouse
+                                }
+                            }
                             ScrollView {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
@@ -652,6 +703,8 @@ Scope {
                                         if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(event.modifiers & Qt.ShiftModifier)) {
                                             event.accepted = true
                                             root.send()
+                                        } else if (event.key === Qt.Key_V && event.modifiers === Qt.ControlModifier && attacher.paste()) {
+                                            event.accepted = true
                                         } else if (event.key === Qt.Key_Escape) {
                                             event.accepted = true
                                             window.grab = false
@@ -849,6 +902,6 @@ Scope {
         input.text = ""
         // A new conversation, typed.
         if (/^\/(new|clear)$/i.test(text)) Initiative.fresh()
-        else Initiative.reply(text)
+        else Initiative.reply(text, root.chat?.pendingFilePath ?? "")
     }
 }
