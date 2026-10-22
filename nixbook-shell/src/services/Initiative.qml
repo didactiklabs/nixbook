@@ -34,8 +34,12 @@ import QtQuick
 Singleton {
     id: root
 
-    // policies.ai: 1 (online models) only; Claude is one.
-    readonly property bool enabled: (Config.options?.ai?.initiative?.enable ?? false) && (Config.options?.policies?.ai ?? 1) === 1
+    // policies.ai: 1 (online models), or 2 (local only): then only what is
+    // plain code (reactions' Open and Show in folder, routines' reports,
+    // watches, the brief) and what a local model reads (localModel in
+    // desktop-mcp.json: notifications, pairing); nothing to answer Claude in.
+    readonly property bool enabled: (Config.options?.ai?.initiative?.enable ?? false) && [1, 2].includes(Config.options?.policies?.ai ?? 1)
+    readonly property bool online: (Config.options?.policies?.ai ?? 1) === 1
     readonly property bool readNotifications: Config.options?.ai?.initiative?.readNotifications ?? false
     readonly property string statePath: `${Quickshell.env("XDG_STATE_HOME") || `${Quickshell.env("HOME")}/.local/state`}/nixbook-shell/initiative.json`
     // What waits for the user, newest last: {id, kind, text, chat, time, expires}
@@ -43,15 +47,49 @@ Singleton {
     property var pending: []
     // Its last decisions, newest last: {time, event, action, said, why}.
     property var log: []
+    // What agents watch for the user (the watch tool): checked every minute
+    // while there are some (one short process, none otherwise), at no token; what finished is said in the
+    // bubble (a notification while the initiative is off).
+    property var watches: []
+    Timer {
+        interval: 60000
+        running: root.watches.length > 0 && (Config.options?.policies?.ai ?? 1) !== 0
+        repeat: true
+        onTriggered: if (!watchCheck.running) {
+            watchCheck.command = ["nixbook-desktop-mcp", "watch", "check", ...(root.busy() ? ["--busy"] : [])]
+            watchCheck.running = true
+        }
+    }
+    Process {
+        id: watchCheck
+        stdout: StdioCollector {
+            id: watchOut
+            onStreamFinished: {
+                try {
+                    for (const item of JSON.parse(watchOut.text).said ?? []) {
+                        if (item.level === "notify") root._say(item)
+                        else {
+                            root.pending = [...root.pending.filter(p => p.id !== item.id), item]
+                            root._feed(item)
+                        }
+                    }
+                } catch (e) {
+                    // Nothing finished, or the server is missing.
+                }
+            }
+        }
+    }
     property real now: Date.now()
     readonly property var live: root.pending.filter(p => (p.expires ?? 0) * 1000 > root.now && p.id !== root.speaking?.id
         && !root.stack.some(q => q.id === p.id))
-    // Its other words while the bubble is taken, newest last: small bubbles
-    // under it, like notifications (AgentSpeech.qml). Only the bubble holds
-    // a conversation (and only it comes back from the bar or Mod+C); a small
-    // one is opened into it with a click. One that waits for an answer (a
-    // question, a Yes, buttons: `waits`) stays until it expires; the others
-    // go to the bar after a while (`unstack`).
+    // Its other words, newest last: small bubbles on the left, under its
+    // bubble, like notifications (AgentSpeech.qml): what it says while the
+    // bubble is taken, a word put aside unread, and its quiet words (a badge:
+    // `_feed`). Only the bubble holds a conversation (and only it comes back
+    // from the bar or Mod+C); a small one is opened into it with a click.
+    // One that waits for an answer (a question, a Yes, buttons: `waits`)
+    // stays until it expires; the others go to the bar once read or after
+    // 10 minutes (`unstack`).
     property var stack: []
     readonly property int stackMax: 3
     readonly property var stacked: root.stack.filter(p => (p.expires ?? 0) * 1000 > root.now && p.id !== root.speaking?.id)
@@ -78,6 +116,56 @@ Singleton {
     // they answer it (its Yes is there).
     property var _read: ({})
     readonly property var unread: root.live.filter(p => p.accept || !root._read[p.id])
+
+    // Quiet words on their way to the small bubbles (`_feed`): they come in
+    // at a pause (no input for a few seconds), never while the user is busy
+    // or deep in something (`inFocus`), then together at the next break.
+    property var _arrivals: []
+    property var _known: null
+    function _feed(item) {
+        if (!item?.id || item.id === root.speaking?.id) return
+        root._arrivals = [...root._arrivals.filter(p => p.id !== item.id), item]
+        root.now = Date.now()
+        root._flush()
+    }
+    function _flush() {
+        if (root._arrivals.length === 0 || !feedPause.isIdle || root.inFocus || root.busy()) return
+        const t = Date.now()
+        for (const it of root._arrivals)
+            if ((it.expires ?? 0) * 1000 > t && root.pending.some(p => p.id === it.id)) root._stackPush(it)
+        root._arrivals = []
+    }
+    IdleMonitor {
+        id: feedPause
+        enabled: root._arrivals.length > 0
+        timeout: 3
+        respectInhibitors: false
+        onIsIdleChanged: if (isIdle) root._flush()
+    }
+    // Deep in something (ai.initiative.holdInFocus): at it for 10 minutes,
+    // no break of a minute, on one or two apps (an editor and its terminal).
+    // Quiet words wait meanwhile; urgent ones still come.
+    readonly property bool holdInFocus: Config.options?.ai?.initiative?.holdInFocus ?? true
+    property real _focusSince: Date.now()
+    property var _focusApps: []
+    readonly property bool inFocus: root.holdInFocus && root.now - root._focusSince >= 10 * 60000
+    onInFocusChanged: if (!root.inFocus) root._flush()
+    function _focusApp(app) {
+        if (!app || root._focusApps.includes(app)) return
+        if (root._focusApps.length >= 2) root._focusSince = Date.now() // a third app: a break
+        root._focusApps = [...root._focusApps, app].slice(-2)
+    }
+    IdleMonitor {
+        id: breakIdle
+        enabled: root.enabled
+        timeout: 60
+        respectInhibitors: false
+        onIsIdleChanged: {
+            root._focusSince = Date.now()
+            root._focusApps = []
+            if (!isIdle) root.now = Date.now()
+        }
+    }
 
     property var _batch: []
     property real _awaySince: 0
@@ -112,9 +200,15 @@ Singleton {
         if (Ai.claudeCodePath.length > 0) event.claude = Ai.claudeCodePath
         const what = event.force !== true ? "" : event.event === "news" ? "news" : "say"
         if (what !== "") root._askNow(what)
+        // Reading the screen (pairing): the eye in the bar meanwhile.
+        const looks = event.event === "pair" && event.screen === true
+        if (looks) root.looking += 1
         considerer.createObject(root, { command: ["nixbook-desktop-mcp", "initiative", "consider", JSON.stringify(event)], running: true,
-                                        asked: what })
+                                        asked: what, looks: looks })
     }
+    // Looks at the screen now (pairing with the screen read): the bar shows
+    // an eye (DesktopControl.qml), so it never reads it unseen.
+    property int looking: 0
     // Say something now / Find news now waiting for their answer ("say",
     // "news"; Settings shows it), and what came of the last one (its
     // action: "notify", "badge" or "none").
@@ -132,8 +226,10 @@ Singleton {
             // Untitled: no title (the calendar's "(No title)" means nothing in the brief).
             .map(e => ({ title: e.summary === Translation.tr("(No title)") ? "" : e.summary, start: e.allDay ? "" : Qt.locale().toString(e.start, fmt), allDay: e.allDay,
                          inMinutes: e.allDay ? null : Math.round((e.start - t) / 60000) }))
+        // What they were on before the break (ai.initiative.recentContext).
+        const recent = RecentContext.enabled && awayMinutes >= 10 ? RecentContext.snapshot(root._awaySince || Date.now()) : []
         root.consider({ event: "back", away: Math.round(awayMinutes), events: events, tasksDue: Todo.dueTodayCount,
-                        open: WM.windowList.map(w => w.appId) })
+                        open: WM.windowList.map(w => w.appId), recent: recent })
     }
 
     // Curiosity (ai.initiative.curious): it watches what is in front (app and
@@ -158,20 +254,20 @@ Singleton {
     // Pairing (ai.initiative.pair): while the user stays on one thing, a look
     // at it every couple of minutes (nixbook-desktop-mcp decides whether a
     // look is worth it, at no token); with ai.initiative.pairReadScreen the
-    // screen's text too (OCR, redacted). A word it has waits in the bar and
-    // pops its bubble only once the user pauses (no input for a few
-    // seconds), never over what they type.
+    // screen's text too (OCR, redacted). A word it has comes as a small
+    // bubble once the user pauses (`_feed`), never over what they type.
     readonly property bool pair: Config.options?.ai?.initiative?.pair ?? false
     readonly property bool pairReadScreen: Config.options?.ai?.initiative?.pairReadScreen ?? false
-    property var _pairWaiting: null
     property real _pairSince: Date.now()
-    // Another window: the word waiting was about the one before (it stays
-    // in the bar).
+    // Another window: a pairing word on its way was about the one before
+    // (it stays in the bar).
     Connections {
         target: ToplevelManager
         function onActiveToplevelChanged() {
+            const app = ToplevelManager.activeToplevel?.appId ?? ""
             root._pairSince = Date.now()
-            if (root._pairWaiting && root._pairWaiting.app !== (ToplevelManager.activeToplevel?.appId ?? "")) root._pairWaiting = null
+            root._focusApp(app)
+            root._arrivals = root._arrivals.filter(p => p.kind !== "pair" || p.app === app)
         }
     }
     Timer {
@@ -185,24 +281,6 @@ Singleton {
             if (!top) return
             root.consider({ event: "pair", app: top.appId ?? "", title: top.title ?? "", screen: root.pairReadScreen })
         }
-    }
-    IdleMonitor {
-        id: pairPause
-        enabled: root._pairWaiting !== null
-        timeout: 4
-        respectInhibitors: false
-        onIsIdleChanged: if (isIdle) root._popPair()
-    }
-    function _popPair() {
-        const item = root._pairWaiting
-        if (!item) return
-        if ((item.expires ?? 0) * 1000 < Date.now() || !root.pending.some(p => p.id === item.id)) {
-            root._pairWaiting = null
-            return
-        }
-        if (root.typing || root.busy()) return
-        root._pairWaiting = null
-        root._say(item)
     }
     // Settings > Find news now: at once, whatever the day's already had.
     function newsNow() {
@@ -270,6 +348,13 @@ Singleton {
         if (root.parked && !root.speaking) root.resume()
         else if (!root.speaking) root.speaking = root._ask()
         root.focusWanted()
+    }
+    // A question asked in the bubble takes what the user just did along
+    // (RecentContext.text, shown there), unless they leave it out (its ×).
+    property bool skipContext: false
+    onSpeakingChanged: if (root.speaking?.kind === "ask" && !root.conversing) {
+        root.skipContext = false
+        RecentContext.refresh()
     }
     // Mod+C, the bar's robot button: called up, or put away when shown.
     function toggle() {
@@ -354,6 +439,10 @@ Singleton {
         if (!root.chat) return
         root._taken(item)
         if (attach) root.chat.attachFile(attach)
+        if (item?.kind === "ask" && !root.conversing && !root.skipContext && RecentContext.enabled && RecentContext.text.length > 0) {
+            root.chat.pendingContext = RecentContext.text
+            Quickshell.execDetached(["nixbook-desktop-mcp", "sent", "note", "context", RecentContext.text])
+        }
         root.chat.sendUserMessage(said)
     }
     // A routine it offered: "Yes, do it" turns it on.
@@ -457,8 +546,9 @@ Singleton {
         else if (before) {
             if (root.chat && root.chat.fromClaude && !root.chat.responding) root.chat.clearMessages()
             if (before.id) root.pending = [...root.pending.filter(p => p.id !== before.id), before]
-            // Still waiting for an answer: a small bubble, not out of sight.
-            if (root.waits(before)) root._stackPush(before)
+            // Still waiting for an answer, or not read: a small bubble, not
+            // out of sight.
+            if (root.waits(before) || !root._read[before.id]) root._stackPush(before)
         }
         const left = root.chat
         root.speaking = null
@@ -470,8 +560,6 @@ Singleton {
         root._aside()
         root.speaking = item
     }
-    // Something new to say: not over what the user is writing or talking
-    // about in the bubble (to the bar then).
     // Something new to say: the bubble when free, else a small bubble under
     // it (never over what the user is reading, writing or talking about).
     function _say(item) {
@@ -518,15 +606,17 @@ Singleton {
         Process {
             id: proc
             property string asked: ""
+            property bool looks: false
             stdout: StdioCollector { id: out }
             onExited: {
+                if (proc.looks) root.looking = Math.max(0, root.looking - 1)
                 let action = "none"
                 try {
                     const answer = JSON.parse(out.text)
                     if (answer.action === "notify") root._say(answer.item)
                     if (answer.action === "badge") {
                         root.pending = [...root.pending, answer.item]
-                        if (answer.item?.pop) root._pairWaiting = answer.item
+                        root._feed(answer.item)
                     }
                     if (answer.action === "notify" || answer.action === "badge") action = answer.action
                 } catch (e) {
@@ -550,8 +640,19 @@ Singleton {
         onLoaded: {
             try {
                 const data = JSON.parse(stateFile.text())
+                const known = root._known
                 root.pending = data.pending ?? []
                 root.log = data.log ?? []
+                root.watches = data.watches ?? []
+                // A quiet word written by something else (the memory pass, a
+                // routine's report, a watch): a small bubble too. Not those
+                // there when the shell started.
+                const ids = {}
+                for (const p of root.pending) ids[p.id] = true
+                root._known = ids
+                if (known !== null)
+                    for (const p of root.pending)
+                        if (!known[p.id] && p.level === "badge" && (p.time ?? 0) * 1000 > Date.now() - 300000) root._feed(p)
             } catch (e) {
                 root.pending = []
                 root.log = []
@@ -696,8 +797,11 @@ Singleton {
     }
     Timer {
         interval: 60000
-        running: root.live.length > 0 || root.stack.length > 0
+        running: root.live.length > 0 || root.stack.length > 0 || root._arrivals.length > 0
         repeat: true
-        onTriggered: root.now = Date.now()
+        onTriggered: {
+            root.now = Date.now()
+            root._flush() // the user no longer busy
+        }
     }
 }

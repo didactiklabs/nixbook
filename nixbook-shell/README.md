@@ -645,9 +645,29 @@ last), small bubbles under it (`AgentSpeech.qml`, `stacked`): a click opens
 one in the bubble (`open`: `unstack`, the bubble's conversation parked), its
 buttons act from there (`act(a, item)`, `accept(item)`, Reply opens it with
 the keys), × is `dismissStacked` (later). `waits` (a question, a Yes,
-buttons) keeps one until it expires, and the bubble's own word goes there
-when put aside unanswered; the others `unstack` to the bar after 30 s
-unhovered. Only the bubble holds a conversation. Left alone (25 s,
+buttons) keeps one until it expires; the bubble's own word goes there when
+put aside unanswered or unread (`_aside`); the others `unstack` to the bar
+a minute after read, else after 10 minutes unhovered. Quiet words (a badge:
+from `consider`, or new in initiative.json, written by the memory pass, a
+routine, a watch) go there too through `_feed`: held in `_arrivals` until
+a pause (`feedPause`, 3 s without input), not while `busy()`, nor while
+`inFocus` (`ai.initiative.holdInFocus`: 10 minutes on one or two apps with
+no minute idle, `breakIdle`), then together. Pairing words come that way
+(they no longer pop the bubble). Only the bubble holds a conversation.
+`RecentContext.qml` (`ai.initiative.recentContext`) keeps the last
+windows, failed commands (the zsh/bash hook in hm-module.nix writes
+`$XDG_RUNTIME_DIR/nixbook-shell/terminal-failed` only while
+`terminal-on` exists) and errors copied, in memory; `nixbook-desktop-mcp
+context` filters it (`pair_private`, `pair_redact`) for a question asked
+in the bubble (`AiChatSession.pendingContext`, shown there, × is
+`Initiative.skipContext`) and for `where_were_we` in the brief.
+`ai.initiative.terminal` / `clipboardErrors` turn those into `happened`
+events (`command_failed`, `copied_error`): an "Explain it" chip, no model
+call until clicked. Watches (the `watch` tool, `initiative.json`
+`watches`) are checked by `watch check` every minute while there are some;
+each small-model call is kept in `sent.jsonl` (`sent_note`, shown in
+Settings); with `policies.ai` 2, `ask_model` uses `localModel` (loopback
+only) for pairing and notifications. Left alone (25 s,
 15 s for a reaction, 90 s after an answer; never while hovered, typed in
 or answering) the bubble goes to the bar, a conversation with it
 (`Initiative.parked`): the bar's bubble brings it back, and so does

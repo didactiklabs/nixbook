@@ -432,7 +432,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 52 tools" 52 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 53 tools" 53 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -2005,8 +2005,8 @@ python3 "$mcp" initiative clear
 STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {say: true, guess: "fixing a build", text: "That error is a missing lib: add pkg-config. Want me to?",
   links: [{title: "NixOS wiki", url: "https://wiki.nixos.org/wiki/Rust"}, {title: "bad", url: "file:///etc/passwd"}]}}')
 out=$(pairing kitty "cargo build")
-expect_eq "pair: a word, quiet, popped on a pause, its link a button" "badge pair true 1 https://wiki.nixos.org/wiki/Rust" \
-  "$(jq -r '"\(.action) \(.item.kind) \(.item.pop) \(.item.actions | length) \(.item.actions[0].url)"' <<<"$out")"
+expect_eq "pair: a word, quiet, its link a button" "badge pair 1 https://wiki.nixos.org/wiki/Rust" \
+  "$(jq -r '"\(.action) \(.item.kind) \(.item.actions | length) \(.item.actions[0].url)"' <<<"$out")"
 expect_contains "pair: the thread has the link" "$(jq -r .item.chat <<<"$out")" "[NixOS wiki](https://wiki.nixos.org/wiki/Rust)"
 expect_eq "pair: then quiet a while" "pairing: said something lately" \
   "$(
@@ -2022,6 +2022,90 @@ redacted=$(cd "$root/scripts" && python3 -I -c 'import importlib.util as u; s=u.
 expect_eq "pair: secrets, addresses and queries redacted, errors kept" \
   "password [redacted] key sk-ant-api03-[secret] [email] [phone] https://a.io/p error at line 42" "$redacted"
 unset STUB_CLAUDE_ANSWER
+python3 "$mcp" initiative clear
+
+# What was sent to a model: each pass, as sent (redacted), newest first.
+sent=$(python3 "$mcp" sent show)
+expect_eq "sent: the pairing pass, its model, the web" "pairing haiku true" "$(jq -r '.[0] | "\(.purpose) \(.model) \(.web)"' <<<"$sent")"
+expect_contains "sent: what it was given, redacted" "$(jq -r '[.[].text] | join("\n")' <<<"$sent")" "nvim flake.nix — [email]"
+expect_eq "sent: only the user can read it" 600 "$(stat -c %a "$XDG_STATE_HOME/nixbook-shell/sent.jsonl")"
+python3 "$mcp" sent note context "- 10:00 Kitty: cargo build"
+expect_eq "sent: the context sent with a question" "context" "$(python3 "$mcp" sent show | jq -r '.[0].purpose')"
+python3 "$mcp" sent clear
+expect_eq "sent: forgotten" 0 "$(python3 "$mcp" sent show | jq length)"
+
+# What the user just did (recentContext): private apps and windows out,
+# secrets redacted, a failed command and an error copied, in a few lines.
+now=$(date +%s)
+ctx=$(python3 "$mcp" context "$(jq -nc --argjson n "$now" '{now: $n, events: [
+  {time: ($n - 600), kind: "window", app: "kitty", title: "nvim main.rs"},
+  {time: ($n - 400), kind: "window", app: "org.keepassxc.KeePassXC", title: "Passwords.kdbx"},
+  {time: ($n - 300), kind: "command", command: "curl -H \"token: abcdef123456\" https://x.io/a?k=1", cwd: (env.HOME + "/src"), exit: 22},
+  {time: ($n - 200), kind: "copied", text: "Error: cannot open bob@x.org"},
+  {time: ($n - 100), kind: "window", app: "firefox", title: "Private Browsing — Mozilla Firefox"}]}')")
+expect_contains "context: a window, with its time spent" "$ctx" "nvim main.rs (3 min)"
+expect_not_contains "context: never a password manager" "$ctx" "Passwords"
+expect_not_contains "context: never a private window" "$ctx" "Private Browsing"
+# shellcheck disable=SC2016 # backticks, quoted as they are
+expect_contains "context: a failed command, redacted, from ~" "$ctx" 'a command failed in ~/src: `curl -H "token [redacted] https://x.io/a` (exit 22)'
+expect_contains "context: an error copied, redacted" "$ctx" "copied: Error: cannot open [email]"
+out=$(consider "$(jq -nc --argjson n "$now" '{event: "back", away: 15, recent: [
+  {time: ($n - 1500), kind: "window", app: "kitty", title: "nixbook — nix build"},
+  {time: ($n - 1200), kind: "command", command: "nix build .#shell", cwd: "/tmp", exit: 1}]}')")
+python3 "$mcp" initiative show >/dev/null
+# shellcheck disable=SC2016 # backticks, quoted as they are
+expect_contains "back: where they were before a short break" "$(jq -r .item.text <<<"$out")" \
+  'Before the break you were on kitty: nixbook — nix build, and a command was failing in /tmp: `nix build .#shell` (exit 1).'
+expect_eq "back: said quietly" badge "$(jq -r .action <<<"$out")"
+
+# A command failing again, an error copied: "Explain it", nothing sent until clicked.
+echo '{"initiativeQuietHours":"0-0"}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+rm -f "$calls.claude-prompt"
+out=$(consider '{"event":"happened","what":"command_failed","name":"cargo test --token=s3cr3tvalue","path":"/home/u/src","exit":101}')
+expect_eq "terminal: offered at once" notify "$(jq -r .action <<<"$out")"
+# shellcheck disable=SC2016 # backticks, quoted as they are
+expect_contains "terminal: Explain it, the command redacted" "$(jq -r '.item.actions[0].text' <<<"$out")" 'in /home/u/src: `cargo test --token [redacted]` (exit 101)'
+expect_eq "terminal: no model call" no "$([ -e "$calls.claude-prompt" ] && echo yes || echo no)"
+out=$(consider "$(jq -nc '{event: "happened", what: "copied_error", name: "TypeError: x is undefined", text: "TypeError: x is undefined\n    at f (app.js:3:1)"}')")
+expect_contains "copied: Explain it, the error with it" "$(jq -r '.item.actions[0].text' <<<"$out")" "at f (app.js:3:1)"
+expect_eq "copied: an error too short is nothing" none "$(consider '{"event":"happened","what":"copied_error","name":"e","text":"error: x"}' | jq -r .action)"
+echo '{"policies": {"ai": 2}}' >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
+expect_eq "local only: nothing to ask Claude, no chip" none "$(consider '{"event":"happened","what":"command_failed","name":"make","path":"/tmp","exit":2}' | jq -r .action)"
+expect_eq "local only: a download still opens" "open reveal" \
+  "$(consider '{"event":"happened","what":"download","name":"notes.pdf","path":"/home/u/Downloads/notes.pdf"}' | jq -r '[.item.actions[].do] | join(" ")')"
+rm "$XDG_CONFIG_HOME/nixbook-shell/config.json" "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+python3 "$mcp" initiative clear
+
+# Watches: "tell me when it's done", plain code; said in the bubble, or a
+# notification while the initiative is off.
+sleep 300 &
+spid=$!
+expect_contains "watch: a process" "$(call watch "{\"pid\": $spid, \"label\": \"the build\"}")" "watching the build"
+expect_contains "watch: listed" "$(call watch '{}')" "the build (pid)"
+expect_contains "watch: nothing to wait for" "$(call watch '{"pid": 999999}')" "no process 999999"
+expect_eq "watch: still running, nothing said" 0 "$(python3 "$mcp" watch check | jq '.said | length')"
+kill "$spid"
+wait "$spid" 2>/dev/null || true
+echo '{"ai": {"initiative": {"enable": true}}}' >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
+out=$(python3 "$mcp" watch check)
+expect_eq "watch: done, said out loud" "notify the build: done." "$(jq -r '.said[0] | "\(.level) \(.text)"' <<<"$out")"
+expect_eq "watch: gone once said" 0 "$(python3 "$mcp" watch list | jq length)"
+mkdir -p "$tmp/dl" && echo part >"$tmp/dl/big.iso.part" && : >"$tmp/dl/big.iso"
+call watch "{\"path\": \"$tmp/dl/big.iso\"}" >/dev/null
+expect_eq "watch: a download still writing" 0 "$(python3 "$mcp" watch check | jq '.said | length')"
+rm "$tmp/dl/big.iso.part"
+python3 "$mcp" watch check >/dev/null
+out=$(python3 "$mcp" watch check)
+expect_eq "watch: a download done, open or show it" "big.iso is done. open" "$(jq -r '.said[0] | "\(.text) \(.actions[0].do)"' <<<"$out")"
+rm "$XDG_CONFIG_HOME/nixbook-shell/config.json"
+sleep 300 &
+spid=$!
+call watch "{\"pid\": $spid, \"label\": \"the copy\"}" >/dev/null
+kill "$spid"
+wait "$spid" 2>/dev/null || true
+reset_calls
+expect_eq "watch: initiative off, nothing for the bubble" 0 "$(python3 "$mcp" watch check | jq '.said | length')"
+expect_contains "watch: a notification instead" "$(cat "$calls")" "the copy: done."
 python3 "$mcp" initiative clear
 
 # Learned targets: a fake libatspi (PyGObject's `gi`) reading a window's

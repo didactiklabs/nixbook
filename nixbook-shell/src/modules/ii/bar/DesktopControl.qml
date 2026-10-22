@@ -26,6 +26,8 @@ import Quickshell
 //   hand while the user has taken it over). Click switches.
 // - Fixing nixbook (a wrench, services/SelfImprove.qml; only then): click
 //   opens it in Settings.
+// - Looking at the screen (an eye; only then): pairing reads the screen's
+//   text now (Initiative.looking), never unseen. Click stops screen reading.
 Item {
     id: root
     property bool vertical: Config.options.bar.vertical
@@ -130,7 +132,7 @@ Item {
     GridLayout {
         id: buttons
         anchors.centerIn: parent
-        columns: root.vertical ? 1 : 5
+        columns: root.vertical ? 1 : 6
         rowSpacing: 2
         columnSpacing: root.isMaterial ? 2 : 0
 
@@ -326,6 +328,39 @@ Item {
                     }
                     Hint {
                         text: Translation.tr("Click to see it in Settings")
+                    }
+                }
+            }
+        }
+
+        // Looking at the screen: pairing reads its text now.
+        AgentButton {
+            id: eyeButton
+            visible: Initiative.looking > 0
+            small: true
+            icon: "visibility"
+            filled: true
+            tone: Appearance.colors.colPrimary
+            chip: Appearance.colors.colPrimary
+            onChip: Appearance.colors.colOnPrimary
+            onClicked: Config.options.ai.initiative.pairReadScreen = false
+            StyledPopup {
+                hoverTarget: eyeButton
+                ColumnLayout {
+                    spacing: 4
+                    StyledPopupHeaderRow {
+                        icon: "visibility"
+                        label: Translation.tr("Reading the screen")
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        Layout.maximumWidth: 320
+                        wrapMode: Text.WordWrap
+                        text: Translation.tr("Pairing reads the screen's text on this computer, secrets and numbers removed before the small model sees it. Nothing is kept.")
+                        color: Appearance.colors.colOnSurfaceVariant
+                    }
+                    Hint {
+                        text: Translation.tr("Click to stop reading the screen (the window title only)")
                     }
                 }
             }
