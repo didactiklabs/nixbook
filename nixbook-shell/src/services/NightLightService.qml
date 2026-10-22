@@ -187,11 +187,23 @@ Singleton {
         }
     }
 
+    // The dialog's slider writes the temperature on every step of a drag, and
+    // each restart of wlsunset flashes the screen back to neutral: apply only
+    // once the value has settled.
+    Timer {
+        id: temperatureApplyTimer
+        interval: 400
+        onTriggered: {
+            if (!root.temperatureActive) return;
+            root.startWlsunset(root.colorTemperature);
+        }
+    }
+
     Connections {
         target: Config.options.light.night
         function onColorTemperatureChanged() {
             if (!root.temperatureActive) return;
-            root.startWlsunset(Config.options.light.night.colorTemperature);
+            temperatureApplyTimer.restart();
         }
     }
 }
