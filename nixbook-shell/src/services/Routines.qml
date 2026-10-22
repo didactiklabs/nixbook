@@ -274,6 +274,21 @@ Singleton {
                 } else if (root._running > 0) {
                     root.note("music", `${name}: paused while a routine ran (not counted as yours)`)
                 } else {
+                    // A skip pauses for a moment before the next track shows:
+                    // only a pause that lasts, on the same track, is the user's.
+                    watched.pausedTrack = watched.track
+                    watched.pauseSettle.restart()
+                }
+            }
+            property string pausedTrack: ""
+            property Timer pauseSettle: Timer {
+                interval: 3000
+                onTriggered: {
+                    const name = watched.modelData?.identity ?? ""
+                    if (watched.playing || watched.track !== watched.pausedTrack) {
+                        root.note("music", `${name}: track changed (not counted as a pause)`)
+                        return
+                    }
                     root._userPausedAt = Date.now()
                     root.note("music", `${name}: paused by you (holding music routines until you play music or come back)`)
                     root._undone(f => f.music)
