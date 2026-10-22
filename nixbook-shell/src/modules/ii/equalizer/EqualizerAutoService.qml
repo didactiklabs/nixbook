@@ -390,6 +390,32 @@ Singleton {
     property string agentSong: ""
     property string agentNote: ""
     property bool agentWarned: false
+    // The curve the agent made for each song (songKey -> { gains, preamp,
+    // note }), in agent-curves.json: a song heard again (repeat, a looped
+    // playlist) gets its curve back without another Claude Code run - a
+    // Node process, the desktop MCP server and a model call per track.
+    // The newest 500 songs are kept.
+    property var agentCurves: ({})
+    FileView {
+        id: agentCurvesFile
+        path: `${Directories.eqStateDir}/agent-curves.json`
+        blockLoading: true
+        printErrors: false
+        onLoaded: {
+            try { root.agentCurves = JSON.parse(agentCurvesFile.text()) ?? {} } catch (e) {}
+        }
+    }
+    function rememberAgentCurve(key, fields) {
+        const all = Object.assign({}, root.agentCurves)
+        const entry = Object.assign({}, all[key] ?? {}, fields)
+        delete all[key]
+        all[key] = entry // newest last
+        const keys = Object.keys(all)
+        for (let i = 0; i < keys.length - 500; i++)
+            delete all[keys[i]]
+        root.agentCurves = all
+        agentCurvesFile.setText(JSON.stringify(all))
+    }
     onAgentEnabledChanged: {
         if (root.agentEnabled && root.autoEnabled)
             root.toggleAuto()
@@ -432,6 +458,19 @@ Singleton {
         // Its agent is Claude: online models only.
         if (Config.options.policies.ai !== 1)
             return root.agentProblem(Translation.tr("AI is off, or local models only (Settings > Desktop agents > AI features)."))
+        const known = root.agentCurves[key]
+        if (known?.gains) {
+            // Tuned before: the same curve, no agent run. One still tuning
+            // the previous song mustn't land its curve on this one.
+            agentProc.running = false
+            root.agentRunning = false
+            root.agentSong = key
+            root.songCurveFor = key
+            root.currentPresetName = "Song"
+            root.eq("song_curve", known.gains, String(known.preamp ?? 0))
+            root.agentNote = known.note ?? ""
+            return
+        }
         if (Ai.claudeCodePath === "")
             return root.agentProblem(Translation.tr("Claude Code isn't installed or signed in: the agent mode needs it."))
         root.agentSong = key
@@ -450,6 +489,7 @@ Singleton {
         // Not sent as it is if masking fails.
         if (!Config.options.ai.privacy.mask) {
             agentProc.prompt = prompt
+            agentProc.song = key
             agentProc.running = true
             return
         }
@@ -460,12 +500,16 @@ Singleton {
                 return root.agentProblem(Translation.tr("The private details couldn't be hidden: nothing was sent."))
             }
             agentProc.prompt = masked
+            agentProc.song = key
             agentProc.running = true
         })
     }
     Process {
         id: agentProc
         property string prompt: ""
+        // The song this run tunes: a run stopped for another song (one with
+        // a remembered curve) has nothing to report.
+        property string song: ""
         command: ["bash", "-c", `workdir="\${XDG_DATA_HOME:-$HOME/.local/share}/nixbook-shell/assistant"
 mkdir -p "$workdir" && cd "$workdir" || exit 1
 export ENABLE_TOOL_SEARCH=false
@@ -490,10 +534,12 @@ exec "$1" -p "$2" --output-format text --strict-mcp-config --setting-sources pro
             // Killed for a newer song (already running) or agent mode
             // turned off: nothing to report.
             root.agentRunning = agentProc.running
-            if (agentProc.running || !root.agentEnabled) return
+            if (agentProc.running || !root.agentEnabled || agentProc.song !== root.agentSong) return
             const answer = agentOut.text.trim().split("\n").filter(l => l.trim() !== "").pop() ?? ""
             if (code === 0 && answer !== "") {
                 root.agentNote = Ai.unmaskPrivate(answer)
+                if (root.agentCurves[root.agentSong])
+                    root.rememberAgentCurve(root.agentSong, { note: root.agentNote })
             } else if (code !== 0) {
                 // Claude Code's own warnings (stdin, updates) aren't why it failed.
                 const why = agentErr.text.split("\n").filter(l => l.trim() !== "" && !/^\s*warning\b/i.test(l)).pop() ?? ""
@@ -649,7 +695,11 @@ exec "$1" -p "$2" --output-format text --strict-mcp-config --setting-sources pro
                 return `error: preamp goes from -${root.gainRange} to ${root.gainRange} dB`;
             root.songCurveFor = root.songKey(root.player);
             root.currentPresetName = "Song";
-            root.eq("song_curve", values.map(v => String(Math.round(v * 10) / 10)).join(","), String(Math.round(preamp * 10) / 10));
+            const csv = values.map(v => String(Math.round(v * 10) / 10)).join(",");
+            root.eq("song_curve", csv, String(Math.round(preamp * 10) / 10));
+            // The agent's own curve for this song: kept for the next time.
+            if (root.agentRunning && root.agentSong === root.songCurveFor)
+                root.rememberAgentCurve(root.agentSong, { gains: csv, preamp: Math.round(preamp * 10) / 10 });
             return `ok: for "${root.player.trackTitle ?? ""}": ${root.bandFrequencies.map((hz, i) => `${hz < 1000 ? hz : hz / 1000 + "k"}:${values[i]}`).join(" ")}, preamp ${preamp}`;
         }
         // Master gain (dB, -12..12), over the curve.
