@@ -150,12 +150,20 @@ Singleton {
     }
 
     // Instances started detached by older builds of the shell would fight ours
-    // for the gamma ramps: clear them once, before the first apply.
+    // for the gamma ramps: clear them once, before the first apply. Only those
+    // on this shell's own display (same XDG_RUNTIME_DIR and WAYLAND_DISPLAY):
+    // a plain `pkill -u $USER wlsunset` let any other instance of the shell
+    // (the headless one tests/shell-loads.sh starts) kill the session's, and
+    // the night light went off.
     property bool staleCleared: false
     Process {
         id: staleCleanup
         running: true
-        command: ["pkill", "-x", "-u", Quickshell.env("USER") ?? "", "wlsunset"]
+        command: ["bash", "-c", `for p in $(pgrep -x -u "$(id -u)" wlsunset); do
+  grep -qzx "XDG_RUNTIME_DIR=$1" "/proc/$p/environ" 2>/dev/null \
+    && grep -qzx "WAYLAND_DISPLAY=$2" "/proc/$p/environ" 2>/dev/null \
+    && kill "$p"
+done; true`, "_", Quickshell.env("XDG_RUNTIME_DIR") ?? "", Quickshell.env("WAYLAND_DISPLAY") ?? ""]
         onExited: {
             root.staleCleared = true;
             root.reEvaluate();
