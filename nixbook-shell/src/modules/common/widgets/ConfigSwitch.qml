@@ -43,6 +43,9 @@ RippleButton {
         StyledText {
             id: labelWidget
             Layout.fillWidth: true
+            // A long label wraps rather than running past the section's
+            // clipped edge.
+            wrapMode: Text.WordWrap
             text: root.text
             // The shell's font (the theme's: Nunito in Chiikawa…), not the
             // Controls default family `root.font` carries.
