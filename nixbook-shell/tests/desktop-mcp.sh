@@ -3433,6 +3433,32 @@ pmask "[Signal] Inès Garnier: salut" >/dev/null
 expect_eq "privacy learn: off, nothing counted" 0 "$(seen_n "Person:ines garnier")"
 jq '.ai.privacy.learn = true' "$XDG_CONFIG_HOME/nixbook-shell/config.json" >"$tmp/c.json" && mv "$tmp/c.json" "$XDG_CONFIG_HOME/nixbook-shell/config.json"
 
+# The shell's helper: quick commands without a process each, the privacy
+# hooks over HTTP.
+mkfifo "$tmp/helper.in" "$tmp/helper.out"
+python3 "$mcp" helper <"$tmp/helper.in" >"$tmp/helper.out" 2>/dev/null &
+helper_pid=$!
+exec 5>"$tmp/helper.in" 6<"$tmp/helper.out"
+read -r hello <&6
+hook_url=$(jq -r .hook <<<"$hello")
+hook_token=$(jq -r .token <<<"$hello")
+expect_contains "helper: says where its hook endpoint is" "$hook_url" "http://127.0.0.1:"
+helper_ask() { printf '%s\n' "$1" >&5 && IFS= read -r line <&6 && printf '%s' "$line"; }
+out=$(helper_ask '{"id":1,"argv":["privacy","mask"],"stdin":"Élodie Martin wrote"}')
+expect_eq "helper: a command's answer, by id" '{"id":1,"code":0,"stdout":"⟦Person 1⟧ wrote"}' "$(jq -c . <<<"$out")"
+expect_eq "helper: only its quick commands" 127 "$(helper_ask '{"id":2,"argv":["routine","run","x"]}' | jq .code)"
+expect_eq "helper: a command's error, the helper still up" 2 "$(helper_ask '{"id":3,"argv":["privacy"]}' | jq .code)"
+expect_eq "helper: and the next answered" 0 "$(helper_ask '{"id":4,"argv":["privacy","show"]}' | jq .code)"
+hook_post() { curl -s -o "$tmp/hook.out" -w '%{http_code}' -X POST "$hook_url" -H "Authorization: Bearer $1" -d "$2"; }
+expect_eq "helper hook: a wrong token refused" 403 "$(hook_post nope '{}')"
+expect_eq "helper hook: masks a tool's output" 200 \
+  "$(hook_post "$hook_token" '{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_response":{"stdout":"Élodie Martin"}}')"
+expect_eq "helper hook: its answer" '{"stdout":"⟦Person 1⟧"}' "$(jq -c .hookSpecificOutput.updatedToolOutput "$tmp/hook.out")"
+hook_post "$hook_token" '{"hook_event_name":"PreToolUse","tool_name":"x","tool_input":{"a":"b"}}' >/dev/null
+expect_eq "helper hook: nothing to change, an empty answer" '{}' "$(cat "$tmp/hook.out")"
+exec 5>&- 6<&-
+wait "$helper_pid" 2>/dev/null || true
+
 # Off: nothing masked.
 jq '.ai.privacy.mask = false' "$XDG_CONFIG_HOME/nixbook-shell/config.json" >"$tmp/c.json" && mv "$tmp/c.json" "$XDG_CONFIG_HOME/nixbook-shell/config.json"
 expect_eq "privacy: off, nothing masked" "Élodie Martin" "$(pmask "Élodie Martin")"

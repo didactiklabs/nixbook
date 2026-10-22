@@ -21,7 +21,7 @@ Scope {
     }
 
     function normalizeWindow(w) {
-        return {
+        return Object.assign({
             id: String(w.id),
             address: String(w.id),
             title: w.title ?? "",
@@ -31,22 +31,29 @@ Scope {
             focused: w.is_focused ?? false,
             // When it last had the focus (niri's focus_timestamp), in ms.
             focusedAt: (w.focus_timestamp?.secs ?? 0) * 1000 + Math.floor((w.focus_timestamp?.nanos ?? 0) / 1e6),
-            width: w.layout?.window_size?.[0] ?? 0,
-            height: w.layout?.window_size?.[1] ?? 0,
-            floating: w.is_floating ?? false,
+            floating: w.is_floating ?? false
+        }, root.layoutFields(w.layout));
+    }
+
+    // A window's geometry, from niri's layout. Updated in place on layout
+    // events (see WindowLayoutsChanged).
+    function layoutFields(layout) {
+        return {
+            width: layout?.window_size?.[0] ?? 0,
+            height: layout?.window_size?.[1] ?? 0,
             // Floating windows only: the tile's rect in output-logical
             // coordinates (niri gives no position for tiled windows).
-            tileX: w.layout?.tile_pos_in_workspace_view?.[0] ?? null,
-            tileY: w.layout?.tile_pos_in_workspace_view?.[1] ?? null,
-            tileWidth: w.layout?.tile_size?.[0] ?? 0,
-            tileHeight: w.layout?.tile_size?.[1] ?? 0,
+            tileX: layout?.tile_pos_in_workspace_view?.[0] ?? null,
+            tileY: layout?.tile_pos_in_workspace_view?.[1] ?? null,
+            tileWidth: layout?.tile_size?.[0] ?? 0,
+            tileHeight: layout?.tile_size?.[1] ?? 0,
             // Tiled windows only: 1-based column and tile index in the
             // scrolling layout.
-            column: w.layout?.pos_in_scrolling_layout?.[0] ?? null,
-            tileIndex: w.layout?.pos_in_scrolling_layout?.[1] ?? null,
+            column: layout?.pos_in_scrolling_layout?.[0] ?? null,
+            tileIndex: layout?.pos_in_scrolling_layout?.[1] ?? null,
             // The window's visual geometry within its tile (borders).
-            windowOffsetX: w.layout?.window_offset_in_tile?.[0] ?? 0,
-            windowOffsetY: w.layout?.window_offset_in_tile?.[1] ?? 0
+            windowOffsetX: layout?.window_offset_in_tile?.[0] ?? 0,
+            windowOffsetY: layout?.window_offset_in_tile?.[1] ?? 0
         };
     }
 
@@ -107,10 +114,14 @@ Scope {
     // niri reloads its config.
     property var _windows: ({})      // id -> raw niri window
     property var _workspaces: ({})   // id -> raw niri workspace
+    property var _published: ({})    // id -> its object in windowList
     property bool _dirty: false
-    // Layout-only events (every frame of a scroll/resize/open animation)
-    // leave the workspace list as it is: its consumers don't re-run.
-    property bool _workspacesDirty: false
+    // Layout-only events come every frame of a scroll, resize or open
+    // animation: windowList stays the same list (its many consumers don't
+    // re-run), each window's geometry updated in place. What follows a
+    // floating window's position (a desktop widget it covers) reads this,
+    // bumped only when a floating window moved or resized.
+    property int floatingLayoutRevision: 0
 
     function updateAll() {
         getWindows.running = true;
@@ -118,9 +129,8 @@ Scope {
         getOutputs.running = true;
     }
 
-    function publish(workspacesToo = true) {
+    function publish() {
         root._dirty = true;
-        if (workspacesToo) root._workspacesDirty = true;
         publishTimer.restart();
     }
 
@@ -135,17 +145,18 @@ Scope {
     function flush() {
         if (!root._dirty) return;
         root._dirty = false;
-        if (root._workspacesDirty) {
-            root._workspacesDirty = false;
-            const wsList = Object.values(root._workspaces).sort((a, b) =>
-                (a.output ?? "").localeCompare(b.output ?? "") || (a.idx ?? 0) - (b.idx ?? 0));
-            const byId = {};
-            for (const ws of wsList) byId[ws.id] = ws;
-            root.workspaces = wsList;
-            root.workspaceById = byId;
-            root.activeWorkspace = wsList.find(ws => ws.is_focused) ?? null;
-        }
-        root.windowList = Object.values(root._windows).map(root.normalizeWindow);
+        const wsList = Object.values(root._workspaces).sort((a, b) =>
+            (a.output ?? "").localeCompare(b.output ?? "") || (a.idx ?? 0) - (b.idx ?? 0));
+        const byId = {};
+        for (const ws of wsList) byId[ws.id] = ws;
+        root.workspaces = wsList;
+        root.workspaceById = byId;
+        root.activeWorkspace = wsList.find(ws => ws.is_focused) ?? null;
+        const list = Object.values(root._windows).map(root.normalizeWindow);
+        const published = {};
+        for (const w of list) published[w.id] = w;
+        root._published = published;
+        root.windowList = list;
         root.updateFocusedMonitor();
     }
 
@@ -222,13 +233,20 @@ Scope {
             if (w) w.is_urgent = d.urgent;
             break;
         }
-        case "WindowLayoutsChanged":
+        case "WindowLayoutsChanged": {
+            let floating = false;
             for (const [id, layout] of (d.changes ?? [])) {
                 const w = root._windows[id];
-                if (w) w.layout = layout;
+                if (!w) continue;
+                w.layout = layout;
+                // Not published yet (just opened): the coming publish has it.
+                const shown = root._published[String(id)];
+                if (shown) Object.assign(shown, root.layoutFields(layout));
+                if (w.is_floating) floating = true;
             }
-            root.publish(false);
+            if (floating) root.floatingLayoutRevision++;
             return;
+        }
         case "ConfigLoaded":
             getOutputs.running = true;
             return;

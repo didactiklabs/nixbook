@@ -40,7 +40,8 @@ pkgs.writeShellScriptBin "nixbook-keep" ''
       ]
     )
   }:$PATH"
-  exec ${pythonEnv}/bin/python3 ${./scripts/keep-sync.py} "$@"
+  # -P: not /nix/store (the script's directory) on sys.path: see package.nix.
+  exec ${pythonEnv}/bin/python3 -P ${./scripts/keep-sync.py} "$@"
 ''
 # The Python environment, for the tests (they import gkeepapi).
 // {

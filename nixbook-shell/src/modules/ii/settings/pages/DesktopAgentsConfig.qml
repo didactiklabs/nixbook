@@ -193,7 +193,7 @@ ContentPage {
                             materialIcon: "close"
                             mainText: modelData.value
                             onClicked: {
-                                Quickshell.execDetached(["nixbook-desktop-mcp", "privacy", "unlearn", modelData.key])
+                                DesktopHelper.run(["privacy", "unlearn", modelData.key])
                                 learnedList.entries = learnedList.entries.filter(e => e.key !== modelData.key)
                             }
                         }
@@ -212,7 +212,7 @@ ContentPage {
                 SmallButton {
                     materialIcon: "delete"
                     mainText: Translation.tr("Forget the placeholders")
-                    onClicked: Quickshell.execDetached(["nixbook-desktop-mcp", "privacy", "clear"])
+                    onClicked: DesktopHelper.run(["privacy", "clear"])
                 }
             }
         }
@@ -362,7 +362,7 @@ ContentPage {
                 SmallButton {
                     materialIcon: "restart_alt"
                     mainText: Translation.tr("Undo every \"Don't tell me this\"")
-                    onClicked: Quickshell.execDetached(["nixbook-desktop-mcp", "initiative", "unmute"])
+                    onClicked: DesktopHelper.run(["initiative", "unmute"])
                 }
             }
             // Say something now / Find news now: working, then what came of it.
@@ -411,7 +411,7 @@ ContentPage {
                         materialIcon: "delete"
                         mainText: Translation.tr("Forget it")
                         onClicked: {
-                            Quickshell.execDetached(["nixbook-desktop-mcp", "sent", "clear"])
+                            DesktopHelper.run(["sent", "clear"])
                             sentList.entries = []
                         }
                     }

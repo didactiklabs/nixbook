@@ -69,12 +69,12 @@ Singleton {
     function load() {}
 
     function pause() {
-        Quickshell.execDetached(["nixbook-desktop-mcp", "pause"]);
+        DesktopHelper.run(["pause"]);
         root.paused = true;
     }
 
     function resume() {
-        Quickshell.execDetached(["nixbook-desktop-mcp", "resume"]);
+        DesktopHelper.run(["resume"]);
         root.paused = false;
     }
 
@@ -84,7 +84,7 @@ Singleton {
     }
 
     function toggleNotify() {
-        Quickshell.execDetached(["nixbook-desktop-mcp", "notify", root.notifyOnControl ? "off" : "on"]);
+        DesktopHelper.run(["notify", root.notifyOnControl ? "off" : "on"]);
         root.notifyOnControl = !root.notifyOnControl;
     }
 

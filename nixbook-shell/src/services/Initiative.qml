@@ -49,11 +49,13 @@ Singleton {
     property var log: []
     // What agents watch for the user (the watch tool): checked every minute
     // while there are some (one short process, none otherwise), at no token; what finished is said in the
-    // bubble (a notification while the initiative is off).
+    // bubble (a notification while the initiative is off). Not while the
+    // screens are off: nobody to tell, checked again as they come back.
     property var watches: []
     Timer {
         interval: 60000
-        running: root.watches.length > 0 && (Config.options?.policies?.ai ?? 1) !== 0
+        running: root.watches.length > 0 && (Config.options?.policies?.ai ?? 1) !== 0 && !Idle.screensOff
+        triggeredOnStart: true
         repeat: true
         onTriggered: if (!watchCheck.running) {
             watchCheck.command = ["nixbook-desktop-mcp", "watch", "check", ...(root.busy() ? ["--busy"] : [])]
@@ -455,7 +457,7 @@ Singleton {
         if (attach) root.chat.attachFile(attach)
         if (root.isAsk(item) && !root.conversing && !root.skipContext && RecentContext.enabled && RecentContext.text.length > 0) {
             root.chat.pendingContext = RecentContext.text
-            Quickshell.execDetached(["nixbook-desktop-mcp", "sent", "note", "context", RecentContext.text])
+            DesktopHelper.run(["sent", "note", "context", RecentContext.text])
         }
         root.chat.sendUserMessage(said)
     }
@@ -521,7 +523,7 @@ Singleton {
             GlobalStates.settingsPage = String(a.page ?? "")
             GlobalStates.settingsOpen = true
         } else if (a.do === "forget") {
-            if (/^[0-9a-f]{1,16}$/.test(a.note ?? "")) Quickshell.execDetached(["nixbook-desktop-mcp", "memory", "forget", a.note])
+            if (/^[0-9a-f]{1,16}$/.test(a.note ?? "")) DesktopHelper.run(["memory", "forget", a.note])
         } else if (a.do === "log") {
             const unit = String(a.unit ?? "")
             if (!/^[\w@:.\\-]{1,200}$/.test(unit)) return true
@@ -648,13 +650,13 @@ Singleton {
     property var _opened: null
     function engaged() {
         if (root._opened && Date.now() - root._opened.time < 1800000)
-            Quickshell.execDetached(["nixbook-desktop-mcp", "initiative", "answer", root._opened.id, "engaged"])
+            DesktopHelper.run(["initiative", "answer", root._opened.id, "engaged"])
     }
     function answer(id, outcome) {
         if (!/^[0-9a-f]{1,16}$/.test(id ?? "")) return
         root.pending = root.pending.filter(p => p.id !== id)
         root.stack = root.stack.filter(p => p.id !== id)
-        Quickshell.execDetached(["nixbook-desktop-mcp", "initiative", "answer", id, outcome])
+        DesktopHelper.run(["initiative", "answer", id, outcome])
     }
 
     function _urgency(n) {
@@ -744,7 +746,7 @@ Singleton {
             const seen = root._seen
             root._seen = {}
             if (root.enabled)
-                Quickshell.execDetached(["nixbook-desktop-mcp", "initiative", "notices", JSON.stringify(seen)])
+                DesktopHelper.run(["initiative", "notices", JSON.stringify(seen)])
         }
     }
 

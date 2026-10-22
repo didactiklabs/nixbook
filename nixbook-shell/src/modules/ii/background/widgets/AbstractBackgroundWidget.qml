@@ -49,6 +49,7 @@ AbstractWidget {
         if (!niri || root.screenName === "") return true;
         const ws = niri.activeWorkspaceForMonitor(root.screenName);
         if (!ws) return true;
+        niri.floatingLayoutRevision; // a floating window moved (geometry updated in place)
         // The widget's rect in output-logical coordinates (the widget layer
         // fills the output at scale 1).
         const vx = root.x, vy = root.y, vw = root.width, vh = root.height, m = root.blurReach;

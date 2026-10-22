@@ -108,7 +108,7 @@ Singleton {
             root._silentFired = []
         }
         if (root.enabled && root.learn !== "off" && root.cueEvents.includes(ev.event))
-            Quickshell.execDetached(["nixbook-desktop-mcp", "habits", "cue", ev.event, ev.name ?? ""])
+            DesktopHelper.run(["habits", "cue", ev.event, ev.name ?? ""])
         if (!root.enabled || root.active.length === 0) return
         const music = ev.event.startsWith("music") || ev.event === "track_changed"
         // Music the user just stopped stays stopped.
@@ -169,7 +169,7 @@ Singleton {
                 const rest = Object.assign({}, root._fired)
                 delete rest[id]
                 root._fired = rest
-                Quickshell.execDetached(["nixbook-desktop-mcp", "routine", "undone", id])
+                DesktopHelper.run(["routine", "undone", id])
             }
         }
     }
