@@ -555,11 +555,6 @@ in
             matches = [ { app-id = "^thunderbird$"; } ];
             opacity = 1.0;
           }
-          {
-            # YouTube Music: th-ch/youtube-music natively, th_ch/youtube_music under XWayland.
-            matches = [ { app-id = "^com\\.github\\.th[-_]ch\\.youtube[-_]music$"; } ];
-            opacity = 1.0;
-          }
         ];
 
         animations = personaAnimations.animations // {
