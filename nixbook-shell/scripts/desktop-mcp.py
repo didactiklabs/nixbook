@@ -7616,6 +7616,446 @@ def learn_answer(out):
     return answer
 
 
+# --------------------------------------------------------------------------
+# Privacy mask
+# --------------------------------------------------------------------------
+
+# ai.privacy.mask (on by default): the private details a model would read
+# (tool replies, the small model's prompts, the side panel's messages) are
+# swapped for placeholders, ⟦Person 2⟧, the same one for a value every time,
+# and swapped back here in what a model sends to tools and in its answers.
+# Private means known to be: the user's own name and accounts' emails, their
+# contacts' names, emails, phones and addresses (nixbook-accounts' copy),
+# the terms they add (ai.privacy.terms), and card numbers and IBANs (their
+# checksums checked). Public names, sites and addresses stay as they are, so
+# answers lose nothing but who the private ones are. Plain code, no model:
+# one compiled regex, well under a millisecond a reply. ai.privacy.screenshots
+# (off by default: about a second of OCR a full screenshot) boxes them in
+# screenshots too. The table is privacy-map.json, 0600, never sent.
+PRIVACY_TOKEN = re.compile(r"⟦([A-Z][A-Za-z]*)(?: (\d+))?(?: (first|nick))?⟧")
+PRIVACY_MIN = 3
+# A given name that is also a common word ("May I…"): masked with the full
+# name only.
+PRIVACY_COMMON = set("will may mark grace rose bill art june pat hope joy faith summer april august sky "
+                     "rich frank max ray guy page rob sue dawn jack bob ben".split())
+PRIVACY_PROMPT = (
+    "Text in ⟦…⟧ (⟦Person 2⟧, ⟦Email 1⟧, ⟦User first⟧) is a private detail the user's computer hid "
+    "from you. Use the placeholder exactly as it is, in tool arguments and in your answers: it becomes "
+    "the real value on the user's side. ⟦User⟧ is the user; ⟦Person N first⟧ is Person N's first name.")
+PHONE_RE = re.compile(r"(?<![\w+])\+?\d[\d ().-]{5,}\d(?![\w])")
+CARD_RE = re.compile(r"(?<![\d-])(?:\d[ -]?){14,15}\d(?![\d-])")
+IBAN_RE = re.compile(r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?\b")
+
+
+def privacy_on():
+    return shell_setting("ai.privacy.mask", True) is True
+
+
+def privacy_screenshots():
+    return privacy_on() and shell_setting("ai.privacy.screenshots", False) is True
+
+
+def privacy_map_path():
+    return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-shell", "privacy-map.json")
+
+
+def privacy_files():
+    state = os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-accounts")
+    return [os.path.join(xdg("XDG_CONFIG_HOME", "~/.config"), "nixbook-shell", "config.json"),
+            os.path.join(state, "contacts.json"), os.path.join(state, "accounts.json")]
+
+
+def read_json(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def contacts_in(node, out):
+    """Every contact-shaped object in nixbook-accounts' copy, however it is
+    nested (accounts' sections)."""
+    if isinstance(node, dict):
+        if isinstance(node.get("name"), str) and ("emails" in node or "phones" in node or "givenName" in node):
+            out.append(node)
+        else:
+            for v in node.values():
+                contacts_in(v, out)
+    elif isinstance(node, list):
+        for v in node:
+            contacts_in(v, out)
+    return out
+
+
+def emails_in(node, out):
+    """The accounts' emails (an account's name may be one)."""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if isinstance(v, str) and k in ("email", "name") and "@" in v:
+                out.append(v)
+            else:
+                emails_in(v, out)
+    elif isinstance(node, list):
+        for v in node:
+            emails_in(v, out)
+    return out
+
+
+def privacy_people():
+    """[(person id, full name, given, family, nickname, emails, phones,
+    addresses)]: the user first."""
+    import pwd
+    try:
+        gecos = pwd.getpwuid(os.getuid()).pw_gecos.split(",")[0].strip()
+    except KeyError:
+        gecos = ""
+    config, contacts, accounts = (read_json(p) for p in privacy_files())
+    shown = ((config or {}).get("profile") or {}).get("displayName") or ""
+    mails = list(dict.fromkeys(emails_in(accounts, [])))
+    people = []
+    for full in dict.fromkeys(n for n in (gecos, shown) if n):
+        parts = full.split()
+        people.append(("user", full, parts[0] if len(parts) > 1 else "", parts[-1] if len(parts) > 1 else "",
+                       "", mails, [], []))
+    if not people and mails:
+        people.append(("user", "", "", "", "", mails, [], []))
+    for c in contacts_in(contacts, []):
+        vals = lambda k: [t.get("value") for t in c.get(k) or [] if isinstance(t, dict) and isinstance(t.get("value"), str)]
+        people.append((str(c.get("id") or fold(c["name"])), c["name"], c.get("givenName") or "",
+                       c.get("familyName") or "", c.get("nickname") or "", vals("emails"), vals("phones"),
+                       [*vals("addresses"), *(a.get("street") for a in c.get("addresses") or []
+                                              if isinstance(a, dict) and isinstance(a.get("street"), str))]))
+    terms = (config or {}).get("ai", {}).get("privacy", {}).get("terms") if isinstance(config, dict) else None
+    return people, [t for t in terms or [] if isinstance(t, str)]
+
+
+def trie_regex(values):
+    """One regex for many values, their common prefixes factored: fast on
+    thousands of contacts. A space matches any run of spaces."""
+    trie = {}
+    for v in values:
+        node = trie
+        for ch in v:
+            node = node.setdefault(ch, {})
+        node[""] = {}
+
+    def walk(node):
+        alts = [(r"\s+" if ch == " " else re.escape(ch)) + walk(sub) for ch, sub in sorted(node.items()) if ch]
+        if not alts:
+            return ""
+        body = alts[0] if len(alts) == 1 else "(?:" + "|".join(alts) + ")"
+        return f"(?:{body})?" if "" in node else body
+    return walk(trie)
+
+
+_PRIVACY = {"key": None}
+
+
+def privacy_vocab():
+    """{"ci": regex, "cs": regex, "keys": {normalized value: (kind, person,
+    part, value)}, "phones": {last 9 digits: phone}}, built again when the
+    contacts, accounts or settings change."""
+    key = tuple(os.path.getmtime(p) if os.path.exists(p) else 0 for p in privacy_files())
+    if _PRIVACY["key"] == key:
+        return _PRIVACY
+    people, terms = privacy_people()
+    ci, cs, phones = {}, {}, {}
+    given = {}
+    for pid, full, first, last, nick, *_ in people:
+        for part in (first, nick):
+            if part:
+                given.setdefault(part, set()).add(pid)
+    for pid, full, first, last, nick, emails, numbers, addresses in people:
+        if len(full) >= PRIVACY_MIN:
+            ci.setdefault(" ".join(full.lower().split()), ("Person", pid, None, " ".join(full.split())))
+        # Not a family name alone: rarely who someone is, often a public
+        # name too (Martin Luther King).
+        for part, name in (("first", first), ("nick", nick)):
+            if len(name) < PRIVACY_MIN or name.lower() in PRIVACY_COMMON or " ".join(name.split()) in cs:
+                continue
+            # A name several people share: a name of its own, nobody's in particular.
+            shared = len(given.get(name, ())) > 1
+            cs[" ".join(name.split())] = ("Name", name, None, name) if shared else ("Person", pid, part, name,
+                                                                                    " ".join(full.split()))
+        for e in emails:
+            if "@" in e:
+                ci.setdefault(e.strip().lower(), ("Email", e.strip().lower(), None, e.strip()))
+        for p in numbers:
+            digits = re.sub(r"\D", "", p)
+            if len(digits) >= 7:
+                phones[digits[-9:]] = p.strip()
+        for a in addresses:
+            if len(a) >= 8:
+                ci.setdefault(" ".join(a.lower().split()), ("Address", " ".join(a.lower().split()), None, " ".join(a.split())))
+    for t in terms:
+        t = " ".join(t.split())
+        if len(t) >= PRIVACY_MIN:
+            ci.setdefault(t.lower(), ("Private", t.lower(), None, t))
+    bound = lambda body: re.compile(rf"(?<![\w@.]){body}(?![\w@])" if body else r"(?!)")
+    _PRIVACY.update(key=key, ci=re.compile(bound(trie_regex(ci)).pattern, re.I), cs=bound(trie_regex(cs)),
+                    keys={**{("ci", k): v for k, v in ci.items()}, **{("cs", k): v for k, v in cs.items()}},
+                    phones=phones)
+    return _PRIVACY
+
+
+def luhn(digits):
+    total = 0
+    for i, d in enumerate(reversed(digits)):
+        d = int(d) * (2 if i % 2 else 1)
+        total += d - 9 if d > 9 else d
+    return total % 10 == 0
+
+
+def iban_ok(value):
+    s = value.replace(" ", "")
+    s = s[4:] + s[:4]
+    try:
+        return 15 <= len(s) <= 34 and int("".join(str(int(c, 36)) for c in s)) % 97 == 1
+    except ValueError:
+        return False
+
+
+def privacy_spans(value, vocab):
+    """[(start, end, (kind, id, part, real value))], not overlapping."""
+    spans = []
+    for case in ("ci", "cs"):
+        for m in vocab[case].finditer(value):
+            norm = " ".join(m.group().split())
+            spec = vocab["keys"].get((case, norm.lower() if case == "ci" else norm))
+            if spec:
+                spans.append((m.start(), m.end(), spec))
+    if vocab["phones"]:
+        for m in PHONE_RE.finditer(value):
+            digits = re.sub(r"\D", "", m.group())
+            if len(digits) >= 7 and digits[-9:] in vocab["phones"]:
+                spans.append((m.start(), m.end(), ("Phone", digits[-9:], None, vocab["phones"][digits[-9:]])))
+    for m in CARD_RE.finditer(value):
+        digits = re.sub(r"\D", "", m.group())
+        if re.match(r"4|5[1-5]|2[2-7]|3[47]|6", digits) and luhn(digits):
+            spans.append((m.start(), m.end(), ("Card", digits, None, m.group())))
+    for m in IBAN_RE.finditer(value):
+        if iban_ok(m.group()):
+            spans.append((m.start(), m.end(), ("IBAN", m.group().replace(" ", ""), None, m.group())))
+    spans.sort(key=lambda s: (s[0], -s[1]))
+    out, end = [], -1
+    for s in spans:
+        if s[0] >= end:
+            out.append(s)
+            end = s[1]
+    return out
+
+
+class PrivacyMap:
+    """The table of placeholders, under an exclusive lock: kept between
+    sessions so a value keeps its placeholder."""
+
+    def __enter__(self):
+        path = privacy_map_path()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        self.lockfd = os.open(path + ".lock", os.O_WRONLY | os.O_CREAT, 0o600)
+        fcntl.flock(self.lockfd, fcntl.LOCK_EX)
+        data = read_json(path)
+        self.data = data if isinstance(data, dict) else {}
+        for k in ("tokens", "keys", "next", "people"):
+            self.data.setdefault(k, {})
+        self.changed = False
+        return self
+
+    def token(self, spec):
+        """spec: (kind, id, part, real value[, the person's full name])."""
+        kind, ident, part, real = spec[:4]
+        if kind == "Person":
+            if ident == "user":
+                base = "User"
+            else:
+                n = self.data["people"].get(ident)
+                if n is None:
+                    n = self.data["people"][ident] = self.data["next"].get("Person", 0) + 1
+                    self.data["next"]["Person"] = n
+                    self.changed = True
+                base = f"Person {n}"
+            tok = f"⟦{base}{' ' + part if part else ''}⟧"
+            # The first name told: the full name may come back too.
+            for t, v in ((tok, real), *([(f"⟦{base}⟧", spec[4])] if part and len(spec) > 4 and spec[4] else [])):
+                if self.data["tokens"].get(t) != v:
+                    self.data["tokens"][t] = v
+                    self.changed = True
+            return tok
+        key = f"{kind}:{ident}"
+        tok = self.data["keys"].get(key)
+        if not tok:
+            n = self.data["next"][kind] = self.data["next"].get(kind, 0) + 1
+            tok = self.data["keys"][key] = f"⟦{kind} {n}⟧"
+            self.data["tokens"][tok] = real
+            self.changed = True
+        return tok
+
+    def __exit__(self, *exc):
+        try:
+            if self.changed:
+                path = privacy_map_path()
+                fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".privacy-map.")
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(self.data, f, ensure_ascii=False)
+                os.replace(tmp, path)
+        finally:
+            os.close(self.lockfd)
+
+
+def mask_text(value, vocab=None):
+    if not value:
+        return value
+    if vocab is None:
+        if not privacy_on():
+            return value
+        vocab = privacy_vocab()
+    spans = privacy_spans(value, vocab)
+    if not spans:
+        return value
+    out, at = [], 0
+    with PrivacyMap() as m:
+        for start, end, spec in spans:
+            out += [value[at:start], m.token(spec)]
+            at = end
+    return "".join(out) + value[at:]
+
+
+def privacy_tokens():
+    data = read_json(privacy_map_path())
+    return (data or {}).get("tokens") or {} if isinstance(data, dict) else {}
+
+
+def unmask_text(value, tokens=None):
+    if "⟦" not in value:
+        return value
+    tokens = privacy_tokens() if tokens is None else tokens
+    return PRIVACY_TOKEN.sub(lambda m: tokens.get(m.group(), m.group()), value)
+
+
+def mask_obj(obj, vocab=None):
+    """Every string in a JSON value masked (an image's data left as it is)."""
+    if vocab is None:
+        if not privacy_on():
+            return obj
+        vocab = privacy_vocab()
+    if isinstance(obj, str):
+        return mask_text(obj, vocab)
+    if isinstance(obj, list):
+        return [mask_obj(v, vocab) for v in obj]
+    if isinstance(obj, dict):
+        if obj.get("type") == "image":
+            return obj
+        return {k: mask_obj(v, vocab) for k, v in obj.items()}
+    return obj
+
+
+def unmask_obj(obj, tokens=None):
+    if tokens is None:
+        tokens = privacy_tokens()
+    if isinstance(obj, str):
+        return unmask_text(obj, tokens)
+    if isinstance(obj, list):
+        return [unmask_obj(v, tokens) for v in obj]
+    if isinstance(obj, dict):
+        return {k: unmask_obj(v, tokens) for k, v in obj.items()}
+    return obj
+
+
+def mask_image(path, cfg):
+    """Boxes the private details OCR reads in an image file, in place:
+    [(placeholder, x, y, width, height)] in its pixels."""
+    vocab = privacy_vocab()
+    lang = str(cfg.get("ocrLanguages") or "eng")
+    if not re.fullmatch(r"[A-Za-z_]+(\+[A-Za-z_]+)*", lang):
+        lang = "eng"
+    gray = run(["magick", path, "-colorspace", "gray", "pgm:-"], timeout=15, binary=True).stdout
+    tsv = run(["tesseract", "stdin", "stdout", "--psm", "11", "-l", lang, "tsv"], input=gray, timeout=30,
+              binary=True).stdout.decode(errors="replace")
+    found = []
+    for row in tsv.splitlines()[1:]:
+        f = row.split("\t")
+        if len(f) == 12 and f[0] == "5" and f[11].strip():
+            found.append((f[11], *map(int, f[6:10])))
+    boxes = []
+    with PrivacyMap() as m:
+        for found in ocr_rows(found):
+            line, starts = "", []
+            for w in found:
+                starts.append(len(line) + (1 if line else 0))
+                line += (" " if line else "") + w[0]
+            for start, end, spec in privacy_spans(line, vocab):
+                hit = [w for w, s in zip(found, starts) if s < end and s + len(w[0]) > start]
+                if hit:
+                    x0, y0 = min(w[1] for w in hit), min(w[2] for w in hit)
+                    x1, y1 = max(w[1] + w[3] for w in hit), max(w[2] + w[4] for w in hit)
+                    boxes.append((m.token(spec), x0 - 2, y0 - 2, x1 - x0 + 4, y1 - y0 + 4))
+    if boxes:
+        draw = [a for b in boxes for a in ("-draw", f"rectangle {b[1]},{b[2]} {b[1] + b[3]},{b[2] + b[4]}")]
+        run(["magick", path, "-fill", "black", *draw, path], timeout=15)
+    return boxes
+
+
+def ocr_rows(found):
+    """OCR words [(text, x, y, width, height)] as the lines a reader sees:
+    tesseract's sparse mode splits a row into blocks (a phone number apart
+    from the name before it). Words a row shares, left to right, a line
+    while the gap is under twice their height."""
+    rows = []
+    for w in sorted(found, key=lambda w: w[2] + w[4] / 2):
+        mid = w[2] + w[4] / 2
+        row = rows[-1] if rows else None
+        if row and abs(row[0] - mid) <= max(w[4], row[1]) / 2:
+            row[2].append(w)
+        else:
+            rows.append([mid, w[4], [w]])
+    lines = []
+    for _, _, ws in rows:
+        ws.sort(key=lambda w: w[1])
+        line = [ws[0]]
+        for w in ws[1:]:
+            prev = line[-1]
+            if w[1] - (prev[1] + prev[3]) > 2 * max(w[4], prev[4]):
+                lines.append(line)
+                line = []
+            line.append(w)
+        lines.append(line)
+    return lines
+
+
+def privacy_note(boxes):
+    """What the model is told of the boxes: where each hidden detail is,
+    to click it all the same."""
+    if not boxes:
+        return []
+    where = "; ".join(f"{t} at image ({x + w // 2},{y + h // 2})" for t, x, y, w, h in boxes[:30])
+    return [text(f"Private details are blacked out in this image: {where}.")]
+
+
+def privacy_hook():
+    """Claude Code's PreToolUse and PostToolUse hook (the side panel's
+    Claude): placeholders become the real values in what it sends to any
+    tool, and what tools answer is masked."""
+    try:
+        event = json.load(sys.stdin)
+    except ValueError:
+        return 0
+    if not isinstance(event, dict) or not privacy_on():
+        return 0
+    name = event.get("hook_event_name")
+    if name == "PreToolUse" and isinstance(event.get("tool_input"), dict):
+        real = unmask_obj(event["tool_input"])
+        if real != event["tool_input"]:
+            print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "updatedInput": real}},
+                             ensure_ascii=False))
+    elif name == "PostToolUse" and "tool_response" in event:
+        masked = mask_obj(event["tool_response"])
+        if masked != event["tool_response"]:
+            print(json.dumps({"hookSpecificOutput": {"hookEventName": "PostToolUse", "updatedToolOutput": masked}},
+                             ensure_ascii=False))
+    return 0
+
+
 # What was sent to a model: each small-model pass (what for, which model,
 # the prompt as sent) and the context sent with a question asked in the
 # bubble, newest last; SENT_KEEP entries over SENT_DAYS days at most, 0600.
@@ -7631,6 +8071,7 @@ def sent_path():
 
 
 def sent_purpose(system):
+    system = system.removesuffix("\n\n" + PRIVACY_PROMPT)
     return {INITIATIVE_SYSTEM: "notifications", CHAT_SYSTEM: "a light word", TIP_SYSTEM: "a tip",
             CURIOUS_SYSTEM: "curiosity", NEWS_SYSTEM: "news", PAIR_SYSTEM: "pairing", IDEA_SYSTEM: "a routine idea",
             LEARN_SYSTEM: "memory pass", TIDY_SYSTEM: "memory tidy-up", DLEARN_SYSTEM: "desktop memory pass",
@@ -7650,7 +8091,7 @@ def sent_read():
 def sent_note(purpose, model, prompt, web=False):
     """Kept for the user to see; never fails the call it records."""
     entry = {"time": int(time.time()), "purpose": purpose, "model": model, "web": web,
-             "local": str(model).startswith("local:"), "text": str(prompt)[:SENT_TEXT_MAX]}
+             "local": str(model).startswith("local:"), "text": mask_text(str(prompt))[:SENT_TEXT_MAX]}
     path = sent_path()
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -7685,7 +8126,7 @@ def local_model(cfg):
     return (url, model) if LOCAL_URL.match(url) and model else None
 
 
-def ask_local(cfg, system, prompt, schema=None):
+def ask_local_now(cfg, system, prompt, schema=None):
     import urllib.request
     url, model = local_model(cfg)
     body = {"model": model, "stream": False, "temperature": 0.2, "response_format": {"type": "json_object"},
@@ -7711,13 +8152,19 @@ def ask_local(cfg, system, prompt, schema=None):
     return answer
 
 
+def ask_local(cfg, system, prompt, schema=None):
+    """The privacy mask: the model reads placeholders, the answer has the
+    real values."""
+    if not privacy_on():
+        return ask_local_now(cfg, system, prompt, schema)
+    return unmask_obj(ask_local_now(cfg, system + "\n\n" + PRIVACY_PROMPT, mask_text(prompt), schema))
+
+
 def model_ready(cfg, hint=None):
     return bool(claude_path(cfg, hint)) if ai_policy() == 1 else ai_policy() == 2 and bool(local_model(cfg))
 
 
 def ask_model(cfg, hint, system, prompt, schema=None, web=False):
-    """The small model: Claude Code's (memoryModel), or the local one when
-    AI is local only."""
     if ai_policy() == 1:
         claude = claude_path(cfg, hint)
         if not claude:
@@ -7728,7 +8175,7 @@ def ask_model(cfg, hint, system, prompt, schema=None, web=False):
     raise ToolError("no model: AI is off, or local only without localModel")
 
 
-def ask_claude(claude, model, system, prompt, schema=None, web=False):
+def ask_claude_now(claude, model, system, prompt, schema=None, web=False):
     """One answer from a small model through Claude Code: no tools (with
     `web`, only WebSearch and WebFetch), no MCP servers, no settings, no
     session kept."""
@@ -7751,6 +8198,13 @@ def ask_claude(claude, model, system, prompt, schema=None, web=False):
     if proc.returncode != 0:
         raise ToolError(f"the memory pass failed: {short((proc.stderr or proc.stdout).strip(), 300)}")
     return learn_answer(proc.stdout)
+
+
+def ask_claude(claude, model, system, prompt, schema=None, web=False):
+    """As ask_local, through Claude Code."""
+    if not privacy_on():
+        return ask_claude_now(claude, model, system, prompt, schema, web)
+    return unmask_obj(ask_claude_now(claude, model, system + "\n\n" + PRIVACY_PROMPT, mask_text(prompt), schema, web))
 
 
 def ids_of(answer, key, limit):
@@ -9079,6 +9533,7 @@ def monitor_screenshot(ctx, name, grim, scale, x, y, what, full):
     try:
         run(["grim", *grim, "-s", f"{scale:.4f}", "-t", "ppm", path], timeout=15)
         os.chmod(path, 0o600)
+        hidden = privacy_note(mask_image(path, ctx.cfg)) if privacy_screenshots() else []
         with open(path, "rb") as f:
             iw, ih, pixels = read_ppm(f.read())
         # What this session was sent last of this monitor, on this desktop.
@@ -9101,7 +9556,7 @@ def monitor_screenshot(ctx, name, grim, scale, x, y, what, full):
                 mapping = {"x": round(x + b[0] / scale, 2), "y": round(y + b[1] / scale, 2), "scale": scale}
                 out.append(text(f"Part {b[2] - b[0]}x{b[3] - b[1]} at image ({b[0]},{b[1]}), mapping: {json.dumps(mapping)}"))
                 out.append(encode_frame(ctx, path, f"{b[2] - b[0]}x{b[3] - b[1]}+{b[0]}+{b[1]}"))
-            return out
+            return out + hidden
         mapping = {"x": x, "y": y, "scale": scale}
         info = (
             f"{head}\nmapping: {json.dumps(mapping)}\n"
@@ -9109,7 +9564,7 @@ def monitor_screenshot(ctx, name, grim, scale, x, y, what, full):
             "with this mapping as `screenshot` (desktop x = mapping.x + image_x / scale). "
             "To see small things better, take a `region` screenshot around them."
         )
-        return [text(info), encode_frame(ctx, path)]
+        return [text(info), encode_frame(ctx, path), *hidden]
     finally:
         if os.path.exists(path):
             os.unlink(path)
@@ -9211,6 +9666,10 @@ def screenshot_window(ctx, wid):
 
 
 def screenshot_reply(ctx, path, info):
+    if privacy_screenshots():
+        boxes = mask_image(path, ctx.cfg)
+        if boxes:
+            info += "\n" + privacy_note(boxes)[0]["text"]
     if ctx.transport == "cli":
         # The caller reads the file later; drop the ones left from before.
         for old in os.listdir(runtime_dir()):
@@ -12268,7 +12727,17 @@ def enabled_tools(cfg):
 
 def call_tool(ctx, name, args, session=None):
     """Returns (content, is_error). Unknown tools raise KeyError. session:
-    the MCP session calling (HTTP: its Mcp-Session-Id)."""
+    the MCP session calling (HTTP: its Mcp-Session-Id). With the privacy
+    mask, the tool gets the real values of the placeholders in args and the
+    model its reply masked."""
+    if not privacy_on():
+        return call_tool_now(ctx, name, args, session)
+    vocab = privacy_vocab()
+    content, failed = call_tool_now(ctx, name, unmask_obj(args), session)
+    return mask_obj(content, vocab), failed
+
+
+def call_tool_now(ctx, name, args, session=None):
     t = enabled_tools(ctx.cfg).get(name)
     if not t:
         raise KeyError(name)
@@ -12553,6 +13022,8 @@ def instructions_with_memory(cfg):
         out += "\n\n" + digest if digest else "\n\nDesktop memory: empty so far."
     if "personal" in cfg["tools"]:
         out += "\n\n" + PERSONAL_INSTRUCTIONS + "\n" + personal_digest(cfg, "" if personal_injected() else query)
+    if privacy_on():
+        out = mask_text(out) + "\n\n" + PRIVACY_PROMPT
     return out
 
 
@@ -12845,6 +13316,9 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
   context JSON|-          the shell's recent events ({now, events}), filtered and redacted
   sent [show] | note PURPOSE TEXT | clear
                           what was sent to a model (JSON, newest first)
+  privacy mask|unmask     stdin to stdout: private details as placeholders, or back
+  privacy hook            Claude Code's PreToolUse/PostToolUse hook for the same
+  privacy show|clear      the placeholders given so far (JSON), or forget them
   routine list|run ID [EVENT_JSON]|undone ID|on ID|off ID|remove ID|learn suggest|auto
                           the user's routines (the shell runs them on their cue)
   memory learn [--claude PATH] [--model M] [--delete] [EPISODE.json]
@@ -13005,6 +13479,26 @@ def main(argv):
             return 2
         print(context_text(cfg, data["events"][:60], data.get("now") if isinstance(data.get("now"), (int, float)) else None))
         return 0
+    if cmd == "privacy":
+        sub = argv[1] if len(argv) > 1 else ""
+        if sub == "hook":
+            return privacy_hook()
+        if sub in ("mask", "unmask"):
+            data = sys.stdin.read()
+            sys.stdout.write(mask_text(data) if sub == "mask" else unmask_text(data))
+            return 0
+        if sub == "show":
+            print(json.dumps(privacy_tokens(), ensure_ascii=False))
+            return 0
+        if sub == "clear":
+            # The numbers go on: a placeholder in an old chat never
+            # becomes someone else.
+            with PrivacyMap() as m:
+                m.data.update(tokens={}, keys={}, people={})
+                m.changed = True
+            return 0
+        print(USAGE, end="", file=sys.stderr)
+        return 2
     if cmd == "sent":
         sub = argv[1] if len(argv) > 1 else "show"
         if sub == "show":

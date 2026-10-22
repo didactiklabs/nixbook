@@ -259,6 +259,15 @@ Singleton {
                 // The desktop agent speaking first, when it can help
                 // (services/Initiative.qml): off until turned on; reading
                 // notifications (what they say) is a step further, off too.
+                // The privacy mask (desktop-mcp.py): private details swapped for
+                // placeholders before a model reads them, back on this computer.
+                // Screenshots too: about a second of OCR each, so a switch apart.
+                property JsonObject privacy: JsonObject {
+                    property bool mask: true
+                    property bool screenshots: false
+                    // Words also private: a company, a project, an address.
+                    property list<string> terms: []
+                }
                 property JsonObject initiative: JsonObject {
                     property bool enable: false
                     property bool readNotifications: false

@@ -12,15 +12,33 @@ QtObject {
     // their result in one block.
     property var toolCalls: ({})
     property bool finished: false
+    // The privacy mask: placeholders (⟦Person 2⟧) shown as the real values.
+    // A placeholder cut between two pieces of the stream waits for its end.
+    property var unmask: text => text
+    property string held: ""
 
     function reset() {
         toolCalls = ({});
         finished = false;
+        held = "";
     }
 
     function append(message, text) {
-        message.rawContent += text;
-        message.content += text;
+        let s = held + text;
+        const open = s.lastIndexOf("⟦");
+        held = open >= 0 && s.indexOf("⟧", open) < 0 && s.length - open < 40 ? s.slice(open) : "";
+        if (held.length > 0) s = s.slice(0, open);
+        s = unmask(s);
+        message.rawContent += s;
+        message.content += s;
+    }
+
+    function flush(message) {
+        if (held.length === 0) return;
+        const s = unmask(held);
+        held = "";
+        message.rawContent += s;
+        message.content += s;
     }
 
     // One line of JSON, short enough to read in the chat.
@@ -74,6 +92,7 @@ QtObject {
                 append(message, `\n\n<think>\n${call}\n\n${block.is_error ? "⚠ " : "→ "}${text}\n</think>\n\n`);
             }
         } else if (ev.type === "result") {
+            flush(message);
             finished = true;
             out.finished = true;
             if (ev.is_error) {
@@ -88,6 +107,7 @@ QtObject {
     }
 
     function onRequestFinished(message) {
+        flush(message);
         // Claude Code exited without a result: say so (not logged in, crashed…).
         if (!finished && message.rawContent.trim().length === 0)
             append(message, "**Error**: Claude Code stopped without an answer. Is it installed and logged in (`claude`, then /login)?");

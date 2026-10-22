@@ -100,6 +100,64 @@ ContentPage {
             }
         }
 
+        // The privacy mask (desktop-mcp.py, "Privacy mask"): what models read
+        // has placeholders, swapped back on this computer.
+        ContentSection {
+            icon: "visibility_off"
+            title: Translation.tr("Private details")
+
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("Your name, your contacts' names, emails, phones and addresses, card numbers, IBANs and the words below reach Claude as placeholders (⟦Person 2⟧, ⟦Email 1⟧), the same one each time, so it still follows who is who. They become the real values again on this computer when it types, sends or answers you. Done on this computer in a fraction of a millisecond: answers lose nothing but who those people are. Public names and sites stay as they are. For Claude here, its desktop tools and the small model's passes; not for what you paste into other apps.")
+            }
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "ai.privacy.mask"
+                    buttonIcon: "visibility_off"
+                    text: Translation.tr("Hide private details from AI models")
+                    checked: Config.options.ai.privacy.mask
+                    onCheckedChanged: Config.options.ai.privacy.mask = checked
+                }
+                ConfigSwitch {
+                    configKey: "ai.privacy.screenshots"
+                    buttonIcon: "screenshot_monitor"
+                    enabled: Config.options.ai.privacy.mask
+                    text: Translation.tr("In screenshots too: the details are read (OCR, on this computer) and blacked out, Claude told where they are. About a second more per screenshot; text the OCR misses, faces and photos still show")
+                    checked: Config.options.ai.privacy.screenshots
+                    onCheckedChanged: Config.options.ai.privacy.screenshots = checked
+                }
+            }
+            // Saved when editing ends, so typing a comma isn't undone.
+            ConfigTextArea {
+                id: privacyTermsField
+                configKey: "ai.privacy.terms"
+                enabled: Config.options.ai.privacy.mask
+                Layout.fillWidth: true
+                fieldWidth: 320
+                buttonIcon: "edit_note"
+                text: Translation.tr("Also private")
+                placeholderText: Translation.tr("e.g. Acme Corp, 12 rue des Lilas, Project Falcon")
+                value: (Config.options.ai.privacy.terms ?? []).join(", ")
+                Connections {
+                    target: privacyTermsField.textArea
+                    function onEditingFinished() {
+                        Config.options.ai.privacy.terms = privacyTermsField.value.split(",")
+                            .map(f => f.trim()).filter(f => f.length > 0)
+                    }
+                }
+            }
+            RowLayout {
+                spacing: 8
+                SmallButton {
+                    materialIcon: "delete"
+                    mainText: Translation.tr("Forget the placeholders")
+                    onClicked: Quickshell.execDetached(["nixbook-desktop-mcp", "privacy", "clear"])
+                }
+            }
+        }
+
         ContentSection {
             icon: "chat_bubble"
             title: Translation.tr("Talks to you on its own")

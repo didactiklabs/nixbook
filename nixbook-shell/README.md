@@ -1217,6 +1217,52 @@ desktop)? niri has one focus and one view per workspace, and most apps
 ignore input from a second Wayland seat (Chromium and Electron entirely,
 kitty too): a nested compositor needs no niri patch and works with every app.
 
+### Private details
+
+With Settings > Desktop agents > Private details (`ai.privacy.mask`, on by
+default), models read placeholders instead of private details:
+`⟦Person 2⟧`, `⟦Person 2 first⟧`, `⟦Email 1⟧`, `⟦Phone 1⟧`, `⟦Address 1⟧`,
+`⟦Card 1⟧`, `⟦IBAN 1⟧`, `⟦Private 1⟧`, and `⟦User⟧` for you. The real values
+come back on this computer whenever a model uses a placeholder: in a tool's
+arguments (typing it, sending a mail through a connector) and in the
+answers you read. It works in plain code, with no model involved:
+
+- **What is private**: what is known to be. That covers your name (the
+  account's full name, `profile.displayName`), your accounts' emails, and
+  your contacts' full names, first names, nicknames, emails, phones (matched
+  by their last 9 digits, whatever the format) and addresses, read from
+  nixbook-accounts' copy. It also covers the words in `ai.privacy.terms`,
+  card numbers (Luhn checked, card prefixes only) and IBANs (mod-97
+  checked). A first name two contacts share becomes `⟦Name N⟧`. A first name
+  that is also a common word (Mark, May…) is masked only within the full
+  name. Family names alone are kept: they rarely say who someone is and are
+  often public (Martin Luther King). Public names, sites and support
+  addresses stay as they are, so answers lose nothing but who those people
+  are.
+- **The table**: `$XDG_STATE_HOME/nixbook-shell/privacy-map.json` (0600). A
+  value always gets the same placeholder, across sessions. `privacy clear`
+  forgets the values but never reuses a number, so a placeholder in an old
+  chat can't become someone else.
+- **Where**: `call_tool` masks every desktop tool's reply and unmasks its
+  arguments, and the MCP instructions explain the placeholders. Each
+  small-model pass (`ask_claude`, `ask_local`) is masked, its answer
+  unmasked, so the memory keeps the real values. `sent.jsonl` holds what was
+  really sent. In the side panel, the message and its context go through
+  `privacy mask` before Claude Code; if that fails, nothing is sent. Claude
+  Code's `PreToolUse`/`PostToolUse` hooks (`privacy hook`) cover every other
+  tool: claude.ai connectors, Bash, Read. The pre-hook starts no process
+  unless the input holds a placeholder. Answers are unmasked as they stream
+  (`ClaudeCodeApiStrategy.qml`, `Ai.unmaskPrivate`).
+- **Cost**: one compiled regex (common prefixes factored for thousands of
+  contacts), well under a millisecond a reply, and about 60 ms for each
+  non-desktop tool call in the side panel (the post-hook). Screenshots
+  (`ai.privacy.screenshots`, off by default) take about 1.3 s of OCR for a
+  full screen of text. They are read by tesseract, the words regrouped into
+  the rows a reader sees, the details blacked out, and the model told where
+  each one is (`⟦Person 2⟧ at image (x,y)`), so it can still click there.
+- **Not covered**: faces and photos, text the OCR misses, anything not on the
+  list (a stranger's name in a mail), and what other apps send on their own.
+
 ## Look and feel
 
 The type is Google Sans Flex (main, titles, numbers), with Space Grotesk for
