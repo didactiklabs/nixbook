@@ -361,6 +361,11 @@ Singleton {
         if (root.speaking) root.hush("wait")
         else root.summon()
     }
+    // Called up by the user (Mod+C), or what it did for them there at once
+    // ("quick"): a new conversation of theirs, not a "From Claude" thread.
+    function isAsk(item) {
+        return item?.kind === "ask" || item?.kind === "quick"
+    }
     function _ask() {
         return { id: "", kind: "ask", text: root._pick([Translation.tr("What can I do for you?"),
             Translation.tr("I'm here. What do you need?"), Translation.tr("Yes? Ask me anything.")]) }
@@ -412,8 +417,8 @@ Singleton {
     function prepare() {
         const item = root.speaking
         if (root.chat || !item) return
-        const thread = item.kind === "ask" ? Ai.askThread(false) : Ai.claudeThread(false)
-        if (item.kind !== "ask")
+        const thread = root.isAsk(item) ? Ai.askThread(false) : Ai.claudeThread(false)
+        if (!root.isAsk(item))
             thread.addMessage(item.chat || item.text, "assistant", true, root._hint(item))
         root.chat = thread
         if ((Ai.models[Ai.currentModelId]?.api_format ?? "") === "claude-code" && Ai.claudeCodePath.length > 0)
@@ -435,11 +440,20 @@ Singleton {
         const said = String(text ?? "").trim()
         if (said.length === 0) return
         const item = root.speaking
+        // A plain command asked for (open an app, pause the music, dark
+        // mode…): done at once, no Claude run; it says what it did.
+        if (root.isAsk(item) && !root.conversing && !attach) {
+            const did = QuickIntent.run(said)
+            if (did.length > 0) {
+                root.speaking = { id: "", kind: "quick", text: did }
+                return
+            }
+        }
         if (!root.chat) root.prepare()
         if (!root.chat) return
         root._taken(item)
         if (attach) root.chat.attachFile(attach)
-        if (item?.kind === "ask" && !root.conversing && !root.skipContext && RecentContext.enabled && RecentContext.text.length > 0) {
+        if (root.isAsk(item) && !root.conversing && !root.skipContext && RecentContext.enabled && RecentContext.text.length > 0) {
             root.chat.pendingContext = RecentContext.text
             Quickshell.execDetached(["nixbook-desktop-mcp", "sent", "note", "context", RecentContext.text])
         }
@@ -472,25 +486,73 @@ Singleton {
             root._taken(item)
             return
         }
-        const path = String(a.path ?? "")
-        if (!path.startsWith("/")) return
-        if (a.do === "open") Quickshell.execDetached(["xdg-open", path])
-        else if (a.do === "reveal") {
-            // The file manager with the file selected, else its folder.
-            const uri = "file://" + path.split("/").map(encodeURIComponent).join("/")
-            Quickshell.execDetached(["bash", "-c", 'dbus-send --session --print-reply --dest=org.freedesktop.FileManager1 '
-                + '/org/freedesktop/FileManager1 org.freedesktop.FileManager1.ShowItems array:string:"$1" string:"" >/dev/null 2>&1 '
-                + '|| xdg-open "$(dirname "$2")"', "reveal", uri, path])
+        // What needs no thinking, done here at once: no Claude run.
+        if (!root._direct(a)) {
+            const path = String(a.path ?? "")
+            if (!path.startsWith("/")) return
+            if (a.do === "open") Quickshell.execDetached(["xdg-open", path])
+            else if (a.do === "reveal") root._reveal(path)
+            else if (a.do === "extract") {
+                extractor.command = ["nixbook-desktop-mcp", "extract", path]
+                extractor.running = true
+            } else return
         }
         root._taken(item)
         if (root.speaking === item) root.speaking = null
+    }
+    // A button that does what it says, by the shell (the user's own click:
+    // not an agent, so not subject to the agents' pause). False: not one.
+    function _direct(a) {
+        if (a.do === "setup") {
+            // The usual start: its layout, then the apps missing.
+            if (a.layout) WindowLayouts.restore(String(a.layout))
+            for (const id of (a.apps ?? []).slice(0, 4)) {
+                const entry = DesktopEntries.byId(String(id))
+                if (entry) AppLaunch.launchEntry(entry)
+            }
+        } else if (a.do === "tasks") {
+            if (a.what === "tomorrow") {
+                const t = new Date()
+                const tomorrow = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1)
+                for (const task of Todo.list.filter(x => !x.done && x.due && Todo.deadlineGroup(x) === "today"))
+                    Todo.updateTask(task, { due: tomorrow })
+            } else GlobalStates.openTasksPanel("")
+        } else if (a.do === "settings") {
+            GlobalStates.settingsPage = String(a.page ?? "")
+            GlobalStates.settingsOpen = true
+        } else if (a.do === "forget") {
+            if (/^[0-9a-f]{1,16}$/.test(a.note ?? "")) Quickshell.execDetached(["nixbook-desktop-mcp", "memory", "forget", a.note])
+        } else if (a.do === "log") {
+            const unit = String(a.unit ?? "")
+            if (!/^[\w@:.\\-]{1,200}$/.test(unit)) return true
+            AppLaunch.spawnInTerminal(["journalctl", a.system ? "-u" : "--user-unit", unit, "-e", "-n", "300"])
+        } else return false
+        return true
+    }
+    function _reveal(path) {
+        // The file manager with the file selected, else its folder.
+        const uri = "file://" + path.split("/").map(encodeURIComponent).join("/")
+        Quickshell.execDetached(["bash", "-c", 'dbus-send --session --print-reply --dest=org.freedesktop.FileManager1 '
+            + '/org/freedesktop/FileManager1 org.freedesktop.FileManager1.ShowItems array:string:"$1" string:"" >/dev/null 2>&1 '
+            + '|| xdg-open "$(dirname "$2")"', "reveal", uri, path])
+    }
+    // Extracted: shown in the file manager; failed: said.
+    Process {
+        id: extractor
+        stdout: StdioCollector { id: extracted }
+        stderr: StdioCollector { id: extractError }
+        onExited: (code, status) => {
+            const where = extracted.text.trim()
+            if (code === 0 && where.startsWith("/")) root._reveal(where)
+            else Quickshell.execDetached(["notify-send", "-a", "Claude", "Claude", extractError.text.trim() || Translation.tr("Couldn't extract it")])
+        }
     }
     // The conversation (or what it said) in the side panel, for more room.
     function expand() {
         const item = root.speaking
         if (!root.chat && item) {
-            const thread = item.kind === "ask" ? Ai.askThread() : Ai.claudeThread()
-            if (item.kind !== "ask")
+            const thread = root.isAsk(item) ? Ai.askThread() : Ai.claudeThread()
+            if (!root.isAsk(item))
                 thread.addMessage(item.chat || item.text, "assistant", true, root._hint(item))
             root.chat = thread
         }

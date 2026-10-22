@@ -2909,13 +2909,17 @@ def brief_item(cfg, event, now):
             lines.append(f"{what}: today!")
         else:
             lines.append(f"{what} was {'yesterday' if days == -1 else f'{-days} days ago'}: how did it go?")
+    actions = []
     if habits_on(cfg):
         layout, apps, _ = usual_session(read_habits())
         open_now = {str(a).lower() for a in event.get("open") or []}
         missing = [a for a in apps if a.lower() not in open_now and a.rsplit(".", 1)[-1].lower() not in open_now]
-        if (layout and layout != event.get("layout")) or missing:
+        layout = layout if layout and layout != event.get("layout") else None
+        if layout or missing:
             lines.append("Your usual start: " + ", ".join(([f"the {layout!r} layout"] if layout else [])
                                                          + [app_name(a) for a in missing[:3]]) + ". Set it up?")
+            # Done by the shell at once: no need to ask Claude for it.
+            actions.append({"label": "Set it up", "do": "setup", "layout": layout or "", "apps": missing[:3]})
     back = where_were_we(cfg, event.get("recent"))
     if back:
         lines.append(back)
@@ -2925,7 +2929,7 @@ def brief_item(cfg, event, now):
     soon = any(isinstance(e.get("inMinutes"), (int, float)) and 0 <= e["inMinutes"] <= 30 for e in events)
     text_ = hello + " " + " ".join(lines)
     return ({"kind": "brief", "key": f"brief:{time.strftime('%Y-%m-%d %H', time.localtime(now))}",
-             "title": "Claude", "text": text_}, "notify" if soon else "badge")
+             "title": "Claude", "text": text_, **({"actions": actions} if actions else {})}, "notify" if soon else "badge")
 
 
 def recipe_item(event):
@@ -2944,13 +2948,14 @@ def recipe_item(event):
     return None
 
 
-def initiative_offer(cfg, kind, key, text_, app=None):
+def initiative_offer(cfg, kind, key, text_, app=None, actions=None):
     """The memory has something to say (a recipe it learned): a quiet word."""
     if not cfg.get("initiative", True):
         return
     try:
         with Initiative() as m:
-            deliver(cfg, m.data, {"kind": kind, "key": key, "title": "Claude", "text": text_, "app": app},
+            deliver(cfg, m.data, {"kind": kind, "key": key, "title": "Claude", "text": text_, "app": app,
+                                  **({"actions": actions} if actions else {})},
                     "badge", False, time.time())
             m.save()
     except (OSError, ValueError):
@@ -3015,7 +3020,7 @@ def chat_candidates(cfg, event, now):
     if isinstance(due, int) and due > 0 and hour >= 17:
         out.append(("wrapup", f"chat:wrapup:{day}", pick(
             f"Before you wrap up: {due} task{'s' if due > 1 else ''} still due today. Want to go through them?",
-            f"Still {due} task{'s' if due > 1 else ''} due today. Shall I move {'them' if due > 1 else 'it'} to tomorrow, or are we on it?"),
+            f"Still {due} task{'s' if due > 1 else ''} due today. Move {'them' if due > 1 else 'it'} to tomorrow, or are we on it?"),
             None))
     code = event.get("weatherCode")
     if isinstance(code, int) and 200 <= code < 600 and 7 <= hour <= 20:
@@ -3111,7 +3116,15 @@ def chat_item(cfg, data, event, now):
                 m.save()
             return None, "nothing to say"
     return {"kind": "chat", "key": key, "title": "Claude", "text": text_, "app": sub,
+            **({"actions": CHAT_ACTIONS[sub]} if sub in CHAT_ACTIONS else {}),
             **({"test": True} if force else {})}, ""
+
+
+# What a light word offers that the shell does at once, without Claude.
+CHAT_ACTIONS = {
+    "wrapup": [{"label": "Move to tomorrow", "do": "tasks", "what": "tomorrow"},
+               {"label": "Show them", "do": "tasks", "what": "show"}],
+}
 
 
 # Never sent to the model: one-time codes, bank and payment messages,
@@ -3853,8 +3866,8 @@ def _happened_item(event):
         elif ext in REACT_IMAGE:
             text_, extra = f"{name} is in Downloads.", ask("What's in it?", "What's in this image?")
         elif ext in REACT_ARCHIVE:
-            text_, extra = f"{name} downloaded. Shall I extract it?", ask(
-                "Extract it", f"Extract {path} into a folder next to it, then tell me what's inside.", False)
+            # Extracted by the shell at once (`extract`): no need for Claude.
+            text_, extra = f"{name} downloaded. Extract it?", {"label": "Extract it", "do": "extract", "path": path}
         elif ext in REACT_INSTALL:
             text_, extra = f"{name} downloaded. On NixOS that usually needs another way in: want me to look?", ask(
                 "How do I install it?", f"I downloaded {path}. How do I install or run it on this NixOS machine? "
@@ -4161,9 +4174,11 @@ def watch_item(w, state, now):
         text_ = f"{label} answers again."
     elif state == "failed":
         text_ = f"{label} failed."
-        if w["kind"] == "unit" and ai_policy() == 1:
-            actions.append({"label": "Why?", "do": "ask", "text": f"The systemd unit {w['unit']}"
-                            f"{' (system)' if w.get('system') else ''} failed: read its journal and tell me why, briefly."})
+        if w["kind"] == "unit":
+            actions.append({"label": "Show the log", "do": "log", "unit": w["unit"], "system": bool(w.get("system"))})
+            if ai_policy() == 1:
+                actions.append({"label": "Why?", "do": "ask", "text": f"The systemd unit {w['unit']}"
+                                f"{' (system)' if w.get('system') else ''} failed: read its journal and tell me why, briefly."})
     else:
         text_ = f"{label}: done" + (", all green." if w["kind"] in ("run", "pr") else ".")
     return {"kind": "watch", "key": f"watch:{w['id']}", "title": "Claude", "text": text_[:300], "app": w["kind"],
@@ -4420,6 +4435,46 @@ def initiative_command(cfg, argv):
         return 0
     print(USAGE, end="", file=sys.stderr)
     return 2
+
+
+# A download extracted from its bubble ("Extract it"): next to it, in a
+# folder of its own, by bsdtar (libarchive: zip, tar.*, 7z, rar…; it
+# refuses absolute paths and "..") or Python's own. Only files in the
+# user's home or on a drive. Prints where.
+EXTRACT_SUFFIXES = (".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst", ".tgz", ".zip", ".tar", ".gz", ".xz", ".bz2",
+                    ".zst", ".7z", ".rar")
+
+
+def extract_archive(path):
+    import tarfile
+    import zipfile
+    path = os.path.realpath(path)
+    home = os.path.realpath(os.path.expanduser("~"))
+    if not os.path.isfile(path) or not (path.startswith(home + os.sep) or path.startswith(("/run/media/", "/media/"))):
+        raise ToolError(f"not an archive it can extract: {path}")
+    name = os.path.basename(path)
+    base = next((name[:-len(x)] for x in EXTRACT_SUFFIXES if name.lower().endswith(x)), name.rsplit(".", 1)[0]) or "extracted"
+    dest = os.path.join(os.path.dirname(path), base)
+    n = 2
+    while os.path.exists(dest):
+        dest = os.path.join(os.path.dirname(path), f"{base} ({n})")
+        n += 1
+    os.makedirs(dest)
+    try:
+        if shutil.which("bsdtar"):
+            run(["bsdtar", "-xf", path, "-C", dest], timeout=900)
+        elif zipfile.is_zipfile(path):
+            with zipfile.ZipFile(path) as z:  # names with ".." or a leading / are made safe
+                z.extractall(dest)
+        else:
+            with tarfile.open(path) as t:
+                t.extractall(dest, filter="data")
+    except (ToolError, tarfile.TarError, zipfile.BadZipFile, ValueError, OSError) as e:
+        shutil.rmtree(dest, ignore_errors=True)
+        raise ToolError(f"couldn't extract {name}: {short(str(e), 200)}")
+    inner = os.listdir(dest)
+    # One folder inside: that's what to show.
+    return os.path.join(dest, inner[0]) if len(inner) == 1 and os.path.isdir(os.path.join(dest, inner[0])) else dest
 
 
 def watch_command(cfg, argv):
@@ -7951,7 +8006,9 @@ def apply_desktop_save(ctx, item, done):
     if steps and reply.startswith("remembered"):
         initiative_offer(ctx.cfg, "learned", f"learned:{ctx.last_note}",
                          f"I learned how to do \u201c{topic}\u201d: next time it takes me one step. "
-                         "Want to see it, or should I forget it?")
+                         "Want to see it, or should I forget it?",
+                         actions=[{"label": "Show it", "do": "settings", "page": "Desktop agents"},
+                                  {"label": "Forget it", "do": "forget", "note": ctx.last_note}])
 
 
 def learn_episode(cfg, episode, claude, model, done):
@@ -12784,6 +12841,7 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
   initiative pending|show|answer ID replied|later|dismissed|never|unmute [KEY…]|clear
   watch check [--busy] | list | cancel ID
                           what agents watch for the user (the shell checks every minute)
+  extract PATH            a download extracted next to it (prints where)
   context JSON|-          the shell's recent events ({now, events}), filtered and redacted
   sent [show] | note PURPOSE TEXT | clear
                           what was sent to a model (JSON, newest first)
@@ -12928,6 +12986,13 @@ def main(argv):
         return initiative_command(cfg, argv[1:])
     if cmd == "watch":
         return watch_command(cfg, argv[1:])
+    if cmd == "extract" and len(argv) == 2:
+        try:
+            print(extract_archive(argv[1]))
+        except ToolError as e:
+            print(e, file=sys.stderr)
+            return 1
+        return 0
     if cmd == "context":
         # What a question asked in the bubble takes along: the shell's
         # recent events, filtered ({now, events}).
