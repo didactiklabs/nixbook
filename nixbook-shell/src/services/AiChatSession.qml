@@ -641,10 +641,12 @@ Scope {
     // there (Initiative.chatDone); a notification when the bubble is taken
     // (the user typing in it), "waiting for you" when it ends on a question,
     // and its Open button opens the panel on this tab. Not in Do Not Disturb.
-    // A conversation held in the bubble shows its answers there itself.
+    // A conversation held in the bubble shows its answers there itself (not
+    // one put away that the open panel shows: read there).
     function notifyDone(message) {
         if (Initiative.holds(chat)) {
-            Initiative.chatAnswered(chat);
+            // Read in the side panel open on it: not brought back in the bubble.
+            if (!(GlobalStates.sidebarLeftOpen && chat.isCurrent)) Initiative.chatAnswered(chat);
             return;
         }
         if (!(Config.options?.ai?.notifyWhenDone ?? true) || GlobalStates.sidebarLeftOpen || Notifications.silent) return;
