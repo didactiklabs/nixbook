@@ -564,8 +564,12 @@ fix unless 1.
 
 **Fixes it makes itself** (only where `selfImprove.enable` is set: "improve"
 in desktop-mcp.json, which also lists `report_problem`,
-`request_feature` and `list_requests`, the read-only view of the inbox
-and its runs from `nixbook-improve status`; then
+`request_feature`, `list_requests` (the read-only view of the inbox
+and its runs from `nixbook-improve status`), `list_improvements` (`status`:
+the inbox items with their runs' stage and CI) and `start_improvement` (an
+item's Fix now or Build now, as do `fix_now`/`build_now` on the first two:
+`improve_now()` starts `run --item ID` in a unit as SelfImprove.qml does,
+unless a run is going); then
 `ai.improve.enable`, off by default; docs:
 `docs/nixbook-shell/self-improve.md`): `nixbook-improve` (`improve/`, Go,
 `improve.nix`) keeps an inbox in `~/.local/state/nixbook-shell/improve/`

@@ -11389,10 +11389,13 @@ def t_set_theme(ctx, args):
     "request_feature instead; the fixer moves one it finds too big to the feature "
     "requests itself. Not for other apps' bugs. Say what happens and what was "
     "expected, plainly; it stays on this computer. Only while the user has turned "
-    "it on (Settings > Desktop agents > Fixes it makes itself).",
+    "it on (Settings > Desktop agents > Fixes it makes itself). fix_now starts "
+    "fixing it at once, as Settings' Fix now: only when the user asked for that in "
+    "this conversation (\"fix it now\"), never on your own.",
     obj({
         "what": {"type": "string", "description": "What is wrong: what happens, what was expected"},
         "where": {"type": "string", "description": "The widget, setting, tool or file, when known"},
+        "fix_now": {"type": "boolean", "description": "Start fixing it at once (the user asked; default false)"},
     }, ["what"]),
 )
 def t_report_problem(ctx, args):
@@ -11404,9 +11407,10 @@ def t_report_problem(ctx, args):
     ctx.guard.check_rate()
     out = improve_file("note", what, where)
     again = f" (reported {out['count']} times now)" if out.get("count", 1) > 1 else ""
+    now = f" {improve_now(ctx, out)}" if args.get("fix_now") is True else ""
     return [text(f"filed for the fixer{again}: it makes a fix as a pull request when it can, and the "
                  "user gets Merge, Look, Drop once its checks pass. One too big for a fix becomes a "
-                 "feature request.")]
+                 f"feature request.{now}")]
 
 
 @tool(
@@ -11421,10 +11425,13 @@ def t_report_problem(ctx, args):
     "change too big for a fix. A bug or a rough edge is report_problem's. Say "
     "what it should do, for whom and where it fits, plainly; it stays on this "
     "computer. Only while the user has turned it on (Settings > Desktop agents > "
-    "Features it builds).",
+    "Features it builds). build_now starts building it at once, as Settings' Build "
+    "now: only when the user asked for that in this conversation (\"build it now\"), "
+    "never on your own.",
     obj({
         "what": {"type": "string", "description": "The feature: what it should do, how one would use it"},
         "where": {"type": "string", "description": "The widget, setting, tool or file it belongs to, when known"},
+        "build_now": {"type": "boolean", "description": "Start building it at once (the user asked; default false)"},
     }, ["what"]),
 )
 def t_request_feature(ctx, args):
@@ -11436,14 +11443,138 @@ def t_request_feature(ctx, args):
     ctx.guard.check_rate()
     out = improve_file("request", what, where)
     again = f" (asked {out['count']} times now)" if out.get("count", 1) > 1 else ""
+    now = f" {improve_now(ctx, out)}" if args.get("build_now") is True else ""
     return [text(f"filed as a feature request{again}: it is built as a pull request when it can (one a day "
                  "on its own, or at once from Settings), and the user gets Merge, Look, Drop once its checks "
-                 "pass; it is never merged on its own.")]
+                 f"pass; it is never merged on its own.{now}")]
+
+
+# An inbox item's status (inbox.go) and its run's CI, in words.
+IMPROVE_STATUS = {"new": "queued", "working": "being made", "pr": "pull request open", "merged": "merged",
+                  "skipped": "skipped", "too_big": "too big", "feature": "moved to the feature requests",
+                  "failed": "failed"}
+IMPROVE_CI = {"pending": "CI running", "pass": "CI passed", "fail": "CI failed"}
+
+
+@tool(
+    "list_improvements",
+    "shell",
+    "What nixbook's fixer (nixbook-improve) has to do or did lately: the fixes "
+    "filed with report_problem and the features with request_feature, newest "
+    "first, each with its id, kind (fix or feature), what was asked and where it "
+    "stands: queued, being made (and what it does now), pull request open (its "
+    "number and whether CI is running, passed or failed), merged, or skipped, too "
+    "big or failed and why. Use it to tell the user how one goes, or to find the "
+    "id start_improvement takes.",
+    obj({}),
+    read_only=True,
+)
+def t_list_improvements(ctx, args):
+    st = improve_cmd(["status"])
+    runs = st.get("runs") or []
+    items = []
+    for it in st.get("inbox") or []:
+        s = it.get("status")
+        if s not in IMPROVE_STATUS:
+            continue
+        r = next((r for r in runs if r.get("item") == it.get("id")), {})
+        e = {"id": it.get("id"), "kind": "feature" if it.get("kind") == "feature" else "fix",
+             "text": it.get("text"), "status": IMPROVE_STATUS[s]}
+        if it.get("where"):
+            e["where"] = it["where"]
+        if s == "working":
+            e["doing"] = r.get("doing") or r.get("stage")
+        if s == "pr":
+            e["pr"] = it.get("pr") or r.get("pr")
+            e["ci"] = IMPROVE_CI.get(r.get("ci"), r.get("ci"))
+        if s in ("skipped", "too_big", "failed") and it.get("note"):
+            e["why"] = it["note"]
+        items.append(e)
+    return [text({"items": items[:30], "busy": improve_running(st) is not None})]
+
+
+@tool(
+    "start_improvement",
+    "shell",
+    "Start making a queued fix or building a queued feature of nixbook at once (its "
+    "id from list_improvements), as Settings' Fix now and Build now: past the day's "
+    "limit, one at a time. Only when the user asked for that in this conversation "
+    "(\"build that feature now\"), never on your own; only while its kind is on "
+    "(Settings > Desktop agents > Fixes it makes itself, Features it builds). It "
+    "becomes a pull request the user reviews; list_improvements says how it goes.",
+    obj({"id": {"type": "string", "description": "The item's id (list_improvements)"}}, ["id"]),
+)
+def t_start_improvement(ctx, args):
+    iid = as_str(args, "id", max_len=40)
+    st = improve_cmd(["status"])
+    it = next((i for i in st.get("inbox") or [] if i.get("id") == iid), None)
+    if not it:
+        raise ToolError(f"no item {iid!r}: see list_improvements")
+    feature = it.get("kind") == "feature"
+    if not shell_setting("ai.improve.features.enable" if feature else "ai.improve.enable", False):
+        raise ToolError(("building features is off: Settings > Desktop agents > Features it builds" if feature
+                         else "the fixer is off: Settings > Desktop agents > Fixes it makes itself")
+                        + ". Tell the user, don't retry.")
+    ctx.guard.check_rate()
+    return [text(improve_now(ctx, it, st))]
+
+
+def improve_now(ctx, item, st=None):
+    """Fix now / Build now: `nixbook-improve run --item` in a unit of its
+    own, at the lowest priority, as SelfImprove.qml starts it (not counted in
+    the day's runs). What to tell the user: started, or why not."""
+    st = st or improve_cmd(["status"])
+    what = "building" if item.get("kind") == "feature" else "fixing"
+    if item.get("status") in ("working", "pr"):
+        return "It is being made already: list_improvements says how it goes."
+    if item.get("status") in ("merged", "feature"):
+        return "Not started: it is " + IMPROVE_STATUS[item["status"]] + "."
+    if not st.get("token"):
+        return ("Not started: the fixer has no GitHub token yet; the user saves it in Settings > "
+                "Desktop agents > Fixes it makes itself.")
+    busy = improve_running(st)
+    if busy:
+        return (f"Not started: “{busy.get('itemText', '')}” is being made (one at a time); "
+                "start it once that one is done.")
+    env = [f"--setenv=PATH={os.environ.get('PATH', '')}"]
+    claude = claude_path(ctx.cfg)
+    if claude:
+        env.append(f"--setenv=NIXBOOK_IMPROVE_CLAUDE={claude}")
+    try:
+        proc = run(["systemd-run", "--user", "--collect", "--quiet", f"--unit=nixbook-improve-run-{int(time.time() * 1000)}",
+                    "-p", "RuntimeMaxSec=8h", "-p", "Nice=19", "-p", "CPUWeight=idle", "-p", "IOSchedulingClass=idle",
+                    *env, "nixbook-improve", "run", "--item", item["id"]], timeout=15, check=False)
+    except ToolError as e:
+        return f"Not started: {e}."
+    if proc.returncode != 0:
+        return f"Not started: {(proc.stderr or '').strip()[-200:] or 'systemd-run failed'}."
+    return (f"Started {what} it now ({item['id']}); it takes a while, list_improvements says how it goes, "
+            "and Settings > Desktop agents shows it too.")
+
+
+def improve_running(st):
+    """The run going on (its process still nixbook-improve's: one a reboot
+    stopped has none), or None."""
+    for r in st.get("runs") or []:
+        if r.get("outcome") or r.get("stage") == "done" or not r.get("pid"):
+            continue
+        try:
+            with open(f"/proc/{int(r['pid'])}/cmdline", "rb") as f:
+                if b"nixbook-improve" in f.read():
+                    return r
+        except (OSError, ValueError):
+            pass
+    return None
 
 
 def improve_file(cmd, what, where):
     """`nixbook-improve note|request`: the inbox item, or a ToolError."""
-    proc = run(["nixbook-improve", cmd, "--where", where, what], timeout=10, check=False)
+    return improve_cmd([cmd, "--where", where, what])
+
+
+def improve_cmd(argv):
+    """`nixbook-improve ARGV`: its JSON answer, or a ToolError."""
+    proc = run(["nixbook-improve", *argv], timeout=10, check=False)
     try:
         out = json.loads(proc.stdout or "null")
     except ValueError:
@@ -13373,7 +13504,8 @@ class Context:
 
 def enabled_tools(cfg):
     return {n: t for n, t in TOOLS.items() if t["group"] in cfg["tools"]
-            and (n not in ("report_problem", "request_feature", "list_requests") or cfg.get("improve"))}
+            and (n not in ("report_problem", "request_feature", "list_requests", "list_improvements",
+                           "start_improvement") or cfg.get("improve"))}
 
 
 def call_tool(ctx, name, args, session=None):
