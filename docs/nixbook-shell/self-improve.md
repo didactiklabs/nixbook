@@ -108,6 +108,7 @@ CI's **agent-guard** job (`checks.yaml`) runs `nixbook-improve guard` on every `
 - **The commit** is `feat(scope): …` with what it does, how to use it and how it is made, and an `Agent-Feature: <item>` trailer; the pull request has the label `agent-feature`.
 - **Never merged on its own**, whatever the auto-merge switches: once CI passes you get **Feature ready** with **Merge**, **Look** and **Drop**. After a merge, main's checks and the updated shell are watched and a revert offered, as for a fix.
 - At most `perDay` (1) on its own a day, after the day's fixes; **Build now** starts one at once. One run at a time, fix or feature.
+- **From an agent.** Say "build it now" when you ask, or later "start building that feature": the agent starts it as **Build now** does (`build_now` of `request_feature`, or `start_improvement` with the id from `list_improvements`), past the day's limit. "Fix it now" does the same for a fix (`fix_now` of `report_problem`). Ask it "how is that feature going?" and `list_improvements` tells it: queued, being made (and what it does now), pull request open with CI running, passed or failed, merged, or skipped and why. It only starts one when you ask in the chat, and only while that kind is on.
 
 ## Proposed by the agent
 
