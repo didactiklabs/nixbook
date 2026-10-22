@@ -1,0 +1,117 @@
+diff --git a/src/render_helpers/clipped_surface.rs b/src/render_helpers/clipped_surface.rs
+--- a/src/render_helpers/clipped_surface.rs
++++ b/src/render_helpers/clipped_surface.rs
+@@ -124,7 +124,7 @@
+         }
+     }
+ 
+-    fn rounded_corners(
++    pub(crate) fn rounded_corners(
+         geo: Rectangle<f64, Logical>,
+         corner_radius: CornerRadius,
+     ) -> [Rectangle<f64, Logical>; 4] {
+diff --git a/src/render_helpers/xray.rs b/src/render_helpers/xray.rs
+--- a/src/render_helpers/xray.rs
++++ b/src/render_helpers/xray.rs
+@@ -15,6 +15,7 @@
+ 
+ use crate::backend::tty::{TtyFrame, TtyRenderer, TtyRendererError};
+ use crate::render_helpers::background_effect::RenderParams;
++use crate::render_helpers::clipped_surface::ClippedSurfaceRenderElement;
+ use crate::render_helpers::effect_buffer::EffectBuffer;
+ use crate::render_helpers::renderer::AsGlesFrame as _;
+ use crate::render_helpers::shaders::{mat3_uniform, Shaders};
+@@ -74,6 +75,9 @@
+     subregion: Option<TransformedRegion>,
+     input_to_clip_geo: Mat3,
+     clip_geo_size: Vec2,
++    /// The clip geometry, in the same space as `geometry`, for the opaque regions (None: not
++    /// computed, the backdrop's).
++    clip_geo: Option<Rectangle<f64, Logical>>,
+     corner_radius: CornerRadius,
+     scale: f32,
+     blur: bool,
+@@ -195,6 +199,7 @@
+                     subregion: params.subregion.clone(),
+                     input_to_clip_geo,
+                     clip_geo_size,
++                    clip_geo: Some(clip_geo),
+                     corner_radius,
+                     scale: params.scale as f32,
+                     blur,
+@@ -245,6 +250,7 @@
+                 subregion: params.subregion.clone(),
+                 input_to_clip_geo,
+                 clip_geo_size,
++                clip_geo: None,
+                 corner_radius: corner_radius.scaled_by(zoom as f32),
+                 scale: params.scale as f32,
+                 blur,
+@@ -289,10 +295,42 @@
+         self.geometry.to_physical_precise_round(scale)
+     }
+ 
+-    fn opaque_regions(&self, _scale: Scale<f64>) -> OpaqueRegions<i32, Physical> {
+-        // FIXME: if bg_color alpha is 1 then compute opaque regions here taking corners into
+-        // account
+-        OpaqueRegions::default()
++    fn opaque_regions(&self, scale: Scale<f64>) -> OpaqueRegions<i32, Physical> {
++        // The shader mixes bg_color behind the texture: with an opaque bg_color, everything it
++        // draws is opaque, which is inside the clip geometry minus its rounded corners. Saying
++        // so lets the damage tracker skip what is underneath (a video wallpaper on the Bottom
++        // layer, desktop widgets): before, every change there re-rendered the windows above.
++        //
++        // Conservative: nothing for a subregion (only parts are drawn), the clip rounded inward
++        // and each corner's whole square left out, rounded outward.
++        let Some(clip_geo) = self.clip_geo else {
++            return OpaqueRegions::default();
++        };
++        if !self.bg_color.is_opaque() || self.subregion.is_some() {
++            return OpaqueRegions::default();
++        }
++        let Some(opaque) = self.geometry.intersection(clip_geo) else {
++            return OpaqueRegions::default();
++        };
++
++        let elem_loc = self.geometry(scale).loc;
++        let mut opaque = opaque.to_physical_precise_down(scale);
++        opaque.loc -= elem_loc;
++
++        if self.corner_radius == CornerRadius::default() {
++            return OpaqueRegions::from_slice(&[opaque]);
++        }
++        let corners = ClippedSurfaceRenderElement::<GlesRenderer>::rounded_corners(
++            clip_geo,
++            self.corner_radius,
++        )
++        .into_iter()
++        .map(|rect| {
++            let mut rect = rect.to_physical_precise_up(scale);
++            rect.loc -= elem_loc;
++            rect
++        });
++        OpaqueRegions::from_slice(&Rectangle::subtract_rects_many([opaque], corners))
+     }
+ }
+ 
+@@ -303,7 +341,7 @@
+         src: Rectangle<f64, Buffer>,
+         dst: Rectangle<i32, Physical>,
+         damage: &[Rectangle<i32, Physical>],
+-        _opaque_regions: &[Rectangle<i32, Physical>],
++        opaque_regions: &[Rectangle<i32, Physical>],
+         _cache: Option<&UserDataMap>,
+     ) -> Result<(), GlesError> {
+         let mut buffer = self.buffer.borrow_mut();
+@@ -347,8 +385,9 @@
+             src,
+             dst,
+             damage,
+-            // FIXME: opaque regions need to be filtered like damage.
+-            &[],
++            // Drawn without blending where opaque (see opaque_regions()). With a subregion they
++            // would need filtering like damage, but opaque_regions() gives none then.
++            if self.subregion.is_none() { opaque_regions } else { &[] },
+             Transform::Normal,
+             1.,
+             self.program.as_ref(),

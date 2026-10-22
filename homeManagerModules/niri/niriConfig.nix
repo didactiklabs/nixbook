@@ -438,6 +438,22 @@ in
             ];
             opacity = 1.0;
           }
+          # Video players and games turn variable refresh rate on, on outputs
+          # set to "on-demand" (24/30/60 fps no longer held unevenly on a
+          # 144 Hz screen); everything else keeps the fixed rate.
+          {
+            matches = [
+              { app-id = "^mpv$"; }
+              { app-id = "^(vlc|org\\.videolan\\.VLC)$"; }
+              { app-id = "^io\\.github\\.celluloid_player\\.Celluloid$"; }
+              { app-id = "^org\\.kde\\.haruna$"; }
+              { app-id = "^org\\.gnome\\.(Totem|Showtime)$"; }
+              { app-id = "(?i)moonfin|jellyfin"; }
+              { app-id = "^steam_app_[0-9]+$"; }
+              { app-id = "^gamescope$"; }
+            ];
+            variable-refresh-rate = true;
+          }
           # nixbook-shell's Settings window (a normal app window): open floating like
           # a dialog; Mod+V tiles it.
           {

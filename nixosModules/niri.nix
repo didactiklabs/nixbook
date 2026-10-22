@@ -34,7 +34,13 @@ in
       # The nixpkgs niri already builds against the current libdisplay-info,
       # so pin the package to it here so every user's forced HM package is
       # safe to evaluate.
-      programs.niri.package = pkgs.niri;
+      programs.niri.package =
+        if cfg.niri.xrayOpaque then
+          pkgs.niri.overrideAttrs (old: {
+            patches = (old.patches or [ ]) ++ [ ./niri-xray-opaque.patch ];
+          })
+        else
+          pkgs.niri;
     }
     (lib.mkIf cfg.niri.enable {
       programs.niri.enable = true;
@@ -181,6 +187,28 @@ in
 
         Used on: totoro (primary), tanjiro (primary), nishinoya (primary).
         See also: homeManagerModules/niri/ for per-user compositor configuration.
+      '';
+    };
+
+    xrayOpaque = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether to build niri with niri-xray-opaque.patch: a window with xray
+        blur says it is opaque (inside its rounded corners) when the workspace
+        background colour is, as niri's own FIXMEs in xray.rs ask. Nothing on
+        screen changes: those pixels already hid what is underneath (a
+        window's opacity rule applies to its content, never to the blur
+        behind it). But niri then:
+        - stops re-rendering every window above a change it can't show: a
+          video wallpaper on the Bottom layer (visible in the gaps, so always
+          playing), desktop widgets under windows;
+        - stops waking what is fully hidden behind such windows (no frame
+          callbacks until it shows again);
+        - draws the blur without blending (no read of what is underneath).
+
+        niri is then built from source on the machine (no binary cache), on
+        each nixpkgs niri update. On by default.
       '';
     };
 
