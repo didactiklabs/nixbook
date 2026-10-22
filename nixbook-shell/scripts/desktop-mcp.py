@@ -11454,6 +11454,85 @@ def improve_file(cmd, what, where):
     return out
 
 
+# An inbox item's status (nixbook-improve's inbox.go), said plainly.
+IMPROVE_STATUS = {
+    "new": "queued", "working": "building", "pr": "pull request open", "merged": "merged",
+    "skipped": "skipped (not a bug, or not enough to go on)", "ignored": "ignored (harmless, can't be fixed)",
+    "too_big": "too big: needs a design choice or more than it may change", "feature": "moved to the feature "
+    "requests (too big for a fix)", "failed": "failed (its change never passed the checks)",
+    "dropped": "dropped by the user", "gone": "gone by itself",
+}
+IMPROVE_CI = {"pending": "checks running", "pass": "checks passing", "fail": "checks failing"}
+
+
+@tool(
+    "list_requests",
+    "shell",
+    "What was filed for nixbook's fixer and builder (nixbook-improve) and how it "
+    "goes: each fix and feature request, newest first, with when it was filed, who "
+    "filed it, its status (queued, building, pull request open with its link and "
+    "checks, merged, skipped, too big, failed, dropped) and why. Use it when the "
+    "user asks \"did you file it?\" or \"how is my feature going?\", or before "
+    "filing one again; it changes nothing. Who filed it is the user (through an "
+    "agent, an agent's idea they accepted, or Settings) or the fixer itself (from "
+    "the shell's log, a crash, CI…). Only while the user has turned on Fixes it "
+    "makes itself or Features it builds.",
+    obj({"kind": {"type": "string", "enum": ["fix", "feature"],
+                  "description": "Only the fixes or only the feature requests (default both)"}}),
+    read_only=True,
+)
+def t_list_requests(ctx, args):
+    kind = as_str(args, "kind", required=False) or ""
+    if kind not in ("", "fix", "feature"):
+        raise ToolError("kind: fix or feature")
+    if not (shell_setting("ai.improve.enable", False) or shell_setting("ai.improve.features.enable", False)):
+        raise ToolError("the fixer is off: the user turns it on in Settings > Desktop agents > "
+                        "Fixes it makes itself or Features it builds. Tell them, don't retry.")
+    proc = run(["nixbook-improve", "status"], timeout=10, check=False)
+    try:
+        status = json.loads(proc.stdout or "null")
+    except ValueError:
+        status = None
+    if proc.returncode != 0 or not isinstance(status, dict):
+        raise ToolError((proc.stderr or "").strip()[-300:] or f"nixbook-improve failed ({proc.returncode})")
+    # Each item's last run: its pull request, checks and title.
+    runs = {r.get("item"): r for r in status.get("runs") or [] if isinstance(r, dict)}
+    out = []
+    for i in sorted(status.get("inbox") or [], key=lambda i: i.get("first") or 0, reverse=True):
+        feature = i.get("kind") == "feature"
+        # info: what isn't nixbook's (another app's crash), only listed.
+        if i.get("kind") == "info" or (kind and feature != (kind == "feature")):
+            continue
+        r = runs.get(i.get("id")) or {}
+        st = i.get("status") or "new"
+        e = {
+            "kind": "feature" if feature else "fix",
+            "text": short(str(i.get("text") or ""), 300),
+            "filed": time.strftime("%Y-%m-%d %H:%M", time.localtime((i.get("first") or 0) / 1000)),
+            "by": "the fixer (a fix too big for one)" if i.get("from")
+            else "the user" if i.get("kind") in ("user", "feature") else f"the fixer ({i.get('kind')})",
+            "status": IMPROVE_STATUS.get(st, st),
+        }
+        if i.get("where"):
+            e["where"] = i["where"]
+        if (i.get("count") or 1) > 1:
+            e["times"] = i["count"]
+        if i.get("note"):
+            e["why"] = short(str(i["note"]), 400)
+        if r.get("title"):
+            e["title"] = r["title"]
+        if st == "working" and r.get("doing"):
+            e["doing"] = r["doing"]
+        if r.get("url") or i.get("pr"):
+            e["pr"] = r.get("url") or f"#{i['pr']}"
+        if st == "pr" and r.get("ci") in IMPROVE_CI:
+            e["status"] += ", " + IMPROVE_CI[r["ci"]]
+        if st == "merged" and r.get("outcome") == "reverted":
+            e["status"] = "merged, then reverted"
+        out.append(e)
+    return [text(out or f"nothing filed{' of that kind' if kind else ''}")]
+
+
 # The shell's desktop widgets (DesktopWidgets.qml, Notes.qml, Todo.qml,
 # TimerService.qml IPC targets): widget -> action -> (target, function, the
 # arguments it takes, whether it changes something).
@@ -13294,7 +13373,7 @@ class Context:
 
 def enabled_tools(cfg):
     return {n: t for n, t in TOOLS.items() if t["group"] in cfg["tools"]
-            and (n not in ("report_problem", "request_feature") or cfg.get("improve"))}
+            and (n not in ("report_problem", "request_feature", "list_requests") or cfg.get("improve"))}
 
 
 def call_tool(ctx, name, args, session=None):
