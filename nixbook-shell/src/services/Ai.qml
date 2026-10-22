@@ -358,14 +358,19 @@ Singleton {
     }
     // Claude Code's hooks for it, on every tool but the desktop ones (their
     // server masks on its own): placeholders in a tool's input become the
-    // real values (only when there is one: no process otherwise), and its
-    // output is masked.
-    readonly property var privacyHooks: ({ hooks: {
-        PreToolUse: [{ matcher: "^(?!mcp__desktop__).*", hooks: [{ type: "command",
-            command: `in=$(cat); case "$in" in *⟦*) printf '%s' "$in" | ${root.desktopMcpCommand} privacy hook;; esac` }] }],
-        PostToolUse: [{ matcher: "^(?!mcp__desktop__).*", hooks: [{ type: "command",
-            command: `${root.desktopMcpCommand} privacy hook` }] }],
-    } })
+    // real values, and its output is masked. Over HTTP to the shell's helper
+    // (DesktopHelper: ~1 ms); while it isn't up, a process each (~150 ms;
+    // the input's only when it holds a placeholder).
+    readonly property var privacyHooks: {
+        const http = DesktopHelper.hookUrl.length > 0 ? [{ type: "http", url: DesktopHelper.hookUrl, timeout: 10,
+            headers: { Authorization: `Bearer ${DesktopHelper.hookToken}` } }] : null;
+        return { hooks: {
+            PreToolUse: [{ matcher: "^(?!mcp__desktop__).*", hooks: http ?? [{ type: "command",
+                command: `in=$(cat); case "$in" in *⟦*) printf '%s' "$in" | ${root.desktopMcpCommand} privacy hook;; esac` }] }],
+            PostToolUse: [{ matcher: "^(?!mcp__desktop__).*", hooks: http ?? [{ type: "command",
+                command: `${root.desktopMcpCommand} privacy hook` }] }],
+        } };
+    }
     property var desktopTools: []
 
     Process {

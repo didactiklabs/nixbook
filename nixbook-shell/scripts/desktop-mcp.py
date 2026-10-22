@@ -59,7 +59,6 @@ import threading
 import time
 import unicodedata
 import warnings
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 VERSION = "1.0.0"
 PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"]
@@ -8212,20 +8211,26 @@ def privacy_hook():
         event = json.load(sys.stdin)
     except ValueError:
         return 0
+    answer = privacy_hook_answer(event)
+    if answer:
+        print(json.dumps(answer, ensure_ascii=False))
+    return 0
+
+
+def privacy_hook_answer(event):
+    """The hook's answer to an event, or None: nothing to change."""
     if not isinstance(event, dict) or not privacy_on():
-        return 0
+        return None
     name = event.get("hook_event_name")
     if name == "PreToolUse" and isinstance(event.get("tool_input"), dict):
         real = unmask_obj(event["tool_input"])
         if real != event["tool_input"]:
-            print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "updatedInput": real}},
-                             ensure_ascii=False))
+            return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "updatedInput": real}}
     elif name == "PostToolUse" and "tool_response" in event:
         masked = mask_obj(event["tool_response"])
         if masked != event["tool_response"]:
-            print(json.dumps({"hookSpecificOutput": {"hookEventName": "PostToolUse", "updatedToolOutput": masked}},
-                             ensure_ascii=False))
-    return 0
+            return {"hookSpecificOutput": {"hookEventName": "PostToolUse", "updatedToolOutput": masked}}
+    return None
 
 
 # What was sent to a model: each small-model pass (what for, which model,
@@ -13355,6 +13360,9 @@ def peer_uid(client_addr, server_port):
 
 
 def make_handler(cfg, token, port):
+    # Here, not at the top: every command line run would load the HTTP
+    # modules (~12 ms) for the one command serving HTTP.
+    from http.server import BaseHTTPRequestHandler
     # One context for every HTTP client: the rate limit and the action lock
     # are the desktop's, not a connection's.
     shared = Context(cfg, "http", "HTTP client")
@@ -13443,6 +13451,7 @@ def make_handler(cfg, token, port):
 
 
 def serve_http(cfg, port):
+    from http.server import ThreadingHTTPServer
     token = ensure_token()
     # 127.0.0.1 and nothing else: loopback traffic never leaves the machine
     # and isn't subject to the firewall's input rules.
@@ -13456,6 +13465,111 @@ def serve_http(cfg, port):
 
 
 # --------------------------------------------------------------------------
+# The shell's helper
+# --------------------------------------------------------------------------
+
+# `helper`: one process the shell keeps running, so its quick commands don't
+# start Python each time (~150 ms of CPU each, on every message sent, window
+# cue and minute). Requests on stdin, a JSON line each: {"id", "argv",
+# "stdin"}; answers on stdout, a line each: {"id", "code", "stdout"}. Only
+# the commands in HELPER_COMMANDS (no model, no long wait: one at a time);
+# the shell starts the others as before. Also the side panel's privacy hooks
+# over HTTP (Claude Code's "http" hooks), on 127.0.0.1, a random port, a
+# bearer token and the caller the same user: ~2 ms instead of a process per
+# tool call. Its first line says where: {"hook": URL, "token": TOKEN}.
+HELPER_COMMANDS = {
+    "privacy": None, "context": None, "sent": None, "pause": None, "resume": None, "status": None,
+    "notify": None, "personal": ("context", "show", "forget"), "habits": ("cue", "alias", "status"),
+    "memory": ("show", "forget", "fire"), "initiative": ("show", "pending", "answer", "notices", "unmute"),
+    "routine": ("list", "undone", "on", "off", "remove"),
+}
+
+
+def helper_allowed(argv):
+    if not argv or argv[0] not in HELPER_COMMANDS:
+        return False
+    subs = HELPER_COMMANDS[argv[0]]
+    return subs is None or (len(argv) > 1 and argv[1] in subs)
+
+
+def helper_run(argv, stdin):
+    """One command as the command line runs it: (exit code, its output)."""
+    import io
+    out = io.StringIO()
+    saved = sys.stdin
+    sys.stdin = io.StringIO(stdin or "")
+    try:
+        with contextlib.redirect_stdout(out):
+            code = main(argv)
+    except SystemExit as e:
+        code = e.code if isinstance(e.code, int) else 1
+    except Exception as e:  # a bug in one command must not stop the helper
+        log(f"helper: {argv[:2]}: {e!r}")
+        code = 1
+    finally:
+        sys.stdin = saved
+    return code or 0, out.getvalue()
+
+
+def helper_hooks(token):
+    """The privacy hooks' HTTP endpoint, in a thread: its port."""
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class Hook(BaseHTTPRequestHandler):
+        def log_message(self, fmt, *args):
+            pass
+
+        def do_POST(self):
+            auth = self.headers.get("Authorization") or ""
+            if (self.path != "/hook" or not hmac.compare_digest(auth.encode(), f"Bearer {token}".encode())
+                    or peer_uid(self.client_address, port) != os.getuid()):
+                self.send_response(403)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                event = json.loads(self.rfile.read(length)) if 0 < length <= 1 << 24 else None
+            except ValueError:
+                event = None
+            data = json.dumps(privacy_hook_answer(event) or {}, ensure_ascii=False).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Hook)
+    server.daemon_threads = True
+    port = server.server_address[1]
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return port
+
+
+def serve_helper():
+    real = sys.stdout
+    token = secrets.token_urlsafe(32)
+    port = helper_hooks(token)
+    real.write(json.dumps({"hook": f"http://127.0.0.1:{port}/hook", "token": token}) + "\n")
+    real.flush()
+    for line in sys.stdin:
+        try:
+            req = json.loads(line)
+        except ValueError:
+            continue
+        argv = req.get("argv") if isinstance(req, dict) else None
+        if not isinstance(argv, list) or not all(isinstance(a, str) for a in argv):
+            continue
+        if helper_allowed(argv):
+            code, out = helper_run(argv, req.get("stdin"))
+        else:
+            code, out = 127, ""
+        real.write(json.dumps({"id": req.get("id"), "code": code, "stdout": out}, ensure_ascii=False) + "\n")
+        real.flush()
+    return 0
+
+
+# --------------------------------------------------------------------------
 # Command line
 # --------------------------------------------------------------------------
 
@@ -13463,6 +13577,8 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
 
   (none) | serve          MCP over stdio (what MCP clients start)
   serve --http [--port N] MCP over HTTP on 127.0.0.1 (bearer token: `token`)
+  helper                  the shell's: its quick commands on stdin (JSON lines), and
+                          the privacy hooks over HTTP on 127.0.0.1
   tools                   the enabled tools, as MCP JSON
   call NAME [JSON]        run one tool; prints its text, exit 1 on refusal
   pause | resume | toggle stop / allow desktop control, for every client
@@ -13551,6 +13667,8 @@ def main(argv):
         else:
             serve_stdio(cfg)
         return 0
+    if cmd == "helper":
+        return serve_helper()
     if cmd == "ui-worker":
         # Internal (in_ui_worker): one ui tool, its arguments on stdin, on the
         # desktop the caller's environment points at.

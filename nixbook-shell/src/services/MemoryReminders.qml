@@ -53,7 +53,7 @@ Singleton {
             root.fired = Object.assign({}, root.fired, { [t.id]: now })
             Quickshell.execDetached(["notify-send", "--app-name=Reminder", "--icon=alarm", "--urgency=normal",
                 Translation.tr("Reminder"), t.text])
-            Quickshell.execDetached(["nixbook-desktop-mcp", "memory", "fire", t.id])
+            DesktopHelper.run(["memory", "fire", t.id])
         }
     }
 

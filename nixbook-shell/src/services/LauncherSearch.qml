@@ -384,19 +384,27 @@ Singleton {
     function learnAlias(id) {
         const word = root.query.trim();
         if (id && word.length >= 3 && word.length <= 24 && !word.includes("/"))
-            Quickshell.execDetached(["nixbook-desktop-mcp", "habits", "alias", word, id]);
+            DesktopHelper.run(["habits", "alias", word, id]);
     }
 
     // Shown before anything is typed (like DankLauncher): every app, the most
     // used first (AppSearch frecency), then A-Z. Typing filters from there.
+    // While the launcher is closed the last order is kept: the usage and the
+    // focused app change all the time (every focus change, every minute),
+    // and re-sorting every app then reset the launcher's models unseen. It
+    // is sorted again as the launcher opens.
+    property var _appOrder: ({ list: [] })
     function allAppResults() {
+        if (!GlobalStates.overviewOpen && root._appOrder.list.length > 0)
+            return root._appOrder.list;
         AppSearch.usageRevision; // Re-sort after a launch
         AppSearch.habitsFocus; // and with the focused app (usage habits)
-        return AppSearch.list
+        root._appOrder.list = AppSearch.list
             .map(entry => ({ entry: entry, score: AppSearch.frecencyBonus(entry.id) }))
             .sort((a, b) => (b.score - a.score) || a.entry.name.localeCompare(b.entry.name))
             .map(item => root.appResultFor(item.entry))
             .filter(r => r !== null);
+        return root._appOrder.list;
     }
 
     function appResultFor(entry) {
@@ -514,13 +522,16 @@ Singleton {
         for (const id in old)
             old[id].destroy(1000);
     }
+    // props: the result's properties, or a function giving them, called
+    // only when the result isn't cached (one that makes action objects:
+    // never made again for a cached result on each keystroke).
     function cachedResult(kind, key, props) {
         const cache = root._entryCache;
         const k = kind + "\t" + key;
         const cached = cache.objects[k];
         if (cached)
             return cached;
-        const obj = resultComp.createObject(root, props);
+        const obj = resultComp.createObject(root, typeof props === "function" ? props() : props);
         cache.objects[k] = obj;
         cache.size++;
         return obj;
@@ -544,7 +555,7 @@ Singleton {
                 if (mightBlurImage) {
                     shouldBlurImage = shouldBlurImage && (root.containsUnsafeLink(array[index - 1]) || root.containsUnsafeLink(array[index + 1]));
                 }
-                const obj = root.cachedResult("clip", entry, {
+                const obj = root.cachedResult("clip", entry, () => ({
                     rawValue: entry,
                     name: StringUtils.cleanCliphistEntry(entry),
                     verb: "",
@@ -567,7 +578,7 @@ Singleton {
                                 Cliphist.deleteEntry(entry);
                             }
                         })]
-                });
+                }));
                 // Depends on the neighbours, which change with the query.
                 obj.blurImage = shouldBlurImage;
                 return obj;
@@ -619,7 +630,7 @@ Singleton {
                 return terms.every(term => haystack.includes(term));
             }).map((l, i) => {
                 // Row buttons (SearchItem): update it, delete it (also Shift+Delete).
-                const obj = root.cachedResult("layout", l.name, {
+                const obj = root.cachedResult("layout", l.name, () => ({
                     name: l.name,
                     iconName: "view_quilt",
                     iconType: LauncherSearchResult.IconType.Material,
@@ -636,7 +647,7 @@ Singleton {
                             iconType: LauncherSearchResult.IconType.Material,
                             execute: () => WindowLayouts.remove(l.name)
                         })]
-                });
+                }));
                 // Changes with each save: not only when the row is first made.
                 obj.comment = Translation.tr("%1 windows · %2").arg(l.windows).arg((l.apps ?? []).join(", "));
                 obj.verb = WindowLayouts.current === l.name ? Translation.tr("Restore (current)") : Translation.tr("Restore");

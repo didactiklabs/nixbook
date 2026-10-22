@@ -1217,6 +1217,23 @@ desktop)? niri has one focus and one view per workspace, and most apps
 ignore input from a second Wayland seat (Chromium and Electron entirely,
 kitty too): a nested compositor needs no niri patch and works with every app.
 
+### The shell's helper
+
+The shell keeps one `nixbook-desktop-mcp helper` running
+(`services/DesktopHelper.qml`): its quick commands (each message's personal
+context and privacy mask, cues, a bubble's answer, the pause switch…) are
+JSON lines on its stdin, answered in about a millisecond instead of a
+Python start each (~60 ms, ~150 ms before `-P`). Only the commands in
+`HELPER_COMMANDS` (no model, no long wait); the others, and any while it is
+down (it restarts after 2 s), run as a process as before. It also serves
+the side panel's privacy hooks over HTTP (Claude Code's `http` hooks) on
+127.0.0.1: a random port, a bearer token, the caller checked to be the same
+user.
+
+Every Python script of the package runs with `-P`: run from `/nix/store`,
+its directory would be on `sys.path`, and the first import would list the
+whole store.
+
 ### Private details
 
 With Settings > Desktop agents > Private details (`ai.privacy.mask`, on by
@@ -1268,8 +1285,9 @@ answers you read. It works in plain code, with no model involved:
   (`ClaudeCodeApiStrategy.qml`, `Ai.unmaskPrivate`).
 - **Cost**: one compiled regex (common prefixes factored for thousands of
   contacts) and a few for the learning, about 1.6 ms for a 6 KB reply
-  (0.8 ms without learning), and about 60 ms for each
-  non-desktop tool call in the side panel (the post-hook). Screenshots
+  (0.8 ms without learning). The side panel's hooks go over HTTP to the
+  shell's helper (below), about 1 ms a tool call; a process each (~60 ms)
+  only while the helper isn't up. Screenshots
   (`ai.privacy.screenshots`, off by default) take about 1.3 s of OCR for a
   full screen of text. They are read by tesseract, the words regrouped into
   the rows a reader sees, the details blacked out, and the model told where

@@ -92,7 +92,10 @@ let
         ]
       )
     }''${GI_TYPELIB_PATH:+:$GI_TYPELIB_PATH}"
-    exec ${desktopMcpPython}/bin/python3 ${desktopMcpPyc} "$@"
+    # -P: not the script's directory on sys.path. That is /nix/store, which
+    # the first import would list whole (tens of thousands of entries:
+    # ~70 ms of each run, the shell's commands and every MCP server start).
+    exec ${desktopMcpPython}/bin/python3 -P ${desktopMcpPyc} "$@"
   '';
   desktopMcpPython = pkgs.python3.withPackages (ps: [ ps.pygobject3 ]);
   # Precompiled: the shell runs it on every habit cue, memory lookup and agent
@@ -120,7 +123,7 @@ let
   # agent desktop's niri: no screen capture, input or window list of the
   # user's desktop through it (scripts/wayland-security-context.py).
   securityContext = pkgs.writeShellScriptBin "nixbook-wayland-security-context" ''
-    exec ${pkgs.python3}/bin/python3 ${./scripts/wayland-security-context.py} "$@"
+    exec ${pkgs.python3}/bin/python3 -P ${./scripts/wayland-security-context.py} "$@"
   '';
   agentDesktop = pkgs.writeShellScriptBin "nixbook-agent-desktop" ''
     export PATH="${
