@@ -3449,6 +3449,10 @@ expect_eq "helper: a command's answer, by id" '{"id":1,"code":0,"stdout":"⟦Per
 expect_eq "helper: only its quick commands" 127 "$(helper_ask '{"id":2,"argv":["routine","run","x"]}' | jq .code)"
 expect_eq "helper: a command's error, the helper still up" 2 "$(helper_ask '{"id":3,"argv":["privacy"]}' | jq .code)"
 expect_eq "helper: and the next answered" 0 "$(helper_ask '{"id":4,"argv":["privacy","show"]}' | jq .code)"
+out=$(helper_ask '{"id":5,"argv":["initiative","consider","{\"event\":\"focus\",\"app\":\"firefox\"}"]}')
+expect_eq "helper: the initiative's decision, on its own thread" "5 0" "$(jq -r '"\(.id) \(.code)"' <<<"$out")"
+expect_contains "helper: the decision as the command prints it" "$(jq -r .stdout <<<"$out")" '"action"'
+expect_eq "helper: a bad event" 2 "$(helper_ask '{"id":6,"argv":["initiative","consider","nope"]}' | jq .code)"
 hook_post() { curl -s -o "$tmp/hook.out" -w '%{http_code}' -X POST "$hook_url" -H "Authorization: Bearer $1" -d "$2"; }
 expect_eq "helper hook: a wrong token refused" 403 "$(hook_post nope '{}')"
 expect_eq "helper hook: masks a tool's output" 200 \

@@ -182,16 +182,44 @@ Singleton {
     }
 
     // `nmcli monitor` prints bursts of lines (connecting, roaming, resume,
-    // connectivity checks), and each update() starts ~10 processes: one
-    // update per burst. While the screens are off (Idle) nothing shows it:
-    // catch up once they're back on.
+    // connectivity checks), and each update() starts ~6 processes: one
+    // update per burst, and only what the lines call for. A state change
+    // (a device's, the primary connection, connectivity, any line not
+    // known): the whole status. A saved connection edited: the network
+    // list. A virtual interface (containers, bridges, VPN tunnels: not
+    // shown here, the VPN has its own indicator) or the hostname: nothing.
+    // While the screens are off (Idle) nothing shows it: catch up once
+    // they're back on.
     property bool updatePending: false
+    property bool _statusDue: false
+    property bool _listDue: false
+    readonly property var _virtualDevice: /^(lo|veth|docker|br-|virbr|vnet|vmnet|tap|tun|tailscale|wg|zt|podman|cni|flannel|vxlan|nm-|ip6tnl|ip_vti|sit|gre|dummy|bond|team)/
+    function noteMonitorLine(line) {
+        const device = /^([^\s:']+): /.exec(line);
+        if (device) {
+            if (root._virtualDevice.test(device[1])) return;
+            root._statusDue = true;
+        } else if (/connection profile (created|changed|removed)\s*$/.test(line)) {
+            root._listDue = true;
+        } else if (/^Hostname set to /.test(line)) {
+            return;
+        } else {
+            root._statusDue = true;
+        }
+        updateDebounce.restart();
+    }
+    function catchUp() {
+        if (root._statusDue) root.update();
+        else if (root._listDue) getNetworks.running = true;
+        root._statusDue = false;
+        root._listDue = false;
+    }
     Timer {
         id: updateDebounce
         interval: 500
         onTriggered: {
             if (Idle.screensOff) root.updatePending = true;
-            else root.update();
+            else root.catchUp();
         }
     }
     Connections {
@@ -199,7 +227,7 @@ Singleton {
         function onScreensOffChanged() {
             if (!Idle.screensOff && root.updatePending) {
                 root.updatePending = false;
-                root.update();
+                root.catchUp();
             }
         }
     }
@@ -208,8 +236,13 @@ Singleton {
         id: subscriber
         running: true
         command: ["nmcli", "monitor"]
+        // Its lines untranslated, for noteMonitorLine.
+        environment: ({
+            LANG: "C",
+            LC_ALL: "C"
+        })
         stdout: SplitParser {
-            onRead: updateDebounce.restart()
+            onRead: line => root.noteMonitorLine(line)
         }
     }
 

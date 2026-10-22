@@ -13472,15 +13472,17 @@ def serve_http(cfg, port):
 # start Python each time (~150 ms of CPU each, on every message sent, window
 # cue and minute). Requests on stdin, a JSON line each: {"id", "argv",
 # "stdin"}; answers on stdout, a line each: {"id", "code", "stdout"}. Only
-# the commands in HELPER_COMMANDS (no model, no long wait: one at a time);
-# the shell starts the others as before. Also the side panel's privacy hooks
+# the commands in HELPER_COMMANDS (no model, no long wait: one at a time),
+# and the initiative's decisions (`initiative consider`: a model's answer
+# can take seconds), each on a thread of its own, answered when done; the
+# shell starts the others as before. Also the side panel's privacy hooks
 # over HTTP (Claude Code's "http" hooks), on 127.0.0.1, a random port, a
 # bearer token and the caller the same user: ~2 ms instead of a process per
 # tool call. Its first line says where: {"hook": URL, "token": TOKEN}.
 HELPER_COMMANDS = {
     "privacy": None, "context": None, "sent": None, "pause": None, "resume": None, "status": None,
     "notify": None, "personal": ("context", "show", "forget"), "habits": ("cue", "alias", "status"),
-    "memory": ("show", "forget", "fire"), "initiative": ("show", "pending", "answer", "notices", "unmute"),
+    "memory": ("show", "forget", "fire"), "initiative": ("show", "pending", "answer", "notices", "unmute", "consider"),
     "routine": ("list", "undone", "on", "off", "remove"),
 }
 
@@ -13546,12 +13548,38 @@ def helper_hooks(token):
     return port
 
 
+def helper_consider(argv, answer):
+    """`initiative consider` on its own thread: its JSON, as the command
+    prints it."""
+    try:
+        event = json.loads(argv[2] if len(argv) > 2 else "")
+        if not isinstance(event, dict):
+            raise ValueError
+        answer(0, json.dumps(initiative_consider(load_config(), event), ensure_ascii=False) + "\n")
+    except ValueError:
+        answer(2, "")
+    except ToolError as e:
+        log(f"helper: initiative consider: {e}")
+        answer(1, "")
+    except Exception as e:  # a bug here must not stop the helper
+        log(f"helper: initiative consider: {e!r}")
+        answer(1, "")
+
+
 def serve_helper():
     real = sys.stdout
+    # The answers are lines on the real stdout, written whole (threads); a
+    # stray print in a thread goes to stderr, never into them.
+    sys.stdout = sys.stderr
+    lock = threading.Lock()
+
+    def send(msg):
+        with lock:
+            real.write(json.dumps(msg, ensure_ascii=False) + "\n")
+            real.flush()
     token = secrets.token_urlsafe(32)
     port = helper_hooks(token)
-    real.write(json.dumps({"hook": f"http://127.0.0.1:{port}/hook", "token": token}) + "\n")
-    real.flush()
+    send({"hook": f"http://127.0.0.1:{port}/hook", "token": token})
     for line in sys.stdin:
         try:
             req = json.loads(line)
@@ -13560,12 +13588,13 @@ def serve_helper():
         argv = req.get("argv") if isinstance(req, dict) else None
         if not isinstance(argv, list) or not all(isinstance(a, str) for a in argv):
             continue
-        if helper_allowed(argv):
-            code, out = helper_run(argv, req.get("stdin"))
-        else:
-            code, out = 127, ""
-        real.write(json.dumps({"id": req.get("id"), "code": code, "stdout": out}, ensure_ascii=False) + "\n")
-        real.flush()
+        rid = req.get("id")
+        if argv[:2] == ["initiative", "consider"]:
+            threading.Thread(target=helper_consider, daemon=True,
+                             args=(argv, lambda code, out, rid=rid: send({"id": rid, "code": code, "stdout": out}))).start()
+            continue
+        code, out = helper_run(argv, req.get("stdin")) if helper_allowed(argv) else (127, "")
+        send({"id": rid, "code": code, "stdout": out})
     return 0
 
 
