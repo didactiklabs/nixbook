@@ -12,7 +12,7 @@ The shell follows every MPRIS player (Spotify, browsers, mpv, YouTube Music, pho
 
 ## Equalizer
 
-The equalizer panel drives **EasyEffects**: presets or a 10-band curve with preamp, or **Auto**, which picks a curve from the song's Last.fm genre tags. Its optional **agent mode** has a small Claude Code task (Haiku by default) tune the curve for each new song (`equalizer.agent`, `equalizer.agentModel`).
+The equalizer panel drives **EasyEffects**: presets or a 10-band curve with preamp, or **Auto**, which picks a curve from the song's Last.fm genre tags. Its optional **agent mode** has a small Claude Code task (Haiku by default) tune the curve for each new song (`equalizer.agent`, `equalizer.agentModel`). The curve it makes for a song is remembered (the last 500 songs, in `~/.local/state/quickshell/user/eq/agent-curves.json`): when that song plays again, the same curve comes back at once, with no new agent run.
 
 ## Music recognition
 
