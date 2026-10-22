@@ -593,7 +593,10 @@ the user's gh login or ssh key; the session's environment has no token)
 (label `agent-fix`) and waits for CI (one retry with the failed logs).
 After that it notifies Merge/Look/Drop (`notify-send --wait`), or merges
 on its own (`autoMergeWhy`): with `autoMergeFixes` any fix, with `autoMerge`
-one whose files all match `autoMergePaths`; never one touching a sensitive file. A merged fix's commit on main is watched; `health REV` reads
+one whose files all match `autoMergePaths`; never one touching a sensitive file. Such a PR gets GitHub's auto-merge when opened
+(`armAutoMerge`); `watch` checks first whether GitHub merged it
+(`syncRun`), merges it itself otherwise, and turns auto-merge off when CI
+failed. A merged fix's commit on main is watched; `health REV` reads
 the deployed shell's journal (its invocation) for new warnings in the
 fix's files, or restarts. Either offers a revert PR. CI's `agent-guard`
 runs `nixbook-improve guard` from the base branch on `agent/` PRs.

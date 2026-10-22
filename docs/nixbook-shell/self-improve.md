@@ -87,6 +87,8 @@ Two switches, both off by default, merge a fix without asking once its CI passes
 - **Merge docs-only fixes on its own** (`ai.improve.autoMerge`): when every file it changed matches `autoMergePaths` (`docs/**`, `**/*.md`).
 - **Merge every fix on its own once CI passes** (`ai.improve.autoMergeFixes`): any fix.
 
+Such a fix gets GitHub's **auto-merge** as soon as its PR opens: GitHub merges it the moment its required checks pass, even if the fixer has stopped meanwhile (a reboot). The fixer still merges it itself once it sees CI pass, should GitHub not have. A fix whose CI fails has its auto-merge turned off, so a later re-run can't merge it behind your back.
+
 Either way, a fix touching what agents may do (their tools, permissions, switches and defaults: the sensitive files below) always waits for your **Merge**: otherwise the fixer could merge a loosening of its own limits without you seeing it. You get a notification after each merge, the Activity says why it merged, and the watch after the merge (main's checks, the updated shell, a revert offered) applies the same. A merged fix reaches this computer with your next update.
 
 ## Off limits

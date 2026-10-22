@@ -126,8 +126,11 @@ case "$1 $2" in
     fi
     ;;
   "pr merge")
-    # A rebase merge: the branch's commits onto main.
-    git -C "$FAKE_REMOTE" update-ref refs/heads/main "$(git -C "$FAKE_REMOTE" rev-parse "refs/heads/$FAKE_BRANCH")"
+    # Auto-merge set (or unset): GitHub merges later, if ever. Else a rebase
+    # merge: the branch's commits onto main.
+    if [[ "$*" != *--auto* && "$*" != *--disable-auto* ]]; then
+      git -C "$FAKE_REMOTE" update-ref refs/heads/main "$(git -C "$FAKE_REMOTE" rev-parse "refs/heads/$FAKE_BRANCH")"
+    fi
     ;;
   "pr view")
     # What became of it on GitHub (sync), or its merge commit.
@@ -247,7 +250,8 @@ expect_match "docs fix: its trailer" "^Agent-Fix: $id$" "$msg"
 expect_match "docs fix: its changelog entry" "which was wrong since" "$msg"
 expect_no_match "docs fix: the user's words stay out of the public repository" "the clock shows hours only" "$msg$(cat "$FAKE_LOG/pr-body")"
 expect_match "the session: --restricted" "--restricted" "$(cat "$FAKE_LOG/claude")"
-expect_match "docs fix: rebase merge" "pr merge 7 --repo o/r --rebase" "$(cat "$FAKE_LOG/gh")"
+expect_match "docs fix: auto-merge set on GitHub when opened" "pr merge 7 --repo o/r --auto --rebase --delete-branch" "$(cat "$FAKE_LOG/gh")"
+expect_match "docs fix: rebase merge" "pr merge 7 --repo o/r --rebase --delete-branch$" "$(cat "$FAKE_LOG/gh")"
 expect_eq "gh: its token only" "token=github_pat_test" "$(cut -d' ' -f1 "$FAKE_LOG/gh-env" | sort -u)"
 expect_no_match "gh: never the user's gh config" "config=$HOME/.config/gh" "$(cat "$FAKE_LOG/gh-env")"
 expect_no_match "the session: no token in its environment" "github_pat_test" "$(cat "$FAKE_LOG/claude-env")"
@@ -422,6 +426,18 @@ expect_match "activity: the merge" "^merged Merged #7" "$(activity)"
 expect_match "activity: refused" "^done Failed: Your change was refused" "$(activity)"
 expect_match "activity: why none started" "^wait No fix started: today's fixes are made" "$(activity)"
 expect_match "activity: no token" "^error no GitHub token" "$(activity)"
+
+# --- merged by GitHub's auto-merge before the check: told, watched on main ---------
+id=$(item "the guide says the clock is green")
+export FAKE_CLAUDE=docs FAKE_BRANCH="agent/fix-$id"
+echo MERGED >"$FAKE_LOG/pr-state"
+merges=$(grep -c "pr merge 7 --repo o/r --rebase --delete-branch$" "$FAKE_LOG/gh")
+jq '.ai.improve.perDay = 9' "$XDG_CONFIG_HOME/nixbook-shell/config.json" >"$tmp/c" && mv "$tmp/c" "$XDG_CONFIG_HOME/nixbook-shell/config.json"
+"$improve" run --item "$id" >/dev/null
+r=$(run_of "$id")
+expect_eq "auto-merged on GitHub: merged, its commit" "merged abc123" "$(jq -r '"\(.outcome) \(.merged)"' <<<"$r")"
+expect_eq "auto-merged on GitHub: not merged again" "$merges" "$(grep -c "pr merge 7 --repo o/r --rebase --delete-branch$" "$FAKE_LOG/gh")"
+rm "$FAKE_LOG/pr-state"
 
 # --- the guard refuses a feature ----------------------------------------------------
 (

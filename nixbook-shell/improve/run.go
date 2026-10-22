@@ -266,7 +266,19 @@ func run(o runOpts) (map[string]any, error) {
 	url = strings.TrimSpace(url)
 	pr := atoi(url[strings.LastIndex(url, "/")+1:])
 	editRun(id, func(r *Run) { r.PR, r.URL, r.Outcome, r.Doing = pr, url, "pr", "" })
-	logEvent("pr", fmt.Sprintf("Opened #%d: %s — CI runs now", pr, title))
+	// Allowed to merge on its own (the user's switch): GitHub's auto-merge,
+	// set at once, merges it as soon as the required checks pass, even if
+	// this process is gone by then; watch still merges it itself once CI
+	// passes, if GitHub hasn't.
+	then := ""
+	if autoMergeWhy(cfg, changes) != "" {
+		if err := armAutoMerge(repoName, pr); err != nil {
+			then = " (auto-merge not set: " + clip(err.Error(), 120) + "; merged here once CI passes)"
+		} else {
+			then = ", auto-merge set: GitHub merges it once its checks pass"
+		}
+	}
+	logEvent("pr", fmt.Sprintf("Opened #%d: %s — CI runs now%s", pr, title, then))
 	editInbox(func(in *Inbox) error {
 		if p := in.find(it.ID); p != nil {
 			p.Status, p.PR = "pr", pr

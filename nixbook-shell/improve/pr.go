@@ -106,6 +106,18 @@ func watch(cfg Config, id string) (map[string]any, error) {
 		}
 		break
 	}
+	// GitHub's auto-merge may have merged it already.
+	if r2, changed := syncRun(cfg, r); changed {
+		if r2.Outcome == "merged" {
+			notify("Merged on its own: "+r2.Title, "Its checks passed. Update the system to get it.", "low")
+			return watchMain(cfg, r2.ID)
+		}
+		return map[string]any{"outcome": r2.Outcome}, nil
+	}
+	if r.CI != "pass" && r.AutoMerge {
+		// Failed: never merged later behind the user's back (a re-run passing).
+		gh("pr", "merge", fmt.Sprint(r.PR), "--repo", repo, "--disable-auto")
+	}
 	if why := autoMergeWhy(cfg, r.Files); r.CI == "pass" && why != "" {
 		if err := merge(cfg, r); err == nil {
 			logEvent("merged", fmt.Sprintf("Merged #%d on its own (%s)", r.PR, why))
@@ -224,6 +236,13 @@ func merge(cfg Config, r Run) error {
 		}
 		return nil
 	})
+	return err
+}
+
+// armAutoMerge sets GitHub's auto-merge on a PR (a rebase merge, its
+// branch deleted): GitHub merges it once its required checks pass.
+func armAutoMerge(repo string, pr int) error {
+	_, err := gh("pr", "merge", fmt.Sprint(pr), "--repo", repo, "--auto", "--rebase", "--delete-branch")
 	return err
 }
 
