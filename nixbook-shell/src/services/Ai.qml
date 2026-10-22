@@ -333,6 +333,39 @@ Singleton {
     // same tools and guardrails as the MCP server other agents use, given to
     // Claude Code in the "functions" tool set when the server has any.
     readonly property string desktopMcpCommand: "nixbook-desktop-mcp"
+    // As desktop-mcp.py's PRIVACY_PROMPT.
+    readonly property string privacyPrompt: "Text in ⟦…⟧ (⟦Person 2⟧, ⟦Email 1⟧, ⟦User first⟧) is a private detail the user's computer hid from you. Use the placeholder exactly as it is, in tool arguments and in your answers: it becomes the real value on the user's side. ⟦User⟧ is the user; ⟦Person N first⟧ is Person N's first name."
+    // The placeholders given so far (desktop-mcp.py's privacy-map.json):
+    // Claude's answers are shown with the real values. Read again when one
+    // isn't known yet (given by a tool's reply during the answer).
+    FileView {
+        id: privacyMapFile
+        path: `${Quickshell.env("XDG_STATE_HOME") || `${Quickshell.env("HOME")}/.local/state`}/nixbook-shell/privacy-map.json`
+        blockLoading: true
+        printErrors: false
+    }
+    property var privacyTokens: ({})
+    function unmaskPrivate(text) {
+        if (text.indexOf("⟦") < 0) return text;
+        const re = /⟦[A-Z][A-Za-z]*(?: \d+)?(?: (?:first|nick))?⟧/g;
+        if ((text.match(re) ?? []).some(t => !(t in root.privacyTokens))) {
+            privacyMapFile.reload();
+            try {
+                root.privacyTokens = JSON.parse(privacyMapFile.text()).tokens ?? {};
+            } catch (e) {}
+        }
+        return text.replace(re, t => root.privacyTokens[t] ?? t);
+    }
+    // Claude Code's hooks for it, on every tool but the desktop ones (their
+    // server masks on its own): placeholders in a tool's input become the
+    // real values (only when there is one: no process otherwise), and its
+    // output is masked.
+    readonly property var privacyHooks: ({ hooks: {
+        PreToolUse: [{ matcher: "^(?!mcp__desktop__).*", hooks: [{ type: "command",
+            command: `in=$(cat); case "$in" in *⟦*) printf '%s' "$in" | ${root.desktopMcpCommand} privacy hook;; esac` }] }],
+        PostToolUse: [{ matcher: "^(?!mcp__desktop__).*", hooks: [{ type: "command",
+            command: `${root.desktopMcpCommand} privacy hook` }] }],
+    } })
     property var desktopTools: []
 
     Process {
@@ -674,8 +707,13 @@ Singleton {
             ...(attached.length > 0 ? [`Read(/${attached})`] : []), ...shellTools,
             ...writable.map(f => `Edit(/${f}/**)`),
             ...(connectors ? root.claudeConnectors : [])];
+        // The privacy mask: the user's messages and every tool's reply reach
+        // Claude with placeholders (AiChatSession.qml, the hook below), its
+        // tool calls and answers get the real values back here.
+        const privacy = Config.options.ai.privacy.mask;
         const system = root.stableSystemPrompt
             + "\n\nYou are answering in the desktop shell's side panel: keep answers short."
+            + (privacy ? " " + root.privacyPrompt : "")
             + (Config.options.ai.claudeCode.asComputer ? root.asComputerPrompt(desktop) : "")
             + (desktop ? " You can see and drive the user's desktop with the desktop tools." : "")
             // Its tools are all allowed (-p can't ask): what acts on the
@@ -715,7 +753,8 @@ Singleton {
         // claude.ai connectors included: dropped when they are wanted.
         let args = ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
             ...(connectors ? [] : ["--strict-mcp-config"]), "--append-system-prompt", system,
-            "--setting-sources", "project", ...(confined ? ["--settings", JSON.stringify(sandbox)] : []),
+            "--setting-sources", "project", ...(confined || privacy
+                ? ["--settings", JSON.stringify(Object.assign({}, confined ? sandbox : {}, privacy ? root.privacyHooks : {}))] : []),
             "--disallowedTools", ...(shellTools.length > 0 ? [] : ["Bash"]), "NotebookEdit", ...["Edit", "Write"].filter(t => !writeTools.includes(t)),
             // Write and Edit (outside the sandbox): never what runs on its own later.
             ...[].concat(...writable.map(w => [`Edit(/${w}/**/.git/**)`, `Edit(/${w}/.git/**)`, `Edit(/${w}/**/.envrc)`,

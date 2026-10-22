@@ -39,7 +39,7 @@ Scope {
     property string pendingContext: ""
     // Answered while not looked at (another tab, or the panel closed).
     property bool unread: false
-    readonly property bool responding: requester.turnActive || personalContext.running
+    readonly property bool responding: requester.turnActive || personalContext.running || privacyMask.running
 
     // The tab for what Claude says on its own (services/Initiative.qml): a
     // thread for each, one at a time (Ai.claudeThread).
@@ -64,7 +64,9 @@ Scope {
         if (seen) chat.unread = false;
     }
 
-    property ClaudeCodeApiStrategy strategy: ClaudeCodeApiStrategy {}
+    property ClaudeCodeApiStrategy strategy: ClaudeCodeApiStrategy {
+        unmask: text => Ai.unmaskPrivate(text)
+    }
 
     // Files of its own: the command line Claude Code runs with, and the task
     // for the desktop MCP server's memory (NIXBOOK_DESKTOP_MCP_QUERY_FILE):
@@ -289,6 +291,40 @@ Scope {
         onExited: Qt.callLater(() => personalContext.send(""))
     }
 
+    // The privacy mask (`nixbook-desktop-mcp privacy mask`): the message, with
+    // its context, reaches Claude with placeholders for the private details.
+    // Never sent as it is: if masking fails, the message isn't sent.
+    Process {
+        id: privacyMask
+        property string content: ""
+        property string attached: ""
+        property bool sent: false
+        command: [Ai.desktopMcpCommand, "privacy", "mask"]
+        stdinEnabled: true
+        function send(masked) {
+            if (sent) return;
+            sent = true;
+            if (masked.length > 0) {
+                requester.sendContent(masked, attached);
+                return;
+            }
+            const message = requester.message;
+            if (message) {
+                message.content += Translation.tr("**Not sent**: the private details couldn't be hidden (`nixbook-desktop-mcp privacy mask` failed). Turn off Settings > Desktop agents > Private details to send it as it is.");
+                message.done = true;
+                message.thinking = false;
+            }
+        }
+        onStarted: {
+            write(content);
+            stdinEnabled = false;
+        }
+        stdout: StdioCollector {
+            onStreamFinished: privacyMask.send(text)
+        }
+        onExited: (code, status) => Qt.callLater(() => privacyMask.send(""))
+    }
+
     // The memory pass (`nixbook-desktop-mcp personal learn`): Claude is told
     // to save what matters about the user, but mid-task it often doesn't.
     // So once a chat with Claude goes quiet (ai.claudeCode.autoMemory), or
@@ -490,7 +526,20 @@ Scope {
         }
 
         function sendPrompt(prompt, attached) {
-            requester.pendingLine = JSON.stringify({ type: "user", message: { role: "user", content: Ai.messageContext() + prompt } }) + "\n";
+            const content = Ai.messageContext() + prompt;
+            if (Config.options.ai.privacy.mask) {
+                privacyMask.content = content;
+                privacyMask.attached = attached;
+                privacyMask.sent = false;
+                privacyMask.stdinEnabled = true;
+                privacyMask.running = true;
+                return;
+            }
+            requester.sendContent(content, attached);
+        }
+
+        function sendContent(content, attached) {
+            requester.pendingLine = JSON.stringify({ type: "user", message: { role: "user", content: content } }) + "\n";
             requester.sentAttached = attached;
             requester.connectorRetried = false;
             // A connector needed signing in to: perhaps it's done now.

@@ -3350,6 +3350,74 @@ exec 7>&- 8<&-
 wait "$mcp_pid" || true
 rm -f "$agent_env" "$STUB_AGENT_SOCKET" "$XDG_RUNTIME_DIR/wayland-9"
 
+# -- privacy mask ------------------------------------------------------------
+
+# The contacts' copy (nixbook-accounts) is what says who is private.
+mkdir -p "$XDG_STATE_HOME/nixbook-accounts"
+cp "$XDG_CONFIG_HOME/nixbook-shell/config.json" "$tmp/config.json.saved" 2>/dev/null || echo '{}' >"$tmp/config.json.saved"
+jq '.ai.privacy.terms = ["Project Falcon"]' "$tmp/config.json.saved" >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
+cat >"$XDG_STATE_HOME/nixbook-accounts/contacts.json" <<'JSON'
+{"sections": {"google-1": {"contacts": [
+  {"id": "google-1:c1", "name": "Élodie Martin", "givenName": "Élodie", "familyName": "Martin",
+   "emails": [{"value": "elodie@example.com"}], "phones": [{"value": "+33 6 12 34 56 78"}],
+   "addresses": [{"value": "1 Main St\nSpringfield", "street": "1 Main St"}]},
+  {"id": "google-1:c2", "name": "Noor Durand", "givenName": "Noor", "familyName": "Durand"},
+  {"id": "google-1:c3", "name": "Élodie Chen", "givenName": "Élodie", "familyName": "Chen"}]}}}
+JSON
+pmask() { printf '%s' "$1" | python3 "$mcp" privacy mask; }
+punmask() { printf '%s' "$1" | python3 "$mcp" privacy unmask; }
+expect_eq "privacy: a contact's full name, email and phone" "⟦Person 1⟧ (⟦Email 1⟧, ⟦Phone 1⟧)" \
+  "$(pmask "élodie martin (ELODIE@example.com, 06 12 34 56 78)")"
+expect_eq "privacy: the same value, the same placeholder" "⟦Person 1⟧" "$(pmask "Élodie   Martin")"
+expect_eq "privacy: a first name two contacts share: nobody's" "⟦Name 1⟧ called ⟦Person 2 first⟧" "$(pmask "Élodie called Noor")"
+expect_eq "privacy: a first name that is a word, lower case or alone in a sentence: kept" "mark it done; Martin Luther King" \
+  "$(pmask "mark it done; Martin Luther King")"
+expect_eq "privacy: the user's terms, an address" "⟦Private 1⟧ at ⟦Address 1⟧" "$(pmask "project falcon at 1 Main St")"
+expect_eq "privacy: card and IBAN checked, other numbers kept" \
+  "⟦Card 1⟧, ⟦IBAN 1⟧; 4111 1111 1111 1112, 1729512345678, support@example.org" \
+  "$(pmask "4111 1111 1111 1111, FR76 3000 6000 0112 3456 7890 189; 4111 1111 1111 1112, 1729512345678, support@example.org")"
+expect_eq "privacy: placeholders back to the real values" "Élodie Martin, +33 6 12 34 56 78, ⟦Person 99⟧" \
+  "$(punmask "⟦Person 1⟧, ⟦Phone 1⟧, ⟦Person 99⟧")"
+expect_eq "privacy: the table is private" 600 "$(stat -c %a "$XDG_STATE_HOME/nixbook-shell/privacy-map.json")"
+
+# Tools: the model reads placeholders, the tools get the real values.
+out=$(call contacts '{"action":"list","query":"elodie"}')
+expect_contains "privacy: a tool's reply masked" "$out" "⟦Person 1⟧"
+expect_not_contains "privacy: no real name in a tool's reply" "$out" "Élodie Martin"
+expect_not_contains "privacy: no real email in a tool's reply" "$out" "elodie@example.com"
+reset_calls
+call type_text '{"text":"Hi ⟦Person 2⟧"}' >/dev/null
+expect_eq "privacy: typed with the real values" "wtype - <<Hi Noor Durand" "$(last_call)"
+
+# Claude Code's hook (the side panel): any tool, both ways.
+hook() { python3 "$mcp" privacy hook <<<"$1"; }
+out=$(hook '{"hook_event_name":"PreToolUse","tool_name":"mcp__claude_ai_Gmail__send","tool_input":{"to":["⟦Email 1⟧"],"body":"Hi ⟦Person 1⟧"}}')
+expect_eq "privacy hook: a tool's input gets the real values" '{"to":["elodie@example.com"],"body":"Hi Élodie Martin"}' \
+  "$(jq -c .hookSpecificOutput.updatedInput <<<"$out")"
+expect_eq "privacy hook: nothing to swap, nothing said" "" "$(hook '{"hook_event_name":"PreToolUse","tool_name":"Read","tool_input":{"file_path":"/x"}}')"
+out=$(hook '{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{},"tool_response":{"stdout":"From: Élodie Martin <elodie@example.com>","stderr":"","interrupted":false}}')
+expect_eq "privacy hook: a tool's output masked, its shape kept" '{"stdout":"From: ⟦Person 1⟧ <⟦Email 1⟧>","stderr":"","interrupted":false}' \
+  "$(jq -c .hookSpecificOutput.updatedToolOutput <<<"$out")"
+out=$(hook '{"hook_event_name":"PostToolUse","tool_name":"x","tool_response":[{"type":"image","data":"QWxpY2U=","mimeType":"image/png"},{"type":"text","text":"Noor Durand"}]}')
+expect_eq "privacy hook: an image's data left alone" '[{"type":"image","data":"QWxpY2U=","mimeType":"image/png"},{"type":"text","text":"⟦Person 2⟧"}]' \
+  "$(jq -c .hookSpecificOutput.updatedToolOutput <<<"$out")"
+
+# The small model's passes: masked in what is sent, real in what is kept.
+expect_contains "privacy: the sent log holds placeholders" "$(python3 "$mcp" sent note test "Élodie Martin wrote" && python3 "$mcp" sent show)" "⟦Person 1⟧ wrote"
+expect_contains "privacy: the MCP instructions explain the placeholders" \
+  "$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}' | python3 "$mcp" 2>/dev/null | head -1)" \
+  "is a private detail the user's computer hid"
+
+# Off: nothing masked.
+jq '.ai.privacy.mask = false' "$XDG_CONFIG_HOME/nixbook-shell/config.json" >"$tmp/c.json" && mv "$tmp/c.json" "$XDG_CONFIG_HOME/nixbook-shell/config.json"
+expect_eq "privacy: off, nothing masked" "Élodie Martin" "$(pmask "Élodie Martin")"
+expect_contains "privacy: off, a tool's reply as it is" "$(call contacts '{"action":"list","query":"elodie"}')" "Élodie Martin"
+python3 "$mcp" privacy clear
+expect_eq "privacy: clear forgets the values" "{}" "$(python3 "$mcp" privacy show)"
+expect_eq "privacy: clear keeps the numbers going" 2 "$(jq .next.Person "$XDG_STATE_HOME/nixbook-shell/privacy-map.json")"
+mv "$tmp/config.json.saved" "$XDG_CONFIG_HOME/nixbook-shell/config.json"
+rm -f "$XDG_STATE_HOME/nixbook-accounts/contacts.json"
+
 port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
 python3 "$mcp" serve --http --port "$port" 2>"$tmp/http.log" &
 http_pid=$!
