@@ -267,6 +267,10 @@ Singleton {
                     property bool screenshots: false
                     // Words also private: a company, a project, an address.
                     property list<string> terms: []
+                    // Strangers named often (a mail's sender, a chat's) become
+                    // private after this many different mentions.
+                    property bool learn: true
+                    property int learnAfter: 3
                 }
                 property JsonObject initiative: JsonObject {
                     property bool enable: false

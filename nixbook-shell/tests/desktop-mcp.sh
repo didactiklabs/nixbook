@@ -3408,15 +3408,40 @@ expect_contains "privacy: the MCP instructions explain the placeholders" \
   "$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}' | python3 "$mcp" 2>/dev/null | head -1)" \
   "is a private detail the user's computer hid"
 
+# Strangers: learned private once named in 3 different places.
+seen_n() { jq -r --arg k "$1" '.seen[$k].n // 0' "$XDG_STATE_HOME/nixbook-shell/privacy-seen.json"; }
+expect_eq "privacy learn: a chat's sender, sent as it is at first" "[Signal] Bastien Roux: ce soir ?" "$(pmask "[Signal] Bastien Roux: ce soir ?")"
+pmask "[Signal] Bastien Roux: ce soir ?" >/dev/null
+expect_eq "privacy learn: the same line read again counts once" 1 "$(seen_n "Person:bastien roux")"
+pmask "From: GitHub <noreply@github.com>
+Hi team, Hello World! support@example.org [Slack] General: hi
+Hi Bastien Roux, see attached" >/dev/null
+expect_eq "privacy learn: a greeting counts" 2 "$(seen_n "Person:bastien roux")"
+expect_eq "privacy learn: companies, roles, groups never counted" "[]" \
+  "$(jq -c '[.seen | keys[] | select(test("github|team|world|general|support"))]' "$XDG_STATE_HOME/nixbook-shell/privacy-seen.json")"
+expect_eq "privacy learn: private from the third place on, in that very reply" "[WhatsApp] ⟦Person 3⟧: ok" \
+  "$(pmask "[WhatsApp] Bastien Roux: ok")"
+expect_eq "privacy learn: then everywhere, first name too" "Lunch with ⟦Person 3⟧ and ⟦Person 3 first⟧" \
+  "$(pmask "Lunch with Bastien Roux and Bastien")"
+expect_eq "privacy learn: listed" '["Bastien Roux"]' "$(python3 "$mcp" privacy learned | jq -c '[.[].value]')"
+python3 "$mcp" privacy unlearn "Person:bastien roux"
+expect_eq "privacy learn: not private after all" "Bastien Roux" "$(pmask "Bastien Roux")"
+for i in 1 2 3; do pmask "[Signal] Bastien Roux: $i" >/dev/null; done
+expect_eq "privacy learn: and never learned again" "[Signal] Bastien Roux: 4" "$(pmask "[Signal] Bastien Roux: 4")"
+jq '.ai.privacy.learn = false' "$XDG_CONFIG_HOME/nixbook-shell/config.json" >"$tmp/c.json" && mv "$tmp/c.json" "$XDG_CONFIG_HOME/nixbook-shell/config.json"
+pmask "[Signal] Inès Garnier: salut" >/dev/null
+expect_eq "privacy learn: off, nothing counted" 0 "$(seen_n "Person:ines garnier")"
+jq '.ai.privacy.learn = true' "$XDG_CONFIG_HOME/nixbook-shell/config.json" >"$tmp/c.json" && mv "$tmp/c.json" "$XDG_CONFIG_HOME/nixbook-shell/config.json"
+
 # Off: nothing masked.
 jq '.ai.privacy.mask = false' "$XDG_CONFIG_HOME/nixbook-shell/config.json" >"$tmp/c.json" && mv "$tmp/c.json" "$XDG_CONFIG_HOME/nixbook-shell/config.json"
 expect_eq "privacy: off, nothing masked" "Élodie Martin" "$(pmask "Élodie Martin")"
 expect_contains "privacy: off, a tool's reply as it is" "$(call contacts '{"action":"list","query":"elodie"}')" "Élodie Martin"
 python3 "$mcp" privacy clear
 expect_eq "privacy: clear forgets the values" "{}" "$(python3 "$mcp" privacy show)"
-expect_eq "privacy: clear keeps the numbers going" 2 "$(jq .next.Person "$XDG_STATE_HOME/nixbook-shell/privacy-map.json")"
+expect_eq "privacy: clear keeps the numbers going" 3 "$(jq .next.Person "$XDG_STATE_HOME/nixbook-shell/privacy-map.json")"
 mv "$tmp/config.json.saved" "$XDG_CONFIG_HOME/nixbook-shell/config.json"
-rm -f "$XDG_STATE_HOME/nixbook-accounts/contacts.json"
+rm -f "$XDG_STATE_HOME/nixbook-accounts/contacts.json" "$XDG_STATE_HOME/nixbook-shell/privacy-"{learned,seen}.json
 
 port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
 python3 "$mcp" serve --http --port "$port" 2>"$tmp/http.log" &
