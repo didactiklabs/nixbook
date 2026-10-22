@@ -7872,9 +7872,11 @@ def learn_answer(out):
 # (off by default: about a second of OCR a full screenshot) boxes them in
 # screenshots too. The table is privacy-map.json, 0600, never sent.
 PRIVACY_TOKEN = re.compile(r"⟦([A-Z][A-Za-z]*)(?: (\d+))?(?: (first|nick|login))?⟧")
-# Login names that are words or defaults, not someone's: never masked.
+# Login names that are words, defaults or service accounts, not someone's:
+# never masked. CI's (GitHub Actions' runner: its paths, /home/runner/…, are
+# in every test's replies).
 PRIVACY_GENERIC_LOGINS = set("root user admin administrator debian ubuntu nixos fedora arch guest pi test demo dev "
-                             "home live default owner".split())
+                             "home live default owner runner builder jenkins gitlab-runner".split())
 PRIVACY_MIN = 3
 # A given name that is also a common word ("May I…"): masked with the full
 # name only.
