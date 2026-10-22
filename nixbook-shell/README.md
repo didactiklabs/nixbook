@@ -1252,9 +1252,15 @@ answers you read. It works in plain code, with no model involved:
   by their last 9 digits, whatever the format) and addresses, read from
   nixbook-accounts' copy. It also covers the words in `ai.privacy.terms`,
   card numbers (Luhn checked, card prefixes only) and IBANs (mod-97
-  checked). A first name two contacts share becomes `⟦Name N⟧`. A first name
-  that is also a common word (Mark, May…) is masked only within the full
-  name. Family names alone are kept: they rarely say who someone is and are
+  checked). A first name two contacts share becomes `⟦Name N⟧`. Names match
+  without accents and in capitals (Aurelien, AURÉLIEN). A first name is
+  masked as written (Claire, never the word claire); in what you type in
+  the side panel (`privacy mask --typed`), lowercase too: always for a name
+  that isn't a word (aurélien), and for one that is (claire, pierre, mark…)
+  only right after a word pointing at someone (`PRIVACY_CUE`: "ask
+  claire", "dis à claire", "merci claire"), never in "l'eau est claire". A
+  first name that is a very common word (Mark, May…) is otherwise masked
+  only within the full name. Family names alone are kept: they rarely say who someone is and are
   often public (Martin Luther King). Public names, sites and support
   addresses stay as they are, so answers lose nothing but who those people
   are.
@@ -1303,8 +1309,7 @@ answers you read. It works in plain code, with no model involved:
   - Your login name is private too (`⟦User login⟧`, in paths), unless it is
     a generic one (debian, admin, user…).
 - **Cost**: one compiled regex (common prefixes factored for thousands of
-  contacts) and a few for the learning, about 1.6 ms for a 6 KB reply
-  (0.8 ms without learning). The side panel's hooks go over HTTP to the
+  contacts) and a few for the learning, about 2.2 ms for a 7 KB reply. The side panel's hooks go over HTTP to the
   shell's helper (below), about 1 ms a tool call; a process each (~60 ms)
   only while the helper isn't up. Screenshots
   (`ai.privacy.screenshots`, off by default) take about 1.3 s of OCR for a

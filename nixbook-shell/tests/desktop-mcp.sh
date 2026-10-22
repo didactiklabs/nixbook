@@ -3362,7 +3362,8 @@ cat >"$XDG_STATE_HOME/nixbook-accounts/contacts.json" <<'JSON'
    "emails": [{"value": "elodie@example.com"}], "phones": [{"value": "+33 6 12 34 56 78"}],
    "addresses": [{"value": "1 Main St\nSpringfield", "street": "1 Main St"}]},
   {"id": "google-1:c2", "name": "Noor Durand", "givenName": "Noor", "familyName": "Durand"},
-  {"id": "google-1:c3", "name": "Élodie Chen", "givenName": "Élodie", "familyName": "Chen"}]}}}
+  {"id": "google-1:c3", "name": "Élodie Chen", "givenName": "Élodie", "familyName": "Chen"},
+  {"id": "google-1:c4", "name": "Claire Petit", "givenName": "Claire", "familyName": "Petit"}]}}}
 JSON
 pmask() { printf '%s' "$1" | python3 "$mcp" privacy mask; }
 punmask() { printf '%s' "$1" | python3 "$mcp" privacy unmask; }
@@ -3477,13 +3478,27 @@ expect_contains "privacy: a routine's agent reads placeholders" "$(cat "$calls.c
 expect_not_contains "privacy: no real name to a routine's agent" "$(cat "$calls.claude-prompt")" "Élodie Martin"
 expect_contains "privacy: its other servers through the hook" "$(cat "$calls.claude-args")" "privacy hook"
 
+# A first name however it is written: accents, capitals; lowercase in what
+# the user types, a name that is also a word only after a word pointing at
+# someone.
+expect_eq "privacy: without accents" "⟦Person 1⟧, ⟦Person 2 first⟧" "$(pmask "Elodie Martin, Noor")"
+expect_eq "privacy: in capitals" "⟦Person 1⟧ and ⟦Person 2 first⟧" "$(pmask "ÉLODIE MARTIN and NOOR")"
+expect_eq "privacy: lowercase, not in what others wrote" "ask noor" "$(pmask "ask noor")"
+ptyped() { printf '%s' "$1" | python3 "$mcp" privacy mask --typed; }
+expect_eq "privacy typed: lowercase" "ask ⟦Person 2 first⟧ now" "$(ptyped "ask noor now")"
+expect_eq "privacy typed: a name that is a word, pointed at" "lunch with ⟦Person 4 first⟧; dis à ⟦Person 4 first⟧" \
+  "$(ptyped "lunch with claire; dis à claire")"
+expect_eq "privacy typed: the word stays a word" "l'eau est claire, une couleur claire" "$(ptyped "l'eau est claire, une couleur claire")"
+expect_eq "privacy typed: capitalized, as anywhere" "⟦Person 4 first⟧ a appelé" "$(ptyped "Claire a appelé")"
+expect_eq "privacy: unmasked to the name as written in the contacts" "ask Noor" "$(punmask "ask ⟦Person 2 first⟧")"
+
 # Off: nothing masked.
 jq '.ai.privacy.mask = false' "$XDG_CONFIG_HOME/nixbook-shell/config.json" >"$tmp/c.json" && mv "$tmp/c.json" "$XDG_CONFIG_HOME/nixbook-shell/config.json"
 expect_eq "privacy: off, nothing masked" "Élodie Martin" "$(pmask "Élodie Martin")"
 expect_contains "privacy: off, a tool's reply as it is" "$(call contacts '{"action":"list","query":"elodie"}')" "Élodie Martin"
 python3 "$mcp" privacy clear
 expect_eq "privacy: clear forgets the values" "{}" "$(python3 "$mcp" privacy show)"
-expect_eq "privacy: clear keeps the numbers going" 3 "$(jq .next.Person "$XDG_STATE_HOME/nixbook-shell/privacy-map.json")"
+expect_eq "privacy: clear keeps the numbers going" 4 "$(jq .next.Person "$XDG_STATE_HOME/nixbook-shell/privacy-map.json")"
 mv "$tmp/config.json.saved" "$XDG_CONFIG_HOME/nixbook-shell/config.json"
 rm -f "$XDG_STATE_HOME/nixbook-accounts/contacts.json" "$XDG_STATE_HOME/nixbook-shell/privacy-"{learned,seen}.json
 
