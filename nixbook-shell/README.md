@@ -1275,16 +1275,33 @@ answers you read. It works in plain code, with no model involved:
   value always gets the same placeholder, across sessions. `privacy clear`
   forgets the values but never reuses a number, so a placeholder in an old
   chat can't become someone else.
-- **Where**: `call_tool` masks every desktop tool's reply and unmasks its
-  arguments, and the MCP instructions explain the placeholders. Each
-  small-model pass (`ask_claude`, `ask_local`) is masked, its answer
-  unmasked, so the memory keeps the real values. `sent.jsonl` holds what was
-  really sent. In the side panel, the message and its context go through
-  `privacy mask` before Claude Code; if that fails, nothing is sent. Claude
-  Code's `PreToolUse`/`PostToolUse` hooks (`privacy hook`) cover every other
-  tool: claude.ai connectors, Bash, Read. The pre-hook starts no process
-  unless the input holds a placeholder. Answers are unmasked as they stream
-  (`ClaudeCodeApiStrategy.qml`, `Ai.unmaskPrivate`).
+- **Where**: every way out to a model.
+  - The desktop server: `call_tool` masks every tool's reply and unmasks
+    its arguments. The notes it adds to a reply (the memory about the task,
+    people in it), `tools/list` and the instructions are masked too.
+  - The small model's passes (`ask_claude`, `ask_local`): masked, their
+    answers unmasked, so the memory keeps the real values. `sent.jsonl`
+    holds what was really sent.
+  - The side panel: the message and its context go through `privacy mask`,
+    and so does the system prompt (the machine's context, your own words in
+    it, paths), in the script that starts Claude Code. If either fails,
+    nothing is sent. Claude Code's `PreToolUse`/`PostToolUse` hooks
+    (`privacy hook`) cover every other tool: claude.ai connectors, other MCP
+    servers, Bash, Read. WebSearch and WebFetch keep their placeholders:
+    they run at the provider (WebFetch's page goes to its small model).
+    Answers are unmasked as they stream (`ClaudeCodeApiStrategy.qml`,
+    `Ai.unmaskPrivate`).
+  - A routine's agent (`routine_agent`): masked prompt, the hook on its
+    other servers, its report unmasked. The equalizer agent: masked prompt
+    (a local file's path), its note unmasked.
+  - The self-fix agent (`nixbook-improve`): its prompt (logs, your reports)
+    masked through `privacy mask`, nothing sent if that fails. Its answer
+    keeps the placeholders: it becomes a public pull request.
+  - With `ai.privacy.screenshots`, the images in any tool's reply too (an
+    attached image read by Claude, a photo from another server), boxed in
+    place, the reply's shape kept.
+  - Your login name is private too (`⟦User login⟧`, in paths), unless it is
+    a generic one (debian, admin, user…).
 - **Cost**: one compiled regex (common prefixes factored for thousands of
   contacts) and a few for the learning, about 1.6 ms for a 6 KB reply
   (0.8 ms without learning). The side panel's hooks go over HTTP to the
@@ -1296,6 +1313,10 @@ answers you read. It works in plain code, with no model involved:
   each one is (`⟦Person 2⟧ at image (x,y)`), so it can still click there.
 - **Not covered**: faces and photos, text the OCR misses, anything not on the
   list (a stranger's name in a mail), and what other apps send on their own.
+  Screenshots and images unless `ai.privacy.screenshots` is on. claude.ai
+  connectors run through Anthropic's servers: the model reads placeholders,
+  but what a connector fetches, and the real values it is given, pass
+  there. The screen translator sends the screen to Google Cloud Vision.
 
 ## Look and feel
 

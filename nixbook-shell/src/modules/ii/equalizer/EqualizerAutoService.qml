@@ -436,7 +436,7 @@ Singleton {
             return root.agentProblem(Translation.tr("Claude Code isn't installed or signed in: the agent mode needs it."))
         root.agentSong = key
         const url = String(p.metadata?.["xesam:url"] ?? "")
-        agentProc.prompt = Translation.tr("A new track is playing: \"%1\"").arg(p.trackTitle ?? "")
+        const prompt = Translation.tr("A new track is playing: \"%1\"").arg(p.trackTitle ?? "")
             + (p.trackArtist ? ` by ${p.trackArtist}` : "")
             + (p.trackAlbum ? `, from ${p.trackAlbum}` : "")
             + ` (${p.identity ?? "a player"}${url ? ", " + url : ""}).`
@@ -446,7 +446,22 @@ Singleton {
             + " Don't open the equalizer window. Then answer with one short line: what you shaped and why."
         agentProc.running = false
         root.agentRunning = true
-        agentProc.running = true
+        // The privacy mask: a local file's path can hold the user's name.
+        // Not sent as it is if masking fails.
+        if (!Config.options.ai.privacy.mask) {
+            agentProc.prompt = prompt
+            agentProc.running = true
+            return
+        }
+        DesktopHelper.run(["privacy", "mask"], prompt, (code, masked) => {
+            if (root.agentSong !== key) return // a newer song meanwhile
+            if (code !== 0 || masked.length === 0) {
+                root.agentRunning = false
+                return root.agentProblem(Translation.tr("The private details couldn't be hidden: nothing was sent."))
+            }
+            agentProc.prompt = masked
+            agentProc.running = true
+        })
     }
     Process {
         id: agentProc
@@ -478,7 +493,7 @@ exec "$1" -p "$2" --output-format text --strict-mcp-config --setting-sources pro
             if (agentProc.running || !root.agentEnabled) return
             const answer = agentOut.text.trim().split("\n").filter(l => l.trim() !== "").pop() ?? ""
             if (code === 0 && answer !== "") {
-                root.agentNote = answer
+                root.agentNote = Ai.unmaskPrivate(answer)
             } else if (code !== 0) {
                 // Claude Code's own warnings (stdin, updates) aren't why it failed.
                 const why = agentErr.text.split("\n").filter(l => l.trim() !== "" && !/^\s*warning\b/i.test(l)).pop() ?? ""

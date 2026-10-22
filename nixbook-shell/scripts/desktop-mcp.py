@@ -5006,11 +5006,21 @@ def routine_agent(cfg, r, event):
                  "happened, as the shell saw it, and the player's own tools are what you have." if music else ""))
     workdir = os.path.join(xdg("XDG_DATA_HOME", "~/.local/share"), "nixbook-shell", "routines")
     os.makedirs(workdir, mode=0o700, exist_ok=True)
+    system = ROUTINE_SYSTEM
+    settings = []
+    if privacy_on():
+        # The privacy mask: its prompt and, through the hook, its other
+        # servers' replies (the desktop's masks on its own); its report
+        # has the real values.
+        prompt, system = mask_text(prompt), system + "\n\n" + PRIVACY_PROMPT
+        hook = [{"matcher": "^(?!mcp__desktop__).*", "hooks": [{"type": "command", "command": f"{shlex.quote(desktop or sys.executable)}"
+                 + ("" if desktop else f" {shlex.quote(os.path.abspath(__file__))}") + " privacy hook"}]}]
+        settings = ["--settings", json.dumps({"hooks": {"PreToolUse": hook, "PostToolUse": hook}})]
     cmd = [claude, "-p", "--output-format", "json", "--no-session-persistence", "--strict-mcp-config",
-           "--mcp-config", json.dumps(config), "--setting-sources", "project",
+           "--mcp-config", json.dumps(config), "--setting-sources", "project", *settings,
            # Only its servers' tools: no built-in one (shell, files, web).
            "--tools", "", "--allowedTools", ",".join(f"mcp__{s}" for s in config["mcpServers"]),
-           "--max-turns", str(ROUTINE_AGENT_TURNS), "--append-system-prompt", ROUTINE_SYSTEM,
+           "--max-turns", str(ROUTINE_AGENT_TURNS), "--append-system-prompt", system,
            "--model", cfg.get("routineModel") or "haiku"]
     try:
         proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=workdir, timeout=240)
@@ -5022,7 +5032,7 @@ def routine_agent(cfg, r, event):
         said = ""
     if proc.returncode != 0 and not said:
         raise ToolError(f"the routine's run failed: {short((proc.stderr or proc.stdout).strip(), 200)}")
-    return sentences(clean_text(said, 2000), 400)
+    return sentences(clean_text(unmask_text(said), 2000), 400)
 
 
 def routine_why(when, event):
@@ -7631,7 +7641,10 @@ def learn_answer(out):
 # one compiled regex, well under a millisecond a reply. ai.privacy.screenshots
 # (off by default: about a second of OCR a full screenshot) boxes them in
 # screenshots too. The table is privacy-map.json, 0600, never sent.
-PRIVACY_TOKEN = re.compile(r"⟦([A-Z][A-Za-z]*)(?: (\d+))?(?: (first|nick))?⟧")
+PRIVACY_TOKEN = re.compile(r"⟦([A-Z][A-Za-z]*)(?: (\d+))?(?: (first|nick|login))?⟧")
+# Login names that are words or defaults, not someone's: never masked.
+PRIVACY_GENERIC_LOGINS = set("root user admin administrator debian ubuntu nixos fedora arch guest pi test demo dev "
+                             "home live default owner".split())
 PRIVACY_MIN = 3
 # A given name that is also a common word ("May I…"): masked with the full
 # name only.
@@ -7640,7 +7653,8 @@ PRIVACY_COMMON = set("will may mark grace rose bill art june pat hope joy faith 
 PRIVACY_PROMPT = (
     "Text in ⟦…⟧ (⟦Person 2⟧, ⟦Email 1⟧, ⟦User first⟧) is a private detail the user's computer hid "
     "from you. Use the placeholder exactly as it is, in tool arguments and in your answers: it becomes "
-    "the real value on the user's side. ⟦User⟧ is the user; ⟦Person N first⟧ is Person N's first name.")
+    "the real value on the user's side. ⟦User⟧ is the user; ⟦Person N first⟧ is Person N's first name; "
+    "⟦User login⟧ is the user's login name (in paths: /home/⟦User login⟧/…).")
 PHONE_RE = re.compile(r"(?<![\w+])\+?\d[\d ().-]{5,}\d(?![\w])")
 CARD_RE = re.compile(r"(?<![\d-])(?:\d[ -]?){14,15}\d(?![\d-])")
 IBAN_RE = re.compile(r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?\b")
@@ -7810,6 +7824,14 @@ def privacy_vocab():
         t = " ".join(t.split())
         if len(t) >= PRIVACY_MIN:
             ci.setdefault(t.lower(), ("Private", t.lower(), None, t))
+    # The login name: in paths (/home/NAME/…) and prompts, case kept.
+    import pwd
+    try:
+        login = pwd.getpwuid(os.getuid()).pw_name
+    except KeyError:
+        login = ""
+    if len(login) >= PRIVACY_MIN and login.lower() not in PRIVACY_GENERIC_LOGINS and login not in cs:
+        cs[login] = ("Person", "user", "login", login)
     bound = lambda body: re.compile(rf"(?<![\w@.]){body}(?![\w@])" if body else r"(?!)")
     learn = read_json(privacy_learned_path()) or {}
     config = read_json(privacy_files()[0]) or {}
@@ -8217,17 +8239,60 @@ def privacy_hook():
     return 0
 
 
+PRIVACY_PROVIDER_TOOLS = ("WebSearch", "WebFetch")
+
+
+IMAGE_TYPES = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp", "image/gif": ".gif"}
+
+
+def mask_images(obj):
+    """The images in a tool's reply (Read's {type: image, file: {base64,
+    type}}, an MCP server's {type: image, data, mimeType}), their private
+    details blacked out (ai.privacy.screenshots); the same shape back."""
+    if isinstance(obj, list):
+        return [mask_images(v) for v in obj]
+    if not isinstance(obj, dict):
+        return obj
+    if obj.get("type") != "image":
+        return {k: mask_images(v) for k, v in obj.items()}
+    inner = obj.get("file") if isinstance(obj.get("file"), dict) else obj
+    key, mime = ("base64", inner.get("type")) if inner is not obj else ("data", obj.get("mimeType"))
+    if not isinstance(inner.get(key), str) or mime not in IMAGE_TYPES:
+        return obj
+    fd, path = tempfile.mkstemp(suffix=IMAGE_TYPES[mime], dir=runtime_dir())
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(base64.b64decode(inner[key]))
+        if not mask_image(path, load_config()):
+            return obj
+        with open(path, "rb") as f:
+            data = base64.b64encode(f.read()).decode()
+    except (ToolError, ValueError, OSError) as e:
+        log(f"privacy: an image left as it is: {e}")
+        return obj
+    finally:
+        with contextlib.suppress(OSError):
+            os.unlink(path)
+    if inner is obj:
+        return {**obj, key: data}
+    return {**obj, "file": {**inner, key: data}}
+
+
 def privacy_hook_answer(event):
     """The hook's answer to an event, or None: nothing to change."""
     if not isinstance(event, dict) or not privacy_on():
         return None
     name = event.get("hook_event_name")
+    # WebSearch runs at the model's provider, and WebFetch has its small
+    # model read the page with the prompt: a placeholder stays one there.
+    if name == "PreToolUse" and event.get("tool_name") in PRIVACY_PROVIDER_TOOLS:
+        return None
     if name == "PreToolUse" and isinstance(event.get("tool_input"), dict):
         real = unmask_obj(event["tool_input"])
         if real != event["tool_input"]:
             return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "updatedInput": real}}
     elif name == "PostToolUse" and "tool_response" in event:
-        masked = mask_obj(event["tool_response"])
+        masked = mask_obj(mask_images(event["tool_response"]) if privacy_screenshots() else event["tool_response"])
         if masked != event["tool_response"]:
             return {"hookSpecificOutput": {"hookEventName": "PostToolUse", "updatedToolOutput": masked}}
     return None
@@ -13265,16 +13330,19 @@ class Session:
         if method.startswith("notifications/"):
             return None
         if method == "tools/list":
-            return {"tools": [t["spec"] for t in enabled_tools(self.ctx.cfg).values()]}
+            # Masked too: a few descriptions are made from the user's data.
+            return {"tools": mask_obj([t["spec"] for t in enabled_tools(self.ctx.cfg).values()])}
         if method == "tools/call":
             name = params.get("name")
             try:
                 content, is_error = call_tool(self.ctx, name, params.get("arguments") or {}, session_id)
             except KeyError:
                 raise RpcError(-32602, f"unknown tool: {name}")
+            # Outside call_tool: the memory about the task (people in it) is
+            # masked here.
             for note in (task_note(self.ctx), desktop_switch_note(self.ctx, session_id)):
                 if note:
-                    content = [text(note)] + content
+                    content = [text(mask_text(note) if privacy_on() else note)] + content
             return {"content": content, "isError": is_error}
         raise RpcError(-32601, f"method not found: {method}")
 

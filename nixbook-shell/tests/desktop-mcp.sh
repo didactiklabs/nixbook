@@ -3463,6 +3463,20 @@ expect_eq "helper hook: nothing to change, an empty answer" '{}' "$(cat "$tmp/ho
 exec 5>&- 6<&-
 wait "$helper_pid" 2>/dev/null || true
 
+# Every way out to a model: web tools keep their placeholders (they run at
+# the provider), a routine's agent is masked like the side panel.
+expect_eq "privacy hook: WebSearch keeps the placeholder" "" \
+  "$(hook '{"hook_event_name":"PreToolUse","tool_name":"WebSearch","tool_input":{"query":"⟦Person 1⟧ phone"}}')"
+python3 "$mcp" resume >/dev/null
+rm -f "$calls.claude-args" "$calls.claude-prompt"
+call routine '{"action":"add","text":"When the cable is plugged, tell Élodie Martin","when":{"event":"plugged","cooldown":0},"do":{"agent":"tell Élodie Martin I am home"}}' >/dev/null
+agent_routine=$(jq -r '.routines[-1].id' "$mem")
+say_yes "$agent_routine"
+python3 "$mcp" routine run "$agent_routine" '{"event":"plugged"}' >/dev/null
+expect_contains "privacy: a routine's agent reads placeholders" "$(cat "$calls.claude-prompt")" "tell ⟦Person 1⟧ I am home"
+expect_not_contains "privacy: no real name to a routine's agent" "$(cat "$calls.claude-prompt")" "Élodie Martin"
+expect_contains "privacy: its other servers through the hook" "$(cat "$calls.claude-args")" "privacy hook"
+
 # Off: nothing masked.
 jq '.ai.privacy.mask = false' "$XDG_CONFIG_HOME/nixbook-shell/config.json" >"$tmp/c.json" && mv "$tmp/c.json" "$XDG_CONFIG_HOME/nixbook-shell/config.json"
 expect_eq "privacy: off, nothing masked" "Élodie Martin" "$(pmask "Élodie Martin")"
