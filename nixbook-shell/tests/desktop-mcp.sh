@@ -1341,6 +1341,8 @@ for _ in $(seq 20); do
   sleep 0.2
 done
 expect_contains "memory pass: says what it learned, in the bar" "$(python3 "$mcp" initiative pending | jq -r '.[] | select(.kind=="learned") | .text')" "next time it takes me one step"
+expect_eq "memory pass: show it or forget it, by the shell at once" "settings forget" \
+  "$(python3 "$mcp" initiative pending | jq -r '[.[] | select(.kind=="learned") | .actions[].do] | join(" ")')"
 expect_contains "memory pass: by Claude Code with no tools" "$(cat "$calls.claude-args")" "--strict-mcp-config"
 rm -f "$calls.claude-prompt"
 session "rename my bookmark in firefox" 'press_keys {"keys":["ctrl+t"]}' >/dev/null
@@ -1439,6 +1441,9 @@ expect_eq "react: a download to read, summarize it (attached), open, show" "ask 
 expect_eq "react: gone from the bar in 30 min" 1800 "$(jq -r '.item.expires - .item.time' <<<"$out")"
 expect_eq "react: no model call" no "$([ -e "$calls.claude-prompt" ] && echo yes || echo no)"
 expect_eq "react: once per file" "said already" "$(consider '{"event":"happened","what":"download","name":"report.pdf","path":"/home/u/Downloads/report.pdf"}' | jq -r .why)"
+out=$(consider '{"event":"happened","what":"download","name":"pack.zip","path":"/home/u/Downloads/pack.zip"}')
+expect_eq "react: an archive, extracted by the shell at once" "extract /home/u/Downloads/pack.zip" "$(jq -r '.item.actions[0] | "\(.do) \(.path)"' <<<"$out")"
+python3 "$mcp" initiative answer "$(jq -r .item.id <<<"$out")" replied # clicked: taken up
 expect_contains "react: an installer, asked about for NixOS" \
   "$(consider '{"event":"happened","what":"download","name":"tool.AppImage","path":"/home/u/Downloads/tool.AppImage"}' | jq -r '.item.actions[0].text')" "on this NixOS machine"
 expect_eq "react: not while busy" "the user is busy" "$(consider '{"event":"happened","what":"screenshot","name":"s.png","path":"/p/s.png","busy":true}' | jq -r .why)"
@@ -2076,6 +2081,33 @@ expect_eq "local only: a download still opens" "open reveal" \
 rm "$XDG_CONFIG_HOME/nixbook-shell/config.json" "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
 python3 "$mcp" initiative clear
 
+# "Extract it": next to the download, in a folder of its own, nothing outside it.
+dl="$tmp/home/dl-test"
+mkdir -p "$dl"
+python3 - "$dl/pack.zip" <<'PY'
+import sys, zipfile
+with zipfile.ZipFile(sys.argv[1], "w") as z:
+    z.writestr("pack/readme.txt", "hi")
+    z.writestr("../pack/evil.txt", "bad")
+PY
+extract() { HOME="$tmp/home" python3 "$mcp" extract "$1"; }
+where=$(extract "$dl/pack.zip")
+expect_eq "extract: the one folder inside, shown" "$dl/pack/pack" "$where"
+expect_eq "extract: its files" hi "$(cat "$where/readme.txt")"
+expect_eq "extract: nothing outside its folder" no "$([ -e "$dl/evil.txt" ] && echo yes || echo no)"
+expect_eq "extract: again, a new folder" "$dl/pack (2)/pack" "$(extract "$dl/pack.zip")"
+expect_contains "extract: only the user's files" "$(extract /etc/hostname 2>&1 || true)" "not an archive it can extract"
+rm -rf "$dl"
+
+# A light word with something to do: done by the shell at once.
+wrap=$(cd "$root/scripts" && python3 -I -c '
+import importlib.util as u, datetime, json, time
+s = u.spec_from_file_location("m", "desktop-mcp.py"); m = u.module_from_spec(s); s.loader.exec_module(m)
+now = datetime.datetime.combine(datetime.date.today(), datetime.time(18, 0)).timestamp()
+cands = [c for c in m.chat_candidates({}, {"tasksDue": 2}, now) if c[0] == "wrapup"]
+print(json.dumps(m.CHAT_ACTIONS[cands[0][0]]))')
+expect_eq "chat: tasks due, moved or shown by the shell" "tasks:tomorrow tasks:show" "$(jq -r '[.[] | "\(.do):\(.what)"] | join(" ")' <<<"$wrap")"
+
 # Watches: "tell me when it's done", plain code; said in the bubble, or a
 # notification while the initiative is off.
 sleep 300 &
@@ -2352,6 +2384,11 @@ expect_contains "habits now: usual apps and layout" "$out" "usually use Calculat
 expect_contains "habits now: how sessions start" "$out" "sessions usually start with layout 'work', then Firefox, then Calculator"
 expect_contains "habits: in the memory digest" "$(python3 "$mcp" memory prompt)" "The user's habits (counted on this machine from their own use)"
 expect_contains "habits tool: now" "$(call habits '{}')" "usually use Calculator"
+# The usual start offered when back: set up by the shell at once, no Claude.
+jq '.briefDay = "" | .said = [] | .pending = [] | .stats = {}' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
+out=$(consider '{"event":"back","away":300,"open":[]}')
+expect_eq "brief: the usual start, a button that sets it up" "setup work org.gnome.Calculator,org.mozilla.firefox" \
+  "$(jq -r '.item.actions[0] | "\(.do) \(.layout) \(.apps | sort | join(","))"' <<<"$out")"
 expect_contains "habits tool: week" "$(call habits '{"what":"week"}')" "last 7 days"
 expect_contains "habits tool: no timeline unless shared" "$(call habits '{"what":"day"}')" "doesn't share their day by day timeline"
 expect_contains "habits report" "$(python3 "$mcp" habits report 29)" "- Calculator: 1h40"

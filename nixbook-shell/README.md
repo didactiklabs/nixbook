@@ -665,6 +665,12 @@ in the bubble (`AiChatSession.pendingContext`, shown there, × is
 events (`command_failed`, `copied_error`): an "Explain it" chip, no model
 call until clicked. Watches (the `watch` tool, `initiative.json`
 `watches`) are checked by `watch check` every minute while there are some;
+an offer's button that needs no thinking is
+done by the shell (`Initiative._direct`: `setup`, `tasks`, `settings`,
+`forget`, `log`; `extract` through `nixbook-desktop-mcp extract`), never a
+Claude run, and a plain command typed in the bubble (`QuickIntent.qml`:
+strict patterns, an app only when its name is certain) is done at once,
+the bubble saying what it did (kind `quick`, gone after 5 s);
 each small-model call is kept in `sent.jsonl` (`sent_note`, shown in
 Settings); with `policies.ai` 2, `ask_model` uses `localModel` (loopback
 only) for pairing and notifications. Left alone (25 s,

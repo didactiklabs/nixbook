@@ -74,6 +74,8 @@ let
           playerctl # the music every player plays (usage habits: music taste)
           accounts # nixbook-accounts: the contacts tool
           improve # nixbook-improve: report_problem
+          libarchive # bsdtar: `extract`, a download extracted from its bubble
+          procps # pgrep: a watched process
         ]
       )
     }:$PATH"

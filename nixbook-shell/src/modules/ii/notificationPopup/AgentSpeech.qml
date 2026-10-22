@@ -116,7 +116,7 @@ Scope {
         else if ((it.actions ?? []).length > 0)
             for (const [i, a] of it.actions.entries())
                 out.push({ label: a.label, main: i === 0, run: () => Initiative.act(a) })
-        else if (root.asks && it.kind !== "ask" && Initiative.online) {
+        else if (root.asks && !Initiative.isAsk(it) && Initiative.online) {
             out.push({ label: Translation.tr("Yes, please"), main: true, run: () => Initiative.reply(Translation.tr("Yes, please.")) })
             out.push({ label: Translation.tr("No thanks"), main: false, run: () => Initiative.hush("dismissed") })
         }
@@ -538,7 +538,7 @@ Scope {
                     RowLayout {
                         id: context
                         Layout.fillWidth: true
-                        visible: root.item?.kind === "ask" && !root.conversing && RecentContext.enabled
+                        visible: Initiative.isAsk(root.item) && !root.conversing && RecentContext.enabled
                             && RecentContext.text.length > 0
                         spacing: 6
                         opacity: Initiative.skipContext ? 0.5 : 0.8
@@ -638,7 +638,7 @@ Scope {
                                     placeholderTextColor: Qt.alpha(root.fg, 0.5)
                                     font.family: root.font
                                     placeholderText: window.grab ? Translation.tr("Message Claude… (Esc: put away, /new: start over)")
-                                        : root.conversing || root.item?.kind === "ask" ? Translation.tr("Message Claude…")
+                                        : root.conversing || Initiative.isAsk(root.item) ? Translation.tr("Message Claude…")
                                         : Translation.tr("Answer Claude…")
                                     onActiveFocusChanged: {
                                         Initiative.typing = activeFocus || text.length > 0
@@ -686,8 +686,10 @@ Scope {
                 // timer waits while hovered, typed in, answering, and while hidden).
                 Timer {
                     id: unanswered
-                    interval: root.conversing ? 90000 : root.item?.kind === "react" ? 15000 : 25000
-                    running: root.item !== null && window.visible && !hover.hovered && !Initiative.typing && !root.responding
+                    // What it just did for a command: a glance, then gone.
+                    interval: root.conversing ? 90000 : root.item?.kind === "quick" ? 5000 : root.item?.kind === "react" ? 15000 : 25000
+                    running: root.item !== null && window.visible && !hover.hovered && !root.responding
+                        && !(Initiative.typing && (root.item?.kind !== "quick" || input.text.length > 0))
                     && !MakeWay.active
                     onTriggered: Initiative.hush("wait")
                 }
