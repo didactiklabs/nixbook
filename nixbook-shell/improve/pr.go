@@ -118,16 +118,20 @@ func watch(cfg Config, id string) (map[string]any, error) {
 		// Failed: never merged later behind the user's back (a re-run passing).
 		gh("pr", "merge", fmt.Sprint(r.PR), "--repo", repo, "--disable-auto")
 	}
-	if why := autoMergeWhy(cfg, r.Files); r.CI == "pass" && why != "" {
+	if why := autoMergeWhy(cfg, r.Files, r.Feature); r.CI == "pass" && why != "" {
 		if err := merge(cfg, r); err == nil {
 			logEvent("merged", fmt.Sprintf("Merged #%d on its own (%s)", r.PR, why))
 			notify("Merged on its own: "+r.Title, "Its checks passed; "+why+". Update the system to get it.", "low")
 			return watchMain(cfg, r.ID)
 		}
 	}
-	summary, body, actions := "Fix ready: "+r.Title, "Its checks passed.", []string{"merge=Merge", "look=Look", "drop=Drop"}
+	ready := "Fix ready: "
+	if r.Feature {
+		ready = "Feature ready: "
+	}
+	summary, body, actions := ready+r.Title, "Its checks passed.", []string{"merge=Merge", "look=Look", "drop=Drop"}
 	if r.CI != "pass" {
-		summary, body, actions = "A fix failed its checks: "+r.Title, "It stays open as a PR.", []string{"look=Look", "drop=Drop"}
+		summary, body, actions = "A "+r.noun()+" failed its checks: "+r.Title, "It stays open as a PR.", []string{"look=Look", "drop=Drop"}
 	}
 	if r.Sensitive {
 		body += " It touches what agents may do: look before merging."
@@ -179,7 +183,8 @@ func retryCI(cfg Config, r Run, logs string) (Run, error) {
 	if err != nil {
 		return r, err
 	}
-	lim := Limits{cfg.MaxFiles, cfg.MaxLines}
+	lim := cfg.limits(r.Feature)
+	forFeature = r.Feature
 	// Its change stays in the files, uncommitted: redone, it is committed
 	// again whole.
 	if _, err := git(repo, "reset", "--soft", base); err != nil {
@@ -187,9 +192,9 @@ func retryCI(cfg Config, r Run, logs string) (Run, error) {
 	}
 	git(repo, "reset", "--quiet")
 	s, err := ask(cfg, repo, "Your change is in the working tree. CI failed on it:\n\n"+logs+
-		"\nFix that (within the same rules), or answer skip.", r.Session, lim)
+		"\nFix that (within the same rules), or answer skip.", r.Session, r.Feature)
 	editRun(r.ID, func(x *Run) { x.Cost += s.cost })
-	if err != nil || s.answer.Outcome != "fixed" {
+	if err != nil || !s.answer.made() {
 		git(repo, "checkout", "--force", "origin/"+r.Branch)
 		return r, errorf("no second try: %v", err)
 	}
@@ -210,7 +215,7 @@ func retryCI(cfg Config, r Run, logs string) (Run, error) {
 		it = *p
 	}
 	msg := commitMessage(s.answer, it)
-	if why := checkMessage(msg); len(why) > 0 {
+	if why := checkMessage(msg, r.Feature); len(why) > 0 {
 		return r, errorf("%s", strings.Join(why, "; "))
 	}
 	if _, err := cmd(repo, 10*time.Minute, msg, "git", unsigned("commit", "--quiet", "-F", "-")...); err != nil {
@@ -312,6 +317,7 @@ func watchMain(cfg Config, id string) (map[string]any, error) {
 // revert opens a PR reverting a merged fix, and merges it when the user
 // says so.
 func revert(cfg Config, r Run, why string) (map[string]any, error) {
+	forFeature = r.Feature
 	repo := ghRepo(cfg.Repo)
 	unlock, err := lock("run.lock", true)
 	if err != nil {
@@ -323,8 +329,12 @@ func revert(cfg Config, r Run, why string) (map[string]any, error) {
 		_, err = git(repoDir(), unsigned("revert", "--no-edit", r.Merged)...)
 	}
 	if err == nil {
-		msg := fmt.Sprintf("Revert %q\n\n%s\n\nThis reverts commit %s: %s.\n\nAgent-Fix: %s\n",
-			r.Title, wrap("The desktop agent's fix is taken back out until it is made again: "+why+".", 72), r.Merged, why, r.Item)
+		trailer := "Agent-Fix"
+		if r.Feature {
+			trailer = "Agent-Feature"
+		}
+		msg := fmt.Sprintf("Revert %q\n\n%s\n\nThis reverts commit %s: %s.\n\n%s: %s\n",
+			r.Title, wrap("The desktop agent's "+r.noun()+" is taken back out until it is made again: "+why+".", 72), r.Merged, why, trailer, r.Item)
 		_, err = cmd(repoDir(), time.Minute, msg, "git", unsigned("commit", "--amend", "--quiet", "-F", "-")...)
 	}
 	if err == nil {
@@ -338,14 +348,14 @@ func revert(cfg Config, r Run, why string) (map[string]any, error) {
 	}
 	unlock()
 	if err != nil {
-		notify("A fix broke something: "+r.Title, why+". Reverting it failed: "+clip(err.Error(), 200), "critical")
+		notify("A "+r.noun()+" broke something: "+r.Title, why+". Reverting it failed: "+clip(err.Error(), 200), "critical")
 		return nil, err
 	}
 	url = strings.TrimSpace(url)
 	pr := atoi(url[strings.LastIndex(url, "/")+1:])
 	editRun(r.ID, func(x *Run) { x.Note = why + " — revert: " + url })
 	logEvent("revert", fmt.Sprintf("%s broke something (%s): revert #%d is ready", r.Title, why, pr))
-	switch notify("A fix broke something: "+r.Title, why+". A revert is ready.\n"+url, "critical",
+	switch notify("A "+r.noun()+" broke something: "+r.Title, why+". A revert is ready.\n"+url, "critical",
 		"revert=Merge the revert", "look=Look") {
 	case "revert":
 		if _, err := ghMerge(repo, pr); err != nil {

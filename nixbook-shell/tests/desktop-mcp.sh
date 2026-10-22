@@ -2833,6 +2833,7 @@ improve_bin="$tmp/improve-bin"
 mkdir -p "$improve_bin"
 cat >"$improve_bin/nixbook-improve" <<EOF
 #!/usr/bin/env bash
+if [ "\$1" = status ]; then echo '{"inbox":[{"kind":"user","text":"the clock is cut off","status":"new"}]}'; exit; fi
 printf '%s\n' "\$*" >>"$tmp/improve-calls"
 echo '{"id":"0123abcd","count":2}'
 EOF
@@ -2847,6 +2848,50 @@ echo '{"ai": {"improve": {"enable": true}}}' >"$XDG_CONFIG_HOME/nixbook-shell/co
 out=$(PATH="$improve_bin:$PATH" call report_problem '{"what":"the clock is cut off","where":"bar clock"}')
 expect_contains "report_problem: filed" "$out" "filed for the fixer (reported 2 times now)"
 expect_eq "report_problem: nixbook-improve note" "note --where bar clock the clock is cut off" "$(cat "$tmp/improve-calls")"
+expect_contains "report_problem: a feature goes to request_feature" "$(python3 "$mcp" tools | jq -r '.[] | select(.name == "report_problem") | .description')" "request_feature instead"
+
+# -- request_feature: the feature requests, apart from the fixes ----------------------------------
+
+rm -f "$tmp/improve-calls"
+expect_contains "request_feature: off until features are on" \
+  "$(PATH="$improve_bin:$PATH" call request_feature '{"what":"a week number in the clock"}')" "building features is off"
+echo '{"ai": {"improve": {"enable": true, "features": {"enable": true}}}}' >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
+out=$(PATH="$improve_bin:$PATH" call request_feature '{"what":"a week number in the clock","where":"bar clock"}')
+expect_contains "request_feature: filed" "$out" "filed as a feature request (asked 2 times now)"
+expect_contains "request_feature: never merged on its own" "$out" "never merged on its own"
+expect_eq "request_feature: nixbook-improve request" "request --where bar clock a week number in the clock" "$(cat "$tmp/improve-calls")"
+
+# Improvement ideas: from what failed for the user, one fix or feature
+# proposed; yes files it, no is remembered.
+rm -f "$tmp/improve-calls" "$calls.claude-prompt"
+jq '.notes = ((.notes // []) + [{"id": "n-pdf", "topic": "pdf export", "text": "Exporting a note to PDF from the notes widget fails", "kind": "note", "fail": 3, "ok": 0, "created": 1, "updated": 1, "hist": []}])' "$mem" >"$mem.new" && mv "$mem.new" "$mem"
+answer=$(jq -nc '{structured_output: {proposal: {kind: "feature", text: "The notes widget can export a note as a PDF", where: "notes widget", why: "Exporting your notes failed three times."}}}')
+export STUB_CLAUDE_ANSWER="$answer"
+out=$(PATH="$improve_bin:$PATH" python3 "$mcp" initiative improve)
+prompt=$(cat "$calls.claude-prompt")
+expect_eq "improve ideas: offered" badge "$(jq -r .action <<<"$out")"
+expect_contains "improve ideas: what failed" "$prompt" "pdf export: Exporting a note to PDF"
+expect_contains "improve ideas: the kinds switched on" "$prompt" "Kinds you may propose: fix or feature"
+expect_contains "improve ideas: what is filed already" "$prompt" "- the clock is cut off"
+offer=$(python3 "$mcp" initiative pending | jq -r '[.[] | select(.accept // "" | startswith("improve:"))] | last')
+expect_contains "improve ideas: offered with why" "$(jq -r .text <<<"$offer")" "Exporting your notes failed three times. Shall I ask for this feature of nixbook?"
+PATH="$improve_bin:$PATH" python3 "$mcp" initiative answer "$(jq -r .id <<<"$offer")" replied
+expect_eq "improve ideas: yes files it" "request --where notes widget The notes widget can export a note as a PDF" "$(cat "$tmp/improve-calls")"
+answer=$(jq -nc '{structured_output: {proposal: {kind: "fix", text: "Launching an app by a nickname finds it", why: "x"}}}')
+export STUB_CLAUDE_ANSWER="$answer"
+PATH="$improve_bin:$PATH" python3 "$mcp" initiative improve >/dev/null
+offer=$(python3 "$mcp" initiative pending | jq -r '[.[] | select(.accept // "" | startswith("improve:"))] | last | .id')
+PATH="$improve_bin:$PATH" python3 "$mcp" initiative answer "$offer" never
+expect_eq "improve ideas: no files nothing" 1 "$(wc -l <"$tmp/improve-calls" | tr -d ' ')"
+expect_contains "improve ideas: a declined one isn't proposed again" "$(PATH="$improve_bin:$PATH" python3 "$mcp" initiative improve | jq -r .why)" "nothing new"
+echo '{"ai": {"improve": {"enable": true}}}' >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
+answer=$(jq -nc '{structured_output: {proposal: {kind: "feature", text: "A weather radar widget", why: "x"}}}')
+export STUB_CLAUDE_ANSWER="$answer"
+expect_contains "improve ideas: only the kinds switched on" "$(PATH="$improve_bin:$PATH" python3 "$mcp" initiative improve | jq -r .why)" "nothing that fits"
+echo '{"ai": {"improve": {"enable": true}, "initiative": {"improveIdeas": false}}}' >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
+expect_contains "improve ideas: its switch" "$(PATH="$improve_bin:$PATH" python3 "$mcp" initiative improve | jq -r .why)" "improvement ideas: off"
+unset STUB_CLAUDE_ANSWER
+jq '.notes = [.notes[] | select(.id != "n-pdf")]' "$mem" >"$mem.new" && mv "$mem.new" "$mem"
 rm "$XDG_CONFIG_HOME/nixbook-shell/config.json"
 if [ -n "$saved_mcp" ]; then printf '%s\n' "$saved_mcp" >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"; else rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"; fi
 

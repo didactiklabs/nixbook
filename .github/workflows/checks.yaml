@@ -100,9 +100,16 @@ jobs:
         run: |
           git worktree add "$RUNNER_TEMP/base" "$BASE"
           nix-build --out-link "$RUNNER_TEMP/improve" -E "(import $RUNNER_TEMP/base/nixbook-shell { }).package.passthru.improve"
-      - name: Fixes and polish only
-        # The PR's own commits (not the merge commit Actions checks out).
-        run: '"$RUNNER_TEMP/improve/bin/nixbook-improve" guard "$BASE" "$HEAD_SHA"'
+      - name: Fixes and polish only (features on agent/feature- branches)
+        # The PR's own commits (not the merge commit Actions checks out). A
+        # feature's branch gets a feature's limits (bigger, new files): it is
+        # never merged on its own.
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          feature=()
+          case "$HEAD_REF" in agent/feature-*) feature=(--feature) ;; esac
+          "$RUNNER_TEMP/improve/bin/nixbook-improve" guard "$BASE" "$HEAD_SHA" "${feature[@]}"
 
   # Repository consistency, every custom package instantiates, nixbook-shell
   # lib/script unit tests, the installer ISO evaluates, docs/MODULES.md is fresh.

@@ -1,6 +1,6 @@
 # Fixes it makes itself
 
-The desktop agent can fix nixbook itself: **fixes and polish only** (a bug, a rough edge, wrong wording), each as a pull request with its changelog entry, merged when you say so. New features and big changes are never made here: those it leaves for you, saying what a real change would be.
+The desktop agent can fix nixbook itself: **fixes and polish only** (a bug, a rough edge, wrong wording), each as a pull request with its changelog entry, merged when you say so. Apart from them, and switched on apart, it can **build the features you ask for** ([below](#features-it-builds)): a fix it finds too big goes there too. The agent can also [propose one of either](#proposed-by-the-agent) from what it saw get in your way.
 
 Only machines whose Nix configuration enables it have it (totoro, for now):
 
@@ -9,7 +9,7 @@ customHomeManagerModules.nixbookShellConfig.selfImprove.enable = true;
 # outside nixbook: programs.nixbook-shell.selfImprove.enable = true;
 ```
 
-Elsewhere there is no Settings section, agents don't get the `report_problem` tool, and `nixbook-improve` refuses to run. Where it is enabled, it stays off until you turn it on: **Settings → Desktop agents → Fixes it makes itself → Make fixes on its own** (`ai.improve.enable`). It uses your Claude Code login for the fixing session, and its own GitHub token (below) for GitHub.
+Elsewhere there are no Settings sections, agents don't get the `report_problem` and `request_feature` tools, and `nixbook-improve` refuses to run. Where it is enabled, it stays off until you turn it on: **Settings → Desktop agents → Fixes it makes itself → Make fixes on its own** (`ai.improve.enable`). It uses your Claude Code login for the fixing session, and its own GitHub token (below) for GitHub.
 
 ## Its GitHub token
 
@@ -45,7 +45,7 @@ What you report, a failed update or a red CI get a fix soon. A shell or unit err
 ## How a fix is made
 
 1. A clone of the repository (`~/.local/share/nixbook-shell/improve/repo`) is brought to `main`, on an `agent/fix-<item>` branch.
-2. A **Claude Code session** (your Claude Code login) reads the item and changes the files. It runs in `--restricted` mode: its file tools stay inside the clone, and it can't run commands, browse the web, or use settings, hooks or MCP servers. It never sees your files, your logins or a token. It may answer _skip_ (not a bug, or not enough to go on; when nothing here can fix it and it does no harm, such as another app's log noise, it is _ignored_: dropped from the list and never tried again) or _too big_ (a feature or a refactor: you get a notification saying what a real change would be).
+2. A **Claude Code session** (your Claude Code login) reads the item and changes the files. It runs in `--restricted` mode: its file tools stay inside the clone, and it can't run commands, browse the web, or use settings, hooks or MCP servers. It never sees your files, your logins or a token. It may answer _skip_ (not a bug, or not enough to go on; when nothing here can fix it and it does no harm, such as another app's log noise, it is _ignored_: dropped from the list and never tried again) or _too big_ (a feature or a refactor): the item then moves to the [feature requests](#features-it-builds) with what the session found, and a notification says so.
 3. **The guard** refuses what isn't a fix: more than `maxFiles` files (5) or `maxLines` changed lines (150), a new file (except Markdown), a deleted or binary file, or anything off limits (below).
 4. **The checks** (on this computer):
    - `treefmt`;
@@ -96,7 +96,30 @@ Either way, a fix touching what agents may do (their tools, permissions, switche
 - **Never changed by a fix** (refused before the push, and again by CI): `.github/`, the fixer itself (`nixbook-shell/improve/`, `SelfImprove.qml`), the agent desktop's sandbox, the tests, `nixosModules/`, `installer/`, `lib/`, `profiles/`, `npins/`, `hive.nix`, `base.nix`, the devenv files, `AGENTS.md` and `CLAUDE.md`, secrets.
 - **Never merged on its own** (sensitive: what agents may do): `desktop-mcp.py`, `Ai.qml`, `AiChatSession.qml`, `Initiative.qml`, `Routines.qml`, `Config.qml` and `builtin-defaults.json`, the Desktop agents settings page, the shell's Nix files, `customPkgs/` and `homeManagerModules/`. The PR and the notification say so.
 
-CI's **agent-guard** job (`checks.yaml`) runs `nixbook-improve guard` on every `agent/` branch, built from the base branch rather than from the PR. It checks the paths, the size and that each commit is `fix(…)` or `polish(…)` with a body and its trailer. To have GitHub refuse a merge without it, make it a required check of `main`'s ruleset.
+CI's **agent-guard** job (`checks.yaml`) runs `nixbook-improve guard` on every `agent/` branch, built from the base branch rather than from the PR. It checks the paths, the size and that each commit is `fix(…)` or `polish(…)` with a body and its trailer; on an `agent/feature-` branch (`--feature`), a feature's size and `feat(…)` commits with an `Agent-Feature:` trailer. A branch of reverts it made is only checked for its paths. To have GitHub refuse a merge without it, make it a required check of `main`'s ruleset.
+
+## Features it builds
+
+**Settings → Desktop agents → Features it builds → Build the features I ask for** (`ai.improve.features.enable`, off by default) has the same fixer build what you ask nixbook to do: a new widget, setting, shortcut or behaviour. It has its own list, status line and activity in Settings, its own daily limit, and other rules; the token, model and repository are the fixes'.
+
+- **What it builds.** Ask an agent ("I wish the bar showed the week number", "add a way to…"): its `request_feature` tool files it (`report_problem` tells agents to use it for anything bigger than a fix). You can also type it in the section. A fix the session finds too big comes here on its own, with what the session found ("Too big for a fix: …"); one found too big before that has an **As a feature** button.
+- **How.** Like a fix, on an `agent/feature-<item>` branch, by a session with the same confinement and off-limits places, but with its own instructions: build it whole but small, reuse what exists, update the settings, docs, `KEYBINDS.md` and the assistant's answers it touches. It may change up to `maxFiles` files (15) and `maxLines` lines (600) and add files (still no deleted or binary file), with up to `budgetUsd` (8) of Claude Code and 90 minutes. It may answer _skip_ (it exists already, with how to use it; too vague; not this repository's) or _too big_ (it needs a design choice or more than that: left to you with what it would take). The same checks run.
+- **The commit** is `feat(scope): …` with what it does, how to use it and how it is made, and an `Agent-Feature: <item>` trailer; the pull request has the label `agent-feature`.
+- **Never merged on its own**, whatever the auto-merge switches: once CI passes you get **Feature ready** with **Merge**, **Look** and **Drop**. After a merge, main's checks and the updated shell are watched and a revert offered, as for a fix.
+- At most `perDay` (1) on its own a day, after the day's fixes; **Build now** starts one at once. One run at a time, fix or feature.
+
+## Proposed by the agent
+
+With **Talk to me on its own** and **Propose fixes and features of nixbook** on (Settings → Desktop agents, `ai.initiative.improveIdeas`, on by default but idle while both fixes and features are off), every two days at most the small model looks at what the agent saw go wrong or get in your way and may propose one fix or feature, among the kinds you have on:
+
+- what failed in its memory (notes with failures, a failed step of a recipe), an app it couldn't find for you;
+- routines you undid;
+- its desktop tools' errors this week (not refusals: those are on purpose);
+- the apps pairing and curiosity saw you work in (names only), its kinds of words you rarely take up or told it to stop;
+- your habits, devices and networks, and the topics you care about (not people);
+- what is filed already and what you turned down, so nothing is proposed twice.
+
+It is offered in the bar with why ("Exporting your notes failed three times. Shall I ask for this feature of nixbook? …"): **Yes, do it** files it for the fixer (`note` or `request`), **Don't tell me this** remembers it and never proposes it again. It never proposes loosening what agents may do. `nixbook-desktop-mcp initiative improve` asks for one now.
 
 ## After the merge
 
@@ -105,22 +128,28 @@ CI's **agent-guard** job (`checks.yaml`) runs `nixbook-improve guard` on every `
 
 ## Settings
 
-| Setting                     | Default                  | What                                               |
-| --------------------------- | ------------------------ | -------------------------------------------------- |
-| `ai.improve.enable`         | `false`                  | Make fixes on its own                              |
-| `ai.improve.model`          | `"sonnet"`               | The fixing session's model (`opus`…)               |
-| `ai.improve.perDay`         | `2`                      | Fixes started on their own per day                 |
-| `ai.improve.maxFiles`       | `5`                      | Files a fix may change                             |
-| `ai.improve.maxLines`       | `150`                    | Lines a fix may change                             |
-| `ai.improve.budgetUsd`      | `3`                      | A session's spending limit (`--max-budget-usd`)    |
-| `ai.improve.autoMerge`      | `false`                  | Merge low-risk fixes on its own                    |
-| `ai.improve.autoMergePaths` | `["docs/**", "**/*.md"]` | What counts as low-risk                            |
-| `ai.improve.autoMergeFixes` | `false`                  | Merge every fix on its own (never a sensitive one) |
-| `ai.improve.ciIgnoreJobs`   | `["push-cache"]`         | CI jobs whose failure isn't the code's             |
-| `ai.improve.repo`           | `""` (`updates.repoUrl`) | The GitHub repository                              |
+| Setting                         | Default                  | What                                               |
+| ------------------------------- | ------------------------ | -------------------------------------------------- |
+| `ai.improve.enable`             | `false`                  | Make fixes on its own                              |
+| `ai.improve.model`              | `"sonnet"`               | The fixing session's model (`opus`…)               |
+| `ai.improve.perDay`             | `2`                      | Fixes started on their own per day                 |
+| `ai.improve.maxFiles`           | `5`                      | Files a fix may change                             |
+| `ai.improve.maxLines`           | `150`                    | Lines a fix may change                             |
+| `ai.improve.budgetUsd`          | `3`                      | A session's spending limit (`--max-budget-usd`)    |
+| `ai.improve.autoMerge`          | `false`                  | Merge low-risk fixes on its own                    |
+| `ai.improve.autoMergePaths`     | `["docs/**", "**/*.md"]` | What counts as low-risk                            |
+| `ai.improve.autoMergeFixes`     | `false`                  | Merge every fix on its own (never a sensitive one) |
+| `ai.improve.ciIgnoreJobs`       | `["push-cache"]`         | CI jobs whose failure isn't the code's             |
+| `ai.improve.repo`               | `""` (`updates.repoUrl`) | The GitHub repository                              |
+| `ai.improve.features.enable`    | `false`                  | Build the features asked for                       |
+| `ai.improve.features.perDay`    | `1`                      | Features started on their own per day              |
+| `ai.improve.features.maxFiles`  | `15`                     | Files a feature may change                         |
+| `ai.improve.features.maxLines`  | `600`                    | Lines a feature may change                         |
+| `ai.improve.features.budgetUsd` | `8`                      | A feature session's spending limit                 |
+| `ai.initiative.improveIdeas`    | `true`                   | The agent proposes fixes and features              |
 
-CI's guard always uses the default limits, so raising `maxFiles` or `maxLines` here gets a bigger fix refused there.
+CI's guard always uses the default limits, so raising `maxFiles` or `maxLines` (or the features') here gets a bigger change refused there.
 
 ## Command line
 
-`nixbook-improve status` (the inbox and the runs), `stop`, `sync`, `note TEXT`, `collect`, `run [--item ID] [--no-push]` (`--no-push`: a dry run that stops at the local commit), `merge|drop|look PR`, `token set|forget|status` (`set` reads it on stdin), `health REV`, `guard BASE [HEAD]`. State lives in `~/.local/state/nixbook-shell/improve/`; the clone and each run's logs in `~/.local/share/nixbook-shell/improve/`.
+`nixbook-improve status` (the inbox and the runs), `stop`, `sync`, `note TEXT` (a fix), `request TEXT` (a feature), `to-feature ID` (a fix item to the features), `collect`, `run [--item ID] [--no-push]` (`--no-push`: a dry run that stops at the local commit), `merge|drop|look PR`, `token set|forget|status` (`set` reads it on stdin), `health REV`, `guard BASE [HEAD] [--feature]`. State lives in `~/.local/state/nixbook-shell/improve/`; the clone and each run's logs in `~/.local/share/nixbook-shell/improve/`.

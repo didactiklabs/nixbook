@@ -10,11 +10,13 @@ import (
 
 // An Item is something to fix: what the user reported (through an agent's
 // report_problem or Settings), or a bug the shell's log or the desktop tools
-// keep showing. The same key again counts up instead of adding an item.
+// keep showing; or a feature to build (kind feature: what the user asked
+// for through an agent's request_feature or Settings, or a fix found too
+// big for one). The same key again counts up instead of adding an item.
 type Item struct {
 	ID    string `json:"id"`
 	Key   string `json:"key"`
-	Kind  string `json:"kind"` // user, qml, crash
+	Kind  string `json:"kind"` // user, qml, crash…, feature
 	Text  string `json:"text"`
 	Where string `json:"where,omitempty"` // a file or feature, when known
 	// A QML warning's line, and the revision the shell printing it ran
@@ -22,15 +24,18 @@ type Item struct {
 	Line int    `json:"line,omitempty"`
 	Rev  string `json:"rev,omitempty"`
 	// A CI item's failed run (its logs go to the session).
-	Ref   string `json:"ref,omitempty"`
+	Ref string `json:"ref,omitempty"`
+	// A feature made of a fix found too big: the fix's item.
+	From  string `json:"from,omitempty"`
 	Count int    `json:"count"`
 	First int64  `json:"first"`
 	Last  int64  `json:"last"`
 	// new, working, pr (a PR is open), merged, skipped (not a bug, or not
 	// enough to go on), ignored (skipped as harmless and unfixable: never
-	// tried again), too_big (a feature or a refactor: a real session's
-	// job), failed (its change never passed), dropped (by the user), gone
-	// (a failed unit running again, CI green again before a fix).
+	// tried again), too_big (a refactor or a design: a real session's
+	// job), feature (a fix too big for one, moved to the feature requests),
+	// failed (its change never passed), dropped (by the user), gone (a
+	// failed unit running again, CI green again before a fix).
 	Status string `json:"status"`
 	Note   string `json:"note,omitempty"` // why it was skipped, failed…
 	PR     int    `json:"pr,omitempty"`
@@ -87,8 +92,13 @@ func (in *Inbox) add(kind, key, text, where string, times int, now int64) *Item 
 		}
 		return it
 	}
+	// A feature request says more (and, made of a fix, what the fixer found).
+	room := 600
+	if kind == "feature" {
+		room = 1500
+	}
 	in.Items = append(in.Items, Item{
-		ID: itemID(key), Key: key, Kind: kind, Text: clip(text, 600),
+		ID: itemID(key), Key: key, Kind: kind, Text: clip(text, room),
 		Where: where, Count: times, First: now, Last: now, Status: "new",
 	})
 	if len(in.Items) > inboxMax {
@@ -123,6 +133,34 @@ func (in *Inbox) find(id string) *Item {
 var ripeCount = map[string]int{
 	"user": 1, "qml": 3, "crash": 2,
 	"service": 2, "log": 3, "deploy": 1, "warning": 2, "ci": 1, "coredump": 2,
+	"feature": 1,
+}
+
+func (it Item) feature() bool { return it.Kind == "feature" }
+
+// toFeature moves a fix item to the feature requests (found too big for a
+// fix, or by the user's hand): a feature item with its words and what the
+// fixer found, the fix item out of the fixes' list.
+func (in *Inbox) toFeature(id, why string, now int64) (*Item, error) {
+	it := in.find(id)
+	if it == nil {
+		return nil, errorf("no item %s", id)
+	}
+	if it.feature() {
+		return it, nil
+	}
+	if it.Status == "pr" {
+		return nil, errorf("item %s has a pull request open", id)
+	}
+	text := it.Text
+	if why = strings.TrimSpace(why); why != "" {
+		text += "\n\nToo big for a fix: " + why
+	}
+	from, where := it.ID, it.Where
+	it.Status, it.Note = "feature", clip("moved to the feature requests", 300)
+	f := in.add("feature", "feature:from:"+from, text, where, 1, now)
+	f.From = from
+	return f, nil
 }
 
 const retryAfterMs = 7 * 24 * 3600 * 1000
@@ -144,8 +182,9 @@ func (it Item) ripe(now int64) bool {
 	return false
 }
 
-// pick is the item to work on: the user's first, then the most seen.
-func (in *Inbox) pick(now int64) *Item {
+// pick is the item to work on, among the fixes or the features: the
+// user's first, then the most seen.
+func (in *Inbox) pick(now int64, feature bool) *Item {
 	var best *Item
 	score := func(it *Item) int {
 		s := it.Count
@@ -156,7 +195,7 @@ func (in *Inbox) pick(now int64) *Item {
 	}
 	for i := range in.Items {
 		it := &in.Items[i]
-		if it.ripe(now) && (best == nil || score(it) > score(best)) {
+		if it.feature() == feature && it.ripe(now) && (best == nil || score(it) > score(best)) {
 			best = it
 		}
 	}

@@ -5,7 +5,9 @@
 #   - a docs fix: committed with its changelog, pushed, its PR merged on its
 #     own (auto-merge), main's checks watched; CI's guard accepts it;
 #   - a fix touching AGENTS.md: refused twice, nothing pushed;
-#   - too big: filed as such, nothing pushed;
+#   - too big: moved to the feature requests, nothing pushed;
+#   - a feature: built on its own branch (new files, feat commit), never
+#     merged on its own; CI's guard takes it only with --feature;
 #   - harmless and unfixable: ignored for good;
 #   - a sensitive file: never merged on its own, dropped by the user;
 #   - the guard refuses a feature commit;
@@ -80,6 +82,12 @@ case "$FAKE_CLAUDE" in
     ;;
   too_big)
     echo '{"type":"result","subtype":"success","session_id":"s1","total_cost_usd":0.01,"structured_output":{"outcome":"too_big","reason":"it is a new widget"}}'
+    exit 0
+    ;;
+  feature)
+    printf '{ pkgs }: pkgs.hello # the radar\n' >customPkgs/radar.nix
+    jq -nc --arg b "$body" '{type:"result",subtype:"success",session_id:"s1",total_cost_usd:1.5,
+      structured_output:{outcome:"built",scope:"nixbook-shell",title:"The bar can show a weather radar",body:$b}}'
     exit 0
     ;;
 esac
@@ -281,7 +289,13 @@ expect_eq "AGENTS.md: not pushed" "" "$(git -C "$tmp/remote.git" rev-parse --ver
 id=$(item "add a weather radar widget")
 export FAKE_CLAUDE=too_big
 "$improve" run --item "$id" >/dev/null
-expect_eq "too big: filed" "too_big" "$("$improve" status | jq -r --arg i "$id" '.inbox[] | select(.id == $i) | .status')"
+expect_eq "too big: moved to the features" "feature" "$("$improve" status | jq -r --arg i "$id" '.inbox[] | select(.id == $i) | .status')"
+feat=$("$improve" status | jq -c --arg i "$id" '.inbox[] | select(.from == $i)')
+expect_eq "too big: a feature request" "feature new" "$(jq -r '"\(.kind) \(.status)"' <<<"$feat")"
+expect_match "too big: with what the session found" "Too big for a fix: it is a new widget" "$(jq -r .text <<<"$feat")"
+expect_match "too big: told" "now a feature request" "$(cat "$FAKE_LOG/notify")"
+fid=$(jq -r .id <<<"$feat")
+expect_eq "too big: nothing pushed" "" "$(git -C "$tmp/remote.git" rev-parse --verify --quiet "agent/fix-$id" || true)"
 
 # --- harmless and unfixable: ignored for good ------------------------------------
 id=$(item "the kernel says hello")
@@ -423,14 +437,14 @@ expect_match "activity: stopped" "^done Stopped: the guide is slow" "$(jq -r '.[
 # --- the day's limit --------------------------------------------------------------
 "$improve" note "one more thing" >/dev/null
 jq '.ai.improve.perDay = 1' "$XDG_CONFIG_HOME/nixbook-shell/config.json" >"$tmp/c" && mv "$tmp/c" "$XDG_CONFIG_HOME/nixbook-shell/config.json"
-expect_match "the day's limit" "today's fixes are made" "$("$improve" run --auto | jq -r .why)"
+expect_match "the day's limit" "today's fixes are made (1 a day" "$("$improve" run --auto | jq -r .why)"
 activity() { jq -r '.[] | "\(.kind) \(.text)"' "$XDG_STATE_HOME/nixbook-shell/improve/activity.json"; }
 expect_match "activity: a fix started" "^start Fixing: the guide says" "$(activity)"
 expect_match "activity: its PR" "^pr Opened #7: polish(docs)" "$(activity)"
 expect_match "activity: CI" "^ci CI passed on #7" "$(activity)"
 expect_match "activity: the merge" "^merged Merged #7" "$(activity)"
 expect_match "activity: refused" "^done Failed: Your change was refused" "$(activity)"
-expect_match "activity: why none started" "^wait No fix started: today's fixes are made" "$(activity)"
+expect_match "activity: why none started" "^wait Nothing started: today's fixes are made" "$(activity)"
 expect_match "activity: no token" "^error no GitHub token" "$(activity)"
 
 # --- merged by GitHub's auto-merge before the check: told, watched on main ---------
@@ -457,6 +471,33 @@ if (cd "$tmp/check" && "$improve" guard main HEAD >"$tmp/guard.json"); then
 else
   expect_match "guard: a feature refused" "isn't fix(scope)" "$(cat "$tmp/guard.json")"
 fi
+
+# --- a feature: built apart, never merged on its own ---------------------------------
+export FAKE_CLAUDE=feature FAKE_BRANCH="agent/feature-$fid" NOTIFY_ANSWER=drop
+expect_match "feature: off until features are on" "building features is off" "$("$improve" run --item "$fid" 2>&1 || true)"
+jq '.ai.improve.features.enable = true' "$XDG_CONFIG_HOME/nixbook-shell/config.json" >"$tmp/c" && mv "$tmp/c" "$XDG_CONFIG_HOME/nixbook-shell/config.json"
+expect_eq "request: a feature item" "feature new" "$("$improve" request "a week number in the clock" | jq -r '"\(.kind) \(.status)"')"
+"$improve" run --item "$fid" >/dev/null
+r=$(run_of "$fid")
+expect_eq "feature: never merged on its own (every fix merging), dropped" "true dropped false" "$(jq -r '"\(.feature) \(.outcome) \(.autoMerge // false)"' <<<"$r")"
+msg=$(git -C "$tmp/remote.git" log -1 --format=%B "agent/feature-$fid")
+expect_eq "feature: its title" "feat(nixbook-shell): the bar can show a weather radar" "$(head -n 1 <<<"$msg")"
+expect_match "feature: its trailer" "^Agent-Feature: $fid$" "$msg"
+expect_eq "feature: a new file" "A	customPkgs/radar.nix" "$(git -C "$tmp/remote.git" diff --name-status main "agent/feature-$fid")"
+expect_match "feature: its own rules" "You build a feature into nixbook" "$(cat "$FAKE_LOG/claude")"
+expect_match "feature: told it was too big for a fix" "found too big for a fix" "$(cat "$FAKE_LOG/prompt")"
+expect_match "feature: its label" "--label agent-feature" "$(grep "pr create" "$FAKE_LOG/gh" | tail -n 1)"
+expect_match "feature: never merged on its own, the PR says" "never merged on its own" "$(cat "$FAKE_LOG/pr-body")"
+expect_match "feature: told" "Feature ready: feat(nixbook-shell)" "$(cat "$FAKE_LOG/notify")"
+expect_match "feature: its activity" '"Building: add a weather radar widget' "$(jq -c '.[] | select(.feature) | .text' "$XDG_STATE_HOME/nixbook-shell/improve/activity.json")"
+(cd "$tmp/check" && git fetch --quiet origin "agent/feature-$fid")
+expect_eq "guard: a feature passes with --feature" "true" "$(cd "$tmp/check" && "$improve" guard "$(git rev-list --max-parents=0 HEAD)" FETCH_HEAD --feature | jq -r .ok)"
+if (cd "$tmp/check" && "$improve" guard "$(git rev-list --max-parents=0 HEAD)" FETCH_HEAD >"$tmp/guard.json"); then
+  fail "guard: a feature refused on a fix branch" "$(cat "$tmp/guard.json")"
+else
+  expect_match "guard: a feature refused on a fix branch" "a new file isn't a fix" "$(cat "$tmp/guard.json")"
+fi
+export FAKE_CLAUDE=docs
 
 # --- the privacy mask: what goes to Claude ----------
 jq '.ai.improve.perDay = 100' "$XDG_CONFIG_HOME/nixbook-shell/config.json" >"$tmp/c" && mv "$tmp/c" "$XDG_CONFIG_HOME/nixbook-shell/config.json"

@@ -74,7 +74,7 @@ func TestCommitMessage(t *testing.T) {
 	}
 	it := Item{ID: "0123abcd", Kind: "qml", Count: 4}
 	msg := commitMessage(a, it)
-	if why := checkMessage(msg); len(why) != 0 {
+	if why := checkMessage(msg, false); len(why) != 0 {
 		t.Fatalf("its own message refused: %v\n%s", why, msg)
 	}
 	if !strings.HasPrefix(msg, "polish(nixbook-shell): the clock keeps its seconds after a theme switch\n") {
@@ -95,7 +95,7 @@ func TestCommitMessage(t *testing.T) {
 		"fix(nixbook-shell): short body\n\nToo short.\n\nAgent-Fix: 0123abcd",
 		"fix(nixbook-shell): no trailer here\n\n" + strings.Repeat("word ", 30),
 	} {
-		if len(checkMessage(bad)) == 0 {
+		if len(checkMessage(bad, false)) == 0 {
 			t.Errorf("accepted: %q", firstLine(bad))
 		}
 	}
@@ -135,7 +135,7 @@ func TestInbox(t *testing.T) {
 	var in Inbox
 	now := int64(1_000_000_000_000)
 	in.add("qml", "qml:a", "warning a", "a.qml", 2, now)
-	if in.pick(now) != nil {
+	if in.pick(now, false) != nil {
 		t.Fatal("a warning seen twice is ripe")
 	}
 	in.add("qml", "qml:a", "warning a", "a.qml", 1, now+1)
@@ -143,7 +143,7 @@ func TestInbox(t *testing.T) {
 		t.Fatalf("not counted up: %+v", in.Items)
 	}
 	in.add("user", "user:x", "the bar's clock is cut off", "", 1, now+2)
-	if p := in.pick(now + 3); p == nil || p.Kind != "user" {
+	if p := in.pick(now+3, false); p == nil || p.Kind != "user" {
 		t.Fatalf("the user's report isn't first: %+v", p)
 	}
 	in.find(in.Items[1].ID).Status = "skipped"
@@ -247,11 +247,11 @@ func TestInfoNeverRipe(t *testing.T) {
 	var in Inbox
 	in.add("info", "info:kernel:x", "Kernel: x", "", 5, 1)
 	in.add("ci", "ci:Checks", "CI fails", "", 1, 1)
-	if p := in.pick(2); p == nil || p.Kind != "ci" {
+	if p := in.pick(2, false); p == nil || p.Kind != "ci" {
 		t.Fatalf("picked %+v", p)
 	}
 	in.find(itemID("ci:Checks")).Status = "pr"
-	if p := in.pick(2); p != nil {
+	if p := in.pick(2, false); p != nil {
 		t.Errorf("info picked: %+v", p)
 	}
 }
@@ -261,19 +261,22 @@ func TestAutoMergeWhy(t *testing.T) {
 	docs := []Change{{Path: "docs/x.md"}}
 	sensitive := []Change{{Path: "nixbook-shell/src/services/Ai.qml"}}
 	cfg := defaults()
-	if autoMergeWhy(cfg, qml) != "" || autoMergeWhy(cfg, docs) != "" {
+	if autoMergeWhy(cfg, qml, false) != "" || autoMergeWhy(cfg, docs, false) != "" {
 		t.Error("merged on its own with both switches off")
 	}
 	cfg.AutoMerge = true
-	if autoMergeWhy(cfg, docs) == "" || autoMergeWhy(cfg, qml) != "" {
+	if autoMergeWhy(cfg, docs, false) == "" || autoMergeWhy(cfg, qml, false) != "" {
 		t.Error("docs-only: wrong")
 	}
 	cfg.AutoMergeFixes = true
-	if autoMergeWhy(cfg, qml) == "" {
+	if autoMergeWhy(cfg, qml, false) == "" {
 		t.Error("every fix: a QML fix not merged")
 	}
-	if autoMergeWhy(cfg, sensitive) != "" || autoMergeWhy(cfg, append(qml, sensitive...)) != "" {
+	if autoMergeWhy(cfg, sensitive, false) != "" || autoMergeWhy(cfg, append(qml, sensitive...), false) != "" {
 		t.Error("every fix: a sensitive file merged on its own")
+	}
+	if autoMergeWhy(cfg, qml, true) != "" || autoMergeWhy(cfg, docs, true) != "" {
+		t.Error("a feature merged on its own")
 	}
 }
 
@@ -285,5 +288,95 @@ func TestFailLines(t *testing.T) {
 	}
 	if got := failLines("ok   - one\n"); got != "" {
 		t.Errorf("failLines without failures = %q", got)
+	}
+}
+
+func TestFeatures(t *testing.T) {
+	cfg := defaults()
+	// A feature's limits: bigger, new files allowed, never deletions or
+	// forbidden paths.
+	lim := cfg.limits(true)
+	add := []Change{{Path: "nixbook-shell/src/modules/ii/bar/WeekNumber.qml", Status: "A", Added: 80}}
+	if why := checkDiff(add, lim); len(why) != 0 {
+		t.Errorf("a feature's new file refused: %v", why)
+	}
+	if why := checkDiff(add, cfg.limits(false)); len(why) == 0 {
+		t.Error("a fix's new QML file accepted")
+	}
+	for name, cs := range map[string][]Change{
+		"forbidden": {{Path: "nixbook-shell/improve/guard.go", Status: "M", Added: 1}},
+		"deleted":   {{Path: "a.qml", Status: "D", Deleted: 3}},
+		"too big":   {{Path: "a.qml", Status: "M", Added: lim.Lines + 1}},
+	} {
+		if why := checkDiff(cs, lim); len(why) == 0 {
+			t.Errorf("feature %s: not refused", name)
+		}
+	}
+
+	// Its commit: feat(scope) with an Agent-Feature: trailer; a fix branch
+	// refuses it, a feature branch refuses a fix's.
+	a := Answer{
+		Outcome: "built", Type: "feat", Scope: "nixbook-shell", Title: "The clock widget can show the week number",
+		Body: "The bar's clock widget gets a switch to show the ISO week number next to the date. It is off by default " +
+			"and lives in Settings, Bar, Clock; the number follows the locale's first day of the week.",
+	}
+	it := Item{ID: "89abcdef", Kind: "feature"}
+	msg := commitMessage(a, it)
+	if !strings.HasPrefix(msg, "feat(nixbook-shell): the clock widget can show the week number\n") || !strings.Contains(msg, "\nAgent-Feature: 89abcdef\n") {
+		t.Errorf("feature message:\n%s", msg)
+	}
+	if why := checkMessage(msg, true); len(why) != 0 {
+		t.Errorf("its own feature message refused: %v", why)
+	}
+	if len(checkMessage(msg, false)) == 0 {
+		t.Error("a feature commit accepted on a fix branch")
+	}
+	fix := commitMessage(Answer{Type: "fix", Scope: "niri", Title: "x is right again", Body: a.Body}, Item{ID: "01234567", Kind: "user"})
+	if len(checkMessage(fix, true)) == 0 {
+		t.Error("a fix commit accepted on a feature branch")
+	}
+	if !a.made() || (Answer{Outcome: "fixed"}).made() == false || (Answer{Outcome: "skip"}).made() {
+		t.Error("made()")
+	}
+
+	// The inbox: fixes and features picked apart; a fix too big moves over.
+	var in Inbox
+	in.add("user", "user:x", "the clock is cut off", "bar", 1, 1)
+	in.add("feature", "feature:y", "a week number in the clock", "", 1, 2)
+	if p := in.pick(3, false); p == nil || p.Kind != "user" {
+		t.Errorf("fix picked: %+v", p)
+	}
+	if p := in.pick(3, true); p == nil || p.Kind != "feature" {
+		t.Errorf("feature picked: %+v", p)
+	}
+	in.find(itemID("user:x")).Status = "working"
+	f, err := in.toFeature(itemID("user:x"), "it needs a new setting", 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Kind != "feature" || f.From != itemID("user:x") || !strings.Contains(f.Text, "Too big for a fix: it needs a new setting") || f.Where != "bar" {
+		t.Errorf("moved: %+v", f)
+	}
+	if old := in.find(itemID("user:x")); old.Status != "feature" {
+		t.Errorf("the fix item stays %q", old.Status)
+	}
+	if p := in.pick(5, false); p != nil {
+		t.Errorf("a fix left to pick: %+v", p)
+	}
+	if reported(*f) != "Too big for a fix; built as a feature." || !strings.Contains(firstPrompt(*f, ""), "found too big for a fix") {
+		t.Error("a moved feature's words")
+	}
+}
+
+func TestGuardReverts(t *testing.T) {
+	// A revert of a feature deletes what it added: only its paths count.
+	if why := checkReverts([]Change{{Path: "nixbook-shell/src/New.qml", Status: "D", Deleted: 300}}); len(why) != 0 {
+		t.Errorf("a revert refused: %v", why)
+	}
+	if why := checkReverts([]Change{{Path: ".github/workflows/checks.yaml", Status: "M", Added: 1}}); len(why) == 0 {
+		t.Error("a revert touching .github accepted")
+	}
+	if !revertTitleRe.MatchString(`Revert "feat(nixbook-shell): x"`) || revertTitleRe.MatchString(`Revert "chore: x"`) {
+		t.Error("revertTitleRe")
 	}
 }

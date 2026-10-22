@@ -12,8 +12,8 @@ import (
 )
 
 type runOpts struct {
-	item   string // an inbox item ("Fix now"); else the ripest
-	auto   bool   // started on its own: the day's limit applies
+	item   string // an inbox item ("Fix now", "Build now"); else the ripest
+	auto   bool   // started on its own: the days' limits apply
 	noPush bool   // stop at the local commit (a dry run)
 }
 
@@ -68,12 +68,12 @@ func run(o runOpts) (map[string]any, error) {
 	if !available() {
 		return nil, errUnavailable
 	}
-	// notStarted: no fix this time, and why (in the activity too).
+	// notStarted: no fix nor feature this time, and why (in the activity too).
 	notStarted := func(why string) (map[string]any, error) {
-		logEvent("wait", "No fix started: "+why)
+		logEvent("wait", "Nothing started: "+why)
 		return map[string]any{"ran": false, "why": why}, nil
 	}
-	if !cfg.Enable {
+	if !cfg.Enable && !cfg.Features.Enable {
 		return notStarted("it's off (Settings > Desktop agents)")
 	}
 	if cfg.aiPolicy != 1 {
@@ -96,7 +96,17 @@ func run(o runOpts) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if o.auto && runsToday(rs) >= cfg.PerDay {
+	// Room left today: fixes first, then features, each switched on apart.
+	fixRoom := cfg.Enable && (!o.auto || runsToday(rs, false) < cfg.PerDay)
+	featRoom := cfg.Features.Enable && (!o.auto || runsToday(rs, true) < cfg.Features.PerDay)
+	if o.auto && !fixRoom && !featRoom {
+		switch {
+		case cfg.Enable && cfg.Features.Enable:
+			return notStarted(fmt.Sprintf("today's fixes (%d a day) and features (%d a day) are made; Fix now and Build now still work",
+				cfg.PerDay, cfg.Features.PerDay))
+		case cfg.Features.Enable:
+			return notStarted(fmt.Sprintf("today's features are made (%d a day; Build now still works)", cfg.Features.PerDay))
+		}
 		return notStarted(fmt.Sprintf("today's fixes are made (%d a day; Fix now still works)", cfg.PerDay))
 	}
 	repoName := ghRepo(cfg.Repo)
@@ -116,9 +126,23 @@ func run(o runOpts) (map[string]any, error) {
 			if p.Status == "working" || p.Status == "pr" {
 				return errorf("item %s is being fixed already", o.item)
 			}
-		} else if p = in.pick(now); p == nil {
-			waiting = waitingSummary(*in)
-			return errNothing
+			if !cfg.on(p.feature()) {
+				if p.feature() {
+					return errorf("building features is off (Settings > Desktop agents > Features it builds)")
+				}
+				return errorf("making fixes is off (Settings > Desktop agents > Fixes it makes itself)")
+			}
+		} else {
+			if fixRoom {
+				p = in.pick(now, false)
+			}
+			if p == nil && featRoom {
+				p = in.pick(now, true)
+			}
+			if p == nil {
+				waiting = waitingSummary(*in)
+				return errNothing
+			}
 		}
 		p.Status, p.Tried, p.TriedCount = "working", now, p.Count
 		it = *p
@@ -131,16 +155,26 @@ func run(o runOpts) (map[string]any, error) {
 		return nil, err
 	}
 
+	feature := it.feature()
+	forFeature = feature
 	id := newRunID()
 	runDir := filepath.Join(dataDir(), "runs", id)
 	os.MkdirAll(runDir, 0o700)
 	stage := func(s string) { editRun(id, func(r *Run) { r.Stage, r.Doing = s, stageText[s] }) }
+	work := "fix"
+	if feature {
+		work = "build"
+	}
 	editRun(id, func(r *Run) {
 		r.Item, r.ItemText, r.Manual, r.Stage, r.Doing = it.ID, clip(it.Text, 200), !o.auto, "clone", stageText["clone"]
-		r.PID = os.Getpid()
+		r.Feature, r.PID = feature, os.Getpid()
 	})
 	doing = doingFor(id)
-	logEvent("start", "Fixing: "+clip(it.Text, 200))
+	if feature {
+		logEvent("start", "Building: "+clip(it.Text, 200))
+	} else {
+		logEvent("start", "Fixing: "+clip(it.Text, 200))
+	}
 	// end: the run is over, and so the item's try.
 	end := func(outcome, note, status string) (map[string]any, error) {
 		r, _ := editRun(id, func(r *Run) {
@@ -157,15 +191,18 @@ func run(o runOpts) (map[string]any, error) {
 	}
 
 	branch := "agent/fix-" + it.ID
+	if feature {
+		branch = "agent/feature-" + it.ID
+	}
 	base, err := prepare(repoName, branch)
 	if err != nil {
 		return end("failed", "the repository: "+err.Error(), "new")
 	}
 	repo := repoDir()
-	lim := Limits{cfg.MaxFiles, cfg.MaxLines}
+	lim := cfg.limits(feature)
 
-	stage("fix")
-	s, err := ask(cfg, repo, firstPrompt(it, contextFor(repoName, repo, it)), "", lim)
+	stage(work)
+	s, err := ask(cfg, repo, firstPrompt(it, contextFor(repoName, repo, it)), "", feature)
 	cost := s.cost
 	editRun(id, func(r *Run) { r.Session, r.Cost = s.id, cost })
 	if err != nil {
@@ -187,7 +224,17 @@ func run(o runOpts) (map[string]any, error) {
 			}
 			return end("skipped", s.answer.Reason, "skipped")
 		case "too_big":
-			notify("Needs a real change: "+clip(it.Text, 80), clip(s.answer.Reason, 300), "low")
+			if !feature {
+				// More than a fix: a feature request, built apart (when the
+				// user has features on) with what the session found.
+				editInbox(func(in *Inbox) error {
+					_, err := in.toFeature(it.ID, s.answer.Reason, nowMs())
+					return err
+				})
+				notify("Too big for a fix, now a feature request: "+clip(it.Text, 80), clip(s.answer.Reason, 300), "low")
+				return end("too_big", "moved to the feature requests: "+s.answer.Reason, "feature")
+			}
+			notify("Needs a real session: "+clip(it.Text, 80), clip(s.answer.Reason, 300), "low")
 			return end("too_big", s.answer.Reason, "too_big")
 		}
 		stage("check")
@@ -197,7 +244,7 @@ func run(o runOpts) (map[string]any, error) {
 		}
 		feedback := ""
 		if why := checkDiff(changes, lim); len(why) > 0 {
-			feedback = "Your change was refused, it isn't a fix:\n- " + strings.Join(why, "\n- ")
+			feedback = "Your change was refused:\n- " + strings.Join(why, "\n- ")
 		} else if res = check(repo, base, changes, runDir); !res.ok {
 			feedback = res.feedback
 		}
@@ -209,9 +256,9 @@ func run(o runOpts) (map[string]any, error) {
 			return end("failed", strings.Join(strings.Fields(feedback), " "), "failed")
 		}
 		logEvent("retry", "Its change didn't pass ("+clip(firstLine(feedback), 120)+"): Claude tries again")
-		stage("fix")
+		stage(work)
 		s, err = ask(cfg, repo, "Your change didn't pass its checks:\n\n"+feedback+
-			"\nFix that (within the same rules), or answer skip or too_big.", s.id, lim)
+			"\nFix that (within the same rules), or answer skip or too_big.", s.id, feature)
 		cost += s.cost
 		editRun(id, func(r *Run) { r.Cost = cost })
 		if err != nil {
@@ -225,14 +272,14 @@ func run(o runOpts) (map[string]any, error) {
 		max := len([]rune(s.answer.Title)) + over
 		if s2, err := ask(cfg, repo, fmt.Sprintf("Your title is %d characters too long for the commit's first line. "+
 			"Answer the same again, changing nothing in the files, with a title of at most %d characters.",
-			-over, max), s.id, lim); err == nil && s2.answer.Outcome == "fixed" {
+			-over, max), s.id, feature); err == nil && s2.answer.made() {
 			cost += s2.cost
 			s.answer.Title = s2.answer.Title
 		}
 		editRun(id, func(r *Run) { r.Cost = cost })
 	}
 	msg := commitMessage(s.answer, it)
-	if why := checkMessage(msg); len(why) > 0 {
+	if why := checkMessage(msg, feature); len(why) > 0 {
 		return end("failed", "its commit message: "+strings.Join(why, "; "), "failed")
 	}
 	if _, err := cmd(repo, 10*time.Minute, msg, "git", unsigned("commit", "--quiet", "-F", "-")...); err != nil {
@@ -242,7 +289,7 @@ func run(o runOpts) (map[string]any, error) {
 	sensitiveFiles := anySensitive(changes)
 	editRun(id, func(r *Run) {
 		r.Type, r.Title, r.Branch, r.Files, r.Before = s.answer.Type, title, branch, changes, res.before
-		r.Sensitive, r.AutoMerge = sensitiveFiles, autoMergeWhy(cfg, changes) != ""
+		r.Sensitive, r.AutoMerge = sensitiveFiles, autoMergeWhy(cfg, changes, feature) != ""
 	})
 	if o.noPush {
 		return end("checked", "a dry run: committed on "+branch+" in "+repo+", not pushed", "new")
@@ -252,10 +299,17 @@ func run(o runOpts) (map[string]any, error) {
 	if _, err := gitNet(repo, "push", "--force", "origin", "HEAD:refs/heads/"+branch); err != nil {
 		return end("failed", "the push: "+err.Error(), "failed")
 	}
-	gh("label", "create", "agent-fix", "--repo", repoName, "--color", "C5DEF5",
-		"--description", "A fix or polish made by the desktop agent (nixbook-improve)")
+	label := "agent-fix"
+	if feature {
+		label = "agent-feature"
+		gh("label", "create", label, "--repo", repoName, "--color", "D4C5F9",
+			"--description", "A feature the user asked the desktop agent for (nixbook-improve)")
+	} else {
+		gh("label", "create", label, "--repo", repoName, "--color", "C5DEF5",
+			"--description", "A fix or polish made by the desktop agent (nixbook-improve)")
+	}
 	url, err := ghIn(2*time.Minute, prBody(s.answer, it, res.report, changes, sensitiveFiles), "pr", "create",
-		"--repo", repoName, "--base", "main", "--head", branch, "--title", title, "--label", "agent-fix", "--body-file", "-")
+		"--repo", repoName, "--base", "main", "--head", branch, "--title", title, "--label", label, "--body-file", "-")
 	if err != nil {
 		if strings.Contains(err.Error(), "not accessible by personal access token") {
 			return end("failed", "the token can't open pull requests: give it Pull requests: Read and write "+
@@ -271,7 +325,7 @@ func run(o runOpts) (map[string]any, error) {
 	// this process is gone by then; watch still merges it itself once CI
 	// passes, if GitHub hasn't.
 	then := ""
-	if autoMergeWhy(cfg, changes) != "" {
+	if autoMergeWhy(cfg, changes, feature) != "" {
 		if err := armAutoMerge(repoName, pr); err != nil {
 			then = " (auto-merge not set: " + clip(err.Error(), 120) + "; merged here once CI passes)"
 		} else {
@@ -301,6 +355,7 @@ func interrupted(note string) {
 	for _, r := range rs {
 		if r.Outcome == "" {
 			editRun(r.ID, func(x *Run) { x.Outcome, x.Note, x.Stage, x.Doing, x.Finished = "failed", note, "done", "", nowMs() })
+			forFeature = r.Feature
 			logEvent("done", "Stopped: "+clip(r.ItemText, 120)+" ("+note+")")
 			items = append(items, r.Item)
 		}
@@ -321,22 +376,23 @@ func interrupted(note string) {
 var stageText = map[string]string{
 	"clone": "Getting the repository up to date",
 	"fix":   "Claude looks for the cause",
+	"build": "Claude builds the feature",
 	"check": "Checking the change",
 	"push":  "Pushing and opening the pull request",
 }
 
 var outcomeText = map[string]string{
-	"skipped": "Skipped", "ignored": "Ignored, harmless", "too_big": "Too big for a fix", "failed": "Failed", "checked": "Dry run done",
+	"skipped": "Skipped", "ignored": "Ignored, harmless", "too_big": "Too big", "failed": "Failed", "checked": "Dry run done",
 }
 
 var scopeRe = regexp.MustCompile(`[^a-z0-9./-]+`)
 
-// commitMessage: "fix(scope): title", the session's changelog entry, what
-// it answers, and the trailers.
+// commitMessage: "fix(scope): title" (feat for a feature), the session's
+// changelog entry, what it answers, and the trailers.
 // titlePrefix: "fix(scope): " as commitMessage writes it.
 func titlePrefix(a Answer) string {
 	typ := a.Type
-	if typ != "polish" {
+	if typ != "polish" && typ != "feat" {
 		typ = "fix"
 	}
 	scope := strings.Trim(scopeRe.ReplaceAllString(strings.ToLower(a.Scope), "-"), "-")
@@ -373,7 +429,11 @@ func commitMessage(a Answer, it Item) string {
 	b.WriteString(prefix + title + "\n\n")
 	b.WriteString(wrap(a.Body, 72) + "\n\n")
 	b.WriteString(wrap(reported(it), 72) + "\n\n")
-	fmt.Fprintf(&b, "Agent-Fix: %s\nCo-Authored-By: Claude <noreply@anthropic.com>\n", it.ID)
+	trailer := "Agent-Fix"
+	if it.feature() {
+		trailer = "Agent-Feature"
+	}
+	fmt.Fprintf(&b, "%s: %s\nCo-Authored-By: Claude <noreply@anthropic.com>\n", trailer, it.ID)
 	return b.String()
 }
 
@@ -418,6 +478,11 @@ func reported(it Item) string {
 		return fmt.Sprintf("A program nixbook packages crashed %d times.", it.Count)
 	case "info":
 		return "Seen on the machine; fixed on the user's request."
+	case "feature":
+		if it.From != "" {
+			return "Too big for a fix; built as a feature."
+		}
+		return "Requested by the user."
 	}
 	return "Reported by the user."
 }
@@ -444,8 +509,13 @@ func prBody(a Answer, it Item, report []string, changes []Change, sensitiveFiles
 	if sensitiveFiles {
 		b.WriteString("\n⚠️ Touches what agents may do (their tools, permissions or switches): never merged on its own.\n")
 	}
-	b.WriteString("\n---\nOpened by nixbook-improve, the desktop agent's fixer: fixes and polish only, " +
-		"checked by `nixbook-improve guard` in CI (agent-guard).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n")
+	if it.feature() {
+		b.WriteString("\n---\nOpened by nixbook-improve, the desktop agent: a feature asked for, never merged on its own, " +
+			"checked by `nixbook-improve guard --feature` in CI (agent-guard).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n")
+	} else {
+		b.WriteString("\n---\nOpened by nixbook-improve, the desktop agent's fixer: fixes and polish only, " +
+			"checked by `nixbook-improve guard` in CI (agent-guard).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n")
+	}
 	return b.String()
 }
 

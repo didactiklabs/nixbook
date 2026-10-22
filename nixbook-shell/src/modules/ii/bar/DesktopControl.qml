@@ -297,7 +297,7 @@ Item {
             }
         }
 
-        // Fixing nixbook: shown in Settings.
+        // Fixing nixbook or building a feature of it: shown in Settings.
         AgentButton {
             id: fixButton
             visible: SelfImprove.running !== null
@@ -317,7 +317,7 @@ Item {
                     spacing: 4
                     StyledPopupHeaderRow {
                         icon: "build"
-                        label: Translation.tr("Fixing nixbook")
+                        label: SelfImprove.running?.feature === true ? Translation.tr("Building a feature of nixbook") : Translation.tr("Fixing nixbook")
                     }
                     StyledText {
                         Layout.fillWidth: true

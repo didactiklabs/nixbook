@@ -317,6 +317,13 @@ Whether to enable the Niri scrollable-tiling Wayland compositor. Niri is a moder
 
 Whether to run polkit-gnome as the session's polkit authentication agent. Only one agent can hold the polkit registration per session. Quickshell desktop shells ship their own — nixbook-shell has `services/PolkitService.qml` — and whichever registers first wins. In practice polkit-gnome starts first, so the shell's agent fails on every start with "An authentication agent already exists for the given subject" and its (themed, in-shell) prompt is never used. Set to false on machines whose shell provides an agent, to drop the extra process and get the integrated prompt. Leave true when the shell has no agent of its own (DMS does not ship one), otherwise privilege escalation dialogs silently never appear.
 
+### `customNixOSModules.niri.xrayOpaque`
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+Whether to build niri with niri-xray-opaque.patch: a window with xray blur says it is opaque (inside its rounded corners) when the workspace background colour is, as niri's own FIXMEs in xray.rs ask. Nothing on screen changes: those pixels already hid what is underneath (a window's opacity rule applies to its content, never to the blur behind it). But niri then: - stops re-rendering every window above a change it can't show: a video wallpaper on the Bottom layer (visible in the gaps, so always playing), desktop widgets under windows; - stops waking what is fully hidden behind such windows (no frame callbacks until it shows again); - draws the blur without blending (no read of what is underneath). niri is then built from source on the machine (no binary cache), on each nixpkgs niri update. On by default.
+
 ---
 
 ## printTools
@@ -726,7 +733,7 @@ Whether to offer the nixbook-shell AI chat (Claude in the side panel, and nothin
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable the desktop agent fixing nixbook itself on this machine (programs.nixbook-shell.selfImprove.enable): fixes and polish only, as pull requests made with a GitHub token set in Settings > Desktop agents. Only machines whose profile turns it on have it.
+Whether to enable the desktop agent fixing nixbook itself on this machine (programs.nixbook-shell.selfImprove.enable): fixes and polish, and apart the features asked for (never merged on their own), as pull requests made with a GitHub token set in Settings > Desktop agents. Only machines whose profile turns it on have it.
 
 ### `customHomeManagerModules.nixbookShellConfig.settings`
 
