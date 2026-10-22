@@ -490,7 +490,7 @@ Scope {
             const content = Ai.messageContext() + prompt;
             if (Config.options.ai.privacy.mask) {
                 chat.preparing++;
-                DesktopHelper.run(["privacy", "mask"], content, (code, masked) => {
+                DesktopHelper.run(["privacy", "mask", "--typed"], content, (code, masked) => {
                     chat.preparing--;
                     if (code === 0 && masked.length > 0) requester.sendContent(masked, attached);
                     else chat.maskFailed();

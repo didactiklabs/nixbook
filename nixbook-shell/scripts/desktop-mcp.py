@@ -7650,6 +7650,33 @@ PRIVACY_MIN = 3
 # name only.
 PRIVACY_COMMON = set("will may mark grace rose bill art june pat hope joy faith summer april august sky "
                      "rich frank max ray guy page rob sue dawn jack bob ben".split())
+# First names that are also words (French, English): in what the user
+# types, lowercase, one is masked only after a word that points at a person
+# ("ask claire", "dis à claire"), never in "l'eau est claire". Capitalized,
+# they are masked as any first name (PRIVACY_COMMON's never alone).
+PRIVACY_NAME_WORDS = PRIVACY_COMMON | set(
+    "claire pierre rose marine olive prune aurore colombe blanche perle ambre jade violette capucine constance "
+    "patience prudence felicite marguerite ange france flore belle lune celeste victoire clement constant aimee "
+    "desire honore modeste noel pascal hunter mason taylor piper harper chase lily iris daisy ivy holly heather "
+    "amber ruby crystal pearl angel autumn river rain storm sunny sandy misty carol sterling earl duke king "
+    "prince major baker cook miles wade".split())
+# The words before a name that say it is someone's (accents folded).
+PRIVACY_CUE = re.compile(
+    r"(?:^|[^\w])(?:ask|tell|call|text|e-?mail|mail|message|ping|meet|invite|remind|thank|thanks|visit|with|dear"
+    r"|hi|hello|hey|cc"
+    r"|(?:talk|write|wrote|reply|replied|speak|spoke|send|sent|say|said|give|gave|show|forward)\s+(?:it\s+|this\s+|that\s+)?to"
+    r"|demande|demander|dis|dire|appelle|appeler|ecris|ecrire|envoie|envoyer|invite|inviter|rappelle|rappeler"
+    r"|remercie|merci|avec|chez|salut|coucou|bonjour|cher|chere|rejoins|rejoindre"
+    r"|(?:dis|demande|ecris|envoie|parle|propose|reponds|transmets|donne|montre)\s+(?:le\s+|la\s+|les\s+|ca\s+)?a"
+    r")[\s,:]+$", re.I)
+
+
+def fold_chars(value):
+    """Accents off, letter by letter (Aurélien: Aurelien), the length kept:
+    a match in the folded text is at the same place in the text."""
+    return "".join(unicodedata.normalize("NFD", c)[0] if ord(c) > 127 else c for c in value)
+
+
 PRIVACY_PROMPT = (
     "Text in ⟦…⟧ (⟦Person 2⟧, ⟦Email 1⟧, ⟦User first⟧) is a private detail the user's computer hid "
     "from you. Use the placeholder exactly as it is, in tool arguments and in your answers: it becomes "
@@ -7792,38 +7819,49 @@ def privacy_vocab():
     if _PRIVACY["key"] == key:
         return _PRIVACY
     people, terms = privacy_people()
-    ci, cs, phones = {}, {}, {}
+    # Keys accents off (fold_chars), as the text is matched: Aurelien,
+    # Aurélien and AURÉLIEN are one name.
+    ci, cs, loose, phones = {}, {}, {}, {}
+    norm = lambda s: fold_chars(" ".join(s.split()))
     given = {}
     for pid, full, first, last, nick, *_ in people:
         for part in (first, nick):
             if part:
-                given.setdefault(part, set()).add(pid)
+                given.setdefault(norm(part).lower(), set()).add(pid)
     for pid, full, first, last, nick, emails, numbers, addresses in people:
         if len(full) >= PRIVACY_MIN:
-            ci.setdefault(" ".join(full.lower().split()), ("Person", pid, None, " ".join(full.split())))
+            ci.setdefault(norm(full).lower(), ("Person", pid, None, " ".join(full.split())))
         # Not a family name alone: rarely who someone is, often a public
         # name too (Martin Luther King).
         for part, name in (("first", first), ("nick", nick)):
-            if len(name) < PRIVACY_MIN or name.lower() in PRIVACY_COMMON or " ".join(name.split()) in cs:
+            key = norm(name)
+            if len(name) < PRIVACY_MIN or key.lower() in loose:
                 continue
             # A name several people share: a name of its own, nobody's in particular.
-            shared = len(given.get(name, ())) > 1
-            cs[" ".join(name.split())] = ("Name", name, None, name) if shared else ("Person", pid, part, name,
-                                                                                    " ".join(full.split()))
+            shared = len(given.get(key.lower(), ())) > 1
+            spec = ("Name", name, None, name) if shared else ("Person", pid, part, name, " ".join(full.split()))
+            # In what the user types: any case (loose).
+            loose[key.lower()] = spec
+            if key.lower() in PRIVACY_COMMON:
+                continue
+            # Elsewhere: as written (Claire, never the word claire), or in
+            # capitals.
+            cs[key] = spec
+            cs[key.upper()] = spec
         for e in emails:
             if "@" in e:
-                ci.setdefault(e.strip().lower(), ("Email", e.strip().lower(), None, e.strip()))
+                ci.setdefault(norm(e).lower(), ("Email", e.strip().lower(), None, e.strip()))
         for p in numbers:
             digits = re.sub(r"\D", "", p)
             if len(digits) >= 7:
                 phones[digits[-9:]] = p.strip()
         for a in addresses:
             if len(a) >= 8:
-                ci.setdefault(" ".join(a.lower().split()), ("Address", " ".join(a.lower().split()), None, " ".join(a.split())))
+                ci.setdefault(norm(a).lower(), ("Address", " ".join(a.lower().split()), None, " ".join(a.split())))
     for t in terms:
         t = " ".join(t.split())
         if len(t) >= PRIVACY_MIN:
-            ci.setdefault(t.lower(), ("Private", t.lower(), None, t))
+            ci.setdefault(norm(t).lower(), ("Private", t.lower(), None, t))
     # The login name: in paths (/home/NAME/…) and prompts, case kept.
     import pwd
     try:
@@ -7841,7 +7879,9 @@ def privacy_vocab():
                     after=after if isinstance(after, int) and not isinstance(after, bool) and after >= 1 else PRIVACY_LEARN_AFTER,
                     ignored=set(learn.get("ignored") or []) if isinstance(learn, dict) else set())
     _PRIVACY.update(key=key, ci=re.compile(bound(trie_regex(ci)).pattern, re.I), cs=bound(trie_regex(cs)),
-                    keys={**{("ci", k): v for k, v in ci.items()}, **{("cs", k): v for k, v in cs.items()}},
+                    loose=re.compile(bound(trie_regex(loose)).pattern, re.I),
+                    keys={**{("ci", k): v for k, v in ci.items()}, **{("cs", k): v for k, v in cs.items()},
+                          **{("loose", k): v for k, v in loose.items()}},
                     phones=phones)
     return _PRIVACY
 
@@ -7863,15 +7903,23 @@ def iban_ok(value):
         return False
 
 
-def privacy_spans(value, vocab):
-    """[(start, end, (kind, id, part, real value))], not overlapping."""
+def privacy_spans(value, vocab, typed=False):
+    """[(start, end, (kind, id, part, real value))], not overlapping. typed:
+    what the user typed (the side panel), where a first name is lowercase
+    too: masked, unless it is also a word (claire) and no word before it
+    points at a person (PRIVACY_CUE)."""
     spans = []
-    for case in ("ci", "cs"):
-        for m in vocab[case].finditer(value):
+    folded = fold_chars(value)
+    for case in ("ci", "cs", "loose") if typed else ("ci", "cs"):
+        for m in vocab[case].finditer(folded):
             norm = " ".join(m.group().split())
-            spec = vocab["keys"].get((case, norm.lower() if case == "ci" else norm))
-            if spec:
-                spans.append((m.start(), m.end(), spec))
+            spec = vocab["keys"].get((case, norm if case == "cs" else norm.lower()))
+            if not spec:
+                continue
+            if case == "loose" and norm.lower() in PRIVACY_NAME_WORDS and not (
+                    norm[:1].isupper() and norm.lower() not in PRIVACY_COMMON) and not PRIVACY_CUE.search(folded[:m.start()]):
+                continue
+            spans.append((m.start(), m.end(), spec))
     if vocab["phones"]:
         for m in PHONE_RE.finditer(value):
             digits = re.sub(r"\D", "", m.group())
@@ -7974,7 +8022,7 @@ def privacy_known(value, vocab):
     """Already private (or a placeholder)."""
     if "⟦" in value:
         return True
-    norm = " ".join(value.split())
+    norm = fold_chars(" ".join(value.split()))
     return bool(vocab["ci"].fullmatch(norm) or vocab["cs"].fullmatch(norm))
 
 
@@ -8094,7 +8142,7 @@ class PrivacyMap(LockedJson):
         return tok
 
 
-def mask_text(value, vocab=None):
+def mask_text(value, vocab=None, typed=False):
     if not value:
         return value
     if vocab is None:
@@ -8103,7 +8151,7 @@ def mask_text(value, vocab=None):
         vocab = privacy_vocab()
     if vocab["learn"] and privacy_learn(value, vocab):
         vocab = privacy_vocab()
-    spans = privacy_spans(value, vocab)
+    spans = privacy_spans(value, vocab, typed)
     if not spans:
         return value
     out, at = [], 0
@@ -13701,7 +13749,9 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
   context JSON|-          the shell's recent events ({now, events}), filtered and redacted
   sent [show] | note PURPOSE TEXT | clear
                           what was sent to a model (JSON, newest first)
-  privacy mask|unmask     stdin to stdout: private details as placeholders, or back
+  privacy mask [--typed] | unmask
+                          stdin to stdout: private details as placeholders, or back
+                          (--typed: what the user typed, lowercase first names too)
   privacy hook            Claude Code's PreToolUse/PostToolUse hook for the same
   privacy show|clear      the placeholders given so far (JSON), or forget them
   privacy learned | unlearn KEY
@@ -13874,7 +13924,8 @@ def main(argv):
             return privacy_hook()
         if sub in ("mask", "unmask"):
             data = sys.stdin.read()
-            sys.stdout.write(mask_text(data) if sub == "mask" else unmask_text(data))
+            # --typed: what the user typed (lowercase first names too).
+            sys.stdout.write(mask_text(data, typed="--typed" in argv) if sub == "mask" else unmask_text(data))
             return 0
         if sub == "show":
             print(json.dumps(privacy_tokens(), ensure_ascii=False))
