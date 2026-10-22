@@ -2007,12 +2007,16 @@ expect_contains "pair: the web to look things up" "$(cat "$calls.claude-args")" 
 rm -f "$calls.claude-prompt"
 expect_eq "pair: one look a few minutes apart" "pairing: looked lately" "$(pairing code "main.rs" | jq -r .why)"
 python3 "$mcp" initiative clear
-STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {say: true, guess: "fixing a build", text: "That error is a missing lib: add pkg-config. Want me to?",
+# A long word: the bubble keeps whole sentences, the thread all of it.
+STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {say: true, guess: "fixing a build",
+  text: ("That error is a missing lib: add pkg-config. " + ("The linker looks for it in the dev shell first. " * 12) + "Want me to?"),
   links: [{title: "NixOS wiki", url: "https://wiki.nixos.org/wiki/Rust"}, {title: "bad", url: "file:///etc/passwd"}]}}')
 out=$(pairing kitty "cargo build")
 expect_eq "pair: a word, quiet, its link a button" "badge pair 1 https://wiki.nixos.org/wiki/Rust" \
   "$(jq -r '"\(.action) \(.item.kind) \(.item.actions | length) \(.item.actions[0].url)"' <<<"$out")"
 expect_contains "pair: the thread has the link" "$(jq -r .item.chat <<<"$out")" "[NixOS wiki](https://wiki.nixos.org/wiki/Rust)"
+expect_eq "pair: a long word cut at a sentence's end" "first." "$(jq -r '.item.text[-6:]' <<<"$out")"
+expect_contains "pair: the thread has all of it" "$(jq -r .item.chat <<<"$out")" "first. Want me to?"
 expect_eq "pair: then quiet a while" "pairing: said something lately" \
   "$(
     python3 - "$ini" <<'PY'

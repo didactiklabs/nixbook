@@ -2171,7 +2171,17 @@ def sentences(value, limit):
     if len(value) <= limit:
         return value
     ends = [m.end() for m in re.finditer(r"[.!?…](?=\s)", value[:limit + 1])]
-    return value[:ends[-1]] if ends else short(value, limit)
+    if ends:
+        return value[:ends[-1]]
+    cut = value[:limit].rsplit(None, 1)[0] if " " in value[:limit] else value[:limit - 1]
+    return cut.rstrip(",;:") + "…"
+
+
+def said_text(value, limit):
+    """A model's words for a bubble: one plain paragraph cut to whole
+    sentences, never a hard cut mid-word (the bubble and the chat it opens
+    show only what is kept)."""
+    return sentences(clean_text(value, 2000), limit)
 
 
 def note_body(n, limit=400):
@@ -3107,7 +3117,7 @@ def chat_item(cfg, data, event, now):
             answer = ask_claude(claude, cfg.get("memoryModel") or "haiku", system, prompt, CHAT_SCHEMA)
         except ToolError as e:
             return None, str(e)
-        text_ = clean_text(str(answer.get("text") or ""), 300)
+        text_ = said_text(str(answer.get("text") or ""), 400)
         if not text_:
             # A note only for agents: never asked about again.
             with Initiative() as m:
@@ -3208,7 +3218,7 @@ def notice_apply(data, items, answer, now):
     said = answer.get("text")
     if not answer.get("react") or not isinstance(said, str) or not said.strip():
         return None, None
-    said = clean_text(said, 400)
+    said = said_text(said, 500)
     chat = f"{said}\n\n> {about['app']}: {about['summary']}" + (f" — {about['body']}" if about["body"] else "")
     critical = about["urgency"] == "critical"
     urgent = bool(answer.get("urgent")) or critical
@@ -3335,8 +3345,8 @@ def curious_digest(cfg, event, now):
             continue
         audit(CURIOUS_CLIENT, "remember_about_user", {"topic": args.get("topic")}, "ok")
         learned.append(short(args["text"], 140))
-    question = clean_text(str(answer.get("question") or ""), 200)
-    offer = clean_text(str(answer.get("offer") or ""), 200)
+    question = said_text(str(answer.get("question") or ""), 300)
+    offer = said_text(str(answer.get("offer") or ""), 300)
     with Initiative() as m:
         for o in new:
             k = f"{o['app'].lower()}|{fold(o['title'])}"
@@ -3445,7 +3455,7 @@ def news_items(answer, seen):
         urls.add(url)
         source = clean_text(str(i.get("source") or ""), 40) or re.sub(r"^www\.", "", url.split("/")[2])
         out.append({"topic": clean_text(str(i.get("topic") or ""), 60), "headline": headline,
-                    "summary": clean_text(str(i.get("summary") or ""), 300), "url": url, "source": source})
+                    "summary": said_text(str(i.get("summary") or ""), 400), "url": url, "source": source})
     return out[:NEWS_ITEMS]
 
 
@@ -3477,7 +3487,7 @@ def news_digest(cfg, event, now):
     items = news_items(answer, seen)
     if not items:
         return {"action": "none", "why": "news: nothing new on their subjects"}
-    intro = clean_text(str(answer.get("intro") or ""), 300) or pick(
+    intro = said_text(str(answer.get("intro") or ""), 400) or pick(
         "A few things in the news you might like:", "Some news on things you care about:")
     text_ = "\n".join([intro] + [f"• {i['headline']} ({i['source']})" for i in items])
     chat = "\n\n".join([intro, "\n".join(f"- **[{i['headline']}]({i['url']})**: {i['summary']} _({i['source']})_"
@@ -3653,7 +3663,9 @@ def pair_consider(cfg, event, now):
                            pair_prompt(app, title, screen, notes, now), PAIR_SCHEMA, web=True)
     except ToolError as e:
         return {"action": "none", "why": f"pairing: {e}"}
-    said = clean_text(str(answer.get("text") or ""), 300)
+    # The bubble keeps whole sentences; the chat it opens, all of it.
+    full = clean_text(str(answer.get("text") or ""), 2000)
+    said = sentences(full, 500)
     if not answer.get("say") or not said:
         return {"action": "none", "why": "pairing: nothing worth a word"
                 + (f" ({short(clean_text(str(answer.get('guess') or ''), 60), 60)})" if answer.get("guess") else "")}
@@ -3664,7 +3676,7 @@ def pair_consider(cfg, event, now):
             links.append({"title": clean_text(str(ln.get("title") or ""), 80) or re.sub(r"^www\.", "", url.split("/")[2]),
                           "url": url})
     links = links[:2] if ai_policy() == 1 else []
-    chat = said + ("\n\n" + "\n".join(f"- [{ln['title']}]({ln['url']})" for ln in links) if links else "")
+    chat = full + ("\n\n" + "\n".join(f"- [{ln['title']}]({ln['url']})" for ln in links) if links else "")
     item = {"kind": "pair", "key": f"pair:{key}:{digest[:8]}", "title": "Claude", "text": said, "chat": chat,
             "app": app, "ttl": PAIR_TTL,
             "actions": [{"label": short(ln["title"], 24), "do": "link", "url": ln["url"]} for ln in links]}
@@ -3764,7 +3776,7 @@ def routine_idea(cfg, event, now):
     idea = answer.get("routine")
     if not isinstance(idea, dict):
         return {"action": "none", "why": "ideas: nothing that fits"}
-    text_ = clean_text(str(idea.get("text") or ""), ROUTINE_TEXT_MAX)
+    text_ = said_text(str(idea.get("text") or ""), ROUTINE_TEXT_MAX)
     why = clean_text(str(idea.get("why") or ""), 200)
     if not text_ or fold(text_) in {fold(t) for t in read_memory().get("ideasDeclined") or []}:
         return {"action": "none", "why": "ideas: nothing new"}
@@ -5032,7 +5044,7 @@ def routine_agent(cfg, r, event):
         said = ""
     if proc.returncode != 0 and not said:
         raise ToolError(f"the routine's run failed: {short((proc.stderr or proc.stdout).strip(), 200)}")
-    return sentences(clean_text(unmask_text(said), 2000), 400)
+    return said_text(unmask_text(said), 400)
 
 
 def routine_why(when, event):

@@ -276,3 +276,14 @@ func TestAutoMergeWhy(t *testing.T) {
 		t.Error("every fix: a sensitive file merged on its own")
 	}
 }
+
+func TestFailLines(t *testing.T) {
+	out := "== suite\nok   - one\nFAIL - two\n       expected: a\n       actual:   b\nok   - three\nFAIL - four\n"
+	want := "FAIL - two\n       expected: a\n       actual:   b\nFAIL - four"
+	if got := failLines(out); got != want {
+		t.Errorf("failLines = %q, want %q", got, want)
+	}
+	if got := failLines("ok   - one\n"); got != "" {
+		t.Errorf("failLines without failures = %q", got)
+	}
+}

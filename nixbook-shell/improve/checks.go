@@ -45,6 +45,26 @@ func parseDiff(numstat, nameStatus string) []Change {
 	return out
 }
 
+// failLines: the test suites' "FAIL - …" lines and their indented details.
+func failLines(out string) string {
+	var b strings.Builder
+	in := false
+	for _, l := range strings.Split(out, "\n") {
+		switch {
+		case strings.HasPrefix(l, "FAIL"):
+			in = true
+		case !in || !strings.HasPrefix(l, " "):
+			in = false
+			continue
+		}
+		if b.Len()+len(l) > 1500 {
+			break
+		}
+		b.WriteString(l + "\n")
+	}
+	return strings.TrimSpace(b.String())
+}
+
 type checkResult struct {
 	ok       bool
 	report   []string // for the PR: what ran and how it went
@@ -71,7 +91,13 @@ func check(repo, base string, changes []Change, runDir string) checkResult {
 	fail := func(what, out string) {
 		res.ok = false
 		res.report = append(res.report, "- ❌ "+what)
-		res.feedback += fmt.Sprintf("%s failed:\n%s\n\n", what, tail(out, 4000))
+		// Its failures first: the note (cut short) shows them, not a run of "ok".
+		if f := failLines(out); f != "" {
+			out = f + "\n\nThe end of its output:\n" + tail(out, 3000)
+		} else {
+			out = tail(out, 4000)
+		}
+		res.feedback += fmt.Sprintf("%s failed:\n%s\n\n", what, out)
 	}
 	pass := func(what string) { res.report = append(res.report, "- ✅ "+what) }
 
