@@ -11480,7 +11480,8 @@ def t_list_improvements(ctx, args):
     st = improve_cmd(["status"])
     runs = st.get("runs") or []
     items = []
-    for it in st.get("inbox") or []:
+    # The inbox is kept oldest first: newest first, or the cut drops the new ones.
+    for it in sorted(st.get("inbox") or [], key=lambda i: i.get("first") or 0, reverse=True):
         s = it.get("status")
         if s not in IMPROVE_STATUS:
             continue
