@@ -193,6 +193,41 @@ WARN scene: @shell.qml[3:1]: ReferenceError: foo is not defined`)
 	}
 }
 
+func TestCrashes(t *testing.T) {
+	t0 := time.Date(2026, 10, 23, 11, 29, 49, 0, time.UTC)
+	at := func(sec int, msg string) unitEvent { return unitEvent{t0.Add(time.Duration(sec) * time.Second), msg} }
+	started := "Started nixbook-shell Quickshell desktop shell."
+	exited := "nixbook-shell.service: Main process exited, code=exited, status=255/EXCEPTION"
+	restart := "nixbook-shell.service: Scheduled restart job, restart counter is at 1."
+	// A switch: two startup crashes, then up since 11:30:21.
+	evs := []unitEvent{
+		at(-3600, started), at(-1800, exited), at(-1798, restart), at(-1798, started), // an earlier start
+		at(0, started), at(6, exited), at(19, restart),
+		at(19, started), at(25, exited), at(32, restart),
+		at(32, started),
+	}
+	if n := crashes(evs, t0.Add(10*time.Minute), true); n != 0 {
+		t.Errorf("startup crashes it came back from: %d", n)
+	}
+	if n := crashes(evs, t0.Add(40*time.Second), true); n != 2 {
+		t.Errorf("not up long enough yet: %d", n)
+	}
+	if n := crashes(evs, t0.Add(10*time.Minute), false); n != 2 {
+		t.Errorf("not running: %d", n)
+	}
+	// Crashing in use, an hour after the switch.
+	evs = append(evs, at(3600, exited), at(3602, restart), at(3602, started))
+	if n := crashes(evs, t0.Add(2*time.Hour), true); n != 1 {
+		t.Errorf("a crash in use: %d", n)
+	}
+	out := `{"__REALTIME_TIMESTAMP":"1792747789000000","MESSAGE":"Started nixbook-shell Quickshell desktop shell."}
+{"__REALTIME_TIMESTAMP":"1792747795000000","MESSAGE":[1,2]}
+{"__REALTIME_TIMESTAMP":"1792747795000000","MESSAGE":"nixbook-shell.service: Main process exited, code=exited, status=255/EXCEPTION"}`
+	if evs := unitEvents(out); len(evs) != 2 || evs[1].at.Sub(evs[0].at) != 6*time.Second {
+		t.Errorf("unitEvents: %+v", evs)
+	}
+}
+
 func TestGhRepo(t *testing.T) {
 	for url, want := range map[string]string{
 		"https://github.com/didactiklabs/nixbook":      "didactiklabs/nixbook",

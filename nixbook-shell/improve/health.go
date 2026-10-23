@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -90,7 +93,8 @@ func (in *Inbox) findKey(key string) *Item {
 }
 
 // runningShell: the running shell's output (this start of its unit) and
-// how often systemd restarted it. NIXBOOK_IMPROVE_LOG in tests.
+// how often it crashed since the unit was last started (by a login or a
+// switch; see crashes). NIXBOOK_IMPROVE_LOG in tests.
 func runningShell() (string, int) {
 	if f := os.Getenv("NIXBOOK_IMPROVE_LOG"); f != "" {
 		b, _ := os.ReadFile(f)
@@ -105,5 +109,79 @@ func runningShell() (string, int) {
 		return "", 0
 	}
 	out, _ := cmd("", time.Minute, "", "journalctl", "--user", "_SYSTEMD_INVOCATION_ID="+inv, "-o", "cat", "--no-pager", "-n", "50000")
-	return out, atoi(show("NRestarts"))
+	// systemd's own lines about the unit this boot: its starts and restarts.
+	evs, err := cmd("", time.Minute, "", "journalctl", "--user", "-b", "-u", "nixbook-shell.service", "--no-pager",
+		"-o", "json", "--output-fields=MESSAGE",
+		"-g", "^(Started |nixbook-shell.service: (Main process exited|Scheduled restart job))")
+	if err != nil {
+		return out, atoi(show("NRestarts"))
+	}
+	return out, crashes(unitEvents(evs), time.Now(), show("ActiveState") == "active")
+}
+
+// startupGrace: a crash this soon after the shell started is a startup
+// crash.
+const startupGrace = time.Minute
+
+type unitEvent struct {
+	at  time.Time
+	msg string
+}
+
+// unitEvents reads journalctl's JSON lines.
+func unitEvents(out string) []unitEvent {
+	var evs []unitEvent
+	sc := bufio.NewScanner(strings.NewReader(out))
+	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for sc.Scan() {
+		var e struct {
+			At  string `json:"__REALTIME_TIMESTAMP"`
+			Msg any    `json:"MESSAGE"`
+		}
+		if json.Unmarshal(sc.Bytes(), &e) != nil {
+			continue
+		}
+		us, err := strconv.ParseInt(e.At, 10, 64)
+		msg, ok := e.Msg.(string)
+		if err != nil || !ok {
+			continue
+		}
+		evs = append(evs, unitEvent{time.UnixMicro(us), msg})
+	}
+	return evs
+}
+
+// crashes: how many times the shell crashed and was restarted since its
+// unit was last started (a start that isn't a restart: login or switch).
+// A startup crash the shell came back from (it has been up startupGrace
+// since) isn't counted: right after a switch that is the shell's own
+// startup racing (a Qt icon-loading race, 2026-10-23) far more than the
+// change just deployed, and its coredump is filed on its own. A shell
+// still crashing at startup, or crashing later, counts.
+func crashes(evs []unitEvent, now time.Time, active bool) int {
+	var started, exited time.Time
+	restarting := false
+	startup, later := 0, 0
+	for _, e := range evs {
+		switch {
+		case strings.HasPrefix(e.msg, "Started "):
+			if !restarting {
+				startup, later = 0, 0
+			}
+			started, exited, restarting = e.at, time.Time{}, false
+		case strings.Contains(e.msg, "Main process exited"):
+			exited = e.at
+		case strings.Contains(e.msg, "Scheduled restart job"):
+			restarting = true
+			if !started.IsZero() && !exited.IsZero() && exited.Sub(started) < startupGrace {
+				startup++
+			} else {
+				later++
+			}
+		}
+	}
+	if !active || started.IsZero() || now.Sub(started) < startupGrace {
+		return startup + later
+	}
+	return later
 }

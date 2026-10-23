@@ -129,7 +129,7 @@ It is offered in the bar with why ("Exporting your notes failed three times. Sha
 Nothing is ever reverted: what a merge broke is fixed forward.
 
 - **main's checks.** The merged commit's checks are watched. If one fails, a fix for it is queued (an item of its own, `regression`, picked before the others, with the merged change and its files) and a critical notification says so, with **Look**.
-- **The updated shell.** Once you update (the updates widget), 5 minutes after the shell starts on a revision that contains a fix, its journal is read. A QML warning in the fix's files that the shell didn't print before, or the shell restarting, queues a fix the same way.
+- **The updated shell.** Once you update (the updates widget), 5 minutes after the shell starts on a revision that contains a fix, its journal is read. A QML warning in the fix's files that the shell didn't print before, or the shell crashing and restarting, queues a fix the same way. A crash while the shell was starting doesn't count once it came back and stayed up a minute: right after an update that is the shell's own startup more than the fix, and its core dump is reported on its own.
 
 ## What it can't do
 
