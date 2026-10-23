@@ -16,7 +16,7 @@ import Quickshell
 //   then): something new it waits to tell (services/Initiative.qml) or an
 //   answer not read in a conversation put away. Click brings it back in
 //   Claude's speech bubble, right-click is "not now". What they've read
-//   stays dark.
+//   stays dark; a count says how many they haven't.
 // - Desktop control (services/DesktopControl.qml): a pause button while
 //   agents may act (faint idle, pulsing in the accent colour while one
 //   acts), a red play button while paused. Click pauses every agent, or
@@ -69,6 +69,8 @@ Item {
     // latest, or an unread answer in the conversation put away.
     readonly property var said: Initiative.unread.length > 0 ? Initiative.unread[Initiative.unread.length - 1] : null
     readonly property bool waiting: root.said !== null || (Initiative.parked?.unread ?? false)
+    // How many: on the bubble button, like the bar's notification count.
+    readonly property int waitingCount: Initiative.unread.length + ((Initiative.parked?.unread ?? false) ? 1 : 0)
     property real breathe: 1
     SequentialAnimation on breathe {
         running: root.waiting
@@ -188,6 +190,24 @@ Item {
                     else Initiative.parked = null;
                 } else if (root.said) Initiative.open(root.said);
                 else Initiative.resume();
+            }
+            // The count, styled as NotificationUnreadCount.qml.
+            Rectangle {
+                visible: root.waitingCount > 0
+                anchors.right: parent.right
+                anchors.top: parent.top
+                z: 1
+                radius: Appearance.rounding.full
+                color: root.isMaterial ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer0
+                implicitHeight: Math.max(countText.implicitWidth, countText.implicitHeight)
+                implicitWidth: implicitHeight
+                StyledText {
+                    id: countText
+                    anchors.centerIn: parent
+                    font.pixelSize: Appearance.font.pixelSize.smallest
+                    color: root.isMaterial ? Appearance.colors.colPrimary : Appearance.colors.colLayer0
+                    text: root.waitingCount
+                }
             }
             StyledPopup {
                 hoverTarget: saidButton
