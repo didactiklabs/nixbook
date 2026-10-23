@@ -93,6 +93,8 @@ Scope {
             root.queue = root.queue.map((q, i) => i === index ? n : q);
             return;
         }
+        // Its cut-in already left, within the cooldown: no new one.
+        if (n.cutInUpdateOnly) return;
         Notifications.playCutInSound(n);
         root.queue = root.queue.concat([n]);
     }
