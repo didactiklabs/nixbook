@@ -34,15 +34,22 @@ type Item struct {
 	// enough to go on), ignored (skipped as harmless and unfixable: never
 	// tried again), too_big (a refactor or a design: a real session's
 	// job), feature (a fix too big for one, moved to the feature requests),
-	// failed (its change never passed), dropped (by the user), gone (a
-	// failed unit running again, CI green again before a fix).
+	// failed (its change never passed), unable (it couldn't do it: the
+	// session said so, or its change failed maxAttempts times; told, never
+	// picked again unless the user says Retry), dropped (by the user), gone
+	// (a failed unit running again, CI green again before a fix).
 	Status string `json:"status"`
 	Note   string `json:"note,omitempty"` // why it was skipped, failed…
 	PR     int    `json:"pr,omitempty"`
 	Tried  int64  `json:"tried,omitempty"`
 	// Count when last tried: tried again once it has grown since.
 	TriedCount int `json:"triedCount,omitempty"`
+	// Runs whose change failed in a row: at maxAttempts it is unable.
+	Attempts int `json:"attempts,omitempty"`
 }
+
+// maxAttempts: failed that many times, an item is given up (unable).
+const maxAttempts = 2
 
 type Inbox struct {
 	Items []Item `json:"items"`
@@ -133,7 +140,7 @@ func (in *Inbox) find(id string) *Item {
 var ripeCount = map[string]int{
 	"user": 1, "qml": 3, "crash": 2,
 	"service": 2, "log": 3, "deploy": 1, "warning": 2, "ci": 1, "coredump": 2,
-	"feature": 1,
+	"feature": 1, "regression": 1,
 }
 
 func (it Item) feature() bool { return it.Kind == "feature" }
@@ -188,7 +195,7 @@ func (in *Inbox) pick(now int64, feature bool) *Item {
 	var best *Item
 	score := func(it *Item) int {
 		s := it.Count
-		if it.Kind == "user" {
+		if it.Kind == "user" || it.Kind == "regression" {
 			s += 1000
 		}
 		return s

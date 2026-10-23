@@ -13,7 +13,8 @@ type Config struct {
 	Enable bool `json:"enable"`
 	// Model of the fixing session (Claude Code's alias or full name).
 	Model string `json:"model"`
-	// Runs started on its own per day; "Fix now" isn't counted.
+	// Runs started on its own per day ("Fix now" isn't counted); 0: no
+	// limit but BudgetUsd per run.
 	PerDay int `json:"perDay"`
 	// The size a change may have: beyond, it is a feature or a refactor,
 	// not a fix, and is refused.
@@ -44,7 +45,8 @@ type Config struct {
 
 type Features struct {
 	Enable bool `json:"enable"`
-	// Features started on its own per day ("Build now" isn't counted).
+	// Features started on its own per day ("Build now" isn't counted); 0:
+	// no limit.
 	PerDay    int     `json:"perDay"`
 	MaxFiles  int     `json:"maxFiles"`
 	MaxLines  int     `json:"maxLines"`
@@ -65,6 +67,20 @@ func (c Config) limits(feature bool) Limits {
 		return Limits{Files: c.Features.MaxFiles, Lines: c.Features.MaxLines, NewFiles: true}
 	}
 	return Limits{Files: c.MaxFiles, Lines: c.MaxLines}
+}
+
+// perDay: the day's limit of runs of this kind started on its own (0: none).
+func (c Config) perDay(feature bool) int {
+	if feature {
+		return c.Features.PerDay
+	}
+	return c.PerDay
+}
+
+// room: another run of this kind may start on its own today.
+func (c Config) room(rs []Run, feature bool) bool {
+	n := c.perDay(feature)
+	return n == 0 || runsToday(rs, feature) < n
 }
 
 // on: runs of this kind are allowed.

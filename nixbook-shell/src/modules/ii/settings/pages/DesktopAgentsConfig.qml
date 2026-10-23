@@ -600,7 +600,9 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("Claude fixes nixbook itself: fixes and polish only (a bug, a rough edge, wording); a new feature, or a fix found too big, goes to Features it builds (below). What to fix: what you tell an agent is broken (\"report this\") or write below (your words stay on this computer: the PR says it in its own), the errors the shell prints, the desktop tools' crashes, failed units and errors in the logs of what nixbook defines, a failed update or Nix warning, CI red on main, crashes of nixbook's programs (only what you can already read; what isn't nixbook's is listed below, never sent unasked). Each fix is made in a clone of the repository by a Claude Code session that can only edit files there (no commands, none of your files or logins), checked (its size and files, the tests, the shell started headless with no new error), committed with a changelog entry and opened as a pull request. Once CI passes you get Merge, Look, Drop; nothing reaches main without you, but what you let merge on its own. After a merge, main's checks and the updated shell are watched, and a revert is offered if it broke something. Its sandbox, the tests, CI and its own code are off limits; what agents may do is never merged on its own. It reaches GitHub only with its own token, below (never your gh login or ssh key; Claude never sees it), and uses your Claude Code; at most %1 a day.").arg(Config.options.ai.improve.perDay)
+                text: Translation.tr("Claude fixes nixbook itself: fixes and polish only (a bug, a rough edge, wording); a new feature, or a fix found too big, goes to Features it builds (below). What to fix: what you tell an agent is broken (\"report this\") or write below (your words stay on this computer: the PR says it in its own), the errors the shell prints, the desktop tools' crashes, failed units and errors in the logs of what nixbook defines, a failed update or Nix warning, CI red on main, crashes of nixbook's programs (only what you can already read; what isn't nixbook's is listed below, never sent unasked). Each fix is made in a clone of the repository by a Claude Code session that can only edit files there (no commands, none of your files or logins), checked (its size and files, the tests, the shell started headless with no new error), committed with a changelog entry and opened as a pull request. Once CI passes you get Merge, Look, Drop; nothing reaches main without you, but what you let merge on its own. After a merge, main's checks and the updated shell are watched: what it broke is queued as a fix of its own, never reverted. One it can't do (a place off limits, credentials, hardware, or its change failing twice) is dropped with why and what would make it doable; you're told, and Retry tries again. Its sandbox, the tests, CI and its own code are off limits; what agents may do is never merged on its own. It reaches GitHub only with its own token, below (never your gh login or ssh key; Claude never sees it), and uses your Claude Code; %1.").arg(Config.options.ai.improve.perDay > 0
+                    ? Translation.tr("at most %1 a day on its own, each at most $%2").arg(Config.options.ai.improve.perDay).arg(Config.options.ai.improve.budgetUsd)
+                    : Translation.tr("no daily limit, each at most $%1").arg(Config.options.ai.improve.budgetUsd))
             }
 
             // What it is doing now, or why nothing: always shown.
@@ -711,7 +713,7 @@ ContentPage {
                     checked: Config.options.ai.improve.autoMergeFixes
                     onCheckedChanged: Config.options.ai.improve.autoMergeFixes = checked
                     StyledToolTip {
-                        text: Translation.tr("Except a fix touching what agents may do (their tools, permissions, switches): that one always waits for your Merge. Main's checks and the updated shell are still watched, and a revert offered if it broke something.")
+                        text: Translation.tr("Except a fix touching what agents may do (their tools, permissions, switches): that one always waits for your Merge. Main's checks and the updated shell are still watched, and what a merge broke is queued as a fix (never a revert).")
                     }
                 }
             }
@@ -726,6 +728,25 @@ ContentPage {
                     { displayName: "Sonnet", icon: "speed", value: "sonnet" },
                     { displayName: "Opus", icon: "psychology", value: "opus" }
                 ]
+            }
+
+            // The day's limit of fixes started on its own (0: none) and what
+            // each may spend, which bounds an unlimited day.
+            ConfigSpinBox {
+                configKey: "ai.improve.perDay"
+                icon: "event_repeat"
+                text: Translation.tr("Fixes a day on its own (0: no limit)")
+                value: Config.options.ai.improve.perDay
+                from: 0; to: 50; stepSize: 1
+                onValueChanged: Config.options.ai.improve.perDay = value
+            }
+            ConfigSpinBox {
+                configKey: "ai.improve.budgetUsd"
+                icon: "payments"
+                text: Translation.tr("Most a fix may spend ($)")
+                value: Config.options.ai.improve.budgetUsd
+                from: 1; to: 50; stepSize: 1
+                onValueChanged: Config.options.ai.improve.budgetUsd = value
             }
 
             RowLayout {
@@ -812,9 +833,11 @@ ContentPage {
                     Layout.fillWidth: true
                     spacing: 10
                     readonly property bool feature: itemRow.modelData.kind === "feature"
+                    // Given up (it couldn't do it): Retry, As a feature, Dismiss.
+                    readonly property bool unable: itemRow.modelData.status === "unable"
                     MaterialSymbol {
                         text: ({ user: "person", crash: "bug_report", coredump: "bug_report", service: "dns", log: "receipt_long",
-                                 deploy: "system_update", warning: "warning", ci: "fact_check", qml: "code", info: "info",
+                                 deploy: "system_update", warning: "warning", ci: "fact_check", qml: "code", info: "info", regression: "heart_broken",
                                  feature: itemRow.modelData.from ? "call_split" : "lightbulb" })[itemRow.modelData.kind] ?? "warning"
                         iconSize: Appearance.font.pixelSize.larger
                         color: Appearance.colors.colOnLayer1
@@ -837,32 +860,45 @@ ContentPage {
                             text: [itemRow.feature ? (itemRow.modelData.from ? Translation.tr("too big for a fix") : itemRow.modelData.count === 1 ? Translation.tr("asked once") : Translation.tr("asked %1 times").arg(itemRow.modelData.count))
                                    : itemRow.modelData.count === 1 ? Translation.tr("seen once") : Translation.tr("seen %1 times").arg(itemRow.modelData.count),
                                    Qt.formatDateTime(new Date(itemRow.modelData.last), "d MMM, hh:mm"),
-                                   ({ failed: Translation.tr("failed"), skipped: Translation.tr("skipped"), too_big: Translation.tr("too big for a fix") })[itemRow.modelData.status] ?? "",
+                                   ({ failed: Translation.tr("failed"), skipped: Translation.tr("skipped"), too_big: Translation.tr("too big for a fix"),
+                                      unable: Translation.tr("couldn't do it") })[itemRow.modelData.status] ?? "",
                                    itemRow.modelData.note ?? ""].filter(x => x).join(" · ")
                         }
                     }
                     SmallButton {
                         enabled: (itemRow.feature ? SelfImprove.featuresEnabled : Config.options.ai.improve.enable) && SelfImprove.running === null
-                        materialIcon: itemRow.feature ? "construction" : "build"
-                        mainText: itemRow.feature ? Translation.tr("Build now") : Translation.tr("Fix now")
+                        materialIcon: itemRow.unable ? "replay" : itemRow.feature ? "construction" : "build"
+                        mainText: itemRow.unable ? Translation.tr("Retry") : itemRow.feature ? Translation.tr("Build now") : Translation.tr("Fix now")
                         onClicked: SelfImprove.fixNow(itemRow.modelData.id)
                     }
                     // A fix found too big before they moved on their own.
                     SmallButton {
-                        visible: !itemRow.feature && itemRow.modelData.status === "too_big"
+                        visible: !itemRow.feature && (itemRow.modelData.status === "too_big" || itemRow.unable)
                         materialIcon: "lightbulb"
                         mainText: Translation.tr("As a feature")
                         onClicked: SelfImprove.toFeature(itemRow.modelData.id)
                     }
                     SmallButton {
-                        materialIcon: "delete"
-                        mainText: Translation.tr("Drop")
+                        materialIcon: itemRow.unable ? "close" : "delete"
+                        mainText: itemRow.unable ? Translation.tr("Dismiss") : Translation.tr("Drop")
                         onClicked: SelfImprove.dropItem(itemRow.modelData.id)
                     }
                 }
             }
             Repeater {
                 model: SelfImprove.inbox.filter(i => i.kind !== "info" && i.kind !== "feature" && ["new", "failed", "skipped", "too_big"].includes(i.status))
+                delegate: inboxItem
+            }
+            // What it gave up, with why: never tried again unless you Retry.
+            StyledText {
+                Layout.fillWidth: true
+                visible: SelfImprove.unableOf(false).length > 0
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colOnLayer1
+                text: Translation.tr("Dropped: it couldn't do these (Retry tries again, Dismiss forgets it)")
+            }
+            Repeater {
+                model: SelfImprove.unableOf(false)
                 delegate: inboxItem
             }
             // What isn't nixbook's (another app's crash, the kernel, a unit it
@@ -896,7 +932,7 @@ ContentPage {
                     MaterialSymbol {
                         Layout.alignment: Qt.AlignTop
                         text: ({ look: "search", wait: "hourglass_empty", start: "build", retry: "replay", done: "flag",
-                                 pr: "call_split", ci: "fact_check", merged: "merge", revert: "undo", error: "error" })[eventRow.modelData.kind] ?? "info"
+                                 pr: "call_split", ci: "fact_check", merged: "merge", broke: "heart_broken", error: "error" })[eventRow.modelData.kind] ?? "info"
                         iconSize: Appearance.font.pixelSize.normal
                         color: eventRow.modelData.kind === "error" ? Appearance.colors.colError : Appearance.colors.colSubtext
                     }
@@ -927,8 +963,11 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("Claude builds what you ask nixbook to do: a new widget, setting, shortcut or behaviour. Ask an agent (\"I wish the bar showed…\": its request_feature tool files it) or type it below; a fix Claude finds too big for a fix comes here too, with what it found, and with Propose fixes and features on, the agent may offer one itself from what it saw get in your way. Each is built like a fix (a clone, a session that can only edit files there, the same checks and off-limits places) but may be bigger (up to %1 files and %2 lines, new files allowed), committed as feat(…) and opened as a pull request. It is never merged on its own: once CI passes you get Merge, Look, Drop. One that needs a design choice or more than that is left to you with what it would take. It uses the GitHub token and model of Fixes it makes itself; at most %3 a day on its own, Build now starts one at once.")
-                    .arg(Config.options.ai.improve.features.maxFiles).arg(Config.options.ai.improve.features.maxLines).arg(Config.options.ai.improve.features.perDay)
+                text: Translation.tr("Claude builds what you ask nixbook to do: a new widget, setting, shortcut or behaviour. Ask an agent (\"I wish the bar showed…\": its request_feature tool files it) or type it below; a fix Claude finds too big for a fix comes here too, with what it found, and with Propose fixes and features on, the agent may offer one itself from what it saw get in your way. Each is built like a fix (a clone, a session that can only edit files there, the same checks and off-limits places) but may be bigger (up to %1 files and %2 lines, new files allowed), committed as feat(…) and opened as a pull request. It is never merged on its own: once CI passes you get Merge, Look, Drop. One it can't do (a design choice only you can make, more than that, a place off limits, credentials, hardware, or its change failing twice) is dropped with why and what would make it doable; you're told, and Retry tries again. It uses the GitHub token and model of Fixes it makes itself; %3, Build now starts one at once.")
+                    .arg(Config.options.ai.improve.features.maxFiles).arg(Config.options.ai.improve.features.maxLines)
+                    .arg(Config.options.ai.improve.features.perDay > 0
+                        ? Translation.tr("at most %1 a day on its own, each at most $%2").arg(Config.options.ai.improve.features.perDay).arg(Config.options.ai.improve.features.budgetUsd)
+                        : Translation.tr("no daily limit, each at most $%1").arg(Config.options.ai.improve.features.budgetUsd))
             }
 
             Rectangle {
@@ -980,6 +1019,23 @@ ContentPage {
                 }
             }
 
+            ConfigSpinBox {
+                configKey: "ai.improve.features.perDay"
+                icon: "event_repeat"
+                text: Translation.tr("Features a day on its own (0: no limit)")
+                value: Config.options.ai.improve.features.perDay
+                from: 0; to: 50; stepSize: 1
+                onValueChanged: Config.options.ai.improve.features.perDay = value
+            }
+            ConfigSpinBox {
+                configKey: "ai.improve.features.budgetUsd"
+                icon: "payments"
+                text: Translation.tr("Most a feature may spend ($)")
+                value: Config.options.ai.improve.features.budgetUsd
+                from: 1; to: 100; stepSize: 1
+                onValueChanged: Config.options.ai.improve.features.budgetUsd = value
+            }
+
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 6
@@ -1008,6 +1064,17 @@ ContentPage {
             }
             Repeater {
                 model: SelfImprove.inbox.filter(i => i.kind === "feature" && ["new", "failed", "skipped", "too_big"].includes(i.status))
+                delegate: inboxItem
+            }
+            StyledText {
+                Layout.fillWidth: true
+                visible: SelfImprove.unableOf(true).length > 0
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colOnLayer1
+                text: Translation.tr("Dropped: it couldn't build these (Retry tries again, Dismiss forgets it)")
+            }
+            Repeater {
+                model: SelfImprove.unableOf(true)
                 delegate: inboxItem
             }
 

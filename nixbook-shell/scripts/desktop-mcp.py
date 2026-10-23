@@ -11592,6 +11592,8 @@ IMPROVE_STATUS = {
     "too_big": "too big: needs a design choice or more than it may change", "feature": "moved to the feature "
     "requests (too big for a fix)", "failed": "failed (its change never passed the checks)",
     "dropped": "dropped by the user", "gone": "gone by itself",
+    "unable": "dropped: it couldn't do it (why says what it tried and what would make it doable; "
+    "the user can press Retry in Settings > Desktop agents)",
 }
 IMPROVE_CI = {"pending": "checks running", "pass": "checks passing", "fail": "checks failing"}
 
