@@ -31,15 +31,18 @@ nix path-info --recursive "$@" | sort -u >"$work/closure"
 
 # present LIST STORE: the paths of LIST that STORE has.
 present() {
-  local out
+  # Not "out": nix-shell exports $out, and a local of that name stays
+  # exported, so its megabytes of JSON made every later exec fail with
+  # "Argument list too long".
+  local info
   mapfile -t paths <"$1"
   [ "${#paths[@]}" -gt 0 ] || return 0
   # Missing paths: null values (Nix >= 2.19), or "valid": false entries in
   # older Nix's array output. A store that can't be queried has none.
-  out=$(nix path-info --json --option narinfo-cache-negative-ttl 0 --store "$2" "${paths[@]}" 2>/dev/null) || true
-  [ -n "$out" ] || return 0
+  info=$(nix path-info --json --option narinfo-cache-negative-ttl 0 --store "$2" "${paths[@]}" 2>/dev/null) || true
+  [ -n "$info" ] || return 0
   jq -r 'if type == "array" then .[] | select(.valid != false) | .path
-    else to_entries[] | select(.value != null) | .key end' <<<"$out" | sort -u
+    else to_entries[] | select(.value != null) | .key end' <<<"$info" | sort -u
 }
 
 present "$work/closure" "$upstream_url" >"$work/upstream"
