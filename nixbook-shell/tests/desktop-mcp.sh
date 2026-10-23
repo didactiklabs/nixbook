@@ -154,6 +154,11 @@ for tool in wtype ydotool notify-send; do
 if [ "\${*: -1}" = "-" ] || [ "\${*: -1}" = "--file" ]; then echo "$tool \$* <<\$(cat)" >>"\$STUB_CALLS"; else echo "$tool \$*" >>"\$STUB_CALLS"; fi
 EOF
 done
+# What the shell's overlays were asked while the agent typed.
+cat >>"$bin/wtype" <<'EOF'
+mw="$XDG_RUNTIME_DIR/nixbook-shell/make-way.json"
+[ ! -e "$mw" ] || jq -c '{clearCutIns}' "$mw" >>"$STUB_CALLS.mw"
+EOF
 cat >"$bin/grim" <<'EOF'
 #!/usr/bin/env bash
 echo "grim $*" >>"$STUB_CALLS"
@@ -862,6 +867,14 @@ expect_eq "make way: overlays hidden while the screen is captured" '{"capture":t
 expect_eq "make way: shown again after" false "$(jq .capture "$sh_rt/make-way.json")"
 expect_contains "make way: set_aside hides a cut-in for a while, never for good" "$(call set_aside '{"name":"cutIn"}')" "cutIn hidden while you work; back"
 expect_contains "make way: never the side panel" "$(call set_aside '{"name":"sidePanel"}')" "the user's chat with you"
+: >"$calls.mw"
+out=$(call type_text '{"text":"hi"}')
+expect_eq "make way: an action dismisses the cut-in" '{"clearCutIns":true}' "$(sort -u "$calls.mw")"
+expect_contains "make way: the agent is told the cut-in is dismissed" "$out" "cut-in notification that was on screen is dismissed"
+echo '{"overlays":["sidePanel"]}' >"$sh_rt/overlays.json"
+: >"$calls.mw"
+call type_text '{"text":"hi"}' >/dev/null
+expect_eq "make way: no cut-in, nothing dismissed" '{"clearCutIns":null}' "$(sort -u "$calls.mw")"
 rm -f "$sh_rt/overlays.json" "$sh_rt/make-way.json" "$calls.mw"
 
 # -- window layouts ----------------------------------------------------------------------------
