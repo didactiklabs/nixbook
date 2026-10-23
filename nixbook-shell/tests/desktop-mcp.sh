@@ -2874,6 +2874,36 @@ expect_contains "request_feature: filed" "$out" "filed as a feature request (ask
 expect_contains "request_feature: never merged on its own" "$out" "never merged on its own"
 expect_eq "request_feature: nixbook-improve request" "request --where bar clock a week number in the clock" "$(cat "$tmp/improve-calls")"
 
+# One at a time: Build now while another is being made queues it.
+qbin="$tmp/improve-queue-bin"
+mkdir -p "$qbin"
+printf 'sleep 60\n' >"$qbin/nixbook-improve-busy" # a run going on: its cmdline names nixbook-improve
+bash "$qbin/nixbook-improve-busy" &
+busy_pid=$!
+cat >"$qbin/nixbook-improve" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"$tmp/improve-calls"
+case "\$1" in
+  status) jq -nc --argjson pid $busy_pid '{token: true, runs: [{item: "aaaa1111", itemText: "the clock fix", stage: "fix", pid: \$pid}],
+    inbox: [{id: "aaaa1111", kind: "user", text: "the clock fix", status: "working", first: 1},
+            {id: "bbbb2222", kind: "feature", text: "a radar", status: "new", first: 2, queued: 50},
+            {id: "cccc3333", kind: "feature", text: "a week number", status: "new", first: 3, queued: 40}]}' ;;
+  queue) echo '{"ran": false, "queued": 3}' ;;
+esac
+EOF
+chmod +x "$qbin/nixbook-improve"
+rm -f "$tmp/improve-calls"
+out=$(PATH="$qbin:$PATH" call start_improvement '{"id":"cccc3333"}')
+expect_contains "start_improvement: queued while one is made" "$out" 'Queued (#3): “the clock fix” is being made'
+expect_eq "start_improvement: nixbook-improve queue" "queue cccc3333" "$(grep -v '^status' "$tmp/improve-calls")"
+out=$(PATH="$qbin:$PATH" call list_improvements '{}')
+expect_eq "list_improvements: places in line" "cccc3333=1 bbbb2222=2" \
+  "$(jq -r '[.items[] | select(.queued) | "\(.id)=\(.queued)"] | sort_by(.) | reverse | join(" ")' <<<"$out")"
+out=$(PATH="$qbin:$PATH" call list_requests '{"kind":"feature"}')
+expect_contains "list_requests: queued, its place" "$out" "queued, #2 in line to start"
+pkill -P "$busy_pid" 2>/dev/null || true
+kill "$busy_pid" 2>/dev/null || true
+
 # Improvement ideas: from what failed for the user, one fix or feature
 # proposed; yes files it, no is remembered.
 rm -f "$tmp/improve-calls" "$calls.claude-prompt"

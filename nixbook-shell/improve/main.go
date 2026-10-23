@@ -41,8 +41,14 @@ const usage = `nixbook-improve: the desktop agent's fixes and features to nixboo
                                          --auto: the days' limits apply (fixes first,
                                          then features; perDay 0: no limit but each
                                          run's budget); --no-push: stop at the local
-                                         commit
-  nixbook-improve stop                   stop the fix being made (Settings' Stop)
+                                         commit. With a run going on, --item ID is
+                                         queued instead; each run, letting go, starts
+                                         the next queued one (--auto takes it first)
+  nixbook-improve queue ID               queue ID (without starting it when nothing runs)
+  nixbook-improve unqueue ID             take ID out of the queue
+  nixbook-improve queue-move ID up|down  move ID up or down the queue
+  nixbook-improve stop                   stop the fix being made (Settings' Stop); the
+                                         queue goes on
   nixbook-improve sync                   learn which open PRs were merged or closed on GitHub
   nixbook-improve merge|drop|look PR     what the notification's buttons do
   nixbook-improve token set|forget|status
@@ -169,6 +175,45 @@ func dispatch(args []string) (any, error) {
 			return err
 		})
 		return it, err
+	case "queue", "unqueue", "queue-move":
+		if len(args) < 1 || (cmdName == "queue-move") != (len(args) == 2) || len(args) > 2 {
+			return nil, errorf("queue ID | unqueue ID | queue-move ID up|down")
+		}
+		cfg, err := loadConfig()
+		if err != nil {
+			return nil, err
+		}
+		if cmdName == "queue" {
+			// Asked to start while one is made: as run --item, without
+			// starting it now when nothing is.
+			return queueItem(cfg, args[0])
+		}
+		in, err := editInbox(func(in *Inbox) error {
+			it := in.find(args[0])
+			if it == nil {
+				return errorf("no item %s", args[0])
+			}
+			if cmdName == "unqueue" {
+				it.Queued = 0
+				return nil
+			}
+			if args[1] != "up" && args[1] != "down" {
+				return errorf("queue-move ID up|down")
+			}
+			by := 1
+			if args[1] == "up" {
+				by = -1
+			}
+			return in.moveQueued(args[0], by)
+		})
+		if err != nil {
+			return nil, err
+		}
+		q := []string{}
+		for _, it := range in.queue() {
+			q = append(q, it.ID)
+		}
+		return map[string]any{"queue": q}, nil
 	case "drop-item":
 		if len(args) != 1 {
 			return nil, errorf("drop-item ID")
@@ -178,7 +223,7 @@ func dispatch(args []string) (any, error) {
 			if it == nil {
 				return errorf("no item %s", args[0])
 			}
-			it.Status = "dropped"
+			it.Status, it.Queued = "dropped", 0
 			return nil
 		})
 		return map[string]any{"dropped": args[0]}, err
@@ -235,8 +280,12 @@ func stop() (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer unlock()
 	interrupted("stopped by you")
+	unlock()
+	// Only that one: the queue goes on.
+	if cfg, err := loadConfig(); err == nil {
+		startQueued(cfg)
+	}
 	return map[string]any{"stopped": true}, nil
 }
 

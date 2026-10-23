@@ -25,6 +25,8 @@ import QtQuick
  *     checked (`health`): what it broke is filed as a fix (never a revert).
  * What it can't do is given up (status unable) with why: told, Retry
  * (fixNow), As a feature, Dismiss (dropItem); never picked again unasked.
+ * Fix now / Build now while one is being made queues it (queue): the run
+ * that lets go of the run lock starts the next one.
  * The PR's Merge, Look, Drop come as a notification, and in Settings.
  * Only on machines whose Nix configuration made it available
  * (programs.nixbook-shell.selfImprove.enable), and with its own GitHub
@@ -50,6 +52,14 @@ Singleton {
     readonly property var open: root.inbox.filter(i => ["new", "working", "pr"].includes(i.status))
     readonly property var waiting: root.runs.filter(r => r.outcome === "pr")
     readonly property var running: root.runs.find(r => !r.outcome && r.stage !== "done") ?? null
+    // Asked to start while another was made (Fix now, Build now, an agent's
+    // fix_now): they wait their turn, first to start first, fixes and
+    // features in one line; each run, done, starts the next.
+    readonly property var queue: root.inbox.filter(i => (i.queued ?? 0) > 0).sort((a, b) => a.queued - b.queued)
+    function queuePos(id) { return root.queue.findIndex(i => i.id === id) + 1 }
+    // A run ended without starting the next (stopped, the machine off): the
+    // run --auto takes the queue first.
+    onRunningChanged: if (root.running === null && root.queue.length > 0) runSoon.restart()
     // Fixes and features apart (Settings shows them in two sections).
     function isFeatureItem(i) { return i.kind === "feature" }
     function waitingOf(feature) { return root.waiting.filter(r => (r.feature === true) === feature) }
@@ -86,11 +96,12 @@ Singleton {
         if (root.running) {
             const mins = Math.max(0, Math.round((root.now - root.running.started) / 60000))
             const doing = root.running.doing || root.stageText(root.running.stage)
+            const queued = root.queue.length > 0 ? " " + Translation.tr("%1 queued after it.").arg(root.queue.length) : ""
             if ((root.running.feature === true) === feature)
                 return (feature ? Translation.tr("Building “%1” — %2 (%3 min)") : Translation.tr("Fixing “%1” — %2 (%3 min)"))
-                    .arg(root.running.itemText).arg(doing).arg(mins)
-            return feature ? Translation.tr("Waiting: a fix is being made (one at a time).")
-                : Translation.tr("Waiting: a feature is being built (one at a time).")
+                    .arg(root.running.itemText).arg(doing).arg(mins) + "." + queued
+            return (feature ? Translation.tr("Waiting: a fix is being made (one at a time).")
+                : Translation.tr("Waiting: a feature is being built (one at a time).")) + queued
         }
         const mine = root.waitingOf(feature)
         const ci = mine.filter(r => r.ci === "pending")
@@ -247,9 +258,17 @@ Singleton {
     function dropItem(id) {
         Quickshell.execDetached(["nixbook-improve", "drop-item", id])
     }
-    // "Fix now": this item, past the day's limit.
+    // "Fix now": this item, past the day's limit; queued while another is
+    // being made.
     function fixNow(id) {
         root._start("nixbook-improve-run", ["run", "--item", id])
+    }
+    function unqueue(id) {
+        Quickshell.execDetached(["nixbook-improve", "unqueue", id])
+    }
+    // dir: "up" or "down" the queue.
+    function moveQueued(id, dir) {
+        Quickshell.execDetached(["nixbook-improve", "queue-move", id, dir])
     }
     // merge, drop or look, as the notification's buttons.
     function act(action, pr) {

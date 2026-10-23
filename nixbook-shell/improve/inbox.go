@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"path/filepath"
@@ -46,6 +47,11 @@ type Item struct {
 	TriedCount int `json:"triedCount,omitempty"`
 	// Runs whose change failed in a row: at maxAttempts it is unable.
 	Attempts int `json:"attempts,omitempty"`
+	// When it was put in the queue: started (Fix now, Build now, an
+	// agent's fix_now) while another was being made, it waits its turn,
+	// oldest first, and starts once the run before it lets go of the run
+	// lock (its PR out, or ended). 0: not queued.
+	Queued int64 `json:"queued,omitempty"`
 }
 
 // maxAttempts: failed that many times, an item is given up (unable).
@@ -164,7 +170,7 @@ func (in *Inbox) toFeature(id, why string, now int64) (*Item, error) {
 		text += "\n\nToo big for a fix: " + why
 	}
 	from, where := it.ID, it.Where
-	it.Status, it.Note = "feature", clip("moved to the feature requests", 300)
+	it.Status, it.Note, it.Queued = "feature", clip("moved to the feature requests", 300), 0
 	f := in.add("feature", "feature:from:"+from, text, where, 1, now)
 	f.From = from
 	return f, nil
@@ -187,6 +193,84 @@ func (it Item) ripe(now int64) bool {
 		return now-it.Tried > retryAfterMs && it.Count >= it.TriedCount+ripeCount[it.Kind]
 	}
 	return false
+}
+
+// queueable: may wait in the queue, and be started from it.
+func (it Item) queueable() bool {
+	switch it.Status {
+	case "working", "pr", "merged", "dropped", "gone", "ignored", "feature":
+		return false
+	}
+	return true
+}
+
+// queue: the queued items, first to start first.
+func (in *Inbox) queue() []*Item {
+	var q []*Item
+	for i := range in.Items {
+		if in.Items[i].Queued > 0 {
+			q = append(q, &in.Items[i])
+		}
+	}
+	slices.SortStableFunc(q, func(a, b *Item) int { return cmp.Compare(a.Queued, b.Queued) })
+	return q
+}
+
+// queuePos: its place in the queue, from 1 (0: not queued).
+func (in *Inbox) queuePos(id string) int {
+	return slices.IndexFunc(in.queue(), func(it *Item) bool { return it.ID == id }) + 1
+}
+
+// enqueue puts the item last in the queue (it keeps its place when queued
+// already) and says where it is.
+func (in *Inbox) enqueue(id string, now int64) (int, error) {
+	it := in.find(id)
+	if it == nil {
+		return 0, errorf("no item %s", id)
+	}
+	if !it.queueable() {
+		return 0, errorf("item %s is %s", id, it.Status)
+	}
+	if it.Queued == 0 {
+		at := now
+		if q := in.queue(); len(q) > 0 && q[len(q)-1].Queued >= at {
+			at = q[len(q)-1].Queued + 1
+		}
+		it.Queued = at
+	}
+	return in.queuePos(id), nil
+}
+
+// moveQueued swaps the item with the one before it (by < 0) or after it.
+func (in *Inbox) moveQueued(id string, by int) error {
+	q := in.queue()
+	i := slices.IndexFunc(q, func(it *Item) bool { return it.ID == id })
+	if i < 0 {
+		return errorf("item %s isn't queued", id)
+	}
+	j := i + 1
+	if by < 0 {
+		j = i - 1
+	}
+	if j >= 0 && j < len(q) {
+		q[i].Queued, q[j].Queued = q[j].Queued, q[i].Queued
+	}
+	return nil
+}
+
+// nextQueued: the first queued item that may start now (its kind
+// switched on); queued items that can't start any more leave the queue.
+func (in *Inbox) nextQueued(cfg Config) *Item {
+	for _, it := range in.queue() {
+		if !it.queueable() {
+			it.Queued = 0
+			continue
+		}
+		if cfg.on(it.feature()) {
+			return it
+		}
+	}
+	return nil
 }
 
 // pick is the item to work on, among the fixes or the features: the

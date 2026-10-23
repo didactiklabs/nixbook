@@ -11397,7 +11397,8 @@ def t_set_theme(ctx, args):
     "requests itself. Not for other apps' bugs. Say what happens and what was "
     "expected, plainly; it stays on this computer. Only while the user has turned "
     "it on (Settings > Desktop agents > Fixes it makes itself). fix_now starts "
-    "fixing it at once, as Settings' Fix now: only when the user asked for that in "
+    "fixing it at once, as Settings' Fix now (in line after the one being made, if "
+    "any): only when the user asked for that in "
     "this conversation (\"fix it now\"), never on your own.",
     obj({
         "what": {"type": "string", "description": "What is wrong: what happens, what was expected"},
@@ -11433,7 +11434,7 @@ def t_report_problem(ctx, args):
     "what it should do, for whom and where it fits, plainly; it stays on this "
     "computer. Only while the user has turned it on (Settings > Desktop agents > "
     "Features it builds). build_now starts building it at once, as Settings' Build "
-    "now: only when the user asked for that in this conversation (\"build it now\"), "
+    "now (in line after the one being made, if any): only when the user asked for that in this conversation (\"build it now\"), "
     "never on your own.",
     obj({
         "what": {"type": "string", "description": "The feature: what it should do, how one would use it"},
@@ -11469,7 +11470,8 @@ IMPROVE_CI = {"pending": "CI running", "pass": "CI passed", "fail": "CI failed"}
     "What nixbook's fixer (nixbook-improve) has to do or did lately: the fixes "
     "filed with report_problem and the features with request_feature, newest "
     "first, each with its id, kind (fix or feature), what was asked and where it "
-    "stands: queued, being made (and what it does now), pull request open (its "
+    "stands: queued (with its place in the line of those asked to start, "
+    "`queued`: 1 starts next), being made (and what it does now), pull request open (its "
     "number and whether CI is running, passed or failed), merged, or skipped, too "
     "big or failed and why. Use it to tell the user how one goes, or to find the "
     "id start_improvement takes.",
@@ -11479,6 +11481,7 @@ IMPROVE_CI = {"pending": "CI running", "pass": "CI passed", "fail": "CI failed"}
 def t_list_improvements(ctx, args):
     st = improve_cmd(["status"])
     runs = st.get("runs") or []
+    queue = improve_queue(st.get("inbox"))
     items = []
     for it in st.get("inbox") or []:
         s = it.get("status")
@@ -11491,6 +11494,8 @@ def t_list_improvements(ctx, args):
             e["where"] = it["where"]
         if s == "working":
             e["doing"] = r.get("doing") or r.get("stage")
+        if queue.get(it.get("id")):
+            e["queued"] = queue[it.get("id")]
         if s == "pr":
             e["pr"] = it.get("pr") or r.get("pr")
             e["ci"] = IMPROVE_CI.get(r.get("ci"), r.get("ci"))
@@ -11505,7 +11510,8 @@ def t_list_improvements(ctx, args):
     "shell",
     "Start making a queued fix or building a queued feature of nixbook at once (its "
     "id from list_improvements), as Settings' Fix now and Build now: past the day's "
-    "limit, one at a time. Only when the user asked for that in this conversation "
+    "limit, one at a time; while another is being made it waits in line and starts "
+    "on its own once that one is done. Only when the user asked for that in this conversation "
     "(\"build that feature now\"), never on your own; only while its kind is on "
     "(Settings > Desktop agents > Fixes it makes itself, Features it builds). It "
     "becomes a pull request the user reviews; list_improvements says how it goes.",
@@ -11541,8 +11547,14 @@ def improve_now(ctx, item, st=None):
                 "Desktop agents > Fixes it makes itself.")
     busy = improve_running(st)
     if busy:
-        return (f"Not started: “{busy.get('itemText', '')}” is being made (one at a time); "
-                "start it once that one is done.")
+        # One at a time: it waits in line and starts on its own after.
+        try:
+            pos = improve_cmd(["queue", item["id"]]).get("queued")
+        except ToolError as e:
+            return f"Not started: {e}."
+        return (f"Queued (#{pos}): “{busy.get('itemText', '')}” is being made (one at a time); it starts "
+                "on its own once the ones before it are done. The user can reorder or remove it in "
+                "Settings > Desktop agents.")
     env = [f"--setenv=PATH={os.environ.get('PATH', '')}"]
     claude = claude_path(ctx.cfg)
     if claude:
@@ -11557,6 +11569,14 @@ def improve_now(ctx, item, st=None):
         return f"Not started: {(proc.stderr or '').strip()[-200:] or 'systemd-run failed'}."
     return (f"Started {what} it now ({item['id']}); it takes a while, list_improvements says how it goes, "
             "and Settings > Desktop agents shows it too.")
+
+
+def improve_queue(inbox):
+    """The items asked to start while another was made: id -> place in line
+    (1 starts next)."""
+    q = sorted((i for i in inbox or [] if isinstance(i, dict) and (i.get("queued") or 0) > 0),
+               key=lambda i: i["queued"])
+    return {i.get("id"): n for n, i in enumerate(q, 1)}
 
 
 def improve_running(st):
@@ -11637,6 +11657,7 @@ def t_list_requests(ctx, args):
         raise ToolError((proc.stderr or "").strip()[-300:] or f"nixbook-improve failed ({proc.returncode})")
     # Each item's last run: its pull request, checks and title.
     runs = {r.get("item"): r for r in status.get("runs") or [] if isinstance(r, dict)}
+    queue = improve_queue(status.get("inbox"))
     out = []
     for i in sorted(status.get("inbox") or [], key=lambda i: i.get("first") or 0, reverse=True):
         feature = i.get("kind") == "feature"
@@ -11665,6 +11686,8 @@ def t_list_requests(ctx, args):
             e["doing"] = r["doing"]
         if r.get("url") or i.get("pr"):
             e["pr"] = r.get("url") or f"#{i['pr']}"
+        if queue.get(i.get("id")):
+            e["status"] = f"queued, #{queue[i['id']]} in line to start (asked while another was being made)"
         if st == "pr" and r.get("ci") in IMPROVE_CI:
             e["status"] += ", " + IMPROVE_CI[r["ci"]]
         if st == "merged" and r.get("outcome") == "reverted":

@@ -108,8 +108,19 @@ CI's **agent-guard** job (`checks.yaml`) runs `nixbook-improve guard` on every `
 - **The commit** is `feat(scope): …` with what it does, how to use it and how it is made, and an `Agent-Feature: <item>` trailer; the pull request has the label `agent-feature`.
 - **Never merged on its own**, whatever the auto-merge switches: once CI passes you get **Feature ready** with **Merge**, **Look** and **Drop**. After a merge, main's checks and the updated shell are watched, as for a fix: what it broke is fixed forward, never reverted.
 - One it can't build (a design choice only you can make, more than it may change, a place off limits, credentials, hardware, or its change failing twice) is [dropped with why](#what-it-cant-do).
-- At most `perDay` (1) on its own a day, after the day's fixes (**Features a day on its own**, `0` for no limit, each run capped by **Most a feature may spend**); **Build now** starts one at once. One run at a time, fix or feature.
+- At most `perDay` (1) on its own a day, after the day's fixes (**Features a day on its own**, `0` for no limit, each run capped by **Most a feature may spend**); **Build now** starts one at once. One run at a time, fix or feature: see [the queue](#the-queue).
 - **From an agent.** Say "build it now" when you ask, or later "start building that feature": the agent starts it as **Build now** does (`build_now` of `request_feature`, or `start_improvement` with the id from `list_improvements`), past the day's limit. "Fix it now" does the same for a fix (`fix_now` of `report_problem`). Ask it "how is that feature going?" and `list_improvements` tells it: queued, being made (and what it does now), pull request open with CI running, passed or failed, merged, or skipped and why. It only starts one when you ask in the chat, and only while that kind is on.
+
+## The queue
+
+One fix or feature is made at a time. **Fix now**, **Build now** or **Retry** pressed while another is being made (the button says **Queue** then), or an agent's `fix_now`, `build_now` or `start_improvement`, puts it in a queue shared by fixes and features instead of refusing:
+
+- The item shows **Queued, #N** in Settings > Desktop agents, with **Earlier**, **Later** and **Unqueue**; the status line says how many wait. `list_improvements` gives each one's place (`queued`), `list_requests` says "queued, #N in line to start".
+- When the one being made lets go (its pull request is open, or it ended: skipped, failed, dropped, stopped), the next one starts on its own, in the order asked. **Stop** stops only the current one.
+- Queued items were asked by you, so they start as **Fix now** does: past the day's limit, each still capped by its budget. A queued item whose kind you switch off waits until it is on again; one dropped, merged or moved to the features leaves the queue.
+- After a reboot, the shell's next run takes the queue first.
+
+From a terminal: `nixbook-improve queue ID`, `unqueue ID`, `queue-move ID up|down`.
 
 ## Proposed by the agent
 

@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 )
@@ -83,15 +85,39 @@ func run(o runOpts) (map[string]any, error) {
 		logEvent("error", errNoToken.Error())
 		return nil, errNoToken
 	}
-	unlock, err := lock("run.lock", false)
+	unlockRun, err := lock("run.lock", false)
 	if errors.Is(err, errBusy) {
+		if o.item != "" {
+			// Fix now / Build now while another is made: its turn comes.
+			return queueItem(cfg, o.item)
+		}
 		return map[string]any{"ran": false, "why": "a fix is already being made"}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
+	// Letting go of the run lock (its PR out, or the run over) starts the
+	// next queued item, in a unit of its own (a dry run starts none).
+	var released sync.Once
+	unlock := func() {
+		released.Do(func() {
+			unlockRun()
+			if !o.noPush {
+				startQueued(cfg)
+			}
+		})
+	}
 	defer unlock()
 	interrupted("interrupted")
+	// Started on its own: what waits in the queue first (asked by the user,
+	// so past the day's limit as Fix now is); a stop or a reboot left it.
+	if o.auto && o.item == "" {
+		var in Inbox
+		readJSON(inboxPath(), &in)
+		if p := in.nextQueued(cfg); p != nil {
+			o.item, o.auto = p.ID, false
+		}
+	}
 	rs, err := readRuns()
 	if err != nil {
 		return nil, err
@@ -148,7 +174,7 @@ func run(o runOpts) (map[string]any, error) {
 				return errNothing
 			}
 		}
-		p.Status, p.Tried, p.TriedCount = "working", now, p.Count
+		p.Status, p.Tried, p.TriedCount, p.Queued = "working", now, p.Count, 0
 		it = *p
 		return nil
 	})
@@ -374,6 +400,90 @@ func run(o runOpts) (map[string]any, error) {
 	})
 	unlock() // the PR is out: the next run may start while CI runs
 	return watch(cfg, id)
+}
+
+// queueItem puts an item asked for while another is being made in the
+// queue: it starts when its turn comes.
+func queueItem(cfg Config, id string) (map[string]any, error) {
+	var it Item
+	pos, again := 0, false
+	_, err := editInbox(func(in *Inbox) error {
+		p := in.find(id)
+		if p == nil {
+			return errorf("no item %s", id)
+		}
+		if p.Status == "working" || p.Status == "pr" {
+			return errorf("item %s is being fixed already", id)
+		}
+		if !cfg.on(p.feature()) {
+			if p.feature() {
+				return errorf("building features is off (Settings > Desktop agents > Features it builds)")
+			}
+			return errorf("making fixes is off (Settings > Desktop agents > Fixes it makes itself)")
+		}
+		was := p.Queued
+		var err error
+		if pos, err = in.enqueue(id, nowMs()); err != nil {
+			return err
+		}
+		it, again = *p, was > 0
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !again {
+		forFeature = it.feature()
+		logEvent("wait", fmt.Sprintf("Queued (#%d): %s", pos, clip(it.Text, 200)))
+	}
+	return map[string]any{
+		"ran": false, "queued": pos,
+		"why": fmt.Sprintf("queued (#%d): it starts once the one being made is done", pos),
+	}, nil
+}
+
+// startQueued starts the first queued item in a unit of its own, as the
+// shell starts a run (lowest priority, this process's PATH and Claude
+// Code). Its run takes it out of the queue; one that finds the run lock
+// taken again keeps its place. NIXBOOK_IMPROVE_SPAWN in tests: a command
+// given "run --item ID" instead.
+func startQueued(cfg Config) {
+	defer func(f bool) { forFeature = f }(forFeature)
+	var in Inbox
+	if readJSON(inboxPath(), &in) != nil {
+		return
+	}
+	p := in.nextQueued(cfg)
+	if p == nil {
+		return
+	}
+	// The one on PATH: this process may be an older build, after an update.
+	self, err := exec.LookPath("nixbook-improve")
+	if err != nil {
+		if self, err = os.Executable(); err != nil {
+			self = "nixbook-improve"
+		}
+	}
+	var c *exec.Cmd
+	if spawn := os.Getenv("NIXBOOK_IMPROVE_SPAWN"); spawn != "" {
+		c = exec.Command(spawn, "run", "--item", p.ID)
+	} else {
+		args := []string{
+			"--user", "--collect", "--quiet", fmt.Sprintf("--unit=nixbook-improve-run-%d", nowMs()),
+			"-p", "RuntimeMaxSec=8h", "-p", "Nice=19", "-p", "CPUWeight=idle", "-p", "IOSchedulingClass=idle",
+			"--setenv=PATH=" + os.Getenv("PATH"),
+		}
+		if claude := os.Getenv("NIXBOOK_IMPROVE_CLAUDE"); claude != "" {
+			args = append(args, "--setenv=NIXBOOK_IMPROVE_CLAUDE="+claude)
+		}
+		c = exec.Command("systemd-run", append(args, self, "run", "--item", p.ID)...)
+	}
+	forFeature = p.feature()
+	if out, err := c.CombinedOutput(); err != nil {
+		logEvent("error", fmt.Sprintf("The next in the queue didn't start: %s", clip(strings.TrimSpace(string(out))+" "+err.Error(), 200)))
+		return
+	}
+	logEvent("start", "Next in the queue: "+clip(p.Text, 200))
 }
 
 // interrupted ends the runs a stopped process left going (a reboot, the
