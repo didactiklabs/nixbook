@@ -11,7 +11,7 @@ import (
 // the same from the outside.
 type Event struct {
 	Time int64  `json:"time"`
-	Kind string `json:"kind"` // look, wait, start, retry, done, pr, ci, merged, revert, error
+	Kind string `json:"kind"` // look, wait, start, retry, done, pr, ci, merged, broke, error
 	Text string `json:"text"`
 	// About a feature (Settings shows it with the features).
 	Feature bool `json:"feature,omitempty"`

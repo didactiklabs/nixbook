@@ -40,19 +40,19 @@ Things to fix arrive in an inbox. Filing them is plain code, with no model call,
 
 Logs stay on this computer: they go to the Claude session as context, never into a commit or a pull request.
 
-What you report, a failed update or a red CI get a fix soon. A shell or unit error has to show up 3 times first; a crash, a failed unit (two looks) or a Nix warning (two updates) twice. It makes at most `perDay` fixes on its own (2 by default). **Fix now** next to an item starts one at once, without counting toward that limit. Items it tried without fixing them (failed, skipped, too big) stay listed, with why (but those it found harmless and unfixable, which leave on their own), so **Fix now** can try again, after you give the token a missing permission for instance.
+What you report, a failed update or a red CI get a fix soon. A shell or unit error has to show up 3 times first; a crash, a failed unit (two looks) or a Nix warning (two updates) twice. It makes at most `perDay` fixes on its own (2 by default; **Fixes a day on its own** in the section, `0` for no limit, while **Most a fix may spend**, `budgetUsd`, still caps each run). **Fix now** next to an item starts one at once, without counting toward that limit. Items it tried without fixing them (failed, skipped, too big) stay listed, with why (but those it found harmless and unfixable, which leave on their own), so **Fix now** can try again, after you give the token a missing permission for instance.
 
 ## How a fix is made
 
 1. A clone of the repository (`~/.local/share/nixbook-shell/improve/repo`) is brought to `main`, on an `agent/fix-<item>` branch.
-2. A **Claude Code session** (your Claude Code login) reads the item and changes the files. It runs in `--restricted` mode: its file tools stay inside the clone, and it can't run commands, browse the web, or use settings, hooks or MCP servers. It never sees your files, your logins or a token. It may answer _skip_ (not a bug, or not enough to go on; when nothing here can fix it and it does no harm, such as another app's log noise, it is _ignored_: dropped from the list and never tried again) or _too big_ (a feature or a refactor): the item then moves to the [feature requests](#features-it-builds) with what the session found, and a notification says so.
+2. A **Claude Code session** (your Claude Code login) reads the item and changes the files. It runs in `--restricted` mode: its file tools stay inside the clone, and it can't run commands, browse the web, or use settings, hooks or MCP servers. It never sees your files, your logins or a token. It may answer _skip_ (not a bug, or not enough to go on; when nothing here can fix it and it does no harm, such as another app's log noise, it is _ignored_: dropped from the list and never tried again) or _too big_ (a feature or a refactor): the item then moves to the [feature requests](#features-it-builds) with what the session found, and a notification says so. When nothing here can do it (it needs a place off limits, credentials, hardware, a change outside nixbook) it answers _can't_, and the item is [dropped with why](#what-it-cant-do).
 3. **The guard** refuses what isn't a fix: more than `maxFiles` files (5) or `maxLines` changed lines (150), a new file (except Markdown), a deleted or binary file, or anything off limits (below).
 4. **The checks** (on this computer):
    - `treefmt`;
    - the tests of what it touched (`tests/run.sh shell` for the shell's scripts and backends, `tests/run.sh repo` for Nix files);
    - for the shell, **the shell started on a headless sway** (`nixbook-shell/tests/shell-loads.sh`), first at the base revision and then with the change. It must stay up and print no QML warning the base didn't.
 
-   When something fails, the session gets the output once and tries again. If it fails a second time, the item is marked failed and nothing is pushed.
+   When something fails, the session gets the output once and tries again. If it fails a second time, the item is marked failed and nothing is pushed. Failed in a second run as well, it is [dropped](#what-it-cant-do).
 
 5. **The commit** is its changelog entry: `fix(scope): …` or `polish(scope): …`, then what was wrong, the cause, what changed and how to see it. Below that come where the report came from and an `Agent-Fix: <item>` trailer. These titles are what the updates widget lists as the changelog.
 6. The branch is pushed and a **pull request** opened (label `agent-fix`), with what was checked and the files changed.
@@ -73,7 +73,7 @@ Nothing runs between fixes but the shell's timers: it looks for bugs 10 minutes 
   - each look for bugs and what it found;
   - why no fix was started (nothing seen often enough yet, with the counts; today's fixes made; no token);
   - a fix's start, retries and end;
-  - CI, merges and reverts;
+  - CI, merges and what a merge broke;
   - errors.
 - **The bar.** The bar's robot shows a wrench while a fix is being made, and its tooltip says what it is doing.
 - **Stop** ends the fix being made before its PR is out: the Claude session and the checks are stopped, and the item goes back to the inbox.
@@ -89,14 +89,14 @@ Two switches, both off by default, merge a fix without asking once its CI passes
 
 Such a fix gets GitHub's **auto-merge** as soon as its PR opens: GitHub merges it the moment its required checks pass, even if the fixer has stopped meanwhile (a reboot). The fixer still merges it itself once it sees CI pass, should GitHub not have. A fix whose CI fails has its auto-merge turned off, so a later re-run can't merge it behind your back.
 
-Either way, a fix touching what agents may do (their tools, permissions, switches and defaults: the sensitive files below) always waits for your **Merge**: otherwise the fixer could merge a loosening of its own limits without you seeing it. You get a notification after each merge, the Activity says why it merged, and the watch after the merge (main's checks, the updated shell, a revert offered) applies the same. A merged fix reaches this computer with your next update.
+Either way, a fix touching what agents may do (their tools, permissions, switches and defaults: the sensitive files below) always waits for your **Merge**: otherwise the fixer could merge a loosening of its own limits without you seeing it. You get a notification after each merge, the Activity says why it merged, and the watch after the merge (main's checks, the updated shell, what broke fixed forward) applies the same. A merged fix reaches this computer with your next update.
 
 ## Off limits
 
 - **Never changed by a fix** (refused before the push, and again by CI): `.github/`, the fixer itself (`nixbook-shell/improve/`, `SelfImprove.qml`), the agent desktop's sandbox, the tests, `nixosModules/`, `installer/`, `lib/`, `profiles/`, `npins/`, `hive.nix`, `base.nix`, the devenv files, `AGENTS.md` and `CLAUDE.md`, secrets.
 - **Never merged on its own** (sensitive: what agents may do): `desktop-mcp.py`, `Ai.qml`, `AiChatSession.qml`, `Initiative.qml`, `Routines.qml`, `Config.qml` and `builtin-defaults.json`, the Desktop agents settings page, the shell's Nix files, `customPkgs/` and `homeManagerModules/`. The PR and the notification say so.
 
-CI's **agent-guard** job (`checks.yaml`) runs `nixbook-improve guard` on every `agent/` branch, built from the base branch rather than from the PR. It checks the paths, the size and that each commit is `fix(…)` or `polish(…)` with a body and its trailer; on an `agent/feature-` branch (`--feature`), a feature's size and `feat(…)` commits with an `Agent-Feature:` trailer. A branch of reverts it made is only checked for its paths. To have GitHub refuse a merge without it, make it a required check of `main`'s ruleset.
+CI's **agent-guard** job (`checks.yaml`) runs `nixbook-improve guard` on every `agent/` branch, built from the base branch rather than from the PR. It checks the paths, the size and that each commit is `fix(…)` or `polish(…)` with a body and its trailer; on an `agent/feature-` branch (`--feature`), a feature's size and `feat(…)` commits with an `Agent-Feature:` trailer. A branch of reverts made by an older version is only checked for its paths. To have GitHub refuse a merge without it, make it a required check of `main`'s ruleset.
 
 ## Features it builds
 
@@ -106,8 +106,9 @@ CI's **agent-guard** job (`checks.yaml`) runs `nixbook-improve guard` on every `
 - **How it goes.** Ask an agent ("did you file it?", "how's my feature going?"): its read-only `list_requests` tool reads `nixbook-improve status` and gives each fix and feature request, newest first, with when it was filed, by whom (you, through an agent or Settings, or the fixer from what it found), its status (queued, building, pull request with its link and checks, merged, skipped, too big, failed, dropped) and why. It is there while fixes or features are on.
 - **How.** Like a fix, on an `agent/feature-<item>` branch, by a session with the same confinement and off-limits places, but with its own instructions: build it whole but small, reuse what exists, update the settings, docs, `KEYBINDS.md` and the assistant's answers it touches. It may change up to `maxFiles` files (15) and `maxLines` lines (600) and add files (still no deleted or binary file), with up to `budgetUsd` (8) of Claude Code and 90 minutes. It may answer _skip_ (it exists already, with how to use it; too vague; not this repository's) or _too big_ (it needs a design choice or more than that: left to you with what it would take). The same checks run.
 - **The commit** is `feat(scope): …` with what it does, how to use it and how it is made, and an `Agent-Feature: <item>` trailer; the pull request has the label `agent-feature`.
-- **Never merged on its own**, whatever the auto-merge switches: once CI passes you get **Feature ready** with **Merge**, **Look** and **Drop**. After a merge, main's checks and the updated shell are watched and a revert offered, as for a fix.
-- At most `perDay` (1) on its own a day, after the day's fixes; **Build now** starts one at once. One run at a time, fix or feature.
+- **Never merged on its own**, whatever the auto-merge switches: once CI passes you get **Feature ready** with **Merge**, **Look** and **Drop**. After a merge, main's checks and the updated shell are watched, as for a fix: what it broke is fixed forward, never reverted.
+- One it can't build (a design choice only you can make, more than it may change, a place off limits, credentials, hardware, or its change failing twice) is [dropped with why](#what-it-cant-do).
+- At most `perDay` (1) on its own a day, after the day's fixes (**Features a day on its own**, `0` for no limit, each run capped by **Most a feature may spend**); **Build now** starts one at once. One run at a time, fix or feature.
 - **From an agent.** Say "build it now" when you ask, or later "start building that feature": the agent starts it as **Build now** does (`build_now` of `request_feature`, or `start_improvement` with the id from `list_improvements`), past the day's limit. "Fix it now" does the same for a fix (`fix_now` of `report_problem`). Ask it "how is that feature going?" and `list_improvements` tells it: queued, being made (and what it does now), pull request open with CI running, passed or failed, merged, or skipped and why. It only starts one when you ask in the chat, and only while that kind is on.
 
 ## Proposed by the agent
@@ -125,8 +126,14 @@ It is offered in the bar with why ("Exporting your notes failed three times. Sha
 
 ## After the merge
 
-- **main's checks.** The merged commit's checks are watched. If one fails, a revert PR is opened at once and a notification offers **Merge the revert**.
-- **The updated shell.** Once you update (the updates widget), 5 minutes after the shell starts on a revision that contains a fix, its journal is read. A QML warning in the fix's files that the shell didn't print before, or the shell restarting, opens a revert PR the same way. After the revert merges, update again to take the fix off this computer.
+Nothing is ever reverted: what a merge broke is fixed forward.
+
+- **main's checks.** The merged commit's checks are watched. If one fails, a fix for it is queued (an item of its own, `regression`, picked before the others, with the merged change and its files) and a critical notification says so, with **Look**.
+- **The updated shell.** Once you update (the updates widget), 5 minutes after the shell starts on a revision that contains a fix, its journal is read. A QML warning in the fix's files that the shell didn't print before, or the shell restarting, queues a fix the same way.
+
+## What it can't do
+
+A fix or feature it can't do is **dropped** with a short reason: what the session looked at, why it can't be done here, and what would make it doable. That happens when the session says so (a place off limits, credentials, hardware, something outside nixbook, a feature needing a design choice or more than it may change), or when its change failed its checks in two runs. You get a notification, **Couldn't do: …**, with **Retry** (a run at once, from scratch), **As a feature** (for a fix) and **Dismiss** (forget it). Left unanswered, it waits in the section's **Dropped** list with the same buttons. A dropped item doesn't count toward the day's limit and is never picked again on its own. Agents see it, with its reason, through `list_requests`.
 
 ## Settings
 

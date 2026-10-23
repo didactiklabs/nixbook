@@ -9,6 +9,9 @@
 #   - a feature: built on its own branch (new files, feat commit), never
 #     merged on its own; CI's guard takes it only with --feature;
 #   - harmless and unfixable: ignored for good;
+#   - can't be done here, or failed twice: given up (unable), told, with
+#     Retry / As a feature / Dismiss, never picked again on its own;
+#   - a merge that breaks main: a fix for it filed, never a revert;
 #   - a sensitive file: never merged on its own, dropped by the user;
 #   - the guard refuses a feature commit;
 #   - only where Nix made it available ("improve" in desktop-mcp.json);
@@ -84,6 +87,10 @@ case "$FAKE_CLAUDE" in
     echo '{"type":"result","subtype":"success","session_id":"s1","total_cost_usd":0.01,"structured_output":{"outcome":"too_big","reason":"it is a new widget"}}'
     exit 0
     ;;
+  cant)
+    echo '{"type":"result","subtype":"success","session_id":"s1","total_cost_usd":0.01,"structured_output":{"outcome":"cant","reason":"it needs a firmware nixbook does not ship"}}'
+    exit 0
+    ;;
   feature)
     printf '{ pkgs }: pkgs.hello # the radar\n' >customPkgs/radar.nix
     jq -nc --arg b "$body" '{type:"result",subtype:"success",session_id:"s1",total_cost_usd:1.5,
@@ -150,7 +157,13 @@ case "$1 $2" in
     ;;
   "pr close") ;;
   "label create") ;;
-  "api "*) echo '[{"Status":"completed","Conclusion":"success"}]' ;;
+  "api "*)
+    if [ -n "${FAKE_MAIN_FAIL:-}" ]; then
+      echo '[{"Status":"completed","Conclusion":"failure"}]'
+    else
+      echo '[{"Status":"completed","Conclusion":"success"}]'
+    fi
+    ;;
 esac
 EOF
 cat >"$fake/notify-send" <<'EOF'
@@ -438,6 +451,9 @@ expect_match "activity: stopped" "^done Stopped: the guide is slow" "$(jq -r '.[
 "$improve" note "one more thing" >/dev/null
 jq '.ai.improve.perDay = 1' "$XDG_CONFIG_HOME/nixbook-shell/config.json" >"$tmp/c" && mv "$tmp/c" "$XDG_CONFIG_HOME/nixbook-shell/config.json"
 expect_match "the day's limit" "today's fixes are made (1 a day" "$("$improve" run --auto | jq -r .why)"
+jq '.ai.improve.perDay = 0' "$XDG_CONFIG_HOME/nixbook-shell/config.json" >"$tmp/c" && mv "$tmp/c" "$XDG_CONFIG_HOME/nixbook-shell/config.json"
+expect_eq "no limit: 0, each run's budget only" "true 0 3" "$("$improve" status | jq -r '"\(.unlimited) \(.perDay) \(.budgetUsd)"')"
+jq '.ai.improve.perDay = 1' "$XDG_CONFIG_HOME/nixbook-shell/config.json" >"$tmp/c" && mv "$tmp/c" "$XDG_CONFIG_HOME/nixbook-shell/config.json"
 activity() { jq -r '.[] | "\(.kind) \(.text)"' "$XDG_STATE_HOME/nixbook-shell/improve/activity.json"; }
 expect_match "activity: a fix started" "^start Fixing: the guide says" "$(activity)"
 expect_match "activity: its PR" "^pr Opened #7: polish(docs)" "$(activity)"
@@ -458,6 +474,46 @@ r=$(run_of "$id")
 expect_eq "auto-merged on GitHub: merged, its commit" "merged abc123" "$(jq -r '"\(.outcome) \(.merged)"' <<<"$r")"
 expect_eq "auto-merged on GitHub: not merged again" "$merges" "$(grep -c "pr merge 7 --repo o/r --rebase --delete-branch$" "$FAKE_LOG/gh")"
 rm "$FAKE_LOG/pr-state"
+
+# --- a merge that breaks main's checks: a fix for it, never a revert ----------------
+id=$(item "the guide forgets the minutes")
+export FAKE_CLAUDE=docs FAKE_BRANCH="agent/fix-$id" NOTIFY_ANSWER=merge FAKE_MAIN_FAIL=1
+git -C "$tmp/remote.git" update-ref refs/heads/main "$(git -C "$tmp/remote.git" rev-list --max-parents=0 main)"
+"$improve" run --item "$id" >/dev/null
+reg=$("$improve" status | jq -c '.inbox[] | select(.kind == "regression")')
+expect_eq "broke main: a fix for it queued" "new" "$(jq -r .status <<<"$reg")"
+expect_match "broke main: what broke" "main's checks failed after it" "$(jq -r .text <<<"$reg")"
+expect_eq "broke main: never a revert" "" "$(git -C "$tmp/remote.git" branch --list 'agent/revert-*')"
+expect_no_match "broke main: no revert PR" "Revert" "$(grep "pr create" "$FAKE_LOG/gh")"
+expect_match "broke main: told" "broke something.*No revert" "$(tail -n 2 "$FAKE_LOG/notify")"
+unset FAKE_MAIN_FAIL
+"$improve" drop-item "$(jq -r .id <<<"$reg")" >/dev/null
+git -C "$tmp/remote.git" update-ref refs/heads/main "$(git -C "$tmp/remote.git" rev-list --max-parents=0 main)"
+
+# --- can't be done here: given up, told, never picked on its own -------------------
+status_of() { "$improve" status | jq -r --arg i "$1" '.inbox[] | select(.id == $i) | .status'; }
+id=$(item "the wifi card drops out")
+export FAKE_CLAUDE=cant NOTIFY_ANSWER=
+"$improve" run --item "$id" >/dev/null
+expect_eq "cant: given up" "unable" "$(status_of "$id")"
+expect_eq "cant: its run, not counted" "unable" "$(run_of "$id" | jq -r .outcome)"
+expect_match "cant: told why" "Couldn't do: the wifi card drops out it needs a firmware" "$(tail -n 1 "$FAKE_LOG/notify")"
+expect_match "cant: with Retry, As a feature, Dismiss" "--action=retry=Retry --action=feature=As a feature --action=dismiss=Dismiss" "$(tail -n 1 "$FAKE_LOG/notify")"
+expect_match "cant: the session may say so" '"cant"' "$(cat "$FAKE_LOG/claude")"
+expect_no_match "cant: never picked on its own" "wifi" "$("$improve" run --auto --no-push | jq -c .)"
+NOTIFY_ANSWER=dismiss "$improve" run --item "$id" >/dev/null
+expect_eq "cant: Retry tries again, Dismiss drops it" "dropped" "$(status_of "$id")"
+id=$(item "the bar wants a radar")
+NOTIFY_ANSWER=feature "$improve" run --item "$id" >/dev/null
+expect_eq "cant: As a feature moves it" "feature" "$(status_of "$id")"
+# Its change refused twice in two runs: given up too.
+id=$(item "the agents could be nicer")
+export FAKE_CLAUDE=agents NOTIFY_ANSWER=
+"$improve" run --item "$id" >/dev/null
+expect_eq "failed once: tried again later" "failed 1" "$("$improve" status | jq -r --arg i "$id" '.inbox[] | select(.id == $i) | "\(.status) \(.attempts)"')"
+"$improve" run --item "$id" >/dev/null
+expect_eq "failed twice: given up" "unable" "$(status_of "$id")"
+expect_match "failed twice: told" "Couldn't do: the agents could be nicer its change failed 2 times" "$(tail -n 1 "$FAKE_LOG/notify")"
 
 # --- the guard refuses a feature ----------------------------------------------------
 (

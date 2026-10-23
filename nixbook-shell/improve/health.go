@@ -10,8 +10,8 @@ import (
 
 // health looks at the shell running a deployed fix (rev: the deployed
 // revision, /etc/nixos/version): a QML warning in the fix's files the shell
-// didn't print before, or the shell restarting, and the user is offered the
-// revert. Plain reading, no model.
+// didn't print before, or the shell restarting, is filed to be fixed
+// forward (never reverted). Plain reading, no model.
 func health(rev string) (map[string]any, error) {
 	cfg, err := loadConfig()
 	if err != nil {
@@ -43,7 +43,7 @@ func health(rev string) (map[string]any, error) {
 		checked++
 		editRun(r.ID, func(x *Run) { x.Checked = true })
 		if why := suspect(r, parseWarnings(log), restarts, known); why != "" {
-			if _, err := revert(cfg, r, why); err != nil {
+			if _, err := broke(cfg, r, why); err != nil {
 				return nil, err
 			}
 		}

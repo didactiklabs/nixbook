@@ -97,8 +97,8 @@ func run(o runOpts) (map[string]any, error) {
 		return nil, err
 	}
 	// Room left today: fixes first, then features, each switched on apart.
-	fixRoom := cfg.Enable && (!o.auto || runsToday(rs, false) < cfg.PerDay)
-	featRoom := cfg.Features.Enable && (!o.auto || runsToday(rs, true) < cfg.Features.PerDay)
+	fixRoom := cfg.Enable && (!o.auto || cfg.room(rs, false))
+	featRoom := cfg.Features.Enable && (!o.auto || cfg.room(rs, true))
 	if o.auto && !fixRoom && !featRoom {
 		switch {
 		case cfg.Enable && cfg.Features.Enable:
@@ -125,6 +125,10 @@ func run(o runOpts) (map[string]any, error) {
 			}
 			if p.Status == "working" || p.Status == "pr" {
 				return errorf("item %s is being fixed already", o.item)
+			}
+			if p.Status == "unable" {
+				// Retry: the user wants it tried again, from scratch.
+				p.Attempts = 0
 			}
 			if !cfg.on(p.feature()) {
 				if p.feature() {
@@ -175,18 +179,45 @@ func run(o runOpts) (map[string]any, error) {
 	} else {
 		logEvent("start", "Fixing: "+clip(it.Text, 200))
 	}
-	// end: the run is over, and so the item's try.
+	// end: the run is over, and so the item's try. Given up (unable: the
+	// session can't, or its change failed maxAttempts times), the user is
+	// told and asked what to do, the run lock let go first.
 	end := func(outcome, note, status string) (map[string]any, error) {
+		var gaveUp *Item
+		editInbox(func(in *Inbox) error {
+			if p := in.find(it.ID); p != nil {
+				if status == "attempt" {
+					p.Attempts++
+					status = "failed"
+					if p.Attempts >= maxAttempts {
+						status, note = "unable", fmt.Sprintf("its change failed %d times: %s", p.Attempts, note)
+					}
+				} else if status != "new" {
+					p.Attempts = 0
+				}
+				p.Status, p.Note = status, clip(note, 300)
+				if status == "unable" {
+					c := *p
+					gaveUp = &c
+				}
+			}
+			return nil
+		})
+		if status == "attempt" {
+			status = "failed"
+		}
+		if status == "unable" {
+			// Not counted in the day's runs.
+			outcome = "unable"
+		}
 		r, _ := editRun(id, func(r *Run) {
 			r.Outcome, r.Note, r.Stage, r.Doing, r.Finished = outcome, clip(note, 600), "done", "", nowMs()
 		})
 		logEvent("done", outcomeText[outcome]+": "+clip(note, 300))
-		editInbox(func(in *Inbox) error {
-			if p := in.find(it.ID); p != nil {
-				p.Status, p.Note = status, clip(note, 300)
-			}
-			return nil
-		})
+		if gaveUp != nil {
+			unlock()
+			cantDo(*gaveUp, note)
+		}
 		return map[string]any{"ran": true, "run": r}, nil
 	}
 
@@ -206,7 +237,7 @@ func run(o runOpts) (map[string]any, error) {
 	cost := s.cost
 	editRun(id, func(r *Run) { r.Session, r.Cost = s.id, cost })
 	if err != nil {
-		return end("failed", err.Error(), "failed")
+		return end("failed", err.Error(), "attempt")
 	}
 	var changes []Change
 	var res checkResult
@@ -234,8 +265,10 @@ func run(o runOpts) (map[string]any, error) {
 				notify("Too big for a fix, now a feature request: "+clip(it.Text, 80), clip(s.answer.Reason, 300), "low")
 				return end("too_big", "moved to the feature requests: "+s.answer.Reason, "feature")
 			}
-			notify("Needs a real session: "+clip(it.Text, 80), clip(s.answer.Reason, 300), "low")
-			return end("too_big", s.answer.Reason, "too_big")
+			// Too big even for a feature: given up, the user told.
+			return end("too_big", s.answer.Reason, "unable")
+		case "cant":
+			return end("unable", s.answer.Reason, "unable")
 		}
 		stage("check")
 		changes, err = diff(repo)
@@ -253,7 +286,7 @@ func run(o runOpts) (map[string]any, error) {
 		}
 		os.WriteFile(filepath.Join(runDir, fmt.Sprintf("feedback-%d.txt", try)), []byte(feedback), 0o600)
 		if try == 1 {
-			return end("failed", strings.Join(strings.Fields(feedback), " "), "failed")
+			return end("failed", strings.Join(strings.Fields(feedback), " "), "attempt")
 		}
 		logEvent("retry", "Its change didn't pass ("+clip(firstLine(feedback), 120)+"): Claude tries again")
 		stage(work)
@@ -262,7 +295,7 @@ func run(o runOpts) (map[string]any, error) {
 		cost += s.cost
 		editRun(id, func(r *Run) { r.Cost = cost })
 		if err != nil {
-			return end("failed", err.Error(), "failed")
+			return end("failed", err.Error(), "attempt")
 		}
 	}
 
@@ -280,7 +313,7 @@ func run(o runOpts) (map[string]any, error) {
 	}
 	msg := commitMessage(s.answer, it)
 	if why := checkMessage(msg, feature); len(why) > 0 {
-		return end("failed", "its commit message: "+strings.Join(why, "; "), "failed")
+		return end("failed", "its commit message: "+strings.Join(why, "; "), "attempt")
 	}
 	if _, err := cmd(repo, 10*time.Minute, msg, "git", unsigned("commit", "--quiet", "-F", "-")...); err != nil {
 		return end("failed", "the commit: "+err.Error(), "failed")
@@ -383,6 +416,35 @@ var stageText = map[string]string{
 
 var outcomeText = map[string]string{
 	"skipped": "Skipped", "ignored": "Ignored, harmless", "too_big": "Too big", "failed": "Failed", "checked": "Dry run done",
+	"unable": "Couldn't do it",
+}
+
+// cantDo tells the user an item was given up and does what they pick:
+// Retry (a run at once, not counted in the day's), As a feature (a fix),
+// Dismiss (dropped). Left unanswered, it waits in Settings' Dropped list
+// with the same buttons.
+func cantDo(it Item, reason string) {
+	actions := []string{"retry=Retry"}
+	if !it.feature() {
+		actions = append(actions, "feature=As a feature")
+	}
+	actions = append(actions, "dismiss=Dismiss")
+	switch notify("Couldn't do: "+clip(firstLine(it.Text), 80), clip(reason, 400), "normal", actions...) {
+	case "retry":
+		run(runOpts{item: it.ID})
+	case "feature":
+		editInbox(func(in *Inbox) error {
+			_, err := in.toFeature(it.ID, reason, nowMs())
+			return err
+		})
+	case "dismiss":
+		editInbox(func(in *Inbox) error {
+			if p := in.find(it.ID); p != nil && p.Status == "unable" {
+				p.Status = "dropped"
+			}
+			return nil
+		})
+	}
 }
 
 var scopeRe = regexp.MustCompile(`[^a-z0-9./-]+`)
@@ -478,6 +540,8 @@ func reported(it Item) string {
 		return fmt.Sprintf("A program nixbook packages crashed %d times.", it.Count)
 	case "info":
 		return "Seen on the machine; fixed on the user's request."
+	case "regression":
+		return "A change merged lately broke it; fixed forward."
 	case "feature":
 		if it.From != "" {
 			return "Too big for a fix; built as a feature."

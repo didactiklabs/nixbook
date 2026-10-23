@@ -3,6 +3,7 @@ package main
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestMatchGlob(t *testing.T) {
@@ -378,5 +379,34 @@ func TestGuardReverts(t *testing.T) {
 	}
 	if !revertTitleRe.MatchString(`Revert "feat(nixbook-shell): x"`) || revertTitleRe.MatchString(`Revert "chore: x"`) {
 		t.Error("revertTitleRe")
+	}
+}
+
+func TestDayLimit(t *testing.T) {
+	today := time.Now().UnixMilli()
+	rs := []Run{{Started: today}, {Started: today, Manual: true}, {Started: today, Outcome: "unable"}}
+	c := defaults()
+	c.PerDay = 1
+	if c.room(rs, false) {
+		t.Error("one run on its own today: no room at 1 a day")
+	}
+	if runsToday(rs, false) != 1 {
+		t.Errorf("Fix now and given-up runs counted: %d", runsToday(rs, false))
+	}
+	c.PerDay = 0
+	if !c.room(rs, false) {
+		t.Error("0 a day: no limit")
+	}
+}
+
+func TestGiveUp(t *testing.T) {
+	var in Inbox
+	it := in.add("user", "user:x", "x", "", 1, 1)
+	it.Status = "unable"
+	if it.ripe(retryAfterMs * 3) {
+		t.Error("a given-up item picked on its own")
+	}
+	if ripeCount["regression"] != 1 {
+		t.Error("what a merge broke waits")
 	}
 }

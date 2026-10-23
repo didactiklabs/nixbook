@@ -23,7 +23,8 @@ type Run struct {
 	// What it does right now, live: "Claude reads …", a check running.
 	Doing string `json:"doing,omitempty"`
 	// "" (going on), pr (open, waiting for the user), merged, skipped,
-	// ignored, too_big, failed, dropped, reverted.
+	// ignored, too_big, failed, unable (given up: not counted in the day's
+	// runs), dropped.
 	Outcome   string   `json:"outcome"`
 	Note      string   `json:"note,omitempty"`
 	Type      string   `json:"type,omitempty"` // fix, polish, feat
@@ -102,13 +103,13 @@ func findRun(pr int, id string) (Run, error) {
 }
 
 // runsToday: the fixes (or features) started on its own today ("Fix now"
-// isn't counted).
+// and the ones given up aren't counted).
 func runsToday(rs []Run, feature bool) int {
 	y, m, d := time.Now().Date()
 	start := time.Date(y, m, d, 0, 0, 0, 0, time.Local).UnixMilli()
 	n := 0
 	for _, r := range rs {
-		if !r.Manual && r.Feature == feature && r.Started >= start {
+		if !r.Manual && r.Feature == feature && r.Started >= start && r.Outcome != "unable" {
 			n++
 		}
 	}

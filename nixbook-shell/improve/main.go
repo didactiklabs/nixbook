@@ -7,7 +7,9 @@
 // it with a changelog entry, opens a PR and, once CI passes, asks the user
 // (Merge, Look, Drop) or merges a fix on its own (low-risk files only;
 // never a feature). Then
-// main's checks and the deployed shell are watched, and a revert offered.
+// main's checks and the deployed shell are watched: what a merge broke is
+// filed to be fixed forward, never reverted. What it can't do is given up
+// (unable), the user told, with Retry.
 package main
 
 import (
@@ -28,15 +30,17 @@ const usage = `nixbook-improve: the desktop agent's fixes and features to nixboo
                                          a feature to build, from the user (an agent's
                                          request_feature, Settings)
   nixbook-improve to-feature ID          move a fix item to the feature requests
-  nixbook-improve drop-item ID           forget an inbox item
+  nixbook-improve drop-item ID           forget an inbox item (Dismiss of one given up)
   nixbook-improve collect                file the shell's QML errors and the desktop tools'
                                          crashes since the last time (no model)
   nixbook-improve run [--item ID] [--auto] [--no-push]
                                          fix the ripest item (or ID; a feature request
-                                         builds it): the session, the checks, the
+                                         builds it; one given up is tried again from
+                                         scratch: Retry): the session, the checks, the
                                          commit, the PR, then CI and the user's answer;
                                          --auto: the days' limits apply (fixes first,
-                                         then features); --no-push: stop at the local
+                                         then features; perDay 0: no limit but each
+                                         run's budget); --no-push: stop at the local
                                          commit
   nixbook-improve stop                   stop the fix being made (Settings' Stop)
   nixbook-improve sync                   learn which open PRs were merged or closed on GitHub
@@ -46,7 +50,8 @@ const usage = `nixbook-improve: the desktop agent's fixes and features to nixboo
                                          repository, kept in the keyring): the only
                                          credential it uses, never the user's gh or ssh
   nixbook-improve health REV             the shell running a deployed fix (REV: the
-                                         deployed revision): a revert offered if it broke
+                                         deployed revision): what it broke filed to be
+                                         fixed forward (never a revert)
   nixbook-improve guard BASE [HEAD] [--feature] [--max-files N] [--max-lines N]
                                          CI's agent-guard: an agent/ branch's commits are
                                          fixes, or features with --feature (paths, size,
@@ -248,11 +253,16 @@ func status() (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	// The limits in effect (perDay 0: none, each run's budgetUsd only).
 	return map[string]any{
 		"available": available(), "token": available() && token() != "",
 		"enable": cfg.Enable, "repo": ghRepo(cfg.Repo), "claude": cfg.claude != "",
-		"today": runsToday(rs, false), "perDay": cfg.PerDay, "inbox": in.Items, "runs": rs,
-		"features": map[string]any{"enable": cfg.Features.Enable, "today": runsToday(rs, true), "perDay": cfg.Features.PerDay},
+		"today": runsToday(rs, false), "perDay": cfg.PerDay, "unlimited": cfg.PerDay == 0, "budgetUsd": cfg.BudgetUsd,
+		"inbox": in.Items, "runs": rs,
+		"features": map[string]any{
+			"enable": cfg.Features.Enable, "today": runsToday(rs, true), "perDay": cfg.Features.PerDay,
+			"unlimited": cfg.Features.PerDay == 0, "budgetUsd": cfg.Features.BudgetUsd,
+		},
 	}, nil
 }
 

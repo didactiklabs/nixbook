@@ -31,7 +31,10 @@ new files (but Markdown), no deleted ones.
 If the problem needs more than that, answer outcome "too_big" and say what a
 real change would be. If it isn't a bug, is already fixed, or you can't find
 its cause in the code, answer "skip" and say why. Don't guess: a wrong fix
-costs more than none.
+costs more than none. If it can't be fixed here at all (it needs a place
+off limits, credentials, hardware, a change outside nixbook), answer "cant"
+and say what you looked at, why it can't be done here and what would make
+it doable: it is dropped and the user told, never tried again unasked.
 With skip, set harmless when it can be left as it is for good: nothing in
 this repository can fix it and it does no harm (noise in a log, another
 app's or the kernel's message, a warning nixbook can't silence). It is then
@@ -59,7 +62,7 @@ a pull request: never put the user's data in them (names, file paths in
 their home, window titles, message or notification contents).
 
 Answer with:
-- outcome: fixed, skip or too_big;
+- outcome: fixed, skip, too_big or cant;
 - type: fix or polish;
 - scope: what it is in, as in the git log (nixbook-shell, niri, docs…);
 - title: lowercase, a sentence saying what is now right, like the git log
@@ -69,7 +72,8 @@ Answer with:
 - body: the changelog entry, in plain sentences, wrapped at 72 columns: what
   was wrong (what the user saw), the cause, what you changed and where, and
   how to see it is fixed. 40 to 150 words;
-- reason: for skip and too_big, why;
+- reason: for skip, too_big and cant, why (for cant: what you looked at,
+  why it can't be done here, what would make it doable);
 - harmless: for skip, true when it can be ignored for good (see above).`
 
 // featureRules: a feature's session. Bigger, new files allowed, never
@@ -86,9 +90,12 @@ rename across files. At most %d files and %d changed lines; new files are
 fine, deleting one isn't.
 If it needs more than that, or a design choice only the user can make,
 answer outcome "too_big" and say what it would take and what to decide. If
-it exists already, can't be done in this repository, or the request is too
-vague to build, answer "skip" and say why (for one that exists: how to use
-it).
+it can't be done here at all (it needs a place off limits, credentials,
+hardware, a change outside nixbook), answer "cant". Either way say what you
+looked at, why it can't be done and what would make it doable: it is
+dropped and the user told, never tried again unasked. If it exists already
+or the request is too vague to build, answer "skip" and say why (for one
+that exists: how to use it).
 
 These are off limits (a change to them is refused): .github/, tests/,
 nixbook-shell/tests/, nixbook-shell/improve/, SelfImprove.qml, the agent
@@ -116,7 +123,7 @@ a pull request: never put the user's data in them (names, file paths in
 their home, window titles, message or notification contents).
 
 Answer with:
-- outcome: built, skip or too_big;
+- outcome: built, skip, too_big or cant;
 - scope: what it is in, as in the git log (nixbook-shell, niri, docs…);
 - title: lowercase, a sentence saying what one can now do, like the git
   log ("the clock widget can show the week number"), no final period;
@@ -125,10 +132,10 @@ Answer with:
 - body: the changelog entry, in plain sentences, wrapped at 72 columns:
   what it does, how to use it (where the setting, button or shortcut is),
   how it is made and where. 40 to 200 words;
-- reason: for skip and too_big, why.`
+- reason: for skip, too_big and cant, why.`
 
 var featureSchema = `{"type":"object","properties":{
-"outcome":{"type":"string","enum":["built","skip","too_big"]},
+"outcome":{"type":"string","enum":["built","skip","too_big","cant"]},
 "scope":{"type":"string"},
 "title":{"type":"string"},
 "body":{"type":"string"},
@@ -136,7 +143,7 @@ var featureSchema = `{"type":"object","properties":{
 "required":["outcome"]}`
 
 var answerSchema = `{"type":"object","properties":{
-"outcome":{"type":"string","enum":["fixed","skip","too_big"]},
+"outcome":{"type":"string","enum":["fixed","skip","too_big","cant"]},
 "type":{"type":"string","enum":["fix","polish"]},
 "scope":{"type":"string"},
 "title":{"type":"string"},
@@ -349,6 +356,8 @@ func firstPrompt(it Item, context string) string {
 		b.WriteString("A CI workflow fails on main:\n\n")
 	case "coredump":
 		fmt.Fprintf(&b, "A program nixbook packages (customPkgs/ or nixbook-shell) crashed %d times lately:\n\n", it.Count)
+	case "regression":
+		b.WriteString("A change merged lately broke this. It is not reverted: fix it forward, keeping what the change was for:\n\n")
 	case "info":
 		b.WriteString("This was seen on the computer. It isn't obviously nixbook's: if no change to this repository " +
 			"can fix it (an upstream app's bug, hardware, the kernel), answer skip and say so, harmless if it does no harm.\n\n")
@@ -368,9 +377,9 @@ func firstPrompt(it Item, context string) string {
 		fmt.Fprintf(&b, "\nLast time: %s\n", it.Note)
 	}
 	if it.feature() {
-		b.WriteString("\nBuild it, or say why not (skip, too_big).")
+		b.WriteString("\nBuild it, or say why not (skip, too_big, cant).")
 	} else {
-		b.WriteString("\nFind the cause and fix it, or say why not (skip, too_big).")
+		b.WriteString("\nFind the cause and fix it, or say why not (skip, too_big, cant).")
 	}
 	return b.String()
 }

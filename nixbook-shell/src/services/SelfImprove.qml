@@ -22,7 +22,9 @@ import QtQuick
  *     (`collect`: reading, no model) 10 minutes after the start, then every
  *     6 hours; a bug seen often enough gets a run;
  *   - 5 minutes after the start, the shell running a deployed fix is
- *     checked (`health`): a revert is offered if it broke.
+ *     checked (`health`): what it broke is filed as a fix (never a revert).
+ * What it can't do is given up (status unable) with why: told, Retry
+ * (fixNow), As a feature, Dismiss (dropItem); never picked again unasked.
  * The PR's Merge, Look, Drop come as a notification, and in Settings.
  * Only on machines whose Nix configuration made it available
  * (programs.nixbook-shell.selfImprove.enable), and with its own GitHub
@@ -51,6 +53,8 @@ Singleton {
     // Fixes and features apart (Settings shows them in two sections).
     function isFeatureItem(i) { return i.kind === "feature" }
     function waitingOf(feature) { return root.waiting.filter(r => (r.feature === true) === feature) }
+    // Given up, with why (Settings' Dropped lists).
+    function unableOf(feature) { return root.inbox.filter(i => i.status === "unable" && root.isFeatureItem(i) === feature) }
     function activityOf(feature) { return root.activity.filter(e => (e.feature === true) === feature) }
     // What it did and decided, newest first: {time, kind, text, feature} (activity.json).
     property var activity: []
@@ -307,7 +311,8 @@ Singleton {
             root.inbox = items.slice().sort((a, b) => b.last - a.last)
             // A new report or feature request of the user's: a run soon.
             const fresh = i => i.status === "new" && !before.has(`${i.id}:${i.count}`)
-            if ((root.enabled && items.some(i => i.kind === "user" && fresh(i)))
+            // What a merge broke too: fixed forward at once.
+            if ((root.enabled && items.some(i => (i.kind === "user" || i.kind === "regression") && fresh(i)))
                     || (root.featuresEnabled && items.some(i => i.kind === "feature" && fresh(i))))
                 runSoon.restart()
         }

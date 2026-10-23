@@ -281,8 +281,8 @@ func drop(cfg Config, r Run) (map[string]any, error) {
 	return map[string]any{"run": r.ID, "dropped": true}, nil
 }
 
-// watchMain waits for main's checks on the merged commit: failed, a revert
-// is opened at once.
+// watchMain waits for main's checks on the merged commit: failed, a fix
+// for it is filed (never a revert).
 func watchMain(cfg Config, id string) (map[string]any, error) {
 	repo := ghRepo(cfg.Repo)
 	r, err := findRun(0, id)
@@ -304,8 +304,7 @@ func watchMain(cfg Config, id string) (map[string]any, error) {
 			return c.Conclusion == "failure" || c.Conclusion == "timed_out"
 		}) {
 			editRun(id, func(x *Run) { x.MainCI, x.Stage = "fail", "done" })
-			logEvent("revert", "main's checks failed after "+r.Title+": a revert is opened")
-			return revert(cfg, r, "main's checks failed after it")
+			return broke(cfg, r, "main's checks failed after it")
 		}
 		editRun(id, func(x *Run) { x.MainCI, x.Stage = "pass", "done" })
 		return map[string]any{"run": id, "main": "pass"}, nil
@@ -314,66 +313,32 @@ func watchMain(cfg Config, id string) (map[string]any, error) {
 	return map[string]any{"run": id, "main": "unknown"}, nil
 }
 
-// revert opens a PR reverting a merged fix, and merges it when the user
-// says so.
-func revert(cfg Config, r Run, why string) (map[string]any, error) {
-	forFeature = r.Feature
-	repo := ghRepo(cfg.Repo)
-	unlock, err := lock("run.lock", true)
+// broke: a merged change broke main's checks or the updated shell. Never
+// reverted (the user's rule): what broke is filed to be fixed forward (a
+// regression item, picked first), and the user told.
+func broke(cfg Config, r Run, why string) (map[string]any, error) {
+	forFeature = false
+	files := make([]string, 0, len(r.Files))
+	for _, c := range r.Files {
+		files = append(files, c.Path)
+	}
+	var it Item
+	_, err := editInbox(func(in *Inbox) error {
+		it = *in.add("regression", clip("regression:"+r.Item+":"+why, 200),
+			fmt.Sprintf("Since %s (#%d, merged as %s): %s.", r.Title, r.PR, clip(r.Merged, 8), why),
+			clip(strings.Join(files, ", "), 200), 1, nowMs())
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	branch := "agent/revert-" + r.Item
-	_, err = prepare(repo, branch)
-	if err == nil {
-		_, err = git(repoDir(), unsigned("revert", "--no-edit", r.Merged)...)
+	editRun(r.ID, func(x *Run) { x.Note = why })
+	logEvent("broke", fmt.Sprintf("%s broke something (%s): a fix for it is queued, no revert", r.Title, why))
+	if notify("A "+r.noun()+" broke something: "+r.Title, why+". No revert: a fix for it is queued "+
+		"(Settings > Desktop agents > Fixes it makes itself).\n"+r.URL, "critical", "look=Look") == "look" {
+		exec.Command("xdg-open", r.URL).Start()
 	}
-	if err == nil {
-		trailer := "Agent-Fix"
-		if r.Feature {
-			trailer = "Agent-Feature"
-		}
-		msg := fmt.Sprintf("Revert %q\n\n%s\n\nThis reverts commit %s: %s.\n\n%s: %s\n",
-			r.Title, wrap("The desktop agent's "+r.noun()+" is taken back out until it is made again: "+why+".", 72), r.Merged, why, trailer, r.Item)
-		_, err = cmd(repoDir(), time.Minute, msg, "git", unsigned("commit", "--amend", "--quiet", "-F", "-")...)
-	}
-	if err == nil {
-		_, err = gitNet(repoDir(), "push", "--force", "origin", "HEAD:refs/heads/"+branch)
-	}
-	var url string
-	if err == nil {
-		url, err = ghIn(2*time.Minute, fmt.Sprintf("Reverts #%d: %s.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n", r.PR, why),
-			"pr", "create", "--repo", repo, "--base", "main", "--head", branch,
-			"--title", fmt.Sprintf("Revert %q", r.Title), "--label", "agent-fix", "--body-file", "-")
-	}
-	unlock()
-	if err != nil {
-		notify("A "+r.noun()+" broke something: "+r.Title, why+". Reverting it failed: "+clip(err.Error(), 200), "critical")
-		return nil, err
-	}
-	url = strings.TrimSpace(url)
-	pr := atoi(url[strings.LastIndex(url, "/")+1:])
-	editRun(r.ID, func(x *Run) { x.Note = why + " — revert: " + url })
-	logEvent("revert", fmt.Sprintf("%s broke something (%s): revert #%d is ready", r.Title, why, pr))
-	switch notify("A "+r.noun()+" broke something: "+r.Title, why+". A revert is ready.\n"+url, "critical",
-		"revert=Merge the revert", "look=Look") {
-	case "revert":
-		if _, err := ghMerge(repo, pr); err != nil {
-			return nil, err
-		}
-		editRun(r.ID, func(x *Run) { x.Outcome = "reverted" })
-		logEvent("revert", "Reverted: "+r.Title)
-		editInbox(func(in *Inbox) error {
-			if p := in.find(r.Item); p != nil {
-				p.Status, p.Note = "failed", "reverted: "+why
-			}
-			return nil
-		})
-		notify("Reverted: "+r.Title, "Update the system to take it out of this machine too.", "normal")
-	case "look":
-		exec.Command("xdg-open", url).Start()
-	}
-	return map[string]any{"run": r.ID, "revert": url}, nil
+	return map[string]any{"run": r.ID, "broke": why, "item": it.ID}, nil
 }
 
 // syncRun learns what became of an open PR on GitHub (merged or closed by
