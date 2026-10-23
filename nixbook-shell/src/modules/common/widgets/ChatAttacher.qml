@@ -13,20 +13,21 @@ Item {
     id: root
     signal attached(string path)
 
-    // Ctrl+V: true when what was copied is an image or a file (attached),
-    // false for text, to paste as usual.
-    function paste(): bool {
-        const entry = Cliphist.entries[0] ?? "";
-        const clean = StringUtils.cleanCliphistEntry(entry);
-        if (Cliphist.entryIsImage(entry)) {
-            decodeProc.handleEntry(entry);
-            return true;
-        }
-        if (clean.startsWith("file://")) {
-            root.attached(decodeURIComponent(clean));
-            return true;
-        }
-        return false;
+    // Ctrl+V into `field`: an image or a file copied is attached, text is
+    // pasted into it. Reads the live clipboard (wl-paste): the history's
+    // first entry is only refreshed on a text copy, so an image copied was
+    // never seen. Always true (the key is handled).
+    function paste(field): bool {
+        pasteProc.field = field;
+        pasteProc.exec(["bash", "-c", 'types=$(wl-paste --list-types) || exit 1; '
+            + 'img=$(printf "%s\\n" "$types" | grep -m1 "^image/"); '
+            + 'if [ -n "$img" ]; then ext=${img#image/}; ext=${ext%%+*}; mkdir -p "$1"; '
+            + 'f="$1/paste-$(date +%s%N).$ext"; wl-paste -t "$img" > "$f" && printf "image\\n%s" "$f"; exit; fi; '
+            + 'if printf "%s\\n" "$types" | grep -qx "text/uri-list"; then '
+            + 'u=$(wl-paste -t text/uri-list | tr -d "\\r" | grep -m1 "^file://"); '
+            + '[ -n "$u" ] && printf "file\\n%s" "$u" && exit; fi; echo text',
+            "_", Directories.cliphistDecode]);
+        return true;
     }
     // A drop (DropArea's): its first local file.
     function dropped(event): bool {
@@ -39,24 +40,22 @@ Item {
         pickProc.running = true;
     }
 
+    // Prints "image\n<path saved>", "file\n<file:// uri>" or "text".
     Process {
-        id: decodeProc
-        property string imageDecodePath: Directories.cliphistDecode
-        property string imageDecodeFileName: "image"
-        property string imageDecodeFilePath: `${imageDecodePath}/${imageDecodeFileName}`
-        function handleEntry(entry: string) {
-            const id = entry.match(/^(\d+)\t/);
-            if (!id) return;
-            imageDecodeFileName = id[1];
-            // Arguments, never interpolated: the entry is clipboard text.
-            decodeProc.exec(["bash", "-c", '[ -f "$1" ] || printf "%s\\n" "$2" | "$3" decode > "$1"',
-                "_", imageDecodeFilePath, entry, Cliphist.cliphistBinary]);
+        id: pasteProc
+        property var field: null
+        stdout: StdioCollector {
+            id: pasteOutput
         }
         onExited: (exitCode, exitStatus) => {
-            if (exitCode === 0) {
-                root.attached(imageDecodeFilePath);
+            const lines = pasteOutput.text.split("\n");
+            if (exitCode === 0 && lines[0] === "image" && lines[1]) {
+                root.attached(lines[1]);
+            } else if (exitCode === 0 && lines[0] === "file" && lines[1]) {
+                root.attached(decodeURIComponent(lines[1]));
             } else {
-                console.error("[ChatAttacher] Failed to decode image in clipboard content");
+                if (exitCode !== 0) console.error("[ChatAttacher] Failed to read the clipboard");
+                pasteProc.field?.paste();
             }
         }
     }
