@@ -727,8 +727,12 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                                     event.accepted = true;
                                     return;
                                 }
-                                // An image or a file is attached, text pasted
-                                event.accepted = attacher.paste(messageInputField);
+                                // Try image paste first
+                                if (attacher.paste()) {
+                                    event.accepted = true;
+                                    return;
+                                }
+                                event.accepted = false; // No image, let text pasting proceed
                             } else if (event.key === Qt.Key_Escape) {
                                 // Esc to detach file
                                 if (Ai.pendingFilePath.length > 0) {
