@@ -228,6 +228,41 @@ func TestCrashes(t *testing.T) {
 	}
 }
 
+func TestQueue(t *testing.T) {
+	var in Inbox
+	a := in.add("user", "a", "a", "", 1, 1).ID
+	b := in.add("feature", "b", "b", "", 1, 1).ID
+	c := in.add("user", "c", "c", "", 1, 1).ID
+	for i, id := range []string{a, b, c} {
+		// Within the same millisecond, still in the order asked.
+		if pos, err := in.enqueue(id, 100); err != nil || pos != i+1 {
+			t.Fatalf("enqueue %s: %d %v", id, pos, err)
+		}
+	}
+	if pos, _ := in.enqueue(a, 200); pos != 1 {
+		t.Errorf("queued again keeps its place: %d", pos)
+	}
+	in.moveQueued(c, -1)
+	in.moveQueued(a, -1) // first already
+	if got := in.queue(); got[0].ID != a || got[1].ID != c || got[2].ID != b {
+		t.Errorf("moved: %s %s %s", got[0].ID, got[1].ID, got[2].ID)
+	}
+	fixesOff := Config{Features: Features{Enable: true}}
+	if p := in.nextQueued(Config{Enable: true, Features: Features{Enable: true}}); p == nil || p.ID != a {
+		t.Errorf("next: %v", p)
+	}
+	if p := in.nextQueued(fixesOff); p == nil || p.ID != b {
+		t.Errorf("fixes off: the feature waits first in line: %v", p)
+	}
+	in.find(a).Status = "merged"
+	if p := in.nextQueued(Config{Enable: true}); p == nil || p.ID != c || in.find(a).Queued != 0 {
+		t.Errorf("one done leaves the queue: %v", p)
+	}
+	if _, err := in.enqueue(a, 300); err == nil {
+		t.Errorf("a merged item can't be queued")
+	}
+}
+
 func TestGhRepo(t *testing.T) {
 	for url, want := range map[string]string{
 		"https://github.com/didactiklabs/nixbook":      "didactiklabs/nixbook",

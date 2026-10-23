@@ -217,6 +217,13 @@ printf '#!/usr/bin/env bash\nexit 0\n' >"$fake/treefmt"
 printf '#!/usr/bin/env bash\nexit 0\n' >"$fake/xdg-open"
 chmod +x "$fake"/*
 export PATH="$fake:$PATH" FAKE_LOG="$tmp/log" FAKE_REMOTE="$tmp/remote.git" NIXBOOK_IMPROVE_CLAUDE="$fake/claude"
+# What starts the next queued item, instead of systemd-run.
+cat >"$fake/spawn" <<'EOF'
+#!/usr/bin/env bash
+echo "$*" >>"$FAKE_LOG/spawn"
+EOF
+chmod +x "$fake/spawn"
+export NIXBOOK_IMPROVE_SPAWN="$fake/spawn"
 mkdir -p "$FAKE_LOG"
 
 config() { # AUTOMERGE
@@ -565,6 +572,34 @@ rm -f "$FAKE_LOG/prompt"
 pid=$(item "Alice Martin again: the clock is late")
 FAKE_MASK_FAIL=1 "$improve" run --item "$pid" >/dev/null 2>&1 || true
 expect_eq "privacy: can't mask, nothing sent" "no prompt" "$([ -e "$FAKE_LOG/prompt" ] && echo sent || echo "no prompt")"
+
+# --- the queue: Fix now while one is made waits its turn, in the order asked -------
+lockfile="$XDG_STATE_HOME/nixbook-shell/improve/run.lock"
+flock "$lockfile" sleep 3 & # a run going on
+holder=$!
+sleep 0.3
+qa=$(item "the guide's title is too long")
+qb=$(item "the guide has a typo")
+expect_eq "queue: Fix now while one is made" "false 1" "$("$improve" run --item "$qa" | jq -r '"\(.ran) \(.queued)"')"
+expect_eq "queue: the next after it" "2" "$("$improve" run --item "$qb" | jq -r .queued)"
+expect_eq "queue: asked again, it keeps its place" "1" "$("$improve" queue "$qa" | jq -r .queued)"
+expect_eq "queue: moved up" "$qb $qa" "$("$improve" queue-move "$qb" up | jq -r '.queue | join(" ")')"
+expect_match "queue: in the activity" "^wait Queued (#2): the guide has a typo" "$(activity)"
+expect_eq "queue: in the activity once" "1" "$(activity | grep -c "Queued (#1): the guide's title")"
+qd=$(item "the guide is purple")
+"$improve" drop-item "$qd" >/dev/null
+expect_match "queue: a dropped item can't be" "is dropped" "$("$improve" queue "$qd" 2>&1 || true)"
+rm -f "$FAKE_LOG/spawn"
+expect_eq "queue: Stop waits for the run, then" "true" "$("$improve" stop | jq -r .stopped)"
+wait "$holder"
+expect_eq "queue: the next one starts" "run --item $qb" "$(cat "$FAKE_LOG/spawn")"
+expect_eq "queue: taken out" "$qb" "$("$improve" unqueue "$qa" | jq -r '.queue | join(" ")')"
+# The spawned run is a stand-in here: --auto (a reboot, the shell) takes it first.
+export FAKE_CLAUDE=harmless
+"$improve" run --auto >/dev/null
+expect_eq "queue: --auto starts the queued one, as Fix now" "ignored true" "$(run_of "$qb" | jq -r '"\(.outcome) \(.manual)"')"
+expect_eq "queue: empty once started" "0 0" "$("$improve" status | jq -r --arg a "$qa" --arg b "$qb" '[.inbox[] | select(.id == $a or .id == $b) | .queued // 0] | join(" ")')"
+expect_eq "queue: none left to start" "1" "$(wc -l <"$FAKE_LOG/spawn")"
 
 if [ "$failures" -gt 0 ]; then
   echo "$failures failure(s)" >&2

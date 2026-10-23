@@ -569,7 +569,8 @@ and its runs from `nixbook-improve status`), `list_improvements` (`status`:
 the inbox items with their runs' stage and CI) and `start_improvement` (an
 item's Fix now or Build now, as do `fix_now`/`build_now` on the first two:
 `improve_now()` starts `run --item ID` in a unit as SelfImprove.qml does,
-unless a run is going); then
+or, while a run is going, `queue ID`s it: a run letting go of its lock
+starts the next queued item, `run --auto` takes the queue first); then
 `ai.improve.enable`, off by default; docs:
 `docs/nixbook-shell/self-improve.md`): `nixbook-improve` (`improve/`, Go,
 `improve.nix`) keeps an inbox in `~/.local/state/nixbook-shell/improve/`

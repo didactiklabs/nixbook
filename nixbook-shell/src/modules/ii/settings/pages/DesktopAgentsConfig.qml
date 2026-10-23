@@ -835,6 +835,8 @@ ContentPage {
                     readonly property bool feature: itemRow.modelData.kind === "feature"
                     // Given up (it couldn't do it): Retry, As a feature, Dismiss.
                     readonly property bool unable: itemRow.modelData.status === "unable"
+                    // Waiting its turn: its place, moved up or down, or taken out.
+                    readonly property int queuePos: SelfImprove.queuePos(itemRow.modelData.id)
                     MaterialSymbol {
                         text: ({ user: "person", crash: "bug_report", coredump: "bug_report", service: "dns", log: "receipt_long",
                                  deploy: "system_update", warning: "warning", ci: "fact_check", qml: "code", info: "info", regression: "heart_broken",
@@ -857,7 +859,8 @@ ContentPage {
                             wrapMode: Text.WordWrap
                             font.pixelSize: Appearance.font.pixelSize.smaller
                             color: Appearance.colors.colSubtext
-                            text: [itemRow.feature ? (itemRow.modelData.from ? Translation.tr("too big for a fix") : itemRow.modelData.count === 1 ? Translation.tr("asked once") : Translation.tr("asked %1 times").arg(itemRow.modelData.count))
+                            text: [itemRow.queuePos > 0 ? Translation.tr("Queued, #%1").arg(itemRow.queuePos) : "",
+                                   itemRow.feature ? (itemRow.modelData.from ? Translation.tr("too big for a fix") : itemRow.modelData.count === 1 ? Translation.tr("asked once") : Translation.tr("asked %1 times").arg(itemRow.modelData.count))
                                    : itemRow.modelData.count === 1 ? Translation.tr("seen once") : Translation.tr("seen %1 times").arg(itemRow.modelData.count),
                                    Qt.formatDateTime(new Date(itemRow.modelData.last), "d MMM, hh:mm"),
                                    ({ failed: Translation.tr("failed"), skipped: Translation.tr("skipped"), too_big: Translation.tr("too big for a fix"),
@@ -865,11 +868,32 @@ ContentPage {
                                    itemRow.modelData.note ?? ""].filter(x => x).join(" · ")
                         }
                     }
+                    // While one is being made, it goes in the queue instead.
                     SmallButton {
-                        enabled: (itemRow.feature ? SelfImprove.featuresEnabled : Config.options.ai.improve.enable) && SelfImprove.running === null
-                        materialIcon: itemRow.unable ? "replay" : itemRow.feature ? "construction" : "build"
-                        mainText: itemRow.unable ? Translation.tr("Retry") : itemRow.feature ? Translation.tr("Build now") : Translation.tr("Fix now")
+                        visible: itemRow.queuePos === 0
+                        enabled: itemRow.feature ? SelfImprove.featuresEnabled : Config.options.ai.improve.enable
+                        materialIcon: SelfImprove.running !== null ? "queue" : itemRow.unable ? "replay" : itemRow.feature ? "construction" : "build"
+                        mainText: SelfImprove.running !== null ? Translation.tr("Queue") : itemRow.unable ? Translation.tr("Retry")
+                            : itemRow.feature ? Translation.tr("Build now") : Translation.tr("Fix now")
                         onClicked: SelfImprove.fixNow(itemRow.modelData.id)
+                    }
+                    SmallButton {
+                        visible: itemRow.queuePos > 1
+                        materialIcon: "arrow_upward"
+                        mainText: Translation.tr("Earlier")
+                        onClicked: SelfImprove.moveQueued(itemRow.modelData.id, "up")
+                    }
+                    SmallButton {
+                        visible: itemRow.queuePos > 0 && itemRow.queuePos < SelfImprove.queue.length
+                        materialIcon: "arrow_downward"
+                        mainText: Translation.tr("Later")
+                        onClicked: SelfImprove.moveQueued(itemRow.modelData.id, "down")
+                    }
+                    SmallButton {
+                        visible: itemRow.queuePos > 0
+                        materialIcon: "remove_from_queue"
+                        mainText: Translation.tr("Unqueue")
+                        onClicked: SelfImprove.unqueue(itemRow.modelData.id)
                     }
                     // A fix found too big before they moved on their own.
                     SmallButton {
