@@ -50,6 +50,9 @@ Singleton {
         // Arrived within the cut-in cooldown of another cut-in: a regular
         // popup instead (cutInCooldown).
         property bool cutInCooledDown: false
+        // Within that cooldown, a newer copy of the last cut-in: it only
+        // updates that cut-in if still up (cutInCooldown).
+        property bool cutInUpdateOnly: false
         // Its app replaced it in place (D-Bus replaces_id: KDE Connect
         // re-posting a phone notification, a chat thread updated): Quickshell
         // updates the Notification without a new `notification` signal, so
@@ -600,22 +603,25 @@ Singleton {
     // Cut-in cooldown (notifications.cutIn.cooldown s, 0 = off): after a
     // cut-in, the next ones within the cooldown are regular popups, so a
     // burst of messages doesn't chain cut-ins. A newer copy of the last
-    // cut-in (a thread re-posted, mergeUpdates) still updates it in place.
+    // cut-in (a thread re-posted, mergeUpdates) still updates it in place,
+    // but only that: once it has left, the copy is no new cut-in
+    // (`n.cutInUpdateOnly`, the cut-ins drop it).
     // Decided once, on arrival: `n.cutInCooledDown`.
     property var lastCutIn: ({ id: -1, time: 0 })
     function cutInCooldown(n) {
         if (!root.cutInVerdict(n).cutIn) return;
         const now = n.time;
-        if ((n.replaces ?? []).includes(root.lastCutIn.id)) {
+        const cooldownMs = Math.max(0, Config.options?.notifications?.cutIn?.cooldown ?? 10) * 1000;
+        if (now - root.lastCutIn.time >= cooldownMs) {
+            root.lastCutIn = { id: n.notificationId, time: now };
+            return;
+        }
+        if ((Config.options?.notifications?.cutIn?.mergeUpdates ?? true) && (n.replaces ?? []).includes(root.lastCutIn.id)) {
+            n.cutInUpdateOnly = true;
             root.lastCutIn = { id: n.notificationId, time: root.lastCutIn.time };
             return;
         }
-        const cooldownMs = Math.max(0, Config.options?.notifications?.cutIn?.cooldown ?? 10) * 1000;
-        if (now - root.lastCutIn.time < cooldownMs) {
-            n.cutInCooledDown = true;
-            return;
-        }
-        root.lastCutIn = { id: n.notificationId, time: now };
+        n.cutInCooledDown = true;
     }
 
     // Persona cut-in decision (Settings → Notifications → Persona cut-in):
