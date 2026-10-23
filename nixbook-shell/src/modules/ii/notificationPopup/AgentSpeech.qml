@@ -703,7 +703,7 @@ Scope {
                                         if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(event.modifiers & Qt.ShiftModifier)) {
                                             event.accepted = true
                                             root.send()
-                                        } else if (event.key === Qt.Key_V && event.modifiers === Qt.ControlModifier && attacher.paste()) {
+                                        } else if (event.key === Qt.Key_V && event.modifiers === Qt.ControlModifier && attacher.paste(input)) {
                                             event.accepted = true
                                         } else if (event.key === Qt.Key_Escape) {
                                             event.accepted = true
