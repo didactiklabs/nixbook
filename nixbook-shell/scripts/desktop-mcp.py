@@ -4671,8 +4671,8 @@ def initiative_command(cfg, argv):
 
 
 # A download extracted from its bubble ("Extract it"): next to it, in a
-# folder of its own, by bsdtar (libarchive: zip, tar.*, 7z, rar…; it
-# refuses absolute paths and "..") or Python's own. Only files in the
+# folder of its own, by Python's own (zip, tar) or bsdtar (libarchive:
+# 7z, rar…; it refuses absolute paths and ".."). Only files in the
 # user's home or on a drive. Prints where.
 EXTRACT_SUFFIXES = (".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst", ".tgz", ".zip", ".tar", ".gz", ".xz", ".bz2",
                     ".zst", ".7z", ".rar")
@@ -4694,11 +4694,13 @@ def extract_archive(path):
         n += 1
     os.makedirs(dest)
     try:
-        if shutil.which("bsdtar"):
-            run(["bsdtar", "-xf", path, "-C", dest], timeout=900)
-        elif zipfile.is_zipfile(path):
+        # Zip and tar by Python's own, which skips or tames a bad name where
+        # bsdtar fails the whole archive on it; bsdtar for the rest.
+        if zipfile.is_zipfile(path):
             with zipfile.ZipFile(path) as z:  # names with ".." or a leading / are made safe
                 z.extractall(dest)
+        elif shutil.which("bsdtar") and not tarfile.is_tarfile(path):
+            run(["bsdtar", "-xf", path, "-C", dest], timeout=900)
         else:
             with tarfile.open(path) as t:
                 t.extractall(dest, filter="data")
@@ -11415,9 +11417,9 @@ def t_report_problem(ctx, args):
     out = improve_file("note", what, where)
     again = f" (reported {out['count']} times now)" if out.get("count", 1) > 1 else ""
     now = f" {improve_now(ctx, out)}" if args.get("fix_now") is True else ""
-    return [text(f"filed for the fixer{again}: it makes a fix as a pull request when it can, and the "
-                 "user gets Merge, Look, Drop once its checks pass. One too big for a fix becomes a "
-                 f"feature request.{now}")]
+    return [text(f"filed for the fixer{again} as {out.get('id')}: it makes a fix as a pull request when it "
+                 "can, and the user gets Merge, Look, Drop once its checks pass. One too big for a fix "
+                 f"becomes a feature request; start_improvement takes its id.{now}")]
 
 
 @tool(
@@ -11451,9 +11453,9 @@ def t_request_feature(ctx, args):
     out = improve_file("request", what, where)
     again = f" (asked {out['count']} times now)" if out.get("count", 1) > 1 else ""
     now = f" {improve_now(ctx, out)}" if args.get("build_now") is True else ""
-    return [text(f"filed as a feature request{again}: it is built as a pull request when it can (one a day "
-                 "on its own, or at once from Settings), and the user gets Merge, Look, Drop once its checks "
-                 f"pass; it is never merged on its own.{now}")]
+    return [text(f"filed as a feature request{again} as {out.get('id')}: it is built as a pull request when "
+                 "it can (one a day on its own, or at once from Settings), and the user gets Merge, Look, Drop "
+                 f"once its checks pass; it is never merged on its own. start_improvement takes its id.{now}")]
 
 
 # An inbox item's status (inbox.go) and its run's CI, in words.
@@ -11480,7 +11482,8 @@ def t_list_improvements(ctx, args):
     st = improve_cmd(["status"])
     runs = st.get("runs") or []
     items = []
-    for it in st.get("inbox") or []:
+    # Newest first, as list_requests: the inbox is appended to, oldest first.
+    for it in sorted(st.get("inbox") or [], key=lambda i: i.get("first") or 0, reverse=True):
         s = it.get("status")
         if s not in IMPROVE_STATUS:
             continue
