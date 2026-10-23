@@ -71,11 +71,25 @@ Singleton {
     // `%` or `\` in the copied text broke the decode.
     function copy(entry) {
         if (root.cliphistBinary.includes("cliphist")) // Classic cliphist
-            Quickshell.execDetached(["bash", "-c", `printf '%s' "$1" | ${root.cliphistBinary} decode | wl-copy`, "_", entry]);
+            copyProc.exec(["bash", "-c", `printf '%s' "$1" | ${root.cliphistBinary} decode | wl-copy`, "_", entry]);
         else { // Stash
             const entryNumber = entry.split("\t")[0];
-            Quickshell.execDetached(["bash", "-c", `${root.cliphistBinary} decode "$1" | wl-copy`, "_", entryNumber]);
+            copyProc.exec(["bash", "-c", `${root.cliphistBinary} decode "$1" | wl-copy`, "_", entryNumber]);
         }
+    }
+
+    // An image copied again changes no clipboard text: read the history
+    // once it is stored, or entries[0] stays the older entry.
+    Process {
+        id: copyProc
+        onExited: (exitCode, exitStatus) => copyRefreshTimer.restart()
+    }
+
+    Timer {
+        id: copyRefreshTimer
+        interval: 300
+        repeat: false
+        onTriggered: root.refresh()
     }
 
     function paste(entry) {

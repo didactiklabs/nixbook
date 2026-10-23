@@ -14,16 +14,17 @@ Item {
     signal attached(string path)
 
     // Ctrl+V: true when what was copied is an image or a file (attached),
-    // false for text, to paste as usual.
+    // false for text, to paste as usual. The live clipboard, not Cliphist's
+    // newest entry: an image picked again from the history (Cliphist.copy)
+    // is not on top of the list until it is read again.
     function paste(): bool {
-        const entry = Cliphist.entries[0] ?? "";
-        const clean = StringUtils.cleanCliphistEntry(entry);
-        if (Cliphist.entryIsImage(entry)) {
-            decodeProc.handleEntry(entry);
+        const live = Quickshell.clipboardText ?? "";
+        if (live === "") {
+            decodeProc.decodeLive();
             return true;
         }
-        if (clean.startsWith("file://")) {
-            root.attached(decodeURIComponent(clean));
+        if (live.startsWith("file://")) {
+            root.attached(decodeURIComponent(live.split("\n")[0].trim()));
             return true;
         }
         return false;
@@ -42,21 +43,18 @@ Item {
     Process {
         id: decodeProc
         property string imageDecodePath: Directories.cliphistDecode
-        property string imageDecodeFileName: "image"
-        property string imageDecodeFilePath: `${imageDecodePath}/${imageDecodeFileName}`
-        function handleEntry(entry: string) {
-            const id = entry.match(/^(\d+)\t/);
-            if (!id) return;
-            imageDecodeFileName = id[1];
-            // Arguments, never interpolated: the entry is clipboard text.
-            decodeProc.exec(["bash", "-c", '[ -f "$1" ] || printf "%s\\n" "$2" | "$3" decode > "$1"',
-                "_", imageDecodeFilePath, entry, Cliphist.cliphistBinary]);
+        property string imageDecodeFilePath: ""
+        // The clipboard's first image type, written to a file of its own.
+        function decodeLive() {
+            imageDecodeFilePath = `${imageDecodePath}/paste-${Date.now()}`;
+            decodeProc.exec(["bash", "-c", 'type=$(wl-paste --list-types | grep -m1 "^image/") && wl-paste --no-newline --type "$type" > "$1"',
+                "_", imageDecodeFilePath]);
         }
         onExited: (exitCode, exitStatus) => {
             if (exitCode === 0) {
                 root.attached(imageDecodeFilePath);
             } else {
-                console.error("[ChatAttacher] Failed to decode image in clipboard content");
+                console.warn("[ChatAttacher] No image in the clipboard");
             }
         }
     }
