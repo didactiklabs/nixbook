@@ -22,6 +22,10 @@ import QtQuick
  *     screenshot being taken) makes them invisible for that moment. Then
  *     they are back as they were: nothing is dismissed or put away. `make-way.ack` says when that is
  *     on screen (a couple of frames after), the server waits for it;
+ *   - an action (not a screenshot) asks `clearCutIns` while a theme's cut-in
+ *     is on screen: `clearCutIns()` dismisses it and those queued, as Escape
+ *     would (they stay in the notification centre), so the agent's keys and
+ *     focus aren't fought over;
  *   - `makeWay setAside NAME` (the server's set_aside tool): the popups, a
  *     cut-in or the bubble hidden while the agent works, back when it
  *     stops; never the side panel (it lets the agent through already) nor
@@ -46,6 +50,10 @@ Singleton {
     // Set aside by the agent (by name): hidden while it works, back after.
     property var aside: ({})
     onActiveChanged: if (!root.active) root.aside = {}
+
+    // An agent's action dismisses the cut-ins (each listens), once per request.
+    signal clearCutIns()
+    property int clearedSeq: -1
 
     // The theme cut-ins say when they show (several kinds may exist).
     property var cutIns: ({})
@@ -90,6 +98,10 @@ Singleton {
             }
             root.now = Date.now()
             if (root.active) expire.restart()
+            if (root.active && root.request.clearCutIns === true && root.request.seq !== root.clearedSeq) {
+                root.clearedSeq = root.request.seq ?? -1
+                root.clearCutIns()
+            }
             // On screen after a couple of frames: then the server goes on.
             acknowledge.restart()
         }

@@ -390,7 +390,9 @@ def mark_agent_input():
 # meanwhile) and MAKE_WAY_AFTER_MS after: between the agent's steps, while
 # it thinks, the user has them back to use; the shell answers in
 # make-way.ack once it is on screen (waited for, at most MAKE_WAY_WAIT s,
-# only when it changes).
+# only when it changes). An action (not a look) also dismisses a theme's
+# cut-in on screen and those queued (`clearCutIns`), as Escape would: they
+# stay in the notification centre.
 MAKE_WAY_ACTION_MS = 30000
 MAKE_WAY_AFTER_MS = 1500
 MAKE_WAY_WAIT = 0.3
@@ -411,9 +413,10 @@ def shell_overlays():
         return []
 
 
-def make_way(capture=False, wait=True, hold_ms=MAKE_WAY_ACTION_MS):
+def make_way(capture=False, wait=True, hold_ms=MAKE_WAY_ACTION_MS, clear=False):
     """Asks the shell's overlays to let the agent through (and, `capture`, to
-    vanish for a screenshot): the ones on screen, [] when none."""
+    vanish for a screenshot; `clear`, an action starting, to dismiss a
+    cut-in): the ones on screen, [] when none."""
     if on_agent_desktop():
         return []
     overlays = shell_overlays()
@@ -427,12 +430,16 @@ def make_way(capture=False, wait=True, hold_ms=MAKE_WAY_ACTION_MS):
     except (OSError, ValueError):
         before = {}
     seq = int(before.get("seq") or 0) + 1 if isinstance(before.get("seq"), int) else 1
+    clear = clear and not capture and "cutIn" in overlays
     # Already so on screen: only held on, nothing to wait for.
-    same = before.get("until", 0) > now + 500 and bool(before.get("capture")) == capture
+    same = before.get("until", 0) > now + 500 and bool(before.get("capture")) == capture and not clear
+    request = {"seq": seq, "until": now + hold_ms, "capture": capture}
+    if clear:
+        request["clearCutIns"] = True
     try:
         # Written in place: the shell watches this path.
         with open(path, "w", encoding="utf-8") as f:
-            json.dump({"seq": seq, "until": now + hold_ms, "capture": capture}, f)
+            json.dump(request, f)
     except OSError:
         return overlays
     if wait and not same:
@@ -13566,8 +13573,15 @@ def call_tool_now(ctx, name, args, session=None):
             # The shell's windows over the apps let the action through.
             note, made_way = None, []
             if ctx.desktop == "user" and (t["group"] in ACTION_GROUPS or name == "ui_act"):
-                made_way = make_way()
+                made_way = make_way(clear=True)
                 note = overlays_note(ctx, made_way)
+                if "cutIn" in made_way:
+                    # Dismissed for the action (MakeWay.qml): told each time.
+                    cleared = text("The cut-in notification that was on screen is dismissed so it doesn't get in "
+                                   "your way (it stays in the user's notification centre).")
+                    note = [note, cleared] if note else [cleared]
+                elif note:
+                    note = [note]
             ctx.in_action = bool(made_way)
             try:
                 content = t["fn"](ctx, args)
@@ -13577,7 +13591,7 @@ def call_tool_now(ctx, name, args, session=None):
                 if made_way:
                     make_way(wait=False, hold_ms=MAKE_WAY_AFTER_MS)
             if note:
-                content = list(content) + [note]
+                content = list(content) + note
         except ToolError as e:
             audit(ctx.client, name, args, f"error: {e}")
             write_state(last={"time": int(time.time() * 1000), "client": ctx.client, "tool": name, "outcome": "error"})

@@ -32,6 +32,16 @@ Scope {
     // and may set it aside: hidden while it works, back after.
     onCurrentChanged: MakeWay.setCutIn("chiikawa", root.current !== null)
     Component.onDestruction: MakeWay.setCutIn("chiikawa", false)
+    // An agent acting on the desktop: this one and those queued are
+    // dismissed, as Escape would (they stay in the notification centre).
+    Connections {
+        target: MakeWay
+        function onClearCutIns() {
+            if (!root.current) return;
+            root.queue = [root.current];
+            root.dismiss();
+        }
+    }
     readonly property bool enabled: Chiikawa.enabled
 
     function show(n) {

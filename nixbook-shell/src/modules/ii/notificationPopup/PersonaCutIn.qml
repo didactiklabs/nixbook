@@ -37,6 +37,16 @@ Scope {
     // and may set it aside: hidden while it works, back after.
     onCurrentChanged: MakeWay.setCutIn("persona", root.current !== null)
     Component.onDestruction: MakeWay.setCutIn("persona", false)
+    // An agent acting on the desktop: this one and those queued are
+    // dismissed, as Escape would (they stay in the notification centre).
+    Connections {
+        target: MakeWay
+        function onClearCutIns() {
+            if (!root.current) return;
+            root.queue = [root.current];
+            root.dismiss();
+        }
+    }
     readonly property bool enabled: Persona.enabled && Persona.shapes
 
     // Why `n` gets a cut-in ("" = it doesn't): Notifications.cutInVerdict.
