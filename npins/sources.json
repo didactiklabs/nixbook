@@ -82,9 +82,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "258a7d690ee65fba8dbf7255bda4905ba6141ef6",
-      "url": "https://github.com/AvengeMedia/dankcalendar/archive/258a7d690ee65fba8dbf7255bda4905ba6141ef6.tar.gz",
-      "hash": "sha256-RIZbpPusOeTULGRD74cE0Oz8xV+ERcvPeeNaLdvyh94="
+      "revision": "050dbb3c85b59a8adf10bb4bd9bc6c4de58a9957",
+      "url": "https://github.com/AvengeMedia/dankcalendar/archive/050dbb3c85b59a8adf10bb4bd9bc6c4de58a9957.tar.gz",
+      "hash": "sha256-obzSUNSrxmvtI6JnjuW7a1OUTiJZ730DMSwvs3mBNKA="
     },
     "disko": {
       "type": "GitRelease",
