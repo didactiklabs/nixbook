@@ -382,10 +382,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "v1.3.1",
-      "revision": "cc542b9b316744a6e092ce8abef66fedfc293cd7",
-      "url": "https://api.github.com/repos/openchoreo/openchoreo/tarball/refs/tags/v1.3.1",
-      "hash": "sha256-C6EE2UvrIPhhfderGSWAnP+hQcTvFLUTWqA731SCijw="
+      "version": "v1.3.2",
+      "revision": "a3bb12f5fbc6cd7966d2f135f801f188d9592510",
+      "url": "https://api.github.com/repos/openchoreo/openchoreo/tarball/refs/tags/v1.3.2",
+      "hash": "sha256-CE9JzlpK7AwTELXz7ArOXjjeDzuA03CMvAAn0AJLTjA="
     },
     "opencode-manager": {
       "type": "Git",
