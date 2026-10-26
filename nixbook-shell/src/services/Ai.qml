@@ -421,9 +421,9 @@ Singleton {
                 if (path.length > 0 && root.claudeConnectorsSetting) listClaudeConnectors.running = true;
                 if (path.length === 0 || root.models["claude"]) return;
                 root.addModel("claude", {
-                    "name": "Claude",
+                    "name": ModelProvider.chatName,
                     "icon": "spark-symbolic",
-                    "description": Translation.tr("Online | Anthropic's Claude through Claude Code, on your Claude account (no API key) | Can see and drive the desktop"),
+                    "description": root.claudeDescription(),
                     "homepage": "https://claude.com/claude-code",
                     "model": "claude-code", // the model itself: ai.claudeCode.model
                     "api_format": "claude-code",
@@ -431,6 +431,30 @@ Singleton {
                 root.modelList = Object.keys(root.models);
             }
         }
+    }
+
+    // The "claude" model is Claude Code on the chosen model provider
+    // (services/ModelProvider.qml): its name and description follow it.
+    function claudeDescription() {
+        return ModelProvider.isAnthropic
+            ? Translation.tr("Online | Anthropic's Claude through Claude Code, on your Claude account (no API key) | Can see and drive the desktop")
+            : Translation.tr("Online | %1 through Claude Code, with your %2 API key | Can see and drive the desktop").arg(ModelProvider.chatName).arg(ModelProvider.label);
+    }
+    Connections {
+        target: ModelProvider
+        function onChatNameChanged() {
+            const m = root.models["claude"];
+            if (!m) return;
+            m.name = ModelProvider.chatName;
+            m.description = root.claudeDescription();
+        }
+        // Another provider or server: the chats' Claude Code sessions are
+        // the old one's (its thinking signed by it), so each chat starts a
+        // new session, its earlier turns in the prompt.
+        function onKindChanged() { root.forgetClaudeSessions(); }
+    }
+    function forgetClaudeSessions() {
+        for (const chat of root.chats) chat.claudeSessionId = "";
     }
 
     // The claude.ai connectors (Gmail, Calendar, Drive…) of the user's Claude
@@ -447,7 +471,8 @@ Singleton {
     function connectorRule(name) {
         return "mcp__" + name.replace(/[^A-Za-z0-9_-]+/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
     }
-    readonly property bool claudeConnectorsSetting: Config.options?.ai?.claudeCode?.connectors ?? false
+    // Only with Anthropic: they are the claude.ai account's.
+    readonly property bool claudeConnectorsSetting: (Config.options?.ai?.claudeCode?.connectors ?? false) && ModelProvider.isAnthropic
     onClaudeConnectorsSettingChanged: if (claudeConnectorsSetting && claudeCodePath.length > 0) listClaudeConnectors.running = true
     // Claude Code learns a connector's state once, when it starts: one added
     // or signed in to on claude.ai since (it then had only its authenticate
@@ -818,7 +843,10 @@ Singleton {
             + `mkdir -p "$workdir" && cd "$workdir" || exit 1\n${connectors ? "" : "export ENABLE_TOOL_SEARCH=false\n"}${plugins}`
             // First: --tools and the like take every argument up to the next option.
             + (privacy ? `system=$(printf '%s' ${q(system)} | ${root.desktopMcpCommand} privacy mask) && [ -n "$system" ] || exit 1\n` : "")
-            + `exec ${q(root.claudeCodePath)} ${connectors ? '"${plugins[@]}" ' : ""}${args.map(a => a?.shell ?? q(a)).join(" ")}\n`;
+            // Through the model provider's launcher (its signature here: a
+            // provider change starts Claude Code again).
+            + `# model provider: ${ModelProvider.signature.replace(/[^\w.:/|-]/g, "_")}\n`
+            + `exec nixbook-model-provider run ${q(root.claudeCodePath)} ${connectors ? '"${plugins[@]}" ' : ""}${args.map(a => a?.shell ?? q(a)).join(" ")}\n`;
     }
 
     FileView {

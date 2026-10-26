@@ -2773,6 +2773,22 @@ def claude_path(cfg, hint=None):
     return None
 
 
+def claude_cmd(claude):
+    """Claude Code started through nixbook-model-provider, which points it
+    at the provider chosen in Settings (Anthropic: the user's own login,
+    unchanged; Meta or another Anthropic-compatible API: its key and model
+    names). Without the launcher (outside the package), Claude Code as it is."""
+    provider = shutil.which("nixbook-model-provider")
+    return [provider, "run", claude] if provider else [claude]
+
+
+def provider_model(model):
+    """The model as the record of what was sent names it: with another
+    provider than Anthropic, prefixed by it (meta:haiku is Meta's small model)."""
+    kind = str(shell_setting("ai.provider.kind", "anthropic")).lower()
+    return model if kind == "anthropic" else f"{kind}:{model}"
+
+
 def initiative_path():
     return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-shell", "initiative.json")
 
@@ -5250,7 +5266,7 @@ def routine_agent(cfg, r, event):
         hook = [{"matcher": "^(?!mcp__desktop__).*", "hooks": [{"type": "command", "command": f"{shlex.quote(desktop or sys.executable)}"
                  + ("" if desktop else f" {shlex.quote(os.path.abspath(__file__))}") + " privacy hook"}]}]
         settings = ["--settings", json.dumps({"hooks": {"PreToolUse": hook, "PostToolUse": hook}})]
-    cmd = [claude, "-p", "--output-format", "json", "--no-session-persistence", "--strict-mcp-config",
+    cmd = [*claude_cmd(claude), "-p", "--output-format", "json", "--no-session-persistence", "--strict-mcp-config",
            "--mcp-config", json.dumps(config), "--setting-sources", "project", *settings,
            # Only its servers' tools: no built-in one (shell, files, web).
            "--tools", "", "--allowedTools", ",".join(f"mcp__{s}" for s in config["mcpServers"]),
@@ -5261,9 +5277,12 @@ def routine_agent(cfg, r, event):
     except (OSError, subprocess.TimeoutExpired) as e:
         raise ToolError(f"the routine's run didn't finish: {e}")
     try:
-        said = json.loads(proc.stdout).get("result") or ""
+        reply = json.loads(proc.stdout)
+        said, failed = reply.get("result") or "", reply.get("is_error") is True
     except (ValueError, AttributeError):
-        said = ""
+        said, failed = "", False
+    if failed:
+        raise ToolError(f"the routine's run failed: {short(said, 200)}")
     if proc.returncode != 0 and not said:
         raise ToolError(f"the routine's run failed: {short((proc.stderr or proc.stdout).strip(), 200)}")
     return said_text(unmask_text(said), 400)
@@ -8708,11 +8727,11 @@ def ask_claude_now(claude, model, system, prompt, schema=None, web=False):
     """One answer from a small model through Claude Code: no tools (with
     `web`, only WebSearch and WebFetch), no MCP servers, no settings, no
     session kept."""
-    sent_note(sent_purpose(system), model or "default", prompt, web)
+    sent_note(sent_purpose(system), provider_model(model or "default"), prompt, web)
     workdir = os.path.join(xdg("XDG_DATA_HOME", "~/.local/share"), "nixbook-shell", "memory-pass")
     os.makedirs(workdir, mode=0o700, exist_ok=True)
     tools = "WebSearch,WebFetch" if web else ""
-    cmd = [claude, "-p", "--output-format", "json", "--no-session-persistence",
+    cmd = [*claude_cmd(claude), "-p", "--output-format", "json", "--no-session-persistence",
            "--strict-mcp-config", "--setting-sources", "project", "--tools", tools,
            "--system-prompt", system, "--json-schema", json.dumps(schema or LEARN_SCHEMA)]
     if web:
@@ -14484,7 +14503,7 @@ def main(argv):
             print(json.dumps(list(reversed(sent_read())), ensure_ascii=False))
             return 0
         if sub == "note" and len(argv) == 4:
-            sent_note(clean_text(argv[2], 40), "claude (chat)", argv[3])
+            sent_note(clean_text(argv[2], 40), provider_model("claude (chat)"), argv[3])
             return 0
         if sub == "clear":
             with contextlib.suppress(FileNotFoundError):

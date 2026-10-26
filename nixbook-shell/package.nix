@@ -22,7 +22,7 @@ let
   quickshell = import ./quickshell.nix { inherit pkgs quickshellSrc; };
   accounts = import ./accounts.nix { inherit pkgs; };
   # The desktop agent's fixes to nixbook (`nixbook-improve`, services/SelfImprove.qml).
-  improve = import ./improve.nix { inherit pkgs; };
+  improve = import ./improve.nix { inherit pkgs modelProvider; };
   # The notes' sync with Google Keep (`nixbook-keep`, services/KeepSync.qml).
   keep = import ./keep.nix { inherit pkgs gkeepapiSrc; };
   settingsLib = import ./lib.nix { inherit lib; };
@@ -46,6 +46,26 @@ let
       )
     }:$PATH
     exec ${pkgs.bash}/bin/bash ${./scripts/update-check.sh} "$@"
+  '';
+
+  # The model provider Claude Code talks to (scripts/model-provider.sh): every
+  # Claude Code the shell, desktop-mcp and nixbook-improve start goes through
+  # `nixbook-model-provider run`; Anthropic (the user's Claude login) or an
+  # Anthropic-compatible API such as Meta's, its key in the keyring.
+  modelProvider = pkgs.writeShellScriptBin "nixbook-model-provider" ''
+    export PATH=${
+      lib.makeBinPath (
+        with pkgs;
+        [
+          coreutils
+          gnused
+          jq
+          curl
+          libsecret # secret-tool: the API key
+        ]
+      )
+    }:$PATH
+    ${builtins.readFile ./scripts/model-provider.sh}
   '';
 
   # Claude usage reader for the AnthropicUsage bar widget (OpenCode OAuth).
@@ -74,6 +94,7 @@ let
           playerctl # the music every player plays (usage habits: music taste)
           accounts # nixbook-accounts: the contacts tool
           improve # nixbook-improve: report_problem
+          modelProvider # nixbook-model-provider: Claude Code's model provider
           libarchive # bsdtar: `extract`, a download extracted from its bubble
           procps # pgrep: a watched process
         ]
@@ -211,6 +232,7 @@ let
       keep # `nixbook-keep` — the notes' sync with Google Keep (services/KeepSync.qml)
       shell.passthru.pythonEnv
       anthropicUsage # `anthropic-usage` — AnthropicUsage bar widget
+      modelProvider # `nixbook-model-provider` — the model provider Claude Code talks to
       desktopMcp # `nixbook-desktop-mcp` — desktop tools of the AI chat
       updateCheck # `nixbook-update-check` — the update check (services/UpdateState.qml)
       improve # `nixbook-improve` — the desktop agent's fixes to nixbook (services/SelfImprove.qml)
@@ -328,6 +350,7 @@ launcher.overrideAttrs (old: {
       quickshell
       accounts
       improve
+      modelProvider
       configName
       settingsLib
       cliphistWatch

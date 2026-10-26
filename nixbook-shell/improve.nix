@@ -1,4 +1,4 @@
-{ pkgs }:
+{ pkgs, modelProvider }:
 # nixbook-improve (improve/): the desktop agent's fixes to nixbook, fixes and
 # polish only (services/SelfImprove.qml, Settings > Desktop agents). Its
 # inbox, the confined Claude Code session, the checks (tests/shell-loads.sh:
@@ -22,6 +22,7 @@ pkgs.buildGoModule {
           openssh
           gh # the PRs, with its own token only
           libsecret # secret-tool: the token in the keyring
+          modelProvider # nixbook-model-provider run: the provider Claude Code talks to
           libnotify # notify-send: Merge, Look, Drop
           xdg-utils # xdg-open: Look
           systemd # journalctl, systemctl: the shell's log

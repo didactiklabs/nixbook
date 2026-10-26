@@ -515,7 +515,7 @@ mkdir -p "$workdir" && cd "$workdir" || exit 1
 export ENABLE_TOOL_SEARCH=false
 model=()
 [ -n "$4" ] && model=(--model "$4")
-exec "$1" -p "$2" --output-format text --strict-mcp-config --setting-sources project \\
+exec nixbook-model-provider run "$1" -p "$2" --output-format text --strict-mcp-config --setting-sources project \\
   --mcp-config "$3" --tools "" --allowedTools mcp__desktop__equalizer \\
   --disallowedTools Bash Edit Write NotebookEdit Read Glob Grep "\${model[@]}" \\
   --append-system-prompt "$5" </dev/null`,
