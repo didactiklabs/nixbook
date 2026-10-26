@@ -1220,7 +1220,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("The AI chat's Claude model runs Claude Code on your own Claude account (no API key, unless you pick another model provider below), with the desktop tools. It can't run commands, reads none of your files but the folders you allow below (and a file you attach to a message) and writes only in the folders you let it write; below, what else it may do.")
+                text: Translation.tr("The AI chat's Claude model runs Claude Code on your own Claude account (no API key), with the desktop tools. It can't run commands, reads none of your files but the folders you allow below (and a file you attach to a message) and writes only in the folders you let it write; below, what else it may do.")
             }
 
             RowLayout {
@@ -1248,151 +1248,6 @@ ContentPage {
                 }
             }
 
-            // The model behind Claude Code (services/ModelProvider.qml): the
-            // user's Claude account, Meta's Model API or another
-            // Anthropic-compatible server. Claude Code stays the agent.
-            ContentSubsection {
-                title: Translation.tr("Model provider")
-
-                StyledText {
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    color: Appearance.colors.colSubtext
-                    text: Translation.tr("Anthropic: Claude, on your Claude account. Meta: Meta's Muse models, with a Model API key. Other: any server with an Anthropic-compatible API. The provider answers everywhere Claude Code works for you (here, speaking on its own, the memory passes, routines, the equalizer agent, the fixes it makes); Claude Code stays the agent, with the same tools and limits, and the privacy mask applies. Keys stay in your keyring. The claude.ai connectors work with Anthropic only.")
-                }
-
-                ConfigSelectionArray {
-                    configKey: "ai.provider.kind"
-                    enabled: !nixManaged
-                    text: Translation.tr("Provider")
-                    icon: "hub"
-                    currentValue: ModelProvider.kind
-                    onSelected: newValue => { Config.options.ai.provider.kind = newValue }
-                    options: [
-                        { displayName: "Anthropic", icon: "auto_awesome", value: "anthropic" },
-                        { displayName: "Meta", icon: "all_inclusive", value: "meta" },
-                        { displayName: Translation.tr("Other"), icon: "dns", value: "custom" }
-                    ]
-                }
-
-                ColumnLayout {
-                    visible: !ModelProvider.isAnthropic
-                    Layout.fillWidth: true
-                    spacing: 6
-
-                    StyledText {
-                        Layout.fillWidth: true
-                        visible: ModelProvider.kind === "meta"
-                        wrapMode: Text.WordWrap
-                        color: Appearance.colors.colSubtext
-                        text: Translation.tr("Meta's Model API (dev.meta.ai): create a key in its dashboard and paste it below. The main model takes Sonnet's place (muse-spark-1.3), the small one Haiku's (muse-spark-1.3: the background passes) and the big one Opus's (muse-wonder-1.0), unless you name others.")
-                    }
-                    StyledText {
-                        Layout.fillWidth: true
-                        visible: ModelProvider.kind === "custom"
-                        wrapMode: Text.WordWrap
-                        color: Appearance.colors.colSubtext
-                        text: Translation.tr("A server with an Anthropic Messages API (https://, without /v1). The main model takes Sonnet's place, the small one Haiku's (the background passes) and the big one Opus's; empty, the main one.")
-                    }
-                    ConfigTextArea {
-                        visible: ModelProvider.kind === "custom"
-                        configKey: "ai.provider.baseUrl"
-                        enabled: !nixManaged
-                        Layout.fillWidth: true
-                        fieldWidth: 320
-                        buttonIcon: "link"
-                        text: Translation.tr("Server")
-                        placeholderText: "https://api.example.com"
-                        value: Config.options.ai.provider.baseUrl
-                        onValueChanged: Config.options.ai.provider.baseUrl = value.trim()
-                    }
-                    ConfigTextArea {
-                        configKey: "ai.provider.model"
-                        enabled: !nixManaged
-                        Layout.fillWidth: true
-                        fieldWidth: 320
-                        buttonIcon: "neurology"
-                        text: Translation.tr("Main model")
-                        placeholderText: ModelProvider.kind === "meta" ? "muse-spark-1.3" : Translation.tr("required")
-                        value: Config.options.ai.provider.model
-                        onValueChanged: Config.options.ai.provider.model = value.trim()
-                    }
-                    ConfigTextArea {
-                        configKey: "ai.provider.smallModel"
-                        enabled: !nixManaged
-                        Layout.fillWidth: true
-                        fieldWidth: 320
-                        buttonIcon: "speed"
-                        text: Translation.tr("Small model")
-                        placeholderText: ModelProvider.kind === "meta" ? "muse-spark-1.3" : Translation.tr("the main model")
-                        value: Config.options.ai.provider.smallModel
-                        onValueChanged: Config.options.ai.provider.smallModel = value.trim()
-                    }
-                    ConfigTextArea {
-                        configKey: "ai.provider.bigModel"
-                        enabled: !nixManaged
-                        Layout.fillWidth: true
-                        fieldWidth: 320
-                        buttonIcon: "psychology"
-                        text: Translation.tr("Big model")
-                        placeholderText: ModelProvider.kind === "meta" ? "muse-wonder-1.0" : Translation.tr("the main model")
-                        value: Config.options.ai.provider.bigModel
-                        onValueChanged: Config.options.ai.provider.bigModel = value.trim()
-                    }
-
-                    StyledText {
-                        Layout.fillWidth: true
-                        wrapMode: Text.WordWrap
-                        color: ModelProvider.error !== "" ? Appearance.m3colors.m3error : Appearance.colors.colOnLayer1
-                        text: ModelProvider.error !== "" ? ModelProvider.error
-                            : ModelProvider.keySaved ? Translation.tr("A key is saved for %1.").arg(ModelProvider.status.host ?? "")
-                            : Translation.tr("No key yet: until you add one, Claude Code can't answer (nothing falls back to Claude).")
-                    }
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 6
-                        MaterialTextField {
-                            id: providerKey
-                            Layout.fillWidth: true
-                            placeholderText: ModelProvider.keySaved ? Translation.tr("API key (saved: paste a new one to replace it)") : Translation.tr("API key")
-                            echoMode: TextInput.Password
-                            onAccepted: providerKeySave.clicked()
-                        }
-                        SmallButton {
-                            id: providerKeySave
-                            enabled: !ModelProvider.busy && providerKey.text.trim() !== "" && ModelProvider.error === ""
-                            materialIcon: "key"
-                            mainText: Translation.tr("Save")
-                            onClicked: {
-                                ModelProvider.setKey(providerKey.text)
-                                providerKey.text = ""
-                            }
-                        }
-                        SmallButton {
-                            visible: ModelProvider.keySaved
-                            enabled: !ModelProvider.busy
-                            materialIcon: "network_check"
-                            mainText: Translation.tr("Test")
-                            onClicked: ModelProvider.test()
-                        }
-                        SmallButton {
-                            visible: ModelProvider.keySaved
-                            enabled: !ModelProvider.busy
-                            materialIcon: "key_off"
-                            mainText: Translation.tr("Forget")
-                            onClicked: ModelProvider.forgetKey()
-                        }
-                    }
-                    StyledText {
-                        Layout.fillWidth: true
-                        visible: ModelProvider.message !== ""
-                        wrapMode: Text.WordWrap
-                        color: Appearance.colors.colSubtext
-                        text: ModelProvider.message
-                    }
-                }
-            }
-
             ConfigSelectionArray {
                 configKey: "ai.claudeCode.model"
                 enabled: !nixManaged
@@ -1402,9 +1257,9 @@ ContentPage {
                 onSelected: newValue => { Config.options.ai.claudeCode.model = newValue }
                 options: [
                     { displayName: Translation.tr("Default"), icon: "auto_awesome", value: "" },
-                    { displayName: ModelProvider.isAnthropic ? "Sonnet" : Translation.tr("Main"), icon: "bolt", value: "sonnet" },
-                    { displayName: ModelProvider.isAnthropic ? "Opus" : Translation.tr("Big"), icon: "psychology", value: "opus" },
-                    { displayName: ModelProvider.isAnthropic ? "Haiku" : Translation.tr("Small"), icon: "speed", value: "haiku" }
+                    { displayName: "Sonnet", icon: "bolt", value: "sonnet" },
+                    { displayName: "Opus", icon: "psychology", value: "opus" },
+                    { displayName: "Haiku", icon: "speed", value: "haiku" }
                 ]
             }
 
@@ -1467,7 +1322,7 @@ ContentPage {
                 }
                 ConfigSwitch {
                     configKey: "ai.claudeCode.connectors"
-                    enabled: !nixManaged && ModelProvider.isAnthropic
+                    enabled: !nixManaged
                     buttonIcon: "hub"
                     text: Translation.tr("Use your claude.ai connectors")
                     checked: Config.options.ai.claudeCode.connectors

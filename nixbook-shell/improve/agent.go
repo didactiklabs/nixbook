@@ -212,7 +212,6 @@ func ask(cfg Config, dir, prompt, resume string, feature bool) (session, error) 
 	if resume != "" {
 		args = append(args, "--resume", resume)
 	}
-	claude := claudeCommand(cfg.claude, args)
 	// Streamed: each tool call shows live (doing), the result comes last.
 	out, err := stream(dir, limit, prompt, func(line string) {
 		var ev struct {
@@ -233,7 +232,7 @@ func ask(cfg Config, dir, prompt, resume string, feature bool) (session, error) 
 				doing(describeTool(c.Name, c.Input, dir))
 			}
 		}
-	}, claude[0], claude[1:]...)
+	}, cfg.claude, args...)
 	var res struct {
 		IsError    bool            `json:"is_error"`
 		Subtype    string          `json:"subtype"`
@@ -258,17 +257,6 @@ func ask(cfg Config, dir, prompt, resume string, feature bool) (session, error) 
 		s.answer.Type, s.answer.Harmless = "feat", false
 	}
 	return s, nil
-}
-
-// claudeCommand is Claude Code started through nixbook-model-provider,
-// which points it at the model provider chosen in the shell's settings
-// (Anthropic: the user's own login, unchanged); Claude Code as it is
-// without the launcher.
-func claudeCommand(claude string, args []string) []string {
-	if provider, err := exec.LookPath("nixbook-model-provider"); err == nil {
-		return append([]string{provider, "run", claude}, args...)
-	}
-	return append([]string{claude}, args...)
 }
 
 // stream runs a command, handing each line of its output to onLine as it

@@ -14,13 +14,6 @@
       "hideSystemSockets": true,
       "privateNetwork": true
     },
-    "provider": {
-      "kind": "anthropic",
-      "baseUrl": "",
-      "model": "",
-      "smallModel": "",
-      "bigModel": ""
-    },
     "claudeCode": {
       "allowedTools": ["WebSearch", "WebFetch"],
       "asComputer": true,

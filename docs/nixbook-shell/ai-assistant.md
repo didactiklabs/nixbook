@@ -2,10 +2,10 @@
 
 The **left sidebar** (Mod+Space) holds a chat with two models:
 
-| Model                          | What it is                                                                                                                                                                       |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Config assistant** (default) | Offline, no AI: answers instantly from this machine's configuration                                                                                                              |
-| **Claude** (`/model claude`)   | Claude Code on your own Claude login — no API key — with the desktop tools attached; or on [another model provider](#model-provider-meta-s-models-or-another-one) such as Meta's |
+| Model                          | What it is                                                                          |
+| ------------------------------ | ----------------------------------------------------------------------------------- |
+| **Config assistant** (default) | Offline, no AI: answers instantly from this machine's configuration                 |
+| **Claude** (`/model claude`)   | Claude Code on your own Claude login — no API key — with the desktop tools attached |
 
 ## Config assistant
 
@@ -45,22 +45,6 @@ When Claude Code is installed (`claude` on the PATH, in `~/.local/bin` or a Nix 
 - the folders it may read.
 
 Replies stream in, each tool call shows with its result in a collapsible block, and the send button (or `/stop`) stops the answer. Claude Code keeps running between messages, so replies start immediately; it closes after 15 minutes unused.
-
-### Model provider: Meta's models, or another one
-
-Claude Code is the agent, but the models behind it don't have to be Claude's. **Settings → Desktop agents → Claude in the side panel → Model provider** (`ai.provider`):
-
-| Provider                         | What answers                                                                                                                            |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| **Anthropic** (default)          | Claude, on your own Claude login (no API key)                                                                                           |
-| **Meta (Muse)**                  | [Meta's Model API](https://dev.meta.ai/docs/coding-agents): `muse-spark-1.3` in Sonnet's and Haiku's place, `muse-wonder-1.0` in Opus's |
-| **Other (Anthropic-compatible)** | any server with an Anthropic Messages API (`https://`, or `http://` on this computer), with the models you name                         |
-
-For Meta: create a key in the Model API dashboard, paste it in the **API key** field and click **Save**, then **Test** (one short request). The key is kept in your keyring, per provider and server: a key saved for one server is never sent to another. The main, small and big model fields override the preset's.
-
-Everything Claude Code does for you switches together: the side panel (the model shows as "Meta muse-spark-1.3"), [speaking on its own](./desktop-agents), the memory passes, routines, the equalizer agent and [the fixes it makes](./self-improve). Claude Code keeps its tools and limits (the desktop tools, the sandbox, the folders you allow) and the [privacy mask](./desktop-agents) still applies; it is pointed at the provider with `ANTHROPIC_BASE_URL` and the key, never your claude.ai login, and sends Anthropic no telemetry meanwhile. What doesn't follow: the claude.ai connectors (they are your Claude account's: off with another provider) and Claude's own web search tool, unless the provider supports it. Switching provider starts the panel's Claude Code again, each chat in a new session (the conversation so far goes with your next message). Without a key nothing falls back to Claude: the chat says what is missing.
-
-From a terminal: `nixbook-model-provider status`, `nixbook-model-provider test`, and `nixbook-model-provider run claude …` to start Claude Code on the chosen provider yourself.
 
 ### What Claude can and can't do
 

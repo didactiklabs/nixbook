@@ -991,32 +991,6 @@ While one of your restores (or `cycle`) runs, every monitor is dimmed under a
 click or key doesn't land on a window being moved; it lifts when the restore
 is done (after 30 s at the latest).
 
-**Model provider** (`ai.provider` = `{ kind; baseUrl; model; smallModel;
-bigModel; }`, Settings → Desktop agents → Claude in the side panel → Model
-provider; `services/ModelProvider.qml`, `scripts/model-provider.sh`): every
-Claude Code the shell starts — the side panel (`Ai.claudeCodeScript`), the
-equalizer agent, desktop-mcp's passes and routine turns (`claude_cmd()`) and
-nixbook-improve (`claudeCommand`) — goes through `nixbook-model-provider run
-CLAUDE ARGS…`. `anthropic` (default) execs Claude Code unchanged, on the
-user's Claude login. `meta` (Meta's Model API, preset base URL
-`https://api.meta.ai`, `muse-spark-1.3` main and small, `muse-wonder-1.0`
-big) and `custom` (any Anthropic-compatible Messages API: `https://`, or
-`http://` on the loopback) set `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`
-(the key from the keyring: `secret-tool`, `application nixbook-shell kind
-model-provider provider <kind> host <host>`, so a key is never sent to another
-host), `ANTHROPIC_MODEL` and the `ANTHROPIC_DEFAULT_{SONNET,HAIKU,OPUS}_MODEL`
-aliases, unset `ANTHROPIC_API_KEY`/`CLAUDE_CODE_OAUTH_TOKEN`, turn off
-non-essential traffic, and map `--model`/`--fallback-model` values (Claude
-aliases and `claude-*` ids by family; the provider's own ids kept). Without a
-key or with a bad URL it exits 3, with Claude Code's own `{"type":"result",
-"is_error":true}` line when JSON output was asked. `status`, `key set` (stdin)
-/ `key forget` and `test` (one Messages request, the key as a header from a
-file descriptor) back the Settings controls. The panel's script carries
-`ModelProvider.signature`, so a provider, model or key change restarts its
-Claude Code; a provider change also clears every chat's Claude session. The
-claude.ai connectors are off with another provider. desktop-mcp's sent log
-names the provider (`meta:haiku`).
-
 **Claude in the side panel**: when Claude Code is installed (`claude` on the
 PATH, in `~/.local/bin` or a Nix profile), the AI chat offers a **Claude**
 model (`/model claude`) that runs on your own Claude login, no API key. It is
