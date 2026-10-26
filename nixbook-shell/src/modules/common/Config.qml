@@ -201,6 +201,19 @@ Singleton {
                     property bool hideSystemSockets: true
                     property bool privateNetwork: true
                 }
+                // The model provider every Claude Code the shell starts talks
+                // to (scripts/model-provider.sh, services/ModelProvider.qml):
+                // "anthropic" (the user's Claude login), "meta" (Meta's Model
+                // API, Muse models) or "custom" (another Anthropic-compatible
+                // Messages API). Empty fields: the preset's. The API key is
+                // in the keyring, never here.
+                property JsonObject provider: JsonObject {
+                    property string kind: "anthropic"
+                    property string baseUrl: "" // custom: https://… (the host, no /v1)
+                    property string model: "" // the main model (Claude's Sonnet; meta: muse-spark-1.3)
+                    property string smallModel: "" // in place of Haiku (meta: muse-spark-1.3)
+                    property string bigModel: "" // in place of Opus (meta: muse-wonder-1.0)
+                }
                 // Claude through Claude Code (`claude -p`, the user's own
                 // Claude login): the "Claude" model, with the desktop tools
                 // (nixbook-desktop-mcp) unless the tool is "none".
