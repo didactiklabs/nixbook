@@ -285,14 +285,15 @@ in
       #   Write access needs a clean journal; run `fsck.hfsplus -f` (from
       #   hfsprogs, added below) if the drive was not ejected cleanly on macOS.
       # - apfs (modern macOS, default since 2017): READ-ONLY via apfs-fuse
-      #   (added below). Linux has no reliable APFS write support.
-      # All of these are automounted by udisks2/devmon.
+      #   (added below), mounted by hand. Not listed here: "apfs" adds the
+      #   out-of-tree linux-apfs-rw module, which lags behind
+      #   linuxPackages_latest (it failed to build against 7.3).
+      # The others are automounted by udisks2/devmon.
       supportedFilesystems = [
         "ntfs"
         "exfat"
         "hfs"
         "hfsplus"
-        "apfs"
       ];
     };
     # The ESP root-only: the generated hardware-configuration.nix mounts it
