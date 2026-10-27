@@ -24,7 +24,7 @@ in
             - gnumake, devenv, nix-eval-jobs, nixos-generators
 
           Infrastructure-as-Code / deployment:
-            - terraform, minio-client
+            - terraform
             - google-cloud-sdk (with gke-gcloud-auth-plugin for GKE access)
 
           Code generation / API:
@@ -69,7 +69,6 @@ in
       terraform
       opentofu
       ansible
-      minio-client
       (google-cloud-sdk.withExtraComponents [
         google-cloud-sdk.components.gke-gcloud-auth-plugin
       ])
