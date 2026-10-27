@@ -10,6 +10,11 @@ in
     nix-fast-build
     ;
 
+  # nixpkgs' mcp 2 marks its fastmcp 3 broken; built on mcp 1 instead.
+  mcp-nixos = prev.mcp-nixos.override {
+    python3Packages = import ./mcp1Python.nix { pkgs = prev; } prev.python3Packages;
+  };
+
   # Fix upstream hash mismatch: the GitHub-generated patch for PR #23326
   # changed content, breaking the pinned hash in nixpkgs.
   openapi-generator-cli = prev.openapi-generator-cli.overrideAttrs (oldAttrs: {
