@@ -260,7 +260,6 @@ in
       plymouth.enable = true;
       # Kernel messages below "error" stay off the console (dmesg keeps them).
       consoleLogLevel = 3;
-      initrd.verbose = false;
       loader = {
         systemd-boot = {
           enable = true;
