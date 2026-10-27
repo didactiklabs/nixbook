@@ -7,50 +7,13 @@
 #
 # 4.25.1 is the last release on fastmcp 3 / mcp 1 (4.26 moved to fastmcp 4,
 # which nixpkgs doesn't have, and mcp 2). nixpkgs has moved to mcp 2, which
-# marks its fastmcp 3 broken, so this builds in a scope where mcp is the last
-# 1.x release (PyPI's wheel). It drives nixpkgs' Chromium
-# (CHROME_PATH: the server then never downloads a browser of its own, which
+# marks its fastmcp 3 broken, so this builds in lib/mcp1Python.nix's scope.
+# It drives nixpkgs' Chromium (CHROME_PATH: the server then never downloads a browser of its own, which
 # wouldn't run on NixOS) through patchright (below), and doesn't poll PyPI
 # for updates. The session lives in ~/.linkedin-mcp/profile
 # (`mcp-server-linkedin --login` signs in, `--logout` forgets it).
 let
-  py = pkgs.python313Packages.overrideScope (
-    _: super: {
-      mcp = super.buildPythonPackage rec {
-        pname = "mcp";
-        version = "1.30.0";
-        format = "wheel";
-        src = pkgs.fetchurl {
-          url = "https://files.pythonhosted.org/packages/f5/f4/e58bc33317c92a0203664daaf00bf6f41166cc0149e5d6870a03f7cd004a/mcp-${version}-py3-none-any.whl";
-          hash = "sha256-Zm7bUAlQPhBHydYDRqdW+UsmHwXMJiXyPUHHKP/EhNA=";
-        };
-        dependencies =
-          with super;
-          [
-            anyio
-            httpx
-            httpx-sse
-            jsonschema
-            pydantic
-            pydantic-settings
-            pyjwt
-            python-multipart
-            sse-starlette
-            starlette
-            typing-extensions
-            typing-inspection
-            uvicorn
-          ]
-          ++ super.pyjwt.optional-dependencies.crypto;
-        pythonImportsCheck = [ "mcp.server.fastmcp" ];
-      };
-      # The OAuth proxy's stored client gains a field with mcp 1.x; nothing
-      # here uses the OAuth proxy.
-      fastmcp = super.fastmcp.overridePythonAttrs (old: {
-        disabledTests = (old.disabledTests or [ ]) ++ [ "test_storage_data_structure" ];
-      });
-    }
-  );
+  py = import ../lib/mcp1Python.nix { inherit pkgs; } pkgs.python313Packages;
   # nixpkgs' patchright is a placeholder (marked broken: the real package
   # is built from patched Playwright and its patched Node driver). This is
   # PyPI's wheel, its bundled Node (which wouldn't run on NixOS) swapped for
