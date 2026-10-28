@@ -113,7 +113,7 @@ EOF
 }
 SHIM_SESSION='{"Id": "s-shim", "Client": "Jellyfin MPV Shim", "DeviceName": "totoro mpv", "DeviceId": "'"$SHIM_DEVICE"'",
    "UserId": "u-admin", "UserName": "Khoa", "SupportsRemoteControl": true, "LastActivityDate": "2026-10-28T09:00:00Z",
-   "SupportedCommands": ["SetVolume", "Mute", "Unmute"]}'
+   "SupportedCommands": ["SetVolume", "Mute", "Unmute", "SetAudioStreamIndex", "SetSubtitleStreamIndex"]}'
 write_sessions ""
 python3 "$here/fake-jellyfin.py" "$tmp/port" "$log" "$sessions" &
 fake_pid=$!
@@ -139,15 +139,15 @@ err_of() { jq -r '.result.isError'; }
 reqs() { cat "$log"; }
 last_req() { grep -F "\"path\": \"$1\"" "$log" | tail -n 1; }
 
-export JELLYFIN_URL="$url" JELLYFIN_API_KEY="$KEY" JELLYFIN_SHIM_WAIT=2
+export JELLYFIN_URL="$url" JELLYFIN_API_KEY="$KEY" JELLYFIN_SHIM_WAIT=2 JELLYFIN_CONFIRM_WAIT=0
 
 # -- the protocol -----------------------------------------------------------
 init=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26"}}' | "${jmcp[@]}")
 expect_eq "initialize: echoes a known protocol version" "$(jq -r .result.protocolVersion <<<"$init")" "2025-03-26"
 expect_eq "initialize: server name" "$(jq -r .result.serverInfo.name <<<"$init")" "jellyfin-mcp"
 list=$(rpc '{"jsonrpc":"2.0","id":2,"method":"tools/list"}')
-expect_eq "tools/list: the 12 tools" "$(jq -c '[.result.tools[].name]' <<<"$list")" \
-  '["search","item","continue_watching","next_up","recently_added","sessions","play","control","mark_played","favorite","playlists","playlist_add"]'
+expect_eq "tools/list: the 13 tools" "$(jq -c '[.result.tools[].name]' <<<"$list")" \
+  '["search","item","continue_watching","next_up","recently_added","sessions","play","control","track_preferences","mark_played","favorite","playlists","playlist_add"]'
 expect_eq "tools/list: reading tools are read-only" \
   "$(jq -c '[.result.tools[] | select(.annotations.readOnlyHint) | .name]' <<<"$list")" \
   '["search","item","continue_watching","next_up","recently_added","sessions","playlists"]'
@@ -501,6 +501,66 @@ r=$(JELLYFIN_API_KEY="$mai_token" call search '{"query":"spirited"}')
 expect_match "sign out: the token stops working" "HTTP 401" "$(text_of <<<"$r")"
 r=$(printf '%s\n' "$KEY" | JELLYFIN_API_KEY="" "${jmcp[@]}" credentials save "$url" Khoa)
 expect_eq "an API key after a sign-in" "$(jq -r .kind <<<"$r")$(tr -s ' ' <"$STUB_DIR/keyring.attrs")" "apikey service jellyfin-mcp kind apikey "
+
+# -- audio and subtitle tracks -------------------------------------------------
+write_sessions ",$SHIM_SESSION"
+touch "$sessions.live"
+r=$(call item '{"id":"ep-e2"}' | text_of)
+expect_eq "item: an episode's tracks" "$(jq -c '[.tracks.audio[].language, (.tracks.subtitles | length)]' <<<"$r")" '["jpn","eng",3]'
+r=$(JELLYFIN_CONFIRM_WAIT=2 call play '{"item_id":"ep-e2","audio":"Japanese","subtitles":"English"}')
+p=$(last_req /Sessions/s-shim/Playing)
+expect_eq "play: the tracks asked (full subtitles, not the forced ones), with their source" \
+  "$(jq -r '.query | .audioStreamIndex + " " + .subtitleStreamIndex + " " + .mediaSourceId' <<<"$p")" "1 4 ep-e2-src"
+expect_eq "play: says which" "$(text_of <<<"$r" | jq -c .tracks)" '{"audio":"Japanese - AAC - Stereo","subtitles":"English - ASS"}'
+expect_eq "play: saw the player play it with them: verified" "$(jq -c .result._meta <<<"$r")" '{"verified":true}'
+call play '{"item_id":"ser-edge","subtitles":"off","audio":"en"}' >/dev/null
+expect_eq "play a series: its next episode's tracks; subtitles off" \
+  "$(last_req /Sessions/s-shim/Playing | jq -r '.query | .itemIds[0:5] + " " + .audioStreamIndex + " " + .subtitleStreamIndex')" "ep-e2 2 -1"
+r=$(call play '{"item_id":"mov-dune21","audio":"Japanese"}' | text_of)
+expect_eq "play: a language it hasn't, said, the player's own choice kept" \
+  "$(jq -r '.notes[0]' <<<"$r") $(last_req /Sessions/s-shim/Playing | jq -r '.query.audioStreamIndex // "none"')" "no Japanese audio (it has English) none"
+rm -f "$sessions.live"
+r=$(call play '{"item_id":"mov-spirited"}')
+expect_eq "play: the player not seen playing it: points at sessions" "$(jq -c .result._meta <<<"$r")" '{"observe":{"tool":"sessions","args":{}}}'
+
+touch "$sessions.live"
+call play '{"item_id":"ep-e3"}' >/dev/null
+r=$(JELLYFIN_CONFIRM_WAIT=2 call control '{"action":"audio","track":"english"}')
+expect_eq "control audio: the player told, by index" "$(last_req /Sessions/s-shim/Command | jq -c .body)" '{"Name":"SetAudioStreamIndex","Arguments":{"Index":"2"}}'
+expect_eq "control audio: seen switched: verified" "$(jq -r '.result._meta.verified' <<<"$r") $(text_of <<<"$r" | jq -r .track)" "true English - AAC - 5.1"
+r=$(call control '{"action":"subtitles","track":"français"}')
+expect_eq "control subtitles: by language" "$(last_req /Sessions/s-shim/Command | jq -r .body.Arguments.Index)" "5"
+r=$(call control '{"action":"subtitles","track":"off"}')
+expect_eq "control subtitles off" "$(last_req /Sessions/s-shim/Command | jq -r .body.Arguments.Index)" "-1"
+r=$(call control '{"action":"subtitles","track":"korean"}')
+expect_match "control subtitles: one it hasn't, said" "no Korean subtitles \(it has English, French\)" "$(text_of <<<"$r")"
+rm -f "$sessions.live"
+
+r=$(call track_preferences | text_of)
+expect_eq "track_preferences: read" "$(jq -c '[.audio_language, .subtitle_mode]' <<<"$r")" '[null,"Default"]'
+r=$(call track_preferences '{"audio":"japonais","subtitles":"English","subtitle_mode":"smart"}')
+expect_eq "track_preferences: set by name, any language" \
+  "$(text_of <<<"$r" | jq -r '[.audio_language.code, .subtitle_language.code, .subtitle_mode, .play_default_audio] | map(tostring) | join(" ")')" "jpn eng Smart false"
+expect_eq "track_preferences: read back: verified" "$(jq -r .result._meta.verified <<<"$r")" "true"
+c=$(last_req /Users/Configuration)
+expect_eq "track_preferences: the user's own, the rest of it kept" "$(jq -r '.query.userId + " " + (.body.HidePlayedInLatest|tostring)' <<<"$c")" "u-admin true"
+r=$(call track_preferences '{"subtitles":""}' | text_of)
+expect_eq "track_preferences: a language cleared" "$(jq -c '[.subtitle_language, .audio_language.code]' <<<"$r")" '[null,"jpn"]'
+r=$(call track_preferences '{"audio":"klingon"}')
+expect_match "track_preferences: an unknown language" "unknown language 'klingon'" "$(text_of <<<"$r")"
+
+# The fast path: the tracks named in what was said.
+r=$(pq "play edgerunners s1e3 in japanese with english subs")
+expect_eq "play-query: the tracks said" "$(jq -r .said <<<"$r")" "Playing Cyberpunk: Edgerunners, S01E03 (Japanese audio, English subtitles)."
+expect_eq "play-query: sent to the player" "$(last_req /Sessions/s-shim/Playing | jq -r '.query | .itemIds[0:5] + " " + .audioStreamIndex + " " + .subtitleStreamIndex')" "ep-e3 1 4"
+r=$(pq "lance edgerunners saison 1 épisode 3 en vostfr")
+expect_eq "play-query in French: VOSTFR" "$(jq -r .said <<<"$r")" "Je lance Cyberpunk: Edgerunners, S01E03 (sous-titres français)."
+r=$(pq "spiel Spirited Away auf Japanisch")
+expect_eq "play-query in German: a language it hasn't" "$(jq -r .said <<<"$r")" "Ich spiele Spirited Away (2001) ab (kein Ton auf Japanisch)."
+r=$(pq "xem edgerunners tập 3 tiếng Nhật phụ đề tiếng Anh")
+expect_eq "play-query in Vietnamese" "$(jq -r .said <<<"$r")" "Đang phát Cyberpunk: Edgerunners, S01E03 (âm thanh tiếng Nhật, phụ đề tiếng Anh)."
+r=$(pq "play lost in translation")
+expect_eq "play-query: \"in\" before a word that isn't a language stays in the title" "$(jq -r .query <<<"$r")" "lost in translation"
 
 # -- a slow server ------------------------------------------------------------
 kill "$fake_pid"

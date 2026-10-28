@@ -81,6 +81,38 @@ PLAYLIST = {"pl-road": ["aud-1"]}
 BY_ID = {i["Id"]: i for i in ITEMS}
 
 
+def stream(index, kind, lang, title, **kw):
+    return {"Index": index, "Type": kind, "Language": lang, "DisplayTitle": title, "Codec": kw.pop("codec", "aac"), **kw}
+
+
+# The tracks a full item carries (GET /Items/{id}), as Jellyfin lists them;
+# lists don't (no Fields=MediaSources).
+EPISODE_STREAMS = [
+    stream(0, "Video", None, "1080p HEVC", codec="hevc"),
+    stream(1, "Audio", "jpn", "Japanese - AAC - Stereo", IsDefault=True, Channels=2),
+    stream(2, "Audio", "eng", "English - AAC - 5.1", Channels=6),
+    stream(3, "Subtitle", "eng", "English (Signs & Songs)", codec="ass", IsForced=True),
+    stream(4, "Subtitle", "eng", "English - ASS", codec="ass"),
+    stream(5, "Subtitle", "fre", "French - SRT", codec="srt", IsExternal=True),
+]
+MOVIE_STREAMS = [stream(0, "Video", None, "1080p H264", codec="h264"),
+                 stream(1, "Audio", "eng", "English - AC3 - 5.1", IsDefault=True, Channels=6, codec="ac3")]
+# The users' playback settings (UserConfiguration).
+CONFIG = {u["Id"]: {"AudioLanguagePreference": None, "SubtitleLanguagePreference": None, "SubtitleMode": "Default",
+                    "PlayDefaultAudioTrack": True, "HidePlayedInLatest": True} for u in USERS}
+# While SESSIONSFILE.live exists, a player told to play reports it (its
+# session's NowPlayingItem and track indexes), as a real one does.
+LIVE = {}
+
+
+def full(item):
+    if item["Type"] == "Episode":
+        return {**item, "MediaSources": [{"Id": item["Id"] + "-src", "MediaStreams": EPISODE_STREAMS}]}
+    if item["Type"] == "Movie":
+        return {**item, "MediaSources": [{"Id": item["Id"] + "-src", "MediaStreams": MOVIE_STREAMS}]}
+    return item
+
+
 def fold(s):
     return " ".join(re.sub(r"[^\w]+", " ", str(s).casefold()).split())
 
@@ -160,7 +192,21 @@ class Handler(BaseHTTPRequestHandler):
         else:
             return self.reply(401)
         if path == "/Users/Me":
-            return self.reply(200, me) if me else self.reply(400)
+            return self.reply(200, {**me, "Configuration": CONFIG[me["Id"]]}) if me else self.reply(400)
+        m = re.match(r"^/Users/([^/]+)$", path)
+        if m and method == "GET" and m.group(1) not in ("Me",):
+            user = next((u for u in USERS if u["Id"] == m.group(1)), None)
+            if not user:
+                return self.reply(404)
+            if me and me["Id"] != user["Id"] and not me["Policy"]["IsAdministrator"]:
+                return self.reply(403)
+            return self.reply(200, {**user, "Configuration": CONFIG[user["Id"]]})
+        if path == "/Users/Configuration" and method == "POST":
+            uid = query.get("userId", [""])[0]
+            if uid not in CONFIG or (me and me["Id"] != uid and not me["Policy"]["IsAdministrator"]):
+                return self.reply(403)
+            CONFIG[uid] = body
+            return self.reply(204)
         if path == "/Sessions/Logout" and method == "POST":
             TOKENS.pop(token, None)
             return self.reply(204)
@@ -197,6 +243,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/Sessions":
             with open(sessions_file, encoding="utf-8") as f:
                 sessions = json.load(f)
+            if __import__("os").path.exists(sessions_file + ".live"):
+                sessions = [{**x, **LIVE.get(x.get("Id"), {})} for x in sessions]
             if not admin:
                 sessions = [x for x in sessions if x.get("UserId") == me["Id"]]
             return self.reply(200, sessions)
@@ -240,7 +288,7 @@ class Handler(BaseHTTPRequestHandler):
         m = re.match(r"^/Items/([^/]+)$", path)
         if m and method == "GET":
             item = BY_ID.get(m.group(1))
-            return self.reply(200, item) if item else self.reply(404)
+            return self.reply(200, full(item)) if item else self.reply(404)
         m = re.match(r"^/(UserPlayedItems|UserFavoriteItems)/([^/]+)$", path)
         if m:
             if m.group(2) not in BY_ID:
@@ -251,6 +299,18 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(204)
         m = re.match(r"^/Sessions/([^/]+)/(Playing|Command)(?:/(\w+))?$", path)
         if m and method == "POST":
+            sid = m.group(1)
+            if m.group(2) == "Playing" and not m.group(3) and query.get("playCommand", [""])[0] == "PlayNow":
+                first = query["itemIds"][0].split(",")[0]
+                LIVE[sid] = {"NowPlayingItem": BY_ID.get(first, {"Id": first}),
+                             "PlayState": {"PositionTicks": 0, "IsPaused": False,
+                                           "AudioStreamIndex": int(query.get("audioStreamIndex", ["1"])[0]),
+                                           "SubtitleStreamIndex": int(query.get("subtitleStreamIndex", ["-1"])[0])}}
+            elif m.group(2) == "Command" and isinstance(body, dict) and sid in LIVE:
+                field = {"SetAudioStreamIndex": "AudioStreamIndex",
+                         "SetSubtitleStreamIndex": "SubtitleStreamIndex"}.get(body.get("Name"))
+                if field:
+                    LIVE[sid]["PlayState"][field] = int(body["Arguments"]["Index"])
             return self.reply(204)
         return self.reply(404)
 

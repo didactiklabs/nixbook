@@ -186,10 +186,26 @@ server's own limits still apply (**Dashboard → Users →** the user →
 Ask Claude "why is it transcoding?": the `sessions` tool gives each player's
 play method and the server's reasons.
 
-**Its tools**: `search`, `item`, `continue_watching`, `next_up`,
-`recently_added`, `sessions` (read only); `play` (now, next or last in the
-queue), `control` (pause, stop, next, previous, seek, forward, back, volume,
-mute, fullscreen), `mark_played`, `favorite`, `playlists`, `playlist_add`.
+**Its tools**: `search`, `item` (an episode's or film's audio and subtitle
+tracks too), `continue_watching`, `next_up`, `recently_added`, `sessions`
+(read only); `play` (now, next or last in the queue; `audio` / `subtitles`: a
+language, a track index, subtitles `off`), `control` (pause, stop, next,
+previous, seek, forward, back, volume, mute, fullscreen, and `audio` /
+`subtitles` to switch the track of what plays), `track_preferences` (your
+default languages for every player: audio, subtitles, subtitle mode —
+`smart` shows them when the audio isn't in their language), `mark_played`,
+`favorite`, `playlists`, `playlist_add`. `play` and the track switches watch
+the player report it (up to 3 s) and tell the agent so, which skips its
+extra check.
+
+**Audio and subtitles.** Say them: "play Edgerunners season 1 episode 2 in
+Japanese with English subtitles", "without subtitles", "en VOSTFR", "en VF",
+"auf Japanisch mit englischen Untertiteln", "als OmU", "tiếng Nhật phụ đề
+tiếng Anh" — the bubble's instant path below understands them too, and the next
+episodes keep them (the player carries the choice over). Ask Claude to switch
+them while it plays, or to set your defaults: "always Japanese audio with
+English subtitles" sets Jellyfin's own preferences, which Moonfin and the TV
+follow too.
 
 **At once, without Claude.** In the speech bubble (Mod+C), "play Edgerunners
 season 1 episode 2", "watch Dune", "regarde Dune", "S2E1 of Arcane" start

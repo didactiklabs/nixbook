@@ -518,6 +518,153 @@ def title_of(it):
     return it.get("Name") or "?"
 
 
+# --------------------------------------------------------------------------
+# Audio and subtitle tracks
+# --------------------------------------------------------------------------
+#
+# Jellyfin names a stream's language with an ISO 639-2 code, the bibliographic
+# one for some ("fre", "ger", "chi") and the terminology one for others; the
+# user's preferences use the same codes. A language is asked for by its code,
+# its two letters or its name in English, French, German or Vietnamese.
+
+# code (what preferences are saved as) -> other codes, then names (folded).
+LANGUAGES = {
+    "jpn": (["ja", "jp"], ["japanese", "japonais", "japanisch", "nhat", "tieng nhat", "japones"]),
+    "eng": (["en"], ["english", "anglais", "englisch", "anh", "tieng anh", "ingles"]),
+    "fre": (["fr", "fra"], ["french", "francais", "franzosisch", "phap", "tieng phap", "frances"]),
+    "ger": (["de", "deu"], ["german", "allemand", "deutsch", "duc", "tieng duc", "aleman"]),
+    "vie": (["vi"], ["vietnamese", "vietnamien", "vietnamesisch", "viet", "tieng viet"]),
+    "spa": (["es"], ["spanish", "espagnol", "spanisch", "tay ban nha", "espanol"]),
+    "ita": (["it"], ["italian", "italien", "italienisch", "tieng y", "italiano"]),
+    "kor": (["ko"], ["korean", "coreen", "koreanisch", "han", "tieng han", "han quoc"]),
+    "chi": (["zh", "zho"], ["chinese", "chinois", "chinesisch", "trung", "tieng trung", "mandarin"]),
+    "por": (["pt"], ["portuguese", "portugais", "portugiesisch", "bo dao nha"]),
+    "rus": (["ru"], ["russian", "russe", "russisch", "nga", "tieng nga"]),
+    "dut": (["nl", "nld"], ["dutch", "neerlandais", "niederlandisch", "ha lan"]),
+    "hin": (["hi"], ["hindi"]),
+    "ara": (["ar"], ["arabic", "arabe", "arabisch", "a rap"]),
+    "tha": (["th"], ["thai", "thailandais", "thailandisch", "thai lan"]),
+}
+LANG_NAMES = {"jpn": "Japanese", "eng": "English", "fre": "French", "ger": "German", "vie": "Vietnamese",
+              "spa": "Spanish", "ita": "Italian", "kor": "Korean", "chi": "Chinese", "por": "Portuguese",
+              "rus": "Russian", "dut": "Dutch", "hin": "Hindi", "ara": "Arabic", "tha": "Thai"}
+OFF = {"off", "none", "no", "false", "disable", "disabled", "aucun", "sans", "aus", "ohne", "tat", "khong"}
+
+
+def lang_code(value):
+    """The code for a language asked for, else None."""
+    v = fold(value)
+    if not v:
+        return None
+    for code, (codes, names) in LANGUAGES.items():
+        if v == code or v in codes or v in names:
+            return code
+    return None
+
+
+def same_lang(stream_lang, code):
+    if not stream_lang or not code:
+        return False
+    s = str(stream_lang).casefold()
+    codes, _ = LANGUAGES.get(code, ([], []))
+    return s == code or s in codes
+
+
+def lang_label(code):
+    return LANG_NAMES.get(code) or (code or "?")
+
+
+def media_source(it):
+    """The item's first media source (its streams), or {}."""
+    sources = it.get("MediaSources") or []
+    if sources:
+        return sources[0]
+    return {"Id": it.get("Id"), "MediaStreams": it.get("MediaStreams") or []}
+
+
+def tracks(it):
+    """{source, audio: [...], subtitles: [...]} of a playable item."""
+    src = media_source(it)
+    out = {"source": src.get("Id"), "audio": [], "subtitles": []}
+    for st in src.get("MediaStreams") or []:
+        kind = st.get("Type")
+        if kind not in ("Audio", "Subtitle"):
+            continue
+        t = {"index": st.get("Index"), "language": st.get("Language") or None,
+             "name": st.get("DisplayTitle") or st.get("Title") or None, "codec": st.get("Codec") or None}
+        if st.get("IsDefault"):
+            t["default"] = True
+        if kind == "Audio":
+            if st.get("Channels"):
+                t["channels"] = st["Channels"]
+            out["audio"].append(t)
+        else:
+            if st.get("IsForced"):
+                t["forced"] = True
+            if st.get("IsExternal"):
+                t["external"] = True
+            out["subtitles"].append(t)
+    return out
+
+
+def track_label(t):
+    if not t:
+        return None
+    return t.get("name") or lang_label(t.get("language"))
+
+
+def choose_track(available, wanted, kind):
+    """(index or None, label, note): the track asked for — an index, a
+    language, or for subtitles off (-1). None and a note when there's no
+    such track (the player's own choice stays)."""
+    if wanted is None or (isinstance(wanted, str) and not wanted.strip()):
+        return None, None, None
+    what = "audio" if kind == "audio" else "subtitles"
+    if kind == "subtitles" and fold(wanted) in OFF:
+        return -1, "off", None
+    if isinstance(wanted, int) or (isinstance(wanted, str) and wanted.strip().isdigit()):
+        index = int(wanted)
+        t = next((t for t in available if t.get("index") == index), None)
+        if t is None:
+            return None, None, f"no {what} track {index} (it has {', '.join(str(t['index']) for t in available) or 'none'})"
+        return index, track_label(t), None
+    code = lang_code(wanted)
+    if not code:
+        raise JfError(f"unknown language {wanted!r}: a name (Japanese, English…), a code (jpn, en…) or a track index")
+    matches = [t for t in available if same_lang(t.get("language"), code)]
+    if not matches:
+        langs = sorted({lang_label(lang_code(t.get("language")) or t.get("language")) for t in available if t.get("language")})
+        have = f" (it has {', '.join(langs)})" if langs else ""
+        return None, None, f"no {lang_label(code)} {what}{have}"
+    if kind == "subtitles":
+        # Full subtitles before forced-only ones (signs and songs).
+        matches.sort(key=lambda t: (bool(t.get("forced")), not t.get("default")))
+    else:
+        matches.sort(key=lambda t: (not t.get("default"), -(t.get("channels") or 0)))
+    return matches[0]["index"], track_label(matches[0]), None
+
+
+def pick_tracks(it, audio=None, subtitles=None):
+    """{params for the Play command, tracks chosen, notes} for the item."""
+    if audio in (None, "") and subtitles in (None, ""):
+        return {}, {}, []
+    tr = tracks(it)
+    params, chosen, notes = {}, {}, []
+    a, a_label, a_note = choose_track(tr["audio"], audio, "audio")
+    s, s_label, s_note = choose_track(tr["subtitles"], subtitles, "subtitles")
+    if a is not None:
+        params["audioStreamIndex"] = a
+        chosen["audio"] = a_label
+    if s is not None:
+        params["subtitleStreamIndex"] = s
+        chosen["subtitles"] = s_label
+    notes += [n for n in (a_note, s_note) if n]
+    # The server ignores a stream index without the source it indexes into.
+    if params and tr["source"]:
+        params["mediaSourceId"] = tr["source"]
+    return params, chosen, notes
+
+
 def is_moonfin(s):
     return "moonfin" in f"{s.get('Client', '')} {s.get('DeviceName', '')}".casefold()
 
@@ -705,14 +852,48 @@ def playable(jf, it):
     return ids, 0
 
 
-def send_play(jf, session, ids, start_ticks, mode="PlayNow", resume=True):
+def send_play(jf, session, ids, start_ticks, mode="PlayNow", resume=True, track_params=None):
     params = {"playCommand": mode, "itemIds": ",".join(ids)}
     if mode == "PlayNow":
         params["startIndex"] = 0
         if start_ticks and resume:
             params["startPositionTicks"] = int(start_ticks)
+        # The first item's tracks (the shim carries the choice over to the
+        # next episodes: remember_audio_track / remember_subtitle_track).
+        params.update(track_params or {})
     jf.request("POST", f"/Sessions/{q(session['Id'])}/Playing", params)
     return params.get("startPositionTicks")
+
+
+def confirm(jf, session_id, check, wait=None):
+    """Watches the player's session until check(session) holds (the player
+    reports what it plays and its tracks), at most JELLYFIN_CONFIRM_WAIT
+    seconds (3): the session that matched, or None."""
+    wait = float(os.environ.get("JELLYFIN_CONFIRM_WAIT", "3") if wait is None else wait)
+    deadline = time.monotonic() + wait
+    while True:
+        try:
+            for s in jf.sessions():
+                if s.get("Id") == session_id and check(s):
+                    return s
+        except JfError:
+            return None
+        if time.monotonic() >= deadline:
+            return None
+        time.sleep(0.3)
+
+
+def plays(item_id, track_params):
+    """A check for confirm(): the session plays that item, with those tracks."""
+    def check(s):
+        if (s.get("NowPlayingItem") or {}).get("Id") != item_id:
+            return False
+        state = s.get("PlayState") or {}
+        for key, field in (("audioStreamIndex", "AudioStreamIndex"), ("subtitleStreamIndex", "SubtitleStreamIndex")):
+            if key in track_params and state.get(field) is not None and state.get(field) != track_params[key]:
+                return False
+        return True
+    return check
 
 
 # --------------------------------------------------------------------------
@@ -828,6 +1009,10 @@ def t_item(jf, args):
         res = jf.items(params)
         out["items"] = [brief(c, overview=0) for c in res.get("Items") or []]
         out["count"] = res.get("TotalRecordCount", len(out["items"]))
+    elif kind in ("Movie", "Episode", "Video", "MusicVideo"):
+        tr = tracks(it)
+        if tr["audio"] or tr["subtitles"]:
+            out["tracks"] = {"audio": tr["audio"][:MAX_LIST], "subtitles": tr["subtitles"][:MAX_LIST]}
     out["web_url"] = jf.web_url(it["Id"])
     return out
 
@@ -876,10 +1061,15 @@ def t_sessions(jf, args):
     return out
 
 
-@tool("play", "Play an item (film, episode, song, or a whole series, season, album, artist, playlist): by default in mpv on this computer (fullscreen; it saves progress and plays the next episode itself); on Moonfin or a TV when named in session. A series starts at its next episode; a film or episode where you stopped.",
+TRACK = {"type": "string", "description": "A language (Japanese, English, fr, jpn…) or a track index (item lists them)."}
+
+
+@tool("play", "Play an item (film, episode, song, or a whole series, season, album, artist, playlist): by default in mpv on this computer (fullscreen; it saves progress and plays the next episode itself); on Moonfin or a TV when named in session. A series starts at its next episode; a film or episode where you stopped. audio / subtitles pick its tracks (\"Japanese\", \"English\", subtitles \"off\"; the next episodes keep them); without them, the user's track_preferences decide.",
       {"item_id": {"type": "string"}, "session": SESSION,
        "mode": {"type": "string", "enum": ["now", "next", "last"], "description": "now (default), or add to the queue: next / last"},
-       "resume": {"type": "boolean", "description": "Start where you stopped (default true)"}},
+       "resume": {"type": "boolean", "description": "Start where you stopped (default true)"},
+       "audio": TRACK,
+       "subtitles": {**TRACK, "description": "A language, a track index, or \"off\"."}},
       required=["item_id"], title="Play on a player")
 def t_play(jf, args):
     it = jf.item(need(args, "item_id"))
@@ -891,13 +1081,30 @@ def t_play(jf, args):
     mode = {"now": "PlayNow", "next": "PlayNext", "last": "PlayLast"}.get(str(args.get("mode") or "now"))
     if not mode:
         raise JfError("mode must be now, next or last")
-    started = send_play(jf, session, ids, start_ticks, mode, args.get("resume", True) is not False)
+    first = it if ids[0] == it.get("Id") else jf.item(ids[0])
+    track_params, chosen, notes = ({}, {}, [])
+    if mode == "PlayNow":
+        track_params, chosen, notes = pick_tracks(first, args.get("audio"), args.get("subtitles"))
+    elif args.get("audio") or args.get("subtitles"):
+        notes.append("tracks apply to what plays now: set them with control once it plays")
+    started = send_play(jf, session, ids, start_ticks, mode, args.get("resume", True) is not False, track_params)
     on = session_out(session, jf.uid())
     on.pop("now_playing", None)
     out = {"played": mode == "PlayNow", "queued": mode != "PlayNow", "on": on,
-           "item": brief(it, overview=0), "items_sent": len(ids)}
+           "item": brief(first, overview=0), "items_sent": len(ids)}
     if started:
         out["from"] = clock(started)
+    if chosen:
+        out["tracks"] = chosen
+    if notes:
+        out["notes"] = notes
+    if mode == "PlayNow":
+        seen = confirm(jf, session["Id"], plays(ids[0], track_params))
+        if seen:
+            out["confirmed"] = "the player reports it playing" + (" with those tracks" if track_params else "")
+            out["_meta"] = {"verified": True}
+        else:
+            out["_meta"] = {"observe": {"tool": "sessions", "args": {}}}
     return out
 
 
@@ -906,13 +1113,16 @@ PLAYSTATE = {"pause": "Pause", "unpause": "Unpause", "resume": "Unpause", "toggl
 GENERAL = {"volume_up": "VolumeUp", "volume_down": "VolumeDown", "mute": "Mute", "unmute": "Unmute",
            "fullscreen": "ToggleFullscreen"}
 ACTIONS = ["pause", "unpause", "toggle", "stop", "next", "previous", "seek", "forward", "back",
-           "volume", "volume_up", "volume_down", "mute", "unmute", "fullscreen"]
+           "volume", "volume_up", "volume_down", "mute", "unmute", "fullscreen", "audio", "subtitles"]
+SET_TRACK = {"audio": ("SetAudioStreamIndex", "AudioStreamIndex"),
+             "subtitles": ("SetSubtitleStreamIndex", "SubtitleStreamIndex")}
 
 
-@tool("control", "Control what a player plays (the one playing, else this computer's mpv): pause, unpause, toggle, stop, next (episode), previous, seek to seconds, forward/back by seconds, volume (level 0-100), volume_up/down, mute, unmute, fullscreen.",
+@tool("control", "Control what a player plays (the one playing, else this computer's mpv): pause, unpause, toggle, stop, next (episode), previous, seek to seconds, forward/back by seconds, volume (level 0-100), volume_up/down, mute, unmute, fullscreen; audio / subtitles switch the track (track: a language, a track index, subtitles \"off\").",
       {"action": {"type": "string", "enum": ACTIONS}, "session": SESSION,
        "seconds": {"type": "number", "minimum": 0, "description": "seek: the position; forward/back: how far (default 30/10)"},
-       "level": {"type": "integer", "minimum": 0, "maximum": 100, "description": "volume: 0-100"}},
+       "level": {"type": "integer", "minimum": 0, "maximum": 100, "description": "volume: 0-100"},
+       "track": {"type": "string", "description": "audio / subtitles: a language (Japanese, English, fr…), a track index, or for subtitles \"off\"."}},
       required=["action"], title="Control playback")
 def t_control(jf, args):
     action = str(need(args, "action")).casefold()
@@ -953,6 +1163,23 @@ def t_control(jf, args):
         done["position"] = clock(target)
         return done
     supported = supported_commands(session)
+    if action in SET_TRACK:
+        needs_playing()
+        command, field = SET_TRACK[action]
+        if supported and command not in supported:
+            raise JfError(f"{session.get('Client')} can't switch {action} tracks from afar")
+        if not args.get("track"):
+            raise JfError(f"{action} needs track: a language, a track index" + (" or off" if action == "subtitles" else ""))
+        now = jf.item(session["NowPlayingItem"]["Id"])
+        tr = tracks(now)
+        index, label, note = choose_track(tr["audio" if action == "audio" else "subtitles"], args["track"], action)
+        if index is None:
+            raise JfError(note or f"no such {action} track")
+        jf.request("POST", f"/Sessions/{sid}/Command", body={"Name": command, "Arguments": {"Index": str(index)}})
+        done["track"] = label
+        seen = confirm(jf, session["Id"], lambda s: (s.get("PlayState") or {}).get(field) == index)
+        done["_meta"] = {"verified": True} if seen else {"observe": {"tool": "sessions", "args": {}}}
+        return done
     name = "SetVolume" if action == "volume" else GENERAL[action]
     if supported and name not in supported:
         raise JfError(f"{session.get('Client')} doesn't support {action}")
@@ -968,7 +1195,70 @@ def t_control(jf, args):
     return done
 
 
-@tool("mark_played", "Mark an item (film, episode, a whole season or series) watched, or not watched.",
+SUBTITLE_MODES = {"default": "Default", "always": "Always", "forced": "OnlyForced", "onlyforced": "OnlyForced",
+                  "none": "None", "off": "None", "smart": "Smart"}
+
+
+def user_config(jf):
+    uid = jf.uid()
+    try:
+        me = jf.request("GET", f"/Users/{q(uid)}")
+    except HttpError:
+        me = jf.request("GET", "/Users/Me")
+    return (me or {}).get("Configuration") or {}
+
+
+def prefs_out(conf):
+    def lang(code):
+        return {"code": code, "language": lang_label(lang_code(code) or code)} if code else None
+    return {"audio_language": lang(conf.get("AudioLanguagePreference")),
+            "play_default_audio": conf.get("PlayDefaultAudioTrack"),
+            "subtitle_language": lang(conf.get("SubtitleLanguagePreference")),
+            "subtitle_mode": conf.get("SubtitleMode")}
+
+
+@tool("track_preferences", "Your Jellyfin playback languages, used by every player when no track is asked for: the audio language, the subtitle language and when subtitles show (subtitle_mode: default, always, forced = only forced ones, none, smart = when the audio isn't in the subtitle language — e.g. Japanese audio with English subtitles). Without arguments, reads them; a language \"\" clears it.",
+      {"audio": {"type": "string", "description": "A language (Japanese, en, fre…), or \"\" for none."},
+       "subtitles": {"type": "string", "description": "A language, or \"\" for none."},
+       "subtitle_mode": {"type": "string", "enum": ["default", "always", "forced", "none", "smart"]},
+       "play_default_audio": {"type": "boolean", "description": "Play the file's default audio track instead of the language (Jellyfin's \"Play default audio track regardless of language\")."}},
+      idempotent=True, title="Audio and subtitle languages")
+def t_track_preferences(jf, args):
+    conf = user_config(jf)
+    changes = {}
+    for arg, key in (("audio", "AudioLanguagePreference"), ("subtitles", "SubtitleLanguagePreference")):
+        if arg in args and args[arg] is not None:
+            value = str(args[arg]).strip()
+            if value and fold(value) not in OFF:
+                code = lang_code(value)
+                if not code:
+                    raise JfError(f"unknown language {value!r}: a name (Japanese, English…) or a code (jpn, en…)")
+                changes[key] = code
+            else:
+                changes[key] = None
+    if args.get("subtitle_mode"):
+        mode = SUBTITLE_MODES.get(fold(args["subtitle_mode"]).replace(" ", ""))
+        if not mode:
+            raise JfError("subtitle_mode: default, always, forced, none or smart")
+        changes["SubtitleMode"] = mode
+    if isinstance(args.get("play_default_audio"), bool):
+        changes["PlayDefaultAudioTrack"] = args["play_default_audio"]
+    if not changes:
+        return prefs_out(conf)
+    new = {**conf, **changes}
+    if changes.get("AudioLanguagePreference") and "PlayDefaultAudioTrack" not in changes:
+        # A language asked for is a language wanted, not the file's default.
+        new["PlayDefaultAudioTrack"] = False
+    uid = jf.uid()
+    jf.compat("POST", [("/Users/Configuration", {"userId": uid}), (f"/Users/{q(uid)}/Configuration", {})], body=new)
+    after = user_config(jf)
+    ok = all(after.get(k) == v for k, v in changes.items())
+    out = {**prefs_out(after), "changed": sorted(changes)}
+    out["_meta"] = {"verified": True} if ok else {"observe": {"tool": "track_preferences", "args": {}}}
+    return out
+
+
+@tool("mark_played","Mark an item (film, episode, a whole season or series) watched, or not watched.",
       {"id": {"type": "string"}, "played": {"type": "boolean"}}, required=["id", "played"], idempotent=True)
 def t_mark_played(jf, args):
     item_id = need(args, "id")
@@ -1072,6 +1362,40 @@ MSG = {
            "error": "Jellyfin: {error}.", "setup": "Jellyfin chưa được thiết lập: xem Cài đặt > Tác nhân máy tính."},
 }
 PLURAL = {"en": "s", "fr": "s", "de": "n", "vi": ""}
+# What the reply says of the tracks: "(Japanese audio, English subtitles)".
+TRACK_SAY = {
+    "en": {"audio": "{l} audio", "subtitles": "{l} subtitles", "off": "no subtitles",
+           "no_audio": "no {l} audio", "no_subtitles": "no {l} subtitles"},
+    "fr": {"audio": "audio {l}", "subtitles": "sous-titres {l}", "off": "sans sous-titres",
+           "no_audio": "pas d'audio {l}", "no_subtitles": "pas de sous-titres {l}"},
+    "de": {"audio": "Ton {l}", "subtitles": "Untertitel {l}", "off": "ohne Untertitel",
+           "no_audio": "kein Ton auf {l}", "no_subtitles": "keine Untertitel auf {l}"},
+    "vi": {"audio": "âm thanh tiếng {l}", "subtitles": "phụ đề tiếng {l}", "off": "không phụ đề",
+           "no_audio": "không có âm thanh tiếng {l}", "no_subtitles": "không có phụ đề tiếng {l}"},
+}
+LOCAL_LANG = {
+    "fr": {"jpn": "japonais", "eng": "anglais", "fre": "français", "ger": "allemand", "vie": "vietnamien",
+           "spa": "espagnol", "ita": "italien", "kor": "coréen", "chi": "chinois"},
+    "de": {"jpn": "Japanisch", "eng": "Englisch", "fre": "Französisch", "ger": "Deutsch", "vie": "Vietnamesisch",
+           "spa": "Spanisch", "ita": "Italienisch", "kor": "Koreanisch", "chi": "Chinesisch"},
+    "vi": {"jpn": "Nhật", "eng": "Anh", "fre": "Pháp", "ger": "Đức", "vie": "Việt", "spa": "Tây Ban Nha",
+           "ita": "Ý", "kor": "Hàn", "chi": "Trung"},
+}
+
+
+def say_tracks(lang, audio, subtitles, track_params):
+    """" (Japanese audio, English subtitles)", or what wasn't there."""
+    words_ = TRACK_SAY[lang]
+    name = lambda code: LOCAL_LANG.get(lang, {}).get(code) or lang_label(code)  # noqa: E731
+    parts = []
+    if audio:
+        parts.append((words_["audio"] if "audioStreamIndex" in track_params else words_["no_audio"]).format(l=name(audio)))
+    if subtitles == "off":
+        parts.append(words_["off"])
+    elif subtitles:
+        parts.append((words_["subtitles"] if "subtitleStreamIndex" in track_params else words_["no_subtitles"])
+                     .format(l=name(subtitles)))
+    return f" ({', '.join(parts)})" if parts else ""
 OR = {"en": " or ", "fr": " ou ", "de": " oder ", "vi": " hay "}
 
 
@@ -1098,6 +1422,94 @@ def guess_lang(text):
     if re.search(r" (spiel|spiele|schau|schaue|zeig|staffel|folge) ", t):
         return "de"
     return "en"
+
+
+def fold_map(text):
+    """fold() without dropping punctuation, and where each folded character
+    came from in the text (to cut a phrase found in the folded text out of
+    what was said)."""
+    out, where = [], []
+    for i, c in enumerate(str(text or "")):
+        f = unicodedata.normalize("NFKD", c).replace("đ", "d").replace("Đ", "D").replace("ß", "ss")
+        for x in "".join(x for x in f if not unicodedata.combining(x)).casefold():
+            out.append(x)
+            where.append(i)
+    return "".join(out), where
+
+
+def _alts(words_):
+    return "|".join(sorted({re.escape(w) for w in words_}, key=len, reverse=True))
+
+
+# Language names that can follow a word for "in" / "subtitles" (not the
+# Vietnamese bare ones, which only follow "tiếng").
+_LANG_WORDS = {n for code, (codes, names) in LANGUAGES.items() for n in names if not n.startswith("tieng ")
+               and n not in ("anh", "han", "nhat", "duc", "viet", "trung", "nga", "phap", "y")}
+_LANG_WORDS |= {n + "en" for n in _LANG_WORDS if n.endswith("isch")}  # englischen, japanischen…
+_LANG_WORDS |= {n + "e" for n in ("englisch", "japanisch", "deutsch", "franzosisch", "spanisch", "italienisch",
+                                  "koreanisch", "chinesisch")}
+_VI_LANG = "nhat|anh|phap|duc|viet|han(?: quoc)?|trung(?: quoc)?|nga|tay ban nha|y|bo dao nha|thai lan"
+L = f"(?:{_alts(_LANG_WORDS)})"
+SUBWORD = r"(?:sub(?:title)?s?|sous[- ]?titre[sé]?s?|untertitel[n]?|vietsub|phu de)"
+# Where the language comes first ("English subtitles", "englische Untertitel"):
+# not French or Vietnamese, which name it after.
+SUBWORD_AFTER = r"(?:sub(?:title)?s?|untertitel[n]?)"
+TRACK_RX = [
+    # No subtitles.
+    ("subtitles", "off", re.compile(rf"\b(?:with ?out|without|no|sans|ohne|khong(?: co)?|tat)\s+{SUBWORD}\b")),
+    # "with English subtitles", "English subs", "mit englischen Untertiteln".
+    ("subtitles", None, re.compile(rf"\b(?:with\s+|mit\s+)?(?P<l>{L})\s+{SUBWORD_AFTER}\b")),
+    # "subtitles in English", "sous-titres anglais", "sous-titré en anglais", "phụ đề tiếng Anh".
+    ("subtitles", None, re.compile(rf"\b(?:with\s+|avec\s+(?:des\s+)?|mit\s+|co\s+)?{SUBWORD}\s+(?:(?:in|en|auf)\s+)?(?P<l>{L})\b")),
+    ("subtitles", None, re.compile(rf"\b(?:co\s+)?phu de\s+(?:tieng\s+)?(?P<v>{_VI_LANG})\b")),
+    ("subtitles", "fre", re.compile(r"\b(?:en\s+)?vostfr\b")),
+    ("subtitles", "ger", re.compile(r"\b(?:als\s+|in\s+)?omu\b")),
+    ("audio", "fre", re.compile(r"\b(?:en\s+)?vf\b")),
+    # "in Japanese", "en japonais", "auf Japanisch", "dubbed in English".
+    ("audio", None, re.compile(rf"\b(?:(?:dubbed\s+)?in|en|auf|double\s+en|version)\s+(?P<l>{L})\b")),
+    # "Japanese audio", "English dub".
+    ("audio", None, re.compile(rf"\b(?P<l>{L})\s+(?:audio|dub(?:bed)?|version|ton|synchro)\b")),
+    # "tiếng Nhật", "lồng tiếng Anh".
+    ("audio", None, re.compile(rf"\b(?:long\s+|bang\s+)?tieng\s+(?P<v>{_VI_LANG})\b")),
+]
+
+
+def split_tracks(text):
+    """(what was said without the track phrases, audio, subtitles): the
+    languages asked for (codes), subtitles "off"."""
+    found = {"audio": None, "subtitles": None}
+    cuts = []
+    folded, where = fold_map(text)
+    for kind, fixed, rx in TRACK_RX:
+        if found[kind] is not None:
+            continue
+        m = rx.search(folded)
+        if not m:
+            continue
+        if any(a < m.end() and m.start() < b for a, b in cuts):
+            continue
+        if fixed:
+            value = fixed
+        else:
+            word = m.group("l") if "l" in rx.groupindex and m.group("l") else None
+            if word:
+                word = re.sub(r"(isch)e[nrsm]?$", r"\1", word)
+                value = lang_code(word)
+            else:
+                value = lang_code("tieng " + m.group("v")) or lang_code(m.group("v"))
+        if not value:
+            continue
+        found[kind] = value
+        cuts.append((m.start(), m.end()))
+    if not cuts:
+        return text, None, None
+    keep = list(str(text))
+    for a, b in cuts:
+        for i in range(where[a], where[b - 1] + 1):
+            keep[i] = " "
+    rest = " ".join("".join(keep).split())
+    rest = re.sub(r"\s+(?:and|et|und|va|với|with|avec|mit)\s*$", "", rest, flags=re.I)
+    return rest, found["audio"], found["subtitles"]
 
 
 def parse_query(text, season=None, episode=None):
@@ -1182,7 +1594,8 @@ def find_title(jf, title, want_series, strict):
 def play_query(text, season=None, episode=None, lang=None, session=None, strict=False):
     lang = lang if lang in MSG else guess_lang(text)
     msg = MSG[lang]
-    title, season, episode = parse_query(text, season, episode)
+    rest, audio, subtitles = split_tracks(text)
+    title, season, episode = parse_query(rest, season, episode)
     out = {"ok": False, "matched": False, "lang": lang, "query": title}
     key, _ = load_key()
     jf = Jellyfin(os.environ.get("JELLYFIN_URL", ""), key, os.environ.get("JELLYFIN_USER", ""))
@@ -1234,12 +1647,17 @@ def play_query(text, season=None, episode=None, lang=None, session=None, strict=
         if not player:
             return {**out, "said": msg["noplayer"], "reason": why, "title": title_of(target),
                     "web_url": jf.web_url(target["Id"])}
-        send_play(jf, player, ids, ticks)
+        track_params, chosen = {}, {}
+        if audio or subtitles:
+            track_params, chosen, _ = pick_tracks(jf.item(target["Id"]), audio, subtitles)
+        send_play(jf, player, ids, ticks, track_params=track_params)
         said = (msg["playing"] if is_local_shim(player) or not session
                 else msg["queued"]).format(title=title_of(target), player=player.get("DeviceName") or player.get("Client"))
+        if audio or subtitles:
+            said = said[:-1] + say_tracks(lang, audio, subtitles, track_params) + said[-1]
         return {**out, "ok": True, "said": said, "title": title_of(target), "kind": TYPE_OUT.get(target.get("Type")),
                 "item_id": target["Id"], "player": player.get("DeviceName") or player.get("Client"),
-                **({"from": clock(ticks)} if ticks else {})}
+                **({"tracks": chosen} if chosen else {}), **({"from": clock(ticks)} if ticks else {})}
     except JfError as exc:
         return {**out, "said": msg["error"].format(error=jf.hide(exc).rstrip(".")), "reason": jf.hide(exc)}
 
@@ -1252,8 +1670,11 @@ INSTRUCTIONS = (
     "The user's Jellyfin library (films, series, music) and its players. Find with search, then "
     "play {item_id}: by default it plays fullscreen in mpv on this computer (the player keeps the "
     "progress and goes on to the next episode itself); name session for Moonfin, a TV or a browser. "
-    "control pauses, seeks, skips and sets the volume of what plays; sessions shows what plays "
-    "where. Other people's players are used only when named.")
+    "control pauses, seeks, skips, sets the volume and switches the audio or subtitle track of what "
+    "plays; play takes audio / subtitles too (a language: \"Japanese\", \"English\"; subtitles "
+    "\"off\"), and item lists an episode's or film's tracks. track_preferences sets the user's "
+    "default languages for every player (e.g. Japanese audio, English subtitles, subtitle_mode "
+    "smart). sessions shows what plays where. Other people's players are used only when named.")
 
 
 class Server:
@@ -1271,17 +1692,20 @@ class Server:
         if not entry:
             raise RpcError(-32602, f"unknown tool: {name}")
         if not isinstance(args, dict):
-            return [text("arguments must be an object")], True
+            return [text("arguments must be an object")], True, None
         try:
             jf = self.client()
             result = entry["fn"](jf, args)
         except JfError as exc:
             msg = self.jf.hide(exc) if self.jf else str(exc)
-            return [text(msg)], True
+            return [text(msg)], True, None
         except (TypeError, ValueError, KeyError) as exc:
             msg = f"{name} failed: {type(exc).__name__}: {exc}"
-            return [text(self.jf.hide(msg) if self.jf else msg)], True
-        return [text(json.dumps(result, ensure_ascii=False, separators=(",", ":")))], False
+            return [text(self.jf.hide(msg) if self.jf else msg)], True, None
+        # _meta: whether the tool saw its own effect (verified), or the read
+        # that shows it (observe) — for agents that check their work.
+        meta = result.pop("_meta", None) if isinstance(result, dict) else None
+        return [text(json.dumps(result, ensure_ascii=False, separators=(",", ":")))], False, meta
 
     def handle(self, msg):
         if not isinstance(msg, dict):
@@ -1309,8 +1733,8 @@ class Server:
         if method == "tools/list":
             return {"tools": [t["spec"] for t in TOOLS.values()]}
         if method == "tools/call":
-            content, is_error = self.call(params.get("name"), params.get("arguments") or {})
-            return {"content": content, "isError": is_error}
+            content, is_error, meta = self.call(params.get("name"), params.get("arguments") or {})
+            return {"content": content, "isError": is_error, **({"_meta": meta} if meta else {})}
         raise RpcError(-32601, f"method not found: {method}")
 
 
