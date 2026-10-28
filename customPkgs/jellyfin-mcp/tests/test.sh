@@ -49,10 +49,23 @@ bash_path=$(command -v bash)
   cat
 } >"$tmp/bin/secret-tool" <<'EOF'
 echo "$*" >>"$STUB_DIR/secret-tool.log"
+# One secret, with the attributes it was stored with (a lookup's must all be
+# among them).
 case "$1" in
-  lookup) [ -f "$STUB_DIR/keyring" ] && cat "$STUB_DIR/keyring" || exit 1 ;;
-  store) cat >"$STUB_DIR/keyring" ;;
-  clear) rm -f "$STUB_DIR/keyring" ;;
+  lookup)
+    [ -f "$STUB_DIR/keyring" ] || exit 1
+    shift
+    while [ $# -ge 2 ]; do
+      grep -qF " $1 $2 " "$STUB_DIR/keyring.attrs" 2>/dev/null || exit 1
+      shift 2
+    done
+    cat "$STUB_DIR/keyring" ;;
+  store)
+    shift
+    case "$1" in --label=*) shift ;; esac
+    echo " $* " >"$STUB_DIR/keyring.attrs"
+    cat >"$STUB_DIR/keyring" ;;
+  clear) rm -f "$STUB_DIR/keyring" "$STUB_DIR/keyring.attrs" ;;
 esac
 EOF
 {
@@ -151,7 +164,7 @@ expect_match "not set up: says where to set it" "Settings > Desktop agents" "$(t
 r=$(JELLYFIN_API_KEY="" call search '{"query":"dune"}')
 expect_match "no key anywhere: not set up" "isn't set up" "$(text_of <<<"$r")"
 r=$(JELLYFIN_API_KEY="wrong-key-999" call search '{"query":"dune"}')
-expect_match "a wrong key: refused (401)" "refused the API key \(HTTP 401\)" "$(text_of <<<"$r")"
+expect_match "a wrong key: refused (401)" "refused Claude's login \(HTTP 401\)" "$(text_of <<<"$r")"
 expect_no "a wrong key: never shown" "wrong-key-999" "$r"
 mkdir -p "$HOME/.config/jf"
 printf '%s\n' "$KEY" >"$HOME/.config/jf/key"
@@ -159,6 +172,7 @@ printf '%s\n' "$KEY" >"$HOME/.config/jf/key"
 r=$(JELLYFIN_API_KEY="" JELLYFIN_API_KEY_FILE="~/.config/jf/key" call search '{"query":"spirited"}')
 expect_match "the key from a file (~/ expanded)" "mov-spirited" "$(text_of <<<"$r")"
 printf '%s' "$KEY" >"$STUB_DIR/keyring"
+echo " service jellyfin-mcp " >"$STUB_DIR/keyring.attrs"
 r=$(JELLYFIN_API_KEY="" call search '{"query":"spirited"}')
 expect_match "the key from the keyring (service jellyfin-mcp)" "mov-spirited" "$(text_of <<<"$r")"
 expect_match "keyring looked up by its attributes" "lookup service jellyfin-mcp" "$(cat "$STUB_DIR/secret-tool.log")"
@@ -359,7 +373,7 @@ expect_eq "credentials status: no key" "$(jq -c '{has_key, key_source}' <<<"$r")
 r=$(printf '%s\n' "$KEY" | JELLYFIN_API_KEY="" "${jmcp[@]}" credentials test "$url/")
 expect_eq "credentials test: checked, nothing saved" "$(jq -r '.server + " " + .user + " " + (.movies|tostring)' <<<"$r") $([ -f "$STUB_DIR/keyring" ] && echo saved || echo none)" "Fake Jellyfin Khoa 4 none"
 r=$(printf '%s\n' "bad-key-777" | JELLYFIN_API_KEY="" "${jmcp[@]}" credentials save "$url" || true)
-expect_match "credentials save: a bad key refused, not saved" "refused the API key" "$(jq -r .error <<<"$r")$([ -f "$STUB_DIR/keyring" ] && echo saved)"
+expect_match "credentials save: a bad key refused, not saved" "refused Claude's login" "$(jq -r .error <<<"$r")$([ -f "$STUB_DIR/keyring" ] && echo saved)"
 expect_no "credentials save: the bad key not printed" "bad-key-777" "$r"
 r=$(printf '%s\n' "$KEY" | JELLYFIN_API_KEY="" "${jmcp[@]}" credentials save "$url" Khoa)
 expect_eq "credentials save: in the keyring" "$(jq -r '.has_key, .key_source' <<<"$r" | paste -sd' ') $(cat "$STUB_DIR/keyring")" "true keyring $KEY"
@@ -418,6 +432,75 @@ expect_eq "play-query: no player" "$(jq -r '(.ok|tostring) + " " + (.matched|tos
   "false true The player isn't connected: connect it in Settings > Desktop agents > Jellyfin."
 r=$(JELLYFIN_API_KEY="" pq "play spirited away")
 expect_eq "play-query: not set up" "$(jq -r '(.matched|tostring) + " " + .reason' <<<"$r")" "false not configured"
+
+# -- signing in as a user: no admin, no API key --------------------------------
+rm -f "$STUB_DIR/keyring" "$STUB_DIR/keyring.attrs"
+state="$HOME/.local/state/jellyfin-mcp/login.json"
+login() { printf '%s\n' "$2" | JELLYFIN_API_KEY="" "${jmcp[@]}" credentials login "$url" "$1" "${@:3}" || true; }
+r=$(login guest wrong)
+expect_match "login: a wrong password" "refused this username or password" "$(jq -r .error <<<"$r")"
+expect_match "login: points at app passwords" "app password" "$(jq -r .error <<<"$r")"
+expect_no "login: a refused password never printed" "wrong" "$(jq -r .error <<<"$r" | sed 's/refused this username or password//')"
+: >"$log"
+r=$(login guest guest-pass)
+expect_eq "login: signed in as that user, no admin" \
+  "$(jq -r '.kind + " " + .signed_in_as + " " + .user + " " + (.movies|tostring)' <<<"$r")" "token guest guest 4"
+expect_eq "login: as the assistant's own device" "$(last_req /Users/AuthenticateByName | jq -r .client.Client)" "nixbook-jellyfin-mcp"
+expect_match "login: the token kept in the keyring, marked as one" "kind token" "$(cat "$STUB_DIR/keyring.attrs")"
+guest_token=$(cat "$STUB_DIR/keyring")
+expect_no "login: the token never printed" "$guest_token" "$r"
+expect_no "login: the password not kept" "guest-pass" "$(cat "$STUB_DIR/keyring" "$state")"
+expect_eq "login: who signed in, 0600" "$(stat -c %a "$state") $(jq -r .user "$state")" "600 guest"
+r=$(JELLYFIN_API_KEY="" "${jmcp[@]}" credentials status)
+expect_eq "credentials status: signed in" "$(jq -c '{has_key, key_source, kind, signed_in_as}' <<<"$r")" \
+  '{"has_key":true,"key_source":"keyring","kind":"token","signed_in_as":"guest"}'
+: >"$log"
+r=$(JELLYFIN_API_KEY="" JELLYFIN_USER=Khoa call search '{"query":"spirited"}')
+expect_match "a user's token: the tools work" "mov-spirited" "$(text_of <<<"$r")"
+expect_eq "a user's token: acts as that user (JELLYFIN_USER is for API keys)" "$(last_req /Items | jq -r .query.userId)" "u-guest"
+expect_eq "a user's token: never asks for the user list" "$(grep -c '"path": "/Users"' "$log")" "0"
+cat >"$sessions" <<'EOF'
+[{"Id": "s-tv", "Client": "Jellyfin Android TV", "DeviceName": "Living room TV", "DeviceId": "dev-tv",
+  "UserId": "u-guest", "UserName": "guest", "SupportsRemoteControl": true,
+  "NowPlayingItem": {"Id": "mov-dune21", "Type": "Movie", "Name": "Dune", "RunTimeTicks": 93000000000},
+  "PlayState": {"PositionTicks": 6000000000, "IsPaused": false, "PlayMethod": "Transcode"},
+  "TranscodingInfo": {"VideoCodec": "h264", "AudioCodec": "aac", "IsVideoDirect": false, "IsAudioDirect": false,
+                      "Bitrate": 10000000, "TranscodeReasons": ["ContainerBitrateExceedsLimit"]}},
+ {"Id": "s-moonfin", "Client": "Moonfin", "DeviceName": "totoro", "DeviceId": "dev-moon", "UserId": "u-admin",
+  "UserName": "Khoa", "SupportsRemoteControl": true}]
+EOF
+r=$(JELLYFIN_API_KEY="" call sessions | text_of)
+expect_eq "a user's token: only the players that user controls" "$(jq -c '[.sessions[].id]' <<<"$r")" '["s-tv"]'
+expect_eq "a user's token: asks for those" "$(last_req /Sessions | jq -r .query.controllableByUserId)" "u-guest"
+expect_eq "sessions: how it plays, and why it transcodes" "$(jq -c '.sessions[0].now_playing | {play_method, transcode}' <<<"$r")" \
+  '{"play_method":"Transcode","transcode":{"reasons":["ContainerBitrateExceedsLimit"],"video":"h264","audio":"aac","mbps":10.0}}'
+r=$(JELLYFIN_API_KEY="" call play '{"item_id":"mov-spirited","session":"tv"}' | text_of)
+expect_eq "a user's token: plays on that user's player" "$(jq -r .on.id <<<"$r")" "s-tv"
+
+# A server with a two-factor plugin: the account's password gives a session
+# it holds back; an app password works.
+: >"$log"
+r=$(login Mai mai-password)
+expect_match "2FA: the password's session held back, said" "blocks the session.*app password" "$(jq -r .error <<<"$r")"
+expect_eq "2FA: that session ended on the server" "$(grep -c '"path": "/Sessions/Logout"' "$log")" "1"
+expect_eq "2FA: the previous sign-in kept" "$(cat "$STUB_DIR/keyring")" "$guest_token"
+: >"$log"
+r=$(login Mai mai-app-password --player)
+expect_eq "2FA: an app password signs in" "$(jq -r '.kind + " " + .user' <<<"$r")" "token Mai"
+expect_eq "login --player: the player signed in too" \
+  "$(jq -r '.player.ok, .player.user' <<<"$r" | paste -sd' ') $(jq -r '.users[0].credentials[-1].username' "$shimdir/users.json")" "true Mai Mai"
+expect_eq "login --player: the player as itself" "$(grep -F '"Jellyfin MPV Shim"' "$log" | grep -c AuthenticateByName)" "1"
+expect_eq "login again: the previous token ended on the server" "$(grep -c '"path": "/Sessions/Logout"' "$log")" "1"
+r=$(JELLYFIN_API_KEY="$guest_token" call search '{"query":"spirited"}')
+expect_match "an ended token: refused, says how to fix it" "refused Claude's login \(HTTP 401\).*sign in again" "$(text_of <<<"$r")"
+mai_token=$(cat "$STUB_DIR/keyring")
+r=$(JELLYFIN_API_KEY="" "${jmcp[@]}" credentials forget)
+expect_eq "sign out: ended on the server, forgotten here" \
+  "$(jq -r '.signed_out, .has_key' <<<"$r" | paste -sd' ') $([ -f "$state" ] && echo kept || echo gone)" "true false gone"
+r=$(JELLYFIN_API_KEY="$mai_token" call search '{"query":"spirited"}')
+expect_match "sign out: the token stops working" "HTTP 401" "$(text_of <<<"$r")"
+r=$(printf '%s\n' "$KEY" | JELLYFIN_API_KEY="" "${jmcp[@]}" credentials save "$url" Khoa)
+expect_eq "an API key after a sign-in" "$(jq -r .kind <<<"$r")$(tr -s ' ' <"$STUB_DIR/keyring.attrs")" "apikey service jellyfin-mcp kind apikey "
 
 # -- a slow server ------------------------------------------------------------
 kill "$fake_pid"

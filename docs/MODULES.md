@@ -747,7 +747,7 @@ Whether to enable nixbook-shell, nixbook's Quickshell (QML) desktop shell (`prog
 - **Type:** `null or boolean`
 - **Default:** `null`
 
-Whether to offer the nixbook-shell AI chat (Claude in the side panel and its speech bubble) the user's Jellyfin library through `customPkgs.jellyfin-mcp`: search, details, continue watching, next up, what plays where; play and control it, mark watched, favourites, playlists. Also the bubble's instant "play <title> season N episode M" (no model). Off in the chat until set up in Settings > Desktop agents > Apps it can use (server, API key; or the `ai.jellyfin` settings).
+Whether to offer the nixbook-shell AI chat (Claude in the side panel and its speech bubble) the user's Jellyfin library through `customPkgs.jellyfin-mcp`: search, details, continue watching, next up, what plays where; play and control it, mark watched, favourites, playlists. Also the bubble's instant "play <title> season N episode M" (no model). Off in the chat until set up in Settings > Desktop agents > Apps it can use (the server, then a sign-in with your own Jellyfin account — no admin needed — or an admin's API key; or the `ai.jellyfin` settings).
 
 ### `customHomeManagerModules.nixbookShellConfig.jellyfinMcp.player.enable`
 
@@ -755,6 +755,13 @@ Whether to offer the nixbook-shell AI chat (Claude in the side panel and its spe
 - **Default:** `null`
 
 Whether this computer is a Jellyfin player: jellyfin-mpv-shim as the `jellyfin-mpv-shim` user service, playing in your own mpv (fullscreen, your mpv config), castable from Jellyfin's apps, and where jellyfin-mcp plays by default. It saves progress, marks watched and plays the next episode itself. It starts once signed in, from Settings > Desktop agents > Apps it can use ("Connect the player").
+
+### `customHomeManagerModules.nixbookShellConfig.jellyfinMcp.player.maxBitrateMbps`
+
+- **Type:** `null or (positive integer, meaning >0)`
+- **Default:** `null`
+
+The most the player streams from a server it doesn't see on the local network (in Mbit/s); more is transcoded by the server. `null`: no limit, so it plays the files as they are (mpv plays almost anything). jellyfin-mpv-shim's own default is 10, which transcodes most 1080p and every 4K file from a server behind a public address, a reverse proxy or a VPN (100.64.0.0/10 isn't "local" to it). The server's own limits (Dashboard > Users > the user's "Internet streaming bitrate limit", Dashboard > Playback > Streaming) still apply.
 
 ### `customHomeManagerModules.nixbookShellConfig.linkedinMcp.enable`
 

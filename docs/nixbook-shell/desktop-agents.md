@@ -137,18 +137,30 @@ library and its players through `jellyfin-mcp`
 ([its package](/packages/#jellyfin-mcp)), offered where Moonfin is installed
 (`nixbookShellConfig.jellyfinMcp.enable`) and off until set up:
 
-1. **Settings → Desktop agents → Apps it can use**: turn **Jellyfin** on,
-   enter your server (`ai.jellyfin.url`), the user whose library and progress
-   to use (`ai.jellyfin.user`, empty: the first administrator) and an API key
-   (Jellyfin: **Dashboard → API Keys**), then **Save and check**, which tries
-   them on the server first. The key goes to your keyring
-   (`service=jellyfin-mcp`), never a file or a command line; or set
-   `ai.jellyfin.apiKeyFile` in Nix. **Test** checks it again, **Forget the
-   key** removes it.
-2. **Connect the player**, once, with your Jellyfin username and password:
-   it signs this computer's player in. The password isn't kept: the player
-   keeps its own login (`~/.config/jellyfin-mpv-shim/users.json`).
-   **Disconnect the player** signs it out.
+1. **Settings → Desktop agents → Apps it can use**: turn **Jellyfin** on and
+   enter your server (`ai.jellyfin.url`).
+2. **Sign in** with your own Jellyfin username and password: no admin and no
+   API key needed. Claude then acts as you (your library, progress, favourites
+   and players) with a login of its own, kept in your keyring
+   (`service=jellyfin-mcp`); the same sign-in connects this computer's
+   player, with its own login too
+   (`~/.config/jellyfin-mpv-shim/users.json`). The password isn't kept.
+   **Test** checks the sign-in, **Sign out** ends Claude's session on the
+   server and forgets it; **Disconnect the player** signs the player out.
+   Each user of the computer signs in as themselves.
+3. With **two-factor authentication** on the server (the
+   [JellyfinSecurity](https://github.com/ZL154/JellyfinSecurity) plugin…),
+   neither Claude nor the player can type a code: create an **app password**
+   for them in the plugin's page (`https://<server>/TwoFactorAuth/Setup`) and
+   sign in with it instead of your account's password. Signed in with the
+   account's password, the plugin holds the session back: Settings says so
+   and ends that session.
+
+An admin's **API key** (Jellyfin: **Dashboard → API Keys**) still works:
+**Use an admin API key instead**, then the user whose library to use
+(`ai.jellyfin.user`, empty: the first administrator) and **Save and check**;
+or `ai.jellyfin.apiKeyFile` in Nix. It reaches every user's library, so a
+sign-in is the better choice for anyone but the server's admin.
 
 **Where it plays.** By default fullscreen on this computer, in your own mpv
 (its `mpv.conf`, scripts and keys): the `jellyfin-mpv-shim` user service
@@ -158,8 +170,21 @@ on to the next episode itself; nixbook's settings for it are merged into its
 `conf.json` on each switch, the rest of the file kept. Asked to play on
 **Moonfin**, the **TV** or a browser, Claude plays there instead, when that
 player takes remote control (the `sessions` tool says which do; other
-people's screens only when named). A series starts at its next episode, an
-episode or film where you stopped.
+people's screens only when named; signed in as a user, only that user's
+players). A series starts at its next episode, an episode or film where you
+stopped.
+
+**Direct play.** The player plays the files as they are: mpv plays almost
+anything. jellyfin-mpv-shim itself limits a server it doesn't see on the
+local network (a public address, a reverse proxy, a VPN: `100.64.0.0/10`
+isn't local to it) to 10 Mbit/s, which made the server transcode most 1080p
+and every 4K file (`TranscodeReasons=ContainerBitrateExceedsLimit` in its
+log); nixbook lifts that limit. Set
+`nixbookShellConfig.jellyfinMcp.player.maxBitrateMbps` on a slow link. The
+server's own limits still apply (**Dashboard → Users →** the user →
+**Internet streaming bitrate limit**, **Dashboard → Playback → Streaming**).
+Ask Claude "why is it transcoding?": the `sessions` tool gives each player's
+play method and the server's reasons.
 
 **Its tools**: `search`, `item`, `continue_watching`, `next_up`,
 `recently_added`, `sessions` (read only); `play` (now, next or last in the
