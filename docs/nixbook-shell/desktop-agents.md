@@ -215,6 +215,44 @@ naming music, a song, an album, Spotify… goes to Claude), and without a
 season or an episode only a strong title match plays; an unknown title or a
 question ("which one?") goes on to Claude as before.
 
+### Seerr
+
+Claude requests what you don't have yet from your Seerr (Overseerr /
+Jellyseerr) through `seerr-mcp` ([its package](/packages/#seerr-mcp)),
+offered with Jellyfin (`nixbookShellConfig.seerrMcp.enable`) and off until
+set up:
+
+1. **Settings → Desktop agents → Apps it can use**: turn **Seerr** on and
+   enter its server (`ai.seerr.url`).
+2. **Your own login, no admin key**: Seerr has no per-user API key, and a
+   server with **OpenID Connect only** logs in through the browser. So
+   **Open Seerr in my browser**, sign in there as usual (in Zen, Firefox,
+   LibreWolf, Floorp, Chrome, Chromium, Brave, Vivaldi or Edge), then **Use
+   my browser's login**: `seerr-mcp login-from-browser` reads only Seerr's
+   session cookie (`connect.sid`, for that server) from the browser's cookie
+   file (a copy of it; Chromium-family cookies are decrypted with the
+   browser's key from your keyring), checks it on the server and keeps it in
+   your keyring (`service=seerr-mcp`). Claude then acts as you, with your
+   permissions and quota. Chrome writes a new login to disk within about
+   30 s, so wait a moment after signing in. When the session ends, do it
+   again; **Sign out** forgets it here only (logging it out would sign your
+   browser out too).
+3. **Or an admin's API key**: **Use an admin API key instead**, then the key
+   (Seerr: **Settings → General → API Key**; any login method) and **Request
+   as**: your Seerr user (a name, an email or an id; **Pick from the
+   server's users** lists them), sent as Seerr's `X-API-User` so requests
+   are yours and counted in your quota. **Save and check**, **Test**,
+   **Forget the key**; or `ai.seerr.apiKeyFile` in Nix.
+
+**Its tools**: `search`, `details` (a series' seasons, each with its status),
+`trending`, `upcoming`, `requests` (yours by default, by status, with their
+titles), `whoami` (who requests go out as, your quota) — read only;
+`request` (a film, or a series' seasons: every one missing by default, never
+one already available or requested), `cancel_request`, `approve_request`,
+`decline_request` (the last two need a user allowed to manage requests).
+Ask "request Dune Part Two", "add season 2 of Edgerunners", "where are my
+requests?"; what is already available, Claude plays from Jellyfin instead.
+
 ## Guardrails
 
 Whatever the transport:

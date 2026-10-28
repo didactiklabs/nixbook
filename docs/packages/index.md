@@ -165,7 +165,7 @@ An MCP server (0.1.0, stdlib Python, source in `customPkgs/jellyfin-mcp/`) for y
 
 - **Tools**: `search` (films, series, episodes, songs, albums, artists), `item` (details; a series' seasons and next episode, what a season, album or playlist holds), `continue_watching`, `next_up`, `recently_added`, `sessions` (the connected players, what each plays and how — direct play or transcoded, and why —, whether it takes remote control), `play` (an item, or a whole series, season, album, artist or playlist: now, next or last in the queue, from where you stopped; with audio and subtitles in a language asked for, or subtitles off), `control` (pause, unpause, toggle, stop, next, previous, seek, forward, back, volume, mute, fullscreen, and switching the audio or subtitle track), `track_preferences` (the user's default audio and subtitle languages and subtitle mode, for every player), `mark_played`, `favorite`, `playlists`, `playlist_add`.
 - **Where it plays**: through the server, by default on this computer's player, [jellyfin-mpv-shim](https://github.com/jellyfin/jellyfin-mpv-shim) (`jellyfinMcp.player.enable`, the `jellyfin-mpv-shim` user service: your own mpv, fullscreen, no window or tray of its own; it saves progress, marks watched and goes on to the next episode). Moonfin, a TV or a browser when named, if it accepts remote control; other people's screens only when named.
-- **The CLI** nixbook-shell uses: `configured`, `play-query TEXT` (the bubble's instant "play … season N episode M", no model: see [Fast commands](/nixbook-shell/quick-ai#fast-commands)), `credentials status|login|save|test|forget` (`login URL USERNAME [--player]`: the password on stdin, signs in as that user and keeps the token; `save`/`test`: an admin's API key on stdin, checked on the server; `forget` ends a sign-in's session on the server), `shim-login URL USERNAME` (the password on stdin: signs the player in, then restarts it), `shim-status`, `shim-logout`.
+- **The CLI** nixbook-shell uses: `configured`, `play-query TEXT` (the bubble's instant "play … season N episode M", no model: see [At once, without Claude](/nixbook-shell/desktop-agents#jellyfin)), `credentials status|login|save|test|forget` (`login URL USERNAME [--player]`: the password on stdin, signs in as that user and keeps the token; `save`/`test`: an admin's API key on stdin, checked on the server; `forget` ends a sign-in's session on the server), `shim-login URL USERNAME` (the password on stdin: signs the player in, then restarts it), `shim-status`, `shim-logout`.
 
 Set it up in **Settings → Desktop agents → Apps it can use**: turn **Jellyfin** on, enter the server, then **Sign in** with your own Jellyfin username and password (an app password with two-factor authentication, e.g. the JellyfinSecurity plugin): no admin or API key needed. Claude gets a login of its own as you, in your keyring (`secret-tool`, `service=jellyfin-mcp`), and the player of this computer one of its own (`~/.config/jellyfin-mpv-shim/users.json`); the password isn't kept. An admin's API key (Jellyfin: **Dashboard → API Keys**, **Use an admin API key instead**) still works, for the user named in `ai.jellyfin.user`. The server can be set in Nix, which locks it in Settings:
 
@@ -182,6 +182,24 @@ customHomeManagerModules.nixbookShellConfig.settings.ai = {
 ```
 
 The credential (a sign-in's token or an API key) comes from `JELLYFIN_API_KEY`, else `apiKeyFile` (`~/` is your home), else the keyring; which one it is is told by `GET /Users/Me`, which only a user's token answers. A token, a key or a password is never printed, logged, put in a tool result or on a command line. The player plays the files as they are: nixbook lifts jellyfin-mpv-shim's 10 Mbit/s limit for servers outside the local network (`jellyfinMcp.player.maxBitrateMbps` sets one). The package's install check runs every tool against a fake Jellyfin.
+
+## seerr-mcp
+
+An MCP server (0.1.0, stdlib Python, source in `customPkgs/seerr-mcp/`) for your [Seerr](https://github.com/seerr-team/seerr) (Overseerr / Jellyseerr), for the nixbook-shell side panel's Claude (and so its speech bubble) only: it isn't installed on the PATH. `nixbookShellConfig` offers it with Jellyfin (`seerrMcp.enable`), off until you set it up.
+
+- **Tools**: `search` (films and series, each with its status: available, on its way, requested, not requested), `details` (a series' seasons each with its status, the requests), `request` (a film, or a series' seasons — every missing one by default —, 4K), `requests` (yours by default, filtered by status, with titles), `cancel_request`, `approve_request`, `decline_request`, `trending`, `upcoming`, `whoami` (who requests go out as, the quota left).
+- **The CLI** nixbook-shell uses: `configured`, `login-from-browser URL` (your own login), `credentials status|save|test|forget` (the API key on stdin, checked on the server), `users URL` (to pick who requests go out as).
+
+**Authentication**, two ways. **Your own login** (no admin key): sign in to Seerr in your browser as usual (OpenID Connect included) and `login-from-browser` takes only Seerr's session cookie (`connect.sid`, for that host) from its cookie file — Zen, Firefox, LibreWolf, Floorp (in clear), Chrome, Chromium, Brave, Vivaldi, Edge (decrypted with the browser's key from the keyring: `v10`/`v11`, AES-128-CBC in stdlib Python) —, checks it with `/auth/me` and keeps it in the keyring (`kind session`); seerr-mcp then acts as you until the session ends. **Or an admin's API key** (**Settings → General → API Key**, any login method): requests go out as `SEERR_USER` (a user id, name or email, sent as Seerr's `X-API-User`), shown as theirs and counted in their quota; without it, as the key's admin. Set it up in **Settings → Desktop agents → Apps it can use → Seerr**, or in Nix (the server and user; the key from the keyring or a file outside the store):
+
+```nix
+customHomeManagerModules.nixbookShellConfig.settings.ai.seerr = {
+  url = "https://seerr.example.org";
+  user = "khoa";
+};
+```
+
+The credential comes from `SEERR_SESSION` or `SEERR_API_KEY`, else `SEERR_API_KEY_FILE` (`~/` is your home), else the keyring (`service=seerr-mcp`); it is never printed, logged, put in a tool result or on a command line. The package's install check runs every tool against a fake Seerr, and the browser login against fake Firefox and Chrome cookie files.
 
 ## moonfin
 
