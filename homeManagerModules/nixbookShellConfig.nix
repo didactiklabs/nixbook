@@ -62,7 +62,8 @@ let
       immich.command = lib.getExe pkgs.customPkgs.immich-photo-manager;
     }
     # Jellyfin (jellyfinMcp.enable), off in the chat until set up in
-    # Settings (server, API key, the player's login) or in Nix (ai.jellyfin).
+    # Settings (server, a sign-in or an admin's API key, the player's login)
+    # or in Nix (ai.jellyfin).
     // lib.optionalAttrs jellyfinOn {
       jellyfin.command = lib.getExe pkgs.customPkgs.jellyfin-mcp;
     };
@@ -88,6 +89,13 @@ let
     mpv_ext_no_ovr = true;
     mpv_ext_start = true;
     fullscreen = true;
+    # Direct play: jellyfin-mpv-shim's 10 Mbit/s for "remote" servers (any
+    # not on a private address) made the server transcode most files.
+    remote_kbps =
+      if cfg.jellyfinMcp.player.maxBitrateMbps == null then
+        2147483
+      else
+        cfg.jellyfinMcp.player.maxBitrateMbps * 1000;
     enable_gui = false;
     check_updates = false;
     notify_updates = "disabled";
@@ -314,8 +322,9 @@ in
         up, what plays where; play and control it, mark watched, favourites,
         playlists. Also the bubble's instant "play <title> season N episode
         M" (no model). Off in the chat until set up in Settings > Desktop
-        agents > Apps it can use (server, API key; or the `ai.jellyfin`
-        settings).
+        agents > Apps it can use (the server, then a sign-in with your own
+        Jellyfin account — no admin needed — or an admin's API key; or the
+        `ai.jellyfin` settings).
       '';
     };
     player.enable = lib.mkOption {
@@ -329,6 +338,22 @@ in
         where jellyfin-mcp plays by default. It saves progress, marks watched
         and plays the next episode itself. It starts once signed in, from
         Settings > Desktop agents > Apps it can use ("Connect the player").
+      '';
+    };
+    player.maxBitrateMbps = lib.mkOption {
+      type = lib.types.nullOr lib.types.ints.positive;
+      default = null;
+      example = 20;
+      description = ''
+        The most the player streams from a server it doesn't see on the
+        local network (in Mbit/s); more is transcoded by the server.
+        `null`: no limit, so it plays the files as they are (mpv plays
+        almost anything). jellyfin-mpv-shim's own default is 10, which
+        transcodes most 1080p and every 4K file from a server behind a
+        public address, a reverse proxy or a VPN (100.64.0.0/10 isn't
+        "local" to it). The server's own limits (Dashboard > Users > the
+        user's "Internet streaming bitrate limit", Dashboard > Playback >
+        Streaming) still apply.
       '';
     };
   };

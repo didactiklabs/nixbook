@@ -8,7 +8,11 @@ token), and reads the sessions from SESSIONSFILE on each request (the tests
 change it). Jellyfin 10.11's routes; while SESSIONSFILE.old exists, only
 the older /Users/{id}/... ones. FAKE_SLOW=1: /System/Info/Public takes 3 s. Only the
 Authorization header's Token is accepted (Jellyfin 10.11 ignores
-X-Emby-Token unless legacy authorization is on).
+X-Emby-Token unless legacy authorization is on): the API key, or a token
+AuthenticateByName gave (a user's: /Users/Me answers it, a non-admin's can't
+list the users and only sees its own sessions; /Sessions/Logout ends it).
+"Mai" stands for a server with a two-factor plugin: her password gives a
+token every call refuses, her app password a working one.
 """
 
 import json
@@ -26,7 +30,13 @@ port_file, log_file, sessions_file = sys.argv[1:4]
 USERS = [
     {"Id": "u-guest", "Name": "guest", "Policy": {"IsAdministrator": False}},
     {"Id": "u-admin", "Name": "Khoa", "Policy": {"IsAdministrator": True}},
+    {"Id": "u-mai", "Name": "Mai", "Policy": {"IsAdministrator": False}},
 ]
+# name -> {password: blocked?}
+ACCOUNTS = {"Khoa": {PASSWORD: False}, "guest": {"guest-pass": False},
+            "Mai": {"mai-password": True, "mai-app-password": False}}
+# token -> {user, blocked}; revoked ones are dropped.
+TOKENS = {}
 
 
 def ud(played=False, pos=0, fav=False, pct=None):
@@ -129,12 +139,32 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(200, {"ServerName": "Fake Jellyfin", "Version": "10.11.0", "Id": "srv-1",
                                     "ProductName": "Jellyfin Server"})
         if path == "/Users/AuthenticateByName" and method == "POST":
-            if (body or {}).get("Username") == "Khoa" and (body or {}).get("Pw") == PASSWORD:
-                return self.reply(200, {"User": {"Id": "u-admin", "Name": "Khoa"}, "AccessToken": "user-token-abc",
-                                        "ServerId": "srv-1", "SessionInfo": {}})
+            name, pw = (body or {}).get("Username"), (body or {}).get("Pw")
+            if pw not in ACCOUNTS.get(name, {}):
+                return self.reply(401)
+            user = next(u for u in USERS if u["Name"] == name)
+            if name == "Khoa":
+                token = "user-token-abc"
+            else:
+                slug = re.sub(r"[^a-z]", "", client.get("Client", "").lower())
+                token = f"{name.lower()}-{slug}-{len(TOKENS)}"
+            TOKENS[token] = {"user": user, "blocked": ACCOUNTS[name][pw]}
+            return self.reply(200, {"User": {"Id": user["Id"], "Name": name}, "AccessToken": token,
+                                    "ServerId": "srv-1", "SessionInfo": {}})
+        token = fields.get("Token")
+        me = None
+        if token == KEY:
+            pass
+        elif token == "user-token-abc" or (token in TOKENS and not TOKENS[token]["blocked"]):
+            me = TOKENS.get(token, {"user": USERS[1]})["user"]
+        else:
             return self.reply(401)
-        if fields.get("Token") != KEY:
-            return self.reply(401)
+        if path == "/Users/Me":
+            return self.reply(200, me) if me else self.reply(400)
+        if path == "/Sessions/Logout" and method == "POST":
+            TOKENS.pop(token, None)
+            return self.reply(204)
+        admin = me is None or me["Policy"]["IsAdministrator"]
         old = __import__("os").path.exists(sessions_file + ".old")
         m = re.match(r"^/Users/([^/]+)(/.*)$", path)
         if m and m.group(1) not in ("AuthenticateByName", "Me") and m.group(2) != "":
@@ -160,13 +190,16 @@ class Handler(BaseHTTPRequestHandler):
             if path != "/Items/Counts":
                 return self.reply(404)
         if path == "/Users":
-            return self.reply(200, USERS)
+            return self.reply(200, USERS) if admin else self.reply(403)
         if path == "/Items/Counts":
             return self.reply(200, {"MovieCount": 4, "SeriesCount": 1, "EpisodeCount": 10, "SongCount": 3,
                                     "AlbumCount": 1})
         if path == "/Sessions":
             with open(sessions_file, encoding="utf-8") as f:
-                return self.reply(200, json.load(f))
+                sessions = json.load(f)
+            if not admin:
+                sessions = [x for x in sessions if x.get("UserId") == me["Id"]]
+            return self.reply(200, sessions)
         if path == "/Items":
             items = [i for i in ITEMS if i["Type"] not in ("Season",)]
             if query.get("IncludeItemTypes"):

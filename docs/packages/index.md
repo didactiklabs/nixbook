@@ -163,24 +163,25 @@ customHomeManagerModules.nixbookShellConfig.settings.ai = {
 
 An MCP server (0.1.0, stdlib Python, source in `customPkgs/jellyfin-mcp/`) for your [Jellyfin](https://jellyfin.org) library and the players playing from it, for the nixbook-shell side panel's Claude (and so its speech bubble) only: it isn't installed on the PATH. `nixbookShellConfig` offers it where Moonfin is installed (`jellyfinMcp.enable`), off until you set it up.
 
-- **Tools**: `search` (films, series, episodes, songs, albums, artists), `item` (details; a series' seasons and next episode, what a season, album or playlist holds), `continue_watching`, `next_up`, `recently_added`, `sessions` (the connected players, what each plays, whether it takes remote control), `play` (an item, or a whole series, season, album, artist or playlist: now, next or last in the queue, from where you stopped), `control` (pause, unpause, toggle, stop, next, previous, seek, forward, back, volume, mute, fullscreen), `mark_played`, `favorite`, `playlists`, `playlist_add`.
+- **Tools**: `search` (films, series, episodes, songs, albums, artists), `item` (details; a series' seasons and next episode, what a season, album or playlist holds), `continue_watching`, `next_up`, `recently_added`, `sessions` (the connected players, what each plays and how — direct play or transcoded, and why —, whether it takes remote control), `play` (an item, or a whole series, season, album, artist or playlist: now, next or last in the queue, from where you stopped), `control` (pause, unpause, toggle, stop, next, previous, seek, forward, back, volume, mute, fullscreen), `mark_played`, `favorite`, `playlists`, `playlist_add`.
 - **Where it plays**: through the server, by default on this computer's player, [jellyfin-mpv-shim](https://github.com/jellyfin/jellyfin-mpv-shim) (`jellyfinMcp.player.enable`, the `jellyfin-mpv-shim` user service: your own mpv, fullscreen, no window or tray of its own; it saves progress, marks watched and goes on to the next episode). Moonfin, a TV or a browser when named, if it accepts remote control; other people's screens only when named.
-- **The CLI** nixbook-shell uses: `configured`, `play-query TEXT` (the bubble's instant "play … season N episode M", no model: see [Jellyfin](/nixbook-shell/desktop-agents#jellyfin)), `credentials status|save|test|forget` (the API key on stdin, checked on the server), `shim-login URL USERNAME` (the password on stdin: signs the player in, then restarts it), `shim-status`, `shim-logout`.
+- **The CLI** nixbook-shell uses: `configured`, `play-query TEXT` (the bubble's instant "play … season N episode M", no model: see [Fast commands](/nixbook-shell/quick-ai#fast-commands)), `credentials status|login|save|test|forget` (`login URL USERNAME [--player]`: the password on stdin, signs in as that user and keeps the token; `save`/`test`: an admin's API key on stdin, checked on the server; `forget` ends a sign-in's session on the server), `shim-login URL USERNAME` (the password on stdin: signs the player in, then restarts it), `shim-status`, `shim-logout`.
 
-Set it up in **Settings → Desktop agents → Apps it can use**: turn **Jellyfin** on, enter the server and an API key (Jellyfin: **Dashboard → API Keys**), then **Save and check**; then **Connect the player** once with your Jellyfin username and password. The key goes to your keyring (`secret-tool`, `service=jellyfin-mcp`); the password isn't kept: the player keeps its own login (`~/.config/jellyfin-mpv-shim/users.json`). Or set them in Nix, which locks them in Settings:
+Set it up in **Settings → Desktop agents → Apps it can use**: turn **Jellyfin** on, enter the server, then **Sign in** with your own Jellyfin username and password (an app password with two-factor authentication, e.g. the JellyfinSecurity plugin): no admin or API key needed. Claude gets a login of its own as you, in your keyring (`secret-tool`, `service=jellyfin-mcp`), and the player of this computer one of its own (`~/.config/jellyfin-mpv-shim/users.json`); the password isn't kept. An admin's API key (Jellyfin: **Dashboard → API Keys**, **Use an admin API key instead**) still works, for the user named in `ai.jellyfin.user`. The server can be set in Nix, which locks it in Settings:
 
 ```nix
 customHomeManagerModules.nixbookShellConfig.settings.ai = {
   jellyfin = {
     url = "https://jellyfin.example.org";
-    user = "khoa"; # optional: empty is the first administrator
-    apiKeyFile = "~/.config/jellyfin/api-key"; # optional, instead of the keyring; not a store path
+    # Only with an admin's API key instead of a sign-in:
+    # user = "khoa"; # empty: the first administrator
+    # apiKeyFile = "~/.config/jellyfin/api-key"; # instead of the keyring; not a store path
   };
   claudeCode.mcpServersOff = [ "linkedin" "immich" ]; # Jellyfin on
 };
 ```
 
-The key comes from `JELLYFIN_API_KEY`, else `apiKeyFile` (`~/` is your home), else the keyring; an API key or a password is never printed, logged, put in a tool result or on a command line. The package's install check runs every tool against a fake Jellyfin.
+The credential (a sign-in's token or an API key) comes from `JELLYFIN_API_KEY`, else `apiKeyFile` (`~/` is your home), else the keyring; which one it is is told by `GET /Users/Me`, which only a user's token answers. A token, a key or a password is never printed, logged, put in a tool result or on a command line. The player plays the files as they are: nixbook lifts jellyfin-mpv-shim's 10 Mbit/s limit for servers outside the local network (`jellyfinMcp.player.maxBitrateMbps` sets one). The package's install check runs every tool against a fake Jellyfin.
 
 ## moonfin
 

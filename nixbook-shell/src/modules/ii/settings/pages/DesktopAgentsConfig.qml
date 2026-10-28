@@ -1575,14 +1575,14 @@ ContentPage {
                     }
                 }
 
-                // Jellyfin: its server and user are settings (ai.jellyfin.url,
-                // ai.jellyfin.user, locked when set in Nix), its API key goes
-                // to the keyring through `jellyfin-mcp credentials` (on stdin,
-                // checked on the server first, never shown again), or a key
-                // file set in Nix (ai.jellyfin.apiKeyFile). Then the player of
-                // this computer (jellyfin-mpv-shim): signed in once with the
-                // user's password (`jellyfin-mcp shim-login`, on stdin, never
-                // kept), it keeps its own token.
+                // Jellyfin: its server is a setting (ai.jellyfin.url, locked
+                // when set in Nix). The assistant signs in as the user (`jellyfin-mcp
+                // credentials login`, the password — an app password with 2FA —
+                // on stdin, never kept): its own token, in the keyring, no
+                // admin needed; the player of this computer (jellyfin-mpv-shim)
+                // is signed in with it, with a token of its own. An admin's
+                // API key instead (`credentials save`, for ai.jellyfin.user;
+                // or a key file set in Nix, ai.jellyfin.apiKeyFile).
                 ColumnLayout {
                     id: jellyfin
                     Layout.fillWidth: true
@@ -1592,8 +1592,12 @@ ContentPage {
                     readonly property string bin: Ai.assistantMcpServers.jellyfin
                         ? Ai.assistantMcpServers.jellyfin.command : ""
                     readonly property string url: jellyfinUrl.value.trim().replace(/\/+$/, "")
-                    // {has_key, key_source: env|file|keyring|null}
+                    // {has_key, key_source: env|file|keyring|null, kind: token|apikey|null, signed_in_as}
                     property var conn: ({})
+                    readonly property bool signedIn: jellyfin.conn.kind === "token"
+                    // The admin API key's fields: asked for, or that's what is set.
+                    property bool useKey: false
+                    readonly property bool keyMode: jellyfin.useKey || jellyfin.conn.kind === "apikey"
                     // {signed_in, user, device, service}
                     property var player: ({})
                     property string status: ""
@@ -1607,7 +1611,7 @@ ContentPage {
                         jellyfinProc.args = args
                         jellyfinProc.command = [jellyfin.bin, ...args]
                         jellyfinProc.environment = Ai.jellyfinEnv
-                        jellyfinProc.stdinEnabled = ["save", "test", "shim-login"].includes(args[0] === "credentials" ? args[1] : args[0])
+                        jellyfinProc.stdinEnabled = ["save", "test", "login", "shim-login"].includes(args[0] === "credentials" ? args[1] : args[0])
                         jellyfinProc.running = true
                     }
                     function refresh() {
@@ -1655,10 +1659,18 @@ ContentPage {
                             }
                             jellyfin.conn = result
                             jellyfinKey.text = ""
+                            if (what === "login") {
+                                jellyfinSignPassword.text = ""
+                                jellyfin.useKey = false
+                                if (result.player?.error)
+                                    jellyfin.playerStatus = Translation.tr("The player couldn't sign in: %1").arg(result.player.error)
+                            }
                             jellyfin.status = result.server
                                 ? Translation.tr("Connected to %1 as %2: %3 films, %4 series, %5 songs").arg(result.server)
                                     .arg(result.user).arg(result.movies ?? 0).arg(result.series ?? 0).arg(result.songs ?? 0)
+                                : what === "forget" ? (result.signed_out ? Translation.tr("Signed out (its session ended on the server too).") : Translation.tr("Forgotten."))
                                 : ""
+                            if (what === "login" || what === "forget") Qt.callLater(() => jellyfin.run(["shim-status"]))
                             // Its player next (and the bubble's instant "play …" sees the change).
                             QuickIntent.refreshJellyfin()
                             if (what === "status") Qt.callLater(() => jellyfin.run(["shim-status"]))
@@ -1669,7 +1681,7 @@ ContentPage {
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
                         color: Appearance.colors.colSubtext
-                        text: Translation.tr("Jellyfin: your films, series and music, played fullscreen in mpv on this computer (or on Moonfin, the TV… when you name it). Create an API key in Jellyfin (Dashboard > API Keys); it is kept in your keyring. Then connect the player below once.")
+                        text: Translation.tr("Jellyfin: your films, series and music, played fullscreen in mpv on this computer (or on Moonfin, the TV… when you name it). Sign in with your own Jellyfin account, no admin needed: Claude and the player each get their own login, and your password isn't kept. With two-factor authentication (e.g. the JellyfinSecurity plugin), use an app password made for this.")
                     }
                     ConfigTextArea {
                         id: jellyfinUrl
@@ -1687,9 +1699,84 @@ ContentPage {
                             }
                         }
                     }
+                    // The assistant's own sign-in: the user's token (and the player's).
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: jellyfin.signedIn
+                        wrapMode: Text.WordWrap
+                        text: Translation.tr("Claude is signed in as %1.").arg(jellyfin.conn.signed_in_as ?? "?")
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: !jellyfin.signedIn && !jellyfin.keyMode
+                        spacing: 6
+                        MaterialTextField {
+                            id: jellyfinSignUser
+                            Layout.fillWidth: true
+                            placeholderText: Translation.tr("Username")
+                            text: Config.options.ai.jellyfin.user ?? ""
+                        }
+                        MaterialTextField {
+                            id: jellyfinSignPassword
+                            Layout.fillWidth: true
+                            placeholderText: Translation.tr("Password or app password")
+                            echoMode: TextInput.Password
+                            onAccepted: jellyfinSignIn.clicked()
+                        }
+                    }
+                    Flow {
+                        Layout.fillWidth: true
+                        visible: !jellyfin.keyMode
+                        spacing: 6
+                        SmallButton {
+                            id: jellyfinSignIn
+                            visible: !jellyfin.signedIn
+                            enabled: !jellyfin.busy && jellyfin.url !== "" && jellyfinSignUser.text.trim() !== ""
+                                && jellyfinSignPassword.text !== ""
+                            materialIcon: "login"
+                            mainText: jellyfin.busy ? Translation.tr("Signing in…") : Translation.tr("Sign in")
+                            onClicked: {
+                                if (!jellyfinUrl.nixManaged) Config.options.ai.jellyfin.url = jellyfin.url
+                                jellyfin.run(["credentials", "login", jellyfin.url, jellyfinSignUser.text.trim(), "--player"],
+                                    jellyfinSignPassword.text)
+                            }
+                        }
+                        SmallButton {
+                            visible: jellyfin.signedIn
+                            enabled: !jellyfin.busy && jellyfin.url !== ""
+                            materialIcon: "network_check"
+                            mainText: Translation.tr("Test")
+                            onClicked: jellyfin.run(["credentials", "test", jellyfin.url], "")
+                        }
+                        SmallButton {
+                            visible: jellyfin.signedIn
+                            enabled: !jellyfin.busy
+                            materialIcon: "logout"
+                            mainText: Translation.tr("Sign out")
+                            onClicked: jellyfin.run(["credentials", "forget"])
+                        }
+                        SmallButton {
+                            visible: !jellyfin.signedIn
+                            enabled: !jellyfin.busy
+                            materialIcon: "key"
+                            mainText: Translation.tr("Use an admin API key instead")
+                            onClicked: jellyfin.useKey = true
+                        }
+                    }
+
+                    // Or an admin's API key (Dashboard > API Keys), for a user
+                    // picked by name.
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: jellyfin.keyMode
+                        wrapMode: Text.WordWrap
+                        color: Appearance.colors.colSubtext
+                        text: Translation.tr("An admin's API key (Jellyfin: Dashboard > API Keys) reaches every user's library: Claude then acts as the user named here.")
+                    }
                     ConfigTextArea {
                         id: jellyfinUser
                         configKey: "ai.jellyfin.user"
+                        shown: jellyfin.keyMode
                         Layout.fillWidth: true
                         fieldWidth: 320
                         buttonIcon: "person"
@@ -1713,7 +1800,7 @@ ContentPage {
                     MaterialTextField {
                         id: jellyfinKey
                         Layout.fillWidth: true
-                        visible: jellyfin.conn.key_source !== "file"
+                        visible: jellyfin.keyMode && jellyfin.conn.key_source !== "file"
                         placeholderText: jellyfin.conn.has_key
                             ? Translation.tr("API key (saved: leave empty to keep it)")
                             : Translation.tr("API key")
@@ -1722,6 +1809,7 @@ ContentPage {
                     }
                     Flow {
                         Layout.fillWidth: true
+                        visible: jellyfin.keyMode
                         spacing: 6
                         SmallButton {
                             id: jellyfinSave
@@ -1750,6 +1838,13 @@ ContentPage {
                             mainText: Translation.tr("Forget the key")
                             onClicked: jellyfin.run(["credentials", "forget"])
                         }
+                        SmallButton {
+                            visible: jellyfin.useKey && jellyfin.conn.kind !== "apikey"
+                            enabled: !jellyfin.busy
+                            materialIcon: "login"
+                            mainText: Translation.tr("Sign in with my account instead")
+                            onClicked: jellyfin.useKey = false
+                        }
                     }
                     StyledText {
                         Layout.fillWidth: true
@@ -1768,7 +1863,7 @@ ContentPage {
                         text: jellyfin.player.signed_in
                             ? Translation.tr("Player (mpv on this computer): connected as %1, %2.").arg(jellyfin.player.user ?? "?")
                                 .arg(jellyfin.player.service === "active" ? Translation.tr("running") : Translation.tr("not running"))
-                            : Translation.tr("Connect the player (jellyfin-mpv-shim): sign in once with your Jellyfin username and password. The password isn't kept; the player keeps its own login, and saves progress and plays the next episode itself.")
+                            : Translation.tr("Connect the player (jellyfin-mpv-shim): sign in once with your Jellyfin username and password (an app password with two-factor authentication). The password isn't kept; the player keeps its own login, and saves progress and plays the next episode itself.")
                     }
                     RowLayout {
                         Layout.fillWidth: true

@@ -9,21 +9,30 @@ library and the players playing from it.
                                      title and play it, no model: one JSON line
                                      {ok, matched, said, title, ...}
   jellyfin-mcp credentials status|forget
+  jellyfin-mcp credentials login URL USERNAME [--player]
+                                     the password on stdin (an app password
+                                     with two-factor authentication): signs
+                                     the assistant in as that user, no admin,
+                                     and keeps its token in the keyring;
+                                     --player signs the player in too
   jellyfin-mcp credentials save|test URL [USER]
-                                     the API key (on stdin; empty: the current
-                                     one) checked on the server; save keeps it
-                                     in the keyring
+                                     an admin's API key instead (on stdin;
+                                     empty: the current one) checked on the
+                                     server; save keeps it in the keyring
   jellyfin-mcp shim-login URL USERNAME
                                      the password on stdin: signs the player
                                      (jellyfin-mpv-shim) in, then restarts it
   jellyfin-mcp shim-status | shim-logout
 
-The server is JELLYFIN_URL; the API key is JELLYFIN_API_KEY, else the file
-JELLYFIN_API_KEY_FILE names (`~/` allowed), else the keyring's
+The server is JELLYFIN_URL; the credential is JELLYFIN_API_KEY, else the
+file JELLYFIN_API_KEY_FILE names (`~/` allowed), else the keyring's
 service=jellyfin-mcp secret (secret-tool; nixbook-shell's Settings saves it
-there). JELLYFIN_USER picks the user whose library, progress and favourites
-are used (by name), else the first administrator. An API key or a password
-is never printed, logged, put in a tool result or on a command line.
+there). It is either a user's own access token (`credentials login`: the
+assistant then acts as that user, with that user's library, progress, favourites and
+players, and needs no admin) or an admin's API key, for which JELLYFIN_USER
+picks the user (by name), else the first administrator. Which one it is is
+told by GET /Users/Me, which only a user's token answers. A credential or a
+password is never printed, logged, put in a tool result or on a command line.
 
 Playback goes to a player through the server (a Play command it sends over
 the player's websocket): by default this computer's jellyfin-mpv-shim (the
@@ -63,8 +72,12 @@ MAX_LIST = 50
 MAX_QUEUE = 100
 OVERVIEW_SHORT = 200
 OVERVIEW_LONG = 1200
-NOT_SET_UP = ("Jellyfin isn't set up: set its server and API key in Settings > Desktop agents > "
+NOT_SET_UP = ("Jellyfin isn't set up: set its server and sign in in Settings > Desktop agents > "
               "Apps it can use (or JELLYFIN_URL and JELLYFIN_API_KEY).")
+REFUSED = ("Jellyfin refused Claude's login (HTTP {code}): sign in again (or check the API key) in "
+           "Settings > Desktop agents > Jellyfin")
+TWO_FACTOR = ("with two-factor authentication (the JellyfinSecurity plugin…), sign in with an app "
+              "password made for this, not your account's password")
 NO_PLAYER = ("the player isn't connected: connect it in Settings > Desktop agents > Jellyfin "
              "(\"Connect the player\"), or open Moonfin")
 
@@ -94,7 +107,19 @@ class JfError(Exception):
     """A failure reported to the agent as a tool error."""
 
 
-class NotFound(JfError):
+class HttpError(JfError):
+    """The server answered with an error status (code)."""
+
+    def __init__(self, message, code):
+        super().__init__(message)
+        self.code = code
+
+
+class Refused(HttpError):
+    """401/403: the credential isn't (or no longer) accepted."""
+
+
+class NotFound(HttpError):
     pass
 
 
@@ -230,6 +255,8 @@ class Jellyfin:
         self.user_name = (user_name or "").strip()
         self.timeout = timeout or float(os.environ.get("JELLYFIN_TIMEOUT") or 10)
         self._user = None
+        # "user" (a user's own token: it acts as that user) or "apikey".
+        self.kind = None
         self._server_id = None
         device = f"{socket.gethostname()}:{os.getuid()}"
         self.device_id = hashlib.sha256(device.encode()).hexdigest()[:24]
@@ -275,10 +302,10 @@ class Jellyfin:
                 raw = resp.read()
         except urllib.error.HTTPError as exc:
             if exc.code in (401, 403):
-                raise JfError(f"Jellyfin refused the API key (HTTP {exc.code})") from None
+                raise Refused(REFUSED.format(code=exc.code), exc.code) from None
             if exc.code in (404, 405):
-                raise NotFound(f"Jellyfin has no {path.split('?')[0]} (HTTP {exc.code})") from None
-            raise JfError(f"Jellyfin answered HTTP {exc.code} to {method} {path}") from None
+                raise NotFound(f"Jellyfin has no {path.split('?')[0]} (HTTP {exc.code})", exc.code) from None
+            raise HttpError(f"Jellyfin answered HTTP {exc.code} to {method} {path}", exc.code) from None
         except (socket.timeout, TimeoutError):
             raise JfError(f"Jellyfin at {self.url} didn't answer within {self.timeout:g} s") from None
         except urllib.error.URLError as exc:
@@ -327,7 +354,10 @@ class Jellyfin:
 
     def user(self):
         """{Id, Name} of the user it acts for; remembered a day in the
-        runtime directory (the fast path makes one call fewer)."""
+        runtime directory (the fast path makes one call fewer). A user's own
+        token is that user (/Users/Me answers it; JELLYFIN_USER doesn't
+        apply); an API key belongs to no user (/Users/Me: 400), so the user
+        is picked from the list."""
         if self._user:
             return self._user
         try:
@@ -336,29 +366,31 @@ class Jellyfin:
             cached = None
         if isinstance(cached, dict) and cached.get("Id") and time.time() - cached.get("time", 0) < 86400:
             self._user = {"Id": cached["Id"], "Name": cached.get("Name", "")}
+            self.kind = cached.get("kind") or "apikey"
             return self._user
+        me = None
+        refused = None
         try:
-            users = self.request("GET", "/Users") or []
-        except JfError as exc:
-            if "refused" not in str(exc):
-                raise
-            # A user's own token (not an API key) may not list the users.
             me = self.request("GET", "/Users/Me")
-            users = [me] if me else []
-        if not users:
-            raise JfError("Jellyfin has no users")
-        if self.user_name:
-            wanted = self.user_name.casefold()
-            match = [u for u in users if str(u.get("Name", "")).casefold() == wanted]
-            if not match:
-                raise JfError(f"Jellyfin has no user named {self.user_name!r}")
-            chosen = match[0]
+        except Refused as exc:
+            refused = exc
+        except HttpError:
+            pass
+        if isinstance(me, dict) and me.get("Id"):
+            self.kind = "user"
+            chosen = me
         else:
-            admins = [u for u in users if (u.get("Policy") or {}).get("IsAdministrator")]
-            chosen = (admins or users)[0]
+            try:
+                users = self.request("GET", "/Users") or []
+            except Refused:
+                raise refused or Refused(REFUSED.format(code=403), 403) from None
+            if not users:
+                raise JfError("Jellyfin has no users")
+            self.kind = "apikey"
+            chosen = pick_user(users, self.user_name)
         self._user = {"Id": chosen["Id"], "Name": chosen.get("Name", "")}
         try:
-            write_private(self._user_cache(), {**self._user, "time": time.time()})
+            write_private(self._user_cache(), {**self._user, "kind": self.kind, "time": time.time()})
         except OSError:
             pass
         return self._user
@@ -401,7 +433,11 @@ class Jellyfin:
     # -- sessions -----------------------------------------------------------
 
     def sessions(self):
-        res = self.request("GET", "/Sessions", {"activeWithinSeconds": 960}) or []
+        uid = self.uid()
+        # A user's token: the players that user may control (Jellyfin keeps
+        # the others from a non-admin anyway).
+        params = {"activeWithinSeconds": 960, "controllableByUserId": uid if self.kind == "user" else None}
+        res = self.request("GET", "/Sessions", params) or []
         return [s for s in res if s.get("Client") != CLIENT_NAME and s.get("DeviceId") != self.device_id]
 
 
@@ -518,6 +554,22 @@ def session_out(s, uid=None, ident=None):
         if pos is not None:
             now["position"] = clock(pos) + (f" / {clock(playing['RunTimeTicks'])}" if playing.get("RunTimeTicks") else "")
         now["paused"] = bool(state.get("IsPaused"))
+        # How it plays: DirectPlay, DirectStream (remuxed) or Transcode, and
+        # why the server transcodes (its TranscodeReasons, e.g.
+        # ContainerBitrateExceedsLimit: the player's bitrate limit).
+        if state.get("PlayMethod"):
+            now["play_method"] = state["PlayMethod"]
+        tinfo = s.get("TranscodingInfo") or {}
+        if state.get("PlayMethod") == "Transcode" or tinfo.get("TranscodeReasons"):
+            reasons = tinfo.get("TranscodeReasons") or []
+            if isinstance(reasons, str):
+                reasons = [r for r in reasons.split(",") if r]
+            now["transcode"] = {k: v for k, v in {
+                "reasons": reasons,
+                "video": None if tinfo.get("IsVideoDirect") else tinfo.get("VideoCodec"),
+                "audio": None if tinfo.get("IsAudioDirect") else tinfo.get("AudioCodec"),
+                "mbps": round(tinfo["Bitrate"] / 1e6, 1) if tinfo.get("Bitrate") else None,
+            }.items() if v not in (None, [])}
         out["now_playing"] = now
     if s.get("LastActivityDate"):
         out["last_active"] = s["LastActivityDate"]
@@ -811,7 +863,7 @@ def t_recent(jf, args):
     return {"items": [brief(i) for i in res[:MAX_LIST]]}
 
 
-@tool("sessions", "The players connected to Jellyfin (this computer's mpv player, Moonfin, TVs, browsers): what each plays, and whether it accepts remote control (play/control).",
+@tool("sessions", "The players connected to Jellyfin (this computer's mpv player, Moonfin, TVs, browsers): what each plays, how (play_method DirectPlay/DirectStream/Transcode, and transcode.reasons: why the server transcodes — ContainerBitrateExceedsLimit is the player's bitrate limit, nixbookShellConfig.jellyfinMcp.player.maxBitrateMbps for this computer's), and whether it accepts remote control (play/control).",
       read_only=True)
 def t_sessions(jf, args):
     uid = jf.uid()
@@ -1303,26 +1355,69 @@ def out(obj, code=0):
     sys.exit(code)
 
 
+def login_path():
+    """Who `credentials login` signed in ({url, user, user_id}: no secret),
+    so Settings can say it without a call."""
+    base = os.environ.get("XDG_STATE_HOME") or os.path.join(os.path.expanduser("~"), ".local", "state")
+    return os.path.join(base, "jellyfin-mcp", "login.json")
+
+
 def status():
     key, source = load_key()
-    return {"has_key": bool(key), "key_source": source, "url": os.environ.get("JELLYFIN_URL") or None}
+    login = read_json(login_path()) if source == "keyring" else None
+    signed = isinstance(login, dict) and login.get("user")
+    return {"has_key": bool(key), "key_source": source, "url": os.environ.get("JELLYFIN_URL") or None,
+            # token: signed in as a user (credentials login); apikey: an
+            # admin's key (or a credential from the environment or a file).
+            "kind": ("token" if signed else "apikey") if key else None,
+            "signed_in_as": login.get("user") if signed else None}
+
+
+def keyring_store(secret, label, kind):
+    """Replaces the one jellyfin-mcp secret (an API key or a token)."""
+    try:
+        subprocess.run([SECRET_TOOL, "clear", *SECRET_ATTRS], check=False,
+                       timeout=10, capture_output=True, stdin=subprocess.DEVNULL)
+        stored = subprocess.run([SECRET_TOOL, "store", f"--label={label}", *SECRET_ATTRS, "kind", kind],
+                                input=secret, text=True, capture_output=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise JfError(f"couldn't save it in the keyring: {exc}") from None
+    if stored.returncode != 0:
+        raise JfError(f"couldn't save it in the keyring: {stored.stderr.strip()}"[:300].replace(secret, "***"))
+
+
+def revoke(url, token):
+    """Ends a session of the assistant's own on the server (best effort): its token
+    stops working there too."""
+    if not (url and token):
+        return False
+    try:
+        Jellyfin(url, token, timeout=5).request("POST", "/Sessions/Logout")
+        return True
+    except JfError:
+        return False
 
 
 def stdin_line():
     return "" if sys.stdin is None or sys.stdin.isatty() else sys.stdin.readline().strip()
 
 
+def library(jf):
+    """What the credential sees: raises JfError."""
+    info = jf.public_info()
+    chosen = jf.user()
+    counts = jf.request("GET", "/Items/Counts", {"userId": chosen["Id"]}) or {}
+    return {"server": info.get("ServerName"), "version": info.get("Version"), "user": chosen.get("Name"),
+            "user_id": chosen["Id"], "movies": counts.get("MovieCount"), "series": counts.get("SeriesCount"),
+            "songs": counts.get("SongCount"), "albums": counts.get("AlbumCount")}
+
+
 def check(url, key, user):
     jf = Jellyfin(url, key, user)
     try:
-        info = jf.public_info()
-        chosen = pick_user(jf.request("GET", "/Users") or [], user)
-        counts = jf.request("GET", "/Items/Counts", {"userId": chosen["Id"]}) or {}
+        return library(jf)
     except JfError as exc:
         out({"error": jf.hide(exc)}, 1)
-    return {"server": info.get("ServerName"), "version": info.get("Version"), "user": chosen.get("Name"),
-            "movies": counts.get("MovieCount"), "series": counts.get("SeriesCount"),
-            "songs": counts.get("SongCount"), "albums": counts.get("AlbumCount")}
 
 
 def pick_user(users, name):
@@ -1337,17 +1432,92 @@ def pick_user(users, name):
     return (admins or users)[0]
 
 
+def authenticate(jf, username, password, client=None):
+    """POST /Users/AuthenticateByName: the AuthenticationResult."""
+    try:
+        auth = jf.request("POST", "/Users/AuthenticateByName", body={"Username": username, "Pw": password},
+                          auth=False, client=client) or {}
+    except Refused:
+        raise JfError(f"Jellyfin refused this username or password ({TWO_FACTOR})") from None
+    if not auth.get("AccessToken") or not (auth.get("User") or {}).get("Id"):
+        raise JfError("Jellyfin didn't return a token")
+    return auth
+
+
+def login(args):
+    """credentials login URL USERNAME [--player], the password on stdin: the
+    assistant signs in as that user (its own device), the token goes to the keyring."""
+    player = "--player" in args
+    args = [a for a in args if a != "--player"]
+    if len(args) != 2:
+        out({"error": "usage: jellyfin-mcp credentials login URL USERNAME [--player] (password on stdin)"}, 1)
+    try:
+        url = clean_url(args[0])
+    except JfError as exc:
+        out({"error": str(exc)}, 1)
+    username = args[1].strip()
+    password = stdin_line()
+    if not url or not username:
+        out({"error": "the server URL and the username are needed"}, 1)
+    jf = Jellyfin(url, "")
+    token = ""
+    try:
+        jf.public_info()
+        auth = authenticate(jf, username, password)
+        token = auth["AccessToken"]
+        mine = Jellyfin(url, token)
+        try:
+            result = library(mine)
+        except Refused:
+            # Signed in, but its session is held back: a 2FA plugin waiting
+            # for a code this client can't give.
+            revoke(url, token)
+            raise JfError(f"Jellyfin accepted the password but blocks the session ({TWO_FACTOR})") from None
+        previous, source = load_key()
+        before = read_json(login_path()) if source == "keyring" else None
+        keyring_store(token, f"Jellyfin sign-in of {result['user']} (jellyfin-mcp)", "token")
+        if isinstance(before, dict) and previous and previous != token:
+            revoke(before.get("url") or url, previous)
+        os.makedirs(os.path.dirname(login_path()), mode=0o700, exist_ok=True)
+        write_private(login_path(), {"url": url, "user": result["user"], "user_id": result["user_id"]})
+        shim = None
+        if player:
+            try:
+                shim = sign_in_shim(url, username, password)
+            except JfError as exc:
+                shim = {"error": str(exc)}
+    except JfError as exc:
+        msg = str(exc)
+        for secret in (password, token):
+            if secret:
+                msg = msg.replace(secret, "***")
+        out({"error": msg}, 1)
+    password = ""
+    out({**status(), "url": url, **result, "player": shim})
+
+
 def credentials(args):
     if args == ["status"]:
         out(status())
     if args == ["forget"]:
+        key, source = load_key()
+        login_info = read_json(login_path()) if source == "keyring" else None
+        revoked = False
+        if isinstance(login_info, dict) and key:
+            revoked = revoke(login_info.get("url") or os.environ.get("JELLYFIN_URL", ""), key)
         try:
             subprocess.run([SECRET_TOOL, "clear", *SECRET_ATTRS], check=False,
                            timeout=10, capture_output=True, stdin=subprocess.DEVNULL)
         except (OSError, subprocess.TimeoutExpired) as exc:
             out({"error": f"couldn't reach the keyring: {exc}"}, 1)
+        try:
+            os.remove(login_path())
+        except OSError:
+            pass
         os.environ.pop("JELLYFIN_API_KEY", None)
-        out(status())
+        out({**status(), "signed_out": revoked})
+    if args[:1] == ["login"]:
+        login(args[1:])
     if len(args) in (2, 3) and args[0] in ("save", "test"):
         try:
             url = clean_url(args[1])
@@ -1363,18 +1533,19 @@ def credentials(args):
         result = check(url, key, user)
         if args[0] == "save" and new_key:
             try:
-                stored = subprocess.run([SECRET_TOOL, "store",
-                                         "--label=Jellyfin API key (jellyfin-mcp)", *SECRET_ATTRS],
-                                        input=new_key, text=True, capture_output=True, timeout=30)
-            except (OSError, subprocess.TimeoutExpired) as exc:
-                out({"error": f"couldn't save the key in the keyring: {exc}"}, 1)
-            if stored.returncode != 0:
-                out({"error": f"couldn't save the key in the keyring: {stored.stderr.strip()}"[:300].replace(new_key, "***")}, 1)
+                keyring_store(new_key, "Jellyfin API key (jellyfin-mcp)", "apikey")
+            except JfError as exc:
+                out({"error": str(exc)}, 1)
+            try:
+                os.remove(login_path())
+            except OSError:
+                pass
         st = status()
         if new_key:
             st = {**st, "has_key": True, "key_source": "keyring" if args[0] == "save" else st["key_source"]}
         out({**st, "url": url, **result})
-    out({"error": "usage: jellyfin-mcp credentials status | save URL [USER] | test URL [USER] (key on stdin) | forget"}, 1)
+    out({"error": "usage: jellyfin-mcp credentials status | login URL USERNAME [--player] (password on stdin) "
+                  "| save URL [USER] | test URL [USER] (API key on stdin) | forget"}, 1)
 
 
 def ensure_shim_conf():
@@ -1397,9 +1568,7 @@ def ensure_shim_conf():
 
 
 def shim_login(args):
-    """Signs jellyfin-mpv-shim in as it would itself (its client name, device
-    name and device id), with the password from stdin, and files the token
-    in its users.json (0600). The password is never stored."""
+    """shim-login URL USERNAME, the password on stdin."""
     if len(args) != 2:
         out({"error": "usage: jellyfin-mcp shim-login URL USERNAME (password on stdin)"}, 1)
     try:
@@ -1410,28 +1579,27 @@ def shim_login(args):
     password = stdin_line()
     if not url or not username:
         out({"error": "the server URL and the username are needed"}, 1)
-    jf = Jellyfin(url, "")
     try:
-        conf = ensure_shim_conf()
-        ident = shim_identity() or {"device_id": conf["client_uuid"],
-                                    "device_name": conf.get("player_name") or socket.gethostname(), "profile": None}
-        info = jf.public_info()
-        client = {"Client": SHIM_CLIENT, "Device": ident["device_name"], "DeviceId": ident["device_id"],
-                  "Version": os.environ.get("JELLYFIN_SHIM_VERSION") or "3.1.0"}
-        try:
-            auth = jf.request("POST", "/Users/AuthenticateByName", body={"Username": username, "Pw": password},
-                              auth=False, client=client) or {}
-        except JfError as exc:
-            if "refused" in str(exc):
-                raise JfError("Jellyfin refused this username or password") from None
-            raise
+        result = sign_in_shim(url, username, password)
     except JfError as exc:
         out({"error": str(exc).replace(password, "***") if password else str(exc)}, 1)
-    password = ""
-    token = auth.get("AccessToken")
-    user = auth.get("User") or {}
-    if not token or not user.get("Id"):
-        out({"error": "Jellyfin didn't return a token"}, 1)
+    out(result)
+
+
+def sign_in_shim(url, username, password):
+    """Signs jellyfin-mpv-shim in as it would itself (its client name, device
+    name and device id) and files the token in its users.json (0600). The
+    password is never stored. Raises JfError."""
+    jf = Jellyfin(url, "")
+    conf = ensure_shim_conf()
+    ident = shim_identity() or {"device_id": conf["client_uuid"],
+                                "device_name": conf.get("player_name") or socket.gethostname(), "profile": None}
+    info = jf.public_info()
+    client = {"Client": SHIM_CLIENT, "Device": ident["device_name"], "DeviceId": ident["device_id"],
+              "Version": os.environ.get("JELLYFIN_SHIM_VERSION") or "3.1.0"}
+    auth = authenticate(jf, username, password, client)
+    token = auth["AccessToken"]
+    user = auth["User"]
     cred = {
         "address": url,
         "Name": info.get("ServerName"),
@@ -1468,10 +1636,10 @@ def shim_login(args):
         write_private(path, data)
         write_private(path + ".bak", data)
     except OSError as exc:
-        out({"error": f"couldn't write {path}: {exc}"}, 1)
+        raise JfError(f"couldn't write {path}: {exc}") from None
     code, _ = systemctl("start", SHIM_UNIT, timeout=15)
-    out({"ok": True, "server": info.get("ServerName"), "user": user.get("Name") or username,
-         "device": ident["device_name"], "started": code == 0})
+    return {"ok": True, "server": info.get("ServerName"), "user": user.get("Name") or username,
+            "device": ident["device_name"], "started": code == 0}
 
 
 def shim_status():
