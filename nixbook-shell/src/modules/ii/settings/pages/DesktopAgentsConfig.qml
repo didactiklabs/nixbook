@@ -207,7 +207,9 @@ ContentPage {
                     text: Translation.tr("× : not private, never learned again.")
                 }
             }
-            RowLayout {
+            // Wraps onto more lines on a narrow page (a RowLayout widened the page).
+            Flow {
+                Layout.fillWidth: true
                 spacing: 8
                 SmallButton {
                     materialIcon: "delete"
@@ -353,7 +355,9 @@ ContentPage {
                 }
             }
 
-            RowLayout {
+            // Wraps onto more lines on a narrow page (a RowLayout widened the page).
+            Flow {
+                Layout.fillWidth: true
                 spacing: 8
                 SmallButton {
                     materialIcon: "campaign"
@@ -406,7 +410,9 @@ ContentPage {
             ContentSubsection {
                 title: Translation.tr("What it sent")
                 tooltip: Translation.tr("Everything the small model was given (notifications, pairing, news, memory passes…) and what went with a question asked in the bubble, the last 7 days. A local model's are marked: they never left this computer. Not your chats in the side panel: you wrote those.")
-                RowLayout {
+                // Wraps onto more lines on a narrow page (a RowLayout widened the page).
+                Flow {
+                    Layout.fillWidth: true
                     spacing: 8
                     SmallButton {
                         materialIcon: sentList.shown ? "expand_less" : "receipt_long"
@@ -1534,7 +1540,9 @@ ContentPage {
                         echoMode: TextInput.Password
                         onAccepted: immichSave.clicked()
                     }
-                    RowLayout {
+                    // Wraps onto more lines on a narrow page (a RowLayout widened the page).
+                    Flow {
+                        Layout.fillWidth: true
                         spacing: 6
                         SmallButton {
                             id: immichSave
@@ -1849,7 +1857,9 @@ ContentPage {
                 }
             }
 
-            RowLayout {
+            // Wraps onto more lines on a narrow page (a RowLayout widened the page).
+            Flow {
+                Layout.fillWidth: true
                 spacing: 8
                 SmallButton {
                     materialIcon: "delete_sweep"
@@ -1943,7 +1953,9 @@ ContentPage {
                 }
             }
 
-            RowLayout {
+            // Wraps onto more lines on a narrow page (a RowLayout widened the page).
+            Flow {
+                Layout.fillWidth: true
                 visible: (DesktopControl.habits.enabled ?? false) || (DesktopControl.habits.days ?? 0) > 0
                 spacing: 8
                 SmallButton {
@@ -2050,7 +2062,9 @@ ContentPage {
                 }
             }
 
-            RowLayout {
+            // Wraps onto more lines on a narrow page (a RowLayout widened the page).
+            Flow {
+                Layout.fillWidth: true
                 spacing: 8
                 SmallButton {
                     materialIcon: "delete_sweep"

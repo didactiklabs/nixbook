@@ -44,9 +44,30 @@ RowLayout {
     Layout.leftMargin: 8
     Layout.rightMargin: 8
 
+    // What the buttons need on one line, and the widest of them: the row
+    // shares a narrow page between the label (which wraps) and the buttons
+    // (which flow onto more lines) instead of growing past the page — a long
+    // row used to widen its whole section, cropping options and texts.
+    readonly property real buttonsOneLine: {
+        let w = 0, n = 0;
+        for (const c of buttonsFlow.children) {
+            if (!c.visible || c.implicitWidth <= 0) continue;
+            w += c.implicitWidth;
+            n++;
+        }
+        return w + Math.max(0, n - 1) * buttonsFlow.spacing;
+    }
+    readonly property real widestButton: {
+        let w = 0;
+        for (const c of buttonsFlow.children) if (c.visible) w = Math.max(w, c.implicitWidth);
+        return w;
+    }
+
     RowLayout {
         spacing: 10
         visible: root.text !== ""
+        Layout.fillWidth: true
+        Layout.minimumWidth: Math.min(implicitWidth, 120)
         OptionalMaterialSymbol {
             icon: root.icon
             opacity: root.enabled ? 1 : 0.4
@@ -54,6 +75,7 @@ RowLayout {
         StyledText {
             id: labelWidget
             Layout.fillWidth: true
+            wrapMode: Text.WordWrap
             text: root.text
             color: Appearance.colors.colOnSecondaryContainer
             opacity: root.enabled ? 1 : 0.4
@@ -63,7 +85,10 @@ RowLayout {
     NixManagedBadge { pinned: root.nixManaged }
     Flow {
         id: buttonsFlow
-        Layout.fillWidth: !root.text
+        Layout.fillWidth: true
+        Layout.preferredWidth: root.buttonsOneLine
+        Layout.maximumWidth: root.text !== "" ? root.buttonsOneLine : Number.POSITIVE_INFINITY
+        Layout.minimumWidth: root.widestButton
         Layout.alignment: Qt.AlignRight
         spacing: 2
 
