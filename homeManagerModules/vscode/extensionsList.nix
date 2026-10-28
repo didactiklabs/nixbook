@@ -184,13 +184,13 @@
       name = "claude-code";
       publisher = "anthropic";
       version = "2.1.304";
-      sha256 = "sha256-aj4hR9NPjtrP/HoVZ2GfM3+SlPDPA+kMS/jzMpZ/xdU=";
+      sha256 = "sha256-RO06FdwqkGy/tbSFzBQ1ow1/W6I7OjXCYLjcgyvA3Ao=";
     }
     {
       name = "terraform";
       publisher = "hashicorp";
       version = "2.40.0";
-      sha256 = "sha256-UsyKO7zTSDovproPUaIWfqmJxIjZfNTwhaQuH2xIzyE=";
+      sha256 = "sha256-PXcKAo8YgF3f5If0uNNMEm6nmFQ+7w0IKx6qBmyZA8w=";
     }
     {
       name = "vscode-task";
