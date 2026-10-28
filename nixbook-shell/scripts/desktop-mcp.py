@@ -2863,7 +2863,7 @@ def deliver(cfg, data, item, level, busy, now):
     if any(s["key"] == key for s in data["said"]) or any(p["key"] == key for p in data["pending"]):
         return {"action": "none", "why": "said already"}
     muted = data["muted"]
-    if kind in muted or (item.get("app") and f"{kind}:{item['app'].lower()}" in muted):
+    if kind in muted or item.get("mute") in muted or (item.get("app") and f"{kind}:{item['app'].lower()}" in muted):
         return {"action": "none", "why": "the user asked for none of these"}
     if initiative_value(data, kind, item.get("app")) < INITIATIVE_MIN_VALUE:
         return {"action": "none", "why": "the user doesn't take these up"}
@@ -2893,6 +2893,7 @@ def deliver(cfg, data, item, level, busy, now):
     item = dict(item, id=secrets.token_hex(3), time=int(now), level=level, expires=int(now + ttl))
     data["said"].append({"id": item["id"], "key": key, "kind": kind, "app": item.get("app"), "level": level,
                          "time": int(now), "day": time.strftime("%Y-%m-%d", time.localtime(now)),
+                         **({"mute": item["mute"]} if item.get("mute") else {}),
                          **({"test": True} if item.get("test") else {})})
     del data["said"][:-INITIATIVE_SAID_KEEP]
     for key_ in [kind] + ([f"{kind}:{item['app'].lower()}"] if item.get("app") else []) + [hour_key(now)]:
@@ -3200,7 +3201,8 @@ def notice_triage(cfg, data, items, focused):
             continue
         if focused and fold(app) and fold(app) in fold(focused):
             continue
-        if notice_pattern(app, summary) in data["boring"] or f"notice:{app.lower()}" in data["muted"]:
+        pattern = notice_pattern(app, summary)
+        if pattern in data["boring"] or f"notice:{app.lower()}" in data["muted"] or f"notice:{pattern}" in data["muted"]:
             continue
         # An app whose notifications the user dismisses unread, always.
         seen = (data.get("apps") or {}).get(app.lower()) or {}
@@ -3262,6 +3264,8 @@ def notice_apply(data, items, answer, now):
     urgent = bool(answer.get("urgent")) or critical
     return ({"kind": "notice", "key": "notice:" + notice_pattern(about["app"], about["summary"] + about["body"][:60])
              + f":{int(now) // 600}", "title": "Claude", "text": said, "chat": chat, "app": about["app"],
+             # What "Don't tell me this" silences: notifications like it.
+             "mute": "notice:" + notice_pattern(about["app"], about["summary"]),
              "urgent": urgent, "critical": critical},
             "notify" if urgent else "badge")
 
@@ -4614,8 +4618,11 @@ def initiative_answer(item_id, outcome):
             elif outcome == "later":
                 s["said"] = max(0, s.get("said", 0) - 1)  # neither taken nor refused
         if outcome == "never":
-            # A notice: that app's notices only; else the kind.
-            m.data["muted"] = list(dict.fromkeys(m.data["muted"] + [keys[-2] if len(keys) > 2 else keys[0]]))
+            # As narrow as what was said: a notification, notifications like
+            # it (its app and title, numbers aside: notice:discord|alesio),
+            # never the whole app; else that app's of the kind, or the kind.
+            narrow = said.get("mute") or (keys[-2] if len(keys) > 2 else keys[0])
+            m.data["muted"] = list(dict.fromkeys(m.data["muted"] + [narrow]))
         m.save()
     return said
 
@@ -7949,9 +7956,13 @@ def fold_chars(value):
 
 PRIVACY_PROMPT = (
     "Text in ⟦…⟧ (⟦Person 2⟧, ⟦Email 1⟧, ⟦User first⟧) is a private detail the user's computer hid "
-    "from you. Use the placeholder exactly as it is, in tool arguments and in your answers: it becomes "
-    "the real value on the user's side. ⟦User⟧ is the user; ⟦Person N first⟧ is Person N's first name; "
-    "⟦User login⟧ is the user's login name (in paths: /home/⟦User login⟧/…).")
+    "from you. You can't know what it stands for: never guess it, and never write a name, word or "
+    "value in its place (\"⟦Person 3 first⟧ is Max\" is always wrong). Use the placeholder exactly as "
+    "it is, in tool arguments and in your answers: it becomes the real value on the user's side, so "
+    "searching for ⟦Person 3 first⟧ finds the real name. When the user names someone with a "
+    "placeholder, that placeholder is who to look for; the same placeholder in a tool's result is the "
+    "same person. ⟦User⟧ is the user; ⟦Person N first⟧ is Person N's first name; ⟦User login⟧ is the "
+    "user's login name (in paths: /home/⟦User login⟧/…).")
 PHONE_RE = re.compile(r"(?<![\w+])\+?\d[\d ().-]{5,}\d(?![\w])")
 CARD_RE = re.compile(r"(?<![\d-])(?:\d[ -]?){14,15}\d(?![\d-])")
 IBAN_RE = re.compile(r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?\b")

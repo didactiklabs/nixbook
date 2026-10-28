@@ -1501,10 +1501,19 @@ echo '{"initiativeCallsPerDay":2}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.
 expect_eq "notifications: the day's calls capped" "the day's model calls are spent" \
   "$(consider '{"event":"notifications","read":true,"items":[{"app":"Mail","summary":"Invoice due"}]}' | jq -r .why)"
 rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
-# A notice answered "don't": that app's notices only.
+# A notice answered "don't": notifications like that one (its app and title,
+# numbers aside), not every notification of the app.
 id=$(jq -r '.said[] | select(.kind=="notice") | .id' "$ini" | head -1)
 python3 "$mcp" initiative answer "$id" never
-expect_eq "never: a notice silences its app" '["notice:power"]' "$(jq -c .muted "$ini")"
+expect_eq "never: a notice silences notifications like it" '["notice:power battery at #%"]' "$(jq -c '.muted | map(sub("\\|"; " "))' "$ini")"
+STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {react: false}}')
+expect_eq "never: like it (another percentage) not read again" "nothing worth a look" \
+  "$(consider '{"event":"notifications","read":true,"items":[{"app":"Power","summary":"Battery at 5%"}]}' | jq -r .why)"
+rm -f "$calls.claude-prompt"
+consider '{"event":"notifications","read":true,"items":[{"app":"Power","summary":"Charger connected"}]}' >/dev/null
+expect_eq "never: the app's other notifications still read" yes "$([ -e "$calls.claude-prompt" ] && echo yes || echo no)"
+python3 "$mcp" initiative unmute "$(jq -r '.muted[0]' "$ini")"
+expect_eq "unmute one: lifted" '[]' "$(jq -c .muted "$ini")"
 unset STUB_CLAUDE_ANSWER
 python3 "$mcp" initiative clear
 python3 "$mcp" initiative clear
@@ -3672,6 +3681,11 @@ expect_contains "privacy: the sent log holds placeholders" "$(python3 "$mcp" sen
 expect_contains "privacy: the MCP instructions explain the placeholders" \
   "$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}' | python3 "$mcp" 2>/dev/null | head -1)" \
   "is a private detail the user's computer hid"
+# A model told "⟦Person 7 first⟧ is ⟦Person 31 first⟧" wrote a made-up name
+# for the second and searched for it: it must use the placeholder itself.
+expect_contains "privacy: the instructions forbid guessing what a placeholder hides" \
+  "$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}' | python3 "$mcp" 2>/dev/null | head -1)" \
+  "never guess it, and never write a name"
 
 # Strangers: learned private once named in 3 different places.
 seen_n() { jq -r --arg k "$1" '.seen[$k].n // 0' "$XDG_STATE_HOME/nixbook-shell/privacy-seen.json"; }

@@ -703,6 +703,26 @@ Singleton {
             : (u == NotificationUrgency.Low || u === "low") ? "low" : "normal"
     }
 
+    // What "Don't tell me this" silenced (initiative.json's muted): a
+    // notification's kind (notice:discord|alesio), an app's of a kind, a kind.
+    property var muted: []
+    // In words, for Settings.
+    function mutedLabel(key) {
+        const k = String(key ?? "")
+        const i = k.indexOf(":")
+        const kind = i < 0 ? k : k.slice(0, i)
+        const what = i < 0 ? "" : k.slice(i + 1)
+        if (kind === "notice" && what.includes("|")) {
+            const bar = what.indexOf("|")
+            return Translation.tr("Notifications like “%1” from %2").arg(what.slice(bar + 1)).arg(what.slice(0, bar))
+        }
+        if (kind === "notice") return what ? Translation.tr("Every notification from %1").arg(what) : Translation.tr("Every notification")
+        return what ? Translation.tr("%1 about %2").arg(kind).arg(what) : Translation.tr("Every %1").arg(kind)
+    }
+    function unmute(key) {
+        DesktopHelper.run(["initiative", "unmute", String(key)])
+    }
+
     FileView {
         id: stateFile
         path: root.statePath
@@ -716,6 +736,7 @@ Singleton {
                 root.pending = data.pending ?? []
                 root.log = data.log ?? []
                 root.watches = data.watches ?? []
+                root.muted = data.muted ?? []
                 // A quiet word written by something else (the memory pass, a
                 // routine's report, a watch): a small bubble too. Not those
                 // there when the shell started.

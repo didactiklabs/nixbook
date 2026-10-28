@@ -374,8 +374,34 @@ ContentPage {
                 }
                 SmallButton {
                     materialIcon: "restart_alt"
+                    visible: Initiative.muted.length > 0
                     mainText: Translation.tr("Undo every \"Don't tell me this\"")
                     onClicked: DesktopHelper.run(["initiative", "unmute"])
+                }
+            }
+            // Each "Don't tell me this", to lift one at a time.
+            Repeater {
+                model: Initiative.muted
+                delegate: RowLayout {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    spacing: 6
+                    MaterialSymbol {
+                        text: "notifications_off"
+                        iconSize: Appearance.font.pixelSize.normal
+                        color: Appearance.colors.colSubtext
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: Appearance.colors.colSubtext
+                        text: Initiative.mutedLabel(modelData)
+                    }
+                    SmallButton {
+                        materialIcon: "close"
+                        mainText: Translation.tr("Tell me again")
+                        onClicked: Initiative.unmute(modelData)
+                    }
                 }
             }
             // Say something now / Find news now: working, then what came of it.
