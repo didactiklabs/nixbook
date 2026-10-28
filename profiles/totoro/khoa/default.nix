@@ -16,12 +16,12 @@ in
     ./nixbookShellConfig.nix
   ];
   home.packages = [
-    pkgs.slack
+    (config.customHomeManagerModules.nixbookShellConfig.electronA11y pkgs.slack "slack")
     pkgs.moonlight-qt
     pkgs.anki
     actual-budget
     moonfin
-    pear-desktop
+    (config.customHomeManagerModules.nixbookShellConfig.electronA11y pear-desktop "pear-desktop")
   ];
   programs = {
     go = {

@@ -18,7 +18,7 @@ in
     pkgs.immich-go
     pkgs.google-chrome
     pkgs.gitkraken
-    pkgs.slack
+    (config.customHomeManagerModules.nixbookShellConfig.electronA11y pkgs.slack "slack")
     pkgs.oapi-codegen
     pkgs.spotify
     pkgs.customPkgs.moonfin

@@ -38,7 +38,7 @@ in
     pkgs.wineWow64Packages.waylandFull
     pkgs.firefox
     moonfin
-    pear-desktop
+    (config.customHomeManagerModules.nixbookShellConfig.electronA11y pear-desktop "pear-desktop")
   ];
   systemd.user.services.opencode-web = {
     Unit = {

@@ -99,7 +99,11 @@ let
           val = tree.${name};
           fullPath = if prefix == "" then name else "${prefix}.${name}";
         in
-        if isOption val then
+        # Internal options (helpers like nixbookShellConfig.electronA11y) are
+        # not for users: left out, as the NixOS manual does.
+        if isOption val && (val.internal or false) then
+          [ ]
+        else if isOption val then
           [
             {
               inherit fullPath;
@@ -136,6 +140,8 @@ let
                         builtins.toJSON val.default
                       else if builtins.isAttrs val.default then
                         builtins.toJSON val.default
+                      else if builtins.isFunction val.default then
+                        "<function>"
                       else if builtins.isNull val.default then
                         "null"
                       else

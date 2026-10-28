@@ -137,6 +137,21 @@ let
       u: lib.elem "wheel" config.users.users.${u}.extraGroups
     ) normalUsers;
     "every normal user has a Home Manager config" = lib.all (u: hmUsers ? ${u}) normalUsers;
+    # Matched by name: a wrapped YouTube Music (electronA11y) once dropped it.
+    "the chat gets the YouTube Music MCP server wherever pear-desktop is installed (wrapped or not)" =
+      lib.all
+        (
+          u:
+          let
+            hm = hmUsers.${u};
+          in
+          (
+            (hm.customHomeManagerModules.nixbookShellConfig.enable or false)
+            && lib.any (p: lib.hasPrefix "pear-desktop" (lib.getName p)) hm.home.packages
+          )
+          -> hm.programs.nixbook-shell.assistant.mcpServers ? youtube-music
+        )
+        (lib.attrNames hmUsers);
   };
   failed = lib.attrNames (lib.filterAttrs (_: ok: !ok) checks);
 
