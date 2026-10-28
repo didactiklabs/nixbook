@@ -510,9 +510,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "2856c4c6a845b9bec98828ef197abe176e4806bb",
-      "url": "https://github.com/danth/stylix/archive/2856c4c6a845b9bec98828ef197abe176e4806bb.tar.gz",
-      "hash": "sha256-UMnLnZ3JlA7UTBNNNx1rNsXYoPP/cirXLCKGiQ/yDx8="
+      "revision": "3e27b6c499e507df6e3bb8eca3614f5c95e28140",
+      "url": "https://github.com/danth/stylix/archive/3e27b6c499e507df6e3bb8eca3614f5c95e28140.tar.gz",
+      "hash": "sha256-2pkE97wOXAYIn2/Nhs9y+iR0qVT+g/3UtukXdkywxXc="
     },
     "witr": {
       "type": "GitRelease",
