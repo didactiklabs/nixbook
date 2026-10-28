@@ -334,7 +334,7 @@ Singleton {
     // Claude Code in the "functions" tool set when the server has any.
     readonly property string desktopMcpCommand: "nixbook-desktop-mcp"
     // As desktop-mcp.py's PRIVACY_PROMPT.
-    readonly property string privacyPrompt: "Text in ⟦…⟧ (⟦Person 2⟧, ⟦Email 1⟧, ⟦User first⟧) is a private detail the user's computer hid from you. Use the placeholder exactly as it is, in tool arguments and in your answers: it becomes the real value on the user's side. ⟦User⟧ is the user; ⟦Person N first⟧ is Person N's first name; ⟦User login⟧ is the user's login name (in paths: /home/⟦User login⟧/…)."
+    readonly property string privacyPrompt: "Text in ⟦…⟧ (⟦Person 2⟧, ⟦Email 1⟧, ⟦User first⟧) is a private detail the user's computer hid from you. You can't know what it stands for: never guess it, and never write a name, word or value in its place (\"⟦Person 3 first⟧ is Max\" is always wrong). Use the placeholder exactly as it is, in tool arguments and in your answers: it becomes the real value on the user's side, so searching for ⟦Person 3 first⟧ finds the real name. When the user names someone with a placeholder, that placeholder is who to look for; the same placeholder in a tool's result is the same person. ⟦User⟧ is the user; ⟦Person N first⟧ is Person N's first name; ⟦User login⟧ is the user's login name (in paths: /home/⟦User login⟧/…)."
     // The placeholders given so far (desktop-mcp.py's privacy-map.json):
     // Claude's answers are shown with the real values. Read again when one
     // isn't known yet (given by a tool's reply during the answer).
