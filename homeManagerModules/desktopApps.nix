@@ -59,7 +59,7 @@ in
         spotify
         obs-studio
         wdisplays # display manager
-        vesktop # discord
+        (cfg.nixbookShellConfig.electronA11y vesktop "vesktop") # discord
         pinta # paint
         wifi-qr
       ]

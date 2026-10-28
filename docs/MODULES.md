@@ -481,7 +481,7 @@ Whether to hide desktop launcher entries for non-user-facing utilities, settings
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable a curated set of development and DevOps tools. Installs: Language runtimes: - python3 Build / Nix tooling: - gnumake, devenv, nix-eval-jobs, nixos-generators Infrastructure-as-Code / deployment: - terraform, minio-client - google-cloud-sdk (with gke-gcloud-auth-plugin for GKE access) Code generation / API: - cobra-cli — Go CLI framework scaffolding - openapi-generator-cli — OpenAPI client/server generator - templ — Go HTML templating compiler - bruno / bruno-cli — open-source API client (Postman alternative) AI assistants: - antigravity-cli (`agy`) — Google's agent CLI (successor of gemini-cli, which nixpkgs is removing) - claude-code — Anthropic Claude Code CLI Developer utilities: - devbox — portable development environments via Nix - go-task — Makefile alternative (Taskfile) - runme — runnable Markdown notebooks - npins — Nix dependency pinning tool - openchoreo-cli — OpenChoreo internal developer platform CLI (occ) - opencode-manager (`ocm`) — k9s-style TUI to manage isolated OpenCode workspaces in containers; seeds the built-in module catalogue into ~/.config/opencode-manager/modules on activation Telemetry: sets CHECKPOINT_DISABLE (HashiCorp version/usage pings from terraform) and DO_NOT_TRACK (honoured by devbox, runme and other CLIs).
+Whether to enable a curated set of development and DevOps tools. Installs: Language runtimes: - python3 Build / Nix tooling: - gnumake, devenv, nix-eval-jobs, nixos-generators Infrastructure-as-Code / deployment: - terraform - google-cloud-sdk (with gke-gcloud-auth-plugin for GKE access) Code generation / API: - cobra-cli — Go CLI framework scaffolding - openapi-generator-cli — OpenAPI client/server generator - templ — Go HTML templating compiler - bruno / bruno-cli — open-source API client (Postman alternative) AI assistants: - antigravity-cli (`agy`) — Google's agent CLI (successor of gemini-cli, which nixpkgs is removing) - claude-code — Anthropic Claude Code CLI Developer utilities: - devbox — portable development environments via Nix - go-task — Makefile alternative (Taskfile) - runme — runnable Markdown notebooks - npins — Nix dependency pinning tool - openchoreo-cli — OpenChoreo internal developer platform CLI (occ) - opencode-manager (`ocm`) — k9s-style TUI to manage isolated OpenCode workspaces in containers; seeds the built-in module catalogue into ~/.config/opencode-manager/modules on activation Telemetry: sets CHECKPOINT_DISABLE (HashiCorp version/usage pings from terraform) and DO_NOT_TRACK (honoured by devbox, runme and other CLIs).
 
 ---
 
@@ -713,6 +713,13 @@ Whether to enable per-user Niri compositor configuration. Manages the full Niri 
 ---
 
 ## nixbookShellConfig
+
+### `customHomeManagerModules.nixbookShellConfig.electronAccessibility`
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+Whether the Chromium/Electron apps nixbook installs (Vesktop with desktopApps; the profiles wrap their own Slack and YouTube Music) start with their accessibility tree on (`--force-renderer-accessibility`, lib/electronA11y.nix), so the desktop agents read and act on them through the app itself (desktop-mcp's ui_read/ui_act), in any window and on any workspace, without the pointer. The session's ACCESSIBILITY_ENABLED alone leaves their pages empty. It costs those apps some CPU and memory. Only where nixbook-shell is enabled.
 
 ### `customHomeManagerModules.nixbookShellConfig.enable`
 

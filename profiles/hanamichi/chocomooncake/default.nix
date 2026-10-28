@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, config, ... }:
 let
   inherit (pkgs.customPkgs) moonfin pear-desktop;
 in
@@ -15,7 +15,7 @@ in
     pkgs.moonlight-qt
     pkgs.anki
     moonfin
-    pear-desktop
+    (config.customHomeManagerModules.nixbookShellConfig.electronA11y pear-desktop "pear-desktop")
   ];
 
   customHomeManagerModules = {

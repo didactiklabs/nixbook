@@ -29,11 +29,15 @@ let
   hmModules = enabledIn (config.customHomeManagerModules or { });
   niriEnabled = config.customHomeManagerModules.niriConfig.enable or false;
   # Music apps the AI chat gets an MCP server for, where they're installed.
+  # Matched by name, not by derivation: a wrapped or overridden copy (e.g.
+  # lib/electronA11y.nix's "pear-desktop-a11y") is still the app — comparing
+  # derivations silently dropped the YouTube Music server where it was wrapped.
+  installed = name: lib.any (p: lib.hasPrefix name (lib.getName p)) config.home.packages;
   musicMcpServers =
-    lib.optionalAttrs (lib.elem pkgs.customPkgs.pear-desktop config.home.packages) {
+    lib.optionalAttrs (installed "pear-desktop") {
       youtube-music.command = lib.getExe pkgs.customPkgs.youtube-music-mcp;
     }
-    // lib.optionalAttrs (lib.elem pkgs.spotify config.home.packages) {
+    // lib.optionalAttrs (installed "spotify") {
       spotify.command = lib.getExe pkgs.customPkgs.spotify-mcp;
     };
   extraMcpServers =
@@ -147,6 +151,39 @@ in
     the features asked for (never merged on their own), as pull requests
     made with a GitHub token set in Settings > Desktop agents. Only machines
     whose profile turns it on have it'';
+
+  options.customHomeManagerModules.nixbookShellConfig.electronAccessibility = lib.mkOption {
+    type = lib.types.bool;
+    default = config.programs.nixbook-shell.desktopMcp.browserAccessibility;
+    defaultText = lib.literalExpression "config.programs.nixbook-shell.desktopMcp.browserAccessibility";
+    description = ''
+      Whether the Chromium/Electron apps nixbook installs (Vesktop with
+      desktopApps; the profiles wrap their own Slack and YouTube Music) start
+      with their accessibility tree on (`--force-renderer-accessibility`,
+      lib/electronA11y.nix), so the desktop agents read and act on them
+      through the app itself (desktop-mcp's ui_read/ui_act), in any window and
+      on any workspace, without the pointer. The session's
+      ACCESSIBILITY_ENABLED alone leaves their pages empty. It costs those
+      apps some CPU and memory. Only where nixbook-shell is enabled.
+    '';
+  };
+
+  # What desktopApps and the profiles wrap their Electron apps with:
+  # `electronA11y pkg bin` is the app with its accessibility tree on where
+  # nixbook-shell and electronAccessibility are, the app unchanged elsewhere.
+  options.customHomeManagerModules.nixbookShellConfig.electronA11y = lib.mkOption {
+    type = lib.types.functionTo (lib.types.functionTo lib.types.package);
+    internal = true;
+    readOnly = true;
+    default =
+      pkg: bin:
+      if cfg.enable && cfg.electronAccessibility then
+        import ../lib/electronA11y.nix { inherit pkgs; } pkg bin
+      else
+        pkg;
+    defaultText = lib.literalExpression "pkg: bin: (lib/electronA11y.nix) where nixbook-shell and electronAccessibility are on, else pkg";
+    description = "`pkg: bin:` the Electron app with its accessibility tree on where nixbook-shell runs.";
+  };
 
   options.customHomeManagerModules.nixbookShellConfig.linkedinMcp.enable = lib.mkOption {
     type = lib.types.bool;

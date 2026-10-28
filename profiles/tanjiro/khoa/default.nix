@@ -28,14 +28,14 @@ in
   home.packages = [
     pkgs.anki
     pkgs.moonlight-qt
-    pkgs.slack
+    (config.customHomeManagerModules.nixbookShellConfig.electronA11y pkgs.slack "slack")
     pkgs.openfortivpn
     pkgs.jira-cli-go
     pkgs.zoom-us
     pkgs.element-desktop
     # globalprotect-openconnect
     moonfin
-    pear-desktop
+    (config.customHomeManagerModules.nixbookShellConfig.electronA11y pear-desktop "pear-desktop")
   ];
   programs = {
     go = {
