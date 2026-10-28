@@ -66,6 +66,7 @@ Singleton {
                 property bool appCommands: false
                 property bool sidebarIconNoGemini: false
                 property bool dedupWindow: false
+                property bool jellyfinOff: false
             }
 
             property JsonObject ai: JsonObject {

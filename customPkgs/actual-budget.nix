@@ -23,6 +23,10 @@ pkgs.appimageTools.wrapType2 {
       --replace-fail 'Exec=AppRun' 'Exec=${pname}'
   '';
 
+  # It runs from the extracted AppImage: how nixbook-electron-app recognises
+  # its processes (lib/electronA11y.nix).
+  passthru.electronMarkers = [ "${appimageContents}" ];
+
   meta = {
     description = "A local-first personal finance app";
     homepage = "https://actualbudget.org";

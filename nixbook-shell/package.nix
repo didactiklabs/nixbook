@@ -105,6 +105,47 @@ let
     ${desktopMcpPython}/bin/python3 -c 'import py_compile, sys; py_compile.compile(sys.argv[1], cfile=sys.argv[2], dfile=sys.argv[1], doraise=True, invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH)' ${./scripts/desktop-mcp.py} $out
   '';
 
+  # The desktop agents in Zen (nixbook-desktop-mcp's page_* tools): the
+  # extension (zen/, unsigned: Zen doesn't require signing, the profile
+  # turns the check off) force-installed by the browser's policies, and its
+  # native messaging host, a bridge to a private Unix socket
+  # ($XDG_RUNTIME_DIR/nixbook-zen/bridge.sock). nixbook's zenBrowserConfig
+  # installs both (`passthru.zenAgent`).
+  zenExtensionId = "desktop-agent@nixbook-shell";
+  zenExtension = pkgs.runCommand "nixbook-zen-extension.xpi" { nativeBuildInputs = [ pkgs.zip ]; } ''
+    cp ${./zen}/manifest.json ${./zen}/page.js ${./zen}/background.js .
+    zip -q -X -9 $out manifest.json page.js background.js
+  '';
+  zenBridge = pkgs.writeShellScriptBin "nixbook-zen-bridge" ''
+    exec ${pkgs.python3}/bin/python3 -I ${./scripts/zen-bridge.py} "$@"
+  '';
+  zenBridgeHost = pkgs.runCommand "nixbook-zen-bridge-host" { } ''
+    mkdir -p $out/lib/mozilla/native-messaging-hosts
+    cat > $out/lib/mozilla/native-messaging-hosts/nixbook_zen.json <<EOF
+    {
+      "name": "nixbook_zen",
+      "description": "nixbook's desktop agents in the browser (nixbook-desktop-mcp)",
+      "path": "${zenBridge}/bin/nixbook-zen-bridge",
+      "type": "stdio",
+      "allowed_extensions": ["${zenExtensionId}"]
+    }
+    EOF
+  '';
+  # The same page tools in Electron apps: `nixbook-electron-app APP -- BINARY
+  # ARGS…` starts the app with its DevTools protocol on a private pipe and
+  # serves its fixed operations on $XDG_RUNTIME_DIR/nixbook-electron/APP.sock
+  # (scripts/electron-bridge.py; Zen's page code, zen/page.js, and an app's
+  # own operations, electron/APP.js: discord). nixbook's lib/electronA11y.nix
+  # starts the apps it wraps through it (`passthru.electronBridge`).
+  # Its watcher (`watch`) tells the user with notify-send, sees calls with
+  # pactl and starts apps in a scope of their own with systemd-run.
+  electronBridge = pkgs.writeShellScriptBin "nixbook-electron-app" ''
+    export NIXBOOK_NOTIFY_SEND=${pkgs.libnotify}/bin/notify-send \
+      NIXBOOK_PACTL=${pkgs.pulseaudio}/bin/pactl NIXBOOK_SYSTEMD_RUN=${pkgs.systemd}/bin/systemd-run
+    exec ${pkgs.python3}/bin/python3 -I ${./scripts/electron-bridge.py} \
+      --page-js ${./zen/page.js} --adapters ${./electron} "$@"
+  '';
+
   # A desktop of their own for AI agents (scripts/agent-desktop.sh): a nested
   # niri that `nixbook-desktop-mcp desktop agent` points the agents' tools
   # at, run by the `nixbook-agent-desktop` user service.
@@ -336,7 +377,14 @@ launcher.overrideAttrs (old: {
       securityContext
       fonts
       keep
+      electronBridge
       ;
+    zenAgent = {
+      extension = zenExtension;
+      extensionId = zenExtensionId;
+      host = zenBridgeHost;
+      bridge = zenBridge;
+    };
   };
   meta = shell.meta // {
     mainProgram = "nixbook-shell";

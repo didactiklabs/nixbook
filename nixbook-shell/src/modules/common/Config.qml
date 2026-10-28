@@ -57,6 +57,17 @@ Singleton {
                 dedup.window = 1800;
             done.dedupWindow = true;
         }
+        // Jellyfin joined the servers that start off until set up: a
+        // config.json written before it has the old list, which would turn it
+        // on unasked. Once, so turning it on afterwards sticks.
+        if (!done.jellyfinOff) {
+            const claudeCode = root.options.ai.claudeCode;
+            const off = Array.from(claudeCode.mcpServersOff ?? []);
+            if (!off.includes("jellyfin") && (root.options.ai.jellyfin.url ?? "") === ""
+                    && !NixManaged.isPinned("ai.claudeCode.mcpServersOff"))
+                claudeCode.mcpServersOff = [...off, "jellyfin"];
+            done.jellyfinOff = true;
+        }
     }
     property int readWriteDelay: 50 // milliseconds
     property bool blockWrites: false
@@ -228,9 +239,9 @@ Singleton {
                     // mcp-nixos, the music apps, LinkedIn, Immich…) turned off
                     // in Settings > Desktop agents. LinkedIn starts off: it acts
                     // on the user's account, and LinkedIn may restrict
-                    // accounts using automation. Immich, until it is set up
-                    // (ai.immich).
-                    property list<string> mcpServersOff: ["linkedin", "immich"]
+                    // accounts using automation. Immich and Jellyfin, until
+                    // they are set up (ai.immich, ai.jellyfin).
+                    property list<string> mcpServersOff: ["linkedin", "immich", "jellyfin"]
                     // Claude speaks as the computer itself, its hardware,
                     // OS and kernel read live (system_info).
                     property bool asComputer: true
@@ -248,6 +259,19 @@ Singleton {
                 // in this file.
                 property JsonObject immich: JsonObject {
                     property string url: ""
+                    property string apiKeyFile: ""
+                }
+                // The Jellyfin library the side panel's Claude can use, and play
+                // from (jellyfin-mcp, in assistant.mcpServers): its server, the
+                // user it acts for (empty: the first administrator), and
+                // optionally a file holding the API key. Otherwise the key is
+                // the one saved in Settings > Desktop agents, kept in the
+                // keyring (secret-tool, service=jellyfin-mcp), never in this
+                // file; the player's (jellyfin-mpv-shim's) login is its own
+                // (~/.config/jellyfin-mpv-shim/users.json).
+                property JsonObject jellyfin: JsonObject {
+                    property string url: ""
+                    property string user: ""
                     property string apiKeyFile: ""
                 }
                 // The phone (kdeconnect-mcp, the "phone" server of

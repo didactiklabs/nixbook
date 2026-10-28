@@ -27,6 +27,7 @@
 | [linkedin-mcp-server](#linkedin-mcp-server)   | MCP server for LinkedIn through your own browser session                        | `nixbookShellConfig`           |
 | [immich-photo-manager](#immich-photo-manager) | MCP server for your Immich photo library                                        | `nixbookShellConfig`           |
 | [kdeconnect-mcp](#kdeconnect-mcp)             | MCP server for your phone through KDE Connect: texts, sharing, notifications    | `nixbookShellConfig`           |
+| [jellyfin-mcp](#jellyfin-mcp)                 | MCP server for your Jellyfin library and its players (mpv here, Moonfin, TVs)   | `nixbookShellConfig`           |
 | [moonfin](#moonfin)                           | Jellyfin & Emby media client (AppImage)                                         | profiles                       |
 | [cerbos](#cerbos)                             | Stateless authorization policy decision point (PDP)                             | profiles                       |
 
@@ -100,7 +101,7 @@ A k9s-style TUI to create, attach, edit and tear down isolated OpenCode / Claude
 
 ## actual-budget
 
-[Actual Budget](https://actualbudget.org), the local-first personal finance app, packaged from its release AppImage.
+[Actual Budget](https://actualbudget.org), the local-first personal finance app, packaged from its release AppImage. Where nixbook-shell runs, totoro's profile starts it through the desktop agents' [Electron bridge](/nixbook-shell/desktop-agents#apps-and-browser-through-the-page) (`passthru.electronMarkers` names the extracted AppImage its processes run from).
 
 ## pear-desktop
 
@@ -157,6 +158,29 @@ customHomeManagerModules.nixbookShellConfig.settings.ai = {
 - Asked in the chat ("update my Immich credentials to …"), its `update_credentials` tool switches servers until you log out (it saves in `$XDG_RUNTIME_DIR`); **Save and check** clears that.
 - It is built on the MCP Python SDK 2, which nixpkgs doesn't have yet: `mcp` 2.2.0 and `mcp-types` are packaged from their PyPI wheels next to it.
 - The chat is told to say what would be deleted or shared, and wait for your yes, before deleting assets, emptying the trash or creating a public shared link.
+
+## jellyfin-mcp
+
+An MCP server (0.1.0, stdlib Python, source in `customPkgs/jellyfin-mcp/`) for your [Jellyfin](https://jellyfin.org) library and the players playing from it, for the nixbook-shell side panel's Claude (and so its speech bubble) only: it isn't installed on the PATH. `nixbookShellConfig` offers it where Moonfin is installed (`jellyfinMcp.enable`), off until you set it up.
+
+- **Tools**: `search` (films, series, episodes, songs, albums, artists), `item` (details; a series' seasons and next episode, what a season, album or playlist holds), `continue_watching`, `next_up`, `recently_added`, `sessions` (the connected players, what each plays, whether it takes remote control), `play` (an item, or a whole series, season, album, artist or playlist: now, next or last in the queue, from where you stopped), `control` (pause, unpause, toggle, stop, next, previous, seek, forward, back, volume, mute, fullscreen), `mark_played`, `favorite`, `playlists`, `playlist_add`.
+- **Where it plays**: through the server, by default on this computer's player, [jellyfin-mpv-shim](https://github.com/jellyfin/jellyfin-mpv-shim) (`jellyfinMcp.player.enable`, the `jellyfin-mpv-shim` user service: your own mpv, fullscreen, no window or tray of its own; it saves progress, marks watched and goes on to the next episode). Moonfin, a TV or a browser when named, if it accepts remote control; other people's screens only when named.
+- **The CLI** nixbook-shell uses: `configured`, `play-query TEXT` (the bubble's instant "play … season N episode M", no model: see [Jellyfin](/nixbook-shell/desktop-agents#jellyfin)), `credentials status|save|test|forget` (the API key on stdin, checked on the server), `shim-login URL USERNAME` (the password on stdin: signs the player in, then restarts it), `shim-status`, `shim-logout`.
+
+Set it up in **Settings → Desktop agents → Apps it can use**: turn **Jellyfin** on, enter the server and an API key (Jellyfin: **Dashboard → API Keys**), then **Save and check**; then **Connect the player** once with your Jellyfin username and password. The key goes to your keyring (`secret-tool`, `service=jellyfin-mcp`); the password isn't kept: the player keeps its own login (`~/.config/jellyfin-mpv-shim/users.json`). Or set them in Nix, which locks them in Settings:
+
+```nix
+customHomeManagerModules.nixbookShellConfig.settings.ai = {
+  jellyfin = {
+    url = "https://jellyfin.example.org";
+    user = "khoa"; # optional: empty is the first administrator
+    apiKeyFile = "~/.config/jellyfin/api-key"; # optional, instead of the keyring; not a store path
+  };
+  claudeCode.mcpServersOff = [ "linkedin" "immich" ]; # Jellyfin on
+};
+```
+
+The key comes from `JELLYFIN_API_KEY`, else `apiKeyFile` (`~/` is your home), else the keyring; an API key or a password is never printed, logged, put in a tool result or on a command line. The package's install check runs every tool against a fake Jellyfin.
 
 ## moonfin
 

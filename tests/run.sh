@@ -8,7 +8,8 @@
 #                                      desktop MCP server, nixbook-accounts,
 #                                      its CalDAV/CardDAV provider against Radicale,
 #                                      the Google Keep sync of the notes,
-#                                      nixbook-improve against a local repository)
+#                                      nixbook-improve against a local repository,
+#                                      jellyfin-mcp against a fake Jellyfin)
 #   tests/run.sh iso                   the installer ISO evaluates
 #   tests/run.sh docs                  docs/MODULES.md lists the modules' current options
 #   tests/run.sh hosts                 print the hive's node names (JSON)
@@ -110,6 +111,10 @@ cmd_shell() {
   bash nixbook-shell/tests/scripts.sh || failed=1
   section "nixbook-shell desktop control MCP server"
   bash nixbook-shell/tests/desktop-mcp.sh || failed=1
+  section "nixbook-shell Electron apps' bridge (nixbook-electron-app)"
+  bash nixbook-shell/tests/electron-bridge.sh || failed=1
+  section "jellyfin-mcp (customPkgs) against a fake Jellyfin"
+  bash customPkgs/jellyfin-mcp/tests/test.sh || failed=1
   section "nixbook-shell accounts backend (nixbook-accounts)"
   local accounts
   accounts=$(nix-build --no-out-link -E '(import ./nixbook-shell { }).package.passthru.accounts' 2> >(annotate >&2)) &&

@@ -721,12 +721,40 @@ Whether to enable per-user Niri compositor configuration. Manages the full Niri 
 
 Whether the Chromium/Electron apps nixbook installs (Vesktop with desktopApps; the profiles wrap their own Slack and YouTube Music) start with their accessibility tree on (`--force-renderer-accessibility`, lib/electronA11y.nix), so the desktop agents read and act on them through the app itself (desktop-mcp's ui_read/ui_act), in any window and on any workspace, without the pointer. The session's ACCESSIBILITY_ENABLED alone leaves their pages empty. It costs those apps some CPU and memory. Only where nixbook-shell is enabled.
 
+### `customHomeManagerModules.nixbookShellConfig.electronBridge.apps`
+
+- **Type:** `attribute set of string matching the pattern [a-z0-9][a-z0-9-]{0,31}`
+- **Default:** `{"actual-budget":"actual","pear-desktop":"youtube-music","slack":"slack","vesktop":"discord"}`
+
+The apps bridged, by the name of the binary nixbook wraps → the name agents know the app by (its target in `page_list`; `discord` has its own operations). Only the ones a machine installs through lib/electronA11y.nix are started so.
+
+### `customHomeManagerModules.nixbookShellConfig.electronBridge.enable`
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+Whether the Electron apps of `apps` that nixbook wraps (Vesktop with desktopApps; the profiles' own, e.g. Slack, YouTube Music and Actual Budget) start through nixbook-shell's bridge (`nixbook-electron-app`, lib/electronA11y.nix): the app's DevTools protocol on a private pipe only the launcher holds, behind a socket only you can reach, so the desktop agents read and use its pages like Zen's tabs (desktop-mcp's `page_*` tools; Discord also through its own client, the `discord` tool: find, read, send, react), without the mouse or keyboard, its window in the background. Password managers are never bridged. Agents sending or reacting are always asked first. Automating your own account may break the app's terms (Discord's and Slack's forbid self-bots). An app started without the bridge (already running when this is first deployed, or started some other way) is caught by the `nixbook-electron-watch` user service: started less than 60 s ago, it is restarted through the bridge silently; otherwise you get a notification with "Restart with bridge" — an app in use or in a call is never closed on its own.
+
 ### `customHomeManagerModules.nixbookShellConfig.enable`
 
 - **Type:** `boolean`
 - **Default:** `false`
 
 Whether to enable nixbook-shell, nixbook's Quickshell (QML) desktop shell (`programs.nixbook-shell`, packaged in nixbook-shell/), with the settings shared by every nixbook machine (nixbookShellConfig/settings.nix, as defaults a profile's `nixbookShellConfig.settings` override key by key). This is an alternative to DankMaterialShell (`dmsConfig`) — the two are mutually exclusive, since both draw a top bar, own the lock screen and register overlapping layer-shell surfaces. Flip `dmsConfig.enable` off when turning this on. The shell runs as the `nixbook-shell` user service, bound to `graphical-session.target`. Works under niri and Hyprland; under niri every panel is driven through `nixbook-shell ipc call <target> <function>` keybinds (homeManagerModules/niri/niriConfig.nix, KEYBINDS.md).
+
+### `customHomeManagerModules.nixbookShellConfig.jellyfinMcp.enable`
+
+- **Type:** `null or boolean`
+- **Default:** `null`
+
+Whether to offer the nixbook-shell AI chat (Claude in the side panel and its speech bubble) the user's Jellyfin library through `customPkgs.jellyfin-mcp`: search, details, continue watching, next up, what plays where; play and control it, mark watched, favourites, playlists. Also the bubble's instant "play <title> season N episode M" (no model). Off in the chat until set up in Settings > Desktop agents > Apps it can use (server, API key; or the `ai.jellyfin` settings).
+
+### `customHomeManagerModules.nixbookShellConfig.jellyfinMcp.player.enable`
+
+- **Type:** `null or boolean`
+- **Default:** `null`
+
+Whether this computer is a Jellyfin player: jellyfin-mpv-shim as the `jellyfin-mpv-shim` user service, playing in your own mpv (fullscreen, your mpv config), castable from Jellyfin's apps, and where jellyfin-mcp plays by default. It saves progress, marks watched and plays the next episode itself. It starts once signed in, from Settings > Desktop agents > Apps it can use ("Connect the player").
 
 ### `customHomeManagerModules.nixbookShellConfig.linkedinMcp.enable`
 
@@ -748,6 +776,13 @@ Whether to enable the desktop agent fixing nixbook itself on this machine (progr
 - **Default:** `*none*`
 
 Alias of {option}`programs.nixbook-shell.settings`.
+
+### `customHomeManagerModules.nixbookShellConfig.zenAgent.enable`
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+Whether the desktop agents can use Zen through the page itself (nixbook-desktop-mcp's `page_*` tools: tabs, reading pages, clicking, typing, forms), without the mouse or keyboard, in background tabs and other workspaces, while you keep working. With `zenBrowserConfig`: force-installs nixbook-shell's Zen extension (unsigned: `xpinstall.signatures.required` is turned off in the profile) and its native messaging host. Private windows, password fields, the Banking container and password manager / payment sites are off limits (desktop-mcp's `browser` settings).
 
 ---
 

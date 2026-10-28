@@ -22,12 +22,17 @@
       "commandLineFolders": true,
       "connectors": false,
       "effort": "low",
-      "mcpServersOff": ["linkedin", "immich"],
+      "mcpServersOff": ["linkedin", "immich", "jellyfin"],
       "model": "sonnet"
     },
     "immich": {
       "apiKeyFile": "",
       "url": ""
+    },
+    "jellyfin": {
+      "apiKeyFile": "",
+      "url": "",
+      "user": ""
     },
     "phone": {
       "readMessages": false

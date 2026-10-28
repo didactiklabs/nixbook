@@ -70,7 +70,7 @@ SERVER_NAME = "nixbook-desktop"
 
 DEFAULT_CONFIG = {
     # Tool groups on offer; the others are neither listed nor callable.
-    "tools": ["observe", "screen", "windows", "input", "shell", "memory", "personal", "ui"],
+    "tools": ["observe", "screen", "windows", "input", "shell", "memory", "personal", "ui", "pages"],
     # No keyboard/pointer input while the focused window's app_id (or title)
     # matches one of these (Python regexes, case-insensitive, searched).
     "inputDenyApps": [
@@ -178,12 +178,41 @@ DEFAULT_CONFIG = {
         r"microsoft-edge|plasma-browser-integration)",
     ],
     "http": {"port": 7823},
+    # The page tools in Zen (through nixbook's extension): tabs whose
+    # address matches one of these (Python/JS regexes, case-insensitive), or
+    # in one of these containers, are neither read nor used (listed as
+    # private), and agents can't open them; private windows never.
+    "browser": {
+        "blockedSites": [
+            r"^(about|chrome|moz-extension|resource|view-source|file|data|javascript):",
+            r"://([^/]*\.)?(bitwarden|vaultwarden|1password|lastpass|dashlane|keepersecurity|nordpass|enpass)\.",
+            r"://(pass\.proton\.me|account\.proton\.me)",
+            r"://(accounts|myaccount)\.google\.com",
+            r"://([^/]*\.)?paypal\.",
+            r"://[^/]*(bank|banque|boursorama|revolut|n26\.com|qonto|fortuneo|credit-?agricole|creditmutuel|"
+            r"societegenerale|bnpparibas|caisse-?epargne|lcl\.fr|labanquepostale|wise\.com)",
+        ],
+        "blockedContainers": ["Banking"],
+    },
+    # The page tools in the Electron apps nixbook bridges (nixbook-electron-app):
+    # apps whose name matches one of these are never used (password managers
+    # never are, whatever this says).
+    "pages": {
+        "blockedApps": [],
+    },
+    # What speaks or pays in the user's name (a Discord message or reaction,
+    # Enter in a chat app's message box, a click on Send, Pay, Delete… in a
+    # page) waits for the user's own yes: a notification with Allow / No.
+    # Off only for clients that ask the user themselves before each such call.
+    "askBeforeSending": True,
     # The fixer is on this machine (programs.nixbook-shell.selfImprove.enable):
     # report_problem and request_feature are listed only then.
     "improve": False,
 }
 
-TOOL_GROUPS = ["observe", "screen", "windows", "input", "shell", "memory", "personal", "ui"]
+TOOL_GROUPS = ["observe", "screen", "windows", "input", "shell", "memory", "personal", "ui", "pages"]
+# Groups of other versions: the page tools were Zen's browser tools.
+RENAMED_GROUPS = {"browser": "pages"}
 
 
 def xdg(var, fallback):
@@ -220,10 +249,12 @@ def read_config():
     for key, value in user.items():
         if key not in DEFAULT_CONFIG:
             log(f"{path}: unknown key {key!r}, ignored")
-        elif key == "http" and isinstance(value, dict):
-            cfg["http"].update(value)
+        elif key in ("http", "browser", "pages") and isinstance(value, dict):
+            cfg[key].update(value)
         else:
             cfg[key] = value
+    if isinstance(cfg["tools"], list):
+        cfg["tools"] = list(dict.fromkeys(RENAMED_GROUPS.get(g, g) for g in cfg["tools"]))
     cfg["tools"] = [g for g in cfg["tools"] if g in TOOL_GROUPS]
     return cfg
 
@@ -634,7 +665,7 @@ def audit_path():
 
 # Arguments whose content is private: only their length is logged, also
 # inside others (run_steps' steps); vars fill the steps' text.
-PRIVATE_ARGS = {"text", "value", "vars"}
+PRIVATE_ARGS = {"text", "value", "vars", "content"}
 
 
 def redact(v):
@@ -13540,6 +13571,556 @@ def enabled_tools(cfg):
                            "start_improvement") or cfg.get("improve"))}
 
 
+# --------------------------------------------------------------------------
+# Pages: Zen's tabs and the Electron apps' windows, through the page itself.
+# Zen: nixbook-shell's extension (zen/) and its native host
+# nixbook-zen-bridge. The Electron apps nixbook starts through
+# nixbook-electron-app (Vesktop, Slack, YouTube Music, Actual…): the app's
+# DevTools protocol on a private pipe, behind a Unix socket per app
+# ($XDG_RUNTIME_DIR/nixbook-electron/APP.sock). Both run the same page code
+# (zen/page.js) and only answer fixed operations; both sockets are only this
+# user's. No pointer, no keys, no screenshot: background tabs, other
+# workspaces and hidden windows work the same, and the user keeps working.
+# A target names a page: `zen` (the tab shown), `zen:<tab id>`, `discord`
+# (an app's main window), `discord:<page id>`.
+# --------------------------------------------------------------------------
+
+PAGE_ACTS = ("page_go", "page_act", "browser_open", "browser_tab", "browser_act")
+# Never reached through a bridge, whatever its name (the launcher refuses them too).
+PASSWORD_APP_NAMES = re.compile(r"keepass|bitwarden|vaultwarden|1password|enpass|proton-?pass|lastpass|dashlane|"
+                                r"keeper|nordpass|roboform|passbolt|seahorse|kwallet|authenticator|authy", re.I)
+APP_LABELS = {"discord": "Discord (Vesktop)", "slack": "Slack", "youtube-music": "YouTube Music",
+              "actual": "Actual Budget"}
+TARGET_RE = re.compile(r"^([a-z0-9][a-z0-9-]{0,31})(?::([A-Za-z0-9]{1,40}))?$")
+
+
+# What speaks, pays or deletes in the user's name through a page: a click,
+# submit or key on an element named so, or Enter (a submit) in a chat app's
+# message box.
+RISKY_TARGET = re.compile(r"\b(delete|remove|send|reply|post|pay|buy|purchase|order|checkout|unsubscribe|empty trash|"
+                          r"erase|format|uninstall|transfer|supprimer|envoyer|r[ée]pondre|publier|payer|"
+                          r"acheter|commander|l(ö|oe)schen|senden|antworten|bezahlen|kaufen|bestellen|x(ó|o)a|"
+                          r"g(ử|u)i|thanh to(á|a)n|mua)\b", re.I)
+CHAT_TARGETS = re.compile(r"^(discord|slack)(:|$)", re.I)
+
+
+def page_act_risky(args):
+    """A page click/submit/key on a "Send", "Pay"… element, or Enter in a chat app."""
+    action = str(args.get("action") or "")
+    if action not in ("click", "submit", "press"):
+        return False
+    if RISKY_TARGET.search(str(args.get("name") or "")):
+        return True
+    key = str(args.get("value") or "Enter")
+    return bool(CHAT_TARGETS.match(str(args.get("target") or ""))) and (
+        action == "submit" or (action == "press" and re.search(r"(^|\+)\s*(enter|return)$", key, re.I) is not None
+                               and not re.search(r"shift", key, re.I)))
+
+
+ASK_TIMEOUT = 120
+
+
+def ask_user_yes(ctx, title, body):
+    """The user's own yes, asked in a notification (Allow / No; no answer in
+    ASK_TIMEOUT seconds is a no), before what speaks, pays or deletes in
+    their name: whatever the agent or its client says, they can't answer it
+    for the user. askBeforeSending false: not asked (a client that asks the
+    user itself before each such call)."""
+    if ctx.cfg.get("askBeforeSending", True) is False:
+        return
+    if not shutil.which("notify-send"):
+        raise ToolError("not done: the user can't be asked (no notify-send), and this acts in their name")
+    try:
+        out = subprocess.run(["notify-send", "-a", "Desktop agent", "-i", "dialog-question", "-u", "critical",
+                              "-A", "allow=Allow", "-A", "deny=No", "--", title, short(body, 600)],
+                             capture_output=True, text=True, timeout=ASK_TIMEOUT, env=user_desktop_env())
+    except subprocess.TimeoutExpired:
+        raise ToolError("not done: the user didn't answer the notification asking for their yes")
+    except OSError as e:
+        raise ToolError(f"not done: the user couldn't be asked ({e})")
+    if out.stdout.strip() != "allow":
+        raise ToolError("not done: the user said no. Don't try again unless they ask you to")
+
+
+def zen_socket():
+    base = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+    return os.path.join(base, "nixbook-zen", "bridge.sock")
+
+
+def electron_dir():
+    base = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+    return os.path.join(base, "nixbook-electron")
+
+
+def own_socket(path, missing):
+    try:
+        st = os.stat(path)
+    except FileNotFoundError:
+        raise ToolError(missing)
+    if st.st_uid != os.getuid() or not stat.S_ISSOCK(st.st_mode):
+        raise ToolError(f"{path} isn't this user's socket: not used")
+
+
+def socket_request(path, request, gone):
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.settimeout(55)
+    try:
+        s.connect(path)
+        s.sendall(json.dumps(request).encode() + b"\n")
+        line = s.makefile("rb").readline(8 * 1024 * 1024)
+    except (OSError, socket.timeout) as e:
+        raise ToolError(f"{gone} ({e})")
+    finally:
+        s.close()
+    try:
+        reply = json.loads(line)
+    except ValueError:
+        raise ToolError(gone)
+    if not reply.get("ok"):
+        raise ToolError(str(reply.get("error") or "refused"))
+    return reply.get("result")
+
+
+def zen(ctx, cmd, **args):
+    """One request to the extension: its result (ToolError when refused)."""
+    path = zen_socket()
+    own_socket(path, "Zen isn't running, or its nixbook extension isn't installed (nixbookShellConfig.zenAgent "
+                     "with zenBrowserConfig): start Zen (launch_app) and try again")
+    guard = ctx.cfg.get("browser") or {}
+    request = {"cmd": cmd, **{k: v for k, v in args.items() if v is not None},
+               "guard": {"sites": guard.get("blockedSites") or [], "containers": guard.get("blockedContainers") or []}}
+    return socket_request(path, request, "the browser didn't answer: is Zen still running?")
+
+
+def bridged_apps():
+    """The apps whose bridge runs now (their sockets, this user's)."""
+    try:
+        names = sorted(os.listdir(electron_dir()))
+    except OSError:
+        return []
+    out = []
+    for n in names:
+        app = n[:-5] if n.endswith(".sock") else ""
+        if not TARGET_RE.match(app or "-"):
+            continue
+        with contextlib.suppress(OSError):
+            st = os.stat(os.path.join(electron_dir(), n))
+            if st.st_uid == os.getuid() and stat.S_ISSOCK(st.st_mode):
+                out.append(app)
+    return out
+
+
+def unbridged_apps():
+    """The bridged apps running without their bridge now (nixbook-electron-app's
+    watcher writes them): {app: {pid, label, age, inCall}}."""
+    path = os.path.join(electron_dir(), "unbridged.json")
+    try:
+        if time.time() - os.stat(path).st_mtime > 60:
+            return {}  # the watcher isn't running: nothing known
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+UNBRIDGED_HINT = ("{label} runs without nixbook's bridge (started before it, or it restarted itself): the user got a "
+                  "notification to restart it with the bridge (\"Restart with bridge\"); ask them to, never close or "
+                  "restart it yourself. Meanwhile ui_read/ui_act or screenshots reach its window")
+
+
+def ask_watcher(app):
+    """The watcher tells the user again (at most every 10 minutes): an agent needs the app."""
+    with contextlib.suppress(OSError):
+        fd = os.open(os.path.join(electron_dir(), f"{app}.ask"), os.O_WRONLY | os.O_CREAT, 0o600)
+        os.close(fd)
+
+
+def app_refused(ctx, app):
+    if PASSWORD_APP_NAMES.search(app):
+        return True
+    for rx in (ctx.cfg.get("pages") or {}).get("blockedApps") or []:
+        with contextlib.suppress(re.error):
+            if re.search(rx, app, re.I):
+                return True
+    return False
+
+
+def electron(ctx, app, cmd, **args):
+    """One request to an Electron app's bridge (nixbook-electron-app)."""
+    if app_refused(ctx, app):
+        raise ToolError(f"refused: {app} is off limits to the agents (pages.blockedApps); ask the user")
+    label = APP_LABELS.get(app, app)
+    path = os.path.join(electron_dir(), f"{app}.sock")
+    if not os.path.exists(path) and app in unbridged_apps():
+        ask_watcher(app)
+        raise ToolError(UNBRIDGED_HINT.format(label=label))
+    own_socket(path, f"{label} isn't reachable: it isn't running, or it was started before nixbook's bridge "
+                     "(quit it completely, its tray icon too, and start it again from the launcher). page_list "
+                     "lists what is reachable")
+    request = {"cmd": cmd, **{k: v for k, v in args.items() if v is not None}}
+    return socket_request(path, request, f"{label} didn't answer: is it still running?")
+
+
+def page_target(args):
+    """(app, page) of the call's `target`: ("zen", tab id or None) or (app, page id or None)."""
+    raw = args.get("target")
+    raw = "zen" if raw in (None, "") else str(raw).strip().lower()
+    m = TARGET_RE.match(raw)
+    if not m:
+        raise ToolError("`target`: zen, zen:<tab>, or an app (discord, slack…) from page_list")
+    app, page = m.groups()
+    if app == "zen":
+        if page is not None and not page.isdigit():
+            raise ToolError("`target`: zen:<tab id> (page_list gives them)")
+        return "zen", int(page) if page else None
+    return app, page
+
+
+def page_call(ctx, args, cmd, **kw):
+    app, page = page_target(args)
+    if app == "zen":
+        return app, zen(ctx, cmd, tab=page, **kw)
+    return app, electron(ctx, app, cmd, page=page, **kw)
+
+
+def page_label(app, r):
+    return f"zen:{r.get('tab')}" if app == "zen" else f"{app}:{r.get('page')}"
+
+
+def zen_tab_line(t):
+    bits = [f"zen:{t['id']}"] + (["(shown)"] if t.get("active") else [])
+    if t.get("private"):
+        bits.append(f"private: {t['private']}")
+    else:
+        bits.append(f"{short(t.get('title') or '', 90)!r} {short(t.get('url') or '', 160)}")
+    for k, label in (("container", "container {}"), ("otherWorkspace", "other workspace"), ("pinned", "pinned"),
+                     ("audible", "playing sound"), ("loading", "loading")):
+        if t.get(k):
+            bits.append("· " + label.format(t[k]))
+    return " ".join(bits)
+
+
+@tool(
+    "page_list",
+    "pages",
+    "The pages you can read and use through the page itself: Zen's tabs (zen:<id>; private windows "
+    "never, blocked sites listed as private) and the bridged apps' windows (discord, slack, "
+    "youtube-music…). Each line starts with its target.",
+    obj({"target": {"type": "string", "description": "Only zen, or one app"}}),
+    read_only=True,
+)
+def t_page_list(ctx, args):
+    only = page_target(args)[0] if args.get("target") else None
+    lines = []
+    if only in (None, "zen"):
+        try:
+            tabs = zen(ctx, "tabs") or []
+            lines += [zen_tab_line(t) for t in tabs] or ["zen: no tabs"]
+        except ToolError as e:
+            if only == "zen":
+                raise
+            lines.append(f"zen: {short(str(e), 80)}")
+    apps = [a for a in bridged_apps() if only in (None, a) and not app_refused(ctx, a)]
+    if only not in (None, "zen") and only not in apps and only not in unbridged_apps():
+        electron(ctx, only, "pages")  # says why it can't be reached
+    for app in apps:
+        try:
+            pages = electron(ctx, app, "pages") or []
+        except ToolError as e:
+            lines.append(f"{app}: {short(str(e), 120)}")
+            continue
+        label = APP_LABELS.get(app, app) + (" (also the discord tool)" if app == "discord" else "")
+        for p in pages:
+            lines.append(f"{app if p.get('main') else app + ':' + str(p.get('id'))} {short(p.get('title') or '', 90)!r} "
+                         f"{short(p.get('url') or '', 120)} · {label}")
+        if not pages:
+            lines.append(f"{app}: no window open · {label}")
+    for app, u in sorted(unbridged_apps().items()):
+        if app in apps or only not in (None, app) or app_refused(ctx, app):
+            continue
+        lines.append(f"{app}: unbridged · {UNBRIDGED_HINT.format(label=u.get('label') or APP_LABELS.get(app, app))}")
+        apps.append(app)
+    if only is None and not apps:
+        lines.append("apps: none bridged now (Vesktop, Slack, YouTube Music… started from the launcher show here)")
+    return [text("\n".join(lines))]
+
+
+@tool(
+    "page_go",
+    "pages",
+    "Open or move a page. Zen: `open` a `url` in a new tab (in the background unless `active`), or on "
+    "a tab `activate`, `navigate` (to `url`), `back`, `forward`, `reload`, `mute`, `unmute`, `close`. "
+    "Apps: `back`, `forward`, `reload`.",
+    obj({"target": {"type": "string", "description": "From page_list (default zen)"},
+         "action": {"type": "string", "enum": ["open", "activate", "navigate", "back", "forward", "reload", "mute",
+                                               "unmute", "close"]},
+         "url": {"type": "string"}, "active": {"type": "boolean"}}, ["action"]),
+)
+def t_page_go(ctx, args):
+    action = as_str(args, "action", max_len=20)
+    url = as_str(args, "url", max_len=2000, required=False) or None
+    app, page = page_target(args)
+    if app != "zen":
+        r = electron(ctx, app, "go", page=page, action=action)
+        return [text(f"{app}:{r.get('page')} now: {r.get('title')!r} {r.get('url')}")]
+    if action == "open":
+        if not url:
+            raise ToolError("open needs `url`")
+        return [text(zen_tab_line(zen(ctx, "open", url=url, active=bool(args.get("active")))))]
+    r = zen(ctx, "tab", tab=page, action=action, url=url)
+    if r and r.get("closed") is not None:
+        return [text(f"closed zen:{r['closed']}")]
+    return [text(zen_tab_line(r))]
+
+
+def page_read_lines(label, r):
+    lines = [f"{label}: {r.get('title')!r} {r.get('url')}"]
+    els = r.get("elements") or []
+    lines.append(f"Elements ({len(els)} of {r.get('total')}):" if els else "No elements found.")
+    for e in els:
+        line = f"[{e['ref']}] {e['role']} {e.get('name')!r}"
+        if e.get("password"):
+            line += " (password: off limits)"
+        if "value" in e:
+            line += f" = {e['value']!r}"
+        if e.get("checked") is not None:
+            line += " (checked)" if e["checked"] else " (unchecked)"
+        if e.get("selected"):
+            line += " (selected)"
+        if e.get("disabled"):
+            line += " (disabled)"
+        if e.get("options"):
+            line += f" options: {', '.join(e['options'])}"
+        if e.get("href"):
+            line += f" → {e['href']}"
+        if e.get("offscreen"):
+            line += " (scrolled away)"
+        lines.append(line)
+    if r.get("selection"):
+        lines.append(f"Selected text: {r['selection']!r}")
+    if r.get("text"):
+        more = r.get("textTotal", 0) - len(r["text"])
+        lines.append("Text:\n" + r["text"] + (f"\n… ({more} more characters: `chars` for more)" if more > 0 else ""))
+    return lines
+
+
+TARGET_PROP = {"type": "string", "description": "A target from page_list: zen (the tab shown), zen:<tab>, discord, "
+                                                "slack… (default zen)"}
+
+
+@tool(
+    "page_read",
+    "pages",
+    "Read a page through the page itself (a Zen tab or a bridged app's window, in the background "
+    "too): title, address, text, and the elements you can act on, numbered: [ref] role 'name' = "
+    "value. With `query`, only the elements whose name has one of its words. Then page_act on a ref. "
+    "Password fields show no value. Costs far less than a screenshot and is exact.",
+    obj({"target": TARGET_PROP,
+         "query": {"type": "string", "description": "Words: only the elements named so (a button, a field)"},
+         "text": {"type": "boolean", "description": "The page's text too (default true)"},
+         "chars": {"type": "integer", "description": "At most this much text (default 12000)"},
+         "max": {"type": "integer", "description": "At most this many elements (default 150)"}}),
+    read_only=True,
+)
+def t_page_read(ctx, args):
+    app, r = page_call(ctx, args, "read", query=as_str(args, "query", max_len=200, required=False) or None,
+                       text=args.get("text") is not False, chars=args.get("chars"), max=args.get("max"))
+    return [text("\n".join(page_read_lines(page_label(app, r), r)))]
+
+
+@tool(
+    "page_act",
+    "pages",
+    "Act on an element of a page from its last page_read, in the page itself (no pointer, no "
+    "keys: the user keeps working): `click`, `type` (`value` replaces the field's text, `append` adds "
+    "it; rich editors too, e.g. a chat's message box), `select` (a list's option by its text), "
+    "`check` (`value` \"false\" unchecks), `submit` (its form), `press` (a key: Enter, Escape, "
+    "Shift+Enter…), `focus`, `scroll`. Give the element's `name` as page_read showed it: if the page "
+    "changed, it says so instead of acting on something else. Password fields are refused. In a chat "
+    "app, Enter in the message box sends it: the discord tool is plainer for messages. A click, "
+    "submit or key that sends, pays or deletes (Send, Pay, Delete…; Enter in Discord's or Slack's "
+    "message box) waits for the user's yes (Allow / No): say what it does first.",
+    obj({"target": TARGET_PROP, "ref": {"type": "integer"},
+         "name": {"type": "string", "description": "The element's name, as page_read listed it"},
+         "action": {"type": "string", "enum": ["click", "type", "select", "check", "submit", "press", "focus",
+                                               "scroll"]},
+         "value": {"type": "string"}, "append": {"type": "boolean"}}, ["ref", "name", "action"]),
+    destructive=True,
+)
+def t_page_act(ctx, args):
+    value = args.get("value")
+    if isinstance(value, str):
+        ctx.guard.check_text(value)
+    ctx.guard.check_rate()
+    if page_act_risky(args):
+        target = str(args.get("target") or "zen")
+        ask_user_yes(ctx, f"Let the agent {as_str(args, 'action', max_len=20)} \u201c{as_str(args, 'name', max_len=200)}\u201d "
+                     f"in {'Zen' if page_target(args)[0] == 'zen' else APP_LABELS.get(page_target(args)[0], target)}?",
+                     "It acts in your name (it may send, pay or delete).")
+    app, r = page_call(ctx, args, "act", ref=as_int(args, "ref"), name=as_str(args, "name", max_len=200),
+                       action=as_str(args, "action", max_len=20), value=value if isinstance(value, str) else None,
+                       append=bool(args.get("append")))
+    el = r.get("element")
+    after = (f"{el['role']} {el.get('name')!r}" + (f" = {el['value']!r}" if "value" in el else "")
+             + ("" if el.get("checked") is None else (" (checked)" if el["checked"] else " (unchecked)"))) if el \
+        else "(the element is gone: the page changed)"
+    return [text(f"done ({r.get('done')}): {after}. {page_label(app, r)} now: {r.get('title')!r} {r.get('url')}")]
+
+
+@tool(
+    "page_wait",
+    "pages",
+    "Wait in a page until it has loaded (`until` load), its text shows `text` (`until` text) or its "
+    "address contains `text` (`until` url), at most `timeout_ms` (default 10000).",
+    obj({"target": TARGET_PROP, "until": {"type": "string", "enum": ["load", "text", "url"]},
+         "text": {"type": "string"}, "timeout_ms": {"type": "integer"}}, ["until"]),
+    read_only=True,
+)
+def t_page_wait(ctx, args):
+    app, r = page_call(ctx, args, "wait", until=as_str(args, "until", max_len=10),
+                       text=as_str(args, "text", max_len=300, required=False) or None,
+                       timeout=max(100, min(30000, int(args.get("timeout_ms") or 10000))))
+    if not r.get("ok"):
+        return [text(f"not yet: {page_label(app, r)} still isn't there (timed out)")]
+    return [text(f"there: {page_label(app, r)}: {r.get('title')!r} {r.get('url')}")]
+
+
+@tool(
+    "page_screenshot",
+    "pages",
+    "A picture of a page (a Zen tab or an app's window, without showing it), for what text doesn't "
+    "tell (layout, pictures). page_read is cheaper and exact for text and controls.",
+    obj({"target": TARGET_PROP}),
+    read_only=True,
+)
+def t_page_screenshot(ctx, args):
+    app, r = page_call(ctx, args, "screenshot")
+    data = str(r.get("data") or "")
+    if not data.startswith("data:image/"):
+        raise ToolError("the page gave no picture")
+    path = os.path.join(runtime_dir(), f"screenshot-{secrets.token_hex(4)}.jpg")
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "wb") as f:
+        f.write(base64.b64decode(data.split(",", 1)[1]))
+    return screenshot_reply(ctx, path, f"{page_label(app, r)}: {r.get('title')!r} {r.get('url')}")
+
+
+# The browser_* tools of before: still callable (saved routines, recipes and
+# memory name them), not offered; they are the page tools on Zen.
+TOOL_ALIASES = {"browser_tabs": "page_list", "browser_open": "page_go", "browser_tab": "page_go",
+                "browser_read": "page_read", "browser_act": "page_act", "browser_wait": "page_wait",
+                "browser_screenshot": "page_screenshot"}
+
+
+def resolve_alias(name, args):
+    if name not in TOOL_ALIASES:
+        return name, args
+    a = dict(args)
+    tab = a.pop("tab", None)
+    a["target"] = f"zen:{tab}" if isinstance(tab, int) and not isinstance(tab, bool) else "zen"
+    if name == "browser_open":
+        a["action"] = "open"
+    return TOOL_ALIASES[name], a
+
+
+# Discord (Vesktop through its bridge): the messages through Discord's own
+# client in the app (electron/discord.js), not its window. A send or a
+# reaction speaks in the user's name: always asked (ask_user_yes), whatever
+# the client allowed.
+
+def discord_channel(c):
+    if not isinstance(c, dict):
+        return "?"
+    return c.get("name", "?") + (f" ({c['guild']})" if c.get("guild") else "") + f" = {c.get('id')}"
+
+
+def discord_message_line(m):
+    when = str(m.get("time") or "")[5:16].replace("T", " ")
+    bits = [f"id {m.get('id')}"]
+    for k, label in (("replyTo", "reply to {}"), ("mentionsMe", "mentions you"), ("attachments", "{} files")):
+        if m.get(k):
+            bits.append(label.format(m[k]))
+    if m.get("reactions"):
+        bits.append(" ".join(f"{r.get('emoji')}{r.get('count')}" for r in m["reactions"][:8]))
+    who = (m.get("author") or "?") + (" (you)" if m.get("mine") else "")
+    return f"- {when} {who}: {m.get('content') or ''} ⟨{', '.join(bits)}⟩"
+
+
+@tool(
+    "discord",
+    "pages",
+    "Discord messages in the user's Vesktop, without its window: `status`, `find` (`query`: channels, "
+    "people, DMs → ids), `channels` (`guild`; none: the servers and DMs), `read` (`channel`, `limit` ≤ "
+    "50; default the open one), `send` (`channel`, `content` ≤ 2000, `reply_to` a message id), `react` "
+    "(`channel`, `message`, `emoji`). A channel: an id, user:<id>, or a name. Sends and reactions are "
+    "in the user's name: say what you'll send first; the user is asked again (Allow / No) before it goes.",
+    obj({"action": {"type": "string", "enum": ["status", "find", "channels", "read", "send", "react"]},
+         "query": {"type": "string"}, "guild": {"type": "string"}, "channel": {"type": "string"},
+         "limit": {"type": "integer"}, "content": {"type": "string"}, "reply_to": {"type": "string"},
+         "message": {"type": "string"}, "emoji": {"type": "string"}}, ["action"]),
+    destructive=True,
+)
+def t_discord(ctx, args):
+    action = as_str(args, "action", max_len=20)
+
+    def app(op, **kw):
+        return electron(ctx, "discord", "app", op=op, args={k: v for k, v in kw.items() if v not in (None, "")})
+
+    def opt(key, n=200):
+        return as_str(args, key, max_len=n, required=False) or None
+
+    if action == "status":
+        r = app("status")
+        if not r.get("loggedIn"):
+            return [text("Vesktop runs with the bridge, but Discord isn't logged in (or still loading).")]
+        return [text(f"Discord: logged in as {r.get('user')}; open: "
+                     f"{discord_channel(r['current']) if r.get('current') else 'no channel'}")]
+    if action == "find":
+        res = app("find", query=as_str(args, "query", max_len=100)).get("results") or []
+        return [text("\n".join(f"- {h.get('kind')} {discord_channel(h)}" for h in res) or "nothing found")]
+    if action == "channels":
+        guild = opt("guild", 100)
+        if guild:
+            r = app("channels", guild=guild)
+            return [text(f"{r.get('guild')}:\n" + "\n".join(f"- {discord_channel(c)}" for c in r.get("channels") or []))]
+        gs, dms = app("guilds").get("guilds") or [], app("dms").get("dms") or []
+        return [text("Servers:\n" + "\n".join(f"- {g.get('name')} = {g.get('id')}" for g in gs)
+                     + "\nDirect messages:\n" + "\n".join(f"- {discord_channel(c)}" for c in dms))]
+    if action == "read":
+        limit = max(1, min(50, int(args.get("limit") or 20))) if isinstance(args.get("limit"), int) else 20
+        r = app("read", channel=opt("channel"), limit=limit)
+        msgs = r.get("messages") or []
+        return [text(f"{discord_channel(r.get('channel'))}, the last {len(msgs)}:\n"
+                     + "\n".join(discord_message_line(m) for m in msgs))]
+    if action == "send":
+        channel = as_str(args, "channel", max_len=200)
+        content = args.get("content")
+        if not isinstance(content, str) or not content.strip():
+            raise ToolError("`content`: the message to send")
+        if len(content) > 2000:
+            raise ToolError("a Discord message is at most 2000 characters")
+        ctx.guard.check_rate()
+        where = discord_channel(app("read", channel=channel, limit=1).get("channel"))
+        ask_user_yes(ctx, f"Send this on Discord, to {where.rsplit(' = ', 1)[0]}?", content)
+        r = app("send", channel=channel, content=content, reply_to=opt("reply_to", 30))
+        if r.get("id"):
+            return [text(f"sent to {discord_channel(r.get('channel'))} (message id {r['id']})")]
+        return [text(f"handed to Discord for {discord_channel(r.get('channel'))}, no message id came back: "
+                     "discord read shows whether it went")]
+    if action == "react":
+        ctx.guard.check_rate()
+        channel = as_str(args, "channel", max_len=200)
+        emoji = as_str(args, "emoji", max_len=80)
+        where = discord_channel(app("read", channel=channel, limit=1).get("channel"))
+        ask_user_yes(ctx, f"React {emoji} on Discord, in {where.rsplit(' = ', 1)[0]}?",
+                     f"To message {as_str(args, 'message', max_len=30)}, in your name.")
+        r = app("react", channel=as_str(args, "channel", max_len=200), message=as_str(args, "message", max_len=30),
+                emoji=as_str(args, "emoji", max_len=80))
+        return [text(f"reacted {args.get('emoji')} to message {r.get('id')} in {discord_channel(r.get('channel'))}")]
+    raise ToolError("action: status, find, channels, read, send or react")
+
+
 def call_tool(ctx, name, args, session=None):
     """Returns (content, is_error). Unknown tools raise KeyError. session:
     the MCP session calling (HTTP: its Mcp-Session-Id). With the privacy
@@ -13553,11 +14134,14 @@ def call_tool(ctx, name, args, session=None):
 
 
 def call_tool_now(ctx, name, args, session=None):
+    if not isinstance(args, dict):
+        args = {}
+    if name not in TOOLS:
+        # The browser_* tools of before: the page tools on Zen.
+        name, args = resolve_alias(name, args)
     t = enabled_tools(ctx.cfg).get(name)
     if not t:
         raise KeyError(name)
-    if not isinstance(args, dict):
-        args = {}
     # AI off: no agent acts on the desktop, whoever it is (local only: they may).
     if ai_policy() == 0:
         audit(ctx.client, name, args, "AI off")
@@ -13593,6 +14177,11 @@ def call_tool_now(ctx, name, args, session=None):
                 ctx.desktop = use_desktop(name, t["group"])
             if refused_by_takeover(ctx, name, t["group"]):
                 raise ToolError(TAKEOVER_MESSAGE)
+            # The page tools reach the user's own Zen and apps (their sockets):
+            # never from the agent's own desktop, whose apps are its own.
+            if ctx.desktop == "agent" and t["group"] == "pages":
+                raise ToolError("refused: you work on your own desktop, and the page tools reach the user's own Zen "
+                                "and apps: use your desktop's apps with the window and ui tools")
             # The shell's windows over the apps let the action through.
             note, made_way = None, []
             if ctx.desktop == "user" and (t["group"] in ACTION_GROUPS or name == "ui_act"):
@@ -13634,9 +14223,9 @@ def call_tool_now(ctx, name, args, session=None):
             return [text(f"internal error: {e}")], True
         if t["group"] in ACTION_GROUPS:
             content = content + after_action(ctx, args)
-        if t["group"] in ACTION_GROUPS or name == "ui_act":
+        if t["group"] in ACTION_GROUPS or name in ("ui_act", *PAGE_ACTS):
             record_action(ctx, name, args)
-        elif t["group"] in ("screen", "ui", "observe"):
+        elif t["group"] in ("screen", "ui", "observe", "pages"):
             ctx.episode["reads"] += 1
         write_state(last={"time": int(time.time() * 1000), "client": ctx.client, "tool": name, "outcome": "ok"})
     audit(ctx.client, name, args, "ok")
@@ -13715,7 +14304,15 @@ INSTRUCTIONS = (
     "(with `find`) still costs far less than a screenshot and gives "
     "positions to click as they are. Screenshot only for what neither "
     "tells (layout, pictures); to click in a "
-    "screenshot, give its pixel coordinates with its mapping. Input into terminals, "
+    "screenshot, give its pixel coordinates with its mapping. Web pages in Zen and the apps "
+    "nixbook bridges (Discord in Vesktop, Slack, YouTube Music, Actual Budget): the page_* tools "
+    "work in the page itself (page_list gives the targets: zen:<tab>, discord, slack…), in the "
+    "background, on another workspace, without the mouse or keyboard, so the user keeps working "
+    "meanwhile: prefer them to clicking or typing in those windows. Discord messages (find, read, "
+    "send, react): the discord tool. YouTube Music: playing, the queue, likes through its own MCP "
+    "server (youtube-music) when you have it, the page tools for the rest (lyrics, the library). "
+    "Sending a message, reacting, or a click or key that sends, pays or deletes waits for the "
+    "user's yes in a notification: say what it will do first. Input into terminals, "
     "password managers and password prompts is refused: ask the user to do "
     "those steps. The user can pause desktop control at any time from the "
     "bar; then every tool is refused. The user can also move you between "

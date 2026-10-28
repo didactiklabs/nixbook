@@ -595,6 +595,17 @@ Singleton {
         if (keyFile.length > 0) env.IMMICH_API_KEY_FILE = keyFile;
         return env;
     }
+    // The environment jellyfin-mcp gets from the ai.jellyfin settings (also
+    // used by Settings > Desktop agents and the bubble's instant "play …",
+    // QuickIntent.qml); its key it reads from the keyring itself.
+    readonly property var jellyfinEnv: {
+        const env = {};
+        const jf = Config.options.ai.jellyfin;
+        if ((jf?.url ?? "").length > 0) env.JELLYFIN_URL = jf.url;
+        if ((jf?.user ?? "").length > 0) env.JELLYFIN_USER = jf.user;
+        if ((jf?.apiKeyFile ?? "").length > 0) env.JELLYFIN_API_KEY_FILE = jf.apiKeyFile;
+        return env;
+    }
     FileView {
         id: assistantMcpFile
         path: `${Directories.shellConfig}/assistant-mcp.json`
@@ -702,6 +713,8 @@ Singleton {
         // this command line.
         if (extraServers.immich) extraServers.immich = Object.assign({}, extraServers.immich, {
             env: Object.assign({}, extraServers.immich.env ?? {}, root.immichEnv) });
+        if (extraServers.jellyfin) extraServers.jellyfin = Object.assign({}, extraServers.jellyfin, {
+            env: Object.assign({}, extraServers.jellyfin.env ?? {}, root.jellyfinEnv) });
         // The phone's texts, notifications and contacts only with
         // ai.phone.readMessages; sending needs no switch.
         if (extraServers.phone) extraServers.phone = Object.assign({}, extraServers.phone, {
@@ -720,7 +733,9 @@ Singleton {
             + "\n\nYou are answering in the desktop shell's side panel: keep answers short."
             + (privacy ? " " + root.privacyPrompt : "")
             + (Config.options.ai.claudeCode.asComputer ? root.asComputerPrompt(desktop) : "")
-            + (desktop ? " You can see and drive the user's desktop with the desktop tools." : "")
+            + (desktop ? " You can see and drive the user's desktop with the desktop tools."
+                // Asked again by the server itself (a notification with Allow / No).
+                + " The discord tool's send and react, and a page_act that sends, pays or deletes (Send, Pay, Delete; Enter in Discord's or Slack's message box), act in the user's name: show exactly what and to whom first; the user is then asked to allow it in a notification." : "")
             // Its tools are all allowed (-p can't ask): what acts on the
             // user's account waits for their yes in the chat.
             + (extraServers.linkedin
@@ -731,6 +746,9 @@ Singleton {
                 : "")
             + (extraServers.immich
                 ? " The immich tools act on the user's real photo library. Before deleting assets, emptying the trash, or creating a shared link (anyone with the URL can open it), say exactly what would be affected and call it only after they say yes in this chat. Never pass force=true unless they asked for permanent deletion."
+                : "")
+            + (extraServers.jellyfin
+                ? " The jellyfin tools are the user's Jellyfin library and its players: to watch or listen to something from it, search then play (it plays fullscreen in mpv on this computer unless they name another player, e.g. Moonfin or the TV); never play on someone else's player unless they named it."
                 : "")
             // A connector not signed in to has only its authenticate tool:
             // its link signs in from here (the callback reaches this Claude

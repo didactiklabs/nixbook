@@ -1,0 +1,23 @@
+{
+  "manifest_version": 2,
+  "name": "nixbook desktop agent",
+  "version": "1.0",
+  "description": "Lets nixbook's desktop agents read and use your tabs through the page itself, without the mouse or keyboard (nixbook-desktop-mcp's browser tools). Talks only to the nixbook-zen-bridge native host.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "desktop-agent@nixbook-shell",
+      "strict_min_version": "128.0"
+    }
+  },
+  "background": {
+    "scripts": ["page.js", "background.js"],
+    "persistent": true
+  },
+  "permissions": [
+    "<all_urls>",
+    "tabs",
+    "nativeMessaging",
+    "contextualIdentities",
+    "cookies"
+  ]
+}

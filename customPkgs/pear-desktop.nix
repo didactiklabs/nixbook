@@ -51,6 +51,9 @@ in
 pkgs.runCommand "pear-desktop-${app.version}"
   {
     inherit (app) version;
+    # Its processes run from nixpkgs' pear-desktop: how nixbook-electron-app
+    # recognises them (lib/electronA11y.nix).
+    passthru.electronMarkers = [ "${app}" ];
     meta = app.meta // {
       mainProgram = "pear-desktop";
     };

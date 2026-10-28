@@ -19,7 +19,7 @@ in
     (config.customHomeManagerModules.nixbookShellConfig.electronA11y pkgs.slack "slack")
     pkgs.moonlight-qt
     pkgs.anki
-    actual-budget
+    (config.customHomeManagerModules.nixbookShellConfig.electronA11y actual-budget "actual-budget")
     moonfin
     (config.customHomeManagerModules.nixbookShellConfig.electronA11y pear-desktop "pear-desktop")
   ];
