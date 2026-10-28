@@ -38,6 +38,8 @@ let
   jellyfinOn = if cfg.jellyfinMcp.enable != null then cfg.jellyfinMcp.enable else installed "moonfin";
   jellyfinPlayerOn =
     if cfg.jellyfinMcp.player.enable != null then cfg.jellyfinMcp.player.enable else jellyfinOn;
+  # seerrMcp.enable: null = with Jellyfin's (a Seerr requests into it).
+  seerrOn = if cfg.seerrMcp.enable != null then cfg.seerrMcp.enable else jellyfinOn;
   musicMcpServers =
     lib.optionalAttrs (installed "pear-desktop") {
       youtube-music.command = lib.getExe pkgs.customPkgs.youtube-music-mcp;
@@ -66,6 +68,12 @@ let
     # or in Nix (ai.jellyfin).
     // lib.optionalAttrs jellyfinOn {
       jellyfin.command = lib.getExe pkgs.customPkgs.jellyfin-mcp;
+    }
+    # Seerr (seerrMcp.enable), off in the chat until set up in Settings
+    # (server, then your browser's login or an admin's API key) or in Nix
+    # (ai.seerr).
+    // lib.optionalAttrs seerrOn {
+      seerr.command = lib.getExe pkgs.customPkgs.seerr-mcp;
     };
 
   # The Jellyfin player of this computer: jellyfin-mpv-shim, a cast target
@@ -308,6 +316,23 @@ in
     '';
   };
 
+  options.customHomeManagerModules.nixbookShellConfig.seerrMcp.enable = lib.mkOption {
+    type = lib.types.nullOr lib.types.bool;
+    default = null;
+    defaultText = lib.literalMD "`null`: follows `jellyfinMcp.enable`";
+    description = ''
+      Whether to offer the nixbook-shell AI chat (Claude in the side panel and
+      its speech bubble) the user's Seerr (Overseerr / Jellyseerr) through
+      `customPkgs.seerr-mcp`: search films and series and see what is
+      available or on its way, request them (a film, a series' seasons),
+      follow, cancel, approve or decline requests, trending and upcoming.
+      Off in the chat until set up in Settings > Desktop agents > Apps it can
+      use: the server, then your own login (sign in to Seerr in Zen, Firefox
+      or Chrome as usual, OpenID Connect included, and Settings takes only
+      Seerr's session cookie into the keyring: Claude acts as you, no admin
+      key), or an admin's API key with who requests go out as (`ai.seerr`).
+    '';
+  };
   options.customHomeManagerModules.nixbookShellConfig.jellyfinMcp = {
     # null: decided here (Moonfin installed) — a default reading
     # home.packages couldn't be evaluated by docs/generate-docs.nix.
@@ -389,6 +414,16 @@ in
           );
         message = ''
           nixbookShellConfig.settings.ai.immich.apiKeyFile is in the Nix store,
+          readable by every user: point it at a file outside it.
+        '';
+      }
+      {
+        assertion =
+          !lib.hasPrefix builtins.storeDir (
+            toString (lib.attrByPath [ "ai" "seerr" "apiKeyFile" ] "" config.programs.nixbook-shell.settings)
+          );
+        message = ''
+          nixbookShellConfig.settings.ai.seerr.apiKeyFile is in the Nix store,
           readable by every user: point it at a file outside it.
         '';
       }

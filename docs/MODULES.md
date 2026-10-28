@@ -770,6 +770,13 @@ The most the player streams from a server it doesn't see on the local network (i
 
 Whether to offer the nixbook-shell AI chat (Claude in the side panel, and nothing else: not your own Claude Code or other agents) LinkedIn, through [linkedin-mcp-server](https://github.com/stickerdaniel/linkedin-mcp-server) (`customPkgs.linkedin-mcp-server`): profiles, people and company search, messages, jobs, the feed, on your own account in a browser session of its own (`~/.linkedin-mcp`, signed in from Settings > Desktop agents or `mcp-server-linkedin --login`). Installed, but off in the chat until you turn it on in Settings > Desktop agents > Apps it can use. LinkedIn's terms forbid automated access and it may restrict accounts using it. Pulls in Chromium: `false` leaves it out entirely.
 
+### `customHomeManagerModules.nixbookShellConfig.seerrMcp.enable`
+
+- **Type:** `null or boolean`
+- **Default:** `null`
+
+Whether to offer the nixbook-shell AI chat (Claude in the side panel and its speech bubble) the user's Seerr (Overseerr / Jellyseerr) through `customPkgs.seerr-mcp`: search films and series and see what is available or on its way, request them (a film, a series' seasons), follow, cancel, approve or decline requests, trending and upcoming. Off in the chat until set up in Settings > Desktop agents > Apps it can use: the server, then your own login (sign in to Seerr in Zen, Firefox or Chrome as usual, OpenID Connect included, and Settings takes only Seerr's session cookie into the keyring: Claude acts as you, no admin key), or an admin's API key with who requests go out as (`ai.seerr`).
+
 ### `customHomeManagerModules.nixbookShellConfig.selfImprove.enable`
 
 - **Type:** `boolean`

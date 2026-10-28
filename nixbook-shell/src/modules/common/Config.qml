@@ -68,6 +68,15 @@ Singleton {
                 claudeCode.mcpServersOff = [...off, "jellyfin"];
             done.jellyfinOff = true;
         }
+        // Seerr too: off until set up (an older list doesn't have it).
+        if (!done.seerrOff) {
+            const claudeCode = root.options.ai.claudeCode;
+            const off = Array.from(claudeCode.mcpServersOff ?? []);
+            if (!off.includes("seerr") && (root.options.ai.seerr.url ?? "") === ""
+                    && !NixManaged.isPinned("ai.claudeCode.mcpServersOff"))
+                claudeCode.mcpServersOff = [...off, "seerr"];
+            done.seerrOff = true;
+        }
     }
     property int readWriteDelay: 50 // milliseconds
     property bool blockWrites: false
@@ -241,7 +250,7 @@ Singleton {
                     // on the user's account, and LinkedIn may restrict
                     // accounts using automation. Immich and Jellyfin, until
                     // they are set up (ai.immich, ai.jellyfin).
-                    property list<string> mcpServersOff: ["linkedin", "immich", "jellyfin"]
+                    property list<string> mcpServersOff: ["linkedin", "immich", "jellyfin", "seerr"]
                     // Claude speaks as the computer itself, its hardware,
                     // OS and kernel read live (system_info).
                     property bool asComputer: true
@@ -270,6 +279,19 @@ Singleton {
                 // file; the player's (jellyfin-mpv-shim's) login is its own
                 // (~/.config/jellyfin-mpv-shim/users.json).
                 property JsonObject jellyfin: JsonObject {
+                    property string url: ""
+                    property string user: ""
+                    property string apiKeyFile: ""
+                }
+                // The Seerr (Overseerr / Jellyseerr) the side panel's Muse can
+                // request from (seerr-mcp, in assistant.mcpServers): its
+                // server, who requests go out as (a user id, name or email;
+                // empty: the key's own, the first administrator) and
+                // optionally a file holding the API key. Otherwise the key is
+                // the one saved in Settings > Desktop agents, kept in the
+                // keyring (secret-tool, service=seerr-mcp), never in this
+                // file. It works whatever the login methods (OIDC included).
+                property JsonObject seerr: JsonObject {
                     property string url: ""
                     property string user: ""
                     property string apiKeyFile: ""

@@ -606,6 +606,16 @@ Singleton {
         if ((jf?.apiKeyFile ?? "").length > 0) env.JELLYFIN_API_KEY_FILE = jf.apiKeyFile;
         return env;
     }
+    // The environment seerr-mcp gets from the ai.seerr settings (also used by
+    // Settings > Desktop agents); its key it reads from the keyring itself.
+    readonly property var seerrEnv: {
+        const env = {};
+        const sr = Config.options.ai.seerr;
+        if ((sr?.url ?? "").length > 0) env.SEERR_URL = sr.url;
+        if ((sr?.user ?? "").length > 0) env.SEERR_USER = sr.user;
+        if ((sr?.apiKeyFile ?? "").length > 0) env.SEERR_API_KEY_FILE = sr.apiKeyFile;
+        return env;
+    }
     FileView {
         id: assistantMcpFile
         path: `${Directories.shellConfig}/assistant-mcp.json`
@@ -715,6 +725,8 @@ Singleton {
             env: Object.assign({}, extraServers.immich.env ?? {}, root.immichEnv) });
         if (extraServers.jellyfin) extraServers.jellyfin = Object.assign({}, extraServers.jellyfin, {
             env: Object.assign({}, extraServers.jellyfin.env ?? {}, root.jellyfinEnv) });
+        if (extraServers.seerr) extraServers.seerr = Object.assign({}, extraServers.seerr, {
+            env: Object.assign({}, extraServers.seerr.env ?? {}, root.seerrEnv) });
         // The phone's texts, notifications and contacts only with
         // ai.phone.readMessages; sending needs no switch.
         if (extraServers.phone) extraServers.phone = Object.assign({}, extraServers.phone, {
@@ -746,6 +758,9 @@ Singleton {
                 : "")
             + (extraServers.immich
                 ? " The immich tools act on the user's real photo library. Before deleting assets, emptying the trash, or creating a shared link (anyone with the URL can open it), say exactly what would be affected and call it only after they say yes in this chat. Never pass force=true unless they asked for permanent deletion."
+                : "")
+            + (extraServers.seerr
+                ? " The seerr tools are the user's Seerr: to get a film or series that isn't in their library yet, search it there and request it (a series' seasons; it goes out as them, against their quota); one already available is played from Jellyfin, never requested again."
                 : "")
             + (extraServers.jellyfin
                 ? " The jellyfin tools are the user's Jellyfin library and its players: to watch or listen to something from it, search then play (it plays fullscreen in mpv on this computer unless they name another player, e.g. Moonfin or the TV); never play on someone else's player unless they named it."

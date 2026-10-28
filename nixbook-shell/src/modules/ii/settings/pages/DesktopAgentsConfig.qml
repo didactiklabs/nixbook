@@ -1461,6 +1461,7 @@ ContentPage {
                                     linkedin: ["work", Translation.tr("LinkedIn: profiles, messages, jobs (your account)")],
                                     immich: ["photo_library", Translation.tr("Immich: search and organize your photos")],
                                     jellyfin: ["movie", Translation.tr("Jellyfin: your films, series and music; play them")],
+                                    seerr: ["video_library", Translation.tr("Seerr: request films and series, follow requests")],
                                     phone: ["smartphone", Translation.tr("Phone (KDE Connect): send texts, share links, ring it")]
                                 })[serverRow.modelData] ?? ["extension", serverRow.modelData]
                                 anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 8 }
@@ -1974,6 +1975,268 @@ ContentPage {
                         wrapMode: Text.WordWrap
                         color: Appearance.colors.colSubtext
                         text: jellyfin.playerStatus
+                    }
+                }
+
+                // Seerr (Overseerr / Jellyseerr): its server is a setting
+                // (ai.seerr.url, locked when set in Nix). Your own login first:
+                // Seerr has no per-user API key and OIDC logs in through the
+                // browser, so after signing in there (Zen, Firefox, Chrome…)
+                // `seerr-mcp login-from-browser` takes Seerr's session cookie
+                // (only it) into the keyring. Or an admin's API key (`credentials save`,
+                // on stdin) with who requests go out as (ai.seerr.user), or a
+                // key file set in Nix (ai.seerr.apiKeyFile).
+                ColumnLayout {
+                    id: seerr
+                    Layout.fillWidth: true
+                    Layout.topMargin: 10
+                    visible: Ai.assistantMcpServers.seerr !== undefined
+                    spacing: 6
+                    readonly property string bin: Ai.assistantMcpServers.seerr
+                        ? Ai.assistantMcpServers.seerr.command : ""
+                    readonly property string url: seerrUrl.value.trim().replace(/\/+$/, "")
+                    // {has_key, key_source: env|file|keyring|null, kind: session|apikey|null, signed_in_as}
+                    property var conn: ({})
+                    readonly property bool signedIn: seerr.conn.kind === "session"
+                    // The admin key's fields: asked for, or that's what is set.
+                    property bool useKey: false
+                    readonly property bool keyMode: seerr.useKey || seerr.conn.kind === "apikey"
+                    // The server's users, to pick who requests go out as.
+                    property var users: []
+                    property string status: ""
+                    property bool busy: false
+
+                    function run(args, secret) {
+                        if (seerr.busy || !seerr.bin) return
+                        seerr.busy = true
+                        seerrProc.secret = secret ?? ""
+                        seerrProc.args = args
+                        seerrProc.command = [seerr.bin, ...args]
+                        seerrProc.environment = Ai.seerrEnv
+                        seerrProc.stdinEnabled = (args[0] === "credentials" && ["save", "test"].includes(args[1] ?? "")) || args[0] === "users"
+                        seerrProc.running = true
+                    }
+                    Component.onCompleted: seerr.run(["credentials", "status"])
+                    onBinChanged: seerr.run(["credentials", "status"])
+
+                    Process {
+                        id: seerrProc
+                        property string secret: ""
+                        property var args: []
+                        stdout: StdioCollector { id: seerrOut }
+                        onRunningChanged: {
+                            if (!seerrProc.running || !seerrProc.stdinEnabled) return
+                            seerrProc.write(seerrProc.secret + "\n")
+                            seerrProc.secret = ""
+                            seerrProc.stdinEnabled = false
+                        }
+                        onExited: code => {
+                            seerr.busy = false
+                            const what = seerrProc.args[0] === "credentials" ? seerrProc.args[1] : seerrProc.args[0]
+                            let result = null
+                            try {
+                                result = JSON.parse(seerrOut.text)
+                            } catch (e) {}
+                            if (code !== 0 || !result) {
+                                seerr.status = result?.error ?? Translation.tr("Couldn't reach the Seerr helper")
+                                return
+                            }
+                            if (what === "users") {
+                                seerr.users = result.users ?? []
+                                return
+                            }
+                            seerr.conn = result
+                            seerrKey.text = ""
+                            if (what === "login-from-browser") seerr.useKey = false
+                            seerr.status = result.server
+                                ? Translation.tr("Connected to %1 (Seerr %2): requests go out as %3").arg(result.server)
+                                    .arg(result.version ?? "?").arg(result.user ?? "?")
+                                : what === "forget" ? Translation.tr("Forgotten here (your browser stays signed in).") : ""
+                        }
+                    }
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: Appearance.colors.colSubtext
+                        text: Translation.tr("Seerr (Overseerr / Jellyseerr): ask Claude for a film or series you don't have yet, and it requests it for you, or tells you how far your requests are. Sign in as yourself, no admin key: open Seerr in your browser (Zen, Firefox, Chrome, Chromium, Brave…) and sign in there as usual (OpenID Connect, passkeys…), then Use my browser's login: only Seerr's session is copied, into your keyring. Claude then acts as you, with your permissions and quota; when that login ends, do it again.")
+                    }
+                    ConfigTextArea {
+                        id: seerrUrl
+                        configKey: "ai.seerr.url"
+                        Layout.fillWidth: true
+                        fieldWidth: 320
+                        buttonIcon: "dns"
+                        text: Translation.tr("Seerr server")
+                        placeholderText: Translation.tr("e.g. https://seerr.example.org")
+                        value: Config.options.ai.seerr.url ?? ""
+                        Connections {
+                            target: seerrUrl.textArea
+                            function onEditingFinished() {
+                                Config.options.ai.seerr.url = seerrUrl.value.trim().replace(/\/+$/, "")
+                            }
+                        }
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: seerr.signedIn
+                        wrapMode: Text.WordWrap
+                        text: Translation.tr("Claude is signed in to Seerr as %1 (your own login).").arg(seerr.conn.signed_in_as ?? "?")
+                    }
+                    Flow {
+                        Layout.fillWidth: true
+                        visible: !seerr.keyMode
+                        spacing: 6
+                        SmallButton {
+                            visible: !seerr.signedIn
+                            enabled: seerr.url !== ""
+                            materialIcon: "open_in_new"
+                            mainText: Translation.tr("Open Seerr in my browser")
+                            onClicked: {
+                                if (!seerrUrl.nixManaged) Config.options.ai.seerr.url = seerr.url
+                                AppLaunch.openUrl(seerr.url)
+                            }
+                        }
+                        SmallButton {
+                            enabled: !seerr.busy && seerr.url !== ""
+                            materialIcon: "login"
+                            mainText: seerr.busy ? Translation.tr("Checking…")
+                                : seerr.signedIn ? Translation.tr("Use my browser's login again") : Translation.tr("Use my browser's login")
+                            onClicked: {
+                                if (!seerrUrl.nixManaged) Config.options.ai.seerr.url = seerr.url
+                                seerr.run(["login-from-browser", seerr.url])
+                            }
+                        }
+                        SmallButton {
+                            visible: seerr.signedIn
+                            enabled: !seerr.busy && seerr.url !== ""
+                            materialIcon: "network_check"
+                            mainText: Translation.tr("Test")
+                            onClicked: seerr.run(["credentials", "test", seerr.url], "")
+                        }
+                        SmallButton {
+                            visible: seerr.signedIn
+                            enabled: !seerr.busy
+                            materialIcon: "logout"
+                            mainText: Translation.tr("Sign out")
+                            onClicked: seerr.run(["credentials", "forget"])
+                        }
+                        SmallButton {
+                            visible: !seerr.signedIn
+                            enabled: !seerr.busy
+                            materialIcon: "key"
+                            mainText: Translation.tr("Use an admin API key instead")
+                            onClicked: seerr.useKey = true
+                        }
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: seerr.keyMode
+                        wrapMode: Text.WordWrap
+                        color: Appearance.colors.colSubtext
+                        text: Translation.tr("An admin's API key (Seerr: Settings > General > API Key; any login method): requests go out as the user named here, shown as theirs and counted in their quota.")
+                    }
+                    ConfigTextArea {
+                        id: seerrUser
+                        configKey: "ai.seerr.user"
+                        shown: seerr.keyMode
+                        Layout.fillWidth: true
+                        fieldWidth: 320
+                        buttonIcon: "person"
+                        text: Translation.tr("Request as")
+                        placeholderText: Translation.tr("your Seerr user (name or email); empty: the key's admin")
+                        value: Config.options.ai.seerr.user ?? ""
+                        Connections {
+                            target: seerrUser.textArea
+                            function onEditingFinished() {
+                                Config.options.ai.seerr.user = seerrUser.value.trim()
+                            }
+                        }
+                    }
+                    Flow {
+                        Layout.fillWidth: true
+                        visible: seerr.keyMode && seerr.users.length > 0 && !seerrUser.nixManaged
+                        spacing: 6
+                        Repeater {
+                            model: seerr.users
+                            delegate: SmallButton {
+                                required property var modelData
+                                materialIcon: (Config.options.ai.seerr.user ?? "") === modelData.name ? "check" : "person"
+                                mainText: modelData.name
+                                onClicked: {
+                                    Config.options.ai.seerr.user = modelData.name
+                                    seerrUser.value = modelData.name
+                                }
+                            }
+                        }
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: seerr.conn.key_source === "file"
+                        wrapMode: Text.WordWrap
+                        color: Appearance.colors.colSubtext
+                        text: Translation.tr("API key: read from %1 (ai.seerr.apiKeyFile).").arg(Config.options.ai.seerr.apiKeyFile)
+                    }
+                    MaterialTextField {
+                        id: seerrKey
+                        Layout.fillWidth: true
+                        visible: seerr.keyMode && seerr.conn.key_source !== "file"
+                        placeholderText: seerr.conn.has_key
+                            ? Translation.tr("API key (saved: leave empty to keep it)")
+                            : Translation.tr("API key")
+                        echoMode: TextInput.Password
+                        onAccepted: seerrSave.clicked()
+                    }
+                    Flow {
+                        Layout.fillWidth: true
+                        visible: seerr.keyMode
+                        spacing: 6
+                        SmallButton {
+                            id: seerrSave
+                            enabled: !seerr.busy && seerr.url !== "" && (seerrKey.text !== "" || seerr.conn.has_key === true)
+                            materialIcon: "link"
+                            mainText: seerr.busy ? Translation.tr("Checking…") : Translation.tr("Save and check")
+                            onClicked: {
+                                // The fields save when they lose focus, which a click may not take.
+                                if (!seerrUrl.nixManaged) Config.options.ai.seerr.url = seerr.url
+                                if (!seerrUser.nixManaged) Config.options.ai.seerr.user = seerrUser.value.trim()
+                                seerr.run(["credentials", "save", seerr.url, seerrUser.value.trim()], seerrKey.text)
+                            }
+                        }
+                        SmallButton {
+                            enabled: !seerr.busy && seerr.url !== "" && (seerrKey.text !== "" || seerr.conn.has_key === true)
+                            materialIcon: "network_check"
+                            mainText: Translation.tr("Test")
+                            onClicked: seerr.run(["credentials", "test", seerr.url, seerrUser.value.trim()], seerrKey.text)
+                        }
+                        SmallButton {
+                            visible: !seerrUser.nixManaged
+                            enabled: !seerr.busy && seerr.url !== "" && (seerrKey.text !== "" || seerr.conn.has_key === true)
+                            materialIcon: "group"
+                            mainText: Translation.tr("Pick from the server's users")
+                            onClicked: seerr.run(["users", seerr.url], seerrKey.text)
+                        }
+                        SmallButton {
+                            visible: seerr.conn.key_source === "keyring"
+                            enabled: !seerr.busy
+                            materialIcon: "key_off"
+                            mainText: Translation.tr("Forget the key")
+                            onClicked: seerr.run(["credentials", "forget"])
+                        }
+                        SmallButton {
+                            visible: seerr.useKey && seerr.conn.kind !== "apikey"
+                            enabled: !seerr.busy
+                            materialIcon: "login"
+                            mainText: Translation.tr("Use my own login instead")
+                            onClicked: seerr.useKey = false
+                        }
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: seerr.status !== ""
+                        wrapMode: Text.WordWrap
+                        color: Appearance.colors.colSubtext
+                        text: seerr.status
                     }
                 }
             }
