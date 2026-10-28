@@ -6,6 +6,7 @@ import qs.modules.ii.background
 import qs.modules.ii.bar
 import qs.modules.ii.dock
 import qs.modules.ii.equalizer
+import qs.modules.ii.fullAi
 import qs.modules.ii.layoutRestore
 import qs.modules.ii.lock
 import qs.modules.ii.mediaControls
@@ -68,6 +69,7 @@ Scope {
     PanelLoader { component: NiriBackdrop {} }
     PanelLoader { component: ScreenFrame {} }
     PanelLoader { component: LayoutRestoreOverlay {} }
+    PanelLoader { component: FullAiOverlay {} }
     // Loading screen while the Preloader builds every popup (last, so it is
     // stacked above the other overlay surfaces mapped during boot).
     PanelLoader { component: BootSplash {} }

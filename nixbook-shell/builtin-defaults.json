@@ -37,6 +37,9 @@
     "phone": {
       "readMessages": false
     },
+    "fullAi": {
+      "react": true
+    },
     "initiative": {
       "curious": false,
       "enable": false,

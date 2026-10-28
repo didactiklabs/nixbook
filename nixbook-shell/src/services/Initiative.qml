@@ -461,6 +461,8 @@ Singleton {
     function reply(text, attach) {
         const said = String(text ?? "").trim()
         if (said.length === 0) return
+        // Full AI mode learns from the answer to what it asked or did.
+        if (FullAi.active) FullAi.userSaid(said)
         const item = root.speaking
         // A plain command asked for (open an app, pause the music, dark
         // mode…): done at once, no Claude run; it says what it did.
@@ -784,6 +786,8 @@ Singleton {
     Connections {
         target: Routines
         function onHappened(ev) {
+            // Full AI mode reacts instead while it is on.
+            if (FullAi.active) return
             if (!root.enabled || !root.reactions || !root.reactTo.includes(ev.event) || !ev.path || DesktopControl.active) return
             root.consider({ event: "happened", what: ev.event, name: ev.name ?? "", path: ev.path })
         }
@@ -805,7 +809,7 @@ Singleton {
     Connections {
         target: Notifications
         function onNotify(n) {
-            if (!root.enabled || !root.readNotifications) return
+            if (!root.enabled || !root.readNotifications || FullAi.active) return
             // Not while away (locked) or on Do Not Disturb: nobody to tell,
             // and what comes then isn't read by the model either.
             if (GlobalStates.screenLocked || Notifications.silent) return

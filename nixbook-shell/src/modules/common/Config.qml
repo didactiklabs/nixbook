@@ -296,6 +296,12 @@ Singleton {
                     property bool learn: true
                     property int learnAfter: 3
                 }
+                // Full AI mode (Mod+Shift+T, services/FullAi.qml): it reacts to
+                // what happens (notifications, downloads, the battery…),
+                // learning from the user's answers.
+                property JsonObject fullAi: JsonObject {
+                    property bool react: true
+                }
                 property JsonObject initiative: JsonObject {
                     property bool enable: false
                     property bool readNotifications: false
