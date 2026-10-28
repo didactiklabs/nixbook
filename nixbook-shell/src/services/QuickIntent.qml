@@ -4,6 +4,7 @@ pragma ComponentBehavior: Bound
 import qs
 import qs.modules.common
 import Quickshell
+import Quickshell.Io
 import Quickshell.Services.Mpris
 import QtQuick
 
@@ -15,6 +16,15 @@ import QtQuick
  * pomodoro, a saved window layout, a task added. Strict patterns only:
  * anything else, or anything unsure (an app it can't name for sure), goes
  * to Claude as before. `run(text)` does it and says what it did, else "".
+ *
+ * `video(text, done)`: a film or an episode from Jellyfin ("play edgerunners
+ * season 2 episode 1", "regarde Dune", "S2E1"), found and played by
+ * `jellyfin-mcp play-query` (one search, the episodes, the player: about a
+ * second, no Claude run), only once jellyfin-mcp is set up and on for the
+ * chat. Never the music: a request naming music, a song, an album… is left
+ * alone, and without a season or an episode only a strong title match plays
+ * (--strict). Asynchronous: true when it took the request, `done(r)` then
+ * gets play-query's answer ({ok, matched, said}; not matched: Claude's).
  */
 Singleton {
     id: root
@@ -143,6 +153,63 @@ Singleton {
             return Translation.tr("Opening %1.").arg(entry.name)
         }
         return ""
+    }
+
+    // ── Jellyfin ──
+    readonly property string jellyfinBin: Ai.assistantMcpServers.jellyfin?.command ?? ""
+    readonly property bool jellyfinOn: root.jellyfinBin !== ""
+        && !(Config.options.ai.claudeCode.mcpServersOff ?? []).includes("jellyfin")
+    // Set up (a server and a key): `jellyfin-mcp configured`, checked at
+    // start and whenever its settings change (Settings calls it after a save).
+    property bool jellyfinReady: false
+    readonly property string jellyfinSignature: root.jellyfinOn ? `${root.jellyfinBin} ${JSON.stringify(Ai.jellyfinEnv)}` : ""
+    onJellyfinSignatureChanged: root.refreshJellyfin()
+    Component.onCompleted: root.refreshJellyfin()
+    function refreshJellyfin() {
+        if (!root.jellyfinOn) {
+            root.jellyfinReady = false
+            return
+        }
+        jellyfinCheck.running = false
+        jellyfinCheck.command = [root.jellyfinBin, "configured"]
+        jellyfinCheck.environment = Ai.jellyfinEnv
+        jellyfinCheck.running = true
+    }
+    Process {
+        id: jellyfinCheck
+        onExited: code => root.jellyfinReady = code === 0
+    }
+    readonly property var _videoVerb: /^(?:play|watch|put on|stream|lance|mets|regarde|joue|spiel(?:e)?|schau(?:e)?(?: mir)?|xem|m[oở]|ph[aá]t|b[aậ]t|cho (?:t[oô]i|m[iì]nh|em) xem) (.+)$/
+    readonly property var _episodeWords: /\bs\d{1,2} ?e\d{1,3}\b|\b\d{1,2}x\d{1,3}\b|(?:season|saison|staffel|m[uù]a) \d{1,2}\b|(?:episode|[eé]pisode|ep|folge|t[aậ]p) \d{1,3}\b/
+    readonly property var _musicWords: /(?:^|[^\wÀ-ỹ])(music|songs?|albums?|playlists?|artists?|tracks?|radio|podcasts?|spotify|youtube|musique|chansons?|musik|lied(?:er)?|nh[aạ]c|b[aà]i h[aá]t)(?![\wÀ-ỹ])/
+    // "play it", "watch the other one": not a title.
+    readonly property var _deictic: /^(?:it|that|this|them|the (?:other|next|last|same) one|ça|ca|le|la|les|es|das|n[oó])$/
+    function video(text, done) {
+        if (!root.jellyfinReady || !root.jellyfinOn || videoPlay.running) return false
+        const t = root._clean(text)
+        if (t.length === 0 || t.length > 100 || t.includes("\n")) return false
+        const m = root._videoVerb.exec(t)
+        if (!m || root._musicWords.test(t) || root._deictic.test(m[1].trim())) return false
+        const episodic = root._episodeWords.test(t)
+        videoPlay.done = done
+        videoPlay.command = [root.jellyfinBin, "play-query", t, ...(episodic ? [] : ["--strict"])]
+        videoPlay.environment = Ai.jellyfinEnv
+        videoPlay.running = true
+        return true
+    }
+    Process {
+        id: videoPlay
+        property var done: null
+        stdout: StdioCollector { id: videoOut }
+        onExited: {
+            let result = null
+            try {
+                result = JSON.parse(videoOut.text)
+            } catch (e) {}
+            const done = videoPlay.done
+            videoPlay.done = null
+            if (done) done(result)
+        }
     }
 
     // The app named exactly (its name, its id, or the start of its name),

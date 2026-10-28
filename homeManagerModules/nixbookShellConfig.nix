@@ -30,9 +30,14 @@ let
   niriEnabled = config.customHomeManagerModules.niriConfig.enable or false;
   # Music apps the AI chat gets an MCP server for, where they're installed.
   # Matched by name, not by derivation: a wrapped or overridden copy (e.g.
-  # lib/electronA11y.nix's "pear-desktop-a11y") is still the app — comparing
-  # derivations silently dropped the YouTube Music server where it was wrapped.
+  # lib/electronA11y.nix's "pear-desktop-a11y" or "pear-desktop-bridged") is
+  # still the app — comparing derivations silently dropped the YouTube Music
+  # server where it was wrapped.
   installed = name: lib.any (p: lib.hasPrefix name (lib.getName p)) config.home.packages;
+  # jellyfinMcp.enable / player.enable: null = automatic.
+  jellyfinOn = if cfg.jellyfinMcp.enable != null then cfg.jellyfinMcp.enable else installed "moonfin";
+  jellyfinPlayerOn =
+    if cfg.jellyfinMcp.player.enable != null then cfg.jellyfinMcp.player.enable else jellyfinOn;
   musicMcpServers =
     lib.optionalAttrs (installed "pear-desktop") {
       youtube-music.command = lib.getExe pkgs.customPkgs.youtube-music-mcp;
@@ -55,7 +60,46 @@ let
       # Off in the chat until turned on in Settings, where its server and
       # API key are set (or in Nix: the ai.immich settings).
       immich.command = lib.getExe pkgs.customPkgs.immich-photo-manager;
+    }
+    # Jellyfin (jellyfinMcp.enable), off in the chat until set up in
+    # Settings (server, API key, the player's login) or in Nix (ai.jellyfin).
+    // lib.optionalAttrs jellyfinOn {
+      jellyfin.command = lib.getExe pkgs.customPkgs.jellyfin-mcp;
     };
+
+  # The Jellyfin player of this computer: jellyfin-mpv-shim, a cast target
+  # (the server, the phone app or jellyfin-mcp send it what to play) that
+  # plays in the user's own mpv (mpv_ext + mpv_ext_no_ovr: the same mpv.conf,
+  # scripts and keys), fullscreen, without its own window or tray. It keeps
+  # progress, marks watched and goes on to the next episode itself. These
+  # keys are merged into its conf.json on each activation (it rewrites the
+  # file, so it stays a real one), the others are its own.
+  shim = pkgs.jellyfin-mpv-shim;
+  shimDir = "${config.xdg.configHome}/jellyfin-mpv-shim";
+  mpvExe =
+    if config.programs.mpv.enable then
+      lib.getExe config.programs.mpv.finalPackage
+    else
+      lib.getExe pkgs.mpv;
+  shimSettings = {
+    player_name = "${if os != null then hostName else "nixbook"} mpv";
+    mpv_ext = true;
+    mpv_ext_path = mpvExe;
+    mpv_ext_no_ovr = true;
+    mpv_ext_start = true;
+    fullscreen = true;
+    enable_gui = false;
+    check_updates = false;
+    notify_updates = "disabled";
+    discord_presence = false;
+  };
+  # Started only once it is signed in (Settings > Desktop agents > Jellyfin,
+  # `jellyfin-mcp shim-login`): without a login it would ask for a server on
+  # its terminal and exit, again and again.
+  shimSignedIn = pkgs.writeShellScript "jellyfin-mpv-shim-signed-in" ''
+    exec ${lib.getExe pkgs.jq} -e '[.users[]?.credentials[]? | select(.AccessToken)] | length > 0' \
+      "${shimDir}/users.json" >/dev/null 2>&1
+  '';
 
   # What this machine's Nix configuration sets up, for the Intelligence tab's
   # system prompt: the assistant can then answer "how do I change X" with the
@@ -152,6 +196,22 @@ in
     made with a GitHub token set in Settings > Desktop agents. Only machines
     whose profile turns it on have it'';
 
+  options.customHomeManagerModules.nixbookShellConfig.zenAgent.enable = lib.mkOption {
+    type = lib.types.bool;
+    default = true;
+    description = ''
+      Whether the desktop agents can use Zen through the page itself
+      (nixbook-desktop-mcp's `page_*` tools: tabs, reading pages, clicking,
+      typing, forms), without the mouse or keyboard, in background tabs and
+      other workspaces, while you keep working. With `zenBrowserConfig`:
+      force-installs nixbook-shell's Zen extension (unsigned:
+      `xpinstall.signatures.required` is turned off in the profile) and its
+      native messaging host. Private windows, password fields, the Banking
+      container and password manager / payment sites are off limits
+      (desktop-mcp's `browser` settings).
+    '';
+  };
+
   options.customHomeManagerModules.nixbookShellConfig.electronAccessibility = lib.mkOption {
     type = lib.types.bool;
     default = config.programs.nixbook-shell.desktopMcp.browserAccessibility;
@@ -169,20 +229,58 @@ in
   };
 
   # What desktopApps and the profiles wrap their Electron apps with:
-  # `electronA11y pkg bin` is the app with its accessibility tree on where
-  # nixbook-shell and electronAccessibility are, the app unchanged elsewhere.
+  # `electronA11y pkg bin` is, where nixbook-shell runs, the app started
+  # through nixbook-electron-app when electronBridge lists its binary, else
+  # with its accessibility tree on (electronAccessibility); the app unchanged
+  # elsewhere (lib/electronA11y.nix).
   options.customHomeManagerModules.nixbookShellConfig.electronA11y = lib.mkOption {
     type = lib.types.functionTo (lib.types.functionTo lib.types.package);
     internal = true;
     readOnly = true;
-    default =
-      pkg: bin:
-      if cfg.enable && cfg.electronAccessibility then
-        import ../lib/electronA11y.nix { inherit pkgs; } pkg bin
-      else
-        pkg;
-    defaultText = lib.literalExpression "pkg: bin: (lib/electronA11y.nix) where nixbook-shell and electronAccessibility are on, else pkg";
-    description = "`pkg: bin:` the Electron app with its accessibility tree on where nixbook-shell runs.";
+    default = import ../lib/electronA11y.nix { inherit pkgs config; };
+    defaultText = lib.literalExpression "pkg: bin: (lib/electronA11y.nix) where nixbook-shell is on, else pkg";
+    description = "`pkg: bin:` the Electron app for the desktop agents where nixbook-shell runs.";
+  };
+
+  options.customHomeManagerModules.nixbookShellConfig.electronBridge = {
+    enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether the Electron apps of `apps` that nixbook wraps (Vesktop with
+        desktopApps; the profiles' own, e.g. Slack, YouTube Music and Actual
+        Budget) start through nixbook-shell's bridge (`nixbook-electron-app`,
+        lib/electronA11y.nix): the app's DevTools protocol on a private pipe
+        only the launcher holds, behind a socket only you can reach, so the
+        desktop agents read and use its pages like Zen's tabs (desktop-mcp's
+        `page_*` tools; Discord also through its own client, the `discord`
+        tool: find, read, send, react), without the mouse or keyboard, its
+        window in the background. Password managers are never bridged.
+        Agents sending or reacting are always asked first. Automating your own
+        account may break the app's terms (Discord's and Slack's forbid
+        self-bots). An app started without the bridge (already running when
+        this is first deployed, or started some other way) is caught by the
+        `nixbook-electron-watch` user service: started less than 60 s ago, it
+        is restarted through the bridge silently; otherwise you get a
+        notification with "Restart with bridge" — an app in use or in a call
+        is never closed on its own.
+      '';
+    };
+    apps = lib.mkOption {
+      type = lib.types.attrsOf (lib.types.strMatching "[a-z0-9][a-z0-9-]{0,31}");
+      default = {
+        vesktop = "discord";
+        slack = "slack";
+        pear-desktop = "youtube-music";
+        actual-budget = "actual";
+      };
+      description = ''
+        The apps bridged, by the name of the binary nixbook wraps → the
+        name agents know the app by (its target in `page_list`; `discord`
+        has its own operations). Only the ones a machine installs through
+        lib/electronA11y.nix are started so.
+      '';
+    };
   };
 
   options.customHomeManagerModules.nixbookShellConfig.linkedinMcp.enable = lib.mkOption {
@@ -202,8 +300,63 @@ in
     '';
   };
 
+  options.customHomeManagerModules.nixbookShellConfig.jellyfinMcp = {
+    # null: decided here (Moonfin installed) — a default reading
+    # home.packages couldn't be evaluated by docs/generate-docs.nix.
+    enable = lib.mkOption {
+      type = lib.types.nullOr lib.types.bool;
+      default = null;
+      defaultText = lib.literalMD "`null`: on when Moonfin (`customPkgs.moonfin`) is in `home.packages`";
+      description = ''
+        Whether to offer the nixbook-shell AI chat (Claude in the side panel
+        and its speech bubble) the user's Jellyfin library through
+        `customPkgs.jellyfin-mcp`: search, details, continue watching, next
+        up, what plays where; play and control it, mark watched, favourites,
+        playlists. Also the bubble's instant "play <title> season N episode
+        M" (no model). Off in the chat until set up in Settings > Desktop
+        agents > Apps it can use (server, API key; or the `ai.jellyfin`
+        settings).
+      '';
+    };
+    player.enable = lib.mkOption {
+      type = lib.types.nullOr lib.types.bool;
+      default = null;
+      defaultText = lib.literalMD "`null`: follows `jellyfinMcp.enable`";
+      description = ''
+        Whether this computer is a Jellyfin player: jellyfin-mpv-shim as the
+        `jellyfin-mpv-shim` user service, playing in your own mpv
+        (fullscreen, your mpv config), castable from Jellyfin's apps, and
+        where jellyfin-mcp plays by default. It saves progress, marks watched
+        and plays the next episode itself. It starts once signed in, from
+        Settings > Desktop agents > Apps it can use ("Connect the player").
+      '';
+    };
+  };
+
   config = lib.mkIf cfg.enable {
     assertions = [
+      {
+        assertion =
+          !lib.any (
+            n:
+            builtins.match ".*(keepass|bitwarden|1password|enpass|proton-?pass|lastpass|dashlane|keeper|nordpass|authenticator).*" n
+            != null
+          ) (lib.attrNames cfg.electronBridge.apps ++ lib.attrValues cfg.electronBridge.apps);
+        message = ''
+          nixbookShellConfig.electronBridge.apps lists a password manager: they
+          are never bridged to the desktop agents.
+        '';
+      }
+      {
+        assertion =
+          !lib.hasPrefix builtins.storeDir (
+            toString (lib.attrByPath [ "ai" "jellyfin" "apiKeyFile" ] "" config.programs.nixbook-shell.settings)
+          );
+        message = ''
+          nixbookShellConfig.settings.ai.jellyfin.apiKeyFile is in the Nix store,
+          readable by every user: point it at a file outside it.
+        '';
+      }
       {
         assertion =
           !lib.hasPrefix builtins.storeDir (
@@ -223,6 +376,42 @@ in
         '';
       }
     ];
+
+    systemd.user.services.jellyfin-mpv-shim = lib.mkIf jellyfinPlayerOn {
+      Unit = {
+        Description = "Jellyfin MPV Shim: this computer as a Jellyfin player (mpv)";
+        After = [ "graphical-session.target" ];
+        PartOf = [ "graphical-session.target" ];
+        X-Restart-Triggers = [ (builtins.toJSON shimSettings) ];
+      };
+      Service = {
+        ExecCondition = shimSignedIn;
+        ExecStart = "${lib.getExe shim} --no-gui";
+        Restart = "on-failure";
+        RestartSec = 5;
+      };
+      Install.WantedBy = [ "graphical-session.target" ];
+    };
+    home.activation.jellyfinMpvShimConfig = lib.mkIf jellyfinPlayerOn (
+      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        conf="${shimDir}/conf.json"
+        live='{}'
+        if [ -s "$conf" ] && ! live=$(${lib.getExe pkgs.jq} -c . "$conf" 2>/dev/null); then
+          warnEcho "$conf isn't valid JSON: left alone (jellyfin-mpv-shim's settings not applied)"
+          live=""
+        fi
+        if [ -n "$live" ] && [[ ! -v DRY_RUN ]]; then
+          uuid=$(${lib.getExe pkgs.jq} -r '.client_uuid // empty' <<<"$live")
+          [ -n "$uuid" ] || uuid=$(cat /proc/sys/kernel/random/uuid)
+          new=$(${lib.getExe pkgs.jq} -c --argjson pinned ${lib.escapeShellArg (builtins.toJSON shimSettings)} \
+            --arg uuid "$uuid" '. * $pinned | .client_uuid = $uuid' <<<"$live")
+          if [ "$new" != "$live" ]; then
+            mkdir -p "${shimDir}"
+            ${lib.getExe pkgs.jq} --sort-keys . <<<"$new" >"$conf.hm-tmp" && mv "$conf.hm-tmp" "$conf"
+          fi
+        fi
+      ''
+    );
 
     # What nixbook defines itself, for the fixer: the user units of its own
     # modules (the system ones: /etc/nixbook/owned-units.json,
@@ -268,6 +457,13 @@ in
 
       selfImprove.enable = cfg.selfImprove.enable;
 
+      # The bridged Electron apps installed (lib/electronA11y.nix, in
+      # desktopApps or a profile), watched by nixbook-electron-watch: one
+      # running without its bridge is restarted through it or you are asked.
+      electronBridge.apps = map (p: p.nixbookElectronBridge) (
+        lib.filter (p: p ? nixbookElectronBridge) config.home.packages
+      );
+
       assistant = {
         inherit context;
         niriConfig = if niriEnabled then (config.programs.niri.finalConfig or "") else "";
@@ -275,7 +471,8 @@ in
         # control it (YouTube Music through the app's API Server plugin, turned
         # on in the app; Spotify through MPRIS, and its Web API after the
         # server's `login`); LinkedIn (linkedinMcp.enable), off in the chat
-        # until turned on in Settings, and Immich, set up there. Added to the
+        # until turned on in Settings, and Immich and Jellyfin
+        # (jellyfinMcp.enable), set up there. Added to the
         # option's default servers, not instead of them.
         mcpServers = lib.mkIf (extraMcpServers != { }) (
           options.programs.nixbook-shell.assistant.mcpServers.default // extraMcpServers

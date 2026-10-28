@@ -470,7 +470,25 @@ Singleton {
                 root.speaking = { id: "", kind: "quick", text: did }
                 return
             }
+            // A film or an episode from Jellyfin ("play edgerunners season 1
+            // episode 2"): played at once by jellyfin-mcp (no Claude run,
+            // about a second); what it doesn't recognise goes on to Claude.
+            if (QuickIntent.video(said, r => root._videoDone(item, said, r)))
+                return
         }
+        root._toClaude(item, said, attach)
+    }
+    // What jellyfin-mcp play-query answered: played ("Playing …"), or its
+    // question / why not ("Which one: …?", "… has only 1 season"); not a
+    // video it knows: Claude's, as if it had never been tried.
+    function _videoDone(item, said, r) {
+        if (!r || !(r.ok || r.matched) || !r.said) {
+            root._toClaude(item, said, "")
+            return
+        }
+        root.speaking = { id: "", kind: "quick", text: r.said }
+    }
+    function _toClaude(item, said, attach) {
         if (!root.chat) root.prepare()
         if (!root.chat) return
         root._taken(item)

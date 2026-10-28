@@ -1394,6 +1394,7 @@ ContentPage {
                                     spotify: ["queue_music", Translation.tr("Spotify: play and control")],
                                     linkedin: ["work", Translation.tr("LinkedIn: profiles, messages, jobs (your account)")],
                                     immich: ["photo_library", Translation.tr("Immich: search and organize your photos")],
+                                    jellyfin: ["movie", Translation.tr("Jellyfin: your films, series and music; play them")],
                                     phone: ["smartphone", Translation.tr("Phone (KDE Connect): send texts, share links, ring it")]
                                 })[serverRow.modelData] ?? ["extension", serverRow.modelData]
                                 anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 8 }
@@ -1571,6 +1572,247 @@ ContentPage {
                         wrapMode: Text.WordWrap
                         color: Appearance.colors.colSubtext
                         text: immich.status
+                    }
+                }
+
+                // Jellyfin: its server and user are settings (ai.jellyfin.url,
+                // ai.jellyfin.user, locked when set in Nix), its API key goes
+                // to the keyring through `jellyfin-mcp credentials` (on stdin,
+                // checked on the server first, never shown again), or a key
+                // file set in Nix (ai.jellyfin.apiKeyFile). Then the player of
+                // this computer (jellyfin-mpv-shim): signed in once with the
+                // user's password (`jellyfin-mcp shim-login`, on stdin, never
+                // kept), it keeps its own token.
+                ColumnLayout {
+                    id: jellyfin
+                    Layout.fillWidth: true
+                    Layout.topMargin: 6
+                    visible: Ai.assistantMcpServers.jellyfin !== undefined
+                    spacing: 6
+                    readonly property string bin: Ai.assistantMcpServers.jellyfin
+                        ? Ai.assistantMcpServers.jellyfin.command : ""
+                    readonly property string url: jellyfinUrl.value.trim().replace(/\/+$/, "")
+                    // {has_key, key_source: env|file|keyring|null}
+                    property var conn: ({})
+                    // {signed_in, user, device, service}
+                    property var player: ({})
+                    property string status: ""
+                    property string playerStatus: ""
+                    property bool busy: false
+
+                    function run(args, secret) {
+                        if (jellyfin.busy || !jellyfin.bin) return
+                        jellyfin.busy = true
+                        jellyfinProc.secret = secret ?? ""
+                        jellyfinProc.args = args
+                        jellyfinProc.command = [jellyfin.bin, ...args]
+                        jellyfinProc.environment = Ai.jellyfinEnv
+                        jellyfinProc.stdinEnabled = ["save", "test", "shim-login"].includes(args[0] === "credentials" ? args[1] : args[0])
+                        jellyfinProc.running = true
+                    }
+                    function refresh() {
+                        jellyfin.run(["credentials", "status"])
+                    }
+                    // assistant-mcp.json is read asynchronously.
+                    Component.onCompleted: refresh()
+                    onBinChanged: refresh()
+
+                    Process {
+                        id: jellyfinProc
+                        property string secret: ""
+                        property var args: []
+                        stdout: StdioCollector { id: jellyfinOut }
+                        onRunningChanged: {
+                            if (!jellyfinProc.running || !jellyfinProc.stdinEnabled) return
+                            jellyfinProc.write(jellyfinProc.secret + "\n")
+                            jellyfinProc.secret = ""
+                            jellyfinProc.stdinEnabled = false
+                        }
+                        onExited: code => {
+                            jellyfin.busy = false
+                            const what = jellyfinProc.args[0] === "credentials" ? jellyfinProc.args[1] : jellyfinProc.args[0]
+                            let result = null
+                            try {
+                                result = JSON.parse(jellyfinOut.text)
+                            } catch (e) {}
+                            const player = what.startsWith("shim")
+                            if (code !== 0 || !result) {
+                                const why = result?.error ?? Translation.tr("Couldn't reach the Jellyfin helper")
+                                if (player) jellyfin.playerStatus = why
+                                else jellyfin.status = why
+                                return
+                            }
+                            if (player) {
+                                jellyfin.player = result
+                                if (what === "shim-login") {
+                                    jellyfinPassword.text = ""
+                                    jellyfin.playerStatus = Translation.tr("Player connected as %1 (%2).").arg(result.user).arg(result.device)
+                                } else if (what === "shim-logout") {
+                                    jellyfin.playerStatus = Translation.tr("Player disconnected.")
+                                }
+                                if (what !== "shim-status") Qt.callLater(() => jellyfin.run(["shim-status"]))
+                                return
+                            }
+                            jellyfin.conn = result
+                            jellyfinKey.text = ""
+                            jellyfin.status = result.server
+                                ? Translation.tr("Connected to %1 as %2: %3 films, %4 series, %5 songs").arg(result.server)
+                                    .arg(result.user).arg(result.movies ?? 0).arg(result.series ?? 0).arg(result.songs ?? 0)
+                                : ""
+                            // Its player next (and the bubble's instant "play …" sees the change).
+                            QuickIntent.refreshJellyfin()
+                            if (what === "status") Qt.callLater(() => jellyfin.run(["shim-status"]))
+                        }
+                    }
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: Appearance.colors.colSubtext
+                        text: Translation.tr("Jellyfin: your films, series and music, played fullscreen in mpv on this computer (or on Moonfin, the TV… when you name it). Create an API key in Jellyfin (Dashboard > API Keys); it is kept in your keyring. Then connect the player below once.")
+                    }
+                    ConfigTextArea {
+                        id: jellyfinUrl
+                        configKey: "ai.jellyfin.url"
+                        Layout.fillWidth: true
+                        fieldWidth: 320
+                        buttonIcon: "dns"
+                        text: Translation.tr("Jellyfin server")
+                        placeholderText: Translation.tr("e.g. https://jellyfin.example.org")
+                        value: Config.options.ai.jellyfin.url ?? ""
+                        Connections {
+                            target: jellyfinUrl.textArea
+                            function onEditingFinished() {
+                                Config.options.ai.jellyfin.url = jellyfinUrl.value.trim().replace(/\/+$/, "")
+                            }
+                        }
+                    }
+                    ConfigTextArea {
+                        id: jellyfinUser
+                        configKey: "ai.jellyfin.user"
+                        Layout.fillWidth: true
+                        fieldWidth: 320
+                        buttonIcon: "person"
+                        text: Translation.tr("Jellyfin user")
+                        placeholderText: Translation.tr("empty: the first administrator")
+                        value: Config.options.ai.jellyfin.user ?? ""
+                        Connections {
+                            target: jellyfinUser.textArea
+                            function onEditingFinished() {
+                                Config.options.ai.jellyfin.user = jellyfinUser.value.trim()
+                            }
+                        }
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: jellyfin.conn.key_source === "file"
+                        wrapMode: Text.WordWrap
+                        color: Appearance.colors.colSubtext
+                        text: Translation.tr("API key: read from %1 (ai.jellyfin.apiKeyFile).").arg(Config.options.ai.jellyfin.apiKeyFile)
+                    }
+                    MaterialTextField {
+                        id: jellyfinKey
+                        Layout.fillWidth: true
+                        visible: jellyfin.conn.key_source !== "file"
+                        placeholderText: jellyfin.conn.has_key
+                            ? Translation.tr("API key (saved: leave empty to keep it)")
+                            : Translation.tr("API key")
+                        echoMode: TextInput.Password
+                        onAccepted: jellyfinSave.clicked()
+                    }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 6
+                        SmallButton {
+                            id: jellyfinSave
+                            enabled: !jellyfin.busy && jellyfin.url !== ""
+                                && (jellyfinKey.text !== "" || jellyfin.conn.has_key === true)
+                            materialIcon: "link"
+                            mainText: jellyfin.busy ? Translation.tr("Checking…") : Translation.tr("Save and check")
+                            onClicked: {
+                                // The fields save when they lose focus, which a click may not take.
+                                if (!jellyfinUrl.nixManaged) Config.options.ai.jellyfin.url = jellyfin.url
+                                if (!jellyfinUser.nixManaged) Config.options.ai.jellyfin.user = jellyfinUser.value.trim()
+                                jellyfin.run(["credentials", "save", jellyfin.url, jellyfinUser.value.trim()], jellyfinKey.text)
+                            }
+                        }
+                        SmallButton {
+                            enabled: !jellyfin.busy && jellyfin.url !== ""
+                                && (jellyfinKey.text !== "" || jellyfin.conn.has_key === true)
+                            materialIcon: "network_check"
+                            mainText: Translation.tr("Test")
+                            onClicked: jellyfin.run(["credentials", "test", jellyfin.url, jellyfinUser.value.trim()], jellyfinKey.text)
+                        }
+                        SmallButton {
+                            visible: jellyfin.conn.key_source === "keyring"
+                            enabled: !jellyfin.busy
+                            materialIcon: "key_off"
+                            mainText: Translation.tr("Forget the key")
+                            onClicked: jellyfin.run(["credentials", "forget"])
+                        }
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: jellyfin.status !== ""
+                        wrapMode: Text.WordWrap
+                        color: Appearance.colors.colSubtext
+                        text: jellyfin.status
+                    }
+
+                    // The player of this computer (jellyfin-mpv-shim).
+                    StyledText {
+                        Layout.fillWidth: true
+                        Layout.topMargin: 4
+                        wrapMode: Text.WordWrap
+                        color: Appearance.colors.colSubtext
+                        text: jellyfin.player.signed_in
+                            ? Translation.tr("Player (mpv on this computer): connected as %1, %2.").arg(jellyfin.player.user ?? "?")
+                                .arg(jellyfin.player.service === "active" ? Translation.tr("running") : Translation.tr("not running"))
+                            : Translation.tr("Connect the player (jellyfin-mpv-shim): sign in once with your Jellyfin username and password. The password isn't kept; the player keeps its own login, and saves progress and plays the next episode itself.")
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: !jellyfin.player.signed_in
+                        spacing: 6
+                        MaterialTextField {
+                            id: jellyfinLogin
+                            Layout.fillWidth: true
+                            placeholderText: Translation.tr("Username")
+                            text: Config.options.ai.jellyfin.user ?? ""
+                        }
+                        MaterialTextField {
+                            id: jellyfinPassword
+                            Layout.fillWidth: true
+                            placeholderText: Translation.tr("Password")
+                            echoMode: TextInput.Password
+                            onAccepted: jellyfinConnect.clicked()
+                        }
+                    }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 6
+                        SmallButton {
+                            id: jellyfinConnect
+                            visible: !jellyfin.player.signed_in
+                            enabled: !jellyfin.busy && jellyfin.url !== "" && jellyfinLogin.text.trim() !== ""
+                            materialIcon: "cast"
+                            mainText: jellyfin.busy ? Translation.tr("Connecting…") : Translation.tr("Connect the player")
+                            onClicked: jellyfin.run(["shim-login", jellyfin.url, jellyfinLogin.text.trim()], jellyfinPassword.text)
+                        }
+                        SmallButton {
+                            visible: jellyfin.player.signed_in === true
+                            enabled: !jellyfin.busy
+                            materialIcon: "cast_connected"
+                            mainText: Translation.tr("Disconnect the player")
+                            onClicked: jellyfin.run(["shim-logout"])
+                        }
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: jellyfin.playerStatus !== ""
+                        wrapMode: Text.WordWrap
+                        color: Appearance.colors.colSubtext
+                        text: jellyfin.playerStatus
                     }
                 }
             }

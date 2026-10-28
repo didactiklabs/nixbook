@@ -1140,6 +1140,53 @@ off screen is only captured through niri with `offscreen: true`, which the
 tool tells agents to avoid: niri copies its captures to the clipboard and
 notifies (the previous clipboard is put back, but cliphist records it).
 
+### Apps and browser through the page
+
+The `pages` group (an old `desktop-mcp.json` naming `browser` means `pages`)
+reads and uses web pages in the page itself, never through the compositor:
+Zen's tabs, through the extension (`zen/`: `page.js` the page code,
+`background.js` the tabs; its native host `scripts/zen-bridge.py`,
+`passthru.zenAgent`, installed by nixbook's zenBrowserConfig), and the
+Electron apps started through `nixbook-electron-app APP -- BINARY ARGS…`
+(`scripts/electron-bridge.py`, `passthru.electronBridge`; nixbook's
+`lib/electronA11y.nix` wraps the apps its `electronBridge.apps` lists). The
+launcher starts the app as its child with `--remote-debugging-pipe` (Chromium's
+DevTools protocol on fds 3/4, no TCP port) and `--force-renderer-accessibility`,
+keeps the pipe, and serves `$XDG_RUNTIME_DIR/nixbook-electron/APP.sock`
+(0700/0600, `SO_PEERCRED` uid checked; one JSON request per line): only fixed
+operations (`status`, `pages`, `read`, `act`, `wait`, `screenshot`, `go`, and
+`app` for an app's own, `electron/APP.js`), never an arbitrary evaluate. The
+page code is Zen's, run in an isolated world (`Page.createIsolatedWorld`);
+typing is `Input.insertText` after the page code focused and selected the
+element (rich editors such as Slate accept it; synthetic events aren't),
+keys `Input.dispatchKeyEvent`, focus emulated only for that action (a page
+believing it is in front would mark messages read). `electron/discord.js`
+reads and sends through Vencord's `Webpack.Common` (stores, `RestAPI`,
+`Util.sendMessage`) in the main world; answers are scrubbed of token-like
+strings and secret-named keys, sends capped at 2000 characters and 10 a
+minute, and logged with their length in
+`$XDG_STATE_HOME/nixbook-shell/electron-bridge.log`. Password managers are
+never bridged (the launcher starts them plain). A second start while a
+bridged instance runs just starts the app (it hands over). An app back
+unbridged (it relaunched itself, an autostart entry, another launcher) is
+caught by the launcher for 15 s after its app quits (stopped and started
+again through the bridge, once per 30 s) and by `nixbook-electron-app watch`
+(the `nixbook-electron-watch` user service, `electronBridge.apps`): young and
+not in a call → restarted through the bridge, else a "Restart with bridge"
+notification; it writes `unbridged.json`, which desktop-mcp shows.
+desktop-mcp's tools: `page_list` (targets `zen:<tab>`, `discord`,
+`discord:<page>`…), `page_go`, `page_read`, `page_act`, `page_wait`,
+`page_screenshot`, and `discord` (status, find, channels, read, send, react).
+A Discord send or reaction, and a `page_act` click/submit/key on an element
+named Send, Pay, Delete… or Enter in Discord's or Slack's message box, wait for
+the user's yes in a notification (`ask_user_yes`: `notify-send -A allow -A
+deny`, two minutes, else no), whatever the client allowed; both tools are
+`destructiveHint`, and `askBeforeSending = false` is for clients that ask
+themselves. The `browser_*` names (the nixbook-meta fork's) are aliases
+(`TOOL_ALIASES`), callable, not listed. The group is refused while agents
+work on their own desktop (it reaches the user's own Zen and apps).
+Automating a user account may break Discord's or Slack's terms.
+
 ### A desktop of their own
 
 So an agent can work while you work, it can be given its own desktop:
@@ -1572,6 +1619,8 @@ ignored.
 | `nixos-module.nix` | optional NixOS module: the system's toggles for the assistant                                                                |
 | `greeter.nix`      | the login screen (`nixbook-shell.greeter`, imported by it)                                                                   |
 | `toggles.nix`      | discovers the `enable` toggles from an options tree                                                                          |
+| `zen/`             | the Zen extension (`page.js`: the page code, shared with the Electron bridge)                                                |
+| `electron/`        | the Electron apps' own operations for the bridge (`discord.js`)                                                              |
 | `scripts/`         | `config` CLI, its jq library, assistant facts, Anthropic usage, login screen theme, emoji list, desktop control MCP server   |
 | `npins/`           | default nixpkgs and quickshell pins                                                                                          |
 | `src/`             | the QML tree                                                                                                                 |
@@ -1582,6 +1631,7 @@ ignored.
 ```sh
 bash tests/scripts.sh
 bash tests/desktop-mcp.sh    # the desktop control MCP server, against stub niri/wtype/grim… and a fake compositor
+bash tests/electron-bridge.sh # the Electron apps' bridge (nixbook-electron-app), against a fake DevTools pipe (tests/fake-cdp.py)
 nix-instantiate --eval --strict --json --expr 'import ./tests/lib.nix { }'   # []
 nix-instantiate --eval --strict --read-write-mode tests/standalone.nix \
   --arg homeManager '<home-manager checkout>'                                  # "ok"

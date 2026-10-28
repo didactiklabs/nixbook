@@ -13,16 +13,17 @@ Desktop control **starts paused**. Allow it with the bar's Desktop Control widge
 
 ## What agents can do
 
-| Group      | Tools                                                                                                                                                                                                                                                                                           |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `observe`  | List windows, workspaces and apps; **the machine itself**, read live: OS, kernel, CPU, memory, GPUs, displays, disks, temperatures, battery, network (`system_info`, also while paused)                                                                                                         |
-| `screen`   | Silent screenshots (a monitor, a zoomed-in region, a window); **OCR** of the screen with positions to click (~150 tokens instead of ~1,250 for a screenshot); the clipboard; recent notifications as text; save screenshots and record the screen for you                                       |
-| `windows`  | Focus, move, resize, close windows; launch apps (waits for the window); [window layouts](./window-layouts)                                                                                                                                                                                      |
-| `input`    | Type, press keys, click, drag, scroll — exact to the pixel on any monitor and scale; up to 20 steps in one call (`run_steps`), a saved recipe in one call (`run_recipe`)                                                                                                                        |
-| `ui`       | Read any app's window through its **accessibility tree** (buttons, fields, labels as numbered text lines) and press, toggle or fill elements without coordinates; wait for an element to appear or disappear                                                                                    |
-| `shell`    | Themes and variants, the wallpaper, **desktop widgets** (notes, to-do, timers, alarms, images, music recognition), the **equalizer**, the **calendar** (read-only), the **to-do lists**, **[contacts](./accounts)** (every account's: search, edit, label, photos), notifications, shell panels |
-| `memory`   | [Desktop memory](#desktop-memory): remember, recall, forget; remind (reminders on a cue); [routine](#routines)                                                                                                                                                                                  |
-| `personal` | [Personal memory](#personal-memory): what you told agents about your life                                                                                                                                                                                                                       |
+| Group      | Tools                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `observe`  | List windows, workspaces and apps; **the machine itself**, read live: OS, kernel, CPU, memory, GPUs, displays, disks, temperatures, battery, network (`system_info`, also while paused)                                                                                                                                                                                                                                                                                                                                      |
+| `screen`   | Silent screenshots (a monitor, a zoomed-in region, a window); **OCR** of the screen with positions to click (~150 tokens instead of ~1,250 for a screenshot); the clipboard; recent notifications as text; save screenshots and record the screen for you                                                                                                                                                                                                                                                                    |
+| `windows`  | Focus, move, resize, close windows; launch apps (waits for the window); [window layouts](./window-layouts)                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `input`    | Type, press keys, click, drag, scroll — exact to the pixel on any monitor and scale; up to 20 steps in one call (`run_steps`), a saved recipe in one call (`run_recipe`)                                                                                                                                                                                                                                                                                                                                                     |
+| `ui`       | Read any app's window through its **accessibility tree** (buttons, fields, labels as numbered text lines) and press, toggle or fill elements without coordinates; wait for an element to appear or disappear                                                                                                                                                                                                                                                                                                                 |
+| `pages`    | [**Web pages and apps through the page itself**](#apps-and-browser-through-the-page): Zen's tabs (nixbook's extension) and Electron apps nixbook starts through its bridge (Discord in Vesktop, Slack, YouTube Music, Actual Budget): list them, open, navigate, read a page (its text and the elements to act on, numbered), click, type, pick, check, submit, press keys, wait, a picture — in the background, without the pointer or keys; **Discord's messages** (`discord`: find, read, send, react; sends asked first) |
+| `shell`    | Themes and variants, the wallpaper, **desktop widgets** (notes, to-do, timers, alarms, images, music recognition), the **equalizer**, the **calendar** (read-only), the **to-do lists**, **[contacts](./accounts)** (every account's: search, edit, label, photos), notifications, shell panels                                                                                                                                                                                                                              |
+| `memory`   | [Desktop memory](#desktop-memory): remember, recall, forget; remind (reminders on a cue); [routine](#routines)                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `personal` | [Personal memory](#personal-memory): what you told agents about your life                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 The `memory` group also has `habits`: what you usually do, from [usage habits](#usage-habits) when you turned them on.
 
@@ -30,6 +31,148 @@ Electron apps (Vesktop, Slack, YouTube Music) only publish their tree when start
 
 Agents are told to read through OCR or the accessibility tree before taking a screenshot, and screenshots are JPEG and **incremental** — only what changed since the agent's last one — to keep each call cheap. Action tools can return a screenshot of the result in the same call, once the screen stops changing.
 **The shell gets out of the way.** When the side panel, Claude's speech bubble, notification popups or a theme's cut-in are over the apps while an agent works on your desktop, they become click-through, let go of the keyboard and are hidden from its screenshots for that instant. You still see them, slightly faded, with _Claude is working under this panel_ on the side panel, so you can follow the chat while it works underneath. This lasts only while each of its actions or screenshots goes on, and 1.5 s after: between its steps, while it thinks, you can use them again, exactly as they were; nothing is dismissed or put away, but a cut-in. A theme's cut-in (an important notification taking over the screen) is dismissed when an agent clicks, types or presses keys, as Escape would, along with those queued behind it: it fought the agent for the keyboard and focus. The notification stays in the notification centre, and the agent is told. Its screenshots alone dismiss nothing. The agent is told what was on screen and can hide popups, a cut-in or the bubble while it works with `set_aside` (they come back the same way), but never the side panel, the lock screen or a password prompt. When nothing of the shell is on screen this costs nothing: it is one small file read per action.
+
+## Apps and browser through the page
+
+The `pages` tools work **in the page itself**, never through the compositor:
+no pointer, no keys, no focus taken, the window in the background or on
+another workspace, while you keep working. `page_list` lists what they reach,
+each with its target: `zen:<tab>` for Zen's tabs, and an app's name for its
+window (`discord`, `slack`, `youtube-music`, `actual`; `discord:2` for another
+of its windows). `page_read` gives a page's text and its elements, numbered
+(`[ref] role 'name' = value`); `page_act` clicks, types, picks, checks,
+submits, presses a key (Enter, Escape, Shift+Enter, Ctrl+A…) or scrolls,
+given the `ref` **and** the `name` it read (a page that changed is said, never
+acted on); `page_wait` waits for a load, a text or an address; `page_go`
+opens and moves tabs (Zen) or goes back, forward, reloads (apps);
+`page_screenshot` is a picture of a page without showing it. The `browser_*`
+names (the nixbook-meta fork's) still answer but aren't offered, and a
+`desktop-mcp.json` naming the group `browser` means `pages`. They reach your
+own Zen and apps, so they are refused while agents work on
+[their own desktop](./agent-desktop).
+
+- **Zen**: through nixbook's extension and its native host
+  (`$XDG_RUNTIME_DIR/nixbook-zen/bridge.sock`). Tabs open in the background
+  unless asked. Off limits: private windows, password fields, the **Banking**
+  container, and password managers, your Google account, PayPal and bank sites
+  (`browser.blockedSites`, `browser.blockedContainers`). Needs
+  `zenBrowserConfig` with `nixbookShellConfig.zenAgent.enable` (on by default):
+  the extension shows in Zen's add-ons as unverified (nixbook builds it).
+  Limits: what a browser keeps for a real person (choosing a file to upload,
+  some clipboard actions, anti-bot checks) and canvas editors (Google Docs).
+- **Electron apps**: the apps of `nixbookShellConfig.electronBridge.apps`
+  (Vesktop, Slack, YouTube Music, Actual Budget; on by default) start through
+  `nixbook-electron-app`: the app runs with Chromium's DevTools protocol on a
+  **private pipe** (`--remote-debugging-pipe`, no network port: no other
+  program can connect to it), held by the launcher alone, which answers a
+  fixed list of operations on a socket only you can reach
+  (`$XDG_RUNTIME_DIR/nixbook-electron/<app>.sock`, 0600 in a 0700 directory,
+  the caller's uid checked). Nothing sent to it is run as code: it runs
+  nixbook's own page code (the same as Zen's) in an isolated world the app's
+  scripts can't see, types with DevTools' `Input.insertText` (rich editors
+  such as Discord's message box accept it), presses keys with
+  `Input.dispatchKeyEvent`, and never returns a cookie, a token or a header.
+  Password fields are refused, password managers are never bridged (also
+  `pages.blockedApps`), at most 60 actions a minute per app. Where
+  nixbook-shell is off, the apps are installed as they are.
+- **Staying bridged**: an app can end up running without its bridge — it
+  restarted itself (`app.relaunch()`, an update applied, "restart to apply"),
+  its own **autostart entry** (`~/.config/autostart/<app>.desktop`, written by
+  its "start with the system" setting, runs the app directly), another
+  launcher, or it was running before the bridge was installed. Two things put
+  it back:
+  - the launcher, after its app quits, watches 15 s for a new instance of it
+    (a process of yours naming the app's store paths, not under a launcher):
+    it stops it (SIGTERM, SIGKILL after 5 s) and starts the app again through
+    the bridge with the same arguments, at most once in 30 s; should it
+    restart itself unbridged again at once, it is left alone and you are told;
+  - the `nixbook-electron-watch` user service (`nixbook-electron-app watch`,
+    from `/proc` alone every 10 s, the apps of
+    `~/.config/nixbook-shell/electron-bridge.json`): an unbridged instance
+    started less than a minute ago (the autostart entry, another launcher) is
+    restarted through the bridge at once — unless it is **in a call** (a
+    PipeWire recording stream of its own, `pactl`); an older one, or one in a
+    call, is **never stopped**: you get one notification, _Restart with
+    bridge_, which restarts it (also `nixbook-electron-app restart <app>`).
+    `page_list` shows such an app as `unbridged`; an agent calling it gets the
+    hint (and you the notification again, at most every 10 minutes), and
+    never restarts or closes it itself.
+- **Discord**: the `discord` tool reads and writes messages through Discord's
+  own client in Vesktop (Vencord's modules), not its window: `find` a channel,
+  a person or a DM (→ ids), `channels` (the servers and DMs, or a server's
+  channels), `read` the last messages (≤ 50: author, time, text, id, replies,
+  reactions, your mentions), `send` (≤ 2000 characters, `reply_to` a message)
+  and `react`. Reading doesn't mark a channel read. Messages are logged with
+  their length only (`~/.local/state/nixbook-shell/electron-bridge.log`).
+- **YouTube Music**: playing, the queue, likes and the volume go through its
+  own MCP server (`youtube-music`, the app's API Server) when the agent has
+  it; the page tools for the rest (lyrics, the library, playlists, the UI).
+- **Jellyfin**: films, series and music through its own MCP server
+  (`jellyfin`), never Moonfin's window: see [Jellyfin](#jellyfin).
+
+**Asked before it speaks in your name.** A Discord message or reaction, and a
+`page_act` that sends, pays or deletes — a click, submit or key on an element
+named _Send_, _Reply_, _Post_, _Pay_, _Buy_, _Order_, _Delete_… (in the four
+languages), or Enter in Discord's or Slack's message box (Shift+Enter, a new
+line, isn't) — waits for **your own yes**: a notification shows what it would
+send and where, with **Allow** and **No**; no answer in two minutes is a no,
+and a no is told to the agent, nothing done. The server asks itself, whatever
+the agent's client allows, so the side panel's Claude (whose desktop tools
+are all allowed) is asked too. Both tools are also marked `destructiveHint`
+for clients that ask on their own; for such a client `askBeforeSending =
+false` in `desktopMcp.settings` avoids being asked twice.
+
+::: warning Your account, your responsibility
+Discord's and Slack's terms forbid automating a user account ("self-bots").
+These tools act on your own account in your own app, one asked message at a
+time, but Discord or Slack may still restrict an account they find
+automated. Turn it off with `nixbookShellConfig.electronBridge.enable = false`
+or drop an app from `electronBridge.apps`.
+:::
+
+### Jellyfin
+
+Claude in the side panel (and its speech bubble) reaches your Jellyfin
+library and its players through `jellyfin-mcp`
+([its package](/packages/#jellyfin-mcp)), offered where Moonfin is installed
+(`nixbookShellConfig.jellyfinMcp.enable`) and off until set up:
+
+1. **Settings → Desktop agents → Apps it can use**: turn **Jellyfin** on,
+   enter your server (`ai.jellyfin.url`), the user whose library and progress
+   to use (`ai.jellyfin.user`, empty: the first administrator) and an API key
+   (Jellyfin: **Dashboard → API Keys**), then **Save and check**, which tries
+   them on the server first. The key goes to your keyring
+   (`service=jellyfin-mcp`), never a file or a command line; or set
+   `ai.jellyfin.apiKeyFile` in Nix. **Test** checks it again, **Forget the
+   key** removes it.
+2. **Connect the player**, once, with your Jellyfin username and password:
+   it signs this computer's player in. The password isn't kept: the player
+   keeps its own login (`~/.config/jellyfin-mpv-shim/users.json`).
+   **Disconnect the player** signs it out.
+
+**Where it plays.** By default fullscreen on this computer, in your own mpv
+(its `mpv.conf`, scripts and keys): the `jellyfin-mpv-shim` user service
+(`jellyfinMcp.player.enable`), started once signed in, which Jellyfin's own
+apps can cast to as well. It saves where you stopped, marks watched and goes
+on to the next episode itself; nixbook's settings for it are merged into its
+`conf.json` on each switch, the rest of the file kept. Asked to play on
+**Moonfin**, the **TV** or a browser, Claude plays there instead, when that
+player takes remote control (the `sessions` tool says which do; other
+people's screens only when named). A series starts at its next episode, an
+episode or film where you stopped.
+
+**Its tools**: `search`, `item`, `continue_watching`, `next_up`,
+`recently_added`, `sessions` (read only); `play` (now, next or last in the
+queue), `control` (pause, stop, next, previous, seek, forward, back, volume,
+mute, fullscreen), `mark_played`, `favorite`, `playlists`, `playlist_add`.
+
+**At once, without Claude.** In the speech bubble (Mod+C), "play Edgerunners
+season 1 episode 2", "watch Dune", "regarde Dune", "S2E1 of Arcane" start
+playing in about a second: `jellyfin-mcp play-query` finds the title, the
+episode and the player itself, no model involved. Never the music (a request
+naming music, a song, an album, Spotify… goes to Claude), and without a
+season or an episode only a strong title match plays; an unknown title or a
+question ("which one?") goes on to Claude as before.
 
 ## Guardrails
 
@@ -39,6 +182,7 @@ Whatever the transport:
 - **No keyboard or pointer input into terminals, password managers or password prompts** (`inputDenyApps`, `inputDenyTitles`); no Super combinations (compositor bindings), Ctrl+Alt+Delete or Ctrl+Alt+F-keys. Password fields never show their text through the accessibility tools.
 - **A pause button** for every agent at once (the bar widget, Mod+Shift+Escape, `nixbook-desktop-mcp pause`) — it even stops between the steps of a batch.
 - **Rate limits**: 120 actions a minute, 4,000 characters per typed text.
+- **Your yes before it speaks in your name**: a Discord message or reaction, and a click, submit or Enter that sends, pays or deletes in a page, wait for a notification's **Allow** ([details](#apps-and-browser-through-the-page)).
 - **A notification** when an agent starts driving the desktop (again after 5 idle minutes; can be turned off).
 - **An audit log** of every call in `~/.local/state/nixbook-shell/desktop-mcp.log` (typed and copied text by length only).
 - **What it sent**: everything given to a small model (notifications, pairing, news, memory passes…) and the context sent with a question asked in the bubble, as sent, the last 7 days: Settings → Desktop agents → **What it sent** (`nixbook-desktop-mcp sent`, `~/.local/state/nixbook-shell/sent.jsonl`, readable by you only; **Forget it** empties it). A local model's are marked: they never left the computer.
@@ -96,7 +240,7 @@ How it reaches you:
 
 - **Its own speech bubble**, for what is time-critical: not a notification but Claude itself, on the left under the bar (your notifications stay where they are), in the theme's look: a Material card, a slanted Persona frame, a round pastel Chiikawa bubble, a notched neon Cyberpunk panel or a paper Ghibli card. It is a small chat: type your answer in it (Enter sends, Shift+Enter for a new line, Escape puts it away; the new-chat button, or typing `/new` or `/clear`, starts a new conversation, the one before staying in the side panel's history; paste an image with Ctrl+V, drop a file on the reply box or click its clip to pick an image: it shows above the box, × removes it, and it goes with your answer as in the side panel, or to the side panel with the expand button) or pick a quick answer (**Yes, please** / **No thanks** under a question, **Not now**, **Don't tell me this**), and Claude answers right there, saying what it is doing meanwhile (thinking, the tool it used). Left alone (25 seconds before you answer, 90 seconds after its answer; it waits while you hover it or type), it moves to the bar with the conversation; Claude's next answer brings it back, unless the side panel is open on that conversation. Its other words pile up as small bubbles under it (3 at most, the oldest going to the bar), like notifications: what it says while the bubble is taken, a word that left unread, and its quiet words (pairing, what it learned, a routine's report), which slide in only once you pause. Click one to open it in the bubble (a conversation there goes to the bar, and comes back from it or with Mod+C: only the conversation does), or use its button right there (Yes, a link, Reply). One that waits for your answer (a question, a Yes, buttons) stays until it expires; the others go to the bar a minute after you read them, or after 10 minutes. Its × is **Not now**. At most 8 a day, 20 minutes apart, and none at night (22:00–8:00), in a meeting, fullscreen or on Do Not Disturb.
 - **The expand button** moves the conversation to the side panel, on its own **From Claude** tab, always the same one (made when missing, even with every tab in use). Claude knows what it said, even when that tab already has a conversation going. Left alone for 30 minutes (`ai.claudeThreadIdleMinutes`, Settings > Services; 0 keeps it), the tab closes and its thread stays in the conversation history, marked **From Claude**, when it has more than 5 messages (shorter ones aren't kept).
-- **Ask it anything**: **Mod+C**, or a click on the robot in the bar, opens the bubble to type in; pressing it again puts the bubble away. A plain command is done at once, without Claude (which can think for a while), and the bubble says what it did: **open** an app (when its name is certain), **play**, **pause**, **next**, **previous**, **volume 40** / **volume up** / **mute**, **brightness up**, **dark mode** / **light mode**, **do not disturb on**, **lock**, **timer 10 min**, **pomodoro**, **work layout** (a saved layout), **task: buy milk**, **settings**. Anything else, or anything unsure, goes to Claude as before. A new conversation started there is a normal one, in the side panel's tabs and history like any other, not a **From Claude** thread. A chat of the side panel that answers while the panel is closed also says so in the bubble, its answer there to reply to.
+- **Ask it anything**: **Mod+C**, or a click on the robot in the bar, opens the bubble to type in; pressing it again puts the bubble away. A plain command is done at once, without Claude (which can think for a while), and the bubble says what it did: **open** an app (when its name is certain), **play**, **pause**, **next**, **previous**, **volume 40** / **volume up** / **mute**, **brightness up**, **dark mode** / **light mode**, **do not disturb on**, **lock**, **timer 10 min**, **pomodoro**, **work layout** (a saved layout), **task: buy milk**, **settings**, and with [Jellyfin](#jellyfin) set up a film or an episode (**play Edgerunners season 1 episode 2**, **watch Dune**). Anything else, or anything unsure, goes to Claude as before. A new conversation started there is a normal one, in the side panel's tabs and history like any other, not a **From Claude** thread. A chat of the side panel that answers while the panel is closed also says so in the bubble, its answer there to reply to.
 - **Reactions**, with **React to what I do** on (off by default): when you download a file, take a screenshot or plug in a drive, the bubble offers one-click help: **Open**, **Show in folder**, and by the file's kind **Summarize it**, **What's in it?** or **How do I install it?** (those ask Claude, the file attached), or **Extract it** (done at once, into a folder next to it, then shown). Plain code, no model call until you click; not for what an agent did, never while you are busy, once per file, gone after 15 seconds (30 minutes in the bar); **Don't tell me this** silences that kind only.
 - **A bubble button beside the robot in the bar** for the rest, breathing slowly, with a count of what you haven't read yet (like the notification count); it goes down as you read, answer or dismiss them and is gone at zero. Click it to bring it (or your conversation) back in the speech bubble, right-click for not now. The robot hops when Claude has something new to say and nods while it answers. These expire after a few hours.
 
