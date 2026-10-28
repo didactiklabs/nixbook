@@ -1514,6 +1514,39 @@ consider '{"event":"notifications","read":true,"items":[{"app":"Power","summary"
 expect_eq "never: the app's other notifications still read" yes "$([ -e "$calls.claude-prompt" ] && echo yes || echo no)"
 python3 "$mcp" initiative unmute "$(jq -r '.muted[0]' "$ini")"
 expect_eq "unmute one: lifted" '[]' "$(jq -c .muted "$ini")"
+
+# Full AI mode's reactions (services/FullAi.qml → `fullai react`): the model
+# decides; acting alone needs the user's word, or two agreements before.
+fa() { python3 "$mcp" fullai react "$1"; }
+ev='{"event":{"event":"notification","app":"Signal","title":"Julien","text":"You coming tonight?"},"lang":"fr","recent":"User: hi there"}'
+rm -f "$calls.claude-prompt" "$calls.claude-args"
+STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {action: "do", say: "Julien asks if you come tonight. Shall I say yes?", instruction: "Reply yes to Julien", basis: "guess"}}')
+out=$(fa "$ev")
+expect_eq "fullai react: a guess never acts alone, it asks" "ask" "$(jq -r .action <<<"$out")"
+expect_eq "fullai react: the kind of event it was" "notification|signal|julien" "$(jq -r .sig <<<"$out")"
+expect_contains "fullai react: the model sees what happened" "$(cat "$calls.claude-prompt")" "You coming tonight?"
+expect_contains "fullai react: and the conversation" "$(cat "$calls.claude-prompt")" "User: hi there"
+expect_contains "fullai react: Claude Code with no tools or servers" "$(cat "$calls.claude-args")" "--strict-mcp-config"
+expect_contains "fullai react: in the user's language" "$(cat "$calls.claude-args")" "else French"
+STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {action: "do", say: "Saying yes.", instruction: "Reply yes to Julien", basis: "told"}}')
+expect_eq "fullai react: what the user told it, done" "do Reply yes to Julien" "$(fa "$ev" | jq -r '.action + " " + .instruction')"
+STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {action: "do", say: "Saying yes.", instruction: "Reply yes to Julien", basis: "learned"}}')
+expect_eq "fullai react: learned without two agreements: asks" "ask" "$(fa "$ev" | jq -r .action)"
+python3 "$mcp" fullai learn '{"sig":"notification|signal|julien","decision":"ask","outcome":"agreed","said":"yes"}'
+python3 "$mcp" fullai learn '{"sig":"notification|signal|julien","decision":"ask","outcome":"agreed","said":"oui"}'
+expect_eq "fullai react: agreed twice before: done alone" "do" "$(fa "$ev" | jq -r .action)"
+expect_contains "fullai react: the past reactions given back" "$(cat "$calls.claude-prompt")" "you ask, the user agreed: oui"
+expect_eq "fullai learn: kept 0600" "600" "$(stat -c %a "$XDG_STATE_HOME/nixbook-shell/full-ai-learned.json")"
+STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {action: "do", say: "", instruction: "", basis: "told"}}')
+expect_eq "fullai react: nothing to do without an instruction: asks" "ask" "$(fa "$ev" | jq -r .action)"
+python3 "$mcp" fullai learn '{"pref":"Always answer Julien in French","app":"Signal"}'
+expect_contains "fullai learn: a lasting preference into the personal memory" "$(python3 "$mcp" personal show)" "Always answer Julien in French"
+python3 "$mcp" fullai forget
+expect_eq "fullai forget: the reactions gone" "0" "$(jq '.reactions // [] | length' "$XDG_STATE_HOME/nixbook-shell/full-ai-learned.json")"
+expect_eq "fullai react: a bad request said" "1" "$(
+  python3 "$mcp" fullai react 'not json' >/dev/null 2>&1
+  echo $?
+)"
 unset STUB_CLAUDE_ANSWER
 python3 "$mcp" initiative clear
 python3 "$mcp" initiative clear

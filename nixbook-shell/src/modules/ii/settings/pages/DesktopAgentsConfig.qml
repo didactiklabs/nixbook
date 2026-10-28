@@ -520,6 +520,46 @@ ContentPage {
             }
         }
 
+        // Full AI mode (services/FullAi.qml): Claude runs the desktop, a
+        // mascot shows what it thinks, does and answers.
+        ContentSection {
+            icon: "smart_toy"
+            title: Translation.tr("Full AI mode")
+
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("Mod+Shift+T: Claude runs the desktop and you tell it what to do in its speech bubble (Mod+C). A small mascot moves around the screen: a thought cloud for what it thinks and does, a speech balloon for its answers, Yes / No right on the balloon when it asks. It takes neither keys nor clicks: your desktop stays yours. It also reacts to what happens (a notification, a download, the battery, a screen, the network, you coming back): it ignores it, tells you, asks what to do (\"Julien asks if you come tonight. Shall I say yes?\") or does it — on its own only for what you told it or chose twice before. It learns from your answers. Mod+Shift+T again leaves.")
+            }
+
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "ai.fullAi.react"
+                    buttonIcon: "notifications_active"
+                    text: Translation.tr("React to what happens (notifications, downloads, battery…) and learn from my answers")
+                    checked: Config.options.ai.fullAi?.react ?? true
+                    onCheckedChanged: if (Config.options.ai.fullAi) Config.options.ai.fullAi.react = checked
+                }
+            }
+
+            Flow {
+                Layout.fillWidth: true
+                spacing: 8
+                SmallButton {
+                    materialIcon: FullAi.active ? "logout" : "smart_toy"
+                    enabled: (Config.options.policies.ai ?? 1) === 1
+                    mainText: FullAi.active ? Translation.tr("Leave Full AI mode") : Translation.tr("Full AI mode (Mod+Shift+T)")
+                    onClicked: FullAi.toggle()
+                }
+                SmallButton {
+                    materialIcon: "restart_alt"
+                    mainText: Translation.tr("Forget what Full AI learned")
+                    onClicked: DesktopHelper.run(["fullai", "forget"])
+                }
+            }
+        }
+
         ContentSection {
             icon: "bolt"
             title: Translation.tr("Routines")

@@ -944,6 +944,12 @@ in
                   "claude"
                   "toggle"
                 ];
+                # Full AI mode: Claude runs the desktop, a mascot shows what
+                # it thinks and does (nixbook-shell services/FullAi.qml).
+                "Mod+Shift+T" = [
+                  "fullAi"
+                  "toggle"
+                ];
               }
           )
         )

@@ -296,6 +296,42 @@ It costs little and learns what you value:
 
 Keys in `desktop-mcp.json` (`programs.nixbook-shell.desktopMcp.settings`): `initiativeMaxPerDay` (8), `initiativeGapMinutes` (20), `initiativeQuietHours` (`"22-8"`), `initiativeCallsPerDay` (30), `initiativeChatPerDay` (4), `initiativeNewsTopics` (`[]`), `newsModel` (the memory model), `pairCallsPerDay` (30), `pairIgnoreApps`, `pairIgnoreTitles`. The switches are `ai.initiative.enable`, `ai.initiative.readNotifications`, `ai.initiative.curious`, `ai.initiative.reactions`, `ai.initiative.news`, `ai.initiative.pair` and `ai.initiative.pairReadScreen` in the shell's settings. State lives in `~/.local/state/nixbook-shell/initiative.json` (private); `nixbook-desktop-mcp initiative show|pending|news|unmute|clear`.
 
+## Full AI mode
+
+**Mod+Shift+T** (or Settings → Desktop agents → **Full AI mode**): Claude
+runs the desktop and you tell it what to do in its speech bubble (**Mod+C**).
+A small mascot moves around the screen it was started on, over a soft glow at
+the screens' edges:
+
+- a **thought cloud** for what it thinks and does (each step of the bubble's
+  Claude Code session, as it runs);
+- a **speech balloon** for its answers (the latest sentences), with a happy
+  jump when a task went well, a wobble when it failed;
+- the **question** it asks you, kept until you answer, with **Yes / No**
+  right on the balloon for a yes/no question.
+
+It takes neither your keyboard nor your mouse: the overlay only takes clicks
+on Yes / No, and it vanishes while an agent takes a screenshot. Mod+Shift+T
+again leaves; locking the screen leaves too.
+
+**It reacts to what happens** (**React to what happens**, on by default): a
+notification, a download, the battery low, a screen or an audio output
+plugged in, the network lost, you back after a while or the day's start. For
+each, `nixbook-desktop-mcp fullai react` asks Claude (through Claude Code,
+`fullAiModel` in `desktop-mcp.json`, Sonnet by default) to **ignore** it,
+**tell** you, **ask** what to do ("Julien asks if you come tonight. Shall I
+say yes?") or **do** it. It does things on its own only for what you told it
+(this conversation, a saved note) or chose at least twice before for the same
+kind of thing (the app, and for a notification its title); otherwise it asks.
+What it says shows in the bubble, so your answer goes to Claude with it.
+Every reaction and your answer are kept (`full-ai-learned.json`, 0600) and
+given back the next time; a lasting preference goes to the personal memory.
+**Forget what Full AI learned** clears the reactions. While the mode is on it
+reacts instead of the initiative (Talks to you on its own), one decision at
+a time, never over an order of yours being done.
+
+There is no voice in this version: Full AI mode is typed, in the bubble.
+
 ## Routines
 
 Ask Claude for something to happen on its own whenever something happens on the computer: "whenever the music ends, play something I like", "when my headphones connect, resume the music", "when a PDF lands in Downloads, open it", "every weekday at 9:00, restore my work layout".

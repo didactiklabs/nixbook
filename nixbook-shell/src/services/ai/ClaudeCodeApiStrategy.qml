@@ -11,6 +11,10 @@ QtObject {
     // Tool calls of the current answer, by id: "name input", shown with
     // their result in one block.
     property var toolCalls: ({})
+    // The turn's tool calls, in order: {id, tool (its short name), summary,
+    // status run|ok|error} — what Full AI's mascot thinks out loud (a new
+    // list each change: bindings see it).
+    property var steps: []
     property bool finished: false
     // The privacy mask: placeholders (⟦Person 2⟧) shown as the real values.
     // A placeholder cut between two pieces of the stream waits for its end.
@@ -19,6 +23,7 @@ QtObject {
 
     function reset() {
         toolCalls = ({});
+        steps = [];
         finished = false;
         held = "";
     }
@@ -83,10 +88,13 @@ QtObject {
             for (const block of (ev.message?.content ?? [])) {
                 if (block.type !== "tool_use") continue;
                 toolCalls[block.id] = `**${toolLabel(block.name)}** ${brief(block.input, 300)}`;
+                steps = [...steps, { id: block.id, tool: String(block.name ?? "").replace(/^mcp__[^_]+__/, ""),
+                                     summary: brief(block.input, 80), status: "run" }];
             }
         } else if (ev.type === "user") {
             for (const block of (ev.message?.content ?? [])) {
                 if (block.type !== "tool_result") continue;
+                steps = steps.map(x => x.id === block.tool_use_id ? Object.assign({}, x, { status: block.is_error ? "error" : "ok" }) : x);
                 const call = toolCalls[block.tool_use_id] ?? "**tool**";
                 const text = brief(resultText(block.content), 400);
                 append(message, `\n\n<think>\n${call}\n\n${block.is_error ? "⚠ " : "→ "}${text}\n</think>\n\n`);

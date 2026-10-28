@@ -8778,6 +8778,141 @@ def ask_claude(claude, model, system, prompt, schema=None, web=False):
     return unmask_obj(ask_claude_now(claude, model, system + "\n\n" + PRIVACY_PROMPT, mask_text(prompt), schema, web))
 
 
+# ── Full AI mode's reactions (services/FullAi.qml): something happened on
+# the computer while the mode is on (a notification, a download, the
+# battery, a screen…); a model decides: ignore it, tell the user, ask them
+# what to do, or do it. It acts alone only on what the user told it (this
+# conversation, a saved note) or chose at least twice before for the same
+# kind of thing; else it asks. What the user answered is kept
+# (full-ai-learned.json) and given back next time.
+FULLAI_REACT_SYSTEM = (
+    "You run the user's desktop in Full AI mode: they talk to you through your speech bubble, you are the one "
+    "watching the computer. Something just happened. Decide: ignore it, tell the user, ask them what to do, or do "
+    "it. ignore: noise, ads, your own actions, what the user already sees and doesn't need. tell: worth knowing, "
+    "nothing to decide. ask: it needs a decision (a message to answer, a file to open, a meeting about to start): "
+    "say what happened in a few words and ask what to do, offering the likely answer (\"Julien asks if you come "
+    "tonight. Shall I say yes?\"). do: only when the user told you to (this conversation or a saved note: basis "
+    "\"told\") or always chose the same before (basis \"learned\"); never send a message or delete anything on "
+    "a guess; then `instruction` is the complete instruction for the desktop agent (it has the desktop tools). "
+    "`say`: one or two short sentences, naturally, in the language the user talks to you in (the conversation "
+    "below; else the message's language when it is theirs, else {lang}); never read out codes or long texts. "
+    "`learn`: a lasting preference this shows, or empty.")
+FULLAI_REACT_SCHEMA = {"type": "object", "properties": {
+    "action": {"type": "string", "enum": ["ignore", "tell", "ask", "do"]}, "say": {"type": "string"},
+    "instruction": {"type": "string"}, "basis": {"type": "string", "enum": ["told", "learned", "guess"]},
+    "learn": {"type": "string"}}, "required": ["action", "say", "basis"]}
+FULLAI_LANGS = {"en": "English", "fr": "French", "de": "German", "vi": "Vietnamese"}
+
+
+def fullai_learned_path():
+    return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-shell", "full-ai-learned.json")
+
+
+def fullai_learned():
+    d = read_json(fullai_learned_path())
+    return d if isinstance(d, dict) else {}
+
+
+class FullAiLearned(LockedJson):
+    path = staticmethod(fullai_learned_path)
+
+
+def fullai_sig(ev):
+    """What makes two events "the same kind": the event, the app, and for a
+    notification its title (a chat's sender)."""
+    kind = str(ev.get("event") or "")
+    app = str(ev.get("app") or "").lower()
+    title = str(ev.get("title") or "").lower()[:60] if kind == "notification" else ""
+    return "|".join(x for x in (kind, app, title) if x)
+
+
+def fullai_react(cfg, req):
+    """{action, say, instruction, basis, learn, sig}: the decision for one
+    event. `do` becomes `ask` unless the user told it, or agreed at least
+    twice before on the same kind of thing."""
+    ev = req.get("event") if isinstance(req.get("event"), dict) else {}
+    sig = fullai_sig(ev)
+    app_sig = "|".join(sig.split("|")[:2])
+    past = [r for r in fullai_learned().get("reactions") or []
+            if r.get("sig") == sig or str(r.get("sig", "")).startswith(app_sig)][-12:]
+    lang = FULLAI_LANGS.get(str(req.get("lang") or "en")[:2].lower(), "English")
+    query = f"{ev.get('app', '')} {ev.get('title', '')} {ev.get('text', '')}".strip()
+    parts = ["What happened: " + json.dumps({k: v for k, v in ev.items() if v not in ("", None)}, ensure_ascii=False),
+             time.strftime("Now: %a %Y-%m-%d %H:%M"),
+             personal_digest(cfg, query), memory_digest(cfg, query)]
+    if req.get("recent"):
+        parts.append("The conversation with the user so far (what they told you):\n" + str(req["recent"])[-2500:])
+    if past:
+        parts.append("Your past reactions to the same kind of thing and what the user answered:\n" + "\n".join(
+            f"- {time.strftime('%d %b', time.localtime(x.get('t', 0)))}: you {x.get('decision')}, "
+            f"the user {x.get('outcome') or 'said nothing'}{': ' + x['said'] if x.get('said') else ''}" for x in past))
+    system = FULLAI_REACT_SYSTEM.format(lang=lang)
+    prompt = "\n\n".join(p for p in parts if p)
+    if ai_policy() == 1:
+        claude = claude_path(cfg, req.get("claude"))
+        if not claude:
+            raise ToolError("no Claude Code")
+        d = ask_claude(claude, cfg.get("fullAiModel") or "sonnet", system, prompt, FULLAI_REACT_SCHEMA)
+    elif ai_policy() == 2 and local_model(cfg):
+        d = ask_local(cfg, system, prompt, FULLAI_REACT_SCHEMA)
+    else:
+        raise ToolError("no model: AI is off, or local only without localModel")
+    d = d if isinstance(d, dict) else {}
+    action = d.get("action") if d.get("action") in ("ignore", "tell", "ask", "do") else "ignore"
+    basis = d.get("basis") if d.get("basis") in ("told", "learned", "guess") else "guess"
+    instruction = str(d.get("instruction") or "").strip()[:2000]
+    if action == "do":
+        agreed = sum(1 for x in past if x.get("outcome") in ("agreed", "did it") and x.get("decision") in ("ask", "do"))
+        if basis == "guess" or (basis == "learned" and agreed < 2) or not instruction:
+            action = "ask"
+    return {"action": action, "say": str(d.get("say") or "").strip()[:400], "instruction": instruction,
+            "basis": basis, "learn": str(d.get("learn") or "").strip()[:300], "sig": sig}
+
+
+def fullai_learn(cfg, item):
+    """{sig, decision, outcome, said?}: a reaction and the user's answer;
+    {pref, app?}: a lasting preference, into the personal memory; {forget:
+    true}: the reactions gone."""
+    if item.get("pref"):
+        app = str(item.get("app") or "").strip()[:40]
+        with contextlib.suppress(ToolError, OSError, ValueError):
+            t_remember_about_user(Context(cfg, "cli", "Full AI", notify=False),
+                                  {"topic": f"Full AI: {app}" if app else "Full AI", "kind": "topic",
+                                   "text": str(item["pref"])[:300]}, weight=3)
+    with FullAiLearned() as m:
+        if item.get("forget") is True:
+            m.data = {}
+            m.changed = True
+        if item.get("decision"):
+            rec = {"sig": str(item.get("sig") or "")[:200], "t": int(time.time()),
+                   "decision": str(item["decision"])[:20], "outcome": str(item.get("outcome") or "")[:20],
+                   "said": str(item.get("said") or "")[:200]}
+            m.data["reactions"] = ((m.data.get("reactions") or []) + [rec])[-400:]
+            m.changed = True
+
+
+def fullai_command(cfg, argv):
+    sub = argv[0] if argv else ""
+    try:
+        if sub == "react" and len(argv) == 2:
+            print(json.dumps(fullai_react(cfg, json.loads(argv[1])), ensure_ascii=False))
+            return 0
+        if sub == "learn" and len(argv) == 2:
+            item = json.loads(argv[1])
+            if not isinstance(item, dict):
+                raise ValueError("a JSON object")
+            fullai_learn(cfg, item)
+            return 0
+        if sub == "forget":
+            fullai_learn(cfg, {"forget": True})
+            return 0
+    except (ValueError, ToolError) as e:
+        print(f"fullai: {e}", file=sys.stderr)
+        return 1
+    print("usage: fullai react REQUEST-JSON | learn JSON | forget", file=sys.stderr)
+    return 2
+
+
 def ids_of(answer, key, limit):
     return [i for i in answer.get(key) or [] if isinstance(i, str)][:limit]
 
@@ -14740,6 +14875,7 @@ HELPER_COMMANDS = {
     "notify": None, "personal": ("context", "show", "forget"), "habits": ("cue", "alias", "status"),
     "memory": ("show", "forget", "fire"), "initiative": ("show", "pending", "answer", "notices", "unmute", "consider"),
     "routine": ("list", "undone", "on", "off", "remove"),
+    "fullai": ("learn", "forget"),
 }
 
 
@@ -15037,6 +15173,8 @@ def main(argv):
         return memory_command(cfg, argv[1:])
     if cmd == "initiative":
         return initiative_command(cfg, argv[1:])
+    if cmd == "fullai":
+        return fullai_command(cfg, argv[1:])
     if cmd == "watch":
         return watch_command(cfg, argv[1:])
     if cmd == "extract" and len(argv) == 2:

@@ -30,6 +30,7 @@ ShellRoot {
         CalendarReminders.load()
         MemoryReminders.load()
         Initiative.load()
+        FullAi.load()
         RecentContext.load()
         Routines.load()
         SelfImprove.load()
