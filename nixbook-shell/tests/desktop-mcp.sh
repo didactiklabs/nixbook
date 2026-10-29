@@ -1485,7 +1485,8 @@ STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {react: true, urgent: true, abo
 out=$(consider '{"event":"notifications","read":true,"focused":"firefox","next":"Review in 10 min","items":[
   {"app":"Power","summary":"Battery at 8%","body":"Plug in soon","urgency":"critical"},
   {"app":"Spotify","summary":"Now playing 3 songs"},
-  {"app":"Claude","summary":"I have something"},
+  {"app":"Muse","summary":"I have something"},
+  {"app":"Claude","summary":"From before the rename"},
   {"app":"firefox","summary":"Download done"}]}')
 expect_eq "notifications: a reaction, urgent" notify "$(jq -r .action <<<"$out")"
 expect_contains "notifications: what it says, with what it is about" "$(jq -r .item.chat <<<"$out")" "> Power: Battery at 8% — Plug in soon"
@@ -1493,6 +1494,7 @@ prompt=$(cat "$calls.claude-prompt")
 expect_contains "notifications: the model sees them, numbered" "$prompt" "1. [Power] Battery at 8% — Plug in soon (critical)"
 expect_contains "notifications: and the moment" "$prompt" "Their next event: Review in 10 min"
 expect_not_contains "notifications: never its own" "$prompt" "I have something"
+expect_not_contains "notifications: nor its own under its former name" "$prompt" "From before the rename"
 expect_not_contains "notifications: not the focused app's (the user sees them)" "$prompt" "Download done"
 STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {react: false}}')
 rm -f "$calls.claude-prompt"

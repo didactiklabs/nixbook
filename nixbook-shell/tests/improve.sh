@@ -444,10 +444,10 @@ setsid "$improve" run --item "$id" >/dev/null 2>&1 &
 doing=""
 for _ in $(seq 100); do
   doing=$(run_of "$id" | jq -r '.doing // ""' 2>/dev/null || true)
-  [ "$doing" != "Claude reads docs/guide.md" ] || break
+  [ "$doing" != "Muse reads docs/guide.md" ] || break
   sleep 0.1
 done
-expect_eq "progress: what Claude does, live" "Claude reads docs/guide.md" "$doing"
+expect_eq "progress: what Muse does, live" "Muse reads docs/guide.md" "$doing"
 expect_eq "stop: stopped" "true" "$("$improve" stop | jq -r .stopped)"
 expect_eq "stop: its run ends" "failed stopped by you" "$(run_of "$id" | jq -r '"\(.outcome) \(.note)"')"
 expect_eq "stop: its item back in the inbox" "new" "$("$improve" status | jq -r --arg i "$id" '.inbox[] | select(.id == $i) | .status')"

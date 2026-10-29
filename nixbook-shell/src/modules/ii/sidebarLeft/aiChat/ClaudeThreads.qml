@@ -76,7 +76,7 @@ ListView {
                 }
             }
             StyledToolTip {
-                text: Translation.tr("Clear the threads from Claude (but the pinned ones)")
+                text: Translation.tr("Clear the threads from Muse (but the pinned ones)")
             }
         }
     }

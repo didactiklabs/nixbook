@@ -164,7 +164,7 @@ expect_match "not set up: says where to set it" "Settings > Desktop agents" "$(t
 r=$(JELLYFIN_API_KEY="" call search '{"query":"dune"}')
 expect_match "no key anywhere: not set up" "isn't set up" "$(text_of <<<"$r")"
 r=$(JELLYFIN_API_KEY="wrong-key-999" call search '{"query":"dune"}')
-expect_match "a wrong key: refused (401)" "refused Claude's login \(HTTP 401\)" "$(text_of <<<"$r")"
+expect_match "a wrong key: refused (401)" "refused Muse's login \(HTTP 401\)" "$(text_of <<<"$r")"
 expect_no "a wrong key: never shown" "wrong-key-999" "$r"
 mkdir -p "$HOME/.config/jf"
 printf '%s\n' "$KEY" >"$HOME/.config/jf/key"
@@ -373,7 +373,7 @@ expect_eq "credentials status: no key" "$(jq -c '{has_key, key_source}' <<<"$r")
 r=$(printf '%s\n' "$KEY" | JELLYFIN_API_KEY="" "${jmcp[@]}" credentials test "$url/")
 expect_eq "credentials test: checked, nothing saved" "$(jq -r '.server + " " + .user + " " + (.movies|tostring)' <<<"$r") $([ -f "$STUB_DIR/keyring" ] && echo saved || echo none)" "Fake Jellyfin Khoa 4 none"
 r=$(printf '%s\n' "bad-key-777" | JELLYFIN_API_KEY="" "${jmcp[@]}" credentials save "$url" || true)
-expect_match "credentials save: a bad key refused, not saved" "refused Claude's login" "$(jq -r .error <<<"$r")$([ -f "$STUB_DIR/keyring" ] && echo saved)"
+expect_match "credentials save: a bad key refused, not saved" "refused Muse's login" "$(jq -r .error <<<"$r")$([ -f "$STUB_DIR/keyring" ] && echo saved)"
 expect_no "credentials save: the bad key not printed" "bad-key-777" "$r"
 r=$(printf '%s\n' "$KEY" | JELLYFIN_API_KEY="" "${jmcp[@]}" credentials save "$url" Khoa)
 expect_eq "credentials save: in the keyring" "$(jq -r '.has_key, .key_source' <<<"$r" | paste -sd' ') $(cat "$STUB_DIR/keyring")" "true keyring $KEY"
@@ -492,7 +492,7 @@ expect_eq "login --player: the player signed in too" \
 expect_eq "login --player: the player as itself" "$(grep -F '"Jellyfin MPV Shim"' "$log" | grep -c AuthenticateByName)" "1"
 expect_eq "login again: the previous token ended on the server" "$(grep -c '"path": "/Sessions/Logout"' "$log")" "1"
 r=$(JELLYFIN_API_KEY="$guest_token" call search '{"query":"spirited"}')
-expect_match "an ended token: refused, says how to fix it" "refused Claude's login \(HTTP 401\).*sign in again" "$(text_of <<<"$r")"
+expect_match "an ended token: refused, says how to fix it" "refused Muse's login \(HTTP 401\).*sign in again" "$(text_of <<<"$r")"
 mai_token=$(cat "$STUB_DIR/keyring")
 r=$(JELLYFIN_API_KEY="" "${jmcp[@]}" credentials forget)
 expect_eq "sign out: ended on the server, forgotten here" \

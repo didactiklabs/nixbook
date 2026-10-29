@@ -16,7 +16,7 @@ Elsewhere there are no Settings sections, agents don't get the `report_problem`,
 It reaches GitHub **only with its own token**, never your `gh` login or ssh key. Create a **fine-grained token** (GitHub → Settings → Developer settings → Fine-grained tokens) for the repository only. Set **Contents** and **Pull requests** to _Read and write_ and nothing else (no _Workflows_, no _Administration_). Paste it in the section's **GitHub token** field: **Save and check** checks that it can read the repository, push and open pull requests (a dry-run push and a pull request from a branch that doesn't exist: nothing is created) and names a missing permission; then it keeps it in your keyring (`secret-tool`, service `nixbook-improve`). It warns you about a classic token, which reaches every repository you can, and about an admin token. **Forget the token** removes it. Without a token it opens no pull request.
 
 - `gh` runs with that token and an empty config directory, so it can't fall back to your login. git pushes and fetches over https with the token alone; an ssh repository URL is used as https.
-- Its git calls to GitHub use none of your git config (`GIT_CONFIG_GLOBAL=/dev/null`): your credential helpers or an https-to-ssh rewrite can't get in the way of the token. Its commits are never signed with your key: they're Claude's, and a background job shouldn't raise a pinentry prompt.
+- Its git calls to GitHub use none of your git config (`GIT_CONFIG_GLOBAL=/dev/null`): your credential helpers or an https-to-ssh rewrite can't get in the way of the token. Its commits are never signed with your key: they're Muse's, and a background job shouldn't raise a pinentry prompt.
 - If **Save and check** refuses a token, nothing is saved and the previous token stays in use. "GitHub doesn't accept this token for git" means GitHub doesn't know it (a typo, expired, regenerated), or the organization hasn't approved it yet.
 - The fixing session never has it: it isn't in its environment, and its file tools can't reach the keyring.
 - Without _Workflows_ permission, GitHub itself refuses a push that touches `.github/workflows`, on top of the guard.
@@ -36,9 +36,9 @@ Things to fix arrive in an inbox. Filing them is plain code, with no model call,
 - **CI on `main`.** A workflow whose latest run on `main` failed in a job's step (read with the token); the session gets the failed jobs' logs. One green again is dropped from the list. A failure only in `ciIgnoreJobs` (`push-cache`: uploading to the binary cache), or of a job that lost its runner (no failed step), isn't a bug for a fix.
 - **Crashes of nixbook's programs.** A coredump of a program nixbook packages (`customPkgs/`, the shell).
 
-**Only what nixbook defines is sent to Claude unasked.** Nix writes out what that is: the units of its own module files (system: `/etc/nixbook/owned-units.json`, from `nixosModules/ownedUnits.nix`; user: `~/.config/nixbook-shell/owned.json`) and its packages. The rest is listed under **Seen, not nixbook's**, for you to know: another unit failing, another app's crash, the kernel's errors (from the journal). It never starts a session; **Fix now** sends one anyway, telling Claude it may not be nixbook's to fix.
+**Only what nixbook defines is sent to Muse unasked.** Nix writes out what that is: the units of its own module files (system: `/etc/nixbook/owned-units.json`, from `nixosModules/ownedUnits.nix`; user: `~/.config/nixbook-shell/owned.json`) and its packages. The rest is listed under **Seen, not nixbook's**, for you to know: another unit failing, another app's crash, the kernel's errors (from the journal). It never starts a session; **Fix now** sends one anyway, telling Muse it may not be nixbook's to fix.
 
-Logs stay on this computer: they go to the Claude session as context, never into a commit or a pull request.
+Logs stay on this computer: they go to the Claude Code session as context, never into a commit or a pull request.
 
 What you report, a failed update or a red CI get a fix soon. A shell or unit error has to show up 3 times first; a crash, a failed unit (two looks) or a Nix warning (two updates) twice. It makes at most `perDay` fixes on its own (2 by default; **Fixes a day on its own** in the section, `0` for no limit, while **Most a fix may spend**, `budgetUsd`, still caps each run). **Fix now** next to an item starts one at once, without counting toward that limit. Items it tried without fixing them (failed, skipped, too big) stay listed, with why (but those it found harmless and unfixable, which leave on their own), so **Fix now** can try again, after you give the token a missing permission for instance.
 
@@ -66,7 +66,7 @@ Nothing runs between fixes but the shell's timers: it looks for bugs 10 minutes 
 
 - **The status line** at the top of the section always says something:
   - _Off_, or that it needs its token;
-  - while fixing, _Fixing "…" — Claude reads ThumbnailImage.qml (3 min)_, live, with a progress bar and **Stop**;
+  - while fixing, _Fixing "…" — Muse reads ThumbnailImage.qml (3 min)_, live, with a progress bar and **Stop**;
   - a PR waiting for CI or for you;
   - otherwise _Idle_, with its last activity.
 - **Activity** lists what it did and decided lately:
@@ -76,7 +76,7 @@ Nothing runs between fixes but the shell's timers: it looks for bugs 10 minutes 
   - CI, merges and what a merge broke;
   - errors.
 - **The bar.** The bar's robot shows a wrench while a fix is being made, and its tooltip says what it is doing.
-- **Stop** ends the fix being made before its PR is out: the Claude session and the checks are stopped, and the item goes back to the inbox.
+- **Stop** ends the fix being made before its PR is out: the Claude Code session and the checks are stopped, and the item goes back to the inbox.
 
 A PR you merge or close on GitHub leaves the list too: it checks its open PRs when the shell starts, every 30 minutes while one waits, and when it looks for bugs (`nixbook-improve sync`). Merged there, it is watched after the update like the others.
 

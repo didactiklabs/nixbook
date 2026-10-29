@@ -95,7 +95,7 @@ ContentPage {
                 configKey: "ai.claudeThreadIdleMinutes"
                 enabled: !nixManaged
                 icon: "timer_off"
-                text: Translation.tr("Close the \"From Claude\" tab after (minutes idle, 0: never)")
+                text: Translation.tr("Close the \"From Muse\" tab after (minutes idle, 0: never)")
                 value: Config.options.ai.claudeThreadIdleMinutes
                 from: 0
                 to: 1440

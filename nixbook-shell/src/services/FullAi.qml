@@ -132,7 +132,7 @@ Singleton {
         if (root.active) return;
         // AI off or local only (policies.ai): Claude can't run the desktop.
         if ((Config.options?.policies?.ai ?? 1) !== 1) {
-            Quickshell.execDetached(["notify-send", "-a", "Claude", Translation.tr("Full AI mode"),
+            Quickshell.execDetached(["notify-send", "-a", "Muse", Translation.tr("Full AI mode"),
                 Translation.tr("AI features are off or local only (Settings > Desktop agents).")]);
             return;
         }
@@ -175,7 +175,7 @@ Singleton {
     property var didAlone: null
     // Its own words and the shell's: not events.
     // (desktop-mcp.py's INITIATIVE_OWN_APPS names the same.)
-    readonly property var ownApps: ["claude", "desktop agent", "desktop agents", "snoozed", "nixbook", "nixbook-shell",
+    readonly property var ownApps: ["muse", "claude", "desktop agent", "desktop agents", "snoozed", "nixbook", "nixbook-shell",
         "nixbook-desktop-mcp", "quickshell", "shell", "window layouts", "usage habits", "screenshot", "recorder", "reminder", "calendar"]
     readonly property var reactEvents: ["download", "battery_low", "monitor_connected", "monitor_disconnected",
         "audio_output", "wifi_disconnected", "back", "day_start"]
@@ -233,7 +233,7 @@ Singleton {
         const chat = Initiative.chat;
         const ids = (chat?.messageIDs ?? []).slice(-n);
         return ids.map(id => chat.messageByID[id]).filter(m => m && (m.role === "user" || m.role === "assistant"))
-            .map(m => `${m.role === "user" ? "User" : "Claude"}: ${root.plain(m).slice(0, 400)}`).join("\n");
+            .map(m => `${m.role === "user" ? "User" : "Muse"}: ${root.plain(m).slice(0, 400)}`).join("\n");
     }
     function react(ev) {
         root.reacting = true;
@@ -248,7 +248,7 @@ Singleton {
     // Shown in the bubble as Claude's own message: the user's reply carries
     // it (Initiative.prepare makes it the thread's first message).
     function _item(ev, said) {
-        return { id: "", kind: "fullai", level: "notify", title: "Claude", text: said,
+        return { id: "", kind: "fullai", level: "notify", title: "Muse", text: said,
                  chat: `${Translation.tr("Something happened")}: ${root.describe(ev)}\n\n${said}` };
     }
     function decided(ev, d) {
