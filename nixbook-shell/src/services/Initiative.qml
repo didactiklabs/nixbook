@@ -213,7 +213,7 @@ Singleton {
     function busy() {
         if (Notifications.silent || GlobalStates.screenLocked || Idle.screensOff) return true
         const t = new Date()
-        if (CalendarEvents.eventsOn(t).some(e => !e.allDay && e.start <= t && e.end > t)) return true
+        if (CalendarEvents.meetingNow(t)) return true
         const mon = WM.focusedMonitor?.name ?? ""
         return mon !== "" && WM.fullscreenOnMonitor(mon)
     }

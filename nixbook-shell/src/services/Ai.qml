@@ -44,7 +44,25 @@ Singleton {
         const parts = [];
         if (prompt.includes("{DATETIME}")) parts.push(`Current date & time: ${root.promptSubstitutions["{DATETIME}"]}`);
         if (prompt.includes("{WINDOWCLASS}")) parts.push(`Focused app: ${root.promptSubstitutions["{WINDOWCLASS}"]}`);
-        return parts.length > 0 ? `[${parts.join("; ")}]\n\n` : "";
+        const head = parts.length > 0 ? `[${parts.join("; ")}]\n\n` : "";
+        // The open windows (the shell's own list, no niri call), with the
+        // desktop tools: "close Firefox" acts at once, no list_windows step
+        // first. Masked with the message.
+        const windows = root.currentTool !== "none" && root.desktopTools.length > 0 ? root.openWindowsLines() : [];
+        return head + (windows.length > 0 ? `[Open windows (ids for the window tools):\n${windows.join("\n")}]\n\n` : "");
+    }
+    function openWindowsLines() {
+        const spaces = {};
+        for (const w of WM.workspaces ?? []) spaces[w.id] = w;
+        return [...(WM.windowList ?? [])]
+            .sort((a, b) => (b.focused ? 1 : 0) - (a.focused ? 1 : 0) || (a.workspaceId ?? 0) - (b.workspaceId ?? 0))
+            .slice(0, 20)
+            .map(w => {
+                const sp = spaces[w.workspaceId] ?? {};
+                const title = String(w.title ?? "").replace(/\s+/g, " ");
+                return `- id ${w.id}: ${w.appId || "?"} — ${title.length > 60 ? title.slice(0, 59) + "…" : title}`
+                    + ` (workspace ${sp.idx ?? "?"}${sp.output ? " on " + sp.output : ""}${w.focused ? ", focused" : ""}${w.floating ? ", floating" : ""})`;
+            });
     }
     function substitutedPrompt(substitutions) {
         let prompt = Config.options?.ai?.systemPrompt ?? "";
@@ -786,7 +804,7 @@ Singleton {
         // tool calls and answers get the real values back here.
         const privacy = Config.options.ai.privacy.mask;
         const system = root.stableSystemPrompt
-            + "\n\nYou are V, the assistant built into the user's desktop (you run on Anthropic's Claude): when asked your name, you are V. You are answering in the desktop shell's side panel: keep answers short."
+            + "\n\nYou are V, the assistant built into the user's desktop (you run on Anthropic's Claude): when asked your name, you are V. You are answering in the desktop shell's side panel: keep answers short. While you work, don't narrate each step or say the same thing twice, and never write notes or plans to yourself in the chat: everything you write is shown. A tool's reply already says whether it worked: don't call another tool to check, and call independent steps together in one message."
             + (privacy ? " " + root.privacyPrompt : "")
             + (Config.options.ai.claudeCode.asComputer ? root.asComputerPrompt(desktop) : "")
             + (desktop ? " You can see and drive the user's desktop with the desktop tools."
