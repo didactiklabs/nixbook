@@ -104,6 +104,15 @@ let
         2147483
       else
         cfg.jellyfinMcp.player.maxBitrateMbps * 1000;
+    # The user's own mpv and its controls only (modernx, thumbfast from
+    # desktopApps' mpvConfig): "custom" loads none of the shim's on-screen
+    # controls and turns mpv's built-in OSC off, where its default (with no
+    # GUI: its copy of mpv's OSC) drew over modernx. Its own thumbfast
+    # (Jellyfin's seek previews) would answer modernx beside the user's, and
+    # its mouse.lua only serves the shim's own menu.
+    osc_style = "custom";
+    thumbnail_enable = false;
+    menu_mouse = false;
     enable_gui = false;
     check_updates = false;
     notify_updates = "disabled";
