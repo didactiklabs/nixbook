@@ -74,7 +74,7 @@ OVERVIEW_SHORT = 200
 OVERVIEW_LONG = 1200
 NOT_SET_UP = ("Jellyfin isn't set up: set its server and sign in in Settings > Desktop agents > "
               "Apps it can use (or JELLYFIN_URL and JELLYFIN_API_KEY).")
-REFUSED = ("Jellyfin refused Muse's login (HTTP {code}): sign in again (or check the API key) in "
+REFUSED = ("Jellyfin refused V's login (HTTP {code}): sign in again (or check the API key) in "
            "Settings > Desktop agents > Jellyfin")
 TWO_FACTOR = ("with two-factor authentication (the JellyfinSecurity plugin…), sign in with an app "
               "password made for this, not your account's password")

@@ -283,7 +283,7 @@ Singleton {
                     property string user: ""
                     property string apiKeyFile: ""
                 }
-                // The Seerr (Overseerr / Jellyseerr) the side panel's Muse can
+                // The Seerr (Overseerr / Jellyseerr) the side panel's V can
                 // request from (seerr-mcp, in assistant.mcpServers): its
                 // server, who requests go out as (a user id, name or email;
                 // empty: the key's own, the first administrator) and

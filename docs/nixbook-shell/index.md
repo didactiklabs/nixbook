@@ -18,7 +18,7 @@ It started as a fork of [pctrade/end4-pC](https://github.com/pctrade/end4-pC), i
 | [Screenshots & recording](./screenshots)                 | Rectangle, circle, window or screen selection; annotation; recording with audio                                         |
 | [Window layouts](./window-layouts)                       | Save where every window is and restore it in one key                                                                    |
 | [Lock & login screens](./lock-and-login)                 | Themed lock screen and greeter, security-key cues, a seamless loading screen                                            |
-| [AI chat & config assistant](./ai-assistant)             | An offline assistant that answers from your configuration, and Muse in the side panel                                   |
+| [AI chat & config assistant](./ai-assistant)             | An offline assistant that answers from your configuration, and V in the side panel                                      |
 | [Desktop control for AI agents](./desktop-agents)        | An MCP server that lets agents see and drive the desktop, with guardrails and memory                                    |
 | [The agents' own desktop](./agent-desktop)               | A sandboxed nested desktop where agents work without touching yours                                                     |
 

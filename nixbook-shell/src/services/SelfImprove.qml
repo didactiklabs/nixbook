@@ -80,8 +80,8 @@ Singleton {
     function stageText(stage) {
         return ({
             clone: Translation.tr("getting the repository up to date"),
-            fix: Translation.tr("Muse looks for the cause"),
-            build: Translation.tr("Muse builds the feature"),
+            fix: Translation.tr("V looks for the cause"),
+            build: Translation.tr("V builds the feature"),
             check: Translation.tr("checking the change"),
             push: Translation.tr("opening the pull request"),
             ci: Translation.tr("waiting for CI")

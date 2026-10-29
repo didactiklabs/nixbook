@@ -3,7 +3,7 @@
 # phone's clipboard, ring; with KDECONNECT_MCP_READ=1 also its texts,
 # notifications and contacts. Talks to kdeconnectd on the session bus. The
 # source lives in ./kdeconnect-mcp (no upstream). Given only to the
-# nixbook-shell side panel's Muse (homeManagerModules/nixbookShellConfig.nix),
+# nixbook-shell side panel's V (homeManagerModules/nixbookShellConfig.nix),
 # never installed on the PATH.
 pkgs.buildGoModule {
   pname = "kdeconnect-mcp";

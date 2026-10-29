@@ -7,7 +7,7 @@
 # in ./jellyfin-mcp (no upstream). Playback goes to a player through the
 # server: by default this computer's jellyfin-mpv-shim (the user service
 # homeManagerModules/nixbookShellConfig.nix runs), Moonfin or a TV when named.
-# Given only to the nixbook-shell side panel's Muse (assistant.mcpServers),
+# Given only to the nixbook-shell side panel's V (assistant.mcpServers),
 # never installed on the PATH. Its credential — a user's own token from
 # `credentials login` (no admin needed) or an admin's API key — comes from
 # JELLYFIN_API_KEY, the file JELLYFIN_API_KEY_FILE names, or the keyring
