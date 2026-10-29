@@ -21,7 +21,7 @@
      lo.style = osc_styles.Ctrl3
      lo.visible = (osc_param.playresx >= 600)
 +
-+    -- nixbook: Anime4K upscaling (upscale.lua)
++    -- nixbook: picture modes (upscale.lua)
 +    lo = add_layout('tog_upscale')
 +    lo.geometry = {x = osc_geo.w - 137, y = refY - 40, an = 5, w = 24, h = 24}
 +    lo.style = osc_styles.Ctrl3
@@ -29,15 +29,44 @@
      
      geo = { x = 25, y = refY - 132, an = 1, w = osc_geo.w - 50, h = 48 }
      lo = add_layout('title')
-@@ -1640,6 +1648,31 @@
+@@ -1567,10 +1575,11 @@
+         end
+         return msg
+     end
++    -- nixbook: a click opens the list to pick from; right click the next one
+     ne.eventresponder['mbtn_left_up'] =
+-        function () set_track('audio', 1) end
++        function () mp.commandv('script-binding', 'select/select-aid') end
+     ne.eventresponder['mbtn_right_up'] =
+-        function () set_track('audio', -1) end
++        function () set_track('audio', 1) end
+     ne.eventresponder['shift+mbtn_left_down'] =
+         function () show_message(get_tracklist('audio')) end
+     ne.eventresponder['enter'] =
+@@ -1600,10 +1609,11 @@
+         end
+         return msg
+     end
++    -- nixbook: a click opens the list to pick from; right click the next one
+     ne.eventresponder['mbtn_left_up'] =
+-        function () set_track('sub', 1) end
++        function () mp.commandv('script-binding', 'select/select-sid') end
+     ne.eventresponder['mbtn_right_up'] =
+-        function () set_track('sub', -1) end
++        function () set_track('sub', 1) end
+     ne.eventresponder['shift+mbtn_left_down'] =
+         function () show_message(get_tracklist('sub')) end
+     ne.eventresponder['enter'] =
+@@ -1640,6 +1650,31 @@
      ne.eventresponder['mbtn_left_up'] =
          function () mp.commandv('cycle', 'fullscreen') end
  
-+    -- tog_upscale (nixbook): upscale.lua's modes; dimmed while off
++    -- tog_upscale (nixbook): upscale.lua's picture menu; dimmed while
++    -- nothing is on
 +    ne = new_element('tog_upscale', 'button')
 +    ne.content = function ()
 +        local u = mp.get_property_native('user-data/upscale') or {}
-+        if (u.mode or 0) == 0 then
++        if (u.mode or 0) == 0 and not u.smooth then
 +            return '{\\alpha&H90&}' .. icons.upscale
 +        end
 +        return icons.upscale
@@ -46,17 +75,16 @@
 +    ne.tooltip_style = osc_styles.Tooltip
 +    ne.tooltipF = function ()
 +        local u = mp.get_property_native('user-data/upscale') or {}
-+        if (u.mode or 0) == 0 then
-+            return 'Upscale: off (click: mode A)'
-+        end
-+        return 'Upscale ' .. u.name .. ': ' .. (u.about or '') .. ' (click: next, right click: off)'
++        local msg = 'Picture: ' .. ((u.mode or 0) == 0 and 'upscaling off' or u.name)
++        if u.smooth then msg = msg .. ', smooth motion' end
++        return msg .. ' (click: menu, right click: upscaling off)'
 +    end
 +    ne.eventresponder['mbtn_left_up'] =
-+        function () mp.commandv('script-message', 'upscale-cycle') end
++        function () mp.commandv('script-message', 'upscale-menu') end
 +    ne.eventresponder['mbtn_right_up'] =
 +        function () mp.commandv('script-message', 'upscale-off') end
 +    ne.eventresponder['enter'] =
-+        function () mp.commandv('script-message', 'upscale-cycle') end
++        function () mp.commandv('script-message', 'upscale-menu') end
 +
      --tog_info
      ne = new_element('tog_info', 'button')

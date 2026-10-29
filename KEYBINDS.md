@@ -7,7 +7,7 @@
 > - `homeManagerModules/niri/niriConfig.nix` (`programs.niri.settings.binds`)
 > - `homeManagerModules/sway/swayConfig.nix` (`wayland.windowManager.sway.config.keybindings` + `modes`)
 > - `homeManagerModules/kittyConfig.nix` (terminal binds + the `Mod+Return` spawn bind for every compositor)
-> - `homeManagerModules/mpv/upscale.lua` (mpv's upscaling modes)
+> - `homeManagerModules/mpv/upscale.lua` (mpv's picture modes)
 > - `homeManagerModules/nixvim/default.nix` and `homeManagerModules/nixvim/plugins/*.nix`
 > - Per-profile overrides in `profiles/*/*/{niriConfig,swayConfig}.nix`
 
@@ -284,17 +284,22 @@ Source: `homeManagerModules/kittyConfig.nix`.
 
 ## mpv (and the Jellyfin player)
 
-Source: `homeManagerModules/mpv/upscale.lua` (`desktopApps`). Anime4K upscaling,
-off until asked; the **HD** button in modernx's control bar (left of info) does
-the same: left click the next mode, right click off. On AZERTY, Ctrl and the
-digit-row key (`&` `é` `"` … `à`) work too.
+Source: `homeManagerModules/mpv/upscale.lua` (`desktopApps`). Picture modes,
+off until asked. modernx's control bar has the same as menus: the **HD**
+button (left of info) opens the picture menu (right click: upscaling off),
+and the **audio** and **subtitle** buttons open a list of the tracks to pick
+from (right click: the next track). On AZERTY, Ctrl and the digit-row key
+(`&` `é` `"` `'` `(` … `à`) work too.
 
 | Keybind  | Action                                                      |
 | -------- | ----------------------------------------------------------- |
-| `Ctrl+1` | Upscale mode A: restore, then upscale (blurry, compressed)  |
-| `Ctrl+2` | Upscale mode B: soft restore, then upscale (already sharp)  |
-| `Ctrl+3` | Upscale mode C: denoise and upscale (noisy, grainy sources) |
+| `Ctrl+1` | Anime A: restore, then upscale (blurry, compressed sources) |
+| `Ctrl+2` | Anime B: soft restore, then upscale (already sharp sources) |
+| `Ctrl+3` | Anime C: denoise and upscale (noisy, grainy sources)        |
+| `Ctrl+4` | Film: a clean upscale for live action (FSRCNNX)             |
+| `Ctrl+5` | Sharpen: a bit of bite for soft sources (adaptive-sharpen)  |
 | `Ctrl+0` | Upscaling off                                               |
+| `Ctrl+M` | Smooth motion on/off (frame interpolation, with any mode)   |
 
 ---
 
