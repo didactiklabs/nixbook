@@ -88,6 +88,8 @@ def app(op, o, params):
         # A key the bridge must never pass on.
         return {"loggedIn": True, "user": "Me", "current": CHANNEL, "token": "fake-secret"}
     if op == "find":
+        if o.get("query") == "Bob":
+            return {"results": []}
         return {"results": [dict(CHANNEL, exact=True),
                             {"id": "user:333333333333333333", "kind": "user", "name": "@ana", "exact": False}]}
     if op == "guilds":
