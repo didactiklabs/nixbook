@@ -48,17 +48,17 @@ IPC = {
         "ouvrir le sélecteur de dispositions de fenêtres : restaurer une disposition enregistrée, ou taper un nom pour enregistrer les fenêtres telles qu'elles sont",
         "die Auswahl der Fensteranordnungen öffnen: eine gespeicherte Anordnung wiederherstellen oder einen Namen eingeben, um die Fenster so zu speichern, wie sie sind",
         "mở bộ chọn bố cục cửa sổ: khôi phục một bố cục đã lưu, hoặc gõ tên để lưu các cửa sổ như hiện tại"),
-    ("muse", "toggle"): t(
-        "open Muse's speech bubble, the desktop assistant, to ask it anything (again: put it away)",
-        "ouvrir la bulle de Muse, l'assistant du bureau, pour lui demander n'importe quoi (à nouveau : la ranger)",
-        "die Sprechblase von Muse öffnen, dem Desktop-Assistenten, um alles zu fragen (nochmals: wegräumen)",
-        "mở bong bóng thoại của Muse, trợ lý màn hình, để hỏi bất cứ điều gì (nhấn lại: cất đi)"),
+    ("assistant", "toggle"): t(
+        "open V's speech bubble, the desktop assistant, to ask it anything (again: put it away)",
+        "ouvrir la bulle de V, l'assistant du bureau, pour lui demander n'importe quoi (à nouveau : la ranger)",
+        "die Sprechblase von V öffnen, dem Desktop-Assistenten, um alles zu fragen (nochmals: wegräumen)",
+        "mở bong bóng thoại của V, trợ lý màn hình, để hỏi bất cứ điều gì (nhấn lại: cất đi)"),
     # The bubble's former IPC name (older binds).
     ("claude", "toggle"): t(
-        "open Muse's speech bubble, the desktop assistant, to ask it anything (again: put it away)",
-        "ouvrir la bulle de Muse, l'assistant du bureau, pour lui demander n'importe quoi (à nouveau : la ranger)",
-        "die Sprechblase von Muse öffnen, dem Desktop-Assistenten, um alles zu fragen (nochmals: wegräumen)",
-        "mở bong bóng thoại của Muse, trợ lý màn hình, để hỏi bất cứ điều gì (nhấn lại: cất đi)"),
+        "open V's speech bubble, the desktop assistant, to ask it anything (again: put it away)",
+        "ouvrir la bulle de V, l'assistant du bureau, pour lui demander n'importe quoi (à nouveau : la ranger)",
+        "die Sprechblase von V öffnen, dem Desktop-Assistenten, um alles zu fragen (nochmals: wegräumen)",
+        "mở bong bóng thoại của V, trợ lý màn hình, để hỏi bất cứ điều gì (nhấn lại: cất đi)"),
     ("desktopControl", "toggle"): t(
         "stop (pause) the AI agents controlling the desktop, or allow them again: the panic key",
         "arrêter (mettre en pause) les agents IA qui contrôlent le bureau, ou les autoriser à nouveau : la touche d'urgence",

@@ -314,7 +314,7 @@ func run(o runOpts) (map[string]any, error) {
 		if try == 1 {
 			return end("failed", strings.Join(strings.Fields(feedback), " "), "attempt")
 		}
-		logEvent("retry", "Its change didn't pass ("+clip(firstLine(feedback), 120)+"): Muse tries again")
+		logEvent("retry", "Its change didn't pass ("+clip(firstLine(feedback), 120)+"): V tries again")
 		stage(work)
 		s, err = ask(cfg, repo, "Your change didn't pass its checks:\n\n"+feedback+
 			"\nFix that (within the same rules), or answer skip or too_big.", s.id, feature)
@@ -518,8 +518,8 @@ func interrupted(note string) {
 // In words, for Settings and the activity.
 var stageText = map[string]string{
 	"clone": "Getting the repository up to date",
-	"fix":   "Muse looks for the cause",
-	"build": "Muse builds the feature",
+	"fix":   "V looks for the cause",
+	"build": "V builds the feature",
 	"check": "Checking the change",
 	"push":  "Pushing and opening the pull request",
 }

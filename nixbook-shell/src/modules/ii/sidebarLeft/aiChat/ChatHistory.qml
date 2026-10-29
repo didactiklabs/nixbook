@@ -266,7 +266,7 @@ Rectangle {
                                 StyledText {
                                     Layout.fillWidth: true
                                     text: [root.when(entry.modelData),
-                                        entry.modelData.fromClaude ? Translation.tr("From Muse") : "",
+                                        entry.modelData.fromClaude ? Translation.tr("From V") : "",
                                         Translation.tr("%1 messages").arg(entry.modelData.turns ?? 0),
                                         entry.inTab && !entry.current ? Translation.tr("open in a tab") : "",
                                         Ai.models[entry.modelData.model]?.name ?? ""].filter(s => s.length > 0).join(" · ")

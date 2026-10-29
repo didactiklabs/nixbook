@@ -89,7 +89,7 @@ Item {
         },
         {
             name: "attach",
-            description: Translation.tr("Attach a file for Muse to read"),
+            description: Translation.tr("Attach a file for V to read"),
             execute: args => {
                 Ai.attachFile(args.join(" ").trim());
             }
@@ -154,7 +154,7 @@ Item {
         },
         {
             name: "stop",
-            description: Translation.tr("Stop the answer being written (and what Muse is doing)"),
+            description: Translation.tr("Stop the answer being written (and what V is doing)"),
             execute: () => {
                 Ai.stopResponse();
             }
@@ -487,7 +487,7 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                 readonly property bool configAssistant: Ai.usingConfigAssistant
                     && (Config.options?.ai?.includeSystemContext ?? true)
                 icon: configAssistant ? "developer_board" : "neurology"
-                title: configAssistant ? Translation.tr("Config assistant") : "Muse"
+                title: configAssistant ? Translation.tr("Config assistant") : "V"
                 descriptionHorizontalAlignment: configAssistant ? Text.AlignHCenter : Text.AlignLeft
                 description: configAssistant
                     ? Translation.tr("Your machine's config: shortcuts, modules, packages, settings.\n\nOne question, naming the thing:\n“shortcut for the launcher”\n“is tailscale enabled?”\n“all shortcuts”\n\nEnglish · Français · Deutsch · Tiếng Việt")

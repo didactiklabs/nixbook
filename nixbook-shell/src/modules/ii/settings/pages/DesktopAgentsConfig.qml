@@ -80,9 +80,9 @@ ContentPage {
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
                 text: Config.options.policies.ai === 0
-                    ? Translation.tr("Off: no AI anywhere. No chat in the side panel, Muse never speaks on its own, no routine runs, no memory pass, no fix made, the equalizer agent rests, and every agent's desktop tools are refused (desktop control). What it remembers stays, unused.")
+                    ? Translation.tr("Off: no AI anywhere. No chat in the side panel, V never speaks on its own, no routine runs, no memory pass, no fix made, the equalizer agent rests, and every agent's desktop tools are refused (desktop control). What it remembers stays, unused.")
                     : Config.options.policies.ai === 2
-                    ? Translation.tr("Local models only: nothing goes to an online model like Claude (no Muse: no chat, no speaking on its own, no memory pass, fix or equalizer agent); local agents keep the desktop tools, and fixed routines run.")
+                    ? Translation.tr("Local models only: nothing goes to an online model like Claude (no V: no chat, no speaking on its own, no memory pass, fix or equalizer agent); local agents keep the desktop tools, and fixed routines run.")
                     : Translation.tr("On: the features below, each with its own switch. Turn this off to stop all of them at once (Settings > Panels also has \"Local\": local models only).")
             }
             GroupedList {
@@ -110,7 +110,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("Your name, your contacts' names, emails, phones and addresses, card numbers, IBANs and the words below reach Muse as placeholders (⟦Person 2⟧, ⟦Email 1⟧), the same one each time, so it still follows who is who. They become the real values again on this computer when it types, sends or answers you. Done on this computer in a fraction of a millisecond: answers lose nothing but who those people are. Public names and sites stay as they are. For Muse here, its desktop tools and the small model's passes; not for what you paste into other apps.")
+                text: Translation.tr("Your name, your contacts' names, emails, phones and addresses, card numbers, IBANs and the words below reach V as placeholders (⟦Person 2⟧, ⟦Email 1⟧), the same one each time, so it still follows who is who. They become the real values again on this computer when it types, sends or answers you. Done on this computer in a fraction of a millisecond: answers lose nothing but who those people are. Public names and sites stay as they are. For V here, its desktop tools and the small model's passes; not for what you paste into other apps.")
             }
             GroupedList {
                 ConfigSwitch {
@@ -124,7 +124,7 @@ ContentPage {
                     configKey: "ai.privacy.pseudonyms"
                     buttonIcon: "badge"
                     enabled: Config.options.ai.privacy.mask
-                    text: Translation.tr("People as stand-in names: Muse sees a fake name for each hidden person (always the same, never one of your contacts') and you see the real one. Off: placeholders like ⟦Person 3⟧, which models sometimes replace with a name of their own")
+                    text: Translation.tr("People as stand-in names: V sees a fake name for each hidden person (always the same, never one of your contacts') and you see the real one. Off: placeholders like ⟦Person 3⟧, which models sometimes replace with a name of their own")
                     checked: Config.options.ai.privacy.pseudonyms
                     onCheckedChanged: Config.options.ai.privacy.pseudonyms = checked
                 }
@@ -132,7 +132,7 @@ ContentPage {
                     configKey: "ai.privacy.screenshots"
                     buttonIcon: "screenshot_monitor"
                     enabled: Config.options.ai.privacy.mask
-                    text: Translation.tr("In screenshots too: the details are read (OCR, on this computer) and blacked out, Muse told where they are. About a second more per screenshot; text the OCR misses, faces and photos still show")
+                    text: Translation.tr("In screenshots too: the details are read (OCR, on this computer) and blacked out, V told where they are. About a second more per screenshot; text the OCR misses, faces and photos still show")
                     checked: Config.options.ai.privacy.screenshots
                     onCheckedChanged: Config.options.ai.privacy.screenshots = checked
                 }
@@ -235,7 +235,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("Muse speaks first when it can help, not on a schedule: when you come back (your day, a plan coming up or just past, your usual setup), when an app it has a broken recipe for is in front, when it learned something. Time-critical things come as its own speech bubble on the left, in the theme's look: answer right in it and Muse answers there (the expand button moves the talk to the side panel; quick answers, Not now, Don't tell me this; at most 8 a day, none at night, in a meeting or fullscreen); the rest waits as a bubble beside the robot in the bar. Now and then, at random and up to four times a day, it says a light word in the bar: a break after a long stretch, a tip for the app you're in, a plan coming up, a question about something you care about. It learns from your answers what is worth saying. Plain code decides; a small model only reads notifications and words tips and questions.")
+                text: Translation.tr("V speaks first when it can help, not on a schedule: when you come back (your day, a plan coming up or just past, your usual setup), when an app it has a broken recipe for is in front, when it learned something. Time-critical things come as its own speech bubble on the left, in the theme's look: answer right in it and V answers there (the expand button moves the talk to the side panel; quick answers, Not now, Don't tell me this; at most 8 a day, none at night, in a meeting or fullscreen); the rest waits as a bubble beside the robot in the bar. Now and then, at random and up to four times a day, it says a light word in the bar: a break after a long stretch, a tip for the app you're in, a plan coming up, a question about something you care about. It learns from your answers what is worth saying. Plain code decides; a small model only reads notifications and words tips and questions.")
             }
 
             GroupedList {
@@ -314,7 +314,7 @@ ContentPage {
                     configKey: "ai.initiative.terminal"
                     buttonIcon: "terminal"
                     enabled: Config.options.ai.initiative.enable
-                    text: Translation.tr("Help when a terminal command keeps failing: the same command failing twice in 10 minutes offers \"Explain it\" (zsh and bash; only the command and its exit code, never its output; a command starting with a space is never seen). Nothing goes to Muse until I click")
+                    text: Translation.tr("Help when a terminal command keeps failing: the same command failing twice in 10 minutes offers \"Explain it\" (zsh and bash; only the command and its exit code, never its output; a command starting with a space is never seen). Nothing goes to V until I click")
                     checked: Config.options.ai.initiative.terminal
                     onCheckedChanged: Config.options.ai.initiative.terminal = checked
                 }
@@ -322,7 +322,7 @@ ContentPage {
                     configKey: "ai.initiative.clipboardErrors"
                     buttonIcon: "content_paste_search"
                     enabled: Config.options.ai.initiative.enable
-                    text: Translation.tr("Help with an error I copy: copying an error or a stack trace offers \"Explain it\" (never what a password manager copied). Nothing goes to Muse until I click")
+                    text: Translation.tr("Help with an error I copy: copying an error or a stack trace offers \"Explain it\" (never what a password manager copied). Nothing goes to V until I click")
                     checked: Config.options.ai.initiative.clipboardErrors
                     onCheckedChanged: Config.options.ai.initiative.clipboardErrors = checked
                 }
@@ -538,7 +538,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("Mod+Shift+T: Muse runs the desktop and you tell it what to do in its speech bubble (Mod+C). A small mascot moves around the screen: a thought cloud for what it thinks and does, a speech balloon for its answers, Yes / No right on the balloon when it asks. It takes neither keys nor clicks: your desktop stays yours. It also reacts to what happens (a notification, a download, the battery, a screen, the network, you coming back): it ignores it, tells you, asks what to do (\"Julien asks if you come tonight. Shall I say yes?\") or does it — on its own only for what you told it or chose twice before. It learns from your answers. Mod+Shift+T again leaves.")
+                text: Translation.tr("Mod+Shift+T: V runs the desktop and you tell it what to do in its speech bubble (Mod+C). A small mascot moves around the screen: a thought cloud for what it thinks and does, a speech balloon for its answers, Yes / No right on the balloon when it asks. It takes neither keys nor clicks: your desktop stays yours. It also reacts to what happens (a notification, a download, the battery, a screen, the network, you coming back): it ignores it, tells you, asks what to do (\"Julien asks if you come tonight. Shall I say yes?\") or does it — on its own only for what you told it or chose twice before. It learns from your answers. Mod+Shift+T again leaves.")
             }
 
             GroupedList {
@@ -576,7 +576,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("Ask Muse \"whenever the music ends, play something I like\", \"when my headphones connect, resume the music\", \"when a PDF lands in Downloads, open it\": it does it on its own when that happens. Cues: music, apps, window titles, notifications, coming back, the lock, a time, battery and power, Wi-Fi, VPN, audio output, monitors, Downloads, calendar events. A fixed action costs nothing; one that takes judgment is a short Muse run. It never fights you: music you stop stays stopped, and a routine you undo twice turns itself off. Desktop control's pause stops routines too.")
+                text: Translation.tr("Ask V \"whenever the music ends, play something I like\", \"when my headphones connect, resume the music\", \"when a PDF lands in Downloads, open it\": it does it on its own when that happens. Cues: music, apps, window titles, notifications, coming back, the lock, a time, battery and power, Wi-Fi, VPN, audio output, monitors, Downloads, calendar events. A fixed action costs nothing; one that takes judgment is a short V run. It never fights you: music you stop stays stopped, and a routine you undo twice turns itself off. Desktop control's pause stops routines too.")
             }
 
             GroupedList {
@@ -680,7 +680,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("Muse fixes nixbook itself: fixes and polish only (a bug, a rough edge, wording); a new feature, or a fix found too big, goes to Features it builds (below). What to fix: what you tell an agent is broken (\"report this\") or write below (your words stay on this computer: the PR says it in its own), the errors the shell prints, the desktop tools' crashes, failed units and errors in the logs of what nixbook defines, a failed update or Nix warning, CI red on main, crashes of nixbook's programs (only what you can already read; what isn't nixbook's is listed below, never sent unasked). Each fix is made in a clone of the repository by a Claude Code session that can only edit files there (no commands, none of your files or logins), checked (its size and files, the tests, the shell started headless with no new error), committed with a changelog entry and opened as a pull request. Once CI passes you get Merge, Look, Drop; nothing reaches main without you, but what you let merge on its own. After a merge, main's checks and the updated shell are watched: what it broke is queued as a fix of its own, never reverted. One it can't do (a place off limits, credentials, hardware, or its change failing twice) is dropped with why and what would make it doable; you're told, and Retry tries again. Its sandbox, the tests, CI and its own code are off limits; what agents may do is never merged on its own. It reaches GitHub only with its own token, below (never your gh login or ssh key; Muse never sees it), and uses your Claude Code; %1.").arg(Config.options.ai.improve.perDay > 0
+                text: Translation.tr("V fixes nixbook itself: fixes and polish only (a bug, a rough edge, wording); a new feature, or a fix found too big, goes to Features it builds (below). What to fix: what you tell an agent is broken (\"report this\") or write below (your words stay on this computer: the PR says it in its own), the errors the shell prints, the desktop tools' crashes, failed units and errors in the logs of what nixbook defines, a failed update or Nix warning, CI red on main, crashes of nixbook's programs (only what you can already read; what isn't nixbook's is listed below, never sent unasked). Each fix is made in a clone of the repository by a Claude Code session that can only edit files there (no commands, none of your files or logins), checked (its size and files, the tests, the shell started headless with no new error), committed with a changelog entry and opened as a pull request. Once CI passes you get Merge, Look, Drop; nothing reaches main without you, but what you let merge on its own. After a merge, main's checks and the updated shell are watched: what it broke is queued as a fix of its own, never reverted. One it can't do (a place off limits, credentials, hardware, or its change failing twice) is dropped with why and what would make it doable; you're told, and Retry tries again. Its sandbox, the tests, CI and its own code are off limits; what agents may do is never merged on its own. It reaches GitHub only with its own token, below (never your gh login or ssh key; V never sees it), and uses your Claude Code; %1.").arg(Config.options.ai.improve.perDay > 0
                     ? Translation.tr("at most %1 a day on its own, each at most $%2").arg(Config.options.ai.improve.perDay).arg(Config.options.ai.improve.budgetUsd)
                     : Translation.tr("no daily limit, each at most $%1").arg(Config.options.ai.improve.budgetUsd))
             }
@@ -1012,7 +1012,7 @@ ContentPage {
                 visible: SelfImprove.inbox.some(i => i.kind === "info" && ["new", "failed", "skipped", "too_big"].includes(i.status))
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colOnLayer1
-                text: Translation.tr("Seen, not nixbook's (never sent to Muse unless you press Fix now)")
+                text: Translation.tr("Seen, not nixbook's (never sent to V unless you press Fix now)")
             }
             Repeater {
                 model: SelfImprove.inbox.filter(i => i.kind === "info" && ["new", "failed", "skipped", "too_big"].includes(i.status)).slice(0, 10)
@@ -1067,7 +1067,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("Muse builds what you ask nixbook to do: a new widget, setting, shortcut or behaviour. Ask an agent (\"I wish the bar showed…\": its request_feature tool files it) or type it below; a fix Muse finds too big for a fix comes here too, with what it found, and with Propose fixes and features on, the agent may offer one itself from what it saw get in your way. Each is built like a fix (a clone, a session that can only edit files there, the same checks and off-limits places) but may be bigger (up to %1 files and %2 lines, new files allowed), committed as feat(…) and opened as a pull request. It is never merged on its own: once CI passes you get Merge, Look, Drop. One it can't do (a design choice only you can make, more than that, a place off limits, credentials, hardware, or its change failing twice) is dropped with why and what would make it doable; you're told, and Retry tries again. It uses the GitHub token and model of Fixes it makes itself; %3, Build now starts one at once.")
+                text: Translation.tr("V builds what you ask nixbook to do: a new widget, setting, shortcut or behaviour. Ask an agent (\"I wish the bar showed…\": its request_feature tool files it) or type it below; a fix V finds too big for a fix comes here too, with what it found, and with Propose fixes and features on, the agent may offer one itself from what it saw get in your way. Each is built like a fix (a clone, a session that can only edit files there, the same checks and off-limits places) but may be bigger (up to %1 files and %2 lines, new files allowed), committed as feat(…) and opened as a pull request. It is never merged on its own: once CI passes you get Merge, Look, Drop. One it can't do (a design choice only you can make, more than that, a place off limits, credentials, hardware, or its change failing twice) is dropped with why and what would make it doable; you're told, and Retry tries again. It uses the GitHub token and model of Fixes it makes itself; %3, Build now starts one at once.")
                     .arg(Config.options.ai.improve.features.maxFiles).arg(Config.options.ai.improve.features.maxLines)
                     .arg(Config.options.ai.improve.features.perDay > 0
                         ? Translation.tr("at most %1 a day on its own, each at most $%2").arg(Config.options.ai.improve.features.perDay).arg(Config.options.ai.improve.features.budgetUsd)
@@ -1282,7 +1282,7 @@ ContentPage {
         ContentSection {
             id: claudeSection
             icon: "neurology"
-            title: Translation.tr("Muse in the side panel")
+            title: Translation.tr("V in the side panel")
             shape: MaterialShape.Shape.Ghostish
 
             readonly property var tools: Config.options.ai.claudeCode.allowedTools ?? []
@@ -1300,7 +1300,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("Muse, the AI chat's assistant, runs on Claude through Claude Code, on your own Claude account (no API key), with the desktop tools. It can't run commands, reads none of your files but the folders you allow below (and a file you attach to a message) and writes only in the folders you let it write; below, what else it may do.")
+                text: Translation.tr("V, the AI chat's assistant, runs on Claude through Claude Code, on your own Claude account (no API key), with the desktop tools. It can't run commands, reads none of your files but the folders you allow below (and a file you attach to a message) and writes only in the folders you let it write; below, what else it may do.")
             }
 
             RowLayout {
@@ -1375,7 +1375,7 @@ ContentPage {
                     checked: Config.options.ai.claudeCode.commandLine
                     onCheckedChanged: Config.options.ai.claudeCode.commandLine = checked
                     StyledToolTip {
-                        text: Translation.tr("Muse may run commands as you (Bash); it asks in the chat before anything that changes the system or your files")
+                        text: Translation.tr("V may run commands as you (Bash); it asks in the chat before anything that changes the system or your files")
                     }
                 }
                 ConfigSwitch {
@@ -1397,7 +1397,7 @@ ContentPage {
                     checked: Config.options.ai.claudeCode.asComputer
                     onCheckedChanged: Config.options.ai.claudeCode.asComputer = checked
                     StyledToolTip {
-                        text: Translation.tr("Muse answers as the machine itself, from its live hardware, OS and kernel readings")
+                        text: Translation.tr("V answers as the machine itself, from its live hardware, OS and kernel readings")
                     }
                 }
                 ConfigSwitch {
@@ -1428,7 +1428,7 @@ ContentPage {
                 mainText: Translation.tr("Reload connectors")
                 onClicked: Ai.reloadClaudeConnectors()
                 StyledToolTip {
-                    text: Translation.tr("After adding or signing in to a connector on claude.ai: Muse starts again with it, keeping the conversation")
+                    text: Translation.tr("After adding or signing in to a connector on claude.ai: V starts again with it, keeping the conversation")
                 }
             }
 
@@ -1496,7 +1496,7 @@ ContentPage {
                     visible: Ai.assistantMcpServers.linkedin !== undefined
                     wrapMode: Text.WordWrap
                     color: Appearance.colors.colSubtext
-                    text: Translation.tr("LinkedIn works through your own session in a browser of its own (~/.linkedin-mcp). LinkedIn's terms forbid automated access and it may restrict accounts using it: use it lightly. Before sending a message or an invitation, Muse shows it and waits for your yes.")
+                    text: Translation.tr("LinkedIn works through your own session in a browser of its own (~/.linkedin-mcp). LinkedIn's terms forbid automated access and it may restrict accounts using it: use it lightly. Before sending a message or an invitation, V shows it and waits for your yes.")
                 }
                 SmallButton {
                     visible: Ai.assistantMcpServers.linkedin !== undefined
@@ -1513,7 +1513,7 @@ ContentPage {
                     configKey: "ai.phone.readMessages"
                     enabled: !nixManaged && !(Config.options.ai.claudeCode.mcpServersOff ?? []).includes("phone")
                     buttonIcon: "sms"
-                    text: Translation.tr("Let it read my phone's texts, notifications and contacts (what they say goes to Muse)")
+                    text: Translation.tr("Let it read my phone's texts, notifications and contacts (what they say goes to V)")
                     checked: Config.options.ai.phone.readMessages
                     onCheckedChanged: Config.options.ai.phone.readMessages = checked
                 }
@@ -1581,7 +1581,7 @@ ContentPage {
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
                         color: Appearance.colors.colSubtext
-                        text: Translation.tr("Immich: your photo library, through its API. Create an API key in Immich (Account Settings > API Keys); it is kept in your keyring. Before deleting photos or making a public link, Muse says what it would do and waits for your yes.")
+                        text: Translation.tr("Immich: your photo library, through its API. Create an API key in Immich (Account Settings > API Keys); it is kept in your keyring. Before deleting photos or making a public link, V says what it would do and waits for your yes.")
                     }
                     ConfigTextArea {
                         id: immichUrl
@@ -1756,7 +1756,7 @@ ContentPage {
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
                         color: Appearance.colors.colSubtext
-                        text: Translation.tr("Jellyfin: your films, series and music, played fullscreen in mpv on this computer (or on Moonfin, the TV… when you name it). Sign in with your own Jellyfin account, no admin needed: Muse and the player each get their own login, and your password isn't kept. With two-factor authentication (e.g. the JellyfinSecurity plugin), use an app password made for this.")
+                        text: Translation.tr("Jellyfin: your films, series and music, played fullscreen in mpv on this computer (or on Moonfin, the TV… when you name it). Sign in with your own Jellyfin account, no admin needed: V and the player each get their own login, and your password isn't kept. With two-factor authentication (e.g. the JellyfinSecurity plugin), use an app password made for this.")
                     }
                     ConfigTextArea {
                         id: jellyfinUrl
@@ -1779,7 +1779,7 @@ ContentPage {
                         Layout.fillWidth: true
                         visible: jellyfin.signedIn
                         wrapMode: Text.WordWrap
-                        text: Translation.tr("Muse is signed in as %1.").arg(jellyfin.conn.signed_in_as ?? "?")
+                        text: Translation.tr("V is signed in as %1.").arg(jellyfin.conn.signed_in_as ?? "?")
                     }
                     RowLayout {
                         Layout.fillWidth: true
@@ -1846,7 +1846,7 @@ ContentPage {
                         visible: jellyfin.keyMode
                         wrapMode: Text.WordWrap
                         color: Appearance.colors.colSubtext
-                        text: Translation.tr("An admin's API key (Jellyfin: Dashboard > API Keys) reaches every user's library: Muse then acts as the user named here.")
+                        text: Translation.tr("An admin's API key (Jellyfin: Dashboard > API Keys) reaches every user's library: V then acts as the user named here.")
                     }
                     ConfigTextArea {
                         id: jellyfinUser
@@ -2067,7 +2067,7 @@ ContentPage {
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
                         color: Appearance.colors.colSubtext
-                        text: Translation.tr("Seerr (Overseerr / Jellyseerr): ask Muse for a film or series you don't have yet, and it requests it for you, or tells you how far your requests are. Sign in as yourself, no admin key: open Seerr in your browser (Zen, Firefox, Chrome, Chromium, Brave…) and sign in there as usual (OpenID Connect, passkeys…), then Use my browser's login: only Seerr's session is copied, into your keyring. Muse then acts as you, with your permissions and quota; when that login ends, do it again.")
+                        text: Translation.tr("Seerr (Overseerr / Jellyseerr): ask V for a film or series you don't have yet, and it requests it for you, or tells you how far your requests are. Sign in as yourself, no admin key: open Seerr in your browser (Zen, Firefox, Chrome, Chromium, Brave…) and sign in there as usual (OpenID Connect, passkeys…), then Use my browser's login: only Seerr's session is copied, into your keyring. V then acts as you, with your permissions and quota; when that login ends, do it again.")
                     }
                     ConfigTextArea {
                         id: seerrUrl
@@ -2089,7 +2089,7 @@ ContentPage {
                         Layout.fillWidth: true
                         visible: seerr.signedIn
                         wrapMode: Text.WordWrap
-                        text: Translation.tr("Muse is signed in to Seerr as %1 (your own login).").arg(seerr.conn.signed_in_as ?? "?")
+                        text: Translation.tr("V is signed in to Seerr as %1 (your own login).").arg(seerr.conn.signed_in_as ?? "?")
                     }
                     Flow {
                         Layout.fillWidth: true
@@ -2276,7 +2276,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("Read-only, for Muse here and for the apps on the agents' own desktop (from its next start). Absolute paths or ~/…, separated by commas. Other agents (Claude Code in a terminal…) follow their own permissions.")
+                text: Translation.tr("Read-only, for V here and for the apps on the agents' own desktop (from its next start). Absolute paths or ~/…, separated by commas. Other agents (Claude Code in a terminal…) follow their own permissions.")
             }
 
             // The folders Claude here and the apps on the agents' desktop may
@@ -2304,7 +2304,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("Muse here can create and edit files there (nowhere else), and so can the apps on the agents' own desktop (from its next start), whose browser downloads into the first one, so an agent can fetch a file for you, a wallpaper say. Made if missing; not your whole home.")
+                text: Translation.tr("V here can create and edit files there (nowhere else), and so can the apps on the agents' own desktop (from its next start), whose browser downloads into the first one, so an agent can fetch a file for you, a wallpaper say. Made if missing; not your whole home.")
             }
 
             ConfigTextArea {
@@ -2335,7 +2335,7 @@ ContentPage {
                     checked: Config.options.equalizer.agent
                     onCheckedChanged: Config.options.equalizer.agent = checked
                     StyledToolTip {
-                        text: Translation.tr("When a new song has played a few seconds, Muse (Claude Code, your account) reads what it is and sets the equalizer for it. Replaces Auto.")
+                        text: Translation.tr("When a new song has played a few seconds, V (Claude Code, your account) reads what it is and sets the equalizer for it. Replaces Auto.")
                     }
                 }
                 ConfigSelectionArray {
@@ -2674,7 +2674,7 @@ ContentPage {
             StyledText {
                 visible: DesktopControl.personal.length === 0
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("Nothing yet. Tell Muse in the side panel about yourself, or ask it to remember something.")
+                text: Translation.tr("Nothing yet. Tell V in the side panel about yourself, or ask it to remember something.")
             }
 
             Repeater {

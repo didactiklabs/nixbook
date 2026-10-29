@@ -465,9 +465,9 @@ Singleton {
                 if (path.length > 0 && root.claudeConnectorsSetting) listClaudeConnectors.running = true;
                 if (path.length === 0 || root.models["claude"]) return;
                 root.addModel("claude", {
-                    "name": "Muse",
+                    "name": "V",
                     "icon": "spark-symbolic",
-                    "description": Translation.tr("Online | Muse, on Anthropic's Claude through Claude Code, on your Claude account (no API key) | Can see and drive the desktop"),
+                    "description": Translation.tr("Online | V, on Anthropic's Claude through Claude Code, on your Claude account (no API key) | Can see and drive the desktop"),
                     "homepage": "https://claude.com/claude-code",
                     "model": "claude-code", // the model itself: ai.claudeCode.model
                     "api_format": "claude-code",
@@ -786,7 +786,7 @@ Singleton {
         // tool calls and answers get the real values back here.
         const privacy = Config.options.ai.privacy.mask;
         const system = root.stableSystemPrompt
-            + "\n\nYou are Muse, the assistant built into the user's desktop (you run on Anthropic's Claude): when asked your name, you are Muse. You are answering in the desktop shell's side panel: keep answers short."
+            + "\n\nYou are V, the assistant built into the user's desktop (you run on Anthropic's Claude): when asked your name, you are V. You are answering in the desktop shell's side panel: keep answers short."
             + (privacy ? " " + root.privacyPrompt : "")
             + (Config.options.ai.claudeCode.asComputer ? root.asComputerPrompt(desktop) : "")
             + (desktop ? " You can see and drive the user's desktop with the desktop tools."
@@ -933,8 +933,8 @@ Singleton {
     function setModel(modelId, feedback = true, setPersistentState = true) {
         if (!modelId) modelId = ""
         modelId = modelId.toLowerCase()
-        // The assistant is named Muse; its model's id stays "claude".
-        if (modelId === "muse") modelId = "claude"
+        // The assistant is named V; its model's id stays "claude".
+        if (modelId === "v") modelId = "claude"
         if (modelList.indexOf(modelId) !== -1) {
             const model = models[modelId]
             // See if policy prevents online models

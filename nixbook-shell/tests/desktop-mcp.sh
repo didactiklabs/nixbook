@@ -1485,7 +1485,7 @@ STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {react: true, urgent: true, abo
 out=$(consider '{"event":"notifications","read":true,"focused":"firefox","next":"Review in 10 min","items":[
   {"app":"Power","summary":"Battery at 8%","body":"Plug in soon","urgency":"critical"},
   {"app":"Spotify","summary":"Now playing 3 songs"},
-  {"app":"Muse","summary":"I have something"},
+  {"app":"V","summary":"I have something"},
   {"app":"Claude","summary":"From before the rename"},
   {"app":"firefox","summary":"Download done"}]}')
 expect_eq "notifications: a reaction, urgent" notify "$(jq -r .action <<<"$out")"
