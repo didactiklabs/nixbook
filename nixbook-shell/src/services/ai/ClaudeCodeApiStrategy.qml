@@ -28,11 +28,21 @@ QtObject {
         held = "";
     }
 
+    // A placeholder or a pseudonym split between two chunks ("⟦Person" +
+    // " 7 first⟧", "Bri" + "sa"): held back until whole, so the real name
+    // is shown, never the fake one (the last word waits for the next chunk).
     function append(message, text) {
         let s = held + text;
         const open = s.lastIndexOf("⟦");
         held = open >= 0 && s.indexOf("⟧", open) < 0 && s.length - open < 40 ? s.slice(open) : "";
         if (held.length > 0) s = s.slice(0, open);
+        else {
+            const tail = /[A-Za-z\u00C0-\u024F\u1E00-\u1EFF][A-Za-z\u00C0-\u024F\u1E00-\u1EFF0-9_'’-]*$/.exec(s);
+            if (tail && tail[0].length < 40) {
+                held = tail[0];
+                s = s.slice(0, tail.index);
+            }
+        }
         s = unmask(s);
         message.rawContent += s;
         message.content += s;
@@ -83,6 +93,9 @@ QtObject {
                 append(message, e.delta.thinking);
             else if (e.type === "content_block_stop" && message.rawContent.lastIndexOf("<think>") > message.rawContent.lastIndexOf("</think>"))
                 append(message, "\n</think>\n\n");
+            // A text block's end: its last word, held back (append), shown.
+            else if (e.type === "content_block_stop")
+                flush(message);
         } else if (ev.type === "assistant") {
             // Whole messages repeat the streamed text: only the tool calls.
             for (const block of (ev.message?.content ?? [])) {

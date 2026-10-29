@@ -334,27 +334,51 @@ Singleton {
     // Claude Code in the "functions" tool set when the server has any.
     readonly property string desktopMcpCommand: "nixbook-desktop-mcp"
     // As desktop-mcp.py's PRIVACY_PROMPT.
-    readonly property string privacyPrompt: "Text in ⟦…⟧ (⟦Person 2⟧, ⟦Email 1⟧, ⟦User first⟧) is a private detail the user's computer hid from you. You can't know what it stands for: never guess it, and never write a name, word or value in its place (\"⟦Person 3 first⟧ is Max\" is always wrong). Use the placeholder exactly as it is, in tool arguments and in your answers: it becomes the real value on the user's side, so searching for ⟦Person 3 first⟧ finds the real name. When the user names someone with a placeholder, that placeholder is who to look for; the same placeholder in a tool's result is the same person. ⟦User⟧ is the user; ⟦Person N first⟧ is Person N's first name; ⟦User login⟧ is the user's login name (in paths: /home/⟦User login⟧/…)."
+    readonly property string privacyPrompt: "People's names may be stand-ins the user's computer chose: write a person's name exactly as you were given it, in tool arguments and in your answers (it becomes the real name on the user's side), and never another name for them. Text in ⟦…⟧ (⟦Person 2⟧, ⟦Email 1⟧, ⟦User first⟧) is a private detail the user's computer hid from you. You can't know what it stands for: never guess it, and never write a name, word or value in its place (\"⟦Person 3 first⟧ is Max\" is always wrong). Use the placeholder exactly as it is, in tool arguments and in your answers: it becomes the real value on the user's side, so searching for ⟦Person 3 first⟧ finds the real name. When the user names someone with a placeholder, that placeholder is who to look for; the same placeholder in a tool's result is the same person. ⟦User⟧ is the user; ⟦Person N first⟧ is Person N's first name; ⟦User login⟧ is the user's login name (in paths: /home/⟦User login⟧/…)."
     // The placeholders given so far (desktop-mcp.py's privacy-map.json):
     // Claude's answers are shown with the real values. Read again when one
     // isn't known yet (given by a tool's reply during the answer).
+    // Pseudonyms too (desktop-mcp's ai.privacy.pseudonyms: a hidden person
+    // is a fake name for the model, "Brisa Ashdown"): its keys that aren't
+    // ⟦…⟧, whole words, any case. The table is re-read when it changes (a
+    // pseudonym given during the answer is no unknown ⟦…⟧ to notice).
     FileView {
         id: privacyMapFile
         path: `${Quickshell.env("XDG_STATE_HOME") || `${Quickshell.env("HOME")}/.local/state`}/nixbook-shell/privacy-map.json`
         blockLoading: true
         printErrors: false
+        watchChanges: true
+        onFileChanged: root._privacyStale = true
     }
     property var privacyTokens: ({})
+    property bool _privacyStale: true
+    // {re, map}: changed in place, never a notifying property (bindings
+    // read it through unmaskPrivate).
+    readonly property var _pseudo: ({ re: null, map: ({}) })
+    function _privacyLoad() {
+        privacyMapFile.reload();
+        try {
+            root.privacyTokens = JSON.parse(privacyMapFile.text()).tokens ?? {};
+        } catch (e) {}
+        const names = Object.keys(root.privacyTokens).filter(k => k && !k.startsWith("⟦"));
+        names.sort((a, b) => b.length - a.length);
+        const map = {};
+        for (const k of names) map[k.toLowerCase()] = root.privacyTokens[k];
+        root._pseudo.map = map;
+        root._pseudo.re = names.length > 0
+            ? new RegExp("(^|[^A-Za-z\\u00C0-\\u024F\\u1E00-\\u1EFF0-9_@.])(" + names.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")(?![A-Za-z\\u00C0-\\u024F\\u1E00-\\u1EFF0-9_@])", "gi")
+            : null;
+        root._privacyStale = false;
+    }
     function unmaskPrivate(text) {
-        if (text.indexOf("⟦") < 0) return text;
+        if (!text) return text;
         const re = /⟦[A-Z][A-Za-z]*(?: \d+)?(?: (?:first|nick|login))?⟧/g;
-        if ((text.match(re) ?? []).some(t => !(t in root.privacyTokens))) {
-            privacyMapFile.reload();
-            try {
-                root.privacyTokens = JSON.parse(privacyMapFile.text()).tokens ?? {};
-            } catch (e) {}
-        }
-        return text.replace(re, t => root.privacyTokens[t] ?? t);
+        if (root._privacyStale || (text.indexOf("⟦") >= 0 && (text.match(re) ?? []).some(t => !(t in root.privacyTokens))))
+            root._privacyLoad();
+        let out = text.indexOf("⟦") >= 0 ? text.replace(re, t => root.privacyTokens[t] ?? t) : text;
+        if (root._pseudo.re)
+            out = out.replace(root._pseudo.re, (all, lead, name) => lead + (root._pseudo.map[name.toLowerCase()] ?? name));
+        return out;
     }
     // Claude Code's hooks for it, on every tool but the desktop ones (their
     // server masks on its own): placeholders in a tool's input become the

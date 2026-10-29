@@ -121,6 +121,14 @@ ContentPage {
                     onCheckedChanged: Config.options.ai.privacy.mask = checked
                 }
                 ConfigSwitch {
+                    configKey: "ai.privacy.pseudonyms"
+                    buttonIcon: "badge"
+                    enabled: Config.options.ai.privacy.mask
+                    text: Translation.tr("People as stand-in names: Claude sees a fake name for each hidden person (always the same, never one of your contacts') and you see the real one. Off: placeholders like ⟦Person 3⟧, which models sometimes replace with a name of their own")
+                    checked: Config.options.ai.privacy.pseudonyms
+                    onCheckedChanged: Config.options.ai.privacy.pseudonyms = checked
+                }
+                ConfigSwitch {
                     configKey: "ai.privacy.screenshots"
                     buttonIcon: "screenshot_monitor"
                     enabled: Config.options.ai.privacy.mask

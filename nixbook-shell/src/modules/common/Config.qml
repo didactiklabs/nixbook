@@ -310,6 +310,9 @@ Singleton {
                 // Screenshots too: about a second of OCR each, so a switch apart.
                 property JsonObject privacy: JsonObject {
                     property bool mask: true
+                    // People shown to the model as stable fake names (back to
+                    // the real ones for the user and the tools), not ⟦Person N⟧.
+                    property bool pseudonyms: true
                     property bool screenshots: false
                     // Words also private: a company, a project, an address.
                     property list<string> terms: []
