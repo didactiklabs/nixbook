@@ -14,6 +14,8 @@ set -euo pipefail
 # nix-shell exports $out (the derivation output). The tests capture replies
 # in $out, and an exported multi-megabyte one (screenshots) overflows every
 # command's environment: "Argument list too long".
+# The placeholders (⟦Person N⟧) here; the pseudonyms have tests of their own.
+export NIXBOOK_PRIVACY_PSEUDONYMS=0
 export -n out 2>/dev/null || true
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -1979,8 +1981,8 @@ expect_contains "pages: a password manager never" "$(call page_read '{"target":"
 out=$(call discord '{"action":"status"}')
 expect_contains "discord status: logged in, the open channel" "$out" "logged in as Me; open: #general (Friends) = 222222222222222222"
 expect_contains "discord find" "$(call discord '{"action":"find","query":"gen"}')" "- channel #general (Friends) = 222222222222222222"
-expect_contains "discord find: nobody by that name, the Discord name in their contact searched" \
-  "$(call discord '{"action":"find","query":"Zed"}')" "Zed's contact gives 'zed_42' for Discord:"
+expect_contains "discord find: the Discord name in their contact searched, first" \
+  "$(call discord '{"action":"find","query":"Zed"}')" "on Discord (their contact gives 'zed_42'):"
 out=$(call discord '{"action":"read","channel":"general","limit":2}')
 expect_contains "discord read: who, when, what, its id" "$out" "- 10-28 09:15 ana: lunch? my token is [hidden] ⟨id 555, mentions you⟩"
 expect_contains "discord read: mine, a reply, reactions" "$out" "Me (you): sure ⟨id 556, reply to 555, 👍1⟩"
@@ -3690,6 +3692,26 @@ expect_eq "privacy: card and IBAN checked, other numbers kept" \
 expect_eq "privacy: placeholders back to the real values" "Élodie Martin, +33 6 12 34 56 78, ⟦Person 99⟧" \
   "$(punmask "⟦Person 1⟧, ⟦Phone 1⟧, ⟦Person 99⟧")"
 expect_eq "privacy: the table is private" 600 "$(stat -c %a "$XDG_STATE_HOME/nixbook-shell/privacy-map.json")"
+
+# Pseudonyms (ai.privacy.pseudonyms, the default): a hidden person is a fake
+# name for the model, which then keeps it (a placeholder, it replaced with a
+# name of its own); every word of it comes back to the real one.
+ppmask() { printf '%s' "$1" | NIXBOOK_PRIVACY_PSEUDONYMS=1 python3 "$mcp" privacy mask "${@:2}"; }
+expect_eq "pseudonyms: a full name, a first name, an email still a placeholder" "Aurelio Ashdown (⟦Email 1⟧) and Brisa" \
+  "$(ppmask "élodie martin (ELODIE@example.com) and Noor")"
+expect_eq "pseudonyms: the same person, the same name" "Aurelio Ashdown again" "$(ppmask "Élodie Martin again")"
+expect_eq "pseudonyms: a shared first name gets its own" "Caspian called Brisa" "$(ppmask "Élodie called Noor")"
+expect_eq "pseudonyms: what the user typed" "who is Brisa on discord ?" "$(ppmask "who is noor on discord ?" --typed)"
+expect_eq "pseudonyms: back to the real names, whole words, any case, a surname alone" \
+  "Looking for Noor — Élodie Martin wrote; Martin said hi; Noor too; Brisabeth not" \
+  "$(punmask "Looking for Brisa — Aurelio Ashdown wrote; ashdown said hi; BRISA too; Brisabeth not")"
+reset_calls
+NIXBOOK_PRIVACY_PSEUDONYMS=1 python3 "$mcp" call type_text '{"text":"Hi Brisa Brennig"}' >/dev/null
+expect_eq "pseudonyms: a tool gets the real name" "wtype - <<Hi Noor Durand" "$(last_call)"
+expect_eq "pseudonyms: never a contact's name" "no" \
+  "$(jq -r '[.pseudo[] | .first, .last] | map(ascii_downcase) | any(. == "martin" or . == "noor" or . == "claire" or . == "petit") | if . then "yes" else "no" end' "$XDG_STATE_HOME/nixbook-shell/privacy-map.json")"
+expect_eq "pseudonyms: never learned as a stranger" "True" \
+  "$(NIXBOOK_PRIVACY_PSEUDONYMS=1 python3 -c "import importlib.util as u,sys; s=u.spec_from_file_location('m',sys.argv[1]); m=u.module_from_spec(s); s.loader.exec_module(m); print(m.privacy_known('Brisa Brennig', m.privacy_vocab()))" "$mcp")"
 
 # Tools: the model reads placeholders, the tools get the real values.
 out=$(call contacts '{"action":"list","query":"elodie"}')

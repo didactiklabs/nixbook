@@ -8041,6 +8041,9 @@ def fold_chars(value):
 
 
 PRIVACY_PROMPT = (
+    "People's names may be stand-ins the user's computer chose: write a person's name exactly as you were "
+    "given it, in tool arguments and in your answers (it becomes the real name on the user's side), and "
+    "never another name for them. "
     "Text in ⟦…⟧ (⟦Person 2⟧, ⟦Email 1⟧, ⟦User first⟧) is a private detail the user's computer hid "
     "from you. You can't know what it stands for: never guess it, and never write a name, word or "
     "value in its place (\"⟦Person 3 first⟧ is Max\" is always wrong). Use the placeholder exactly as "
@@ -8064,6 +8067,73 @@ def privacy_screenshots():
 
 def privacy_map_path():
     return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-shell", "privacy-map.json")
+
+
+# Pseudonyms (ai.privacy.pseudonyms, on by default): a hidden person is shown
+# to the model as a stable fake name (Alan AMOYEL → "Brisa Ashdown") rather
+# than ⟦Person 7⟧. Given a placeholder, models wrote a name of their own in
+# its place ("Looking for Julie…" for ⟦Person 7 first⟧); given a name they
+# keep it, and every word of it comes back to the real one for the user and
+# the tools (unmask_text). Rare names, never one of the user's contacts'
+# (privacy_pseudo_free), so a real person in the data is hardly ever one.
+# Logins and nicknames stay placeholders (paths, handles: exact values).
+PSEUDO_FIRST = (
+    "Aurelio Brisa Caspian Daria Elio Fenna Gideon Halia Idris Junia Kasimir Leandra Malo Nerea Orrin Paloma "
+    "Quillan Sylas Tamsin Ulric Vesna Wendel Xiomara Ysolde Zoran Anouk Bodhi Dashiell Emeric Florin Galen "
+    "Henrike Isolde Jorund Kaia Lisandro Niamh Odalys Perrin Rasmus Saoirse Thaddeus Ulla Vidar Willa Zinnia "
+    "Ambrose Briony Corentin Desma Evander Fiora Hollis Ines Joachim Kerensa Lazlo Marisol Nikolai Ottilie").split()
+PSEUDO_LAST = (
+    "Ashdown Brennig Calloway Dunmore Everhart Falkner Halloran Ivers Jessop Kincaid Lorimer Merriman Northcott "
+    "Oakhurst Pendry Quarles Rennick Stroud Talbott Upworth Vandermeer Whitlock Yardley Zellner Ainsworth "
+    "Blackwood Corriveau Esterby Fairbanks Galloway Hargreave Ironside Kettering Lindqvist Marchetti Norwood "
+    "Ostrander Prescott Radcliffe Thornbury Underhill Wexford Abernethy Bramwell Castellane Delacourt "
+    "Fennimore Grantham Holloway Ingleby Jardine Kilbride Larchmont Mortimer Neville Oldcastle").split()
+
+
+def privacy_pseudonyms():
+    """Whether hidden people are shown to the model as fake names (else as
+    ⟦Person N⟧). NIXBOOK_PRIVACY_PSEUDONYMS=0/1 overrides (tests)."""
+    env = os.environ.get("NIXBOOK_PRIVACY_PSEUDONYMS")
+    if env in ("0", "1"):
+        return env == "1"
+    return shell_setting("ai.privacy.pseudonyms", True) is not False
+
+
+_PSEUDO = {"key": None, "words": frozenset(), "re": None, "map": {}}
+
+
+def privacy_pseudo(tokens=None):
+    """The pseudonyms given so far: {"words": folded words, "re": a regex of
+    them (whole words, longest first, any case), "map": {lower: real}}.
+    Kept while privacy-map.json stays the same."""
+    if tokens is None:
+        try:
+            st = os.stat(privacy_map_path())
+            key = (st.st_mtime_ns, st.st_size)
+        except OSError:
+            key = None
+        if key is not None and _PSEUDO["key"] == key:
+            return _PSEUDO
+        tokens = privacy_tokens()
+    else:
+        key = ("given", id(tokens), len(tokens))
+        if _PSEUDO["key"] == key:
+            return _PSEUDO
+    names = {k: v for k, v in tokens.items() if k and not k.startswith("⟦") and isinstance(v, str)}
+    alts = sorted(names, key=len, reverse=True)
+    _PSEUDO.update(key=key, map={k.lower(): v for k, v in names.items()},
+                   words=frozenset(fold(w) for k in names for w in k.split()),
+                   re=re.compile(r"(?<![\w@.])(" + "|".join(re.escape(a) for a in alts) + r")(?![\w@])", re.I)
+                   if alts else None)
+    return _PSEUDO
+
+
+def privacy_pseudo_free(taken, pool, vocab_words):
+    """The first name of POOL neither given nor anyone's in the user's data."""
+    for name in pool:
+        if fold(name) not in taken and fold(name) not in vocab_words:
+            return name
+    return None
 
 
 def privacy_files():
@@ -8385,9 +8455,24 @@ def looks_like_name(name):
             and not (len(words_) == 1 and fold(name) in PRIVACY_COMMON))
 
 
+def privacy_vocab_words():
+    """The folded words of every name the mask knows (contacts, learned
+    ones, the user's): never given as a pseudonym."""
+    vocab = privacy_vocab()
+    out = set()
+    for spec in vocab["keys"].values():
+        for v in spec[3:5]:
+            if isinstance(v, str):
+                out.update(fold(w) for w in v.split())
+    return out
+
+
 def privacy_known(value, vocab):
-    """Already private (or a placeholder)."""
+    """Already private (or a placeholder, or a pseudonym given: never learned
+    as a stranger of its own)."""
     if "⟦" in value:
+        return True
+    if any(fold(w) in privacy_pseudo()["words"] for w in value.split()):
         return True
     norm = fold_chars(" ".join(value.split()))
     return bool(vocab["ci"].fullmatch(norm) or vocab["cs"].fullmatch(norm))
@@ -8476,12 +8561,46 @@ def privacy_unlearn(key):
 class PrivacyMap(LockedJson):
     """The table of placeholders: kept between sessions so a value keeps
     its placeholder."""
-    keys = ("tokens", "keys", "next", "people")
+    keys = ("tokens", "keys", "next", "people", "pseudo")
     path = staticmethod(privacy_map_path)
+
+    def pseudonym(self, ident, first, full):
+        """A person's fake name for the model: its first name (and a last
+        one when the real name has one), the same each time; its words
+        mapped back to the real ones (tokens). None when the pools are spent."""
+        p = self.data["pseudo"].get(ident)
+        if not p:
+            taken = {fold(w) for q in self.data["pseudo"].values() for w in (q.get("first"), q.get("last")) if w}
+            vocab_words = privacy_vocab_words()
+            p = {"first": privacy_pseudo_free(taken, PSEUDO_FIRST, vocab_words)}
+            if not p["first"]:
+                return None
+            p["last"] = privacy_pseudo_free(taken, PSEUDO_LAST, vocab_words)
+            self.data["pseudo"][ident] = p
+            self.changed = True
+        words = (full or first or "").split()
+        real_first = first or (words[0] if words else "")
+        real_last = " ".join(w for w in words if fold(w) != fold(real_first)) if len(words) > 1 else ""
+        pairs = [(p["first"], real_first)]
+        if p.get("last") and real_last:
+            pairs += [(p["last"], real_last), (f"{p['first']} {p['last']}", " ".join(words))]
+        for k, v in pairs:
+            if v and self.data["tokens"].get(k) != v:
+                self.data["tokens"][k] = v
+                self.changed = True
+        return p
 
     def token(self, spec):
         """spec: (kind, id, part, real value[, the person's full name])."""
         kind, ident, part, real = spec[:4]
+        if privacy_pseudonyms() and kind in ("Person", "Name") and part in (None, "first"):
+            # A fake name rather than a placeholder (PSEUDO_FIRST).
+            full = spec[4] if len(spec) > 4 and spec[4] else (real if part is None else "")
+            p = self.pseudonym(f"{kind}:{ident}", real if part == "first" or kind == "Name" else "", full)
+            if p:
+                if part == "first" or kind == "Name" or not (p.get("last") and len(full.split()) > 1):
+                    return p["first"]
+                return f"{p['first']} {p['last']}"
         if kind == "Person":
             if ident == "user":
                 base = "User"
@@ -8544,10 +8663,19 @@ def privacy_tokens():
 
 
 def unmask_text(value, tokens=None):
-    if "⟦" not in value:
+    """The real values back: ⟦…⟧ placeholders, and the pseudonyms given
+    (whole words, any case: "Brisa", "Brisa Ashdown", "Ashdown")."""
+    if not value:
+        return value
+    pseudo = privacy_pseudo(tokens)
+    if "⟦" not in value and not pseudo["re"]:
         return value
     tokens = privacy_tokens() if tokens is None else tokens
-    return PRIVACY_TOKEN.sub(lambda m: tokens.get(m.group(), m.group()), value)
+    if "⟦" in value:
+        value = PRIVACY_TOKEN.sub(lambda m: tokens.get(m.group(), m.group()), value)
+    if pseudo["re"]:
+        value = pseudo["re"].sub(lambda m: pseudo["map"].get(m.group().lower(), m.group()), value)
+    return value
 
 
 def mask_obj(obj, vocab=None, pmap=None):
@@ -14318,7 +14446,7 @@ def discord_contact_hint(query):
 DISCORD_NOTE_SKIP = set(
     "is as on the his her their name username pseudo pseudonym handle tag id user account compte sur est c "
     "son sa ses de du le la les and et in dans called named known appele appelle il elle he she it s my mon ma "
-    "discord server serveur".split())
+    "discord server serveur vesktop dm dms pm message messages".split())
 
 
 def discord_names(query):
@@ -14378,15 +14506,27 @@ def t_discord(ctx, args):
     if action == "find":
         query = as_str(args, "query", max_len=100)
         res = app("find", query=query).get("results") or []
+        # Discord names often aren't real names: the one in the person's
+        # contact (nickname, or after "Discord" in the notes) is searched
+        # too, always, and comes first. Searched only when nothing matched,
+        # a group named after them ("Anniv Alan") hid their own DM
+        # ("Alesio"), and the agent went on from the group.
+        known, seen = [], {str(h.get("id")) for h in res}
+        for who, name in discord_names(query)[:5]:
+            if name.lower() == query.lower():
+                continue
+            hits = [h for h in app("find", query=name).get("results") or [] if str(h.get("id")) not in seen]
+            seen |= {str(h.get("id")) for h in hits}
+            if hits:
+                known.append(f"{who} on Discord (their contact gives {name!r}):\n"
+                             + "\n".join(f"- {h.get('kind')} {discord_channel(h)}" for h in hits))
+        if known and res:
+            known.append(f"Also matching {query!r} by name (not necessarily them):\n"
+                         + "\n".join(f"- {h.get('kind')} {discord_channel(h)}" for h in res))
+        if known:
+            return [text("\n\n".join(known))]
         if res:
             return [text("\n".join(f"- {h.get('kind')} {discord_channel(h)}" for h in res))]
-        # Discord names often aren't real names: the one in the person's
-        # contact (nickname, or after "Discord" in the notes), searched too.
-        for who, name in discord_names(query)[:5]:
-            hits = app("find", query=name).get("results") or []
-            if hits:
-                return [text(f"No Discord name {query!r}; {who}'s contact gives {name!r} for Discord:\n"
-                             + "\n".join(f"- {h.get('kind')} {discord_channel(h)}" for h in hits))]
         return [text("nothing found" + discord_contact_hint(query))]
     if action == "channels":
         guild = opt("guild", 100)

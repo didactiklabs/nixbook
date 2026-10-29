@@ -60,6 +60,21 @@ Replies stream in, each tool call shows with its result in a collapsible block, 
 
 With a model selected, the configuration facts become reference for the model: it answers with its own knowledge too, and says when it isn't sure. `ai.includeSystemContext` (on by default; Settings → Services → AI) controls whether the machine context is sent.
 
+## Private details
+
+With Settings > Desktop agents > **Hide private details from AI models** on (the
+default), names, emails, phones, addresses and the words you list are hidden
+before Claude reads them, and come back on this computer: in what you see, and
+in what its tools get. **People become stand-in names**: each hidden person is
+shown to Claude as a fake name, always the same one and never one of your
+contacts' (Alan AMOYEL might be "Aurelio Ashdown" to it). Given a placeholder
+like `⟦Person 1⟧`, models tended to write a name of their own in its place;
+given a name, they keep it, and every word of it (the first name, the surname
+alone, any case) comes back to the real one, so a Discord search for the
+stand-in finds the real person. Emails, phones, addresses, logins and the like
+stay placeholders such as `⟦Email 1⟧`. Turn off **People as stand-in names**
+for placeholders for people too.
+
 ## Tabs
 
 The chat has **tabs**, each its own conversation answering on its own, so Claude can work on several things at once: **+** above the chat (or **Ctrl+T**) opens one, **Ctrl+Tab** / **Ctrl+Shift+Tab** go through them, and **×**, a middle-click or **Ctrl+W** closes one (its conversation stays in the history). A tab shows a spinner while it works and a dot when it answered while you were elsewhere; when the panel is closed, the notification's **Open** opens that tab. Up to 8 tabs.
