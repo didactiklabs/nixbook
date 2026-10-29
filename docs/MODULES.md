@@ -466,7 +466,7 @@ Whether to enable a curated set of GUI desktop applications. Installs and config
 - **Type:** `one of "fast", "hq"`
 - **Default:** `"fast"`
 
-Which Anime4K networks mpv's Upscale button (modernx, Ctrl+1/2/3) loads: `fast` (the M and S ones, for integrated GPUs such as a Radeon 680M) or `hq` (VL and M, for a dedicated GPU).
+Which networks mpv's picture modes (modernx's HD menu, Ctrl+1…5) load: `fast` (Anime4K's M and S, FSRCNNX 8-0-4-1; for integrated GPUs such as a Radeon 680M) or `hq` (Anime4K's VL and M, FSRCNNX 16-0-4-1; for a dedicated GPU).
 
 ---
 

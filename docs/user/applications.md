@@ -15,7 +15,14 @@
 | Files              | **Dolphin** with plugins, Ark, kio-admin, thumbnails, GParted (`dolphinConfig`)                                                                |
 | Video              | **mpv** with thumbfast, MPRIS and modernx; yt-dlp, [ytui](/packages/#ytui) (YouTube) and [jtui](/packages/#jtui) (Jellyfin) TUIs (`mpvConfig`) |
 
-**mpv** plays at its high-quality profile (sharper upscaling, debanding) with a deep network cache for direct play. Anime4K upscaling is there on demand, off until asked: the **HD** button in modernx's control bar (left click the next mode, right click off) or **Ctrl+1/2/3** (**Ctrl+0** off) pick mode A (restore, then upscale: blurry or compressed sources), B (a softer restore for sharp ones) or C (denoise and upscale: grainy ones). `desktopApps.mpvUpscaleQuality` picks the networks: `fast` (default, for integrated GPUs) or `hq` (for a dedicated GPU). The Jellyfin player uses the same mpv and controls.
+**mpv** plays at its high-quality profile (sharper upscaling, debanding, chroma from luma for cleaner colour edges) with a deep network cache for direct play. modernx's control bar has menus: the **audio** and **subtitle** buttons list the tracks to pick from (right click: the next one), and the **HD** button opens the picture menu, everything off until asked:
+
+- **Anime A, B, C** (Anime4K, drawn art): restore then upscale (blurry or compressed sources), a softer restore (sharp ones), or denoise and upscale (grainy ones).
+- **Film** (FSRCNNX): a clean upscale for live action, without Anime4K's painted look.
+- **Sharpen** (adaptive-sharpen): a bit of bite for soft sources.
+- **Smooth motion**: frame interpolation, 24 fps without judder on a 60 Hz screen; with any of the above, at a GPU and battery cost.
+
+The keys: **Ctrl+1…5** for the modes, **Ctrl+0** off, **Ctrl+M** smooth motion ([keybindings](/desktop/keybindings)). `desktopApps.mpvUpscaleQuality` picks the networks: `fast` (default, for integrated GPUs) or `hq` (for a dedicated GPU). The Jellyfin player uses the same mpv, controls and menus.
 
 Default applications (MIME): PDF → zathura, images → imv, video → mpv, folders → Dolphin, text → VS Code when installed, else NixVim in kitty.
 
