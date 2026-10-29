@@ -113,6 +113,8 @@ cmd_shell() {
   bash nixbook-shell/tests/desktop-mcp.sh || failed=1
   section "nixbook-shell Electron apps' bridge (nixbook-electron-app)"
   bash nixbook-shell/tests/electron-bridge.sh || failed=1
+  section "nixbook-shell side panel's Claude Code stream"
+  bash nixbook-shell/tests/claude-stream.sh || failed=1
   section "jellyfin-mcp (customPkgs) against a fake Jellyfin"
   bash customPkgs/jellyfin-mcp/tests/test.sh || failed=1
   section "nixbook-shell accounts backend (nixbook-accounts)"

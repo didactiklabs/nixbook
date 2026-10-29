@@ -20,12 +20,20 @@ QtObject {
     // A placeholder cut between two pieces of the stream waits for its end.
     property var unmask: text => text
     property string held: ""
+    // No running commentary: once the turn has taken a step, what a message
+    // writes waits for the message's end and is shown only when the message
+    // is the answer (no tool call). The words between steps ("Still
+    // closing…", a note to itself) are never shown nor read out.
+    property bool stepped: false
+    property string between: ""
 
     function reset() {
         toolCalls = ({});
         steps = [];
         finished = false;
         held = "";
+        stepped = false;
+        between = "";
     }
 
     // A placeholder or a pseudonym split between two chunks ("⟦Person" +
@@ -85,8 +93,22 @@ QtObject {
         if (ev.type === "stream_event") {
             // Text and thinking as they come (--include-partial-messages).
             const e = ev.event ?? {};
+            if (e.type === "message_start")
+                between = "";
+            else if (e.type === "message_delta" && stepped) {
+                // The message's end: its words kept when it is the answer.
+                if (e.delta?.stop_reason !== "tool_use" && between.length > 0) {
+                    append(message, between);
+                    flush(message);
+                }
+                between = "";
+            }
+            if (e.type === "message_delta" && e.delta?.stop_reason === "tool_use")
+                stepped = true;
             if (e.type === "content_block_start" && e.content_block?.type === "thinking")
                 append(message, "\n\n<think>\n");
+            else if (e.type === "content_block_delta" && e.delta?.type === "text_delta" && stepped)
+                between += e.delta.text;
             else if (e.type === "content_block_delta" && e.delta?.type === "text_delta")
                 append(message, e.delta.text);
             else if (e.type === "content_block_delta" && e.delta?.type === "thinking_delta")
@@ -116,6 +138,10 @@ QtObject {
                 append(message, `\n\n<think>\n${call}\n\n${block.is_error ? "⚠ " : "→ "}${text}\n</think>\n\n`);
             }
         } else if (ev.type === "result") {
+            // Never lost: an answer whose end didn't come through.
+            if (between.length > 0) append(message, between);
+            between = "";
+            stepped = false;
             flush(message);
             finished = true;
             out.finished = true;

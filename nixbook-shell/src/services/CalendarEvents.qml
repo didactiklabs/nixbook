@@ -82,6 +82,14 @@ Singleton {
     function eventsOn(date) {
         return root.eventsByDay[root.dayKey(date)] ?? []
     }
+    // A meeting going on now (busy: words wait): a timed event of 8 hours at
+    // most. A longer one (a hackathon, a trip, a conference over days) is a
+    // period, not a meeting.
+    readonly property real meetingMaxMs: 8 * 3600000
+    function meetingNow(date) {
+        const t = date ?? new Date()
+        return root.eventsOn(t).some(e => !e.allDay && e.start <= t && e.end > t && e.end - e.start <= root.meetingMaxMs)
+    }
 
     // The next `limit` events not over yet at `now` within the coming week:
     // timed ones, and today's all-day ones unless `timedOnly`. Pass a `now`
