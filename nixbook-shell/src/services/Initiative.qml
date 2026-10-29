@@ -621,7 +621,7 @@ Singleton {
         onExited: (code, status) => {
             const where = extracted.text.trim()
             if (code === 0 && where.startsWith("/")) root._reveal(where)
-            else Quickshell.execDetached(["notify-send", "-a", "Claude", "Claude", extractError.text.trim() || Translation.tr("Couldn't extract it")])
+            else Quickshell.execDetached(["notify-send", "-a", "Muse", "Muse", extractError.text.trim() || Translation.tr("Couldn't extract it")])
         }
     }
     // The conversation (or what it said) in the side panel, for more room.
@@ -826,8 +826,18 @@ Singleton {
         }
     }
 
-    // `nixbook-shell ipc call claude toggle` (Mod+C): its bubble, to ask, or
+    // `nixbook-shell ipc call muse toggle` (Mod+C): its bubble, to ask, or
     // put away; `ask`: always called up.
+    IpcHandler {
+        target: "muse"
+        function ask(): void {
+            root.summon()
+        }
+        function toggle(): void {
+            root.toggle()
+        }
+    }
+    // The same under the assistant's former name (older binds and scripts).
     IpcHandler {
         target: "claude"
         function ask(): void {

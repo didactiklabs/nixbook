@@ -8,7 +8,7 @@
 # cookie from Zen/Firefox's or Chrome/Chromium's cookie file (the latter
 # decrypted with the browser's key from the keyring). Or an admin's API key,
 # sent with X-API-User so requests go out as the user chosen in Settings.
-# Given only to the nixbook-shell side panel's Claude (assistant.mcpServers),
+# Given only to the nixbook-shell side panel's Muse (assistant.mcpServers),
 # never installed on the PATH. The credential comes from SEERR_SESSION,
 # SEERR_API_KEY, the file SEERR_API_KEY_FILE names, or the keyring
 # (service=seerr-mcp).

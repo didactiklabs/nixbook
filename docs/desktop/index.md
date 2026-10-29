@@ -19,7 +19,7 @@ The two desktop shells are **mutually exclusive** (both draw a top bar, own the 
 | Themes         | Material (wallpaper), Persona, Chiikawa, Cyberpunk, Ghibli | Material (matugen)                      |
 | Settings       | Nix-pinned **and** an in-shell Settings window             | Nix                                     |
 | Login screen   | Its own greeter                                            | tuigreet                                |
-| AI integration | Config assistant, Claude chat, desktop-control MCP         | Sathi AI widget                         |
+| AI integration | Config assistant, Muse chat, desktop-control MCP           | Sathi AI widget                         |
 | Used on        | totoro, tanjiro, hanamichi                                 | nishinoya                               |
 
 ## Idle and locking (Niri)

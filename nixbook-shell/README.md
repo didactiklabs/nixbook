@@ -345,7 +345,7 @@ window to a file in `screenSnip.savePath` and/or the clipboard; recordings
 of a monitor or region, with or without the desktop audio, through the
 shell's recorder and its indicator: start, stop with the video's path,
 status; never from the agent desktop); have the shell's own windows over
-the apps make way (`services/MakeWay.qml`: the side panel, Claude's
+the apps make way (`services/MakeWay.qml`: the side panel, Muse's
 bubble, notification popups, a theme's cut-in, listed in
 $XDG_RUNTIME_DIR/nixbook-shell/overlays.json; before an action on the
 user's desktop the server writes `make-way.json` {seq, until, capture}:
@@ -444,8 +444,8 @@ pages.
 
 The **Desktop Control** bar widget (`desktopControl` in a bar layout) is a
 button per action, each with its own tooltip (`bar/DesktopControl.qml`):
-the robot asks Claude (`Initiative.toggle`), a speech bubble (only when
-Claude has something for the user) opens it (right-click: not now), the
+the robot asks Muse (`Initiative.toggle`), a speech bubble (only when
+Muse has something for the user) opens it (right-click: not now), the
 pause button (faint idle, pulsing in the accent colour while an agent acts,
 its calls within the last 20 s; a red play button while paused; its tooltip
 names the last agent and tool), the desktop button (theirs or yours,
@@ -667,7 +667,7 @@ Ghibli), that is a small chat of its own: the user answers in its field
 button, or /new or /clear typed, starts a new conversation,
 `Initiative.fresh()`: the one before stays in the side panel's history) or with a quick
 answer (Yes please / No thanks under a question, Yes do it for a routine,
-a reaction's buttons, Not now, Don't tell me this), and Claude answers in
+a reaction's buttons, Not now, Don't tell me this), and Muse answers in
 the bubble, saying what it is doing meanwhile (thinking, the tool it used:
 `Initiative.chat`, the thread made by `Initiative.prepare()` as soon as the
 field gets the focus, so Claude Code is warm when the message goes; the
@@ -703,7 +703,7 @@ call until clicked. Watches (the `watch` tool, `initiative.json`
 an offer's button that needs no thinking is
 done by the shell (`Initiative._direct`: `setup`, `tasks`, `settings`,
 `forget`, `log`; `extract` through `nixbook-desktop-mcp extract`), never a
-Claude run, and a plain command typed in the bubble (`QuickIntent.qml`:
+Muse run, and a plain command typed in the bubble (`QuickIntent.qml`:
 strict patterns, an app only when its name is certain) is done at once,
 the bubble saying what it did (kind `quick`, gone after 5 s);
 each small-model call is kept in `sent.jsonl` (`sent_note`, shown in
@@ -712,35 +712,35 @@ only) for pairing and notifications. Left alone (25 s,
 15 s for a reaction, 90 s after an answer; never while hovered, typed in
 or answering) the bubble goes to the bar, a conversation with it
 (`Initiative.parked`): the bar's bubble brings it back, and so does
-Claude's next answer in it (not when busy). Its expand button moves the
-talk to the side panel's "From Claude" tab: what it said is Claude's
+Muse's next answer in it (not when busy). Its expand button moves the
+talk to the side panel's "From Muse" tab: what it said is Muse's
 message in a thread of its own (`Ai.claudeThread()`, not selected in the
 panel while the talk is in the bubble: the thread before saved to the
 history, `fromClaude: true`, listed under the tabs by
 `aiChat/ClaudeThreads.qml` to go back to, with a button clearing them,
-pinned ones kept: `Ai.deleteClaudeThreads()`; a second "From Claude" tab,
+pinned ones kept: `Ai.deleteClaudeThreads()`; a second "From Muse" tab,
 past `maxChats`, when the first is still answering) (`unsent`: it goes with
 the user's next message when the tab's session already runs;
 `GlobalStates.aiChatRequested`). Left alone `ai.claudeThreadIdleMinutes`
 (30; 0: stays), not answering, shown or the bubble's, the tab closes, its
 thread saved in the history first (`Ai.expireClaudeThreads`); the history
-marks those "From Claude". A thread is saved only once it has more than 5
+marks those "From Muse". A thread is saved only once it has more than 5
 messages (`Ai.claudeThreadMinMessages`): shorter ones go with their tab. A chat of the side panel that answers
 while the panel is closed says so in the bubble too, its answer there to
 reply to (`Initiative.chatDone`; `notify-send` only while the user is
 typing in the bubble). **Mod+C** (`nixbook-shell ipc call
-claude toggle`, again: put away) or a click on the bar's robot calls the bubble up to
+muse toggle`, or `claude toggle`, its former name; again: put away) or a click on the bar's robot calls the bubble up to
 ask anything (`Initiative.summon()`, the keys taken until sent): a new
-conversation there is a normal one, not a "From Claude" thread
+conversation there is a normal one, not a "From Muse" thread
 (`Ai.askThread()`: an empty tab, else a new one, closed again when left
 empty). The
-robot hops when Claude has something new to say.
+robot hops when Muse has something new to say.
 Reactions (`ai.initiative.reactions`, off): what the user just did, seen by
 `services/Routines.qml` (`happened`, every event with a `path` for files),
 goes to `initiative consider` as `happened` (`happened_item`, plain code, no
 model call): a file downloaded (open, show in folder with
 org.freedesktop.FileManager1, and by its type summarize it, what's in it,
-extract it, how to install it on NixOS: those ask Claude in the bubble,
+extract it, how to install it on NixOS: those ask Muse in the bubble,
 the file attached), a screenshot (what's in it), a drive plugged in (open,
 what's on it). Not what an agent did (DesktopControl.active), never while
 busy, once per file, past the day's budget and gap (now or never), 30 min
@@ -748,7 +748,7 @@ in the bar; "Don't tell me this" silences that kind of reaction only.
 answers (`initiative answer ID replied|later|dismissed|never|engaged`) teach
 it: `budget()` scales the day's notifications and chats by the reply rate
 (×0.5 to ×2), `hour_key` stats hold back speaking out loud at times the user
-rarely answers, `engaged` (each message of the user in the From Claude tab
+rarely answers, `engaged` (each message of the user in the From Muse tab
 within 30 min, up to 4) adds half a reply, and `initiative notices` (the
 shell's counts of notifications acted on or dismissed, from
 Notifications.acted/dismissed) skip apps always dismissed unread and tell the
@@ -762,7 +762,7 @@ personal entries to the small model (`CURIOUS_SYSTEM`), saves up to 3 facts
 with `remember_about_user` (client `curiosity`), marks the titles read and
 says what it learned (a question only when unclear) as a `curious` word;
 its chat message carries `learnHint`, added to the user's next prompt, so
-Claude fixes the memory when corrected. **Say something now** reads what is
+Muse fixes the memory when corrected. **Say something now** reads what is
 new at once.
 News (`ai.initiative.news`, off): each moment ask carries `news`; about
 once a day (`NEWS_EVERY`, 20 h; not in quiet hours, not while busy)
@@ -805,7 +805,7 @@ loud, a hello when nothing is on its mind). The small model's Claude Code:
 `memoryClaude`, the shell's own (`claude` in the event), PATH, or the usual
 install places (`claude_path`). State in `~/.local/state/nixbook-shell/initiative.json`.
 
-**Routines**: "whenever X happens, do Y", asked of Claude (`routine` tool:
+**Routines**: "whenever X happens, do Y", asked of Muse (`routine` tool:
 `when` {event + filters: app, words, at, days, percent, name, ext, minutes,
 cooldown}, `do` a fixed call {tool, args, server: "desktop" or an
 assistant-mcp.json server} or {agent, servers}), kept in the desktop memory
@@ -835,7 +835,7 @@ the same kind (weekdays, weekends) in two weeks; one new routine a day,
 it on, no forgets it and `routinesDeclined` keeps it out) or, auto and strong,
 on with a trial (said each run until 3 runs undone by nobody).
 
-Routine events added (Routines.qml): `music_silent` (no music for `minutes` while present, once a silence, held after the user's own stop until music plays, a break or an hour), `music_repeating` (the same song `times` in a row, a loop seen as the position jumping back to the start, or the same artist for `minutes` of play, a track with no artist counting none; once a streak, which a 5-minute stop ends; the Claude run is told why it fired, and that it has no listening history to read; track_changed routines about a repeat, from before it, moved to it: memory version 4), `app_focused`, `day_start` (once a day: `routine_run`), `away`, `long_session`, `fullscreen_started|ended`, `dnd_on|off`, `charged`, `bluetooth_connected|disconnected`, `phone_connected|disconnected` (KDE Connect), `drive_connected|disconnected` (/run/media), `disk_low`, `rain` (OpenWeather 2xx–6xx), `screenshot`. `music_ended` waits 20 s. Routine ideas (`routine_idea`, `IDEA_SYSTEM`, daily, `initiative ideas`): personal entries (people by name only, contacts redacted), habits, music, cue names, routines, events and actions → one routine added off and offered with why (`routine_ask(r, why)`); declined ones in `ideasDeclined`. Curiosity reads every 5 h with 4 new titles and may `offer` help with what is in front ("now").
+Routine events added (Routines.qml): `music_silent` (no music for `minutes` while present, once a silence, held after the user's own stop until music plays, a break or an hour), `music_repeating` (the same song `times` in a row, a loop seen as the position jumping back to the start, or the same artist for `minutes` of play, a track with no artist counting none; once a streak, which a 5-minute stop ends; the Muse run is told why it fired, and that it has no listening history to read; track_changed routines about a repeat, from before it, moved to it: memory version 4), `app_focused`, `day_start` (once a day: `routine_run`), `away`, `long_session`, `fullscreen_started|ended`, `dnd_on|off`, `charged`, `bluetooth_connected|disconnected`, `phone_connected|disconnected` (KDE Connect), `drive_connected|disconnected` (/run/media), `disk_low`, `rain` (OpenWeather 2xx–6xx), `screenshot`. `music_ended` waits 20 s. Routine ideas (`routine_idea`, `IDEA_SYSTEM`, daily, `initiative ideas`): personal entries (people by name only, contacts redacted), habits, music, cue names, routines, events and actions → one routine added off and offered with why (`routine_ask(r, why)`); declined ones in `ideasDeclined`. Curiosity reads every 5 h with 4 new titles and may `offer` help with what is in front ("now").
 
 **Personal memory**, so a conversation knows what the user told agents
 before: life events (past or planned, with dates), plans, people close to
@@ -863,7 +863,7 @@ kept small and relevant:
   instructions or with the next reply, once.
 
 Agents often don't save mid-task, so the AI chat also runs a **memory
-pass**: two minutes after Claude's last answer (or when the chat is cleared
+pass**: two minutes after Muse's last answer (or when the chat is cleared
 or another loaded), the turns not read yet go to `nixbook-desktop-mcp
 personal learn`, which hands them, with the entries they bear on, to a
 small model (`ai.claudeCode.memoryModel`, `haiku`) through Claude Code with
@@ -991,19 +991,20 @@ While one of your restores (or `cycle`) runs, every monitor is dimmed under a
 click or key doesn't land on a window being moved; it lifts when the restore
 is done (after 30 s at the latest).
 
-**Claude in the side panel**: when Claude Code is installed (`claude` on the
-PATH, in `~/.local/bin` or a Nix profile), the AI chat offers a **Claude**
-model (`/model claude`) that runs on your own Claude login, no API key. It is
-set up in **Settings → Desktop agents → Claude in the side panel**: whether
+**Muse in the side panel**: when Claude Code is installed (`claude` on the
+PATH, in `~/.local/bin` or a Nix profile), the AI chat offers **Muse**,
+the desktop assistant (`/model muse`; `/model claude` too), Claude through
+Claude Code on your own Claude login, no API key. It is
+set up in **Settings → Desktop agents → Muse in the side panel**: whether
 Claude Code was found (and its command, if elsewhere), the model (Sonnet by
 default, or Opus, Haiku, Claude Code's own) and its thinking effort (low by
 default: driving the desktop is many short steps, each waiting on the
 model), whether it may search and read the web, the folders it
 may read, and a button to use it in the panel (the `ai.claudeCode.*` and
-`ai.allowedFolders` settings; Nix can pin them like any other). Claude
+`ai.allowedFolders` settings; Nix can pin them like any other). Muse
 Code (`claude -p`) keeps running between messages, each one a line on its
 stdin, so a message doesn't wait ~2 s for it and the desktop MCP server to
-start: it starts when you open the panel on Claude, again (resuming the
+start: it starts when you open the panel on Muse, again (resuming the
 conversation's session) when a setting or an attached file changes its
 command line, and closes after 15 minutes unused; Stop interrupts the answer
 and keeps it. It runs with the desktop MCP server attached (its guardrails,
@@ -1022,7 +1023,7 @@ directories, read-only, and a file attached to a message is readable alone
 desktop's sandbox (made if missing; never the whole home or `/`), and the
 first is its apps' Downloads folder (`XDG_DOWNLOAD_DIR` in its home), so an
 agent can download a file in its own browser and use it on your side, a
-wallpaper for instance; Claude can read them and gets `Write` and `Edit`
+wallpaper for instance; Muse can read them and gets `Write` and `Edit`
 allowed there only (`Edit(//that/folder/**)`; any other write is denied),
 and is told where downloads land. It runs in an empty directory of its own
 (`~/.local/share/nixbook-shell/assistant`, not your home) and without your
@@ -1035,11 +1036,11 @@ default) also gives it the connectors of your Claude account (Gmail,
 Calendar, Drive… as connected on claude.ai, found with `claude mcp list`),
 every tool of each allowed without asking; it then drops
 `--strict-mcp-config` and keeps their tools behind ToolSearch. A connector
-that needs signing in to is signed in to from the panel: Claude gives its
+that needs signing in to is signed in to from the panel: Muse gives its
 sign-in link, and its tools come once it's done; one signed in to on claude.ai
 instead is seen when the panel next opens.
 Replies stream in, each tool call shows with its result in a collapsible
-block, and the send button stops the answer (and what Claude is doing), as
+block, and the send button stops the answer (and what Muse is doing), as
 does `/stop`. Sonnet is faster than Opus for desktop tasks.
 `ai.claudeCode.commandLine` (off): Bash in `--tools`/`--allowedTools` (not
 disallowed) and a system-prompt rule to ask before changes; never terminal
@@ -1098,7 +1099,7 @@ Guardrails, whatever the transport:
   while locked or on Do Not Disturb; routines an agent adds (or turns on) start
   off and ask (`routine_ask`, the accept word; `routine on` from the user turns
   one on), fixed actions use `ROUTINE_DESKTOP_TOOLS` (shell_ipc: `mpris`),
-  `assistant_servers()` drops `ai.claudeCode.mcpServersOff`, a routine's Claude
+  `assistant_servers()` drops `ai.claudeCode.mcpServersOff`, a routine's Muse
   run gets only `ROUTINE_EVENT_FIELDS` of its event, a desktop server limited by
   `NIXBOOK_DESKTOP_MCP_GROUPS` (`observe,windows,shell`), and doesn't run while
   locked; person entries reach the contacts only from the user's chats, never
@@ -1385,7 +1386,7 @@ answers you read. It works in plain code, with no model involved:
     request. The improvement ideas go through `ask_claude` (masked too);
     people's names and contact details are left out of their prompt.
   - With `ai.privacy.screenshots`, the images in any tool's reply too (an
-    attached image read by Claude, a photo from another server), boxed in
+    attached image read by Muse, a photo from another server), boxed in
     place, the reply's shape kept.
   - Your login name is private too (`⟦User login⟧`, in paths), unless it is
     a generic one (debian, admin, user…).

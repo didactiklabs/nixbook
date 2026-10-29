@@ -50,7 +50,7 @@ Scope {
     // when left empty (Ai.dropIfEmpty).
     property bool fromBubble: false
     readonly property string title: {
-        if (chat.fromClaude) return Translation.tr("From Claude");
+        if (chat.fromClaude) return Translation.tr("From Muse");
         const saved = Ai.history.find(c => c.id === chat.chatId)?.title;
         if (saved) return saved;
         const first = chat.messageIDs.map(id => chat.messageByID[id]).find(m => m?.role === "user");
@@ -205,7 +205,7 @@ Scope {
 
     function sendUserMessage(message) {
         // An agent typing into this chat would act with this Claude's tools.
-        if (DesktopControl.refuseIfAgentInput(Translation.tr("a message to Claude in the side panel"))) return;
+        if (DesktopControl.refuseIfAgentInput(Translation.tr("a message to Muse in the side panel"))) return;
         if (chat.fromClaude) Initiative.engaged();
         if (message.length === 0) return;
         chat.addMessage(message, "user");

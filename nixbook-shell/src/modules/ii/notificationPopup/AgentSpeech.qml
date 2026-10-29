@@ -357,7 +357,7 @@ Scope {
                             Layout.fillWidth: true
                             spacing: 0
                             StyledText {
-                                text: root.style === "cyberpunk" ? "CLAUDE //" : "Claude"
+                                text: root.style === "cyberpunk" ? "MUSE //" : "Muse"
                                 font.family: root.font
                                 font.weight: Font.Bold
                                 font.pixelSize: Appearance.font.pixelSize.normal
@@ -707,9 +707,9 @@ Scope {
                                     color: root.fg
                                     placeholderTextColor: Qt.alpha(root.fg, 0.5)
                                     font.family: root.font
-                                    placeholderText: window.grab ? Translation.tr("Message Claude… (Esc: put away, /new: start over)")
-                                        : root.conversing || Initiative.isAsk(root.item) ? Translation.tr("Message Claude…")
-                                        : Translation.tr("Answer Claude…")
+                                    placeholderText: window.grab ? Translation.tr("Message Muse… (Esc: put away, /new: start over)")
+                                        : root.conversing || Initiative.isAsk(root.item) ? Translation.tr("Message Muse…")
+                                        : Translation.tr("Answer Muse…")
                                     onActiveFocusChanged: {
                                         Initiative.typing = activeFocus || text.length > 0
                                         if (activeFocus) {

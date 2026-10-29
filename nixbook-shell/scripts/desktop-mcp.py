@@ -2749,7 +2749,7 @@ INITIATIVE_NOTICE_BATCH = 6
 # Never reacted to: the shell's and the agent's own.
 # The apps the shell and its agents notify as (never reacted to: the user
 # sees them; the model was paid to find "Desktop control paused" boring).
-INITIATIVE_OWN_APPS = {"claude", "reminder", "calendar", "nixbook-shell", "nixbook-desktop-mcp", "desktop agents",
+INITIATIVE_OWN_APPS = {"muse", "claude", "reminder", "calendar", "nixbook-shell", "nixbook-desktop-mcp", "desktop agents",
                        "desktop agent", "shell", "snoozed", "nixbook", "quickshell", "window layouts", "usage habits",
                        "screenshot", "recorder"}
 # Apps relaying another device's notifications (the phone's): their summary
@@ -2773,7 +2773,7 @@ INITIATIVE_SCHEMA = {
 }
 
 INITIATIVE_SYSTEM = (
-    "You are the user's desktop assistant, and you may speak first when it "
+    "You are Muse, the user's desktop assistant, and you may speak first when it "
     "helps them. You get the notifications that just came in (numbered), the "
     "time, the app they are in, their next event and a line about them. Say "
     "whether one deserves a word from you, and lean towards helping: a "
@@ -3021,7 +3021,7 @@ def brief_item(cfg, event, now):
     soon = any(isinstance(e.get("inMinutes"), (int, float)) and 0 <= e["inMinutes"] <= 30 for e in events)
     text_ = hello + " " + " ".join(lines)
     return ({"kind": "brief", "key": f"brief:{time.strftime('%Y-%m-%d %H', time.localtime(now))}",
-             "title": "Claude", "text": text_, **({"actions": actions} if actions else {})}, "notify" if soon else "badge")
+             "title": "Muse", "text": text_, **({"actions": actions} if actions else {})}, "notify" if soon else "badge")
 
 
 def recipe_item(event):
@@ -3034,7 +3034,7 @@ def recipe_item(event):
         fs = n.get("failStep")
         if n.get("kind") != "recipe" or not fs or not (set(n.get("apps") or []) & {app} or app_name(app).lower() in n["topic"].lower()):
             continue
-        return {"kind": "recipe", "key": f"recipe:{n['id']}:{fs.get('time')}", "title": "Claude",
+        return {"kind": "recipe", "key": f"recipe:{n['id']}:{fs.get('time')}", "title": "Muse",
                 "text": f"My recipe “{n['topic']}” broke at step {fs.get('step')} last time "
                         f"({short(fs.get('error', ''), 80)}). Want me to fix it now?"}
     return None
@@ -3046,7 +3046,7 @@ def initiative_offer(cfg, kind, key, text_, app=None, actions=None):
         return
     try:
         with Initiative() as m:
-            deliver(cfg, m.data, {"kind": kind, "key": key, "title": "Claude", "text": text_, "app": app,
+            deliver(cfg, m.data, {"kind": kind, "key": key, "title": "Muse", "text": text_, "app": app,
                                   **({"actions": actions} if actions else {})},
                     "badge", False, time.time())
             m.save()
@@ -3072,7 +3072,7 @@ INITIATIVE_CHAT_SKIP = 0.25
 INITIATIVE_TOPIC_DAYS = 14
 
 CHAT_SYSTEM = (
-    "You are the user's desktop assistant, and you are about to say a "
+    "You are Muse, the user's desktop assistant, and you are about to say a "
     "casual word to them, the way a friend in the room would: one short "
     "question or remark about the subject below, from what you remember of "
     "it, warm and natural, never pushy, no greeting, at most 25 words, in "
@@ -3080,7 +3080,7 @@ CHAT_SYSTEM = (
     "you. Answer with JSON only: {\"text\": \"…\"}."
 )
 TIP_SYSTEM = (
-    "You are the user's desktop assistant. Below is a note you keep for "
+    "You are Muse, the user's desktop assistant. Below is a note you keep for "
     "yourself on how to use one of their apps. If it holds something the "
     "user themselves would find handy (a shortcut, where a setting is, a "
     "trick), say it to them as a friendly one-line tip, at most 25 words, "
@@ -3180,7 +3180,7 @@ def chat_item(cfg, data, event, now):
     cands = [c for c in chat_candidates(cfg, event, now) if c[1] not in said
              and c[1] not in data["boring"] and f"chat:{c[0]}" not in data["muted"]]
     if not cands and force:
-        return {"kind": "chat", "key": f"chat:hello:{int(now)}", "title": "Claude", "app": "hello", "test": True,
+        return {"kind": "chat", "key": f"chat:hello:{int(now)}", "title": "Muse", "app": "hello", "test": True,
                 "text": pick("Hi! Nothing on my mind right now. I'll speak up when something comes up.",
                              "Here! All quiet on my side for now. I'll tell you when something's worth it.")}, ""
     if not cands:
@@ -3207,7 +3207,7 @@ def chat_item(cfg, data, event, now):
                 m.data["boring"] = (m.data["boring"] + [key])[-INITIATIVE_BORING_MAX:]
                 m.save()
             return None, "nothing to say"
-    return {"kind": "chat", "key": key, "title": "Claude", "text": text_, "app": sub,
+    return {"kind": "chat", "key": key, "title": "Muse", "text": text_, "app": sub,
             **({"actions": CHAT_ACTIONS[sub]} if sub in CHAT_ACTIONS else {}),
             **({"test": True} if force else {})}, ""
 
@@ -3310,7 +3310,7 @@ def notice_apply(data, items, answer, now):
     critical = about["urgency"] == "critical"
     urgent = bool(answer.get("urgent")) or critical
     return ({"kind": "notice", "key": "notice:" + notice_pattern(about["app"], about["summary"] + about["body"][:60])
-             + f":{int(now) // 600}", "title": "Claude", "text": said, "chat": chat, "app": about["app"],
+             + f":{int(now) // 600}", "title": "Muse", "text": said, "chat": chat, "app": about["app"],
              # What "Don't tell me this" silences: notifications like it.
              "mute": "notice:" + notice_pattern(about["app"], about["summary"]),
              "urgent": urgent, "critical": critical},
@@ -3339,7 +3339,7 @@ CURIOUS_TITLE_NOISE = re.compile(
     r"^\(\d+\)\s*|\s*[—–-]\s*(mozilla firefox|zen( browser| twilight)?|chromium|google chrome|brave)$",
     re.IGNORECASE)
 CURIOUS_SYSTEM = (
-    "You are the user's desktop assistant, curious about them. Below is what "
+    "You are Muse, the user's desktop assistant, curious about them. Below is what "
     "they had in front lately (app, window title, how many times seen, every "
     "few minutes) and what you already know about them. Work out what is "
     "lasting and useful to know: projects they work on, interests, tools they "
@@ -3450,7 +3450,7 @@ def curious_digest(cfg, event, now):
                     + " I'll remember that; tell me if I got it wrong.")
             if question:
                 parts.append(question)
-            item = {"kind": "curious", "key": f"curious:{day_of(now)}:{int(now)}", "title": "Claude",
+            item = {"kind": "curious", "key": f"curious:{day_of(now)}:{int(now)}", "title": "Muse",
                     "text": " ".join(parts), "app": "offer" if offer else "noticed" if learned else "question",
                     "curious": True,
                     **({"asked": True} if force else {})}
@@ -3476,7 +3476,7 @@ NEWS_LINKS = 3
 NEWS_SEEN_MAX = 200
 NEWS_TTL = 12 * 3600
 NEWS_SYSTEM = (
-    "You are the user's desktop assistant, and you are about to tell them "
+    "You are Muse, the user's desktop assistant, and you are about to tell them "
     "about recent news they'd care about. Below are the subjects they talk "
     "about with you most (most interesting first) and what you know about "
     "their interests. Search the web for what happened on them in the last "
@@ -3582,7 +3582,7 @@ def news_digest(cfg, event, now):
     chat = "\n\n".join([intro, "\n".join(f"- **[{i['headline']}]({i['url']})**: {i['summary']} _({i['source']})_"
                                          for i in items)])
     actions = [{"label": short(i["source"], 24), "do": "link", "url": i["url"]} for i in items[:NEWS_LINKS]]
-    item = {"kind": "news", "key": f"news:{day_of(now)}:{int(now)}", "title": "Claude", "text": text_,
+    item = {"kind": "news", "key": f"news:{day_of(now)}:{int(now)}", "title": "Muse", "text": text_,
             "chat": chat, "app": "news", "actions": actions, "ttl": NEWS_TTL, **({"asked": True} if force else {})}
     with Initiative() as m:
         m.data["newsSeen"] = (m.data.get("newsSeen", []) + [i["url"] for i in items])[-NEWS_SEEN_MAX:]
@@ -3614,7 +3614,7 @@ PAIR_TEXT_MAX = 2500
 PAIR_TTL = 20 * 60
 PAIR_CLIENT = "pairing"
 PAIR_SYSTEM = (
-    "You are the user's desktop assistant, pairing with them: you see what "
+    "You are Muse, the user's desktop assistant, pairing with them: you see what "
     "they are on (the app, the window title, and maybe the screen's text, "
     "read by OCR, with secrets already redacted). Guess what they are doing. "
     "Speak only when you can truly help right now with something specific: "
@@ -3766,7 +3766,7 @@ def pair_consider(cfg, event, now):
                           "url": url})
     links = links[:2] if ai_policy() == 1 else []
     chat = full + ("\n\n" + "\n".join(f"- [{ln['title']}]({ln['url']})" for ln in links) if links else "")
-    item = {"kind": "pair", "key": f"pair:{key}:{digest[:8]}", "title": "Claude", "text": said, "chat": chat,
+    item = {"kind": "pair", "key": f"pair:{key}:{digest[:8]}", "title": "Muse", "text": said, "chat": chat,
             "app": app, "ttl": PAIR_TTL,
             "actions": [{"label": short(ln["title"], 24), "do": "link", "url": ln["url"]} for ln in links]}
     with Initiative() as m:
@@ -3788,7 +3788,7 @@ IDEA_EVERY = 20 * 3600
 IDEA_FIRST_MINUTES = (10, 40)
 IDEAS_DECLINED_MAX = 100
 IDEA_SYSTEM = (
-    "You are the user's desktop assistant. You can set up routines: things you "
+    "You are Muse, the user's desktop assistant. You can set up routines: things you "
     "do on your own when something happens on their computer. From what you "
     "know about them and their habits, suggest at most one new routine that "
     "would really help them, that they don't have and haven't turned down; "
@@ -3900,7 +3900,7 @@ IMPROVE_IDEA_EVERY = 48 * 3600
 IMPROVE_IDEA_FIRST_MINUTES = (30, 120)
 IMPROVE_IDEAS_KEEP = 20
 IMPROVE_SYSTEM = (
-    "You are the user's desktop assistant. Their desktop is nixbook: a NixOS "
+    "You are Muse, the user's desktop assistant. Their desktop is nixbook: a NixOS "
     "configuration with its own desktop shell (bar, sidebars, launcher, "
     "notifications, desktop widgets, settings) and the desktop tools you use. "
     "You can have it improved: a fix (something of nixbook that is broken or "
@@ -4057,7 +4057,7 @@ def improve_idea(cfg, event, now):
     iid = secrets.token_hex(3)
     noun = "fix" if idea["kind"] == "fix" else "feature"
     said = f"{why} Shall I ask for this {noun} of nixbook? \u201c{short(text_, 300)}\u201d"
-    item = {"id": secrets.token_hex(3), "kind": "improve", "key": f"improve:{iid}", "title": "Claude",
+    item = {"id": secrets.token_hex(3), "kind": "improve", "key": f"improve:{iid}", "title": "Muse",
             "text": said.strip(), "time": int(now), "level": "badge", "expires": int(now) + 3 * 86400,
             "accept": f"improve:{iid}"}
     with Initiative() as m:
@@ -4130,7 +4130,7 @@ def _happened_item(event):
             return None
         head = short(command, 40)
         return {"kind": "react", "key": f"react:command_failed:{fold(command)[:80]}:{int(time.time() // 1800)}",
-                "title": "Claude", "app": what, "ttl": REACT_TTL,
+                "title": "Muse", "app": what, "ttl": REACT_TTL,
                 "text": pick(f"“{head}” failed again. Want me to look into it?",
                              f"“{head}” keeps failing{f' (exit {code})' if code else ''}. Shall I help?"),
                 "actions": [{"label": "Explain it", "do": "ask", "path": cwd,
@@ -4145,7 +4145,7 @@ def _happened_item(event):
         if len(copied) < 20:
             return None
         return {"kind": "react", "key": f"react:copied_error:{hashlib.sha256(copied.encode()).hexdigest()[:12]}",
-                "title": "Claude", "app": what, "ttl": 15 * 60,
+                "title": "Muse", "app": what, "ttl": 15 * 60,
                 "text": f"You copied an error{f' (“{line}”)' if line else ''}. Want me to explain it?",
                 "actions": [{"label": "Explain it", "do": "ask", "path": os.path.expanduser("~"),
                              "text": f"I copied this error. What does it mean, and how do I fix it?\n\n```\n{copied}\n```"}]}
@@ -4182,7 +4182,7 @@ def _happened_item(event):
                    ask("What's on it?", f"A drive was plugged in at {path}: tell me briefly what's on it.", False)]
     else:
         return None
-    return {"kind": "react", "key": f"react:{what}:{fold(name)}", "title": "Claude", "text": text_,
+    return {"kind": "react", "key": f"react:{what}:{fold(name)}", "title": "Muse", "text": text_,
             "app": what, "actions": actions, "ttl": REACT_TTL}
 
 
@@ -4380,7 +4380,7 @@ def consider_event(cfg, event, now=None):
                 # A shorter break: only where they were, when the shell kept it.
                 back = where_were_we(cfg, event.get("recent")) if (event.get("away") or 0) >= INITIATIVE_BREAK_MINUTES else ""
                 if back:
-                    item = {"kind": "brief", "key": f"back:{int(now // 600)}", "title": "Claude",
+                    item = {"kind": "brief", "key": f"back:{int(now // 600)}", "title": "Muse",
                             "text": "Welcome back. " + back}
                 else:
                     why = "not away long enough"
@@ -4482,7 +4482,7 @@ def watch_item(w, state, now):
                                 f"{' (system)' if w.get('system') else ''} failed: read its journal and tell me why, briefly."})
     else:
         text_ = f"{label}: done" + (", all green." if w["kind"] in ("run", "pr") else ".")
-    return {"kind": "watch", "key": f"watch:{w['id']}", "title": "Claude", "text": text_[:300], "app": w["kind"],
+    return {"kind": "watch", "key": f"watch:{w['id']}", "title": "Muse", "text": text_[:300], "app": w["kind"],
             "actions": actions, "ttl": 6 * 3600, **({"urgent": True, "critical": True} if state != "expired" else {})}
 
 
@@ -4607,7 +4607,7 @@ def watch_check(cfg, busy=False, now=None):
             item = watch_item(w, state, now)
             if not on:
                 with contextlib.suppress(ToolError):
-                    run(["notify-send", "-a", "Claude", "--", "Claude", item["text"]])
+                    run(["notify-send", "-a", "Muse", "--", "Muse", item["text"]])
                 continue
             out = deliver(cfg, m.data, item, "badge" if state == "expired" else "notify", busy, now)
             if out.get("item"):
@@ -4926,7 +4926,7 @@ ROUTINE_OPEN_NEVER = re.compile(r"\.(desktop|sh|bash|zsh|fish|py|pl|rb|run|bin|a
 ROUTINE_LIKED_FRESH_S = 3 * 3600
 
 ROUTINE_SYSTEM = (
-    "You are the user's desktop assistant, running one of the routines they "
+    "You are Muse, the user's desktop assistant, running one of the routines they "
     "asked for, on your own: they are not here to answer. Do what the routine "
     "says, with your tools, in as few steps as you can, for what just "
     "happened (given). Don't do anything else, don't ask questions. Anything "
@@ -5158,7 +5158,7 @@ def routine_line(r):
     "once and costs nothing; desktop tools: " + ", ".join(sorted(ROUTINE_DESKTOP_TOOLS)) + ", shell_ipc "
     "for mpris only), a few in a row {steps: [{tool, args, server}…]} (at "
     "most " + str(ROUTINE_STEPS_MAX) + "), or, when it truly takes judgment, {agent: \"what to do\", "
-    "servers: [the MCP servers it needs]} (a short Claude run each time, slower, not "
+    "servers: [the MCP servers it needs]} (a short Muse run each time, slower, not "
     "while the screen is locked). Prefer a fixed call: \"{liked}\" in its args is "
     "filled at no token with a song the user likes (\"Title Artist\", from their "
     "listening history, another each time, never the artist on repeat), so "
@@ -5234,7 +5234,7 @@ def routine_ask(r, why=""):
     """A routine an agent added (or asks to turn on), or an idea (why it
     would help): the user's yes turns it on, shown as what it would do."""
     do = r["do"]
-    how = f"a short Claude run: \u201c{short(do['agent'], 120)}\u201d" + (
+    how = f"a short Muse run: \u201c{short(do['agent'], 120)}\u201d" + (
         f" with {', '.join(do.get('servers') or [])}" if do.get("servers") else "") if do.get("agent") else \
         ", then ".join(f"{x['server']}: {x['tool']} {short(json.dumps(x.get('args') or {}, ensure_ascii=False), 120)}"
                        for x in routine_steps(do)) + (
@@ -5379,7 +5379,7 @@ def routine_say(r, said, accept=None):
     word's yes turns it on, a no forgets it). Its reports stop once the
     user said "don't tell me this" to one (muted: routine:ID)."""
     now = int(time.time())
-    item = {"id": secrets.token_hex(3), "kind": "routine", "key": f"routine:{r['id']}:{now}", "title": "Claude",
+    item = {"id": secrets.token_hex(3), "kind": "routine", "key": f"routine:{r['id']}:{now}", "title": "Muse",
             "text": said, "time": now, "level": "badge", "expires": now + (3 * 86400 if accept else
                                                                          INITIATIVE_PENDING_HOURS * 3600)}
     if accept:
@@ -5420,7 +5420,7 @@ def routine_run(cfg, rid, event, now=None):
         if r["when"]["event"] == "day_start" and day_of(r.get("last", 0)) == day_of(now):
             return {"ran": False, "why": "it ran today already"}
         if r["do"].get("agent") and screen_locked():
-            return {"ran": False, "why": "the screen is locked (a routine's Claude run waits for the user)"}
+            return {"ran": False, "why": "the screen is locked (a routine's Muse run waits for the user)"}
         if r["do"].get("agent"):
             today = time.strftime("%Y-%m-%d", time.localtime(now))
             runs = sum(x.get("agentToday", 0) for x in m.data["routines"] if x.get("lastAgentDay") == today)
@@ -9013,7 +9013,7 @@ def ask_claude(claude, model, system, prompt, schema=None, web=False):
 # kind of thing; else it asks. What the user answered is kept
 # (full-ai-learned.json) and given back next time.
 FULLAI_REACT_SYSTEM = (
-    "You run the user's desktop in Full AI mode: they talk to you through your speech bubble, you are the one "
+    "You are Muse, and you run the user's desktop in Full AI mode: they talk to you through your speech bubble, you are the one "
     "watching the computer. Something just happened. Decide: ignore it, tell the user, ask them what to do, or do "
     "it. ignore: noise, ads, your own actions, what the user already sees and doesn't need. tell: worth knowing, "
     "nothing to decide. ask: it needs a decision (a message to answer, a file to open, a meeting about to start): "
@@ -12356,7 +12356,7 @@ def capture_geometry(args):
     "while you work (your screenshots and actions say when they are on "
     "screen; it comes back for the user a few seconds after your last "
     "action, nothing is dismissed): notificationPopups, cutIn (a theme's "
-    "full-screen alert), speechBubble (Claude's bubble). Rarely needed: they "
+    "full-screen alert), speechBubble (Muse's bubble). Rarely needed: they "
     "let your clicks and keys through and are hidden from your screenshots "
     "already. Never the sidePanel (the user's chat with you), the lock "
     "screen or a password prompt.",

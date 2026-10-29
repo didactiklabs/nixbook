@@ -43,7 +43,7 @@ Two switches in **Settings → Desktop agents** (both on):
 ### Shared folders
 
 - **Folders AI agents may read** (`ai.allowedFolders`) are visible read-only, at the same path as in your home.
-- **Folders AI agents may write** (`ai.writableFolders`) are bound read-write, and the first one is its apps' Downloads folder — so an agent can download a file in its browser and use it on your side, a wallpaper for instance. Claude in the side panel can write files there too.
+- **Folders AI agents may write** (`ai.writableFolders`) are bound read-write, and the first one is its apps' Downloads folder — so an agent can download a file in its browser and use it on your side, a wallpaper for instance. Muse in the side panel can write files there too.
 
 ## What still reaches your desktop
 

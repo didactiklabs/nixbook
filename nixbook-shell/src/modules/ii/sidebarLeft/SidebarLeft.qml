@@ -449,7 +449,7 @@ Scope { // Scope
                     StyledText {
                         id: makeWayLabel
                         anchors.centerIn: parent
-                        text: Translation.tr("Claude is working under this panel · Mod+Shift+Esc stops it")
+                        text: Translation.tr("Muse is working under this panel · Mod+Shift+Esc stops it")
                         font.pixelSize: Appearance.font.pixelSize.smaller
                         color: Appearance.colors.colOnPrimary
                     }

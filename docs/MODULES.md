@@ -754,7 +754,7 @@ Whether to enable nixbook-shell, nixbook's Quickshell (QML) desktop shell (`prog
 - **Type:** `null or boolean`
 - **Default:** `null`
 
-Whether to offer the nixbook-shell AI chat (Claude in the side panel and its speech bubble) the user's Jellyfin library through `customPkgs.jellyfin-mcp`: search, details, continue watching, next up, what plays where; play and control it, mark watched, favourites, playlists. Also the bubble's instant "play <title> season N episode M" (no model). Off in the chat until set up in Settings > Desktop agents > Apps it can use (the server, then a sign-in with your own Jellyfin account — no admin needed — or an admin's API key; or the `ai.jellyfin` settings).
+Whether to offer the nixbook-shell AI chat (Muse in the side panel and its speech bubble) the user's Jellyfin library through `customPkgs.jellyfin-mcp`: search, details, continue watching, next up, what plays where; play and control it, mark watched, favourites, playlists. Also the bubble's instant "play <title> season N episode M" (no model). Off in the chat until set up in Settings > Desktop agents > Apps it can use (the server, then a sign-in with your own Jellyfin account — no admin needed — or an admin's API key; or the `ai.jellyfin` settings).
 
 ### `customHomeManagerModules.nixbookShellConfig.jellyfinMcp.player.enable`
 
@@ -775,14 +775,14 @@ The most the player streams from a server it doesn't see on the local network (i
 - **Type:** `boolean`
 - **Default:** `true`
 
-Whether to offer the nixbook-shell AI chat (Claude in the side panel, and nothing else: not your own Claude Code or other agents) LinkedIn, through [linkedin-mcp-server](https://github.com/stickerdaniel/linkedin-mcp-server) (`customPkgs.linkedin-mcp-server`): profiles, people and company search, messages, jobs, the feed, on your own account in a browser session of its own (`~/.linkedin-mcp`, signed in from Settings > Desktop agents or `mcp-server-linkedin --login`). Installed, but off in the chat until you turn it on in Settings > Desktop agents > Apps it can use. LinkedIn's terms forbid automated access and it may restrict accounts using it. Pulls in Chromium: `false` leaves it out entirely.
+Whether to offer the nixbook-shell AI chat (Muse in the side panel, and nothing else: not your own Claude Code or other agents) LinkedIn, through [linkedin-mcp-server](https://github.com/stickerdaniel/linkedin-mcp-server) (`customPkgs.linkedin-mcp-server`): profiles, people and company search, messages, jobs, the feed, on your own account in a browser session of its own (`~/.linkedin-mcp`, signed in from Settings > Desktop agents or `mcp-server-linkedin --login`). Installed, but off in the chat until you turn it on in Settings > Desktop agents > Apps it can use. LinkedIn's terms forbid automated access and it may restrict accounts using it. Pulls in Chromium: `false` leaves it out entirely.
 
 ### `customHomeManagerModules.nixbookShellConfig.seerrMcp.enable`
 
 - **Type:** `null or boolean`
 - **Default:** `null`
 
-Whether to offer the nixbook-shell AI chat (Claude in the side panel and its speech bubble) the user's Seerr (Overseerr / Jellyseerr) through `customPkgs.seerr-mcp`: search films and series and see what is available or on its way, request them (a film, a series' seasons), follow, cancel, approve or decline requests, trending and upcoming. Off in the chat until set up in Settings > Desktop agents > Apps it can use: the server, then your own login (sign in to Seerr in Zen, Firefox or Chrome as usual, OpenID Connect included, and Settings takes only Seerr's session cookie into the keyring: Claude acts as you, no admin key), or an admin's API key with who requests go out as (`ai.seerr`).
+Whether to offer the nixbook-shell AI chat (Muse in the side panel and its speech bubble) the user's Seerr (Overseerr / Jellyseerr) through `customPkgs.seerr-mcp`: search films and series and see what is available or on its way, request them (a film, a series' seasons), follow, cancel, approve or decline requests, trending and upcoming. Off in the chat until set up in Settings > Desktop agents > Apps it can use: the server, then your own login (sign in to Seerr in Zen, Firefox or Chrome as usual, OpenID Connect included, and Settings takes only Seerr's session cookie into the keyring: Muse acts as you, no admin key), or an admin's API key with who requests go out as (`ai.seerr`).
 
 ### `customHomeManagerModules.nixbookShellConfig.selfImprove.enable`
 
