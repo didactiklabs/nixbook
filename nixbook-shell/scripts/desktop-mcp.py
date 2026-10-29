@@ -14193,6 +14193,58 @@ def discord_message_line(m):
     return f"- {when} {who}: {m.get('content') or ''} ⟨{', '.join(bits)}⟩"
 
 
+def discord_contact_hint(query):
+    """On a Discord search that found nobody: the matching contacts'
+    nickname and notes, where people keep someone's Discord name (Alan's
+    note says "Alesio"): the agent searches that next."""
+    try:
+        found = accounts_call("contacts", "list", "--query", query, "--limit", "3").get("contacts") or []
+    except Exception:  # noqa: BLE001 — no accounts backend: no hint
+        return ""
+    lines = []
+    for c in found[:3]:
+        bits = [f"nickname: {c['nickname']}"] if c.get("nickname") else []
+        if c.get("notes"):
+            bits.append("notes: " + " ".join(str(c["notes"]).split())[:300])
+        if bits:
+            lines.append(f"- {c.get('name') or '?'}: " + "; ".join(bits))
+    if not lines:
+        return ""
+    return ("\nDiscord names often aren't real names. The user's contacts matching it (their Discord name may be "
+            "here; search that):\n" + "\n".join(lines))
+
+
+# Words that sit between "Discord" and the name in a note ("Discord: x",
+# "son discord c'est x", "on Discord as x"), never a name themselves.
+DISCORD_NOTE_SKIP = set(
+    "is as on the his her their name username pseudo pseudonym handle tag id user account compte sur est c "
+    "son sa ses de du le la les and et in dans called named known appele appelle il elle he she it s my mon ma "
+    "discord server serveur".split())
+
+
+def discord_names(query):
+    """[(contact name, a Discord name its contact gives)]: the nickname and
+    the words just after a "Discord" in the notes of the contacts matching
+    QUERY (Alan's note: "… Discord … alesio")."""
+    try:
+        found = accounts_call("contacts", "list", "--query", query, "--limit", "3").get("contacts") or []
+    except Exception:  # noqa: BLE001 — no accounts backend: nothing
+        return []
+    out = []
+    for c in found[:3]:
+        who = c.get("name") or "?"
+        if c.get("nickname"):
+            out.append((who, str(c["nickname"]).strip()))
+        words = re.findall(r"[^\W_][\w.#-]*", str(c.get("notes") or ""))
+        for k, w in enumerate(words):
+            if "discord" not in w.lower():
+                continue
+            for cand in words[k + 1:k + 6]:
+                if cand.lower() not in DISCORD_NOTE_SKIP and len(cand) >= 3:
+                    out.append((who, cand.split("#")[0]))
+    return list(dict.fromkeys(out))
+
+
 @tool(
     "discord",
     "pages",
@@ -14200,7 +14252,9 @@ def discord_message_line(m):
     "people, DMs → ids), `channels` (`guild`; none: the servers and DMs), `read` (`channel`, `limit` ≤ "
     "50; default the open one), `send` (`channel`, `content` ≤ 2000, `reply_to` a message id), `react` "
     "(`channel`, `message`, `emoji`). A channel: an id, user:<id>, or a name. Sends and reactions are "
-    "in the user's name: say what you'll send first; the user is asked again (Allow / No) before it goes.",
+    "in the user's name: say what you'll send first; the user is asked again (Allow / No) before it goes. To message someone: `find` with "
+    "the name as the user gave it (a placeholder as it is: the contact's Discord name is looked up), then "
+    "`send`; never through Vesktop's window.",
     obj({"action": {"type": "string", "enum": ["status", "find", "channels", "read", "send", "react"]},
          "query": {"type": "string"}, "guild": {"type": "string"}, "channel": {"type": "string"},
          "limit": {"type": "integer"}, "content": {"type": "string"}, "reply_to": {"type": "string"},
@@ -14223,8 +14277,18 @@ def t_discord(ctx, args):
         return [text(f"Discord: logged in as {r.get('user')}; open: "
                      f"{discord_channel(r['current']) if r.get('current') else 'no channel'}")]
     if action == "find":
-        res = app("find", query=as_str(args, "query", max_len=100)).get("results") or []
-        return [text("\n".join(f"- {h.get('kind')} {discord_channel(h)}" for h in res) or "nothing found")]
+        query = as_str(args, "query", max_len=100)
+        res = app("find", query=query).get("results") or []
+        if res:
+            return [text("\n".join(f"- {h.get('kind')} {discord_channel(h)}" for h in res))]
+        # Discord names often aren't real names: the one in the person's
+        # contact (nickname, or after "Discord" in the notes), searched too.
+        for who, name in discord_names(query)[:5]:
+            hits = app("find", query=name).get("results") or []
+            if hits:
+                return [text(f"No Discord name {query!r}; {who}'s contact gives {name!r} for Discord:\n"
+                             + "\n".join(f"- {h.get('kind')} {discord_channel(h)}" for h in hits))]
+        return [text("nothing found" + discord_contact_hint(query))]
     if action == "channels":
         guild = opt("guild", 100)
         if guild:

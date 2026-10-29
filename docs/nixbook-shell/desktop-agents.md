@@ -99,7 +99,9 @@ own Zen and apps, so they are refused while agents work on
     never restarts or closes it itself.
 - **Discord**: the `discord` tool reads and writes messages through Discord's
   own client in Vesktop (Vencord's modules), not its window: `find` a channel,
-  a person or a DM (→ ids), `channels` (the servers and DMs, or a server's
+  a person or a DM (→ ids; when nobody has that name, the Discord name in
+  their contact is searched instead: the nickname, or the word after
+  "Discord" in the notes, e.g. "Discord: Alesio"), `channels` (the servers and DMs, or a server's
   channels), `read` the last messages (≤ 50: author, time, text, id, replies,
   reactions, your mentions), `send` (≤ 2000 characters, `reply_to` a message)
   and `react`. Reading doesn't mark a channel read. Messages are logged with
