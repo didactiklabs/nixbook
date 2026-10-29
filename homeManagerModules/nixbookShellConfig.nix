@@ -111,6 +111,9 @@ let
     # (Jellyfin's seek previews) would answer modernx beside the user's, and
     # its mouse.lua only serves the shim's own menu.
     osc_style = "custom";
+    # Hardware decoding: the shim's default is "no" (software, the CPU),
+    # passed as --hwdec=no over the user's mpv.conf (it only reads its own).
+    hwdec = "auto";
     thumbnail_enable = false;
     menu_mouse = false;
     enable_gui = false;

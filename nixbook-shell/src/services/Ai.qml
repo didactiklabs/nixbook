@@ -1061,6 +1061,9 @@ Singleton {
             pinned: old?.pinned ?? false,
             turns: turns.length,
             fromClaude: old?.fromClaude ?? chat.fromClaude,
+            // Started in Claude's speech bubble (Mod+C, the voice, Full AI):
+            // listed there with Claude's own threads (Initiative.threads).
+            fromBubble: old?.fromBubble ?? chat.fromBubble,
         };
         historyChatFile.path = root.historyChatPath(chat.chatId);
         historyChatFile.setText(JSON.stringify({ version: 1, id: chat.chatId, claudeSessionId: chat.claudeSessionId, messages }));
