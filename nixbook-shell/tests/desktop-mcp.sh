@@ -326,8 +326,8 @@ if [ -n "${STUB_GOOGLE_SIGNED_OUT:-}" ]; then echo '{"error":"no Google account 
 case "$1 $2" in
   "status ") echo '{"accounts":[{"id":"google-1","provider":"google","name":"me@example.com","connected":true}]}' ;;
   "contacts list")
-    # Bob, looked up by name: his Discord name in his notes.
-    if [ "$3 $4" = "--query Bob" ]; then echo '{"total":1,"contacts":[{"id":"google-1:c2","name":"Bob","nickname":"","notes":"Discord: bobby_42","emails":[]}]}'; exit; fi
+    # Zed, looked up by name: his Discord name in his notes.
+    if [ "$3 $4" = "--query Zed" ]; then echo '{"total":1,"contacts":[{"id":"google-1:c7","name":"Zed","nickname":"","notes":"Discord: zed_42","emails":[]}]}'; exit; fi
     echo '{"account":"me@example.com","syncedAt":1792224000000,"total":2,"labels":[{"id":"g1","name":"Family","count":1}],"contacts":[{"id":"google-1:c1","account":"google-1","name":"Élodie Martin","givenName":"Élodie","familyName":"Martin","nickname":"","emails":[{"value":"elodie@example.com","type":"work"}],"phones":[{"value":"+33 6 12 34 56 78","type":""}],"organization":"Acme","title":"","addresses":[{"value":"1 Main St\nSpringfield","type":"home"}],"birthday":"--04-02","notes":"","urls":[],"photo":"https://x/p","starred":true,"labels":["Family"],"updated":"2026-10-01T10:00:00Z"},{"id":"google-1:c2","account":"google-1","name":"Bob","givenName":"Bob","familyName":"","nickname":"","emails":[],"phones":[],"organization":"","title":"","addresses":[],"birthday":"","notes":"","urls":[],"photo":"","starred":false,"labels":[],"updated":""}]}' ;;
   "contacts get")
     if [ "$3" = "nope" ]; then echo "{\"error\":\"no contact 'nope' (list or sync first)\"}"; exit 1; fi
@@ -1980,7 +1980,7 @@ out=$(call discord '{"action":"status"}')
 expect_contains "discord status: logged in, the open channel" "$out" "logged in as Me; open: #general (Friends) = 222222222222222222"
 expect_contains "discord find" "$(call discord '{"action":"find","query":"gen"}')" "- channel #general (Friends) = 222222222222222222"
 expect_contains "discord find: nobody by that name, the Discord name in their contact searched" \
-  "$(call discord '{"action":"find","query":"Bob"}')" "Bob's contact gives 'bobby_42' for Discord:"
+  "$(call discord '{"action":"find","query":"Zed"}')" "Zed's contact gives 'zed_42' for Discord:"
 out=$(call discord '{"action":"read","channel":"general","limit":2}')
 expect_contains "discord read: who, when, what, its id" "$out" "- 10-28 09:15 ana: lunch? my token is [hidden] ⟨id 555, mentions you⟩"
 expect_contains "discord read: mine, a reply, reactions" "$out" "Me (you): sure ⟨id 556, reply to 555, 👍1⟩"
