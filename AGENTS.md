@@ -149,7 +149,7 @@ hive.nix                          Colmena deployment config
 - `desktopApps.nix` (63 LOC) - Firefox, Dolphin, MPV, imv, zathura setup
 - `desktopEntriesConfig.nix` (~75 LOC) - Hides non-user-facing launcher entries via `NoDisplay=true` hiPrio desktop-item packages that shadow the originals in the user profile. Enabled by default. Hides kvantummanager, fcitx5 daemon/helpers/config GUIs (org.fcitx.Fcitx5, Lotus settings, qt5/qt6 wrappers, migrator, config-qt, configtool, wayland-launcher, kcm_fcitx5), KDE Connect daemon/handler/nonplasma/sms, geoclue demos, pinentry-qt, nm-connection-editor, nixos-manual, xdg-desktop-portal-gnome/gtk, khal, umpv, imv-dir, kbd-layout-viewer5, org.quickshell, schnelle-umlaute-editor. System-wide qt5ct/qt6ct are hidden separately in lib/userConfig.nix
 - `dolphinConfig.nix` (31 LOC) - File manager configuration
-- `mpvConfig.nix` (34 LOC) - Media player configuration
+- `mpvConfig.nix` (~90 LOC) - Media player configuration: mpv with thumbfast, mpris and modernx — patched (`mpv/modernx-upscale-button.patch`, applied after `prePatch` drops modernx's CRLF line endings) with an HD button left of info driving `mpv/upscale.lua` (Anime4K modes A/B/C off by default: left click next, right click off, Ctrl+1/2/3 and Ctrl+0, the AZERTY digit-row symbols too; state in `user-data/upscale`; `desktopApps.mpvUpscaleQuality` fast = M/S networks, hq = VL/M; shaders from `pkgs.anime4k` via `script-opts/upscale.conf`) —, `osc=no` (modernx draws the controls), `profile=high-quality`, `deband`, a 1 GiB / 120 s cache
 - `thunderbirdConfig.nix` (34 LOC) - Email client configuration
 
 **Infrastructure & Tools:**

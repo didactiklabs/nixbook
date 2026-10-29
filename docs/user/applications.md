@@ -15,6 +15,8 @@
 | Files              | **Dolphin** with plugins, Ark, kio-admin, thumbnails, GParted (`dolphinConfig`)                                                                |
 | Video              | **mpv** with thumbfast, MPRIS and modernx; yt-dlp, [ytui](/packages/#ytui) (YouTube) and [jtui](/packages/#jtui) (Jellyfin) TUIs (`mpvConfig`) |
 
+**mpv** plays at its high-quality profile (sharper upscaling, debanding) with a deep network cache for direct play. Anime4K upscaling is there on demand, off until asked: the **HD** button in modernx's control bar (left click the next mode, right click off) or **Ctrl+1/2/3** (**Ctrl+0** off) pick mode A (restore, then upscale: blurry or compressed sources), B (a softer restore for sharp ones) or C (denoise and upscale: grainy ones). `desktopApps.mpvUpscaleQuality` picks the networks: `fast` (default, for integrated GPUs) or `hq` (for a dedicated GPU). The Jellyfin player uses the same mpv and controls.
+
 Default applications (MIME): PDF → zathura, images → imv, video → mpv, folders → Dolphin, text → VS Code when installed, else NixVim in kitty.
 
 ## Zen Browser

@@ -1,0 +1,63 @@
+--- a/modernx.lua
++++ b/modernx.lua
+@@ -81,6 +81,7 @@
+   minimize = '\239\133\172',
+   fullscreen = '\239\133\173',  
+   info = '',
++  upscale = '\239\143\157', -- HD (zmdi-hd, nixbook)
+ }
+ 
+ -- Localization
+@@ -248,6 +249,7 @@
+     end
+     table.insert(bottom_button_line, 'skipfrwd')
+     table.insert(bottom_button_line, 'pl_next')
++    table.insert(bottom_button_line, 'tog_upscale')
+     table.insert(bottom_button_line, 'tog_info')
+     table.insert(bottom_button_line, 'tog_fs')
+ 
+@@ -1340,6 +1342,12 @@
+     lo.geometry = {x = osc_geo.w - 87, y = refY - 40, an = 5, w = 24, h = 24}
+     lo.style = osc_styles.Ctrl3
+     lo.visible = (osc_param.playresx >= 600)
++
++    -- nixbook: Anime4K upscaling (upscale.lua)
++    lo = add_layout('tog_upscale')
++    lo.geometry = {x = osc_geo.w - 137, y = refY - 40, an = 5, w = 24, h = 24}
++    lo.style = osc_styles.Ctrl3
++    lo.visible = (osc_param.playresx >= 650)
+     
+     geo = { x = 25, y = refY - 132, an = 1, w = osc_geo.w - 50, h = 48 }
+     lo = add_layout('title')
+@@ -1640,6 +1648,31 @@
+     ne.eventresponder['mbtn_left_up'] =
+         function () mp.commandv('cycle', 'fullscreen') end
+ 
++    -- tog_upscale (nixbook): upscale.lua's modes; dimmed while off
++    ne = new_element('tog_upscale', 'button')
++    ne.content = function ()
++        local u = mp.get_property_native('user-data/upscale') or {}
++        if (u.mode or 0) == 0 then
++            return '{\\alpha&H90&}' .. icons.upscale
++        end
++        return icons.upscale
++    end
++    ne.visible = (osc_param.playresx >= 650)
++    ne.tooltip_style = osc_styles.Tooltip
++    ne.tooltipF = function ()
++        local u = mp.get_property_native('user-data/upscale') or {}
++        if (u.mode or 0) == 0 then
++            return 'Upscale: off (click: mode A)'
++        end
++        return 'Upscale ' .. u.name .. ': ' .. (u.about or '') .. ' (click: next, right click: off)'
++    end
++    ne.eventresponder['mbtn_left_up'] =
++        function () mp.commandv('script-message', 'upscale-cycle') end
++    ne.eventresponder['mbtn_right_up'] =
++        function () mp.commandv('script-message', 'upscale-off') end
++    ne.eventresponder['enter'] =
++        function () mp.commandv('script-message', 'upscale-cycle') end
++
+     --tog_info
+     ne = new_element('tog_info', 'button')
+     ne.content = icons.info
