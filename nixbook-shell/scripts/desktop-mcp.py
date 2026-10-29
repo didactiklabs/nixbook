@@ -2747,7 +2747,20 @@ INITIATIVE_SAID_KEEP = 200
 INITIATIVE_BORING_MAX = 300
 INITIATIVE_NOTICE_BATCH = 6
 # Never reacted to: the shell's and the agent's own.
-INITIATIVE_OWN_APPS = {"claude", "reminder", "calendar", "nixbook-shell", "nixbook-desktop-mcp", "desktop agents"}
+# The apps the shell and its agents notify as (never reacted to: the user
+# sees them; the model was paid to find "Desktop control paused" boring).
+INITIATIVE_OWN_APPS = {"claude", "reminder", "calendar", "nixbook-shell", "nixbook-desktop-mcp", "desktop agents",
+                       "desktop agent", "shell", "snoozed", "nixbook", "quickshell", "window layouts", "usage habits",
+                       "screenshot", "recorder"}
+# Apps relaying another device's notifications (the phone's): their summary
+# is the phone app's name, so a kind of theirs is told apart by its sender.
+NOTICE_RELAY_APPS = {"kde connect", "gsconnect"}
+# How long a kind the model found boring stays dropped: tastes change, and
+# a word it judged on a bad day shouldn't silence that kind for good.
+NOTICE_BORING_DAYS = 14
+# Every month the counts of what the user did with an app's notifications
+# are halved, so old habits fade.
+NOTICE_DECAY_DAYS = 30
 
 INITIATIVE_SCHEMA = {
     "type": "object",
@@ -2809,7 +2822,7 @@ def initiative_path():
 
 
 def empty_initiative():
-    return {"version": 1, "pending": [], "said": [], "stats": {}, "muted": [], "boring": [], "calls": {}}
+    return {"version": 2, "pending": [], "said": [], "stats": {}, "muted": [], "boring": [], "calls": {}}
 
 
 class Initiative(Memory):
@@ -2817,7 +2830,33 @@ class Initiative(Memory):
     empty = staticmethod(empty_initiative)
 
     def migrate(self):
-        pass
+        now = int(time.time())
+        if self.data.get("version", 1) < 2:
+            # Before 2026-10-29 an app closing its own notification (Vesktop
+            # once read in Discord, KDE Connect once cleared on the phone) and
+            # a transient one timing out were counted as the user dismissing
+            # it: whole apps looked unwanted. Their counts start again.
+            self.data["apps"] = {}
+            self.data["version"] = 2
+            self.changed = True
+        # The notice kinds found boring ("app|summary"; the chat keys stay):
+        # dated, forgotten after NOTICE_BORING_DAYS.
+        at = self.data.setdefault("boringAt", {})
+        keep = []
+        for b in self.data.get("boring") or []:
+            if "|" in str(b):
+                if b not in at:
+                    at[b] = now
+                    self.changed = True
+                elif now - int(at[b] or 0) > NOTICE_BORING_DAYS * 86400:
+                    at.pop(b, None)
+                    self.changed = True
+                    continue
+            keep.append(b)
+        for b in [b for b in at if b not in keep]:
+            at.pop(b, None)
+            self.changed = True
+        self.data["boring"] = keep
 
 
 def read_initiative():
@@ -2840,10 +2879,15 @@ def initiative_value(data, kind, app=None):
     return v
 
 
-def notice_pattern(app, summary):
+def notice_pattern(app, summary, body=""):
     """A notification's kind: its app and summary, numbers and names of
-    files aside (\"Battery at 12%\" is \"Battery at #%\")."""
-    return fold(f"{app}|{re.sub(r'[0-9]+([.,][0-9]+)?', '#', summary or '')}")[:120]
+    files aside (\"Battery at 12%\" is \"Battery at #%\"). A relayed one
+    (KDE Connect: the summary is the phone app) adds its sender, the body's
+    words before a colon, so one boring Instagram account isn't all of them."""
+    kind = re.sub(r'[0-9]+([.,][0-9]+)?', '#', summary or '')
+    if fold(app) in NOTICE_RELAY_APPS and ":" in (body or "")[:60]:
+        kind += " " + body.split(":", 1)[0].strip()[:40]
+    return fold(f"{app}|{kind}")[:120]
 
 
 def quiet_hours(cfg, now):
@@ -3201,7 +3245,7 @@ def notice_triage(cfg, data, items, focused):
             continue
         if focused and fold(app) and fold(app) in fold(focused):
             continue
-        pattern = notice_pattern(app, summary)
+        pattern = notice_pattern(app, summary, str(i.get("body") or ""))
         if pattern in data["boring"] or f"notice:{app.lower()}" in data["muted"] or f"notice:{pattern}" in data["muted"]:
             continue
         # An app whose notifications the user dismisses unread, always.
@@ -3210,7 +3254,8 @@ def notice_triage(cfg, data, items, focused):
             continue
         out.append({"app": app, "summary": summary, "body": str(i.get("body") or "")[:300],
                     "urgency": str(i.get("urgency") or "normal")})
-    return out[:INITIATIVE_NOTICE_BATCH]
+    # The newest of a burst (they come oldest first).
+    return out[-INITIATIVE_NOTICE_BATCH:]
 
 
 def notice_prompt(event, items, now, data_apps=None):
@@ -3251,7 +3296,9 @@ def notice_apply(data, items, answer, now):
     """The model's answer: the kinds it found boring kept, and what it says."""
     for k in answer.get("boring") or []:
         if isinstance(k, int) and 1 <= k <= len(items):
-            data["boring"].append(notice_pattern(items[k - 1]["app"], items[k - 1]["summary"]))
+            b = notice_pattern(items[k - 1]["app"], items[k - 1]["summary"], items[k - 1].get("body") or "")
+            data["boring"].append(b)
+            data.setdefault("boringAt", {})[b] = int(now)
     data["boring"] = list(dict.fromkeys(data["boring"]))[-INITIATIVE_BORING_MAX:]
     about = answer.get("about")
     about = items[about - 1] if isinstance(about, int) and 1 <= about <= len(items) else items[0]
@@ -4689,6 +4736,11 @@ def initiative_command(cfg, argv):
                 if not isinstance(c, dict):
                     continue
                 a = apps.setdefault(str(app).lower()[:60], {"acted": 0, "dismissed": 0})
+                now = time.time()
+                if now - float(a.get("decayed") or now) > NOTICE_DECAY_DAYS * 86400:
+                    a["acted"], a["dismissed"] = a.get("acted", 0) // 2, a.get("dismissed", 0) // 2
+                    a["decayed"] = int(now)
+                a.setdefault("decayed", int(now))
                 for k in ("acted", "dismissed"):
                     if isinstance(c.get(k), int) and 0 <= c[k] <= 1000:
                         a[k] += c[k]
@@ -6267,10 +6319,38 @@ def habits_now(data, now):
     return lines
 
 
+# The habits digests, kept while their files and the hour stay the same
+# (re-folding the whole history for every context was most of its cost).
+_DIGEST_MEMO = {}
+
+
+def _digest_memo(kind, cfg, now, compute):
+    def stamp(path):
+        try:
+            st = os.stat(path)
+            return st.st_mtime_ns, st.st_size
+        except OSError:
+            return None
+    lt = time.localtime(now or time.time())
+    key = (kind, stamp(habits_path()), stamp(habits_log_path()), lt.tm_yday, lt.tm_hour,
+           json.dumps({k: cfg.get(k) for k in sorted(cfg) if str(k).startswith(("habits", "music"))}, default=str))
+    if key not in _DIGEST_MEMO:
+        if len(_DIGEST_MEMO) > 32:
+            _DIGEST_MEMO.clear()
+        _DIGEST_MEMO[key] = compute()
+    return _DIGEST_MEMO[key]
+
+
 def habits_digest(cfg, now=None):
     """The line of the memory digest about the user's habits."""
     if not habits_on(cfg) or cfg.get("habitsAgents", "digest") == "off":
         return ""
+    if now is None:
+        return _digest_memo("habits", cfg, None, lambda: _habits_digest(cfg, None))
+    return _habits_digest(cfg, now)
+
+
+def _habits_digest(cfg, now=None):
     lines = habits_now(read_habits(), now or time.time())
     if not lines:
         return ""
@@ -6633,6 +6713,12 @@ def music_digest(cfg, now=None, tool=True):
     reader has the `habits` tool for more)."""
     if not music_on(cfg) or cfg.get("habitsAgents", "digest") == "off":
         return ""
+    if now is None:
+        return _digest_memo(f"music:{tool}", cfg, None, lambda: _music_digest(cfg, None, tool))
+    return _music_digest(cfg, now, tool)
+
+
+def _music_digest(cfg, now=None, tool=True):
     lines = music_taste(read_habits(), now or time.time())
     if not lines:
         return ""
@@ -8423,23 +8509,32 @@ class PrivacyMap(LockedJson):
         return tok
 
 
-def mask_text(value, vocab=None, typed=False):
+def mask_text(value, vocab=None, typed=False, learn=True, pmap=None):
+    """`learn` False: masked without counting the strangers it names (text
+    already counted when it was masked to be sent, e.g. the sent log's copy:
+    counted twice, a name became private after two sightings, not three)."""
     if not value:
         return value
     if vocab is None:
         if not privacy_on():
             return value
         vocab = privacy_vocab()
-    if vocab["learn"] and privacy_learn(value, vocab):
+    if learn and vocab["learn"] and privacy_learn(value, vocab):
         vocab = privacy_vocab()
     spans = privacy_spans(value, vocab, typed)
     if not spans:
         return value
+    if pmap is None:
+        with PrivacyMap() as m:
+            return _with_tokens(value, spans, m)
+    return _with_tokens(value, spans, pmap)
+
+
+def _with_tokens(value, spans, m):
     out, at = [], 0
-    with PrivacyMap() as m:
-        for start, end, spec in spans:
-            out += [value[at:start], m.token(spec)]
-            at = end
+    for start, end, spec in spans:
+        out += [value[at:start], m.token(spec)]
+        at = end
     return "".join(out) + value[at:]
 
 
@@ -8455,20 +8550,24 @@ def unmask_text(value, tokens=None):
     return PRIVACY_TOKEN.sub(lambda m: tokens.get(m.group(), m.group()), value)
 
 
-def mask_obj(obj, vocab=None):
-    """Every string in a JSON value masked (an image's data left as it is)."""
+def mask_obj(obj, vocab=None, pmap=None):
+    """Every string in a JSON value masked (an image's data left as it is):
+    the placeholder table opened once for the whole value, not per string."""
     if vocab is None:
         if not privacy_on():
             return obj
         vocab = privacy_vocab()
     if isinstance(obj, str):
-        return mask_text(obj, vocab)
+        return mask_text(obj, vocab, pmap=pmap)
+    if pmap is None and isinstance(obj, (list, dict)):
+        with PrivacyMap() as m:
+            return mask_obj(obj, vocab, m)
     if isinstance(obj, list):
-        return [mask_obj(v, vocab) for v in obj]
+        return [mask_obj(v, vocab, pmap) for v in obj]
     if isinstance(obj, dict):
         if obj.get("type") == "image":
             return obj
-        return {k: mask_obj(v, vocab) for k, v in obj.items()}
+        return {k: mask_obj(v, vocab, pmap) for k, v in obj.items()}
     return obj
 
 
@@ -8662,7 +8761,7 @@ def sent_read():
 def sent_note(purpose, model, prompt, web=False):
     """Kept for the user to see; never fails the call it records."""
     entry = {"time": int(time.time()), "purpose": purpose, "model": model, "web": web,
-             "local": str(model).startswith("local:"), "text": mask_text(str(prompt))[:SENT_TEXT_MAX]}
+             "local": str(model).startswith("local:"), "text": mask_text(str(prompt), learn=False)[:SENT_TEXT_MAX]}
     path = sent_path()
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)

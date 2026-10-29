@@ -63,8 +63,10 @@ Singleton {
         onBodyChanged: root.updated(wrapper)
 
         onNotificationChanged: {
+            // Its app closed it (Vesktop once the message is read, KDE
+            // Connect once the phone's is cleared): not the user dismissing it.
             if (notification === null && !superseded) {
-                root.discardNotification(notificationId);
+                root.discardNotification(notificationId, false);
             }
         }
     }
@@ -107,7 +109,7 @@ Singleton {
                 return;
             }
             if (notifObject.timer === notifTimer) notifObject.timer = null; // destroyed below, not by destroyTimers()
-            if (notifObject.isTransient) root.discardNotification(notificationId);
+            if (notifObject.isTransient) root.discardNotification(notificationId, false);
             else root.timeoutNotification(notificationId);
             destroy()
         }
@@ -434,13 +436,17 @@ Singleton {
         });
     }
 
-    function discardNotification(id) {
-        root.discardNotifications([id]);
+    // `byUser` false: gone without the user (its app closed it, a transient
+    // one timed out), so not counted as their dismissal (the Initiative and
+    // the triage learn from those: counting these made every Discord and
+    // phone notification look unwanted).
+    function discardNotification(id, byUser = true) {
+        root.discardNotifications([id], false, byUser);
     }
 
     // `expired`: close them as expired rather than dismissed by the user
     // (duplicates replaced by another copy).
-    function discardNotifications(ids, expired = false) {
+    function discardNotifications(ids, expired = false, byUser = true) {
         console.log("[Notifications] Discarding notifications with IDs: " + ids.join(", "));
         const idSet = new Set(ids);
         // Assign a new array instead of splicing: on a list<> property, splice()
@@ -452,7 +458,7 @@ Singleton {
         if (!expired)
             for (const notif of discarded) {
                 if (root._actedIds[notif.notificationId]) delete root._actedIds[notif.notificationId];
-                else root.dismissed(notif.appName);
+                else if (byUser) root.dismissed(notif.appName);
             }
         if (discardedUnread > 0)
             root.unread = Math.max(0, root.unread - discardedUnread);

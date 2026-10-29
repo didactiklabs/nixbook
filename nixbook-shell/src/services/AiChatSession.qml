@@ -250,7 +250,7 @@ Scope {
     // The panel opened on this tab, on Claude: Claude Code started ahead, so
     // the first message doesn't wait for it.
     function prewarm() {
-        if (requester.running || requester.turnActive) return;
+        if (requester.running || requester.turnActive || (Config.options.policies.ai ?? 1) !== 1) return;
         // Only a new chat or the session of this one, with no file attached.
         requester.pendingLine = "";
         requester.launch("", chat.claudeSessionId);
@@ -443,6 +443,16 @@ Scope {
             }
             const attached = attachedFile && attachedFile.length > 0 && attachedFile.startsWith("/") ? attachedFile : "";
 
+            // AI features off or local only (policies.ai, switched while a
+            // Claude chat was open): said, nothing sent.
+            if ((Config.options.policies.ai ?? 1) !== 1) {
+                requester.message.content = Translation.tr("**Not sent**: online AI features are off (Settings > Desktop agents > AI features).");
+                requester.message.rawContent = requester.message.content;
+                requester.message.done = true;
+                requester.message.thinking = false;
+                return;
+            }
+
             /* Send the request */
             let prompt = Ai.claudeCodePrompt(filteredMessageArray, attached, chat.claudeSessionId);
             if (chat.pendingContext.length > 0) {
@@ -582,7 +592,10 @@ Scope {
 
         stdout: SplitParser {
             onRead: data => {
-                if (data.length === 0 || !requester.activeMessage || !requester.turnActive) return;
+                // A superseded turn's last lines (flushed as it stops): not the
+                // new turn's, nor its fresh stream state.
+                if (data.length === 0 || !requester.activeMessage || !requester.turnActive
+                        || requester.restartPending || requester.activeMessage.done) return;
                 if (requester.activeMessage.thinking) requester.activeMessage.thinking = false;
 
                 try {

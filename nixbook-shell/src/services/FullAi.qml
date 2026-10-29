@@ -156,6 +156,9 @@ Singleton {
         root.didAlone = null;
         root.flash = "";
     }
+    // AI features switched off (policies.ai) while on: the mode ends.
+    readonly property bool aiOnline: (Config.options?.policies?.ai ?? 1) === 1
+    onAiOnlineChanged: if (!aiOnline) root.exit()
     function toggle() {
         if (root.active) root.exit();
         else root.enter();
@@ -171,24 +174,35 @@ Singleton {
     // What it just did on its own: the user saying no undoes the learning.
     property var didAlone: null
     // Its own words and the shell's: not events.
-    readonly property var ownApps: ["claude", "desktop agent", "snoozed", "nixbook", "nixbook-shell", "quickshell"]
+    // (desktop-mcp.py's INITIATIVE_OWN_APPS names the same.)
+    readonly property var ownApps: ["claude", "desktop agent", "desktop agents", "snoozed", "nixbook", "nixbook-shell",
+        "nixbook-desktop-mcp", "quickshell", "shell", "window layouts", "usage habits", "screenshot", "recorder", "reminder", "calendar"]
     readonly property var reactEvents: ["download", "battery_low", "monitor_connected", "monitor_disconnected",
         "audio_output", "wifi_disconnected", "back", "day_start"]
     function event(ev) {
         if (!root.active || !root.reactOn) return;
         if (ev.event === "back" && (ev.away ?? 0) < 10) return;
-        // A burst from one app: only its latest.
-        root.queue = root.queue.filter(q => !(q.event === ev.event && q.app && q.app === ev.app)).concat([ev]).slice(-6);
+        // A burst from one app: one event, its messages together (two
+        // people writing in a second mustn't lose the first).
+        const same = root.queue.find(q => q.event === ev.event && q.app && q.app === ev.app);
+        if (same && ev.event === "notification") {
+            const merged = Object.assign({}, ev, {
+                title: same.title === ev.title ? ev.title : `${same.title} / ${ev.title}`.slice(0, 200),
+                text: `${same.text ?? ""}\n${ev.title && same.title !== ev.title ? ev.title + ": " : ""}${ev.text ?? ""}`.trim().slice(-900) });
+            root.queue = root.queue.map(q => q === same ? merged : q);
+        } else {
+            root.queue = root.queue.filter(q => !(q.event === ev.event && q.app && q.app === ev.app)).concat([ev]).slice(-6);
+        }
         pump.restart();
     }
     Connections {
         target: Notifications
         function onNotify(n) {
-            if (!root.active || !root.reactOn || Notifications.silent) return;
+            if (!root.active || !root.reactOn || Notifications.silent || !root.aiOnline) return;
             const app = String(n.appName ?? "");
             if (root.ownApps.includes(app.toLowerCase()) || (n.transient ?? false)) return;
             root.event({ event: "notification", app: app, title: String(n.summary ?? ""),
-                         text: String(n.body ?? "").slice(0, 600), id: n.notificationId ?? n.id ?? 0 });
+                         text: String(n.body ?? "").replace(/<[^>]+>/g, "").slice(0, 600), id: n.notificationId ?? n.id ?? 0 });
         }
     }
     Connections {
