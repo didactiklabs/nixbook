@@ -21,7 +21,7 @@ import QtQuick
  *     what came in, in batches;
  *   - moment: now and then, at random (40 minutes to 2 hours apart while
  *     the user is at the computer), a chance for a light word: most of the
- *     time nothing is said, at most a couple a day, only in the bar.
+ *     time nothing is said, at most a couple a day, as a small bubble.
  *   - happened (ai.initiative.reactions, off by default): what the user
  *     just did (a download, a screenshot, a drive), with one-click help.
  * What it says comes out loud (`speaking`: its own bubble on the left,
@@ -117,6 +117,33 @@ Singleton {
     // lights up for what they haven't, and for a routine it offered until
     // they answer it (its Yes is there).
     property var _read: ({})
+    // Kept across restarts (Persistent.states.ai.initiativeRead).
+    property bool _readLoaded: false
+    function _loadRead() {
+        if (root._readLoaded || !Persistent.ready) return
+        const ids = {}
+        for (const id of Persistent.states.ai.initiativeRead ?? []) ids[id] = true
+        root._read = Object.assign(ids, root._read)
+        root._readLoaded = true
+        root._feedUnread()
+    }
+    Connections {
+        target: Persistent
+        function onReadyChanged() { root._loadRead() }
+    }
+    // Every unread word still current gets its small bubble once (a word
+    // written by the memory pass, a routine's report or a watch, those
+    // waiting when the shell started): none goes to the bar unseen.
+    property var _fed: ({})
+    function _feedUnread() {
+        if (!root._readLoaded) return
+        const t = Date.now()
+        for (const p of root.pending) {
+            if (!p?.id || root._fed[p.id] || root._read[p.id] || (p.expires ?? 0) * 1000 <= t) continue
+            root._fed[p.id] = true
+            root._feed(p)
+        }
+    }
     readonly property var unread: root.live.filter(p => p.accept || !root._read[p.id])
 
     // Quiet words on their way to the small bubbles (`_feed`): they come in
@@ -126,6 +153,7 @@ Singleton {
     property var _known: null
     function _feed(item) {
         if (!item?.id || item.id === root.speaking?.id) return
+        root._fed[item.id] = true
         root._arrivals = [...root._arrivals.filter(p => p.id !== item.id), item]
         root.now = Date.now()
         root._flush()
@@ -425,7 +453,11 @@ Singleton {
     // The user saw it (the bubble hovered, typed in, closed).
     function markRead(item) {
         const it = item ?? root.speaking
-        if (it?.id && !root._read[it.id]) root._read = Object.assign({}, root._read, { [it.id]: true })
+        if (it?.id && !root._read[it.id]) {
+            root._read = Object.assign({}, root._read, { [it.id]: true })
+            if (Persistent.ready)
+                Persistent.states.ai.initiativeRead = [...(Persistent.states.ai.initiativeRead ?? []).filter(id => id !== it.id), it.id].slice(-300)
+        }
     }
     function _pick(list) {
         return list[Math.floor(Math.random() * list.length)]
@@ -734,20 +766,18 @@ Singleton {
         onLoaded: {
             try {
                 const data = JSON.parse(stateFile.text())
-                const known = root._known
                 root.pending = data.pending ?? []
                 root.log = data.log ?? []
                 root.watches = data.watches ?? []
                 root.muted = data.muted ?? []
-                // A quiet word written by something else (the memory pass, a
-                // routine's report, a watch): a small bubble too. Not those
-                // there when the shell started.
+                // A word written by something else (the memory pass, a
+                // routine's report, a watch), or waiting since before the
+                // shell started: a small bubble too, unless already read.
                 const ids = {}
                 for (const p of root.pending) ids[p.id] = true
                 root._known = ids
-                if (known !== null)
-                    for (const p of root.pending)
-                        if (!known[p.id] && p.level === "badge" && (p.time ?? 0) * 1000 > Date.now() - 300000) root._feed(p)
+                root._loadRead()
+                root._feedUnread()
             } catch (e) {
                 root.pending = []
                 root.log = []

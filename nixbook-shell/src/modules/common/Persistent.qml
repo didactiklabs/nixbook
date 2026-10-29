@@ -72,6 +72,10 @@ Singleton {
 
             property JsonObject ai: JsonObject {
                 property string model: "config-assistant"
+                // Claude's words the user has seen (Initiative.markRead), the
+                // last 300 ids: what is unread gets a small bubble, also
+                // after a restart; what was read doesn't come back.
+                property list<string> initiativeRead: []
             }
 
             property JsonObject cheatsheet: JsonObject {
