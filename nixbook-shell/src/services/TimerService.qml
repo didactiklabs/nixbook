@@ -432,7 +432,7 @@ Singleton {
             property int serverId: -1
             function close() {
                 if (serverId > 0)
-                    Notifications.discardNotification(serverId + Notifications.idOffset);
+                    Notifications.discardNotification(serverId + Notifications.idOffset, false);
                 serverId = -1;
                 running = false;
             }

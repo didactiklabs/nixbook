@@ -524,6 +524,8 @@ Singleton {
         root.speaking = { id: "", kind: "quick", text: r.said }
     }
     function _toClaude(item, said, attach) {
+        // AI off or local only (policies.ai): nothing goes to Claude.
+        if (!root.online) return
         if (!root.chat) root.prepare()
         if (!root.chat) return
         root._taken(item)

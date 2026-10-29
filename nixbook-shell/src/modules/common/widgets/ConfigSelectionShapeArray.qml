@@ -7,6 +7,12 @@ import qs.modules.common.functions
 
 Flow {
     id: root
+    // A StyledToolTip inside shows while this is hovered (without a
+    // `hovered` it took the row for always hovered: stuck on screen).
+    readonly property alias hovered: rowHover.hovered
+    HoverHandler {
+        id: rowHover
+    }
     Layout.fillWidth: true
     spacing: 2
 

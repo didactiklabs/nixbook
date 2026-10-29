@@ -68,7 +68,26 @@ Scope {
 
     // A message as plain text: no thinking or tool blocks, little markdown;
     // a table's rows as "a · b", its |---| line gone.
+    // The last few answers (a plain object changed in place, never a
+    // notifying property: bindings read it): the message line and the
+    // thinking dots ask for the same text on each streamed chunk, and each
+    // ran these regexes over the whole message, tool blocks and all.
+    readonly property var _plainMemo: ({ keys: [], values: [] })
     function plain(text) {
+        const s = String(text ?? "")
+        const memo = root._plainMemo
+        const at = memo.keys.indexOf(s)
+        if (at >= 0) return memo.values[at]
+        const out = root._plain(s)
+        memo.keys.push(s)
+        memo.values.push(out)
+        if (memo.keys.length > 6) {
+            memo.keys.shift()
+            memo.values.shift()
+        }
+        return out
+    }
+    function _plain(text) {
         return String(text ?? "")
             .replace(/<think>[\s\S]*?(<\/think>|$)/g, "")
             .replace(/^[ \t]*\|?[ \t]*:?-{2,}:?[ \t]*(\|[ \t]*:?-{2,}:?[ \t]*)*\|?[ \t]*\n?/gm, "")

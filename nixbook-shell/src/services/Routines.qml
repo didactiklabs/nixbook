@@ -481,7 +481,13 @@ Singleton {
         target: Battery
         function onPercentageChanged() {
             const now = Math.round(Battery.percentage * 100)
-            if (!Battery.isPluggedIn) root.happen({ event: "battery_low", percent: now, prev: root._lastPercent })
+            // Only when it crosses a threshold (20, 10, 5 % or a routine's
+            // own): every 1 % reached the Reactor, and Full AI paid a model
+            // call for each.
+            const prev = root._lastPercent
+            const th = [20, 10, 5, ...root.active.filter(r => r.when?.event === "battery_low").map(r => r.when.percent ?? 20)]
+            if (!Battery.isPluggedIn && th.some(t => prev > t && now <= t))
+                root.happen({ event: "battery_low", percent: now, prev: prev })
             root._lastPercent = now
         }
         function onIsPluggedInChanged() {
