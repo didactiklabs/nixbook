@@ -461,6 +461,13 @@ Whether to enable essential CLI utilities for day-to-day shell work. Installs li
 
 Whether to enable a curated set of GUI desktop applications. Installs and configures: Documents / media viewers: - zathura — lightweight keyboard-driven PDF viewer - imv — minimal Wayland image viewer (set as default for images) Communication & entertainment: - vesktop — custom Discord client (Vencord-patched) - spotify — music streaming client Creation & recording: - obs-studio — screen/audio recording and streaming - pinta — simple Paint-like image editor Display management: - wdisplays — Wayland display arrangement GUI (arandr equivalent) Browser: - firefox — set as default for http/https/text/html MIME types File management (dolphinConfig.nix, active when this is enabled): - dolphin + dolphin-plugins, ark, kio-admin, ffmpegthumbs, kpeople, kservice, ntfs3g, gparted Media playback (mpvConfig.nix, active when this is enabled): - mpv with thumbfast, mpris, and modernx scripts - yt-dlp (YouTube/media downloader) - ytui (YouTube TUI), jtui (JSON viewer TUI)
 
+### `customHomeManagerModules.desktopApps.mpvUpscaleQuality`
+
+- **Type:** `one of "fast", "hq"`
+- **Default:** `"fast"`
+
+Which Anime4K networks mpv's Upscale button (modernx, Ctrl+1/2/3) loads: `fast` (the M and S ones, for integrated GPUs such as a Radeon 680M) or `hq` (VL and M, for a dedicated GPU).
+
 ---
 
 ## desktopEntriesConfig
