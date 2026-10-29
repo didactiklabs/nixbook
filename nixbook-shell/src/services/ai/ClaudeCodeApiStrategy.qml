@@ -102,7 +102,10 @@ QtObject {
                 if (block.type !== "tool_use") continue;
                 toolCalls[block.id] = `**${toolLabel(block.name)}** ${brief(block.input, 300)}`;
                 steps = [...steps, { id: block.id, tool: String(block.name ?? "").replace(/^mcp__[^_]+__/, ""),
-                                     summary: brief(block.input, 80), status: "run" }];
+                                     // Shown (the bubble's step line): the real names, the
+                                     // mask is for the model provider only. Unmasked before
+                                     // it is cut, so no name is left half a stand-in.
+                                     summary: brief(unmask(JSON.stringify(block.input ?? {})), 80), status: "run" }];
             }
         } else if (ev.type === "user") {
             for (const block of (ev.message?.content ?? [])) {
