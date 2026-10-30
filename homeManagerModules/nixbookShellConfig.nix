@@ -315,7 +315,7 @@ in
     type = lib.types.bool;
     default = true;
     description = ''
-      Whether to offer the nixbook-shell AI chat (V in the side panel, and
+      Whether to offer the nixbook-shell AI chat (DAI in the side panel, and
       nothing else: not your own Claude Code or other agents) LinkedIn, through
       [linkedin-mcp-server](https://github.com/stickerdaniel/linkedin-mcp-server)
       (`customPkgs.linkedin-mcp-server`): profiles, people and company
@@ -333,7 +333,7 @@ in
     default = null;
     defaultText = lib.literalMD "`null`: follows `jellyfinMcp.enable`";
     description = ''
-      Whether to offer the nixbook-shell AI chat (V in the side panel and
+      Whether to offer the nixbook-shell AI chat (DAI in the side panel and
       its speech bubble) the user's Seerr (Overseerr / Jellyseerr) through
       `customPkgs.seerr-mcp`: search films and series and see what is
       available or on its way, request them (a film, a series' seasons),
@@ -341,7 +341,7 @@ in
       Off in the chat until set up in Settings > Desktop agents > Apps it can
       use: the server, then your own login (sign in to Seerr in Zen, Firefox
       or Chrome as usual, OpenID Connect included, and Settings takes only
-      Seerr's session cookie into the keyring: V acts as you, no admin
+      Seerr's session cookie into the keyring: DAI acts as you, no admin
       key), or an admin's API key with who requests go out as (`ai.seerr`).
     '';
   };
@@ -353,7 +353,7 @@ in
       default = null;
       defaultText = lib.literalMD "`null`: on when Moonfin (`customPkgs.moonfin`) is in `home.packages`";
       description = ''
-        Whether to offer the nixbook-shell AI chat (V in the side panel
+        Whether to offer the nixbook-shell AI chat (DAI in the side panel
         and its speech bubble) the user's Jellyfin library through
         `customPkgs.jellyfin-mcp`: search, details, continue watching, next
         up, what plays where; play and control it, mark watched, favourites,

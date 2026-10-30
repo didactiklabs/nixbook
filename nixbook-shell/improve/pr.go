@@ -91,7 +91,7 @@ func watch(cfg Config, id string) (map[string]any, error) {
 		// No log to read (a runner's problem, not the change's): no retry.
 		if state == "fail" && strings.TrimSpace(strings.ReplaceAll(logs, "==", "")) != "" && !r.CIRetried && r.Session != "" {
 			editRun(id, func(r *Run) { r.CIRetried = true })
-			logEvent("retry", fmt.Sprintf("CI failed on #%d: V tries again with its logs", r.PR))
+			logEvent("retry", fmt.Sprintf("CI failed on #%d: DAI tries again with its logs", r.PR))
 			if r, err = retryCI(cfg, r, logs); err == nil {
 				start = time.Now()
 				time.Sleep(time.Minute)

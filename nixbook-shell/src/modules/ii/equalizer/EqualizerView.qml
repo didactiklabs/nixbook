@@ -1021,7 +1021,7 @@ Item {
                     }
                 }
                 StyledToolTip {
-                    text: Translation.tr("Each new song, a desktop agent (V) tunes the equalizer for it")
+                    text: Translation.tr("Each new song, a desktop agent (DAI) tunes the equalizer for it")
                 }
             }
 

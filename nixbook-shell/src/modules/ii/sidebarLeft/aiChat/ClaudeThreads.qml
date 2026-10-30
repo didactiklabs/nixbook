@@ -76,7 +76,7 @@ ListView {
                 }
             }
             StyledToolTip {
-                text: Translation.tr("Clear the threads from V (but the pinned ones)")
+                text: Translation.tr("Clear the threads from DAI (but the pinned ones)")
             }
         }
     }

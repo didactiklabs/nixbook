@@ -56,17 +56,17 @@ func describeTool(name string, input map[string]any, dir string) string {
 	}
 	switch name {
 	case "Read":
-		return "V reads " + str("file_path")
+		return "DAI reads " + str("file_path")
 	case "Edit", "Write", "MultiEdit":
-		return "V edits " + str("file_path")
+		return "DAI edits " + str("file_path")
 	case "Grep":
-		return "V searches for “" + clip(str("pattern"), 60) + "”"
+		return "DAI searches for “" + clip(str("pattern"), 60) + "”"
 	case "Glob":
-		return "V looks for " + clip(str("pattern"), 60)
+		return "DAI looks for " + clip(str("pattern"), 60)
 	case "StructuredOutput":
-		return "V writes its answer"
+		return "DAI writes its answer"
 	}
-	return "V: " + name
+	return "DAI: " + name
 }
 
 // waitingSummary: why nothing is ripe, for the activity.

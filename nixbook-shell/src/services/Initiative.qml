@@ -621,7 +621,7 @@ Singleton {
         onExited: (code, status) => {
             const where = extracted.text.trim()
             if (code === 0 && where.startsWith("/")) root._reveal(where)
-            else Quickshell.execDetached(["notify-send", "-a", "V", "V", extractError.text.trim() || Translation.tr("Couldn't extract it")])
+            else Quickshell.execDetached(["notify-send", "-a", "DAI", "DAI", extractError.text.trim() || Translation.tr("Couldn't extract it")])
         }
     }
     // The conversation (or what it said) in the side panel, for more room.

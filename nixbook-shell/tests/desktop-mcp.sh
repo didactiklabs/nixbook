@@ -1485,7 +1485,7 @@ STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {react: true, urgent: true, abo
 out=$(consider '{"event":"notifications","read":true,"focused":"firefox","next":"Review in 10 min","items":[
   {"app":"Power","summary":"Battery at 8%","body":"Plug in soon","urgency":"critical"},
   {"app":"Spotify","summary":"Now playing 3 songs"},
-  {"app":"V","summary":"I have something"},
+  {"app":"DAI","summary":"I have something"},
   {"app":"Claude","summary":"From before the rename"},
   {"app":"firefox","summary":"Download done"}]}')
 expect_eq "notifications: a reaction, urgent" notify "$(jq -r .action <<<"$out")"
@@ -1795,6 +1795,22 @@ python3 "$mcp" routine run "$loop" '{"event":"music_repeating","app":"YouTube Mu
 expect_contains "routine agent: told why it fired" "$(cat "$calls.claude-prompt")" '"why": "the same artist has played for 31 minutes, as the shell counted it: it is on repeat"'
 expect_not_contains "routine agent: not a song in a row it wasn't" "$(cat "$calls.claude-prompt")" "in a row"
 call routine "{\"action\":\"remove\",\"id\":\"$loop\"}" >/dev/null
+# A kind of music, judged at each track: one that isn't it starts no
+# cooldown, says nothing in the bar and isn't judged again.
+call routine '{"action":"add","text":"Whenever I play cyberpunk music, set a Cyberpunk theme","when":{"event":"track_changed"},"do":{"agent":"If cyberpunk music plays, set the cyberpunk theme","servers":["youtube-music"]}}' >/dev/null
+genre=$(jq -r '.routines[-1].id' "$mem")
+say_yes "$genre"
+export STUB_CLAUDE_ANSWER='{"result": "Not this time: K/DA is K-pop, not cyberpunk."}'
+out=$(python3 "$mcp" routine run "$genre" '{"event":"track_changed","app":"YouTube Music","text":"K/DA THE BADDEST"}')
+expect_eq "routine pass: reported" "true" "$(jq -r .passed <<<"$out")"
+expect_contains "routine pass: told how to say it" "$(cat "$calls.claude-args")" "Not this time:"
+expect_not_contains "routine pass: nothing in the bar" "$(python3 "$mcp" initiative pending | jq -r '.[].text')" "K-pop"
+expect_eq "routine pass: the same track isn't judged again" "not this time (judged before)" "$(python3 "$mcp" routine run "$genre" '{"event":"track_changed","text":"K/DA THE BADDEST"}' | jq -r .why)"
+export STUB_CLAUDE_ANSWER='{"result": "Cyberpunk music plays, so I set the Cyberpunk theme."}'
+out=$(python3 "$mcp" routine run "$genre" '{"event":"track_changed","text":"Marcin Przybyłowicz The Rebel Path"}')
+expect_eq "routine pass: no cooldown, the next track runs" "Cyberpunk music plays, so I set the Cyberpunk theme." "$(jq -r .said <<<"$out")"
+expect_eq "routine pass: a run that did something starts it" "it ran a moment ago" "$(python3 "$mcp" routine run "$genre" '{"event":"track_changed","text":"Other Song"}' | jq -r .why)"
+call routine "{\"action\":\"remove\",\"id\":\"$genre\"}" >/dev/null
 python3 "$mcp" routine run "$music" '{"event":"music_ended"}' >/dev/null
 touch "$XDG_RUNTIME_DIR/nixbook-shell-locked"
 jq --arg a "$agent" '(.routines[] | select(.id == $a)) |= (.last = 0)' "$mem" >"$mem.new" && mv "$mem.new" "$mem"

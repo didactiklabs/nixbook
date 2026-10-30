@@ -49,15 +49,15 @@ Scope {
     // Made for a conversation of the bubble (Ai.askThread): closed again
     // when left empty (Ai.dropIfEmpty).
     property bool fromBubble: false
-    // The bubble talks with V whatever the panel's model: the config
+    // The bubble talks with DAI whatever the panel's model: the config
     // assistant chosen there answered a request made in the bubble with
     // "is <module> enabled?" facts.
-    readonly property bool talksToV: (chat.fromClaude || chat.fromBubble || Initiative.holds(chat))
+    readonly property bool talksToDai: (chat.fromClaude || chat.fromBubble || Initiative.holds(chat))
         && Ai.models["claude"] !== undefined
-    readonly property string modelId: chat.talksToV ? "claude" : Ai.currentModelId
+    readonly property string modelId: chat.talksToDai ? "claude" : Ai.currentModelId
     readonly property bool usingConfigAssistant: chat.modelId === Ai.configAssistantId
     readonly property string title: {
-        if (chat.fromClaude) return Translation.tr("From V");
+        if (chat.fromClaude) return Translation.tr("From DAI");
         const saved = Ai.history.find(c => c.id === chat.chatId)?.title;
         if (saved) return saved;
         const first = chat.messageIDs.map(id => chat.messageByID[id]).find(m => m?.role === "user");
@@ -212,7 +212,7 @@ Scope {
 
     function sendUserMessage(message) {
         // An agent typing into this chat would act with this Claude's tools.
-        if (DesktopControl.refuseIfAgentInput(Translation.tr("a message to V in the side panel"))) return;
+        if (DesktopControl.refuseIfAgentInput(Translation.tr("a message to DAI in the side panel"))) return;
         if (chat.fromClaude) Initiative.engaged();
         if (message.length === 0) return;
         chat.addMessage(message, "user");

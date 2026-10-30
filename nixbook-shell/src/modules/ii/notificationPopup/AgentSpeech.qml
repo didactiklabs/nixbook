@@ -357,7 +357,7 @@ Scope {
                             Layout.fillWidth: true
                             spacing: 0
                             StyledText {
-                                text: root.style === "cyberpunk" ? "V //" : "V"
+                                text: root.style === "cyberpunk" ? "DAI //" : "DAI"
                                 font.family: root.font
                                 font.weight: Font.Bold
                                 font.pixelSize: Appearance.font.pixelSize.normal
@@ -707,9 +707,9 @@ Scope {
                                     color: root.fg
                                     placeholderTextColor: Qt.alpha(root.fg, 0.5)
                                     font.family: root.font
-                                    placeholderText: window.grab ? Translation.tr("Message V… (Esc: put away, /new: start over)")
-                                        : root.conversing || Initiative.isAsk(root.item) ? Translation.tr("Message V…")
-                                        : Translation.tr("Answer V…")
+                                    placeholderText: window.grab ? Translation.tr("Message DAI… (Esc: put away, /new: start over)")
+                                        : root.conversing || Initiative.isAsk(root.item) ? Translation.tr("Message DAI…")
+                                        : Translation.tr("Answer DAI…")
                                     onActiveFocusChanged: {
                                         Initiative.typing = activeFocus || text.length > 0
                                         if (activeFocus) {
