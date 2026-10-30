@@ -49,6 +49,13 @@ Scope {
     // Made for a conversation of the bubble (Ai.askThread): closed again
     // when left empty (Ai.dropIfEmpty).
     property bool fromBubble: false
+    // The bubble talks with V whatever the panel's model: the config
+    // assistant chosen there answered a request made in the bubble with
+    // "is <module> enabled?" facts.
+    readonly property bool talksToV: (chat.fromClaude || chat.fromBubble || Initiative.holds(chat))
+        && Ai.models["claude"] !== undefined
+    readonly property string modelId: chat.talksToV ? "claude" : Ai.currentModelId
+    readonly property bool usingConfigAssistant: chat.modelId === Ai.configAssistantId
     readonly property string title: {
         if (chat.fromClaude) return Translation.tr("From V");
         const saved = Ai.history.find(c => c.id === chat.chatId)?.title;
@@ -396,7 +403,7 @@ Scope {
 
         function makeRequest() {
             // The config assistant: answered here from the configuration, no request.
-            if (Ai.usingConfigAssistant) {
+            if (chat.usingConfigAssistant) {
                 const turns = chat.messageIDs.map(id => chat.messageByID[id]).filter(m => m?.role === "user");
                 const question = turns[turns.length - 1]?.rawContent ?? "";
                 const previous = turns[turns.length - 2]?.rawContent ?? "";
@@ -407,7 +414,7 @@ Scope {
                     console.warn("[Ai] ConfigAssistant.answer failed:", e);
                 }
                 const reply = Ai.aiMessageComponent.createObject(chat, {
-                    "role": "assistant", "model": Ai.currentModelId,
+                    "role": "assistant", "model": chat.modelId,
                     "content": answer, "rawContent": answer, "thinking": false, "done": true,
                 });
                 const replyId = Ai.idForMessage(reply);
@@ -426,7 +433,7 @@ Scope {
             /* Create local message object */
             requester.message = Ai.aiMessageComponent.createObject(chat, {
                 "role": "assistant",
-                "model": Ai.currentModelId,
+                "model": chat.modelId,
                 "content": "",
                 "rawContent": "",
                 "thinking": true,

@@ -418,7 +418,7 @@ Singleton {
 
     readonly property var stopWords: new Set(("a an the is are am to of in on for with my me i do does how what which where when can could "
         + "should would it this that and or by from be use using key keyboard shortcut shortcuts bind binding press open get "
-        + "spawn launch bring mean meant want need please there way make you your yo whats current this put set run running").split(" "))
+        + "spawn launch bring mean meant want need please there way make you your yo whats current this put set run running one ones now").split(" "))
     readonly property var synonyms: ({
         "launcher": ["search", "app"], "app": ["launcher"], "screenshot": ["screen"], "float": ["floating"],
         "floating": ["tiled"], "terminal": ["kitty"], "lock": ["session"], "logout": ["log", "session"],
@@ -706,7 +706,8 @@ Singleton {
     function quickReply(question, previous = "") {
         if (!root.data) return null;
         const lang = root.detectLang(question);
-        const q = root.fold(question);
+        // "from now on" is no "is it on?" (enableAsk).
+        const q = root.fold(question).replace(/\bfrom now on\b/g, " ");
         if (/^(hi|hello|hey|yo|hiya|good (morning|afternoon|evening)|bonjour|salut|coucou|hallo|guten (tag|morgen|abend)|moin|servus|xin chao|chao)\b[\s!.,?]*$/.test(q))
             return `${root.tr(lang, "hi")} ${root.tr(lang, "capabilities")}\n\n${root.tr(lang, "tips")}`;
         if (/^(thanks|thank you|thx|merci|danke|cam on|ok|okay|cool|great|nice|super|parfait|gut|tot)\b[\s!.,]*$/.test(q))

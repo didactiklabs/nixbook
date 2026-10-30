@@ -476,7 +476,7 @@ Singleton {
         if (!root.isAsk(item))
             thread.addMessage(item.chat || item.text, "assistant", true, root._hint(item))
         root.chat = thread
-        if ((Ai.models[Ai.currentModelId]?.api_format ?? "") === "claude-code" && Ai.claudeCodePath.length > 0)
+        if ((Ai.models[thread.modelId]?.api_format ?? "") === "claude-code" && Ai.claudeCodePath.length > 0)
             thread.prewarm()
     }
     function _hint(item) {
