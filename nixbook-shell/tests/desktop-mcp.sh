@@ -1797,16 +1797,19 @@ expect_not_contains "routine agent: not a song in a row it wasn't" "$(cat "$call
 call routine "{\"action\":\"remove\",\"id\":\"$loop\"}" >/dev/null
 # A kind of music, judged at each track: one that isn't it starts no
 # cooldown, says nothing in the bar and isn't judged again.
-call routine '{"action":"add","text":"Whenever I play cyberpunk music, set a Cyberpunk theme","when":{"event":"track_changed"},"do":{"agent":"If cyberpunk music plays, set the cyberpunk theme","servers":["youtube-music"]}}' >/dev/null
+expect_contains "routine: an agent on every track needs a topic" "$(call routine '{"action":"add","text":"x","when":{"event":"track_changed"},"do":{"agent":"If cyberpunk music plays, set the cyberpunk theme"}}')" "when.about: say what the track"
+call routine '{"action":"add","text":"Whenever I play cyberpunk music, set a Cyberpunk theme","when":{"event":"track_changed","about":"cyberpunk music"},"do":{"agent":"Set the cyberpunk theme","servers":["youtube-music"]}}' >/dev/null
 genre=$(jq -r '.routines[-1].id' "$mem")
 say_yes "$genre"
-export STUB_CLAUDE_ANSWER='{"result": "Not this time: K/DA is K-pop, not cyberpunk."}'
+# The judge's verdict (structured_output) and the agent's report (result).
+export STUB_CLAUDE_ANSWER='{"structured_output": {"matches": ["t1"]}, "result": "Not this time: K/DA is K-pop, not cyberpunk."}'
 out=$(python3 "$mcp" routine run "$genre" '{"event":"track_changed","app":"YouTube Music","text":"K/DA THE BADDEST"}')
 expect_eq "routine pass: reported" "true" "$(jq -r .passed <<<"$out")"
 expect_contains "routine pass: told how to say it" "$(cat "$calls.claude-args")" "Not this time:"
+expect_contains "routine about: the agent is told it was judged" "$(cat "$calls.claude-prompt")" '"matched": "judged to be about: cyberpunk music"'
 expect_not_contains "routine pass: nothing in the bar" "$(python3 "$mcp" initiative pending | jq -r '.[].text')" "K-pop"
 expect_eq "routine pass: the same track isn't judged again" "not this time (judged before)" "$(python3 "$mcp" routine run "$genre" '{"event":"track_changed","text":"K/DA THE BADDEST"}' | jq -r .why)"
-export STUB_CLAUDE_ANSWER='{"result": "Cyberpunk music plays, so I set the Cyberpunk theme."}'
+export STUB_CLAUDE_ANSWER='{"structured_output": {"matches": ["t1"]}, "result": "Cyberpunk music plays, so I set the Cyberpunk theme."}'
 out=$(python3 "$mcp" routine run "$genre" '{"event":"track_changed","text":"Marcin Przybyłowicz The Rebel Path"}')
 expect_eq "routine pass: no cooldown, the next track runs" "Cyberpunk music plays, so I set the Cyberpunk theme." "$(jq -r .said <<<"$out")"
 expect_eq "routine pass: a run that did something starts it" "it ran a moment ago" "$(python3 "$mcp" routine run "$genre" '{"event":"track_changed","text":"Other Song"}' | jq -r .why)"
