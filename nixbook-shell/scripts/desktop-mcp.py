@@ -3874,6 +3874,7 @@ def routine_idea(cfg, event, now):
         when = routine_when(idea.get("when"))
         do = routine_do(cfg, idea.get("do"))
         routine_values_check(when, do)
+        routine_topic_check(when, do)
     except ToolError as e:
         return {"action": "none", "why": f"ideas: not a routine it can make ({short(str(e), 80)})"}
     r = {"id": secrets.token_hex(3), "text": text_, "when": when, "do": do, "on": False, "idea": True,
@@ -4961,7 +4962,9 @@ ROUTINE_SYSTEM = (
     "from a game, film or series…), judge it as the user would, from all you "
     "know about it: a song from its soundtrack, a cover or remix of one, its "
     "artists, the same mood all count, not only how it sounds; lean towards "
-    "yes when it plausibly fits. When you did nothing because what happened isn't what "
+    "yes when it plausibly fits. When what happened says it was already "
+    "judged to be about the routine's topic (matched), take that as settled: "
+    "do the action, don't judge it again. When you did nothing because what happened isn't what "
     "the routine waits for (not that kind of music, not that app…), start "
     "with \"" + "Not this time:" + "\" and say why in a few words."
 )
@@ -5245,6 +5248,7 @@ def t_routine(ctx, args):
         cooldown = (args.get("when") or {}).get("cooldown")
         do = routine_do(ctx.cfg, args.get("do"))
         routine_values_check(when, do)
+        routine_topic_check(when, do)
         r = {"id": secrets.token_hex(3), "text": body, "when": when, "do": do, "on": False,
              "cooldown": int(cooldown) if isinstance(cooldown, (int, float)) and not isinstance(cooldown, bool)
              and 0 <= cooldown <= 1440 else ROUTINE_COOLDOWN,
@@ -5362,6 +5366,9 @@ def routine_agent(cfg, r, event):
     happened = {k: event[k] for k in ROUTINE_EVENT_FIELDS if k in event}
     if r["when"].get("words"):
         happened["matched"] = r["when"]["words"]
+    if r["when"].get("about"):
+        # routine_run got here only once it was judged to fit (or its words).
+        happened["matched"] = f"judged to be about: {r['when']['about']}"
     why = routine_why(r["when"], event)
     if why:
         happened["why"] = why
@@ -5467,6 +5474,17 @@ def routine_judge(cfg, r, event, now):
 
 def routine_judgments_path():
     return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-shell", "routine-judgments.json")
+
+
+def routine_topic_check(when, do):
+    """An agent run on every track or window title needs what it waits for:
+    a topic (judged first, cheaply, by a stronger model) or words. Without
+    one, each song started a whole agent run, which judged it alone on the
+    routine model and missed covers."""
+    if do.get("agent") and when["event"] in ROUTINE_ABOUT_EVENTS and not when.get("about") and not when.get("words"):
+        raise ToolError("when.about: say what the track or title must be about (\"cyberpunk music: Cyberpunk "
+                        "2077 and Edgerunners soundtracks, their covers, synthwave\"): each one is judged against "
+                        "it first, and {agent} runs only when it fits (or give words found in it)")
 
 
 def routine_pass_key(r, event):

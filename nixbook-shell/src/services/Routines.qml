@@ -58,14 +58,16 @@ Singleton {
     // The track as a music cue's `words` see it: artist, title and album
     // (a soundtrack names its game or film in the album: "This Mysterious
     // Feeling (P3R ver.)" is on "Persona 3 Reload Original Soundtrack").
+    // The player's own fields, never activeTrack's "Unknown Title"
+    // placeholders (a player sends its metadata in pieces).
     function trackText() {
-        const t = MprisController.activeTrack
-        return [t?.artist, t?.title, MprisController.activePlayer?.trackAlbum].filter(s => s).join(" ")
+        const p = MprisController.activePlayer
+        return [p?.trackArtist, p?.trackTitle, p?.trackAlbum].filter(s => s).join(" ")
     }
     // The same, field by field, for a topic's judge.
     function trackFields() {
-        const t = MprisController.activeTrack
-        return { artist: t?.artist ?? "", title: t?.title ?? "", album: MprisController.activePlayer?.trackAlbum ?? "" }
+        const p = MprisController.activePlayer
+        return { artist: p?.trackArtist ?? "", title: p?.trackTitle ?? "", album: p?.trackAlbum ?? "" }
     }
     function _matches(when, ev) {
         const lower = s => String(s ?? "").toLowerCase()
@@ -420,10 +422,24 @@ Singleton {
     Connections {
         target: MprisController
         function onTrackChanged() {
-            if (!root.anyPlaying) return
+            if (root.anyPlaying) trackSettle.restart()
+        }
+    }
+    // A new track once its metadata has settled: players send the title,
+    // then the artist, album and art, each a trackChanged; one event per
+    // song (not one with a placeholder title, then one without the album:
+    // each was a topic judged again), none without a title.
+    property string _lastTrack: ""
+    Timer {
+        id: trackSettle
+        interval: 1500
+        onTriggered: {
+            const f = root.trackFields()
+            const key = `${f.artist}|${f.title}|${f.album}`
+            if (!root.anyPlaying || f.title.trim() === "" || key === root._lastTrack) return
+            root._lastTrack = key
             root.happen(Object.assign({ event: "track_changed", app: MprisController.activePlayer?.identity ?? "",
-                          artist: MprisController.activeTrack?.artist ?? "",
-                          text: root.trackText() }, root.trackFields()))
+                          text: root.trackText() }, f))
         }
     }
 

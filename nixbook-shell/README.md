@@ -842,7 +842,11 @@ event in one call, under `routine-judgments.json`'s lock, so the others
 find their verdict there; verdicts are kept per track (90 days, 3000
 items), `words` in it skip the model, `routineJudgePerDay` (300) caps the
 calls. The shell hands such a routine every event (its words don't filter
-it). The shell reports a
+it). An {agent} routine on those events needs a topic or words
+(`routine_topic_check`): it runs only once the track was judged to fit,
+and is told so (`matched`), so it doesn't judge again on the routine
+model. `track_changed` fires once per song, 1.5 s after the player's
+metadata settles (`trackSettle`), never with a placeholder title. The shell reports a
 routine's action undone within 3 min (`routine undone`): twice, it is off.
 Learned routines (`ai.routines.learn` off/suggest/auto; `routine learn MODE`,
 hourly from Routines.qml, once a day in effect): `learn_patterns` mines the
