@@ -484,7 +484,7 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                 shown: Ai.messageIDs.length === 0 && !root.historyOpen
                 // The local configuration assistant: how to ask for answers it
                 // gets right.
-                readonly property bool configAssistant: Ai.usingConfigAssistant
+                readonly property bool configAssistant: (Ai.current?.usingConfigAssistant ?? Ai.usingConfigAssistant)
                     && (Config.options?.ai?.includeSystemContext ?? true)
                 icon: configAssistant ? "developer_board" : "neurology"
                 title: configAssistant ? Translation.tr("Config assistant") : "V"
@@ -806,13 +806,15 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                 ApiInputBoxIndicator {
                     // Model indicator
                     icon: "api"
-                    text: Ai.getModel().name
-                    tooltipText: Translation.tr("Current model: %1\nSet it with %2model MODEL").arg(Ai.getModel().name).arg(root.commandPrefix)
+                    // A conversation of the bubble talks with V (AiChatSession.talksToV).
+                    readonly property string modelName: Ai.models[Ai.current?.modelId ?? Ai.currentModelId]?.name ?? ""
+                    text: modelName
+                    tooltipText: Translation.tr("Current model: %1\nSet it with %2model MODEL").arg(modelName).arg(root.commandPrefix)
                 }
 
                 ApiInputBoxIndicator {
                     // Tool indicator (no tools without a model)
-                    visible: !Ai.usingConfigAssistant
+                    visible: !(Ai.current?.usingConfigAssistant ?? Ai.usingConfigAssistant)
                     icon: "service_toolbox"
                     text: Ai.currentTool.charAt(0).toUpperCase() + Ai.currentTool.slice(1)
                     tooltipText: Translation.tr("Current tool: %1\nSet it with %2tool TOOL").arg(Ai.currentTool).arg(root.commandPrefix)
@@ -820,7 +822,7 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
 
                 ApiInputBoxIndicator {
                     // What the configuration assistant answers without the model
-                    visible: ConfigAssistant.ready && Ai.usingConfigAssistant
+                    visible: ConfigAssistant.ready && (Ai.current?.usingConfigAssistant ?? Ai.usingConfigAssistant)
                     icon: "help"
                     tooltipText: ConfigAssistant.ready ? ConfigAssistant.helpText(ConfigAssistant.uiLang(), true) : ""
                 }
