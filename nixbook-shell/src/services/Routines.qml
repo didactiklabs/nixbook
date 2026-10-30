@@ -55,6 +55,13 @@ Singleton {
         return root.active.some(r => r.when?.event === event)
     }
 
+    // The track as a music cue's `words` see it: artist, title and album
+    // (a soundtrack names its game or film in the album: "This Mysterious
+    // Feeling (P3R ver.)" is on "Persona 3 Reload Original Soundtrack").
+    function trackText() {
+        const t = MprisController.activeTrack
+        return [t?.artist, t?.title, MprisController.activePlayer?.trackAlbum].filter(s => s).join(" ")
+    }
     function _matches(when, ev) {
         const lower = s => String(s ?? "").toLowerCase()
         if (when.app && !lower(ev.app).includes(when.app)) return false
@@ -230,7 +237,7 @@ Singleton {
             root._userPausedAt = 0
             quietTimer.stop()
             if (!root._wasPlaying) root.happen({ event: "music_started", app: MprisController.activePlayer?.identity ?? "",
-                                                 text: `${MprisController.activeTrack?.artist ?? ""} ${MprisController.activeTrack?.title ?? ""}` })
+                                                 text: root.trackText() })
         }
         root._wasPlaying = root.anyPlaying
     }
@@ -400,7 +407,7 @@ Singleton {
             }
             if (!root._has("music_ended")) root.note("music", Translation.tr("quiet for 20 s, no routine for it"))
             root.happen({ event: "music_ended", app: MprisController.activePlayer?.identity ?? "",
-                          text: `${MprisController.activeTrack?.artist ?? ""} ${MprisController.activeTrack?.title ?? ""}` })
+                          text: root.trackText() })
         }
     }
     Connections {
@@ -409,7 +416,7 @@ Singleton {
             if (!root.anyPlaying) return
             root.happen({ event: "track_changed", app: MprisController.activePlayer?.identity ?? "",
                           artist: MprisController.activeTrack?.artist ?? "",
-                          text: `${MprisController.activeTrack?.artist ?? ""} ${MprisController.activeTrack?.title ?? ""}` })
+                          text: root.trackText() })
         }
     }
 
