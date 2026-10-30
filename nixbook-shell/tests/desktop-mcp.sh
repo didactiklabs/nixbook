@@ -1811,6 +1811,36 @@ out=$(python3 "$mcp" routine run "$genre" '{"event":"track_changed","text":"Marc
 expect_eq "routine pass: no cooldown, the next track runs" "Cyberpunk music plays, so I set the Cyberpunk theme." "$(jq -r .said <<<"$out")"
 expect_eq "routine pass: a run that did something starts it" "it ran a moment ago" "$(python3 "$mcp" routine run "$genre" '{"event":"track_changed","text":"Other Song"}' | jq -r .why)"
 call routine "{\"action\":\"remove\",\"id\":\"$genre\"}" >/dev/null
+# A topic (when.about): one small-model call judges every topic routine of
+# the event, its verdicts kept per track; its words match without a model.
+call routine '{"action":"add","text":"Whenever Persona 3 music plays, open Firefox","when":{"event":"track_changed","words":"persona 3","about":"Persona 3 music: its soundtrack, covers, remixes","cooldown":0},"do":{"tool":"launch_app","args":{"app":"firefox"}}}' >/dev/null
+p3=$(jq -r '.routines[-1].id' "$mem")
+say_yes "$p3"
+call routine '{"action":"add","text":"Whenever cyberpunk music plays, open Firefox","when":{"event":"track_changed","about":"cyberpunk music: Cyberpunk 2077 and Edgerunners soundtracks, their covers, synthwave","cooldown":0},"do":{"tool":"launch_app","args":{"app":"firefox"}}}' >/dev/null
+punk=$(jq -r '.routines[-1].id' "$mem")
+say_yes "$punk"
+expect_contains "routine about: only where there is something to judge" "$(call routine '{"action":"add","text":"x","when":{"event":"plugged","about":"y"},"do":{"tool":"launch_app","args":{"app":"firefox"}}}')" "when.about: only for"
+rm -f "$calls.claude-prompt"
+reset_calls
+out=$(python3 "$mcp" routine run "$p3" '{"event":"track_changed","artist":"ATLUS Sound Team","title":"Mass Destruction","album":"Persona 3 Reload Original Soundtrack"}')
+expect_eq "routine about: its words in the album, it runs" "true" "$(jq -r .ran <<<"$out")"
+expect_eq "routine about: words need no model" "no" "$([ -e "$calls.claude-prompt" ] && echo yes || echo no)"
+cover='{"event":"track_changed","artist":"Samuel Kim & Lorien","title":"I Really Want to Stay at Your House","album":"I Really Want to Stay at Your House"}'
+export STUB_CLAUDE_ANSWER='{"structured_output": {"matches": ["t2"]}}'
+expect_eq "routine about: judged, not this topic" "not about it" "$(python3 "$mcp" routine run "$p3" "$cover" | jq -r .why)"
+prompt=$(cat "$calls.claude-prompt")
+expect_contains "routine about: every topic in one call (this one)" "$prompt" "t1: Persona 3 music"
+expect_contains "routine about: every topic in one call (the other)" "$prompt" "t2: cyberpunk music"
+expect_contains "routine about: the track, as data" "$prompt" "I Really Want to Stay at Your House"
+rm -f "$calls.claude-prompt"
+reset_calls
+out=$(python3 "$mcp" routine run "$punk" "$cover")
+expect_eq "routine about: the other topic's verdict kept, it runs" "true" "$(jq -r .ran <<<"$out")"
+expect_contains "routine about: its action" "$(cat "$calls")" "niri msg action spawn -- firefox"
+expect_eq "routine about: no second model call" "no" "$([ -e "$calls.claude-prompt" ] && echo yes || echo no)"
+expect_eq "routine about: the same track, judged before" "judged before: not about it" "$(python3 "$mcp" routine run "$p3" "$cover" | jq -r .why)"
+call routine "{\"action\":\"remove\",\"id\":\"$p3\"}" >/dev/null
+call routine "{\"action\":\"remove\",\"id\":\"$punk\"}" >/dev/null
 python3 "$mcp" routine run "$music" '{"event":"music_ended"}' >/dev/null
 touch "$XDG_RUNTIME_DIR/nixbook-shell-locked"
 jq --arg a "$agent" '(.routines[] | select(.id == $a)) |= (.last = 0)' "$mem" >"$mem.new" && mv "$mem.new" "$mem"

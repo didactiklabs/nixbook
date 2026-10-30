@@ -62,10 +62,17 @@ Singleton {
         const t = MprisController.activeTrack
         return [t?.artist, t?.title, MprisController.activePlayer?.trackAlbum].filter(s => s).join(" ")
     }
+    // The same, field by field, for a topic's judge.
+    function trackFields() {
+        const t = MprisController.activeTrack
+        return { artist: t?.artist ?? "", title: t?.title ?? "", album: MprisController.activePlayer?.trackAlbum ?? "" }
+    }
     function _matches(when, ev) {
         const lower = s => String(s ?? "").toLowerCase()
         if (when.app && !lower(ev.app).includes(when.app)) return false
-        if (when.words && !lower(ev.text).includes(when.words)) return false
+        // With a topic (about), nixbook-desktop-mcp judges: the words only
+        // spare it the model.
+        if (when.words && !when.about && !lower(ev.text).includes(when.words)) return false
         if (when.name && !lower(ev.name).includes(when.name)) return false
         if (when.ext && lower(ev.ext) !== when.ext.replace(/^\./, "")) return false
         if (when.event === "back" && (ev.away ?? 0) < (when.minutes ?? 30)) return false
@@ -236,8 +243,8 @@ Singleton {
         if (root.anyPlaying) {
             root._userPausedAt = 0
             quietTimer.stop()
-            if (!root._wasPlaying) root.happen({ event: "music_started", app: MprisController.activePlayer?.identity ?? "",
-                                                 text: root.trackText() })
+            if (!root._wasPlaying) root.happen(Object.assign({ event: "music_started", app: MprisController.activePlayer?.identity ?? "",
+                                                 text: root.trackText() }, root.trackFields()))
         }
         root._wasPlaying = root.anyPlaying
     }
@@ -406,17 +413,17 @@ Singleton {
                 return
             }
             if (!root._has("music_ended")) root.note("music", Translation.tr("quiet for 20 s, no routine for it"))
-            root.happen({ event: "music_ended", app: MprisController.activePlayer?.identity ?? "",
-                          text: root.trackText() })
+            root.happen(Object.assign({ event: "music_ended", app: MprisController.activePlayer?.identity ?? "",
+                          text: root.trackText() }, root.trackFields()))
         }
     }
     Connections {
         target: MprisController
         function onTrackChanged() {
             if (!root.anyPlaying) return
-            root.happen({ event: "track_changed", app: MprisController.activePlayer?.identity ?? "",
+            root.happen(Object.assign({ event: "track_changed", app: MprisController.activePlayer?.identity ?? "",
                           artist: MprisController.activeTrack?.artist ?? "",
-                          text: root.trackText() })
+                          text: root.trackText() }, root.trackFields()))
         }
     }
 
