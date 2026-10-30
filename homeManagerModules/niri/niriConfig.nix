@@ -950,6 +950,12 @@ in
                   "fullAi"
                   "toggle"
                 ];
+                # Kiroshi scan: the focused screen read by Claude's vision,
+                # a brief and what matters labelled with offers (1-8 opens one).
+                "Mod+K" = [
+                  "kiroshi"
+                  "scan"
+                ];
               }
           )
         )

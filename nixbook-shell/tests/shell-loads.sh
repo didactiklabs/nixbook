@@ -71,7 +71,9 @@ done
   exit 1
 }
 
-env XDG_RUNTIME_DIR="$run" WAYLAND_DISPLAY="$display" QT_QUICK_BACKEND=software LANG=C.UTF-8 \
+# Not the user's niri (NIRI_SOCKET from their session): the shell would read
+# and drive it instead of this sway.
+env -u NIRI_SOCKET XDG_RUNTIME_DIR="$run" WAYLAND_DISPLAY="$display" QT_QUICK_BACKEND=software LANG=C.UTF-8 \
   XDG_CONFIG_HOME="$home/config" XDG_STATE_HOME="$home/state" XDG_CACHE_HOME="$home/cache" \
   XDG_DATA_HOME="$home/data" "$package/bin/nixbook-shell" >"$out/raw.txt" 2>&1 &
 shell_pid=$!

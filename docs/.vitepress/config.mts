@@ -161,6 +161,7 @@ export default defineConfig({
           { text: 'Lock & login screens', link: '/nixbook-shell/lock-and-login' },
           { text: 'AI chat & config assistant', link: '/nixbook-shell/ai-assistant' },
           { text: 'Desktop control for AI agents', link: '/nixbook-shell/desktop-agents' },
+          { text: 'Kiroshi scan', link: '/nixbook-shell/kiroshi' },
           { text: "The agents' own desktop", link: '/nixbook-shell/agent-desktop' },
           { text: 'Fixes it makes itself', link: '/nixbook-shell/self-improve' },
         ],

@@ -513,6 +513,17 @@ Singleton {
         }
         root._toClaude(item, said, attach)
     }
+    // A task the shell gives DAI for the user (a Kiroshi offer, its "Tell
+    // me more" with the item's crop as `attach`): a new conversation in the
+    // bubble, straight to Claude (no quick command, no recent context: the
+    // task says what it needs).
+    function order(text, attach) {
+        const said = String(text ?? "").trim()
+        if (said.length === 0 || !root.online) return
+        root.fresh()
+        root.skipContext = true
+        root._toClaude(root.speaking, said, attach ?? "")
+    }
     // What jellyfin-mcp play-query answered: played ("Playing …"), or its
     // question / why not ("Which one: …?", "… has only 1 season"); not a
     // video it knows: Claude's, as if it had never been tried.
