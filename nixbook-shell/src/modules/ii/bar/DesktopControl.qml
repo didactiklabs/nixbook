@@ -155,7 +155,7 @@ Item {
                     spacing: 4
                     StyledPopupHeaderRow {
                         icon: "smart_toy"
-                        label: Translation.tr("V")
+                        label: Translation.tr("DAI")
                     }
                     StyledPopupValueRow {
                         Layout.fillWidth: true
@@ -166,7 +166,7 @@ Item {
                     }
                     Hint {
                         text: Initiative.speaking ? Translation.tr("Click to put its bubble away (Mod+C)")
-                            : Translation.tr("Click to ask V anything (Mod+C)")
+                            : Translation.tr("Click to ask DAI anything (Mod+C)")
                     }
                 }
             }
@@ -215,8 +215,8 @@ Item {
                     spacing: 4
                     StyledPopupHeaderRow {
                         icon: "chat_bubble"
-                        label: root.said ? Translation.tr("V has something for you")
-                            : Translation.tr("Your conversation with V")
+                        label: root.said ? Translation.tr("DAI has something for you")
+                            : Translation.tr("Your conversation with DAI")
                     }
                     StyledText {
                         visible: root.said !== null
@@ -228,7 +228,7 @@ Item {
                         color: Appearance.colors.colOnSurfaceVariant
                     }
                     Hint {
-                        text: Translation.tr("Click to read it in V's bubble, right-click for not now")
+                        text: Translation.tr("Click to read it in DAI's bubble, right-click for not now")
                     }
                 }
             }

@@ -89,7 +89,7 @@ Item {
         },
         {
             name: "attach",
-            description: Translation.tr("Attach a file for V to read"),
+            description: Translation.tr("Attach a file for DAI to read"),
             execute: args => {
                 Ai.attachFile(args.join(" ").trim());
             }
@@ -154,7 +154,7 @@ Item {
         },
         {
             name: "stop",
-            description: Translation.tr("Stop the answer being written (and what V is doing)"),
+            description: Translation.tr("Stop the answer being written (and what DAI is doing)"),
             execute: () => {
                 Ai.stopResponse();
             }
@@ -487,7 +487,7 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                 readonly property bool configAssistant: (Ai.current?.usingConfigAssistant ?? Ai.usingConfigAssistant)
                     && (Config.options?.ai?.includeSystemContext ?? true)
                 icon: configAssistant ? "developer_board" : "neurology"
-                title: configAssistant ? Translation.tr("Config assistant") : "V"
+                title: configAssistant ? Translation.tr("Config assistant") : "DAI"
                 descriptionHorizontalAlignment: configAssistant ? Text.AlignHCenter : Text.AlignLeft
                 description: configAssistant
                     ? Translation.tr("Your machine's config: shortcuts, modules, packages, settings.\n\nOne question, naming the thing:\n“shortcut for the launcher”\n“is tailscale enabled?”\n“all shortcuts”\n\nEnglish · Français · Deutsch · Tiếng Việt")
@@ -806,7 +806,7 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                 ApiInputBoxIndicator {
                     // Model indicator
                     icon: "api"
-                    // A conversation of the bubble talks with V (AiChatSession.talksToV).
+                    // A conversation of the bubble talks with DAI (AiChatSession.talksToDai).
                     readonly property string modelName: Ai.models[Ai.current?.modelId ?? Ai.currentModelId]?.name ?? ""
                     text: modelName
                     tooltipText: Translation.tr("Current model: %1\nSet it with %2model MODEL").arg(modelName).arg(root.commandPrefix)
