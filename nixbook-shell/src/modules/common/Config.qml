@@ -77,6 +77,21 @@ Singleton {
                 claudeCode.mcpServersOff = [...off, "seerr"];
             done.seerrOff = true;
         }
+        // nixbook-meta's model names (small, main, big: its provider's
+        // routing) left in a config.json: Claude Code knows none of them
+        // ("There's an issue with the selected model (small)"), so the
+        // equalizer agent and the fixer failed at once. Claude's own.
+        if (!done.metaModels) {
+            const claude = { small: "haiku", main: "sonnet", big: "opus" };
+            for (const key of ["equalizer.agentModel", "ai.improve.model", "ai.claudeCode.model", "ai.claudeCode.memoryModel"]) {
+                const parts = key.split(".");
+                const parent = parts.slice(0, -1).reduce((o, k) => o?.[k], root.options);
+                const name = parts[parts.length - 1];
+                const value = String(parent?.[name] ?? "").toLowerCase();
+                if (parent && claude[value] && !NixManaged.isPinned(key)) parent[name] = claude[value];
+            }
+            done.metaModels = true;
+        }
     }
     property int readWriteDelay: 50 // milliseconds
     property bool blockWrites: false

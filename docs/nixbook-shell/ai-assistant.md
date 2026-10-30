@@ -48,6 +48,8 @@ Replies stream in, each tool call shows with its result in a collapsible block, 
 
 ### What DAI can and can't do
 
+- **It answers fast and spends few tokens**: its prompt carries a short summary of this machine (the host, the shell, the enabled modules, the key bindings); the rest of the machine's reference (how-tos, packages, Neovim keymaps) comes with your message when you ask how something works, and DAI looks up anything else with its `machine_help` tool. The desktop tools you use most are ready at once; the others, and your connectors', are loaded when a request needs them, each with its full guide one call away. Nothing about what it knows or can do is left out: it is only sent when it matters.
+
 - It drives the desktop through the [desktop control tools](./desktop-agents) — with their guardrails, the pause button and the memory.
 - It remembers what you tell it about your life across conversations — the [personal memory](./desktop-agents#personal-memory): one short entry per subject, and only the entries about what you're talking about come with your message.
 - It gets the MCP servers of `assistant.mcpServers` and only the built-in tools in `ai.claudeCode.allowedTools` (web search and fetch). **Running commands is refused.**

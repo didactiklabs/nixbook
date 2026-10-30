@@ -446,7 +446,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 60 tools" 60 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 62 tools" 62 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -2896,6 +2896,35 @@ chars=$(python3 "$mcp" personal prompt | python3 -c 'import sys; print(len(sys.s
 if [ "$chars" -le 150 ]; then pass "personal digest: capped ($chars chars)"; else fail "personal digest: capped" "$chars chars"; fi
 rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
 
+# The machine's reference: found on demand, sent with a help question only.
+mkdir -p "$XDG_CONFIG_HOME/nixbook-shell"
+cat >"$XDG_CONFIG_HOME/nixbook-shell/system-context.md" <<'MD'
+# About this machine (reference)
+## Keyboard shortcuts (niri, rendered from the configuration)
+```kdl
+binds {
+    Print { spawn "nixbook-shell" "ipc" "call" "region" "screenshot"; }
+}
+```
+## How things are done on this machine
+- To take a screenshot, open the screenshot selector (the Print key): drag a rectangle, then left click copies it.
+- To pin the side panel, press Ctrl+P in it.
+## Packages installed for this user (Home Manager)
+Packages: kitty, zen-browser, vesktop, mpv, imv, zathura, dolphin, btop, ripgrep, fd, bat
+MD
+expect_contains "machine_help: what a question is about" "$(call machine_help '{"query":"how do I take a screenshot"}')" "To take a screenshot, open the screenshot selector"
+expect_contains "machine_help: a package that isn't installed" "$(call machine_help '{"query":"is firefox installed"}')" "firefox: not among the installed packages"
+ctxq=$(python3 "$mcp" personal context "How do I take a screenshot?")
+expect_contains "personal context: a help question gets the reference's lines" "$(jq -r .text <<<"$ctxq")" "To take a screenshot, open the screenshot selector"
+expect_eq "personal context: an order doesn't" "" "$(python3 "$mcp" personal context "take a screenshot of slack" | jq -r .text)"
+expect_eq "personal context: each line once a conversation" "" "$(python3 "$mcp" personal context --exclude "$(jq -r '.ids | join(",")' <<<"$ctxq")" "How do I take a screenshot?" | jq -r .text)"
+expect_contains "tools: a brief tool's guide with help: true" "$(call screenshot '{"help": true}')" "screenshot: "
+expect_contains "tool_help: any tool's guide" "$(call tool_help '{"name":"routine"}')" "Arguments:"
+expect_eq "tools: the core ones loaded up front by Claude Code" "true" "$(python3 "$mcp" tools | jq '[.[] | select(.name == "list_windows")][0]._meta["anthropic/alwaysLoad"]')"
+expect_eq "tools: the others deferred" "null" "$(python3 "$mcp" tools | jq '[.[] | select(.name == "routine")][0]._meta["anthropic/alwaysLoad"]')"
+expect_eq "tools: one agent's tool alone" "equalizer" "$(NIXBOOK_DESKTOP_MCP_TOOLS=equalizer python3 "$mcp" tools | jq -r '[.[].name] | join(",")')"
+rm "$XDG_CONFIG_HOME/nixbook-shell/system-context.md"
+
 out=$(python3 "$mcp" personal context "I booked the flight to Kyoto")
 expect_eq "personal context: the entries a message is about" "[\"$japan\"]" "$(jq -c .ids <<<"$out")"
 expect_contains "personal context: their text" "$(jq -r .text <<<"$out")" "japan (topic): Trip 2027-04"
@@ -3515,7 +3544,7 @@ out=$(call focus_window '{"id":1}')
 expect_eq "resume" "focused window 1" "$(head -n 1 <<<"$out")"
 
 echo '{"tools":["observe"],"actionsPerMinute":2}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
-expect_eq "config: disabled groups not listed" 7 "$(python3 "$mcp" tools | jq length)"
+expect_eq "config: disabled groups not listed" 9 "$(python3 "$mcp" tools | jq length)"
 out=$(call type_text '{"text":"x"}')
 expect_contains "config: disabled tool not callable" "$out" "unknown or disabled tool"
 echo '{"actionsPerMinute":2}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"

@@ -1014,6 +1014,20 @@ While one of your restores (or `cycle`) runs, every monitor is dimmed under a
 click or key doesn't land on a window being moved; it lifts when the restore
 is done (after 30 s at the latest).
 
+**DAI's context** stays small and cache-stable: its system prompt carries
+`system-context-summary.md` (`scripts/context-summary.py`, ≤ 6000 chars)
+instead of the whole `system-context.md` (~13k tokens), which the desktop
+server's `machine_help` searches; a help question ("how do I…", "which
+key…", "is X installed", in the four languages: `MACHINE_ASK`) gets the
+matching lines with the message (`machine_context`, in `personal context`),
+so it needs no round trip. Nothing volatile is in the prompt (the theme
+changes with routines; a changed prompt loses the prompt cache). ToolSearch
+is always on: the desktop server's `CORE_TOOLS` carry
+`_meta["anthropic/alwaysLoad"]` (loaded up front), the rest and the
+connectors' are deferred; long tools send a `brief` and keep their full
+guide behind `help: true` / `tool_help`; tool replies are compact JSON.
+Measured: 54.5k → 44.5k tokens of context per step, the same answers.
+
 **DAI in the side panel**: when Claude Code is installed (`claude` on the
 PATH, in `~/.local/bin` or a Nix profile), the AI chat offers **DAI**,
 the desktop assistant (`/model dai`; `/model claude` too), Claude through
