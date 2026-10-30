@@ -832,7 +832,17 @@ days (the routine's `passed`, `routine_pass_key`). "Whenever I play <some
 kind of> music" is `track_changed` (each new track), not `music_started`
 (only after silence). Music cues' `words` see the artist, title and album
 (`Routines.trackText`): a soundtrack names its game or film in the album
-("persona 3" matches Persona 3 Reload's OST, no model run). The shell reports a
+("persona 3" matches Persona 3 Reload's OST, no model run). A routine
+with a topic (`when.about`, on track_changed, music_started and
+window_title: "Persona 3 music: its soundtrack, covers, remixes…") has
+each track or title judged against it by the small model
+(`routine_judge`, `ROUTINE_JUDGE_SYSTEM`, `routineJudgeModel`, Sonnet by
+default: Haiku missed covers): the first routine to ask judges every topic routine of the
+event in one call, under `routine-judgments.json`'s lock, so the others
+find their verdict there; verdicts are kept per track (90 days, 3000
+items), `words` in it skip the model, `routineJudgePerDay` (300) caps the
+calls. The shell hands such a routine every event (its words don't filter
+it). The shell reports a
 routine's action undone within 3 min (`routine undone`): twice, it is off.
 Learned routines (`ai.routines.learn` off/suggest/auto; `routine learn MODE`,
 hourly from Routines.qml, once a day in effect): `learn_patterns` mines the
