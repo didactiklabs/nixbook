@@ -68,6 +68,7 @@ Singleton {
                 property bool dedupWindow: false
                 property bool jellyfinOff: false
                 property bool seerrOff: false
+                property bool metaModels: false
             }
 
             property JsonObject ai: JsonObject {

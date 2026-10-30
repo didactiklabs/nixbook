@@ -345,6 +345,12 @@ let
       de = "Um Fensteranordnungen zu speichern und wiederherzustellen (wo jedes Fenster ist: Bildschirm, Arbeitsbereich, Spalte und Größe, und welche Apps wieder zu öffnen sind), drücke Mod+G: Wähle eine gespeicherte Anordnung zum Wiederherstellen oder gib einen neuen Namen ein, um die Fenster so zu speichern, wie sie sind. Das Rechtsklickmenü des Desktops hat ein Untermenü Fensteranordnungen, und Einstellungen > Fensteranordnungen listet sie zum Wiederherstellen, Aktualisieren, Umbenennen oder Löschen. KI-Agenten können sie ebenfalls speichern und wiederherstellen.";
       vi = "Để lưu và khôi phục bố cục cửa sổ (vị trí của từng cửa sổ: màn hình, không gian làm việc, cột và kích thước, và các ứng dụng cần mở lại), nhấn Mod+G: chọn một bố cục đã lưu để khôi phục, hoặc gõ tên mới để lưu các cửa sổ như hiện tại. Menu chuột phải trên màn hình nền có menu con Bố cục cửa sổ, và Cài đặt > Bố cục cửa sổ liệt kê chúng để khôi phục, cập nhật, đổi tên hoặc xóa. Tác nhân AI cũng có thể lưu và khôi phục chúng.";
     };
+    daiEfficiency = {
+      en = "Why DAI answers fast and uses few tokens: its prompt carries only a short summary of this machine (host, shell, enabled modules, key bindings). When you ask how something works on this computer, the matching part of the machine's reference (how-tos, packages, Neovim keymaps) is sent with your message, so it answers at once; anything else it looks up with its machine_help tool. The desktop tools used most are ready up front; the others and your connectors' are loaded when a request needs them. It is just as capable: what it knows is sent when it matters, not with every message.";
+      fr = "Pourquoi DAI répond vite et consomme peu de jetons : son prompt ne contient qu'un court résumé de cette machine (hôte, shell, modules activés, raccourcis). Quand vous demandez comment faire quelque chose sur cet ordinateur, la partie correspondante de la référence de la machine (procédures, paquets, raccourcis Neovim) est envoyée avec votre message, il répond donc tout de suite ; le reste, il le cherche avec son outil machine_help. Les outils du bureau les plus utilisés sont prêts d'emblée ; les autres et ceux de vos connecteurs sont chargés quand une demande en a besoin. Il n'en est pas moins capable : ce qu'il sait est envoyé quand c'est utile, pas avec chaque message.";
+      de = "Warum DAI schnell antwortet und wenig Tokens braucht: Sein Prompt enthält nur eine kurze Zusammenfassung dieses Rechners (Host, Shell, aktivierte Module, Tastenkürzel). Fragst du, wie etwas auf diesem Computer geht, wird der passende Teil der Referenz des Rechners (Anleitungen, Pakete, Neovim-Tastenbelegungen) mit deiner Nachricht geschickt, also antwortet es sofort; alles andere schlägt es mit seinem Werkzeug machine_help nach. Die meistgenutzten Desktop-Werkzeuge sind sofort bereit; die anderen und die deiner Konnektoren werden geladen, wenn eine Anfrage sie braucht. Es kann genauso viel: Was es weiß, wird geschickt, wenn es zählt, nicht mit jeder Nachricht.";
+      vi = "Vì sao DAI trả lời nhanh và tốn ít token: lời nhắc của nó chỉ chứa một bản tóm tắt ngắn về máy này (máy chủ, shell, các module đang bật, phím tắt). Khi bạn hỏi cách làm gì đó trên máy tính này, phần tương ứng trong tài liệu tham khảo của máy (hướng dẫn, gói, phím Neovim) được gửi kèm tin nhắn, nên nó trả lời ngay; phần còn lại nó tra bằng công cụ machine_help. Các công cụ màn hình dùng nhiều nhất có sẵn ngay; các công cụ khác và của các connector được tải khi yêu cầu cần đến. Nó vẫn thông minh như cũ: những gì nó biết được gửi khi cần, không phải với mọi tin nhắn.";
+    };
     claudePanel = {
       en = "To use DAI in the AI chat (left sidebar), with your own Claude account and no API key: install Claude Code and log in once (run claude in a terminal), then pick DAI with /model dai or the button in Settings > Desktop agents > DAI in the side panel, where you also choose the model (Sonnet is faster) whether it may search the web, and which folders it may read (none by default: it reads none of your files unless you list a folder, or attach a file to a message). It can see and drive the desktop; it runs no commands and edits no files unless you turn on Command line there: it then runs commands as you (never in your terminal windows), only in the folders you allow (a sandbox; turn off Only in the allowed folders for full access), and asks in the chat before anything that changes the system or your files.";
       fr = "Pour utiliser DAI dans le chat IA (panneau de gauche), avec votre propre compte Claude et sans clé API : installez Claude Code et connectez-vous une fois (lancez claude dans un terminal), puis choisissez DAI avec /model dai ou le bouton dans Paramètres > Agents du bureau > DAI dans le panneau latéral, où vous choisissez aussi le modèle (Sonnet est plus rapide) s'il peut chercher sur le web, et les dossiers qu'il peut lire (aucun par défaut : il ne lit aucun de vos fichiers sauf dans un dossier que vous ajoutez, ou un fichier joint à un message). Il peut voir et piloter le bureau ; il ne lance aucune commande et ne modifie aucun fichier, sauf si vous y activez Ligne de commande : il lance alors des commandes en votre nom (jamais dans vos fenêtres de terminal), seulement dans les dossiers autorisés (un bac à sable ; désactivez Seulement dans les dossiers autorisés pour un accès complet), et demande dans le chat avant tout ce qui modifie le système ou vos fichiers.";
@@ -631,6 +637,21 @@ let
           } >> "$out"
         fi
         python3 ${./scripts/assistant-facts.py} --markdown "$infoPath" >> "$out"
+      '';
+
+  # The short version DAI's system prompt carries (services/Ai.qml, the
+  # bubble and the side panel): host, shell, enabled modules, the OS's main
+  # facts and the niri binds one line each, at most 6000 characters; the
+  # rest (how-tos, packages, Neovim keymaps…) is searched with the desktop
+  # server's machine_help tool, in the whole file above. Deterministic, so
+  # the prompt stays byte-stable for the model's prompt cache.
+  systemContextSummaryFile =
+    pkgs.runCommand "nixbook-shell-system-context-summary.md"
+      {
+        nativeBuildInputs = [ pkgs.python3 ];
+      }
+      ''
+        python3 ${./scripts/context-summary.py} ${systemContextFile} 6000 > "$out"
       '';
 
   # The same, as retrievable one-sentence facts for the chat's config
@@ -1236,6 +1257,7 @@ in
         xdg.configFile."nixbook-shell/nix-pinned-values.json".source = pinnedFile;
         # Machine context for the AI assistant (see above).
         xdg.configFile."nixbook-shell/system-context.md".source = systemContextFile;
+        xdg.configFile."nixbook-shell/system-context-summary.md".source = systemContextSummaryFile;
         xdg.configFile."nixbook-shell/system-facts.json".source = systemFactsFile;
         # Desktop control for AI agents (scripts/desktop-mcp.py).
         xdg.configFile."nixbook-shell/desktop-mcp.json".source =

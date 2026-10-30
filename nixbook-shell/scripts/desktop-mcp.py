@@ -231,6 +231,11 @@ def load_config():
     only = os.environ.get("NIXBOOK_DESKTOP_MCP_GROUPS")
     if only is not None:
         cfg["tools"] = [g for g in cfg["tools"] if g in only.split(",")]
+    # Only these tools (a single-purpose agent: the equalizer's): an agent
+    # is sent every tool the server offers, allowed or not.
+    names = os.environ.get("NIXBOOK_DESKTOP_MCP_TOOLS")
+    if names is not None:
+        cfg["onlyTools"] = [n for n in names.split(",") if n]
     return cfg
 
 
@@ -922,21 +927,73 @@ AFTER_PROPS = {
 }
 
 
-def tool(name, group, description, schema=None, *, read_only=False, destructive=False, title=None):
+# What the model is sent of AFTER_PROPS: the same, bare (the full text in
+# the guide).
+AFTER_PROPS_BRIEF = {"screenshot_after": {"type": "boolean"}, "wait_ms": {"type": "integer"}}
+HELP_PROP = {"type": "boolean", "description": "true: the tool's full guide instead of running it"}
+
+# The tools Claude Code loads up front (`_meta["anthropic/alwaysLoad"]`):
+# what most requests need, so they need no ToolSearch round trip first. The
+# others (and every connector's) stay deferred behind ToolSearch, found
+# when a task needs them; tool_help reads any tool's guide meanwhile.
+CORE_TOOLS = {
+    "get_status", "list_windows", "list_workspaces", "list_apps", "launch_app", "focus_window", "close_window",
+    "focus_workspace", "move_window_to_workspace", "window_action", "press_keys", "type_text", "click", "scroll",
+    "run_steps", "screenshot", "ui_read", "ui_act", "notifications", "recall", "remember", "recall_about_user",
+    "remember_about_user", "page_list", "page_read", "page_act", "page_go", "list_themes", "set_theme",
+    "machine_help", "tool_help",
+}
+
+
+def brief_schema(schema, props):
+    """The schema the model is sent: `props` {name: a shorter description,
+    or None for none} over a copy (the full one stays for the guide)."""
+    out = json.loads(json.dumps(schema))
+    for k, desc in (props or {}).items():
+        p = out.get("properties", {}).get(k)
+        if p is None:
+            continue
+        if desc is None:
+            p.pop("description", None)
+        else:
+            p["description"] = desc
+    return out
+
+
+def tool(name, group, description, schema=None, *, read_only=False, destructive=False, title=None, brief=None,
+         props=None):
+    """brief: the description the model is sent, when `description` is
+    long: `description` (and the schema's full argument descriptions)
+    become the tool's guide, returned by `help: true` and tool_help, so
+    trimming loses nothing. props: shorter argument descriptions."""
+    schema = schema or {"type": "object", "properties": {}}
+    full = schema
     if group in ACTION_GROUPS:
-        schema = dict(schema or {"type": "object", "properties": {}})
-        schema["properties"] = {**schema.get("properties", {}), **AFTER_PROPS}
+        full = dict(schema)
+        full["properties"] = {**schema.get("properties", {}), **AFTER_PROPS}
+        schema = dict(schema)
+        schema["properties"] = {**schema.get("properties", {}), **AFTER_PROPS_BRIEF}
+    shown = brief_schema(schema, props) if props else schema
+    if brief:
+        shown = dict(shown)
+        shown["properties"] = {**shown.get("properties", {}), "help": HELP_PROP}
 
     def register(fn):
+        meta = {"nixbook/group": group}
+        if name in CORE_TOOLS:
+            meta["anthropic/alwaysLoad"] = True
+            meta["nixbook/core"] = True
         TOOLS[name] = {
             "fn": fn,
             "group": group,
             "read_only": read_only,
+            # The whole guide (help: true, tool_help): what the description was.
+            "guide": (description, full) if brief or props or full is not schema else None,
             "spec": {
                 "name": name,
                 "title": title or name.replace("_", " ").capitalize(),
-                "description": description,
-                "inputSchema": schema or {"type": "object", "properties": {}},
+                "description": (brief.rstrip() + " help: true → its full guide.") if brief else description,
+                "inputSchema": shown,
                 "annotations": {
                     "readOnlyHint": read_only,
                     "destructiveHint": destructive,
@@ -945,7 +1002,8 @@ def tool(name, group, description, schema=None, *, read_only=False, destructive=
                 # observe: looks at windows and apps; screen: sees the screen
                 # or clipboard (private data leaves for the model); windows,
                 # input, shell: act. Clients can base their approvals on it.
-                "_meta": {"nixbook/group": group},
+                # Core: loaded up front by Claude Code.
+                "_meta": meta,
             },
         }
         return fn
@@ -953,9 +1011,32 @@ def tool(name, group, description, schema=None, *, read_only=False, destructive=
     return register
 
 
+def guide_text(name):
+    """A tool's full guide: its whole description and every argument's."""
+    t = TOOLS[name]
+    description, schema = t["guide"] or (t["spec"]["description"], t["spec"]["inputSchema"])
+    lines = [f"{name}: {description}"]
+    props = (schema or {}).get("properties") or {}
+    required = set((schema or {}).get("required") or [])
+    if props:
+        lines += ["", "Arguments:"]
+        for k, p in props.items():
+            kind = p.get("enum") and "one of " + ", ".join(map(str, p["enum"])) or p.get("type") or "any"
+            if isinstance(kind, list):
+                kind = " or ".join(kind)
+            line = f"- {k} ({kind}{', required' if k in required else ''})"
+            if p.get("description"):
+                line += f": {p['description']}"
+            if p.get("properties"):
+                line += " {" + ", ".join(p["properties"]) + "}"
+            lines.append(line)
+    return "\n".join(lines)
+
+
 def text(value):
+    # Compact: a reply goes to a model, and indentation is tokens for nothing.
     if not isinstance(value, str):
-        value = json.dumps(value, ensure_ascii=False, indent=1)
+        value = json.dumps(value, ensure_ascii=False)
     return {"type": "text", "text": value}
 
 
@@ -1524,6 +1605,239 @@ def t_system_info(ctx, args):
         if value not in (None, {}, []):
             out[name] = value
     return [text(out)]
+
+
+@tool(
+    "tool_help",
+    "observe",
+    "A tool's full guide (every action and argument), also for tools not loaded yet; without `name`, "
+    "every tool on offer in one line each.",
+    obj({"name": {"type": "string", "description": "The tool's name"}}),
+    read_only=True,
+)
+def t_tool_help(ctx, args):
+    on = enabled_tools(ctx.cfg)
+    name = args.get("name")
+    if name is None or name == "":
+        return [text("\n".join(f"{n}: {first_sentence(t['spec']['description'])}" for n, t in on.items()))]
+    if not isinstance(name, str) or name not in on:
+        raise ToolError(f"no tool {short(str(name), 60)!r} on offer (tool_help without a name lists them)")
+    return [text(guide_text(name))]
+
+
+def first_sentence(value, limit=140):
+    value = re.split(r"(?<=\.)\s", value.strip(), maxsplit=1)[0]
+    return short(value, limit)
+
+
+# -- the machine's reference (system-context.md) ------------------------------
+# The Home Manager module writes what this machine is (its modules, packages,
+# key bindings, how-tos, Neovim keymaps) into system-context.md. The prompt
+# carries only a summary: machine_help finds the parts a question needs.
+
+MACHINE_HELP_MAX = 3000
+MACHINE_HELP_LONG = 700  # a longer line (a list of packages…): only what matches
+MACHINE_HELP_ALIASES = (
+    (("shortcut", "keybind", "key binding"), {"shortcut", "shortcuts", "keybind", "keybinds", "keybinding", "keybindings",
+                                              "bind", "binding", "bindings", "key", "keys", "hotkey", "hotkeys",
+                                              "raccourci", "raccourcis", "tastenkurzel", "tastenkombination", "phim", "tat"}),
+    (("neovim", "nvim"), {"neovim", "nvim", "vim", "keymap", "keymaps", "leader"}),
+    (("package",), {"installed", "install", "package", "packages", "program", "programs", "paquet", "paket"}),
+    (("module",), {"module", "modules", "enabled", "option", "options"}),
+)
+# Verbs any how-to has: they count little ("how do I add a routine": routine).
+MACHINE_HELP_WEAK = {"add", "make", "set", "change", "get", "turn", "show", "see", "find", "work", "works", "put",
+                     "start", "stop", "run", "ajouter", "mettre", "changer", "hinzufugen", "andern", "them", "doi"}
+_MACHINE_DOC = {"key": None, "units": []}
+
+
+def machine_context_path():
+    return os.path.join(xdg("XDG_CONFIG_HOME", "~/.config"), "nixbook-shell", "system-context.md")
+
+
+def machine_units():
+    """system-context.md as [(section heading, text)], one per line, bullet
+    (with its wrapped lines) or paragraph; read again when it changes."""
+    path = machine_context_path()
+    try:
+        st = os.stat(path)
+        key = (path, st.st_mtime_ns, st.st_size)
+        if _MACHINE_DOC["key"] == key:
+            return _MACHINE_DOC["units"]
+        with open(path, encoding="utf-8", errors="replace") as f:
+            lines = f.read().splitlines()
+    except OSError:
+        return []
+    units, heading, cur = [], "", None
+    for raw in lines:
+        line = raw.rstrip()
+        if line.startswith("#"):
+            heading, cur = line.lstrip("#").strip(), None
+            continue
+        stripped = line.strip()
+        if not stripped or stripped.startswith("```") or stripped in ("binds {", "}"):
+            cur = None
+            continue
+        if stripped.startswith(("- ", "* ")) or re.match(r"[\w+<>-]+\s*\{", stripped) or cur is None:
+            units.append([heading, stripped])
+            cur = units[-1] if not re.match(r"[\w+<>-]+\s*\{", stripped) else None
+        else:
+            cur[1] += " " + stripped
+    _MACHINE_DOC["key"], _MACHINE_DOC["units"] = key, [tuple(u) for u in units]
+    return _MACHINE_DOC["units"]
+
+
+def machine_help(query, limit=MACHINE_HELP_MAX):
+    units = machine_units()
+    if not units:
+        return "The machine's reference (system-context.md) isn't there: answer from what you know."
+    sections = list(dict.fromkeys(h for h, _ in units))
+    q = set(words(query))
+    combos = [c.lower() for c in re.findall(r"(?i)\b((?:mod|super|ctrl|control|alt|shift)(?:\+[\w-]+)+)", query or "")]
+    if not q and not combos:
+        return "Sections of the machine's reference (ask about one): " + "; ".join(h for h in sections if h)
+    toks = [set(words(t)) for _, t in units]
+    n = len(units)
+    idf = {w: math.log(1 + n / (1 + sum(1 for u in toks if _match(w, u)))) * (0.3 if w in MACHINE_HELP_WEAK else 1)
+           for w in q}
+    wanted = {h for h in sections for keys, alias in MACHINE_HELP_ALIASES
+              if any(k in h.lower() for k in keys) and q & alias}
+    scored = []
+    for i, ((heading, body), uw) in enumerate(zip(units, toks)):
+        score = sum(idf[w] for w in q if _match(w, uw))
+        if score and len(body) > 160:
+            # What a long line is about is in its start.
+            lead = set(words(body[:120]))
+            score += sum(0.5 * idf[w] for w in q if _match(w, lead))
+        if heading in wanted and score:
+            score += 1
+        if any(body.lower().startswith(c + " ") or body.lower().startswith(c + "{") for c in combos):
+            score += 10
+        if score > 0:
+            scored.append((score, i))
+    if not scored:
+        packages = [h for h in wanted if "package" in h.lower()]
+        item_words = q - {w for _, alias in MACHINE_HELP_ALIASES for w in alias}
+        if packages and item_words:
+            # "Is X installed?" with nothing about X anywhere: it isn't.
+            return (f"## Packages\n{', '.join(sorted(item_words))}: not among the installed packages "
+                    f"({'; '.join(packages)})")
+        return (f"Nothing about {short(query, 80)!r} in the machine's reference; its sections: "
+                + "; ".join(h for h in sections if h))
+    best = max(sc for sc, _ in scored)
+    # Only what is about the question: a floor under the best match; and
+    # when it names a section (the key bindings, the packages…), that one.
+    kept = [x for x in scored if x[0] >= 0.5 * best]
+    if wanted and any(units[i][0] in wanted for _, i in kept):
+        kept = [x for x in kept if units[x[1]][0] in wanted or x[0] >= best]
+    # Ties: the shorter line, more to the point.
+    kept.sort(key=lambda x: (-x[0], len(units[x[1]][1])))
+    item_words = q - {w for _, alias in MACHINE_HELP_ALIASES for w in alias}
+    by_section, used = {}, 0
+    for _, i in kept:
+        heading, body = units[i]
+        body = machine_excerpt(body, item_words, q)
+        if not body:
+            continue
+        cost = len(body) + 1 + (0 if heading in by_section else len(heading) + 5)
+        if used + cost > limit:
+            continue
+        by_section.setdefault(heading, []).append(body)
+        used += cost
+    missing = [h for h in wanted if "package" in h.lower() and h not in by_section]
+    if missing and item_words and not any("package" in h.lower() for h in by_section):
+        # "Is X installed?": not among the packages is the answer.
+        by_section = {"Packages": [f"{', '.join(sorted(item_words))}: not among the installed packages "
+                                   f"({'; '.join(missing)})"], **by_section}
+    if not by_section:
+        return (f"Nothing about {short(query, 80)!r} in the machine's reference (not among its packages, modules, "
+                "key bindings or how-tos)")
+    return "\n".join(f"## {h}\n" + "\n".join(b) for h, b in by_section.items())
+
+
+# A question about how this machine works (how do I…, which key…, is X
+# installed…), in the shell's four languages: what gets the reference's
+# matching parts with the message (machine_context), so the answer needs
+# no machine_help round trip. Orders ("play some music", "close Slack")
+# and other questions get nothing: the parts that matched them by a word
+# would only cost tokens and mislead.
+MACHINE_ASK = re.compile(
+    r"\b(how (do|can|could|would|to|does|should|is)|how's|which (key|shortcut|button|setting)|what (key|shortcut|"
+    r"keybind|does (mod|super|ctrl|alt|shift)\b)|shortcut|keybind|hotkey|key binding|keymap|where (is|are|do|can|"
+    r"does)|is \S+ installed|do i have|is there a way|can i\b|settings?\b.*\?|comment (je|on|faire|puis|activer|"
+    r"changer|mettre)|raccourci|touche|où (est|sont|se)|est[- ]ce que (je|on) peut|est[- ]il install|wie (kann|mache|"
+    r"geht|stelle|ändere|aktiviere)|tastenk(ü|ue|u)rzel|wo (ist|sind|finde)|ist \S+ installiert|làm sao|làm thế nào|"
+    r"cách (nào|để)|phím tắt|ở đâu|có cài)", re.I)
+MACHINE_CONTEXT_MAX = 1500
+
+
+def machine_context(query, exclude=()):
+    """The reference's parts about a help question, for the chat to send
+    with it: (text, ids), ids naming its lines (sent once a conversation:
+    `exclude`). Nothing for what isn't such a question."""
+    if not MACHINE_ASK.search(query or ""):
+        return "", []
+    found = machine_help(query, limit=MACHINE_CONTEXT_MAX)
+    if not found.startswith("## "):
+        return "", []
+    out, ids, seen = [], [], set(exclude)
+    for line in found.split("\n"):
+        if line.startswith("## "):
+            out.append(line)
+            continue
+        i = "m:" + hashlib.sha1(line.encode()).hexdigest()[:10]
+        if i in seen:
+            continue
+        out.append(line)
+        ids.append(i)
+    if not ids:
+        return "", []
+    # Headings left without a line under them go.
+    text_ = "\n".join(l for k, l in enumerate(out) if not (l.startswith("## ") and (k + 1 == len(out) or out[k + 1].startswith("## "))))
+    return ("(From this machine's reference, about this question; machine_help has the rest:\n<<<\n"
+            + text_ + "\n>>>)"), ids
+
+
+def machine_excerpt(body, items_asked, q):
+    """A line as machine_help gives it: a list (packages, modules) cut to
+    the items asked for ("" when none is), a long paragraph to its first
+    sentence and those that match."""
+    lead, sep, rest = body.partition(": ")
+    items = [x.strip() for x in (rest if sep else body).split(",")]
+    # A list: items of a word or two, not prose.
+    if len(items) >= 8 and sum(1 for x in items if len(x.split()) <= 2) >= 0.8 * len(items):
+        if not items_asked:
+            return short(body, MACHINE_HELP_LONG)
+        hits = [x for x in items if any(_match(w, set(words(x))) for w in items_asked)]
+        if not hits:
+            return ""
+        return (lead + ": " if sep else "") + ", ".join(hits[:40]) + f" (of {len(items)})"
+    if len(body) <= MACHINE_HELP_LONG:
+        return body
+    want = items_asked or q
+    sentences = [x if len(x) <= 350 else x[:350].rsplit(" ", 1)[0] + "…" for x in re.split(r"(?<=[.;!?])\s+", body)]
+    text_ = sentences[0]
+    for x in sentences[1:]:
+        if any(_match(w, set(words(x))) for w in want) and len(text_) + len(x) + 1 <= MACHINE_HELP_LONG:
+            text_ += " " + x
+    return text_
+
+
+@tool(
+    "machine_help",
+    "observe",
+    "Look up this machine's own reference (its NixOS/Home Manager config: how-tos, niri key bindings, Neovim "
+    "keymaps, enabled modules, installed packages): the parts about `query`, at most 3000 characters. For "
+    "\"how do I…\", \"which key…\", \"is X installed\" on this computer.",
+    obj({"query": {"type": "string", "description": "What to look up, e.g. \"screenshot shortcut\", \"is firefox installed\""}},
+        ["query"]),
+    read_only=True,
+)
+def t_machine_help(ctx, args):
+    query = args.get("query")
+    if not isinstance(query, str):
+        raise ToolError("`query` must be a string")
+    return [text(machine_help(clean_text(query, 300)))]
 
 
 # -- applications ------------------------------------------------------------
@@ -7570,12 +7884,31 @@ def personal_digest_ids(query=""):
     return ids
 
 
+PERSONAL_CONTEXT_MIN = 2
+
+
 def personal_context(cfg, query, exclude=()):
     """The entries a message is about and the people it names (their
     contacts), not given yet: for the shell's AI chat to send with the
     message. (text, ids: the entries', and "contact:<id>" the contacts')"""
     exclude = set(exclude)
     found = personal_matches(read_personal(), query, exclude) if "personal" in cfg["tools"] else []
+    # With every message: only entries about it (a word of their topic or
+    # keywords, or two of their text). One shared word brought unrelated
+    # ones (a birthday gift with a screenshot question): tokens for
+    # nothing, and a distraction. recall_about_user still finds them all.
+    qw = words(query)
+    if found:
+        entries = read_personal()
+        texts = {e["id"]: set(words(e.get("text", ""))) for e in entries}
+
+        def telling(e):
+            # One word of its text, said exactly and rare among the entries
+            # ("Kyoto"): about it; one prefix-close or common ("shortcut"
+            # for "short", "take"): not.
+            exact = [w for w in qw if len(w) >= 4 and w in texts.get(e["id"], ())]
+            return any(sum(1 for t in texts.values() if w in t) <= 2 for w in exact)
+        found = [e for e in found if note_score(e, qw) >= PERSONAL_CONTEXT_MIN or telling(e)]
     people, people_ids = people_context(cfg, query, {i[8:] for i in exclude if i.startswith("contact:")})
     parts = []
     if found:
@@ -14118,7 +14451,8 @@ class Context:
 
 
 def enabled_tools(cfg):
-    return {n: t for n, t in TOOLS.items() if t["group"] in cfg["tools"]
+    only = cfg.get("onlyTools")
+    return {n: t for n, t in TOOLS.items() if t["group"] in cfg["tools"] and (only is None or n in only)
             and (n not in ("report_problem", "request_feature", "list_requests", "list_improvements",
                            "start_improvement") or cfg.get("improve"))}
 
@@ -14774,6 +15108,10 @@ def call_tool_now(ctx, name, args, session=None):
     if ai_policy() == 0:
         audit(ctx.client, name, args, "AI off")
         return [text("refused: the user turned AI features off (Settings > Desktop agents > AI features)")], True
+    # The guide behind a short description: nothing runs, paused or not.
+    if args.get("help") is True:
+        return [text(guide_text(name))], False
+    args = {k: v for k, v in args.items() if k != "help"}
     if t["group"] == "personal":
         return call_personal(ctx, t, name, args)
     if name not in PAUSE_FREE:
@@ -14863,7 +15201,7 @@ def call_tool_now(ctx, name, args, session=None):
 
 
 # Tools that don't touch the desktop: they answer while it is paused.
-PAUSE_FREE = ("get_status", "system_info")
+PAUSE_FREE = ("get_status", "system_info", "machine_help", "tool_help")
 
 
 def call_personal(ctx, t, name, args):
@@ -16579,8 +16917,12 @@ def personal_command(cfg, argv):
         if len(rest) > 1 and rest[0] == "--exclude":
             exclude = [i for i in rest[1].split(",") if i]
             rest = rest[2:]
-        found, ids = personal_context(cfg, " ".join(rest)[:2000], exclude)
-        print(json.dumps({"text": found, "ids": ids}, ensure_ascii=False))
+        query = " ".join(rest)[:2000]
+        found, ids = personal_context(cfg, query, [i for i in exclude if not i.startswith("m:")])
+        # And this machine's reference, when it is a question about it.
+        machine, mids = machine_context(query, [i for i in exclude if i.startswith("m:")])
+        found = "\n\n".join(t for t in (found, machine) if t)
+        print(json.dumps({"text": found, "ids": ids + mids}, ensure_ascii=False))
         return 0
     if sub in ("learn", "tidy"):
         rest = argv[1:]
