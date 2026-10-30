@@ -4852,8 +4852,9 @@ ROUTINE_EVENTS = {
     "music_silent": "no music has played for `minutes` (default 2) while the user is at the computer: for "
                     "\"whenever there's no music\" (also when they sit down to silence; held while they stopped it themselves)",
     "music_started": "music starts playing after silence (not the next track: that is track_changed)",
-    "track_changed": "a new track plays, the first one too (artist, words: in its title or artist): for "
-                     "\"whenever I play <some kind of> music\"",
+    "track_changed": "a new track plays, the first one too (artist, words: in its artist, title or album; "
+                     "a soundtrack's album names its game or film: words \"persona 3\" for Persona 3 music, "
+                     "free; a style or covers need {agent}): for \"whenever I play <some kind of> music\"",
     "music_repeating": "the same song has played `times` (default 3) times in a row (a loop counts), or the "
                        "same artist for `minutes` (default 30): for \"when a song is on repeat too long\" "
                        "(told: times, minutes)",

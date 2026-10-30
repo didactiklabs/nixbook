@@ -830,7 +830,9 @@ music broadly: soundtracks, covers, remixes, artists): no cooldown, no word
 in the bar, and the same track or window title isn't judged again for 7
 days (the routine's `passed`, `routine_pass_key`). "Whenever I play <some
 kind of> music" is `track_changed` (each new track), not `music_started`
-(only after silence). The shell reports a
+(only after silence). Music cues' `words` see the artist, title and album
+(`Routines.trackText`): a soundtrack names its game or film in the album
+("persona 3" matches Persona 3 Reload's OST, no model run). The shell reports a
 routine's action undone within 3 min (`routine undone`): twice, it is off.
 Learned routines (`ai.routines.learn` off/suggest/auto; `routine learn MODE`,
 hourly from Routines.qml, once a day in effect): `learn_patterns` mines the
