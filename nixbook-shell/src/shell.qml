@@ -31,6 +31,7 @@ ShellRoot {
         MemoryReminders.load()
         Initiative.load()
         FullAi.load()
+        Kiroshi.load()
         RecentContext.load()
         Routines.load()
         SelfImprove.load()

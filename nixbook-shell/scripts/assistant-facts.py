@@ -59,6 +59,11 @@ IPC = {
         "ouvrir la bulle de DAI, l'assistant du bureau, pour lui demander n'importe quoi (à nouveau : la ranger)",
         "die Sprechblase von DAI öffnen, dem Desktop-Assistenten, um alles zu fragen (nochmals: wegräumen)",
         "mở bong bóng thoại của DAI, trợ lý màn hình, để hỏi bất cứ điều gì (nhấn lại: cất đi)"),
+    ("kiroshi", "scan"): t(
+        "do a Kiroshi scan: DAI reads the screen and briefs you on what you're doing and what needs you, the things that matter framed, with tasks it can do for you",
+        "faire un scan Kiroshi : DAI lit l'écran et vous résume ce que vous faites et ce qui vous attend, l'important encadré, avec les tâches qu'il peut faire pour vous",
+        "einen Kiroshi-Scan machen: DAI liest den Bildschirm und fasst zusammen, woran du bist und was dich braucht, das Wichtige eingerahmt, mit Aufgaben, die es dir abnehmen kann",
+        "quét Kiroshi: DAI đọc màn hình và tóm tắt bạn đang làm gì, việc gì cần bạn, những thứ quan trọng được đóng khung, kèm các việc nó có thể làm giúp bạn"),
     ("desktopControl", "toggle"): t(
         "stop (pause) the AI agents controlling the desktop, or allow them again: the panic key",
         "arrêter (mettre en pause) les agents IA qui contrôlent le bureau, ou les autoriser à nouveau : la touche d'urgence",

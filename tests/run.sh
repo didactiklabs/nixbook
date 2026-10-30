@@ -111,6 +111,8 @@ cmd_shell() {
   bash nixbook-shell/tests/scripts.sh || failed=1
   section "nixbook-shell desktop control MCP server"
   bash nixbook-shell/tests/desktop-mcp.sh || failed=1
+  section "nixbook-shell Kiroshi scan"
+  bash nixbook-shell/tests/kiroshi.sh || failed=1
   section "nixbook-shell Electron apps' bridge (nixbook-electron-app)"
   bash nixbook-shell/tests/electron-bridge.sh || failed=1
   section "nixbook-shell side panel's Claude Code stream"

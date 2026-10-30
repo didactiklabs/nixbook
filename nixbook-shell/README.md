@@ -1207,6 +1207,26 @@ themselves. The `browser_*` names (the nixbook-meta fork's) are aliases
 work on their own desktop (it reaches the user's own Zen and apps).
 Automating a user account may break Discord's or Slack's terms.
 
+### Kiroshi scan
+
+`Mod+K` (`kiroshi scan`): the focused screen as a brief (services/Kiroshi.qml,
+modules/ii/kiroshi/KiroshiScan.qml). grim and magick take a 1280-px JPEG,
+then `nixbook-desktop-mcp kiroshi scan REQUEST.json` sends it with what the
+user is doing (windows, notifications with their ids, events, the recent
+activity, the focused window's `ui_read`, the offers they took before),
+masked, to Claude through Claude Code (`claude -p --input-format
+stream-json`, the image block first, no tools, `kiroshiModel`: Sonnet). It
+answers in JSON lines: the brief and the framed items (two passes at once),
+then each item's facts and offers (one pass each, in parallel), then their
+order. The offers are checked in code (`kiroshi_options`): a quick one is one
+allow-listed call (calendar, tasks, remind, widget notes, clipboard_set,
+page_go; a notification's reply or button and several cleared are the
+shell's, `Kiroshi.shellAction`), a reply waits for Send, one-click work is
+dropped; an agent one goes to DAI's bubble (`Initiative.order`), and so
+does Tell me more with the item's crop. What the user takes is kept
+(`kiroshi taken`, `kiroshi.json`) and read back by the next scans. Ported
+from nixbook-meta, where it runs on Meta's API.
+
 ### A desktop of their own
 
 So an agent can work while you work, it can be given its own desktop:
