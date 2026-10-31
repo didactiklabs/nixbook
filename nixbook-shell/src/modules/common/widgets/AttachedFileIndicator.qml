@@ -138,8 +138,9 @@ Rectangle {
                     antialiasing: true
                     width: root.imageWidth * root.scale
                     height: root.imageHeight * root.scale
-                    sourceSize.width: root.imageWidth * root.scale
-                    sourceSize.height: root.imageHeight * root.scale
+                    // sourceSize is a QSize: it takes whole pixels only
+                    sourceSize.width: Math.round(root.imageWidth * root.scale)
+                    sourceSize.height: Math.round(root.imageHeight * root.scale)
 
                     layer.enabled: true
                     layer.effect: OpacityMask {
