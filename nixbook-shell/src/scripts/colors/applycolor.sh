@@ -20,19 +20,47 @@ reload_kitty() {
   kill -SIGUSR1 $pids 2>/dev/null || true
 }
 
+# The ttys kitty's windows run on ("pts/N", one per line): the programs it
+# started are its children. Those never get raw escape sequences: the reload
+# above recolours them (and drops colours an escape code had set), while a
+# sequence written from outside lands in the middle of whatever the program
+# is drawing. A TUI writing without blocking (node's, so Claude Code,
+# opencode…) has its frame split across write() calls, and our bytes cut one
+# of its escape sequences in two: the rest shows up as text
+# ("29;203;121m###"). NIXBOOK_SHELL_KITTY_TTYS stands in for the tests.
+kitty_ttys() {
+  if [[ -n ${NIXBOOK_SHELL_KITTY_TTYS+set} ]]; then
+    tr ' ' '\n' <<<"$NIXBOOK_SHELL_KITTY_TTYS"
+    return 0
+  fi
+  local pids
+  pids=$(pidof kitty) || return 0
+  ps -o tty= --ppid "${pids// /,}" 2>/dev/null | tr -d ' '
+}
+
+# The open terminals' devices, kitty's left out (see kitty_ttys).
+other_ptys() {
+  local skip file
+  skip=$'\n'$(kitty_ttys)$'\n'
+  for file in "$PTS_DIR"/*; do
+    [[ $file =~ /([0-9]+)$ ]] || continue
+    [[ $skip == *$'\n'"pts/${BASH_REMATCH[1]}"$'\n'* ]] && continue
+    printf '%s\n' "$file"
+  done
+}
+
 # --reset-terminal: terminal theming was turned off; give every open
 # terminal its own colours back (OSC 104 palette, 110/111/112 foreground,
-# background, cursor, 117/119 selection), and drop the generated files so
-# kitty and new shells don't pick them up again.
+# background, cursor, 117/119 selection; kitty by reloading without the
+# theme), and drop the generated files so kitty and new shells don't pick
+# them up again.
 if [[ ${1:-} == "--reset-terminal" ]]; then
   rm -f "$GENERATED_TERMINAL/kitty-theme.conf" "$GENERATED_TERMINAL/sequences.txt"
   reload_kitty
-  for file in "$PTS_DIR"/*; do
-    if [[ $file =~ /[0-9]+$ ]]; then
-      { printf '\e]104\e\\\e]110\e\\\e]111\e\\\e]112\e\\\e]117\e\\\e]119\e\\' >"$file"; } 2>/dev/null &
-      disown || true
-    fi
-  done
+  while IFS= read -r file; do
+    { printf '\e]104\e\\\e]110\e\\\e]111\e\\\e]112\e\\\e]117\e\\\e]119\e\\' >"$file"; } 2>/dev/null &
+    disown || true
+  done < <(other_ptys)
   exit 0
 fi
 # sleep 0 # idk i wanted some delay or colors dont get applied properly
@@ -94,14 +122,14 @@ apply_anyterm() {
   # Apply colors
   sed -i "$colorsed" "$STATE_DIR"/user/generated/terminal/sequences.txt
 
-  for file in "$PTS_DIR"/*; do
-    if [[ $file =~ /[0-9]+$ ]]; then
-      {
-        cat "$STATE_DIR"/user/generated/terminal/sequences.txt >"$file"
-      } &
-      disown || true
-    fi
-  done
+  # Terminals other than kitty (which reloads its theme): written to the open
+  # ones, replayed by each new interactive shell (hm-module.nix).
+  while IFS= read -r file; do
+    {
+      cat "$STATE_DIR"/user/generated/terminal/sequences.txt >"$file"
+    } 2>/dev/null &
+    disown || true
+  done < <(other_ptys)
 }
 
 apply_term() {
