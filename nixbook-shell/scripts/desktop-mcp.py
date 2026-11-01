@@ -14507,6 +14507,9 @@ RISKY_TARGET = re.compile(r"\b(delete|remove|send|reply|post|pay|buy|purchase|or
 CHAT_TARGETS = re.compile(r"^(discord|slack)(:|$)", re.I)
 
 
+PAGE_ACTIONS = ["click", "type", "select", "check", "submit", "press", "focus", "scroll"]
+
+
 def page_act_risky(args):
     """A page click/submit/key on a "Send", "Pay"… element, or Enter in a chat app."""
     action = str(args.get("action") or "")
@@ -14833,13 +14836,14 @@ def t_page_list(ctx, args):
 @tool(
     "page_go",
     "pages",
-    "Open or move a page. Zen: `open` a `url` in a new tab (in the background unless `active`), or on "
-    "a tab `activate`, `navigate` (to `url`), `back`, `forward`, `reload`, `mute`, `unmute`, `close`. "
-    "Apps: `back`, `forward`, `reload`.",
+    "Open or move a page. Zen: `open` a `url` in a new tab (in the background unless `active`), "
+    "`search` the web for `query` with Zen's own search engine (a new tab in the background: then "
+    "page_read it), or on a tab `activate`, `navigate` (to `url`), `back`, `forward`, `reload`, `mute`, "
+    "`unmute`, `close`. Apps: `back`, `forward`, `reload`.",
     obj({"target": {"type": "string", "description": "From page_list (default zen)"},
-         "action": {"type": "string", "enum": ["open", "activate", "navigate", "back", "forward", "reload", "mute",
-                                               "unmute", "close"]},
-         "url": {"type": "string"}, "active": {"type": "boolean"}}, ["action"]),
+         "action": {"type": "string", "enum": ["open", "search", "activate", "navigate", "back", "forward", "reload",
+                                               "mute", "unmute", "close"]},
+         "url": {"type": "string"}, "query": {"type": "string"}, "active": {"type": "boolean"}}, ["action"]),
 )
 def t_page_go(ctx, args):
     action = as_str(args, "action", max_len=20)
@@ -14848,6 +14852,10 @@ def t_page_go(ctx, args):
     if app != "zen":
         r = electron(ctx, app, "go", page=page, action=action)
         return [text(f"{app}:{r.get('page')} now: {r.get('title')!r} {r.get('url')}")]
+    if action == "search":
+        query = as_str(args, "query", max_len=300)
+        ctx.guard.check_text(query)
+        return [text(zen_tab_line(zen(ctx, "search", query=query)))]
     if action == "open":
         if not url:
             raise ToolError("open needs `url`")
@@ -14858,29 +14866,53 @@ def t_page_go(ctx, args):
     return [text(zen_tab_line(r))]
 
 
+def page_element_line(e):
+    line = f"[{e['ref']}] {e['role']} {e.get('name')!r}"
+    if e.get("password"):
+        line += " (password: off limits)"
+    if "value" in e:
+        line += f" = {e['value']!r}"
+    if e.get("checked") is not None:
+        line += " (checked)" if e["checked"] else " (unchecked)"
+    if e.get("selected"):
+        line += " (selected)"
+    if e.get("disabled"):
+        line += " (disabled)"
+    if e.get("options"):
+        line += f" options: {', '.join(e['options'])}"
+    if e.get("href"):
+        line += f" → {e['href']}"
+    if e.get("offscreen"):
+        line += " (scrolled away)"
+    return line
+
+
+def page_changes_lines(c):
+    """What an action changed in the page (page.js "changes"), for its reply."""
+    if not isinstance(c, dict):
+        return []
+    if c.get("fresh"):
+        return [f"A new page ({c.get('total')} elements): page_read it."]
+    added, gone, new_text = c.get("appeared") or [], c.get("gone") or 0, c.get("newText") or []
+    if not added and not gone and not new_text:
+        return ["Nothing else changed on the page."]
+    lines = []
+    if added:
+        more = (c.get("appearedTotal") or len(added)) - len(added)
+        lines.append("Appeared:" + (f" (and {more} more: page_read)" if more > 0 else ""))
+        lines += ["  " + page_element_line(e) for e in added]
+    if gone:
+        lines.append(f"Gone: {gone} element{'s' if gone != 1 else ''}.")
+    if new_text:
+        lines.append("New text: " + " · ".join(new_text))
+    return lines
+
+
 def page_read_lines(label, r):
     lines = [f"{label}: {r.get('title')!r} {r.get('url')}"]
     els = r.get("elements") or []
     lines.append(f"Elements ({len(els)} of {r.get('total')}):" if els else "No elements found.")
-    for e in els:
-        line = f"[{e['ref']}] {e['role']} {e.get('name')!r}"
-        if e.get("password"):
-            line += " (password: off limits)"
-        if "value" in e:
-            line += f" = {e['value']!r}"
-        if e.get("checked") is not None:
-            line += " (checked)" if e["checked"] else " (unchecked)"
-        if e.get("selected"):
-            line += " (selected)"
-        if e.get("disabled"):
-            line += " (disabled)"
-        if e.get("options"):
-            line += f" options: {', '.join(e['options'])}"
-        if e.get("href"):
-            line += f" → {e['href']}"
-        if e.get("offscreen"):
-            line += " (scrolled away)"
-        lines.append(line)
+    lines += [page_element_line(e) for e in els]
     if r.get("selection"):
         lines.append(f"Selected text: {r['selection']!r}")
     if r.get("text"):
@@ -14898,8 +14930,9 @@ TARGET_PROP = {"type": "string", "description": "A target from page_list: zen (t
     "pages",
     "Read a page through the page itself (a Zen tab or a bridged app's window, in the background "
     "too): title, address, text, and the elements you can act on, numbered: [ref] role 'name' = "
-    "value. With `query`, only the elements whose name has one of its words. Then page_act on a ref. "
-    "Password fields show no value. Costs far less than a screenshot and is exact.",
+    "value (an element keeps its number while it stays on the page). With `query`, only the elements "
+    "whose name has one of its words. Then page_act on a ref. Password fields show no value. Costs far "
+    "less than a screenshot and is exact.",
     obj({"target": TARGET_PROP,
          "query": {"type": "string", "description": "Words: only the elements named so (a button, a field)"},
          "text": {"type": "boolean", "description": "The page's text too (default true)"},
@@ -14916,23 +14949,52 @@ def t_page_read(ctx, args):
 @tool(
     "page_act",
     "pages",
-    "Act on an element of a page from its last page_read, in the page itself (no pointer, no "
-    "keys: the user keeps working): `click`, `type` (`value` replaces the field's text, `append` adds "
-    "it; rich editors too, e.g. a chat's message box), `select` (a list's option by its text), "
-    "`check` (`value` \"false\" unchecks), `submit` (its form), `press` (a key: Enter, Escape, "
-    "Shift+Enter…), `focus`, `scroll`. Give the element's `name` as page_read showed it: if the page "
-    "changed, it says so instead of acting on something else. Password fields are refused. In a chat "
-    "app, Enter in the message box sends it: the discord tool is plainer for messages. A click, "
-    "submit or key that sends, pays or deletes (Send, Pay, Delete…; Enter in Discord's or Slack's "
-    "message box) waits for the user's yes (Allow / No): say what it does first.",
+    "Act on an element of a page, in the page itself (no pointer, no keys: the user keeps working): "
+    "`click`, `type` (`value` replaces the field's text, `append` adds it; rich editors too, e.g. a "
+    "chat's message box), `select` (a list's option by its text), `check` (`value` \"false\" "
+    "unchecks), `submit` (its form), `press` (a key: Enter, Escape, Shift+Enter…), `focus`, `scroll`. "
+    "Give the element's `name` (as page_read showed it) and its `ref`; the name alone works when one "
+    "element has it (no page_read first: \"click Save\"). If the page re-rendered, the element is "
+    "found again by its name; several with that name, or none, it says so instead of guessing. The "
+    "reply tells what appeared and went since, so you needn't read the page again. `steps` does "
+    "several in a row in one call (each {ref?, name, action, value?, append?}; it stops at the first "
+    "that fails). Password fields are refused. In a chat app, Enter in the message box sends it: the "
+    "discord tool is plainer for messages. A click, submit or key that sends, pays or deletes (Send, "
+    "Pay, Delete…; Enter in Discord's or Slack's message box) waits for the user's yes (Allow / No): "
+    "say what it does first.",
     obj({"target": TARGET_PROP, "ref": {"type": "integer"},
          "name": {"type": "string", "description": "The element's name, as page_read listed it"},
-         "action": {"type": "string", "enum": ["click", "type", "select", "check", "submit", "press", "focus",
-                                               "scroll"]},
-         "value": {"type": "string"}, "append": {"type": "boolean"}}, ["ref", "name", "action"]),
+         "action": {"type": "string", "enum": PAGE_ACTIONS},
+         "value": {"type": "string"}, "append": {"type": "boolean"},
+         "steps": {"type": "array", "maxItems": 10, "items": obj(
+             {"ref": {"type": "integer"}, "name": {"type": "string"},
+              "action": {"type": "string", "enum": PAGE_ACTIONS},
+              "value": {"type": "string"}, "append": {"type": "boolean"}}, ["name", "action"])}}),
     destructive=True,
 )
 def t_page_act(ctx, args):
+    steps = args.get("steps")
+    if steps is None:
+        return page_act_one(ctx, args, args)
+    if not isinstance(steps, list) or not 1 <= len(steps) <= 10 or not all(isinstance(x, dict) for x in steps):
+        raise ToolError("`steps`: 1 to 10 actions, each {ref?, name, action, value?, append?}")
+    done = []
+    for i, step in enumerate(steps, 1):
+        try:
+            out = page_act_one(ctx, {"target": args.get("target"), **step}, step, changes=i == len(steps))
+        except ToolError as e:
+            done.append(f"step {i} failed: {e}" + ("; nothing after it was done" if i < len(steps) else ""))
+            raise ToolError("\n".join(done))
+        done.append(f"step {i}: {out[0]['text']}")
+    return [text("\n".join(done))]
+
+
+def page_act_one(ctx, args, step, changes=True):
+    """One page_act action (args: it with its target)."""
+    if not isinstance(step.get("name"), str) or not step["name"].strip():
+        raise ToolError("`name`: the element's name, as page_read listed it")
+    if step.get("action") not in PAGE_ACTIONS:
+        raise ToolError("`action`: " + ", ".join(PAGE_ACTIONS))
     value = args.get("value")
     if isinstance(value, str):
         ctx.guard.check_text(value)
@@ -14946,14 +15008,50 @@ def t_page_act(ctx, args):
                      "It acts in your name (it may send, pay or delete).",
                      key=site and f"page:{site}:{action}:{' '.join(name.lower().split())}",
                      label=f"{action.capitalize()} \u201c{name}\u201d on {where}")
-    app, r = page_call(ctx, args, "act", ref=as_int(args, "ref"), name=as_str(args, "name", max_len=200),
+    ref = args.get("ref")
+    app, r = page_call(ctx, args, "act", ref=as_int(args, "ref") if ref is not None else None,
+                       name=as_str(args, "name", max_len=200),
                        action=as_str(args, "action", max_len=20), value=value if isinstance(value, str) else None,
                        append=bool(args.get("append")))
     el = r.get("element")
     after = (f"{el['role']} {el.get('name')!r}" + (f" = {el['value']!r}" if "value" in el else "")
              + ("" if el.get("checked") is None else (" (checked)" if el["checked"] else " (unchecked)"))) if el \
         else "(the element is gone: the page changed)"
-    return [text(f"done ({r.get('done')}): {after}. {page_label(app, r)} now: {r.get('title')!r} {r.get('url')}")]
+    which = f"[{r['ref']}] " if r.get("ref") else ""
+    note = f" (the page had re-rendered: found by its name, now [{r['ref']}])" if r.get("refound") else ""
+    lines = [f"done ({r.get('done')}): {which}{after}{note}. {page_label(app, r)} now: {r.get('title')!r} {r.get('url')}"]
+    if changes:
+        lines += page_changes_lines(r.get("changes"))
+    return [text("\n".join(lines))]
+
+
+@tool(
+    "page_history",
+    "pages",
+    "Search the user's Zen history or bookmarks (`kind`), newest first: a page they saw or saved, by "
+    "words of its title or address (`query`; empty: the latest). Sites agents may not use are left "
+    "out. Then page_go open its url.",
+    obj({"query": {"type": "string"}, "kind": {"type": "string", "enum": ["history", "bookmarks"]},
+         "max": {"type": "integer", "description": "At most this many (default 15, at most 50)"}}),
+    read_only=True,
+)
+def t_page_history(ctx, args):
+    if (ctx.cfg.get("browser") or {}).get("history", True) is False:
+        raise ToolError("reading Zen's history and bookmarks is off (browser.history in desktop-mcp.json)")
+    kind = as_str(args, "kind", max_len=20, required=False) or "history"
+    if kind not in ("history", "bookmarks"):
+        raise ToolError("`kind`: history or bookmarks")
+    r = zen(ctx, "history", kind=kind, query=as_str(args, "query", max_len=200, required=False) or "",
+            max=max(1, min(50, int(args.get("max") or 15)))) or []
+    if not r:
+        return [text(f"nothing in the {kind} matches")]
+    lines = []
+    for it in r:
+        when = time.strftime("%Y-%m-%d %H:%M", time.localtime(it["when"] / 1000)) if it.get("when") else ""
+        visits = f", {it['visits']} visits" if it.get("visits") else ""
+        lines.append(f"- {it.get('title')!r} {it.get('url')} ({when}{visits})" if when or visits
+                     else f"- {it.get('title')!r} {it.get('url')}")
+    return [text("\n".join(lines))]
 
 
 @tool(

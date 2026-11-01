@@ -44,12 +44,22 @@ another workspace, while you keep working. `page_list` lists what they reach,
 each with its target: `zen:<tab>` for Zen's tabs, and an app's name for its
 window (`discord`, `slack`, `youtube-music`, `actual`; `discord:2` for another
 of its windows). `page_read` gives a page's text and its elements, numbered
-(`[ref] role 'name' = value`); `page_act` clicks, types, picks, checks,
-submits, presses a key (Enter, Escape, Shift+Enter, Ctrl+A…) or scrolls,
-given the `ref` **and** the `name` it read (a page that changed is said, never
-acted on); `page_wait` waits for a load, a text or an address; `page_go`
-opens and moves tabs (Zen) or goes back, forward, reloads (apps);
-`page_screenshot` is a picture of a page without showing it. The `browser_*`
+(`[ref] role 'name' = value`; an element keeps its number while it stays on
+the page); `page_act` clicks, types, picks, checks, submits, presses a key
+(Enter, Escape, Shift+Enter, Ctrl+A…) or scrolls, given the `ref` and the
+`name` it read, or the name alone when one element has it ("click Save", no
+read first). A page that re-rendered the element meanwhile is handled: the
+element is found again by its name, and when several (or none) have it, that
+is said, never guessed. Its reply tells what the action changed (the
+elements that appeared, with their refs, how many went, the new text), so
+the agent needn't read the page again; `steps` does up to 10 actions in one
+call, stopping at the first that fails. `page_wait` waits for a load, a text
+or an address; `page_go` opens and moves tabs (Zen), searches the web with
+Zen's own search engine in a background tab (`search`), or goes back,
+forward, reloads (apps); `page_history` searches your Zen history or
+bookmarks (blocked sites left out; `browser.history = false` in
+`desktopMcp.settings` turns it off); `page_screenshot` is a picture of a page
+without showing it. The `browser_*`
 names (the nixbook-meta fork's) still answer but aren't offered, and a
 `desktop-mcp.json` naming the group `browser` means `pages`. They reach your
 own Zen and apps, so they are refused while agents work on

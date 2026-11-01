@@ -397,10 +397,12 @@ class Bridge:
                     self.cdp.call("Input.insertText", {"text": value}, session=sid)
                 elif not o["append"]:
                     self.key(sid, "Backspace")  # the selected text: emptied
-                r = {"done": "type", **self.in_page(page, "state", {"ref": req.get("ref")})}
+                r = {"done": "type", "ref": r.get("ref"),
+                     **self.in_page(page, "state", {"ref": r.get("ref", req.get("ref"))})}
             elif r.get("host") == "key":
                 self.key(sid, r.get("key") or "Enter")
-                r = {"done": "press", **self.in_page(page, "state", {"ref": req.get("ref")})}
+                r = {"done": "press", "ref": r.get("ref"),
+                     **self.in_page(page, "state", {"ref": r.get("ref", req.get("ref"))})}
         finally:
             if focus:
                 try:
@@ -410,6 +412,10 @@ class Bridge:
         # A click that leads elsewhere: once loaded.
         time.sleep(0.3)
         self.wait_loaded(page, 10)
+        # What the action changed, so the agent needn't read the page again.
+        if not r.get("error"):
+            with contextlib.suppress(Refused, CdpError):
+                r["changes"] = self.in_page(page, "changes", {})
         return {**r, **self.described(page)}
 
     def key(self, sid, combo):

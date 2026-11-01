@@ -72,6 +72,9 @@ def page(op, o, params):
         if o.get("action") == "press" and o.get("host"):
             return {"host": "key", "key": o.get("value") or "Enter"}
         return {"done": o.get("action"), "element": {"role": "button", "name": o.get("name")}}
+    if op == "changes":
+        return {"appeared": [{"ref": 5, "role": "button", "name": "Edit message"}], "appearedTotal": 1, "gone": 0,
+                "newText": [], "total": 5}
     if op == "state":
         return {"element": {"role": "text editor", "name": "Message #general", "value": typed["text"]}}
     if op == "ready":
