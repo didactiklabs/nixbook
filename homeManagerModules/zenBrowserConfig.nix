@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 let
@@ -337,6 +338,25 @@ in
         };
       }
     ];
+
+    # Zen killed while saving can leave zen-sessions.jsonlz4 empty or cut
+    # (2026-10-28): the zen-browser module's session step then fails, and
+    # the whole Home Manager activation with it ("Invalid magic number").
+    # Set aside as Zen does itself (*.corrupt): it starts from its backups.
+    # Not while Zen runs (the module skips the sessions then too).
+    home.activation.zenSessionsGuard =
+      let
+        zen = config.programs.zen-browser;
+        dir = "${zen.profilesPath}/${zen.profiles.default.path}";
+      in
+      lib.hm.dag.entryBetween [ "zen-browser-default" ] [ "writeBoundary" ] ''
+        zenSessions="${dir}/zen-sessions.jsonlz4"
+        if [ -f "$zenSessions" ] && ! ${lib.getExe pkgs.lsof} "${dir}/.parentlock" >/dev/null 2>&1 \
+          && ! ${lib.getExe pkgs.mozlz4a} -d "$zenSessions" /dev/null >/dev/null 2>&1; then
+          echo "zen-browser: $zenSessions can't be read; set aside as $zenSessions.nixbook.corrupt"
+          run mv -f "$zenSessions" "$zenSessions.nixbook.corrupt"
+        fi
+      '';
 
     xdg.mimeApps.defaultApplications = {
       "text/html" = "zen-twilight.desktop";
