@@ -40,7 +40,10 @@ Singleton {
         // 2. Check if the hash is already processed
         if (processedHashes.includes(hash)) {
             // console.log("Already processed: " + hash)
-            renderFinished(hash, imagePath)
+            // Said only once there is an image: still rendering, its own
+            // end says it; failed, there is none (an undefined path made
+            // the chat open a file named "undefined").
+            if (root.renderedImagePaths[hash]) renderFinished(hash, imagePath)
             return [hash, false]
         } else {
             root.processedHashes.push(hash)
@@ -75,8 +78,10 @@ Singleton {
             property string imagePath
             running: true
             onExited: (exitCode, exitStatus) => {
-                root.renderedImagePaths[microtexProcess.hash] = microtexProcess.imagePath
-                root.renderFinished(microtexProcess.hash, microtexProcess.imagePath)
+                if (exitCode === 0) {
+                    root.renderedImagePaths[microtexProcess.hash] = microtexProcess.imagePath
+                    root.renderFinished(microtexProcess.hash, microtexProcess.imagePath)
+                }
                 microtexProcess.destroy()
             }
         }
