@@ -11450,6 +11450,12 @@ def parse_combo(combo, allow_super):
     return mods, key
 
 
+# Said by every tool that drives the mouse or keyboard: the headless ways
+# first (INSTRUCTIONS gives the order).
+INPUT_LAST = (" Input is the last resort: use it only when no tool does it without "
+              "(an app's own MCP tools, page_*, ui_act, the window and shell tools).")
+
+
 @tool(
     "type_text",
     "input",
@@ -11457,7 +11463,7 @@ def parse_combo(combo, allow_super):
     "accents, punctuation or line breaks is pasted instead (the clipboard is "
     "put back after), so type it as is: accents, apostrophes and commas come "
     "out right, and a line break doesn't press Return. Refused in terminals, "
-    "password managers and password prompts.",
+    "password managers and password prompts." + INPUT_LAST,
     obj({"text": {"type": "string"}}, ["text"]),
 )
 def t_type_text(ctx, args):
@@ -11485,7 +11491,7 @@ def t_type_text(ctx, args):
     "input",
     "Press key combinations in the focused window, in order, e.g. "
     "[\"ctrl+l\", \"Return\"]. xkb key names: Return, Tab, Escape, BackSpace, "
-    "Up, Page_Down, F5, a, … Super combos are refused (use the window tools).",
+    "Up, Page_Down, F5, a, … Super combos are refused (use the window tools)." + INPUT_LAST,
     obj(
         {
             "keys": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 20},
@@ -11817,7 +11823,7 @@ def t_move_pointer(ctx, args):
     "input",
     "Click a mouse button at a point (desktop coordinates, or a screenshot's "
     "pixels with its `mapping` as `screenshot`), or where the pointer is. "
-    "Prefer keyboard and window tools when they can do it.",
+    "After the keyboard: an app's shortcut or search box first." + INPUT_LAST,
     obj(
         {
             "x": COORD,
@@ -11849,7 +11855,7 @@ def t_click(ctx, args):
     "drag",
     "input",
     "Press a mouse button at one point, move to another, release: drag and "
-    "drop, select text, move a slider. Points as for click.",
+    "drop, select text, move a slider. Points as for click." + INPUT_LAST,
     obj(
         {
             "x": COORD,
@@ -11889,7 +11895,7 @@ def t_drag(ctx, args):
     "scroll",
     "input",
     "Scroll the window under the pointer (or at a point, as for click): "
-    "positive dy scrolls down, dx right, in wheel notches.",
+    "positive dy scrolls down, dx right, in wheel notches." + INPUT_LAST,
     obj({"dy": {"type": "integer"}, "dx": {"type": "integer"}, "x": COORD, "y": COORD, "screenshot": SCREENSHOT_MAPPING}),
 )
 def t_scroll(ctx, args):
@@ -15255,13 +15261,23 @@ def after_action_now(ctx, args, shot, extra):
 
 
 INSTRUCTIONS = (
-    "Tools to see and drive the user's niri desktop. Be quick: every call is a "
+    "Tools to see and drive the user's niri desktop. How to do what you're "
+    "asked, in this order, going down only when nothing above can do it: "
+    "(1) a tool made for it, with no mouse or keyboard: an app's or "
+    "service's own MCP tools (calendar, tasks, notes, music, Jellyfin, the "
+    "phone…) and this server's (discord, the shell's tools, themes, "
+    "notifications, clipboard_set, launch_app, the window tools); (2) the "
+    "app itself without input: the page_* tools in Zen tabs and the bridged "
+    "apps, ui_act through a window's accessibility tree; (3) the keyboard "
+    "(an app's shortcuts, its quick switcher or search box); (4) pointer "
+    "clicks, last. The first two work in the background: the user keeps "
+    "their mouse, keyboard and focus while you work, and nothing breaks when "
+    "a window moves or a page scrolls. Be quick: every call is a "
     "round trip, so use few. launch_app waits for the app's window and says "
     "which it is; every action reply names the focused window; action tools "
     "take screenshot_after: true to return a screenshot of the result in the "
     "same call; run_steps does several actions (keys, typing, clicks, waits) "
-    "in one call. Prefer apps' keyboard shortcuts (a quick switcher, a search "
-    "box) and the window tools over pointer clicks. Look before you "
+    "in one call. Look before you "
     "screenshot: ui_read (with `find`) gives a window's buttons, fields "
     "and text exactly for a few hundred tokens, ui_act presses or fills "
     "them without coordinates, and ui_wait waits for something to show "
