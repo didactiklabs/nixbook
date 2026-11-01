@@ -281,6 +281,34 @@ func drop(cfg Config, r Run) (map[string]any, error) {
 	return map[string]any{"run": r.ID, "dropped": true}, nil
 }
 
+type checkRun struct{ Name, Status, Conclusion string }
+
+// notChecks: jobs that test nothing of a change (build.yaml's upload to the
+// binary cache): their failure is never a regression.
+var notChecks = []string{"push-cache"}
+
+// checkRuns: the check runs on a commit, false while there are none.
+func checkRuns(repo, sha string) ([]checkRun, bool) {
+	var runs []checkRun
+	if ghJSON(&runs, "api", fmt.Sprintf("repos/%s/commits/%s/check-runs", repo, sha),
+		"--jq", "[.check_runs[] | {Name: .name, Status: .status, Conclusion: .conclusion}]") != nil || len(runs) == 0 {
+		return nil, false
+	}
+	return runs, true
+}
+
+// failedChecks: the names of the failed ones (cancelled: superseded by a
+// newer push, not failed).
+func failedChecks(runs []checkRun) []string {
+	var failed []string
+	for _, c := range runs {
+		if (c.Conclusion == "failure" || c.Conclusion == "timed_out") && !slices.Contains(notChecks, c.Name) {
+			failed = append(failed, c.Name)
+		}
+	}
+	return failed
+}
+
 // watchMain waits for main's checks on the merged commit: failed, a fix
 // for it is filed (never a revert).
 func watchMain(cfg Config, id string) (map[string]any, error) {
@@ -291,20 +319,31 @@ func watchMain(cfg Config, id string) (map[string]any, error) {
 	}
 	editRun(id, func(x *Run) { x.Stage = "main" })
 	for start := time.Now(); time.Since(start) < 4*time.Hour; time.Sleep(2 * time.Minute) {
-		var runs []struct{ Status, Conclusion string }
-		if ghJSON(&runs, "api", fmt.Sprintf("repos/%s/commits/%s/check-runs", repo, r.Merged),
-			"--jq", "[.check_runs[] | {Status: .status, Conclusion: .conclusion}]") != nil || len(runs) == 0 {
+		runs, ok := checkRuns(repo, r.Merged)
+		if !ok {
 			continue
 		}
-		if slices.ContainsFunc(runs, func(c struct{ Status, Conclusion string }) bool { return c.Status != "completed" }) {
+		if slices.ContainsFunc(runs, func(c checkRun) bool { return c.Status != "completed" }) {
 			continue
 		}
-		// Cancelled: superseded by a newer push, not failed.
-		if slices.ContainsFunc(runs, func(c struct{ Status, Conclusion string }) bool {
-			return c.Conclusion == "failure" || c.Conclusion == "timed_out"
-		}) {
+		if failed := failedChecks(runs); len(failed) > 0 {
 			editRun(id, func(x *Run) { x.MainCI, x.Stage = "fail", "done" })
-			return broke(cfg, r, "main's checks failed after it")
+			// Failing on the commit before it too: not this change's doing
+			// (#3137 was blamed for the cache upload, broken since the day
+			// before).
+			var parent string
+			if err := ghJSON(&parent, "api", fmt.Sprintf("repos/%s/commits/%s", repo, r.Merged),
+				"--jq", ".parents[0].sha | tojson"); err == nil && parent != "" {
+				if before, ok := checkRuns(repo, parent); ok {
+					was := failedChecks(before)
+					if !slices.ContainsFunc(failed, func(n string) bool { return !slices.Contains(was, n) }) {
+						logEvent("done", fmt.Sprintf("Main's checks fail after #%d, as they did before it (%s): not its doing",
+							r.PR, strings.Join(failed, ", ")))
+						return map[string]any{"run": id, "main": "fail", "before": true}, nil
+					}
+				}
+			}
+			return broke(cfg, r, "main's checks failed after it ("+strings.Join(failed, ", ")+")")
 		}
 		editRun(id, func(x *Run) { x.MainCI, x.Stage = "pass", "done" })
 		return map[string]any{"run": id, "main": "pass"}, nil

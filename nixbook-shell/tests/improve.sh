@@ -127,6 +127,11 @@ case "$1 $2" in
     exit 1
     ;;
   "pr create")
+    # FAKE_NO_LABEL: a token that can't see the labels (no Issues access).
+    if [ -n "${FAKE_NO_LABEL:-}" ] && [[ "$*" == *--label* ]]; then
+      echo "could not add label: 'agent-fix' not found" >&2
+      exit 1
+    fi
     cat >"$FAKE_LOG/pr-body"
     echo "https://github.com/o/r/pull/7"
     ;;
@@ -158,11 +163,16 @@ case "$1 $2" in
   "pr close") ;;
   "label create") ;;
   "api "*)
-    if [ -n "${FAKE_MAIN_FAIL:-}" ]; then
-      echo '[{"Status":"completed","Conclusion":"failure"}]'
-    else
-      echo '[{"Status":"completed","Conclusion":"success"}]'
-    fi
+    # Main's check runs: FAKE_MAIN_FAIL names the failing job (1: build),
+    # FAKE_PARENT_FAIL the one already failing on the commit before.
+    run() { jq -nc --arg n "${1:-build}" --arg c "$2" '[{Name: $n, Status: "completed", Conclusion: $c}]'; }
+    case "$2" in
+      */commits/parent0/check-runs)
+        if [ -n "${FAKE_PARENT_FAIL:-}" ]; then run "$FAKE_PARENT_FAIL" failure; else run build success; fi ;;
+      */check-runs)
+        if [ -n "${FAKE_MAIN_FAIL:-}" ]; then run "${FAKE_MAIN_FAIL/#1/build}" failure; else run build success; fi ;;
+      */commits/*) echo '"parent0"' ;;
+    esac
     ;;
 esac
 EOF
@@ -495,6 +505,30 @@ expect_no_match "broke main: no revert PR" "Revert" "$(grep "pr create" "$FAKE_L
 expect_match "broke main: told" "broke something.*No revert" "$(tail -n 2 "$FAKE_LOG/notify")"
 unset FAKE_MAIN_FAIL
 "$improve" drop-item "$(jq -r .id <<<"$reg")" >/dev/null
+git -C "$tmp/remote.git" update-ref refs/heads/main "$(git -C "$tmp/remote.git" rev-list --max-parents=0 main)"
+
+# --- main failing, but not because of it: no regression -------------------------
+regressions() { "$improve" status | jq '[.inbox[] | select(.kind == "regression" and .status != "dropped")] | length'; }
+id=$(item "the guide forgets the hours")
+export FAKE_BRANCH="agent/fix-$id" FAKE_MAIN_FAIL=push-cache
+"$improve" run --item "$id" >/dev/null
+expect_eq "cache upload failing: no regression" "0" "$(regressions)"
+git -C "$tmp/remote.git" update-ref refs/heads/main "$(git -C "$tmp/remote.git" rev-list --max-parents=0 main)"
+id=$(item "the guide forgets the seconds")
+export FAKE_BRANCH="agent/fix-$id" FAKE_MAIN_FAIL=build FAKE_PARENT_FAIL=build
+"$improve" run --item "$id" >/dev/null
+expect_eq "failing before it too: no regression" "0" "$(regressions)"
+expect_eq "failing before it too: main fail" "fail" "$(run_of "$id" | jq -r .mainCi)"
+unset FAKE_MAIN_FAIL FAKE_PARENT_FAIL
+git -C "$tmp/remote.git" update-ref refs/heads/main "$(git -C "$tmp/remote.git" rev-list --max-parents=0 main)"
+
+# --- a token that can't see the labels: the PR opens without one -----------------
+id=$(item "the guide forgets the days")
+export FAKE_BRANCH="agent/fix-$id" FAKE_NO_LABEL=1
+"$improve" run --item "$id" >/dev/null
+expect_eq "no label access: merged all the same" "merged" "$(run_of "$id" | jq -r .outcome)"
+expect_no_match "no label access: opened without it" "--label" "$(grep "pr create" "$FAKE_LOG/gh" | tail -n 1)"
+unset FAKE_NO_LABEL
 git -C "$tmp/remote.git" update-ref refs/heads/main "$(git -C "$tmp/remote.git" rev-list --max-parents=0 main)"
 
 # --- can't be done here: given up, told, never picked on its own -------------------
