@@ -581,7 +581,8 @@ fi
 
 # -- applycolor.sh: terminal colours ---------------------------------------------
 # A generated palette into kitty's theme and the escape sequences written to
-# the open terminals (fake ones: NIXBOOK_SHELL_PTS_DIR), then turned off.
+# the open terminals (fake ones: NIXBOOK_SHELL_PTS_DIR) but kitty's (pts/5,
+# NIXBOOK_SHELL_KITTY_TTYS: it reloads its theme instead), then turned off.
 ac_home="$tmp/applycolor"
 mkdir -p "$ac_home/state/quickshell/user/generated" "$ac_home/config/quickshell/nixbook-shell" \
   "$ac_home/config/nixbook-shell" "$ac_home/pts"
@@ -595,9 +596,11 @@ mkdir -p "$ac_home/state/quickshell/user/generated" "$ac_home/config/quickshell/
 } >"$ac_home/state/quickshell/user/generated/material_colors.scss"
 echo '{"appearance":{"wallpaperTheming":{"enableTerminal":true}}}' >"$ac_home/config/nixbook-shell/config.json"
 : >"$ac_home/pts/3"
+: >"$ac_home/pts/5"
 : >"$ac_home/pts/ptmx"
 applycolor() {
   XDG_STATE_HOME="$ac_home/state" XDG_CONFIG_HOME="$ac_home/config" NIXBOOK_SHELL_PTS_DIR="$ac_home/pts" \
+    NIXBOOK_SHELL_KITTY_TTYS="pts/1 pts/5" \
     bash "$root/src/scripts/colors/applycolor.sh" "$@" >/dev/null 2>&1
 }
 # Its writes run in the background: wait for them.
@@ -613,6 +616,7 @@ expect_contains "applycolor.sh: the background, a plain colour" "$seqs" '^[]11;#
 expect_contains "applycolor.sh: the selection colours" "$seqs" '^[]17;#aabbcc^['
 expect_eq "applycolor.sh: no placeholder or alpha prefix left" "" "$(grep -oE '\$[a-zA-Z]|\[[0-9]+\]' <<<"$seqs" || true)"
 expect_eq "applycolor.sh: not to ptmx" "" "$(cat "$ac_home/pts/ptmx")"
+expect_eq "applycolor.sh: nothing into kitty's ttys (a TUI's frame would be cut)" "" "$(cat "$ac_home/pts/5")"
 kitty_theme="$ac_home/state/quickshell/user/generated/terminal/kitty-theme.conf"
 expect_contains "applycolor.sh: kitty's theme" "$(cat "$kitty_theme")" "color1                #011121"
 expect_eq "applycolor.sh: kitty's theme fully filled in, no inline comment" "" \
@@ -621,6 +625,7 @@ expect_eq "applycolor.sh: kitty's theme fully filled in, no inline comment" "" \
 applycolor --reset-terminal
 wait_for "$ac_home/pts/3"
 expect_contains "applycolor.sh --reset-terminal: the terminals' own colours back" "$(cat -v "$ac_home/pts/3")" '^[]104^['
+expect_eq "applycolor.sh --reset-terminal: nothing into kitty's ttys" "" "$(cat "$ac_home/pts/5")"
 expect_eq "applycolor.sh --reset-terminal: the generated theme gone (kitty, new shells)" "" \
   "$(ls "$ac_home/state/quickshell/user/generated/terminal")"
 
