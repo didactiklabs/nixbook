@@ -1,7 +1,8 @@
 name: Documentation
 # Builds the documentation website (docs/, VitePress) on every PR touching it,
 # and deploys it to GitHub Pages from main. The repository's Pages source must
-# be set to "GitHub Actions" (Settings → Pages).
+# be set to "GitHub Actions" (Settings → Pages). Forks (nixbook-meta) only
+# build it: their Pages aren't enabled, and Setup Pages failed every run.
 on:
   push:
     branches:
@@ -51,7 +52,7 @@ jobs:
       - name: Install devenv
         run: nix-env -f '<nixpkgs>' -iA devenv
       - name: Setup Pages
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.repository == 'didactiklabs/nixbook'
         uses: actions/configure-pages@v5
       - name: Build documentation
         env:
@@ -60,13 +61,13 @@ jobs:
             extra-trusted-public-keys = devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw=
         run: devenv shell -- doc-build
       - name: Upload artifact
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.repository == 'didactiklabs/nixbook'
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs/.vitepress/dist
 
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.repository == 'didactiklabs/nixbook'
     needs: build
     runs-on: ubuntu-latest
     permissions:
