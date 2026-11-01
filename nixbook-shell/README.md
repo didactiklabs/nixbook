@@ -1189,7 +1189,10 @@ Electron apps started through `nixbook-electron-app APP -- BINARY ARGS…`
 (`scripts/electron-bridge.py`, `passthru.electronBridge`; nixbook's
 `lib/electronA11y.nix` wraps the apps its `electronBridge.apps` lists). The
 launcher starts the app as its child with `--remote-debugging-pipe` (Chromium's
-DevTools protocol on fds 3/4, no TCP port) and `--force-renderer-accessibility`,
+DevTools protocol on fds 3/4, no TCP port; with
+`--disable-blink-features=AutomationControlled`, since a page that sees
+`navigator.webdriver` may refuse to work: YouTube Music then stops every track
+at 0:49) and `--force-renderer-accessibility`,
 keeps the pipe, and serves `$XDG_RUNTIME_DIR/nixbook-electron/APP.sock`
 (0700/0600, `SO_PEERCRED` uid checked; one JSON request per line): only fixed
 operations (`status`, `pages`, `read`, `act`, `wait`, `screenshot`, `go`, and

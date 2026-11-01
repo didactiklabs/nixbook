@@ -78,7 +78,8 @@ own Zen and apps, so they are refused while agents work on
   (Vesktop, Slack, YouTube Music, Actual Budget; on by default) start through
   `nixbook-electron-app`: the app runs with Chromium's DevTools protocol on a
   **private pipe** (`--remote-debugging-pipe`, no network port: no other
-  program can connect to it), held by the launcher alone, which answers a
+  program can connect to it; pages are not told the app is automated, which
+  made YouTube Music stop every song at 0:49), held by the launcher alone, which answers a
   fixed list of operations on a socket only you can reach
   (`$XDG_RUNTIME_DIR/nixbook-electron/<app>.sock`, 0600 in a 0700 directory,
   the caller's uid checked). Nothing sent to it is run as code: it runs

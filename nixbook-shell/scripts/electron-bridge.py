@@ -11,7 +11,9 @@ through the page itself, without the mouse or keyboard, like Zen's tabs
 
 The app runs as this launcher's child with Chromium's DevTools protocol on
 a private pipe (--remote-debugging-pipe: file descriptors 3 and 4, no TCP
-port, nothing another process can connect to) and its accessibility tree on
+port, nothing another process can connect to; with
+--disable-blink-features=AutomationControlled, so pages don't see an
+automated browser) and its accessibility tree on
 (--force-renderer-accessibility, as nixbook's other Electron apps). The
 launcher keeps the pipe to itself and serves a Unix socket only this user
 can reach, $XDG_RUNTIME_DIR/nixbook-electron/APP.sock (directory 0700,
@@ -913,7 +915,12 @@ def run_once(opts, app, command, path, page_js, adapter_js, state):
         os.dup2(child_r, 3)
         os.dup2(child_w, 4)
 
-    args = command + ["--remote-debugging-pipe"] + (["--force-renderer-accessibility"] if opts["a11y"] else [])
+    # A debugging pipe makes Chromium flag its pages as automated
+    # (navigator.webdriver): YouTube's BotGuard then mints no PO token and
+    # YouTube Music stops every track at 0:49. The flag is only that marker;
+    # the pipe works without it.
+    args = command + ["--remote-debugging-pipe", "--disable-blink-features=AutomationControlled"] + \
+        (["--force-renderer-accessibility"] if opts["a11y"] else [])
     child = subprocess.Popen(args, preexec_fn=pipe_fds, pass_fds=(3, 4))
     state["child"] = child
     os.close(child_r)
