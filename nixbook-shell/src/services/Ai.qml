@@ -834,6 +834,10 @@ Singleton {
             + (desktop ? " For anything about this machine beyond its summary above (how-tos, key bindings, Neovim keymaps, packages, modules), call machine_help; for a desktop tool's full guide, the tool with help: true (or tool_help)."
                 : " (machine_help isn't available now: the desktop tools are off; answer from the summary above and your own knowledge.)")
             + (desktop ? " You can see and drive the user's desktop with the desktop tools."
+                // The user's rule: headless first, input last.
+                + " Do what you're asked the most direct way that needs no mouse or keyboard: a tool made for it (an MCP server's, the desktop tools that act without input: page_*, discord, ui_act, the window and shell tools"
+                + (shellTools.length > 0 ? ", or a command" : "")
+                + "); type, press keys or click only when none can, and the keyboard before the mouse."
                 // Asked again by the server itself (a notification with Allow / No).
                 + " The discord tool's send and react, and a page_act that sends, pays or deletes (Send, Pay, Delete; Enter in Discord's or Slack's message box), act in the user's name: show exactly what and to whom first; the user is then asked to allow it in a notification." : "")
             // Its tools are all allowed (-p can't ask): what acts on the
