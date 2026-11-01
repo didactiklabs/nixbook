@@ -367,8 +367,16 @@ func run(o runOpts) (map[string]any, error) {
 		gh("label", "create", label, "--repo", repoName, "--color", "C5DEF5",
 			"--description", "A fix or polish made by the desktop agent (nixbook-improve)")
 	}
-	url, err := ghIn(2*time.Minute, prBody(s.answer, it, res.report, changes, sensitiveFiles), "pr", "create",
-		"--repo", repoName, "--base", "main", "--head", branch, "--title", title, "--label", label, "--body-file", "-")
+	body := prBody(s.answer, it, res.report, changes, sensitiveFiles)
+	create := []string{"pr", "create", "--repo", repoName, "--base", "main", "--head", branch, "--title", title, "--body-file", "-"}
+	url, err := ghIn(2*time.Minute, body, append(create, "--label", label)...)
+	// A fine-grained token without Issues access doesn't see the labels
+	// ("could not add label: 'agent-fix' not found", though it exists): gh
+	// refuses before opening anything, so the PR opens without its label
+	// (the agent/ branch tells it apart) instead of the fix being lost.
+	if err != nil && strings.Contains(err.Error(), "could not add label") {
+		url, err = ghIn(2*time.Minute, body, create...)
+	}
 	if err != nil {
 		if strings.Contains(err.Error(), "not accessible by personal access token") {
 			return end("failed", "the token can't open pull requests: give it Pull requests: Read and write "+
