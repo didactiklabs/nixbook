@@ -121,6 +121,25 @@ def log(msg):
     print(f"nixbook-electron-app: {msg}", file=sys.stderr, flush=True)
 
 
+def to_journal(app):
+    """Started with its output thrown away (niri's spawn, a launcher: stdout
+    and stderr both /dev/null), this
+    process and the app it starts write to the user journal instead, as
+    APP (journalctl --user -t APP): why the app quit or restarted, and what
+    it said, are kept (they used to be lost). A terminal keeps its output."""
+    try:
+        if any(os.path.realpath(f"/proc/self/fd/{fd}") != "/dev/null" for fd in (1, 2)) \
+                or not shutil.which("systemd-cat"):
+            return
+        cat = subprocess.Popen(["systemd-cat", "--identifier", app, "--level-prefix=false"],
+                               stdin=subprocess.PIPE, start_new_session=True)
+    except OSError:
+        return
+    for fd in (1, 2):
+        os.dup2(cat.stdin.fileno(), fd)
+    cat.stdin.close()
+
+
 def audit(app, op, outcome, **fields):
     entry = {"time": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "app": app, "op": op, **fields, "outcome": outcome}
     path = audit_path()
@@ -880,6 +899,7 @@ def catch_relaunch(app, markers, since, path):
 
 
 def run_once(opts, app, command, path, page_js, adapter_js, state):
+    started = uptime()
     # The pipe on fds 3 (the browser reads) and 4 (it writes), above the
     # numbers it lands on in the child first so they can't collide.
     r3, w3 = os.pipe()
@@ -915,6 +935,14 @@ def run_once(opts, app, command, path, page_js, adapter_js, state):
         if server is None and child.poll() is None and not cdp.closed.is_set():
             log(f"{app} doesn't answer on its DevTools pipe: no bridge this time")
         child.wait()
+        # How it ended, unless asked to (the user's quit, a stop forwarded).
+        if server is not None and not state["stopping"]:
+            code = child.returncode
+            try:
+                how = f"killed by {signal.Signals(-code).name}" if code < 0 else f"exited with code {code}"
+            except ValueError:
+                how = f"killed by signal {-code}"
+            log(f"{app} quit on its own ({how}) after {int(uptime() - started)} s")
     finally:
         if server is not None:
             try:
@@ -1146,6 +1174,7 @@ def main(argv):
     plain = command + (["--force-renderer-accessibility"] if opts["a11y"] else [])
     if not APP_NAME.match(app):
         raise SystemExit(f"nixbook-electron-app: {app!r} isn't an app name (a-z, 0-9, -)")
+    to_journal(app)
     if PASSWORD_APPS.search(app) or PASSWORD_APPS.search(os.path.basename(command[0])):
         log(f"{app}: a password manager is never bridged; starting it without")
         os.execvp(plain[0], plain)

@@ -10,6 +10,7 @@ would. Each message is logged (one JSON line) to $FAKE_CDP_LOG.
 
   FAKE_CDP_LOG=FILE fake-cdp.py [ARGS…]
   FAKE_CDP_HANDOVER=1: quits at once, like an app handing over to one already running.
+  FAKE_CDP_QUIT_AFTER=S: quits on its own S seconds in, with FAKE_CDP_QUIT_CODE (default 0).
   FAKE_CDP_RELAUNCH=DIR: relaunches itself as Electron's app.relaunch() does, a
   moment after starting: a new process naming DIR/app.asar (unbridged), then quits.
 """
@@ -35,6 +36,11 @@ if os.environ.get("FAKE_CDP_RELAUNCH"):
                      start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                      stderr=subprocess.DEVNULL)
     sys.exit(0)
+
+if os.environ.get("FAKE_CDP_QUIT_AFTER"):
+    import threading
+    threading.Timer(float(os.environ["FAKE_CDP_QUIT_AFTER"]),
+                    lambda: os._exit(int(os.environ.get("FAKE_CDP_QUIT_CODE") or 0))).start()
 
 TARGETS = [
     {"targetId": "T0", "type": "page", "title": "Vesktop", "url": "vesktop://static/views/splash.html"},
