@@ -99,7 +99,7 @@ expect_eq "handing over: no socket left" "no" "$([ -e "$sock" ] && echo yes || e
 # -- the bridge ----------------------------------------------------------------
 start
 expect_eq "the socket: private" "600 700" "$(stat -c %a "$sock") $(stat -c %a "$(dirname "$sock")")"
-expect_eq "the app: started with the pipe and its tree" '["--app-arg","--remote-debugging-pipe","--force-renderer-accessibility"]' \
+expect_eq "the app: started with the pipe and its tree" '["--app-arg","--remote-debugging-pipe","--disable-blink-features=AutomationControlled","--force-renderer-accessibility"]' \
   "$(head -n1 "$FAKE_CDP_LOG" | jq -c .argv)"
 out=$(ask '{"cmd":"status"}' '{"cmd":"pages"}')
 expect_eq "status" '{"app":"discord","pages":2,"adapter":true}' "$(sed -n 1p <<<"$out" | jq -c '.result | {app, pages, adapter}')"
