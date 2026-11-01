@@ -363,7 +363,16 @@ Singleton {
     // {item, chat, unread}: unread once Claude answered in it put away (not
     // brought back then: the user busy), so the bar's bubble lights up.
     property var parked: null
-    readonly property bool thinking: (root.chat?.responding ?? false) || (root.parked?.chat?.responding ?? false)
+    // Published a turn of the event loop later: what follows it (Full AI's
+    // mood and balloon, the bar robot) reaches back into the chat it is read
+    // from, and a direct binding looped ("Binding loop detected for property
+    // \"thinking\"", seen as the bubble's turn ended).
+    readonly property bool _thinkingNow: (root.chat?.responding ?? false) || (root.parked?.chat?.responding ?? false)
+    property bool thinking: false
+    on_ThinkingNowChanged: Qt.callLater(root._publishThinking)
+    function _publishThinking() {
+        root.thinking = root._thinkingNow
+    }
     // The user is writing in the bubble: nothing takes its place meanwhile.
     property bool typing: false
     // The bubble's field wants the keys (it was called up with the keyboard).

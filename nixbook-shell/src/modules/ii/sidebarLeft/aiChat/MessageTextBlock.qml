@@ -53,6 +53,9 @@ ColumnLayout {
                     if (!renderedLatexHashes.includes(renderHash)) {
                         renderedLatexHashes.push(renderHash);
                     }
+                    // Rendered before: its renderFinished came before the
+                    // hash was listed here.
+                    if (!isNew) handleRenderedLatex(renderHash);
                 });
             }
         }
@@ -61,9 +64,9 @@ ColumnLayout {
     function handleRenderedLatex(hash, force = false) {
         if (renderedLatexHashes.includes(hash) || force) {
             const imagePath = LatexRenderer.renderedImagePaths[hash];
-            const markdownImage = `![latex](${imagePath})`;
-
             const expression = LatexRenderer.processedExpressions[hash];
+            if (!imagePath || !expression) return;
+            const markdownImage = `![latex](${imagePath})`;
             renderedSegmentContent = renderedSegmentContent.replace(expression, markdownImage);
         }
     }
