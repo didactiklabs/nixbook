@@ -839,7 +839,7 @@ Singleton {
                 + (shellTools.length > 0 ? ", or a command" : "")
                 + "); type, press keys or click only when none can, and the keyboard before the mouse."
                 // Asked again by the server itself (a notification with Allow / No).
-                + " The discord tool's send and react, and a page_act that sends, pays or deletes (Send, Pay, Delete; Enter in Discord's or Slack's message box), act in the user's name: show exactly what and to whom first; the user is then asked to allow it in a notification." : "")
+                + " The discord tool's send and react, and a page_act that sends, pays or deletes (Send, Pay, Delete; Enter in Discord's or Slack's message box), act in the user's name: show exactly what and to whom first; the user is then asked to allow it in a notification (not for what they chose Always allow for there)." : "")
             // Its tools are all allowed (-p can't ask): what acts on the
             // user's account waits for their yes in the chat.
             + (extraServers.linkedin

@@ -128,6 +128,16 @@ are all allowed) is asked too. Both tools are also marked `destructiveHint`
 for clients that ask on their own; for such a client `askBeforeSending =
 false` in `desktopMcp.settings` avoids being asked twice.
 
+**Always allow.** The notification also has **Always allow**, for that one
+thing only: sending (or reacting) in that Discord channel, that button on
+that site in Zen (its host) or in that bridged app. Agents then do it
+without asking. **Settings → Desktop agents → Desktop control → Things it no
+longer asks** lists each one, when you allowed it and how often it was used
+since; **Ask again** takes one back (`nixbook-desktop-mcp permissions list |
+revoke KEY | clear`). Only your click grants one: no tool or command can,
+and a yes given while an agent was typing or clicking is refused, since the
+click may have been the agent's own.
+
 ::: warning Your account, your responsibility
 Discord's and Slack's terms forbid automating a user account ("self-bots").
 These tools act on your own account in your own app, one asked message at a
