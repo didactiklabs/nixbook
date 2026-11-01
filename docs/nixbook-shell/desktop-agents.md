@@ -88,7 +88,12 @@ own Zen and apps, so they are refused while agents work on
   `Input.dispatchKeyEvent`, and never returns a cookie, a token or a header.
   Password fields are refused, password managers are never bridged (also
   `pages.blockedApps`), at most 60 actions a minute per app. Where
-  nixbook-shell is off, the apps are installed as they are.
+  nixbook-shell is off, the apps are installed as they are. Started from the
+  launcher or the dock (whose output niri throws away), the launcher and the
+  app write to the user journal as the app (`journalctl --user -t
+youtube-music`, `-t discord`…), and when the app quits on its own the
+  launcher says how (its exit code, or the signal that killed it) and after
+  how long: what to look at when music stops or an app vanishes.
 - **Staying bridged**: an app can end up running without its bridge — it
   restarted itself (`app.relaunch()`, an update applied, "restart to apply"),
   its own **autostart entry** (`~/.config/autostart/<app>.desktop`, written by

@@ -242,6 +242,19 @@ expect_contains "relaunch: given up, the user told" "$(cat "$FAKE_NOTIFY_LOG")" 
 for l in $(pgrep -f "^python3 -c import time; time.sleep[(]120[)] $marker" || true); do kill "$l" 2>/dev/null || true; done
 rm -f "$edir/discord.restarted"
 # A launcher whose app just quits: no new instance, it ends (no markers: no wait at all).
+# How it ended is said, and with its output thrown away (niri's spawn) the
+# launcher and the app write to the journal as the app instead.
+FAKE_CDP_QUIT_AFTER=1.5 FAKE_CDP_QUIT_CODE=3 timeout 30 python3 "$bridge" --page-js "$root/zen/page.js" \
+  discord -- python3 "$fake" 2>"$tmp/quit.err" || true
+expect_contains "quit on its own: how and when, said" "$(cat "$tmp/quit.err")" "discord quit on its own (exited with code 3) after"
+mkdir -p "$tmp/journal-bin"
+printf '#!/usr/bin/env bash\necho "$*" >"%s/journal.args"\ncat >>"%s/journal.txt"\n' "$tmp" "$tmp" >"$tmp/journal-bin/systemd-cat"
+chmod +x "$tmp/journal-bin/systemd-cat"
+FAKE_CDP_QUIT_AFTER=1.5 PATH="$tmp/journal-bin:$PATH" timeout 30 python3 "$bridge" --page-js "$root/zen/page.js" \
+  discord -- python3 "$fake" >/dev/null 2>/dev/null || true
+sleep 0.5
+expect_eq "no output: to the journal, as the app" "--identifier discord --level-prefix=false" "$(cat "$tmp/journal.args" 2>/dev/null)"
+expect_contains "no output: why it quit, in the journal" "$(cat "$tmp/journal.txt" 2>/dev/null)" "discord quit on its own (exited with code 0)"
 
 printf '{"apps":[{"app":"discord","command":["python3","%s","--watch-test"],"markers":["%s"],"a11y":true}]}\n' \
   "$fake" "$marker" >"$tmp/bridge.json"
