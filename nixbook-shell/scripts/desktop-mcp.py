@@ -399,6 +399,17 @@ DEVTOOLS_KEYS = {"f12", "ctrl+shift+i", "ctrl+shift+j", "ctrl+shift+k", "ctrl+sh
                  "ctrl+shift+m", "ctrl+shift+u", "ctrl+u"}
 
 
+def agent_input_since(t):
+    """Whether an agent typed or clicked on the user's desktop since time t
+    (seconds): what the user answered meanwhile may have been the agent."""
+    base = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}", "nixbook-shell")
+    try:
+        with open(os.path.join(base, "agent-input"), encoding="utf-8") as f:
+            return int(f.read().strip() or 0) / 1000 >= t
+    except (OSError, ValueError):
+        return False
+
+
 def mark_agent_input():
     """Before any input on the user's desktop: the time, for the shell, which
     then won't run a launcher `$` command or send a side-panel chat message
@@ -14512,26 +14523,89 @@ def page_act_risky(args):
 ASK_TIMEOUT = 120
 
 
-def ask_user_yes(ctx, title, body):
+# -- standing permissions -----------------------------------------------------
+# The user's "Always allow" on a permission notification: that one thing
+# (sending in one Discord channel, one button on one site…) isn't asked
+# again. Only that click grants one, never a tool or a command; Settings >
+# Desktop agents lists them and takes them back (`permissions list|revoke`).
+PERMISSIONS_MAX = 200
+
+
+def permissions_path():
+    return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-shell", "permissions.json")
+
+
+def empty_permissions():
+    return {"version": 1, "allowed": {}}
+
+
+class Permissions(Memory):
+    path = staticmethod(permissions_path)
+    empty = staticmethod(empty_permissions)
+
+    def migrate(self):
+        if not isinstance(self.data.get("allowed"), dict):
+            self.data["allowed"] = {}
+            self.changed = True
+
+
+def permission_used(key):
+    """True when the user always allows `key` (its use counted)."""
+    if not key:
+        return False
+    with Permissions() as p:
+        e = p.data["allowed"].get(key)
+        if not isinstance(e, dict):
+            return False
+        e["uses"], e["last"] = int(e.get("uses") or 0) + 1, int(time.time())
+        p.changed = True
+    return True
+
+
+def permission_grant(key, label):
+    with Permissions() as p:
+        allowed = p.data["allowed"]
+        allowed[key] = {"label": short(label, 200), "granted": int(time.time()), "uses": 0}
+        # Past the cap, the longest unused go first.
+        for k in sorted(allowed, key=lambda k: allowed[k].get("last") or allowed[k].get("granted") or 0)[:-PERMISSIONS_MAX]:
+            del allowed[k]
+        p.changed = True
+
+
+def ask_user_yes(ctx, title, body, key=None, label=None):
     """The user's own yes, asked in a notification (Allow / No; no answer in
     ASK_TIMEOUT seconds is a no), before what speaks, pays or deletes in
     their name: whatever the agent or its client says, they can't answer it
-    for the user. askBeforeSending false: not asked (a client that asks the
-    user itself before each such call)."""
+    for the user. key: the one thing asked (discord:send:<channel>…): the
+    notification then offers Always allow too, and a thing always allowed
+    isn't asked again (label: how Settings names it). askBeforeSending
+    false: not asked (a client that asks the user itself before each such
+    call)."""
     if ctx.cfg.get("askBeforeSending", True) is False:
+        return
+    if permission_used(key):
         return
     if not shutil.which("notify-send"):
         raise ToolError("not done: the user can't be asked (no notify-send), and this acts in their name")
+    asked = time.time()
     try:
         out = subprocess.run(["notify-send", "-a", "Desktop agent", "-i", "dialog-question", "-u", "critical",
-                              "-A", "allow=Allow", "-A", "deny=No", "--", title, short(body, 600)],
+                              "-A", "allow=Allow", *(["-A", "always=Always allow"] if key else []),
+                              "-A", "deny=No", "--", title, short(body, 600)],
                              capture_output=True, text=True, timeout=ASK_TIMEOUT, env=user_desktop_env())
     except subprocess.TimeoutExpired:
         raise ToolError("not done: the user didn't answer the notification asking for their yes")
     except OSError as e:
         raise ToolError(f"not done: the user couldn't be asked ({e})")
-    if out.stdout.strip() != "allow":
+    answer = out.stdout.strip()
+    if answer not in ("allow", "always"):
         raise ToolError("not done: the user said no. Don't try again unless they ask you to")
+    # Keys or a click from an agent while it waited: the yes may be its own.
+    if agent_input_since(asked):
+        raise ToolError("not done: an agent typed or clicked while the user was being asked, so the answer "
+                        "can't be trusted. Ask again, with no input meanwhile")
+    if answer == "always" and key:
+        permission_grant(key, label or title)
 
 
 def zen_socket():
@@ -14674,6 +14748,24 @@ def page_call(ctx, args, cmd, **kw):
     if app == "zen":
         return app, zen(ctx, cmd, tab=page, **kw)
     return app, electron(ctx, app, cmd, page=page, **kw)
+
+
+def page_site(ctx, args):
+    """(key part, name) of the site a page call acts on, for a standing
+    permission: a bridged app itself, a Zen tab's host; (None, None) when it
+    can't be told (no single tab, a private one)."""
+    app, page = page_target(args)
+    if app != "zen":
+        return app, APP_LABELS.get(app, app)
+    try:
+        tabs = zen(ctx, "tabs") or []
+    except ToolError:
+        return None, None
+    found = [t for t in tabs if (str(t.get("id")) == page if page is not None else t.get("active"))]
+    if len(found) != 1 or found[0].get("private"):
+        return None, None
+    host = (re.match(r"^[a-z][a-z0-9+.-]*://([^/:?#]+)", str(found[0].get("url") or ""), re.I) or [None, None])[1]
+    return (f"zen:{host.lower()}", host.lower()) if host else (None, None)
 
 
 def page_label(app, r):
@@ -14847,9 +14939,13 @@ def t_page_act(ctx, args):
     ctx.guard.check_rate()
     if page_act_risky(args):
         target = str(args.get("target") or "zen")
-        ask_user_yes(ctx, f"Let the agent {as_str(args, 'action', max_len=20)} \u201c{as_str(args, 'name', max_len=200)}\u201d "
+        action, name = as_str(args, 'action', max_len=20), as_str(args, 'name', max_len=200)
+        site, where = page_site(ctx, args)
+        ask_user_yes(ctx, f"Let the agent {action} \u201c{name}\u201d "
                      f"in {'Zen' if page_target(args)[0] == 'zen' else APP_LABELS.get(page_target(args)[0], target)}?",
-                     "It acts in your name (it may send, pay or delete).")
+                     "It acts in your name (it may send, pay or delete).",
+                     key=site and f"page:{site}:{action}:{' '.join(name.lower().split())}",
+                     label=f"{action.capitalize()} \u201c{name}\u201d on {where}")
     app, r = page_call(ctx, args, "act", ref=as_int(args, "ref"), name=as_str(args, "name", max_len=200),
                        action=as_str(args, "action", max_len=20), value=value if isinstance(value, str) else None,
                        append=bool(args.get("append")))
@@ -14925,6 +15021,13 @@ def discord_channel(c):
     if not isinstance(c, dict):
         return "?"
     return c.get("name", "?") + (f" ({c['guild']})" if c.get("guild") else "") + f" = {c.get('id')}"
+
+
+def discord_permission(where, kind):
+    """The standing-permission key of `kind` in a channel discord_channel
+    named: None when its id isn't known."""
+    cid = where.rsplit(" = ", 1)[1] if " = " in where else ""
+    return f"discord:{kind}:{cid}" if re.fullmatch(r"\d{5,30}", cid) else None
 
 
 def discord_message_line(m):
@@ -15070,7 +15173,9 @@ def t_discord(ctx, args):
             raise ToolError("a Discord message is at most 2000 characters")
         ctx.guard.check_rate()
         where = discord_channel(app("read", channel=channel, limit=1).get("channel"))
-        ask_user_yes(ctx, f"Send this on Discord, to {where.rsplit(' = ', 1)[0]}?", content)
+        ask_user_yes(ctx, f"Send this on Discord, to {where.rsplit(' = ', 1)[0]}?", content,
+                     key=discord_permission(where, "send"),
+                     label=f"Send messages on Discord, in {where.rsplit(' = ', 1)[0]}")
         r = app("send", channel=channel, content=content, reply_to=opt("reply_to", 30))
         if r.get("id"):
             return [text(f"sent to {discord_channel(r.get('channel'))} (message id {r['id']})")]
@@ -15082,7 +15187,9 @@ def t_discord(ctx, args):
         emoji = as_str(args, "emoji", max_len=80)
         where = discord_channel(app("read", channel=channel, limit=1).get("channel"))
         ask_user_yes(ctx, f"React {emoji} on Discord, in {where.rsplit(' = ', 1)[0]}?",
-                     f"To message {as_str(args, 'message', max_len=30)}, in your name.")
+                     f"To message {as_str(args, 'message', max_len=30)}, in your name.",
+                     key=discord_permission(where, "react"),
+                     label=f"React on Discord, in {where.rsplit(' = ', 1)[0]}")
         r = app("react", channel=as_str(args, "channel", max_len=200), message=as_str(args, "message", max_len=30),
                 emoji=as_str(args, "emoji", max_len=80))
         return [text(f"reacted {args.get('emoji')} to message {r.get('id')} in {discord_channel(r.get('channel'))}")]
@@ -15294,7 +15401,8 @@ INSTRUCTIONS = (
     "send, react): the discord tool. YouTube Music: playing, the queue, likes through its own MCP "
     "server (youtube-music) when you have it, the page tools for the rest (lyrics, the library). "
     "Sending a message, reacting, or a click or key that sends, pays or deletes waits for the "
-    "user's yes in a notification: say what it will do first. Input into terminals, "
+    "user's yes in a notification (not what they chose to always allow): say what it will do "
+    "first. Input into terminals, "
     "password managers and password prompts is refused: ask the user to do "
     "those steps. The user can pause desktop control at any time from the "
     "bar; then every tool is refused. The user can also move you between "
@@ -16491,6 +16599,9 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
   privacy learned | unlearn KEY
                           the strangers' names learned private (JSON), or one not private
   routine list|run ID [EVENT_JSON]|undone ID|on ID|off ID|remove ID|learn suggest|auto
+  permissions [list] | revoke KEY | clear
+                          what agents no longer ask (the user's "Always allow"
+                          on a permission notification; granted only there)
                           the user's routines (the shell runs them on their cue)
   kiroshi scan REQUEST.json
                           the Kiroshi scan (Mod+K): a brief of the screen, as JSON lines
@@ -16632,6 +16743,8 @@ def main(argv):
         return layout_command(cfg, argv[1:])
     if cmd == "memory":
         return memory_command(cfg, argv[1:])
+    if cmd == "permissions":
+        return permissions_command(argv[1:])
     if cmd == "initiative":
         return initiative_command(cfg, argv[1:])
     if cmd == "fullai":
@@ -16876,6 +16989,29 @@ def notify(argv, env=None):
 
 def notify_desktop(message):
     notify(["-a", "Desktop agent", "-i", "computer", "--", message], env=user_desktop_env())
+
+
+def permissions_command(argv):
+    """list (JSON) or take back: never grants one (only the user's click on
+    the notification does)."""
+    sub = argv[0] if argv else "list"
+    if sub == "list" and len(argv) <= 1:
+        with Permissions() as p:
+            print(json.dumps(p.data["allowed"], ensure_ascii=False))
+        return 0
+    if sub == "revoke" and len(argv) == 2:
+        with Permissions() as p:
+            if p.data["allowed"].pop(argv[1], None) is None:
+                print(f"no permission {argv[1]}", file=sys.stderr)
+                return 1
+            p.changed = True
+        return 0
+    if sub == "clear" and len(argv) == 1:
+        with Permissions() as p:
+            p.data["allowed"], p.changed = {}, True
+        return 0
+    print("usage: nixbook-desktop-mcp permissions [list] | revoke KEY | clear", file=sys.stderr)
+    return 2
 
 
 def memory_command(cfg, argv):

@@ -1950,11 +1950,20 @@ echo deny >"$tmp/ask"
 out=$(STUB_ASK="$tmp/ask" call page_act '{"ref":5,"name":"Send","action":"click"}')
 expect_contains "page_act: a click on Send, the user said no" "$out" "the user said no"
 expect_contains "page_act: asked with Allow / No" "$(grep -- '-A allow=Allow' "$calls" | tail -n1)" 'Let the agent click “Send” in Zen?'
-expect_eq "page_act: nothing sent to the page on a no" "$zen_lines" "$(wc -l <"$tmp/zen.log" | tr -d ' ')"
+expect_eq "page_act: nothing done in the page on a no (its tab looked up only)" "tabs" \
+  "$(tail -n +"$((zen_lines + 1))" "$tmp/zen.log" | jq -r .cmd | sort -u | paste -sd' ')"
 expect_contains "page_act: no answer is a no" "$(call page_act '{"ref":5,"name":"Send","action":"click"}')" "the user said no"
 echo allow >"$tmp/ask"
 STUB_ASK="$tmp/ask" call page_act '{"ref":5,"name":"Send","action":"click"}' >/dev/null
 expect_eq "page_act: a click on Send, allowed" '[5,"Send","click"]' "$(tail -n1 "$tmp/zen.log" | jq -c '[.ref,.name,.action]')"
+echo always >"$tmp/ask"
+STUB_ASK="$tmp/ask" call page_act '{"ref":5,"name":"Send","action":"click"}' >/dev/null
+expect_eq "page_act always allow: that button on that site" 'Click “Send” on mail.example.org' \
+  "$(python3 "$mcp" permissions list | jq -r '."page:zen:mail.example.org:click:send".label')"
+expect_contains "page_act always allow: not asked again" "$(call page_act '{"ref":5,"name":"Send","action":"click"}')" "Send"
+expect_contains "page_act always allow: another tab is still asked" \
+  "$(call page_act '{"target":"zen:9","ref":5,"name":"Send","action":"click"}')" "the user said no"
+python3 "$mcp" permissions clear
 expect_contains "page_go open: in the background" "$(call page_go '{"action":"open","url":"https://example.org/"}')" "zen:12 'Example' https://example.org/"
 expect_eq "page_go open: not shown" "false" "$(tail -n1 "$tmp/zen.log" | jq -c .active)"
 expect_contains "page_screenshot: a tab, saved" "$(python3 "$mcp" call page_screenshot '{}' 2>&1)" "zen:3: 'Inbox'"
@@ -2058,6 +2067,35 @@ echo '{"askBeforeSending":false}' >"$tmp/no-ask.json"
 expect_contains "askBeforeSending false: not asked" \
   "$(NIXBOOK_DESKTOP_MCP_CONFIG="$tmp/no-ask.json" python3 "$mcp" call discord '{"action":"react","channel":"222222222222222222","message":"555","emoji":"👍"}' 2>&1 || true)" "reacted 👍"
 expect_eq "askBeforeSending false: no notification asking" "" "$(grep -- '-A allow=Allow' "$calls" || true)"
+# Always allow: that one thing isn't asked again, until taken back.
+: >"$calls"
+echo always >"$tmp/ask"
+expect_contains "always allow: sent" \
+  "$(STUB_ASK="$tmp/ask" call discord '{"action":"send","channel":"222222222222222222","content":"first"}')" "sent to #general"
+expect_contains "always allow: offered" "$(grep -- '-A allow=Allow' "$calls" | tail -n1)" "-A always=Always allow"
+: >"$calls"
+expect_contains "always allow: not asked again" \
+  "$(call discord '{"action":"send","channel":"222222222222222222","content":"second"}')" "sent to #general"
+expect_eq "always allow: no notification" "" "$(grep -- '-A allow=Allow' "$calls" || true)"
+expect_contains "always allow: only that thing (a reaction is still asked)" \
+  "$(call discord '{"action":"react","channel":"222222222222222222","message":"555","emoji":"👍"}')" "the user said no"
+listed=$(python3 "$mcp" permissions list)
+expect_eq "permissions list: what and how often" "Send messages on Discord, in #general (Friends) 1" \
+  "$(jq -r '."discord:send:222222222222222222" | "\(.label) \(.uses)"' <<<"$listed")"
+expect_eq "permissions: never granted by a command" 2 "$(
+  python3 "$mcp" permissions allow x >/dev/null 2>&1
+  echo $?
+)"
+python3 "$mcp" permissions revoke discord:send:222222222222222222
+expect_contains "permissions revoke: asked again" \
+  "$(call discord '{"action":"send","channel":"222222222222222222","content":"third"}')" "the user said no"
+# An agent's keys or clicks while the user was asked: their yes isn't trusted.
+mkdir -p "$XDG_RUNTIME_DIR/nixbook-shell"
+echo $(($(date +%s) * 1000 + 60000)) >"$XDG_RUNTIME_DIR/nixbook-shell/agent-input"
+expect_contains "agent input while asked: refused" \
+  "$(STUB_ASK="$tmp/ask" call discord '{"action":"send","channel":"222222222222222222","content":"fourth"}')" "can't be trusted"
+expect_eq "agent input while asked: nothing granted" "{}" "$(python3 "$mcp" permissions list)"
+rm -f "$XDG_RUNTIME_DIR/nixbook-shell/agent-input"
 expect_eq "tools/list: discord and page_act marked destructive" "true true" \
   "$(python3 "$mcp" tools | jq -r '[.[] | select(.name=="discord" or .name=="page_act") | .annotations.destructiveHint | tostring] | join(" ")')"
 kill "$electron_pid" 2>/dev/null

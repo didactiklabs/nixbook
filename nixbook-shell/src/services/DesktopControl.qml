@@ -205,6 +205,52 @@ Singleton {
             }
         }
     }
+    // What agents no longer ask for: each "Always allow" clicked on their
+    // permission notification ({key: {label, granted, uses, last}}), taken
+    // back from Settings. Granted only by that click (desktop-mcp.py).
+    property var permissions: ({})
+    function refreshPermissions() {
+        if (!permissionsReader.running) permissionsReader.running = true;
+    }
+    function revokePermission(key) {
+        if (typeof key !== "string" || key.length === 0) return;
+        root.permissionsCommand(["revoke", key]);
+    }
+    function revokeAllPermissions() {
+        root.permissionsCommand(["clear"]);
+    }
+    // One at a time, in order (a second click while one runs isn't lost).
+    property var permissionsQueue: []
+    function permissionsCommand(args) {
+        root.permissionsQueue = [...root.permissionsQueue, ["nixbook-desktop-mcp", "permissions", ...args]];
+        if (!permissionsWriter.running) root.nextPermissionsCommand();
+    }
+    function nextPermissionsCommand() {
+        if (root.permissionsQueue.length === 0) {
+            root.refreshPermissions();
+            return;
+        }
+        permissionsWriter.command = root.permissionsQueue[0];
+        root.permissionsQueue = root.permissionsQueue.slice(1);
+        permissionsWriter.running = true;
+    }
+    Process {
+        id: permissionsReader
+        command: ["nixbook-desktop-mcp", "permissions", "list"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    root.permissions = JSON.parse(text) ?? {};
+                } catch (e) {
+                    console.warn("[DesktopControl] can't read the permissions:", e);
+                }
+            }
+        }
+    }
+    Process {
+        id: permissionsWriter
+        onExited: root.nextPermissionsCommand()
+    }
     Process {
         id: habitsReader
         command: ["nixbook-desktop-mcp", "habits", "status"]

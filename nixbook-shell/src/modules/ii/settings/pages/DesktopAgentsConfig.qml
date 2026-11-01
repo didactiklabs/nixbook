@@ -17,7 +17,10 @@ ContentPage {
     id: page
     forceWidth: true
 
+    // Granted from a notification while the page was away: read again.
+    onVisibleChanged: if (visible) DesktopControl.refreshPermissions()
     Component.onCompleted: {
+        DesktopControl.refreshPermissions();
         DesktopControl.refreshMemory();
         DesktopControl.refreshPersonal();
         DesktopControl.refreshHabits();
@@ -1234,6 +1237,68 @@ ContentPage {
                     enabled: DesktopControl.canTakeOver || DesktopControl.userHasControl
                     checked: DesktopControl.userHasControl
                     onClicked: DesktopControl.toggleInteract()
+                }
+            }
+
+            // Each "Always allow" clicked on a permission notification, to
+            // take back one at a time.
+            ContentSubsection {
+                id: permissionsSection
+                readonly property var keys: Object.keys(DesktopControl.permissions ?? {})
+                    .sort((a, b) => (DesktopControl.permissions[b].granted ?? 0) - (DesktopControl.permissions[a].granted ?? 0))
+                title: Translation.tr("Things it no longer asks")
+
+                StyledText {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    color: Appearance.colors.colSubtext
+                    text: permissionsSection.keys.length === 0
+                        ? Translation.tr("Before an agent sends, reacts, pays or deletes in your name, a notification asks you. Its Always allow button stops asking for that one thing (sending in that Discord channel, that button on that site), and it shows up here to take back.")
+                        : Translation.tr("You chose Always allow for these: agents do them without asking. Take one back to be asked again.")
+                }
+                Repeater {
+                    model: permissionsSection.keys
+                    delegate: RowLayout {
+                        id: permissionRow
+                        required property string modelData
+                        readonly property var entry: DesktopControl.permissions[modelData] ?? {}
+                        Layout.fillWidth: true
+                        spacing: 6
+                        MaterialSymbol {
+                            text: "verified_user"
+                            iconSize: Appearance.font.pixelSize.normal
+                            color: Appearance.colors.colSubtext
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 0
+                            StyledText {
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                                text: permissionRow.entry.label ?? permissionRow.modelData
+                            }
+                            StyledText {
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                                font.pixelSize: Appearance.font.pixelSize.smaller
+                                color: Appearance.colors.colSubtext
+                                text: Translation.tr("Allowed %1 · done %2 times without asking")
+                                    .arg(new Date((permissionRow.entry.granted ?? 0) * 1000).toLocaleDateString(Qt.locale(), Locale.ShortFormat))
+                                    .arg(permissionRow.entry.uses ?? 0)
+                            }
+                        }
+                        SmallButton {
+                            materialIcon: "undo"
+                            mainText: Translation.tr("Ask again")
+                            onClicked: DesktopControl.revokePermission(permissionRow.modelData)
+                        }
+                    }
+                }
+                SmallButton {
+                    visible: permissionsSection.keys.length > 1
+                    materialIcon: "restart_alt"
+                    mainText: Translation.tr("Ask again for all of them")
+                    onClicked: DesktopControl.revokeAllPermissions()
                 }
             }
 
