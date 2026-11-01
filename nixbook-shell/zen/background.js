@@ -247,7 +247,67 @@ async function handle(msg) {
       r.tab = tab.id;
       r.url = after.url;
       r.title = after.title;
+      // What the action changed, so the agent needn't read the page again.
+      if (!r.error && !refusedWhy(after, await containerOf(after), guard))
+        try {
+          r.changes = await inPage(after, "changes", {});
+        } catch (e) {}
       return r;
+    }
+    // The user's history or bookmarks, newest first, without the sites the
+    // agents may not use (nor anything but web pages).
+    case "history": {
+      const max = Math.max(1, Math.min(50, Number(msg.max) || 15));
+      const items =
+        msg.kind === "bookmarks"
+          ? (await browser.bookmarks.search(String(msg.query || ""))).filter(
+              (b) => b.url,
+            )
+          : await browser.history.search({
+              text: String(msg.query || ""),
+              startTime: 0,
+              maxResults: 200,
+            });
+      const out = [];
+      for (const it of items) {
+        if (urlRefused(it.url || "", guard)) continue;
+        out.push({
+          title: (it.title || "").slice(0, 150),
+          url: (it.url || "").slice(0, 300),
+          when: it.lastVisitTime || it.dateAdded || undefined,
+          visits: it.visitCount || undefined,
+        });
+        if (out.length >= max) break;
+      }
+      return out;
+    }
+    // A web search with Zen's own search engine, in a new tab in the
+    // background (DuckDuckGo when the search API can't).
+    case "search": {
+      const query = String(msg.query || "").slice(0, 300);
+      if (!query.trim()) throw new Error("`query`: what to search for");
+      const tab = await browser.tabs.create({
+        url: "about:blank",
+        active: false,
+      });
+      try {
+        await browser.search.search({ query, tabId: tab.id });
+      } catch (e) {
+        await browser.tabs.update(tab.id, {
+          url: "https://duckduckgo.com/?q=" + encodeURIComponent(query),
+        });
+      }
+      // Not done while still on about:blank (that is "complete" at once).
+      const end = Date.now() + 15000;
+      for (;;) {
+        const t = await browser.tabs.get(tab.id);
+        if (
+          (t.url !== "about:blank" && t.status === "complete") ||
+          Date.now() > end
+        )
+          return describe(t, guard);
+        await sleep(200);
+      }
     }
     case "wait": {
       const tab = await tabFor(msg);

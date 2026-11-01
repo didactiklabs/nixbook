@@ -446,7 +446,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 62 tools" 62 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 63 tools" 63 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -1939,7 +1939,7 @@ call page_read '{"target":"zen:9","text":false}' >/dev/null
 expect_eq "page_read: a tab by its target" 9 "$(tail -n1 "$tmp/zen.log" | jq -c .tab)"
 : >"$calls"
 out=$(call page_act '{"ref":2,"name":"To","action":"type","value":"bob@example.org"}')
-expect_contains "page_act: done" "$out" "done (type): text field 'To' = 'bob@example.org'"
+expect_contains "page_act: done" "$out" "done (type): [2] text field 'To' = 'bob@example.org'"
 expect_eq "page_act: typing into a field isn't asked" "" "$(grep -- '-A allow=Allow' "$calls" || true)"
 expect_eq "page_act: ref, name, action, value" '[2,"To","type","bob@example.org"]' "$(tail -n1 "$tmp/zen.log" | jq -c '[.ref,.name,.action,.value]')"
 expect_contains "page_act: what was typed not logged" "$(grep '"page_act"' "$XDG_STATE_HOME/nixbook-shell/desktop-mcp.log" | tail -n1)" '"value": "<15 chars>"'
@@ -1964,6 +1964,40 @@ expect_contains "page_act always allow: not asked again" "$(call page_act '{"ref
 expect_contains "page_act always allow: another tab is still asked" \
   "$(call page_act '{"target":"zen:9","ref":5,"name":"Send","action":"click"}')" "the user said no"
 python3 "$mcp" permissions clear
+# By name alone, what changed in the reply, several steps in one call.
+out=$(call page_act '{"name":"To","action":"type","value":"bob@example.org"}')
+expect_eq "page_act by name: no ref sent" '[null,"To"]' "$(tail -n1 "$tmp/zen.log" | jq -c '[.ref,.name]')"
+expect_contains "page_act: the ref it acted on" "$out" "done (type): [2] text field 'To'"
+expect_contains "page_act: what appeared" "$out" "Appeared:
+  [4] button 'Undo'"
+expect_contains "page_act: what went, the new text" "$out" "Gone: 1 element.
+New text: Message sent"
+expect_contains "page_act: found again by its name" "$(call page_act '{"ref":9,"name":"To","action":"focus"}')" \
+  "found by its name, now [9]"
+zen_lines=$(wc -l <"$tmp/zen.log")
+out=$(call page_act '{"steps":[{"ref":2,"name":"To","action":"type","value":"ana@example.org"},{"name":"Subject","action":"type","value":"lunch"}]}')
+expect_eq "page_act steps: both done, in order" "To Subject" \
+  "$(tail -n +"$((zen_lines + 1))" "$tmp/zen.log" | jq -r 'select(.cmd == "act") | .name' | paste -sd' ')"
+expect_contains "page_act steps: each told" "$out" "step 2: done (type)"
+expect_eq "page_act steps: one change report, at the end" 1 "$(grep -c 'Appeared:' <<<"$out")"
+out=$(call page_act '{"steps":[{"ref":3,"name":"Password","action":"type","value":"x"},{"name":"To","action":"click"}]}')
+expect_contains "page_act steps: stops at the first failure" "$out" "step 1 failed: refused: password fields are off limits"
+expect_contains "page_act steps: says the rest wasn't done" "$out" "nothing after it was done"
+expect_contains "page_act: a name is needed" "$(call page_act '{"ref":2,"action":"click"}')" "the element's name"
+# History, bookmarks and a web search, Zen only.
+out=$(call page_history '{"query":"flat"}')
+expect_contains "page_history: title, address, when, visits" "$out" "- 'Flat in Lyon' https://flats.example.org/lyon (2026-"
+expect_contains "page_history: visits" "$out" ", 3 visits)"
+expect_eq "page_history: asked of Zen" '["history","flat"]' "$(tail -n1 "$tmp/zen.log" | jq -c '[.kind,.query]')"
+echo '{"browser":{"blockedSites":["bank"]}}' >"$tmp/no-bank.json"
+expect_eq "page_history: blocked sites left out" "" \
+  "$(NIXBOOK_DESKTOP_MCP_CONFIG="$tmp/no-bank.json" python3 "$mcp" call page_history '{}' 2>&1 | grep bank || true)"
+echo '{"browser":{"history":false}}' >"$tmp/no-history.json"
+expect_contains "page_history: off in the settings" \
+  "$(NIXBOOK_DESKTOP_MCP_CONFIG="$tmp/no-history.json" python3 "$mcp" call page_history '{}' 2>&1 || true)" "is off"
+out=$(call page_go '{"action":"search","query":"ramen lyon"}')
+expect_contains "page_go search: its tab, in the background" "$out" "zen:14 'ramen lyon at DuckDuckGo'"
+expect_eq "page_go search: the query to Zen" '["search","ramen lyon"]' "$(tail -n1 "$tmp/zen.log" | jq -c '[.cmd,.query]')"
 expect_contains "page_go open: in the background" "$(call page_go '{"action":"open","url":"https://example.org/"}')" "zen:12 'Example' https://example.org/"
 expect_eq "page_go open: not shown" "false" "$(tail -n1 "$tmp/zen.log" | jq -c .active)"
 expect_contains "page_screenshot: a tab, saved" "$(python3 "$mcp" call page_screenshot '{}' 2>&1)" "zen:3: 'Inbox'"
@@ -2021,6 +2055,8 @@ expect_contains "page_read: an app's page" "$out" "discord:2: 'Discord | #genera
 expect_contains "page_read: its editor" "$out" "[1] text editor 'Message #general'"
 out=$(call page_act '{"target":"discord","ref":1,"name":"Message #general","action":"type","value":"on my way"}')
 expect_contains "page_act: typed in an app's editor" "$out" "done (type): text editor 'Message #general' = 'on my way'"
+expect_contains "page_act: an app's page says what changed" "$out" "Appeared:
+  [5] button 'Edit message'"
 expect_eq "page_act: through the pipe's Input.insertText" '"on my way"' "$(grep 'Input.insertText' "$tmp/cdp.log" | tail -n1 | jq -c .params.text)"
 # Enter in a chat app's message box sends it: asked; Shift+Enter (a new line) isn't.
 : >"$calls"

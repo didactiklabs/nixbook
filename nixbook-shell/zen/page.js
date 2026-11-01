@@ -6,6 +6,11 @@
 // page's own scripts see neither this code nor the references it keeps.
 // Password fields are refused, a reference is checked against the
 // element's name before acting (a changed page is told, not acted on).
+// References are stable: an element keeps its number across reads, and an
+// action whose element the page re-rendered finds it again by its name
+// when exactly one element has it (or acts by name alone, without a read).
+// After an action, "changes" tells what appeared and went since the last
+// read, so the agent needn't read the page again.
 //
 // host: the Electron bridge types and presses keys itself (DevTools'
 // Input.insertText / Input.dispatchKeyEvent, which editors such as Slate
@@ -96,9 +101,92 @@ function nixbookPage(op, o) {
         "",
     ).slice(0, 120);
   };
-  const refs = (window.__nixbookRefs = window.__nixbookRefs || {
-    map: new Map(),
-  });
+  const SEL =
+    'a[href], button, input:not([type="hidden"]), select, textarea, summary, [role="button"], [role="link"], ' +
+    '[role="checkbox"], [role="radio"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"], ' +
+    '[role="textbox"], [role="combobox"], [role="searchbox"], [contenteditable=""], [contenteditable="true"]';
+  // ref -> element (the visible ones, as of the last scan), element -> ref
+  // (kept while the element lives), the refs and text lines seen at the
+  // last read or change report.
+  let refs = window.__nixbookRefs;
+  if (!refs || !refs.byEl)
+    refs = window.__nixbookRefs = {
+      map: new Map(),
+      byEl: new WeakMap(),
+      next: 0,
+      seen: null,
+      lines: null,
+    };
+  // Every visible element one can act on, each with its ref.
+  const scan = () => {
+    refs.map = new Map();
+    const out = [];
+    for (const el of document.querySelectorAll(SEL)) {
+      if (!visible(el)) continue;
+      let ref = refs.byEl.get(el);
+      if (!ref) {
+        ref = ++refs.next;
+        refs.byEl.set(el, ref);
+      }
+      refs.map.set(ref, el);
+      out.push({ el, ref });
+    }
+    return out;
+  };
+  // The page's text, piece by piece (what a change report compares): its
+  // text nodes outside what one acts on (whose names the elements already
+  // give), shown ones only.
+  const textLines = () => {
+    const root =
+      document.querySelector("main, article, [role='main']") || document.body;
+    const seen = new Set();
+    const add = (t) => {
+      const c = clean(t);
+      if (c.length > 1 && seen.size < 3000) seen.add(c);
+    };
+    if (!root) return [];
+    if (!document.createTreeWalker) {
+      for (const l of root.innerText.split("\n")) add(l);
+      return [...seen];
+    }
+    const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n && seen.size < 3000; n = walk.nextNode()) {
+      const parent = n.parentElement;
+      if (!parent || parent.closest(SEL + ", script, style, noscript"))
+        continue;
+      if (parent.checkVisibility && !parent.checkVisibility()) continue;
+      add(n.nodeValue);
+    }
+    return [...seen];
+  };
+  const entry = (el, ref) => {
+    const r = role(el);
+    const e = { ref, role: r, name: label(el) };
+    if (r === "password field") e.password = true;
+    else if (
+      ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) &&
+      !["submit", "button", "reset", "checkbox", "radio", "image"].includes(
+        (el.type || "").toLowerCase(),
+      )
+    ) {
+      const v = clean(el.value).slice(0, 80);
+      if (v) e.value = v;
+    }
+    if (el.type === "checkbox" || el.type === "radio") e.checked = el.checked;
+    else if (el.getAttribute("aria-checked"))
+      e.checked = el.getAttribute("aria-checked") === "true";
+    if (el.getAttribute("aria-selected") === "true") e.selected = true;
+    if (el.disabled || el.getAttribute("aria-disabled") === "true")
+      e.disabled = true;
+    if (el.tagName === "A" && el.href) e.href = el.href.slice(0, 200);
+    if (el.tagName === "SELECT")
+      e.options = Array.from(el.options)
+        .slice(0, 25)
+        .map((x) => clean(x.label || x.text));
+    const box = el.getBoundingClientRect();
+    if (box.bottom < 0 || box.top > innerHeight) e.offscreen = true;
+    return e;
+  };
 
   const describeEl = (el) => {
     if (!el || !el.isConnected) return null;
@@ -136,54 +224,22 @@ function nixbookPage(op, o) {
   }
 
   if (op === "read") {
-    const SEL =
-      'a[href], button, input:not([type="hidden"]), select, textarea, summary, [role="button"], [role="link"], ' +
-      '[role="checkbox"], [role="radio"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"], ' +
-      '[role="textbox"], [role="combobox"], [role="searchbox"], [contenteditable=""], [contenteditable="true"]';
     const words = clean(o.query)
       .toLowerCase()
       .split(" ")
       .filter((w) => w);
-    refs.map = new Map();
-    let n = 0;
-    let total = 0;
+    const all = scan();
     const elements = [];
-    for (const el of document.querySelectorAll(SEL)) {
-      if (!visible(el)) continue;
-      total++;
+    for (const { el, ref } of all) {
+      if (elements.length >= o.max) break;
       const name = label(el);
       if (words.length && !words.some((w) => name.toLowerCase().includes(w)))
         continue;
-      if (elements.length >= o.max) continue;
-      const ref = ++n;
-      refs.map.set(ref, el);
-      const r = role(el);
-      const e = { ref, role: r, name };
-      if (r === "password field") e.password = true;
-      else if (
-        ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) &&
-        !["submit", "button", "reset", "checkbox", "radio", "image"].includes(
-          (el.type || "").toLowerCase(),
-        )
-      ) {
-        const v = clean(el.value).slice(0, 80);
-        if (v) e.value = v;
-      }
-      if (el.type === "checkbox" || el.type === "radio") e.checked = el.checked;
-      else if (el.getAttribute("aria-checked"))
-        e.checked = el.getAttribute("aria-checked") === "true";
-      if (el.getAttribute("aria-selected") === "true") e.selected = true;
-      if (el.disabled || el.getAttribute("aria-disabled") === "true")
-        e.disabled = true;
-      if (el.tagName === "A" && el.href) e.href = el.href.slice(0, 200);
-      if (el.tagName === "SELECT")
-        e.options = Array.from(el.options)
-          .slice(0, 25)
-          .map((x) => clean(x.label || x.text));
-      const box = el.getBoundingClientRect();
-      if (box.bottom < 0 || box.top > innerHeight) e.offscreen = true;
-      elements.push(e);
+      elements.push(entry(el, ref));
     }
+    const total = all.length;
+    refs.seen = new Set(all.map((x) => x.ref));
+    refs.lines = new Set(textLines());
     let text = "";
     if (o.text) {
       const root =
@@ -202,19 +258,76 @@ function nixbookPage(op, o) {
     };
   }
 
+  // What appeared and went since the last read (or the last report): the
+  // page as it is after an action, without reading it all again.
+  if (op === "changes") {
+    const all = scan();
+    const now = new Set(all.map((x) => x.ref));
+    const lines = textLines();
+    if (!refs.seen) {
+      refs.seen = now;
+      refs.lines = new Set(lines);
+      return { fresh: true, total: all.length };
+    }
+    const added = all.filter((x) => !refs.seen.has(x.ref));
+    let gone = 0;
+    for (const r of refs.seen) if (!now.has(r)) gone++;
+    const newText = lines
+      .filter((l) => !refs.lines.has(l))
+      .slice(0, 12)
+      .map((l) => l.slice(0, 160));
+    refs.seen = now;
+    refs.lines = new Set(lines);
+    return {
+      appeared: added.slice(0, 20).map((x) => entry(x.el, x.ref)),
+      appearedTotal: added.length,
+      gone,
+      newText,
+      total: all.length,
+    };
+  }
+
   if (op === "act") {
-    const el = refs.map.get(Number(o.ref));
-    if (!el || !el.isConnected)
-      return { error: "the page changed since page_read: read it again" };
-    const now = label(el);
     const want = clean(o.name).toLowerCase();
-    if (
-      want &&
-      !(now.toLowerCase().includes(want) || want.includes(now.toLowerCase()))
-    )
-      return {
-        error: `element ${o.ref} is now ${JSON.stringify(now)}, not ${JSON.stringify(o.name)}: read the page again`,
-      };
+    let el = o.ref ? refs.map.get(Number(o.ref)) : null;
+    const now = el && el.isConnected ? label(el).toLowerCase() : null;
+    const fits =
+      now !== null &&
+      (!want || now.includes(want) || (now && want.includes(now)));
+    let refound = false;
+    if (!fits) {
+      // Gone or renamed (re-rendered): the one element named so now, if
+      // there is exactly one — never a guess between several.
+      if (!want)
+        return {
+          error: "the page changed since page_read: read it again",
+        };
+      const all = scan();
+      let found = all.filter((x) => label(x.el).toLowerCase() === want);
+      if (found.length === 0)
+        found = all.filter((x) => label(x.el).toLowerCase().includes(want));
+      if (found.length !== 1) {
+        const which = JSON.stringify(o.name);
+        if (found.length > 1)
+          return {
+            error: `${found.length} elements are named ${which}: give its ref (${found
+              .slice(0, 6)
+              .map(
+                (x) =>
+                  `[${x.ref}] ${role(x.el)} ${JSON.stringify(label(x.el))}`,
+              )
+              .join(", ")})`,
+          };
+        return {
+          error: o.ref
+            ? `element ${o.ref} is gone and nothing named ${which} is on the page now: read it again`
+            : `nothing named ${which} on the page: page_read (with a query) lists what is`,
+        };
+      }
+      el = found[0].el;
+      refound = !!o.ref;
+    }
+    const ref = refs.byEl.get(el);
     if (isPassword(el))
       return {
         error:
@@ -293,7 +406,7 @@ function nixbookPage(op, o) {
               el.setSelectionRange(el.value.length, el.value.length);
             } catch (e) {}
           } else el.select();
-          return { host: "insert" };
+          return { host: "insert", ref };
         }
         if (el.isContentEditable) {
           el.focus();
@@ -360,7 +473,7 @@ function nixbookPage(op, o) {
       case "press": {
         const key = value || "Enter";
         el.focus();
-        if (o.host) return { host: "key", key };
+        if (o.host) return { host: "key", key, ref };
         for (const type of ["keydown", "keypress", "keyup"])
           el.dispatchEvent(
             new KeyboardEvent(type, {
@@ -387,7 +500,7 @@ function nixbookPage(op, o) {
             "action: click, type, select, check, submit, press, focus or scroll",
         };
     }
-    return { done: o.action, element: describeEl(el) };
+    return { done: o.action, element: describeEl(el), ref, refound };
   }
   return { error: `unknown page operation ${op}` };
 }

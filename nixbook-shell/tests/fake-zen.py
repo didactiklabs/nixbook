@@ -37,7 +37,18 @@ def answer(msg):
             raise ValueError("refused: password fields are off limits; ask the user to do this step")
         return {"done": msg.get("action"), "element": {"role": "text field", "name": msg.get("name"),
                                                       "value": msg.get("value")}, "tab": 3,
-                "title": "Inbox", "url": "https://mail.example.org/"}
+                "title": "Inbox", "url": "https://mail.example.org/", "ref": msg.get("ref") or 2,
+                "refound": msg.get("ref") == 9,
+                "changes": {"appeared": [{"ref": 4, "role": "button", "name": "Undo"}], "appearedTotal": 1,
+                            "gone": 1, "newText": ["Message sent"], "total": 3}}
+    if cmd == "history":
+        items = [{"title": "Flat in Lyon", "url": "https://flats.example.org/lyon", "when": 1793500000000, "visits": 3},
+                 {"title": "Bank", "url": "https://bank.example.org/", "when": 1793400000000}]
+        sites = (msg.get("guard") or {}).get("sites") or []
+        return [i for i in items if not any(s in i["url"] for s in sites)]
+    if cmd == "search":
+        return {"id": 14, "window": 1, "active": False, "title": msg.get("query") + " at DuckDuckGo",
+                "url": "https://duckduckgo.com/?q=" + msg.get("query").replace(" ", "+")}
     if cmd == "open":
         return {"id": 12, "window": 1, "active": False, "title": "Example", "url": msg.get("url")}
     if cmd == "screenshot":
