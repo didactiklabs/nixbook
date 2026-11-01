@@ -80,9 +80,13 @@ echo "$(wc -l <"$work/refs") references staged"
 
 key=${CACHE_KEY:+&secret-key=$CACHE_KEY}
 
-# Path-style requests: the endpoint isn't AWS.
+# Path-style requests: the endpoint isn't AWS. Checksums only when the
+# operation requires them: awscli ≥ 2.23 sends a CRC on every upload by
+# default, and the cache's S3 refuses it on multipart ones ("invalid/unknown
+# checksum sent"), so every NAR over the multipart threshold failed (since
+# 2026-10-31).
 export AWS_CONFIG_FILE="$work/aws-config"
-printf '[default]\nregion = us-east-1\ns3 =\n  addressing_style = path\n' >"$AWS_CONFIG_FILE"
+printf '[default]\nregion = us-east-1\nrequest_checksum_calculation = when_required\nresponse_checksum_validation = when_required\ns3 =\n  addressing_style = path\n' >"$AWS_CONFIG_FILE"
 upload() { # DIR DEST CONTENT-TYPE
   aws s3 sync --endpoint-url "$S3_ENDPOINT" --only-show-errors --content-type "$3" "$1" "s3://$S3_BUCKET/$2"
 }
