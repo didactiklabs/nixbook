@@ -12,7 +12,10 @@ ContentPage {
     id: page
     forceWidth: true
 
-    Component.onCompleted: WindowLayouts.refresh()
+    Component.onCompleted: {
+        WindowLayouts.refresh()
+        Projects.refresh()
+    }
 
     function goTo(term) {
         const t = term.toLowerCase().trim()
@@ -223,6 +226,153 @@ ContentPage {
                                 materialIcon: "delete"
                                 mainText: Translation.tr("Delete")
                                 onClicked: WindowLayouts.remove(row.modelData.name)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        ContentSection {
+            icon: "work"
+            title: Translation.tr("Projects")
+            shape: MaterialShape.Shape.Clover4Leaf
+
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("A project is a whole context to come back to: its window layout, the Zen tabs of its window, Do Not Disturb and a focus timer. Say \"work on the hackathon\" to DAI (or pick it with %1 in the launcher) and it comes back as you left it; \"pause the hackathon\" saves it as it is, then does what its pause rule says.").arg(Config.options.search.prefix.layouts)
+            }
+
+            ContentSubsection {
+                title: Translation.tr("Save the desktop as a project")
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    MaterialTextField {
+                        id: newProject
+                        Layout.fillWidth: true
+                        placeholderText: Translation.tr("Name, e.g. hackathon, thesis, taxes")
+                        onAccepted: saveProject.clicked()
+                    }
+                    SmallButton {
+                        id: saveProject
+                        enabled: !Projects.busy && Projects.validName(newProject.text)
+                        materialIcon: "save"
+                        mainText: Translation.tr("Save")
+                        onClicked: if (Projects.save(newProject.text)) newProject.text = ""
+                    }
+                }
+            }
+
+            ContentSubsection {
+                title: Translation.tr("Saved projects")
+
+                StyledText {
+                    visible: Projects.projects.length === 0
+                    color: Appearance.colors.colSubtext
+                    text: Translation.tr("None yet.")
+                }
+
+                Repeater {
+                    model: Projects.projects
+                    delegate: Rectangle {
+                        id: prow
+                        required property var modelData
+                        readonly property bool isOpen: modelData.state === "open"
+                        readonly property var focusChoices: [0, 25, 50, 90, "pomodoro"]
+                        Layout.fillWidth: true
+                        implicitHeight: pcol.implicitHeight + 20
+                        radius: Appearance.rounding.normal
+                        color: isOpen ? Appearance.colors.colSecondaryContainer : Appearance.colors.colLayer1
+
+                        ColumnLayout {
+                            id: pcol
+                            anchors { fill: parent; margins: 10; leftMargin: 14 }
+                            spacing: 6
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 10
+                                MaterialSymbol {
+                                    text: "work"
+                                    iconSize: Appearance.font.pixelSize.huge
+                                    color: Appearance.colors.colOnLayer1
+                                }
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 2
+                                    StyledText {
+                                        text: prow.modelData.name + (prow.isOpen ? `  · ${Translation.tr("open")}` : "")
+                                        font.pixelSize: Appearance.font.pixelSize.normal
+                                        font.weight: Font.DemiBold
+                                        color: Appearance.colors.colOnLayer1
+                                    }
+                                    StyledText {
+                                        Layout.fillWidth: true
+                                        elide: Text.ElideRight
+                                        font.pixelSize: Appearance.font.pixelSize.small
+                                        color: Appearance.colors.colSubtext
+                                        text: Translation.tr("%1 · %2 tabs · saved %3")
+                                            .arg((prow.modelData.apps ?? []).join(", "))
+                                            .arg((prow.modelData.tabs ?? []).length)
+                                            .arg(page.savedWhen(prow.modelData.saved))
+                                    }
+                                }
+                                SmallButton {
+                                    enabled: !Projects.busy
+                                    materialIcon: prow.isOpen ? "pause" : "play_arrow"
+                                    mainText: prow.isOpen ? Translation.tr("Pause") : Translation.tr("Open")
+                                    onClicked: prow.isOpen ? Projects.pause(prow.modelData.name) : Projects.open(prow.modelData.name)
+                                }
+                                SmallButton {
+                                    enabled: !Projects.busy
+                                    materialIcon: "save"
+                                    mainText: Translation.tr("Update")
+                                    onClicked: Projects.save(prow.modelData.name)
+                                }
+                                SmallButton {
+                                    enabled: !Projects.busy
+                                    materialIcon: "delete"
+                                    mainText: Translation.tr("Delete")
+                                    onClicked: Projects.remove(prow.modelData.name)
+                                }
+                            }
+                            // Its options, one click each to the next choice.
+                            Flow {
+                                Layout.fillWidth: true
+                                spacing: 6
+                                SmallButton {
+                                    enabled: !Projects.busy
+                                    materialIcon: "do_not_disturb_on"
+                                    mainText: prow.modelData.dnd === true ? Translation.tr("DND: on while open")
+                                        : prow.modelData.dnd === false ? Translation.tr("DND: off while open")
+                                        : Translation.tr("DND: left alone")
+                                    onClicked: Projects.set(prow.modelData.name, "dnd",
+                                        prow.modelData.dnd === true ? "off" : prow.modelData.dnd === false ? "none" : "on")
+                                }
+                                SmallButton {
+                                    enabled: !Projects.busy
+                                    materialIcon: "timer"
+                                    readonly property var focusNow: prow.modelData.focus?.kind === "pomodoro" ? "pomodoro"
+                                        : (prow.modelData.focus?.minutes ?? 0)
+                                    mainText: focusNow === "pomodoro" ? Translation.tr("Timer: a pomodoro")
+                                        : focusNow > 0 ? Translation.tr("Timer: %1 min").arg(focusNow) : Translation.tr("Timer: none")
+                                    onClicked: {
+                                        const i = prow.focusChoices.indexOf(focusNow);
+                                        Projects.set(prow.modelData.name, "focus", prow.focusChoices[(i + 1) % prow.focusChoices.length]);
+                                    }
+                                }
+                                SmallButton {
+                                    enabled: !Projects.busy
+                                    materialIcon: "inventory_2"
+                                    readonly property string rule: prow.modelData.onPause ?? "keep"
+                                    mainText: rule === "tabs" ? Translation.tr("Pausing closes its tabs")
+                                        : Translation.tr("Pausing leaves it all open")
+                                    onClicked: Projects.set(prow.modelData.name, "on-pause", rule === "keep" ? "tabs" : "keep")
+                                }
                             }
                         }
                     }

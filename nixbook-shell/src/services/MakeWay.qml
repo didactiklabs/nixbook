@@ -70,6 +70,8 @@ Singleton {
         if (Object.values(root.cutIns).some(v => v)) out.push("cutIn")
         if (FullAi.active) out.push("fullAi")
         if (Kiroshi.open) out.push("kiroshi")
+        // Teach mode's card (watching, or the recipe to approve).
+        if (TeachMode.phase !== "idle") out.push("teachMode")
         return out
     }
     onOverlaysChanged: overlaysWrite.restart()

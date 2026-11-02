@@ -119,6 +119,8 @@ cmd_shell() {
   bash nixbook-shell/tests/claude-stream.sh || failed=1
   section 'nixbook-shell "Find it" (find_anything, nixbook-desktop-mcp find)'
   bash nixbook-shell/tests/find-anything.sh || failed=1
+  section "nixbook-shell project contexts and teach mode (nixbook-desktop-mcp project, teach)"
+  bash nixbook-shell/tests/projects.sh || failed=1
   section "nixbook-shell page code (Zen and the Electron apps)"
   bash nixbook-shell/tests/page.sh || failed=1
   section "jellyfin-mcp (customPkgs) against a fake Jellyfin"

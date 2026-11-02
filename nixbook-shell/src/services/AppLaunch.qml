@@ -58,10 +58,13 @@ Singleton {
     // A web link also brings the browser to the front: a running one opens
     // the tab in its window without being focused (niri doesn't activate a
     // window for the remote call), so the link seemed to do nothing.
+    // A link opened from the shell (teach mode records it).
+    signal urlOpened(string url)
     function openUrl(url) {
         const u = String(url ?? "");
         if (u.length === 0)
             return;
+        root.urlOpened(u);
         root.spawn(["xdg-open", u]);
         if (/^https?:\/\//i.test(u)) {
             if (!browserQuery.queried) {
@@ -107,10 +110,13 @@ Singleton {
         }
     }
 
+    // An app started from the shell (teach mode records it).
+    signal entryLaunched(string id, string name)
     // DesktopEntry (or DesktopAction, which has no workingDirectory/runInTerminal).
     function launchEntry(entry, parent = null) {
         if (!entry)
             return;
+        root.entryLaunched(String(entry.id ?? parent?.id ?? ""), String(entry.name ?? parent?.name ?? ""));
         const argv = entry.command;
         if (!argv || argv.length === 0) {
             entry.execute();

@@ -672,6 +672,53 @@ ContentPage {
             }
         }
 
+        // Teach mode, "watch me once" (services/TeachMode.qml, nixbook-desktop-mcp teach).
+        ContentSection {
+            icon: "school"
+            title: Translation.tr("Teach DAI")
+
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("Show DAI a task once and it can do it again: say \"watch me\" (or press Watch me), do the task, then say \"done\". DAI sees the apps you open and bring to the front, the links and Zen tabs you open and the layouts you restore, never your keys: what you type gets in only if you put it in the bar's \"I typed…\" field, or copy it and tick it. Nothing from a password manager, no codes, keys or card numbers, nothing an agent did. Then one model call (masked, the small model, when a model is ready; otherwise every step is shown) keeps the steps that matter and names what changes each time (a month, a name), and you approve it: its name, its steps, its variables. Saved as a recipe in DAI's memory: \"do the expense report again for March\".")
+            }
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "ai.teach.enable"
+                    buttonIcon: "school"
+                    text: Translation.tr("Let DAI learn tasks I show it")
+                    checked: Config.options.ai.teach.enable
+                    onCheckedChanged: Config.options.ai.teach.enable = checked
+                }
+            }
+            ConfigSpinBox {
+                configKey: "ai.teach.maxMinutes"
+                icon: "timer"
+                text: Translation.tr("Stop watching after (minutes)")
+                value: Config.options.ai.teach.maxMinutes ?? 30
+                from: 1; to: 240; stepSize: 5
+                onValueChanged: Config.options.ai.teach.maxMinutes = value
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                StyledText {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    color: Appearance.colors.colSubtext
+                    font.pixelSize: Appearance.font.pixelSize.small
+                    text: TeachMode.recording ? Translation.tr("Watching: %1 recorded").arg(TeachMode.events)
+                        : TeachMode.saved ? Translation.tr("Last learned: %1").arg(TeachMode.saved.topic) : ""
+                }
+                SmallButton {
+                    enabled: TeachMode.enabled && TeachMode.phase === "idle"
+                    materialIcon: "visibility"
+                    mainText: Translation.tr("Watch me")
+                    onClicked: TeachMode.start()
+                }
+            }
+        }
         // services/SelfImprove.qml, nixbook-improve: only where Nix made it
         // available (programs.nixbook-shell.selfImprove.enable).
         ContentSection {

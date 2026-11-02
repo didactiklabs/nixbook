@@ -59,6 +59,10 @@
       "enable": true,
       "learn": "off"
     },
+    "teach": {
+      "enable": true,
+      "maxMinutes": 30
+    },
     "improve": {
       "enable": false,
       "model": "sonnet",

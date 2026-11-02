@@ -26,6 +26,7 @@ import qs.modules.ii.sidebarLeft
 import qs.modules.ii.sidebarRight
 import qs.modules.ii.splash
 import qs.modules.ii.tasks
+import qs.modules.ii.teach
 import qs.modules.ii.notesApp
 import qs.modules.ii.contactsApp
 import qs.modules.ii.accounts
@@ -72,6 +73,8 @@ Scope {
     PanelLoader { component: LayoutRestoreOverlay {} }
     PanelLoader { component: FullAiOverlay {} }
     PanelLoader { component: KiroshiScan {} }
+    // Teach mode ("watch me once"): its bar while watching, then the recipe to approve.
+    PanelLoader { component: TeachPanel {} }
     // Loading screen while the Preloader builds every popup (last, so it is
     // stacked above the other overlay surfaces mapped during boot).
     PanelLoader { component: BootSplash {} }

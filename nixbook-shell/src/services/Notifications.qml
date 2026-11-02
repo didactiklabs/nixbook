@@ -788,4 +788,18 @@ Singleton {
             }
         }
     }
+
+    // Do Not Disturb for projects (desktop-mcp's project tool and
+    // `nixbook-desktop-mcp project`): on, off, or status; {silent}.
+    IpcHandler {
+        target: "notifications"
+
+        function dnd(state: string): string {
+            if (state === "on" || state === "off")
+                root.silent = state === "on";
+            else if (state !== "status")
+                return "error: on, off or status";
+            return JSON.stringify({ silent: root.silent });
+        }
+    }
 }
