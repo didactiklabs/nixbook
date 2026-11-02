@@ -446,7 +446,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 64 tools" 64 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 65 tools" 65 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"

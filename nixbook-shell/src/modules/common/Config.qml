@@ -385,6 +385,13 @@ Singleton {
                     // "suggest" (asked first) or "auto" (strong ones on at once).
                     property string learn: "off"
                 }
+                // Teach mode, "watch me once" (services/TeachMode.qml): the
+                // user shows DAI a task and it becomes a recipe; it stops
+                // watching by itself after `maxMinutes`.
+                property JsonObject teach: JsonObject {
+                    property bool enable: true
+                    property int maxMinutes: 30
+                }
                 // The desktop agent fixing nixbook itself (services/SelfImprove.qml,
                 // nixbook-improve): fixes and polish only, each a PR with its
                 // changelog entry, merged when the user says so. Off until

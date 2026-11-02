@@ -21,8 +21,10 @@ Singleton {
     // empty if that first read failed.
     readonly property bool layoutsMode: root.query.startsWith(Config.options.search.prefix.layouts)
     onLayoutsModeChanged: {
-        if (root.layoutsMode)
+        if (root.layoutsMode) {
             WindowLayouts.refresh();
+            Projects.refresh();
+        }
     }
 
     function ensurePrefix(prefix) {
@@ -705,6 +707,37 @@ Singleton {
                 obj.verb = WindowLayouts.current === l.name ? Translation.tr("Restore (current)") : Translation.tr("Restore");
                 return obj;
             });
+            // Projects (Projects.qml): a whole context — layout, Zen tabs,
+            // DND, timer — first: open a paused one, pause the open one.
+            const projectRows = Projects.projects.filter(p => {
+                const haystack = `${p.name} ${(p.apps ?? []).join(" ")} ${(p.tabs ?? []).join(" ")}`.toLowerCase();
+                return terms.every(term => haystack.includes(term));
+            }).map(p => {
+                const obj = root.cachedResult("project", p.name, () => ({
+                    name: p.name,
+                    iconName: "work",
+                    iconType: LauncherSearchResult.IconType.Material,
+                    type: Translation.tr("Project"),
+                    actions: [resultComp.createObject(root, {
+                            name: Translation.tr("Save it with the desktop as it is"),
+                            iconName: "save",
+                            iconType: LauncherSearchResult.IconType.Material,
+                            execute: () => Projects.save(p.name)
+                        }), resultComp.createObject(root, {
+                            name: Translation.tr("Delete"),
+                            iconName: "delete",
+                            iconType: LauncherSearchResult.IconType.Material,
+                            execute: () => Projects.remove(p.name)
+                        })]
+                }));
+                const isOpen = p.state === "open";
+                obj.execute = isOpen ? () => Projects.pause(p.name) : () => Projects.open(p.name);
+                obj.verb = isOpen ? Translation.tr("Pause") : Translation.tr("Open");
+                obj.comment = Translation.tr("%1 apps · %2 tabs").arg((p.apps ?? []).length)
+                    .arg((p.tabs ?? []).length) + (isOpen ? ` · ${Translation.tr("open")}` : "");
+                return obj;
+            });
+            results.unshift(...projectRows);
             // Save: under the typed name when it's a new one, else into the
             // current layout, and always as a new one (layout-N) when nothing
             // is typed: saving must not depend on knowing to type a name.
