@@ -16487,7 +16487,8 @@ def t_page_list(ctx, args):
         except ToolError as e:
             lines.append(f"{app}: {short(str(e), 120)}")
             continue
-        label = APP_LABELS.get(app, app) + (" (also the discord tool)" if app == "discord" else "")
+        label = APP_LABELS.get(app, app) + {"discord": " (also the discord tool)",
+                                            "actual": " (also the budget tool)"}.get(app, "")
         for p in pages:
             lines.append(f"{app if p.get('main') else app + ':' + str(p.get('id'))} {short(p.get('title') or '', 90)!r} "
                          f"{short(p.get('url') or '', 120)} · {label}")
@@ -16974,6 +16975,131 @@ def t_discord(ctx, args):
     raise ToolError("action: status, find, channels, read, send or react")
 
 
+# Actual Budget (through its bridge): the money questions ("how much did I
+# spend on food this month?", "what's left in groceries?") answered from
+# Actual's own client in its page (electron/actual.js: $send / $query, its
+# public API's reading handlers), never its window. Read-only: the adapter
+# names no handler that writes, the bridge accepts only its reading
+# operations, and this tool has no action that changes anything. Payees
+# and notes go through the privacy mask like every reply (call_tool).
+
+BUDGET_ACTIONS = ("status", "summary", "category", "transactions", "accounts")
+BUDGET_NOT_OPEN = ("Actual Budget isn't open with nixbook's bridge: the user opens it from the launcher (\"Actual "
+                   "Budget\") and their budget file, then asks again (if it was already open, quit it completely "
+                   "and start it again from the launcher). Nothing else reads it: don't screenshot it")
+
+
+def money_text(amount, currency=""):
+    try:
+        n = float(amount)
+    except (TypeError, ValueError):
+        return str(amount)
+    sign = "-" if n < 0 else ""
+    return f"{sign}{abs(n):,.2f}" + (f" {currency}" if currency else "")
+
+
+def budget_month_line(m, cur):
+    # Actual: spending is negative; said as spent, positive.
+    return (f"{m.get('month')}: income {money_text(m.get('income'), cur)}, budgeted "
+            f"{money_text(abs(m.get('budgeted') or 0), cur)}, spent {money_text(-(m.get('spent') or 0), cur)}, "
+            f"to budget {money_text(m.get('toBudget'), cur)}")
+
+
+def budget_category_line(c, cur):
+    if c.get("income"):
+        return f"- {c.get('name')} (income): received {money_text(c.get('spent'), cur)}"
+    where = f" ({c['group']})" if c.get("group") else ""
+    kind = "group " if c.get("kind") == "group" else ""
+    return (f"- {kind}{c.get('name')}{where}: budgeted {money_text(c.get('budgeted'), cur)}, spent "
+            f"{money_text(-(c.get('spent') or 0), cur)}, left {money_text(c.get('balance'), cur)}"
+            + (f" — its categories: {', '.join(c['categories'][:20])}" if c.get("categories") else ""))
+
+
+@tool(
+    "budget",
+    "pages",
+    "The user's money in Actual Budget, read only, without its window (nothing can be changed): "
+    "`summary` (a month's income, budgeted, spent, to budget and each group; default this month, "
+    "`month` YYYY-MM), `category` (`query`: a category or group as the user said it — food, "
+    "groceries —: budgeted, spent and what's left that month), `transactions` (`query` words in the "
+    "payee, notes or category, `category`, `account`, `from`/`to` YYYY-MM-DD — default this month "
+    "so far —, `limit`; their count and totals), `accounts` (balances), `status`. Spent amounts are "
+    "said positive. Answer with the figure asked for, not the whole list.",
+    obj({"action": {"type": "string", "enum": list(BUDGET_ACTIONS)},
+         "query": {"type": "string"}, "category": {"type": "string"}, "account": {"type": "string"},
+         "month": {"type": "string", "description": "YYYY-MM (default this month)"},
+         "from": {"type": "string", "description": "YYYY-MM-DD"}, "to": {"type": "string", "description": "YYYY-MM-DD"},
+         "limit": {"type": "integer", "description": "Transactions listed (default 20, at most 100)"}}, ["action"]),
+    read_only=True,
+    brief=("Money in Actual Budget, read only: summary (a month), category (query: food…: spent, left), "
+           "transactions (query, category, account, from/to: totals), accounts."),
+    props={"query": None, "category": None, "account": None, "month": "YYYY-MM", "from": None, "to": None,
+           "limit": None},
+)
+def t_budget(ctx, args):
+    action = as_str(args, "action", max_len=20)
+    if action not in BUDGET_ACTIONS:
+        raise ToolError("action: " + ", ".join(BUDGET_ACTIONS))
+    if "actual" not in bridged_apps() and "actual" not in unbridged_apps():
+        raise ToolError(BUDGET_NOT_OPEN)
+
+    def app(op, **kw):
+        try:
+            return electron(ctx, "actual", "app", op=op, args={k: v for k, v in kw.items() if v not in (None, "")})
+        except ToolError as e:
+            if "isn't reachable" in str(e):
+                raise ToolError(BUDGET_NOT_OPEN)
+            raise
+
+    def opt(key, n=100, pattern=None):
+        return as_str(args, key, max_len=n, required=False, pattern=pattern) or None
+
+    if action == "status":
+        r = app("status")
+        if not r.get("open"):
+            return [text("Actual Budget runs with the bridge, but no budget is open in it.")]
+        months = r.get("months") or {}
+        return [text(f"Actual Budget: the budget {r.get('budget')!r} is open"
+                     + (f" ({months.get('first')} to {months.get('last')})" if months else "")
+                     + (f", in {r['currency']}" if r.get("currency") else "") + ".")]
+    if action == "summary":
+        r = app("month", month=opt("month", 7, r"\d{4}-\d{2}"))
+        cur = r.get("currency") or ""
+        lines = [budget_month_line(r, cur)]
+        lines += [budget_category_line(g, cur) for g in r.get("groups") or [] if not g.get("hidden")]
+        return [text("\n".join(lines))]
+    if action == "category":
+        query = as_str(args, "query", max_len=100)
+        r = app("categories", query=query, month=opt("month", 7, r"\d{4}-\d{2}"))
+        cur = r.get("currency") or ""
+        if not r.get("matches"):
+            return [text(f"No category or group in Actual matches {query!r}. Its categories: "
+                         + ", ".join(r.get("names") or []))]
+        return [text(f"{r.get('month')}:\n" + "\n".join(budget_category_line(c, cur) for c in r["matches"]))]
+    if action == "transactions":
+        limit = max(1, min(100, int(args["limit"]))) if isinstance(args.get("limit"), int) else 20
+        r = app("transactions", query=opt("query"), category=opt("category"), account=opt("account"),
+                limit=limit, **{"from": opt("from", 10, r"\d{4}-\d{2}-\d{2}"), "to": opt("to", 10, r"\d{4}-\d{2}-\d{2}")})
+        cur = r.get("currency") or ""
+        which = " ".join(bit for bit in (
+            f"matching {args['query']!r}" if args.get("query") else "",
+            f"in {', '.join(r['categories'])}" if r.get("categories") else "",
+            f"from {', '.join(r['accounts'])}" if r.get("accounts") else "") if bit)
+        head = (f"{r.get('count')} transactions {which + ' ' if which else ''}from {r.get('from')} to {r.get('to')}: "
+                f"spent {money_text(-(r.get('spent') or 0), cur)}, received {money_text(r.get('received'), cur)}, "
+                f"net {money_text(r.get('total'), cur)}")
+        rows = [f"- {t.get('date')} {money_text(t.get('amount'), cur)} {t.get('payee') or '?'}"
+                + (f" · {t['category']}" if t.get("category") else "") + (f" · {t['account']}" if t.get("account") else "")
+                + (f" · {t['notes']}" if t.get("notes") else "") for t in r.get("transactions") or []]
+        more = (r.get("count") or 0) - len(rows)
+        return [text("\n".join([head] + rows + ([f"… and {more} more (`limit`)"] if more > 0 else [])))]
+    r = app("accounts")
+    cur = r.get("currency") or ""
+    lines = [f"- {a.get('name')}: {money_text(a.get('balance'), cur)}"
+             + (" (off budget)" if a.get("offBudget") else "") for a in r.get("accounts") or [] if not a.get("closed")]
+    return [text("Accounts:\n" + ("\n".join(lines) or "none"))]
+
+
 def call_tool(ctx, name, args, session=None):
     """Returns (content, is_error). Unknown tools raise KeyError. session:
     the MCP session calling (HTTP: its Mcp-Session-Id). With the privacy
@@ -17176,7 +17302,9 @@ INSTRUCTIONS = (
     "work in the page itself (page_list gives the targets: zen:<tab>, discord, slack…), in the "
     "background, on another workspace, without the mouse or keyboard, so the user keeps working "
     "meanwhile: prefer them to clicking or typing in those windows. Discord messages (find, read, "
-    "send, react): the discord tool. YouTube Music: playing, the queue, likes through its own MCP "
+    "send, react): the discord tool. Money questions (spent, left in a category, balances, "
+    "transactions): the budget tool, Actual Budget read through its own client, never changed. "
+    "YouTube Music: playing, the queue, likes through its own MCP "
     "server (youtube-music) when you have it, the page tools for the rest (lyrics, the library). "
     "Sending a message, reacting, or a click or key that sends, pays or deletes waits for the "
     "user's yes in a notification (not what they chose to always allow): say what it will do "

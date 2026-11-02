@@ -90,9 +90,27 @@ def page(op, o, params):
     return {"error": f"unknown page operation {op}"}
 
 
+def actual(op, o):
+    """FAKE_CDP_APP=actual: Actual Budget's adapter (electron/actual.js) as it answers."""
+    if op == "status":
+        return {"ready": True, "open": True, "budget": "Home", "currency": "EUR"}
+    if op == "categories":
+        return {"currency": "EUR", "month": "2026-11", "query": o.get("query"), "matches": [
+            {"kind": "category", "group": "Food", "name": "Groceries", "budgeted": 400, "spent": -42.5,
+             "balance": 357.5}]}
+    if op == "transactions":
+        return {"currency": "EUR", "from": "2026-11-01", "to": "2026-11-02", "count": 1, "total": -42.5,
+                "spent": -42.5, "received": 0, "transactions": [
+                    {"date": "2026-11-01", "amount": -42.5, "payee": "Carrefour", "category": "Groceries",
+                     "account": "Checking", "notes": "weekly shop"}]}
+    return {"error": f"unknown operation {op}"}
+
+
 def app(op, o, params):
     if params.get("contextId") is not None:
         return {"error": "fake: the app's code ran in an isolated world"}
+    if os.environ.get("FAKE_CDP_APP") == "actual":
+        return actual(op, o)
     if op == "status":
         # A key the bridge must never pass on.
         return {"loggedIn": True, "user": "Me", "current": CHANNEL, "token": "fake-secret"}

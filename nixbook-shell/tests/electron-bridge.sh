@@ -189,6 +189,34 @@ wait "$pid" 2>/dev/null || true
 pid=""
 expect_eq "the app gone: no socket" "no" "$([ -e "$sock" ] && echo yes || echo no)"
 
+# -- Actual Budget: its reading operations only ----------------------------------
+: >"$FAKE_CDP_LOG"
+sock="$XDG_RUNTIME_DIR/nixbook-electron/actual.sock"
+FAKE_CDP_APP=actual python3 "$bridge" --page-js "$root/zen/page.js" --adapters "$root/electron" actual -- python3 "$fake" --app-arg &
+pid=$!
+for _ in $(seq 1 100); do
+  [ -S "$sock" ] && break
+  sleep 0.05
+done
+out=$(ask '{"cmd":"status"}' '{"cmd":"app","op":"categories","args":{"query":"groceries"}}' \
+  '{"cmd":"app","op":"transactions-update","args":{}}' '{"cmd":"app","op":"send","args":{"content":"x"}}' \
+  '{"cmd":"app","op":"transactions","args":{"query":"carrefour","limit":5}}')
+expect_eq "actual: its adapter loaded" true "$(sed -n 1p <<<"$out" | jq .result.adapter)"
+expect_eq "actual categories: in the main world, answered" '["nixbookApp",false,357.5]' \
+  "$(jq -c -n --argjson e "$(grep '"eval"' "$FAKE_CDP_LOG" | head -n1)" --argjson r "$(sed -n 2p <<<"$out")" \
+    '[$e.eval, $e.isolated, $r.result.matches[0].balance]')"
+expect_contains "actual: a writing operation refused before any code runs" "$(sed -n 3p <<<"$out" | jq -r .error)" \
+  "no operation 'transactions-update' for actual"
+expect_contains "actual: no send" "$(sed -n 4p <<<"$out" | jq -r .error)" "no operation 'send'"
+expect_eq "actual transactions: answered" '[1,"Carrefour"]' "$(sed -n 5p <<<"$out" | jq -c '[.result.count, .result.transactions[0].payee]')"
+expect_eq "actual: only the allowed operations reached the page" '["categories","transactions"]' \
+  "$(grep '"eval"' "$FAKE_CDP_LOG" | jq -s -c 'map(.op)')"
+expect_eq "actual: nothing in the audit log (reads)" "0" "$(grep -c '"actual"' "$audit" || true)"
+pkill -f "$fake --app-arg" || true
+wait "$pid" 2>/dev/null || true
+pid=""
+sock="$XDG_RUNTIME_DIR/nixbook-electron/discord.sock"
+
 # -- relaunches and the watcher ------------------------------------------------
 edir="$XDG_RUNTIME_DIR/nixbook-electron"
 mkdir -p "$tmp/bin"
