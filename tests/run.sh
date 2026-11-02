@@ -123,6 +123,8 @@ cmd_shell() {
   bash nixbook-shell/tests/projects.sh || failed=1
   section "nixbook-shell page code (Zen and the Electron apps)"
   bash nixbook-shell/tests/page.sh || failed=1
+  section "nixbook-shell Actual Budget adapter (the budget tool, read only)"
+  bash nixbook-shell/tests/actual.sh || failed=1
   section "jellyfin-mcp (customPkgs) against a fake Jellyfin"
   bash customPkgs/jellyfin-mcp/tests/test.sh || failed=1
   section "nixbook-shell accounts backend (nixbook-accounts)"

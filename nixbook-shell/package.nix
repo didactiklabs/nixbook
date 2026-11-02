@@ -137,7 +137,7 @@ let
   # ARGS…` starts the app with its DevTools protocol on a private pipe and
   # serves its fixed operations on $XDG_RUNTIME_DIR/nixbook-electron/APP.sock
   # (scripts/electron-bridge.py; Zen's page code, zen/page.js, and an app's
-  # own operations, electron/APP.js: discord). nixbook's lib/electronA11y.nix
+  # own operations, electron/APP.js: discord, actual). nixbook's lib/electronA11y.nix
   # starts the apps it wraps through it (`passthru.electronBridge`).
   # Its watcher (`watch`) tells the user with notify-send, sees calls with
   # pactl and starts apps in a scope of their own with systemd-run.

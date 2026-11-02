@@ -28,9 +28,10 @@ neither the code nor the element references it keeps. Typing and keys go
 through DevTools' Input domain to the page (Input.insertText, which rich
 editors such as Discord's accept), never through the compositor: the app
 may be in the background, on another workspace, the user keeps working.
-An app with an adapter (adapters/APP.js: discord) also has its own
+An app with an adapter (adapters/APP.js: discord, actual) also has its own
 operations, run in the page's main world through the app's own client
-code (Discord: Vencord's webpack modules), which never return a token,
+code (Discord: Vencord's webpack modules; Actual Budget: the $send/$query
+client its page exposes, reading only), which never return a token,
 a cookie or a header (and the answers are scrubbed for tokens anyway).
 Password fields are refused; password managers are never bridged (the app
 starts without the bridge); sends are rate-limited and written to the audit
@@ -577,7 +578,10 @@ class Bridge:
 
 
 # The adapters' operations: everything else is refused before any code runs.
-ADAPTER_OPS = {"discord": ("status", "current", "guilds", "channels", "dms", "find", "read", "send", "react")}
+ADAPTER_OPS = {"discord": ("status", "current", "guilds", "channels", "dms", "find", "read", "send", "react"),
+               # Actual Budget: reading only (electron/actual.js names no
+               # handler that writes).
+               "actual": ("status", "accounts", "month", "categories", "transactions")}
 OPS = {"status": "op_status", "pages": "op_pages", "read": "op_read", "act": "op_act", "wait": "op_wait",
        "screenshot": "op_screenshot", "go": "op_go", "app": "op_app"}
 

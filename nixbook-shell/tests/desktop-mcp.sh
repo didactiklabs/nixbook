@@ -446,7 +446,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 65 tools" 65 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 66 tools" 66 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -2142,6 +2142,23 @@ for _ in $(seq 1 50); do
 done
 expect_eq "electron bridge: gone with the app" "no" "$([ -S "$esock" ] && echo yes || echo no)"
 
+# Money questions: Actual Budget through its bridge, read only (the budget tool).
+expect_contains "budget: Actual not open, said how" "$(call budget '{"action":"summary"}')" "opens it from the launcher"
+asock="$XDG_RUNTIME_DIR/nixbook-electron/actual.sock"
+FAKE_CDP_APP=actual FAKE_CDP_LOG="$tmp/cdp.log" python3 "$root/scripts/electron-bridge.py" --page-js "$root/zen/page.js" \
+  --adapters "$root/electron" actual -- python3 "$root/tests/fake-cdp.py" --dmcp-test &
+electron_pid=$!
+for _ in $(seq 1 100); do
+  [ -S "$asock" ] && break
+  sleep 0.05
+done
+expect_contains "budget category: spent and what's left" "$(call budget '{"action":"category","query":"grocery"}')" \
+  "- Groceries (Food): budgeted 400.00 EUR, spent 42.50 EUR, left 357.50 EUR"
+expect_contains "budget transactions: their total" "$(call budget '{"action":"transactions","query":"carrefour"}')" \
+  "1 transactions matching 'carrefour' from 2026-11-01 to 2026-11-02: spent 42.50 EUR"
+kill "$electron_pid" 2>/dev/null
+wait "$electron_pid" 2>/dev/null || true
+
 # -- adapting to the user ----------------------------------------------------------------------
 # Routines learned from the habits, in plain code; a budget that follows the
 # user's answers; the times they answer at; what they do with notifications.
@@ -3618,7 +3635,7 @@ out=$(call focus_window '{"id":1}')
 expect_eq "resume" "focused window 1" "$(head -n 1 <<<"$out")"
 
 echo '{"tools":["observe"],"actionsPerMinute":2}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
-expect_eq "config: disabled groups not listed" 9 "$(python3 "$mcp" tools | jq length)"
+expect_eq "config: disabled groups not listed" 10 "$(python3 "$mcp" tools | jq length)"
 out=$(call type_text '{"text":"x"}')
 expect_contains "config: disabled tool not callable" "$out" "unknown or disabled tool"
 echo '{"actionsPerMinute":2}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
