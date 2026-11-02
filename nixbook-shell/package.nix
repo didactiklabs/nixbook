@@ -76,6 +76,8 @@ let
           improve # nixbook-improve: report_problem
           libarchive # bsdtar: `extract`, a download extracted from its bubble
           procps # pgrep: a watched process
+          cliphist # find_anything: the clipboard history
+          poppler-utils # pdftotext: find_anything reads PDFs' first pages
         ]
       )
     }:$PATH"

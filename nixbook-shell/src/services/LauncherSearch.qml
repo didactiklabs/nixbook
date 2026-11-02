@@ -26,7 +26,7 @@ Singleton {
     }
 
     function ensurePrefix(prefix) {
-        if ([Config.options.search.prefix.action, Config.options.search.prefix.app, Config.options.search.prefix.clipboard, Config.options.search.prefix.emojis, Config.options.search.prefix.symbols, Config.options.search.prefix.themes, Config.options.search.prefix.layouts, Config.options.search.prefix.math, Config.options.search.prefix.shellCommand, Config.options.search.prefix.webSearch,].some(i => root.query.startsWith(i))) {
+        if ([Config.options.search.prefix.action, Config.options.search.prefix.app, Config.options.search.prefix.clipboard, Config.options.search.prefix.emojis, Config.options.search.prefix.symbols, Config.options.search.prefix.themes, Config.options.search.prefix.layouts, Config.options.search.prefix.math, Config.options.search.prefix.shellCommand, Config.options.search.prefix.webSearch, Config.options.search.prefix.find,].some(i => i !== "" && root.query.startsWith(i))) {
             root.query = prefix + root.query.slice(1);
         } else {
             root.query = prefix + root.query;
@@ -274,6 +274,8 @@ Singleton {
         return query.startsWith(Config.options.search.prefix.math) || /\d/.test(query);
     }
     onQueryChanged: {
+        // Find it: its search runs in desktop-mcp (FindAnything), answered later.
+        FindAnything.search(root.findPrefixed ? root.findQuery : "");
         if (root.looksLikeMath(root.query)) {
             nonAppResultsTimer.restart();
         } else {
@@ -503,6 +505,54 @@ Singleton {
         }
     }
 
+    // Find it (services/FindAnything.qml): "~the PDF from Monday" searches
+    // recent files, Zen's history and bookmarks, the clipboard history,
+    // notifications and conversations with DAI.
+    readonly property bool findPrefixed: (Config.options.search.prefix.find ?? "") !== "" && root.query.startsWith(Config.options.search.prefix.find)
+    readonly property string findQuery: root.findPrefixed ? StringUtils.cleanPrefix(root.query, Config.options.search.prefix.find).trim() : ""
+    LauncherSearchResult {
+        id: findStatusObject
+        name: FindAnything.off ? Translation.tr("AI features are off (Settings > Desktop agents)")
+            : root.findQuery.length === 0 ? Translation.tr("Find a file, a link, a message, a conversation…")
+            : FindAnything.busy ? Translation.tr("Searching…")
+            : Translation.tr("Nothing found for “%1”").arg(root.findQuery)
+        comment: root.findQuery.length === 0 ? Translation.tr("e.g. the PDF I downloaded Monday · the link Alex sent about dinner · what I asked DAI yesterday")
+            : Translation.tr("Recent files, visited pages, bookmarks, the clipboard, notifications and conversations")
+        verb: ""
+        type: Translation.tr("Find it")
+        iconName: "manage_search"
+        iconType: LauncherSearchResult.IconType.Material
+        execute: () => {}
+    }
+    function findResults() {
+        const found = FindAnything.results.map(r => {
+            const a = r.action ?? {};
+            const key = [r.kind, a.open ?? a.chat ?? a.cliphist ?? "", r.title].join("\t");
+            const obj = root.cachedResult("find", key, () => ({
+                name: r.title,
+                iconName: FindAnything.icon(r.kind),
+                iconType: LauncherSearchResult.IconType.Material,
+                type: FindAnything.kindLabel(r.kind),
+                verb: FindAnything.verb(r),
+                execute: () => FindAnything.open(r),
+                actions: [resultComp.createObject(root, {
+                        name: Translation.tr("Copy"),
+                        iconName: "content_copy",
+                        iconType: LauncherSearchResult.IconType.Material,
+                        execute: () => FindAnything.copy(r)
+                    })].concat(r.kind === "file" ? [resultComp.createObject(root, {
+                        name: Translation.tr("Show in folder"),
+                        iconName: "folder_open",
+                        iconType: LauncherSearchResult.IconType.Material,
+                        execute: () => FindAnything.showInFolder(r)
+                    })] : [])
+            }));
+            // Its time and snippet: the same row can come back with others.
+            obj.comment = [r.where, FindAnything.whenText(r), r.snippet].filter(x => !!x).join(" · ");
+            return obj;
+        });
+        return found.length > 0 && !FindAnything.busy ? found : [findStatusObject].concat(found);
+    }
     // Rows past a few screenfuls are never scrolled to; building them only
     // cost time on each keystroke.
     readonly property int maxListResults: 200
@@ -545,7 +595,9 @@ Singleton {
         root.trimEntryCache();
 
         ///////////// Special cases ///////////////
-        if (root.query.startsWith(Config.options.search.prefix.clipboard)) {
+        if (root.findPrefixed) {
+            return root.findResults();
+        } else if (root.query.startsWith(Config.options.search.prefix.clipboard)) {
             // Clipboard
             const searchString = StringUtils.cleanPrefix(root.query, Config.options.search.prefix.clipboard);
             const clipEntries = Cliphist.fuzzyQuery(searchString).slice(0, root.maxListResults);

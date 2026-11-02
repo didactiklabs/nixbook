@@ -30,7 +30,9 @@ Singleton {
         privacy: null, context: null, sent: null, pause: null, resume: null, status: null, notify: null,
         personal: ["context", "show", "forget"], habits: ["cue", "alias", "status"],
         memory: ["show", "forget", "fire"], initiative: ["show", "pending", "answer", "notices", "unmute", "consider"],
-        routine: ["list", "undone", "on", "off", "remove"]
+        routine: ["list", "undone", "on", "off", "remove"],
+        // The launcher's find prefix (services/FindAnything.qml).
+        find: null
     })
 
     function takes(argv) {

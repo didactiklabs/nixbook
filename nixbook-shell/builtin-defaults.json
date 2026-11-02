@@ -710,6 +710,7 @@
       "app": ">",
       "clipboard": ";",
       "emojis": ":",
+      "find": "~",
       "layouts": "#",
       "math": "=",
       "shellCommand": "$",

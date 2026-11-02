@@ -50,19 +50,20 @@ Hover shows Tailscale and NetBird status, IPs and exit node. The panel toggles e
 
 **Mod+D** opens the launcher. It searches apps with a tiered, typo-tolerant scorer (name, executable, keywords, description…) ranked by how often you use them, and switches mode with a prefix:
 
-| Prefix | Mode                               | Shortcut |
-| ------ | ---------------------------------- | -------- |
-| _none_ | Apps (and default actions)         | Mod+D    |
-| `>`    | Apps only                          |          |
-| `;`    | Clipboard history                  | Mod+Q    |
-| `:`    | Emoji                              |          |
-| `.`    | Symbols                            |          |
-| `=`    | Calculator                         |          |
-| `$`    | Run a shell command                |          |
-| `?`    | Web search                         |          |
-| `/`    | Shell actions                      |          |
-| `@`    | Themes and variants                | Mod+X    |
-| `#`    | [Window layouts](./window-layouts) | Mod+G    |
+| Prefix | Mode                                | Shortcut |
+| ------ | ----------------------------------- | -------- |
+| _none_ | Apps (and default actions)          | Mod+D    |
+| `>`    | Apps only                           |          |
+| `;`    | Clipboard history                   | Mod+Q    |
+| `:`    | Emoji                               |          |
+| `.`    | Symbols                             |          |
+| `=`    | Calculator                          |          |
+| `$`    | Run a shell command                 |          |
+| `?`    | Web search                          |          |
+| `/`    | Shell actions                       |          |
+| `@`    | Themes and variants                 | Mod+X    |
+| `#`    | [Window layouts](./window-layouts)  | Mod+G    |
+| `~`    | [Find it](./desktop-agents#find-it) |          |
 
 The launcher also adds tasks to the to-do list.
 
