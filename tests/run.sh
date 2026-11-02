@@ -117,6 +117,8 @@ cmd_shell() {
   bash nixbook-shell/tests/electron-bridge.sh || failed=1
   section "nixbook-shell side panel's Claude Code stream"
   bash nixbook-shell/tests/claude-stream.sh || failed=1
+  section 'nixbook-shell "Find it" (find_anything, nixbook-desktop-mcp find)'
+  bash nixbook-shell/tests/find-anything.sh || failed=1
   section "nixbook-shell page code (Zen and the Electron apps)"
   bash nixbook-shell/tests/page.sh || failed=1
   section "jellyfin-mcp (customPkgs) against a fake Jellyfin"

@@ -22,10 +22,10 @@ Item { // Wrapper
     property bool showResults: searchingText != "" || LauncherSearch.results.length > 0
     // The query without its mode prefix, for the rows' match highlighting:
     // worked out once here instead of in every row.
-    readonly property string highlightQuery: StringUtils.cleanOnePrefix(root.searchingText, [Config.options.search.prefix.action, Config.options.search.prefix.app, Config.options.search.prefix.clipboard, Config.options.search.prefix.emojis, Config.options.search.prefix.symbols, Config.options.search.prefix.themes, Config.options.search.prefix.layouts, Config.options.search.prefix.math, Config.options.search.prefix.shellCommand, Config.options.search.prefix.webSearch])
+    readonly property string highlightQuery: StringUtils.cleanOnePrefix(root.searchingText, [Config.options.search.prefix.action, Config.options.search.prefix.app, Config.options.search.prefix.clipboard, Config.options.search.prefix.emojis, Config.options.search.prefix.symbols, Config.options.search.prefix.themes, Config.options.search.prefix.layouts, Config.options.search.prefix.math, Config.options.search.prefix.shellCommand, Config.options.search.prefix.webSearch, Config.options.search.prefix.find])
     // Apps (and the default search) are a grid of tiles, like DankLauncher;
     // the prefix modes (clipboard, emojis, themes…) keep the list rows.
-    readonly property bool gridMode: ![Config.options.search.prefix.action, Config.options.search.prefix.clipboard, Config.options.search.prefix.emojis, Config.options.search.prefix.symbols, Config.options.search.prefix.themes, Config.options.search.prefix.layouts, Config.options.search.prefix.math, Config.options.search.prefix.shellCommand, Config.options.search.prefix.webSearch].some(prefix => prefix !== "" && root.searchingText.startsWith(prefix))
+    readonly property bool gridMode: ![Config.options.search.prefix.action, Config.options.search.prefix.clipboard, Config.options.search.prefix.emojis, Config.options.search.prefix.symbols, Config.options.search.prefix.themes, Config.options.search.prefix.layouts, Config.options.search.prefix.math, Config.options.search.prefix.shellCommand, Config.options.search.prefix.webSearch, Config.options.search.prefix.find].some(prefix => prefix !== "" && root.searchingText.startsWith(prefix))
     readonly property int gridColumns: 5
     // The view showing the results: the keyboard moves its selection.
     readonly property var resultView: root.gridMode ? appGrid : appResults

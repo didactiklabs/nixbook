@@ -35,7 +35,7 @@ RowLayout {
     signal moveItem(int delta)
     property bool gridMode: false
 
-    enum SearchPrefixType { Action, App, Clipboard, Emojis, Symbols, Themes, Layouts, Math, ShellCommand, WebSearch, DefaultSearch }
+    enum SearchPrefixType { Action, App, Clipboard, Emojis, Symbols, Themes, Layouts, Math, ShellCommand, WebSearch, Find, DefaultSearch }
 
     property var searchPrefixType: {
         if (root.searchingText.startsWith(Config.options.search.prefix.action)) return SearchBar.SearchPrefixType.Action;
@@ -48,6 +48,7 @@ RowLayout {
         if (root.searchingText.startsWith(Config.options.search.prefix.math)) return SearchBar.SearchPrefixType.Math;
         if (root.searchingText.startsWith(Config.options.search.prefix.shellCommand)) return SearchBar.SearchPrefixType.ShellCommand;
         if (root.searchingText.startsWith(Config.options.search.prefix.webSearch)) return SearchBar.SearchPrefixType.WebSearch;
+        if ((Config.options.search.prefix.find ?? "") !== "" && root.searchingText.startsWith(Config.options.search.prefix.find)) return SearchBar.SearchPrefixType.Find;
         return SearchBar.SearchPrefixType.DefaultSearch;
     }
     
@@ -68,6 +69,7 @@ RowLayout {
             case SearchBar.SearchPrefixType.Math: return MaterialShape.Shape.PuffyDiamond;
             case SearchBar.SearchPrefixType.ShellCommand: return MaterialShape.Shape.PixelCircle;
             case SearchBar.SearchPrefixType.WebSearch: return MaterialShape.Shape.SoftBurst;
+            case SearchBar.SearchPrefixType.Find: return MaterialShape.Shape.Cookie4Sided;
             default: return MaterialShape.Shape.Cookie7Sided;
         }
         text: switch (root.searchPrefixType) {
@@ -81,6 +83,7 @@ RowLayout {
             case SearchBar.SearchPrefixType.Math: return "calculate";
             case SearchBar.SearchPrefixType.ShellCommand: return "terminal";
             case SearchBar.SearchPrefixType.WebSearch: return "travel_explore";
+            case SearchBar.SearchPrefixType.Find: return "manage_search";
             case SearchBar.SearchPrefixType.DefaultSearch: return "search";
             default: return "search";
         }
