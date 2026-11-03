@@ -11,6 +11,8 @@ claude mcp add desktop -- nixbook-desktop-mcp     # Claude Code
 Desktop control **starts paused**. Allow it with the bar's Desktop Control widget, **Mod+Shift+Escape**, or `nixbook-desktop-mcp resume`. The choice survives reboots; a fresh install stays paused until you allow it.
 :::
 
+Settings → **Desktop agents** is split into tabs: **Basics** (AI features, DAI in the side panel, private details, desktop control, the equalizer agent), **Talk** (Full AI mode), **On its own** (talks to you on its own, routines, teach DAI), **Memory** (desktop memory, usage habits, about you) and **Improve** (fixes it makes itself, features it builds). A link or a search to one of these sections opens its tab; `nixbook-shell ipc call settings openPage "Desktop agents:Routines"` does it from a script.
+
 ## What agents can do
 
 ::: tip Headless first
