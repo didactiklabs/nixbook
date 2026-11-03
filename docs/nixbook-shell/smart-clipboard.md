@@ -2,7 +2,7 @@
 
 Copy something and the right action shows at once (`ai.clipboard`, on by
 default; **Settings → Desktop agents → Talk → Smart clipboard**): a small card
-at the top left, beside V's speech bubble, for about 8 seconds, "Copied a
+at the top left, beside DAI's speech bubble, for about 8 seconds, "Copied a
 tracking number — **Track it** · Not now". It never takes the keyboard; click a
 chip, or press `Mod+Alt+V` for the first one. Hovering it holds it.
 
@@ -30,7 +30,7 @@ it and save. A time said in another time zone ("Nov 4th at 9:00 PM ET",
 "15:00 CET", "10h UTC+7", "3pm Pacific Time") is put in your local time; the
 chip shows both, e.g. "Thu 5 Nov, 03:00 (9:00 PM ET)".
 
-The ✦ chips are AI: each is an order for V in a new conversation of its speech
+The ✦ chips are AI: each is an order for DAI in a new conversation of its speech
 bubble (as [Kiroshi](./kiroshi)'s offers), answered there — Translate, Explain,
 Summarize and Rewrite answer from the text alone; Fix it and Summarize the page
 may use the desktop tools (the terminal's output, the page tools). They need

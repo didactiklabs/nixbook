@@ -15,13 +15,13 @@ import QtQuick
  * (modules/common/functions/clipboard_kinds.js: a tracking number, an
  * address, a date, text in another language, an error, a link, a phone
  * number, an e-mail address, a long text, code, an amount), and a small row
- * of chips shows for ~8 s at the top left, beside V's speech bubble
+ * of chips shows for ~8 s at the top left, beside DAI's speech bubble
  * (modules/ii/smartClipboard/SmartClipboardChips.qml), never taking the
  * keyboard: "Copied a tracking number — Track it · Not now".
  * Plain actions run at once (a page opened, the calendar's editor filled
  * in, the phone dialling through KDE Connect); model actions (✦: Translate,
  * Explain, Summarize, Rewrite, Fix it, Summarize the page) are an order for
- * V in its bubble (Initiative.order, as Kiroshi's offers: Claude Code, the
+ * DAI in its bubble (Initiative.order, as Kiroshi's offers: Claude Code, the
  * message masked by the chat's privacy mask like every other). On screen,
  * real names.
  * Never what a password manager copied (wl-paste's CLIPBOARD_STATE
@@ -340,7 +340,7 @@ Singleton {
             CalendarEvents.newEvent(a.hasTime ? d : new Date(d.getFullYear(), d.getMonth(), d.getDate()))
             break
         }
-        // The model's actions: an order for V in its bubble (as Kiroshi's
+        // The model's actions: an order for DAI in its bubble (as Kiroshi's
         // offers), answered there; no tool needed, none of the text obeyed.
         case "translate":
             Initiative.order(`I copied this text. Translate it into ${lang}; answer with the translation alone, nothing done on the desktop:\n\n${quoted}`)

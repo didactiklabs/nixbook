@@ -590,7 +590,7 @@ ContentPage {
         }
 
         // The smart clipboard (services/SmartClipboard.qml): what was copied
-        // read in plain code, its action offered beside V's bubble.
+        // read in plain code, its action offered beside DAI's bubble.
         ContentSection {
             readonly property string tab: "talk"
             shown: page.tab === tab
@@ -601,7 +601,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("Copy something and the right action shows for a few seconds at the top left, beside V's speech bubble: track a parcel, directions to an address, add a date to the calendar, translate text in another language, explain or fix an error, summarize a link or a long text, call or text a number from your phone, write to an e-mail address, explain code, convert an amount. It never takes the keyboard. What was copied is read on this computer, in plain code; only the AI actions (✦) send it to V (Claude), with private details hidden, and V answers in its bubble. Never from a password manager, never passwords, codes or keys. Quiet in Do Not Disturb, meetings and fullscreen apps (the clipboard history, Mod+Q, still has the action). Mod+Alt+V runs the first chip.")
+                text: Translation.tr("Copy something and the right action shows for a few seconds at the top left, beside DAI's speech bubble: track a parcel, directions to an address, add a date to the calendar, translate text in another language, explain or fix an error, summarize a link or a long text, call or text a number from your phone, write to an e-mail address, explain code, convert an amount. It never takes the keyboard. What was copied is read on this computer, in plain code; only the AI actions (✦) send it to DAI (Claude), with private details hidden, and DAI answers in its bubble. Never from a password manager, never passwords, codes or keys. Quiet in Do Not Disturb, meetings and fullscreen apps (the clipboard history, Mod+Q, still has the action). Mod+Alt+V runs the first chip.")
             }
             GroupedList {
                 ConfigSwitch {
