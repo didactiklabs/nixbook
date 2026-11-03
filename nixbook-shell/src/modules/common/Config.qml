@@ -392,6 +392,12 @@ Singleton {
                     property bool enable: true
                     property int maxMinutes: 30
                 }
+                // The trust ladder (services/Trust.qml): each kind of action
+                // DAI takes in the side panel or the bubble asked first, done
+                // and told after, or done silently; the user decides per kind.
+                property JsonObject trust: JsonObject {
+                    property bool enable: true
+                }
                 // The desktop agent fixing nixbook itself (services/SelfImprove.qml,
                 // nixbook-improve): fixes and polish only, each a PR with its
                 // changelog entry, merged when the user says so. Off until

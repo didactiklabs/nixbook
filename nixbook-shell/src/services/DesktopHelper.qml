@@ -35,8 +35,21 @@ Singleton {
         find: null,
         // Teach mode (services/TeachMode.qml): each window in front while
         // it records.
-        teach: ["event", "status"]
+        teach: ["event", "status"],
+        // The trust ladder (Trust.qml): its list and the user's clicks.
+        trust: ["list", "check", "set"]
     })
+    // The trust ladder's gate (the /trust hook, Claude's tool calls): a step
+    // waiting for the user's OK, one done and to be said, the offer to stop
+    // asking, an OK that came too late (Trust.qml routes them to chats).
+    signal approvalAsked(var approval)
+    signal approvalExpired(string id)
+    signal stepTold(var told)
+    signal trustSuggested(var suggestion)
+    // The user's Allow / No (their click only) on a step the gate waits on.
+    function answerApproval(id, allow) {
+        if (root.ready) helper.write(JSON.stringify({ approvalAnswer: String(id), allow: allow === true }) + "\n");
+    }
 
     function takes(argv) {
         if (!(argv[0] in root._commands)) return false;
@@ -69,6 +82,22 @@ Singleton {
                 try {
                     msg = JSON.parse(line);
                 } catch (e) {
+                    return;
+                }
+                if (msg.approval !== undefined) {
+                    root.approvalAsked(msg.approval);
+                    return;
+                }
+                if (msg.approvalExpired !== undefined) {
+                    root.approvalExpired(String(msg.approvalExpired));
+                    return;
+                }
+                if (msg.told !== undefined) {
+                    root.stepTold(msg.told);
+                    return;
+                }
+                if (msg.trustSuggest !== undefined) {
+                    root.trustSuggested(msg.trustSuggest);
                     return;
                 }
                 if (msg.hook !== undefined) {

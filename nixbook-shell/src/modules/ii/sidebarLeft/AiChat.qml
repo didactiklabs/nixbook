@@ -574,6 +574,95 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
             }
         }
 
+        // The trust ladder (Trust.qml): a step waiting for the user's OK
+        // (Allow / Always / No), the steps done and said this turn, the
+        // offer to stop asking about a kind.
+        Rectangle {
+            id: trustBar
+            readonly property var chat: Ai.current ?? null
+            readonly property var approval: trustBar.chat?.approval ?? null
+            readonly property var told: trustBar.chat?.toldSteps ?? []
+            readonly property var suggestion: trustBar.chat?.trustSuggestion ?? null
+            Layout.fillWidth: true
+            visible: trustBar.approval !== null || trustBar.told.length > 0 || trustBar.suggestion !== null
+            implicitHeight: trustColumn.implicitHeight + 12
+            radius: Appearance.rounding.small
+            color: Appearance.colors.colSecondaryContainer
+            ColumnLayout {
+                id: trustColumn
+                anchors.fill: parent
+                anchors.margins: 6
+                spacing: 6
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: trustBar.approval !== null
+                    spacing: 6
+                    MaterialSymbol {
+                        text: "front_hand"
+                        iconSize: Appearance.font.pixelSize.normal
+                        color: Appearance.colors.colOnSecondaryContainer
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.Wrap
+                        textFormat: Text.PlainText
+                        text: Translation.tr("DAI asks before: %1").arg((trustBar.approval?.server && trustBar.approval.server !== "desktop"
+                            ? trustBar.approval.server + ": " : "") + String(trustBar.approval?.summary ?? ""))
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        color: Appearance.colors.colOnSecondaryContainer
+                    }
+                    DialogButton {
+                        buttonText: Translation.tr("Allow")
+                        onClicked: trustBar.chat?.approve(true)
+                    }
+                    // Never asked again for this kind (done, then said).
+                    DialogButton {
+                        visible: !!trustBar.approval?.class
+                        buttonText: Translation.tr("Always")
+                        onClicked: trustBar.chat?.approve(true, true)
+                        StyledToolTip {
+                            text: Translation.tr("Allow it and never ask again for this kind of step: DAI does it, then tells you (Settings > Desktop agents > Trust to change it back)")
+                        }
+                    }
+                    DialogButton {
+                        buttonText: Translation.tr("No")
+                        onClicked: trustBar.chat?.approve(false)
+                    }
+                }
+                StyledText {
+                    Layout.fillWidth: true
+                    visible: trustBar.told.length > 0
+                    wrapMode: Text.Wrap
+                    textFormat: Text.PlainText
+                    text: Translation.tr("Did: %1").arg(trustBar.told.map(t => t.summary).join(" · "))
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colOnSecondaryContainer
+                    opacity: 0.8
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: trustBar.suggestion !== null
+                    spacing: 6
+                    StyledText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.Wrap
+                        textFormat: Text.PlainText
+                        text: Translation.tr("Stop asking before: %1?").arg(trustBar.suggestion?.summary ?? "")
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        color: Appearance.colors.colOnSecondaryContainer
+                    }
+                    DialogButton {
+                        buttonText: Translation.tr("Yes")
+                        onClicked: trustBar.chat?.answerSuggestion(true)
+                    }
+                    DialogButton {
+                        buttonText: Translation.tr("Keep asking")
+                        onClicked: trustBar.chat?.answerSuggestion(false)
+                    }
+                }
+            }
+        }
+
         Rectangle { // Input area
             id: inputWrapper
             property real spacing: 5
