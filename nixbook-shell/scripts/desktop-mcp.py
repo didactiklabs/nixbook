@@ -18313,7 +18313,8 @@ KIROSHI_INTRO = (
 KIROSHI_FAST = (
     "Label the 3 to 8 things on the screen that matter (an error, a message waiting for an answer, a meeting "
     "coming, a form, the work in the main window, a notification…), most important first. For each: label (2-5 "
-    "words), kind ({kinds}), box [x, y, width, height] in pixels of the image, tight around it, urgency (now: "
+    "words), kind ({kinds}), box [x, y, width, height] in pixels of this {w}x{h} image (x from its left edge, 0 to "
+    "{w}; y from its top edge, 0 to {h}), tight around it, urgency (now: "
     "needs them now, soon, later, noise: can be dismissed or ignored), gist (one line, at most 14 words, the "
     "key fact). Then routine = the indexes (from 0) of the items an assistant could take entirely off their "
     "hands without their judgment AND where that saves real effort: several routine notifications to clear at "
@@ -18820,7 +18821,9 @@ def kiroshi_scan(cfg, path):
     unmask_ = (lambda t: unmask_text(t)) if privacy_on() else (lambda t: t)
     shared = mask_(KIROSHI_INTRO.format(w=w, h=h) + "\n\n" + context_)
     system = KIROSHI_SYSTEM.format(lang=lang) + ("\n\n" + PRIVACY_PROMPT if privacy_on() else "")
-    fast = KIROSHI_FAST.format(kinds="|".join(sorted(KIROSHI_KINDS)), lang=lang)
+    # The image's size and both axes said: "in pixels of the image" alone had
+    # boxes put y on another scale on some runs, a row off.
+    fast = KIROSHI_FAST.format(kinds="|".join(sorted(KIROSHI_KINDS)), lang=lang, w=w, h=h)
     kiroshi_emit("start", provider="Claude", model=model, contextMs=ms())
     sent_note("Kiroshi scan (screen)", model, shared + "\n\n" + fast)
     schemas = known["tools"]
