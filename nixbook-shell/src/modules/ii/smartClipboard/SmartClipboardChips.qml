@@ -12,7 +12,7 @@ import Quickshell.Wayland
 /**
  * The smart clipboard's chips (services/SmartClipboard.qml): a small card
  * "Copied a tracking number — Track it · Not now" for ~8 s, at the top
- * left under the bar, beside V's speech bubble when it shows (AgentSpeech,
+ * left under the bar, beside DAI's speech bubble when it shows (AgentSpeech,
  * 404 px wide there). Never takes the keyboard; only the card takes
  * clicks. Built on the first copy offered, then kept mapped (hidden: no
  * input, transparent), so showing it again costs nothing. Hovering it holds
@@ -54,7 +54,7 @@ Scope {
             }
             readonly property bool barTop: !(Config.options.bar.bottom ?? false) && !(Config.options.bar.vertical ?? false)
             readonly property bool barLeft: (Config.options.bar.vertical ?? false) && !(Config.options.bar.bottom ?? false)
-            // V's bubble (AgentSpeech: 404 px from the same corner): beside it.
+            // DAI's bubble (AgentSpeech: 404 px from the same corner): beside it.
             readonly property bool bubbleShown: Initiative.speaking !== null
             margins {
                 top: window.barTop ? Appearance.sizes.barHeight + 6 : 12
