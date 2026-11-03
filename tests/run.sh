@@ -109,6 +109,8 @@ cmd_shell() {
   local failed=0
   section "nixbook-shell scripts"
   bash nixbook-shell/tests/scripts.sh || failed=1
+  section "nixbook-shell smart clipboard (what a copied text is)"
+  bash nixbook-shell/tests/smart-clipboard.sh || failed=1
   section "nixbook-shell desktop control MCP server"
   bash nixbook-shell/tests/desktop-mcp.sh || failed=1
   section "nixbook-shell Kiroshi scan"

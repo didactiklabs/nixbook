@@ -33,6 +33,7 @@ ShellRoot {
         FullAi.load()
         Kiroshi.load()
         RecentContext.load()
+        SmartClipboard.load()
         Routines.load()
         SelfImprove.load()
         ThemeWallpapers.load()

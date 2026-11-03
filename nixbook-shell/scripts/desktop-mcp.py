@@ -93,8 +93,10 @@ DEFAULT_CONFIG = {
     # layout tools). Only the user may use them.
     # projects: the user's (agents have the project tool); teach: what the
     # user shows DAI, recorded and saved only by them.
+    # smartClipboard: run would take the action offered for what the user
+    # copied, offer would show chips the user never asked for.
     "shellIpcDenyTargets": ["session", "nixManaged", "desktopControl", "layouts", "settings", "makeWay", "projects",
-                            "teach"],
+                            "teach", "smartClipboard"],
     "allowSuperKey": False,
     "maxTextLength": 4000,
     # A note written into the notes widget (it goes through a file, not the

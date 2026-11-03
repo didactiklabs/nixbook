@@ -21,7 +21,9 @@ import QtQuick
  *     10 minutes offers "Explain it". The shell hook (hm-module.nix) writes
  *     the last failed command to terminal-failed only while terminal-on
  *     exists, made here while a switch needs it;
- *   - clipboardErrors: an error or a stack trace copied, the same.
+ *   - clipboardErrors: an error or a stack trace copied, the same. With the
+ *     smart clipboard on for errors (services/SmartClipboard.qml,
+ *     handlesErrors), a copied error gets its chips there instead.
  */
 Singleton {
     id: root
@@ -163,6 +165,8 @@ Singleton {
         if (root._copied[key]) return
         root._copied = Object.assign({}, root._copied, { [key]: true })
         root._add({ kind: "copied", text: text.slice(0, 400) })
+        // The smart clipboard offers it (Explain it · Fix it): not twice.
+        if (SmartClipboard.handlesErrors) return
         if (root.clipboardErrors)
             Initiative.consider({ event: "happened", what: "copied_error", name: text.split("\n").find(l => /error|exception|panic|fatal|failed/i.test(l)) ?? "",
                                   text: text.slice(0, 3000) })
