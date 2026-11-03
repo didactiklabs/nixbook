@@ -55,6 +55,9 @@ Singleton {
     property bool calendarAppOpen: false
     property var calendarAppDate: null
     property string calendarAppMode: ""
+    // The next new event's {title, location} (the smart clipboard's Add to
+    // calendar), taken by the editor once.
+    property var calendarAppDraft: null
     function openCalendarApp(date, mode) {
         root.calendarAppDate = date ?? null
         root.calendarAppMode = mode ?? ""

@@ -336,6 +336,30 @@ Singleton {
                     property bool learn: true
                     property int learnAfter: 3
                 }
+                // The smart clipboard (services/SmartClipboard.qml): what was
+                // copied read in plain code, its action offered as chips for a
+                // few seconds. `kinds`, each kind on or off; `knownLanguages`,
+                // languages besides the interface's not to offer translating
+                // from (e.g. ["en"]); `currency`, the one amounts convert to
+                // ("" = from the language: USD, EUR, VND).
+                property JsonObject clipboard: JsonObject {
+                    property bool enable: true
+                    property list<string> knownLanguages: []
+                    property string currency: ""
+                    property JsonObject kinds: JsonObject {
+                        property bool tracking: true
+                        property bool address: true
+                        property bool date: true
+                        property bool language: true
+                        property bool error: true
+                        property bool url: true
+                        property bool phone: true
+                        property bool email: true
+                        property bool paragraph: true
+                        property bool code: true
+                        property bool amount: true
+                    }
+                }
                 // Full AI mode (Mod+Shift+T, services/FullAi.qml): it reacts to
                 // what happens (notifications, downloads, the battery…),
                 // learning from the user's answers.

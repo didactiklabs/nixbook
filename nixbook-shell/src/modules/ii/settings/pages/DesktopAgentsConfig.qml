@@ -589,6 +589,136 @@ ContentPage {
             }
         }
 
+        // The smart clipboard (services/SmartClipboard.qml): what was copied
+        // read in plain code, its action offered beside V's bubble.
+        ContentSection {
+            readonly property string tab: "talk"
+            shown: page.tab === tab
+            icon: "content_paste_go"
+            title: Translation.tr("Smart clipboard")
+
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("Copy something and the right action shows for a few seconds at the top left, beside V's speech bubble: track a parcel, directions to an address, add a date to the calendar, translate text in another language, explain or fix an error, summarize a link or a long text, call or text a number from your phone, write to an e-mail address, explain code, convert an amount. It never takes the keyboard. What was copied is read on this computer, in plain code; only the AI actions (✦) send it to V (Claude), with private details hidden, and V answers in its bubble. Never from a password manager, never passwords, codes or keys. Quiet in Do Not Disturb, meetings and fullscreen apps (the clipboard history, Mod+Q, still has the action). Mod+Alt+V runs the first chip.")
+            }
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "ai.clipboard.enable"
+                    enabled: !nixManaged
+                    buttonIcon: "content_paste_go"
+                    text: Translation.tr("Offer an action for what I copy")
+                    checked: Config.options.ai.clipboard?.enable ?? true
+                    onCheckedChanged: if (Config.options.ai.clipboard) Config.options.ai.clipboard.enable = checked
+                }
+                ConfigSwitch {
+                    configKey: "ai.clipboard.kinds.tracking"
+                    enabled: !nixManaged && (Config.options.ai.clipboard?.enable ?? true)
+                    buttonIcon: SmartClipboard.kindIcons.tracking
+                    text: SmartClipboard.kindLabel("tracking")
+                    checked: Config.options.ai.clipboard?.kinds?.tracking ?? true
+                    onCheckedChanged: if (Config.options.ai.clipboard?.kinds) Config.options.ai.clipboard.kinds.tracking = checked
+                }
+                ConfigSwitch {
+                    configKey: "ai.clipboard.kinds.address"
+                    enabled: !nixManaged && (Config.options.ai.clipboard?.enable ?? true)
+                    buttonIcon: SmartClipboard.kindIcons.address
+                    text: SmartClipboard.kindLabel("address")
+                    checked: Config.options.ai.clipboard?.kinds?.address ?? true
+                    onCheckedChanged: if (Config.options.ai.clipboard?.kinds) Config.options.ai.clipboard.kinds.address = checked
+                }
+                ConfigSwitch {
+                    configKey: "ai.clipboard.kinds.date"
+                    enabled: !nixManaged && (Config.options.ai.clipboard?.enable ?? true)
+                    buttonIcon: SmartClipboard.kindIcons.date
+                    text: SmartClipboard.kindLabel("date")
+                    checked: Config.options.ai.clipboard?.kinds?.date ?? true
+                    onCheckedChanged: if (Config.options.ai.clipboard?.kinds) Config.options.ai.clipboard.kinds.date = checked
+                }
+                ConfigSwitch {
+                    configKey: "ai.clipboard.kinds.language"
+                    enabled: !nixManaged && (Config.options.ai.clipboard?.enable ?? true)
+                    buttonIcon: SmartClipboard.kindIcons.language
+                    text: SmartClipboard.kindLabel("language")
+                    checked: Config.options.ai.clipboard?.kinds?.language ?? true
+                    onCheckedChanged: if (Config.options.ai.clipboard?.kinds) Config.options.ai.clipboard.kinds.language = checked
+                }
+                ConfigSwitch {
+                    configKey: "ai.clipboard.kinds.error"
+                    enabled: !nixManaged && (Config.options.ai.clipboard?.enable ?? true)
+                    buttonIcon: SmartClipboard.kindIcons.error
+                    text: SmartClipboard.kindLabel("error")
+                    checked: Config.options.ai.clipboard?.kinds?.error ?? true
+                    onCheckedChanged: if (Config.options.ai.clipboard?.kinds) Config.options.ai.clipboard.kinds.error = checked
+                }
+                ConfigSwitch {
+                    configKey: "ai.clipboard.kinds.url"
+                    enabled: !nixManaged && (Config.options.ai.clipboard?.enable ?? true)
+                    buttonIcon: SmartClipboard.kindIcons.url
+                    text: SmartClipboard.kindLabel("url")
+                    checked: Config.options.ai.clipboard?.kinds?.url ?? true
+                    onCheckedChanged: if (Config.options.ai.clipboard?.kinds) Config.options.ai.clipboard.kinds.url = checked
+                }
+                ConfigSwitch {
+                    configKey: "ai.clipboard.kinds.phone"
+                    enabled: !nixManaged && (Config.options.ai.clipboard?.enable ?? true)
+                    buttonIcon: SmartClipboard.kindIcons.phone
+                    text: SmartClipboard.kindLabel("phone")
+                    checked: Config.options.ai.clipboard?.kinds?.phone ?? true
+                    onCheckedChanged: if (Config.options.ai.clipboard?.kinds) Config.options.ai.clipboard.kinds.phone = checked
+                }
+                ConfigSwitch {
+                    configKey: "ai.clipboard.kinds.email"
+                    enabled: !nixManaged && (Config.options.ai.clipboard?.enable ?? true)
+                    buttonIcon: SmartClipboard.kindIcons.email
+                    text: SmartClipboard.kindLabel("email")
+                    checked: Config.options.ai.clipboard?.kinds?.email ?? true
+                    onCheckedChanged: if (Config.options.ai.clipboard?.kinds) Config.options.ai.clipboard.kinds.email = checked
+                }
+                ConfigSwitch {
+                    configKey: "ai.clipboard.kinds.paragraph"
+                    enabled: !nixManaged && (Config.options.ai.clipboard?.enable ?? true)
+                    buttonIcon: SmartClipboard.kindIcons.paragraph
+                    text: SmartClipboard.kindLabel("paragraph")
+                    checked: Config.options.ai.clipboard?.kinds?.paragraph ?? true
+                    onCheckedChanged: if (Config.options.ai.clipboard?.kinds) Config.options.ai.clipboard.kinds.paragraph = checked
+                }
+                ConfigSwitch {
+                    configKey: "ai.clipboard.kinds.code"
+                    enabled: !nixManaged && (Config.options.ai.clipboard?.enable ?? true)
+                    buttonIcon: SmartClipboard.kindIcons.code
+                    text: SmartClipboard.kindLabel("code")
+                    checked: Config.options.ai.clipboard?.kinds?.code ?? true
+                    onCheckedChanged: if (Config.options.ai.clipboard?.kinds) Config.options.ai.clipboard.kinds.code = checked
+                }
+                ConfigSwitch {
+                    configKey: "ai.clipboard.kinds.amount"
+                    enabled: !nixManaged && (Config.options.ai.clipboard?.enable ?? true)
+                    buttonIcon: SmartClipboard.kindIcons.amount
+                    text: SmartClipboard.kindLabel("amount")
+                    checked: Config.options.ai.clipboard?.kinds?.amount ?? true
+                    onCheckedChanged: if (Config.options.ai.clipboard?.kinds) Config.options.ai.clipboard.kinds.amount = checked
+                }
+            }
+            Flow {
+                Layout.fillWidth: true
+                spacing: 8
+                SmallButton {
+                    materialIcon: "restart_alt"
+                    mainText: Translation.tr("Offer them again (%1 ignored)").arg(SmartClipboard.mutedKinds.length)
+                    enabled: SmartClipboard.mutedKinds.length > 0
+                    onClicked: SmartClipboard.unmute("")
+                }
+                SmallButton {
+                    materialIcon: "science"
+                    mainText: Translation.tr("Try it")
+                    enabled: SmartClipboard.enabled
+                    onClicked: SmartClipboard.show(SmartClipboard.read("1Z999AA10123456784", ""))
+                }
+            }
+        }
+
         // Full AI mode (services/FullAi.qml): Claude runs the desktop, a
         // mascot shows what it thinks, does and answers.
         ContentSection {

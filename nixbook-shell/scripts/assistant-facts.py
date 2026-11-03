@@ -69,6 +69,11 @@ IPC = {
         "arrêter (mettre en pause) les agents IA qui contrôlent le bureau, ou les autoriser à nouveau : la touche d'urgence",
         "die KI-Agenten, die den Desktop steuern, stoppen (pausieren) oder wieder erlauben: die Nottaste",
         "dừng (tạm dừng) các tác nhân AI đang điều khiển màn hình, hoặc cho phép lại: phím khẩn cấp"),
+    ("smartClipboard", "run"): t(
+        "run the smart clipboard's first action for what you just copied (track a parcel, add a date to the calendar, translate…)",
+        "lancer la première action du presse-papiers intelligent pour ce que vous venez de copier (suivre un colis, ajouter une date à l'agenda, traduire…)",
+        "die erste Aktion der intelligenten Zwischenablage für das gerade Kopierte ausführen (Paket verfolgen, Termin eintragen, übersetzen…)",
+        "chạy hành động đầu tiên của bộ nhớ tạm thông minh cho thứ bạn vừa sao chép (theo dõi bưu kiện, thêm ngày vào lịch, dịch…)"),
     ("search", "clipboardToggle"): t(
         "open the clipboard history",
         "ouvrir l'historique du presse-papiers",

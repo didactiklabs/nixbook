@@ -1,4 +1,5 @@
 pragma ComponentBehavior: Bound
+import qs
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
@@ -63,7 +64,10 @@ Item {
         const e = root.event
         if (root.creating) {
             const s = root.newStart ?? new Date()
-            titleField.text = ""
+            // Filled in from what was copied (the smart clipboard), once.
+            const draft = GlobalStates.calendarAppDraft
+            GlobalStates.calendarAppDraft = null
+            titleField.text = draft?.title ?? ""
             root.allDay = false
             root.startDay = new Date(s.getFullYear(), s.getMonth(), s.getDate())
             root.endDay = root.startDay
@@ -72,7 +76,7 @@ Item {
             root.calendarId = (CalendarEvents.writableCalendars.find(c => c.primary) ?? CalendarEvents.writableCalendars[0])?.id ?? ""
             root.repeat = "none"
             root.reminders = null
-            locationField.text = ""
+            locationField.text = draft?.location ?? ""
             notesField.text = ""
             titleField.forceActiveFocus()
             return

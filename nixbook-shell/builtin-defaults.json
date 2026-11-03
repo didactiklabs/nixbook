@@ -42,6 +42,24 @@
     "phone": {
       "readMessages": false
     },
+    "clipboard": {
+      "enable": true,
+      "knownLanguages": [],
+      "currency": "",
+      "kinds": {
+        "tracking": true,
+        "address": true,
+        "date": true,
+        "language": true,
+        "error": true,
+        "url": true,
+        "phone": true,
+        "email": true,
+        "paragraph": true,
+        "code": true,
+        "amount": true
+      }
+    },
     "fullAi": {
       "react": true
     },

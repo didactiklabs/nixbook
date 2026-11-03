@@ -609,7 +609,12 @@ Singleton {
                 if (mightBlurImage) {
                     shouldBlurImage = shouldBlurImage && (root.containsUnsafeLink(array[index - 1]) || root.containsUnsafeLink(array[index + 1]));
                 }
-                const obj = root.cachedResult("clip", entry, () => ({
+                const obj = root.cachedResult("clip", entry, () => {
+                    // The smart clipboard's action for it (Track it, Directions…),
+                    // the plain ones only: also when its chips stayed quiet. Read
+                    // once per entry (the result is cached).
+                    const smart = Cliphist.entryIsImage(entry) ? null : SmartClipboard.historyAction(StringUtils.cleanCliphistEntry(entry));
+                    return {
                     rawValue: entry,
                     name: StringUtils.cleanCliphistEntry(entry),
                     verb: "",
@@ -617,7 +622,14 @@ Singleton {
                     execute: () => {
                         Cliphist.copy(entry);
                     },
-                    actions: [resultComp.createObject(root, {
+                    actions: (smart ? [resultComp.createObject(root, {
+                            name: smart.label,
+                            iconName: smart.icon,
+                            iconType: LauncherSearchResult.IconType.Material,
+                            execute: () => {
+                                SmartClipboard.runAction(smart.action, smart.text, smart.kind);
+                            }
+                        })] : []).concat([resultComp.createObject(root, {
                             name: Translation.tr("Copy"),
                             iconName: "content_copy",
                             iconType: LauncherSearchResult.IconType.Material,
@@ -631,8 +643,9 @@ Singleton {
                             execute: () => {
                                 Cliphist.deleteEntry(entry);
                             }
-                        })]
-                }));
+                        })])
+                    };
+                });
                 // Depends on the neighbours, which change with the query.
                 obj.blurImage = shouldBlurImage;
                 return obj;
