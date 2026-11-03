@@ -11,7 +11,7 @@ claude mcp add desktop -- nixbook-desktop-mcp     # Claude Code
 Desktop control **starts paused**. Allow it with the bar's Desktop Control widget, **Mod+Shift+Escape**, or `nixbook-desktop-mcp resume`. The choice survives reboots; a fresh install stays paused until you allow it.
 :::
 
-Settings → **Desktop agents** is split into tabs: **Basics** (AI features, DAI in the side panel, private details, desktop control, the equalizer agent), **Talk** (Full AI mode), **On its own** (talks to you on its own, routines, teach DAI), **Memory** (desktop memory, usage habits, about you) and **Improve** (fixes it makes itself, features it builds). A link or a search to one of these sections opens its tab; `nixbook-shell ipc call settings openPage "Desktop agents:Routines"` does it from a script.
+Settings → **Desktop agents** is split into tabs: **Basics** (AI features, DAI in the side panel, private details, desktop control, the equalizer agent), **Talk** (Full AI mode), **On its own** (talks to you on its own, trust, routines, teach DAI), **Memory** (desktop memory, usage habits, about you) and **Improve** (fixes it makes itself, features it builds). A link or a search to one of these sections opens its tab; `nixbook-shell ipc call settings openPage "Desktop agents:Routines"` does it from a script.
 
 ## What agents can do
 
@@ -499,6 +499,18 @@ It learns the way a person does, mostly in plain code, without spending a token:
 - **Settings → Desktop agents** shows the notes (what each helped and failed, where it came from, recipes and macros; delete any), reminders, aliases, usage and learned controls, and clears them.
 - `nixbook-desktop-mcp memory show|prompt|forget ID|fire ID|learn|tidy|clear`.
 - Stored in `~/.local/state/nixbook-shell/desktop-memory.json` (private).
+
+### Trust ladder
+
+Each kind of action DAI takes in the side panel or the bubble (a tool, its action and the app it acts on: `close_window@firefox`, `media_control:pause`, `seerr__cancel_request` for another server's tool) is at one of three levels:
+
+- **Ask**: DAI asks first, **Allow** / **Always** / **No** in the bubble or in a bar above the side panel's message box. The default for what deletes, sends, pays or cancels. Unanswered in 2 minutes: not done.
+- **Tell after**: done, then a **Did: …** line. The default for the other steps that change something.
+- **Silent**: just done. Reading never asks.
+
+**Always** allows the step and sets its kind to _Tell after_ in one click: never asked again, each still told after. It works for any kind, sending a message included. After you allow the same kind 3 times in a row within 30 days, DAI offers **Stop asking before …?** (**Yes** moves it to _Tell after_). A **No** brings that kind a step down and starts the count over. What sends, messages, replies, pays, buys, deletes, merges, purges or touches credentials is never offered to stop asking and goes no further than _Tell after_ (never silent). Only you change a kind: Always, that offer, or **Settings → Desktop agents → Trust** (the _On its own_ tab: Ask, Tell after or Silent for each kind it has done, with its yeses in a row); no agent can (`trust set` refuses from Claude Code's commands).
+
+The desktop tools still ask by notification before what speaks, pays or deletes in your name (with _Always allow_ for that one channel or button), whichever MCP client calls them; the ladder doesn't ask about those a second time, and a kind you set to _Tell after_ skips that notification too. How it works: the shell gives its Claude sessions a `PreToolUse` hook for the MCP tools, served by `nixbook-desktop-mcp helper` (`/trust`), which waits for the shell's Allow / No. `nixbook-desktop-mcp trust list` shows the kinds (`~/.local/state/nixbook-shell/trust.json`); `ai.trust.enable` turns it off.
 
 ### Teach DAI a task ("watch me once")
 

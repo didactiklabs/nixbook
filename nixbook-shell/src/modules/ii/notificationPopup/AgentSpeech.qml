@@ -128,6 +128,21 @@ Scope {
     readonly property bool asks: /[?？]\s*$/.test(root.item?.text ?? "")
     // Quick answers under what it said: {label, main, run}.
     readonly property var chips: {
+        // The trust ladder (Trust.qml): a step of the bubble's DAI waiting
+        // for the user's OK, before anything else; then the offer to stop
+        // asking about a kind.
+        const ap = root.chat?.approval ?? null
+        if (ap) {
+            const what = (ap.server && ap.server !== "desktop" ? ap.server + ": " : "") + ap.summary
+            const asked = [{ label: Translation.tr("Allow: %1").arg(what), main: true, run: () => root.chat.approve(true) }]
+            if (ap.class) asked.push({ label: Translation.tr("Always"), main: false, run: () => root.chat.approve(true, true) })
+            asked.push({ label: Translation.tr("No"), main: false, run: () => root.chat.approve(false) })
+            return asked
+        }
+        const sug = root.chat?.trustSuggestion ?? null
+        if (sug) return [
+            { label: Translation.tr("Stop asking before: %1?").arg(sug.summary), main: true, run: () => root.chat.answerSuggestion(true) },
+            { label: Translation.tr("Keep asking"), main: false, run: () => root.chat.answerSuggestion(false) }]
         const it = root.item
         if (!it || root.conversing) return []
         const out = []
@@ -591,6 +606,20 @@ Scope {
                                 onClicked: Initiative.skipContext = !Initiative.skipContext
                             }
                         }
+                    }
+
+                    // What DAI did this turn without asking (the trust
+                    // ladder's "tell" steps, Trust.qml).
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: (root.chat?.toldSteps ?? []).length > 0
+                        wrapMode: Text.Wrap
+                        textFormat: Text.PlainText
+                        text: Translation.tr("Did: %1").arg((root.chat?.toldSteps ?? []).map(t => t.summary).join(" · "))
+                        font.family: root.font
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: root.fg
+                        opacity: 0.75
                     }
 
                     // Quick answers. Wraps when the labels don't fit on one line.

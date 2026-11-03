@@ -16247,6 +16247,385 @@ def permission_grant(key, label):
         p.changed = True
 
 
+# -- the trust ladder ---------------------------------------------------------
+# Each kind of action (a class: the tool, `:<action>` for the multi-purpose
+# tools, `@<app>` for the window and input tools acting on an app —
+# `media_control:pause`, `close_window@firefox`, `jellyfin__play`) is at one
+# of three levels for the shell's own Claude sessions: `ask` (Allow /
+# Always / No in the side panel or the bubble, before it runs), `tell` (done,
+# then a "Did: …" line) or `silent`. Asked by default for what is risky,
+# told for what acts, silent for what only reads. Three yeses in a row
+# within TRUST_STREAK_DAYS, nothing refused since, and the user is offered
+# to stop being asked (they decide: `trust set`, their click); a no brings
+# it a step down and starts the count over. What sends, pays, deletes,
+# merges or touches credentials is never offered past ask; the user may
+# still raise it themselves (Always, or Settings), to tell at most.
+# Claude Code's PreToolUse hook asks here (trust_gate, the helper's
+# /trust): the desktop tools that ask the user themselves (ask_user_yes:
+# what speaks, pays or deletes) aren't asked twice, and a kind the user
+# let go (tell) isn't asked by them either. An agent never sets a level:
+# `trust set` is the shell's (its helper's stdin) and the user's.
+TRUST_LEVELS = ("ask", "tell", "silent")
+TRUST_STREAK = 3
+TRUST_STREAK_DAYS = 30
+TRUST_CLASSES_MAX = 500
+TRUST_ASK_TIMEOUT = 120
+TRUST_CLASS = r"[\w.:@+-]{1,200}"
+TRUST_NEVER = re.compile(r"(^|_)(delete|send|sms|reply|pay|payment|buy|purchase|checkout|credentials|merge|"
+                         r"resolve_duplicates|wipe|purge)", re.I)
+TRUST_NEVER_ACTION = re.compile(r"^(delete|send|reply|react|pay|purchase|merge|purge|credentials)", re.I)
+TRUST_DOWN = {"silent": "tell", "tell": "ask", "ask": "ask"}
+# The tools that both read and write say which with their `action`: these
+# only read.
+TRUST_READ_ACTIONS = {"list", "lists", "upcoming", "get", "search", "find", "show", "status", "layout", "day",
+                      "events", "read", "next", "agenda", "info", "count", "check", "history", "channels", "guilds",
+                      "dms", "members", "lookup", "query", "sessions", "playlists"}
+# Another server's tool named for reading (search, list_…, …_details).
+TRUST_READ_NAME = re.compile(r"^(list|get|search|find|show|status|read|query|fetch|lookup|describe|info|check|count|"
+                             r"recall|view|browse|whoami|upcoming|current|now)(_|$)|_(list|get|search|find|status|info|"
+                             r"details?|show|read|lookup)$|^(item|details|sessions|trending)$", re.I)
+TRUST_RISKY_TOOL = re.compile(r"(^|_)(delete|remove|empty_trash|purge|wipe|clear|merge|resolve_duplicates|"
+                              r"credentials|send|sms|reply|connect_with|partner|uninstall|format|buy|pay|purchase|cancel|decline|"
+                              r"order)", re.I)
+TRUST_RISKY_ACTION = re.compile(r"^(delete|remove|clear|purge|empty|reply|send|react)", re.I)
+TRUST_HARMLESS_TOOL = re.compile(r"(queue|playlist|playback|volume|seek|repeat|shuffle)", re.I)
+TRUST_IPC_RISKY = re.compile(r"^(delete|remove|clear|purge|empty|reply|send|react|invoke|forget|wipe)", re.I)
+# The tools acting on an app: the app is part of the class ("typing in
+# Firefox" and "typing in the terminal" are trusted apart).
+TRUST_APP_TOOLS = {"launch_app", "close_window", "focus_window", "window_action", "move_window_to_workspace",
+                   "set_aside", "ui_act", "type_text", "press_keys", "click", "drag", "scroll", "run_steps",
+                   "run_recipe", "move_pointer"}
+
+
+def trust_path():
+    return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "nixbook-shell", "trust.json")
+
+
+def empty_trust():
+    return {"version": 1, "classes": {}}
+
+
+class Trust(Memory):
+    path = staticmethod(trust_path)
+    empty = staticmethod(empty_trust)
+
+    def migrate(self):
+        if not isinstance(self.data.get("classes"), dict):
+            self.data["classes"] = {}
+            self.changed = True
+
+
+def read_trust():
+    try:
+        with Trust() as t:
+            return t.data["classes"]
+    except OSError:
+        return {}
+
+
+def class_part(value, limit):
+    """A piece of a class name: lower case, letters, digits, . _ - only."""
+    return re.sub(r"[^a-z0-9._-]+", "-", str(value or "").strip().lower()).strip("-")[:limit]
+
+
+def class_parts(cls):
+    """(tool, action, app) of `tool:action@app`."""
+    head, _, app = str(cls).partition("@")
+    tool, _, action = head.partition(":")
+    return tool, action, app
+
+
+def action_class(tool, args, app=None):
+    """A call's class: `media_control:pause`, `close_window@firefox`,
+    `shell_ipc:reply@notifications`."""
+    args = args if isinstance(args, dict) else {}
+    cls = class_part(tool, 80) or "tool"
+    if tool == "shell_ipc":
+        fn, target = class_part(args.get("function"), 40), class_part(args.get("target"), 40)
+        return cls + (":" + fn if fn else "") + ("@" + target if target else "")
+    action = class_part(args.get("action"), 40)
+    if action:
+        cls += ":" + action
+    if tool in TRUST_APP_TOOLS:
+        who = app or (args.get("app") if isinstance(args.get("app"), str) else "")
+        who = class_part(re.sub(r"\.desktop$", "", str(who or "").strip(), flags=re.I), 80)
+        if who:
+            cls += "@" + who
+    return cls
+
+
+def trust_reads(tool, args, desktop):
+    """True for a call that only reads: a desktop tool marked read-only, a
+    reading action, another server's tool named for reading."""
+    args = args if isinstance(args, dict) else {}
+    if desktop and (TOOLS.get(tool) or {}).get("read_only"):
+        return True
+    if str(args.get("action") or "").lower() in TRUST_READ_ACTIONS:
+        return True
+    return not desktop and bool(TRUST_READ_NAME.search(tool))
+
+
+def trust_risky(tool, args):
+    """What deletes, sends in the user's name, pays or touches credentials."""
+    args = args if isinstance(args, dict) else {}
+    if tool == "shell_ipc":
+        return bool(TRUST_IPC_RISKY.match(str(args.get("function") or "")))
+    if TRUST_HARMLESS_TOOL.search(tool):
+        return False
+    if TRUST_RISKY_TOOL.search(tool) or TRUST_RISKY_ACTION.match(str(args.get("action") or "")):
+        return True
+    if tool in ("browser_act", "page_act"):
+        return page_act_risky(args)
+    if tool in ("ui_act", "click", "notification_action"):
+        return bool(RISKY_TARGET.search(" ".join(str(v) for v in args.values() if isinstance(v, str))))
+    return False
+
+
+def never_promote(cls):
+    tool, action, _ = class_parts(cls)
+    tool = tool.rpartition("__")[2]
+    return bool(TRUST_NEVER.search(tool) or (action and TRUST_NEVER_ACTION.match(action)))
+
+
+def trust_max(cls):
+    """The highest level `trust set` accepts for this class: tell for what
+    sends, pays, deletes… (each still said), else silent."""
+    return "tell" if never_promote(cls) else "silent"
+
+
+def trust_default(cls, risky=None):
+    """(level, why) before the user said anything (risky: as the call
+    says; else as its class says)."""
+    if risky is None:
+        tool, action, _ = class_parts(cls)
+        risky = trust_risky(tool.rpartition("__")[2], {"action": action} if action else {})
+    if risky or never_promote(cls):
+        return "ask", "a risky step: asked each time"
+    return "tell", "it acts: done, then said"
+
+
+def trust_state(cls, e, risky=None, now=None):
+    """(level, why, allows in the window, suggest promotion, user set)."""
+    now = now or time.time()
+    level, why = trust_default(cls, risky)
+    if e.get("level") in TRUST_LEVELS:
+        level, why = e["level"], e.get("why") or why
+    if TRUST_LEVELS.index(level) > TRUST_LEVELS.index(trust_max(cls)) or (
+            never_promote(cls) and level != "ask" and not e.get("userSet")):
+        level, why = "ask", "never done without asking (it sends, pays, deletes, merges or touches credentials)"
+    allows = [a for a in e.get("allows") or [] if isinstance(a, (int, float)) and now - a < TRUST_STREAK_DAYS * 86400]
+    suggest = (level == "ask" and not never_promote(cls) and len(allows) >= TRUST_STREAK
+               and not e.get("suggested"))
+    return level, why, allows, suggest, bool(e.get("userSet"))
+
+
+def trust_class(cls):
+    cls = str(cls or "").strip()
+    if not re.fullmatch(TRUST_CLASS, cls):
+        raise ToolError("a class is `tool`, `tool:action` or `tool@app` (letters, digits, . _ - : @)")
+    return cls
+
+
+def trust_check(cls, risky=None):
+    cls = trust_class(cls)
+    level, why, allows, suggest, user = trust_state(cls, read_trust().get(cls) or {}, risky)
+    return {"class": cls, "level": level, "why": why, "suggestPromote": suggest, "userSet": user,
+            "default": trust_default(cls, risky)[0], "streak": len(allows)}
+
+
+def trust_record(cls, outcome, now=None):
+    """The user's answer to a step of this kind: {level, suggestPromote,
+    streak}."""
+    cls = trust_class(cls)
+    if outcome not in ("allowed", "denied"):
+        raise ToolError("trust record: allowed or denied")
+    now = int(now or time.time())
+    with Trust() as t:
+        classes = t.data["classes"]
+        e = classes.setdefault(cls, {})
+        level, _, allows, _, _ = trust_state(cls, e, now=now)
+        e["last"], e["lastOutcome"] = now, outcome
+        if outcome == "allowed":
+            e["allows"] = (allows + [now])[-TRUST_STREAK * 4:]
+            level, _, allows, suggest, _ = trust_state(cls, e, now=now)
+            if suggest:
+                e["suggested"] = now  # offered once a streak
+        else:
+            # A step down, the count over: a no says it was too much.
+            e["level"], e["why"], e["userSet"], e["allows"] = TRUST_DOWN[level], "you said no to one", False, []
+            e.pop("suggested", None)
+            e["denied"] = e.get("denied", 0) + 1
+            level, allows, suggest = e["level"], [], False
+        if len(classes) > TRUST_CLASSES_MAX:
+            for old in sorted(classes, key=lambda k: classes[k].get("last", 0))[:len(classes) - TRUST_CLASSES_MAX]:
+                classes.pop(old, None)
+        t.save()
+    return {"class": cls, "level": level, "suggestPromote": suggest, "streak": len(allows)}
+
+
+def trust_set(cls, level):
+    """The user's choice (Settings, Always, a "Stop asking" chip): never an agent's."""
+    cls = trust_class(cls)
+    if level not in TRUST_LEVELS:
+        raise ToolError("trust set: ask, tell or silent")
+    if TRUST_LEVELS.index(level) > TRUST_LEVELS.index(trust_max(cls)):
+        raise ToolError(f"refused: {cls} sends, pays, deletes, merges or touches credentials: at most told after")
+    with Trust() as t:
+        e = t.data["classes"].setdefault(cls, {})
+        e.update(level=level, userSet=True, why="you chose it", set=int(time.time()))
+        e.pop("suggested", None)
+        t.save()
+    return {"class": cls, "level": level}
+
+
+def trust_list():
+    out = []
+    for cls, e in read_trust().items():
+        if not isinstance(e, dict) or not re.fullmatch(TRUST_CLASS, cls):
+            continue
+        level, why, allows, suggest, user = trust_state(cls, e)
+        out.append({"class": cls, "level": level, "default": trust_default(cls)[0], "why": why, "streak": len(allows),
+                    "last": e.get("last"), "userSet": user, "neverPromote": never_promote(cls),
+                    "maxLevel": trust_max(cls), "suggestPromote": suggest, "summary": class_words(cls)})
+    return sorted(out, key=lambda x: -(x["last"] or 0))
+
+
+def class_words(cls):
+    """A class in words: `close_window@firefox` → "close window in firefox",
+    `jellyfin__play` → "jellyfin: play"."""
+    tool, action, app = class_parts(cls)
+    server, _, tool = tool.rpartition("__")
+    out = (server + ": " if server else "") + tool.replace("_", " ")
+    return out + (f": {action.replace('_', ' ')}" if action else "") + (f" in {app}" if app else "")
+
+
+def trust_user_lets(cls):
+    """True when the user themselves let this kind go without asking (tell
+    or silent): the desktop tools' own asking (ask_user_yes) skips it too."""
+    if not cls:
+        return False
+    try:
+        e = read_trust().get(cls) or {}
+    except (OSError, ValueError):
+        return False
+    return bool(e.get("userSet")) and trust_state(cls, e)[0] != "ask"
+
+
+def step_words(tool, args):
+    """A step as the user reads it: "discord (action=send, channel=…)"."""
+    keys = ("app", "name", "action", "channel", "who", "title", "text", "content", "message", "query", "target",
+            "function", "theme", "variant", "id", "workspace")
+    bits = [f"{k}={short(str(args[k]), 40)}" for k in keys if isinstance(args, dict) and k in args]
+    return tool.replace("_", " ") + (f" ({', '.join(bits)})" if bits else "")
+
+
+_trust_waiting = {}
+_trust_lock = threading.Lock()
+
+
+def trust_answer(rid, allow):
+    """The shell's answer to an approval (the user's click)."""
+    with _trust_lock:
+        slot = _trust_waiting.get(str(rid))
+    if slot:
+        slot["allow"] = allow is True
+        slot["event"].set()
+
+
+def trust_gate(event, send):
+    """Claude Code's PreToolUse for the shell's sessions (the helper's
+    /trust): None (it goes on) or the hook's answer. send: a line to the
+    shell ({approval}, {told}, {trustSuggest}, {approvalExpired})."""
+    if not isinstance(event, dict) or event.get("hook_event_name") != "PreToolUse":
+        return None
+    m = re.match(r"^mcp__(.+?)__(.+)$", str(event.get("tool_name") or ""))
+    if not m:
+        return None
+    server, tool = m.groups()
+    args = event.get("tool_input") if isinstance(event.get("tool_input"), dict) else {}
+    desktop = server == "desktop"
+    if desktop and tool not in TOOLS:
+        tool, args = resolve_alias(tool, args)
+    if trust_reads(tool, args, desktop):
+        return None
+    cls = action_class(tool, args) if desktop else f"{class_part(server, 40)}__{action_class(tool, args)}"
+    risky = trust_risky(tool, args)
+    info = trust_check(cls, risky)
+    level = info["level"]
+    # The desktop tools ask the user themselves before what speaks, pays or
+    # deletes (a notification): not twice.
+    if desktop and level == "ask" and not info["userSet"] and (risky or never_promote(cls)):
+        return None
+    shown = unmask_obj(args) if privacy_on() else args
+    session = str(event.get("session_id") or "")
+    if level == "silent":
+        return None
+    if level == "tell":
+        send({"told": {"session": session, "class": cls, "summary": step_words(tool, shown)}})
+        return None
+    rid = secrets.token_hex(8)
+    slot = {"event": threading.Event(), "allow": None}
+    with _trust_lock:
+        _trust_waiting[rid] = slot
+    asked = time.time()
+    send({"approval": {"id": rid, "session": session, "server": server, "tool": tool, "class": cls,
+                       "summary": step_words(tool, shown)}})
+    slot["event"].wait(TRUST_ASK_TIMEOUT)
+    with _trust_lock:
+        _trust_waiting.pop(rid, None)
+
+    def deny(why):
+        return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
+                                       "permissionDecisionReason": why}}
+    if slot["allow"] is None:
+        send({"approvalExpired": rid})
+        return deny("Not done: it waited for the user's OK, which didn't come. Ask them in your answer.")
+    # Keys or a click from an agent while it waited: the yes may be its own.
+    if slot["allow"] and agent_input_since(asked):
+        return deny("Not done: an agent typed or clicked while the user was being asked, so the answer can't be "
+                    "trusted. Ask again, with no input meanwhile.")
+    try:
+        got = trust_record(cls, "allowed" if slot["allow"] else "denied")
+    except ToolError:
+        got = {}
+    if not slot["allow"]:
+        return deny("Not done: the user said no. Don't try it again unless they ask you to.")
+    if got.get("suggestPromote"):
+        send({"trustSuggest": {"session": session, "class": cls, "summary": class_words(cls)}})
+    return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow",
+                                   "permissionDecisionReason": "the user allowed it"}}
+
+
+def agent_environment():
+    """True in a process an agent started (Claude Code's Bash: CLAUDECODE)."""
+    return bool(os.environ.get("CLAUDECODE") or os.environ.get("CLAUDE_CODE_ENTRYPOINT"))
+
+
+def trust_command(argv):
+    sub = argv[0] if argv else "list"
+    try:
+        if sub == "check" and len(argv) >= 2:
+            risky = None
+            if "--risky" in argv:
+                risky = argv[argv.index("--risky") + 1] == "1"
+            print(json.dumps(trust_check(argv[1], risky)))
+            return 0
+        if sub == "set" and len(argv) == 3:
+            if agent_environment():
+                raise ToolError("refused: only the user sets how much an agent may do on its own")
+            print(json.dumps(trust_set(argv[1], argv[2])))
+            return 0
+        if sub == "list":
+            print(json.dumps(trust_list(), ensure_ascii=False))
+            return 0
+    except (ToolError, IndexError) as e:
+        print(json.dumps({"error": str(e) or "trust: bad arguments"}, ensure_ascii=False))
+        return 1
+    print("usage: nixbook-desktop-mcp trust [list] | check CLASS [--risky 0|1] | set CLASS ask|tell|silent",
+          file=sys.stderr)
+    return 2
+
+
 def ask_user_yes(ctx, title, body, key=None, label=None):
     """The user's own yes, asked in a notification (Allow / No; no answer in
     ASK_TIMEOUT seconds is a no), before what speaks, pays or deletes in
@@ -16259,6 +16638,10 @@ def ask_user_yes(ctx, title, body, key=None, label=None):
     if ctx.cfg.get("askBeforeSending", True) is False:
         return
     if permission_used(key):
+        return
+    # The user let this kind go themselves (the trust ladder: Always, or
+    # Tell after in Settings): not asked again.
+    if trust_user_lets(getattr(ctx, "trust_class", None)):
         return
     if not shutil.which("notify-send"):
         raise ToolError("not done: the user can't be asked (no notify-send), and this acts in their name")
@@ -17180,6 +17563,7 @@ def call_tool_now(ctx, name, args, session=None):
                 elif note:
                     note = [note]
             ctx.in_action = bool(made_way)
+            ctx.trust_class = action_class(name, args)
             try:
                 content = t["fn"](ctx, args)
             finally:
@@ -17737,6 +18121,8 @@ HELPER_COMMANDS = {
     # Teach mode (services/TeachMode.qml): each window in front while it
     # records.
     "teach": ("event", "status"),
+    # The trust ladder (services/Trust.qml): its list and the user's clicks.
+    "trust": ("list", "check", "set"),
 }
 
 
@@ -17766,8 +18152,10 @@ def helper_run(argv, stdin):
     return code or 0, out.getvalue()
 
 
-def helper_hooks(token):
-    """The privacy hooks' HTTP endpoint, in a thread: its port."""
+def helper_hooks(token, send):
+    """The privacy hooks' HTTP endpoint, in a thread: its port. /trust: the
+    trust ladder's (trust_gate), the privacy one too with ?privacy=1 (for
+    the MCP tools, which only it gets)."""
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
     class Hook(BaseHTTPRequestHandler):
@@ -17776,7 +18164,8 @@ def helper_hooks(token):
 
         def do_POST(self):
             auth = self.headers.get("Authorization") or ""
-            if (self.path != "/hook" or not hmac.compare_digest(auth.encode(), f"Bearer {token}".encode())
+            path, _, query = self.path.partition("?")
+            if (path not in ("/hook", "/trust") or not hmac.compare_digest(auth.encode(), f"Bearer {token}".encode())
                     or peer_uid(self.client_address, port) != os.getuid()):
                 self.send_response(403)
                 self.send_header("Content-Length", "0")
@@ -17787,7 +18176,22 @@ def helper_hooks(token):
                 event = json.loads(self.rfile.read(length)) if 0 < length <= 1 << 24 else None
             except ValueError:
                 event = None
-            data = json.dumps(privacy_hook_answer(event) or {}, ensure_ascii=False).encode()
+            if path == "/trust":
+                try:
+                    answer = trust_gate(event, send)
+                except Exception as e:  # never stop the hook: the step goes on as before
+                    log(f"helper: trust: {e!r}")
+                    answer = None
+                tool = str(event.get("tool_name") or "") if isinstance(event, dict) else ""
+                denied = ((answer or {}).get("hookSpecificOutput") or {}).get("permissionDecision") == "deny"
+                if "privacy=1" in query.split("&") and not tool.startswith("mcp__desktop__") and not denied:
+                    real = ((privacy_hook_answer(event) or {}).get("hookSpecificOutput") or {}).get("updatedInput")
+                    if real is not None:
+                        answer = answer or {"hookSpecificOutput": {"hookEventName": "PreToolUse"}}
+                        answer["hookSpecificOutput"]["updatedInput"] = real
+            else:
+                answer = privacy_hook_answer(event)
+            data = json.dumps(answer or {}, ensure_ascii=False).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(data)))
@@ -17831,12 +18235,16 @@ def serve_helper():
             real.write(json.dumps(msg, ensure_ascii=False) + "\n")
             real.flush()
     token = secrets.token_urlsafe(32)
-    port = helper_hooks(token)
+    port = helper_hooks(token, send)
     send({"hook": f"http://127.0.0.1:{port}/hook", "token": token})
     for line in sys.stdin:
         try:
             req = json.loads(line)
         except ValueError:
+            continue
+        if isinstance(req, dict) and "approvalAnswer" in req:
+            # The user's Allow / No on a step trust_gate waits on.
+            trust_answer(req.get("approvalAnswer"), req.get("allow") is True)
             continue
         argv = req.get("argv") if isinstance(req, dict) else None
         if not isinstance(argv, list) or not all(isinstance(a, str) for a in argv):
@@ -18495,6 +18903,9 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
   notify [on | off | toggle]  the "… is driving the desktop" notification
                           (on by default; kept across reboots)
   token                   the HTTP bearer token (created if needed)
+  trust [list] | check CLASS [--risky 0|1] | set CLASS ask|tell|silent
+                          the trust ladder: how much the shell's Claude may do on its
+                          own, per kind of action (`set`: the user's, never an agent's)
   layout list             saved window layouts (JSON), for the user and the shell:
   layout save|restore NAME  not subject to the agents' pause or tool groups
   layout delete NAME | rename OLD NEW | cycle (restore the next one)
@@ -18691,6 +19102,8 @@ def main(argv):
         return memory_command(cfg, argv[1:])
     if cmd == "permissions":
         return permissions_command(argv[1:])
+    if cmd == "trust":
+        return trust_command(argv[1:])
     if cmd == "initiative":
         return initiative_command(cfg, argv[1:])
     if cmd == "fullai":

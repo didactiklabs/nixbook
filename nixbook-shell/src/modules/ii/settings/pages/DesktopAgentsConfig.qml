@@ -631,6 +631,105 @@ ContentPage {
             }
         }
 
+        // The trust ladder (services/Trust.qml; desktop-mcp.py trust_gate):
+        // the only place a kind is raised or lowered besides Always and the
+        // "Stop asking" offer (`trust set`, the user's clicks only).
+        ContentSection {
+            readonly property string tab: "own"
+            shown: page.tab === tab
+            icon: "verified_user"
+            title: Translation.tr("Trust")
+            Component.onCompleted: Trust.refresh()
+
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("How much DAI does on its own in the side panel and the bubble, per kind of action (a tool, its action, the app it acts on). Ask: Allow / Always / No before it runs. Tell after: done, then a \"Did: …\" line. Silent: just done. Reading never asks. By default it asks before what deletes, sends, pays or cancels, and tells after the rest; after three yeses in a row it offers to stop asking. Always, beside Allow, stops the asking for that kind at once, sending a message included: what sends, pays or deletes is then told after, never silent. The desktop tools still ask by notification before what speaks, pays or deletes in your name, unless you set that kind to Tell after here. Only you change a kind; an agent never can.")
+            }
+            ConfigSwitch {
+                configKey: "ai.trust.enable"
+                buttonIcon: "verified_user"
+                text: Translation.tr("Trust ladder (ask, tell or stay silent per kind of action)")
+                checked: Config.options.ai.trust.enable
+                onCheckedChanged: Config.options.ai.trust.enable = checked
+            }
+            ContentSubsection {
+                title: Translation.tr("What it may do without asking")
+                StyledText {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    visible: Trust.list.length === 0
+                    color: Appearance.colors.colSubtext
+                    text: Trust.loaded ? Translation.tr("Nothing yet: kinds of actions show here once DAI has done them.")
+                        : Translation.tr("Not loaded (nixbook-desktop-mcp's helper isn't answering).")
+                }
+                Repeater {
+                    model: Trust.list
+                    delegate: RowLayout {
+                        id: trustRow
+                        required property var modelData
+                        property string error: ""
+                        // The highest level `trust set` takes for it: what
+                        // sends, pays, deletes… at most told.
+                        readonly property int maxLevel: Math.max(0, ["ask", "tell", "silent"].indexOf(trustRow.modelData.maxLevel ?? "silent"))
+                        Layout.fillWidth: true
+                        spacing: 8
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 0
+                            StyledText {
+                                Layout.fillWidth: true
+                                elide: Text.ElideRight
+                                // "discord: send", "close window in firefox"; the class on hover.
+                                text: String(trustRow.modelData.summary || String(trustRow.modelData.class).replace(/_/g, " "))
+                                color: Appearance.colors.colOnLayer1
+                                HoverHandler { id: trustClassHover }
+                                StyledToolTip {
+                                    extraVisibleCondition: trustClassHover.hovered
+                                    text: String(trustRow.modelData.class)
+                                }
+                            }
+                            StyledText {
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                                font.pixelSize: Appearance.font.pixelSize.smaller
+                                color: trustRow.error ? Appearance.colors.colError : Appearance.colors.colSubtext
+                                text: trustRow.error || [trustRow.modelData.streak ? Translation.tr("%1 yeses in a row").arg(trustRow.modelData.streak) : "",
+                                    trustRow.modelData.last ? page.ago(trustRow.modelData.last) : "",
+                                    trustRow.modelData.neverPromote ? Translation.tr("never offered to stop asking (it sends, pays, deletes or touches passwords); at most told after") : ""]
+                                    .filter(x => x).join(" · ")
+                            }
+                        }
+                        Repeater {
+                            model: [
+                                { level: "ask", label: Translation.tr("Ask"), icon: "front_hand" },
+                                { level: "tell", label: Translation.tr("Tell after"), icon: "campaign" },
+                                { level: "silent", label: Translation.tr("Silent"), icon: "do_not_disturb_on" },
+                            ]
+                            delegate: SmallButton {
+                                required property var modelData
+                                required property int index
+                                materialIcon: modelData.icon
+                                mainText: modelData.label
+                                enabled: index <= trustRow.maxLevel
+                                opacity: enabled ? 1 : 0.4
+                                toggled: trustRow.modelData.level === modelData.level
+                                onClicked: Trust.setTrust(trustRow.modelData.class, modelData.level, (ok, why) => {
+                                    trustRow.error = ok ? "" : (why ? Translation.tr("Refused: %1").arg(why) : Translation.tr("Refused"))
+                                })
+                            }
+                        }
+                    }
+                }
+                SmallButton {
+                    materialIcon: "refresh"
+                    mainText: Translation.tr("Refresh the list")
+                    onClicked: Trust.refresh()
+                }
+            }
+        }
+
         ContentSection {
             readonly property string tab: "own"
             shown: page.tab === tab

@@ -437,6 +437,21 @@ Singleton {
                 command: `${root.desktopMcpCommand} privacy hook` }] }],
         } };
     }
+    // The hooks Claude Code gets: the privacy ones (privacyHooks) and the
+    // trust ladder's gate (Trust.qml) for the MCP tools, which also applies
+    // the privacy mask to them (?privacy=1; the desktop's masks on its own).
+    // The gate asks the shell over the helper: none while it isn't up.
+    readonly property var agentHooks: {
+        const privacy = Config.options.ai.privacy.mask;
+        if (!Trust.enabled || DesktopHelper.hookUrl.length === 0) return privacy ? root.privacyHooks : null;
+        const headers = { Authorization: `Bearer ${DesktopHelper.hookToken}` };
+        const url = DesktopHelper.hookUrl.replace(/\/hook$/, "/trust") + (privacy ? "?privacy=1" : "");
+        // Up to 2 minutes for the user's Allow / No (the gate's own wait).
+        const pre = [{ matcher: "^mcp__", hooks: [{ type: "http", url: url, timeout: 150, headers: headers }] }];
+        if (!privacy) return { hooks: { PreToolUse: pre } };
+        pre.push({ matcher: "^(?!mcp__).*", hooks: root.privacyHooks.hooks.PreToolUse[0].hooks });
+        return { hooks: { PreToolUse: pre, PostToolUse: root.privacyHooks.hooks.PostToolUse } };
+    }
     property var desktopTools: []
 
     Process {
@@ -887,8 +902,8 @@ Singleton {
         // claude.ai connectors included: dropped when they are wanted.
         let args = ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
             ...(connectors ? [] : ["--strict-mcp-config"]), "--append-system-prompt", privacy ? maskedSystem : system,
-            "--setting-sources", "project", ...(confined || privacy
-                ? ["--settings", JSON.stringify(Object.assign({}, confined ? sandbox : {}, privacy ? root.privacyHooks : {}))] : []),
+            "--setting-sources", "project", ...(confined || root.agentHooks
+                ? ["--settings", JSON.stringify(Object.assign({}, confined ? sandbox : {}, root.agentHooks ?? {}))] : []),
             "--disallowedTools", ...(shellTools.length > 0 ? [] : ["Bash"]), "NotebookEdit", ...["Edit", "Write"].filter(t => !writeTools.includes(t)),
             // Write and Edit (outside the sandbox): never what runs on its own later.
             ...[].concat(...writable.map(w => [`Edit(/${w}/**/.git/**)`, `Edit(/${w}/.git/**)`, `Edit(/${w}/**/.envrc)`,

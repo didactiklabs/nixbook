@@ -33,6 +33,12 @@ Scope {
     }
     property string chatId: "" // its conversation in the history ("" until saved)
     property string claudeSessionId: ""
+    // The trust ladder (Trust.qml): the step waiting for the user's OK
+    // ({id, tool, server, summary, class}), the steps done and said this
+    // turn ({class, summary}), the offer to stop asking ({class, summary}).
+    property var approval: null
+    property var toldSteps: []
+    property var trustSuggestion: null
     property string pendingFilePath: ""
     // What the user just did (RecentContext, filtered), sent with the next
     // message only: a question asked in Claude's bubble.
@@ -210,11 +216,31 @@ Scope {
         chat.pendingFilePath = CF.FileUtils.trimFileProtocol(filePath);
     }
 
+    // The step waiting for an OK: done (allow) or not, the user's click.
+    // remember: "Always", its kind set to tell first (never asked again,
+    // done then said), then the yes.
+    function approve(allow, remember) {
+        const a = chat.approval;
+        if (!a) return;
+        chat.approval = null;
+        const answer = () => DesktopHelper.answerApproval(a.id, allow === true);
+        if (allow === true && remember === true && a.class) Trust.setTrust(a.class, "tell", () => answer());
+        else answer();
+    }
+    // "Stop asking before …?": yes sets its kind to tell; no keeps asking.
+    function answerSuggestion(yes) {
+        const s = chat.trustSuggestion;
+        chat.trustSuggestion = null;
+        if (yes && s?.class) Trust.setTrust(s.class, "tell");
+    }
+
     function sendUserMessage(message) {
         // An agent typing into this chat would act with this Claude's tools.
         if (DesktopControl.refuseIfAgentInput(Translation.tr("a message to DAI in the side panel"))) return;
         if (chat.fromClaude) Initiative.engaged();
         if (message.length === 0) return;
+        chat.toldSteps = [];
+        chat.trustSuggestion = null;
         chat.addMessage(message, "user");
         requester.makeRequest();
     }

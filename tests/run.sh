@@ -121,6 +121,8 @@ cmd_shell() {
   bash nixbook-shell/tests/find-anything.sh || failed=1
   section "nixbook-shell project contexts and teach mode (nixbook-desktop-mcp project, teach)"
   bash nixbook-shell/tests/projects.sh || failed=1
+  section "nixbook-shell trust ladder (nixbook-desktop-mcp trust, the helper's /trust hook)"
+  bash nixbook-shell/tests/trust.sh || failed=1
   section "nixbook-shell page code (Zen and the Electron apps)"
   bash nixbook-shell/tests/page.sh || failed=1
   section "nixbook-shell Actual Budget adapter (the budget tool, read only)"
