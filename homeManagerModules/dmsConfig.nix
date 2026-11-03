@@ -11,7 +11,13 @@ let
   };
   quickshellPkg = (quickshellOverlay pkgs pkgs).quickshell;
   dankcalendarFlake = import sources.flake-compat { src = sources.dankcalendar; };
-  dankcalendarPkg = dankcalendarFlake.defaultNix.lib.buildDcalPkgs pkgs;
+  # Upstream's flake.nix carries a stale vendorHash (go.sum changed without it
+  # being bumped); override it until upstream fixes it.
+  dankcalendarPkg = {
+    dankcalendar = (dankcalendarFlake.defaultNix.lib.mkDcal pkgs).overrideAttrs {
+      vendorHash = "sha256-JT6mHK52mIJh4lzVWYVpqNY2S2oeinSWBIKaI3TiY34=";
+    };
+  };
 in
 {
   options.customHomeManagerModules.dmsConfig = {
