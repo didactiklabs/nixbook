@@ -6115,7 +6115,9 @@ ROUTINE_SYSTEM = (
     "judged to be about the routine's topic (matched), take that as settled: "
     "do the action, don't judge it again. When you did nothing because what happened isn't what "
     "the routine waits for (not that kind of music, not that app…), start "
-    "with \"" + "Not this time:" + "\" and say why in a few words."
+    "with \"" + "Not this time:" + "\" and say why in a few words. When it is "
+    "what the routine waits for but there was nothing to do (already done, "
+    "already set), just say so, without \"Not this time:\"."
 )
 # Such a run (ROUTINE_SYSTEM): no cooldown (the next track may be the one),
 # no word in the bar, and the same track or title isn't judged again for
@@ -6641,8 +6643,13 @@ def routine_topic_check(when, do):
 def routine_pass_key(r, event):
     """What a routine's "not this time" is remembered by: the track (music
     cues) or the window title (window_title), folded; "" for the rest (a
-    time, a battery level: the same again may well be the one)."""
-    if not r["do"].get("agent"):
+    time, a battery level: the same again may well be the one). Not for a
+    routine whose words matched or whose topic was judged (`about`): what
+    happened is its kind, settled, so a "not this time" there is about the
+    moment (the theme already set…), never the track — remembering it
+    skipped a cyberpunk song for a week while the theme was already
+    Cyberpunk."""
+    if not r["do"].get("agent") or r["when"].get("about") or r["when"].get("words"):
         return ""
     ev = r["when"].get("event")
     if ev in ("track_changed", "music_started", "window_title"):
