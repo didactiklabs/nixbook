@@ -621,6 +621,18 @@ kitty_theme="$ac_home/state/quickshell/user/generated/terminal/kitty-theme.conf"
 expect_contains "applycolor.sh: kitty's theme" "$(cat "$kitty_theme")" "color1                #011121"
 expect_eq "applycolor.sh: kitty's theme fully filled in, no inline comment" "" \
   "$(grep -E '\$[a-zA-Z]|^[a-z_0-9]+ +#[0-9a-f]+ .' "$kitty_theme" || true)"
+# A palette read while it was being written (empty): the theme kitty reads
+# stays the last good one, never the template's "#$term13 #".
+before=$(cat "$kitty_theme")
+cp "$ac_home/state/quickshell/user/generated/material_colors.scss" "$ac_home/palette.bak"
+: >"$ac_home/state/quickshell/user/generated/material_colors.scss"
+applycolor
+# Its terminal part runs in the background: given the time to write.
+sleep 1
+expect_eq "applycolor.sh: an empty palette leaves kitty's theme as it was" "$before" "$(cat "$kitty_theme")"
+expect_eq "applycolor.sh: no half-made file left beside it" "" \
+  "$(find "$ac_home/state/quickshell/user/generated/terminal" -mindepth 1 ! -name kitty-theme.conf ! -name sequences.txt -printf '%f\n')"
+cp "$ac_home/palette.bak" "$ac_home/state/quickshell/user/generated/material_colors.scss"
 : >"$ac_home/pts/3"
 applycolor --reset-terminal
 wait_for "$ac_home/pts/3"

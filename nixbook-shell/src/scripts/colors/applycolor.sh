@@ -89,20 +89,33 @@ for i in "${!colorlist[@]}"; do
   colorsed+="s/${colorlist[$i]} #/${colorvalues[$i]#\#}/g"$'\n'
 done
 
+# A template rendered to DEST: written next to it, checked, then renamed
+# over it. Never a half-made file: kitty reads it as it starts (a new
+# window) and on SIGUSR1, and a copy sed hadn't filled yet, or a palette
+# read while it was being written (no colours, nothing replaced), showed
+# "Invalid color name: '#$term13 #'" for every line. A placeholder left
+# keeps the previous file.
+render_template() {
+  local src="$1" dest="$2" tmp
+  mkdir -p "$(dirname "$dest")"
+  tmp=$(mktemp "$dest.XXXXXX") || return 1
+  # Writable: the template is in the read-only Nix store.
+  if ! sed "$colorsed" "$src" >"$tmp" || grep -qE '\$[A-Za-z][A-Za-z0-9_]* #' "$tmp"; then
+    rm -f "$tmp"
+    echo "applycolor: $(basename "$dest") not updated (the palette is incomplete)" >&2
+    return 1
+  fi
+  chmod 644 "$tmp"
+  mv -f "$tmp" "$dest"
+}
+
 apply_kitty() {
   # Check if terminal escape sequence template exists
   if [ ! -f "$SCRIPT_DIR/terminal/kitty-theme.conf" ]; then
     echo "Template file not found for Kitty theme. Skipping that."
     return
   fi
-  # Copy template
-  mkdir -p "$STATE_DIR"/user/generated/terminal
-  # Writable copy: the template is in the read-only Nix store, and a
-  # read-only copy makes every later cp fail (colours never updated again).
-  rm -f "$STATE_DIR"/user/generated/terminal/kitty-theme.conf
-  cp --no-preserve=mode "$SCRIPT_DIR/terminal/kitty-theme.conf" "$STATE_DIR"/user/generated/terminal/kitty-theme.conf
-  # Apply colors
-  sed -i "$colorsed" "$STATE_DIR"/user/generated/terminal/kitty-theme.conf
+  render_template "$SCRIPT_DIR/terminal/kitty-theme.conf" "$STATE_DIR"/user/generated/terminal/kitty-theme.conf || return
 
   reload_kitty
 }
@@ -113,14 +126,7 @@ apply_anyterm() {
     echo "Template file not found for Terminal. Skipping that."
     return
   fi
-  # Copy template
-  mkdir -p "$STATE_DIR"/user/generated/terminal
-  # Writable copy: the template is in the read-only Nix store, and a
-  # read-only copy makes every later cp fail (colours never updated again).
-  rm -f "$STATE_DIR"/user/generated/terminal/sequences.txt
-  cp --no-preserve=mode "$SCRIPT_DIR/terminal/sequences.txt" "$STATE_DIR"/user/generated/terminal/sequences.txt
-  # Apply colors
-  sed -i "$colorsed" "$STATE_DIR"/user/generated/terminal/sequences.txt
+  render_template "$SCRIPT_DIR/terminal/sequences.txt" "$STATE_DIR"/user/generated/terminal/sequences.txt || return
 
   # Terminals other than kitty (which reloads its theme): written to the open
   # ones, replayed by each new interactive shell (hm-module.nix).
