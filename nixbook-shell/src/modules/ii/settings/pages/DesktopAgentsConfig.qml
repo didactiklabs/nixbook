@@ -26,6 +26,18 @@ ContentPage {
         DesktopControl.refreshHabits();
     }
 
+    // The page's tabs: each top-level section says which it is in
+    // (`tab`), and only the open tab's are shown.
+    readonly property var tabs: [
+        { id: "basics", name: Translation.tr("Basics"), icon: "tune" },
+        { id: "talk", name: Translation.tr("Talk"), icon: "record_voice_over" },
+        { id: "own", name: Translation.tr("On its own"), icon: "auto_awesome" },
+        { id: "memory", name: Translation.tr("Memory"), icon: "psychology" },
+        { id: "improve", name: Translation.tr("Improve"), icon: "build" }
+    ]
+    property string tab: "basics"
+    onTabChanged: page.contentY = 0
+
     function goTo(term) {
         const t = term.toLowerCase().trim()
 
@@ -45,9 +57,32 @@ ContentPage {
         }
 
         let target = findTarget(mainLayout)
-        if (target) {
-            let pos = target.mapToItem(mainLayout, 0, 0)
-            page.contentY = Math.max(0, pos.y - 0)
+        if (!target) return
+        // Open its section's tab first (hidden sections are still there).
+        let section = target
+        while (section && section.parent !== mainLayout) section = section.parent
+        if (section && typeof section.tab === "string" && section.tab !== page.tab) page.tab = section.tab
+        goToTimer.target = target
+        goToTimer.restart()
+    }
+    // Once the tab's sections are laid out: aimed again over a few frames,
+    // the page's height settles after the switch.
+    Timer {
+        id: goToTimer
+        property Item target: null
+        property int runs: 0
+        interval: 80
+        repeat: true
+        onRunningChanged: if (running) runs = 0
+        onTriggered: {
+            if (target) {
+                const pos = target.mapToItem(mainLayout, 0, 0)
+                page.contentY = Math.max(0, Math.min(pos.y, page.contentHeight - page.height))
+            }
+            if (++runs >= 4) {
+                stop()
+                target = null
+            }
         }
     }
 
@@ -72,9 +107,28 @@ ContentPage {
         Layout.fillHeight: true
         spacing: 20
 
+        // The tabs (a switch resets the page to the top).
+        Flow {
+            id: tabBar
+            Layout.fillWidth: true
+            spacing: 6
+            Repeater {
+                model: page.tabs
+                delegate: SmallButton {
+                    required property var modelData
+                    materialIcon: modelData.icon
+                    mainText: modelData.name
+                    toggled: page.tab === modelData.id
+                    onClicked: page.tab = modelData.id
+                }
+            }
+        }
+
         // policies.ai, the one switch for all of it (also Settings > Panels:
         // No, Yes, Local).
         ContentSection {
+            readonly property string tab: "basics"
+            shown: page.tab === tab
             icon: "neurology"
             title: Translation.tr("AI features")
 
@@ -106,6 +160,8 @@ ContentPage {
         // The privacy mask (desktop-mcp.py, "Privacy mask"): what models read
         // has placeholders, swapped back on this computer.
         ContentSection {
+            readonly property string tab: "basics"
+            shown: page.tab === tab
             icon: "visibility_off"
             title: Translation.tr("Private details")
 
@@ -231,6 +287,8 @@ ContentPage {
         }
 
         ContentSection {
+            readonly property string tab: "own"
+            shown: page.tab === tab
             icon: "chat_bubble"
             title: Translation.tr("Talks to you on its own")
 
@@ -534,6 +592,8 @@ ContentPage {
         // Full AI mode (services/FullAi.qml): Claude runs the desktop, a
         // mascot shows what it thinks, does and answers.
         ContentSection {
+            readonly property string tab: "talk"
+            shown: page.tab === tab
             icon: "smart_toy"
             title: Translation.tr("Full AI mode")
 
@@ -572,6 +632,8 @@ ContentPage {
         }
 
         ContentSection {
+            readonly property string tab: "own"
+            shown: page.tab === tab
             icon: "bolt"
             title: Translation.tr("Routines")
 
@@ -674,6 +736,8 @@ ContentPage {
 
         // Teach mode, "watch me once" (services/TeachMode.qml, nixbook-desktop-mcp teach).
         ContentSection {
+            readonly property string tab: "own"
+            shown: page.tab === tab
             icon: "school"
             title: Translation.tr("Teach DAI")
 
@@ -722,6 +786,8 @@ ContentPage {
         // services/SelfImprove.qml, nixbook-improve: only where Nix made it
         // available (programs.nixbook-shell.selfImprove.enable).
         ContentSection {
+            readonly property string tab: "improve"
+            shown: page.tab === tab
             visible: SelfImprove.available
             icon: "build"
             title: Translation.tr("Fixes it makes itself")
@@ -1109,6 +1175,8 @@ ContentPage {
         // the same nixbook-improve, token and model; other rules (bigger, new
         // files), never merged on its own.
         ContentSection {
+            readonly property string tab: "improve"
+            shown: page.tab === tab
             visible: SelfImprove.available
             icon: "lightbulb"
             title: Translation.tr("Features it builds")
@@ -1245,6 +1313,8 @@ ContentPage {
         }
 
         ContentSection {
+            readonly property string tab: "basics"
+            shown: page.tab === tab
             icon: "smart_toy"
             title: Translation.tr("Desktop control")
             shape: MaterialShape.Shape.Pentagon
@@ -1392,6 +1462,8 @@ ContentPage {
         }
 
         ContentSection {
+            readonly property string tab: "basics"
+            shown: page.tab === tab
             id: claudeSection
             icon: "neurology"
             title: Translation.tr("DAI in the side panel")
@@ -2434,6 +2506,8 @@ ContentPage {
 
         // EqualizerAutoService's agent mode.
         ContentSection {
+            readonly property string tab: "basics"
+            shown: page.tab === tab
             icon: "graphic_eq"
             title: Translation.tr("Equalizer agent")
             shape: MaterialShape.Shape.Burst
@@ -2467,6 +2541,8 @@ ContentPage {
         }
 
         ContentSection {
+            readonly property string tab: "memory"
+            shown: page.tab === tab
             icon: "psychology"
             title: Translation.tr("Desktop memory")
             shape: MaterialShape.Shape.Cookie4Sided
@@ -2666,6 +2742,8 @@ ContentPage {
         }
 
         ContentSection {
+            readonly property string tab: "memory"
+            shown: page.tab === tab
             icon: "insights"
             title: Translation.tr("Usage habits")
             shape: MaterialShape.Shape.Cookie4Sided
@@ -2764,6 +2842,8 @@ ContentPage {
         }
 
         ContentSection {
+            readonly property string tab: "memory"
+            shown: page.tab === tab
             icon: "person_book"
             title: Translation.tr("About you")
             shape: MaterialShape.Shape.Cookie4Sided
