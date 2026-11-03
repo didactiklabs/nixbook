@@ -73,8 +73,10 @@ Singleton {
         const lower = s => String(s ?? "").toLowerCase()
         if (when.app && !lower(ev.app).includes(when.app)) return false
         // With a topic (about), nixbook-desktop-mcp judges: the words only
-        // spare it the model.
-        if (when.words && !when.about && !lower(ev.text).includes(when.words)) return false
+        // spare it the model. Spaces don't count ("persona 5" is on
+        // "PERSONA5 ORIGINAL SOUNDTRACK").
+        const bare = s => lower(s).replace(/\s+/g, "")
+        if (when.words && !when.about && !bare(ev.text).includes(bare(when.words))) return false
         if (when.name && !lower(ev.name).includes(when.name)) return false
         if (when.ext && lower(ev.ext) !== when.ext.replace(/^\./, "")) return false
         if (when.event === "back" && (ev.away ?? 0) < (when.minutes ?? 30)) return false
@@ -127,13 +129,15 @@ Singleton {
             DesktopHelper.run(["habits", "cue", ev.event, ev.name ?? ""])
         if (!root.enabled || root.active.length === 0) return
         const music = ev.event.startsWith("music") || ev.event === "track_changed"
-        // Music the user just stopped stays stopped.
-        if (music && ev.event !== "music_ended" && Date.now() - root._userPausedAt < 600000) {
-            if (root._has(ev.event)) root.note(ev.event, Translation.tr("held: you stopped the music lately"))
-            return
-        }
+        // Music the user just stopped stays stopped: the routines that act
+        // on the music wait; the others (a theme for what plays) don't.
+        const held = music && ev.event !== "music_ended" && Date.now() - root._userPausedAt < 600000
         for (const r of root.active) {
             if (r.when?.event !== ev.event || !root._matches(r.when, ev)) continue
+            if (held && root._actsOnMusic(r)) {
+                root.note(r.text, Translation.tr("held: you stopped the music lately"))
+                continue
+            }
             root._run(r, ev)
         }
     }
@@ -161,6 +165,12 @@ Singleton {
     // A fixed action's calls ({steps} or the one).
     function _steps(r) {
         return r.do?.steps ?? [r.do ?? {}]
+    }
+
+    // Its action plays, stops or changes the music (its cue aside).
+    function _actsOnMusic(r) {
+        const calls = root._steps(r).map(s => `${s.server ?? ""} ${s.tool ?? ""} ${JSON.stringify(s.args ?? {})}`).join(" ")
+        return /music|spotify|play|song|track|playlist|mpris|media|volume/.test(`${calls} ${r.do?.agent ?? ""}`.toLowerCase())
     }
 
     function _touchesMusic(r) {
@@ -245,6 +255,10 @@ Singleton {
         if (root.anyPlaying) {
             root._userPausedAt = 0
             quietTimer.stop()
+            // The song it starts with is a track too ("whenever Persona 5
+            // music plays" from silence): trackSettle sends it unless it is
+            // the one that was paused.
+            trackSettle.restart()
             if (!root._wasPlaying) root.happen(Object.assign({ event: "music_started", app: MprisController.activePlayer?.identity ?? "",
                                                  text: root.trackText() }, root.trackFields()))
         }

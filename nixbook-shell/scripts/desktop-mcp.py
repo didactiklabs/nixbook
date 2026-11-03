@@ -6579,7 +6579,9 @@ def routine_judge(cfg, r, event, now):
     key = fold(" | ".join(item.values()))[:300]
     if not key.strip():
         return False, "nothing to judge (no track or title)"
-    if when.get("words") and when["words"] in key:
+    words = fold(when.get("words") or "")
+    # Spaces don't count: "persona 5" is on "PERSONA5 ORIGINAL SOUNDTRACK".
+    if words and (words in key or words.replace(" ", "") in key.replace(" ", "")):
         return True, "its words"
     topic = lambda x: hashlib.sha1(fold(x["when"]["about"]).encode()).hexdigest()[:12]
     mine = topic(r)
