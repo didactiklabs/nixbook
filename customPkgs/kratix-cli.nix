@@ -10,7 +10,7 @@ pkgs.buildGoModule {
 
   src = kratixCliSrc;
 
-  vendorHash = "sha256-O/86Ig+rEGCFkeo6KsUvpltZMsuka/aDc0D+7cWB06I=";
+  vendorHash = "sha256-fv6lr0dQ+jzVB1A2xzDvF5RfoJqQjwqTYoW5YjToWiE=";
 
   subPackages = [ "cmd/kratix" ];
 
