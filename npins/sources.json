@@ -481,9 +481,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "07aaa922add41774b6900e6429618255772639c7",
-      "url": "https://github.com/nklmilojevic/sofka/archive/07aaa922add41774b6900e6429618255772639c7.tar.gz",
-      "hash": "sha256-1rfCijFINdO553yURgSPBxLrYSkTUAX4N/Kk5G/ZkHs="
+      "revision": "8f8b698a0090aa2892166d01d2424a08abf91dae",
+      "url": "https://github.com/nklmilojevic/sofka/archive/8f8b698a0090aa2892166d01d2424a08abf91dae.tar.gz",
+      "hash": "sha256-TcvhX0C7ssndXRbpMF8QaSEDae8nWJZKjylkiZP0okQ="
     },
     "songbird": {
       "type": "GitRelease",
