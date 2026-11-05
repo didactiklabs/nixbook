@@ -382,6 +382,11 @@ in
             matches = [ { namespace = "^wallpaper$"; } ];
             place-within-backdrop = true;
           }
+          {
+            # nixbook-shell's blurred wallpaper, around the workspaces in the overview.
+            matches = [ { namespace = "^quickshell:wallpaperBackdrop$"; } ];
+            place-within-backdrop = true;
+          }
         ];
 
         window-rules = [
