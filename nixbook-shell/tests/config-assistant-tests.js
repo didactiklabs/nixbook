@@ -1,0 +1,113 @@
+// The config assistant (src/services/ConfigAssistant.qml, a QML singleton run
+// here under node) against the real how-tos of hm-module.nix, in English: the
+// other languages' questions go through its lexicons onto the same facts.
+// Run by config-assistant.sh.
+"use strict";
+const fs = require("fs");
+const path = require("path");
+const src = fs.readFileSync(
+  path.join(__dirname, "../src/services/ConfigAssistant.qml"),
+  "utf8",
+);
+let body = src.slice(src.indexOf("{", src.indexOf("Singleton {")) + 1);
+body = body.slice(0, body.lastIndexOf("}"));
+body = body.replace(/^\s*id: root$/m, "");
+body = body.replace(/^ {4}FileView \{[\s\S]*?^ {4}\}$/m, "");
+body = body.replace(/^ {4}(?:readonly )?property \w+ (\w+):/gm, "root.$1 =");
+body = body.replace(/^ {4}function (\w+)\(/gm, "root.$1 = function(");
+const root = {};
+new Function("root", "Qt", body)(root, {
+  locale: () => ({ name: "en_US" }),
+});
+
+const howTos = {};
+const nix = fs.readFileSync(path.join(__dirname, "../hm-module.nix"), "utf8");
+for (const m of nix.matchAll(/(\w+) = \{\s*en = "((?:[^"\\]|\\.)*)";/g))
+  howTos[m[1]] = m[2].replace(/\\(.)/g, "$1");
+
+const binds = {
+  "Mod+A": "Press Mod+A to close the focused window.",
+  "Mod+Ctrl+I": "Press Mod+Ctrl+I to move the column to the workspace above.",
+  "Mod+Shift+Escape":
+    "Press Mod+Shift+Escape to stop (pause) the AI agents controlling the desktop.",
+};
+const os = ["The Linux kernel is version 7.3.1."];
+const facts = [...Object.values(binds), ...os, ...Object.values(howTos)];
+const kinds = [
+  ...Object.keys(binds).map((k) => `bind:${k}`),
+  ...os.map(() => "os"),
+  ...Object.keys(howTos).map((k) => `howto:${k}`),
+];
+root.load(
+  JSON.stringify({
+    host: "test",
+    facts,
+    kinds,
+    modules: { all: [], enabled: [] },
+    packages: [],
+    settingPaths: [],
+    toggles: [],
+  }),
+);
+
+let failed = 0;
+function check(question, want) {
+  const got = root.answer(question);
+  if (got.startsWith(want)) return console.log(`ok   - ${question}`);
+  failed++;
+  console.log(
+    `FAIL - ${question}: got ${JSON.stringify(got.slice(0, 90))}, want ${JSON.stringify(want.slice(0, 90))}`,
+  );
+}
+function cant(lang, questions) {
+  for (const q of questions) check(q, root.strings[lang].cantDo);
+}
+
+// A request to do something: no how-to answers it.
+cant("en", [
+  "add that to memory i guess",
+  "remember this",
+  "remember that I like tea",
+  "can you remember this for me",
+  "put that in the notes",
+  "note that down",
+  "yes do it",
+  "fix it",
+  "forget that",
+]);
+cant("fr", ["ajoute ça à la mémoire", "retiens ça", "souviens-toi de ça"]);
+cant("de", ["merk dir das", "speichere das", "füg das hinzu"]);
+cant("vi", ["nhớ cái này", "thêm cái đó vào bộ nhớ", "lưu cái đó"]);
+
+// A how-to answers on its topic or one sentence, not on scattered words.
+check("add memory", howTos.desktopMemory);
+check("how does the agent memory work", howTos.desktopMemory);
+check("how do i remember this", howTos.personalMemory);
+check("how do i request a feature", howTos.agentFeatures);
+check("can DAI build features", howTos.agentFeatures);
+check("how do fixes work", howTos.agentFixes);
+check("what is full ai mode", howTos.fullAiMode);
+check("how do I find a file", howTos.findAnything);
+check("comment fonctionne la mémoire", howTos.desktopMemory);
+check("wie funktioniert das Gedächtnis", howTos.desktopMemory);
+
+// A statement stays alone, no how-to mentioning a word of it comes along.
+{
+  const got = root.answer("which kernel?");
+  if (got === os[0]) console.log("ok   - which kernel?");
+  else {
+    failed++;
+    console.log(
+      `FAIL - which kernel?: got ${JSON.stringify(got.slice(0, 90))}`,
+    );
+  }
+}
+
+// A keybinding still comes first, a pronoun before a noun isn't a request.
+check("close window", binds["Mod+A"]);
+check("close this window", binds["Mod+A"]);
+check("move window to workspace 2", binds["Mod+Ctrl+I"]);
+check("how do I stop the agent", binds["Mod+Shift+Escape"]);
+
+console.log(failed ? `${failed} failed` : "all passed");
+process.exit(failed ? 1 : 0);

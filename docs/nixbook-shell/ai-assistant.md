@@ -17,7 +17,7 @@ The config assistant answers from facts generated from your evaluated configurat
 - **shell settings**: "what does `bar.bottom` do?", and the settings pinned in Nix;
 - **how-tos**: updating, rolling back, freeing disk space, syncing your calendar, stopping the desktop agents, window layouts, DAI in the panel…
 
-`/help` (or "help", "aide", "hilfe", "giúp") lists the kinds of questions it answers. When nothing matches exactly, it shows the closest facts; off-topic questions get "I don't know" and tips. Answers are selectable and copyable.
+`/help` (or "help", "aide", "hilfe", "giúp") lists the kinds of questions it answers. When nothing matches exactly, it shows the closest facts; off-topic questions get "I don't know" and tips. It only answers: asked to do something ("add that to memory", "remember this", "do it"), it says so and points to DAI (`/model dai`). Answers are selectable and copyable.
 
 ### Teaching it about your machine
 
