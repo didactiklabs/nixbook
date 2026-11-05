@@ -39,6 +39,7 @@ In folders, the **back arrow** beside the title (or Alt+Left, or the mouse's bac
 - Separate wallpapers for the **desktop**, **lock screen** and **login screen** (empty falls back to the lock screen's, then the desktop's), and [per theme variant](./themes#wallpapers-per-theme).
 - A **centred wallpaper** mode draws the image inside a Material shape (heart, cookie…) over a colour.
 - **Live (video) wallpapers**: pick a video and it plays behind the desktop with mpvpaper, paused while not visible (locked, screens off). Windows blur its still frame, so the GPU doesn't re-blur every frame; a video larger than your screens is transcoded once in the background (VA-API when available) to the smallest size that covers them.
+- **Overview backdrop**: niri's overview (`Mod+Tab`) shows the wallpaper, blurred, around the workspaces instead of a flat colour; for a video, its still frame. Without nixbook's niri configuration, add a layer rule with `match namespace="^quickshell:wallpaperBackdrop$"` and `place-within-backdrop true`.
 - Agents can set the wallpaper from a [shared folder](./agent-desktop#shared-folders).
 
 ## Night light
