@@ -19,7 +19,11 @@ import qs.modules.common
  * synonyms; templated facts are indexed on their distinctive part only; the
  * previous question counts at half weight, for follow-ups.
  *
- * Answers (`answer`): greetings and help; listings (all shortcuts,
+ * A how-to, hundreds of words long, matches on one of its sentences and on
+ * its topic (`factParts`), not on words scattered across it.
+ *
+ * Answers (`answer`): greetings and help; a request to do something with
+ * what was said ("add that to memory"), which only DAI can; listings (all shortcuts,
  * shortcuts about X, Neovim keymaps, enabled modules, settings set in Nix,
  * packages); "what does <leader>ff do in vim?"; "is
  * <module> enabled?"; "is <package> installed?"; "what does <key> do?"; a
@@ -37,6 +41,7 @@ Singleton {
     readonly property bool ready: root.data !== null
     property var data: null
     property var _factWords: []
+    property var _factParts: []
     property var _idf: ({})
     property real _maxIdf: 1
     property var _settingPaths: new Set()
@@ -58,6 +63,7 @@ Singleton {
             sysInfo: "About this machine (%1):", toggleYes: "Yes: %1 is enabled.", toggleNo: "No: %1 is not enabled.", enabledToggles: "Enabled on %1 (option sets with enable = true):",
             tips: "Name the thing, e.g. “shortcut for the launcher”, “is tailscale enabled?”, “all shortcuts”.",
             dontKnow: "I don't know: that isn't in this machine's configuration.",
+            cantDo: "I can't do that: I only answer questions about this machine's configuration, I don't remember or change anything. DAI can: pick it with /model dai.",
             notSure: "No exact match in this machine's configuration. The closest things in it:",
             allShortcuts: "All keyboard shortcuts (%1, Mod = Super key):",
             matching: "Shortcuts matching your question (Mod = Super key):",
@@ -76,6 +82,7 @@ Singleton {
             sysInfo: "À propos de cette machine (%1) :", toggleYes: "Oui : %1 est activé.", toggleNo: "Non : %1 n'est pas activé.", enabledToggles: "Activé sur %1 (options avec enable = true) :",
             tips: "Nommez la chose, par ex. « raccourci du lanceur », « tailscale est activé ? », « tous les raccourcis ».",
             dontKnow: "Je ne sais pas : ce n'est pas dans la configuration de cette machine.",
+            cantDo: "Je ne peux pas le faire : je réponds seulement aux questions sur la configuration de cette machine, je ne retiens et ne change rien. DAI le peut : choisissez-le avec /model dai.",
             notSure: "Pas de correspondance exacte dans la configuration de cette machine. Le plus proche :",
             allShortcuts: "Tous les raccourcis clavier (%1, Mod = touche Super) :",
             matching: "Raccourcis correspondant à votre question (Mod = touche Super) :",
@@ -94,6 +101,7 @@ Singleton {
             sysInfo: "Über diesen Rechner (%1):", toggleYes: "Ja: %1 ist aktiviert.", toggleNo: "Nein: %1 ist nicht aktiviert.", enabledToggles: "Aktiviert auf %1 (Optionen mit enable = true):",
             tips: "Nenne die Sache, z. B. „Tastenkürzel für den Starter“, „ist tailscale aktiviert?“, „alle Tastenkürzel“.",
             dontKnow: "Weiß ich nicht: Das steht nicht in der Konfiguration dieses Rechners.",
+            cantDo: "Das kann ich nicht: Ich beantworte nur Fragen zur Konfiguration dieses Rechners und merke mir oder ändere nichts. DAI kann das: Wähle es mit /model dai.",
             notSure: "Keine genaue Entsprechung in der Konfiguration dieses Rechners. Am nächsten kommen:",
             allShortcuts: "Alle Tastenkürzel (%1, Mod = Super-Taste):",
             matching: "Passende Tastenkürzel (Mod = Super-Taste):",
@@ -112,6 +120,7 @@ Singleton {
             sysInfo: "Về máy này (%1):", toggleYes: "Có: %1 đang được bật.", toggleNo: "Không: %1 không được bật.", enabledToggles: "Đang bật trên %1 (các tùy chọn có enable = true):",
             tips: "Hãy nêu rõ, ví dụ: “phím tắt mở trình khởi chạy”, “tailscale có bật không?”, “tất cả phím tắt”.",
             dontKnow: "Tôi không biết: điều này không có trong cấu hình của máy.",
+            cantDo: "Tôi không làm được việc đó: tôi chỉ trả lời câu hỏi về cấu hình của máy này, không ghi nhớ hay thay đổi gì. DAI làm được: chọn bằng /model dai.",
             notSure: "Không có kết quả khớp chính xác trong cấu hình của máy. Gần nhất là:",
             allShortcuts: "Tất cả phím tắt (%1, Mod = phím Super):",
             matching: "Các phím tắt phù hợp (Mod = phím Super):",
@@ -394,6 +403,32 @@ Singleton {
         return fact;
     }
 
+    // A how-to runs to hundreds of words and so holds nearly any word, each
+    // in its own context ("add" in one sentence, "memory" in another: the
+    // Features how-to answered "add that to memory"). It matches on what one
+    // of its sentences says and on the topic its name gives. Null for the
+    // other facts, a single statement each.
+    function factParts(fact, kind) {
+        if (!kind?.startsWith("howto:")) return null;
+        const name = kind.slice(6).replace(/([a-z])([A-Z])/g, "$1 $2");
+        return {
+            topic: new Set(root.words(name)),
+            sentences: fact.split(/[.!?…]+["”)]*\s+/).map(t => new Set(root.words(t)))
+        };
+    }
+    // The words of fact i that count for this question: its best sentence
+    // and its topic. Everything for a single statement.
+    function matchedWords(i, weigh) {
+        const parts = root._factParts[i];
+        if (!parts) return root._factWords[i];
+        let best = null, top = -1;
+        for (const sentence of parts.sentences) {
+            const score = weigh(sentence);
+            if (score > top) { best = sentence; top = score; }
+        }
+        return new Set([...best, ...parts.topic]);
+    }
+
     function load(text) {
         try {
             const d = JSON.parse(text);
@@ -406,6 +441,7 @@ Singleton {
             for (const w in df)
                 idf[w] = Math.log(d.facts.length / df[w]);
             root._factWords = fw;
+            root._factParts = d.facts.map((f, i) => root.factParts(f, d.kinds?.[i]));
             root._idf = idf;
             root._maxIdf = Math.log(d.facts.length);
             root._settingPaths = new Set(d.settingPaths ?? []);
@@ -468,26 +504,35 @@ Singleton {
         // Neovim keymaps for questions about vim, the rest for the others.
         const vim = root.aboutVim(question);
         const scored = [];
-        root.data.facts.forEach((fact, i) => {
-            const fw = root._factWords[i];
+        const scoreOf = fw => {
             let score = 0;
             for (const w of direct) if (fw.has(w)) score += weight(w);
             for (const w of extra) if (fw.has(w)) score += 0.5 * weight(w);
             for (const w of context) if (fw.has(w)) score += 0.5 * weight(w);
+            return score;
+        };
+        const matched = [];
+        root.data.facts.forEach((fact, i) => {
+            matched[i] = root.matchedWords(i, scoreOf);
+            let score = scoreOf(matched[i]);
             if (root.isNvim(i) !== vim) score *= 0.5;
             // Statements about the system before the many discovered toggles.
             if (root.data.kinds?.[i]?.startsWith("toggle:")) score *= 0.7;
-            if (score > 0) scored.push({ score, fact, i });
+            // What a how-to is about beats what another one mentions; only
+            // the order: a keybinding is still compared to its score.
+            let rank = score;
+            for (const w of direct) if (root._factParts[i]?.topic.has(w)) rank += weight(w);
+            if (score > 0) scored.push({ score, rank, fact, i });
         });
         // Ties (e.g. "settings": every pinned shell setting matches too): the
         // keybindings first — what can be done beats what is configured.
-        scored.sort((a, b) => (b.score - a.score) || (root.isBind(b.i) - root.isBind(a.i)));
+        scored.sort((a, b) => (b.rank - a.rank) || (root.isBind(b.i) - root.isBind(a.i)));
         if (scored.length === 0 || direct.size === 0) return { facts: scored.slice(0, 6), coverage: 0 };
-        const top = scored[0].score;
+        const top = Math.max(...scored.map(s => s.score));
         const facts = scored.filter(s => s.score >= 0.5 * top).slice(0, 6);
         let total = 0, covered = 0;
         const unknown = []; // content words no fact contains ("record" in "record my screen")
-        const best = root._factWords[scored[0].i];
+        const best = matched[scored[0].i];
         for (const w of direct) {
             if (lang !== "en" && root._idf[w] === undefined) continue; // untranslated foreign word
             if (lang === "en" && root._idf[w] === undefined && root.langWords.en.includes(w)) continue; // filler
@@ -509,6 +554,21 @@ Singleton {
     readonly property var whyAsk: /^\s*(why|what could|what can cause|pourquoi|warum|wieso|tai sao|vi sao)\b|\bcause\b/
     readonly property var enableAsk: /enabled|\benable|\bactive|\bturned on|\bon this machine|\busing\b|\bon\b|\bhave\b|\bactiv|\baktiv|\bbat\b|kich hoat|\bdung\b/
     readonly property var installAsk: /\binstall|\bhave\b|\bknow\b|\bavailable\b|\bconnai|\bkenn|\bbiet\b|\bcai\b|\bco\b.*\bkhong\b/
+    // Something to do with what was just said, not a question ("add that to
+    // memory", "remember this", "do it"): no fact answers it, whatever words
+    // it shares with them. On folded text. A noun after the pronoun is a
+    // request a keybinding may answer ("close this window"), so what may
+    // follow it is listed.
+    readonly property var actAsk: ({
+        en: /^(?:(?:please|pls|ok|okay|yes|yeah|yep|sure|alright|then|so|and|just|now|go ahead and|can you|could you|would you|will you)\s+)*(?:(?:add|put|save|store|keep|note|write|jot|log|forget|remove|delete|do|fix)\s+(?:that|this|it|those|these|them)(?=\s*$|\s+(?:to|in|into|on|onto|down|up|for|as|too|please|i|then|now|again|somewhere|away)\b)|(?:remember|memori[sz]e)\s+\S|(?:don t|do not|never) forget\s+\S)/,
+        fr: /^(?:(?:s il te plait|s il vous plait|stp|svp|ok|oui|alors|bon|vas y|tu peux|peux tu|pourrais tu)\s+)*(?:(?:ajoute|mets|garde|enregistre|sauvegarde|note|retiens|memorise|oublie|supprime|efface|enleve|fais|corrige)\s+(?:ca|cela|le|la|les)(?=\s*$|\s+(?:a|au|aux|dans|en|sur|pour|quelque|stp|svp|je)\b)|(?:retiens|souviens toi|rappelle toi|n oublie pas)\s+(?:de ca|de cela|que)\b)/,
+        de: /^(?:(?:bitte|ok|okay|ja|dann|also|kannst du|konntest du)\s+)*(?:(?:fug|fuge|speicher|speichere|notier|notiere|schreib|schreibe|vergiss|losch|losche|mach|mache|behalt|behalte|nimm|pack|trag|trage)\s+(?:das|es|dies|dieses)(?=\s*$|\s+(?:hinzu|auf|ein|in|ins|zu|zum|zur|bitte|doch|mal|weg|jetzt|ab)\b)|merke? dir\s+\S)/,
+        vi: /^(?:(?:hay|vui long|xin|ok|ban)\s+)*(?:ghi nho|ghi lai|ghi|nho|them|luu|xoa|quen|lam|sua)\s+(?:(?:cai|dieu|viec|thu)\s+(?:nay|do|kia|ay)|nay|do|no|di)\b/
+    })
+    // The language an act request is in, or null when it isn't one.
+    function actRequest(foldedQuestion) {
+        return Object.keys(root.actAsk).find(lang => root.actAsk[lang].test(foldedQuestion)) ?? null;
+    }
     function mentions(foldedQuestion, name) {
         return new RegExp(`\\b${root.escapeRe(root.fold(name))}\\b`).test(foldedQuestion);
     }
@@ -715,6 +775,8 @@ Singleton {
         const helpWord = /^(help|aide|hilfe|tro giup|giup|giup do|\?)[\s!.?]*$/.exec(q);
         if (helpWord)
             return root.helpText(({ aide: "fr", hilfe: "de", giup: "vi", "giup do": "vi", "tro giup": "vi" })[helpWord[1]] ?? lang);
+        const act = root.actRequest(q);
+        if (act !== null) return root.tr(act, "cantDo");
         const listing = root.listReply(question, lang);
         if (listing !== null) return listing;
         const info = root.systemInfoReply(question, lang);
@@ -783,7 +845,9 @@ Singleton {
         const best = found.facts[0];
         if (best && root.isInfo(best.i) && (found.coverage >= 0.5
                 || (found.coverage >= 0.35 && (found.unknown ?? []).length === 0))) {
-            const second = found.facts.find(s => s !== best && root.isInfo(s.i) && s.score >= 0.85 * best.score);
+            // A how-to comes along when it is about this (rank), not when it mentions it.
+            const second = found.facts.find(s => s !== best && root.isInfo(s.i) && s.score >= 0.85 * best.score
+                && (!root._factParts[s.i] || s.rank > s.score));
             return root.factText(best.i, lang) + (second ? `\n${root.tr(lang, "also")} ${root.factText(second.i, lang)}` : "");
         }
         if (found.facts.length === 0 || found.coverage < 0.25)
