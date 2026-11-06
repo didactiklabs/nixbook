@@ -200,7 +200,7 @@ Whether to enable the NixOS stateful firewall (nftables/iptables). Configures a 
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable the gaming-oriented NixOS configuration. This module provides a production-grade gaming setup inspired by Jovian-NixOS (Steam Deck / SteamOS). It bundles: - Steam with remote play, Proton GE and Proton CachyOS compatibility, and extest - GameMode performance daemon - 32-bit graphics and driver support - Gamepad / controller udev rules (uinput, Valve HID devices) GPU-specific tuning (AMD kernel boot parameters and early modesetting) is gated behind the `gpu` option below, so this module is usable on both AMD and NVIDIA machines. Used on: anya (AMD gaming/streaming desktop), hanamichi (NVIDIA desktop). Reference: https://github.com/Jovian-Experiments/Jovian-NixOS
+Whether to enable the gaming-oriented NixOS configuration. This module provides a production-grade gaming setup inspired by Jovian-NixOS (Steam Deck / SteamOS). It bundles: - Steam with remote play, Proton GE and Proton CachyOS compatibility, and extest - GameMode performance daemon - 32-bit graphics and driver support - Gamepad / controller udev rules (uinput, Valve HID devices) GPU-specific tuning (AMD kernel boot parameters and early modesetting) is gated behind the `gpu` option below, so this module is usable on both AMD and NVIDIA machines. Used on: anya (AMD gaming/streaming desktop), hanamichi (NVIDIA desktop), totoro (AMD laptop, `gpu = "none"`: the AMD tuning is for desktops). Reference: https://github.com/Jovian-Experiments/Jovian-NixOS
 
 ### `customNixOSModules.gamingConfig.gpu`
 
@@ -751,17 +751,17 @@ Whether to enable nixbook-shell, nixbook's Quickshell (QML) desktop shell (`prog
 
 ### `customHomeManagerModules.nixbookShellConfig.jellyfinMcp.enable`
 
-- **Type:** `null or boolean`
-- **Default:** `null`
+- **Type:** `boolean`
+- **Default:** `true`
 
-Whether to offer the nixbook-shell AI chat (DAI in the side panel and its speech bubble) the user's Jellyfin library through `customPkgs.jellyfin-mcp`: search, details, continue watching, next up, what plays where; play and control it, mark watched, favourites, playlists. Also the bubble's instant "play <title> season N episode M" (no model). Off in the chat until set up in Settings > Desktop agents > Apps it can use (the server, then a sign-in with your own Jellyfin account — no admin needed — or an admin's API key; or the `ai.jellyfin` settings).
+Whether to offer the nixbook-shell AI chat (DAI in the side panel and its speech bubble) the user's Jellyfin library through `customPkgs.jellyfin-mcp`: search, details, continue watching, next up, what plays where; play and control it in this computer's jellyfin-mpv-shim (`player.enable`, its only player), mark watched, favourites, playlists. Also the bubble's instant "play <title> season N episode M" (no model). Off in the chat until set up in Settings > Desktop agents > Apps it can use (the server, then a sign-in with your own Jellyfin account — no admin needed — or an admin's API key; or the `ai.jellyfin` settings).
 
 ### `customHomeManagerModules.nixbookShellConfig.jellyfinMcp.player.enable`
 
 - **Type:** `null or boolean`
 - **Default:** `null`
 
-Whether this computer is a Jellyfin player: jellyfin-mpv-shim as the `jellyfin-mpv-shim` user service, playing in your own mpv (fullscreen, your mpv config), castable from Jellyfin's apps, and where jellyfin-mcp plays by default. It saves progress, marks watched and plays the next episode itself. It starts once signed in, from Settings > Desktop agents > Apps it can use ("Connect the player").
+Whether this computer is a Jellyfin player: jellyfin-mpv-shim as the `jellyfin-mpv-shim` user service, playing in your own mpv (fullscreen, your mpv config), castable from Jellyfin's apps, and the only place jellyfin-mcp plays. It saves progress, marks watched and plays the next episode itself. It starts once signed in, from Settings > Desktop agents > Apps it can use ("Connect the player").
 
 ### `customHomeManagerModules.nixbookShellConfig.jellyfinMcp.player.maxBitrateMbps`
 

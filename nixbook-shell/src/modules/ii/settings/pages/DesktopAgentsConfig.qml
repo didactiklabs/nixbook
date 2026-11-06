@@ -2169,7 +2169,7 @@ ContentPage {
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
                         color: Appearance.colors.colSubtext
-                        text: Translation.tr("Jellyfin: your films, series and music, played fullscreen in mpv on this computer (or on Moonfin, the TV… when you name it). Sign in with your own Jellyfin account, no admin needed: DAI and the player each get their own login, and your password isn't kept. With two-factor authentication (e.g. the JellyfinSecurity plugin), use an app password made for this.")
+                        text: Translation.tr("Jellyfin: your films, series and music, played fullscreen in mpv on this computer, the only player DAI uses. Sign in with your own Jellyfin account, no admin needed: DAI and the player each get their own login, and your password isn't kept. With two-factor authentication (e.g. the JellyfinSecurity plugin), use an app password made for this.")
                     }
                     ConfigTextArea {
                         id: jellyfinUrl
