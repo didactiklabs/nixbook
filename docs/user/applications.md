@@ -7,6 +7,7 @@
 | Category           | Apps                                                                                                                                           |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | Documents & images | **zathura** (PDF), **imv** (images, default viewer)                                                                                            |
+| Office             | **LibreOffice** (Writer, Calc, Impress, Draw…)                                                                                                 |
 | Communication      | **Vesktop** (Discord with Vencord)                                                                                                             |
 | Music              | **Spotify**                                                                                                                                    |
 | Creation           | **OBS Studio**, **Pinta**                                                                                                                      |

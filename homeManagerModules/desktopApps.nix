@@ -20,6 +20,9 @@ in
             - zathura   — lightweight keyboard-driven PDF viewer
             - imv       — minimal Wayland image viewer (set as default for images)
 
+          Office:
+            - libreoffice — office suite (Writer, Calc, Impress, Draw…)
+
           Communication & entertainment:
             - vesktop    — custom Discord client (Vencord-patched)
             - spotify    — music streaming client
@@ -56,6 +59,7 @@ in
         # apps
         darktable
         ansel
+        libreoffice
         spotify
         obs-studio
         wdisplays # display manager
