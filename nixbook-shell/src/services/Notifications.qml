@@ -315,12 +315,11 @@ Singleton {
         // Popup
         if (!root.popupInhibited && quiet === "") {
             newNotifObject.popup = true;
-            // Messages (Settings → Notifications → Keep on screen) stay until
-            // dismissed: no expiry timer at all.
-            if (notification.expireTimeout != 0 && !root.staysOnScreen(newNotifObject)) {
+            const lasts = root.popupLifetime(newNotifObject, notification.expireTimeout);
+            if (lasts > 0) {
                 newNotifObject.timer = notifTimerComponent.createObject(root, {
                     "notificationId": newNotifObject.notificationId,
-                    "interval": notification.expireTimeout < 0 ? (Config?.options.notifications.timeout ?? 7000) : notification.expireTimeout,
+                    "interval": lasts,
                 });
             }
             if (newNotifObject.read) {
@@ -596,6 +595,13 @@ Singleton {
     // Does this notification's popup stay until dismissed? App name (exact) or
     // keywords in the app name / title / string hints — not the message text,
     // so a message merely mentioning "Discord" doesn't stick around.
+    // How long a popup stays, in ms (0: until dismissed). Messages (Settings
+    // → Notifications → Keep on screen) stay notifications.persistent.timeout,
+    // whatever their app asked: chat apps asking for no expiry piled up.
+    function popupLifetime(n, asked) {
+        if (root.staysOnScreen(n)) return Config.options?.notifications?.persistent?.timeout ?? 60000;
+        return asked < 0 ? (Config.options?.notifications?.timeout ?? 7000) : asked;
+    }
     function staysOnScreen(n) {
         const rules = Config.options?.notifications?.persistent;
         if (!n || !(rules?.enable ?? false)) return false;
