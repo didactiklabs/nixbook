@@ -124,15 +124,28 @@ Scope {
                     panelWindow.keepMapped = true;
                 } else {
                     GlobalStates.sidebarRightPeek = false;
+                    panelWindow.peekUsed = false;
                     closeAnimTimer.restart();
                 }
             }
         }
 
-        // Opened as a peek (edge handle hover): close once the pointer has
-        // been outside it a moment.
+        // A peek (edge handle hover) is a glance until it is used: the pointer
+        // stays inside it, away from the edge it came from, or clicks it. Until
+        // then the keyboard stays with the window underneath, and leaving
+        // closes it at once.
+        property bool peekUsed: false
+        readonly property bool glancing: GlobalStates.sidebarRightOpen && GlobalStates.sidebarRightPeek && !panelWindow.peekUsed
         Timer {
-            interval: 350
+            interval: 400
+            running: panelWindow.glancing && slide.x === 0 && peekHover.hovered
+                && peekHover.point.position.x < entranceWrapper.width - 48
+            onTriggered: panelWindow.peekUsed = true
+        }
+
+        // Close once the pointer has been outside it a moment.
+        Timer {
+            interval: panelWindow.glancing ? 100 : 350
             running: GlobalStates.sidebarRightOpen && GlobalStates.sidebarRightPeek
                 && outsideClickArea.containsMouse
             onTriggered: panelWindow.hide()
@@ -171,7 +184,7 @@ Scope {
         WlrLayershell.layer: WlrLayer.Overlay
         // Open panels take the keyboard (see SidebarLeft): OnDemand only got it
         // after a click on this kept-mapped surface.
-        WlrLayershell.keyboardFocus: GlobalStates.sidebarRightOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        WlrLayershell.keyboardFocus: GlobalStates.sidebarRightOpen && !panelWindow.glancing ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
         color: "transparent"
 
         anchors {
@@ -199,6 +212,17 @@ Scope {
                 clip: true
 
                 readonly property bool open: GlobalStates.sidebarRightOpen
+                // On top of everything inside: a widget's own MouseArea would keep the
+                // press from a handler on the panel itself.
+                Item {
+                    anchors.fill: parent
+                    z: 1000
+                    HoverHandler { id: peekHover }
+                    PointHandler {
+                        acceptedButtons: Qt.AllButtons
+                        onActiveChanged: if (active) panelWindow.peekUsed = true
+                    }
+                }
                 // A peek (edge handle hover) slides in at the dock's pace.
                 readonly property var enterAnim: GlobalStates.sidebarRightPeek
                     ? Appearance.animation.elementMoveFast

@@ -1240,6 +1240,7 @@ Singleton {
                     property bool left: true
                     property bool right: true
                     property bool hoverToOpen: true // Open after a short hover, not only on click
+                    property int hoverDelay: 200 // How long the pointer stays on the edge first, in ms
                 }
                 property JsonObject cornerOpen: JsonObject {
                     property bool enable: true
