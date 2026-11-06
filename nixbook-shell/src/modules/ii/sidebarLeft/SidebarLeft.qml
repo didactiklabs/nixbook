@@ -258,16 +258,32 @@ Scope { // Scope
                         Qt.callLater(() => root.sidebarContent?.focusActiveItem());
                     } else {
                         GlobalStates.sidebarLeftPeek = false;
+                        panelWindow.peekUsed = false;
                         closeAnimTimer.restart();
                     }
                 }
             }
 
-            // Opened as a peek (edge handle hover): close once the pointer has
-            // been outside the panel a moment — beside it in this window (not
-            // the edge margin it was opened from) or anywhere else on screen.
+            // A peek (edge handle hover) is a glance until it is used: the
+            // pointer stays inside it, away from the edge it came from, or
+            // clicks it. Until then the keyboard stays with the window
+            // underneath, and leaving closes it at once.
+            property bool peekUsed: false
+            onPeekUsedChanged: if (peekUsed) Qt.callLater(() => root.sidebarContent?.focusActiveItem())
+            readonly property bool glancing: GlobalStates.sidebarLeftOpen && GlobalStates.sidebarLeftPeek
+                && !root.pin && !panelWindow.peekUsed
             Timer {
-                interval: 350
+                interval: 400
+                running: panelWindow.glancing && sidebarLeftBackground.x === Appearance.sizes.gapsOut
+                    && peekHover.hovered && peekHover.point.position.x > 48
+                onTriggered: panelWindow.peekUsed = true
+            }
+
+            // Close once the pointer has been outside the panel a moment —
+            // beside it in this window (not the edge margin it was opened
+            // from) or anywhere else on screen.
+            Timer {
+                interval: panelWindow.glancing ? 100 : 350
                 running: GlobalStates.sidebarLeftOpen && GlobalStates.sidebarLeftPeek && !root.pin
                     && ((outsideClickArea.containsMouse
                          && outsideClickArea.mouseX > sidebarLeftBackground.x + sidebarLeftBackground.width)
@@ -301,7 +317,8 @@ Scope { // Scope
             // underneath. Closing releases it.
             // A pinned sidebar is permanent: click-to-focus only.
             // An agent working underneath (MakeWay): its keys go to the apps.
-            WlrLayershell.keyboardFocus: !panelWindow.reallyVisible || MakeWay.active ? WlrKeyboardFocus.None
+            // A glancing peek leaves it to the window underneath.
+            WlrLayershell.keyboardFocus: !panelWindow.reallyVisible || MakeWay.active || panelWindow.glancing ? WlrKeyboardFocus.None
                 : root.pin ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive
             color: "transparent"
 
@@ -455,6 +472,18 @@ Scope { // Scope
                     }
                 }
                 x: Appearance.sizes.gapsOut - (!sidebarOpen ? width : 0)
+
+                // On top of everything inside: a widget's own MouseArea would keep the
+                // press from a handler on the panel itself.
+                Item {
+                    anchors.fill: parent
+                    z: 1000
+                    HoverHandler { id: peekHover }
+                    PointHandler {
+                        acceptedButtons: Qt.AllButtons
+                        onActiveChanged: if (active) panelWindow.peekUsed = true
+                    }
+                }
 
                 // A peek (edge handle hover) slides in at the dock's pace.
                 readonly property var enterAnim: GlobalStates.sidebarLeftPeek

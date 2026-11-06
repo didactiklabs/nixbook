@@ -406,6 +406,17 @@ ContentPage {
                     checked: Config.options.sidebar.edgeHandles.hoverToOpen
                     onCheckedChanged: { Config.options.sidebar.edgeHandles.hoverToOpen = checked }
                 }
+                ConfigSpinBox {
+                    configKey: "sidebar.edgeHandles.hoverDelay";
+                    enabled: !nixManaged && Config.options.sidebar.edgeHandles.hoverToOpen && (Config.options.sidebar.edgeHandles.left || Config.options.sidebar.edgeHandles.right);
+                    icon: "av_timer"
+                    text: Translation.tr("Hover delay before opening (ms)")
+                    value: Config.options.sidebar.edgeHandles.hoverDelay
+                    from: 0
+                    to: 2000
+                    stepSize: 50
+                    onValueChanged: { Config.options.sidebar.edgeHandles.hoverDelay = value }
+                }
             }
         }
 

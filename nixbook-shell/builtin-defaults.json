@@ -773,6 +773,7 @@
       "visualize": false
     },
     "edgeHandles": {
+      "hoverDelay": 200,
       "hoverToOpen": true,
       "left": true,
       "right": true

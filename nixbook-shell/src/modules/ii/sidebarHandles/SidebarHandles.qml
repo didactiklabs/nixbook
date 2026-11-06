@@ -10,10 +10,11 @@ import Quickshell.Wayland
  * Edge handles for the sidebars: a small pill (EdgePill) half-way down the
  * left and right screen edges of the focused monitor, where the sidebars
  * open. Like the dock, the whole middle stretch of the edge (40% of the
- * screen height) is the trigger, not only the pill: pushing the pointer
- * against it opens that sidebar almost at once as a peek
+ * screen height) is the trigger, not only the pill: holding the pointer
+ * against it for sidebar.edgeHandles.hoverDelay opens that sidebar as a peek
  * (sidebar.edgeHandles.hoverToOpen), which closes again when the pointer
- * leaves the sidebar; clicking opens it to stay. Each is a narrow surface
+ * leaves the sidebar, and takes the keyboard only once used (`glancing` in
+ * the sidebars); clicking opens it to stay. Each is a narrow surface
  * with no exclusive zone, so windows keep the whole screen; only a 3px edge
  * strip (6px at the pill) takes input. Hidden while its sidebar is open, on
  * fullscreen and on the lock screen.
@@ -90,10 +91,10 @@ Scope {
             onClicked: handleWindow.open(false)
         }
 
-        // A short delay only, so the pointer just sweeping past the edge
-        // doesn't open it.
+        // Long enough that the pointer reaching for something at the edge,
+        // or crossing to the next monitor, can leave before it opens.
         Timer {
-            interval: 80
+            interval: root.cfg?.hoverDelay ?? 200
             running: handleWindow.hovered && (root.cfg?.hoverToOpen ?? true)
             onTriggered: handleWindow.open(true)
         }
