@@ -89,14 +89,17 @@ Singleton {
     // bubble is taken, a word put aside unread, and its quiet words (a badge:
     // `_feed`). Only the bubble holds a conversation (and only it comes back
     // from the bar or Mod+C); a small one is opened into it with a click.
-    // One that waits for an answer (a question, a Yes, buttons: `waits`)
-    // stays until it expires; the others go to the bar once read or after
-    // 10 minutes (`unstack`).
+    // Like notifications they fade away (notifications.timeout, hovering
+    // holds them) to the bar, still there to answer; only an offer doing
+    // nothing without the user's yes stays until it expires (`stays`).
     property var stack: []
     readonly property int stackMax: 3
     readonly property var stacked: root.stack.filter(p => (p.expires ?? 0) * 1000 > root.now && p.id !== root.speaking?.id)
     function waits(item) {
         return !!item && (!!item.accept || (item.actions ?? []).length > 0 || /[?？]\s*$/.test(item.text ?? ""))
+    }
+    function stays(item) {
+        return !!item?.accept
     }
     function _stackPush(item) {
         if (!item?.id) return
@@ -699,15 +702,16 @@ Singleton {
     }
     // What the bubble shows now goes aside for something new: a
     // conversation put away, a word to the bar.
-    function _aside() {
+    // `leaving`: put away or left alone, so what it said was on screen.
+    function _aside(leaving) {
         const before = root.speaking
         if (root.conversing) root.park()
         else if (before) {
             if (root.chat && root.chat.fromClaude && !root.chat.responding) root.chat.clearMessages()
             if (before.id) root.pending = [...root.pending.filter(p => p.id !== before.id), before]
-            // Still waiting for an answer, or not read: a small bubble, not
-            // out of sight.
-            if (root.waits(before) || !root._read[before.id]) root._stackPush(before)
+            // Pushed aside while waiting for an answer or unread: a small
+            // bubble, not out of sight. Left alone, only what `stays`.
+            if (leaving ? root.stays(before) : root.waits(before) || !root._read[before.id]) root._stackPush(before)
         }
         const left = root.chat
         root.speaking = null
@@ -737,7 +741,7 @@ Singleton {
             root.park()
             return
         }
-        root._aside()
+        root._aside(outcome === "wait")
         if (outcome !== "wait" && item.id) root.answer(item.id, outcome)
     }
 
