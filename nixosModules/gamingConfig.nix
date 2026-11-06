@@ -68,7 +68,8 @@ in
         is gated behind the `gpu` option below, so this module is usable on
         both AMD and NVIDIA machines.
 
-        Used on: anya (AMD gaming/streaming desktop), hanamichi (NVIDIA desktop).
+        Used on: anya (AMD gaming/streaming desktop), hanamichi (NVIDIA desktop),
+        totoro (AMD laptop, `gpu = "none"`: the AMD tuning is for desktops).
         Reference: https://github.com/Jovian-Experiments/Jovian-NixOS
       '';
     };

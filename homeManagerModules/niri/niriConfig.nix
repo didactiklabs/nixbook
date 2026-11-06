@@ -459,6 +459,14 @@ in
             ];
             variable-refresh-rate = true;
           }
+          # Games stay opaque (the first rule makes every window translucent).
+          {
+            matches = [
+              { app-id = "^steam_app_[0-9]+$"; }
+              { app-id = "^gamescope$"; }
+            ];
+            opacity = 1.0;
+          }
           # nixbook-shell's Settings window (a normal app window): open floating like
           # a dialog; Mod+V tiles it.
           {

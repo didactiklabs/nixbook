@@ -24,7 +24,7 @@ customNixOSModules.gamingConfig = {
 };
 ```
 
-anya, a console-like machine, also auto-logs into SwayFX and starts **Steam Big Picture** with the session; hanamichi is an everyday desktop that just has Steam installed.
+anya, a console-like machine, also auto-logs into SwayFX and starts **Steam Big Picture** with the session; hanamichi is an everyday desktop that just has Steam installed, and so is totoro, a laptop, with `gpu = "none"`: the `"amd"` tuning is for desktops (an 8 GB TTM page pool, IOMMU off). In Niri, games stay opaque and turn variable refresh rate on.
 
 ## Sunshine
 

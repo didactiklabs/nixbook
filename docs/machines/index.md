@@ -21,7 +21,7 @@ Which optional features each machine switches on:
 | [greetd login](/desktop/login)                                          |   ✓    |    ✓    |     ✓     |     ✓      | auto-login |
 | [Firewall](/system/security#firewall)                                   |        |    ✓    |           |            |            |
 | [Tailscale / NetBird](/system/networking)                               |   ✓    |    ✓    |     ✓     |     ✓      |            |
-| [Gaming (Steam, Proton, GameMode)](/system/gaming-and-streaming#gaming) |        |         |           | ✓ (NVIDIA) |  ✓ (AMD)   |
+| [Gaming (Steam, Proton, GameMode)](/system/gaming-and-streaming#gaming) |   ✓    |         |           | ✓ (NVIDIA) |  ✓ (AMD)   |
 | [Sim racing](/system/gaming-and-streaming#sim-racing)                   |        |         |           |     ✓      |     ✓      |
 | [Sunshine streaming](/system/gaming-and-streaming#sunshine)             |        |         |           |            |     ✓      |
 | [Printing & scanning](/system/hardware#printing-and-scanning)           |        |         |           |     ✓      |            |
