@@ -509,8 +509,8 @@ ContentPage {
                 }
             }
 
-            // Popups that stay until dismissed (services/Notifications.qml
-            // staysOnScreen).
+            // Popups that stay longer (services/Notifications.qml
+            // staysOnScreen, popupLifetime).
             ContentSubsection {
                 title: Translation.tr("Keep on screen")
                 GroupedList {
@@ -518,16 +518,27 @@ ContentPage {
                         Layout.fillWidth: true
                         Layout.margins: 8
                         wrapMode: Text.Wrap
-                        text: Translation.tr("Popups from these apps, or whose app name or title contains one of the keywords, stay until you dismiss them instead of timing out — for messages from people. The message text itself is not matched.")
+                        text: Translation.tr("Popups from these apps, or whose app name or title contains one of the keywords, stay longer than the others, for the time set below (0: until you dismiss them). They stay in the notification centre after that, where you can still reply.")
                         font.pixelSize: Appearance.font.pixelSize.small
                         color: Appearance.colors.colSubtext
                     }
                     ConfigSwitch {
                         configKey: "notifications.persistent.enable"
                         buttonIcon: "push_pin"
-                        text: Translation.tr("Keep matching popups on screen")
+                        text: Translation.tr("Keep matching popups on screen longer")
                         checked: Config.options.notifications.persistent.enable
                         onCheckedChanged: Config.options.notifications.persistent.enable = checked
+                    }
+                    ConfigSpinBox {
+                        configKey: "notifications.persistent.timeout"
+                        enabled: !nixManaged && Config.options.notifications.persistent.enable
+                        icon: "av_timer"
+                        text: Translation.tr("How long they stay (ms, 0: until dismissed)")
+                        value: Config.options.notifications.persistent.timeout
+                        from: 0
+                        to: 600000
+                        stepSize: 5000
+                        onValueChanged: Config.options.notifications.persistent.timeout = value
                     }
                     NotificationRuleEditor {
                         Layout.fillWidth: true

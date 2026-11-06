@@ -57,8 +57,9 @@
     # Popup duration in ms (built-in 7000) for notifications that don't set
     # their own expiry; hovering a popup still pauses it.
     timeout = 15000;
-    # Messages from people stay on screen until dismissed. Matched on the app
-    # name (exact) or keywords in the app name / title / notification hints
+    # Messages from people stay on screen longer (persistent.timeout, built-in
+    # 60 s; editable in Settings), and their Reply button needs this rule.
+    # Matched on the app name (exact) or keywords in the app name / title / notification hints
     # (not the message text), case-insensitive — browser notifications come
     # from the browser (e.g. "Twilight") with the site in the title.
     persistent = {

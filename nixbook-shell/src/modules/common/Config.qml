@@ -1070,13 +1070,15 @@ Singleton {
                 property bool splitPopups: true
                 // Persona style: which notifications get the full-screen cut-in
                 // (modules/ii/notificationPopup/PersonaCutIn.qml).
-                // Popups that stay on screen until dismissed instead of timing
-                // out: messages from people. Matched on app name, title and
-                // notification hints (not the message text), case-insensitive.
+                // Popups that stay on screen longer: messages from people.
+                // Matched on app name, title and notification hints (not the
+                // message text), case-insensitive. timeout: how long, in ms,
+                // whatever the app asked (0: until dismissed).
                 property JsonObject persistent: JsonObject {
                     property bool enable: true
                     property list<string> apps: []
                     property list<string> keywords: []
+                    property int timeout: 60000
                 }
                 // Quiet: notifications that don't pop up, cut in or chime, but
                 // still go to the notification centre and the history — e.g.

@@ -660,7 +660,8 @@
     "persistent": {
       "apps": [],
       "enable": true,
-      "keywords": []
+      "keywords": [],
+      "timeout": 60000
     },
     "quiet": {
       "apps": [],

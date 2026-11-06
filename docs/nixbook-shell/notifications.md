@@ -13,7 +13,7 @@ nixbook-shell is the session's notification server. Popups appear at the top of 
 
 ## Keep on screen
 
-`notifications.persistent` keeps matching popups until you dismiss them — useful for chat apps. nixbook keeps Vesktop and notifications mentioning Discord, Slack, WhatsApp, Instagram, Facebook or Messenger in their app name or title.
+`notifications.persistent` keeps matching popups on screen longer than the others — useful for chat apps: `timeout` is how long in ms, whatever the app asked (60000 by default, 0 until you dismiss them; Settings → Bar → Notifications → Keep on screen). They stay in the notification centre after that, and the rule also gives those messages their Reply button. nixbook keeps Vesktop and notifications mentioning Discord, Slack, WhatsApp, Instagram, Facebook or Messenger in their app name or title.
 
 ## Cut-ins
 
