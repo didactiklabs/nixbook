@@ -23,13 +23,14 @@ import Quickshell.Wayland
  * Material card with a tail, a slanted Persona frame, a round pastel
  * Chiikawa bubble, a chamfered neon Cyberpunk panel, a paper Ghibli card.
  * Left alone (not hovered, not typed in: 25 s for a word, 15 s for a
- * reaction, 90 s after an answer) it goes to the bar's bubble, its
+ * reaction, 90 s after an answer) it fades away to the bar's bubble, its
  * conversation with it. Hovered, typed in or closed, it was read: the bar's
  * bubble then stays dark (Initiative.markRead).
  * Its other words come as small bubbles under it (Initiative.stacked), like
- * notifications: what it says while the bubble is taken, a word put aside
- * unread, its quiet words. A click opens one in the bubble; one waiting
- * for an answer stays, the others go to the bar.
+ * notifications: what it says while the bubble is taken, a word pushed aside,
+ * its quiet words. A click opens one in the bubble; they fade away to the bar
+ * after notifications.timeout, but for an offer waiting for a yes
+ * (Initiative.stays).
  */
 Scope {
     id: root
@@ -235,15 +236,28 @@ Scope {
                 implicitHeight: body.implicitHeight + 28
                 opacity: 0
                 transform: Translate { id: slide; x: -60 }
+                // What holds it on screen, and takes it back from fading.
+                readonly property bool held: hover.hovered || root.responding || MakeWay.active
+                    || (Initiative.typing && (root.item?.kind !== "quick" || input.text.length > 0))
+                onHeldChanged: if (held) card.stayOn()
+                function stayOn() {
+                    if (!leave.running) return
+                    leave.stop()
+                    card.opacity = 1
+                    slide.x = 0
+                    if (!card.held) unanswered.restart()
+                }
                 Connections {
                     target: root
                     function onItemChanged() {
+                        leave.stop()
                         if (root.item) {
                             enter.restart()
                             if (window.visible) unanswered.restart()
                         }
                     }
                     function onLinesChanged() {
+                        card.stayOn()
                         if (unanswered.running) unanswered.restart()
                     }
                 }
@@ -253,6 +267,12 @@ Scope {
                     NumberAnimation { target: card; property: "opacity"; from: 0; to: 1; duration: root.style === "persona" ? 120 : 260 }
                     NumberAnimation { target: slide; property: "x"; from: -60; to: 0; duration: root.style === "persona" ? 140 : 420
                                       easing.type: root.style === "persona" ? Easing.OutQuart : Easing.OutBack }
+                }
+                ParallelAnimation {
+                    id: leave
+                    NumberAnimation { target: card; property: "opacity"; to: 0; duration: root.style === "persona" ? 160 : 420 }
+                    NumberAnimation { target: slide; property: "x"; to: -24; duration: root.style === "persona" ? 160 : 420; easing.type: Easing.InCubic }
+                    onFinished: Initiative.hush("wait")
                 }
 
                 // The tail, pointing up to the bar's robot.
@@ -783,24 +803,21 @@ Scope {
                     }
                 }
 
-                // Left alone: to the bar's bubble, a conversation with it (the
-                // timer waits while hovered, typed in, answering, and while hidden).
+                // Left alone: fades away to the bar's bubble, a conversation
+                // with it (the timer waits while `held`, and while hidden).
                 Timer {
                     id: unanswered
                     // What it just did for a command: a glance, then gone.
                     interval: root.conversing ? 90000 : root.item?.kind === "quick" ? 5000 : root.item?.kind === "react" ? 15000 : 25000
-                    running: root.item !== null && window.visible && !hover.hovered && !root.responding
-                        && !(Initiative.typing && (root.item?.kind !== "quick" || input.text.length > 0))
-                    && !MakeWay.active
-                    onTriggered: Initiative.hush("wait")
+                    running: root.item !== null && window.visible && !card.held
+                    onTriggered: leave.start()
                 }
             }
 
             // Its other words (Initiative.stacked), small, under the bubble:
             // like notifications. A click opens one in the bubble (the
-            // conversation there is put away to the bar); one waiting for an
-            // answer stays, the others go to the bar once read or after 10
-            // minutes.
+            // conversation there is put away to the bar); they fade away to
+            // the bar, but for an offer waiting for a yes.
             Column {
                 id: stackColumn
                 x: 12
@@ -813,6 +830,7 @@ Scope {
                         id: small
                         required property var modelData
                         readonly property bool waits: Initiative.waits(small.modelData)
+                        readonly property bool stays: Initiative.stays(small.modelData)
                         readonly property var chips: {
                             const it = small.modelData
                             if (it.accept) return [{ label: Translation.tr("Yes, do it"), run: () => Initiative.accept(it) }]
@@ -831,16 +849,27 @@ Scope {
                             NumberAnimation { target: smallSlide; property: "x"; to: 0; duration: root.style === "persona" ? 140 : 320
                                               easing.type: root.style === "persona" ? Easing.OutQuart : Easing.OutCubic }
                         }
-                        // Not waiting for an answer: to the bar a minute after
-                        // it was read, else after 10 minutes.
+                        // As long as a notification (hovering holds it),
+                        // then fades away to the bar.
                         Timer {
-                            interval: Initiative._read[small.modelData.id] ? 60000 : 600000
-                            running: !small.waits && !smallHover.hovered && !MakeWay.active
-                            onTriggered: Initiative.unstack(small.modelData)
+                            interval: Config.options?.notifications?.timeout ?? 7000
+                            running: !small.stays && window.visible && !smallHover.hovered && !MakeWay.active
+                            onTriggered: smallLeave.start()
+                        }
+                        ParallelAnimation {
+                            id: smallLeave
+                            NumberAnimation { target: small; property: "opacity"; to: 0; duration: root.style === "persona" ? 160 : 420 }
+                            NumberAnimation { target: smallSlide; property: "x"; to: -24; duration: root.style === "persona" ? 160 : 420; easing.type: Easing.InCubic }
+                            onFinished: Initiative.unstack(small.modelData)
                         }
                         HoverHandler {
                             id: smallHover
-                            onHoveredChanged: if (hovered) Initiative.markRead(small.modelData)
+                            onHoveredChanged: if (hovered) {
+                                Initiative.markRead(small.modelData)
+                                smallLeave.stop()
+                                small.opacity = 1
+                                smallSlide.x = 0
+                            }
                         }
                         Rectangle {
                             anchors.fill: parent

@@ -679,10 +679,11 @@ is taken, a new word goes to `Initiative.stack` (`_say`; 3 at most, newest
 last), small bubbles under it (`AgentSpeech.qml`, `stacked`): a click opens
 one in the bubble (`open`: `unstack`, the bubble's conversation parked), its
 buttons act from there (`act(a, item)`, `accept(item)`, Reply opens it with
-the keys), × is `dismissStacked` (later). `waits` (a question, a Yes,
-buttons) keeps one until it expires; the bubble's own word goes there when
-put aside unanswered or unread (`_aside`); the others `unstack` to the bar
-a minute after read, else after 10 minutes unhovered. Quiet words (a badge:
+the keys), × is `dismissStacked` (later). `stays` (an offer waiting for a
+yes: `accept`) keeps one until it expires; the bubble's own word goes there
+when pushed aside unanswered or unread (`_aside`), and left alone or put away
+only if it `stays`; the others fade and `unstack` to the bar after
+`notifications.timeout` unhovered. Quiet words (a badge:
 from `consider`, or new in initiative.json, written by the memory pass, a
 routine, a watch) go there too through `_feed`: held in `_arrivals` until
 a pause (`feedPause`, 3 s without input), not while `busy()`, nor while
