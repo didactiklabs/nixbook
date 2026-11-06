@@ -63,6 +63,13 @@ in
       didactiklabs.enable = true;
     };
     lanzaboote.enable = true;
+    # Steam, Proton, GameMode. Not gpu = "amd": that tuning is for desktops
+    # (an 8 GB TTM page pool on this 14 GiB laptop, IOMMU off, and its own
+    # dcdebugmask would replace core.amdgpuPsr above).
+    gamingConfig = {
+      enable = true;
+      gpu = "none";
+    };
     # System-level support (uinput server, udev, per-user service) for the
     # Lotus Vietnamese input method. The fcitx5 addon itself is enabled in
     # the user's Home Manager fcitx5Config (lotus = true).

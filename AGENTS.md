@@ -115,7 +115,7 @@ hive.nix                          Colmena deployment config
 
 **Desktop Environments:**
 
-- `niri/` - Niri scrollable compositor (2 files, 721 LOC): niriConfig.nix. Window rules: a global `opacity = 0.85` with per-app `1.0` overrides; blur is xray for every window, tiled or floating (the wallpaper blurred once and cached); floating windows get the same rules as tiled ones (so a transparent app stays transparent when floated), except vesktop's floating video-call popup, which stays opaque (`is-floating` match that excludes the main window by its `Discord | ` title)
+- `niri/` - Niri scrollable compositor (2 files, 721 LOC): niriConfig.nix. Window rules: a global `opacity = 0.85` with per-app `1.0` overrides; blur is xray for every window, tiled or floating (the wallpaper blurred once and cached); games (`steam_app_*`, gamescope) are opaque; floating windows get the same rules as tiled ones (so a transparent app stays transparent when floated), except vesktop's floating video-call popup, which stays opaque (`is-floating` match that excludes the main window by its `Discord | ` title)
 - `sway/` - Sway i3-like compositor (2 files, 414 LOC): swayConfig.nix
 - `gtkConfig.nix` (92 LOC) - GTK appearance and theming
 - `fontConfig.nix` (68 LOC) - Font management
@@ -171,7 +171,7 @@ hive.nix                          Colmena deployment config
 - **User:** khoa
 - **Hardware:** ASUS Zenbook UM5302TA (DMI; AMD Rembrandt, Radeon 680M — NVIDIA disabled, modesetting-only)
 - **Primary WM:** Niri
-- **NixOS Modules:** laptopProfile, greetd, niri, caCertificates (bealv + didactiklabs), lanzaboote
+- **NixOS Modules:** laptopProfile, greetd, niri, caCertificates (bealv + didactiklabs), lanzaboote, gamingConfig (gpu = "none": the "amd" tuning is for desktops, with an 8 GB TTM pool on a 14 GiB laptop, IOMMU off, and a dcdebugmask replacing `core.amdgpuPsr`)
 - **Special Features:** KDE Connect, Bluetooth, Nextcloud client systemd service, multi-monitor niri config, Moonlight Qt. **Desktop shell: nixbook-shell (`nixbookShellConfig`), not DMS** — totoro is the only machine on the nixbook-shell shell; `dmsConfig.enable = false` there. Its `nixbookShellConfig.settings` pins `appearance.persona.enable = true` (Persona style on; variant and sub-toggles stay menu-editable) and `background.screenList = [ "eDP-1" ]`. fcitx5 input methods cycled with Ctrl+Space: French/AZERTY (base) → Vietnamese (Lotus, via `customNixOSModules.fcitx5-lotus`) → Japanese (Mozc). German umlauts via the Schnelle Umlaute hold-letter+Space gesture (no German XKB layout in the cycle)
 - **Work Environments:** didactiklabs, bealv kubeconfigs
 - **Home Manager Modules:** cliTools, devTools, ocmConfig, fontConfig, gitConfig, gtkConfig, sshConfig, starship, niriConfig, fastfetchConfig, desktopApps, kubeTools, nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, fcitx5Config, thunderbirdConfig, opencodeConfig, rtk, nixbookShellConfig, zenBrowserConfig, rbwConfig
