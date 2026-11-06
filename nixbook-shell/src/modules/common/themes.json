@@ -217,8 +217,8 @@
           "icon": "bolt",
           "wallpaper": "assets/cyberpunk/yellow-wallpaper.png",
           "sounds": {
-            "notification": "assets/cyberpunk/sounds/yellow-notification.wav",
-            "critical": "assets/cyberpunk/sounds/yellow-critical.wav",
+            "notification": "assets/sounds/cyberpunk-message.mp3",
+            "critical": "assets/sounds/cyberpunk-alert.mp3",
             "focus": "assets/cyberpunk/sounds/yellow-focus.wav",
             "countdown": "assets/cyberpunk/sounds/yellow-countdown.wav",
             "alarm": "assets/cyberpunk/sounds/yellow-alarm.wav"
@@ -241,8 +241,8 @@
           "icon": "emergency_home",
           "wallpaper": "assets/cyberpunk/red-wallpaper.png",
           "sounds": {
-            "notification": "assets/cyberpunk/sounds/red-notification.wav",
-            "critical": "assets/cyberpunk/sounds/red-critical.wav",
+            "notification": "assets/sounds/cyberpunk-message.mp3",
+            "critical": "assets/sounds/cyberpunk-alert.mp3",
             "focus": "assets/cyberpunk/sounds/red-focus.wav",
             "countdown": "assets/cyberpunk/sounds/red-countdown.wav",
             "alarm": "assets/cyberpunk/sounds/red-alarm.wav"

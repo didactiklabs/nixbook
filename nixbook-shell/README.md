@@ -1523,7 +1523,7 @@ unsets all of them at once, in a table of every variant. Each theme has its own 
 notification chime and the critical sound — Persona 5's by default, the
 Velvet Room's chime and the Evoker in Persona 3 Reload, the Midnight
 Channel's TV and the shattering card in Persona 4, the characters' chimes
-and little voices in Chiikawa, a message ping and the Relic malfunctioning
+and little voices in Chiikawa, a message ping and an alert
 in Cyberpunk 2077, the films' sounds recreated in Studio Ghibli); a file set in the settings wins. Important
 notifications (critical ones, and those the cut-in rules pick:
 Settings → Bar → Notifications → Cut-ins) get the theme's cut-in: the
@@ -1639,7 +1639,8 @@ effects); they recreate the originals' signature sounds from scratch, with
 original tunes. The Cyberpunk 2077
 theme works the same way: `src/assets/cyberpunk/generate.py` draws its
 wallpapers from the palettes, `sounds.py` synthesizes its sounds at build
-time, and its face (Rajdhani) ships in `fonts.nix`.
+time (all but the notification chime and the critical sound,
+`src/assets/sounds/cyberpunk-message.mp3` and `cyberpunk-alert.mp3`), and its face (Rajdhani) ships in `fonts.nix`.
 
 The Studio Ghibli theme too: `src/assets/ghibli/generate.py` paints the
 three wallpapers in a modern illustrated style — volumetric light, bloom,

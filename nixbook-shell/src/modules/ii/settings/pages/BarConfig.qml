@@ -728,7 +728,7 @@ ContentPage {
                         configKey: "notifications.cutIn.sound"
                         enabled: cutInSection.rules.enable
                         buttonIcon: "music_note"
-                        text: Translation.tr("Play the theme's sound (Persona 5 cut-in, the Chiikawa jingle, the Relic glitch, Totoro's roar…)")
+                        text: Translation.tr("Play the theme's sound (Persona 5 cut-in, the Chiikawa jingle, the Cyberpunk alert, Totoro's roar…)")
                         checked: cutInSection.rules.sound
                         onCheckedChanged: Config.options.notifications.cutIn.sound = checked
                     }

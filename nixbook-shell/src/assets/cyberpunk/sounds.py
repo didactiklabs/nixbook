@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
-"""Synthesize the Cyberpunk 2077 theme's sounds (themes.json `sounds`): per
-variant, a short digital HUD blip for notifications (<variant>-notification.wav, an
-incoming text), the Relic malfunctioning for critical ones and the cut-in
-(<variant>-critical.wav: the heartbeat, a warped overdriven drone, glitch
-tears, a tinnitus whine), and the timers': the Sandevistan kicking in when a
-focus session or a break ends (<variant>-focus.wav: a deep whoom as time
-slows, a chirp back to speed), breach protocol complete when the countdown
-finishes (<variant>-countdown.wav) and a holocall ring the alarm loops
+"""Synthesize the Cyberpunk 2077 theme's timer sounds (themes.json `sounds`;
+its notification chime and critical sound are files,
+assets/sounds/cyberpunk-message.mp3 and cyberpunk-alert.mp3): per variant, the
+Sandevistan kicking in when a focus session or a break ends
+(<variant>-focus.wav: a deep whoom as time slows, a chirp back to speed),
+breach protocol complete when the countdown finishes
+(<variant>-countdown.wav) and a holocall ring the alarm loops
 (<variant>-alarm.wav). Made from scratch to sound like the game's own
 (band-limited square-ish tones, bit-crushed glitches, noise; ../synth.py for
-the mix and the room), no CD Projekt audio. Standard library only, so
-the package generates them when it is built (qml.nix): no audio file is kept
-in git.
+the mix and the room). Standard library only, so the package generates them
+when it is built (qml.nix): none of these is kept in git.
 Run: python3 sounds.py [out-dir]   (default: next to this script)
 """
 import math
@@ -59,23 +57,6 @@ def mix(*tracks):
     return [sum(t[i] for t in tracks if i < len(t)) for i in range(n)]
 
 
-def seq(*parts):
-    out = []
-    for p in parts:
-        out.extend(p)
-    return out
-
-
-def blip(base):
-    """Two short HUD blips, the second a fifth up, and a tiny crushed tail."""
-    return seq(
-        tone(base, 0.05, amp=0.5, decay=40, harmonics=3),
-        silence(0.025),
-        tone(base * 1.5, 0.09, amp=0.55, decay=28, harmonics=3),
-        tone(base * 3, 0.06, amp=0.18, glide=-0.5, decay=40, crush=6),
-    )
-
-
 def holocall(base, seed):
     """The holocall ringing: two bursts of four fast buzzy pulses, each burst
     opened by a glitch, over a low drone; a short gap so the loop pulses."""
@@ -104,52 +85,6 @@ def heartbeat(seed, bpm=72, beats=2):
                 if o + i < len(out):
                     out[o + i] += g * v
     return out
-
-
-def distort(sig, drive=4.0):
-    return [math.tanh(drive * v) for v in sig]
-
-
-def relic(base, seed):
-    """The Relic malfunctioning: the heartbeat, a warped, overdriven low
-    drone, glitch tears, then a tinnitus whine left ringing."""
-    rnd = random.Random(seed)
-    dur = 2.4
-    drone = []
-    phase = 0.0
-    for i in range(S.n(dur)):
-        t = i / RATE
-        f = base / 8 * (1 + 0.25 * math.sin(S.TAU * 0.9 * t) + 0.08 * math.sin(S.TAU * 13 * t))
-        phase += S.TAU * f / RATE
-        drone.append((math.sin(phase) + 0.6 * math.sin(2.01 * phase) + 0.4 * math.sin(3.03 * phase)) * S.adsr(t, dur, 0.25, 0.5))
-    drone = S.biquad(distort(drone, 5.0), "lp", 1800)
-    tears = []
-    t = 0.3
-    while t < dur - 0.3:
-        d = 0.02 + rnd.random() * 0.07
-        part = tone(base * (0.5 + 2 * rnd.random()), d, amp=0.6, glide=(rnd.random() - 0.5) * 3, decay=4, crush=3) \
-            if rnd.random() < 0.5 else noise(d, amp=0.5, seed=seed + int(t * 100), decay=8)
-        tears.append((t, part, 0.5 + 0.5 * rnd.random(), rnd.random() * 1.6 - 0.8))
-        t += d + rnd.random() * 0.12
-    whine = [0.05 * math.sin(S.TAU * 6400 * i / RATE) * min(1.0, i / RATE / 0.4) * math.exp(-max(0.0, i / RATE - 0.8) * 1.4)
-             for i in range(S.n(2.6))]
-    m = S.Mix()
-    m.add(heartbeat(seed, beats=2), 0.0, 0.9, 0.0)
-    m.add(drone, 0.2, 0.5, 0.0)
-    for start, part, g, pan in tears:
-        m.add(part, start, g * 0.6, pan)
-    m.add(whine, 1.5, 0.7, 0.2)
-    return m.reverb(0.18, room=0.75, tail=0.8)
-
-
-def text_ping(base, seed):
-    """An incoming message: a crisp two-step digital chirp and a tiny glitch
-    tick, a soft sub under it."""
-    m = S.Mix()
-    m.add(blip(base), 0.0, 1.0, 0.0)
-    m.add(tone(base * 4, 0.025, amp=0.3, decay=60, crush=4), 0.24, 0.6, 0.6)
-    m.add(tone(base / 4, 0.18, amp=0.5, decay=14, harmonics=1), 0.0, 0.5, 0.0)
-    return m.reverb(0.12, room=0.6, tail=0.4)
 
 
 def sandevistan(base, seed):
@@ -209,9 +144,7 @@ VARIANTS = {
 
 
 def main():
-    S.run({name: dict(notification=lambda v=v: text_ping(v["blip"], 7),
-                      critical=lambda v=v: relic(*v["alarm"]),
-                      focus=lambda v=v: sandevistan(v["blip"], 31),
+    S.run({name: dict(focus=lambda v=v: sandevistan(v["blip"], 31),
                       countdown=lambda v=v: breach(v["blip"], 41),
                       alarm=lambda v=v: holocall_mix(*v["alarm"]))
            for name, v in VARIANTS.items()})

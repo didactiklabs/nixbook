@@ -14,7 +14,8 @@ import Quickshell
  * Variants: yellow (the key art: yellow / cyan / red-pink), red (the in-game
  * HUD: salmon red / cyan / yellow). Wallpapers: assets/cyberpunk/generate.py,
  * rasterised when the package is built (qml.nix), like its synthesized
- * sounds (assets/cyberpunk/sounds.py).
+ * sounds (assets/cyberpunk/sounds.py; the chime and the critical sound are
+ * files, assets/sounds/cyberpunk-message.mp3 and cyberpunk-alert.mp3).
  */
 Singleton {
     id: root
