@@ -32,7 +32,7 @@ With `appearance.wallpaperPerTheme` (on by default), each variant keeps its **ow
 
 ## Sounds and cut-ins
 
-Each theme has its own **notification chime** and **critical sound** — Persona 5's by default, the Velvet Room's chime and the Evoker in Persona 3 Reload, the Midnight Channel's TV in Persona 4, the characters' little voices in Chiikawa, a message ping and the Relic malfunctioning in Cyberpunk, the films' sounds in Ghibli. They are **synthesized from scratch** at build time (no sample or melody is taken from the originals); a sound file set in the settings wins.
+Each theme has its own **notification chime** and **critical sound** — Persona 5's by default, the Velvet Room's chime and the Evoker in Persona 3 Reload, the Midnight Channel's TV in Persona 4, the characters' little voices in Chiikawa, a message ping and an alert in Cyberpunk, the films' sounds in Ghibli. Apart from Persona 5's and Cyberpunk's two, which are audio files, they are **synthesized from scratch** at build time (no sample or melody is taken from the originals); a sound file set in the settings wins.
 
 Important notifications get the theme's **cut-in** — see [Notifications](./notifications#cut-ins).
 
