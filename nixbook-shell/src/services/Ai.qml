@@ -870,7 +870,7 @@ Singleton {
                 ? " The seerr tools are the user's Seerr: to get a film or series that isn't in their library yet, search it there and request it (a series' seasons; it goes out as them, against their quota); one already available is played from Jellyfin, never requested again."
                 : "")
             + (extraServers.jellyfin
-                ? " The jellyfin tools are the user's Jellyfin library and its players: to watch or listen to something from it, search then play (it plays fullscreen in mpv on this computer unless they name another player, e.g. Moonfin or the TV); never play on someone else's player unless they named it."
+                ? " The jellyfin tools are the user's Jellyfin library and its players: to watch or listen to something from it, search then play (it plays fullscreen in mpv on this computer, the only player you can use: not Moonfin, a TV or a browser)."
                 : "")
             // A connector not signed in to has only its authenticate tool:
             // its link signs in from here (the callback reaches this Claude

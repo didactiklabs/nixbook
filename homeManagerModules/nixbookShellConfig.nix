@@ -34,8 +34,8 @@ let
   # still the app — comparing derivations silently dropped the YouTube Music
   # server where it was wrapped.
   installed = name: lib.any (p: lib.hasPrefix name (lib.getName p)) config.home.packages;
-  # jellyfinMcp.enable / player.enable: null = automatic.
-  jellyfinOn = if cfg.jellyfinMcp.enable != null then cfg.jellyfinMcp.enable else installed "moonfin";
+  # jellyfinMcp.player.enable: null = follows jellyfinMcp.enable.
+  jellyfinOn = cfg.jellyfinMcp.enable;
   jellyfinPlayerOn =
     if cfg.jellyfinMcp.player.enable != null then cfg.jellyfinMcp.player.enable else jellyfinOn;
   # seerrMcp.enable: null = with Jellyfin's (a Seerr requests into it).
@@ -346,17 +346,15 @@ in
     '';
   };
   options.customHomeManagerModules.nixbookShellConfig.jellyfinMcp = {
-    # null: decided here (Moonfin installed) — a default reading
-    # home.packages couldn't be evaluated by docs/generate-docs.nix.
     enable = lib.mkOption {
-      type = lib.types.nullOr lib.types.bool;
-      default = null;
-      defaultText = lib.literalMD "`null`: on when Moonfin (`customPkgs.moonfin`) is in `home.packages`";
+      type = lib.types.bool;
+      default = true;
       description = ''
         Whether to offer the nixbook-shell AI chat (DAI in the side panel
         and its speech bubble) the user's Jellyfin library through
         `customPkgs.jellyfin-mcp`: search, details, continue watching, next
-        up, what plays where; play and control it, mark watched, favourites,
+        up, what plays where; play and control it in this computer's
+        jellyfin-mpv-shim (`player.enable`, its only player), mark watched, favourites,
         playlists. Also the bubble's instant "play <title> season N episode
         M" (no model). Off in the chat until set up in Settings > Desktop
         agents > Apps it can use (the server, then a sign-in with your own
@@ -372,7 +370,7 @@ in
         Whether this computer is a Jellyfin player: jellyfin-mpv-shim as the
         `jellyfin-mpv-shim` user service, playing in your own mpv
         (fullscreen, your mpv config), castable from Jellyfin's apps, and
-        where jellyfin-mcp plays by default. It saves progress, marks watched
+        the only place jellyfin-mcp plays. It saves progress, marks watched
         and plays the next episode itself. It starts once signed in, from
         Settings > Desktop agents > Apps it can use ("Connect the player").
       '';

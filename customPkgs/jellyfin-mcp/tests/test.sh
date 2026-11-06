@@ -114,6 +114,11 @@ EOF
 SHIM_SESSION='{"Id": "s-shim", "Client": "Jellyfin MPV Shim", "DeviceName": "totoro mpv", "DeviceId": "'"$SHIM_DEVICE"'",
    "UserId": "u-admin", "UserName": "Khoa", "SupportsRemoteControl": true, "LastActivityDate": "2026-10-28T09:00:00Z",
    "SupportedCommands": ["SetVolume", "Mute", "Unmute", "SetAudioStreamIndex", "SetSubtitleStreamIndex"]}'
+SHIM_PLAYING='{"Id": "s-shim", "Client": "Jellyfin MPV Shim", "DeviceName": "totoro mpv", "DeviceId": "'"$SHIM_DEVICE"'",
+   "UserId": "u-admin", "UserName": "Khoa", "SupportsRemoteControl": true, "LastActivityDate": "2026-10-28T09:00:00Z",
+   "SupportedCommands": ["SetVolume", "Mute", "Unmute", "SetAudioStreamIndex", "SetSubtitleStreamIndex"],
+   "NowPlayingItem": {"Id": "mov-dune21", "Type": "Movie", "Name": "Dune", "RunTimeTicks": 93000000000},
+   "PlayState": {"PositionTicks": 6000000000, "IsPaused": false}}'
 write_sessions ""
 python3 "$here/fake-jellyfin.py" "$tmp/port" "$log" "$sessions" &
 fake_pid=$!
@@ -217,38 +222,20 @@ expect_eq "playlists" "$(jq -r '.playlists[0].name + " " + (.playlists[0].items|
 # -- players ----------------------------------------------------------------
 r=$(call sessions | text_of)
 expect_eq "sessions: newest first" "$(jq -c '[.sessions[].id]' <<<"$r")" '["s-web","s-tv","s-moonfin"]'
-expect_eq "sessions: Moonfin flagged" "$(jq -r '.sessions[2].moonfin' <<<"$r")" "true"
 expect_eq "sessions: another user's flagged" "$(jq -r '.sessions[1].other_user' <<<"$r")" "true"
 expect_eq "sessions: what plays, where" "$(jq -r '.sessions[1].now_playing.position' <<<"$r")" "10:00 / 2:35:00"
 expect_match "sessions: this computer's player not set up" "connect it in Settings" "$(jq -r .this_computer <<<"$r")"
 
 : >"$log"
-r=$(call play '{"item_id":"mov-spirited"}' | text_of)
-expect_eq "play, no player of this computer: Moonfin (the user's own, controllable)" "$(jq -r .on.id <<<"$r")" "s-moonfin"
-p=$(last_req /Sessions/s-moonfin/Playing)
-expect_eq "play: the PlayNow call" "$(jq -c '.query | {playCommand, itemIds, startIndex}' <<<"$p")" '{"playCommand":"PlayNow","itemIds":"mov-spirited","startIndex":"0"}'
-r=$(call play '{"item_id":"ser-edge","session":"living room"}' | text_of)
-expect_eq "play on a named player (another user's TV)" "$(jq -r .on.id <<<"$r")" "s-tv"
-p=$(last_req /Sessions/s-tv/Playing)
-expect_eq "play a series: from its next episode, where it stopped" \
-  "$(jq -r '.query.itemIds | split(",") | .[0] + " " + (length|tostring)' <<<"$p") $(jq -r .query.startPositionTicks <<<"$p")" "ep-e2 9 6000000000"
-r=$(call play '{"item_id":"alb-kob","session":"moonfin","mode":"last"}' | text_of)
-p=$(last_req /Sessions/s-moonfin/Playing)
-expect_eq "play an album, queued last: its tracks in order" "$(jq -r '.query.playCommand + " " + .query.itemIds' <<<"$p")" "PlayLast aud-1,aud-2,aud-3"
-r=$(call play '{"item_id":"mov-spirited","session":"firefox"}')
-expect_match "a player that can't be controlled: said" "doesn't accept remote control" "$(text_of <<<"$r")"
-r=$(call play '{"item_id":"mov-spirited","session":"kitchen"}')
-expect_match "an unknown player: the connected ones listed" "no connected player matches 'kitchen' \(connected: " "$(text_of <<<"$r")"
-
-# No player of the user's: the link to open instead.
-cat >"$sessions" <<'EOF'
-[{"Id": "s-web", "Client": "Jellyfin Web", "DeviceName": "Firefox", "UserId": "u-admin", "SupportsRemoteControl": false}]
-EOF
 r=$(call play '{"item_id":"mov-spirited"}')
-expect_eq "no controllable player: not an error" "$(err_of <<<"$r")" "false"
-expect_eq "no controllable player: played false + the web link" \
-  "$(text_of <<<"$r" | jq -r '(.played|tostring) + " " + .web_url')" "false $url/web/#/details?id=mov-spirited&serverId=srv-1"
-expect_match "no controllable player: says how to connect one" "connect it in Settings > Desktop agents > Jellyfin" "$(text_of <<<"$r")"
+expect_eq "no player of this computer: not an error" "$(err_of <<<"$r")" "false"
+expect_eq "no player of this computer: played false" "$(text_of <<<"$r" | jq -r .played)" "false"
+expect_match "no player of this computer: says how to connect it" "connect it in Settings > Desktop agents > Jellyfin" "$(text_of <<<"$r")"
+expect_no "no player of this computer: no other client offered" "Moonfin" "$(text_of <<<"$r")"
+expect_eq "no player of this computer: Moonfin and the TV left alone" "$(grep -c '"path": "/Sessions/s-' "$log")" "0"
+r=$(call control '{"action":"pause"}')
+expect_match "control, no player of this computer: says so" "the player isn't connected" "$(text_of <<<"$r")"
+expect_eq "control, no player of this computer: Moonfin and the TV left alone" "$(grep -c '"path": "/Sessions/s-' "$log")" "0"
 
 # -- the player of this computer: jellyfin-mpv-shim ------------------------
 write_sessions ""
@@ -300,41 +287,51 @@ r=$(
 expect_eq "play resume:false: from the start" "$(jq -r '.query.startPositionTicks // "none"' <<<"$r")" "none"
 r=$(call sessions | text_of)
 expect_eq "sessions: this computer's player flagged" "$(jq -r '.sessions[] | select(.id=="s-shim") | .this_computer' <<<"$r")" "true"
-r=$(call play '{"item_id":"mov-spirited","session":"mpv"}' | text_of)
-expect_eq "play session mpv: this computer's" "$(jq -r .on.id <<<"$r")" "s-shim"
+: >"$log"
+r=$(call play '{"item_id":"mov-spirited"}' | text_of)
+expect_eq "play: on this computer's player" "$(jq -r .on.id <<<"$r")" "s-shim"
+p=$(last_req /Sessions/s-shim/Playing)
+expect_eq "play: the PlayNow call" "$(jq -c '.query | {playCommand, itemIds, startIndex}' <<<"$p")" '{"playCommand":"PlayNow","itemIds":"mov-spirited","startIndex":"0"}'
+call play '{"item_id":"ser-edge"}' >/dev/null
+p=$(last_req /Sessions/s-shim/Playing)
+expect_eq "play a series: from its next episode, where it stopped" \
+  "$(jq -r '.query.itemIds | split(",") | .[0] + " " + (length|tostring)' <<<"$p") $(jq -r .query.startPositionTicks <<<"$p")" "ep-e2 9 6000000000"
+call play '{"item_id":"alb-kob","mode":"last"}' >/dev/null
+p=$(last_req /Sessions/s-shim/Playing)
+expect_eq "play an album, queued last: its tracks in order" "$(jq -r '.query.playCommand + " " + .query.itemIds' <<<"$p")" "PlayLast aud-1,aud-2,aud-3"
+call play '{"item_id":"mov-spirited","session":"moonfin"}' >/dev/null
+expect_eq "play: no other player, even named" "$(last_req /Sessions/s-shim/Playing | jq -r .query.itemIds) $(grep -c '"path": "/Sessions/s-moonfin' "$log")" "mov-spirited 0"
 
 # The player signed in, but it never connects.
 write_sessions ""
 rm -f "$STUB_DIR/shim-session.json"
+: >"$log"
 r=$(call play '{"item_id":"mov-spirited"}' | text_of)
-expect_eq "player not connecting: Moonfin instead" "$(jq -r .on.id <<<"$r")" "s-moonfin"
-cat >"$sessions" <<'EOF'
-[]
-EOF
-r=$(call play '{"item_id":"mov-spirited"}' | text_of)
-expect_match "player not connecting, nothing else: why" "didn't connect to Jellyfin" "$(jq -r .reason <<<"$r")"
+expect_match "player not connecting: why" "didn't connect to Jellyfin" "$(jq -r .reason <<<"$r")"
+expect_eq "player not connecting: Moonfin not used instead" "$(grep -c '"path": "/Sessions/s-' "$log")" "0"
 
 # -- control ----------------------------------------------------------------
 write_sessions ",$SHIM_SESSION"
 : >"$log"
 r=$(call control '{"action":"pause"}')
 expect_match "control with nothing of mine playing: says so" "isn't playing anything" "$(text_of <<<"$r")"
-r=$(call control '{"action":"pause","session":"tv"}' | text_of)
-expect_eq "control pause (named)" "$(jq -r .on.id <<<"$r") $(last_req /Sessions/s-tv/Playing/Pause | jq -r .method)" "s-tv POST"
-r=$(call control '{"action":"seek","seconds":90,"session":"tv"}' | text_of)
-expect_eq "control seek: seekPositionTicks" "$(last_req /Sessions/s-tv/Playing/Seek | jq -r .query.seekPositionTicks) $(jq -r .position <<<"$r")" "900000000 1:30"
-call control '{"action":"forward","session":"tv"}' >/dev/null
-expect_eq "control forward: from the position (10:00 + 30 s)" "$(last_req /Sessions/s-tv/Playing/Seek | jq -r .query.seekPositionTicks)" "6300000000"
-call control '{"action":"next","session":"tv"}' >/dev/null
-expect_eq "control next: NextTrack" "$(last_req /Sessions/s-tv/Playing/NextTrack | jq -r .method)" "POST"
+write_sessions ",$SHIM_PLAYING"
+: >"$log"
+r=$(call control '{"action":"pause"}' | text_of)
+expect_eq "control pause" "$(jq -r .on.id <<<"$r") $(last_req /Sessions/s-shim/Playing/Pause | jq -r .method)" "s-shim POST"
+r=$(call control '{"action":"seek","seconds":90}' | text_of)
+expect_eq "control seek: seekPositionTicks" "$(last_req /Sessions/s-shim/Playing/Seek | jq -r .query.seekPositionTicks) $(jq -r .position <<<"$r")" "900000000 1:30"
+call control '{"action":"forward"}' >/dev/null
+expect_eq "control forward: from the position (10:00 + 30 s)" "$(last_req /Sessions/s-shim/Playing/Seek | jq -r .query.seekPositionTicks)" "6300000000"
+call control '{"action":"next"}' >/dev/null
+expect_eq "control next: NextTrack" "$(last_req /Sessions/s-shim/Playing/NextTrack | jq -r .method)" "POST"
 call control '{"action":"volume","level":40}' >/dev/null
 expect_eq "control volume: SetVolume on this computer's player" "$(last_req /Sessions/s-shim/Command | jq -c .body)" '{"Name":"SetVolume","Arguments":{"Volume":"40"}}'
 r=$(call control '{"action":"fullscreen"}')
 expect_match "control: a command the player doesn't support" "doesn't support fullscreen" "$(text_of <<<"$r")"
-call control '{"action":"fullscreen","session":"moonfin"}' >/dev/null
-expect_eq "control fullscreen on Moonfin" "$(last_req /Sessions/s-moonfin/Command/ToggleFullscreen | jq -r .method)" "POST"
-r=$(call control '{"action":"seek","session":"tv"}')
+r=$(call control '{"action":"seek"}')
 expect_match "control seek without seconds" "seek needs seconds" "$(text_of <<<"$r")"
+expect_eq "control: never another player" "$(grep -c '"path": "/Sessions/s-\(moonfin\|tv\)' "$log")" "0"
 
 # -- marking, favourites, playlists ----------------------------------------
 call mark_played '{"id":"mov-spirited","played":true}' >/dev/null
@@ -474,8 +471,12 @@ expect_eq "a user's token: only the players that user controls" "$(jq -c '[.sess
 expect_eq "a user's token: asks for those" "$(last_req /Sessions | jq -r .query.controllableByUserId)" "u-guest"
 expect_eq "sessions: how it plays, and why it transcodes" "$(jq -c '.sessions[0].now_playing | {play_method, transcode}' <<<"$r")" \
   '{"play_method":"Transcode","transcode":{"reasons":["ContainerBitrateExceedsLimit"],"video":"h264","audio":"aac","mbps":10.0}}'
-r=$(JELLYFIN_API_KEY="" call play '{"item_id":"mov-spirited","session":"tv"}' | text_of)
-expect_eq "a user's token: plays on that user's player" "$(jq -r .on.id <<<"$r")" "s-tv"
+cat >"$sessions" <<EOF
+[{"Id": "s-shim", "Client": "Jellyfin MPV Shim", "DeviceName": "totoro mpv", "DeviceId": "$SHIM_DEVICE",
+  "UserId": "u-guest", "UserName": "guest", "SupportsRemoteControl": true}]
+EOF
+r=$(JELLYFIN_API_KEY="" call play '{"item_id":"mov-spirited"}' | text_of)
+expect_eq "a user's token: plays on this computer's player" "$(jq -r .on.id <<<"$r")" "s-shim"
 
 # A server with a two-factor plugin: the account's password gives a session
 # it holds back; an app password works.

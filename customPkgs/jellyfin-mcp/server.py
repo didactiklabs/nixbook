@@ -4,7 +4,7 @@ library and the players playing from it.
   jellyfin-mcp                       the MCP server, JSON-RPC lines on stdin/stdout
   jellyfin-mcp configured            {"configured", "player"}; exit 1 when not configured
   jellyfin-mcp play-query TEXT [--season N] [--episode M] [--lang en|fr|de|vi]
-                          [--session NAME] [--strict]
+                          [--strict]
                                      find a film, series or episode by its
                                      title and play it, no model: one JSON line
                                      {ok, matched, said, title, ...}
@@ -34,13 +34,13 @@ picks the user (by name), else the first administrator. Which one it is is
 told by GET /Users/Me, which only a user's token answers. A credential or a
 password is never printed, logged, put in a tool result or on a command line.
 
-Playback goes to a player through the server (a Play command it sends over
-the player's websocket): by default this computer's jellyfin-mpv-shim (the
-user service nixbook runs, mpv with the user's own mpv config), which
-reports progress, marks watched and plays the next episode itself; Moonfin,
-a TV or a browser when named (`session`). The players play exactly the
-items they are sent, so a series, season, album, artist or playlist is
-turned into its playable items here.
+Playback goes through the server (a Play command it sends over the player's
+websocket) to one player only: this computer's jellyfin-mpv-shim (the user
+service nixbook runs, mpv with the user's own mpv config), which reports
+progress, marks watched and plays the next episode itself. No other client
+is played on or controlled; `sessions` only lists them. The player plays
+exactly the items it is sent, so a series, season, album, artist or playlist
+is turned into its playable items here.
 """
 
 import hashlib
@@ -79,7 +79,7 @@ REFUSED = ("Jellyfin refused DAI's login (HTTP {code}): sign in again (or check 
 TWO_FACTOR = ("with two-factor authentication (the JellyfinSecurity plugin…), sign in with an app "
               "password made for this, not your account's password")
 NO_PLAYER = ("the player isn't connected: connect it in Settings > Desktop agents > Jellyfin "
-             "(\"Connect the player\"), or open Moonfin")
+             "(\"Connect the player\")")
 
 TYPE_OUT = {
     "Movie": "movie", "Series": "series", "Season": "season", "Episode": "episode",
@@ -665,10 +665,6 @@ def pick_tracks(it, audio=None, subtitles=None):
     return params, chosen, notes
 
 
-def is_moonfin(s):
-    return "moonfin" in f"{s.get('Client', '')} {s.get('DeviceName', '')}".casefold()
-
-
 def is_shim(s):
     return s.get("Client") == SHIM_CLIENT
 
@@ -690,8 +686,6 @@ def session_out(s, uid=None, ident=None):
         out["other_user"] = True
     if is_local_shim(s, ident):
         out["this_computer"] = True
-    if is_moonfin(s):
-        out["moonfin"] = True
     playing = s.get("NowPlayingItem")
     if playing:
         state = s.get("PlayState") or {}
@@ -753,61 +747,15 @@ def ensure_shim(jf):
                   "see `journalctl --user -u jellyfin-mpv-shim`, or connect it again in Settings > Desktop agents > Jellyfin")
 
 
-def pick_session(jf, wanted, playing=False):
-    """(session, None) or (None, why). Named: that one. Else for playing
-    something new, this computer's player (jellyfin-mpv-shim; started if it
-    is signed in but not connected), else the user's own controllable
-    clients, Moonfin first; for controlling (playing=True), first the one
-    that plays something."""
-    uid = jf.uid()
-    sessions = jf.sessions()
+def pick_session(jf, start=True):
+    """(session, None) or (None, why): this computer's player
+    (jellyfin-mpv-shim), the only one played on or controlled. `start`: start
+    it when it is signed in but not connected."""
     ident = shim_identity()
-    if wanted:
-        w = str(wanted).strip().casefold()
-        match = [s for s in sessions if str(s.get("Id", "")).casefold() == w]
-        if not match and w in ("mpv", "shim", "player", "this computer", "here"):
-            match = [s for s in sessions if is_local_shim(s, ident)]
-            if not match:
-                return ensure_shim(jf)
-        if not match:
-            match = [s for s in sessions
-                     if w in f"{s.get('Client', '')} {s.get('DeviceName', '')}".casefold()]
-        if not match:
-            names = sorted({f"{s.get('Client')} on {s.get('DeviceName')}" for s in sessions})
-            return None, f"no connected player matches {wanted!r}" + (f" (connected: {', '.join(names[:10])})" if names else "")
-        ok = [s for s in match if s.get("SupportsRemoteControl")]
-        if not ok:
-            s = match[0]
-            return None, f"{s.get('Client')} on {s.get('DeviceName')} doesn't accept remote control"
-        return best(ok, playing, ident), None
-    ok = [s for s in sessions if s.get("SupportsRemoteControl")]
-    # Other people's screens only when named.
-    mine = [s for s in ok if not s.get("UserId") or s.get("UserId") == uid or is_local_shim(s, ident)]
-    if playing:
-        busy = [s for s in mine if s.get("NowPlayingItem")]
-        if busy:
-            return best(busy, True, ident), None
-    local = [s for s in mine if is_local_shim(s, ident)]
+    local = [s for s in jf.sessions() if is_local_shim(s, ident) and s.get("SupportsRemoteControl")]
     if local:
-        return local[0], None
-    if not playing and shim_credential(jf.url):
-        found, why = ensure_shim(jf)
-        if found:
-            return found, None
-        if not mine:
-            return None, why
-    if mine:
-        return best(mine, playing, ident), None
-    if ok:
-        return None, "no player of yours accepts remote control (others' must be named with session)"
-    return None, NO_PLAYER
-
-
-def best(sessions, playing, ident):
-    def rank(s):
-        return (bool(s.get("NowPlayingItem")) if playing else False, is_local_shim(s, ident),
-                is_moonfin(s), s.get("LastActivityDate") or "")
-    return max(sessions, key=rank)
+        return max(local, key=lambda s: (bool(s.get("NowPlayingItem")), s.get("LastActivityDate") or "")), None
+    return ensure_shim(jf) if start else (None, NO_PLAYER)
 
 
 def playable(jf, it):
@@ -957,7 +905,6 @@ def types_of(values):
 
 TYPE_ENUM = ["movie", "series", "episode", "song", "album", "artist", "playlist", "collection"]
 LIMIT = {"type": "integer", "minimum": 1, "maximum": MAX_LIST}
-SESSION = {"type": "string", "description": "A player: \"mpv\" (this computer's, the default), a client or device name (\"Moonfin\", \"Living room TV\") or a session id."}
 
 
 @tool("search", "Search the Jellyfin library: films, series, episodes, songs, albums, artists. Returns ids for item/play.",
@@ -1048,7 +995,7 @@ def t_recent(jf, args):
     return {"items": [brief(i) for i in res[:MAX_LIST]]}
 
 
-@tool("sessions", "The players connected to Jellyfin (this computer's mpv player, Moonfin, TVs, browsers): what each plays, how (play_method DirectPlay/DirectStream/Transcode, and transcode.reasons: why the server transcodes — ContainerBitrateExceedsLimit is the player's bitrate limit, nixbookShellConfig.jellyfinMcp.player.maxBitrateMbps for this computer's), and whether it accepts remote control (play/control).",
+@tool("sessions", "The clients connected to Jellyfin (read only: play and control use this computer's mpv alone): what each plays, how (play_method DirectPlay/DirectStream/Transcode, and transcode.reasons: why the server transcodes — ContainerBitrateExceedsLimit is the player's bitrate limit, nixbookShellConfig.jellyfinMcp.player.maxBitrateMbps for this computer's), and whether it accepts remote control (play/control).",
       read_only=True)
 def t_sessions(jf, args):
     uid = jf.uid()
@@ -1064,20 +1011,20 @@ def t_sessions(jf, args):
 TRACK = {"type": "string", "description": "A language (Japanese, English, fr, jpn…) or a track index (item lists them)."}
 
 
-@tool("play", "Play an item (film, episode, song, or a whole series, season, album, artist, playlist): by default in mpv on this computer (fullscreen; it saves progress and plays the next episode itself); on Moonfin or a TV when named in session. A series starts at its next episode; a film or episode where you stopped. audio / subtitles pick its tracks (\"Japanese\", \"English\", subtitles \"off\"; the next episodes keep them); without them, the user's track_preferences decide.",
-      {"item_id": {"type": "string"}, "session": SESSION,
+@tool("play", "Play an item (film, episode, song, or a whole series, season, album, artist, playlist): in mpv on this computer (fullscreen; it saves progress and plays the next episode itself), the only player used. A series starts at its next episode; a film or episode where you stopped. audio / subtitles pick its tracks (\"Japanese\", \"English\", subtitles \"off\"; the next episodes keep them); without them, the user's track_preferences decide.",
+      {"item_id": {"type": "string"},
        "mode": {"type": "string", "enum": ["now", "next", "last"], "description": "now (default), or add to the queue: next / last"},
        "resume": {"type": "boolean", "description": "Start where you stopped (default true)"},
        "audio": TRACK,
        "subtitles": {**TRACK, "description": "A language, a track index, or \"off\"."}},
-      required=["item_id"], title="Play on a player")
+      required=["item_id"], title="Play in mpv")
 def t_play(jf, args):
     it = jf.item(need(args, "item_id"))
     ids, start_ticks = playable(jf, it)
-    session, why = pick_session(jf, args.get("session"))
+    session, why = pick_session(jf)
     if not session:
-        return {"played": False, "reason": why, "item": brief(it, overview=0), "web_url": jf.web_url(it["Id"]),
-                "hint": "No player could take it: tell the user why (reason), or open web_url in the browser."}
+        return {"played": False, "reason": why, "item": brief(it, overview=0),
+                "hint": "The player couldn't take it: tell the user why (reason)."}
     mode = {"now": "PlayNow", "next": "PlayNext", "last": "PlayLast"}.get(str(args.get("mode") or "now"))
     if not mode:
         raise JfError("mode must be now, next or last")
@@ -1118,8 +1065,8 @@ SET_TRACK = {"audio": ("SetAudioStreamIndex", "AudioStreamIndex"),
              "subtitles": ("SetSubtitleStreamIndex", "SubtitleStreamIndex")}
 
 
-@tool("control", "Control what a player plays (the one playing, else this computer's mpv): pause, unpause, toggle, stop, next (episode), previous, seek to seconds, forward/back by seconds, volume (level 0-100), volume_up/down, mute, unmute, fullscreen; audio / subtitles switch the track (track: a language, a track index, subtitles \"off\").",
-      {"action": {"type": "string", "enum": ACTIONS}, "session": SESSION,
+@tool("control", "Control what mpv plays on this computer: pause, unpause, toggle, stop, next (episode), previous, seek to seconds, forward/back by seconds, volume (level 0-100), volume_up/down, mute, unmute, fullscreen; audio / subtitles switch the track (track: a language, a track index, subtitles \"off\").",
+      {"action": {"type": "string", "enum": ACTIONS},
        "seconds": {"type": "number", "minimum": 0, "description": "seek: the position; forward/back: how far (default 30/10)"},
        "level": {"type": "integer", "minimum": 0, "maximum": 100, "description": "volume: 0-100"},
        "track": {"type": "string", "description": "audio / subtitles: a language (Japanese, English, fr…), a track index, or for subtitles \"off\"."}},
@@ -1128,7 +1075,7 @@ def t_control(jf, args):
     action = str(need(args, "action")).casefold()
     if action not in ACTIONS and action not in PLAYSTATE:
         raise JfError(f"unknown action {action!r}: {', '.join(ACTIONS)}")
-    session, why = pick_session(jf, args.get("session"), playing=True)
+    session, why = pick_session(jf, start=False)
     if not session:
         raise JfError(why)
     sid = q(session["Id"])
@@ -1340,22 +1287,22 @@ FILLER = {"the", "a", "an", "le", "la", "les", "l", "de", "du", "des", "un", "un
           "mpv", "jellyfin"}
 
 MSG = {
-    "en": {"playing": "Playing {title}.", "queued": "Playing {title} on {player}.",
+    "en": {"playing": "Playing {title}.",
            "seasons": "{series} has only {n} season{s}.", "episodes": "{series} season {season} has only {n} episode{s}.",
            "notfound": "I couldn't find {query} in Jellyfin.", "which": "Which one: {list}?",
            "noplayer": "The player isn't connected: connect it in Settings > Desktop agents > Jellyfin.",
            "error": "Jellyfin: {error}.", "setup": "Jellyfin isn't set up: see Settings > Desktop agents."},
-    "fr": {"playing": "Je lance {title}.", "queued": "Je lance {title} sur {player}.",
+    "fr": {"playing": "Je lance {title}.",
            "seasons": "{series} n'a que {n} saison{s}.", "episodes": "La saison {season} de {series} n'a que {n} épisode{s}.",
            "notfound": "Je n'ai pas trouvé {query} dans Jellyfin.", "which": "Lequel : {list} ?",
            "noplayer": "Le lecteur n'est pas connecté : connecte-le dans Paramètres > Agents du bureau > Jellyfin.",
            "error": "Jellyfin : {error}.", "setup": "Jellyfin n'est pas configuré : voir Paramètres > Agents du bureau."},
-    "de": {"playing": "Ich spiele {title} ab.", "queued": "Ich spiele {title} auf {player} ab.",
+    "de": {"playing": "Ich spiele {title} ab.",
            "seasons": "{series} hat nur {n} Staffel{s}.", "episodes": "Staffel {season} von {series} hat nur {n} Folge{s}.",
            "notfound": "Ich habe {query} in Jellyfin nicht gefunden.", "which": "Welches: {list}?",
            "noplayer": "Der Player ist nicht verbunden: verbinde ihn unter Einstellungen > Desktop-Agenten > Jellyfin.",
            "error": "Jellyfin: {error}.", "setup": "Jellyfin ist nicht eingerichtet: siehe Einstellungen > Desktop-Agenten."},
-    "vi": {"playing": "Đang phát {title}.", "queued": "Đang phát {title} trên {player}.",
+    "vi": {"playing": "Đang phát {title}.",
            "seasons": "{series} chỉ có {n} mùa.", "episodes": "Mùa {season} của {series} chỉ có {n} tập.",
            "notfound": "Không tìm thấy {query} trong Jellyfin.", "which": "Phim nào: {list}?",
            "noplayer": "Trình phát chưa kết nối: kết nối trong Cài đặt > Tác nhân máy tính > Jellyfin.",
@@ -1591,7 +1538,7 @@ def find_title(jf, title, want_series, strict):
     return good[0][1], []
 
 
-def play_query(text, season=None, episode=None, lang=None, session=None, strict=False):
+def play_query(text, season=None, episode=None, lang=None, strict=False):
     lang = lang if lang in MSG else guess_lang(text)
     msg = MSG[lang]
     rest, audio, subtitles = split_tracks(text)
@@ -1643,16 +1590,14 @@ def play_query(text, season=None, episode=None, lang=None, session=None, strict=
                 target = next((e for e in jf.episodes(it["Id"]) if e["Id"] == ids[0]), it)
             else:
                 ids, ticks = playable(jf, it)
-        player, why = pick_session(jf, session)
+        player, why = pick_session(jf)
         if not player:
-            return {**out, "said": msg["noplayer"], "reason": why, "title": title_of(target),
-                    "web_url": jf.web_url(target["Id"])}
+            return {**out, "said": msg["noplayer"], "reason": why, "title": title_of(target)}
         track_params, chosen = {}, {}
         if audio or subtitles:
             track_params, chosen, _ = pick_tracks(jf.item(target["Id"]), audio, subtitles)
         send_play(jf, player, ids, ticks, track_params=track_params)
-        said = (msg["playing"] if is_local_shim(player) or not session
-                else msg["queued"]).format(title=title_of(target), player=player.get("DeviceName") or player.get("Client"))
+        said = msg["playing"].format(title=title_of(target))
         if audio or subtitles:
             said = said[:-1] + say_tracks(lang, audio, subtitles, track_params) + said[-1]
         return {**out, "ok": True, "said": said, "title": title_of(target), "kind": TYPE_OUT.get(target.get("Type")),
@@ -1667,14 +1612,14 @@ def play_query(text, season=None, episode=None, lang=None, session=None, strict=
 # --------------------------------------------------------------------------
 
 INSTRUCTIONS = (
-    "The user's Jellyfin library (films, series, music) and its players. Find with search, then "
-    "play {item_id}: by default it plays fullscreen in mpv on this computer (the player keeps the "
-    "progress and goes on to the next episode itself); name session for Moonfin, a TV or a browser. "
+    "The user's Jellyfin library (films, series, music) and this computer's player. Find with search, "
+    "then play {item_id}: it plays fullscreen in mpv on this computer, the only player used (it keeps "
+    "the progress and goes on to the next episode itself). "
     "control pauses, seeks, skips, sets the volume and switches the audio or subtitle track of what "
     "plays; play takes audio / subtitles too (a language: \"Japanese\", \"English\"; subtitles "
     "\"off\"), and item lists an episode's or film's tracks. track_preferences sets the user's "
     "default languages for every player (e.g. Japanese audio, English subtitles, subtitle_mode "
-    "smart). sessions shows what plays where. Other people's players are used only when named.")
+    "smart). sessions shows what plays where, read only.")
 
 
 class Server:
@@ -2093,7 +2038,7 @@ def shim_logout():
 
 
 def cli_play_query(args):
-    season = episode = lang = session = None
+    season = episode = lang = None
     strict = False
     rest = []
     it = iter(args)
@@ -2105,15 +2050,13 @@ def cli_play_query(args):
                 episode = int(next(it))
             elif a == "--lang":
                 lang = next(it)
-            elif a == "--session":
-                session = next(it)
             elif a == "--strict":
                 strict = True
             else:
                 rest.append(a)
     except (StopIteration, ValueError):
         out({"ok": False, "matched": False, "said": "usage: jellyfin-mcp play-query TEXT [--season N] [--episode M]"}, 2)
-    result = play_query(" ".join(rest), season, episode, lang, session, strict)
+    result = play_query(" ".join(rest), season, episode, lang, strict)
     out(result, 0 if result.get("ok") else 1)
 
 

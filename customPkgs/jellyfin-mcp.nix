@@ -4,9 +4,9 @@
 # favourites, playlists), plus the CLI nixbook-shell uses: its Settings
 # (credentials, signing the player in) and the bubble's zero-model fast path
 # (`jellyfin-mcp play-query "edgerunners s1e1"`). Stdlib Python, the source
-# in ./jellyfin-mcp (no upstream). Playback goes to a player through the
-# server: by default this computer's jellyfin-mpv-shim (the user service
-# homeManagerModules/nixbookShellConfig.nix runs), Moonfin or a TV when named.
+# in ./jellyfin-mcp (no upstream). Playback goes through the server to
+# this computer's jellyfin-mpv-shim alone (the user service
+# homeManagerModules/nixbookShellConfig.nix runs).
 # Given only to the nixbook-shell side panel's DAI (assistant.mcpServers),
 # never installed on the PATH. Its credential — a user's own token from
 # `credentials login` (no admin needed) or an admin's API key — comes from
@@ -46,7 +46,7 @@ pkgs.stdenvNoCC.mkDerivation {
   '';
 
   meta = {
-    description = "MCP server for a Jellyfin library and its players (jellyfin-mpv-shim, Moonfin, TVs)";
+    description = "MCP server for a Jellyfin library and jellyfin-mpv-shim";
     license = pkgs.lib.licenses.mit;
     mainProgram = "jellyfin-mcp";
   };
