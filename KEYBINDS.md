@@ -284,6 +284,28 @@ Source: `homeManagerModules/kittyConfig.nix`.
 
 ---
 
+## Zsh
+
+Source: `homeManagerModules/zshConfig.nix` (`zshConfig`). Emacs keymap
+(`defaultKeymap = "emacs"`; without it zsh switches to vi mode because `$EDITOR`
+is nvim), so the usual readline keys work: `Ctrl+A`/`Ctrl+E` line start/end,
+`Ctrl+K`/`Ctrl+U` kill to end/start, `Ctrl+W` delete word, `Alt+B`/`Alt+F` word
+back/forward.
+
+| Keybind         | Action                                  |
+| --------------- | --------------------------------------- |
+| `Up` / `Down`   | History search on what is already typed |
+| `Ctrl+Right`    | Forward word                            |
+| `Ctrl+Left`     | Backward word                           |
+| `Ctrl+Delete`   | Delete next word                        |
+| `Shift+Tab`     | Previous completion                     |
+| `Ctrl+X Ctrl+E` | Edit the command line in `$EDITOR`      |
+| `Ctrl+R`        | Atuin history search                    |
+| `Ctrl+T`        | fzf: insert a file path                 |
+| `Alt+C`         | fzf: cd into a directory                |
+
+---
+
 ## mpv (and the Jellyfin player)
 
 Source: `homeManagerModules/mpv/upscale.lua` (`desktopApps`). Picture modes,
