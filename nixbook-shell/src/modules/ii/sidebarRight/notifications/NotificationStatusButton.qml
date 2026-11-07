@@ -8,13 +8,13 @@ GroupButton {
     property string buttonIcon: ""
     property string buttonText: ""
 
-    baseHeight: 36
-    baseWidth: content.implicitWidth + 46
+    baseHeight: 32
+    baseWidth: content.implicitWidth + (buttonText !== "" ? 20 : 12)
     clickedWidth: baseWidth + 6
 
     buttonRadius: baseHeight / 2
     buttonRadiusPressed: Appearance.rounding.small
-    colBackground: Appearance.colors.colLayer2
+    colBackground: "transparent"
     colBackgroundHover: Appearance.colors.colLayer2Hover
     colBackgroundActive: Appearance.colors.colLayer2Active
     property color colText: toggled ? Appearance.m3colors.m3onPrimary : Appearance.colors.colOnLayer1
@@ -31,7 +31,7 @@ GroupButton {
             MaterialSymbol {
                 visible: buttonIcon !== ""
                 text: buttonIcon
-                iconSize: Appearance.font.pixelSize.huge
+                iconSize: Appearance.font.pixelSize.larger
                 color: button.colText
             }
             StyledText {

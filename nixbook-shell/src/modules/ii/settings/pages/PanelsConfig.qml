@@ -145,8 +145,8 @@ ContentPage {
                 ConfigSwitch {
                     configKey: "sidebar.bottomGroup";
                     enabled: !nixManaged;
-                    buttonIcon: "bottom_navigation"
-                    text: Translation.tr('Bottom Group')
+                    buttonIcon: "tab"
+                    text: Translation.tr('Calendar, To Do and Timer tabs')
                     checked: Config.options.sidebar.bottomGroup
                     onCheckedChanged: {
                         Config.options.sidebar.bottomGroup = checked;

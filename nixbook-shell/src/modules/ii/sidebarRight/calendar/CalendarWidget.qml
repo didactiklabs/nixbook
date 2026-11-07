@@ -7,15 +7,25 @@ import QtQuick
 import QtQuick.Layouts
 
 Item {
-    // Layout.topMargin: 10
-    anchors.topMargin: 10
+    id: root
     property int monthShift: 0
     property var viewingDate: CalendarLayout.getDateInXMonthsTime(monthShift)
     property var calendarLayout: CalendarLayout.getCalendarLayout(viewingDate, monthShift === 0)
-    // The day whose events are listed (null: the month grid).
+    // The day picked in the grid (null: none).
     property var selectedDate: null
-    width: calendarColumn.width
-    implicitHeight: calendarColumn.height + 10 * 2
+    // The day listed under the grid: the one picked, else today, or the first
+    // of a month browsed to (today's events may no longer be loaded then).
+    readonly property var agendaDate: selectedDate ?? (monthShift === 0 ? DateTime.clock.date : viewingDate)
+    // The grid gives way to the agenda on short screens.
+    readonly property int agendaMinHeight: 96
+    readonly property int cellMinHeight: 26
+    // Too short for both: the month wins, the Calendar window has the rest.
+    readonly property bool agendaFits: height >= monthHeader.implicitHeight + 7 * (cellMinHeight + 5) + agendaMinHeight + 8
+    readonly property real cellWidth: Math.min(52, Math.floor((width - 6 * 5) / 7))
+    readonly property real cellHeight: {
+        const reserved = monthHeader.implicitHeight + 7 * 5 + (agenda.visible ? agendaMinHeight + 8 : 0);
+        return Math.max(cellMinHeight, Math.min(38, Math.floor((height - reserved) / 7)));
+    }
 
     Component.onCompleted: CalendarEvents.load()
     onViewingDateChanged: CalendarEvents.ensureMonth(viewingDate)
@@ -36,7 +46,6 @@ Item {
     }
     MouseArea {
         anchors.fill: parent
-        enabled: selectedDate === null
         onWheel: (event) => {
             if (event.angleDelta.y > 0) {
                 monthShift--;
@@ -47,18 +56,12 @@ Item {
     }
 
     ColumnLayout {
-        id: calendarColumn
-        anchors.centerIn: parent
+        anchors.fill: parent
         spacing: 5
-        // Hidden, not removed, behind the day's events: it keeps the size.
-        opacity: selectedDate === null ? 1 : 0
-        visible: opacity > 0
-        Behavior on opacity {
-            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
-        }
 
         // Calendar header
         RowLayout {
+            id: monthHeader
             Layout.fillWidth: true
             spacing: 5
             CalendarHeaderButton {
@@ -135,6 +138,8 @@ Item {
             Repeater {
                 model: CalendarLayout.weekDays
                 delegate: CalendarDayButton {
+                    implicitWidth: root.cellWidth
+                    implicitHeight: root.cellHeight
                     day: Translation.tr(modelData.day)
                     isToday: modelData.today
                     bold: true
@@ -155,160 +160,156 @@ Item {
                 Repeater {
                     model: Array(7).fill(modelData)
                     delegate: CalendarDayButton {
+                        readonly property var date: calendarLayout[modelData][index].date
+                        implicitWidth: root.cellWidth
+                        implicitHeight: root.cellHeight
                         day: calendarLayout[modelData][index].day
                         isToday: calendarLayout[modelData][index].today
-                        events: CalendarEvents.eventsByDay[CalendarEvents.dayKey(calendarLayout[modelData][index].date)] ?? []
+                        selected: selectedDate !== null && CalendarEvents.dayKey(selectedDate) === CalendarEvents.dayKey(date)
+                        events: CalendarEvents.eventsByDay[CalendarEvents.dayKey(date)] ?? []
                         releaseAction: () => {
                             if (CalendarEvents.available)
-                                selectedDate = calendarLayout[modelData][index].date;
+                                selectedDate = selected ? null : date;
                         }
                     }
                 }
             }
         }
-    }
 
-    // The selected day's events
-    ColumnLayout {
-        id: dayView
-        anchors.fill: calendarColumn
-        spacing: 5
-        opacity: selectedDate === null ? 0 : 1
-        visible: opacity > 0
-        Behavior on opacity {
-            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
-        }
-        property var events: selectedDate ? (CalendarEvents.eventsByDay[CalendarEvents.dayKey(selectedDate)] ?? []) : []
-
-        function timeText(event) {
-            if (event.allDay)
-                return Translation.tr("All day");
-            const fmt = Config.options?.time.format ?? "hh:mm";
-            const sameDay = CalendarEvents.dayKey(event.start) === CalendarEvents.dayKey(selectedDate);
-            const start = sameDay ? Qt.locale().toString(event.start, fmt) : "…";
-            const endsToday = CalendarEvents.dayKey(event.end) === CalendarEvents.dayKey(selectedDate);
-            return `${start} – ${endsToday ? Qt.locale().toString(event.end, fmt) : "…"}`;
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 5
-            CalendarHeaderButton {
-                forceCircle: true
-                tooltipText: Translation.tr("Back to the month")
-                downAction: () => {
-                    selectedDate = null;
-                }
-                contentItem: MaterialSymbol {
-                    text: "arrow_back"
-                    iconSize: Appearance.font.pixelSize.larger
-                    horizontalAlignment: Text.AlignHCenter
-                    color: Appearance.colors.colOnLayer1
-                }
-            }
-            StyledText {
-                Layout.fillWidth: true
-                elide: Text.ElideRight
-                text: selectedDate ? selectedDate.toLocaleDateString(Qt.locale(), "dddd d MMMM") : ""
-                font.pixelSize: Appearance.font.pixelSize.large
-                color: Appearance.colors.colOnLayer1
-            }
-            CalendarHeaderButton {
-                forceCircle: true
-                tooltipText: Translation.tr("Add an event")
-                downAction: () => {
-                    // 09:00 on the selected day.
-                    CalendarEvents.newEvent(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 9));
-                }
-                contentItem: MaterialSymbol {
-                    text: "add"
-                    iconSize: Appearance.font.pixelSize.larger
-                    horizontalAlignment: Text.AlignHCenter
-                    color: Appearance.colors.colOnLayer1
-                }
-            }
-            CalendarHeaderButton {
-                forceCircle: true
-                tooltipText: Translation.tr("Open the calendar (events, new event)")
-                downAction: () => {
-                    CalendarEvents.openApp();
-                }
-                contentItem: MaterialSymbol {
-                    text: "edit_calendar"
-                    iconSize: Appearance.font.pixelSize.larger
-                    horizontalAlignment: Text.AlignHCenter
-                    color: Appearance.colors.colOnLayer1
-                }
-            }
-        }
-
-        Item {
+        // The day's events
+        ColumnLayout {
+            id: agenda
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.topMargin: 8
+            visible: CalendarEvents.available && root.agendaFits
+            spacing: 2
+            property var events: CalendarEvents.eventsByDay[CalendarEvents.dayKey(root.agendaDate)] ?? []
 
-            StyledText {
-                anchors.centerIn: parent
-                visible: dayView.events.length === 0
-                text: Translation.tr("No events")
-                color: Appearance.colors.colSubtext
+            function timeText(event) {
+                if (event.allDay)
+                    return Translation.tr("All day");
+                const fmt = Config.options?.time.format ?? "hh:mm";
+                const sameDay = CalendarEvents.dayKey(event.start) === CalendarEvents.dayKey(root.agendaDate);
+                const start = sameDay ? Qt.locale().toString(event.start, fmt) : "…";
+                const endsToday = CalendarEvents.dayKey(event.end) === CalendarEvents.dayKey(root.agendaDate);
+                return `${start} – ${endsToday ? Qt.locale().toString(event.end, fmt) : "…"}`;
             }
 
-            StyledListView {
-                anchors.fill: parent
-                clip: true
-                popin: false
-                animateAppearance: false
-                model: dayView.events
-                delegate: RippleButton {
-                    id: eventItem
-                    required property var modelData
-                    width: ListView.view.width
-                    implicitHeight: eventRow.implicitHeight + 16
-                    buttonRadius: Appearance.rounding.small
-                    // Opens the event's meeting link when it has one.
-                    enabled: modelData.meetingUrl.length > 0
-                    releaseAction: () => {
-                        Qt.openUrlExternally(modelData.meetingUrl);
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 5
+                StyledText {
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                    Layout.leftMargin: 6
+                    text: root.agendaDate.toLocaleDateString(Qt.locale(), "dddd d MMMM")
+                    font.weight: Font.DemiBold
+                    color: Appearance.colors.colOnLayer1
+                }
+                CalendarHeaderButton {
+                    forceCircle: true
+                    tooltipText: Translation.tr("Add an event")
+                    downAction: () => {
+                        // 09:00 on the selected day.
+                        CalendarEvents.newEvent(new Date(root.agendaDate.getFullYear(), root.agendaDate.getMonth(), root.agendaDate.getDate(), 9));
                     }
+                    contentItem: MaterialSymbol {
+                        text: "add"
+                        iconSize: Appearance.font.pixelSize.larger
+                        horizontalAlignment: Text.AlignHCenter
+                        color: Appearance.colors.colOnLayer1
+                    }
+                }
+                CalendarHeaderButton {
+                    forceCircle: true
+                    tooltipText: Translation.tr("Open the calendar (events, new event)")
+                    downAction: () => {
+                        CalendarEvents.openApp();
+                    }
+                    contentItem: MaterialSymbol {
+                        text: "edit_calendar"
+                        iconSize: Appearance.font.pixelSize.larger
+                        horizontalAlignment: Text.AlignHCenter
+                        color: Appearance.colors.colOnLayer1
+                    }
+                }
+            }
 
-                    contentItem: RowLayout {
-                        id: eventRow
-                        anchors.fill: parent
-                        anchors.margins: 8
-                        spacing: 8
-                        Rectangle {
-                            Layout.fillHeight: true
-                            implicitWidth: 4
-                            radius: 2
-                            color: eventItem.modelData.color || Appearance.colors.colPrimary
+            Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                StyledText {
+                    anchors.centerIn: parent
+                    visible: agenda.events.length === 0
+                    text: Translation.tr("No events")
+                    color: Appearance.colors.colSubtext
+                }
+
+                StyledListView {
+                    anchors.fill: parent
+                    clip: true
+                    popin: false
+                    animateAppearance: false
+                    model: agenda.events
+                    delegate: RippleButton {
+                        id: eventItem
+                        required property var modelData
+                        width: ListView.view.width
+                        implicitHeight: eventRow.implicitHeight + 16
+                        buttonRadius: Appearance.rounding.small
+                        // Opens the event's meeting link when it has one.
+                        enabled: modelData.meetingUrl.length > 0
+                        releaseAction: () => {
+                            Qt.openUrlExternally(modelData.meetingUrl);
                         }
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 0
-                            StyledText {
+
+                        contentItem: RowLayout {
+                            id: eventRow
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            spacing: 8
+                            Rectangle {
+                                Layout.fillHeight: true
+                                implicitWidth: 4
+                                radius: 2
+                                color: eventItem.modelData.color || Appearance.colors.colPrimary
+                            }
+                            ColumnLayout {
                                 Layout.fillWidth: true
-                                elide: Text.ElideRight
-                                text: eventItem.modelData.summary
+                                spacing: 0
+                                StyledText {
+                                    Layout.fillWidth: true
+                                    elide: Text.ElideRight
+                                    text: eventItem.modelData.summary
+                                    color: Appearance.colors.colOnLayer1
+                                }
+                                StyledText {
+                                    Layout.fillWidth: true
+                                    elide: Text.ElideRight
+                                    text: agenda.timeText(eventItem.modelData)
+                                        + (eventItem.modelData.location ? ` • ${eventItem.modelData.location}` : "")
+                                    font.pixelSize: Appearance.font.pixelSize.smaller
+                                    color: Appearance.colors.colSubtext
+                                }
+                            }
+                            MaterialSymbol {
+                                visible: eventItem.modelData.meetingUrl.length > 0
+                                text: "videocam"
+                                iconSize: Appearance.font.pixelSize.larger
                                 color: Appearance.colors.colOnLayer1
                             }
-                            StyledText {
-                                Layout.fillWidth: true
-                                elide: Text.ElideRight
-                                text: dayView.timeText(eventItem.modelData)
-                                    + (eventItem.modelData.location ? ` • ${eventItem.modelData.location}` : "")
-                                font.pixelSize: Appearance.font.pixelSize.smaller
-                                color: Appearance.colors.colSubtext
-                            }
-                        }
-                        MaterialSymbol {
-                            visible: eventItem.modelData.meetingUrl.length > 0
-                            text: "videocam"
-                            iconSize: Appearance.font.pixelSize.larger
-                            color: Appearance.colors.colOnLayer1
                         }
                     }
                 }
             }
+        }
+
+        // No agenda to fill the rest.
+        Item {
+            Layout.fillHeight: true
+            visible: !agenda.visible
         }
     }
 }

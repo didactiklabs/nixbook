@@ -84,10 +84,8 @@ Singleton {
             }
 
             property JsonObject sidebar: JsonObject {
-                property JsonObject bottomGroup: JsonObject {
-                    property bool collapsed: false
-                    property int tab: 0
-                }
+                // The right sidebar's page (SidebarTabs).
+                property string tab: "notifications"
                 // The left sidebar pinned (Ctrl+P), and open while pinned:
                 // it opens pinned again after a restart or reboot, on the
                 // monitor it was pinned on (output name, e.g. "eDP-1").

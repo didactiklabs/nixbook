@@ -12,6 +12,7 @@ AbstractQuickPanel {
     id: root
     property bool editMode: false
     Layout.fillWidth: true
+    color: "transparent" // the tiles are the cards
 
     visible: root.editMode || root.toggles.length > 0
 
@@ -20,7 +21,7 @@ AbstractQuickPanel {
         animation: Appearance.animation.elementMove.numberAnimation.createObject(this)
     }
     property real spacing: 6
-    property real padding: 6
+    property real padding: 0
     readonly property real baseCellWidth: {
         const availableWidth = root.width - (root.padding * 2) - (root.spacing * (root.columns))
         return availableWidth / root.columns
