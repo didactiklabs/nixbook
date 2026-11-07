@@ -116,6 +116,7 @@
     },
     "cyberpunk": {
       "fonts": true,
+      "frames": true,
       "glitch": true,
       "motion": true,
       "palette": true,

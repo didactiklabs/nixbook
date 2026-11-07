@@ -1497,13 +1497,13 @@ desktop menu's Theme submenu, or the launcher's theme mode (the
 themeToggle`: every theme and variant, type to filter, Enter applies) — and each theme with variants keeps its own
 `appearance.<theme>.variant`, so switching theme and back keeps the variant:
 
-| Theme       | Variants                                         | Own settings (`appearance.<theme>.*`)              |
-| ----------- | ------------------------------------------------ | -------------------------------------------------- |
-| `material`  | —                                                | —                                                  |
-| `persona`   | `p5` (Royal), `p3r` (3 Reload), `p4` (4 Revival) | `palette`, `motion`, `shapes`, `halftone`, `fonts` |
-| `chiikawa`  | `chiikawa` (default), `usagi`, `momonga`         | `palette`, `motion`, `shapes`, `fonts`, `mascot`   |
-| `cyberpunk` | `yellow` (default), `red`                        | `palette`, `motion`, `shapes`, `fonts`, `glitch`   |
-| `ghibli`    | `totoro` (default), `spirited`, `mononoke`       | `palette`, `motion`, `shapes`, `fonts`, `spirits`  |
+| Theme       | Variants                                         | Own settings (`appearance.<theme>.*`)                      |
+| ----------- | ------------------------------------------------ | ---------------------------------------------------------- |
+| `material`  | —                                                | —                                                          |
+| `persona`   | `p5` (Royal), `p3r` (3 Reload), `p4` (4 Revival) | `palette`, `motion`, `shapes`, `halftone`, `fonts`         |
+| `chiikawa`  | `chiikawa` (default), `usagi`, `momonga`         | `palette`, `motion`, `shapes`, `fonts`, `mascot`           |
+| `cyberpunk` | `yellow` (default), `red`, `cyan`                | `palette`, `motion`, `shapes`, `fonts`, `glitch`, `frames` |
+| `ghibli`    | `totoro` (default), `spirited`, `mononoke`       | `palette`, `motion`, `shapes`, `fonts`, `spirits`          |
 
 ```nix
 programs.nixbook-shell.settings.appearance = {
@@ -1532,9 +1532,13 @@ full-screen Persona one, the Chiikawa character popping up with a speech
 bubble (`ChiikawaAlert.qml`), or an incoming holocall glitching in — a
 chamfered HUD panel with an RGB split, scanlines and the message typed out
 (`CyberpunkCutIn.qml`; `appearance.cyberpunk.glitch = false` keeps it
-steady), or a frosted-glass card drifting in on a gust of wind with the film's
+steady; the intercom panels' zigzag bands, a chamfered header tab), or a frosted-glass card drifting in on a gust of wind with the film's
 spirit leaning on it, among leaves, paper birds or fireflies
-(`GhibliCutIn.qml`).
+(`GhibliCutIn.qml`). The Cyberpunk theme also draws its HUD frames behind the panels
+(`CyberpunkFrame.qml`, `appearance.cyberpunk.frames`): the sidebars, the bar's
+popups, the OSD and the dock get a chamfered hairline body with notches
+hanging from its edges, and the sidebars a tick ruler, a gauge on a rail and
+a caps tag, after the game's UI art.
 
 Before `appearance.theme` the Persona style was the switch
 `appearance.persona.enable`. It still works: a `config.json` holding it is
@@ -1606,7 +1610,8 @@ shell (`Themes.qml`), the Nix options (`lib.nix`), the login screen
    `variants` (each `id`, `name`, `icon` and an optional `palette`: the roles
    `theme-palettes.py` lists, which replace the wallpaper palette),
    optionally `defaultVariant` and a `style` — the look as data, applied by
-   `Appearance.qml`: `rounding` (scale of the corner radii), `fonts`
+   `Appearance.qml`: `rounding` (scale of the corner radii), `pill` (the
+   radius of the `full` pill/circle shapes, round when absent), `fonts`
    (`main`, `title`, `numbers`) and `motion` (bezier curves `slam`, `snap`,
    `quick`, `exit`); a variant's own `style` overrides its theme's. Also
    optional, on the theme or a variant: `wallpaper` (a path in `src/`, shown
@@ -1639,7 +1644,9 @@ with a room, filters, struck, plucked and blown instruments, formant speech,
 effects); they recreate the originals' signature sounds from scratch, with
 original tunes. The Cyberpunk 2077
 theme works the same way: `src/assets/cyberpunk/generate.py` draws its
-wallpapers from the palettes, `sounds.py` synthesizes its sounds at build
+wallpapers from the palettes (after the game's UI art: the presentation page,
+the HUD / ripperdoc scan screen and the environment screens, numbers as
+strokes since resvg renders them without fonts), `sounds.py` synthesizes its sounds at build
 time (all but the notification chime and the critical sound,
 `src/assets/sounds/cyberpunk-message.mp3` and `cyberpunk-alert.mp3`), and its face (Rajdhani) ships in `fonts.nix`.
 

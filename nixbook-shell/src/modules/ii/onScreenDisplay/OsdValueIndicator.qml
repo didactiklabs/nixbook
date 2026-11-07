@@ -36,7 +36,16 @@ Item {
             anchors.fill: parent
             opacity: 0.6
         }
-        color: Persona.shapes ? "transparent" : Appearance.colors.colLayer0
+        // Cyberpunk theme: a HUD readout instead of the pill
+        CyberpunkFrame {
+            visible: Cyberpunk.frames
+            anchors.fill: parent
+            z: -1
+            color: Appearance.colors.colLayer0
+            cut: 10
+            showNotches: false
+        }
+        color: Persona.shapes || Cyberpunk.frames ? "transparent" : Appearance.colors.colLayer0
         implicitWidth: valueRow.implicitWidth
         implicitHeight: valueRow.implicitHeight
 

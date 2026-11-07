@@ -198,10 +198,11 @@
       "id": "cyberpunk",
       "name": "Cyberpunk 2077",
       "icon": "memory",
-      "description": "Night City: dark HUD panels, neon accents, cut corners, a condensed tech face and glitchy incoming-call cut-ins",
+      "description": "Night City's screens: hairline HUD frames with cut corners and notched edges, tick rulers and caps tags, neon on black, a condensed tech face and glitchy incoming-call cut-ins",
       "defaultVariant": "yellow",
       "style": {
-        "rounding": 0.18,
+        "rounding": 0.1,
+        "pill": 3,
         "fonts": { "main": "Rajdhani", "title": "Rajdhani", "numbers": "Rajdhani" },
         "motion": {
           "slam": [0.1, 0.9, 0.2, 1, 1, 1],
@@ -223,16 +224,15 @@
             "countdown": "assets/cyberpunk/sounds/yellow-countdown.wav",
             "alarm": "assets/cyberpunk/sounds/yellow-alarm.wav"
           },
-          "notes": "The key art: signature yellow as the accent over near-black panels, cyan for the secondary (the glitch offset, links), hot red-pink for the tertiary. Cut-in: a yellow holocall frame with a cyan glitch.",
+          "notes": "The game's UI art presentation: lemon yellow as the accent and the frames over near-black, olive for the outlines (its outlined data boxes), cyan for the secondary (tabs, tags, the glitch offset), hot red for the tertiary (its section headers). Cut-in: a yellow holocall frame with a cyan glitch.",
           "palette": {
-            "background": "#0b0b0d", "surface1": "#131316", "surface2": "#1a1a1e", "surface3": "#232328", "surface4": "#2c2c32",
-            "onSurface": "#f2f0e3", "onSurfaceVariant": "#c9c6b0", "outline": "#8c886a", "outlineVariant": "#3a3828",
-            "primary": "#fcee0a", "onPrimary": "#0b0b0d", "primaryContainer": "#2e2b06", "onPrimaryContainer": "#fff68a",
-            "secondary": "#02d7f2", "onSecondary": "#00181c", "secondaryContainer": "#063840", "onSecondaryContainer": "#b6f6ff",
-            "tertiary": "#ff2a6d", "onTertiary": "#ffffff", "tertiaryContainer": "#4a0c20", "onTertiaryContainer": "#ffd0dc",
+            "background": "#0b0b0a", "surface1": "#121211", "surface2": "#181816", "surface3": "#20201d", "surface4": "#292925",
+            "onSurface": "#f4f2dc", "onSurfaceVariant": "#c9c68f", "outline": "#7d7b3a", "outlineVariant": "#33321a",
+            "primary": "#f8f502", "onPrimary": "#0b0b0a", "primaryContainer": "#2f2e07", "onPrimaryContainer": "#fbf98a",
+            "secondary": "#35d4eb", "onSecondary": "#00191e", "secondaryContainer": "#14434b", "onSecondaryContainer": "#b9f3fb",
+            "tertiary": "#f91744", "onTertiary": "#ffffff", "tertiaryContainer": "#4d0817", "onTertiaryContainer": "#ffd0d9",
             "error": "#ff4d4d", "onError": "#1a0000", "errorContainer": "#7a0010", "onErrorContainer": "#ffdad6",
-            "frame": "#0b0b0d", "frameBorder": "#fcee0a", "shadow": "#02d7f2", "stripe": "#fcee0a", "ink": "#f2f0e3",
-            "glitch": "#02d7f2", "alert": "#ff2a6d"
+            "frame": "#0b0b0a", "frameBorder": "#f8f502", "shadow": "#35d4eb", "stripe": "#f8f502", "ink": "#f4f2dc", "glitch": "#35d4eb", "alert": "#f91744", "rail": "#35d4eb"
           }
         },
         {
@@ -247,16 +247,38 @@
             "countdown": "assets/cyberpunk/sounds/red-countdown.wav",
             "alarm": "assets/cyberpunk/sounds/red-alarm.wav"
           },
-          "notes": "The in-game HUD: red-tinted black panels, the menus' salmon red as the accent and hairlines, the interactive cyan for the secondary, yellow for the tertiary. Cut-in: a red HUD frame with a cyan glitch.",
+          "notes": "The in-game HUD: warm black panels, HUD red for the accent and hairlines, the dark red for containers, the health bar's desaturated teal for the secondary (rails, tags), quest yellow for the tertiary. Cut-in: a red HUD frame with a cyan glitch.",
           "palette": {
-            "background": "#0a0506", "surface1": "#130a0c", "surface2": "#1b0f11", "surface3": "#241417", "surface4": "#2e1a1d",
-            "onSurface": "#f6e4e1", "onSurfaceVariant": "#d5b3ae", "outline": "#9a6560", "outlineVariant": "#43201f",
-            "primary": "#ff5a4f", "onPrimary": "#1c0302", "primaryContainer": "#3d0f0c", "onPrimaryContainer": "#ffc9c2",
-            "secondary": "#5ef6ff", "onSecondary": "#00191b", "secondaryContainer": "#0b3a3e", "onSecondaryContainer": "#c4fbff",
-            "tertiary": "#f3e600", "onTertiary": "#161400", "tertiaryContainer": "#3a3600", "onTertiaryContainer": "#fff79a",
+            "background": "#0a0605", "surface1": "#120a09", "surface2": "#1a0f0e", "surface3": "#231413", "surface4": "#2d1a18",
+            "onSurface": "#f7e3df", "onSurfaceVariant": "#d9aaa4", "outline": "#9c5450", "outlineVariant": "#45201f",
+            "primary": "#f04c49", "onPrimary": "#1c0302", "primaryContainer": "#5c1c1f", "onPrimaryContainer": "#ffc8c3",
+            "secondary": "#6cc4bb", "onSecondary": "#001a17", "secondaryContainer": "#173d3a", "onSecondaryContainer": "#c3f1ec",
+            "tertiary": "#f7f102", "onTertiary": "#161400", "tertiaryContainer": "#3a3700", "onTertiaryContainer": "#fff79a",
             "error": "#ff8a3d", "onError": "#1f0a00", "errorContainer": "#6b2c00", "onErrorContainer": "#ffdcc6",
-            "frame": "#0a0506", "frameBorder": "#ff5a4f", "shadow": "#5ef6ff", "stripe": "#ff5a4f", "ink": "#f6e4e1",
-            "glitch": "#5ef6ff", "alert": "#f3e600"
+            "frame": "#0a0605", "frameBorder": "#f04c49", "shadow": "#5ef6ff", "stripe": "#f04c49", "ink": "#f7e3df", "glitch": "#5ef6ff", "alert": "#f7f102", "rail": "#6cc4bb"
+          }
+        },
+        {
+          "id": "cyan",
+          "name": "Cyan",
+          "icon": "radar",
+          "wallpaper": "assets/cyberpunk/cyan-wallpaper.png",
+          "sounds": {
+            "notification": "assets/sounds/cyberpunk-message.mp3",
+            "critical": "assets/sounds/cyberpunk-alert.mp3",
+            "focus": "assets/cyberpunk/sounds/cyan-focus.wav",
+            "countdown": "assets/cyberpunk/sounds/cyan-countdown.wav",
+            "alarm": "assets/cyberpunk/sounds/cyan-alarm.wav"
+          },
+          "notes": "The environment screens (terminals, ship and device panels): cyan line art on teal-black, dark teal containers, HUD red for the secondary (rails, tags, the glitch offset), yellow for the tertiary. Cut-in: a cyan screen frame with a red glitch.",
+          "palette": {
+            "background": "#040707", "surface1": "#081010", "surface2": "#0c1717", "surface3": "#112020", "surface4": "#172a2a",
+            "onSurface": "#dffcfc", "onSurfaceVariant": "#9fd3d3", "outline": "#3f8a8c", "outlineVariant": "#12383a",
+            "primary": "#31f0f1", "onPrimary": "#001c1c", "primaryContainer": "#0c403f", "onPrimaryContainer": "#b6fbfb",
+            "secondary": "#f04c49", "onSecondary": "#1c0302", "secondaryContainer": "#4a1719", "onSecondaryContainer": "#ffc8c3",
+            "tertiary": "#f7f102", "onTertiary": "#161400", "tertiaryContainer": "#3a3700", "onTertiaryContainer": "#fff79a",
+            "error": "#ff8a3d", "onError": "#1f0a00", "errorContainer": "#6b2c00", "onErrorContainer": "#ffdcc6",
+            "frame": "#040707", "frameBorder": "#31f0f1", "shadow": "#f04c49", "stripe": "#31f0f1", "ink": "#dffcfc", "glitch": "#f04c49", "alert": "#f7f102", "rail": "#f04c49"
           }
         }
       ]

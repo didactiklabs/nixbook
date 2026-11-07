@@ -120,6 +120,8 @@ Singleton {
     // turned off in the theme's settings (appearance.<id>.shapes / fonts /
     // motion, default true):
     //   rounding  scale of the Material corner radii
+    //   pill      radius of the `full` (pill / circle) shapes instead of
+    //             round (Cyberpunk: near-square chips, toggles and dots)
     //   fonts     { main, title, numbers } font families
     //   motion    { slam, snap, quick, exit } bezier curves (enter, small
     //             moves, effects, exit), with the Material durations
@@ -130,6 +132,7 @@ Singleton {
     }
     readonly property var style: Object.assign({}, root.currentTheme?.style ?? {}, root.currentVariant?.style ?? {})
     readonly property real roundingScale: root.style.rounding && root.styleOn("shapes") ? root.style.rounding : 1
+    readonly property int pillRadius: root.style.pill !== undefined && root.styleOn("shapes") ? root.style.pill : 9999
     readonly property var fonts: root.styleOn("fonts") ? (root.style.fonts ?? {}) : {}
     readonly property var curves: root.styleOn("motion") ? (root.style.motion ?? null) : null
     function rounded(radius) {

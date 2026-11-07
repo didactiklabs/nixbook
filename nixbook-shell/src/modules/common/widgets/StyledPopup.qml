@@ -145,8 +145,15 @@ LazyLoader {
         }
 
         StyledRectangularShadow {
-            visible: !Persona.shapes
+            visible: !Persona.shapes && !Cyberpunk.frames
             target: popupBackground
+        }
+
+        CyberpunkFrame {
+            visible: Cyberpunk.frames && !Persona.shapes
+            anchors.fill: popupBackground
+            color: Appearance.colors.colLayer1Base
+            cut: 10
         }
 
         PersonaFrame {
@@ -173,9 +180,9 @@ LazyLoader {
             implicitWidth: (popupWindow.innerContent?.implicitWidth ?? 0) + hMargin * 2
             implicitHeight: (popupWindow.innerContent?.implicitHeight ?? 0) + margin * 2
 
-            color: Persona.shapes ? "transparent" : Appearance.colors.colLayer1Base
+            color: Persona.shapes || Cyberpunk.frames ? "transparent" : Appearance.colors.colLayer1Base
             radius: Appearance.rounding.normal + 4
-            border.width: Persona.shapes ? 0 : 1
+            border.width: Persona.shapes || Cyberpunk.frames ? 0 : 1
             border.color: Appearance.colors.colLayer0Border
 
             // Reparent content here once the window is ready

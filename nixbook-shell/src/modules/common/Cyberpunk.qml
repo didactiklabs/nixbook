@@ -11,8 +11,16 @@ import Quickshell
  * singleton adds what data can't: the tokens of its cut-in
  * (CyberpunkCutIn.qml, an incoming holocall with an RGB-split glitch).
  *
- * Variants: yellow (the key art: yellow / cyan / red-pink), red (the in-game
- * HUD: salmon red / cyan / yellow). Wallpapers: assets/cyberpunk/generate.py,
+ * The look follows the game's UI art (Anna Kuźmińska's "Cyberpunk 2077 – UI
+ * Art and UI Art Concepts": its device panels, HUD and in-world screens):
+ * hairline chamfered frames, notches hanging from the edges, tick rulers,
+ * small chamfered caps tags, segmented gauges (CyberpunkFrame.qml, behind
+ * the panels while `appearance.cyberpunk.frames` is on).
+ *
+ * Variants: yellow (the presentation: lemon yellow / cyan / hot red), red
+ * (the HUD: HUD red / desaturated teal / yellow), cyan (the environment
+ * screens: cyan line art on teal-black / red / yellow). Wallpapers:
+ * assets/cyberpunk/generate.py,
  * rasterised when the package is built (qml.nix), like its synthesized
  * sounds (assets/cyberpunk/sounds.py; the chime and the critical sound are
  * files, assets/sounds/cyberpunk-message.mp3 and cyberpunk-alert.mp3).
@@ -24,6 +32,8 @@ Singleton {
     readonly property bool enabled: Themes.is("cyberpunk")
     readonly property string variant: Themes.variantOf("cyberpunk")
     readonly property bool glitch: root.enabled && (root.opts.glitch ?? true)
+    // HUD frames behind the panels (CyberpunkFrame.qml).
+    readonly property bool frames: root.enabled && (root.opts.frames ?? true)
 
     readonly property var spec: Themes.variantsOf("cyberpunk").find(v => v.id === root.variant)?.palette ?? ({})
 
@@ -34,6 +44,10 @@ Singleton {
     readonly property color alertColor: root.spec.alert ?? "#ff2a6d"
     readonly property color ink: root.spec.ink ?? "#f2f0e3"
     readonly property color panel: root.spec.frame ?? "#0b0b0d"
+    // The frames' hairlines and markers, and their secondary rail (tags,
+    // gauges): the HUD's two inks.
+    readonly property color line: root.spec.frameBorder ?? root.accent
+    readonly property color rail: root.spec.rail ?? root.glitchColor
     // The theme's title face (themes.json style.fonts, via Appearance: the
     // user's own when appearance.cyberpunk.fonts is off).
     readonly property string font: Appearance.font.family.title

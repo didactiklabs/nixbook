@@ -76,7 +76,7 @@ Item {
 
     StyledRectangularShadow {
         target: sidebarRightBackground
-        visible: !Persona.shapes // PersonaFrame draws its own hard shadow
+        visible: !Persona.shapes && !Cyberpunk.frames // the theme frames draw their own
     }
     Rectangle {
         id: sidebarRightBackground
@@ -86,10 +86,20 @@ Item {
         implicitWidth: sidebarWidth - Appearance.sizes.gapsOut * 2
         // Persona style: the slanted comic-panel frame (same as the popups)
         // replaces the rounded body.
-        color: Persona.shapes ? "transparent" : Appearance.colors.colLayer0
-        border.width: Persona.shapes ? 0 : 1
+        color: Persona.shapes || Cyberpunk.frames ? "transparent" : Appearance.colors.colLayer0
+        border.width: Persona.shapes || Cyberpunk.frames ? 0 : 1
         border.color: ColorUtils.transparentize(Appearance.colors.colLayer0Border, 0.8)
         radius: Appearance.rounding.screenRounding - Appearance.sizes.gapsOut + 5
+
+        // Cyberpunk theme: the HUD frame (cut corners, ruler, tag)
+        CyberpunkFrame {
+            visible: Cyberpunk.frames
+            anchors.fill: parent
+            z: -1
+            color: Appearance.colors.colLayer0
+            full: true
+            label: "SYS // QUICK.ACCESS"
+        }
 
         PersonaFrame {
             visible: Persona.shapes

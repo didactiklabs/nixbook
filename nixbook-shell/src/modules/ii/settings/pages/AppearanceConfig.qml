@@ -712,6 +712,14 @@ ContentPage {
                     onCheckedChanged: { Config.options.appearance.cyberpunk.fonts = checked }
                 }
                 ConfigSwitch {
+                    configKey: "appearance.cyberpunk.frames";
+                    buttonIcon: "select"
+                    text: Translation.tr("HUD frames on panels (cut corners, rulers, tags)")
+                    checked: Config.options.appearance.cyberpunk.frames
+                    enabled: !nixManaged
+                    onCheckedChanged: { Config.options.appearance.cyberpunk.frames = checked }
+                }
+                ConfigSwitch {
                     configKey: "appearance.cyberpunk.glitch";
                     buttonIcon: "blur_on"
                     text: Translation.tr("Glitch and scanlines in the cut-in")

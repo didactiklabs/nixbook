@@ -500,12 +500,13 @@ Singleton {
                 }
                 // Cyberpunk 2077 theme: see modules/common/Cyberpunk.qml.
                 property JsonObject cyberpunk: JsonObject {
-                    property string variant: "yellow" // yellow | red
+                    property string variant: "yellow" // yellow | red | cyan
                     property bool palette: true   // the neon-on-black palette
                     property bool motion: true    // sharp, snappy animations
                     property bool shapes: true    // near-square corners
                     property bool fonts: true     // condensed tech font (Rajdhani)
                     property bool glitch: true    // RGB-split glitch and scanlines in the cut-in
+                    property bool frames: true    // HUD frames behind the panels (CyberpunkFrame.qml)
                 }
                 // Studio Ghibli theme: see modules/common/Ghibli.qml.
                 property JsonObject ghibli: JsonObject {
