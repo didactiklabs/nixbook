@@ -66,6 +66,10 @@ in
         enableZshIntegration = true;
       };
       zsh = {
+        # Emacs keys (Ctrl+A/E/K/U/W…), as oh-my-zsh set them: without an explicit
+        # keymap zsh picks vi mode whenever $EDITOR/$VISUAL contains "vi" (nvim),
+        # and Ctrl+A then just inserts ^A.
+        defaultKeymap = "emacs";
         autosuggestion.enable = true;
         # nixpkgs' zsh-syntax-highlighting (0.8.0), sourced by home-manager at
         # the very end of .zshrc, after every widget is defined, as upstream
