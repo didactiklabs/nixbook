@@ -8,6 +8,8 @@ RippleButton {
     property string day
     property int isToday
     property bool bold
+    // The day whose events are listed.
+    property bool selected: false
     // Events on this day (CalendarEvents), shown as up to three dots in
     // their calendar's colour.
     property var events: []
@@ -20,10 +22,20 @@ RippleButton {
     toggled: (isToday == 1)
     buttonRadius: Appearance.rounding.small
 
+    Rectangle {
+        anchors.fill: parent
+        visible: button.selected
+        radius: button.buttonRadius
+        color: "transparent"
+        border.width: 2
+        border.color: Appearance.colors.colPrimary
+    }
+
     contentItem: StyledText {
         anchors.fill: parent
         text: day
         horizontalAlignment: Text.AlignHCenter
+        verticalAlignment: Text.AlignVCenter
         font.weight: bold ? Font.DemiBold : Font.Normal
         color: (isToday == 1) ? Appearance.m3colors.m3onPrimary :
             (isToday == 0) ? Appearance.colors.colOnLayer1 :

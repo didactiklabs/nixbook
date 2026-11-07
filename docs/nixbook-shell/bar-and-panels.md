@@ -73,12 +73,14 @@ Besides their shortcuts and bar buttons, both open from the middle of their scre
 
 ### Right sidebar — Mod+N
 
-Quick settings and notifications:
+Quick settings on top, and one page at a time below them, so each gets the whole height:
 
+- **the header** — who you are and the uptime, over your wallpaper, with the buttons to edit the toggles, reload, open Settings and open the session menu. Click the picture to choose another, right-click to go back to the wallpaper (`sidebar.banner` off: no picture);
 - **quick toggles** — network, Bluetooth, sound and microphone mute, dark mode, night light, idle inhibitor, Do Not Disturb, power profile, EasyEffects, on-screen keyboard, screenshot, colour picker, music recognition — in a classic or Android-style panel, with details pages for **Wi-Fi networks**, **Bluetooth devices** and the **volume mixer**;
-- **sliders** for brightness, volume and microphone;
-- the **notification centre** with its [history](./notifications#history);
-- a calendar with events, the to-do list and a pomodoro timer.
+- **sliders** for brightness, volume and microphone, each with its value;
+- **the pages**, picked in the tab strip or with Ctrl+Page Up/Down: the **notification centre** with its [history](./notifications#history), a **calendar** with the day's events under the month (click a day to list its events, click it again to go back to today), the **to-do list** and a **pomodoro timer**.
+
+The panel remembers the page you left it on, but opens on Notifications when something arrived while it was closed; from another page, a badge on the bell counts them. Settings → Panels → Right Sidebar turns off the pages other than Notifications.
 
 ### Left sidebar — Mod+Space
 

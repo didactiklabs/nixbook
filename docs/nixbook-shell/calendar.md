@@ -20,7 +20,7 @@ Changes go to the event's account at once. The shell syncs every `calendar.refre
 
 ## Where events show up
 
-- **Calendars**: dots on the days of the sidebar, desktop and bar-clock calendars. Clicking a day in the sidebar lists its events, with an _add event_ button.
+- **Calendars**: dots on the days of the sidebar, desktop and bar-clock calendars. The sidebar's Calendar page lists the day's events under the month, with an _add event_ button: today's, or those of the day you click.
 - **Next events**: the bar clock popup lists them, and so do:
   - the **Next Event** bar widget — "in 12 min" and the title, the following ones on hover; click **joins the meeting** when it starts within 10 minutes, otherwise opens the Calendar window;
   - the **Next Event** desktop widget — the next event large with a _Join_ button, and the three after it.

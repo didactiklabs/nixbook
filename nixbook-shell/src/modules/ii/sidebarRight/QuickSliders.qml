@@ -3,47 +3,34 @@ import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Services.UPower
 
-Rectangle {
+// Slim rows: what it is, the slider, how much.
+ColumnLayout {
     id: root
 
     property var screen: root.QsWindow.window?.screen
     property var brightnessMonitor: Brightness.getMonitorForScreen(screen)
+    spacing: 0
 
-    implicitWidth: contentItem.implicitWidth + root.horizontalPadding * 2
-    implicitHeight: contentItem.implicitHeight + root.verticalPadding * 2
-    radius: Appearance.rounding.normal
-    color: Appearance.colors.colLayer1
-    property real verticalPadding: 4
-    property real horizontalPadding: 12
-
-    Column {
-        id: contentItem
-        anchors {
-            fill: parent
-            leftMargin: root.horizontalPadding
-            rightMargin: root.horizontalPadding
-            topMargin: root.verticalPadding
-            bottomMargin: root.verticalPadding
-        }
-
-        Loader {
-            anchors {
-                left: parent.left
-                right: parent.right
+    Loader {
+        Layout.fillWidth: true
+        visible: active
+        active: Config.options.sidebar.quickSliders.showBrightness
+        sourceComponent: RowLayout {
+            spacing: 10
+            // Below the divider the slider dims with gamma, past what the
+            // backlight can do.
+            readonly property bool usingGamma: NightLightService.gamma !== 100
+            RowIcon {
+                text: parent.usingGamma ? "wb_twilight" : "brightness_medium"
             }
-            visible: active
-            active: Config.options.sidebar.quickSliders.showBrightness
-            sourceComponent: QuickSlider {
-                materialSymbol: "brightness_medium"
-                secondaryMaterialSymbol: "wb_twilight"
-                stopIndicatorValues: NightLightService.gamma !== 100 && root.brightnessMonitor?.brightness !== 0 ? [0.3 + root.brightnessMonitor?.brightness * 0.7] : []
-                value: NightLightService.gamma === 100? 0.3 + root.brightnessMonitor?.brightness * 0.7 : (NightLightService.gamma - NightLightService.gammaLowerLimit) / (100 - NightLightService.gammaLowerLimit) * 0.3
-                tooltipContent: NightLightService.gamma === 100 ? `${Math.round(root.brightnessMonitor?.brightness * 100)}%` : `${Translation.tr("Gamma")} ${NightLightService.gamma}%`
+            QuickSlider {
+                stopIndicatorValues: parent.usingGamma && root.brightnessMonitor?.brightness !== 0 ? [0.3 + root.brightnessMonitor?.brightness * 0.7] : []
+                dividerValues: [0.3]
+                value: !parent.usingGamma ? 0.3 + root.brightnessMonitor?.brightness * 0.7 : (NightLightService.gamma - NightLightService.gammaLowerLimit) / (100 - NightLightService.gammaLowerLimit) * 0.3
+                tooltipContent: !parent.usingGamma ? `${Math.round(root.brightnessMonitor?.brightness * 100)}%` : `${Translation.tr("Gamma")} ${NightLightService.gamma}%`
                 onMoved: {
                     if (value >= 0.3) {
                         // 0.3 - 1.0 brightness
@@ -60,82 +47,76 @@ Rectangle {
                     }
                 }
             }
+            RowValue {
+                text: `${parent.usingGamma ? NightLightService.gamma : Math.round((root.brightnessMonitor?.brightness ?? 0) * 100)}%`
+            }
         }
+    }
 
-        Loader {
-            anchors { left: parent.left; right: parent.right }
-            visible: active
-            active: Config.options.sidebar.quickSliders.showVolume
-            sourceComponent: QuickSlider {
-                materialSymbol: "volume_up"
+    Loader {
+        Layout.fillWidth: true
+        visible: active
+        active: Config.options.sidebar.quickSliders.showVolume
+        sourceComponent: RowLayout {
+            spacing: 10
+            RowIcon {
+                text: Audio.sink?.audio?.muted ? "volume_off" : "volume_up"
+            }
+            QuickSlider {
                 value: Audio.sink?.audio?.volume ?? 0
                 onMoved: {
                     if (Audio.sink?.audio)
                         Audio.sink.audio.volume = value
                 }
             }
+            RowValue {
+                text: `${Math.round((Audio.sink?.audio?.volume ?? 0) * 100)}%`
+            }
         }
+    }
 
-        Loader {
-            anchors { left: parent.left; right: parent.right }
-            visible: active
-            active: Config.options.sidebar.quickSliders.showMic
-            sourceComponent: QuickSlider {
-                materialSymbol: "mic"
+    Loader {
+        Layout.fillWidth: true
+        visible: active
+        active: Config.options.sidebar.quickSliders.showMic
+        sourceComponent: RowLayout {
+            spacing: 10
+            RowIcon {
+                text: Audio.source?.audio?.muted ? "mic_off" : "mic"
+            }
+            QuickSlider {
                 value: Audio.source?.audio?.volume ?? 0
                 onMoved: {
                     if (Audio.source?.audio)
                         Audio.source.audio.volume = value
                 }
             }
+            RowValue {
+                text: `${Math.round((Audio.source?.audio?.volume ?? 0) * 100)}%`
+            }
         }
     }
 
-    component QuickSlider: StyledSlider { 
-        id: quickSlider
-        required property string materialSymbol
-        property string secondaryMaterialSymbol
-        configuration: StyledSlider.Configuration.M
+    component QuickSlider: StyledSlider {
+        Layout.fillWidth: true
+        configuration: StyledSlider.Configuration.S
+        handleHeight: 26
+        topPadding: 2
+        bottomPadding: 2
         stopIndicatorValues: []
-        dividerValues: secondaryMaterialSymbol.length > 0 ? [secondaryIcon.iconLocation] : []
-        
-        MaterialSymbol {
-            id: icon
-            property bool nearFull: quickSlider.value >= 0.9
-            anchors {
-                verticalCenter: quickSlider.verticalCenter
-                right: nearFull ? quickSlider.handle.right : quickSlider.right
-                rightMargin: nearFull ? 14 : 8
-            }
-            iconSize: 20
-            color: nearFull ? Appearance.colors.colOnPrimary : Appearance.colors.colOnSecondaryContainer
-            text: quickSlider.materialSymbol
+    }
 
-            Behavior on color {
-                animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
-            }
-            Behavior on anchors.rightMargin {
-                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
-            }
-        }
+    component RowIcon: MaterialSymbol {
+        Layout.leftMargin: 6
+        iconSize: 20
+        color: Appearance.colors.colOnLayer1
+    }
 
-        MaterialSymbol {
-            id: secondaryIcon
-            visible: secondaryMaterialSymbol.length > 0
-            property real iconLocation: 0.3
-            property bool nearIcon: iconLocation - quickSlider.value <= 0.1 && iconLocation - quickSlider.value > (quickSlider.handleWidth + 8 - 14) / quickSlider.effectiveDraggingWidth
-            anchors {
-                verticalCenter: quickSlider.verticalCenter
-                right: nearIcon ? quickSlider.handle.right : quickSlider.right
-                rightMargin: nearIcon ? 14 : (1 - iconLocation) * quickSlider.effectiveDraggingWidth + quickSlider.rightPadding + 8
-            }
-            iconSize: 20
-            color: quickSlider.value >= iconLocation - 0.1 ? Appearance.colors.colOnPrimary : Appearance.colors.colOnSecondaryContainer
-            text: secondaryMaterialSymbol
-
-            Behavior on color {
-                animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
-            }
-        }
+    component RowValue: StyledText {
+        Layout.preferredWidth: 38
+        Layout.rightMargin: 4
+        horizontalAlignment: Text.AlignRight
+        font.pixelSize: Appearance.font.pixelSize.smaller
+        color: Appearance.colors.colSubtext
     }
 }

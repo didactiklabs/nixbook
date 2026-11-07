@@ -22,9 +22,9 @@ Item {
         visible: root.showHistory
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.bottom: statusRow.top
-        anchors.bottomMargin: 5
+        anchors.top: statusRow.bottom
+        anchors.topMargin: 6
+        anchors.bottom: parent.bottom
     }
 
     NotificationListView { // Scrollable window
@@ -32,9 +32,9 @@ Item {
         visible: !root.showHistory
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.bottom: statusRow.top
-        anchors.bottomMargin: 5
+        anchors.top: statusRow.bottom
+        anchors.topMargin: 6
+        anchors.bottom: parent.bottom
 
         clip: true
         // The mask only matters when rows scroll under the rounded corners:
@@ -73,9 +73,20 @@ Item {
         anchors {
             left: parent.left
             right: parent.right
-            bottom: parent.bottom
+            top: parent.top
         }
+        spacing: 2
 
+        StyledText {
+            Layout.fillWidth: true
+            Layout.leftMargin: 6
+            elide: Text.ElideRight
+            text: root.showHistory
+                ? Translation.tr("%1 in history").arg(NotificationHistory.entries.length)
+                : Translation.tr("%1 notifications").arg(Notifications.list.length)
+            font.pixelSize: Appearance.font.pixelSize.small
+            color: Appearance.colors.colSubtext
+        }
         NotificationStatusButton {
             visible: !root.showHistory
             Layout.fillWidth: false
@@ -83,6 +94,9 @@ Item {
             toggled: Notifications.silent
             onClicked: () => {
                 Notifications.silent = !Notifications.silent;
+            }
+            StyledToolTip {
+                text: Translation.tr("Do Not Disturb")
             }
         }
         NotificationStatusButton {
@@ -98,18 +112,14 @@ Item {
             }
         }
         NotificationStatusButton {
-            enabled: false
-            Layout.fillWidth: true
-            buttonText: root.showHistory
-                ? Translation.tr("%1 in history").arg(NotificationHistory.entries.length)
-                : Translation.tr("%1 notifications").arg(Notifications.list.length)
-        }
-        NotificationStatusButton {
             visible: !root.showHistory
             Layout.fillWidth: false
             buttonIcon: "delete_sweep"
             onClicked: () => {
                 Notifications.discardAllNotifications()
+            }
+            StyledToolTip {
+                text: Translation.tr("Clear all")
             }
         }
         // History: delete older than 7 / 30 days, or everything.
