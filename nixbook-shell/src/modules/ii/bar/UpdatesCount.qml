@@ -420,8 +420,9 @@ MouseArea {
                 mainText: logArea.selectedText !== "" ? Translation.tr("Copy selection") : Translation.tr("Copy log")
                 enabled: logView.log !== ""
                 onClicked: {
-                    Quickshell.clipboardText = logArea.selectedText !== "" ? logArea.selectedText : logView.log
-                    Quickshell.execDetached(["notify-send", Translation.tr("Updates"), Translation.tr("Log copied to the clipboard"), "-a", "Shell"])
+                    Clipboard.copy(logArea.selectedText !== "" ? logArea.selectedText : logView.log, ok => {
+                        Quickshell.execDetached(["notify-send", Translation.tr("Updates"), ok ? Translation.tr("Log copied to the clipboard") : Translation.tr("Couldn't copy the log"), "-a", "Shell"])
+                    })
                 }
             }
         }

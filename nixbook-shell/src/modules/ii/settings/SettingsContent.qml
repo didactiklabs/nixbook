@@ -572,7 +572,7 @@ Item {
                         AppLaunch.openUrl(`${Directories.config}/nixbook-shell/config.json`);
                     }
                     altAction: () => {
-                        Quickshell.clipboardText = CF.FileUtils.trimFileProtocol(`${Directories.config}/nixbook-shell/config.json`);
+                        Clipboard.copy(CF.FileUtils.trimFileProtocol(`${Directories.config}/nixbook-shell/config.json`));
                         configFileButton.justCopied = true;
                         revertTextTimer.restart()
                     }

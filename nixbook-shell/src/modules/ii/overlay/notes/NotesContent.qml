@@ -236,7 +236,7 @@ OverlayBackground {
                         }
 
                         onClicked: {
-                            Quickshell.clipboardText = copyButton.modelData.content;
+                            Clipboard.copy(copyButton.modelData.content);
                             justCopied = true;
                             resetState.start();
                         }

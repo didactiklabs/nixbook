@@ -274,7 +274,7 @@ PopupWindow {
                 visible: root.trackUrl !== ""
                 materialIcon: "content_copy"
                 mainText: Translation.tr("Copy link")
-                onClicked: root.act(() => Quickshell.clipboardText = root.trackUrl)
+                onClicked: root.act(() => Clipboard.copy(root.trackUrl))
             }
             ActionRow {
                 visible: root.trackUrl !== ""

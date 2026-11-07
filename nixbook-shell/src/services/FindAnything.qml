@@ -128,7 +128,7 @@ Singleton {
         if (a.cliphist)
             Cliphist.copy(a.cliphist);
         else
-            Quickshell.clipboardText = a.copy ?? a.open ?? r.title;
+            Clipboard.copy(a.copy ?? a.open ?? r.title);
     }
 
     function showInFolder(r) {

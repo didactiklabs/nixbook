@@ -205,7 +205,7 @@ PanelWindow {
                     iconText: "content_copy"
                     tooltip: "Copy to clipboard"
                     enabled: textArea.text.length > 0
-                    onClicked: Quickshell.clipboardText = textArea.text
+                    onClicked: Clipboard.copy(textArea.text)
                 }
                 NoteEditorButton {
                     iconText: "close"

@@ -298,7 +298,7 @@ Item { // Notification item area
                                     (contentItem.implicitWidth + leftPadding + rightPadding)
 
                                 onClicked: {
-                                    Quickshell.clipboardText = notificationObject.body
+                                    Clipboard.copy(notificationObject.body)
                                     copyIcon.text = "inventory"
                                     copyIconTimer.restart()
                                 }

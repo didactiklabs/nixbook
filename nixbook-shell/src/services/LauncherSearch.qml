@@ -469,7 +469,7 @@ Singleton {
         iconName: "calculate"
         iconType: LauncherSearchResult.IconType.Material
         execute: () => {
-            Quickshell.clipboardText = root.mathResult;
+            Clipboard.copy(root.mathResult);
         }
     }
     LauncherSearchResult {
@@ -663,7 +663,7 @@ Singleton {
                     verb: Translation.tr("Copy"),
                     type: Translation.tr("Emoji"),
                     execute: () => {
-                        Quickshell.clipboardText = entry.match(/^\s*(\S+)/)?.[1];
+                        Clipboard.copy(entry.match(/^\s*(\S+)/)?.[1]);
                     }
                 });
             });
@@ -683,7 +683,7 @@ Singleton {
                     type: Translation.tr("Symbol"),
                     comment: symTags,
                     execute: () => {
-                        Quickshell.clipboardText = symName;
+                        Clipboard.copy(symName);
                     }
                 });
             });

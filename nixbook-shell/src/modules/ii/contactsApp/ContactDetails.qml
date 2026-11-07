@@ -26,7 +26,7 @@ Item {
     readonly property var labelNames: (root.contact?.labels ?? []).map(id => Contacts.labelName(id)).filter(n => n !== "")
 
     function copy(text) {
-        Quickshell.clipboardText = text
+        Clipboard.copy(text)
         copiedToast.restart()
     }
 
