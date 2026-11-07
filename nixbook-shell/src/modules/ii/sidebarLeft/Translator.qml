@@ -215,7 +215,7 @@ Item {
                     color: copyButton.enabled ? Appearance.colors.colOnLayer1 : Appearance.colors.colSubtext
                 }
                 onClicked: {
-                    Quickshell.clipboardText = outputCanvas.displayedText
+                    Clipboard.copy(outputCanvas.displayedText)
                 }
             }
             GroupButton {

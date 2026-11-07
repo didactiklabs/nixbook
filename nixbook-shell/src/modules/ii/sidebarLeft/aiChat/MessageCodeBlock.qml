@@ -67,7 +67,7 @@ ColumnLayout {
                     buttonIcon: activated ? "inventory" : "content_copy"
 
                     onClicked: {
-                        Quickshell.clipboardText = segmentContent
+                        Clipboard.copy(segmentContent)
                         copyCodeButton.activated = true
                         copyIconTimer.restart()
                     }

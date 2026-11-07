@@ -109,7 +109,7 @@ rm -f "$tmp"`]
                 mainText: justCopied ? Translation.tr("Copied!") : Translation.tr("Copy lines")
                 onClicked: {
                     copyIncludesButton.justCopied = true
-                    Quickshell.clipboardText = NiriConfig.includeLines
+                    Clipboard.copy(NiriConfig.includeLines)
                     revertCopyTimer.restart()
                 }
                 colBackground: ColorUtils.transparentize(Appearance.colors.colPrimaryContainer)

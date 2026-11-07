@@ -458,7 +458,7 @@ Rectangle {
                     NoteButton {
                         icon: "content_copy"
                         tip: Translation.tr("Copy the note")
-                        onClicked: Quickshell.clipboardText = noteText.text
+                        onClicked: Clipboard.copy(noteText.text)
                     }
                     NoteButton {
                         icon: "delete"

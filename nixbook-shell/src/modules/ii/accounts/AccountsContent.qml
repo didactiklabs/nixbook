@@ -247,7 +247,7 @@ Item {
                             visible: Accounts.authUrl !== ""
                             icon: "content_copy"
                             text: Translation.tr("Copy the sign-in link")
-                            onClicked: Quickshell.clipboardText = Accounts.authUrl
+                            onClicked: Clipboard.copy(Accounts.authUrl)
                         }
                         PanelButton {
                             compact: true

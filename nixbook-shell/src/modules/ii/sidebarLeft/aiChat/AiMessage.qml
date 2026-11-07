@@ -353,7 +353,7 @@ Rectangle {
                         buttonIcon: activated ? "inventory" : "content_copy"
 
                         onClicked: {
-                            Quickshell.clipboardText = root.messageData?.content
+                            Clipboard.copy(root.messageData?.content)
                             copyButton.activated = true
                             copyIconTimer.restart()
                         }

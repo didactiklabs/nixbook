@@ -15,6 +15,22 @@ in
     python3Packages = import ./mcp1Python.nix { pkgs = prev; } prev.python3Packages;
   };
 
+  # nixos-unstable's hash for opencode 2.2.5's node_modules is wrong on Linux
+  # (fixed on master by NixOS/nixpkgs@c399e1b7fb). Only applies while that hash
+  # is there, so it stops by itself when the pin catches up: then delete this.
+  opencode =
+    if
+      prev.stdenv.hostPlatform.isLinux
+      && prev.opencode.node_modules.outputHash == "sha256-xfOVcw1+waLVNhFDwzOtzxrUSQEogvn88YomydOlhwc="
+    then
+      prev.opencode.overrideAttrs (oldAttrs: {
+        node_modules = oldAttrs.node_modules.overrideAttrs {
+          outputHash = "sha256-prx9dX7kUvs/E3zopkaPk5LXh3xJAy5sZeum/W8L7cA=";
+        };
+      })
+    else
+      prev.opencode;
+
   # Fix upstream hash mismatch: the GitHub-generated patch for PR #23326
   # changed content, breaking the pinned hash in nixpkgs.
   openapi-generator-cli = prev.openapi-generator-cli.overrideAttrs (oldAttrs: {
