@@ -279,10 +279,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "v0.19.2",
-      "revision": "651b68847f72ace37bc6fcf024ae026cfeb313d8",
-      "url": "https://api.github.com/repos/syntasso/kratix-cli/tarball/refs/tags/v0.19.2",
-      "hash": "sha256-aUHd+gIedoryWjOpuSdm7aBvc4oMiRcTR+n2BfrDG6I="
+      "version": "v0.19.3",
+      "revision": "a7a6cbaf8e77467fde86d9559749f903013af7e8",
+      "url": "https://api.github.com/repos/syntasso/kratix-cli/tarball/refs/tags/v0.19.3",
+      "hash": "sha256-mh7U+U4Ab6pXdoABUj24NylzXH+FdFg4+LpbyDmNpIA="
     },
     "lanzaboote": {
       "type": "GitRelease",
