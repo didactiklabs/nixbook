@@ -9,13 +9,13 @@ The theme is `appearance.theme`. Switch it from:
 - the **launcher's theme mode** — **Mod+X**, or type the `@` prefix: every theme and variant, type to filter, Enter applies;
 - an AI agent (`set_theme`: "switch to Persona 3 Reload").
 
-| Theme       | Variants                                                  | Look                                                                                                                                             |
-| ----------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `material`  | —                                                         | The default: colours from the wallpaper, Material 3 tonal elevation (surfaces told apart by tone and a thin outline, no shadows)                 |
-| `persona`   | `p5` (Royal, default), `p3r` (3 Reload), `p4` (4 Revival) | Slanted black panels with bold outlines, hard unblurred offset shadows, accent slashes and halftone art; notifications as the in-game phone chat |
-| `chiikawa`  | `chiikawa` (default), `usagi`, `momonga`                  | Pastel light palettes, bubbly corners, bouncy motion and an animated Momonga                                                                     |
-| `cyberpunk` | `yellow` (default), `red`                                 | Cyberpunk 2077: chamfered HUD panels, glitch effects, Rajdhani type                                                                              |
-| `ghibli`    | `totoro` (default), `spirited`, `mononoke`                | Studio Ghibli: painted wallpapers, the films' spirits in the corners, Zen Maru Gothic and Klee One type                                          |
+| Theme       | Variants                                                  | Look                                                                                                                                                                   |
+| ----------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `material`  | —                                                         | The default: colours from the wallpaper, Material 3 tonal elevation (surfaces told apart by tone and a thin outline, no shadows)                                       |
+| `persona`   | `p5` (Royal, default), `p3r` (3 Reload), `p4` (4 Revival) | Slanted black panels with bold outlines, hard unblurred offset shadows, accent slashes and halftone art; notifications as the in-game phone chat                       |
+| `chiikawa`  | `chiikawa` (default), `usagi`, `momonga`                  | Pastel light palettes, bubbly corners, bouncy motion and an animated Momonga                                                                                           |
+| `cyberpunk` | `yellow` (default), `red`, `cyan`                         | Cyberpunk 2077, after its UI art: hairline HUD frames with cut corners, notched edges, rulers and caps tags; in-world screen wallpapers, glitch effects, Rajdhani type |
+| `ghibli`    | `totoro` (default), `spirited`, `mononoke`                | Studio Ghibli: painted wallpapers, the films' spirits in the corners, Zen Maru Gothic and Klee One type                                                                |
 
 ```nix
 programs.nixbook-shell.settings.appearance = {
@@ -24,7 +24,7 @@ programs.nixbook-shell.settings.appearance = {
 };
 ```
 
-Each theme keeps its own variant (`appearance.<theme>.variant`), so switching away and back restores it. Themes with variants also have per-part switches — `palette`, `motion`, `shapes`, `fonts`, and theme extras such as Persona's `halftone`, Chiikawa's `mascot`, Cyberpunk's `glitch` or Ghibli's `spirits` — to take only part of a theme.
+Each theme keeps its own variant (`appearance.<theme>.variant`), so switching away and back restores it. Themes with variants also have per-part switches — `palette`, `motion`, `shapes`, `fonts`, and theme extras such as Persona's `halftone`, Chiikawa's `mascot`, Cyberpunk's `glitch` and `frames` (the HUD frames behind the panels) or Ghibli's `spirits` — to take only part of a theme.
 
 ## Wallpapers per theme
 

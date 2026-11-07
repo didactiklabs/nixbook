@@ -121,6 +121,31 @@ Scope {
         }
     }
 
+    // The zigzag band on the intercom panels' top and bottom edges (the
+    // game's "CALLING" device panels).
+    component WaveStrip: Shape {
+        id: wave
+        property color stroke: Cyberpunk.accent
+        property real period: 8
+        preferredRendererType: Shape.CurveRenderer
+        height: 5
+        ShapePath {
+            fillColor: "transparent"
+            strokeColor: wave.stroke
+            strokeWidth: 1.5
+            joinStyle: ShapePath.MiterJoin
+            PathPolyline {
+                path: {
+                    const pts = [];
+                    const n = Math.max(1, Math.floor(wave.width / (wave.period / 2)));
+                    for (let i = 0; i <= n; i++)
+                        pts.push(Qt.point(i * wave.period / 2, i % 2 === 0 ? wave.height - 0.75 : 0.75));
+                    return pts;
+                }
+            }
+        }
+    }
+
     // A HUD button: chamfered outline in the accent, filled on hover.
     component HudButton: RippleButton {
         id: hud
@@ -413,6 +438,22 @@ Scope {
                         onClicked: mouse => mouse.button === Qt.RightButton ? root.dismiss() : root.activate()
                     }
 
+                    // The intercom's zigzag bands, top and bottom.
+                    WaveStrip {
+                        x: Cyberpunk.chamfer + 12
+                        y: 6
+                        width: parent.width * 0.42
+                        stroke: Cyberpunk.accent
+                        opacity: 0.7
+                    }
+                    WaveStrip {
+                        x: parent.width * 0.5
+                        y: parent.height - 11
+                        width: parent.width * 0.5 - Cyberpunk.chamfer - 12
+                        stroke: Cyberpunk.glitchColor
+                        opacity: 0.6
+                    }
+
                     // Accent notch on the cut corner and a tick on the right edge.
                     Rectangle {
                         x: 0; y: Cyberpunk.chamfer + 8
@@ -436,10 +477,18 @@ Scope {
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 12
+                            // The section-header tab of the game's UI art: a
+                            // chamfered block in the accent.
                             Rectangle {
-                                implicitWidth: headerText.implicitWidth + 22
+                                implicitWidth: headerText.implicitWidth + 26
                                 implicitHeight: headerText.implicitHeight + 4
-                                color: Cyberpunk.accent
+                                color: "transparent"
+                                Chamfer {
+                                    anchors.fill: parent
+                                    z: -1
+                                    cut: 7
+                                    fill: Cyberpunk.accent
+                                }
                                 StyledText {
                                     id: headerText
                                     anchors.centerIn: parent

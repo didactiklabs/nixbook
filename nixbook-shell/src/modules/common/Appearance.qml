@@ -251,7 +251,7 @@ Singleton {
         property int normal: sharp ? Persona.corner : Themes.rounded(17)
         property int large: sharp ? Persona.corner : Themes.rounded(23)
         property int verylarge: sharp ? Persona.corner : Themes.rounded(30)
-        property int full: 9999
+        property int full: Themes.pillRadius
         property int screenRounding: large
         property int windowRounding: sharp ? Persona.corner : Themes.rounded(18)
     }

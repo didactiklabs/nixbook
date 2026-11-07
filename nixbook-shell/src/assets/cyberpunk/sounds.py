@@ -140,6 +140,8 @@ VARIANTS = {
     "yellow": dict(blip=880.0, alarm=(880.0, 2077)),
     # lower, harsher (E5)
     "red": dict(blip=659.3, alarm=(659.3, 1337)),
+    # cleaner, terminal-like (D6)
+    "cyan": dict(blip=1174.7, alarm=(1174.7, 404)),
 }
 
 

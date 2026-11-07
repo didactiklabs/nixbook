@@ -153,9 +153,9 @@ Scope {
                             anchors.fill: parent
                             anchors.topMargin:    Appearance.sizes.elevationMargin
                             anchors.bottomMargin: Appearance.sizes.gapsOut
-                            color: Config.options.dock.showBackground && !Persona.shapes
+                            color: Config.options.dock.showBackground && !Persona.shapes && !Cyberpunk.frames
                                    ? Appearance.colors.colLayer0 : "transparent"
-                            border.width: Config.options.dock.showBackground && !Persona.shapes ? 1 : 0
+                            border.width: Config.options.dock.showBackground && !Persona.shapes && !Cyberpunk.frames ? 1 : 0
                             border.color: Appearance.colors.colLayer0Border
                             radius: Appearance.rounding.normal + 6
 
@@ -171,6 +171,14 @@ Scope {
                                 borderColor: ColorUtils.transparentize(Persona.frameBorderColor, 0.82)
                                 shadowOffset: Math.round(Persona.shadowOffset * 0.5)
                                 shadowOpacity: 0.55
+                            }
+                            // Cyberpunk theme: the HUD frame
+                            CyberpunkFrame {
+                                visible: Cyberpunk.frames && Config.options.dock.showBackground
+                                anchors.fill: parent
+                                z: -1
+                                color: Appearance.colors.colLayer0
+                                cut: 12
                             }
                         }
 

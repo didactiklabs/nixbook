@@ -266,7 +266,7 @@ lib.runTests {
       ];
     expected = [
       "red"
-      "#ff5a4f"
+      "#f04c49"
     ];
   };
   testCyberpunkDefaultVariant = {
