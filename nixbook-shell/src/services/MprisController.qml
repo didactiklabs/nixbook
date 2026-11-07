@@ -41,16 +41,30 @@ Singleton {
 	// comes back.
 	readonly property string selectedKey: Persistent.states?.media?.selectedPlayer ?? ""
 	readonly property bool autoSelect: root.selectedKey === ""
+	//
+	// A player with nothing loaded (jellyfin-mpv-shim waiting for a cast,
+	// a paused-then-cleared browser tab) counts as gone too while another
+	// one has a track: the dock card and the bar hide without a track, so a
+	// pick of an idle player left no media anywhere — and no card to scroll
+	// on to pick another.
+	function hasTrack(player) {
+		return (player?.trackTitle ?? "").length > 0;
+	}
+	readonly property bool anyHasTrack: root.players.some(p => root.hasTrack(p))
+	function usable(player) {
+		return player && (root.hasTrack(player) || !root.anyHasTrack) ? player : null;
+	}
 	readonly property MprisPlayer selectedPlayer: {
 		if (root.selectedKey === "") return null;
 		const _ = root.players.length;
-		return root.players.find(p => p.dbusName === root.selectedKey) ?? null;
+		return root.usable(root.players.find(p => p.dbusName === root.selectedKey));
 	}
 	// The tracked player may be a filtered-out duplicate (playerctld, the
 	// native browser bus when plasma-integration is active): only use it if real.
 	readonly property MprisPlayer trackedRealPlayer: (root.trackedPlayer && root.players.includes(root.trackedPlayer)) ? root.trackedPlayer : null
 
-	property MprisPlayer activePlayer: selectedPlayer ?? preferredPlayer ?? trackedRealPlayer ?? root.players[0] ?? null;
+	property MprisPlayer activePlayer: selectedPlayer ?? root.usable(preferredPlayer) ?? root.usable(trackedRealPlayer)
+		?? root.players.find(p => root.hasTrack(p)) ?? root.players[0] ?? null;
 
 	function selectPlayer(player) {
 		if (player && root.activePlayer) {
@@ -62,11 +76,14 @@ Singleton {
 			root.trackedPlayer = player;
 	}
 
+	// Scrolling only goes through players with something loaded: an idle
+	// one would hand straight back to Auto.
 	function cyclePlayer(delta) {
-		if (root.players.length < 2) return;
-		const i = root.players.indexOf(root.activePlayer);
-		const n = root.players.length;
-		root.selectPlayer(root.players[((i < 0 ? 0 : i) + delta + n) % n]);
+		const list = root.anyHasTrack ? root.players.filter(p => root.hasTrack(p)) : root.players;
+		if (list.length < 2) return;
+		const i = list.indexOf(root.activePlayer);
+		const n = list.length;
+		root.selectPlayer(list[((i < 0 ? 0 : i) + delta + n) % n]);
 	}
 
 	// "phone" (KDE Connect republishes phone players as
