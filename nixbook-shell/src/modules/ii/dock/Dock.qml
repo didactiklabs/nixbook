@@ -28,6 +28,15 @@ Scope {
             property var monitor: WM.monitorFor(modelData)
             property bool fullscreenOnThisMonitor: WM.fullscreenOnMonitor(monitor?.name)
 
+            // Nothing on this monitor's workspace: the dock shows. From
+            // niri's windows, not the active toplevel's `activated`: that
+            // drops whenever a shell panel takes the keyboard (DAI's bubble
+            // on Mod+C, the launcher), which brought the dock up with them.
+            readonly property var activeWorkspace: WM.activeWorkspaceForMonitor(monitor?.name)
+            readonly property bool workspaceEmpty: activeWorkspace
+                ? !WM.windowList.some(w => w.workspaceId === activeWorkspace.id)
+                : !ToplevelManager.activeToplevel?.activated
+
             property bool reveal: {
                 if (fullscreenOnThisMonitor)
                     return Config.options?.dock.hoverToReveal && dockMouseArea.containsMouse
@@ -36,7 +45,7 @@ Scope {
                     || peekHandle.hovered
                     || activeAppsArea.requestDockShow
                     || GlobalStates.dockPopupsOpen > 0
-                    || (!ToplevelManager.activeToplevel?.activated)
+                    || workspaceEmpty
             }
 
             exclusiveZone: (root.pinned && !fullscreenOnThisMonitor)
