@@ -139,21 +139,39 @@ youtube-music`, `-t discord`…), and when the app quits on its own the
   `transactions` (by words in the payee, notes or category, a category, an
   account, a date range; their totals) and `accounts` (balances). Actual must
   be running from the launcher (through the bridge) with your budget open;
-  otherwise the agent says so and how to open it. `transactions` lists each
-  one's id, for `budget_edit`: `add` a transaction ("I spent 12.50 at the
-  bakery", spending negative; payee, category and account by name, the
-  account left out when you have one on-budget account), `update` one (only
-  the fields asked), `delete` one (you are asked first, in a notification),
-  `set_budget` (a category's budgeted amount for a month), `move_budget`
-  (money from one category to another) and `create_category`. A name it can't
-  be sure of (two categories that fit) is refused with the names to choose
-  from, so the agent asks you rather than guessing. Nothing else: no sync,
-  import, bank link, account or budget file; writes are rate-limited and
-  logged by operation (`~/.local/state/nixbook-shell/electron-bridge.log`, no
-  amounts or names). In the side panel and the bubble, changes follow the
+  otherwise the agent says so and how to open it. `budget` also lists the
+  `schedules`, `rules` and `payees`, and `transactions` gives each one's id,
+  for `budget_edit`, which can change anything Actual's API can:
+  - transactions: `add` ("I spent 12.50 at the bakery", spending negative;
+    payee, category and account by name, the account left out when you have
+    one on-budget account; `transfer_to` another account; `splits` across
+    categories), `update` (only the fields asked), `delete`;
+  - the budget: `set_budget`, `move_budget` (from one category to another),
+    `set_carryover`, `hold` for next month, `reset_hold`;
+  - categories and groups: create, rename, hide, move, delete (their budget
+    moved to another category);
+  - accounts: create (on or off budget, a starting balance), rename, close
+    (what's left moved), reopen, delete;
+  - payees: create, rename, delete, merge;
+  - schedules: create (one date, or daily / weekly / monthly / yearly with an
+    interval, an end date or a number of times, weekends skipped, an exact,
+    approximate or between amount, posted by itself), update, complete,
+    delete, skip the next date, post the transaction now;
+  - rules: create, update, delete (payee, category and account by name);
+  - `sync` with the sync server, `bank_sync` one account or all;
+  - `call`: any other handler of Actual's public API, as `@actual-app/api`
+    sends it, but never one loading, closing, deleting, importing or
+    downloading a budget file.
+
+  Deleting, closing an account or merging payees asks you first, in a
+  notification. A name it can't be sure of (two categories that fit) is
+  refused with the names to choose from, so the agent asks you rather than
+  guessing. Writes are rate-limited and logged by operation
+  (`~/.local/state/nixbook-shell/electron-bridge.log`, no amounts or names). In the side panel and the bubble, changes follow the
   [trust ladder](#trust-ladder) (told after by default). Amounts go to the model as
   they are; payees and notes go through the [privacy mask](#personal-memory)
   like every reply (a payee who is one of your contacts is hidden).
+
 - **YouTube Music**: playing, the queue, likes and the volume go through its
   own MCP server (`youtube-music`, the app's API Server) when the agent has
   it; the page tools for the rest (lyrics, the library, playlists, the UI).

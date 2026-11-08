@@ -562,6 +562,8 @@ class Bridge:
         sid = self.session(page)
         expr = f"{self.adapter_js}\n;nixbookApp({json.dumps(op)}, {json.dumps(args)})"
         logged = {"channel": str(args.get("channel") or "")[:80]}
+        if op == "call":
+            logged["handler"] = str(args.get("handler") or "")[:60]
         if op == "send":
             logged["chars"] = len(args.get("content") or "")
             logged["reply"] = bool(args.get("reply_to"))
@@ -582,14 +584,20 @@ class Bridge:
         return r
 
 
+ACTUAL_WRITES = ("add", "update", "delete", "set_budget", "move_budget", "set_carryover", "hold", "reset_hold",
+                 "create_category", "category_update", "category_delete", "group_create", "group_update",
+                 "group_delete", "account_create", "account_update", "account_close", "account_reopen",
+                 "account_delete", "payee_create", "payee_update", "payee_delete", "payee_merge",
+                 "schedule_create", "schedule_update", "schedule_delete", "schedule_skip", "schedule_post",
+                 "rule_create", "rule_update", "rule_delete", "sync", "bank_sync", "call")
 # The adapters' operations: everything else is refused before any code runs.
 ADAPTER_OPS = {"discord": ("status", "current", "guilds", "channels", "dms", "find", "read", "send", "react"),
                # Actual Budget: its reads, and its writes through Actual's
-               # public API (electron/actual.js; no sync, import or bank link).
-               "actual": ("status", "accounts", "month", "categories", "transactions",
-                          "add", "update", "delete", "set_budget", "move_budget", "create_category")}
+               # public API (electron/actual.js; never the budget file itself).
+               "actual": ("status", "accounts", "month", "categories", "transactions", "schedules", "rules",
+                          "payees") + ACTUAL_WRITES}
 # The operations that change something: rate-limited and audited.
-ADAPTER_WRITES = {"actual": ("add", "update", "delete", "set_budget", "move_budget", "create_category")}
+ADAPTER_WRITES = {"actual": ACTUAL_WRITES}
 OPS = {"status": "op_status", "pages": "op_pages", "read": "op_read", "act": "op_act", "wait": "op_wait",
        "screenshot": "op_screenshot", "go": "op_go", "app": "op_app"}
 

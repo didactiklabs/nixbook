@@ -11,17 +11,40 @@
 //
 // Reading (the `budget` tool): status, accounts, month {month?}, categories
 // {query, month?}, transactions {query?, category?, account?, from?, to?,
-// limit?} (each with its id).
-// Writing (the `budget_edit` tool), through Actual's public API handlers,
-// the ones @actual-app/api uses: add {account?, date?, amount, payee?,
-// category?, notes?, cleared?} (api/transactions-add), update {id, date?,
-// amount?, payee?, category?, notes?, cleared?} (api/transaction-update),
-// delete {id} (api/transaction-delete), set_budget {category, amount,
-// month?} (api/budget-set-amount), move_budget {from, to, amount, month?}
-// (two budget-set-amount), create_category {name, group}
-// (api/category-create). Accounts, categories and payees are given by name,
-// found loosely, and refused when unsure (the names given back). Never a
-// sync, an import, a bank link, an account or a budget file changed.
+// limit?} (each with its id), schedules, rules, payees.
+// Writing (the `budget_edit` tool), through Actual's public API handlers
+// (the ones @actual-app/api uses), and the schedule handlers its own
+// screens use where the API has none:
+//   transactions: add {account?, date?, amount?, payee?, category?, notes?,
+//     cleared?, transfer_to?, splits?: [{amount, category?, notes?}]},
+//     update {id, …}, delete {id};
+//   budget: set_budget {category, amount, month?}, move_budget {from, to,
+//     amount, month?}, set_carryover {category, flag, month?}, hold {amount,
+//     month?}, reset_hold {month?};
+//   categories: create_category {name, group}, category_update {category,
+//     name?, hidden?, group?}, category_delete {category, transfer?},
+//     group_create {name, income?}, group_update {group, name?, hidden?},
+//     group_delete {group, transfer?};
+//   accounts: account_create {name, offbudget?, balance?}, account_update
+//     {account, name?, offbudget?}, account_close {account, transfer_account?,
+//     transfer_category?}, account_reopen {account}, account_delete {account};
+//   payees: payee_create {name}, payee_update {payee, name}, payee_delete
+//     {payee}, payee_merge {payee, merge: [names]};
+//   schedules: schedule_create {name?, payee?, account?, amount, amount_op?
+//     (is|isapprox|isbetween, amount_to), date (one date) or frequency
+//     (daily|weekly|monthly|yearly), interval?, start?, end_date?,
+//     occurrences?, skip_weekend?, weekend? (before|after), approx_date?,
+//     auto_post?}, schedule_update {id, the same}, schedule_delete {id},
+//     schedule_skip {id}, schedule_post {id};
+//   rules: rule_create {stage?, conditions_op?, conditions: [{field, op,
+//     value}], actions: [{field, op?, value}]}, rule_update {id, …},
+//     rule_delete {id};
+//   sync {} (the sync server), bank_sync {account?};
+//   call {handler: "api/…", args}: any other public API handler, as
+//     @actual-app/api documents it (ids and cents), but those loading,
+//     closing, deleting, importing or downloading a budget file.
+// Accounts, categories, groups and payees are given by name, found loosely,
+// and refused when unsure (the names given back).
 // Amounts are in the budget's currency units (Actual keeps cents: divided
 // by 100 here, multiplied back when writing); spending is negative, as in
 // Actual.
@@ -202,6 +225,193 @@ async function nixbookApp(op, o) {
       payee: { name: String(name).trim().slice(0, 100) },
     });
   }
+  // The public API's handler, else (an older Actual: "Unknown method") the
+  // one its own screens use.
+  async function sendFirst(calls) {
+    let last;
+    for (const [name, args] of calls) {
+      try {
+        return await send(name, args);
+      } catch (e) {
+        last = e;
+        const m = String((e && (e.message || e.reason)) || e);
+        if (!/unknown method|no handler/i.test(m)) throw e;
+      }
+    }
+    throw last;
+  }
+  async function allAccounts() {
+    return (await send("api/accounts-get")) || [];
+  }
+  async function anyAccountFor(want) {
+    return one(await allAccounts(), want, "account");
+  }
+  async function groupsAll() {
+    return (await send("api/category-groups-get")) || [];
+  }
+  async function groupFor(want) {
+    return one(await groupsAll(), want, "group");
+  }
+  async function payeesAll() {
+    return (await send("api/payees-get")) || [];
+  }
+  async function existingPayee(want) {
+    return one(
+      (await payeesAll()).filter((p) => !p.transfer_acct),
+      want,
+      "payee",
+    );
+  }
+  // The payee that moves money to that account (Actual's transfer payee).
+  async function transferPayee(account) {
+    const p = (await payeesAll()).find((x) => x.transfer_acct === account.id);
+    if (!p) throw { nixbook: `no transfer payee for ${account.name}` };
+    return p.id;
+  }
+  function bool(v) {
+    return v === true || v === "true";
+  }
+  // A schedule's date: one day, or how it repeats (Actual's RecurConfig).
+  function scheduleDate(o) {
+    if (o.frequency === undefined) {
+      const d = dateOf(o.date, null);
+      if (!d)
+        throw {
+          nixbook:
+            "date (YYYY-MM-DD) for one payment, or frequency (daily, weekly, monthly, yearly)",
+        };
+      return d;
+    }
+    const f = String(o.frequency).toLowerCase();
+    if (!["daily", "weekly", "monthly", "yearly"].includes(f))
+      throw { nixbook: "frequency: daily, weekly, monthly or yearly" };
+    const r = {
+      frequency: f,
+      interval: Math.max(1, Math.min(999, Number(o.interval) || 1)),
+      start: dateOf(o.start || o.date, today()),
+    };
+    if (o.end_date) {
+      r.endMode = "on_date";
+      r.endDate = dateOf(o.end_date, null);
+      if (!r.endDate) throw { nixbook: "end_date: YYYY-MM-DD" };
+    } else if (o.occurrences) {
+      r.endMode = "after_n_occurrences";
+      r.endOccurrences = Math.max(
+        1,
+        Math.min(9999, Number(o.occurrences) || 1),
+      );
+    } else r.endMode = "never";
+    if (o.skip_weekend !== undefined) r.skipWeekend = bool(o.skip_weekend);
+    if (o.weekend)
+      r.weekendSolveMode = String(o.weekend) === "before" ? "before" : "after";
+    return r;
+  }
+  function scheduleAmount(o) {
+    const op = String(o.amount_op || "is");
+    if (!["is", "isapprox", "isbetween"].includes(op))
+      throw { nixbook: "amount_op: is, isapprox or isbetween" };
+    if (op === "isbetween")
+      return [
+        op,
+        {
+          num1: cents(o.amount, "amount"),
+          num2: cents(o.amount_to, "amount_to"),
+        },
+      ];
+    return [op, cents(o.amount, "amount")];
+  }
+  async function scheduleFields(o) {
+    const f = {};
+    if (o.name !== undefined)
+      f.name = String(o.name || "").slice(0, 100) || null;
+    if (o.auto_post !== undefined) f.posts_transaction = bool(o.auto_post);
+    if (o.completed !== undefined) f.completed = bool(o.completed);
+    if (o.payee !== undefined)
+      f.payee = o.payee ? await payeeFor(o.payee) : null;
+    if (o.account !== undefined)
+      f.account = o.account ? (await anyAccountFor(o.account)).id : null;
+    if (o.amount !== undefined) [f.amountOp, f.amount] = scheduleAmount(o);
+    if (o.date !== undefined || o.frequency !== undefined) {
+      f.date = scheduleDate(o);
+      f.dateOp = bool(o.approx_date) ? "isapprox" : "is";
+    }
+    return f;
+  }
+  // The same as the conditions its own screens save.
+  function scheduleConditions(f, old) {
+    const conds = (old || []).filter(
+      (c) =>
+        !["payee", "account", "amount", "date"].includes(c.field) ||
+        f[c.field] === undefined,
+    );
+    if (f.payee) conds.push({ op: "is", field: "payee", value: f.payee });
+    if (f.account) conds.push({ op: "is", field: "account", value: f.account });
+    if (f.amount !== undefined)
+      conds.push({ op: f.amountOp, field: "amount", value: f.amount });
+    if (f.date !== undefined)
+      conds.push({ op: f.dateOp, field: "date", value: f.date });
+    return conds;
+  }
+  async function schedulesAll() {
+    try {
+      const r = await send("api/schedules-get");
+      if (Array.isArray(r)) return r;
+    } catch (e) {
+      /* an older Actual: its query */
+    }
+    const r = await query(q("schedules").select("*"));
+    return (r && r.data) || [];
+  }
+  async function scheduleById(id) {
+    const s = (await schedulesAll()).find((x) => x.id === String(id || ""));
+    if (!s)
+      throw {
+        nixbook: `no schedule ${JSON.stringify(String(id || ""))} (its id from budget schedules)`,
+      };
+    return s;
+  }
+  // Rule values said by name (payee, category, account) or in units
+  // (amount) as Actual keeps them (ids, cents).
+  async function ruleItems(list, kind) {
+    if (!Array.isArray(list) || !list.length)
+      throw { nixbook: `${kind}: a list of {field, op, value}` };
+    const payees = await payeesAll();
+    const cats = (await send("api/categories-get")) || [];
+    const accts = await allAccounts();
+    const idOf = (field, v) => {
+      if (typeof v !== "string") return v;
+      const pool =
+        field === "payee"
+          ? payees
+          : field === "category"
+            ? cats
+            : field === "account"
+              ? accts
+              : null;
+      if (!pool) return v;
+      if (pool.some((x) => x.id === v)) return v;
+      return one(pool, v, field).id;
+    };
+    const out = [];
+    for (const it of list.slice(0, 20)) {
+      if (!it || typeof it.field !== "string")
+        throw { nixbook: `${kind}: each one {field, op, value}` };
+      const x = {
+        field: it.field,
+        op: String(it.op || (kind === "actions" ? "set" : "is")),
+      };
+      let v = it.value;
+      if (it.field === "amount" && typeof v === "number")
+        v = Math.round(v * 100);
+      else if (Array.isArray(v)) v = v.map((y) => idOf(it.field, y));
+      else v = idOf(it.field, v);
+      x.value = v;
+      if (it.options) x.options = it.options;
+      out.push(x);
+    }
+    return out;
+  }
+
   async function transactionById(id) {
     const r = await query(
       q("transactions")
@@ -432,17 +642,44 @@ async function nixbookApp(op, o) {
       }
       case "add": {
         const account = await accountFor(o.account);
-        const amount = cents(o.amount, "amount");
+        const splits = Array.isArray(o.splits) ? o.splits.slice(0, 50) : null;
+        const subtransactions = [];
+        for (const sp of splits || []) {
+          const st = {
+            amount: cents(sp && sp.amount, "splits amount"),
+            notes: String((sp && sp.notes) || "").slice(0, 500),
+          };
+          if (sp && sp.category)
+            st.category = (await categoryFor(sp.category)).id;
+          subtransactions.push(st);
+        }
+        const amount =
+          o.amount === undefined && subtransactions.length
+            ? subtransactions.reduce((a, b) => a + b.amount, 0)
+            : cents(o.amount, "amount");
+        if (
+          subtransactions.length &&
+          subtransactions.reduce((a, b) => a + b.amount, 0) !== amount
+        )
+          throw { nixbook: "the splits must add up to the amount" };
         const date = dateOf(o.date, today());
         const tx = { date, amount, notes: String(o.notes || "").slice(0, 500) };
+        if (subtransactions.length) tx.subtransactions = subtransactions;
         if (o.cleared !== undefined) tx.cleared = o.cleared === true;
         const names = { account: account.name };
+        if (o.transfer_to) {
+          const to = await anyAccountFor(o.transfer_to);
+          if (to.id === account.id)
+            throw { nixbook: "a transfer goes to another account" };
+          tx.payee = await transferPayee(to);
+          names.payee = `transfer to ${to.name}`;
+        }
         if (o.category) {
           const c = await categoryFor(o.category);
           tx.category = c.id;
           names.category = c.name;
         }
-        if (o.payee) {
+        if (o.payee && !o.transfer_to) {
           tx.payee_name = String(o.payee).trim().slice(0, 100);
           names.payee = tx.payee_name;
         }
@@ -459,6 +696,7 @@ async function nixbookApp(op, o) {
         await send("api/transactions-add", {
           accountId: account.id,
           transactions: [tx],
+          runTransfers: !!o.transfer_to,
         });
         const t = (await alike()).find((x) => !before.has(x.id)) || {
           date,
@@ -565,6 +803,372 @@ async function nixbookApp(op, o) {
           category: { name, group_id: g.id, is_income: !!g.is_income },
         });
         return { currency: cur, created: { id, name, group: g.name } };
+      }
+      // -- reading: schedules, rules, payees ----------------------------
+      case "schedules": {
+        const [list, payees, accts] = await Promise.all([
+          schedulesAll(),
+          payeesAll(),
+          allAccounts(),
+        ]);
+        const name = (pool, id) =>
+          (pool.find((x) => x.id === id) || {}).name || "";
+        return {
+          currency: cur,
+          schedules: list.slice(0, 200).map((x) => {
+            const amount = x.amount !== undefined ? x.amount : x._amount;
+            const date = x.date !== undefined ? x.date : x._date;
+            return {
+              id: x.id,
+              name: x.name || "",
+              next_date: x.next_date || "",
+              completed: !!x.completed,
+              auto_post: !!x.posts_transaction,
+              payee: name(payees, x.payee !== undefined ? x.payee : x._payee),
+              account: name(
+                accts,
+                x.account !== undefined ? x.account : x._account,
+              ),
+              amount_op: x.amountOp || x._amountOp || "is",
+              amount:
+                amount && typeof amount === "object"
+                  ? { from: money(amount.num1), to: money(amount.num2) }
+                  : money(amount),
+              date,
+            };
+          }),
+        };
+      }
+      case "rules": {
+        const rules = (await send("api/rules-get")) || [];
+        return { currency: cur, rules: rules.slice(0, 200) };
+      }
+      case "payees": {
+        const words = fold(o.query).split(" ").filter(Boolean);
+        const accts = await allAccounts();
+        return {
+          payees: (await payeesAll())
+            .filter((p) => !words.length || score(p.name, words) > 0)
+            .slice(0, 300)
+            .map((p) => ({
+              id: p.id,
+              name: p.name,
+              transfer: p.transfer_acct
+                ? (accts.find((a) => a.id === p.transfer_acct) || {}).name ||
+                  true
+                : undefined,
+            })),
+        };
+      }
+
+      // -- budget ----------------------------------------------------------
+      case "set_carryover": {
+        const month = monthOf(o.month);
+        const c = await categoryFor(o.category);
+        await send("api/budget-set-carryover", {
+          month,
+          categoryId: c.id,
+          flag: bool(o.flag),
+        });
+        return { month, category: c.name, carryover: bool(o.flag) };
+      }
+      case "hold": {
+        const month = monthOf(o.month);
+        const amount = cents(o.amount, "amount");
+        await send("api/budget-hold-for-next-month", { month, amount });
+        return { currency: cur, month, held: money(amount) };
+      }
+      case "reset_hold": {
+        const month = monthOf(o.month);
+        await send("api/budget-reset-hold", { month });
+        return { month, hold: "reset" };
+      }
+
+      // -- categories and groups -------------------------------------------
+      case "category_update": {
+        const c = await categoryFor(o.category);
+        const fields = {};
+        if (o.name) fields.name = String(o.name).trim().slice(0, 100);
+        if (o.hidden !== undefined) fields.hidden = bool(o.hidden);
+        if (o.group) fields.group_id = (await groupFor(o.group)).id;
+        if (!Object.keys(fields).length)
+          throw { nixbook: "nothing to change: name, hidden or group" };
+        await send("api/category-update", { id: c.id, fields });
+        return { category: c.name, changed: Object.keys(fields) };
+      }
+      case "category_delete": {
+        const c = await categoryFor(o.category);
+        const transfer = o.transfer ? (await categoryFor(o.transfer)).id : null;
+        await send("api/category-delete", {
+          id: c.id,
+          transferCategoryId: transfer,
+        });
+        return { deleted: c.name, budgetMovedTo: o.transfer || null };
+      }
+      case "group_create": {
+        const name = String(o.name || "")
+          .trim()
+          .slice(0, 100);
+        if (!name) throw { nixbook: "name: the new group's" };
+        const existing = (await groupsAll()).find(
+          (g) => fold(g.name) === fold(name),
+        );
+        if (existing)
+          return { exists: { id: existing.id, name: existing.name } };
+        const id = await send("api/category-group-create", {
+          group: { name, is_income: bool(o.income) },
+        });
+        return { created: { id, name } };
+      }
+      case "group_update": {
+        const g = await groupFor(o.group);
+        const fields = {};
+        if (o.name) fields.name = String(o.name).trim().slice(0, 100);
+        if (o.hidden !== undefined) fields.hidden = bool(o.hidden);
+        if (!Object.keys(fields).length)
+          throw { nixbook: "nothing to change: name or hidden" };
+        await send("api/category-group-update", { id: g.id, fields });
+        return { group: g.name, changed: Object.keys(fields) };
+      }
+      case "group_delete": {
+        const g = await groupFor(o.group);
+        const transfer = o.transfer ? (await categoryFor(o.transfer)).id : null;
+        await send("api/category-group-delete", {
+          id: g.id,
+          transferCategoryId: transfer,
+        });
+        return { deleted: g.name, budgetMovedTo: o.transfer || null };
+      }
+
+      // -- accounts --------------------------------------------------------
+      case "account_create": {
+        const name = String(o.name || "")
+          .trim()
+          .slice(0, 100);
+        if (!name) throw { nixbook: "name: the new account's" };
+        const existing = (await allAccounts()).find(
+          (a) => fold(a.name) === fold(name) && !a.closed,
+        );
+        if (existing)
+          return { exists: { id: existing.id, name: existing.name } };
+        const id = await send("api/account-create", {
+          account: { name, offbudget: bool(o.offbudget) },
+          initialBalance:
+            o.balance === undefined ? null : cents(o.balance, "balance"),
+        });
+        return {
+          currency: cur,
+          created: { id, name, offBudget: bool(o.offbudget) },
+        };
+      }
+      case "account_update": {
+        const a = await anyAccountFor(o.account);
+        const fields = {};
+        if (o.name) fields.name = String(o.name).trim().slice(0, 100);
+        if (o.offbudget !== undefined) fields.offbudget = bool(o.offbudget);
+        if (!Object.keys(fields).length)
+          throw { nixbook: "nothing to change: name or offbudget" };
+        await send("api/account-update", { id: a.id, fields });
+        return { account: a.name, changed: Object.keys(fields) };
+      }
+      case "account_close": {
+        const a = await anyAccountFor(o.account);
+        const ta = o.transfer_account
+          ? (await anyAccountFor(o.transfer_account)).id
+          : null;
+        const tc = o.transfer_category
+          ? (await categoryFor(o.transfer_category)).id
+          : null;
+        await send("api/account-close", {
+          id: a.id,
+          transferAccountId: ta,
+          transferCategoryId: tc,
+        });
+        return { closed: a.name };
+      }
+      case "account_reopen": {
+        const a = await anyAccountFor(o.account);
+        await send("api/account-reopen", { id: a.id });
+        return { reopened: a.name };
+      }
+      case "account_delete": {
+        const a = await anyAccountFor(o.account);
+        await send("api/account-delete", { id: a.id });
+        return { deleted: a.name };
+      }
+
+      // -- payees ----------------------------------------------------------
+      case "payee_create": {
+        const name = String(o.name || "")
+          .trim()
+          .slice(0, 100);
+        if (!name) throw { nixbook: "name: the new payee's" };
+        return { payee: { id: await payeeFor(name), name } };
+      }
+      case "payee_update": {
+        const p = await existingPayee(o.payee);
+        const name = String(o.name || "")
+          .trim()
+          .slice(0, 100);
+        if (!name) throw { nixbook: "name: the payee's new name" };
+        await send("api/payee-update", { id: p.id, fields: { name } });
+        return { renamed: p.name, to: name };
+      }
+      case "payee_delete": {
+        const p = await existingPayee(o.payee);
+        await send("api/payee-delete", { id: p.id });
+        return { deleted: p.name };
+      }
+      case "payee_merge": {
+        const target = await existingPayee(o.payee);
+        const merge = [];
+        for (const m of Array.isArray(o.merge) ? o.merge.slice(0, 50) : []) {
+          const p = await existingPayee(m);
+          if (p.id !== target.id) merge.push(p);
+        }
+        if (!merge.length)
+          throw { nixbook: "merge: the payees to fold into it, by name" };
+        await send("api/payees-merge", {
+          targetId: target.id,
+          mergeIds: merge.map((p) => p.id),
+        });
+        return { into: target.name, merged: merge.map((p) => p.name) };
+      }
+
+      // -- schedules -------------------------------------------------------
+      case "schedule_create": {
+        const f = await scheduleFields(o);
+        if (f.amount === undefined)
+          throw { nixbook: "amount: the payment's (spending negative)" };
+        if (f.date === undefined)
+          throw {
+            nixbook: "date (one payment) or frequency (a repeating one)",
+          };
+        const ext = {
+          name: f.name || null,
+          posts_transaction: !!f.posts_transaction,
+          payee: f.payee || null,
+          account: f.account || null,
+          amount: f.amount,
+          amountOp: f.amountOp,
+          date: f.date,
+        };
+        const id = await sendFirst([
+          ["api/schedule-create", ext],
+          [
+            "schedule/create",
+            {
+              schedule: {
+                name: ext.name,
+                posts_transaction: ext.posts_transaction,
+              },
+              conditions: scheduleConditions(f, []),
+            },
+          ],
+        ]);
+        return { currency: cur, created: { id, name: ext.name || "" } };
+      }
+      case "schedule_update": {
+        const old = await scheduleById(o.id);
+        const f = await scheduleFields(o);
+        if (!Object.keys(f).length) throw { nixbook: "nothing to change" };
+        const fields = { ...f };
+        delete fields.dateOp;
+        await sendFirst([
+          [
+            "api/schedule-update",
+            { id: old.id, fields, resetNextDate: f.date !== undefined },
+          ],
+          [
+            "schedule/update",
+            {
+              schedule: {
+                id: old.id,
+                ...(f.name !== undefined ? { name: f.name } : {}),
+                ...(f.posts_transaction !== undefined
+                  ? { posts_transaction: f.posts_transaction }
+                  : {}),
+                ...(f.completed !== undefined
+                  ? { completed: f.completed }
+                  : {}),
+              },
+              conditions: scheduleConditions(f, old._conditions),
+              resetNextDate: f.date !== undefined,
+            },
+          ],
+        ]);
+        return { updated: old.id, changed: Object.keys(fields) };
+      }
+      case "schedule_delete": {
+        const old = await scheduleById(o.id);
+        await sendFirst([
+          ["api/schedule-delete", old.id],
+          ["schedule/delete", { id: old.id }],
+        ]);
+        return { deleted: { id: old.id, name: old.name || "" } };
+      }
+      case "schedule_skip": {
+        const old = await scheduleById(o.id);
+        await send("schedule/skip-next-date", { id: old.id });
+        return { skipped: old.id, was: old.next_date || "" };
+      }
+      case "schedule_post": {
+        const old = await scheduleById(o.id);
+        await send("schedule/post-transaction", { id: old.id });
+        return { posted: old.id };
+      }
+
+      // -- rules -----------------------------------------------------------
+      case "rule_create":
+      case "rule_update": {
+        const rule = {
+          stage: o.stage === "pre" || o.stage === "post" ? o.stage : null,
+          conditionsOp: o.conditions_op === "or" ? "or" : "and",
+          conditions: await ruleItems(o.conditions, "conditions"),
+          actions: await ruleItems(o.actions, "actions"),
+        };
+        if (op === "rule_update") {
+          if (!o.id) throw { nixbook: "id: the rule's (budget rules)" };
+          rule.id = String(o.id);
+          await send("api/rule-update", { rule });
+          return { updated: rule.id };
+        }
+        const r = await send("api/rule-create", { rule });
+        return { created: (r && r.id) || r };
+      }
+      case "rule_delete": {
+        if (!o.id) throw { nixbook: "id: the rule's (budget rules)" };
+        await send("api/rule-delete", String(o.id));
+        return { deleted: String(o.id) };
+      }
+
+      // -- sync ------------------------------------------------------------
+      case "sync": {
+        await send("api/sync");
+        return { synced: true };
+      }
+      case "bank_sync": {
+        const a = o.account ? await anyAccountFor(o.account) : null;
+        await send("api/bank-sync", a ? { accountId: a.id } : {});
+        return { bankSynced: a ? a.name : "every linked account" };
+      }
+
+      // -- any other public API handler -----------------------------------
+      case "call": {
+        const h = String(o.handler || "");
+        if (!/^api\/[a-z][a-z-]{1,60}$/.test(h))
+          throw {
+            nixbook:
+              "handler: an `api/…` handler of Actual's public API (e.g. api/transactions-get)",
+          };
+        if (
+          /budget-?(load|close|delete|download|create)|(^|\/|-)(load|download|close|delete|create)-budget|import|batch|init|shutdown/.test(
+            h,
+          )
+        )
+          throw { nixbook: `refused: ${h} acts on the budget file itself` };
+        const r = await send(h, o.args === undefined ? undefined : o.args);
+        return { handler: h, result: r === undefined ? null : r };
       }
       default:
         return { error: `unknown operation ${op}` };

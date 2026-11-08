@@ -16079,7 +16079,7 @@ def t_discord(ctx, args):
 # default). Payees and notes go through the privacy mask like every reply
 # (call_tool).
 
-BUDGET_ACTIONS = ("status", "summary", "category", "transactions", "accounts")
+BUDGET_ACTIONS = ("status", "summary", "category", "transactions", "accounts", "schedules", "rules", "payees")
 BUDGET_NOT_OPEN = ("Actual Budget isn't open with nixbook's bridge: the user opens it from the launcher (\"Actual "
                    "Budget\") and their budget file, then asks again (if it was already open, quit it completely "
                    "and start it again from the launcher). Nothing else reads it: don't screenshot it")
@@ -16120,7 +16120,8 @@ def budget_category_line(c, cur):
     "groceries —: budgeted, spent and what's left that month), `transactions` (`query` words in the "
     "payee, notes or category, `category`, `account`, `from`/`to` YYYY-MM-DD — default this month "
     "so far —, `limit`; their count, totals and each one's id, for budget_edit), `accounts` (balances), "
-    "`status`. Spent amounts are said positive. Answer with the figure asked for, not the whole list.",
+    "`schedules` (each one's id, next date, amount, payee, account, how it repeats), `rules` (as Actual keeps "
+    "them: ids), `payees` (`query` to narrow), `status`. Spent amounts are said positive. Answer with the figure asked for, not the whole list.",
     obj({"action": {"type": "string", "enum": list(BUDGET_ACTIONS)},
          "query": {"type": "string"}, "category": {"type": "string"}, "account": {"type": "string"},
          "month": {"type": "string", "description": "YYYY-MM (default this month)"},
@@ -16128,7 +16129,7 @@ def budget_category_line(c, cur):
          "limit": {"type": "integer", "description": "Transactions listed (default 20, at most 100)"}}, ["action"]),
     read_only=True,
     brief=("Money in Actual Budget, read only: summary (a month), category (query: food…: spent, left), "
-           "transactions (query, category, account, from/to: totals), accounts."),
+           "transactions (query, category, account, from/to: totals, ids), accounts, schedules, rules, payees."),
     props={"query": None, "category": None, "account": None, "month": "YYYY-MM", "from": None, "to": None,
            "limit": None},
 )
@@ -16190,6 +16191,25 @@ def t_budget(ctx, args):
                 + (f" · {t['notes']}" if t.get("notes") else "") for t in r.get("transactions") or []]
         more = (r.get("count") or 0) - len(rows)
         return [text("\n".join([head] + rows + ([f"… and {more} more (`limit`)"] if more > 0 else [])))]
+    if action == "schedules":
+        r = app("schedules")
+        cur = r.get("currency") or ""
+        rows = []
+        for x in r.get("schedules") or []:
+            a = x.get("amount")
+            amt = (f"{money_text(a.get('from'), cur)} to {money_text(a.get('to'), cur)}" if isinstance(a, dict)
+                   else ("about " if x.get("amount_op") == "isapprox" else "") + money_text(a, cur))
+            d = x.get("date")
+            how = (f"every {d.get('interval', 1)} {d.get('frequency')}" + (f" until {d['endDate']}" if d.get("endDate") else "")
+                   if isinstance(d, dict) else f"once, {d}")
+            rows.append(f"- [id {x.get('id')}] {x.get('name') or x.get('payee') or '?'}: {amt}, {how}, next "
+                        f"{x.get('next_date') or '—'}" + (f", {x['account']}" if x.get("account") else "")
+                        + (", posted by itself" if x.get("auto_post") else "") + (" (completed)" if x.get("completed") else ""))
+        return [text("Schedules:\n" + ("\n".join(rows) or "none"))]
+    if action == "rules":
+        return [text(app("rules"))]
+    if action == "payees":
+        return [text(app("payees", query=opt("query")))]
     r = app("accounts")
     cur = r.get("currency") or ""
     lines = [f"- {a.get('name')}: {money_text(a.get('balance'), cur)}"
@@ -16197,36 +16217,92 @@ def t_budget(ctx, args):
     return [text("Accounts:\n" + ("\n".join(lines) or "none"))]
 
 
-BUDGET_EDIT_ACTIONS = ("add", "update", "delete", "set_budget", "move_budget", "create_category")
+BUDGET_EDIT_ACTIONS = (
+    "add", "update", "delete", "set_budget", "move_budget", "set_carryover", "hold", "reset_hold",
+    "create_category", "category_update", "category_delete", "group_create", "group_update", "group_delete",
+    "account_create", "account_update", "account_close", "account_reopen", "account_delete",
+    "payee_create", "payee_update", "payee_delete", "payee_merge",
+    "schedule_create", "schedule_update", "schedule_delete", "schedule_skip", "schedule_post",
+    "rule_create", "rule_update", "rule_delete", "sync", "bank_sync", "call")
+# What deletes, closes or merges: the user's own yes first (a notification).
+BUDGET_EDIT_ASK = {"delete": "delete a transaction", "category_delete": "delete a category",
+                   "group_delete": "delete a category group", "account_close": "close an account",
+                   "account_delete": "delete an account", "payee_delete": "delete a payee",
+                   "payee_merge": "merge payees", "schedule_delete": "delete a schedule",
+                   "rule_delete": "delete a rule"}
+BUDGET_EDIT_KEYS = ("id", "amount", "amount_to", "amount_op", "payee", "category", "account", "date", "notes",
+                    "cleared", "month", "from", "to", "name", "group", "hidden", "income", "offbudget", "balance",
+                    "transfer", "transfer_account", "transfer_category", "transfer_to", "splits", "merge", "flag",
+                    "frequency", "interval", "start", "end_date", "occurrences", "skip_weekend", "weekend",
+                    "approx_date", "auto_post", "completed", "stage", "conditions_op", "conditions", "actions",
+                    "handler", "args")
 
 
 @tool(
     "budget_edit",
     "pages",
-    "Change the user's budget in Actual Budget through its own client, without its window (never click or type "
-    "in Actual for this). `add` a transaction (`amount`: spending NEGATIVE, income positive, in the budget's "
-    "currency; `payee`, `category` and `account` by name — the account may be left out when there is one "
-    "on-budget account —, `date` YYYY-MM-DD, default today, `notes`, `cleared`); `update` one (`id` from "
-    "budget transactions, and only the fields to change; `category` or `payee` empty clears it); `delete` one "
-    "(`id`; the user is asked first); `set_budget` (`category`, `amount` budgeted, `month` YYYY-MM, default "
-    "this month); `move_budget` (`from`, `to` categories, `amount` positive, `month`); `create_category` "
-    "(`name`, `group`). Names are matched loosely (grocery finds Groceries) and an unsure one is refused with "
-    "the names to choose from: ask the user then, don't guess. Say what was done, with the amounts.",
+    "Change anything in the user's Actual Budget through its own client, without its window (never click or "
+    "type in Actual). Amounts in the budget's currency, a transaction's spending NEGATIVE, income positive; "
+    "accounts, categories, groups and payees by name (matched loosely: grocery finds Groceries; an unsure one "
+    "is refused with the names: ask the user, don't guess); ids from the `budget` tool. "
+    "Transactions: `add` (`amount`, `payee`, `category`, `account` — left out when there is one on-budget "
+    "account —, `date` YYYY-MM-DD default today, `notes`, `cleared`, `transfer_to` an account for a transfer, "
+    "`splits` [{amount, category, notes}] adding up to it), `update` (`id` and only the fields to change; "
+    "`category`/`payee` empty clears it), `delete` (`id`). "
+    "Budget (`month` YYYY-MM, default this month): `set_budget` (`category`, `amount`), `move_budget` "
+    "(`from`, `to`, `amount` positive), `set_carryover` (`category`, `flag`), `hold` (`amount` for next "
+    "month), `reset_hold`. "
+    "Categories: `create_category` (`name`, `group`), `category_update` (`category`, `name`, `hidden`, "
+    "`group`), `category_delete` (`category`, `transfer` its budget to a category), `group_create` (`name`, "
+    "`income`), `group_update` (`group`, `name`, `hidden`), `group_delete` (`group`, `transfer`). "
+    "Accounts: `account_create` (`name`, `offbudget`, `balance` its starting balance), `account_update` "
+    "(`account`, `name`, `offbudget`), `account_close` (`account`, `transfer_account`/`transfer_category` for "
+    "what's left), `account_reopen`, `account_delete`. "
+    "Payees: `payee_create` (`name`), `payee_update` (`payee`, `name` the new one), `payee_delete`, "
+    "`payee_merge` (`payee` to keep, `merge` [names folded into it]). "
+    "Schedules (`budget` schedules gives ids): `schedule_create` (`amount`, `amount_op` is|isapprox|isbetween "
+    "with `amount_to`, `payee`, `account`, `name`; `date` for one payment, or `frequency` "
+    "daily|weekly|monthly|yearly with `interval`, `start`, `end_date` or `occurrences`, `skip_weekend`, "
+    "`weekend` before|after, `approx_date`; `auto_post` to add the transaction by itself), `schedule_update` "
+    "(`id`, the same fields, `completed`), `schedule_delete`, `schedule_skip` (its next date), `schedule_post` "
+    "(the transaction now). "
+    "Rules (`budget` rules shows them): `rule_create` (`conditions` [{field, op, value}], `actions` [{field, "
+    "op: set, value}], `conditions_op` and|or, `stage` pre|post; payee/category/account values by name, "
+    "amounts in units), `rule_update` (`id`, the whole rule), `rule_delete` (`id`). "
+    "`sync` (the sync server), `bank_sync` (`account`, or every linked one). "
+    "`call`: any other handler of Actual's public API (`handler` \"api/…\", `args` as @actual-app/api sends "
+    "them: ids and cents), never one acting on the budget file. "
+    "Deleting, closing or merging asks the user first. Say what was done, with the amounts.",
     obj({"action": {"type": "string", "enum": list(BUDGET_EDIT_ACTIONS)},
-         "id": {"type": "string", "description": "A transaction's id (budget transactions)"},
+         "id": {"type": "string", "description": "A transaction's, schedule's or rule's id (the budget tool)"},
          "amount": {"type": "number", "description": "In the budget's currency; a transaction's spending negative"},
+         "amount_to": {"type": "number"}, "amount_op": {"type": "string", "enum": ["is", "isapprox", "isbetween"]},
          "payee": {"type": "string"}, "category": {"type": "string"}, "account": {"type": "string"},
          "date": {"type": "string", "description": "YYYY-MM-DD"}, "notes": {"type": "string"},
          "cleared": {"type": "boolean"}, "month": {"type": "string", "description": "YYYY-MM (default this month)"},
-         "from": {"type": "string", "description": "move_budget: the category the money leaves"},
-         "to": {"type": "string", "description": "move_budget: the category it goes to"},
-         "name": {"type": "string", "description": "create_category: its name"},
-         "group": {"type": "string", "description": "create_category: its group"}}, ["action"]),
+         "from": {"type": "string"}, "to": {"type": "string"}, "name": {"type": "string"},
+         "group": {"type": "string"}, "hidden": {"type": "boolean"}, "income": {"type": "boolean"},
+         "offbudget": {"type": "boolean"}, "balance": {"type": "number"}, "transfer": {"type": "string"},
+         "transfer_account": {"type": "string"}, "transfer_category": {"type": "string"},
+         "transfer_to": {"type": "string"}, "flag": {"type": "boolean"},
+         "splits": {"type": "array", "items": {"type": "object"}},
+         "merge": {"type": "array", "items": {"type": "string"}},
+         "frequency": {"type": "string", "enum": ["daily", "weekly", "monthly", "yearly"]},
+         "interval": {"type": "integer"}, "start": {"type": "string"}, "end_date": {"type": "string"},
+         "occurrences": {"type": "integer"}, "skip_weekend": {"type": "boolean"},
+         "weekend": {"type": "string", "enum": ["before", "after"]}, "approx_date": {"type": "boolean"},
+         "auto_post": {"type": "boolean"}, "completed": {"type": "boolean"},
+         "stage": {"type": "string", "enum": ["pre", "post"]}, "conditions_op": {"type": "string", "enum": ["and", "or"]},
+         "conditions": {"type": "array", "items": {"type": "object"}},
+         "actions": {"type": "array", "items": {"type": "object"}},
+         "handler": {"type": "string", "description": "call: an api/… handler"},
+         "args": {"description": "call: its arguments"}}, ["action"]),
     destructive=True,
-    brief=("Change Actual Budget without its window: add/update/delete a transaction (amount: spending "
-           "negative), set_budget, move_budget, create_category; names matched loosely."),
+    brief=("Change anything in Actual Budget without its window: transactions (add with transfers and splits, "
+           "update, delete), budgets, categories and groups, accounts, payees, schedules, rules, sync, any api/ "
+           "handler (call)."),
     props={"id": None, "amount": None, "payee": None, "category": None, "account": None, "date": "YYYY-MM-DD",
-           "notes": None, "cleared": None, "month": "YYYY-MM", "from": None, "to": None, "name": None, "group": None},
+           "month": "YYYY-MM", "name": None, "frequency": None},
 )
 def t_budget_edit(ctx, args):
     action = as_str(args, "action", max_len=20)
@@ -16255,12 +16331,36 @@ def t_budget_edit(ctx, args):
             raise
 
     ctx.guard.check_rate()
+    ask = BUDGET_EDIT_ASK.get(action)
+    if action == "call" and re.search(r"delete|close|merge", str(args.get("handler") or "")):
+        ask = f"run {str(args.get('handler'))[:60]}"
+    if ask and action != "delete":
+        what = ", ".join(f"{k}: {short(str(args[k]), 60)}" for k in ("account", "category", "group", "payee", "merge",
+                                                                    "id", "handler") if k in args)
+        ask_user_yes(ctx, f"Let the agent {ask} in Actual Budget?", what or ask)
+    if action not in ("add", "update", "delete", "set_budget", "move_budget", "create_category"):
+        sent = {}
+        for k in BUDGET_EDIT_KEYS:
+            if k not in args:
+                continue
+            v = args[k]
+            if isinstance(v, str) and len(v) > 500:
+                raise ToolError(f"`{k}` is longer than 500 characters")
+            sent[k] = v
+        if len(json.dumps(sent)) > 20000:
+            raise ToolError("too much at once")
+        r = app(action, **sent)
+        return [text(r)]
     date = opt("date", 10, r"\d{4}-\d{2}-\d{2}")
     month = opt("month", 7, r"\d{4}-\d{2}")
     cleared = args.get("cleared") if isinstance(args.get("cleared"), bool) else None
     if action == "add":
-        r = app("add", amount=amount(), payee=opt("payee"), category=opt("category"), account=opt("account"),
-                date=date, notes=opt("notes", 500), cleared=cleared)
+        splits = args.get("splits") if isinstance(args.get("splits"), list) else None
+        if splits is not None and (len(splits) > 50 or not all(isinstance(x, dict) for x in splits)):
+            raise ToolError("`splits`: up to 50 {amount, category, notes}")
+        r = app("add", amount=amount(required=splits is None), payee=opt("payee"), category=opt("category"),
+                account=opt("account"), date=date, notes=opt("notes", 500), cleared=cleared,
+                transfer_to=opt("transfer_to"), splits=splits)
         t, cur = r.get("added") or {}, r.get("currency") or ""
         return [text(f"Added {money_text(t.get('amount'), cur)} on {t.get('date')}"
                      + (f" at {t['payee']}" if t.get("payee") else "") + (f" in {t['category']}" if t.get("category") else "")
