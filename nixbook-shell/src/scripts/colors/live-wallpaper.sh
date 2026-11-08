@@ -207,6 +207,9 @@ make_smooth() { # <video> <out> <w> <h>
   n=$(($(nproc) / 4))
   [ "$n" -ge 1 ] || n=1
   [ "$n" -le 2 ] || n=2
+  # One when memory is short (under 6 GB available): same result, half the
+  # memory, twice the time.
+  [ "$(awk '/^MemAvailable:/ { print int($2 / 1048576) }' /proc/meminfo)" -ge 6 ] || n=1
   # Whole seconds: every slice starts on a frame of the video, whatever its
   # frame rate.
   per=$((((frames + n - 1) / n + FPS - 1) / FPS * FPS))
