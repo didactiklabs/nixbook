@@ -356,7 +356,9 @@ start() {
   while read -r name w h; do
     socks+=("$(sock "$name")")
     rm -f "$(sock "$name")"
-    mpvpaper -p -l bottom -o "$OPTS input-ipc-server=$(sock "$name")" "$name" "$(best_file "$video" "$w" "$h")" >/dev/null 2>&1 </dev/null &
+    # Its messages kept (small, in the runtime dir): why one ended, if it does.
+    mpvpaper -p -l bottom -o "$OPTS input-ipc-server=$(sock "$name")" "$name" "$(best_file "$video" "$w" "$h")" \
+      >"$RUNDIR/live-wallpaper-$name.log" 2>&1 </dev/null &
     n=$((n + 1))
   done < <(outputs)
   for _ in $(seq 150); do

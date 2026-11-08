@@ -210,8 +210,25 @@ Singleton {
             // 0: new players started and shown (lift the widgets above them);
             // 11: switched inside the running players; 10: (ensure) already
             // playing.
-            if (code === 0) GlobalStates.backgroundRestack += 1;
+            if (code === 0) {
+                GlobalStates.backgroundRestack += 1;
+                root.playerGeneration += 1; // new players: tell them to play
+            }
             if (code === 0 || code === 10 || code === 11) root.playingPath = run.video;
+        }
+    }
+    // New players started (they start paused): the pause state is sent again.
+    property int playerGeneration: 0
+    // A player that ended on its own (it happened once, nothing logged; its
+    // messages now go to $XDG_RUNTIME_DIR/nixbook-shell/live-wallpaper-<output>.log)
+    // is started again: `ensure` is a cheap check while it runs.
+    Timer {
+        interval: 30000
+        repeat: true
+        running: root._started && root.isVideo(root.configuredPath) && !Idle.screensOff
+        onTriggered: {
+            if (!liveProc.running && root._livePending === null)
+                root.liveRun("ensure", root.configuredPath);
         }
     }
     Connections {
@@ -309,7 +326,7 @@ Singleton {
                 && GlobalStates.wallpaperTransitionsBusy === 0 && !root.savingPower
                 && !Idle.screensOff && !root.desktopCovered(output.modelData)
             // Sent again for a new player (it starts playing).
-            readonly property string want: root.playingPath === "" ? "" : `${root.playingPath}|${output.shows}`
+            readonly property string want: root.playingPath === "" ? "" : `${root.playingPath}|${output.shows}|${root.playerGeneration}`
             onWantChanged: if (output.want !== "") sendPause.restart()
             // Settled first: a workspace switch or a window opening goes
             // through several layouts.
