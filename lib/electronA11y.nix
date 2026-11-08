@@ -24,8 +24,13 @@
 # (`{ pkgs; }`) it only turns the tree on.
 #
 # Bridged packages carry `nixbookElectronBridge` {app, command, markers,
-# a11y}: desktopApps.nix hands the ones installed to the watcher
-# (programs.nixbook-shell.electronBridge.apps).
+# a11y, openHosts}: nixbookShellConfig.nix hands the ones installed to the
+# watcher (programs.nixbook-shell.electronBridge.apps). `openHosts` are the
+# hosts of the links the app opens itself (passed to the launcher as
+# --open-host: Electron apps ignore a URL on their command line, the bridge
+# navigates the app to it), and `nixbookOpenLinks` (host → the wrapped
+# binary) is what a profile hands to zenBrowserConfig.openInApps so those
+# links open in the app, from Zen and from other apps.
 #
 # The launchers (.desktop files) that run the original binary by its store
 # path run the wrapped one instead.
@@ -41,6 +46,12 @@ let
   bridged = config != null && shell.electronBridge.enable && app != null;
   a11y = config == null || shell.electronAccessibility;
   launcher = config.programs.nixbook-shell.package.passthru.electronBridge;
+  # The links each bridged app opens itself (by its bridge name).
+  openHosts =
+    {
+      youtube-music = [ "music.youtube.com" ];
+    }
+    .${app} or [ ];
   # What the app's processes name (its store paths, and the ones its package
   # says it runs from: passthru.electronMarkers), for the launcher catching a
   # relaunch and the watcher (programs.nixbook-shell.electronBridge.apps).
@@ -48,6 +59,7 @@ let
     inherit app a11y;
     command = [ "${pkg}/bin/${bin}" ];
     markers = [ "${pkg}" ] ++ (pkg.electronMarkers or [ ]);
+    inherit openHosts;
   };
   wrapped = pkgs.symlinkJoin {
     name = "${pkg.pname or (lib.getName pkg)}-${
@@ -63,7 +75,7 @@ let
             makeWrapper ${launcher}/bin/nixbook-electron-app $out/bin/${bin} \
               --add-flags "${lib.optionalString (!a11y) "--no-a11y "}${
                 lib.concatMapStrings (m: "--marker ${m} ") bridge.markers
-              }${app} -- ${pkg}/bin/${bin}"
+              }${lib.concatMapStrings (h: "--open-host ${h} ") openHosts}${app} -- ${pkg}/bin/${bin}"
           ''
         else
           "wrapProgram $out/bin/${bin} --add-flags --force-renderer-accessibility"
@@ -83,7 +95,10 @@ let
       // {
         unwrapped = pkg;
       }
-      // lib.optionalAttrs bridged { nixbookElectronBridge = bridge; };
+      // lib.optionalAttrs bridged {
+        nixbookElectronBridge = bridge;
+        nixbookOpenLinks = lib.genAttrs openHosts (_: "${wrapped}/bin/${bin}");
+      };
   };
 in
 if config != null && !shell.enable then

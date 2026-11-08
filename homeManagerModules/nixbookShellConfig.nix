@@ -568,6 +568,18 @@ in
             de = "Um das System zu aktualisieren, führe `osupdate` aus: es wendet den neuesten Stand des nixbook-Branches main an (git@github.com:didactiklabs/nixbook).";
             vi = "Để cập nhật hệ thống, chạy `osupdate`: nó áp dụng bản mới nhất của nhánh main của nixbook (git@github.com:didactiklabs/nixbook).";
           };
+          # zenBrowserConfig.openInApps: which sites' links open in an app.
+          openInApps =
+            let
+              zen = config.customHomeManagerModules.zenBrowserConfig or { };
+              hosts = lib.concatStringsSep ", " (lib.attrNames (zen.openInApps or { }));
+            in
+            lib.mkIf ((zen.enable or false) && (zen.openInApps or { }) != { }) {
+              en = "Links to ${hosts} open in their desktop app, not in Zen: clicked or typed in Zen (a small extension stops the page and hands the link over; a tab opened just for it closes, private windows are left alone) or opened by another app (Discord, a notification, xdg-open). If the app can't start, the page loads in Zen as usual. The list is customHomeManagerModules.zenBrowserConfig.openInApps in profiles/${hostName}/${user}/default.nix.";
+              fr = "Les liens vers ${hosts} s'ouvrent dans leur application, pas dans Zen : cliqués ou tapés dans Zen (une petite extension arrête la page et passe le lien ; un onglet ouvert juste pour lui se ferme, les fenêtres privées ne sont pas touchées) ou ouverts par une autre application (Discord, une notification, xdg-open). Si l'application ne démarre pas, la page se charge dans Zen comme d'habitude. La liste est customHomeManagerModules.zenBrowserConfig.openInApps dans profiles/${hostName}/${user}/default.nix.";
+              de = "Links zu ${hosts} öffnen sich in ihrer Desktop-App, nicht in Zen: in Zen angeklickt oder eingetippt (eine kleine Erweiterung stoppt die Seite und gibt den Link weiter; ein nur dafür geöffneter Tab schließt sich, private Fenster bleiben unberührt) oder von einer anderen App geöffnet (Discord, eine Benachrichtigung, xdg-open). Startet die App nicht, lädt die Seite wie gewohnt in Zen. Die Liste ist customHomeManagerModules.zenBrowserConfig.openInApps in profiles/${hostName}/${user}/default.nix.";
+              vi = "Liên kết tới ${hosts} mở trong ứng dụng của nó, không phải trong Zen: khi bấm hoặc gõ trong Zen (một tiện ích nhỏ dừng trang và chuyển liên kết; thẻ chỉ mở cho liên kết đó sẽ đóng, cửa sổ riêng tư không bị đụng tới) hoặc khi ứng dụng khác mở (Discord, thông báo, xdg-open). Nếu ứng dụng không khởi động được, trang tải trong Zen như bình thường. Danh sách là customHomeManagerModules.zenBrowserConfig.openInApps trong profiles/${hostName}/${user}/default.nix.";
+            };
         };
         coreFacts = [
           {

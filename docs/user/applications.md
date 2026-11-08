@@ -33,6 +33,21 @@ Default applications (MIME): PDF → zathura, images → imv, video → mpv, fol
 
 With nixbook-shell, Zen follows the shell's colours ([app colours](/nixbook-shell/themes#app-colours)).
 
+### Links that open in an app
+
+`zenBrowserConfig.openInApps` (host → the command opening such a link) sends the links of some sites to their desktop app instead of a tab. On totoro, **YouTube Music links** (`music.youtube.com`) play in the YouTube Music app:
+
+```nix
+customHomeManagerModules.zenBrowserConfig.openInApps = pear-desktop.nixbookOpenLinks or { };
+```
+
+(`pear-desktop` being the package from `nixbookShellConfig.electronA11y`, bridged where nixbook-shell runs.)
+
+- **Clicked or typed in Zen**: a small force-installed extension stops the page load and hands the link to the app (through its native messaging host). The page you clicked from stays as it was; a tab opened just for the link (a link opening a new tab, a middle click) is closed. Private windows are left alone, and when the app can't be started the page loads in Zen as usual.
+- **Opened by other apps** (a link in Discord, Slack, a notification, `xdg-open`, `$BROWSER`): `http`/`https` links go through `nixbook-open-url`, which sends the listed hosts to their app and everything else to Zen.
+
+Most Electron apps, YouTube Music included, ignore a link on their command line: the app opens it through nixbook-shell's [bridge](/nixbook-shell/desktop-agents#apps-and-browser-through-the-page), which loads it in the app's page, whether the app was already running (its window comes to the front) or is starting. Without nixbook-shell the app is not bridged, so `nixbookOpenLinks` is empty and links stay in Zen.
+
 ## Thunderbird
 
 `customHomeManagerModules.thunderbirdConfig` installs Thunderbird; accounts are configured in its UI, since mail credentials are sensitive.

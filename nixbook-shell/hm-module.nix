@@ -1027,6 +1027,11 @@ in
               default = true;
               description = "With its accessibility tree on.";
             };
+            openHosts = lib.mkOption {
+              type = lib.types.listOf lib.types.str;
+              default = [ ];
+              description = "The hosts of the links it opens itself (`--open-host`).";
+            };
           };
         }
       );

@@ -1116,6 +1116,13 @@ Whether to enable the Zen Browser, a privacy-focused Firefox fork. Configures Ze
 
 Whether to let Zen Browser offer to save passwords. When false (default), the OfferToSaveLogins policy and signon.rememberSignons setting are disabled so the browser never prompts to save logins. Set to true to enable the built-in password manager and the "ask to save passwords" prompt.
 
+### `customHomeManagerModules.zenBrowserConfig.openInApps`
+
+- **Type:** `attribute set of string`
+- **Default:** `{}`
+
+Links opened in a desktop app instead of the browser: host → the command opening such a link (`COMMAND URL`, detached). Both the links other apps open (xdg-open: http(s) goes through a small router, `nixbook-open-url`, which sends everything else to Zen; also `$BROWSER`) and the ones clicked or typed in Zen (a force-installed extension stops the page load and hands the link to the app through a native messaging host; a tab opened for the link alone is closed; private windows are left alone; when the app can't be started the page loads in Zen as usual). A bridged Electron app opens its own links (lib/electronA11y.nix's `nixbookOpenLinks`: YouTube Music for music.youtube.com); most Electron apps ignore a URL on their command line.
+
 ---
 
 ## zshConfig

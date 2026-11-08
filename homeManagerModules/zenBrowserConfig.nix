@@ -10,6 +10,106 @@ let
   # nixbook-shell's desktop agents in Zen (nixbookShellConfig.zenAgent).
   agent = shell.enable && shell.zenAgent.enable;
   zenAgent = config.programs.nixbook-shell.package.passthru.zenAgent;
+
+  # Links opened in apps (openInApps): a router for xdg-open's http(s)
+  # links, and a Zen extension + native host for the links clicked in Zen.
+  openInApps = cfg.zenBrowserConfig.openInApps;
+  openHosts = lib.attrNames openInApps;
+  zenExe = lib.getExe' config.programs.zen-browser.finalPackage "zen-twilight";
+  router = pkgs.writeShellScriptBin "nixbook-open-url" ''
+    # The http(s) link handler (xdg-open, $BROWSER): a link on one of
+    # zenBrowserConfig.openInApps' hosts goes to its app, anything else
+    # to Zen. The app is started detached (through niri when it can: a
+    # scope of its own), so this returns at once.
+    url="''${1-}"
+    host=""
+    case "$url" in
+      [hH][tT][tT][pP]://* | [hH][tT][tT][pP][sS]://*)
+        host=''${url#*://}
+        host=''${host%%[/?#]*}
+        host=''${host##*@}
+        host=''${host%%:*}
+        host=''${host,,}
+        ;;
+    esac
+    app=""
+    case "$host" in
+    ${lib.concatStrings (
+      lib.mapAttrsToList (h: cmd: ''
+        ${lib.escapeShellArg h}) app=${lib.escapeShellArg cmd} ;;
+      '') openInApps
+    )}
+    esac
+    if [ -n "$app" ] && [ "$#" -eq 1 ]; then
+      if [ -n "''${NIRI_SOCKET-}" ] && command -v niri >/dev/null 2>&1 \
+        && niri msg action spawn -- "$app" "$url" >/dev/null 2>&1; then
+        exit 0
+      fi
+      ${pkgs.util-linux}/bin/setsid -f "$app" "$url" </dev/null >/dev/null 2>&1
+      exit 0
+    fi
+    exec ${zenExe} "$@"
+  '';
+  openInAppsId = "open-in-apps@nixbook";
+  openInAppsExtension =
+    pkgs.runCommand "nixbook-open-in-apps.xpi"
+      {
+        nativeBuildInputs = [ pkgs.zip ];
+        manifest = builtins.toJSON {
+          manifest_version = 2;
+          name = "nixbook open in apps";
+          version = "1.0";
+          description = "Opens the links of some sites in their desktop app (nixbook's zenBrowserConfig.openInApps) instead of a tab.";
+          browser_specific_settings.gecko = {
+            id = openInAppsId;
+            strict_min_version = "128.0";
+          };
+          background = {
+            scripts = [
+              "hosts.js"
+              "background.js"
+            ];
+            persistent = true;
+          };
+          permissions = [
+            "webRequest"
+            "webRequestBlocking"
+            "nativeMessaging"
+            "tabs"
+          ]
+          ++ map (h: "*://${h}/*") openHosts;
+        };
+        hosts = "const OPEN_IN_APPS = ${builtins.toJSON openHosts};\n";
+        passAsFile = [
+          "manifest"
+          "hosts"
+        ];
+      }
+      ''
+        cp $manifestPath manifest.json
+        cp $hostsPath hosts.js
+        cp ${./zenOpenInApps/background.js} background.js
+        zip -q -X -9 $out manifest.json hosts.js background.js
+      '';
+  openInAppsHost =
+    let
+      hostConfig = pkgs.writeText "nixbook-open-in-app.json" (builtins.toJSON { apps = openInApps; });
+      exe = pkgs.writeShellScript "nixbook-open-in-app" ''
+        exec ${pkgs.python3}/bin/python3 -I ${./zenOpenInApps/host.py} ${hostConfig} "$@"
+      '';
+    in
+    pkgs.runCommand "nixbook-open-in-app-host" { } ''
+      mkdir -p $out/lib/mozilla/native-messaging-hosts
+      cat > $out/lib/mozilla/native-messaging-hosts/nixbook_open_in_app.json <<EOF
+      ${builtins.toJSON {
+        name = "nixbook_open_in_app";
+        description = "Opens a link in the app nixbook's zenBrowserConfig.openInApps names for its host";
+        path = "${exe}";
+        type = "stdio";
+        allowed_extensions = [ openInAppsId ];
+      }}
+      EOF
+    '';
 in
 {
   options.customHomeManagerModules.zenBrowserConfig = {
@@ -38,6 +138,29 @@ in
         manager and the "ask to save passwords" prompt.
       '';
     };
+    openInApps = lib.mkOption {
+      type = lib.types.attrsOf lib.types.str;
+      default = { };
+      example = lib.literalExpression ''
+        pearDesktop.nixbookOpenLinks # { "music.youtube.com" = ".../bin/pear-desktop"; }
+      '';
+      description = ''
+        Links opened in a desktop app instead of the browser: host → the
+        command opening such a link (`COMMAND URL`, detached). Both the
+        links other apps open (xdg-open: http(s) goes through a small
+        router, `nixbook-open-url`, which sends everything else to Zen;
+        also `$BROWSER`) and the ones clicked or typed in Zen (a
+        force-installed extension stops the page load and hands the link
+        to the app through a native messaging host; a tab opened for the
+        link alone is closed; private windows are left alone; when the
+        app can't be started the page loads in Zen as usual).
+
+        A bridged Electron app opens its own links
+        (lib/electronA11y.nix's `nixbookOpenLinks`: YouTube Music for
+        music.youtube.com); most Electron apps ignore a URL on their
+        command line.
+      '';
+    };
   };
   config = lib.mkIf cfg.zenBrowserConfig.enable {
     programs.zen-browser = lib.mkMerge [
@@ -51,6 +174,15 @@ in
           installation_mode = "force_installed";
           install_url = "file://${zenAgent.extension}";
           # In private windows too would let agents read them: not allowed.
+          private_browsing = false;
+        };
+        profiles."default".settings."xpinstall.signatures.required" = false;
+      })
+      (lib.mkIf (openInApps != { }) {
+        nativeMessagingHosts = [ openInAppsHost ];
+        policies.ExtensionSettings.${openInAppsId} = {
+          installation_mode = "force_installed";
+          install_url = "file://${openInAppsExtension}";
           private_browsing = false;
         };
         profiles."default".settings."xpinstall.signatures.required" = false;
@@ -358,10 +490,34 @@ in
         fi
       '';
 
-    xdg.mimeApps.defaultApplications = {
-      "text/html" = "zen-twilight.desktop";
-      "x-scheme-handler/http" = "zen-twilight.desktop";
-      "x-scheme-handler/https" = "zen-twilight.desktop";
+    xdg.mimeApps.defaultApplications = lib.mkMerge [
+      {
+        "text/html" = "zen-twilight.desktop";
+        "x-scheme-handler/http" = "zen-twilight.desktop";
+        "x-scheme-handler/https" = "zen-twilight.desktop";
+      }
+      # Ahead of Zen: links to an app's host go to it, the rest to Zen.
+      (lib.mkIf (openInApps != { }) {
+        "x-scheme-handler/http" = lib.mkBefore [ "nixbook-open-url.desktop" ];
+        "x-scheme-handler/https" = lib.mkBefore [ "nixbook-open-url.desktop" ];
+      })
+    ];
+    # Not an xdg.desktopEntries (that would put it in home.packages).
+    xdg.dataFile."applications/nixbook-open-url.desktop" = lib.mkIf (openInApps != { }) {
+      text = lib.generators.toINI { } {
+        "Desktop Entry" = {
+          Type = "Application";
+          Name = "Open link";
+          Comment = "Opens a link in its app (zenBrowserConfig.openInApps), else in Zen";
+          Exec = "${router}/bin/nixbook-open-url %u";
+          MimeType = "x-scheme-handler/http;x-scheme-handler/https;";
+          NoDisplay = true;
+          Terminal = false;
+        };
+      };
+    };
+    home.sessionVariables = lib.mkIf (openInApps != { }) {
+      BROWSER = lib.mkForce "${router}/bin/nixbook-open-url";
     };
   };
 }
