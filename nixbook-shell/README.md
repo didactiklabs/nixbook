@@ -1261,7 +1261,16 @@ answers you read. It works in plain code, with no model involved:
   nixbook-accounts' copy, plus the Discord names their notes give ("Discord:
   alesio", the same words the `discord` tool's `find` searches:
   `note_discord_names`), in any case and as a mention (`@alesio`), as
-  `⟦Handle N⟧`. It also covers the words in `ai.privacy.terms`,
+  `⟦Handle N⟧`.
+- **The chat apps' people** (`mask_chat_people`, Discord and Slack through
+  their bridge): the adapters say which fields hold a person (a message's
+  author, a member, a friend, a user, a DM's `@name`), so those are hidden
+  whoever they are, contact or not, lowercase usernames included: a display
+  name as a person (a stand-in name, or `⟦Person N⟧`), a username as a
+  `⟦Handle N⟧`, and their names wherever else they appear in the same reply
+  (a message's text). Bots are left as they are, contacts to the usual mask.
+  The Allow / No notifications show the real names (`ask_user_yes`
+  unmasks), and mentions come back too (`@Brisa` → `@ana`). It also covers the words in `ai.privacy.terms`,
   card numbers (Luhn checked, card prefixes only) and IBANs (mod-97
   checked). A first name two contacts share becomes `⟦Name N⟧`. Names match
   without accents and in capitals (Aurelien, AURÉLIEN). A first name is
@@ -1331,7 +1340,8 @@ answers you read. It works in plain code, with no model involved:
   the rows a reader sees, the details blacked out, and the model told where
   each one is (`⟦Person 2⟧ at image (x,y)`), so it can still click there.
 - **Not covered**: faces and photos, text the OCR misses, anything not on the
-  list (a stranger's name in a mail), and what other apps send on their own.
+  list (a stranger's name in a mail, or in a chat message when that person
+  isn't in the same reply), the chat apps' pages read through `page_read`, and what other apps send on their own.
   Screenshots and images unless `ai.privacy.screenshots` is on. claude.ai
   connectors run through Anthropic's servers: the model reads placeholders,
   but what a connector fetches, and the real values it is given, pass
