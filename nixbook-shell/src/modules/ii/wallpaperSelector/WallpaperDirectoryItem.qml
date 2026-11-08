@@ -12,7 +12,9 @@ Item {
 
     required property var fileModelData
     property bool isDirectory: fileModelData ? Boolean(fileModelData.fileIsDir) : false
-    property bool useThumbnail: fileModelData ? Images.isValidImageByName(fileModelData.fileName) : false
+    // Live (video) wallpapers get a thumbnail of a frame, like images.
+    readonly property bool isLive: fileModelData ? (!isDirectory && Wallpapers.isVideo(fileModelData.fileName)) : false
+    property bool useThumbnail: fileModelData ? (Images.isValidImageByName(fileModelData.fileName) || isLive) : false
     property alias colBackground: background.color
     property alias colText: wallpaperItemName.color
     property alias radius: background.radius
@@ -121,6 +123,33 @@ Item {
 
                     }
 
+                }
+
+                // Marks a live wallpaper.
+                Rectangle {
+                    visible: root.isLive
+                    anchors { left: parent.left; bottom: parent.bottom; margins: 6 }
+                    implicitWidth: liveBadgeRow.implicitWidth + 12
+                    implicitHeight: liveBadgeRow.implicitHeight + 4
+                    radius: Appearance.rounding.full
+                    color: Appearance.colors.colPrimary
+                    RowLayout {
+                        id: liveBadgeRow
+                        anchors.centerIn: parent
+                        spacing: 3
+                        MaterialSymbol {
+                            text: "play_circle"
+                            fill: 1
+                            iconSize: Appearance.font.pixelSize.small
+                            color: Appearance.colors.colOnPrimary
+                        }
+                        StyledText {
+                            text: Translation.tr("Live")
+                            font.pixelSize: Appearance.font.pixelSize.smallest
+                            font.weight: Font.DemiBold
+                            color: Appearance.colors.colOnPrimary
+                        }
+                    }
                 }
 
                 Loader {

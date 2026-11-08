@@ -33,9 +33,11 @@ Singleton {
     property var orderMap: ({})
     property bool orderLoaded: false
     property string searchQuery: ""
-    readonly property list<string> extensions: [ // TODO: add videos
+    // Images and videos (live wallpapers) are listed side by side.
+    readonly property list<string> videoExtensions: ["mp4", "webm", "mkv", "avi", "mov"]
+    readonly property list<string> extensions: [
         "jpg", "jpeg", "png", "webp", "avif", "bmp", "svg"
-    ]
+    ].concat(root.videoExtensions)
     property list<string> wallpapers: [] // List of absolute file paths (without file://)
     property bool thumbnailGenerationActive: false
     property bool thumbnailGenerationPending: false
@@ -58,37 +60,159 @@ Singleton {
     readonly property string configuredPath: Config.options?.background?.wallpaperPath ?? ""
     onConfiguredPathChanged: {
         root.confirmedPath = "";
-        if (root.isVideo(root.configuredPath)) root.restackOverVideo();
+        root.syncPlayback();
     }
 
-    // Video wallpapers are played by mpvpaper (scripts/colors/live-wallpaper.sh,
-    // started by switchwall.sh). It runs in the shell's service, so a shell
-    // restart or a new login leaves none: start it again when the shell starts.
+    // Live (video) wallpapers. A video is shown like an image — its still
+    // frame (its first frame, `live-wallpaper.sh poster`) in the transition,
+    // the preview, the blur and the colours — and played over it once the
+    // transition is over (Background.qml shows the video only while
+    // `playingPath` is the wallpaper it shows). mpvpaper runs in the shell's
+    // service, so a restart or a new login leaves none: started again here.
     function isVideo(path) {
         return /\.(mp4|webm|mkv|avi|mov)$/i.test(path ?? "");
+    }
+    readonly property string liveScript: `${FileUtils.trimFileProtocol(Directories.scriptPath)}/colors/live-wallpaper.sh`
+    // Video path → its still frame, once known.
+    property var posters: ({})
+    function posterFor(path) {
+        const clean = FileUtils.trimFileProtocol(path ?? "");
+        if (!root.isVideo(clean)) return clean;
+        if (root.posters[clean]) return root.posters[clean];
+        // The configured video's frame, recorded with it by switchwall.sh.
+        if (clean === root.configuredPath) return Config.options.background.thumbnailPath;
+        // Any other (a lock-screen video): made now, shown once it is there.
+        if (!root._posterAsked[clean]) {
+            root._posterAsked[clean] = true;
+            Qt.callLater(() => root.withPoster(clean, () => {}));
+        }
+        return "";
+    }
+    property var _posterAsked: ({})
+    function rememberPoster(video, poster) {
+        const next = Object.assign({}, root.posters);
+        next[video] = poster;
+        root.posters = next;
+    }
+    // Makes (or finds) a video's still frame, then calls back; the newest
+    // request wins (hovering through a folder of videos).
+    Process {
+        id: posterProc
+        property string video: ""
+        property var callbacks: []
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const poster = text.trim();
+                const video = posterProc.video;
+                // A run replaced by a newer request can still end here: its
+                // file (named after the video's path) tells them apart.
+                if (!poster.endsWith(`/${Qt.md5(video)}.jpg`)) return;
+                const callbacks = posterProc.callbacks;
+                posterProc.callbacks = [];
+                root.rememberPoster(video, poster);
+                for (const cb of callbacks) cb(poster);
+            }
+        }
+    }
+    function withPoster(video, callback) {
+        const clean = FileUtils.trimFileProtocol(video);
+        if (root.posters[clean]) { callback(root.posters[clean]); return; }
+        if (posterProc.running && posterProc.video === clean) {
+            posterProc.callbacks = posterProc.callbacks.concat([callback]);
+            return;
+        }
+        posterProc.running = false;
+        posterProc.video = clean;
+        posterProc.callbacks = [callback];
+        posterProc.exec([root.liveScript, "poster", clean]);
+    }
+
+    // The video mpvpaper plays and the shell has re-stacked its desktop
+    // layer over ("" = none).
+    property string playingPath: ""
+    property string _playTarget: ""
+    property bool _started: false
+    function syncPlayback() {
+        if (!root._started) return; // the first look is ensureVideoWallpaper()
+        const path = root.configuredPath;
+        if (root.isVideo(path)) {
+            if (path === root.playingPath && !playDelay.running) return;
+            root._playTarget = path;
+            playDelay.restart();
+        } else {
+            root._playTarget = "";
+            playDelay.stop();
+            if (root.playingPath !== "" || restackWait.running) {
+                // Background drops the video at once and shows the old still
+                // frame then the new image over it: stop it a moment later.
+                root.playingPath = "";
+                restackWait.running = false;
+                stopDelay.restart();
+            }
+        }
+    }
+    // Played once the transition to its still frame is over: the video
+    // starts on that frame, so the picture just comes alive. Until then the
+    // previous video keeps playing under the transition.
+    Timer {
+        id: playDelay
+        interval: 200
+        onTriggered: {
+            if (GlobalStates.wallpaperTransitionsBusy > 0 && playWaited.elapsed < 4000) {
+                playWaited.elapsed += interval;
+                playDelay.restart();
+                return;
+            }
+            playWaited.elapsed = 0;
+            if (root._playTarget === "" || root._playTarget !== root.configuredPath) return;
+            root.playingPath = "";
+            Quickshell.execDetached([root.liveScript, "play", root._playTarget]);
+            root.restackOverVideo(root._playTarget);
+        }
+    }
+    QtObject { id: playWaited; property int elapsed: 0 }
+    Timer {
+        id: stopDelay
+        interval: 600
+        onTriggered: {
+            if (!root.isVideo(root.configuredPath))
+                Quickshell.execDetached([root.liveScript, "stop"]);
+        }
     }
     property bool videoChecked: false
     function ensureVideoWallpaper() {
         if (root.videoChecked || !Config.ready) return;
         root.videoChecked = true;
+        root._started = true;
         const path = root.configuredPath;
-        if (!root.isVideo(path)) return;
-        Quickshell.execDetached([`${FileUtils.trimFileProtocol(Directories.scriptPath)}/colors/live-wallpaper.sh`, "ensure", path]);
-        root.restackOverVideo();
+        if (!root.isVideo(path)) {
+            // One left over from before a restart (it lives in the service).
+            Quickshell.execDetached([root.liveScript, "stop"]);
+            return;
+        }
+        Quickshell.execDetached([root.liveScript, "ensure", path]);
+        root.restackOverVideo(path);
     }
     // Under niri the video is on the Bottom layer, like the desktop widgets
     // (Background.qml), and a surface mapped later stacks on top: once every
-    // output has its mpvpaper surface, re-map the desktop layer above it.
-    function restackOverVideo() {
+    // output has its mpvpaper surface, re-map the desktop layer above it,
+    // then let Background show the video.
+    function restackOverVideo(path) {
         restackWait.running = false;
+        restackWait.video = path;
         restackWait.running = true;
     }
     Process {
         id: restackWait
+        property string video: ""
         command: ["bash", "-c", 'sleep 0.3; for _ in $(seq 60); do '
             + 'n=$(niri msg --json layers | jq \'[.[] | select(.namespace == "mpvpaper" and .layer == "Bottom")] | length\'); '
             + '[ "$n" -ge "$(niri msg --json outputs | jq \'[.[] | select(.current_mode != null)] | length\')" ] && exit 0; sleep 0.25; done; exit 1']
-        onExited: (code) => { if (code === 0) GlobalStates.backgroundRestack += 1 }
+        onExited: (code) => {
+            if (code !== 0 || restackWait.video !== root.configuredPath) return;
+            GlobalStates.backgroundRestack += 1;
+            root.playingPath = restackWait.video;
+        }
     }
     Connections {
         target: Config
@@ -96,12 +220,22 @@ Singleton {
     }
     Component.onCompleted: root.ensureVideoWallpaper()
 
+    // Previewing a video shows its still frame (made first, if needed).
+    property string _previewWanted: ""
     function startPreview(path) {
         if (!path || path.length === 0) return;
-        root.previewPath = path;
+        root._previewWanted = path;
+        if (!root.isVideo(path)) {
+            root.previewPath = path;
+            return;
+        }
+        root.withPoster(path, () => {
+            if (root._previewWanted === path) root.previewPath = path;
+        });
     }
 
     function stopPreview() {
+        root._previewWanted = "";
         root.previewPath = "";
     }
 
@@ -118,12 +252,31 @@ Singleton {
         Quickshell.execDetached(args);
     }
 
+    // The selector on the live wallpaper folder (Settings → Background →
+    // Live Wallpaper Folder; else where it was), or the system file dialog
+    // when the selector is set to use it.
+    readonly property string liveFolder: FileUtils.expandHome((Config.options.wallpaperSelector?.liveWallpapersPath ?? "").trim())
+    function openLiveWallpapers() {
+        if (Config.options.wallpaperSelector.useSystemFileDialog) {
+            root.openFallbackPicker(Appearance.m3colors.darkmode, root.liveFolder);
+            return;
+        }
+        if (root.liveFolder.length > 0) root.setDirectory(root.liveFolder);
+        GlobalStates.wallpaperSelectorTarget = "wallpaper";
+        GlobalStates.wallpaperSelectorOpen = true;
+    }
+
     function switchCommand(path, darkMode = Appearance.m3colors.darkmode) {
         return [Directories.wallpaperSwitchScriptPath, "--mode", darkMode ? "dark" : "light", "--image", path];
     }
 
     function apply(path, darkMode = Appearance.m3colors.darkmode) {
         if (!path || path.length === 0) return;
+        if (root.isVideo(path) && !root.posters[FileUtils.trimFileProtocol(path)]) {
+            // Its still frame first, so the transition goes to it at once.
+            root.withPoster(path, () => root.apply(path, darkMode));
+            return;
+        }
         root.confirmedPath = path;
         Quickshell.execDetached(root.switchCommand(path, darkMode));
         root.changed()
@@ -601,6 +754,10 @@ Singleton {
 
         function apply(path: string): void {
             root.apply(path);
+        }
+
+        function openLive(): void {
+            root.openLiveWallpapers();
         }
 
         function setSortMode(mode: string): void {

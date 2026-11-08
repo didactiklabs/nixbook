@@ -35,15 +35,10 @@ post_process() {
   "$SCRIPT_DIR/code/material-code-set-color.sh" &
 }
 
-THUMBNAIL_DIR="$STATE_DIR/user/generated/wallpaper/video-thumbnails"
-
 is_video() {
   local extension="${1##*.}"
-  [[ $extension == "mp4" || $extension == "webm" || $extension == "mkv" || $extension == "avi" || $extension == "mov" ]] && return 0 || return 1
-}
-
-kill_existing_mpvpaper() {
-  pkill -f -9 mpvpaper || true
+  extension="${extension,,}"
+  [[ $extension == "mp4" || $extension == "webm" || $extension == "mkv" || $extension == "avi" || $extension == "mov" ]]
 }
 
 set_wallpaper_path() {
@@ -53,10 +48,13 @@ set_wallpaper_path() {
   fi
 }
 
-set_thumbnail_path() {
-  local path="$1"
+# A video and its still frame in one write: the shell shows the still frame
+# like an image (transition, blur, colours), then plays the video over it.
+set_video_wallpaper() {
+  local path="$1" still="$2"
   if [ -f "$SHELL_CONFIG_FILE" ]; then
-    jq --arg path "$path" '.background.thumbnailPath = $path' "$SHELL_CONFIG_FILE" >"$SHELL_CONFIG_FILE.tmp" && mv "$SHELL_CONFIG_FILE.tmp" "$SHELL_CONFIG_FILE"
+    jq --arg path "$path" --arg still "$still" '.background.wallpaperPath = $path | .background.thumbnailPath = $still' \
+      "$SHELL_CONFIG_FILE" >"$SHELL_CONFIG_FILE.tmp" && mv "$SHELL_CONFIG_FILE.tmp" "$SHELL_CONFIG_FILE"
   fi
 }
 
@@ -80,55 +78,31 @@ switch() {
       exit 0
     fi
 
-    if [[ -z $colors_only_flag ]]; then
-      kill_existing_mpvpaper
-    fi
-
     if is_video "$imgpath"; then
-      mkdir -p "$THUMBNAIL_DIR"
-
-      missing_deps=()
-      if ! command -v mpvpaper &>/dev/null; then
-        missing_deps+=("mpvpaper")
-      fi
-      if ! command -v ffmpeg &>/dev/null; then
-        missing_deps+=("ffmpeg")
-      fi
-      if [ ${#missing_deps[@]} -gt 0 ]; then
+      if ! command -v mpvpaper &>/dev/null || ! command -v ffmpeg &>/dev/null; then
         # mpvpaper/ffmpeg are runtime deps of the nixbookShellConfig Nix module; if they
         # are missing the shell was not started through the `nixbook-shell` wrapper.
-        echo "Missing deps: ${missing_deps[*]}"
         notify-send \
           -a "Wallpaper switcher" \
           -c "im.error" \
           "Can't switch to video wallpaper" \
-          "Missing dependencies: ${missing_deps[*]} (provided by the nixbookShellConfig Nix module; start the shell with nixbook-shell)"
+          "mpvpaper or ffmpeg is missing (provided by the nixbookShellConfig Nix module; start the shell with nixbook-shell)"
         exit 0
       fi
 
-      if [[ -z $colors_only_flag ]]; then
-        set_wallpaper_path "$imgpath"
-
-        local video_path="$imgpath"
-        # One mpvpaper per output, paused while hidden, from an optimized
-        # copy when there is one (see live-wallpaper.sh).
-        "$SCRIPT_DIR/live-wallpaper.sh" play "$video_path"
-      fi
-
-      thumbnail="$THUMBNAIL_DIR/$(basename "$imgpath").jpg"
-      ffmpeg -y -i "$imgpath" -vframes 1 "$thumbnail" 2>/dev/null
-
-      if [[ -z $colors_only_flag ]]; then
-        set_thumbnail_path "$thumbnail"
-      fi
-
-      if [ -f "$thumbnail" ]; then
-        matugen_args+=(image "$thumbnail")
-        generate_colors_material_args=(--path "$thumbnail")
-      else
-        echo "Cannot create image to colorgen"
+      # Its first frame: the playback (started by the shell once the
+      # transition is over, live-wallpaper.sh) starts on it.
+      if ! thumbnail=$("$SCRIPT_DIR/live-wallpaper.sh" poster "$imgpath"); then
+        notify-send -a "Wallpaper switcher" -c "im.error" "Can't switch to video wallpaper" "Couldn't read a frame of $(basename "$imgpath")"
         exit 1
       fi
+
+      if [[ -z $colors_only_flag ]]; then
+        set_video_wallpaper "$imgpath" "$thumbnail"
+      fi
+
+      matugen_args+=(image "$thumbnail")
+      generate_colors_material_args=(--path "$thumbnail")
     else
       matugen_args+=(image "$imgpath")
       generate_colors_material_args=(--path "$imgpath")

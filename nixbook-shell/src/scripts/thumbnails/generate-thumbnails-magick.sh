@@ -50,11 +50,10 @@ generate_thumbnail() {
   local src="$1"
   local abs_path
   abs_path="$(realpath "$src")"
-  # Skip files with multiple frames (GIFs, videos, etc.)
+  local video=""
   case "${abs_path,,}" in
-  *.gif | *.mp4 | *.webm | *.mkv | *.avi | *.mov)
-    return
-    ;;
+  *.gif) return ;; # several frames
+  *.mp4 | *.webm | *.mkv | *.avi | *.mov) video=1 ;; # live wallpapers: a frame
   esac
   local encoded_path
   encoded_path="$(urlencode "$abs_path")"
@@ -70,7 +69,16 @@ generate_thumbnail() {
   # Written beside it, then renamed: an interrupted run used to leave a
   # truncated PNG that, existing, was never made again.
   local tmp="$out.$BASHPID.tmp"
-  if magick "$abs_path" -resize "${THUMBNAIL_SIZE}x${THUMBNAIL_SIZE}" "png:$tmp"; then
+  if [ -n "$video" ]; then
+    if ffmpeg -v error -y -i "$abs_path" -frames:v 1 \
+      -vf "scale='min($THUMBNAIL_SIZE,iw)':'min($THUMBNAIL_SIZE,ih)':force_original_aspect_ratio=decrease" \
+      -f image2 -vcodec png "$tmp" </dev/null; then
+      mv -f "$tmp" "$out"
+    else
+      rm -f "$tmp"
+      return 1
+    fi
+  elif magick "$abs_path" -resize "${THUMBNAIL_SIZE}x${THUMBNAIL_SIZE}" "png:$tmp"; then
     mv -f "$tmp" "$out"
   else
     rm -f "$tmp"
