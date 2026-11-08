@@ -122,6 +122,14 @@ def actual(op, o):
                 "from": {"category": "Rent", "budgeted": 1150}, "to": {"category": "Restaurants", "budgeted": 250}}
     if op == "create_category":
         return {"currency": "EUR", "created": {"id": "c9", "name": o.get("name"), "group": "Food"}}
+    if op == "schedules":
+        return {"currency": "EUR", "schedules": [
+            {"id": "s1", "name": "Rent", "next_date": "2026-12-01", "completed": False, "auto_post": True,
+             "payee": "Landlord", "account": "Checking", "amount_op": "is", "amount": -1200,
+             "date": {"frequency": "monthly", "interval": 1, "start": "2026-01-01", "endMode": "never"}}]}
+    if op in ("rules", "payees") or "_" in op or op in ("sync", "call", "hold"):
+        # The other operations: what reached the page, said back.
+        return {"op": op, "args": o}
     return {"error": f"unknown operation {op}"}
 
 

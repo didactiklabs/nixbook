@@ -2024,6 +2024,19 @@ expect_eq "budget_edit delete: nothing deleted on a no" "" "$(grep '"eval"' "$tm
 echo allow >"$tmp/ask"
 expect_contains "budget_edit delete: allowed" "$(STUB_ASK="$tmp/ask" call budget_edit '{"action":"delete","id":"t9"}')" \
   "Deleted the transaction of -42.50 EUR on 2026-11-01."
+expect_contains "budget schedules: each with its id, how it repeats" "$(call budget '{"action":"schedules"}')" \
+  "- [id s1] Rent: -1,200.00 EUR, every 1 monthly, next 2026-12-01, Checking, posted by itself"
+out=$(call budget_edit '{"action":"schedule_create","amount":-13.49,"payee":"Netflix","frequency":"monthly","start":"2026-11-15","auto_post":true}')
+expect_eq "budget_edit schedule_create: its fields passed on" '["schedule_create",-13.49,"monthly",true]' \
+  "$(grep '"eval"' "$tmp/cdp.log" | tail -n1 | jq -c '[.op, .args.amount, .args.frequency, .args.auto_post]')"
+expect_contains "budget_edit rule_create: a rule passed on" \
+  "$(call budget_edit '{"action":"rule_create","conditions":[{"field":"payee","op":"is","value":"Carrefour"}],"actions":[{"field":"category","value":"Groceries"}]}')" '"op": "rule_create"'
+: >"$calls"
+expect_contains "budget_edit account_delete: the user's no stops it" "$(call budget_edit '{"action":"account_delete","account":"Savings"}')" "the user said no"
+expect_contains "budget_edit account_delete: asked, naming it" "$(grep -- '-A allow=Allow' "$calls" | tail -n1)" "account: Savings"
+expect_eq "budget_edit account_delete: nothing reached the page on a no" "" "$(grep '"eval"' "$tmp/cdp.log" | jq -r 'select(.op=="account_delete") | .op')"
+expect_contains "budget_edit call: a delete handler asked too" "$(call budget_edit '{"action":"call","handler":"api/payee-delete","args":{"id":"p1"}}')" "the user said no"
+expect_contains "budget_edit call: another handler passed on" "$(call budget_edit '{"action":"call","handler":"api/transactions-get","args":{"accountId":"a1"}}')" '"handler": "api/transactions-get"'
 expect_eq "tools/list: budget_edit marked destructive, budget read-only" "true true" \
   "$(python3 "$mcp" tools | jq -r '[(.[] | select(.name=="budget_edit") | .annotations.destructiveHint), (.[] | select(.name=="budget") | .annotations.readOnlyHint)] | map(tostring) | join(" ")')"
 kill "$electron_pid" 2>/dev/null
