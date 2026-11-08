@@ -230,7 +230,7 @@ Scope {
                             DockSeparator {
                                 visible: Config.options.dock.showPinButton
                                     && (dockRow.hasPinnedApps
-                                        || !(Config.options.dock.showMedia && dockMedia.hasTrack))
+                                        || !(Config.options.dock.showMedia && dockMedia.shown))
                             }
 
                             DragApps {
@@ -262,7 +262,7 @@ Scope {
                                           && a.toplevels.length > 0
                                     )
                                 }
-                                property bool hasActiveUnpinned: activeUnpinned.length > 0 || dockMedia.visible
+                                property bool hasActiveUnpinned: activeUnpinned.length > 0 || (dockMedia.visible && dockMedia.shown)
 
                                 implicitWidth:  activeRow.implicitWidth
                                 implicitHeight: parent.height
