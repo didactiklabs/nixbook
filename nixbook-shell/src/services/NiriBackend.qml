@@ -122,6 +122,9 @@ Scope {
     // floating window's position (a desktop widget it covers) reads this,
     // bumped only when a floating window moved or resized.
     property int floatingLayoutRevision: 0
+    // The same for tiled windows (a column resized: what a live wallpaper
+    // checks to know whether the desktop still shows).
+    property int tiledLayoutRevision: 0
 
     function updateAll() {
         getWindows.running = true;
@@ -247,7 +250,7 @@ Scope {
             break;
         }
         case "WindowLayoutsChanged": {
-            let floating = false;
+            let floating = false, tiled = false;
             for (const [id, layout] of (d.changes ?? [])) {
                 const w = root._windows[id];
                 if (!w) continue;
@@ -256,8 +259,10 @@ Scope {
                 const shown = root._published[String(id)];
                 if (shown) Object.assign(shown, root.layoutFields(layout));
                 if (w.is_floating) floating = true;
+                else tiled = true;
             }
             if (floating) root.floatingLayoutRevision++;
+            if (tiled) root.tiledLayoutRevision++;
             return;
         }
         case "ConfigLoaded":

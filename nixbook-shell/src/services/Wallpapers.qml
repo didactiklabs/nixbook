@@ -220,6 +220,69 @@ Singleton {
     }
     Component.onCompleted: root.ensureVideoWallpaper()
 
+    // Back on AC power: the 60 fps copies waiting for it are made now
+    // (live-wallpaper.sh makes them on AC power only).
+    Connections {
+        target: Battery
+        function onIsPluggedInChanged() {
+            if (Battery.isPluggedIn && root._started && root.isVideo(root.configuredPath))
+                Quickshell.execDetached([root.liveScript, "ensure", root.configuredPath]);
+        }
+    }
+
+    // Whether nothing of an output's desktop can be seen: the tiled columns
+    // of its active workspace span its width (the gaps between them aside),
+    // or a floating (or fullscreen) window covers most of it. Windows show
+    // the video's blurred still frame (NiriBackdrop), never the video itself.
+    function desktopCovered(screen) {
+        const niri = WM.backend;
+        if (!niri || !screen) return false;
+        niri.tiledLayoutRevision; // a column resized (sizes updated in place)
+        niri.floatingLayoutRevision;
+        const ws = niri.activeWorkspaceForMonitor(screen.name);
+        if (!ws) return false;
+        const columns = {};
+        for (const w of niri.windowList) {
+            if (w.workspaceId !== ws.id) continue;
+            const width = w.tileWidth || w.width;
+            if (w.floating) {
+                if (width * (w.tileHeight || w.height) >= 0.9 * screen.width * screen.height) return true;
+                continue;
+            }
+            columns[w.column ?? 0] = Math.max(columns[w.column ?? 0] ?? 0, width);
+        }
+        let span = 0;
+        for (const c in columns) span += columns[c];
+        return span >= 0.9 * screen.width;
+    }
+    // Each output's video plays only while its desktop can be seen: paused
+    // behind windows, while locked and with the screens off (mpvpaper's own
+    // -p only sees a surface that isn't drawn at all; under translucent
+    // windows it always is). Measured: mpvpaper's GPU time ~0 instead of
+    // ~13-55%, niri's 33% → 11%.
+    Variants {
+        model: Quickshell.screens
+        delegate: Scope {
+            id: output
+            required property var modelData
+            readonly property bool shows: root.playingPath !== "" && !GlobalStates.screenLocked
+                && !Idle.screensOff && !root.desktopCovered(output.modelData)
+            // Sent again for a new player (it starts playing).
+            readonly property string want: root.playingPath === "" ? "" : `${root.playingPath}|${output.shows}`
+            onWantChanged: if (output.want !== "") sendPause.restart()
+            // Settled first: a workspace switch or a window opening goes
+            // through several layouts.
+            Timer {
+                id: sendPause
+                interval: 300
+                onTriggered: {
+                    if (root.playingPath === "") return;
+                    Quickshell.execDetached([root.liveScript, "pause", output.modelData.name, output.shows ? "no" : "yes"]);
+                }
+            }
+        }
+    }
+
     // Previewing a video shows its still frame (made first, if needed).
     property string _previewWanted: ""
     function startPreview(path) {

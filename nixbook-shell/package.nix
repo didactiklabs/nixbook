@@ -176,6 +176,7 @@ let
       ffmpeg # ffplay: sounds pw-play can't decode
       pipewire # pw-play: sounds
       mpvpaper
+      socat # live-wallpaper.sh: mpv's IPC socket (pause, swap in the copy)
 
       wl-clipboard
       cliphist
