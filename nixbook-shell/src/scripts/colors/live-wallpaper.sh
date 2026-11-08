@@ -67,9 +67,40 @@ mpv_cmd() {
   printf '%s\n' "$2" | socat -t 2 - "UNIX-CONNECT:$s" 2>/dev/null | jq -c 'select(has("error"))' | head -n 1
 }
 
+COPIES_PID="$RUNDIR/live-wallpaper-copies.pid"
+# Stops the copies being made (every ffmpeg of them: they run in their own
+# process group), unless they are this video's (key $1).
+cancel_copies() {
+  local pid k
+  [ -f "$COPIES_PID" ] && read -r pid k <"$COPIES_PID" || return 0
+  [ -n "${1:-}" ] && [ "$1" = "$k" ] && return 0
+  # Killed outright: ffmpeg finishes up gracefully on SIGTERM (seconds);
+  # what it leaves is pruned.
+  kill -KILL -- "-$pid" 2>/dev/null
+  rm -f "$COPIES_PID"
+}
+mpv_layers() { niri msg --json layers 2>/dev/null | jq '[.[] | select(.namespace == "mpvpaper")] | length'; }
+# Stops the players and waits until they and their surfaces are gone (the
+# shell lifts its desktop widgets over the new ones once they are up: an old
+# surface still listed made it do that too early).
+stop_players() {
+  local i
+  pkill -f "/bin/[m]pvpaper " || return 0
+  for i in $(seq 40); do
+    pgrep -f "/bin/[m]pvpaper " >/dev/null || break
+    [ "$i" != 20 ] || pkill -9 -f "/bin/[m]pvpaper "
+    sleep 0.05
+  done
+  for _ in $(seq 40); do
+    [ "$(mpv_layers)" = 0 ] && break
+    sleep 0.05
+  done
+}
+
 case "$cmd" in
 stop)
-  pkill -f "/bin/[m]pvpaper " || true
+  cancel_copies
+  stop_players
   rm -f "$RUNDIR"/live-wallpaper-*.sock
   exit 0
   ;;
@@ -84,7 +115,7 @@ pause)
   ;;
 esac
 [ -n "$cmd" ] && [ -f "$video" ] || {
-  echo "usage: $0 play|ensure|poster <video> | pause <output> yes|no | stop" >&2
+  echo "usage: $0 play|ensure|poster|copies <video> | pause <output> yes|no | stop" >&2
   exit 1
 }
 
@@ -144,11 +175,16 @@ best_file() {
   fi
 }
 
-encode() { # <filters> <out> [ffmpeg input options...]: VA-API (HEVC), else x264
+encode() { # <filters> <out> [ffmpeg input options...]
+  # VA-API decoding and HEVC encoding (the CPU only scales: about 40% less
+  # of it for a 4K video), else CPU decoding, else x264.
   local vf="$1" out="$2"
   shift 2
-  nice -n 19 ionice -c 3 ffmpeg -v error -y -vaapi_device /dev/dri/renderD128 "$@" -an \
+  local -a va=(-init_hw_device vaapi=va:/dev/dri/renderD128 -filter_hw_device va)
+  nice -n 19 ionice -c 3 ffmpeg -v error -y "${va[@]}" -hwaccel vaapi -hwaccel_device va "$@" -an \
     -vf "$vf,format=nv12,hwupload" -c:v hevc_vaapi -qp 18 -f mp4 "$out" </dev/null ||
+    nice -n 19 ionice -c 3 ffmpeg -v error -y "${va[@]}" "$@" -an \
+      -vf "$vf,format=nv12,hwupload" -c:v hevc_vaapi -qp 18 -f mp4 "$out" </dev/null ||
     nice -n 19 ionice -c 3 ffmpeg -v error -y "$@" -an -vf "$vf" \
       -c:v libx264 -preset veryfast -crf 16 -threads 2 -pix_fmt yuv420p -f mp4 "$out" </dev/null
 }
@@ -162,7 +198,7 @@ make_fast() { # <out> <w> <h>
   encode "$rate$(scale_crop "$2" "$3")" "$1.part" -i "$video" && mv "$1.part" "$1"
 }
 
-# Interpolated in slices, one per two CPUs: each slice gets one input frame
+# Interpolated in slices (two at most, see below): each slice gets one input frame
 # past its end (so the frames between it and the next slice are made too)
 # and is cut to its exact number of output frames, so the joins don't skip.
 # The interpolation runs at the smaller of the video's and the output's size.
@@ -172,17 +208,27 @@ make_smooth() { # <out> <w> <h>
   dur=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$video")
   frames=$(awk -v d="$dur" -v t="$FPS" 'BEGIN { printf "%d", d * t }')
   [ "${frames:-0}" -gt 0 ] || return 1
-  n=$(($(nproc) / 2))
+  # Two at most: one takes ~0.9 GB at 1080p (eight at 2880×1800, ~1.9 GB
+  # each, made the laptop swap until the kernel killed the shell).
+  n=$(($(nproc) / 4))
   [ "$n" -ge 1 ] || n=1
-  [ "$n" -le 8 ] || n=8
+  [ "$n" -le 2 ] || n=2
   # Whole seconds: every slice starts on a frame of the video, whatever its
   # frame rate.
   per=$((((frames + n - 1) / n + FPS - 1) / FPS * FPS))
   local mi="minterpolate=fps=$FPS:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
-  if [ $((srcw * srch)) -gt $((w * h)) ]; then
+  # At 1080p at most, then scaled to the output with lanczos: its cost grows
+  # with the pixels (on a 2880×1800 output, 2 s of a 4K video took 9 minutes
+  # per process with eight at once). A smaller video is interpolated as it is.
+  local ww wh
+  read -r ww wh < <(awk -v w="$w" -v h="$h" 'BEGIN { f = (h > 1080) ? 1080 / h : 1
+    printf "%d %d", int(w * f / 2 + 0.5) * 2, int(h * f / 2 + 0.5) * 2 }')
+  if [ $((srcw * srch)) -le $((ww * wh)) ]; then
+    vf="$mi,$(scale_crop "$w" "$h")"
+  elif [ "$ww" = "$w" ]; then
     vf="$(scale_crop "$w" "$h"),$mi"
   else
-    vf="$mi,$(scale_crop "$w" "$h")"
+    vf="$(scale_crop "$ww" "$wh"),$mi,scale=$w:$h:flags=lanczos+accurate_rnd+full_chroma_int"
   fi
   tmp=$(mktemp -d "$CACHE/.smooth.XXXXXX")
   local -a pids=()
@@ -236,13 +282,33 @@ swap_in() {
 # Makes the missing copies, the fast ones first, each swapped in when made
 # (two outputs of one size share them). One run at a time.
 copies() {
-  mkdir -p "$CACHE"
+  mkdir -p "$CACHE" "$RUNDIR"
+  local k pid pk
+  k=$(key)
+  # This video's copies already under way.
+  if [ -f "$COPIES_PID" ] && read -r pid pk <"$COPIES_PID" && [ "$pk" = "$k" ] && kill -0 "$pid" 2>/dev/null; then
+    return 0
+  fi
+  cancel_copies
+  # (The cancelled run's ffmpegs take a moment to let go of the lock.)
   exec 9>"$CACHE/.copies.lock"
-  flock -n 9 || return 0
+  flock -w 10 9 || return 0
+  echo "$$ $k" >"$COPIES_PID"
   local -a outs=()
   local name w h fast smooth stage
   while read -r name w h; do outs+=("$name $w $h"); done < <(outputs)
   for stage in fast smooth; do
+    # Not for a wallpaper only passed through (browsing them): the smooth
+    # copies, heavy, wait a minute (a new wallpaper cancels this run).
+    if [ "$stage" = smooth ]; then
+      local need=0
+      for o in "${outs[@]}"; do
+        read -r name w h <<<"$o"
+        read -r fast smooth < <(copy_paths "$w" "$h")
+        [ "$smooth" = - ] || [ -f "$smooth" ] || need=1
+      done
+      [ "$need" = 0 ] || sleep "${LIVE_WALLPAPER_SMOOTH_DELAY:-60}"
+    fi
     for o in "${outs[@]}"; do
       read -r name w h <<<"$o"
       read -r fast smooth < <(copy_paths "$w" "$h")
@@ -298,26 +364,63 @@ poster() {
 }
 
 play() {
-  pkill -f "/bin/[m]pvpaper " || true
+  cancel_copies "$(key)"
+  stop_players
   mkdir -p "$RUNDIR"
-  local name w h
+  local name w h n=0
+  local -a socks=()
   while read -r name w h; do
+    socks+=("$(sock "$name")")
     rm -f "$(sock "$name")"
     mpvpaper -p -l bottom -o "$OPTS input-ipc-server=$(sock "$name")" "$name" "$(best_file "$w" "$h")" >/dev/null 2>&1 </dev/null &
-    sleep 0.1
+    n=$((n + 1))
   done < <(outputs)
+  # Returns once every output shows its player and answers on its socket
+  # (what the shell waits for: then it lifts the widgets and pauses it).
+  local s ready
+  for _ in $(seq 150); do
+    ready=1
+    for s in "${socks[@]}"; do [ -S "$s" ] || ready=0; done
+    [ "$ready" = 1 ] && [ "$(mpv_layers)" -ge "$n" ] && return 0
+    sleep 0.1
+  done
+  return 1
 }
 
+# The missing copies, in the background, in a systemd unit of their own (the
+# shell's PATH — ffmpeg, socat, jq — and niri's socket passed along):
+# out of the shell's service (heavy enough there to get the shell killed by
+# the OOM killer), capped in memory, idle CPU and IO; its process group is
+# cancelled as a whole by the next wallpaper. Without a user manager (or
+# for tests, LIVE_WALLPAPER_NO_UNIT), a process group of their own.
+start_copies() {
+  if [ -z "${LIVE_WALLPAPER_NO_UNIT:-}" ] && systemd-run --user --quiet --collect \
+    --unit="nixbook-live-wallpaper-copies-$(key)" --description="Live wallpaper copies" \
+    -p MemoryHigh=2G -p MemoryMax=3G -p CPUWeight=idle -p IOWeight=10 -p Nice=19 \
+    -E PATH -E NIRI_SOCKET -E WAYLAND_DISPLAY -E XDG_RUNTIME_DIR -E XDG_CACHE_HOME -E XDG_STATE_HOME \
+    bash "$0" copies "$video" >/dev/null 2>&1 </dev/null; then
+    return 0
+  fi
+  setsid bash "$0" copies "$video" >/dev/null 2>&1 </dev/null &
+}
+
+# Exit status, for the shell: 0 players started and shown, 1 they didn't
+# show up, 10 (ensure) this video already playing.
 case "$cmd" in
 play)
-  play
-  copies >/dev/null 2>&1 </dev/null &
+  play || exit 1
+  start_copies
   ;;
 ensure)
   # Also on AC power coming back (the shell): the smooth copies waiting for it.
-  running || play
-  copies >/dev/null 2>&1 </dev/null &
+  if running; then
+    start_copies
+    exit 10
+  fi
+  play || exit 1
+  start_copies
   ;;
+copies) copies ;;
 poster) poster ;;
 *)
   echo "unknown command: $cmd" >&2
