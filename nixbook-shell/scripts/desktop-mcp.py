@@ -16108,7 +16108,9 @@ def budget_category_line(c, cur):
     kind = "group " if c.get("kind") == "group" else ""
     return (f"- {kind}{c.get('name')}{where}: budgeted {money_text(c.get('budgeted'), cur)}, spent "
             f"{money_text(-(c.get('spent') or 0), cur)}, left {money_text(c.get('balance'), cur)}"
-            + (f" — its categories: {', '.join(c['categories'][:20])}" if c.get("categories") else ""))
+            # Names (category) or the categories themselves (summary).
+            + (f" — its categories: {', '.join(str(x.get('name') if isinstance(x, dict) else x) for x in c['categories'][:20])}"
+               if c.get("categories") else ""))
 
 
 @tool(

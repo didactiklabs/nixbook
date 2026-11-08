@@ -94,6 +94,13 @@ def actual(op, o):
     """FAKE_CDP_APP=actual: Actual Budget's adapter (electron/actual.js) as it answers."""
     if op == "status":
         return {"ready": True, "open": True, "budget": "Home", "currency": "EUR"}
+    if op == "month":
+        return {"currency": "EUR", "month": o.get("month") or "2026-11", "income": 2500, "budgeted": -1800,
+                "spent": -70.5, "balance": 1729.5, "toBudget": 700, "groups": [
+                    {"id": "g1", "name": "Food", "income": False, "hidden": False, "budgeted": 600, "spent": -70.5,
+                     "balance": 529.5, "categories": [
+                         {"id": "c1", "name": "Groceries", "hidden": False, "budgeted": 400, "spent": -42.5,
+                          "balance": 357.5}]}]}
     if op == "categories":
         return {"currency": "EUR", "month": "2026-11", "query": o.get("query"), "matches": [
             {"kind": "category", "group": "Food", "name": "Groceries", "budgeted": 400, "spent": -42.5,
