@@ -69,7 +69,7 @@ let
           libnotify
           imagemagick # scales window captures down
           tesseract # read_screen
-          systemd # systemctl: starts the agent desktop (agentDesktop)
+          systemd # systemctl: the user services it drives (habits…)
           pciutils # lspci: GPU names (system_info)
           playerctl # the music every player plays (usage habits: music taste)
           accounts # nixbook-accounts: the contacts tool
@@ -146,47 +146,6 @@ let
       NIXBOOK_PACTL=${pkgs.pulseaudio}/bin/pactl NIXBOOK_SYSTEMD_RUN=${pkgs.systemd}/bin/systemd-run
     exec ${pkgs.python3}/bin/python3 -I ${./scripts/electron-bridge.py} \
       --page-js ${./zen/page.js} --adapters ${./electron} "$@"
-  '';
-
-  # A desktop of their own for AI agents (scripts/agent-desktop.sh): a nested
-  # niri that `nixbook-desktop-mcp desktop agent` points the agents' tools
-  # at, run by the `nixbook-agent-desktop` user service.
-  # Its niri (niri-winit-agent-window.patch) drops the input of its window
-  # (NIRI_WINIT_IGNORE_INPUT): the user can move, resize and close the window
-  # but not click or type into it; and names it (NIRI_WINIT_TITLE,
-  # NIRI_WINIT_APP_ID) like an app; and keeps the windows its rules open
-  # fullscreen so, whatever the app asks (NIRI_KEEP_FULLSCREEN). The agent's
-  # only: the user's niri stays the cached nixpkgs one, this one builds
-  # locally (tests off).
-  agentNiri = pkgs.niri.overrideAttrs (old: {
-    patches = (old.patches or [ ]) ++ [ ./niri-winit-agent-window.patch ];
-    doCheck = false;
-  });
-  # A restricted socket on the user's compositor (security-context-v1) for the
-  # agent desktop's niri: no screen capture, input or window list of the
-  # user's desktop through it (scripts/wayland-security-context.py).
-  securityContext = pkgs.writeShellScriptBin "nixbook-wayland-security-context" ''
-    exec ${pkgs.python3}/bin/python3 -P ${./scripts/wayland-security-context.py} "$@"
-  '';
-  agentDesktop = pkgs.writeShellScriptBin "nixbook-agent-desktop" ''
-    export PATH="${
-      lib.makeBinPath (
-        with pkgs;
-        [
-          agentNiri
-          dbus # dbus-run-session: the agent apps' own session bus
-          xwayland-satellite # X11 apps on the agent desktop, not the user's
-          bubblewrap # the sandbox: none of the user's files, sockets or processes
-          passt # pasta: the sandbox's own network (ai.agentDesktop.privateNetwork)
-          securityContext # its restricted connection to the user's desktop
-          libnotify # notify-send: why it didn't start
-          jq # the folders the user lets agents read (shell config)
-          findutils
-          coreutils
-        ]
-      )
-    }:$PATH"
-    exec ${pkgs.bash}/bin/bash ${./scripts/agent-desktop.sh} "$@"
   '';
 
   # Upstream probes ~40 tools with `command -v` and shells out to them from QML
@@ -375,8 +334,6 @@ launcher.overrideAttrs (old: {
       settingsLib
       cliphistWatch
       desktopMcp
-      agentDesktop
-      securityContext
       fonts
       keep
       electronBridge

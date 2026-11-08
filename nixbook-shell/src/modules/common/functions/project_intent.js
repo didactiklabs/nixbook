@@ -1,16 +1,12 @@
 .pragma library
 
-// What is said in DAI's bubble about a project or teach mode, in plain
+// What is said in DAI's bubble about a project, in plain
 // code (no model), in English, French, German and Vietnamese:
 //   projectIntent(text, names) → {action: "open"|"pause", name} | null:
 //     "work on the hackathon", "pause hackathon", "travaille sur X",
 //     "mets X en pause", "arbeite an X", "X pausieren", "làm X", "tạm dừng X"…
 //     only when X is one of `names` (the saved projects), whatever the case,
 //     dashes or spaces: anything else is DAI's (or another command's).
-//   teachIntent(text, recording) → "start" | "stop" | "cancel" | null:
-//     "watch me", "regarde-moi faire", "schau mir zu", "xem tôi làm"… to
-//     start; while recording, "done", "c'est fini", "fertig", "xong" to stop,
-//     "never mind" / "laisse tomber" / "vergiss es" / "thôi" to cancel.
 // ES5-style for QML's JavaScript engine (and node, for the tests).
 
 function _clean(text) {
@@ -92,19 +88,4 @@ function projectIntent(text, names) {
         }
     }
     return null;
-}
-
-var _teachStart = /^(?:(?:ok |okay )?(?:now )?watch me(?: do (?:it|this))?(?: once)?|let me show you(?: how)?(?: once)?|i'?ll show you(?: how)?(?: once)?|(?:learn|record) (?:this|what i do)|(?:regarde|observe)[- ]moi(?: faire)?(?: une fois)?|je (?:vais te|te) montre(?:r)?(?: comment)?(?: une fois)?|apprends (?:ça|ca)|schau mir zu|sieh mir zu|ich zeig(?:e)? (?:es |das )?dir(?: (?:das|es|einmal|wie))*|lern das|xem (?:t[oô]i|m[iì]nh|em) l[aà]m(?: n[eè])?|[dđ][eể] (?:t[oô]i|m[iì]nh|em) ch[iỉ] (?:cho )?(?:b[aạ]n|dai)|h[oọ]c c[aá]i n[aà]y)$/;
-var _teachStop = /^(?:done|i'?m done|that'?s it|that'?s all|finished|stop watching|stop recording|c'est (?:fini|bon|tout)|fini|termin[eé]|voil[aà]|j'ai fini|arr[eê]te de regarder|fertig|das war'?s|ich bin fertig|xong(?: r[oồ]i)?|h[eế]t r[oồ]i|v[aậ]y th[oô]i)$/;
-var _teachCancel = /^(?:never ?mind|cancel(?: (?:it|that|recording))?|forget it|laisse tomber|annule|oublie|vergiss es|abbrechen|th[oô]i|h[uủ]y(?: [dđ]i)?|b[oỏ] qua)$/;
-
-function teachIntent(text, recording) {
-    var t = _clean(text);
-    if (t.length === 0 || t.length > 80) return null;
-    if (recording) {
-        if (_teachStop.test(t)) return "stop";
-        if (_teachCancel.test(t)) return "cancel";
-        return null;
-    }
-    return _teachStart.test(t) ? "start" : null;
 }

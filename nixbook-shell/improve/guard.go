@@ -17,8 +17,6 @@ import (
 var forbidden = []string{
 	".github/**", ".claude/**", ".envrc",
 	"nixbook-shell/improve/**", "nixbook-shell/src/services/SelfImprove.qml",
-	"nixbook-shell/scripts/agent-desktop.sh", "nixbook-shell/scripts/wayland-security-context.py",
-	"nixbook-shell/niri-winit-agent-window.patch",
 	"tests/**", "nixbook-shell/tests/**",
 	"nixosModules/**", "installer/**", "lib/**", "profiles/**", "secrets/**",
 	"npins/**", "nixbook-shell/npins/**", "**/*.age", "**/*.lock",

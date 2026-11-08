@@ -21,13 +21,8 @@ import Quickshell
 //   agents may act (faint idle, pulsing in the accent colour while one
 //   acts), a red play button while paused. Click pauses every agent, or
 //   allows them again.
-// - Where they work: their own desktop or the user's (a window icon; accent
-//   while its window is open, faint while it waits for their next app, a
-//   hand while the user has taken it over). Click switches.
 // - Fixing nixbook (a wrench, services/SelfImprove.qml; only then): click
 //   opens it in Settings.
-// - Looking at the screen (an eye; only then): pairing reads the screen's
-//   text now (Initiative.looking), never unseen. Click stops screen reading.
 Item {
     id: root
     property bool vertical: Config.options.bar.vertical
@@ -36,9 +31,6 @@ Item {
     implicitWidth: vertical ? Appearance.sizes.verticalBarWidth : buttons.implicitWidth + 8
     implicitHeight: vertical ? buttons.implicitHeight + 6 : Appearance.sizes.barHeight
 
-    readonly property bool ownDesktop: DesktopControl.onAgentDesktop
-    readonly property string deskIcon: !root.ownDesktop ? "desktop_windows"
-        : DesktopControl.userHasControl ? "touch_app" : "picture_in_picture"
     readonly property bool lively: DesktopControl.active || Initiative.thinking
 
     // Breathes while an agent acts, so it's noticed from the corner of an eye.
@@ -281,42 +273,6 @@ Item {
             }
         }
 
-        // Where they work: their own desktop or the user's.
-        AgentButton {
-            id: deskButton
-            small: true
-            icon: root.deskIcon
-            filled: DesktopControl.agentDesktopOpen
-            tone: DesktopControl.agentDesktopOpen ? Appearance.colors.colPrimary : Appearance.colors.colOnLayer1
-            chip: DesktopControl.agentDesktopOpen ? Appearance.colors.colPrimary : Appearance.colors.colLayer2
-            onChip: DesktopControl.agentDesktopOpen ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer2
-            iconOpacity: root.ownDesktop ? 1 : 0.45
-            onClicked: DesktopControl.toggleDesktop()
-            StyledPopup {
-                hoverTarget: deskButton
-                ColumnLayout {
-                    spacing: 4
-                    StyledPopupHeaderRow {
-                        icon: root.deskIcon
-                        label: Translation.tr("Where agents work")
-                    }
-                    StyledPopupValueRow {
-                        Layout.fillWidth: true
-                        icon: root.deskIcon
-                        label: Translation.tr("Desktop")
-                        value: !root.ownDesktop ? Translation.tr("Yours")
-                            : DesktopControl.userHasControl ? Translation.tr("Its own, you have control")
-                            : DesktopControl.agentDesktopOpen ? Translation.tr("Its own, in a window")
-                            : Translation.tr("Its own, opens with its next app")
-                    }
-                    Hint {
-                        text: !root.ownDesktop ? Translation.tr("Click to give them their own desktop")
-                            : Translation.tr("Click to bring them back to yours")
-                    }
-                }
-            }
-        }
-
         // Fixing nixbook or building a feature of it: shown in Settings.
         AgentButton {
             id: fixButton
@@ -353,37 +309,5 @@ Item {
             }
         }
 
-        // Looking at the screen: pairing reads its text now.
-        AgentButton {
-            id: eyeButton
-            visible: Initiative.looking > 0
-            small: true
-            icon: "visibility"
-            filled: true
-            tone: Appearance.colors.colPrimary
-            chip: Appearance.colors.colPrimary
-            onChip: Appearance.colors.colOnPrimary
-            onClicked: Config.options.ai.initiative.pairReadScreen = false
-            StyledPopup {
-                hoverTarget: eyeButton
-                ColumnLayout {
-                    spacing: 4
-                    StyledPopupHeaderRow {
-                        icon: "visibility"
-                        label: Translation.tr("Reading the screen")
-                    }
-                    StyledText {
-                        Layout.fillWidth: true
-                        Layout.maximumWidth: 320
-                        wrapMode: Text.WordWrap
-                        text: Translation.tr("Pairing reads the screen's text on this computer, secrets and numbers removed before the small model sees it. Nothing is kept.")
-                        color: Appearance.colors.colOnSurfaceVariant
-                    }
-                    Hint {
-                        text: Translation.tr("Click to stop reading the screen (the window title only)")
-                    }
-                }
-            }
-        }
     }
 }

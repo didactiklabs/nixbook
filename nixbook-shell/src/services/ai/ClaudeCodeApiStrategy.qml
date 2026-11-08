@@ -12,8 +12,7 @@ QtObject {
     // their result in one block.
     property var toolCalls: ({})
     // The turn's tool calls, in order: {id, tool (its short name), summary,
-    // status run|ok|error} — what Full AI's mascot thinks out loud (a new
-    // list each change: bindings see it).
+    // status run|ok|error} (a new list each change: bindings see it).
     property var steps: []
     property bool finished: false
     // The privacy mask: placeholders (⟦Person 2⟧) shown as the real values.

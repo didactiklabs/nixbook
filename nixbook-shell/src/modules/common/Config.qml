@@ -217,25 +217,13 @@ Singleton {
                 property int claudeThreadIdleMinutes: 30
                 // The folders AI agents may read (absolute, or ~/…), read-only:
                 // the side panel's Claude (Claude Code --add-dir; no file tools
-                // at all without any) and the apps on the agent desktop
-                // (scripts/agent-desktop.sh binds them into its sandbox). None by
-                // default: no access to the user's files unless allowed here.
+                // at all without any). None by default: no access to the
+                // user's files unless allowed here.
                 property list<string> allowedFolders: []
-                // The folders the apps on the agent desktop may also write
-                // (bound read-write into its sandbox; the first one is their
-                // Downloads folder, where its browser saves), so an agent can
-                // download a file there and use it on the user's side. The side
-                // panel's Claude can read them, not write them. Not the home
-                // itself or /. None by default.
+                // The folders the side panel's Claude may also write (Edit,
+                // Write, and its sandboxed command line). Not the home itself
+                // or /. None by default.
                 property list<string> writableFolders: []
-                // The agent desktop's sandbox (scripts/agent-desktop.sh), from
-                // its next start. hideSystemSockets: /run empty but for what
-                // apps need, no daemon's socket. privateNetwork: its own
-                // network (pasta), without this computer's local services.
-                property JsonObject agentDesktop: JsonObject {
-                    property bool hideSystemSockets: true
-                    property bool privateNetwork: true
-                }
                 // Claude through Claude Code (`claude -p`, the user's own
                 // Claude login): the "Claude" model, with the desktop tools
                 // (nixbook-desktop-mcp) unless the tool is "none".
@@ -360,12 +348,6 @@ Singleton {
                         property bool amount: true
                     }
                 }
-                // Full AI mode (Mod+Shift+T, services/FullAi.qml): it reacts to
-                // what happens (notifications, downloads, the battery…),
-                // learning from the user's answers.
-                property JsonObject fullAi: JsonObject {
-                    property bool react: true
-                }
                 property JsonObject initiative: JsonObject {
                     property bool enable: false
                     property bool readNotifications: false
@@ -378,11 +360,6 @@ Singleton {
                     // About once a day, news on what the user talks about
                     // most, searched on the web by the small model, with links.
                     property bool news: false
-                    // Pairing: what the user is on (app, window title) looked
-                    // at every couple of minutes, a word when it truly helps;
-                    // the screen's text (OCR, redacted) a step further.
-                    property bool pair: false
-                    property bool pairReadScreen: false
                     // Its quiet words wait while the user is deep in
                     // something (10 minutes at it), until a break.
                     property bool holdInFocus: true
@@ -408,13 +385,6 @@ Singleton {
                     // Routines learned from the usage habits: "off",
                     // "suggest" (asked first) or "auto" (strong ones on at once).
                     property string learn: "off"
-                }
-                // Teach mode, "watch me once" (services/TeachMode.qml): the
-                // user shows DAI a task and it becomes a recipe; it stops
-                // watching by itself after `maxMinutes`.
-                property JsonObject teach: JsonObject {
-                    property bool enable: true
-                    property int maxMinutes: 30
                 }
                 // The trust ladder (services/Trust.qml): each kind of action
                 // DAI takes in the side panel or the bubble asked first, done

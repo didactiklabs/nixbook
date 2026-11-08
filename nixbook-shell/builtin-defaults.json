@@ -10,10 +10,6 @@
     "claudeThreadIdleMinutes": 30,
     "allowedFolders": [],
     "writableFolders": [],
-    "agentDesktop": {
-      "hideSystemSockets": true,
-      "privateNetwork": true
-    },
     "claudeCode": {
       "allowedTools": ["WebSearch", "WebFetch"],
       "asComputer": true,
@@ -60,15 +56,10 @@
         "amount": true
       }
     },
-    "fullAi": {
-      "react": true
-    },
     "initiative": {
       "curious": false,
       "enable": false,
       "news": false,
-      "pair": false,
-      "pairReadScreen": false,
       "reactions": false,
       "readNotifications": false,
       "improveIdeas": true
@@ -76,10 +67,6 @@
     "routines": {
       "enable": true,
       "learn": "off"
-    },
-    "teach": {
-      "enable": true,
-      "maxMinutes": 30
     },
     "trust": {
       "enable": true

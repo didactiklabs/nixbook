@@ -1,4 +1,4 @@
-"""Project contexts and teach mode (scripts/desktop-mcp.py), against a fake
+"""Project contexts (scripts/desktop-mcp.py), against a fake
 niri, Zen bridge, shell and model: run by projects.sh, with private
 XDG directories in the environment. Prints "ok - …" / "FAIL - …" lines;
 exit status 1 when anything failed."""
@@ -216,16 +216,6 @@ check_true("open: Zen not reachable is said", "Zen isn't reachable" in out, out)
 check_true("open: Zen started for its tabs", ("niri", "spawn", "--", "zen") in calls, calls)
 state["zen_up"] = True
 
-# The agent desktop isn't the user's.
-ctx.desktop = "agent"
-for action in ("open", "save", "pause"):
-    try:
-        dm.t_project(ctx, {"action": action, "name": "hackathon"})
-        check(f"{action}: refused on the agent desktop", "ran", "refused")
-    except dm.ToolError as e:
-        check_true(f"{action}: refused on the agent desktop", "user's desktop" in str(e), str(e))
-ctx.desktop = "user"
-
 # The tool: listed, aliases.
 check_true("project list lists it",
            '"name":"hackathon"' in text_of(dm.t_project(ctx, {"action": "list"})).replace(" ", ""))
@@ -291,106 +281,5 @@ out = text_of(dm.t_run_steps(ctx, {"steps": [{"tool": "page_go", "args": {"actio
                                               "wait_ms": 0}]}))
 check_true("run_steps: page_go open runs", ("zen", "open", '{"active": false, "url": "https://a.example/x"}') in calls,
            calls)
-
-# -- teach mode ------------------------------------------------------------------
-check("helper: the shell feeds it", dm.helper_allowed(["teach", "event", "{}"]), True)
-check("helper: never saves one", dm.helper_allowed(["teach", "save", "{}"]), False)
-
-for value, secret in (("hunter2!pass9", True), ("482913", True), ("4111 1111 1111 1111", True),
-                      ("FR76 3000 6000 0112 3456 7890 189", True), ("api_key=abcdef123456", True),
-                      ("March 2026", False), ("Lunch with the team", False), ("https://x.example/a?b=1", False)):
-    check(f"secret? {value!r}", dm.teach_secret(value), secret)
-
-state["tabs"] = [{"id": 11, "window": 1, "active": True, "title": "Devpost", "url": "https://devpost.com/hack"}]
-check("start", dm.teach_start(ctx)["recording"], True)
-check("the recording is 0600", stat.S_IMODE(os.stat(dm.teach_path()).st_mode), 0o600)
-ev = dm.teach_event
-ev(ctx, {"kind": "launch", "app": "Actual Budget", "desktop": "actual", "name": "Actual Budget"})
-ev(ctx, {"kind": "focus", "app": "actual", "desktop": "actual", "title": "Budget"})  # same app: no step
-ev(ctx, {"kind": "focus", "app": "org.quickshell", "title": "Shell settings"})
-check("a password manager isn't recorded",
-      ev(ctx, {"kind": "focus", "app": "org.keepassxc.KeePassXC", "title": "Vault"}), {"skipped": "a password manager"})
-check("nor what is copied right after", ev(ctx, {"kind": "clipboard", "text": "correct horse"}), {"skipped": "a secret"})
-doc = dm.teach_read()
-doc["secretUntil"] = 0
-dm.teach_write(doc)
-# Zen in front: the tab opened meanwhile, and the one in front moved.
-state["tabs"] = [{"id": 11, "window": 1, "active": True, "title": "Expenses March",
-                  "url": "https://expenses.example/report?month=March"},
-                 {"id": 40, "window": 1, "title": "Receipts", "url": "https://drive.example/receipts/March"}]
-ev(ctx, {"kind": "focus", "app": "zen", "desktop": "zen", "title": "Expenses"})
-ev(ctx, {"kind": "url", "url": "https://drive.example/receipts/March"})  # the shell's own open: an echo
-check("a code isn't kept", ev(ctx, {"kind": "text", "text": "839201"}), {"skipped": "a secret"})
-check("a password field isn't kept", ev(ctx, {"kind": "text", "text": "fine words", "password": True}),
-      {"skipped": "a secret"})
-ev(ctx, {"kind": "text", "text": "Report for March"})
-ev(ctx, {"kind": "clipboard", "text": "Team lunch 42 EUR"})
-check("only web links", ev(ctx, {"kind": "url", "url": "file:///etc/passwd"}), {"skipped": "only web links"})
-os.makedirs(os.path.join(os.environ["XDG_RUNTIME_DIR"], "nixbook-shell"), exist_ok=True)
-with open(os.path.join(os.environ["XDG_RUNTIME_DIR"], "nixbook-shell", "agent-input"), "w") as f:
-    f.write(str(int(time.time() * 1000)))
-check("not while an agent acts", ev(ctx, {"kind": "text", "text": "agent typed"}), {"skipped": "an agent was acting"})
-os.unlink(os.path.join(os.environ["XDG_RUNTIME_DIR"], "nixbook-shell", "agent-input"))
-stopped = dm.teach_stop(ctx)
-check("stop: the steps (the tab in front moved, then the one opened; the shell's open of it not twice)",
-      stopped["steps"], ["launch actual", "focus zen", "open https://expenses.example/report?month=M…",
-                         "open https://drive.example/receipts/March", "type Report for March", "type Team lunch 42 EUR"])
-
-items = dm.teach_steps(dm.teach_read()["events"])
-check("the copied text is pending", [it["pending"] for it in items], [False, False, False, False, False, True])
-
-prompts = []
-
-
-def fake_model(cfg_, hint, system, prompt, schema=None, web=False):
-    prompts.append((system, prompt, hint))
-    return {"topic": "expenses: monthly report", "summary": "Opens the month's report and receipts.",
-            "keep": [1, 3, 4, 5, 99], "vars": {"month": "March", "bogus": "not in a step", "Bad": "March"}}
-
-
-dm.ask_model = fake_model
-dm.model_ready = lambda cfg_, hint=None: True
-draft = dm.teach_draft(cfg, ctx)
-check("draft: one model call", len(prompts), 1)
-check_true("draft: the model reads the recorded steps", "drive.example/receipts/March" in prompts[0][1])
-check("draft: only steps recorded, as the model chose them", [s["tool"] for s in draft["steps"]],
-      ["launch_app", "page_go", "page_go", "type_text"])
-check("draft: only a variable found in the steps", draft["vars"], {"month": "March"})
-check("draft: the variable in the steps", [s["args"].get("url") or s["args"].get("text") for s in draft["steps"][1:]],
-      ["https://expenses.example/report?month={month}", "https://drive.example/receipts/{month}",
-       "Report for {month}"])
-check("draft: the navigation is a page_go navigate", draft["steps"][1]["args"]["action"], "navigate")
-check("draft: named", (draft["topic"], draft["source"]), ("expenses: monthly report", "model"))
-
-saved = dm.teach_save(ctx, {"topic": "expenses: monthly report", "rename": {"month": "period"}})
-check("save: a recipe with its variable renamed", saved["vars"], ["period"])
-note = next(n for n in dm.read_memory()["notes"] if n["id"] == saved["id"])
-check("save: in the desktop memory, the user's", (note["kind"], note["source"], note["vars"]),
-      ("recipe", "user", ["period"]))
-check("save: the steps (no copied text unless ticked)", [s["tool"] for s in note["steps"]],
-      ["launch_app", "page_go", "page_go", "type_text"])
-check_true("save: the recording is gone", not os.path.exists(dm.teach_path()) and not os.path.exists(dm.teach_draft_path()))
-try:
-    dm.teach_save(ctx, {})
-    check("save: twice", "saved", "refused")
-except dm.ToolError:
-    check("save: twice", "refused", "refused")
-
-# The model choosing nothing usable: every step shown; AI off: no teach mode.
-dm.teach_start(ctx)
-ev(ctx, {"kind": "launch", "app": "kitty", "desktop": "kitty"})
-dm.teach_stop(ctx)
-dm.ask_model = lambda *a, **k: {"topic": "x", "keep": []}
-draft = dm.teach_draft(cfg, ctx)
-check("draft: plain when the model keeps nothing", (draft["source"], len(draft["steps"])), ("plain", 1))
-cfg_path = os.path.join(os.environ["XDG_CONFIG_HOME"], "nixbook-shell", "config.json")
-with open(cfg_path, "w") as f:
-    json.dump({"policies": {"ai": 0}}, f)
-try:
-    dm.teach_start(ctx)
-    check("AI off: no teach mode", "started", "refused")
-except dm.ToolError:
-    check("AI off: no teach mode", "refused", "refused")
-os.unlink(cfg_path)
 
 sys.exit(1 if failures else 0)

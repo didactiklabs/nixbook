@@ -17,10 +17,10 @@ ContentPage {
     id: page
     forceWidth: true
 
-    // Granted from a notification while the page was away: read again.
-    onVisibleChanged: if (visible) DesktopControl.refreshPermissions()
+    // An "Always allow" clicked on a notification while the page was away:
+    // read the trust ladder again.
+    onVisibleChanged: if (visible) Trust.refresh()
     Component.onCompleted: {
-        DesktopControl.refreshPermissions();
         DesktopControl.refreshMemory();
         DesktopControl.refreshPersonal();
         DesktopControl.refreshHabits();
@@ -296,7 +296,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("DAI speaks first when it can help, not on a schedule: when you come back (your day, a plan coming up or just past, your usual setup), when an app it has a broken recipe for is in front, when it learned something. Time-critical things come as its own speech bubble on the left, in the theme's look: answer right in it and DAI answers there (the expand button moves the talk to the side panel; quick answers, Not now, Don't tell me this; at most 8 a day, none at night, in a meeting or fullscreen); the rest waits as a bubble beside the robot in the bar. Now and then, at random and up to four times a day, it says a light word in the bar: a break after a long stretch, a tip for the app you're in, a plan coming up, a question about something you care about. It learns from your answers what is worth saying. Plain code decides; a small model only reads notifications and words tips and questions.")
+                text: Translation.tr("DAI speaks first when it can help, not on a schedule: when you come back (your day, a plan coming up or just past, your usual setup), when an app it has a broken recipe for is in front, when it learned something. Time-critical things come as its own speech bubble on the left, in the theme's look: answer right in it and DAI answers there (the expand button moves the talk to the side panel; quick answers, Not now, Don't tell me this; at most 8 a day, none at night, in a meeting or fullscreen); the rest waits as a bubble beside the robot in the bar. It learns from your answers what is worth saying. Plain code decides; a small model only reads notifications.")
             }
 
             GroupedList {
@@ -340,22 +340,6 @@ ContentPage {
                     onCheckedChanged: Config.options.ai.initiative.news = checked
                 }
                 ConfigSwitch {
-                    configKey: "ai.initiative.pair"
-                    buttonIcon: "group"
-                    enabled: Config.options.ai.initiative.enable
-                    text: Translation.tr("Pair with me: while I stay on something, it looks at what (the app and window title, never chats, mail, password managers or private windows), guesses what I'm doing and, only when it truly helps, says a tip or a fix (searching the web first if useful). Quietly: it waits in the bar and shows when I pause")
-                    checked: Config.options.ai.initiative.pair
-                    onCheckedChanged: Config.options.ai.initiative.pair = checked
-                }
-                ConfigSwitch {
-                    configKey: "ai.initiative.pairReadScreen"
-                    buttonIcon: "document_scanner"
-                    enabled: Config.options.ai.initiative.enable && Config.options.ai.initiative.pair
-                    text: Translation.tr("While pairing, read the screen's text too (OCR on this computer; secrets, addresses and numbers removed before the small model sees it; never while a private window is on the workspace; nothing kept)")
-                    checked: Config.options.ai.initiative.pairReadScreen
-                    onCheckedChanged: Config.options.ai.initiative.pairReadScreen = checked
-                }
-                ConfigSwitch {
                     configKey: "ai.initiative.holdInFocus"
                     buttonIcon: "do_not_disturb_on"
                     enabled: Config.options.ai.initiative.enable
@@ -392,7 +376,7 @@ ContentPage {
                     shown: SelfImprove.available
                     buttonIcon: "tips_and_updates"
                     enabled: Config.options.ai.initiative.enable && (SelfImprove.enabled || SelfImprove.featuresEnabled)
-                    text: Translation.tr("Propose fixes and features of nixbook: every two days at most, from what it saw go wrong or get in my way (what failed in its memory, routines I undid, its tools' errors, the apps pairing saw me in), one fix or feature, offered with why. My yes files it for the fixer, a no is never proposed again. Needs Fixes it makes itself or Features it builds on")
+                    text: Translation.tr("Propose fixes and features of nixbook: every two days at most, from what it saw go wrong or get in my way (what failed in its memory, routines I undid, its tools' errors, the apps it saw me in), one fix or feature, offered with why. My yes files it for the fixer, a no is never proposed again. Needs Fixes it makes itself or Features it builds on")
                     checked: Config.options.ai.initiative.improveIdeas
                     onCheckedChanged: Config.options.ai.initiative.improveIdeas = checked
                 }
@@ -428,12 +412,6 @@ ContentPage {
             Flow {
                 Layout.fillWidth: true
                 spacing: 8
-                SmallButton {
-                    materialIcon: "campaign"
-                    enabled: Config.options.ai.initiative.enable && Initiative.asking === ""
-                    mainText: Initiative.asking === "say" ? Translation.tr("Thinking…") : Translation.tr("Say something now")
-                    onClicked: Initiative.sayNow()
-                }
                 SmallButton {
                     materialIcon: "newspaper"
                     visible: Config.options.ai.initiative.news
@@ -473,7 +451,7 @@ ContentPage {
                     }
                 }
             }
-            // Say something now / Find news now: working, then what came of it.
+            // Find news now: working, then what came of it.
             StyledIndeterminateProgressBar {
                 visible: Initiative.asking !== ""
                 Layout.fillWidth: true
@@ -504,7 +482,7 @@ ContentPage {
             // small-model pass and the context sent with a question, as sent.
             ContentSubsection {
                 title: Translation.tr("What it sent")
-                tooltip: Translation.tr("Everything the small model was given (notifications, pairing, news, memory passes…) and what went with a question asked in the bubble, the last 7 days. A local model's are marked: they never left this computer. Not your chats in the side panel: you wrote those.")
+                tooltip: Translation.tr("Everything the small model was given (notifications, curiosity, news, memory passes…) and what went with a question asked in the bubble, the last 7 days. A local model's are marked: they never left this computer. Not your chats in the side panel: you wrote those.")
                 // Wraps onto more lines on a narrow page (a RowLayout widened the page).
                 Flow {
                     Layout.fillWidth: true
@@ -719,48 +697,6 @@ ContentPage {
             }
         }
 
-        // Full AI mode (services/FullAi.qml): Claude runs the desktop, a
-        // mascot shows what it thinks, does and answers.
-        ContentSection {
-            readonly property string tab: "talk"
-            shown: page.tab === tab
-            icon: "smart_toy"
-            title: Translation.tr("Full AI mode")
-
-            StyledText {
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                color: Appearance.colors.colSubtext
-                text: Translation.tr("Mod+Shift+T: DAI runs the desktop and you tell it what to do in its speech bubble (Mod+C). A small mascot moves around the screen: a thought cloud for what it thinks and does, a speech balloon for its answers, Yes / No right on the balloon when it asks. It takes neither keys nor clicks: your desktop stays yours. It also reacts to what happens (a notification, a download, the battery, a screen, the network, you coming back): it ignores it, tells you, asks what to do (\"Julien asks if you come tonight. Shall I say yes?\") or does it — on its own only for what you told it or chose twice before. It learns from your answers. Mod+Shift+T again leaves.")
-            }
-
-            GroupedList {
-                ConfigSwitch {
-                    configKey: "ai.fullAi.react"
-                    buttonIcon: "notifications_active"
-                    text: Translation.tr("React to what happens (notifications, downloads, battery…) and learn from my answers")
-                    checked: Config.options.ai.fullAi?.react ?? true
-                    onCheckedChanged: if (Config.options.ai.fullAi) Config.options.ai.fullAi.react = checked
-                }
-            }
-
-            Flow {
-                Layout.fillWidth: true
-                spacing: 8
-                SmallButton {
-                    materialIcon: FullAi.active ? "logout" : "smart_toy"
-                    enabled: (Config.options.policies.ai ?? 1) === 1
-                    mainText: FullAi.active ? Translation.tr("Leave Full AI mode") : Translation.tr("Full AI mode (Mod+Shift+T)")
-                    onClicked: FullAi.toggle()
-                }
-                SmallButton {
-                    materialIcon: "restart_alt"
-                    mainText: Translation.tr("Forget what Full AI learned")
-                    onClicked: DesktopHelper.run(["fullai", "forget"])
-                }
-            }
-        }
-
         // The trust ladder (services/Trust.qml; desktop-mcp.py trust_gate):
         // the only place a kind is raised or lowered besides Always and the
         // "Stop asking" offer (`trust set`, the user's clicks only).
@@ -775,7 +711,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("How much DAI does on its own in the side panel and the bubble, per kind of action (a tool, its action, the app it acts on). Ask: Allow / Always / No before it runs. Tell after: done, then a \"Did: …\" line. Silent: just done. Reading never asks. By default it asks before what deletes, sends, pays or cancels, and tells after the rest; after three yeses in a row it offers to stop asking. Always, beside Allow, stops the asking for that kind at once, sending a message included: what sends, pays or deletes is then told after, never silent. The desktop tools still ask by notification before what speaks, pays or deletes in your name, unless you set that kind to Tell after here. Only you change a kind; an agent never can.")
+                text: Translation.tr("How much DAI does on its own in the side panel and the bubble, per kind of action (a tool, its action, the app it acts on). Ask: Allow / Always / No before it runs. Tell after: done, then a \"Did: …\" line. Silent: just done. Reading never asks. By default it asks before what deletes, sends, pays or cancels, and tells after the rest; after three yeses in a row it offers to stop asking. Always, beside Allow, stops the asking for that kind at once, sending a message included: what sends, pays or deletes is then told after, never silent. The desktop tools still ask by notification before what speaks, pays or deletes in your name, unless you set that kind to Tell after here; that notification's Always allow stops asking for that one thing (sending in that Discord channel, that button on that site) and lists it here, Ask takes it back. Only you change a kind; an agent never can.")
             }
             ConfigSwitch {
                 configKey: "ai.trust.enable"
@@ -963,55 +899,6 @@ ContentPage {
             }
         }
 
-        // Teach mode, "watch me once" (services/TeachMode.qml, nixbook-desktop-mcp teach).
-        ContentSection {
-            readonly property string tab: "own"
-            shown: page.tab === tab
-            icon: "school"
-            title: Translation.tr("Teach DAI")
-
-            StyledText {
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                color: Appearance.colors.colSubtext
-                text: Translation.tr("Show DAI a task once and it can do it again: say \"watch me\" (or press Watch me), do the task, then say \"done\". DAI sees the apps you open and bring to the front, the links and Zen tabs you open and the layouts you restore, never your keys: what you type gets in only if you put it in the bar's \"I typed…\" field, or copy it and tick it. Nothing from a password manager, no codes, keys or card numbers, nothing an agent did. Then one model call (masked, the small model, when a model is ready; otherwise every step is shown) keeps the steps that matter and names what changes each time (a month, a name), and you approve it: its name, its steps, its variables. Saved as a recipe in DAI's memory: \"do the expense report again for March\".")
-            }
-            GroupedList {
-                ConfigSwitch {
-                    configKey: "ai.teach.enable"
-                    buttonIcon: "school"
-                    text: Translation.tr("Let DAI learn tasks I show it")
-                    checked: Config.options.ai.teach.enable
-                    onCheckedChanged: Config.options.ai.teach.enable = checked
-                }
-            }
-            ConfigSpinBox {
-                configKey: "ai.teach.maxMinutes"
-                icon: "timer"
-                text: Translation.tr("Stop watching after (minutes)")
-                value: Config.options.ai.teach.maxMinutes ?? 30
-                from: 1; to: 240; stepSize: 5
-                onValueChanged: Config.options.ai.teach.maxMinutes = value
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-                StyledText {
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    color: Appearance.colors.colSubtext
-                    font.pixelSize: Appearance.font.pixelSize.small
-                    text: TeachMode.recording ? Translation.tr("Watching: %1 recorded").arg(TeachMode.events)
-                        : TeachMode.saved ? Translation.tr("Last learned: %1").arg(TeachMode.saved.topic) : ""
-                }
-                SmallButton {
-                    enabled: TeachMode.enabled && TeachMode.phase === "idle"
-                    materialIcon: "visibility"
-                    mainText: Translation.tr("Watch me")
-                    onClicked: TeachMode.start()
-                }
-            }
-        }
         // services/SelfImprove.qml, nixbook-improve: only where Nix made it
         // available (programs.nixbook-shell.selfImprove.enable).
         ContentSection {
@@ -1568,126 +1455,9 @@ ContentPage {
                     checked: DesktopControl.notifyOnControl
                     onClicked: DesktopControl.toggleNotify()
                 }
-                ConfigSwitch {
-                    buttonIcon: "picture_in_picture"
-                    text: Translation.tr("Agents work on their own desktop")
-                    checked: DesktopControl.onAgentDesktop
-                    onClicked: {
-                        if (DesktopControl.onAgentDesktop) DesktopControl.userDesktop();
-                        else DesktopControl.agentDesktop();
-                    }
-                }
-                ConfigSwitch {
-                    buttonIcon: "touch_app"
-                    text: Translation.tr("Use their desktop myself (Mod+Ctrl+A)")
-                    enabled: DesktopControl.canTakeOver || DesktopControl.userHasControl
-                    checked: DesktopControl.userHasControl
-                    onClicked: DesktopControl.toggleInteract()
-                }
             }
 
-            // Each "Always allow" clicked on a permission notification, to
-            // take back one at a time.
-            ContentSubsection {
-                id: permissionsSection
-                readonly property var keys: Object.keys(DesktopControl.permissions ?? {})
-                    .sort((a, b) => (DesktopControl.permissions[b].granted ?? 0) - (DesktopControl.permissions[a].granted ?? 0))
-                title: Translation.tr("Things it no longer asks")
 
-                StyledText {
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    color: Appearance.colors.colSubtext
-                    text: permissionsSection.keys.length === 0
-                        ? Translation.tr("Before an agent sends, reacts, pays or deletes in your name, a notification asks you. Its Always allow button stops asking for that one thing (sending in that Discord channel, that button on that site), and it shows up here to take back.")
-                        : Translation.tr("You chose Always allow for these: agents do them without asking. Take one back to be asked again.")
-                }
-                Repeater {
-                    model: permissionsSection.keys
-                    delegate: RowLayout {
-                        id: permissionRow
-                        required property string modelData
-                        readonly property var entry: DesktopControl.permissions[modelData] ?? {}
-                        Layout.fillWidth: true
-                        spacing: 6
-                        MaterialSymbol {
-                            text: "verified_user"
-                            iconSize: Appearance.font.pixelSize.normal
-                            color: Appearance.colors.colSubtext
-                        }
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 0
-                            StyledText {
-                                Layout.fillWidth: true
-                                wrapMode: Text.WordWrap
-                                text: permissionRow.entry.label ?? permissionRow.modelData
-                            }
-                            StyledText {
-                                Layout.fillWidth: true
-                                wrapMode: Text.WordWrap
-                                font.pixelSize: Appearance.font.pixelSize.smaller
-                                color: Appearance.colors.colSubtext
-                                text: Translation.tr("Allowed %1 · done %2 times without asking")
-                                    .arg(new Date((permissionRow.entry.granted ?? 0) * 1000).toLocaleDateString(Qt.locale(), Locale.ShortFormat))
-                                    .arg(permissionRow.entry.uses ?? 0)
-                            }
-                        }
-                        SmallButton {
-                            materialIcon: "undo"
-                            mainText: Translation.tr("Ask again")
-                            onClicked: DesktopControl.revokePermission(permissionRow.modelData)
-                        }
-                    }
-                }
-                SmallButton {
-                    visible: permissionsSection.keys.length > 1
-                    materialIcon: "restart_alt"
-                    mainText: Translation.tr("Ask again for all of them")
-                    onClicked: DesktopControl.revokeAllPermissions()
-                }
-            }
-
-            StyledText {
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                color: Appearance.colors.colSubtext
-                text: Translation.tr("On their own desktop, agents work in a window you watch but can't click or type into, with their own browser and apps, so they don't get in your way; your notes, to-do list and calendar stay reachable. The window opens when they start an app and closes once it's gone; if you close it, their next app opens it again (switch this off, or pause them, to stop them). Mod+Shift+A, right-clicking the bar widget and the desktop menu switch too. To use their desktop yourself for a moment (to log their browser in somewhere), take it over: your clicks and keys reach it and the agent waits until you give it back.")
-            }
-
-            // Their desktop's sandbox (scripts/agent-desktop.sh): both on by
-            // default, read when it starts.
-            GroupedList {
-                ConfigSwitch {
-                    configKey: "ai.agentDesktop.hideSystemSockets"
-                    enabled: !nixManaged
-                    buttonIcon: "lan"
-                    text: Translation.tr("Hide the system's services from their apps")
-                    checked: Config.options.ai.agentDesktop.hideSystemSockets
-                    onCheckedChanged: Config.options.ai.agentDesktop.hideSystemSockets = checked
-                    StyledToolTip {
-                        text: Translation.tr("Their apps see none of the system daemons' sockets (printing, input helpers…), only what they need to run and look up names")
-                    }
-                }
-                ConfigSwitch {
-                    configKey: "ai.agentDesktop.privateNetwork"
-                    enabled: !nixManaged
-                    buttonIcon: "vpn_lock"
-                    text: Translation.tr("Keep their apps off this computer's local services")
-                    checked: Config.options.ai.agentDesktop.privateNetwork
-                    onCheckedChanged: Config.options.ai.agentDesktop.privateNetwork = checked
-                    StyledToolTip {
-                        text: Translation.tr("Their own network: the internet and your local network, not what runs on this computer (a dev server on localhost, printer pages…). Off: their browser can open those too")
-                    }
-                }
-            }
-
-            StyledText {
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                color: Appearance.colors.colSubtext
-                text: Translation.tr("Their apps run sandboxed: none of your files but the folders you allow, none of your windows, clipboard or screen (they can't capture or type into your desktop). These two switches take effect when their desktop next opens.")
-            }
         }
 
         ContentSection {
@@ -2663,8 +2433,7 @@ ContentPage {
             }
 
 
-            // The folders AI agents may read (Claude here, and the apps on
-            // their own desktop): none unless listed. Saved when editing ends,
+            // The folders AI agents may read (Claude here): none unless listed. Saved when editing ends,
             // so typing a comma isn't undone.
             ConfigTextArea {
                 id: foldersField
@@ -2689,11 +2458,10 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("Read-only, for DAI here and for the apps on the agents' own desktop (from its next start). Absolute paths or ~/…, separated by commas. Other agents (Claude Code in a terminal…) follow their own permissions.")
+                text: Translation.tr("Read-only, for DAI here. Absolute paths or ~/…, separated by commas. Other agents (Claude Code in a terminal…) follow their own permissions.")
             }
 
-            // The folders Claude here and the apps on the agents' desktop may
-            // write too: the first is where its browser downloads.
+            // The folders Claude here may write too.
             ConfigTextArea {
                 id: writableField
                 configKey: "ai.writableFolders"
@@ -2717,7 +2485,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("DAI here can create and edit files there (nowhere else), and so can the apps on the agents' own desktop (from its next start), whose browser downloads into the first one, so an agent can fetch a file for you, a wallpaper say. Made if missing; not your whole home.")
+                text: Translation.tr("DAI here can create and edit files there (nowhere else). Made if missing; not your whole home.")
             }
 
             ConfigTextArea {

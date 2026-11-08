@@ -54,11 +54,8 @@ Niri is column/scroll based; it has no numbered workspaces (workspaces stack ver
 | `Mod+G`            | —                                                        | Launcher as window layout picker (restore / save / delete)  |
 | `Mod+Shift+Escape` | —                                                        | Pause / allow AI desktop control (every agent)              |
 | `Mod+C`            | — (Center column)                                        | Ask DAI in its speech bubble (again: put it away)           |
-| `Mod+Shift+T`      | —                                                        | Full AI mode: DAI runs the desktop, a mascot shows it       |
 | `Mod+K`            | —                                                        | Kiroshi scan: a brief of what's going on, tasks to hand off |
 | `Mod+Alt+V`        | —                                                        | Smart clipboard: run the first action offered for a copy    |
-| `Mod+Shift+A`      | —                                                        | AI agents: own desktop (nested niri) / yours                |
-| `Mod+Ctrl+A`       | —                                                        | Take over / give back the agents' desktop                   |
 | `Ctrl+Space`       | Toggle fcitx5 input method (when `fcitx5Config` enabled) | same                                                        |
 
 nixbook-shell binds all spawn `nixbook-shell ipc call <target> <function>`.

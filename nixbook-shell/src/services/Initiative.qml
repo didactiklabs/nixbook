@@ -19,9 +19,9 @@ import QtQuick
  *   - focus: an app gets the focus (at most every few minutes);
  *   - notifications (ai.initiative.readNotifications, off by default):
  *     what came in, in batches;
- *   - moment: now and then, at random (40 minutes to 2 hours apart while
- *     the user is at the computer), a chance for a light word: most of the
- *     time nothing is said, at most a couple a day, as a small bubble.
+ *   - moment: every few minutes while the user is at the computer, the
+ *     periodic look (curiosity, news, routine and fix ideas, each with its
+ *     own pace).
  *   - happened (ai.initiative.reactions, off by default): what the user
  *     just did (a download, a screenshot, a drive), with one-click help.
  * What it says comes out loud (`speaking`: its own bubble on the left,
@@ -37,7 +37,7 @@ Singleton {
     // policies.ai: 1 (online models), or 2 (local only): then only what is
     // plain code (reactions' Open and Show in folder, routines' reports,
     // watches, the brief) and what a local model reads (localModel in
-    // desktop-mcp.json: notifications, pairing); nothing to answer Claude in.
+    // desktop-mcp.json: notifications); nothing to answer Claude in.
     readonly property bool enabled: (Config.options?.ai?.initiative?.enable ?? false) && [1, 2].includes(Config.options?.policies?.ai ?? 1)
     readonly property bool online: (Config.options?.policies?.ai ?? 1) === 1
     readonly property bool readNotifications: Config.options?.ai?.initiative?.readNotifications ?? false
@@ -202,8 +202,6 @@ Singleton {
 
     property var _batch: []
     property real _awaySince: 0
-    // At the computer since (back from the last break).
-    property real _activeSince: Date.now()
     property real _lastFocus: 0
     property string _lastApp: ""
 
@@ -231,17 +229,13 @@ Singleton {
         event.busy = event.force === true ? false : root.busy()
         // The shell's PATH may not have Claude Code: its own, for the small model.
         if (Ai.claudeCodePath.length > 0) event.claude = Ai.claudeCodePath
-        const what = event.force !== true ? "" : event.event === "news" ? "news" : "say"
+        const what = event.force === true && event.event === "news" ? "news" : ""
         if (what !== "") root._askNow(what)
-        // Reading the screen (pairing): the eye in the bar meanwhile.
-        const looks = event.event === "pair" && event.screen === true
-        if (looks) root.looking += 1
         // The helper decides on a thread of its own (a model's answer can take
         // seconds): no Python start each time.
-        DesktopHelper.run(["initiative", "consider", JSON.stringify(event)], "", (code, out) => root._considered(out, what, looks))
+        DesktopHelper.run(["initiative", "consider", JSON.stringify(event)], "", (code, out) => root._considered(out, what))
     }
-    function _considered(out, asked, looks) {
-        if (looks) root.looking = Math.max(0, root.looking - 1)
+    function _considered(out, asked) {
         let action = "none"
         try {
             const answer = JSON.parse(out)
@@ -259,11 +253,7 @@ Singleton {
             root.asked = action
         }
     }
-    // Looks at the screen now (pairing with the screen read): the bar shows
-    // an eye (DesktopControl.qml), so it never reads it unseen.
-    property int looking: 0
-    // Say something now / Find news now waiting for their answer ("say",
-    // "news"; Settings shows it), and what came of the last one (its
+    // Find news now waiting for its answer ("news"; Settings shows it), and what came of the last one (its
     // action: "notify", "badge" or "none").
     property string asking: ""
     property string asked: ""
@@ -304,35 +294,10 @@ Singleton {
     readonly property string newsHint: "You found this news for the user, from what they talk about with you. "
         + "If they want more on one, read it (WebFetch) or search for more (WebSearch) and tell them, with links. "
         + "If they say a subject doesn't interest them (any more), update your memory of them, briefly."
-    // Pairing (ai.initiative.pair): while the user stays on one thing, a look
-    // at it every couple of minutes (nixbook-desktop-mcp decides whether a
-    // look is worth it, at no token); with ai.initiative.pairReadScreen the
-    // screen's text too (OCR, redacted). A word it has comes as a small
-    // bubble once the user pauses (`_feed`), never over what they type.
-    readonly property bool pair: Config.options?.ai?.initiative?.pair ?? false
-    readonly property bool pairReadScreen: Config.options?.ai?.initiative?.pairReadScreen ?? false
-    property real _pairSince: Date.now()
-    // Another window: a pairing word on its way was about the one before
-    // (it stays in the bar).
     Connections {
         target: ToplevelManager
         function onActiveToplevelChanged() {
-            const app = ToplevelManager.activeToplevel?.appId ?? ""
-            root._pairSince = Date.now()
-            root._focusApp(app)
-            root._arrivals = root._arrivals.filter(p => p.kind !== "pair" || p.app === app)
-        }
-    }
-    Timer {
-        interval: 2 * 60000
-        running: root.enabled && root.pair && !Idle.screensOff
-        repeat: true
-        onTriggered: {
-            // Not right after a switch: on something, not passing through.
-            if (GlobalStates.screenLocked || Date.now() - root._pairSince < 60000) return
-            const top = ToplevelManager.activeToplevel
-            if (!top) return
-            root.consider({ event: "pair", app: top.appId ?? "", title: top.title ?? "", screen: root.pairReadScreen })
+            root._focusApp(ToplevelManager.activeToplevel?.appId ?? "")
         }
     }
     // Settings > Find news now: at once, whatever the day's already had.
@@ -366,8 +331,8 @@ Singleton {
     // {item, chat, unread}: unread once Claude answered in it put away (not
     // brought back then: the user busy), so the bar's bubble lights up.
     property var parked: null
-    // Published a turn of the event loop later: what follows it (Full AI's
-    // mood and balloon, the bar robot) reaches back into the chat it is read
+    // Published a turn of the event loop later: what follows it (the bar
+    // robot) reaches back into the chat it is read
     // from, and a direct binding looped ("Binding loop detected for property
     // \"thinking\"", seen as the bubble's turn ended).
     readonly property bool _thinkingNow: (root.chat?.responding ?? false) || (root.parked?.chat?.responding ?? false)
@@ -393,14 +358,6 @@ Singleton {
     function openLatest() {
         if (root.parked) root.resume()
         else root.open(root.live[root.live.length - 1])
-    }
-    // Settings > Say something now: a light word at once, to try it.
-    function sayNow() {
-        root.consider({ event: "moment", force: true, curious: root.curious, app: ToplevelManager.activeToplevel?.appId ?? "",
-                        title: root.curious ? (ToplevelManager.activeToplevel?.title ?? "") : "",
-                        activeMinutes: Math.round((Date.now() - root._activeSince) / 60000),
-                        tasksDue: Todo.dueTodayCount, weatherCode: Weather.data?.wCode ?? 0,
-                        weather: Weather.data?.description ?? "" })
     }
     // Called up (Mod+C, the bar's robot): its bubble, to ask
     // anything; the conversation put away comes back instead.
@@ -506,8 +463,6 @@ Singleton {
     function reply(text, attach) {
         const said = String(text ?? "").trim()
         if (said.length === 0) return
-        // Full AI mode learns from the answer to what it asked or did.
-        if (FullAi.active) FullAi.userSaid(said)
         const item = root.speaking
         // A plain command asked for (open an app, pause the music, dark
         // mode…): done at once, no Claude run; it says what it did.
@@ -610,13 +565,6 @@ Singleton {
                 const entry = DesktopEntries.byId(String(id))
                 if (entry) AppLaunch.launchEntry(entry)
             }
-        } else if (a.do === "tasks") {
-            if (a.what === "tomorrow") {
-                const t = new Date()
-                const tomorrow = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1)
-                for (const task of Todo.list.filter(x => !x.done && x.due && Todo.deadlineGroup(x) === "today"))
-                    Todo.updateTask(task, { due: tomorrow })
-            } else GlobalStates.openTasksPanel("")
         } else if (a.do === "settings") {
             GlobalStates.settingsPage = String(a.page ?? "")
             GlobalStates.settingsOpen = true
@@ -843,8 +791,6 @@ Singleton {
     Connections {
         target: Routines
         function onHappened(ev) {
-            // Full AI mode reacts instead while it is on.
-            if (FullAi.active) return
             if (!root.enabled || !root.reactions || !root.reactTo.includes(ev.event) || !ev.path || DesktopControl.active) return
             root.consider({ event: "happened", what: ev.event, name: ev.name ?? "", path: ev.path })
         }
@@ -876,7 +822,7 @@ Singleton {
     Connections {
         target: Notifications
         function onNotify(n) {
-            if (!root.enabled || !root.readNotifications || FullAi.active) return
+            if (!root.enabled || !root.readNotifications) return
             // Not while away (locked) or on Do Not Disturb: nobody to tell,
             // and what comes then isn't read by the model either.
             if (GlobalStates.screenLocked || Notifications.silent) return
@@ -905,7 +851,6 @@ Singleton {
             else if (root._awaySince > 0 && !GlobalStates.screenLocked) {
                 root.back((Date.now() - root._awaySince) / 60000)
                 root._awaySince = 0
-                root._activeSince = Date.now()
             }
         }
     }
@@ -917,7 +862,6 @@ Singleton {
             } else if (root._awaySince > 0) {
                 root.back((Date.now() - root._awaySince) / 60000)
                 root._awaySince = 0
-                root._activeSince = Date.now()
             }
         }
     }
@@ -934,12 +878,10 @@ Singleton {
         }
     }
 
-    // Now and then, at random, a chance for a light word.
+    // Every few minutes, the periodic look (nixbook-desktop-mcp keeps each
+    // one's pace, so a shell restart doesn't start the wait over).
     Timer {
         id: momentTimer
-        // Asks every few minutes; when a light word is due (40 to 120 minutes
-        // apart, at random) is kept by nixbook-desktop-mcp, so a shell
-        // restart doesn't start the wait over.
         running: root.enabled
         interval: 5 * 60000
         repeat: true
@@ -947,10 +889,7 @@ Singleton {
             if (Idle.screensOff || GlobalStates.screenLocked) return
             root.consider({ event: "moment", curious: root.curious, news: root.news,
                             location: root.news ? root.newsLocation() : "", app: ToplevelManager.activeToplevel?.appId ?? "",
-                        title: root.curious ? (ToplevelManager.activeToplevel?.title ?? "") : "",
-                            activeMinutes: Math.round((Date.now() - root._activeSince) / 60000),
-                            tasksDue: Todo.dueTodayCount, weatherCode: Weather.data?.wCode ?? 0,
-                            weather: Weather.data?.description ?? "" })
+                        title: root.curious ? (ToplevelManager.activeToplevel?.title ?? "") : "" })
         }
     }
     // The first start of the day counts as coming back.

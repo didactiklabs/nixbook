@@ -93,7 +93,7 @@ Either way, a fix touching what agents may do (their tools, permissions, switche
 
 ## Off limits
 
-- **Never changed by a fix** (refused before the push, and again by CI): `.github/`, the fixer itself (`nixbook-shell/improve/`, `SelfImprove.qml`), the agent desktop's sandbox, the tests, `nixosModules/`, `installer/`, `lib/`, `profiles/`, `npins/`, `hive.nix`, `base.nix`, the devenv files, `AGENTS.md` and `CLAUDE.md`, secrets.
+- **Never changed by a fix** (refused before the push, and again by CI): `.github/`, the fixer itself (`nixbook-shell/improve/`, `SelfImprove.qml`), the tests, `nixosModules/`, `installer/`, `lib/`, `profiles/`, `npins/`, `hive.nix`, `base.nix`, the devenv files, `AGENTS.md` and `CLAUDE.md`, secrets.
 - **Never merged on its own** (sensitive: what agents may do): `desktop-mcp.py`, `Ai.qml`, `AiChatSession.qml`, `Initiative.qml`, `Routines.qml`, `Config.qml` and `builtin-defaults.json`, the Desktop agents settings page, the shell's Nix files, `customPkgs/` and `homeManagerModules/`. The PR and the notification say so.
 
 CI's **agent-guard** job (`checks.yaml`) runs `nixbook-improve guard` on every `agent/` branch, built from the base branch rather than from the PR. It checks the paths, the size and that each commit is `fix(…)` or `polish(…)` with a body and its trailer; on an `agent/feature-` branch (`--feature`), a feature's size and `feat(…)` commits with an `Agent-Feature:` trailer. A branch of reverts made by an older version is only checked for its paths. To have GitHub refuse a merge without it, make it a required check of `main`'s ruleset.
@@ -129,7 +129,7 @@ With **Talk to me on its own** and **Propose fixes and features of nixbook** on 
 - what failed in its memory (notes with failures, a failed step of a recipe), an app it couldn't find for you;
 - routines you undid;
 - its desktop tools' errors this week (not refusals: those are on purpose);
-- the apps pairing and curiosity saw you work in (names only), its kinds of words you rarely take up or told it to stop;
+- the apps curiosity saw you work in (names only), its kinds of words you rarely take up or told it to stop;
 - your habits, devices and networks, and the topics you care about (not people);
 - what is filed already and what you turned down, so nothing is proposed twice.
 

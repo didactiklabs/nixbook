@@ -64,4 +64,4 @@ Profiles can enable the ClamAV daemon and its signature updater (`services.clama
 
 ## Sandboxing AI agents
 
-nixbook-shell's [agent desktop](/nixbook-shell/agent-desktop) runs AI agents' apps in a bubblewrap sandbox with their own home, network namespace and a restricted Wayland connection, and the [desktop control server](/nixbook-shell/desktop-agents#guardrails) refuses typing into terminals and password prompts.
+DAI's command line runs in Claude Code's bubblewrap sandbox (only the [allowed folders](/nixbook-shell/ai-assistant#what-dai-can-and-can-t-do), no systemd, D-Bus or compositor), and the [desktop control server](/nixbook-shell/desktop-agents#guardrails) refuses typing into terminals and password prompts.
