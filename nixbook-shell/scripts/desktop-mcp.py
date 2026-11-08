@@ -784,7 +784,7 @@ CORE_TOOLS = {
     "focus_workspace", "move_window_to_workspace", "window_action", "press_keys", "type_text", "click", "scroll",
     "run_steps", "screenshot", "ui_read", "ui_act", "notifications", "recall", "remember", "recall_about_user",
     "remember_about_user", "page_list", "page_read", "page_act", "page_go", "list_themes", "set_theme",
-    "machine_help", "tool_help",
+    "machine_help", "tool_help", "read_document",
 }
 
 
@@ -1759,6 +1759,155 @@ def find_command(cfg, argv):
     code, out = find_output(cfg, argv)
     (sys.stdout if code == 0 else sys.stderr).write(out)
     return code
+
+
+# read_document: a whole document's text, for "summarize this file". Claude
+# Code's Read stops at 20 MB and its sandbox may have no PDF tools; scanned
+# pages (no text layer) are read with OCR.
+DOC_TEXT_MAX = 60000        # characters returned in one call, at most
+DOC_PAGES_DEFAULT = 30      # pages read when none are asked for
+DOC_OCR_PAGES = 10          # pages OCRed in one call, at most
+DOC_DEADLINE = 45.0         # seconds for one call (OCR is ~2-5 s a page; calls hold the action lock)
+DOC_OCR_DPI = 200
+DOC_ZIP_TEXT = {"docx": ("word/document.xml", "</w:p>"), "odt": ("content.xml", "</text:p>"),
+                "odp": ("content.xml", "</text:p>"), "ods": ("content.xml", "</text:p>"),
+                "pptx": (None, "</a:p>"), "epub": (None, "</p>")}
+
+
+def doc_pages_arg(value, count):
+    """`pages` "3", "2-9", "10-" → (first, last) within 1..count."""
+    if value in (None, ""):
+        return 1, min(count, DOC_PAGES_DEFAULT)
+    m = re.fullmatch(r"\s*(\d+)\s*(?:-\s*(\d*)\s*)?", str(value))
+    if not m:
+        raise ToolError("`pages` must look like 3, 2-9 or 10-")
+    first = int(m.group(1))
+    last = first if m.group(2) is None else (int(m.group(2)) if m.group(2) else count)
+    if first < 1 or first > count or last < first:
+        raise ToolError(f"`pages`: the document has {count} page(s)")
+    return first, min(last, count)
+
+
+def doc_zip_text(path, ext):
+    import zipfile
+    import html as html_mod
+    member, para = DOC_ZIP_TEXT[ext]
+    parts = []
+    with zipfile.ZipFile(path) as z:
+        names = [member] if member else sorted(
+            (n for n in z.namelist() if (ext == "pptx" and re.fullmatch(r"ppt/slides/slide\d+\.xml", n))
+             or (ext == "epub" and n.lower().endswith((".xhtml", ".html", ".htm")))),
+            key=lambda n: [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", n)])
+        for n in names:
+            xml = z.read(n).decode("utf-8", errors="replace").replace(para, "\n")
+            xml = re.sub(r"<(w:tab|text:tab)\b[^>]*/>", "\t", xml)
+            parts.append(html_mod.unescape(re.sub(r"<[^>]+>", "", xml)))
+            if sum(map(len, parts)) > DOC_TEXT_MAX * 4:
+                break
+    return "\n".join(parts)
+
+
+def doc_ocr_page(path, page, lang, timeout):
+    png = run(["pdftoppm", "-f", str(page), "-l", str(page), "-r", str(DOC_OCR_DPI), "-gray", "-png", path],
+              timeout=max(5, timeout), binary=True).stdout
+    return run(["tesseract", "stdin", "stdout", "-l", lang], input=png, timeout=max(5, timeout),
+               binary=True).stdout.decode(errors="replace")
+
+
+@tool(
+    "read_document",
+    "observe",
+    "Read a document's text: PDF (any size; scanned pages are read with OCR), Word (.docx), OpenDocument "
+    "(.odt/.odp/.ods), PowerPoint (.pptx), EPUB, or a text file (txt, md, csv, json, html…). Use it rather than "
+    "Read or the command line for documents: Read stops at 20 MB and can't read scanned PDFs. `path`: the "
+    "file, in the user's home (not a hidden folder). `pages` (PDF): \"3\", \"2-9\", \"10-\" (default the first "
+    f"{DOC_PAGES_DEFAULT}); OCR does at most {DOC_OCR_PAGES} scanned pages per call: the reply says which pages "
+    "come next. `ocr`: false to skip scanned pages. Read-only; secrets in the text are blacked out.",
+    obj({"path": {"type": "string", "description": "The file (absolute, or ~/…)"},
+         "pages": {"type": "string", "description": "PDF pages: 3, 2-9 or 10- (default the first 30)"},
+         "ocr": {"type": "boolean", "description": "Read scanned pages with OCR (default true)"},
+         "max_chars": {"type": "integer", "description": f"At most this much text (default and limit {DOC_TEXT_MAX})"}},
+        ["path"]),
+    read_only=True,
+    brief="A document's text (PDF of any size, scanned too via OCR; docx, odt, pptx, epub, text). Use it, not Read, "
+          "for documents.",
+    props={"path": None, "pages": "3, 2-9 or 10-", "ocr": None, "max_chars": None},
+)
+def t_read_document(ctx, args):
+    raw = as_str(args, "path", max_len=1024)
+    path = safe_home_path(raw[7:] if raw.startswith("file://") else raw)
+    name = os.path.basename(path)
+    if FIND_SECRET_FILE.search(name):
+        raise ToolError(f"refused: {name} looks like a key, a password store or recovery codes")
+    if not os.path.isfile(path):
+        raise ToolError(f"no such file: {home_short(path)}")
+    limit = args.get("max_chars", DOC_TEXT_MAX)
+    if not isinstance(limit, int) or isinstance(limit, bool) or limit < 200:
+        raise ToolError("`max_chars` must be an integer of at least 200")
+    limit = min(limit, DOC_TEXT_MAX)
+    ocr = args.get("ocr", True) is not False
+    ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+    head, notes = home_short(path), []
+    if ext == "pdf":
+        info = run(["pdfinfo", path], timeout=20, check=False)
+        if info.returncode != 0:
+            raise ToolError(f"{name} isn't a readable PDF" + (" (encrypted?)" if "ncrypt" in (info.stderr or "") else ""))
+        m = re.search(r"^Pages:\s+(\d+)", info.stdout or "", re.M)
+        count = int(m.group(1)) if m else 1
+        first, last = doc_pages_arg(args.get("pages"), count)
+        lang = str(ctx.cfg.get("ocrLanguages") or "eng")
+        if not re.fullmatch(r"[A-Za-z_]+(\+[A-Za-z_]+)*", lang):
+            lang = "eng"
+        deadline = time.monotonic() + DOC_DEADLINE
+        chunks, ocred, size, stop = [], [], 0, None
+        for page in range(first, last + 1):
+            left = deadline - time.monotonic()
+            if left < 3:
+                stop = page
+                break
+            txt = run(["pdftotext", "-q", "-f", str(page), "-l", str(page), "-layout", "-enc", "UTF-8", path, "-"],
+                      timeout=max(3, min(30, left)), check=False).stdout or ""
+            if len(re.sub(r"\s", "", txt)) < 25 and ocr:
+                if len(ocred) >= DOC_OCR_PAGES:
+                    stop = page
+                    break
+                with contextlib.suppress(ToolError):
+                    txt = doc_ocr_page(path, page, lang, min(45, left))
+                    ocred.append(page)
+            txt = re.sub(r"[ \t]+\n", "\n", re.sub(r"\n{3,}", "\n\n", txt.replace("\f", ""))).strip()
+            block = f"--- page {page} ---\n{txt or '(no text)'}\n"
+            if size + len(block) > limit and chunks:
+                stop = page
+                break
+            chunks.append(block[:limit - size])
+            size += len(chunks[-1])
+        done = (stop - 1) if stop else last
+        head += f" — PDF, {count} page(s); pages {first}–{done} below"
+        if ocred:
+            notes.append(f"pages read with OCR ({lang}): " + ", ".join(map(str, ocred)))
+        if done < count:
+            notes.append(f"more: call again with pages \"{done + 1}-\"")
+        body = "".join(chunks)
+    elif ext in DOC_ZIP_TEXT:
+        try:
+            body = doc_zip_text(path, ext)
+        except Exception as e:  # not a zip, damaged
+            raise ToolError(f"couldn't read {name}: {e}")
+    elif ext in FIND_TEXT_EXTS or ext in ("rtf", "tex", "ini", "conf", "toml"):
+        with open(path, "rb") as f:
+            data = f.read(limit * 4 + 1)
+        if b"\0" in data[:4096]:
+            raise ToolError(f"{name} isn't text")
+        body = data.decode("utf-8", errors="replace")
+    else:
+        raise ToolError(f"read_document reads PDF, docx, odt/odp/ods, pptx, epub and text files, not .{ext or name}")
+    body = redact_secrets(body)
+    if ext != "pdf" and len(body) > limit:
+        notes.append(f"cut at {limit} characters of {len(body)}")
+        body = body[:limit]
+    if not body.strip():
+        notes.append("no text found" + ("" if ocr or ext != "pdf" else " (ocr: true reads scanned pages)"))
+    return [text(head + ("\n" + "; ".join(notes) if notes else "") + "\n\n" + body)]
 
 
 def helper_find(argv, answer):
@@ -16815,8 +16964,9 @@ def call_tool_now(ctx, name, args, session=None):
     return content, False
 
 
-# Tools that don't touch the desktop: they answer while it is paused.
-PAUSE_FREE = ("get_status", "system_info", "machine_help", "tool_help")
+# Tools that don't touch the desktop: they answer while it is paused
+# (read_document: a file the user asked about, as Claude Code's Read would).
+PAUSE_FREE = ("get_status", "system_info", "machine_help", "tool_help", "read_document")
 
 
 def call_personal(ctx, t, name, args):
@@ -16900,7 +17050,8 @@ INSTRUCTIONS = (
     "work in the page itself (page_list gives the targets: zen:<tab>, discord, slack…), in the "
     "background, on another workspace, without the mouse or keyboard, so the user keeps working "
     "meanwhile: prefer them to clicking or typing in those windows. Discord messages (find, read, "
-    "send, react): the discord tool. Money questions (spent, left in a category, balances, "
+    "send, react): the discord tool. Documents (PDF — large or scanned too —, "
+    "Word, OpenDocument, slides, EPUB): read_document, never Read. Money questions (spent, left in a category, balances, "
     "transactions): the budget tool, Actual Budget read through its own client, never changed. "
     "YouTube Music: playing, the queue, likes through its own MCP "
     "server (youtube-music) when you have it, the page tools for the rest (lyrics, the library). "
