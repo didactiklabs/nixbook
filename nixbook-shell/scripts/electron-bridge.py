@@ -80,7 +80,8 @@ import threading
 import time
 
 TIMEOUT = 20.0
-MAX_LINE = 1024 * 1024
+# A request can carry a file to send (base64, up to 8 MB before).
+MAX_LINE = 12 * 1024 * 1024
 APP_NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
 # Never bridged, whatever the Nix list says: their pages hold the vault.
 PASSWORD_APPS = re.compile(r"keepass|bitwarden|vaultwarden|1password|enpass|proton-?pass|lastpass|dashlane|keeper|"
@@ -550,20 +551,22 @@ class Bridge:
                 content = args.get("content")
                 if not isinstance(content, str) or not content.strip():
                     raise Refused("nothing to send: `content` is empty")
-                if len(content) > CONTENT_MAX:
-                    raise Refused(f"refused: a message is at most {CONTENT_MAX} characters")
+                most = CONTENT_MAX_BY_APP.get(self.app, CONTENT_MAX)
+                if len(content) > most:
+                    raise Refused(f"refused: a message is at most {most} characters")
             self.rate("send", SENDS_PER_MINUTE)
         if "limit" in args:
             try:
-                args["limit"] = max(1, min(50, int(args["limit"])))
+                args["limit"] = max(1, min(LIMIT_MAX_BY_APP.get(self.app, 50), int(args["limit"])))
             except (TypeError, ValueError):
                 args["limit"] = 20
         page = self.page(req.get("page"))
         sid = self.session(page)
         expr = f"{self.adapter_js}\n;nixbookApp({json.dumps(op)}, {json.dumps(args)})"
         logged = {"channel": str(args.get("channel") or "")[:80]}
-        if op == "call":
-            logged["handler"] = str(args.get("handler") or "")[:60]
+        if op in ("call", "api", "innertube"):
+            logged["handler"] = str(args.get("handler") or args.get("method") or args.get("path")
+                                    or args.get("endpoint") or "")[:60]
         if op == "send":
             logged["chars"] = len(args.get("content") or "")
             logged["reply"] = bool(args.get("reply_to"))
@@ -591,13 +594,28 @@ ACTUAL_WRITES = ("add", "update", "delete", "set_budget", "move_budget", "set_ca
                  "schedule_create", "schedule_update", "schedule_delete", "schedule_skip", "schedule_post",
                  "rule_create", "rule_update", "rule_delete", "sync", "bank_sync", "call")
 # The adapters' operations: everything else is refused before any code runs.
-ADAPTER_OPS = {"discord": ("status", "current", "guilds", "channels", "dms", "find", "read", "send", "react"),
+DISCORD_WRITES = ("send", "react", "unreact", "edit", "delete", "pin", "unpin", "thread_create", "mark_read",
+                  "send_file", "friend_add", "friend_remove", "presence", "voice_join", "voice_leave", "open", "api")
+SLACK_WRITES = ("send", "schedule", "edit", "delete", "react", "unreact", "mark_read", "pin", "unpin", "upload",
+                "profile_status", "presence", "dnd", "dnd_end", "channel_create", "invite", "join", "leave",
+                "archive", "topic", "remind", "api")
+YTM_WRITES = ("playlist_create", "playlist_add", "playlist_remove", "playlist_rename", "playlist_delete", "like",
+              "dislike", "unlike", "subscribe", "unsubscribe", "innertube")
+ADAPTER_OPS = {"discord": ("status", "current", "guilds", "channels", "dms", "find", "read", "pins", "search",
+                           "threads", "members", "friends") + DISCORD_WRITES,
+               "slack": ("status", "teams", "channels", "users", "find", "read", "thread", "search", "pins")
+               + SLACK_WRITES,
+               "youtube-music": ("status", "playlists", "playlist", "liked", "history", "library") + YTM_WRITES,
                # Actual Budget: its reads, and its writes through Actual's
                # public API (electron/actual.js; never the budget file itself).
                "actual": ("status", "accounts", "month", "categories", "transactions", "schedules", "rules",
                           "payees") + ACTUAL_WRITES}
 # The operations that change something: rate-limited and audited.
-ADAPTER_WRITES = {"actual": ACTUAL_WRITES}
+ADAPTER_WRITES = {"actual": ACTUAL_WRITES, "discord": DISCORD_WRITES, "slack": SLACK_WRITES,
+                  "youtube-music": YTM_WRITES}
+# A message's length, and how many items a read may ask for, per app.
+CONTENT_MAX_BY_APP = {"discord": 2000, "slack": 12000}
+LIMIT_MAX_BY_APP = {"discord": 50, "slack": 200, "youtube-music": 500}
 OPS = {"status": "op_status", "pages": "op_pages", "read": "op_read", "act": "op_act", "wait": "op_wait",
        "screenshot": "op_screenshot", "go": "op_go", "app": "op_app"}
 
