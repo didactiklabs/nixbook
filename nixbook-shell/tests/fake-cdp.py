@@ -145,6 +145,10 @@ def app(op, o, params):
         return {"error": "fake: the app's code ran in an isolated world"}
     if os.environ.get("FAKE_CDP_APP") == "actual":
         return actual(op, o)
+    if os.environ.get("FAKE_CDP_APP") in ("slack", "youtube-music"):
+        # Their adapters are checked by app-adapters-tests.js: what reached
+        # the page, said back.
+        return {"op": op, "args": o}
     if op == "status":
         # A key the bridge must never pass on.
         return {"loggedIn": True, "user": "Me", "current": CHANNEL, "token": "fake-secret"}
@@ -169,6 +173,10 @@ def app(op, o, params):
         return {"sent": True, "id": "999999999999999999", "channel": CHANNEL}
     if op == "react":
         return {"reacted": True, "id": o.get("message"), "channel": CHANNEL}
+    if op in ("unreact", "edit", "delete", "pins", "pin", "unpin", "search", "threads", "thread_create",
+              "mark_read", "send_file", "members", "friends", "friend_add", "friend_remove", "presence",
+              "voice_join", "voice_leave", "open", "api"):
+        return {"op": op, "args": {k: (len(v) if k == "data" else v) for k, v in o.items()}}
     return {"error": f"unknown operation {op}"}
 
 

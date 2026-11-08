@@ -8,9 +8,18 @@
 //   nixbookApp(op, args) → a plain object, or {error}
 //
 // Operations: status, current, guilds, channels {guild}, dms, find {query},
-// read {channel, limit}, send {channel, content, reply_to?}, react
-// {channel, message, emoji}. A channel is its id, `user:<id>` (the direct
-// messages with someone), or a name find resolves to one channel.
+// read {channel, limit, before?}, send {channel, content, reply_to?}, react
+// {channel, message, emoji}, unreact {…}, edit {channel, message, content},
+// delete {channel, message}, pins {channel}, pin / unpin {channel, message},
+// search {query?, guild? | channel?, author?, limit?}, threads {channel},
+// thread_create {channel, name, message?}, mark_read {channel}, send_file
+// {channel, name, data (base64), content?}, members {guild}, friends,
+// friend_add {username}, friend_remove {user}, presence {status?, text?},
+// voice_join {channel}, voice_leave, open {channel} (shows it in the app),
+// api {method, path, body?, query?} (any other call of Discord's own REST
+// client, but the account's credentials, billing and connections).
+// A channel is its id, `user:<id>` (the direct messages with someone), or a
+// name find resolves to one channel.
 "use strict";
 
 async function nixbookApp(op, o) {
@@ -219,8 +228,378 @@ async function nixbookApp(op, o) {
     return out;
   }
 
+  function snowflake(v, what) {
+    const s = String(v || "");
+    if (!/^\d{15,22}$/.test(s))
+      throw new Error(`\`${what}\`: an id (discord read / find give them)`);
+    return s;
+  }
+  const rest = (method, url, extra) => {
+    if (!C.RestAPI || !C.RestAPI[method])
+      throw new Error("Discord's REST client isn't loaded yet");
+    return C.RestAPI[method]({ url, ...(extra || {}) });
+  };
+  const body = (r) => (r && r.body !== undefined ? r.body : r);
+  const props = (...names) => {
+    const f = V.Webpack && V.Webpack.findByProps;
+    try {
+      return f ? f(...names) : null;
+    } catch (e) {
+      return null;
+    }
+  };
+  // What a generic call may never reach: the account's own secrets.
+  const OFF_LIMITS =
+    /^\/(auth|oauth2|billing|store|entitlements|users\/@me\/(mfa|billing|connections|devices|password|email|harvest|delete|disable))(\/|$|\?)/i;
+
   try {
     switch (op) {
+      case "unreact": {
+        const ch = await channelFor(o.channel);
+        const emoji = String(o.emoji || "").trim();
+        if (!emoji || emoji.length > 80)
+          return { error: "an emoji: 👍, or name:id for a server's own" };
+        const mid = snowflake(o.message, "message");
+        await rest(
+          "del",
+          `/channels/${ch.id}/messages/${mid}/reactions/${encodeURIComponent(emoji)}/@me`,
+        );
+        return { unreacted: true, id: mid, channel: describe(ch) };
+      }
+      case "edit": {
+        const ch = await channelFor(o.channel);
+        const mid = snowflake(o.message, "message");
+        const content = String(o.content || "");
+        if (!content.trim()) return { error: "`content`: the new text" };
+        await rest("patch", `/channels/${ch.id}/messages/${mid}`, {
+          body: { content },
+        });
+        return { edited: true, id: mid, channel: describe(ch) };
+      }
+      case "delete": {
+        const ch = await channelFor(o.channel);
+        const mid = snowflake(o.message, "message");
+        await rest("del", `/channels/${ch.id}/messages/${mid}`);
+        return { deleted: true, id: mid, channel: describe(ch) };
+      }
+      case "pins": {
+        const ch = await channelFor(o.channel);
+        const list = body(await rest("get", `/channels/${ch.id}/pins`)) || [];
+        return {
+          channel: describe(ch),
+          messages: list.slice(0, 50).map(message),
+        };
+      }
+      case "pin":
+      case "unpin": {
+        const ch = await channelFor(o.channel);
+        const mid = snowflake(o.message, "message");
+        await rest(
+          op === "pin" ? "put" : "del",
+          `/channels/${ch.id}/pins/${mid}`,
+        );
+        return {
+          [op === "pin" ? "pinned" : "unpinned"]: mid,
+          channel: describe(ch),
+        };
+      }
+      case "search": {
+        const query = {};
+        if (o.query) query.content = String(o.query).slice(0, 200);
+        if (o.author) {
+          const a = String(o.author);
+          if (/^\d{15,22}$/.test(a)) query.author_id = a;
+          else {
+            const hit = findAll(a).find(
+              (h) => h.kind === "dm" || h.kind === "user",
+            );
+            const ch =
+              hit && hit.kind === "dm"
+                ? C.ChannelStore.getChannel(hit.id)
+                : null;
+            const uid =
+              hit &&
+              (hit.kind === "user"
+                ? hit.id.slice(5)
+                : ch && recipients(ch)[0] && recipients(ch)[0].id);
+            if (!uid)
+              return {
+                error: `no one called ${JSON.stringify(a)} (give their id)`,
+              };
+            query.author_id = uid;
+          }
+        }
+        let url;
+        if (o.guild) {
+          const want = fold(o.guild);
+          const g =
+            guilds().find((x) => x.id === String(o.guild)) ||
+            guilds().find((x) => fold(x.name).includes(want));
+          if (!g) return { error: `no server ${JSON.stringify(o.guild)}` };
+          url = `/guilds/${g.id}/messages/search`;
+          if (o.channel) query.channel_id = (await channelFor(o.channel)).id;
+        } else {
+          const ch = await channelFor(o.channel);
+          url = ch.guild_id
+            ? `/guilds/${ch.guild_id}/messages/search`
+            : `/channels/${ch.id}/messages/search`;
+          if (ch.guild_id) query.channel_id = ch.id;
+        }
+        if (
+          !Object.keys(query).filter((k) => k !== "channel_id").length &&
+          !o.channel
+        )
+          return { error: "search: `query` words, or an `author`" };
+        const r = body(await rest("get", url, { query })) || {};
+        const limit = Math.max(1, Math.min(50, Number(o.limit) || 20));
+        const hits = (r.messages || [])
+          .map((group) => group.find((m) => m.hit) || group[0])
+          .filter(Boolean);
+        return {
+          total: r.total_results || hits.length,
+          messages: hits
+            .slice(0, limit)
+            .map((m) => ({ ...message(m), channel: m.channel_id })),
+        };
+      }
+      case "threads": {
+        const ch = await channelFor(o.channel);
+        const T = C.ThreadStore || props("getActiveJoinedThreadsForParent");
+        let list = [];
+        if (T && T.getThreadsForParent)
+          list = Object.values(T.getThreadsForParent(ch.guild_id, ch.id) || {});
+        else if (
+          C.ActiveThreadsStore &&
+          C.ActiveThreadsStore.getThreadsForParent
+        )
+          list = Object.values(
+            C.ActiveThreadsStore.getThreadsForParent(ch.guild_id, ch.id) || {},
+          );
+        if (!list.length && ch.guild_id) {
+          const r =
+            body(
+              await rest("get", `/channels/${ch.id}/threads/search`, {
+                query: { archived: false, limit: 25 },
+              }),
+            ) || {};
+          list = r.threads || [];
+        }
+        return {
+          channel: describe(ch),
+          threads: list.slice(0, 50).map((t) => ({ id: t.id, name: t.name })),
+        };
+      }
+      case "thread_create": {
+        const ch = await channelFor(o.channel);
+        const name = String(o.name || "")
+          .trim()
+          .slice(0, 100);
+        if (!name) return { error: "`name`: the thread's" };
+        const url = o.message
+          ? `/channels/${ch.id}/messages/${snowflake(o.message, "message")}/threads`
+          : `/channels/${ch.id}/threads`;
+        const t =
+          body(
+            await rest("post", url, {
+              body: o.message ? { name } : { name, type: 11 },
+            }),
+          ) || {};
+        return {
+          created: { id: t.id, name: t.name || name },
+          channel: describe(ch),
+        };
+      }
+      case "mark_read": {
+        const ch = await channelFor(o.channel);
+        const last = ch.lastMessageId || ch.last_message_id;
+        const A = props("ack", "ackChannel") || props("ackChannel");
+        if (A && A.ack) A.ack(ch.id);
+        else if (last)
+          await rest("post", `/channels/${ch.id}/messages/${last}/ack`, {
+            body: { token: null },
+          });
+        return { read: true, channel: describe(ch) };
+      }
+      case "send_file": {
+        const ch = await channelFor(o.channel);
+        const name = String(o.name || "file")
+          .replace(/[\/\\]/g, "_")
+          .slice(0, 120);
+        const bytes = Uint8Array.from(atob(String(o.data || "")), (c) =>
+          c.charCodeAt(0),
+        );
+        if (!bytes.length) return { error: "`data`: the file, base64" };
+        const file = new File([bytes], name, {
+          type: String(o.mime || "application/octet-stream"),
+        });
+        const r = body(
+          await rest("post", `/channels/${ch.id}/messages`, {
+            attachments: [{ name: "files[0]", file, filename: name }],
+            fields: [
+              {
+                name: "payload_json",
+                value: JSON.stringify({ content: String(o.content || "") }),
+              },
+            ],
+          }),
+        );
+        return {
+          sent: true,
+          id: (r && r.id) || null,
+          channel: describe(ch),
+          file: name,
+        };
+      }
+      case "members": {
+        const want = fold(o.guild);
+        const g =
+          guilds().find((x) => x.id === String(o.guild)) ||
+          guilds().find((x) => want && fold(x.name).includes(want));
+        if (!g) return { error: `no server ${JSON.stringify(o.guild || "")}` };
+        const M = C.GuildMemberStore;
+        const list = (M && M.getMembers ? M.getMembers(g.id) : []) || [];
+        return {
+          guild: g.name,
+          loaded: list.length,
+          members: list.slice(0, 200).map((m) => {
+            const u = C.UserStore.getUser(m.userId);
+            return {
+              id: m.userId,
+              name: m.nick || userName(u),
+              username: u ? u.username : "",
+            };
+          }),
+        };
+      }
+      case "friends": {
+        const R = C.RelationshipStore;
+        const ids = R && R.getFriendIDs ? R.getFriendIDs() : [];
+        const P = C.PresenceStore;
+        return {
+          friends: ids.slice(0, 300).map((id) => {
+            const u = C.UserStore.getUser(id);
+            return {
+              id,
+              name: userName(u),
+              username: u ? u.username : "",
+              status: P && P.getStatus ? P.getStatus(id) : undefined,
+            };
+          }),
+        };
+      }
+      case "friend_add": {
+        const username = String(o.username || "")
+          .trim()
+          .replace(/^@/, "");
+        if (!/^[\w.]{2,32}$/.test(username))
+          return { error: "`username`: their Discord username" };
+        await rest("post", "/users/@me/relationships", {
+          body: { username, discriminator: null },
+        });
+        return { requested: username };
+      }
+      case "friend_remove": {
+        let id = String(o.user || "");
+        if (!/^\d{15,22}$/.test(id)) {
+          const hit = findAll(id).find(
+            (h) => h.kind === "user" || h.kind === "dm",
+          );
+          const ch =
+            hit && hit.kind === "dm" ? C.ChannelStore.getChannel(hit.id) : null;
+          id = hit
+            ? hit.kind === "user"
+              ? hit.id.slice(5)
+              : (recipients(ch)[0] || {}).id
+            : "";
+        }
+        if (!id) return { error: `no friend ${JSON.stringify(o.user || "")}` };
+        await rest("del", `/users/@me/relationships/${id}`);
+        return { removed: id };
+      }
+      case "presence": {
+        const status = o.status ? String(o.status) : null;
+        if (status && !["online", "idle", "dnd", "invisible"].includes(status))
+          return { error: "status: online, idle, dnd or invisible" };
+        const S = props("PreloadedUserSettingsActionCreators") || {};
+        const U = S.PreloadedUserSettingsActionCreators;
+        if (U && U.updateAsync) {
+          await U.updateAsync(
+            "status",
+            (st) => {
+              if (status) st.status = { value: status };
+              if (o.text !== undefined)
+                st.customStatus = o.text
+                  ? {
+                      text: String(o.text).slice(0, 128),
+                      emojiId: "0",
+                      emojiName: "",
+                      expiresAtMs: "0",
+                    }
+                  : undefined;
+            },
+            0,
+          );
+        } else {
+          const b = {};
+          if (status) b.status = status;
+          if (o.text !== undefined)
+            b.custom_status = o.text
+              ? { text: String(o.text).slice(0, 128) }
+              : null;
+          await rest("patch", "/users/@me/settings", { body: b });
+        }
+        return { status: status || undefined, text: o.text };
+      }
+      case "voice_join":
+      case "voice_leave": {
+        const A = props("selectVoiceChannel");
+        if (!A) return { error: "Discord's voice actions aren't loaded" };
+        if (op === "voice_leave") {
+          A.selectVoiceChannel(null);
+          return { left: true };
+        }
+        const ch = await channelFor(o.channel);
+        if (![2, 13].includes(ch.type))
+          return { error: `${channelName(ch)} isn't a voice channel` };
+        A.selectVoiceChannel(ch.id);
+        return { joined: describe(ch) };
+      }
+      case "open": {
+        const ch = await channelFor(o.channel);
+        const T = C.NavigationRouter || props("transitionTo");
+        const path = `/channels/${ch.guild_id || "@me"}/${ch.id}`;
+        if (T && T.transitionTo) T.transitionTo(path);
+        else return { error: "Discord's router isn't loaded" };
+        return { opened: describe(ch) };
+      }
+      case "api": {
+        const method = String(o.method || "get").toLowerCase();
+        const verb = {
+          get: "get",
+          post: "post",
+          put: "put",
+          patch: "patch",
+          delete: "del",
+        }[method];
+        const path = String(o.path || "");
+        if (!verb) return { error: "method: get, post, put, patch or delete" };
+        if (!/^\/[\w@./%?=&,:-]{1,300}$/.test(path) || path.includes(".."))
+          return { error: "path: a Discord API path, e.g. /guilds/ID/roles" };
+        if (OFF_LIMITS.test(path))
+          return {
+            error: `refused: ${path} is the account's own (credentials, billing, connections)`,
+          };
+        const r = await rest(verb, path, {
+          ...(o.body !== undefined ? { body: o.body } : {}),
+          ...(o.query ? { query: o.query } : {}),
+        });
+        return {
+          method,
+          path,
+          status: r && r.status,
+          result: body(r) === undefined ? null : body(r),
+        };
+      }
       case "current":
         return { channel: describe(currentChannel()) };
       case "guilds":
@@ -257,12 +636,13 @@ async function nixbookApp(op, o) {
         let list = stored
           ? stored._array || (stored.toArray ? stored.toArray() : [])
           : [];
+        if (o.before) list = [];
         if (list.length < limit && C.RestAPI) {
           // Not loaded in the app: through Discord's own client (it doesn't
           // mark the channel read).
           const r = await C.RestAPI.get({
             url: `/channels/${ch.id}/messages`,
-            query: { limit },
+            query: { limit, ...(o.before ? { before: String(o.before) } : {}) },
           });
           list = ((r && r.body) || []).slice().reverse();
         }

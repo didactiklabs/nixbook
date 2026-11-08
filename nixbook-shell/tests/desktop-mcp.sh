@@ -411,7 +411,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 67 tools" 67 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 69 tools" 69 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -1978,6 +1978,23 @@ expect_contains "agent input while asked: refused" \
 expect_eq "agent input while asked: nothing granted" ask \
   "$(python3 "$mcp" trust list | jq -r '.[] | select(.class=="discord:send:222222222222222222") | .level')"
 rm -f "$XDG_RUNTIME_DIR/nixbook-shell/agent-input"
+# The rest of Discord: passed on, the user asked before what edits,
+# deletes, sends a file, or changes things through the API.
+expect_contains "discord pins: passed on" "$(call discord '{"action":"pins","channel":"222222222222222222"}')" '"op": "pins"'
+: >"$calls"
+expect_contains "discord edit: the user's no stops it" \
+  "$(call discord '{"action":"edit","channel":"222222222222222222","message":"555555555555555555","content":"x"}')" "the user said no"
+expect_contains "discord edit: asked first" "$(grep -- '-A allow=Allow' "$calls" | tail -n1)" "edit a message on Discord"
+expect_contains "discord api: a GET isn't asked" "$(call discord '{"action":"api","method":"get","path":"/guilds/1/roles"}')" '"op": "api"'
+# A home of the test's own (never the user's).
+mkdir -p "$tmp/home/.ssh"
+echo "file body" >"$tmp/home/note.txt"
+echo key >"$tmp/home/.ssh/id"
+echo allow >"$tmp/ask"
+expect_contains "discord send_file: the file from the home, base64" \
+  "$(HOME="$tmp/home" STUB_ASK="$tmp/ask" call discord "{\"action\":\"send_file\",\"channel\":\"222222222222222222\",\"path\":\"$tmp/home/note.txt\"}")" '"data": 16'
+expect_contains "discord send_file: never a hidden folder" \
+  "$(HOME="$tmp/home" STUB_ASK="$tmp/ask" call discord "{\"action\":\"send_file\",\"channel\":\"222222222222222222\",\"path\":\"$tmp/home/.ssh/id\"}")" "hidden folder"
 expect_eq "tools/list: discord and page_act marked destructive" "true true" \
   "$(python3 "$mcp" tools | jq -r '[.[] | select(.name=="discord" or .name=="page_act") | .annotations.destructiveHint | tostring] | join(" ")')"
 kill "$electron_pid" 2>/dev/null
@@ -2043,6 +2060,30 @@ expect_eq "tools/list: budget_edit marked destructive, budget read-only" "true t
   "$(python3 "$mcp" tools | jq -r '[(.[] | select(.name=="budget_edit") | .annotations.destructiveHint), (.[] | select(.name=="budget") | .annotations.readOnlyHint)] | map(tostring) | join(" ")')"
 kill "$electron_pid" 2>/dev/null
 wait "$electron_pid" 2>/dev/null || true
+
+# Slack and YouTube Music through their bridges (their adapters:
+# app-adapters.sh).
+app_pids=()
+for app in slack youtube-music; do
+  FAKE_CDP_APP=$app FAKE_CDP_LOG="$tmp/cdp-$app.log" python3 "$root/scripts/electron-bridge.py" --page-js "$root/zen/page.js" \
+    --adapters "$root/electron" $app -- python3 "$root/tests/fake-cdp.py" --dmcp-test-$app &
+  app_pids+=("$!")
+  for _ in $(seq 1 100); do
+    [ -S "$XDG_RUNTIME_DIR/nixbook-electron/$app.sock" ] && break
+    sleep 0.05
+  done
+done
+expect_contains "slack read: passed on" "$(call slack '{"action":"read","channel":"#general","limit":5}')" '"op": "read"'
+: >"$calls"
+expect_contains "slack send: the user's no stops it" "$(call slack '{"action":"send","channel":"#general","content":"hi"}')" "the user said no"
+expect_contains "slack send: asked, with the message" "$(grep -- '-A allow=Allow' "$calls" | tail -n1)" "content: hi"
+expect_eq "slack send: nothing sent on a no" "" "$(grep '"eval"' "$tmp/cdp-slack.log" | jq -r 'select(.op=="send") | .op')"
+expect_contains "slack api: a reading method isn't asked" "$(call slack '{"action":"api","method":"bookmarks.list"}')" '"op": "api"'
+expect_contains "youtube_music playlist_add: passed on" \
+  "$(call youtube_music '{"action":"playlist_add","playlist":"Road trip","videos":["aaaaaaaaaaa"]}')" '"op": "playlist_add"'
+expect_contains "youtube_music playlist_delete: asked first" "$(call youtube_music '{"action":"playlist_delete","playlist":"Road trip"}')" "the user said no"
+kill "${app_pids[@]}" 2>/dev/null
+wait "${app_pids[@]}" 2>/dev/null || true
 
 # -- adapting to the user ----------------------------------------------------------------------
 # Routines learned from the habits, in plain code; a budget that follows the

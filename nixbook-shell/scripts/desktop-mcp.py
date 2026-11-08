@@ -42,6 +42,7 @@ import fcntl
 import hashlib
 import json
 import math
+import mimetypes
 import os
 import queue
 import random
@@ -13246,8 +13247,8 @@ def widget_call(target, fn, *args):
 
 def shared_folders():
     """The folders the user shares with AI agents (shell settings
-    ai.allowedFolders, read, and ai.writableFolders, written by the agent
-    desktop's apps), resolved; the home itself and / never count."""
+    ai.allowedFolders, read, and ai.writableFolders, written by DAI),
+    resolved; the home itself and / never count."""
     path = os.path.join(xdg("XDG_CONFIG_HOME", "~/.config"), "nixbook-shell", "config.json")
     try:
         with open(path, encoding="utf-8") as f:
@@ -15965,6 +15966,11 @@ def discord_names(query):
     return list(dict.fromkeys(out))
 
 
+DISCORD_MORE = ("unreact", "edit", "delete", "pins", "pin", "unpin", "search", "threads", "thread_create",
+                "mark_read", "send_file", "members", "friends", "friend_add", "friend_remove", "presence",
+                "voice_join", "voice_leave", "open", "api")
+
+
 @tool(
     "discord",
     "pages",
@@ -15974,15 +15980,30 @@ def discord_names(query):
     "(`channel`, `message`, `emoji`). A channel: an id, user:<id>, or a name. Sends and reactions are "
     "in the user's name: say what you'll send first; the user is asked again (Allow / No) before it goes. To message someone: `find` with "
     "the name as the user gave it (a placeholder as it is: the contact's Discord name is looked up), then "
-    "`send`; never through Vesktop's window.",
-    obj({"action": {"type": "string", "enum": ["status", "find", "channels", "read", "send", "react"]},
+    "`send`; never through Vesktop's window. Also: `edit` / `delete` (`channel`, `message`, `content`), "
+    "`unreact`, `pins`, `pin` / `unpin` (`message`), `search` (`query`, `author`, `guild` or `channel`), "
+    "`threads`, `thread_create` (`channel`, `name`, `message`), `mark_read`, `send_file` (`channel`, `path` "
+    "of a file in the home, `content`), `members` (`guild`), `friends`, `friend_add` (`username`), "
+    "`friend_remove` (`user`), `presence` (`status` online|idle|dnd|invisible, `text` a custom status), "
+    "`voice_join` (`channel`) / `voice_leave`, `open` (shows a channel in Vesktop), and `api` (`method`, "
+    "`path` /…, `body`, `params` its query): any other call of Discord's REST API as the user, never the "
+    "account's credentials, billing or connections. Editing, deleting, files, friends, voice and a "
+    "non-GET `api` call are asked to the user too.",
+    obj({"action": {"type": "string", "enum": ["status", "find", "channels", "read", "send", "react"]
+                    + list(DISCORD_MORE)},
          "query": {"type": "string"}, "guild": {"type": "string"}, "channel": {"type": "string"},
          "limit": {"type": "integer"}, "content": {"type": "string"}, "reply_to": {"type": "string"},
-         "message": {"type": "string"}, "emoji": {"type": "string"}}, ["action"]),
+         "message": {"type": "string"}, "emoji": {"type": "string"}, "before": {"type": "string"},
+         "author": {"type": "string"}, "name": {"type": "string"}, "path": {"type": "string"},
+         "username": {"type": "string"}, "user": {"type": "string"}, "status": {"type": "string"},
+         "text": {"type": "string"}, "method": {"type": "string"}, "body": {}, "params": {"type": "object"}},
+        ["action"]),
     destructive=True,
 )
 def t_discord(ctx, args):
     action = as_str(args, "action", max_len=20)
+    if action in DISCORD_MORE:
+        return discord_more(ctx, action, args)
 
     def app(op, **kw):
         return electron(ctx, "discord", "app", op=op, args={k: v for k, v in kw.items() if v not in (None, "")})
@@ -16065,6 +16086,174 @@ def t_discord(ctx, args):
                 emoji=as_str(args, "emoji", max_len=80))
         return [text(f"reacted {args.get('emoji')} to message {r.get('id')} in {discord_channel(r.get('channel'))}")]
     raise ToolError("action: status, find, channels, read, send or react")
+
+
+DISCORD_ASK = {"edit": "edit a message", "delete": "delete a message", "send_file": "send a file",
+               "friend_add": "send a friend request", "friend_remove": "remove a friend",
+               "voice_join": "join a voice channel", "api": "make this call"}
+FILE_SEND_MAX = 8 * 1024 * 1024
+
+
+def file_payload(path):
+    """(name, base64, mime) of a file in the user's home to send, at most
+    FILE_SEND_MAX."""
+    real = safe_home_path(path)
+    if not os.path.isfile(real):
+        raise ToolError(f"no file {path}")
+    size = os.path.getsize(real)
+    if size > FILE_SEND_MAX:
+        raise ToolError(f"{path} is {size // 1024 // 1024} MB: at most {FILE_SEND_MAX // 1024 // 1024} MB")
+    with open(real, "rb") as f:
+        data = base64.b64encode(f.read()).decode()
+    return os.path.basename(real), data, mimetypes.guess_type(real)[0] or "application/octet-stream"
+
+
+def forwarded(args, keys, max_json=20000):
+    """The arguments an app operation takes, checked for size."""
+    out = {}
+    for k in keys:
+        if k in args and args[k] is not None:
+            v = args[k]
+            if isinstance(v, str) and len(v) > 12000:
+                raise ToolError(f"`{k}` is too long")
+            out[k] = v
+    if len(json.dumps(out)) > max_json:
+        raise ToolError("too much at once")
+    return out
+
+
+def app_reply(r):
+    """An app operation's answer as text: compact JSON."""
+    return [text(r)]
+
+
+def discord_more(ctx, action, args):
+    ctx.guard.check_rate()
+    sent = forwarded(args, ("channel", "message", "content", "emoji", "query", "guild", "author", "limit", "name",
+                            "username", "user", "status", "text", "method", "path", "body", "before"))
+    if "params" in args:
+        sent["query"] = args["params"]
+    ask = DISCORD_ASK.get(action)
+    if action == "api" and str(args.get("method") or "get").lower() == "get":
+        ask = None
+    if action == "send_file":
+        name, data, mime = file_payload(as_str(args, "path", max_len=500))
+        sent.update(name=name, data=data, mime=mime)
+    if ask:
+        what = "; ".join(f"{k}: {short(str(args[k]), 200)}" for k in ("channel", "message", "content", "path",
+                                                                         "username", "user", "method", "body")
+                         if k in args)
+        ask_user_yes(ctx, f"Let the agent {ask} on Discord?", what or ask)
+    return app_reply(electron(ctx, "discord", "app", op=action, args=sent))
+
+
+# Slack (through its bridge): the Slack app's own Web API, with its session.
+SLACK_ACTIONS = ("status", "teams", "channels", "users", "find", "read", "thread", "search", "pins", "send",
+                 "schedule", "edit", "delete", "react", "unreact", "mark_read", "pin", "unpin", "upload",
+                 "profile_status", "presence", "dnd", "dnd_end", "channel_create", "invite", "join", "leave",
+                 "archive", "topic", "remind", "api")
+SLACK_ASK = {"send": "send this", "schedule": "schedule this message", "edit": "edit a message",
+             "delete": "delete a message", "react": "react", "upload": "upload a file",
+             "channel_create": "create a channel", "invite": "invite people", "archive": "archive a channel",
+             "leave": "leave a channel", "api": "make this call"}
+SLACK_READ_METHOD = re.compile(r"\.(list|info|history|replies|get\w*|search\w*|lookup\w*)$")
+
+
+@tool(
+    "slack",
+    "pages",
+    "Slack in the user's Slack app, without its window, through Slack's own Web API with the app's session "
+    "(`team`: a workspace, default the one open). Read: `status`, `teams`, `channels` (`query`), `users` "
+    "(`query`), `find` (`query`: channels and people → ids), `read` (`channel`, `limit`, `before` a ts), "
+    "`thread` (`channel`, `ts`), `search` (`query`, Slack's syntax: in:#x from:@y), `pins`. Act: `send` "
+    "(`channel`, `content`, `thread_ts`, `broadcast`), `schedule` (… `at` unix seconds), `edit` / `delete` "
+    "(`channel`, `ts`), `react` / `unreact` (`ts`, `emoji` its name), `mark_read`, `pin` / `unpin`, "
+    "`upload` (`channel`, `path` of a file in the home, `content`), `profile_status` (`text`, `emoji`, "
+    "`minutes`), `presence` (auto|away), `dnd` (`minutes`) / `dnd_end`, `channel_create` (`name`, "
+    "`private`), `invite` (`channel`, `users`), `join` / `leave` / `archive`, `topic`, `remind` (`text`, "
+    "`time`), and `api` (`method` e.g. bookmarks.list, `params`): any other Web API method, never auth, "
+    "oauth, admin or apps. A channel: its id, #name, or a person (their DM). What speaks, deletes, uploads, "
+    "invites or archives in the user's name is asked to them first (Allow / No); say what first. Never "
+    "through Slack's window.",
+    obj({"action": {"type": "string", "enum": list(SLACK_ACTIONS)}, "team": {"type": "string"},
+         "query": {"type": "string"}, "channel": {"type": "string"}, "limit": {"type": "integer"},
+         "before": {"type": "string"}, "ts": {"type": "string"}, "thread_ts": {"type": "string"},
+         "content": {"type": "string"}, "broadcast": {"type": "boolean"}, "at": {"type": "integer"},
+         "emoji": {"type": "string"}, "path": {"type": "string"}, "text": {"type": "string"},
+         "minutes": {"type": "integer"}, "presence": {"type": "string", "enum": ["auto", "away"]},
+         "name": {"type": "string"}, "private": {"type": "boolean"}, "users": {"type": "array", "items": {"type": "string"}},
+         "topic": {"type": "string"}, "time": {"type": "string"}, "types": {"type": "string"},
+         "method": {"type": "string"}, "params": {"type": "object"}}, ["action"]),
+    destructive=True,
+    brief=("Slack without its window: read (channels, find, read, thread, search, pins), send/edit/delete, "
+           "react, upload, status, DND, channels, reminders, any Web API method (api)."),
+    props={"team": None, "channel": None, "query": None, "content": None, "ts": None, "limit": None},
+)
+def t_slack(ctx, args):
+    action = as_str(args, "action", max_len=20)
+    if action not in SLACK_ACTIONS:
+        raise ToolError("action: " + ", ".join(SLACK_ACTIONS))
+    sent = forwarded(args, ("team", "query", "channel", "limit", "before", "ts", "thread_ts", "content", "broadcast",
+                            "at", "emoji", "text", "minutes", "presence", "name", "private", "users", "topic", "time",
+                            "types", "method", "params"))
+    ask = SLACK_ASK.get(action)
+    if action == "api" and SLACK_READ_METHOD.search(str(args.get("method") or "")):
+        ask = None
+    if ask:
+        ctx.guard.check_rate()
+    if action == "upload":
+        name, data, mime = file_payload(as_str(args, "path", max_len=500))
+        sent.update(name=name, data=data)
+    if ask:
+        what = "; ".join(f"{k}: {short(str(args[k]), 300)}" for k in ("channel", "content", "ts", "path", "users",
+                                                                         "name", "method", "params") if k in args)
+        ask_user_yes(ctx, f"Let the agent {ask} on Slack?", what or ask)
+    return app_reply(electron(ctx, "slack", "app", op=action, args=sent))
+
+
+# YouTube Music's library (through its bridge): playlists, likes,
+# subscriptions, history; playback and the queue are the youtube-music
+# MCP server's.
+YTM_ACTIONS = ("status", "playlists", "playlist", "liked", "history", "library", "playlist_create", "playlist_add",
+               "playlist_remove", "playlist_rename", "playlist_delete", "like", "dislike", "unlike", "subscribe",
+               "unsubscribe", "innertube")
+
+
+@tool(
+    "youtube_music",
+    "pages",
+    "The user's YouTube Music library in pear-desktop, without its window (playing and the queue: the "
+    "youtube-music server's tools). `playlists`, `playlist` (`playlist`: its id or title; its tracks with "
+    "videoId), `liked`, `history`, `library` (`kind` songs|albums|artists|subscriptions), `playlist_create` "
+    "(`title`, `description`, `privacy` private|unlisted|public, `videos`), `playlist_add` / "
+    "`playlist_remove` (`playlist`, `videos` videoIds), `playlist_rename` (`playlist`, `title`, "
+    "`description`, `privacy`), `playlist_delete` (asked to the user first), `like` / `dislike` / `unlike` "
+    "(`video`), `subscribe` / `unsubscribe` (`channel` UC…), `innertube` (`endpoint` e.g. browse, `body`): "
+    "any other call of the page's own API, never the account's settings. videoIds come from the "
+    "youtube-music server's search or a playlist.",
+    obj({"action": {"type": "string", "enum": list(YTM_ACTIONS)}, "playlist": {"type": "string"},
+         "limit": {"type": "integer"}, "kind": {"type": "string", "enum": ["songs", "albums", "artists", "subscriptions"]},
+         "title": {"type": "string"}, "description": {"type": "string"},
+         "privacy": {"type": "string", "enum": ["private", "unlisted", "public"]},
+         "videos": {"type": "array", "items": {"type": "string"}}, "video": {"type": "string"},
+         "channel": {"type": "string"}, "endpoint": {"type": "string"}, "body": {"type": "object"}}, ["action"]),
+    destructive=True,
+    brief="YouTube Music's library without its window: playlists (list, read, create, add, remove, rename, delete), likes, subscriptions, history.",
+    props={"playlist": None, "videos": None, "video": None, "title": None},
+)
+def t_youtube_music(ctx, args):
+    action = as_str(args, "action", max_len=20)
+    if action not in YTM_ACTIONS:
+        raise ToolError("action: " + ", ".join(YTM_ACTIONS))
+    sent = forwarded(args, ("playlist", "limit", "kind", "title", "description", "privacy", "videos", "video",
+                            "channel", "endpoint", "body"))
+    if action not in ("status", "playlists", "playlist", "liked", "history", "library"):
+        ctx.guard.check_rate()
+    if action == "playlist_delete" or (action == "innertube" and "delete" in str(args.get("endpoint") or "")):
+        ask_user_yes(ctx, "Let the agent delete a YouTube Music playlist?" if action == "playlist_delete"
+                     else f"Let the agent call {short(str(args.get('endpoint')), 60)} on YouTube Music?",
+                     str(args.get("playlist") or args.get("body") or ""))
+    return app_reply(electron(ctx, "youtube-music", "app", op=action, args=sent))
 
 
 # Actual Budget (through its bridge): the money questions ("how much did I
