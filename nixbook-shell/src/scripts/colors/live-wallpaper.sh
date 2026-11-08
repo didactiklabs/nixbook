@@ -321,7 +321,9 @@ poster() { # <video>
 prepare() { # <current video|-> <folder>...
   mkdir -p "$CACHE"
   exec 9>"$CACHE/.prepare.lock"
-  flock -n 9 || return 0
+  # A run being replaced lets go of it a moment after its unit is killed
+  # (its ffmpeg holds it too): wait for that, not for a whole other run.
+  flock -w 15 9 || return 0
   local current="${1:--}"
   shift
   local -a videos=() outs=()
