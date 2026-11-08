@@ -256,6 +256,23 @@ stale() { # <video> <copy> <w> <h>
   [ "$(ffprobe -v error -show_entries format_tags=comment -of csv=p=0 "$2")" != "$SMOOTH_TAG" ]
 }
 
+# A copy just made for <video>: the outputs of its size playing that video
+# (as it is, or a copy — a remade one has the same name, the player still
+# holds the old file) take it at once, from the same moment, paused or not
+# as they were: it only gets sharper.
+swap_in() { # <video> <copy> <w> <h>
+  local name w h path t
+  [ -f "$2" ] || return 0
+  while read -r name w h; do
+    [ "$w" = "$3" ] && [ "$h" = "$4" ] || continue
+    path=$(mpv_cmd "$name" '{"command":["get_property","path"]}' | jq -r '.data // empty')
+    [ "$path" = "$1" ] || [[ "$path" == "$CACHE/$(key "$1")-"* ]] || continue
+    t=$(mpv_cmd "$name" '{"command":["get_property","time-pos"]}' | jq -r '.data // 0')
+    mpv_cmd "$name" "$(jq -nc --arg f "$2" --arg t "$t" \
+      '{command: {name: "loadfile", url: $f, flags: "replace", options: "start=\($t)"}}')" >/dev/null
+  done < <(outputs)
+}
+
 on_ac() { # no battery (a desktop) counts as AC
   local d
   for d in /sys/class/power_supply/*; do
@@ -317,7 +334,7 @@ prepare() { # <current video|-> <folder>...
       c=$(copy_path "$f" "$w" "$h")
       [ -f "$c" ] && ! stale "$f" "$c" "$w" "$h" && continue
       on_ac || return 0
-      make_copy "$f" "$c" "$w" "$h"
+      make_copy "$f" "$c" "$w" "$h" && swap_in "$f" "$c" "$w" "$h"
     done
   done
 }
