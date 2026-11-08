@@ -26,6 +26,11 @@ let
   # The notes' sync with Google Keep (`nixbook-keep`, services/KeepSync.qml).
   keep = import ./keep.nix { inherit pkgs gkeepapiSrc; };
   settingsLib = import ./lib.nix { inherit lib; };
+  # The live wallpaper player, drawing at the output's own pixels on a
+  # fractionally scaled output (patches/mpvpaper-fractional-scale.patch).
+  mpvpaper = pkgs.mpvpaper.overrideAttrs (old: {
+    patches = (old.patches or [ ]) ++ [ ./patches/mpvpaper-fractional-scale.patch ];
+  });
   fonts = import ./fonts.nix { inherit pkgs; };
   inherit (shell.passthru) configName;
 
@@ -175,7 +180,7 @@ let
       matugen
       ffmpeg # ffplay: sounds pw-play can't decode
       pipewire # pw-play: sounds
-      mpvpaper
+      mpvpaper # the patched one above (a let binding wins over `with pkgs`)
       socat # live-wallpaper.sh: mpv's IPC socket (pause, swap in the copy)
 
       wl-clipboard
