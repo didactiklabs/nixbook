@@ -3,7 +3,7 @@ Music, Actual…) for nixbook's desktop agents, so they read and use it
 through the page itself, without the mouse or keyboard, like Zen's tabs
 (nixbook-desktop-mcp's page_* tools; Discord also its `discord` tool).
 
-  nixbook-electron-app [--page-js FILE] [--adapters DIR] [--no-a11y] [--marker PATH…] APP -- BINARY [ARGS…]
+  nixbook-electron-app [--page-js FILE] [--adapters DIR] [--no-a11y] [--marker PATH…] [--open-host HOST…] APP -- BINARY [ARGS…]
   nixbook-electron-app --socket APP          (prints the app's socket path)
   nixbook-electron-app watch [--once]        (the watcher, a user service)
   nixbook-electron-app restart APP           (an unbridged APP, again through the bridge)
@@ -44,6 +44,15 @@ to it); when it doesn't, the app hands over too and there is no bridge
 until it is quit and started again through this launcher.
 NIXBOOK_ELECTRON_BRIDGE=0 starts the app without the bridge.
 
+A link among the app's arguments (`pear-desktop https://music.youtube.com/…`,
+what its .desktop file gets as the handler of a link) on one of its own
+hosts (--open-host, from Nix) is opened in the app: Electron apps such as
+YouTube Music ignore a URL on their command line. Started cold, the
+launcher opens it once the app's page has loaded; with a bridged instance
+running, it asks that one over its socket (`go` `open`), then starts the
+app, which hands over and raises its window. Only those hosts: the socket's
+`open` refuses any other.
+
 The app relaunching itself (app.relaunch(), an update applied): its process
 ends and a new one, unbridged, starts. The launcher watches RELAUNCH_WATCH
 seconds after its app quits for a new instance (this user's, its command
@@ -78,6 +87,7 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.parse
 
 TIMEOUT = 20.0
 # A request can carry a file to send (base64, up to 8 MB before).
@@ -256,9 +266,24 @@ class CdpError(Exception):
 
 # ── The app, through its pages ──
 
+def link_on(hosts, arg):
+    """`arg` when it is an http(s) link on one of `hosts`, else None."""
+    if not isinstance(arg, str) or len(arg) > 4000 or not hosts:
+        return None
+    try:
+        u = urllib.parse.urlsplit(arg.strip())
+        host = (u.hostname or "").lower()
+    except ValueError:
+        return None
+    if u.scheme not in ("http", "https") or host not in hosts or any(c in arg for c in "\0\r\n"):
+        return None
+    return arg.strip()
+
+
 class Bridge:
-    def __init__(self, app, cdp, page_js, adapter_js=None):
+    def __init__(self, app, cdp, page_js, adapter_js=None, open_hosts=()):
         self.app, self.cdp = app, cdp
+        self.open_hosts = tuple(h.lower() for h in open_hosts)
         self.page_js, self.adapter_js = page_js, adapter_js
         self.short = {}  # targetId → its short id ("1", "2"…), stable while it lives
         self.counter = itertools.count(1)
@@ -528,6 +553,11 @@ class Bridge:
             if not 0 <= i < len(entries):
                 raise Refused(f"nothing to go {action} to")
             self.cdp.call("Page.navigateToHistoryEntry", {"entryId": entries[i]["id"]}, session=sid)
+        elif action == "open":
+            url = link_on(self.open_hosts, req.get("url"))
+            if not url:
+                raise Refused(f"{self.app} opens only its own links ({', '.join(self.open_hosts) or 'none'})")
+            self.cdp.call("Page.navigate", {"url": url}, session=sid)
         else:
             raise Refused("in an app: back, forward or reload (open, navigate, activate, mute and close are Zen's)")
         time.sleep(0.3)
@@ -881,7 +911,44 @@ def label_of(app):
     return LABELS.get(app, app)
 
 
-def run_bridged(opts, app, command, markers):
+def ask_socket(path, request, timeout=30):
+    """One request to a running bridge's socket: its answer."""
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.settimeout(timeout)
+    try:
+        s.connect(path)
+        s.sendall(json.dumps(request).encode() + b"\n")
+        line = s.makefile("rb").readline()
+        return json.loads(line) if line else {"ok": False, "error": "no answer"}
+    except (OSError, ValueError) as e:
+        return {"ok": False, "error": str(e)}
+    finally:
+        s.close()
+
+
+def open_when_loaded(bridge, url, seconds=60):
+    """The link the app was started with, once its main page has loaded
+    (the app's own first load, a resumed track, would replace it)."""
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        try:
+            with bridge.lock:
+                page = bridge.page(None)
+            if page["url"].startswith(("http:", "https:")):
+                bridge.wait_loaded(page, max(1, end - time.monotonic()))
+                r = handle(bridge, {"cmd": "go", "action": "open", "url": url})
+                log(f"{bridge.app}: opened the link it was started with" if r.get("ok") else
+                    f"{bridge.app}: the link it was started with wasn't opened: {r.get('error')}")
+                return
+        except (Refused, CdpError):
+            pass
+        if bridge.cdp.closed.is_set():
+            return
+        time.sleep(0.3)
+    log(f"{bridge.app}: no page loaded within {seconds} s; the link it was started with wasn't opened")
+
+
+def run_bridged(opts, app, command, markers, link=None):
     """The app through the bridge, again when it relaunches itself (its
     app.relaunch(), an update applied): that new instance, unbridged, is
     stopped and started through the bridge, once per RESTART_GAP."""
@@ -889,7 +956,7 @@ def run_bridged(opts, app, command, markers):
     page_js = read_file(opts["page_js"])
     adapter = os.path.join(opts["adapters"], f"{app}.js")
     adapter_js = read_file(adapter) if os.path.exists(adapter) else None
-    state = {"child": None, "stopping": False}
+    state = {"child": None, "stopping": False, "open": link}
 
     def forward(s, _f):
         state["stopping"] = True
@@ -964,7 +1031,7 @@ def run_once(opts, app, command, path, page_js, adapter_js, state):
     os.close(child_r)
     os.close(child_w)
     cdp = Cdp(r4, w3)
-    bridge = Bridge(app, cdp, page_js, adapter_js)
+    bridge = Bridge(app, cdp, page_js, adapter_js, opts.get("open_hosts", ()))
     server, ino = None, None
     try:
         # Serve once the app answers on its pipe (one handing over to an
@@ -974,6 +1041,8 @@ def run_once(opts, app, command, path, page_js, adapter_js, state):
             try:
                 cdp.call("Browser.getVersion", timeout=5)
                 server, ino = serve(path, bridge)
+                if state.get("open"):
+                    threading.Thread(target=open_when_loaded, args=(bridge, state.pop("open")), daemon=True).start()
                 break
             except (Refused, CdpError):
                 time.sleep(0.2)
@@ -1021,7 +1090,8 @@ def read_config(path=None):
         if isinstance(a, dict) and APP_NAME.match(str(a.get("app") or "")) and a.get("command") \
                 and not PASSWORD_APPS.search(a["app"]):
             out[a["app"]] = {"command": [str(x) for x in a["command"]], "markers": [str(m) for m in a.get("markers") or []],
-                             "a11y": a.get("a11y", True) is not False}
+                             "a11y": a.get("a11y", True) is not False,
+                             "openHosts": [str(h) for h in a.get("openHosts") or []]}
     return out
 
 
@@ -1033,7 +1103,8 @@ def spawn_bridged(opts, app, cfg):
     """The app started through the bridge, in a scope of its own (the
     watcher's service stopping never takes it along)."""
     argv = launcher(opts) + (["--no-a11y"] if not cfg["a11y"] else []) + \
-        [m for marker in cfg["markers"] for m in ("--marker", marker)] + [app, "--"] + cfg["command"]
+        [m for marker in cfg["markers"] for m in ("--marker", marker)] + \
+        [h for host in cfg.get("openHosts", []) for h in ("--open-host", host)] + [app, "--"] + cfg["command"]
     run = os.environ.get("NIXBOOK_SYSTEMD_RUN") or "systemd-run"
     if os.environ.get("NIXBOOK_ELECTRON_SPAWN") != "plain" and (os.path.isabs(run) or shutil.which(run)):
         argv = [run, "--user", "--scope", "--quiet", "--collect", f"--unit=app-nixbook-{app}-{int(time.time())}",
@@ -1156,14 +1227,16 @@ def YOUNG_LIMIT():
 
 def parse(argv):
     opts = {"page_js": os.path.join(HERE, "..", "zen", "page.js"), "adapters": os.path.join(HERE, "..", "electron"),
-            "a11y": True, "markers": [], "config": None, "once": False}
+            "a11y": True, "markers": [], "open_hosts": [], "config": None, "once": False}
     i = 0
     while i < len(argv) and argv[i].startswith("--"):
         a = argv[i]
-        if a in ("--page-js", "--adapters", "--marker", "--config") and i + 1 < len(argv):
+        if a in ("--page-js", "--adapters", "--marker", "--open-host", "--config") and i + 1 < len(argv):
             key = {"--page-js": "page_js", "--adapters": "adapters", "--config": "config"}.get(a)
             if key:
                 opts[key] = argv[i + 1]
+            elif a == "--open-host":
+                opts["open_hosts"].append(argv[i + 1].lower())
             else:
                 opts["markers"].append(argv[i + 1])
             i += 2
@@ -1223,13 +1296,27 @@ def main(argv):
     if PASSWORD_APPS.search(app) or PASSWORD_APPS.search(os.path.basename(command[0])):
         log(f"{app}: a password manager is never bridged; starting it without")
         os.execvp(plain[0], plain)
-    if os.environ.get("NIXBOOK_ELECTRON_BRIDGE") == "0" or listening(socket_path(app)):
-        # Off, or a bridged instance runs: this start hands over to it.
+    if os.environ.get("NIXBOOK_ELECTRON_BRIDGE") == "0":
+        os.execvp(plain[0], plain)
+    # A link of the app's own (its .desktop file's %u): opened in the app,
+    # which would ignore it on its command line.
+    links = [a for a in command[1:] if link_on(opts["open_hosts"], a)]
+    link = links[-1] if links else None
+    if link:
+        command = [a for a in command if a not in links]
+        plain = [a for a in plain if a not in links]
+    if listening(socket_path(app)):
+        # A bridged instance runs: this start hands over to it (and raises
+        # its window), the link opened in it first.
+        if link:
+            r = ask_socket(socket_path(app), {"cmd": "go", "action": "open", "url": link})
+            if not r.get("ok"):
+                log(f"{app}: the link wasn't opened: {r.get('error')}")
         os.execvp(plain[0], plain)
     markers = [m for m in opts["markers"] if m.startswith("/") and m.rstrip("/").count("/") >= 2]
     # Without markers (the app's own store paths, from Nix: --marker) nothing
     # is matched: a guess (the binary's interpreter…) could stop other programs.
-    return run_bridged(opts, app, command, markers)
+    return run_bridged(opts, app, command, markers, link)
 
 
 if __name__ == "__main__":

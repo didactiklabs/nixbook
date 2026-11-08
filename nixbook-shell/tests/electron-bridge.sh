@@ -10,6 +10,8 @@
 #   - the page operations (isolated world, typing through Input.insertText,
 #     keys through Input.dispatchKeyEvent, focus emulation only meanwhile,
 #     password fields refused, screenshots);
+#   - links on the app's own hosts (--open-host): opened in the app, cold
+#     or running, any other refused;
 #   - Discord's operations (main world, the length cap, the rate limit,
 #     tokens and secret keys scrubbed, the audit log: lengths, no text).
 # Needs bash, python3 and jq. Run: bash tests/electron-bridge.sh
@@ -63,7 +65,8 @@ for req in sys.argv[2:]:
 EOF
 }
 start() {
-  python3 "$bridge" --page-js "$root/zen/page.js" --adapters "$root/electron" discord -- python3 "$fake" --app-arg &
+  python3 "$bridge" --page-js "$root/zen/page.js" --adapters "$root/electron" --open-host discord.com \
+    discord -- python3 "$fake" --app-arg "$@" &
   pid=$!
   for _ in $(seq 1 100); do
     [ -S "$sock" ] && return 0
@@ -151,6 +154,24 @@ expect_contains "screenshot: a JPEG" "$(sed -n 3p <<<"$out" | jq -r .result.data
 expect_eq "go back: to the entry before" 7 "$(grep 'navigateToHistoryEntry' "$FAKE_CDP_LOG" | jq .params.entryId)"
 expect_contains "go: only back, forward, reload" "$(sed -n 5p <<<"$out" | jq -r .error)" "back, forward or reload"
 
+# -- links on the app's own hosts ------------------------------------------------
+: >"$FAKE_CDP_LOG"
+out=$(ask '{"cmd":"go","action":"open","url":"https://discord.com/channels/1/2"}' \
+  '{"cmd":"go","action":"open","url":"https://evil.example/discord.com"}' \
+  '{"cmd":"go","action":"open","url":"javascript:alert(1)//discord.com"}' \
+  '{"cmd":"go","action":"open","url":"https://discord.com.evil.example/"}')
+expect_eq "open: its own link, in the main page" '["https://discord.com/channels/1/2","S-T1"]' \
+  "$(grep 'Page.navigate"' "$FAKE_CDP_LOG" | jq -c '[.params.url, .sessionId]')"
+expect_eq "open: any other link refused" "false false false" "$(sed -n 2,4p <<<"$out" | jq -r .ok | xargs)"
+expect_contains "open: said why" "$(sed -n 2p <<<"$out" | jq -r .error)" "opens only its own links (discord.com)"
+: >"$FAKE_CDP_LOG"
+expect_eq "a second start with a link: the app alone, without it (it hands over)" "x --force-renderer-accessibility" \
+  "$(python3 "$bridge" --open-host discord.com discord -- echo x https://discord.com/channels/9/9)"
+expect_eq "a second start with a link: opened in the running one" '"https://discord.com/channels/9/9"' \
+  "$(grep 'Page.navigate"' "$FAKE_CDP_LOG" | jq -c .params.url)"
+expect_eq "a second start with another link: passed on, not opened" "x https://example.com/ --force-renderer-accessibility" \
+  "$(python3 "$bridge" --open-host discord.com discord -- echo x https://example.com/)"
+
 # -- Discord -------------------------------------------------------------------
 : >"$FAKE_CDP_LOG"
 out=$(ask '{"cmd":"app","op":"status"}' '{"cmd":"app","op":"read","args":{"channel":"general","limit":500}}')
@@ -188,6 +209,21 @@ pkill -f "$fake --app-arg" || true
 wait "$pid" 2>/dev/null || true
 pid=""
 expect_eq "the app gone: no socket" "no" "$([ -e "$sock" ] && echo yes || echo no)"
+
+# Started cold with a link: opened once the page has loaded, not given to the app.
+: >"$FAKE_CDP_LOG"
+start https://discord.com/channels/3/4
+for _ in $(seq 1 100); do
+  grep -q 'Page.navigate"' "$FAKE_CDP_LOG" && break
+  sleep 0.05
+done
+expect_eq "a cold start with a link: opened in the page" '"https://discord.com/channels/3/4"' \
+  "$(grep 'Page.navigate"' "$FAKE_CDP_LOG" | jq -c .params.url)"
+expect_eq "a cold start with a link: not on the app's command line" '["--app-arg","--remote-debugging-pipe"]' \
+  "$(head -n1 "$FAKE_CDP_LOG" | jq -c '.argv[:2]')"
+pkill -f "$fake --app-arg" || true
+wait "$pid" 2>/dev/null || true
+pid=""
 
 # -- Actual Budget: its reading operations only ----------------------------------
 : >"$FAKE_CDP_LOG"
@@ -290,7 +326,7 @@ sleep 0.5
 expect_eq "no output: to the journal, as the app" "--identifier discord --level-prefix=false" "$(cat "$tmp/journal.args" 2>/dev/null)"
 expect_contains "no output: why it quit, in the journal" "$(cat "$tmp/journal.txt" 2>/dev/null)" "discord quit on its own (exited with code 0)"
 
-printf '{"apps":[{"app":"discord","command":["python3","%s","--watch-test"],"markers":["%s"],"a11y":true}]}\n' \
+printf '{"apps":[{"app":"discord","command":["python3","%s","--watch-test"],"markers":["%s"],"a11y":true,"openHosts":["discord.com"]}]}\n' \
   "$fake" "$marker" >"$tmp/bridge.json"
 watch() { python3 "$bridge" --page-js "$root/zen/page.js" --adapters "$root/electron" --config "$tmp/bridge.json" watch --once; }
 
@@ -306,6 +342,8 @@ for _ in $(seq 1 100); do
   sleep 0.05
 done
 expect_eq "watcher: the app back, bridged" yes "$([ -S "$sock" ] && echo yes || echo no)"
+expect_eq "watcher: restarted with its own links" true \
+  "$(ask '{"cmd":"go","action":"open","url":"https://discord.com/channels/5/6"}' | jq .ok)"
 expect_eq "watcher: nothing said for that" 0 "$(grep -c 'without nixbook' "$FAKE_NOTIFY_LOG" || true)"
 stop_launchers
 

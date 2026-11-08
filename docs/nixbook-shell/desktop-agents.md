@@ -96,6 +96,12 @@ own Zen and apps.
 youtube-music`, `-t discord`…), and when the app quits on its own the
   launcher says how (its exit code, or the signal that killed it) and after
   how long: what to look at when music stops or an app vanishes.
+  An app's **own links** on its command line (`--open-host` from Nix:
+  `music.youtube.com` for YouTube Music, which ignores a URL there) are
+  opened in its page: once it has loaded when the app is starting, or in the
+  running app (the launcher asks it over the socket, then the app raises its
+  window). That is how Zen and other apps hand YouTube Music links to the app
+  ([links that open in an app](/user/applications#links-that-open-in-an-app)).
 - **Staying bridged**: an app can end up running without its bridge — it
   restarted itself (`app.relaunch()`, an update applied, "restart to apply"),
   its own **autostart entry** (`~/.config/autostart/<app>.desktop`, written by

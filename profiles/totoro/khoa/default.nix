@@ -5,7 +5,9 @@
   ...
 }:
 let
-  inherit (pkgs.customPkgs) actual-budget moonfin pear-desktop;
+  inherit (pkgs.customPkgs) actual-budget moonfin;
+  # Bridged (nixbook-shell): it opens music.youtube.com links itself.
+  pear-desktop = config.customHomeManagerModules.nixbookShellConfig.electronA11y pkgs.customPkgs.pear-desktop "pear-desktop";
 in
 {
   imports = [
@@ -21,7 +23,7 @@ in
     pkgs.anki
     (config.customHomeManagerModules.nixbookShellConfig.electronA11y actual-budget "actual-budget")
     moonfin
-    (config.customHomeManagerModules.nixbookShellConfig.electronA11y pear-desktop "pear-desktop")
+    pear-desktop
   ];
   programs = {
     go = {
@@ -85,7 +87,11 @@ in
     };
     thunderbirdConfig.enable = false;
     opencodeConfig.enable = true;
-    zenBrowserConfig.enable = true;
+    zenBrowserConfig = {
+      enable = true;
+      # YouTube Music links (clicked in Zen or opened by other apps) play in the app.
+      openInApps = pear-desktop.nixbookOpenLinks or { };
+    };
     rtk = {
       enable = true;
     };

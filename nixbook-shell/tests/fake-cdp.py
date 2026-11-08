@@ -210,7 +210,7 @@ def answer(msg):
         typed["text"] += params.get("text") or ""
         return {}
     if method in ("Input.dispatchKeyEvent", "Emulation.setFocusEmulationEnabled", "Page.reload",
-                  "Page.navigateToHistoryEntry"):
+                  "Page.navigateToHistoryEntry", "Page.navigate"):
         return {}
     if method == "Page.getNavigationHistory":
         return {"currentIndex": 1, "entries": [{"id": 7, "url": "https://discord.com/app"}, {"id": 8}]}

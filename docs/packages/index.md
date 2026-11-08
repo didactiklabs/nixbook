@@ -105,7 +105,7 @@ A k9s-style TUI to create, attach, edit and tear down isolated OpenCode / Claude
 
 ## pear-desktop
 
-[Pear Desktop](https://github.com/pear-devs/pear-desktop), a YouTube Music desktop player with extensions: nixpkgs' build (from source, on nixpkgs' Electron), wrapped by nixbook. It runs as a native Wayland client with GPU compositing — the release AppImage it replaced ran under XWayland in software and used three to five times the CPU, playing or paused. The launcher entry is named "YouTube Music", and the first launch turns off the app's beta **performance-improvement** plugin, whose "CPU Tamer" script restyles the page on every frame (~45% CPU); turning it back on from the app's Plugins menu is kept.
+[Pear Desktop](https://github.com/pear-devs/pear-desktop), a YouTube Music desktop player with extensions: nixpkgs' build (from source, on nixpkgs' Electron), wrapped by nixbook. It runs as a native Wayland client with GPU compositing — the release AppImage it replaced ran under XWayland in software and used three to five times the CPU, playing or paused. The launcher entry is named "YouTube Music", and the first launch turns off the app's beta **performance-improvement** plugin, whose "CPU Tamer" script restyles the page on every frame (~45% CPU); turning it back on from the app's Plugins menu is kept. Where nixbook-shell bridges it, it opens YouTube Music links itself (`pear-desktop https://music.youtube.com/…`), which a profile can route to it from Zen and other apps ([links that open in an app](/user/applications#links-that-open-in-an-app)).
 
 ## youtube-music-mcp
 
