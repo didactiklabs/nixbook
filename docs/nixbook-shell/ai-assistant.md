@@ -75,7 +75,12 @@ given a name, they keep it, and every word of it (the first name, the surname
 alone, any case) comes back to the real one, so a Discord search for the
 stand-in finds the real person. Emails, phones, addresses, logins and the like
 stay placeholders such as `⟦Email 1⟧`, and so does a Discord name your
-contact's notes give ("Discord: alesio" → `⟦Handle 1⟧`). Turn off **People as stand-in names**
+contact's notes give ("Discord: alesio" → `⟦Handle 1⟧`).
+In Discord and Slack, everyone in what DAI reads is hidden, not only your
+contacts: message authors, members, friends and DMs become stand-in names
+(usernames placeholders like `⟦Handle 2⟧`), and so do their names in the
+messages themselves. Bots keep their names, and the Allow / No notification
+before a send shows the real names. Turn off **People as stand-in names**
 for placeholders for people too.
 
 ## Tabs

@@ -8883,7 +8883,9 @@ def privacy_pseudo(tokens=None):
     alts = sorted(names, key=len, reverse=True)
     _PSEUDO.update(key=key, map={k.lower(): v for k, v in names.items()},
                    words=frozenset(fold(w) for k in names for w in k.split()),
-                   re=re.compile(r"(?<![\w@.])(" + "|".join(re.escape(a) for a in alts) + r")(?![\w@])", re.I)
+                   # A mention (@Brisa) too, never an email's domain (x@brisa.com).
+                   re=re.compile(r"(?:(?<![\w@.])|(?<=@)(?<![\w.]@))(" + "|".join(re.escape(a) for a in alts)
+                                 + r")(?![\w@])", re.I)
                    if alts else None)
     return _PSEUDO
 
@@ -15366,6 +15368,10 @@ def ask_user_yes(ctx, title, body, key=None, label=None):
         return
     if not shutil.which("notify-send"):
         raise ToolError("not done: the user can't be asked (no notify-send), and this acts in their name")
+    if privacy_on():
+        # Asked with the real names (a chat app's reply hides people's).
+        title, body = unmask_text(title), unmask_text(body)
+        label = unmask_text(label) if label else label
     asked = time.time()
     try:
         out = subprocess.run(["notify-send", "-a", "Desktop agent", "-i", "dialog-question", "-u", "critical",
@@ -15504,7 +15510,96 @@ def electron(ctx, app, cmd, **args):
                      "(quit it completely, its tray icon too, and start it again from the launcher). page_list "
                      "lists what is reachable")
     request = {"cmd": cmd, **{k: v for k, v in args.items() if v is not None}}
-    return socket_request(path, request, f"{label} didn't answer: is it still running?")
+    reply = socket_request(path, request, f"{label} didn't answer: is it still running?")
+    if cmd == "app" and app in CHAT_PEOPLE_APPS and privacy_on():
+        return mask_chat_people(reply)
+    return reply
+
+
+# The chat apps' adapters say which fields are people (a message's author,
+# a member, a friend, a DM's @name): those are hidden whoever they are, not
+# only the contacts the mask knows, and their names wherever else they
+# appear in the same reply (a message mentioning them). A display name
+# becomes a person (a stand-in name, or ⟦Person N⟧), a username a
+# ⟦Handle N⟧ (the same as the one a contact's notes give). Bots aren't
+# people. The rest of the reply is masked as usual (call_tool).
+CHAT_PEOPLE_APPS = ("discord", "slack")
+CHAT_PERSON_KEYS = ("author", "user")
+CHAT_PEOPLE_LISTS = ("members", "friends", "users")
+
+
+def mask_chat_people(reply):
+    vocab = privacy_vocab()
+    found = {}  # real value -> its token
+
+    def known(v):
+        # A contact (or already a placeholder): the usual mask's, so the
+        # same person keeps one name.
+        spans = privacy_spans(v, vocab)
+        return "⟦" in v or (len(spans) == 1 and spans[0][0] == 0 and spans[0][1] == len(v))
+
+    def person(v, m):
+        v = " ".join(v.split()) if isinstance(v, str) else v
+        if not isinstance(v, str) or len(v) < 2 or known(v):
+            return v
+        if v not in found:
+            found[v] = m.token(("Person", "chat:" + fold(v), None, v, v))
+        return found[v]
+
+    def handle(v, m):
+        if not isinstance(v, str) or len(v) < 2 or known(v):
+            return v
+        if v not in found:
+            found[v] = m.token(("Handle", v.lower(), None, v))
+        return found[v]
+
+    def at_name(v, m):
+        if isinstance(v, str) and v.startswith("@") and len(v) > 2:
+            return "@" + person(v[1:], m)
+        return v
+
+    def fields(obj, m, listed=False):
+        if isinstance(obj, list):
+            return [fields(v, m, listed) for v in obj]
+        if not isinstance(obj, dict):
+            return obj
+        bot = obj.get("bot") is True
+        out = {}
+        for k, v in obj.items():
+            if bot and k in ("name", "username", "author"):
+                out[k] = v
+            elif k in CHAT_PERSON_KEYS and isinstance(v, str):
+                out[k] = person(v, m)
+            elif k == "username" and isinstance(v, str):
+                out[k] = handle(v, m)
+            elif k == "name" and isinstance(v, str):
+                out[k] = person(v, m) if listed else at_name(v, m)
+            elif isinstance(v, (dict, list)):
+                out[k] = fields(v, m, listed or k in CHAT_PEOPLE_LISTS)
+            else:
+                out[k] = v
+        return out
+
+    with PrivacyMap() as m:
+        masked = fields(reply, m)
+    # Their names elsewhere in the reply (a message's text): as written,
+    # whole words, a single common word left alone.
+    names = sorted((v for v in found if v != found[v] and len(v) >= 3
+                    and not (" " not in v and v.lower() in PRIVACY_NAME_WORDS)), key=len, reverse=True)
+    if not names:
+        return masked
+    rx = re.compile(r"(?<![\w])(" + "|".join(re.escape(v) for v in names) + r")(?![\w])")
+    tokens = set(found.values())
+
+    def rest(obj):
+        if isinstance(obj, str):
+            return obj if obj in tokens or obj[1:] in tokens else rx.sub(lambda x: found[x.group()], obj)
+        if isinstance(obj, list):
+            return [rest(v) for v in obj]
+        if isinstance(obj, dict):
+            return {k: rest(v) for k, v in obj.items()}
+        return obj
+    return rest(masked)
 
 
 def page_target(args):

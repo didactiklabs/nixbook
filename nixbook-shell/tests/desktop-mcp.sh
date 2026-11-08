@@ -365,6 +365,9 @@ EOF
 chmod +x "$bin/claude"
 
 export PATH="$bin:$PATH"
+# No session bus: a tool not stubbed yet (playerctl in the habits recorder)
+# would otherwise reach the desktop running the tests (its music recorded).
+export DBUS_SESSION_BUS_ADDRESS="unix:path=$tmp/no-session-bus"
 export XDG_RUNTIME_DIR="$tmp/runtime" XDG_STATE_HOME="$tmp/state" XDG_CONFIG_HOME="$tmp/config"
 export XDG_DATA_HOME="$tmp/data" XDG_DATA_DIRS="$tmp/none"
 export NIXBOOK_DESKTOP_MCP_QS="$bin/qs" NIXBOOK_DESKTOP_MCP_QS_CONFIG=nixbook-shell
@@ -1756,6 +1759,11 @@ python3 "$mcp" initiative clear
 # tests/fake-zen.py, the way Zen starts it) and the Electron apps' (the real
 # launcher scripts/electron-bridge.py, with a stand-in app speaking the
 # DevTools protocol on its pipe, tests/fake-cdp.py).
+# The plumbing, with the privacy mask off: the people in the chat apps'
+# replies are tested with it below (privacy: a chat app's people).
+cp "$XDG_CONFIG_HOME/nixbook-shell/config.json" "$tmp/pages.keep" 2>/dev/null || rm -f "$tmp/pages.keep"
+jq '.ai.privacy.mask = false' "$tmp/pages.keep" >"$XDG_CONFIG_HOME/nixbook-shell/config.json" 2>/dev/null ||
+  echo '{"ai": {"privacy": {"mask": false}}}' >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
 
 zsock="$XDG_RUNTIME_DIR/nixbook-zen/bridge.sock"
 expect_contains "pages: Zen not running" "$(call page_list '{"target":"zen"}')" "Zen isn't running"
@@ -2084,6 +2092,8 @@ expect_contains "youtube_music playlist_add: passed on" \
 expect_contains "youtube_music playlist_delete: asked first" "$(call youtube_music '{"action":"playlist_delete","playlist":"Road trip"}')" "the user said no"
 kill "${app_pids[@]}" 2>/dev/null
 wait "${app_pids[@]}" 2>/dev/null || true
+
+if [ -e "$tmp/pages.keep" ]; then mv "$tmp/pages.keep" "$XDG_CONFIG_HOME/nixbook-shell/config.json"; else rm "$XDG_CONFIG_HOME/nixbook-shell/config.json"; fi
 
 # -- adapting to the user ----------------------------------------------------------------------
 # Routines learned from the habits, in plain code; a budget that follows the
@@ -3569,6 +3579,17 @@ expect_eq "privacy: placeholders back to the real values" "Élodie Martin, +33 6
 expect_eq "privacy: a contact's Discord name, any case, a mention" "⟦Handle 1⟧ said hi to @⟦Handle 1⟧ (ybrandt_7@example.com)" \
   "$(pmask "ybrandt_7 said hi to @YBrandt_7 (ybrandt_7@example.com)")"
 expect_eq "privacy: a Discord name back to the real one" "@ybrandt_7" "$(punmask "@⟦Handle 1⟧")"
+# A chat app's people (its adapter's fields: author, member, @name), hidden
+# whoever they are, and their names in its other text; bots and contacts
+# left to the usual mask.
+# On a copy of the state: its placeholders don't renumber the tests after.
+rm -rf "$tmp/chat-state" && cp -r "$XDG_STATE_HOME" "$tmp/chat-state"
+chat_mask() { XDG_STATE_HOME="$tmp/chat-state" python3 -c "import importlib.util as u,sys,json; s=u.spec_from_file_location('m',sys.argv[1]); m=u.module_from_spec(s); s.loader.exec_module(m); print(json.dumps(m.mask_obj(m.mask_chat_people(json.loads(sys.argv[2]))), ensure_ascii=False))" "$mcp" "$1"; }
+out=$(chat_mask '{"channel": {"kind": "dm", "name": "@quill"}, "messages": [{"author": "quill", "content": "ask Ravi Okoro and quill"}, {"author": "Noor Durand", "content": "hi"}, {"author": "GitHub", "bot": true}], "members": [{"name": "Ravi Okoro", "username": "ravi.o"}]}')
+expect_eq "privacy: a chat app's people hidden, contacts and bots as usual" \
+  '{"channel": {"kind": "dm", "name": "@⟦Person 3⟧"}, "messages": [{"author": "⟦Person 3⟧", "content": "ask ⟦Person 4⟧ and ⟦Person 3⟧"}, {"author": "⟦Person 2⟧", "content": "hi"}, {"author": "GitHub", "bot": true}], "members": [{"name": "⟦Person 4⟧", "username": "⟦Handle 2⟧"}]}' "$out"
+expect_eq "privacy: a chat app's people back to the real ones" "@quill wrote to ravi.o" \
+  "$(printf '%s' "@⟦Person 3⟧ wrote to ⟦Handle 2⟧" | XDG_STATE_HOME="$tmp/chat-state" python3 "$mcp" privacy unmask)"
 expect_eq "privacy: the table is private" 600 "$(stat -c %a "$XDG_STATE_HOME/nixbook-shell/privacy-map.json")"
 
 # Pseudonyms (ai.privacy.pseudonyms, the default): a hidden person is a fake

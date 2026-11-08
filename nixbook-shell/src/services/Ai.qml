@@ -406,8 +406,9 @@ Singleton {
         const map = {};
         for (const k of names) map[k.toLowerCase()] = root.privacyTokens[k];
         root._pseudo.map = map;
+        // A mention (@Brisa) too, never an email's domain (x@brisa.com).
         root._pseudo.re = names.length > 0
-            ? new RegExp("(^|[^A-Za-z\\u00C0-\\u024F\\u1E00-\\u1EFF0-9_@.])(" + names.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")(?![A-Za-z\\u00C0-\\u024F\\u1E00-\\u1EFF0-9_@])", "gi")
+            ? new RegExp("(^@|[^A-Za-z\\u00C0-\\u024F\\u1E00-\\u1EFF0-9_@.]@|^|[^A-Za-z\\u00C0-\\u024F\\u1E00-\\u1EFF0-9_@.])(" + names.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")(?![A-Za-z\\u00C0-\\u024F\\u1E00-\\u1EFF0-9_@])", "gi")
             : null;
         root._privacyStale = false;
     }
