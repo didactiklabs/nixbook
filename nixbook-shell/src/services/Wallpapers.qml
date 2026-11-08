@@ -6,6 +6,7 @@ import QtQuick
 import Qt.labs.folderlistmodel
 import Quickshell
 import Quickshell.Io
+import Quickshell.Services.UPower
 pragma Singleton
 pragma ComponentBehavior: Bound
 
@@ -243,12 +244,24 @@ Singleton {
             Quickshell.execDetached([root.liveScript, "prepare-start", current].concat(folders));
         }
     }
+    // Unplugged: the conversion stops at once (systemd stops its whole unit,
+    // every ffmpeg of it) instead of finishing a video on battery; it resumes,
+    // skipping what is done, once plugged in again.
     Connections {
         target: Battery
         function onIsPluggedInChanged() {
-            if (Battery.isPluggedIn) root.prepareLibrary(5000);
+            if (Battery.isPluggedIn) {
+                root.prepareLibrary(5000);
+            } else {
+                prepareTimer.stop();
+                Quickshell.execDetached(["systemctl", "--user", "stop", "nixbook-live-wallpapers-prepare"]);
+            }
         }
     }
+    // Saving power — the power-saver profile, or a low battery — the video
+    // pauses (the picture stays as it is; nothing is decoded or drawn).
+    readonly property bool savingPower: PowerProfiles.profile === PowerProfile.PowerSaver
+        || Battery.isLowAndNotCharging
     Connections {
         target: Quickshell
         function onScreensChanged() { root.prepareLibrary(30000) }
@@ -279,8 +292,9 @@ Singleton {
         for (const c in columns) span += columns[c];
         return span >= 0.9 * screen.width;
     }
-    // Each output's video plays only while its desktop can be seen: paused
-    // behind windows, while locked and with the screens off (mpvpaper's own
+    // Each output's video plays only while its desktop can be seen and no
+    // power is being saved: paused behind windows, while locked, with the
+    // screens off and in power-saver mode or on a low battery (mpvpaper's own
     // -p only sees a surface that isn't drawn at all; under translucent
     // windows it always is). Measured: mpvpaper's GPU time ~0 instead of
     // ~13-55%, niri's 33% → 11%.
@@ -292,7 +306,7 @@ Singleton {
             // (Not during a wallpaper transition: the new video waits on its
             // first frame, which the transition ends on.)
             readonly property bool shows: root.playingPath !== "" && !GlobalStates.screenLocked
-                && GlobalStates.wallpaperTransitionsBusy === 0
+                && GlobalStates.wallpaperTransitionsBusy === 0 && !root.savingPower
                 && !Idle.screensOff && !root.desktopCovered(output.modelData)
             // Sent again for a new player (it starts playing).
             readonly property string want: root.playingPath === "" ? "" : `${root.playingPath}|${output.shows}`
