@@ -143,6 +143,9 @@ prepare-start)
   if [ -z "${LIVE_WALLPAPER_NO_UNIT:-}" ] && systemctl --user is-active --quiet nixbook-live-wallpapers-prepare &&
     ! systemctl --user show -p Environment --value nixbook-live-wallpapers-prepare |
     tr ' ' '\n' | grep -qxF "LIVE_WALLPAPER_SCRIPT=$self"; then
+    # Killed: ffmpeg finishes the frame it is on first (seconds at full size,
+    # systemd waited 90 s), and what it was making is thrown away anyway.
+    systemctl --user kill -s KILL nixbook-live-wallpapers-prepare 2>/dev/null
     systemctl --user stop nixbook-live-wallpapers-prepare 2>/dev/null
     # Its name is free once systemd has let go of the stopped unit.
     for _ in $(seq 50); do
