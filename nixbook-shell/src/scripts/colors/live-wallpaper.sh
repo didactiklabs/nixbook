@@ -2,9 +2,21 @@
 # Video ("live") wallpapers: one mpvpaper per output.
 #
 #   live-wallpaper.sh play <video>    (re)start playback
-#   live-wallpaper.sh ensure <video>  start it unless it is already running
-#                                     (shell start: mpvpaper dies with the
-#                                     shell's service on every restart)
+#   live-wallpaper.sh ensure <video>  start it unless that video is already
+#                                     playing (shell start: mpvpaper dies
+#                                     with the shell's service on every
+#                                     restart)
+#   live-wallpaper.sh poster <video>  print the video's still frame (its
+#                                     first frame at full size, made once,
+#                                     again when the video changes): what the
+#                                     shell shows for it like an image — in
+#                                     transitions, previews, the blur
+#   live-wallpaper.sh stop            stop playback
+#
+# The shell (services/Wallpapers.qml) owns playback: it starts the video once
+# the wallpaper transition to its still frame has finished (the first frame,
+# so the picture comes alive without a jump) and stops it once an image
+# covers it. switchwall.sh only records the wallpaper and its still frame.
 #
 # Power, without visible change:
 # - `-p`: mpvpaper pauses while its surface isn't drawn (screen locked,
@@ -29,8 +41,13 @@
 set -u
 cmd="${1:-}"
 video="${2:-}"
+video="${video#file://}"
+if [ "$cmd" = stop ]; then
+  pkill -f "/bin/[m]pvpaper " || true
+  exit 0
+fi
 [ -n "$cmd" ] && [ -f "$video" ] || {
-  echo "usage: $0 play|ensure <video>" >&2
+  echo "usage: $0 play|ensure|poster <video> | stop" >&2
   exit 1
 }
 
@@ -49,7 +66,11 @@ outputs() {
 # from matching this script's own command line (the process itself is named
 # `.mpvpaper-wrapp`, Nix wrapper).
 running() {
-  pgrep -f "/bin/[m]pvpaper " >/dev/null || return 1
+  # This video (or its optimized copy), not whatever played before.
+  local procs opt
+  procs=$(pgrep -af "/bin/[m]pvpaper ") || return 1
+  opt=$(optimized_path)
+  grep -qF -- " $video" <<<"$procs" || { [ -n "$opt" ] && grep -qF -- " $opt" <<<"$procs"; } || return 1
   local want have
   want=$(outputs | wc -l)
   have=$(niri msg --json layers | jq '[.[] | select(.namespace == "mpvpaper" and .layer == "Bottom") | .output] | unique | length')
@@ -96,6 +117,22 @@ optimize() {
   rm -f "$out.lock"
 }
 
+# One file per video (a hash of its path), remade when the video is newer.
+poster() {
+  local dir out
+  dir="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/user/generated/wallpaper/video-thumbnails"
+  out="$dir/$(printf '%s' "$video" | md5sum | cut -c1-32).jpg"
+  if [ ! -s "$out" ] || [ "$video" -nt "$out" ]; then
+    mkdir -p "$dir"
+    if ! ffmpeg -v error -y -i "$video" -frames:v 1 -q:v 2 -f image2 "$out.$$.jpg" </dev/null; then
+      rm -f "$out.$$.jpg"
+      exit 1
+    fi
+    mv -f "$out.$$.jpg" "$out"
+  fi
+  echo "$out"
+}
+
 play() {
   pkill -f "/bin/[m]pvpaper " || true
   local file="$video" opt
@@ -113,6 +150,7 @@ play() {
 case "$cmd" in
 play) play ;;
 ensure) running || play ;;
+poster) poster ;;
 *)
   echo "unknown command: $cmd" >&2
   exit 1

@@ -25,6 +25,11 @@ Variants {
         property string currentWallpaperSource: bgRoot.wallpaperPath
         property string previousWallpaperSource: bgRoot.wallpaperPath
         property bool videoRevealed: false
+        // The video itself shows (the window clear over mpvpaper) only once
+        // it plays: until then — and for a preview or the lock wall — its
+        // still frame is shown like any image (Wallpapers.playingPath).
+        readonly property bool showVideo: bgRoot.videoRevealed && bgRoot.wallpaperIsVideo
+            && Wallpapers.playingPath === CF.FileUtils.trimFileProtocol(bgRoot.effectiveWallpaperPath)
 
         readonly property real splitFraction: {
             switch (Config.options.background.splitRatio) {
@@ -48,8 +53,9 @@ Variants {
             return Wallpapers.previewPath || Wallpapers.confirmedPath || Config.options.background.wallpaperPath;
         }
 
-        property bool wallpaperIsVideo: bgRoot.effectiveWallpaperPath.endsWith(".mp4") || bgRoot.effectiveWallpaperPath.endsWith(".webm") || bgRoot.effectiveWallpaperPath.endsWith(".mkv") || bgRoot.effectiveWallpaperPath.endsWith(".avi") || bgRoot.effectiveWallpaperPath.endsWith(".mov")
-        property string wallpaperPath: wallpaperIsVideo ? Config.options.background.thumbnailPath : bgRoot.effectiveWallpaperPath
+        property bool wallpaperIsVideo: Wallpapers.isVideo(bgRoot.effectiveWallpaperPath)
+        // A video's own still frame (a previewed one's too, not the playing one's).
+        property string wallpaperPath: wallpaperIsVideo ? Wallpapers.posterFor(bgRoot.effectiveWallpaperPath) : bgRoot.effectiveWallpaperPath
         property bool wallpaperSafetyTriggered: {
             const enabled = Config.options.workSafety.enable.wallpaper;
             const sensitiveWallpaper = (CF.StringUtils.stringListContainsSubstring(wallpaperPath.toLowerCase(), Config.options.workSafety.triggerCondition.fileKeywords));
@@ -239,9 +245,9 @@ Variants {
                 layer.enabled: bgRoot.transitionPending || transitionEffect.visible
                 // Drawn only where `wallpaper` doesn't cover it (loading,
                 // transitioning, fading): not underneath on every repaint.
-                visible: !bgRoot.videoRevealed
+                visible: !bgRoot.showVideo
                     && !(wallpaper.visible && wallpaper.opacity >= 1 && wallpaper.status === Image.Ready)
-                opacity: bgRoot.videoRevealed ? 0 : 1
+                opacity: bgRoot.showVideo ? 0 : 1
             }
 
             StyledImage {
@@ -253,7 +259,7 @@ Variants {
                 smooth: true
                 asynchronous: true
                 layer.enabled: bgRoot.wallpaperIsVideo ? false : true
-                visible: !blurLoader.active && !bgRoot.videoRevealed
+                visible: !blurLoader.active && !bgRoot.showVideo
                     && (bgRoot.wallpaperAnimation === "" || bgRoot.transitionProgress >= 1.0)
                     && !centeredWallpaper.centeredHidesFullWallpaper
                 opacity: centeredWallpaper.centeredFullWallpaperOpacity()
@@ -272,7 +278,7 @@ Variants {
             ShaderEffect {
                 id: transitionEffect
                 anchors.fill: parent
-                visible: !blurLoader.active && bgRoot.wallpaperAnimation !== "" && !centeredWallpaper.centeredShapeActive && !bgRoot.videoRevealed
+                visible: !blurLoader.active && bgRoot.wallpaperAnimation !== "" && !centeredWallpaper.centeredShapeActive && !bgRoot.showVideo
                     && bgRoot.transitionProgress < 1.0
 
                 property var fromImage: previousWallpaper

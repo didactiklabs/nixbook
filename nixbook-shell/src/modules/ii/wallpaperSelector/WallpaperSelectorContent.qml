@@ -28,6 +28,12 @@ MouseArea {
         { icon: "home",       name: "Home   ",       path: `${Directories.home}`,                alwaysVisible: Config.options.wallpaperSelector.showHomePath },
         { icon: "wallpaper",  name: "Wallpapers   ", path: `${Directories.pictures}/Wallpapers`, alwaysVisible: true },
         { icon: "casino",     name: "Random   ",     path: `${Directories.pictures}/Random`,     alwaysVisible: true },
+        {
+            icon: "play_circle",
+            name: Translation.tr("Live") + "   ",
+            path: Wallpapers.liveFolder,
+            alwaysVisible: Wallpapers.liveFolder.length > 0
+        },
         { 
             icon: "image",     
             name: Config.options.wallpaperSelector.userPath?.trim().length > 0 
