@@ -30,7 +30,6 @@ ShellRoot {
         CalendarReminders.load()
         MemoryReminders.load()
         Initiative.load()
-        FullAi.load()
         Kiroshi.load()
         RecentContext.load()
         SmartClipboard.load()
@@ -41,9 +40,8 @@ ShellRoot {
         Preloader.load()
         DesktopControl.load()
         WindowLayouts.load()
-        // Projects (projects IPC) and teach mode (teach IPC).
+        // Projects (projects IPC).
         Projects.load()
-        TeachMode.load()
         AppTheming.load()
         // Their IPC targets (widgets, notes, todo, contacts, timers,
         // musicRecognition, equalizer) exist once they are loaded.

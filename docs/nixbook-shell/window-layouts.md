@@ -40,7 +40,7 @@ A **project** is a whole context to come back to: its window layout, the Zen tab
 - **"Pause the hackathon"** ("mets le hackathon en pause", "pausiere den Hackathon", "tạm dừng hackathon") saves it as it is now (its layout and the tabs of its Zen window, not pinned or private ones), then does what its **pause rule** says: leave it all open, or close its tabs. Do Not Disturb and the timer go back to what they were before it opened.
 - Each project's options are one click each in Settings: **DND** (on while open, off while open, left alone), **Timer** (none, 25, 50, 90 minutes, a pomodoro), **Pausing** (leaves it all open, or closes its tabs).
 
-AI agents have the `project` tool (`list`, `open`, `save`, `pause`; the windows group); it is refused on an agent's own desktop. The `projects` IPC target is the user's, like `layouts`.
+AI agents have the `project` tool (`list`, `open`, `save`, `pause`; the windows group). The `projects` IPC target is the user's, like `layouts`.
 
 ```bash
 nixbook-shell ipc call projects open hackathon

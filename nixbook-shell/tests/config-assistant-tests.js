@@ -86,7 +86,6 @@ check("how do i remember this", howTos.personalMemory);
 check("how do i request a feature", howTos.agentFeatures);
 check("can DAI build features", howTos.agentFeatures);
 check("how do fixes work", howTos.agentFixes);
-check("what is full ai mode", howTos.fullAiMode);
 check("how do I find a file", howTos.findAnything);
 check("comment fonctionne la mémoire", howTos.desktopMemory);
 check("wie funktioniert das Gedächtnis", howTos.desktopMemory);

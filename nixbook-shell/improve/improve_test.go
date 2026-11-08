@@ -37,7 +37,7 @@ func TestCheckDiff(t *testing.T) {
 		"nothing":        nil,
 		"forbidden":      {{Path: ".github/workflows/checks.yaml", Status: "M", Added: 1}},
 		"own code":       {{Path: "nixbook-shell/improve/guard.go", Status: "M", Added: 1}},
-		"sandbox":        {{Path: "nixbook-shell/scripts/agent-desktop.sh", Status: "M", Added: 1}},
+		"fixer's state":  {{Path: "nixbook-shell/src/services/SelfImprove.qml", Status: "M", Added: 1}},
 		"agents.md":      {{Path: "AGENTS.md", Status: "M", Added: 1}},
 		"too many lines": {{Path: "a.qml", Status: "M", Added: 15, Deleted: 6}},
 		"too many files": {{Path: "a", Status: "M"}, {Path: "b", Status: "M"}, {Path: "c", Status: "M"}, {Path: "d", Status: "M"}},
@@ -287,7 +287,7 @@ func TestWrap(t *testing.T) {
 
 func TestOwned(t *testing.T) {
 	o := owned{
-		system: map[string]bool{"nixos-upgrade-manual": true}, user: map[string]bool{"nixbook-habits": true, "nixbook-agent-desktop@": true},
+		system: map[string]bool{"nixos-upgrade-manual": true}, user: map[string]bool{"nixbook-habits": true, "nixbook-electron-app@": true},
 		packages: []string{"youtube-music-mcp"},
 	}
 	for _, c := range []struct {
@@ -295,7 +295,7 @@ func TestOwned(t *testing.T) {
 		want        bool
 	}{
 		{"user", "nixbook-habits.service", true},
-		{"user", "nixbook-agent-desktop@2.service", true},
+		{"user", "nixbook-electron-app@2.service", true},
 		{"user", "pipewire.service", false},
 		{"system", "nixos-upgrade-manual.service", true},
 		{"system", "home-manager-khoa.service", true},

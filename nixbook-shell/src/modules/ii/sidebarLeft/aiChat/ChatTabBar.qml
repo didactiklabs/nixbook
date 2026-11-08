@@ -8,9 +8,7 @@ import QtQuick.Layouts
 
 /**
  * The chat's tabs (Ai.chats), each a conversation answering on its own: a
- * spinner while it works, a dot when it answered unseen, its agent
- * desktop's number while agents work on their own desktops ("Assistant's
- * desktop N"). Ctrl+T opens one, Ctrl+W closes it (its conversation stays
+ * spinner while it works, a dot when it answered unseen. Ctrl+T opens one, Ctrl+W closes it (its conversation stays
  * in the history), Ctrl+Tab and Ctrl+Shift+Tab go through them; middle
  * click closes one.
  */
@@ -59,21 +57,6 @@ RowLayout {
                 }
                 spacing: 4
 
-                Rectangle { // its agent desktop
-                    visible: DesktopControl.onAgentDesktop
-                    implicitWidth: 16
-                    implicitHeight: 16
-                    radius: 8
-                    color: "transparent"
-                    border.width: 1
-                    border.color: tab.fg
-                    StyledText {
-                        anchors.centerIn: parent
-                        text: tab.modelData.slot
-                        font.pixelSize: Appearance.font.pixelSize.smallest
-                        color: tab.fg
-                    }
-                }
                 MaterialLoadingIndicator {
                     visible: tab.modelData.responding
                     implicitSize: 16
@@ -116,8 +99,7 @@ RowLayout {
             }
 
             StyledToolTip {
-                text: tab.modelData.title + (DesktopControl.onAgentDesktop
-                    ? "\n" + Translation.tr("Works on the assistant's desktop %1").arg(tab.modelData.slot) : "")
+                text: tab.modelData.title
             }
         }
     }

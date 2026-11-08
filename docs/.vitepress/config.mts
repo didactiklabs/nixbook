@@ -163,7 +163,6 @@ export default defineConfig({
           { text: 'Desktop control for AI agents', link: '/nixbook-shell/desktop-agents' },
           { text: 'Kiroshi scan', link: '/nixbook-shell/kiroshi' },
           { text: 'Smart clipboard', link: '/nixbook-shell/smart-clipboard' },
-          { text: "The agents' own desktop", link: '/nixbook-shell/agent-desktop' },
           { text: 'Fixes it makes itself', link: '/nixbook-shell/self-improve' },
         ],
       },

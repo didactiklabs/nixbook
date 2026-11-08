@@ -33,9 +33,6 @@ Singleton {
         routine: ["list", "undone", "on", "off", "remove"],
         // The launcher's find prefix (services/FindAnything.qml).
         find: null,
-        // Teach mode (services/TeachMode.qml): each window in front while
-        // it records.
-        teach: ["event", "status"],
         // The trust ladder (Trust.qml): its list and the user's clicks.
         trust: ["list", "check", "set"]
     })

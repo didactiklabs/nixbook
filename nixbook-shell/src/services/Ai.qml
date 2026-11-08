@@ -128,9 +128,8 @@ Singleton {
         return lines.join("\n");
     }
     // The chats, one per tab of the panel (services/AiChatSession.qml): each
-    // with its own messages, Claude Code and agent desktop, so they answer
-    // in parallel. Each takes the lowest slot free (slot 1: the first agent
-    // desktop). The panel shows the current one; the properties and
+    // with its own messages and Claude Code, so they answer in parallel.
+    // Each takes the lowest slot free. The panel shows the current one; the properties and
     // functions below are the current chat's.
     readonly property int maxChats: 8
     property var chats: []
@@ -775,9 +774,7 @@ Singleton {
             .map(f => String(f).trim())
             .map(f => f === "~" ? home : f.startsWith("~/") ? `${home}/${f.slice(2)}` : f)
             .filter(f => f.startsWith("/")).map(normalize).filter(safeFolder);
-        // ai.writableFolders: the agent desktop's apps write there (its
-        // browser's downloads go to the first), and so does Claude: Write
-        // and Edit, allowed in those folders only (Edit rules cover Write;
+        // ai.writableFolders: Claude writes there: Write and Edit, allowed in those folders only (Edit rules cover Write;
         // -p denies every other write, it can't ask).
         // Without a trailing slash, so "~/" counts as the home too.
         const writable = expand(Config.options.ai.writableFolders);
@@ -892,7 +889,6 @@ Singleton {
                 : " You have no access to the user's files (they can allow folders in Settings > Desktop agents).")
             + (writable.length > 0
                 ? ` You may create and edit files in these folders only, with Write and Edit: ${writable.join(", ")}; anywhere else is refused.`
-                    + (desktop ? ` The apps on your own desktop can save there too, and its browser downloads to ${writable[0]}: download a file there to use it on the user's side (e.g. a wallpaper).` : "")
                 : "");
         // The privacy mask: the system prompt (the machine's context, the
         // user's own words in it, paths) masked by the script, before Claude
@@ -916,10 +912,7 @@ Singleton {
         const mcpServers = Object.assign({}, extraServers, desktop ? { desktop: {
             command: root.desktopMcpCommand,
             // The personal memory about each message: sent with it (AiChatSession.qml).
-            // The chat's own agent desktop (NIXBOOK_AGENT_DESKTOP), when
-            // agents work on theirs.
-            env: { NIXBOOK_DESKTOP_MCP_QUERY_FILE: chat.desktopTaskFilePath, NIXBOOK_DESKTOP_MCP_PERSONAL: "shell",
-                NIXBOOK_AGENT_DESKTOP: chat.desktopInstance },
+            env: { NIXBOOK_DESKTOP_MCP_QUERY_FILE: chat.desktopTaskFilePath, NIXBOOK_DESKTOP_MCP_PERSONAL: "shell" },
         } } : {});
         if (Object.keys(mcpServers).length > 0)
             args.push("--mcp-config", JSON.stringify({ mcpServers }));

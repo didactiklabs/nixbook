@@ -20,7 +20,6 @@ It started as a fork of [pctrade/end4-pC](https://github.com/pctrade/end4-pC), i
 | [Lock & login screens](./lock-and-login)                 | Themed lock screen and greeter, security-key cues, a seamless loading screen                                            |
 | [AI chat & config assistant](./ai-assistant)             | An offline assistant that answers from your configuration, and DAI in the side panel                                    |
 | [Desktop control for AI agents](./desktop-agents)        | An MCP server that lets agents see and drive the desktop, with guardrails and memory                                    |
-| [The agents' own desktop](./agent-desktop)               | A sandboxed nested desktop where agents work without touching yours                                                     |
 
 None of the themes blur a shadow, keeping the shell light on integrated GPUs; the shell has been profiled for latency, idle CPU and GPU cost (popups stay mapped and open in ~40 ms, animations stop when nothing is visible, background work pauses when the screens are off).
 
@@ -119,6 +118,6 @@ Arguments: `pkgs`, `quickshellSrc` (another Quickshell pin), `withTailscale` / `
 | `lib.nix`                         | Typed settings options generated from `builtin-defaults.json`                              |
 | `hm-module.nix`                   | `programs.nixbook-shell`                                                                   |
 | `nixos-module.nix`, `greeter.nix` | NixOS side: system facts, the login screen                                                 |
-| `scripts/`                        | `config` CLI, assistant facts, desktop control MCP server, agent desktop, greeter theme…   |
+| `scripts/`                        | `config` CLI, assistant facts, desktop control MCP server, greeter theme…                  |
 | `src/`                            | The QML tree                                                                               |
 | `tests/`                          | Script tests, lib unit tests, the self-containment check                                   |

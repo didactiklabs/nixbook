@@ -33,10 +33,16 @@ rec {
   ]
   ++ removedKeys;
 
-  # Settings that did nothing (or only did something under Hyprland) and were
-  # removed: still accepted in Nix (so an old configuration evaluates) but
+  # Settings that did nothing (or only did something under Hyprland), and
+  # those of removed features (the agents' own desktop, Full AI mode, teach
+  # mode, pairing), were removed: still accepted in Nix (so an old configuration evaluates) but
   # ignored, with a warning (hm-module.nix).
   removedKeys = [
+    "ai.agentDesktop"
+    "ai.fullAi"
+    "ai.initiative.pair"
+    "ai.initiative.pairReadScreen"
+    "ai.teach"
     "apps.manageUser"
     "appearance.wallpaperTheming.apps.slack"
     "appearance.wallpaperTheming.apps.youtubeMusic"

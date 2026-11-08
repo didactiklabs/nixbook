@@ -1,4 +1,4 @@
-// The bubble's plain-code phrases for projects and teach mode
+// The bubble's plain-code phrases for projects
 // (src/modules/common/functions/project_intent.js) in the four languages,
 // and what they must leave to DAI or to other commands. Run by
 // projects.sh (node).
@@ -12,9 +12,7 @@ const src = fs
     "utf8",
   )
   .replace(/^\.pragma library/m, "");
-const lib = new Function(
-  src + "\nreturn { projectIntent: projectIntent, teachIntent: teachIntent }",
-)();
+const lib = new Function(src + "\nreturn { projectIntent: projectIntent }")();
 
 let failed = 0,
   passed = 0;
@@ -87,37 +85,6 @@ const cases = [
 for (const [text, want] of cases)
   check(`project: ${text}`, lib.projectIntent(text, names), want);
 check("no projects: nothing", lib.projectIntent("work on hackathon", []), null);
-
-const teach = [
-  ["watch me", false, "start"],
-  ["Watch me do it once", false, "start"],
-  ["let me show you", false, "start"],
-  ["regarde-moi faire", false, "start"],
-  ["je vais te montrer", false, "start"],
-  ["schau mir zu", false, "start"],
-  ["ich zeige es dir", false, "start"],
-  ["xem tôi làm nhé", false, "start"],
-  ["để tôi chỉ cho bạn", false, "start"],
-  ["done", true, "stop"],
-  ["I'm done.", true, "stop"],
-  ["c'est fini", true, "stop"],
-  ["fertig", true, "stop"],
-  ["xong rồi", true, "stop"],
-  ["never mind", true, "cancel"],
-  ["laisse tomber", true, "cancel"],
-  ["vergiss es", true, "cancel"],
-  // Only while recording, and never other words.
-  ["done", false, null],
-  ["watch me", true, null],
-  ["watch the video", false, null],
-  ["open firefox", true, null],
-];
-for (const [text, recording, want] of teach)
-  check(
-    `teach (${recording ? "recording" : "idle"}): ${text}`,
-    lib.teachIntent(text, recording),
-    want,
-  );
 
 // Fast: a sentence in well under a millisecond.
 const t0 = process.hrtime.bigint();

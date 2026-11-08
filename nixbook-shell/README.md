@@ -344,7 +344,7 @@ and record the screen for the user (`screen_capture`: a monitor, region or
 window to a file in `screenSnip.savePath` and/or the clipboard; recordings
 of a monitor or region, with or without the desktop audio, through the
 shell's recorder and its indicator: start, stop with the video's path,
-status; never from the agent desktop); have the shell's own windows over
+status); have the shell's own windows over
 the apps make way (`services/MakeWay.qml`: the side panel, DAI's
 bubble, notification popups, a theme's cut-in, listed in
 $XDG_RUNTIME_DIR/nixbook-shell/overlays.json; before an action on the
@@ -370,7 +370,7 @@ whether someone answered); the shell's themes and variants (`list_themes`, `set_
 "switch to Persona 3 Reload", "use the Usagi variant"; Nix-pinned ones stay
 locked); the wallpaper (`set_wallpaper`: a JPEG, PNG, WebP or AVIF file
 from a folder shared with agents, `ai.allowedFolders` or
-`ai.writableFolders`, e.g. what the agent desktop's browser downloaded; the
+`ai.writableFolders`; the
 palette follows); the desktop widgets without clicking them (`widget`: list, show or
 hide any; arrange them: each widget's box per monitor (`layout`), move one
 to a position on a monitor, hide it there, bring it to the front, or let it
@@ -428,8 +428,7 @@ to a search and is learned again, and several elements with that name are
 listed for an `index`. The names learned in an app come with the agent's
 first action there. Learned from agents' actions only, never the user's
 input. Agents are told to look
-through these before taking a screenshot. On the agent desktop they read its
-apps through its own accessibility bus (its sandbox's), never yours. After `type_text` and `press_keys` the result says which
+through these before taking a screenshot. After `type_text` and `press_keys` the result says which
 element has the keyboard focus, so agents needn't screenshot to check where
 the keys went. Only the windows niri lists and what is showing are read;
 terminals, password managers and password prompts are refused, and password
@@ -632,7 +631,7 @@ and a branch of reverts is checked for its paths only (`checkReverts`).
 initiative's `moment`, after `routine_idea`): every 48 h at most, where the
 fixer is and fixes or features are on (`ai.initiative.improveIdeas`), the
 small model gets what failed in the desktop memory, `lastFailedLaunch`,
-undone routines, the week's tool errors (audit log), the apps pairing and
+undone routines, the week's tool errors (audit log), the apps
 curiosity counted, cold or muted initiative kinds, habits and devices,
 topics, what is filed (`nixbook-improve status`) and declined
 (`improveDeclined`), and may propose one fix or feature; offered as an
@@ -647,12 +646,9 @@ today's events and tasks, personal-memory events within 3 days or 2 days
 past, the usual session when not set up), `focus` (a new app in front, at
 most every 3 minutes: a broken recipe of it) with
 `ai.initiative.readNotifications`, `notifications` (batched for 45 s), and
-`moment` (asked every 5 min; due at random 40 to 120 minutes apart, kept as `momentAt` in initiative.json with `activeSince`, the last break, so shell restarts don't reset them; while active: a light word,
-skipped 40% of the time, at most `initiativeChatPerDay`, 3 h apart and 45 min
-after anything else, only in the bar: a long stretch, music on repeat, tasks
-due after 17h, rain, a tip from a proven note or a macro it has, a plan within
-a week, a question on a personal topic unmentioned for 14 days; the model
-words only tips and questions, `chat_candidates`/`chat_item`). Plain
+`moment` (asked every 5 min: the periodic tick for curiosity, news,
+routine ideas and improvement ideas, each keeping its own pace; one with
+nothing due is not logged). Plain
 code triages (own apps, the focused app's, low urgency, kinds found boring,
 silenced apps), checks the value of the kind (replies over words said,
 from a prior), dedupes, and delivers: a notification (time-critical; at
@@ -688,13 +684,13 @@ from `consider`, or new in initiative.json, written by the memory pass, a
 routine, a watch) go there too through `_feed`: held in `_arrivals` until
 a pause (`feedPause`, 3 s without input), not while `busy()`, nor while
 `inFocus` (`ai.initiative.holdInFocus`: 10 minutes on one or two apps with
-no minute idle, `breakIdle`), then together. Pairing words come that way
-(they no longer pop the bubble). Only the bubble holds a conversation.
+no minute idle, `breakIdle`), then together. Only the bubble holds a conversation.
 `RecentContext.qml` (`ai.initiative.recentContext`) keeps the last
 windows, failed commands (the zsh/bash hook in hm-module.nix writes
 `$XDG_RUNTIME_DIR/nixbook-shell/terminal-failed` only while
 `terminal-on` exists) and errors copied, in memory; `nixbook-desktop-mcp
-context` filters it (`pair_private`, `pair_redact`) for a question asked
+context` filters it (`context_private`: habitsIgnoreApps/Titles,
+`privateIgnoreApps`/`privateIgnoreTitles`; `context_redact`) for a question asked
 in the bubble (`AiChatSession.pendingContext`, shown there, × is
 `Initiative.skipContext`) and for `where_were_we` in the brief.
 `ai.initiative.terminal` / `clipboardErrors` turn those into `happened`
@@ -702,14 +698,14 @@ events (`command_failed`, `copied_error`): an "Explain it" chip, no model
 call until clicked. Watches (the `watch` tool, `initiative.json`
 `watches`) are checked by `watch check` every minute while there are some;
 an offer's button that needs no thinking is
-done by the shell (`Initiative._direct`: `setup`, `tasks`, `settings`,
+done by the shell (`Initiative._direct`: `setup`, `settings`,
 `forget`, `log`; `extract` through `nixbook-desktop-mcp extract`), never a
 DAI run, and a plain command typed in the bubble (`QuickIntent.qml`:
 strict patterns, an app only when its name is certain) is done at once,
 the bubble saying what it did (kind `quick`, gone after 5 s);
 each small-model call is kept in `sent.jsonl` (`sent_note`, shown in
 Settings); with `policies.ai` 2, `ask_model` uses `localModel` (loopback
-only) for pairing and notifications. Left alone (25 s,
+only) for curiosity and notifications. Left alone (25 s,
 15 s for a reaction, 90 s after an answer; never while hovered, typed in
 or answering) the bubble goes to the bar, a conversation with it
 (`Initiative.parked`): the bar's bubble brings it back, and so does
@@ -747,7 +743,7 @@ what's on it). Not what an agent did (DesktopControl.active), never while
 busy, once per file, past the day's budget and gap (now or never), 30 min
 in the bar; "Don't tell me this" silences that kind of reaction only.
 answers (`initiative answer ID replied|later|dismissed|never|engaged`) teach
-it: `budget()` scales the day's notifications and chats by the reply rate
+it: `budget()` scales the day's notifications by the reply rate
 (×0.5 to ×2), `hour_key` stats hold back speaking out loud at times the user
 rarely answers, `engaged` (each message of the user in the From DAI tab
 within 30 min, up to 4) adds half a reply, and `initiative notices` (the
@@ -763,8 +759,8 @@ personal entries to the small model (`CURIOUS_SYSTEM`), saves up to 3 facts
 with `remember_about_user` (client `curiosity`), marks the titles read and
 says what it learned (a question only when unclear) as a `curious` word;
 its chat message carries `learnHint`, added to the user's next prompt, so
-DAI fixes the memory when corrected. **Say something now** reads what is
-new at once.
+DAI fixes the memory when corrected. A `moment` with `force` reads what
+is new at once.
 News (`ai.initiative.news`, off): each moment ask carries `news`; about
 once a day (`NEWS_EVERY`, 20 h; not in quiet hours, not while busy)
 `news_digest` sends the personal memory's top topics (`news_topics`: kind
@@ -780,29 +776,7 @@ the first 3 links as buttons (`do: "link"`, `AppLaunch.openUrl`, the
 bubble stays), Markdown links and summaries in its thread, with `newsHint`.
 **Find news now** (Settings; `nixbook-desktop-mcp initiative news`) runs it
 at once.
-Pairing (`ai.initiative.pair`, off; `ai.initiative.pairReadScreen` a step
-further, off): every 2 minutes while the same window stays in front (a
-minute after a switch at least), the shell sends `{event: "pair", app,
-title, screen}`. `pair_consider` gates in plain code, unlogged (no token):
-busy, an agent acting, private apps and titles (`pair_private`:
-habitsIgnoreApps/Titles, `pairIgnoreApps`/`pairIgnoreTitles` — chats, mail,
-banking, private windows), muted or not taken up, `PAIR_CALL_GAP` (5 min)
-between looks, `PAIR_AFTER_SAID` (20 min) after a word, `pairCallsPerDay`
-(30), the same window again only once what it shows changed (a hash in
-`pair.seen`, nothing it read kept). With the screen on, `pair_screen_text`
-OCRs the focused monitor (`read_screen_now`, local tesseract), none when a
-private window is on the workspace, `pair_redact` (keys, tokens, passwords,
-card/IBAN numbers, e-mail addresses, phone numbers, URL queries, one-time
-codes) and `PAIR_TEXT_MAX`. The small model (`PAIR_SYSTEM`, WebSearch and
-WebFetch, generic queries only) says a word only when it truly helps: a
-`pair` item, a badge with `pop` and up to 2 links as buttons
-(`PAIR_TTL` 20 min); the shell pops it (`Initiative._pairWaiting`) once an
-IdleMonitor sees 4 s without input, not while another word shows, the user
-types in the bubble or is busy, and drops the pop when another app comes
-in front.
-Each decision is logged (`log`, 30 kept; Settings shows the last ones, and
-**Say something now** sends a `moment` with `force`: no chance or gap, out
-loud, a hello when nothing is on its mind). The small model's Claude Code:
+Each decision is logged (`log`, 30 kept; Settings shows the last ones). The small model's Claude Code:
 `memoryClaude`, the shell's own (`claude` in the event), PATH, or the usual
 install places (`claude_path`). State in `~/.local/state/nixbook-shell/initiative.json`.
 
@@ -1222,11 +1196,13 @@ desktop-mcp's tools: `page_list` (targets `zen:<tab>`, `discord`,
 A Discord send or reaction, and a `page_act` click/submit/key on an element
 named Send, Pay, Delete… or Enter in Discord's or Slack's message box, wait for
 the user's yes in a notification (`ask_user_yes`: `notify-send -A allow -A
-deny`, two minutes, else no), whatever the client allowed; both tools are
+deny`, two minutes, else no), whatever the client allowed; its `-A always`
+(Always allow) sets that one thing (`key_class`: `discord:send:<channel>`,
+`page:<app>:<action>:<element>`) to `tell` on the trust ladder, with its
+label, so Settings > Desktop agents > Trust lists it and Ask takes it back; both tools are
 `destructiveHint`, and `askBeforeSending = false` is for clients that ask
 themselves. The `browser_*` names (the nixbook-meta fork's) are aliases
-(`TOOL_ALIASES`), callable, not listed. The group is refused while agents
-work on their own desktop (it reaches the user's own Zen and apps).
+(`TOOL_ALIASES`), callable, not listed.
 Automating a user account may break Discord's or Slack's terms.
 
 ### Kiroshi scan
@@ -1248,115 +1224,6 @@ dropped; an agent one goes to DAI's bubble (`Initiative.order`), and so
 does Tell me more with the item's crop. What the user takes is kept
 (`kiroshi taken`, `kiroshi.json`) and read back by the next scans. Ported
 from nixbook-meta, where it runs on Meta's API.
-
-### A desktop of their own
-
-So an agent can work while you work, it can be given its own desktop:
-`nixbook-desktop-mcp desktop agent` (or `Mod+Shift+A`, which toggles; also
-the Desktop Control bar widget's desktop button, the desktop menu's
-"Assistant's desktop" entry and Settings > Desktop agents) gives
-them `nixbook-agent-desktop` (`scripts/agent-desktop.sh`, the user service of
-the same name): a nested niri, shown on your desktop as a window called
-"Assistant's desktop" (app id `nixbook-agent-desktop`). It's never open
-empty: it opens (beside your work, without taking the focus, with a
-notification) when an agent starts an app, and closes by itself once the
-agent's last app is gone (the launcher watches it: 10 s without a window). Every
-agent's tools then act there: its own pointer,
-keyboard focus, clipboard and windows, so nothing the agent does moves your
-windows, takes your focus or types into what you're typing in.
-
-Several run side by side, one per tab of the side panel's chat working at
-once: the tab's desktop MCP server gets `NIXBOOK_AGENT_DESKTOP=N`, and the
-Nth desktop is the `nixbook-agent-desktop@N` service ("Assistant's desktop
-N", home `agent-home-N`, first copied from `agent-home` without its caches);
-the first tab and every other agent use the first. `desktop interact`
-takes the one focused, `desktop stop` closes them all (`--instance N`: one).
-
-To you it's one more app window: the agent's desktop shows only the one
-app it works in, fullscreen, and kept so even when the app asks to
-leave it (Zen and Firefox restore their window size on start; a browser
-may hide its tabs and address bar then, so the agents are told to use its
-shortcuts): no bar, no focus ring or
-borders, no hot corner, and never a layout inside. The agent's other apps
-stay open in the background, behind it: `launch_app` leaves them open
-(its reply lists them), and `focus_window` brings one back to the front;
-the agents are told the desktop can show only one app at a time. The bar widget shows a window icon beside its robot while
-agents are on their own desktop (red once you've closed it).
-
-The window is a view, not a way in: its niri drops your clicks and keys
-(`niri-winit-agent-window.patch`, which also names the window and keeps
-its apps fullscreen; the agent's
-niri only: yours stays the cached nixpkgs package, this one builds
-locally), so you watch it work, and move, resize or send the window
-elsewhere like any other (switching to it while it's open focuses it, so
-niri scrolls it into view). To use it yourself for a moment (log the agent's
-browser into a site, say), take it over: `Mod+Ctrl+A`, the desktop menu's
-"Use it myself", Settings, or `desktop interact on|off|toggle`. Your clicks
-and keys then reach it, and the agent's window and input tools are refused
-until you give it back (it can still take screenshots); it's off again
-after a restart. **Closing the window yourself only closes it**: the
-agent's next app opens it again, for as long as agents work on their own
-desktop; to stop them, switch them back to yours or pause them (the bar's
-robot, Mod+Shift+Escape). `desktop user` brings the agents back to
-your desktop, `desktop stop` closes theirs, `desktop status` says which is
-in use (also `get_status`); the choice survives a reboot. An agent already
-at work when you switch is told on its next tool reply ("Desktop switched
-by the user: …", with what the desktop it's now on means for it), once per
-MCP session, since its instructions only said where it was when it connected.
-
-Its apps are the agent's, not yours, and sandboxed (bubblewrap): **they see
-none of your files**. Their home is `~/.local/share/nixbook-shell/agent-home`
-(their own browser profiles, history and logins); your GTK/Qt/font settings
-are visible read-only so apps look the same, the **Folders AI agents may
-read** read-only (from its next start), also where its apps look for them:
-a shared folder of your home is at the same place in theirs (their
-`~/Pictures` is yours, and is their Pictures folder), and nothing else of your home, of
-/mnt, /media or other homes, nor the system's logs and state (`/var/log`,
-`/var/lib`) or `/etc/nixos`. They get their own D-Bus session (no keyring,
-portals or notifications of yours; a browser you already have open still
-starts a copy of its own there), no system bus, none of your runtime sockets
-(no session bus, audio, X11, desktop-mcp's token), and their own process
-namespace (none of your processes to see or attach to). **Your desktop
-only through a restricted connection**: its niri reaches yours through a
-socket made with security-context-v1 (`nixbook-wayland-security-context`,
-`scripts/wayland-security-context.py`; the way Flatpak does it), so neither
-it nor anything in the sandbox can capture your screen, type or click into
-it, read your clipboard or list your windows; it can only show its window
-(and take your clicks and keys while you take it over). ydotoold's socket,
-which types into your desktop, is hidden whatever the settings. Two
-switches in Settings > Desktop agents (`ai.agentDesktop`), both on, from
-its next start:
-
-- **Hide the system's services from their apps** (`hideSystemSockets`):
-  `/run` is empty but for what apps need (the system's programs, graphics
-  drivers, name lookups), so no system daemon's socket is reachable;
-- **Keep their apps off this computer's local services**
-  (`privateNetwork`): their own network (pasta): the internet and your LAN
-  through your connection, but not what listens on this computer
-  (`127.0.0.1`: a dev server, the printer and Sunshine pages) nor its
-  abstract sockets (X11); DNS goes through pasta. Off, their browser can
-  open those too. If pasta can't start, the desktop doesn't open (it
-  never falls back to your network) and a notification says so.
-
-What the
-sandbox may change is its home and the nested session's runtime directory;
-the launcher's own files (where its sockets are, the take-over flag) are
-read-only to it, and it watches the session from outside. Log the agent's browser into an account only if you want it to use
-that account. File choosers are GTK's own there (the portal's would open on
-your desktop).
-
-The shell tools still act on your desktop: `widget` (notes, to-do list,
-timers), `tasks`, `calendar`, `notify`, `set_theme` reach your shell over its IPC,
-whichever desktop the agent works on. So an agent can, say, look for flats
-in its browser and write what it found into your notes widget. Only the
-generic `shell_ipc` is refused from the agent desktop: the panels it opens
-(sidebars, launcher, lock screen) would appear on your screen. The agents
-are told all this when they connect.
-
-Why not two seats in one niri (two pointers and keyboards on your
-desktop)? niri has one focus and one view per workspace, and most apps
-ignore input from a second Wayland seat (Chromium and Electron entirely,
-kitty too): a nested compositor needs no niri patch and works with every app.
 
 ### The shell's helper
 

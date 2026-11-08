@@ -15,8 +15,8 @@ import QtQuick
  * the music (play, pause, next, previous), the volume and brightness, dark
  * or light mode, Do Not Disturb, locking the screen, a timer or a
  * pomodoro, a saved window layout, a saved project opened or paused
- * ("work on the hackathon", "pause hackathon"), teach mode ("watch me",
- * then "done": project_intent.js), a task added. Strict patterns only:
+ * ("work on the hackathon", "pause hackathon": project_intent.js), a task
+ * added. Strict patterns only:
  * anything else, or anything unsure (an app it can't name for sure), goes
  * to Claude as before. `run(text)` does it and says what it did, else "".
  *
@@ -47,21 +47,6 @@ Singleton {
         // Short and on one line: a command, not a question or a story.
         if (raw.length === 0 || raw.length > 80 || raw.includes("\n")) return ""
 
-        // Teach mode: "watch me", then "done" (project_intent.js).
-        const teach = ProjectIntent.teachIntent(raw, TeachMode.recording)
-        if (teach === "start") {
-            if (!TeachMode.enabled) return Translation.tr("Teach mode is off (Settings > Desktop agents > Teach DAI).")
-            TeachMode.start()
-            return Translation.tr("Watching: do the task once, then say “done”.")
-        }
-        if (teach === "stop") {
-            TeachMode.stop()
-            return Translation.tr("Got it: writing down what you did, check it on the card.")
-        }
-        if (teach === "cancel") {
-            TeachMode.cancel()
-            return Translation.tr("Stopped watching: nothing kept.")
-        }
         // A saved project, by its name: "work on X", "pause X".
         const project = ProjectIntent.projectIntent(raw, Projects.names())
         if (project?.action === "open") {

@@ -42,8 +42,7 @@ dropped and never tried again. Leave harmless out when the user notices it
 or it may break something, or when a fix may be possible with more to go on.
 
 These are off limits (a change to them is refused): .github/, tests/,
-nixbook-shell/tests/, nixbook-shell/improve/, SelfImprove.qml, the agent
-desktop's sandbox (agent-desktop.sh, wayland-security-context.py),
+nixbook-shell/tests/, nixbook-shell/improve/, SelfImprove.qml,
 nixosModules/, installer/, lib/, profiles/, npins/, hive.nix, base.nix,
 AGENTS.md, CLAUDE.md, secrets.
 
@@ -98,8 +97,7 @@ or the request is too vague to build, answer "skip" and say why (for one
 that exists: how to use it).
 
 These are off limits (a change to them is refused): .github/, tests/,
-nixbook-shell/tests/, nixbook-shell/improve/, SelfImprove.qml, the agent
-desktop's sandbox (agent-desktop.sh, wayland-security-context.py),
+nixbook-shell/tests/, nixbook-shell/improve/, SelfImprove.qml,
 nixosModules/, installer/, lib/, profiles/, npins/, hive.nix, base.nix,
 AGENTS.md, CLAUDE.md, secrets. Never widen what agents may do (their
 tools, permissions, sandbox, switches) unless that is exactly what was

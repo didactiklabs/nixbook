@@ -7,7 +7,6 @@
 #     pause (off by default, persistent), disabled groups, denied IPC targets, no arbitrary commands;
 #   - the pointer: the exact Wayland requests sent to a fake compositor
 #     (tests/fake-wayland.py), screenshot mappings, the ydotool fallback;
-#   - the agent desktop: switching the tools to it and back, starting it;
 #   - HTTP: loopback only, bearer token, Host/Origin checks.
 # Needs bash, python3, jq and curl. Run: bash tests/desktop-mcp.sh
 set -euo pipefail
@@ -20,6 +19,8 @@ export -n out 2>/dev/null || true
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 mcp="$root/scripts/desktop-mcp.py"
+# The user's own `trust set` (refused under Claude Code, as to an agent).
+user_trust() { env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT python3 "$mcp" trust "$@"; }
 tmp="$(mktemp -d)"
 http_pid=""
 wl_pid=""
@@ -58,37 +59,6 @@ echo firefox >"$STUB_FOCUS"
 
 cat >"$bin/niri" <<'EOF'
 #!/usr/bin/env bash
-# Which niri it was asked (the user's or the agent desktop's): its socket.
-echo "${NIRI_SOCKET:-}" >"$STUB_CALLS.socket"
-# The agent desktop has no windows (a launched app opens on the user's), or
-# with $STUB_AGENT_HAS_WINDOW one app, and the launched one beside it.
-if [ "$1 $2 $3" = "msg --json windows" ] && [ "${NIRI_SOCKET:-}" = "${STUB_AGENT_SOCKET:-}" ]; then
-  if [ -n "${STUB_AGENT_SPLASH:-}" ]; then
-    # A launched app that shows a small splash first ($STUB_AGENT_SPLASH
-    # window lists), then its own window, fullscreen (the largest output
-    # below); "stays": the small window is the app's (a fixed-size dialog).
-    n=0
-    if [ -e "$STUB_CALLS.launched" ]; then
-      n=$(($(cat "$STUB_CALLS.splash" 2>/dev/null || echo 0) + 1))
-      echo "$n" >"$STUB_CALLS.splash"
-    fi
-    if [ "$n" -eq 0 ]; then
-      echo '[]'
-    elif [ "$STUB_AGENT_SPLASH" = stays ] || [ "$n" -le 3 ]; then
-      echo '[{"id": 30, "app_id": "firefox", "title": "loading", "pid": 70, "workspace_id": 1, "is_focused": true, "is_floating": false, "layout": {"window_size": [300, 350]}}]'
-    else
-      echo '[{"id": 31, "app_id": "firefox", "title": "New Tab", "pid": 70, "workspace_id": 1, "is_focused": true, "is_floating": false, "layout": {"window_size": [3136, 1960]}}]'
-    fi
-  elif [ -n "${STUB_AGENT_HAS_WINDOW:-}" ]; then
-    jq -nc --argjson launched "$([ -e "$STUB_CALLS.launched" ] && echo true || echo false)" '
-      [{id: 20, app_id: "org.gnome.TextEditor", title: "notes", pid: 50, workspace_id: 1, is_focused: ($launched | not), is_floating: false}]
-      + (if $launched then [{id: 21, app_id: "firefox", title: "New Tab", pid: 60, workspace_id: 1, is_focused: true, is_floating: false},
-                            {id: 22, app_id: "firefox", title: "Restore session?", pid: 60, workspace_id: 1, is_focused: false, is_floating: true}] else [] end)'
-  else
-    echo '[]'
-  fi
-  exit 0
-fi
 # The event stream (usage habits): what $STUB_EVENTS prints, then quiet.
 if [ "$1 $2 $3" = "msg -j event-stream" ]; then
   [ -z "${STUB_EVENTS:-}" ] || bash "$STUB_EVENTS"
@@ -99,8 +69,6 @@ if [ "$1 $2" = "msg --json" ]; then
   case "$3" in
     windows)
       # A launched app's window (spawn below) appears after the others.
-      # With $STUB_LAUNCH_NO_WINDOW it opens none anywhere, and the agent
-      # desktop (just started) maps its own window on the user's meanwhile.
       # With $STUB_USER_SPLASH it's a splash (id 6) for 3 window lists, then
       # the app's own window (id 7).
       # Hidden: ids listed in $STUB_CALLS.hidden (closed windows).
@@ -124,8 +92,7 @@ if [ "$1 $2" = "msg --json" ]; then
          layout: {window_size: [1000, 1900], tile_pos_in_workspace_view: null, pos_in_scrolling_layout: [2, 1]}},
         {id: 5, app_id: "org.gnome.Calculator", title: "Calculator", workspace_id: 10, is_focused: false, is_floating: true,
          layout: {window_size: [400, 300], tile_pos_in_workspace_view: [10, 20], window_offset_in_tile: [2, 3]}}
-      ] + (if $launched and (env.STUB_LAUNCH_NO_WINDOW | not) then [{id: $launched_id, app_id: $launched_app, title: "New Tab", workspace_id: 10, is_focused: false, is_floating: false}] else [] end)
-      + (if env.STUB_NESTED_WINDOW or ($launched and env.STUB_LAUNCH_NO_WINDOW) then [{id: 9, app_id: "niri", title: "niri", pid: 1, workspace_id: 10, is_focused: false, is_floating: false}] else [] end)
+      ] + (if $launched then [{id: $launched_id, app_id: $launched_app, title: "New Tab", workspace_id: 10, is_focused: false, is_floating: false}] else [] end)
       | map(select(.id as $i | $hidden | index($i) | not))' ;;
     workspaces)
       echo '[{"id":10,"idx":1,"name":null,"output":"eDP-1","is_active":true,"is_focused":true,"active_window_id":1},
@@ -235,8 +202,6 @@ EOF
 cat >"$bin/qs" <<'EOF'
 #!/usr/bin/env bash
 echo "qs $*" >>"$STUB_CALLS"
-# The display it was started on: the user's, even from the agent desktop.
-echo "${WAYLAND_DISPLAY:-}" >"$STUB_CALLS.qs_display"
 if [ "${*: -1}" = "show" ]; then
   printf 'target sidebarLeft\n  function toggle(): void\ntarget session\n  function open(): void\n'
 fi
@@ -698,14 +663,6 @@ start_compositor
 
 out=$(call get_status)
 expect_eq "get_status: exact pointer" "virtual pointer (exact)" "$(jq -r .pointer <<<"$out")"
-
-# The agent desktop's restricted connection: a compositor without
-# security-context-v1 is an error (exit 1), never a socket of full rights.
-status=0
-err=$(WAYLAND_DISPLAY=wayland-test python3 "$root/scripts/wayland-security-context.py" "$tmp/restricted.sock" </dev/null 2>&1) || status=$?
-expect_eq "security context: refused without the protocol" 1 "$status"
-expect_contains "security context: says why" "$err" "has no wp_security_context_manager_v1"
-expect_eq "security context: no socket left" absent "$([ -e "$tmp/restricted.sock" ] && echo present || echo absent)"
 
 : >"$wl_log"
 reset_calls
@@ -1397,11 +1354,6 @@ python3 "$mcp" memory clear >/dev/null
 
 ini="$XDG_STATE_HOME/nixbook-shell/initiative.json"
 consider() { python3 "$mcp" initiative consider "$1"; }
-# A moment the light word is due at (kept in initiative.json: `momentAt`).
-moment() {
-  jq '.momentAt = 1' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
-  consider "$1"
-}
 rm -f "$ini"
 today=$(date +%F)
 in2=$(date -d "+2 days" +%F)
@@ -1521,124 +1473,14 @@ expect_eq "never: the app's other notifications still read" yes "$([ -e "$calls.
 python3 "$mcp" initiative unmute "$(jq -r '.muted[0]' "$ini")"
 expect_eq "unmute one: lifted" '[]' "$(jq -c .muted "$ini")"
 
-# Full AI mode's reactions (services/FullAi.qml → `fullai react`): the model
-# decides; acting alone needs the user's word, or two agreements before.
-fa() { python3 "$mcp" fullai react "$1"; }
-ev='{"event":{"event":"notification","app":"Signal","title":"Julien","text":"You coming tonight?"},"lang":"fr","recent":"User: hi there"}'
-rm -f "$calls.claude-prompt" "$calls.claude-args"
-STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {action: "do", say: "Julien asks if you come tonight. Shall I say yes?", instruction: "Reply yes to Julien", basis: "guess"}}')
-out=$(fa "$ev")
-expect_eq "fullai react: a guess never acts alone, it asks" "ask" "$(jq -r .action <<<"$out")"
-expect_eq "fullai react: the kind of event it was" "notification|signal|julien" "$(jq -r .sig <<<"$out")"
-expect_contains "fullai react: the model sees what happened" "$(cat "$calls.claude-prompt")" "You coming tonight?"
-expect_contains "fullai react: and the conversation" "$(cat "$calls.claude-prompt")" "User: hi there"
-expect_contains "fullai react: Claude Code with no tools or servers" "$(cat "$calls.claude-args")" "--strict-mcp-config"
-expect_contains "fullai react: in the user's language" "$(cat "$calls.claude-args")" "else French"
-STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {action: "do", say: "Saying yes.", instruction: "Reply yes to Julien", basis: "told"}}')
-expect_eq "fullai react: what the user told it, done" "do Reply yes to Julien" "$(fa "$ev" | jq -r '.action + " " + .instruction')"
-STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {action: "do", say: "Saying yes.", instruction: "Reply yes to Julien", basis: "learned"}}')
-expect_eq "fullai react: learned without two agreements: asks" "ask" "$(fa "$ev" | jq -r .action)"
-python3 "$mcp" fullai learn '{"sig":"notification|signal|julien","decision":"ask","outcome":"agreed","said":"yes"}'
-python3 "$mcp" fullai learn '{"sig":"notification|signal|julien","decision":"ask","outcome":"agreed","said":"oui"}'
-expect_eq "fullai react: agreed twice before: done alone" "do" "$(fa "$ev" | jq -r .action)"
-expect_contains "fullai react: the past reactions given back" "$(cat "$calls.claude-prompt")" "you ask, the user agreed: oui"
-expect_eq "fullai learn: kept 0600" "600" "$(stat -c %a "$XDG_STATE_HOME/nixbook-shell/full-ai-learned.json")"
-STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {action: "do", say: "", instruction: "", basis: "told"}}')
-expect_eq "fullai react: nothing to do without an instruction: asks" "ask" "$(fa "$ev" | jq -r .action)"
-python3 "$mcp" fullai learn '{"pref":"Always answer Julien in French","app":"Signal"}'
-expect_contains "fullai learn: a lasting preference into the personal memory" "$(python3 "$mcp" personal show)" "Always answer Julien in French"
-python3 "$mcp" fullai forget
-expect_eq "fullai forget: the reactions gone" "0" "$(jq '.reactions // [] | length' "$XDG_STATE_HOME/nixbook-shell/full-ai-learned.json")"
-expect_eq "fullai react: a bad request said" "1" "$(
-  python3 "$mcp" fullai react 'not json' >/dev/null 2>&1
-  echo $?
-)"
-unset STUB_CLAUDE_ANSWER
+# The moment (every few minutes): no light word any more, nothing said
+# and nothing logged when nothing else is due.
 python3 "$mcp" initiative clear
-python3 "$mcp" initiative clear
-
-# Now and then a light word, at random moments: often nothing, only in the bar, rarely.
-expect_eq "moment: often nothing" "nothing to say this time" "$(moment '{"event":"moment","roll":0.1,"activeMinutes":150}' | jq -r .why)"
-out=$(moment '{"event":"moment","roll":0.9,"activeMinutes":150}')
-expect_eq "moment: a word in the bar, never a notification" badge "$(jq -r .action <<<"$out")"
-expect_contains "moment: a long stretch" "$(jq -r .item.text <<<"$out")" "2 hours"
-expect_eq "moment: not again soon" "said one lately" "$(moment '{"event":"moment","roll":0.9,"tasksDue":2}' | jq -r .why)"
-expect_eq "moment: not while busy" "the user is busy" "$(moment '{"event":"moment","roll":0.9,"busy":true}' | jq -r .why)"
-jq '.said = [.said[] | .time -= 4 * 3600]' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
-jq '.said += [range(3) as $i | .said[0] | .key = "y\($i)" | .id = "00000\($i + 2)"]' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
-expect_eq "moment: at most 4 a day" "enough for today" "$(moment '{"event":"moment","roll":0.9,"tasksDue":2}' | jq -r .why)"
-python3 "$mcp" initiative clear
-
-# Settings > Say something now: at once, out loud, even with nothing on its mind.
-out=$(consider '{"event":"moment","force":true}')
-expect_eq "say something now: out loud" notify "$(jq -r .action <<<"$out")"
-expect_contains "say something now: a hello when nothing is on its mind" "$(jq -r .item.text <<<"$out")" "I'll"
-# ...and spends nothing: no budget, no gap.
-expect_eq "say something now: a test, it spends nothing" badge "$(moment '{"event":"moment","roll":0.9,"activeMinutes":150}' | jq -r .action)"
-moment '{"event":"moment","roll":0.9}' >/dev/null
-expect_eq "log: why it kept quiet" "said one lately" "$(jq -r '[.log[] | select(.action=="none")] | last | .why' "$ini")"
-expect_eq "log: what it said" true "$(jq '[.log[] | select(.action=="notify")] | length > 0' "$ini")"
-# When the next light word is due is kept, so a shell restart (every switch) doesn't start the wait over.
-logged=$(jq '.log | length' "$ini")
-jq --argjson t "$(date +%s)" '.momentAt = $t + 3600' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
-expect_eq "moment: not due yet" "not time yet" "$(consider '{"event":"moment","roll":0.9}' | jq -r .why)"
-expect_eq "moment: not due, not logged (asked every few minutes)" "$logged" "$(jq '.log | length' "$ini")"
-jq 'del(.momentAt)' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
-consider '{"event":"moment","roll":0.9}' >/dev/null
-expect_eq "moment: the first chance within 10 to 30 minutes" true "$(jq --argjson t "$(date +%s)" '.momentAt - $t | . >= 590 and . <= 1810' "$ini")"
-moment '{"event":"moment","roll":0.9}' >/dev/null
-expect_eq "moment: the next one 20 to 60 minutes on" true "$(jq --argjson t "$(date +%s)" '.momentAt - $t | . >= 1190 and . <= 3610' "$ini")"
-# Time at the computer since the last break, whatever restarted in between.
-python3 "$mcp" initiative clear
-consider '{"event":"back","away":30}' >/dev/null
-expect_eq "back from a break: active since now" true "$(jq --argjson t "$(date +%s)" '$t - .activeSince | . >= 0 and . < 60' "$ini")"
-jq --argjson t "$(date +%s)" '.activeSince = $t - 150 * 60 | .said = [] | .pending = []' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
-consider '{"event":"back","away":0}' >/dev/null
-expect_contains "moment: a long stretch, across shell restarts" "$(moment '{"event":"moment","roll":0.9}' | jq -r .item.text)" "2 hours"
-# The shell gives its Claude Code (its PATH may not have one).
-cp "$bin/claude" "$tmp/own-claude"
-python3 "$mcp" initiative clear
-python3 "$mcp" memory clear >/dev/null
-call remember '{"topic":"firefox tabs","text":"ctrl+shift+t reopens the last closed tab"}' >/dev/null
-jq '.notes[0].ok = 2' "$mem" >"$mem.new" && mv "$mem.new" "$mem"
-rm -f "$calls.claude-args"
-jq '.momentAt = 1' "$ini" >"$ini.new" && mv "$ini.new" "$ini"
-STUB_CLAUDE_ANSWER='{"structured_output": {"text": "Firefox tip: ctrl+shift+t."}}' PATH="${PATH//$bin:/}" \
-  python3 "$mcp" initiative consider "$(jq -nc --arg c "$tmp/own-claude" '{event: "moment", roll: 0.9, app: "firefox", claude: $c}')" >/dev/null
-expect_eq "claude: the shell's own, off PATH" yes "$([ -e "$calls.claude-args" ] && echo yes || echo no)"
-python3 "$mcp" initiative clear
-
-# What it knows that may serve the user: a tip from a proven note, worded by the small model...
-python3 "$mcp" memory clear >/dev/null
-call remember '{"topic":"firefox tabs","text":"ctrl+shift+t reopens the last closed tab"}' >/dev/null
-jq '.notes[0].ok = 2' "$mem" >"$mem.new" && mv "$mem.new" "$mem"
-export STUB_CLAUDE_ANSWER
-STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {text: "Firefox tip: ctrl+shift+t brings back the tab you just closed."}}')
-out=$(moment '{"event":"moment","roll":0.9,"app":"firefox"}')
-expect_eq "moment: a tip for the app in front" "Firefox tip: ctrl+shift+t brings back the tab you just closed." "$(jq -r .item.text <<<"$out")"
-expect_contains "moment: from the note" "$(cat "$calls.claude-prompt")" "The note: ctrl+shift+t reopens the last closed tab"
-# ...or nothing when the note is only for agents, never asked again.
-python3 "$mcp" initiative clear
-STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {text: ""}}')
-moment '{"event":"moment","roll":0.9,"app":"firefox"}' >/dev/null
 rm -f "$calls.claude-prompt"
-expect_eq "moment: an agent's note, not asked again" "nothing to say" "$(moment '{"event":"moment","roll":0.9,"app":"firefox"}' | jq -r .why)"
-expect_eq "moment: no model call for it" no "$([ -e "$calls.claude-prompt" ] && echo yes || echo no)"
-# A macro it can do in one step, in plain words.
-python3 "$mcp" initiative clear
-python3 "$mcp" memory clear >/dev/null
-call run_steps '{"steps":[{"tool":"press_keys","args":{"keys":["ctrl+k"]},"wait_ms":0}],"remember_as":"discord: open a chat"}' >/dev/null
-jq '.notes[0].runs = ["2026-01-01", "2026-01-02", "2026-01-03"]' "$mem" >"$mem.new" && mv "$mem.new" "$mem"
-expect_contains "moment: what it can do in one step" "$(moment '{"event":"moment","roll":0.9}' | jq -r .item.text)" "discord: open a chat"
-# A casual question on what the user cares about, unmentioned for a while.
-python3 "$mcp" initiative clear
-python3 "$mcp" memory clear >/dev/null
-call remember_about_user '{"topic":"jlpt","text":"Preparing the JLPT N4, exam in December"}' >/dev/null
-jq '(.entries[] | select(.topic=="jlpt")) |= (.updated = 1 | .used = 1)' "$XDG_STATE_HOME/nixbook-shell/personal-memory.json" >"$tmp/p.json" && mv "$tmp/p.json" "$XDG_STATE_HOME/nixbook-shell/personal-memory.json"
-STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {text: "How is the JLPT prep going? December is getting close!"}}')
-expect_eq "moment: a casual question" "How is the JLPT prep going? December is getting close!" "$(moment '{"event":"moment","roll":0.9}' | jq -r .item.text)"
-expect_contains "moment: from the memory entry" "$(cat "$calls.claude-prompt")" "Preparing the JLPT N4"
-unset STUB_CLAUDE_ANSWER
+logged=$(jq '.log | length' "$ini")
+expect_eq "moment: nothing to say" "nothing to say" "$(consider '{"event":"moment","app":"firefox"}' | jq -r .why)"
+expect_eq "moment: not logged (asked every few minutes)" "$logged" "$(jq '.log | length' "$ini")"
+expect_eq "moment: no model call" no "$([ -e "$calls.claude-prompt" ] && echo yes || echo no)"
 python3 "$mcp" initiative clear
 expect_eq "initiative clear" '0 0' "$(jq -r '"\(.said | length) \(.pending | length)"' "$ini")"
 
@@ -1808,7 +1650,9 @@ expect_eq "routine pass: reported" "true" "$(jq -r .passed <<<"$out")"
 expect_contains "routine pass: told how to say it" "$(cat "$calls.claude-args")" "Not this time:"
 expect_contains "routine about: the agent is told it was judged" "$(cat "$calls.claude-prompt")" '"matched": "judged to be about: cyberpunk music"'
 expect_not_contains "routine pass: nothing in the bar" "$(python3 "$mcp" initiative pending | jq -r '.[].text')" "K-pop"
-expect_eq "routine pass: the same track isn't judged again" "not this time (judged before)" "$(python3 "$mcp" routine run "$genre" '{"event":"track_changed","text":"K/DA THE BADDEST"}' | jq -r .why)"
+# A topic routine's pass is about the moment (the theme already set…),
+# never the track: it isn't remembered, it runs again.
+expect_eq "routine pass: a topic routine remembers no pass" "true" "$(python3 "$mcp" routine run "$genre" '{"event":"track_changed","text":"K/DA THE BADDEST"}' | jq -r .passed)"
 export STUB_CLAUDE_ANSWER='{"structured_output": {"matches": ["t1"]}, "result": "Cyberpunk music plays, so I set the Cyberpunk theme."}'
 out=$(python3 "$mcp" routine run "$genre" '{"event":"track_changed","text":"Marcin Przybyłowicz The Rebel Path"}')
 expect_eq "routine pass: no cooldown, the next track runs" "Cyberpunk music plays, so I set the Cyberpunk theme." "$(jq -r .said <<<"$out")"
@@ -1958,12 +1802,13 @@ STUB_ASK="$tmp/ask" call page_act '{"ref":5,"name":"Send","action":"click"}' >/d
 expect_eq "page_act: a click on Send, allowed" '[5,"Send","click"]' "$(tail -n1 "$tmp/zen.log" | jq -c '[.ref,.name,.action]')"
 echo always >"$tmp/ask"
 STUB_ASK="$tmp/ask" call page_act '{"ref":5,"name":"Send","action":"click"}' >/dev/null
-expect_eq "page_act always allow: that button on that site" 'Click “Send” on mail.example.org' \
-  "$(python3 "$mcp" permissions list | jq -r '."page:zen:mail.example.org:click:send".label')"
+expect_eq "page_act always allow: that button on that site, told on the trust ladder" 'tell Click “Send” on mail.example.org' \
+  "$(python3 "$mcp" trust list | jq -r '.[] | select(.class=="page:zen:mail.example.org:click:send") | "\(.level) \(.summary)"')"
 expect_contains "page_act always allow: not asked again" "$(call page_act '{"ref":5,"name":"Send","action":"click"}')" "Send"
 expect_contains "page_act always allow: another tab is still asked" \
   "$(call page_act '{"target":"zen:9","ref":5,"name":"Send","action":"click"}')" "the user said no"
-python3 "$mcp" permissions clear
+user_trust set page:zen:mail.example.org:click:send ask >/dev/null
+expect_contains "page_act always allow: Ask takes it back" "$(call page_act '{"ref":5,"name":"Send","action":"click"}')" "the user said no"
 # By name alone, what changed in the reply, several steps in one call.
 out=$(call page_act '{"name":"To","action":"type","value":"bob@example.org"}')
 expect_eq "page_act by name: no ref sent" '[null,"To"]' "$(tail -n1 "$tmp/zen.log" | jq -c '[.ref,.name]')"
@@ -2115,22 +1960,23 @@ expect_contains "always allow: not asked again" \
 expect_eq "always allow: no notification" "" "$(grep -- '-A allow=Allow' "$calls" || true)"
 expect_contains "always allow: only that thing (a reaction is still asked)" \
   "$(call discord '{"action":"react","channel":"222222222222222222","message":"555","emoji":"👍"}')" "the user said no"
-listed=$(python3 "$mcp" permissions list)
-expect_eq "permissions list: what and how often" "Send messages on Discord, in #general (Friends) 1" \
-  "$(jq -r '."discord:send:222222222222222222" | "\(.label) \(.uses)"' <<<"$listed")"
-expect_eq "permissions: never granted by a command" 2 "$(
-  python3 "$mcp" permissions allow x >/dev/null 2>&1
+listed=$(python3 "$mcp" trust list)
+expect_eq "always allow: on the trust ladder, that one thing told" "tell Send messages on Discord, in #general (Friends)" \
+  "$(jq -r '.[] | select(.class=="discord:send:222222222222222222") | "\(.level) \(.summary)"' <<<"$listed")"
+expect_eq "always allow: never granted by an agent's command" 1 "$(
+  CLAUDECODE=1 python3 "$mcp" trust set discord:send:333333333333333333 tell >/dev/null 2>&1
   echo $?
 )"
-python3 "$mcp" permissions revoke discord:send:222222222222222222
-expect_contains "permissions revoke: asked again" \
+user_trust set discord:send:222222222222222222 ask >/dev/null
+expect_contains "always allow: Ask takes it back" \
   "$(call discord '{"action":"send","channel":"222222222222222222","content":"third"}')" "the user said no"
 # An agent's keys or clicks while the user was asked: their yes isn't trusted.
 mkdir -p "$XDG_RUNTIME_DIR/nixbook-shell"
 echo $(($(date +%s) * 1000 + 60000)) >"$XDG_RUNTIME_DIR/nixbook-shell/agent-input"
 expect_contains "agent input while asked: refused" \
   "$(STUB_ASK="$tmp/ask" call discord '{"action":"send","channel":"222222222222222222","content":"fourth"}')" "can't be trusted"
-expect_eq "agent input while asked: nothing granted" "{}" "$(python3 "$mcp" permissions list)"
+expect_eq "agent input while asked: nothing granted" ask \
+  "$(python3 "$mcp" trust list | jq -r '.[] | select(.class=="discord:send:222222222222222222") | .level')"
 rm -f "$XDG_RUNTIME_DIR/nixbook-shell/agent-input"
 expect_eq "tools/list: discord and page_act marked destructive" "true true" \
   "$(python3 "$mcp" tools | jq -r '[.[] | select(.name=="discord" or .name=="page_act") | .annotations.destructiveHint | tostring] | join(" ")')"
@@ -2310,7 +2156,7 @@ expect_eq "curious: what it read is marked" "true true" "$(jq -r '"\(.observed["
 rm -f "$calls.claude-prompt"
 for f in a b c d e f g; do look kitty "nvim $f.qml"; done >/dev/null
 expect_eq "curious: once a day" no "$([ -e "$calls.claude-prompt" ] && echo yes || echo no)"
-# Say something now reads what is new at once; nothing to learn: nothing said.
+# A forced moment reads what is new at once; nothing to learn: nothing said.
 STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {learned: [], question: ""}}')
 expect_eq "curious: nothing new to learn, nothing said" "curious: nothing new to learn" \
   "$(consider '{"event":"moment","force":true,"curious":true}' | jq -r .why)"
@@ -2355,56 +2201,16 @@ rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
 python3 "$mcp" initiative clear
 python3 "$mcp" personal clear >/dev/null
 
-# Pairing: a look at what the user is on (app, title; the screen's text when
-# asked), plain-code gates first, a word only when the model finds it truly
-# helps, said quietly (badge, popped by the shell on a pause).
-python3 "$mcp" initiative clear
-rm -f "$XDG_RUNTIME_DIR/nixbook-desktop-mcp/state.json" # the calls above were an agent's actions
-pairing() { consider "$(jq -nc --arg a "$1" --arg t "$2" '{event: "pair", app: $a, title: $t}')"; }
-rm -f "$calls.claude-prompt"
-expect_eq "pair: never a password manager" "pairing: a private app or window" "$(pairing org.keepassxc.KeePassXC "Passwords.kdbx" | jq -r .why)"
-expect_eq "pair: never a chat" "pairing: a private app or window" "$(pairing org.signal.Signal "Signal" | jq -r .why)"
-expect_eq "pair: never a private window" "pairing: a private app or window" "$(pairing firefox "Private Browsing — Mozilla Firefox" | jq -r .why)"
-expect_eq "pair: busy, no look" "pairing: the user is busy" "$(consider '{"event":"pair","app":"kitty","title":"nvim","busy":true}' | jq -r .why)"
-expect_eq "pair: gates cost no model call" no "$([ -e "$calls.claude-prompt" ] && echo yes || echo no)"
-STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {say: false, guess: "editing a nix file"}}')
-export STUB_CLAUDE_ANSWER
-expect_contains "pair: nothing worth a word, nothing said" "$(pairing kitty "nvim flake.nix — me@example.com")" "nothing worth a word (editing a nix file)"
-expect_contains "pair: the title, redacted" "$(cat "$calls.claude-prompt")" "nvim flake.nix — [email]"
-expect_contains "pair: the web to look things up" "$(cat "$calls.claude-args")" "WebSearch,WebFetch"
-rm -f "$calls.claude-prompt"
-expect_eq "pair: one look a few minutes apart" "pairing: looked lately" "$(pairing code "main.rs" | jq -r .why)"
-python3 "$mcp" initiative clear
-# A long word: the bubble keeps whole sentences, the thread all of it.
-STUB_CLAUDE_ANSWER=$(jq -nc '{structured_output: {say: true, guess: "fixing a build",
-  text: ("That error is a missing lib: add pkg-config. " + ("The linker looks for it in the dev shell first. " * 12) + "Want me to?"),
-  links: [{title: "NixOS wiki", url: "https://wiki.nixos.org/wiki/Rust"}, {title: "bad", url: "file:///etc/passwd"}]}}')
-out=$(pairing kitty "cargo build")
-expect_eq "pair: a word, quiet, its link a button" "badge pair 1 https://wiki.nixos.org/wiki/Rust" \
-  "$(jq -r '"\(.action) \(.item.kind) \(.item.actions | length) \(.item.actions[0].url)"' <<<"$out")"
-expect_contains "pair: the thread has the link" "$(jq -r .item.chat <<<"$out")" "[NixOS wiki](https://wiki.nixos.org/wiki/Rust)"
-expect_eq "pair: a long word cut at a sentence's end" "first." "$(jq -r '.item.text[-6:]' <<<"$out")"
-expect_contains "pair: the thread has all of it" "$(jq -r .item.chat <<<"$out")" "first. Want me to?"
-expect_eq "pair: then quiet a while" "pairing: said something lately" \
-  "$(
-    python3 - "$ini" <<'PY'
-import json, sys
-d = json.load(open(sys.argv[1])); d["pair"]["lastCall"] = 0
-json.dump(d, open(sys.argv[1], "w"))
-PY
-    pairing code "main.rs" | jq -r .why
-  )"
-expect_eq "pair: nothing it read is kept" no "$(grep -q 'cargo build' "$ini" && grep -q 'missing lib' <(jq -c '.pair' "$ini") && echo yes || echo no)"
-redacted=$(cd "$root/scripts" && python3 -I -c 'import importlib.util as u; s=u.spec_from_file_location("m", "desktop-mcp.py"); m=u.module_from_spec(s); s.loader.exec_module(m); print(m.pair_redact("password: hunter2 key sk-ant-api03-AbCdEf1234567890GhIjKlMnOp bob@x.org +33 6 12 34 56 78 https://a.io/p?t=1 error at line 42"))')
-expect_eq "pair: secrets, addresses and queries redacted, errors kept" \
+# What leaves the machine from what the user did (recent context, a failed
+# command, a copied error): secrets, addresses and queries redacted.
+redacted=$(cd "$root/scripts" && python3 -I -c 'import importlib.util as u; s=u.spec_from_file_location("m", "desktop-mcp.py"); m=u.module_from_spec(s); s.loader.exec_module(m); print(m.context_redact("password: hunter2 key sk-ant-api03-AbCdEf1234567890GhIjKlMnOp bob@x.org +33 6 12 34 56 78 https://a.io/p?t=1 error at line 42"))')
+expect_eq "context: secrets, addresses and queries redacted, errors kept" \
   "password [redacted] key sk-ant-api03-[secret] [email] [phone] https://a.io/p error at line 42" "$redacted"
-unset STUB_CLAUDE_ANSWER
-python3 "$mcp" initiative clear
 
 # What was sent to a model: each pass, as sent (redacted), newest first.
 sent=$(python3 "$mcp" sent show)
-expect_eq "sent: the pairing pass, its model, the web" "pairing haiku true" "$(jq -r '.[0] | "\(.purpose) \(.model) \(.web)"' <<<"$sent")"
-expect_contains "sent: what it was given, redacted" "$(jq -r '[.[].text] | join("\n")' <<<"$sent")" "nvim flake.nix — [email]"
+expect_eq "sent: the news pass, its model, the web" "news haiku true" "$(jq -r '.[0] | "\(.purpose) \(.model) \(.web)"' <<<"$sent")"
+expect_contains "sent: what it was given" "$(jq -r '[.[].text] | join("\n")' <<<"$sent")" "NixOS: Runs NixOS everywhere"
 expect_eq "sent: only the user can read it" 600 "$(stat -c %a "$XDG_STATE_HOME/nixbook-shell/sent.jsonl")"
 python3 "$mcp" sent note context "- 10:00 Kitty: cargo build"
 expect_eq "sent: the context sent with a question" "context" "$(python3 "$mcp" sent show | jq -r '.[0].purpose')"
@@ -2470,15 +2276,6 @@ expect_eq "extract: nothing outside its folder" no "$([ -e "$dl/evil.txt" ] && e
 expect_eq "extract: again, a new folder" "$dl/pack (2)/pack" "$(extract "$dl/pack.zip")"
 expect_contains "extract: only the user's files" "$(extract /etc/hostname 2>&1 || true)" "not an archive it can extract"
 rm -rf "$dl"
-
-# A light word with something to do: done by the shell at once.
-wrap=$(cd "$root/scripts" && python3 -I -c '
-import importlib.util as u, datetime, json, time
-s = u.spec_from_file_location("m", "desktop-mcp.py"); m = u.module_from_spec(s); s.loader.exec_module(m)
-now = datetime.datetime.combine(datetime.date.today(), datetime.time(18, 0)).timestamp()
-cands = [c for c in m.chat_candidates({}, {"tasksDue": 2}, now) if c[0] == "wrapup"]
-print(json.dumps(m.CHAT_ACTIONS[cands[0][0]]))')
-expect_eq "chat: tasks due, moved or shown by the shell" "tasks:tomorrow tasks:show" "$(jq -r '[.[] | "\(.do):\(.what)"] | join(" ")' <<<"$wrap")"
 
 # Watches: "tell me when it's done", plain code; said in the bubble, or a
 # notification while the initiative is off.
@@ -3656,182 +3453,6 @@ expect_contains "no runtime dir: actions refused (fail closed)" "$(jq -r 'select
 expect_eq "no runtime dir: server keeps answering" 3 "$(wc -l <<<"$out" | tr -d ' ')"
 
 # -- HTTP ----------------------------------------------------------------------------
-
-# -- the agent desktop ---------------------------------------------------------------------
-
-# systemctl: starting the agent desktop service does what the launcher does
-# (scripts/agent-desktop.sh): sockets up, then the env file.
-export STUB_AGENT_SOCKET="$tmp/runtime/niri.wayland-9.1.sock"
-cat >"$bin/systemctl" <<'EOF'
-#!/usr/bin/env bash
-echo "systemctl $*" >>"$STUB_CALLS"
-[ -z "${STUB_SYSTEMCTL_FAIL:-}" ] || { echo "Unit nixbook-agent-desktop.service not found." >&2; exit 5; }
-if [ "$2" = start ]; then
-  # The Nth (nixbook-agent-desktop@N): its own directory, display and socket.
-  dir=nixbook-agent-desktop display=wayland-9 socket="$STUB_AGENT_SOCKET"
-  case "$3" in nixbook-agent-desktop@*.service)
-    n="${3#nixbook-agent-desktop@}" n="${n%.service}"
-    dir="nixbook-agent-desktop-$n" display="wayland-1$n" socket="${STUB_AGENT_SOCKET%/*}/niri.wayland-1$n.$n.sock"
-    ;;
-  esac
-  python3 -c 'import os, socket, sys
-for p in sys.argv[1:]:
-    if os.path.exists(p): os.unlink(p)
-    socket.socket(socket.AF_UNIX).bind(p)' "$XDG_RUNTIME_DIR/$display" "$socket"
-  mkdir -p "$XDG_RUNTIME_DIR/$dir"
-  printf 'WAYLAND_DISPLAY=%s\nNIRI_SOCKET=%s\n' "$display" "$socket" >"$XDG_RUNTIME_DIR/$dir/agent-desktop.env"
-fi
-EOF
-chmod +x "$bin/systemctl"
-agent_env="$XDG_RUNTIME_DIR/nixbook-agent-desktop/agent-desktop.env"
-
-expect_eq "desktop: the user's by default" user "$(python3 "$mcp" desktop status | jq -r .desktop)"
-reset_calls
-python3 "$mcp" desktop agent >/dev/null
-expect_eq "desktop agent: persisted" agent "$(python3 "$mcp" desktop status | jq -r .desktop)"
-expect_eq "desktop agent: no empty window opened" "" "$(grep systemctl "$calls" || true)"
-# Closed while no app is on it: the window tools wait for one, the shell
-# tools (the user's notes…) work.
-expect_contains "agent desktop closed: window tools wait for an app" "$(call list_windows)" "start the app you need with launch_app"
-expect_contains "agent desktop closed: the ui tools never read the user's windows" "$(call ui_read)" "start the app you need with launch_app"
-reset_calls
-out=$(call widget '{"widget":"notes","action":"add","text":"flat: 3 rooms, 1200 EUR"}')
-expect_eq "agent desktop: notes go to the user's shell" "flat: 3 rooms, 1200 EUR" "$(cat "$calls.note")"
-expect_eq "agent desktop: the shell is reached on the user's display" wayland-test "$(cat "$calls.qs_display")"
-expect_eq "agent desktop closed: the shell tools don't open it" "" "$(grep systemctl "$calls" || true)"
-# launch_app opens it.
-out=$(STUB_SYSTEMCTL_FAIL=1 call launch_app '{"app": "firefox"}')
-expect_contains "launch_app: says when the agent desktop can't start" "$out" "systemctl --user start"
-rm -f "$calls.launched"
-reset_calls
-out=$(call launch_app '{"app": "firefox"}')
-expect_eq "launch_app: opens the agent desktop" "systemctl --user start nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
-expect_contains "agent desktop: an app opening on the user's desktop is reported" "$out" "opened its window on the user's desktop"
-rm -f "$calls.launched"
-# The agent desktop's own window appearing on the user's while the app
-# starts isn't the app opening there.
-out=$(STUB_LAUNCH_NO_WINDOW=1 call launch_app '{"app": "firefox"}')
-expect_contains "agent desktop: its own window isn't the app's on the user's desktop" "$out" "no window opened on your desktop"
-rm -f "$calls.launched"
-call focus_window '{"id": 1}' >/dev/null
-expect_eq "agent desktop: tools reach its niri" "$STUB_AGENT_SOCKET" "$(cat "$calls.socket")"
-# Its apps' trees are on its own accessibility bus (run/at-spi/bus_N), never the user's.
-expect_contains "agent desktop: ui tools use its own accessibility bus" \
-  "$(STUB_AGENT_HAS_WINDOW=1 call ui_read)" "no accessibility tree on your desktop"
-expect_eq "agent desktop: status says so" agent "$(call get_status | jq -r .desktop)"
-reset_calls
-call restore_layout '{"name":"work"}' >/dev/null || true
-expect_eq "agent desktop: its restore_layout doesn't cover the user's screens" "" "$(grep 'layouts cover' "$calls" || true)"
-# Its niri has no virtual pointer here: refused, never ydotool (uinput: the user's desktop).
-reset_calls
-expect_contains "agent desktop: no ydotool fallback for the pointer" "$(call click '{"x": 10, "y": 10}')" "ydotool would click on the user's desktop"
-expect_eq "agent desktop: ydotool never run" "" "$(grep ydotool "$calls" || true)"
-out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 "$mcp")
-expect_contains "agent desktop: agents are told" "$(jq -r .result.instructions <<<"$out")" "You work on a desktop of your own"
-expect_contains "agent desktop: no shell panels on the user's screen" \
-  "$(call shell_ipc '{"target":"sidebarLeft","function":"toggle"}')" "refused: you work on your own desktop"
-expect_contains "agent desktop: no page tools into the user's Zen and apps" \
-  "$(call page_list '{}')" "refused: you work on your own desktop"
-# Switching to it while it's open: its window (niri.wayland-9.1.sock: pid 1)
-# is focused on the user's niri, so it scrolls into view.
-python3 "$mcp" desktop user >/dev/null
-reset_calls
-STUB_NESTED_WINDOW=1 python3 "$mcp" desktop agent >/dev/null
-expect_eq "desktop agent: an open agent desktop is focused" "niri msg action focus-window --id 9" "$(grep focus-window "$calls")"
-expect_eq "desktop agent: focused through the user's niri" /dev/null "$(cat "$calls.socket")"
-rm -f "$calls.launched"
-# One app shown at a time: the one before stays open in the background.
-reset_calls
-out=$(STUB_AGENT_HAS_WINDOW=1 call launch_app '{"app": "firefox"}')
-expect_contains "agent desktop: launch_app starts the app" "$out" '"started"'
-expect_eq "agent desktop: the app before isn't closed" "" "$(grep close-window "$calls" || true)"
-expect_eq "agent desktop: the app before is said to be in the background" 20 "$(jq -n 'input.in_background[0].id' <<<"$out")"
-rm -f "$calls.launched"
-# A splash first (Vesktop's "Loading"): launch_app names the app's own
-# window, not the splash that's about to close.
-out=$(STUB_AGENT_SPLASH=1 call launch_app '{"app": "firefox"}')
-expect_eq "agent desktop: launch_app waits out a splash screen" 31 "$(jq -n 'input.window.id' <<<"$out")"
-rm -f "$calls.launched" "$calls.splash"
-# A small window that stays (a fixed-size dialog) is named, with a note.
-out=$(STUB_AGENT_SPLASH=stays call launch_app '{"app": "firefox"}')
-expect_eq "agent desktop: a small window that stays is named" 30 "$(jq -n 'input.window.id' <<<"$out")"
-expect_contains "agent desktop: ...said not to fill the desktop" "$out" "doesn't fill your desktop"
-rm -f "$calls.launched" "$calls.splash"
-# The user takes over (to log in somewhere): the agent's input waits.
-python3 "$mcp" desktop interact on >/dev/null
-expect_eq "desktop interact on: the flag" true "$(python3 "$mcp" desktop status | jq .user_has_control)"
-expect_contains "user has control: the agent's input refused" "$(call type_text '{"text": "x"}')" "the user took over your desktop"
-expect_contains "user has control: launching refused too" "$(call launch_app '{"app": "firefox"}')" "the user took over your desktop"
-expect_contains "user has control: the agent can still look" "$(call screenshot)" "mapping"
-expect_eq "user has control: get_status says so" true "$(call get_status | jq .user_has_control)"
-python3 "$mcp" desktop interact toggle >/dev/null
-expect_eq "desktop interact toggle: given back" false "$(python3 "$mcp" desktop status | jq .user_has_control)"
-expect_not_contains "given back: the agent types again" "$(call type_text '{"text": "x"}')" "took over"
-# Emptied (its watcher closed it): opened again by the next app.
-rm -f "$STUB_AGENT_SOCKET"
-reset_calls
-expect_contains "agent desktop emptied: window tools wait for an app" "$(call list_windows)" "start the app you need"
-call launch_app '{"app": "firefox"}' >/dev/null
-expect_eq "agent desktop emptied: the next app opens it again" "systemctl --user start nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
-rm -f "$calls.launched"
-# Closed by the user: only closed, the agent's next app opens it again and
-# the shell tools work meanwhile; agents stay on their own desktop.
-rm -f "$STUB_AGENT_SOCKET"
-reset_calls
-expect_not_contains "closed by the user: the shell tools work" "$(call widget '{"widget":"notes","action":"list"}')" "refused"
-call launch_app '{"app": "firefox"}' >/dev/null
-expect_eq "closed by the user: the next app opens it again" "systemctl --user start nixbook-agent-desktop.service" "$(grep systemctl "$calls")"
-expect_eq "closed by the user: still their desktop" agent "$(python3 "$mcp" desktop status | jq -r .desktop)"
-rm -f "$calls.launched"
-# Another chat tab's server (NIXBOOK_AGENT_DESKTOP=2): a desktop of its own,
-# side by side with the first.
-reset_calls
-NIXBOOK_AGENT_DESKTOP=2 call launch_app '{"app": "firefox"}' >/dev/null
-expect_eq "second agent desktop: its own service" "systemctl --user start nixbook-agent-desktop@2.service" "$(grep systemctl "$calls")"
-rm -f "$calls.launched"
-NIXBOOK_AGENT_DESKTOP=2 call focus_window '{"id": 1}' >/dev/null
-expect_eq "second agent desktop: tools reach its own niri" "$tmp/runtime/niri.wayland-12.2.sock" "$(cat "$calls.socket")"
-call focus_window '{"id": 1}' >/dev/null
-expect_eq "second agent desktop: the first one's tools unchanged" "$STUB_AGENT_SOCKET" "$(cat "$calls.socket")"
-expect_eq "desktop status: lists them" "1 2" "$(python3 "$mcp" desktop status | jq -r '.agent_desktops | keys | join(" ")')"
-python3 "$mcp" desktop interact on --instance 2 >/dev/null
-expect_eq "desktop interact --instance 2: that one's flag" true "$(python3 "$mcp" desktop status --instance 2 | jq .user_has_control)"
-expect_eq "desktop interact --instance 2: not the first's" false "$(python3 "$mcp" desktop status | jq .user_has_control)"
-expect_contains "desktop interact --instance 2: its agent waits" "$(NIXBOOK_AGENT_DESKTOP=2 call type_text '{"text": "x"}')" "the user took over your desktop"
-expect_not_contains "desktop interact --instance 2: the first's agent types" "$(call type_text '{"text": "x"}')" "took over"
-python3 "$mcp" desktop interact off --instance 2 >/dev/null
-reset_calls
-python3 "$mcp" desktop stop --instance 2 >/dev/null
-expect_eq "desktop stop --instance 2: only that one" "systemctl --user stop nixbook-agent-desktop@2.service" "$(grep systemctl "$calls")"
-reset_calls
-python3 "$mcp" desktop stop >/dev/null
-expect_eq "desktop stop: stops them all" "systemctl --user stop nixbook-agent-desktop.service nixbook-agent-desktop@*.service" "$(grep systemctl "$calls")"
-expect_eq "desktop stop: agents stay on their desktop" agent "$(python3 "$mcp" desktop status | jq -r .desktop)"
-python3 "$mcp" desktop toggle >/dev/null
-expect_eq "desktop toggle: back to the user's" user "$(python3 "$mcp" desktop status | jq -r .desktop)"
-python3 "$mcp" desktop agent >/dev/null
-python3 "$mcp" desktop user >/dev/null
-call focus_window '{"id": 1}' >/dev/null
-expect_eq "desktop user: tools reach the user's niri again" /dev/null "$(cat "$calls.socket")"
-out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 "$mcp")
-expect_not_contains "desktop user: no agent desktop instructions" "$(jq -r .result.instructions <<<"$out")" "desktop of your own"
-# A session that outlives a switch is told on its next reply, once.
-mkfifo "$tmp/mcp.in" "$tmp/mcp.out"
-python3 "$mcp" <"$tmp/mcp.in" >"$tmp/mcp.out" &
-mcp_pid=$!
-exec 7>"$tmp/mcp.in" 8<"$tmp/mcp.out"
-mcp_send() { printf '%s\n' "$1" >&7 && IFS= read -r line <&8 && printf '%s' "$line"; }
-status_call() { mcp_send "{\"jsonrpc\":\"2.0\",\"id\":$1,\"method\":\"tools/call\",\"params\":{\"name\":\"get_status\",\"arguments\":{}}}" | jq -r '.result.content[0].text'; }
-mcp_send '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' >/dev/null
-expect_not_contains "switch: nothing to say while unchanged" "$(status_call 2)" "Desktop switched"
-python3 "$mcp" desktop agent >/dev/null
-expect_contains "switch to the agent's desktop: the session is told" "$(status_call 3)" "Desktop switched by the user: You work on a desktop of your own"
-expect_not_contains "switch to the agent's desktop: told once" "$(status_call 4)" "Desktop switched"
-python3 "$mcp" desktop user >/dev/null
-expect_contains "switch back to the user's desktop: the session is told" "$(status_call 5)" "Desktop switched by the user: You now work on the user's own desktop"
-exec 7>&- 8<&-
-wait "$mcp_pid" || true
-rm -f "$agent_env" "$STUB_AGENT_SOCKET" "$XDG_RUNTIME_DIR/wayland-9"
 
 # -- privacy mask ------------------------------------------------------------
 

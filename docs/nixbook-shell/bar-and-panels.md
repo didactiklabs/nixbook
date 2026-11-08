@@ -103,7 +103,7 @@ A dock with pinned and running apps (pins can be set from Nix), magnifying and b
 | OSD                | volume / brightness keys     | On-screen indicator                                                               |
 | Media controls     | bar / IPC                    | [Players](./media)                                                                |
 | Equalizer          | media controls               | [EasyEffects equalizer](./media#equalizer)                                        |
-| Desktop menu       | right-click on the desktop   | Wallpaper, widgets, theme, window layouts, agents' desktop                        |
+| Desktop menu       | right-click on the desktop   | Wallpaper, widgets, theme, window layouts                                         |
 | Overlay            | IPC                          | Pinned floating widgets                                                           |
 | Screen translator  | IPC                          | Translate text on screen                                                          |
 | On-screen keyboard | IPC (`osk`)                  | Virtual keyboard                                                                  |

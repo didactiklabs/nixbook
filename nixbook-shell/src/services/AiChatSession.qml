@@ -10,18 +10,13 @@ import qs.services.ai
 
 /**
  * One conversation of the side panel's chat, in a tab of its own (Ai.chats):
- * its messages, its Claude Code (kept running between messages, resuming its
- * session) and its own agent desktop when agents work on theirs, so tabs
- * work in parallel without fighting over one pointer and keyboard. Slot 1
- * uses the first agent desktop (nixbook-agent-desktop), slot N the
- * nixbook-agent-desktop@N one (NIXBOOK_AGENT_DESKTOP, given to the desktop
- * MCP server). The models, settings and history are Ai.qml's.
+ * its messages and its Claude Code (kept running between messages, resuming
+ * its session). The models, settings and history are Ai.qml's.
  */
 Scope {
     id: chat
 
     required property int slot
-    readonly property string desktopInstance: chat.slot > 1 ? String(chat.slot) : ""
     readonly property bool isCurrent: Ai.current === chat
 
     property var messageIDs: []
@@ -269,15 +264,12 @@ Scope {
         stopFallback.restart();
     }
 
-    // The tab closed: its Claude Code stopped, its agent desktop (not the
-    // first, which other tools use too) closed, what it said remembered.
+    // The tab closed: its Claude Code stopped, what it said remembered.
     function close() {
         chat.runMemoryPass();
         requester.pendingLine = "";
         requester.restartPending = false;
         if (requester.running) requester.signal(15);
-        if (chat.desktopInstance.length > 0)
-            Quickshell.execDetached(["systemctl", "--user", "stop", `nixbook-agent-desktop@${chat.desktopInstance}.service`]);
     }
 
     // The panel opened on this tab, on Claude: Claude Code started ahead, so
