@@ -210,17 +210,22 @@ make_copy() { # <video> <out> <w> <h>
 
 # Interpolated at the output's size (a 4K video is scaled down first, so its
 # detail is kept), or at the video's own when it is smaller (then scaled up:
-# the same picture for less work). In slices (one takes ~0.9 GB at 1080p,
-# ~1.9 GB at 2880×1800, and eight full-size ones made the laptop swap until
-# the kernel killed the shell: two at most up to 1080p, else one): each slice
-# gets one input frame past its end (so the frames between it and the next
-# slice are made too) and is cut to its exact number of output frames, so the
-# joins don't skip. The cost grows with the pixels (~18 s of CPU per second
-# of video at 1080p, ~50 at 2880×1800). Copies carry SMOOTH_TAG: one without
-# it was interpolated at 1080p at most by an earlier version (`stale`).
+# the same picture for less work). In pieces of PIECE seconds, kept in
+# $CACHE/.pieces-<copy name>-<frames per piece>/ until the copy is whole: a
+# run stopped (unplugged, a deploy, a reboot) goes on from the piece it was
+# on. Each piece gets one input frame past its end (so the frames between it
+# and the next are made too) and is cut to its exact number of output frames,
+# so the joins don't skip; they start on whole seconds, a frame of the video
+# whatever its frame rate. Two pieces at a time up to 1080p, else one (one
+# takes ~0.9 GB at 1080p, ~1.9 GB at 2880×1800, and eight full-size ones made
+# the laptop swap until the kernel killed the shell). The cost grows with the
+# pixels (~18 s of CPU per second of video at 1080p, ~65 at 2880×1800).
+# Copies carry SMOOTH_TAG: one without it was interpolated at 1080p at most by
+# an earlier version (`stale`).
 SMOOTH_TAG=nixbook-live-wallpaper:full-size
+PIECE=4
 make_smooth() { # <video> <out> <w> <h>
-  local src="$1" out="$2" w=$3 h=$4 srcw srch srcf dur n frames per i start tmp vf
+  local src="$1" out="$2" w=$3 h=$4 srcw srch srcf dur n frames per pieces i start dir vf
   read -r srcw srch srcf < <(probe "$src")
   dur=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$src")
   frames=$(awk -v d="$dur" -v t="$FPS" 'BEGIN { printf "%d", d * t }')
@@ -232,33 +237,42 @@ make_smooth() { # <video> <out> <w> <h>
   # result, half the memory, twice the time.
   [ $((w * h)) -le $((1920 * 1080)) ] || [ $((srcw * srch)) -le $((1920 * 1080)) ] || n=1
   [ "$(awk '/^MemAvailable:/ { print int($2 / 1048576) }' /proc/meminfo)" -ge 6 ] || n=1
-  # Whole seconds: every slice starts on a frame of the video, whatever its
-  # frame rate.
-  per=$((((frames + n - 1) / n + FPS - 1) / FPS * FPS))
+  per=$((PIECE * FPS))
+  pieces=$(((frames + per - 1) / per))
   local mi="minterpolate=fps=$FPS:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
   if [ $((srcw * srch)) -le $((w * h)) ]; then
     vf="$mi,$(scale_crop "$w" "$h")"
   else
     vf="$(scale_crop "$w" "$h"),$mi"
   fi
-  tmp=$(mktemp -d "$CACHE/.smooth.XXXXXX")
-  local -a pids=()
-  for ((i = 0; i < n; i++)); do
-    start=$(awk -v i="$i" -v p="$per" -v t="$FPS" 'BEGIN { printf "%.6f", i * p / t }')
-    awk -v s="$start" -v d="$dur" 'BEGIN { exit !(s < d) }' || break
-    encode "$vf" "$tmp/$i.mp4" -ss "$start" -t "$(awk -v p="$per" -v t="$FPS" -v f="$srcf" 'BEGIN { printf "%.6f", p / t + 1.5 / f }')" \
-      -i "$src" -frames:v "$per" &
-    pids+=($!)
-  done
+  dir="$CACHE/.pieces-$(basename "$out" .live.mp4)-$per"
+  mkdir -p "$dir"
+  rm -f "$dir"/*.part
   local ok=1 p
+  local -a pids=()
+  for ((i = 0; i < pieces; i++)); do
+    [ -s "$dir/$i.mp4" ] && continue
+    start=$(awk -v i="$i" -v p="$per" -v t="$FPS" 'BEGIN { printf "%.6f", i * p / t }')
+    (encode "$vf" "$dir/$i.mp4.part" -ss "$start" \
+      -t "$(awk -v p="$per" -v t="$FPS" -v f="$srcf" 'BEGIN { printf "%.6f", p / t + 1.5 / f }')" \
+      -i "$src" -frames:v "$per" && mv "$dir/$i.mp4.part" "$dir/$i.mp4") &
+    pids+=($!)
+    if [ "${#pids[@]}" -ge "$n" ]; then
+      for p in "${pids[@]}"; do wait "$p" || ok=0; done
+      pids=()
+      [ "$ok" = 1 ] || break
+    fi
+  done
   for p in "${pids[@]}"; do wait "$p" || ok=0; done
-  if [ "$ok" = 1 ]; then
-    for ((i = 0; i < ${#pids[@]}; i++)); do echo "file '$i.mp4'"; done >"$tmp/list"
-    ffmpeg -v error -y -f concat -safe 0 -i "$tmp/list" -c copy -metadata comment="$SMOOTH_TAG" -f mp4 "$out.part" </dev/null &&
-      mv "$out.part" "$out" || ok=0
+  [ "$ok" = 1 ] || return 1
+  for ((i = 0; i < pieces; i++)); do echo "file '$i.mp4'"; done >"$dir/list"
+  if ffmpeg -v error -y -f concat -safe 0 -i "$dir/list" -c copy -metadata comment="$SMOOTH_TAG" -f mp4 "$out.part" </dev/null &&
+    mv "$out.part" "$out"; then
+    rm -rf "$dir"
+    return 0
   fi
-  rm -rf "$tmp" "$out.part"
-  [ "$ok" = 1 ]
+  rm -f "$out.part"
+  return 1
 }
 
 # A copy made by an earlier version that interpolated at 1080p at most: a
@@ -334,6 +348,8 @@ prepare() { # <current video|-> <folder>...
   done < <(find "$@" -maxdepth 4 -type f -regextype posix-extended -regex "$VIDEO_RE" -printf '%T@ %p\0' 2>/dev/null |
     sort -z -rn | cut -z -d' ' -f2-)
   while read -r _ w h; do outs+=("$w $h"); done < <(outputs | sort -u -k2,3)
+  # Leftovers of a stopped run (pieces of an unfinished copy are kept: the
+  # copy goes on from them, unless its video is gone — below).
   find "$CACHE" -maxdepth 1 \( -name '.smooth.*' -o -name '*.part' \) -exec rm -rf {} +
   # Copies of earlier versions (made at play time, other names).
   find "$CACHE" -maxdepth 1 -name '*.mp4' ! -name '*.live.mp4' -delete
@@ -346,6 +362,11 @@ prepare() { # <current video|-> <folder>...
     [ -e "$f" ] || continue
     c=$(basename "$f")
     [ -n "${keep[${c%%-*}]:-}" ] || rm -f "$f"
+  done
+  for f in "$CACHE"/.pieces-*; do
+    [ -d "$f" ] || continue
+    c=${f##*/.pieces-}
+    [ -n "${keep[${c%%-*}]:-}" ] || rm -rf "$f"
   done
   for f in "${videos[@]}"; do
     for o in "${outs[@]}"; do
