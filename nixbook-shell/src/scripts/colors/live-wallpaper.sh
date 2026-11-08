@@ -48,7 +48,7 @@
 #   33% → 11%. `-p` still pauses it while its surface isn't drawn (screen
 #   locked, outputs off).
 # - Preparing runs one video at a time in a systemd unit of its own (idle
-#   CPU and IO, 4 GB of memory at most), out of the shell's service: an
+#   CPU and IO, 9 GB of memory at most; pieces run side by side only while the system has memory to spare), out of the shell's service: an
 #   earlier version interpolated eight full-size slices inside it, at play
 #   time, and the OOM killer took the shell.
 # - The video goes on the *Bottom* layer. niri's xray blur (tiled
@@ -155,7 +155,7 @@ prepare-start)
   fi
   if [ -z "${LIVE_WALLPAPER_NO_UNIT:-}" ] && systemd-run --user --quiet --collect \
     --unit=nixbook-live-wallpapers-prepare --description="Prepare the live wallpapers" \
-    -p MemoryHigh=3G -p MemoryMax=4G -p CPUWeight=idle -p IOWeight=10 -p Nice=19 \
+    -p MemoryHigh=8G -p MemoryMax=9G -p CPUWeight=idle -p IOWeight=10 -p Nice=19 \
     -E PATH -E NIRI_SOCKET -E WAYLAND_DISPLAY -E XDG_RUNTIME_DIR -E XDG_CACHE_HOME -E XDG_STATE_HOME \
     -E "LIVE_WALLPAPER_SCRIPT=$self" bash "$self" prepare "$@" >/dev/null 2>&1 </dev/null; then
     exit 0
@@ -216,27 +216,39 @@ make_copy() { # <video> <out> <w> <h>
 # on. Each piece gets one input frame past its end (so the frames between it
 # and the next are made too) and is cut to its exact number of output frames,
 # so the joins don't skip; they start on whole seconds, a frame of the video
-# whatever its frame rate. Two pieces at a time up to 1080p, else one (one
-# takes ~0.9 GB at 1080p, ~1.9 GB at 2880×1800, and eight full-size ones made
-# the laptop swap until the kernel killed the shell). The cost grows with the
-# pixels (~18 s of CPU per second of video at 1080p, ~65 at 2880×1800).
+# whatever its frame rate. One piece is one process on one core, its memory
+# growing with the pixels (~0.9 GB at 1080p, ~1.9 GB at 2880×1800; eight
+# full-size ones at once made the laptop swap until the kernel killed the
+# shell), as its time does (~18 s of CPU per second of video at 1080p, ~65 at
+# 2880×1800). So pieces run side by side only while memory is free: another
+# starts (up to a core in four, 4 at most) when the memory available after it
+# would still be RESERVE_MB, and the newest goes back in the queue when what
+# is available falls under SHED_MB (the user's apps want it back).
 # Copies carry SMOOTH_TAG: one without it was interpolated at 1080p at most by
 # an earlier version (`stale`).
 SMOOTH_TAG=nixbook-live-wallpaper:full-size
-PIECE=4
+PIECE=4 RESERVE_MB=2048 SHED_MB=1024 SETTLE=15
+avail_mb() { awk '/^MemAvailable:/ { print int($2 / 1024) }' /proc/meminfo; }
+# A piece's process and the ffmpeg it runs.
+stop_piece() { # <pid>
+  local -a kids
+  mapfile -t kids < <(pgrep -P "$1")
+  kill -KILL "$1" "${kids[@]}" 2>/dev/null
+  wait "$1" 2>/dev/null
+}
 make_smooth() { # <video> <out> <w> <h>
-  local src="$1" out="$2" w=$3 h=$4 srcw srch srcf dur n frames per pieces i start dir vf
+  local src="$1" out="$2" w=$3 h=$4 srcw srch srcf dur max need px frames per pieces i start dir vf
   read -r srcw srch srcf < <(probe "$src")
   dur=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$src")
   frames=$(awk -v d="$dur" -v t="$FPS" 'BEGIN { printf "%d", d * t }')
   [ "${frames:-0}" -gt 0 ] || return 1
-  n=$(($(nproc) / 4))
-  [ "$n" -ge 1 ] || n=1
-  [ "$n" -le 2 ] || n=2
-  # One above 1080p, or when memory is short (under 6 GB available): same
-  # result, half the memory, twice the time.
-  [ $((w * h)) -le $((1920 * 1080)) ] || [ $((srcw * srch)) -le $((1920 * 1080)) ] || n=1
-  [ "$(awk '/^MemAvailable:/ { print int($2 / 1048576) }' /proc/meminfo)" -ge 6 ] || n=1
+  max=$(($(nproc) / 4))
+  [ "$max" -ge 1 ] || max=1
+  [ "$max" -le 4 ] || max=4
+  # Its working size: the output's, or the video's when smaller.
+  px=$((srcw * srch))
+  [ "$px" -le $((w * h)) ] || px=$((w * h))
+  need=$((px * 380 / 1048576 + 150))
   per=$((PIECE * FPS))
   pieces=$(((frames + per - 1) / per))
   local mi="minterpolate=fps=$FPS:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
@@ -248,22 +260,46 @@ make_smooth() { # <video> <out> <w> <h>
   dir="$CACHE/.pieces-$(basename "$out" .live.mp4)-$per"
   mkdir -p "$dir"
   rm -f "$dir"/*.part
-  local ok=1 p
-  local -a pids=()
-  for ((i = 0; i < pieces; i++)); do
-    [ -s "$dir/$i.mp4" ] && continue
-    start=$(awk -v i="$i" -v p="$per" -v t="$FPS" 'BEGIN { printf "%.6f", i * p / t }')
-    (encode "$vf" "$dir/$i.mp4.part" -ss "$start" \
-      -t "$(awk -v p="$per" -v t="$FPS" -v f="$srcf" 'BEGIN { printf "%.6f", p / t + 1.5 / f }')" \
-      -i "$src" -frames:v "$per" && mv "$dir/$i.mp4.part" "$dir/$i.mp4") &
-    pids+=($!)
-    if [ "${#pids[@]}" -ge "$n" ]; then
-      for p in "${pids[@]}"; do wait "$p" || ok=0; done
-      pids=()
-      [ "$ok" = 1 ] || break
+  local ok=1 k a p
+  local -a todo=() run=() runi=() still=() stilli=()
+  for ((i = 0; i < pieces; i++)); do [ -s "$dir/$i.mp4" ] || todo+=("$i"); done
+  while [ "$ok" = 1 ] && [ $((${#todo[@]} + ${#run[@]})) -gt 0 ]; do
+    # The pieces done (no longer among the running jobs).
+    still=() stilli=()
+    for k in "${!run[@]}"; do
+      if jobs -rp | grep -qx "${run[k]}"; then
+        still+=("${run[k]}") stilli+=("${runi[k]}")
+      else
+        wait "${run[k]}" || ok=0
+      fi
+    done
+    run=("${still[@]}") runi=("${stilli[@]}")
+    [ "$ok" = 1 ] || break
+    a=$(avail_mb)
+    if [ "${#todo[@]}" -gt 0 ] && { [ "${#run[@]}" -eq 0 ] ||
+      { [ "${#run[@]}" -lt "$max" ] && [ $((a - need)) -ge "$RESERVE_MB" ]; }; }; then
+      i=${todo[0]}
+      todo=("${todo[@]:1}")
+      start=$(awk -v i="$i" -v p="$per" -v t="$FPS" 'BEGIN { printf "%.6f", i * p / t }')
+      (encode "$vf" "$dir/$i.mp4.part" -ss "$start" \
+        -t "$(awk -v p="$per" -v t="$FPS" -v f="$srcf" 'BEGIN { printf "%.6f", p / t + 1.5 / f }')" \
+        -i "$src" -frames:v "$per" && mv "$dir/$i.mp4.part" "$dir/$i.mp4") &
+      run+=($!) runi+=("$i")
+      # Until it has taken its memory, so the next decision sees it.
+      sleep "$SETTLE"
+      continue
     fi
+    if [ "${#run[@]}" -gt 1 ] && [ "$a" -lt "$SHED_MB" ]; then
+      k=$((${#run[@]} - 1))
+      stop_piece "${run[k]}"
+      rm -f "$dir/${runi[k]}.mp4.part"
+      todo=("${runi[k]}" "${todo[@]}")
+      unset 'run[k]' 'runi[k]'
+      run=("${run[@]}") runi=("${runi[@]}")
+    fi
+    sleep 2
   done
-  for p in "${pids[@]}"; do wait "$p" || ok=0; done
+  for p in "${run[@]}"; do wait "$p" || ok=0; done
   [ "$ok" = 1 ] || return 1
   for ((i = 0; i < pieces; i++)); do echo "file '$i.mp4'"; done >"$dir/list"
   if ffmpeg -v error -y -f concat -safe 0 -i "$dir/list" -c copy -metadata comment="$SMOOTH_TAG" -f mp4 "$out.part" </dev/null &&
