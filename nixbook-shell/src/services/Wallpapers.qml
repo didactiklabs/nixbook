@@ -130,45 +130,28 @@ Singleton {
     // The video mpvpaper plays and the shell has re-stacked its desktop
     // layer over ("" = none).
     property string playingPath: ""
-    property string _playTarget: ""
     property bool _started: false
     function syncPlayback() {
         if (!root._started) return; // the first look is ensureVideoWallpaper()
         const path = root.configuredPath;
         if (root.isVideo(path)) {
-            if (path === root.playingPath && !playDelay.running) return;
-            root._playTarget = path;
-            playDelay.restart();
-        } else {
-            root._playTarget = "";
-            playDelay.stop();
-            if (root.playingPath !== "" || liveProc.running || root._livePending !== null) {
-                // Background drops the video at once and shows the old still
-                // frame then the new image over it: stop it a moment later.
-                root.playingPath = "";
-                stopDelay.restart();
-            }
-        }
-    }
-    // Played once the transition to its still frame is over: the video
-    // starts on that frame, so the picture just comes alive. Until then the
-    // previous video keeps playing under the transition.
-    Timer {
-        id: playDelay
-        interval: 200
-        onTriggered: {
-            if (GlobalStates.wallpaperTransitionsBusy > 0 && playWaited.elapsed < 4000) {
-                playWaited.elapsed += interval;
-                playDelay.restart();
-                return;
-            }
-            playWaited.elapsed = 0;
-            if (root._playTarget === "" || root._playTarget !== root.configuredPath) return;
+            if (path === root.playingPath && !liveProc.running) return;
+            // At once, under the transition to its still frame (Background
+            // draws it over the players): the players switch to it paused on
+            // that frame, and it is resumed once the transition is over (see
+            // `shows` below), so the picture just comes alive. A switch inside
+            // the running players is instant; the copies were prepared ahead.
+            stopDelay.stop();
             root.playingPath = "";
-            root.liveRun("play", root._playTarget);
+            root.liveRun("play", path);
+            root.prepareLibrary(30000); // a video new to the folders
+        } else if (root.playingPath !== "" || liveProc.running || root._livePending !== null) {
+            // Background drops the video at once and shows the old still
+            // frame then the new image over it: stop it a moment later.
+            root.playingPath = "";
+            stopDelay.restart();
         }
     }
-    QtObject { id: playWaited; property int elapsed: 0 }
     Timer {
         id: stopDelay
         interval: 600
@@ -186,6 +169,7 @@ Singleton {
         // A video: started unless already playing. Else one left over from
         // before a restart (it lives in the service) goes.
         root.liveRun(root.isVideo(path) ? "ensure" : "stop", root.isVideo(path) ? path : "");
+        root.prepareLibrary(90000);
     }
     // live-wallpaper.sh play/ensure/stop, one at a time: a newer request
     // waits for the one running to be stopped (they would fight over the
@@ -222,9 +206,11 @@ Singleton {
             }
             const run = liveProc.run;
             if (!run || !run.video || run.video !== root.configuredPath) return;
-            // 0: players started and shown; 10: (ensure) already playing.
+            // 0: new players started and shown (lift the widgets above them);
+            // 11: switched inside the running players; 10: (ensure) already
+            // playing.
             if (code === 0) GlobalStates.backgroundRestack += 1;
-            if (code === 0 || code === 10) root.playingPath = run.video;
+            if (code === 0 || code === 10 || code === 11) root.playingPath = run.video;
         }
     }
     Connections {
@@ -233,14 +219,39 @@ Singleton {
     }
     Component.onCompleted: root.ensureVideoWallpaper()
 
-    // Back on AC power: the 60 fps copies waiting for it are made now
-    // (live-wallpaper.sh makes them on AC power only).
+    // The library, prepared ahead of time (live-wallpaper.sh prepare, in a
+    // systemd unit of its own, idle priority): every video of the wallpaper
+    // folders gets its still frame and, on AC power, its copy for each
+    // screen size, sharp and at 60 fps. Never while switching: a switch only
+    // picks the copy (or the video, not prepared yet). Started a while after
+    // the shell, when AC power comes back, when screens change and after a
+    // video is applied (one new to the folders); one run at a time, and it
+    // skips what is done.
+    function prepareLibrary(delay) {
+        if (!root._started) return;
+        if (prepareTimer.running && prepareTimer.interval <= delay) return;
+        prepareTimer.interval = delay;
+        prepareTimer.restart();
+    }
+    Timer {
+        id: prepareTimer
+        onTriggered: {
+            const folders = [FileUtils.trimFileProtocol(root.defaultFolder.toString())];
+            if (root.liveFolder.length > 0) folders.push(root.liveFolder);
+            const current = root.isVideo(root.configuredPath) ? root.configuredPath : "-";
+            if (current !== "-") folders.push(FileUtils.parentDirectory(current));
+            Quickshell.execDetached([root.liveScript, "prepare-start", current].concat(folders));
+        }
+    }
     Connections {
         target: Battery
         function onIsPluggedInChanged() {
-            if (Battery.isPluggedIn && root._started && root.isVideo(root.configuredPath) && !liveProc.running)
-                root.liveRun("ensure", root.configuredPath);
+            if (Battery.isPluggedIn) root.prepareLibrary(5000);
         }
+    }
+    Connections {
+        target: Quickshell
+        function onScreensChanged() { root.prepareLibrary(30000) }
     }
 
     // Whether nothing of an output's desktop can be seen: the tiled columns
@@ -278,7 +289,10 @@ Singleton {
         delegate: Scope {
             id: output
             required property var modelData
+            // (Not during a wallpaper transition: the new video waits on its
+            // first frame, which the transition ends on.)
             readonly property bool shows: root.playingPath !== "" && !GlobalStates.screenLocked
+                && GlobalStates.wallpaperTransitionsBusy === 0
                 && !Idle.screensOff && !root.desktopCovered(output.modelData)
             // Sent again for a new player (it starts playing).
             readonly property string want: root.playingPath === "" ? "" : `${root.playingPath}|${output.shows}`
@@ -287,7 +301,7 @@ Singleton {
             // through several layouts.
             Timer {
                 id: sendPause
-                interval: 300
+                interval: 150
                 onTriggered: {
                     if (root.playingPath === "") return;
                     Quickshell.execDetached([root.liveScript, "pause", output.modelData.name, output.shows ? "no" : "yes"]);
