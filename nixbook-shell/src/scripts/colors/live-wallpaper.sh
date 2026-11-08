@@ -48,7 +48,7 @@
 #   33% → 11%. `-p` still pauses it while its surface isn't drawn (screen
 #   locked, outputs off).
 # - Preparing runs one video at a time in a systemd unit of its own (idle
-#   CPU and IO, 3 GB of memory at most), out of the shell's service: an
+#   CPU and IO, 4 GB of memory at most), out of the shell's service: an
 #   earlier version interpolated eight full-size slices inside it, at play
 #   time, and the OOM killer took the shell.
 # - The video goes on the *Bottom* layer. niri's xray blur (tiled
@@ -138,7 +138,7 @@ prepare-start)
   [ -n "${LIVE_WALLPAPER_NO_UNIT:-}" ] || systemctl --user stop 'nixbook-live-wallpaper-copies-*' 2>/dev/null
   if [ -z "${LIVE_WALLPAPER_NO_UNIT:-}" ] && systemd-run --user --quiet --collect \
     --unit=nixbook-live-wallpapers-prepare --description="Prepare the live wallpapers" \
-    -p MemoryHigh=2G -p MemoryMax=3G -p CPUWeight=idle -p IOWeight=10 -p Nice=19 \
+    -p MemoryHigh=3G -p MemoryMax=4G -p CPUWeight=idle -p IOWeight=10 -p Nice=19 \
     -E PATH -E NIRI_SOCKET -E WAYLAND_DISPLAY -E XDG_RUNTIME_DIR -E XDG_CACHE_HOME -E XDG_STATE_HOME \
     bash "$0" prepare "$@" >/dev/null 2>&1 </dev/null; then
     exit 0
@@ -191,13 +191,17 @@ make_copy() { # <video> <out> <w> <h>
   encode "$rate$(scale_crop "$w" "$h")" "$out.part" -i "$src" && mv "$out.part" "$out"
 }
 
-# Interpolated in slices (two at most: one takes ~0.9 GB at 1080p, and eight
-# at 2880×1800, ~1.9 GB each, made the laptop swap until the kernel killed
-# the shell): each slice gets one input frame past its end (so the frames
-# between it and the next slice are made too) and is cut to its exact number
-# of output frames, so the joins don't skip. At 1080p at most, then scaled
-# to the output with lanczos: the cost grows with the pixels (~18 s of CPU
-# per second of video at 1080p).
+# Interpolated at the output's size (a 4K video is scaled down first, so its
+# detail is kept), or at the video's own when it is smaller (then scaled up:
+# the same picture for less work). In slices (one takes ~0.9 GB at 1080p,
+# ~1.9 GB at 2880×1800, and eight full-size ones made the laptop swap until
+# the kernel killed the shell: two at most up to 1080p, else one): each slice
+# gets one input frame past its end (so the frames between it and the next
+# slice are made too) and is cut to its exact number of output frames, so the
+# joins don't skip. The cost grows with the pixels (~18 s of CPU per second
+# of video at 1080p, ~50 at 2880×1800). Copies carry SMOOTH_TAG: one without
+# it was interpolated at 1080p at most by an earlier version (`stale`).
+SMOOTH_TAG=nixbook-live-wallpaper:full-size
 make_smooth() { # <video> <out> <w> <h>
   local src="$1" out="$2" w=$3 h=$4 srcw srch srcf dur n frames per i start tmp vf
   read -r srcw srch srcf < <(probe "$src")
@@ -207,22 +211,18 @@ make_smooth() { # <video> <out> <w> <h>
   n=$(($(nproc) / 4))
   [ "$n" -ge 1 ] || n=1
   [ "$n" -le 2 ] || n=2
-  # One when memory is short (under 6 GB available): same result, half the
-  # memory, twice the time.
+  # One above 1080p, or when memory is short (under 6 GB available): same
+  # result, half the memory, twice the time.
+  [ $((w * h)) -le $((1920 * 1080)) ] || [ $((srcw * srch)) -le $((1920 * 1080)) ] || n=1
   [ "$(awk '/^MemAvailable:/ { print int($2 / 1048576) }' /proc/meminfo)" -ge 6 ] || n=1
   # Whole seconds: every slice starts on a frame of the video, whatever its
   # frame rate.
   per=$((((frames + n - 1) / n + FPS - 1) / FPS * FPS))
   local mi="minterpolate=fps=$FPS:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
-  local ww wh
-  read -r ww wh < <(awk -v w="$w" -v h="$h" 'BEGIN { f = (h > 1080) ? 1080 / h : 1
-    printf "%d %d", int(w * f / 2 + 0.5) * 2, int(h * f / 2 + 0.5) * 2 }')
-  if [ $((srcw * srch)) -le $((ww * wh)) ]; then
+  if [ $((srcw * srch)) -le $((w * h)) ]; then
     vf="$mi,$(scale_crop "$w" "$h")"
-  elif [ "$ww" = "$w" ]; then
-    vf="$(scale_crop "$w" "$h"),$mi"
   else
-    vf="$(scale_crop "$ww" "$wh"),$mi,scale=$w:$h:flags=lanczos+accurate_rnd+full_chroma_int"
+    vf="$(scale_crop "$w" "$h"),$mi"
   fi
   tmp=$(mktemp -d "$CACHE/.smooth.XXXXXX")
   local -a pids=()
@@ -237,11 +237,23 @@ make_smooth() { # <video> <out> <w> <h>
   for p in "${pids[@]}"; do wait "$p" || ok=0; done
   if [ "$ok" = 1 ]; then
     for ((i = 0; i < ${#pids[@]}; i++)); do echo "file '$i.mp4'"; done >"$tmp/list"
-    ffmpeg -v error -y -f concat -safe 0 -i "$tmp/list" -c copy -f mp4 "$out.part" </dev/null &&
+    ffmpeg -v error -y -f concat -safe 0 -i "$tmp/list" -c copy -metadata comment="$SMOOTH_TAG" -f mp4 "$out.part" </dev/null &&
       mv "$out.part" "$out" || ok=0
   fi
   rm -rf "$tmp" "$out.part"
   [ "$ok" = 1 ]
+}
+
+# A copy made by an earlier version that interpolated at 1080p at most: a
+# video under 47 fps it scaled down for that (taller than 1080 and wider than
+# the output's 1080-high size), its copy without SMOOTH_TAG. Remade (it plays
+# meanwhile).
+stale() { # <video> <copy> <w> <h>
+  local srcw srch srcf
+  read -r srcw srch srcf < <(probe "$1")
+  awk -v f="$srcf" 'BEGIN { exit !(f < 47) }' || return 1
+  [ "$4" -gt 1080 ] && [ "$srch" -gt 1080 ] && [ $((srcw * $4)) -gt $(($3 * 1080)) ] || return 1
+  [ "$(ffprobe -v error -show_entries format_tags=comment -of csv=p=0 "$2")" != "$SMOOTH_TAG" ]
 }
 
 on_ac() { # no battery (a desktop) counts as AC
@@ -303,7 +315,7 @@ prepare() { # <current video|-> <folder>...
     for o in "${outs[@]}"; do
       read -r w h <<<"$o"
       c=$(copy_path "$f" "$w" "$h")
-      [ -f "$c" ] && continue
+      [ -f "$c" ] && ! stale "$f" "$c" "$w" "$h" && continue
       on_ac || return 0
       make_copy "$f" "$c" "$w" "$h"
     done
