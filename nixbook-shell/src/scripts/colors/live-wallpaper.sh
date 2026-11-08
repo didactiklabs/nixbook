@@ -136,11 +136,25 @@ prepare-start)
   shift
   # The previous version's play-time copy jobs, if one still runs.
   [ -n "${LIVE_WALLPAPER_NO_UNIT:-}" ] || systemctl --user stop 'nixbook-live-wallpaper-copies-*' 2>/dev/null
+  # One started by another version of this script (a deploy doesn't stop it:
+  # it isn't in the shell's service) gives way, or it would go on for hours
+  # making copies the old way while refusing this one.
+  self=$(realpath "$0")
+  if [ -z "${LIVE_WALLPAPER_NO_UNIT:-}" ] && systemctl --user is-active --quiet nixbook-live-wallpapers-prepare &&
+    ! systemctl --user show -p Environment --value nixbook-live-wallpapers-prepare |
+    tr ' ' '\n' | grep -qxF "LIVE_WALLPAPER_SCRIPT=$self"; then
+    systemctl --user stop nixbook-live-wallpapers-prepare 2>/dev/null
+    # Its name is free once systemd has let go of the stopped unit.
+    for _ in $(seq 50); do
+      [ "$(systemctl --user show -p LoadState --value nixbook-live-wallpapers-prepare)" = not-found ] && break
+      sleep 0.1
+    done
+  fi
   if [ -z "${LIVE_WALLPAPER_NO_UNIT:-}" ] && systemd-run --user --quiet --collect \
     --unit=nixbook-live-wallpapers-prepare --description="Prepare the live wallpapers" \
     -p MemoryHigh=3G -p MemoryMax=4G -p CPUWeight=idle -p IOWeight=10 -p Nice=19 \
     -E PATH -E NIRI_SOCKET -E WAYLAND_DISPLAY -E XDG_RUNTIME_DIR -E XDG_CACHE_HOME -E XDG_STATE_HOME \
-    bash "$0" prepare "$@" >/dev/null 2>&1 </dev/null; then
+    -E "LIVE_WALLPAPER_SCRIPT=$self" bash "$self" prepare "$@" >/dev/null 2>&1 </dev/null; then
     exit 0
   fi
   [ -n "${LIVE_WALLPAPER_NO_UNIT:-}" ] || ! systemctl --user is-active --quiet nixbook-live-wallpapers-prepare || exit 0
