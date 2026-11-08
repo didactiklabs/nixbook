@@ -150,6 +150,32 @@ out=$(python3 "$mcp" kiroshi scan "$tmp/req.json" || true)
 expect_eq "AI off: no scan" "no Claude Code (or AI is off)" "$(ev error | jq -r .error)"
 rm "$XDG_CONFIG_HOME/nixbook-shell/config.json"
 
+# ai.privacy.screenshots: the private details boxed in the image sent (OCR
+# finds Anna, a contact), on a copy: the overlay's screenshot is untouched.
+mkdir -p "$XDG_STATE_HOME/nixbook-accounts"
+echo '{"contacts": [{"id": "c1", "name": "Anna Berg", "givenName": "Anna", "familyName": "Berg", "emails": []}]}' \
+  >"$XDG_STATE_HOME/nixbook-accounts/contacts.json"
+echo '{"ai": {"privacy": {"mask": true, "screenshots": true}}}' >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
+cat >"$bin/magick" <<'EOF'
+#!/usr/bin/env bash
+# The grey copy for OCR: anything; the boxes drawn: the file says so.
+case " $* " in *" -draw "*) printf 'boxed' >"${@: -1}" ;; *) printf 'P5' ;; esac
+EOF
+cat >"$bin/tesseract" <<'EOF'
+#!/usr/bin/env bash
+cat >/dev/null
+printf 'level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+printf '5\t1\t1\t1\t1\t1\t100\t50\t40\t12\t95\tAnna\n'
+EOF
+chmod +x "$bin/magick" "$bin/tesseract"
+before=$(sha256sum "$tmp/shot.png")
+out=$(PATH="$bin:$PATH" python3 "$mcp" kiroshi scan "$tmp/req.json")
+expect_eq "screenshots masked: the image sent is the boxed copy" "boxed" \
+  "$(jq -r '.content[0].source.data' "$STUB_LOG/labels" | base64 -d)"
+expect_eq "screenshots masked: the screen's own file untouched" "$before" "$(sha256sum "$tmp/shot.png")"
+expect_eq "screenshots masked: no copy left" "" "$(find "$XDG_RUNTIME_DIR" -name 'kiroshi-*')"
+rm "$XDG_CONFIG_HOME/nixbook-shell/config.json"
+
 if [ "$failures" -gt 0 ]; then
   echo "$failures failure(s)" >&2
   exit 1

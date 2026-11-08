@@ -8948,8 +8948,9 @@ def emails_in(node, out):
 
 
 def privacy_people():
-    """[(person id, full name, given, family, nickname, emails, phones,
-    addresses)]: the user first."""
+    """([(person id, full name, given, family, nickname, emails, phones,
+    addresses)]: the user first, the user's terms, the contacts' Discord
+    names from their notes)."""
     import pwd
     try:
         gecos = pwd.getpwuid(os.getuid()).pw_gecos.split(",")[0].strip()
@@ -8958,7 +8959,7 @@ def privacy_people():
     config, contacts, accounts = (read_json(p) for p in privacy_files()[:3])
     shown = ((config or {}).get("profile") or {}).get("displayName") or ""
     mails = list(dict.fromkeys(emails_in(accounts, [])))
-    people = []
+    people, handles = [], []
     for full in dict.fromkeys(n for n in (gecos, shown) if n):
         parts = full.split()
         people.append(("user", full, parts[0] if len(parts) > 1 else "", parts[-1] if len(parts) > 1 else "",
@@ -8971,6 +8972,9 @@ def privacy_people():
                        c.get("familyName") or "", c.get("nickname") or "", vals("emails"), vals("phones"),
                        [*vals("addresses"), *(a.get("street") for a in c.get("addresses") or []
                                               if isinstance(a, dict) and isinstance(a.get("street"), str))]))
+        # The Discord name a note gives ("Discord: alesio"): the discord
+        # tool finds people by it and prints it, as Discord does.
+        handles.extend(note_discord_names(c.get("notes")))
     # Learned: "Alice Durand" a person, "Alice" alone her first name (case
     # kept: never "alice").
     learned = (read_json(privacy_learned_path()) or {}).get("learned") or {}
@@ -8983,7 +8987,7 @@ def privacy_people():
         elif value:
             people.append((f"learned:{key}", "", value, "", "", [], [], []))
     terms = (config or {}).get("ai", {}).get("privacy", {}).get("terms") if isinstance(config, dict) else None
-    return people, [t for t in terms or [] if isinstance(t, str)]
+    return people, [t for t in terms or [] if isinstance(t, str)], handles
 
 
 def trie_regex(values):
@@ -9015,7 +9019,7 @@ def privacy_vocab():
     key = tuple(os.path.getmtime(p) if os.path.exists(p) else 0 for p in privacy_files())
     if _PRIVACY["key"] == key:
         return _PRIVACY
-    people, terms = privacy_people()
+    people, terms, handles = privacy_people()
     # Keys accents off (fold_chars), as the text is matched: Aurelien,
     # Aurélien and AURÉLIEN are one name.
     ci, cs, loose, phones = {}, {}, {}, {}
@@ -9059,6 +9063,14 @@ def privacy_vocab():
         t = " ".join(t.split())
         if len(t) >= PRIVACY_MIN:
             ci.setdefault(norm(t).lower(), ("Private", t.lower(), None, t))
+    # Discord names in any case (Discord shows them in lower case), but not
+    # one that is a common first name or word alone (the person's own name
+    # is already masked as one).
+    # A mention too (@alesio): its own regex, an @ before it allowed.
+    handle = {}
+    for h in handles:
+        if len(h) >= PRIVACY_MIN and h.lower() not in PRIVACY_NAME_WORDS and norm(h).lower() not in ci:
+            handle.setdefault(norm(h).lower(), ("Handle", h.lower(), None, h))
     # The login name: in paths (/home/NAME/…) and prompts, case kept.
     import pwd
     try:
@@ -9077,8 +9089,9 @@ def privacy_vocab():
                     ignored=set(learn.get("ignored") or []) if isinstance(learn, dict) else set())
     _PRIVACY.update(key=key, ci=re.compile(bound(trie_regex(ci)).pattern, re.I), cs=bound(trie_regex(cs)),
                     loose=re.compile(bound(trie_regex(loose)).pattern, re.I),
+                    handle=re.compile(rf"(?<![\w.]){trie_regex(handle)}(?![\w@])" if handle else r"(?!)", re.I),
                     keys={**{("ci", k): v for k, v in ci.items()}, **{("cs", k): v for k, v in cs.items()},
-                          **{("loose", k): v for k, v in loose.items()}},
+                          **{("loose", k): v for k, v in loose.items()}, **{("handle", k): v for k, v in handle.items()}},
                     phones=phones)
     return _PRIVACY
 
@@ -9107,7 +9120,7 @@ def privacy_spans(value, vocab, typed=False):
     points at a person (PRIVACY_CUE)."""
     spans = []
     folded = fold_chars(value)
-    for case in ("ci", "cs", "loose") if typed else ("ci", "cs"):
+    for case in ("ci", "cs", "handle", "loose") if typed else ("ci", "cs", "handle"):
         for m in vocab[case].finditer(folded):
             norm = " ".join(m.group().split())
             spec = vocab["keys"].get((case, norm if case == "cs" else norm.lower()))
@@ -9235,7 +9248,7 @@ def privacy_known(value, vocab):
     if any(fold(w) in privacy_pseudo()["words"] for w in value.split()):
         return True
     norm = fold_chars(" ".join(value.split()))
-    return bool(vocab["ci"].fullmatch(norm) or vocab["cs"].fullmatch(norm))
+    return bool(vocab["ci"].fullmatch(norm) or vocab["cs"].fullmatch(norm) or vocab["handle"].fullmatch(norm))
 
 
 def privacy_candidates(value, vocab):
@@ -15956,13 +15969,21 @@ def discord_names(query):
         who = c.get("name") or "?"
         if c.get("nickname"):
             out.append((who, str(c["nickname"]).strip()))
-        words = re.findall(r"[^\W_][\w.#-]*", str(c.get("notes") or ""))
-        for k, w in enumerate(words):
-            if "discord" not in w.lower():
-                continue
-            for cand in words[k + 1:k + 6]:
-                if cand.lower() not in DISCORD_NOTE_SKIP and len(cand) >= 3:
-                    out.append((who, cand.split("#")[0]))
+        out.extend((who, h) for h in note_discord_names(c.get("notes")))
+    return list(dict.fromkeys(out))
+
+
+def note_discord_names(notes):
+    """The Discord names a contact's notes give: the words just after a
+    "Discord". Also what the privacy mask hides (privacy_people)."""
+    words = re.findall(r"[^\W_][\w.#-]*", str(notes or ""))
+    out = []
+    for k, w in enumerate(words):
+        if "discord" not in w.lower():
+            continue
+        for cand in words[k + 1:k + 6]:
+            if cand.lower() not in DISCORD_NOTE_SKIP and len(cand) >= 3:
+                out.append(cand.split("#")[0])
     return list(dict.fromkeys(out))
 
 
@@ -17834,6 +17855,21 @@ def kiroshi_scan(cfg, path):
         raw = f.read(KIROSHI_IMAGE_MAX + 1)
     if len(raw) > KIROSHI_IMAGE_MAX:
         return fail("the screenshot is too big")
+    if privacy_screenshots():
+        # Private details boxed in what is sent, as in every screenshot
+        # (mask_image), on a copy: the overlay keeps showing the screen.
+        fd, masked = tempfile.mkstemp(dir=runtime_dir(), prefix="kiroshi-", suffix=os.path.splitext(image)[1] or ".jpg")
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(raw)
+            mask_image(masked, cfg)
+            with open(masked, "rb") as f:
+                raw = f.read(KIROSHI_IMAGE_MAX + 1)
+        except (ToolError, OSError) as e:
+            return fail(f"the private details couldn't be hidden, nothing was sent: {e}")
+        finally:
+            with contextlib.suppress(OSError):
+                os.unlink(masked)
     media = "image/jpeg" if raw[:3] == b"\xff\xd8\xff" else "image/png"
     image_block = {"type": "image", "source": {"type": "base64", "media_type": media,
                                                "data": base64.b64encode(raw).decode()}}

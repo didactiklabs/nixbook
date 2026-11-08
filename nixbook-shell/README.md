@@ -1249,7 +1249,7 @@ whole store.
 With Settings > Desktop agents > Private details (`ai.privacy.mask`, on by
 default), models read placeholders instead of private details:
 `⟦Person 2⟧`, `⟦Person 2 first⟧`, `⟦Email 1⟧`, `⟦Phone 1⟧`, `⟦Address 1⟧`,
-`⟦Card 1⟧`, `⟦IBAN 1⟧`, `⟦Private 1⟧`, and `⟦User⟧` for you. The real values
+`⟦Card 1⟧`, `⟦IBAN 1⟧`, `⟦Private 1⟧`, `⟦Handle 1⟧`, and `⟦User⟧` for you. The real values
 come back on this computer whenever a model uses a placeholder: in a tool's
 arguments (typing it, sending a mail through a connector) and in the
 answers you read. It works in plain code, with no model involved:
@@ -1258,7 +1258,10 @@ answers you read. It works in plain code, with no model involved:
   account's full name, `profile.displayName`), your accounts' emails, and
   your contacts' full names, first names, nicknames, emails, phones (matched
   by their last 9 digits, whatever the format) and addresses, read from
-  nixbook-accounts' copy. It also covers the words in `ai.privacy.terms`,
+  nixbook-accounts' copy, plus the Discord names their notes give ("Discord:
+  alesio", the same words the `discord` tool's `find` searches:
+  `note_discord_names`), in any case and as a mention (`@alesio`), as
+  `⟦Handle N⟧`. It also covers the words in `ai.privacy.terms`,
   card numbers (Luhn checked, card prefixes only) and IBANs (mod-97
   checked). A first name two contacts share becomes `⟦Name N⟧`. Names match
   without accents and in capitals (Aurelien, AURÉLIEN). A first name is
@@ -1315,7 +1318,8 @@ answers you read. It works in plain code, with no model involved:
     people's names and contact details are left out of their prompt.
   - With `ai.privacy.screenshots`, the images in any tool's reply too (an
     attached image read by DAI, a photo from another server), boxed in
-    place, the reply's shape kept.
+    place, the reply's shape kept; and Kiroshi's screenshot, boxed on a copy
+    (the overlay keeps the real one), nothing sent if that fails.
   - Your login name is private too (`⟦User login⟧`, in paths), unless it is
     a generic one (debian, admin, user…).
 - **Cost**: one compiled regex (common prefixes factored for thousands of
