@@ -149,7 +149,7 @@ prepare-start)
   ;;
 esac
 
-OPTS="no-audio loop pause=yes hwdec=auto-safe gpu-dumb-mode=yes video-sync=display-resample interpolation=no panscan=1.0 video-scale-x=1.0 video-scale-y=1.0 video-align-x=0.5 video-align-y=0.5 load-scripts=no"
+OPTS="no-audio loop pause=yes quiet=yes hwdec=auto-safe gpu-dumb-mode=yes video-sync=display-resample interpolation=no panscan=1.0 video-scale-x=1.0 video-scale-y=1.0 video-align-x=0.5 video-align-y=0.5 load-scripts=no"
 
 # A video's "width height fps".
 probe() {
