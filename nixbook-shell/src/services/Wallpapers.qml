@@ -252,19 +252,9 @@ Singleton {
         Quickshell.execDetached(args);
     }
 
-    // The selector on the live wallpaper folder (Settings → Background →
-    // Live Wallpaper Folder; else where it was), or the system file dialog
-    // when the selector is set to use it.
+    // The selector's Live quick folder (Settings → Background → Live
+    // Wallpaper Folder), like its Custom one.
     readonly property string liveFolder: FileUtils.expandHome((Config.options.wallpaperSelector?.liveWallpapersPath ?? "").trim())
-    function openLiveWallpapers() {
-        if (Config.options.wallpaperSelector.useSystemFileDialog) {
-            root.openFallbackPicker(Appearance.m3colors.darkmode, root.liveFolder);
-            return;
-        }
-        if (root.liveFolder.length > 0) root.setDirectory(root.liveFolder);
-        GlobalStates.wallpaperSelectorTarget = "wallpaper";
-        GlobalStates.wallpaperSelectorOpen = true;
-    }
 
     function switchCommand(path, darkMode = Appearance.m3colors.darkmode) {
         return [Directories.wallpaperSwitchScriptPath, "--mode", darkMode ? "dark" : "light", "--image", path];
@@ -754,10 +744,6 @@ Singleton {
 
         function apply(path: string): void {
             root.apply(path);
-        }
-
-        function openLive(): void {
-            root.openLiveWallpapers();
         }
 
         function setSortMode(mode: string): void {
