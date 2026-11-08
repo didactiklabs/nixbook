@@ -411,7 +411,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 66 tools" 66 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 67 tools" 67 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -2002,6 +2002,30 @@ expect_contains "budget category: spent and what's left" "$(call budget '{"actio
   "- Groceries (Food): budgeted 400.00 EUR, spent 42.50 EUR, left 357.50 EUR"
 expect_contains "budget transactions: their total" "$(call budget '{"action":"transactions","query":"carrefour"}')" \
   "1 transactions matching 'carrefour' from 2026-11-01 to 2026-11-02: spent 42.50 EUR"
+expect_contains "budget transactions: each with its id" "$(call budget '{"action":"transactions","query":"carrefour"}')" "[id t1]"
+# Changing it the same way, without its window.
+out=$(call budget_edit '{"action":"add","amount":-12.5,"payee":"Boulangerie","category":"grocery","date":"2026-11-05"}')
+expect_contains "budget_edit add: said, with its id" "$out" "Added -12.50 EUR on 2026-11-05 at Boulangerie in Groceries, Checking [id t9]."
+expect_eq "budget_edit add: the adapter's add, the amount as given" '["add",-12.5]' \
+  "$(grep '"eval"' "$tmp/cdp.log" | tail -n1 | jq -c '[.op, .args.amount]')"
+expect_contains "budget_edit add: an amount must be a number" "$(call budget_edit '{"action":"add","amount":"12"}')" "a number in the budget's currency"
+expect_contains "budget_edit update: the fields asked" "$(call budget_edit '{"action":"update","id":"t9","amount":-13,"category":""}')" \
+  "Updated the transaction t9: amount, category."
+expect_contains "budget_edit set_budget" "$(call budget_edit '{"action":"set_budget","category":"groceries","amount":450}')" \
+  "Groceries, 2026-11: budgeted 450.00 EUR (was 400.00 EUR)."
+expect_contains "budget_edit move_budget" "$(call budget_edit '{"action":"move_budget","from":"rent","to":"restaurants","amount":50}')" \
+  "Moved 50.00 EUR in 2026-11 from Rent (now 1,150.00 EUR) to Restaurants (now 250.00 EUR)."
+expect_contains "budget_edit create_category" "$(call budget_edit '{"action":"create_category","name":"Coffee","group":"food"}')" \
+  "Created the category Coffee in Food."
+: >"$calls"
+expect_contains "budget_edit delete: the user's no stops it" "$(call budget_edit '{"action":"delete","id":"t9"}')" "the user said no"
+expect_contains "budget_edit delete: asked first" "$(grep -- '-A allow=Allow' "$calls" | tail -n1)" "delete a transaction in Actual Budget"
+expect_eq "budget_edit delete: nothing deleted on a no" "" "$(grep '"eval"' "$tmp/cdp.log" | jq -r 'select(.op=="delete") | .op')"
+echo allow >"$tmp/ask"
+expect_contains "budget_edit delete: allowed" "$(STUB_ASK="$tmp/ask" call budget_edit '{"action":"delete","id":"t9"}')" \
+  "Deleted the transaction of -42.50 EUR on 2026-11-01."
+expect_eq "tools/list: budget_edit marked destructive, budget read-only" "true true" \
+  "$(python3 "$mcp" tools | jq -r '[(.[] | select(.name=="budget_edit") | .annotations.destructiveHint), (.[] | select(.name=="budget") | .annotations.readOnlyHint)] | map(tostring) | join(" ")')"
 kill "$electron_pid" 2>/dev/null
 wait "$electron_pid" 2>/dev/null || true
 

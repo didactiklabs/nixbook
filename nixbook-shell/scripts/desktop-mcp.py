@@ -16070,10 +16070,14 @@ def t_discord(ctx, args):
 # Actual Budget (through its bridge): the money questions ("how much did I
 # spend on food this month?", "what's left in groceries?") answered from
 # Actual's own client in its page (electron/actual.js: $send / $query, its
-# public API's reading handlers), never its window. Read-only: the adapter
-# names no handler that writes, the bridge accepts only its reading
-# operations, and this tool has no action that changes anything. Payees
-# and notes go through the privacy mask like every reply (call_tool).
+# public API's handlers), never its window. `budget` only reads;
+# `budget_edit` adds, changes or deletes a transaction, sets or moves a
+# category's budget and creates a category, through the same public API
+# (no sync, import, bank link, account or budget file), so no agent clicks
+# or types in Actual. A delete is the user's own yes (ask_user_yes); the
+# rest follows the trust ladder in the shell's sessions (told after by
+# default). Payees and notes go through the privacy mask like every reply
+# (call_tool).
 
 BUDGET_ACTIONS = ("status", "summary", "category", "transactions", "accounts")
 BUDGET_NOT_OPEN = ("Actual Budget isn't open with nixbook's bridge: the user opens it from the launcher (\"Actual "
@@ -16110,13 +16114,13 @@ def budget_category_line(c, cur):
 @tool(
     "budget",
     "pages",
-    "The user's money in Actual Budget, read only, without its window (nothing can be changed): "
+    "The user's money in Actual Budget, read only, without its window (budget_edit changes it): "
     "`summary` (a month's income, budgeted, spent, to budget and each group; default this month, "
     "`month` YYYY-MM), `category` (`query`: a category or group as the user said it — food, "
     "groceries —: budgeted, spent and what's left that month), `transactions` (`query` words in the "
     "payee, notes or category, `category`, `account`, `from`/`to` YYYY-MM-DD — default this month "
-    "so far —, `limit`; their count and totals), `accounts` (balances), `status`. Spent amounts are "
-    "said positive. Answer with the figure asked for, not the whole list.",
+    "so far —, `limit`; their count, totals and each one's id, for budget_edit), `accounts` (balances), "
+    "`status`. Spent amounts are said positive. Answer with the figure asked for, not the whole list.",
     obj({"action": {"type": "string", "enum": list(BUDGET_ACTIONS)},
          "query": {"type": "string"}, "category": {"type": "string"}, "account": {"type": "string"},
          "month": {"type": "string", "description": "YYYY-MM (default this month)"},
@@ -16181,6 +16185,7 @@ def t_budget(ctx, args):
                 f"spent {money_text(-(r.get('spent') or 0), cur)}, received {money_text(r.get('received'), cur)}, "
                 f"net {money_text(r.get('total'), cur)}")
         rows = [f"- {t.get('date')} {money_text(t.get('amount'), cur)} {t.get('payee') or '?'}"
+                + (f" [id {t['id']}]" if t.get("id") else "")
                 + (f" · {t['category']}" if t.get("category") else "") + (f" · {t['account']}" if t.get("account") else "")
                 + (f" · {t['notes']}" if t.get("notes") else "") for t in r.get("transactions") or []]
         more = (r.get("count") or 0) - len(rows)
@@ -16190,6 +16195,108 @@ def t_budget(ctx, args):
     lines = [f"- {a.get('name')}: {money_text(a.get('balance'), cur)}"
              + (" (off budget)" if a.get("offBudget") else "") for a in r.get("accounts") or [] if not a.get("closed")]
     return [text("Accounts:\n" + ("\n".join(lines) or "none"))]
+
+
+BUDGET_EDIT_ACTIONS = ("add", "update", "delete", "set_budget", "move_budget", "create_category")
+
+
+@tool(
+    "budget_edit",
+    "pages",
+    "Change the user's budget in Actual Budget through its own client, without its window (never click or type "
+    "in Actual for this). `add` a transaction (`amount`: spending NEGATIVE, income positive, in the budget's "
+    "currency; `payee`, `category` and `account` by name — the account may be left out when there is one "
+    "on-budget account —, `date` YYYY-MM-DD, default today, `notes`, `cleared`); `update` one (`id` from "
+    "budget transactions, and only the fields to change; `category` or `payee` empty clears it); `delete` one "
+    "(`id`; the user is asked first); `set_budget` (`category`, `amount` budgeted, `month` YYYY-MM, default "
+    "this month); `move_budget` (`from`, `to` categories, `amount` positive, `month`); `create_category` "
+    "(`name`, `group`). Names are matched loosely (grocery finds Groceries) and an unsure one is refused with "
+    "the names to choose from: ask the user then, don't guess. Say what was done, with the amounts.",
+    obj({"action": {"type": "string", "enum": list(BUDGET_EDIT_ACTIONS)},
+         "id": {"type": "string", "description": "A transaction's id (budget transactions)"},
+         "amount": {"type": "number", "description": "In the budget's currency; a transaction's spending negative"},
+         "payee": {"type": "string"}, "category": {"type": "string"}, "account": {"type": "string"},
+         "date": {"type": "string", "description": "YYYY-MM-DD"}, "notes": {"type": "string"},
+         "cleared": {"type": "boolean"}, "month": {"type": "string", "description": "YYYY-MM (default this month)"},
+         "from": {"type": "string", "description": "move_budget: the category the money leaves"},
+         "to": {"type": "string", "description": "move_budget: the category it goes to"},
+         "name": {"type": "string", "description": "create_category: its name"},
+         "group": {"type": "string", "description": "create_category: its group"}}, ["action"]),
+    destructive=True,
+    brief=("Change Actual Budget without its window: add/update/delete a transaction (amount: spending "
+           "negative), set_budget, move_budget, create_category; names matched loosely."),
+    props={"id": None, "amount": None, "payee": None, "category": None, "account": None, "date": "YYYY-MM-DD",
+           "notes": None, "cleared": None, "month": "YYYY-MM", "from": None, "to": None, "name": None, "group": None},
+)
+def t_budget_edit(ctx, args):
+    action = as_str(args, "action", max_len=20)
+    if action not in BUDGET_EDIT_ACTIONS:
+        raise ToolError("action: " + ", ".join(BUDGET_EDIT_ACTIONS))
+    if "actual" not in bridged_apps() and "actual" not in unbridged_apps():
+        raise ToolError(BUDGET_NOT_OPEN)
+
+    def opt(key, n=100, pattern=None):
+        return as_str(args, key, max_len=n, required=False, pattern=pattern) or None
+
+    def amount(required=True):
+        v = args.get("amount")
+        if v is None and not required:
+            return None
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or abs(v) > 1e9:
+            raise ToolError("`amount`: a number in the budget's currency (a transaction's spending negative)")
+        return v
+
+    def app(op, **kw):
+        try:
+            return electron(ctx, "actual", "app", op=op, args={k: v for k, v in kw.items() if v is not None})
+        except ToolError as e:
+            if "isn't reachable" in str(e):
+                raise ToolError(BUDGET_NOT_OPEN)
+            raise
+
+    ctx.guard.check_rate()
+    date = opt("date", 10, r"\d{4}-\d{2}-\d{2}")
+    month = opt("month", 7, r"\d{4}-\d{2}")
+    cleared = args.get("cleared") if isinstance(args.get("cleared"), bool) else None
+    if action == "add":
+        r = app("add", amount=amount(), payee=opt("payee"), category=opt("category"), account=opt("account"),
+                date=date, notes=opt("notes", 500), cleared=cleared)
+        t, cur = r.get("added") or {}, r.get("currency") or ""
+        return [text(f"Added {money_text(t.get('amount'), cur)} on {t.get('date')}"
+                     + (f" at {t['payee']}" if t.get("payee") else "") + (f" in {t['category']}" if t.get("category") else "")
+                     + (f", {t['account']}" if t.get("account") else "") + (f" [id {t['id']}]" if t.get("id") else "") + ".")]
+    if action == "update":
+        tid = as_str(args, "id", max_len=64)
+        # An empty payee or category clears it.
+        fields = {k: "" if args[k] == "" else as_str(args, k, max_len=500 if k == "notes" else 100)
+                  for k in ("payee", "category", "notes") if k in args}
+        r = app("update", id=tid, amount=amount(required=False), date=date, cleared=cleared, **fields)
+        return [text(f"Updated the transaction {r.get('updated')}: {', '.join(r.get('changed') or [])}.")]
+    if action == "delete":
+        tid = as_str(args, "id", max_len=64)
+        ask_user_yes(ctx, "Let the agent delete a transaction in Actual Budget?",
+                     f"Transaction {tid}" + (f" ({args['notes']})" if isinstance(args.get("notes"), str) else ""))
+        r = app("delete", id=tid)
+        d, cur = r.get("deleted") or {}, r.get("currency") or ""
+        return [text(f"Deleted the transaction of {money_text(d.get('amount'), cur)} on {d.get('date')}.")]
+    if action == "set_budget":
+        r = app("set_budget", category=as_str(args, "category", max_len=100), amount=amount(), month=month)
+        cur = r.get("currency") or ""
+        return [text(f"{r.get('category')}, {r.get('month')}: budgeted {money_text(r.get('budgeted'), cur)} "
+                     f"(was {money_text(r.get('before'), cur)}).")]
+    if action == "move_budget":
+        r = app("move_budget", **{"from": as_str(args, "from", max_len=100), "to": as_str(args, "to", max_len=100)},
+                amount=amount(), month=month)
+        cur, f, t = r.get("currency") or "", r.get("from") or {}, r.get("to") or {}
+        return [text(f"Moved {money_text(r.get('moved'), cur)} in {r.get('month')} from {f.get('category')} "
+                     f"(now {money_text(f.get('budgeted'), cur)}) to {t.get('category')} (now "
+                     f"{money_text(t.get('budgeted'), cur)}).")]
+    r = app("create_category", name=as_str(args, "name", max_len=100), group=as_str(args, "group", max_len=100))
+    if r.get("exists"):
+        e = r["exists"]
+        return [text(f"{e.get('name')} is already a category of {e.get('group')}.")]
+    c = r.get("created") or {}
+    return [text(f"Created the category {c.get('name')} in {c.get('group')}.")]
 
 
 def call_tool(ctx, name, args, session=None):
