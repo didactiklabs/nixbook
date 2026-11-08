@@ -74,7 +74,8 @@ like `⟦Person 1⟧`, models tended to write a name of their own in its place;
 given a name, they keep it, and every word of it (the first name, the surname
 alone, any case) comes back to the real one, so a Discord search for the
 stand-in finds the real person. Emails, phones, addresses, logins and the like
-stay placeholders such as `⟦Email 1⟧`. Turn off **People as stand-in names**
+stay placeholders such as `⟦Email 1⟧`, and so does a Discord name your
+contact's notes give ("Discord: alesio" → `⟦Handle 1⟧`). Turn off **People as stand-in names**
 for placeholders for people too.
 
 ## Tabs

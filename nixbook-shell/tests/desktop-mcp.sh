@@ -3547,7 +3547,8 @@ cat >"$XDG_STATE_HOME/nixbook-accounts/contacts.json" <<'JSON'
    "addresses": [{"value": "1 Main St\nSpringfield", "street": "1 Main St"}]},
   {"id": "google-1:c2", "name": "Noor Durand", "givenName": "Noor", "familyName": "Durand"},
   {"id": "google-1:c3", "name": "Élodie Chen", "givenName": "Élodie", "familyName": "Chen"},
-  {"id": "google-1:c4", "name": "Claire Petit", "givenName": "Claire", "familyName": "Petit"}]}}}
+  {"id": "google-1:c4", "name": "Claire Petit", "givenName": "Claire", "familyName": "Petit"},
+  {"id": "google-1:c5", "name": "Yusuf Brandt", "givenName": "Yusuf", "familyName": "Brandt", "notes": "Discord: ybrandt_7"}]}}}
 JSON
 pmask() { printf '%s' "$1" | python3 "$mcp" privacy mask; }
 punmask() { printf '%s' "$1" | python3 "$mcp" privacy unmask; }
@@ -3563,6 +3564,11 @@ expect_eq "privacy: card and IBAN checked, other numbers kept" \
   "$(pmask "4111 1111 1111 1111, FR76 3000 6000 0112 3456 7890 189; 4111 1111 1111 1112, 1729512345678, support@example.org")"
 expect_eq "privacy: placeholders back to the real values" "Élodie Martin, +33 6 12 34 56 78, ⟦Person 99⟧" \
   "$(punmask "⟦Person 1⟧, ⟦Phone 1⟧, ⟦Person 99⟧")"
+# A Discord name in a contact's notes (what the discord tool finds people by
+# and prints): hidden, a mention too, not inside an email.
+expect_eq "privacy: a contact's Discord name, any case, a mention" "⟦Handle 1⟧ said hi to @⟦Handle 1⟧ (ybrandt_7@example.com)" \
+  "$(pmask "ybrandt_7 said hi to @YBrandt_7 (ybrandt_7@example.com)")"
+expect_eq "privacy: a Discord name back to the real one" "@ybrandt_7" "$(punmask "@⟦Handle 1⟧")"
 expect_eq "privacy: the table is private" 600 "$(stat -c %a "$XDG_STATE_HOME/nixbook-shell/privacy-map.json")"
 
 # Pseudonyms (ai.privacy.pseudonyms, the default): a hidden person is a fake
