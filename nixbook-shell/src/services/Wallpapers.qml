@@ -142,11 +142,10 @@ Singleton {
         } else {
             root._playTarget = "";
             playDelay.stop();
-            if (root.playingPath !== "" || restackWait.running) {
+            if (root.playingPath !== "" || liveProc.running || root._livePending !== null) {
                 // Background drops the video at once and shows the old still
                 // frame then the new image over it: stop it a moment later.
                 root.playingPath = "";
-                restackWait.running = false;
                 stopDelay.restart();
             }
         }
@@ -166,8 +165,7 @@ Singleton {
             playWaited.elapsed = 0;
             if (root._playTarget === "" || root._playTarget !== root.configuredPath) return;
             root.playingPath = "";
-            Quickshell.execDetached([root.liveScript, "play", root._playTarget]);
-            root.restackOverVideo(root._playTarget);
+            root.liveRun("play", root._playTarget);
         }
     }
     QtObject { id: playWaited; property int elapsed: 0 }
@@ -176,7 +174,7 @@ Singleton {
         interval: 600
         onTriggered: {
             if (!root.isVideo(root.configuredPath))
-                Quickshell.execDetached([root.liveScript, "stop"]);
+                root.liveRun("stop", "");
         }
     }
     property bool videoChecked: false
@@ -185,33 +183,48 @@ Singleton {
         root.videoChecked = true;
         root._started = true;
         const path = root.configuredPath;
-        if (!root.isVideo(path)) {
-            // One left over from before a restart (it lives in the service).
-            Quickshell.execDetached([root.liveScript, "stop"]);
+        // A video: started unless already playing. Else one left over from
+        // before a restart (it lives in the service) goes.
+        root.liveRun(root.isVideo(path) ? "ensure" : "stop", root.isVideo(path) ? path : "");
+    }
+    // live-wallpaper.sh play/ensure/stop, one at a time: a newer request
+    // waits for the one running to be stopped (they would fight over the
+    // players). `play` returns once the new players are on screen; under
+    // niri they are on the Bottom layer, like the desktop widgets
+    // (Background.qml), and a surface mapped later stacks on top, so the
+    // desktop layer is re-mapped above them then, and Background shows the
+    // video. (Polling niri for "a player surface" from here instead raced the
+    // old player's surface: the widgets were lifted before the new one came
+    // and ended up under it.)
+    property var _livePending: null
+    function liveRun(cmd, video) {
+        const run = { cmd: cmd, video: video };
+        if (liveProc.running) {
+            root._livePending = run;
+            liveProc.running = false;
             return;
         }
-        Quickshell.execDetached([root.liveScript, "ensure", path]);
-        root.restackOverVideo(path);
+        root.liveStart(run);
     }
-    // Under niri the video is on the Bottom layer, like the desktop widgets
-    // (Background.qml), and a surface mapped later stacks on top: once every
-    // output has its mpvpaper surface, re-map the desktop layer above it,
-    // then let Background show the video.
-    function restackOverVideo(path) {
-        restackWait.running = false;
-        restackWait.video = path;
-        restackWait.running = true;
+    function liveStart(run) {
+        root._livePending = null;
+        liveProc.run = run;
+        liveProc.exec(run.video ? [root.liveScript, run.cmd, run.video] : [root.liveScript, run.cmd]);
     }
     Process {
-        id: restackWait
-        property string video: ""
-        command: ["bash", "-c", 'sleep 0.3; for _ in $(seq 60); do '
-            + 'n=$(niri msg --json layers | jq \'[.[] | select(.namespace == "mpvpaper" and .layer == "Bottom")] | length\'); '
-            + '[ "$n" -ge "$(niri msg --json outputs | jq \'[.[] | select(.current_mode != null)] | length\')" ] && exit 0; sleep 0.25; done; exit 1']
+        id: liveProc
+        property var run: null
         onExited: (code) => {
-            if (code !== 0 || restackWait.video !== root.configuredPath) return;
-            GlobalStates.backgroundRestack += 1;
-            root.playingPath = restackWait.video;
+            if (root._livePending !== null) {
+                const next = root._livePending;
+                Qt.callLater(() => root.liveStart(next));
+                return;
+            }
+            const run = liveProc.run;
+            if (!run || !run.video || run.video !== root.configuredPath) return;
+            // 0: players started and shown; 10: (ensure) already playing.
+            if (code === 0) GlobalStates.backgroundRestack += 1;
+            if (code === 0 || code === 10) root.playingPath = run.video;
         }
     }
     Connections {
@@ -225,8 +238,8 @@ Singleton {
     Connections {
         target: Battery
         function onIsPluggedInChanged() {
-            if (Battery.isPluggedIn && root._started && root.isVideo(root.configuredPath))
-                Quickshell.execDetached([root.liveScript, "ensure", root.configuredPath]);
+            if (Battery.isPluggedIn && root._started && root.isVideo(root.configuredPath) && !liveProc.running)
+                root.liveRun("ensure", root.configuredPath);
         }
     }
 
