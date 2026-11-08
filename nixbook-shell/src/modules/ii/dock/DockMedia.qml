@@ -37,6 +37,12 @@ Item {
     property string trackArtist: player?.trackArtist ?? ""
     property bool   isPlaying:   player?.isPlaying   ?? false
     property bool   hasTrack:    trackTitle.length > 0
+    // A phone's player relayed by KDE Connect shows only while it plays (or
+    // when picked in the media popup): once a desktop player quit, the card
+    // fell back to the song paused on the phone.
+    readonly property bool idlePhone: player !== null && !isPlaying
+        && MprisController.playerSource(player) === "phone" && MprisController.selectedPlayer !== player
+    readonly property bool shown: hasTrack && !idlePhone
 
     property string artDownloadLocation: Directories.coverArt
     property string artFileName:         Qt.md5(artUrl)
@@ -96,8 +102,8 @@ Item {
         rescaleSize: 1
     }
 
-    visible:        root.hasTrack
-    implicitWidth:  root.hasTrack ? root.cardWidth : 0
+    visible:        root.shown
+    implicitWidth:  root.shown ? root.cardWidth : 0
     implicitHeight: parent?.height ?? 46
 
     Behavior on implicitWidth {
@@ -106,7 +112,7 @@ Item {
 
     StyledRectangularShadow {
         target: card
-        visible: root.hasTrack
+        visible: root.shown
     }
 
     Rectangle {
