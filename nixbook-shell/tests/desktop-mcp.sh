@@ -1998,6 +1998,8 @@ for _ in $(seq 1 100); do
   [ -S "$asock" ] && break
   sleep 0.05
 done
+expect_contains "budget summary: each group with its categories' names" "$(call budget '{"action":"summary"}')" \
+  "- Food: budgeted 600.00 EUR, spent 70.50 EUR, left 529.50 EUR — its categories: Groceries"
 expect_contains "budget category: spent and what's left" "$(call budget '{"action":"category","query":"grocery"}')" \
   "- Groceries (Food): budgeted 400.00 EUR, spent 42.50 EUR, left 357.50 EUR"
 expect_contains "budget transactions: their total" "$(call budget '{"action":"transactions","query":"carrefour"}')" \
