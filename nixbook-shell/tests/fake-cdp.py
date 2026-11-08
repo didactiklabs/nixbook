@@ -102,7 +102,26 @@ def actual(op, o):
         return {"currency": "EUR", "from": "2026-11-01", "to": "2026-11-02", "count": 1, "total": -42.5,
                 "spent": -42.5, "received": 0, "transactions": [
                     {"date": "2026-11-01", "amount": -42.5, "payee": "Carrefour", "category": "Groceries",
-                     "account": "Checking", "notes": "weekly shop"}]}
+                     "account": "Checking", "notes": "weekly shop", "id": "t1"}]}
+    # The writes, as the adapter answers them (tests/actual-tests.js checks
+    # the adapter itself).
+    if op == "add":
+        return {"currency": "EUR", "added": {"id": "t9", "date": o.get("date") or "2026-11-08",
+                                             "amount": o.get("amount"), "payee": o.get("payee") or "",
+                                             "category": "Groceries" if o.get("category") else "",
+                                             "account": "Checking", "notes": o.get("notes") or ""}}
+    if op == "update":
+        return {"currency": "EUR", "updated": o.get("id"), "changed": sorted(k for k in o if k != "id")}
+    if op == "delete":
+        return {"currency": "EUR", "deleted": {"id": o.get("id"), "date": "2026-11-01", "amount": -42.5}}
+    if op == "set_budget":
+        return {"currency": "EUR", "month": o.get("month") or "2026-11", "category": "Groceries",
+                "budgeted": o.get("amount"), "before": 400}
+    if op == "move_budget":
+        return {"currency": "EUR", "month": "2026-11", "moved": o.get("amount"),
+                "from": {"category": "Rent", "budgeted": 1150}, "to": {"category": "Restaurants", "budgeted": 250}}
+    if op == "create_category":
+        return {"currency": "EUR", "created": {"id": "c9", "name": o.get("name"), "group": "Food"}}
     return {"error": f"unknown operation {op}"}
 
 

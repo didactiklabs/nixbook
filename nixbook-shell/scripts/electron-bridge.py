@@ -31,11 +31,12 @@ may be in the background, on another workspace, the user keeps working.
 An app with an adapter (adapters/APP.js: discord, actual) also has its own
 operations, run in the page's main world through the app's own client
 code (Discord: Vencord's webpack modules; Actual Budget: the $send/$query
-client its page exposes, reading only), which never return a token,
+client its page exposes: its public API's handlers), which never return a token,
 a cookie or a header (and the answers are scrubbed for tokens anyway).
 Password fields are refused; password managers are never bridged (the app
 starts without the bridge); sends are rate-limited and written to the audit
-log ($XDG_STATE_HOME/nixbook-shell/electron-bridge.log, lengths only).
+log ($XDG_STATE_HOME/nixbook-shell/electron-bridge.log, lengths only), and
+so are Actual's writes (the operation and its outcome, no amounts or names).
 
 Started while the app already runs (Electron apps are single-instance):
 when that one has the bridge, this one just starts the app (it hands over
@@ -87,6 +88,7 @@ PASSWORD_APPS = re.compile(r"keepass|bitwarden|vaultwarden|1password|enpass|prot
                            r"(^|/)(bw|rbw|pass|gopass)$", re.I)
 CONTENT_MAX = 2000
 SENDS_PER_MINUTE = 10
+WRITES_PER_MINUTE = 30
 ACTS_PER_MINUTE = 60
 # Discord/Slack tokens and bearer-looking strings, scrubbed from every answer.
 TOKEN_LIKE = re.compile(r"\b(mfa\.[\w-]{20,}|[\w-]{23,28}\.[\w-]{6,7}\.[\w-]{25,}|xox[abprs]-[\w-]{10,}|"
@@ -538,8 +540,11 @@ class Bridge:
         op = str(req.get("op") or "")
         args = req.get("args") if isinstance(req.get("args"), dict) else {}
         sending = op in ("send", "react")
+        writing = sending or op in ADAPTER_WRITES.get(self.app, ())
         if op not in ADAPTER_OPS.get(self.app, ()):
             raise Refused(f"no operation {op!r} for {self.app}")
+        if writing and not sending:
+            self.rate("write", WRITES_PER_MINUTE)
         if sending:
             if op == "send":
                 content = args.get("content")
@@ -563,25 +568,28 @@ class Bridge:
         try:
             r = self.evaluate(sid, expr, timeout=25)
         except (Refused, CdpError) as e:
-            if sending:
+            if writing:
                 audit(self.app, op, f"error: {e}", **logged)
             raise Refused(str(e))
         if not isinstance(r, dict):
             raise Refused(f"{self.app} gave no answer (still loading?)")
         if r.get("error"):
-            if sending:
+            if writing:
                 audit(self.app, op, f"error: {r['error']}", **logged)
             raise Refused(str(r["error"]))
-        if sending:
+        if writing:
             audit(self.app, op, "ok", **logged, id=str(r.get("id") or ""))
         return r
 
 
 # The adapters' operations: everything else is refused before any code runs.
 ADAPTER_OPS = {"discord": ("status", "current", "guilds", "channels", "dms", "find", "read", "send", "react"),
-               # Actual Budget: reading only (electron/actual.js names no
-               # handler that writes).
-               "actual": ("status", "accounts", "month", "categories", "transactions")}
+               # Actual Budget: its reads, and its writes through Actual's
+               # public API (electron/actual.js; no sync, import or bank link).
+               "actual": ("status", "accounts", "month", "categories", "transactions",
+                          "add", "update", "delete", "set_budget", "move_budget", "create_category")}
+# The operations that change something: rate-limited and audited.
+ADAPTER_WRITES = {"actual": ("add", "update", "delete", "set_budget", "move_budget", "create_category")}
 OPS = {"status": "op_status", "pages": "op_pages", "read": "op_read", "act": "op_act", "wait": "op_wait",
        "screenshot": "op_screenshot", "go": "op_go", "app": "op_app"}
 

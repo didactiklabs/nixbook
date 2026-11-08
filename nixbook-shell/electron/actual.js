@@ -3,17 +3,28 @@
 // in Actual's page, through the client Actual itself exposes there:
 // window.$send (its backend's handlers, the same ones its own screens and
 // its public API use: `api/budget-month`, `api/accounts-get`…) and
-// window.$query / window.$q (its query language, AQL). READ-ONLY: only
-// handlers that read are named here (nothing a request says is ever called;
-// no `api/*-update`, `-create`, `-delete`, no budget-set, no sync), and the
-// bridge accepts only the operations below.
+// window.$query / window.$q (its query language, AQL). Only the handlers
+// named here are ever called (nothing a request says is), and the bridge
+// accepts only the operations below.
 //
 //   nixbookApp(op, args) → a plain object, or {error}
 //
-// Operations: status, accounts, month {month?}, categories {query, month?},
-// transactions {query?, category?, account?, from?, to?, limit?}.
+// Reading (the `budget` tool): status, accounts, month {month?}, categories
+// {query, month?}, transactions {query?, category?, account?, from?, to?,
+// limit?} (each with its id).
+// Writing (the `budget_edit` tool), through Actual's public API handlers,
+// the ones @actual-app/api uses: add {account?, date?, amount, payee?,
+// category?, notes?, cleared?} (api/transactions-add), update {id, date?,
+// amount?, payee?, category?, notes?, cleared?} (api/transaction-update),
+// delete {id} (api/transaction-delete), set_budget {category, amount,
+// month?} (api/budget-set-amount), move_budget {from, to, amount, month?}
+// (two budget-set-amount), create_category {name, group}
+// (api/category-create). Accounts, categories and payees are given by name,
+// found loosely, and refused when unsure (the names given back). Never a
+// sync, an import, a bank link, an account or a budget file changed.
 // Amounts are in the budget's currency units (Actual keeps cents: divided
-// by 100 here); spending is negative, as in Actual.
+// by 100 here, multiplied back when writing); spending is negative, as in
+// Actual.
 "use strict";
 
 async function nixbookApp(op, o) {
@@ -126,6 +137,110 @@ async function nixbookApp(op, o) {
       toBudget: money(m.toBudget),
       groups,
     };
+  }
+
+  function cents(v, what) {
+    const n = typeof v === "string" ? Number(v.replace(",", ".")) : Number(v);
+    if (!Number.isFinite(n) || Math.abs(n) > 1e9)
+      throw {
+        nixbook: `${what}: a number in the budget's currency (spending negative)`,
+      };
+    return Math.round(n * 100);
+  }
+  // The one entry of `list` (id → name) the user meant, or an error naming
+  // them: the best score, alone at it.
+  function one(list, want, kind) {
+    const words = fold(want).split(" ").filter(Boolean);
+    const scored = list
+      .map((x) => [score(x.name, words), x])
+      .filter((x) => x[0] > 0)
+      .sort((a, b) => b[0] - a[0]);
+    const names = list
+      .map((x) => x.name)
+      .slice(0, 80)
+      .join(", ");
+    if (!words.length || !scored.length)
+      throw {
+        nixbook: `no ${kind} in Actual is called ${JSON.stringify(String(want || ""))}; its ${kind}s: ${names}`,
+      };
+    if (scored.length > 1 && scored[1][0] === scored[0][0])
+      throw {
+        nixbook: `${JSON.stringify(String(want))} could be ${scored
+          .filter((x) => x[0] === scored[0][0])
+          .map((x) => x[1].name)
+          .slice(0, 8)
+          .join(" or ")}: say which ${kind}`,
+      };
+    return scored[0][1];
+  }
+  async function accountFor(want) {
+    const open = ((await send("api/accounts-get")) || []).filter(
+      (a) => !a.closed,
+    );
+    if (want) return one(open, want, "account");
+    const on = open.filter((a) => !a.offbudget);
+    if (on.length === 1) return on[0];
+    throw {
+      nixbook: `which account? ${open.map((a) => a.name).join(", ")}`,
+    };
+  }
+  async function categoryFor(want) {
+    const cats = ((await send("api/categories-get")) || []).filter(
+      (c) => !c.hidden,
+    );
+    return one(cats, want, "category");
+  }
+  // A payee by name: the existing one (same name, case and accents aside),
+  // else created.
+  async function payeeFor(name) {
+    const want = fold(name);
+    const found = ((await send("api/payees-get")) || []).find(
+      (p) => fold(p.name) === want && !p.transfer_acct,
+    );
+    if (found) return found.id;
+    return await send("api/payee-create", {
+      payee: { name: String(name).trim().slice(0, 100) },
+    });
+  }
+  async function transactionById(id) {
+    const r = await query(
+      q("transactions")
+        .filter({ id: String(id || "") })
+        .select([
+          "id",
+          "date",
+          "amount",
+          "payee",
+          "category",
+          "account",
+          "notes",
+          "cleared",
+        ]),
+    );
+    const t = r && r.data && r.data[0];
+    if (!t)
+      throw {
+        nixbook: `no transaction ${JSON.stringify(String(id || ""))} (its id from budget transactions)`,
+      };
+    return t;
+  }
+  function described(t, names) {
+    return {
+      id: t.id,
+      date: t.date,
+      amount: money(t.amount),
+      payee: names.payee || "",
+      category: names.category || "",
+      account: names.account || "",
+      notes: String(t.notes || "").slice(0, 200),
+    };
+  }
+  async function budgetedOf(month, categoryId) {
+    const m = await send("api/budget-month", { month });
+    for (const g of m.categoryGroups || [])
+      for (const c of g.categories || [])
+        if (c.id === categoryId) return c.budgeted || 0;
+    return 0;
   }
 
   try {
@@ -305,6 +420,7 @@ async function nixbookApp(op, o) {
           categories: cats ? [...cats].map((id) => category[id]) : undefined,
           accounts: accts ? [...accts].map((id) => account[id]) : undefined,
           transactions: rows.slice(0, limit).map((t) => ({
+            id: t.id,
             date: t.date,
             amount: money(t.amount),
             payee: payee[t.payee] || "",
@@ -314,10 +430,147 @@ async function nixbookApp(op, o) {
           })),
         };
       }
+      case "add": {
+        const account = await accountFor(o.account);
+        const amount = cents(o.amount, "amount");
+        const date = dateOf(o.date, today());
+        const tx = { date, amount, notes: String(o.notes || "").slice(0, 500) };
+        if (o.cleared !== undefined) tx.cleared = o.cleared === true;
+        const names = { account: account.name };
+        if (o.category) {
+          const c = await categoryFor(o.category);
+          tx.category = c.id;
+          names.category = c.name;
+        }
+        if (o.payee) {
+          tx.payee_name = String(o.payee).trim().slice(0, 100);
+          names.payee = tx.payee_name;
+        }
+        // Its id, for an update: the one like it that wasn't there before.
+        const alike = async () => {
+          const r = await query(
+            q("transactions")
+              .filter({ account: account.id, date, amount })
+              .select(["id", "date", "amount", "notes"]),
+          );
+          return (r && r.data) || [];
+        };
+        const before = new Set((await alike()).map((x) => x.id));
+        await send("api/transactions-add", {
+          accountId: account.id,
+          transactions: [tx],
+        });
+        const t = (await alike()).find((x) => !before.has(x.id)) || {
+          date,
+          amount,
+        };
+        return { currency: cur, added: described(t, names) };
+      }
+      case "update": {
+        const t = await transactionById(o.id);
+        const fields = {};
+        if (o.date !== undefined) {
+          const d = dateOf(o.date, null);
+          if (!d) throw { nixbook: "date: YYYY-MM-DD" };
+          fields.date = d;
+        }
+        if (o.amount !== undefined) fields.amount = cents(o.amount, "amount");
+        if (o.notes !== undefined)
+          fields.notes = String(o.notes || "").slice(0, 500);
+        if (o.cleared !== undefined) fields.cleared = o.cleared === true;
+        if (o.category !== undefined)
+          fields.category = o.category
+            ? (await categoryFor(o.category)).id
+            : null;
+        if (o.payee !== undefined)
+          fields.payee = o.payee ? await payeeFor(o.payee) : null;
+        if (!Object.keys(fields).length)
+          throw {
+            nixbook:
+              "nothing to change: date, amount, payee, category, notes or cleared",
+          };
+        await send("api/transaction-update", { id: t.id, fields });
+        return { currency: cur, updated: t.id, changed: Object.keys(fields) };
+      }
+      case "delete": {
+        const t = await transactionById(o.id);
+        await send("api/transaction-delete", { id: t.id });
+        return {
+          currency: cur,
+          deleted: { id: t.id, date: t.date, amount: money(t.amount) },
+        };
+      }
+      case "set_budget": {
+        const month = monthOf(o.month);
+        const c = await categoryFor(o.category);
+        const amount = cents(o.amount, "amount");
+        const before = await budgetedOf(month, c.id);
+        await send("api/budget-set-amount", {
+          month,
+          categoryId: c.id,
+          amount,
+        });
+        return {
+          currency: cur,
+          month,
+          category: c.name,
+          budgeted: money(amount),
+          before: money(before),
+        };
+      }
+      case "move_budget": {
+        const month = monthOf(o.month);
+        const amount = cents(o.amount, "amount");
+        if (amount <= 0) throw { nixbook: "amount: what to move, positive" };
+        const from = await categoryFor(o.from);
+        const to = await categoryFor(o.to);
+        if (from.id === to.id)
+          throw { nixbook: "from and to are the same category" };
+        const a = await budgetedOf(month, from.id);
+        const b = await budgetedOf(month, to.id);
+        await send("api/budget-set-amount", {
+          month,
+          categoryId: from.id,
+          amount: a - amount,
+        });
+        await send("api/budget-set-amount", {
+          month,
+          categoryId: to.id,
+          amount: b + amount,
+        });
+        return {
+          currency: cur,
+          month,
+          moved: money(amount),
+          from: { category: from.name, budgeted: money(a - amount) },
+          to: { category: to.name, budgeted: money(b + amount) },
+        };
+      }
+      case "create_category": {
+        const name = String(o.name || "")
+          .trim()
+          .slice(0, 100);
+        if (!name) throw { nixbook: "name: the new category's" };
+        const groups = (await send("api/category-groups-get")) || [];
+        const g = one(groups, o.group, "group");
+        const existing = (g.categories || []).find(
+          (c) => fold(c.name) === fold(name),
+        );
+        if (existing)
+          return {
+            currency: cur,
+            exists: { id: existing.id, name: existing.name, group: g.name },
+          };
+        const id = await send("api/category-create", {
+          category: { name, group_id: g.id, is_income: !!g.is_income },
+        });
+        return { currency: cur, created: { id, name, group: g.name } };
+      }
       default:
         return { error: `unknown operation ${op}` };
     }
   } catch (e) {
+    if (e && typeof e.nixbook === "string") return { error: e.nixbook };
     const msg =
       (e && (e.message || e.reason)) ||
       (typeof e === "string" ? e : JSON.stringify(e));

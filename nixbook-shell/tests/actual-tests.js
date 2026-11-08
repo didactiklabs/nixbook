@@ -2,8 +2,9 @@
 // tool's adapter), run here under node against a fake of what Actual's page
 // exposes (window.$send, $query, $q): the month's summary, a category found
 // by a loose name ("food", "grocery"), transactions searched and summed, the
-// accounts' balances, no budget open, and above all READ-ONLY: every handler
-// the adapter calls is a reading one. Run by actual.sh.
+// accounts' balances, no budget open; the reads call no writing handler,
+// and the writes (add, update, delete, set_budget, move_budget,
+// create_category) only Actual's public API's. Run by actual.sh.
 "use strict";
 const fs = require("fs");
 const path = require("path");
@@ -188,9 +189,57 @@ function matches(t, f) {
 
 function sandbox(open = true) {
   const calls = [];
+  const writes = [];
+  let next = 100;
   const send = async (name, args) => {
     calls.push(name);
     switch (name) {
+      case "api/transactions-add":
+        writes.push([name, args]);
+        for (const t of args.transactions)
+          transactions.push({
+            id: "t" + next++,
+            account: args.accountId,
+            payee: null,
+            category: null,
+            ...t,
+          });
+        return "ok";
+      case "api/transaction-update": {
+        writes.push([name, args]);
+        Object.assign(
+          transactions.find((t) => t.id === args.id),
+          args.fields,
+        );
+        return "ok";
+      }
+      case "api/transaction-delete":
+        writes.push([name, args]);
+        transactions.splice(
+          transactions.findIndex((t) => t.id === args.id),
+          1,
+        );
+        return "ok";
+      case "api/payee-create":
+        writes.push([name, args]);
+        payees.push({ id: "p" + next, name: args.payee.name });
+        return "p" + next++;
+      case "api/budget-set-amount":
+        writes.push([name, args]);
+        for (const g of month.categoryGroups)
+          for (const c of g.categories)
+            if (c.id === args.categoryId) c.budgeted = args.amount;
+        return null;
+      case "api/category-groups-get":
+        return month.categoryGroups.map((g) => ({
+          id: g.id,
+          name: g.name,
+          is_income: g.is_income,
+          categories: g.categories.map((c) => ({ id: c.id, name: c.name })),
+        }));
+      case "api/category-create":
+        writes.push([name, args]);
+        return "c" + next++;
       case "load-prefs":
         return open ? { id: "budget-1", budgetName: "Home" } : {};
       case "get-budget-bounds":
@@ -229,7 +278,7 @@ function sandbox(open = true) {
   ctx.globalThis = ctx;
   vm.createContext(ctx);
   vm.runInContext(code, ctx);
-  return { run: (op, args) => ctx.nixbookApp(op, args), calls };
+  return { run: (op, args) => ctx.nixbookApp(op, args), calls, writes };
 }
 
 (async () => {
@@ -302,8 +351,9 @@ function sandbox(open = true) {
     r.count === 2 &&
       r.spent === -62.4 &&
       r.transactions[0].date === "2026-11-01" &&
-      r.transactions[0].payee === "Carrefour",
-    "transactions: by payee, newest first, summed",
+      r.transactions[0].payee === "Carrefour" &&
+      r.transactions[0].id === "t1",
+    "transactions: by payee, newest first, summed, with their ids",
     r,
   );
   r = await s.run("transactions", {
@@ -347,14 +397,14 @@ function sandbox(open = true) {
     r,
   );
 
-  r = await s.run("update", {});
+  r = await s.run("sync", {});
   ok(
     /unknown operation/.test(r.error || ""),
     "an operation not listed: refused",
     r,
   );
 
-  // Read-only: only reading handlers were called.
+  // Reading calls no writing handler.
   const reading = new Set([
     "load-prefs",
     "get-budget-bounds",
@@ -366,11 +416,171 @@ function sandbox(open = true) {
     "query:transactions",
   ]);
   const others = s.calls.filter((c) => !reading.has(c));
-  ok(others.length === 0, "read-only: no handler but reading ones", others);
+  ok(
+    others.length === 0 && s.writes.length === 0,
+    "reads: no handler but reading ones",
+    others,
+  );
+
+  // Writes: Actual's public API only, by names said loosely.
+  r = await s.run("add", {
+    amount: -12.5,
+    payee: "Boulangerie",
+    category: "grocery",
+    date: "2026-11-05",
+    notes: "bread",
+  });
+  const added = s.writes[0];
+  ok(
+    added[0] === "api/transactions-add" &&
+      added[1].accountId === "a1" &&
+      added[1].transactions[0].amount === -1250 &&
+      added[1].transactions[0].category === "c1" &&
+      added[1].transactions[0].payee_name === "Boulangerie",
+    "add: the one on-budget account, cents, the category by a loose name, the payee by name",
+    added,
+  );
+  ok(
+    r.added &&
+      r.added.id === "t100" &&
+      r.added.amount === -12.5 &&
+      r.added.category === "Groceries",
+    "add: its id said back",
+    r,
+  );
+  r = await s.run("add", { amount: -5, account: "nope" });
+  ok(
+    /no account in Actual is called "nope"; its accounts: Checking, Savings/.test(
+      r.error || "",
+    ),
+    "add: an unknown account, the names given",
+    r,
+  );
+  r = await s.run("add", { amount: "lots" });
+  ok(/amount: a number/.test(r.error || ""), "add: a bad amount refused", r);
+  r = await s.run("add", { amount: -5, category: "food" });
+  ok(/no category/.test(r.error || ""), "add: a group isn't a category", r);
+  r = await s.run("add", { amount: -5, category: "r" });
+  ok(
+    /no category|could be/.test(r.error || ""),
+    "add: a category it can't be sure of refused",
+    r,
+  );
+
+  r = await s.run("update", {
+    id: "t100",
+    amount: -13,
+    payee: "Paul",
+    category: "restaurants",
+  });
+  const upd = s.writes.find((w) => w[0] === "api/transaction-update");
+  ok(
+    upd &&
+      upd[1].id === "t100" &&
+      upd[1].fields.amount === -1300 &&
+      upd[1].fields.category === "c2" &&
+      upd[1].fields.payee === payees[payees.length - 1].id &&
+      s.writes.some(
+        (w) => w[0] === "api/payee-create" && w[1].payee.name === "Paul",
+      ),
+    "update: the fields asked, a new payee created",
+    s.writes,
+  );
+  r = await s.run("update", { id: "t1", payee: "carrefour" });
+  ok(
+    s.writes.filter((w) => w[0] === "api/payee-create").length === 1 &&
+      s.writes[s.writes.length - 1][1].fields.payee === "p1",
+    "update: an existing payee reused",
+    s.writes,
+  );
+  r = await s.run("update", { id: "nope", amount: 1 });
+  ok(
+    /no transaction "nope"/.test(r.error || ""),
+    "update: an unknown id said",
+    r,
+  );
+  r = await s.run("update", { id: "t1" });
+  ok(
+    /nothing to change/.test(r.error || ""),
+    "update: nothing to change said",
+    r,
+  );
+
+  r = await s.run("delete", { id: "t100" });
+  ok(
+    r.deleted &&
+      r.deleted.id === "t100" &&
+      !transactions.some((t) => t.id === "t100"),
+    "delete: by id, what it was said",
+    r,
+  );
+
+  r = await s.run("set_budget", {
+    category: "groceries",
+    amount: 450,
+    month: "2026-11",
+  });
+  ok(
+    r.budgeted === 450 && r.before === 400 && r.category === "Groceries",
+    "set_budget: in cents, the amount before said",
+    r,
+  );
+  r = await s.run("move_budget", {
+    from: "rent",
+    to: "restaurants",
+    amount: 50,
+    month: "2026-11",
+  });
+  ok(
+    r.moved === 50 && r.from.budgeted === 1150 && r.to.budgeted === 250,
+    "move_budget: from one category to another",
+    r,
+  );
+  r = await s.run("move_budget", {
+    from: "rent",
+    to: "rent",
+    amount: 5,
+    month: "2026-11",
+  });
+  ok(/same category/.test(r.error || ""), "move_budget: to itself refused", r);
+
+  r = await s.run("create_category", { name: "Coffee", group: "food" });
+  ok(
+    r.created &&
+      r.created.group === "Food" &&
+      s.writes.some(
+        (w) =>
+          w[0] === "api/category-create" && w[1].category.group_id === "g1",
+      ),
+    "create_category: in the group said",
+    r,
+  );
+  r = await s.run("create_category", { name: "groceries", group: "food" });
+  ok(
+    r.exists && r.exists.id === "c1",
+    "create_category: one already there is said, not doubled",
+    r,
+  );
+
+  // Only Actual's public API: no sync, no import, no bank, no file.
+  const writing = new Set(s.writes.map((w) => w[0]));
+  ok(
+    [...writing].every((n) => n.startsWith("api/")),
+    "writes: through Actual's public API only",
+    [...writing],
+  );
   const named = [...code.matchAll(/\bsend\(\s*"([^"]+)"/g)].map((m) => m[1]);
   ok(
-    named.length >= 6 && named.every((n) => reading.has(n)),
-    "read-only: the code names no writing handler",
+    named.every(
+      (n) =>
+        n.startsWith("api/") || n === "load-prefs" || n === "get-budget-bounds",
+    ) &&
+      !named.some((n) =>
+        /sync|import|bank|close|delete-budget|account-(create|update|delete|close)/.test(
+          n,
+        ),
+      ),
+    "the code names no sync, import, bank link, account or file handler",
     named,
   );
 

@@ -80,6 +80,7 @@ cant("de", ["merk dir das", "speichere das", "füg das hinzu"]);
 cant("vi", ["nhớ cái này", "thêm cái đó vào bộ nhớ", "lưu cái đó"]);
 
 // A how-to answers on its topic or one sentence, not on scattered words.
+check("can dai add a transaction in actual budget", howTos.budgetQuestions);
 check("add memory", howTos.desktopMemory);
 check("how does the agent memory work", howTos.desktopMemory);
 check("how do i remember this", howTos.personalMemory);

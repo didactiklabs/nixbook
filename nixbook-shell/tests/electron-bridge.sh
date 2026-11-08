@@ -212,6 +212,12 @@ expect_eq "actual transactions: answered" '[1,"Carrefour"]' "$(sed -n 5p <<<"$ou
 expect_eq "actual: only the allowed operations reached the page" '["categories","transactions"]' \
   "$(grep '"eval"' "$FAKE_CDP_LOG" | jq -s -c 'map(.op)')"
 expect_eq "actual: nothing in the audit log (reads)" "0" "$(grep -c '"actual"' "$audit" || true)"
+out=$(ask '{"cmd":"app","op":"add","args":{"amount":-12.5,"payee":"Boulangerie"}}')
+expect_eq "actual add: a write reaches the page" '["add",-12.5]' "$(grep '"eval"' "$FAKE_CDP_LOG" | tail -n1 | jq -c '[.op, .args.amount]')"
+expect_eq "actual add: answered" "t9" "$(jq -r .result.added.id <<<"$out")"
+expect_eq "actual add: in the audit log, without its amount or payee" '["add","ok"]' \
+  "$(grep '"actual"' "$audit" | tail -n1 | jq -c '[.op, .outcome]')"
+expect_eq "actual add: no amount or name logged" "0" "$(grep -c 'Boulangerie\|12.5' "$audit" || true)"
 pkill -f "$fake --app-arg" || true
 wait "$pid" 2>/dev/null || true
 pid=""

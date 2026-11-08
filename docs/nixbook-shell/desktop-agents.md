@@ -127,11 +127,10 @@ youtube-music`, `-t discord`…), and when the app quits on its own the
   reactions, your mentions), `send` (≤ 2000 characters, `reply_to` a message)
   and `react`. Reading doesn't mark a channel read. Messages are logged with
   their length only (`~/.local/state/nixbook-shell/electron-bridge.log`).
-- **Actual Budget** (money questions): the `budget` tool reads your budget
-  through the client Actual's own page exposes (its `$send` / `$query`, the
-  same reading handlers as its public API), never its window, and **only
-  reads**: the adapter (`electron/actual.js`) names no handler that writes and
-  the bridge accepts only its reading operations. Ask DAI "how much did I
+- **Actual Budget** (money questions and changes): the `budget` tool reads
+  your budget and `budget_edit` changes it, both through the client Actual's
+  own page exposes (its `$send` / `$query`, the same handlers as its public
+  API), never its window: no agent clicks or types in Actual. Ask DAI "how much did I
   spend on food this month?", "what's left in groceries?", "what did I spend
   at Carrefour since September?" or "what's on my checking account?":
   `summary` (a month: income, budgeted, spent, to budget, each group),
@@ -140,7 +139,19 @@ youtube-music`, `-t discord`…), and when the app quits on its own the
   `transactions` (by words in the payee, notes or category, a category, an
   account, a date range; their totals) and `accounts` (balances). Actual must
   be running from the launcher (through the bridge) with your budget open;
-  otherwise the agent says so and how to open it. Amounts go to the model as
+  otherwise the agent says so and how to open it. `transactions` lists each
+  one's id, for `budget_edit`: `add` a transaction ("I spent 12.50 at the
+  bakery", spending negative; payee, category and account by name, the
+  account left out when you have one on-budget account), `update` one (only
+  the fields asked), `delete` one (you are asked first, in a notification),
+  `set_budget` (a category's budgeted amount for a month), `move_budget`
+  (money from one category to another) and `create_category`. A name it can't
+  be sure of (two categories that fit) is refused with the names to choose
+  from, so the agent asks you rather than guessing. Nothing else: no sync,
+  import, bank link, account or budget file; writes are rate-limited and
+  logged by operation (`~/.local/state/nixbook-shell/electron-bridge.log`, no
+  amounts or names). In the side panel and the bubble, changes follow the
+  [trust ladder](#trust-ladder) (told after by default). Amounts go to the model as
   they are; payees and notes go through the [privacy mask](#personal-memory)
   like every reply (a payee who is one of your contacts is hidden).
 - **YouTube Music**: playing, the queue, likes and the volume go through its
