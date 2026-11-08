@@ -185,6 +185,7 @@ let
       ydotool
       wtype # desktop-mcp keyboard input (virtual keyboard, no uinput)
       tesseract # region OCR
+      poppler-utils # pdftotext/pdftoppm/pdfinfo: DAI reads PDFs (its Bash; read_document OCRs with tesseract)
 
       playerctl
       pulseaudio # pactl

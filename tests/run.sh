@@ -123,6 +123,8 @@ cmd_shell() {
   bash nixbook-shell/tests/config-assistant.sh || failed=1
   section 'nixbook-shell "Find it" (find_anything, nixbook-desktop-mcp find)'
   bash nixbook-shell/tests/find-anything.sh || failed=1
+  section "nixbook-shell read_document (PDFs, scans through OCR, docx, odt)"
+  bash nixbook-shell/tests/read-document.sh || failed=1
   section "nixbook-shell project contexts (nixbook-desktop-mcp project)"
   bash nixbook-shell/tests/projects.sh || failed=1
   section "nixbook-shell trust ladder (nixbook-desktop-mcp trust, the helper's /trust hook)"
