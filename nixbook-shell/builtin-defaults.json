@@ -429,7 +429,7 @@
     "borderless": "pills",
     "bottom": false,
     "centerOnlyReserveFrame": false,
-    "cornerStyle": 0,
+    "cornerStyle": 1,
     "divider": {
       "spacing": 20,
       "style": "rect"
@@ -446,13 +446,33 @@
     "groupColor": "layer1",
     "indicators": {
       "notifications": {
-        "showUnreadCount": false
+        "showUnreadCount": true
       }
     },
     "layouts": {
-      "leftLayout": ["launcherButton", "workspaces", "activeWindow"],
-      "middleLayout": ["clockWidget"],
-      "rightLayout": ["sysTray", "utilButtons", "systemIcons", "powerButton"]
+      "leftLayout": [
+        "launcherButton",
+        "workspaces",
+        "activeWindow",
+        "leftSidebarButton"
+      ],
+      "middleLayout": [
+        "clockWidget",
+        "kdeConnect",
+        "resources",
+        "networkSpeed",
+        "anthropicUsage"
+      ],
+      "rightLayout": [
+        "sysTray",
+        "utilButtons",
+        "systemIcons",
+        "vpnStatus",
+        "desktopControl",
+        "batteryIndicator",
+        "powerButton",
+        "updatesCount"
+      ]
     },
     "media": {
       "alwaysVisible": false,
@@ -483,14 +503,14 @@
     },
     "utilButtons": {
       "isRecording": false,
-      "showColorPicker": true,
+      "showColorPicker": false,
       "showDarkModeToggle": false,
       "showKeyboardToggle": false,
-      "showMicToggle": false,
+      "showMicToggle": true,
       "showPerformanceProfileToggle": false,
-      "showScreenRecord": false,
-      "showScreenSnip": true,
-      "showWallpaperToggle": true
+      "showScreenRecord": true,
+      "showScreenSnip": false,
+      "showWallpaperToggle": false
     },
     "verbose": true,
     "vertical": false,
@@ -505,9 +525,9 @@
       "alwaysShowNumbers": true,
       "indicatorStyle": "dot",
       "monochromeIcons": true,
-      "numberMap": ["1", "2"],
+      "numberMap": [],
       "showAppIcons": false,
-      "shown": 10,
+      "shown": 5,
       "useNerdFont": false
     }
   },
@@ -534,19 +554,19 @@
     "distroIcon": "spark-symbolic"
   },
   "dock": {
-    "enable": false,
+    "enable": true,
     "height": 60,
     "hoverRegionHeight": 2,
     "hoverToReveal": true,
     "ignoredAppRegexes": [],
-    "monochromeIcons": true,
-    "pinnedApps": ["org.kde.dolphin", "kitty"],
+    "monochromeIcons": false,
+    "pinnedApps": ["org.kde.dolphin", "kitty", "zen-twilight"],
     "pinnedOnStartup": false,
-    "showAppsButton": true,
+    "showAppsButton": false,
     "showBackground": true,
     "showHandle": true,
     "showMedia": true,
-    "showPinButton": true
+    "showPinButton": false
   },
   "equalizer": {
     "agent": false,

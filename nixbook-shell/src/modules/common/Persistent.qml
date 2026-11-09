@@ -69,6 +69,7 @@ Singleton {
                 property bool jellyfinOff: false
                 property bool seerrOff: false
                 property bool metaModels: false
+                property bool barDockDefaults: false
             }
 
             property JsonObject ai: JsonObject {
