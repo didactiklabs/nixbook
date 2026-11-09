@@ -12,16 +12,23 @@ The mesh lets a few people talk desktop to desktop over the internet: messages t
 
 Messages written while the computer was off arrive when it comes back (the server keeps them 72 hours). Messages older than two hours then count as unread, without a notification each.
 
-## Setting it up
+## Joining
 
-In **Settings > General > Mesh**:
+**With an invite** (the usual way): Settings > General > Mesh, paste the invite code someone gave you (`nixbook-mesh-invite:…`), **Join**. That's all: the server, your account and the mesh's key come from the code, and your desktop makes its own access token. An invite works once.
 
-1. **Server**: nixbook sets `https://ntfy.rpcu.io`, the server on the RPCU production cluster (`../atlas`, `clusters/production/ntfy`).
-2. **Your name**: what the others see (your login, capitalised, by default).
-3. **Access token**: paste the `tk_…` token the server's admin gave you, then **Save the token**. **Test** checks it.
-4. One person clicks **Create a mesh**. **Show the mesh code** shows its code (`XXXXX-XXXXX-…`), which the others type or paste and **Join**. The code is checked as it is entered: a typo is refused.
+**Your name** (same section) is what the others see: your login, capitalised, by default.
 
-The token and the mesh key are kept in your keyring (GNOME Keyring, `service=nixbook-mesh`). Without a keyring, or with `NIXBOOK_MESH_STORE=file`, they are kept in `~/.config/nixbook-shell/mesh/token` and `key` (0600), which can also be written by hand. They are never in the Nix configuration.
+## Inviting people (the server's admin)
+
+The server's admin (on nixbook: `khoa`, an ntfy admin set once in Vault) sees a **People** list in the same section: everyone in the mesh, with **Remove**, and a field to **Invite** someone by name (lower case). The invite code that appears holds the server, a one-time password for their new account and the mesh's key: send it privately. Inviting the same name again makes a new code (the old one stops working). **Remove** cuts that person off at once.
+
+Nothing is configured on the server per person: the admin's desktop creates the account through ntfy's admin API (`/v1/users`, with `mesh-*` access), and the invited desktop changes the password and makes its token (`/v1/account/password`, `/v1/account/token`).
+
+## Setting it up by hand
+
+For the admin (and anyone with a token from the server's configuration): **Set it up by hand instead** shows the access token field (`tk_…`, **Save the token**, **Test**) and **Create a mesh** / **Join** with a mesh code (**Show the mesh code** shows it, `XXXXX-XXXXX-…`; a typo is refused). The admin starts like this: their token from Vault, then **Create a mesh**, then invites.
+
+The token and the mesh key are kept in your keyring (GNOME Keyring, `service=nixbook-mesh`). Without a keyring, or with `NIXBOOK_MESH_STORE=file`, they are kept in `~/.config/nixbook-shell/mesh/token` and `key` (0600), which can also be written by hand. They are never in the Nix configuration. The server (`mesh.server`) is set by nixbook: `https://ntfy.rpcu.io`, on the RPCU production cluster (`../atlas`, `clusters/production/ntfy`).
 
 The same section turns off sharing your status (the others then see "Not sharing their status"), the notifications, or the whole mesh.
 
@@ -29,16 +36,9 @@ The same section turns off sharing your status (the others then see "Not sharing
 
 - Everything a desktop sends is encrypted with AES-256-GCM, with the mesh's key, before it leaves the computer. The server only stores and passes on ciphertext, on a topic whose name is derived from the key, so it doesn't say who is talking either.
 - **Every member holds the same key.** A message to one person is shown only to them, but the others could read it with the key: the mesh is meant for people who trust each other. Per-person keys aren't implemented.
-- Each person has their own access token on the server. Removing it there cuts that person off at once. To also keep them out of what they might have recorded, create a new mesh and give its code to the others.
-
-## Adding someone
-
-On the server (the RPCU production cluster, `../atlas`):
-
-1. In Vault, `secrets-production/ntfy/config`: add `name:<hash>:user` to `AUTH_USERS` (the hash from `ntfy user hash`) and `name:tk_<29 letters or digits>:label` to `AUTH_TOKENS`.
-2. In `clusters/production/ntfy/cm.yaml`, `auth-access`: add `"name:mesh-*:rw"`.
-
-On their desktop: the token in Settings, then the mesh code that any member can show.
+- Each person has their own account and token on the server: **Remove** cuts one person off at once. To also keep them out of what they might have recorded, create a new mesh and invite the others again.
+- An invite code holds the mesh's key: send it privately. It can be used once.
+- The desktop agents (DAI, any agent using the desktop tools) can't use the `mesh` IPC target: they would speak in your name.
 
 ## From the command line
 

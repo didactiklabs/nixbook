@@ -42,6 +42,12 @@ Singleton {
     readonly property bool configured: root.server !== "" && !!root.setup.token && !!root.setup.joined
     property bool connected: false
     property string lastError: ""
+    // This desktop's account on the server ({user, role}, from `test`): the
+    // admin invites and removes people (Settings > General > Mesh).
+    property var account: ({})
+    readonly property bool isAdmin: root.account.role === "admin"
+    // The admin's view of who is in: [{ name, role }].
+    property var people: []
 
     // Everyone seen: { id: { id, name, state, seen (ms), readUpTo (ms) } }.
     property var members: ({})
@@ -410,7 +416,9 @@ Singleton {
     function refreshStatus(then) {
         root.run(["status"], "", (ok, answer) => {
             if (ok) root.setup = answer;
+            const first = !root._loaded;
             root._loaded = true;
+            if (first) root.refreshAccount();
             if (then) then(ok, answer);
         });
     }
@@ -452,6 +460,55 @@ Singleton {
             listener.running = false;
             root._sentState = "";
             if (root.configured && root.enabled) restartListener.restart();
+            root.refreshAccount();
+        });
+    }
+
+    // Who this token is, on the server; the admin also gets the people.
+    function refreshAccount(then) {
+        if (root.server === "" || !root.setup.token) {
+            root.account = {};
+            root.people = [];
+            if (then) then(false, {});
+            return;
+        }
+        root.run(["test", root.server], "", (ok, answer) => {
+            root.account = ok ? { user: answer.user, role: answer.role } : {};
+            if (ok && answer.role === "admin") root.refreshPeople();
+            if (then) then(ok, answer);
+        });
+    }
+    function refreshPeople() {
+        root.run(["members", root.server], "", (ok, answer) => {
+            if (ok) root.people = answer.members ?? [];
+        });
+    }
+    // The admin: an account for `name`, and their invite code.
+    function invite(name, then) {
+        root.run(["invite", root.server, name], "", (ok, answer) => {
+            if (ok) root.refreshPeople();
+            if (then) then(ok, answer);
+        });
+    }
+    function removePerson(name, then) {
+        root.run(["remove", root.server, name], "", (ok, answer) => {
+            if (ok) root.refreshPeople();
+            if (then) then(ok, answer);
+        });
+    }
+    // Joining with an invite code: the server (when not set in Nix), this
+    // desktop's own token and the mesh key all come from it.
+    function accept(code, then) {
+        root.run(["accept"], code, (ok, answer) => {
+            if (ok) {
+                if (!NixManaged.isPinned("mesh.server")) Config.options.mesh.server = answer.server;
+                else if (answer.server !== root.server) {
+                    ok = false;
+                    answer = { error: Translation.tr("This invite is for %1, but this computer's mesh server is set to %2 in Nix.").arg(answer.server).arg(root.server) };
+                }
+                root.reconnect();
+            }
+            if (then) then(ok, answer);
         });
     }
 
@@ -487,6 +544,8 @@ Singleton {
     }
 
     // `nixbook-shell ipc call mesh status|send TEXT|sendTo MEMBER TEXT|open|openConversation MEMBER`.
+    // Denied to the desktop agents (desktop-mcp's shellIpcDenyTargets): they
+    // would speak in the user's name.
     IpcHandler {
         target: "mesh"
 
@@ -500,6 +559,8 @@ Singleton {
                 myState: root.myState,
                 members: root.memberList.map(m => ({ id: m.id, name: m.name, state: root.stateOf(m.id) })),
                 unread: root.unread,
+                account: root.account,
+                people: root.people,
                 error: root.lastError
             });
         }

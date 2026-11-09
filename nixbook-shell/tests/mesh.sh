@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# nixbook-mesh (scripts/mesh.py) against a real ntfy server: three members
-# (alice, bob, carol) and an outsider (mallory: a valid token, not on the
-# ACL). Joining by code, the server's ACL, everyone / private messages,
-# presence, resuming after a restart, and what is refused.
+# nixbook-mesh (scripts/mesh.py) against a real ntfy server: alice (the
+# server's admin, who creates the mesh and invites), bob (joins by hand: a
+# token set on the server and the mesh code), carol and dave (invited) and an
+# outsider (mallory: a valid token, not on the ACL). Joining, invites, the
+# server's ACL, everyone / private messages, presence, resuming after a
+# restart, removing someone, and what is refused.
 #
 # Needs: NIXBOOK_MESH_PYTHON (a python3 with cryptography: mesh.nix's
 # pythonEnv) and `ntfy` on the PATH (tests/run.sh builds both).
@@ -34,7 +36,7 @@ server="http://127.0.0.1:$port"
 hash=$(printf 'pw\npw\n' | ntfy user hash 2>/dev/null | tail -1)
 tok() { echo "tk_$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 29)"; }
 declare -A token
-for u in alice bob carol mallory; do token[$u]=$(tok); done
+for u in alice bob mallory; do token[$u]=$(tok); done
 mkdir -p "$tmp/server"
 cat >"$tmp/server/server.yml" <<EOF
 listen-http: "127.0.0.1:$port"
@@ -43,12 +45,10 @@ cache-file: "$tmp/server/cache.db"
 auth-file: "$tmp/server/user.db"
 auth-default-access: "deny-all"
 auth-access:
-  - "alice:mesh-*:rw"
   - "bob:mesh-*:rw"
-  - "carol:mesh-*:rw"
 EOF
-NTFY_AUTH_USERS="alice:$hash:user,bob:$hash:user,carol:$hash:user,mallory:$hash:user" \
-  NTFY_AUTH_TOKENS="alice:${token[alice]}:a,bob:${token[bob]}:b,carol:${token[carol]}:c,mallory:${token[mallory]}:m" \
+NTFY_AUTH_USERS="alice:$hash:admin,bob:$hash:user,mallory:$hash:user" \
+  NTFY_AUTH_TOKENS="alice:${token[alice]}:a,bob:${token[bob]}:b,mallory:${token[mallory]}:m" \
   ntfy serve --config "$tmp/server/server.yml" >"$tmp/server/log" 2>&1 &
 pids+=($!)
 for _ in $(seq 50); do
@@ -75,7 +75,7 @@ field() { jq -r "$1" <<<"$2"; }
 
 r=$(mesh alice token set <<<"not-a-token" || true)
 expect "a malformed token is refused" false "$(field .ok "$r")"
-for u in alice bob carol mallory; do mesh "$u" token set <<<"${token[$u]}" >/dev/null; done
+for u in alice bob mallory; do mesh "$u" token set <<<"${token[$u]}" >/dev/null; done
 r=$(mesh alice status)
 expect "the token is kept (in a file, no keyring here)" "file" "$(field .tokenSource "$r")"
 mode=$(stat -c %a "$tmp/alice/config/nixbook-shell/mesh/token")
@@ -93,12 +93,41 @@ expect "a mistyped code is refused" false "$(field .ok "$r")"
 # Lower case, spaces instead of dashes: still the code.
 r=$(mesh bob mesh join <<<"$(tr 'A-Z-' 'a-z ' <<<"$code")")
 expect "a member joins with the code (any case, any separators)" true "$(field .ok "$r")"
-mesh carol mesh join <<<"$code" >/dev/null
 mesh mallory mesh join <<<"$code" >/dev/null
 
 r=$(mesh alice test "$server")
 expect "test: the token is alice's" alice "$(field .user "$r")"
+expect "test: alice is the admin" admin "$(field .role "$r")"
 expect "test: the mesh is reachable" true "$(field .joined "$r")"
+
+# -- Invites ---------------------------------------------------------------------
+
+r=$(mesh bob invite "$server" carol || true)
+expect "only the admin can invite" false "$(field .ok "$r")"
+r=$(mesh alice invite "$server" "Not A Name" || true)
+expect "an invalid name is refused" false "$(field .ok "$r")"
+r=$(mesh alice invite "$server" carol)
+first=$(field .code "$r")
+expect "the admin invites carol" true "$(field .ok "$r")"
+r=$(mesh alice invite "$server" carol)
+invite=$(field .code "$r")
+expect "inviting again gives a new code" true "$(field .again "$r")"
+r=$(mesh carol accept <<<"$first" || true)
+expect "the replaced code no longer works" false "$(field .ok "$r")"
+r=$(mesh carol accept <<<"${invite:0:40}" || true)
+expect "a cut code is refused" false "$(field .ok "$r")"
+r=$(mesh carol accept <<<"$invite")
+expect "carol joins with her invite" true "$(field .ok "$r")"
+expect "the invite sets the server" "$server" "$(field .server "$r")"
+r=$(mesh carol test "$server")
+expect "carol's own token works, in the mesh" "carol true" "$(field .user "$r") $(field .joined "$r")"
+r=$(mesh dave accept <<<"$invite" || true)
+expect "an invite works once" false "$(field .ok "$r")"
+mesh dave accept <<<"$(field .code "$(mesh alice invite "$server" dave)")" >/dev/null
+r=$(mesh alice members "$server")
+expect "the members, as the admin sees them" "alice bob carol dave" "$(jq -r '[.members[].name] | sort | join(" ")' <<<"$r")"
+r=$(mesh bob members "$server" || true)
+expect "only the admin lists members" false "$(field .ok "$r")"
 r=$(mesh mallory test "$server" || true)
 expect "test: a token without the ACL is refused" false "$(field .ok "$r")"
 if grep -q "403" <<<"$(field .error "$r")"; then pass "test: says it's the ACL (403)"; else fail "test: says it's the ACL (403)" "$r"; fi
@@ -178,6 +207,15 @@ if grep -q 'new after restart' "$tmp/bob.events"; then pass "after a restart, ne
 mesh carol mesh create >/dev/null
 r=$(mesh carol mesh code)
 if [ "$(field .code "$r")" != "$code" ]; then pass "a new mesh has a new code"; else fail "a new mesh has a new code"; fi
+
+r=$(mesh alice remove "$server" alice || true)
+expect "the admin can't remove themself" false "$(field .ok "$r")"
+r=$(mesh alice remove "$server" bob || true)
+if grep -q "configuration" <<<"$(field .error "$r")"; then pass "someone set on the server isn't removed by invites, and it says so"; else fail "someone set on the server isn't removed by invites, and it says so" "$r"; fi
+r=$(mesh alice remove "$server" dave)
+expect "the admin removes dave" true "$(field .ok "$r")"
+r=$(mesh dave send "$server" message <<<'{"text": "still here?"}' || true)
+expect "dave is cut off at once" false "$(field .ok "$r")"
 
 mesh alice mesh leave >/dev/null
 r=$(mesh alice send "$server" message <<<'{"text": "x"}' || true)
