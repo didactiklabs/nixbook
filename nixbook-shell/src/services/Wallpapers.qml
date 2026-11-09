@@ -254,6 +254,7 @@ Singleton {
     Timer {
         id: prepareTimer
         onTriggered: {
+            if (Battery.runningOnBattery) return; // the script only checks the charger is plugged in
             const folders = [FileUtils.trimFileProtocol(root.defaultFolder.toString())];
             if (root.liveFolder.length > 0) folders.push(root.liveFolder);
             const current = root.isVideo(root.configuredPath) ? root.configuredPath : "-";
@@ -261,13 +262,15 @@ Singleton {
             Quickshell.execDetached([root.liveScript, "prepare-start", current].concat(folders));
         }
     }
-    // Unplugged: the conversion stops at once (systemd stops its whole unit,
-    // every ffmpeg of it) instead of finishing a video on battery; it resumes,
-    // skipping what is done, once plugged in again.
+    // Unplugged, or on a charger that can't keep up (the battery emptying
+    // while "charging": the conversion ran 1.5 h of CPU on a weak charger and
+    // drained it from 45 % to 0): the conversion stops at once (systemd stops
+    // its whole unit, every ffmpeg of it) instead of finishing a video; it
+    // resumes, skipping what is done, once on proper power again.
     Connections {
         target: Battery
-        function onIsPluggedInChanged() {
-            if (Battery.isPluggedIn) {
+        function onRunningOnBatteryChanged() {
+            if (!Battery.runningOnBattery) {
                 root.prepareLibrary(5000);
             } else {
                 prepareTimer.stop();
@@ -275,10 +278,11 @@ Singleton {
             }
         }
     }
-    // Saving power — the power-saver profile, or a low battery — the video
-    // pauses (the picture stays as it is; nothing is decoded or drawn).
+    // Saving power — the power-saver profile, a low battery, or a charger
+    // that can't keep up — the video pauses (the picture stays as it is;
+    // nothing is decoded or drawn).
     readonly property bool savingPower: PowerProfiles.profile === PowerProfile.PowerSaver
-        || Battery.isLowAndNotCharging
+        || Battery.isLowAndNotCharging || Battery.chargerTooWeak
     Connections {
         target: Quickshell
         function onScreensChanged() { root.prepareLibrary(30000) }
