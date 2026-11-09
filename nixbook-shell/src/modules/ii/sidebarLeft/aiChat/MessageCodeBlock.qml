@@ -120,6 +120,9 @@ ColumnLayout {
     }
 
     RowLayout { // Line numbers and code
+        // Follows the message's width: without it the row kept the width it
+        // first got, so widening the sidebar left the code at its old width.
+        Layout.fillWidth: true
         spacing: codeBlockComponentSpacing
 
         Rectangle { // Line numbers
@@ -179,7 +182,10 @@ ColumnLayout {
                     id: codeScrollView
                     Layout.fillWidth: true
                     // Layout.fillHeight: true
-                    implicitWidth: parent.width
+                    // Sized by the layout. `parent.width` here fed the block's
+                    // width back into itself, so it never grew; the code's own
+                    // width would push the message wider than the panel.
+                    implicitWidth: 0
                     implicitHeight: codeTextArea.implicitHeight + 1
                     contentWidth: codeTextArea.width - 1
                     // contentHeight: codeTextArea.contentHeight
