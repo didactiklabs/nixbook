@@ -101,10 +101,15 @@ MouseArea {
             Image {
                 id: lockBgSource
                 anchors.fill: parent
-                // The lock screen's own wallpaper when one is set.
-                source: Config.options.background.lockWall !== ""
-                    ? Config.options.background.lockWall
-                    : Config.options.background.wallpaperPath
+                // The lock screen's own wallpaper when one is set. A live
+                // (video) wallpaper shows its still frame: an Image can't
+                // decode the video, and the lock screen was left blank.
+                source: {
+                    const p = Wallpapers.posterFor(Config.options.background.lockWall !== ""
+                        ? Config.options.background.lockWall
+                        : Config.options.background.wallpaperPath);
+                    return p ? `file://${p}` : "";
+                }
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 cache: true
