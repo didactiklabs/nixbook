@@ -156,6 +156,7 @@ export default defineConfig({
           { text: 'Google Keep sync of the notes', link: '/nixbook-shell/keep' },
           { text: 'Desktop widgets & wallpapers', link: '/nixbook-shell/desktop-and-wallpapers' },
           { text: 'Media & phone', link: '/nixbook-shell/media' },
+          { text: 'Mesh: talk with each other', link: '/nixbook-shell/mesh' },
           { text: 'Screenshots & recording', link: '/nixbook-shell/screenshots' },
           { text: 'Window layouts', link: '/nixbook-shell/window-layouts' },
           { text: 'Lock & login screens', link: '/nixbook-shell/lock-and-login' },

@@ -10,6 +10,9 @@
         # Calendar reminders, the shell's own (the shared rule, replaced by
         # this list).
         "app:^\"Calendar\""
+        # A mesh message to me alone (services/Mesh.qml; the shared rule,
+        # replaced by this list).
+        "hint:\"nixbook-mesh-direct\""
         # Khoa (profiles/totoro/khoa). "Khoa" as a whole word only: not
         # "khoai" nor "khóa".
         "\"Khoa\""

@@ -11,6 +11,10 @@ ContentPage {
     id: page
     forceWidth: true
 
+    component SmallButton: RippleButtonWithIcon {
+        buttonRadius: Appearance.rounding.small
+    }
+
     // A sound setting (Audio.soundFor `kind`: sounds.<kind>Ringtone, or
     // sounds.notificationFile): a sound theme name, or an audio file picked
     // with kdialog. Locked on themes with their own sounds (Themes.themeSounds).
@@ -618,6 +622,254 @@ ContentPage {
                     checked: Config.options.keep.pull
                     onCheckedChanged: {
                         Config.options.keep.pull = checked;
+                    }
+                }
+            }
+        }
+        // The mesh between people's desktops (services/Mesh.qml): the
+        // server and your name are settings, the access token and the mesh
+        // key go to the keyring through `nixbook-mesh`, on stdin.
+        ContentSection {
+            id: meshSection
+            icon: "hub"
+            shape: MaterialShape.Shape.Clover4Leaf
+            title: Translation.tr("Mesh")
+            property string status: ""
+            property string code: ""
+
+            function check() {
+                meshSection.status = Translation.tr("Checking…")
+                Mesh.run(["test", Mesh.server], "", (ok, answer) => {
+                    meshSection.status = ok
+                        ? (answer.joined ? Translation.tr("Connected as %1, in the mesh.").arg(answer.user)
+                            : Translation.tr("The token works (%1). Now create a mesh or enter a member's code.").arg(answer.user))
+                        : answer.error
+                })
+            }
+            Component.onCompleted: Mesh.refreshStatus()
+
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("Talk with the people you choose, desktop to desktop, over the internet: messages to everyone or to one person, and everyone's status (free, in a meeting, gaming, busy, do not disturb, away; never which app). Everything is encrypted on this computer with the mesh's key, which only members have: the server only passes on what it can't read. Each person needs an access token from the server's admin; one member creates the mesh and shows its code, the others enter it.")
+            }
+            ConfigTextArea {
+                id: meshServer
+                configKey: "mesh.server"
+                Layout.fillWidth: true
+                fieldWidth: 320
+                buttonIcon: "dns"
+                text: Translation.tr("Server")
+                placeholderText: Translation.tr("e.g. https://ntfy.example.org")
+                value: Config.options.mesh.server ?? ""
+                Connections {
+                    target: meshServer.textArea
+                    function onEditingFinished() {
+                        Config.options.mesh.server = meshServer.value.trim().replace(/\/+$/, "")
+                    }
+                }
+            }
+            ConfigTextArea {
+                id: meshName
+                configKey: "mesh.name"
+                Layout.fillWidth: true
+                fieldWidth: 320
+                buttonIcon: "badge"
+                text: Translation.tr("Your name")
+                placeholderText: Mesh.myName
+                value: Config.options.mesh.name ?? ""
+                Connections {
+                    target: meshName.textArea
+                    function onEditingFinished() {
+                        Config.options.mesh.name = meshName.value.trim()
+                    }
+                }
+            }
+
+            // The access token.
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                text: Mesh.setup.token
+                    ? Translation.tr("Access token: saved (%1).").arg(Mesh.setup.tokenSource === "file"
+                        ? Translation.tr("in ~/.config/nixbook-shell/mesh/token") : Translation.tr("in your keyring"))
+                    : Translation.tr("Access token: none yet. Paste the one the server's admin gave you (tk_…).")
+            }
+            MaterialTextField {
+                id: meshToken
+                Layout.fillWidth: true
+                placeholderText: Mesh.setup.token ? Translation.tr("A new access token (saved: leave empty to keep it)")
+                    : Translation.tr("Access token (tk_…)")
+                echoMode: TextInput.Password
+                onAccepted: meshTokenSave.clicked()
+            }
+            Flow {
+                Layout.fillWidth: true
+                spacing: 6
+                SmallButton {
+                    id: meshTokenSave
+                    enabled: !Mesh.busy && meshToken.text.trim() !== ""
+                    materialIcon: "key"
+                    mainText: Translation.tr("Save the token")
+                    onClicked: {
+                        Mesh.run(["token", "set"], meshToken.text.trim(), (ok, answer) => {
+                            meshToken.text = ""
+                            if (!ok) {
+                                meshSection.status = answer.error
+                                return
+                            }
+                            Mesh.reconnect()
+                            if (Mesh.server !== "") meshSection.check()
+                        })
+                    }
+                }
+                SmallButton {
+                    enabled: !Mesh.busy && !!Mesh.setup.token && Mesh.server !== ""
+                    materialIcon: "network_check"
+                    mainText: Translation.tr("Test")
+                    onClicked: meshSection.check()
+                }
+                SmallButton {
+                    visible: !!Mesh.setup.token
+                    enabled: !Mesh.busy
+                    materialIcon: "key_off"
+                    mainText: Translation.tr("Forget the token")
+                    onClicked: Mesh.run(["token", "forget"], "", () => Mesh.reconnect())
+                }
+            }
+
+            // The mesh key.
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                text: Mesh.setup.joined
+                    ? (Mesh.connected ? Translation.tr("In the mesh, connected. Members seen: %1.").arg(Mesh.memberList.length)
+                        : Translation.tr("In the mesh, not connected yet.") + (Mesh.lastError ? ` ${Mesh.lastError}` : ""))
+                    : Translation.tr("Not in a mesh yet: create one (then show its code to the others), or enter the code a member shows you.")
+            }
+            MaterialTextField {
+                id: meshCode
+                Layout.fillWidth: true
+                visible: !Mesh.setup.joined
+                placeholderText: Translation.tr("A member's mesh code (XXXXX-XXXXX-…)")
+                onAccepted: meshJoin.clicked()
+            }
+            Flow {
+                Layout.fillWidth: true
+                spacing: 6
+                SmallButton {
+                    id: meshJoin
+                    visible: !Mesh.setup.joined
+                    enabled: !Mesh.busy && meshCode.text.trim() !== ""
+                    materialIcon: "group_add"
+                    mainText: Translation.tr("Join")
+                    onClicked: {
+                        Mesh.run(["mesh", "join"], meshCode.text.trim(), (ok, answer) => {
+                            if (!ok) {
+                                meshSection.status = answer.error
+                                return
+                            }
+                            meshCode.text = ""
+                            meshSection.status = Translation.tr("Joined.")
+                            Mesh.reconnect()
+                        })
+                    }
+                }
+                SmallButton {
+                    visible: !Mesh.setup.joined
+                    enabled: !Mesh.busy
+                    materialIcon: "add_circle"
+                    mainText: Translation.tr("Create a mesh")
+                    onClicked: {
+                        Mesh.run(["mesh", "create"], "", (ok, answer) => {
+                            if (!ok) {
+                                meshSection.status = answer.error
+                                return
+                            }
+                            meshSection.code = answer.code
+                            meshSection.status = Translation.tr("Created. Show this code to the others.")
+                            Mesh.reconnect()
+                        })
+                    }
+                }
+                SmallButton {
+                    visible: !!Mesh.setup.joined
+                    enabled: !Mesh.busy
+                    materialIcon: meshSection.code !== "" ? "visibility_off" : "qr_code"
+                    mainText: meshSection.code !== "" ? Translation.tr("Hide the code") : Translation.tr("Show the mesh code")
+                    onClicked: {
+                        if (meshSection.code !== "") {
+                            meshSection.code = ""
+                            return
+                        }
+                        Mesh.run(["mesh", "code"], "", (ok, answer) => {
+                            if (ok) meshSection.code = answer.code
+                            else meshSection.status = answer.error
+                        })
+                    }
+                }
+                SmallButton {
+                    visible: meshSection.code !== ""
+                    materialIcon: "content_copy"
+                    mainText: Translation.tr("Copy")
+                    onClicked: Clipboard.copy(meshSection.code)
+                }
+                SmallButton {
+                    visible: !!Mesh.setup.joined
+                    enabled: !Mesh.busy
+                    materialIcon: "logout"
+                    mainText: Translation.tr("Leave the mesh")
+                    onClicked: {
+                        meshSection.code = ""
+                        Mesh.run(["mesh", "leave"], "", () => Mesh.reconnect())
+                    }
+                }
+            }
+            StyledText {
+                Layout.fillWidth: true
+                visible: meshSection.code !== ""
+                wrapMode: Text.WrapAnywhere
+                font.family: Appearance.font.family.monospace
+                font.pixelSize: Appearance.font.pixelSize.large
+                text: meshSection.code
+            }
+            StyledText {
+                Layout.fillWidth: true
+                visible: meshSection.status !== ""
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: meshSection.status
+            }
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "mesh.sharePresence";
+                    enabled: !nixManaged;
+                    buttonIcon: "radio_button_checked"
+                    text: Translation.tr("Share my status (free, in a meeting, gaming, busy, away)")
+                    checked: Config.options.mesh.sharePresence
+                    onCheckedChanged: {
+                        Config.options.mesh.sharePresence = checked;
+                    }
+                }
+                ConfigSwitch {
+                    configKey: "mesh.notify";
+                    enabled: !nixManaged;
+                    buttonIcon: "notifications"
+                    text: Translation.tr("A notification for each message")
+                    checked: Config.options.mesh.notify
+                    onCheckedChanged: {
+                        Config.options.mesh.notify = checked;
+                    }
+                }
+                ConfigSwitch {
+                    configKey: "mesh.enable";
+                    enabled: !nixManaged;
+                    buttonIcon: "power_settings_new"
+                    text: Translation.tr("Connected to the mesh")
+                    checked: Config.options.mesh.enable
+                    onCheckedChanged: {
+                        Config.options.mesh.enable = checked;
                     }
                 }
             }

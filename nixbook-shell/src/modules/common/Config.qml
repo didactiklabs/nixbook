@@ -144,6 +144,19 @@ Singleton {
             }
             done.barDockDefaults = true;
         }
+        // The mesh's bar widget (hidden until the mesh is set up) joins a
+        // middle layout saved before it existed, after Phone Connect; not
+        // when the layout is set in Nix.
+        if (!done.meshWidget) {
+            const layouts = root.options.bar?.layouts;
+            const middle = layouts ? Array.from(layouts.middleLayout ?? []) : null;
+            if (middle && !middle.includes("mesh") && !NixManaged.isPinned("bar.layouts.middleLayout")) {
+                const at = middle.indexOf("kdeConnect");
+                middle.splice(at >= 0 ? at + 1 : middle.length, 0, "mesh");
+                layouts.middleLayout = middle;
+            }
+            done.meshWidget = true;
+        }
     }
     property int readWriteDelay: 50 // milliseconds
     property bool blockWrites: false
@@ -925,7 +938,7 @@ Singleton {
 
                 property JsonObject layouts: JsonObject {
                     property list<string> leftLayout: ["launcherButton", "workspaces", "activeWindow", "leftSidebarButton"]
-                    property list<string> middleLayout: ["clockWidget", "kdeConnect", "resources", "networkSpeed", "anthropicUsage"]
+                    property list<string> middleLayout: ["clockWidget", "kdeConnect", "mesh", "resources", "networkSpeed", "anthropicUsage"]
                     property list<string> rightLayout: ["sysTray", "utilButtons", "systemIcons", "vpnStatus", "desktopControl", "batteryIndicator", "powerButton", "updatesCount"]
                 }
                 
@@ -1032,6 +1045,18 @@ Singleton {
                 property int refreshMinutes: 15
                 property bool push: true // The shell's new notes go to Keep
                 property bool pull: true // Keep's new notes come in
+            }
+
+            property JsonObject mesh: JsonObject {
+                // The mesh between people's desktops (services/Mesh.qml,
+                // Settings > General > Mesh). The access token and the mesh
+                // key are in the keyring, never here.
+                property bool enable: true
+                property string server: "" // The ntfy server, e.g. https://ntfy.example.org
+                property string name: "" // Your name as the others see it ("" = your login, capitalised)
+                property bool sharePresence: true // Free / in a meeting / gaming / busy / do not disturb / away: never which app
+                property bool notify: true // A notification for each message
+                property list<string> quickMessages: ["❤️", "Thinking of you", "On my way", "Call me when you can?"]
             }
 
             property JsonObject language: JsonObject {

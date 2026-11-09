@@ -14,6 +14,9 @@
         # "Calendar" or "Reminder" anywhere: mails about Google Calendar,
         # invitations and "quick reminder" newsletters matched too.
         "app:^\"Calendar\""
+        # A mesh message to me alone (services/Mesh.qml; the shared rule,
+        # replaced by this list).
+        "hint:\"nixbook-mesh-direct\""
         # Family and friends
         "Alesio"
         "Trang HANG"
