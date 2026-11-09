@@ -25,6 +25,8 @@ let
   improve = import ./improve.nix { inherit pkgs; };
   # The notes' sync with Google Keep (`nixbook-keep`, services/KeepSync.qml).
   keep = import ./keep.nix { inherit pkgs gkeepapiSrc; };
+  # The mesh between people's desktops (`nixbook-mesh`, services/Mesh.qml).
+  mesh = import ./mesh.nix { inherit pkgs; };
   settingsLib = import ./lib.nix { inherit lib; };
   # wl-clipboard with a wl-copy that keeps text as text (wl-copy.nix).
   wlClipboard = import ./wl-copy.nix { inherit pkgs; };
@@ -220,6 +222,7 @@ let
       quickshell # `qs` — the shell re-invokes itself for sub-windows
       accounts # `nixbook-accounts` — the accounts, contacts and tasks (services/Accounts.qml)
       keep # `nixbook-keep` — the notes' sync with Google Keep (services/KeepSync.qml)
+      mesh # `nixbook-mesh` — the mesh between people's desktops (services/Mesh.qml)
       shell.passthru.pythonEnv
       anthropicUsage # `anthropic-usage` — AnthropicUsage bar widget
       desktopMcp # `nixbook-desktop-mcp` — desktop tools of the AI chat
@@ -345,6 +348,7 @@ launcher.overrideAttrs (old: {
       desktopMcp
       fonts
       keep
+      mesh
       electronBridge
       ;
     zenAgent = {

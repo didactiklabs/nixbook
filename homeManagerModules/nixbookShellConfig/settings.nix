@@ -64,6 +64,8 @@
         # SMS through Google Messages in the browser (the title is the
         # phone number; the site is in the notification hints).
         "messages.google.com"
+        # The mesh's messages (services/Mesh.qml: hint x-nixbook-mesh).
+        "nixbook-mesh"
       ];
     };
     # No popup, cut-in or chime (still in the notification centre and the
@@ -87,6 +89,8 @@
     # them live in Settings → Notifications → Persona cut-in.
     cutIn.keywords = [
       "app:^\"Calendar\""
+      # A mesh message to you alone (not one to everyone).
+      "hint:\"nixbook-mesh-direct\""
     ];
     # Never a cut-in, whatever matched above: my own replies. The phone
     # updates the chat notification with the message I just sent and KDE
@@ -98,6 +102,13 @@
       "last:^\"Vous:\""
       "last:^\"Bạn:\""
     ];
+  };
+  # The mesh between our desktops (services/Mesh.qml): the ntfy server on
+  # the RPCU production cluster (../atlas, clusters/production/ntfy). Each
+  # person's access token and the mesh key are set in Settings > General >
+  # Mesh (keyring), never here.
+  mesh = {
+    server = "https://ntfy.rpcu.io";
   };
   overlay = {
     openingZoomAnimation = false;

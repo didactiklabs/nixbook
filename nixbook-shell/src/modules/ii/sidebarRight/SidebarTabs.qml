@@ -5,6 +5,7 @@ import qs.modules.common.widgets
 import qs.services
 // Quickshell only serves directories that are imported, Loader sources included.
 import qs.modules.ii.sidebarRight.calendar
+import qs.modules.ii.sidebarRight.mesh
 import qs.modules.ii.sidebarRight.notifications
 import qs.modules.ii.sidebarRight.pomodoro
 import qs.modules.ii.sidebarRight.todo
@@ -27,6 +28,15 @@ ColumnLayout {
             "icon": "notifications",
             "widget": "notifications/NotificationList.qml"
         }];
+        // The mesh's conversations (services/Mesh.qml), once it is set up.
+        if (Mesh.configured) {
+            list.push({
+                "type": "mesh",
+                "name": Translation.tr("Mesh"),
+                "icon": "hub",
+                "widget": "mesh/MeshWidget.qml"
+            });
+        }
         if (Config.options.sidebar.bottomGroup) {
             list.push({
                 "type": "calendar",

@@ -459,6 +459,7 @@
       "middleLayout": [
         "clockWidget",
         "kdeConnect",
+        "mesh",
         "resources",
         "networkSpeed",
         "anthropicUsage"
@@ -630,6 +631,19 @@
   },
   "media": {
     "filterDuplicatePlayers": true
+  },
+  "mesh": {
+    "enable": true,
+    "name": "",
+    "notify": true,
+    "quickMessages": [
+      "❤️",
+      "Thinking of you",
+      "On my way",
+      "Call me when you can?"
+    ],
+    "server": "",
+    "sharePresence": true
   },
   "musicRecognition": {
     "interval": 4,

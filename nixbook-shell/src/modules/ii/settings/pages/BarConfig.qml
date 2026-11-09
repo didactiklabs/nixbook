@@ -57,6 +57,7 @@ ContentPage {
         { id: "desktopControl",    name: Translation.tr("Desktop Control"),       icon: "smart_toy" },
         { id: "musicRecognition",  name: Translation.tr("Music Recognition"),     icon: "music_cast" },
         { id: "kdeConnect",        name: Translation.tr("Phone Connect"),         icon: "devices" },
+        { id: "mesh",              name: Translation.tr("Mesh"),                  icon: "hub" },
         { id: "docktoPanel",       name: Translation.tr("Dock to Panel"),        icon: "apps" },
         { id: "visualizer",        name: Translation.tr("Visualizer"),           icon: "graphic_eq" },
         { id: "keyboardLayoutIndicator", name: Translation.tr("Keyboard Layout"), icon: "keyboard" },

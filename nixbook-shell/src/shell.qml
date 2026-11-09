@@ -48,6 +48,7 @@ ShellRoot {
         DesktopWidgets.load()
         Notes.load()
         KeepSync.load()
+        Mesh.load()
         Todo.load()
         Contacts.load()
         TimerService.load()

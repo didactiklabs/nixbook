@@ -149,6 +149,11 @@ cmd_shell() {
   local keep
   keep=$(nix-build --no-out-link -E '(import ./nixbook-shell { }).package.passthru.keep.pythonEnv' 2> >(annotate >&2)) &&
     NIXBOOK_KEEP_PYTHON="$keep/bin/python3" bash nixbook-shell/tests/keep.sh || failed=1
+  section "nixbook-shell mesh (nixbook-mesh) against a real ntfy server"
+  local mesh ntfy
+  mesh=$(nix-build --no-out-link -E '(import ./nixbook-shell { }).package.passthru.mesh.pythonEnv' 2> >(annotate >&2)) &&
+    ntfy=$(nix-build --no-out-link -E '(import ./lib/pkgs.nix { }).ntfy-sh' 2> >(annotate >&2)) &&
+    PATH="$ntfy/bin:$PATH" NIXBOOK_MESH_PYTHON="$mesh/bin/python3" bash nixbook-shell/tests/mesh.sh || failed=1
   section "nixbook-shell fixes to nixbook (nixbook-improve)"
   local improve
   improve=$(nix-build --no-out-link -E '(import ./nixbook-shell { }).package.passthru.improve' 2> >(annotate >&2)) &&
