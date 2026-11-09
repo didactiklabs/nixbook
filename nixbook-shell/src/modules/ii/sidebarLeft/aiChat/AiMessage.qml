@@ -422,6 +422,9 @@ Rectangle {
 
         ColumnLayout { // Message content
             id: messageContentColumnLayout
+            // The message's whole width: sized by its blocks, an answer that
+            // is mostly a code block kept its first width when the panel grew.
+            Layout.fillWidth: true
             spacing: 0
 
             Item {
