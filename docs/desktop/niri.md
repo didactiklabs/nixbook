@@ -30,11 +30,26 @@ customHomeManagerModules.niriConfig.enable = true;
 
 - **key bindings** — see [Keybindings](./keybindings#niri-scrollable-tiling-compositor-totoro-tanjiro-nishinoya-hanamichi);
 - **window rules**: windows at 85 % opacity with per-app exceptions, rounded corners, and **xray blur** for every window (the wallpaper blurred once and cached — cheap on integrated GPUs); a few popups (e.g. a video call) stay opaque;
-- 10 px gaps, a focus ring, client-side decorations disabled, hot corners off;
+- 10 px gaps, a focus ring, a soft drop shadow outside each window, client-side decorations disabled, hot corners off;
+- the **Alt+Tab** window switcher (niri's recent windows) in the theme's colours;
+- volume, microphone, brightness and **media keys** (play/pause, next, previous; nixbook-shell's chosen player, else playerctl) that also work on the lock screen;
+- niri's own list of shortcuts on **Mod+F1**, every shell bind with a readable title;
+- [screen sharing](#screen-sharing) helpers;
 - idle management with [hypridle](./#idle-and-locking-niri);
 - the desktop shell's panels bound to keys through `nixbook-shell ipc call …` / `dms ipc call …`;
 - `swaybg` for the wallpaper only when nixbook-shell (which paints its own) is off;
 - **theme-coloured window animations** with nixbook-shell: the shell rewrites an included `nixbook-shell-animations.kdl` with its palette, so open/close animations (e.g. the Persona slash) follow the theme live.
+
+## Screen sharing
+
+Screen sharing goes through `xdg-desktop-portal-gnome`, which niri drives: its dialog offers whole screens and single windows. Some apps (Zoom, some Electron apps) only ask for screens, and then the dialog has no Window tab.
+
+- **Dynamic cast target**: pick the window "niri Dynamic Cast Target" in the dialog once. It starts empty; **Mod+Alt+W** then shows the focused window, **Mod+Alt+M** the focused monitor and **Mod+Alt+C** nothing, without sharing again.
+- The window being shared (a window share or the dynamic target) gets a **red frame**.
+- **Blocked out** for viewers (a black box; your screen and screenshots are unchanged): password managers, authenticators and password prompts (pinentry, the keyring's), private browsing windows, and the shell's notification popups, cut-ins, DAI's bubble and smart clipboard chips (DMS's notification popups too).
+- **Mod+Ctrl+Shift+F**: windowed fullscreen. The app thinks it is fullscreen but stays a normal window, to share a slideshow without the browser's toolbars.
+
+Blocking out covers the screencast portal only. The shell's screenshot selector shows a frozen copy of the screen, so while you take a screenshot during a share, viewers may briefly see a blocked window.
 
 Per-user and per-machine overrides (monitor layout, scales, extra binds) live in the profile, e.g. `profiles/totoro/khoa/niriConfig.nix`.
 

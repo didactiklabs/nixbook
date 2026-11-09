@@ -27,6 +27,31 @@ let
   '';
 
   wpctl = "${pkgs.wireplumber}/bin/wpctl";
+  playerctl = "${pkgs.playerctl}/bin/playerctl";
+  colors = config.lib.stylix.colors.withHashtag;
+
+  # Media keys: nixbook-shell's player (the source picked in its media
+  # controls, else the one playing), else playerctl's.
+  media =
+    shellCall: playerctlArgs:
+    if cfg.nixbookShellConfig.enable then
+      [
+        "nixbook-shell"
+        "ipc"
+        "call"
+        "mpris"
+        shellCall
+      ]
+    else
+      [ playerctl ] ++ playerctlArgs;
+
+  # A key that still works on the lock screen (volume, brightness, media),
+  # with its title in niri's hotkey overlay (Mod+F1).
+  lockedSpawn = title: command: {
+    allow-when-locked = true;
+    hotkey-overlay.title = title;
+    action.spawn = command;
+  };
 
   # What niri shows before any client has drawn (the first frames after the
   # login screen): nixbook-shell's loading screen background, so the handover
@@ -227,6 +252,18 @@ in
               saturation 1.5
           }
 
+          // The Alt+Tab switcher (recent windows) in the theme's colours,
+          // its highlight rounded like the windows. niri-flake has no
+          // option for it yet. Mod+Tab stays the overview (a normal bind
+          // wins over the switcher's).
+          recent-windows {
+              highlight {
+                  active-color "${colors.base0D}"
+                  urgent-color "${colors.base08}"
+                  corner-radius 12
+              }
+          }
+
           // Every window, tiled or floating, uses xray blur: the wallpaper
           // (Background layer) blurred once and cached, instead of re-blurring
           // whatever is behind each window whenever it changes (measured: niri
@@ -375,9 +412,35 @@ in
             active.color = config.lib.stylix.colors.base0D;
             inactive.color = config.lib.stylix.colors.base03;
           };
+          # A soft drop shadow outside each window (never behind it: the
+          # windows are translucent), so floating ones stand out from the
+          # tiled ones under them.
+          shadow = {
+            enable = true;
+            softness = 30;
+            spread = 4;
+            offset = {
+              x = 0;
+              y = 5;
+            };
+            color = "#00000070";
+            inactive-color = "#00000040";
+          };
         };
 
         layer-rules = [
+          {
+            # Kept out of screen sharing (the viewers see a black box; your
+            # screen and screenshots are unchanged): notification popups,
+            # the cut-ins showing a notification full screen, DAI's speech
+            # bubble and the smart clipboard's chips (what was just copied).
+            matches = map (namespace: { inherit namespace; }) [
+              "^quickshell:(notificationPopup|personaCutIn|cyberpunkCutIn|ghibliCutIn|chiikawaAlert|agentSpeech|smartClipboard)$"
+              "^dms:notification-popup$"
+              "^notifications$"
+            ];
+            block-out-from = "screencast";
+          }
           {
             matches = [ { namespace = "^wallpaper$"; } ];
             place-within-backdrop = true;
@@ -560,6 +623,33 @@ in
             matches = [ { app-id = "^thunderbird$"; } ];
             opacity = 1.0;
           }
+          # Kept out of screen sharing (a black box for the viewers, visible
+          # as usual on your screen and in screenshots): password managers,
+          # authenticators, password prompts (pinentry, the keyring's) and
+          # private browsing windows.
+          {
+            matches = [
+              {
+                app-id = "(?i)keepass|bitwarden|vaultwarden|1password|enpass|proton-?pass|lastpass|dashlane|nordpass|passbolt|seahorse|kwallet|authenticator|authy|pinentry|gcr-prompter|org\\.gnome\\.World\\.Secrets";
+              }
+              { title = "Private Browsing$"; }
+            ];
+            block-out-from = "screencast";
+          }
+          # The window being shared (a window share, or the dynamic cast
+          # target, Mod+Alt+W) gets a red frame, so you see what the call sees.
+          {
+            matches = [ { is-window-cast-target = true; } ];
+            focus-ring = {
+              active.color = colors.base08;
+              inactive.color = "${colors.base08}99";
+            };
+            border = {
+              active.color = colors.base08;
+              inactive.color = "${colors.base08}99";
+            };
+            shadow.color = "${colors.base08}70";
+          }
         ];
 
         animations = personaAnimations.animations // {
@@ -667,6 +757,7 @@ in
           # "Mod+Shift+Plus".action.set-window-height = "+10%";
 
           # Screenshots (Wayland-compatible)
+          "Print".hotkey-overlay.title = "Screenshot";
           "Print".action.spawn =
             if cfg.dmsConfig.enable then
               [
@@ -691,36 +782,76 @@ in
           "Mod+Shift+E".action.quit = { };
           "Mod+Shift+P".action.power-off-monitors = { };
 
-          "XF86MonBrightnessDown".action.spawn = [
+          # niri's list of keybindings (built from these binds, with their
+          # titles). F1: layout-independent (Mod+Shift+/ is awkward on AZERTY).
+          "Mod+F1".action.show-hotkey-overlay = { };
+
+          # Screen sharing. In the app's share dialog, pick the window
+          # "niri Dynamic Cast Target" once; these keys then change what it
+          # shows, without sharing again: the focused window, the focused
+          # monitor, or nothing (it starts empty).
+          "Mod+Alt+W" = {
+            hotkey-overlay.title = "Share the focused window (dynamic cast target)";
+            action.set-dynamic-cast-window = { };
+          };
+          "Mod+Alt+M" = {
+            hotkey-overlay.title = "Share the focused monitor (dynamic cast target)";
+            action.set-dynamic-cast-monitor = { };
+          };
+          "Mod+Alt+C" = {
+            hotkey-overlay.title = "Stop showing anything in the dynamic cast target";
+            action.clear-dynamic-cast-target = { };
+          };
+          # Tells the app it is fullscreen while it stays a normal window
+          # (a slideshow shared without the browser's UI, beside its notes).
+          "Mod+Ctrl+Shift+F" = {
+            hotkey-overlay.title = "Windowed fullscreen (app thinks it is fullscreen)";
+            action.toggle-windowed-fullscreen = { };
+          };
+
+          "XF86MonBrightnessDown" = lockedSpawn "Brightness down" [
             "${brightnessctl}"
             "set"
             "10%-"
           ];
-          "XF86MonBrightnessUp".action.spawn = [
+          "XF86MonBrightnessUp" = lockedSpawn "Brightness up" [
             "${brightnessctl}"
             "set"
             "+10%"
           ];
 
-          # Audio controls
-          "XF86AudioRaiseVolume".action.spawn = [
+          # Audio controls (they work on the lock screen too)
+          "XF86AudioRaiseVolume" = lockedSpawn "Volume up" [
             "${wpctl}"
             "set-volume"
             "@DEFAULT_SINK@"
             "3%+"
           ];
-          "XF86AudioLowerVolume".action.spawn = [
+          "XF86AudioLowerVolume" = lockedSpawn "Volume down" [
             "${wpctl}"
             "set-volume"
             "@DEFAULT_SINK@"
             "3%-"
           ];
-          "XF86AudioMute".action.spawn = [
+          "XF86AudioMute" = lockedSpawn "Mute / unmute" [
             "${wpctl}"
             "set-mute"
             "@DEFAULT_SINK@"
             "toggle"
           ];
+          "XF86AudioMicMute" = lockedSpawn "Mute / unmute the microphone" [
+            "${wpctl}"
+            "set-mute"
+            "@DEFAULT_SOURCE@"
+            "toggle"
+          ];
+
+          # Media keys (unbound, they only reached the focused app)
+          "XF86AudioPlay" = lockedSpawn "Play / pause" (media "playPause" [ "play-pause" ]);
+          "XF86AudioPause" = lockedSpawn "Pause" (media "pauseAll" [ "pause" ]);
+          "XF86AudioNext" = lockedSpawn "Next track" (media "next" [ "next" ]);
+          "XF86AudioPrev" = lockedSpawn "Previous track" (media "previous" [ "previous" ]);
+          "XF86AudioStop" = lockedSpawn "Stop the music" (media "pauseAll" [ "stop" ]);
         }
         // (
           if cfg.dmsConfig.enable then
@@ -874,94 +1005,145 @@ in
           # services/CompositorGlobalShortcut.qml), so everything goes through
           # the shell's IPC instead. Layout mirrors the DMS binds above so the
           # muscle memory carries over.
+          # Each with its title in niri's hotkey overlay (Mod+F1), which
+          # otherwise shows the raw `nixbook-shell ipc call …` command.
           lib.optionalAttrs cfg.nixbookShellConfig.enable (
             lib.mapAttrs
-              (_name: call: {
+              (_name: bind: {
+                hotkey-overlay.title = bind.title;
                 action.spawn = [
                   "nixbook-shell"
                   "ipc"
                   "call"
                 ]
-                ++ call;
+                ++ bind.call;
               })
               {
-                "Mod+B" = [
-                  "bar"
-                  "toggle"
-                ];
-                "Mod+D" = [
-                  "search"
-                  "toggle"
-                ];
-                "Mod+O" = [
-                  "search"
-                  "workspacesToggle"
-                ];
-                "Mod+Q" = [
-                  "search"
-                  "clipboardToggle"
-                ];
-                "Mod+L" = [
-                  "session"
-                  "toggle"
-                ];
-                "Mod+N" = [
-                  "sidebarRight"
-                  "toggle"
-                ];
-                "Mod+Space" = [
-                  "sidebarLeft"
-                  "toggle"
-                ];
-                "Mod+W" = [
-                  "wallpaperSelector"
-                  "toggle"
-                ];
-                "Mod+Escape" = [
-                  "settings"
-                  "toggle"
-                ];
-                "Mod+X" = [
-                  "search"
-                  "themeToggle"
-                ];
+                "Mod+B" = {
+                  title = "Show / hide the bar";
+                  call = [
+                    "bar"
+                    "toggle"
+                  ];
+                };
+                "Mod+D" = {
+                  title = "App launcher";
+                  call = [
+                    "search"
+                    "toggle"
+                  ];
+                };
+                "Mod+O" = {
+                  title = "Workspace overview (shell)";
+                  call = [
+                    "search"
+                    "workspacesToggle"
+                  ];
+                };
+                "Mod+Q" = {
+                  title = "Clipboard history";
+                  call = [
+                    "search"
+                    "clipboardToggle"
+                  ];
+                };
+                "Mod+L" = {
+                  title = "Session menu (lock, log out, power)";
+                  call = [
+                    "session"
+                    "toggle"
+                  ];
+                };
+                "Mod+N" = {
+                  title = "Notifications and quick settings";
+                  call = [
+                    "sidebarRight"
+                    "toggle"
+                  ];
+                };
+                "Mod+Space" = {
+                  title = "Left sidebar (AI chat, translator)";
+                  call = [
+                    "sidebarLeft"
+                    "toggle"
+                  ];
+                };
+                "Mod+W" = {
+                  title = "Wallpaper selector";
+                  call = [
+                    "wallpaperSelector"
+                    "toggle"
+                  ];
+                };
+                "Mod+Escape" = {
+                  title = "Shell settings";
+                  call = [
+                    "settings"
+                    "toggle"
+                  ];
+                };
+                "Mod+X" = {
+                  title = "Theme switcher";
+                  call = [
+                    "search"
+                    "themeToggle"
+                  ];
+                };
                 # Window layouts: the launcher as a picker (restore one, or
                 # type a name to save the windows as they are).
-                "Mod+G" = [
-                  "search"
-                  "layoutsToggle"
-                ];
+                "Mod+G" = {
+                  title = "Window layouts (restore / save)";
+                  call = [
+                    "search"
+                    "layoutsToggle"
+                  ];
+                };
                 # Screen recording: the screenshot selector in record mode
                 # (rectangle / window / screen, desktop audio); again: stop.
-                "Shift+Print" = [
-                  "region"
-                  "recordWithSound"
-                ];
+                "Shift+Print" = {
+                  title = "Record the screen (again: stop)";
+                  call = [
+                    "region"
+                    "recordWithSound"
+                  ];
+                };
                 # Panic key: pause (or allow again) every AI agent driving the
                 # desktop (nixbook-desktop-mcp; same as the bar's robot).
-                "Mod+Shift+Escape" = [
-                  "desktopControl"
-                  "toggle"
-                ];
+                "Mod+Shift+Escape" = {
+                  title = "Pause / allow the AI agents on the desktop";
+                  call = [
+                    "desktopControl"
+                    "toggle"
+                  ];
+                };
                 # DAI's speech bubble, to ask anything (it answers there).
                 # Takes Mod+C: centering the column moves to Mod+Shift+C.
-                "Mod+C" = [
-                  "assistant"
-                  "toggle"
-                ];
+                "Mod+C" = {
+                  title = "Ask DAI";
+                  call = [
+                    "assistant"
+                    "toggle"
+                  ];
+                };
                 # Kiroshi scan: the focused screen read by Claude's vision,
                 # a brief and what matters labelled with offers (1-8 opens one).
-                "Mod+K" = [
-                  "kiroshi"
-                  "scan"
-                ];
+                "Mod+K" = {
+                  title = "Kiroshi scan";
+                  call = [
+                    "kiroshi"
+                    "scan"
+                  ];
+                };
                 # Smart clipboard: the first action offered for what was just
                 # copied (Track it, Add to calendar, Translate…), while its
                 # chips show (they never take the keyboard).
-                "Mod+Alt+V" = [
-                  "smartClipboard"
-                  "run"
-                ];
+                "Mod+Alt+V" = {
+                  title = "Smart clipboard: run the offered action";
+                  call = [
+                    "smartClipboard"
+                    "run"
+                  ];
+                };
               }
           )
         )
@@ -972,6 +1154,7 @@ in
           # which is what actually locks/suspends this machine. Shadows niri's
           # focus-workspace-up on Mod+I exactly like the DMS bind does.
           lib.optionalAttrs cfg.nixbookShellConfig.enable {
+            "Mod+I".hotkey-overlay.title = "Caffeine: no auto-lock or suspend (again: back on)";
             "Mod+I".action.spawn = [
               "bash"
               "-c"
