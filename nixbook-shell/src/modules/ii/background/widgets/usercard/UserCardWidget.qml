@@ -305,7 +305,8 @@ AbstractBackgroundWidget {
                     visible: false
 
                     // Only feeds the FastBlur used when widget blur is off
-                    property string effectiveSource: Config.options.background.widgets.blurWidgets ? "" : "file://" + (GlobalStates.screenLocked && Config.options.background.lockWall !== ""
+                    // A live (video) wallpaper: its still frame (an Image can't decode the video).
+                    property string effectiveSource: Config.options.background.widgets.blurWidgets ? "" : "file://" + Wallpapers.posterFor(GlobalStates.screenLocked && Config.options.background.lockWall !== ""
                         ? Config.options.background.lockWall
                         : Config.options.background.wallpaperPath)
 
@@ -636,7 +637,10 @@ AbstractBackgroundWidget {
 
                         Image {
                             anchors.fill: parent
-                            source: Config.options.sidebar.bannerImage || Config.options.background.wallpaperPath
+                            source: {
+                                const p = Wallpapers.posterFor(Config.options.sidebar.bannerImage || Config.options.background.wallpaperPath);
+                                return p ? `file://${p}` : "";
+                            }
                             fillMode: Image.PreserveAspectCrop
                             asynchronous: true
                             cache: false

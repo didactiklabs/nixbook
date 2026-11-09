@@ -208,7 +208,8 @@ MouseArea {
                 anchors.fill: parent
                 visible: Config.options.wallpaperSelector.showBlurBackground
                 fillMode: Image.PreserveAspectCrop
-                source: Config.options.wallpaperSelector.showBlurBackground ? Config.options.background.wallpaperPath : ""
+                // A live (video) wallpaper: its still frame (an Image can't decode the video).
+                source: Config.options.wallpaperSelector.showBlurBackground ? Wallpapers.posterFor(Config.options.background.wallpaperPath) : ""
                 // Only shown under a radius 48 blur, so a small decode looks the same
                 // and stays small enough for the pixmap cache to keep it between openings
                 sourceSize: Qt.size(480, 480)
