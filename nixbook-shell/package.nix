@@ -26,6 +26,8 @@ let
   # The notes' sync with Google Keep (`nixbook-keep`, services/KeepSync.qml).
   keep = import ./keep.nix { inherit pkgs gkeepapiSrc; };
   settingsLib = import ./lib.nix { inherit lib; };
+  # wl-clipboard with a wl-copy that keeps text as text (wl-copy.nix).
+  wlClipboard = import ./wl-copy.nix { inherit pkgs; };
   # The live wallpaper player, drawing at the output's own pixels on a
   # fractionally scaled output (patches/mpvpaper-fractional-scale.patch).
   mpvpaper = pkgs.mpvpaper.overrideAttrs (old: {
@@ -70,7 +72,7 @@ let
           grim
           wtype
           ydotool
-          wl-clipboard
+          wlClipboard
           libnotify
           imagemagick # scales window captures down
           tesseract # read_screen
@@ -183,7 +185,7 @@ let
       mpvpaper # the patched one above (a let binding wins over `with pkgs`)
       socat # live-wallpaper.sh: mpv's IPC socket (pause, swap in the copy)
 
-      wl-clipboard
+      wlClipboard
       cliphist
       grim
       slurp
