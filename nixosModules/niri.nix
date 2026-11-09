@@ -142,7 +142,10 @@ in
       environment.systemPackages = with pkgs; [
         fuzzel
         grimblast
-        wl-clipboard
+        # wl-clipboard, with a wl-copy that keeps text as text: a bare
+        # `wl-copy` (Claude Code, cliphist) offered a command starting with
+        # `v=` as application/sdp only, and nothing could paste it.
+        (lib.hiPrio (import ../nixbook-shell/wl-copy.nix { inherit pkgs; }))
         libnotify
         xwayland-satellite
         networkmanagerapplet # nm-applet (NM secret agent for WPA Enterprise) + nm-connection-editor
