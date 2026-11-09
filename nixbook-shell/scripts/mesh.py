@@ -12,8 +12,11 @@ time (`mesh code`); the others enter it (`mesh join`, the code on stdin).
 Every member holds the key, so a message to one person is hidden from the
 others' screens, not from their key.
 
-The server needs an access token per person (`tk_…`, set on the server
-side; removing it there cuts that person off). The token and the key live in
+The server needs an access token per person (`tk_…`). The server's admin
+(an ntfy admin, whose token is set by hand) invites people from their
+desktop (`invite`): no server configuration per person. The invited person
+pastes the invite code (`accept`), which makes their own token. Removing
+someone (`remove`) cuts them off at once. The token and the key live in
 the keyring (secret-tool, `service=nixbook-mesh kind=token|key`), or, when
 there is no keyring (or NIXBOOK_MESH_STORE=file), in
 $XDG_CONFIG_HOME/nixbook-shell/mesh/{token,key} (0600), which can also be
@@ -27,6 +30,11 @@ Commands (JSON on stdout; secrets only ever on stdin):
   mesh join | mesh leave        enter a mesh's code (stdin) / forget the key
   test SERVER                   the token works, and the mesh is reachable
   send SERVER KIND              publish (stdin: the JSON data) as $USER
+  invite SERVER NAME            (the server's admin) an account for NAME with
+                                the mesh's topics, and their invite code
+  members SERVER | remove SERVER NAME   (the admin) who is in / take one out
+  accept                        join with an invite code (stdin): this
+                                desktop's own token, and the mesh key
   listen SERVER                 one JSON line per event, until killed:
                                 {"event": "message", "kind", "from", "name",
                                  "time", "mid", "to", "mine", "data"},
@@ -271,6 +279,23 @@ def request(url, token, data=None, method=None, timeout=20, headers=None):
     return urllib.request.urlopen(req, timeout=timeout)
 
 
+def api(server, path, method="GET", body=None, token=None, basic=None, timeout=20):
+    """An ntfy JSON API call, as a token's owner or with a password."""
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(f"{server}{path}", data=data, method=method)
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
+    elif basic:
+        raw = f"{basic[0]}:{basic[1]}".encode()
+        req.add_header("Authorization", "Basic " + base64.b64encode(raw).decode())
+    req.add_header("User-Agent", USER_AGENT)
+    if data is not None:
+        req.add_header("Content-Type", "application/json")
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        text = r.read().decode() or "null"
+    return json.loads(text)
+
+
 def http_error(e):
     if isinstance(e, urllib.error.HTTPError):
         if e.code == 401:
@@ -357,7 +382,7 @@ def cmd_test(args):
     user = account.get("username") or ""
     if not user or user == "*":
         fail("the server doesn't know this token")
-    result = {"ok": True, "user": user, "joined": False}
+    result = {"ok": True, "user": user, "role": account.get("role") or "user", "joined": False}
     key, _ = load_key()
     if key:
         topic = topic_of(key)
@@ -368,6 +393,148 @@ def cmd_test(args):
             fail(http_error(e))
         result["joined"] = True
     out(result)
+
+
+# -- Invites (the server's admin) -------------------------------------------------
+#
+# The admin's token creates the person's account on the server, with the
+# mesh's topics, and an invite code holds what their desktop needs: the
+# server, the account with a one-time password, and the mesh key. Accepting
+# it changes that password (so the code works once) and makes the desktop's
+# own token. Inviting someone again gives them a new password (a new code).
+
+INVITE_PREFIX = "nixbook-mesh-invite:"
+NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,31}$")
+
+
+def invite_code(server, name, password, key):
+    raw = json.dumps({"v": 1, "s": server, "u": name, "p": password,
+                      "k": base64.b64encode(key).decode()}, separators=(",", ":")).encode()
+    raw += hashlib.sha256(raw).digest()[:4]
+    return INVITE_PREFIX + base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+
+def parse_invite(code):
+    text = re.sub(r"\s+", "", code or "")
+    if text.startswith(INVITE_PREFIX):
+        text = text[len(INVITE_PREFIX):]
+    try:
+        raw = base64.urlsafe_b64decode(text + "=" * (-len(text) % 4))
+    except (ValueError, binascii.Error):
+        return None
+    body, check = raw[:-4], raw[-4:]
+    if len(raw) < 8 or hashlib.sha256(body).digest()[:4] != check:
+        return None
+    try:
+        data = json.loads(body)
+        key = base64.b64decode(data["k"], validate=True)
+    except (ValueError, KeyError, TypeError, binascii.Error):
+        return None
+    if len(key) != 32 or not NAME_RE.match(str(data.get("u") or "")):
+        return None
+    return {"server": str(data.get("s") or ""), "name": data["u"], "password": str(data.get("p") or ""), "key": key}
+
+
+def admin_error(e):
+    if isinstance(e, urllib.error.HTTPError) and e.code in (401, 403):
+        return "only the server's admin can do this (your token isn't an admin's)"
+    if isinstance(e, urllib.error.HTTPError) and e.code == 409:
+        return "that person is set in the server's own configuration (Vault), not by invites: change them there"
+    return http_error(e)
+
+
+def cmd_invite(args):
+    if len(args) < 2:
+        fail("usage: invite SERVER NAME")
+    server = server_url(args[0])
+    name = args[1].strip().lower()
+    if not NAME_RE.match(name):
+        fail("a name is lower-case letters, digits, '.', '_' or '-' (up to 32)")
+    token = token_or_fail()
+    key = key_or_fail()
+    password = secrets.token_urlsafe(18)
+    try:
+        try:
+            api(server, "/v1/users", "POST", {"username": name, "password": password}, token=token)
+            again = False
+        except urllib.error.HTTPError as e:
+            if e.code != 409:
+                raise
+            # Invited before: a new password, so a new code.
+            api(server, "/v1/users", "PUT", {"username": name, "password": password}, token=token)
+            again = True
+        api(server, "/v1/users/access", "PUT", {"username": name, "topic": f"{TOPIC_PREFIX}*", "permission": "rw"},
+            token=token)
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        fail(admin_error(e))
+    out({"ok": True, "name": name, "again": again, "code": invite_code(server, name, password, key)})
+
+
+def cmd_members(args):
+    server = server_url(args[0] if args else "")
+    token = token_or_fail()
+    try:
+        users = api(server, "/v1/users", token=token)
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        fail(admin_error(e))
+    members = []
+    for u in users or []:
+        role = u.get("role")
+        if role == "anonymous":
+            continue
+        grants = [g.get("topic") for g in (u.get("grants") or [])]
+        if role == "admin" or f"{TOPIC_PREFIX}*" in grants:
+            members.append({"name": u.get("username"), "role": role})
+    out({"ok": True, "members": members})
+
+
+def cmd_remove(args):
+    if len(args) < 2:
+        fail("usage: remove SERVER NAME")
+    server = server_url(args[0])
+    name = args[1].strip().lower()
+    token = token_or_fail()
+    try:
+        me_ = api(server, "/v1/account", token=token).get("username")
+        if name == me_:
+            fail("that's you")
+        api(server, "/v1/users", "DELETE", {"username": name}, token=token)
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        fail(admin_error(e))
+    out({"ok": True, "name": name})
+
+
+def cmd_accept(_args):
+    invite = parse_invite(sys.stdin.readline())
+    if not invite:
+        fail("that isn't an invite code, or it was cut: copy all of it")
+    server = server_url(invite["server"])
+    name = invite["name"]
+    new_password = secrets.token_urlsafe(24)
+    try:
+        api(server, "/v1/account/password", "POST", {"password": invite["password"], "new_password": new_password},
+            basic=(name, invite["password"]))
+    except urllib.error.HTTPError as e:
+        if e.code == 401:
+            fail("this invite was already used, or replaced by a newer one: ask for a new one")
+        fail(http_error(e))
+    except (urllib.error.URLError, OSError) as e:
+        fail(http_error(e))
+    try:
+        answer = api(server, "/v1/account/token", "POST", {"label": socket.gethostname()[:60] or "desktop"},
+                     basic=(name, new_password))
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        fail(http_error(e) + " (the invite is used now: ask for a new one)")
+    token = str(answer.get("token") or "")
+    if not TOKEN_RE.match(token):
+        fail("the server didn't give a token (the invite is used now: ask for a new one)")
+    token_where = save_secret("token", token, "nixbook mesh: ntfy access token")
+    key_where = save_secret("key", base64.b64encode(invite["key"]).decode(), "nixbook mesh: the mesh key")
+    try:
+        (state_dir() / "position.json").unlink()
+    except OSError:
+        pass
+    out({"ok": True, "server": server, "user": name, "tokenSource": token_where, "keySource": key_where})
 
 
 def cmd_send(args):
@@ -502,10 +669,14 @@ def main():
         "test": cmd_test,
         "send": cmd_send,
         "listen": cmd_listen,
+        "invite": cmd_invite,
+        "members": cmd_members,
+        "remove": cmd_remove,
+        "accept": cmd_accept,
     }
     command = commands.get(args[0]) if args else None
     if not command:
-        fail("usage: nixbook-mesh status|token|mesh|test|send|listen")
+        fail("usage: nixbook-mesh status|token|mesh|test|send|listen|invite|members|remove|accept")
     try:
         command(args[1:])
     except KeyboardInterrupt:
