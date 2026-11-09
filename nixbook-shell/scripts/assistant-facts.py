@@ -139,6 +139,26 @@ IPC = {
         "ouvrir les widgets en surimpression",
         "die Overlay-Widgets öffnen",
         "mở các widget nổi"),
+    ("mpris", "playPause"): t(
+        "play or pause the music (the player picked in the media controls, else the one playing)",
+        "lire ou mettre en pause la musique (le lecteur choisi dans les contrôles multimédia, sinon celui qui joue)",
+        "die Musik abspielen oder pausieren (der in der Mediensteuerung gewählte Player, sonst der gerade spielende)",
+        "phát hoặc tạm dừng nhạc (trình phát đã chọn trong điều khiển đa phương tiện, nếu không thì trình đang phát)"),
+    ("mpris", "pauseAll"): t(
+        "pause the music (every player)",
+        "mettre la musique en pause (tous les lecteurs)",
+        "die Musik pausieren (alle Player)",
+        "tạm dừng nhạc (mọi trình phát)"),
+    ("mpris", "next"): t(
+        "skip to the next track",
+        "passer au morceau suivant",
+        "zum nächsten Titel springen",
+        "chuyển sang bài tiếp theo"),
+    ("mpris", "previous"): t(
+        "go back to the previous track",
+        "revenir au morceau précédent",
+        "zum vorherigen Titel zurückgehen",
+        "quay lại bài trước"),
     ("mediaControls", "toggle"): t(
         "open the media controls",
         "ouvrir les contrôles multimédia",
@@ -197,6 +217,31 @@ NIRI = {
         "faire entrer ou sortir la fenêtre de la colonne de droite",
         "das Fenster in die rechte Spalte aufnehmen oder daraus lösen",
         "đưa cửa sổ vào hoặc ra khỏi cột bên phải"),
+    "show-hotkey-overlay": t(
+        "show niri's list of keyboard shortcuts",
+        "afficher la liste des raccourcis clavier de niri",
+        "niris Liste der Tastenkürzel anzeigen",
+        "hiện danh sách phím tắt của niri"),
+    "set-dynamic-cast-window": t(
+        "share the focused window in a screen share: pick \"niri Dynamic Cast Target\" in the app's share dialog once, then this key changes what it shows",
+        "partager la fenêtre active dans un partage d'écran : choisissez une fois « niri Dynamic Cast Target » dans la fenêtre de partage de l'application, puis cette touche change ce qu'il montre",
+        "das aktive Fenster in einer Bildschirmfreigabe teilen: im Freigabedialog der App einmal „niri Dynamic Cast Target“ wählen, dann wechselt diese Taste, was es zeigt",
+        "chia sẻ cửa sổ đang dùng khi chia sẻ màn hình: chọn một lần \"niri Dynamic Cast Target\" trong hộp thoại chia sẻ của ứng dụng, rồi phím này đổi nội dung được chia sẻ"),
+    "set-dynamic-cast-monitor": t(
+        "share the focused monitor in a screen share (through \"niri Dynamic Cast Target\")",
+        "partager l'écran actif dans un partage d'écran (par « niri Dynamic Cast Target »)",
+        "den aktiven Bildschirm in einer Bildschirmfreigabe teilen (über „niri Dynamic Cast Target“)",
+        "chia sẻ màn hình đang dùng khi chia sẻ màn hình (qua \"niri Dynamic Cast Target\")"),
+    "clear-dynamic-cast-target": t(
+        "stop showing anything in the screen share (\"niri Dynamic Cast Target\" goes empty)",
+        "ne plus rien montrer dans le partage d'écran (« niri Dynamic Cast Target » devient vide)",
+        "in der Bildschirmfreigabe nichts mehr zeigen („niri Dynamic Cast Target“ wird leer)",
+        "ngừng hiển thị gì trong chia sẻ màn hình (\"niri Dynamic Cast Target\" trở nên trống)"),
+    "toggle-windowed-fullscreen": t(
+        "windowed fullscreen: the app acts fullscreen but stays a normal window (share a slideshow without the browser's toolbars)",
+        "plein écran fenêtré : l'application se croit en plein écran mais reste une fenêtre normale (partager un diaporama sans les barres du navigateur)",
+        "Vollbild im Fenster: die App verhält sich wie im Vollbild, bleibt aber ein normales Fenster (eine Präsentation ohne Browserleisten teilen)",
+        "toàn màn hình trong cửa sổ: ứng dụng tưởng đang toàn màn hình nhưng vẫn là cửa sổ thường (chia sẻ trình chiếu mà không có thanh công cụ trình duyệt)"),
     "power-off-monitors": t(
         "turn the monitors off",
         "éteindre les écrans",
@@ -285,12 +330,23 @@ def describe(action: str):
             fallback = f"nixbook-shell panel: {args[3]} {args[4]}"
             return IPC.get((args[3], args[4]), t(fallback, fallback, fallback, fallback))
         if args[0] == "wpctl":
+            if "set-mute" in args and "@DEFAULT_SOURCE@" in args:
+                return t("mute or unmute the microphone", "couper ou rétablir le micro",
+                         "das Mikrofon stumm schalten oder wieder einschalten", "tắt hoặc bật micro")
             if "set-mute" in args:
                 return t("mute or unmute the audio", "couper ou rétablir le son",
                          "den Ton stumm schalten oder wieder einschalten", "tắt hoặc bật tiếng")
             if args[-1].endswith("-"):
                 return t("turn the volume down", "baisser le volume", "die Lautstärke verringern", "giảm âm lượng")
             return t("turn the volume up", "monter le volume", "die Lautstärke erhöhen", "tăng âm lượng")
+        if args[0] == "playerctl" and len(args) > 1:
+            if args[1] == "next":
+                return IPC[("mpris", "next")]
+            if args[1] == "previous":
+                return IPC[("mpris", "previous")]
+            if args[1] in ("pause", "stop"):
+                return IPC[("mpris", "pauseAll")]
+            return IPC[("mpris", "playPause")]
         if args[0] == "brightnessctl":
             if args[-1].endswith("-"):
                 return t("turn the brightness down", "baisser la luminosité", "die Helligkeit verringern", "giảm độ sáng")

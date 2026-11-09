@@ -67,17 +67,20 @@ nixbook-shell binds all spawn `nixbook-shell ipc call <target> <function>`.
 
 ### Window management
 
-| Keybind       | Action                                                       |
-| ------------- | ------------------------------------------------------------ |
-| `Mod+A`       | Close window                                                 |
-| `Mod+F`       | Fullscreen window                                            |
-| `Mod+Z`       | Maximize column                                              |
-| `Mod+C`       | Center column (nixbook-shell: `Mod+Shift+C`, Mod+C asks DAI) |
-| `Mod+R`       | Cycle preset column widths                                   |
-| `Mod+E`       | Consume / expel window to the left                           |
-| `Mod+Tab`     | Toggle overview (all windows)                                |
-| `Mod+Shift+E` | Quit niri (exit session)                                     |
-| `Mod+Shift+P` | Power off monitors                                           |
+| Keybind                     | Action                                                                |
+| --------------------------- | --------------------------------------------------------------------- |
+| `Mod+A`                     | Close window                                                          |
+| `Mod+F`                     | Fullscreen window                                                     |
+| `Mod+Z`                     | Maximize column                                                       |
+| `Mod+C`                     | Center column (nixbook-shell: `Mod+Shift+C`, Mod+C asks DAI)          |
+| `Mod+R`                     | Cycle preset column widths                                            |
+| `Mod+E`                     | Consume / expel window to the left                                    |
+| `Mod+Tab`                   | Toggle overview (all windows)                                         |
+| `Mod+Shift+E`               | Quit niri (exit session)                                              |
+| `Mod+Shift+P`               | Power off monitors                                                    |
+| `Mod+F1`                    | niri's list of keybindings (hotkey overlay)                           |
+| `Mod+Ctrl+Shift+F`          | Windowed fullscreen (the app thinks it is fullscreen, stays a window) |
+| `Alt+Tab` / `Alt+Shift+Tab` | Recent windows switcher (niri default; `Mod+Tab` stays the overview)  |
 
 ### Focus navigation
 
@@ -126,15 +129,32 @@ nixbook-shell binds all spawn `nixbook-shell ipc call <target> <function>`.
 
 ### Media / brightness / screenshot
 
-| Keybind                 | Action                                                                                   |
-| ----------------------- | ---------------------------------------------------------------------------------------- |
-| `Print`                 | Screenshot: DMS tool, nixbook-shell region selector, or area-to-clipboard via grim+slurp |
-| `Shift+Print`           | nixbook-shell: record the screen (region selector in record mode; again: stop)           |
-| `XF86MonBrightnessUp`   | Brightness +10%                                                                          |
-| `XF86MonBrightnessDown` | Brightness -10%                                                                          |
-| `XF86AudioRaiseVolume`  | Volume +3%                                                                               |
-| `XF86AudioLowerVolume`  | Volume -3%                                                                               |
-| `XF86AudioMute`         | Toggle mute                                                                              |
+| Keybind                            | Action                                                                                   |
+| ---------------------------------- | ---------------------------------------------------------------------------------------- |
+| `Print`                            | Screenshot: DMS tool, nixbook-shell region selector, or area-to-clipboard via grim+slurp |
+| `Shift+Print`                      | nixbook-shell: record the screen (region selector in record mode; again: stop)           |
+| `XF86MonBrightnessUp`              | Brightness +10%                                                                          |
+| `XF86MonBrightnessDown`            | Brightness -10%                                                                          |
+| `XF86AudioRaiseVolume`             | Volume +3%                                                                               |
+| `XF86AudioLowerVolume`             | Volume -3%                                                                               |
+| `XF86AudioMute`                    | Toggle mute                                                                              |
+| `XF86AudioMicMute`                 | Toggle microphone mute                                                                   |
+| `XF86AudioPlay`                    | Play / pause (nixbook-shell's chosen player, else playerctl)                             |
+| `XF86AudioPause` / `XF86AudioStop` | Pause the music                                                                          |
+| `XF86AudioNext`                    | Next track                                                                               |
+| `XF86AudioPrev`                    | Previous track                                                                           |
+
+Volume, microphone, brightness and media keys also work on the lock screen (`allow-when-locked`).
+
+### Screen sharing
+
+In the app's share dialog, pick the window "niri Dynamic Cast Target" once; these keys then change what it shows.
+
+| Keybind     | Action                                |
+| ----------- | ------------------------------------- |
+| `Mod+Alt+W` | Share the focused window              |
+| `Mod+Alt+M` | Share the focused monitor             |
+| `Mod+Alt+C` | Share nothing (the stream goes empty) |
 
 #### nixbook-shell screenshot selector (open with `Print`)
 

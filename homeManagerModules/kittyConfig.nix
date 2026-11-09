@@ -128,6 +128,7 @@ in
       niri = {
         settings = {
           binds = {
+            "Mod+Return".hotkey-overlay.title = "Terminal (kitty)";
             "Mod+Return".action.spawn = [ "${pkgs.kitty}/bin/kitty" ];
           };
         };
