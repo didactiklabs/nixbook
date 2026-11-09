@@ -266,6 +266,21 @@ ColumnLayout {
                 }
             }
 
+            // A TextEdit in a Flickable only draws the part of its text inside
+            // the viewport, and redraws when the view scrolls but not when it
+            // grows: widening the panel (Ctrl+O) left the code cut at its old
+            // width. Nudging the scroll position redraws what is now visible
+            // (and keeps it within the new limit).
+            Connections {
+                target: codeScrollView.contentItem
+                function onWidthChanged() {
+                    const flick = codeScrollView.contentItem;
+                    const x = Math.min(flick.contentX, Math.max(0, flick.contentWidth - flick.width));
+                    flick.contentX = x + 1;
+                    flick.contentX = x;
+                }
+            }
+
             // Wheel over the code: sideways (a horizontal swipe or Shift+wheel)
             // scrolls the code when it overflows; anything else goes on to the
             // chat list. No buttons: selection and the scroll bar work as before.
