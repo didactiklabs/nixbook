@@ -92,6 +92,58 @@ Singleton {
             }
             done.metaModels = true;
         }
+        // The bar and dock defaults became nixbook's own (totoro's bar, the
+        // dock on with Dolphin, kitty and Zen). A config.json written before
+        // holds the old built-ins: replace a value only while it still is the
+        // old default (one chosen in the menu stays), never one set in Nix.
+        if (!done.barDockDefaults) {
+            const same = (a, b) => JSON.stringify(Array.isArray(a) ? Array.from(a) : a) === JSON.stringify(b);
+            const old = {
+                "bar.cornerStyle": 0,
+                "bar.layouts.leftLayout": ["launcherButton", "workspaces", "activeWindow"],
+                "bar.layouts.middleLayout": ["clockWidget"],
+                "bar.layouts.rightLayout": ["sysTray", "utilButtons", "systemIcons", "powerButton"],
+                "bar.utilButtons.showScreenSnip": true,
+                "bar.utilButtons.showColorPicker": true,
+                "bar.utilButtons.showMicToggle": false,
+                "bar.utilButtons.showWallpaperToggle": true,
+                "bar.utilButtons.showScreenRecord": false,
+                "bar.workspaces.shown": 10,
+                "bar.workspaces.numberMap": ["1", "2"],
+                "bar.indicators.notifications.showUnreadCount": false,
+                "dock.enable": false,
+                "dock.showPinButton": true,
+                "dock.showAppsButton": true,
+                "dock.monochromeIcons": true,
+                "dock.pinnedApps": ["org.kde.dolphin", "kitty"]
+            };
+            const now = {
+                "bar.cornerStyle": 1,
+                "bar.layouts.leftLayout": ["launcherButton", "workspaces", "activeWindow", "leftSidebarButton"],
+                "bar.layouts.middleLayout": ["clockWidget", "kdeConnect", "resources", "networkSpeed", "anthropicUsage"],
+                "bar.layouts.rightLayout": ["sysTray", "utilButtons", "systemIcons", "vpnStatus", "desktopControl", "batteryIndicator", "powerButton", "updatesCount"],
+                "bar.utilButtons.showScreenSnip": false,
+                "bar.utilButtons.showColorPicker": false,
+                "bar.utilButtons.showMicToggle": true,
+                "bar.utilButtons.showWallpaperToggle": false,
+                "bar.utilButtons.showScreenRecord": true,
+                "bar.workspaces.shown": 5,
+                "bar.workspaces.numberMap": [],
+                "bar.indicators.notifications.showUnreadCount": true,
+                "dock.enable": true,
+                "dock.showPinButton": false,
+                "dock.showAppsButton": false,
+                "dock.monochromeIcons": false,
+                "dock.pinnedApps": ["org.kde.dolphin", "kitty", "zen-twilight"]
+            };
+            for (const key in old) {
+                const parts = key.split(".");
+                const parent = parts.slice(0, -1).reduce((o, k) => o?.[k], root.options);
+                const name = parts[parts.length - 1];
+                if (parent && same(parent[name], old[key]) && !NixManaged.isPinned(key)) parent[name] = now[key];
+            }
+            done.barDockDefaults = true;
+        }
     }
     property int readWriteDelay: 50 // milliseconds
     property bool blockWrites: false
@@ -841,7 +893,7 @@ Singleton {
                 property bool followFrameColor: false
                 property bool centerOnlyReserveFrame: false
                 property bool bottom: false // Instead of top
-                property int cornerStyle: 0 // 0: Hug | 1: Float | 2: Plain rectangle
+                property int cornerStyle: 1 // 0: Hug | 1: Float | 2: Plain rectangle
                 property string groupColor: "layer1"
                 property string borderless: "pills"
                 property bool showBackground: true
@@ -872,31 +924,31 @@ Singleton {
                 }
 
                 property JsonObject layouts: JsonObject {
-                    property list<string> leftLayout: ["launcherButton", "workspaces", "activeWindow"]
-                    property list<string> middleLayout: ["clockWidget"]
-                    property list<string> rightLayout: ["sysTray", "utilButtons", "systemIcons", "powerButton"]
+                    property list<string> leftLayout: ["launcherButton", "workspaces", "activeWindow", "leftSidebarButton"]
+                    property list<string> middleLayout: ["clockWidget", "kdeConnect", "resources", "networkSpeed", "anthropicUsage"]
+                    property list<string> rightLayout: ["sysTray", "utilButtons", "systemIcons", "vpnStatus", "desktopControl", "batteryIndicator", "powerButton", "updatesCount"]
                 }
                 
                 property list<string> screenList: [] // List of names, like "eDP-1", find out with `niri msg outputs`
                 property JsonObject utilButtons: JsonObject {
-                    property bool showScreenSnip: true
-                    property bool showColorPicker: true
-                    property bool showMicToggle: false
+                    property bool showScreenSnip: false
+                    property bool showColorPicker: false
+                    property bool showMicToggle: true
                     property bool showKeyboardToggle: false
-                    property bool showWallpaperToggle: true
+                    property bool showWallpaperToggle: false
                     property bool showDarkModeToggle: false
                     property bool showPerformanceProfileToggle: false
-                    property bool showScreenRecord: false       
+                    property bool showScreenRecord: true
                     property bool isRecording: false
                 }
 
                 property JsonObject workspaces: JsonObject {
                     property bool monochromeIcons: true
-                    property int shown: 10
+                    property int shown: 5
                     property bool showAppIcons: false
                     property string indicatorStyle: "dot" // "dot" or "icon"
                     property bool alwaysShowNumbers: true
-                    property list<string> numberMap: ["1", "2"] // Characters to show instead of numbers on workspace indicator
+                    property list<string> numberMap: [] // Characters to show instead of numbers on workspace indicator
                     property bool useNerdFont: false
                 }
                 property JsonObject weather: JsonObject {
@@ -908,7 +960,7 @@ Singleton {
                 }
                 property JsonObject indicators: JsonObject {
                     property JsonObject notifications: JsonObject {
-                        property bool showUnreadCount: false
+                        property bool showUnreadCount: true
                     }
                 }
                 property JsonObject tooltips: JsonObject {
@@ -949,19 +1001,19 @@ Singleton {
             }
 
             property JsonObject dock: JsonObject {
-                property bool enable: false
+                property bool enable: true
                 property bool showBackground: true
-                property bool showPinButton: true
-                property bool showAppsButton: true
+                property bool showPinButton: false
+                property bool showAppsButton: false
                 property bool showMedia: true
                 property bool showHandle: true // Pill at the bottom edge marking where to hover while the dock hides
-                property bool monochromeIcons: true
+                property bool monochromeIcons: false
                 property real height: 60
                 property real hoverRegionHeight: 2
                 property bool pinnedOnStartup: false
                 property bool hoverToReveal: true // When false, only reveals on empty workspace
                 property list<string> pinnedApps: [ // IDs of pinned entries
-                    "org.kde.dolphin", "kitty",]
+                    "org.kde.dolphin", "kitty", "zen-twilight"]
                 property list<string> ignoredAppRegexes: []
             }
 

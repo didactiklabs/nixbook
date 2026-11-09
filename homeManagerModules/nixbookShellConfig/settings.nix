@@ -32,22 +32,9 @@
     centeredWallpaperShape = "Heart";
     # wallpaperAnimation: chosen in the menu (Settings > Desktop).
   };
-  bar = {
-    cornerStyle = 1;
-    # layouts: per profile (profiles/totoro/khoa/nixbookShellConfig.nix), so
-    # other users arrange their bar from the menu.
-  };
-  dock = {
-    enable = true;
-    monochromeIcons = false;
-    pinnedApps = [
-      "org.kde.dolphin"
-      "kitty"
-      "zen-twilight"
-    ];
-    showAppsButton = false;
-    showPinButton = false;
-  };
+  # bar and dock: the shell's built-in defaults (Config.qml) are nixbook's
+  # bar and dock, so they stay editable from the menu. Set one in a
+  # profile's `nixbookShellConfig.settings` to pin it there.
   lock = {
     blur = {
       enable = false;
