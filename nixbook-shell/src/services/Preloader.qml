@@ -74,9 +74,10 @@ Singleton {
     readonly property bool hasBattery: UPower.displayDevice?.isLaptopBattery ?? false
     readonly property var chargeState: UPower.displayDevice?.state
     readonly property bool onAc: !root.hasBattery
-        || root.chargeState === UPowerDeviceState.Charging
-        || root.chargeState === UPowerDeviceState.PendingCharge
-        || root.chargeState === UPowerDeviceState.FullyCharged
+        || (!Battery.chargerTooWeak
+            && (root.chargeState === UPowerDeviceState.Charging
+                || root.chargeState === UPowerDeviceState.PendingCharge
+                || root.chargeState === UPowerDeviceState.FullyCharged))
     readonly property bool batteryLow: root.hasBattery && !root.onAc
         && (UPower.displayDevice?.percentage ?? 1) <= Math.max(0.2, (Config.options?.battery?.low ?? 20) / 100)
 
