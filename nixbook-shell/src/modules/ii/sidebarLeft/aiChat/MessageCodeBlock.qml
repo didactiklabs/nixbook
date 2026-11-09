@@ -184,6 +184,10 @@ ColumnLayout {
                     contentWidth: codeTextArea.width - 1
                     // contentHeight: codeTextArea.contentHeight
                     clip: true
+                    // ScrollView takes every wheel event over it (wheelEnabled),
+                    // so the chat stopped scrolling under the pointer. The wheel
+                    // goes to the chat; codeWheelArea below scrolls sideways.
+                    wheelEnabled: false
                     ScrollBar.vertical.policy: ScrollBar.AlwaysOff
                     
                     ScrollBar.horizontal: ScrollBar {
@@ -256,16 +260,30 @@ ColumnLayout {
                 }
             }
 
-            // MouseArea to block scrolling
-            // MouseArea {
-            //     id: codeBlockMouseArea
-            //     anchors.fill: parent
-            //     acceptedButtons: editing ? Qt.NoButton : Qt.LeftButton
-            //     cursorShape: (enableMouseSelection || editing) ? Qt.IBeamCursor : Qt.ArrowCursor
-            //     onWheel: (event) => {
-            //         event.accepted = false
-            //     }
-            // }
+            // Wheel over the code: sideways (a horizontal swipe or Shift+wheel)
+            // scrolls the code when it overflows; anything else goes on to the
+            // chat list. No buttons: selection and the scroll bar work as before.
+            MouseArea {
+                id: codeWheelArea
+                anchors.fill: parent
+                acceptedButtons: Qt.NoButton
+                onWheel: (event) => {
+                    const flick = codeScrollView.contentItem;
+                    const maxX = flick.contentWidth - flick.width;
+                    const ad = event.angleDelta;
+                    const pd = event.pixelDelta;
+                    const sideways = Math.abs(ad.x) > Math.abs(ad.y);
+                    const shifted = (event.modifiers & Qt.ShiftModifier) && ad.y !== 0;
+                    if (maxX <= 0 || !(sideways || shifted)) {
+                        event.accepted = false;
+                        return;
+                    }
+                    const pixels = sideways ? pd.x : pd.y;
+                    const step = pixels !== 0 ? pixels : (sideways ? ad.x : ad.y) / 120 * 60;
+                    flick.contentX = Math.max(0, Math.min(maxX, flick.contentX - step));
+                    event.accepted = true;
+                }
+            }
         }
     }
 }
