@@ -445,10 +445,9 @@ Singleton {
         }
         if (step.act !== "sync") {
             if (step.act === "open") {
-                // A reopen of YouTube Music: the link played something else
-                // there (that version isn't available to this account or
-                // country: YouTube Music goes on with its queue), so another
-                // version of the same song, from its search, not the same id.
+                // The second try on YouTube Music (the link landed on another
+                // song: that version doesn't play there): another version of
+                // the song.
                 if (svc === "youtube-music" && f.opens >= 2) root._openAlternative(s, f, svc, wantId);
                 else root._openSong(svc, wantId, target + 1, f);
             }
@@ -458,19 +457,53 @@ Singleton {
         }
         root._keepInSync(p, s, f, now, target, wantId);
     }
-    // Opens `id` in the listener's app, at `at` (seconds).
-    function _openSong(svc, id, at, f) {
+    // Opens `id` in the listener's app, at `at` (seconds). YouTube Music:
+    // through its Electron bridge first (its socket's `go` `open`: the app's
+    // page navigated to the link, as a click on it does; it plays songs
+    // MPRIS's OpenUri didn't, never passes by the browser, and doesn't raise
+    // the app's window), else MPRIS.
+    function _openSong(svc, id, at, f, noBridge) {
         const p = root.playerFor(svc);
         if (!p) return;
         const uri = root.uriFor(svc, id, at);
         const scheme = uri.split(":")[0];
         f.tried = [...(f.tried ?? []).filter(x => x !== id), id];
+        if (svc === "youtube-music" && !noBridge) {
+            const sock = `${Quickshell.env("XDG_RUNTIME_DIR") ?? ""}/nixbook-electron/youtube-music.sock`;
+            bridgeOpener.createObject(root, {
+                f: f, svc: svc, wantId: id, at: at,
+                command: ["sh", "-c", 'test -S "$2" || exit 3; printf "%s\\n" "$1" | socat -t 20 - "UNIX-CONNECT:$2"', "sh",
+                    JSON.stringify({ cmd: "go", action: "open", url: uri }), sock]
+            });
+            return;
+        }
         if ((p.supportedUriSchemes ?? []).map(x => String(x).toLowerCase()).includes(scheme)) p.openUri(uri);
         // Its schemes not known yet (just started) or not https: the app's
         // own command, never xdg-open (a browser, where no link routing sends
         // music.youtube.com to the app).
         else if (svc === "youtube-music") root.openInApp(svc, uri);
         else AppLaunch.openUrl(uri);
+    }
+    // The bridge's answer: not there or refused, MPRIS then.
+    Component {
+        id: bridgeOpener
+        Process {
+            id: proc
+            property var f
+            property string svc
+            property string wantId
+            property real at
+            stdout: StdioCollector { id: bridgeOut }
+            Component.onCompleted: proc.running = true
+            onExited: code => {
+                let ok = false;
+                try {
+                    ok = code === 0 && JSON.parse(bridgeOut.text.trim().split("\n").pop() || "{}").ok === true;
+                } catch (e) {}
+                if (!ok && root._f === proc.f) root._openSong(proc.svc, proc.wantId, proc.at, proc.f, true);
+                proc.destroy();
+            }
+        }
     }
     // Another version of the host's song on YouTube Music (`nixbook-mesh
     // match`, the versions tried left out), opened in place of the one that

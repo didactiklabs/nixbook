@@ -62,6 +62,12 @@ Singleton {
         const u = String(url ?? "");
         if (u.length === 0)
             return;
+        // A music app's own link opens in the app, never through the
+        // browser (nor the link router): YouTube Music's command takes it
+        // (its Electron bridge opens it in the app, the window raised),
+        // open.spotify.com becomes the spotify: link Spotify handles.
+        if (root.openInMusicApp(u))
+            return;
         root.spawn(["xdg-open", u]);
         if (/^https?:\/\//i.test(u)) {
             if (!browserQuery.queried) {
@@ -71,6 +77,22 @@ Singleton {
             browserFocus.tries = 0;
             browserFocus.restart();
         }
+    }
+
+    function openInMusicApp(u) {
+        if (/^https?:\/\/music\.youtube\.com\//i.test(u)) {
+            const entry = ["com.github.th-ch.youtube-music", "pear-desktop"].map(id => DesktopEntries.byId(id)).find(e => !!e);
+            if (!entry || (entry.command ?? []).length === 0)
+                return false;
+            root.spawn([...entry.command, u]);
+            return true;
+        }
+        const sp = u.match(/^https?:\/\/open\.spotify\.com\/(?:intl-[a-z]+\/)?(track|album|playlist|artist|episode|show)\/([A-Za-z0-9]+)/i);
+        if (sp && (DesktopEntries.byId("spotify") || DesktopEntries.byId("com.spotify.Client"))) {
+            root.spawn(["xdg-open", `spotify:${sp[1].toLowerCase()}:${sp[2]}`]);
+            return true;
+        }
+        return false;
     }
 
     // The default browser's app ids (its desktop entry's StartupWMClass,
