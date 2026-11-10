@@ -175,10 +175,16 @@ Scope {
         // The keys when called up with them (Mod+C), until put
         // away (Escape, close, expand) or an agent starts acting (its keys
         // and clicks go to the apps then, the field only once clicked into);
-        // else only once clicked into, never taken from the app.
+        // else none, but while the pointer is over the bubble (niri picks
+        // the keyboard on the press itself, so a click into the field still
+        // types at once) or something was typed in it. It used to be
+        // OnDemand all the time: niri handed it the keyboard when another
+        // surface let go of it (a screenshot's region selector closing), its
+        // field then counted as typing and it never faded.
         property bool grab: false
+        readonly property bool wantsKeys: hover.hovered || input.text.length > 0
         WlrLayershell.keyboardFocus: MakeWay.active ? WlrKeyboardFocus.None
-            : window.grab ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
+            : window.grab ? WlrKeyboardFocus.Exclusive : window.wantsKeys ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
         // Only the card takes clicks; none while an agent works underneath.
         mask: MakeWay.active ? noInput : cardRegion
         Region {
@@ -237,8 +243,10 @@ Scope {
                 opacity: 0
                 transform: Translate { id: slide; x: -60 }
                 // What holds it on screen, and takes it back from fading.
+                // Held: hovered, answering, something typed in it, or called up
+                // with the keys (Mod+C). A field merely focused doesn't hold it.
                 readonly property bool held: hover.hovered || root.responding || MakeWay.active
-                    || (Initiative.typing && (root.item?.kind !== "quick" || input.text.length > 0))
+                    || input.text.length > 0 || window.grab
                 onHeldChanged: if (held) card.stayOn()
                 function stayOn() {
                     if (!leave.running) return

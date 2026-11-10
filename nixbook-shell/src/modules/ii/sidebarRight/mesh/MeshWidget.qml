@@ -583,8 +583,13 @@ Item {
                                     event.accepted = true;
                                 }
                             }
+                            // The link under the pointer: hoveredLink reads the global
+                            // cursor position, unknown on Wayland (NotesWidget does the same).
+                            readonly property string hoveredUrl: textHover.hovered
+                                ? messageText.linkAt(textHover.point.position.x, textHover.point.position.y) : ""
                             HoverHandler {
-                                cursorShape: messageText.hoveredLink !== "" ? Qt.PointingHandCursor : Qt.IBeamCursor
+                                id: textHover
+                                cursorShape: messageText.hoveredUrl !== "" ? Qt.PointingHandCursor : Qt.IBeamCursor
                             }
                         }
                         StyledText {

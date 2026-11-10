@@ -73,7 +73,15 @@ BarWidgetSwitcher {
 
             ColumnLayout {
                 spacing: 6
-                width: 280
+
+                // Its width: a ColumnLayout computes its own implicitWidth
+                // (what StyledPopup sizes its frame from), so a `width:` left
+                // the content wider than its frame, spilling out on both
+                // sides (the Cyberpunk frame showed it).
+                Item {
+                    Layout.minimumWidth: 300
+                    implicitHeight: 0
+                }
 
                 StyledPopupHeaderRow {
                     icon: "hub"
