@@ -62,6 +62,8 @@ Singleton {
         { id: "thinking", emoji: "💭", text: Translation.tr("Thinking of you") },
         { id: "miss", emoji: "🥺", text: Translation.tr("Miss you") },
         { id: "hug", emoji: "🤗", text: Translation.tr("Sending you a hug") },
+        // Its cut-in pats the receiver's own picture (MeshNudge.qml).
+        { id: "pet", emoji: "🫳", text: Translation.tr("Head pats") },
         { id: "kiss", emoji: "😘", text: Translation.tr("A kiss") },
         { id: "wave", emoji: "👋", text: Translation.tr("Hey!") },
         { id: "morning", emoji: "☀️", text: Translation.tr("Good morning") },
