@@ -2,6 +2,8 @@
 
 nixbook-shell is the session's notification server. Popups appear at the top of the screen (one card per notification by default, so messages from different people in one app don't merge — `notifications.splitPopups`), and the **right sidebar** (Mod+N) holds the notification centre.
 
+While the right sidebar shows its **Notifications** page (and the screen is on and unlocked), what arrives just appears there: no popup and no cut-in. The sound still plays. The open sidebar on another page also holds popups back, unless it is pinned.
+
 ## Acting on notifications
 
 - **Left click** runs the notification's default action (opens the conversation…), **right click** hides the popup, **middle click** discards it.
