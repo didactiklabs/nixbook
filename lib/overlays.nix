@@ -34,7 +34,12 @@ in
   # anki 26.09.4 doesn't build on this nixpkgs (uv can't resolve aqt's build
   # backend offline: "tomlkit >=0.11.1 is forbidden"): Anki's own prebuilt
   # release instead. Only for that version: the next one is tried again.
-  anki = if prev.anki.version == "26.09.4" then prev.anki-bin else prev.anki;
+  # (anki-bin takes its meta from `anki`: given nixpkgs' own, or this recurses.)
+  anki =
+    if prev.anki.version == "26.09.4" then
+      prev.anki-bin.override { inherit (prev) anki; }
+    else
+      prev.anki;
 
   # viddy 1.3.1's libsqlite3-sys links the system sqlite on this nixpkgs
   # ("cannot find -lsqlite3"), and its package gives it none. Only while it
