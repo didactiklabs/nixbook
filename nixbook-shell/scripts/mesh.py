@@ -800,6 +800,10 @@ def cmd_send(args):
         if not text:
             fail("nothing to send")
         data["text"] = text[:MAX_TEXT]
+        # A nudge's id (the Mesh tab's ✨ picker): shown as its own cut-in.
+        quick = str(data.pop("quick", "") or "")
+        if re.match(r"^[a-z]{1,20}$", quick):
+            data["quick"] = quick
     if kind == "listen":
         data = listen_data(data)
     if kind == "delete":

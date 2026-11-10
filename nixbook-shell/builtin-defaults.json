@@ -629,12 +629,8 @@
     "enable": true,
     "name": "",
     "notify": true,
-    "quickMessages": [
-      "❤️",
-      "Thinking of you",
-      "On my way",
-      "Call me when you can?"
-    ],
+    "nudgeCutIn": true,
+    "quickMessages": [],
     "reactions": ["👍", "❤️", "😂", "😮", "😢", "🙏"],
     "server": "",
     "shareAvatar": true,

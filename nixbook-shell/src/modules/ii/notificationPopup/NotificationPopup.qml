@@ -17,6 +17,9 @@ Scope {
     PersonaCutIn {}
     // Claude speaking first: its own bubble, on the left, in the theme's look.
     AgentSpeech {}
+    // A mesh nudge (a quick message from the Mesh tab's ✨ picker): its own
+    // cut-in, in place of the notification.
+    MeshNudge {}
     LazyLoader {
         active: Chiikawa.enabled
         component: ChiikawaAlert {}

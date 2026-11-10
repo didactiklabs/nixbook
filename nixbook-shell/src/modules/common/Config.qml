@@ -157,6 +157,17 @@ Singleton {
             }
             done.meshWidget = true;
         }
+        // The nudges (Mesh.nudges, the ✨ picker) cover the former built-in
+        // quick messages: a list still at those defaults empties, so the
+        // picker doesn't show them twice; one the user changed stays.
+        if (!done.meshQuickNudges) {
+            const mesh = root.options.mesh;
+            const old = ["❤️", "Thinking of you", "On my way", "Call me when you can?"];
+            const list = mesh ? Array.from(mesh.quickMessages ?? []) : [];
+            if (mesh && list.length === old.length && list.every((t, i) => t === old[i]) && !NixManaged.isPinned("mesh.quickMessages"))
+                mesh.quickMessages = [];
+            done.meshQuickNudges = true;
+        }
         // Music recognition was removed: its bar widget leaves the layouts
         // saved with it (a Loader would look for a file that is gone).
         if (!done.musicRecognitionRemoved) {
@@ -1060,8 +1071,9 @@ Singleton {
                 property string name: "" // Your name as the others see it ("" = your login, capitalised)
                 property bool sharePresence: true // Free / in a meeting / gaming / busy / do not disturb / away: never which app
                 property bool notify: true // A notification for each message
+                property bool nudgeCutIn: true // A nudge (the ✨ picker's quick messages) shows as its own cut-in
                 property bool shareAvatar: true // Your account picture, shown to the others next to your messages
-                property list<string> quickMessages: ["❤️", "Thinking of you", "On my way", "Call me when you can?"]
+                property list<string> quickMessages: [] // Your own, under the nudges in the ✨ picker
                 property list<string> reactions: ["👍", "❤️", "😂", "😮", "😢", "🙏"] // Offered on a message (hover it)
             }
 

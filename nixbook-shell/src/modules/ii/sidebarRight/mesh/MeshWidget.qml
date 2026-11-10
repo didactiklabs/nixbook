@@ -44,6 +44,10 @@ Item {
         return out.replace(/\n/g, "<br>");
     }
 
+    // The ✨ picker (nudges, quick messages) open.
+    property bool picking: false
+    onConvChanged: root.picking = false
+
     // Files to send with the next message: [path].
     property var pending: []
     function attach(path) {
@@ -699,27 +703,100 @@ Item {
             }
         }
 
-        // Quick messages.
-        Flow {
+        // Nudges and quick messages (the ✨ button): one picker instead of
+        // rows of chips. A nudge shows as its own cut-in on the other side
+        // (Mesh.sendNudge, MeshNudge.qml); your quick messages
+        // (mesh.quickMessages) go as plain messages.
+        Rectangle {
+            id: picker
             Layout.fillWidth: true
-            spacing: 6
-            Repeater {
-                model: Config.options?.mesh?.quickMessages ?? []
-                delegate: RippleButton {
-                    id: quick
-                    required property string modelData
-                    buttonRadius: Appearance.rounding.full
-                    colBackground: Appearance.colors.colLayer2
-                    colBackgroundHover: Appearance.colors.colLayer2Hover
-                    implicitHeight: 30
-                    implicitWidth: quickText.implicitWidth + 20
-                    onClicked: root.send(quick.modelData)
-                    contentItem: StyledText {
-                        id: quickText
-                        horizontalAlignment: Text.AlignHCenter
-                        text: quick.modelData
-                        font.pixelSize: Appearance.font.pixelSize.small
-                        color: Appearance.colors.colOnLayer1
+            visible: root.picking
+            implicitHeight: pickerColumn.implicitHeight + 16
+            radius: Appearance.rounding.normal
+            color: Appearance.colors.colLayer2
+            ColumnLayout {
+                id: pickerColumn
+                anchors.fill: parent
+                anchors.margins: 8
+                spacing: 6
+                StyledText {
+                    text: Translation.tr("Nudge %1: they get it as a cut-in").arg(Mesh.nameOf(root.conv))
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                }
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: 5
+                    rowSpacing: 4
+                    columnSpacing: 4
+                    Repeater {
+                        model: Mesh.nudges
+                        delegate: RippleButton {
+                            id: nudgeButton
+                            required property var modelData
+                            Layout.fillWidth: true
+                            implicitHeight: 54
+                            buttonRadius: Appearance.rounding.small
+                            colBackground: ColorUtils.transparentize(Appearance.colors.colLayer2Hover, 1)
+                            colBackgroundHover: Appearance.colors.colLayer2Hover
+                            onClicked: {
+                                Mesh.sendNudge(nudgeButton.modelData.id, root.conv);
+                                root.picking = false;
+                            }
+                            contentItem: ColumnLayout {
+                                spacing: 0
+                                StyledText {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    text: nudgeButton.modelData.emoji
+                                    font.pixelSize: Appearance.font.pixelSize.larger
+                                }
+                                StyledText {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    Layout.maximumWidth: nudgeButton.width - 6
+                                    text: nudgeButton.modelData.text
+                                    elide: Text.ElideRight
+                                    font.pixelSize: Appearance.font.pixelSize.smallest
+                                    color: Appearance.colors.colOnLayer2
+                                }
+                            }
+                            StyledToolTip {
+                                text: nudgeButton.modelData.text
+                            }
+                        }
+                    }
+                }
+                StyledText {
+                    visible: (Config.options?.mesh?.quickMessages ?? []).length > 0
+                    Layout.topMargin: 2
+                    text: Translation.tr("Your quick messages")
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                }
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    Repeater {
+                        model: Config.options?.mesh?.quickMessages ?? []
+                        delegate: RippleButton {
+                            id: quick
+                            required property string modelData
+                            buttonRadius: Appearance.rounding.full
+                            colBackground: Appearance.colors.colLayer1
+                            colBackgroundHover: Appearance.colors.colLayer1Hover
+                            implicitHeight: 30
+                            implicitWidth: quickText.implicitWidth + 20
+                            onClicked: {
+                                root.send(quick.modelData);
+                                root.picking = false;
+                            }
+                            contentItem: StyledText {
+                                id: quickText
+                                horizontalAlignment: Text.AlignHCenter
+                                text: quick.modelData
+                                font.pixelSize: Appearance.font.pixelSize.small
+                                color: Appearance.colors.colOnLayer1
+                            }
+                        }
                     }
                 }
             }
@@ -778,6 +855,23 @@ Item {
         RowLayout {
             Layout.fillWidth: true
             spacing: 6
+            // Nudges and quick messages.
+            RippleButton {
+                implicitWidth: 40
+                implicitHeight: 40
+                buttonRadius: Appearance.rounding.full
+                toggled: root.picking
+                onClicked: root.picking = !root.picking
+                contentItem: MaterialSymbol {
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "auto_awesome"
+                    iconSize: Appearance.font.pixelSize.larger
+                    color: root.picking ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer1
+                }
+                StyledToolTip {
+                    text: Translation.tr("Nudges and quick messages")
+                }
+            }
             RippleButton {
                 implicitWidth: 40
                 implicitHeight: 40
