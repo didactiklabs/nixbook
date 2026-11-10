@@ -50,18 +50,25 @@ Singleton {
     }
     // The song a player is on: { id, title, artist, album, length, art }, or
     // null (nothing, or an ad).
+    // mpris:trackid as its object path: Quickshell hands it over as a
+    // QVariant(QDBusObjectPath, QDBusObjectPath("/…")), whose string is that.
+    function trackPath(md) {
+        const raw = String(md?.["mpris:trackid"] ?? "");
+        return (raw.match(/QDBusObjectPath\("([^"]*)"\)/) ?? [])[1] ?? raw;
+    }
     function trackOf(p) {
         if (!p) return null;
         const md = p.metadata ?? {};
+        const path = root.trackPath(md);
         let id = "";
         if (root.serviceOf(p) === "jellyfin") {
             // jellyfin-mpv-shim: the Jellyfin item's id, in the track path.
-            id = (String(md["mpris:trackid"] ?? "").match(/\/jellyfin_mpv_shim\/track\/([\w-]+)$/) ?? [])[1] ?? "";
+            id = (path.match(/\/jellyfin_mpv_shim\/track\/([\w-]+)$/) ?? [])[1] ?? "";
         } else if (root.serviceOf(p) === "youtube-music") {
             id = (String(md["xesam:url"] ?? "").match(/[?&]v=([\w-]{11})/) ?? [])[1]
-                ?? (String(md["mpris:trackid"] ?? "").match(/\/([\w-]{11})$/) ?? [])[1] ?? "";
+                ?? (path.match(/\/([\w-]{11})$/) ?? [])[1] ?? "";
         } else {
-            id = (String(md["mpris:trackid"] ?? "").match(/^\/com\/spotify\/track\/(\w+)$/) ?? [])[1] ?? "";
+            id = (path.match(/^\/com\/spotify\/track\/(\w+)$/) ?? [])[1] ?? "";
         }
         if (id === "") return null;
         return { id: id, title: p.trackTitle ?? "", artist: p.trackArtist ?? "", album: p.trackAlbum ?? "",

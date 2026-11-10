@@ -277,7 +277,9 @@ Singleton {
 		const md = player?.metadata ?? {};
 		const url = String(md["xesam:url"] ?? "");
 		if (/^https?:\/\//.test(url)) return url;
-		const id = String(md["mpris:trackid"] ?? "");
+		// Quickshell's QVariant(QDBusObjectPath, QDBusObjectPath("/…")): the path.
+		const raw = String(md["mpris:trackid"] ?? "");
+		const id = (raw.match(/QDBusObjectPath\("([^"]*)"\)/) ?? [])[1] ?? raw;
 		const m = id.match(/^\/com\/spotify\/(track|episode)\/(\w+)$/);
 		if (m) return `https://open.spotify.com/${m[1]}/${m[2]}`;
 		return "";
