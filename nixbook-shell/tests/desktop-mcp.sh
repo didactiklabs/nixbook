@@ -273,8 +273,6 @@ case "$*" in
   *"equalizer lookupGenre"*) touch "$STUB_CALLS.genre"; echo "ok: looking up" ;;
   *"equalizer preset Nope"*) echo 'error: no preset "Nope" (Flat, Bass)' ;;
   *"equalizer "*) echo "ok: done" ;;
-  *"musicRecognition status"*) echo '{"listening":false,"source":"system sound","last":{"title":"Take Flight","subtitle":"SPYAIR"}}' ;;
-  *"musicRecognition "*) echo "ok: ${*: -1}" ;;
   *"calendar next"*)
     if [ -n "${STUB_NO_ACCOUNT:-}" ]; then echo "error: no account connected (add one in the accounts window)"; else
       echo '{"now":"2026-09-30T10:00","next":{"summary":"Standup","start":"2026-09-30T10:30","when":"in 30 min"}}'; fi ;;
@@ -3479,13 +3477,7 @@ call contacts '{"action":"open","id":"google-1:c1"}' >/dev/null
 expect_eq "contacts open: the app, on that contact" "qs -c nixbook-shell ipc call -- contacts open google-1:c1" "$(last_call)"
 expect_contains "contacts open: unknown" "$(call contacts '{"action":"open","id":"nope"}')" "no contact"
 
-# Music recognition and the calendar (SongRec.qml, CalendarEvents.qml).
-out=$(call widget '{"widget":"shazam","action":"status"}')
-expect_eq "widget music status" "Take Flight" "$(jq -r '.last.title' <<<"$out")"
-call widget '{"widget":"music","action":"use_microphone"}' >/dev/null
-expect_eq "widget music source" "qs -c nixbook-shell ipc call -- musicRecognition useMicrophone" "$(last_call)"
-call widget '{"widget":"music recognition","action":"listen"}' >/dev/null
-expect_eq "widget music listen" "qs -c nixbook-shell ipc call -- musicRecognition listen" "$(last_call)"
+# The calendar (CalendarEvents.qml).
 out=$(call calendar '{"action":"next"}')
 expect_eq "calendar next" "Standup in 30 min" "$(jq -r '"\(.next.summary) \(.next.when)"' <<<"$out")"
 call calendar '{"action":"upcoming"}' >/dev/null

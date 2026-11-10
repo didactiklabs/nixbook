@@ -378,9 +378,8 @@ follow the wallpaper's calm areas; read, add, edit and remove the notes
 widget's notes and the to-do list's tasks; the timers' pomodoro, stopwatch,
 countdown (it rings until dismissed, like the alarm) and alarm (set at a
 date and time, once or daily; dismiss, snooze); the custom images: add one (a picture from a shared folder) on a
-monitor, frame, style, move between monitors, remove; music recognition:
-listen, the source, the songs found, through the shell's `widgets`,
-`images`, `notes`, `todo`, `timers` and `musicRecognition` IPC targets, and
+monitor, frame, style, move between monitors, remove, through the shell's
+`widgets`, `images`, `notes`, `todo` and `timers` IPC targets, and
 `region`'s recordStart/recordStop/recordStatus, which key bindings can call
 too); the audio equalizer (`equalizer`: what's playing
 with its Last.fm genre tags, then a preset or a 10-band curve and the

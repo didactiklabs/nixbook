@@ -71,6 +71,7 @@ Singleton {
                 property bool metaModels: false
                 property bool barDockDefaults: false
                 property bool meshWidget: false
+                property bool musicRecognitionRemoved: false
             }
 
             property JsonObject ai: JsonObject {

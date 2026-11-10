@@ -208,41 +208,6 @@ ContentPage {
         }
 
         ContentSection {
-            icon: "music_cast"
-            shape: MaterialShape.Shape.Oval
-            title: Translation.tr("Music Recognition")
-
-            GroupedList {
-                ConfigSpinBox {
-                    configKey: "musicRecognition.timeout";
-                    enabled: !nixManaged;
-                    icon: "timer_off"
-                    text: Translation.tr("Total duration timeout (s)")
-                    value: Config.options.musicRecognition.timeout
-                    from: 10
-                    to: 100
-                    stepSize: 2
-                    onValueChanged: {
-                        Config.options.musicRecognition.timeout = value;
-                    }
-                }
-                ConfigSpinBox {
-                    configKey: "musicRecognition.interval";
-                    enabled: !nixManaged;
-                    icon: "av_timer"
-                    text: Translation.tr("Polling interval (s)")
-                    value: Config.options.musicRecognition.interval
-                    from: 2
-                    to: 10
-                    stepSize: 1
-                    onValueChanged: {
-                        Config.options.musicRecognition.interval = value;
-                    }
-                }
-            }
-        }
-
-        ContentSection {
             icon: "file_open"
             shape: MaterialShape.Shape.Slanted
             title: Translation.tr("Save paths")

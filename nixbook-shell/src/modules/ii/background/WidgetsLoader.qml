@@ -17,7 +17,6 @@ import qs.modules.ii.background.widgets.visualizer
 import qs.modules.ii.background.widgets.calendar
 import qs.modules.ii.background.widgets.nextevent
 import qs.modules.ii.background.widgets.contacts
-import qs.modules.ii.background.widgets.musicrecognition
 import qs.modules.ii.background.widgets.worldclock
 import qs.modules.ii.background.widgets.usercard
 import qs.modules.ii.background.widgets.notes
@@ -107,7 +106,6 @@ Item {
         case "calendar":    return calendarComp
         case "nextEvent":   return nextEventComp
         case "contacts":    return contactsComp
-        case "musicRecognition": return musicRecognitionComp
         case "weather":     return weatherComp
         case "clock":       return clockComp
         case "notes":       return notesComp
@@ -131,7 +129,6 @@ Item {
             { key: "calendar" },
             { key: "nextEvent" },
             { key: "contacts" },
-            { key: "musicRecognition" },
             { key: "weather" },
             { key: "clock", alwaysOnLock: true },
             { key: "notes" },
@@ -344,18 +341,6 @@ Item {
     Component {
         id: contactsComp
         ContactsWidget {
-            screenName: root.screen?.name ?? ""
-            screenWidth: root.screen.width
-            screenHeight: root.screen.height
-            scaledScreenWidth: root.screen.width
-            scaledScreenHeight: root.screen.height
-            wallpaperScale: 1
-            wallpaperItem: root.wallpaperItem
-        }
-    }
-    Component {
-        id: musicRecognitionComp
-        MusicRecognitionWidget {
             screenName: root.screen?.name ?? ""
             screenWidth: root.screen.width
             screenHeight: root.screen.height

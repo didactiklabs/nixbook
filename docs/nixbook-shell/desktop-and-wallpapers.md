@@ -4,23 +4,22 @@
 
 Widgets live on the desktop, behind your windows. Toggle and arrange them from the desktop's **right-click menu → Widgets** or **Settings → Desktop**:
 
-| Widget            | What                                                                   |
-| ----------------- | ---------------------------------------------------------------------- |
-| Clock             | Digital, or the Material "cookie" clock with a second hand             |
-| World clock       | Up to four cities                                                      |
-| Weather           | Current conditions and forecast                                        |
-| Calendar          | Month view with event dots ([Calendar](./calendar))                    |
-| Next event        | The next meeting with a _Join_ button                                  |
-| To-do             | Your task list                                                         |
-| Notes             | Sticky notes                                                           |
-| Timers            | Pomodoro, stopwatch, countdown and alarms (once or daily, with snooze) |
-| Media             | Now playing                                                            |
-| Visualizer        | Audio spectrum ring or bars                                            |
-| Music recognition | Identify the song playing                                              |
-| Resources         | CPU, memory…                                                           |
-| User card         | Your account picture and greeting                                      |
-| Custom text       | Any text                                                               |
-| Images            | Your pictures, framed and styled                                       |
+| Widget      | What                                                                   |
+| ----------- | ---------------------------------------------------------------------- |
+| Clock       | Digital, or the Material "cookie" clock with a second hand             |
+| World clock | Up to four cities                                                      |
+| Weather     | Current conditions and forecast                                        |
+| Calendar    | Month view with event dots ([Calendar](./calendar))                    |
+| Next event  | The next meeting with a _Join_ button                                  |
+| To-do       | Your task list                                                         |
+| Notes       | Sticky notes                                                           |
+| Timers      | Pomodoro, stopwatch, countdown and alarms (once or daily, with snooze) |
+| Media       | Now playing                                                            |
+| Visualizer  | Audio spectrum ring or bars                                            |
+| Resources   | CPU, memory…                                                           |
+| User card   | Your account picture and greeting                                      |
+| Custom text | Any text                                                               |
+| Images      | Your pictures, framed and styled                                       |
 
 - **Drag** to move and resize; widgets can be placed **per monitor** — each monitor has its own position, size and on/off switch (the menu's switches apply to the monitor it was opened on).
 - Widgets can follow the wallpaper's **calm areas** so they don't cover the busy parts.

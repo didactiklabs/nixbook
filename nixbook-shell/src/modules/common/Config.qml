@@ -157,6 +157,17 @@ Singleton {
             }
             done.meshWidget = true;
         }
+        // Music recognition was removed: its bar widget leaves the layouts
+        // saved with it (a Loader would look for a file that is gone).
+        if (!done.musicRecognitionRemoved) {
+            const layouts = root.options.bar?.layouts;
+            for (const side of ["leftLayout", "middleLayout", "rightLayout"]) {
+                const list = layouts ? Array.from(layouts[side] ?? []) : [];
+                if (list.includes("musicRecognition") && !NixManaged.isPinned(`bar.layouts.${side}`))
+                    layouts[side] = list.filter(w => w !== "musicRecognition");
+            }
+            done.musicRecognitionRemoved = true;
+        }
     }
     property int readWriteDelay: 50 // milliseconds
     property bool blockWrites: false
@@ -717,13 +728,6 @@ Singleton {
                         property string sizeMode: "2x2"
                     }
                     // The next calendar events (the accounts' calendars).
-                    property JsonObject musicRecognition: JsonObject {
-                        property bool enable: false
-                        property string placementStrategy: "free"
-                        property real x: 700
-                        property real y: 100
-                        property real z: 0
-                    }
                     property JsonObject nextEvent: JsonObject {
                         property bool enable: false
                         property string placementStrategy: "free"
@@ -1237,11 +1241,6 @@ Singleton {
                 property bool invertPinnedItems: true // Makes the below a whitelist for the tray and blacklist for the pinned area
                 property list<var> pinnedItems: [ "Fcitx" ]
                 property bool filterPassive: true
-            }
-
-            property JsonObject musicRecognition: JsonObject {
-                property int timeout: 16
-                property int interval: 4
             }
 
             property JsonObject search: JsonObject {

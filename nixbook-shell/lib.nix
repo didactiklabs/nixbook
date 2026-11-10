@@ -35,7 +35,7 @@ rec {
 
   # Settings that did nothing (or only did something under Hyprland), and
   # those of removed features (the agents' own desktop, Full AI mode, teach
-  # mode, pairing), were removed: still accepted in Nix (so an old configuration evaluates) but
+  # mode, pairing, music recognition), were removed: still accepted in Nix (so an old configuration evaluates) but
   # ignored, with a warning (hm-module.nix).
   removedKeys = [
     "ai.agentDesktop"
@@ -57,6 +57,7 @@ rec {
     "background.widgets.media.backgroundShape"
     "background.widgets.media.showControls"
     "background.widgets.media.showTitles"
+    "background.widgets.musicRecognition"
     "bar.autoHide.showWhenPressingSuper"
     "bar.floatStyleShadow"
     "bar.topLeftIcon"
@@ -64,6 +65,7 @@ rec {
     "hyprland"
     "interactions.deadPixelWorkaround"
     "light.antiFlashbang"
+    "musicRecognition"
     "overview"
     "regionSelector.targetRegions.layers"
     "regionSelector.targetRegions.windows"
