@@ -4842,6 +4842,7 @@ def improve_answer(data, iid, outcome):
 # the day's budget nor the gap: a reaction is now or never. Never while busy
 # (it would wait in the bar for nothing), and gone from the bar in 30 min.
 REACT_TTL = 30 * 60
+REACT_SHOT_TTL = 5 * 60
 REACT_READ = {"pdf", "txt", "md", "doc", "docx", "odt", "rtf", "html", "htm", "csv", "json", "epub", "pptx", "xlsx", "ods", "odp"}
 REACT_IMAGE = {"png", "jpg", "jpeg", "webp", "gif", "bmp"}
 REACT_ARCHIVE = {"zip", "tar", "gz", "tgz", "xz", "bz2", "zst", "7z", "rar"}
@@ -4929,8 +4930,9 @@ def _happened_item(event):
                    ask("What's on it?", f"A drive was plugged in at {path}: tell me briefly what's on it.", False)]
     else:
         return None
+    # A screenshot is about the moment: its offer goes after 5 minutes.
     return {"kind": "react", "key": f"react:{what}:{fold(name)}", "title": "DAI", "text": text_,
-            "app": what, "actions": actions, "ttl": REACT_TTL}
+            "app": what, "actions": actions, "ttl": REACT_SHOT_TTL if what == "screenshot" else REACT_TTL}
 
 
 # What the user did the last few minutes (ai.initiative.recentContext):
