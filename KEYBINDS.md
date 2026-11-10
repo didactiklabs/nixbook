@@ -60,6 +60,8 @@ Niri is column/scroll based; it has no numbered workspaces (workspaces stack ver
 
 nixbook-shell binds all spawn `nixbook-shell ipc call <target> <function>`.
 
+Inside the right sidebar (nixbook-shell): `Ctrl+P` pins it (open beside the windows, kept across reboots) or unpins it, like `Ctrl+P` in the left sidebar; `Escape` closes it unless it is pinned.
+
 > Note: `Mod+I` is overloaded — it maps to **focus workspace up** _and_ to **toggle idle
 > inhibitor**; the shell spawn bind is merged in last and wins. Under DMS that is
 > `dms ipc call inhibit toggle`; under nixbook-shell (which exposes no idle IPC) it starts/stops
