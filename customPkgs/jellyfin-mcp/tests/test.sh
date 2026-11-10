@@ -419,6 +419,12 @@ r=$("${jmcp[@]}" play-id mov-spirited || true)
 expect_eq "play-id: played on this computer's player" "$(jq -r .ok <<<"$r") $(last_req /Sessions/s-shim/Playing | jq -r '.query.itemIds')" "true mov-spirited"
 r=$("${jmcp[@]}" play-id '../x' || true)
 expect_eq "play-id: an id, nothing else" "$(jq -r .ok <<<"$r")" "false"
+expect_eq "shelf: an episode says its series" "$(XDG_CACHE_HOME="$tmp/cache" "${jmcp[@]}" shelf | jq -r '.upNext[0].seriesId')" "ser-edge"
+r=$("${jmcp[@]}" episodes ep-e2 || true)
+expect_eq "episodes: from an episode, its series' seasons and episodes" "$(jq -r '.series + " / " + (.seasons | length | tostring) + " season(s), " + (.seasons[0].episodes | length | tostring) + " episodes, next " + .nextUp' <<<"$r")" "Cyberpunk: Edgerunners / 1 season(s), $(jq -r '.seasons[0].episodes | length' <<<"$r") episodes, next ep-e2"
+expect_eq "episodes: the first one numbered" "$(jq -r '.seasons[0].episodes[0] | "\(.number) \(.id)"' <<<"$r")" "1 ep-e1"
+r=$("${jmcp[@]}" episodes mov-spirited || true)
+expect_eq "episodes: a film has none" "$(jq -r .ok <<<"$r")" "false"
 
 # -- the fast path: play-query ----------------------------------------------
 write_sessions ",$SHIM_SESSION"

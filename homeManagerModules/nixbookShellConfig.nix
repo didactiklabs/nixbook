@@ -459,6 +459,9 @@ in
         ExecStart = "${lib.getExe shim} --no-gui";
         Restart = "on-failure";
         RestartSec = 5;
+        # It ignores SIGTERM: a restart (a switch) left no player for systemd's
+        # 90 s before SIGKILL, and plays from the shell failed meanwhile.
+        TimeoutStopSec = 10;
       };
       Install.WantedBy = [ "graphical-session.target" ];
     };
