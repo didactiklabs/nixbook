@@ -402,9 +402,12 @@ Scope {
                     }
                 }
 
+                // The panel's background eats clicks; its cursor is the arrow:
+                // a pointing hand over the whole panel made links and buttons
+                // look no different from the rest (and the text no I-beam).
                 MouseArea {
                     hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
+                    cursorShape: Qt.ArrowCursor
                     anchors.fill: parent
                     onClicked: (mouse) => { mouse.accepted = true }
                     z: -1

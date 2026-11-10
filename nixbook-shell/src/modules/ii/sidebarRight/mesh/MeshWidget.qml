@@ -613,11 +613,12 @@ Item {
                             opacity: 0.8
                         }
                     }
+                    // Only on a message that failed (click to retry).
                     MouseArea {
                         anchors.fill: parent
-                        enabled: row.msg.status === "failed"
-                        hoverEnabled: enabled
-                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                        visible: row.msg.status === "failed"
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
                         onClicked: Mesh.retry(row.msg.mid)
                     }
                 }
