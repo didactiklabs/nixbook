@@ -54,7 +54,7 @@ function nearEnd(f) {
 // A new song to follow.
 function fresh() {
     return { openedFor: "", openedAt: 0, opens: 0, syncedTo: "", offSince: 0, endSince: 0, pausedSince: 0,
-        sawPlaying: false, cmdAt: 0, lastPos: 0, lastLen: 0 }
+        sawPlaying: false, cmdAt: 0, lastPos: 0, lastLen: 0, seekAt: 0, seekRecv: 0, seekedFor: "" }
 }
 
 // What to do this tick, about the song: { act: "sync" | "open" | "wait" |
@@ -95,6 +95,25 @@ function followStep(f, x) {
         return { act: "open" }
     }
     return { act: "wait" }
+}
+
+// On the song, where to jump (seconds), or -1: once the song has opened
+// (it started at 0, or wherever the link put it), when the host's news
+// comes (a seek, a pause, a resume), and else for a drift at most every
+// 30 s; never more than every 4 s, nor at the song's end. A jump makes
+// YouTube Music buffer again, which looks like the song reloading, so it is
+// kept to those. x: { now, pos, target, len, hostRecv }.
+function seekStep(f, x) {
+    if (x.now - f.openedAt < 2500 || (f.seekAt > 0 && x.now - f.seekAt < 4000)) return -1
+    if (x.len > 0 && x.target >= x.len - 2) return -1
+    var news = f.seekRecv !== x.hostRecv
+    var first = f.seekedFor !== f.openedFor
+    var due = first || news || x.now - f.seekAt > 30000
+    f.seekRecv = x.hostRecv
+    f.seekedFor = f.openedFor
+    if (!due || Math.abs(x.pos - x.target) <= 2.5) return -1
+    f.seekAt = x.now
+    return Math.max(0, x.target)
 }
 
 // On the song, about play/pause: "ok" | "play" | "pause" | "leave". x: {

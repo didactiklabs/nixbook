@@ -75,8 +75,12 @@ Singleton {
         return { id: id, title: p.trackTitle ?? "", artist: p.trackArtist ?? "", album: p.trackAlbum ?? "",
             length: p.length > 0 ? p.length : 0, art: /^https:\/\//.test(p.trackArtUrl ?? "") ? p.trackArtUrl : "" };
     }
-    function uriFor(service, id) {
-        return service === "spotify" ? `spotify:track:${id}` : `https://music.youtube.com/watch?v=${id}`;
+    // `at`: where to start (seconds), so the song opens at the host's
+    // position instead of a jump right after it starts.
+    function uriFor(service, id, at) {
+        if (service === "spotify") return `spotify:track:${id}`;
+        const t = Math.floor(at ?? 0);
+        return `https://music.youtube.com/watch?v=${id}${t > 3 ? `&t=${t}` : ""}`;
     }
     function installed(service) {
         const ids = service === "spotify" ? ["spotify", "com.spotify.Client"]
@@ -394,7 +398,7 @@ Singleton {
                 f.launchedAt = now;
                 // YouTube Music starts on the song (the Electron bridge opens
                 // it once the app has loaded); never its website.
-                if (!root.openInApp(svc, svc === "youtube-music" ? root.uriFor(svc, wantId) : "")) {
+                if (!root.openInApp(svc, svc === "youtube-music" ? root.uriFor(svc, wantId, target + 5) : "")) {
                     root.followStatus = "noapp";
                     return;
                 }
@@ -419,7 +423,7 @@ Singleton {
         }
         if (step.act !== "sync") {
             if (step.act === "open") {
-                const uri = root.uriFor(svc, wantId);
+                const uri = root.uriFor(svc, wantId, target + 1);
                 const scheme = uri.split(":")[0];
                 if ((p.supportedUriSchemes ?? []).map(x => String(x).toLowerCase()).includes(scheme)) p.openUri(uri);
                 // Its schemes not known yet (just started) or not https: the
@@ -436,11 +440,6 @@ Singleton {
     // The song (or film) is the host's: the same play/pause and position.
     function _keepInSync(p, s, f, now, target, wantId) {
         f.syncedTo = wantId;
-        // A new state from the host (a seek, a pause): followed at once.
-        if (f.stateRecv !== s.recv) {
-            f.stateRecv = s.recv;
-            f.seekAt = 0;
-        }
         f.lastPos = p.position ?? 0;
         f.lastLen = p.length > 0 ? p.length : 0;
         // Play and pause as the host; a pause here that lasts 5 s (not at
@@ -453,12 +452,12 @@ Singleton {
         }
         if (act === "play" && p.canPlay) p.play();
         if (act === "pause" && p.canPause) p.pause();
+        // To the host's position: after the open, on the host's news, else
+        // a drift at most every 30 s (each jump rebuffers: it looks like a
+        // reload).
         const len = p.length > 0 ? p.length : s.track.length;
-        if (p.canSeek && now - f.openedAt > 2500 && now - f.seekAt > 4000 && Math.abs((p.position ?? 0) - target) > 2.5
-                && (len <= 0 || target < len - 2)) {
-            p.position = Math.max(0, target);
-            f.seekAt = now;
-        }
+        const to = p.canSeek ? TrackMatch.seekStep(f, { now: now, pos: p.position ?? 0, target: target, len: len, hostRecv: s.recv }) : -1;
+        if (to >= 0) p.position = to;
         root.followStatus = "synced";
     }
     Timer {
