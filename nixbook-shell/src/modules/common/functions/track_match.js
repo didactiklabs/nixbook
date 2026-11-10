@@ -72,7 +72,7 @@ function followStep(f, x) {
             // It ended here first (autoplay, or the player stopped): the
             // host's next song is on its way. Not "something else".
             if (!f.endSince) f.endSince = x.now
-            if (x.now - f.endSince < 15000) return { act: "wait" }
+            if (x.now - f.endSince < 30000) return { act: "wait" }
         } else if (x.cur && x.cur.id) {
             // Something else here, for 3 s (not a player's passing metadata
             // while it loads): the listener played it.
@@ -85,9 +85,10 @@ function followStep(f, x) {
         f.openedFor = x.wantId
         f.opens = 0
     }
-    // Once per song; again after 8 s if it didn't take, three times at most
-    // (never a song restarted every few seconds).
-    if (f.opens === 0 || (x.now - f.openedAt > 8000 && f.opens < 3)) {
+    // Once per song; again after 12 s if it didn't take (a slow network, an
+    // app just started: Spotify's first open after it starts doesn't take),
+    // three times at most (never a song restarted every few seconds).
+    if (f.opens === 0 || (x.now - f.openedAt > 12000 && f.opens < 3)) {
         f.opens++
         f.openedAt = x.now
         f.sawPlaying = false
@@ -104,16 +105,25 @@ function followStep(f, x) {
 // comes (a seek, a pause, a resume), and else for a drift at most every
 // 30 s; never more than every 4 s, nor at the song's end. A jump makes
 // YouTube Music buffer again, which looks like the song reloading, so it is
-// kept to those. x: { now, pos, target, len, hostRecv }.
+// kept to those, and some slack is allowed (a network's delays): a drift
+// under 5 s stays, the host's news and the first jump under 2.5 s and 3 s.
+// Never while the player here isn't really playing yet (its position not
+// moving: still loading, or Spotify reporting 0 right after it starts).
+// x: { now, pos, target, len, hostRecv, playing }.
 function seekStep(f, x) {
+    var moving = x.playing && f.prevPos !== undefined && x.pos !== f.prevPos
+    f.prevPos = x.pos
     if (x.now - f.openedAt < 6000 || (f.seekAt > 0 && x.now - f.seekAt < 4000)) return -1
     if (x.len > 0 && x.target >= x.len - 2) return -1
     var news = f.seekRecv !== x.hostRecv
     var first = f.seekedFor !== f.openedFor
-    var due = first || news || x.now - f.seekAt > 30000
+    if (first && !moving) return -1
     f.seekRecv = x.hostRecv
+    var drift = Math.abs(x.pos - x.target)
+    var limit = first ? 3 : news ? 2.5 : 5
+    if (!first && !news && x.now - f.seekAt <= 30000) return -1
     f.seekedFor = f.openedFor
-    if (!due || Math.abs(x.pos - x.target) <= 2.5) return -1
+    if (drift <= limit) return -1
     f.seekAt = x.now
     return Math.max(0, x.target)
 }
@@ -136,11 +146,11 @@ function playStep(f, x) {
         return "ok"
     }
     // Paused here while the host plays, after it played: the listener
-    // paused, once it lasts 5 s, and not at the song's end (the next one
+    // paused, once it lasts 8 s, and not at the song's end (the next one
     // comes), right after a command, an open or the host's news.
     if (f.sawPlaying && !nearEnd(f) && x.now - f.cmdAt > 3000 && x.now - f.openedAt > 8000 && x.now - x.hostRecv > 3000) {
         if (!f.pausedSince) f.pausedSince = x.now
-        return x.now - f.pausedSince >= 5000 ? "leave" : "ok"
+        return x.now - f.pausedSince >= 8000 ? "leave" : "ok"
     }
     if (x.now - f.cmdAt > 2000) {
         f.cmdAt = x.now

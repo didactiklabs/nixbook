@@ -229,13 +229,13 @@ function play(f, now, local, recv) {
   check("not playing yet after an open: play", play(f, 2500, false) === "play");
   check("playing", play(f, 4000, true) === "ok");
   const acts = [];
-  for (let t = 20000; t <= 24000; t += 1000) acts.push(play(f, t, false));
+  for (let t = 20000; t <= 27000; t += 1000) acts.push(play(f, t, false));
   check(
     "paused: not at once",
     acts.every((a) => a === "ok"),
     acts,
   );
-  check("paused 5 s: leave", play(f, 25000, false) === "leave");
+  check("paused 8 s: leave", play(f, 28000, false) === "leave");
 }
 {
   const f = m.fresh();
@@ -275,7 +275,14 @@ function play(f, now, local, recv) {
 
 // -- Jumping to the host's position ---------------------------------------------
 function seek(f, now, pos, target, recv) {
-  return m.seekStep(f, { now, pos, target, len: 286, hostRecv: recv || 1 });
+  return m.seekStep(f, {
+    now,
+    pos,
+    target,
+    len: 286,
+    hostRecv: recv || 1,
+    playing: true,
+  });
 }
 {
   const f = m.fresh();
@@ -308,6 +315,59 @@ function seek(f, now, pos, target, recv) {
     m.seekStep(f, { now: 7000, pos: 41, target: 42, len: 286, hostRecv: 1 }) ===
       -1,
   );
+}
+
+// -- Slack: a slow start, a small drift, a stuck position ---------------------
+function seekAt(f, now, pos, target, opts) {
+  return m.seekStep(
+    f,
+    Object.assign(
+      { now, pos, target, len: 286, hostRecv: 1, playing: true },
+      opts || {},
+    ),
+  );
+}
+{
+  const f = m.fresh();
+  f.openedFor = "x";
+  const jumps = [];
+  // Spotify right after it starts: "Playing", its position stuck at 0.
+  for (let t = 1000; t <= 20000; t += 1000)
+    if (seekAt(f, t, 0, 40 + t / 1000) >= 0) jumps.push(t);
+  check("a position not moving: no jump", jumps.length === 0, jumps);
+  check("then it moves: the first jump", seekAt(f, 21000, 0.5, 61) === 61);
+}
+{
+  const f = m.fresh();
+  f.openedFor = "x";
+  seekAt(f, 6000, 10, 10);
+  seekAt(f, 7000, 11, 11);
+  const jumps = [];
+  for (let t = 8000; t <= 80000; t += 1000)
+    if (seekAt(f, t, (t - 4000) / 1000, t / 1000) >= 0) jumps.push(t);
+  check("a 4 s drift: left alone", jumps.length === 0, jumps);
+}
+{
+  const f = m.fresh();
+  f.openedFor = "x";
+  seekAt(f, 6000, 10, 10);
+  seekAt(f, 7000, 11, 11);
+  check("a 6 s drift: not before 30 s", seekAt(f, 20000, 18, 24) === -1);
+  check("a 6 s drift: corrected", seekAt(f, 40000, 38, 44) === 44);
+  check(
+    "the host's news, 3 s apart: followed",
+    seekAt(f, 50000, 47, 50, { hostRecv: 2 }) === 50,
+  );
+  check(
+    "not paused here (a jump only while playing… the first)",
+    seekAt(f, 60000, 57, 57, { hostRecv: 3, playing: false }) === -1,
+  );
+}
+{
+  const f = m.fresh();
+  tick(f, 0, null);
+  check("a slow load: not reopened at 9 s", tick(f, 9000, null) === "wait");
+  check("reopened after 12 s", tick(f, 12500, null) === "open");
 }
 
 console.log(`${passed} passed, ${failed} failed`);
