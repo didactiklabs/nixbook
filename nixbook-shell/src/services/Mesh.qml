@@ -25,6 +25,12 @@ import QtQuick
  * soon as their message arrives (`fetch`: the server deletes them after a
  * while) into ~/.local/share/nixbook-shell/mesh/files/.
  *
+ * Profile pictures: this desktop's account picture (UserAvatar) goes to
+ * the others (`nixbook-mesh profile`, again when it changes, and once a
+ * month; mesh.shareAvatar), theirs are downloaded like files (avatarOf).
+ * Reactions: an emoji on any message (react), shown under it; a reaction
+ * to your own message notifies.
+ *
  * Deleting: your own messages for everyone (deleteForEveryone: each desktop
  * puts "deleted" in its place, its file, notification and history entry go;
  * scripts/mesh.py "Deleting" says why nobody can delete someone else's),
@@ -41,6 +47,9 @@ Singleton {
     readonly property string server: (Config.options?.mesh?.server ?? "").trim().replace(/\/+$/, "")
     readonly property bool enabled: Config.options?.mesh?.enable ?? true
     readonly property bool sharePresence: Config.options?.mesh?.sharePresence ?? true
+    readonly property bool shareAvatar: Config.options?.mesh?.shareAvatar ?? true
+    // The reactions offered on a message.
+    readonly property var reactionChoices: Config.options?.mesh?.reactions ?? ["👍", "❤️", "😂", "😮", "😢", "🙏"]
     readonly property string me: Quickshell.env("USER") ?? ""
     readonly property string myName: {
         const name = (Config.options?.mesh?.name ?? "").trim();
@@ -83,12 +92,13 @@ Singleton {
         });
     }
 
-    // Everyone seen: { id: { id, name, state, seen (ms), readUpTo (ms) } }.
+    // Everyone seen: { id: { id, name, state, seen (ms), readUpTo (ms),
+    // avatar: { sha, path (once downloaded), meta (until then) } } }.
     property var members: ({})
     // The messages, oldest first: { mid, from, name, to, time (ms), text,
     // mine, status: "sent" | "sending" | "failed", file?, dh? (what proves
     // its deletion), deleted? (deleted for everyone: no text, no file),
-    // deleting?, deleteError? }. A file: received
+    // deleting?, deleteError?, reactions?: { emoji: [member ids] } }. A file: received
     // and not yet downloaded { u, k, n, name, size, sha, mime, w, h, exp },
     // downloaded { path, name, size, sha, mime, image, animated, w, h },
     // being sent { source, name }; `expired` when it was gone from the
@@ -553,6 +563,7 @@ Singleton {
     onMyStateChanged: presenceDebounce.restart()
     onConfiguredChanged: if (root.configured) {
         presenceDebounce.restart();
+        profileSoon.restart();
         root._nextFetch();
     }
     Timer {
@@ -657,7 +668,10 @@ Singleton {
         if (!root.keys[id]) keysSoon.restart();
         if (e.kind === "message") root._receive(e, time);
         else if (e.kind === "delete") root._applyDelete(e);
-        else root._saveSoon();
+        else if (e.kind === "react") root._applyReact(e, time);
+        else if (e.kind === "profile") {
+            if (!e.mine) root._applyProfile(id, e.data?.avatar ?? null);
+        } else root._saveSoon();
         // Listening together (services/MeshListen.qml).
         if (e.kind === "listen") MeshListen.receive(e);
     }
@@ -712,7 +726,7 @@ Singleton {
         const image = m.file?.image && m.file?.path ? [`--hint=string:image-path:${m.file.path}`] : [];
         notifier.createObject(root, {
             conv: root.conversationOf(m),
-            command: ["notify-send", `--app-name=${who}`, "--icon=avatar-default", ...image,
+            command: ["notify-send", `--app-name=${who}`, `--icon=${root.members[m.from]?.avatar?.path || "avatar-default"}`, ...image,
                 `--hint=string:x-nixbook-mesh:${m.to === "" ? "nixbook-mesh-everyone" : "nixbook-mesh-direct"}`,
                 `--hint=string:x-nixbook-mesh-mid:${m.mid}`,
                 "--wait", `--action=reply=${Translation.tr("Reply")}`, "--", title, body]
@@ -730,6 +744,121 @@ Singleton {
                 notify.destroy();
             }
         }
+    }
+
+    // -- Profile pictures ---------------------------------------------------------------
+
+    // A member's picture (a file:// URL), "" while there is none.
+    function avatarOf(id) {
+        if (id === root.me) return root.shareAvatar ? UserAvatar.source : "";
+        const path = root.members[id]?.avatar?.path ?? "";
+        return path !== "" ? `file://${path}` : "";
+    }
+    function _setMember(id, fields) {
+        root.members = Object.assign({}, root.members, { [id]: Object.assign({}, root.members[id] ?? { id: id }, fields) });
+        root._saveSoon();
+    }
+    function _applyProfile(id, meta) {
+        const cur = root.members[id]?.avatar ?? null;
+        if (!meta?.sha) {
+            if (cur) {
+                root._setMember(id, { avatar: null });
+                root._pruneFiles();
+            }
+            return;
+        }
+        if (cur?.sha === meta.sha && cur.path) return;
+        root._setMember(id, { avatar: { sha: meta.sha, meta: meta } });
+        root._fetchAvatar(id);
+    }
+    function _fetchAvatar(id) {
+        const a = root.members[id]?.avatar;
+        if (!a?.meta || !root.configured) return;
+        root.run(["fetch", root.server], JSON.stringify({ file: a.meta }), (ok, answer) => {
+            const now = root.members[id]?.avatar;
+            if (now?.sha !== a.sha) return;
+            if (ok && answer.file?.path) root._setMember(id, { avatar: { sha: a.sha, path: answer.file.path } });
+            // Gone from the server: none until they send it again.
+            else if (answer?.expired) root._setMember(id, { avatar: null });
+        });
+    }
+    // This desktop's picture to the others: when it changes, and once a
+    // month (the helper skips it otherwise).
+    function _shareProfile() {
+        if (!root.configured || !root.enabled) return;
+        root.run(["profile", root.server], JSON.stringify({ path: root.shareAvatar ? UserAvatar.path : "", name: root.myName }),
+            (ok, answer) => {
+                if (!ok && answer?.error) console.log(`[Mesh] Couldn't share the profile picture: ${answer.error}`);
+            });
+    }
+    Timer {
+        id: profileSoon
+        interval: 5000
+        onTriggered: root._shareProfile()
+    }
+    Timer {
+        interval: 24 * 3600 * 1000
+        running: root.configured && root.enabled
+        repeat: true
+        onTriggered: profileSoon.restart()
+    }
+    Connections {
+        target: UserAvatar
+        function onPathChanged() { profileSoon.restart(); }
+        function onRevisionChanged() { profileSoon.restart(); }
+    }
+    onShareAvatarChanged: profileSoon.restart()
+
+    // -- Reactions ---------------------------------------------------------------------
+
+    // Yours on or off.
+    function react(mid, emoji) {
+        const m = root.messageOf(mid);
+        if (!m || m.deleted || !root.configured || (emoji ?? "") === "") return;
+        const on = !(m.reactions?.[emoji] ?? []).includes(root.me);
+        root._setReaction(mid, root.me, emoji, on);
+        root._send("react", { to: m.to !== "" ? root.conversationOf(m) : "", target: mid, emoji: emoji, on: on });
+    }
+    function _setReaction(mid, who, emoji, on) {
+        root.messages = root.messages.map(m => {
+            if (m.mid !== mid || m.deleted) return m;
+            const reactions = Object.assign({}, m.reactions ?? {});
+            const list = (reactions[emoji] ?? []).filter(x => x !== who);
+            if (on) list.push(who);
+            if (list.length > 0) reactions[emoji] = list;
+            else delete reactions[emoji];
+            return Object.assign({}, m, { reactions: reactions });
+        });
+        root._saveSoon();
+    }
+    // From the listener: on a message of the conversation it came in (a
+    // private one sealed in it, one to everyone open).
+    function _applyReact(e, time) {
+        const target = `${e.data?.target ?? ""}`;
+        const emoji = `${e.data?.emoji ?? ""}`;
+        const who = `${e.from ?? ""}`;
+        const m = root.messageOf(target);
+        if (!m || m.deleted || emoji === "" || who === "") return;
+        if (e.private ? (m.to === "" || root.conversationOf(m) !== (e.mine ? e.to : e.from)) : m.to !== "") return;
+        const on = e.data?.on !== false;
+        const had = (m.reactions?.[emoji] ?? []).includes(who);
+        if (had === on) return;
+        root._setReaction(target, who, emoji, on);
+        if (on && m.mine && !e.mine && !root.inView && Date.now() - time < 2 * 3600 * 1000
+            && (Config.options?.mesh?.notify ?? true))
+            root._notifyReaction(e, m);
+    }
+    function _notifyReaction(e, m) {
+        const who = e.name || root.nameOf(e.from);
+        const what = m.text !== "" ? m.text : root.fileLabel(m.file);
+        const avatar = root.members[e.from]?.avatar?.path ?? "";
+        notifier.createObject(root, {
+            conv: root.conversationOf(m),
+            command: ["notify-send", `--app-name=${who}`, `--icon=${avatar || "avatar-default"}`, "--urgency=low",
+                `--hint=string:x-nixbook-mesh-reaction:${m.mid}`, "--wait", `--action=reply=${Translation.tr("Open")}`,
+                "--", Translation.tr("%1 reacted %2").arg(who).arg(`${e.data?.emoji ?? ""}`),
+                Translation.tr("To “%1”").arg(what.length > 80 ? what.slice(0, 79) + "…" : what)]
+        });
     }
 
     // -- Deleting ----------------------------------------------------------------------------
@@ -800,7 +929,8 @@ Singleton {
         root._pruneFiles();
     }
     function _pruneFiles() {
-        root.run(["prune"], JSON.stringify({ keep: root.messages.map(m => m.file?.sha ?? "").filter(s => s !== "") }));
+        const keep = [...root.messages.map(m => m.file?.sha ?? ""), ...Object.values(root.members).map(m => m.avatar?.sha ?? "")];
+        root.run(["prune"], JSON.stringify({ keep: keep.filter(s => s !== "") }));
     }
     // Its notification: off the screen and out of the history.
     function _forgetNotification(mid) {
@@ -949,6 +1079,8 @@ Singleton {
         if (root._filesResumed || !root._storeRead || !root._loaded) return;
         root._filesResumed = true;
         root._pruneFiles();
+        for (const id in root.members)
+            if (root.members[id]?.avatar?.meta && !root.members[id].avatar.path) root._fetchAvatar(id);
         for (const m of root.messages)
             if (root._needsFetch(m) && !m.file.error && m.file.size <= root.autoFetchBytes) root.fetchFile(m.mid);
     }
@@ -970,7 +1102,7 @@ Singleton {
         onTriggered: root._save()
     }
 
-    // `nixbook-shell ipc call mesh status|send TEXT|sendTo MEMBER TEXT|sendFile PATH|sendFileTo MEMBER PATH|open|openConversation MEMBER|deleteMessage MID`,
+    // `nixbook-shell ipc call mesh status|send TEXT|sendTo MEMBER TEXT|sendFile PATH|sendFileTo MEMBER PATH|open|openConversation MEMBER|deleteMessage MID|react MID EMOJI`,
     // and listening together: `listenShare MEMBER|watchShare MEMBER|listenStop|listenJoin MEMBER|listenLeave|listenStatus` ("" = everyone).
     // Denied to the desktop agents (desktop-mcp's shellIpcDenyTargets): they
     // would speak in the user's name.
@@ -1040,6 +1172,12 @@ Singleton {
         // A member's conversation ("" = everyone).
         function openConversation(member: string): void {
             root.open(member);
+        }
+        // Your reaction (an emoji) to a message (its mid), on or off.
+        function react(mid: string, emoji: string): string {
+            if (!root.messageOf(mid)) return "error: no such message";
+            root.react(mid, emoji);
+            return "ok";
         }
         // A message (its mid): yours for everyone, anyone else's here only.
         function deleteMessage(mid: string): string {

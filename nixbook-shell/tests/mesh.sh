@@ -367,6 +367,51 @@ priv=$(grep '"kind": "delete"' "$tmp/carol.events" | grep '"delmid2"' | head -1)
 expect "carol's private deletion comes sealed, from alice" "alice carol true" "$(field .from "$priv") $(field .to "$priv") $(field .private "$priv")"
 if grep -q '"delmid2"' "$tmp/bob.events"; then fail "bob doesn't see the private deletion" "$(grep delmid2 "$tmp/bob.events")"; else pass "bob doesn't see the private deletion"; fi
 
+# -- Reactions and profile pictures ---------------------------------------------
+
+r=$(mesh alice send "$server" message <<<'{"text": "react to this", "mid": "reactmid1"}')
+expect "alice writes to everyone" true "$(field .ok "$r")"
+r=$(mesh bob send "$server" react <<<'{"target": "reactmid1", "emoji": "👍", "name": "Bob"}')
+expect "bob reacts with an emoji" true "$(field .ok "$r")"
+r=$(mesh bob send "$server" react <<<'{"target": "reactmid1", "emoji": "lol <b>"}' || true)
+expect "a reaction is an emoji, not text" false "$(field .ok "$r")"
+r=$(mesh carol send "$server" react <<<'{"target": "delmid2", "emoji": "❤️", "to": "alice", "on": false}')
+expect "carol takes back a reaction in her private conversation with alice" true "$(field .ok "$r")"
+# A profile picture: a small PNG (as it is without ImageMagick, else made a JPEG).
+"$py" -P -c '
+import struct, sys, zlib
+def chunk(t, d): return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xffffffff)
+raw = b"".join(b"\0" + b"\xff\x80\x00" * 8 for _ in range(8))
+open(sys.argv[1], "wb").write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 8, 8, 8, 2, 0, 0, 0))
+                             + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))' "$tmp/face.png"
+r=$(mesh alice profile "$server" <<<"{\"path\": \"$tmp/face.png\", \"name\": \"Alice\"}")
+expect "alice shares her picture" "true null" "$(field .ok "$r") $(field .skipped "$r")"
+r=$(mesh alice profile "$server" <<<"{\"path\": \"$tmp/face.png\"}")
+expect "the same picture isn't sent again" true "$(field .skipped "$r")"
+r=$(mesh mallory profile "$server" <<<"{\"path\": \"$tmp/face.png\"}" || true)
+expect "the outsider can't share one" false "$(field .ok "$r")"
+for _ in $(seq 50); do
+  grep -q '"kind": "profile"' "$tmp/bob.events" && grep -q '"reactmid1"' "$tmp/carol.events" &&
+    grep '"kind": "react"' "$tmp/alice.events" | grep -q delmid2 && break
+  sleep 0.2
+done
+react=$(grep '"kind": "react"' "$tmp/carol.events" | grep reactmid1 | head -1)
+expect "carol sees bob's reaction" "bob 👍 true" "$(field .from "$react") $(field .data.emoji "$react") $(field .data.on "$react")"
+priv=$(grep '"kind": "react"' "$tmp/alice.events" | grep delmid2 | head -1)
+expect "alice gets carol's private one, sealed, taken back" "carol true false" "$(field .from "$priv") $(field .private "$priv") $(field .data.on "$priv")"
+if grep '"kind": "react"' "$tmp/bob.events" | grep -q delmid2; then fail "bob doesn't see it"; else pass "bob doesn't see it"; fi
+prof=$(grep '"kind": "profile"' "$tmp/bob.events" | head -1)
+expect "bob gets alice's picture" "alice image/" "$(field .from "$prof") $(field .data.avatar.mime "$prof" | cut -c1-6)"
+r=$(mesh bob fetch "$server" <<<"{\"file\": $(jq -c .data.avatar <<<"$prof")}" | tail -1)
+expect "and downloads it, an image" "true true" "$(field .ok "$r") $(field .file.image "$r")"
+r=$(mesh alice profile "$server" <<<'{"path": ""}')
+expect "alice takes it back" true "$(field .ok "$r")"
+for _ in $(seq 50); do
+  [ "$(grep -c '"kind": "profile"' "$tmp/bob.events")" -ge 2 ] && break
+  sleep 0.2
+done
+expect "bob sees it gone" null "$(grep '"kind": "profile"' "$tmp/bob.events" | tail -1 | jq -c .data.avatar)"
+
 # -- Listening together ---------------------------------------------------------
 
 state='{"op": "state", "sid": "0123456789abcdef", "service": "spotify", "track": {"id": "4uLU6hMCjMI75M1A2tKUQC", "title": "Song", "artist": "Band", "length": 200, "art": "http://plain/x.jpg"}, "position": 12.5, "playing": true, "name": "Alice"}'

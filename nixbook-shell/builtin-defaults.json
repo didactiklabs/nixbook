@@ -635,7 +635,9 @@
       "On my way",
       "Call me when you can?"
     ],
+    "reactions": ["👍", "❤️", "😂", "😮", "😢", "🙏"],
     "server": "",
+    "shareAvatar": true,
     "sharePresence": true
   },
   "networking": {

@@ -1060,7 +1060,9 @@ Singleton {
                 property string name: "" // Your name as the others see it ("" = your login, capitalised)
                 property bool sharePresence: true // Free / in a meeting / gaming / busy / do not disturb / away: never which app
                 property bool notify: true // A notification for each message
+                property bool shareAvatar: true // Your account picture, shown to the others next to your messages
                 property list<string> quickMessages: ["❤️", "Thinking of you", "On my way", "Call me when you can?"]
+                property list<string> reactions: ["👍", "❤️", "😂", "😮", "😢", "🙏"] // Offered on a message (hover it)
             }
 
             property JsonObject language: JsonObject {
