@@ -91,6 +91,8 @@ check("how do fixes work", howTos.agentFixes);
 check("how do I find a file", howTos.findAnything);
 check("how do I send a gif in the mesh", howTos.mesh);
 check("how do we listen together in the mesh", howTos.mesh);
+check("how do we watch together on jellyfin in the mesh", howTos.mesh);
+check("comment regarder ensemble un film", howTos.mesh);
 check("comment écouter ensemble de la musique", howTos.mesh);
 check("wie können wir zusammen hören", howTos.mesh);
 check("làm sao nghe nhạc cùng nhau", howTos.mesh);

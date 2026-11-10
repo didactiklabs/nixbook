@@ -785,8 +785,8 @@ def listen_data(data):
     clean = {"op": op, "sid": sid}
     if op == "state":
         service = str(data.get("service") or "")
-        if service not in ("spotify", "youtube-music"):
-            fail("only YouTube Music and Spotify can be shared")
+        if service not in ("spotify", "youtube-music", "jellyfin"):
+            fail("only YouTube Music, Spotify and Jellyfin can be shared")
         t = data.get("track") if isinstance(data.get("track"), dict) else {}
         track = {k: str(t.get(k) or "")[:300] for k in ("id", "title", "artist", "album", "art")}
         if not re.match(r"^[A-Za-z0-9_-]{1,64}$", track["id"]):
@@ -800,7 +800,31 @@ def listen_data(data):
         except (TypeError, ValueError):
             fail("not a listening-together event")
         clean.update(service=service, track=track, playing=bool(data.get("playing")))
+        if service == "jellyfin" and isinstance(data.get("jf"), dict):
+            clean["jf"] = jellyfin_item(data["jf"])
     return clean
+
+
+def jellyfin_item(jf):
+    """What finds a Jellyfin item on another server (jellyfin-mcp
+    listen-info): the server, the item, its kind, names, numbers, the ids
+    of IMDb/TMDb/TVDb."""
+    def num(v):
+        try:
+            return int(v) if v is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    def ids(d):
+        return {k: str(v)[:40] for k, v in (d or {}).items()
+                if k in ("imdb", "tmdb", "tvdb") and re.match(r"^[\w.-]{1,40}$", str(v))} if isinstance(d, dict) else {}
+
+    kind = str(jf.get("type") or "")
+    return {"serverId": str(jf.get("serverId") or "")[:64], "id": str(jf.get("id") or "")[:64],
+            "type": kind if kind in ("Movie", "Episode", "Audio", "MusicVideo", "Video") else "",
+            "name": str(jf.get("name") or "")[:200], "seriesName": str(jf.get("seriesName") or "")[:200],
+            "season": num(jf.get("season")), "episode": num(jf.get("episode")), "year": num(jf.get("year")),
+            "providers": ids(jf.get("providers")), "seriesProviders": ids(jf.get("seriesProviders"))}
 
 
 def readers_or_fail(to, kind):

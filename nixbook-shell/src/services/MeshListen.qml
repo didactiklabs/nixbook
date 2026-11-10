@@ -36,12 +36,14 @@ Singleton {
 
     function serviceOf(p) {
         const names = `${p?.dbusName ?? ""} ${p?.identity ?? ""} ${p?.desktopEntry ?? ""}`;
+        if (/jellyfin.?mpv.?shim|iwalton3/i.test(names)) return "jellyfin";
         if (/youtube.?music|pear.?desktop|th.ch/i.test(names)) return "youtube-music";
         if (/spotify/i.test(names)) return "spotify";
         return "";
     }
     function serviceName(service) {
-        return service === "spotify" ? "Spotify" : service === "youtube-music" ? "YouTube Music" : "";
+        return service === "spotify" ? "Spotify" : service === "youtube-music" ? "YouTube Music"
+            : service === "jellyfin" ? "Jellyfin" : "";
     }
     function playerFor(service) {
         return root.players().find(p => root.serviceOf(p) === service) ?? null;
@@ -52,7 +54,10 @@ Singleton {
         if (!p) return null;
         const md = p.metadata ?? {};
         let id = "";
-        if (root.serviceOf(p) === "youtube-music") {
+        if (root.serviceOf(p) === "jellyfin") {
+            // jellyfin-mpv-shim: the Jellyfin item's id, in the track path.
+            id = (String(md["mpris:trackid"] ?? "").match(/\/jellyfin_mpv_shim\/track\/([\w-]+)$/) ?? [])[1] ?? "";
+        } else if (root.serviceOf(p) === "youtube-music") {
             id = (String(md["xesam:url"] ?? "").match(/[?&]v=([\w-]{11})/) ?? [])[1]
                 ?? (String(md["mpris:trackid"] ?? "").match(/\/([\w-]{11})$/) ?? [])[1] ?? "";
         } else {
@@ -73,6 +78,8 @@ Singleton {
     // Where this desktop listens to `service`'s songs: an app already open
     // (the host's, else the other), else one to start (the host's first).
     function localService(service) {
+        // Jellyfin: this computer's mpv, once Jellyfin is set up here.
+        if (service === "jellyfin") return root.jellyfinReady() ? "jellyfin" : "";
         const other = service === "spotify" ? "youtube-music" : "spotify";
         if (root.playerFor(service)) return service;
         if (root.playerFor(other)) return other;
@@ -80,6 +87,54 @@ Singleton {
         if (root.installed(other)) return other;
         return "";
     }
+    // Jellyfin set up here (Settings > Desktop agents > Apps it can use).
+    property var testJellyfin: null
+    function jellyfinReady() {
+        return root.testJellyfin !== null ? true : QuickIntent.jellyfinReady;
+    }
+    // `jellyfin-mcp ARGS` (stdin: `input`), then(ok, answer). Tests answer
+    // through testJellyfin(args, input).
+    function jellyfin(args, input, then) {
+        if (root.testJellyfin !== null) {
+            const answer = root.testJellyfin(args, input);
+            Qt.callLater(() => then(!!answer?.ok, answer ?? {}));
+            return;
+        }
+        if (QuickIntent.jellyfinBin === "") {
+            then(false, { error: Translation.tr("Jellyfin isn't set up on this computer") });
+            return;
+        }
+        jfRunner.createObject(root, { input: input ?? "", then: then, command: [QuickIntent.jellyfinBin, ...args],
+            environment: Ai.jellyfinEnv });
+    }
+    Component {
+        id: jfRunner
+        Process {
+            id: proc
+            property string input
+            property var then
+            stdinEnabled: true
+            stdout: StdioCollector { id: jfOut }
+            Component.onCompleted: proc.running = true
+            onRunningChanged: {
+                if (!proc.running) return;
+                proc.write(proc.input + "\n");
+                proc.stdinEnabled = false;
+            }
+            onExited: code => {
+                let answer = null;
+                try {
+                    answer = JSON.parse(jfOut.text);
+                } catch (e) {}
+                const done = proc.then;
+                proc.destroy();
+                done(code === 0 && !!answer?.ok, answer ?? { error: Translation.tr("Couldn't run jellyfin-mcp") });
+            }
+        }
+    }
+    // What a Jellyfin item is, for listeners on other servers: { id: info | null }.
+    property var _jfInfo: ({})
+
     // What can be shared now: the player in front if it is one of the two,
     // else one of them playing, else any of them.
     function shareablePlayer() {
@@ -129,7 +184,7 @@ Singleton {
     function start(conv) {
         if (!Mesh.configured) return Translation.tr("The mesh isn't set up");
         const p = root.shareablePlayer();
-        if (!p) return Translation.tr("Play something in YouTube Music or Spotify first");
+        if (!p) return Translation.tr("Play something in YouTube Music, Spotify or Jellyfin first");
         if (root.following !== "") root.leave("");
         if (root.hosting) root.stop();
         root.hosting = { sid: root._sid(), to: conv ?? "", bus: p.dbusName, listeners: {} };
@@ -143,8 +198,10 @@ Singleton {
         root.hosting = null;
         root.hostTrack = null;
     }
-    // The song shared now (the Mesh tab shows it).
+    // The song (or film) shared now, and its app (the Mesh tab shows it).
     property var hostTrack: null
+    property string hostService: ""
+    property var _jfAsking: ({})
     property var _last: null // what was sent last: { key, playing, position, at }
     property string _pendingKey: ""
     property real _goneSince: 0
@@ -165,6 +222,18 @@ Singleton {
         const service = root.serviceOf(p);
         const key = `${service}:${track.id}`;
         const position = p.position ?? 0;
+        // Jellyfin: what the item is, once (a listener on another server
+        // finds it by that), before the first state.
+        if (service === "jellyfin" && !(track.id in root._jfInfo)) {
+            if (!root._jfAsking[track.id]) {
+                root._jfAsking[track.id] = true;
+                root.jellyfin(["listen-info", track.id], "", (ok, answer) => {
+                    root._jfInfo = Object.assign({}, root._jfInfo, { [track.id]: ok ? answer : null });
+                    delete root._jfAsking[track.id];
+                });
+            }
+            return;
+        }
         const last = root._last;
         let send = force || !last;
         if (last && key !== last.key) {
@@ -185,8 +254,11 @@ Singleton {
         root._pendingKey = "";
         root._last = { key: key, playing: p.isPlaying, position: position, at: now };
         root.hostTrack = track;
-        Mesh._send("listen", { to: h.to, op: "state", sid: h.sid, service: service, track: track,
-            position: position, playing: p.isPlaying, at: now });
+        root.hostService = service;
+        const state = { to: h.to, op: "state", sid: h.sid, service: service, track: track,
+            position: position, playing: p.isPlaying, at: now };
+        if (service === "jellyfin" && root._jfInfo[track.id]) state.jf = root._jfInfo[track.id];
+        Mesh._send("listen", state);
     }
     Timer {
         interval: 1000
@@ -205,7 +277,7 @@ Singleton {
         root.following = sid;
         root.notice = "";
         root.followStatus = "";
-        root._f = { syncedTo: "", openedFor: "", stateRecv: 0, openedAt: 0, cmdAt: 0, seekAt: 0, launchedAt: 0, sawPlaying: false, lastPos: 0, lastLen: 0, searched: "" };
+        root._f = { jfFor: "", jfLocal: "", jfBusy: false, jfError: "", syncedTo: "", openedFor: "", stateRecv: 0, openedAt: 0, cmdAt: 0, seekAt: 0, launchedAt: 0, sawPlaying: false, lastPos: 0, lastLen: 0, searched: "" };
         Mesh._send("listen", { to: s.to === "" ? "" : s.host, op: "join", sid: sid });
         root._followTick();
     }
@@ -233,6 +305,10 @@ Singleton {
             return;
         }
         const target = s.position + (s.playing ? (now - s.at) / 1000 : 0);
+        if (s.service === "jellyfin") {
+            root._followJellyfin(s, f, now, target);
+            return;
+        }
         const key = `${s.service}:${s.track.id}`;
         let wantId = s.track.id;
         if (svc !== s.service) {
@@ -289,6 +365,10 @@ Singleton {
             root.followStatus = "opening";
             return;
         }
+        root._keepInSync(p, s, f, now, target, wantId);
+    }
+    // The song (or film) is the host's: the same play/pause and position.
+    function _keepInSync(p, s, f, now, target, wantId) {
         f.syncedTo = wantId;
         // A new state from the host (a seek, a pause): followed at once.
         if (f.stateRecv !== s.recv) {
@@ -326,6 +406,61 @@ Singleton {
         running: root.following !== ""
         onTriggered: root._followTick()
     }
+    // Jellyfin: jellyfin-mcp finds the item on this computer's server (the
+    // same one, or by its IMDb/TMDb/TVDb ids, or names) and plays it on mpv
+    // from the host's position; then mpv's MPRIS follows like music.
+    function _followJellyfin(s, f, now, target) {
+        const host = s.hostName || Mesh.nameOf(s.host);
+        const key = `jellyfin:${s.track.id}`;
+        const p = root.playerFor("jellyfin");
+        const cur = root.trackOf(p)?.id ?? "";
+        const nearEnd = f.lastLen > 0 && f.lastPos > f.lastLen - 15;
+        if (f.jfFor !== key || (f.jfLocal !== "" && cur !== f.jfLocal && f.syncedTo !== f.jfLocal && now - f.openedAt > 25000)) {
+            if (f.jfBusy) {
+                root.followStatus = "opening";
+                return;
+            }
+            f.jfFor = key;
+            f.jfBusy = true;
+            f.jfLocal = "";
+            f.jfError = "";
+            f.syncedTo = "";
+            f.sawPlaying = false;
+            const want = Object.assign({ id: s.track.id }, s.jf ?? {}, { position: target + 2 });
+            root.jellyfin(["listen-play"], JSON.stringify(want), (ok, answer) => {
+                if (root._f !== f) return;
+                f.jfBusy = false;
+                f.openedAt = Date.now();
+                if (ok) f.jfLocal = `${answer.id ?? ""}`;
+                else f.jfError = answer.notFound ? "notonserver" : `${answer.error ?? ""}`;
+            });
+            root.followStatus = "opening";
+            return;
+        }
+        if (f.jfBusy) {
+            root.followStatus = "opening";
+            return;
+        }
+        if (f.jfLocal === "") {
+            root.followStatus = f.jfError === "notonserver" ? "notonserver" : "jferror";
+            root.followError = f.jfError;
+            return;
+        }
+        if (!p || cur !== f.jfLocal) {
+            // Watching it here, and it changed (or stopped) not at its end:
+            // the listener did something else.
+            if (f.syncedTo === f.jfLocal && !nearEnd) {
+                root.leave(cur === ""
+                    ? Translation.tr("You stopped, so you stopped watching along with %1").arg(host)
+                    : Translation.tr("You played something else, so you stopped watching along with %1").arg(host));
+                return;
+            }
+            root.followStatus = "opening";
+            return;
+        }
+        root._keepInSync(p, s, f, now, target, f.jfLocal);
+    }
+    property string followError: ""
     function _match(key, track) {
         if (root._matching[key]) return;
         root._matching = Object.assign({}, root._matching, { [key]: true });
@@ -379,6 +514,7 @@ Singleton {
         // The host's other sessions are over: one at a time.
         const prev = root.sessions[sid];
         const s = { sid: sid, host: from, hostName: e.name ?? "", to: e.to ?? "", service: d.service, track: d.track,
+            jf: d.jf ?? null,
             position: Number(d.position ?? 0), playing: !!d.playing, at: Number(d.at ?? Date.now()), recv: Date.now(),
             listeners: prev?.listeners ?? {} };
         const next = {};
@@ -409,12 +545,13 @@ Singleton {
         if (!(Config.options?.mesh?.notify ?? true)) return;
         const who = s.hostName || Mesh.nameOf(s.host);
         const what = [s.track.title, s.track.artist].filter(x => x).join(" — ");
+        const video = s.service === "jellyfin";
         notifier.createObject(root, {
             sid: s.sid,
             command: ["notify-send", `--app-name=${who}`, "--icon=audio-headphones",
                 `--hint=string:x-nixbook-mesh:${s.to === "" ? "nixbook-mesh-everyone" : "nixbook-mesh-direct"}`,
-                "--wait", `--action=listen=${Translation.tr("Listen along")}`, "--",
-                Translation.tr("%1 is sharing their music").arg(who), what]
+                "--wait", `--action=listen=${video ? Translation.tr("Watch along") : Translation.tr("Listen along")}`, "--",
+                video ? Translation.tr("%1 is sharing what they watch").arg(who) : Translation.tr("%1 is sharing their music").arg(who), what]
         });
     }
     Component {

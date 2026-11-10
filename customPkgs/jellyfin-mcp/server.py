@@ -2060,8 +2060,122 @@ def cli_play_query(args):
     out(result, 0 if result.get("ok") else 1)
 
 
+# -- Listening together (nixbook-shell's mesh, services/MeshListen.qml) ---------
+#
+# Someone shares what their mpv plays; the others' mpv plays the same item at
+# the same moment. listen-info says what it is, in terms any server can find
+# it by (the server, the ids of IMDb/TMDb/TVDb, the name, the episode);
+# listen-play finds it here (the same item on the same server, else by those
+# ids, else by name and year, or series, season and episode) and plays it on
+# this computer's mpv from `position`, with the user's own track choices.
+
+LISTEN_TYPES = ("Movie", "Episode", "Audio", "MusicVideo", "Video")
+
+
+def listen_client():
+    key, _ = load_key()
+    jf = Jellyfin(os.environ.get("JELLYFIN_URL", ""), key, os.environ.get("JELLYFIN_USER", ""))
+    if not jf.url or not key:
+        out({"ok": False, "error": "Jellyfin isn't set up on this computer (Settings > Desktop agents > Apps it can use)"}, 1)
+    return jf
+
+
+def listen_info(item_id):
+    jf = listen_client()
+    try:
+        it = jf.item(item_id)
+    except JfError as exc:
+        out({"ok": False, "error": str(exc)}, 1)
+    if it.get("Type") not in LISTEN_TYPES:
+        out({"ok": False, "error": f"a {it.get('Type')} isn't something to watch together"}, 1)
+    providers = {str(k).lower(): str(v) for k, v in (it.get("ProviderIds") or {}).items()
+                 if str(k).lower() in ("imdb", "tmdb", "tvdb") and v}
+    series = {}
+    if it.get("Type") == "Episode" and it.get("SeriesId"):
+        try:
+            s = jf.item(it["SeriesId"])
+            series = {str(k).lower(): str(v) for k, v in (s.get("ProviderIds") or {}).items()
+                      if str(k).lower() in ("imdb", "tmdb", "tvdb") and v}
+        except JfError:
+            series = {}
+    out({"ok": True, "serverId": jf.server_id() or "", "id": it["Id"], "type": it["Type"], "name": it.get("Name") or "",
+         "seriesName": it.get("SeriesName") or "", "season": it.get("ParentIndexNumber"), "episode": it.get("IndexNumber"),
+         "year": it.get("ProductionYear"), "providers": providers, "seriesProviders": series,
+         "length": (it.get("RunTimeTicks") or 0) / TICKS})
+
+
+def by_providers(jf, providers, kinds):
+    ids = [f"{k}.{v}" for k, v in (providers or {}).items() if k in ("imdb", "tmdb", "tvdb") and re.match(r"^[\w.-]{1,40}$", str(v))]
+    if not ids:
+        return None
+    res = jf.items({"AnyProviderIdEquals": ",".join(ids), "IncludeItemTypes": kinds, "Recursive": True, "Limit": 5})
+    items = res.get("Items") or []
+    return items[0] if items else None
+
+
+def listen_find(jf, want):
+    """The item `want` (listen-info's answer) on this server, or None."""
+    kind = want.get("type")
+    # The same server (or the host's info is missing: its id may still be one here).
+    if (not want.get("serverId") or want.get("serverId") == jf.server_id()) and re.match(r"^[\w-]{1,64}$", str(want.get("id") or "")):
+        try:
+            return jf.item(want["id"])
+        except JfError:
+            pass
+    if kind not in LISTEN_TYPES:
+        return None
+    found = by_providers(jf, want.get("providers"), kind)
+    if found:
+        return found
+    if kind == "Episode":
+        series = by_providers(jf, want.get("seriesProviders"), "Series")
+        if not series and want.get("seriesName"):
+            res = jf.items({"searchTerm": want["seriesName"], "IncludeItemTypes": "Series", "Recursive": True, "Limit": 10})
+            same = [i for i in res.get("Items") or [] if fold(i.get("Name")) == fold(want["seriesName"])]
+            series = same[0] if same else None
+        if not series:
+            return None
+        for ep in jf.episodes(series["Id"]):
+            if ep.get("ParentIndexNumber") == want.get("season") and ep.get("IndexNumber") == want.get("episode"):
+                return ep
+        return None
+    if want.get("name"):
+        res = jf.items({"searchTerm": want["name"], "IncludeItemTypes": kind, "Recursive": True, "Limit": 10})
+        same = [i for i in res.get("Items") or [] if fold(i.get("Name")) == fold(want["name"])
+                and (not want.get("year") or not i.get("ProductionYear") or i.get("ProductionYear") == want.get("year"))]
+        return same[0] if same else None
+    return None
+
+
+def listen_play():
+    try:
+        want = json.loads(sys.stdin.readline() or "{}")
+    except ValueError:
+        out({"ok": False, "error": "the data isn't JSON"}, 2)
+    if not isinstance(want, dict):
+        out({"ok": False, "error": "the data isn't JSON"}, 2)
+    jf = listen_client()
+    try:
+        it = listen_find(jf, want)
+        if not it:
+            name = want.get("seriesName") or want.get("name") or "it"
+            out({"ok": False, "notFound": True, "error": f"{name} isn't on this Jellyfin server"}, 1)
+        session, why = pick_session(jf)
+        if not session:
+            out({"ok": False, "error": why}, 1)
+        position = max(0.0, float(want.get("position") or 0))
+        send_play(jf, session, [it["Id"]], int(position * TICKS) or 1, "PlayNow", True)
+    except JfError as exc:
+        out({"ok": False, "error": str(exc)}, 1)
+    out({"ok": True, "id": it["Id"], "name": title_of(it)})
+
+
 def main():
     args = sys.argv[1:]
+    if len(args) == 2 and args[0] == "listen-info":
+        listen_info(args[1])
+    if args == ["listen-play"]:
+        listen_play()
     if args[:1] == ["credentials"]:
         credentials(args[1:])
     if args[:1] == ["play-query"]:
@@ -2083,7 +2197,8 @@ def main():
     if args in (["--version"], ["version"]):
         print(VERSION)
         return
-    sys.stderr.write("usage: jellyfin-mcp [serve] | configured | play-query TEXT | credentials … | shim-login|shim-status|shim-logout\n")
+    sys.stderr.write("usage: jellyfin-mcp [serve] | configured | play-query TEXT | credentials … | shim-login|shim-status|shim-logout"
+                     " | listen-info ID | listen-play\n")
     sys.exit(2)
 
 
