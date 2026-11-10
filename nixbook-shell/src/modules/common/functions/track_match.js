@@ -1,0 +1,129 @@
+.pragma library
+
+// Listening along (services/MeshListen.qml), in plain code: whether the
+// listener's player is on the host's song, and what to do about it. Pure
+// JavaScript as QML's engine runs it (no ES2019+): tests/listen-along.sh
+// runs it under node.
+//
+// The same song isn't always the same id: YouTube Music often plays a song
+// opened by its video id under another one (the song's audio version for
+// its music video, or the other way round), so the listener's player is on
+// the host's song when the id matches or the title and the artist do.
+
+// A title or an artist, compared loosely: no accents (Vietnamese ones
+// included), no case, no "(Official Video)" or "[Lyrics]", no "feat. …",
+// no punctuation.
+function norm(text) {
+    var s = String(text || "")
+    if (typeof s.normalize === "function") s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    s = s.replace(/[đĐ]/g, "d").toLowerCase()
+    s = s.replace(/\([^)]*\)|\[[^\]]*\]/g, " ")
+    s = s.replace(/\s(feat|ft|featuring)\.?\s.*$/, " ")
+    s = s.replace(/\b(official|music video|video|audio|lyrics?|lyric video|mv|m\/v|hd|4k|visualizer|topic)\b/g, " ")
+    s = s.replace(/[^a-z0-9]+/g, " ")
+    return s.replace(/^\s+|\s+$/g, "")
+}
+
+function words(text) {
+    var out = {}
+    var list = norm(text).split(" ")
+    for (var i = 0; i < list.length; i++) if (list[i].length >= 2) out[list[i]] = true
+    return out
+}
+
+// a, b: { id, title, artist, length (s) }.
+function sameSong(a, b) {
+    if (!a || !b) return false
+    if (a.id && b.id && a.id === b.id) return true
+    var ta = norm(a.title), tb = norm(b.title)
+    if (ta === "" || tb === "") return false
+    var titled = ta === tb || (ta.length >= 4 && tb.indexOf(ta) >= 0) || (tb.length >= 4 && ta.indexOf(tb) >= 0)
+    if (!titled) return false
+    if (!a.artist || !b.artist) return true
+    var wa = words(a.artist), wb = words(b.artist)
+    for (var w in wa) if (wb[w]) return true
+    // YouTube Music's artist line can be the channel's name: the same
+    // title and length is enough then.
+    return a.length > 0 && b.length > 0 && Math.abs(a.length - b.length) <= 5
+}
+
+function nearEnd(f) {
+    return f.lastLen > 0 && f.lastPos > f.lastLen - 10
+}
+
+// A new song to follow.
+function fresh() {
+    return { openedFor: "", openedAt: 0, opens: 0, syncedTo: "", offSince: 0, endSince: 0, pausedSince: 0,
+        sawPlaying: false, cmdAt: 0, lastPos: 0, lastLen: 0 }
+}
+
+// What to do this tick, about the song: { act: "sync" | "open" | "wait" |
+// "leave" }. f: the follower's state (fresh(), changed here). x: { now
+// (ms), wantId (the id to open), want (the host's track), cur (the
+// listener's track, null for none) }.
+function followStep(f, x) {
+    if (x.cur && (x.cur.id === x.wantId || sameSong(x.cur, x.want))) {
+        f.offSince = 0
+        f.endSince = 0
+        return { act: "sync" }
+    }
+    if (f.syncedTo === x.wantId) {
+        if (nearEnd(f)) {
+            // It ended here first (autoplay, or the player stopped): the
+            // host's next song is on its way. Not "something else".
+            if (!f.endSince) f.endSince = x.now
+            if (x.now - f.endSince < 15000) return { act: "wait" }
+        } else if (x.cur && x.cur.id) {
+            // Something else here, for 3 s (not a player's passing metadata
+            // while it loads): the listener played it.
+            if (!f.offSince) f.offSince = x.now
+            if (x.now - f.offSince >= 3000) return { act: "leave", why: "other" }
+            return { act: "wait" }
+        }
+    }
+    if (f.openedFor !== x.wantId) {
+        f.openedFor = x.wantId
+        f.opens = 0
+    }
+    // Once per song; again after 8 s if it didn't take, three times at most
+    // (never a song restarted every few seconds).
+    if (f.opens === 0 || (x.now - f.openedAt > 8000 && f.opens < 3)) {
+        f.opens++
+        f.openedAt = x.now
+        f.sawPlaying = false
+        f.pausedSince = 0
+        return { act: "open" }
+    }
+    return { act: "wait" }
+}
+
+// On the song, about play/pause: "ok" | "play" | "pause" | "leave". x: {
+// now, hostPlaying, localPlaying, hostRecv (ms, the host's last state) }.
+function playStep(f, x) {
+    if (!x.hostPlaying) {
+        f.pausedSince = 0
+        if (x.localPlaying && x.now - f.cmdAt > 1500) {
+            f.cmdAt = x.now
+            f.sawPlaying = false
+            return "pause"
+        }
+        return "ok"
+    }
+    if (x.localPlaying) {
+        f.sawPlaying = true
+        f.pausedSince = 0
+        return "ok"
+    }
+    // Paused here while the host plays, after it played: the listener
+    // paused, once it lasts 5 s, and not at the song's end (the next one
+    // comes), right after a command, an open or the host's news.
+    if (f.sawPlaying && !nearEnd(f) && x.now - f.cmdAt > 3000 && x.now - f.openedAt > 8000 && x.now - x.hostRecv > 3000) {
+        if (!f.pausedSince) f.pausedSince = x.now
+        return x.now - f.pausedSince >= 5000 ? "leave" : "ok"
+    }
+    if (x.now - f.cmdAt > 2000) {
+        f.cmdAt = x.now
+        return "play"
+    }
+    return "ok"
+}

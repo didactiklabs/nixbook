@@ -104,6 +104,12 @@ Singleton {
     // being sent { source, name }; `expired` when it was gone from the
     // server first, `error` when the download failed.
     property var messages: []
+    // The messages by id (the Mesh tab's rows read theirs from here).
+    readonly property var byMid: {
+        const by = {};
+        for (const m of root.messages) by[m.mid] = m;
+        return by;
+    }
     // Read up to (ms), per conversation ("" = everyone, else a member's id).
     property var readAt: ({})
     // The conversation shown in the Mesh tab.
@@ -699,7 +705,12 @@ Singleton {
             mine: !!e.mine, status: "sent" };
         if (file) m.file = file;
         if (dh !== "") m.dh = dh;
-        const list = [...root.messages, m].sort((a, b) => a.time - b.time).slice(-500);
+        // In its place by time, after those of the same second (times are
+        // whole seconds): a re-sort is not stable here and reordered them,
+        // which rebuilt the Mesh tab's rows and moved its view.
+        let at = root.messages.length;
+        while (at > 0 && root.messages[at - 1].time > time) at--;
+        const list = [...root.messages.slice(0, at), m, ...root.messages.slice(at)].slice(-500);
         root.messages = list;
         root._saveSoon();
         // At once: the server deletes files after a while.
