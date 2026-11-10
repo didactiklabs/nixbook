@@ -412,6 +412,18 @@ for _ in $(seq 50); do
 done
 expect "bob sees it gone" null "$(grep '"kind": "profile"' "$tmp/bob.events" | tail -1 | jq -c .data.avatar)"
 
+# -- Nudges ----------------------------------------------------------------------
+
+r=$(mesh alice send "$server" message <<<'{"text": "🤗 Sending you a hug", "quick": "hug", "mid": "nudge1"}')
+expect "alice sends a nudge" true "$(field .ok "$r")"
+mesh alice send "$server" message <<<'{"text": "x", "quick": "Not An Id!", "mid": "nudge2"}' >/dev/null
+for _ in $(seq 50); do
+  grep -q '"nudge2"' "$tmp/bob.events" && break
+  sleep 0.2
+done
+expect "bob gets its id" hug "$(field .data.quick "$(grep '"nudge1"' "$tmp/bob.events" | head -1)")"
+expect "a malformed id is dropped" null "$(field .data.quick "$(grep '"nudge2"' "$tmp/bob.events" | head -1)")"
+
 # -- Listening together ---------------------------------------------------------
 
 state='{"op": "state", "sid": "0123456789abcdef", "service": "spotify", "track": {"id": "4uLU6hMCjMI75M1A2tKUQC", "title": "Song", "artist": "Band", "length": 200, "art": "http://plain/x.jpg"}, "position": 12.5, "playing": true, "name": "Alice"}'

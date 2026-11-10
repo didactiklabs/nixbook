@@ -31,6 +31,12 @@ import QtQuick
  * Reactions: an emoji on any message (react), shown under it; a reaction
  * to your own message notifies.
  *
+ * Nudges: a quick message from the Mesh tab's ✨ picker (nudges: an id,
+ * an emoji and a line) carries its id (`quick`); the other side shows it as
+ * its own cut-in (modules/ii/notificationPopup/MeshNudge.qml, `nudged`)
+ * instead of a notification, when it can (mesh.nudgeCutIn; not locked, Do
+ * Not Disturb, a fullscreen window, the Mesh tab on screen).
+ *
  * Deleting: your own messages for everyone (deleteForEveryone: each desktop
  * puts "deleted" in its place, its file, notification and history entry go;
  * scripts/mesh.py "Deleting" says why nobody can delete someone else's),
@@ -48,6 +54,48 @@ Singleton {
     readonly property bool enabled: Config.options?.mesh?.enable ?? true
     readonly property bool sharePresence: Config.options?.mesh?.sharePresence ?? true
     readonly property bool shareAvatar: Config.options?.mesh?.shareAvatar ?? true
+    // Nudges (the Mesh tab's ✨ picker): { id, emoji, text }. The id travels
+    // with the message (`quick`) and the receiver shows its own words for
+    // it; an unknown id (a newer sender) shows the text sent.
+    readonly property var nudges: [
+        { id: "love", emoji: "❤️", text: Translation.tr("Love you") },
+        { id: "thinking", emoji: "💭", text: Translation.tr("Thinking of you") },
+        { id: "miss", emoji: "🥺", text: Translation.tr("Miss you") },
+        { id: "hug", emoji: "🤗", text: Translation.tr("Sending you a hug") },
+        { id: "kiss", emoji: "😘", text: Translation.tr("A kiss") },
+        { id: "wave", emoji: "👋", text: Translation.tr("Hey!") },
+        { id: "morning", emoji: "☀️", text: Translation.tr("Good morning") },
+        { id: "night", emoji: "🌙", text: Translation.tr("Good night") },
+        { id: "onmyway", emoji: "🏃", text: Translation.tr("On my way") },
+        { id: "callme", emoji: "📞", text: Translation.tr("Call me when you can?") },
+        { id: "coffee", emoji: "☕", text: Translation.tr("Coffee break?") },
+        { id: "food", emoji: "🍜", text: Translation.tr("Hungry? Let's eat") },
+        { id: "game", emoji: "🎮", text: Translation.tr("Up for a game?") },
+        { id: "proud", emoji: "🌟", text: Translation.tr("Proud of you") },
+        { id: "laugh", emoji: "😂", text: Translation.tr("Haha") }
+    ]
+    function nudgeOf(id) {
+        return root.nudges.find(n => n.id === id) ?? null;
+    }
+    // A nudge arrived and can be shown as its cut-in (MeshNudge.qml):
+    // { mid, from, name, to, time, text, quick }.
+    signal nudged(var message)
+    // Whether a nudge now gets its cut-in, else a notification: not locked,
+    // on Do Not Disturb, over a fullscreen window (a game, a film), with the
+    // Mesh tab on screen, nor for one from long ago.
+    function _nudgeCutInNow(m) {
+        if (!(Config.options?.mesh?.nudgeCutIn ?? true) || !root.nudgeOf(m.quick)) return false;
+        if (GlobalStates.screenLocked || Notifications.silent || root.inView || MakeWay.active) return false;
+        if (Date.now() - m.time > 10 * 60 * 1000) return false;
+        const mon = WM.focusedMonitor?.name ?? "";
+        return !(mon !== "" && WM.fullscreenOnMonitor(mon));
+    }
+    function sendNudge(id, to) {
+        const n = root.nudgeOf(id);
+        if (!n) return false;
+        return root.sendText(`${n.emoji} ${n.text}`, to, id);
+    }
+
     // The reactions offered on a message.
     readonly property var reactionChoices: Config.options?.mesh?.reactions ?? ["👍", "❤️", "😂", "😮", "😢", "🙏"]
     readonly property string me: Quickshell.env("USER") ?? ""
@@ -248,15 +296,17 @@ Singleton {
 
     // -- Sending ----------------------------------------------------------------------------
 
-    function sendText(text, to) {
+    // `quick`: a nudge's id (sendNudge), for its cut-in on the other side.
+    function sendText(text, to, quick) {
         text = (text ?? "").trim();
         if (text === "" || !root.configured) return false;
         const mid = root._mid();
         const m = { mid: mid, from: root.me, name: root.myName, to: to ?? "", time: Date.now(), text: text.slice(0, 1000),
             mine: true, status: "sending" };
+        if (quick) m.quick = quick;
         root.messages = [...root.messages, m].slice(-500);
         root._save();
-        root._send("message", { to: m.to, text: m.text, mid: mid });
+        root._send("message", Object.assign({ to: m.to, text: m.text, mid: mid }, quick ? { quick: quick } : {}));
         return true;
     }
     // Files picked, dropped or pasted: one message each, the text with the
@@ -492,7 +542,7 @@ Singleton {
         if (!m || m.deleted) return;
         root._setStatus(mid, "sending");
         if (m.file?.source && !m.file.sha) root._sendFile(m);
-        else root._send("message", { to: m.to, text: m.text, mid: mid });
+        else root._send("message", Object.assign({ to: m.to, text: m.text, mid: mid }, m.quick ? { quick: m.quick } : {}));
     }
 
     function _send(kind, data) {
@@ -705,6 +755,8 @@ Singleton {
             mine: !!e.mine, status: "sent" };
         if (file) m.file = file;
         if (dh !== "") m.dh = dh;
+        const quick = `${e.data?.quick ?? ""}`;
+        if (/^[a-z]{1,20}$/.test(quick)) m.quick = quick;
         // In its place by time, after those of the same second (times are
         // whole seconds): a re-sort is not stable here and reordered them,
         // which rebuilt the Mesh tab's rows and moved its view.
@@ -723,6 +775,12 @@ Singleton {
         }
         // What was said while this desktop was off for long: unread, not a
         // pile of notifications.
+        // A nudge: its own cut-in when it can show (MeshNudge.qml), in place
+        // of the notification.
+        if (m.quick && root._nudgeCutInNow(m)) {
+            root.nudged(m);
+            return;
+        }
         if (Date.now() - time < 2 * 3600 * 1000 && (Config.options?.mesh?.notify ?? true)) {
             // An image: once here, so the notification shows it.
             if (file && /^image\//.test(file.mime) && file.size <= root.autoFetchBytes) root._update(mid, { notifyWhenFetched: true });
@@ -1113,7 +1171,7 @@ Singleton {
         onTriggered: root._save()
     }
 
-    // `nixbook-shell ipc call mesh status|send TEXT|sendTo MEMBER TEXT|sendFile PATH|sendFileTo MEMBER PATH|open|openConversation MEMBER|deleteMessage MID|react MID EMOJI`,
+    // `nixbook-shell ipc call mesh status|send TEXT|sendTo MEMBER TEXT|sendFile PATH|sendFileTo MEMBER PATH|open|openConversation MEMBER|deleteMessage MID|react MID EMOJI|nudge MEMBER ID`,
     // and listening together: `listenShare MEMBER|watchShare MEMBER|listenStop|listenJoin MEMBER|listenLeave|listenStatus` ("" = everyone).
     // Denied to the desktop agents (desktop-mcp's shellIpcDenyTargets): they
     // would speak in the user's name.
@@ -1183,6 +1241,10 @@ Singleton {
         // A member's conversation ("" = everyone).
         function openConversation(member: string): void {
             root.open(member);
+        }
+        // A nudge (its id: love, hug, …) to everyone ("") or a member.
+        function nudge(member: string, id: string): string {
+            return root.sendNudge(id, member) ? "ok" : `error: no nudge "${id}" (${root.nudges.map(n => n.id).join(", ")}) or the mesh isn't set up`;
         }
         // Your reaction (an emoji) to a message (its mid), on or off.
         function react(mid: string, emoji: string): string {

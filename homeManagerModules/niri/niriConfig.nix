@@ -435,7 +435,7 @@ in
             # the cut-ins showing a notification full screen, DAI's speech
             # bubble and the smart clipboard's chips (what was just copied).
             matches = map (namespace: { inherit namespace; }) [
-              "^quickshell:(notificationPopup|personaCutIn|cyberpunkCutIn|ghibliCutIn|chiikawaAlert|agentSpeech|smartClipboard)$"
+              "^quickshell:(notificationPopup|personaCutIn|cyberpunkCutIn|ghibliCutIn|chiikawaAlert|meshNudge|agentSpeech|smartClipboard)$"
               "^dms:notification-popup$"
               "^notifications$"
             ];

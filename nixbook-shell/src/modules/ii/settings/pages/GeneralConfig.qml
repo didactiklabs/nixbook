@@ -1025,6 +1025,16 @@ ContentPage {
                     }
                 }
                 ConfigSwitch {
+                    configKey: "mesh.nudgeCutIn";
+                    enabled: !nixManaged;
+                    buttonIcon: "auto_awesome"
+                    text: Translation.tr("Show the nudges I receive as a cut-in")
+                    checked: Config.options.mesh.nudgeCutIn
+                    onCheckedChanged: {
+                        Config.options.mesh.nudgeCutIn = checked;
+                    }
+                }
+                ConfigSwitch {
                     configKey: "mesh.notify";
                     enabled: !nixManaged;
                     buttonIcon: "notifications"
