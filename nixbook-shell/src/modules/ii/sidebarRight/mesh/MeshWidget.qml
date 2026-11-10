@@ -431,7 +431,9 @@ Item {
                     id: nameText
                     visible: row.showName
                     x: row.indent + 10
-                    text: row.msg.name || Mesh.nameOf(row.msg.from)
+                    // The member's name now (each message keeps the one it came
+                    // with: a renamed member showed under both).
+                    text: Mesh.nameOf(row.msg.from)
                     font.pixelSize: Appearance.font.pixelSize.smaller
                     color: Appearance.colors.colSubtext
                 }

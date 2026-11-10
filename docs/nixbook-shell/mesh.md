@@ -66,7 +66,7 @@ From the command line: `nixbook-shell ipc call mesh listenShare MEMBER` (music; 
 
 **With an invite** (the usual way): Settings > General > Mesh, paste the invite code someone gave you (`nixbook-mesh-invite:…`), **Join**. That's all: the server, your account and the mesh's key come from the code, and your desktop makes its own access token. An invite works once.
 
-**Your name** (same section) is what the others see: your login, capitalised, by default.
+**Your name** (same section) is what the others see: `login@hostname` by default (for example `khoa@totoro`). It is only a name: you stay the same member under it (your login). The conversation shows each member's current name, also on their earlier messages.
 
 ## Inviting people (the server's admin)
 

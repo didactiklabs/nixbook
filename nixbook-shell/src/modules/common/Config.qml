@@ -1068,7 +1068,7 @@ Singleton {
                 // key are in the keyring, never here.
                 property bool enable: true
                 property string server: "" // The ntfy server, e.g. https://ntfy.example.org
-                property string name: "" // Your name as the others see it ("" = your login, capitalised)
+                property string name: "" // Your name as the others see it ("" = login@hostname)
                 property bool sharePresence: true // Free / in a meeting / gaming / busy / do not disturb / away: never which app
                 property bool notify: true // A notification for each message
                 property bool nudgeCutIn: true // A nudge (the ✨ picker's quick messages) shows as its own cut-in

@@ -99,9 +99,19 @@ Singleton {
     // The reactions offered on a message.
     readonly property var reactionChoices: Config.options?.mesh?.reactions ?? ["👍", "❤️", "😂", "😮", "😢", "🙏"]
     readonly property string me: Quickshell.env("USER") ?? ""
+    // As the others see you: mesh.name, else login@hostname (khoa@totoro),
+    // like the side panel's header. Only shown: the identity stays the login.
     readonly property string myName: {
         const name = (Config.options?.mesh?.name ?? "").trim();
-        return name !== "" ? name : root.me.charAt(0).toUpperCase() + root.me.slice(1);
+        if (name !== "") return name;
+        return SystemInfo.hostname !== "" ? `${root.me}@${SystemInfo.hostname}` : root.me;
+    }
+    // A new name reaches the others with the next status, at once.
+    onMyNameChanged: if (root.configured) nameAnnounce.restart()
+    Timer {
+        id: nameAnnounce
+        interval: 3000
+        onTriggered: root._sharePresence(true)
     }
 
     // What `nixbook-mesh status` says: {token, tokenSource, joined, keySource}.
