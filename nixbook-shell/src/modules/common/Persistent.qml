@@ -72,6 +72,7 @@ Singleton {
                 property bool barDockDefaults: false
                 property bool meshWidget: false
                 property bool musicRecognitionRemoved: false
+                property bool meshQuickNudges: false
             }
 
             property JsonObject ai: JsonObject {
