@@ -282,14 +282,18 @@ function seek(f, now, pos, target, recv) {
   f.openedFor = canh.id;
   f.openedAt = 0;
   check("not while it loads", seek(f, 1000, 0, 40) === -1);
-  check("once it opened, to the host", seek(f, 3000, 1, 42) === 42);
+  check(
+    "not while YouTube Music shows 0 on its way to &t= (3 s)",
+    seek(f, 3000, 0, 42) === -1,
+  );
+  check("once it opened, to the host", seek(f, 6500, 1, 45) === 45);
   // Its position reported badly (stuck), the host silent: no jump every 4 s.
   const jumps = [];
-  for (let t = 4000; t <= 32000; t += 1000)
-    if (seek(f, t, 1, 42 + (t - 3000) / 1000) >= 0) jumps.push(t);
+  for (let t = 7000; t <= 36000; t += 1000)
+    if (seek(f, t, 1, 45 + (t - 6500) / 1000) >= 0) jumps.push(t);
   check("a drift: no jump every few seconds", jumps.length === 0, jumps);
-  check("a drift: at most every 30 s", seek(f, 34000, 1, 73) === 73);
-  check("the host seeks: followed", seek(f, 40000, 80, 150, 2) === 150);
+  check("a drift: at most every 30 s", seek(f, 37000, 1, 76) === 76);
+  check("the host seeks: followed", seek(f, 42000, 80, 150, 2) === 150);
   check(
     "the host's news, no drift: nothing",
     seek(f, 50000, 160, 160, 3) === -1,
@@ -300,8 +304,8 @@ function seek(f, now, pos, target, recv) {
   const f = m.fresh();
   f.openedFor = canh.id;
   check(
-    "opened at the right spot: no jump",
-    m.seekStep(f, { now: 5000, pos: 41, target: 42, len: 286, hostRecv: 1 }) ===
+    "opened at the right spot (&t=): no jump",
+    m.seekStep(f, { now: 7000, pos: 41, target: 42, len: 286, hostRecv: 1 }) ===
       -1,
   );
 }
