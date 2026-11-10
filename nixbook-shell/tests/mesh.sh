@@ -424,6 +424,16 @@ done
 expect "bob gets its id" hug "$(field .data.quick "$(grep '"nudge1"' "$tmp/bob.events" | head -1)")"
 expect "a malformed id is dropped" null "$(field .data.quick "$(grep '"nudge2"' "$tmp/bob.events" | head -1)")"
 
+# A read receipt for everyone's conversation: open, to "".
+r=$(mesh bob send "$server" read <<<'{"upTo": 4321}')
+expect "bob says he read everyone's conversation" true "$(field .ok "$r")"
+for _ in $(seq 50); do
+  grep '"kind": "read"' "$tmp/alice.events" | grep -q 4321 && break
+  sleep 0.2
+done
+everyone=$(grep '"kind": "read"' "$tmp/alice.events" | grep 4321 | head -1)
+expect "alice gets it, to everyone" "bob  4321" "$(field .from "$everyone") $(field .to "$everyone") $(field .data.upTo "$everyone")"
+
 # -- Listening together ---------------------------------------------------------
 
 state='{"op": "state", "sid": "0123456789abcdef", "service": "spotify", "track": {"id": "4uLU6hMCjMI75M1A2tKUQC", "title": "Song", "artist": "Band", "length": 200, "art": "http://plain/x.jpg"}, "position": 12.5, "playing": true, "name": "Alice"}'
