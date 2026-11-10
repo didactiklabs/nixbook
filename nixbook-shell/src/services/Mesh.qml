@@ -83,15 +83,15 @@ Singleton {
     // { mid, from, name, to, time, text, quick }.
     signal nudged(var message)
     // Whether a nudge now gets its cut-in, else a notification: not locked,
-    // on Do Not Disturb, over a fullscreen window (a game, a film), while an
-    // agent works, nor for one from long ago. With the Mesh tab open (even on
-    // its conversation) it does: a nudge is meant to be seen.
+    // on Do Not Disturb, while an agent works, nor for one from long ago.
+    // With the Mesh tab open (even on its conversation) it does, and over a
+    // fullscreen window (a film) too: a nudge is meant to be seen, its card
+    // is small and never takes the keyboard, and the message's own cut-in
+    // showed there anyway, in its place.
     function _nudgeCutInNow(m) {
         if (!(Config.options?.mesh?.nudgeCutIn ?? true) || !root.nudgeOf(m.quick)) return false;
         if (GlobalStates.screenLocked || Notifications.silent || MakeWay.active) return false;
-        if (Date.now() - m.time > 10 * 60 * 1000) return false;
-        const mon = WM.focusedMonitor?.name ?? "";
-        return !(mon !== "" && WM.fullscreenOnMonitor(mon));
+        return Date.now() - m.time <= 10 * 60 * 1000;
     }
     function sendNudge(id, to) {
         const n = root.nudgeOf(id);
